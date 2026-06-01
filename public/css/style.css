@@ -801,10 +801,15 @@ html, body {
 .news-item--breaking .news-headline { color: #e2e8f0; font-weight: 600; }  /* contraste fort */
 .news-item--breaking .news-time { color: #cbd5e1; }
 .news-item--breaking .news-category-text { color: #cbd5e1; }
-.news-item--breaking:hover { background: #4d1d20; }      /* survol : rouge bordeaux plus lumineux, léger */
+.news-item--breaking:hover { background: #54221f; }      /* survol : bordeaux plus lumineux, couvre TOUT l'item (titre + description) */
+/* La description et ses enfants restent transparents → le hover bordeaux les traverse aussi */
+.news-item--breaking:hover .news-description,
+.news-item--breaking:hover .article-points--clean,
+.news-item--breaking:hover .news-content { background: transparent !important; }
 .news-item--breaking:hover .news-headline { color: #ffffff; }
 .news-item--breaking:hover .news-time { color: #e2e8f0; }
 .news-item--breaking:hover .news-category-text { color: #e2e8f0; }
+.news-item--breaking:hover .article-points--clean li { color: #d8c3c5; }   /* puces un peu plus claires au survol */
 .news-item--breaking .news-alert-icon {
   background: rgba(218,41,43,0.30);
   color: #da292b;
