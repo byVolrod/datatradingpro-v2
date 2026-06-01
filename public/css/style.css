@@ -3493,8 +3493,22 @@ html, body {
 .ai-insights-load { font-size: 11px; font-weight: 500; color: var(--text4); font-style: italic; }
 .ai-insights-cards {
   display: flex; gap: 14px; overflow-x: auto; padding-bottom: 18px;
-  border-bottom: 1px solid #1e1e1e; scrollbar-width: thin;
+  border-bottom: 1px solid #1e1e1e;
+  scrollbar-width: none;            /* Firefox : barre masquée */
 }
+.ai-insights-cards::-webkit-scrollbar { display: none; }   /* Chrome/Safari : barre masquée */
+/* Puce logo orange (style PT) */
+.ai-chip {
+  display: inline-block; width: 16px; height: 16px; border-radius: 4px;
+  background: linear-gradient(135deg, #f7941d, #ff6a00); vertical-align: middle;
+}
+/* Bouton Masquer/Afficher Insights (en haut du rapport) */
+.arlib-hide-insights {
+  background: none; border: none; color: var(--text3); font-size: 12px; cursor: pointer;
+  font-family: var(--font-ui); display: flex; align-items: center; gap: 6px; transition: color 0.15s;
+}
+.arlib-hide-insights:hover { color: var(--text); }
+.arlib-hide-insights .eye { font-size: 13px; }
 .ai-insights-card {
   flex: 0 0 280px; background: #161619; border: 1px solid #26262b;
   border-radius: 6px; padding: 16px 18px;
