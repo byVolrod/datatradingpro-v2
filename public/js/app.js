@@ -2152,8 +2152,10 @@ function _renderRiskGauge(data) {
 
   // Needle: -90° = full risk-off, 0° = neutral, +90° = full risk-on
   const angle   = Math.max(-90, Math.min(90, score * 90));
-  const pctAbs  = Math.abs(score * 100).toFixed(1);
-  const pctSign = score >= 0 ? '' : '-';
+  // Même échelle que le widget METER de l'onglet Risk (× 50) → valeurs identiques
+  const gv      = Math.max(-100, Math.min(100, score * 50));
+  const pctAbs  = Math.abs(gv).toFixed(1);
+  const pctSign = gv >= 0 ? '' : '-';
 
   const gaugeWrap = document.getElementById('rp-gauge-wrap');
   if (!gaugeWrap) return;
