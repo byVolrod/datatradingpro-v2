@@ -143,9 +143,14 @@ function _button(label, url) {
 }
 
 function _credBox(rows) {
+  // Si la valeur est un email, on la pré-emballe dans un <a> blanc : ça empêche
+  // les clients (Gmail) de la re-transformer en lien bleu illisible sur fond sombre.
+  const fmt = v => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v).trim())
+    ? `<a href="mailto:${v}" style="color:#ffffff;text-decoration:none;">${v}</a>`
+    : v;
   const items = rows.map(([k, v]) =>
     `<tr><td style="padding:6px 0;color:#94a3b8;font-size:13px;width:130px;">${k}</td>
-         <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:600;font-family:monospace;">${v}</td></tr>`
+         <td style="padding:6px 0;color:#ffffff;font-size:14px;font-weight:600;font-family:monospace;">${fmt(v)}</td></tr>`
   ).join('');
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
     style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:14px 18px;margin:18px 0;">${items}</table>`;

@@ -265,6 +265,12 @@
       display: none;
     }
     .lp-error.visible { display: block; }
+    /* Message de succès (mot de passe oublié) — vert, distinct de l'erreur rouge */
+    .lp-error.lp-msg-success {
+      color: #22c55e;
+      background: rgba(34,197,94,0.10);
+      border-color: rgba(34,197,94,0.30);
+    }
 
     /* Submit button */
     .lp-btn {
@@ -333,7 +339,13 @@
       background-repeat: no-repeat;
       background-position: right 8px center;
     }
-    .lp-lang-select:focus { border-color: var(--border2); }
+    .lp-lang-select:hover { border-color: #2e2e34; }
+    .lp-lang-select:focus { border-color: var(--orange); }
+    .lp-lang-select option {
+      background: #161619;
+      color: #e2e8f0;
+      border: none;
+    }
     .lp-lang-flag { display: inline-flex; align-items: center; }
     .lp-lang-flag svg { width: 22px; height: 15px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,0.12); display: block; }
 
@@ -469,7 +481,7 @@
     <!-- Language -->
     <div class="lp-lang-row">
       <span class="lp-lang-label">Langue :</span>
-      <span class="lp-lang-flag" id="lp-lang-flag"></span>
+      <span class="lp-lang-flag" id="lp-lang-flag"><svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/><rect x="2" width="1" height="2" fill="#ce1126"/></svg></span>
       <select class="lp-lang-select" id="lp-lang">
         <option value="fr" selected>Français</option>
         <option value="en">English</option>
@@ -581,10 +593,12 @@
       if (data.ok) {
         window.location.href = '/';
       } else {
+        errEl.classList.remove('lp-msg-success');
         errEl.textContent = data.error || 'Email ou mot de passe incorrect';
         errEl.classList.add('visible');
       }
     } catch {
+      errEl.classList.remove('lp-msg-success');
       errEl.textContent = 'Erreur de connexion — réessayez';
       errEl.classList.add('visible');
     } finally {
@@ -596,18 +610,25 @@
   // Mot de passe oublié → envoi d'un MDP temporaire par email
   async function lpForgot(e) {
     e.preventDefault();
-    let email = (document.getElementById('lp-email').value || '').trim();
-    if (!email) email = (window.prompt('Entrez votre email pour réinitialiser votre mot de passe :') || '').trim();
-    if (!email) return;
-    const errEl = document.getElementById('lp-error');
+    const emailEl = document.getElementById('lp-email');
+    const email   = (emailEl.value || '').trim();
+    const errEl   = document.getElementById('lp-error');
+    // Pas de fenêtre native : on reste sur la page, design pro.
+    if (!email) {
+      errEl.classList.remove('lp-msg-success');
+      errEl.textContent = 'Entrez d’abord votre adresse e-mail ci-dessus, puis recliquez sur « Mot de passe oublié ».';
+      errEl.classList.add('visible');
+      emailEl.focus();
+      return;
+    }
     try {
       await fetch('/api/auth/forgot-password', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       });
     } catch {}
-    errEl.style.color = '#22c55e';
-    errEl.textContent = 'Si un compte existe pour cet email, un nouveau mot de passe vient d\'être envoyé. Vérifiez votre boîte (et les spams).';
+    errEl.classList.add('lp-msg-success');
+    errEl.textContent = 'Si un compte existe pour cet email, un nouveau mot de passe vient d’être envoyé. Vérifiez votre boîte (et les spams).';
     errEl.classList.add('visible');
   }
 
