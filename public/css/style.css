@@ -2396,7 +2396,8 @@ html, body {
 .hide-right-panel #panel-right { display: none !important; }
 .hide-right-panel .views-col { flex: 1 1 100% !important; max-width: 100% !important; width: 100% !important; }
 
-.panel-bank { display: flex; flex-direction: column; height: 100%; }
+.panel-bank { display: flex; flex-direction: column; height: 100%; flex: 1 1 auto; width: 100%; min-width: 0; }
+#view-bank { display: flex; width: 100%; }
 .bank-update { font-size: 10px; font-family: var(--font-mono); color: var(--text4); }
 .bank-layout { display: flex; flex: 1; min-height: 0; }
 .bank-table-wrap { flex: 1; min-width: 0; overflow: auto; }
@@ -2592,13 +2593,13 @@ html, body {
     overflow: visible;
   }
 
-  /* views-col pleine largeur */
+  /* views-col pleine hauteur (le flux occupe tout l'écran sur mobile) */
   .views-col {
-    flex: none;
+    flex: 1;
     width: 100%;
     min-width: unset;
-    height: 65dvh;
-    min-height: 380px;
+    height: calc(100dvh - var(--header-h));
+    min-height: 0;
   }
 
   .view-panel { flex-direction: column; height: 100%; overflow: visible; }
@@ -2607,16 +2608,13 @@ html, body {
   .panel-news {
     width: 100% !important;
     min-width: unset;
-    flex-shrink: 0;
+    flex: 1;
     border-right: none;
-    border-bottom: 1px solid var(--border);
+    border-bottom: none;
   }
-  .panel-right {
-    width: 100%;
-    height: 45dvh;
-    min-height: 300px;
-    flex-shrink: 0;
-  }
+  /* Colonne de droite (World Clock + Session Map + courbes) : masquée sur mobile
+     (illisible une fois écrasée — l'appli mobile se concentre sur le flux). */
+  .panel-right { display: none !important; }
 
   /* Topbar */
   .topbar-symbol-search { display: none; }
@@ -2674,9 +2672,8 @@ html, body {
 
 /* ── Mobile large (≤480px) ── */
 @media (max-width: 480px) {
-  .views-col  { height: 60dvh; min-height: 340px; }
-  .panel-right { height: 40dvh; }
-  .panel-news  { height: 60dvh; }
+  .views-col  { height: calc(100dvh - var(--header-h)); min-height: 0; }
+  .panel-news  { height: 100%; }
   .news-expand-tabs { flex-wrap: wrap; }
 
   /* Topbar compact */
@@ -2707,8 +2704,6 @@ html, body {
 
 /* ── Mobile compact (≤390px) ── */
 @media (max-width: 390px) {
-  .views-col  { height: 55dvh; }
-  .panel-right { height: 38dvh; }
   .nav-item   { font-size: 9px; padding: 0 6px; }
   .clock-card { min-width: 78px; }
   .clock-time { font-size: 13px; }
