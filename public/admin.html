@@ -20,11 +20,12 @@
 
     /* ── Topbar ── */
     .topbar {
-      height: 44px; background: var(--bg2); border-bottom: 1px solid var(--border2);
-      display: flex; align-items: center; gap: 12px; padding: 0 20px; flex-shrink: 0;
+      height: 56px; background: linear-gradient(180deg,#141416,#0d0d0f); border-bottom: 1px solid var(--border2);
+      display: flex; align-items: center; gap: 14px; padding: 0 28px; flex-shrink: 0;
+      position: sticky; top: 0; z-index: 50;
     }
-    .topbar-logo { font-family: var(--font-mono); font-size: 13px; font-weight: 700; color: var(--orange); }
-    .topbar-title { font-size: 12px; color: var(--text3); }
+    .topbar-logo { font-family: var(--font-ui); font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+    .topbar-title { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.14em; border-left: 1px solid var(--border2); padding-left: 14px; }
     .topbar-spacer { flex: 1; }
     .topbar-user { font-size: 11px; color: var(--text2); font-family: var(--font-mono); }
     .btn-sm {
@@ -33,15 +34,15 @@
       font-family: var(--font-mono); transition: color 0.12s, border-color 0.12s;
     }
     .btn-sm:hover { color: var(--text); border-color: var(--border2); background: var(--bg4); }
-    .btn-primary { background: var(--orange); color: #000; border-color: var(--orange); }
-    .btn-primary:hover { opacity: 0.88; color: #000; }
+    .btn-primary { background: var(--orange); color: #000; border-color: var(--orange); font-weight: 700; }
+    .btn-primary:hover { background: #ffab3d; border-color: #ffab3d; color: #000; }
     .btn-danger  { border-color: rgba(231,76,60,0.4); color: #ef4444; }
     .btn-danger:hover { background: rgba(231,76,60,0.1); border-color: rgba(231,76,60,0.6); }
     .btn-back { color: var(--text3); }
     .btn-back:hover { color: var(--text); }
 
     /* ── Layout ── */
-    .page { max-width: 900px; margin: 0 auto; padding: 28px 20px; }
+    .page { max-width: 1560px; margin: 0 auto; padding: 26px 34px 64px; }
     .section-title {
       font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
       text-transform: uppercase; color: var(--text3); margin-bottom: 14px; margin-top: 28px;
@@ -50,8 +51,8 @@
 
     /* ── Add user form ── */
     .add-form {
-      background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px;
-      padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+      background: linear-gradient(160deg, var(--bg3), var(--bg2)); border: 1px solid var(--border2); border-radius: 12px;
+      padding: 22px 24px; display: flex; flex-wrap: wrap; gap: 14px; align-items: flex-end;
     }
     .add-form .form-field { display: flex; flex-direction: column; gap: 5px; min-width: 140px; }
     .add-form label { font-size: 10px; font-weight: 600; color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
@@ -75,15 +76,17 @@
     .users-table { width: 100%; border-collapse: collapse; }
     .users-table th {
       font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase;
-      letter-spacing: 0.06em; text-align: left; padding: 7px 10px 7px;
-      border-bottom: 1px solid var(--border2);
+      letter-spacing: 0.07em; text-align: left; padding: 13px 14px;
+      border-bottom: 1px solid var(--border2); background: #141416;
+      position: sticky; top: 56px; z-index: 2;
     }
     .users-table td {
-      padding: 9px 10px; border-bottom: 1px solid var(--border);
-      font-size: 12px; color: var(--text2);
+      padding: 13px 14px; border-bottom: 1px solid var(--border);
+      font-size: 12.5px; color: var(--text2); vertical-align: middle;
     }
     .users-table tr:last-child td { border-bottom: none; }
-    .users-table tr:hover td { background: rgba(255,255,255,0.02); }
+    .users-table tbody tr { transition: background 0.12s; }
+    .users-table tbody tr:hover td { background: rgba(247,148,29,0.05); }
     .users-table .email { color: var(--text); font-family: var(--font-mono); }
     .users-table .name  { color: var(--text2); }
     .users-table .actions { display: flex; gap: 6px; }
@@ -119,17 +122,24 @@
     .modal input:focus, .modal select:focus { border-color: var(--orange); }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
-    .table-wrap { background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
+    .table-wrap { background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 28px rgba(0,0,0,0.25); }
     .empty-state { padding: 32px; text-align: center; color: var(--text3); font-size: 12px; }
 
     /* ── Cartes statistiques ── */
-    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 8px; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 8px; }
     .stat-card {
       background: linear-gradient(160deg, var(--bg3), var(--bg2)); border: 1px solid var(--border2);
-      border-radius: 10px; padding: 16px 18px;
+      border-radius: 12px; padding: 18px 20px; position: relative; overflow: hidden;
+      transition: border-color 0.15s, transform 0.15s;
     }
-    .stat-value { font-size: 26px; font-weight: 700; font-family: var(--font-mono); color: var(--text); line-height: 1; }
-    .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-top: 9px; }
+    .stat-card:hover { border-color: #333; transform: translateY(-2px); }
+    .stat-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--border2); }
+    .stat-card.accent::before { background: var(--orange); }
+    .stat-card.ok::before     { background: var(--green); }
+    .stat-card.warn::before   { background: #f59e0b; }
+    .stat-card.danger::before { background: #ef4444; }
+    .stat-value { font-size: 30px; font-weight: 700; font-family: var(--font-mono); color: var(--text); line-height: 1; }
+    .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-top: 10px; }
     .stat-card.accent .stat-value { color: var(--orange); }
     .stat-card.ok     .stat-value { color: var(--green); }
     .stat-card.warn   .stat-value { color: #f59e0b; }
@@ -150,8 +160,8 @@
 <body>
 
 <div class="topbar">
-  <span class="topbar-logo">DTP</span>
-  <span class="topbar-title">/ Admin — Gestion des utilisateurs</span>
+  <span class="topbar-logo">DataTradingPro</span>
+  <span class="topbar-title">Admin · Gestion des utilisateurs</span>
   <div class="topbar-spacer"></div>
   <span class="topbar-user" id="admin-name"></span>
   <button class="btn-sm btn-back" onclick="window.location.href='/'">← Dashboard</button>
