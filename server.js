@@ -2323,17 +2323,20 @@ setInterval(async () => {
   } catch (e) { console.error('[SW poll]', e.message); }
 }, 20 * 60 * 1000);
 
-// ── Bank Research ING Think — refresh toutes les 20 min, broadcast si nouveaux ──
+// ── Bank Research ING Think — refresh toutes les 10 min, broadcast dès qu'un NOUVEL article apparaît ──
 setInterval(async () => {
   try {
-    const before = _brCache.length;
+    const beforeIds = new Set(_brCache.map(i => i.id));
     await _fetchBankResearch(false);
-    if (_brCache.length !== before) {
+    // On détecte les nouveaux par ID (et pas par simple comptage : un article peut expirer
+    // pendant qu'un autre arrive → même total mais contenu différent).
+    const added = _brCache.filter(i => !beforeIds.has(i.id)).length;
+    if (added > 0 || _brCache.length !== beforeIds.size) {
       broadcast({ type: 'br_update', items: _brCache });
-      console.log(`[BR] ${_brCache.length - before > 0 ? '+' : ''}${_brCache.length - before} articles → broadcast`);
+      console.log(`[BR] ${added} nouvel(s) article(s) → broadcast`);
     }
   } catch (e) { console.error('[BR poll]', e.message); }
-}, 20 * 60 * 1000);
+}, 10 * 60 * 1000);
 
 // FinancialJuice — persistent WS connection (non-blocking)
 // Push callback: broadcast instantly when a FJ item arrives (< 1s latency)
