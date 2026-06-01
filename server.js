@@ -1224,7 +1224,7 @@ app.post('/api/news-info', async (req, res) => {
   try {
     aiNote('news');
     const text = await ai.generateText(`You are an editor for a professional financial news terminal (trading-desk style, like Newsquawk).
-Rewrite the information below into 2 to 4 clear, factual, concise bullet points for a forex/macro trader.
+Rewrite the information below into 3 to 6 clear, factual bullet points for a forex/macro trader (more bullets if the content is rich).
 STRICT rules:
 - Keep ALL exact figures (percentages, levels, dates).
 - Bold the key figures and important terms using **double asterisks**.
