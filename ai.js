@@ -5,28 +5,43 @@
 'use strict';
 
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
-const GEMINI_MODEL   = process.env.GEMINI_MODEL || 'gemini-2.5-flash';
+// Meilleur modèle réellement dispo sur le quota gratuit en 1er, repli ensuite.
+// (gemini-2.5-pro nécessite un plan payant → 429 en gratuit ; 2.5-flash est excellent et gratuit)
+const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.5-pro')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+async function _gemini(model, prompt, maxTokens) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+  const r = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      contents: [{ parts: [{ text: prompt }] }],
+      // thinkingBudget:0 → pas de "réflexion" qui consomme les tokens de sortie (réponses fiables/rapides)
+      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.5, thinkingConfig: { thinkingBudget: 0 } },
+    }),
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(() => '');
+    const err = new Error(`Gemini ${model} ${r.status}: ${t.slice(0, 150)}`);
+    err.status = r.status;
+    throw err;
+  }
+  const data = await r.json();
+  const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
+  if (!text) throw new Error(`Gemini ${model}: réponse vide`);
+  return text;
+}
 
 async function generateText(prompt, maxTokens = 1500) {
-  // ── Option A : Google Gemini (gratuit) ─────────────────────────────────────
+  // ── Option A : Google Gemini (gratuit) — essaie chaque modèle dans l'ordre ──
   if (GEMINI_API_KEY) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${GEMINI_API_KEY}`;
-    const r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.5 },
-      }),
-    });
-    if (!r.ok) {
-      const t = await r.text().catch(() => '');
-      throw new Error(`Gemini ${r.status}: ${t.slice(0, 200)}`);
+    let lastErr;
+    for (const model of GEMINI_MODELS) {
+      try { return await _gemini(model, prompt, maxTokens); }
+      catch (e) { lastErr = e; console.warn('[AI]', e.message, '→ modèle suivant'); }
     }
-    const data = await r.json();
-    const text = (data?.candidates?.[0]?.content?.parts || []).map(p => p.text || '').join('').trim();
-    if (!text) throw new Error('Gemini: réponse vide');
-    return text;
+    if (!process.env.ANTHROPIC_API_KEY) throw lastErr || new Error('Gemini indisponible');
   }
 
   // ── Option B : Anthropic Claude (si clé présente) ──────────────────────────

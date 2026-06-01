@@ -39,10 +39,18 @@ async function _send(to, subject, html) {
     try {
       const from = _parseFrom();
       const auth = Buffer.from(`${MAILJET_API_KEY}:${MAILJET_SECRET_KEY}`).toString('base64');
+      const textPart = html.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
       const r = await fetch('https://api.mailjet.com/v3.1/send', {
         method: 'POST',
         headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Messages: [{ From: { Email: from.email, Name: from.name }, To: [{ Email: to }], Subject: subject, HTMLPart: html }] }),
+        body: JSON.stringify({ Messages: [{
+          From: { Email: from.email, Name: from.name },
+          To: [{ Email: to }],
+          Subject: subject,
+          HTMLPart: html,
+          TextPart: textPart,
+          ReplyTo: { Email: SUPPORT_EMAIL },
+        }] }),
       });
       if (!r.ok) {
         const t = await r.text().catch(() => '');
@@ -103,7 +111,7 @@ function _layout(title, bodyHtml) {
         <!-- Header -->
         <tr><td style="padding:28px 32px 18px;border-bottom:1px solid #26262b;">
           <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">DataTradingPro</div>
-          <div style="font-size:11px;font-weight:600;color:#f7941d;letter-spacing:0.18em;text-transform:uppercase;margin-top:2px;">Prime Terminal</div>
+          <div style="font-size:12px;font-weight:600;color:#f7941d;margin-top:4px;">Boostez votre trading grâce à des données qui font bouger les graphiques !</div>
         </td></tr>
         <!-- Body -->
         <tr><td style="padding:28px 32px;color:#cbd5e1;font-size:15px;line-height:1.65;">
@@ -112,7 +120,7 @@ function _layout(title, bodyHtml) {
         <!-- Footer -->
         <tr><td style="padding:18px 32px;border-top:1px solid #26262b;color:#6b7280;font-size:12px;line-height:1.6;">
           DataTradingPro — Terminal de news & d'analyse en temps réel.<br>
-          Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f7941d;text-decoration:none;">${SUPPORT_EMAIL}</a>
+          Besoin d'aide ? <a href="https://justonetrader.netlify.app/" style="color:#f7941d;text-decoration:none;">Contactez-nous ↗</a>
         </td></tr>
       </table>
       <div style="color:#4b5563;font-size:11px;margin-top:16px;">Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.</div>
@@ -143,7 +151,7 @@ async function sendWelcome({ to, name, password, expiresAt }) {
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : 'Illimité';
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue, ${prenom} 👋</p>
-    <p style="margin:0 0 14px;">Votre accès à <strong style="color:#fff;">DataTradingPro — Prime Terminal</strong> a été activé. Vous disposez désormais du flux de news en temps réel, du calendrier économique et des analyses institutionnelles.</p>
+    <p style="margin:0 0 14px;">Votre accès à <strong style="color:#fff;">DataTradingPro</strong> a été activé. Vous disposez désormais du flux de news en temps réel, du calendrier économique et des analyses institutionnelles.</p>
     <p style="margin:0 0 6px;color:#94a3b8;font-size:13px;">Vos identifiants de connexion :</p>
     ${_credBox([['Email', to], ['Mot de passe', password || '—'], ['Abonnement', `valide jusqu'au ${end}`]])}
     <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Par sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.</p>
@@ -158,7 +166,7 @@ async function sendRenewalFailed({ to, name }) {
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Renouvellement de votre abonnement</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro — Prime Terminal. Par conséquent, votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
+    <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro. Par conséquent, votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
     <p style="margin:0 0 14px;">Pour réactiver votre accès et reprendre le suivi des marchés en temps réel, il vous suffit de régulariser votre abonnement.</p>
     ${_button('Renouveler mon accès', `mailto:${SUPPORT_EMAIL}?subject=Renouvellement%20abonnement%20DataTradingPro`)}
     <p style="margin:0;font-size:13px;">Nous restons à votre disposition,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
