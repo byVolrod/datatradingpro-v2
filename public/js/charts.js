@@ -1729,9 +1729,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
 
-    // BANK & BIAS : pleine largeur → on masque la colonne de droite (World Clock / Session Map)
-    const fullWidth = (view === 'bank' || view === 'bias');
-    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', fullWidth);
+    // BANK : pleine largeur → on masque la colonne de droite (table + graphique seuls).
+    // BIAS : on GARDE la colonne de droite (World Clock + courbes de force) et on active STRENGTH.
+    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', view === 'bank');
+    if (view === 'bias') {
+      const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
+      if (strengthTab && !strengthTab.classList.contains('right-tab--active')) strengthTab.click();
+    }
 
     if (view === 'bias' && typeof loadBiasView === 'function') {
       loadBiasView();
