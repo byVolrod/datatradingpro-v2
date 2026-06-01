@@ -214,6 +214,25 @@ app.post('/api/auth/logout', (req, res) => {
   res.json({ ok: true });
 });
 
+// Mot de passe oublié : génère un MDP temporaire et l'envoie par email.
+// Réponse toujours { ok:true } (ne révèle pas si l'email existe).
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const email = (req.body?.email || '').toLowerCase().trim();
+  if (email) {
+    try {
+      const users = await auth.getAllUsers();
+      const u = users.find(x => (x.email || '').toLowerCase() === email);
+      if (u && u.active) {
+        const temp = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
+        await auth.changePassword(u.id, temp);
+        mailer.sendPasswordReset({ to: u.email, name: u.name, password: temp }).catch(() => {});
+        console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email}`);
+      }
+    } catch (e) { console.error('[Auth] forgot-password error:', e.message); }
+  }
+  res.json({ ok: true });
+});
+
 app.get('/api/auth/me', async (req, res) => {
   if (!req.session?.userId) return res.json({ loggedIn: false });
   try {
