@@ -144,7 +144,8 @@ html, body {
   justify-content: flex-start;
   gap: 8px;
   width: auto;
-  max-width: 100%;
+  max-width: min(520px, 40vw);         /* bornée → ne déborde plus sur la recherche / bouton risk à droite */
+  text-overflow: ellipsis;
   height: 30px;                        /* hauteur fixe → reste dans la topbar */
   padding: 0 16px;
   background: #3a2d27;                 /* marron/orange sombre opaque */
