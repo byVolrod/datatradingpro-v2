@@ -1122,27 +1122,23 @@ html, body {
 .tag--gray      { background: var(--bg4); border: 1px solid var(--border3); color: var(--text4); }
 /* Badge Rumour — info non confirmée (ambre) */
 .tag--rumour    { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.45); color: #f59e0b; font-weight: 600; }
-.tag--info {
-  background: rgba(0, 188, 188, 0.06);
-  border: 1.5px solid rgba(0, 188, 188, 0.45);
-  color: #17c2c2;
-  transition: background 0.15s, border-color 0.15s;
+/* ── Sous-onglets news (Info / Analyse / Réaction) ──
+   Inactif : bordure grise + texte gris, fond transparent.
+   Actif   : fond couleur opaque + texte blanc (Info=cyan, Analyse=bleu, Réaction=violet). */
+.tag--info, .tag--analyse, .tag--reaction {
+  background: transparent;
+  border: 1px solid var(--border2);
+  color: var(--text3);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.tag--info.tag--active {
-  background: rgba(0, 188, 188, 0.18);
-  border-color: rgba(0, 188, 188, 0.75);
-  color: #2de0e0;
-}
+.tag--info:hover, .tag--analyse:hover, .tag--reaction:hover { color: var(--text2); border-color: #3a3a3a; }
 
-/* ── Reaction tag ── */
-.tag--reaction {
-  background: rgba(139,92,246,0.08);
-  border: 1.5px solid rgba(139,92,246,0.42);
-  color: #a78bfa;
-  transition: background 0.15s, border-color 0.15s;
-}
-.tag--reaction:hover  { background: rgba(139,92,246,0.16); border-color: rgba(139,92,246,0.72); }
-.tag--reaction.tag--active { background: rgba(139,92,246,0.20); border-color: rgba(139,92,246,0.80); color: #c4b5fd; }
+.tag--info.tag--active     { background: #0e9aa7; border-color: #0e9aa7; color: #fff; }   /* cyan / sarcelle */
+.tag--analyse.tag--active  { background: #2563eb; border-color: #2563eb; color: #fff; }   /* bleu */
+.tag--reaction.tag--active { background: #7c3aed; border-color: #7c3aed; color: #fff; }   /* violet */
+.tag--info.tag--active .tag-icon,
+.tag--analyse.tag--active .tag-icon,
+.tag--reaction.tag--active .tag-icon { color: #fff; }
 
 /* ═══════════════ RÉACTION — bloc ticker minimaliste (style Prime) ═══════════════ */
 .rx-block {

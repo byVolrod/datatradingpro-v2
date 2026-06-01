@@ -1485,13 +1485,17 @@ function buildNewsItem(item) {
     if (isOpen && isSameTab) {
       expandEl.classList.remove('visible');
       activeTab = null;
-      if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
+      [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
       if (arrowEl) arrowEl.textContent = '∨';
       return;
     }
 
     if (arrowEl) arrowEl.textContent = '^';
     activeTab = tab;
+    // État actif des pills (Info/Analyse/Réaction) — un seul actif à la fois
+    [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
+    const _activePill = tab === 'info' ? infoTagEl : tab === 'analysis' ? analysisTagEl : reactionTagEl;
+    if (_activePill) _activePill.classList.add('tag--active');
     const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     const tabsHtml = [
@@ -1758,7 +1762,7 @@ function buildNewsItem(item) {
 
   if (hasNotes && !_analysisNoData.has(item.id)) {
     analysisTagEl = document.createElement('span');
-    analysisTagEl.className = 'tag tag--info';
+    analysisTagEl.className = 'tag tag--analyse';
     analysisTagEl.style.cursor = 'pointer';
     analysisTagEl.innerHTML = '<span class="tag-icon">⊙</span> Analyse';
     analysisTagEl.onclick = e => { e.stopPropagation(); openPanel('analysis'); };
