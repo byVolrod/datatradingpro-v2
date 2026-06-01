@@ -921,20 +921,20 @@ html, body {
   padding-left: 16px;
   margin: 0;
 }
-/* Style "clean" — liste synthétique aérée, fond plus sombre (Prime Terminal) */
+/* Style "clean" — liste intégrée directement sur le fond (sans cadre gris), style Prime Terminal */
 .article-points--clean {
   list-style: disc;
-  padding: 14px 16px 14px 30px;
-  margin: 4px 0 2px;
-  background: #161619;                       /* anthracite mat uni (spec) */
-  border-radius: 6px;
-  border: 1px solid rgba(38,38,40,0.4);      /* bordure très sombre, pas de liseré clair */
+  padding: 4px 24px 4px 22px;   /* retrait gauche pour aligner sous le titre, pas de cadre */
+  margin: 4px 0;
+  background: transparent;
+  border: none;
 }
 .article-points--clean li {
   color: #94a3b8;
   font-size: 13px;
-  line-height: 1.7;
-  margin-bottom: 6px;
+  font-weight: 400;
+  line-height: 1.6;
+  margin-bottom: 10px;          /* espacement aéré (space-y-3) */
 }
 .article-points--clean li:last-child { margin-bottom: 0; }
 .article-points--clean li::marker { color: rgba(156,163,175,0.5); }
