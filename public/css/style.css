@@ -2392,6 +2392,10 @@ html, body {
 /* ═══════════════════════════════════════════════
    ONGLET BANK — transactions bancaires
 ═══════════════════════════════════════════════ */
+/* Pleine largeur sur BANK/BIAS : on cache la colonne de droite partagée */
+.hide-right-panel #panel-right { display: none !important; }
+.hide-right-panel .views-col { flex: 1 1 100% !important; max-width: 100% !important; width: 100% !important; }
+
 .panel-bank { display: flex; flex-direction: column; height: 100%; }
 .bank-update { font-size: 10px; font-family: var(--font-mono); color: var(--text4); }
 .bank-layout { display: flex; flex: 1; min-height: 0; }

@@ -1763,7 +1763,7 @@ function buildNewsItem(item) {
         fetch('/api/news-info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: item.id, headline: item.headline, category: item.category, description: item.description }),
+          body: JSON.stringify({ id: item.id, headline: item.headline, category: item.category, description: item.description, important: !!(isRed || item.priority === 'high' || item.urgent) }),
         })
           .then(r => r.json())
           .then(data => {
@@ -2899,7 +2899,8 @@ function buildBankChart(p) {
       const dec = p.pair.includes('JPY') ? 2 : (candles[0].Close < 10 ? 4 : 2);
       const root = am5.Root.new('bank-chart');
       _bankChartRoot = root;
-      root._logo?.dispose();
+      root._logo?.set('forceHidden', true);
+      try { root._logo?.dispose(); } catch {}
       root.setThemes([am5themes_Animated.new(root)]);
 
       const chart = root.container.children.push(am5xy.XYChart.new(root, {

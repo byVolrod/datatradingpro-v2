@@ -761,6 +761,31 @@ function _saveJsonMap(file, map) {
   if (_saveTimers[file].unref) _saveTimers[file].unref();
 }
 
+// ── Budget Gemini : répartition intelligente du quota quotidien ──────────────
+//  • Semaine (lun-ven) : 50% du budget pour les news IMPORTANTES, 50% pour les
+//    rapports analyst (segmentation des wraps). Bias/Bank = OFF (réservés au WE).
+//  • Week-end (sam-dim) : news + analyst = OFF ; Bias + Bank = 100% du budget.
+const GEMINI_DAILY_BUDGET = parseInt(process.env.GEMINI_DAILY_BUDGET, 10) || 200;
+let _aiUsage = { day: '', counts: {} };
+function _aiToday()     { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); }
+function _aiIsWeekend() { const d = new Date().toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Europe/Paris' }); return d === 'Sat' || d === 'Sun'; }
+function _aiResetIfNewDay() { const t = _aiToday(); if (_aiUsage.day !== t) _aiUsage = { day: t, counts: {} }; }
+function aiAllowed(category, opts = {}) {
+  _aiResetIfNewDay();
+  const total   = Object.values(_aiUsage.counts).reduce((a, b) => a + b, 0);
+  const catUsed = _aiUsage.counts[category] || 0;
+  if (_aiIsWeekend()) {
+    if (category === 'news' || category === 'analyst') return false;   // WE : news + analyst OFF
+    return total < GEMINI_DAILY_BUDGET;                                // WE : bias / bank = 100%
+  }
+  if (category === 'bias' || category === 'bank') return false;        // semaine : réservés au WE
+  const half = Math.floor(GEMINI_DAILY_BUDGET / 2);
+  if (category === 'news')    return !!opts.important && catUsed < half; // semaine : news importantes, max 50%
+  if (category === 'analyst') return catUsed < half;                     // semaine : l'autre 50%
+  return false;
+}
+function aiNote(category) { _aiResetIfNewDay(); _aiUsage.counts[category] = (_aiUsage.counts[category] || 0) + 1; }
+
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
@@ -833,10 +858,11 @@ app.get('/api/session-wrap-content', async (req, res) => {
   }
 
   // ── 1.5 Segmentation thématique IA (rubriques, style rapport DTP), persistée ──
+  //  Budget Gemini : compte dans l'enveloppe "analyst" (semaine 50%, week-end OFF).
   if (points && points.length >= 3) {
     let seg = _swSegCache.get(url);
-    if (seg === undefined) {
-      try { seg = await _segmentWrapAI(points); }
+    if (seg === undefined && aiAllowed('analyst')) {
+      try { aiNote('analyst'); seg = await _segmentWrapAI(points); }
       catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
       _swSegCache.set(url, seg || null);
       if (seg) _saveJsonMap(SW_SEG_FILE, _swSegCache);   // persiste les succès
@@ -1109,7 +1135,11 @@ app.post('/api/analyse', async (req, res) => {
   const cacheKey = headline.substring(0, 100);
   if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
 
+  // Budget Gemini : on traite l'analyse à la demande comme une news importante
+  if (!aiAllowed('news', { important: true })) return res.json({ bullets: [] });
+
   try {
+    aiNote('news');
     const ctx = description
       ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
       : '';
@@ -1152,7 +1182,11 @@ app.post('/api/news-info', async (req, res) => {
   const cacheKey = id || headline.substring(0, 120);
   if (_infoCache.has(cacheKey)) return res.json(_infoCache.get(cacheKey));
 
+  // Budget Gemini : semaine = news IMPORTANTES uniquement (50%), week-end = OFF
+  if (!aiAllowed('news', { important: !!req.body.important })) return res.json({ bullets: [] });
+
   try {
+    aiNote('news');
     const text = await ai.generateText(`You are an editor for a professional financial news terminal (trading-desk style, like Newsquawk).
 Rewrite the information below into 2 to 4 clear, factual, concise bullet points for a forex/macro trader.
 STRICT rules:
@@ -1195,7 +1229,11 @@ app.post('/api/reaction-explain', async (req, res) => {
   const cacheKey = id || headline.substring(0, 120);
   if (_reactCache.has(cacheKey)) return res.json(_reactCache.get(cacheKey));
 
+  // Budget Gemini : la réaction concerne une news qui a bougé le marché → importante
+  if (!aiAllowed('news', { important: true })) return res.json({ text: '' });
+
   try {
+    aiNote('news');
     const text = await ai.generateText(`You are a markets reporter on a trading desk. In 1 to 2 short sentences (max 40 words total), explain the market reaction to the news below: link the price moves to the headline (the causal mechanism). Neutral tone, no advice. Same language as the headline (usually English). Reply with the sentence(s) only, no preamble.
 
 Headline: ${headline}
@@ -1989,6 +2027,7 @@ Return ONLY valid JSON, no preamble:
 {"week":"Week of <Month DD>","overview":"1-2 sentence overview of the week ahead","items":[{"asset":"EUR/USD","bias":"bullish","strength":"moderate","rationale":"..."}]}`;
 
   try {
+    aiNote('bias');
     const text = await ai.generateText(prompt, 1800);
     const m = text.match(/\{[\s\S]*\}/);
     if (!m) throw new Error('No JSON in response');
@@ -2014,9 +2053,27 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
+const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
+// Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
+// puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
+const _sbMk = a => Object.fromEntries(SB_CURRENCIES.map((c, i) => [c, a[i]]));
+const SMART_BIAS_SEED = {
+  generatedAt: 1748793600000,   // 2026-06-01 18:00 Paris
+  currencies: SB_CURRENCIES,
+  rows: [
+    { key: 'fundamental',  label: 'Fundamental Data',        values: _sbMk(['Bullish', 'Bullish', 'Neutral', 'Neutral', 'Bullish', 'Bullish', 'Bearish', 'Neutral']) },
+    { key: 'bankOverview', label: 'Bank Overview',           values: _sbMk(['Neutral', 'Neutral', 'Bearish', 'Neutral', 'Bullish', 'Bullish', 'Bearish', 'Neutral']) },
+    { key: 'hedgeFund',    label: 'Hedge Fund Positioning',  values: _sbMk(['Very Bearish', 'Neutral', 'Bullish', 'Very Bearish', 'Very Bullish', 'Very Bearish', 'Very Bearish', 'Very Bearish']) },
+    { key: 'retail',       label: 'Retail Positioning',      values: _sbMk(['Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bullish', 'Bearish', 'Bearish', 'Very Bullish']) },
+    { key: 'monetary',     label: 'Monetary Policy',         values: _sbMk(['Neutral', 'Neutral', 'Neutral', 'Neutral', 'Bullish', 'Bullish', 'Neutral', 'Neutral']) },
+    { key: 'trend',        label: 'Trend',                   values: _sbMk(['Range', 'Uptrend', 'Uptrend', 'Downtrend', 'Uptrend', 'Uptrend', 'Downtrend', 'Downtrend']) },
+    { key: 'seasonality',  label: 'Seasonality',             values: _sbMk(['Neutral', 'Bullish', 'Bearish', 'Bullish', 'Neutral', 'Bullish', 'Neutral', 'Bullish']) },
+  ],
+  conclusion: _sbMk(['Neutral', 'Neutral', 'Neutral', 'Bearish', 'Weak Bullish', 'Bullish', 'Weak Bearish', 'Weak Bearish']),
+};
 let _smartBias = null;
 try { _smartBias = JSON.parse(fs.readFileSync(SMART_BIAS_FILE, 'utf8')); } catch {}
-const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
+if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) _smartBias = SMART_BIAS_SEED;
 const SB_GEM_ROWS = [
   { key: 'fundamental', label: 'Fundamental Data' },
   { key: 'bankOverview', label: 'Bank Overview' },
@@ -2063,14 +2120,17 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
 
   let gem = {};
   try {
+    aiNote('bias');
     const t = await ai.generateText(prompt, 2400);
     const m = t.match(/\{[\s\S]*\}/);
     if (!m) throw new Error('No JSON');
     gem = JSON.parse(m[0]).rows || {};
   } catch (e) {
     console.error('[SmartBias]', e.message);
-    if (_smartBias) return _smartBias;   // garde l'ancienne matrice
+    return _smartBias;   // garde l'ancienne matrice (seed ou précédente)
   }
+  // Gemini n'a rien renvoyé d'exploitable → on garde la matrice actuelle (pas d'écrasement vide)
+  if (!Object.keys(gem).length) return _smartBias;
 
   const trend = await _sbTrendRow();
   // Conclusion = agrégat pondéré simple
@@ -2235,10 +2295,13 @@ const BANK_EXTRACT_FILE = path.join(__dirname, 'cache_bank_extract.json');
 const _bankExtracted = _loadJsonMap(BANK_EXTRACT_FILE);   // articleId → true (déjà traité)
 async function _extractBankPositionsAI() {
   if (!ai || !_brCache) return;
+  if (!aiAllowed('bank')) return;   // budget Gemini : extraction réservée au week-end
   const candidates = _brCache.filter(a => a._source === 'actionforex' && !_bankExtracted.has(a.id)).slice(0, 8);
   for (const art of candidates) {
+    if (!aiAllowed('bank')) break;
     _bankExtracted.set(art.id, true);   // on marque traité quoi qu'il arrive (évite de reboucler)
     try {
+      aiNote('bank');
       const txt = `${art.title}\n${(art.description || '').replace(/<[^>]*>/g, ' ')}`.slice(0, 900);
       const out = await ai.generateText(`From the bank FX research note below, extract any concrete trade setup. If there is NO clear setup with an entry, reply exactly "NONE".
 Otherwise reply ONLY valid JSON: {"bank":"<bank name>","orderType":"Buy Limit|Sell Limit|Market Execution","pair":"EUR/USD","entry":1.234,"tp":1.250,"sl":1.220}
