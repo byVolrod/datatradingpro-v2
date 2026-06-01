@@ -361,9 +361,8 @@ function _newsKey(h) {
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
-    // Les rapports DTP d'ouverture / wrap / recap / daily s'affichent AUSSI dans le flux (comme PMT).
-    // Les autres PRIMERs (institution, calendrier, speaker) restent réservés à l'onglet Analyst.
-    if ((item._briefing || item.source === 'PMT') && !/opening|wrap|recap|daily|prep/i.test(item.headline || '')) return false;
+    // Rapports DTP/PMT (briefings, recaps, opening news) : masqués du flux pour l'instant (à revoir plus tard).
+    if (item._briefing || item.source === 'PMT') return false;
     if (!isCategoryEnabled(item.category)) return false;
     // Social-media reposts and failed-scrape stubs — no market value
     const _h = item.headline || '';
@@ -1354,11 +1353,16 @@ function _toBullets(raw, maxItems = 4) {
   let text = String(raw || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
   if (!text) return [];
 
-  // 2) Retirer un préambule de source ("From investinglive.com | < 1 min ago Report from X:")
-  text = text.replace(/^from\s+\S+\.(?:com|org|net)\s*\|?\s*/i, '')
-             .replace(/^[<>]?\s*\d+\s*min\s*ago\s*/i, '')
-             .replace(/^report\s+from\s+[^:•|]{2,30}:\s*/i, '')
-             .trim();
+  // 2) Retirer le préambule robotique de source ("From vtmarkets.com | 6 hr ago …", "Report from X:")
+  //    On boucle car ces fragments s'enchaînent (domaine, puis "N hr/min ago").
+  for (let i = 0; i < 4; i++) {
+    text = text
+      .replace(/^from\s+[\w.-]+\.(?:com|org|net|io|co)\s*\|?\s*/i, '')                 // From vtmarkets.com |
+      .replace(/^[<>]?\s*[<>]?\s*\d+\s*(?:min|mins|minute|minutes|h|hr|hrs|hour|hours)\s*ago\s*/i, '')  // 6 hr ago / 1 min ago
+      .replace(/^report\s+from\s+[^:•|]{2,30}:\s*/i, '')
+      .replace(/^[|·–—-]\s*/, '')
+      .trim();
+  }
 
   let parts;
   // 3) Priorité aux séparateurs explicites : puces • puis barres |
@@ -3468,18 +3472,22 @@ async function _loadAIInsights(item, el) {
       return `<div class="ai-insights-card">${esc(txt)}</div>`;
     }).join('');
     const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
-    // Grille FIXE (pas de carrousel) → les cartes ne bougent plus
+    // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
     el.innerHTML = `<div class="ai-insights-head">
         <span class="ai-insights-title">${chip} AI Insights</span>
-        <span class="ai-insights-count">${d.insights.length} insights</span>
+        <span class="ai-insights-nav">
+          <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
+          <span class="ai-insights-count">${d.insights.length} insights</span>
+          <button type="button" onclick="aiInsScroll(this,1)">›</button>
+        </span>
       </div>
-      <div class="ai-insights-cards ai-insights-cards--fixed" id="ai-insights-cards">${cards}</div>`;
+      <div class="ai-insights-cards">${cards}</div>`;
   }
 }
 
-// Défilement des cartes AI Insights via les flèches
-function aiInsScroll(dir) {
-  const c = document.getElementById('ai-insights-cards');
+// Défilement des cartes AI Insights via les flèches (scopé au panneau cliqué)
+function aiInsScroll(btn, dir) {
+  const c = btn?.closest('.ai-insights-head')?.nextElementSibling;
   if (c) c.scrollBy({ left: dir * 290, behavior: 'smooth' });
 }
 
