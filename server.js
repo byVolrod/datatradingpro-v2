@@ -1171,8 +1171,11 @@ app.post('/api/analyse', async (req, res) => {
   const cacheKey = headline.substring(0, 100);
   if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
 
+  // Secours sans IA (quota épuisé) : on extrait des puces du contenu → l'Analyse n'est jamais vide
+  const _analyseFallback = () => _fallbackInsights(String(description || '') + ' ' + headline).map(o => o.text);
+
   // Budget Gemini : on traite l'analyse à la demande comme une news importante
-  if (!aiAllowed('news', { important: true })) return res.json({ bullets: [] });
+  if (!aiAllowed('news', { important: true })) return res.json({ bullets: _analyseFallback(), fallback: true });
 
   try {
     aiNote('news');
@@ -1202,7 +1205,7 @@ Write 2-4 bullet points. Rules:
     res.json(result);
   } catch (e) {
     console.error('[Analyse API]', e.message);
-    res.status(500).json({ error: e.message });
+    res.json({ bullets: _analyseFallback(), fallback: true });   // quota/erreur → secours extractif
   }
 });
 
