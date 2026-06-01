@@ -350,6 +350,7 @@ async function _whopRenewOrCreate(mem) {
     const wasInactive = !existing.active;
     await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
     if (wasInactive) mailer.sendReactivated({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
+    else             mailer.sendRenewed({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
     console.log(`[Whop] Renouvelé: ${mem.email} → ${mem.expiresAt || 'illimité'}`);
   } else {
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
