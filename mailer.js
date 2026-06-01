@@ -11,6 +11,8 @@ const GMAIL_USER         = process.env.GMAIL_USER || '';
 const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''); // les MDP d'app Gmail ont des espaces
 const APP_URL            = process.env.APP_URL || 'https://datatradingpro.onrender.com';
 const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'datatradingpro.contact@gmail.com';
+// Lien de paiement/renouvellement Whop (page DTP). Configurable via WHOP_RENEW_URL.
+const WHOP_RENEW_URL     = process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/';
 // Expéditeur. On IGNORE l'ancienne valeur volrod.dev (migration) → adresse de contact dédiée.
 const _envFrom = process.env.EMAIL_FROM || '';
 const EMAIL_FROM = (_envFrom && !/volrod\.dev/i.test(_envFrom))
@@ -187,8 +189,9 @@ async function sendRenewalFailed({ to, name }) {
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Renouvellement de votre abonnement</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro. Par conséquent, votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
-    <p style="margin:0 0 14px;">Pour réactiver votre accès et reprendre le suivi des marchés en temps réel, il vous suffit de régulariser votre abonnement.</p>
-    ${_button('Renouveler mon accès', `mailto:${SUPPORT_EMAIL}?subject=Renouvellement%20abonnement%20DataTradingPro`)}
+    <p style="margin:0 0 14px;">Pour réactiver votre accès et reprendre le suivi des marchés en temps réel, il vous suffit de renouveler votre abonnement en un clic ci-dessous :</p>
+    ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Nous restons à votre disposition,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return _send(to, 'DataTradingPro — échec du renouvellement de votre abonnement', _layout('Renouvellement', body));
