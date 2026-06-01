@@ -890,7 +890,7 @@ const TAG_CLASS = {
   'Inflation':   'tag--neutral',
   'Rates':       'tag--neutral',
 
-  'Equities':    'tag--green',
+  'Equities':    'tag--neutral',
   'Bonds':       'tag--purple',
   'Tariffs':     'tag--neutral',
 

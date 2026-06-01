@@ -289,6 +289,21 @@ app.put('/api/auth/me/password', async (req, res) => {
   }
 });
 
+// Mise à jour du profil (nom) par l'utilisateur — persiste en BDD + session
+app.put('/api/auth/me/profile', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const name = (req.body?.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Le nom ne peut pas être vide' });
+  try {
+    await auth.updateUser(req.session.userId, { name });   // → BDD (et donc panel admin)
+    req.session.user = { ...req.session.user, name };       // → session courante
+    res.json({ ok: true, name });
+  } catch (e) {
+    console.error('[Auth] profile update error:', e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
 app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
 app.get('/api/news/history', (req, res) => {
   const before = parseInt(req.query.before) || Date.now();
