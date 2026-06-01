@@ -145,6 +145,21 @@ function _credBox(rows) {
     style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:14px 18px;margin:18px 0;">${items}</table>`;
 }
 
+// Encart "Note importante" : astuce anti-spam (à mettre dans tous les emails)
+function _spamNote() {
+  const sender = _parseFrom().email;
+  return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+    style="background:rgba(247,148,29,0.08);border:1px solid rgba(247,148,29,0.35);border-radius:10px;margin:20px 0;">
+    <tr><td style="padding:14px 16px;color:#f3d9b0;font-size:13px;line-height:1.6;">
+      <strong style="color:#f7941d;">📌 Note importante — pour ne plus rater nos emails</strong><br>
+      Pour éviter que nos messages (accès, alertes, renouvellement) ne tombent dans vos <strong>spams</strong> :
+      <ul style="margin:8px 0 0;padding-left:18px;color:#e2cba0;">
+        <li>Ajoutez <strong style="color:#fff;">${sender}</strong> à vos <strong>contacts</strong>.</li>
+        <li>Si cet email est dans les spams/indésirables, ouvrez-le et cliquez sur <strong>« Non spam »</strong> (ou déplacez-le vers la boîte de réception).</li>
+      </ul>
+    </td></tr></table>`;
+}
+
 // ── 1) Email de bienvenue (création de compte) ────────────────────────────────
 async function sendWelcome({ to, name, password, expiresAt }) {
   const prenom = (name || '').split(' ')[0] || 'cher client';
@@ -156,6 +171,7 @@ async function sendWelcome({ to, name, password, expiresAt }) {
     ${_credBox([['Email', to], ['Mot de passe', password || '—'], ['Abonnement', `valide jusqu'au ${end}`]])}
     <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Par sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.</p>
     ${_button('Accéder au terminal', APP_URL)}
+    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Excellents trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return _send(to, 'Bienvenue sur DataTradingPro — votre accès est activé', _layout('Bienvenue', body));
 }
@@ -169,6 +185,7 @@ async function sendRenewalFailed({ to, name }) {
     <p style="margin:0 0 14px;">Nous n'avons pas pu <strong style="color:#fff;">renouveler votre abonnement</strong> à DataTradingPro. Par conséquent, votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
     <p style="margin:0 0 14px;">Pour réactiver votre accès et reprendre le suivi des marchés en temps réel, il vous suffit de régulariser votre abonnement.</p>
     ${_button('Renouveler mon accès', `mailto:${SUPPORT_EMAIL}?subject=Renouvellement%20abonnement%20DataTradingPro`)}
+    ${_spamNote()}
     <p style="margin:0;font-size:13px;">Nous restons à votre disposition,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
   return _send(to, 'DataTradingPro — échec du renouvellement de votre abonnement', _layout('Renouvellement', body));
 }
@@ -183,6 +200,7 @@ async function sendPasswordReset({ to, name, password }) {
     ${_credBox([['Email', to], ['Nouveau mot de passe', password || '—']])}
     <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Pour votre sécurité, pensez à le modifier depuis votre profil après connexion. Si vous n'êtes pas à l'origine de cette demande, contactez-nous immédiatement.</p>
     ${_button('Me connecter', APP_URL)}
+    ${_spamNote()}
     <p style="margin:0;font-size:13px;">L'équipe DataTradingPro</p>`;
   return _send(to, 'DataTradingPro — votre mot de passe a été réinitialisé', _layout('Réinitialisation', body));
 }
