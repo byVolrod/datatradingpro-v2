@@ -121,6 +121,30 @@
 
     .table-wrap { background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px; overflow: hidden; }
     .empty-state { padding: 32px; text-align: center; color: var(--text3); font-size: 12px; }
+
+    /* ── Cartes statistiques ── */
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 8px; }
+    .stat-card {
+      background: linear-gradient(160deg, var(--bg3), var(--bg2)); border: 1px solid var(--border2);
+      border-radius: 10px; padding: 16px 18px;
+    }
+    .stat-value { font-size: 26px; font-weight: 700; font-family: var(--font-mono); color: var(--text); line-height: 1; }
+    .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-top: 9px; }
+    .stat-card.accent .stat-value { color: var(--orange); }
+    .stat-card.ok     .stat-value { color: var(--green); }
+    .stat-card.warn   .stat-value { color: #f59e0b; }
+    .stat-card.danger .stat-value { color: #ef4444; }
+
+    /* ── Barre recherche + filtres ── */
+    .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 14px; }
+    .toolbar input, .toolbar select {
+      background: var(--bg2); border: 1px solid var(--border2); border-radius: 6px;
+      padding: 9px 12px; font-family: var(--font-ui); font-size: 12px; color: var(--text); outline: none; transition: border-color 0.12s;
+    }
+    .toolbar input { flex: 1; min-width: 220px; }
+    .toolbar input:focus, .toolbar select:focus { border-color: var(--orange); }
+    .badge-soon    { background: rgba(245,158,11,0.12); color: #f59e0b; border: 1px solid rgba(245,158,11,0.3); }
+    .badge-expired { background: rgba(231,76,60,0.12); color: #ef4444; border: 1px solid rgba(231,76,60,0.3); }
   </style>
 </head>
 <body>
@@ -135,6 +159,10 @@
 </div>
 
 <div class="page">
+
+  <!-- Stats -->
+  <div class="section-title">Vue d'ensemble</div>
+  <div class="stats-row" id="stats-row"></div>
 
   <!-- Add user -->
   <div class="section-title">Ajouter un utilisateur</div>
@@ -186,6 +214,21 @@
 
   <!-- Users list -->
   <div class="section-title" style="margin-top:32px">Utilisateurs (<span id="user-count">—</span>)</div>
+  <div class="toolbar">
+    <input type="text" id="flt-search" placeholder="Rechercher par nom ou email…" />
+    <select id="flt-status">
+      <option value="all">Tous les statuts</option>
+      <option value="active">Actifs</option>
+      <option value="soon">Expire ≤ 7 jours</option>
+      <option value="expired">Expirés</option>
+      <option value="suspended">Suspendus</option>
+    </select>
+    <select id="flt-role">
+      <option value="all">Tous les rôles</option>
+      <option value="client">Clients</option>
+      <option value="admin">Admins</option>
+    </select>
+  </div>
   <div class="table-wrap">
     <table class="users-table" id="users-table">
       <thead>
@@ -286,10 +329,48 @@
   });
 
   // ── Load users ──────────────────────────────────────────────────────────────
+  let _allUsers = [];
+  let _fSearch = '', _fStatus = 'all', _fRole = 'all';
+
   async function loadUsers() {
     const users = await fetch('/api/admin/users').then(r => r.json());
-    document.getElementById('user-count').textContent = users.length;
+    _allUsers = Array.isArray(users) ? users : [];
+    renderStats();
+    renderUserRows();
+  }
+
+  // État d'abonnement d'un utilisateur (pour stats + filtres + badge)
+  function subState(u) {
+    if (!u.active) return 'suspended';
+    if (u.role === 'admin' || !u.expires_at) return 'active';
+    const days = Math.ceil((new Date(u.expires_at) - new Date()) / 86400000);
+    if (days < 0)  return 'expired';
+    if (days <= 7) return 'soon';
+    return 'active';
+  }
+
+  function renderStats() {
+    const u = _allUsers;
+    const n = s => u.filter(x => subState(x) === s).length;
+    const cards = [
+      { v: u.length,                                  l: 'Utilisateurs', c: '' },
+      { v: n('active'),                               l: 'Actifs',       c: 'ok' },
+      { v: n('soon'),                                 l: 'Expire ≤ 7j',  c: 'warn' },
+      { v: n('expired'),                              l: 'Expirés',      c: 'danger' },
+      { v: n('suspended'),                            l: 'Suspendus',    c: 'danger' },
+      { v: u.filter(x => x.role === 'client').length, l: 'Clients',      c: 'accent' },
+    ];
+    document.getElementById('stats-row').innerHTML = cards.map(c =>
+      `<div class="stat-card ${c.c}"><div class="stat-value">${c.v}</div><div class="stat-label">${c.l}</div></div>`).join('');
+  }
+
+  function renderUserRows() {
     const tbody = document.getElementById('users-tbody');
+    let users = _allUsers;
+    if (_fSearch)            users = users.filter(u => ((u.name||'') + ' ' + (u.email||'')).toLowerCase().includes(_fSearch));
+    if (_fStatus !== 'all')  users = users.filter(u => subState(u) === _fStatus);
+    if (_fRole !== 'all')    users = users.filter(u => u.role === _fRole);
+    document.getElementById('user-count').textContent = users.length;
     if (!users.length) {
       tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun utilisateur</td></tr>';
       return;
@@ -318,8 +399,8 @@
     const end  = new Date(u.expires_at);
     const date = end.toLocaleDateString('fr-FR');
     const days = Math.ceil((end - new Date()) / 86400000);
-    if (days < 0)  return `<span class="badge badge-suspended">Expiré le ${date}</span>`;
-    if (days <= 7) return `<span class="badge badge-suspended" style="opacity:.85">Expire le ${date} (${days}j)</span>`;
+    if (days < 0)  return `<span class="badge badge-expired">Expiré le ${date}</span>`;
+    if (days <= 7) return `<span class="badge badge-soon">Expire le ${date} (${days}j)</span>`;
     return `<span class="badge badge-active">Jusqu'au ${date}</span>`;
   }
 
@@ -425,6 +506,11 @@
   document.querySelectorAll('.modal-overlay').forEach(el => {
     el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
   });
+
+  // Recherche + filtres
+  document.getElementById('flt-search').addEventListener('input',  e => { _fSearch = e.target.value.trim().toLowerCase(); renderUserRows(); });
+  document.getElementById('flt-status').addEventListener('change', e => { _fStatus = e.target.value; renderUserRows(); });
+  document.getElementById('flt-role').addEventListener('change',   e => { _fRole   = e.target.value; renderUserRows(); });
 </script>
 </body>
 </html>
