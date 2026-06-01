@@ -351,11 +351,13 @@ async function _whopRenewOrCreate(mem) {
     await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
     if (wasInactive) mailer.sendReactivated({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
     else             mailer.sendRenewed({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
+    mailer.sendAdminRenewalNotice({ clientEmail: existing.email, clientName: existing.name, expiresAt: mem.expiresAt, isNew: false }).catch(() => {});
     console.log(`[Whop] Renouvelé: ${mem.email} → ${mem.expiresAt || 'illimité'}`);
   } else {
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
     await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
     mailer.sendWelcome({ to: mem.email, name: '', password: pwd, expiresAt: mem.expiresAt }).catch(() => {});
+    mailer.sendAdminRenewalNotice({ clientEmail: mem.email, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
     console.log(`[Whop] Compte créé: ${mem.email}`);
   }
 }
@@ -2313,8 +2315,10 @@ async function _checkExpiringSubscriptions() {
     }
   } catch (e) { console.error('[ExpiryCheck]', e.message); }
 }
-setTimeout(_checkExpiringSubscriptions, 90 * 1000);            // au démarrage
-setInterval(_checkExpiringSubscriptions, 24 * 60 * 60 * 1000); // puis 1×/jour
+// Rappel quotidien DÉSACTIVÉ : Whop gère le renouvellement automatiquement.
+// L'admin est notifié uniquement quand un renouvellement/paiement DTP a lieu (webhook).
+// (fonction _checkExpiringSubscriptions conservée mais non planifiée)
+void _checkExpiringSubscriptions;
 
 // COT — check for new weekly data every 6 h, broadcast on change
 let _lastCotHash = '';

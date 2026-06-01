@@ -271,4 +271,17 @@ async function sendAdminExpiryReminder({ clients, to }) {
   return _send(admin, `DataTradingPro — ${clients.length} abonnement(s) à renouveler`, _layout('Rappel abonnements', body));
 }
 
-module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset, sendAdminExpiryReminder };
+// ── Notif ADMIN : un paiement/renouvellement DTP a eu lieu (→ datatradingpro.contact) ──
+async function sendAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNew, to }) {
+  const admin = to || SUPPORT_EMAIL;
+  const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : 'illimité';
+  const kind = isNew ? 'Nouveau client DTP' : 'Renouvellement DTP';
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">✅ ${kind}</p>
+    <p style="margin:0 0 14px;">Un paiement Whop <strong style="color:#fff;">JOT DTP</strong> a été traité automatiquement :</p>
+    ${_credBox([['Client', clientName || clientEmail], ['Email', clientEmail], ["Accès jusqu'au", end], ['Action', isNew ? 'Compte créé' : 'Abonnement renouvelé']])}
+    <p style="margin:0;font-size:13px;color:#94a3b8;">Le compte a été ${isNew ? 'créé' : 'mis à jour'} et le client a été notifié par email. Aucune action de ta part.</p>`;
+  return _send(admin, `DTP — ${kind} : ${clientEmail}`, _layout('Notification DTP', body));
+}
+
+module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset, sendAdminExpiryReminder, sendAdminRenewalNotice };
