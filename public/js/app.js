@@ -2720,12 +2720,10 @@ function renderBiasView(d) {
   }</tr>`;
 
   host.innerHTML = `
-    <div class="sb-clocks" id="sb-clocks"></div>
     <div class="sb-title-row"><span class="sb-title">Smart Bias Tracker</span></div>
     <div class="sb-grid-wrap">
       <table class="sb-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
     </div>`;
-  _sbStartClocks();
 }
 
 function _sbStartClocks() {
