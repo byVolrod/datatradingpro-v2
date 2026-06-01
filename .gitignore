@@ -1,0 +1,28 @@
+# ── Dépendances ─────────────────────────────────────────────────────────────────
+node_modules/
+
+# ── Secrets (NE JAMAIS committer) ───────────────────────────────────────────────
+.env
+.env.local
+.env.production
+
+# ── Profils Chrome (persistance cookies Puppeteer) ──────────────────────────────
+.chrome_profile_fj/
+.chrome_profile_ff/
+.chrome_profile_myfxbook/
+
+# ── Caches disque (régénérés automatiquement au démarrage) ──────────────────────
+cache_*.json
+news_history.json
+
+# ── Logs ────────────────────────────────────────────────────────────────────────
+*.log
+server_out.txt
+server_err.txt
+server_out.log
+server_err.log
+server_debug.log
+
+# ── Divers ──────────────────────────────────────────────────────────────────────
+*.db
+data/

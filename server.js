@@ -1,0 +1,2455 @@
+require('dotenv').config();
+const express   = require('express');
+const http      = require('http');
+const WebSocket = require('ws');
+const path      = require('path');
+const fs        = require('fs');
+const axios     = require('axios');
+const session   = require('express-session');
+const helmet    = require('helmet');
+const cors      = require('cors');
+const Anthropic = require('@anthropic-ai/sdk');
+const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
+const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
+const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll } = require('./scrapers/forexfactory-news');
+const { fetchCOTData } = require('./scrapers/cot');
+const { fetchCommunityOutlook, clearOutlookCache } = require('./scrapers/myfxbook');
+const auth = require('./auth');
+const cheerio = require('cheerio');
+const puppeteer = require('puppeteer-extra');
+const StealthPlugin = require('puppeteer-extra-plugin-stealth');
+puppeteer.use(StealthPlugin());
+
+// ─── Global error handlers — évite les crashes silencieux ────────────────────
+process.on('uncaughtException',  err  => console.error('[UNCAUGHT]',   err.stack || err.message));
+process.on('unhandledRejection', (reason) => console.error('[UNHANDLED]', reason?.stack || reason));
+
+const app    = express();
+const server = http.createServer(app);
+const wss    = new WebSocket.Server({ server });
+
+// En production (Railway, Render…) le serveur est derrière un reverse-proxy HTTPS
+if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
+
+// ─── Sécurité HTTP ────────────────────────────────────────────────────────────
+// Helmet : headers de sécurité (XSS, clickjacking, MIME sniffing…)
+// contentSecurityPolicy désactivé car le frontend charge des CDN (TradingView, etc.)
+app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+
+// CORS : n'autoriser que le domaine de production + localhost en dev
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
+  .split(',').map(s => s.trim()).filter(Boolean);
+app.use(cors({
+  origin: (origin, cb) => {
+    // Requêtes sans origin (curl, server-to-server) toujours autorisées
+    if (!origin) return cb(null, true);
+    if (process.env.NODE_ENV !== 'production') return cb(null, true); // dev : tout autorisé
+    if (ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith(o))) return cb(null, true);
+    cb(new Error('CORS: origin not allowed'));
+  },
+  credentials: true,
+}));
+
+const PORT = process.env.PORT || 3000;
+const REFRESH_INTERVAL = 60000;
+const HISTORY_FILE = path.join(__dirname, 'news_history.json');
+const HISTORY_TTL  = 7 * 24 * 60 * 60 * 1000; // 7 days
+const SW_CACHE_FILE = path.join(__dirname, 'cache_session_wraps.json');
+const SW_MAX_AGE    = 30 * 24 * 60 * 60 * 1000; // 30 days
+const BR_CACHE_FILE = path.join(__dirname, 'cache_bank_research.json');
+const BR_MAX_AGE    = 30 * 24 * 60 * 60 * 1000;
+
+let allNews = [];
+let allCalendar = [];   // FF calendar events served separately
+let isFirstLoad = true;
+let _saveTimer  = null;
+let _mosaicImages     = [];
+let _mosaicRefreshedAt = 0;
+let _swCache      = [];
+let _swFetchedAt  = 0;
+let _brCache     = [];
+let _brFetchedAt = 0;
+
+function loadHistory() {
+  try {
+    const raw    = JSON.parse(fs.readFileSync(HISTORY_FILE, 'utf8'));
+    const cutoff = Date.now() - HISTORY_TTL;
+    const items  = (raw.items || []).filter(i => i.timestamp > cutoff);
+    console.log(`[History] Loaded ${items.length} items from disk (last 7 days)`);
+    return items;
+  } catch { return []; }
+}
+
+function saveHistory() {
+  if (_saveTimer) clearTimeout(_saveTimer);
+  _saveTimer = setTimeout(() => {
+    try {
+      fs.writeFileSync(HISTORY_FILE, JSON.stringify({ savedAt: Date.now(), items: allNews }));
+    } catch (e) { console.error('[History] Save error:', e.message); }
+  }, 5000);
+}
+
+// Economic data agency detection — defined early so loadHistory remapping can use it
+const ECON_AGENCIES_EARLY = [
+  [/\bpmi\b|purchasing managers|markit/i,                              'S&P Global'],
+  [/\bism\b/i,                                                          'ISM'],
+  [/nfp|non.?farm payroll|initial claims|continuing claims|challenger|jobless claims/i, 'BLS'],
+  [/payroll|unemployment rate|employment change|average hourly|workweek/i, 'BLS'],
+  [/\bpce\b|personal income|personal spending|unit labor|labor cost/i, 'BEA'],
+  [/consumer credit/i,                                                  'Federal Reserve'],
+  [/\bifo\b/i,                                                          'IFO Institute'],
+  [/\bzew\b/i,                                                          'ZEW'],
+  [/eurozone.*cpi|cpi.*eurozone|eurozone.*gdp|gdp.*eurozone|eurozone.*retail|eurostat/i, 'Eurostat'],
+  [/\buk\b.*cpi|cpi.*\buk\b|\buk\b.*gdp|gdp.*\buk\b|\brpi\b/i,       'ONS'],
+  [/australia.*cpi|cpi.*australia|australia.*trade|aus.*gdp/i,         'ABS'],
+  [/canada.*cpi|cpi.*canada|canadian.*employment|canadian.*unemployment/i, 'Statistics Canada'],
+  [/japan.*cpi|japan.*gdp|japan.*pmi|tankan/i,                         'Statistics Japan'],
+  [/china.*pmi|china.*cpi|china.*gdp|\bnbs\b/i,                        'NBS China'],
+  [/swiss.*cpi|cpi.*swiss|swiss.*gdp|switzerland.*unemployment/i,      'Statistics CH'],
+  [/turkish.*cpi|cpi.*turkish|turkey.*cpi/i,                           'TURKSTAT'],
+  [/\bnfib\b/i,                                                         'NFIB'],
+  [/house price|home price|existing home|pending home|housing starts/i,'NAR / Census'],
+  [/consumer confidence|consumer sentiment/i,                           'Conference Board'],
+];
+
+function _detectEconAgencyEarly(text) {
+  for (const [rx, agency] of ECON_AGENCIES_EARLY) {
+    if (rx.test(text)) return agency;
+  }
+  return null;
+}
+
+allNews = loadHistory().map(item => {
+  if (item.category === 'Economic Commentary' && item.source === 'FinancialJuice') {
+    const agency = _detectEconAgencyEarly(item.headline);
+    if (agency) return { ...item, source: agency };
+  }
+  return item;
+});
+
+// ─── Session ──────────────────────────────────────────────────────────────────
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'dtp-secret-key-change-me',
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'strict',
+    secure: process.env.NODE_ENV === 'production',  // HTTPS uniquement en prod
+    maxAge: 7 * 24 * 60 * 60 * 1000,   // 7 jours
+  },
+}));
+
+// ─── Auth middleware ──────────────────────────────────────────────────────────
+// Public = static assets (CSS/JS), login page, auth endpoints
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico']);
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/'];
+
+function requireAuth(req, res, next) {
+  const isPublic = _PUBLIC_PATHS.has(req.path) ||
+    _PUBLIC_PREFIXES.some(p => req.path.startsWith(p));
+  if (isPublic) return next();
+
+  if (!req.session?.userId) {
+    if (req.path.startsWith('/api/')) {
+      return res.status(401).json({ error: 'Non autorisé — veuillez vous connecter' });
+    }
+    return res.redirect('/login');
+  }
+
+  req.user = req.session.user;
+  next();
+}
+
+function requireAdmin(req, res, next) {
+  if (req.session?.user?.role !== 'admin') {
+    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Accès refusé' });
+    return res.redirect('/');
+  }
+  next();
+}
+
+app.use(requireAuth);
+// extensions: ['html'] → /login sert login.html, /admin sert admin.html automatiquement
+app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
+app.use(express.json());
+
+// Redirection /login → déjà connecté va au dashboard
+app.get('/login', (req, res) => {
+  if (req.session?.userId) return res.redirect('/');
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+app.get('/admin', requireAuth, requireAdmin, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+
+// ─── Auth routes ──────────────────────────────────────────────────────────────
+app.post('/api/auth/login', async (req, res) => {
+  const { email, password } = req.body || {};
+  if (!email || !password) return res.json({ error: 'Email et mot de passe requis' });
+  try {
+    const user = await auth.verifyLogin(email, password);
+    if (!user) return res.json({ error: 'Email ou mot de passe incorrect' });
+    req.session.userId = user.id;
+    req.session.user   = user;
+    res.json({ ok: true, role: user.role });
+  } catch (e) {
+    console.error('[Auth] login error:', e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+app.get('/api/auth/me', async (req, res) => {
+  if (!req.session?.userId) return res.json({ loggedIn: false });
+  try {
+    // Toujours relire depuis la DB → les changements admin (active, plan…) sont immédiatement reflétés
+    const fresh = await auth.getUserById(req.session.userId);
+    if (!fresh) { req.session.destroy(() => {}); return res.json({ loggedIn: false }); }
+    const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active };
+    req.session.user = user; // maintenir la session à jour
+    res.json({ loggedIn: true, user });
+  } catch {
+    // Fallback si DB inaccessible : utiliser la session
+    res.json({ loggedIn: true, user: req.session.user });
+  }
+});
+
+// ─── Admin routes (admin only) — tous async pour Supabase ────────────────────
+app.get('/api/admin/users', requireAdmin, async (_req, res) => {
+  try { res.json(await auth.getAllUsers()); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/users', requireAdmin, async (req, res) => {
+  try { await auth.createUser(req.body); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try { await auth.updateUser(+req.params.id, req.body); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
+  try { await auth.deleteUser(+req.params.id); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.post('/api/admin/users/:id/password', requireAdmin, async (req, res) => {
+  try { await auth.changePassword(+req.params.id, req.body.password); res.json({ ok: true }); }
+  catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// ─── User self-service password change ────────────────────────────────────────
+app.put('/api/auth/me/password', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const { currentPassword, newPassword } = req.body || {};
+  if (!currentPassword || !newPassword) return res.status(400).json({ error: 'Champs requis' });
+  if (newPassword.length < 6) return res.status(400).json({ error: 'Le nouveau mot de passe doit contenir au moins 6 caractères' });
+  try {
+    const user = await auth.verifyLogin(req.session.user.email, currentPassword);
+    if (!user) return res.status(400).json({ error: 'Mot de passe actuel incorrect' });
+    await auth.changePassword(req.session.userId, newPassword);
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('[Auth] password change error:', e.message);
+    res.status(500).json({ error: 'Erreur serveur' });
+  }
+});
+
+app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
+app.get('/api/news/history', (req, res) => {
+  const before = parseInt(req.query.before) || Date.now();
+  const limit  = Math.min(parseInt(req.query.limit) || 100, 200);
+  const items  = allNews
+    .filter(i => i.timestamp < before)
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, limit);
+  res.json({ items, total: allNews.length });
+});
+app.get('/api/calendar', (_req, res) => res.json({ items: allCalendar }));
+app.get('/api/calendar-events', (_req, res) => res.json({ items: getCalendarRaw() }));
+
+// ── Mosaic background images ──────────────────────────────────────────────────
+function _ytThumb(url) {
+  const m = url.match(/(?:v=|youtu\.be\/|embed\/)([a-zA-Z0-9_-]{11})/);
+  return m ? `https://img.youtube.com/vi/${m[1]}/hqdefault.jpg` : null;
+}
+
+async function _fetchOgImage(url) {
+  try {
+    const r = await axios.get(url, {
+      timeout: 5000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1)' },
+      maxRedirects: 3,
+      validateStatus: s => s < 400,
+    });
+    const html = r.data || '';
+    const patterns = [
+      /<meta\s[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i,
+      /<meta\s[^>]*content=["']([^"']+)["'][^>]*property=["']og:image["']/i,
+      /<meta\s[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i,
+      /<meta\s[^>]*content=["']([^"']+)["'][^>]*name=["']twitter:image["']/i,
+    ];
+    for (const p of patterns) {
+      const m = html.match(p);
+      if (m && m[1] && m[1].startsWith('http')) return m[1];
+    }
+  } catch {}
+  return null;
+}
+
+async function _refreshMosaicImages() {
+  _mosaicRefreshedAt = Date.now();
+  const SKIP = /forexfactory\.com\/news\//i;
+  const candidates = allNews.slice(0, 60).filter(i => i.url && !SKIP.test(i.url));
+  const images = [];
+  for (const item of candidates) {
+    if (images.length >= 24) break;
+    const yt = _ytThumb(item.url);
+    if (yt) { images.push(yt); continue; }
+    const og = await _fetchOgImage(item.url);
+    if (og) images.push(og);
+  }
+  if (images.length >= 4) _mosaicImages = images;
+}
+
+app.get('/api/mosaic-images', (_req, res) => {
+  res.json(_mosaicImages);
+  if (Date.now() - _mosaicRefreshedAt > 15 * 60 * 1000) _refreshMosaicImages().catch(() => {});
+});
+
+// ── InvestingLive Session Wraps ───────────────────────────────────────────────
+// Load persisted wraps from file (called at startup)
+function _swLoadFile() {
+  try {
+    const data = JSON.parse(fs.readFileSync(SW_CACHE_FILE, 'utf8'));
+    if (Array.isArray(data)) {
+      _swCache = data.filter(i => i.timestamp > Date.now() - SW_MAX_AGE);
+      console.log(`[SessionWraps] Loaded ${_swCache.length} wraps from file`);
+    }
+  } catch {}
+}
+
+function _swParseRssItem($, el, filterByTitle) {
+  const title   = $('title', el).first().text().trim();
+  if (filterByTitle && !/investingLive.*wrap|session\s+wrap/i.test(title)) return null;
+  const link    = $('link', el).contents().filter((_, n) => n.type === 'text').text().trim()
+               || $('guid', el).text().trim();
+  if (!link) return null;
+  const pubDate = $('pubDate', el).text().trim();
+  const ts      = new Date(pubDate).getTime();
+  if (!ts) return null;
+
+  // ── Extraire le HTML complet depuis le CDATA de <description> ────────────────
+  // .html() retourne la balise avec son contenu brut y compris les CDATA markers
+  const descRaw  = $('description', el).html() || '';
+  // Extraire le contenu entre <![CDATA[ ... ]]>
+  const cdataMatch = descRaw.match(/<!\[CDATA\[([\s\S]*?)\]\]>/);
+  const fullHtml   = cdataMatch ? cdataMatch[1].trim() : '';
+  // Fallback : .text() si pas de CDATA (déjà décodé)
+  const plainText  = fullHtml || $('description', el).text().trim();
+
+  const author  = $('dc\\:creator', el).first().text().trim();
+  let session = 'Global';
+  if (/americas|north\s+american/i.test(title))    session = 'Americas';
+  else if (/european?|europe/i.test(title))          session = 'European';
+  else if (/asia[\s-]?pacific|asian/i.test(title))  session = 'Asia-Pacific';
+
+  return {
+    id:          'sw-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16),
+    title,
+    url:         link,
+    timestamp:   ts,
+    session,
+    // Aperçu court (pour la carte dans la liste)
+    description: plainText.replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().slice(0, 300),
+    // HTML complet extrait du RSS — utilisé directement dans le reader
+    content:     fullHtml.length > 100 ? fullHtml : null,
+    author,
+    _source:     'investinglive',
+  };
+}
+
+async function _fetchSessionWraps(full = false) {
+  _swFetchedAt = Date.now();
+  const cutoff   = Date.now() - SW_MAX_AGE;
+  const maxPages = full ? 15 : 3;
+  const UA       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+
+  // Try category feed first (only wraps), fall back to main feed (filter by title)
+  const FEEDS = [
+    { base: 'https://investinglive.com/SessionWraps/feed/', filter: false },
+    { base: 'https://investinglive.com/feed/',               filter: true  },
+  ];
+
+  const merged = new Map(_swCache.map(i => [i.id, i]));
+
+  for (const { base, filter } of FEEDS) {
+    let feedOk = false;
+    for (let page = 1; page <= maxPages; page++) {
+      try {
+        const url = page === 1 ? base : `${base}?paged=${page}`;
+        const r   = await axios.get(url, {
+          timeout: 10000,
+          headers: { 'User-Agent': UA },
+          validateStatus: s => s < 500,
+        });
+        if (r.status === 404) break;         // feed doesn't exist → try next
+        if (r.status !== 200) continue;
+        feedOk = true;
+
+        const $   = cheerio.load(r.data, { xmlMode: true });
+        let   any = false, tooOld = false;
+
+        $('item').each((_, el) => {
+          const item = _swParseRssItem($, el, filter);
+          if (!item) return;
+          if (item.timestamp < cutoff) { tooOld = true; return; }
+          merged.set(item.id, item);
+          any = true;
+        });
+
+        if (tooOld || !any) break;           // reached 30-day cutoff or empty page
+      } catch { break; }
+    }
+    if (feedOk) break;                       // used this feed successfully
+  }
+
+  const before = _swCache.length;
+  _swCache = [...merged.values()]
+    .filter(i => i.timestamp > cutoff)
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  try { fs.writeFileSync(SW_CACHE_FILE, JSON.stringify(_swCache)); } catch {}
+  console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+}
+
+app.get('/api/session-wraps', (_req, res) => {
+  res.json(_swCache);
+  if (Date.now() - _swFetchedAt > 20 * 60 * 1000) _fetchSessionWraps(false).catch(() => {});
+});
+
+// ── Puppeteer browser partagé pour InvestingLive (SPA Vue/Nuxt) ─────────────
+let _ilBrowser = null;
+
+function _resolveChrome() {
+  if (process.env.PUPPETEER_EXECUTABLE_PATH) return process.env.PUPPETEER_EXECUTABLE_PATH;
+  if (process.env.CHROME_EXEC)               return process.env.CHROME_EXEC;
+  if (process.platform === 'win32')  return 'C:/Program Files/Google/Chrome/Application/chrome.exe';
+  if (process.platform === 'darwin') return '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
+  const { existsSync } = fs;
+  const candidates = ['/usr/bin/chromium','/usr/bin/chromium-browser','/usr/bin/google-chrome-stable','/usr/bin/google-chrome'];
+  return candidates.find(existsSync) || 'chromium';
+}
+
+async function _getIlBrowser() {
+  if (_ilBrowser) { try { await _ilBrowser.pages(); return _ilBrowser; } catch { _ilBrowser = null; } }
+  _ilBrowser = await puppeteer.launch({
+    executablePath: _resolveChrome(),
+    headless: true,
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
+  });
+  _ilBrowser.on('disconnected', () => { _ilBrowser = null; });
+  return _ilBrowser;
+}
+
+async function _scrapeILviaPuppeteer(url) {
+  const browser = await _getIlBrowser();
+  const page    = await browser.newPage();
+  try {
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 30_000 });
+
+    // Attendre que le contenu Vue/Nuxt soit rendu
+    await page.waitForSelector(
+      '.article__content-body, .article-body-normal, .article__body, .post-content, .entry-content',
+      { timeout: 12_000 }
+    ).catch(() => {});
+
+    const html = await page.evaluate(() => {
+      // Essayer les sélecteurs spécifiques à InvestingLive (Vue/Nuxt)
+      const selectors = [
+        '.article__content-body',
+        '.article-body-normal',
+        '.article__body',
+        '[class*="article__content"]',
+        '.post-content',
+        '.entry-content',
+        'article',
+      ];
+      for (const s of selectors) {
+        const el = document.querySelector(s);
+        if (el && el.innerText.trim().length > 100) return el.innerHTML;
+      }
+      return '';
+    });
+    return html;
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+app.get('/api/session-wrap-content', async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.startsWith('https://investinglive.com/')) return res.json({ html: '' });
+
+  const cached = _swCache.find(i => i.url === url);
+
+  // ── 1. HTML extrait du RSS (CDATA) — toujours disponible ─────────────────────
+  if (cached?.content && cached.content.length > 100) {
+    const clean = cached.content
+      .replace(/<img[^>]*>/gi, '').replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
+      .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').trim();
+    return res.json({ html: clean, source: 'rss' });
+  }
+
+  // ── 2. Puppeteer — render le SPA Vue/Nuxt côté client ────────────────────────
+  try {
+    console.log(`[IL] Scraping via Puppeteer: ${url}`);
+    const rawHtml = await _scrapeILviaPuppeteer(url);
+    if (rawHtml && rawHtml.length > 100) {
+      const clean = rawHtml
+        .replace(/<img[^>]*>/gi, '').replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
+        .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '').replace(/\s{3,}/g, '\n').trim();
+      // Mettre en cache pour les prochains appels
+      if (cached) cached.content = clean;
+      console.log(`[IL] Content extracted: ${clean.length} chars`);
+      return res.json({ html: clean, source: 'puppeteer' });
+    }
+    throw new Error('No content found via Puppeteer');
+  } catch (e) {
+    console.error('[IL] Puppeteer failed:', e.message);
+  }
+
+  // ── 3. Fallback : description RSS ────────────────────────────────────────────
+  const desc = cached?.description || '';
+  res.json({ html: desc ? `<p>${desc}</p>` : '', source: 'rss-desc', error: 'Puppeteer failed' });
+});
+
+// ── ING Think Bank Research ───────────────────────────────────────────────────
+function _brLoadFile() {
+  try {
+    const data = JSON.parse(fs.readFileSync(BR_CACHE_FILE, 'utf8'));
+    if (Array.isArray(data)) {
+      _brCache = data.filter(i => i.timestamp > Date.now() - BR_MAX_AGE);
+      console.log(`[BankResearch] Loaded ${_brCache.length} articles from file`);
+    }
+  } catch {}
+}
+
+async function _fetchBankResearch(full = false) {
+  _brFetchedAt = Date.now();
+  const cutoff   = Date.now() - BR_MAX_AGE;
+  const maxPages = full ? 20 : 3;
+  const UA       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+  const merged   = new Map(_brCache.map(i => [i.id, i]));
+
+  for (let page = 1; page <= maxPages; page++) {
+    try {
+      const url = page === 1
+        ? 'https://think.ing.com/rss/'
+        : `https://think.ing.com/rss/?paged=${page}`;
+      const r = await axios.get(url, {
+        timeout: 12000,
+        headers: { 'User-Agent': UA },
+        validateStatus: s => s < 500,
+      });
+      if (r.status !== 200) break;
+
+      const $  = cheerio.load(r.data, { xmlMode: true });
+      let any  = false;
+      let old  = false;
+
+      $('item').each((_, el) => {
+        const title = $('title', el).text().trim();
+        const link  = $('link', el).contents().filter((_, n) => n.type === 'text').text().trim()
+                   || $('guid', el).text().trim();
+        if (!title || !link) return;
+
+        const rawDate = $('pubDate', el).text().trim()
+                     || $('dc\\:date', el).text().trim();
+        const ts = new Date(rawDate).getTime() || 0;
+        if (ts && ts < cutoff) { old = true; return; }
+
+        const cats = [];
+        $('category', el).each((_, c) => { const t = $(c).text().trim(); if (t) cats.push(t); });
+        $('dc\\:subject', el).each((_, s) => { const t = $(s).text().trim(); if (t && !cats.includes(t)) cats.push(t); });
+
+        const desc = $('description', el).text().replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().slice(0,400);
+
+        const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
+        merged.set(id, {
+          id,
+          title,
+          url:         link,
+          timestamp:   ts || Date.now(),
+          categories:  cats.slice(0, 8),
+          description: desc,
+          institution: 'ING',
+          _source:     'ing-think',
+        });
+        any = true;
+      });
+
+      if (old || !any) break;
+    } catch { break; }
+  }
+
+  const before = _brCache.length;
+  _brCache = [...merged.values()]
+    .filter(i => i.timestamp > cutoff)
+    .sort((a, b) => b.timestamp - a.timestamp);
+
+  try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
+  console.log(`[BankResearch] ${_brCache.length} articles (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+}
+
+app.get('/api/bank-research', (_req, res) => {
+  res.json(_brCache);
+  if (Date.now() - _brFetchedAt > 20 * 60 * 1000) _fetchBankResearch(false).catch(() => {});
+});
+
+app.get('/api/bank-research-content', async (req, res) => {
+  const { url } = req.query;
+  if (!url || !url.startsWith('https://think.ing.com/')) return res.json({ html: '' });
+  try {
+    const r = await axios.get(url, {
+      timeout: 15000,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      validateStatus: () => true,
+    });
+    const $ = cheerio.load(r.data);
+
+    // Extract metadata
+    const subtitle = $('meta[property="og:description"]').attr('content')
+                  || $('meta[name="description"]').attr('content')
+                  || $('h2').first().text().trim()
+                  || '';
+    const pubDate  = $('time').first().attr('datetime')
+                  || $('time').first().text().trim()
+                  || $('meta[property="article:published_time"]').attr('content')
+                  || '';
+    const section  = $('.article-type, .report-type, [class*="article-type"], [class*="section-label"]').first().text().trim()
+                  || 'ING Think Research';
+
+    // Extraire le pays/region tag (ING Think affiche ex: "FRANCE", "NETHERLANDS")
+    const country = $('[class*="article-tag"], [class*="country"], [class*="region"], .tag-label')
+                      .first().text().trim().toUpperCase()
+                  || $('meta[property="article:tag"]').attr('content')?.toUpperCase()
+                  || '';
+
+    // Extraire le type d'article (Article, Analysis, Report…)
+    const articleType = $('.article-type, [class*="article-type"], [class*="content-type"]').first().text().trim()
+                      || $('meta[property="og:type"]').attr('content')
+                      || 'Article';
+
+    // Remove noise (garder les images et figures)
+    $('script,style,nav,header,footer,.cookie-banner,[class*="social"],[class*="related"],[class*="subscribe"],[class*="newsletter"],[class*="sidebar"],[class*="widget"],#comments').remove();
+
+    // Extract body HTML (avec images)
+    const body = $('[class*="article-body"], [class*="article__body"], [class*="article-content"], [class*="post-content"], .content-body, article .content, .entry-content, .wysiwyg, .rich-text').first().html()
+              || $('main article').first().html()
+              || $('main').first().html()
+              || '';
+
+    // Corriger les URLs relatives des images → absolues
+    const clean = body
+      .replace(/src="\/([^"]*)"/g, 'src="https://think.ing.com/$1"')
+      .replace(/srcset="\/([^"]*)"/g, 'srcset="https://think.ing.com/$1"')
+      .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')   // SVG déco uniquement
+      .replace(/\s{3,}/g, '\n')
+      .trim();
+
+    // Format date nicely
+    let dateFormatted = '';
+    if (pubDate) {
+      try {
+        dateFormatted = new Date(pubDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
+      } catch { dateFormatted = pubDate; }
+    }
+
+    res.json({ html: clean, subtitle, date: dateFormatted, section, country, articleType });
+  } catch (e) {
+    res.json({ html: '', error: e.message });
+  }
+});
+
+// Trusted financial news domains allowed for article content fetch
+const ARTICLE_ALLOWED = /^https?:\/\/(www\.)?(forexfactory\.com|reuters\.com|bloomberg\.com|ft\.com|wsj\.com|cnbc\.com|marketwatch\.com|investing\.com|fxstreet\.com|financialjuice\.com|forexlive\.com|dailyfx\.com|tradingeconomics\.com|bbc\.co\.uk\/news|apnews\.com|axios\.com|thehill\.com|politico\.com)\//i;
+
+app.get('/api/article', async (req, res) => {
+  const { url, headline } = req.query;
+  if (!url || !ARTICLE_ALLOWED.test(url)) return res.json({ points: [], label: 'Info' });
+  try {
+    const data = await getArticleContent(url, headline || '');
+    res.json(data || { points: [], label: 'Info' });
+  } catch { res.json({ points: [], label: 'Info' }); }
+});
+app.get('/api/cot', async (req, res) => {
+  const type = ['noncomm','dealer','asset_mgr','lev_money','other_rept'].includes(req.query.type)
+    ? req.query.type : 'noncomm';
+  try {
+    const data = await fetchCOTData(type);
+    if (!data || data.length === 0) return res.status(503).json({ error: 'Data unavailable' });
+    res.json({ currencies: data, type, updatedAt: new Date().toISOString() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/community-outlook', async (req, res) => {
+  const period = ['H1','H4','D1'].includes(req.query.period) ? req.query.period : 'H1';
+  const force  = req.query.force === '1';
+  if (force) clearOutlookCache();
+  try {
+    const data = await fetchCommunityOutlook(period);
+    res.json({ symbols: data, period, updatedAt: new Date().toISOString() });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+app.get('/api/status', (_req, res) => res.json({
+  total: allNews.length,
+  lastUpdate: new Date().toISOString(),
+  clients: wss.clients.size,
+}));
+
+// ─── AI Analysis endpoint ─────────────────────────────────────────────────────
+const _analyseCache = new Map();
+app.post('/api/analyse', async (req, res) => {
+  const { headline, category, description } = req.body || {};
+  if (!headline) return res.status(400).json({ error: 'headline required' });
+
+  const cacheKey = headline.substring(0, 100);
+  if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
+
+  try {
+    const anthropic = new Anthropic();
+    const ctx = description
+      ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
+      : '';
+
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 350,
+      messages: [{
+        role: 'user',
+        content: `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+
+Headline: ${headline}
+Category: ${category}${ctx}
+
+Write 2-4 bullet points. Rules:
+- Name the exact instruments affected (EUR/USD, Brent, XAU/USD, US10Y, etc.)
+- Explain the causal mechanism, not just direction
+- Be specific and non-generic, max 25 words per bullet
+- Start each bullet with •
+- Respond only with the bullets, no preamble`,
+      }],
+    });
+
+    const text = msg.content[0]?.text || '';
+    const bullets = text.split('\n')
+      .map(l => l.trim())
+      .filter(l => /^[•\-\*]/.test(l))
+      .map(l => l.replace(/^[•\-\*]\s*/, ''));
+
+    const result = { bullets: bullets.length ? bullets : [text.trim().substring(0, 200)] };
+    _analyseCache.set(cacheKey, result);
+    if (_analyseCache.size > 500) _analyseCache.delete(_analyseCache.keys().next().value);
+    res.json(result);
+  } catch (e) {
+    console.error('[Analyse API]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Analyst Outlook endpoint ────────────────────────────────────────────────
+const _outlookCache = new Map();
+
+app.post('/api/analyst-outlook', async (req, res) => {
+  const { pair, cb, headlines } = req.body || {};
+  if (!pair) return res.status(400).json({ error: 'pair required' });
+
+  const cacheKey = `${pair}:${(headlines || '').slice(0, 120)}`;
+  if (_outlookCache.has(cacheKey)) return res.json(_outlookCache.get(cacheKey));
+
+  try {
+    const anthropic = new Anthropic();
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 600,
+      messages: [{
+        role: 'user',
+        content: `You are a professional forex analyst. Provide a structured market outlook for ${pair} based on the following recent headlines.
+
+Central banks: ${cb || 'N/A'}
+Recent headlines (last 24h):
+${headlines || 'None available'}
+
+Respond with ONLY valid JSON in this exact format:
+{
+  "bias": "bullish|bearish|neutral",
+  "confidence": 65,
+  "summary": "One sentence overall bias summary (max 30 words)",
+  "bullets": [
+    "Bullet 1: specific driver with instrument impact",
+    "Bullet 2: specific driver with instrument impact",
+    "Bullet 3: specific driver with instrument impact"
+  ],
+  "levels": [
+    {"type": "resistance", "price": "1.0950", "note": "50-day EMA / key pivot"},
+    {"type": "support",    "price": "1.0820", "note": "200-day EMA"},
+    {"type": "support",    "price": "1.0750", "note": "Monthly low"}
+  ]
+}
+Be specific. Use actual levels where known. Max 3 levels. Output only valid JSON.`,
+      }],
+    });
+
+    const text      = msg.content[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON');
+    const result = JSON.parse(jsonMatch[0]);
+    _outlookCache.set(cacheKey, result);
+    if (_outlookCache.size > 200) _outlookCache.delete(_outlookCache.keys().next().value);
+    res.json(result);
+  } catch (e) {
+    console.error('[Analyst Outlook]', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── London Open Preparation Report ─────────────────────────────────────────
+
+let _londonPrepCache = null;
+let _londonPrepTs    = 0;
+const LONDON_PREP_TTL = 30 * 60 * 1000; // 30 min cache
+
+function buildTemplateLondonPrep(sections, allRecent) {
+  const now     = new Date();
+  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  const dateStr = now.toLocaleDateString('en-GB',  { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
+  const toItems = (arr, max = 5) => arr.slice(0, max).map(i => `${i.time} — ${i.headline}`);
+
+  return {
+    title: `London Open Preparation — ${dateStr}`,
+    generatedAt: timeStr,
+    newsCount: allRecent.length,
+    sections: [
+      { id:'geopolitical', title:'GEOPOLITICAL RISK', icon:'⚑',  items: toItems(sections.geopolitical) },
+      { id:'centralbanks', title:'CENTRAL BANKS',     icon:'🏛', items: toItems(sections.centralBanks) },
+      { id:'apac',         title:'APAC SESSION WRAP', icon:'🌏', items: toItems(sections.asian)        },
+      { id:'fx',           title:'FX',                 icon:'💱', items: toItems(sections.fx)           },
+      { id:'fixedincome',  title:'FIXED INCOME',       icon:'📊', items: toItems(sections.fixedIncome)  },
+      { id:'commodities',  title:'COMMODITIES',        icon:'🛢', items: [...toItems(sections.energy,3), ...toItems(sections.metals,2)] },
+      { id:'data',         title:'DATA RECAP',         icon:'📋', items: toItems(sections.data)         },
+      { id:'notable',      title:'NOTABLE COMMENTS',   icon:'💬', items: toItems(sections.notable)      },
+    ].filter(s => s.items.length > 0),
+    keyRisks: [],
+  };
+}
+
+async function generateLondonPrep(force = false) {
+  if (!force && _londonPrepCache && Date.now() - _londonPrepTs < LONDON_PREP_TTL) return _londonPrepCache;
+
+  const cutoff     = Date.now() - 14 * 60 * 60 * 1000; // last 14 hours
+  const recentNews = allNews.filter(i => i.timestamp > cutoff);
+
+  const CB_CATS = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ']);
+  const DATA_CATS = new Set(['Economic Commentary','EU Data','US Data','UK Data',
+    'Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data']);
+
+  const sections = {
+    geopolitical: recentNews.filter(i => i.category === 'Geopolitical' ||
+      /iran|russia|ukraine|israel|hamas|nato|north\s+korea|ceasefire|nuclear\s+deal/i.test(i.headline)),
+    centralBanks: recentNews.filter(i => CB_CATS.has(i.category)),
+    fx:           recentNews.filter(i => i.category === 'FX Flows' || i.category === 'Market Analysis'),
+    fixedIncome:  recentNews.filter(i => i.category === 'Fixed Income'),
+    energy:       recentNews.filter(i => i.category === 'Energy & Power'),
+    metals:       recentNews.filter(i => i.category === 'Metals'),
+    data:         recentNews.filter(i => DATA_CATS.has(i.category) && i.priority === 'high'),
+    asian:        recentNews.filter(i => i.category === 'Asian News' ||
+      /\b(?:japan|tokyo|nikkei|boj|china|pboc|shanghai|hong kong|singapore|asx|australia|rba|rbnz|new zealand)\b/i.test(i.headline)),
+    trade:        recentNews.filter(i => i.category === 'Trade'),
+    notable:      recentNews.filter(i => CB_CATS.has(i.category) && /says?|said|notes?|warns?|signals?|sees?\s/i.test(i.headline)),
+  };
+
+  const summarise = (items, max = 6) =>
+    items.length ? items.slice(0, max).map(i => `[${i.time}] ${i.headline}`).join('\n') : 'Nothing significant';
+
+  const dateStr = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris',
+  });
+  const timeStr = new Date().toLocaleTimeString('fr-FR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris',
+  });
+
+  const prompt = `You are a professional market analyst writing a London Open preparation bulletin (style: Newsquawk/Rannforex). Today is ${dateStr}, ${timeStr} Paris.
+
+OVERNIGHT HEADLINES (last 14h):
+GEOPOLITICAL:\n${summarise(sections.geopolitical)}
+CENTRAL BANKS:\n${summarise(sections.centralBanks)}
+FX / MACRO:\n${summarise(sections.fx)}
+FIXED INCOME:\n${summarise(sections.fixedIncome)}
+ENERGY:\n${summarise(sections.energy)}
+METALS:\n${summarise(sections.metals)}
+DATA:\n${summarise(sections.data)}
+ASIAN SESSION:\n${summarise(sections.asian)}
+TRADE:\n${summarise(sections.trade)}
+
+Write a structured London Open prep report. Return ONLY valid JSON:
+{
+  "title": "London Open Preparation — ${dateStr}",
+  "generatedAt": "${timeStr} CET",
+  "headline": "One-sentence overall market bias for London open",
+  "sections": [
+    {"id":"geopolitical","title":"GEOPOLITICAL RISK","icon":"⚑","content":"2-3 sentence summary","items":["bullet 1","bullet 2","bullet 3"]},
+    {"id":"centralbanks","title":"CENTRAL BANKS","icon":"🏛","content":"2-3 sentence summary","items":["bullet 1","bullet 2","bullet 3"]},
+    {"id":"apac","title":"APAC SESSION WRAP","icon":"🌏","content":"2-3 sentence summary","items":["bullet 1","bullet 2"]},
+    {"id":"fx","title":"FX","icon":"💱","content":"2-3 sentence summary","items":["bullet 1","bullet 2","bullet 3"]},
+    {"id":"fixedincome","title":"FIXED INCOME","icon":"📊","content":"1-2 sentence summary","items":["bullet 1","bullet 2"]},
+    {"id":"commodities","title":"COMMODITIES","icon":"🛢","content":"2-3 sentence summary","items":["bullet 1","bullet 2","bullet 3"]},
+    {"id":"data","title":"DATA RECAP","icon":"📋","content":"Summary of key data released","items":["bullet 1","bullet 2"]},
+    {"id":"notable","title":"NOTABLE CB COMMENTS","icon":"💬","content":"Key central banker statements","items":["bullet 1","bullet 2"]}
+  ],
+  "keyRisks": ["risk 1","risk 2","risk 3"],
+  "watchlist": [{"pair":"EUR/USD","bias":"bearish","reason":"ECB dovish"},{"pair":"USD/JPY","bias":"bullish","reason":"BoJ hold"}]
+}
+Be specific — name instruments (EUR/USD, DXY, XAU/USD, Brent, US10Y) and levels where known. Skip sections with no relevant news. Only output valid JSON.`;
+
+  try {
+    const anthropic = new Anthropic();
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 2500,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text      = msg.content[0]?.text || '';
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error('No JSON in response');
+    const report = JSON.parse(jsonMatch[0]);
+    report.newsCount = recentNews.length;
+    _londonPrepCache = report;
+    _londonPrepTs    = Date.now();
+    console.log('[LondonPrep] Report generated via AI');
+    return report;
+  } catch (e) {
+    console.error('[LondonPrep] AI failed, using template:', e.message);
+    const fallback = buildTemplateLondonPrep(sections, recentNews);
+    _londonPrepCache = fallback;
+    _londonPrepTs    = Date.now();
+    return fallback;
+  }
+}
+
+app.get('/api/london-prep', async (req, res) => {
+  try {
+    const force  = req.query.force === '1';
+    const report = await generateLondonPrep(force);
+    res.json(report);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Auto-generate London prep at 08:45 Paris time every day
+(function scheduleLondonPrep() {
+  function msToNext0845Paris() {
+    const now = new Date();
+    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const target = new Date(paris);
+    target.setHours(8, 45, 0, 0);
+    if (paris >= target) target.setDate(target.getDate() + 1); // already past — schedule for tomorrow
+    return target.getTime() - paris.getTime();
+  }
+  const delay = msToNext0845Paris();
+  console.log(`[LondonPrep] Auto-generation scheduled in ${Math.round(delay / 60000)} min`);
+  setTimeout(function run() {
+    generateLondonPrep(true)
+      .then(() => console.log('[LondonPrep] Auto-generated at 08:45 Paris'))
+      .catch(e  => console.error('[LondonPrep] Auto-generation failed:', e.message));
+    setInterval(() => {
+      generateLondonPrep(true)
+        .then(() => console.log('[LondonPrep] Auto-generated at 08:45 Paris'))
+        .catch(e  => console.error('[LondonPrep] Auto-generation failed:', e.message));
+    }, 24 * 60 * 60 * 1000); // every 24h
+  }, delay);
+})();
+
+// ─── PMT Daily US Opening Briefing ──────────────────────────────────────────
+// Auto-generated at 14:45 Paris (≈ 08:45 NY) and injected directly into the news feed
+
+const _US_BRIEFING_ID_PREFIX = 'pmt-us-briefing-';
+
+async function generateUSOpeningBriefing() {
+  const dateStr = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris',
+  });
+  const shortDate = new Date().toLocaleDateString('en-GB', {
+    day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Paris',
+  });
+  const timeStr = new Date().toLocaleTimeString('fr-FR', {
+    hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris',
+  });
+
+  // Deduplicate: don't generate if already in feed for today
+  const todayPrefix = _US_BRIEFING_ID_PREFIX + new Date().toISOString().slice(0, 10);
+  if (allNews.some(i => (i.id || '').startsWith(todayPrefix))) {
+    console.log('[USBriefing] Already generated today, skipping.');
+    return;
+  }
+
+  const cutoff     = Date.now() - 8 * 60 * 60 * 1000; // last 8h (overnight + morning)
+  const recentNews = allNews.filter(i => i.timestamp > cutoff);
+
+  const CB_CATS   = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ']);
+  const DATA_CATS = new Set(['Economic Commentary','EU Data','US Data','UK Data',
+    'Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data']);
+
+  const summarise = (items, max = 5) =>
+    items.length ? items.slice(0, max).map(i => `• ${i.headline}`).join('\n') : 'Nothing significant';
+
+  const sections = {
+    cb:   recentNews.filter(i => CB_CATS.has(i.category)),
+    data: recentNews.filter(i => DATA_CATS.has(i.category) && i.priority === 'high'),
+    geo:  recentNews.filter(i => i.category === 'Geopolitical'),
+    fx:   recentNews.filter(i => i.category === 'FX Flows' || i.category === 'Market Analysis'),
+    nrg:  recentNews.filter(i => i.category === 'Energy & Power' || i.category === 'Metals'),
+    trade:recentNews.filter(i => i.category === 'Trade'),
+  };
+
+  const prompt = `You are a professional market analyst at a prime brokerage writing the daily US opening briefing (08:45 NY). Style: Newsquawk — concise, factual, actionable. Today: ${dateStr}.
+
+OVERNIGHT / MORNING NEWS:
+CENTRAL BANKS:\n${summarise(sections.cb)}
+KEY DATA:\n${summarise(sections.data)}
+GEOPOLITICAL:\n${summarise(sections.geo)}
+FX / MACRO:\n${summarise(sections.fx)}
+ENERGY / METALS:\n${summarise(sections.nrg)}
+TRADE:\n${summarise(sections.trade)}
+
+Write 6-10 crisp bullet points covering:
+1. Overnight sentiment / risk tone
+2. Key CB headlines and implications for USD, EUR, GBP, JPY
+3. Notable data releases and market impact
+4. Geopolitical risk drivers
+5. Energy/commodity key levels
+6. Key events/speakers to watch today
+
+Rules: start each bullet with a dash (-). Be specific (name pairs, levels, bps). No fluff. Max 10 bullets. Plain text only, no markdown.`;
+
+  try {
+    const anthropic = new Anthropic();
+    const msg = await anthropic.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 900,
+      messages: [{ role: 'user', content: prompt }],
+    });
+    const text    = (msg.content[0]?.text || '').trim();
+    const bullets = text.split('\n').map(l => l.trim()).filter(l => l.startsWith('-')).join('\n');
+    const description = bullets || text;
+
+    const now  = Date.now();
+    const item = {
+      id:          todayPrefix + '-' + now,
+      headline:    `PRIMER - PMT Daily US Opening News — ${shortDate}`,
+      description,
+      category:    'Market Analysis',
+      source:      'PMT',
+      time:        timeStr,
+      timestamp:   now,
+      priority:    'normal',
+      tags:        ['US', 'Market Analysis'],
+      _briefing:   true,
+    };
+
+    allNews = [item, ...allNews].slice(0, 2000);
+    saveHistory();
+    broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
+    console.log(`[USBriefing] Generated & pushed: "${item.headline}"`);
+  } catch (e) {
+    console.error('[USBriefing] AI failed:', e.message);
+  }
+}
+
+// Auto-generate at 14:45 Paris time every day (= ~08:45 New York)
+(function scheduleUSBriefing() {
+  function msToNext1445Paris() {
+    const now   = new Date();
+    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const target = new Date(paris);
+    target.setHours(14, 45, 0, 0);
+    if (paris >= target) target.setDate(target.getDate() + 1);
+    return target.getTime() - paris.getTime();
+  }
+  const delay = msToNext1445Paris();
+  console.log(`[USBriefing] Auto-generation scheduled in ${Math.round(delay / 60000)} min`);
+  setTimeout(function run() {
+    generateUSOpeningBriefing()
+      .catch(e => console.error('[USBriefing] Auto-generation failed:', e.message));
+    setInterval(() => {
+      generateUSOpeningBriefing()
+        .catch(e => console.error('[USBriefing] Auto-generation failed:', e.message));
+    }, 24 * 60 * 60 * 1000);
+  }, delay);
+})();
+
+// Manual trigger endpoint
+app.get('/api/us-briefing/generate', async (req, res) => {
+  try {
+    await generateUSOpeningBriefing();
+    res.json({ ok: true, message: 'US Opening briefing generated and pushed to feed' });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Generic PMT daily briefing generator ────────────────────────────────────
+
+function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = false, buildFn, dateOffset = 0 }) {
+  // dateOffset=0 → today, dateOffset=1 → yesterday
+  const targetTs  = Date.now() - dateOffset * 24 * 60 * 60 * 1000;
+  const targetDate = new Date(targetTs);
+  const dateKey   = new Date(targetDate.toLocaleString('en-US', { timeZone: 'Europe/Paris' }))
+                      .toISOString().slice(0, 10);
+
+  const todayPrefix = idPrefix + dateKey;
+  if (!force && allNews.some(i => (i.id || '').startsWith(todayPrefix))) {
+    console.log(`[PMT] ${reportType} already generated for ${dateKey}, skipping.`);
+    return;
+  }
+  // Remove existing same-day briefings (replace on force, or clean stale)
+  if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(todayPrefix));
+
+  const now     = Date.now();
+  // Shift the window back by dateOffset days for past reports
+  const windowEnd   = now - dateOffset * 24 * 60 * 60 * 1000;
+  const cutoff      = windowEnd - cutoffHours * 60 * 60 * 1000;
+  const recent      = allNews.filter(i => i.timestamp > cutoff && i.timestamp <= windowEnd && !i._briefing);
+  const timeStr     = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  const dateStr     = targetDate.toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
+
+  const CB_CATS   = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
+  const DATA_CATS = new Set(['Economic Commentary','EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data','New Zealand Data']);
+
+  const s = {
+    cb:    recent.filter(i => CB_CATS.has(i.category)),
+    data:  recent.filter(i => DATA_CATS.has(i.category)),
+    hdata: recent.filter(i => DATA_CATS.has(i.category) && (i.priority === 'high' || i.priority === 'urgent')),
+    geo:   recent.filter(i => i.category === 'Geopolitical'),
+    fx:    recent.filter(i => i.category === 'FX Flows' || i.category === 'Market Analysis'),
+    nrg:   recent.filter(i => i.category === 'Energy & Power' || i.category === 'Metals'),
+    trade: recent.filter(i => i.category === 'Trade'),
+    asian: recent.filter(i => i.category === 'Asian News'),
+    all:   recent,
+  };
+
+  const { subtitle, bullets, tags } = buildFn({ dateStr, timeStr, s, reportType });
+
+  const description = bullets
+    .filter(Boolean)
+    .map(b => `- ${b.replace(/^[-•·]\s*/,'').trim()}`)
+    .join('\n');
+
+  const item = {
+    id:          todayPrefix + '-' + now,
+    headline:    `PRIMER — ${subtitle}`,
+    description,
+    category:    'Market Analysis',
+    source:      'PMT',
+    time:        timeStr,
+    timestamp:   now,
+    priority:    'normal',
+    tags:        tags.length ? tags : [reportType],
+    _briefing:   true,
+    _reportType: reportType,
+  };
+
+  allNews = [item, ...allNews].slice(0, 2000);
+  saveHistory();
+  broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
+  console.log(`[PMT] "${item.headline}" → ${bullets.length} bullets (${recent.length} items)`);
+  return item;
+}
+
+// ─── Template helpers ─────────────────────────────────────────────────────────
+
+function _topLines(items, n) { return items.slice(0, n).map(i => i.headline).filter(Boolean); }
+
+function _activeCBs(items) {
+  const CBS = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
+  const seen = new Set();
+  items.forEach(i => { if (CBS.has(i.category)) seen.add(i.category); });
+  return [...seen];
+}
+
+function _briefingSubtitle(reportType, s, preferredCBs = null) {
+  const chunks = [];
+
+  // ── CB event: prioritise session-relevant central banks ──
+  let cbList = s.cb;
+  if (preferredCBs && preferredCBs.length && s.cb.length) {
+    const pref = s.cb.filter(i => preferredCBs.includes(i.category));
+    const rest = s.cb.filter(i => !preferredCBs.includes(i.category));
+    cbList = pref.length ? [...pref, ...rest] : s.cb;
+  }
+
+  if (cbList.length) {
+    const item = cbList[0];
+    const h    = item.headline;
+    const cb   = item.category;
+    let nugget;
+    if      (/\bcut(s|ting)?\b|\blower(ed|s)?\b|\breduced?\b/i.test(h))       nugget = `${cb} cuts`;
+    else if (/\bhike(s|d)?\b|\braise(s|d)?\b|\bincreased?\b/i.test(h))        nugget = `${cb} hikes`;
+    else if (/\bholds?\b|\bpause(s|d)?\b|\bunchanged\b|\bsteady\b/i.test(h))  nugget = `${cb} holds`;
+    else if (/\bhawkish\b/i.test(h))                                            nugget = `${cb} hawkish`;
+    else if (/\bdovish\b/i.test(h))                                             nugget = `${cb} dovish`;
+    else if (cbList.length > 1) { const other = cbList.find(x => x.category !== cb); nugget = other ? `${cb} & ${other.category}` : cb; }
+    else {
+      const short = h.replace(new RegExp(`^${cb}'?s?\\s*[-:]?\\s*`, 'i'), '').substring(0, 36).replace(/\s\S+$/, '').trim();
+      nugget = short ? `${cb}: ${short}` : cb;
+    }
+    if (nugget) chunks.push(nugget);
+  }
+
+  // ── High-impact data: extract value + beats/misses ──
+  if (s.hdata.length) {
+    const di = s.hdata[0];
+    const h  = di.headline;
+    // Strip "XX Data:" prefix (e.g. "EU Data: German CPI..." → "German CPI...")
+    const stripped = h.replace(/^(?:EU|US|UK|Swiss|Japanese|Canadian|Australian|Chinese|New Zealand)\s+Data\s*:\s*/i, '').trim();
+    // Extract data name: everything before the first data qualifier / number / month abbrev
+    const nameM = stripped.match(/^([A-Za-z][A-Za-z\s''-]{3,29}?)(?=\s*(?:YoY|MoM|y\/y|m\/m|Prel|Flash|Final|Actual|Revised|H[12]\b|Q[1-4]\b|\d|vs?\.?|Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\())/i);
+    const catFallback = di.category.replace(/\s+Data$/, '').replace('Economic Commentary', 'Data').replace('New Zealand', 'NZ');
+    const cat = nameM ? nameM[1].trim().replace(/\s+$/, '') : catFallback;
+    const valMatch = h.match(/(\d[\d.,]+\s*%)/);
+    const val = valMatch ? valMatch[1].trim() : '';
+    let result = '';
+    if      (/above|beat(s|en)?|better|stronger|upside/i.test(h))           result = 'beats';
+    else if (/below|miss(es|ed)?|weaker|downside|soft|disappoint/i.test(h)) result = 'misses';
+    if (val && result)     chunks.push(`${cat} ${val} ${result}`);
+    else if (val)          chunks.push(`${cat} ${val}`);
+    else if (result)       chunks.push(`${cat} ${result}`);
+    else                   chunks.push(stripped.substring(0, 44).replace(/\s\S+$/, '').trim());
+  }
+
+  // ── Fallback: geo / trade / fx / top category ──
+  if (!chunks.length) {
+    if (s.geo.length) {
+      chunks.push(s.geo[0].headline.substring(0, 52).replace(/\s\S+$/, '').trim());
+    } else if (s.trade.length > 1) {
+      chunks.push('Trade tensions');
+    } else if (s.fx.length) {
+      chunks.push(s.fx[0].headline.substring(0, 48).replace(/\s\S+$/, '').trim());
+    } else if (s.all.length) {
+      const counts = {};
+      s.all.forEach(i => { if (i.category) counts[i.category] = (counts[i.category]||0)+1; });
+      const top = Object.entries(counts).sort((a, b) => b[1]-a[1])[0];
+      if (top) chunks.push(top[0]);
+    }
+  }
+
+  return `${reportType}: ${chunks.slice(0, 2).join(' · ') || 'Markets Update'}`;
+}
+
+function _briefingTags(s, extra = []) {
+  const out = new Set(extra);
+  _activeCBs(s.cb).forEach(c => out.add(c));
+  s.hdata.slice(0,3).forEach(i => out.add(i.category.replace(' Data','').replace('Economic Commentary','Macro')));
+  if (s.geo.length)   out.add('Geopolitical');
+  if (s.nrg.length)   out.add('Commodities');
+  if (s.trade.length) out.add('Trade');
+  if (s.fx.length)    out.add('FX');
+  return [...out].slice(0, 8);
+}
+
+function _pushBullets(bullets, heading, items, max) {
+  if (!items.length) return;
+  const lines = _topLines(items, max);
+  bullets.push(`${heading}: ${lines[0]}`);
+  lines.slice(1).forEach(l => bullets.push(`  ↳ ${l}`));
+}
+
+// ─── Génération hebdomadaire (ID par semaine ISO) ────────────────────────────
+function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }) {
+  const now  = Date.now();
+  const d    = new Date(now);
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const wk   = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  const weekKey    = `${d.getFullYear()}-W${String(wk).padStart(2,'0')}`;
+  const weekPrefix = idPrefix + weekKey;
+
+  if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix))) {
+    console.log(`[PMT] ${reportType} already generated for ${weekKey}, skipping.`); return;
+  }
+  if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(weekPrefix));
+
+  const cutoff  = now - 7 * 24 * 60 * 60 * 1000;
+  const recent  = allNews.filter(i => i.timestamp > cutoff && !i._briefing);
+  const timeStr = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
+  const dateStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric', timeZone:'Europe/Paris' });
+
+  const CB_CATS   = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
+  const DATA_CATS = new Set(['Economic Commentary','EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data','New Zealand Data']);
+  const s = {
+    cb:    recent.filter(i => CB_CATS.has(i.category)),
+    data:  recent.filter(i => DATA_CATS.has(i.category)),
+    hdata: recent.filter(i => DATA_CATS.has(i.category) && (i.priority === 'high' || i.priority === 'urgent')),
+    geo:   recent.filter(i => i.category === 'Geopolitical'),
+    fx:    recent.filter(i => i.category === 'FX Flows' || i.category === 'Market Analysis'),
+    nrg:   recent.filter(i => i.category === 'Energy & Power' || i.category === 'Metals'),
+    trade: recent.filter(i => i.category === 'Trade'),
+    asian: recent.filter(i => i.category === 'Asian News'),
+    all:   recent,
+  };
+
+  const { subtitle, bullets, tags } = buildFn({ dateStr, timeStr, s, reportType });
+  const description = bullets.filter(Boolean).map(b => `- ${b.replace(/^[-•·]\s*/,'').trim()}`).join('\n');
+  const item = {
+    id: weekPrefix + '-' + now, headline: `PRIMER — ${subtitle}`, description,
+    category: 'Market Analysis', source: 'PMT', time: timeStr, timestamp: now,
+    priority: 'normal', tags: tags.length ? tags : [reportType],
+    _briefing: true, _reportType: reportType,
+  };
+  allNews = [item, ...allNews].slice(0, 2000);
+  saveHistory();
+  broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
+  console.log(`[PMT] "${item.headline}" → ${bullets.length} bullets (7d window)`);
+  return item;
+}
+
+// ─── Report builders ──────────────────────────────────────────────────────────
+
+function buildUSOpening({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`US Opening — ${s.all.length} events tracked · ${dateStr}`);
+  _pushBullets(bullets, 'Fed & Central Banks', s.cb, 3);
+  _pushBullets(bullets, 'US Data', s.hdata.length ? s.hdata : s.data, 3);
+  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
+  _pushBullets(bullets, 'Trade', s.trade, 2);
+  _pushBullets(bullets, 'Equity & FX Outlook', s.fx, 2);
+  _pushBullets(bullets, 'Commodities', s.nrg, 2);
+  return { subtitle: _briefingSubtitle(reportType, s, ['Fed','BoC']), bullets, tags: _briefingTags(s, ['US Opening','USD']) };
+}
+
+function buildAsiaOpening({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`Asia Opening — ${s.all.length} events in review · ${dateStr}`);
+  _pushBullets(bullets, 'BoJ / RBA / PBOC Watch', s.cb, 3);
+  _pushBullets(bullets, 'Asian Session Headlines', s.asian, 3);
+  _pushBullets(bullets, 'Overnight Data', s.hdata.length ? s.hdata : s.data, 3);
+  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
+  _pushBullets(bullets, 'Commodities', s.nrg, 2);
+  _pushBullets(bullets, 'Trade', s.trade, 1);
+  return { subtitle: _briefingSubtitle(reportType, s, ['BoJ','RBA','RBNZ','PBOC']), bullets, tags: _briefingTags(s, ['Asia Opening','JPY','AUD']) };
+}
+
+function buildLondonRecap({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`London Session Recap — ${s.all.length} items tracked · ${dateStr}`);
+  _pushBullets(bullets, 'BoE / ECB Commentary', s.cb, 3);
+  _pushBullets(bullets, 'European Data Outcomes', s.hdata.length ? s.hdata : s.data, 3);
+  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
+  _pushBullets(bullets, 'EUR/GBP FX', s.fx, 2);
+  _pushBullets(bullets, 'Commodities', s.nrg, 2);
+  _pushBullets(bullets, 'Trade', s.trade, 1);
+  return { subtitle: _briefingSubtitle(reportType, s, ['BoE','ECB','SNB']), bullets, tags: _briefingTags(s, ['London Recap','EUR','GBP']) };
+}
+
+function buildUSRecap({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`US Session Recap — ${s.all.length} items tracked · ${dateStr}`);
+  _pushBullets(bullets, 'Fed Speakers & Policy', s.cb, 3);
+  _pushBullets(bullets, 'Key US Data', s.hdata.length ? s.hdata : s.data, 3);
+  _pushBullets(bullets, 'Geopolitical', s.geo, 2);
+  _pushBullets(bullets, 'Equities & Risk Tone', s.fx, 2);
+  _pushBullets(bullets, 'Energy & Metals', s.nrg, 2);
+  _pushBullets(bullets, 'Trade', s.trade, 1);
+  return { subtitle: _briefingSubtitle(reportType, s, ['Fed']), bullets, tags: _briefingTags(s, ['US Recap','S&P 500','USD']) };
+}
+
+function buildDailyReview({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`Daily Review — ${s.all.length} events · CB: ${s.cb.length} · Data: ${s.data.length} · Geo: ${s.geo.length} · ${dateStr}`);
+  _pushBullets(bullets, 'Central Banks', s.cb, 4);
+  _pushBullets(bullets, 'High-Impact Data', s.hdata.length ? s.hdata : s.data, 4);
+  _pushBullets(bullets, 'Geopolitical', s.geo, 3);
+  _pushBullets(bullets, 'Trade', s.trade, 2);
+  _pushBullets(bullets, 'FX & Markets', s.fx, 2);
+  _pushBullets(bullets, 'Commodities', s.nrg, 2);
+  _pushBullets(bullets, 'Asian Markets', s.asian, 1);
+  // Daily Review: pick the single most-active CB overall (no preference)
+  return { subtitle: _briefingSubtitle(reportType, s), bullets, tags: _briefingTags(s, ['Daily Review','Macro','Multi-Asset']) };
+}
+
+// ─── 4 nouveaux builders ──────────────────────────────────────────────────────
+
+// London Opening Preparation (07:45 Paris — avant l'ouverture de Londres)
+function buildLondonOpening({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`London Opening — ${s.all.length} events reviewed · ${dateStr}`);
+  _pushBullets(bullets, 'BoE / ECB Watch',       s.cb, 3);
+  _pushBullets(bullets, 'Overnight Headlines',   [...s.asian, ...s.geo].slice(0,5), 3);
+  _pushBullets(bullets, 'European Data Preview', s.hdata.length ? s.hdata : s.data, 3);
+  _pushBullets(bullets, 'Geopolitical',          s.geo, 2);
+  _pushBullets(bullets, 'EUR/GBP/CHF Setup',     s.fx, 2);
+  _pushBullets(bullets, 'Oil & Gold',            s.nrg, 2);
+  _pushBullets(bullets, 'Trade',                 s.trade, 1);
+  return { subtitle: _briefingSubtitle(reportType, s, ['BoE','ECB','SNB']), bullets, tags: _briefingTags(s, ['London Opening','EUR','GBP']) };
+}
+
+// Daily Market Recap (22:00 Paris — après clôture US)
+function buildDailyMarketRecap({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`Daily Market Recap — ${s.all.length} items · ${dateStr}`);
+  _pushBullets(bullets, 'Global Market Sentiment', [...s.fx, ...s.nrg].slice(0,4), 2);
+  _pushBullets(bullets, 'Central Banks & Policy',  s.cb, 4);
+  _pushBullets(bullets, 'Key Macro Releases',      s.hdata.length >= 2 ? s.hdata : s.data, 4);
+  _pushBullets(bullets, 'Geopolitical Events',     s.geo, 4);
+  _pushBullets(bullets, 'FX Markets',              s.fx, 3);
+  _pushBullets(bullets, 'Energy & Commodities',    s.nrg, 3);
+  _pushBullets(bullets, 'Trade & Tariffs',         s.trade, 2);
+  _pushBullets(bullets, 'Key Watch Next Session',  [...s.cb, ...s.hdata].slice(0,3), 2);
+  return { subtitle: _briefingSubtitle(reportType, s, ['Fed','ECB','BoJ','BoE']), bullets, tags: _briefingTags(s, ['Daily Recap','USD','EUR','Gold','Oil']) };
+}
+
+// Global Economic Weekly (vendredi 18:00 Paris — revue macro hebdomadaire)
+function buildGlobalEconomicWeekly({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`Global Economic Weekly — ${s.all.length} items · Week ending ${dateStr}`);
+  _pushBullets(bullets, 'Central Bank Highlights', s.cb, 6);
+  _pushBullets(bullets, 'Major Data Releases',     s.hdata.length >= 3 ? s.hdata : s.data, 6);
+  _pushBullets(bullets, 'Geopolitical Developments', s.geo, 5);
+  _pushBullets(bullets, 'Trade & Sanctions',       s.trade, 4);
+  _pushBullets(bullets, 'FX & Risk Trends',        s.fx, 4);
+  _pushBullets(bullets, 'Commodities',             s.nrg, 3);
+  return { subtitle: _briefingSubtitle(reportType, s, ['Fed','ECB','BoJ','BoE','BoC','RBA']), bullets, tags: _briefingTags(s, ['Weekly','Global','Macro']) };
+}
+
+// Weekly Market Recap (vendredi 21:00 Paris — synthèse marchés hebdo)
+function buildWeeklyMarketRecap({ dateStr, s, reportType }) {
+  const bullets = [];
+  bullets.push(`Weekly Market Recap — ${s.all.length} items · Week ending ${dateStr}`);
+  _pushBullets(bullets, 'Key Market Drivers',     [...s.fx, ...s.nrg].slice(0,6), 3);
+  _pushBullets(bullets, 'Central Bank Commentary', s.cb, 5);
+  _pushBullets(bullets, 'Top Data Events',         s.hdata.length >= 2 ? s.hdata : s.data, 5);
+  _pushBullets(bullets, 'Geopolitics & Policy',   [...s.geo, ...s.trade].slice(0,6), 4);
+  _pushBullets(bullets, 'FX Moves',               s.fx, 4);
+  _pushBullets(bullets, 'Commodities Performance', s.nrg, 3);
+  _pushBullets(bullets, 'Looking Ahead',          [...s.cb, ...s.data].slice(0,4), 2);
+  return { subtitle: _briefingSubtitle(reportType, s, ['Fed','ECB','BoJ']), bullets, tags: _briefingTags(s, ['Weekly Recap','FX','Markets']) };
+}
+
+// ─── Wrappers (async for schedule .catch() compatibility) ────────────────────
+async function generateAsiaOpeningBriefing(force = false, dateOffset = 0) {
+  return generateDailyBriefing({ idPrefix: 'pmt-asia-briefing-', reportType: 'Asia Opening Preparation', cutoffHours: 12, force, buildFn: buildAsiaOpening, dateOffset });
+}
+async function generateLondonRecap(force = false, dateOffset = 0) {
+  return generateDailyBriefing({ idPrefix: 'pmt-london-recap-', reportType: 'London Session Recap', cutoffHours: 9, force, buildFn: buildLondonRecap, dateOffset });
+}
+async function generateUSRecap(force = false, dateOffset = 0) {
+  return generateDailyBriefing({ idPrefix: 'pmt-us-recap-', reportType: 'US Session Recap', cutoffHours: 10, force, buildFn: buildUSRecap, dateOffset });
+}
+async function generateDailyEventReview(force = false, dateOffset = 0) {
+  return generateDailyBriefing({ idPrefix: 'pmt-daily-review-', reportType: 'Daily Event Review', cutoffHours: 24, force, buildFn: buildDailyReview, dateOffset });
+}
+async function _generateUSOpeningNew(force = false, dateOffset = 0) {
+  return generateDailyBriefing({ idPrefix: 'pmt-us-briefing-', reportType: 'US Opening Preparation', cutoffHours: 8, force, buildFn: buildUSOpening, dateOffset });
+}
+async function generateLondonOpeningBriefing(force = false, dateOffset = 0) {
+  return generateDailyBriefing({ idPrefix: 'pmt-london-opening-', reportType: 'London Opening Preparation', cutoffHours: 10, force, buildFn: buildLondonOpening, dateOffset });
+}
+async function generateDailyMarketRecap(force = false, dateOffset = 0) {
+  return generateDailyBriefing({ idPrefix: 'pmt-daily-recap-', reportType: 'Daily Market Recap', cutoffHours: 24, force, buildFn: buildDailyMarketRecap, dateOffset });
+}
+async function generateGlobalEconomicWeekly(force = false) {
+  return generateWeeklyBriefing({ idPrefix: 'pmt-econ-weekly-', reportType: 'Global Economic Weekly', force, buildFn: buildGlobalEconomicWeekly });
+}
+async function generateWeeklyMarketRecap(force = false) {
+  return generateWeeklyBriefing({ idPrefix: 'pmt-mkt-recap-', reportType: 'Weekly Market Recap', force, buildFn: buildWeeklyMarketRecap });
+}
+
+// ─── Schedule all briefings ───────────────────────────────────────────────────
+(function scheduleAllBriefings() {
+  // Rapports QUOTIDIENS (heure Paris)
+  const daily = [
+    { fn: () => generateAsiaOpeningBriefing(false),   h: 1,  m: 30, name: 'Asia Opening'         },
+    { fn: () => generateLondonOpeningBriefing(false), h: 7,  m: 45, name: 'London Opening'        },
+    { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
+    { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
+    { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
+    { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
+  ];
+  // Rapports HEBDOMADAIRES (vendredi uniquement)
+  const weekly = [
+    { fn: () => generateGlobalEconomicWeekly(false),  h: 18, m: 0,  name: 'Global Economic Weekly' },
+    { fn: () => generateWeeklyMarketRecap(false),     h: 21, m: 0,  name: 'Weekly Market Recap'    },
+  ];
+
+  function msToNextParis(h, m) {
+    const now    = new Date();
+    const paris  = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const target = new Date(paris);
+    target.setHours(h, m, 0, 0);
+    if (paris >= target) target.setDate(target.getDate() + 1);
+    return target.getTime() - paris.getTime();
+  }
+  function msToNextFriday(h, m) {
+    const now   = new Date();
+    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const target = new Date(paris);
+    const daysToFri = (5 - paris.getDay() + 7) % 7 || 7;
+    target.setDate(target.getDate() + daysToFri);
+    target.setHours(h, m, 0, 0);
+    // Si on est vendredi et l'heure n'est pas encore passée
+    if (paris.getDay() === 5 && paris < target) {
+      target.setDate(paris.getDate());
+      target.setHours(h, m, 0, 0);
+    }
+    return target.getTime() - paris.getTime();
+  }
+
+  for (const { fn, h, m, name } of daily) {
+    const delay = msToNextParis(h, m);
+    console.log(`[PMT] ${name} scheduled in ${Math.round(delay / 60000)} min`);
+    setTimeout(function run() {
+      fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message));
+      setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 24 * 60 * 60 * 1000);
+    }, delay);
+  }
+  for (const { fn, h, m, name } of weekly) {
+    const delay = msToNextFriday(h, m);
+    console.log(`[PMT] ${name} (weekly/Friday) scheduled in ${Math.round(delay / 60000)} min`);
+    setTimeout(function run() {
+      fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message));
+      setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 7 * 24 * 60 * 60 * 1000);
+    }, delay);
+  }
+})();
+
+// Manual triggers — force=true bypasses today's dedup check
+app.get('/api/briefing/:type/generate', async (req, res) => {
+  const force = req.query.force === '1';
+  const map = {
+    'us-opening':        () => _generateUSOpeningNew(force),
+    'asia-opening':      () => generateAsiaOpeningBriefing(force),
+    'london-opening':    () => generateLondonOpeningBriefing(force),
+    'london-recap':      () => generateLondonRecap(force),
+    'us-recap':          () => generateUSRecap(force),
+    'daily-recap':       () => generateDailyMarketRecap(force),
+    'daily-review':      () => generateDailyEventReview(force),
+    'weekly-economic':   () => generateGlobalEconomicWeekly(force),
+    'weekly-recap':      () => generateWeeklyMarketRecap(force),
+  };
+  const fn = map[req.params.type];
+  if (!fn) return res.status(404).json({ error: 'Valid types: us-opening, asia-opening, london-opening, london-recap, us-recap, daily-recap, daily-review, weekly-economic, weekly-recap' });
+  try {
+    await fn();
+    res.json({ ok: true, type: req.params.type });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Generate ALL briefings at once (today + optionally yesterday)
+app.get('/api/briefings/generate-all', async (req, res) => {
+  const force     = req.query.force === '1';
+  const yesterday = req.query.yesterday === '1';
+  res.json({ ok: true, message: `Generating all briefings${yesterday ? ' (today + yesterday)' : ''}…` });
+
+  const todayFns = [
+    { name: 'Asia Opening',       fn: () => generateAsiaOpeningBriefing(force, 0)  },
+    { name: 'London Opening',     fn: () => generateLondonOpeningBriefing(force, 0) },
+    { name: 'US Opening',         fn: () => _generateUSOpeningNew(force, 0)         },
+    { name: 'Daily Market Recap', fn: () => generateDailyMarketRecap(force, 0)      },
+    { name: 'Daily Event Review', fn: () => generateDailyEventReview(force, 0)      },
+    { name: 'Global Econ Weekly', fn: () => generateGlobalEconomicWeekly(force)     },
+    { name: 'Weekly Mkt Recap',   fn: () => generateWeeklyMarketRecap(force)        },
+  ];
+  const yesterdayFns = yesterday ? [
+    { name: 'US Opening (yest)',    fn: () => _generateUSOpeningNew(force, 1)        },
+    { name: 'Asia Opening (yest)',  fn: () => generateAsiaOpeningBriefing(force, 1)  },
+    { name: 'London Recap (yest)',  fn: () => generateLondonRecap(force, 1)          },
+    { name: 'US Recap (yest)',      fn: () => generateUSRecap(force, 1)              },
+    { name: 'Daily Review (yest)',  fn: () => generateDailyEventReview(force, 1)     },
+  ] : [];
+
+  for (const { name, fn } of [...todayFns, ...yesterdayFns]) {
+    try { await fn(); console.log(`[PMT] ${name} done`); }
+    catch (e) { console.error(`[PMT] ${name} failed:`, e.message); }
+    await new Promise(r => setTimeout(r, 1500));
+  }
+});
+
+// ─── Helpers ────────────────────────────────────────────────────────────────
+
+function detectEconAgency(text) { return _detectEconAgencyEarly(text); }
+
+// Geo escalation patterns that override CB category detection
+const _GEO_OVERRIDE_RX = /\b(?:iran|russia|ukraine|israel|hamas|hezbollah|north korea|taiwan strait)\b.*\b(?:attack|strike|airstrike|missile|troops|invad|bomb|weapon|nuclear|sanction|military|war|conflict|escalat|demand|warn|threat|reject|respond|fire|launch|target|block|seize)\b|\b(?:airstrike|ground offensive|drone strike|military escalat|ceasefire|hostage|evacuat)\b|^(?:iran|russia|ukraine|israel|hamas|china)\s*[:,–-]/i;
+
+function detectCategory(text) {
+  const t = (text || '').toLowerCase();
+
+  // ── Geopolitical OVERRIDE: primary-actor geo statements beat CB categories ──
+  if (_GEO_OVERRIDE_RX.test(text)) return 'Geopolitical';
+
+  if (/\bfed\b|federal reserve|fomc|powell|jerome|yellen/.test(t)) return 'Fed';
+  if (/\becb\b|lagarde|european central bank/.test(t)) return 'ECB';
+  if (/\bboj\b|bank of japan|ueda|kuroda/.test(t)) return 'BoJ';
+  if (/\bboe\b|bank of england|bailey|threadneedle/.test(t)) return 'BoE';
+  if (/\bboc\b|bank of canada|macklem/.test(t)) return 'BoC';
+  if (/\brba\b|reserve bank of australia|bullock/.test(t)) return 'RBA';
+  if (/\bsnb\b|swiss national bank/.test(t)) return 'SNB';
+  if (/\brbnz\b|reserve bank of new zealand/.test(t)) return 'RBNZ';
+  if (/oil\b|crude|brent|wti|opec|adnoc|energy\b|gas price|natural gas|petroleum|hormuz/.test(t)) return 'Energy & Power';
+  if (/\bgold\b|silver|copper|nickel|zinc|aluminum|iron ore|metal|platinum|palladium/.test(t)) return 'Metals';
+  if (/bitcoin|crypto|ethereum|\bbtc\b|\beth\b|blockchain|defi|stablecoin/.test(t)) return 'Crypto';
+  if (/war|conflict|geopolit|russia|ukraine|iran|israel|hamas|hezbollah|taiwan|nato|missile|troops|military|sanction/.test(t)) return 'Geopolitical';
+  // FJ-style prefix "EU Data: Eurozone CPI..." — checked before generic catch-all
+  if (/^eu\s+data\b/.test(t))                                            return 'EU Data';
+  if (/^us\s+data\b/.test(t))                                            return 'US Data';
+  if (/^uk\s+data\b/.test(t))                                            return 'UK Data';
+  if (/^swiss\s+data\b/.test(t))                                         return 'Swiss Data';
+  if (/^japa(?:n|nese)\s+data\b/.test(t))                               return 'Japanese Data';
+  if (/^canad(?:a|ian)\s+data\b/.test(t))                               return 'Canadian Data';
+  if (/^austral(?:ia|ian)\s+data\b/.test(t))                            return 'Australian Data';
+  if (/^chin(?:a|ese)\s+data\b/.test(t))                                return 'Chinese Data';
+  if (/^(?:german|french|italian|spanish)\s+data\b/.test(t))            return 'EU Data';
+  // Regional data by content keywords (fallback for non-FJ sources)
+  if (/\bgdp\b|inflation|\bcpi\b|\bppi\b|\bpmi\b|\bnfp\b|payroll|unemployment|retail sales|industrial prod/.test(t)) {
+    if (/eurozone|euro.?area|eurostat/.test(t))                          return 'EU Data';
+    if (/(?:swiss|switzerland).*(?:cpi|gdp|pmi)/.test(t))               return 'Swiss Data';
+    if (/\buk\b.*(?:cpi|gdp|pmi)|brit(?:ain|ish).*(?:cpi|gdp)/.test(t)) return 'UK Data';
+    if (/japan.*(?:cpi|gdp|pmi|tankan)|japanese.*(?:cpi|gdp)/.test(t))  return 'Japanese Data';
+    if (/canad.*(?:cpi|gdp|pmi|employment)/.test(t))                    return 'Canadian Data';
+    if (/austral.*(?:cpi|gdp|pmi|employment)/.test(t))                  return 'Australian Data';
+    if (/\bchina\b.*(?:cpi|gdp|pmi)|chinese.*(?:cpi|gdp)/.test(t))     return 'Chinese Data';
+  }
+  if (/gdp|inflation|cpi|ppi|\bpmi\b|nfp|payroll|unemployment|retail sales|consumer price|producer price|trade balance/.test(t)) return 'Economic Commentary';
+  if (/\busd\b|\beur\b|\bgbp\b|\bjpy\b|\bchf\b|\bausd\b|\bnzd\b|\bcad\b|forex|fx |exchange rate|currency pair|dollar|yen/.test(t)) return 'FX Flows';
+  if (/nasdaq|s&p 500|s&p500|dow jones|dax|cac 40|ftse 100|nikkei|hang seng|equity|equities|stock market|ipo/.test(t)) return 'Market Analysis';
+  if (/bond yield|treasury yield|gilt|bund|t-bill|fixed income|sovereign debt/.test(t)) return 'Fixed Income';
+  if (/\btrade\b|tariff|export|import|wto|supply chain|trade war/.test(t)) return 'Trade';
+  if (/\basia\b|japan|china|korea|singapore|hong kong|thailand|vietnam|india/.test(t)) return 'Asian News';
+  if (/wheat|corn|soy|coffee|sugar|cocoa|agriculture|crop|cattle/.test(t)) return 'Ags & Softs';
+  if (/prime minister|parliament|election|congress|senate|white house/.test(t)) return 'PMT Update';
+  return 'Global News';
+}
+
+function extractTags(category, text) {
+  const tags = [category];
+  const t = (text || '').toLowerCase();
+  if (/(united states|\bus\b|american|trump|washington)/.test(t)) tags.push('US');
+  if (/(united kingdom|\buk\b|britain|british|london)/.test(t)) tags.push('UK');
+  if (/(europe|european|\beu\b|brussels|eurozone)/.test(t)) tags.push('EU');
+  const isDataRelease = /\b(cpi|ppi|pce|hicp|gdp|nfp|nonfarm payroll|unemployment rate|jobless claims|retail sales|industrial production|trade balance|consumer confidence|pmi|ifo|zew|durable goods|housing starts|payroll|consumer price|producer price|factory orders|ism|composite pmi|services pmi|manufacturing pmi|inflation rate|current account|import prices?|export prices?|housing)\b/.test(t);
+  const isInflation   = isDataRelease && /\b(cpi|ppi|pce|hicp|consumer price|producer price|inflation rate|harmonized index)\b/.test(t);
+  const hasResult     = /\b(actual|flash|prelim|final|yoy|mom|y\/y|m\/m|above|below|vs\.?\s*exp|forecast)\b/.test(t) || /\d[\d.,]+\s*%/.test(t);
+  if (isDataRelease && hasResult) tags.push('Data');
+  if (isInflation && hasResult)   tags.push('Inflation');
+  if (/\b(rate decision|rate hike|rate cut|interest rate|rate increase|rate hold|rate pause|basis point|bps|monetary policy decision|policy rate|benchmark rate|repo rate|overnight rate)\b/.test(t) ||
+      (isInflation && hasResult)) tags.push('Rates');
+  return [...new Set(tags)].slice(0, 6);
+}
+
+function formatTime(dateStr) {
+  try {
+    return new Date(dateStr).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  } catch {
+    return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  }
+}
+
+// ─── Financial relevance filter ──────────────────────────────────────────────
+
+const FINANCIAL_KEYWORDS = /\b(forex|fx|currency|currencies|exchange rate|central bank|monetary policy|interest rate|rate hike|rate cut|rate decision|rate hold|rate pause|inflation|deflation|stagflation|cpi|ppi|pce|core inflation|gdp|nfp|nonfarm payroll|non-farm|unemployment|jobless|employment change|retail sales|trade balance|current account|industrial production|manufacturing|consumer confidence|purchasing managers|pmi|ifo|zew|durable goods|housing starts|payrolls|fed|fomc|federal reserve|ecb|european central bank|boj|bank of japan|boe|bank of england|boc|bank of canada|rba|rbnz|snb|riksbank|pboc|jerome powell|lagarde|ueda|bailey|yield curve|bond yield|treasury yield|gilt|bund|spread|dollar index|dxy|eurusd|gbpusd|usdjpy|usdchf|audusd|nzdusd|usdcad|xauusd|gold price|silver price|crude oil|brent|wti|opec|oil supply|oil demand|risk off|risk on|safe haven|stock market|equity market|nasdaq|s&p 500|dow jones|nikkei|ftse|dax|cac 40|geopolit|sanction|tariff|trade war|trade deal|iran|russia|ukraine|israel|escalat|\bwar\b|conflict|middle east|energy crisis|gas price|natural gas|bitcoin|crypto)\b/i;
+
+// Sub-national / regional statistics that are not market-moving
+// Matches both "Saxony CPI MoM" and "German Saxony CPI YoY" and "Germany Saxony CPI"
+const REGIONAL_NOISE = /\b(north\s+rhine(\s+westphalia)?|rhineland(\s*-?\s*palatinate)?|saxony[\s-]anhalt|lower\s+saxony|upper\s+saxony|mecklenburg(\s*-?\s*\w+)?|schleswig(\s*-?\s*holstein)?|thuringi|saxony|hesse|brandenbur|bavari|saarland|wuerttemberg|westphalia|bad(?:en)?(?:\s+wuerttemberg)?)\b.*\b(cpi|ppi|consumer\s+price|regional\s+inflation)\b/i;
+
+// Editorial/research weekly reports that slip through curated sources
+const EDITORIAL_NOISE = /\b(fx\s+weekly|fx\s+(?:and\s+\w+\s+)?(?:outlook|strategy|views?|note)|weekly\s+(note|outlook|report|review|strategy|forecast|briefing)|monthly\s+(outlook|report|review|strategy|letter)|quarterly\s+(outlook|report|review|strategy)|research\s+(note|report|brief)|morning\s+(brief|note|wrap)|end[\s-]of[\s-]day|eod\s+report|strategy\s+note|market\s+wrap|recap\s+report)\b/i;
+
+function isFinanciallyRelevant(text) {
+  return FINANCIAL_KEYWORDS.test(text || '');
+}
+
+// Data release stub — title only with no actual value or result
+// e.g. "UK Manufacturing PMI Final", "Germany CPI Flash Estimate - May 2026"
+const DATA_STUB_NAMES = /\b(?:pmi|purchasing managers'?|manufacturing|services|composite|cpi|consumer prices?|consumer price index|producer prices?|ppi|hicp|gdp|gross domestic product|nonfarm payrolls?|non.?farm payrolls?|payrolls?|unemployment|retail sales|industrial production|trade balance|current account|housing starts|durable goods|import prices?|export prices?|employment|jobless|job cuts?)\b/i;
+const DATA_STUB_HAS_VALUE = /\d[\d.,]+|\b(?:rose|fell|grew|contracted|increased|decreased|climbed|dropped|expanded|shrank|gained|lost|jumped|plunged|stable|unchanged|flat|above|below|beats?|misses?|came in|actual|revised|shows?|remains?|rebounds?|recovers?|slows?|surges?|declines?|eases?|holds?|rises?|falls?|muted|robust|strong|weak|solid|soft|resilient|after\s+\+?\-?\d|vs\.?\s*\d|from\s+\d)\b/i;
+
+function isDataStub(headline) {
+  const h = headline || '';
+  if (h.length > 78) return false;           // long headlines have context
+  if (!DATA_STUB_NAMES.test(h)) return false; // not a data release name
+  if (DATA_STUB_HAS_VALUE.test(h)) return false; // has an actual value/result
+  return true;
+}
+
+// Tabloid / gossip sources embedded in headlines
+const TABLOID_SOURCES = /\b(the sun|daily mail|daily mirror|the mirror|the times|the telegraph|sky news|page six|tmz|people magazine|daily star|the guardian reports|buzzfeed|huffpost|vice news|politico reports|axios reports|punchbowl)\b/i;
+
+// Political/personal gossip patterns — not market-moving
+const GLOBAL_GOSSIP = /\b(communications? between|will be published|leaked? (documents?|messages?|emails?|texts?)|personal (messages?|texts?|emails?|communications?)|sources (say|told|claim|suggest)|reportedly (said|told|wrote|texted|emailed)|rumoured?|alleged (affair|feud|dispute|row|fight)|PM candidate|potential (prime minister|pm|president) candidate|leadership (race|contest|bid|challenge)|resigns? (over|amid|after personal)|quits? (over|amid|after personal))\b/i;
+
+// Sports, entertainment, lifestyle — never market-moving
+const GLOBAL_LIFESTYLE = /\b(football|soccer|nfl|nba|nhl|mlb|premier league|champions league|world cup|olympics?|tennis|formula.?1\b|f1 race|grand prix.*winner|celebrity|actor|actress|singer|musician|film|movie|box office|award|grammy|oscar|bafta|royal family gossip|prince|princess|kardashian|taylor swift|beyonc|royal baby|died aged|passes away|funeral|wedding of|divorce of|married to|dating|romance)\b/i;
+
+function isGlobalNewsNoise(headline) {
+  const h = headline || '';
+  if (TABLOID_SOURCES.test(h))  return true;
+  if (GLOBAL_GOSSIP.test(h))    return true;
+  if (GLOBAL_LIFESTYLE.test(h)) return true;
+  return false;
+}
+
+// ── Bruit corporate : émissions de dette/billets d'entreprises privées ────────
+// Langage de dépôt SEC US ("files/filed to sell") = émission corporate sans
+// intérêt macro. On EXCLUT les émetteurs souverains/gouvernementaux (qui n'utilisent
+// pas "files to sell" mais "to sell EUR Xbln in N-year notes").
+// Exemples ciblés : "Whirlpool (WHR) files to sell notes",
+//   "Consolidated Edison (ED) has filed to sell, 2-year... notes",
+//   "Southern Co (SO) files to sell 5-year notes".
+const CORPORATE_DEBT_NOISE = /\b(?:files?|filed|has\s+filed)\s+to\s+(?:sell|issue|offer|price)\b/i;
+// Émetteur souverain/public reconnu → ne JAMAIS filtrer (impact taux)
+const SOVEREIGN_ISSUER = /\b(treasury|sovereign|government|state of|federal|bund|gilt|jgb|oat|btp|debt agency|dmo|ministry of finance|central bank|municipal|eurozone|eib|esm)\b/i;
+
+function isCorporateDebtNoise(headline) {
+  const h = headline || '';
+  if (SOVEREIGN_ISSUER.test(h)) return false;   // souverain → conservé
+  // "files/filed to sell" = dépôt SEC corporate
+  if (CORPORATE_DEBT_NOISE.test(h)) return true;
+  // Ticker entre parenthèses + émission de dette = corporate
+  if (/\([A-Z]{1,5}(?:\s+[A-Z]{1,3})?\)/.test(h) &&
+      /\b(?:to\s+sell|to\s+issue|to\s+offer|prices?|priced)\b.*\b(?:notes?|bonds?|senior\s+notes?|floating\s+rate\s+notes?|debentures?)\b/i.test(h)) {
+    return true;
+  }
+  return false;
+}
+
+function isNoise(headline) {
+  const h = headline || '';
+  // Social-media reposts and failed-scrape stubs — never market-moving
+  if (/^\[No Title\]/i.test(h))  return true;   // "[No Title] - Post from..."
+  if (/^RT @/i.test(h))          return true;   // "RT @realDonaldTrump..."
+  if (/^@[A-Za-z]/i.test(h))    return true;   // bare @handle tweets
+  if (isCorporateDebtNoise(h))   return true;   // émissions de dette corporate
+  return REGIONAL_NOISE.test(h) || EDITORIAL_NOISE.test(h) || isDataStub(h);
+}
+
+// ─── High-impact economic data detector ──────────────────────────────────────
+// Matches actual data releases (not commentary) for tier-1 macro events
+const HIGH_IMPACT_RE = /\b(?:gdp\b.{0,60}(?:final|preliminary|flash|growth\s+rate|yoy|qoq|\bq[1-4]\b)|nonfarm\s+payroll|non.?farm\s+payroll|\bnfp\b|unemployment\s+rate\b|(?:core\s+)?cpi\b.{0,40}(?:final|preliminary|flash|actual|yoy|mom|m\/m|y\/y)|(?:core\s+)?pce\b.{0,40}(?:final|actual|yoy|mom)|consumer\s+price\s+index.{0,40}(?:final|actual|yoy|mom)|harmonized\s+index\s+of\s+consumer\s+prices|hicp\b.{0,30}(?:actual|yoy|mom)|inflation\s+rate\b.{0,60}(?:yoy|mom|y\/y|m\/m|prel|prelim|final|actual)|flash\s+(?:cpi|pmi|gdp)|pmi\s+(?:final|preliminary|flash).{0,30}actual|retail\s+sales\b.{0,30}(?:actual|yoy|mom|m\/m|\(apr|\(mar|\(feb|\(jan|\(may|\(jun)|import\s+prices?\b.{0,30}(?:actual|yoy|mom|above|below)|rate\s+decision\b|(?:fomc|ecb)\s+(?:rate|decision|statement|minutes))\b/i;
+
+// ─── Commentary / opinion detector — demotes false positives ─────────────────
+// Headlines that express support/approval/opinion of a policy rather than an action
+const OPINION_DEMOTE_RE = /\b(\d{1,3}\s*%\s*(approves?|supports?|behind|backs?|endorses?|agrees?|sure|certain|confident)|(fully|completely|wholeheartedly|absolutely)\s+(approves?|supports?|backs?|endorses?|agrees?)|approves?\s+of\s+\w|endorses?\s+(the\s+)?(idea|proposal|plan|move|call|approach|decision)|supports?\s+(the\s+)?(idea|proposal|plan|move|call|approach|view|direction)|backs?\s+(the\s+)?(idea|proposal|plan|move|call)|(likes?|loves?|favou?rs?)\s+(the\s+)?(idea|plan|approach|move)|(is|are|was|were)\s+(fully|totally|100\s*%)\s+(behind|for|supportive\s+of|in\s+favor)|(open|amenable|receptive)\s+to\s+(idea|proposal|change))\b/i;
+
+// CB category: only keep high if there's a concrete action/decision word
+const CB_ACTION_RE = /\b(cuts?\s+rates?|hikes?\s+rates?|raises?\s+rates?|lowers?\s+rates?|rate\s+(decision|hike|cut|hold|change|increase|decrease|unchanged)|(fomc|ecb|boe|boj|boc|rba|rbnz|snb)\s+(rate|decision|statement|minutes|votes?|decides?|holds?|cuts?|hikes?)|emergency\s+(meeting|rate|cut|decision)|(rate|policy)\s+(left\s+)?unchanged|(holds?|keeps?|maintains?)\s+(rates?|policy)\s+(steady|unchanged|at)|pauses?\s+(hiking|cutting|tightening|easing)|pivots?\s+(to|toward)|rate\s+(at|to)\s+[\d.]+|basis\s+points?\s+(cut|hike|raise|increase|decrease))\b/i;
+
+function upgradeItemPriority(item) {
+  const h = item.headline || '';
+
+  // ── Flag _highImpact : donnée macro tier-1 RÉELLE (avec valeur/actual) ──────
+  // Sert au rendu pour colorer en rouge les données High Impact (ex: PMI, CPI, NFP…)
+  // Détection robuste : regex tier-1 OU champ impact explicite du flux (FF calendar)
+  const impactField  = String(item.impact || item.importance || '').toLowerCase();
+  const hasHighImpactField = impactField === 'high' || impactField === 'critical' || impactField === '3';
+  const isHighImpactData = HIGH_IMPACT_RE.test(h) || hasHighImpactField;
+
+  // Never touch urgent/breaking — those are source-confirmed (déjà rouges)
+  if (item.urgent) return isHighImpactData ? { ...item, _highImpact: true } : item;
+
+  // ── Smart demote: opinion/support/approval statements → not high priority ──
+  if (item.priority === 'high' && OPINION_DEMOTE_RE.test(h)) {
+    return { ...item, priority: 'normal', _highImpact: isHighImpactData };
+  }
+
+  // ── CB categories: demote if no concrete action language ──────────────────
+  const isCB = /^(Fed|ECB|BoJ|BoE|BoC|RBA|SNB|RBNZ)$/.test(item.category || '');
+  if (item.priority === 'high' && isCB && !CB_ACTION_RE.test(h) && !HIGH_IMPACT_RE.test(h)) {
+    return { ...item, priority: 'normal', _highImpact: isHighImpactData };
+  }
+
+  // ── Upgrade: actual tier-1 data releases ─────────────────────────────────
+  if (isHighImpactData) {
+    return { ...item, priority: 'high', _highImpact: true };
+  }
+
+  return item;
+}
+
+// Purge noise from history on every server start
+allNews = allNews.filter(i => {
+  if (i._briefing || i.source === 'PMT') return true;          // garder les rapports internes
+  if (isNoise(i.headline)) return false;
+  if (isGlobalNewsNoise(i.headline)) return false;
+  // Global News générique sans pertinence financière → purge
+  if (i.category === 'Global News' && !isFinanciallyRelevant(i.headline + ' ' + (i.description || ''))) return false;
+  return true;
+}).map(upgradeItemPriority);
+
+// ─── Dedup ───────────────────────────────────────────────────────────────────
+
+function norm(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 55); }
+function isDuplicate(item, list) { const n = norm(item.headline); return list.some(e => norm(e.headline) === n); }
+
+// ─── Broadcast ───────────────────────────────────────────────────────────────
+
+function broadcast(data) {
+  const payload = JSON.stringify(data);
+  wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) c.send(payload); });
+}
+
+// ─── Merge helpers ───────────────────────────────────────────────────────────
+
+function mergeItems(incoming) {
+  // Curated sources bypass the keyword filter — they're already financial news
+  const relevant = incoming.filter(item => {
+    // Internal briefings always pass through
+    if (item._briefing || item.source === 'PMT') return true;
+
+    const fullText = item.headline + ' ' + (item.description || '');
+
+    // Always drop regional sub-national noise and editorial reports
+    if (isNoise(item.headline)) return false;
+    // Drop tabloid / gossip / sports / lifestyle — même venant d'une source curated
+    if (isGlobalNewsNoise(item.headline)) return false;
+    // Drop FJElite bank research stubs — "Bank: Title - FJElite" with no description
+    if (/- FJElite$/i.test(item.headline) && !item.description?.trim() && /^[^:]{3,40}:\s+\S/.test(item.headline)) return false;
+
+    // "Global News" générique : n'est gardé QUE s'il est fondamentalement pertinent
+    // (filtre les news vagues sans impact marché, même chez FinancialJuice)
+    if (item.category === 'Global News' && !isFinanciallyRelevant(fullText)) return false;
+
+    const curated = ['FinancialJuice','S&P Global','ISM','BLS','BEA','IFO Institute','ZEW',
+                     'Destatis','Eurostat','ONS','ABS','Statistics Canada','Statistics Japan',
+                     'NBS China','Statistics CH','NFIB','NAR / Census','Conference Board','CBOE']
+                    .includes(item.source) || item.id?.startsWith('ff-news');
+    const needsCheck = !curated;
+    return !needsCheck || isFinanciallyRelevant(fullText);
+  });
+  // Enrich tags and upgrade priority for all incoming items
+  const newItems = relevant
+    .map(item => item._briefing ? item : { ...item, tags: extractTags(item.category, item.headline) })
+    .map(upgradeItemPriority)
+    .filter(item => !isDuplicate(item, allNews));
+  if (newItems.length === 0) return 0;
+
+  // Spam cap: max 8 data items per batch across all data categories
+  const DATA_CATS_CAP = new Set(['Economic Commentary', 'EU Data', 'US Data', 'UK Data',
+    'Swiss Data', 'Japanese Data', 'Canadian Data', 'Australian Data', 'Chinese Data']);
+  const recentData = allNews.filter(
+    i => DATA_CATS_CAP.has(i.category) && Date.now() - i.timestamp < 2 * 60_000
+  ).length;
+  let dataAllowed = Math.max(0, 8 - recentData);
+  const capped = newItems.filter(i => {
+    if (!DATA_CATS_CAP.has(i.category)) return true;
+    if (dataAllowed > 0) { dataAllowed--; return true; }
+    return false;
+  });
+  if (capped.length === 0) return 0;
+  const cutoff = Date.now() - HISTORY_TTL;
+  allNews = [...capped, ...allNews]
+    .filter(i => i.timestamp > cutoff)
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 2000);
+  saveHistory();
+  return capped.length;
+}
+
+// ─── Main refresh loop — ForexFactory + FinancialJuice ───────────────────────
+
+async function refreshNews() {
+  console.log(`\n[${new Date().toLocaleTimeString()}] Refreshing news sources...`);
+
+  const [fjItems, ffCalItems, ffNewsItems] = await Promise.allSettled([
+    scrapeFinancialJuice(),
+    scrapeForexFactory(),
+    scrapeForexFactoryNews(),
+  ]).then(rs => rs.map(r => r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []));
+
+  // Calendar events go to their own store — NOT mixed into the news feed
+  if (ffCalItems.length > 0) allCalendar = ffCalItems;
+
+  // Also inject HIGH-impact past calendar events (with actual values) into the news feed
+  const calReleased = ffCalItems.filter(i =>
+    i.description && i.description.includes('Actual:') &&
+    i.timestamp < Date.now() &&
+    i.priority === 'high'
+  );
+
+  // News feed: FJ + FF-News + high-impact released calendar events
+  const count = mergeItems([...fjItems, ...ffNewsItems, ...calReleased]);
+  console.log(`  [FJ:${fjItems.length} FF-Cal:${ffCalItems.length}→cal FF-News:${ffNewsItems.length}] +${count} new (total: ${allNews.length})`);
+
+  if (count > 0 || isFirstLoad) {
+    if (isFirstLoad) {
+      isFirstLoad = false;
+      broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
+    } else {
+      broadcast({ type: 'news_update', items: allNews.slice(0, count), total: allNews.length });
+    }
+  }
+}
+
+// ─── WebSocket ───────────────────────────────────────────────────────────────
+
+wss.on('connection', (ws) => {
+  console.log(`[WS] Client connected (${wss.clients.size})`);
+  ws.send(JSON.stringify({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length }));
+  // Envoyer aussi les session wraps et bank research au moment de la connexion
+  if (_swCache.length > 0) ws.send(JSON.stringify({ type: 'sw_update', items: _swCache }));
+  if (_brCache.length > 0) ws.send(JSON.stringify({ type: 'br_update', items: _brCache }));
+
+  ws.on('error', err => console.error('[WS]', err.message));
+  ws.on('close', () => console.log(`[WS] Disconnected (${wss.clients.size} left)`));
+});
+
+// ─── Start ───────────────────────────────────────────────────────────────────
+
+
+refreshNews();
+setInterval(refreshNews, REFRESH_INTERVAL);
+
+// ── Session wraps InvestingLive — refresh toutes les 20 min, broadcast si nouveaux ──
+setInterval(async () => {
+  try {
+    const before = _swCache.length;
+    await _fetchSessionWraps(false);
+    if (_swCache.length !== before) {
+      broadcast({ type: 'sw_update', items: _swCache });
+      console.log(`[SW] ${_swCache.length - before > 0 ? '+' : ''}${_swCache.length - before} wraps → broadcast`);
+    }
+  } catch (e) { console.error('[SW poll]', e.message); }
+}, 20 * 60 * 1000);
+
+// ── Bank Research ING Think — refresh toutes les 20 min, broadcast si nouveaux ──
+setInterval(async () => {
+  try {
+    const before = _brCache.length;
+    await _fetchBankResearch(false);
+    if (_brCache.length !== before) {
+      broadcast({ type: 'br_update', items: _brCache });
+      console.log(`[BR] ${_brCache.length - before > 0 ? '+' : ''}${_brCache.length - before} articles → broadcast`);
+    }
+  } catch (e) { console.error('[BR poll]', e.message); }
+}, 20 * 60 * 1000);
+
+// FinancialJuice — persistent WS connection (non-blocking)
+// Push callback: broadcast instantly when a FJ item arrives (< 1s latency)
+setOnPushCallback(item => {
+  const count = mergeItems([item]);
+  if (count > 0) {
+    broadcast({ type: 'news_update', items: [item], total: allNews.length });
+    console.log(`[FJ LIVE →] ${item.headline.substring(0, 65)}`);
+  }
+});
+initFinancialJuice().catch(err => console.error('[FJ init]', err.message));
+
+// Myfxbook Community Outlook — fetch at startup + refresh every 5 min
+let _lastMyfxHash = '';
+async function refreshMyfxbook() {
+  try {
+    const data = await fetchCommunityOutlook('H1');
+    if (!data?.length) return;
+    const hash = data.map(s => `${s.symbol}:${s.shortPct}`).join(',');
+    if (hash === _lastMyfxHash) return;
+    _lastMyfxHash = hash;
+    broadcast({ type: 'community_outlook_update' });
+    console.log(`[Myfxbook] Updated — ${data.length} symbols, broadcasting`);
+  } catch {}
+}
+setTimeout(refreshMyfxbook, 2000);        // immediate startup fetch
+setInterval(refreshMyfxbook, 5 * 60 * 1000); // then every 5 min
+
+// COT — check for new weekly data every 6 h, broadcast on change
+let _lastCotHash = '';
+setInterval(async () => {
+  try {
+    const TYPES = ['noncomm','dealer','asset_mgr','lev_money','other_rept'];
+    for (const type of TYPES) {
+      const data = await fetchCOTData(type);
+      if (!data?.length) continue;
+      const hash = `${type}:${data[0]?.reportDate}`;
+      if (hash !== _lastCotHash) {
+        _lastCotHash = hash;
+        broadcast({ type: 'cot_update' });
+        console.log(`[COT] New report detected (${data[0]?.reportDate}) — broadcasting`);
+        break;
+      }
+    }
+  } catch {}
+}, 6 * 60 * 60 * 1000);
+
+// ForexFactory News — fast poll every 20s, broadcasts instantly on new items
+startFFNewsPoll(freshItems => {
+  const count = mergeItems(freshItems);
+  if (count > 0) {
+    broadcast({ type: 'news_update', items: freshItems.slice(0, count), total: allNews.length });
+  }
+});
+
+// ── FinancialJuice — polling accéléré (toutes les 20s) ───────────────────────
+// Quand WS est actif : scrapeFinancialJuice() vide juste le buffer en mémoire (≈0 overhead)
+// Quand WS est down  : lance le HTTP fallback → latence max 20s au lieu de 60s
+setInterval(async () => {
+  try {
+    const fjItems = await scrapeFinancialJuice();
+    if (fjItems.length === 0) return;
+    const count = mergeItems(fjItems);
+    if (count > 0) {
+      broadcast({ type: 'news_update', items: fjItems.slice(0, count), total: allNews.length });
+      console.log(`[FJ fast-poll] +${count} news diffusées`);
+    }
+  } catch {}
+}, 20_000);
+
+// One-time 7-day historical backfill — runs 20 s after startup to let auth settle
+setTimeout(async () => {
+  try {
+    const items = await backfillHistoricalNews(7);
+    if (items.length === 0) return;
+    const count = mergeItems(items);
+    console.log(`[Backfill] +${count} historical items merged (total: ${allNews.length})`);
+    if (count > 0) {
+      broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
+    }
+  } catch (e) {
+    console.error('[Backfill] error:', e.message);
+  }
+}, 20_000);
+
+// ─── Yahoo Finance session (crumb + cookie) ──────────────────────────────────
+// Yahoo Finance v8 now requires a valid crumb for chart API calls.
+// We fetch it once per hour and reuse across all YF requests.
+let _yfSession = null;
+let _yfSessionTs = 0;
+const YF_SESSION_TTL = 50 * 60 * 1000; // 50 min
+
+const YF_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+async function getYFSession() {
+  if (_yfSession && Date.now() - _yfSessionTs < YF_SESSION_TTL) return _yfSession;
+  try {
+    // Step 1: get cookie from finance.yahoo.com
+    const r1 = await axios.get('https://finance.yahoo.com/', {
+      headers: { 'User-Agent': YF_UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' },
+      timeout: 10000, validateStatus: () => true, maxRedirects: 5,
+    });
+    const rawCookies = r1.headers['set-cookie'] || [];
+    const cookie = rawCookies.map(c => c.split(';')[0]).join('; ');
+
+    // Step 2: get crumb
+    const r2 = await axios.get('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+      headers: { 'User-Agent': YF_UA, 'Cookie': cookie },
+      timeout: 8000, validateStatus: () => true,
+    });
+    if (r2.status === 200 && typeof r2.data === 'string' && r2.data.length > 0) {
+      _yfSession = { cookie, crumb: r2.data };
+      _yfSessionTs = Date.now();
+      console.log('[YF] session crumb acquired');
+      return _yfSession;
+    }
+  } catch (e) {
+    console.warn('[YF] crumb fetch failed:', e.message);
+  }
+  // Fallback: no crumb — still works for some endpoints
+  _yfSession = { cookie: '', crumb: '' };
+  _yfSessionTs = Date.now();
+  return _yfSession;
+}
+
+function yfUrl(sym, interval, range) {
+  const base = `https://query2.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(sym)}?interval=${interval}&range=${range}&includePrePost=false`;
+  return _yfSession?.crumb ? `${base}&crumb=${encodeURIComponent(_yfSession.crumb)}` : base;
+}
+
+function yfHeaders() {
+  return {
+    'User-Agent': YF_UA,
+    'Accept': 'application/json',
+    'Referer': 'https://finance.yahoo.com/',
+    ...(_yfSession?.cookie ? { 'Cookie': _yfSession.cookie } : {}),
+  };
+}
+
+// ─── Currency Strength ───────────────────────────────────────────────────────
+// 28 pairs: each of the 8 currencies appears exactly 7 times
+const CS_CURRENCIES = ['USD','EUR','JPY','GBP','AUD','CHF','CAD','NZD'];
+const CS_PAIRS = [
+  { sym:'EURUSD=X',b:'EUR',q:'USD'}, { sym:'GBPUSD=X',b:'GBP',q:'USD'},
+  { sym:'USDJPY=X',b:'USD',q:'JPY'}, { sym:'USDCHF=X',b:'USD',q:'CHF'},
+  { sym:'AUDUSD=X',b:'AUD',q:'USD'}, { sym:'NZDUSD=X',b:'NZD',q:'USD'},
+  { sym:'USDCAD=X',b:'USD',q:'CAD'}, { sym:'EURGBP=X',b:'EUR',q:'GBP'},
+  { sym:'EURJPY=X',b:'EUR',q:'JPY'}, { sym:'EURCHF=X',b:'EUR',q:'CHF'},
+  { sym:'EURAUD=X',b:'EUR',q:'AUD'}, { sym:'EURCAD=X',b:'EUR',q:'CAD'},
+  { sym:'EURNZD=X',b:'EUR',q:'NZD'}, { sym:'GBPJPY=X',b:'GBP',q:'JPY'},
+  { sym:'GBPCHF=X',b:'GBP',q:'CHF'}, { sym:'GBPAUD=X',b:'GBP',q:'AUD'},
+  { sym:'GBPCAD=X',b:'GBP',q:'CAD'}, { sym:'GBPNZD=X',b:'GBP',q:'NZD'},
+  { sym:'AUDJPY=X',b:'AUD',q:'JPY'}, { sym:'NZDJPY=X',b:'NZD',q:'JPY'},
+  { sym:'CADJPY=X',b:'CAD',q:'JPY'}, { sym:'CHFJPY=X',b:'CHF',q:'JPY'},
+  { sym:'AUDNZD=X',b:'AUD',q:'NZD'}, { sym:'AUDCAD=X',b:'AUD',q:'CAD'},
+  { sym:'AUDCHF=X',b:'AUD',q:'CHF'}, { sym:'NZDCAD=X',b:'NZD',q:'CAD'},
+  { sym:'NZDCHF=X',b:'NZD',q:'CHF'}, { sym:'CADCHF=X',b:'CAD',q:'CHF'},
+];
+const _csCache = {};
+
+// clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
+// cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
+const CS_PERIOD_CFG = {
+  today: { interval: '5m',  range: '1d',  cutoffMs: null,          cutoffToday: true, clip:  5  },
+  week:  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
+  '8h':  { interval: '5m',  range: '1d',  cutoffMs:  8 * 3600000,                    clip:  3  },
+  '1d':  { interval: '30m', range: '5d',  cutoffMs: 24 * 3600000,                    clip:  5  },
+  '5d':  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
+  '7d':  { interval: '1d',  range: '1mo', cutoffMs:  7 * 86400000,                   clip: 15  },
+  '1m':  { interval: '1d',  range: '1mo', cutoffMs: null,                             clip: 20  },
+};
+
+// Retry-enabled Yahoo Finance fetcher — retries once (800 ms delay) before giving up
+async function yfFetch(sym, interval, range) {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const url = yfUrl(sym, interval, range);
+      const r = await axios.get(url, { headers: yfHeaders(), timeout: 9000, validateStatus: () => true });
+      if (r.status === 200) return r.data;
+      if (attempt === 0) await new Promise(ok => setTimeout(ok, 800));
+    } catch {
+      if (attempt === 0) await new Promise(ok => setTimeout(ok, 800));
+    }
+  }
+  return null;
+}
+
+async function computeCurrencyStrength(period) {
+  const cfg = CS_PERIOD_CFG[period] || CS_PERIOD_CFG.today;
+  const ttl = 2 * 60 * 1000;
+  if (_csCache[period] && Date.now() - _csCache[period].ts < ttl) return _csCache[period].data;
+
+  const { interval, range, cutoffMs, cutoffToday, clip } = cfg;
+
+  // "today" anchors the reference at midnight UTC — the professional FX day start
+  let cutoffSec = null;
+  if (cutoffToday) {
+    const midnight = new Date(); midnight.setUTCHours(0, 0, 0, 0);
+    cutoffSec = Math.floor(midnight.getTime() / 1000);
+  } else if (cutoffMs) {
+    cutoffSec = Math.floor((Date.now() - cutoffMs) / 1000);
+  }
+
+  await getYFSession();
+
+  const pairResults = await Promise.all(CS_PAIRS.map(async p => {
+    try {
+      const raw = await yfFetch(p.sym, interval, range);
+      const res = raw?.chart?.result?.[0];
+      if (!res) return null;
+      let ts = [...(res.timestamp || [])];
+      let cl = [...(res.indicators?.quote?.[0]?.close || [])];
+
+      if (cutoffSec) {
+        const zipped = ts.map((t, i) => [t, cl[i]]).filter(([t]) => t != null && t >= cutoffSec);
+        ts = zipped.map(([t]) => t);
+        cl = zipped.map(([, c]) => c);
+      }
+
+      if (ts.length < 2) return null;
+      return { ...p, ts, cl };
+    } catch { return null; }
+  }));
+
+  const pairData = pairResults.filter(Boolean);
+  const failCount = CS_PAIRS.length - pairData.length;
+  if (failCount > 0) console.warn(`[CS/${period}] ${failCount}/${CS_PAIRS.length} pairs failed to load`);
+  if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs — aborting`); return null; }
+  console.log(`[CS/${period}] ${pairData.length}/28 pairs loaded — cutoff=${cutoffSec ? new Date(cutoffSec*1000).toISOString() : 'none'} clip=±${clip}%`);
+
+  // Round timestamps to candle interval — aligns all 28 pairs to the same bins
+  // (Yahoo Finance returns slightly different timestamps per pair, e.g. 09:30:00 vs 09:30:07)
+  const INTERVAL_SEC = { '5m': 300, '30m': 1800, '1h': 3600, '1d': 86400 };
+  const binSec = INTERVAL_SEC[interval] || 300;
+
+  const tsSet = new Set();
+  pairData.forEach(p => p.ts.forEach(t => {
+    if (t) tsSet.add(Math.round(t / binSec) * binSec);
+  }));
+  const allTs = [...tsSet].sort((a, b) => a - b);
+
+  // Build pairMaps with binned timestamps (last value wins per bin)
+  const pairMaps = pairData.map(p => {
+    const m = new Map();
+    p.ts.forEach((t, i) => {
+      if (t && p.cl[i] != null) m.set(Math.round(t / binSec) * binSec, p.cl[i]);
+    });
+    return m;
+  });
+
+  // ── Reference-based strength (period open → now) ─────────────────────────
+  // Each point = avg % change of the currency vs ALL its pairs since the first
+  // candle of the period.  This is the professional standard: values are actual
+  // percentage moves, no accumulation drift, no open-gap spikes.
+  const MIN_PAIRS = 4;
+  const series    = Object.fromEntries(CS_CURRENCIES.map(c => [c, []]));
+
+  // Reference price for each pair = first valid close in the period window
+  const refClose = pairData.map((_, i) => {
+    for (const ts of allTs) {
+      const c = pairMaps[i].get(ts);
+      if (c != null) return c;
+    }
+    return null;
+  });
+
+  for (const t of allTs) {
+    const scores = Object.fromEntries(CS_CURRENCIES.map(c => [c, 0]));
+    const cnt    = Object.fromEntries(CS_CURRENCIES.map(c => [c, 0]));
+
+    pairData.forEach((p, i) => {
+      const close = pairMaps[i].get(t);
+      const ref   = refClose[i];
+      if (close == null || ref == null || ref === 0) return;
+      const pct     = (close / ref - 1) * 100;
+      const clipped = Math.max(-clip, Math.min(clip, pct));
+      scores[p.b] += clipped; cnt[p.b]++;
+      scores[p.q] -= clipped; cnt[p.q]++;
+    });
+
+    CS_CURRENCIES.forEach(c => {
+      // Carry forward last value when not enough pairs report for this candle
+      const prev = series[c].length > 0 ? series[c][series[c].length - 1].v : 0;
+      const v    = cnt[c] >= MIN_PAIRS
+        ? +(scores[c] / cnt[c]).toFixed(4)
+        : prev;
+      series[c].push({ t: t * 1000, v });
+    });
+  }
+
+  const data = { currencies: CS_CURRENCIES, series, updatedAt: new Date().toISOString() };
+  _csCache[period] = { ts: Date.now(), data };
+  return data;
+}
+
+app.get('/api/currency-strength', async (req, res) => {
+  const validPeriods = Object.keys(CS_PERIOD_CFG);
+  const period = validPeriods.includes(req.query.period) ? req.query.period : 'today';
+  if (req.query.force === '1') delete _csCache[period]; // manual cache-bust
+  try {
+    const data = await computeCurrencyStrength(period);
+    if (!data) return res.status(503).json({ error: 'Data unavailable' });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Risk Sentiment ───────────────────────────────────────────────────────────
+//
+// Each asset has:
+//   dir  : +1 = risk-on when rising  |  -1 = risk-off when rising
+//   norm : typical absolute daily % move — used to normalize contributions so
+//          high-volatility assets (VIX ~4%) don't drown out low-vol ones (SPY ~0.9%)
+//
+const RISK_ASSETS = [
+  { sym: 'SPY',      label: 'S&P 500',            dir:  1, norm: 0.9, wt: 1.5 },  // primary risk barometer
+  { sym: '^VIX',     label: 'VIX (Volatilité)',    dir: -1, norm: 4.0, wt: 1.2 },  // high vol = fear
+  { sym: 'GLD',      label: 'Or (Sécurité)',       dir: -1, norm: 0.7, wt: 0.9 },  // safe-haven buy = risk-off
+  { sym: 'TLT',      label: 'Obligations US',      dir: -1, norm: 0.7, wt: 0.8 },  // bond rally = risk-off
+  { sym: 'AUDUSD=X', label: 'AUD/USD (Risqué)',    dir:  1, norm: 0.4, wt: 1.0 },  // risk FX = risk-on
+  { sym: 'QQQ',      label: 'Nasdaq (Tech/Risk)',  dir:  1, norm: 1.2, wt: 1.0 },  // tech = high-beta risk
+];
+let _riskData = null, _riskTs = 0;
+
+async function fetchRiskSentiment() {
+  if (_riskData && Date.now() - _riskTs < 3 * 60 * 1000) return _riskData;
+  await getYFSession();
+
+  const results = (await Promise.all(RISK_ASSETS.map(async a => {
+    try {
+      const url = yfUrl(a.sym, '1d', '5d');
+      const r = await axios.get(url, { headers: yfHeaders(), timeout: 7000, validateStatus: () => true });
+      if (r.status !== 200) return null;
+      const res = r.data?.chart?.result?.[0];
+      if (!res) return null;
+      const cl = (res.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+      if (cl.length < 2) return null;
+      const prev = cl[cl.length - 2], curr = cl[cl.length - 1];
+      const chg = prev ? +((curr - prev) / prev * 100).toFixed(2) : 0;
+      return { label: a.label, chg, dir: a.dir, norm: a.norm, wt: a.wt };
+    } catch { return null; }
+  }))).filter(Boolean);
+
+  if (!results.length) return null;
+
+  // Weighted, volatility-normalized score
+  // Each asset's contribution = clip(chg / norm, -1, +1) * dir * weight
+  // This prevents high-vol assets (VIX) from dominating low-vol ones (SPY/FX)
+  const totalWt = results.reduce((s, r) => s + r.wt, 0);
+  const score = results.reduce((s, r) => {
+    const normalized = Math.max(-1, Math.min(1, r.chg / r.norm));
+    return s + normalized * r.dir * r.wt;
+  }, 0) / totalWt;
+
+  const label = score > 0.55  ? 'STRONG RISK-ON'
+    : score > 0.30  ? 'RISK-ON'
+    : score > 0.07  ? 'WEAK RISK-ON'
+    : score > -0.07 ? 'NEUTRAL'
+    : score > -0.30 ? 'WEAK RISK-OFF'
+    : score > -0.80 ? 'RISK-OFF'
+    : 'STRONG RISK-OFF';
+
+  const DESCS = {
+    'STRONG RISK-ON':  'Fort appétit pour le risque sur l\'ensemble des marchés. Actions, devises risquées et actifs à haut rendement tous achetés. VIX bas.',
+    'RISK-ON':         'Appétit pour le risque positif. Les actions et devises risquées sont demandées, les valeurs refuges sous légère pression.',
+    'WEAK RISK-ON':    'Légère amélioration de l\'appétit au risque. Les flux retournent vers les actions et les devises risquées. Les valeurs refuges s\'affaiblissent, VIX en baisse.',
+    'NEUTRAL':         'Le sentiment de marché est équilibré. Signaux mixtes sur les actifs risqués, pas de tendance directionnelle claire.',
+    'WEAK RISK-OFF':   'Légère aversion au risque. Prudence ambiante — obligations et valeurs refuges trouvent un support modéré.',
+    'RISK-OFF':        'Aversion au risque en hausse. Les capitaux se déplacent vers les valeurs refuges, les obligations et les devises défensives.',
+    'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
+  };
+
+  _riskData = { label, score: +score.toFixed(2), description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
+  _riskTs = Date.now();
+  return _riskData;
+}
+
+app.get('/api/risk-sentiment', async (req, res) => {
+  try {
+    const data = await fetchRiskSentiment();
+    if (!data) return res.status(503).json({ error: 'Data unavailable' });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── Market Moves — real observed price reactions after a news event ──────────
+// Thresholds = minimum ABSOLUTE move AND minimum % move required in the 15-min window.
+// Both must be exceeded to qualify as a "real strong reaction".
+// These are intentionally strict — routine volatility must NOT trigger a Réaction tag.
+const MOVE_ASSETS = [
+  { sym: 'BZ=F',      label: 'Brent crude',   unit: '$/bbl', decimals: 2, threshold: 0.70,   minPct: 0.80  },
+  { sym: 'GC=F',      label: 'Or (XAU/USD)',  unit: '$/oz',  decimals: 1, threshold: 7.0,    minPct: 0.40  },
+  { sym: 'DX-Y.NYB', label: 'DXY',            unit: 'pts',   decimals: 3, threshold: 0.25,   minPct: 0.22  },
+  { sym: 'EURUSD=X', label: 'EUR/USD',         unit: '',      decimals: 5, threshold: 0.0020, minPct: 0.17  },
+  { sym: 'QQQ',       label: 'Nasdaq (QQQ)',   unit: 'USD',   decimals: 2, threshold: 1.20,   minPct: 0.28  },
+  { sym: 'SPY',       label: 'S&P 500 (SPY)',  unit: 'USD',   decimals: 2, threshold: 0.90,   minPct: 0.17  },
+];
+const _moveCache = new Map();
+
+app.get('/api/market-moves', async (req, res) => {
+  const since = parseInt(req.query.since);
+  if (!since || isNaN(since)) return res.status(400).json({ error: 'since param required (Unix ms)' });
+
+  // Yahoo Finance 1m data only goes back ~5 days reliably
+  const AGE_LIMIT_MS = 5 * 24 * 60 * 60 * 1000;
+  if (Date.now() - since > AGE_LIMIT_MS) return res.json({ moves: [], reason: 'too_old' });
+
+  // Cache key = nearest minute
+  const cacheKey = Math.floor(since / 60000).toString();
+  if (_moveCache.has(cacheKey)) return res.json(_moveCache.get(cacheKey));
+
+  await getYFSession();
+
+  const sinceSec  = Math.floor(since / 1000);
+  const windowSec = 15 * 60; // look at the 15 minutes following the event
+
+  const moves = (await Promise.all(MOVE_ASSETS.map(async asset => {
+    try {
+      const url = yfUrl(asset.sym, '1m', '5d');
+      const r = await axios.get(url, { headers: yfHeaders(), timeout: 10000, validateStatus: () => true });
+      if (r.status !== 200) return null;
+      const result = r.data?.chart?.result?.[0];
+      if (!result) return null;
+
+      const timestamps = result.timestamp || [];
+      const closes     = result.indicators?.quote?.[0]?.close || [];
+
+      // Find the first candle at or after sinceTime
+      let refIdx = -1;
+      for (let i = 0; i < timestamps.length; i++) {
+        if (timestamps[i] >= sinceSec && closes[i] != null) { refIdx = i; break; }
+      }
+      if (refIdx === -1) return null;
+
+      const refPrice = closes[refIdx];
+      if (!refPrice) return null;
+
+      // Scan the next 15 minutes for the maximum absolute move
+      let bestMove = 0;
+      let bestIdx  = refIdx;
+      const endSec = sinceSec + windowSec;
+      for (let i = refIdx + 1; i < timestamps.length; i++) {
+        if (timestamps[i] > endSec) break;
+        const c = closes[i];
+        if (c == null) continue;
+        const move = Math.abs(c - refPrice);
+        if (move > bestMove) { bestMove = move; bestIdx = i; }
+      }
+
+      const peakPrice  = closes[bestIdx];
+      const rawMove    = peakPrice - refPrice;
+      const movePct    = (rawMove / refPrice) * 100;
+      // Require BOTH absolute threshold AND minimum % — filters out routine noise
+      if (Math.abs(rawMove) < asset.threshold) return null;
+      if (Math.abs(movePct) < asset.minPct)    return null;
+      const minutes   = Math.max(1, Math.round((timestamps[bestIdx] - timestamps[refIdx]) / 60));
+
+      return {
+        label:     asset.label,
+        sym:       asset.sym,
+        refPrice:  +refPrice.toFixed(asset.decimals),
+        peakPrice: +peakPrice.toFixed(asset.decimals),
+        move:      (rawMove >= 0 ? '+' : '') + rawMove.toFixed(asset.decimals),
+        movePct:   (movePct  >= 0 ? '+' : '') + movePct.toFixed(2) + '%',
+        dir:       rawMove >= 0 ? 'up' : 'down',
+        unit:      asset.unit,
+        minutes,
+      };
+    } catch { return null; }
+  }))).filter(Boolean);
+
+  const result = { moves, ts: since };
+  _moveCache.set(cacheKey, result);
+  if (_moveCache.size > 300) _moveCache.delete(_moveCache.keys().next().value);
+  res.json(result);
+});
+
+server.listen(PORT, async () => {
+  // Seed admin user on first run
+  await auth.seedAdmin();
+
+  console.log(`\n╔════════════════════════════════════════╗`);
+  console.log(`║   DataTradingPro — Prime Terminal       ║`);
+  console.log(`║   http://localhost:${PORT}                  ║`);
+  console.log(`║   Admin panel : /admin                  ║`);
+  console.log(`╚════════════════════════════════════════╝\n`);
+  _swLoadFile();
+  _fetchSessionWraps(true).catch(() => {});
+  _brLoadFile();
+  _fetchBankResearch(true).catch(() => {});
+});
+
+// ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
+function gracefulShutdown(signal) {
+  console.log(`[Shutdown] ${signal} reçu — fermeture propre…`);
+
+  // 1. Fermer toutes les connexions WebSocket proprement
+  wss.clients.forEach(ws => {
+    try { ws.close(1001, 'Server shutting down'); } catch {}
+  });
+
+  // 2. Arrêter d'accepter de nouvelles connexions HTTP
+  server.close(() => {
+    console.log('[Shutdown] Serveur HTTP fermé. À bientôt !');
+    process.exit(0);
+  });
+
+  // 3. Forcer la sortie après 10s si des requêtes traînent
+  setTimeout(() => {
+    console.error('[Shutdown] Forçage exit après 10s');
+    process.exit(1);
+  }, 10_000).unref();
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT',  () => gracefulShutdown('SIGINT'));  // Ctrl+C en local

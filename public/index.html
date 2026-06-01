@@ -1,0 +1,1174 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DataTradingPro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css?v=20260529014" />
+
+  <!-- amCharts 5 CDN -->
+  <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/stock.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/radar.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/map.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/geodata/worldLow.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
+</head>
+<body>
+
+<!-- ═══════════════════ TOP BAR (row 1) ═══════════════════ -->
+<div class="topbar">
+  <div class="logo">
+    <span class="logo-icon">◈</span>
+    <span class="logo-text">DataTradingPro</span>
+  </div>
+
+  <div class="topbar-center">
+    <div class="breaking-news-flash" id="breaking-news-flash">
+      <span class="bnf-icon">
+        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+          <circle cx="6.5" cy="6.5" r="2.2" fill="currentColor"/>
+        </svg>
+      </span>
+      <span class="bnf-label">Notification Alert</span>
+      <span class="bnf-sep">·</span>
+      <div class="bnf-text-clip"><span id="bnf-text">Real time news notification</span></div>
+    </div>
+    <div class="topbar-symbol-search">
+      <span class="search-icon">⌕</span>
+      <input type="text" placeholder="Search Symbols…" id="topbar-symbol-input" />
+    </div>
+    <div class="topbar-sentiment" id="sentiment-btn">
+      <span class="sentiment-dot" id="sentiment-dot-top"></span>
+      <span id="sentiment-label-top">NEUTRAL</span>
+      <span class="sentiment-arrow">▾</span>
+    </div>
+  </div>
+
+  <div class="topbar-right">
+    <div class="topbar-icon topbar-icon--notif" id="np-bell-btn" onclick="npToggle()" title="Notifications">
+      <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5a5 5 0 0 1 5 5v2.5l1 2H1.5l1-2V6.5a5 5 0 0 1 5-5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 12.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.2"/></svg>
+      <span class="notif-badge" id="notif-badge">0</span>
+    </div>
+    <div id="topbar-avatar" onclick="pdToggle()" title="Mon profil">
+      <span id="topbar-avatar-letter">?</span>
+      <span class="pd-status-mini"></span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════ NAV BAR (row 2) ═══════════════════ -->
+<div class="navbar" id="topbar-nav">
+  <a href="#" class="nav-item nav-item--active" data-view="news">› NEWS</a>
+  <a href="#" class="nav-item" data-view="calendar">› CALENDAR</a>
+  <a href="#" class="nav-item" data-view="bias">› BIAS</a>
+  <a href="#" class="nav-item" data-view="fxlist">› FX LIST</a>
+  <a href="#" class="nav-item" data-view="institution">› INSTITUTION</a>
+  <a href="#" class="nav-item" data-view="analyst">› ANALYST</a>
+</div>
+
+<!-- ═══════════════════ MAIN LAYOUT ═══════════════════ -->
+<div class="main-layout" id="main-layout">
+
+  <!-- ══ VIEWS COLUMN — left, fills remaining space ══ -->
+  <div class="views-col" id="views-col">
+
+    <!-- VIEW: NEWS -->
+    <div class="view-panel" id="view-news">
+      <div class="panel panel-news">
+        <div class="panel-header">
+          <div class="panel-header-left">
+            <span class="live-dot" id="live-dot"></span>
+            <span class="panel-title">Realtime Headline Ticker</span>
+          </div>
+          <div class="panel-header-controls">
+            <button class="ctrl-btn" id="settings-btn" title="Paramètres des sources">⚙</button>
+          </div>
+        </div>
+        <div class="panel-toolbar">
+          <div class="toolbar-select" id="section-filter-btn" onclick="toggleSectionDropdown()">
+            <span>Sections d'actualités</span><span class="select-arrow">▾</span>
+          </div>
+          <div class="toolbar-search">
+            <span class="search-icon">⌕</span>
+            <input type="text" id="search-input" placeholder="Rechercher des événements..." />
+          </div>
+          <div class="toolbar-right">
+            <span class="item-count" id="item-count">— items</span>
+          </div>
+        </div>
+        <div class="section-dropdown hidden" id="section-dropdown">
+          <div class="dropdown-header">Filtrer les sections</div>
+          <div class="dropdown-grid" id="section-checkboxes"></div>
+        </div>
+        <div class="news-list" id="news-list">
+          <div class="loading-state">
+            <div class="loading-spinner"></div>
+            <span>Connecting to news feed...</span>
+          </div>
+        </div>
+      </div>
+    </div><!-- /#view-news -->
+
+  <!-- ══ VIEW: BIAS — En cours de développement ══ -->
+  <div class="view-panel hidden" id="view-bias">
+    <div class="wip-container">
+      <div class="wip-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12,6 12,12 16,14"/>
+        </svg>
+      </div>
+      <div class="wip-title">En cours de développement</div>
+      <div class="wip-subtitle">L'onglet Bias sera bientôt disponible.</div>
+      <div class="wip-badge">COMING SOON</div>
+    </div>
+  </div><!-- /#view-bias -->
+
+  <!-- ══ VIEW: CALENDAR ══ -->
+  <div class="view-panel hidden" id="view-calendar">
+    <div class="cal-panel">
+      <div class="cal-toolbar">
+        <!-- Row 1: Title + right icons -->
+        <div class="cal-title-row">
+          <div class="cal-title-block">
+            <span class="cal-title">Economic Event Calendar</span>
+            <span class="cal-title-sep"> | </span>
+            <span class="cal-title-bracket">[</span><span class="cal-daterange" id="cal-daterange"></span><span class="cal-title-bracket">]</span>
+          </div>
+          <div class="cal-title-icons">
+            <span class="cal-title-icon" title="Help">?</span>
+            <span class="cal-title-icon" title="Settings">⚙</span>
+            <span class="cal-title-icon" title="Close">×</span>
+          </div>
+        </div>
+        <!-- Row 2: Impact filters + Search + LIVE -->
+        <div class="cal-filter-row">
+          <div class="cal-impact-filter" id="cal-impact-filter">
+            <button class="cal-imp-btn cal-imp-btn--active" data-imp="ALL">All</button>
+            <button class="cal-imp-btn cal-imp-btn--high" data-imp="High">High</button>
+            <button class="cal-imp-btn cal-imp-btn--med" data-imp="Medium">Med</button>
+            <button class="cal-imp-btn cal-imp-btn--low" data-imp="Low">Low</button>
+          </div>
+          <div class="cal-search-wrap">
+            <span class="cal-search-icon">⌕</span>
+            <input type="text" id="cal-search" class="cal-search-input" placeholder="Search events..." />
+          </div>
+          <span class="cal-live-badge" style="margin-left:auto"><span class="cal-live-dot"></span>LIVE</span>
+        </div>
+      </div>
+      <div class="cal-table-wrap" id="cal-table-wrap">
+        <div class="cal-loading">Loading calendar…</div>
+      </div>
+    </div>
+  </div>
+  <!-- ══ VIEW: FX LIST — En cours de développement ══ -->
+  <div class="view-panel hidden" id="view-fxlist">
+    <div class="wip-container">
+      <div class="wip-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+          <circle cx="12" cy="12" r="10"/>
+          <polyline points="12,6 12,12 16,14"/>
+        </svg>
+      </div>
+      <div class="wip-title">En cours de développement</div>
+      <div class="wip-subtitle">L'onglet FX List sera bientôt disponible.</div>
+      <div class="wip-badge">COMING SOON</div>
+    </div>
+  </div>
+  <!-- ══ VIEW: INSTITUTION ══ -->
+  <div class="view-panel hidden" id="view-institution">
+    <div class="br-wrap">
+      <!-- LIST VIEW -->
+      <div class="br-list-view" id="br-list-view">
+        <div class="br-list-hdr">
+          <span class="br-list-title">Bank Research</span>
+        </div>
+        <div class="br-toolbar">
+          <div class="br-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="color:#444;flex-shrink:0">
+              <circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="9" y1="9" x2="12" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <input type="text" class="br-search" id="br-search" placeholder="Search…">
+          </div>
+          <select class="br-filter" id="br-type">
+            <option value="all">All Files</option>
+            <option value="article">Articles</option>
+            <option value="opinion">Opinions</option>
+          </select>
+          <select class="br-filter" id="br-source">
+            <option value="all">Bank Research</option>
+          </select>
+          <select class="br-filter" id="br-inst">
+            <option value="all">All Institutes</option>
+            <option value="ING">ING Think</option>
+          </select>
+        </div>
+        <div class="br-cards" id="br-list"></div>
+        <div class="br-footer" id="br-footer"></div>
+      </div>
+      <!-- READER VIEW — hidden par défaut, s'ouvre en pleine largeur au clic -->
+      <div class="br-reader-view hidden" id="br-reader-view">
+        <div class="br-rnav" id="br-rnav">
+          <button class="br-back-btn" id="br-back-btn">‹ Back to List</button>
+          <span class="br-rnav-title" id="br-rnav-title"></span>
+          <div class="br-rnav-right">
+            <button class="br-insights-btn" id="br-insights-btn">👁 Show Insights</button>
+            <span class="br-inst-badge" id="br-inst-badge">ING</span>
+          </div>
+        </div>
+        <div class="br-rtags-bar" id="br-rtags-bar">
+          <div class="br-rtags-scroll" id="br-rtags-scroll"></div>
+        </div>
+        <div class="br-rcontent" id="br-rcontent">
+          <div class="br-loading">Chargement…</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ VIEW: ANALYST ══ -->
+  <div class="view-panel hidden" id="view-analyst">
+    <div class="arlib-wrap">
+
+      <!-- ── LIST VIEW ── -->
+      <div class="arlib-list-view" id="arlib-list-view">
+        <!-- Header -->
+        <div class="arlib-list-hdr">
+          <span class="arlib-list-title">Analyst Reports</span>
+        </div>
+        <!-- Toolbar -->
+        <div class="arlib-toolbar">
+          <div class="arlib-search-wrap">
+            <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="color:#444;flex-shrink:0">
+              <circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" stroke-width="1.3"/>
+              <line x1="9" y1="9" x2="12" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+            </svg>
+            <input type="text" class="arlib-search" id="arlib-search" placeholder="Search…">
+          </div>
+          <select class="arlib-filter" id="arlib-type">
+            <option value="all">All Files</option>
+            <option value="briefing">Daily Briefing</option>
+            <option value="recap">Session Recap</option>
+            <option value="primer">PRIMER</option>
+            <option value="analysis">Analysis</option>
+          </select>
+          <select class="arlib-filter" id="arlib-cat">
+            <option value="all">Analyst Reports</option>
+            <option value="Market Analysis">Market Analysis</option>
+            <option value="Fed">Fed</option>
+            <option value="ECB">ECB</option>
+          </select>
+        </div>
+        <!-- Cards -->
+        <div class="arlib-cards" id="arlib-list">
+          <div class="arlib-empty">Loading reports…</div>
+        </div>
+      </div>
+
+      <!-- ── READER VIEW (hidden until card clicked) ── -->
+      <div class="arlib-reader-view hidden" id="arlib-reader-view">
+        <!-- Top nav bar -->
+        <div class="arlib-rnav">
+          <button class="arlib-back-btn" id="arlib-back-btn">‹ Back to List</button>
+          <span class="arlib-rnav-title" id="arlib-rnav-title"></span>
+          <div class="arlib-rnav-right"></div>
+        </div>
+        <!-- Tags scroll bar -->
+        <div class="arlib-rtags-bar">
+          <button class="arlib-rtags-arrow" id="arlib-rtags-prev">‹</button>
+          <div class="arlib-rtags-scroll" id="arlib-rtags-scroll"></div>
+          <button class="arlib-rtags-arrow" id="arlib-rtags-next">›</button>
+        </div>
+        <!-- Content -->
+        <div class="arlib-rcontent" id="arlib-rcontent">
+          <!-- Injected by renderArlibReader() -->
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  </div><!-- /.views-col -->
+
+  <!-- ══ SHARED RIGHT PANEL (always visible on all tabs) ══ -->
+  <div class="panel-right" id="panel-right">
+
+    <div class="clocks-panel">
+      <div class="chart-header">
+        <span class="chart-header-title">World Clock</span>
+      </div>
+      <div class="clocks-bar" id="clocks-bar"></div>
+    </div>
+
+    <div class="right-panel-tabs" id="right-panel-tabs">
+      <div class="right-tab right-tab--nav" id="rtab-prev">‹</div>
+      <div class="right-tab right-tab--active" data-rtab="world">› WORLD</div>
+      <div class="right-tab" data-rtab="risk">› RISK</div>
+      <div class="right-tab" data-rtab="strength">› STRENGTH</div>
+      <div class="right-tab" data-rtab="meter">› METER</div>
+      <div class="right-tab" data-rtab="cot">› COT</div>
+      <div class="right-tab" data-rtab="dmx">› DMX</div>
+      <div class="right-tab-spacer"></div>
+      <div class="right-tab right-tab--icon right-tab--close">×</div>
+    </div>
+
+    <div class="right-content">
+
+      <!-- WORLD — Session Map -->
+      <div class="right-tab-panel active" id="rtab-world">
+        <div class="chart-header">
+          <span class="chart-header-title">Session Map</span>
+          <span class="live-dot live-dot--small"></span>
+          <span class="chart-header-sub" id="active-sessions-label"></span>
+        </div>
+        <div id="am5-map" style="flex:1;min-height:0;width:100%;"></div>
+      </div>
+
+      <!-- RISK — Sentiment Widget -->
+      <div class="right-tab-panel" id="rtab-risk">
+        <div class="chart-header">
+          <span class="chart-header-title">Risk Sentiment</span>
+        </div>
+        <div id="risk-widget" class="risk-widget-container"></div>
+      </div>
+
+      <!-- STRENGTH — Real Currency Strength -->
+      <div class="right-tab-panel" id="rtab-strength">
+        <div id="strength-charts-row" class="strength-charts-row"></div>
+      </div>
+
+      <!-- METER — Sentiment Gauge -->
+      <div class="right-tab-panel" id="rtab-meter">
+        <div class="chart-header">
+          <span class="chart-header-title">Mètre de force de devise</span>
+          <span class="live-dot live-dot--small"></span>
+          <span class="live-label">Live</span>
+        </div>
+        <div class="amchart-container" id="chart-meter"></div>
+      </div>
+
+      <!-- COT — Commitment of Traders -->
+      <div class="right-tab-panel" id="rtab-cot">
+        <div class="cot-header-bar">
+          <span class="cot-header-label">COT Positioning</span>
+          <span style="flex:1"></span>
+        </div>
+        <div class="cot-type-bar">
+          <button class="cot-type-btn" data-cot-type="noncomm">Non-Comm</button>
+          <button class="cot-type-btn" data-cot-type="dealer">Dealer</button>
+          <button class="cot-type-btn" data-cot-type="asset_mgr">Asset Mgr</button>
+          <button class="cot-type-btn cot-type-btn--active" data-cot-type="lev_money">Leveraged</button>
+          <button class="cot-type-btn" data-cot-type="other_rept">Other</button>
+        </div>
+        <div id="cot-grid" class="cot-grid"></div>
+        <div id="cot-report-info" class="cot-report-info"></div>
+      </div>
+
+      <!-- DMX — Community Outlook (Myfxbook) -->
+      <div class="right-tab-panel" id="rtab-dmx">
+        <div class="dmx-header-bar">
+          <span class="dmx-header-title">DMX Overview</span>
+          <span class="dmx-header-sep">|</span>
+          <span class="dmx-header-period" id="dmx-period-label">Every Hour</span>
+          <span style="flex:1"></span>
+          <div class="dmx-tf-group">
+            <button class="dmx-tf-btn" data-tf="D1">1D</button>
+            <button class="dmx-tf-btn" data-tf="H4">4H</button>
+            <button class="dmx-tf-btn dmx-tf-btn--active" data-tf="H1">1H</button>
+          </div>
+          <select class="dmx-sort-select" id="dmx-sort-select" onchange="buildDMXChart()">
+            <option value="az">Pair (A-Z)</option>
+            <option value="long">Long ↓</option>
+            <option value="short">Short ↓</option>
+          </select>
+        </div>
+        <div class="dmx-legend-bar">
+          <span class="dmx-legend-dot dmx-legend-long-dot"></span>
+          <span class="dmx-legend-text">Long</span>
+          <span class="dmx-legend-dot dmx-legend-short-dot"></span>
+          <span class="dmx-legend-text">Short</span>
+        </div>
+        <div id="dmx-table-wrap" class="dmx-table-wrap"></div>
+      </div>
+
+    </div><!-- /.right-content -->
+
+  </div><!-- /.panel-right -->
+
+</div><!-- /.main-layout -->
+
+<!-- ═══════════════════ SETTINGS PANEL ═══════════════════ -->
+<div class="settings-overlay hidden" id="settings-overlay" onclick="closeSettings(event)">
+  <div class="settings-panel" id="settings-panel">
+    <div class="settings-header">
+      <div class="settings-title">
+        <span class="settings-icon">⚙</span>
+        <div>
+          <div>Ticker de titres en temps réel</div>
+          <div class="settings-subtitle">Paramètres</div>
+        </div>
+      </div>
+      <div class="settings-master">
+        <span>Tout</span>
+        <div class="toggle-switch" id="master-toggle" onclick="toggleMaster(this)" data-state="on">
+          <div class="toggle-thumb"></div>
+        </div>
+      </div>
+      <button class="settings-close" onclick="closeSettings()">×</button>
+    </div>
+    <div class="settings-search">
+      <input type="text" placeholder="Rechercher des sections..." id="settings-search" oninput="filterSettings(this.value)" />
+    </div>
+    <div class="settings-body" id="settings-body"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════ RISK SENTIMENT POPUP ═══════════════════ -->
+<div class="risk-popup-overlay hidden" id="risk-popup-overlay">
+  <div class="risk-popup" id="risk-popup">
+    <div class="risk-popup-header" id="rp-header">
+      <span class="rp-arrow" id="rp-arrow">↘</span>
+      <span class="rp-label" id="rp-label">NEUTRAL</span>
+      <button class="rp-close" id="rp-close">×</button>
+    </div>
+    <div class="risk-popup-body" id="rp-body">
+      <!-- Gauge -->
+      <div class="rp-gauge-wrap" id="rp-gauge-wrap">
+        <svg class="rp-gauge-svg" viewBox="0 0 200 120" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="rg-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%"   stop-color="#ef4444"/>
+              <stop offset="30%"  stop-color="#f97316"/>
+              <stop offset="50%"  stop-color="#f59e0b"/>
+              <stop offset="70%"  stop-color="#84cc16"/>
+              <stop offset="100%" stop-color="#22c55e"/>
+            </linearGradient>
+          </defs>
+          <!-- Track arc -->
+          <path d="M 18 106 A 82 82 0 0 1 182 106" fill="none" stroke="#1c1c1c" stroke-width="20" stroke-linecap="round"/>
+          <!-- Color arc -->
+          <path d="M 18 106 A 82 82 0 0 1 182 106" fill="none" stroke="url(#rg-grad)" stroke-width="12" stroke-linecap="round"/>
+          <!-- Tick marks -->
+          <line x1="18"  y1="106" x2="24"  y2="106" stroke="#333" stroke-width="1.5"/>
+          <line x1="100" y1="24"  x2="100" y2="30"  stroke="#333" stroke-width="1.5"/>
+          <line x1="182" y1="106" x2="176" y2="106" stroke="#333" stroke-width="1.5"/>
+          <!-- Needle -->
+          <line id="rp-needle" x1="100" y1="106" x2="100" y2="36"
+                stroke="rgba(255,255,255,0.92)" stroke-width="2.5" stroke-linecap="round"
+                transform="rotate(0, 100, 106)"/>
+          <!-- Center cap -->
+          <circle cx="100" cy="106" r="7"  fill="#111" stroke="#2a2a2a" stroke-width="2"/>
+          <circle cx="100" cy="106" r="3"  fill="rgba(255,255,255,0.6)"/>
+          <!-- Score text -->
+          <text id="rp-gauge-pct" x="100" y="86" text-anchor="middle"
+                fill="#ffffff" font-size="20" font-weight="700"
+                font-family="'DM Mono', 'Courier New', monospace">0%</text>
+        </svg>
+        <!-- Label pill below gauge -->
+        <div id="rp-gauge-lbl" class="rp-gauge-lbl rp-gauge-lbl--neutral">NEUTRE</div>
+      </div>
+      <!-- Desc -->
+      <p class="rp-desc" id="rp-desc">Loading…</p>
+      <div class="rp-divider"></div>
+      <div class="rp-section-label">PERFORMANCE DES CLASSES D'ACTIFS</div>
+      <div class="rp-assets" id="rp-assets"></div>
+      <div class="rp-divider"></div>
+      <div class="rp-updated" id="rp-updated">Mis à jour : —</div>
+    </div>
+  </div>
+</div>
+
+<script src="/js/app.js?v=20260529014"></script>
+<script src="/js/charts.js?v=20260529014"></script>
+
+<!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
+<div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
+<div class="pd-drawer" id="pd-drawer">
+
+  <!-- Header -->
+  <div class="pd-header">
+    <div class="pd-avatar-wrap">
+      <div class="pd-avatar" id="pd-hdr-avatar">?</div>
+      <div class="pd-status-dot"></div>
+    </div>
+    <div class="pd-header-info">
+      <div class="pd-username" id="pd-hdr-username">Chargement…</div>
+      <div class="pd-badge" id="pd-hdr-badge">Professionnel</div>
+    </div>
+    <button class="pd-close" onclick="pdClose()" aria-label="Fermer">×</button>
+  </div>
+
+  <!-- Scrollable body with accordion sections -->
+  <div class="pd-body">
+
+    <!-- 1 — Profil -->
+    <div class="pd-section">
+      <button class="pd-section-trigger" onclick="pdAccordion(this)">
+        <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
+        <span class="pd-section-label">Profil</span>
+        <span class="pd-section-arrow">›</span>
+      </button>
+      <div class="pd-section-content">
+        <div class="pd-section-inner">
+
+          <!-- Avatar upload row -->
+          <div class="pd-avatar-section">
+            <div class="pd-avatar-large" id="pd-prof-avatar">?
+              <div class="pd-avatar-large-status"></div>
+            </div>
+            <div class="pd-avatar-btns">
+              <button class="pd-avatar-btn" onclick="pdAvatarUploadClick()">Télécharger Nouveau</button>
+              <button class="pd-avatar-btn pd-avatar-btn-del" onclick="pdAvatarDelete()">Supprimer l'Avatar</button>
+            </div>
+            <input type="file" id="pd-avatar-file" accept="image/*" style="display:none" onchange="pdAvatarFileChange(event)" />
+          </div>
+
+          <label class="pd-label">Nom d'affichage</label>
+          <input class="pd-input" id="pd-name" type="text" placeholder="Votre nom" />
+
+          <label class="pd-label">Adresse e-mail</label>
+          <input class="pd-input" id="pd-email" type="email" readonly placeholder="email@exemple.com" />
+
+          <div class="pd-grid-2" style="margin-bottom:0">
+            <div class="pd-field">
+              <label class="pd-label">Fuseau horaire</label>
+              <select class="pd-select" id="pd-timezone" onchange="pdUpdateClock()">
+                <option value="Europe/Paris">Europe/Paris</option>
+                <option value="Europe/Berlin">Europe/Berlin</option>
+                <option value="Europe/London">Europe/London</option>
+                <option value="America/New_York">America/New_York</option>
+                <option value="America/Chicago">America/Chicago</option>
+                <option value="America/Los_Angeles">America/Los_Angeles</option>
+                <option value="Asia/Tokyo">Asia/Tokyo</option>
+                <option value="Asia/Dubai">Asia/Dubai</option>
+                <option value="UTC">UTC</option>
+              </select>
+            </div>
+            <div class="pd-field">
+              <label class="pd-label">Heure actuelle</label>
+              <div class="pd-clock-display">
+                <span class="pd-clock-icon">🕐</span>
+                <span id="pd-clock-time">--:--</span>
+              </div>
+            </div>
+          </div>
+
+          <label class="pd-label">Langue</label>
+          <select class="pd-select" id="pd-lang">
+            <option value="fr">🇫🇷 Français</option>
+            <option value="en">🇬🇧 English</option>
+            <option value="de">🇩🇪 Deutsch</option>
+            <option value="es">🇪🇸 Español</option>
+          </select>
+
+          <button class="pd-btn" id="pd-save-profile-btn" onclick="pdSaveProfile()">Mettre à jour les données</button>
+          <div class="pd-msg" id="pd-profile-msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2 — Mot de passe et sécurité -->
+    <div class="pd-section">
+      <button class="pd-section-trigger" onclick="pdAccordion(this)">
+        <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
+        <span class="pd-section-label">Mot de passe et sécurité</span>
+        <span class="pd-section-arrow">›</span>
+      </button>
+      <div class="pd-section-content">
+        <div class="pd-section-inner">
+
+          <label class="pd-label">Mot de passe actuel</label>
+          <div class="pd-pw-wrap">
+            <span class="pd-pw-icon-left">🔒</span>
+            <input class="pd-input" id="pd-cur-pw" type="password" placeholder="••••••••" autocomplete="current-password" />
+            <button class="pd-pw-toggle" type="button" onclick="pdTogglePw('pd-cur-pw', this)" aria-label="Afficher">👁</button>
+          </div>
+
+          <label class="pd-label">Nouveau mot de passe</label>
+          <div class="pd-pw-wrap">
+            <span class="pd-pw-icon-left">🔒</span>
+            <input class="pd-input" id="pd-new-pw" type="password" placeholder="••••••••" autocomplete="new-password" oninput="pdCheckPwReqs(this.value)" />
+            <button class="pd-pw-toggle" type="button" onclick="pdTogglePw('pd-new-pw', this)" aria-label="Afficher">👁</button>
+          </div>
+
+          <label class="pd-label">Confirmer le nouveau mot de passe</label>
+          <div class="pd-pw-wrap">
+            <span class="pd-pw-icon-left">🔒</span>
+            <input class="pd-input" id="pd-conf-pw" type="password" placeholder="••••••••" autocomplete="new-password" />
+            <button class="pd-pw-toggle" type="button" onclick="pdTogglePw('pd-conf-pw', this)" aria-label="Afficher">👁</button>
+          </div>
+
+          <!-- Requirements box -->
+          <div class="pd-pw-reqs">
+            <div class="pd-pw-reqs-title">Exigences du mot de passe :</div>
+            <div class="pd-req-item" id="pd-req-len">
+              <div class="pd-req-circle"></div>
+              <span>Au moins 8 caractères</span>
+            </div>
+            <div class="pd-req-item" id="pd-req-case">
+              <div class="pd-req-circle"></div>
+              <span>Contient des lettres majuscules et minuscules</span>
+            </div>
+            <div class="pd-req-item" id="pd-req-digit">
+              <div class="pd-req-circle"></div>
+              <span>Contient au moins un chiffre</span>
+            </div>
+            <div class="pd-req-item" id="pd-req-special">
+              <div class="pd-req-circle"></div>
+              <span>Contient au moins un caractère spécial</span>
+            </div>
+          </div>
+
+          <button class="pd-btn" id="pd-save-pw-btn" onclick="pdChangePassword()">🔒 Mettre à jour le mot de passe</button>
+          <div class="pd-msg" id="pd-pw-msg"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3 — Apparence -->
+    <div class="pd-section">
+      <button class="pd-section-trigger" onclick="pdAccordion(this)">
+        <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" stroke-width="1.5"/><path d="M12 3a9 9 0 0 1 0 18" fill="currentColor" stroke="none"/></svg></span>
+        <span class="pd-section-label">Apparence</span>
+        <span class="pd-section-arrow">›</span>
+      </button>
+      <div class="pd-section-content">
+        <div class="pd-section-inner">
+
+          <label class="pd-label">Thème</label>
+          <div class="pd-theme-btns" style="margin-bottom:14px">
+            <button class="pd-theme-btn" id="pd-theme-light" onclick="pdSetTheme('light')">☀ Mode Clair</button>
+            <button class="pd-theme-btn pd-active" id="pd-theme-dark" onclick="pdSetTheme('dark')">🔥 Mode Sombre</button>
+            <button class="pd-theme-btn" id="pd-theme-medium" onclick="pdSetTheme('medium')">◑ Mode Moyen</button>
+          </div>
+
+          <label class="pd-label">Couleur des bougies</label>
+          <select class="pd-select" id="pd-candle-color">
+            <option value="green-red">🟢 Vert / 🔴 Rouge (Standard)</option>
+            <option value="blue-red">🔵 Bleu / 🔴 Rouge</option>
+            <option value="white-black">⚪ Blanc / ⚫ Noir</option>
+            <option value="teal-orange">🟦 Teal / 🟠 Orange</option>
+          </select>
+
+          <div class="pd-grid-2">
+            <div class="pd-field">
+              <label class="pd-label">Format des nombres</label>
+              <select class="pd-select" id="pd-num-format">
+                <option value="eu">Format EU</option>
+                <option value="us">Format US</option>
+              </select>
+            </div>
+            <div class="pd-field">
+              <label class="pd-label">Format de date</label>
+              <select class="pd-select" id="pd-date-format">
+                <option value="dmy">DD/MM/YYYY</option>
+                <option value="mdy">MM/DD/YYYY</option>
+                <option value="ymd">YYYY-MM-DD</option>
+              </select>
+            </div>
+            <div class="pd-field">
+              <label class="pd-label">Format de l'heure</label>
+              <select class="pd-select" id="pd-time-format">
+                <option value="24">24 heures</option>
+                <option value="12">12 heures</option>
+              </select>
+            </div>
+            <div class="pd-field">
+              <label class="pd-label">Couleur de survol de la grille</label>
+              <select class="pd-select" id="pd-grid-hover">
+                <option value="orange">Orange (Par défaut)</option>
+                <option value="blue">Bleu</option>
+                <option value="green">Vert</option>
+              </select>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 4 — Abonnement -->
+    <div class="pd-section">
+      <button class="pd-section-trigger" onclick="pdAccordion(this)">
+        <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
+        <span class="pd-section-label">Abonnement</span>
+        <span class="pd-section-arrow">›</span>
+      </button>
+      <div class="pd-section-content">
+        <div class="pd-section-inner">
+
+          <div class="pd-plan-card" id="pd-plan-card">
+            <div class="pd-plan-row1">
+              <div class="pd-plan-name">
+                Professionnel
+                <span class="pd-plan-active-badge" id="pd-plan-status-badge">Actif</span>
+              </div>
+              <div class="pd-plan-price">24,99 €<span style="font-size:10px;font-weight:400;color:#888">/mois</span></div>
+            </div>
+            <div class="pd-plan-next" id="pd-plan-status-text">Abonnement actif</div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- 5 — Parrainages -->
+    <div class="pd-section">
+      <button class="pd-section-trigger" onclick="pdAccordion(this)">
+        <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="10" width="18" height="12" rx="1"/><path d="M3 10h18M12 10V22"/><path d="M8 6a2 2 0 0 1 4 0M16 6a2 2 0 0 0-4 0"/><path d="M3 10c0-2.8 2.2-4 4-4s3 1.5 5 4c2-2.5 3-4 5-4s4 1.2 4 4"/></svg></span>
+        <span class="pd-section-label">Parrainages</span>
+        <span class="pd-section-arrow">›</span>
+      </button>
+      <div class="pd-section-content">
+        <div class="pd-section-inner">
+          <div style="color:#888;font-size:13px;line-height:1.5">Parrainez un ami et obtenez 1 mois gratuit.<br>Votre lien de parrainage sera disponible prochainement.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 6 — Support et Juridique -->
+    <div class="pd-section">
+      <button class="pd-section-trigger" onclick="pdAccordion(this)">
+        <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></span>
+        <span class="pd-section-label">Support et Juridique</span>
+        <span class="pd-section-arrow">›</span>
+      </button>
+      <div class="pd-section-content">
+        <div class="pd-section-inner" style="padding-left:0;padding-right:0;padding-bottom:0">
+          <a class="pd-support-link" href="mailto:support@datatradingpro.com">
+            <span class="pd-support-icon">💬</span>
+            <span class="pd-support-text">Contacter le Support</span>
+            <span class="pd-support-ext">↗</span>
+          </a>
+          <a class="pd-support-link" href="#">
+            <span class="pd-support-icon">📖</span>
+            <span class="pd-support-text">Base de connaissances</span>
+            <span class="pd-support-ext">↗</span>
+          </a>
+          <a class="pd-support-link" href="#">
+            <span class="pd-support-icon">🛡</span>
+            <span class="pd-support-text">Avertissement de risque</span>
+            <span class="pd-support-ext">↗</span>
+          </a>
+          <a class="pd-support-link" href="#">
+            <span class="pd-support-icon">📄</span>
+            <span class="pd-support-text">Conditions générales</span>
+            <span class="pd-support-ext">↗</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin panel link (shown only for admins) -->
+    <div class="pd-section" id="pd-admin-section" style="display:none">
+      <button class="pd-section-trigger" onclick="window.location.href='/admin'">
+        <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+        <span class="pd-section-label">Panel Admin</span>
+        <span class="pd-section-arrow">›</span>
+      </button>
+    </div>
+
+  </div><!-- /.pd-body -->
+
+  <!-- Footer — logout -->
+  <div class="pd-footer">
+    <button class="pd-logout-btn" onclick="logoutUser()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Déconnexion
+    </button>
+  </div>
+
+</div><!-- /.pd-drawer -->
+
+<script>
+  // ─── Auth: populate avatar + drawer user info ─────────────────────────────
+  let _pdUser = null;
+  let _pdAvatarDataUrl = null;
+  let _pdClockInterval = null;
+
+  fetch('/api/auth/me').then(r => r.json()).then(d => {
+    if (!d.loggedIn) { window.location.href = '/login'; return; }
+    _pdUser = d.user;
+    const displayName = d.user.name || d.user.email || '?';
+    const initial = displayName.charAt(0).toUpperCase();
+
+    // Topbar avatar letter
+    const topbarAvEl = document.getElementById('topbar-avatar-letter');
+    if (topbarAvEl) topbarAvEl.textContent = initial;
+
+    // Restaurer l'avatar depuis localStorage (clé par userId pour multi-comptes)
+    const savedAvatar = localStorage.getItem('pd_avatar_' + d.user.id);
+    if (savedAvatar) _pdAvatarDataUrl = savedAvatar;
+
+    // Drawer header avatar
+    pdSetAvatarDisplay(initial, _pdAvatarDataUrl);
+
+    // Drawer header username
+    const hdrName = document.getElementById('pd-hdr-username');
+    if (hdrName) hdrName.textContent = displayName;
+
+    // Badge plan dynamique (Professionnel si actif, Suspendu sinon)
+    const hdrBadge = document.getElementById('pd-hdr-badge');
+    if (hdrBadge) {
+      hdrBadge.textContent = 'Professionnel';
+      hdrBadge.style.background = d.user.active
+        ? 'rgba(247,148,29,0.15)' : 'rgba(231,76,60,0.12)';
+      hdrBadge.style.color  = d.user.active ? '#f7941d' : '#ef4444';
+      hdrBadge.style.border = d.user.active
+        ? '1px solid rgba(247,148,29,0.3)' : '1px solid rgba(231,76,60,0.3)';
+    }
+
+    // Pre-fill profile fields
+    const emailEl = document.getElementById('pd-email');
+    const nameEl  = document.getElementById('pd-name');
+    if (emailEl) emailEl.value = d.user.email || '';
+    if (nameEl)  nameEl.value  = d.user.name  || '';
+
+    // Statut abonnement dynamique selon user.active
+    const badge    = document.getElementById('pd-plan-status-badge');
+    const planText = document.getElementById('pd-plan-status-text');
+    const planCard = document.getElementById('pd-plan-card');
+    if (d.user.active) {
+      if (badge)    { badge.textContent = 'Actif'; badge.style.background = 'rgba(46,204,113,0.15)'; badge.style.color = '#2ecc71'; badge.style.border = '1px solid rgba(46,204,113,0.3)'; }
+      if (planText) planText.textContent = 'Abonnement actif — Professionnel';
+      if (planCard) planCard.style.borderColor = 'rgba(46,204,113,0.2)';
+    } else {
+      if (badge)    { badge.textContent = 'Inactif'; badge.style.background = 'rgba(231,76,60,0.1)'; badge.style.color = '#ef4444'; badge.style.border = '1px solid rgba(231,76,60,0.3)'; }
+      if (planText) planText.textContent = 'Abonnement suspendu — contactez le support';
+      if (planCard) planCard.style.borderColor = 'rgba(231,76,60,0.2)';
+    }
+
+    // Show admin section if admin
+    if (d.user.role === 'admin') {
+      const adminSec = document.getElementById('pd-admin-section');
+      if (adminSec) adminSec.style.display = '';
+    }
+
+    // Start clock
+    pdStartClock();
+
+    // Restore theme preference
+    const savedTheme = localStorage.getItem('pd_theme') || 'dark';
+    pdSetTheme(savedTheme, true);
+
+  }).catch(() => window.location.href = '/login');
+
+  // ─── Avatar display helpers ───────────────────────────────────────────────
+  function pdSetAvatarDisplay(initial, dataUrl) {
+    // Header avatar (48px)
+    const hdrAv = document.getElementById('pd-hdr-avatar');
+    if (hdrAv) {
+      if (dataUrl) {
+        hdrAv.innerHTML = '<img src="' + dataUrl + '" alt="avatar" /><div class="pd-status-dot"></div>';
+      } else {
+        hdrAv.innerHTML = initial + '<div class="pd-status-dot"></div>';
+      }
+    }
+    // Profile section avatar (64px)
+    const profAv = document.getElementById('pd-prof-avatar');
+    if (profAv) {
+      if (dataUrl) {
+        profAv.innerHTML = '<img src="' + dataUrl + '" alt="avatar" /><div class="pd-avatar-large-status"></div>';
+      } else {
+        profAv.innerHTML = initial + '<div class="pd-avatar-large-status"></div>';
+      }
+    }
+    // Topbar avatar (26px) — may have img or letter span
+    const topbarAv = document.getElementById('topbar-avatar');
+    if (topbarAv) {
+      const letterEl = topbarAv.querySelector('#topbar-avatar-letter') || topbarAv.querySelector('span');
+      if (dataUrl) {
+        // Replace content with an img (keep status dot if present)
+        const dot = topbarAv.querySelector('.pd-status-mini');
+        topbarAv.innerHTML = '<img src="' + dataUrl + '" alt="avatar" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" />';
+        if (dot) topbarAv.appendChild(dot);
+      } else {
+        const dot = topbarAv.querySelector('.pd-status-mini');
+        topbarAv.innerHTML = '<span id="topbar-avatar-letter">' + initial + '</span>';
+        if (dot) topbarAv.appendChild(dot);
+      }
+    }
+  }
+
+  // ─── Avatar upload ────────────────────────────────────────────────────────
+  function pdAvatarUploadClick() {
+    document.getElementById('pd-avatar-file').click();
+  }
+  function pdAvatarFileChange(e) {
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function(ev) {
+      _pdAvatarDataUrl = ev.target.result;
+      const displayName = _pdUser ? (_pdUser.name || _pdUser.email || '?') : '?';
+      pdSetAvatarDisplay(displayName.charAt(0).toUpperCase(), _pdAvatarDataUrl);
+      // Persister dans localStorage (survit aux déconnexions/rechargements)
+      if (_pdUser) localStorage.setItem('pd_avatar_' + _pdUser.id, _pdAvatarDataUrl);
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  }
+  function pdAvatarDelete() {
+    _pdAvatarDataUrl = null;
+    const displayName = _pdUser ? (_pdUser.name || _pdUser.email || '?') : '?';
+    pdSetAvatarDisplay(displayName.charAt(0).toUpperCase(), null);
+    // Supprimer du localStorage
+    if (_pdUser) localStorage.removeItem('pd_avatar_' + _pdUser.id);
+  }
+
+  // ─── Live clock ───────────────────────────────────────────────────────────
+  function pdStartClock() {
+    if (_pdClockInterval) clearInterval(_pdClockInterval);
+    pdUpdateClock();
+    _pdClockInterval = setInterval(pdUpdateClock, 1000);
+  }
+  function pdUpdateClock() {
+    const tzEl = document.getElementById('pd-timezone');
+    const tz = tzEl ? tzEl.value : 'Europe/Paris';
+    const now = new Date();
+    try {
+      const formatted = new Intl.DateTimeFormat('fr-FR', {
+        hour: '2-digit', minute: '2-digit', second: '2-digit',
+        hour12: false, timeZone: tz
+      }).format(now);
+      const clockEl = document.getElementById('pd-clock-time');
+      if (clockEl) clockEl.textContent = formatted;
+    } catch(err) {
+      const clockEl = document.getElementById('pd-clock-time');
+      if (clockEl) clockEl.textContent = '--:--';
+    }
+  }
+
+  // ─── Logout ──────────────────────────────────────────────────────────────
+  async function logoutUser() {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    window.location.href = '/login';
+  }
+
+  // ─── Drawer open / close ─────────────────────────────────────────────────
+  function pdOpen() {
+    document.getElementById('pd-overlay').classList.add('pd-open');
+    document.getElementById('pd-drawer').classList.add('pd-open');
+    document.body.style.overflow = 'hidden';
+  }
+  function pdClose() {
+    document.getElementById('pd-overlay').classList.remove('pd-open');
+    document.getElementById('pd-drawer').classList.remove('pd-open');
+    document.body.style.overflow = '';
+  }
+  function pdToggle() {
+    const drawer = document.getElementById('pd-drawer');
+    if (drawer.classList.contains('pd-open')) pdClose(); else pdOpen();
+  }
+
+  // ─── Accordion ───────────────────────────────────────────────────────────
+  function pdAccordion(trigger) {
+    const content = trigger.nextElementSibling;
+    const isOpen  = content.classList.contains('pd-open');
+    // Close all sections
+    document.querySelectorAll('.pd-section-content.pd-open').forEach(el => {
+      el.classList.remove('pd-open');
+      el.previousElementSibling.classList.remove('pd-open');
+    });
+    // Open clicked if it was closed
+    if (!isOpen) {
+      content.classList.add('pd-open');
+      trigger.classList.add('pd-open');
+    }
+  }
+
+  // ─── Helper: show msg ────────────────────────────────────────────────────
+  function pdMsg(id, text, type) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.className = 'pd-msg visible pd-msg--' + type;
+    setTimeout(() => { el.classList.remove('visible'); }, 4000);
+  }
+
+  // ─── Save profile ─────────────────────────────────────────────────────────
+  async function pdSaveProfile() {
+    const btn  = document.getElementById('pd-save-profile-btn');
+    const name = (document.getElementById('pd-name')?.value || '').trim();
+    if (!name) { pdMsg('pd-profile-msg', 'Le nom ne peut pas être vide.', 'err'); return; }
+    btn.disabled = true;
+    try {
+      // Attempt to save to API; fall back to optimistic update
+      try {
+        const r = await fetch('/api/auth/me/profile', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name }),
+        });
+        if (!r.ok) throw new Error('API error');
+      } catch(_) { /* endpoint may not exist yet — proceed optimistically */ }
+      if (_pdUser) _pdUser.name = name;
+      const initial = name.charAt(0).toUpperCase();
+      pdSetAvatarDisplay(initial, _pdAvatarDataUrl);
+      const hdrName = document.getElementById('pd-hdr-username');
+      if (hdrName) hdrName.textContent = name;
+      pdMsg('pd-profile-msg', 'Profil mis à jour avec succès.', 'ok');
+    } catch {
+      pdMsg('pd-profile-msg', 'Erreur lors de la mise à jour.', 'err');
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // ─── Password eye toggle ─────────────────────────────────────────────────
+  function pdTogglePw(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    if (!inp) return;
+    if (inp.type === 'password') { inp.type = 'text'; btn.textContent = '🙈'; }
+    else { inp.type = 'password'; btn.textContent = '👁'; }
+  }
+
+  // ─── Password requirements live check ────────────────────────────────────
+  function pdCheckPwReqs(val) {
+    const setReq = (id, ok) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      if (ok) el.classList.add('pd-req-ok'); else el.classList.remove('pd-req-ok');
+    };
+    setReq('pd-req-len',     val.length >= 8);
+    setReq('pd-req-case',    /[a-z]/.test(val) && /[A-Z]/.test(val));
+    setReq('pd-req-digit',   /\d/.test(val));
+    setReq('pd-req-special', /[^a-zA-Z0-9]/.test(val));
+  }
+
+  // ─── Change password ─────────────────────────────────────────────────────
+  async function pdChangePassword() {
+    const btn    = document.getElementById('pd-save-pw-btn');
+    const curPw  = document.getElementById('pd-cur-pw')?.value  || '';
+    const newPw  = document.getElementById('pd-new-pw')?.value  || '';
+    const confPw = document.getElementById('pd-conf-pw')?.value || '';
+
+    if (!curPw || !newPw || !confPw) {
+      pdMsg('pd-pw-msg', 'Veuillez remplir tous les champs.', 'err'); return;
+    }
+    if (newPw !== confPw) {
+      pdMsg('pd-pw-msg', 'Les mots de passe ne correspondent pas.', 'err'); return;
+    }
+    if (newPw.length < 8) {
+      pdMsg('pd-pw-msg', 'Le mot de passe doit contenir au moins 8 caractères.', 'err'); return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = 'Enregistrement…';
+    try {
+      const r = await fetch('/api/auth/me/password', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword: curPw, newPassword: newPw }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        pdMsg('pd-pw-msg', 'Mot de passe modifié avec succès.', 'ok');
+        document.getElementById('pd-cur-pw').value  = '';
+        document.getElementById('pd-new-pw').value  = '';
+        document.getElementById('pd-conf-pw').value = '';
+        pdCheckPwReqs('');
+      } else {
+        pdMsg('pd-pw-msg', data.error || 'Erreur lors du changement.', 'err');
+      }
+    } catch {
+      pdMsg('pd-pw-msg', 'Erreur de connexion — réessayez.', 'err');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '🔒 Mettre à jour le mot de passe';
+    }
+  }
+
+  // ─── Theme buttons ────────────────────────────────────────────────────────
+  function pdSetTheme(theme, silent) {
+    ['light','dark','medium'].forEach(t => {
+      const btn = document.getElementById('pd-theme-' + t);
+      if (btn) btn.classList.toggle('pd-active', t === theme);
+    });
+    if (!silent) localStorage.setItem('pd_theme', theme);
+    // Apply body class (visual only for now)
+    document.body.classList.remove('theme-light','theme-dark','theme-medium');
+    document.body.classList.add('theme-' + theme);
+  }
+
+  // ─── Renewal toggle ──────────────────────────────────────────────────────
+  function pdToggleRenewal(el) {
+    el.classList.toggle('on');
+  }
+
+  // ─── Close drawer on Escape ───────────────────────────────────────────────
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') pdClose(); });
+</script>
+
+<!-- ══ NOTIFICATION PANEL ══ -->
+<div class="np-overlay" id="np-overlay" onclick="npClose()"></div>
+<div class="np-panel" id="np-panel">
+
+  <!-- Header -->
+  <div class="np-header">
+    <span class="np-title">Notifications</span>
+    <div class="np-main-toggle" id="np-main-toggle" onclick="npToggleEnabled()">
+      <span class="np-main-toggle-lbl" id="np-main-lbl">ON</span>
+    </div>
+    <button class="np-close-btn" onclick="npClose()">×</button>
+  </div>
+
+  <!-- Sound / Push settings -->
+  <div class="np-settings-row">
+    <select class="np-select" id="np-chime-select">
+      <option value="chime">Chime</option>
+      <option value="ding">Ding</option>
+      <option value="alert">Alerte</option>
+      <option value="none">Silencieux</option>
+    </select>
+    <button class="np-vol-btn" id="np-vol-btn" onclick="npCycleVolume()">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><path d="M1 4h2l3-3v10L3 8H1V4z" stroke="currentColor" stroke-width="1.1"/><path d="M8 3.5c1 .8 1.5 1.7 1.5 2.5S9 8.2 8 9" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>
+      <span id="np-vol-lbl">Fort</span>
+    </button>
+    <div class="np-push-group">
+      <span class="np-push-label">Push mobile</span>
+      <div class="np-push-toggle" id="np-push-toggle" onclick="npTogglePush()">
+        <div class="np-push-thumb"></div>
+        <span class="np-push-state" id="np-push-state">ON</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Filter tabs -->
+  <div class="np-tabs-bar">
+    <button class="np-arrow-btn" id="np-tab-prev">‹</button>
+    <div class="np-tabs-scroll" id="np-tabs-scroll">
+      <button class="np-tab np-tab--active" data-nf="all">Tout</button>
+      <button class="np-tab" data-nf="analyst">Fichiers d'analystes</button>
+      <button class="np-tab" data-nf="risk">Sentiment de risque</button>
+      <button class="np-tab" data-nf="breaking">A›</button>
+    </div>
+    <button class="np-arrow-btn" id="np-tab-next">›</button>
+    <button class="np-filter-btn" onclick="npToggleFilter()">
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none"><path d="M1 2h9M3 5.5h5M5 9h1" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>
+      Filtre
+    </button>
+  </div>
+
+  <!-- Items -->
+  <div class="np-list" id="np-list">
+    <div class="np-empty" id="np-empty">Aucune notification pour l'instant</div>
+  </div>
+
+</div>
+
+<div id="news-toast" class="news-toast">
+  <span class="news-toast-icon">⏰</span>
+  <span id="news-toast-text"></span>
+</div>
+</body>
+</html>

@@ -1,0 +1,144 @@
+/**
+ * auth.js — Authentication & User Management
+ * Backend: Supabase Postgres  |  Passwords: bcrypt
+ */
+
+'use strict';
+
+const { createClient } = require('@supabase/supabase-js');
+const bcrypt = require('bcrypt');
+
+const SUPABASE_URL  = process.env.SUPABASE_URL;
+const SUPABASE_KEY  = process.env.SUPABASE_KEY;
+const SALT_ROUNDS   = 12;
+const TABLE         = 'users';
+
+if (!SUPABASE_URL || !SUPABASE_KEY) {
+  console.error('[Auth] ❌ SUPABASE_URL / SUPABASE_KEY manquants dans .env');
+  process.exit(1);
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
+  auth: { persistSession: false },   // server-side — pas de session Supabase côté client
+});
+
+console.log('[Auth] ✅ Supabase connecté →', SUPABASE_URL);
+
+// ─── Seed admin (premier lancement) ──────────────────────────────────────────
+async function seedAdmin() {
+  const { data, error } = await supabase.from(TABLE).select('id').limit(1);
+
+  if (error) {
+    console.error('[Auth] Supabase unreachable:', error.message);
+    return;
+  }
+  if (data && data.length > 0) return; // des utilisateurs existent déjà
+
+  const defaultPass = 'Admin2024!';
+  const hash = await bcrypt.hash(defaultPass, SALT_ROUNDS);
+
+  const { error: err } = await supabase.from(TABLE).insert([{
+    email:         'admin@datatradingpro.com',
+    password_hash: hash,
+    name:          'Admin',
+    role:          'admin',
+    plan:          'full',
+    active:        true,
+  }]);
+
+  if (err) { console.error('[Auth] Seed admin échoué:', err.message); return; }
+
+  console.log('\n' + '═'.repeat(54));
+  console.log('[Auth] ✅ Compte admin créé :');
+  console.log('[Auth]    Email    : admin@datatradingpro.com');
+  console.log('[Auth]    Password : ' + defaultPass);
+  console.log('[Auth] ⚠️  Changez le MDP depuis /admin');
+  console.log('═'.repeat(54) + '\n');
+}
+
+// ─── Vérifier les credentials (login) ────────────────────────────────────────
+async function verifyLogin(email, password) {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('*')
+    .eq('email', (email || '').toLowerCase().trim())
+    .eq('active', true)
+    .single();
+
+  if (error || !data) return null;
+
+  const ok = await bcrypt.compare(password, data.password_hash);
+  if (!ok) return null;
+
+  // Mettre à jour last_login en background
+  supabase.from(TABLE).update({ last_login: new Date().toISOString() }).eq('id', data.id).then(() => {});
+
+  return { id: data.id, email: data.email, name: data.name, role: data.role, plan: data.plan, active: !!data.active };
+}
+
+// ─── CRUD utilisateurs ────────────────────────────────────────────────────────
+async function getAllUsers() {
+  const { data, error } = await supabase
+    .from(TABLE)
+    .select('id, email, name, role, plan, active, created_at, last_login')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(error.message);
+  return data || [];
+}
+
+async function getUserById(id) {
+  const { data } = await supabase
+    .from(TABLE)
+    .select('id, email, name, role, plan, active')
+    .eq('id', id)
+    .single();
+  return data || null;
+}
+
+async function createUser({ email, password, name = '', role = 'client', plan = 'full' }) {
+  if (!email || !password) throw new Error('Email et mot de passe requis');
+  const hash = await bcrypt.hash(password, SALT_ROUNDS);
+
+  const { data, error } = await supabase
+    .from(TABLE)
+    .insert([{ email: email.toLowerCase().trim(), password_hash: hash, name, role, plan, active: true }])
+    .select()
+    .single();
+
+  if (error) throw new Error(error.message);
+  return data;
+}
+
+async function changePassword(id, newPassword) {
+  if (!newPassword || newPassword.length < 6) throw new Error('Mot de passe trop court (min 6 caractères)');
+  const hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const { error } = await supabase.from(TABLE).update({ password_hash: hash }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+async function updateUser(id, { name, role, plan, active }) {
+  const { error } = await supabase.from(TABLE).update({
+    name:   name   || '',
+    role:   role   || 'client',
+    plan:   plan   || 'full',
+    active: active === 1 || active === true || active === '1',
+  }).eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+async function deleteUser(id) {
+  const { error } = await supabase.from(TABLE).delete().eq('id', id);
+  if (error) throw new Error(error.message);
+}
+
+module.exports = {
+  seedAdmin,
+  verifyLogin,
+  getAllUsers,
+  getUserById,
+  createUser,
+  changePassword,
+  updateUser,
+  deleteUser,
+};

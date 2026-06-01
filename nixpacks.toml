@@ -1,0 +1,36 @@
+# Configuration Railway (nixpacks)
+# Installe Chromium pour Puppeteer et lance le serveur Node.js
+
+[phases.setup]
+nixPkgs = [
+  "chromium",
+  "nss",
+  "nspr",
+  "atk",
+  "cups",
+  "gtk3",
+  "glib",
+  "pango",
+  "cairo",
+  "xorg.libX11",
+  "xorg.libXcomposite",
+  "xorg.libXdamage",
+  "xorg.libXext",
+  "xorg.libXrandr",
+  "libdrm",
+  "mesa",
+  "alsa-lib",
+  "expat",
+]
+
+[phases.install]
+cmds = ["npm ci --omit=dev"]
+
+[start]
+cmd = "node server.js"
+
+[variables]
+NODE_ENV = "production"
+PUPPETEER_SKIP_CHROMIUM_DOWNLOAD = "true"
+# Le chemin Chromium est résolu automatiquement au démarrage (voir _resolveChromeExec)
+# Si besoin de forcer : PUPPETEER_EXECUTABLE_PATH = "/usr/bin/chromium"
