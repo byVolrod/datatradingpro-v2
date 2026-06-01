@@ -2329,6 +2329,66 @@ html, body {
   font-family: var(--font-ui);
 }
 
+/* ── Smart Bias Tracker (grille + horloges) ── */
+.sb-clocks {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+.sb-clock {
+  flex: 1;
+  min-width: 130px;
+  padding: 10px 14px;
+  border-right: 1px solid var(--border);
+}
+.sb-clock:last-child { border-right: none; }
+.sb-clock-top { display: flex; justify-content: space-between; font-size: 10px; color: var(--text4); font-family: var(--font-mono); }
+.sb-clock-time { font-size: 22px; font-weight: 700; color: #fff; font-family: var(--font-mono); letter-spacing: 0.02em; margin: 2px 0; }
+.sb-clock-city { font-size: 11px; color: #f7941d; font-weight: 600; }
+
+.sb-title-row { margin-bottom: 10px; }
+.sb-title { font-size: 14px; font-weight: 700; color: #fff; }
+.sb-grid-wrap { overflow-x: auto; }
+.sb-grid { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sb-grid th, .sb-grid td { border: 1px solid #0c0c0e; }
+.sb-grid thead th {
+  background: #101012;
+  color: #8a93a3;
+  font-weight: 600;
+  padding: 9px 8px;
+  text-align: center;
+}
+.sb-grid th.sb-ind { text-align: left; }
+.sb-ind {
+  background: #141417;
+  color: #cbd5e1;
+  text-align: left;
+  padding: 9px 12px;
+  white-space: nowrap;
+  font-weight: 500;
+  min-width: 190px;
+}
+.sb-ind-arrow { color: #6b7280; margin-right: 4px; }
+.sb-cur { min-width: 88px; }
+.sb-cell {
+  text-align: center;
+  padding: 9px 8px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.sb-conclusion .sb-ind { background: #1a1a1f; color: #fff; font-weight: 700; border-left: 2px solid #f7941d; }
+/* Couleurs des cellules */
+.sb-vbull   { background: #0f7a3d; }
+.sb-bull    { background: #1c9d57; }
+.sb-wbull   { background: #14663a; }
+.sb-neutral { background: #2f2f36; color: #cbd5e1; }
+.sb-wbear   { background: #7a2e2a; }
+.sb-bear    { background: #c0392b; }
+.sb-vbear   { background: #7f1d1d; }
+
 /* ═══════════════════════════════════════════════
    ONGLET BANK — transactions bancaires
 ═══════════════════════════════════════════════ */

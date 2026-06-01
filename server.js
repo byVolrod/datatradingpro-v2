@@ -2012,6 +2012,100 @@ app.get('/api/bias', async (req, res) => {
   res.json(_biasCache || { items: [], overview: '', week: '' });
 });
 
+// ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
+const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
+let _smartBias = null;
+try { _smartBias = JSON.parse(fs.readFileSync(SMART_BIAS_FILE, 'utf8')); } catch {}
+const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
+const SB_GEM_ROWS = [
+  { key: 'fundamental', label: 'Fundamental Data' },
+  { key: 'bankOverview', label: 'Bank Overview' },
+  { key: 'hedgeFund', label: 'Hedge Fund Positioning' },
+  { key: 'retail', label: 'Retail Positioning' },
+  { key: 'monetary', label: 'Monetary Policy' },
+  { key: 'seasonality', label: 'Seasonality' },
+];
+
+// Trend RÉEL dérivé de la force des devises (pente sur la semaine)
+async function _sbTrendRow() {
+  const out = {};
+  try {
+    const cs = await computeCurrencyStrength('week');
+    SB_CURRENCIES.forEach(c => {
+      const s = cs?.series?.[c];
+      if (!s || s.length < 2) { out[c] = 'Range'; return; }
+      const d = s[s.length - 1].v - s[0].v;
+      out[c] = d > 0.4 ? 'Uptrend' : d < -0.4 ? 'Downtrend' : 'Range';
+    });
+  } catch { SB_CURRENCIES.forEach(c => out[c] = 'Range'); }
+  return out;
+}
+
+async function generateSmartBias(force = false) {
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  if (!force && _smartBias && Date.now() - (_smartBias.generatedAt || 0) < WEEK) return _smartBias;
+
+  const cutoff = Date.now() - WEEK;
+  const heads  = allNews.filter(i => i.timestamp > cutoff).slice(0, 150).map(i => `[${i.category || ''}] ${i.headline}`).join('\n');
+  const prompt = `You are a senior FX strategist building a "Smart Bias" matrix for the 8 major currencies: ${SB_CURRENCIES.join(', ')}.
+For EACH currency, rate each indicator using EXACTLY one of: "Very Bullish", "Bullish", "Neutral", "Bearish", "Very Bearish".
+Indicators:
+- fundamental: macro/data momentum
+- bankOverview: aggregate sell-side bank stance
+- hedgeFund: CFTC/COT large-speculator positioning
+- retail: retail crowd positioning (often contrarian)
+- monetary: central-bank policy stance
+- seasonality: typical seasonal tendency for early June
+Use the past-week headlines + your macro knowledge. Be decisive (do NOT make everything Neutral).
+Headlines:
+${heads || 'n/a'}
+Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"hedgeFund":{...},"retail":{...},"monetary":{...},"seasonality":{...}}}`;
+
+  let gem = {};
+  try {
+    const t = await ai.generateText(prompt, 2400);
+    const m = t.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('No JSON');
+    gem = JSON.parse(m[0]).rows || {};
+  } catch (e) {
+    console.error('[SmartBias]', e.message);
+    if (_smartBias) return _smartBias;   // garde l'ancienne matrice
+  }
+
+  const trend = await _sbTrendRow();
+  // Conclusion = agrégat pondéré simple
+  const score = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2, 'Uptrend': 1, 'Downtrend': -1, 'Range': 0 };
+  const conclusion = {};
+  SB_CURRENCIES.forEach(c => {
+    let s = 0, n = 0;
+    SB_GEM_ROWS.forEach(r => { const v = gem[r.key]?.[c]; if (v != null && score[v] != null) { s += score[v]; n++; } });
+    s += score[trend[c]] || 0; n++;
+    const avg = n ? s / n : 0;
+    conclusion[c] = avg > 0.55 ? 'Bullish' : avg > 0.15 ? 'Weak Bullish' : avg < -0.55 ? 'Bearish' : avg < -0.15 ? 'Weak Bearish' : 'Neutral';
+  });
+
+  // Ordre d'affichage : Fundamental, Bank, HedgeFund, Retail, Monetary, Trend, Seasonality
+  const rows = [];
+  ['fundamental', 'bankOverview', 'hedgeFund', 'retail', 'monetary'].forEach(k => {
+    const def = SB_GEM_ROWS.find(r => r.key === k);
+    rows.push({ key: k, label: def.label, values: gem[k] || {} });
+  });
+  rows.push({ key: 'trend', label: 'Trend', values: trend });
+  rows.push({ key: 'seasonality', label: 'Seasonality', values: gem.seasonality || {} });
+
+  _smartBias = { generatedAt: Date.now(), currencies: SB_CURRENCIES, rows, conclusion };
+  try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
+  console.log('[SmartBias] matrix generated');
+  try { broadcast({ type: 'smartbias_update', bias: _smartBias }); } catch {}
+  return _smartBias;
+}
+
+app.get('/api/smart-bias', async (req, res) => {
+  if (req.query.force === '1') { try { await generateSmartBias(true); } catch {} }
+  else if (!_smartBias)        { try { await generateSmartBias(true); } catch {} }
+  res.json(_smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
+});
+
 // Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide
 (function scheduleWeeklyBias() {
   function msToNextSunday(h, m) {
@@ -2026,12 +2120,16 @@ app.get('/api/bias', async (req, res) => {
   }
   const delay = msToNextSunday(18, 0);
   console.log(`[Bias] Génération hebdo (dimanche 18h) dans ${Math.round(delay / 60000)} min`);
-  setTimeout(function run() {
+  const runAll = () => {
+    generateSmartBias(true).catch(e => console.error('[SmartBias] failed:', e.message));
     generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
-    setInterval(() => generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message)), 7 * 24 * 60 * 60 * 1000);
+  };
+  setTimeout(function run() {
+    runAll();
+    setInterval(runAll, 7 * 24 * 60 * 60 * 1000);
   }, delay);
   // Premier remplissage si le cache est vide (ex: tout premier déploiement)
-  if (!_biasCache) setTimeout(() => generateWeeklyBias(true).catch(() => {}), 30 * 1000);
+  if (!_smartBias) setTimeout(() => generateSmartBias(true).catch(() => {}), 30 * 1000);
 })();
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
