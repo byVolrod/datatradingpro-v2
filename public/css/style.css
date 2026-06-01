@@ -61,7 +61,7 @@ html, body {
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
-  padding: 0 8px;
+  padding: 0 18px;
   gap: 0;
   user-select: none;
   flex-shrink: 0;
@@ -80,7 +80,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 0 12px 0 4px;
+  padding: 0 18px 0 4px;
   border-right: 1px solid var(--border);
   height: var(--topbar-h);
 }
@@ -92,7 +92,7 @@ html, body {
 .logo-text {
   font-family: 'Inter', var(--font-ui);
   font-weight: 700;              /* gras */
-  font-size: 15px;
+  font-size: 16px;
   color: #ffffff;               /* blanc pur */
   letter-spacing: -0.01em;
   white-space: nowrap;
@@ -407,8 +407,9 @@ html, body {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding-left: 8px;
+  gap: 5px;
+  padding-left: 14px;
+  padding-right: 4px;
   border-left: 1px solid var(--border);
   flex-shrink: 0;
 }
