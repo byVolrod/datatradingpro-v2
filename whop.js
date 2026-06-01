@@ -5,13 +5,16 @@
 'use strict';
 
 const WHOP_API_KEY = process.env.WHOP_API_KEY || '';
+const DTP_PRODUCT  = process.env.WHOP_PRODUCT_ID || 'prod_murutybICilE9';   // « JOT - DTP 🏦 »
 const BASE = 'https://api.whop.com/api/v2';
 
 function _auth() { return { Authorization: `Bearer ${WHOP_API_KEY}`, 'Content-Type': 'application/json' }; }
 
 // Normalise un membership Whop → { email, valid, expiresAt }
+// Renvoie null si ce n'est PAS le produit DTP (on ignore les autres offres Whop).
 function _normalize(m) {
   if (!m || !m.email) return null;
+  if (m.product && m.product !== DTP_PRODUCT) return null;       // ← uniquement le produit DTP
   const endTs = m.renewal_period_end || m.expires_at || null;   // timestamps unix (secondes)
   return {
     email:     String(m.email).toLowerCase().trim(),
@@ -37,11 +40,12 @@ async function getMembership(id) {
 async function getMembershipByEmail(email) {
   if (!WHOP_API_KEY || !email) return null;
   try {
-    const r = await fetch(`${BASE}/memberships?valid=true&per=50`, { headers: _auth() });
+    const r = await fetch(`${BASE}/memberships?valid=true&per=50&product_id=${DTP_PRODUCT}`, { headers: _auth() });
     if (!r.ok) return null;
     const j = await r.json();
     const target = String(email).toLowerCase().trim();
-    const match = (j.data || []).find(m => String(m.email || '').toLowerCase().trim() === target);
+    const match = (j.data || []).find(m =>
+      String(m.email || '').toLowerCase().trim() === target && m.product === DTP_PRODUCT);
     return match ? _normalize(match) : null;
   } catch { return null; }
 }

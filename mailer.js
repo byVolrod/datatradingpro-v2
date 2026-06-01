@@ -208,6 +208,20 @@ async function sendReactivated({ to, name, expiresAt }) {
   return _send(to, 'DataTradingPro — votre accès est réactivé', _layout('Réactivation', body));
 }
 
+// ── 2c) Email de renouvellement réussi (paiement Whop renouvelé) ──────────────
+async function sendRenewed({ to, name, expiresAt }) {
+  const prenom = (name || '').split(' ')[0] || 'cher client';
+  const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Abonnement renouvelé ✅</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Merci ! Votre abonnement à <strong style="color:#fff;">DataTradingPro</strong> a bien été <strong style="color:#34d399;">renouvelé</strong>${end ? ` jusqu'au <strong style="color:#fff;">${end}</strong>` : ''}. Votre accès au terminal continue sans interruption.</p>
+    ${_button('Accéder au terminal', APP_URL)}
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">Bons trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return _send(to, 'DataTradingPro — votre abonnement est renouvelé', _layout('Renouvellement', body));
+}
+
 // ── 3) Email de réinitialisation de mot de passe ──────────────────────────────
 async function sendPasswordReset({ to, name, password }) {
   const prenom = (name || '').split(' ')[0] || 'cher client';
@@ -257,4 +271,4 @@ async function sendAdminExpiryReminder({ clients, to }) {
   return _send(admin, `DataTradingPro — ${clients.length} abonnement(s) à renouveler`, _layout('Rappel abonnements', body));
 }
 
-module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendPasswordReset, sendAdminExpiryReminder };
+module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset, sendAdminExpiryReminder };
