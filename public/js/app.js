@@ -3626,10 +3626,14 @@ function npPush(items) {
   if (_npPush && 'Notification' in window && Notification.permission === 'granted') {
     const hi = items.find(i => i.priority === 'high' || i.urgent);
     if (hi) {
+      // Si le son est coupé (Muet ou carillon "none"), la notif navigateur est SILENCIEUSE
+      // (sinon l'OS joue son propre son indépendamment du volume interne).
+      const muted = (_npVolume === 'mute' || _npChime === 'none');
       new Notification('DataTradingPro', {
-        body: hi.headline,
-        icon: '/favicon.ico',
-        tag:  'dtp-' + hi.id,
+        body:   hi.headline,
+        icon:   '/favicon.ico',
+        tag:    'dtp-' + hi.id,
+        silent: muted,
       });
     }
   }
