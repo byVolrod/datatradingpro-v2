@@ -16,6 +16,7 @@ const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, clearOutlookCache } = require('./scrapers/myfxbook');
 const auth = require('./auth');
+const mailer = require('./mailer');   // emails Resend (bienvenue, renouvellement, reset)
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -249,6 +250,10 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
     const body = { ...req.body, expiresAt: computeExpiry(req.body) };
     await auth.createUser(body);
     res.json({ ok: true });
+    // Email de bienvenue (non bloquant)
+    if (body.email && body.role !== 'admin') {
+      mailer.sendWelcome({ to: body.email, name: body.name, password: body.password, expiresAt: body.expiresAt }).catch(() => {});
+    }
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
@@ -259,6 +264,13 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (req.body.duration) fields.expiresAt = computeExpiry(req.body);
     await auth.updateUser(+req.params.id, fields);
     res.json({ ok: true });
+    // Si l'admin suspend le compte (non payé / non renouvelé) → email de renouvellement échoué
+    const suspended = 'active' in req.body && (req.body.active === 0 || req.body.active === false || req.body.active === '0');
+    if (suspended) {
+      auth.getUserById(+req.params.id)
+        .then(u => { if (u?.email && u.role !== 'admin') mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
+        .catch(() => {});
+    }
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
@@ -268,8 +280,14 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
 });
 
 app.post('/api/admin/users/:id/password', requireAdmin, async (req, res) => {
-  try { await auth.changePassword(+req.params.id, req.body.password); res.json({ ok: true }); }
-  catch (e) { res.status(400).json({ error: e.message }); }
+  try {
+    await auth.changePassword(+req.params.id, req.body.password);
+    res.json({ ok: true });
+    // Email de réinitialisation (non bloquant) avec le nouveau mot de passe
+    auth.getUserById(+req.params.id)
+      .then(u => { if (u?.email) mailer.sendPasswordReset({ to: u.email, name: u.name, password: req.body.password }); })
+      .catch(() => {});
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 // ─── User self-service password change ────────────────────────────────────────
