@@ -122,7 +122,12 @@ async function createUser({ email, password, name = '', role = 'client', plan = 
     delete row.expires_at;
     ({ data, error } = await supabase.from(TABLE).insert([row]).select().single());
   }
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (/duplicate|already exists|users_email_key|unique/i.test(error.message)) {
+      throw new Error('Cet email est déjà utilisé par un autre compte.');
+    }
+    throw new Error(error.message);
+  }
   return data;
 }
 

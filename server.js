@@ -608,6 +608,28 @@ async function _scrapeILviaPuppeteer(url) {
   }
 }
 
+// Extraction RAPIDE du contenu InvestingLive via axios (JSON-LD articleBody) — sans navigateur
+async function _fetchILContentHttp(url) {
+  const r = await axios.get(url, {
+    timeout: 12000,
+    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+    validateStatus: s => s < 500,
+  });
+  if (r.status !== 200) return '';
+  const $ = cheerio.load(r.data);
+  let body = '';
+  $('script[type="application/ld+json"]').each((_, s) => {
+    try {
+      const j = JSON.parse($(s).contents().text());
+      const arr = Array.isArray(j) ? j : (j['@graph'] ? j['@graph'] : [j]);
+      arr.forEach(o => { if (o && typeof o.articleBody === 'string' && o.articleBody.length > body.length) body = o.articleBody; });
+    } catch {}
+  });
+  if (!body || body.length < 80) return '';
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return body.split(/\n+/).map(p => p.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('');
+}
+
 app.get('/api/session-wrap-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !url.startsWith('https://investinglive.com/')) return res.json({ html: '' });
@@ -623,7 +645,16 @@ app.get('/api/session-wrap-content', async (req, res) => {
     return res.json({ html: clean, source: 'rss' });
   }
 
-  // ── 2. Puppeteer — render le SPA Vue/Nuxt côté client ────────────────────────
+  // ── 1.5 Extraction HTTP rapide (JSON-LD) — sans navigateur, quasi instantané ──
+  try {
+    const httpHtml = await _fetchILContentHttp(url);
+    if (httpHtml && httpHtml.length > 100) {
+      if (cached) cached.content = httpHtml;
+      return res.json({ html: httpHtml, source: 'http' });
+    }
+  } catch (e) { /* on tente Puppeteer ensuite */ }
+
+  // ── 2. Puppeteer — render le SPA Vue/Nuxt côté client (fallback rare) ─────────
   try {
     console.log(`[IL] Scraping via Puppeteer: ${url}`);
     const rawHtml = await _scrapeILviaPuppeteer(url);
