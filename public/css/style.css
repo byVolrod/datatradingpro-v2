@@ -3786,26 +3786,26 @@ html, body {
 .rp-gauge-wrap--neutral::after  { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,#f59e0b,transparent); }
 
 .rp-desc {
-  font-size: 11px; color: #888; line-height: 1.55; margin-bottom: 10px;
+  font-size: 11.5px; color: #b4bcc8; line-height: 1.6; margin-bottom: 10px;
 }
 .rp-divider {
-  height: 1px; background: #161616; margin: 8px 0;
+  height: 1px; background: #2a2a2a; margin: 8px 0;
 }
 .rp-section-label {
-  font-family: var(--font-mono); font-size: 9px; color: #444;
+  font-family: var(--font-mono); font-size: 9.5px; color: #8a93a0;
   letter-spacing: 0.12em; margin-bottom: 8px; text-transform: uppercase;
 }
 .rp-assets { display: flex; flex-direction: column; gap: 5px; }
 .rp-asset-row {
   display: flex; align-items: center; gap: 8px;
-  font-family: var(--font-mono); font-size: 11px;
+  font-family: var(--font-mono); font-size: 11.5px;
 }
 .rp-asset-arrow { font-size: 12px; width: 14px; flex-shrink: 0; }
-.rp-asset-name  { flex: 1; color: #777; font-size: 10.5px; }
-.rp-asset-chg   { font-weight: 700; font-size: 11px; }
-.rp-asset-chg.pos { color: #22c55e; }
-.rp-asset-chg.neg { color: #ef4444; }
-.rp-updated { font-size: 9.5px; color: #333; font-family: var(--font-mono); margin-top: 6px; }
+.rp-asset-name  { flex: 1; color: #c4ccd8; font-size: 11px; }
+.rp-asset-chg   { font-weight: 700; font-size: 11.5px; }
+.rp-asset-chg.pos { color: #34d399; }
+.rp-asset-chg.neg { color: #f87171; }
+.rp-updated { font-size: 10px; color: #6b7280; font-family: var(--font-mono); margin-top: 6px; }
 
 /* Sentiment colors per label */
 .risk-popup-header.risk-on    { border-left: 3px solid #22c55e; }
