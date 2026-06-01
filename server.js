@@ -988,17 +988,25 @@ app.post('/api/report-insights', async (req, res) => {
   const { id, text } = req.body || {};
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = id || clean.slice(0, 100);
+  const key = 'v2:' + (id || clean.slice(0, 100));   // v2 = format structuré {asset,bias,text}
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
   try {
-    const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés.
-Chaque insight = UNE phrase concise (max 22 mots), en anglais, orientée trader (impact marché concret).
-Réponds UNIQUEMENT en JSON : {"insights":["phrase 1","phrase 2","phrase 3","phrase 4"]}
+    const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés, chacun centré sur UN actif/instrument.
+Pour chaque insight renvoie un objet :
+- "asset": l'instrument concerné (ex: "S&P 500", "Nasdaq 100", "Gold", "Brent Crude", "EUR/USD", "US Dollar", "US 10Y", "Bitcoin")
+- "bias": "bullish" | "bearish" | "neutral" (direction/sentiment du marché pour cet actif)
+- "text": UNE phrase concise (max 26 mots), en anglais, orientée trader (mécanisme + impact)
+Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"...","bias":"...","text":"..."}]}
 Rapport :
 ${clean.slice(0, 4000)}`;
-    const out = await ai.generateText(prompt, 700);
+    const out = await ai.generateText(prompt, 900);
     const m = out.match(/\{[\s\S]*\}/);
-    const insights = m ? (JSON.parse(m[0]).insights || []).filter(s => typeof s === 'string' && s.length > 8).slice(0, 6) : [];
+    const insights = m
+      ? (JSON.parse(m[0]).insights || [])
+          .filter(o => o && typeof o.text === 'string' && o.text.length > 8)
+          .map(o => ({ asset: String(o.asset || '').slice(0, 40), bias: String(o.bias || 'neutral').toLowerCase(), text: o.text }))
+          .slice(0, 6)
+      : [];
     _insightsCache.set(key, insights);
     if (insights.length) _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque
     res.json({ insights });

@@ -3452,10 +3452,29 @@ html, body {
   border-bottom: 1px solid #1e1e1e; scrollbar-width: thin;
 }
 .ai-insights-card {
-  flex: 0 0 270px; background: #0f0f12; border: 1px solid #26262b;
-  border-radius: 10px; padding: 16px 18px;
-  font-size: 13px; line-height: 1.55; color: #94a3b8;
+  flex: 0 0 280px; background: #161619; border: 1px solid #26262b;
+  border-radius: 6px; padding: 16px 18px;
+  font-size: 13px; line-height: 1.6; color: #94a3b8;
 }
+.ai-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.ai-card-asset { font-size: 13px; font-weight: 700; color: #e2e8f0; }
+.ai-card-text { font-size: 13px; line-height: 1.6; color: #94a3b8; }
+.ai-bias {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
+  padding: 2px 8px; border-radius: 3px; white-space: nowrap;
+}
+.ai-bias--buy     { background: rgba(16,185,129,0.14); border: 1px solid rgba(16,185,129,0.35); color: #34d399; }
+.ai-bias--sell    { background: rgba(244,63,94,0.14);  border: 1px solid rgba(244,63,94,0.35);  color: #fb7185; }
+.ai-bias--neutral { background: rgba(120,120,130,0.18); border: 1px solid rgba(120,120,130,0.4); color: #9ca3af; }
+/* Logo + bouton masquer */
+.dtp-logo { color: #fff; font-weight: 800; letter-spacing: -0.01em; }
+.dtp-ins  { color: #f7941d; font-weight: 700; margin-left: 4px; }
+.ai-insights-toggle {
+  background: none; border: none; color: var(--text3); font-size: 11px; cursor: pointer;
+  margin-left: 8px; transition: color 0.15s; font-family: var(--font-ui);
+}
+.ai-insights-toggle:hover { color: var(--text); }
+.ai-insights-toggle .eye { font-size: 12px; }
 
 /* ── Document header (titre + date + source) ── */
 .arlib-doc-header {

@@ -2997,15 +2997,24 @@ async function _loadAIInsights(item, el) {
   }
   {
     if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
-    const cards = d.insights.map(t =>
-      `<div class="ai-insights-card">${t.replace(/</g, '&lt;')}</div>`).join('');
+    const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const biasMap = { bullish: { l: 'BUY', c: 'buy' }, bearish: { l: 'SELL', c: 'sell' }, neutral: { l: 'NEUTRAL', c: 'neutral' } };
+    const cards = d.insights.map(ins => {
+      if (typeof ins === 'string') return `<div class="ai-insights-card"><div class="ai-card-text">${esc(ins)}</div></div>`;
+      const b = biasMap[(ins.bias || '').toLowerCase()] || biasMap.neutral;
+      const head = ins.asset
+        ? `<div class="ai-card-head"><span class="ai-card-asset">${esc(ins.asset)}</span><span class="ai-bias ai-bias--${b.c}">${b.l}</span></div>`
+        : '';
+      return `<div class="ai-insights-card">${head}<div class="ai-card-text">${esc(ins.text)}</div></div>`;
+    }).join('');
     const n = d.insights.length;
     el.innerHTML = `<div class="ai-insights-head">
-        <span class="ai-insights-title"><span class="ai-insights-dot">✦</span> AI Insights</span>
+        <span class="ai-insights-title"><span class="dtp-logo">DTP</span><span class="dtp-ins">Insights</span></span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(-1)">‹</button>
           <span class="ai-insights-count">1-${Math.min(3, n)} of ${n}</span>
           <button type="button" onclick="aiInsScroll(1)">›</button>
+          <button type="button" class="ai-insights-toggle" onclick="aiInsToggle(this)"><span class="eye">🙈</span> Masquer</button>
         </span>
       </div>
       <div class="ai-insights-cards" id="ai-insights-cards">${cards}</div>`;
@@ -3016,6 +3025,15 @@ async function _loadAIInsights(item, el) {
 function aiInsScroll(dir) {
   const c = document.getElementById('ai-insights-cards');
   if (c) c.scrollBy({ left: dir * 290, behavior: 'smooth' });
+}
+
+// Afficher / masquer la grille de cartes AI Insights
+function aiInsToggle(btn) {
+  const c = document.getElementById('ai-insights-cards');
+  if (!c) return;
+  const willHide = c.style.display !== 'none';
+  c.style.display = willHide ? 'none' : '';
+  btn.innerHTML = willHide ? '<span class="eye">👁</span> Afficher' : '<span class="eye">🙈</span> Masquer';
 }
 
 function renderArlibReader(item) {
