@@ -78,7 +78,7 @@
       font-size: 10px; font-weight: 700; color: var(--text3); text-transform: uppercase;
       letter-spacing: 0.07em; text-align: left; padding: 13px 14px;
       border-bottom: 1px solid var(--border2); background: #141416;
-      position: sticky; top: 56px; z-index: 2;
+      white-space: nowrap;
     }
     .users-table td {
       padding: 13px 14px; border-bottom: 1px solid var(--border);
@@ -122,7 +122,24 @@
     .modal input:focus, .modal select:focus { border-color: var(--orange); }
     .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
 
-    .table-wrap { background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; overflow: hidden; box-shadow: 0 8px 28px rgba(0,0,0,0.25); }
+    .table-wrap { background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; overflow-x: auto; box-shadow: 0 8px 28px rgba(0,0,0,0.25); }
+    .users-table { min-width: 880px; }   /* garde les colonnes lisibles → scroll horizontal sur petit écran */
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      .page { padding: 18px 14px 48px; }
+      .topbar { padding: 0 16px; }
+      .add-form { padding: 16px; gap: 10px; }
+      .add-form .form-field { min-width: 130px; flex: 1; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); }
+      .toolbar { flex-direction: column; align-items: stretch; }
+      .toolbar input, .toolbar select { width: 100%; }
+    }
+    @media (max-width: 560px) {
+      .stats-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+      .stat-value { font-size: 24px; }
+      .topbar-title { display: none; }
+    }
     .empty-state { padding: 32px; text-align: center; color: var(--text3); font-size: 12px; }
 
     /* ── Cartes statistiques ── */
@@ -203,6 +220,10 @@
       <select name="plan">
         <option value="professionnel">Professionnel</option>
       </select>
+    </div>
+    <div class="form-field">
+      <label>Date de début (ex. paiement Whop)</label>
+      <input type="date" name="startDate" id="add-start-date" title="Laisse vide = aujourd'hui" />
     </div>
     <div class="form-field">
       <label>Durée d'abonnement</label>
