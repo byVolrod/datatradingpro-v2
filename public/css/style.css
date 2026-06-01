@@ -790,7 +790,6 @@ html, body {
 /* Breaking / High Impact — palette Prime Terminal (bordeaux subtil) */
 .news-item--breaking {
   background: #2a1415;                       /* rouge/bordeaux très sombre */
-  border-left: 3px solid #da292b;            /* liseré rouge vif */
   animation: breaking-pulse 2s ease-out;
 }
 .news-item--breaking .news-headline { color: #e2e8f0; font-weight: 600; }  /* contraste fort */
