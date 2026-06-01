@@ -166,6 +166,21 @@
         <option value="professionnel">Professionnel</option>
       </select>
     </div>
+    <div class="form-field">
+      <label>Durée d'abonnement</label>
+      <select name="duration" id="add-duration" onchange="toggleCustom('add')">
+        <option value="1">1 mois</option>
+        <option value="3">3 mois</option>
+        <option value="6">6 mois</option>
+        <option value="12">12 mois</option>
+        <option value="unlimited">Illimité</option>
+        <option value="custom">Date personnalisée…</option>
+      </select>
+    </div>
+    <div class="form-field" id="add-custom-wrap" style="display:none">
+      <label>Date d'expiration</label>
+      <input type="date" name="expiresAt" id="add-custom-date" />
+    </div>
     <button type="submit" class="btn-sm btn-primary">+ Ajouter</button>
   </form>
 
@@ -180,12 +195,13 @@
           <th>Rôle</th>
           <th>Plan</th>
           <th>Statut</th>
+          <th>Abonnement</th>
           <th>Dernière connexion</th>
           <th>Actions</th>
         </tr>
       </thead>
       <tbody id="users-tbody">
-        <tr><td colspan="7" class="empty-state">Chargement…</td></tr>
+        <tr><td colspan="8" class="empty-state">Chargement…</td></tr>
       </tbody>
     </table>
   </div>
@@ -220,6 +236,22 @@
         <option value="1">Actif</option>
         <option value="0">Suspendu</option>
       </select>
+    </div>
+    <div class="form-field">
+      <label>Abonnement</label>
+      <select id="edit-duration" onchange="toggleCustom('edit')">
+        <option value="">— Garder l'échéance actuelle —</option>
+        <option value="1">Renouveler 1 mois (dès aujourd'hui)</option>
+        <option value="3">Renouveler 3 mois</option>
+        <option value="6">Renouveler 6 mois</option>
+        <option value="12">Renouveler 12 mois</option>
+        <option value="unlimited">Illimité</option>
+        <option value="custom">Date personnalisée…</option>
+      </select>
+    </div>
+    <div class="form-field" id="edit-custom-wrap" style="display:none">
+      <label>Date d'expiration</label>
+      <input type="date" id="edit-custom-date" />
     </div>
     <div class="modal-actions">
       <button class="btn-sm" onclick="closeEditModal()">Annuler</button>
@@ -259,7 +291,7 @@
     document.getElementById('user-count').textContent = users.length;
     const tbody = document.getElementById('users-tbody');
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="7" class="empty-state">Aucun utilisateur</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun utilisateur</td></tr>';
       return;
     }
     tbody.innerHTML = users.map(u => `
@@ -269,6 +301,7 @@
         <td><span class="badge badge-${u.role}">${u.role}</span></td>
         <td><span class="badge badge-client">Professionnel</span></td>
         <td><span class="badge ${u.active ? 'badge-active' : 'badge-suspended'}">${u.active ? 'Actif' : 'Suspendu'}</span></td>
+        <td>${subInfo(u)}</td>
         <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px">${u.last_login ? new Date(u.last_login).toLocaleString('fr-FR') : '—'}</td>
         <td class="actions">
           <button class="btn-sm" onclick="openEdit(${u.id},'${esc(u.name)}','${u.role}','${u.plan}',${u.active})">Modifier</button>
@@ -278,7 +311,26 @@
       </tr>`).join('');
   }
 
+  // Affiche l'état de l'abonnement (illimité / actif jusqu'au… / expiré)
+  function subInfo(u) {
+    if (u.role === 'admin') return '<span class="badge badge-admin">∞ admin</span>';
+    if (!u.expires_at)      return '<span class="badge badge-active">Illimité</span>';
+    const end  = new Date(u.expires_at);
+    const date = end.toLocaleDateString('fr-FR');
+    const days = Math.ceil((end - new Date()) / 86400000);
+    if (days < 0)  return `<span class="badge badge-suspended">Expiré le ${date}</span>`;
+    if (days <= 7) return `<span class="badge badge-suspended" style="opacity:.85">Expire le ${date} (${days}j)</span>`;
+    return `<span class="badge badge-active">Jusqu'au ${date}</span>`;
+  }
+
   function esc(s) { return (s||'').replace(/'/g, "\\'").replace(/"/g, '&quot;'); }
+
+  // Affiche/masque le champ date personnalisée (formulaire add ou edit)
+  function toggleCustom(which) {
+    const sel  = document.getElementById(which + '-duration');
+    const wrap = document.getElementById(which + '-custom-wrap');
+    wrap.style.display = sel.value === 'custom' ? '' : 'none';
+  }
 
   // ── Add user ────────────────────────────────────────────────────────────────
   document.getElementById('add-form').addEventListener('submit', async e => {
@@ -318,19 +370,28 @@
     document.getElementById('edit-role').value = role;
     document.getElementById('edit-plan').value = plan;
     document.getElementById('edit-active').value = active;
+    document.getElementById('edit-duration').value = '';      // par défaut : on garde l'échéance
+    document.getElementById('edit-custom-date').value = '';
+    document.getElementById('edit-custom-wrap').style.display = 'none';
     document.getElementById('edit-modal').classList.add('open');
   }
   function closeEditModal() { document.getElementById('edit-modal').classList.remove('open'); }
   async function saveEdit() {
     const id = document.getElementById('edit-id').value;
+    const body = {
+      name:   document.getElementById('edit-name').value,
+      role:   document.getElementById('edit-role').value,
+      plan:   document.getElementById('edit-plan').value,
+      active: +document.getElementById('edit-active').value,
+    };
+    const dur = document.getElementById('edit-duration').value;
+    if (dur) {                                  // l'admin a choisi de renouveler / changer l'échéance
+      body.duration = dur;
+      if (dur === 'custom') body.expiresAt = document.getElementById('edit-custom-date').value;
+    }
     await fetch(`/api/admin/users/${id}`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name:   document.getElementById('edit-name').value,
-        role:   document.getElementById('edit-role').value,
-        plan:   document.getElementById('edit-plan').value,
-        active: +document.getElementById('edit-active').value,
-      }),
+      body: JSON.stringify(body),
     });
     closeEditModal(); loadUsers();
   }

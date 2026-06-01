@@ -70,17 +70,22 @@ async function verifyLogin(email, password) {
   const ok = await bcrypt.compare(password, data.password_hash);
   if (!ok) return null;
 
+  // Abonnement expiré ? (les admins ne sont jamais bloqués)
+  if (data.role !== 'admin' && data.expires_at && new Date(data.expires_at).getTime() < Date.now()) {
+    return { expired: true, expiresAt: data.expires_at };
+  }
+
   // Mettre à jour last_login en background
   supabase.from(TABLE).update({ last_login: new Date().toISOString() }).eq('id', data.id).then(() => {});
 
-  return { id: data.id, email: data.email, name: data.name, role: data.role, plan: data.plan, active: !!data.active };
+  return { id: data.id, email: data.email, name: data.name, role: data.role, plan: data.plan, active: !!data.active, expiresAt: data.expires_at || null };
 }
 
 // ─── CRUD utilisateurs ────────────────────────────────────────────────────────
 async function getAllUsers() {
   const { data, error } = await supabase
     .from(TABLE)
-    .select('id, email, name, role, plan, active, created_at, last_login')
+    .select('id, email, name, role, plan, active, created_at, last_login, expires_at')
     .order('created_at', { ascending: false });
 
   if (error) throw new Error(error.message);
@@ -96,13 +101,13 @@ async function getUserById(id) {
   return data || null;
 }
 
-async function createUser({ email, password, name = '', role = 'client', plan = 'full' }) {
+async function createUser({ email, password, name = '', role = 'client', plan = 'professionnel', expiresAt = null }) {
   if (!email || !password) throw new Error('Email et mot de passe requis');
   const hash = await bcrypt.hash(password, SALT_ROUNDS);
 
   const { data, error } = await supabase
     .from(TABLE)
-    .insert([{ email: email.toLowerCase().trim(), password_hash: hash, name, role, plan, active: true }])
+    .insert([{ email: email.toLowerCase().trim(), password_hash: hash, name, role, plan, active: true, expires_at: expiresAt || null }])
     .select()
     .single();
 
@@ -117,13 +122,15 @@ async function changePassword(id, newPassword) {
   if (error) throw new Error(error.message);
 }
 
-async function updateUser(id, { name, role, plan, active }) {
-  const { error } = await supabase.from(TABLE).update({
-    name:   name   || '',
-    role:   role   || 'client',
-    plan:   plan   || 'full',
-    active: active === 1 || active === true || active === '1',
-  }).eq('id', id);
+async function updateUser(id, fields = {}) {
+  const upd = {};
+  if ('name'   in fields) upd.name   = fields.name || '';
+  if ('role'   in fields) upd.role   = fields.role || 'client';
+  if ('plan'   in fields) upd.plan   = fields.plan || 'professionnel';
+  if ('active' in fields) upd.active = fields.active === 1 || fields.active === true || fields.active === '1';
+  if ('expiresAt' in fields) upd.expires_at = fields.expiresAt || null;
+  if (Object.keys(upd).length === 0) return;
+  const { error } = await supabase.from(TABLE).update(upd).eq('id', id);
   if (error) throw new Error(error.message);
 }
 

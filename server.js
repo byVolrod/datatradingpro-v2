@@ -196,6 +196,10 @@ app.post('/api/auth/login', async (req, res) => {
   try {
     const user = await auth.verifyLogin(email, password);
     if (!user) return res.json({ error: 'Email ou mot de passe incorrect' });
+    if (user.expired) {
+      const d = new Date(user.expiresAt).toLocaleDateString('fr-FR');
+      return res.json({ error: `Votre abonnement a expiré le ${d}. Contactez l'administrateur pour le renouveler.` });
+    }
     req.session.userId = user.id;
     req.session.user   = user;
     res.json({ ok: true, role: user.role });
@@ -230,14 +234,33 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Calcule la date d'expiration à partir d'une durée choisie par l'admin
+function computeExpiry({ duration, expiresAt }) {
+  if (duration === 'unlimited') return null;                 // abonnement illimité
+  if (duration === 'custom')    return expiresAt ? new Date(expiresAt).toISOString() : null;
+  const months = parseInt(duration, 10);
+  if (!Number.isFinite(months) || months <= 0) return null;
+  const d = new Date();
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString();
+}
+
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
-  try { await auth.createUser(req.body); res.json({ ok: true }); }
-  catch (e) { res.status(400).json({ error: e.message }); }
+  try {
+    const body = { ...req.body, expiresAt: computeExpiry(req.body) };
+    await auth.createUser(body);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
-  try { await auth.updateUser(+req.params.id, req.body); res.json({ ok: true }); }
-  catch (e) { res.status(400).json({ error: e.message }); }
+  try {
+    const fields = { ...req.body };
+    // Ne recalcule l'échéance que si l'admin a choisi une durée (sinon on garde l'actuelle)
+    if (req.body.duration) fields.expiresAt = computeExpiry(req.body);
+    await auth.updateUser(+req.params.id, fields);
+    res.json({ ok: true });
+  } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
