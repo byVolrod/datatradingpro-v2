@@ -5,7 +5,7 @@ const WebSocket = require('ws');
 const path      = require('path');
 const fs        = require('fs');
 const axios     = require('axios');
-const session   = require('express-session');
+const session   = require('cookie-session');   // session stockée côté navigateur → survit aux redémarrages
 const helmet    = require('helmet');
 const cors      = require('cors');
 const Anthropic = require('@anthropic-ai/sdk');
@@ -132,15 +132,12 @@ allNews = loadHistory().map(item => {
 
 // ─── Session ──────────────────────────────────────────────────────────────────
 app.use(session({
-  secret: process.env.SESSION_SECRET || 'dtp-secret-key-change-me',
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: process.env.NODE_ENV === 'production',  // HTTPS uniquement en prod
-    maxAge: 7 * 24 * 60 * 60 * 1000,   // 7 jours
-  },
+  name:     'dtp_session',
+  secret:   process.env.SESSION_SECRET || 'dtp-secret-key-change-me',
+  httpOnly: true,
+  sameSite: 'lax',
+  secure:   process.env.NODE_ENV === 'production',  // HTTPS uniquement en prod
+  maxAge:   30 * 24 * 60 * 60 * 1000,   // 30 jours — l'utilisateur reste connecté
 }));
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
@@ -211,7 +208,8 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 app.post('/api/auth/logout', (req, res) => {
-  req.session.destroy(() => res.json({ ok: true }));
+  req.session = null;
+  res.json({ ok: true });
 });
 
 app.get('/api/auth/me', async (req, res) => {
@@ -219,7 +217,7 @@ app.get('/api/auth/me', async (req, res) => {
   try {
     // Toujours relire depuis la DB → les changements admin (active, plan…) sont immédiatement reflétés
     const fresh = await auth.getUserById(req.session.userId);
-    if (!fresh) { req.session.destroy(() => {}); return res.json({ loggedIn: false }); }
+    if (!fresh) { req.session = null; return res.json({ loggedIn: false }); }
     const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active };
     req.session.user = user; // maintenir la session à jour
     res.json({ loggedIn: true, user });
