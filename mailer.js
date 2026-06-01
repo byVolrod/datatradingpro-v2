@@ -11,9 +11,11 @@ const GMAIL_USER         = process.env.GMAIL_USER || '';
 const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''); // les MDP d'app Gmail ont des espaces
 const APP_URL            = process.env.APP_URL || 'https://datatradingpro.onrender.com';
 const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'datatradingpro.contact@gmail.com';
-// Expéditeur : Gmail impose le compte authentifié ; Mailjet/Resend : adresse vérifiée
-const EMAIL_FROM = process.env.EMAIL_FROM
-  || (GMAIL_USER ? `DataTradingPro <${GMAIL_USER}>` : `DataTradingPro <${SUPPORT_EMAIL}>`);
+// Expéditeur. On IGNORE l'ancienne valeur volrod.dev (migration) → adresse de contact dédiée.
+const _envFrom = process.env.EMAIL_FROM || '';
+const EMAIL_FROM = (_envFrom && !/volrod\.dev/i.test(_envFrom))
+  ? _envFrom
+  : `DataTradingPro <${SUPPORT_EMAIL}>`;
 
 function _parseFrom() {
   const m = EMAIL_FROM.match(/^(.*?)\s*<(.+)>$/);
