@@ -617,6 +617,22 @@ async function _fetchILContentHttp(url) {
   });
   if (r.status !== 200) return '';
   const $ = cheerio.load(r.data);
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  // 1) Contenu structuré : chaque point de l'article = un <li> propre (rendu en puces nettes)
+  const seen = new Set();
+  const items = [];
+  $('article li, article p').each((_, el) => {
+    const t = $(el).text().replace(/\s+/g, ' ').trim();
+    if (t.length < 15 || seen.has(t)) return;
+    seen.add(t);
+    items.push(t);
+  });
+  if (items.length >= 2) {
+    return `<ul>${items.slice(0, 80).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  }
+
+  // 2) Fallback : JSON-LD articleBody (bloc) si pas de structure exploitable
   let body = '';
   $('script[type="application/ld+json"]').each((_, s) => {
     try {
@@ -625,9 +641,8 @@ async function _fetchILContentHttp(url) {
       arr.forEach(o => { if (o && typeof o.articleBody === 'string' && o.articleBody.length > body.length) body = o.articleBody; });
     } catch {}
   });
-  if (!body || body.length < 80) return '';
-  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  return body.split(/\n+/).map(p => p.trim()).filter(Boolean).map(p => `<p>${esc(p)}</p>`).join('');
+  if (body.length > 80) return `<p>${esc(body)}</p>`;
+  return '';
 }
 
 app.get('/api/session-wrap-content', async (req, res) => {
