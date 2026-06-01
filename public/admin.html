@@ -142,6 +142,16 @@
     }
     .empty-state { padding: 32px; text-align: center; color: var(--text3); font-size: 12px; }
 
+    /* ── Toasts (notifications) ── */
+    .toast-wrap { position: fixed; bottom: 24px; right: 24px; z-index: 300; display: flex; flex-direction: column; gap: 10px; }
+    .toast {
+      background: #161619; border: 1px solid var(--border2); border-left: 3px solid var(--green);
+      border-radius: 9px; padding: 13px 18px; color: var(--text); font-size: 13px; font-weight: 500;
+      box-shadow: 0 10px 32px rgba(0,0,0,0.45); min-width: 240px; animation: toastIn 0.25s ease;
+    }
+    .toast.err { border-left-color: #ef4444; }
+    @keyframes toastIn { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+
     /* ── Cartes statistiques ── */
     .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; margin-bottom: 8px; }
     .stat-card {
@@ -473,6 +483,7 @@
     if (!confirm(`Supprimer ${email} ?`)) return;
     await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
     loadUsers();
+    showToast('✓ Utilisateur supprimé');
   }
 
   // ── Edit modal ──────────────────────────────────────────────────────────────
@@ -501,11 +512,32 @@
       body.duration = dur;
       if (dur === 'custom') body.expiresAt = document.getElementById('edit-custom-date').value;
     }
-    await fetch(`/api/admin/users/${id}`, {
-      method: 'PUT', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    closeEditModal(); loadUsers();
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok !== false) {
+        closeEditModal(); loadUsers();
+        showToast('✓ Utilisateur mis à jour avec succès');
+      } else {
+        showToast(d.error || 'Erreur lors de la mise à jour', 'err');
+      }
+    } catch {
+      showToast('Erreur de connexion — réessayez', 'err');
+    }
+  }
+
+  // Notification toast (bas-droite)
+  function showToast(msg, type) {
+    let wrap = document.getElementById('toast-wrap');
+    if (!wrap) { wrap = document.createElement('div'); wrap.id = 'toast-wrap'; wrap.className = 'toast-wrap'; document.body.appendChild(wrap); }
+    const t = document.createElement('div');
+    t.className = 'toast' + (type === 'err' ? ' err' : '');
+    t.textContent = msg;
+    wrap.appendChild(t);
+    setTimeout(() => { t.style.transition = 'opacity 0.3s'; t.style.opacity = '0'; setTimeout(() => t.remove(), 300); }, 2800);
   }
 
   // ── Password modal ──────────────────────────────────────────────────────────
@@ -524,7 +556,7 @@
       body: JSON.stringify({ password: pwd }),
     });
     closePwdModal();
-    alert('Mot de passe mis à jour.');
+    showToast('✓ Mot de passe mis à jour (email envoyé)');
   }
 
   // ── Logout ──────────────────────────────────────────────────────────────────
