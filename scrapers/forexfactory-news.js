@@ -94,7 +94,19 @@ function parseRelativeTime(str) {
 
 // ─── Browser management ───────────────────────────────────────────────────────
 
+// Ferme le navigateur après une période d'inactivité pour libérer la RAM (hébergement 512 Mo)
+let _idleTimer = null;
+const IDLE_MS  = 90_000;
+function armIdleClose() {
+  if (_idleTimer) clearTimeout(_idleTimer);
+  _idleTimer = setTimeout(async () => {
+    if (_browser) { try { await _browser.close(); } catch {} _browser = null; console.log('[FF-News] navigateur fermé (inactif)'); }
+  }, IDLE_MS);
+  if (_idleTimer.unref) _idleTimer.unref();
+}
+
 async function getBrowser() {
+  if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }
   if (_browser) {
     try { await _browser.pages(); return _browser; } catch {}
     _browser = null;
@@ -408,6 +420,7 @@ async function fetchFromPage() {
     return items.rows;
   } finally {
     await page.close().catch(() => {});
+    armIdleClose();
   }
 }
 
@@ -660,10 +673,11 @@ async function getArticleContent(url, headline = '') {
     return null;
   } finally {
     await page.close().catch(() => {});
+    armIdleClose();
   }
 }
 
-// Warm the browser on module load (non-blocking)
-getBrowser().catch(e => console.error('[FF-News] Pre-launch failed:', e.message));
+// Pas de pré-lancement au démarrage : le navigateur démarre à la 1ère utilisation
+// puis se ferme tout seul après inactivité (économie mémoire 512 Mo).
 
 module.exports = { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll };

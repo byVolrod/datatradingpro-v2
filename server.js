@@ -477,7 +477,18 @@ function _resolveChrome() {
   return candidates.find(existsSync) || 'chromium';
 }
 
+// Ferme le navigateur InvestingLive après inactivité pour libérer la RAM (512 Mo)
+let _ilIdleTimer = null;
+function _ilArmIdleClose() {
+  if (_ilIdleTimer) clearTimeout(_ilIdleTimer);
+  _ilIdleTimer = setTimeout(async () => {
+    if (_ilBrowser) { try { await _ilBrowser.close(); } catch {} _ilBrowser = null; console.log('[InvestingLive] navigateur fermé (inactif)'); }
+  }, 90_000);
+  if (_ilIdleTimer.unref) _ilIdleTimer.unref();
+}
+
 async function _getIlBrowser() {
+  if (_ilIdleTimer) { clearTimeout(_ilIdleTimer); _ilIdleTimer = null; }
   if (_ilBrowser) { try { await _ilBrowser.pages(); return _ilBrowser; } catch { _ilBrowser = null; } }
   _ilBrowser = await puppeteer.launch({
     executablePath: _resolveChrome(),
@@ -522,6 +533,7 @@ async function _scrapeILviaPuppeteer(url) {
     return html;
   } finally {
     await page.close().catch(() => {});
+    _ilArmIdleClose();
   }
 }
 

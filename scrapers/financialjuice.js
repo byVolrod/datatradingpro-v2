@@ -155,7 +155,18 @@ async function getToken() {
 
 let _fjBrowser = null;
 
+// Ferme le navigateur FJ après inactivité pour libérer la RAM (512 Mo)
+let _fjIdleTimer = null;
+function fjArmIdleClose() {
+  if (_fjIdleTimer) clearTimeout(_fjIdleTimer);
+  _fjIdleTimer = setTimeout(async () => {
+    if (_fjBrowser) { try { await _fjBrowser.close(); } catch {} _fjBrowser = null; console.log('[FJ browser] fermé (inactif)'); }
+  }, 90_000);
+  if (_fjIdleTimer.unref) _fjIdleTimer.unref();
+}
+
 async function getFJBrowser() {
+  if (_fjIdleTimer) { clearTimeout(_fjIdleTimer); _fjIdleTimer = null; }
   if (_fjBrowser) {
     try { await _fjBrowser.pages(); return _fjBrowser; } catch { _fjBrowser = null; }
   }
@@ -230,7 +241,8 @@ async function getTokenViaBrowser() {
     console.log('[FJ browser] token obtained');
     return token;
   } finally {
-    await page.close();
+    await page.close().catch(() => {});
+    fjArmIdleClose();
   }
 }
 
