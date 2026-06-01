@@ -687,8 +687,24 @@ async function _fetchILContentHttp(url) {
   return { html: '', points: [] };
 }
 
-// Cache des segmentations IA (url → HTML sectionné) pour éviter de rappeler Gemini
-const _swSegCache = new Map();
+// ── Persistance de cache IA sur disque (évite de rappeler Gemini après redémarrage) ──
+function _loadJsonMap(file) {
+  try { return new Map(Object.entries(JSON.parse(fs.readFileSync(file, 'utf8')))); }
+  catch { return new Map(); }
+}
+let _saveTimers = {};
+function _saveJsonMap(file, map) {
+  // écriture débattue (max 1 / 2s par fichier) pour ne pas marteler le disque
+  clearTimeout(_saveTimers[file]);
+  _saveTimers[file] = setTimeout(() => {
+    try { fs.writeFileSync(file, JSON.stringify(Object.fromEntries(map))); } catch {}
+  }, 2000);
+  if (_saveTimers[file].unref) _saveTimers[file].unref();
+}
+
+// Cache des segmentations IA (url → HTML sectionné) — persistant
+const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
+const _swSegCache = _loadJsonMap(SW_SEG_FILE);
 
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
 async function _segmentWrapAI(points) {
@@ -741,6 +757,7 @@ app.get('/api/session-wrap-content', async (req, res) => {
         try { seg = await _segmentWrapAI(data.points); }
         catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
         _swSegCache.set(url, seg || null);
+        if (seg) _saveJsonMap(SW_SEG_FILE, _swSegCache);   // persiste les succès
       }
       if (seg) {
         if (cached) cached.content = seg;
@@ -965,7 +982,8 @@ app.get('/api/status', (_req, res) => res.json({
 }));
 
 // ─── AI Insights : 4-6 résumés clés d'un rapport (cartes en haut du rapport) ──
-const _insightsCache = new Map();
+const INSIGHTS_FILE = path.join(__dirname, 'cache_insights.json');
+const _insightsCache = _loadJsonMap(INSIGHTS_FILE);   // persistant → pas de réappel Gemini à la réouverture
 app.post('/api/report-insights', async (req, res) => {
   const { id, text } = req.body || {};
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -982,6 +1000,7 @@ ${clean.slice(0, 4000)}`;
     const m = out.match(/\{[\s\S]*\}/);
     const insights = m ? (JSON.parse(m[0]).insights || []).filter(s => typeof s === 'string' && s.length > 8).slice(0, 6) : [];
     _insightsCache.set(key, insights);
+    if (insights.length) _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque
     res.json({ insights });
   } catch (e) {
     console.error('[Insights]', e.message);
