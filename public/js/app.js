@@ -1509,7 +1509,7 @@ function buildNewsItem(item) {
     badge.className = 'primer-badge';
     badge.textContent = label;
     const titleSpan = document.createElement('span');
-    titleSpan.textContent = titleText;
+    titleSpan.textContent = _dtpTitle(titleText);
     headline.appendChild(badge);
     headline.appendChild(titleSpan);
   } else {
@@ -3390,8 +3390,22 @@ function renderArlibList() {
 // Charge et affiche les AI Insights (cartes) d'un rapport via Gemini
 const _aiInsightsCache = {};   // cache navigateur : pas de requête à la réouverture d'un rapport
 async function _loadAIInsights(item, el) {
-  const text = (item.headline || '') + '\n' + String(item.description || item.content || '').replace(/<[^>]*>/g, ' ');
-  if (text.trim().length < 60) { el.innerHTML = ''; return; }
+  let text = (item.headline || '') + '\n' + String(item.description || item.content || '').replace(/<[^>]*>/g, ' ');
+  // Session wraps / ING : la description est courte → on récupère le VRAI contenu du rapport
+  // (sinon pas assez de texte pour générer les insights → panneau vide).
+  if (text.replace(/\s+/g, ' ').trim().length < 220 && item.url) {
+    try {
+      const ep = item._source === 'ing-think' ? '/api/bank-research-content' : '/api/session-wrap-content';
+      const c  = await fetch(ep + '?url=' + encodeURIComponent(item.url)).then(r => r.json());
+      if (c && c.html && c.html.length > 80) {
+        // On extrait les puces/paragraphes comme phrases distinctes (le fallback pourra les découper)
+        const tmp = document.createElement('div'); tmp.innerHTML = c.html;
+        const lines = [...tmp.querySelectorAll('li, p')].map(e => e.textContent.trim()).filter(s => s.length > 8);
+        text = (item.headline || '') + '. ' + (lines.length ? lines.join('. ') : c.html.replace(/<[^>]*>/g, ' '));
+      }
+    } catch {}
+  }
+  if (text.replace(/\s+/g, ' ').trim().length < 60) { el.innerHTML = ''; return; }
   const ck = item.id || (item.headline || '').slice(0, 60);
   let d = _aiInsightsCache[ck];
   if (!d) {
@@ -3801,6 +3815,29 @@ let   _npFilter   = 'all';
 let   _npOpen     = false;
 let   _npAudioCtx = null;
 
+// ── Filtres par catégorie (panneau "Filtre") ─────────────────
+const NP_CATS = [
+  { key: 'bias',     label: 'Smart Bias' },
+  { key: 'research', label: 'Fichiers de recherche' },
+  { key: 'posts',    label: 'Posts' },
+  { key: 'analyst',  label: 'Analyst Report' },
+  { key: 'admin',    label: 'Admin' },
+  { key: 'risk',     label: 'Risk Sentiment' },
+  { key: 'ticker',   label: 'News Ticker' },
+  { key: 'calendar', label: 'Event Calendar' },
+];
+let _npCatFilters = {};
+try { _npCatFilters = JSON.parse(localStorage.getItem('np_cat_filters') || '{}'); } catch {}
+function _npCatOn(key) { return _npCatFilters[key] !== false; }
+function _npItemCat(item) {
+  if (item._briefing || item.source === 'PMT') return 'analyst';
+  const c = (item.category || '').toLowerCase();
+  if (item._source === 'ing-think' || /research|institution/.test(c)) return 'research';
+  if (/geopolit|risk|energy|sanction|war/.test(c)) return 'risk';
+  if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return 'calendar';
+  return 'ticker';
+}
+
 // ── DOM refs (deferred — DOM might not be ready yet) ──────────
 function _npEl(id) { return document.getElementById(id); }
 
@@ -3837,6 +3874,9 @@ function npToggle() {
 
 function npOpen() {
   _npOpen = true;
+  // Repartir sur la liste (pas le panneau de filtres)
+  _npEl('np-filter-panel')?.classList.add('hidden');
+  const _l = _npEl('np-list'); if (_l) _l.style.display = '';
   // Pre-fill from allItems if panel is empty
   if (_npItems.length === 0 && allItems.length > 0) {
     const recent = allItems
@@ -3898,7 +3938,36 @@ function npTogglePush() {
     _npSyncUI();
   }
 }
-function npToggleFilter() { /* placeholder — could open a filter modal */ }
+function npToggleFilter() {
+  const fp = _npEl('np-filter-panel');
+  const list = _npEl('np-list');
+  if (!fp) return;
+  const show = fp.classList.contains('hidden');
+  fp.classList.toggle('hidden', !show);
+  if (list) list.style.display = show ? 'none' : '';
+  if (show) _npRenderFilters();
+}
+function _npRenderFilters() {
+  const grid = _npEl('np-filter-grid');
+  if (!grid) return;
+  grid.innerHTML = NP_CATS.map(c => `
+    <div class="np-filter-row" data-cat="${c.key}">
+      <span class="np-filter-lbl">${c.label}</span>
+      <span class="np-filter-toggle ${_npCatOn(c.key) ? 'on' : 'off'}">${_npCatOn(c.key) ? 'ON' : 'OFF'}</span>
+    </div>`).join('');
+  grid.querySelectorAll('.np-filter-row').forEach(row => {
+    row.addEventListener('click', () => {
+      const k = row.dataset.cat;
+      _npCatFilters[k] = !_npCatOn(k);
+      try { localStorage.setItem('np_cat_filters', JSON.stringify(_npCatFilters)); } catch {}
+      const t = row.querySelector('.np-filter-toggle');
+      t.classList.toggle('on', _npCatOn(k));
+      t.classList.toggle('off', !_npCatOn(k));
+      t.textContent = _npCatOn(k) ? 'ON' : 'OFF';
+      _npRenderList();
+    });
+  });
+}
 
 // ── Push new items ────────────────────────────────────────────
 function npPush(items) {
@@ -3946,6 +4015,7 @@ function _npRenderList() {
   if (!list) return;
 
   const filtered = _npItems.filter(item => {
+    if (!_npCatOn(_npItemCat(item))) return false;   // filtre par catégorie (panneau Filtre)
     if (_npFilter === 'analyst')  return item._briefing || item.source === 'PMT';
     if (_npFilter === 'risk')     return /geopolit|risk|energy|sanction/i.test(item.category || '');
     if (_npFilter === 'breaking') return item.priority === 'high' || item.urgent;
