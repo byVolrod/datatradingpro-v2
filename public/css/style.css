@@ -3284,14 +3284,14 @@ html, body {
 }
 .arlib-bookmark:hover { color: #f7941d; }
 .arlib-ptbadge-small {
-  font-size: 8.5px;
+  font-size: 9px;
   font-family: var(--font-mono);
   font-weight: 700;
-  color: #555;
-  background: #111;
-  border: 1px solid #1e1e1e;
-  border-radius: 2px;
-  padding: 1px 5px;
+  color: #c4ccd8;
+  background: #24242a;
+  border: 1px solid #3a3a42;
+  border-radius: 3px;
+  padding: 2px 6px;
   letter-spacing: 0.06em;
 }
 .arlib-card-date {
