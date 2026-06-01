@@ -120,7 +120,7 @@ function _layout(title, bodyHtml) {
         <!-- Footer -->
         <tr><td style="padding:18px 32px;border-top:1px solid #26262b;color:#6b7280;font-size:12px;line-height:1.6;">
           DataTradingPro — Terminal de news & d'analyse en temps réel.<br>
-          Besoin d'aide ? <a href="https://justonetrader.netlify.app/" style="color:#f7941d;text-decoration:none;">Contactez-nous ↗</a>
+          Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f7941d;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
       <div style="color:#4b5563;font-size:11px;margin-top:16px;">Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.</div>
