@@ -10,7 +10,7 @@ const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY || '';
 const GMAIL_USER         = process.env.GMAIL_USER || '';
 const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''); // les MDP d'app Gmail ont des espaces
 const APP_URL            = process.env.APP_URL || 'https://datatradingpro.onrender.com';
-const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'volrod.dev@gmail.com';
+const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'datatradingpro.contact@gmail.com';
 // Expéditeur : Gmail impose le compte authentifié ; Mailjet/Resend : adresse vérifiée
 const EMAIL_FROM = process.env.EMAIL_FROM
   || (GMAIL_USER ? `DataTradingPro <${GMAIL_USER}>` : `DataTradingPro <${SUPPORT_EMAIL}>`);
