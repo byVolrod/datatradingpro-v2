@@ -2932,7 +2932,7 @@ function renderArlibList() {
     const isPMT  = item.source === 'PMT' || item._briefing || isPrimerItem(item);
     const isSW   = item._source === 'investinglive';
     const isING  = item._source === 'ing-think';
-    const badgeLabel = isPMT ? 'PT'
+    const badgeLabel = isPMT ? 'DTP'
       : isSW  ? (item.session || 'SW').slice(0,3).toUpperCase()
       : isING ? 'ING'
       : '';
@@ -3000,18 +3000,15 @@ async function _loadAIInsights(item, el) {
   {
     if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const biasMap = { bullish: { l: 'BUY', c: 'buy' }, bearish: { l: 'SELL', c: 'sell' }, neutral: { l: 'NEUTRAL', c: 'neutral' } };
+    // Cartes = texte descriptif seul (pas de titre d'actif ni badge de biais)
     const cards = d.insights.map(ins => {
-      if (typeof ins === 'string') return `<div class="ai-insights-card"><div class="ai-card-text">${esc(ins)}</div></div>`;
-      const b = biasMap[(ins.bias || '').toLowerCase()] || biasMap.neutral;
-      const head = ins.asset
-        ? `<div class="ai-card-head"><span class="ai-card-asset">${esc(ins.asset)}</span><span class="ai-bias ai-bias--${b.c}">${b.l}</span></div>`
-        : '';
-      return `<div class="ai-insights-card">${head}<div class="ai-card-text">${esc(ins.text)}</div></div>`;
+      const txt = typeof ins === 'string' ? ins : (ins.text || '');
+      return `<div class="ai-insights-card">${esc(txt)}</div>`;
     }).join('');
     const n = d.insights.length;
+    const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
     el.innerHTML = `<div class="ai-insights-head">
-        <span class="ai-insights-title"><span class="ai-chip"></span> AI Insights</span>
+        <span class="ai-insights-title">${chip} AI Insights</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(-1)">‹</button>
           <span class="ai-insights-count">1-${Math.min(3, n)} of ${n}</span>
@@ -3057,7 +3054,7 @@ function renderArlibReader(item) {
 
   // Bouton Masquer/Afficher Insights en haut du rapport (comme PT)
   const navRight = document.querySelector('#arlib-reader-view .arlib-rnav-right');
-  if (navRight) navRight.innerHTML = '<button class="arlib-hide-insights" onclick="aiInsToggle(this)"><span class="eye">🙈</span> Masquer Insights</button>';
+  if (navRight) navRight.innerHTML = '<button class="arlib-hide-insights" onclick="aiInsToggle(this)"><span class="eye">🙈</span> Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>';
 
   const title = arlibCleanTitle(item.headline);
   const tags  = arlibItemTags(item);
