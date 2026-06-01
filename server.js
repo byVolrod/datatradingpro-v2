@@ -619,18 +619,38 @@ async function _fetchILContentHttp(url) {
   const $ = cheerio.load(r.data);
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
-  // 1) Contenu structuré : chaque point de l'article = un <li> propre (rendu en puces nettes)
+  // 1) Contenu structuré en rubriques : "Notable headlines" + sous-titres en gras
+  const $art = $('article').first();
   const seen = new Set();
-  const items = [];
-  $('article li, article p').each((_, el) => {
+  const headlines = [];
+  $art.find('li').each((_, el) => {
     const t = $(el).text().replace(/\s+/g, ' ').trim();
     if (t.length < 15 || seen.has(t)) return;
     seen.add(t);
-    items.push(t);
+    headlines.push(t);
   });
-  if (items.length >= 2) {
-    return `<ul>${items.slice(0, 80).map(t => `<li>${esc(t)}</li>`).join('')}</ul>`;
+  let out = '';
+  if (headlines.length >= 2) {
+    out += '<strong>Notable headlines</strong><ul>'
+         + headlines.slice(0, 70).map(t => `<li>${esc(t)}</li>`).join('')
+         + '</ul>';
   }
+  // Paragraphes de synthèse : sous-titre en gras → rubrique orange + texte en puce
+  $art.find('p').each((_, el) => {
+    const $el  = $(el);
+    const full = $el.text().replace(/\s+/g, ' ').trim();
+    if (full.length < 20 || seen.has(full)) return;
+    seen.add(full);
+    const head = $el.find('strong, b').first().text().trim();
+    if (head && head.length < 60 && full.startsWith(head)) {
+      const rest = full.slice(head.length).replace(/^[\s:–-]+/, '').trim();
+      out += `<strong>${esc(head.replace(/:\s*$/, ''))}</strong>`;
+      if (rest.length > 10) out += `<ul><li>${esc(rest)}</li></ul>`;
+    } else {
+      out += `<ul><li>${esc(full)}</li></ul>`;
+    }
+  });
+  if (out) return out;
 
   // 2) Fallback : JSON-LD articleBody (bloc) si pas de structure exploitable
   let body = '';
