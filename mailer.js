@@ -52,6 +52,8 @@ async function _send(to, subject, html) {
           HTMLPart: html,
           TextPart: textPart,
           ReplyTo: { Email: SUPPORT_EMAIL },
+          TrackOpens: 'disabled',     // pas de pixel de suivi → meilleure délivrabilité
+          TrackClicks: 'disabled',    // pas de réécriture des liens → moins de spam
         }] }),
       });
       if (!r.ok) {
