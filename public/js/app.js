@@ -270,9 +270,9 @@ function handleMessage(msg) {
     if (analystPanel && !analystPanel.classList.contains('hidden')) {
       renderArlibList();
     }
-  } else if (msg.type === 'bias_update') {
-    // Nouveau biais hebdomadaire généré → on met à jour l'onglet Bias
-    if (msg.bias) {
+  } else if (msg.type === 'smartbias_update' || msg.type === 'bias_update') {
+    // Nouvelle matrice Smart Bias générée → on met à jour l'onglet Bias
+    if (msg.type === 'smartbias_update' && msg.bias) {
       _biasData = msg.bias;
       const biasPanel = document.getElementById('view-bias');
       if (biasPanel && !biasPanel.classList.contains('hidden')) renderBiasView(_biasData);
@@ -2657,51 +2657,96 @@ function loadAnalystView() {
   }).finally(() => renderArlibList());
 }
 
-// ═══════════════════ ONGLET BIAS — biais hebdomadaire ═══════════════════
-let _biasData = null;
+// ═══════════════════ ONGLET BIAS — Smart Bias Tracker (matrice) ═══════════════════
+let _biasData    = null;
+let _sbClockTimer = null;
+const SB_CLOCKS = [
+  { city: 'London',   code: 'LON',  tz: 'Europe/London' },
+  { city: 'New York', code: 'NY',   tz: 'America/New_York' },
+  { city: 'Tokyo',    code: 'TKYO', tz: 'Asia/Tokyo' },
+  { city: 'Dubai',    code: 'DXB',  tz: 'Asia/Dubai' },
+  { city: 'Paris',    code: 'PAR',  tz: 'Europe/Paris' },
+];
+
 function loadBiasView() {
   const host = document.getElementById('bias-content');
   if (!host) return;
   if (_biasData) { renderBiasView(_biasData); return; }
-  host.innerHTML = '<div class="bias-loading">Chargement du biais hebdomadaire…</div>';
-  fetch('/api/bias')
+  host.innerHTML = '<div class="bias-loading">Chargement du Smart Bias…</div>';
+  fetch('/api/smart-bias')
     .then(r => r.json())
     .then(d => { _biasData = d; renderBiasView(d); })
-    .catch(() => { host.innerHTML = '<div class="bias-loading">Biais indisponible pour le moment.</div>'; });
+    .catch(() => { host.innerHTML = '<div class="bias-loading">Smart Bias indisponible pour le moment.</div>'; });
 }
 window.loadBiasView = loadBiasView;
+
+function _sbCls(v) {
+  switch (v) {
+    case 'Very Bullish': return 'sb-vbull';
+    case 'Bullish':
+    case 'Uptrend':      return 'sb-bull';
+    case 'Weak Bullish': return 'sb-wbull';
+    case 'Bearish':
+    case 'Downtrend':    return 'sb-bear';
+    case 'Very Bearish': return 'sb-vbear';
+    case 'Weak Bearish': return 'sb-wbear';
+    default:             return 'sb-neutral';   // Neutral, Range
+  }
+}
 
 function renderBiasView(d) {
   const host = document.getElementById('bias-content');
   if (!host) return;
-  const items = (d && d.items) || [];
+  const cur  = (d && d.currencies) || [];
+  const rows = (d && d.rows) || [];
   const badge = document.getElementById('bias-update-badge');
   if (badge) badge.textContent = d && d.generatedAt
     ? 'MAJ ' + new Date(d.generatedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
     : '';
 
-  if (!items.length) {
-    host.innerHTML = '<div class="bias-loading">Le biais hebdomadaire sera généré dimanche.</div>';
+  if (!rows.length) {
+    host.innerHTML = '<div class="bias-loading">La matrice Smart Bias sera générée dimanche (force : /api/smart-bias?force=1).</div>';
     return;
   }
 
-  const cls   = b => b === 'bullish' ? 'bull' : b === 'bearish' ? 'bear' : 'neutral';
-  const arrow = b => b === 'bullish' ? '▲' : b === 'bearish' ? '▼' : '▬';
-  const esc   = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-
-  const cards = items.map(it => `
-    <div class="bias-card bias-card--${cls(it.bias)}">
-      <div class="bias-card-head">
-        <span class="bias-asset">${esc(it.asset)}</span>
-        <span class="bias-badge bias-${cls(it.bias)}">${arrow(it.bias)} ${esc((it.bias || '').toUpperCase())}</span>
-      </div>
-      <div class="bias-meta">${esc((it.strength || '').toUpperCase())}</div>
-      <div class="bias-rationale">${esc(it.rationale)}</div>
-    </div>`).join('');
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const head = `<tr><th class="sb-ind">Indicators</th>${cur.map(c => `<th class="sb-cur">${c}</th>`).join('')}</tr>`;
+  const body = rows.map(r =>
+    `<tr><td class="sb-ind"><span class="sb-ind-arrow">›</span> ${esc(r.label)}</td>${
+      cur.map(c => { const v = r.values[c] || 'Neutral'; return `<td class="sb-cell ${_sbCls(v)}">${esc(v)}</td>`; }).join('')
+    }</tr>`).join('');
+  const concl = `<tr class="sb-conclusion"><td class="sb-ind">Overall Conclusion</td>${
+    cur.map(c => { const v = (d.conclusion || {})[c] || 'Neutral'; return `<td class="sb-cell ${_sbCls(v)}">${esc(v)}</td>`; }).join('')
+  }</tr>`;
 
   host.innerHTML = `
-    ${d.overview ? `<div class="bias-overview"><span class="bias-overview-lbl">CETTE SEMAINE</span>${esc(d.overview)}</div>` : ''}
-    <div class="bias-grid">${cards}</div>`;
+    <div class="sb-clocks" id="sb-clocks"></div>
+    <div class="sb-title-row"><span class="sb-title">Smart Bias Tracker</span></div>
+    <div class="sb-grid-wrap">
+      <table class="sb-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
+    </div>`;
+  _sbStartClocks();
+}
+
+function _sbStartClocks() {
+  const tick = () => {
+    const c = document.getElementById('sb-clocks');
+    if (!c) { if (_sbClockTimer) { clearInterval(_sbClockTimer); _sbClockTimer = null; } return; }
+    c.innerHTML = SB_CLOCKS.map(k => {
+      const now  = new Date();
+      const time = now.toLocaleTimeString('en-GB', { timeZone: k.tz, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const date = now.toLocaleDateString('en-GB', { timeZone: k.tz, day: '2-digit', month: '2-digit' });
+      const day  = now.toLocaleDateString('en-US', { timeZone: k.tz, weekday: 'short' });
+      return `<div class="sb-clock">
+        <div class="sb-clock-top"><span class="sb-clock-day">${day}</span><span class="sb-clock-date">${date}</span></div>
+        <div class="sb-clock-time">${time}</div>
+        <div class="sb-clock-city">${k.city} (${k.code})</div>
+      </div>`;
+    }).join('');
+  };
+  tick();
+  if (_sbClockTimer) clearInterval(_sbClockTimer);
+  _sbClockTimer = setInterval(tick, 1000);
 }
 
 // ═══════════════════ ONGLET BANK — transactions bancaires ═══════════════════
