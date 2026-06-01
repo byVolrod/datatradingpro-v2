@@ -1114,11 +1114,13 @@ const _insightsCache = _loadJsonMap(INSIGHTS_FILE);   // persistant → pas de r
 // Secours SANS IA : extrait des phrases clés du rapport → les cartes s'affichent toujours,
 // même quand le quota Gemini est épuisé.
 function _fallbackInsights(text) {
-  const sentences = String(text)
-    .split(/(?<=[.!?])\s+/)
+  let parts = String(text)
+    .split(/(?<=[.!?])\s+|\n+/)
     .map(s => s.trim())
-    .filter(s => s.length > 45 && s.length < 230 && /[a-z]/.test(s));
-  return sentences.slice(0, 6).map(s => ({ asset: '', bias: 'neutral', text: s }));
+    .filter(s => s.length > 28 && /[a-z]/.test(s));
+  // Tronque proprement les phrases trop longues plutôt que de les exclure
+  parts = parts.map(s => s.length > 200 ? s.slice(0, 190).replace(/\s+\S*$/, '') + '…' : s);
+  return parts.slice(0, 6).map(s => ({ asset: '', bias: 'neutral', text: s }));
 }
 app.post('/api/report-insights', async (req, res) => {
   const { id, text } = req.body || {};
@@ -1839,7 +1841,9 @@ function buildAsiaOpening({ dateStr, s, reportType }) {
   _pushBullets(bullets, 'Geopolitical', s.geo, 2);
   _pushBullets(bullets, 'Commodities', s.nrg, 2);
   _pushBullets(bullets, 'Trade', s.trade, 1);
-  return { subtitle: _briefingSubtitle(reportType, s, ['BoJ','RBA','RBNZ','PBOC']), bullets, tags: _briefingTags(s, ['Asia Opening','JPY','AUD']) };
+  // Titre façon DTP (généré après la clôture NY, à l'ouverture Asie-Pacifique)
+  const subtitle = `DTP Daily Asia-Pac Opening News - ${dateStr}`;
+  return { subtitle, bullets, tags: _briefingTags(s, ['Asia Opening', 'JPY', 'AUD']) };
 }
 
 function buildLondonRecap({ dateStr, s, reportType }) {

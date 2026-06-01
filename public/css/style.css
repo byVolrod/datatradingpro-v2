@@ -2450,6 +2450,22 @@ html, body {
 /* Soleil météo (horloges) en orange */
 .clock-sun { color: #f7941d; font-variant-emoji: text; }
 
+/* Panneau de filtres des notifications */
+.np-filter-panel { padding: 16px 18px; overflow-y: auto; }
+.np-filter-panel.hidden { display: none; }
+.np-filter-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+.np-filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+.np-filter-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #161619; border: 1px solid #232328; border-radius: 8px;
+  padding: 11px 13px; cursor: pointer; transition: border-color 0.1s;
+}
+.np-filter-row:hover { border-color: #3a3a42; }
+.np-filter-lbl { font-size: 12.5px; color: #cbd5e1; }
+.np-filter-toggle { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 5px; font-family: var(--font-mono); }
+.np-filter-toggle.on  { background: #f7941d; color: #0a0a0c; }
+.np-filter-toggle.off { background: #2a2a30; color: #6b7280; }
+
 /* ═══════════════════════════════════════════════
    ONGLET BANK — transactions bancaires
 ═══════════════════════════════════════════════ */
