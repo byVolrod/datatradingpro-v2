@@ -334,7 +334,8 @@
       background-position: right 8px center;
     }
     .lp-lang-select:focus { border-color: var(--border2); }
-    .lp-lang-flag { font-size: 16px; }
+    .lp-lang-flag { display: inline-flex; align-items: center; }
+    .lp-lang-flag svg { width: 22px; height: 15px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,0.12); display: block; }
 
     /* Download buttons */
     .lp-dl-row {
@@ -468,7 +469,7 @@
     <!-- Language -->
     <div class="lp-lang-row">
       <span class="lp-lang-label">Langue :</span>
-      <span class="lp-lang-flag">🇫🇷</span>
+      <span class="lp-lang-flag" id="lp-lang-flag"></span>
       <select class="lp-lang-select" id="lp-lang">
         <option value="fr" selected>Français</option>
         <option value="en">English</option>
@@ -609,6 +610,17 @@
     errEl.textContent = 'Si un compte existe pour cet email, un nouveau mot de passe vient d\'être envoyé. Vérifiez votre boîte (et les spams).';
     errEl.classList.add('visible');
   }
+
+  // Drapeaux SVG inline (s'affichent partout, contrairement aux emojis drapeaux sur Windows)
+  const _FLAGS = {
+    fr: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/><rect x="2" width="1" height="2" fill="#ce1126"/></svg>',
+    en: '<svg viewBox="0 0 60 30"><clipPath id="uk-t"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="uk-s"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#uk-t)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#uk-s)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>',
+  };
+  const _langFlagEl = document.getElementById('lp-lang-flag');
+  const _langSelect = document.getElementById('lp-lang');
+  function _setFlag(lang) { _langFlagEl.innerHTML = _FLAGS[lang] || _FLAGS.fr; }
+  _setFlag(_langSelect.value);
+  _langSelect.addEventListener('change', () => _setFlag(_langSelect.value));
 
   // Autofocus email
   document.getElementById('lp-email').focus();
