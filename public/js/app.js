@@ -3025,13 +3025,17 @@ function aiInsScroll(dir) {
   if (c) c.scrollBy({ left: dir * 290, behavior: 'smooth' });
 }
 
+// Icônes œil (propres, style PT)
+const _EYE_OFF = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
+const _EYE     = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
+
 // Afficher / masquer la grille de cartes AI Insights
 function aiInsToggle(btn) {
   const c = document.getElementById('ai-insights-cards');
   if (!c) return;
   const willHide = c.style.display !== 'none';
   c.style.display = willHide ? 'none' : '';
-  btn.innerHTML = willHide ? '<span class="eye">👁</span> Afficher Insights' : '<span class="eye">🙈</span> Masquer Insights';
+  btn.innerHTML = willHide ? `${_EYE} Afficher Insights` : `${_EYE_OFF} Masquer Insights`;
 }
 
 function renderArlibReader(item) {
@@ -3054,7 +3058,7 @@ function renderArlibReader(item) {
 
   // Bouton Masquer/Afficher Insights en haut du rapport (comme PT)
   const navRight = document.querySelector('#arlib-reader-view .arlib-rnav-right');
-  if (navRight) navRight.innerHTML = '<button class="arlib-hide-insights" onclick="aiInsToggle(this)"><span class="eye">🙈</span> Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>';
+  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
 
   const title = arlibCleanTitle(item.headline);
   const tags  = arlibItemTags(item);
