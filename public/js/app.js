@@ -1629,8 +1629,10 @@ function buildNewsItem(item) {
         return `${descHtml}${quotesListHtml}`;
       }
 
-      // ── Standard info → liste à puces ultra-synthétique (style Prime Terminal) ──
-      let bullets = _toBullets(rawDesc, 4).map(_emphasize);
+      // ── Standard info → puces (style PMT) : contenu riche complet, gras sur le sujet de tête ──
+      // Plus le texte est long (ex: FX WRAP), plus on montre de puces (jusqu'à 9) au lieu de tronquer à 4.
+      const _max = rawDesc.length > 600 ? 9 : rawDesc.length > 300 ? 6 : 4;
+      let bullets = _toBullets(rawDesc, _max).map(b => _emphasize(_reportLead(b)));
       // Fallback : donnée macro High Impact sans corps → résumé contextuel auto
       if (bullets.length === 0 && autoSummary.length > 0) bullets = autoSummary;
       if (bullets.length === 0) return '';
