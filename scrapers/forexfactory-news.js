@@ -121,6 +121,8 @@ async function getBrowser() {
         '--disable-dev-shm-usage',
         '--no-first-run',
         '--no-default-browser-check',
+        // Économie mémoire (hébergement 512 Mo)
+        '--single-process', '--no-zygote', '--disable-gpu', '--disable-extensions',
       ],
     });
     _browser.on('disconnected', () => { _browser = null; });

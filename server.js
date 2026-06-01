@@ -481,7 +481,8 @@ async function _getIlBrowser() {
   _ilBrowser = await puppeteer.launch({
     executablePath: _resolveChrome(),
     headless: true,
-    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu'],
+    args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu',
+           '--single-process','--no-zygote','--disable-extensions'],
   });
   _ilBrowser.on('disconnected', () => { _ilBrowser = null; });
   return _ilBrowser;
@@ -1991,8 +1992,14 @@ async function refreshMyfxbook() {
     console.log(`[Myfxbook] Updated — ${data.length} symbols, broadcasting`);
   } catch {}
 }
-setTimeout(refreshMyfxbook, 2000);        // immediate startup fetch
-setInterval(refreshMyfxbook, 5 * 60 * 1000); // then every 5 min
+// Myfxbook lance un Chromium dédié. Désactivable pour économiser la RAM
+// (notamment si les identifiants Myfxbook ne sont pas valides) : DISABLE_MYFXBOOK=true
+if (process.env.DISABLE_MYFXBOOK === 'true') {
+  console.log('[Myfxbook] désactivé (DISABLE_MYFXBOOK=true) — économie mémoire');
+} else {
+  setTimeout(refreshMyfxbook, 2000);        // immediate startup fetch
+  setInterval(refreshMyfxbook, 5 * 60 * 1000); // then every 5 min
+}
 
 // COT — check for new weekly data every 6 h, broadcast on change
 let _lastCotHash = '';

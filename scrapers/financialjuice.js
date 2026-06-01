@@ -167,6 +167,8 @@ async function getFJBrowser() {
       '--no-sandbox', '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
       '--disable-dev-shm-usage',
+      // Économie mémoire (hébergement 512 Mo)
+      '--single-process', '--no-zygote', '--disable-gpu', '--disable-extensions',
     ],
   });
   _fjBrowser.on('disconnected', () => { _fjBrowser = null; });
