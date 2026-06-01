@@ -2351,7 +2351,9 @@ html, body {
 .sb-title-row { margin-bottom: 10px; }
 .sb-title { font-size: 14px; font-weight: 700; color: #fff; }
 .sb-grid-wrap { overflow-x: auto; }
-.sb-grid { width: 100%; border-collapse: collapse; font-size: 12px; }
+/* table-layout fixed : colonne indicateurs fixe, les 8 devises se partagent le reste → CHF toujours visible */
+.sb-grid { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.sb-grid th.sb-ind, .sb-grid td.sb-ind { width: 165px; }
 .sb-grid th, .sb-grid td { border: 1px solid #0c0c0e; }
 .sb-grid thead th {
   background: #101012;
@@ -2368,16 +2370,18 @@ html, body {
   padding: 9px 12px;
   white-space: nowrap;
   font-weight: 500;
-  min-width: 190px;
 }
 .sb-ind-arrow { color: #6b7280; margin-right: 4px; }
-.sb-cur { min-width: 88px; }
+.sb-cur { width: auto; }
 .sb-cell {
   text-align: center;
-  padding: 9px 8px;
+  padding: 9px 3px;
   font-weight: 600;
+  font-size: 11px;
   color: #fff;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .sb-conclusion .sb-ind { background: #1a1a1f; color: #fff; font-weight: 700; border-left: 2px solid #f7941d; }
 /* Couleurs des cellules */
