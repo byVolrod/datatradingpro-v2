@@ -88,6 +88,15 @@ async function getAllUsers() {
     .select('id, email, name, role, plan, active, created_at, last_login, expires_at')
     .order('created_at', { ascending: false });
 
+  // Tolérance : si la colonne expires_at n'a pas encore été ajoutée, on réessaie sans
+  if (error && /expires_at/.test(error.message)) {
+    const fallback = await supabase
+      .from(TABLE)
+      .select('id, email, name, role, plan, active, created_at, last_login')
+      .order('created_at', { ascending: false });
+    if (fallback.error) throw new Error(fallback.error.message);
+    return fallback.data || [];
+  }
   if (error) throw new Error(error.message);
   return data || [];
 }
@@ -105,12 +114,14 @@ async function createUser({ email, password, name = '', role = 'client', plan = 
   if (!email || !password) throw new Error('Email et mot de passe requis');
   const hash = await bcrypt.hash(password, SALT_ROUNDS);
 
-  const { data, error } = await supabase
-    .from(TABLE)
-    .insert([{ email: email.toLowerCase().trim(), password_hash: hash, name, role, plan, active: true, expires_at: expiresAt || null }])
-    .select()
-    .single();
+  const row = { email: email.toLowerCase().trim(), password_hash: hash, name, role, plan, active: true, expires_at: expiresAt || null };
+  let { data, error } = await supabase.from(TABLE).insert([row]).select().single();
 
+  // Tolérance : si la colonne expires_at n'existe pas encore, on crée sans (abonnement non enregistré)
+  if (error && /expires_at/.test(error.message)) {
+    delete row.expires_at;
+    ({ data, error } = await supabase.from(TABLE).insert([row]).select().single());
+  }
   if (error) throw new Error(error.message);
   return data;
 }
@@ -130,7 +141,13 @@ async function updateUser(id, fields = {}) {
   if ('active' in fields) upd.active = fields.active === 1 || fields.active === true || fields.active === '1';
   if ('expiresAt' in fields) upd.expires_at = fields.expiresAt || null;
   if (Object.keys(upd).length === 0) return;
-  const { error } = await supabase.from(TABLE).update(upd).eq('id', id);
+  let { error } = await supabase.from(TABLE).update(upd).eq('id', id);
+  // Tolérance : colonne expires_at absente → on réessaie sans
+  if (error && /expires_at/.test(error.message)) {
+    delete upd.expires_at;
+    if (Object.keys(upd).length === 0) return;
+    ({ error } = await supabase.from(TABLE).update(upd).eq('id', id));
+  }
   if (error) throw new Error(error.message);
 }
 
