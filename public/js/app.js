@@ -115,6 +115,7 @@ let loadingMore       = false;
 let _wsInitReceived   = false; // true once server sends its first 'initial' message
 const _analysisCache  = new Map(); // item.id → bullets[]
 const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style PMT, mémoire session)
+const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
 // Rend des puces Info (style PMT) : échappe le HTML puis applique le gras **…**
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -268,6 +269,13 @@ function handleMessage(msg) {
     const analystPanel = document.getElementById('view-analyst');
     if (analystPanel && !analystPanel.classList.contains('hidden')) {
       renderArlibList();
+    }
+  } else if (msg.type === 'bias_update') {
+    // Nouveau biais hebdomadaire généré → on met à jour l'onglet Bias
+    if (msg.bias) {
+      _biasData = msg.bias;
+      const biasPanel = document.getElementById('view-bias');
+      if (biasPanel && !biasPanel.classList.contains('hidden')) renderBiasView(_biasData);
     }
   }
 }
@@ -1627,7 +1635,28 @@ function buildNewsItem(item) {
               `<div class="rx-block${isRed ? ' rx-block--alert' : ''}">`
               + `<div class="rx-head">Réaction à : ${nowTime}</div>`
               + `<div class="rx-tickers">${tickerHtml}</div>`
+              + `<div class="rx-explain" id="rx-explain-${item.id}"></div>`
               + `</div>`;
+
+            // Explication Gemini du mouvement (mise en cache → 0 requête à la réouverture)
+            const movesStr = data.moves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
+            const _applyExplain = txt => {
+              if (!txt) return;
+              const el = document.getElementById(`rx-explain-${item.id}`);
+              if (el && activeTab === 'reaction') el.textContent = txt;
+            };
+            if (_reactCache.has(item.id)) {
+              _applyExplain(_reactCache.get(item.id));
+            } else {
+              fetch('/api/reaction-explain', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: item.id, headline: item.headline, moves: movesStr }),
+              })
+                .then(r => r.json())
+                .then(d => { const t = (d && d.text) || ''; _reactCache.set(item.id, t); _applyExplain(t); })
+                .catch(() => {});
+            }
           }
         })
         .catch(() => {
@@ -2626,6 +2655,53 @@ function loadAnalystView() {
       _brArticles = brResult.value;
     }
   }).finally(() => renderArlibList());
+}
+
+// ═══════════════════ ONGLET BIAS — biais hebdomadaire ═══════════════════
+let _biasData = null;
+function loadBiasView() {
+  const host = document.getElementById('bias-content');
+  if (!host) return;
+  if (_biasData) { renderBiasView(_biasData); return; }
+  host.innerHTML = '<div class="bias-loading">Chargement du biais hebdomadaire…</div>';
+  fetch('/api/bias')
+    .then(r => r.json())
+    .then(d => { _biasData = d; renderBiasView(d); })
+    .catch(() => { host.innerHTML = '<div class="bias-loading">Biais indisponible pour le moment.</div>'; });
+}
+window.loadBiasView = loadBiasView;
+
+function renderBiasView(d) {
+  const host = document.getElementById('bias-content');
+  if (!host) return;
+  const items = (d && d.items) || [];
+  const badge = document.getElementById('bias-update-badge');
+  if (badge) badge.textContent = d && d.generatedAt
+    ? 'MAJ ' + new Date(d.generatedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
+    : '';
+
+  if (!items.length) {
+    host.innerHTML = '<div class="bias-loading">Le biais hebdomadaire sera généré dimanche.</div>';
+    return;
+  }
+
+  const cls   = b => b === 'bullish' ? 'bull' : b === 'bearish' ? 'bear' : 'neutral';
+  const arrow = b => b === 'bullish' ? '▲' : b === 'bearish' ? '▼' : '▬';
+  const esc   = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const cards = items.map(it => `
+    <div class="bias-card bias-card--${cls(it.bias)}">
+      <div class="bias-card-head">
+        <span class="bias-asset">${esc(it.asset)}</span>
+        <span class="bias-badge bias-${cls(it.bias)}">${arrow(it.bias)} ${esc((it.bias || '').toUpperCase())}</span>
+      </div>
+      <div class="bias-meta">${esc((it.strength || '').toUpperCase())}</div>
+      <div class="bias-rationale">${esc(it.rationale)}</div>
+    </div>`).join('');
+
+  host.innerHTML = `
+    ${d.overview ? `<div class="bias-overview"><span class="bias-overview-lbl">CETTE SEMAINE</span>${esc(d.overview)}</div>` : ''}
+    <div class="bias-grid">${cards}</div>`;
 }
 
 function loadInstitutionView() {

@@ -117,18 +117,20 @@
       </div>
     </div><!-- /#view-news -->
 
-  <!-- ══ VIEW: BIAS — En cours de développement ══ -->
+  <!-- ══ VIEW: BIAS — Biais directionnel hebdomadaire (généré chaque dimanche) ══ -->
   <div class="view-panel hidden" id="view-bias">
-    <div class="wip-container">
-      <div class="wip-icon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12,6 12,12 16,14"/>
-        </svg>
+    <div class="panel panel-bias">
+      <div class="panel-header">
+        <div class="panel-header-left">
+          <span class="panel-title">BIAS — Biais hebdomadaire du marché</span>
+        </div>
+        <div class="panel-header-controls">
+          <span class="bias-update-badge" id="bias-update-badge"></span>
+        </div>
       </div>
-      <div class="wip-title">En cours de développement</div>
-      <div class="wip-subtitle">L'onglet Bias sera bientôt disponible.</div>
-      <div class="wip-badge">COMING SOON</div>
+      <div class="bias-content" id="bias-content">
+        <div class="bias-loading">Chargement du biais hebdomadaire…</div>
+      </div>
     </div>
   </div><!-- /#view-bias -->
 

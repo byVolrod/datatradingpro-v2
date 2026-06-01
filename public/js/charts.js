@@ -1729,9 +1729,8 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
 
-    if (view === 'bias' && !stockRoot) {
-      buildBiasSidebar();
-      stockRoot = buildStockChart(activePair);
+    if (view === 'bias' && typeof loadBiasView === 'function') {
+      loadBiasView();
     }
     if (view === 'calendar') buildCalendar();
     if (view === 'institution' && typeof loadInstitutionView === 'function') {
