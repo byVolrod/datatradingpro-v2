@@ -71,9 +71,9 @@ async function verifyLogin(email, password) {
   if (!ok) return null;
 
   // Abonnement expiré ? (les admins ne sont jamais bloqués)
-  // Délai de grâce de 48h après l'échéance : le client peut encore se connecter,
-  // ce qui laisse le temps de renouveler (paiement Whop géré manuellement).
-  const GRACE_MS = 48 * 60 * 60 * 1000;
+  // Délai de grâce de 24h après l'échéance : le client peut encore se connecter,
+  // ce qui laisse le temps au renouvellement (Whop) d'être traité.
+  const GRACE_MS = 24 * 60 * 60 * 1000;
   if (data.role !== 'admin' && data.expires_at &&
       new Date(data.expires_at).getTime() + GRACE_MS < Date.now()) {
     return { expired: true, expiresAt: data.expires_at };
