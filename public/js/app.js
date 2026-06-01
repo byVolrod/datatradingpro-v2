@@ -231,7 +231,7 @@ function handleMessage(msg) {
     if (!isFirstUpdate) {
       newCount += truly_new.length;
       notifBadge.textContent = newCount > 99 ? '99+' : newCount;
-      _flashBreakingNews(truly_new[0]);
+      _flashBreakingNews(truly_new.find(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i))));
       npPush(truly_new);   // feed notification panel
     }
     renderNews(!isFirstUpdate);
@@ -288,7 +288,8 @@ let _breakingTimer = null;
 const _BREAKING_RX = /\b(?:attack|airstrike|missile|troops|invasion|war|escalat|breaking|urgent|explosion|blast|shooting|killed|dead|strike)\b/i;
 
 function _flashBreakingNews(item) {
-  if (!item) return;
+  // On ne fait JAMAIS flasher un rapport DTP/primer dans la bannière LIVE (plus de "PRIMER — …")
+  if (!item || item._briefing || item.source === 'PMT' || isPrimerItem(item)) return;
   const flash = document.getElementById('breaking-news-flash');
   const input = document.getElementById('topbar-symbol-input');
   if (!flash) return;
@@ -308,7 +309,8 @@ function _flashBreakingNews(item) {
   // Show actual headline + reset scroll animation
   textEl.style.animation = 'none';
   void textEl.offsetWidth; // force reflow so animation re-triggers
-  textEl.textContent = item.headline || 'Market Update';
+  textEl.textContent = (item.headline || 'Market Update')
+    .replace(/^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]\s*/i, '');
   textEl.style.animation = '';
 
   flash.classList.add('visible');
@@ -3930,7 +3932,8 @@ function npOpen() {
   // Pre-fill from allItems if panel is empty
   if (_npItems.length === 0 && allItems.length > 0) {
     const recent = allItems
-      .filter(i => i.priority === 'high' || i.urgent || i.category === 'Geopolitical' || i._briefing)
+      .filter(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i)))   // pas de primers/rapports
+      .filter(i => i.priority === 'high' || i.urgent || i.category === 'Geopolitical')
       .slice(0, 40);
     recent.forEach(i => { if (!_npReadIds.has(i.id)) _npItems.push(i); });
     // If still empty, just take last 20
@@ -4024,6 +4027,7 @@ function npPush(items) {
   if (!items?.length) return;
   let newOnes = 0;
   items.forEach(item => {
+    if (item._briefing || item.source === 'PMT' || isPrimerItem(item)) return;   // pas de primers en notif
     if (_npReadIds.has(item.id)) return;
     _npReadIds.add(item.id);
     _npItems.unshift(item);
