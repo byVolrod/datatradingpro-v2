@@ -30,7 +30,7 @@
   --font-ui:     'Inter', system-ui, -apple-system, sans-serif;
   --font-mono:   'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --radius:      3px;
-  --topbar-h:    36px;
+  --topbar-h:    54px;
   --tabs-bar-h:  28px;
   --navbar-h:    28px;
   --header-h:    calc(var(--topbar-h) + var(--navbar-h));
@@ -116,13 +116,14 @@ html, body {
 .topbar-symbol-search {
   display: flex;
   align-items: center;
-  gap: 6px;
-  background: var(--bg3);
+  gap: 8px;
+  background: #161619;
   border: 1px solid var(--border2);
-  border-radius: var(--radius);
-  padding: 0 10px;
-  height: 24px;
-  margin: 0 8px;
+  border-radius: 6px;
+  padding: 0 14px;
+  height: 34px;
+  width: 340px;
+  margin: 0 10px;
   flex: 1;
   max-width: 200px;
   color: var(--text3);
@@ -276,7 +277,7 @@ html, body {
   border: none;
   outline: none;
   color: var(--text2);
-  font-size: 11px;
+  font-size: 12px;
   font-family: var(--font-ui);
   width: 100%;
 }
@@ -407,9 +408,9 @@ html, body {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding-left: 14px;
-  padding-right: 4px;
+  gap: 10px;
+  padding-left: 18px;
+  padding-right: 6px;
   border-left: 1px solid var(--border);
   flex-shrink: 0;
 }

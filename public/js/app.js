@@ -1230,6 +1230,18 @@ function isPrimerItem(item) {
   return /^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]/i.test(h);
 }
 
+// Label du badge (au lieu de "PRIMER") : ANALYST / INSTITUTION / CALENDRIER
+function primerBadgeLabel(item) {
+  const src = (item._source || '').toLowerCase();
+  const cat = (item.category || '');
+  // Rapport d'institution / banque
+  if (['ing-think', 'actionforex', 'fxstreet', 'bank-research'].includes(src) || /institution|bank research/i.test(cat)) return 'INSTITUTION';
+  // Résultat d'événement économique qui vient de sortir (calendrier)
+  if (/\bData$/.test(cat) || /Actual:/i.test(item.description || '') || (item.id || '').startsWith('ff-cal') || (item.id || '').startsWith('ffcal')) return 'CALENDRIER';
+  // Par défaut : rapport d'analyste / briefing
+  return 'ANALYST';
+}
+
 function parsePrimerBullets(description) {
   if (!description) return [];
   const clean = description.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '');
@@ -1434,19 +1446,17 @@ function buildNewsItem(item) {
   headline.className = 'news-headline';
 
   if (isPrimer) {
-    // Split "PRIMER - Today's Fedspeak..." → badge + title
-    const m = (item.headline || '').match(/^\s*([A-Z][A-Z\s]+?)\s*[-:—]\s*(.+)/i);
-    if (m) {
-      const badge = document.createElement('span');
-      badge.className = 'primer-badge';
-      badge.textContent = m[1].trim().toUpperCase();
-      const titleSpan = document.createElement('span');
-      titleSpan.textContent = m[2].trim();
-      headline.appendChild(badge);
-      headline.appendChild(titleSpan);
-    } else {
-      headline.textContent = item.headline;
-    }
+    // Label selon le type : ANALYST (rapport), INSTITUTION (banque), CALENDRIER (résultat d'event)
+    const label = primerBadgeLabel(item);
+    const m = (item.headline || '').match(/^\s*[A-Z][A-Z\s]+?\s*[-:—]\s*(.+)/i);  // retire le préfixe "PRIMER —"
+    const titleText = m ? m[1].trim() : (item.headline || '');
+    const badge = document.createElement('span');
+    badge.className = 'primer-badge';
+    badge.textContent = label;
+    const titleSpan = document.createElement('span');
+    titleSpan.textContent = titleText;
+    headline.appendChild(badge);
+    headline.appendChild(titleSpan);
   } else {
     headline.textContent = item.headline;
   }
