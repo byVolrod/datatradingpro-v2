@@ -12,6 +12,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll } = require('./scrapers/forexfactory-news');
+const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, clearOutlookCache } = require('./scrapers/myfxbook');
 const auth = require('./auth');
@@ -573,62 +574,64 @@ function _brLoadFile() {
   } catch {}
 }
 
+// Sources de recherche institutionnelle / analystes (flux RSS publics, sans navigateur)
+const BR_FEEDS = [
+  { url: 'https://think.ing.com/rss/',          institution: 'ING',        source: 'ing-think',   paged: true  },
+  { url: 'https://www.actionforex.com/feed/',   institution: 'ActionForex',source: 'actionforex', paged: false }, // agrège les notes de banques (UOB, Danske, OCBC…)
+  { url: 'https://www.fxstreet.com/rss/analysis', institution: 'FXStreet', source: 'fxstreet',    paged: false },
+];
+
+// Parse un flux RSS de recherche → ajoute les items dans `merged`
+function _parseResearchFeed(xml, feed, cutoff, merged) {
+  const $ = cheerio.load(xml, { xmlMode: true });
+  let any = false, old = false;
+  $('item').each((_, el) => {
+    const title = $('title', el).text().trim();
+    const link  = $('link', el).contents().filter((_, n) => n.type === 'text').text().trim()
+               || $('guid', el).text().trim();
+    if (!title || !link) return;
+    const rawDate = $('pubDate', el).text().trim() || $('dc\\:date', el).text().trim();
+    const ts = new Date(rawDate).getTime() || 0;
+    if (ts && ts < cutoff) { old = true; return; }
+    const cats = [];
+    $('category', el).each((_, c) => { const t = $(c).text().trim(); if (t) cats.push(t); });
+    $('dc\\:subject', el).each((_, s) => { const t = $(s).text().trim(); if (t && !cats.includes(t)) cats.push(t); });
+    const desc = $('description', el).text().replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().slice(0,400);
+    const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
+    merged.set(id, {
+      id, title, url: link,
+      timestamp:   ts || Date.now(),
+      categories:  cats.slice(0, 8),
+      description: desc,
+      institution: feed.institution,
+      _source:     feed.source,
+    });
+    any = true;
+  });
+  return { any, old };
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
-  const maxPages = full ? 20 : 3;
   const UA       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
   const merged   = new Map(_brCache.map(i => [i.id, i]));
 
-  for (let page = 1; page <= maxPages; page++) {
-    try {
-      const url = page === 1
-        ? 'https://think.ing.com/rss/'
-        : `https://think.ing.com/rss/?paged=${page}`;
-      const r = await axios.get(url, {
-        timeout: 12000,
-        headers: { 'User-Agent': UA },
-        validateStatus: s => s < 500,
-      });
-      if (r.status !== 200) break;
-
-      const $  = cheerio.load(r.data, { xmlMode: true });
-      let any  = false;
-      let old  = false;
-
-      $('item').each((_, el) => {
-        const title = $('title', el).text().trim();
-        const link  = $('link', el).contents().filter((_, n) => n.type === 'text').text().trim()
-                   || $('guid', el).text().trim();
-        if (!title || !link) return;
-
-        const rawDate = $('pubDate', el).text().trim()
-                     || $('dc\\:date', el).text().trim();
-        const ts = new Date(rawDate).getTime() || 0;
-        if (ts && ts < cutoff) { old = true; return; }
-
-        const cats = [];
-        $('category', el).each((_, c) => { const t = $(c).text().trim(); if (t) cats.push(t); });
-        $('dc\\:subject', el).each((_, s) => { const t = $(s).text().trim(); if (t && !cats.includes(t)) cats.push(t); });
-
-        const desc = $('description', el).text().replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().slice(0,400);
-
-        const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
-        merged.set(id, {
-          id,
-          title,
-          url:         link,
-          timestamp:   ts || Date.now(),
-          categories:  cats.slice(0, 8),
-          description: desc,
-          institution: 'ING',
-          _source:     'ing-think',
+  for (const feed of BR_FEEDS) {
+    const maxPages = (feed.paged && full) ? 20 : 1;
+    for (let page = 1; page <= maxPages; page++) {
+      try {
+        const url = page === 1 ? feed.url : `${feed.url}?paged=${page}`;
+        const r = await axios.get(url, {
+          timeout: 12000,
+          headers: { 'User-Agent': UA },
+          validateStatus: s => s < 500,
         });
-        any = true;
-      });
-
-      if (old || !any) break;
-    } catch { break; }
+        if (r.status !== 200) break;
+        const { any, old } = _parseResearchFeed(r.data, feed, cutoff, merged);
+        if (old || !any) break;
+      } catch { break; }
+    }
   }
 
   const before = _brCache.length;
@@ -1895,10 +1898,11 @@ function mergeItems(incoming) {
 async function refreshNews() {
   console.log(`\n[${new Date().toLocaleTimeString()}] Refreshing news sources...`);
 
-  const [fjItems, ffCalItems, ffNewsItems] = await Promise.allSettled([
+  const [fjItems, ffCalItems, ffNewsItems, rssItems] = await Promise.allSettled([
     scrapeFinancialJuice(),
     scrapeForexFactory(),
     scrapeForexFactoryNews(),
+    fetchAllRSS(),
   ]).then(rs => rs.map(r => r.status === 'fulfilled' && Array.isArray(r.value) ? r.value : []));
 
   // Calendar events go to their own store — NOT mixed into the news feed
@@ -1911,9 +1915,9 @@ async function refreshNews() {
     i.priority === 'high'
   );
 
-  // News feed: FJ + FF-News + high-impact released calendar events
-  const count = mergeItems([...fjItems, ...ffNewsItems, ...calReleased]);
-  console.log(`  [FJ:${fjItems.length} FF-Cal:${ffCalItems.length}→cal FF-News:${ffNewsItems.length}] +${count} new (total: ${allNews.length})`);
+  // News feed: FJ + FF-News + high-impact released calendar events + RSS multi-sources
+  const count = mergeItems([...fjItems, ...ffNewsItems, ...calReleased, ...rssItems]);
+  console.log(`  [FJ:${fjItems.length} FF-Cal:${ffCalItems.length}→cal FF-News:${ffNewsItems.length} RSS:${rssItems.length}] +${count} new (total: ${allNews.length})`);
 
   if (count > 0 || isFirstLoad) {
     if (isFirstLoad) {
