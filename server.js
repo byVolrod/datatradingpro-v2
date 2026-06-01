@@ -18,6 +18,7 @@ const { fetchCommunityOutlook, clearOutlookCache } = require('./scrapers/myfxboo
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
 const ai = require('./ai');           // génération IA (Gemini gratuit, repli Claude)
+const whop = require('./whop');       // vérification des abonnements Whop (auto-renouvellement)
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -145,7 +146,7 @@ app.use(session({
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz']);
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/'];
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/'];
 
 function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
@@ -338,6 +339,50 @@ app.put('/api/auth/me/password', async (req, res) => {
     console.error('[Auth] password change error:', e.message);
     res.status(500).json({ error: 'Erreur serveur' });
   }
+});
+
+// ─── Whop : webhook d'auto-renouvellement / création de compte ───────────────
+async function _whopRenewOrCreate(mem) {
+  const users = await auth.getAllUsers();
+  const existing = users.find(u => (u.email || '').toLowerCase() === mem.email);
+  if (existing) {
+    if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
+    const wasInactive = !existing.active;
+    await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
+    if (wasInactive) mailer.sendReactivated({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
+    console.log(`[Whop] Renouvelé: ${mem.email} → ${mem.expiresAt || 'illimité'}`);
+  } else {
+    const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
+    await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
+    mailer.sendWelcome({ to: mem.email, name: '', password: pwd, expiresAt: mem.expiresAt }).catch(() => {});
+    console.log(`[Whop] Compte créé: ${mem.email}`);
+  }
+}
+async function _whopSuspend(email) {
+  const users = await auth.getAllUsers();
+  const u = users.find(x => (x.email || '').toLowerCase() === email);
+  if (u && u.role !== 'admin' && u.active) {
+    await auth.updateUser(u.id, { active: false });
+    mailer.sendRenewalFailed({ to: u.email, name: u.name }).catch(() => {});
+    console.log(`[Whop] Suspendu: ${email}`);
+  }
+}
+app.post('/api/whop/webhook', async (req, res) => {
+  res.json({ received: true });   // ACK immédiat (Whop n'attend pas)
+  try {
+    if (!whop.configured()) { console.warn('[Whop] WHOP_API_KEY absente'); return; }
+    const body   = req.body || {};
+    const action = String(body.action || body.event || body.type || '').toLowerCase();
+    const data   = body.data || body;
+    const memId  = data.id || data.membership_id || data.membership;
+    let mem = null;
+    if (typeof memId === 'string' && memId.startsWith('mem_')) mem = await whop.getMembership(memId);
+    if (!mem && data.email) mem = await whop.getMembershipByEmail(data.email);
+    if (!mem || !mem.email) { console.warn('[Whop] webhook sans membership exploitable:', action); return; }
+    const invalidEvent = /invalid|cancel|expire|fail|refund|chargeback|terminat/.test(action);
+    if (mem.valid && !invalidEvent) await _whopRenewOrCreate(mem);
+    else                            await _whopSuspend(mem.email);
+  } catch (e) { console.error('[Whop] webhook:', e.message); }
 });
 
 // Mise à jour du profil (nom) par l'utilisateur — persiste en BDD + session
