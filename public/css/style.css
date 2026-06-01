@@ -3152,13 +3152,19 @@ html, body {
   align-items: flex-start;
   gap: 14px;
   padding: 16px 20px;
+  border: 1px solid transparent;        /* bordure invisible au repos → pas de saut de pixel au survol */
   border-bottom: 1px solid #1a1a1e;
+  border-radius: 10px;
   cursor: pointer;
-  transition: background 0.12s;
-  background: #121214;                 /* anthracite profond */
+  transition: all 0.2s ease-in-out;     /* transition globale douce */
+  background: #121214;                  /* anthracite profond */
 }
-.arlib-card:hover { background: #1a1a1e; }     /* survol éclairci */
-.arlib-card:hover .arlib-card-title { color: #fff; }
+/* Survol style Prime Terminal : bordure orange cuivrée + fond légèrement éclairci + titre blanc pur */
+.arlib-card:hover {
+  background: #1b1b1e;
+  border-color: rgba(255,122,0,0.7);
+}
+.arlib-card:hover .arlib-card-title { color: #ffffff; }
 
 /* Non lu → titre blanc cassé */
 .arlib-card:not(.arlib-card--read) .arlib-card-title { color: #e2e8f0; }
