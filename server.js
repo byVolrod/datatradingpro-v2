@@ -2249,6 +2249,27 @@ if (process.env.DISABLE_MYFXBOOK === 'true') {
   setInterval(refreshMyfxbook, 5 * 60 * 1000); // then every 5 min
 }
 
+// ── Rappel abonnements : prévient l'admin (datatradingpro.contact) des comptes
+//    qui expirent bientôt ou viennent d'expirer, AVANT le blocage (grâce 48h) ──
+async function _checkExpiringSubscriptions() {
+  try {
+    const users = await auth.getAllUsers();
+    const now   = Date.now();
+    const soon  = now + 2 * 24 * 60 * 60 * 1000;   // expire dans ≤ 2 jours
+    const grace = now - 48 * 60 * 60 * 1000;        // expiré mais < 48h (encore en grâce)
+    const clients = users
+      .filter(u => u.role === 'client' && u.active && u.expires_at)
+      .filter(u => { const t = new Date(u.expires_at).getTime(); return t <= soon && t >= grace; })
+      .map(u => ({ name: u.name, email: u.email, expiresAt: u.expires_at }));
+    if (clients.length) {
+      await mailer.sendAdminExpiryReminder({ clients });
+      console.log(`[ExpiryCheck] Rappel admin envoyé pour ${clients.length} abonnement(s)`);
+    }
+  } catch (e) { console.error('[ExpiryCheck]', e.message); }
+}
+setTimeout(_checkExpiringSubscriptions, 90 * 1000);            // au démarrage
+setInterval(_checkExpiringSubscriptions, 24 * 60 * 60 * 1000); // puis 1×/jour
+
 // COT — check for new weekly data every 6 h, broadcast on change
 let _lastCotHash = '';
 setInterval(async () => {

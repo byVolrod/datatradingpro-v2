@@ -221,4 +221,38 @@ async function sendPasswordReset({ to, name, password }) {
   return _send(to, 'DataTradingPro — votre mot de passe a été réinitialisé', _layout('Réinitialisation', body));
 }
 
-module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendPasswordReset };
+// ── Rappel ADMIN : abonnements à renouveler (envoyé à datatradingpro.contact) ──
+async function sendAdminExpiryReminder({ clients, to }) {
+  if (!clients || !clients.length) return false;
+  const admin = to || SUPPORT_EMAIL;
+  const rows = clients.map(c => {
+    const end  = new Date(c.expiresAt);
+    const days = Math.ceil((end.getTime() - Date.now()) / 86400000);
+    const when = end.toLocaleDateString('fr-FR');
+    const state = days < 0
+      ? `<span style="color:#fb7185;font-weight:700;">EXPIRÉ depuis ${-days}j</span>`
+      : `<span style="color:#f59e0b;font-weight:700;">expire dans ${days}j</span>`;
+    return `<tr>
+      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#fff;font-size:13px;">${c.name || '—'}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#94a3b8;font-size:13px;font-family:monospace;">${c.email}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #26262b;color:#94a3b8;font-size:13px;">${when}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #26262b;font-size:12px;">${state}</td>
+    </tr>`;
+  }).join('');
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">⏰ Abonnements à vérifier</p>
+    <p style="margin:0 0 14px;">Voici les clients dont l'abonnement <strong style="color:#fff;">expire bientôt ou vient d'expirer</strong>. Pense à les renouveler (paiement Whop) dans l'admin.</p>
+    <p style="margin:0 0 8px;color:#94a3b8;font-size:12px;">⚠️ Délai de grâce : ces clients gardent l'accès <strong style="color:#fff;">48h après expiration</strong>. Au-delà, leur connexion sera bloquée automatiquement.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;margin:14px 0;border-collapse:collapse;">
+      <tr><th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">Nom</th>
+          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">Email</th>
+          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">Échéance</th>
+          <th style="padding:8px 10px;text-align:left;color:#6b7280;font-size:10px;text-transform:uppercase;border-bottom:1px solid #26262b;">État</th></tr>
+      ${rows}
+    </table>
+    ${_button('Ouvrir le panel admin', APP_URL + '/admin')}
+    <p style="margin:0;font-size:13px;">— Rappel automatique DataTradingPro</p>`;
+  return _send(admin, `DataTradingPro — ${clients.length} abonnement(s) à renouveler`, _layout('Rappel abonnements', body));
+}
+
+module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendPasswordReset, sendAdminExpiryReminder };
