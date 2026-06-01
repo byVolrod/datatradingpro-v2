@@ -2978,17 +2978,25 @@ function renderArlibList() {
 // ── Reader ────────────────────────────────────────────────────────────────────
 
 // Charge et affiche les AI Insights (cartes) d'un rapport via Gemini
+const _aiInsightsCache = {};   // cache navigateur : pas de requête à la réouverture d'un rapport
 async function _loadAIInsights(item, el) {
   const text = (item.headline || '') + '\n' + String(item.description || item.content || '').replace(/<[^>]*>/g, ' ');
   if (text.trim().length < 60) { el.innerHTML = ''; return; }
-  el.innerHTML = '<div class="ai-insights-head"><span class="ai-insights-dot">✦</span> AI Insights <span class="ai-insights-load">· analyse…</span></div>';
-  try {
-    const r = await fetch('/api/report-insights', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: item.id, text }),
-    });
-    const d = await r.json();
-    if (!d.insights || !d.insights.length) { el.innerHTML = ''; return; }
+  const ck = item.id || (item.headline || '').slice(0, 60);
+  let d = _aiInsightsCache[ck];
+  if (!d) {
+    el.innerHTML = '<div class="ai-insights-head"><span class="ai-insights-dot">✦</span> AI Insights <span class="ai-insights-load">· analyse…</span></div>';
+    try {
+      const r = await fetch('/api/report-insights', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: item.id, text }),
+      });
+      d = await r.json();
+      if (d && d.insights && d.insights.length) _aiInsightsCache[ck] = d;   // mémorise côté client
+    } catch { el.innerHTML = ''; return; }
+  }
+  {
+    if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
     const cards = d.insights.map(t =>
       `<div class="ai-insights-card">${t.replace(/</g, '&lt;')}</div>`).join('');
     const n = d.insights.length;
@@ -3001,7 +3009,7 @@ async function _loadAIInsights(item, el) {
         </span>
       </div>
       <div class="ai-insights-cards" id="ai-insights-cards">${cards}</div>`;
-  } catch { el.innerHTML = ''; }
+  }
 }
 
 // Défilement des cartes AI Insights via les flèches
