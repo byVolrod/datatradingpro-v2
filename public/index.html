@@ -68,10 +68,11 @@
 <div class="navbar" id="topbar-nav">
   <a href="#" class="nav-item nav-item--active" data-view="news">› NEWS</a>
   <a href="#" class="nav-item" data-view="calendar">› CALENDAR</a>
-  <a href="#" class="nav-item" data-view="bias">› BIAS</a>
   <a href="#" class="nav-item" data-view="fxlist">› FX LIST</a>
   <a href="#" class="nav-item" data-view="institution">› INSTITUTION</a>
   <a href="#" class="nav-item" data-view="analyst">› ANALYST</a>
+  <a href="#" class="nav-item" data-view="bias">› BIAS</a>
+  <a href="#" class="nav-item" data-view="bank">› BANK</a>
 </div>
 
 <!-- ═══════════════════ MAIN LAYOUT ═══════════════════ -->
@@ -133,6 +134,50 @@
       </div>
     </div>
   </div><!-- /#view-bias -->
+
+  <!-- ══ VIEW: BANK — Transactions bancaires (positions des banques) ══ -->
+  <div class="view-panel hidden" id="view-bank">
+    <div class="panel panel-bank">
+      <div class="panel-header">
+        <div class="panel-header-left">
+          <span class="panel-title">Transactions bancaires</span>
+        </div>
+        <div class="panel-header-controls">
+          <span class="bank-update" id="bank-update"></span>
+        </div>
+      </div>
+      <div class="bank-layout">
+        <div class="bank-table-wrap">
+          <table class="bank-table">
+            <thead>
+              <tr>
+                <th class="bank-th-exp"></th>
+                <th>Nom de la banque</th>
+                <th>Type d'ordre</th>
+                <th>Devise</th>
+                <th>Date</th>
+                <th class="bank-num">Entrée</th>
+                <th class="bank-num">Prendre profit</th>
+                <th class="bank-num">Stop loss</th>
+                <th>Statut</th>
+                <th class="bank-chart-col-h">Afficher le graphique</th>
+              </tr>
+            </thead>
+            <tbody id="bank-tbody">
+              <tr><td colspan="10" class="bank-loading">Chargement des positions…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="bank-chart-col" id="bank-chart-col">
+          <div class="bank-chart-head">
+            <span class="bank-chart-pair" id="bank-chart-pair">USD/JPY</span>
+            <span class="bank-chart-price" id="bank-chart-price"></span>
+          </div>
+          <div class="bank-chart" id="bank-chart"></div>
+        </div>
+      </div>
+    </div>
+  </div><!-- /#view-bank -->
 
   <!-- ══ VIEW: CALENDAR ══ -->
   <div class="view-panel hidden" id="view-calendar">

@@ -2704,6 +2704,206 @@ function renderBiasView(d) {
     <div class="bias-grid">${cards}</div>`;
 }
 
+// ═══════════════════ ONGLET BANK — transactions bancaires ═══════════════════
+let _bankPositions = [];
+let _bankActiveId  = null;
+let _bankChartRoot = null;
+let _bankTimer     = null;
+
+function loadBankView() {
+  _fetchBankPositions();
+  // Rafraîchissement temps réel du prix/statut toutes les 60 s tant que l'onglet est ouvert
+  if (_bankTimer) clearInterval(_bankTimer);
+  _bankTimer = setInterval(() => {
+    const panel = document.getElementById('view-bank');
+    if (!panel || panel.classList.contains('hidden')) { clearInterval(_bankTimer); _bankTimer = null; return; }
+    _fetchBankPositions(true);
+  }, 60 * 1000);
+}
+window.loadBankView = loadBankView;
+
+function _fetchBankPositions(silent) {
+  fetch('/api/bank-positions')
+    .then(r => r.json())
+    .then(d => {
+      _bankPositions = d.positions || [];
+      const u = document.getElementById('bank-update');
+      if (u && d.updatedAt) u.textContent = 'MAJ ' + new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      renderBankTable();
+      if (_bankPositions.length) {
+        const cur = _bankActiveId && _bankPositions.find(p => p.id === _bankActiveId);
+        if (!cur) selectBankRow(_bankPositions[0].id);
+        else { _highlightBankRow(_bankActiveId); _updateBankChartPrice(cur); }
+      }
+    })
+    .catch(() => {
+      if (silent) return;
+      const tb = document.getElementById('bank-tbody');
+      if (tb) tb.innerHTML = '<tr><td colspan="10" class="bank-loading">Positions indisponibles.</td></tr>';
+    });
+}
+
+function _bankFmt(pair, v) {
+  if (v == null || isNaN(v)) return '—';
+  const dec = String(pair).includes('JPY') ? 2 : 4;
+  return Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+}
+function _bankDate(iso) {
+  if (!iso) return '—';
+  const p = String(iso).split('-');
+  return p.length === 3 ? `${p[2]}/${p[1]}/${p[0]}` : iso;
+}
+function _bankStatusCls(s) {
+  if (/SL/i.test(s)) return 'bank-st-sl';
+  if (/TP/i.test(s)) return 'bank-st-tp';
+  return 'bank-st-active';
+}
+
+function renderBankTable() {
+  const tb = document.getElementById('bank-tbody');
+  if (!tb) return;
+  if (!_bankPositions.length) { tb.innerHTML = '<tr><td colspan="10" class="bank-loading">Aucune position.</td></tr>'; return; }
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  tb.innerHTML = _bankPositions.map(p => {
+    const active = p.id === _bankActiveId ? ' bank-row--active' : '';
+    return `
+    <tr class="bank-row${active}" data-id="${p.id}">
+      <td class="bank-exp" data-act="exp"><span class="bank-chev">›</span></td>
+      <td class="bank-name">${esc(p.bank)}</td>
+      <td class="bank-otype">${esc(p.orderType)}</td>
+      <td class="bank-pair">${esc(p.pair)}</td>
+      <td class="bank-date">${_bankDate(p.date)}</td>
+      <td class="bank-num">${_bankFmt(p.pair, p.entry)}</td>
+      <td class="bank-num">${_bankFmt(p.pair, p.tp)}</td>
+      <td class="bank-num">${_bankFmt(p.pair, p.sl)}</td>
+      <td><span class="bank-status ${_bankStatusCls(p.status)}">${esc(p.status || 'Active')}</span></td>
+      <td class="bank-chart-cell" data-act="chart" title="Afficher le graphique">
+        <svg width="16" height="14" viewBox="0 0 16 14" fill="none"><path d="M1 13V1M1 13h14M4 10l3-4 3 2 4-6" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </td>
+    </tr>
+    <tr class="bank-detail-row hidden" data-detail="${p.id}">
+      <td colspan="10">
+        <div class="bank-detail">
+          <div class="bank-detail-col">
+            <div class="bank-detail-line"><span>Paire de devises</span><b>${esc(p.pair)}</b></div>
+            <div class="bank-detail-line"><span>Objectif</span><b>${_bankFmt(p.pair, p.tp)}</b></div>
+            <div class="bank-detail-line"><span>Stop loss</span><b>${_bankFmt(p.pair, p.sl)}</b></div>
+          </div>
+          <div class="bank-detail-col">
+            <div class="bank-detail-h">Thèse de la dernière transaction</div>
+            <div class="bank-detail-txt${p.thesis ? '' : ' bank-detail-muted'}">${p.thesis ? esc(p.thesis) : 'Aucune donnée disponible'}</div>
+          </div>
+          <div class="bank-detail-col">
+            <div class="bank-detail-h">Historique des transactions</div>
+            <div class="bank-detail-txt bank-detail-muted">Aucune donnée disponible</div>
+          </div>
+        </div>
+      </td>
+    </tr>`;
+  }).join('');
+
+  // Délégation des clics
+  tb.querySelectorAll('.bank-row').forEach(row => {
+    row.addEventListener('click', e => {
+      const id = row.dataset.id;
+      const act = e.target.closest('[data-act]')?.dataset.act;
+      if (act === 'exp') { _toggleBankDetail(id, row); return; }
+      selectBankRow(id);
+    });
+  });
+}
+
+function _toggleBankDetail(id, row) {
+  const det = document.querySelector(`[data-detail="${id}"]`);
+  if (!det) return;
+  const open = det.classList.toggle('hidden') === false;
+  row.querySelector('.bank-chev')?.classList.toggle('bank-chev--open', open);
+}
+
+function _highlightBankRow(id) {
+  document.querySelectorAll('.bank-row').forEach(r => r.classList.toggle('bank-row--active', r.dataset.id === id));
+}
+function _updateBankChartPrice(p) {
+  const el = document.getElementById('bank-chart-price');
+  if (el) el.textContent = p.currentPrice != null ? _bankFmt(p.pair, p.currentPrice) : '';
+}
+
+function selectBankRow(id) {
+  const p = _bankPositions.find(x => x.id === id);
+  if (!p) return;
+  _bankActiveId = id;
+  _highlightBankRow(id);
+  document.getElementById('bank-chart-pair').textContent = p.pair;
+  _updateBankChartPrice(p);
+  buildBankChart(p);
+}
+
+function buildBankChart(p) {
+  const el = document.getElementById('bank-chart');
+  if (!el || typeof am5 === 'undefined') return;
+  if (_bankChartRoot) { try { _bankChartRoot.dispose(); } catch {} _bankChartRoot = null; }
+  el.innerHTML = '<div class="bank-chart-loading">Chargement du graphique…</div>';
+
+  fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair))
+    .then(r => r.json())
+    .then(d => {
+      const candles = (d.candles || []).map(c => ({ Date: c.t, Open: c.o, High: c.h, Low: c.l, Close: c.c }));
+      el.innerHTML = '';
+      if (!candles.length) { el.innerHTML = '<div class="bank-chart-loading">Graphique indisponible.</div>'; return; }
+
+      const dec = p.pair.includes('JPY') ? 2 : (candles[0].Close < 10 ? 4 : 2);
+      const root = am5.Root.new('bank-chart');
+      _bankChartRoot = root;
+      root._logo?.dispose();
+      root.setThemes([am5themes_Animated.new(root)]);
+
+      const chart = root.container.children.push(am5xy.XYChart.new(root, {
+        panX: false, panY: false, wheelY: 'zoomX', paddingLeft: 0, paddingRight: 64, paddingBottom: 4,
+      }));
+
+      const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+        renderer: am5xy.AxisRendererY.new(root, { opposite: true }),
+        numberFormat: '#,###.' + '0'.repeat(dec),
+      }));
+      const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+        baseInterval: { timeUnit: 'day', count: 1 },
+        renderer: am5xy.AxisRendererX.new(root, { minorGridEnabled: true }),
+      }));
+
+      const series = chart.series.push(am5xy.CandlestickSeries.new(root, {
+        xAxis, yAxis, valueXField: 'Date',
+        openValueYField: 'Open', highValueYField: 'High', lowValueYField: 'Low', valueYField: 'Close',
+      }));
+      series.columns.template.setAll({ strokeWidth: 1, width: am5.percent(60) });
+      const colOf = t => { const di = t.dataItem; return di && di.get('valueY') >= di.get('openValueY') ? am5.color(0x2ecc71) : am5.color(0xe74c3c); };
+      series.columns.template.adapters.add('fill', (_f, t) => colOf(t));
+      series.columns.template.adapters.add('stroke', (_s, t) => colOf(t));
+      series.data.setAll(candles);
+
+      // Lignes Entry / Take Profit / Stop Loss
+      const guides = [
+        { value: p.entry, label: 'Entry',       color: 0x3b82f6 },
+        { value: p.tp,    label: 'Take Profit', color: 0x22c55e },
+        { value: p.sl,    label: 'Stop Loss',   color: 0xef4444 },
+      ];
+      guides.forEach(g => {
+        if (!g.value) return;
+        const di    = yAxis.makeDataItem({ value: g.value });
+        const range = yAxis.createAxisRange(di);
+        range.get('grid').setAll({ stroke: am5.color(g.color), strokeOpacity: 0.95, strokeWidth: 1, strokeDasharray: [4, 3] });
+        di.get('label')?.setAll({
+          text: `${g.label} ${g.value.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec })}`,
+          inside: true, centerY: am5.p50, fontSize: 10, fontWeight: '700', fill: am5.color(0xffffff),
+          background: am5.RoundedRectangle.new(root, { fill: am5.color(g.color) }),
+        });
+      });
+
+      series.appear(700);
+      chart.appear(700, 80);
+    })
+    .catch(() => { el.innerHTML = '<div class="bank-chart-loading">Graphique indisponible.</div>'; });
+}
+
 function loadInstitutionView() {
   const search = document.getElementById('br-search');
   const instEl = document.getElementById('br-inst');

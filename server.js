@@ -2034,6 +2034,140 @@ app.get('/api/bias', async (req, res) => {
   if (!_biasCache) setTimeout(() => generateWeeklyBias(true).catch(() => {}), 30 * 1000);
 })();
 
+// ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
+// Seed (issu des captures PMT) + éditions admin + extraction Gemini des flux recherche.
+// Le statut (Active / TP touché / SL touché) et le prix se mettent à jour en TEMPS RÉEL (Yahoo).
+const BANK_FILE = path.join(__dirname, 'cache_bank_positions.json');
+const BANK_SEED = [
+  { id:'seed-1',  bank:'SEB Research',             orderType:'Sell Limit',       pair:'USD/JPY', date:'2026-05-27', entry:160.50, tp:155.00,  sl:162.50, source:'seed' },
+  { id:'seed-2',  bank:'Refinitiv',                orderType:'Market Execution', pair:'USD/JPY', date:'2026-05-28', entry:159.25, tp:157.75,  sl:159.80, source:'seed' },
+  { id:'seed-3',  bank:'Refinitiv',                orderType:'Market Execution', pair:'USD/CAD', date:'2026-05-25', entry:1.3820, tp:1.3630,  sl:1.3880, source:'seed' },
+  { id:'seed-4',  bank:'Refinitiv',                orderType:'Market Execution', pair:'GBP/USD', date:'2026-05-27', entry:1.3445, tp:1.3645,  sl:1.3345, source:'seed' },
+  { id:'seed-5',  bank:'MUFG Research',            orderType:'Market Execution', pair:'GBP/CHF', date:'2026-03-30', entry:1.0560, tp:1.0200,  sl:1.0800, source:'seed' },
+  { id:'seed-6',  bank:'SEB Research',             orderType:'Buy Limit',        pair:'EUR/USD', date:'2026-05-19', entry:1.1500, tp:1.1900,  sl:1.1400, source:'seed' },
+  { id:'seed-7',  bank:'Credit Agricole Research', orderType:'Market Execution', pair:'EUR/JPY', date:'2026-06-01', entry:185.75, tp:189.71,  sl:183.00, source:'seed' },
+  { id:'seed-8',  bank:'Nomura Research',          orderType:'Market Execution', pair:'EUR/GBP', date:'2026-02-19', entry:0.8672, tp:0.8950,  sl:0.8550, source:'seed' },
+  { id:'seed-9',  bank:'Danske Research',          orderType:'Market Execution', pair:'EUR/GBP', date:'2026-01-16', entry:0.8664, tp:0.9000,  sl:0.8490, source:'seed' },
+  { id:'seed-10', bank:'Morgan Stanley Research',  orderType:'Market Execution', pair:'EUR/CHF', date:'2026-02-16', entry:0.9123, tp:0.8700,  sl:0.9400, source:'seed' },
+  { id:'seed-11', bank:'Nomura Research',          orderType:'Market Execution', pair:'AUD/NZD', date:'2026-05-08', entry:1.2155, tp:1.1800,  sl:1.2300, source:'seed' },
+  { id:'seed-12', bank:'Credit Agricole Research', orderType:'Market Execution', pair:'AUD/NZD', date:'2026-05-21', entry:1.2170, tp:1.1600,  sl:1.2470, source:'seed' },
+];
+let _bankPositions = null;
+try { _bankPositions = JSON.parse(fs.readFileSync(BANK_FILE, 'utf8')); } catch {}
+if (!Array.isArray(_bankPositions) || !_bankPositions.length) _bankPositions = BANK_SEED.slice();
+function _saveBank() { try { fs.writeFileSync(BANK_FILE, JSON.stringify(_bankPositions)); } catch {} }
+
+const _bankSym = p => p.replace('/', '') + '=X';   // USD/JPY → USDJPY=X
+let _bankPxCache = { ts: 0, px: {} };
+async function _bankLivePrices() {
+  if (Date.now() - _bankPxCache.ts < 60 * 1000) return _bankPxCache.px;
+  try { await getYFSession(); } catch {}
+  const pairs = [...new Set(_bankPositions.map(p => p.pair))];
+  const px = {};
+  await Promise.all(pairs.map(async pr => {
+    try {
+      const raw = await yfFetch(_bankSym(pr), '5m', '1d');
+      const cl  = (raw?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(x => x != null);
+      if (cl.length) px[pr] = cl[cl.length - 1];
+    } catch {}
+  }));
+  _bankPxCache = { ts: Date.now(), px };
+  return px;
+}
+// Détermine le sens (achat/vente) puis l'état selon le prix courant
+function _bankStatus(pos, price) {
+  const isBuy = /buy/i.test(pos.orderType) || (pos.tp > pos.entry);
+  if (price == null) return { status: 'Active', dir: isBuy ? 'buy' : 'sell' };
+  let status = 'Active';
+  if (isBuy) { if (price >= pos.tp) status = 'TP touché'; else if (price <= pos.sl) status = 'SL touché'; }
+  else       { if (price <= pos.tp) status = 'TP touché'; else if (price >= pos.sl) status = 'SL touché'; }
+  return { status, dir: isBuy ? 'buy' : 'sell' };
+}
+
+app.get('/api/bank-positions', async (_req, res) => {
+  let px = {};
+  try { px = await _bankLivePrices(); } catch {}
+  const positions = _bankPositions.map(p => {
+    const price = px[p.pair] ?? null;
+    const { status, dir } = _bankStatus(p, price);
+    return { ...p, currentPrice: price, status, dir };
+  });
+  res.json({ positions, updatedAt: Date.now() });
+});
+
+// Bougies réelles d'une paire (pour le graphique de droite)
+app.get('/api/bank-ohlc', async (req, res) => {
+  const pair = String(req.query.pair || '').toUpperCase();
+  if (!/^[A-Z]{3}\/[A-Z]{3}$/.test(pair)) return res.json({ candles: [] });
+  try {
+    await getYFSession();
+    const raw = await yfFetch(_bankSym(pair), '1d', '6mo');
+    const r   = raw?.chart?.result?.[0];
+    const ts  = r?.timestamp || [];
+    const q   = r?.indicators?.quote?.[0] || {};
+    const candles = ts.map((t, i) => ({
+      t: t * 1000, o: q.open?.[i], h: q.high?.[i], l: q.low?.[i], c: q.close?.[i],
+    })).filter(c => c.o != null && c.c != null);
+    res.json({ candles });
+  } catch (e) { res.json({ candles: [] }); }
+});
+
+// CRUD admin (ajout / édition / suppression de positions)
+app.post('/api/bank-positions', requireAdmin, (req, res) => {
+  const b = req.body || {};
+  if (b._delete) {
+    _bankPositions = _bankPositions.filter(p => p.id !== b.id);
+    _saveBank(); return res.json({ ok: true });
+  }
+  const clean = {
+    bank: String(b.bank || '').slice(0, 60), orderType: String(b.orderType || 'Market Execution').slice(0, 30),
+    pair: String(b.pair || '').toUpperCase().slice(0, 7), date: String(b.date || '').slice(0, 10),
+    entry: +b.entry || 0, tp: +b.tp || 0, sl: +b.sl || 0, thesis: String(b.thesis || '').slice(0, 1200),
+  };
+  if (!clean.bank || !/^[A-Z]{3}\/[A-Z]{3}$/.test(clean.pair)) return res.status(400).json({ error: 'bank et pair (XXX/YYY) requis' });
+  const existing = b.id && _bankPositions.find(p => p.id === b.id);
+  if (existing) { Object.assign(existing, clean); }
+  else { _bankPositions.unshift({ id: 'm-' + Date.now().toString(36), source: 'manual', ...clean }); }
+  _saveBank();
+  res.json({ ok: true });
+});
+
+// ─── Extraction Gemini des positions depuis les notes de banques (ActionForex…) ───
+const BANK_EXTRACT_FILE = path.join(__dirname, 'cache_bank_extract.json');
+const _bankExtracted = _loadJsonMap(BANK_EXTRACT_FILE);   // articleId → true (déjà traité)
+async function _extractBankPositionsAI() {
+  if (!ai || !_brCache) return;
+  const candidates = _brCache.filter(a => a._source === 'actionforex' && !_bankExtracted.has(a.id)).slice(0, 8);
+  for (const art of candidates) {
+    _bankExtracted.set(art.id, true);   // on marque traité quoi qu'il arrive (évite de reboucler)
+    try {
+      const txt = `${art.title}\n${(art.description || '').replace(/<[^>]*>/g, ' ')}`.slice(0, 900);
+      const out = await ai.generateText(`From the bank FX research note below, extract any concrete trade setup. If there is NO clear setup with an entry, reply exactly "NONE".
+Otherwise reply ONLY valid JSON: {"bank":"<bank name>","orderType":"Buy Limit|Sell Limit|Market Execution","pair":"EUR/USD","entry":1.234,"tp":1.250,"sl":1.220}
+
+Note:
+${txt}`, 300);
+      if (/NONE/i.test(out.slice(0, 20))) continue;
+      const m = out.match(/\{[\s\S]*\}/); if (!m) continue;
+      const d = JSON.parse(m[0]);
+      if (!d.pair || !/^[A-Z]{3}\/[A-Z]{3}$/.test(String(d.pair).toUpperCase()) || !d.entry) continue;
+      _bankPositions.unshift({
+        id: 'ai-' + art.id.slice(-10), source: 'ai',
+        bank: String(d.bank || art.institution || 'Bank Research').slice(0, 60),
+        orderType: ['Buy Limit', 'Sell Limit', 'Market Execution'].includes(d.orderType) ? d.orderType : 'Market Execution',
+        pair: String(d.pair).toUpperCase(), date: new Date(art.timestamp || Date.now()).toISOString().slice(0, 10),
+        entry: +d.entry, tp: +d.tp || 0, sl: +d.sl || 0,
+      });
+    } catch (e) { /* best-effort */ }
+  }
+  if (_bankPositions.length > 60) _bankPositions = _bankPositions.slice(0, 60);
+  _saveBank();
+  _saveJsonMap(BANK_EXTRACT_FILE, _bankExtracted);
+}
+// Extraction périodique (best-effort, dépend du quota Gemini)
+setInterval(() => _extractBankPositionsAI().catch(() => {}), 60 * 60 * 1000);
+setTimeout(() => _extractBankPositionsAI().catch(() => {}), 90 * 1000);
+
 // Manual triggers — force=true bypasses today's dedup check
 app.get('/api/briefing/:type/generate', async (req, res) => {
   const force = req.query.force === '1';

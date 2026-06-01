@@ -2330,6 +2330,90 @@ html, body {
 }
 
 /* ═══════════════════════════════════════════════
+   ONGLET BANK — transactions bancaires
+═══════════════════════════════════════════════ */
+.panel-bank { display: flex; flex-direction: column; height: 100%; }
+.bank-update { font-size: 10px; font-family: var(--font-mono); color: var(--text4); }
+.bank-layout { display: flex; flex: 1; min-height: 0; }
+.bank-table-wrap { flex: 1; min-width: 0; overflow: auto; }
+.bank-chart-col {
+  width: 42%;
+  min-width: 360px;
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  background: #0b0b0d;
+}
+.bank-chart-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.bank-chart-pair { font-weight: 700; color: #fff; }
+.bank-chart-price { color: #22c55e; font-family: var(--font-mono); font-size: 13px; }
+.bank-chart { flex: 1; min-height: 0; }
+.bank-chart-loading, .bank-loading {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; padding: 24px; color: var(--text4); font-size: 13px;
+}
+
+.bank-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.bank-table thead th {
+  position: sticky; top: 0; z-index: 2;
+  background: #101012;
+  text-align: left;
+  padding: 11px 14px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #8a93a3;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.bank-table th.bank-num, .bank-table td.bank-num { text-align: right; font-family: var(--font-mono); }
+.bank-th-exp { width: 26px; padding: 0 !important; }
+.bank-row { border-bottom: 1px solid #161619; cursor: pointer; transition: background 0.1s; }
+.bank-row:hover { background: #161619; }
+.bank-row--active { background: #241415; }
+.bank-row--active:hover { background: #2e181a; }
+.bank-row td { padding: 10px 14px; color: #cbd5e1; white-space: nowrap; }
+.bank-name { color: #fff !important; font-weight: 600; }
+.bank-pair { font-family: var(--font-mono); color: #e2e8f0 !important; }
+.bank-date { color: #8a93a3 !important; font-family: var(--font-mono); }
+.bank-exp { width: 26px; text-align: center; color: #6b7280; }
+.bank-chev { display: inline-block; transition: transform 0.15s; }
+.bank-chev--open { transform: rotate(90deg); color: #f7941d; }
+.bank-status { font-weight: 600; }
+.bank-st-active { color: #22c55e; }
+.bank-st-tp { color: #22c55e; }
+.bank-st-sl { color: #ef4444; }
+.bank-chart-cell { color: #6b7280; }
+.bank-chart-cell:hover { color: #f7941d; }
+.bank-chart-col-h { white-space: nowrap; }
+
+/* Ligne de détail (dépliée) */
+.bank-detail-row.hidden { display: none; }
+.bank-detail-row td { padding: 0; background: #241415; border-bottom: 1px solid #161619; }
+.bank-detail {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr 1.4fr;
+  gap: 28px;
+  padding: 14px 18px 18px 40px;
+}
+.bank-detail-line { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-size: 12.5px; color: #94a3b8; }
+.bank-detail-line b { color: #fff; font-family: var(--font-mono); }
+.bank-detail-h { font-size: 12.5px; color: #cbd5e1; margin-bottom: 8px; }
+.bank-detail-txt { font-size: 12.5px; line-height: 1.6; color: #cbd5e1; }
+.bank-detail-muted { color: #6b7280; font-style: italic; }
+
+@media (max-width: 1100px) {
+  .bank-layout { flex-direction: column; }
+  .bank-chart-col { width: auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: 340px; }
+}
+
+/* ═══════════════════════════════════════════════
    CONNECTION STATUS
 ═══════════════════════════════════════════════ */
 

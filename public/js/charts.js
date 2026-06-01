@@ -1721,7 +1721,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
-  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst'];
+  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'bank'];
 
   function activateView(view, { persist = true } = {}) {
     if (!VALID_VIEWS.includes(view)) view = 'news';
@@ -1731,6 +1731,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (view === 'bias' && typeof loadBiasView === 'function') {
       loadBiasView();
+    }
+    if (view === 'bank' && typeof loadBankView === 'function') {
+      loadBankView();
     }
     if (view === 'calendar') buildCalendar();
     if (view === 'institution' && typeof loadInstitutionView === 'function') {
