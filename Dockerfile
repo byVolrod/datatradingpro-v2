@@ -2,7 +2,8 @@
 # Alternative à nixpacks.toml pour les plateformes qui préfèrent Docker.
 # Railway accepte aussi ce Dockerfile.
 
-FROM node:20-slim
+# Node 22 (LTS) : inclut WebSocket natif requis par @supabase/supabase-js
+FROM node:22-slim
 
 # Chromium + dépendances système pour Puppeteer
 RUN apt-get update && apt-get install -y \
