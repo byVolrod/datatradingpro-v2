@@ -450,7 +450,7 @@
           <input type="checkbox" id="lp-remember" name="remember" />
           Rester connecté
         </label>
-        <a class="lp-forgot" href="#">Mot de passe oublié ?</a>
+        <a class="lp-forgot" href="#" onclick="lpForgot(event)">Mot de passe oublié ?</a>
       </div>
 
       <!-- Submit -->
@@ -591,6 +591,24 @@
       btn.textContent = 'Se connecter';
     }
   });
+
+  // Mot de passe oublié → envoi d'un MDP temporaire par email
+  async function lpForgot(e) {
+    e.preventDefault();
+    let email = (document.getElementById('lp-email').value || '').trim();
+    if (!email) email = (window.prompt('Entrez votre email pour réinitialiser votre mot de passe :') || '').trim();
+    if (!email) return;
+    const errEl = document.getElementById('lp-error');
+    try {
+      await fetch('/api/auth/forgot-password', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      });
+    } catch {}
+    errEl.style.color = '#22c55e';
+    errEl.textContent = 'Si un compte existe pour cet email, un nouveau mot de passe vient d\'être envoyé. Vérifiez votre boîte (et les spams).';
+    errEl.classList.add('visible');
+  }
 
   // Autofocus email
   document.getElementById('lp-email').focus();
