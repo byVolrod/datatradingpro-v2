@@ -807,7 +807,7 @@ html, body {
 .news-item--breaking .news-headline { color: #e2e8f0; font-weight: 600; }  /* contraste fort */
 .news-item--breaking .news-time { color: #cbd5e1; }
 .news-item--breaking .news-category-text { color: #cbd5e1; }
-.news-item--breaking:hover { background: #54221f; }      /* survol : bordeaux plus lumineux, couvre TOUT l'item (titre + description) */
+.news-item--breaking:hover { background: #311a1b; }      /* survol : bordeaux à peine plus clair (léger) */
 /* La description et ses enfants restent transparents → le hover bordeaux les traverse aussi */
 .news-item--breaking:hover .news-description,
 .news-item--breaking:hover .article-points--clean,

@@ -354,7 +354,12 @@ function syncDropdownUI() {
 }
 
 // ═══ News Rendering ═══════════════════════
+// Empreinte d'un titre pour dédoublonner les reposts quasi-identiques
+function _newsKey(h) {
+  return String(h || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+}
 function getFilteredItems() {
+  const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
     // Les rapports DTP d'ouverture / wrap / recap / daily s'affichent AUSSI dans le flux (comme PMT).
     // Les autres PRIMERs (institution, calendrier, speaker) restent réservés à l'onglet Analyst.
@@ -365,6 +370,17 @@ function getFilteredItems() {
     if (/^\[No Title\]/i.test(_h)) return false;
     if (/^RT @/i.test(_h))         return false;
     if (/^@[A-Za-z]/i.test(_h))   return false;
+    if (_h.replace(/[^a-z0-9]/gi, '').length < 14) return false;   // titres trop courts / sans valeur
+
+    // ── Filtre intelligent : on masque les reposts au titre quasi-identique ──
+    // (sauf les rapports DTP qu'on garde toujours)
+    const isReport = item._briefing || item.source === 'PMT';
+    if (!isReport) {
+      const key = _newsKey(_h);
+      if (key && seen.has(key)) return false;
+      if (key) seen.add(key);
+    }
+
     if (!searchQuery) return true;
     return (
       item.headline.toLowerCase().includes(searchQuery) ||
@@ -1243,6 +1259,7 @@ function stripSpeakerPrefix(headline) {
 
 // Detect PRIMER / PREVIEW briefing items (Newsquawk-style aggregated reports)
 function isPrimerItem(item) {
+  if (item._briefing || item.source === 'PMT') return true;   // rapports DTP (rendu structuré conservé)
   const h = item.headline || '';
   return /^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]/i.test(h);
 }
@@ -1505,16 +1522,21 @@ function buildNewsItem(item) {
   headline.className = 'news-headline';
 
   if (isPrimer) {
-    // Label selon le type : ANALYST (rapport), INSTITUTION (banque), CALENDRIER (résultat d'event)
-    const label = primerBadgeLabel(item);
-    const m = (item.headline || '').match(/^\s*[A-Z][A-Z\s]+?\s*[-:—]\s*(.+)/i);  // retire le préfixe "PRIMER —"
-    const titleText = m ? m[1].trim() : (item.headline || '');
-    const badge = document.createElement('span');
-    badge.className = 'primer-badge';
-    badge.textContent = label;
+    // On retire UNIQUEMENT le préfixe "PRIMER —" (sans casser "DTP Daily Asia-Pac …")
+    const titleText = (item.headline || '')
+      .replace(/^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]\s*/i, '')
+      .trim();
+    // Rapports DTP (briefings) → présentés comme des news, SANS badge PRIMER/ANALYST.
+    // Les autres primers (institution/calendrier) gardent leur badge.
+    const isReport = item._briefing || item.source === 'PMT';
+    if (!isReport) {
+      const badge = document.createElement('span');
+      badge.className = 'primer-badge';
+      badge.textContent = primerBadgeLabel(item);
+      headline.appendChild(badge);
+    }
     const titleSpan = document.createElement('span');
     titleSpan.textContent = _dtpTitle(titleText);
-    headline.appendChild(badge);
     headline.appendChild(titleSpan);
   } else {
     headline.textContent = item.headline;
@@ -3266,23 +3288,11 @@ const ARLIB_ALLOWED_TYPES = new Set(Object.keys(ARLIB_TYPE_ORDER));
 
 function getArlibItems() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  // Rapports PMT (7 types approuvés)
-  const pmt = allItems.filter(i =>
-    i.timestamp > cutoff &&
-    i._briefing === true &&
-    ARLIB_ALLOWED_TYPES.has(i._reportType)
-  ).sort((a, b) => {
-    const ao = ARLIB_TYPE_ORDER[a._reportType] ?? 99;
-    const bo = ARLIB_TYPE_ORDER[b._reportType] ?? 99;
-    if (ao !== bo) return ao - bo;
-    return b.timestamp - a.timestamp;
-  });
-  // InvestingLive session wraps (30 jours, triés par date)
-  const wraps = (_sessionWraps || [])
+  // L'onglet Analyst ne contient QUE les session wraps (InvestingLive).
+  // Les rapports DTP (Daily / Opening / Recap) vivent désormais dans le flux NEWS, pas ici.
+  return (_sessionWraps || [])
     .filter(i => i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp);
-  // Concaténer : PMT par type d'abord, puis wraps par date
-  return [...pmt, ...wraps];
 }
 
 function arlibItemType(item) {
