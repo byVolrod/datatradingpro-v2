@@ -962,6 +962,31 @@ app.get('/api/status', (_req, res) => res.json({
   clients: wss.clients.size,
 }));
 
+// ─── AI Insights : 4-6 résumés clés d'un rapport (cartes en haut du rapport) ──
+const _insightsCache = new Map();
+app.post('/api/report-insights', async (req, res) => {
+  const { id, text } = req.body || {};
+  const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (clean.length < 60) return res.json({ insights: [] });
+  const key = id || clean.slice(0, 100);
+  if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
+  try {
+    const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés.
+Chaque insight = UNE phrase concise (max 22 mots), en anglais, orientée trader (impact marché concret).
+Réponds UNIQUEMENT en JSON : {"insights":["phrase 1","phrase 2","phrase 3","phrase 4"]}
+Rapport :
+${clean.slice(0, 4000)}`;
+    const out = await ai.generateText(prompt, 700);
+    const m = out.match(/\{[\s\S]*\}/);
+    const insights = m ? (JSON.parse(m[0]).insights || []).filter(s => typeof s === 'string' && s.length > 8).slice(0, 6) : [];
+    _insightsCache.set(key, insights);
+    res.json({ insights });
+  } catch (e) {
+    console.error('[Insights]', e.message);
+    res.json({ insights: [] });
+  }
+});
+
 // ─── AI Analysis endpoint ─────────────────────────────────────────────────────
 const _analyseCache = new Map();
 app.post('/api/analyse', async (req, res) => {
