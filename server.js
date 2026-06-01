@@ -255,12 +255,14 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
 });
 
 // Calcule la date d'expiration à partir d'une durée choisie par l'admin
-function computeExpiry({ duration, expiresAt }) {
+function computeExpiry({ duration, expiresAt, startDate }) {
   if (duration === 'unlimited') return null;                 // abonnement illimité
   if (duration === 'custom')    return expiresAt ? new Date(expiresAt).toISOString() : null;
   const months = parseInt(duration, 10);
   if (!Number.isFinite(months) || months <= 0) return null;
-  const d = new Date();
+  // Base = date de début choisie (ex. date de paiement Whop), sinon aujourd'hui
+  let d = startDate ? new Date(startDate) : new Date();
+  if (isNaN(d.getTime())) d = new Date();
   d.setMonth(d.getMonth() + months);
   return d.toISOString();
 }

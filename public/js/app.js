@@ -2991,9 +2991,23 @@ async function _loadAIInsights(item, el) {
     if (!d.insights || !d.insights.length) { el.innerHTML = ''; return; }
     const cards = d.insights.map(t =>
       `<div class="ai-insights-card">${t.replace(/</g, '&lt;')}</div>`).join('');
-    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-dot">✦</span> AI Insights</div>
-      <div class="ai-insights-cards">${cards}</div>`;
+    const n = d.insights.length;
+    el.innerHTML = `<div class="ai-insights-head">
+        <span class="ai-insights-title"><span class="ai-insights-dot">✦</span> AI Insights</span>
+        <span class="ai-insights-nav">
+          <button type="button" onclick="aiInsScroll(-1)">‹</button>
+          <span class="ai-insights-count">1-${Math.min(3, n)} of ${n}</span>
+          <button type="button" onclick="aiInsScroll(1)">›</button>
+        </span>
+      </div>
+      <div class="ai-insights-cards" id="ai-insights-cards">${cards}</div>`;
   } catch { el.innerHTML = ''; }
+}
+
+// Défilement des cartes AI Insights via les flèches
+function aiInsScroll(dir) {
+  const c = document.getElementById('ai-insights-cards');
+  if (c) c.scrollBy({ left: dir * 290, behavior: 'smooth' });
 }
 
 function renderArlibReader(item) {
