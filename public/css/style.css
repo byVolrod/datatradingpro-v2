@@ -2620,8 +2620,21 @@ html, body {
 
   /* Topbar */
   .topbar-symbol-search { display: none; }
-  .topbar-center { padding: 0 4px; }
+  .topbar-center { padding: 0 4px; justify-content: flex-end; min-width: 0; }
   .topbar-right  { gap: 6px; }
+  /* Le bouton risk repasse en largeur auto (sinon 230px écrase le logo sur mobile) */
+  .topbar-sentiment { width: auto !important; min-width: 0; flex: 0 0 auto; padding: 0 9px; height: 30px; font-size: 9px; }
+  /* La bannière d'alerte prend trop de place sur mobile */
+  .breaking-news-flash { display: none !important; }
+  .logo { flex-shrink: 0; min-width: 0; }
+  .logo-text { font-size: 15px; white-space: nowrap; }
+  /* Onglet BANK : empilé, table scrollable, graphique dessous */
+  .bank-layout { flex-direction: column; }
+  .bank-chart-col { width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: 320px; }
+  .bank-table-wrap { overflow-x: auto; }
+  /* Smart Bias : grille scrollable horizontalement, horloges en grille */
+  .sb-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sb-clock { min-width: 50%; }
 
   /* Navbar scroll horizontal */
   .navbar    { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
