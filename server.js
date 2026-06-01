@@ -1092,13 +1092,25 @@ app.get('/api/status', (_req, res) => res.json({
 // ─── AI Insights : 4-6 résumés clés d'un rapport (cartes en haut du rapport) ──
 const INSIGHTS_FILE = path.join(__dirname, 'cache_insights.json');
 const _insightsCache = _loadJsonMap(INSIGHTS_FILE);   // persistant → pas de réappel Gemini à la réouverture
+// Secours SANS IA : extrait des phrases clés du rapport → les cartes s'affichent toujours,
+// même quand le quota Gemini est épuisé.
+function _fallbackInsights(text) {
+  const sentences = String(text)
+    .split(/(?<=[.!?])\s+/)
+    .map(s => s.trim())
+    .filter(s => s.length > 45 && s.length < 230 && /[a-z]/.test(s));
+  return sentences.slice(0, 6).map(s => ({ asset: '', bias: 'neutral', text: s }));
+}
 app.post('/api/report-insights', async (req, res) => {
   const { id, text } = req.body || {};
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
   const key = 'v2:' + (id || clean.slice(0, 100));   // v2 = format structuré {asset,bias,text}
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
+  // Budget Gemini : les insights de rapport comptent comme "analyst". Hors budget → secours extractif.
+  if (!aiAllowed('analyst')) return res.json({ insights: _fallbackInsights(clean) });
   try {
+    aiNote('analyst');
     const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés, chacun centré sur UN actif/instrument.
 Pour chaque insight renvoie un objet :
 - "asset": l'instrument concerné (ex: "S&P 500", "Nasdaq 100", "Gold", "Brent Crude", "EUR/USD", "US Dollar", "US 10Y", "Bitcoin")
@@ -1115,12 +1127,15 @@ ${clean.slice(0, 4000)}`;
           .map(o => ({ asset: String(o.asset || '').slice(0, 40), bias: String(o.bias || 'neutral').toLowerCase(), text: o.text }))
           .slice(0, 6)
       : [];
-    _insightsCache.set(key, insights);
-    if (insights.length) _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque
-    res.json({ insights });
+    if (insights.length) {
+      _insightsCache.set(key, insights);
+      _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque
+      return res.json({ insights });
+    }
+    res.json({ insights: _fallbackInsights(clean) });   // Gemini vide → secours extractif
   } catch (e) {
     console.error('[Insights]', e.message);
-    res.json({ insights: [] });
+    res.json({ insights: _fallbackInsights(clean) });   // quota/erreur → secours extractif
   }
 });
 

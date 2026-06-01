@@ -2443,6 +2443,9 @@ html, body {
 .rsnap-up { color: #22c55e; }
 .rsnap-dn { color: #ef4444; }
 
+/* Soleil météo (horloges) en orange */
+.clock-sun { color: #f7941d; font-variant-emoji: text; }
+
 /* ═══════════════════════════════════════════════
    ONGLET BANK — transactions bancaires
 ═══════════════════════════════════════════════ */
