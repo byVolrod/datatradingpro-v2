@@ -16,7 +16,8 @@ const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, clearOutlookCache } = require('./scrapers/myfxbook');
 const auth = require('./auth');
-const mailer = require('./mailer');   // emails Resend (bienvenue, renouvellement, reset)
+const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
+const ai = require('./ai');           // génération IA (Gemini gratuit, repli Claude)
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -909,17 +910,10 @@ app.post('/api/analyse', async (req, res) => {
   if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
 
   try {
-    const anthropic = new Anthropic();
     const ctx = description
       ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
       : '';
-
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 350,
-      messages: [{
-        role: 'user',
-        content: `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+    const text = await ai.generateText(`You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
 
 Headline: ${headline}
 Category: ${category}${ctx}
@@ -929,11 +923,7 @@ Write 2-4 bullet points. Rules:
 - Explain the causal mechanism, not just direction
 - Be specific and non-generic, max 25 words per bullet
 - Start each bullet with •
-- Respond only with the bullets, no preamble`,
-      }],
-    });
-
-    const text = msg.content[0]?.text || '';
+- Respond only with the bullets, no preamble`, 350);
     const bullets = text.split('\n')
       .map(l => l.trim())
       .filter(l => /^[•\-\*]/.test(l))
@@ -960,13 +950,7 @@ app.post('/api/analyst-outlook', async (req, res) => {
   if (_outlookCache.has(cacheKey)) return res.json(_outlookCache.get(cacheKey));
 
   try {
-    const anthropic = new Anthropic();
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 600,
-      messages: [{
-        role: 'user',
-        content: `You are a professional forex analyst. Provide a structured market outlook for ${pair} based on the following recent headlines.
+    const text = await ai.generateText(`You are a professional forex analyst. Provide a structured market outlook for ${pair} based on the following recent headlines.
 
 Central banks: ${cb || 'N/A'}
 Recent headlines (last 24h):
@@ -988,11 +972,7 @@ Respond with ONLY valid JSON in this exact format:
     {"type": "support",    "price": "1.0750", "note": "Monthly low"}
   ]
 }
-Be specific. Use actual levels where known. Max 3 levels. Output only valid JSON.`,
-      }],
-    });
-
-    const text      = msg.content[0]?.text || '';
+Be specific. Use actual levels where known. Max 3 levels. Output only valid JSON.`, 600);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON');
     const result = JSON.parse(jsonMatch[0]);
@@ -1104,13 +1084,7 @@ Write a structured London Open prep report. Return ONLY valid JSON:
 Be specific — name instruments (EUR/USD, DXY, XAU/USD, Brent, US10Y) and levels where known. Skip sections with no relevant news. Only output valid JSON.`;
 
   try {
-    const anthropic = new Anthropic();
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 2500,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const text      = msg.content[0]?.text || '';
+    const text = await ai.generateText(prompt, 2500);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON in response');
     const report = JSON.parse(jsonMatch[0]);
@@ -1223,13 +1197,7 @@ Write 6-10 crisp bullet points covering:
 Rules: start each bullet with a dash (-). Be specific (name pairs, levels, bps). No fluff. Max 10 bullets. Plain text only, no markdown.`;
 
   try {
-    const anthropic = new Anthropic();
-    const msg = await anthropic.messages.create({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: 900,
-      messages: [{ role: 'user', content: prompt }],
-    });
-    const text    = (msg.content[0]?.text || '').trim();
+    const text    = (await ai.generateText(prompt, 900)).trim();
     const bullets = text.split('\n').map(l => l.trim()).filter(l => l.startsWith('-')).join('\n');
     const description = bullets || text;
 
