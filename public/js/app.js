@@ -356,8 +356,9 @@ function syncDropdownUI() {
 // ═══ News Rendering ═══════════════════════
 function getFilteredItems() {
   return allItems.filter(item => {
-    // PMT briefings/PRIMERs only live in the Analyst tab, not the news feed
-    if (item._briefing || item.source === 'PMT') return false;
+    // Les rapports DTP d'ouverture / wrap / recap / daily s'affichent AUSSI dans le flux (comme PMT).
+    // Les autres PRIMERs (institution, calendrier, speaker) restent réservés à l'onglet Analyst.
+    if ((item._briefing || item.source === 'PMT') && !/opening|wrap|recap|daily|prep/i.test(item.headline || '')) return false;
     if (!isCategoryEnabled(item.category)) return false;
     // Social-media reposts and failed-scrape stubs — no market value
     const _h = item.headline || '';
@@ -3152,6 +3153,18 @@ function renderBrReader(item) {
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   if (content) content.innerHTML   = '<div class="br-doc-loading"><div class="br-doc-spinner"></div>Loading article…</div>';
 
+  // ── AI Insights (comme l'onglet Analyst) ──
+  let brIns = document.getElementById('br-ai-insights');
+  if (!brIns && content) {
+    brIns = document.createElement('div');
+    brIns.id = 'br-ai-insights';
+    content.parentNode.insertBefore(brIns, content);
+  }
+  if (brIns) { brIns.innerHTML = ''; _loadAIInsights(item, brIns); }
+  // Bouton Afficher/Masquer Insights
+  const brBtn = document.getElementById('br-insights-btn');
+  if (brBtn) { brBtn.innerHTML = `${_EYE_OFF} Masquer Insights`; brBtn.onclick = () => aiInsToggle(brBtn, 'br-ai-insights'); }
+
   const dateStr = item.timestamp
     ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
     : '';
@@ -3211,6 +3224,9 @@ function renderBrReader(item) {
             <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link-btn">Lire sur ING Think →</a>
           </div>`;
       }
+      // Insights basés sur le VRAI contenu de l'article (la description seule est trop courte)
+      const _full = (content.innerText || '').trim();
+      if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
     })
     .catch(() => {
       if (content) content.innerHTML = `
@@ -3458,9 +3474,10 @@ function aiInsScroll(dir) {
 const _EYE_OFF = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
 const _EYE     = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
 
-// Afficher / masquer la grille de cartes AI Insights
-function aiInsToggle(btn) {
-  const c = document.getElementById('ai-insights-cards');
+// Afficher / masquer la grille de cartes AI Insights (cible paramétrable : Analyst ou Institution)
+function aiInsToggle(btn, hostId) {
+  const host = document.getElementById(hostId || 'arlib-ai-insights');
+  const c = host ? host.querySelector('.ai-insights-cards') : document.getElementById('ai-insights-cards');
   if (!c) return;
   const willHide = c.style.display !== 'none';
   c.style.display = willHide ? 'none' : '';

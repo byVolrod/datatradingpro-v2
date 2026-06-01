@@ -136,17 +136,17 @@ html, body {
 /* ── Bannière d'alerte (style Prime Terminal) — pill une seule ligne, alignée ── */
 .breaking-news-flash {
   position: absolute;
-  left: 50%;
+  left: 10px;                          /* alignée EXACTEMENT sur la barre de recherche (margin 0 10px) */
   top: 50%;
-  transform: translate(-50%, -50%);
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
-  width: auto;
-  max-width: min(520px, 40vw);         /* bornée → ne déborde plus sur la recherche / bouton risk à droite */
+  width: 230px;                        /* = largeur de la barre de recherche */
+  max-width: 230px;
   text-overflow: ellipsis;
-  height: 30px;                        /* hauteur fixe → reste dans la topbar */
+  height: 34px;                        /* = hauteur de la barre de recherche */
   padding: 0 16px;
   background: #3a2d27;                 /* marron/orange sombre opaque */
   border: 1px solid #ff7a00;           /* bordure orange vif */
