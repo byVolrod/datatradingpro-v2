@@ -44,6 +44,8 @@ app.use(cors({
     // Requêtes sans origin (curl, server-to-server) toujours autorisées
     if (!origin) return cb(null, true);
     if (process.env.NODE_ENV !== 'production') return cb(null, true); // dev : tout autorisé
+    // Aucune liste configurée → pas de restriction (évite de se bloquer soi-même)
+    if (ALLOWED_ORIGINS.length === 0) return cb(null, true);
     if (ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith(o))) return cb(null, true);
     cb(new Error('CORS: origin not allowed'));
   },
