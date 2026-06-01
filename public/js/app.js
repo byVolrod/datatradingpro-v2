@@ -2977,6 +2977,25 @@ function renderArlibList() {
 
 // ── Reader ────────────────────────────────────────────────────────────────────
 
+// Charge et affiche les AI Insights (cartes) d'un rapport via Gemini
+async function _loadAIInsights(item, el) {
+  const text = (item.headline || '') + '\n' + String(item.description || item.content || '').replace(/<[^>]*>/g, ' ');
+  if (text.trim().length < 60) { el.innerHTML = ''; return; }
+  el.innerHTML = '<div class="ai-insights-head"><span class="ai-insights-dot">✦</span> AI Insights <span class="ai-insights-load">· analyse…</span></div>';
+  try {
+    const r = await fetch('/api/report-insights', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: item.id, text }),
+    });
+    const d = await r.json();
+    if (!d.insights || !d.insights.length) { el.innerHTML = ''; return; }
+    const cards = d.insights.map(t =>
+      `<div class="ai-insights-card">${t.replace(/</g, '&lt;')}</div>`).join('');
+    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-dot">✦</span> AI Insights</div>
+      <div class="ai-insights-cards">${cards}</div>`;
+  } catch { el.innerHTML = ''; }
+}
+
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
   document.getElementById('arlib-insights-panel')?.remove(); // reset any previous insights
@@ -2984,6 +3003,16 @@ function renderArlibReader(item) {
   const tagsScroll = document.getElementById('arlib-rtags-scroll');
   const content    = document.getElementById('arlib-rcontent');
   if (!content) return;
+
+  // ── AI Insights : cartes générées par IA, placées AU-DESSUS du contenu ──
+  let insightsEl = document.getElementById('arlib-ai-insights');
+  if (!insightsEl) {
+    insightsEl = document.createElement('div');
+    insightsEl.id = 'arlib-ai-insights';
+    content.parentNode.insertBefore(insightsEl, content);
+  }
+  insightsEl.innerHTML = '';
+  _loadAIInsights(item, insightsEl);
 
   const title = arlibCleanTitle(item.headline);
   const tags  = arlibItemTags(item);

@@ -3429,6 +3429,26 @@ html, body {
   background: #161619;
 }
 
+/* ── AI Insights (cartes générées par IA en haut du rapport) ── */
+#arlib-ai-insights { background: #161619; padding: 0 32px; }
+#arlib-ai-insights:empty { display: none; }
+.ai-insights-head {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; font-weight: 700; color: #e2e8f0;
+  padding: 18px 0 12px;
+}
+.ai-insights-dot { color: #f7941d; font-size: 14px; }
+.ai-insights-load { font-size: 11px; font-weight: 500; color: var(--text4); font-style: italic; }
+.ai-insights-cards {
+  display: flex; gap: 14px; overflow-x: auto; padding-bottom: 18px;
+  border-bottom: 1px solid #1e1e1e; scrollbar-width: thin;
+}
+.ai-insights-card {
+  flex: 0 0 270px; background: #0f0f12; border: 1px solid #26262b;
+  border-radius: 10px; padding: 16px 18px;
+  font-size: 13px; line-height: 1.55; color: #94a3b8;
+}
+
 /* ── Document header (titre + date + source) ── */
 .arlib-doc-header {
   margin-bottom: 24px;
