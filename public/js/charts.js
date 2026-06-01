@@ -1729,6 +1729,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
 
+    // BANK & BIAS : pleine largeur → on masque la colonne de droite (World Clock / Session Map)
+    const fullWidth = (view === 'bank' || view === 'bias');
+    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', fullWidth);
+
     if (view === 'bias' && typeof loadBiasView === 'function') {
       loadBiasView();
     }
