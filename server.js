@@ -761,30 +761,49 @@ function _saveJsonMap(file, map) {
   if (_saveTimers[file].unref) _saveTimers[file].unref();
 }
 
-// ── Budget Gemini : répartition intelligente du quota quotidien ──────────────
-//  • Semaine (lun-ven) : 50% du budget pour les news IMPORTANTES, 50% pour les
-//    rapports analyst (segmentation des wraps). Bias/Bank = OFF (réservés au WE).
-//  • Week-end (sam-dim) : news + analyst = OFF ; Bias + Bank = 100% du budget.
-const GEMINI_DAILY_BUDGET = parseInt(process.env.GEMINI_DAILY_BUDGET, 10) || 200;
-let _aiUsage = { day: '', counts: {} };
-function _aiToday()     { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); }
+// ── Budget Gemini MENSUEL auto-paçant : le quota doit tenir TOUT le mois ──────
+//  On part d'une enveloppe mensuelle (GEMINI_MONTHLY_BUDGET) et on calcule chaque
+//  jour un plafond = quota restant / jours restants dans le mois. Ainsi on ne
+//  "crame" jamais tout en début/fin de journée : la conso s'étale sur le mois.
+//  Répartition intra-journée :
+//   • Semaine : 50% news IMPORTANTES + 50% rapports analyst ; bias/bank OFF.
+//   • Week-end : news + analyst OFF ; bias + bank ON (dans la limite du plafond).
+const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 1200;
+const AI_USAGE_FILE = path.join(__dirname, 'cache_ai_usage.json');
+let _aiUsage = { month: '', day: '', total: 0, dayCounts: {} };
+try { _aiUsage = Object.assign(_aiUsage, JSON.parse(fs.readFileSync(AI_USAGE_FILE, 'utf8'))); } catch {}
+function _aiParis()     { return new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })); }
+function _aiMonth()     { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }).slice(0, 7); }
+function _aiDay()       { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); }
 function _aiIsWeekend() { const d = new Date().toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Europe/Paris' }); return d === 'Sat' || d === 'Sun'; }
-function _aiResetIfNewDay() { const t = _aiToday(); if (_aiUsage.day !== t) _aiUsage = { day: t, counts: {} }; }
+function _aiDaysLeftInMonth() { const p = _aiParis(); const last = new Date(p.getFullYear(), p.getMonth() + 1, 0).getDate(); return Math.max(1, last - p.getDate() + 1); }
+function _aiSave() { try { fs.writeFileSync(AI_USAGE_FILE, JSON.stringify(_aiUsage)); } catch {} }
+function _aiReset() {
+  const mo = _aiMonth(), d = _aiDay();
+  if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {} }; _aiSave(); }
+  else if (_aiUsage.day !== d) { _aiUsage.day = d; _aiUsage.dayCounts = {}; _aiSave(); }
+}
+function _aiDailyCap() {
+  const remaining = Math.max(0, GEMINI_MONTHLY_BUDGET - (_aiUsage.total || 0));
+  return Math.max(10, Math.floor(remaining / _aiDaysLeftInMonth()));   // jamais < 10/jour
+}
 function aiAllowed(category, opts = {}) {
-  _aiResetIfNewDay();
-  const total   = Object.values(_aiUsage.counts).reduce((a, b) => a + b, 0);
-  const catUsed = _aiUsage.counts[category] || 0;
+  _aiReset();
+  const cap      = _aiDailyCap();
+  const dayTotal = Object.values(_aiUsage.dayCounts).reduce((a, b) => a + b, 0);
+  const catUsed  = _aiUsage.dayCounts[category] || 0;
+  if (dayTotal >= cap) return false;                                   // plafond du jour atteint
   if (_aiIsWeekend()) {
     if (category === 'news' || category === 'analyst') return false;   // WE : news + analyst OFF
-    return total < GEMINI_DAILY_BUDGET;                                // WE : bias / bank = 100%
+    return true;                                                       // WE : bias / bank ON
   }
   if (category === 'bias' || category === 'bank') return false;        // semaine : réservés au WE
-  const half = Math.floor(GEMINI_DAILY_BUDGET / 2);
-  if (category === 'news')    return !!opts.important && catUsed < half; // semaine : news importantes, max 50%
-  if (category === 'analyst') return catUsed < half;                     // semaine : l'autre 50%
+  const half = Math.floor(cap / 2);
+  if (category === 'news')    return !!opts.important && catUsed < half;
+  if (category === 'analyst') return catUsed < half;
   return false;
 }
-function aiNote(category) { _aiResetIfNewDay(); _aiUsage.counts[category] = (_aiUsage.counts[category] || 0) + 1; }
+function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); }
 
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');

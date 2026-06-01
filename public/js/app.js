@@ -3923,17 +3923,17 @@ function npPush(items) {
   }
 
   // Web Push notification (only for high priority items)
-  if (_npPush && 'Notification' in window && Notification.permission === 'granted') {
+  // Quand le son est coupé (Muet / carillon "none"), on NE crée PAS de notif navigateur :
+  // certains OS jouent leur propre son malgré silent:true. Le panneau interne, lui, se met à jour.
+  const muted = (_npVolume === 'mute' || _npChime === 'none');
+  if (_npPush && !muted && 'Notification' in window && Notification.permission === 'granted') {
     const hi = items.find(i => i.priority === 'high' || i.urgent);
     if (hi) {
-      // Si le son est coupé (Muet ou carillon "none"), la notif navigateur est SILENCIEUSE
-      // (sinon l'OS joue son propre son indépendamment du volume interne).
-      const muted = (_npVolume === 'mute' || _npChime === 'none');
       new Notification('DataTradingPro', {
         body:   hi.headline,
         icon:   '/favicon.ico',
         tag:    'dtp-' + hi.id,
-        silent: muted,
+        silent: false,
       });
     }
   }
@@ -4027,6 +4027,8 @@ function _npSyncUI() {
 
 // ── Sound engine (Web Audio API — no audio files needed) ──────
 function _npPlaySound(volume) {
+  // Garde dure : aucun son si coupé (Muet) ou carillon désactivé, quel que soit l'appelant
+  if (_npVolume === 'mute' || _npChime === 'none') return;
   if (volume <= 0) return;
   try {
     if (!_npAudioCtx) _npAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
