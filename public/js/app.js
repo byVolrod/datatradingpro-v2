@@ -1382,7 +1382,8 @@ function buildNewsItem(item) {
   const isFJUrgent      = isFJ && item.urgent === true;                          // Option A
   const impactStr       = String(item.impact || item.importance || '').toLowerCase();
   const isHighImpactData = item._highImpact === true || impactStr === 'high' || impactStr === 'critical'; // Option B
-  const isRed           = isFJUrgent || isHighImpactData;
+  // C) Toute news prioritaire (rond rouge "!") → même fond/hover rouge léger
+  const isRed           = isFJUrgent || isHighImpactData || item.priority === 'high';
   const baseClass       = isRed ? ' news-item--breaking' : '';
   el.className = `news-item${baseClass}${isPrimer ? ' news-item--primer' : ''}${(isSpeaker || hasGrouped) ? ' news-item--speaker' : ''}${item._new ? ' news-item--new' : ''}${isRead(item.id) ? ' news-item--read' : ''}`;
   el.dataset.id = item.id;

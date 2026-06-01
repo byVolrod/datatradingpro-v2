@@ -365,7 +365,8 @@ function _swLoadFile() {
 
 function _swParseRssItem($, el, filterByTitle) {
   const title   = $('title', el).first().text().trim();
-  if (filterByTitle && !/investingLive.*wrap|session\s+wrap/i.test(title)) return null;
+  // Wraps InvestingLive : "European markets wrap: …", "North American markets wrap", "… session wrap"
+  if (filterByTitle && !/(markets?|session)\s+wrap|wrap\s*:/i.test(title)) return null;
   const link    = $('link', el).contents().filter((_, n) => n.type === 'text').text().trim()
                || $('guid', el).text().trim();
   if (!link) return null;
@@ -406,7 +407,7 @@ function _swParseRssItem($, el, filterByTitle) {
 async function _fetchSessionWraps(full = false) {
   _swFetchedAt = Date.now();
   const cutoff   = Date.now() - SW_MAX_AGE;
-  const maxPages = full ? 15 : 3;
+  const maxPages = 1;   // RSS ne pagine pas (répète la page 1) → l'historique vient de la page archive ci-dessous
   const UA       = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 
   // Try category feed first (only wraps), fall back to main feed (filter by title)
@@ -431,21 +432,60 @@ async function _fetchSessionWraps(full = false) {
         if (r.status !== 200) continue;
         feedOk = true;
 
-        const $   = cheerio.load(r.data, { xmlMode: true });
-        let   any = false, tooOld = false;
+        const $    = cheerio.load(r.data, { xmlMode: true });
+        const items = $('item');
+        let   tooOld = false;
 
-        $('item').each((_, el) => {
+        items.each((_, el) => {
           const item = _swParseRssItem($, el, filter);
-          if (!item) return;
+          if (!item) return;                              // pas un wrap (filtré) → on ignore mais on continue
           if (item.timestamp < cutoff) { tooOld = true; return; }
           merged.set(item.id, item);
-          any = true;
         });
 
-        if (tooOld || !any) break;           // reached 30-day cutoff or empty page
+        // On s'arrête seulement si on a dépassé l'ancienneté max, ou si la page est vraiment vide.
+        // (Une page sans wrap mais avec des articles ne doit PAS stopper la pagination.)
+        if (tooOld || items.length === 0) break;
       } catch { break; }
     }
     if (feedOk) break;                       // used this feed successfully
+  }
+
+  // ── Pass 2 : page archive HTML — historique complet (le RSS ne donne que les derniers) ──
+  // Les articles wrap apparaissent en clair : /news/investinglive-<region>-...-wrap-...-YYYYMMDD/
+  const archPages = full ? 4 : 2;
+  for (let page = 1; page <= archPages; page++) {
+    try {
+      const url = page === 1
+        ? 'https://investinglive.com/SessionWraps'
+        : `https://investinglive.com/SessionWraps/page/${page}/`;
+      const r = await axios.get(url, { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+      if (r.status !== 200) break;
+
+      const re = /\/news\/(investinglive-[a-z0-9-]*wrap[a-z0-9-]*-(\d{8}))\//gi;
+      const seen = new Set();
+      let pageHad = false, anyRecent = false, m;
+      while ((m = re.exec(r.data)) !== null) {
+        const slug = m[1].toLowerCase(), ymd = m[2];
+        if (seen.has(slug)) continue;
+        seen.add(slug);
+        pageHad = true;
+        const ts = new Date(+ymd.slice(0,4), +ymd.slice(4,6) - 1, +ymd.slice(6,8), 12).getTime();
+        if (!ts || ts < cutoff) continue;
+        anyRecent = true;
+        const link = `https://investinglive.com/news/${slug}/`;
+        const id   = 'sw-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
+        if (merged.has(id)) continue;          // déjà présent via RSS (titre propre) → ne pas écraser
+        let title = slug.replace(/^investinglive-/,'').replace(/-\d{8}$/,'').replace(/-/g,' ').trim();
+        title = title.charAt(0).toUpperCase() + title.slice(1);
+        let session = 'Global';
+        if      (/americas|north.american/.test(slug)) session = 'Americas';
+        else if (/europe/.test(slug))                  session = 'European';
+        else if (/asia.pacific|asian/.test(slug))      session = 'Asia-Pacific';
+        merged.set(id, { id, title, url: link, timestamp: ts, session, description: '', content: null, author: '', _source: 'investinglive' });
+      }
+      if (!pageHad || !anyRecent) break;       // plus d'articles, ou page entièrement hors-période
+    } catch { break; }
   }
 
   const before = _swCache.length;
