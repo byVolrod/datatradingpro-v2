@@ -1983,7 +1983,7 @@ function renderClocks() {
     const isDay    = hr >= 6 && hr < 20;
     const wx       = _weatherCache[c.city] || { temp: '--', wind: '--', windDir: 0, icon: '☁' };
     const arrow    = wx.wind !== '--' ? windArrow(wx.windDir) : '';
-    const dayNightIcon = isDay ? '☀' : '☽';
+    const dayNightIcon = isDay ? '<span class="clock-sun">☀︎</span>' : '☽';
     const label    = c._local ? 'My Timezone' : `${c.city} (${c.code})`;
     const tempStr = wx.temp !== '--' ? `${wx.temp}°C` : '--';
     const windStr = wx.wind !== '--' ? `${wx.wind} km/h ${arrow}` : '--';
