@@ -1221,6 +1221,15 @@ html, body {
   margin-bottom: 8px;
   font-weight: 400;
 }
+/* Phrase d'explication Gemini de la réaction */
+.rx-explain {
+  margin-top: 8px;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #cbd5e1;
+  font-family: var(--font-ui);
+}
+.rx-explain:empty { display: none; }
 /* Ligne de tickers — chips inline, scan rapide */
 .rx-tickers {
   display: flex;
@@ -2232,6 +2241,92 @@ html, body {
   color: #444;
   font-family: var(--font-mono);
   background: rgba(255,255,255,0.02);
+}
+
+/* ═══════════════════════════════════════════════
+   ONGLET BIAS — biais hebdomadaire
+═══════════════════════════════════════════════ */
+.panel-bias { display: flex; flex-direction: column; height: 100%; }
+.bias-update-badge {
+  font-size: 10px;
+  font-family: var(--font-mono);
+  color: var(--text4);
+  letter-spacing: 0.04em;
+}
+.bias-content { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.bias-loading { color: var(--text4); font-size: 13px; padding: 24px 4px; }
+.bias-overview {
+  background: rgba(247,148,29,0.06);
+  border: 1px solid rgba(247,148,29,0.22);
+  border-radius: 8px;
+  padding: 12px 14px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e2e8f0;
+}
+.bias-overview-lbl {
+  display: block;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #f7941d;
+  font-family: var(--font-mono);
+  margin-bottom: 6px;
+}
+.bias-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px;
+}
+.bias-card {
+  background: #141417;
+  border: 1px solid #232328;
+  border-left: 3px solid #475569;
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+.bias-card--bull    { border-left-color: #22c55e; }
+.bias-card--bear    { border-left-color: #ef4444; }
+.bias-card--neutral { border-left-color: #f59e0b; }
+.bias-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.bias-asset {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffffff;
+  font-family: var(--font-ui);
+}
+.bias-badge {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.bias-badge.bias-bull    { color: #22c55e; background: rgba(34,197,94,0.10);  border: 1px solid rgba(34,197,94,0.30); }
+.bias-badge.bias-bear    { color: #ef4444; background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.30); }
+.bias-badge.bias-neutral { color: #f59e0b; background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.30); }
+.bias-meta {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: #6b7280;
+  font-family: var(--font-mono);
+  margin-bottom: 8px;
+}
+.bias-rationale {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #cbd5e1;
+  font-family: var(--font-ui);
 }
 
 /* ═══════════════════════════════════════════════

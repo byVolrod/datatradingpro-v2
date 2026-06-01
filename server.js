@@ -1185,6 +1185,36 @@ Content: ${rawDesc.substring(0, 900)}`, 400);
   }
 });
 
+// ─── Réaction : explication Gemini du mouvement de marché (cache persistant) ───
+const REACT_CACHE_FILE = path.join(__dirname, 'cache_reaction.json');
+const _reactCache = _loadJsonMap(REACT_CACHE_FILE);
+app.post('/api/reaction-explain', async (req, res) => {
+  const { id, headline, moves } = req.body || {};
+  if (!headline || !moves) return res.json({ text: '' });
+
+  const cacheKey = id || headline.substring(0, 120);
+  if (_reactCache.has(cacheKey)) return res.json(_reactCache.get(cacheKey));
+
+  try {
+    const text = await ai.generateText(`You are a markets reporter on a trading desk. In 1 to 2 short sentences (max 40 words total), explain the market reaction to the news below: link the price moves to the headline (the causal mechanism). Neutral tone, no advice. Same language as the headline (usually English). Reply with the sentence(s) only, no preamble.
+
+Headline: ${headline}
+Observed moves: ${String(moves).slice(0, 300)}`, 160);
+
+    const clean = text.replace(/^[•\-\*\s]+/, '').trim();
+    const result = { text: clean };
+    if (clean) {
+      _reactCache.set(cacheKey, result);
+      if (_reactCache.size > 2000) _reactCache.delete(_reactCache.keys().next().value);
+      _saveJsonMap(REACT_CACHE_FILE, _reactCache);
+    }
+    res.json(result);
+  } catch (e) {
+    console.error('[Reaction API]', e.message);
+    res.json({ text: '' });
+  }
+});
+
 // ─── Analyst Outlook endpoint ────────────────────────────────────────────────
 const _outlookCache = new Map();
 
@@ -1921,6 +1951,87 @@ async function generateWeeklyMarketRecap(force = false) {
       setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 7 * 24 * 60 * 60 * 1000);
     }, delay);
   }
+})();
+
+// ═══════════════════ ONGLET BIAS — biais directionnel hebdomadaire (Gemini) ═══════════════════
+// Généré automatiquement chaque dimanche, mis en cache (persistant) → l'onglet l'affiche tel quel.
+const BIAS_FILE = path.join(__dirname, 'cache_bias.json');
+let _biasCache = null;
+try { _biasCache = JSON.parse(fs.readFileSync(BIAS_FILE, 'utf8')); } catch {}
+
+const BIAS_ASSETS = [
+  'EUR/USD', 'GBP/USD', 'USD/JPY', 'AUD/USD', 'USD/CAD', 'USD/CHF',
+  'NZD/USD', 'XAU/USD (Gold)', 'WTI Crude Oil', 'S&P 500', 'US 10Y Yield', 'Bitcoin',
+];
+
+async function generateWeeklyBias(force = false) {
+  const WEEK = 7 * 24 * 60 * 60 * 1000;
+  if (!force && _biasCache && Date.now() - (_biasCache.generatedAt || 0) < WEEK) return _biasCache;
+
+  const cutoff = Date.now() - WEEK;
+  const recent = allNews.filter(i => i.timestamp > cutoff);
+  const heads  = recent.slice(0, 140).map(i => `[${i.category || ''}] ${i.headline}`).join('\n');
+
+  const prompt = `You are a senior macro strategist writing the WEEKLY directional bias for a professional trading desk. Today is Sunday.
+Based on the past week's headlines below, assign a directional bias for the COMING week for each instrument.
+
+For EACH instrument provide:
+- "bias": exactly one of "bullish", "bearish", "neutral"
+- "strength": exactly one of "strong", "moderate", "weak"
+- "rationale": one concise sentence (max 24 words) naming the key driver (central banks, data, geopolitics, flows).
+
+Instruments: ${BIAS_ASSETS.join(', ')}
+
+Headlines (past 7 days):
+${heads || 'No significant headlines this week.'}
+
+Return ONLY valid JSON, no preamble:
+{"week":"Week of <Month DD>","overview":"1-2 sentence overview of the week ahead","items":[{"asset":"EUR/USD","bias":"bullish","strength":"moderate","rationale":"..."}]}`;
+
+  try {
+    const text = await ai.generateText(prompt, 1800);
+    const m = text.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('No JSON in response');
+    const data = JSON.parse(m[0]);
+    if (!Array.isArray(data.items) || !data.items.length) throw new Error('No items');
+    data.generatedAt = Date.now();
+    _biasCache = data;
+    try { fs.writeFileSync(BIAS_FILE, JSON.stringify(_biasCache)); } catch {}
+    console.log(`[Bias] Weekly bias generated (${data.items.length} assets)`);
+    try { broadcast({ type: 'bias_update', bias: _biasCache }); } catch {}
+    return _biasCache;
+  } catch (e) {
+    console.error('[Bias]', e.message);
+    return _biasCache;   // on conserve l'ancien biais en cas d'échec
+  }
+}
+
+app.get('/api/bias', async (req, res) => {
+  if (req.query.force === '1') { try { await generateWeeklyBias(true); } catch {} }
+  else if (!_biasCache)        { try { await generateWeeklyBias(true); } catch {} }
+  res.json(_biasCache || { items: [], overview: '', week: '' });
+});
+
+// Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide
+(function scheduleWeeklyBias() {
+  function msToNextSunday(h, m) {
+    const now    = new Date();
+    const paris  = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const target = new Date(paris);
+    const daysToSun = (7 - paris.getDay()) % 7;   // 0 = dimanche
+    target.setDate(paris.getDate() + daysToSun);
+    target.setHours(h, m, 0, 0);
+    if (target <= paris) target.setDate(target.getDate() + 7);
+    return target.getTime() - paris.getTime();
+  }
+  const delay = msToNextSunday(18, 0);
+  console.log(`[Bias] Génération hebdo (dimanche 18h) dans ${Math.round(delay / 60000)} min`);
+  setTimeout(function run() {
+    generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
+    setInterval(() => generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message)), 7 * 24 * 60 * 60 * 1000);
+  }, delay);
+  // Premier remplissage si le cache est vide (ex: tout premier déploiement)
+  if (!_biasCache) setTimeout(() => generateWeeklyBias(true).catch(() => {}), 30 * 1000);
 })();
 
 // Manual triggers — force=true bypasses today's dedup check
