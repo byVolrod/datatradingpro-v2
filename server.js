@@ -1099,7 +1099,9 @@ ${clean.slice(0, 4000)}`;
 });
 
 // ─── AI Analysis endpoint ─────────────────────────────────────────────────────
-const _analyseCache = new Map();
+// Cache persistant (survit aux redémarrages Render) → on ne re-paie jamais Gemini pour la même news
+const ANALYSE_CACHE_FILE = path.join(__dirname, 'cache_analyse.json');
+const _analyseCache = _loadJsonMap(ANALYSE_CACHE_FILE);
 app.post('/api/analyse', async (req, res) => {
   const { headline, category, description } = req.body || {};
   if (!headline) return res.status(400).json({ error: 'headline required' });
@@ -1129,11 +1131,57 @@ Write 2-4 bullet points. Rules:
 
     const result = { bullets: bullets.length ? bullets : [text.trim().substring(0, 200)] };
     _analyseCache.set(cacheKey, result);
-    if (_analyseCache.size > 500) _analyseCache.delete(_analyseCache.keys().next().value);
+    if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
+    _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
     res.json(result);
   } catch (e) {
     console.error('[Analyse API]', e.message);
     res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Info "tag" : résumé Gemini clair & synthétique (style rapport PMT), cache persistant ──
+const INFO_CACHE_FILE = path.join(__dirname, 'cache_news_info.json');
+const _infoCache = _loadJsonMap(INFO_CACHE_FILE);
+app.post('/api/news-info', async (req, res) => {
+  const { id, headline, category, description } = req.body || {};
+  const rawDesc = String(description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!headline || rawDesc.length < 30) return res.json({ bullets: [] });
+
+  // Clé de cache : id de la news si fourni, sinon empreinte du titre
+  const cacheKey = id || headline.substring(0, 120);
+  if (_infoCache.has(cacheKey)) return res.json(_infoCache.get(cacheKey));
+
+  try {
+    const text = await ai.generateText(`You are an editor for a professional financial news terminal (trading-desk style, like Newsquawk).
+Rewrite the information below into 2 to 4 clear, factual, concise bullet points for a forex/macro trader.
+STRICT rules:
+- Keep ALL exact figures (percentages, levels, dates).
+- Bold the key figures and important terms using **double asterisks**.
+- One idea per bullet, max 28 words, neutral and precise tone (no investment advice).
+- Write in the SAME language as the source content (do NOT translate). News is usually in English → answer in English.
+- No preamble, no conclusion: reply ONLY with the bullets, each starting with •.
+
+Headline: ${headline}
+Category: ${category || '—'}
+Content: ${rawDesc.substring(0, 900)}`, 400);
+
+    const bullets = text.split('\n')
+      .map(l => l.trim())
+      .filter(l => /^[•\-\*]/.test(l))
+      .map(l => l.replace(/^[•\-\*]\s*/, '').trim())
+      .filter(Boolean);
+
+    const result = { bullets };
+    if (bullets.length) {
+      _infoCache.set(cacheKey, result);
+      if (_infoCache.size > 3000) _infoCache.delete(_infoCache.keys().next().value);
+      _saveJsonMap(INFO_CACHE_FILE, _infoCache);
+    }
+    res.json(result);
+  } catch (e) {
+    console.error('[News-Info API]', e.message);
+    res.json({ bullets: [] });   // l'UI retombe sur la description brute
   }
 });
 

@@ -114,6 +114,13 @@ let serverTotal       = 0;     // total items available on server
 let loadingMore       = false;
 let _wsInitReceived   = false; // true once server sends its first 'initial' message
 const _analysisCache  = new Map(); // item.id → bullets[]
+const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style PMT, mémoire session)
+// Rend des puces Info (style PMT) : échappe le HTML puis applique le gras **…**
+function _renderInfoBullets(bullets) {
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const html = bullets.map(b => `<li>${esc(b).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</li>`).join('');
+  return `<ul class="article-points article-points--clean">${html}</ul>`;
+}
 let _sessionWraps = [];
 let _brArticles  = [];
 let _brSearch    = '';
@@ -1711,10 +1718,35 @@ function buildNewsItem(item) {
       return;
     }
 
+    // Affichage immédiat (description brute) — instantané
     expandEl.innerHTML = infoBody;
     expandEl.classList.add('visible');
     if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
     if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
+
+    // Amélioration Gemini (style PMT), mise en cache → aucune requête aux ouvertures suivantes
+    const _improvable = !isPrimer && !hasGrouped && !isSpeaker && rawDesc.length >= 30;
+    if (_improvable) {
+      if (_infoCache.has(item.id)) {
+        const b = _infoCache.get(item.id);
+        if (b && b.length) expandEl.innerHTML = _renderInfoBullets(b);
+      } else {
+        fetch('/api/news-info', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: item.id, headline: item.headline, category: item.category, description: item.description }),
+        })
+          .then(r => r.json())
+          .then(data => {
+            const b = data.bullets || [];
+            _infoCache.set(item.id, b);   // on mémorise même un résultat vide (évite de redemander)
+            if (b.length && activeTab === 'info' && expandEl.classList.contains('visible')) {
+              expandEl.innerHTML = _renderInfoBullets(b);
+            }
+          })
+          .catch(() => {});
+      }
+    }
   }
 
   // Tags row
