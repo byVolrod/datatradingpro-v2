@@ -2390,6 +2390,60 @@ html, body {
 .sb-vbear   { background: #7f1d1d; }
 
 /* ═══════════════════════════════════════════════
+   RAPPORTS DTP (opening news) — rubriques + snapshot
+═══════════════════════════════════════════════ */
+/* Conteneur du rapport déplié : fond anthracite mat continu + retrait gauche */
+.news-item--primer .news-description {
+  background: #161619;
+  padding: 4px 16px 14px 12px;
+  border-radius: 6px;
+  margin-top: 6px;
+}
+/* Rubrique en MAJUSCULES orange institutionnel */
+.rpt-section-head {
+  list-style: none !important;
+  color: #ff7a00;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  margin: 16px 0 8px;
+  padding-left: 0;
+}
+.rpt-section-head::marker { content: ''; }
+/* Mot-clé / chiffre de tête en gras clair */
+.rpt-key { color: #e5e7eb; font-weight: 600; }
+
+/* Table SNAPSHOT (style DTP) */
+.report-snapshot { margin: 16px 0 6px; }
+.report-snapshot-inner {
+  background: #0d0d10;
+  border: 1px solid #232328;
+  border-radius: 8px;
+  padding: 12px 14px;
+  max-width: 760px;
+}
+.rsnap-title { color: #7dd3fc; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; margin-bottom: 6px; }
+.rsnap-head {
+  background: #0284c7;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  padding: 4px 12px;
+  border-radius: 3px;
+  margin: 12px 0 2px;
+}
+.rsnap-table { width: 100%; border-collapse: collapse; }
+.rsnap-table td { padding: 5px 12px; font-size: 12.5px; color: #cbd5e1; }
+.rsnap-table tr.rsnap-alt { background: rgba(255,255,255,0.025); }
+.rsnap-lbl { color: #e5e7eb; }
+.rsnap-val { text-align: right; font-family: var(--font-mono); white-space: nowrap; width: 86px; }
+.rsnap-up { color: #22c55e; }
+.rsnap-dn { color: #ef4444; }
+
+/* ═══════════════════════════════════════════════
    ONGLET BANK — transactions bancaires
 ═══════════════════════════════════════════════ */
 /* Pleine largeur sur BANK/BIAS : on cache la colonne de droite partagée */

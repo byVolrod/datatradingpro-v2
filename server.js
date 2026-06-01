@@ -2270,6 +2270,50 @@ app.get('/api/bank-ohlc', async (req, res) => {
   } catch (e) { res.json({ candles: [] }); }
 });
 
+// ─── Market Snapshot (tableau SNAPSHOT des rapports DTP) — prix réels Yahoo ───
+const SNAP_GROUPS = [
+  { title: 'STOCKS', items: [
+    { sym: '^GSPC', label: 'S&P 500' }, { sym: '^IXIC', label: 'Nasdaq Comp.' },
+    { sym: '^DJI',  label: 'DJIA' },    { sym: '^RUT',  label: 'Russell 2000' } ] },
+  { title: 'FX', items: [
+    { sym: 'DX-Y.NYB', label: 'DXY' }, { sym: 'EURUSD=X', label: 'EUR/USD' },
+    { sym: 'USDJPY=X', label: 'USD/JPY' }, { sym: 'GBPUSD=X', label: 'GBP/USD' } ] },
+  { title: 'BONDS', items: [
+    { sym: '^TNX', label: 'US 10yr Yield' }, { sym: '^TYX', label: 'US 30yr Yield' } ] },
+  { title: 'ENERGY & METALS', items: [
+    { sym: 'CL=F', label: 'WTI' }, { sym: 'BZ=F', label: 'Brent' },
+    { sym: 'GC=F', label: 'Spot Gold' }, { sym: 'HG=F', label: 'Copper' } ] },
+  { title: 'CRYPTO', items: [
+    { sym: 'BTC-USD', label: 'Bitcoin' }, { sym: 'ETH-USD', label: 'Ethereum' } ] },
+];
+let _snapCache = { ts: 0, data: null };
+app.get('/api/market-snapshot', async (_req, res) => {
+  if (_snapCache.data && Date.now() - _snapCache.ts < 60 * 1000) return res.json(_snapCache.data);
+  try {
+    await getYFSession();
+    const all = SNAP_GROUPS.flatMap(g => g.items);
+    const pct = {};
+    await Promise.all(all.map(async a => {
+      try {
+        const raw  = await yfFetch(a.sym, '5m', '1d');
+        const meta = raw?.chart?.result?.[0]?.meta;
+        if (meta && meta.regularMarketPrice != null && meta.chartPreviousClose) {
+          pct[a.sym] = (meta.regularMarketPrice / meta.chartPreviousClose - 1) * 100;
+        }
+      } catch {}
+    }));
+    const data = {
+      updatedAt: Date.now(),
+      groups: SNAP_GROUPS.map(g => ({
+        title: g.title,
+        rows: g.items.map(it => ({ label: it.label, pct: pct[it.sym] != null ? +pct[it.sym].toFixed(1) : null })),
+      })),
+    };
+    _snapCache = { ts: Date.now(), data };
+    res.json(data);
+  } catch (e) { res.json({ groups: [], updatedAt: Date.now() }); }
+});
+
 // CRUD admin (ajout / édition / suppression de positions)
 app.post('/api/bank-positions', requireAdmin, (req, res) => {
   const b = req.body || {};

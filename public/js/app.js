@@ -116,6 +116,7 @@ let _wsInitReceived   = false; // true once server sends its first 'initial' mes
 const _analysisCache  = new Map(); // item.id → bullets[]
 const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style PMT, mémoire session)
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
+let   _snapCache      = null;      // dernier Market Snapshot (prix réels) — partagé entre rapports
 // Rend des puces Info (style PMT) : échappe le HTML puis applique le gras **…**
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -1266,6 +1267,45 @@ function parsePrimerBullets(description) {
     .filter(l => l.length > 4);
 }
 
+// ── Rapports DTP : détection des rubriques (titres en MAJUSCULES) ──
+function _isSectionHead(line) {
+  const t = (line || '').trim();
+  if (t.length < 2 || t.length > 42) return false;
+  if (/\d{1,2}:\d{2}/.test(t)) return false;            // pas une horodatée
+  if (/[.;:]$/.test(t)) return false;                   // pas une phrase
+  // Lettres en majuscules (autorise espaces, &, /, -, chiffres)
+  return /^[A-Z0-9][A-Z0-9 &/\-']+$/.test(t) && t === t.toUpperCase() && /[A-Z]/.test(t);
+}
+// Met en gras le mot-clé / chiffre de tête de la puce (sujet)
+function _reportLead(s) {
+  return String(s).replace(
+    /^((?:[A-Z][\wÀ-ÿ$%./-]*|\$?\d[\d.,]*%?)(?:\s+[\wÀ-ÿ$%./'-]+){0,3})/,
+    '<strong class="rpt-key">$1</strong>'
+  );
+}
+// Remplace la marque PMT par DTP dans les titres de rapport
+function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP'); }
+
+// Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)
+function _renderSnapshot(data) {
+  const groups = (data && data.groups) || [];
+  if (!groups.length) return '';
+  const cell = r => {
+    if (!r) return '<td class="rsnap-lbl"></td><td class="rsnap-val"></td>';
+    const cls = r.pct == null ? '' : r.pct > 0 ? 'rsnap-up' : r.pct < 0 ? 'rsnap-dn' : '';
+    const val = r.pct == null ? '—' : `${r.pct > 0 ? '+' : ''}${r.pct.toFixed(1)}%`;
+    return `<td class="rsnap-lbl">${r.label}</td><td class="rsnap-val ${cls}">${val}</td>`;
+  };
+  const blocks = groups.map(g => {
+    let rows = '';
+    for (let i = 0; i < g.rows.length; i += 2) {
+      rows += `<tr class="${(i / 2) % 2 ? 'rsnap-alt' : ''}">${cell(g.rows[i])}${cell(g.rows[i + 1])}</tr>`;
+    }
+    return `<div class="rsnap-head">${g.title}</div><table class="rsnap-table"><tbody>${rows}</tbody></table>`;
+  }).join('');
+  return `<div class="report-snapshot-inner"><div class="rsnap-title">SNAPSHOT</div>${blocks}</div>`;
+}
+
 // ── Throttled background reaction-check queue ─────────────────────────────────
 // Checks /api/market-moves for recent items; adds Réaction button only if real
 // moves are confirmed (max 3 concurrent requests).
@@ -1540,18 +1580,21 @@ function buildNewsItem(item) {
           const isSub    = /^↳/.test(line);
           const isHeader = idx === 0;
           const clean    = isSub ? line.replace(/^↳\s*/, '') : line;
-          // Detect "Section Label: content" pattern
-          const secMatch = !isSub && !isHeader && clean.match(/^([A-Za-z\s&/]+):\s+(.+)$/);
-          if (isHeader) return `<li class="primer-bullet primer-bullet--header">${highlight(clean)}</li>`;
-          if (isSub)    return `<li class="primer-bullet primer-bullet--sub"><span class="primer-sub-arrow">↳</span> ${highlight(clean)}</li>`;
-          if (secMatch) return `<li class="primer-bullet primer-bullet--section"><span class="primer-section-lbl">${secMatch[1]}</span><span class="primer-section-val">${highlight(secMatch[2])}</span></li>`;
-          return `<li class="primer-bullet">${highlight(clean)}</li>`;
+          if (isHeader) return `<li class="primer-bullet primer-bullet--header">${highlight(_dtpTitle(clean))}</li>`;
+          // Rubrique en MAJUSCULES (LOOKING AHEAD, IRAN CONFLICT, FX, COMMODITIES…) → titre orange
+          if (!isSub && _isSectionHead(clean)) return `<li class="rpt-section-head">${clean}</li>`;
+          // "Label: content"
+          const secMatch = !isSub && clean.match(/^([A-Za-z\s&/]{2,28}):\s+(.+)$/);
+          if (isSub)    return `<li class="primer-bullet primer-bullet--sub"><span class="primer-sub-arrow">↳</span> ${highlight(_reportLead(clean))}</li>`;
+          if (secMatch) return `<li class="primer-bullet primer-bullet--section"><span class="primer-section-lbl">${secMatch[1]}</span><span class="primer-section-val">${highlight(_reportLead(secMatch[2]))}</span></li>`;
+          return `<li class="primer-bullet">${highlight(_reportLead(clean))}</li>`;
         }).join('');
         return `<div class="expand-ts primer-ts">
-          <span class="primer-ts-label">PRIMER</span>
+          <span class="primer-ts-label">DTP</span>
           <span>Source: ${item.source || 'N/A'}</span>
         </div>
-        <ul class="primer-bullets">${bulletsHtml}</ul>`;
+        <ul class="primer-bullets">${bulletsHtml}</ul>
+        <div class="report-snapshot" id="rsnap-${item.id}"></div>`;
       }
 
       // ── GROUPED QUOTES: multiple quotes from same speaker collapsed into one card ──
@@ -1752,6 +1795,19 @@ function buildNewsItem(item) {
     expandEl.classList.add('visible');
     if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
     if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
+
+    // Rapports DTP (opening news / snapshot) → on insère la table SNAPSHOT (prix réels)
+    if (isPrimer && /opening|snapshot|daily|wrap|recap|prep/i.test(item.headline || '')) {
+      const slot = document.getElementById(`rsnap-${item.id}`);
+      if (slot) {
+        if (_snapCache) { slot.innerHTML = _renderSnapshot(_snapCache); }
+        fetch('/api/market-snapshot').then(r => r.json()).then(d => {
+          _snapCache = d;
+          const s = document.getElementById(`rsnap-${item.id}`);
+          if (s && activeTab === 'info') s.innerHTML = _renderSnapshot(d);
+        }).catch(() => {});
+      }
+    }
 
     // Amélioration Gemini (style PMT), mise en cache → aucune requête aux ouvertures suivantes
     const _improvable = !isPrimer && !hasGrouped && !isSpeaker && rawDesc.length >= 30;
