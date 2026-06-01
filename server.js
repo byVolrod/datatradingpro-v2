@@ -635,7 +635,7 @@ async function _fetchILContentHttp(url) {
     headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
     validateStatus: s => s < 500,
   });
-  if (r.status !== 200) return '';
+  if (r.status !== 200) return { html: '', points: [] };
   const $ = cheerio.load(r.data);
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 
@@ -670,7 +670,7 @@ async function _fetchILContentHttp(url) {
       out += `<ul><li>${esc(full)}</li></ul>`;
     }
   });
-  if (out) return out;
+  if (out) return { html: out, points: headlines };
 
   // 2) Fallback : JSON-LD articleBody (bloc) si pas de structure exploitable
   let body = '';
@@ -681,8 +681,36 @@ async function _fetchILContentHttp(url) {
       arr.forEach(o => { if (o && typeof o.articleBody === 'string' && o.articleBody.length > body.length) body = o.articleBody; });
     } catch {}
   });
-  if (body.length > 80) return `<p>${esc(body)}</p>`;
-  return '';
+  if (body.length > 80) return { html: `<p>${esc(body)}</p>`, points: [] };
+  return { html: '', points: [] };
+}
+
+// Cache des segmentations IA (url → HTML sectionné) pour éviter de rappeler Gemini
+const _swSegCache = new Map();
+
+// Regroupe les titres d'un wrap en rubriques thématiques via Gemini
+async function _segmentWrapAI(points) {
+  const prompt = `Tu es analyste de marché. Voici des titres de news financières issus d'un récap de session de marché, en vrac.
+Regroupe-les en rubriques thématiques claires. Rubriques autorisées (n'utilise que celles pertinentes) :
+GEOPOLITICS, CENTRAL BANKS, ECONOMIC DATA, FX, COMMODITIES, EQUITIES, FIXED INCOME, CRYPTO, CHINA & ASIA, LOOKING AHEAD, OTHER.
+Règles STRICTES :
+- Garde chaque titre EXACTEMENT tel quel (ne reformule pas, ne traduis pas).
+- Ignore les titres promotionnels ou hors-sujet (ex: "Is Palantir a Buy?", "...analysis today at investingLive.com").
+- Ordonne les rubriques de la plus importante à la moins importante.
+Réponds UNIQUEMENT en JSON valide : [{"section":"NOM_RUBRIQUE","items":["titre 1","titre 2"]}]
+Titres :
+${points.map(p => '- ' + p).join('\n')}`;
+  const text = await ai.generateText(prompt, 2500);
+  const m = text.match(/\[[\s\S]*\]/);
+  if (!m) return null;
+  const arr = JSON.parse(m[0]);
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let html = '';
+  for (const sec of arr) {
+    if (!sec || !sec.section || !Array.isArray(sec.items) || !sec.items.length) continue;
+    html += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+  }
+  return html.length > 50 ? html : null;
 }
 
 app.get('/api/session-wrap-content', async (req, res) => {
@@ -700,12 +728,27 @@ app.get('/api/session-wrap-content', async (req, res) => {
     return res.json({ html: clean, source: 'rss' });
   }
 
-  // ── 1.5 Extraction HTTP rapide (JSON-LD) — sans navigateur, quasi instantané ──
+  // ── 1.5 Extraction HTTP rapide (sans navigateur) + segmentation IA en rubriques ──
   try {
-    const httpHtml = await _fetchILContentHttp(url);
-    if (httpHtml && httpHtml.length > 100) {
-      if (cached) cached.content = httpHtml;
-      return res.json({ html: httpHtml, source: 'http' });
+    const data = await _fetchILContentHttp(url);
+
+    // Segmentation thématique par Gemini (style Prime Terminal), mise en cache
+    if (data.points && data.points.length >= 3) {
+      let seg = _swSegCache.get(url);
+      if (seg === undefined) {
+        try { seg = await _segmentWrapAI(data.points); }
+        catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
+        _swSegCache.set(url, seg || null);
+      }
+      if (seg) {
+        if (cached) cached.content = seg;
+        return res.json({ html: seg, source: 'ai' });
+      }
+    }
+
+    if (data.html && data.html.length > 100) {
+      if (cached) cached.content = data.html;
+      return res.json({ html: data.html, source: 'http' });
     }
   } catch (e) { /* on tente Puppeteer ensuite */ }
 
