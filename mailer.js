@@ -4,37 +4,62 @@
  */
 'use strict';
 
-const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
-const EMAIL_FROM     = process.env.EMAIL_FROM || 'DataTradingPro <onboarding@resend.dev>';
-const APP_URL        = process.env.APP_URL || 'https://datatradingpro.onrender.com';
-const SUPPORT_EMAIL  = process.env.SUPPORT_EMAIL || 'volrod.dev@gmail.com';
+const RESEND_API_KEY     = process.env.RESEND_API_KEY || '';
+const GMAIL_USER         = process.env.GMAIL_USER || '';
+const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''); // les MDP d'app Gmail ont des espaces
+const APP_URL            = process.env.APP_URL || 'https://datatradingpro.onrender.com';
+const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'volrod.dev@gmail.com';
+// Expéditeur : avec Gmail il DOIT correspondre au compte authentifié
+const EMAIL_FROM = process.env.EMAIL_FROM
+  || (GMAIL_USER ? `DataTradingPro <${GMAIL_USER}>` : 'DataTradingPro <onboarding@resend.dev>');
+
+let _gmailTransport = null;
+function _getGmailTransport() {
+  if (_gmailTransport) return _gmailTransport;
+  const nodemailer = require('nodemailer');
+  _gmailTransport = nodemailer.createTransport({
+    service: 'gmail',
+    auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+  });
+  return _gmailTransport;
+}
 
 // ── Envoi bas niveau (non bloquant, tolérant aux erreurs) ─────────────────────
+// Priorité à Gmail (gratuit, envoie à tout le monde) ; sinon Resend.
 async function _send(to, subject, html) {
-  if (!RESEND_API_KEY) {
-    console.warn('[Mailer] RESEND_API_KEY absente — email non envoyé:', subject);
-    return false;
-  }
-  try {
-    const r = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${RESEND_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html }),
-    });
-    if (!r.ok) {
-      const txt = await r.text().catch(() => '');
-      console.error(`[Mailer] Échec (${r.status}) → ${to}:`, txt.slice(0, 300));
+  // Option A — Gmail (gratuit, sans domaine)
+  if (GMAIL_USER && GMAIL_APP_PASSWORD) {
+    try {
+      await _getGmailTransport().sendMail({ from: EMAIL_FROM, to, subject, html });
+      console.log(`[Mailer] ✅ (Gmail) "${subject}" → ${to}`);
+      return true;
+    } catch (e) {
+      console.error('[Mailer] Gmail échec:', e.message);
       return false;
     }
-    console.log(`[Mailer] ✅ "${subject}" → ${to}`);
-    return true;
-  } catch (e) {
-    console.error('[Mailer] Erreur envoi:', e.message);
-    return false;
   }
+  // Option B — Resend (nécessite un domaine vérifié pour écrire à des tiers)
+  if (RESEND_API_KEY) {
+    try {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html }),
+      });
+      if (!r.ok) {
+        const txt = await r.text().catch(() => '');
+        console.error(`[Mailer] Resend échec (${r.status}) → ${to}:`, txt.slice(0, 300));
+        return false;
+      }
+      console.log(`[Mailer] ✅ (Resend) "${subject}" → ${to}`);
+      return true;
+    } catch (e) {
+      console.error('[Mailer] Resend erreur:', e.message);
+      return false;
+    }
+  }
+  console.warn('[Mailer] Aucun fournisseur configuré (GMAIL_* ou RESEND_API_KEY) — email non envoyé:', subject);
+  return false;
 }
 
 // ── Gabarit HTML commun (dark, professionnel — Prime Terminal) ────────────────
