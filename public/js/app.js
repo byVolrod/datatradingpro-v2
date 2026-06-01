@@ -3009,12 +3009,11 @@ async function _loadAIInsights(item, el) {
     }).join('');
     const n = d.insights.length;
     el.innerHTML = `<div class="ai-insights-head">
-        <span class="ai-insights-title"><span class="dtp-logo">DTP</span><span class="dtp-ins">Insights</span></span>
+        <span class="ai-insights-title"><span class="ai-chip"></span> AI Insights</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(-1)">‹</button>
           <span class="ai-insights-count">1-${Math.min(3, n)} of ${n}</span>
           <button type="button" onclick="aiInsScroll(1)">›</button>
-          <button type="button" class="ai-insights-toggle" onclick="aiInsToggle(this)"><span class="eye">🙈</span> Masquer</button>
         </span>
       </div>
       <div class="ai-insights-cards" id="ai-insights-cards">${cards}</div>`;
@@ -3033,7 +3032,7 @@ function aiInsToggle(btn) {
   if (!c) return;
   const willHide = c.style.display !== 'none';
   c.style.display = willHide ? 'none' : '';
-  btn.innerHTML = willHide ? '<span class="eye">👁</span> Afficher' : '<span class="eye">🙈</span> Masquer';
+  btn.innerHTML = willHide ? '<span class="eye">👁</span> Afficher Insights' : '<span class="eye">🙈</span> Masquer Insights';
 }
 
 function renderArlibReader(item) {
@@ -3053,6 +3052,10 @@ function renderArlibReader(item) {
   }
   insightsEl.innerHTML = '';
   _loadAIInsights(item, insightsEl);
+
+  // Bouton Masquer/Afficher Insights en haut du rapport (comme PT)
+  const navRight = document.querySelector('#arlib-reader-view .arlib-rnav-right');
+  if (navRight) navRight.innerHTML = '<button class="arlib-hide-insights" onclick="aiInsToggle(this)"><span class="eye">🙈</span> Masquer Insights</button>';
 
   const title = arlibCleanTitle(item.headline);
   const tags  = arlibItemTags(item);

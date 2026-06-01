@@ -281,16 +281,27 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
 
 app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
   try {
+    const id = +req.params.id;
+    const before = await auth.getUserById(id).catch(() => null);   // état AVANT modif
     const fields = { ...req.body };
     // Ne recalcule l'échéance que si l'admin a choisi une durée (sinon on garde l'actuelle)
     if (req.body.duration) fields.expiresAt = computeExpiry(req.body);
-    await auth.updateUser(+req.params.id, fields);
+    await auth.updateUser(id, fields);
     res.json({ ok: true });
-    // Si l'admin suspend le compte (non payé / non renouvelé) → email de renouvellement échoué
-    const suspended = 'active' in req.body && (req.body.active === 0 || req.body.active === false || req.body.active === '0');
-    if (suspended) {
-      auth.getUserById(+req.params.id)
+
+    // Emails selon le changement de statut (non bloquant)
+    const activeReq = 'active' in req.body
+      ? (req.body.active === 1 || req.body.active === true || req.body.active === '1')
+      : null;
+    if (activeReq === false) {
+      // Suspendu → renouvellement échoué
+      auth.getUserById(id)
         .then(u => { if (u?.email && u.role !== 'admin') mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
+        .catch(() => {});
+    } else if (activeReq === true && before && !before.active) {
+      // Réactivé (était suspendu) → email de réactivation
+      auth.getUserById(id)
+        .then(u => { if (u?.email && u.role !== 'admin') mailer.sendReactivated({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
         .catch(() => {});
     }
   } catch (e) { res.status(400).json({ error: e.message }); }
