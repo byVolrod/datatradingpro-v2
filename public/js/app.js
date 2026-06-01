@@ -3164,7 +3164,7 @@ function renderArlibReader(item) {
           <div class="arlib-doc-header">
             <div class="arlib-doc-type">${SESSION_LABEL}</div>
             <div class="arlib-doc-title">${arlibCleanTitle(item.headline || item.title)}</div>
-            <div class="arlib-doc-meta">${dateStr}${item.author ? ' · ' + item.author : ''}</div>
+            <div class="arlib-doc-meta">${dateStr}</div>
           </div>`;
         if (data.html && data.html.length > 80) {
           content.innerHTML = _parseHtmlToArlib(data.html, metaBar);

@@ -790,45 +790,68 @@ ${points.map(p => '- ' + p).join('\n')}`;
   return html.length > 50 ? html : null;
 }
 
+// Nettoyage HTML commun (retire médias/scripts)
+function _cleanWrapHtml(h) {
+  return (h || '')
+    .replace(/<img[^>]*>/gi, '').replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
+    .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').trim();
+}
+
+// Extrait la liste de titres (points) d'un HTML de wrap pour la segmentation IA
+function _extractWrapPoints(html) {
+  try {
+    const $ = cheerio.load(html);
+    const pts = [];
+    $('li, p').each((_, el) => {
+      const t = $(el).text().replace(/\s+/g, ' ').trim();
+      if (t.length >= 12 && t.length <= 240) pts.push(t);
+    });
+    return [...new Set(pts)];   // dédupe en gardant l'ordre
+  } catch { return null; }
+}
+
 app.get('/api/session-wrap-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !url.startsWith('https://investinglive.com/')) return res.json({ html: '' });
 
   const cached = _swCache.find(i => i.url === url);
 
-  // ── 1. HTML extrait du RSS (CDATA) — toujours disponible ─────────────────────
+  // ── 1. Rassemble les titres à segmenter + un HTML brut de secours ────────────
+  let points  = null;
+  let rawHtml = null;
   if (cached?.content && cached.content.length > 100) {
-    const clean = cached.content
-      .replace(/<img[^>]*>/gi, '').replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
-      .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').trim();
-    return res.json({ html: clean, source: 'rss' });
+    rawHtml = _cleanWrapHtml(cached.content);
+    points  = _extractWrapPoints(rawHtml);
+  }
+  if (!points || points.length < 3) {
+    try {
+      const data = await _fetchILContentHttp(url);
+      if (data.points && data.points.length >= 3) points = data.points;
+      if (!rawHtml && data.html && data.html.length > 100) rawHtml = data.html;
+    } catch { /* on tentera Puppeteer plus bas */ }
   }
 
-  // ── 1.5 Extraction HTTP rapide (sans navigateur) + segmentation IA en rubriques ──
-  try {
-    const data = await _fetchILContentHttp(url);
-
-    // Segmentation thématique par Gemini (style Prime Terminal), mise en cache
-    if (data.points && data.points.length >= 3) {
-      let seg = _swSegCache.get(url);
-      if (seg === undefined) {
-        try { seg = await _segmentWrapAI(data.points); }
-        catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
-        _swSegCache.set(url, seg || null);
-        if (seg) _saveJsonMap(SW_SEG_FILE, _swSegCache);   // persiste les succès
-      }
-      if (seg) {
-        if (cached) cached.content = seg;
-        return res.json({ html: seg, source: 'ai' });
-      }
+  // ── 1.5 Segmentation thématique IA (rubriques, style rapport DTP), persistée ──
+  if (points && points.length >= 3) {
+    let seg = _swSegCache.get(url);
+    if (seg === undefined) {
+      try { seg = await _segmentWrapAI(points); }
+      catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
+      _swSegCache.set(url, seg || null);
+      if (seg) _saveJsonMap(SW_SEG_FILE, _swSegCache);   // persiste les succès
     }
-
-    if (data.html && data.html.length > 100) {
-      if (cached) cached.content = data.html;
-      return res.json({ html: data.html, source: 'http' });
+    if (seg) {
+      if (cached) cached.content = seg;
+      return res.json({ html: seg, source: 'ai' });
     }
-  } catch (e) { /* on tente Puppeteer ensuite */ }
+  }
+
+  // ── 1.6 Sinon, HTML brut (RSS/HTTP) ──────────────────────────────────────────
+  if (rawHtml && rawHtml.length > 100) {
+    if (cached) cached.content = rawHtml;
+    return res.json({ html: rawHtml, source: 'raw' });
+  }
 
   // ── 2. Puppeteer — render le SPA Vue/Nuxt côté client (fallback rare) ─────────
   try {
