@@ -1156,6 +1156,36 @@ html, body {
 }
 .tag--info.tag--active .tag-icon { color: #2de0e0; }
 
+/* Analyse : style contour bleu, conservé même déplié */
+.tag--analyse {
+  background: rgba(59,130,246,0.07);
+  border: 1px solid rgba(59,130,246,0.45);
+  color: #60a5fa;
+}
+.tag--analyse .tag-icon { color: #60a5fa; }
+.tag--analyse:hover { color: #93c5fd; border-color: rgba(59,130,246,0.7); }
+.tag--analyse.tag--active {
+  background: rgba(59,130,246,0.15);
+  border-color: #3b82f6;
+  color: #93c5fd;
+}
+.tag--analyse.tag--active .tag-icon { color: #93c5fd; }
+
+/* Réaction : style contour violet, conservé même déplié */
+.tag--reaction {
+  background: rgba(139,92,246,0.07);
+  border: 1px solid rgba(139,92,246,0.45);
+  color: #a78bfa;
+}
+.tag--reaction .tag-icon { color: #a78bfa; }
+.tag--reaction:hover { color: #c4b5fd; border-color: rgba(139,92,246,0.72); }
+.tag--reaction.tag--active {
+  background: rgba(139,92,246,0.16);
+  border-color: #8b5cf6;
+  color: #c4b5fd;
+}
+.tag--reaction.tag--active .tag-icon { color: #c4b5fd; }
+
 /* ═══════════════ RÉACTION — bloc ticker minimaliste (style Prime) ═══════════════ */
 .rx-block {
   background: rgba(0,0,0,0.28);
