@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ path: require('path').join(__dirname, '.env') });
 const express   = require('express');
 const http      = require('http');
 const WebSocket = require('ws');
@@ -142,7 +142,7 @@ app.use(session({
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico']);
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz']);
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/'];
 
 function requireAuth(req, res, next) {
@@ -173,6 +173,9 @@ app.use(requireAuth);
 // extensions: ['html'] → /login sert login.html, /admin sert admin.html automatiquement
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
 app.use(express.json());
+
+// Health check (public) — pour le monitoring / keep-alive (Render, UptimeRobot…)
+app.get('/healthz', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
 
 // Redirection /login → déjà connecté va au dashboard
 app.get('/login', (req, res) => {

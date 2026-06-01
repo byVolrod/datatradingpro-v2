@@ -1,0 +1,40 @@
+# ─────────────────────────────────────────────────────────────────────
+#  Render Blueprint — DataTradingPro / Prime Terminal
+#  Déploiement gratuit d'un serveur Node permanent (Puppeteer + WebSocket).
+#  Render détecte ce fichier automatiquement : New + → "Blueprint" → ton dépôt.
+# ─────────────────────────────────────────────────────────────────────
+services:
+  - type: web
+    name: prime-terminal
+    runtime: docker          # utilise le Dockerfile (installe Chromium)
+    plan: free               # 100% gratuit (se met en veille après 15 min d'inactivité)
+    region: frankfurt        # serveur le plus proche de l'Europe
+    healthCheckPath: /healthz
+    autoDeploy: true         # redéploie à chaque push GitHub (comme Netlify)
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3000
+      - key: PUPPETEER_EXECUTABLE_PATH
+        value: /usr/bin/chromium
+      # ── Secrets : à renseigner dans le dashboard Render (onglet Environment) ──
+      # (sync:false = Render ne les écrit PAS dans le dépôt git, tu les saisis à la main)
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: FJ_EMAIL
+        sync: false
+      - key: FJ_PASS
+        sync: false
+      - key: MFB_EMAIL
+        sync: false
+      - key: MFB_PASS
+        sync: false
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false

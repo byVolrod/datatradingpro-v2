@@ -1,0 +1,17 @@
+node_modules
+npm-debug.log
+.env
+.env.local
+.env.production
+.git
+.gitignore
+.chrome_profile_*
+cache_*.json
+news_history.json
+*.log
+server_out.txt
+server_err.txt
+data/
+*.db
+.claude
+memory

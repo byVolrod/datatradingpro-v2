@@ -7,9 +7,7 @@ node_modules/
 .env.production
 
 # ── Profils Chrome (persistance cookies Puppeteer) ──────────────────────────────
-.chrome_profile_fj/
-.chrome_profile_ff/
-.chrome_profile_myfxbook/
+.chrome_profile_*/
 
 # ── Caches disque (régénérés automatiquement au démarrage) ──────────────────────
 cache_*.json
