@@ -2953,8 +2953,13 @@ function buildBankChart(p) {
       const dec = p.pair.includes('JPY') ? 2 : (candles[0].Close < 10 ? 4 : 2);
       const root = am5.Root.new('bank-chart');
       _bankChartRoot = root;
-      root._logo?.set('forceHidden', true);
-      try { root._logo?.dispose(); } catch {}
+      // Suppression robuste du logo amCharts (le petit rond bleu) : forceHidden ne suffit pas
+      if (root._logo) {
+        root._logo.set('forceHidden', true);
+        root._logo.set('visible', false);
+        try { root._logo.children.clear(); } catch {}
+        try { root._logo.dispose(); } catch {}
+      }
       root.setThemes([am5themes_Animated.new(root)]);
 
       const chart = root.container.children.push(am5xy.XYChart.new(root, {
@@ -2986,6 +2991,8 @@ function buildBankChart(p) {
         { value: p.tp,    label: 'Take Profit', color: 0x22c55e },
         { value: p.sl,    label: 'Stop Loss',   color: 0xef4444 },
       ];
+      // Ligne de prix actuel (comme la référence) si dispo
+      if (p.currentPrice) guides.push({ value: p.currentPrice, label: '', color: 0x10b981, live: true });
       guides.forEach(g => {
         if (!g.value) return;
         const di    = yAxis.makeDataItem({ value: g.value });
@@ -3416,7 +3423,9 @@ async function _loadAIInsights(item, el) {
         body: JSON.stringify({ id: item.id, text }),
       });
       d = await r.json();
-      if (d && d.insights && d.insights.length) _aiInsightsCache[ck] = d;   // mémorise côté client
+      // On ne met en cache que les VRAIS insights IA (pas le secours extractif) → ils pourront
+      // être régénérés correctement une fois le quota revenu / le contenu complet chargé.
+      if (d && d.insights && d.insights.length && !d.fallback) _aiInsightsCache[ck] = d;
     } catch { el.innerHTML = ''; return; }
   }
   {
@@ -3427,17 +3436,13 @@ async function _loadAIInsights(item, el) {
       const txt = typeof ins === 'string' ? ins : (ins.text || '');
       return `<div class="ai-insights-card">${esc(txt)}</div>`;
     }).join('');
-    const n = d.insights.length;
     const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
+    // Grille FIXE (pas de carrousel) → les cartes ne bougent plus
     el.innerHTML = `<div class="ai-insights-head">
         <span class="ai-insights-title">${chip} AI Insights</span>
-        <span class="ai-insights-nav">
-          <button type="button" onclick="aiInsScroll(-1)">‹</button>
-          <span class="ai-insights-count">1-${Math.min(3, n)} of ${n}</span>
-          <button type="button" onclick="aiInsScroll(1)">›</button>
-        </span>
+        <span class="ai-insights-count">${d.insights.length} insights</span>
       </div>
-      <div class="ai-insights-cards" id="ai-insights-cards">${cards}</div>`;
+      <div class="ai-insights-cards ai-insights-cards--fixed" id="ai-insights-cards">${cards}</div>`;
   }
 }
 
@@ -3597,6 +3602,9 @@ function renderArlibReader(item) {
             : `${metaBar}<div class="arlib-rno-content"><a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;">Lire sur InvestingLive ↗</a></div>`;
         }
         content.scrollTop = 0;
+        // Insights basés sur le VRAI contenu rendu (la description seule est trop courte)
+        const _full = (content.innerText || '').trim();
+        if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full }, insightsEl);
       })
       .catch(() => {
         if (!content) return;
@@ -3630,6 +3638,8 @@ function renderArlibReader(item) {
           content.innerHTML = `${metaBar}<div class="arlib-rno-content"><a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;">Lire sur ING Think ↗</a></div>`;
         }
         content.scrollTop = 0;
+        const _full = (content.innerText || '').trim();
+        if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full }, insightsEl);
       })
       .catch(() => {
         if (!content) return;

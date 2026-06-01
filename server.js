@@ -1129,7 +1129,7 @@ app.post('/api/report-insights', async (req, res) => {
   const key = 'v2:' + (id || clean.slice(0, 100));   // v2 = format structuré {asset,bias,text}
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
   // Budget Gemini : les insights de rapport comptent comme "analyst". Hors budget → secours extractif.
-  if (!aiAllowed('analyst')) return res.json({ insights: _fallbackInsights(clean) });
+  if (!aiAllowed('analyst')) return res.json({ insights: _fallbackInsights(clean), fallback: true });
   try {
     aiNote('analyst');
     const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés, chacun centré sur UN actif/instrument.
@@ -1153,10 +1153,10 @@ ${clean.slice(0, 4000)}`;
       _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque
       return res.json({ insights });
     }
-    res.json({ insights: _fallbackInsights(clean) });   // Gemini vide → secours extractif
+    res.json({ insights: _fallbackInsights(clean), fallback: true });   // Gemini vide → secours extractif
   } catch (e) {
     console.error('[Insights]', e.message);
-    res.json({ insights: _fallbackInsights(clean) });   // quota/erreur → secours extractif
+    res.json({ insights: _fallbackInsights(clean), fallback: true });   // quota/erreur → secours extractif
   }
 });
 
@@ -2027,6 +2027,12 @@ async function generateWeeklyMarketRecap(force = false) {
       setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 7 * 24 * 60 * 60 * 1000);
     }, delay);
   }
+
+  // Au démarrage (ex: après un redéploiement) : on génère les rapports d'ouverture du jour
+  // s'ils n'existent pas encore (dédup intégrée). Assemblage par règles → pas de quota Gemini.
+  setTimeout(() => {
+    daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] startup ${name} failed:`, e.message)));
+  }, 25 * 1000);
 })();
 
 // ═══════════════════ ONGLET BIAS — biais directionnel hebdomadaire (Gemini) ═══════════════════

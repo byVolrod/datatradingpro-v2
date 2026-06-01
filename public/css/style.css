@@ -3840,6 +3840,14 @@ html, body {
   scrollbar-width: none;            /* Firefox : barre masquée */
 }
 .ai-insights-cards::-webkit-scrollbar { display: none; }   /* Chrome/Safari : barre masquée */
+/* Variante FIXE : grille statique, les cartes ne défilent plus / ne bougent plus */
+.ai-insights-cards--fixed {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+  overflow: visible;
+}
+.ai-insights-cards--fixed .ai-insights-card { flex: none; width: auto; }
 /* Icône puce IA (SVG fin, orange) */
 .ai-chip { vertical-align: middle; flex-shrink: 0; }
 /* Badge marque DTP (blanc, texte noir gras) — en haut du rapport */
