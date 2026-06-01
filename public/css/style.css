@@ -1138,9 +1138,23 @@ html, body {
 .tag--info.tag--active     { background: #0e7490; border-color: #0e7490; color: #fff; }   /* cyan / sarcelle foncé */
 .tag--analyse.tag--active  { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }   /* bleu marine institutionnel */
 .tag--reaction.tag--active { background: #6b21a8; border-color: #6b21a8; color: #fff; }   /* violet / pourpre */
-.tag--info.tag--active .tag-icon,
 .tag--analyse.tag--active .tag-icon,
 .tag--reaction.tag--active .tag-icon { color: #fff; }
+
+/* Info : style contour cyan/sarcelle, CONSERVÉ même déplié (pas de fond plein) */
+.tag--info {
+  background: rgba(0,188,188,0.06);
+  border: 1px solid rgba(0,188,188,0.45);
+  color: #17c2c2;
+}
+.tag--info .tag-icon { color: #17c2c2; }
+.tag--info:hover { color: #2de0e0; border-color: rgba(0,188,188,0.7); }
+.tag--info.tag--active {
+  background: rgba(0,188,188,0.14);
+  border-color: #17c2c2;
+  color: #2de0e0;
+}
+.tag--info.tag--active .tag-icon { color: #2de0e0; }
 
 /* ═══════════════ RÉACTION — bloc ticker minimaliste (style Prime) ═══════════════ */
 .rx-block {
