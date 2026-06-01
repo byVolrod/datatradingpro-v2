@@ -5,13 +5,20 @@
 'use strict';
 
 const RESEND_API_KEY     = process.env.RESEND_API_KEY || '';
+const MAILJET_API_KEY    = process.env.MAILJET_API_KEY || '';
+const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY || '';
 const GMAIL_USER         = process.env.GMAIL_USER || '';
 const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''); // les MDP d'app Gmail ont des espaces
 const APP_URL            = process.env.APP_URL || 'https://datatradingpro.onrender.com';
 const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'volrod.dev@gmail.com';
-// Expéditeur : avec Gmail il DOIT correspondre au compte authentifié
+// Expéditeur : Gmail impose le compte authentifié ; Mailjet/Resend : adresse vérifiée
 const EMAIL_FROM = process.env.EMAIL_FROM
-  || (GMAIL_USER ? `DataTradingPro <${GMAIL_USER}>` : 'DataTradingPro <onboarding@resend.dev>');
+  || (GMAIL_USER ? `DataTradingPro <${GMAIL_USER}>` : `DataTradingPro <${SUPPORT_EMAIL}>`);
+
+function _parseFrom() {
+  const m = EMAIL_FROM.match(/^(.*?)\s*<(.+)>$/);
+  return m ? { name: m[1].trim() || 'DataTradingPro', email: m[2].trim() } : { name: 'DataTradingPro', email: EMAIL_FROM };
+}
 
 let _gmailTransport = null;
 function _getGmailTransport() {
@@ -27,7 +34,29 @@ function _getGmailTransport() {
 // ── Envoi bas niveau (non bloquant, tolérant aux erreurs) ─────────────────────
 // Priorité à Gmail (gratuit, envoie à tout le monde) ; sinon Resend.
 async function _send(to, subject, html) {
-  // Option A — Gmail (gratuit, sans domaine)
+  // Option A — Mailjet (gratuit, envoie à tous, sender vérifié sans domaine)
+  if (MAILJET_API_KEY && MAILJET_SECRET_KEY) {
+    try {
+      const from = _parseFrom();
+      const auth = Buffer.from(`${MAILJET_API_KEY}:${MAILJET_SECRET_KEY}`).toString('base64');
+      const r = await fetch('https://api.mailjet.com/v3.1/send', {
+        method: 'POST',
+        headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ Messages: [{ From: { Email: from.email, Name: from.name }, To: [{ Email: to }], Subject: subject, HTMLPart: html }] }),
+      });
+      if (!r.ok) {
+        const t = await r.text().catch(() => '');
+        console.error(`[Mailer] Mailjet échec (${r.status}) → ${to}:`, t.slice(0, 400));
+        return false;
+      }
+      console.log(`[Mailer] ✅ (Mailjet) "${subject}" → ${to}`);
+      return true;
+    } catch (e) {
+      console.error('[Mailer] Mailjet erreur:', e.message);
+      return false;
+    }
+  }
+  // Option B — Gmail (gratuit, sans domaine)
   if (GMAIL_USER && GMAIL_APP_PASSWORD) {
     try {
       await _getGmailTransport().sendMail({ from: EMAIL_FROM, to, subject, html });
@@ -58,7 +87,7 @@ async function _send(to, subject, html) {
       return false;
     }
   }
-  console.warn('[Mailer] Aucun fournisseur configuré (GMAIL_* ou RESEND_API_KEY) — email non envoyé:', subject);
+  console.warn('[Mailer] Aucun fournisseur configuré (MAILJET_*, GMAIL_* ou RESEND_API_KEY) — email non envoyé:', subject);
   return false;
 }
 
