@@ -2126,6 +2126,17 @@ async function generateWeeklyMarketRecap(force = false) {
   // s'ils n'existent pas encore (dédup intégrée). Assemblage par règles → pas de quota Gemini.
   setTimeout(() => {
     daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] startup ${name} failed:`, e.message)));
+
+    // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le vendredi soir ou le week-end,
+    // les rapports hebdomadaires n'ont pas été générés. On les (re)génère ici — la dédup par
+    // semaine ISO évite tout doublon. Garde-fou : uniquement vendredi soir (≥21h) ou samedi/dimanche,
+    // pour ne PAS créer un recap prématuré en milieu de semaine.
+    const parisNow  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const pDay = parisNow.getDay();        // 0=dim … 5=ven, 6=sam
+    const pHour = parisNow.getHours();
+    if (pDay === 6 || pDay === 0 || (pDay === 5 && pHour >= 21)) {
+      weekly.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] rattrapage hebdo ${name} échec:`, e.message)));
+    }
   }, 25 * 1000);
 })();
 
