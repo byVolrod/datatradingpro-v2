@@ -2184,8 +2184,12 @@ ${corpus}`;
     console.warn('[Weekly Recap] JSON IA invalide → fallback'); return null;
   }
 
+  // Titre normalisé : préfixe fixe "FX Weekly Recap — " + l'accroche IA (sans son préfixe générique)
+  const rawTitle = String(parsed.title || '').replace(/^\s*(?:fx\s+)?weekly\s+(?:market\s+)?recap\s*[:\-–—]\s*/i, '').trim();
+  const finalTitle = 'FX Weekly Recap — ' + (rawTitle || 'Synthèse hebdomadaire des marchés');
+
   const weekly = {
-    title:      parsed.title || 'Weekly Market Recap',
+    title:      finalTitle,
     weekEnding, weekRange,
     summary:    parsed.summary || '',
     insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 8) : [],

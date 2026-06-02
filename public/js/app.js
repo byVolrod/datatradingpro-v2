@@ -3452,7 +3452,8 @@ function renderArlibList() {
     const badge = badgeLabel ? `<span class="${badgeClass}">${badgeLabel}</span>` : '';
 
     const card = document.createElement('div');
-    card.className = 'arlib-card' + (isRead(item.id) ? ' arlib-card--read' : '');
+    const _isWeekly = item._reportType === 'Weekly Market Recap';
+    card.className = 'arlib-card' + (isRead(item.id) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
     card.dataset.id = item.id;
     card.innerHTML = `
       <div class="arlib-card-icon">
