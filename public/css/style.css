@@ -7039,6 +7039,9 @@ html, body {
 .chat-thread-last { font-size:11.5px; color:#7a8493; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 .chat-thread-when { font-size:10px; color:#5b6471; flex-shrink:0; font-family:'JetBrains Mono',monospace; }
 .chat-thread-badge { background:#ef4444; color:#fff; font-size:10px; font-weight:700; border-radius:9px; padding:1px 6px; min-width:16px; text-align:center; }
+.chat-thread--unread { background:rgba(247,148,29,.06); border-color:rgba(247,148,29,.18); }
+.chat-thread--unread .chat-thread-name { color:#fff; }
+.chat-thread--unread .chat-thread-last { color:#9aa4b2; }
 
 .chat-list { flex:1; overflow-y:auto; padding:14px 14px 8px; display:flex; flex-direction:column; gap:10px; }
 .chat-empty { margin:auto; text-align:center; color:#6b7280; font-size:13px; line-height:1.6; padding:30px 10px; }

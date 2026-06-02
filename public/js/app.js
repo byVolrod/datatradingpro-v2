@@ -4361,8 +4361,12 @@ function sqwkToggle() {
 // CHAT SUPPORT  (chat-) — conversation persistante avec le support
 // ═══════════════════════════════════════════════════════════════
 let _chatPollTimer = null;
+let _chatLiveTimer = null;    // rafraîchissement live tant que le panneau est ouvert
+let _chatSig = '';            // signature du dernier rendu (évite les re-rendus/scrolls inutiles)
 let _chatThreadUser = null;   // (mode support) userId du thread ouvert
 let _chatThreadName = '';
+function _sigMsgs(m){ return (m||[]).length + '|' + (m && m.length ? (m[m.length-1].id||m[m.length-1].text||'') : ''); }
+function _sigThreads(t){ return (t||[]).map(x=>x.user_id+':'+(x.unread||0)+':'+(x.lastAt||'')).join(','); }
 function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 // L'utilisateur courant est-il le support (admin) ? -> géré depuis son propre compte (ex. JustOneTrader)
 function _chatCurUser(){ try { return window._pdUser || (typeof _pdUser !== 'undefined' ? _pdUser : null); } catch { return null; } }
@@ -4373,13 +4377,42 @@ function chatOpen(){
   document.getElementById('chat-panel')?.classList.add('open');
   document.getElementById('chat-overlay')?.classList.add('open');
   document.getElementById('chat-btn')?.classList.add('topbar-icon--active');
+  _chatSig = '';
   if (_chatIsSupport()) _chatInbox();   // côté support : boîte de réception des conversations
   else _chatLoad();                     // côté client : sa propre conversation avec le support
+  _chatStartLive();                     // mise à jour en direct tant que le panneau reste ouvert
 }
 function chatClose(){
   document.getElementById('chat-panel')?.classList.remove('open');
   document.getElementById('chat-overlay')?.classList.remove('open');
   document.getElementById('chat-btn')?.classList.remove('topbar-icon--active');
+  _chatStopLive();
+  _chatThreadUser = null;               // au prochain ouverture, le support repart sur la boîte de réception
+}
+
+// ── Rafraîchissement live (panneau ouvert) ────────────────────
+function _chatStartLive(){ clearInterval(_chatLiveTimer); _chatLiveTimer = setInterval(_chatLiveTick, 6000); }
+function _chatStopLive(){ clearInterval(_chatLiveTimer); _chatLiveTimer = null; }
+async function _chatLiveTick(){
+  if (!document.getElementById('chat-panel')?.classList.contains('open')) return;
+  try {
+    if (_chatIsSupport()){
+      if (_chatThreadUser){
+        const d = await (await fetch('/api/admin/chat/'+encodeURIComponent(_chatThreadUser))).json();
+        const sig = _sigMsgs(d.messages);
+        if (sig !== _chatSig){ _chatSig = sig; _chatRender(d.messages||[]); }
+      } else {
+        const d = await (await fetch('/api/admin/chat')).json();
+        const threads = d.threads || [];
+        const sig = _sigThreads(threads);
+        if (sig !== _chatSig){ _chatSig = sig; _chatRenderInbox(threads); }
+      }
+    } else {
+      const d = await (await fetch('/api/chat')).json();
+      const sig = _sigMsgs(d.messages);
+      if (sig !== _chatSig){ _chatSig = sig; _chatRender(d.messages||[]); _chatSetBadge(0); }
+    }
+  } catch {}
 }
 
 // ── MODE SUPPORT (admin) ──────────────────────────────────────
@@ -4398,27 +4431,36 @@ function _chatInbox(){
   const list = document.getElementById('chat-list'); if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
   fetch('/api/admin/chat').then(r=>r.json()).then(d=>{
     const threads = d.threads || [];
-    if (!threads.length){ if(list) list.innerHTML='<div class="chat-empty">Aucune conversation pour le moment.</div>'; return; }
-    let html = '';
-    threads.forEach(t=>{
-      const label = t.name || t.email || t.user_id;
-      const when = t.lastAt ? new Date(t.lastAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-      const unread = t.unread>0 ? `<span class="chat-thread-badge">${t.unread>9?'9+':t.unread}</span>` : '';
-      html += `<div class="chat-thread" onclick="_chatOpenThread('${_chatEsc(t.user_id)}','${_chatEsc(label).replace(/'/g,"\\'")}')">`
-        + `<div class="chat-thread-av">${_chatEsc(label.charAt(0).toUpperCase())}</div>`
-        + `<div class="chat-thread-body"><div class="chat-thread-top"><span class="chat-thread-name">${_chatEsc(label)}</span>${unread}</div>`
-        + `<div class="chat-thread-last">${_chatEsc((t.last||'').slice(0,60))}</div></div>`
-        + `<div class="chat-thread-when">${when}</div></div>`;
-    });
-    if (list) list.innerHTML = html;
+    _chatSig = _sigThreads(threads);
+    _chatRenderInbox(threads);
   }).catch(()=>{ if(list) list.innerHTML='<div class="chat-empty">Boîte de réception indisponible.</div>'; });
+}
+
+function _chatRenderInbox(threads){
+  const list = document.getElementById('chat-list'); if (!list) return;
+  if (_chatThreadUser) return;   // on n'écrase pas une conversation ouverte
+  if (!threads.length){ list.innerHTML='<div class="chat-empty">Aucune conversation pour le moment.</div>'; return; }
+  let html = '';
+  threads.forEach(t=>{
+    const label = t.name || t.email || t.user_id;
+    const when = t.lastAt ? new Date(t.lastAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+    const unread = t.unread>0 ? `<span class="chat-thread-badge">${t.unread>9?'9+':t.unread}</span>` : '';
+    html += `<div class="chat-thread${t.unread>0?' chat-thread--unread':''}" onclick="_chatOpenThread('${_chatEsc(t.user_id)}','${_chatEsc(label).replace(/'/g,"\\'")}')">`
+      + `<div class="chat-thread-av">${_chatEsc(label.charAt(0).toUpperCase())}</div>`
+      + `<div class="chat-thread-body"><div class="chat-thread-top"><span class="chat-thread-name">${_chatEsc(label)}</span>${unread}</div>`
+      + `<div class="chat-thread-last">${_chatEsc((t.last||'').slice(0,60))}</div></div>`
+      + `<div class="chat-thread-when">${when}</div></div>`;
+  });
+  list.innerHTML = html;
 }
 
 function _chatOpenThread(userId, name){
   _chatThreadUser = userId; _chatThreadName = name;
+  _chatSig = '';   // force le 1er rendu de la conversation
   _chatHead(name, 'Vous répondez en tant que support', true, true);
   const list = document.getElementById('chat-list'); if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
   fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
+    _chatSig = _sigMsgs(d.messages);
     _chatRender(d.messages||[]);   // côté support : 'support' = mes bulles (droite), 'user' = client (gauche)
   }).catch(()=>{ if(list) list.innerHTML='<div class="chat-empty">Conversation indisponible.</div>'; });
 }
@@ -4450,6 +4492,7 @@ function _chatRender(messages){
 
 function _chatLoad(){
   fetch('/api/chat').then(r=>r.json()).then(d=>{
+    _chatSig = _sigMsgs(d.messages);
     _chatRender(d.messages||[]);
     _chatSetBadge(0);   // ouvert → réponses lues
   }).catch(()=>{ const l=document.getElementById('chat-list'); if(l) l.innerHTML='<div class="chat-empty">Chat indisponible pour le moment.</div>'; });
@@ -4480,9 +4523,9 @@ function _chatPollUnread(){
   // si le chat est ouvert, c'est déjà lu → pas de badge
   if(document.getElementById('chat-panel')?.classList.contains('open')) return;
   if (_chatIsSupport()){
-    // côté support : total des messages clients non lus, tous threads confondus
+    // côté support : nombre de PERSONNES qui ont écrit (threads avec au moins 1 message non lu)
     fetch('/api/admin/chat').then(r=>r.json())
-      .then(d=>_chatSetBadge((d.threads||[]).reduce((n,t)=>n+(t.unread||0),0)))
+      .then(d=>_chatSetBadge((d.threads||[]).filter(t=>(t.unread||0)>0).length))
       .catch(()=>{});
     return;
   }
