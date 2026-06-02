@@ -785,6 +785,7 @@ async function _fetchSessionWraps(full = false) {
 // CAPTE LE THÈME de la séance. Mis en cache DURABLEMENT (ai_cache "swt:<id>") → généré une
 // seule fois par wrap ; quota maîtrisé (anti-burst + Gemini→Claude via aiSmart). Limité aux
 // wraps RÉCENTS (ceux réellement consultés).
+const SW_TITLE_V = 2;   // version du style de titre (bump → régénère les titres existants)
 let _swTitleBusy = false;
 async function _swEnsureAiTitles() {
   if (_swTitleBusy) return;
@@ -793,19 +794,20 @@ async function _swEnsureAiTitles() {
   try {
     let budget = 6;   // max 6 générations IA par passage (le reste au passage suivant)
     for (const w of _swCache.slice(0, 22)) {   // wraps récents uniquement
-      if (w.aiTitle) continue;
-      try { const c = await auth.aiCacheGet('swt:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; changed = true; continue; } } catch {}
+      if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant
+      try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}
       if (budget <= 0) continue;
       const src = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) || w.title || '';
       if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
       budget--;
       try {
         const out = await aiSmart('analyst',
-          `Voici le résumé d'une session de marché (FX/indices/matières premières). Écris UN seul titre ` +
-          `court (max 12 mots), en anglais, qui capte le THÈME PRINCIPAL de la séance. Interdits : le mot ` +
-          `"wrap", toute mention de source, toute date. Réponds avec le titre SEUL, sans guillemets.\n\n${src}`, 120);
-        let t = String(out || '').split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 110);
-        if (t.length >= 8) { w.aiTitle = t; changed = true; auth.aiCacheSet('swt:' + w.id, t).catch(() => {}); }
+          `Voici le résumé d'une session de marché (FX/indices/matières premières). Écris UN titre de presse ` +
+          `PERCUTANT et CONCIS (idéalement 5 à 8 mots, max 9), en anglais, qui capte LE thème principal. ` +
+          `Style "headline" : direct, verbe fort, pas de remplissage. Interdits : le mot "wrap", toute mention ` +
+          `de source, toute date, les guillemets. Réponds avec le titre SEUL.\n\n${src}`, 90);
+        let t = String(out || '').split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 90);
+        if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; auth.aiCacheSet('swt2:' + w.id, t).catch(() => {}); }
       } catch {}
     }
   } finally { _swTitleBusy = false; }
