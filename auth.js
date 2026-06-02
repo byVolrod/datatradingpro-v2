@@ -57,6 +57,9 @@ async function seedAdmin() {
 }
 
 // ─── Vérifier les credentials (login) ────────────────────────────────────────
+// Staff = équipe interne (admin complet OU agent de support) → jamais suspendu/expiré, pas d'emails abonnement
+const isStaff = r => r === 'admin' || r === 'support';
+
 async function verifyLogin(email, password) {
   const { data, error } = await supabase
     .from(TABLE)
@@ -70,7 +73,7 @@ async function verifyLogin(email, password) {
   if (!ok) return null;   // mauvais mdp → message générique (on ne révèle pas l'état du compte)
 
   // Compte suspendu (abonnement non actif) — distinct d'un mauvais mot de passe
-  if (data.role !== 'admin' && !data.active) {
+  if (!isStaff(data.role) && !data.active) {
     return { suspended: true };
   }
 
@@ -78,7 +81,7 @@ async function verifyLogin(email, password) {
   // Délai de grâce de 24h après l'échéance : le client peut encore se connecter,
   // ce qui laisse le temps au renouvellement (Whop) d'être traité.
   const GRACE_MS = 24 * 60 * 60 * 1000;
-  if (data.role !== 'admin' && data.expires_at &&
+  if (!isStaff(data.role) && data.expires_at &&
       new Date(data.expires_at).getTime() + GRACE_MS < Date.now()) {
     return { expired: true, expiresAt: data.expires_at };
   }
@@ -206,7 +209,10 @@ async function _chatEnsureDb() {
 
 async function chatInsert({ user_id, sender, text }) {
   await _chatEnsureDb();
-  const row = { user_id: String(user_id), sender, text: String(text).slice(0, 2000), created_at: new Date().toISOString(), read: false };
+  // Texte normal : 2000 car. ; pièce jointe (data URL base64) : jusqu'à ~1,5 Mo
+  const raw = String(text);
+  const safe = /^data:/.test(raw) ? raw.slice(0, 1500000) : raw.slice(0, 2000);
+  const row = { user_id: String(user_id), sender, text: safe, created_at: new Date().toISOString(), read: false };
   if (_chatDb) {
     const { data, error } = await supabase.from(CHAT_TABLE).insert([row]).select().single();
     if (!error) return data;
@@ -271,6 +277,7 @@ async function chatThreads() {
 }
 
 module.exports = {
+  isStaff,
   seedAdmin,
   verifyLogin,
   getAllUsers,

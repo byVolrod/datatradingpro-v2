@@ -97,6 +97,7 @@
     }
     .badge-admin   { background: rgba(247,148,29,0.12); color: var(--orange); border: 1px solid rgba(247,148,29,0.3); }
     .badge-client  { background: rgba(255,255,255,0.05); color: var(--text3); border: 1px solid var(--border2); }
+    .badge-support { background: rgba(96,165,250,0.12); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
     .badge-active  { background: rgba(46,204,113,0.1); color: var(--green); border: 1px solid rgba(46,204,113,0.25); }
     .badge-suspended { background: rgba(231,76,60,0.1); color: #ef4444; border: 1px solid rgba(231,76,60,0.25); }
 
@@ -237,14 +238,16 @@
     </div>
     <div class="form-field">
       <label>Rôle</label>
-      <select name="role">
+      <select name="role" id="add-role" onchange="toggleStaff('add')">
         <option value="client">Client</option>
+        <option value="support">Support (équipe)</option>
         <option value="admin">Admin</option>
       </select>
+      <small class="role-hint" id="add-role-hint" style="display:none;color:#7a8493">Agent support : répond aux messages depuis son propre compte, sans accès à la gestion des utilisateurs.</small>
     </div>
     <div class="form-field">
       <label>Plan</label>
-      <select name="plan">
+      <select name="plan" id="add-plan">
         <option value="professionnel">Professionnel</option>
       </select>
     </div>
@@ -284,6 +287,7 @@
     <select id="flt-role">
       <option value="all">Tous les rôles</option>
       <option value="client">Clients</option>
+      <option value="support">Support</option>
       <option value="admin">Admins</option>
     </select>
   </div>
@@ -332,8 +336,9 @@
     </div>
     <div class="form-field">
       <label>Rôle</label>
-      <select id="edit-role">
+      <select id="edit-role" onchange="toggleStaff('edit')">
         <option value="client">Client</option>
+        <option value="support">Support (équipe)</option>
         <option value="admin">Admin</option>
       </select>
     </div>
@@ -505,7 +510,8 @@
 
   // Affiche l'état de l'abonnement (illimité / actif jusqu'au… / expiré)
   function subInfo(u) {
-    if (u.role === 'admin') return '<span class="badge badge-admin">∞ admin</span>';
+    if (u.role === 'admin')   return '<span class="badge badge-admin">∞ admin</span>';
+    if (u.role === 'support') return '<span class="badge badge-support">∞ support</span>';
     if (!u.expires_at)      return '<span class="badge badge-active">Illimité</span>';
     const end  = new Date(u.expires_at);
     const date = end.toLocaleDateString('fr-FR');
@@ -522,6 +528,19 @@
     const sel  = document.getElementById(which + '-duration');
     const wrap = document.getElementById(which + '-custom-wrap');
     wrap.style.display = sel.value === 'custom' ? '' : 'none';
+  }
+
+  // Staff (support/admin) = pas d'abonnement → on masque les champs liés
+  function toggleStaff(which) {
+    const role  = document.getElementById(which + '-role').value;
+    const staff = role === 'support' || role === 'admin';
+    const hint  = document.getElementById(which + '-role-hint');
+    if (hint) hint.style.display = role === 'support' ? '' : 'none';
+    ['plan','start-date','duration','custom-wrap'].forEach(k=>{
+      const f = document.getElementById(which + '-' + k);
+      const field = f ? f.closest('.form-field') : null;
+      if (field) field.style.display = staff ? 'none' : '';
+    });
   }
 
   // ── Add user ────────────────────────────────────────────────────────────────
@@ -563,6 +582,7 @@
     document.getElementById('edit-role').value = role;
     document.getElementById('edit-plan').value = plan;
     document.getElementById('edit-active').value = active ? '1' : '0';   // statut actuel (Actif/Suspendu) pré-rempli
+    toggleStaff('edit');   // masque les champs abonnement si support/admin
     document.getElementById('edit-duration').value = '';      // par défaut : on garde l'échéance
     document.getElementById('edit-custom-date').value = '';
     document.getElementById('edit-custom-wrap').style.display = 'none';

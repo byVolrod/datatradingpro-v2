@@ -4368,9 +4368,28 @@ let _chatThreadName = '';
 function _sigMsgs(m){ return (m||[]).length + '|' + (m && m.length ? (m[m.length-1].id||m[m.length-1].text||'') : ''); }
 function _sigThreads(t){ return (t||[]).map(x=>x.user_id+':'+(x.unread||0)+':'+(x.lastAt||'')).join(','); }
 function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── Identité support affichée au client (modifiable) ──
+const CHAT_SUPPORT_NAME = 'Équipe de support';
+const CHAT_SUPPORT_SUB  = 'Répond généralement en quelques minutes';
+const CHAT_SUPPORT_AV   = 'DTP';                       // initiales de l'avatar (ou laisse 'DTP')
+const CHAT_WHATSAPP     = 'https://wa.me/33600000000'; // ← REMPLACE par ton numéro WhatsApp support
+
+// En-tête côté CLIENT (nom + sous-titre + bouton WhatsApp)
+function _chatClientHead(){
+  const n=document.getElementById('chat-head-name'); if(n) n.textContent=CHAT_SUPPORT_NAME;
+  const s=document.getElementById('chat-head-sub');  if(s) s.innerHTML='<span class="chat-presence"></span>'+_chatEsc(CHAT_SUPPORT_SUB);
+  const av=document.getElementById('chat-head-av');  if(av) av.textContent=CHAT_SUPPORT_AV;
+  document.getElementById('chat-back')?.classList.add('hidden');
+  document.querySelector('.chat-input-bar')?.classList.remove('hidden');
+  document.querySelector('.chat-hint')?.classList.remove('hidden');
+  const wa=document.getElementById('chat-wa');
+  if(wa){ wa.href=CHAT_WHATSAPP; wa.classList.toggle('hidden', !CHAT_WHATSAPP); }
+}
+
 // L'utilisateur courant est-il le support (admin) ? -> géré depuis son propre compte (ex. JustOneTrader)
 function _chatCurUser(){ try { return window._pdUser || (typeof _pdUser !== 'undefined' ? _pdUser : null); } catch { return null; } }
-function _chatIsSupport(){ const u = _chatCurUser(); return !!(u && u.role === 'admin'); }
+function _chatIsSupport(){ const u = _chatCurUser(); return !!(u && (u.role === 'admin' || u.role === 'support')); }
 
 function chatToggle(){ document.getElementById('chat-panel')?.classList.contains('open') ? chatClose() : chatOpen(); }
 function chatOpen(){
@@ -4378,8 +4397,8 @@ function chatOpen(){
   document.getElementById('chat-overlay')?.classList.add('open');
   document.getElementById('chat-btn')?.classList.add('topbar-icon--active');
   _chatSig = '';
-  if (_chatIsSupport()) _chatInbox();   // côté support : boîte de réception des conversations
-  else _chatLoad();                     // côté client : sa propre conversation avec le support
+  if (_chatIsSupport()) { _chatInbox(); }              // côté support : boîte de réception des conversations
+  else { _chatClientHead(); _chatLoad(); }             // côté client : en-tête support + sa conversation
   _chatStartLive();                     // mise à jour en direct tant que le panneau reste ouvert
 }
 function chatClose(){
@@ -4421,7 +4440,9 @@ async function _chatLiveTick(){
 function _chatHead(name, sub, showBack, showInput){
   const n = document.getElementById('chat-head-name'); if (n) n.textContent = name;
   const s = document.getElementById('chat-head-sub');  if (s) s.textContent = sub;
+  const av = document.getElementById('chat-head-av');  if (av) av.textContent = (name||'?').charAt(0).toUpperCase();
   document.getElementById('chat-back')?.classList.toggle('hidden', !showBack);
+  document.getElementById('chat-wa')?.classList.add('hidden');   // pas de bouton WhatsApp côté support
   document.querySelector('.chat-input-bar')?.classList.toggle('hidden', !showInput);
   document.querySelector('.chat-hint')?.classList.toggle('hidden', !showInput);
 }
@@ -4445,12 +4466,15 @@ function _chatRenderInbox(threads){
   let html = '';
   threads.forEach(t=>{
     const label = t.name || t.email || t.user_id;
+    let last = t.last||'';
+    if (/^data:image\//.test(last)) last = '📷 Image';
+    else if (/^data:/.test(last))   last = '📎 Pièce jointe';
     const when = t.lastAt ? new Date(t.lastAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
     const unread = t.unread>0 ? `<span class="chat-thread-badge">${t.unread>9?'9+':t.unread}</span>` : '';
     html += `<div class="chat-thread${t.unread>0?' chat-thread--unread':''}" onclick="_chatOpenThread('${_chatEsc(t.user_id)}','${_chatEsc(label).replace(/'/g,"\\'")}')">`
       + `<div class="chat-thread-av">${_chatEsc(label.charAt(0).toUpperCase())}</div>`
       + `<div class="chat-thread-body"><div class="chat-thread-top"><span class="chat-thread-name">${_chatEsc(label)}</span>${unread}</div>`
-      + `<div class="chat-thread-last">${_chatEsc((t.last||'').slice(0,60))}</div></div>`
+      + `<div class="chat-thread-last">${_chatEsc(last.slice(0,60))}</div></div>`
       + `<div class="chat-thread-when">${when}</div></div>`;
   });
   list.innerHTML = html;
@@ -4484,9 +4508,14 @@ function _chatRender(messages){
     const time = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
     // support : mes bulles = 'support' ; client : mes bulles = 'user'
     const mine = support ? (m.sender==='support') : (m.sender==='user');
+    const t = m.text || '';
+    let inner;
+    if (/^data:image\//.test(t))      inner = `<a href="${t}" target="_blank" rel="noopener"><img class="chat-img" src="${t}" alt="image jointe"></a>`;
+    else if (/^data:/.test(t))        inner = `<a class="chat-file" href="${t}" download>📎 Fichier joint</a>`;
+    else                              inner = `<div class="chat-text">${_chatEsc(t)}</div>`;
     html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}">`
       + (mine?'':`<div class="chat-av">${avThem}</div>`)
-      + `<div class="chat-bubble"><div class="chat-text">${_chatEsc(m.text)}</div>`
+      + `<div class="chat-bubble${/^data:image\//.test(t)?' chat-bubble--img':''}">${inner}`
       + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div></div>`;
   });
   list.innerHTML = html;
@@ -4501,19 +4530,33 @@ function _chatLoad(){
   }).catch(()=>{ const l=document.getElementById('chat-list'); if(l) l.innerHTML='<div class="chat-empty">Chat indisponible pour le moment.</div>'; });
 }
 
+// Envoi générique (texte OU data URL d'une pièce jointe) vers le bon endpoint
+function _chatPost(text){
+  if (!text) return;
+  if (_chatIsSupport() && _chatThreadUser){
+    return fetch('/api/admin/chat/'+encodeURIComponent(_chatThreadUser),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
+      .then(r=>r.json()).then(()=>_chatOpenThread(_chatThreadUser,_chatThreadName)).catch(()=>{});
+  }
+  return fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
+    .then(r=>r.json()).then(()=>_chatLoad()).catch(()=>{});
+}
 function chatSend(){
   const inp = document.getElementById('chat-input');
   const text = (inp?.value||'').trim();
   if(!text) return;
   inp.value=''; inp.style.height='auto';
-  // côté support, dans un thread : on répond au client sélectionné
-  if (_chatIsSupport() && _chatThreadUser){
-    fetch('/api/admin/chat/'+encodeURIComponent(_chatThreadUser),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
-      .then(r=>r.json()).then(()=>_chatOpenThread(_chatThreadUser,_chatThreadName)).catch(()=>{});
-    return;
-  }
-  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
-    .then(r=>r.json()).then(()=>_chatLoad()).catch(()=>{});
+  _chatPost(text);
+}
+// Pièce jointe (image ou fichier) → envoyée en data URL (cap 900 Ko)
+function _chatAttach(input, kind){
+  const f = input.files && input.files[0];
+  input.value = '';
+  if(!f) return;
+  if(f.size > 900*1024){ alert('Fichier trop volumineux (max 900 Ko).'); return; }
+  const reader = new FileReader();
+  reader.onload = () => _chatPost(String(reader.result));   // data:...;base64,…
+  reader.onerror = () => alert("Impossible de lire le fichier.");
+  reader.readAsDataURL(f);
 }
 
 function _chatSetBadge(n){
