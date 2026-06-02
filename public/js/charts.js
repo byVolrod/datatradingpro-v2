@@ -1374,11 +1374,12 @@ function buildDMXChart(forceRefresh = false) {
   const periodLbl = document.getElementById('dmx-period-label');
   if (periodLbl) periodLbl.textContent = _DMX_TF_LABELS[period] || period;
 
-  // Auto-force if data is older than 10 minutes
-  const stale = Date.now() - _dmxLastUpdate > 10 * 60 * 1000;
-  const url = `/api/community-outlook?period=${period}${(forceRefresh || stale) ? '&force=1' : ''}`;
+  // On NE force PLUS automatiquement : le serveur sert son cache INSTANTANÉMENT et le tient
+  // à jour en arrière-plan (refresh 5 min). On ne force (refresh fond) que via le bouton Retry.
+  const url = `/api/community-outlook?period=${period}${forceRefresh ? '&force=1' : ''}`;
 
-  wrap.innerHTML = '<div class="dmx-loading">Loading data…</div>';
+  // On n'affiche "Loading…" que si l'onglet est vide (sinon on garde l'ancien rendu → pas de flash)
+  if (!wrap.querySelector('.dmx2-row')) wrap.innerHTML = '<div class="dmx-loading">Loading data…</div>';
 
   fetch(url)
     .then(r => r.json())
