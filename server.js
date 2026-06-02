@@ -201,7 +201,28 @@ app.get('/admin', requireAuth, requireAdmin, (_req, res) => {
 });
 
 // ─── Auth routes ──────────────────────────────────────────────────────────────
+// ── Rate-limiting léger en mémoire (anti brute-force / abus, sans dépendance) ──
+const _rlBuckets = new Map();   // clé → [timestamps]
+function _clientIp(req) {
+  return (req.headers['x-forwarded-for'] || '').split(',')[0].trim()
+      || req.ip || req.socket?.remoteAddress || 'unknown';
+}
+function _rateLimited(key, max, windowMs) {
+  const now = Date.now();
+  const arr = (_rlBuckets.get(key) || []).filter(t => now - t < windowMs);
+  arr.push(now);
+  _rlBuckets.set(key, arr);
+  if (_rlBuckets.size > 5000) {                 // nettoyage anti-fuite mémoire
+    for (const [k, v] of _rlBuckets) if (!v.length || now - v[v.length - 1] > windowMs) _rlBuckets.delete(k);
+  }
+  return arr.length > max;
+}
+
 app.post('/api/auth/login', async (req, res) => {
+  // Anti brute-force : max 10 tentatives / 5 min / IP
+  if (_rateLimited('login:' + _clientIp(req), 10, 5 * 60 * 1000)) {
+    return res.status(429).json({ error: 'Trop de tentatives de connexion. Réessayez dans quelques minutes.' });
+  }
   const { email, password } = req.body || {};
   if (!email || !password) return res.json({ error: 'Email et mot de passe requis' });
   try {
@@ -234,6 +255,8 @@ app.post('/api/auth/logout', (req, res) => {
 app.post('/api/auth/forgot-password', (req, res) => {
   const email = (req.body?.email || '').toLowerCase().trim();
   res.json({ ok: true });   // réponse IMMÉDIATE (UX instantanée + anti-énumération)
+  // Anti-abus : max 5 demandes / 10 min / IP (au-delà, on ignore silencieusement)
+  if (_rateLimited('forgot:' + _clientIp(req), 5, 10 * 60 * 1000)) return;
   if (!email) return;
   // Le travail (lookup + hash bcrypt + update DB + email) se fait en arrière-plan, après la réponse.
   (async () => {
