@@ -1747,8 +1747,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // Liste des onglets valides (pour valider une valeur mémorisée)
   const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'bank'];
   // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
-  const TITLE_LABEL = { news:'JOT', calendar:'CALENDAR', fxlist:'FX LIST', institution:'INSTITUTION', analyst:'ANALYST', bias:'BIAS', bank:'BANK', markets:'MARCHÉS' };
-  function _setDocTitle(view) { try { document.title = 'DTP | ' + (TITLE_LABEL[view] || 'JOT'); } catch {} }
+  // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
+  // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
+  function _setDocTitle(_view) {
+    try { document.title = 'DataTradingPro' + (window._dtpUser ? ' - ' + window._dtpUser : ''); } catch {}
+  }
 
   function activateView(view, { persist = true } = {}) {
     // MARCHÉS (mobile uniquement) : on bascule sur la colonne de droite (horloges, RISK, STRENGTH, COT…)
