@@ -3516,18 +3516,22 @@ function renderArlibList() {
         </svg>
       </div>
       <div class="arlib-card-body">
-        <div class="arlib-card-title">${title}</div>
-        <div class="arlib-card-tags">
-          ${shown.map(t => `<span class="arlib-tag">${t}</span>`).join('')}
-          ${extra > 0 ? `<span class="arlib-tag-extra">+${extra}</span>` : ''}
+        <div class="arlib-card-top">
+          <div class="arlib-card-title">${title}</div>
+          <svg class="arlib-bookmark" width="12" height="14" viewBox="0 0 12 14" fill="none">
+            <path d="M1 1h10v12l-5-3-5 3V1z" stroke="currentColor" stroke-width="1.2"/>
+          </svg>
         </div>
-      </div>
-      <div class="arlib-card-right">
-        <svg class="arlib-bookmark" width="12" height="14" viewBox="0 0 12 14" fill="none">
-          <path d="M1 1h10v12l-5-3-5 3V1z" stroke="currentColor" stroke-width="1.2"/>
-        </svg>
-        ${badge}
-        <span class="arlib-card-date">${dateStr}</span>
+        <div class="arlib-card-meta">
+          <div class="arlib-card-tags">
+            ${shown.map(t => `<span class="arlib-tag">${t}</span>`).join('')}
+            ${extra > 0 ? `<span class="arlib-tag-extra">+${extra}</span>` : ''}
+          </div>
+          <div class="arlib-card-meta-right">
+            ${badge}
+            <span class="arlib-card-date">${dateStr}</span>
+          </div>
+        </div>
       </div>`;
 
     card.addEventListener('click', () => {
@@ -3792,9 +3796,15 @@ function renderArlibReader(item) {
     const _isSrcLine = t => /this article was written by|written by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|think\.ing|fxstreet|actionforex|forexlive)\.com|follow .* on (?:twitter|x)\b|©\s*\d{4}/i.test(t || '');
 
     const walk = (el) => {
+      // Ignore les nœuds COMMENTAIRE (8) et INSTRUCTION (7) : une déclaration <?xml …?>
+      // injectée via innerHTML devient un commentaire dont le texte "?xml version…" fuyait
+      // en tant que puce. On ne traite que les vrais nœuds ÉLÉMENT (1) et TEXTE (3).
+      if (el.nodeType === 8 || el.nodeType === 7) return;
       const tag = (el.tagName || '').toLowerCase();
       if (!tag) {
+        if (el.nodeType !== 3) return;                       // pas un vrai nœud texte → on ignore
         const t = (el.textContent || '').trim();
+        if (/^<?\s*\??\s*xml\b/i.test(t)) return;            // garde-fou : déclaration XML résiduelle
         if (t.length > 15 && !_isSrcLine(t)) { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`; bulletCount++; }
         return;
       }

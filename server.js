@@ -979,8 +979,18 @@ ${points.map(p => '- ' + p).join('\n')}`;
 }
 
 // Nettoyage HTML commun (retire médias/scripts)
+// Retire les déclarations XML, prologs et commentaires HTML qui, injectés via innerHTML,
+// fuyaient en "?xml version=..." dans le rendu des rapports.
+function _stripXmlNoise(h) {
+  return String(h || '')
+    .replace(/<\?xml[\s\S]*?\?>/gi, '')          // <?xml version="1.0" encoding="UTF-8"?>
+    .replace(/<\?[\s\S]*?\?>/g, '')              // autres instructions de traitement
+    .replace(/<!DOCTYPE[^>]*>/gi, '')            // <!DOCTYPE …>
+    .replace(/<!\[CDATA\[|\]\]>/g, '')           // marqueurs CDATA
+    .replace(/<!--[\s\S]*?-->/g, '');            // commentaires HTML
+}
 function _cleanWrapHtml(h) {
-  return (h || '')
+  return _stripXmlNoise(h || '')
     .replace(/<img[^>]*>/gi, '').replace(/<figure[^>]*>[\s\S]*?<\/figure>/gi, '')
     .replace(/<iframe[^>]*>[\s\S]*?<\/iframe>/gi, '').replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '').trim();
@@ -1032,14 +1042,14 @@ app.get('/api/session-wrap-content', async (req, res) => {
     }
     if (seg) {
       if (cached) cached.content = seg;
-      return res.json({ html: seg, source: 'ai' });
+      return res.json({ html: _stripSource(seg), source: 'ai' });
     }
   }
 
   // ── 1.6 Sinon, HTML brut (RSS/HTTP) ──────────────────────────────────────────
   if (rawHtml && rawHtml.length > 100) {
     if (cached) cached.content = rawHtml;
-    return res.json({ html: rawHtml, source: 'raw' });
+    return res.json({ html: _stripSource(rawHtml), source: 'raw' });
   }
 
   // ── 2. Puppeteer — render le SPA Vue/Nuxt côté client (fallback rare) ─────────
@@ -1053,7 +1063,7 @@ app.get('/api/session-wrap-content', async (req, res) => {
       // Mettre en cache pour les prochains appels
       if (cached) cached.content = clean;
       console.log(`[IL] Content extracted: ${clean.length} chars`);
-      return res.json({ html: clean, source: 'puppeteer' });
+      return res.json({ html: _stripSource(clean), source: 'puppeteer' });
     }
     throw new Error('No content found via Puppeteer');
   } catch (e) {
@@ -1163,15 +1173,19 @@ app.get('/api/fx-daily', (_req, res) => {
   if (Date.now() - _brFetchedAt > 20 * 60 * 1000) _fetchBankResearch(false).catch(() => {});
 });
 
-// Retire les lignes d'attribution de source de tout HTML de rapport (aucune source affichée)
+// Retire les lignes d'attribution de source/auteur de tout HTML de rapport (aucune source affichée)
 function _stripSource(html) {
-  return String(html || '')
-    // paragraphes entiers d'attribution
-    .replace(/<p[^>]*>\s*(?:this article was written by|written by\b)[\s\S]*?<\/p>/gi, '')
+  return _stripXmlNoise(html || '')
+    // paragraphes entiers d'attribution (auteur, "by X", domaine source)
+    .replace(/<p[^>]*>\s*(?:this article was written by|written by\b|by\s+[A-Z][\w.'-]+(?:\s+[A-Z][\w.'-]+){0,3}\s*$)[\s\S]*?<\/p>/gi, '')
     .replace(/<p[^>]*>[^<]*\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com[^<]*<\/p>/gi, '')
+    // bloc auteur ING ("Author", "Senior … Economist", "Read more / Download / Disclaimer")
+    .replace(/<p[^>]*>\s*(?:read (?:this )?article|download|disclaimer|content disclaimer|this publication)[\s\S]*?<\/p>/gi, '')
     // phrase d'attribution complète (hors balises), jusqu'au domaine source
     .replace(/(?:this article was written by|written by)\b[^<]*?\b(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com\.?/gi, '')
     .replace(/\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com\.?/gi, '')
+    // crédits photo / "Source:" résiduels
+    .replace(/<p[^>]*>\s*(?:source|photo|image)\s*:[\s\S]*?<\/p>/gi, '')
     .trim();
 }
 
