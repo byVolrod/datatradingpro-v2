@@ -1187,12 +1187,12 @@ app.post('/api/analyse', async (req, res) => {
 Headline: ${headline}
 Category: ${category}${ctx}
 
-Write 2-4 bullet points. Rules:
-- Name the exact instruments affected (EUR/USD, Brent, XAU/USD, US10Y, etc.)
-- Explain the causal mechanism, not just direction
-- Be specific and non-generic, max 25 words per bullet
-- Start each bullet with •
-- Respond only with the bullets, no preamble`, 350);
+Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
+- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
+- Explain the concrete causal mechanism for THIS story, not generic phrasing.
+- Max 22 words per bullet. Vary the angle per news; do not reuse the same wording across news.
+- NO bold, NO markdown, NO asterisks. Plain text only.
+- Start each bullet with • . Reply ONLY with the bullets, no preamble.`, 320);
     const bullets = text.split('\n')
       .map(l => l.trim())
       .filter(l => /^[•\-\*]/.test(l))
@@ -1227,12 +1227,13 @@ app.post('/api/news-info', async (req, res) => {
   try {
     aiNote('news');
     const text = await ai.generateText(`You are an editor for a professional financial news terminal (trading-desk style, like Newsquawk).
-Rewrite the information below into 3 to 6 clear, factual bullet points for a forex/macro trader (more bullets if the content is rich).
+Summarise the information below into 2 to 3 SHORT bullets, tailored to THIS specific news (never a template).
 STRICT rules:
-- Keep ALL exact figures (percentages, levels, dates).
-- Bold the key figures and important terms using **double asterisks**.
-- One idea per bullet, max 28 words, neutral and precise tone (no investment advice).
-- Write in the SAME language as the source content (do NOT translate). News is usually in English → answer in English.
+- Keep the exact key figures (percentages, levels, dates) but stay concise.
+- Capture what is ACTUALLY new/important in THIS story — vary the angle per news, do not reuse wording.
+- One idea per bullet, max 24 words, neutral factual tone (no investment advice).
+- NO bold, NO markdown, NO asterisks — plain text only.
+- Same language as the source (usually English → answer in English).
 - No preamble, no conclusion: reply ONLY with the bullets, each starting with •.
 
 Headline: ${headline}
