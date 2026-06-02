@@ -563,14 +563,15 @@ function _smoothCS(pts) {
   });
 }
 
-function buildStrengthChart(containerId, data) {
+function buildStrengthChart(containerId, data, opts = {}) {
+  const _focus = opts.focusCurrency || null;   // mode isolé : 1 devise en couleur, les autres en gris 10%
   disposeRoot(containerId);
   const container = document.getElementById(containerId);
   if (container) container.innerHTML = '';
   const root = am5.Root.new(containerId);
   root.setThemes([applyTerminalTheme(root)]);
   root._logo?.set('forceHidden', true);
-  _strengthRoot = root;
+  if (!_focus) _strengthRoot = root;   // mode isolé (rapport) : ne pas écraser la réf. de l'onglet STRENGTH
 
   const chart = root.container.children.push(
     am5xy.XYChart.new(root, {
@@ -657,7 +658,8 @@ function buildStrengthChart(containerId, data) {
   let scaleFactor = computeScale(data);
 
   for (const ccy of data.currencies) {
-    const hexColor = CS_COLORS[ccy] || 0x888888;
+    const dim      = _focus && ccy !== _focus;            // courbe à estomper (devise non sélectionnée)
+    const hexColor = dim ? 0x5b6471 : (CS_COLORS[ccy] || 0x888888);
     const hexStr   = '#' + hexColor.toString(16).padStart(6, '0');
     const color    = am5.color(hexColor);
     const pts      = (data.series[ccy] || [])
@@ -678,7 +680,7 @@ function buildStrengthChart(containerId, data) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: 1.8 });   // lignes fines et lisses
+    series.strokes.template.setAll({ strokeWidth: dim ? 1.1 : 1.8, strokeOpacity: dim ? 0.10 : 1 });   // isolé : 10% gris
     const cleanPts = _smoothCS(pts);
     series.data.setAll(cleanPts);
 
@@ -701,6 +703,10 @@ function buildStrengthChart(containerId, data) {
     });
     range.get('tick').set('visible', false);
     range.get('grid').setAll({ stroke: color, strokeOpacity: 0.20, strokeDasharray: [3, 3] });
+    if (dim) {   // mode isolé : on masque le badge + la ligne de la devise estompée
+      range.get('label').set('visible', false);
+      range.get('grid').set('strokeOpacity', 0);
+    }
 
     seriesArr.push(series);
     seriesMap[ccy] = series;
@@ -773,6 +779,23 @@ function buildStrengthChart(containerId, data) {
 
   return { root, seriesMap, update };
 }
+
+// Graphique de force ISOLÉ (réutilisé par le Weekly Recap) :
+// la devise `focusCurrency` garde sa couleur à 100 %, les 7 autres passent en gris à 10 %.
+async function buildIsolatedStrength(containerId, focusCurrency, period = 'week') {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = '<div class="wr-chart-loading">Chargement de la force des devises…</div>';
+  try {
+    const data = await fetch(`/api/currency-strength?period=${period}`).then(r => r.json());
+    if (!data || !data.currencies) { el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
+    el.innerHTML = '';
+    return buildStrengthChart(containerId, data, { focusCurrency });
+  } catch {
+    el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>';
+  }
+}
+window.buildIsolatedStrength = buildIsolatedStrength;
 
 // Ranked snapshot view — horizontal bars sorted strongest → weakest
 function buildStrengthSnapshot(containerId, data) {

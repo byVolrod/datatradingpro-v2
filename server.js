@@ -694,6 +694,17 @@ app.get('/api/session-wraps', (_req, res) => {
   if (Date.now() - _swFetchedAt > 20 * 60 * 1000) _fetchSessionWraps(false).catch(() => {});
 });
 
+// Rapports HEBDOMADAIRES (Weekly Market Recap + Global Economic Weekly) — servis directement
+// depuis allNews quel que soit leur âge (l'onglet Analyst les charge ainsi, sans dépendre du flux WS).
+app.get('/api/weekly-reports', (_req, res) => {
+  const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
+  const items = allNews.filter(i =>
+    (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly') &&
+    i.timestamp > cutoff
+  ).sort((a, b) => b.timestamp - a.timestamp);
+  res.json({ items });
+});
+
 // ── Puppeteer browser partagé pour InvestingLive (SPA Vue/Nuxt) ─────────────
 let _ilBrowser = null;
 
@@ -2061,7 +2072,111 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 async function generateGlobalEconomicWeekly(force = false) {
   return generateWeeklyBriefing({ idPrefix: 'pmt-econ-weekly-', reportType: 'Global Economic Weekly', force, buildFn: buildGlobalEconomicWeekly });
 }
+// Vendredi le plus récent (≤ maintenant) — utilisé pour la mention "Week Ending: dd.mm.yyyy"
+function _mostRecentFriday() {
+  const d = new Date();
+  const diff = (d.getUTCDay() - 5 + 7) % 7;   // jours écoulés depuis vendredi
+  d.setUTCDate(d.getUTCDate() - diff);
+  return d;
+}
+
+// ── Weekly Market Recap RICHE (Gemini → JSON structuré) ──
+// Copie de la logique Prime Terminal : résumé global, cartes d'insights, Key Macro Highlights,
+// et analyse détaillée par devise (USD…NZD). Renvoie null si l'IA échoue (→ fallback par règles).
+async function generateWeeklyRecapAI(force = false) {
+  const idPrefix = 'pmt-mkt-recap-';
+  const now  = Date.now();
+  const d    = new Date(now);
+  const jan1 = new Date(d.getFullYear(), 0, 1);
+  const wk   = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  const weekKey    = `${d.getFullYear()}-W${String(wk).padStart(2, '0')}`;
+  const weekPrefix = idPrefix + weekKey;
+
+  if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix))) {
+    console.log(`[Weekly Recap] déjà généré pour ${weekKey}, skip.`);
+    return allNews.find(i => (i.id || '').startsWith(weekPrefix)) || null;
+  }
+  if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(weekPrefix));
+
+  // Compile l'historique des 7 derniers jours (Mon-Fri de news macro + analyses)
+  const cutoff = now - 7 * 24 * 60 * 60 * 1000;
+  const heads  = allNews
+    .filter(i => i.timestamp > cutoff && !i._briefing)
+    .slice(0, 220)
+    .map(i => `[${i.category || ''}] ${i.headline}`)
+    .join('\n');
+  if (!heads) { console.warn('[Weekly Recap] aucune news récente → fallback'); return null; }
+
+  const fri = _mostRecentFriday();
+  const weekEnding = `${String(fri.getUTCDate()).padStart(2,'0')}.${String(fri.getUTCMonth()+1).padStart(2,'0')}.${fri.getUTCFullYear()}`;
+  const CCY = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
+
+  const prompt = `You are a senior macro strategist writing the WEEKLY MARKET RECAP for a professional FX & markets desk. The trading week (Monday–Friday) just closed. Write in clear professional English.
+
+Using the past week's headlines below, produce the recap. Return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
+{
+  "title": "Weekly Market Recap: <punchy headline capturing the week's main story>",
+  "summary": "<2 to 4 sentence global overview of how markets traded this week>",
+  "insights": ["<concise standalone insight, 1 sentence>", "... up to 8 insight cards"],
+  "macro": [
+    { "heading": "<macro theme, e.g. Middle East Geopolitics>", "bullets": ["**Sub-topic:** one or two detailed sentences", "..."] }
+  ],
+  "currencies": {
+    "USD": "<1 to 2 paragraph analysis of the US dollar's week, drivers and outlook>",
+    "EUR": "...", "JPY": "...", "GBP": "...", "CHF": "...", "AUD": "...", "CAD": "...", "NZD": "..."
+  }
+}
+Rules: 4 to 6 macro themes; 6 to 8 insight cards; EVERY currency in [${CCY.join(', ')}] must be present with substantive analysis. No source attributions, no URLs.
+
+Headlines (past 7 days):
+${heads}`;
+
+  let parsed = null;
+  try {
+    const text = await ai.generateText(prompt, 4096);
+    const m = text.match(/\{[\s\S]*\}/);
+    if (m) parsed = JSON.parse(m[0]);
+  } catch (e) { console.warn('[Weekly Recap] IA échec:', e.message); return null; }
+  if (!parsed || !parsed.currencies || typeof parsed.currencies !== 'object') {
+    console.warn('[Weekly Recap] JSON IA invalide → fallback'); return null;
+  }
+
+  const weekly = {
+    title:      parsed.title || 'Weekly Market Recap',
+    weekEnding,
+    summary:    parsed.summary || '',
+    insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 8) : [],
+    macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).slice(0, 6) : [],
+    currencies: {},
+  };
+  for (const c of CCY) if (parsed.currencies[c]) weekly.currencies[c] = String(parsed.currencies[c]).trim();
+
+  // Description texte (fallback/recherche/affichage simple)
+  const descParts = [weekly.summary];
+  weekly.macro.forEach(s => { descParts.push('\n' + s.heading); (s.bullets||[]).forEach(b => descParts.push('- ' + String(b).replace(/\*\*/g,''))); });
+  const timeStr = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
+
+  const item = {
+    id: weekPrefix + '-' + now,
+    headline: weekly.title,
+    description: descParts.filter(Boolean).join('\n'),
+    category: 'Market Analysis', source: 'PMT', time: timeStr, timestamp: now,
+    priority: 'normal', tags: ['Weekly Recap', 'Markets', 'FX'],
+    _briefing: true, _reportType: 'Weekly Market Recap', _weekly: weekly,
+  };
+  allNews = [item, ...allNews].slice(0, 2000);
+  saveHistory();
+  try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
+  console.log(`[Weekly Recap] généré (IA) ${weekKey} — ${Object.keys(weekly.currencies).length} devises, ${weekly.insights.length} insights`);
+  return item;
+}
+
 async function generateWeeklyMarketRecap(force = false) {
+  try {
+    const item = await generateWeeklyRecapAI(force);
+    if (item) return item;
+  } catch (e) { console.warn('[Weekly Recap] chemin IA échoué:', e.message); }
+  // Fallback par règles (bullets, sans structure riche → l'UI affiche le rendu simple)
   return generateWeeklyBriefing({ idPrefix: 'pmt-mkt-recap-', reportType: 'Weekly Market Recap', force, buildFn: buildWeeklyMarketRecap });
 }
 
@@ -2076,10 +2191,10 @@ async function generateWeeklyMarketRecap(force = false) {
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
-  // Rapports HEBDOMADAIRES (vendredi uniquement)
+  // Rapports HEBDOMADAIRES — SAMEDI 02:00 UTC (tous les marchés mondiaux fermés pour la semaine)
   const weekly = [
-    { fn: () => generateGlobalEconomicWeekly(false),  h: 18, m: 0,  name: 'Global Economic Weekly' },
-    { fn: () => generateWeeklyMarketRecap(false),     h: 21, m: 0,  name: 'Weekly Market Recap'    },
+    { fn: () => generateGlobalEconomicWeekly(false),  hUTC: 2, mUTC: 0,  name: 'Global Economic Weekly' },
+    { fn: () => generateWeeklyMarketRecap(false),     hUTC: 2, mUTC: 5,  name: 'Weekly Market Recap'    },
   ];
 
   function msToNextParis(h, m) {
@@ -2090,19 +2205,15 @@ async function generateWeeklyMarketRecap(force = false) {
     if (paris >= target) target.setDate(target.getDate() + 1);
     return target.getTime() - paris.getTime();
   }
-  function msToNextFriday(h, m) {
-    const now   = new Date();
-    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-    const target = new Date(paris);
-    const daysToFri = (5 - paris.getDay() + 7) % 7 || 7;
-    target.setDate(target.getDate() + daysToFri);
-    target.setHours(h, m, 0, 0);
-    // Si on est vendredi et l'heure n'est pas encore passée
-    if (paris.getDay() === 5 && paris < target) {
-      target.setDate(paris.getDate());
-      target.setHours(h, m, 0, 0);
-    }
-    return target.getTime() - paris.getTime();
+  // Prochain SAMEDI à hUTC:mUTC (heure UTC) — pour les rapports hebdo (marchés fermés)
+  function msToNextSaturdayUTC(hUTC, mUTC) {
+    const now    = new Date();
+    const target = new Date(now);
+    const daysToSat = (6 - now.getUTCDay() + 7) % 7;   // 6 = samedi
+    target.setUTCDate(now.getUTCDate() + daysToSat);
+    target.setUTCHours(hUTC, mUTC, 0, 0);
+    if (target.getTime() <= now.getTime()) target.setUTCDate(target.getUTCDate() + 7);
+    return target.getTime() - now.getTime();
   }
 
   for (const { fn, h, m, name } of daily) {
@@ -2113,9 +2224,9 @@ async function generateWeeklyMarketRecap(force = false) {
       setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 24 * 60 * 60 * 1000);
     }, delay);
   }
-  for (const { fn, h, m, name } of weekly) {
-    const delay = msToNextFriday(h, m);
-    console.log(`[PMT] ${name} (weekly/Friday) scheduled in ${Math.round(delay / 60000)} min`);
+  for (const { fn, hUTC, mUTC, name } of weekly) {
+    const delay = msToNextSaturdayUTC(hUTC, mUTC);
+    console.log(`[PMT] ${name} (samedi ${hUTC}:${String(mUTC).padStart(2,'0')} UTC) dans ${Math.round(delay / 60000)} min`);
     setTimeout(function run() {
       fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message));
       setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 7 * 24 * 60 * 60 * 1000);
@@ -2127,14 +2238,11 @@ async function generateWeeklyMarketRecap(force = false) {
   setTimeout(() => {
     daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] startup ${name} failed:`, e.message)));
 
-    // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le vendredi soir ou le week-end,
-    // les rapports hebdomadaires n'ont pas été générés. On les (re)génère ici — la dédup par
-    // semaine ISO évite tout doublon. Garde-fou : uniquement vendredi soir (≥21h) ou samedi/dimanche,
-    // pour ne PAS créer un recap prématuré en milieu de semaine.
-    const parisNow  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-    const pDay = parisNow.getDay();        // 0=dim … 5=ven, 6=sam
-    const pHour = parisNow.getHours();
-    if (pDay === 6 || pDay === 0 || (pDay === 5 && pHour >= 21)) {
+    // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le week-end, les rapports hebdo
+    // (samedi 02:00 UTC) n'ont pas été générés. On les (re)génère ici — la dédup par semaine ISO
+    // évite tout doublon. Garde-fou : uniquement samedi/dimanche (UTC), pas en milieu de semaine.
+    const uDay = new Date().getUTCDay();   // 0=dim, 6=sam
+    if (uDay === 6 || uDay === 0) {
       weekly.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] rattrapage hebdo ${name} échec:`, e.message)));
     }
   }, 25 * 1000);

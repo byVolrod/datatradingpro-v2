@@ -128,6 +128,7 @@ function _renderInfoBullets(bullets) {
 }
 let _sessionWraps = [];
 let _brArticles  = [];
+let _weeklyReports = [];   // Weekly Market Recap + Global Economic Weekly (servis par /api/weekly-reports)
 let _brSearch    = '';
 let _brInst      = 'all';
 let _brType      = 'all';
@@ -2760,12 +2761,16 @@ function loadAnalystView() {
   Promise.allSettled([
     fetch('/api/session-wraps').then(r => r.json()),
     fetch('/api/bank-research').then(r => r.json()),
-  ]).then(([swResult, brResult]) => {
+    fetch('/api/weekly-reports').then(r => r.json()),
+  ]).then(([swResult, brResult, wkResult]) => {
     if (swResult.status === 'fulfilled' && Array.isArray(swResult.value)) {
       _sessionWraps = swResult.value.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
     }
     if (brResult.status === 'fulfilled' && Array.isArray(brResult.value)) {
       _brArticles = brResult.value;
+    }
+    if (wkResult.status === 'fulfilled' && Array.isArray(wkResult.value?.items)) {
+      _weeklyReports = wkResult.value.items;
     }
   }).finally(() => renderArlibList());
 }
@@ -3320,10 +3325,12 @@ function getArlibItems() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   // Session wraps InvestingLive…
   const wraps = (_sessionWraps || []).filter(i => i.timestamp > cutoff);
-  // …+ les rapports HEBDOMADAIRES (Weekly Recap / Global Economic Weekly), issus du flux temps réel.
-  // (Les autres rapports DTP quotidiens restent dans le flux NEWS, pas ici.)
-  const weekly = (typeof allItems !== 'undefined' ? allItems : [])
-    .filter(i => _ARLIB_WEEKLY.has(i._reportType) && i.timestamp > cutoff);
+  // …+ les rapports HEBDOMADAIRES (Weekly Recap / Global Economic Weekly).
+  // Source fiable : /api/weekly-reports (quel que soit l'âge) + flux temps réel en complément.
+  const weekly = [
+    ...(_weeklyReports || []),
+    ...(typeof allItems !== 'undefined' ? allItems : []).filter(i => _ARLIB_WEEKLY.has(i._reportType)),
+  ].filter(i => i.timestamp > cutoff);
   const seen = new Set();
   return [...weekly, ...wraps]
     .filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; })
@@ -3537,8 +3544,90 @@ function aiInsToggle(btn, hostId) {
   btn.innerHTML = willHide ? `${_EYE} Afficher Insights` : `${_EYE_OFF} Masquer Insights`;
 }
 
+// ═══════════ WEEKLY MARKET RECAP — rendu riche (copie Prime Terminal) ═══════════
+let _wrCurrency = null;   // devise active dans le rapport (null = vue d'ensemble)
+function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function _wrInline(t){ return _wrEsc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); }
+function _wrParas(t){
+  return String(t||'').split(/\n{2,}|\n/).map(p=>p.trim()).filter(Boolean)
+    .map(p=>`<p class="wr-p">${_wrInline(p)}</p>`).join('');
+}
+
+function _renderWeeklyRecap(item) {
+  const w = item._weekly || {};
+  const titleEl    = document.getElementById('arlib-rnav-title');
+  const tagsScroll = document.getElementById('arlib-rtags-scroll');
+  const content    = document.getElementById('arlib-rcontent');
+  const navRight   = document.querySelector('#arlib-reader-view .arlib-rnav-right');
+  if (!content) return;
+  document.getElementById('arlib-ai-insights')?.remove();   // pas d'insights auto (on a les nôtres)
+
+  if (titleEl) titleEl.innerHTML = `${_wrEsc(w.title)}  <span class="wr-weekending">Week Ending: ${_wrEsc(w.weekEnding||'')}</span>`;
+  if (navRight) navRight.innerHTML = '<span class="arlib-dtp-badge">DTP</span>';
+
+  // Sélecteur de devises (badges) dans la barre sous le titre
+  const ccys = Object.keys(w.currencies || {});
+  if (tagsScroll) {
+    tagsScroll.innerHTML = ccys.map(c =>
+      `<span class="wr-ccy-badge" data-wr-ccy="${c}" onclick="_wrSelectCurrency('${c}')">${c}</span>`).join('');
+    tagsScroll.scrollLeft = 0;
+  }
+
+  _wrCurrency = null;
+  content.innerHTML = `
+    <div class="wr">
+      ${ (w.insights && w.insights.length) ? `
+        <div class="wr-insights-head"><span class="wr-ai-ic">🤖</span> AI Insights</div>
+        <div class="wr-insights">${w.insights.map(t=>`<div class="wr-insight-card">${_wrEsc(t)}</div>`).join('')}</div>` : '' }
+      <div class="wr-body" id="wr-body"></div>
+    </div>`;
+  _wrRenderBody(item);
+  content.scrollTop = 0;
+}
+
+function _wrRenderBody(item) {
+  const w = item._weekly || {};
+  const body = document.getElementById('wr-body');
+  if (!body) return;
+  document.querySelectorAll('[data-wr-ccy]').forEach(b =>
+    b.classList.toggle('wr-ccy-badge--active', b.dataset.wrCcy === _wrCurrency));
+
+  let html = '';
+  if (_wrCurrency) {
+    html += `<div class="wr-section-title">${_wrCurrency} Analysis</div>`;
+    html += `<div class="wr-text">${_wrParas(w.currencies[_wrCurrency] || 'Analyse indisponible.')}</div>`;
+  } else {
+    if (w.summary) html += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+    if (w.macro && w.macro.length) {
+      html += `<div class="wr-section-title">Key Macro Highlights</div>`;
+      w.macro.forEach(s => {
+        html += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
+        (s.bullets||[]).forEach(b => { html += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+      });
+    }
+    html += `<div class="wr-section-title">Currency Analysis</div>`;
+    html += `<div class="wr-hint">Sélectionnez une devise ci-dessus pour son analyse + sa courbe de force isolée.</div>`;
+  }
+  // Graphique de force (isolé sur la devise active, ou vue complète sinon)
+  html += `<div class="wr-section-title">Currency Strength${_wrCurrency ? ' · '+_wrCurrency : ''}</div>`;
+  html += `<div class="wr-chart" id="wr-strength-chart"></div>`;
+  body.innerHTML = html;
+
+  if (typeof buildIsolatedStrength === 'function') {
+    buildIsolatedStrength('wr-strength-chart', _wrCurrency, 'week');
+  }
+}
+
+function _wrSelectCurrency(ccy) {
+  _wrCurrency = (_wrCurrency === ccy) ? null : ccy;   // re-clic sur la devise active = retour vue d'ensemble
+  if (_currentArlibItem) _wrRenderBody(_currentArlibItem);
+  const c = document.getElementById('arlib-rcontent'); if (c) c.scrollTop = 0;
+}
+window._wrSelectCurrency = _wrSelectCurrency;
+
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
+  if (item && item._weekly) { _renderWeeklyRecap(item); return; }   // ← rendu riche Weekly Recap
   document.getElementById('arlib-insights-panel')?.remove(); // reset any previous insights
   const titleEl    = document.getElementById('arlib-rnav-title');
   const tagsScroll = document.getElementById('arlib-rtags-scroll');
