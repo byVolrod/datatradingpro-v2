@@ -1432,13 +1432,20 @@ html, body {
 
 .clocks-bar {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));  /* 4 colonnes égales */
+  grid-template-columns: repeat(5, minmax(0, 1fr));  /* 5 villes (Londres, NY, Tokyo, Dubai, Paris) */
   background: var(--bg1);
   flex-shrink: 0;
 }
 /* En dessous de 1150px de viewport → horloges sur 2×2 */
 @media (max-width: 1150px) {
   .clocks-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+/* 1151–1500px : on garde 5 colonnes mais on réduit l'heure pour éviter le débordement */
+@media (min-width: 1151px) and (max-width: 1500px) {
+  .clock-time { font-size: 17px; }
+  .clock-item { padding: 8px 10px; }
+  .clock-city-label { font-size: 11px; }
+  .clock-gmt { font-size: 9.5px; }
 }
 
 .clock-daynight {
@@ -1496,53 +1503,83 @@ html, body {
   margin-bottom: 3px;
 }
 
+/* Ligne GMT + ville (en ligne, comme Prime Terminal) */
+.clock-mid-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin-bottom: 7px;
+  overflow: hidden;
+}
 .clock-gmt {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  color: var(--text2);                /* + lisible */
+  color: var(--text2);
   letter-spacing: 0.04em;
-  margin-bottom: 7px;
+  flex-shrink: 0;
 }
-
 .clock-city-label {
   font-family: var(--font-mono);
-  font-size: 12.5px;                  /* nom de ville plus présent */
+  font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   letter-spacing: 0.02em;
+  flex: 1;
+  min-width: 0;
 }
-/* Orange = session active — closed stays neutral white */
+/* Ville en orange (accent terminal) ; session active = orange vif, fermée = orange atténué */
 .clock-city-label--open   { color: var(--orange); }
-.clock-city-label--closed { color: #eaeaea; }       /* blanc cassé bien lisible */
+.clock-city-label--closed { color: #cf8838; }
 
+/* Lignes pays|météo et jour|vent : 2 colonnes (gauche ↔ droite) */
+.clock-sub-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 4px;
+}
 .clock-country-row {
   font-family: var(--font-mono);
   font-size: 10px;
   font-weight: 500;
-  color: var(--text2);                /* + lisible (était text3) */
-  margin-top: 2px;
+  color: var(--text2);
   letter-spacing: 0.06em;
+  white-space: nowrap;
 }
-
 .clock-wx-row {
   font-family: var(--font-mono);
-  font-size: 11.5px;                  /* météo + lisible */
+  font-size: 11.5px;
   font-weight: 500;
   color: var(--text);
-  margin-top: 8px;
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
-
+.clock-daynight-lbl {
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--text2);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .clock-wind-row {
   font-family: var(--font-mono);
   font-size: 10.5px;
-  color: var(--text2);                /* + lisible (était text3) */
-  margin-top: 3px;
+  color: var(--text2);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
+.clock-wind-ic { opacity: 0.8; flex-shrink: 0; }
 
 /* legacy aliases */
 .clock-top, .clock-tz, .clock-city, .clock-meta,

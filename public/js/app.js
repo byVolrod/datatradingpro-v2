@@ -9,6 +9,7 @@ const CLOCKS = [
   { city: 'London',   code: 'LON', country: 'UK',  tz: 'Europe/London',    lat: 51.5074, lon: -0.1278  },
   { city: 'New York', code: 'NY',  country: 'US',  tz: 'America/New_York', lat: 40.7128, lon: -74.0060 },
   { city: 'Tokyo',    code: 'TKY', country: 'JP',  tz: 'Asia/Tokyo',       lat: 35.6762, lon: 139.6503 },
+  { city: 'Dubai',    code: 'DXB', country: 'UAE', tz: 'Asia/Dubai',       lat: 25.2048, lon: 55.2708  },
   { city: 'Paris',    code: 'PAR', country: 'FR',  tz: 'Europe/Paris',     lat: 48.8566, lon: 2.3522   },
 ];
 
@@ -2015,6 +2016,8 @@ function formatDate(ts) {
 }
 
 // ═══ World Clocks ═════════════════════════
+// Petite icône "vent" monochrome (placée devant la vitesse du vent)
+const CLOCK_WIND_ICON = '<svg class="clock-wind-ic" width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8h9a2.5 2.5 0 1 0-2.5-2.5"/><path d="M3 12h13a2.5 2.5 0 1 1-2.5 2.5"/><path d="M3 16h7"/></svg>';
 let _weatherLastFetch = 0;
 function refreshWeather() {
   _weatherLastFetch = Date.now();
@@ -2069,11 +2072,18 @@ function renderClocks() {
           <span class="clock-date">${month}/${day}</span>
         </div>
         <div class="clock-time">${timeStr}</div>
-        <div class="clock-gmt">GMT ${offset}</div>
-        <div class="clock-city-label clock-city-label--${isOpen ? 'open' : 'closed'}">${label}</div>
-        <div class="clock-country-row">${c.country || ''}</div>
-        <div class="clock-wx-row">${wx.icon} ${tempStr}</div>
-        <div class="clock-wind-row">${dayNightIcon} ${isDay ? 'Day' : 'Night'} · ${windStr}</div>
+        <div class="clock-mid-row">
+          <span class="clock-gmt">GMT ${offset}</span>
+          <span class="clock-city-label clock-city-label--${isOpen ? 'open' : 'closed'}">${label}</span>
+        </div>
+        <div class="clock-sub-row">
+          <span class="clock-country-row">${c.country || ''}</span>
+          <span class="clock-wx-row">${wx.icon} ${tempStr}</span>
+        </div>
+        <div class="clock-sub-row">
+          <span class="clock-daynight-lbl">${dayNightIcon} ${isDay ? 'Day' : 'Night'}</span>
+          <span class="clock-wind-row">${wx.wind !== '--' ? CLOCK_WIND_ICON + ' ' : ''}${windStr}</span>
+        </div>
       </div>`;
   }).join('');
   bar.innerHTML = html;
