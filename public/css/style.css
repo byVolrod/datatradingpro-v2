@@ -3864,7 +3864,7 @@ html, body {
 /* ═══════════ WEEKLY MARKET RECAP (copie Prime Terminal) ═══════════ */
 .wr-weekending { color:#ff7a00; font-style:italic; font-weight:600; font-size:13px; margin-left:6px; }
 /* Titre du rapport en haut du contenu (orange institutionnel PT) */
-.wr-doc-title { color:#ff7a00; font-size:14px; font-weight:600; line-height:1.375; margin:2px 0 2px; }   /* text-sm, semibold, leading-snug */
+.wr-doc-title { color:#ff7a00; font-size:14px; font-weight:600; line-height:1.375; letter-spacing:0.025em; margin:2px 0 2px; }   /* text-sm, semibold, leading-snug, tracking-wide */
 .wr-doc-week  { color:#ff7a00; font-size:13px; font-style:italic; margin:0 0 16px; }                     /* Week Ending: DD.MM.YYYY */
 @media (min-width:768px){ .wr-doc-title { font-size:16px; } }                                            /* md:text-base */
 /* Badges de devises (sélecteur sous le titre) */
@@ -4030,14 +4030,18 @@ html, body {
   font-family: var(--font-ui);
   margin-bottom: 8px;
 }
+/* Titre standardisé "Préfixe: Sujet" — style Prime Terminal :
+   text-[#ff7a00] text-sm md:text-base font-semibold leading-snug tracking-wide */
 .arlib-doc-title {
-  font-size: 20px;
-  font-weight: 700;
-  color: #e8e8e8;
-  line-height: 1.3;
+  font-size: 14px;            /* text-sm */
+  font-weight: 600;           /* font-semibold */
+  color: #ff7a00;             /* orange institutionnel */
+  line-height: 1.375;         /* leading-snug */
+  letter-spacing: 0.025em;    /* tracking-wide */
   font-family: var(--font-ui);
   margin-bottom: 10px;
 }
+@media (min-width: 768px) { .arlib-doc-title { font-size: 16px; } }   /* md:text-base */
 .arlib-doc-meta {
   font-size: 11px;
   color: #555;

@@ -128,6 +128,7 @@ function _renderInfoBullets(bullets) {
 }
 let _sessionWraps = [];
 let _brArticles  = [];
+let _fxDaily     = [];     // FX Daily (ING THINK) — rapport dédié dans l'onglet Analyst
 let _weeklyReports = [];   // Weekly Market Recap + Global Economic Weekly (servis par /api/weekly-reports)
 let _weeklyGenerating = false;
 let _weeklyRetryCount = 0;
@@ -2776,12 +2777,16 @@ function loadAnalystView() {
     fetch('/api/session-wraps').then(r => r.json()),
     fetch('/api/bank-research').then(r => r.json()),
     fetch('/api/weekly-reports').then(r => r.json()),
-  ]).then(([swResult, brResult, wkResult]) => {
+    fetch('/api/fx-daily').then(r => r.json()),
+  ]).then(([swResult, brResult, wkResult, fxResult]) => {
     if (swResult.status === 'fulfilled' && Array.isArray(swResult.value)) {
       _sessionWraps = swResult.value.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
     }
     if (brResult.status === 'fulfilled' && Array.isArray(brResult.value)) {
       _brArticles = brResult.value;
+    }
+    if (fxResult.status === 'fulfilled' && Array.isArray(fxResult.value)) {
+      _fxDaily = fxResult.value.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
     }
     if (wkResult.status === 'fulfilled') {
       if (Array.isArray(wkResult.value?.items)) _weeklyReports = wkResult.value.items;
@@ -3329,12 +3334,51 @@ function arlibShowReader() {
 const ARLIB_TYPE_ORDER = {
   'Global Economic Weekly':    0,
   'Weekly Market Recap':       1,
-  'Asia Opening Preparation':  2,
-  'London Opening Preparation':3,
-  'US Opening Preparation':    4,
-  'Daily Event Review':        5,
-  'Daily Market Recap':        6,
+  'FX Daily':                  2,
+  'Asia Opening Preparation':  3,
+  'London Opening Preparation':4,
+  'US Opening Preparation':    5,
+  'Daily Event Review':        6,
+  'Daily Market Recap':        7,
 };
+
+// ── Standardisation des titres de rapports : "[Préfixe fixe]: [Sujet dynamique]" ──
+// Réplique le style rigoureux de Prime Terminal. Le préfixe dépend du type de rapport ;
+// le sujet est extrait du titre (avec fallback si le préfixe est absent).
+const REPORT_PREFIX = {
+  'Global Economic Weekly':     'Global Economic Weekly',
+  'Weekly Market Recap':        'Weekly Market Recap',
+  'FX Daily':                   'FX Daily',
+  'Asia Opening Preparation':   'Asia Opening Preparation',
+  'London Opening Preparation': 'London Opening Preparation',
+  'US Opening Preparation':     'US Opening Preparation',
+  'London Session Recap':       'London Session Recap',
+  'US Session Recap':           'US Session Recap',
+  'Daily Event Review':         'Daily Event Review',
+  'Daily Market Recap':         'Daily Market Recap',
+};
+const _ALL_PREFIXES = [...new Set(Object.values(REPORT_PREFIX))]
+  .sort((a, b) => b.length - a.length);   // plus longs d'abord (évite les correspondances partielles)
+
+function _reportPrefixFor(item) {
+  if (item._reportType && REPORT_PREFIX[item._reportType]) return REPORT_PREFIX[item._reportType];
+  // Articles ING THINK : série "FX Daily" reconnue par son titre
+  if (item._source === 'ing-think' && /^\s*FX Daily\b/i.test(item.title || item.headline || '')) return 'FX Daily';
+  return null;   // session wraps & autres ING : on garde leur titre d'origine
+}
+
+// Renvoie le titre normalisé "Préfixe: Sujet". Si un préfixe connu est déjà présent
+// (même mal espacé, ex. "London Session Recap :"), on le normalise ; sinon on le préfixe.
+function standardizeReportTitle(item) {
+  const raw = arlibCleanTitle(item.headline || item.title || '').trim();
+  const prefix = _reportPrefixFor(item);
+  if (!prefix) return raw;
+  const escd = _ALL_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  // Détecte un préfixe en tête (suivi de ":" ou "-" ou "—", espaces variables)
+  const m = raw.match(new RegExp('^\\s*(?:' + escd + ')\\s*[:\\-—–]?\\s*', 'i'));
+  const subject = (m ? raw.slice(m[0].length) : raw).trim();
+  return subject ? `${prefix}: ${subject}` : prefix;
+}
 const ARLIB_ALLOWED_TYPES = new Set(Object.keys(ARLIB_TYPE_ORDER));
 
 function getArlibItems() {
@@ -3354,8 +3398,10 @@ function getArlibItems() {
     if (av !== bv) return bv - av;             // v2 d'abord
     return b.timestamp - a.timestamp;          // puis le plus récent
   })[0];
+  // …+ les rapports FX Daily (ING THINK).
+  const fx = (_fxDaily || []).filter(i => i.timestamp > cutoff);
   const seen = new Set();
-  return [...(best ? [best] : []), ...wraps]
+  return [...(best ? [best] : []), ...fx, ...wraps]
     .filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; })
     .sort((a, b) => b.timestamp - a.timestamp);
 }
@@ -3438,7 +3484,7 @@ function renderArlibList() {
     const shown   = tags.slice(0, 6);
     const extra   = tags.length - shown.length;
     const dateStr = new Date(item.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
-    const title   = arlibCleanTitle(item.headline);
+    const title   = standardizeReportTitle(item);
 
     // Source badge
     const isPMT  = item.source === 'PMT' || item._briefing || isPrimerItem(item);
@@ -3593,7 +3639,8 @@ function _renderWeeklyRecap(item) {
   document.getElementById('arlib-ai-insights')?.remove();
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
-  if (titleEl) titleEl.innerHTML = `${_wrEsc(w.title)}  <span class="wr-weekending">${_wrEsc(_range)}</span>`;
+  const _wrTitle = standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title });
+  if (titleEl) titleEl.innerHTML = `${_wrEsc(_wrTitle)}  <span class="wr-weekending">${_wrEsc(_range)}</span>`;
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
 
@@ -3625,7 +3672,7 @@ function _renderWeeklyRecap(item) {
 
   let body = '';
   // Titre du rapport répété en haut du contenu (orange, comme Prime Terminal) + date de clôture
-  body += `<div class="wr-doc-title">${_wrEsc(w.title)}</div>`;
+  body += `<div class="wr-doc-title">${_wrEsc(_wrTitle)}</div>`;
   if (_range) body += `<div class="wr-doc-week">${_wrEsc(w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)}</div>`;
   if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
   if (w.macro && w.macro.length) {
@@ -3816,7 +3863,7 @@ function renderArlibReader(item) {
         const metaBar = `
           <div class="arlib-doc-header">
             <div class="arlib-doc-type">${SESSION_LABEL}</div>
-            <div class="arlib-doc-title">${arlibCleanTitle(item.headline || item.title)}</div>
+            <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
             <div class="arlib-doc-meta">${dateStr}</div>
           </div>`;
         if (data.html && data.html.length > 80) {
@@ -3835,7 +3882,7 @@ function renderArlibReader(item) {
       .catch(() => {
         if (!content) return;
         const desc = item.description || '';
-        content.innerHTML = `<div class="arlib-doc-header"><div class="arlib-doc-type">${SESSION_LABEL}</div><div class="arlib-doc-title">${arlibCleanTitle(item.headline || item.title)}</div></div>`
+        content.innerHTML = `<div class="arlib-doc-header"><div class="arlib-doc-type">${SESSION_LABEL}</div><div class="arlib-doc-title">${standardizeReportTitle(item)}</div></div>`
           + (desc ? `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${desc}</span></div>` : `<div class="arlib-rno-content"><a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;">Lire sur InvestingLive ↗</a></div>`);
       });
     return;
@@ -3854,7 +3901,7 @@ function renderArlibReader(item) {
         const metaBar = `
           <div class="arlib-doc-header">
             <div class="arlib-doc-type">ING Think · ${cats || 'Economic & Financial Analysis'}</div>
-            <div class="arlib-doc-title">${item.title || item.headline}</div>
+            <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
             <div class="arlib-doc-meta">${dateStr} · <a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;text-decoration:none;">think.ing.com ↗</a></div>
             ${item.description ? `<div class="arlib-doc-desc">${item.description}</div>` : ''}
           </div>`;
@@ -3883,7 +3930,7 @@ function renderArlibReader(item) {
       // Premier bullet = ligne méta (date/heure du rapport)
       html += `
         <div class="arlib-doc-header">
-          <div class="arlib-doc-title">${arlibCleanTitle(item.headline)}</div>
+          <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
           <div class="arlib-doc-meta">${dateStr} · ${bullets[0]}</div>
         </div>`;
       let inSection = false;
