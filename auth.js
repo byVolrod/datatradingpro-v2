@@ -181,7 +181,31 @@ try { _chatFile = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8')) || []; } catch 
 function _chatSaveFile() { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(_chatFile)); } catch {} }
 function _chatTableMissing(err) { return err && /chat_messages|schema cache|does not exist|relation/i.test(err.message); }
 
+// Auto-récupération : si on est en mode fichier (table absente au démarrage), on re-sonde
+// périodiquement Supabase. Dès que la table existe, on repasse en BDD ET on y migre le
+// backlog du fichier → AUCUN redéploiement nécessaire après avoir créé la table.
+let _chatProbeTs = 0;
+async function _chatEnsureDb() {
+  if (_chatDb) return;
+  const now = Date.now();
+  if (now - _chatProbeTs < 30000) return;   // 1 sonde / 30s max
+  _chatProbeTs = now;
+  const { error } = await supabase.from(CHAT_TABLE).select('id').limit(1);
+  if (error) return;                          // toujours absente → on reste en fichier
+  _chatDb = true;
+  if (_chatFile.length) {
+    const backlog = _chatFile.map(({ user_id, sender, text, created_at, read }) =>
+      ({ user_id: String(user_id), sender, text, created_at, read: !!read }));
+    const { error: insErr } = await supabase.from(CHAT_TABLE).insert(backlog);
+    if (!insErr) { _chatFile = []; _chatSaveFile(); console.log(`[Chat] table détectée → ${backlog.length} message(s) migré(s) du fichier vers la BDD`); }
+    else { console.warn('[Chat] migration backlog échouée:', insErr.message); _chatDb = false; }
+  } else {
+    console.log('[Chat] table chat_messages détectée → persistance BDD activée');
+  }
+}
+
 async function chatInsert({ user_id, sender, text }) {
+  await _chatEnsureDb();
   const row = { user_id: String(user_id), sender, text: String(text).slice(0, 2000), created_at: new Date().toISOString(), read: false };
   if (_chatDb) {
     const { data, error } = await supabase.from(CHAT_TABLE).insert([row]).select().single();
@@ -196,6 +220,7 @@ async function chatInsert({ user_id, sender, text }) {
 }
 
 async function chatList(userId) {
+  await _chatEnsureDb();
   if (_chatDb) {
     const { data, error } = await supabase.from(CHAT_TABLE).select('*').eq('user_id', String(userId)).order('created_at', { ascending: true });
     if (!error) return data || [];
@@ -206,6 +231,7 @@ async function chatList(userId) {
 
 // Marque comme lus les messages reçus par `recipient` ('user' lit le support, 'support' lit l'user)
 async function chatMarkRead(userId, recipientReadsFrom) {
+  await _chatEnsureDb();
   if (_chatDb) {
     const { error } = await supabase.from(CHAT_TABLE).update({ read: true }).eq('user_id', String(userId)).eq('sender', recipientReadsFrom).eq('read', false);
     if (!error) return;
@@ -217,6 +243,7 @@ async function chatMarkRead(userId, recipientReadsFrom) {
 
 // Nombre de messages non lus envoyés par `fromSender` à l'utilisateur
 async function chatUnread(userId, fromSender) {
+  await _chatEnsureDb();
   if (_chatDb) {
     const { count, error } = await supabase.from(CHAT_TABLE).select('id', { count: 'exact', head: true }).eq('user_id', String(userId)).eq('sender', fromSender).eq('read', false);
     if (!error) return count || 0;
@@ -227,6 +254,7 @@ async function chatUnread(userId, fromSender) {
 
 // Admin : liste des conversations (un thread par utilisateur ayant écrit)
 async function chatThreads() {
+  await _chatEnsureDb();
   let rows = [];
   if (_chatDb) {
     const { data, error } = await supabase.from(CHAT_TABLE).select('*').order('created_at', { ascending: false });
