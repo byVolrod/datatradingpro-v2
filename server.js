@@ -721,6 +721,9 @@ async function _fetchSessionWraps(full = false) {
           const item = _swParseRssItem($, el, filter);
           if (!item) return;                              // pas un wrap (filtré) → on ignore mais on continue
           if (item.timestamp < cutoff) { tooOld = true; return; }
+          // Conserve le titre IA déjà calculé si le wrap existait déjà (évite régénération/relecture)
+          const prev = merged.get(item.id);
+          if (prev && prev.aiTitle) { item.aiTitle = prev.aiTitle; item.aiTitleV = prev.aiTitleV; }
           merged.set(item.id, item);
         });
 
