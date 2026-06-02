@@ -4018,7 +4018,7 @@ html, body {
   .wr-section-title { font-size:13px; }
   .wr-ccy-title { font-size:17px; }
   /* Cartes d'insight : un peu plus étroites pour montrer qu'on peut scroller */
-  .ai-insights-card { flex-basis:240px; flex-grow:0; flex-shrink:0; width:240px; }
+  .ai-insights-card { flex-basis:210px; flex-grow:0; flex-shrink:0; width:210px; }
 }
 @media (max-width:480px){
   .wr-chart { height:240px; }
@@ -4059,7 +4059,7 @@ html, body {
 /* Variante FIXE : grille statique, les cartes ne défilent plus / ne bougent plus */
 .ai-insights-cards--fixed {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 12px;
   overflow: visible;
 }
@@ -4080,9 +4080,9 @@ html, body {
 .arlib-hide-insights:hover { color: var(--text); }
 .arlib-hide-insights .eye { font-size: 13px; }
 .ai-insights-card {
-  flex: 0 0 280px; background: #161619; border: 1px solid #26262b;
-  border-radius: 4px; padding: 18px;
-  font-size: 13px; line-height: 1.65; color: #e2e8f0; font-weight: 400;
+  flex: 0 0 224px; background: #161619; border: 1px solid #26262b;
+  border-radius: 4px; padding: 14px 15px;
+  font-size: 12.5px; line-height: 1.6; color: #e2e8f0; font-weight: 400;
 }
 .ai-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
 .ai-card-asset { font-size: 13px; font-weight: 700; color: #e2e8f0; }

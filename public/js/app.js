@@ -3196,10 +3196,28 @@ function loadInstitutionView() {
     document.getElementById('br-reader-view')?.classList.add('hidden');
   });
 
+  // Rendu IMMÉDIAT de ce qu'on a déjà (cache hydraté) → jamais d'écran vide si des données existent.
+  if (_brArticles.length) renderBrList();
+  _loadBrArticles(0);
+}
+
+// Chargement résilient des rapports Institution : ne remplace JAMAIS par une liste vide
+// (cold-start serveur), et réessaie quelques fois tant que c'est vide (le scrape se termine).
+function _loadBrArticles(attempt = 0) {
   fetch('/api/bank-research')
     .then(r => r.json())
-    .then(data => { _brArticles = Array.isArray(data) ? data : []; renderBrList(); })
-    .catch(() => renderBrList());
+    .then(data => {
+      if (Array.isArray(data) && data.length) {
+        _brArticles = data;
+        lsSet('dtp_br', _brArticles.slice(0, 60));
+      }
+      renderBrList();
+      if (!_brArticles.length && attempt < 6) setTimeout(() => _loadBrArticles(attempt + 1), 2500 + attempt * 2500);
+    })
+    .catch(() => {
+      renderBrList();
+      if (attempt < 6) setTimeout(() => _loadBrArticles(attempt + 1), 2500 + attempt * 2500);
+    });
 }
 
 function _brItemType(item) {
@@ -3256,7 +3274,13 @@ function renderBrList() {
     (i.description || '').toLowerCase().includes(_brSearch));
 
   if (items.length === 0) {
-    list.innerHTML = '<div class="br-empty">No research found.<br>Articles load from ING Think on startup.</div>';
+    // Si aucun article du tout (pas un filtre trop strict) → on est en chargement : on montre le loader.
+    const noneAtAll = _brArticles.length === 0;
+    if (noneAtAll) {
+      list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des rapports institution…') : '<div class="br-empty">Chargement…</div>');
+    } else {
+      list.innerHTML = '<div class="br-empty">Aucun rapport ne correspond à ces filtres.</div>';
+    }
     if (footer) footer.textContent = '';
     return;
   }
@@ -3314,6 +3338,20 @@ function _instBadge(item) {
   const inst = (item && item.institution) || '';
   if ((item && item._source === 'ing-think') || /\bing\b/i.test(inst)) return 'ING';
   return 'DTP';
+}
+
+// Robustesse images : masque toute image cassée / placeholder (jamais de cadre d'image vide).
+function _brFixImages(root) {
+  if (!root) return;
+  root.querySelectorAll('img').forEach(img => {
+    img.loading = 'lazy';
+    const src = img.getAttribute('src') || '';
+    if (!src || /^data:|blank|placeholder|spacer|lazy/i.test(src)) { img.style.display = 'none'; return; }
+    img.addEventListener('error', () => {
+      img.style.display = 'none';
+      const fig = img.closest('figure'); if (fig) fig.style.display = 'none';
+    }, { once: true });
+  });
 }
 
 function renderBrReader(item) {
@@ -3409,6 +3447,7 @@ function renderBrReader(item) {
             </div>
           </div>`;
       }
+      _brFixImages(content);   // masque toute image cassée
       // Insights basés sur le VRAI contenu de l'article (la description seule est trop courte)
       const _full = (content.innerText || '').trim();
       if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
