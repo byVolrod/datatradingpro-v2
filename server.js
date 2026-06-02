@@ -866,15 +866,31 @@ async function _swEnsureAiTitles(internal = false) {
   _swTitleBusy = true;
   let changed = false;
   try {
-    let budget = 8;   // max 8 générations IA par passage (le reste au passage suivant)
+    let budget = 8;        // max 8 générations IA par passage (le reste au passage suivant)
+    let fetchBudget = 5;   // max 5 récupérations de contenu par passage (wraps d'archive sans description)
     for (const w of _swCache.slice(0, 80)) {   // TOUS les wraps affichés dans l'onglet Analyst
       if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant (skip → 0 coût)
       try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}
+
+      // Si AUCUNE matière (wrap d'archive : description vide) → on RÉCUPÈRE le contenu pour pouvoir
+      // titrer AVANT publication (garantit un sujet, ex. "Asia-Pac Session Recap: …" et non le préfixe seul).
+      let body = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (body.length < 30 && w.url && !w._noBody && fetchBudget > 0) {
+        fetchBudget--;
+        try {
+          const data = await _fetchILContentHttp(w.url);
+          const txt = ((data && data.points && data.points.join('. ')) || (data && data.html) || '')
+            .replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+          if (txt.length > 30) { w.description = txt.slice(0, 300); body = txt; }
+          else w._noBody = true;   // pas de contenu exploitable → on ne re-fetch pas en boucle
+        } catch { w._noBody = true; }
+      }
+
       // Titre de secours immédiat (gratuit, sans IA) pour tout wrap encore sans titre —
       // s'applique même hors budget IA. L'IA l'améliorera ensuite si dispo.
       if (!w.aiTitle) { const h = _heuristicWrapTitle(w); if (h) { w.aiTitle = h; w.aiTitleV = 'h'; changed = true; } }
       if (budget <= 0) continue;
-      const src = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) || w.title || '';
+      const src = (body || w.title || '').slice(0, 600);
       if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
       budget--;
       try {

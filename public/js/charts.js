@@ -965,8 +965,14 @@ function buildRiskGauge() {
       if (!isBuilt) {
         isBuilt = true;
         wrap.innerHTML = `
-          <div id="risk-ticker" class="risk-ticker ${cls}"><span class="risk-ticker-dot"></span><span class="risk-ticker-label">${frLabel}</span><span class="risk-ticker-desc">${data.description}</span></div>
-          <div id="risk-gauge-div" style="flex:1;min-height:0;width:100%;"></div>`;
+          <div id="risk-ticker" class="risk-ticker ${cls}"><span class="risk-ticker-dot"></span><span class="risk-ticker-label">${data.label}</span><span class="risk-ticker-desc">${data.description}</span></div>
+          <div class="risk-gauge-stage">
+            <div id="risk-gauge-div"></div>
+            <div class="risk-readout">
+              <div class="risk-readout-score" id="risk-score-val">${display}</div>
+              <div class="risk-readout-badge ${cls}" id="risk-badge-val">${data.label}</div>
+            </div>
+          </div>`;
 
         const root = am5.Root.new('risk-gauge-div');
         root.setThemes([am5themes_Dark.new(root)]);
@@ -1039,13 +1045,13 @@ function buildRiskGauge() {
         // l'arc + le chip), avec un petit pivot sombre discret.
         _riskHandDI = axis.makeDataItem({ value: 0 });
         const hand = am5radar.ClockHand.new(root, {
-          pinRadius: am5.percent(4),
-          radius: am5.percent(66),
-          innerRadius: am5.percent(-6),
-          bottomWidth: 8,
+          pinRadius: am5.percent(7),                 // pivot anchré (hub visible)
+          radius: am5.percent(56),                   // plus courte → moins "pic"
+          innerRadius: am5.percent(-4),
+          bottomWidth: 11,                            // base un peu plus large → vraie aiguille
           topWidth: 0,
         });
-        hand.pin.setAll({ fill: am5.color(0x23272f), strokeOpacity: 0 });
+        hand.pin.setAll({ fill: am5.color(0x2a2e37), stroke: am5.color(0x12151c), strokeWidth: 2 });
         hand.hand.setAll({ fill: am5.color(0xe9ebee), strokeOpacity: 0 });   // aiguille claire neutre (pro)
 
         _riskHandDI.set('bullet', am5xy.AxisBullet.new(root, { sprite: hand }));
@@ -1053,40 +1059,8 @@ function buildRiskGauge() {
         _riskHandDI.get('grid')?.setAll({ visible: false });
 
         // Score label
-        _riskScoreLabel = chart.children.push(
-          am5.Label.new(root, {
-            text: display,
-            centerX: am5.percent(50),
-            x: am5.percent(50),
-            y: am5.percent(74),
-            fontSize: 38,
-            fontWeight: '700',
-            fill: am5.color(0xf5f6f7),
-            fontFamily: '"Inter", sans-serif',
-          })
-        );
-
-        // Chip de sentiment — épuré : fond sombre neutre, bord fin teinté, typo espacée
-        _riskBadgeLabel = chart.children.push(
-          am5.Label.new(root, {
-            text: frLabel,
-            centerX: am5.percent(50),
-            x: am5.percent(50),
-            y: am5.percent(91),
-            fontSize: 11,
-            fontWeight: '600',
-            letterSpacing: 2.5,
-            fill: am5.color(sentColor),
-            paddingLeft: 18, paddingRight: 18,
-            paddingTop: 7, paddingBottom: 7,
-            background: am5.RoundedRectangle.new(root, {
-              fill: am5.color(0x12151c), fillOpacity: 0.9,
-              stroke: am5.color(sentColor), strokeOpacity: 0.35, strokeWidth: 1,
-              cornerRadiusTL: 6, cornerRadiusTR: 6,
-              cornerRadiusBL: 6, cornerRadiusBR: 6,
-            }),
-          })
-        );
+        // Score + badge sont rendus en HTML CENTRÉ (overlay .risk-readout) → centrage garanti
+        // sous la jauge, design net et facile à styliser. (Plus de labels amCharts ici.)
 
         // Animate needle to initial value
         _riskHandDI.animate({
@@ -1102,16 +1076,14 @@ function buildRiskGauge() {
             duration: 800, easing: am5.ease.out(am5.ease.cubic),
           });
         }
-        if (_riskScoreLabel) _riskScoreLabel.set('text', display);
-        if (_riskBadgeLabel) {
-          _riskBadgeLabel.set('text', frLabel);
-          _riskBadgeLabel.set('fill', am5.color(sentColor));
-          _riskBadgeLabel.get('background')?.setAll({ fill: am5.color(0x110d00), stroke: am5.color(sentColor) });
-        }
+        const scoreEl = document.getElementById('risk-score-val');
+        if (scoreEl) scoreEl.textContent = display;
+        const badgeEl = document.getElementById('risk-badge-val');
+        if (badgeEl) { badgeEl.textContent = data.label; badgeEl.className = `risk-readout-badge ${cls}`; }
         const ticker = document.getElementById('risk-ticker');
         if (ticker) {
           ticker.className = `risk-ticker ${cls}`;
-          ticker.innerHTML = `<span class="risk-ticker-dot"></span><span class="risk-ticker-label">${frLabel}</span><span class="risk-ticker-desc">${data.description}</span>`;
+          ticker.innerHTML = `<span class="risk-ticker-dot"></span><span class="risk-ticker-label">${data.label}</span><span class="risk-ticker-desc">${data.description}</span>`;
         }
       }
 

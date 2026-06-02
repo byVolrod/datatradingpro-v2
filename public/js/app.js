@@ -3590,16 +3590,16 @@ function getArlibItems() {
 }
 
 function arlibItemType(item) {
+  if (item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly') return 'weekly';
+  if (item._source === 'ing-think') return 'fxdaily';     // ING Think = FX Daily
   if (item._source === 'investinglive') return 'recap';
-  if (item._source === 'ing-think') return 'analysis';
   if (item._reportType === 'London Session Recap' || item._reportType === 'US Session Recap') return 'recap';
-  if (item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly') return 'recap';
   if (item._reportType === 'Daily Event Review') return 'briefing';
   if (item.source === 'PMT' || item._briefing) return 'briefing';
   const h = (item.headline || '').toLowerCase();
   if (/recap|review|wrap|summary/i.test(h)) return 'recap';
-  if (item.category === 'Market Analysis') return 'analysis';
-  return 'primer';
+  if (item.category === 'Market Analysis') return 'fxdaily';
+  return 'briefing';
 }
 
 function arlibItemTags(item) {
@@ -3675,7 +3675,7 @@ function renderArlibList() {
     const isING  = item._source === 'ing-think';
     const badgeLabel = isPMT ? 'DTP'
       : isSW  ? (item.session || 'SW').slice(0,3).toUpperCase()
-      : isING ? 'ING'
+      : isING ? 'FX'           // rapports ING Think dans Analyst = FX Daily → badge "FX"
       : '';
     const badgeClass = isING ? 'arlib-ptbadge-small arlib-badge-ing' : 'arlib-ptbadge-small';
     const badge = badgeLabel ? `<span class="${badgeClass}">${badgeLabel}</span>` : '';
