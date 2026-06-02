@@ -4596,6 +4596,33 @@ function chatClose(){
 }
 
 // ── Rafraîchissement live (panneau ouvert) ────────────────────
+// Affiche / masque la ligne « <nom> est en train d'écrire… » en bas de la liste
+function _chatSetTyping(on, name){
+  const list = document.getElementById('chat-list'); if (!list) return;
+  let el = list.querySelector('.chat-typing');
+  if (!on){ if (el) el.remove(); return; }
+  const av = (name||'?').charAt(0).toUpperCase();
+  if (!el){
+    el = document.createElement('div');
+    el.className = 'chat-typing';
+    list.appendChild(el);
+  }
+  el.innerHTML = `<div class="chat-av">${_chatEsc(av)}</div>`
+    + `<div class="chat-typing-bubble"><span class="chat-typing-name">${_chatEsc(name||'')} est en train d'écrire</span>`
+    + `<span class="chat-typing-dots"><i></i><i></i><i></i></span></div>`;
+  list.scrollTop = list.scrollHeight;
+}
+// Signale (throttlé) au serveur que l'on est en train d'écrire
+let _chatTypingTs = 0;
+function _chatSendTyping(){
+  const now = Date.now();
+  if (now - _chatTypingTs < 2500) return;   // au max une fois toutes les 2,5 s
+  _chatTypingTs = now;
+  const url = (_chatIsSupport() && _chatThreadUser)
+    ? '/api/admin/chat/'+encodeURIComponent(_chatThreadUser)+'/typing'
+    : '/api/chat/typing';
+  fetch(url, { method:'POST' }).catch(()=>{});
+}
 function _chatStartLive(){ clearInterval(_chatLiveTimer); _chatLiveTimer = setInterval(_chatLiveTick, 4000); }
 function _chatStopLive(){ clearInterval(_chatLiveTimer); _chatLiveTimer = null; }
 async function _chatLiveTick(){
@@ -4607,6 +4634,7 @@ async function _chatLiveTick(){
         const msgs = d.messages||[]; _chatMsgCache[_chatThreadUser] = msgs;
         const sig = _sigMsgs(msgs);
         if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }
+        _chatSetTyping(d.typing, _chatThreadName);   // le client tape ?
         _chatPollUnread();   // garde le badge à jour (autres conversations non lues)
       } else {
         const d = await (await fetch('/api/admin/chat')).json();
@@ -4621,6 +4649,7 @@ async function _chatLiveTick(){
       const msgs = d.messages||[]; _chatMsgCache.client = msgs;
       const sig = _sigMsgs(msgs);
       if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); _chatSetBadge(0); }
+      _chatSetTyping(d.typing, 'Support DataTradingPro');   // le support tape ?
     }
   } catch {}
 }
@@ -4784,7 +4813,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const inp = document.getElementById('chat-input');
   if(inp){
     inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); chatSend(); } });
-    inp.addEventListener('input', ()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,90)+'px'; });
+    inp.addEventListener('input', ()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,90)+'px'; if(inp.value.trim()) _chatSendTyping(); });
   }
   _chatPollUnread();
   _chatPollTimer = setInterval(_chatPollUnread, 8000);   // notif réactive (8s)

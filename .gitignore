@@ -24,3 +24,7 @@ server_debug.log
 # ── Divers ──────────────────────────────────────────────────────────────────────
 *.db
 data/
+
+# Render / local secrets & settings
+.env.render
+.claude/
