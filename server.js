@@ -1894,6 +1894,12 @@ function _pushBullets(bullets, heading, items, max) {
   lines.slice(1).forEach(l => bullets.push(`  ↳ ${l}`));
 }
 
+// Bruit/faible valeur à exclure des rapports (social, promo, opinions hors-sujet)
+const _RECAP_NOISE = /(is\s+\w+\s+a\s+buy|should you buy|i think this is|most[- ]fair criticism|analysis today at|read more at|click here|sign up|subscrib|webinar|giveaway|promo|sponsored|advertisement|top \d+ (stocks|picks)|motley fool|zacks|^@|\bRT @)/i;
+function _recapClean(items) {
+  return (items || []).filter(i => i && i.headline && !_RECAP_NOISE.test(i.headline) && i.headline.replace(/[^a-z0-9]/gi, '').length >= 14);
+}
+
 // ─── Génération hebdomadaire (ID par semaine ISO) ────────────────────────────
 function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }) {
   const now  = Date.now();
@@ -1909,7 +1915,7 @@ function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }
   if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(weekPrefix));
 
   const cutoff  = now - 7 * 24 * 60 * 60 * 1000;
-  const recent  = allNews.filter(i => i.timestamp > cutoff && !i._briefing);
+  const recent  = _recapClean(allNews.filter(i => i.timestamp > cutoff && !i._briefing));
   const timeStr = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
   const dateStr = new Date().toLocaleDateString('en-GB', { day:'2-digit', month:'long', year:'numeric', timeZone:'Europe/Paris' });
 
@@ -2151,9 +2157,8 @@ async function generateWeeklyRecapAI(force = false) {
   const cal = (allCalendar || [])
     .filter(i => inWeek(i.timestamp) && /actual/i.test(i.description || ''))
     .map(i => `${i.country || i.currency || ''} ${i.title || i.headline || ''} — ${String(i.description).replace(/\s+/g, ' ').trim()}`);
-  // 3) Autres titres macro de la semaine en complément
-  const news = allNews
-    .filter(i => inWeek(i.timestamp) && !i._briefing)
+  // 3) Autres titres macro de la semaine en complément (nettoyés du bruit social/promo)
+  const news = _recapClean(allNews.filter(i => inWeek(i.timestamp) && !i._briefing))
     .slice(0, 120)
     .map(i => `[${i.category || ''}] ${i.headline}`);
 
