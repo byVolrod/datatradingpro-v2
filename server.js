@@ -700,7 +700,8 @@ app.get('/api/session-wraps', (_req, res) => {
 let _weeklyGenLock = 0;
 app.get('/api/weekly-reports', async (_req, res) => {
   // Recharge d'abord les rapports persistés (Supabase/fichier) → évite toute régénération inutile
-  if (!_weeklyLoaded) await _loadPersistedWeekly();
+  // et fait apparaître un rapport fraîchement injecté dans le store (throttle interne 30s).
+  await _loadPersistedWeekly();
 
   const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
   const items = allNews.filter(i =>
@@ -2259,18 +2260,23 @@ ${corpus}`;
 }
 
 // Recharge les rapports hebdo persistés (Supabase/fichier) dans allNews — SANS appel Gemini.
-let _weeklyLoaded = false;
-async function _loadPersistedWeekly() {
+// Rejouable (throttle 30s) : un rapport injecté dans le store apparaît au prochain accès, sans redémarrage.
+let _weeklyLoadTs = 0;
+async function _loadPersistedWeekly(force = false) {
+  if (!force && Date.now() - _weeklyLoadTs < 30000) return;
+  _weeklyLoadTs = Date.now();
   try {
     const reports = await auth.weeklyReportList();
-    let added = 0;
+    let added = 0, hasV2 = false;
     for (const r of reports) {
       if (!r || !r.id) continue;
+      if (r._reportType === 'Weekly Market Recap' && r._weekly && r._weekly.v >= 2) hasV2 = true;
       if (!allNews.some(i => i.id === r.id)) { allNews.unshift(r); added++; }
     }
+    // Si un recap au format riche (v2) est présent, on purge les anciens recaps obsolètes (anti-doublon)
+    if (hasV2) allNews = allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && !(i._weekly && i._weekly.v >= 2)));
     if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
   } catch (e) { console.warn('[Weekly Recap] rechargement persistant échec:', e.message); }
-  _weeklyLoaded = true;
 }
 
 async function generateWeeklyMarketRecap(force = false) {
