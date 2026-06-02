@@ -4265,6 +4265,7 @@ function npClose() {
 function npToggleEnabled() {
   _npEnabled = !_npEnabled;
   localStorage.setItem('np_enabled', JSON.stringify(_npEnabled));
+  if (!_npEnabled) _npStopVoice();   // OFF = silence immédiat (coupe aussi la voix du squawk)
   _npSyncUI();
 }
 
@@ -4274,11 +4275,17 @@ function npCycleVolume() {
   _npVolume = cycle[_npVolume] || 'fort';
   localStorage.setItem('np_volume', _npVolume);
   _npSyncUI();
-  if (_npVolume !== 'mute') _npPlaySound(_npVolumeLevel());
+  if (_npVolume === 'mute') _npStopVoice();          // Muet = silence total immédiat (carillon + voix)
+  else _npPlaySound(_npVolumeLevel());
 }
 function _npVolumeLevel() {
   return _npVolume === 'fort' ? 0.55 : _npVolume === 'doux' ? 0.2 : 0;
 }
+// Silence GLOBAL : "Muet" ou notifications OFF → AUCUN son dans l'app (carillon + voix squawk).
+// (Le réglage "Chime: none" ne coupe QUE le carillon, pas la voix.)
+function _npGlobalMute() { return !_npEnabled || _npVolume === 'mute'; }
+// Coupe immédiatement toute voix en cours (squawk TTS)
+function _npStopVoice() { try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch {} }
 
 // ── Push toggle (Web Notifications API) ──────────────────────
 function npTogglePush() {
@@ -4560,6 +4567,7 @@ function _sqwkRender() {
 // Voix "salle de marché" (Web Speech API, gratuite) — synchronisée avec l'écriture
 function _sqwkSpeak(text) {
   if (!_sqwkLive || !('speechSynthesis' in window)) return;
+  if (typeof _npGlobalMute === 'function' && _npGlobalMute()) return;   // "Muet"/OFF des notifs = silence global (pas de voix)
   try {
     window.speechSynthesis.cancel();   // coupe la phrase précédente (pas d'empilement)
     const u = new SpeechSynthesisUtterance(text);
