@@ -265,6 +265,16 @@
       display: none;
     }
     .lp-error.visible { display: block; }
+    /* Bandeau d'information permanent (au-dessus du login) */
+    .lp-info {
+      display: flex; align-items: flex-start; gap: 8px;
+      background: rgba(56,139,253,0.08); border: 1px solid rgba(56,139,253,0.25);
+      border-radius: 6px; padding: 9px 12px; margin-bottom: 14px;
+      font-size: 12px; line-height: 1.5; color: #9fb6d6;
+    }
+    .lp-info-ic { color: #58a6ff; font-weight: 700; flex-shrink: 0; }
+    .lp-info a { color: #58a6ff; text-decoration: none; font-weight: 600; }
+    .lp-info a:hover { text-decoration: underline; }
     .lp-renew-btn {
       display: inline-block; margin-top: 10px; padding: 7px 16px;
       background: var(--orange, #f7941d); color: #0a0a0c; font-weight: 700;
@@ -439,6 +449,13 @@
   <div class="lp-right">
 
     <div class="lp-title">DataTradingPro</div>
+
+    <!-- Message d'information permanent (au-dessus du login) -->
+    <div class="lp-info">
+      <span class="lp-info-ic">ⓘ</span>
+      <span>L'accès nécessite un abonnement actif. Abonnement expiré ou suspendu ?
+        <a href="https://whop.com/joined/justonetrader/products/jot-dtp/" target="_blank" rel="noopener">Renouvelez ici</a>.</span>
+    </div>
 
     <div class="lp-error" id="lp-error"></div>
 

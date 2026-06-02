@@ -117,11 +117,11 @@ const _analysisCache  = new Map(); // item.id → bullets[]
 const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style PMT, mémoire session)
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
 let   _snapCache      = null;      // dernier Market Snapshot (prix réels) — partagé entre rapports
-// Rend des puces Info/Analyse : texte propre, SANS gras (on retire tout markdown **…**)
+// Rend des puces Info/Analyse : texte propre, SANS gras ni balises (on retire HTML <…> et markdown **…**)
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const html = (bullets || [])
-    .map(b => String(b).replace(/\*\*/g, '').trim())   // retire le markdown gras
+    .map(b => String(b).replace(/<[^>]+>/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim())  // retire balises HTML + markdown
     .filter(Boolean)
     .map(b => `<li>${esc(b)}</li>`).join('');
   return `<ul class="article-points article-points--clean">${html}</ul>`;
