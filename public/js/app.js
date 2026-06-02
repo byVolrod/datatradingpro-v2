@@ -213,6 +213,7 @@ function init() {
     if (cn && cn.length && allItems.length === 0) { allItems = cn; renderNews(); }
     const cs = lsGet('dtp_sw', DAY); if (cs && cs.length && !_sessionWraps.length) _sessionWraps = cs;
     const cb = lsGet('dtp_br', DAY); if (cb && cb.length && !_brArticles.length)  _brArticles  = cb;
+    const cf = lsGet('dtp_fx', DAY); if (cf && cf.length && !_fxDaily.length)      _fxDaily     = cf;
   } catch {}
 
   // ── HTTP pre-fetch: show cached news immediately, before WS connects ──
@@ -2868,14 +2869,19 @@ function loadAnalystView() {
     fetch('/api/weekly-reports').then(r => r.json()),
     fetch('/api/fx-daily').then(r => r.json()),
   ]).then(([swResult, brResult, wkResult, fxResult]) => {
-    if (swResult.status === 'fulfilled' && Array.isArray(swResult.value)) {
+    // On ne remplace QUE si le serveur renvoie des données NON VIDES → jamais d'écrasement
+    // du cache hydraté par une réponse vide (cold-start). + persistance localStorage.
+    if (swResult.status === 'fulfilled' && Array.isArray(swResult.value) && swResult.value.length) {
       _sessionWraps = swResult.value.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
+      lsSet('dtp_sw', _sessionWraps.slice(0, 80));
     }
-    if (brResult.status === 'fulfilled' && Array.isArray(brResult.value)) {
+    if (brResult.status === 'fulfilled' && Array.isArray(brResult.value) && brResult.value.length) {
       _brArticles = brResult.value;
+      lsSet('dtp_br', _brArticles.slice(0, 60));
     }
-    if (fxResult.status === 'fulfilled' && Array.isArray(fxResult.value)) {
+    if (fxResult.status === 'fulfilled' && Array.isArray(fxResult.value) && fxResult.value.length) {
       _fxDaily = fxResult.value.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
+      lsSet('dtp_fx', _fxDaily.slice(0, 40));
     }
     if (wkResult.status === 'fulfilled') {
       if (Array.isArray(wkResult.value?.items)) _weeklyReports = wkResult.value.items;
