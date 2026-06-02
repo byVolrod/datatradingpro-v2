@@ -245,6 +245,29 @@ async function sendPasswordReset({ to, name, password }) {
   return _send(to, 'DataTradingPro — votre mot de passe a été réinitialisé', _layout('Réinitialisation', body));
 }
 
+// ── 4) Incitation fin d'essai gratuit (1 semaine) → passer à l'abonnement ─────
+//    Envoyé 2 jours avant la fin de l'essai. Sans prix : invite à s'abonner
+//    (mensuel ou annuel) via la page Whop.
+async function sendTrialUpsell({ to, name, expiresAt }) {
+  const prenom = (name || '').split(' ')[0] || 'cher trader';
+  const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : null;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre essai gratuit se termine bientôt ⏳</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro touche à sa fin${end ? ` (elle expire <strong style="color:#f7941d;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
+    <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">ne pas perdre votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, activez dès maintenant votre abonnement — <strong style="color:#fff;">mensuel</strong> ou <strong style="color:#fff;">annuel</strong>, sans engagement et résiliable à tout moment :</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News & squawk en temps réel, sans délai</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Calendrier économique et résultats live</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Analyses institutionnelles & Weekly Market Recap</td></tr>
+    </table>
+    ${_button('Choisir mon abonnement', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Choisissez la formule mensuelle ou annuelle directement sur la page — l'accès reste actif sans interruption.</p>
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return _send(to, 'Votre essai DataTradingPro se termine — gardez votre accès', _layout('Fin d\'essai', body));
+}
+
 // ── Rappel ADMIN : abonnements à renouveler (envoyé à datatradingpro.contact) ──
 async function sendAdminExpiryReminder({ clients, to }) {
   if (!clients || !clients.length) return false;
@@ -292,4 +315,4 @@ async function sendAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNe
   return _send(admin, `DTP — ${kind} : ${clientEmail}`, _layout('Notification DTP', body));
 }
 
-module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset, sendAdminExpiryReminder, sendAdminRenewalNotice };
+module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset, sendTrialUpsell, sendAdminExpiryReminder, sendAdminRenewalNotice };
