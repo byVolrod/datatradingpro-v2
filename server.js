@@ -3426,6 +3426,7 @@ if (_SELF_URL) {
 // Préchauffage ÉCHELONNÉ : on évite ~80 requêtes Yahoo simultanées au démarrage
 // (chaque période strength = 28 paires). Les onglets sont chauds avant l'usage.
 const _warm = (fn, ms, label) => setTimeout(() => { try { fn().catch(() => {}); } catch (e) { console.warn('[Warm]', label, e.message); } }, ms);
+_warm(() => getYFSession(),                    2500,  'YF session');    // session/crumb Yahoo prête AVANT les fetchs
 _warm(() => computeCurrencyStrength('today'),  6000,  'strength TD');   // STRENGTH gauche
 _warm(() => fetchCOTData('lev_money'),         8000,  'COT');           // COT (type par défaut)
 _warm(() => computeCurrencyStrength('1d'),     11000, 'strength 1d');   // METER
@@ -3562,10 +3563,10 @@ const YF_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHT
 async function getYFSession() {
   if (_yfSession && Date.now() - _yfSessionTs < YF_SESSION_TTL) return _yfSession;
   try {
-    // Step 1: get cookie from finance.yahoo.com
+    // Step 1: get cookie from finance.yahoo.com (timeout court → pas de blocage au cold start)
     const r1 = await axios.get('https://finance.yahoo.com/', {
       headers: { 'User-Agent': YF_UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' },
-      timeout: 10000, validateStatus: () => true, maxRedirects: 5,
+      timeout: 6000, validateStatus: () => true, maxRedirects: 5,
     });
     const rawCookies = r1.headers['set-cookie'] || [];
     const cookie = rawCookies.map(c => c.split(';')[0]).join('; ');
@@ -3573,7 +3574,7 @@ async function getYFSession() {
     // Step 2: get crumb
     const r2 = await axios.get('https://query2.finance.yahoo.com/v1/test/getcrumb', {
       headers: { 'User-Agent': YF_UA, 'Cookie': cookie },
-      timeout: 8000, validateStatus: () => true,
+      timeout: 5000, validateStatus: () => true,
     });
     if (r2.status === 200 && typeof r2.data === 'string' && r2.data.length > 0) {
       _yfSession = { cookie, crumb: r2.data };

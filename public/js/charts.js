@@ -1205,12 +1205,16 @@ function buildMeterChart() {
 
   function applyValues(values) {
     _meterValues = values;
-    const maxAbs = Math.max(...Object.values(values).map(v => Math.abs(v)), 1);
+    // Échelle RELATIVE : la devise la plus forte remplit le meter, les autres proportionnellement.
+    // Plancher bas (0.25) au lieu de 1 → un marché peu volatil (moves < 1%) reste lisible
+    // (avant, tout était écrasé contre 1 → quasi aucune brique, USD/EUR paraissaient vides).
+    const maxAbs = Math.max(...Object.values(values).map(v => Math.abs(v)), 0.25);
     METER_ORDER.forEach(ccy => {
       const v   = values[ccy] || 0;
       const col = container.querySelector(`.meter-col[data-ccy="${ccy}"]`);
       if (!col) return;
-      const lit = Math.round(Math.abs(v) / maxAbs * METER_BRICKS);  // 0..10
+      // ≥1 brique dès que la valeur est non nulle → USD/EUR (souvent faibles) jamais "vides"
+      const lit = v === 0 ? 0 : Math.max(1, Math.round(Math.abs(v) / maxAbs * METER_BRICKS));  // 1..10
       col.querySelectorAll('.meter-brick').forEach(b => {
         const half = b.dataset.half;
         const idx  = +b.dataset.idx;          // 0 = près du zéro
