@@ -3557,12 +3557,14 @@ function renderArlibReader(item) {
     const sources = []; // liens collectés → section SOURCES
 
     const fixLinks = s => (s || '').replace(/<a /g, '<a target="_blank" rel="noopener" style="color:#f7941d;text-decoration:none;" ');
+    // Lignes d'attribution de source à masquer ("This article was written by X at investinglive.com", etc.)
+    const _isSrcLine = t => /this article was written by|written by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|think\.ing|fxstreet|actionforex|forexlive)\.com|follow .* on (?:twitter|x)\b|©\s*\d{4}/i.test(t || '');
 
     const walk = (el) => {
       const tag = (el.tagName || '').toLowerCase();
       if (!tag) {
         const t = (el.textContent || '').trim();
-        if (t.length > 15) { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`; bulletCount++; }
+        if (t.length > 15 && !_isSrcLine(t)) { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`; bulletCount++; }
         return;
       }
       if (/^h[1-6]$/.test(tag)) {
@@ -3570,7 +3572,7 @@ function renderArlibReader(item) {
         if (t) { html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`; }
       } else if (tag === 'p') {
         const text = el.textContent.trim();
-        if (!text) return;
+        if (!text || _isSrcLine(text)) return;
         // Paragraphe court terminant par ":" → section header
         if (/^[\w\s&/':()#–-]{1,45}:$/.test(text) && text.length <= 46) {
           html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${text.slice(0,-1).toUpperCase()}</div>`;
@@ -3581,7 +3583,7 @@ function renderArlibReader(item) {
       } else if (tag === 'li') {
         const a = el.querySelector('a[href]');
         const text = el.textContent.trim();
-        if (!text) return;
+        if (!text || _isSrcLine(text)) return;
         if (a) {
           const href = a.getAttribute('href') || '';
           const lnk = fixLinks(el.innerHTML.trim());
@@ -3613,9 +3615,11 @@ function renderArlibReader(item) {
     if (bulletCount === 0) {
       html = metaBar;
       tmp.querySelectorAll('p, li').forEach(el => {
-        const t = fixLinks(el.innerHTML).trim();
-        if (el.textContent.trim().length > 5)
+        const raw = el.textContent.trim();
+        if (raw.length > 5 && !_isSrcLine(raw)) {
+          const t = fixLinks(el.innerHTML).trim();
           html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`;
+        }
       });
     }
 
