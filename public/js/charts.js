@@ -580,7 +580,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       layout: root.verticalLayout,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0b0b0c), fillOpacity: 1 }));  // noir mat profond
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));  // anthracite doux (un peu moins noir)
   chart.zoomOutButton.set('forceHidden', true);
   // Clip strict : les courbes ne débordent jamais hors de la zone de tracé
   chart.plotContainer.set('maskContent', true);

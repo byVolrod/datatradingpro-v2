@@ -3973,7 +3973,7 @@ html, body {
 .wr-bullet strong { color:#fff; font-weight:600; }
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }
 /* Graphique de force isolé */
-.wr-chart { height:380px; margin:8px 0 4px; background:#0b0b0c; border:1px solid #1c1c20; border-radius:8px; overflow:hidden; }
+.wr-chart { height:380px; margin:8px 0 4px; background:#141417; border:1px solid #1c1c20; border-radius:8px; overflow:hidden; }
 .wr-chart-loading { display:flex; align-items:center; justify-content:center; height:100%; color:#6b7280; font-size:12px; }
 /* Bandeau "génération du Weekly Recap en cours" */
 .arlib-genbanner { display:flex; align-items:center; gap:9px; margin:0 0 12px; padding:11px 14px; border-radius:8px;
