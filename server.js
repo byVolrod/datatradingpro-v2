@@ -3344,21 +3344,12 @@ async function _checkTrialUpsell() {
     }
   } catch (e) { console.error('[TrialUpsell]', e.message); }
 }
-// Planification : chaque jour à 10:00 (Europe/Paris) + rattrapage 30s après le démarrage.
-// L'anti-doublon (email_log Supabase) garantit un seul envoi même après redémarrage.
+// Planification : vérification TOUTES LES 6 H (l'essai expiré est donc détecté
+// rapidement après la fin) + rattrapage 30s après le démarrage. L'anti-doublon
+// (email_log Supabase) garantit un seul envoi même avec des passages fréquents.
 (function scheduleTrialUpsell() {
-  function msToNextParis(h, m) {
-    const now   = new Date();
-    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-    const next  = new Date(paris); next.setHours(h, m, 0, 0);
-    if (next <= paris) next.setDate(next.getDate() + 1);
-    return next.getTime() - paris.getTime();
-  }
-  setTimeout(function run() {
-    _checkTrialUpsell();
-    setInterval(_checkTrialUpsell, 24 * 60 * 60 * 1000);
-  }, msToNextParis(10, 0));
-  setTimeout(_checkTrialUpsell, 30000);   // rattrapage au démarrage (couvre les redémarrages Render)
+  setTimeout(_checkTrialUpsell, 30000);                       // rattrapage au démarrage (redémarrages Render)
+  setInterval(_checkTrialUpsell, 6 * 60 * 60 * 1000);        // puis toutes les 6 h
 })();
 
 // COT — check for new weekly data every 6 h, broadcast on change
