@@ -1332,7 +1332,14 @@ function _parseResearchFeed(xml, feed, cutoff, merged) {
     const cats = [];
     $('category', el).each((_, c) => { const t = $(c).text().trim(); if (t) cats.push(t); });
     $('dc\\:subject', el).each((_, s) => { const t = $(s).text().trim(); if (t && !cats.includes(t)) cats.push(t); });
-    const desc = $('description', el).text().replace(/<[^>]*>/g,'').replace(/\s+/g,' ').trim().slice(0,400);
+    const desc = $('description', el).text()
+      .replace(/<[^>]*>/g, '')
+      // retire les artefacts de flux : "The post … appeared first on …", "[…]", "Read more / Lire la suite"
+      .replace(/the post\b[\s\S]*?appeared first on[\s\S]*$/i, '')
+      .replace(/\[\s*(?:&#8230;|…|\.\.\.)\s*\][\s\S]*$/i, '')
+      .replace(/\b(?:read more|continue reading|lire la suite(?: du rapport)?)\b[\s\S]*$/i, '')
+      .replace(/&#8230;|…/g, '')
+      .replace(/\s+/g, ' ').trim().slice(0, 400);
     const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
     merged.set(id, {
       id, title, url: link,
@@ -1417,7 +1424,14 @@ async function _loadPersistedHistories() {
 
 app.get('/api/bank-research', (_req, res) => {
   res.json(_brCache);
-  if (Date.now() - _brFetchedAt > 20 * 60 * 1000) _fetchBankResearch(false).catch(() => {});
+  // Résilience : si le cache est VIDE (ex. cold-start avant le 1er scrape) → on déclenche tout de
+  // suite une récupération (et on recharge aussi depuis le stockage durable). Sinon refresh normal.
+  if (_brCache.length === 0) {
+    _fetchBankResearch(false).catch(() => {});
+    _loadPersistedHistories().catch(() => {});   // recharge aussi depuis le stockage durable (Supabase)
+  } else if (Date.now() - _brFetchedAt > 20 * 60 * 1000) {
+    _fetchBankResearch(false).catch(() => {});
+  }
 });
 
 // ── FX Daily (ING THINK) → rapport dédié dans l'onglet Analyst ───────────────
@@ -1446,6 +1460,14 @@ function _stripSource(html) {
     .replace(/\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com\.?/gi, '')
     // crédits photo / "Source:" résiduels
     .replace(/<p[^>]*>\s*(?:source|photo|image)\s*:[\s\S]*?<\/p>/gi, '')
+    // "The post … appeared first on …" (pied de page WordPress des flux ActionForex/FXStreet)
+    .replace(/<p[^>]*>\s*the post[\s\S]*?appeared first on[\s\S]*?<\/p>/gi, '')
+    .replace(/the post\b[^<]*?appeared first on[^<]*?(?:actionforex|fxstreet|forexlive)[^<]*\.?/gi, '')
+    // liens / mentions "Read more / Continue reading / Lire la suite / Full report"
+    .replace(/<a[^>]*>\s*(?:read more|continue reading|read the full[^<]*|full (?:report|article|story)|lire la suite[^<]*)\s*<\/a>/gi, '')
+    .replace(/(?:read more|continue reading|lire la suite(?: du rapport)?|read the full (?:report|article|story))\s*(?:[»>→…]|\.\.\.)?/gi, '')
+    // marqueurs de troncature "[…]" / "[&#8230;]" / "(...)"
+    .replace(/\[\s*(?:&#8230;|…|\.\.\.)\s*\]/g, '')
     .trim();
 }
 
@@ -1488,6 +1510,20 @@ app.get('/api/bank-research-content', async (req, res) => {
 
     // Remove noise (garder les images et figures)
     $('script,style,nav,header,footer,.cookie-banner,[class*="social"],[class*="related"],[class*="subscribe"],[class*="newsletter"],[class*="sidebar"],[class*="widget"],#comments').remove();
+
+    // ── Résout les images LAZY-LOAD (WordPress/ActionForex : la vraie URL est dans data-src,
+    // le src n'étant qu'un placeholder) → sinon image cassée. On normalise vers un src valide.
+    $('img').each((_, img) => {
+      const $i = $(img);
+      const real = $i.attr('data-src') || $i.attr('data-lazy-src') || $i.attr('data-original')
+                || ($i.attr('data-srcset') || '').trim().split(/\s+/)[0] || '';
+      const cur = $i.attr('src') || '';
+      // remplace si src manquant / placeholder (data:, blank, spacer…)
+      if (real && (!cur || /^data:|blank|placeholder|spacer|lazy/i.test(cur))) $i.attr('src', real);
+      $i.removeAttr('loading').removeAttr('data-src').removeAttr('data-lazy-src').removeAttr('data-original').removeAttr('srcset').removeAttr('data-srcset');
+      const finalSrc = $i.attr('src') || '';
+      if (!finalSrc || /^data:|blank|placeholder|spacer/i.test(finalSrc)) $i.remove();   // aucune image valide → on retire (pas de cassé)
+    });
 
     // Extract body HTML (avec images)
     const body = $('[class*="article-body"], [class*="article__body"], [class*="article-content"], [class*="post-content"], .content-body, article .content, .entry-content, .wysiwyg, .rich-text').first().html()
