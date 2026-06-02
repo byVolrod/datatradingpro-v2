@@ -3297,12 +3297,18 @@ const ARLIB_TYPE_ORDER = {
 };
 const ARLIB_ALLOWED_TYPES = new Set(Object.keys(ARLIB_TYPE_ORDER));
 
+const _ARLIB_WEEKLY = new Set(['Weekly Market Recap', 'Global Economic Weekly']);
 function getArlibItems() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
-  // L'onglet Analyst ne contient QUE les session wraps (InvestingLive).
-  // Les rapports DTP (Daily / Opening / Recap) vivent désormais dans le flux NEWS, pas ici.
-  return (_sessionWraps || [])
-    .filter(i => i.timestamp > cutoff)
+  // Session wraps InvestingLive…
+  const wraps = (_sessionWraps || []).filter(i => i.timestamp > cutoff);
+  // …+ les rapports HEBDOMADAIRES (Weekly Recap / Global Economic Weekly), issus du flux temps réel.
+  // (Les autres rapports DTP quotidiens restent dans le flux NEWS, pas ici.)
+  const weekly = (typeof allItems !== 'undefined' ? allItems : [])
+    .filter(i => _ARLIB_WEEKLY.has(i._reportType) && i.timestamp > cutoff);
+  const seen = new Set();
+  return [...weekly, ...wraps]
+    .filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; })
     .sort((a, b) => b.timestamp - a.timestamp);
 }
 
@@ -3310,6 +3316,7 @@ function arlibItemType(item) {
   if (item._source === 'investinglive') return 'recap';
   if (item._source === 'ing-think') return 'analysis';
   if (item._reportType === 'London Session Recap' || item._reportType === 'US Session Recap') return 'recap';
+  if (item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly') return 'recap';
   if (item._reportType === 'Daily Event Review') return 'briefing';
   if (item.source === 'PMT' || item._briefing) return 'briefing';
   const h = (item.headline || '').toLowerCase();
