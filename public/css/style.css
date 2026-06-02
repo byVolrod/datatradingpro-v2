@@ -3879,6 +3879,11 @@ html, body {
 /* Graphique de force isolé */
 .wr-chart { height:380px; margin:8px 0 4px; background:#0b0b0c; border:1px solid #1c1c20; border-radius:8px; overflow:hidden; }
 .wr-chart-loading { display:flex; align-items:center; justify-content:center; height:100%; color:#6b7280; font-size:12px; }
+/* Bandeau "génération du Weekly Recap en cours" */
+.arlib-genbanner { display:flex; align-items:center; gap:9px; margin:0 0 12px; padding:11px 14px; border-radius:8px;
+  background:rgba(255,122,0,.08); border:1px solid rgba(255,122,0,.25); color:#ffb066; font-size:12.5px; }
+.arlib-genspin { width:13px; height:13px; border:2px solid rgba(255,122,0,.3); border-top-color:#ff7a00; border-radius:50%; animation:dtpSpin .8s linear infinite; flex-shrink:0; }
+@keyframes dtpSpin { to { transform:rotate(360deg); } }
 @media (max-width:768px){
   .wr-insight-card { flex-basis:220px; }
   .wr-chart { height:300px; }
