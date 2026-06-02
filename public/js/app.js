@@ -3267,10 +3267,25 @@ function markBrRead(id) {
 }
 function isBrRead(id) { return _brReadIds.has(String(id)); }
 
+// Peuple AUTOMATIQUEMENT le filtre par institution depuis les institutions réellement
+// présentes (ING, MUFG, et toute nouvelle banque ajoutée plus tard).
+function _populateBrInstFilter() {
+  const sel = document.getElementById('br-inst');
+  if (!sel) return;
+  const cur = sel.value || 'all';
+  const insts = [...new Set((_brArticles || []).map(i => i && i.institution).filter(Boolean))].sort();
+  const LABELS = { ING: 'ING Think', MUFG: 'MUFG', ActionForex: 'ActionForex', FXStreet: 'FXStreet' };
+  const html = '<option value="all">All Institutes</option>' +
+    insts.map(i => `<option value="${i}">${LABELS[i] || i}</option>`).join('');
+  if (sel.innerHTML !== html) sel.innerHTML = html;
+  sel.value = [...sel.options].some(o => o.value === cur) ? cur : 'all';
+}
+
 function renderBrList() {
   const list   = document.getElementById('br-list');
   const footer = document.getElementById('br-footer');
   if (!list) return;
+  _populateBrInstFilter();
 
   let items = _brArticles;
   if (_brInst   !== 'all') items = items.filter(i => i.institution === _brInst);
@@ -3693,7 +3708,7 @@ function renderArlibList() {
       : isSW  ? (item.session || 'SW').slice(0,3).toUpperCase()
       : isING ? 'FX'           // rapports ING Think dans Analyst = FX Daily → badge "FX"
       : '';
-    const badgeClass = isING ? 'arlib-ptbadge-small arlib-badge-ing' : 'arlib-ptbadge-small';
+    const badgeClass = 'arlib-ptbadge-small';   // FX/SW/DTP : même style neutre (blanc) que les autres
     const badge = badgeLabel ? `<span class="${badgeClass}">${badgeLabel}</span>` : '';
 
     const card = document.createElement('div');
