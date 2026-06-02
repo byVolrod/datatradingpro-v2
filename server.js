@@ -227,7 +227,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     try {
       const users = await auth.getAllUsers();
       const u = users.find(x => (x.email || '').toLowerCase() === email);
-      if (u && u.active) {
+      if (u) {   // suffit que l'email existe en BDD (même si abonnement suspendu/expiré)
         const temp = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
         await auth.changePassword(u.id, temp);
         mailer.sendPasswordReset({ to: u.email, name: u.name, password: temp }).catch(() => {});
