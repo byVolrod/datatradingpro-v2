@@ -14,7 +14,7 @@ const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory'
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll } = require('./scrapers/forexfactory-news');
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
-const { fetchCommunityOutlook, clearOutlookCache } = require('./scrapers/myfxbook');
+const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache } = require('./scrapers/myfxbook');
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
 const ai = require('./ai');           // génération IA (Gemini gratuit, repli Claude)
@@ -1335,9 +1335,11 @@ app.get('/api/cot', async (req, res) => {
 app.get('/api/community-outlook', async (req, res) => {
   const period = ['H1','H4','D1'].includes(req.query.period) ? req.query.period : 'H1';
   const force  = req.query.force === '1';
-  if (force) clearOutlookCache();
+  // "force" = rafraîchissement EN ARRIÈRE-PLAN (on ne vide PAS le cache → on sert tout de
+  // suite les données courantes, le nouveau jeu arrivera au prochain rafraîchissement client).
+  if (force) refreshOutlookBg();
   try {
-    const data = await fetchCommunityOutlook(period);
+    const data = await fetchCommunityOutlook(period);   // instantané (cache) ; ne bloque qu'au tout 1er chargement
     res.json({ symbols: data, period, updatedAt: new Date().toISOString() });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -3389,7 +3391,7 @@ initFinancialJuice().catch(err => console.error('[FJ init]', err.message));
 let _lastMyfxHash = '';
 async function refreshMyfxbook() {
   try {
-    const data = await fetchCommunityOutlook('H1');
+    const data = await forceFetchOutlook();   // vrai fetch (garde le cache chaud pour un service instantané)
     if (!data?.length) return;
     const hash = data.map(s => `${s.symbol}:${s.shortPct}`).join(',');
     if (hash === _lastMyfxHash) return;
@@ -3424,8 +3426,8 @@ if (_SELF_URL) {
 setTimeout(() => {
   try { computeCurrencyStrength('today').catch(() => {}); } catch {}
   try { computeCurrencyStrength('week').catch(() => {}); } catch {}
-  try { if (process.env.DISABLE_MYFXBOOK !== 'true') fetchCommunityOutlook('H1').catch(() => {}); } catch {}
   try { fetchCOTData('lev_money').catch(() => {}); } catch {}
+  // (Myfxbook/DMX est déjà préchauffé par refreshMyfxbook au démarrage)
 }, 6000);
 
 // ── Rappel abonnements : prévient l'admin (datatradingpro.contact) des comptes

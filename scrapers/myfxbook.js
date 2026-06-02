@@ -299,54 +299,73 @@ async function fetchViaPuppeteer() {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-async function fetchCommunityOutlook(period = 'H1') {
-  if (_mem[period] && Date.now() - (_memTs[period] || 0) < CACHE_TTL) return _mem[period];
-
-  const disk = loadDisk(period);
-  if (disk && disk.length >= 5) { _mem[period] = disk; _memTs[period] = Date.now(); return disk; }
-
-  const save = data => {
-    for (const p of ['H1', 'H4', 'D1']) {
-      _mem[p] = data; _memTs[p] = Date.now();
-      saveDisk(p, data);
-    }
-  };
-
-  // Attempt 1: REST API with session (fast, authoritative, correct position %)
+// Charge le cache disque SANS contrôle d'âge (servir des données un peu datées > rien)
+function loadDiskAny(period) {
   try {
-    const raw = await fetchViaApi();
-    const data = normalise(raw);
-    if (data.length > 0) { save(data); return data; }
-  } catch (e) {
-    console.warn('[Myfxbook] API attempt 1 failed:', e.message);
-    // Retry once with a fresh session
-    try {
-      const raw = await fetchViaApi();
-      const data = normalise(raw);
-      if (data.length > 0) { save(data); return data; }
-    } catch (e2) {
-      console.warn('[Myfxbook] API attempt 2 failed:', e2.message);
-    }
-  }
-
-  // Attempt 2: Puppeteer DOM extraction (in-memory only — never cached to disk)
-  try {
-    const raw = await fetchViaPuppeteer();
-    if (raw && raw.length > 0) {
-      const data = normalise(raw);
-      if (data.length > 0) { save(data); return data; }
-    }
-  } catch (e) {
-    console.error('[Myfxbook] Puppeteer attempt failed:', e.message);
-  } finally {
-    // Libère le Chromium dès la fin du fetch (prochain dans ~5 min) → ~150 Mo rendus à l'OS.
-    // Évite 2 navigateurs persistants simultanés (FinancialJuice + Myfxbook) sur un hébergement 512 Mo.
-    await closeBrowser();
-  }
-
-  console.warn('[Myfxbook] all methods failed — returning empty');
-  return [];
+    const all = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
+    const e   = all[period];
+    if (e && Array.isArray(e.data) && e.data.length > 0) return e.data;
+  } catch {}
+  return null;
 }
+
+// Le VRAI fetch (API → Puppeteer), met en cache les 3 périodes. Renvoie les données ou [].
+// Déduplication par promesse : un seul fetch concurrent (évite 2 Puppeteer au démarrage).
+let _fetchPromise = null;
+function _doFetch() {
+  if (_fetchPromise) return _fetchPromise;
+  _fetchPromise = (async () => {
+    const save = data => {
+      for (const p of ['H1', 'H4', 'D1']) { _mem[p] = data; _memTs[p] = Date.now(); saveDisk(p, data); }
+    };
+    // Attempt 1: REST API (rapide) — 2 essais (session fraîche au 2e)
+    for (let i = 0; i < 2; i++) {
+      try {
+        const data = normalise(await fetchViaApi());
+        if (data.length > 0) { save(data); return data; }
+      } catch (e) { console.warn(`[Myfxbook] API attempt ${i + 1} failed:`, e.message); }
+    }
+    // Attempt 2: Puppeteer DOM (lent) — uniquement si l'API a échoué
+    try {
+      const raw = await fetchViaPuppeteer();
+      if (raw && raw.length > 0) {
+        const data = normalise(raw);
+        if (data.length > 0) { save(data); return data; }
+      }
+    } catch (e) {
+      console.error('[Myfxbook] Puppeteer attempt failed:', e.message);
+    } finally {
+      await closeBrowser();   // libère Chromium (~150 Mo) sur hébergement 512 Mo
+    }
+    console.warn('[Myfxbook] all methods failed — returning empty');
+    return [];
+  })().finally(() => { _fetchPromise = null; });
+  return _fetchPromise;
+}
+
+// Rafraîchissement EN ARRIÈRE-PLAN (jamais bloquant)
+function _bgRefresh() { _doFetch().catch(() => {}); }
+
+// API publique — STALE-WHILE-REVALIDATE : on sert le cache INSTANTANÉMENT,
+// on rafraîchit en arrière-plan. Ne bloque QUE s'il n'y a aucune donnée du tout.
+async function fetchCommunityOutlook(period = 'H1') {
+  // 1) cache mémoire FRAIS (< 5 min) → instantané
+  if (_mem[period] && Date.now() - (_memTs[period] || 0) < CACHE_TTL) return _mem[period];
+  // 2) cache mémoire périmé OU cache disque (même daté) → on SERT tout de suite + refresh en fond
+  let cached = (_mem[period] && _mem[period].length) ? _mem[period] : loadDiskAny(period);
+  if (cached && cached.length >= 5) {
+    _mem[period] = cached; if (!_memTs[period]) _memTs[period] = Date.now();
+    _bgRefresh();
+    return cached;
+  }
+  // 3) AUCUN cache → on attend le fetch (première fois seulement)
+  return await _doFetch();
+}
+
+// Force un rafraîchissement en arrière-plan (sans vider le cache → aucun blocage)
+function refreshOutlookBg() { _bgRefresh(); }
+// Fetch FRAIS attendu (pour le refresh périodique serveur / préchauffage)
+async function forceFetchOutlook() { return _doFetch(); }
 
 async function closeBrowser() {
   if (_browser) { try { await _browser.close(); } catch {} _browser = null; _loggedIn = false; }
@@ -359,4 +378,4 @@ function clearOutlookCache() {
   _sessionTs = 0;
 }
 
-module.exports = { fetchCommunityOutlook, clearOutlookCache, closeBrowser };
+module.exports = { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, closeBrowser };
