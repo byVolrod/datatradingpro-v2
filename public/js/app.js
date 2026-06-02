@@ -3599,17 +3599,28 @@ function _renderWeeklyRecap(item) {
 
   // AI Insights (composant Institution, alimenté par les insights Gemini du recap)
   const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
-  const insightsHtml = (w.insights && w.insights.length) ? `
+  // Cartes : insights thématiques (texte) PUIS paires/instruments avec badge de biais (SELL/BUY/NEUTRAL)
+  const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrEsc(typeof t === 'string' ? t : (t.text || ''))}</div>`);
+  const pairCards = (w.pairs || []).map(p => {
+    const b = String(p.bias || 'NEUTRAL').toUpperCase();
+    const cls = b === 'BUY' ? 'buy' : b === 'SELL' ? 'sell' : 'neutral';
+    return `<div class="ai-insights-card ai-ins-pair">
+      <div class="ai-ins-pair-head"><span class="ai-ins-pair-name">${_wrEsc(p.pair)}</span><span class="ai-ins-bias ai-ins-bias--${cls}">${_wrEsc(b)}</span></div>
+      <div class="ai-ins-pair-text">${_wrEsc(p.text || '')}</div>
+    </div>`;
+  });
+  const allCards = [...textCards, ...pairCards];
+  const insightsHtml = allCards.length ? `
     <div id="arlib-ai-insights">
       <div class="ai-insights-head">
         <span class="ai-insights-title">${chip} AI Insights</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
-          <span class="ai-insights-count">${w.insights.length} insights</span>
+          <span class="ai-insights-count">${allCards.length} insights</span>
           <button type="button" onclick="aiInsScroll(this,1)">›</button>
         </span>
       </div>
-      <div class="ai-insights-cards">${w.insights.map(t=>`<div class="ai-insights-card">${_wrEsc(t)}</div>`).join('')}</div>
+      <div class="ai-insights-cards">${allCards.join('')}</div>
     </div>` : '';
 
   let body = '';

@@ -59,7 +59,7 @@ app.use(cors({
 const PORT = process.env.PORT || 3000;
 const REFRESH_INTERVAL = 60000;
 const HISTORY_FILE = path.join(__dirname, 'news_history.json');
-const HISTORY_TTL  = 7 * 24 * 60 * 60 * 1000; // 7 days
+const HISTORY_TTL  = 10 * 24 * 60 * 60 * 1000; // 10 jours (le recap hebdo a besoin de la semaine écoulée même généré en début de semaine suivante)
 const SW_CACHE_FILE = path.join(__dirname, 'cache_session_wraps.json');
 const SW_MAX_AGE    = 30 * 24 * 60 * 60 * 1000; // 30 days
 const BR_CACHE_FILE = path.join(__dirname, 'cache_bank_research.json');
@@ -2154,13 +2154,20 @@ async function generateWeeklyRecapAI(force = false) {
   const wraps = (_swCache || [])
     .filter(i => inWeek(i.timestamp))
     .map(i => `[${i.session || 'Wrap'}] ${i.title}${i.description ? ' — ' + i.description : ''}`);
-  // 2) RÉSULTATS du calendrier économique de la semaine (Actual vs Forecast vs Previous)
-  const cal = (allCalendar || [])
-    .filter(i => inWeek(i.timestamp) && /actual/i.test(i.description || ''))
-    .map(i => `${i.country || i.currency || ''} ${i.title || i.headline || ''} — ${String(i.description).replace(/\s+/g, ' ').trim()}`);
-  // 3) Autres titres macro de la semaine en complément (nettoyés du bruit social/promo)
   const wrapsRaw     = (_swCache || []).filter(i => inWeek(i.timestamp));
   const weekItemsRaw = _recapClean(allNews.filter(i => inWeek(i.timestamp) && !i._briefing));
+  // 2) RÉSULTATS du calendrier économique de la semaine — sources COMBINÉES :
+  //    a) données publiées présentes dans allNews (Actual ou catégorie *Data*) — fiable pour la semaine écoulée,
+  //    b) + le calendrier allCalendar (prospectif/récent) avec valeur publiée.
+  const _isDataResult = i => /actual/i.test(i.description || '') || /\bData\b|Economic Commentary/.test(i.category || '');
+  const calItems = [
+    ...weekItemsRaw.filter(_isDataResult),
+    ...(allCalendar || []).filter(i => inWeek(i.timestamp) && /actual/i.test(i.description || '')),
+  ];
+  const _calSeen = new Set();
+  const calDedup = calItems.filter(i => { const k = (i.headline || i.title || '') + i.timestamp; if (_calSeen.has(k)) return false; _calSeen.add(k); return true; });
+  const cal = calDedup.map(i => `${i.country || i.currency || i.category || ''} ${i.headline || i.title || ''}${/actual/i.test(i.description || '') ? ' — ' + String(i.description).replace(/\s+/g, ' ').trim().slice(0, 160) : ''}`);
+  // 3) Autres titres macro de la semaine en complément (nettoyés du bruit social/promo)
   const news = weekItemsRaw.slice(0, 120).map(i => `[${i.category || ''}] ${i.headline}`);
 
   if (!wraps.length && !cal.length && !news.length) {
@@ -2182,13 +2189,14 @@ Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS 
 {
   "title": "Weekly Market Recap: <punchy headline capturing the week's main story>",
   "summary": "<2 to 4 sentence global overview of how markets traded this week>",
-  "insights": ["<concise standalone insight, 1 sentence>", "... up to 8 insight cards"],
+  "insights": ["<concise standalone insight, 1 sentence>", "... 4 to 6 thematic insight cards"],
+  "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<one concise sentence: why this directional bias for the week>" } ],
   "macro": [
     { "heading": "<macro theme, e.g. Middle East Geopolitics>", "bullets": ["**Sub-topic:** one or two detailed sentences", "..."] }
   ],
   "currencies": {
     "USD": {
-      "analysis": "<2 to 4 paragraph narrative of the US dollar's week: how it traded day by day, the drivers, and the outlook>",
+      "analysis": "<concise but COMPLETE narrative of the US dollar's week, grounded in the session wraps: how it traded day by day, the concrete drivers (central banks, data, geopolitics, flows) and the resulting bias. Clear and well-explained, no filler.>",
       "drivers": [ { "heading": "<driver theme, e.g. Fed Policy Expectations>", "detail": "<1 to 2 sentences explaining how this drove the currency this week>" } ]
     },
     "EUR": { "analysis": "...", "drivers": [ ... ] },
@@ -2200,7 +2208,11 @@ Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS 
     "NZD": { "analysis": "...", "drivers": [ ... ] }
   }
 }
-Rules: 4 to 6 macro themes; 6 to 8 insight cards; EVERY currency in [${CCY.join(', ')}] must be present, each with a substantive multi-paragraph "analysis" AND 4 to 8 "drivers" (heading + detail). No source attributions, no URLs.
+Rules:
+- 4 to 6 macro themes; 4 to 6 thematic insight cards.
+- "pairs": 5 to 7 KEY pairs/instruments (e.g. USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold) with a directional bias for the COMING week — "bias" is exactly "BUY", "SELL" or "NEUTRAL".
+- EVERY currency in [${CCY.join(', ')}] must be present, each with a substantive, CONCISE-but-COMPLETE "analysis" (explain what happened to that currency this week, based on the session wraps) AND 4 to 8 "drivers" (heading + detail).
+- No source attributions, no URLs.
 
 Week's data (session wraps + economic calendar results + headlines):
 ${corpus}`;
@@ -2227,7 +2239,12 @@ ${corpus}`;
     weekly = {
       v: 2, title: baseTitle, weekEnding, weekRange,
       summary:    parsed.summary || '',
-      insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 8) : [],
+      insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 6) : [],
+      pairs:      Array.isArray(parsed.pairs) ? parsed.pairs
+                    .filter(p => p && p.pair)
+                    .map(p => ({ pair: String(p.pair).trim(), bias: String(p.bias || 'NEUTRAL').toUpperCase().replace(/[^A-Z]/g,''), text: String(p.text || '').trim() }))
+                    .map(p => ({ ...p, bias: ['BUY','SELL','NEUTRAL'].includes(p.bias) ? p.bias : 'NEUTRAL' }))
+                    .slice(0, 8) : [],
       macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).slice(0, 6) : [],
       currencies: {},
     };
@@ -2260,6 +2277,7 @@ ${corpus}`;
       weekEnding, weekRange,
       summary: `Synthèse de la ${weekRange.toLowerCase()} : ${wrapsRaw.length} session(s) de marché et ${cal.length} résultat(s) économique(s) majeur(s) suivis. (Analyse détaillée par devise générée par IA dès que le quota est disponible.)`,
       insights: wrapsRaw.slice(0, 6).map(i => (i.title || '').replace(/\s+/g, ' ').trim()).filter(Boolean),
+      pairs: [],
       macro,
       currencies: {},   // pas d'analyse par devise sans IA
     };
