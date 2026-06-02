@@ -1010,6 +1010,18 @@ app.get('/api/bank-research', (_req, res) => {
   if (Date.now() - _brFetchedAt > 20 * 60 * 1000) _fetchBankResearch(false).catch(() => {});
 });
 
+// Retire les lignes d'attribution de source de tout HTML de rapport (aucune source affichée)
+function _stripSource(html) {
+  return String(html || '')
+    // paragraphes entiers d'attribution
+    .replace(/<p[^>]*>\s*(?:this article was written by|written by\b)[\s\S]*?<\/p>/gi, '')
+    .replace(/<p[^>]*>[^<]*\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com[^<]*<\/p>/gi, '')
+    // phrase d'attribution complète (hors balises), jusqu'au domaine source
+    .replace(/(?:this article was written by|written by)\b[^<]*?\b(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com\.?/gi, '')
+    .replace(/\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com\.?/gi, '')
+    .trim();
+}
+
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !url.startsWith('https://think.ing.com/')) return res.json({ html: '' });
@@ -1069,7 +1081,7 @@ app.get('/api/bank-research-content', async (req, res) => {
       } catch { dateFormatted = pubDate; }
     }
 
-    res.json({ html: clean, subtitle, date: dateFormatted, section, country, articleType });
+    res.json({ html: _stripSource(clean), subtitle, date: dateFormatted, section, country, articleType });
   } catch (e) {
     res.json({ html: '', error: e.message });
   }
