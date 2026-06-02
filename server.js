@@ -418,6 +418,14 @@ async function _whopSuspend(email) {
   }
 }
 app.post('/api/whop/webhook', async (req, res) => {
+  // Sécurité : si un secret est configuré, le webhook doit le présenter (token URL ou header).
+  // → empêche un tiers d'envoyer un faux event "cancel" pour suspendre un membre.
+  // (Opt-in : tant que WHOP_WEBHOOK_SECRET n'est pas défini, comportement inchangé.)
+  const _whSecret = process.env.WHOP_WEBHOOK_SECRET;
+  if (_whSecret) {
+    const provided = req.query.token || req.headers['x-webhook-token'] || req.headers['x-whop-token'];
+    if (provided !== _whSecret) return res.status(403).json({ error: 'forbidden' });
+  }
   res.json({ received: true });   // ACK immédiat (Whop n'attend pas)
   try {
     if (!whop.configured()) { console.warn('[Whop] WHOP_API_KEY absente'); return; }
@@ -471,6 +479,7 @@ app.post('/api/chat', async (req, res) => {
   if (!uid) return res.status(401).json({ error: 'Non autorisé' });
   const text = (req.body?.text || '').trim();
   if (!text) return res.status(400).json({ error: 'Message vide' });
+  if (!/^data:/.test(text) && text.length > 4000) return res.status(400).json({ error: 'Message trop long (4000 caractères max)' });
   try {
     const msg = await auth.chatInsert({ user_id: uid, sender: 'user', text });
     res.json({ ok: true, message: msg });
@@ -512,6 +521,7 @@ app.post('/api/admin/chat/:userId/typing', requireSupport, (req, res) => {
 app.post('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   const text = (req.body?.text || '').trim();
   if (!text) return res.status(400).json({ error: 'Message vide' });
+  if (!/^data:/.test(text) && text.length > 4000) return res.status(400).json({ error: 'Message trop long (4000 caractères max)' });
   try {
     const msg = await auth.chatInsert({ user_id: req.params.userId, sender: 'support', text });
     res.json({ ok: true, message: msg });
@@ -3355,7 +3365,13 @@ async function refreshNews() {
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
 
-wss.on('connection', (ws) => {
+wss.on('connection', (ws, req) => {
+  // Restreint le flux WS aux origines autorisées (prod + ALLOWED_ORIGINS configuré) → anti-leech.
+  if (process.env.NODE_ENV === 'production' && ALLOWED_ORIGINS.length) {
+    const origin = req?.headers?.origin || '';
+    const ok = !origin || ALLOWED_ORIGINS.some(o => origin === o || origin.endsWith(o));
+    if (!ok) { try { ws.close(1008, 'origin not allowed'); } catch {} return; }
+  }
   console.log(`[WS] Client connected (${wss.clients.size})`);
   ws.send(JSON.stringify({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length }));
   // Envoyer aussi les session wraps et bank research au moment de la connexion
