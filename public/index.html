@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260603z" />
+  <link rel="stylesheet" href="/css/style.css?v=20260603b" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -125,10 +125,7 @@
           <div class="dropdown-grid" id="section-checkboxes"></div>
         </div>
         <div class="news-list" id="news-list">
-          <div class="loading-state">
-            <div class="loading-spinner"></div>
-            <span>Connecting to news feed...</span>
-          </div>
+          <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Loading News Feed data…</div></div>
         </div>
       </div>
     </div><!-- /#view-news -->
@@ -549,8 +546,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260603z"></script>
-<script src="/js/charts.js?v=20260603z"></script>
+<script src="/js/app.js?v=20260603b"></script>
+<script src="/js/charts.js?v=20260603b"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

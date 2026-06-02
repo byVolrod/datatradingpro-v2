@@ -4,6 +4,18 @@
 
 'use strict';
 
+// ═══ Loader universel ══════════════════════
+// Renvoie le HTML du loader standard (croissant orange + libellé) pour TOUTE
+// fonctionnalité qui charge. Usage : el.innerHTML = dtpLoader('Loading X data…').
+// Option { small:true } pour les petites zones (sous-onglets compacts).
+function dtpLoader(label, opts) {
+  const sm = opts && opts.small ? ' dtp-loader--sm' : '';
+  const txt = String(label == null ? 'Loading…' : label)
+    .replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+  return `<div class="dtp-loader${sm}"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">${txt}</div></div>`;
+}
+window.dtpLoader = dtpLoader;
+
 // ═══ World clocks ══════════════════════════
 const CLOCKS = [
   { city: 'London',   code: 'LON', country: 'UK',  tz: 'Europe/London',    lat: 51.5074, lon: -0.1278  },
@@ -1716,7 +1728,7 @@ function buildNewsItem(item) {
 
     if (tab === 'reaction') {
       const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      expandEl.innerHTML = `<div class="expand-loading">Chargement des données marché…</div>`;
+      expandEl.innerHTML = dtpLoader('Loading market data…', { small: true });
       expandEl.classList.add('visible');
       if (reactionTagEl) reactionTagEl.classList.add('tag--active');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
@@ -1838,7 +1850,7 @@ function buildNewsItem(item) {
 
     // Info tab — if no inline description but has a ForexFactory article URL, fetch real content
     if (tab === 'info' && rawDesc.length <= 30 && hasArticleUrl) {
-      expandEl.innerHTML = `<div class="expand-loading">Chargement de l'article…</div>`;
+      expandEl.innerHTML = dtpLoader('Loading article…', { small: true });
       expandEl.classList.add('visible');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
@@ -2515,7 +2527,7 @@ async function loadInstCOT(force = false) {
   const grid = document.getElementById('inst-cot-grid');
   const info = document.getElementById('inst-cot-info');
   if (!grid) return;
-  grid.innerHTML = '<div class="inst-loading"><div class="loading-spinner"></div><span>Loading COT data…</span></div>';
+  grid.innerHTML = dtpLoader('Loading COT data…');
   try {
     const data = await fetch(`/api/cot?type=${_instCotType}`).then(r => r.json());
     if (!data.currencies?.length) { grid.innerHTML = '<div class="inst-empty">No COT data available</div>'; return; }
@@ -2552,7 +2564,7 @@ async function loadInstCOT(force = false) {
 async function loadInstRetail(force = false) {
   const grid = document.getElementById('inst-retail-grid');
   if (!grid) return;
-  grid.innerHTML = '<div class="inst-loading"><div class="loading-spinner"></div><span>Loading retail sentiment…</span></div>';
+  grid.innerHTML = dtpLoader('Loading retail sentiment…');
   try {
     const url = `/api/community-outlook?period=H1${force ? '&force=1' : ''}`;
     const resp = await fetch(url).then(r => r.json());
@@ -2594,7 +2606,7 @@ async function loadInstFlow() {
   const grid = document.getElementById('inst-flow-grid');
   if (!grid) return;
   // Combine COT + Retail data into a divergence/flow view
-  grid.innerHTML = '<div class="inst-loading"><div class="loading-spinner"></div><span>Computing net flows…</span></div>';
+  grid.innerHTML = dtpLoader('Computing net flows…');
   try {
     const [cotData, retailData] = await Promise.all([
       fetch(`/api/cot?type=lev_money`).then(r => r.json()),
@@ -2836,7 +2848,7 @@ function loadBiasView() {
   const host = document.getElementById('bias-content');
   if (!host) return;
   if (_biasData) { renderBiasView(_biasData); return; }
-  host.innerHTML = '<div class="bias-loading">Chargement du Smart Bias…</div>';
+  host.innerHTML = dtpLoader('Loading Smart Bias Tracker data…');
   fetch('/api/smart-bias')
     .then(r => r.json())
     .then(d => { _biasData = d; renderBiasView(d); })
@@ -3049,7 +3061,7 @@ function buildBankChart(p) {
   const el = document.getElementById('bank-chart');
   if (!el || typeof am5 === 'undefined') return;
   if (_bankChartRoot) { try { _bankChartRoot.dispose(); } catch {} _bankChartRoot = null; }
-  el.innerHTML = '<div class="bank-chart-loading">Chargement du graphique…</div>';
+  el.innerHTML = dtpLoader('Loading chart…', { small: true });
 
   fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair))
     .then(r => r.json())
@@ -3256,7 +3268,7 @@ function renderBrReader(item) {
   if (titleEl) titleEl.textContent = item.title;
   if (badge)   badge.textContent   = item.institution || 'ING';
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
-  if (content) content.innerHTML   = '<div class="br-doc-loading"><div class="br-doc-spinner"></div>Loading article…</div>';
+  if (content) content.innerHTML   = dtpLoader('Loading article…');
 
   // ── AI Insights (comme l'onglet Analyst) ──
   let brIns = document.getElementById('br-ai-insights');
@@ -3923,7 +3935,7 @@ function renderArlibReader(item) {
   if (item._source === 'investinglive') {
     const SESSION_LABEL = { 'Americas': 'Americas Session', 'European': 'European Session', 'Asia-Pacific': 'Asia-Pacific Session' }[item.session] || 'Session Wrap';
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    content.innerHTML = `<div class="arlib-rmeta">Chargement…</div>`;
+    content.innerHTML = dtpLoader('Loading session wrap…');
 
     fetch('/api/session-wrap-content?url=' + encodeURIComponent(item.url))
       .then(r => r.json())
@@ -3960,7 +3972,7 @@ function renderArlibReader(item) {
   // ── ING Think research articles ───────────────────────────────────────────────
   if (item._source === 'ing-think') {
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    content.innerHTML = `<div class="arlib-rmeta">Chargement…</div>`;
+    content.innerHTML = dtpLoader('Loading research article…');
 
     fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
       .then(r => r.json())
@@ -4120,7 +4132,7 @@ function renderLondonPrep(report) {
 
 async function loadLondonPrep(force = false) {
   const body = document.getElementById('prep-body');
-  if (body) body.innerHTML = `<div class="prep-loading"><div class="loading-spinner"></div><span>Generating London Open report…</span></div>`;
+  if (body) body.innerHTML = dtpLoader('Generating London Open report…');
   try {
     const url = '/api/london-prep' + (force ? '?force=1' : '');
     const data = await fetch(url).then(r => r.json());
