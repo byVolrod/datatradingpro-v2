@@ -804,7 +804,9 @@ async function _swEnsureAiTitles() {
       if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
       budget--;
       try {
-        const out = await aiSmart('analyst',
+        // generateText direct (Gemini→Claude, comme le Weekly) → pas bloqué par le budget soft :
+        // les titres sont 1×/wrap et mis en cache, donc on privilégie la fiabilité.
+        const out = await ai.generateText(
           `Voici le résumé d'une session de marché (FX/indices/matières premières). Écris UN titre de presse ` +
           `PERCUTANT et CONCIS (idéalement 5 à 8 mots, max 9), en anglais, qui capte LE thème principal. ` +
           `Style "headline" : direct, verbe fort, pas de remplissage. Interdits : le mot "wrap", toute mention ` +
@@ -825,6 +827,7 @@ setInterval(() => _swEnsureAiTitles().catch(() => {}), 4 * 60 * 1000);
 
 app.get('/api/session-wraps', (_req, res) => {
   res.json(_swCache);
+  _swEnsureAiTitles().catch(() => {});   // génère les titres IA manquants dès l'ouverture de l'onglet
   if (Date.now() - _swFetchedAt > 20 * 60 * 1000) _fetchSessionWraps(false).catch(() => {});
 });
 
