@@ -3619,9 +3619,27 @@ function _wrRenderBody(item) {
 
   let html = '';
   if (_wrCurrency) {
+    const cd = w.currencies[_wrCurrency];
+    const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
+    const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
     html += `<div class="wr-section-title">${_wrCurrency} Analysis</div>`;
-    html += `<div class="wr-text">${_wrParas(w.currencies[_wrCurrency] || 'Analyse indisponible.')}</div>`;
-  } else {
+    html += `<div class="wr-text">${_wrParas(analysis || 'Analyse indisponible.')}</div>`;
+    // Courbe de force ISOLÉE sur cette devise (TW) — les autres masquées
+    html += `<div class="wr-section-title">Currency Strength · ${_wrCurrency} (This Week)</div>`;
+    html += `<div class="wr-chart" id="wr-strength-chart"></div>`;
+    // Drivers (sous-sections) de la devise
+    if (drivers.length) {
+      html += `<div class="wr-section-title">${_wrCurrency} — Drivers</div>`;
+      drivers.forEach(d => {
+        html += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
+        if (d.detail) html += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
+      });
+    }
+    body.innerHTML = html;
+    if (typeof buildIsolatedStrength === 'function') buildIsolatedStrength('wr-strength-chart', _wrCurrency, 'week');
+    return;
+  }
+  {
     if (w.summary) html += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
     if (w.macro && w.macro.length) {
       html += `<div class="wr-section-title">Key Macro Highlights</div>`;
