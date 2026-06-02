@@ -1746,18 +1746,23 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
   const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'bank'];
+  // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
+  const TITLE_LABEL = { news:'JOT', calendar:'CALENDAR', fxlist:'FX LIST', institution:'INSTITUTION', analyst:'ANALYST', bias:'BIAS', bank:'BANK', markets:'MARCHÉS' };
+  function _setDocTitle(view) { try { document.title = 'DTP | ' + (TITLE_LABEL[view] || 'JOT'); } catch {} }
 
   function activateView(view, { persist = true } = {}) {
     // MARCHÉS (mobile uniquement) : on bascule sur la colonne de droite (horloges, RISK, STRENGTH, COT…)
     if (view === 'markets') {
       document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === 'markets'));
       document.getElementById('main-layout')?.classList.add('show-right-mobile');
+      _setDocTitle('markets');
       // Les graphiques (amCharts) ont pu être initialisés masqués → on force un recalcul à l'affichage
       setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch {} }, 120);
       if (persist) { try { localStorage.setItem('dtp_active_view', 'markets'); } catch {} }
       return;   // on ne touche pas aux view-panel
     }
     if (!VALID_VIEWS.includes(view)) view = 'news';
+    _setDocTitle(view);
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
 
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
