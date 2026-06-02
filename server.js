@@ -1756,17 +1756,72 @@ Observed moves: ${String(moves).slice(0, 300)}`, 160);
 // ─── Analyst Outlook endpoint ────────────────────────────────────────────────
 const _outlookCache = new Map();
 
+// Rassemble TOUTES les données pertinentes du terminal pour une paire (force des devises,
+// COT, sentiment retail contrarien, risk on/off) → bloc texte injecté dans le prompt :
+// l'IA conclut le biais à partir de l'ensemble, pas des seuls titres. Tout est servi depuis
+// le cache (instantané) ; chaque source est tolérante aux pannes (try/catch indépendants).
+async function _gatherTerminalContext(pair) {
+  const [base, quote] = String(pair || '').toUpperCase().split('/').map(s => s.trim());
+  if (!base || !quote) return '';
+  const lines = [];
+  // 1) Force des devises (dernière valeur de chaque devise)
+  try {
+    const s = await computeCurrencyStrength('today');
+    const last = c => { const a = s && s.series && s.series[c]; return (a && a.length) ? a[a.length - 1].v : null; };
+    const sb = last(base), sq = last(quote);
+    if (sb != null || sq != null) {
+      const verdict = (sb != null && sq != null) ? (sb > sq ? `${base} stronger` : sq > sb ? `${quote} stronger` : 'balanced') : 'n/a';
+      lines.push(`Currency strength (today): ${base}=${sb != null ? sb.toFixed(2) : 'n/a'}, ${quote}=${sq != null ? sq.toFixed(2) : 'n/a'} → ${verdict}`);
+    }
+  } catch {}
+  // 2) COT — positionnement spéculatif (leveraged funds) = signal de tendance
+  try {
+    const cot = await fetchCOTData('lev_money');
+    const f = k => (cot || []).find(x => x.key === k);
+    const cbp = f(base), cqp = f(quote);
+    if (cbp) lines.push(`COT ${base}: ${cbp.longPct}% long / ${cbp.shortPct}% short (net ${cbp.net > 0 ? '+' : ''}${cbp.net})`);
+    if (cqp) lines.push(`COT ${quote}: ${cqp.longPct}% long / ${cqp.shortPct}% short (net ${cqp.net > 0 ? '+' : ''}${cqp.net})`);
+  } catch {}
+  // 3) Sentiment retail (Myfxbook) = signal CONTRARIEN
+  try {
+    const ro = await fetchCommunityOutlook('H1');
+    const r = (ro || []).find(x => x.symbol === base + quote);
+    if (r) lines.push(`Retail sentiment ${base}/${quote}: ${r.longPct}% long / ${r.shortPct}% short — contrarian read: crowd ${r.longPct > r.shortPct ? 'net LONG → bearish bias' : 'net SHORT → bullish bias'}`);
+  } catch {}
+  // 4) Risk sentiment global (safe-haven vs risk-on)
+  try {
+    const risk = await fetchRiskSentiment();
+    if (risk && risk.label) lines.push(`Global risk sentiment: ${risk.label}${typeof risk.score === 'number' ? ` (score ${risk.score.toFixed(2)})` : ''}`);
+  } catch {}
+  return lines.join('\n');
+}
+
 app.post('/api/analyst-outlook', async (req, res) => {
   const { pair, cb, headlines } = req.body || {};
   if (!pair) return res.status(400).json({ error: 'pair required' });
 
-  const cacheKey = `${pair}:${(headlines || '').slice(0, 120)}`;
+  // Clé de cache : paire + titres + heure (bucket horaire) → l'outlook se rafraîchit avec
+  // des données terminal fraîches au moins 1×/h sans re-générer à chaque clic.
+  const _hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
+  const cacheKey = `${pair}:${_hourBucket}:${(headlines || '').slice(0, 120)}`;
   if (_outlookCache.has(cacheKey)) return res.json(_outlookCache.get(cacheKey));
 
   try {
-    const text = await ai.generateText(`You are a professional forex analyst. Provide a structured market outlook for ${pair} based on the following recent headlines.
+    const terminal = await _gatherTerminalContext(pair).catch(() => '');
+    const text = await ai.generateText(`You are a professional forex analyst. Provide a structured market outlook for ${pair}.
 
+CONCLUDE the bias by weighing ALL the terminal data below TOGETHER (not a single factor):
+- Currency strength & COT (leveraged funds) = momentum/trend signals.
+- Retail sentiment = CONTRARIAN (crowd heavily long → bearish, heavily short → bullish).
+- Global risk sentiment drives safe-havens (USD, JPY, CHF, Gold) vs risk currencies (AUD, NZD, CAD).
+- Recent headlines = catalysts.
+
+Pair: ${pair}
 Central banks: ${cb || 'N/A'}
+
+TERMINAL DATA:
+${terminal || 'No positioning data available.'}
+
 Recent headlines (last 24h):
 ${headlines || 'None available'}
 
@@ -1786,7 +1841,7 @@ Respond with ONLY valid JSON in this exact format:
     {"type": "support",    "price": "1.0750", "note": "Monthly low"}
   ]
 }
-Be specific. Use actual levels where known. Max 3 levels. Output only valid JSON.`, 600);
+Base "bias", "confidence" and "summary" on the WEIGHT OF EVIDENCE across the terminal data above. Be specific. Use actual levels where known. Max 3 levels. Output only valid JSON.`, 700);
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON');
     const result = JSON.parse(jsonMatch[0]);
