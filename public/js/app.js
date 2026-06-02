@@ -1567,7 +1567,7 @@ function buildNewsItem(item) {
   // Tag « Analyse » : primers/speakers/groupés, OU news à contenu riche (vraie analyse possible),
   // sauf celles qui ont déjà renvoyé "rien".
   const hasNotes  = (isPrimer || isSpeaker || hasGrouped || _analysisCache.has(item.id)
-                     || (rawDesc.length > 140 && !_analysisNoData.has(item.id))) && rawDesc.length > 20;
+                     || (rawDesc.length > 40 && !_analysisNoData.has(item.id))) && rawDesc.length > 20;
   // For speaker openers: only show ⓘ Info if there's actual content (desc bullets OR existing quotes)
   const speakerQuotesAtRender = isSpeaker ? getSpeakerQuotes(speakerKey, item.timestamp) : [];
   // hasArticleUrl: used only inside openPanel to fetch deeper content when description is short

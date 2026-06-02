@@ -3533,9 +3533,10 @@ function mergeItems(incoming) {
     const needsCheck = !curated;
     return !needsCheck || isFinanciallyRelevant(fullText);
   });
-  // Enrich tags and upgrade priority for all incoming items
+  // Enrich tags and upgrade priority for all incoming items.
+  // Tag PRÉCIS sur titre + description (plus de signal → moins d'erreurs d'affectation).
   const newItems = relevant
-    .map(item => item._briefing ? item : { ...item, tags: extractTags(item.category, item.headline) })
+    .map(item => item._briefing ? item : { ...item, tags: extractTags(item.category, (item.headline || '') + ' ' + (item.description || '')) })
     .map(upgradeItemPriority)
     .filter(item => !isDuplicate(item, allNews));
   if (newItems.length === 0) return 0;
@@ -3560,6 +3561,58 @@ function mergeItems(incoming) {
     .slice(0, 1000);   // cap mémoire (512 Mo) : 1000 items suffisent largement pour le terminal
   saveHistory();
   return capped.length;
+}
+
+// ─── Tags IA pour les news IMPORTANTES (intelligent, borné, caché) ───────────
+// Le tagging mots-clés (extractTags) couvre TOUTES les news de façon précise. Pour les
+// news IMPORTANTES uniquement, l'IA affine 0–3 tags depuis un vocabulaire contrôlé — avec
+// de fortes limites pour préserver le quota : cap journalier + 1/cycle + cache durable +
+// jamais de dépense Claude (claudeOverBudget:false → repli mots-clés si budget épuisé).
+const AI_TAG_VOCAB = ['US','EU','UK','Japan','China','Fed','ECB','BoJ','BoE','Rates','Inflation','Data','Oil','Metals','Gold','Geopolitics','Risk','Crypto','Equities','Bonds','FX','Trade'];
+const AI_TAG_DAILY_MAX = parseInt(process.env.AI_TAG_DAILY_MAX, 10) || 25;
+const _aiTagCache = new Map();          // id → tags[] (cache mémoire chaud)
+let _aiTagDay = '', _aiTagDayCount = 0; // compteur journalier (cap dur)
+let _aiTagBusy = false;
+function _mergeAiTags(item, aiTags) {
+  // catégorie d'abord (souvent masquée par le front), puis tags IA nets — au plus 4
+  return [...new Set([item.category, ...(aiTags || [])])].slice(0, 4);
+}
+async function _smartTagNews() {
+  if (_aiTagBusy) return;
+  const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  if (!hasAI) return;
+  _aiTagBusy = true;
+  try {
+    const today = _aiDay();
+    if (_aiTagDay !== today) { _aiTagDay = today; _aiTagDayCount = 0; }   // reset journalier
+    let perCycle = 1;                                                     // 1 génération IA par passage
+    for (const item of allNews) {
+      if (!item || item._briefing || item._aiTagged) continue;
+      if (item.priority !== 'high') continue;                            // IMPORTANTES uniquement
+      if (Date.now() - item.timestamp > 6 * 60 * 60 * 1000) continue;    // récentes uniquement
+      // 1) cache chaud
+      if (_aiTagCache.has(item.id)) { item.tags = _mergeAiTags(item, _aiTagCache.get(item.id)); item._aiTagged = true; continue; }
+      // 2) cache durable (Supabase) — pas de requête IA
+      let cached = null; try { cached = await auth.aiCacheGet('tag:' + item.id); } catch {}
+      if (Array.isArray(cached)) { _aiTagCache.set(item.id, cached); item.tags = _mergeAiTags(item, cached); item._aiTagged = true; continue; }
+      // 3) génération IA (bornée par le cap journalier + 1/cycle)
+      if (perCycle <= 0 || _aiTagDayCount >= AI_TAG_DAILY_MAX) break;
+      perCycle--; _aiTagDayCount++;
+      try {
+        const out = await aiSmart('news',
+          `From this EXACT list only: ${AI_TAG_VOCAB.join(', ')} — pick the 0 to 3 tags that TRULY describe this market news. ` +
+          `If none clearly apply, answer NONE. Answer with just the chosen tags comma-separated (or NONE), nothing else.\nNews: ${item.headline}`,
+          40, { important: true, claudeOverBudget: false });
+        const up = AI_TAG_VOCAB.map(v => v.toUpperCase());
+        const picked = /NONE/i.test(String(out)) ? []
+          : String(out).split(/[,\n;]/).map(s => s.trim()).filter(Boolean)
+              .map(s => AI_TAG_VOCAB[up.indexOf(s.toUpperCase())]).filter(Boolean).slice(0, 3);
+        _aiTagCache.set(item.id, picked);
+        item.tags = _mergeAiTags(item, picked); item._aiTagged = true;
+        auth.aiCacheSet('tag:' + item.id, picked).catch(() => {});
+      } catch { /* budget épuisé / pas de clé → on garde les tags mots-clés (déjà précis) */ }
+    }
+  } finally { _aiTagBusy = false; }
 }
 
 // ─── Main refresh loop — ForexFactory + FinancialJuice ───────────────────────
@@ -3596,6 +3649,9 @@ async function refreshNews() {
       broadcast({ type: 'news_update', items: allNews.slice(0, count), total: allNews.length });
     }
   }
+
+  // Affinage IA des tags pour les news importantes (arrière-plan, borné, caché).
+  _smartTagNews().catch(() => {});
 }
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────

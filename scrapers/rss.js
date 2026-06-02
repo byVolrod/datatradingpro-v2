@@ -51,16 +51,39 @@ function detectCategory(text) {
   return 'Global News';
 }
 
+// Affectation de tags PRÉCISE et conservatrice : on ne pose un tag que sur un signal FORT
+// et non ambigu (on évite "us" le pronom, "london" le lieu, "eu" trop court…). Beaucoup de
+// news ne reçoivent AUCUN tag supplémentaire — c'est voulu (toutes n'ont pas besoin de tags).
 function extractTags(category, text) {
-  const tags = [category];
-  const t = (text || '').toLowerCase();
-  if (/(united states|\bus\b|american|trump|washington)/.test(t)) tags.push('US');
-  if (/(united kingdom|\buk\b|britain|british|london)/.test(t) && category !== 'BoE') tags.push('UK');
-  if (/(europe|european|\beu\b|brussels|eurozone)/.test(t)) tags.push('EU');
-  if (/(asia|asian)/.test(t) && !tags.includes('Asia')) tags.push('Asia');
-  if (/\b(cpi|ppi|pce|gdp|nfp|nonfarm payroll|unemployment rate|jobless claims|retail sales|industrial production|trade balance|consumer confidence|pmi|ifo|zew|durable goods|housing starts|payroll|consumer price|producer price|factory orders|ism|manufacturing pmi|services pmi|inflation rate|current account)\b/.test(t)) tags.push('Data');
-  if (/\b(rate decision|rate hike|rate cut|interest rate|rate increase|rate hold|rate pause|basis point|bps|monetary policy decision|policy rate|benchmark rate|repo rate|overnight rate)\b/.test(t)) tags.push('Rates');
-  return [...new Set(tags)].slice(0, 5);
+  const orig = ' ' + (text || '') + ' ';                                              // garde la CASSE (US ≠ us)
+  const t    = ' ' + (text || '').toLowerCase().replace(/[^a-z0-9.%/&'-]+/g, ' ') + ' ';
+  const tags = [];
+  const add = tag => { if (!tags.includes(tag)) tags.push(tag); };
+
+  // Pays / zones — codes-pays en MAJUSCULES (sur le texte original) pour ne JAMAIS confondre
+  // "US" (pays) avec "us" (pronom), puis mots forts non ambigus en minuscules.
+  if (/\b(US|U\.S\.A?\.?|USA)\b/.test(orig) ||
+      /\b(united states|federal reserve|fomc|powell|washington|white house|greenback)\b/.test(t) ||
+      /\bfed\b/.test(t)) add('US');
+  if (/\b(UK|U\.K\.)\b/.test(orig) ||
+      /\b(united kingdom|britain|british|sterling|gbp|bank of england|boe|gilt)\b/.test(t)) add('UK');
+  if (/\b(EU|ECB)\b/.test(orig) ||
+      /\b(euro ?zone|european union|lagarde|brussels|bund|euro)\b/.test(t)) add('EU');
+  if (/\b(china|chinese|beijing|pboc|yuan|renminbi)\b/.test(t)) add('China');
+  if (/\b(BOJ|JPY)\b/.test(orig) ||
+      /\b(japan|japanese|tokyo|yen|ueda)\b/.test(t)) add('Japan');
+
+  // Thèmes de marché
+  if (/\b(cpi|ppi|pce|gdp|nfp|non-?farm|payrolls?|unemployment|jobless claims|retail sales|industrial production|durable goods|factory orders|trade balance|current account|consumer price|producer price|inflation|pmi|ism|ifo|zew)\b/.test(t)) add('Data');
+  if (/\b(rate (decision|hike|cut|hold|pause|increase)|interest rate|basis points?|bps|monetary policy|policy rate|benchmark rate|repo rate|overnight rate|quantitative (easing|tightening)|hawkish|dovish)\b/.test(t)) add('Rates');
+  if (/\b(oil|crude|brent|wti|opec|natural gas|gasoline|petroleum)\b/.test(t)) add('Oil');
+  if (/\b(gold|silver|copper|platinum|palladium|bullion|xau|xag)\b/.test(t)) add('Metals');
+  if (/\b(war|conflict|missile|airstrike|sanctions?|ceasefire|nuclear|geopolit|invasion|military|hostage|hezbollah|hamas)\b/.test(t)) add('Geopolitics');
+  if (/\b(bitcoin|crypto|ethereum|btc|eth|stablecoin|blockchain)\b/.test(t)) add('Crypto');
+
+  // On garde la catégorie en tête (le front l'affiche déjà ailleurs / la masque), puis au plus
+  // 3 tags THÉMATIQUES nets. Si aucun signal fort → la news n'a que sa catégorie (souvent masquée).
+  return [...new Set([category, ...tags.slice(0, 3)])];
 }
 
 function parseRSSDate(dateStr) {
