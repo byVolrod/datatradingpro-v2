@@ -792,9 +792,9 @@ async function _swEnsureAiTitles() {
   _swTitleBusy = true;
   let changed = false;
   try {
-    let budget = 6;   // max 6 générations IA par passage (le reste au passage suivant)
-    for (const w of _swCache.slice(0, 22)) {   // wraps récents uniquement
-      if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant
+    let budget = 8;   // max 8 générations IA par passage (le reste au passage suivant)
+    for (const w of _swCache.slice(0, 80)) {   // TOUS les wraps affichés dans l'onglet Analyst
+      if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant (skip → 0 coût)
       try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}
       if (budget <= 0) continue;
       const src = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) || w.title || '';
