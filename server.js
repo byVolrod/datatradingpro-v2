@@ -4035,6 +4035,36 @@ app.get('/api/market-moves', async (req, res) => {
   res.json(result);
 });
 
+// ═══════════════════ RÉSILIENCE / ANTI-DOWN ═══════════════════
+// 1) Error-handler Express GLOBAL : une route qui jette ne fait plus planter/bloquer le serveur.
+//    (Doit être déclaré APRÈS toutes les routes.) → toujours une réponse propre, jamais de hang.
+app.use((err, req, res, next) => {
+  console.error('[ERR]', req.method, req.path, '-', err?.message || err);
+  if (res.headersSent) return next(err);
+  res.status(500).json({ error: 'Erreur serveur' });
+});
+
+// 2) Timeouts serveur : évite l'accumulation de connexions lentes/bloquées (slow-loris, hangs).
+server.requestTimeout   = 30 * 1000;   // 30 s max par requête
+server.headersTimeout   = 35 * 1000;
+server.keepAliveTimeout = 65 * 1000;   // > intervalle keep-alive (anti coupures prématurées)
+
+// 3) Watchdog MÉMOIRE : sur l'hébergement 512 Mo, plusieurs Chromium peuvent provoquer un OOM
+//    (→ Render tue le process = down). On surveille la RSS et on ferme les navigateurs non
+//    essentiels (Myfxbook + InvestingLive) quand on approche de la limite.
+setInterval(() => {
+  try {
+    const rssMo = process.memoryUsage().rss / (1024 * 1024);
+    if (rssMo > 430) {
+      console.warn(`[MEM] RSS ${rssMo.toFixed(0)} Mo — fermeture des navigateurs non essentiels (anti-OOM)`);
+      try { clearOutlookCache(); } catch {}
+      try { require('./scrapers/myfxbook').closeBrowser?.(); } catch {}
+      try { if (typeof _ilBrowser !== 'undefined' && _ilBrowser) { _ilBrowser.close().catch(() => {}); _ilBrowser = null; } } catch {}
+      if (global.gc) { try { global.gc(); } catch {} }
+    }
+  } catch {}
+}, 60 * 1000);
+
 server.listen(PORT, async () => {
   // Seed admin user on first run
   await auth.seedAdmin();
