@@ -2154,7 +2154,9 @@ async function generateWeeklyRecapAI(force = false) {
 
   const CCY = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 
-  const prompt = `You are a senior macro strategist writing the WEEKLY MARKET RECAP for a professional FX & markets desk. The trading week (Monday–Friday) just closed. Write in clear professional English.
+  const prompt = `You are a senior macro strategist writing the institutional WEEKLY MARKET RECAP for a professional FX & markets desk (style and depth comparable to a top-tier bank's weekly review). The trading week (Monday–Friday) just closed. Write in polished, precise, professional English — smart, analytical and specific.
+
+Quality bar: cite concrete drivers (central bank names and officials, specific data prints with actual vs forecast where available, geopolitical events, oil/equity/yield moves). Each currency narrative must read like a real desk note — multi-paragraph, day-by-day where relevant, explaining the "why" behind moves, not generic filler.
 
 Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS below (these are the authoritative week-in-review sources), using the other headlines only as supporting context. Produce the recap and return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
 {
@@ -2165,18 +2167,27 @@ Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS 
     { "heading": "<macro theme, e.g. Middle East Geopolitics>", "bullets": ["**Sub-topic:** one or two detailed sentences", "..."] }
   ],
   "currencies": {
-    "USD": "<1 to 2 paragraph analysis of the US dollar's week, drivers and outlook>",
-    "EUR": "...", "JPY": "...", "GBP": "...", "CHF": "...", "AUD": "...", "CAD": "...", "NZD": "..."
+    "USD": {
+      "analysis": "<2 to 4 paragraph narrative of the US dollar's week: how it traded day by day, the drivers, and the outlook>",
+      "drivers": [ { "heading": "<driver theme, e.g. Fed Policy Expectations>", "detail": "<1 to 2 sentences explaining how this drove the currency this week>" } ]
+    },
+    "EUR": { "analysis": "...", "drivers": [ ... ] },
+    "JPY": { "analysis": "...", "drivers": [ ... ] },
+    "GBP": { "analysis": "...", "drivers": [ ... ] },
+    "CHF": { "analysis": "...", "drivers": [ ... ] },
+    "AUD": { "analysis": "...", "drivers": [ ... ] },
+    "CAD": { "analysis": "...", "drivers": [ ... ] },
+    "NZD": { "analysis": "...", "drivers": [ ... ] }
   }
 }
-Rules: 4 to 6 macro themes; 6 to 8 insight cards; EVERY currency in [${CCY.join(', ')}] must be present with substantive analysis. No source attributions, no URLs.
+Rules: 4 to 6 macro themes; 6 to 8 insight cards; EVERY currency in [${CCY.join(', ')}] must be present, each with a substantive multi-paragraph "analysis" AND 4 to 8 "drivers" (heading + detail). No source attributions, no URLs.
 
 Week's data (session wraps + economic calendar results + headlines):
 ${corpus}`;
 
   let parsed = null;
   try {
-    const text = await ai.generateText(prompt, 4096);
+    const text = await ai.generateText(prompt, 8192);   // gros JSON (8 devises × analyse + drivers)
     const m = text.match(/\{[\s\S]*\}/);
     if (m) parsed = JSON.parse(m[0]);
   } catch (e) { console.warn('[Weekly Recap] IA échec:', e.message); return null; }
@@ -2196,11 +2207,25 @@ ${corpus}`;
     macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).slice(0, 6) : [],
     currencies: {},
   };
-  for (const c of CCY) if (parsed.currencies[c]) weekly.currencies[c] = String(parsed.currencies[c]).trim();
+  for (const c of CCY) {
+    const v = parsed.currencies[c];
+    if (!v) continue;
+    if (typeof v === 'string') {           // rétro-compat : ancien format (chaîne)
+      weekly.currencies[c] = { analysis: v.trim(), drivers: [] };
+    } else {
+      weekly.currencies[c] = {
+        analysis: String(v.analysis || '').trim(),
+        drivers: Array.isArray(v.drivers)
+          ? v.drivers.filter(x => x && x.heading).map(x => ({ heading: String(x.heading).trim(), detail: String(x.detail || '').trim() })).slice(0, 9)
+          : [],
+      };
+    }
+  }
 
   // Description texte (fallback/recherche/affichage simple)
   const descParts = [weekly.summary];
   weekly.macro.forEach(s => { descParts.push('\n' + s.heading); (s.bullets||[]).forEach(b => descParts.push('- ' + String(b).replace(/\*\*/g,''))); });
+  for (const c of CCY) if (weekly.currencies[c]) descParts.push('\n' + c + ': ' + weekly.currencies[c].analysis);
   const timeStr = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
 
   const item = {
