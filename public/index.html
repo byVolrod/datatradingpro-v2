@@ -53,6 +53,9 @@
   </div>
 
   <div class="topbar-right">
+    <div class="topbar-icon" id="sqwk-btn" onclick="sqwkToggle()" title="Squawk de marché en direct">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M12 8a4 4 0 0 1 0 8"/><path d="M15.5 4.5a9 9 0 0 1 0 15"/><circle cx="6.5" cy="12" r="2.2"/></svg>
+    </div>
     <div class="topbar-icon topbar-icon--notif" id="np-bell-btn" onclick="npToggle()" title="Notifications">
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5a5 5 0 0 1 5 5v2.5l1 2H1.5l1-2V6.5a5 5 0 0 1 5-5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 12.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.2"/></svg>
       <span class="notif-badge" id="notif-badge">0</span>
@@ -1222,6 +1225,25 @@
 <div id="news-toast" class="news-toast">
   <span class="news-toast-icon">⏰</span>
   <span id="news-toast-text"></span>
+</div>
+
+<!-- ══ LIVE SQUAWK PANEL ══ -->
+<div class="sqwk-overlay" id="sqwk-overlay" onclick="sqwkClose()"></div>
+<div class="sqwk-panel" id="sqwk-panel">
+  <div class="sqwk-header">
+    <button class="sqwk-play" id="sqwk-play" onclick="sqwkToggleAuto()" title="Lecture / Pause">▶</button>
+    <div class="sqwk-head-text">
+      <div class="sqwk-title">Squawk de marché en direct</div>
+      <div class="sqwk-status" id="sqwk-status"><span class="sqwk-dot"></span> Disconnected</div>
+    </div>
+    <div class="sqwk-auto">
+      <span class="sqwk-auto-lbl">Connexion automatique</span>
+      <div class="sqwk-toggle" id="sqwk-toggle" onclick="sqwkToggleAuto()"><span class="sqwk-toggle-state" id="sqwk-toggle-state">OFF</span></div>
+    </div>
+    <button class="sqwk-close" onclick="sqwkClose()">×</button>
+  </div>
+  <div class="sqwk-list" id="sqwk-list"></div>
+  <div class="sqwk-footer">Commentaire fourni par nos analystes de marché professionnels</div>
 </div>
 </body>
 </html>
