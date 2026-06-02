@@ -1308,7 +1308,6 @@ function buildCOTChart() {
             <span class="cot-leg"><i class="cot-dot cot-dot--l"></i>Long</span>
           </div>
           <div class="cot-gauge-wrap">
-            <span class="cot-float cot-float--short">Short ${fmtK(cur.shortPos)}</span>
             <svg class="cot-donut" width="96" height="96" viewBox="0 0 80 80">
               <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
               <g transform="rotate(-90 ${cx} ${cy})">
@@ -1322,7 +1321,6 @@ function buildCOTChart() {
               <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="6.5" fill="#64748b"
                 font-family="JetBrains Mono,monospace">${cur.derived ? 'calc' : 'CME'}</text>
             </svg>
-            <span class="cot-float cot-float--long">Long ${fmtK(cur.longPos)}</span>
           </div>
           <div class="cot-stats">
             <div class="cot-stat">
