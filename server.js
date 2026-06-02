@@ -316,6 +316,33 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Diagnostic IA — révèle l'état RÉEL des clés sur le serveur déployé (sans exposer
+// les valeurs) + un test de génération en direct. Ouvre /api/admin/ai-status connecté
+// en admin pour savoir si Gemini/Claude fonctionnent sur Render.
+app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
+  const st = (() => { try { return ai.status(); } catch { return { error: 'ai.status indisponible' }; } })();
+  let test;
+  const t0 = Date.now();
+  try {
+    const out = await ai.generateText('Réponds exactement: OK', 20);
+    test = { ok: true, ms: Date.now() - t0, sample: String(out).slice(0, 60) };
+  } catch (e) {
+    test = { ok: false, ms: Date.now() - t0, error: String(e && e.message || e).slice(0, 300) };
+  }
+  res.json({
+    env: {
+      GEMINI_API_KEY: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
+      ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
+      ANTHROPIC_API_KEY2: !!process.env.ANTHROPIC_API_KEY2,
+      ANTHROPIC_API_KEY3: !!process.env.ANTHROPIC_API_KEY3,
+      ANTHROPIC_API_KEY4: !!process.env.ANTHROPIC_API_KEY4,
+    },
+    ai: st,
+    test,
+    swTitles: { total: _swCache.length, withAiTitle: _swCache.filter(w => w && w.aiTitle).length },
+  });
+});
+
 // Calcule la date d'expiration à partir d'une durée choisie par l'admin
 function computeExpiry({ duration, expiresAt, startDate }) {
   if (duration === 'unlimited') return null;                 // abonnement illimité

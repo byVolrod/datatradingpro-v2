@@ -115,9 +115,20 @@ async function generateTextClaudeOnly(prompt, maxTokens = 1500) {
 
 function hasAnthropic() { return ANTHROPIC_KEYS.length > 0; }
 
+// Diagnostic (sans exposer les valeurs) : quelles ressources IA sont configurées.
+function status() {
+  return {
+    gemini: !!GEMINI_API_KEY,
+    geminiModels: GEMINI_MODELS,
+    anthropicKeys: ANTHROPIC_KEYS.length,
+    claudeModel: CLAUDE_MODEL,
+  };
+}
+
 module.exports = {
   generateText,
   generateTextClaudeOnly,
   hasAnthropic,
+  status,
   _anthropicKeyCount: () => ANTHROPIC_KEYS.length,
 };
