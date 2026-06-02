@@ -4195,3 +4195,96 @@ function _npPlaySound(volume) {
     // AudioContext might be blocked before user interaction — silent fail
   }
 }
+
+// ═══════════════════════════════════════════════════════════════
+// LIVE SQUAWK  (sqwk-) — flux de commentaire de marché mot-par-mot
+// ═══════════════════════════════════════════════════════════════
+const _sqwkMessages = [];           // { id, ts, text }
+let   _sqwkAuto       = false;
+let   _sqwkAutoTimer  = null;       // tick toutes les 10s
+let   _sqwkStreamTimer = null;      // sous-intervalle mot-par-mot (150ms)
+
+const SQWK_PHRASES = [
+  "Fed's Evans says inflation expectations remain anchored near the target for now.",
+  "Treasury yields edge higher as traders price in fewer rate cuts this year.",
+  "ECB source signals no urgency to cut further until services inflation cools.",
+  "Crude extends gains on Middle East supply risk and Strait of Hormuz headlines.",
+  "Dollar firmer across the board as risk sentiment turns cautious into the open.",
+  "Reports of fresh ceasefire talks are lifting equity futures off the session lows.",
+  "ISM manufacturing prints above expectations, new orders the strongest in months.",
+  "Gold holding a bid as safe-haven demand offsets the stronger greenback.",
+  "Officials note they could hike again if upside inflation risks materialise.",
+  "Headline CPI comes in at 3.2 percent year over year, in line with the consensus.",
+  "No significant move in major pairs as desks await the US cash equity open.",
+  "Energy complex bid as traders watch tanker traffic through the Strait of Hormuz.",
+  "Bund yields slip after softer than expected German regional inflation data.",
+  "Equity breadth remains weak outside of technology and energy this session.",
+  "Yen on watch as USD/JPY presses the 159 handle near intervention territory.",
+  "Risk premium staying elevated in shipping, energy and regional assets for now.",
+];
+
+function _sqwkTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
+function _sqwkEsc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function _sqwkRender() {
+  const list = document.getElementById('sqwk-list');
+  if (!list) return;
+  if (!_sqwkMessages.length) { list.innerHTML = '<div class="sqwk-empty">Activez la connexion automatique pour recevoir le flux.</div>'; return; }
+  list.innerHTML = _sqwkMessages.map(m =>
+    `<div class="sqwk-row"><span class="sqwk-time">${m.ts}</span><span class="sqwk-text" id="sqwk-txt-${m.id}">${_sqwkEsc(m.text)}</span></div>`
+  ).join('');
+}
+
+// Nouveau message : on l'ajoute EN HAUT puis on injecte les mots un par un (effet retranscription)
+function _sqwkNewMessage() {
+  const phrase = SQWK_PHRASES[Math.floor(Math.random() * SQWK_PHRASES.length)];
+  const words  = phrase.split(' ');
+  const msg    = { id: 's' + Date.now(), ts: _sqwkTime(), text: '' };
+  _sqwkMessages.unshift(msg);
+  if (_sqwkMessages.length > 60) _sqwkMessages.length = 60;
+  _sqwkRender();
+  let i = 0;
+  clearInterval(_sqwkStreamTimer);
+  _sqwkStreamTimer = setInterval(() => {
+    if (i >= words.length) { clearInterval(_sqwkStreamTimer); return; }
+    msg.text += (msg.text ? ' ' : '') + words[i++];
+    const el = document.getElementById('sqwk-txt-' + msg.id);   // MAJ ciblée → pas de flicker
+    if (el) el.textContent = msg.text;
+  }, 150);
+}
+
+function sqwkToggleAuto() {
+  _sqwkAuto = !_sqwkAuto;
+  const st = document.getElementById('sqwk-toggle-state');
+  const tg = document.getElementById('sqwk-toggle');
+  const status = document.getElementById('sqwk-status');
+  const play = document.getElementById('sqwk-play');
+  if (st) st.textContent = _sqwkAuto ? 'ON' : 'OFF';
+  if (tg) tg.classList.toggle('on', _sqwkAuto);
+  if (status) status.innerHTML = _sqwkAuto
+    ? '<span class="sqwk-dot sqwk-dot--live"></span> Connected'
+    : '<span class="sqwk-dot"></span> Disconnected';
+  if (play) play.textContent = _sqwkAuto ? '❚❚' : '▶';
+  clearInterval(_sqwkAutoTimer);
+  if (_sqwkAuto) {
+    _sqwkNewMessage();                                   // premier message immédiat
+    _sqwkAutoTimer = setInterval(_sqwkNewMessage, 10000); // puis toutes les 10s
+  } else {
+    clearInterval(_sqwkStreamTimer);
+  }
+}
+
+function sqwkOpen() {
+  document.getElementById('sqwk-panel')?.classList.add('open');
+  document.getElementById('sqwk-overlay')?.classList.add('open');
+  document.getElementById('sqwk-btn')?.classList.add('topbar-icon--active');
+  _sqwkRender();
+}
+function sqwkClose() {
+  document.getElementById('sqwk-panel')?.classList.remove('open');
+  document.getElementById('sqwk-overlay')?.classList.remove('open');
+  document.getElementById('sqwk-btn')?.classList.remove('topbar-icon--active');
+}
+function sqwkToggle() {
+  document.getElementById('sqwk-panel')?.classList.contains('open') ? sqwkClose() : sqwkOpen();
+}
