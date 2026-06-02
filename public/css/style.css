@@ -5166,6 +5166,12 @@ html, body {
 .cth-imp    { width: 56px; text-align: center !important; }
 .cth-event  { min-width: 140px; }
 .cth-val    { width: 62px; text-align: right !important; }
+/* Mobile/tablette : on masque HIGH (col 7) et LOW (col 9) — non fournies par la source
+   (toujours "—") → calendrier plus étroit et lisible, moins de scroll horizontal. */
+@media (max-width: 768px) {
+  .cal-table th:nth-child(7), .cal-table td:nth-child(7),
+  .cal-table th:nth-child(9), .cal-table td:nth-child(9) { display: none; }
+}
 
 /* Day separator */
 .cal-day-sep {
@@ -6818,11 +6824,24 @@ html, body {
 
   /* Right panel tabs: smaller */
   .right-tab       { font-size: 8.5px; padding: 0 6px; letter-spacing: 0; }
+
+  /* METER : 8 colonnes compactes pour tenir/rester lisible sur petit écran */
+  .meter-grid      { gap: 4px; padding: 8px 8px 12px; }
+  .meter-col-head  { gap: 3px; font-size: 9.5px; padding-bottom: 6px; }
+  .meter-flag-img  { height: 8px; width: 12px; }
+  .meter-col-val   { font-size: 9px; padding-top: 5px; }
+  .meter-brick     { min-height: 4px; }
 }
 
 /* ── Very small phones (≤390px) ── */
 @media (max-width: 390px) {
   .clock-item      { min-width: 105px; }
+
+  /* METER : ticker seul (le drapeau prend trop de place à 8 colonnes) */
+  .meter-grid      { gap: 3px; padding: 6px 6px 10px; }
+  .meter-col-head .meter-flag-img { display: none; }
+  .meter-col-head  { font-size: 9px; }
+  .meter-col-val   { font-size: 8.5px; }
   .clock-time      { font-size: 17px; letter-spacing: -0.03em; }
 
   .news-time       { display: none; }
