@@ -708,19 +708,16 @@ app.get('/api/weekly-reports', async (_req, res) => {
     i.timestamp > cutoff
   ).sort((a, b) => b.timestamp - a.timestamp);
 
-  // La semaine couverte = celle se terminant le vendredi écoulé
-  const fri  = _mostRecentFriday();
-  const jan1 = new Date(fri.getUTCFullYear(), 0, 1);
-  const wk   = Math.ceil(((fri - jan1) / 86400000 + jan1.getDay() + 1) / 7);
-  const weekPrefix = `pmt-mkt-recap-${fri.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
-  const have = items.some(i => (i.id || '').startsWith(weekPrefix));
+  // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe. Sinon (absent OU ancien
+  // format), on régénère automatiquement vers le format riche (force) — 1 appel Gemini, budget-gé.
+  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 2);
 
   let generating = false;
-  if (!have) {
+  if (!current) {
     generating = true;
     if (Date.now() - _weeklyGenLock > 15 * 60 * 1000) {   // 1 tentative / 15 min max
       _weeklyGenLock = Date.now();
-      generateWeeklyMarketRecap(false).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
+      generateWeeklyMarketRecap(true).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
     }
   }
   res.json({ items, generating });
@@ -2125,11 +2122,14 @@ async function generateWeeklyRecapAI(force = false) {
     : (y1 === y2)                            ? `Semaine du ${d1} ${_MOIS_FR[m1]} au ${d2} ${_MOIS_FR[m2]} ${y2}`
     :                                          `Semaine du ${d1} ${_MOIS_FR[m1]} ${y1} au ${d2} ${_MOIS_FR[m2]} ${y2}`;
 
-  if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix))) {
-    console.log(`[Weekly Recap] déjà généré pour ${weekKey}, skip.`);
-    return allNews.find(i => (i.id || '').startsWith(weekPrefix)) || null;
+  // On considère "déjà généré" UNIQUEMENT si un recap au format RICHE (v2) existe pour la semaine.
+  const _isV2 = i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 2;
+  if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix) && _isV2(i))) {
+    console.log(`[Weekly Recap] déjà généré (v2) pour ${weekKey}, skip.`);
+    return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isV2(i)) || null;
   }
-  if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(weekPrefix));
+  // Régénération : on retire le recap de cette semaine ET tout ancien recap au format obsolète (anti-doublon).
+  allNews = allNews.filter(i => !((i.id || '').startsWith(weekPrefix)) && !(i._reportType === 'Weekly Market Recap' && !_isV2(i)));
 
   const cutoff = now - 7 * 24 * 60 * 60 * 1000;
   // 1) SESSION WRAPS de la semaine (titres = synthèses de session, très riches)
@@ -2211,6 +2211,7 @@ ${corpus}`;
   if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
 
   const weekly = {
+    v: 2,                    // version du format (riche : analyse + drivers par devise + dates)
     title:      baseTitle,
     weekEnding, weekRange,
     summary:    parsed.summary || '',
