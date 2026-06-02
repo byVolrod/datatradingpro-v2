@@ -823,6 +823,23 @@ async function _fetchSessionWraps(full = false) {
 // seule fois par wrap ; quota maîtrisé (anti-burst + Gemini→Claude via aiSmart). Limité aux
 // wraps RÉCENTS (ceux réellement consultés).
 const SW_TITLE_V = 2;   // version du style de titre (bump → régénère les titres existants)
+
+// Titre de SECOURS sans IA : extrait un titre lisible du contenu du wrap (1re phrase
+// porteuse de sens), sans source/date/auteur. Appliqué immédiatement si l'IA est
+// indisponible → on a TOUJOURS un titre propre ; l'IA ne fait qu'améliorer ensuite.
+function _heuristicWrapTitle(w) {
+  let src = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!src) src = (w.title || '').replace(/\s+/g, ' ').trim();
+  if (!src) return '';
+  // Retire le boilerplate de tête type "Americas fx news wrap:" / "... wrap -"
+  src = src.replace(/^[\w\s.,/&'-]*?\bwraps?\b\s*[:\-—–]?\s*/i, '').trim();
+  // 1re phrase (jusqu'au point), sinon début du texte
+  let t = (src.split(/(?<=[.!?])\s/)[0] || src).trim();
+  if (t.length > 72) t = t.slice(0, 72).replace(/\s+\S*$/, '').trim() + '…';
+  if (t.length < 8) return '';
+  return t.charAt(0).toUpperCase() + t.slice(1);
+}
+
 let _swTitleBusy = false;
 async function _swEnsureAiTitles(internal = false) {
   if (_swTitleBusy) return false;
@@ -833,6 +850,9 @@ async function _swEnsureAiTitles(internal = false) {
     for (const w of _swCache.slice(0, 80)) {   // TOUS les wraps affichés dans l'onglet Analyst
       if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant (skip → 0 coût)
       try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}
+      // Titre de secours immédiat (gratuit, sans IA) pour tout wrap encore sans titre —
+      // s'applique même hors budget IA. L'IA l'améliorera ensuite si dispo.
+      if (!w.aiTitle) { const h = _heuristicWrapTitle(w); if (h) { w.aiTitle = h; w.aiTitleV = 'h'; changed = true; } }
       if (budget <= 0) continue;
       const src = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) || w.title || '';
       if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
@@ -846,8 +866,13 @@ async function _swEnsureAiTitles(internal = false) {
           `Style "headline" : direct, verbe fort, pas de remplissage. Interdits : le mot "wrap", toute mention ` +
           `de source, toute date, les guillemets. Réponds avec le titre SEUL.\n\n${src}`, 90);
         let t = String(out || '').split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 90);
-        if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; auth.aiCacheSet('swt2:' + w.id, t).catch(() => {}); }
-      } catch {}
+        if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; auth.aiCacheSet('swt2:' + w.id, t).catch(() => {}); continue; }
+        throw new Error('titre IA vide');
+      } catch {
+        // IA indisponible → titre de secours heuristique (marqué 'h' → l'IA réessaiera
+        // au prochain passage pour l'améliorer, mais l'utilisateur voit déjà un vrai titre).
+        if (!w.aiTitle) { const h = _heuristicWrapTitle(w); if (h) { w.aiTitle = h; w.aiTitleV = 'h'; changed = true; } }
+      }
     }
   } finally { _swTitleBusy = false; }
   // De nouveaux titres → on met à jour les clients + le fichier (sans re-scraper).

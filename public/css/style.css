@@ -3660,16 +3660,16 @@ html, body {
 }
 .arlib-card:hover .arlib-card-title { color: #ffffff; }
 
-/* Non lu → titre blanc cassé */
-.arlib-card:not(.arlib-card--read) .arlib-card-title { color: #e2e8f0; }
+/* Non lu → titre BLANC */
+.arlib-card:not(.arlib-card--read) .arlib-card-title { color: #ffffff; }
 
-/* Lu → légèrement grisé */
+/* Lu → légèrement grisé (gris neutre, pas bleuté) */
 .arlib-card--read { background: #0e0e10; }
-.arlib-card--read .arlib-card-title { color: #64748b; font-weight: 400; }
+.arlib-card--read .arlib-card-title { color: #8a8a90; font-weight: 400; }
 .arlib-card--read .arlib-card-icon  { opacity: 0.35; }
-.arlib-card--read .arlib-card-date  { color: #475569; }
+.arlib-card--read .arlib-card-date  { color: #6a6a6f; }
 .arlib-card--read:hover { background: #16161a; }
-.arlib-card--read:hover .arlib-card-title { color: #94a3b8; }
+.arlib-card--read:hover .arlib-card-title { color: #c4c4c8; }
 
 .arlib-card-icon {
   flex-shrink: 0;
@@ -3701,7 +3701,7 @@ html, body {
 .arlib-card-title {
   font-size: 12.5px;
   font-weight: 600;
-  color: #e2e8f0;
+  color: #ffffff;
   line-height: 1.45;
   font-family: var(--font-ui);
   flex: 1;
@@ -3729,7 +3729,7 @@ html, body {
 }
 .arlib-tag {
   font-size: 10.5px;
-  color: #94a3b8;
+  color: #b6b6bb;
   background: #1a1a1e;
   border: 1px solid #26262c;
   border-radius: 3px;
@@ -3767,7 +3767,7 @@ html, body {
 }
 .arlib-card-date {
   font-size: 10.5px;
-  color: #94a3b8;        /* gris intermédiaire Prime */
+  color: #8a8a90;        /* gris neutre (pas bleuté) */
   font-family: var(--font-ui);
   white-space: nowrap;
 }
