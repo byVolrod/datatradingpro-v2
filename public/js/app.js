@@ -2745,6 +2745,19 @@ function isRead(id) {
   if (id == null) return false;
   return _readIds.has(String(id));
 }
+// Clé de lecture STABLE pour les rapports. Le Weekly a un id serveur qui change à chaque
+// régénération (…-<timestamp>) → on ne s'y fie pas : on clé par SEMAINE (stable), pour que
+// l'état "lu" persiste même après régénération v1→v2.
+function _reportReadKey(item) {
+  if (!item) return '';
+  if (item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly') {
+    const wk = (item._weekly && item._weekly.weekEnding)
+      ? item._weekly.weekEnding
+      : new Date(item.timestamp || Date.now()).toISOString().slice(0, 10);
+    return 'wk:' + item._reportType + ':' + wk;
+  }
+  return String(item.id);
+}
 let _arlibCat       = 'all';
 let _currentArlibItem = null;
 
@@ -3624,7 +3637,7 @@ function renderArlibList() {
 
     const card = document.createElement('div');
     const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
-    card.className = 'arlib-card' + (isRead(item.id) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
+    card.className = 'arlib-card' + (isRead(_reportReadKey(item)) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
     card.dataset.id = item.id;
     card.innerHTML = `
       <div class="arlib-card-icon">
@@ -3656,7 +3669,7 @@ function renderArlibList() {
       </div>`;
 
     card.addEventListener('click', () => {
-      markRead(item.id);
+      markRead(_reportReadKey(item));
       card.classList.add('arlib-card--read');
       renderArlibReader(item);
       arlibShowReader();

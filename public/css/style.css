@@ -4417,11 +4417,18 @@ html, body {
   flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
 }
 .risk-ticker {
-  padding: 5px 12px; font-size: 11px; font-weight: 500;
-  letter-spacing: 0.3px; border-left: 3px solid;
-  background: rgba(255,255,255,0.03); flex-shrink: 0;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px; font-size: 11px;
+  border-left: 2px solid; background: rgba(255,255,255,0.02); flex-shrink: 0;
+  overflow: hidden; white-space: nowrap;
 }
+.risk-ticker-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
+.risk-ticker-label { font-weight: 700; letter-spacing: 0.4px; flex-shrink: 0; }
+.risk-ticker-desc {
+  color: var(--text3); font-weight: 400; letter-spacing: 0.2px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
+}
+/* La couleur (bordure + dot + label) suit le sentiment ; la description reste neutre */
 .risk-ticker.risk-on  { border-color: var(--green);  color: var(--green);  }
 .risk-ticker.risk-off { border-color: var(--red);    color: var(--red);    }
 .risk-ticker.neutral  { border-color: var(--orange); color: var(--orange); }

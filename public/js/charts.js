@@ -965,7 +965,7 @@ function buildRiskGauge() {
       if (!isBuilt) {
         isBuilt = true;
         wrap.innerHTML = `
-          <div id="risk-ticker" class="risk-ticker ${cls}">• ${frLabel} — ${data.description}</div>
+          <div id="risk-ticker" class="risk-ticker ${cls}"><span class="risk-ticker-dot"></span><span class="risk-ticker-label">${frLabel}</span><span class="risk-ticker-desc">${data.description}</span></div>
           <div id="risk-gauge-div" style="flex:1;min-height:0;width:100%;"></div>`;
 
         const root = am5.Root.new('risk-gauge-div');
@@ -977,10 +977,10 @@ function buildRiskGauge() {
           am5radar.RadarChart.new(root, {
             panX: false, panY: false,
             startAngle: -180, endAngle: 0,
-            radius: am5.percent(78),
-            innerRadius: am5.percent(70),
-            paddingTop: 10, paddingBottom: 20,
-            paddingLeft: 40, paddingRight: 40,
+            radius: am5.percent(82),
+            innerRadius: am5.percent(75),               // arc plus FIN (épuré)
+            paddingTop: 18, paddingBottom: 26,
+            paddingLeft: 44, paddingRight: 44,
           })
         );
 
@@ -996,15 +996,15 @@ function buildRiskGauge() {
           })
         );
 
-        // Ultra-smooth 40-band gradient: crimson → orange → amber → lime → emerald
+        // Dégradé institutionnel raffiné (moins néon) : rouge → ambre → émeraude, lissé sur 72 bandes
         const _gs = [
-          [0.00, [185, 10,  20 ]],
-          [0.18, [220, 45,  8  ]],
-          [0.35, [240, 105, 0  ]],
-          [0.50, [255, 185, 30 ]],
-          [0.65, [160, 225, 10 ]],
-          [0.82, [55,  205, 60 ]],
-          [1.00, [25,  165, 75 ]],
+          [0.00, [198, 52,  48 ]],   // rouge raffiné
+          [0.22, [216, 90,  44 ]],   // rouge-orangé
+          [0.40, [228, 138, 40 ]],   // orange
+          [0.50, [222, 178, 66 ]],   // ambre
+          [0.60, [170, 196, 78 ]],   // jaune-vert
+          [0.80, [92,  178, 104]],   // vert
+          [1.00, [42,  158, 96 ]],   // émeraude
         ];
         const _lc = (s, t) => {
           for (let i = 0; i < s.length - 1; i++) {
@@ -1016,12 +1016,13 @@ function buildRiskGauge() {
                       Math.round(c0[2]+u*(c1[2]-c0[2]));
             }
           }
-          return 0x19a54b;
+          return 0x2a9e60;
         };
-        for (let i = 0; i < 40; i++) {
-          const v  = -100 + i * 5;
-          const ev = v + 5;
-          const c  = _lc(_gs, (i + 0.5) / 40);
+        const NB = 72;                                   // bandes fines → arc ultra-lisse
+        for (let i = 0; i < NB; i++) {
+          const v  = -100 + i * (200 / NB);
+          const ev = v + (200 / NB) + 0.3;               // léger chevauchement → aucun liseré
+          const c  = _lc(_gs, (i + 0.5) / NB);
           const r  = axis.createAxisRange(axis.makeDataItem({ value: v, endValue: ev }));
           r.get('axisFill').setAll({ visible: true, fill: am5.color(c), fillOpacity: 1, strokeOpacity: 0 });
           r.get('grid')?.setAll({ visible: false });
@@ -1029,25 +1030,23 @@ function buildRiskGauge() {
           r.get('label')?.setAll({ visible: false });
         }
 
-        // Dark separator marks at key zone boundaries
-        [-50, 0, 50].forEach(v => {
-          const hw = v === 0 ? 1.0 : 0.7;
-          const dr = axis.createAxisRange(axis.makeDataItem({ value: v - hw, endValue: v + hw }));
-          dr.get('axisFill').setAll({ visible: true, fill: am5.color(0x0a0e14), fillOpacity: 0.8, strokeOpacity: 0 });
-          ['grid', 'tick', 'label'].forEach(k => dr.get(k)?.setAll({ visible: false }));
-        });
+        // UN SEUL repère central, fin et discret (épuré) — sépare risk-off / risk-on
+        const dr = axis.createAxisRange(axis.makeDataItem({ value: -0.5, endValue: 0.5 }));
+        dr.get('axisFill').setAll({ visible: true, fill: am5.color(0x0b0e13), fillOpacity: 0.5, strokeOpacity: 0 });
+        ['grid', 'tick', 'label'].forEach(k => dr.get(k)?.setAll({ visible: false }));
 
-        // Slim triangle needle
+        // Aiguille fine et épurée : effilée, teinte neutre claire (la couleur est portée par
+        // l'arc + le chip), avec un petit pivot sombre discret.
         _riskHandDI = axis.makeDataItem({ value: 0 });
         const hand = am5radar.ClockHand.new(root, {
-          pinRadius: am5.percent(2),
-          radius: am5.percent(62),
-          innerRadius: am5.percent(2),
-          bottomWidth: 24,
+          pinRadius: am5.percent(4),
+          radius: am5.percent(66),
+          innerRadius: am5.percent(-6),
+          bottomWidth: 8,
           topWidth: 0,
         });
-        hand.pin.setAll({ fill: am5.color(0x555555), strokeOpacity: 0 });
-        hand.hand.setAll({ fill: am5.color(sentColor), strokeOpacity: 0 });
+        hand.pin.setAll({ fill: am5.color(0x23272f), strokeOpacity: 0 });
+        hand.hand.setAll({ fill: am5.color(0xe9ebee), strokeOpacity: 0 });   // aiguille claire neutre (pro)
 
         _riskHandDI.set('bullet', am5xy.AxisBullet.new(root, { sprite: hand }));
         axis.createAxisRange(_riskHandDI);
@@ -1059,32 +1058,32 @@ function buildRiskGauge() {
             text: display,
             centerX: am5.percent(50),
             x: am5.percent(50),
-            y: am5.percent(76),
-            fontSize: 36,
+            y: am5.percent(74),
+            fontSize: 38,
             fontWeight: '700',
-            fill: am5.color(0xffffff),
+            fill: am5.color(0xf5f6f7),
             fontFamily: '"Inter", sans-serif',
           })
         );
 
-        // Sentiment badge
+        // Chip de sentiment — épuré : fond sombre neutre, bord fin teinté, typo espacée
         _riskBadgeLabel = chart.children.push(
           am5.Label.new(root, {
             text: frLabel,
             centerX: am5.percent(50),
             x: am5.percent(50),
-            y: am5.percent(90),
-            fontSize: 12,
-            fontWeight: '700',
-            letterSpacing: 2,
+            y: am5.percent(91),
+            fontSize: 11,
+            fontWeight: '600',
+            letterSpacing: 2.5,
             fill: am5.color(sentColor),
-            paddingLeft: 24, paddingRight: 24,
-            paddingTop: 8, paddingBottom: 8,
+            paddingLeft: 18, paddingRight: 18,
+            paddingTop: 7, paddingBottom: 7,
             background: am5.RoundedRectangle.new(root, {
-              fill: am5.color(0x110d00), fillOpacity: 1,
-              stroke: am5.color(sentColor), strokeOpacity: 0.5, strokeWidth: 1,
-              cornerRadiusTL: 4, cornerRadiusTR: 4,
-              cornerRadiusBL: 4, cornerRadiusBR: 4,
+              fill: am5.color(0x12151c), fillOpacity: 0.9,
+              stroke: am5.color(sentColor), strokeOpacity: 0.35, strokeWidth: 1,
+              cornerRadiusTL: 6, cornerRadiusTR: 6,
+              cornerRadiusBL: 6, cornerRadiusBR: 6,
             }),
           })
         );
@@ -1112,7 +1111,7 @@ function buildRiskGauge() {
         const ticker = document.getElementById('risk-ticker');
         if (ticker) {
           ticker.className = `risk-ticker ${cls}`;
-          ticker.textContent = `• ${frLabel} — ${data.description}`;
+          ticker.innerHTML = `<span class="risk-ticker-dot"></span><span class="risk-ticker-label">${frLabel}</span><span class="risk-ticker-desc">${data.description}</span>`;
         }
       }
 
