@@ -4261,12 +4261,15 @@ function _sqwkStreamNews(item) {
 }
 
 // Poll des vraies news (allItems alimenté en direct par le WebSocket) → la plus récente non diffusée
+const _sqwkIsFJ = it => it.source === 'FinancialJuice' || (it.id || '').startsWith('fj-');
 function _sqwkPollReal() {
   if (!_sqwkAuto) return;
   const src = (typeof allItems !== 'undefined' ? allItems : []);
   const fresh = src.filter(it => _sqwkUsable(it) && !_sqwkProcessed.has(it.id));
   if (!fresh.length) return;
-  const item = fresh[0];                               // allItems trié récent → ancien
+  // Squawk FinancialJuice : on PRIORISE les flashes FJ ; à défaut, autre news réelle.
+  const fjFresh = fresh.filter(_sqwkIsFJ);
+  const item = (fjFresh.length ? fjFresh : fresh)[0];  // allItems trié récent → ancien
   fresh.forEach(it => _sqwkProcessed.add(it.id));      // on marque tout le batch (évite l'inondation)
   _sqwkStreamNews(item);
 }
