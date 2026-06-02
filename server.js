@@ -804,10 +804,17 @@ async function _fetchSessionWraps(full = false) {
     .filter(i => i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp);
 
+  // ── Titres IA AVANT publication ──────────────────────────────────────────────
+  // On génère les titres IA des nouveaux wraps AVANT d'écrire/diffuser, pour que le
+  // wrap soit PUBLIÉ AVEC son titre (et non mis à jour après coup). Borné à 12 s :
+  // si l'IA traîne, on publie quand même (le backfill périodique finira le reste).
+  try { await Promise.race([_swEnsureAiTitles(true), new Promise(r => setTimeout(r, 12000))]); } catch {}
+
   try { fs.writeFileSync(SW_CACHE_FILE, JSON.stringify(_swCache)); } catch {}
   _persistHistory('session_wraps', _swCache);   // persistance durable (Supabase, rétention 1 mois)
+  try { broadcast({ type: 'sw_update', items: _swCache }); } catch {}   // publication (titres déjà en place)
   console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
-  _swEnsureAiTitles().catch(() => {});           // titres IA résumant chaque wrap (en arrière-plan)
+  _swEnsureAiTitles().catch(() => {});           // backfill du reste (au-delà des 12 s), en arrière-plan
 }
 
 // ── Titre IA résumant chaque session wrap ────────────────────────────────────
@@ -817,8 +824,8 @@ async function _fetchSessionWraps(full = false) {
 // wraps RÉCENTS (ceux réellement consultés).
 const SW_TITLE_V = 2;   // version du style de titre (bump → régénère les titres existants)
 let _swTitleBusy = false;
-async function _swEnsureAiTitles() {
-  if (_swTitleBusy) return;
+async function _swEnsureAiTitles(internal = false) {
+  if (_swTitleBusy) return false;
   _swTitleBusy = true;
   let changed = false;
   try {
@@ -843,11 +850,13 @@ async function _swEnsureAiTitles() {
       } catch {}
     }
   } finally { _swTitleBusy = false; }
-  // De nouveaux titres → on met à jour les clients + le fichier (sans re-scraper)
-  if (changed) {
+  // De nouveaux titres → on met à jour les clients + le fichier (sans re-scraper).
+  // Si `internal` (appelé depuis le scrape AVANT publication), on laisse le scrape publier.
+  if (changed && !internal) {
     try { fs.writeFileSync(SW_CACHE_FILE, JSON.stringify(_swCache)); } catch {}
     try { broadcast({ type: 'sw_update', items: _swCache }); } catch {}
   }
+  return changed;
 }
 // Relance périodique (couvre les nouveaux wraps + le backfill échelonné)
 setInterval(() => _swEnsureAiTitles().catch(() => {}), 4 * 60 * 1000);
