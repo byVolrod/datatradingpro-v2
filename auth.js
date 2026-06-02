@@ -295,6 +295,8 @@ module.exports = {
   weeklyReportList,
   emailLogHas,
   emailLogAdd,
+  aiCacheGet,
+  aiCacheSet,
 };
 
 // ═══════════════════ PERSISTANCE RAPPORTS HEBDO (Weekly Recap) ═══════════════════
@@ -397,4 +399,57 @@ async function emailLogAdd(key) {
   }
   _emailFile[row.key] = row.sent_at;
   _emailSaveFile();
+}
+
+// ═══════════════════ CACHE IA DURABLE (anti-régénération / anti-doublon) ═══════════════════
+// But : un résultat IA déjà calculé (AI Insights d'un rapport, etc.) est conservé en BDD →
+// après un redémarrage Render (disque éphémère) on le RECHARGE au lieu de rappeler l'IA.
+// Même pattern que weekly/email_log : table `ai_cache` (key PK + value jsonb) + fallback fichier.
+const AICACHE_TABLE = 'ai_cache';
+const AICACHE_FILE  = path.join(__dirname, 'cache_ai_store.json');
+let _aiCacheDb = true;
+let _aiCacheFile = {};   // { key: value }
+try { _aiCacheFile = JSON.parse(fs.readFileSync(AICACHE_FILE, 'utf8')) || {}; } catch {}
+let _aiCacheSaveTimer = null;
+function _aiCacheSaveFile() {
+  clearTimeout(_aiCacheSaveTimer);
+  _aiCacheSaveTimer = setTimeout(() => { try { fs.writeFileSync(AICACHE_FILE, JSON.stringify(_aiCacheFile)); } catch {} }, 1500);
+  if (_aiCacheSaveTimer.unref) _aiCacheSaveTimer.unref();
+}
+function _aiCacheTableMissing(err) { return err && /ai_cache|schema cache|does not exist|relation/i.test(err.message); }
+let _aiCacheProbeTs = 0;
+async function _aiCacheEnsureDb() {
+  if (_aiCacheDb) return;
+  const now = Date.now();
+  if (now - _aiCacheProbeTs < 30000) return;
+  _aiCacheProbeTs = now;
+  const { error } = await supabase.from(AICACHE_TABLE).select('key').limit(1);
+  if (error) return;
+  _aiCacheDb = true;
+  const keys = Object.keys(_aiCacheFile);
+  if (keys.length) {
+    const rows = keys.map(k => ({ key: k, value: _aiCacheFile[k] }));
+    const { error: insErr } = await supabase.from(AICACHE_TABLE).upsert(rows, { onConflict: 'key' });
+    if (!insErr) { _aiCacheFile = {}; _aiCacheSaveFile(); console.log(`[AICache] table détectée → ${rows.length} entrée(s) migrée(s) en BDD`); }
+    else _aiCacheDb = false;
+  }
+}
+async function aiCacheGet(key) {
+  await _aiCacheEnsureDb();
+  if (_aiCacheDb) {
+    const { data, error } = await supabase.from(AICACHE_TABLE).select('value').eq('key', String(key)).limit(1);
+    if (!error) return (data && data[0]) ? data[0].value : null;
+    if (_aiCacheTableMissing(error)) _aiCacheDb = false; else throw new Error(error.message);
+  }
+  return Object.prototype.hasOwnProperty.call(_aiCacheFile, String(key)) ? _aiCacheFile[String(key)] : null;
+}
+async function aiCacheSet(key, value) {
+  await _aiCacheEnsureDb();
+  if (_aiCacheDb) {
+    const { error } = await supabase.from(AICACHE_TABLE).upsert([{ key: String(key), value, created_at: new Date().toISOString() }], { onConflict: 'key' });
+    if (!error) return;
+    if (_aiCacheTableMissing(error)) _aiCacheDb = false; else throw new Error(error.message);
+  }
+  _aiCacheFile[String(key)] = value;
+  _aiCacheSaveFile();
 }
