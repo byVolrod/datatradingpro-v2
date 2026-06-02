@@ -3938,7 +3938,7 @@ function renderArlibReader(item) {
           const desc = item.description || '';
           content.innerHTML = desc.length > 20
             ? `${metaBar}<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${desc}</span></div>`
-            : `${metaBar}<div class="arlib-rno-content"><a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;">Lire sur InvestingLive ↗</a></div>`;
+            : `${metaBar}<div class="arlib-rno-content">Contenu indisponible pour le moment.</div>`;
         }
         content.scrollTop = 0;
         // Insights basés sur le VRAI contenu rendu (la description seule est trop courte)
@@ -3949,7 +3949,7 @@ function renderArlibReader(item) {
         if (!content) return;
         const desc = item.description || '';
         content.innerHTML = `<div class="arlib-doc-header"><div class="arlib-doc-type">${SESSION_LABEL}</div><div class="arlib-doc-title">${standardizeReportTitle(item)}</div></div>`
-          + (desc ? `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${desc}</span></div>` : `<div class="arlib-rno-content"><a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;">Lire sur InvestingLive ↗</a></div>`);
+          + (desc ? `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${desc}</span></div>` : `<div class="arlib-rno-content">Contenu indisponible pour le moment.</div>`);
       });
     return;
   }
@@ -3957,7 +3957,7 @@ function renderArlibReader(item) {
   // ── ING Think research articles ───────────────────────────────────────────────
   if (item._source === 'ing-think') {
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    content.innerHTML = `<div class="arlib-rmeta">Chargement ING Think…</div>`;
+    content.innerHTML = `<div class="arlib-rmeta">Chargement…</div>`;
 
     fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
       .then(r => r.json())
@@ -3966,15 +3966,15 @@ function renderArlibReader(item) {
         const cats = (item.categories || []).slice(0,3).join(' · ');
         const metaBar = `
           <div class="arlib-doc-header">
-            <div class="arlib-doc-type">ING Think · ${cats || 'Economic & Financial Analysis'}</div>
+            <div class="arlib-doc-type">${cats || 'Analyse de marché'}</div>
             <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
-            <div class="arlib-doc-meta">${dateStr} · <a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;text-decoration:none;">think.ing.com ↗</a></div>
+            <div class="arlib-doc-meta">${dateStr}</div>
             ${item.description ? `<div class="arlib-doc-desc">${item.description}</div>` : ''}
           </div>`;
         if (data.html && data.html.length > 100) {
           content.innerHTML = _parseHtmlToArlib(data.html, metaBar);
         } else {
-          content.innerHTML = `${metaBar}<div class="arlib-rno-content"><a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;">Lire sur ING Think ↗</a></div>`;
+          content.innerHTML = `${metaBar}<div class="arlib-rno-content">Contenu indisponible pour le moment.</div>`;
         }
         content.scrollTop = 0;
         const _full = (content.innerText || '').trim();
@@ -3982,7 +3982,7 @@ function renderArlibReader(item) {
       })
       .catch(() => {
         if (!content) return;
-        content.innerHTML = `<div class="arlib-rno-content"><a href="${item.url}" target="_blank" rel="noopener" style="color:#f7941d;">Lire sur ING Think ↗</a></div>`;
+        content.innerHTML = `<div class="arlib-rno-content">Contenu indisponible pour le moment.</div>`;
       });
     return;
   }
