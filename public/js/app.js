@@ -232,10 +232,10 @@ function handleMessage(msg) {
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
     if (allItems.length > 2000) allItems = allItems.slice(0, 2000);
     if (!isFirstUpdate) {
-      newCount += truly_new.length;
-      notifBadge.textContent = newCount > 99 ? '99+' : newCount;
       _flashBreakingNews(truly_new.find(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i))));
-      npPush(truly_new);   // feed notification panel
+      const added = npPush(truly_new);   // alimente le panneau ; renvoie le nb RÉELLEMENT ajouté
+      newCount += added;                 // badge = exactement ce qui est dans le panneau (pas les rapports/primers)
+      notifBadge.textContent = newCount > 99 ? '99+' : newCount;
     }
     renderNews(!isFirstUpdate);
     // Refresh analyst library if a new briefing arrived and analyst view is active
@@ -3899,6 +3899,24 @@ function _npItemCat(item) {
   return 'ticker';
 }
 
+// Origine d'une notif (badge) : Squawk / Calendrier / Analyse / News
+function _npOrigin(item) {
+  if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return { label: 'Squawk', cls: 'squawk' };
+  if (item._briefing || item.source === 'PMT') return { label: 'Analyse', cls: 'analyst' };
+  const c = (item.category || '').toLowerCase();
+  if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return { label: 'Calendrier', cls: 'cal' };
+  if (/geopolit|risk|energy|sanction|war/.test(c)) return { label: 'Risque', cls: 'risk' };
+  return { label: 'News', cls: 'news' };
+}
+// Retire toute attribution de source résiduelle de la description
+function _npStripSrc(s) {
+  return String(s || '')
+    .replace(/<[^>]+>/g, ' ')                                  // tags HTML éventuels
+    .replace(/\b(?:written|reported|posted)\s+by\s+[^.]*?(?:at\s+[\w.]+)?\.?/gi, '')
+    .replace(/\s*(?:source|via)\s*:\s*[^|.\n]+/gi, '')
+    .replace(/\s{2,}/g, ' ').trim();
+}
+
 // ── DOM refs (deferred — DOM might not be ready yet) ──────────
 function _npEl(id) { return document.getElementById(id); }
 
@@ -4033,7 +4051,7 @@ function _npRenderFilters() {
 
 // ── Push new items ────────────────────────────────────────────
 function npPush(items) {
-  if (!items?.length) return;
+  if (!items?.length) return 0;
   let newOnes = 0;
   items.forEach(item => {
     if (item._briefing || item.source === 'PMT' || isPrimerItem(item)) return;   // pas de primers en notif
@@ -4043,11 +4061,11 @@ function npPush(items) {
     newOnes++;
   });
   if (_npItems.length > 200) _npItems.length = 200;
-  if (!newOnes) return;
+  if (!newOnes) return 0;
 
   if (_npOpen) _npRenderList();
 
-  if (!_npEnabled) return;
+  if (!_npEnabled) return newOnes;
 
   // Sound
   if (_npVolume !== 'mute' && _npChime !== 'none') {
@@ -4069,6 +4087,7 @@ function npPush(items) {
       });
     }
   }
+  return newOnes;
 }
 
 // ── Render list ───────────────────────────────────────────────
@@ -4102,14 +4121,18 @@ function _npRenderList() {
     const iconClass = item.urgent ? 'np-icon--breaking' : item.priority === 'high' ? 'np-icon--high' : '';
     const iconSymbol = item.urgent ? '!' : 'i';
     const ago = _npTimeAgo(item.timestamp);
-    const desc = (item.description || '').slice(0, 140);
+    const desc = _npStripSrc(item.description).slice(0, 140);
+    const org = _npOrigin(item);
 
     el.innerHTML = `
       <div class="np-icon ${iconClass}">${iconSymbol}</div>
       <div class="np-item-body">
         <div class="np-item-headline">${item.headline || ''}</div>
         ${desc ? `<div class="np-item-desc">${desc}</div>` : ''}
-        <div class="np-item-time">${ago}</div>
+        <div class="np-item-meta">
+          <span class="np-origin np-origin--${org.cls}">${org.label}</span>
+          <span class="np-item-time">${ago}</span>
+        </div>
       </div>`;
 
     el.onclick = () => {
@@ -4205,7 +4228,8 @@ let   _sqwkAutoTimer  = null;       // tick toutes les 10s
 let   _sqwkStreamTimer = null;      // sous-intervalle mot-par-mot (150ms)
 
 const _sqwkProcessed = new Set();   // IDs de news déjà diffusées (anti-doublon)
-let   _sqwkAudio      = true;        // synthèse vocale active
+let   _sqwkLive       = false;       // Squawk LIVE = audio/voix (bouton play) — indépendant du texte auto
+let   _sqwkStarted    = false;       // flux déjà amorcé (évite de re-marquer l'existant à chaque toggle)
 
 function _sqwkTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
 function _sqwkEsc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -4230,7 +4254,7 @@ function _sqwkRender() {
 
 // Voix "salle de marché" (Web Speech API, gratuite) — synchronisée avec l'écriture
 function _sqwkSpeak(text) {
-  if (!_sqwkAudio || !('speechSynthesis' in window)) return;
+  if (!_sqwkLive || !('speechSynthesis' in window)) return;
   try {
     window.speechSynthesis.cancel();   // coupe la phrase précédente (pas d'empilement)
     const u = new SpeechSynthesisUtterance(text);
@@ -4263,7 +4287,7 @@ function _sqwkStreamNews(item) {
 // Poll des vraies news (allItems alimenté en direct par le WebSocket) → la plus récente non diffusée
 const _sqwkIsFJ = it => it.source === 'FinancialJuice' || (it.id || '').startsWith('fj-');
 function _sqwkPollReal() {
-  if (!_sqwkAuto) return;
+  if (!_sqwkAuto && !_sqwkLive) return;   // flux actif si texte-auto OU squawk-live
   const src = (typeof allItems !== 'undefined' ? allItems : []);
   const fresh = src.filter(it => _sqwkUsable(it) && !_sqwkProcessed.has(it.id));
   if (!fresh.length) return;
@@ -4274,40 +4298,46 @@ function _sqwkPollReal() {
   _sqwkStreamNews(item);
 }
 
-function sqwkToggleAudio() {
-  _sqwkAudio = !_sqwkAudio;
-  const b = document.getElementById('sqwk-audio');
-  if (b) { b.textContent = _sqwkAudio ? '🔊' : '🔇'; b.classList.toggle('sqwk-audio--off', !_sqwkAudio); }
-  if (!_sqwkAudio && 'speechSynthesis' in window) window.speechSynthesis.cancel();
-}
-
-function sqwkToggleAuto() {
-  _sqwkAuto = !_sqwkAuto;
+// Démarre/arrête le flux + met à jour l'UI selon les 2 états INDÉPENDANTS :
+//   _sqwkAuto = flux texte (toggle "Connexion automatique")  |  _sqwkLive = audio/voix (bouton play)
+function _sqwkRefresh() {
+  const active = _sqwkAuto || _sqwkLive;   // le flux tourne si l'un OU l'autre est actif
   const st = document.getElementById('sqwk-toggle-state');
   const tg = document.getElementById('sqwk-toggle');
   const status = document.getElementById('sqwk-status');
   const play = document.getElementById('sqwk-play');
   if (st) st.textContent = _sqwkAuto ? 'ON' : 'OFF';
   if (tg) tg.classList.toggle('on', _sqwkAuto);
-  if (status) status.innerHTML = _sqwkAuto
+  // Bouton play = Squawk LIVE (audio) : carré rouge si live, triangle vert sinon
+  if (play) { play.textContent = _sqwkLive ? '■' : '▶'; play.classList.toggle('sqwk-play--live', _sqwkLive); play.title = _sqwkLive ? 'Couper le squawk audio' : 'Activer le squawk audio (voix)'; }
+  if (status) status.innerHTML = active
     ? '<span class="sqwk-dot sqwk-dot--live"></span> Connected'
     : '<span class="sqwk-dot"></span> Disconnected';
-  // Bouton : carré stop ROUGE quand connecté, triangle play VERT sinon
-  if (play) { play.textContent = _sqwkAuto ? '■' : '▶'; play.classList.toggle('sqwk-play--live', _sqwkAuto); }
-  // Bandeau vert "Flux en direct connecté"
-  document.getElementById('sqwk-live-note')?.classList.toggle('hidden', !_sqwkAuto);
+  document.getElementById('sqwk-live-note')?.classList.toggle('hidden', !active);
+
   clearInterval(_sqwkAutoTimer);
-  if (_sqwkAuto) {
-    // Démarrage : on considère les news existantes comme "déjà vues" SAUF la plus récente,
-    // pour partir sur du frais et ne diffuser ensuite que les NOUVELLES news réelles.
-    const usable = (typeof allItems !== 'undefined' ? allItems : []).filter(_sqwkUsable);
-    usable.slice(1).forEach(it => _sqwkProcessed.add(it.id));
-    _sqwkPollReal();                                    // diffuse la dernière vraie news tout de suite
-    _sqwkAutoTimer = setInterval(_sqwkPollReal, 15000); // puis vérifie les nouvelles toutes les 15s
+  if (active) {
+    if (!_sqwkStarted) {   // au (re)démarrage : ne diffuser que les nouvelles news (l'existant = déjà vu, sauf la dernière)
+      const usable = (typeof allItems !== 'undefined' ? allItems : []).filter(_sqwkUsable);
+      usable.slice(1).forEach(it => _sqwkProcessed.add(it.id));
+      _sqwkStarted = true;
+      _sqwkPollReal();
+    }
+    _sqwkAutoTimer = setInterval(_sqwkPollReal, 15000);
   } else {
+    _sqwkStarted = false;
     clearInterval(_sqwkStreamTimer);
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   }
+}
+
+// Toggle "Connexion automatique" = flux TEXTE (sans audio)
+function sqwkToggleAuto() { _sqwkAuto = !_sqwkAuto; _sqwkRefresh(); }
+// Bouton play = Squawk LIVE = AUDIO/voix (indépendant du texte auto)
+function sqwkToggleLive() {
+  _sqwkLive = !_sqwkLive;
+  if (!_sqwkLive && 'speechSynthesis' in window) window.speechSynthesis.cancel();
+  _sqwkRefresh();
 }
 
 function sqwkOpen() {
@@ -4320,7 +4350,8 @@ function sqwkClose() {
   document.getElementById('sqwk-panel')?.classList.remove('open');
   document.getElementById('sqwk-overlay')?.classList.remove('open');
   document.getElementById('sqwk-btn')?.classList.remove('topbar-icon--active');
-  if ('speechSynthesis' in window) window.speechSynthesis.cancel();   // coupe la voix
+  // On NE coupe PAS la voix si le squawk live est actif : il continue en arrière-plan (comme FinancialJuice).
+  if (!_sqwkLive && 'speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 function sqwkToggle() {
   document.getElementById('sqwk-panel')?.classList.contains('open') ? sqwkClose() : sqwkOpen();
@@ -4330,19 +4361,65 @@ function sqwkToggle() {
 // CHAT SUPPORT  (chat-) — conversation persistante avec le support
 // ═══════════════════════════════════════════════════════════════
 let _chatPollTimer = null;
+let _chatThreadUser = null;   // (mode support) userId du thread ouvert
+let _chatThreadName = '';
 function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+// L'utilisateur courant est-il le support (admin) ? -> géré depuis son propre compte (ex. JustOneTrader)
+function _chatIsSupport(){ return (typeof _pdUser !== 'undefined' && _pdUser && _pdUser.role === 'admin'); }
 
 function chatToggle(){ document.getElementById('chat-panel')?.classList.contains('open') ? chatClose() : chatOpen(); }
 function chatOpen(){
   document.getElementById('chat-panel')?.classList.add('open');
   document.getElementById('chat-overlay')?.classList.add('open');
   document.getElementById('chat-btn')?.classList.add('topbar-icon--active');
-  _chatLoad();   // charge l'historique + marque les réponses lues
+  if (_chatIsSupport()) _chatInbox();   // côté support : boîte de réception des conversations
+  else _chatLoad();                     // côté client : sa propre conversation avec le support
 }
 function chatClose(){
   document.getElementById('chat-panel')?.classList.remove('open');
   document.getElementById('chat-overlay')?.classList.remove('open');
   document.getElementById('chat-btn')?.classList.remove('topbar-icon--active');
+}
+
+// ── MODE SUPPORT (admin) ──────────────────────────────────────
+function _chatHead(name, sub, showBack, showInput){
+  const n = document.getElementById('chat-head-name'); if (n) n.textContent = name;
+  const s = document.getElementById('chat-head-sub');  if (s) s.textContent = sub;
+  document.getElementById('chat-back')?.classList.toggle('hidden', !showBack);
+  document.querySelector('.chat-input-bar')?.classList.toggle('hidden', !showInput);
+  document.querySelector('.chat-hint')?.classList.toggle('hidden', !showInput);
+}
+function _chatBackToInbox(){ _chatThreadUser = null; _chatInbox(); }
+
+function _chatInbox(){
+  _chatThreadUser = null;
+  _chatHead('Boîte de réception', 'Conversations clients · Support', false, false);
+  const list = document.getElementById('chat-list'); if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
+  fetch('/api/admin/chat').then(r=>r.json()).then(d=>{
+    const threads = d.threads || [];
+    if (!threads.length){ if(list) list.innerHTML='<div class="chat-empty">Aucune conversation pour le moment.</div>'; return; }
+    let html = '';
+    threads.forEach(t=>{
+      const label = t.name || t.email || t.user_id;
+      const when = t.lastAt ? new Date(t.lastAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
+      const unread = t.unread>0 ? `<span class="chat-thread-badge">${t.unread>9?'9+':t.unread}</span>` : '';
+      html += `<div class="chat-thread" onclick="_chatOpenThread('${_chatEsc(t.user_id)}','${_chatEsc(label).replace(/'/g,"\\'")}')">`
+        + `<div class="chat-thread-av">${_chatEsc(label.charAt(0).toUpperCase())}</div>`
+        + `<div class="chat-thread-body"><div class="chat-thread-top"><span class="chat-thread-name">${_chatEsc(label)}</span>${unread}</div>`
+        + `<div class="chat-thread-last">${_chatEsc((t.last||'').slice(0,60))}</div></div>`
+        + `<div class="chat-thread-when">${when}</div></div>`;
+    });
+    if (list) list.innerHTML = html;
+  }).catch(()=>{ if(list) list.innerHTML='<div class="chat-empty">Boîte de réception indisponible.</div>'; });
+}
+
+function _chatOpenThread(userId, name){
+  _chatThreadUser = userId; _chatThreadName = name;
+  _chatHead(name, 'Vous répondez en tant que support', true, true);
+  const list = document.getElementById('chat-list'); if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
+  fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
+    _chatRender(d.messages||[]);   // côté support : 'support' = mes bulles (droite), 'user' = client (gauche)
+  }).catch(()=>{ if(list) list.innerHTML='<div class="chat-empty">Conversation indisponible.</div>'; });
 }
 
 function _chatRender(messages){
@@ -4351,15 +4428,18 @@ function _chatRender(messages){
     list.innerHTML = '<div class="chat-empty">Vous êtes connecté au support DataTradingPro.<br>Nos spécialistes sont prêts — comment pouvons-nous vous aider ?</div>';
     return;
   }
+  const support = _chatIsSupport();
+  const avThem = support ? _chatEsc((_chatThreadName||'?').charAt(0).toUpperCase()) : 'DTP';
   let html=''; let lastDate='';
   messages.forEach(m=>{
     const d = new Date(m.created_at);
     const dateLabel = d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
     if(dateLabel!==lastDate){ html+=`<div class="chat-date"><span>${dateLabel}</span></div>`; lastDate=dateLabel; }
     const time = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-    const mine = m.sender==='user';
+    // support : mes bulles = 'support' ; client : mes bulles = 'user'
+    const mine = support ? (m.sender==='support') : (m.sender==='user');
     html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}">`
-      + (mine?'':'<div class="chat-av">DTP</div>')
+      + (mine?'':`<div class="chat-av">${avThem}</div>`)
       + `<div class="chat-bubble"><div class="chat-text">${_chatEsc(m.text)}</div>`
       + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div></div>`;
   });
@@ -4379,6 +4459,12 @@ function chatSend(){
   const text = (inp?.value||'').trim();
   if(!text) return;
   inp.value=''; inp.style.height='auto';
+  // côté support, dans un thread : on répond au client sélectionné
+  if (_chatIsSupport() && _chatThreadUser){
+    fetch('/api/admin/chat/'+encodeURIComponent(_chatThreadUser),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
+      .then(r=>r.json()).then(()=>_chatOpenThread(_chatThreadUser,_chatThreadName)).catch(()=>{});
+    return;
+  }
   fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
     .then(r=>r.json()).then(()=>_chatLoad()).catch(()=>{});
 }
@@ -4392,6 +4478,13 @@ function _chatSetBadge(n){
 function _chatPollUnread(){
   // si le chat est ouvert, c'est déjà lu → pas de badge
   if(document.getElementById('chat-panel')?.classList.contains('open')) return;
+  if (_chatIsSupport()){
+    // côté support : total des messages clients non lus, tous threads confondus
+    fetch('/api/admin/chat').then(r=>r.json())
+      .then(d=>_chatSetBadge((d.threads||[]).reduce((n,t)=>n+(t.unread||0),0)))
+      .catch(()=>{});
+    return;
+  }
   fetch('/api/chat/unread').then(r=>r.json()).then(d=>_chatSetBadge(d.unread||0)).catch(()=>{});
 }
 
