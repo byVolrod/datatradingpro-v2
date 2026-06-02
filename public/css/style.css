@@ -3842,9 +3842,14 @@ html, body {
   background: #161619;
 }
 
-/* Carte Weekly Recap dans la liste Analyst : même style "news importante" (bordeaux + hover rouge) */
-.arlib-card.arlib-card--weekly { background: #241415; border-left: 2px solid rgba(127,29,29,0.45); }
-.arlib-card.arlib-card--weekly:hover { background: #271517; }
+/* Cartes hebdo (Weekly Recap + Global Economic Weekly) : encadré orange + fond bordeaux + hover rouge */
+.arlib-card.arlib-card--weekly {
+  background: #241415;
+  border: 1px solid rgba(255,122,0,0.45);
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+.arlib-card.arlib-card--weekly:hover { background: #271517; border-color: rgba(255,122,0,0.75); }
 .arlib-card.arlib-card--weekly .arlib-card-title { color: #fff; font-weight: 600; }
 
 /* ═══════════ WEEKLY MARKET RECAP (copie Prime Terminal) ═══════════ */
