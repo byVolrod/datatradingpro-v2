@@ -1717,6 +1717,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-rtab]').forEach(t => t.classList.toggle('right-tab--active', t.dataset.rtab === tab));
     document.querySelectorAll('.right-tab-panel').forEach(p => p.classList.toggle('active', p.id === `rtab-${tab}`));
     initRightTab(tab);
+    try { localStorage.setItem('dtp_active_rtab', tab); } catch {}   // mémorise le sous-onglet
   });
 
   // ── View switching (main nav) ──────────────────────────────────────────────
@@ -1730,7 +1731,8 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('main-layout')?.classList.add('show-right-mobile');
       // Les graphiques (amCharts) ont pu être initialisés masqués → on force un recalcul à l'affichage
       setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch {} }, 120);
-      return;   // on ne persiste pas et on ne touche pas aux view-panel
+      if (persist) { try { localStorage.setItem('dtp_active_view', 'markets'); } catch {} }
+      return;   // on ne touche pas aux view-panel
     }
     if (!VALID_VIEWS.includes(view)) view = 'news';
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
@@ -1775,13 +1777,21 @@ document.addEventListener('DOMContentLoaded', () => {
     activateView(a.dataset.view);
   });
 
-  // ── Restaurer le dernier onglet visité ───────────────────────────────────────
+  // ── Restaurer le dernier onglet visité (vue + sous-onglet du panneau droit) ──
   let _savedView = 'news';
   try { _savedView = localStorage.getItem('dtp_active_view') || 'news'; } catch {}
+  // 'markets' n'a de sens que sur mobile (sinon retour au flux)
+  if (_savedView === 'markets' && window.innerWidth > 768) _savedView = 'news';
   if (_savedView !== 'news') {
-    // 'news' est déjà actif par défaut dans le HTML — on ne réactive que si différent
-    activateView(_savedView, { persist: false });
+    activateView(_savedView, { persist: false });   // 'news' est déjà actif par défaut dans le HTML
   }
+  // Restaurer le sous-onglet du panneau droit (WORLD/RISK/STRENGTH/METER/COT/DMX)
+  try {
+    const _rtab = localStorage.getItem('dtp_active_rtab');
+    if (_rtab && _rtab !== 'world' && _savedView !== 'bias') {
+      document.querySelector(`.right-tab[data-rtab="${_rtab}"]`)?.click();
+    }
+  } catch {}
 
   // Timeframe buttons
   document.querySelector('.bias-tf-group')?.addEventListener('click', e => {

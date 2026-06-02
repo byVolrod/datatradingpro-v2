@@ -4377,9 +4377,8 @@ function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(
 const CHAT_SUPPORT_NAME = 'Équipe de support';
 const CHAT_SUPPORT_SUB  = 'Répond généralement en quelques minutes';
 const CHAT_SUPPORT_AV   = 'DTP';                       // initiales de l'avatar (ou laisse 'DTP')
-const CHAT_WHATSAPP     = 'https://wa.me/33600000000'; // ← REMPLACE par ton numéro WhatsApp support
 
-// En-tête côté CLIENT (nom + sous-titre + bouton WhatsApp)
+// En-tête côté CLIENT (nom + sous-titre)
 function _chatClientHead(){
   const n=document.getElementById('chat-head-name'); if(n) n.textContent=CHAT_SUPPORT_NAME;
   const s=document.getElementById('chat-head-sub');  if(s) s.innerHTML='<span class="chat-presence"></span>'+_chatEsc(CHAT_SUPPORT_SUB);
@@ -4387,8 +4386,6 @@ function _chatClientHead(){
   document.getElementById('chat-back')?.classList.add('hidden');
   document.querySelector('.chat-input-bar')?.classList.remove('hidden');
   document.querySelector('.chat-hint')?.classList.remove('hidden');
-  const wa=document.getElementById('chat-wa');
-  if(wa){ wa.href=CHAT_WHATSAPP; wa.classList.toggle('hidden', !CHAT_WHATSAPP); }
 }
 
 // L'utilisateur courant est-il le support (admin) ? -> géré depuis son propre compte (ex. JustOneTrader)
@@ -4460,7 +4457,6 @@ function _chatHead(name, sub, showBack, showInput){
   const s = document.getElementById('chat-head-sub');  if (s) s.textContent = sub;
   const av = document.getElementById('chat-head-av');  if (av) av.textContent = (name||'?').charAt(0).toUpperCase();
   document.getElementById('chat-back')?.classList.toggle('hidden', !showBack);
-  document.getElementById('chat-wa')?.classList.add('hidden');   // pas de bouton WhatsApp côté support
   document.querySelector('.chat-input-bar')?.classList.toggle('hidden', !showInput);
   document.querySelector('.chat-hint')?.classList.toggle('hidden', !showInput);
 }
