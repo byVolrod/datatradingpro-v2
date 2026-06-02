@@ -2113,6 +2113,14 @@ async function generateWeeklyRecapAI(force = false) {
   const weekKey    = `${fri.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
   const weekPrefix = idPrefix + weekKey;
   const weekEnding = `${String(fri.getUTCDate()).padStart(2,'0')}.${String(fri.getUTCMonth()+1).padStart(2,'0')}.${fri.getUTCFullYear()}`;
+  // Plage de la semaine en français : "Semaine du 25 au 29 mai 2026" (lundi → vendredi)
+  const _MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+  const mon = new Date(fri); mon.setUTCDate(fri.getUTCDate() - 4);   // lundi de la semaine couverte
+  const d1 = mon.getUTCDate(), m1 = mon.getUTCMonth(), y1 = mon.getUTCFullYear();
+  const d2 = fri.getUTCDate(), m2 = fri.getUTCMonth(), y2 = fri.getUTCFullYear();
+  const weekRange = (m1 === m2 && y1 === y2) ? `Semaine du ${d1} au ${d2} ${_MOIS_FR[m2]} ${y2}`
+    : (y1 === y2)                            ? `Semaine du ${d1} ${_MOIS_FR[m1]} au ${d2} ${_MOIS_FR[m2]} ${y2}`
+    :                                          `Semaine du ${d1} ${_MOIS_FR[m1]} ${y1} au ${d2} ${_MOIS_FR[m2]} ${y2}`;
 
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix))) {
     console.log(`[Weekly Recap] déjà généré pour ${weekKey}, skip.`);
@@ -2178,7 +2186,7 @@ ${corpus}`;
 
   const weekly = {
     title:      parsed.title || 'Weekly Market Recap',
-    weekEnding,
+    weekEnding, weekRange,
     summary:    parsed.summary || '',
     insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 8) : [],
     macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).slice(0, 6) : [],
