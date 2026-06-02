@@ -3424,7 +3424,8 @@ function standardizeReportTitle(item) {
   // (si le titre n'est QUE "… markets wrap" sans sujet → sujet vide → on garde le préfixe seul).
   if (item._source === 'investinglive') {
     if (item.aiTitle && item.aiTitle.trim().length >= 8) return `${prefix}: ${item.aiTitle.trim()}`;
-    const wrapRe = /^\s*[\w\s.,/&'-]*?\b(?:markets?|session)\s+wrap\b\s*[:\-—–]?\s*/i;
+    // Retire le préfixe source "… wrap" (markets/session/fx news wrap…) jusqu'au 1er "wrap"
+    const wrapRe = /^\s*[\w\s.,/&'-]*?\bwraps?\b\s*[:\-—–]?\s*/i;
     if (wrapRe.test(raw)) raw = raw.replace(wrapRe, '').trim();
   }
   const escd = _ALL_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
