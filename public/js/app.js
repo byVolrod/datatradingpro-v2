@@ -3452,7 +3452,7 @@ function renderArlibList() {
     const badge = badgeLabel ? `<span class="${badgeClass}">${badgeLabel}</span>` : '';
 
     const card = document.createElement('div');
-    const _isWeekly = item._reportType === 'Weekly Market Recap';
+    const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
     card.className = 'arlib-card' + (isRead(item.id) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
     card.dataset.id = item.id;
     card.innerHTML = `

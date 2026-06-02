@@ -2184,12 +2184,12 @@ ${corpus}`;
     console.warn('[Weekly Recap] JSON IA invalide → fallback'); return null;
   }
 
-  // Titre normalisé : préfixe fixe "FX Weekly Recap — " + l'accroche IA (sans son préfixe générique)
-  const rawTitle = String(parsed.title || '').replace(/^\s*(?:fx\s+)?weekly\s+(?:market\s+)?recap\s*[:\-–—]\s*/i, '').trim();
-  const finalTitle = 'FX Weekly Recap — ' + (rawTitle || 'Synthèse hebdomadaire des marchés');
+  // Titre : on garde l'accroche IA naturelle ("Weekly Market Recap: …"), comme la référence.
+  let baseTitle = String(parsed.title || 'Weekly Market Recap').trim();
+  if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
 
   const weekly = {
-    title:      finalTitle,
+    title:      baseTitle,
     weekEnding, weekRange,
     summary:    parsed.summary || '',
     insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 8) : [],
@@ -2205,7 +2205,7 @@ ${corpus}`;
 
   const item = {
     id: weekPrefix + '-' + now,
-    headline: weekly.title,
+    headline: `${weekly.title} Week Ending: ${weekEnding}`,   // carte liste = format référence (titre + Week Ending)
     description: descParts.filter(Boolean).join('\n'),
     category: 'Market Analysis', source: 'PMT', time: timeStr, timestamp: now,
     priority: 'normal', tags: ['Weekly Recap', 'Markets', 'FX'],
