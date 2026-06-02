@@ -777,7 +777,46 @@ async function _fetchSessionWraps(full = false) {
   try { fs.writeFileSync(SW_CACHE_FILE, JSON.stringify(_swCache)); } catch {}
   _persistHistory('session_wraps', _swCache);   // persistance durable (Supabase, rétention 1 mois)
   console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+  _swEnsureAiTitles().catch(() => {});           // titres IA résumant chaque wrap (en arrière-plan)
 }
+
+// ── Titre IA résumant chaque session wrap ────────────────────────────────────
+// Remplace le titre brut générique ("Americas fx news wrap…") par un titre court qui
+// CAPTE LE THÈME de la séance. Mis en cache DURABLEMENT (ai_cache "swt:<id>") → généré une
+// seule fois par wrap ; quota maîtrisé (anti-burst + Gemini→Claude via aiSmart). Limité aux
+// wraps RÉCENTS (ceux réellement consultés).
+let _swTitleBusy = false;
+async function _swEnsureAiTitles() {
+  if (_swTitleBusy) return;
+  _swTitleBusy = true;
+  let changed = false;
+  try {
+    let budget = 6;   // max 6 générations IA par passage (le reste au passage suivant)
+    for (const w of _swCache.slice(0, 22)) {   // wraps récents uniquement
+      if (w.aiTitle) continue;
+      try { const c = await auth.aiCacheGet('swt:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; changed = true; continue; } } catch {}
+      if (budget <= 0) continue;
+      const src = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 600) || w.title || '';
+      if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
+      budget--;
+      try {
+        const out = await aiSmart('analyst',
+          `Voici le résumé d'une session de marché (FX/indices/matières premières). Écris UN seul titre ` +
+          `court (max 12 mots), en anglais, qui capte le THÈME PRINCIPAL de la séance. Interdits : le mot ` +
+          `"wrap", toute mention de source, toute date. Réponds avec le titre SEUL, sans guillemets.\n\n${src}`, 120);
+        let t = String(out || '').split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 110);
+        if (t.length >= 8) { w.aiTitle = t; changed = true; auth.aiCacheSet('swt:' + w.id, t).catch(() => {}); }
+      } catch {}
+    }
+  } finally { _swTitleBusy = false; }
+  // De nouveaux titres → on met à jour les clients + le fichier (sans re-scraper)
+  if (changed) {
+    try { fs.writeFileSync(SW_CACHE_FILE, JSON.stringify(_swCache)); } catch {}
+    try { broadcast({ type: 'sw_update', items: _swCache }); } catch {}
+  }
+}
+// Relance périodique (couvre les nouveaux wraps + le backfill échelonné)
+setInterval(() => _swEnsureAiTitles().catch(() => {}), 4 * 60 * 1000);
 
 app.get('/api/session-wraps', (_req, res) => {
   res.json(_swCache);
