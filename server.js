@@ -3423,13 +3423,15 @@ if (_SELF_URL) {
 // ── PRÉCHAUFFAGE des caches au démarrage → onglets instantanés (pas de "Loading…") ──
 // On peuple les caches lourds (Currency Strength, DMX/Myfxbook, COT) en arrière-plan dès le
 // démarrage, AVANT que l'utilisateur n'ouvre les onglets → données déjà prêtes.
-setTimeout(() => {
-  try { computeCurrencyStrength('today').catch(() => {}); } catch {}   // STRENGTH (panneau gauche TD)
-  try { computeCurrencyStrength('week').catch(() => {}); } catch {}    // STRENGTH (panneau droit TW)
-  try { computeCurrencyStrength('1d').catch(() => {}); } catch {}      // METER (jauge devises)
-  try { fetchCOTData('lev_money').catch(() => {}); } catch {}          // COT
-  // (Myfxbook/DMX est déjà préchauffé par refreshMyfxbook au démarrage)
-}, 6000);
+// Préchauffage ÉCHELONNÉ : on évite ~80 requêtes Yahoo simultanées au démarrage
+// (chaque période strength = 28 paires). Les onglets sont chauds avant l'usage.
+const _warm = (fn, ms, label) => setTimeout(() => { try { fn().catch(() => {}); } catch (e) { console.warn('[Warm]', label, e.message); } }, ms);
+_warm(() => computeCurrencyStrength('today'),  6000,  'strength TD');   // STRENGTH gauche
+_warm(() => fetchCOTData('lev_money'),         8000,  'COT');           // COT (type par défaut)
+_warm(() => computeCurrencyStrength('1d'),     11000, 'strength 1d');   // METER
+_warm(() => computeCurrencyStrength('week'),   16000, 'strength TW');   // STRENGTH droite
+if (typeof fetchRiskSentiment === 'function') _warm(() => fetchRiskSentiment(), 13000, 'risk');  // RISK
+// (Myfxbook/DMX déjà préchauffé par refreshMyfxbook au démarrage)
 
 // ── Rappel abonnements : prévient l'admin (datatradingpro.contact) des comptes
 //    qui expirent bientôt ou viennent d'expirer, AVANT le blocage (grâce 48h) ──
