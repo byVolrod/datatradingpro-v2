@@ -1467,21 +1467,21 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 .clock-wday {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
-  color: var(--text2);
+  color: var(--text);                 /* + lisible (était text2/gris moyen) */
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
 }
 .clock-date {
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  font-weight: 500;
-  color: var(--text3);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text2);                /* + lisible (était text3 #666) */
   letter-spacing: 0.04em;
 }
 
@@ -1489,24 +1489,24 @@ html, body {
   font-family: var(--font-mono);
   font-size: 22px;
   font-weight: 700;
-  color: var(--text);
+  color: #f2f2f2;                     /* quasi-blanc → chiffres bien nets */
   letter-spacing: -0.02em;
   line-height: 1.05;
   white-space: nowrap;
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
 .clock-gmt {
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  color: var(--text3);
+  font-size: 10.5px;
+  color: var(--text2);                /* + lisible */
   letter-spacing: 0.04em;
-  margin-bottom: 5px;
+  margin-bottom: 7px;
 }
 
 .clock-city-label {
   font-family: var(--font-mono);
-  font-size: 11px;
+  font-size: 12.5px;                  /* nom de ville plus présent */
   font-weight: 700;
   white-space: nowrap;
   overflow: hidden;
@@ -1515,29 +1515,30 @@ html, body {
 }
 /* Orange = session active — closed stays neutral white */
 .clock-city-label--open   { color: var(--orange); }
-.clock-city-label--closed { color: var(--text); }
+.clock-city-label--closed { color: #eaeaea; }       /* blanc cassé bien lisible */
 
 .clock-country-row {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 500;
-  color: var(--text3);
-  margin-top: 1px;
-  letter-spacing: 0.04em;
+  color: var(--text2);                /* + lisible (était text3) */
+  margin-top: 2px;
+  letter-spacing: 0.06em;
 }
 
 .clock-wx-row {
   font-family: var(--font-mono);
-  font-size: 10px;
-  color: var(--text2);
-  margin-top: 6px;
+  font-size: 11.5px;                  /* météo + lisible */
+  font-weight: 500;
+  color: var(--text);
+  margin-top: 8px;
 }
 
 .clock-wind-row {
   font-family: var(--font-mono);
-  font-size: 9.5px;
-  color: var(--text3);
-  margin-top: 2px;
+  font-size: 10.5px;
+  color: var(--text2);                /* + lisible (était text3) */
+  margin-top: 3px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
