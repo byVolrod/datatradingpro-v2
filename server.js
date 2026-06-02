@@ -3782,7 +3782,9 @@ function _csRefresh(period) {
   return _csInflight[period];
 }
 async function computeCurrencyStrength(period) {
-  const ttl = 2 * 60 * 1000;
+  // Le METER (période '1d') se veut "temps réel" → cache court (60s) ; les autres restent à 2 min.
+  // Le SWR sert toujours le cache instantanément et recalcule en arrière-plan (jamais bloquant).
+  const ttl = period === '1d' ? 60 * 1000 : 2 * 60 * 1000;
   const c = _csCache[period];
   if (c && Date.now() - c.ts < ttl) return c.data;          // 1) cache frais → instantané
   if (c && c.data) { _csRefresh(period); return c.data; }   // 2) périmé → on sert + recalcul en fond
