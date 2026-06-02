@@ -641,15 +641,14 @@
       emailEl.focus();
       return;
     }
-    try {
-      await fetch('/api/auth/forgot-password', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-    } catch {}
+    // Confirmation IMMÉDIATE — on n'attend pas le serveur (l'envoi se fait en arrière-plan).
     errEl.classList.add('lp-msg-success');
     errEl.textContent = 'Si un compte existe pour cet email, un nouveau mot de passe vient d’être envoyé. Vérifiez votre boîte (et les spams).';
     errEl.classList.add('visible');
+    fetch('/api/auth/forgot-password', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    }).catch(() => {});
   }
 
   // Drapeaux SVG inline (s'affichent partout, contrairement aux emojis drapeaux sur Windows)
