@@ -6969,3 +6969,5 @@ html, body {
 .sqwk-footer { padding: 10px 14px; border-top: 1px solid #1c1c20; text-align: center; font-size: 10.5px; color: #555; flex-shrink: 0; }
 .topbar-icon--active { color: #f7941d !important; }
 @media (max-width: 480px) { .sqwk-panel { width: 100vw; max-width: 100vw; } }
+.sqwk-audio { background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.9; }
+.sqwk-audio--off { opacity: 0.4; filter: grayscale(1); }

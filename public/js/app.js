@@ -4204,53 +4204,78 @@ let   _sqwkAuto       = false;
 let   _sqwkAutoTimer  = null;       // tick toutes les 10s
 let   _sqwkStreamTimer = null;      // sous-intervalle mot-par-mot (150ms)
 
-const SQWK_PHRASES = [
-  "Fed's Evans says inflation expectations remain anchored near the target for now.",
-  "Treasury yields edge higher as traders price in fewer rate cuts this year.",
-  "ECB source signals no urgency to cut further until services inflation cools.",
-  "Crude extends gains on Middle East supply risk and Strait of Hormuz headlines.",
-  "Dollar firmer across the board as risk sentiment turns cautious into the open.",
-  "Reports of fresh ceasefire talks are lifting equity futures off the session lows.",
-  "ISM manufacturing prints above expectations, new orders the strongest in months.",
-  "Gold holding a bid as safe-haven demand offsets the stronger greenback.",
-  "Officials note they could hike again if upside inflation risks materialise.",
-  "Headline CPI comes in at 3.2 percent year over year, in line with the consensus.",
-  "No significant move in major pairs as desks await the US cash equity open.",
-  "Energy complex bid as traders watch tanker traffic through the Strait of Hormuz.",
-  "Bund yields slip after softer than expected German regional inflation data.",
-  "Equity breadth remains weak outside of technology and energy this session.",
-  "Yen on watch as USD/JPY presses the 159 handle near intervention territory.",
-  "Risk premium staying elevated in shipping, energy and regional assets for now.",
-];
+const _sqwkProcessed = new Set();   // IDs de news déjà diffusées (anti-doublon)
+let   _sqwkAudio      = true;        // synthèse vocale active
 
 function _sqwkTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
 function _sqwkEsc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// Une VRAIE news exploitable pour le squawk (pas de rapport/primer/bruit)
+function _sqwkUsable(it) {
+  if (!it || !it.headline) return false;
+  if (it._briefing || it.source === 'PMT' || (typeof isPrimerItem === 'function' && isPrimerItem(it))) return false;
+  const h = it.headline;
+  if (/^\[No Title\]|^RT @|^@[A-Za-z]/.test(h)) return false;
+  return h.replace(/[^a-z0-9]/gi, '').length >= 14;
+}
+
 function _sqwkRender() {
   const list = document.getElementById('sqwk-list');
   if (!list) return;
-  if (!_sqwkMessages.length) { list.innerHTML = '<div class="sqwk-empty">Activez la connexion automatique pour recevoir le flux.</div>'; return; }
+  if (!_sqwkMessages.length) { list.innerHTML = '<div class="sqwk-empty">Activez la connexion automatique pour diffuser les news en direct.</div>'; return; }
   list.innerHTML = _sqwkMessages.map(m =>
     `<div class="sqwk-row"><span class="sqwk-time">${m.ts}</span><span class="sqwk-text" id="sqwk-txt-${m.id}">${_sqwkEsc(m.text)}</span></div>`
   ).join('');
 }
 
-// Nouveau message : on l'ajoute EN HAUT puis on injecte les mots un par un (effet retranscription)
-function _sqwkNewMessage() {
-  const phrase = SQWK_PHRASES[Math.floor(Math.random() * SQWK_PHRASES.length)];
-  const words  = phrase.split(' ');
-  const msg    = { id: 's' + Date.now(), ts: _sqwkTime(), text: '' };
+// Voix "salle de marché" (Web Speech API, gratuite) — synchronisée avec l'écriture
+function _sqwkSpeak(text) {
+  if (!_sqwkAudio || !('speechSynthesis' in window)) return;
+  try {
+    window.speechSynthesis.cancel();   // coupe la phrase précédente (pas d'empilement)
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.pitch = 0.9; u.rate = 1.0; u.volume = 1;
+    const v = (window.speechSynthesis.getVoices() || []).find(x => /en[-_]US/i.test(x.lang));
+    if (v) u.voice = v;
+    window.speechSynthesis.speak(u);
+  } catch {}
+}
+
+// Diffuse une VRAIE news : ligne en haut + écriture mot-par-mot + voix synchrone
+function _sqwkStreamNews(item) {
+  const text  = String(item.headline).replace(/\s+/g, ' ').trim();
+  const words = text.split(' ');
+  const msg   = { id: 'sq-' + item.id, ts: _sqwkTime(), text: '' };
   _sqwkMessages.unshift(msg);
-  if (_sqwkMessages.length > 60) _sqwkMessages.length = 60;
+  if (_sqwkMessages.length > 80) _sqwkMessages.length = 80;
   _sqwkRender();
+  _sqwkSpeak(text);                                    // l'audio démarre PILE quand l'écriture commence
   let i = 0;
   clearInterval(_sqwkStreamTimer);
   _sqwkStreamTimer = setInterval(() => {
     if (i >= words.length) { clearInterval(_sqwkStreamTimer); return; }
     msg.text += (msg.text ? ' ' : '') + words[i++];
-    const el = document.getElementById('sqwk-txt-' + msg.id);   // MAJ ciblée → pas de flicker
+    const el = document.getElementById('sqwk-txt-' + msg.id);
     if (el) el.textContent = msg.text;
   }, 150);
+}
+
+// Poll des vraies news (allItems alimenté en direct par le WebSocket) → la plus récente non diffusée
+function _sqwkPollReal() {
+  if (!_sqwkAuto) return;
+  const src = (typeof allItems !== 'undefined' ? allItems : []);
+  const fresh = src.filter(it => _sqwkUsable(it) && !_sqwkProcessed.has(it.id));
+  if (!fresh.length) return;
+  const item = fresh[0];                               // allItems trié récent → ancien
+  fresh.forEach(it => _sqwkProcessed.add(it.id));      // on marque tout le batch (évite l'inondation)
+  _sqwkStreamNews(item);
+}
+
+function sqwkToggleAudio() {
+  _sqwkAudio = !_sqwkAudio;
+  const b = document.getElementById('sqwk-audio');
+  if (b) { b.textContent = _sqwkAudio ? '🔊' : '🔇'; b.classList.toggle('sqwk-audio--off', !_sqwkAudio); }
+  if (!_sqwkAudio && 'speechSynthesis' in window) window.speechSynthesis.cancel();
 }
 
 function sqwkToggleAuto() {
@@ -4267,10 +4292,15 @@ function sqwkToggleAuto() {
   if (play) play.textContent = _sqwkAuto ? '❚❚' : '▶';
   clearInterval(_sqwkAutoTimer);
   if (_sqwkAuto) {
-    _sqwkNewMessage();                                   // premier message immédiat
-    _sqwkAutoTimer = setInterval(_sqwkNewMessage, 10000); // puis toutes les 10s
+    // Démarrage : on considère les news existantes comme "déjà vues" SAUF la plus récente,
+    // pour partir sur du frais et ne diffuser ensuite que les NOUVELLES news réelles.
+    const usable = (typeof allItems !== 'undefined' ? allItems : []).filter(_sqwkUsable);
+    usable.slice(1).forEach(it => _sqwkProcessed.add(it.id));
+    _sqwkPollReal();                                    // diffuse la dernière vraie news tout de suite
+    _sqwkAutoTimer = setInterval(_sqwkPollReal, 15000); // puis vérifie les nouvelles toutes les 15s
   } else {
     clearInterval(_sqwkStreamTimer);
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   }
 }
 
@@ -4284,6 +4314,7 @@ function sqwkClose() {
   document.getElementById('sqwk-panel')?.classList.remove('open');
   document.getElementById('sqwk-overlay')?.classList.remove('open');
   document.getElementById('sqwk-btn')?.classList.remove('topbar-icon--active');
+  if ('speechSynthesis' in window) window.speechSynthesis.cancel();   // coupe la voix
 }
 function sqwkToggle() {
   document.getElementById('sqwk-panel')?.classList.contains('open') ? sqwkClose() : sqwkOpen();
