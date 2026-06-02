@@ -2135,18 +2135,25 @@ async function generateWeeklyRecapAI(force = false) {
   // Régénération : on retire le recap de cette semaine ET tout ancien recap au format obsolète (anti-doublon).
   allNews = allNews.filter(i => !((i.id || '').startsWith(weekPrefix)) && !(i._reportType === 'Weekly Market Recap' && !_isV2(i)));
 
-  const cutoff = now - 7 * 24 * 60 * 60 * 1000;
-  // 1) SESSION WRAPS de la semaine (titres = synthèses de session, très riches)
+  // Fenêtre = LA SEMAINE COUVERTE (lundi 00:00 → vendredi 23:59 UTC), pas un simple "7 derniers jours".
+  // → le recap reflète EXACTEMENT ce qui s'est passé sur les sessions de cette semaine-là.
+  const _wEnd = new Date(fri); _wEnd.setUTCHours(23, 59, 59, 999);
+  const weekEnd = _wEnd.getTime();
+  const _wStart = new Date(fri); _wStart.setUTCDate(fri.getUTCDate() - 4); _wStart.setUTCHours(0, 0, 0, 0);
+  const weekStart = _wStart.getTime();
+  const inWeek = t => t >= weekStart && t <= weekEnd;
+
+  // 1) SESSION WRAPS de la semaine (synthèses de session — source primaire du recap)
   const wraps = (_swCache || [])
-    .filter(i => i.timestamp > cutoff)
+    .filter(i => inWeek(i.timestamp))
     .map(i => `[${i.session || 'Wrap'}] ${i.title}${i.description ? ' — ' + i.description : ''}`);
-  // 2) RÉSULTATS du calendrier économique (Actual vs Forecast vs Previous)
+  // 2) RÉSULTATS du calendrier économique de la semaine (Actual vs Forecast vs Previous)
   const cal = (allCalendar || [])
-    .filter(i => i.timestamp > cutoff && /actual/i.test(i.description || ''))
+    .filter(i => inWeek(i.timestamp) && /actual/i.test(i.description || ''))
     .map(i => `${i.country || i.currency || ''} ${i.title || i.headline || ''} — ${String(i.description).replace(/\s+/g, ' ').trim()}`);
-  // 3) Autres titres macro en complément
+  // 3) Autres titres macro de la semaine en complément
   const news = allNews
-    .filter(i => i.timestamp > cutoff && !i._briefing)
+    .filter(i => inWeek(i.timestamp) && !i._briefing)
     .slice(0, 120)
     .map(i => `[${i.category || ''}] ${i.headline}`);
 
