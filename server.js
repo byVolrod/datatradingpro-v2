@@ -2062,7 +2062,10 @@ function buildWeeklyMarketRecap({ dateStr, s, reportType }) {
   _pushBullets(bullets, 'FX Moves',               s.fx, 4);
   _pushBullets(bullets, 'Commodities Performance', s.nrg, 3);
   _pushBullets(bullets, 'Looking Ahead',          [...s.cb, ...s.data].slice(0,4), 2);
-  return { subtitle: _briefingSubtitle(reportType, s, ['Fed','ECB','BoJ']), bullets, tags: _briefingTags(s, ['Weekly Recap','FX','Markets']) };
+  // Titre plus parlant : si pas d'accroche forte (peu/pas de données), on évite le fade "Markets Update"
+  let subtitle = _briefingSubtitle(reportType, s, ['Fed','ECB','BoJ']);
+  if (/:\s*Markets Update$/.test(subtitle)) subtitle = `${reportType} — Synthèse hebdomadaire des marchés`;
+  return { subtitle, bullets, tags: _briefingTags(s, ['Weekly Recap','FX','Markets']) };
 }
 
 // ─── Wrappers (async for schedule .catch() compatibility) ────────────────────
