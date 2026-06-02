@@ -293,6 +293,8 @@ module.exports = {
   chatThreads,
   weeklyReportSave,
   weeklyReportList,
+  emailLogHas,
+  emailLogAdd,
 };
 
 // ═══════════════════ PERSISTANCE RAPPORTS HEBDO (Weekly Recap) ═══════════════════
@@ -346,4 +348,53 @@ async function weeklyReportList() {
     if (_weeklyTableMissing(error)) _weeklyDb = false; else throw new Error(error.message);
   }
   return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(r => r.report).filter(Boolean);
+}
+
+// ═══════════════════ JOURNAL D'EMAILS (anti-doublon durable) ═══════════════════
+// But : ne jamais renvoyer deux fois un email "campagne" (ex. incitation fin d'essai),
+// même après un redémarrage Render. Même pattern que weekly : table `email_log`
+// (key text PK + sent_at) + fallback fichier + auto-récupération.
+const EMAILLOG_TABLE = 'email_log';
+const EMAILLOG_FILE  = path.join(__dirname, 'cache_email_log.json');
+let _emailDb = true;
+let _emailFile = {};   // { key: sent_at_iso }
+try { _emailFile = JSON.parse(fs.readFileSync(EMAILLOG_FILE, 'utf8')) || {}; } catch {}
+function _emailSaveFile() { try { fs.writeFileSync(EMAILLOG_FILE, JSON.stringify(_emailFile)); } catch {} }
+function _emailTableMissing(err) { return err && /email_log|schema cache|does not exist|relation/i.test(err.message); }
+let _emailProbeTs = 0;
+async function _emailEnsureDb() {
+  if (_emailDb) return;
+  const now = Date.now();
+  if (now - _emailProbeTs < 30000) return;
+  _emailProbeTs = now;
+  const { error } = await supabase.from(EMAILLOG_TABLE).select('key').limit(1);
+  if (error) return;
+  _emailDb = true;
+  const keys = Object.keys(_emailFile);
+  if (keys.length) {
+    const rows = keys.map(k => ({ key: k, sent_at: _emailFile[k] }));
+    const { error: insErr } = await supabase.from(EMAILLOG_TABLE).upsert(rows, { onConflict: 'key' });
+    if (!insErr) { _emailFile = {}; _emailSaveFile(); console.log(`[EmailLog] table détectée → ${rows.length} entrée(s) migrée(s) en BDD`); }
+    else _emailDb = false;
+  }
+}
+async function emailLogHas(key) {
+  await _emailEnsureDb();
+  if (_emailDb) {
+    const { data, error } = await supabase.from(EMAILLOG_TABLE).select('key').eq('key', String(key)).limit(1);
+    if (!error) return !!(data && data.length);
+    if (_emailTableMissing(error)) _emailDb = false; else throw new Error(error.message);
+  }
+  return Object.prototype.hasOwnProperty.call(_emailFile, String(key));
+}
+async function emailLogAdd(key) {
+  await _emailEnsureDb();
+  const row = { key: String(key), sent_at: new Date().toISOString() };
+  if (_emailDb) {
+    const { error } = await supabase.from(EMAILLOG_TABLE).upsert([row], { onConflict: 'key' });
+    if (!error) return;
+    if (_emailTableMissing(error)) _emailDb = false; else throw new Error(error.message);
+  }
+  _emailFile[row.key] = row.sent_at;
+  _emailSaveFile();
 }

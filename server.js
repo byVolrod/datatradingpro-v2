@@ -3294,6 +3294,52 @@ async function _checkExpiringSubscriptions() {
 // (fonction _checkExpiringSubscriptions conservée mais non planifiée)
 void _checkExpiringSubscriptions;
 
+// ── Incitation FIN D'ESSAI GRATUIT (1 semaine) ───────────────────────────────
+//    2 jours avant la fin de l'essai, on invite le client à prendre l'abonnement
+//    (mensuel ou annuel). Envoi UNIQUE par essai (anti-doublon durable via email_log).
+async function _checkTrialUpsell() {
+  try {
+    const users = await auth.getAllUsers();
+    const now   = Date.now();
+    const DAY   = 24 * 60 * 60 * 1000;
+    const low   = now + 1 * DAY;   // il reste plus d'1 jour…
+    const high  = now + 2 * DAY;   // … et au plus 2 jours → "2 jours avant la fin"
+    for (const u of users) {
+      if (u.role !== 'client' || !u.active || !u.expires_at || !u.created_at) continue;
+      const exp = new Date(u.expires_at).getTime();
+      const crt = new Date(u.created_at).getTime();
+      if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
+      // Essai = fenêtre d'accès ≈ 1 semaine (≤ 8 j) → distingue des abonnements payants (≥ 1 mois)
+      if (exp - crt > 8 * DAY) continue;
+      // Fenêtre d'envoi : il reste entre 1 et 2 jours d'essai
+      if (exp <= low || exp > high) continue;
+      const key = `trial-upsell:${u.id}:${u.expires_at}`;
+      if (await auth.emailLogHas(key)) continue;            // déjà envoyé pour cet essai
+      const ok = await mailer.sendTrialUpsell({ to: u.email, name: u.name, expiresAt: u.expires_at });
+      if (ok) {
+        await auth.emailLogAdd(key);
+        console.log(`[TrialUpsell] Incitation envoyée → ${u.email} (essai expire ${u.expires_at})`);
+      }
+    }
+  } catch (e) { console.error('[TrialUpsell]', e.message); }
+}
+// Planification : chaque jour à 10:00 (Europe/Paris) + rattrapage 30s après le démarrage.
+// L'anti-doublon (email_log Supabase) garantit un seul envoi même après redémarrage.
+(function scheduleTrialUpsell() {
+  function msToNextParis(h, m) {
+    const now   = new Date();
+    const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const next  = new Date(paris); next.setHours(h, m, 0, 0);
+    if (next <= paris) next.setDate(next.getDate() + 1);
+    return next.getTime() - paris.getTime();
+  }
+  setTimeout(function run() {
+    _checkTrialUpsell();
+    setInterval(_checkTrialUpsell, 24 * 60 * 60 * 1000);
+  }, msToNextParis(10, 0));
+  setTimeout(_checkTrialUpsell, 30000);   // rattrapage au démarrage (couvre les redémarrages Render)
+})();
+
 // COT — check for new weekly data every 6 h, broadcast on change
 let _lastCotHash = '';
 setInterval(async () => {
