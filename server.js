@@ -329,6 +329,25 @@ app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
   } catch (e) {
     test = { ok: false, ms: Date.now() - t0, error: String(e && e.message || e).slice(0, 300) };
   }
+  // État du budget Gemini (pacing intra-journée) — pour voir la marge restante.
+  let budget = null;
+  try {
+    _aiReset();
+    const cap = _aiDailyCap();
+    const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
+    const frac = _aiDayFraction();
+    budget = {
+      monthlyBudget: GEMINI_MONTHLY_BUDGET,
+      monthUsed: _aiUsage.total || 0,
+      dailyCap: cap,
+      usedToday: dayTotal,
+      remainingToday: Math.max(0, cap - dayTotal),
+      pacedCeilNow: Math.ceil(cap * frac) + AI_BURST,
+      dayElapsed: Math.round(frac * 100) + '%',
+      byCategory: _aiUsage.dayCounts || {},
+      weekend: _aiIsWeekend(),
+    };
+  } catch (e) { budget = { error: String(e && e.message || e) }; }
   res.json({
     env: {
       GEMINI_API_KEY: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
@@ -339,6 +358,7 @@ app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
     },
     ai: st,
     test,
+    budget,
     swTitles: { total: _swCache.length, withAiTitle: _swCache.filter(w => w && w.aiTitle).length },
   });
 });
@@ -1075,6 +1095,11 @@ function _saveJsonMap(file, map) {
 //   • Semaine : 50% news IMPORTANTES + 50% rapports analyst ; bias/bank OFF.
 //   • Week-end : news + analyst OFF ; bias + bank ON (dans la limite du plafond).
 const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 1200;
+// Garde-fous quotidiens : plancher confortable (toujours ≥ MIN appels/jour, même en fin de mois)
+// et plafond de sécurité (jamais > MAX/jour pour rester sous la limite free-tier Gemini).
+const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 40;
+const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 200;
+const AI_BURST         = parseInt(process.env.GEMINI_BURST, 10) || 8;   // tolérance de pic instantané (pacing)
 const AI_USAGE_FILE = path.join(__dirname, 'cache_ai_usage.json');
 let _aiUsage = { month: '', day: '', total: 0, dayCounts: {} };
 try { _aiUsage = Object.assign(_aiUsage, JSON.parse(fs.readFileSync(AI_USAGE_FILE, 'utf8'))); } catch {}
@@ -1091,14 +1116,29 @@ function _aiReset() {
 }
 function _aiDailyCap() {
   const remaining = Math.max(0, GEMINI_MONTHLY_BUDGET - (_aiUsage.total || 0));
-  return Math.max(10, Math.floor(remaining / _aiDaysLeftInMonth()));   // jamais < 10/jour
+  const paced = Math.floor(remaining / _aiDaysLeftInMonth());
+  // Plancher confortable, plafond de sécurité free-tier.
+  return Math.min(GEMINI_DAILY_MAX, Math.max(GEMINI_DAILY_MIN, paced));
+}
+// Fraction du jour écoulée (Paris, 0→1) — sert au pacing intra-journée.
+function _aiDayFraction() {
+  const p = _aiParis();
+  return Math.min(1, (p.getHours() * 3600 + p.getMinutes() * 60 + p.getSeconds()) / 86400);
 }
 function aiAllowed(category, opts = {}) {
   _aiReset();
   const cap      = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts).reduce((a, b) => a + b, 0);
   const catUsed  = _aiUsage.dayCounts[category] || 0;
-  if (dayTotal >= cap) return false;                                   // plafond du jour atteint
+  if (dayTotal >= cap) return false;                                   // plafond DUR du jour atteint
+  // ── Pacing intra-journée ────────────────────────────────────────────────────
+  // On n'autorise au plus que la PART ÉCOULÉE du jour (+ un petit burst) → la conso
+  // s'étale jusqu'au reset au lieu d'être cramée le matin. Les générations PLANIFIÉES
+  // (opts.scheduled : briefings/recaps programmés) ne sont jamais freinées par le pacing.
+  if (!opts.scheduled) {
+    const pacedCeil = Math.ceil(cap * _aiDayFraction()) + AI_BURST;
+    if (dayTotal >= pacedCeil) return false;
+  }
   if (_aiIsWeekend()) {
     if (category === 'news' || category === 'analyst') return false;   // WE : news + analyst OFF
     return true;                                                       // WE : bias / bank ON
@@ -1518,17 +1558,26 @@ const INSIGHTS_FILE = path.join(__dirname, 'cache_insights.json');
 const _insightsCache = _loadJsonMap(INSIGHTS_FILE);   // persistant → pas de réappel Gemini à la réouverture
 // Secours SANS IA : extrait des phrases clés du rapport → les cartes s'affichent toujours,
 // même quand le quota Gemini est épuisé.
-function _fallbackInsights(text) {
+function _fallbackInsights(text, title) {
+  const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const tnorm = norm(title).slice(0, 80);
   let parts = String(text)
     .split(/(?<=[.!?])\s+|\n+/)
     .map(s => s.trim())
     .filter(s => s.length > 28 && /[a-z]/.test(s));
+  // N'utilise JAMAIS le TITRE du rapport comme insight (sinon il s'affiche en 1re carte).
+  if (tnorm.length > 10) {
+    parts = parts.filter(s => {
+      const n = norm(s);
+      return !(n === tnorm || n.startsWith(tnorm) || tnorm.startsWith(n.slice(0, 60)));
+    });
+  }
   // Tronque proprement les phrases trop longues plutôt que de les exclure
   parts = parts.map(s => s.length > 200 ? s.slice(0, 190).replace(/\s+\S*$/, '') + '…' : s);
   return parts.slice(0, 6).map(s => ({ asset: '', bias: 'neutral', text: s }));
 }
 app.post('/api/report-insights', async (req, res) => {
-  const { id, text } = req.body || {};
+  const { id, text, title } = req.body || {};
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
   const key = 'v2:' + (id || clean.slice(0, 100));   // v2 = format structuré {asset,bias,text}
@@ -1563,10 +1612,10 @@ ${clean.slice(0, 4000)}`;
       auth.aiCacheSet('ins:' + key, insights).catch(() => {});   // + durable (Supabase) anti-régénération
       return res.json({ insights });
     }
-    res.json({ insights: _fallbackInsights(clean), fallback: true });   // Gemini vide → secours extractif
+    res.json({ insights: _fallbackInsights(clean, title), fallback: true });   // Gemini vide → secours extractif
   } catch (e) {
     console.error('[Insights]', e.message);
-    res.json({ insights: _fallbackInsights(clean), fallback: true });   // quota/erreur → secours extractif
+    res.json({ insights: _fallbackInsights(clean, title), fallback: true });   // quota/erreur → secours extractif
   }
 });
 
