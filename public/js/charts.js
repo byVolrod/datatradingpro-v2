@@ -564,14 +564,15 @@ function _smoothCS(pts) {
 }
 
 function buildStrengthChart(containerId, data, opts = {}) {
-  const _focus = opts.focusCurrency || null;   // mode isolé : 1 devise en couleur, les autres en gris 10%
+  const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
+  const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
   disposeRoot(containerId);
   const container = document.getElementById(containerId);
   if (container) container.innerHTML = '';
   const root = am5.Root.new(containerId);
   root.setThemes([applyTerminalTheme(root)]);
   root._logo?.set('forceHidden', true);
-  if (!_focus) _strengthRoot = root;   // mode isolé (rapport) : ne pas écraser la réf. de l'onglet STRENGTH
+  if (!_iso) _strengthRoot = root;   // l'onglet STRENGTH garde sa réf. ; le graphique du rapport est autonome
 
   const chart = root.container.children.push(
     am5xy.XYChart.new(root, {
@@ -790,7 +791,7 @@ async function buildIsolatedStrength(containerId, focusCurrency, period = 'week'
     const data = await fetch(`/api/currency-strength?period=${period}`).then(r => r.json());
     if (!data || !data.currencies) { el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
     el.innerHTML = '';
-    return buildStrengthChart(containerId, data, { focusCurrency });
+    return buildStrengthChart(containerId, data, { focusCurrency, isolated: true });
   } catch {
     el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>';
   }
