@@ -2191,6 +2191,27 @@ async function generateWeeklyRecapAI(force = false) {
   const _calSeen = new Set();
   const calDedup = calItems.filter(i => { const k = (i.headline || i.title || '') + i.timestamp; if (_calSeen.has(k)) return false; _calSeen.add(k); return true; });
   const cal = calDedup.map(i => `${i.country || i.currency || i.category || ''} ${i.headline || i.title || ''}${/actual/i.test(i.description || '') ? ' — ' + String(i.description).replace(/\s+/g, ' ').trim().slice(0, 160) : ''}`);
+  //    c) RÉSULTATS extraits du CONTENU des session wraps (« DATA RECAP », chiffres vs attentes).
+  //       Source la PLUS FIABLE pour une semaine ÉCOULÉE : les wraps sont persistés 30 j, alors que
+  //       le flux ForexFactory ne couvre que la semaine courante + la suivante (pas « semaine dernière »).
+  const _DATA_KW = /\b(CPI|PPI|PCE|GDP|PMI|ISM|NFP|non[-\s]?farm|payrolls?|unemployment|jobless|claims|retail sales|inflation|core|durable goods|trade balance|current account|consumer confidence|consumer sentiment|industrial production|factory orders|housing starts|building permits|home sales|wages?|earnings|rate decision|interest rate)\b/i;
+  const _looksLikeData = s => {
+    const t = String(s);
+    if (!/\d/.test(t)) return false;   // un résultat chiffré
+    return _DATA_KW.test(t) || /\b(vs\.?|exp\.?|expected|forecast|actual|prev\.?|previous|consensus|est\.?)\b/i.test(t);
+  };
+  const _seenWrapData = new Set(cal.map(l => l.toLowerCase()));
+  for (const { pts } of wrapDetailed) {
+    for (const p of (pts || [])) {
+      if (cal.length >= 120) break;
+      if (!_looksLikeData(p)) continue;
+      const line = String(p).replace(/\s+/g, ' ').trim().slice(0, 200);
+      const k = line.toLowerCase();
+      if (_seenWrapData.has(k)) continue;
+      _seenWrapData.add(k);
+      cal.push(line);
+    }
+  }
   // 3) Autres titres macro de la semaine en complément (nettoyés du bruit social/promo)
   const news = weekItemsRaw.slice(0, 120).map(i => `[${i.category || ''}] ${i.headline}`);
 
