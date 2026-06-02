@@ -14,7 +14,7 @@ const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory'
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll } = require('./scrapers/forexfactory-news');
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
-const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache } = require('./scrapers/myfxbook');
+const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
 const ai = require('./ai');           // génération IA (Gemini gratuit, repli Claude)
@@ -1543,7 +1543,8 @@ app.get('/api/community-outlook', async (req, res) => {
   if (force) refreshOutlookBg();
   try {
     const data = await fetchCommunityOutlook(period);   // instantané (cache) ; ne bloque qu'au tout 1er chargement
-    res.json({ symbols: data, period, updatedAt: new Date().toISOString() });
+    const ts = (typeof outlookTs === 'function' && outlookTs()) || Date.now();
+    res.json({ symbols: data, period, updatedAt: new Date(ts).toISOString(), updatedTs: ts });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
@@ -3623,8 +3624,8 @@ async function refreshMyfxbook() {
 if (process.env.DISABLE_MYFXBOOK === 'true') {
   console.log('[Myfxbook] désactivé (DISABLE_MYFXBOOK=true) — économie mémoire');
 } else {
-  setTimeout(refreshMyfxbook, 2000);        // immediate startup fetch
-  setInterval(refreshMyfxbook, 5 * 60 * 1000); // then every 5 min
+  setTimeout(refreshMyfxbook, 2000);          // immediate startup fetch
+  setInterval(refreshMyfxbook, 15 * 60 * 1000); // then every 15 min (sentiment retail)
 }
 
 // ── KEEP-ALIVE : anti-veille Render (offre gratuite) ─────────────────────────
