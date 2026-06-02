@@ -255,7 +255,8 @@ function handleMessage(msg) {
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
     if (allItems.length > 2000) allItems = allItems.slice(0, 2000);
     if (!isFirstUpdate) {
-      _flashBreakingNews(truly_new.find(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i))));
+      // Bannière LIVE : on prend la 1re news IMPORTANTE parmi les nouvelles (sinon rien ne flashe)
+      _flashBreakingNews(truly_new.find(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i)) && _isImportantNews(i)));
       const added = npPush(truly_new);   // alimente le panneau ; renvoie le nb RÉELLEMENT ajouté
       newCount += added;                 // badge = exactement ce qui est dans le panneau (pas les rapports/primers)
       _setNotifBadge(newCount);
@@ -315,9 +316,20 @@ let _breakingTimer = null;
 
 const _BREAKING_RX = /\b(?:attack|airstrike|missile|troops|invasion|war|escalat|breaking|urgent|explosion|blast|shooting|killed|dead|strike)\b/i;
 
+// News "importante" = même critère que la surbrillance rouge du flux :
+// priorité haute, urgente (FJ), ou donnée à fort impact.
+function _isImportantNews(item) {
+  if (!item) return false;
+  const impactStr = String(item.impact || '').toLowerCase();
+  return item.priority === 'high' || item.urgent === true
+      || item._highImpact === true || impactStr === 'high' || impactStr === 'critical';
+}
+
 function _flashBreakingNews(item) {
   // On ne fait JAMAIS flasher un rapport DTP/primer dans la bannière LIVE (plus de "PRIMER — …")
   if (!item || item._briefing || item.source === 'PMT' || isPrimerItem(item)) return;
+  // Bannière LIVE = UNIQUEMENT les news importantes (pas les news de routine)
+  if (!_isImportantNews(item)) return;
   const flash = document.getElementById('breaking-news-flash');
   const input = document.getElementById('topbar-symbol-input');
   if (!flash) return;
