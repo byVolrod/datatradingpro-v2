@@ -3421,18 +3421,12 @@ function renderArlibList() {
     (i.headline || '').toLowerCase().includes(_arlibSearch) ||
     (i.description || '').toLowerCase().includes(_arlibSearch));
 
-  // Bandeau : génération du Weekly Recap en cours (tant qu'aucun recap n'est encore présent)
-  const _hasWeekly = items.some(i => i._reportType === 'Weekly Market Recap');
-  const _wkBanner = (_weeklyGenerating && !_hasWeekly)
-    ? '<div class="arlib-genbanner"><span class="arlib-genspin"></span>Génération du Weekly Recap en cours… (compilation des sessions + calendrier de la semaine)</div>'
-    : '';
-
   if (items.length === 0) {
-    list.innerHTML = _wkBanner || '<div class="arlib-empty">No reports found.<br>Generate briefings or wait for the next scheduled run.</div>';
+    list.innerHTML = '<div class="arlib-empty">No reports found.<br>Generate briefings or wait for the next scheduled run.</div>';
     return;
   }
 
-  list.innerHTML = _wkBanner;
+  list.innerHTML = '';
   for (const item of items) {
     const tags    = arlibItemTags(item);
     const shown   = tags.slice(0, 6);
