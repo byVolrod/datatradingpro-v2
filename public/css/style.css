@@ -1535,17 +1535,18 @@ html, body {
   margin-bottom: 3px;
 }
 
-/* Ligne GMT + ville (en ligne, comme Prime Terminal) */
+/* GMT (petite ligne) PUIS ville (ligne dédiée pleine largeur) → ville TOUJOURS entière */
 .clock-mid-row {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
   margin-bottom: 7px;
   overflow: hidden;
 }
 .clock-gmt {
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 10px;
   color: var(--text2);
   letter-spacing: 0.04em;
   flex-shrink: 0;
@@ -1555,10 +1556,8 @@ html, body {
   font-size: 12px;
   font-weight: 700;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   letter-spacing: 0.02em;
-  flex: 1;
+  width: 100%;
   min-width: 0;
 }
 /* Ville en orange (accent terminal) ; session active = orange vif, fermée = orange atténué */
@@ -4695,6 +4694,8 @@ html, body {
   font-size: 11px;
   font-weight: 600;
   color: var(--text);
+  font-family: var(--font-mono);      /* cohérence : même police mono que les autres en-têtes */
+  letter-spacing: 0.04em;
   flex-shrink: 0;
 }
 .dmx-header-sep {
