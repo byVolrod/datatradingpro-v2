@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260603f" />
+  <link rel="stylesheet" href="/css/style.css?v=20260603g" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -33,20 +33,21 @@
   </div>
 
   <div class="topbar-center">
-    <div class="breaking-news-flash" id="breaking-news-flash">
-      <span class="bnf-icon">
-        <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
-          <circle cx="6.5" cy="6.5" r="2.2" fill="currentColor"/>
-        </svg>
-      </span>
-      <span class="bnf-label">Notification Alert</span>
-      <span class="bnf-sep">·</span>
-      <div class="bnf-text-clip"><span id="bnf-text">Real time news notification</span></div>
-    </div>
     <div class="topbar-symbol-search">
       <span class="search-icon">⌕</span>
       <input type="text" placeholder="Search Symbols…" id="topbar-symbol-input" />
+      <!-- Bandeau LIVE : superposé en overlay pour COUVRIR toute la case de recherche -->
+      <div class="breaking-news-flash" id="breaking-news-flash">
+        <span class="bnf-icon">
+          <svg width="13" height="13" viewBox="0 0 13 13" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="6.5" cy="6.5" r="5.5" stroke="currentColor" stroke-width="1.4"/>
+            <circle cx="6.5" cy="6.5" r="2.2" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="bnf-label">Notification Alert</span>
+        <span class="bnf-sep">·</span>
+        <div class="bnf-text-clip"><span id="bnf-text">Real time news notification</span></div>
+      </div>
     </div>
     <div class="topbar-sentiment" id="sentiment-btn">
       <span class="sentiment-dot" id="sentiment-dot-top"></span>
@@ -546,8 +547,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260603f"></script>
-<script src="/js/charts.js?v=20260603f"></script>
+<script src="/js/app.js?v=20260603g"></script>
+<script src="/js/charts.js?v=20260603g"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

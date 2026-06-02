@@ -136,21 +136,15 @@ html, body {
 /* ── Bannière d'alerte (style Prime Terminal) — pill une seule ligne, alignée ── */
 .breaking-news-flash {
   position: absolute;
-  left: 10px;                          /* alignée EXACTEMENT sur la barre de recherche (margin 0 10px) */
-  top: 50%;
-  transform: translateY(-50%);
+  inset: 0;                            /* COUVRE EXACTEMENT toute la case symbol-search */
   display: flex;
   align-items: center;
   justify-content: flex-start;
   gap: 8px;
-  width: 230px;                        /* = largeur de la barre de recherche */
-  max-width: 230px;
-  text-overflow: ellipsis;
-  height: 34px;                        /* = hauteur de la barre de recherche */
-  padding: 0 16px;
-  background: #3a2d27;                 /* marron/orange sombre opaque */
+  padding: 0 14px;
+  background: #3a2d27;                 /* marron/orange sombre OPAQUE → cache la recherche */
   border: 1px solid #ff7a00;           /* bordure orange vif */
-  border-radius: 5px;
+  border-radius: 6px;                  /* = case de recherche */
   font-size: 11px;
   font-family: var(--font-ui);
   color: #ffffff;
@@ -160,17 +154,13 @@ html, body {
   overflow: hidden;
   opacity: 0;
   pointer-events: none;
-  transition: opacity 0.28s ease, transform 0.28s ease;
+  transition: opacity 0.28s ease;
   z-index: 200;
 }
-/* Apparition fluide (slide-down + fade) */
+/* Apparition fluide (fade) — l'overlay couvre intégralement la barre de recherche */
 .breaking-news-flash.visible {
   opacity: 1;
   pointer-events: auto;
-  transform: translate(-50%, -50%);
-}
-.breaking-news-flash:not(.visible) {
-  transform: translate(-50%, calc(-50% - 6px));
 }
 /* Variante breaking (rouge urgent) */
 .breaking-news-flash.bnf--breaking {
@@ -3503,6 +3493,7 @@ html, body {
 /* Institution badge */
 .br-inst-logo { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
 .br-inst-logo.ing { background: #ff6200; color: #fff; }
+.br-inst-logo.dtp { background: #ff7a00; color: #fff; }   /* marque DTP (ActionForex/FXStreet/agrégateurs) */
 .br-inst-logo--lg { font-size: 12px; padding: 4px 12px; border-radius: 4px; }
 
 /* Reader */
@@ -3953,6 +3944,11 @@ html, body {
 }
 .arlib-card.arlib-card--weekly:hover { background: #271517; border-color: rgba(255,122,0,0.75); }
 .arlib-card.arlib-card--weekly .arlib-card-title { color: #fff; font-weight: 600; }
+/* LU : le Weekly s'affiche comme un rapport déjà lu (grisé, encadré atténué), pas comme un nouveau */
+.arlib-card.arlib-card--weekly.arlib-card--read { background: #160f10; border-color: rgba(255,122,0,0.20); }
+.arlib-card.arlib-card--weekly.arlib-card--read .arlib-card-title { color: #8a8a90; font-weight: 400; }
+.arlib-card.arlib-card--weekly.arlib-card--read .arlib-card-icon { opacity: 0.35; }
+.arlib-card.arlib-card--weekly.arlib-card--read:hover .arlib-card-title { color: #c4c4c8; }
 
 /* ═══════════ WEEKLY MARKET RECAP (copie Prime Terminal) ═══════════ */
 .wr-weekending { color:#ff7a00; font-style:italic; font-weight:600; font-size:13px; margin-left:6px; }
@@ -6954,6 +6950,8 @@ html, body {
   margin-bottom: 12px;
 }
 .br-ing-logo svg text { line-height: 1; }
+/* Logo DTP (rapports non-ING : ActionForex/FXStreet/agrégateurs) */
+.br-dtp-logo { font-family: 'Arial Black', Arial, sans-serif; font-size: 22px; font-weight: 900; color: #ff7a00; letter-spacing: 0.02em; }
 .br-ing-tagline {
   font-family: 'Arial', sans-serif;
   font-size: 13px;

@@ -333,8 +333,12 @@ const _BREAKING_RX = /\b(?:attack|airstrike|missile|troops|invasion|war|escalat|
 function _isImportantNews(item) {
   if (!item) return false;
   const impactStr = String(item.impact || '').toLowerCase();
+  // Résultat d'événement du calendrier (valeur "Actual:" publiée) → toujours notifié dans le bandeau
+  const isCalResult = item._calendarResult === true || item.isCalendar === true
+      || /\bactual\s*:/i.test(item.description || '');
   return item.priority === 'high' || item.urgent === true
-      || item._highImpact === true || impactStr === 'high' || impactStr === 'critical';
+      || item._highImpact === true || impactStr === 'high' || impactStr === 'critical'
+      || isCalResult;
 }
 
 function _flashBreakingNews(item) {
@@ -3236,7 +3240,7 @@ function renderBrList() {
         </div>
       </div>
       <div class="br-card-right">
-        <span class="br-inst-logo ing">ING</span>
+        <span class="br-inst-logo ${_instBadge(item) === 'ING' ? 'ing' : 'dtp'}">${_instBadge(item)}</span>
         <span class="br-card-date">${dateStr}</span>
         <svg class="br-bookmark" width="12" height="14" viewBox="0 0 12 14" fill="none">
           <path d="M1 1h10v12l-5-3-5 3V1z" stroke="currentColor" stroke-width="1.2"/>
@@ -3255,6 +3259,14 @@ function renderBrList() {
   if (footer) footer.textContent = `Showing ${items.length} of ${_brArticles.length} research papers`;
 }
 
+// Badge institution : ING reste "ING" (vraie source) ; tout le reste (ActionForex, FXStreet,
+// agrégateurs, source manquante) → "DTP". Ne JAMAIS afficher "ING" par défaut pour tout.
+function _instBadge(item) {
+  const inst = (item && item.institution) || '';
+  if ((item && item._source === 'ing-think') || /\bing\b/i.test(inst)) return 'ING';
+  return 'DTP';
+}
+
 function renderBrReader(item) {
   // Masquer la liste, afficher le reader en pleine largeur
   document.getElementById('br-list-view')?.classList.add('hidden');
@@ -3266,7 +3278,7 @@ function renderBrReader(item) {
   const badge   = document.getElementById('br-inst-badge');
 
   if (titleEl) titleEl.textContent = item.title;
-  if (badge)   badge.textContent   = item.institution || 'ING';
+  if (badge)   badge.textContent   = _instBadge(item);
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   if (content) content.innerHTML   = dtpLoader('Loading article…');
 
@@ -3290,6 +3302,18 @@ function renderBrReader(item) {
     .then(r => r.json())
     .then(data => {
       if (!content) return;
+      const isIngDoc = _instBadge(item) === 'ING';
+      // En-tête de marque selon la source : ING Think pour ING, sinon en-tête DTP neutre.
+      const headerHtml = isIngDoc
+        ? `<div class="br-ing-header">
+             <div class="br-ing-logo"><svg viewBox="0 0 56 24" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#FF6200">ING</text></svg></div>
+             <div class="br-ing-tagline">THINK economic and financial analysis</div>
+           </div><div class="br-ing-divider"></div>`
+        : `<div class="br-ing-header">
+             <div class="br-dtp-logo">DTP</div>
+             <div class="br-ing-tagline">Institutional research</div>
+           </div><div class="br-ing-divider"></div>`;
+      const origLabel = isIngDoc ? 'Lire l\'original sur ING Think →' : 'Lire l\'original →';
       if (data.html && data.html.length > 100) {
         const subtitle    = data.subtitle || item.description || '';
         const date        = data.date || dateStr;
@@ -3298,17 +3322,7 @@ function renderBrReader(item) {
 
         content.innerHTML = `
           <div class="br-document">
-
-            <!-- ── Header ING Think ── -->
-            <div class="br-ing-header">
-              <div class="br-ing-logo">
-                <svg viewBox="0 0 56 24" height="28" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <text x="0" y="20" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#FF6200">ING</text>
-                </svg>
-              </div>
-              <div class="br-ing-tagline">THINK economic and financial analysis</div>
-            </div>
-            <div class="br-ing-divider"></div>
+            ${headerHtml}
 
             <!-- ── Meta bar : type | date | country ── -->
             <div class="br-ing-meta">
@@ -3327,18 +3341,23 @@ function renderBrReader(item) {
             <div class="br-doc-body">${data.html}</div>
 
             <div class="br-doc-footer">
-              <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">Lire l'original sur ING Think →</a>
+              <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">${origLabel}</a>
             </div>
           </div>`;
       } else {
+        // Contenu complet indisponible → on affiche TOUJOURS quelque chose d'utile :
+        // l'aperçu (description du flux) rendu proprement, + lien source-aware.
+        const preview = (item.description || '').trim();
         content.innerHTML = `
-          <div class="br-document br-document--empty">
+          <div class="br-document">
+            ${headerHtml}
+            <div class="br-ing-meta"><span class="br-ing-type">${item.institution && !isIngDoc ? 'DTP' : 'Research'}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
             <div class="br-doc-title">${item.title}</div>
-            ${dateStr ? `<div class="br-doc-date">${dateStr}</div>` : ''}
-            ${item.description ? `<div class="br-doc-subtitle">${item.description}</div>` : ''}
-            <div class="br-doc-divider"></div>
-            <div class="br-no-content">Le contenu complet n'est pas disponible en aperçu.</div>
-            <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link-btn">Lire sur ING Think →</a>
+            ${preview ? `<div class="br-doc-body">${preview.split(/\n{2,}/).map(p => `<p>${p}</p>`).join('')}</div>`
+                      : `<div class="br-no-content">Aperçu indisponible pour ce rapport.</div>`}
+            <div class="br-doc-footer">
+              <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">${origLabel}</a>
+            </div>
           </div>`;
       }
       // Insights basés sur le VRAI contenu de l'article (la description seule est trop courte)
@@ -3346,10 +3365,14 @@ function renderBrReader(item) {
       if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
     })
     .catch(() => {
-      if (content) content.innerHTML = `
-        <div class="br-document br-document--empty">
+      if (!content) return;
+      const preview = (item.description || '').trim();
+      content.innerHTML = `
+        <div class="br-document">
           <div class="br-doc-title">${item.title}</div>
-          <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link-btn">Lire sur ING Think →</a>
+          ${dateStr ? `<div class="br-doc-date">${dateStr}</div>` : ''}
+          ${preview ? `<div class="br-doc-body">${preview.split(/\n{2,}/).map(p => `<p>${p}</p>`).join('')}</div>` : ''}
+          <div class="br-doc-footer"><a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">Lire l'original →</a></div>
         </div>`;
     });
 }

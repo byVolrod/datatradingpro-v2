@@ -1449,9 +1449,12 @@ function _stripSource(html) {
     .trim();
 }
 
+const _BR_CONTENT_HOSTS = /^https:\/\/(www\.)?(think\.ing\.com|actionforex\.com|fxstreet\.com)\//i;
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
-  if (!url || !url.startsWith('https://think.ing.com/')) return res.json({ html: '' });
+  if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
+  let _origin = 'https://think.ing.com';
+  try { _origin = new URL(url).origin; } catch {}
   try {
     const r = await axios.get(url, {
       timeout: 15000,
@@ -1470,7 +1473,7 @@ app.get('/api/bank-research-content', async (req, res) => {
                   || $('meta[property="article:published_time"]').attr('content')
                   || '';
     const section  = $('.article-type, .report-type, [class*="article-type"], [class*="section-label"]').first().text().trim()
-                  || 'ING Think Research';
+                  || (/think\.ing\.com/i.test(url) ? 'ING Think Research' : 'Research');
 
     // Extraire le pays/region tag (ING Think affiche ex: "FRANCE", "NETHERLANDS")
     const country = $('[class*="article-tag"], [class*="country"], [class*="region"], .tag-label')
@@ -1492,10 +1495,10 @@ app.get('/api/bank-research-content', async (req, res) => {
               || $('main').first().html()
               || '';
 
-    // Corriger les URLs relatives des images → absolues
+    // Corriger les URLs relatives des images → absolues (selon l'hôte réel de l'article)
     const clean = body
-      .replace(/src="\/([^"]*)"/g, 'src="https://think.ing.com/$1"')
-      .replace(/srcset="\/([^"]*)"/g, 'srcset="https://think.ing.com/$1"')
+      .replace(/src="\/([^"]*)"/g, `src="${_origin}/$1"`)
+      .replace(/srcset="\/([^"]*)"/g, `srcset="${_origin}/$1"`)
       .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')   // SVG déco uniquement
       .replace(/\s{3,}/g, '\n')
       .trim();
