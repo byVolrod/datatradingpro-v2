@@ -428,6 +428,11 @@ app.put('/api/auth/me/profile', async (req, res) => {
 });
 
 // ═══════════════════ CHAT SUPPORT ═══════════════════
+// Indicateur "en train d'écrire" (poll) : { userId: { user: ts, support: ts } }
+const _chatTyping = {};
+function _markTyping(uid, who) { const u = _chatTyping[String(uid)] || (_chatTyping[String(uid)] = {}); u[who] = Date.now(); }
+function _isTyping(uid, who) { const u = _chatTyping[String(uid)]; return !!(u && u[who] && Date.now() - u[who] < 5000); }
+
 // Côté utilisateur : sa conversation avec le support (persistée en BDD/fichier).
 app.get('/api/chat', async (req, res) => {
   const uid = req.session?.userId;
@@ -435,7 +440,7 @@ app.get('/api/chat', async (req, res) => {
   try {
     const messages = await auth.chatList(uid);
     await auth.chatMarkRead(uid, 'support');   // l'utilisateur a lu les réponses du support
-    res.json({ messages });
+    res.json({ messages, typing: _isTyping(uid, 'support') });   // le support est-il en train d'écrire ?
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/chat', async (req, res) => {
@@ -447,6 +452,11 @@ app.post('/api/chat', async (req, res) => {
     const msg = await auth.chatInsert({ user_id: uid, sender: 'user', text });
     res.json({ ok: true, message: msg });
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// L'utilisateur tape → on le signale au support
+app.post('/api/chat/typing', (req, res) => {
+  if (!req.session?.userId) return res.json({ ok: false });
+  _markTyping(req.session.userId, 'user'); res.json({ ok: true });
 });
 // Badge : nombre de réponses du support non lues
 app.get('/api/chat/unread', async (req, res) => {
@@ -469,8 +479,12 @@ app.get('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   try {
     const messages = await auth.chatList(req.params.userId);
     await auth.chatMarkRead(req.params.userId, 'user');   // l'admin a lu les messages de l'utilisateur
-    res.json({ messages });
+    res.json({ messages, typing: _isTyping(req.params.userId, 'user') });   // le client est-il en train d'écrire ?
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Le support tape dans un thread → on le signale au client
+app.post('/api/admin/chat/:userId/typing', requireSupport, (req, res) => {
+  _markTyping(req.params.userId, 'support'); res.json({ ok: true });
 });
 app.post('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   const text = (req.body?.text || '').trim();
