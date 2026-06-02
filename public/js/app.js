@@ -3588,7 +3588,8 @@ function _renderWeeklyRecap(item) {
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   if (titleEl) titleEl.innerHTML = `${_wrEsc(w.title)}  <span class="wr-weekending">${_wrEsc(_range)}</span>`;
-  if (navRight) navRight.innerHTML = '<span class="arlib-dtp-badge">DTP</span>';
+  // Même barre que les rapports Institution : bouton Masquer Insights + badge PT
+  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">PT</span>`;
 
   // Sélecteur de devises (badges) dans la barre sous le titre
   const ccys = Object.keys(w.currencies || {});
@@ -3598,14 +3599,24 @@ function _renderWeeklyRecap(item) {
     tagsScroll.scrollLeft = 0;
   }
 
+  // AI Insights : MÊME composant que l'onglet Institution (chip + flèches + cartes scrollables),
+  // alimenté par les insights pré-générés du recap (aucun appel Gemini supplémentaire).
+  const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
+  const insightsHtml = (w.insights && w.insights.length) ? `
+    <div id="arlib-ai-insights">
+      <div class="ai-insights-head">
+        <span class="ai-insights-title">${chip} AI Insights</span>
+        <span class="ai-insights-nav">
+          <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
+          <span class="ai-insights-count">${w.insights.length} insights</span>
+          <button type="button" onclick="aiInsScroll(this,1)">›</button>
+        </span>
+      </div>
+      <div class="ai-insights-cards">${w.insights.map(t=>`<div class="ai-insights-card">${_wrEsc(t)}</div>`).join('')}</div>
+    </div>` : '';
+
   _wrCurrency = null;
-  content.innerHTML = `
-    <div class="wr">
-      ${ (w.insights && w.insights.length) ? `
-        <div class="wr-insights-head"><span class="wr-ai-ic">🤖</span> AI Insights</div>
-        <div class="wr-insights">${w.insights.map(t=>`<div class="wr-insight-card">${_wrEsc(t)}</div>`).join('')}</div>` : '' }
-      <div class="wr-body" id="wr-body"></div>
-    </div>`;
+  content.innerHTML = `<div class="wr">${insightsHtml}<div class="wr-body" id="wr-body"></div></div>`;
   _wrRenderBody(item);
   content.scrollTop = 0;
 }
