@@ -235,7 +235,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  mainPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  mainPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
 
   const valueAxis = mainPanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -330,7 +330,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  volumePanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0a0a0a), fillOpacity: 1 }));
+  volumePanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
 
   const volumeValueAxis = volumePanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -382,7 +382,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  rsiPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0a0a0a), fillOpacity: 1 }));
+  rsiPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
 
   const rsiValueAxis = rsiPanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -426,7 +426,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  scrollbar.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  scrollbar.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
 
   const sbDateAxis = scrollbar.chart.xAxes.push(
     am5xy.GaplessDateAxis.new(root, {
@@ -1524,11 +1524,11 @@ function buildSessionMap() {
       paddingTop: 4, paddingBottom: 4, paddingLeft: 4, paddingRight: 4,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x040c12), fillOpacity: 1 }));
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));  // océan anthracite (cohérent)
 
   // Subtle graticule grid
   const graticuleSeries = chart.series.push(am5map.GraticuleSeries.new(root, { step: 30 }));
-  graticuleSeries.mapLines.template.setAll({ stroke: am5.color(0x0a1408), strokeOpacity: 1, strokeWidth: 0.4 });
+  graticuleSeries.mapLines.template.setAll({ stroke: am5.color(0x2a2a2e), strokeOpacity: 0.6, strokeWidth: 0.4 });  // grille grise subtile (lisible sur anthracite)
 
   // Country polygons — green on dark ocean
   const polygonSeries = chart.series.push(
