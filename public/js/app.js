@@ -3409,16 +3409,18 @@ function renderBrReader(item) {
     .then(r => r.json())
     .then(data => {
       if (!content) return;
-      const isIngDoc = _instBadge(item) === 'ING';
-      // En-tête de marque selon la source : ING Think pour ING, sinon en-tête DTP neutre.
+      const _inst = _instBadge(item);
+      const isIngDoc = _inst === 'ING';
+      // En-tête de marque selon la source : ING Think pour ING, sinon le sigle de la banque
+      // (MUFG, etc.) ou "DTP" pour les agrégateurs non identifiés.
       const headerHtml = isIngDoc
         ? `<div class="br-ing-header">
              <div class="br-ing-logo"><svg viewBox="0 0 56 24" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#FF6200">ING</text></svg></div>
              <div class="br-ing-tagline">THINK economic and financial analysis</div>
            </div><div class="br-ing-divider"></div>`
         : `<div class="br-ing-header">
-             <div class="br-dtp-logo">DTP</div>
-             <div class="br-ing-tagline">Institutional research</div>
+             <div class="br-dtp-logo">${_inst}</div>
+             <div class="br-ing-tagline">${_inst === 'DTP' ? 'Institutional research' : _inst + ' Research'}</div>
            </div><div class="br-ing-divider"></div>`;
       const origLabel = isIngDoc ? 'Lire l\'original sur ING Think →' : 'Lire l\'original →';
       if (data.html && data.html.length > 100) {

@@ -1370,6 +1370,40 @@ function _parseResearchFeed(xml, feed, cutoff, merged) {
   return { any, old };
 }
 
+// MUFG Research (banque Mitsubishi UFJ) — pas de flux RSS : on scrape la page liste /fx/
+// (cartes en HTML statique, AUCUN login). Le contenu de chaque article est récupéré à
+// l'ouverture par /api/bank-research-content. Badge "MUFG".
+const _MONTHS_RE = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+async function _fetchMufgInto(merged, cutoff, UA) {
+  try {
+    const r = await axios.get('https://www.mufgresearch.com/fx/', {
+      timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500,
+    });
+    if (r.status !== 200) return;
+    const $ = cheerio.load(r.data);
+    const seen = new Set();
+    $('.card a[href^="/fx/"]').each((_, a) => {
+      const href = ($(a).attr('href') || '').trim();
+      if (!/^\/fx\/.+/.test(href) || href === '/fx/' || seen.has(href)) return;
+      seen.add(href);
+      const link = 'https://www.mufgresearch.com' + href;
+      const slug = href.replace(/^\/fx\//, '').replace(/\/+$/, '');
+      // Date depuis le slug (… -DD-month-YYYY)
+      let ts = Date.now();
+      const dm = slug.match(new RegExp('(\\d{1,2})-(' + _MONTHS_RE + ')[a-z]*-(\\d{4})', 'i'));
+      if (dm) { const d = new Date(`${dm[2]} ${dm[1]} ${dm[3]}`); if (!isNaN(d.getTime())) ts = d.getTime(); }
+      if (ts < cutoff) return;
+      // Titre depuis le slug (sans la date), avec sigles en capitales
+      let title = slug.replace(new RegExp('-\\d{1,2}-(?:' + _MONTHS_RE + ')[a-z]*-\\d{4}$', 'i'), '')
+        .replace(/-/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase())
+        .replace(/\b(Fx|Us|Usd|Eur|Jpy|Gbp|Cad|Aud|Nzd|Chf|Cny|Ai|Ecb|Boj|Fed|Cpi|Gdp)\b/gi, m => m.toUpperCase());
+      const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+      if (merged.has(id)) return;
+      merged.set(id, { id, title, url: link, timestamp: ts, categories: ['FX'], description: '', institution: 'MUFG', _source: 'mufg' });
+    });
+  } catch (e) { console.warn('[MUFG]', e.message); }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -1392,6 +1426,9 @@ async function _fetchBankResearch(full = false) {
       } catch { break; }
     }
   }
+
+  // MUFG (scrape HTML, pas de RSS) — fusionné dans le même cache
+  await _fetchMufgInto(merged, cutoff, UA);
 
   const before = _brCache.length;
   _brCache = [...merged.values()]
@@ -1487,7 +1524,7 @@ function _stripSource(html) {
     .trim();
 }
 
-const _BR_CONTENT_HOSTS = /^https:\/\/(www\.)?(think\.ing\.com|actionforex\.com|fxstreet\.com)\//i;
+const _BR_CONTENT_HOSTS = /^https:\/\/(www\.)?(think\.ing\.com|actionforex\.com|fxstreet\.com|mufgresearch\.com)\//i;
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
@@ -1541,8 +1578,8 @@ app.get('/api/bank-research-content', async (req, res) => {
       if (!finalSrc || /^data:|blank|placeholder|spacer/i.test(finalSrc)) $i.remove();   // aucune image valide → on retire (pas de cassé)
     });
 
-    // Extract body HTML (avec images)
-    const body = $('[class*="article-body"], [class*="article__body"], [class*="article-content"], [class*="post-content"], .content-body, article .content, .entry-content, .wysiwyg, .rich-text').first().html()
+    // Extract body HTML (avec images) — inclut .blog-content (MUFG)
+    const body = $('.blog-content, [class*="blog-content"], [class*="article-body"], [class*="article__body"], [class*="article-content"], [class*="post-content"], .content-body, article .content, .entry-content, .wysiwyg, .rich-text').first().html()
               || $('main article').first().html()
               || $('main').first().html()
               || '';
