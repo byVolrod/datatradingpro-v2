@@ -1870,14 +1870,18 @@ function calImpDots(impact) {
 
 function calActualCell(actual, forecast, previous) {
   if (!actual || actual === '') return '<span class="cv-empty">—</span>';
-  const a = parseFloat(actual), f = parseFloat(forecast), p = parseFloat(previous);
+  const a = parseFloat(actual), f = parseFloat(forecast);
   let cls = '', bolt = '';
-  if (!isNaN(a) && !isNaN(f)) {
-    cls  = a >= f ? 'cv-pos' : 'cv-neg';
-    bolt = `<span class="cv-bolt">⚡</span>`;
-  } else if (!isNaN(a) && !isNaN(p)) {
-    cls  = a >= p ? 'cv-pos' : 'cv-neg';
-    bolt = `<span class="cv-bolt">⚡</span>`;
+  // Couleur UNIQUEMENT par rapport à la PRÉVISION (comme Prime Terminal) :
+  //   vert  = la donnée DÉPASSE la prévision (data "bonne" / au-dessus)
+  //   rouge = la donnée DÉÇOIT la prévision (data "pas bonne" / en-dessous)
+  //   neutre (blanc) = égale OU pas de prévision (on ne colore pas vs le précédent).
+  if (forecast && forecast !== '' && !isNaN(a) && !isNaN(f)) {
+    if (a > f)      cls = 'cv-pos';
+    else if (a < f) cls = 'cv-neg';
+    // Éclair ⚡ seulement sur une SURPRISE notable (écart ≥ 10% vs prévision)
+    const denom = Math.abs(f) > 1e-9 ? Math.abs(f) : 1;
+    if (cls && Math.abs(a - f) / denom >= 0.10) bolt = '<span class="cv-bolt">⚡</span>';
   }
   return `<span class="cv-actual ${cls}">${bolt}${actual}</span>`;
 }
