@@ -4250,7 +4250,7 @@ function npPush(items) {
     if (hi) {
       new Notification('DataTradingPro', {
         body:   hi.headline,
-        icon:   '/favicon.ico',
+        icon:   '/favicon.png',
         tag:    'dtp-' + hi.id,
         silent: false,
       });
