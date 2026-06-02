@@ -4365,7 +4365,8 @@ let _chatThreadUser = null;   // (mode support) userId du thread ouvert
 let _chatThreadName = '';
 function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 // L'utilisateur courant est-il le support (admin) ? -> géré depuis son propre compte (ex. JustOneTrader)
-function _chatIsSupport(){ return (typeof _pdUser !== 'undefined' && _pdUser && _pdUser.role === 'admin'); }
+function _chatCurUser(){ try { return window._pdUser || (typeof _pdUser !== 'undefined' ? _pdUser : null); } catch { return null; } }
+function _chatIsSupport(){ const u = _chatCurUser(); return !!(u && u.role === 'admin'); }
 
 function chatToggle(){ document.getElementById('chat-panel')?.classList.contains('open') ? chatClose() : chatOpen(); }
 function chatOpen(){

@@ -856,6 +856,9 @@
   fetch('/api/auth/me').then(r => r.json()).then(d => {
     if (!d.loggedIn) { window.location.href = '/login'; return; }
     _pdUser = d.user;
+    window._pdUser = d.user;   // exposé globalement pour app.js (badge chat support, etc.)
+    // Dès que le rôle est connu, on vérifie les messages non lus (badge sur l'icône chat)
+    if (typeof _chatPollUnread === 'function') _chatPollUnread();
     const displayName = d.user.name || d.user.email || '?';
     const initial = displayName.charAt(0).toUpperCase();
 
