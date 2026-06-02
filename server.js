@@ -1128,6 +1128,19 @@ app.get('/api/bank-research', (_req, res) => {
   if (Date.now() - _brFetchedAt > 20 * 60 * 1000) _fetchBankResearch(false).catch(() => {});
 });
 
+// ── FX Daily (ING THINK) → rapport dédié dans l'onglet Analyst ───────────────
+// On réutilise le flux ING déjà récupéré (_brCache) et on isole la série "FX Daily"
+// (think.ing.com/market/fx/). Le reader Analyst gère déjà les items _source:'ing-think'.
+app.get('/api/fx-daily', (_req, res) => {
+  const items = _brCache
+    .filter(i => i._source === 'ing-think' && /^\s*FX Daily\b/i.test(i.title || ''))
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 30)
+    .map(i => ({ ...i, _reportType: 'FX Daily' }));
+  res.json(items);
+  if (Date.now() - _brFetchedAt > 20 * 60 * 1000) _fetchBankResearch(false).catch(() => {});
+});
+
 // Retire les lignes d'attribution de source de tout HTML de rapport (aucune source affichée)
 function _stripSource(html) {
   return String(html || '')
