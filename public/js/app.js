@@ -3637,7 +3637,7 @@ async function _loadAIInsights(item, el) {
       // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
       const p = _aiInsightsInflight[ck] || (_aiInsightsInflight[ck] = fetch('/api/report-insights', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, text }),
+        body: JSON.stringify({ id: item.id, text, title: item.headline || item.title || '' }),
       }).then(r => r.json()).finally(() => { delete _aiInsightsInflight[ck]; }));
       d = await p;
       // On ne met en cache que les VRAIS insights IA (pas le secours extractif) → ils pourront
@@ -3835,7 +3835,8 @@ function renderArlibReader(item) {
   const navRight = document.querySelector('#arlib-reader-view .arlib-rnav-right');
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
 
-  const title = arlibCleanTitle(item.headline);
+  // Titre IDENTIQUE au nom du rapport dans la liste Analyst (préfixe + sujet/titre IA)
+  const title = standardizeReportTitle(item);
   const tags  = arlibItemTags(item);
 
   if (titleEl) titleEl.textContent = title;
