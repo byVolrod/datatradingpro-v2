@@ -927,6 +927,28 @@ function aiAllowed(category, opts = {}) {
 }
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); }
 
+// ── Routeur IA unifié (pool Gemini gratuit + Claude multi-clés) ──────────────
+// Politique intelligente, zéro blocage tant qu'une ressource est dispo :
+//   1) Si le budget Gemini du jour le permet → Gemini d'abord (repli Claude intégré
+//      dans ai.generateText, multi-clés avec rotation/bascule).
+//   2) Budget Gemini épuisé MAIS clés Claude dispo → on génère via Claude (hors budget
+//      Gemini). Désactivable par appel via opts.claudeOverBudget=false (ex. news à fort
+//      volume) pour préserver les crédits Claude → l'appelant sert alors son fallback local.
+//   3) Rien de dispo → on relaie l'erreur (l'appelant a toujours un fallback local).
+async function aiSmart(category, prompt, maxTokens, opts = {}) {
+  const claudeOverBudget = opts.claudeOverBudget !== false;   // défaut : oui
+  if (aiAllowed(category, opts)) {
+    aiNote(category);
+    try { return await ai.generateText(prompt, maxTokens); }
+    catch (e) {
+      if (ai.hasAnthropic && ai.hasAnthropic()) return ai.generateTextClaudeOnly(prompt, maxTokens);
+      throw e;
+    }
+  }
+  if (claudeOverBudget && ai.hasAnthropic && ai.hasAnthropic()) return ai.generateTextClaudeOnly(prompt, maxTokens);
+  throw new Error('AI indisponible (budget Gemini épuisé, aucune clé Claude utilisable)');
+}
+
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
@@ -1275,15 +1297,13 @@ app.post('/api/report-insights', async (req, res) => {
   if (clean.length < 60) return res.json({ insights: [] });
   const key = 'v2:' + (id || clean.slice(0, 100));   // v2 = format structuré {asset,bias,text}
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
-  // Budget Gemini : les insights de rapport comptent comme "analyst". Hors budget, on génère
-  // quand même via Claude si des clés Anthropic sont configurées ; sinon secours extractif.
-  let _claudeOnly = false;
-  if (!aiAllowed('analyst')) {
-    if (!ai.hasAnthropic || !ai.hasAnthropic()) return res.json({ insights: _fallbackInsights(clean), fallback: true });
-    _claudeOnly = true;   // budget Gemini épuisé → Claude prend le relais (hors budget Gemini)
-  }
+  // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
+  // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
   try {
-    if (!_claudeOnly) aiNote('analyst');
+    const stored = await auth.aiCacheGet('ins:' + key);
+    if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: stored }); }
+  } catch {}
+  try {
     const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés, chacun centré sur UN actif/instrument.
 Pour chaque insight renvoie un objet :
 - "asset": l'instrument concerné (ex: "S&P 500", "Nasdaq 100", "Gold", "Brent Crude", "EUR/USD", "US Dollar", "US 10Y", "Bitcoin")
@@ -1292,7 +1312,8 @@ Pour chaque insight renvoie un objet :
 Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"...","bias":"...","text":"..."}]}
 Rapport :
 ${clean.slice(0, 4000)}`;
-    const out = _claudeOnly ? await ai.generateTextClaudeOnly(prompt, 900) : await ai.generateText(prompt, 900);
+    // Insights de rapport = catégorie "analyst" ; Claude prend le relais hors budget Gemini.
+    const out = await aiSmart('analyst', prompt, 900);
     const m = out.match(/\{[\s\S]*\}/);
     const insights = m
       ? (JSON.parse(m[0]).insights || [])
@@ -1302,7 +1323,8 @@ ${clean.slice(0, 4000)}`;
       : [];
     if (insights.length) {
       _insightsCache.set(key, insights);
-      _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque
+      _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque (hot cache)
+      auth.aiCacheSet('ins:' + key, insights).catch(() => {});   // + durable (Supabase) anti-régénération
       return res.json({ insights });
     }
     res.json({ insights: _fallbackInsights(clean), fallback: true });   // Gemini vide → secours extractif

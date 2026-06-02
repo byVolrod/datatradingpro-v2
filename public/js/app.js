@@ -3370,7 +3370,11 @@ function _reportPrefixFor(item) {
 // Renvoie le titre normalisé "Préfixe: Sujet". Si un préfixe connu est déjà présent
 // (même mal espacé, ex. "London Session Recap :"), on le normalise ; sinon on le préfixe.
 function standardizeReportTitle(item) {
-  const raw = arlibCleanTitle(item.headline || item.title || '').trim();
+  // Retire un éventuel suffixe "Week Ending: DD.MM.YYYY" du titre : il ne doit apparaître
+  // que dans sa ligne dédiée (.wr-doc-week), pas collé au titre (cassait la mise en page).
+  const raw = arlibCleanTitle(item.headline || item.title || '')
+    .replace(/\s*[—–-]?\s*Week Ending:\s*[\d.\/-]+\s*$/i, '')
+    .trim();
   const prefix = _reportPrefixFor(item);
   if (!prefix) return raw;
   const escd = _ALL_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
@@ -3539,7 +3543,8 @@ function renderArlibList() {
 // ── Reader ────────────────────────────────────────────────────────────────────
 
 // Charge et affiche les AI Insights (cartes) d'un rapport via Gemini
-const _aiInsightsCache = {};   // cache navigateur : pas de requête à la réouverture d'un rapport
+const _aiInsightsCache = {};      // cache navigateur : pas de requête à la réouverture d'un rapport
+const _aiInsightsInflight = {};   // requêtes en vol (ck → Promise) : déduplique les appels simultanés
 async function _loadAIInsights(item, el) {
   let text = (item.headline || '') + '\n' + String(item.description || item.content || '').replace(/<[^>]*>/g, ' ');
   // Session wraps / ING : la description est courte → on récupère le VRAI contenu du rapport
@@ -3562,11 +3567,13 @@ async function _loadAIInsights(item, el) {
   if (!d) {
     el.innerHTML = '<div class="ai-insights-head"><span class="ai-insights-dot">✦</span> AI Insights <span class="ai-insights-load">· analyse…</span></div>';
     try {
-      const r = await fetch('/api/report-insights', {
+      // Déduplication : si une requête est déjà en vol pour CE rapport (ex. double appel
+      // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
+      const p = _aiInsightsInflight[ck] || (_aiInsightsInflight[ck] = fetch('/api/report-insights', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: item.id, text }),
-      });
-      d = await r.json();
+      }).then(r => r.json()).finally(() => { delete _aiInsightsInflight[ck]; }));
+      d = await p;
       // On ne met en cache que les VRAIS insights IA (pas le secours extractif) → ils pourront
       // être régénérés correctement une fois le quota revenu / le contenu complet chargé.
       if (d && d.insights && d.insights.length && !d.fallback) _aiInsightsCache[ck] = d;
@@ -3640,7 +3647,9 @@ function _renderWeeklyRecap(item) {
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   const _wrTitle = standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title });
-  if (titleEl) titleEl.innerHTML = `${_wrEsc(_wrTitle)}  <span class="wr-weekending">${_wrEsc(_range)}</span>`;
+  // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
+  // via .wr-doc-week — l'afficher aussi ici cassait la mise en page).
+  if (titleEl) titleEl.textContent = _wrTitle;
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
 
