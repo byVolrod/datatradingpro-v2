@@ -698,7 +698,10 @@ app.get('/api/session-wraps', (_req, res) => {
 // depuis allNews quel que soit leur âge. Si le recap de la semaine écoulée manque, il est
 // généré automatiquement en tâche de fond (verrou anti-spam) à la 1re ouverture de l'onglet Analyst.
 let _weeklyGenLock = 0;
-app.get('/api/weekly-reports', (_req, res) => {
+app.get('/api/weekly-reports', async (_req, res) => {
+  // Recharge d'abord les rapports persistés (Supabase/fichier) → évite toute régénération inutile
+  if (!_weeklyLoaded) await _loadPersistedWeekly();
+
   const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
   const items = allNews.filter(i =>
     (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly') &&
@@ -2246,9 +2249,26 @@ ${corpus}`;
   };
   allNews = [item, ...allNews].slice(0, 2000);
   saveHistory();
+  // Persistance DURABLE (Supabase) → après un redémarrage Render on RECHARGE au lieu de régénérer (économie Gemini)
+  auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[Weekly Recap] sauvegarde persistante échec:', e.message));
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
   console.log(`[Weekly Recap] généré (IA) ${weekKey} — ${Object.keys(weekly.currencies).length} devises, ${weekly.insights.length} insights`);
   return item;
+}
+
+// Recharge les rapports hebdo persistés (Supabase/fichier) dans allNews — SANS appel Gemini.
+let _weeklyLoaded = false;
+async function _loadPersistedWeekly() {
+  try {
+    const reports = await auth.weeklyReportList();
+    let added = 0;
+    for (const r of reports) {
+      if (!r || !r.id) continue;
+      if (!allNews.some(i => i.id === r.id)) { allNews.unshift(r); added++; }
+    }
+    if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
+  } catch (e) { console.warn('[Weekly Recap] rechargement persistant échec:', e.message); }
+  _weeklyLoaded = true;
 }
 
 async function generateWeeklyMarketRecap(force = false) {
@@ -2315,12 +2335,16 @@ async function generateWeeklyMarketRecap(force = false) {
 
   // Au démarrage (ex: après un redéploiement) : on génère les rapports d'ouverture du jour
   // s'ils n'existent pas encore (dédup intégrée). Assemblage par règles → pas de quota Gemini.
-  setTimeout(() => {
+  setTimeout(async () => {
+    // 1) On RECHARGE d'abord les rapports hebdo persistés (Supabase) → pas de régénération Gemini inutile
+    await _loadPersistedWeekly();
+
     daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] startup ${name} failed:`, e.message)));
 
     // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le week-end, les rapports hebdo
-    // (samedi 02:00 UTC) n'ont pas été générés. On les (re)génère ici — la dédup par semaine ISO
-    // évite tout doublon. Garde-fou : uniquement samedi/dimanche (UTC), pas en milieu de semaine.
+    // (samedi 02:00 UTC) n'ont pas été générés. La dédup par semaine ISO + le rechargement
+    // persistant ci-dessus évitent tout doublon ET toute régénération inutile.
+    // Garde-fou : uniquement samedi/dimanche (UTC), pas en milieu de semaine.
     const uDay = new Date().getUTCDay();   // 0=dim, 6=sam
     if (uDay === 6 || uDay === 0) {
       weekly.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] rattrapage hebdo ${name} échec:`, e.message)));

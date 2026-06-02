@@ -291,4 +291,59 @@ module.exports = {
   chatMarkRead,
   chatUnread,
   chatThreads,
+  weeklyReportSave,
+  weeklyReportList,
 };
+
+// ═══════════════════ PERSISTANCE RAPPORTS HEBDO (Weekly Recap) ═══════════════════
+// But : un recap généré (coûteux en requêtes Gemini) est conservé durablement → après un
+// redémarrage Render (disque éphémère), on le RECHARGE au lieu de le RÉGÉNÉRER.
+// Même pattern que le chat : Supabase `weekly_reports` + fallback fichier + auto-récupération.
+const WEEKLY_TABLE = 'weekly_reports';
+const WEEKLY_FILE  = path.join(__dirname, 'cache_weekly.json');
+let _weeklyDb = true;
+let _weeklyFile = [];
+try { _weeklyFile = JSON.parse(fs.readFileSync(WEEKLY_FILE, 'utf8')) || []; } catch {}
+function _weeklySaveFile() { try { fs.writeFileSync(WEEKLY_FILE, JSON.stringify(_weeklyFile)); } catch {} }
+function _weeklyTableMissing(err) { return err && /weekly_reports|schema cache|does not exist|relation/i.test(err.message); }
+
+let _weeklyProbeTs = 0;
+async function _weeklyEnsureDb() {
+  if (_weeklyDb) return;
+  const now = Date.now();
+  if (now - _weeklyProbeTs < 30000) return;
+  _weeklyProbeTs = now;
+  const { error } = await supabase.from(WEEKLY_TABLE).select('week_key').limit(1);
+  if (error) return;
+  _weeklyDb = true;
+  if (_weeklyFile.length) {
+    const rows = _weeklyFile.map(r => ({ week_key: r.week_key, report: r.report, created_at: r.created_at }));
+    const { error: insErr } = await supabase.from(WEEKLY_TABLE).upsert(rows, { onConflict: 'week_key' });
+    if (!insErr) { _weeklyFile = []; _weeklySaveFile(); console.log(`[Weekly] table détectée → ${rows.length} rapport(s) migré(s) en BDD`); }
+    else _weeklyDb = false;
+  }
+}
+
+async function weeklyReportSave(weekKey, report) {
+  await _weeklyEnsureDb();
+  const row = { week_key: String(weekKey), report, created_at: new Date().toISOString() };
+  if (_weeklyDb) {
+    const { error } = await supabase.from(WEEKLY_TABLE).upsert([row], { onConflict: 'week_key' });
+    if (!error) return;
+    if (_weeklyTableMissing(error)) _weeklyDb = false; else throw new Error(error.message);
+  }
+  _weeklyFile = _weeklyFile.filter(r => r.week_key !== String(weekKey));
+  _weeklyFile.push(row);
+  if (_weeklyFile.length > 60) _weeklyFile = _weeklyFile.slice(-60);
+  _weeklySaveFile();
+}
+
+async function weeklyReportList() {
+  await _weeklyEnsureDb();
+  if (_weeklyDb) {
+    const { data, error } = await supabase.from(WEEKLY_TABLE).select('*').order('created_at', { ascending: false });
+    if (!error) return (data || []).map(r => r.report).filter(Boolean);
+    if (_weeklyTableMissing(error)) _weeklyDb = false; else throw new Error(error.message);
+  }
+  return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(r => r.report).filter(Boolean);
+}
