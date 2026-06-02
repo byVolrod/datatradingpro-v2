@@ -5446,7 +5446,7 @@ html, body {
 /* Dark overlay behind the drawer */
 .pd-overlay {
   position: fixed;
-  inset: 0;
+  top: var(--topbar-h); left: 0; right: 0; bottom: 0;   /* sous la topbar → icônes cliquables */
   background: rgba(0,0,0,0.55);
   z-index: 9000;
   opacity: 0;
@@ -5461,10 +5461,10 @@ html, body {
 /* The drawer itself */
 .pd-drawer {
   position: fixed;
-  top: 0;
+  top: var(--topbar-h);
   right: 0;
   width: 480px;
-  height: 100vh;
+  height: calc(100dvh - var(--topbar-h));
   background: #111111;
   border-left: 1px solid #252525;
   z-index: 9001;
@@ -6172,7 +6172,7 @@ html, body {
 .np-overlay {
   display: none;
   position: fixed;
-  inset: 0;
+  top: var(--topbar-h); left: 0; right: 0; bottom: 0;   /* sous la topbar → icônes cliquables */
   z-index: 1100;
 }
 .np-overlay.open { display: block; }
@@ -6180,11 +6180,11 @@ html, body {
 /* Panel */
 .np-panel {
   position: fixed;
-  top: var(--header-h, 80px);
+  top: var(--topbar-h);
   right: 0;
   width: 420px;
   max-width: 100vw;
-  height: calc(100vh - var(--header-h, 80px));
+  height: calc(100dvh - var(--topbar-h));
   background: #0f0f0f;
   border-left: 1px solid #1e1e1e;
   display: flex;
@@ -6584,8 +6584,8 @@ html, body {
   .pd-header       { padding: 14px 14px; }
   .pd-section-trigger { height: 46px; }
 
-  /* Notification panel: full screen */
-  .np-panel        { top: 0; height: 100vh; }
+  /* Notification panel: sous la topbar */
+  .np-panel        { top: var(--topbar-h); height: calc(100dvh - var(--topbar-h)); }
   .np-title        { font-size: 13px; }
 
   /* News: simplify */
