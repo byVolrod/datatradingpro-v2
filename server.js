@@ -1275,10 +1275,15 @@ app.post('/api/report-insights', async (req, res) => {
   if (clean.length < 60) return res.json({ insights: [] });
   const key = 'v2:' + (id || clean.slice(0, 100));   // v2 = format structuré {asset,bias,text}
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
-  // Budget Gemini : les insights de rapport comptent comme "analyst". Hors budget → secours extractif.
-  if (!aiAllowed('analyst')) return res.json({ insights: _fallbackInsights(clean), fallback: true });
+  // Budget Gemini : les insights de rapport comptent comme "analyst". Hors budget, on génère
+  // quand même via Claude si des clés Anthropic sont configurées ; sinon secours extractif.
+  let _claudeOnly = false;
+  if (!aiAllowed('analyst')) {
+    if (!ai.hasAnthropic || !ai.hasAnthropic()) return res.json({ insights: _fallbackInsights(clean), fallback: true });
+    _claudeOnly = true;   // budget Gemini épuisé → Claude prend le relais (hors budget Gemini)
+  }
   try {
-    aiNote('analyst');
+    if (!_claudeOnly) aiNote('analyst');
     const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés, chacun centré sur UN actif/instrument.
 Pour chaque insight renvoie un objet :
 - "asset": l'instrument concerné (ex: "S&P 500", "Nasdaq 100", "Gold", "Brent Crude", "EUR/USD", "US Dollar", "US 10Y", "Bitcoin")
@@ -1287,7 +1292,7 @@ Pour chaque insight renvoie un objet :
 Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"...","bias":"...","text":"..."}]}
 Rapport :
 ${clean.slice(0, 4000)}`;
-    const out = await ai.generateText(prompt, 900);
+    const out = _claudeOnly ? await ai.generateTextClaudeOnly(prompt, 900) : await ai.generateText(prompt, 900);
     const m = out.match(/\{[\s\S]*\}/);
     const insights = m
       ? (JSON.parse(m[0]).insights || [])
