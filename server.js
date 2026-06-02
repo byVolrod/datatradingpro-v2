@@ -172,10 +172,20 @@ function requireAdmin(req, res, next) {
   next();
 }
 
+// Staff (admin OU agent de support) — accès à la messagerie support, mais PAS à la gestion utilisateurs
+function requireSupport(req, res, next) {
+  const role = req.session?.user?.role;
+  if (role !== 'admin' && role !== 'support') {
+    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Accès refusé' });
+    return res.redirect('/');
+  }
+  next();
+}
+
 app.use(requireAuth);
 // extensions: ['html'] → /login sert login.html, /admin sert admin.html automatiquement
 app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));   // 2 Mo : autorise les pièces jointes chat (data URL base64)
 
 // Health check (public) — pour le monitoring / keep-alive (Render, UptimeRobot…)
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
@@ -279,8 +289,8 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
     const body = { ...req.body, expiresAt: computeExpiry(req.body) };
     await auth.createUser(body);
     res.json({ ok: true });
-    // Email de bienvenue (non bloquant)
-    if (body.email && body.role !== 'admin') {
+    // Email de bienvenue : uniquement pour les CLIENTS (pas le staff admin/support)
+    if (body.email && (body.role || 'client') === 'client') {
       mailer.sendWelcome({ to: body.email, name: body.name, password: body.password, expiresAt: body.expiresAt }).catch(() => {});
     }
   } catch (e) { res.status(400).json({ error: e.message }); }
@@ -303,12 +313,12 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     if (activeReq === false) {
       // Suspendu → renouvellement échoué
       auth.getUserById(id)
-        .then(u => { if (u?.email && u.role !== 'admin') mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
+        .then(u => { if (u?.email && u.role === 'client') mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
         .catch(() => {});
     } else if (activeReq === true && before && !before.active) {
       // Réactivé (était suspendu) → email de réactivation
       auth.getUserById(id)
-        .then(u => { if (u?.email && u.role !== 'admin') mailer.sendReactivated({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
+        .then(u => { if (u?.email && u.role === 'client') mailer.sendReactivated({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
         .catch(() => {});
     }
   } catch (e) { res.status(400).json({ error: e.message }); }
@@ -439,7 +449,7 @@ app.get('/api/chat/unread', async (req, res) => {
 });
 
 // Côté admin : voir les conversations + répondre
-app.get('/api/admin/chat', requireAdmin, async (_req, res) => {
+app.get('/api/admin/chat', requireSupport, async (_req, res) => {
   try {
     const threads = await auth.chatThreads();
     const users = await auth.getAllUsers();
@@ -447,14 +457,14 @@ app.get('/api/admin/chat', requireAdmin, async (_req, res) => {
     res.json({ threads: threads.map(t => ({ ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '' })) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.get('/api/admin/chat/:userId', requireAdmin, async (req, res) => {
+app.get('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   try {
     const messages = await auth.chatList(req.params.userId);
     await auth.chatMarkRead(req.params.userId, 'user');   // l'admin a lu les messages de l'utilisateur
     res.json({ messages });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-app.post('/api/admin/chat/:userId', requireAdmin, async (req, res) => {
+app.post('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   const text = (req.body?.text || '').trim();
   if (!text) return res.status(400).json({ error: 'Message vide' });
   try {

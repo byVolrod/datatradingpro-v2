@@ -7028,6 +7028,17 @@ html, body {
 .chat-close:hover { color:#fff; }
 .chat-back { background:none; border:none; color:#9aa4b2; font-size:24px; cursor:pointer; line-height:1; padding:0 4px 0 0; margin-right:2px; }
 .chat-back:hover { color:#fff; }
+.chat-head-sub { display:flex; align-items:center; }
+.chat-presence { display:inline-block; width:7px; height:7px; border-radius:50%; background:#22c55e; margin-right:5px; box-shadow:0 0 0 2px rgba(34,197,94,.18); }
+.chat-wa { display:inline-flex; align-items:center; gap:5px; background:#22c55e; color:#06281a; font-size:11px; font-weight:700; padding:6px 10px; border-radius:8px; text-decoration:none; flex-shrink:0; }
+.chat-wa:hover { filter:brightness(1.08); }
+/* Icônes pièces jointes + rendu images/fichiers */
+.chat-attach { width:34px; height:38px; flex-shrink:0; border:none; background:none; color:#8a93a3; cursor:pointer; display:flex; align-items:center; justify-content:center; border-radius:8px; }
+.chat-attach:hover { color:#e2e8f0; background:rgba(255,255,255,.05); }
+.chat-bubble--img { padding:4px !important; background:transparent !important; }
+.chat-img { display:block; max-width:220px; max-height:240px; border-radius:10px; cursor:pointer; }
+.chat-file { color:#8ab4f8; text-decoration:none; font-size:13px; }
+.chat-file:hover { text-decoration:underline; }
 
 /* ── Boîte de réception support (admin) ── */
 .chat-thread { display:flex; align-items:center; gap:10px; padding:10px 8px; border-radius:8px; cursor:pointer; border:1px solid transparent; }
