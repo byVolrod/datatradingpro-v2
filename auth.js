@@ -62,13 +62,17 @@ async function verifyLogin(email, password) {
     .from(TABLE)
     .select('*')
     .eq('email', (email || '').toLowerCase().trim())
-    .eq('active', true)
     .single();
 
   if (error || !data) return null;
 
   const ok = await bcrypt.compare(password, data.password_hash);
-  if (!ok) return null;
+  if (!ok) return null;   // mauvais mdp → message générique (on ne révèle pas l'état du compte)
+
+  // Compte suspendu (abonnement non actif) — distinct d'un mauvais mot de passe
+  if (data.role !== 'admin' && !data.active) {
+    return { suspended: true };
+  }
 
   // Abonnement expiré ? (les admins ne sont jamais bloqués)
   // Délai de grâce de 24h après l'échéance : le client peut encore se connecter,
