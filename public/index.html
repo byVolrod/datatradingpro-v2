@@ -64,6 +64,10 @@
       <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 1.5a5 5 0 0 1 5 5v2.5l1 2H1.5l1-2V6.5a5 5 0 0 1 5-5z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/><path d="M6 12.5a1.5 1.5 0 0 0 3 0" stroke="currentColor" stroke-width="1.2"/></svg>
       <span class="notif-badge" id="notif-badge">0</span>
     </div>
+    <div class="topbar-icon" id="chat-btn" onclick="chatToggle()" title="Support DataTradingPro">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
+      <span class="notif-badge" id="chat-badge" style="display:none">0</span>
+    </div>
     <div id="topbar-avatar" onclick="pdToggle()" title="Mon profil">
       <span id="topbar-avatar-letter">?</span>
       <span class="pd-status-mini"></span>
@@ -1253,6 +1257,27 @@
   </div>
   <div class="sqwk-list" id="sqwk-list"></div>
   <div class="sqwk-footer">Commentaire fourni par nos analystes de marché professionnels</div>
+</div>
+
+<!-- ══ CHAT SUPPORT PANEL ══ -->
+<div class="chat-overlay" id="chat-overlay" onclick="chatClose()"></div>
+<div class="chat-panel" id="chat-panel">
+  <div class="chat-header">
+    <div class="chat-support-av">DTP</div>
+    <div class="chat-head-text">
+      <div class="chat-head-name">Support DataTradingPro</div>
+      <div class="chat-head-sub">Répond généralement en quelques minutes</div>
+    </div>
+    <button class="chat-close" onclick="chatClose()">×</button>
+  </div>
+  <div class="chat-list" id="chat-list"></div>
+  <div class="chat-input-bar">
+    <textarea id="chat-input" class="chat-input" rows="1" placeholder="Tapez votre message..."></textarea>
+    <button class="chat-send" id="chat-send" onclick="chatSend()" title="Envoyer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4 20-7z"/></svg>
+    </button>
+  </div>
+  <div class="chat-hint">Appuyez sur Entrée pour envoyer, Maj + Entrée pour nouvelle ligne</div>
 </div>
 </body>
 </html>
