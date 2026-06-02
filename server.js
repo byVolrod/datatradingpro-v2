@@ -3294,16 +3294,16 @@ async function _checkExpiringSubscriptions() {
 // (fonction _checkExpiringSubscriptions conservée mais non planifiée)
 void _checkExpiringSubscriptions;
 
-// ── Incitation FIN D'ESSAI GRATUIT (1 semaine) ───────────────────────────────
-//    2 jours avant la fin de l'essai, on invite le client à prendre l'abonnement
-//    (mensuel ou annuel). Envoi UNIQUE par essai (anti-doublon durable via email_log).
+// ── FIN D'ESSAI GRATUIT (1 semaine) ──────────────────────────────────────────
+//    LE JOUR où l'essai a expiré, on invite le client à prendre l'abonnement
+//    mensuel. Envoi UNIQUE par essai (anti-doublon durable via email_log).
 async function _checkTrialUpsell() {
   try {
     const users = await auth.getAllUsers();
     const now   = Date.now();
     const DAY   = 24 * 60 * 60 * 1000;
-    const low   = now + 1 * DAY;   // il reste plus d'1 jour…
-    const high  = now + 2 * DAY;   // … et au plus 2 jours → "2 jours avant la fin"
+    const low   = now - 1 * DAY;   // a expiré il y a moins d'1 jour…
+    const high  = now;             // … et pas dans le futur → "le jour de l'expiration"
     for (const u of users) {
       if (u.role !== 'client' || !u.active || !u.expires_at || !u.created_at) continue;
       const exp = new Date(u.expires_at).getTime();
@@ -3311,7 +3311,7 @@ async function _checkTrialUpsell() {
       if (!Number.isFinite(exp) || !Number.isFinite(crt)) continue;
       // Essai = fenêtre d'accès ≈ 1 semaine (≤ 8 j) → distingue des abonnements payants (≥ 1 mois)
       if (exp - crt > 8 * DAY) continue;
-      // Fenêtre d'envoi : il reste entre 1 et 2 jours d'essai
+      // Fenêtre d'envoi : l'essai a expiré dans les dernières 24 h
       if (exp <= low || exp > high) continue;
       const key = `trial-upsell:${u.id}:${u.expires_at}`;
       if (await auth.emailLogHas(key)) continue;            // déjà envoyé pour cet essai
