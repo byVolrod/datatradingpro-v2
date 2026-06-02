@@ -265,6 +265,12 @@
       display: none;
     }
     .lp-error.visible { display: block; }
+    .lp-renew-btn {
+      display: inline-block; margin-top: 10px; padding: 7px 16px;
+      background: var(--orange, #f7941d); color: #0a0a0c; font-weight: 700;
+      font-size: 12px; border-radius: 6px; text-decoration: none;
+    }
+    .lp-renew-btn:hover { filter: brightness(1.08); }
     /* Message de succès (mot de passe oublié) — vert, distinct de l'erreur rouge */
     .lp-error.lp-msg-success {
       color: #22c55e;
@@ -594,7 +600,11 @@
         window.location.href = '/';
       } else {
         errEl.classList.remove('lp-msg-success');
-        errEl.textContent = data.error || 'Email ou mot de passe incorrect';
+        const _msg = (data.error || 'Email ou mot de passe incorrect').replace(/</g, '&lt;');
+        // Abonnement suspendu/expiré → on propose le bouton de renouvellement Whop
+        errEl.innerHTML = data.renewUrl
+          ? `${_msg}<a href="${data.renewUrl}" target="_blank" rel="noopener" class="lp-renew-btn">Renouveler mon abonnement</a>`
+          : _msg;
         errEl.classList.add('visible');
       }
     } catch {
