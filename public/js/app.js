@@ -1381,6 +1381,9 @@ function _toBullets(raw, maxItems = 4) {
     .filter(s => s.length > 6)                 // ignorer fragments vides/courts
     .filter(s => !/^[^a-z0-9]*$/i.test(s))     // ignorer ponctuation seule
     .filter(s => !/:\s*$/.test(s))             // ignorer labels "Report from X:"
+    // Bruit métadonnées (auteur/source) — pas de valeur marché
+    .filter(s => !/^(?:authored by|written by|by\s+[A-Z]|via\s+|source\s*:|courtesy of|published by|republished)/i.test(s))
+    .filter(s => !/^[\w .'-]+\bvia\b\s+the\b/i.test(s))
     .slice(0, maxItems);
 }
 
@@ -1754,7 +1757,7 @@ function buildNewsItem(item) {
     if (tab === 'analysis') {
       const cached = _analysisCache.get(item.id);
       if (cached) {
-        expandEl.innerHTML = `<ul class="article-points">${cached.map(p => `<li>${p}</li>`).join('')}</ul>`;
+        expandEl.innerHTML = _renderInfoBullets(cached);   // convertit **gras** + style propre
         expandEl.classList.add('visible');
       } else {
         expandEl.innerHTML = `<div class="expand-loading">Analyse en cours…</div>`;
@@ -1777,7 +1780,7 @@ function buildNewsItem(item) {
             return;
           }
           if (!data.fallback) _analysisCache.set(item.id, data.bullets);   // on ne cache que la vraie analyse IA
-          expandEl.innerHTML = `<ul class="article-points">${data.bullets.map(p => `<li>${_emphasize(_reportLead(p))}</li>`).join('')}</ul>`;
+          expandEl.innerHTML = _renderInfoBullets(data.bullets);   // convertit **gras** + style propre
         })
         .catch(() => {
           if (activeTab !== 'analysis') return;
