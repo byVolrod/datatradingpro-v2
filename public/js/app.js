@@ -117,10 +117,13 @@ const _analysisCache  = new Map(); // item.id → bullets[]
 const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style PMT, mémoire session)
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
 let   _snapCache      = null;      // dernier Market Snapshot (prix réels) — partagé entre rapports
-// Rend des puces Info (style PMT) : échappe le HTML puis applique le gras **…**
+// Rend des puces Info/Analyse : texte propre, SANS gras (on retire tout markdown **…**)
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const html = bullets.map(b => `<li>${esc(b).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')}</li>`).join('');
+  const html = (bullets || [])
+    .map(b => String(b).replace(/\*\*/g, '').trim())   // retire le markdown gras
+    .filter(Boolean)
+    .map(b => `<li>${esc(b)}</li>`).join('');
   return `<ul class="article-points article-points--clean">${html}</ul>`;
 }
 let _sessionWraps = [];
@@ -356,10 +359,14 @@ function syncDropdownUI() {
 }
 
 // ═══ News Rendering ═══════════════════════
-// Empreinte d'un titre pour dédoublonner les reposts quasi-identiques
+// Empreinte d'un titre pour dédoublonner les reposts quasi-identiques (clé courte → + agressif)
 function _newsKey(h) {
-  return String(h || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return String(h || '').toLowerCase()
+    .replace(/[^a-z0-9 ]/g, '').replace(/\b(the|a|an|of|to|in|on|for|and|as|is|at|by)\b/g, '')
+    .replace(/\s+/g, ' ').trim().slice(0, 40);
 }
+// Bruit / faible valeur marché → masqué
+const _NEWS_NOISE = /(is\s+\w+\s+a\s+buy|should you buy|analysis today at|read more at|click here|sign up|subscribe|webinar|giveaway|promo|sponsored|advertisement|\bad\b|top \d+ (stocks|picks)|motley fool|zacks)/i;
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
@@ -372,15 +379,12 @@ function getFilteredItems() {
     if (/^RT @/i.test(_h))         return false;
     if (/^@[A-Za-z]/i.test(_h))   return false;
     if (_h.replace(/[^a-z0-9]/gi, '').length < 14) return false;   // titres trop courts / sans valeur
+    if (_NEWS_NOISE.test(_h)) return false;                        // promo / faible valeur
 
     // ── Filtre intelligent : on masque les reposts au titre quasi-identique ──
-    // (sauf les rapports DTP qu'on garde toujours)
-    const isReport = item._briefing || item.source === 'PMT';
-    if (!isReport) {
-      const key = _newsKey(_h);
-      if (key && seen.has(key)) return false;
-      if (key) seen.add(key);
-    }
+    const key = _newsKey(_h);
+    if (key && seen.has(key)) return false;
+    if (key) seen.add(key);
 
     if (!searchQuery) return true;
     return (
@@ -1664,15 +1668,13 @@ function buildNewsItem(item) {
         return `${descHtml}${quotesListHtml}`;
       }
 
-      // ── Standard info → puces (style PMT) : contenu riche complet, gras sur le sujet de tête ──
-      // Plus le texte est long (ex: FX WRAP), plus on montre de puces (jusqu'à 9) au lieu de tronquer à 4.
-      const _max = rawDesc.length > 600 ? 9 : rawDesc.length > 300 ? 6 : 4;
-      let bullets = _toBullets(rawDesc, _max).map(b => _emphasize(_reportLead(b)));
+      // ── Standard info → résumé COURT et propre (sans gras), 2-4 puces selon la longueur ──
+      const _max = rawDesc.length > 400 ? 4 : 3;
+      let bullets = _toBullets(rawDesc, _max);
       // Fallback : donnée macro High Impact sans corps → résumé contextuel auto
       if (bullets.length === 0 && autoSummary.length > 0) bullets = autoSummary;
       if (bullets.length === 0) return '';
-      const html = bullets.map(b => `<li>${b}</li>`).join('');
-      return `<ul class="article-points article-points--clean">${html}</ul>`;
+      return _renderInfoBullets(bullets);
     })();
 
     if (tab === 'reaction') {
