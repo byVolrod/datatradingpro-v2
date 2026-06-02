@@ -1231,7 +1231,7 @@
 <div class="sqwk-overlay" id="sqwk-overlay" onclick="sqwkClose()"></div>
 <div class="sqwk-panel" id="sqwk-panel">
   <div class="sqwk-header">
-    <button class="sqwk-play" id="sqwk-play" onclick="sqwkToggleAuto()" title="Lecture / Pause">▶</button>
+    <button class="sqwk-play" id="sqwk-play" onclick="sqwkToggleAuto()" title="Démarrer / Arrêter le flux">▶</button>
     <div class="sqwk-head-text">
       <div class="sqwk-title">Squawk de marché en direct</div>
       <div class="sqwk-status" id="sqwk-status"><span class="sqwk-dot"></span> Disconnected</div>
@@ -1242,6 +1242,10 @@
       <div class="sqwk-toggle" id="sqwk-toggle" onclick="sqwkToggleAuto()"><span class="sqwk-toggle-state" id="sqwk-toggle-state">OFF</span></div>
     </div>
     <button class="sqwk-close" onclick="sqwkClose()">×</button>
+  </div>
+  <div class="sqwk-live-note hidden" id="sqwk-live-note">
+    <span class="sqwk-note-dot"></span>
+    <span>Flux en direct connecté. Notre analyste ne parlera que s'il y a des nouvelles. Attendez patiemment son commentaire.</span>
   </div>
   <div class="sqwk-list" id="sqwk-list"></div>
   <div class="sqwk-footer">Commentaire fourni par nos analystes de marché professionnels</div>

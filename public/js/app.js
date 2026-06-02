@@ -4289,7 +4289,10 @@ function sqwkToggleAuto() {
   if (status) status.innerHTML = _sqwkAuto
     ? '<span class="sqwk-dot sqwk-dot--live"></span> Connected'
     : '<span class="sqwk-dot"></span> Disconnected';
-  if (play) play.textContent = _sqwkAuto ? '❚❚' : '▶';
+  // Bouton : carré stop ROUGE quand connecté, triangle play VERT sinon
+  if (play) { play.textContent = _sqwkAuto ? '■' : '▶'; play.classList.toggle('sqwk-play--live', _sqwkAuto); }
+  // Bandeau vert "Flux en direct connecté"
+  document.getElementById('sqwk-live-note')?.classList.toggle('hidden', !_sqwkAuto);
   clearInterval(_sqwkAutoTimer);
   if (_sqwkAuto) {
     // Démarrage : on considère les news existantes comme "déjà vues" SAUF la plus récente,
