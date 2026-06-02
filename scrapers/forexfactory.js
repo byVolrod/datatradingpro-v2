@@ -28,7 +28,9 @@ let _rawCalEvents = [];  // raw events with individual fields for calendar view
 (function preloadRawCalendar() {
   try {
     const raw = JSON.parse(fs.readFileSync(RAW_CACHE_FILE, 'utf8'));
-    if (Array.isArray(raw.items) && raw.items.length > 0 && Date.now() - raw.ts < DISK_TTL) {
+    // On précharge MÊME si périmé : un calendrier un peu daté vaut mieux qu'un calendrier
+    // vide au démarrage ; le scrape planifié le rafraîchit ensuite.
+    if (Array.isArray(raw.items) && raw.items.length > 0) {
       _rawCalEvents = raw.items;
       console.log(`  [ForexFactory] Preloaded ${_rawCalEvents.length} raw calendar events from disk`);
     }
@@ -44,11 +46,11 @@ function saveDisk(items) {
   try { fs.writeFileSync(CACHE_FILE, JSON.stringify({ ts: Date.now(), items })); } catch {}
 }
 
-function loadDisk() {
+function loadDisk(ignoreTtl = false) {
   try {
     const raw = JSON.parse(fs.readFileSync(CACHE_FILE, 'utf8'));
-    if (Date.now() - raw.ts < DISK_TTL && Array.isArray(raw.items) && raw.items.length > 0) {
-      console.log(`  [ForexFactory] Using disk cache (${raw.items.length} events)`);
+    if ((ignoreTtl || Date.now() - raw.ts < DISK_TTL) && Array.isArray(raw.items) && raw.items.length > 0) {
+      console.log(`  [ForexFactory] Using disk cache (${raw.items.length} events${ignoreTtl ? ', stale' : ''})`);
       return raw.items;
     }
   } catch {}
@@ -186,28 +188,22 @@ async function scrapeForexFactory() {
     const now     = Date.now();
     const twoWeeks = 14 * 24 * 3600 * 1000;
 
-    // Fetch this week and next week in parallel
-    const [resThis, resNext] = await Promise.allSettled([
-      axios.get(CALENDAR_URL,      { headers: HEADERS, timeout: 10000, responseType: 'text' }),
-      axios.get(CALENDAR_URL_NEXT, { headers: HEADERS, timeout: 10000, responseType: 'text' }),
-    ]);
-
     const items  = [];
     const rawEvs = [];
 
-    if (resThis.status === 'fulfilled') {
-      const $ = cheerio.load(resThis.value.data, { xmlMode: true });
-      parseCalendarXml($, items, rawEvs, now, twoWeeks);
-    } else {
-      console.warn('[ForexFactory] This-week fetch failed:', resThis.reason?.message);
-    }
+    // "thisweek" est le SEUL flux encore servi par le miroir (nextweek/lastweek → 404).
+    // On le récupère ; en cas d'échec (429/timeout) on bascule sur le cache disque.
+    const resThis = await axios.get(CALENDAR_URL, { headers: HEADERS, timeout: 10000, responseType: 'text', validateStatus: s => s === 200 });
+    const $this = cheerio.load(resThis.data, { xmlMode: true });
+    parseCalendarXml($this, items, rawEvs, now, twoWeeks);
 
-    if (resNext.status === 'fulfilled') {
-      const $ = cheerio.load(resNext.value.data, { xmlMode: true });
-      parseCalendarXml($, items, rawEvs, now, twoWeeks);
-    } else {
-      console.warn('[ForexFactory] Next-week fetch failed:', resNext.reason?.message);
-    }
+    // "nextweek" : best-effort, totalement silencieux (le miroir renvoie 404 actuellement).
+    // Si le flux revient un jour, ses événements seront automatiquement intégrés.
+    try {
+      const resNext = await axios.get(CALENDAR_URL_NEXT, { headers: HEADERS, timeout: 8000, responseType: 'text', validateStatus: s => s === 200 });
+      const $next = cheerio.load(resNext.data, { xmlMode: true });
+      parseCalendarXml($next, items, rawEvs, now, twoWeeks);
+    } catch { /* flux nextweek indisponible (404) — ignoré */ }
 
     if (items.length === 0 && rawEvs.length === 0) throw new Error('No events parsed');
 
@@ -220,7 +216,7 @@ async function scrapeForexFactory() {
     saveDisk(result);
     try { fs.writeFileSync(RAW_CACHE_FILE, JSON.stringify({ ts: Date.now(), items: _rawCalEvents })); } catch {}
 
-    console.log(`  [ForexFactory] ${result.length} feed events, ${rawEvs.length} raw calendar events (this+next week)`);
+    console.log(`  [ForexFactory] ${result.length} feed events, ${rawEvs.length} raw calendar events`);
     return result;
 
   } catch (err) {
@@ -228,8 +224,9 @@ async function scrapeForexFactory() {
     if (is429) console.warn('[ForexFactory] Rate-limited (429) — using cache');
     else        console.error('[ForexFactory]', err.message);
 
-    // Try disk cache on any error
-    const disk = loadDisk();
+    // Cache disque : d'abord le frais, puis (dernier recours) le PÉRIMÉ — un calendrier
+    // un peu daté reste préférable à un calendrier vide. Le scrape suivant le rafraîchira.
+    const disk = loadDisk() || loadDisk(true);
     if (disk) { _cache = { items: disk, ts: Date.now() - CACHE_TTL + 60000 }; return disk; }
     return _cache.items.length ? _cache.items : [];
   }

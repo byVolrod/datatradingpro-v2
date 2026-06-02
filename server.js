@@ -505,8 +505,28 @@ app.get('/api/news/history', (req, res) => {
     .slice(0, limit);
   res.json({ items, total: allNews.length });
 });
-app.get('/api/calendar', (_req, res) => res.json({ items: allCalendar }));
-app.get('/api/calendar-events', (_req, res) => res.json({ items: getCalendarRaw() }));
+// Calendrier économique — endpoints AUTO-RÉPARANTS : si les données sont vides
+// (démarrage à froid Render, disque éphémère, ou échec du scrape planifié), on
+// déclenche un fetch à la demande (anti-tempête : un seul fetch concurrent).
+let _calFetchInflight = null;
+async function _ensureCalendar() {
+  if (getCalendarRaw().length || (allCalendar && allCalendar.length)) return;
+  if (!_calFetchInflight) {
+    _calFetchInflight = scrapeForexFactory()
+      .then(items => { if (Array.isArray(items) && items.length) allCalendar = items; })
+      .catch(() => {})
+      .finally(() => { _calFetchInflight = null; });
+  }
+  try { await _calFetchInflight; } catch {}
+}
+app.get('/api/calendar', async (_req, res) => {
+  if (!allCalendar || !allCalendar.length) await _ensureCalendar();
+  res.json({ items: allCalendar || [] });
+});
+app.get('/api/calendar-events', async (_req, res) => {
+  if (!getCalendarRaw().length) await _ensureCalendar();
+  res.json({ items: getCalendarRaw() });
+});
 
 // ── Mosaic background images ──────────────────────────────────────────────────
 function _ytThumb(url) {
