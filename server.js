@@ -3424,9 +3424,10 @@ if (_SELF_URL) {
 // On peuple les caches lourds (Currency Strength, DMX/Myfxbook, COT) en arrière-plan dès le
 // démarrage, AVANT que l'utilisateur n'ouvre les onglets → données déjà prêtes.
 setTimeout(() => {
-  try { computeCurrencyStrength('today').catch(() => {}); } catch {}
-  try { computeCurrencyStrength('week').catch(() => {}); } catch {}
-  try { fetchCOTData('lev_money').catch(() => {}); } catch {}
+  try { computeCurrencyStrength('today').catch(() => {}); } catch {}   // STRENGTH (panneau gauche TD)
+  try { computeCurrencyStrength('week').catch(() => {}); } catch {}    // STRENGTH (panneau droit TW)
+  try { computeCurrencyStrength('1d').catch(() => {}); } catch {}      // METER (jauge devises)
+  try { fetchCOTData('lev_money').catch(() => {}); } catch {}          // COT
   // (Myfxbook/DMX est déjà préchauffé par refreshMyfxbook au démarrage)
 }, 6000);
 
@@ -3651,10 +3652,10 @@ async function yfFetch(sym, interval, range) {
   return null;
 }
 
-async function computeCurrencyStrength(period) {
+// Calcul LOURD (28 paires Yahoo) — écrit le cache _csCache[period] à la fin. Ne pas appeler
+// directement : passer par computeCurrencyStrength() (cache + stale-while-revalidate).
+async function _computeStrengthFresh(period) {
   const cfg = CS_PERIOD_CFG[period] || CS_PERIOD_CFG.today;
-  const ttl = 2 * 60 * 1000;
-  if (_csCache[period] && Date.now() - _csCache[period].ts < ttl) return _csCache[period].data;
 
   const { interval, range, cutoffMs, cutoffToday, cutoffWeek, clip } = cfg;
 
@@ -3767,10 +3768,30 @@ async function computeCurrencyStrength(period) {
   return data;
 }
 
+// Wrapper STALE-WHILE-REVALIDATE : sert le cache (même périmé) INSTANTANÉMENT et recalcule en
+// arrière-plan. Ne bloque QU'au tout premier calcul (cache vide). Déduplication par période.
+const _csInflight = {};
+function _csRefresh(period) {
+  if (_csInflight[period]) return _csInflight[period];
+  _csInflight[period] = _computeStrengthFresh(period)
+    .catch(e => { console.warn('[CS]', period, e.message); return null; })
+    .finally(() => { delete _csInflight[period]; });
+  return _csInflight[period];
+}
+async function computeCurrencyStrength(period) {
+  const ttl = 2 * 60 * 1000;
+  const c = _csCache[period];
+  if (c && Date.now() - c.ts < ttl) return c.data;          // 1) cache frais → instantané
+  if (c && c.data) { _csRefresh(period); return c.data; }   // 2) périmé → on sert + recalcul en fond
+  return await _csRefresh(period);                           // 3) aucun cache → on attend (1re fois)
+}
+
 app.get('/api/currency-strength', async (req, res) => {
   const validPeriods = Object.keys(CS_PERIOD_CFG);
   const period = validPeriods.includes(req.query.period) ? req.query.period : 'today';
-  if (req.query.force === '1') delete _csCache[period]; // manual cache-bust
+  // "force" = recalcul en ARRIÈRE-PLAN (on ne vide PAS le cache → réponse instantanée,
+  // le nouveau jeu arrive au prochain rafraîchissement). Évite tout blocage.
+  if (req.query.force === '1' && _csCache[period]) _csRefresh(period);
   try {
     const data = await computeCurrencyStrength(period);
     if (!data) return res.status(503).json({ error: 'Data unavailable' });
