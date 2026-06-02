@@ -1561,8 +1561,19 @@ app.get('/api/bank-research-content', async (req, res) => {
                       || $('meta[property="og:type"]').attr('content')
                       || 'Article';
 
-    // Remove noise (garder les images et figures)
-    $('script,style,nav,header,footer,.cookie-banner,[class*="social"],[class*="related"],[class*="subscribe"],[class*="newsletter"],[class*="sidebar"],[class*="widget"],#comments').remove();
+    // Remove noise (garder les images et figures) — y compris boutons de partage / téléchargement,
+    // modales et "quick links" (MUFG) qui salissent le rendu.
+    $('script,style,nav,header,footer,iframe,form,.cookie-banner,'
+      + '[class*="social"],[class*="related"],[class*="subscribe"],[class*="newsletter"],[class*="sidebar"],[class*="widget"],'
+      + '[class*="share"],[id*="share"],[class*="sharethis"],[class*="addthis"],[class*="download"],'
+      + '[class*="quick-link"],[class*="quick-links"],[class*="publication-modal"],[class*="pmc__"],[class*="breadcrumb"],'
+      + '[class*="disclaimer"],[class*="cta"],[class*="signup"],[class*="paywall"],#comments').remove();
+
+    // Retire les liens/boutons isolés "Share / Download / Print / PDF / Tweet / Email"
+    $('a, button').each((_, el) => {
+      const t = $(el).text().replace(/\s+/g, ' ').trim();
+      if (/^(share|download|print|tweet|email|pdf|copy link|save|follow|subscribe)\b/i.test(t) && t.length < 24) $(el).remove();
+    });
 
     // ── Résout les images LAZY-LOAD (WordPress/ActionForex : la vraie URL est dans data-src,
     // le src n'étant qu'un placeholder) → sinon image cassée. On normalise vers un src valide.

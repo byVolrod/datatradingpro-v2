@@ -1041,18 +1041,18 @@ function buildRiskGauge() {
         dr.get('axisFill').setAll({ visible: true, fill: am5.color(0x0b0e13), fillOpacity: 0.5, strokeOpacity: 0 });
         ['grid', 'tick', 'label'].forEach(k => dr.get(k)?.setAll({ visible: false }));
 
-        // Aiguille fine et épurée : effilée, teinte neutre claire (la couleur est portée par
-        // l'arc + le chip), avec un petit pivot sombre discret.
+        // Aiguille moderne et épurée : fine, effilée, teinte neutre claire. PAS de gros rond
+        // au pivot → juste un petit point net de la même couleur (look jauge pro).
         _riskHandDI = axis.makeDataItem({ value: 0 });
         const hand = am5radar.ClockHand.new(root, {
-          pinRadius: am5.percent(7),                 // pivot anchré (hub visible)
-          radius: am5.percent(56),                   // plus courte → moins "pic"
-          innerRadius: am5.percent(-4),
-          bottomWidth: 11,                            // base un peu plus large → vraie aiguille
+          pinRadius: am5.percent(3),                 // petit point discret (plus de gros hub sombre)
+          radius: am5.percent(60),
+          innerRadius: am5.percent(0),
+          bottomWidth: 6,                            // aiguille fine
           topWidth: 0,
         });
-        hand.pin.setAll({ fill: am5.color(0x2a2e37), stroke: am5.color(0x12151c), strokeWidth: 2 });
-        hand.hand.setAll({ fill: am5.color(0xe9ebee), strokeOpacity: 0 });   // aiguille claire neutre (pro)
+        hand.pin.setAll({ fill: am5.color(0xe9ebee), fillOpacity: 1, strokeOpacity: 0 });   // point net, même teinte
+        hand.hand.setAll({ fill: am5.color(0xe9ebee), strokeOpacity: 0 });
 
         _riskHandDI.set('bullet', am5xy.AxisBullet.new(root, { sprite: hand }));
         axis.createAxisRange(_riskHandDI);
