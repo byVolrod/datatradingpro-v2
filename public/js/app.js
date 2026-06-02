@@ -3585,7 +3585,8 @@ function _renderWeeklyRecap(item) {
   if (!content) return;
   document.getElementById('arlib-ai-insights')?.remove();   // pas d'insights auto (on a les nôtres)
 
-  if (titleEl) titleEl.innerHTML = `${_wrEsc(w.title)}  <span class="wr-weekending">Week Ending: ${_wrEsc(w.weekEnding||'')}</span>`;
+  const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
+  if (titleEl) titleEl.innerHTML = `${_wrEsc(w.title)}  <span class="wr-weekending">${_wrEsc(_range)}</span>`;
   if (navRight) navRight.innerHTML = '<span class="arlib-dtp-badge">DTP</span>';
 
   // Sélecteur de devises (badges) dans la barre sous le titre
