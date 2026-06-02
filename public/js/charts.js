@@ -788,7 +788,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
 async function buildIsolatedStrength(containerId, focusCurrency, period = 'week') {
   const el = document.getElementById(containerId);
   if (!el) return;
-  el.innerHTML = '<div class="wr-chart-loading">Chargement de la force des devises…</div>';
+  el.innerHTML = (window.dtpLoader ? window.dtpLoader('Loading Currency Strength data…') : 'Loading…');
   try {
     const data = await fetch(`/api/currency-strength?period=${period}`).then(r => r.json());
     if (!data || !data.currencies) { el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
@@ -933,7 +933,7 @@ function buildRiskGauge() {
   if (_riskGaugeRoot) { _riskGaugeRoot.dispose(); _riskGaugeRoot = null; }
   _riskHandDI = _riskScoreLabel = _riskBadgeLabel = null;
 
-  wrap.innerHTML = '<div style="color:var(--text4);padding:16px;font-size:11px">Loading…</div>';
+  wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Loading Risk Gauge data…', { small: true }) : 'Loading…');
 
   let isBuilt = false;
 
@@ -1273,7 +1273,7 @@ function buildMeterChart() {
 function buildCOTChart() {
   const grid = document.getElementById('cot-grid');
   if (!grid) return;
-  grid.innerHTML = '<div style="padding:20px;color:#666;font-size:11px;">Loading COT data…</div>';
+  grid.innerHTML = (window.dtpLoader ? window.dtpLoader('Loading COT data…', { small: true }) : 'Loading COT data…');
 
   const activeTypeBtn = document.querySelector('.cot-type-btn--active');
   const cotType = activeTypeBtn ? activeTypeBtn.dataset.cotType : 'lev_money';
@@ -1393,7 +1393,7 @@ function buildDMXChart(forceRefresh = false) {
   const url = `/api/community-outlook?period=${period}${forceRefresh ? '&force=1' : ''}`;
 
   // On n'affiche "Loading…" que si l'onglet est vide (sinon on garde l'ancien rendu → pas de flash)
-  if (!wrap.querySelector('.dmx2-row')) wrap.innerHTML = '<div class="dmx-loading">Loading data…</div>';
+  if (!wrap.querySelector('.dmx2-row')) wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Loading DMX data…', { small: true }) : 'Loading…');
 
   fetch(url)
     .then(r => r.json())
@@ -2057,7 +2057,7 @@ async function buildCalendar() {
   if (!wrap) return;
 
   if (_calEvents.length === 0) {
-    wrap.innerHTML = '<div class="cal-loading">Loading calendar…</div>';
+    wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Loading Economic Calendar data…') : 'Loading…');
 
     let loaded = false;
     for (let attempt = 1; attempt <= 4; attempt++) {
@@ -2073,7 +2073,7 @@ async function buildCalendar() {
         }
         // Empty response — server may still be fetching; wait and retry
         if (attempt < 4) {
-          wrap.innerHTML = `<div class="cal-loading">Loading calendar… (attempt ${attempt}/4)</div>`;
+          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader(`Loading Economic Calendar data… (${attempt}/4)`) : 'Loading…');
           await new Promise(r => setTimeout(r, 3000));
         }
       } catch {

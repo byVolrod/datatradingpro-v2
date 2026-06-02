@@ -1401,6 +1401,38 @@ html, body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ── Loader UNIVERSEL (croissant orange + libellé) ────────────────────────────
+   À utiliser pour TOUTE fonctionnalité qui charge. JS: window.dtpLoader('texte…') */
+.dtp-loader {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 140px;
+  padding: 32px 16px;
+  text-align: center;
+  box-sizing: border-box;
+}
+.dtp-loader__spin {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(255, 255, 255, 0.08);
+  border-top-color: var(--orange, #e07b39);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+.dtp-loader__label {
+  font-size: 13px;
+  letter-spacing: .02em;
+  color: #6b7a99;            /* bleu-gris doux, comme la référence */
+}
+.dtp-loader--sm { min-height: 90px; gap: 10px; padding: 18px 12px; }
+.dtp-loader--sm .dtp-loader__spin { width: 26px; height: 26px; border-width: 2px; }
+.dtp-loader--sm .dtp-loader__label { font-size: 12px; }
+
 /* Empty state */
 .empty-state {
   display: flex;
