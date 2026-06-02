@@ -16,6 +16,27 @@ function dtpLoader(label, opts) {
 }
 window.dtpLoader = dtpLoader;
 
+// ═══ Cache localStorage — affichage INSTANTANÉ au revisite / cold-start ═══
+// On stocke le dernier état connu (news, wraps, recherche…) côté navigateur, puis on
+// rafraîchit en fond. L'utilisateur voit immédiatement du contenu, même serveur endormi.
+function lsGet(key, maxAgeMs) {
+  try {
+    const o = JSON.parse(localStorage.getItem(key) || 'null');
+    if (!o || typeof o.ts !== 'number') return null;
+    if (maxAgeMs && Date.now() - o.ts > maxAgeMs) return null;
+    return o.v;
+  } catch { return null; }
+}
+const _lsSaveTimers = {};
+function lsSet(key, v) {
+  clearTimeout(_lsSaveTimers[key]);                       // débounce (évite d'écrire à chaque render)
+  _lsSaveTimers[key] = setTimeout(() => {
+    try { localStorage.setItem(key, JSON.stringify({ ts: Date.now(), v })); }
+    catch { try { localStorage.removeItem(key); } catch {} }   // quota plein → on purge cette clé
+  }, 500);
+}
+window.lsGet = lsGet; window.lsSet = lsSet;
+
 // ═══ World clocks ══════════════════════════
 const CLOCKS = [
   { city: 'London',   code: 'LON', country: 'UK',  tz: 'Europe/London',    lat: 51.5074, lon: -0.1278  },
@@ -184,12 +205,24 @@ function init() {
   drawWorldMap();
   startSessionMarkers();
 
+  // ── Hydratation INSTANTANÉE depuis le cache local (avant toute réponse serveur) ──
+  // Affiche le dernier état connu tout de suite ; les données fraîches le remplacent ensuite.
+  try {
+    const DAY = 24 * 60 * 60 * 1000;
+    const cn = lsGet('dtp_news', DAY);
+    if (cn && cn.length && allItems.length === 0) { allItems = cn; renderNews(); }
+    const cs = lsGet('dtp_sw', DAY); if (cs && cs.length && !_sessionWraps.length) _sessionWraps = cs;
+    const cb = lsGet('dtp_br', DAY); if (cb && cb.length && !_brArticles.length)  _brArticles  = cb;
+  } catch {}
+
   // ── HTTP pre-fetch: show cached news immediately, before WS connects ──
   fetch('/api/news')
     .then(r => r.json())
     .then(data => {
       if (data.total) serverTotal = data.total;
-      if (allItems.length === 0 && (data.items?.length ?? 0) > 0) {
+      // Données serveur FRAÎCHES → remplacent le cache hydraté (sauf si le serveur renvoie
+      // moins que ce qu'on affiche déjà, pour ne pas régresser pendant un cold-start partiel).
+      if ((data.items?.length ?? 0) > 0 && data.items.length >= allItems.length) {
         allItems = data.items;
         renderNews();
       }
@@ -287,6 +320,7 @@ function handleMessage(msg) {
     if (!Array.isArray(msg.items) || msg.items.length === 0) return;
     const before = _sessionWraps.length;
     _sessionWraps = msg.items.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
+    lsSet('dtp_sw', _sessionWraps.slice(0, 80));
     console.log(`[WS] sw_update: ${_sessionWraps.length} wraps (${_sessionWraps.length - before > 0 ? '+' : ''}${_sessionWraps.length - before})`);
     _notifyNewReports(_sessionWraps, 'analyst');   // notif des NOUVEAUX rapports Analyst (nom standardisé)
     // Rafraîchir l'onglet Analyst s'il est visible
@@ -300,6 +334,7 @@ function handleMessage(msg) {
     if (!Array.isArray(msg.items) || msg.items.length === 0) return;
     const before = _brArticles ? _brArticles.length : 0;
     _brArticles = msg.items;
+    lsSet('dtp_br', _brArticles.slice(0, 60));
     console.log(`[WS] br_update: ${_brArticles.length} articles (${_brArticles.length - before > 0 ? '+' : ''}${_brArticles.length - before})`);
     _notifyNewReports(_brArticles, 'institution');   // notif des NOUVEAUX rapports Institution (nom propre)
     // Rafraîchir l'onglet Institution s'il est visible
@@ -505,6 +540,7 @@ function _groupSpeakerQuotes(items) {
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
   itemCountEl.textContent = `${filtered.length} items`;
+  if (allItems.length) lsSet('dtp_news', allItems.slice(0, 150));   // persiste pour un affichage instantané au revisite
 
   if (filtered.length === 0) {
     if (!_wsInitReceived) return; // keep spinner until server acknowledges
