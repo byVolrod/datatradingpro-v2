@@ -3629,8 +3629,8 @@ function _wrRenderBody(item) {
     const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
     html += `<div class="wr-section-title">${_wrCurrency} Analysis</div>`;
     html += `<div class="wr-text">${_wrParas(analysis || 'Analyse indisponible.')}</div>`;
-    // Courbe de force ISOLÉE sur cette devise (TW) — les autres masquées
-    html += `<div class="wr-section-title">Currency Strength · ${_wrCurrency} (This Week)</div>`;
+    // Graphique de force COMPLET (toutes devises + badges, TW) — comme l'onglet STRENGTH
+    html += `<div class="wr-section-title">Currency Strength (This Week)</div>`;
     html += `<div class="wr-chart" id="wr-strength-chart"></div>`;
     // Drivers (sous-sections) de la devise
     if (drivers.length) {
@@ -3641,7 +3641,7 @@ function _wrRenderBody(item) {
       });
     }
     body.innerHTML = html;
-    if (typeof buildIsolatedStrength === 'function') buildIsolatedStrength('wr-strength-chart', _wrCurrency, 'week');
+    if (typeof buildIsolatedStrength === 'function') buildIsolatedStrength('wr-strength-chart', null, 'week');
     return;
   }
   {
@@ -3654,10 +3654,10 @@ function _wrRenderBody(item) {
       });
     }
     html += `<div class="wr-section-title">Currency Analysis</div>`;
-    html += `<div class="wr-hint">Sélectionnez une devise ci-dessus pour son analyse + sa courbe de force isolée.</div>`;
+    html += `<div class="wr-hint">Sélectionnez une devise ci-dessus pour son analyse détaillée et ses drivers.</div>`;
   }
-  // Graphique de force (isolé sur la devise active, ou vue complète sinon)
-  html += `<div class="wr-section-title">Currency Strength${_wrCurrency ? ' · '+_wrCurrency : ''}</div>`;
+  // Graphique de force COMPLET (toutes devises + badges, TW)
+  html += `<div class="wr-section-title">Currency Strength (This Week)</div>`;
   html += `<div class="wr-chart" id="wr-strength-chart"></div>`;
   body.innerHTML = html;
 
