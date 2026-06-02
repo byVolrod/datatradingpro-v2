@@ -2248,6 +2248,10 @@ async function generateWeeklyRecapAI(force = false) {
   const weekKey    = `${fri.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
   const weekPrefix = idPrefix + weekKey;
   const weekEnding = `${String(fri.getUTCDate()).padStart(2,'0')}.${String(fri.getUTCMonth()+1).padStart(2,'0')}.${fri.getUTCFullYear()}`;
+  // Le Weekly Recap est PUBLIÉ le SAMEDI (lendemain du vendredi couvert) → on le DATE au samedi
+  // (peu importe le jour réel de génération : une régénération en milieu de semaine reste datée du samedi).
+  const sat = new Date(fri); sat.setUTCDate(fri.getUTCDate() + 1); sat.setUTCHours(6, 0, 0, 0);
+  const satTs = sat.getTime();
   // Plage de la semaine en français : "Semaine du 25 au 29 mai 2026" (lundi → vendredi)
   const _MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   const mon = new Date(fri); mon.setUTCDate(fri.getUTCDate() - 4);   // lundi de la semaine couverte
@@ -2460,7 +2464,7 @@ ${corpus}`;
     id: weekPrefix + '-' + now,
     headline: `${weekly.title} Week Ending: ${weekEnding}`,   // carte liste = format référence (titre + Week Ending)
     description: descParts.filter(Boolean).join('\n'),
-    category: 'Market Analysis', source: 'PMT', time: timeStr, timestamp: now,
+    category: 'Market Analysis', source: 'PMT', time: timeStr, timestamp: satTs,   // daté au SAMEDI
     priority: 'normal', tags: ['Weekly Recap', 'Markets', 'FX'],
     _briefing: true, _reportType: 'Weekly Market Recap', _weekly: weekly,
   };
