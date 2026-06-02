@@ -3876,7 +3876,6 @@ function renderArlibReader(item) {
       // Premier bullet = ligne méta (date/heure du rapport)
       html += `
         <div class="arlib-doc-header">
-          <div class="arlib-doc-type">DataTradingPro · Daily Report</div>
           <div class="arlib-doc-title">${arlibCleanTitle(item.headline)}</div>
           <div class="arlib-doc-meta">${dateStr} · ${bullets[0]}</div>
         </div>`;
