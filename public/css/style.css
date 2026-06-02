@@ -3881,6 +3881,10 @@ html, body {
 /* Texte courant aéré */
 .wr-text .wr-p, .wr-summary .wr-p { color:#c9d1d9; font-size:13px; font-weight:400; line-height:1.7; margin:0 0 14px; }
 .wr-summary .wr-p { color:#d6dde6; }
+/* Sections devises (rapport séquentiel, une devise après l'autre) */
+.wr-ccy-block { margin-top:22px; padding-top:18px; border-top:1px solid #232329; }
+.wr-ccy-block:first-of-type { border-top:none; }
+.wr-ccy-title { font-size:22px; font-weight:800; letter-spacing:.5px; margin:0 0 12px; }
 .wr-macro-heading { color:#e5e9ef; font-size:13.5px; font-weight:600; margin:16px 0 8px; }
 .wr-bullet { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0 0 10px; padding-left:14px; position:relative; }
 .wr-bullet::before { content:"•"; color:#ff7a00; position:absolute; left:0; }
