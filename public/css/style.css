@@ -3842,6 +3842,11 @@ html, body {
   background: #161619;
 }
 
+/* Carte Weekly Recap dans la liste Analyst : même style "news importante" (bordeaux + hover rouge) */
+.arlib-card.arlib-card--weekly { background: #241415; border-left: 2px solid rgba(127,29,29,0.45); }
+.arlib-card.arlib-card--weekly:hover { background: #271517; }
+.arlib-card.arlib-card--weekly .arlib-card-title { color: #fff; font-weight: 600; }
+
 /* ═══════════ WEEKLY MARKET RECAP (copie Prime Terminal) ═══════════ */
 .wr-weekending { color:#ff7a00; font-style:italic; font-weight:600; font-size:13px; margin-left:6px; }
 /* Badges de devises (sélecteur sous le titre) */
