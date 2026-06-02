@@ -1239,12 +1239,11 @@
 <div class="sqwk-overlay" id="sqwk-overlay" onclick="sqwkClose()"></div>
 <div class="sqwk-panel" id="sqwk-panel">
   <div class="sqwk-header">
-    <button class="sqwk-play" id="sqwk-play" onclick="sqwkToggleAuto()" title="Démarrer / Arrêter le flux">▶</button>
+    <button class="sqwk-play" id="sqwk-play" onclick="sqwkToggleLive()" title="Activer le squawk audio (voix)">▶</button>
     <div class="sqwk-head-text">
       <div class="sqwk-title">Squawk de marché en direct</div>
       <div class="sqwk-status" id="sqwk-status"><span class="sqwk-dot"></span> Disconnected</div>
     </div>
-    <button class="sqwk-audio" id="sqwk-audio" onclick="sqwkToggleAudio()" title="Voix (synthèse vocale)">🔊</button>
     <div class="sqwk-auto">
       <span class="sqwk-auto-lbl">Connexion automatique</span>
       <div class="sqwk-toggle" id="sqwk-toggle" onclick="sqwkToggleAuto()"><span class="sqwk-toggle-state" id="sqwk-toggle-state">OFF</span></div>
@@ -1263,10 +1262,11 @@
 <div class="chat-overlay" id="chat-overlay" onclick="chatClose()"></div>
 <div class="chat-panel" id="chat-panel">
   <div class="chat-header">
+    <button class="chat-back hidden" id="chat-back" onclick="_chatBackToInbox()" title="Retour à la boîte de réception">‹</button>
     <div class="chat-support-av">DTP</div>
     <div class="chat-head-text">
-      <div class="chat-head-name">Support DataTradingPro</div>
-      <div class="chat-head-sub">Répond généralement en quelques minutes</div>
+      <div class="chat-head-name" id="chat-head-name">Support DataTradingPro</div>
+      <div class="chat-head-sub" id="chat-head-sub">Répond généralement en quelques minutes</div>
     </div>
     <button class="chat-close" onclick="chatClose()">×</button>
   </div>
