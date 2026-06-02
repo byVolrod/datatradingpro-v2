@@ -901,8 +901,12 @@ async function buildStrengthCharts() {
     });
 
     load(initialPeriod, { force: true });
-    // Rafraîchissement rapide et fluide (20s) — mise à jour en place
-    _strengthTimers.push(setInterval(() => load(activePeriod, { silent: true }), 20_000));
+    // Rafraîchissement rapide et fluide (20s) — uniquement quand l'onglet STRENGTH est visible
+    _strengthTimers.push(setInterval(() => {
+      const panel = document.getElementById('rtab-strength');
+      if (!panel || !panel.classList.contains('active')) { _strengthTimers.forEach(t => clearInterval(t)); _strengthTimers = []; return; }
+      load(activePeriod, { silent: true });
+    }, 20_000));
   }
 
   makePane('L', 'today');  // gauche → TD (intraday)
@@ -1253,7 +1257,11 @@ function buildMeterChart() {
   }
 
   loadAndRender();
-  _meterTimer = setInterval(loadAndRender, 15 * 1000);   // temps réel : MAJ toutes les 15 s
+  _meterTimer = setInterval(() => {
+    const panel = document.getElementById('rtab-meter');
+    if (!panel || !panel.classList.contains('active')) { clearInterval(_meterTimer); _meterTimer = null; return; }
+    loadAndRender();                                      // ne poll que si l'onglet METER est visible
+  }, 15 * 1000);   // temps réel : MAJ toutes les 15 s
 }
 
 // ═══════════════════════════════════════════════
@@ -1723,16 +1731,19 @@ function buildSessionMap() {
 const chartInited = { world: false, risk: false, strength: false, meter: false, cot: false };
 
 function initRightTab(tab) {
-  // DMX and COT always rebuild on tab activation so data stays fresh
-  if (tab === 'dmx') { buildDMXChart(); return; }
-  if (tab === 'cot') { buildCOTChart(); return; }
+  // Onglets à polling : on (re)construit à CHAQUE activation → seul l'onglet visible poll
+  // (le timer se relance ici et s'auto-coupe quand l'onglet n'est plus actif). Évite le
+  // gaspillage réseau/serveur des onglets en arrière-plan.
+  if (tab === 'dmx')      { buildDMXChart();      return; }
+  if (tab === 'cot')      { buildCOTChart();      return; }
+  if (tab === 'meter')    { buildMeterChart();    return; }   // rebuild léger (briques HTML)
+  if (tab === 'strength') { buildStrengthCharts(); return; }  // dispose + rebuild amCharts
+  // Onglets statiques (carte, jauge risque) : construits une seule fois
   if (chartInited[tab]) return;
   chartInited[tab] = true;
   switch (tab) {
     case 'world':    buildSessionMap();     break;
     case 'risk':     buildRiskGauge();      break;
-    case 'strength': buildStrengthCharts(); break;
-    case 'meter':    buildMeterChart();     break;
   }
 }
 
