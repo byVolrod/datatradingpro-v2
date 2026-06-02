@@ -189,7 +189,9 @@ async function chatInsert({ user_id, sender, text }) {
     if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
   }
   const m = { id: 'c' + Date.now() + '-' + Math.floor(Math.random() * 1e4), ...row };
-  _chatFile.push(m); _chatSaveFile();
+  _chatFile.push(m);
+  if (_chatFile.length > 5000) _chatFile = _chatFile.slice(-5000);   // cap mémoire/fichier (fallback)
+  _chatSaveFile();
   return m;
 }
 

@@ -2819,7 +2819,7 @@ function mergeItems(incoming) {
   allNews = [...capped, ...allNews]
     .filter(i => i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 2000);
+    .slice(0, 1000);   // cap mémoire (512 Mo) : 1000 items suffisent largement pour le terminal
   saveHistory();
   return capped.length;
 }
