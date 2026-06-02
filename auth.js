@@ -297,6 +297,7 @@ module.exports = {
   emailLogAdd,
   aiCacheGet,
   aiCacheSet,
+  aiCachePrune,
 };
 
 // ═══════════════════ PERSISTANCE RAPPORTS HEBDO (Weekly Recap) ═══════════════════
@@ -452,4 +453,14 @@ async function aiCacheSet(key, value) {
   }
   _aiCacheFile[String(key)] = value;
   _aiCacheSaveFile();
+}
+// Purge des entrées plus vieilles que maxAgeMs (rétention "max 1 mois").
+async function aiCachePrune(maxAgeMs) {
+  await _aiCacheEnsureDb();
+  if (!_aiCacheDb) return;   // mode fichier : pas d'horodatage par clé, fichier déjà petit/éphémère
+  const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
+  try {
+    const { error } = await supabase.from(AICACHE_TABLE).delete().lt('created_at', cutoff);
+    if (!error) console.log('[AICache] purge des entrées > rétention effectuée');
+  } catch {}
 }

@@ -274,6 +274,7 @@ function handleMessage(msg) {
     const before = _sessionWraps.length;
     _sessionWraps = msg.items.map(i => Object.assign({}, i, { headline: i.headline || i.title }));
     console.log(`[WS] sw_update: ${_sessionWraps.length} wraps (${_sessionWraps.length - before > 0 ? '+' : ''}${_sessionWraps.length - before})`);
+    _notifyNewReports(_sessionWraps, 'analyst');   // notif des NOUVEAUX rapports Analyst (nom standardisé)
     // Rafraîchir l'onglet Analyst s'il est visible
     const analystPanel = document.getElementById('view-analyst');
     if (analystPanel && !analystPanel.classList.contains('hidden')) {
@@ -286,6 +287,7 @@ function handleMessage(msg) {
     const before = _brArticles ? _brArticles.length : 0;
     _brArticles = msg.items;
     console.log(`[WS] br_update: ${_brArticles.length} articles (${_brArticles.length - before > 0 ? '+' : ''}${_brArticles.length - before})`);
+    _notifyNewReports(_brArticles, 'institution');   // notif des NOUVEAUX rapports Institution (nom propre)
     // Rafraîchir l'onglet Institution s'il est visible
     const instPanel = document.getElementById('view-institution');
     if (instPanel && !instPanel.classList.contains('hidden')) {
@@ -4154,9 +4156,10 @@ let _npCatFilters = {};
 try { _npCatFilters = JSON.parse(localStorage.getItem('np_cat_filters') || '{}'); } catch {}
 function _npCatOn(key) { return _npCatFilters[key] !== false; }
 function _npItemCat(item) {
+  if (item._reportNotif === 'analyst' || item._source === 'investinglive') return 'analyst';
   if (item._briefing || item.source === 'PMT') return 'analyst';
   const c = (item.category || '').toLowerCase();
-  if (item._source === 'ing-think' || /research|institution/.test(c)) return 'research';
+  if (item._reportNotif === 'institution' || item._source === 'ing-think' || /research|institution/.test(c)) return 'research';
   if (/geopolit|risk|energy|sanction|war/.test(c)) return 'risk';
   if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return 'calendar';
   return 'ticker';
@@ -4164,6 +4167,8 @@ function _npItemCat(item) {
 
 // Origine d'une notif (badge) : Squawk / Calendrier / Analyse / News
 function _npOrigin(item) {
+  if (item._reportNotif === 'institution' || item._source === 'ing-think') return { label: 'Institution', cls: 'analyst' };
+  if (item._reportNotif === 'analyst' || item._source === 'investinglive') return { label: 'Analyst', cls: 'analyst' };
   if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return { label: 'Squawk', cls: 'squawk' };
   if (item._briefing || item.source === 'PMT') return { label: 'Analyse', cls: 'analyst' };
   const c = (item.category || '').toLowerCase();
@@ -4354,6 +4359,32 @@ function npPush(items) {
   return newOnes;
 }
 
+// ── Notifications de NOUVEAUX RAPPORTS (Analyst = session wraps ; Institution = recherche) ──
+// Nom STANDARDISÉ (nomenclature de session) + garde anti-spam : au 1er chargement on
+// enregistre les IDs existants SANS notifier ; ensuite seul un rapport réellement nouveau
+// (et récent < 36 h) déclenche une notification.
+const _reportNotifSeen = { analyst: new Set(), institution: new Set() };
+const _reportNotifInit = { analyst: false, institution: false };
+function _notifyNewReports(items, kind) {
+  if (!Array.isArray(items) || !items.length) return;
+  const seen = _reportNotifSeen[kind];
+  if (!_reportNotifInit[kind]) {                       // 1er passage : on mémorise, on ne notifie pas
+    items.forEach(i => { if (i && i.id) seen.add(i.id); });
+    _reportNotifInit[kind] = true;
+    return;
+  }
+  const fresh = items.filter(i => i && i.id && !seen.has(i.id)
+    && i.timestamp && (Date.now() - i.timestamp) < 36 * 3600 * 1000);
+  if (!fresh.length) return;
+  fresh.forEach(i => seen.add(i.id));
+  const notifs = fresh.slice(0, 6).map(i => ({
+    ...i,
+    headline: standardizeReportTitle({ ...i, headline: i.headline || i.title }),
+    _reportNotif: kind,
+  }));
+  npPush(notifs);
+}
+
 // ── Render list ───────────────────────────────────────────────
 function _npRenderList() {
   const list  = _npEl('np-list');
@@ -4362,7 +4393,7 @@ function _npRenderList() {
 
   const filtered = _npItems.filter(item => {
     if (!_npCatOn(_npItemCat(item))) return false;   // filtre par catégorie (panneau Filtre)
-    if (_npFilter === 'analyst')  return item._briefing || item.source === 'PMT';
+    if (_npFilter === 'analyst')  return item._briefing || item.source === 'PMT' || !!item._reportNotif || item._source === 'investinglive' || item._source === 'ing-think';
     if (_npFilter === 'risk')     return /geopolit|risk|energy|sanction/i.test(item.category || '');
     if (_npFilter === 'breaking') return item.priority === 'high' || item.urgent;
     return true; // 'all'
