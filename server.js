@@ -36,9 +36,31 @@ const wss    = new WebSocket.Server({ server });
 if (process.env.NODE_ENV === 'production') app.set('trust proxy', 1);
 
 // ─── Sécurité HTTP ────────────────────────────────────────────────────────────
-// Helmet : headers de sécurité (XSS, clickjacking, MIME sniffing…)
-// contentSecurityPolicy désactivé car le frontend charge des CDN (TradingView, etc.)
-app.use(helmet({ contentSecurityPolicy: false, crossOriginEmbedderPolicy: false }));
+// Helmet : headers de sécurité (XSS, clickjacking, MIME sniffing, HSTS…).
+// CSP : activée EN PRODUCTION seulement (dev local en http non impacté). Volontairement
+// permissive (CDN https + inline/eval requis par amCharts/TradingView) pour ne rien casser,
+// tout en apportant les protections clés : anti-clickjacking (frame-ancestors), blocage des
+// plugins (object-src), anti-injection <base>, et passage forcé en https.
+const _CSP_DIRECTIVES = {
+  defaultSrc:      ["'self'"],
+  scriptSrc:       ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https:'],
+  styleSrc:        ["'self'", "'unsafe-inline'", 'https:'],
+  imgSrc:          ["'self'", 'data:', 'blob:', 'https:'],
+  fontSrc:         ["'self'", 'data:', 'https:'],
+  connectSrc:      ["'self'", 'https:', 'wss:', 'ws:'],
+  frameSrc:        ["'self'", 'https:'],
+  workerSrc:       ["'self'", 'blob:'],
+  objectSrc:       ["'none'"],
+  baseUri:         ["'self'"],
+  frameAncestors:  ["'self'"],
+  upgradeInsecureRequests: [],
+};
+app.use(helmet({
+  contentSecurityPolicy: process.env.NODE_ENV === 'production'
+    ? { useDefaults: false, directives: _CSP_DIRECTIVES }
+    : false,
+  crossOriginEmbedderPolicy: false,
+}));
 
 // CORS : n'autoriser que le domaine de production + localhost en dev
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '')
