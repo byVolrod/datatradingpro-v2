@@ -720,6 +720,7 @@ async function _fetchSessionWraps(full = false) {
     .sort((a, b) => b.timestamp - a.timestamp);
 
   try { fs.writeFileSync(SW_CACHE_FILE, JSON.stringify(_swCache)); } catch {}
+  _persistHistory('session_wraps', _swCache);   // persistance durable (Supabase, rétention 1 mois)
   console.log(`[SessionWraps] ${_swCache.length} wraps (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
 }
 
@@ -1172,7 +1173,43 @@ async function _fetchBankResearch(full = false) {
     .sort((a, b) => b.timestamp - a.timestamp);
 
   try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
+  _persistHistory('bank_research', _brCache);   // persistance durable (Supabase, rétention 1 mois)
   console.log(`[BankResearch] ${_brCache.length} articles (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
+}
+
+// ═══ Persistance DURABLE des historiques scrappés (Supabase, rétention ~1 mois) ═══
+// But : après un redémarrage Render (disque éphémère), RECHARGER les session wraps et
+// la recherche institution depuis la BDD au lieu de tout re-scraper / re-solliciter l'IA.
+// L'IA (segmentation, insights) reste en DERNIER RECOURS — ici on ne stocke que le scrap.
+const HISTORY_KEEP_MS = 31 * 24 * 60 * 60 * 1000;   // ~1 mois
+function _histPrune(arr) { const min = Date.now() - HISTORY_KEEP_MS; return (arr || []).filter(i => i && (i.timestamp || 0) >= min); }
+let _histSaveTimers = {};
+function _persistHistory(key, arr) {
+  // débattu (max 1 écriture / 5 s par clé) pour ne pas marteler la BDD
+  clearTimeout(_histSaveTimers[key]);
+  _histSaveTimers[key] = setTimeout(() => {
+    const cap = key === 'bank_research' ? 200 : 120;
+    auth.aiCacheSet('hist:' + key, _histPrune(arr).slice(0, cap)).catch(() => {});
+  }, 5000);
+  if (_histSaveTimers[key].unref) _histSaveTimers[key].unref();
+}
+async function _loadPersistedHistories() {
+  try {
+    const sw = await auth.aiCacheGet('hist:session_wraps');
+    if (Array.isArray(sw) && sw.length) {
+      const have = new Set(_swCache.map(i => i.id));
+      const add  = _histPrune(sw).filter(i => i && i.id && !have.has(i.id));
+      if (add.length) { _swCache = [..._swCache, ...add].sort((a, b) => b.timestamp - a.timestamp); console.log(`[History] ${add.length} session wrap(s) rechargé(s) depuis la BDD (0 scrape)`); }
+    }
+  } catch (e) { console.warn('[History] reload wraps:', e.message); }
+  try {
+    const br = await auth.aiCacheGet('hist:bank_research');
+    if (Array.isArray(br) && br.length) {
+      const have = new Set(_brCache.map(i => i.id));
+      const add  = _histPrune(br).filter(i => i && i.id && !have.has(i.id));
+      if (add.length) { _brCache = [..._brCache, ...add].sort((a, b) => b.timestamp - a.timestamp); console.log(`[History] ${add.length} article(s) institution rechargé(s) depuis la BDD (0 scrape)`); }
+    }
+  } catch (e) { console.warn('[History] reload research:', e.message); }
 }
 
 app.get('/api/bank-research', (_req, res) => {
@@ -3894,9 +3931,15 @@ server.listen(PORT, async () => {
   console.log(`║   Admin panel : /admin                  ║`);
   console.log(`╚════════════════════════════════════════╝\n`);
   _swLoadFile();
-  _fetchSessionWraps(true).catch(() => {});
   _brLoadFile();
+  // Recharge l'historique persisté (Supabase, ~1 mois) AVANT de scraper → l'onglet Analyst
+  // a déjà du contenu même à froid (disque Render éphémère), puis le scrape rafraîchit.
+  await _loadPersistedHistories();
+  _fetchSessionWraps(true).catch(() => {});
   _fetchBankResearch(true).catch(() => {});
+  // Rétention "max 1 mois" : purge du cache BDD (historiques + résultats IA) au démarrage puis chaque jour.
+  auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {});
+  setInterval(() => auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {}), 24 * 60 * 60 * 1000);
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
