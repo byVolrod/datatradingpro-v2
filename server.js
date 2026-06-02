@@ -695,14 +695,32 @@ app.get('/api/session-wraps', (_req, res) => {
 });
 
 // Rapports HEBDOMADAIRES (Weekly Market Recap + Global Economic Weekly) — servis directement
-// depuis allNews quel que soit leur âge (l'onglet Analyst les charge ainsi, sans dépendre du flux WS).
+// depuis allNews quel que soit leur âge. Si le recap de la semaine écoulée manque, il est
+// généré automatiquement en tâche de fond (verrou anti-spam) à la 1re ouverture de l'onglet Analyst.
+let _weeklyGenLock = 0;
 app.get('/api/weekly-reports', (_req, res) => {
   const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
   const items = allNews.filter(i =>
     (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly') &&
     i.timestamp > cutoff
   ).sort((a, b) => b.timestamp - a.timestamp);
-  res.json({ items });
+
+  // La semaine couverte = celle se terminant le vendredi écoulé
+  const fri  = _mostRecentFriday();
+  const jan1 = new Date(fri.getUTCFullYear(), 0, 1);
+  const wk   = Math.ceil(((fri - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  const weekPrefix = `pmt-mkt-recap-${fri.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+  const have = items.some(i => (i.id || '').startsWith(weekPrefix));
+
+  let generating = false;
+  if (!have) {
+    generating = true;
+    if (Date.now() - _weeklyGenLock > 15 * 60 * 1000) {   // 1 tentative / 15 min max
+      _weeklyGenLock = Date.now();
+      generateWeeklyMarketRecap(false).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
+    }
+  }
+  res.json({ items, generating });
 });
 
 // ── Puppeteer browser partagé pour InvestingLive (SPA Vue/Nuxt) ─────────────
@@ -2086,11 +2104,15 @@ function _mostRecentFriday() {
 async function generateWeeklyRecapAI(force = false) {
   const idPrefix = 'pmt-mkt-recap-';
   const now  = Date.now();
-  const d    = new Date(now);
-  const jan1 = new Date(d.getFullYear(), 0, 1);
-  const wk   = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
-  const weekKey    = `${d.getFullYear()}-W${String(wk).padStart(2, '0')}`;
+  // On clé le recap sur la SEMAINE COUVERTE (celle se terminant le vendredi écoulé),
+  // pas sur le jour de génération → une génération en milieu de semaine (pour voir la semaine
+  // dernière) n'empêche pas la génération du samedi pour la semaine en cours.
+  const fri  = _mostRecentFriday();
+  const jan1 = new Date(fri.getUTCFullYear(), 0, 1);
+  const wk   = Math.ceil(((fri - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+  const weekKey    = `${fri.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
   const weekPrefix = idPrefix + weekKey;
+  const weekEnding = `${String(fri.getUTCDate()).padStart(2,'0')}.${String(fri.getUTCMonth()+1).padStart(2,'0')}.${fri.getUTCFullYear()}`;
 
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix))) {
     console.log(`[Weekly Recap] déjà généré pour ${weekKey}, skip.`);
@@ -2098,22 +2120,35 @@ async function generateWeeklyRecapAI(force = false) {
   }
   if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(weekPrefix));
 
-  // Compile l'historique des 7 derniers jours (Mon-Fri de news macro + analyses)
   const cutoff = now - 7 * 24 * 60 * 60 * 1000;
-  const heads  = allNews
+  // 1) SESSION WRAPS de la semaine (titres = synthèses de session, très riches)
+  const wraps = (_swCache || [])
+    .filter(i => i.timestamp > cutoff)
+    .map(i => `[${i.session || 'Wrap'}] ${i.title}${i.description ? ' — ' + i.description : ''}`);
+  // 2) RÉSULTATS du calendrier économique (Actual vs Forecast vs Previous)
+  const cal = (allCalendar || [])
+    .filter(i => i.timestamp > cutoff && /actual/i.test(i.description || ''))
+    .map(i => `${i.country || i.currency || ''} ${i.title || i.headline || ''} — ${String(i.description).replace(/\s+/g, ' ').trim()}`);
+  // 3) Autres titres macro en complément
+  const news = allNews
     .filter(i => i.timestamp > cutoff && !i._briefing)
-    .slice(0, 220)
-    .map(i => `[${i.category || ''}] ${i.headline}`)
-    .join('\n');
-  if (!heads) { console.warn('[Weekly Recap] aucune news récente → fallback'); return null; }
+    .slice(0, 120)
+    .map(i => `[${i.category || ''}] ${i.headline}`);
 
-  const fri = _mostRecentFriday();
-  const weekEnding = `${String(fri.getUTCDate()).padStart(2,'0')}.${String(fri.getUTCMonth()+1).padStart(2,'0')}.${fri.getUTCFullYear()}`;
+  if (!wraps.length && !cal.length && !news.length) {
+    console.warn('[Weekly Recap] aucune donnée de la semaine → fallback'); return null;
+  }
+  const corpus = [
+    '=== SESSION WRAPS (cette semaine) ===', ...wraps.slice(0, 60),
+    '', '=== RÉSULTATS DU CALENDRIER ÉCONOMIQUE (cette semaine) ===', ...cal.slice(0, 90),
+    '', '=== AUTRES TITRES MACRO ===', ...news,
+  ].join('\n');
+
   const CCY = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 
   const prompt = `You are a senior macro strategist writing the WEEKLY MARKET RECAP for a professional FX & markets desk. The trading week (Monday–Friday) just closed. Write in clear professional English.
 
-Using the past week's headlines below, produce the recap. Return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
+Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS below (these are the authoritative week-in-review sources), using the other headlines only as supporting context. Produce the recap and return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
 {
   "title": "Weekly Market Recap: <punchy headline capturing the week's main story>",
   "summary": "<2 to 4 sentence global overview of how markets traded this week>",
@@ -2128,8 +2163,8 @@ Using the past week's headlines below, produce the recap. Return ONLY valid JSON
 }
 Rules: 4 to 6 macro themes; 6 to 8 insight cards; EVERY currency in [${CCY.join(', ')}] must be present with substantive analysis. No source attributions, no URLs.
 
-Headlines (past 7 days):
-${heads}`;
+Week's data (session wraps + economic calendar results + headlines):
+${corpus}`;
 
   let parsed = null;
   try {

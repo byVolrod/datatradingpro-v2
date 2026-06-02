@@ -129,6 +129,20 @@ function _renderInfoBullets(bullets) {
 let _sessionWraps = [];
 let _brArticles  = [];
 let _weeklyReports = [];   // Weekly Market Recap + Global Economic Weekly (servis par /api/weekly-reports)
+let _weeklyGenerating = false;
+let _weeklyRetryCount = 0;
+function _scheduleWeeklyRetry() {
+  if (_weeklyRetryCount >= 5) return;   // ~5 tentatives (génération IA peut prendre ~20-40s)
+  _weeklyRetryCount++;
+  setTimeout(() => {
+    fetch('/api/weekly-reports').then(r => r.json()).then(d => {
+      if (Array.isArray(d.items)) _weeklyReports = d.items;
+      _weeklyGenerating = !!d.generating;
+      renderArlibList();
+      if (_weeklyGenerating) _scheduleWeeklyRetry();
+    }).catch(() => {});
+  }, 12000);
+}
 let _brSearch    = '';
 let _brInst      = 'all';
 let _brType      = 'all';
@@ -2769,8 +2783,11 @@ function loadAnalystView() {
     if (brResult.status === 'fulfilled' && Array.isArray(brResult.value)) {
       _brArticles = brResult.value;
     }
-    if (wkResult.status === 'fulfilled' && Array.isArray(wkResult.value?.items)) {
-      _weeklyReports = wkResult.value.items;
+    if (wkResult.status === 'fulfilled') {
+      if (Array.isArray(wkResult.value?.items)) _weeklyReports = wkResult.value.items;
+      _weeklyGenerating = !!wkResult.value?.generating;
+      // Si le serveur génère le recap en tâche de fond, on re-vérifie quelques fois
+      if (_weeklyGenerating) _scheduleWeeklyRetry();
     }
   }).finally(() => renderArlibList());
 }
@@ -3404,12 +3421,18 @@ function renderArlibList() {
     (i.headline || '').toLowerCase().includes(_arlibSearch) ||
     (i.description || '').toLowerCase().includes(_arlibSearch));
 
+  // Bandeau : génération du Weekly Recap en cours (tant qu'aucun recap n'est encore présent)
+  const _hasWeekly = items.some(i => i._reportType === 'Weekly Market Recap');
+  const _wkBanner = (_weeklyGenerating && !_hasWeekly)
+    ? '<div class="arlib-genbanner"><span class="arlib-genspin"></span>Génération du Weekly Recap en cours… (compilation des sessions + calendrier de la semaine)</div>'
+    : '';
+
   if (items.length === 0) {
-    list.innerHTML = '<div class="arlib-empty">No reports found.<br>Generate briefings or wait for the next scheduled run.</div>';
+    list.innerHTML = _wkBanner || '<div class="arlib-empty">No reports found.<br>Generate briefings or wait for the next scheduled run.</div>';
     return;
   }
 
-  list.innerHTML = '';
+  list.innerHTML = _wkBanner;
   for (const item of items) {
     const tags    = arlibItemTags(item);
     const shown   = tags.slice(0, 6);
