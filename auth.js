@@ -169,6 +169,77 @@ async function deleteUser(id) {
   if (error) throw new Error(error.message);
 }
 
+// ═══════════════════ CHAT SUPPORT (persistant) ═══════════════════
+// Table Supabase `chat_messages` ; fallback fichier local si la table n'existe pas encore.
+const fs = require('fs');
+const path = require('path');
+const CHAT_TABLE = 'chat_messages';
+const CHAT_FILE  = path.join(__dirname, 'cache_chat.json');
+let _chatDb = true;            // bascule sur fichier si la table manque
+let _chatFile = [];
+try { _chatFile = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8')) || []; } catch {}
+function _chatSaveFile() { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(_chatFile)); } catch {} }
+function _chatTableMissing(err) { return err && /chat_messages|schema cache|does not exist|relation/i.test(err.message); }
+
+async function chatInsert({ user_id, sender, text }) {
+  const row = { user_id: String(user_id), sender, text: String(text).slice(0, 2000), created_at: new Date().toISOString(), read: false };
+  if (_chatDb) {
+    const { data, error } = await supabase.from(CHAT_TABLE).insert([row]).select().single();
+    if (!error) return data;
+    if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
+  }
+  const m = { id: 'c' + Date.now() + '-' + Math.floor(Math.random() * 1e4), ...row };
+  _chatFile.push(m); _chatSaveFile();
+  return m;
+}
+
+async function chatList(userId) {
+  if (_chatDb) {
+    const { data, error } = await supabase.from(CHAT_TABLE).select('*').eq('user_id', String(userId)).order('created_at', { ascending: true });
+    if (!error) return data || [];
+    if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
+  }
+  return _chatFile.filter(m => m.user_id === String(userId)).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+}
+
+// Marque comme lus les messages reçus par `recipient` ('user' lit le support, 'support' lit l'user)
+async function chatMarkRead(userId, recipientReadsFrom) {
+  if (_chatDb) {
+    const { error } = await supabase.from(CHAT_TABLE).update({ read: true }).eq('user_id', String(userId)).eq('sender', recipientReadsFrom).eq('read', false);
+    if (!error) return;
+    if (_chatTableMissing(error)) _chatDb = false; else return;
+  }
+  _chatFile.forEach(m => { if (m.user_id === String(userId) && m.sender === recipientReadsFrom) m.read = true; });
+  _chatSaveFile();
+}
+
+// Nombre de messages non lus envoyés par `fromSender` à l'utilisateur
+async function chatUnread(userId, fromSender) {
+  if (_chatDb) {
+    const { count, error } = await supabase.from(CHAT_TABLE).select('id', { count: 'exact', head: true }).eq('user_id', String(userId)).eq('sender', fromSender).eq('read', false);
+    if (!error) return count || 0;
+    if (_chatTableMissing(error)) _chatDb = false; else return 0;
+  }
+  return _chatFile.filter(m => m.user_id === String(userId) && m.sender === fromSender && !m.read).length;
+}
+
+// Admin : liste des conversations (un thread par utilisateur ayant écrit)
+async function chatThreads() {
+  let rows = [];
+  if (_chatDb) {
+    const { data, error } = await supabase.from(CHAT_TABLE).select('*').order('created_at', { ascending: false });
+    if (!error) rows = data || [];
+    else if (_chatTableMissing(error)) _chatDb = false;
+  }
+  if (!_chatDb) rows = [..._chatFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const byUser = new Map();
+  for (const m of rows) {
+    if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: m.text, lastAt: m.created_at, unread: 0 });
+    if (m.sender === 'user' && !m.read) byUser.get(m.user_id).unread++;
+  }
+  return [...byUser.values()];
+}
+
 module.exports = {
   seedAdmin,
   verifyLogin,
@@ -178,4 +249,9 @@ module.exports = {
   changePassword,
   updateUser,
   deleteUser,
+  chatInsert,
+  chatList,
+  chatMarkRead,
+  chatUnread,
+  chatThreads,
 };

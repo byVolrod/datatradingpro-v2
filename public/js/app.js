@@ -4325,3 +4325,83 @@ function sqwkClose() {
 function sqwkToggle() {
   document.getElementById('sqwk-panel')?.classList.contains('open') ? sqwkClose() : sqwkOpen();
 }
+
+// ═══════════════════════════════════════════════════════════════
+// CHAT SUPPORT  (chat-) — conversation persistante avec le support
+// ═══════════════════════════════════════════════════════════════
+let _chatPollTimer = null;
+function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+function chatToggle(){ document.getElementById('chat-panel')?.classList.contains('open') ? chatClose() : chatOpen(); }
+function chatOpen(){
+  document.getElementById('chat-panel')?.classList.add('open');
+  document.getElementById('chat-overlay')?.classList.add('open');
+  document.getElementById('chat-btn')?.classList.add('topbar-icon--active');
+  _chatLoad();   // charge l'historique + marque les réponses lues
+}
+function chatClose(){
+  document.getElementById('chat-panel')?.classList.remove('open');
+  document.getElementById('chat-overlay')?.classList.remove('open');
+  document.getElementById('chat-btn')?.classList.remove('topbar-icon--active');
+}
+
+function _chatRender(messages){
+  const list = document.getElementById('chat-list'); if(!list) return;
+  if(!messages || !messages.length){
+    list.innerHTML = '<div class="chat-empty">Vous êtes connecté au support DataTradingPro.<br>Nos spécialistes sont prêts — comment pouvons-nous vous aider ?</div>';
+    return;
+  }
+  let html=''; let lastDate='';
+  messages.forEach(m=>{
+    const d = new Date(m.created_at);
+    const dateLabel = d.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+    if(dateLabel!==lastDate){ html+=`<div class="chat-date"><span>${dateLabel}</span></div>`; lastDate=dateLabel; }
+    const time = d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+    const mine = m.sender==='user';
+    html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}">`
+      + (mine?'':'<div class="chat-av">DTP</div>')
+      + `<div class="chat-bubble"><div class="chat-text">${_chatEsc(m.text)}</div>`
+      + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div></div>`;
+  });
+  list.innerHTML = html;
+  list.scrollTop = list.scrollHeight;
+}
+
+function _chatLoad(){
+  fetch('/api/chat').then(r=>r.json()).then(d=>{
+    _chatRender(d.messages||[]);
+    _chatSetBadge(0);   // ouvert → réponses lues
+  }).catch(()=>{ const l=document.getElementById('chat-list'); if(l) l.innerHTML='<div class="chat-empty">Chat indisponible pour le moment.</div>'; });
+}
+
+function chatSend(){
+  const inp = document.getElementById('chat-input');
+  const text = (inp?.value||'').trim();
+  if(!text) return;
+  inp.value=''; inp.style.height='auto';
+  fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
+    .then(r=>r.json()).then(()=>_chatLoad()).catch(()=>{});
+}
+
+function _chatSetBadge(n){
+  const b=document.getElementById('chat-badge');
+  if(!b) return;
+  if(n>0){ b.textContent=n>9?'9+':n; b.style.display=''; }
+  else   { b.style.display='none'; }
+}
+function _chatPollUnread(){
+  // si le chat est ouvert, c'est déjà lu → pas de badge
+  if(document.getElementById('chat-panel')?.classList.contains('open')) return;
+  fetch('/api/chat/unread').then(r=>r.json()).then(d=>_chatSetBadge(d.unread||0)).catch(()=>{});
+}
+
+// Entrée = envoyer, Maj+Entrée = nouvelle ligne ; auto-grow ; poll des réponses
+document.addEventListener('DOMContentLoaded', ()=>{
+  const inp = document.getElementById('chat-input');
+  if(inp){
+    inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); chatSend(); } });
+    inp.addEventListener('input', ()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,90)+'px'; });
+  }
+  _chatPollUnread();
+  _chatPollTimer = setInterval(_chatPollUnread, 20000);
+});

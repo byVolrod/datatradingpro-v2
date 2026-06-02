@@ -407,6 +407,60 @@ app.put('/api/auth/me/profile', async (req, res) => {
   }
 });
 
+// ═══════════════════ CHAT SUPPORT ═══════════════════
+// Côté utilisateur : sa conversation avec le support (persistée en BDD/fichier).
+app.get('/api/chat', async (req, res) => {
+  const uid = req.session?.userId;
+  if (!uid) return res.status(401).json({ error: 'Non autorisé' });
+  try {
+    const messages = await auth.chatList(uid);
+    await auth.chatMarkRead(uid, 'support');   // l'utilisateur a lu les réponses du support
+    res.json({ messages });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/chat', async (req, res) => {
+  const uid = req.session?.userId;
+  if (!uid) return res.status(401).json({ error: 'Non autorisé' });
+  const text = (req.body?.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Message vide' });
+  try {
+    const msg = await auth.chatInsert({ user_id: uid, sender: 'user', text });
+    res.json({ ok: true, message: msg });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Badge : nombre de réponses du support non lues
+app.get('/api/chat/unread', async (req, res) => {
+  const uid = req.session?.userId;
+  if (!uid) return res.json({ unread: 0 });
+  try { res.json({ unread: await auth.chatUnread(uid, 'support') }); }
+  catch { res.json({ unread: 0 }); }
+});
+
+// Côté admin : voir les conversations + répondre
+app.get('/api/admin/chat', requireAdmin, async (_req, res) => {
+  try {
+    const threads = await auth.chatThreads();
+    const users = await auth.getAllUsers();
+    const byId = new Map(users.map(u => [String(u.id), u]));
+    res.json({ threads: threads.map(t => ({ ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '' })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.get('/api/admin/chat/:userId', requireAdmin, async (req, res) => {
+  try {
+    const messages = await auth.chatList(req.params.userId);
+    await auth.chatMarkRead(req.params.userId, 'user');   // l'admin a lu les messages de l'utilisateur
+    res.json({ messages });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+app.post('/api/admin/chat/:userId', requireAdmin, async (req, res) => {
+  const text = (req.body?.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Message vide' });
+  try {
+    const msg = await auth.chatInsert({ user_id: req.params.userId, sender: 'support', text });
+    res.json({ ok: true, message: msg });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
 app.get('/api/news/history', (req, res) => {
   const before = parseInt(req.query.before) || Date.now();
