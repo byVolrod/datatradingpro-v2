@@ -221,9 +221,12 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Mot de passe oublié : génère un MDP temporaire et l'envoie par email.
 // Réponse toujours { ok:true } (ne révèle pas si l'email existe).
-app.post('/api/auth/forgot-password', async (req, res) => {
+app.post('/api/auth/forgot-password', (req, res) => {
   const email = (req.body?.email || '').toLowerCase().trim();
-  if (email) {
+  res.json({ ok: true });   // réponse IMMÉDIATE (UX instantanée + anti-énumération)
+  if (!email) return;
+  // Le travail (lookup + hash bcrypt + update DB + email) se fait en arrière-plan, après la réponse.
+  (async () => {
     try {
       const users = await auth.getAllUsers();
       const u = users.find(x => (x.email || '').toLowerCase() === email);
@@ -234,8 +237,7 @@ app.post('/api/auth/forgot-password', async (req, res) => {
         console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email}`);
       }
     } catch (e) { console.error('[Auth] forgot-password error:', e.message); }
-  }
-  res.json({ ok: true });
+  })();
 });
 
 app.get('/api/auth/me', async (req, res) => {
