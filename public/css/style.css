@@ -3863,6 +3863,10 @@ html, body {
 
 /* ═══════════ WEEKLY MARKET RECAP (copie Prime Terminal) ═══════════ */
 .wr-weekending { color:#ff7a00; font-style:italic; font-weight:600; font-size:13px; margin-left:6px; }
+/* Titre du rapport en haut du contenu (orange institutionnel PT) */
+.wr-doc-title { color:#ff7a00; font-size:15px; font-weight:600; line-height:1.375; margin:2px 0 2px; }
+.wr-doc-week  { color:#ff7a00; font-size:13px; font-style:italic; margin:0 0 16px; }
+@media (min-width:768px){ .wr-doc-title { font-size:16px; } }
 /* Badges de devises (sélecteur sous le titre) */
 .wr-ccy-badge {
   display:inline-flex; align-items:center; justify-content:center;

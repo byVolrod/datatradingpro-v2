@@ -3624,6 +3624,9 @@ function _renderWeeklyRecap(item) {
     </div>` : '';
 
   let body = '';
+  // Titre du rapport répété en haut du contenu (orange, comme Prime Terminal) + date de clôture
+  body += `<div class="wr-doc-title">${_wrEsc(w.title)}</div>`;
+  if (_range) body += `<div class="wr-doc-week">${_wrEsc(w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)}</div>`;
   if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
   if (w.macro && w.macro.length) {
     body += `<div class="wr-section-title">Key Macro Highlights</div>`;

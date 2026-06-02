@@ -2150,11 +2150,21 @@ async function generateWeeklyRecapAI(force = false) {
   const weekStart = _wStart.getTime();
   const inWeek = t => t >= weekStart && t <= weekEnd;
 
-  // 1) SESSION WRAPS de la semaine (synthèses de session — source primaire du recap)
-  const wraps = (_swCache || [])
-    .filter(i => inWeek(i.timestamp))
-    .map(i => `[${i.session || 'Wrap'}] ${i.title}${i.description ? ' — ' + i.description : ''}`);
-  const wrapsRaw     = (_swCache || []).filter(i => inWeek(i.timestamp));
+  // 1) SESSION WRAPS de la semaine (onglet Analyst) — source PRIMAIRE. On récupère leur CONTENU
+  //    (pas que les titres), du lundi matin au vendredi soir.
+  const wrapsRaw = (_swCache || []).filter(i => inWeek(i.timestamp)).sort((a, b) => b.timestamp - a.timestamp); // récent → ancien
+  const _wrapDetails = await Promise.allSettled(wrapsRaw.slice(0, 10).map(async w => {
+    let pts = (w.content && w.content.length > 100) ? _extractWrapPoints(_cleanWrapHtml(w.content)) : null;
+    if ((!pts || pts.length < 3) && w.url) { try { const d = await _fetchILContentHttp(w.url); pts = d.points; } catch {} }
+    return { w, pts: (pts || []).filter(p => !_RECAP_NOISE.test(p)).slice(0, 18) };
+  }));
+  const wrapDetailed = _wrapDetails.filter(r => r.status === 'fulfilled').map(r => r.value);
+  // Corpus wraps détaillé : [Session] Titre — point1 · point2 · …
+  const wraps = wrapDetailed.map(({ w, pts }) =>
+    `[${w.session || 'Wrap'}] ${w.title}${pts.length ? ' — ' + pts.join(' · ') : (w.description ? ' — ' + w.description : '')}`);
+  // Message de CLÔTURE de la semaine (wrap le plus récent = vendredi soir) → base du titre
+  const closing = wrapDetailed[0];
+  const closingMsg = closing ? `[${closing.w.session || 'Wrap'}] ${closing.w.title}${closing.pts.length ? '. ' + closing.pts.slice(0, 4).join('. ') : ''}` : '';
   const weekItemsRaw = _recapClean(allNews.filter(i => inWeek(i.timestamp) && !i._briefing));
   // 2) RÉSULTATS du calendrier économique de la semaine — sources COMBINÉES :
   //    a) données publiées présentes dans allNews (Actual ou catégorie *Data*) — fiable pour la semaine écoulée,
@@ -2174,9 +2184,10 @@ async function generateWeeklyRecapAI(force = false) {
     console.warn('[Weekly Recap] aucune donnée de la semaine → pas de génération'); return null;
   }
   const corpus = [
-    '=== SESSION WRAPS (cette semaine) ===', ...wraps.slice(0, 60),
-    '', '=== RÉSULTATS DU CALENDRIER ÉCONOMIQUE (cette semaine) ===', ...cal.slice(0, 90),
-    '', '=== AUTRES TITRES MACRO ===', ...news,
+    '=== CLOSING MESSAGE OF THE WEEK (latest Friday wrap — base the TITLE on this) ===', closingMsg || '(none)',
+    '', '=== SESSION WRAPS (this week, Monday→Friday) ===', ...wraps.slice(0, 60),
+    '', '=== ECONOMIC CALENDAR RESULTS (this week) ===', ...cal.slice(0, 90),
+    '', '=== OTHER MACRO HEADLINES ===', ...news,
   ].join('\n');
 
   const CCY = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
@@ -2187,7 +2198,7 @@ Quality bar: cite concrete drivers (central bank names and officials, specific d
 
 Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS below (these are the authoritative week-in-review sources), using the other headlines only as supporting context. Produce the recap and return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
 {
-  "title": "Weekly Market Recap: <punchy headline capturing the week's main story>",
+  "title": "Weekly Market Recap: <punchy headline — DERIVE it from the CLOSING MESSAGE OF THE WEEK (its first key sentence), e.g. 'Markets End Higher as ...'>",
   "summary": "<2 to 4 sentence global overview of how markets traded this week>",
   "insights": ["<concise standalone insight, 1 sentence>", "... 4 to 6 thematic insight cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<one concise sentence: why this directional bias for the week>" } ],
