@@ -3542,7 +3542,9 @@ const _csCache = {};
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
   today: { interval: '5m',  range: '1d',  cutoffMs: null,          cutoffToday: true, clip:  5  },
-  week:  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
+  // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
+  // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
+  week:  { interval: '1h',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
   '8h':  { interval: '5m',  range: '1d',  cutoffMs:  8 * 3600000,                    clip:  3  },
   '1d':  { interval: '30m', range: '5d',  cutoffMs: 24 * 3600000,                    clip:  5  },
   '5d':  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
@@ -3570,13 +3572,21 @@ async function computeCurrencyStrength(period) {
   const ttl = 2 * 60 * 1000;
   if (_csCache[period] && Date.now() - _csCache[period].ts < ttl) return _csCache[period].data;
 
-  const { interval, range, cutoffMs, cutoffToday, clip } = cfg;
+  const { interval, range, cutoffMs, cutoffToday, cutoffWeek, clip } = cfg;
 
   // "today" anchors the reference at midnight UTC — the professional FX day start
   let cutoffSec = null;
   if (cutoffToday) {
     const midnight = new Date(); midnight.setUTCHours(0, 0, 0, 0);
     cutoffSec = Math.floor(midnight.getTime() / 1000);
+  } else if (cutoffWeek) {
+    // Lundi 00:00 UTC de la semaine en cours (vraie "this week")
+    const monday = new Date();
+    const dow    = monday.getUTCDay();              // 0=dim, 1=lun, … 6=sam
+    const back   = (dow === 0 ? 6 : dow - 1);       // jours écoulés depuis lundi
+    monday.setUTCDate(monday.getUTCDate() - back);
+    monday.setUTCHours(0, 0, 0, 0);
+    cutoffSec = Math.floor(monday.getTime() / 1000);
   } else if (cutoffMs) {
     cutoffSec = Math.floor((Date.now() - cutoffMs) / 1000);
   }
