@@ -1750,7 +1750,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
   function _setDocTitle(_view) {
-    try { document.title = 'DataTradingPro' + (window._dtpUser ? ' - ' + window._dtpUser : ''); } catch {}
+    try { document.title = 'DTP' + (window._dtpUser ? ' - ' + window._dtpUser : ''); } catch {}
   }
 
   function activateView(view, { persist = true } = {}) {
