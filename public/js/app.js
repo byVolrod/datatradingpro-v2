@@ -155,8 +155,8 @@ const notifBadge  = document.getElementById('notif-badge');
 // Affiche le badge de notif avec le compte, ou le CACHE complètement si 0
 function _setNotifBadge(n) {
   if (!notifBadge) return;
-  if (n > 0) { notifBadge.textContent = n > 99 ? '99+' : n; notifBadge.style.display = ''; }
-  else       { notifBadge.style.display = 'none'; }
+  // Pastille rouge simple : visible s'il y a des notifs non lues, cachée sinon (pas de chiffre).
+  notifBadge.style.display = n > 0 ? '' : 'none';
 }
 const liveDot     = document.getElementById('live-dot');
 const searchInput = document.getElementById('search-input');
