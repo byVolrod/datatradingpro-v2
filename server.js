@@ -2188,13 +2188,11 @@ Rules: 4 to 6 macro themes; 6 to 8 insight cards; EVERY currency in [${CCY.join(
 Week's data (session wraps + economic calendar results + headlines):
 ${corpus}`;
 
-  // Budget Gemini : on ne lance le recap que s'il reste du quota mensuel. 1 appel/semaine,
-  // comptabilisé dans l'enveloppe (catégorie 'weekly') → tient compte de la conso déjà faite.
+  // Budget Gemini : le Weekly Recap est PRIORITAIRE (1 appel/semaine, rapport phare).
+  // On l'autorise même si le budget mensuel souple est atteint (dépassement max ~4 appels/mois,
+  // négligeable), tout en le COMPTANT (aiNote 'weekly') pour la transparence. Seul vrai plafond
+  // restant : le quota DUR quotidien de Google (429) → bascule alors en fallback par règles.
   _aiReset();
-  if ((_aiUsage.total || 0) >= GEMINI_MONTHLY_BUDGET) {
-    console.warn('[Weekly Recap] budget Gemini mensuel épuisé → fallback par règles');
-    return null;
-  }
   let parsed = null;
   try {
     const text = await ai.generateText(prompt, 8192);   // gros JSON (8 devises × analyse + drivers)
