@@ -119,7 +119,9 @@ function tickPrices() {
   });
 }
 
-setInterval(tickPrices, 3000);
+// (tickPrices désactivé : il alimentait l'ancien sidebar de prix simulés, qui n'est plus
+//  construit — c'était un intervalle 3 s tournant à vide. Le Smart Bias réel le remplace.)
+void tickPrices;
 
 // ═══════════════════════════════════════════════
 //  BIAS SIDEBAR
