@@ -137,6 +137,12 @@ const _analysisNoData = new Set(); // item IDs where analysis returned nothing (
 const newsList    = document.getElementById('news-list');
 const itemCountEl = document.getElementById('item-count');
 const notifBadge  = document.getElementById('notif-badge');
+// Affiche le badge de notif avec le compte, ou le CACHE complètement si 0
+function _setNotifBadge(n) {
+  if (!notifBadge) return;
+  if (n > 0) { notifBadge.textContent = n > 99 ? '99+' : n; notifBadge.style.display = ''; }
+  else       { notifBadge.style.display = 'none'; }
+}
 const liveDot     = document.getElementById('live-dot');
 const searchInput = document.getElementById('search-input');
 
@@ -235,7 +241,7 @@ function handleMessage(msg) {
       _flashBreakingNews(truly_new.find(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i))));
       const added = npPush(truly_new);   // alimente le panneau ; renvoie le nb RÉELLEMENT ajouté
       newCount += added;                 // badge = exactement ce qui est dans le panneau (pas les rapports/primers)
-      notifBadge.textContent = newCount > 99 ? '99+' : newCount;
+      _setNotifBadge(newCount);
     }
     renderNews(!isFirstUpdate);
     // Refresh analyst library if a new briefing arrived and analyst view is active
@@ -2293,7 +2299,7 @@ function showStatus(msg, type) {
 // ═══ Notif badge clear ════════════════════
 notifBadge.parentElement.addEventListener('click', () => {
   newCount = 0;
-  notifBadge.textContent = '0';
+  _setNotifBadge(0);
   allItems.forEach(i => delete i._new);
 });
 
@@ -3990,9 +3996,9 @@ function npOpen() {
   _npEl('np-panel')?.classList.add('open');
   _npEl('np-overlay')?.classList.add('open');
   _npEl('np-bell-btn')?.classList.add('np-bell--active');
-  // Reset badge
+  // Reset badge : on EFFACE le numéro (badge caché) à l'ouverture des notifs
   newCount = 0;
-  if (notifBadge) { notifBadge.textContent = '0'; }
+  _setNotifBadge(0);
 }
 
 function npClose() {
