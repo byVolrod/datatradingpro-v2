@@ -681,7 +681,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: dim ? 1.1 : 1.8, strokeOpacity: dim ? 0.10 : 1 });   // isolé : 10% gris
+    series.strokes.template.setAll({ strokeWidth: dim ? 1.1 : 1.8, strokeOpacity: dim ? 0 : 1 });   // isolé : autres devises DÉSACTIVÉES (masquées)
     const cleanPts = _smoothCS(pts);
     series.data.setAll(cleanPts);
 
