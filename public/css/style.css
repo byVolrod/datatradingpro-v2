@@ -3894,6 +3894,14 @@ html, body {
 .wr-ccy-block { margin-top:22px; padding-top:18px; border-top:1px solid #232329; }
 .wr-ccy-block:first-of-type { border-top:none; }
 .wr-ccy-title { font-size:22px; font-weight:800; letter-spacing:.5px; margin:0 0 12px; }
+/* Cartes AI Insights : paire + biais (SELL/BUY/NEUTRAL) */
+.ai-ins-pair-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
+.ai-ins-pair-name { font-weight:700; color:#e5e9ef; font-size:13px; letter-spacing:.3px; }
+.ai-ins-bias { font-size:10px; font-weight:800; letter-spacing:.5px; padding:2px 9px; border-radius:4px; flex-shrink:0; }
+.ai-ins-bias--buy     { color:#22c55e; background:rgba(34,197,94,.14);  border:1px solid rgba(34,197,94,.4); }
+.ai-ins-bias--sell    { color:#ef4444; background:rgba(239,68,68,.14);  border:1px solid rgba(239,68,68,.4); }
+.ai-ins-bias--neutral { color:#eab308; background:rgba(234,179,8,.14);  border:1px solid rgba(234,179,8,.4); }
+.ai-ins-pair-text { color:#c9d1d9; font-size:12.5px; line-height:1.5; }
 .wr-macro-heading { color:#e5e9ef; font-size:13.5px; font-weight:600; margin:16px 0 8px; }
 .wr-bullet { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0 0 10px; padding-left:14px; position:relative; }
 .wr-bullet::before { content:"•"; color:#ff7a00; position:absolute; left:0; }
