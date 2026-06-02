@@ -5563,9 +5563,9 @@ html, body {
   flex: 1; min-height: 0;
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
-  gap: 10px;
-  padding: 10px 14px 14px;
-  background: #0b0b0c;
+  gap: 6px;                       /* plus serré → les 8 devises (CAD inclus) tiennent sans être coupées */
+  padding: 10px 12px 14px;
+  background: #141417;            /* cohérent avec les autres graphiques */
 }
 .meter-col {
   display: flex;
@@ -5605,7 +5605,7 @@ html, body {
   border-radius: 2px;
   border: 1px solid rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.025);   /* éteinte : grille fantôme homogène */
-  transition: background 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+  transition: background 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;  /* MAJ fluide "live" */
 }
 .meter-brick--off { background: rgba(255,255,255,0.025); border-color: rgba(255,255,255,0.05); }
 .meter-brick--pos {

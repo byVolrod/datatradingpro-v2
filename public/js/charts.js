@@ -1253,7 +1253,7 @@ function buildMeterChart() {
   }
 
   loadAndRender();
-  _meterTimer = setInterval(loadAndRender, 30 * 1000);
+  _meterTimer = setInterval(loadAndRender, 15 * 1000);   // temps réel : MAJ toutes les 15 s
 }
 
 // ═══════════════════════════════════════════════
