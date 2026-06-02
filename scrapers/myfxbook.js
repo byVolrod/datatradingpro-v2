@@ -338,10 +338,18 @@ async function fetchCommunityOutlook(period = 'H1') {
     }
   } catch (e) {
     console.error('[Myfxbook] Puppeteer attempt failed:', e.message);
+  } finally {
+    // Libère le Chromium dès la fin du fetch (prochain dans ~5 min) → ~150 Mo rendus à l'OS.
+    // Évite 2 navigateurs persistants simultanés (FinancialJuice + Myfxbook) sur un hébergement 512 Mo.
+    await closeBrowser();
   }
 
   console.warn('[Myfxbook] all methods failed — returning empty');
   return [];
+}
+
+async function closeBrowser() {
+  if (_browser) { try { await _browser.close(); } catch {} _browser = null; _loggedIn = false; }
 }
 
 function clearOutlookCache() {
@@ -351,4 +359,4 @@ function clearOutlookCache() {
   _sessionTs = 0;
 }
 
-module.exports = { fetchCommunityOutlook, clearOutlookCache };
+module.exports = { fetchCommunityOutlook, clearOutlookCache, closeBrowser };
