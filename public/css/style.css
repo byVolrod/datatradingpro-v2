@@ -515,7 +515,7 @@ html, body {
 /* ═══════════════ MAIN LAYOUT ═══════════════ */
 .main-layout {
   display: flex;
-  height: calc(100vh - var(--header-h));
+  height: calc(100dvh - var(--header-h));
   overflow: hidden;
 }
 
@@ -1727,7 +1727,7 @@ html, body {
 
 .settings-panel {
   width: 440px;
-  max-height: calc(100vh - var(--header-h));
+  max-height: calc(100dvh - var(--header-h));
   background: var(--bg2);
   border: 1px solid var(--border2);
   border-top: none;
@@ -6791,7 +6791,7 @@ html, body {
   .clock-wx-row, .clock-wind-row { display: none; } /* hide weather on very small screens */
 
   /* Profile drawer: full screen */
-  .pd-drawer       { top: 0; height: 100vh; }
+  .pd-drawer       { top: 0; height: 100dvh; }
   .pd-header       { padding: 14px 14px; }
   .pd-section-trigger { height: 46px; }
 
@@ -6866,6 +6866,11 @@ html, body {
   /* Remove hover effects that don't work on touch */
   .news-item:hover { background: inherit; }
   .clock-item:hover { background: inherit; }
+
+  /* iOS : tout champ saisissable doit faire ≥16px sinon Safari ZOOME automatiquement
+     au focus (et casse la mise en page). On force 16px sur les champs texte tactiles. */
+  input[type="text"], input[type="email"], input[type="password"], input[type="search"],
+  input:not([type]), textarea, select { font-size: 16px; }
 }
 
 /* ═══════════════════════════════════════════════════════════════
