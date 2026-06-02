@@ -1724,7 +1724,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'bank'];
 
   function activateView(view, { persist = true } = {}) {
+    // MARCHÉS (mobile uniquement) : on bascule sur la colonne de droite (horloges, RISK, STRENGTH, COT…)
+    if (view === 'markets') {
+      document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === 'markets'));
+      document.getElementById('main-layout')?.classList.add('show-right-mobile');
+      // Les graphiques (amCharts) ont pu être initialisés masqués → on force un recalcul à l'affichage
+      setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch {} }, 120);
+      return;   // on ne persiste pas et on ne touche pas aux view-panel
+    }
     if (!VALID_VIEWS.includes(view)) view = 'news';
+    document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
 
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));

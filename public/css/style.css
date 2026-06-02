@@ -408,6 +408,7 @@ html, body {
 }
 
 .nav-item:last-child { border-right: none; }
+.nav-item--mobile-only { display: none; }   /* onglet MARCHÉS : visible uniquement sur mobile */
 .nav-item:hover { color: var(--text2); background: var(--bg2); }
 .nav-item--active { color: var(--text); background: var(--bg3); }
 
@@ -2664,7 +2665,7 @@ html, body {
     --header-h: 80px;
   }
 
-  html, body { overflow: auto; }
+  html, body { overflow-x: hidden; overflow-y: auto; }   /* pas de scroll horizontal parasite */
 
   /* Layout vertical sur mobile */
   .main-layout {
@@ -2693,9 +2694,17 @@ html, body {
     border-right: none;
     border-bottom: none;
   }
-  /* Colonne de droite (World Clock + Session Map + courbes) : masquée sur mobile
-     (illisible une fois écrasée — l'appli mobile se concentre sur le flux). */
+  /* Colonne de droite (World Clock + Session Map + courbes) : masquée par défaut sur mobile…
+     …mais accessible via l'onglet MARCHÉS (affichage plein écran). */
   .panel-right { display: none !important; }
+  .nav-item--mobile-only { display: flex !important; }
+  .main-layout.show-right-mobile .views-col { display: none; }
+  .main-layout.show-right-mobile .panel-right {
+    display: flex !important;
+    width: 100%;
+    min-width: 0;
+    height: calc(100dvh - var(--header-h));
+  }
 
   /* Topbar */
   .topbar-symbol-search { display: none; }
@@ -2761,7 +2770,9 @@ html, body {
   .topbar-left  { gap: 6px; }
   .topbar-right { gap: 4px; }
   .topbar-symbol-search { display: none; }
-  #topbar-avatar { width: 24px; height: 24px; font-size: 10px; }
+  #topbar-avatar { width: 28px; height: 28px; font-size: 11px; }
+  /* Cibles tactiles : garder les icônes topbar assez grandes au doigt */
+  .topbar-icon { width: 34px; height: 34px; }
 
   /* Nav items plus petits */
   .nav-item { font-size: 10px; padding: 0 8px; }
@@ -2771,9 +2782,9 @@ html, body {
   .clock-time  { font-size: 14px; }
   .clock-tz, .clock-city { font-size: 9px; }
 
-  /* Drawers */
-  .pd-drawer  { width: 100vw; }
-  .np-panel   { width: 100vw; }
+  /* Drawers (100% et non 100vw : évite le débordement dû à la scrollbar) */
+  .pd-drawer  { width: 100%; }
+  .np-panel   { width: 100%; }
 
   /* Documents */
   .br-document { padding: 16px 14px; }
@@ -6518,10 +6529,10 @@ html, body {
 
 /* ── Tablet portrait (≤768px) — full responsive mode ── */
 @media (max-width: 768px) {
-  /* Drawers: full width */
+  /* Drawers: full width (100% évite le débordement scrollbar) */
   .pd-drawer, .np-panel, .settings-panel, .settings-overlay {
-    width: 100vw !important;
-    max-width: 100vw !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
   .settings-overlay { justify-content: flex-start; }
 
@@ -6989,7 +7000,7 @@ html, body {
 .sqwk-text { color: #d4d4d8; font-size: 13px; font-weight: 400; line-height: 1.6; word-break: break-word; }
 .sqwk-footer { padding: 10px 14px; border-top: 1px solid #1c1c20; text-align: center; font-size: 10.5px; color: #555; flex-shrink: 0; }
 .topbar-icon--active { color: #f7941d !important; }
-@media (max-width: 480px) { .sqwk-panel { width: 100vw; max-width: 100vw; } }
+@media (max-width: 480px) { .sqwk-panel { width: 100%; max-width: 100%; } }
 .sqwk-audio { background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.9; }
 .sqwk-audio--off { opacity: 0.4; filter: grayscale(1); }
 
@@ -7077,4 +7088,4 @@ html, body {
 .chat-send { width:38px; height:38px; flex-shrink:0; border:none; border-radius:8px; background:#f7941d; color:#0a0a0c; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .chat-send:hover { filter:brightness(1.08); }
 .chat-hint { padding:2px 14px 10px; font-size:10px; color:#5b6471; flex-shrink:0; }
-@media (max-width:480px){ .chat-panel { width:100vw; max-width:100vw; } }
+@media (max-width:480px){ .chat-panel { width:100%; max-width:100%; } }
