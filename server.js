@@ -275,6 +275,14 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
 function computeExpiry({ duration, expiresAt, startDate }) {
   if (duration === 'unlimited') return null;                 // abonnement illimité
   if (duration === 'custom')    return expiresAt ? new Date(expiresAt).toISOString() : null;
+  // Offres en SEMAINES (ex. essai gratuit) : "1week", "2week"…
+  const wk = /^(\d+)\s*(?:week|weeks|sem|semaine|semaines)$/i.exec(duration);
+  if (wk) {
+    let d = startDate ? new Date(startDate) : new Date();
+    if (isNaN(d.getTime())) d = new Date();
+    d.setDate(d.getDate() + parseInt(wk[1], 10) * 7);
+    return d.toISOString();
+  }
   const months = parseInt(duration, 10);
   if (!Number.isFinite(months) || months <= 0) return null;
   // Base = date de début choisie (ex. date de paiement Whop), sinon aujourd'hui
