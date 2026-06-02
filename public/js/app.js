@@ -4401,9 +4401,11 @@ async function _chatLiveTick(){
         const d = await (await fetch('/api/admin/chat/'+encodeURIComponent(_chatThreadUser))).json();
         const sig = _sigMsgs(d.messages);
         if (sig !== _chatSig){ _chatSig = sig; _chatRender(d.messages||[]); }
+        _chatPollUnread();   // garde le badge à jour (autres conversations non lues)
       } else {
         const d = await (await fetch('/api/admin/chat')).json();
         const threads = d.threads || [];
+        _chatSetBadge(threads.filter(t=>(t.unread||0)>0).length);   // badge sync même panneau ouvert
         const sig = _sigThreads(threads);
         if (sig !== _chatSig){ _chatSig = sig; _chatRenderInbox(threads); }
       }
@@ -4462,6 +4464,7 @@ function _chatOpenThread(userId, name){
   fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
     _chatSig = _sigMsgs(d.messages);
     _chatRender(d.messages||[]);   // côté support : 'support' = mes bulles (droite), 'user' = client (gauche)
+    _chatPollUnread();             // la conversation vient d'être lue → MAJ immédiate du badge
   }).catch(()=>{ if(list) list.innerHTML='<div class="chat-empty">Conversation indisponible.</div>'; });
 }
 
@@ -4519,9 +4522,10 @@ function _chatSetBadge(n){
   if(n>0){ b.textContent=n>9?'9+':n; b.style.display=''; }
   else   { b.style.display='none'; }
 }
+// Le badge reflète EN PERMANENCE les messages non lus et ne se vide QUE lorsque la
+// conversation est ouverte (côté support) / lue (côté client). On ne le coupe donc PAS
+// quand le panneau est ouvert : tant que la conversation n'est pas ouverte, la notif reste.
 function _chatPollUnread(){
-  // si le chat est ouvert, c'est déjà lu → pas de badge
-  if(document.getElementById('chat-panel')?.classList.contains('open')) return;
   if (_chatIsSupport()){
     // côté support : nombre de PERSONNES qui ont écrit (threads avec au moins 1 message non lu)
     fetch('/api/admin/chat').then(r=>r.json())
@@ -4540,5 +4544,5 @@ document.addEventListener('DOMContentLoaded', ()=>{
     inp.addEventListener('input', ()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,90)+'px'; });
   }
   _chatPollUnread();
-  _chatPollTimer = setInterval(_chatPollUnread, 20000);
+  _chatPollTimer = setInterval(_chatPollUnread, 8000);   // notif réactive (8s)
 });
