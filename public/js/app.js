@@ -1991,11 +1991,23 @@ function formatDate(ts) {
 }
 
 // ═══ World Clocks ═════════════════════════
+let _weatherLastFetch = 0;
+function refreshWeather() {
+  _weatherLastFetch = Date.now();
+  return fetchAllWeather().then(() => renderClocks());
+}
 function startClocks() {
-  renderClocks(); // render immediately (weather shows '--' until loaded)
-  fetchAllWeather().then(() => renderClocks());
+  renderClocks();            // affichage immédiat (météo à '--' tant que non chargée)
+  refreshWeather();          // 1er fetch
   setInterval(renderClocks, 1000);
-  setInterval(fetchAllWeather, 30 * 60 * 1000);
+  setInterval(refreshWeather, 10 * 60 * 1000);   // météo temps réel : toutes les 10 min
+  // Re-fetch dès qu'on revient sur l'onglet (si > 5 min depuis le dernier appel)
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && Date.now() - _weatherLastFetch > 5 * 60 * 1000) refreshWeather();
+  });
+  window.addEventListener('focus', () => {
+    if (Date.now() - _weatherLastFetch > 5 * 60 * 1000) refreshWeather();
+  });
 }
 
 function renderClocks() {
