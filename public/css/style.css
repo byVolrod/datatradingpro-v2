@@ -3618,7 +3618,14 @@ html, body {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
+}
+/* Ligne du haut : titre (gauche) + signet (droite) */
+.arlib-card-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
 }
 .arlib-card-title {
   font-size: 12.5px;
@@ -3626,12 +3633,28 @@ html, body {
   color: #e2e8f0;
   line-height: 1.45;
   font-family: var(--font-ui);
+  flex: 1;
+  min-width: 0;
+}
+/* Ligne du bas : tags (gauche) ←→ badge + date (droite) */
+.arlib-card-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.arlib-card-meta-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
 }
 .arlib-card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 5px;
   align-items: center;
+  min-width: 0;
 }
 .arlib-tag {
   font-size: 10.5px;
