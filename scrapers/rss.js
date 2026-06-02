@@ -16,6 +16,8 @@ const FEEDS = [
   { url: 'https://news.google.com/rss/search?q=oil+gold+inflation+interest+rate&hl=en-US&gl=US&ceid=US:en',              source: 'Google News',   priority: 'high'   },
   { url: 'https://news.google.com/rss/search?q=Fed+ECB+BOJ+monetary+policy&hl=en-US&gl=US&ceid=US:en',                   source: 'Google News',   priority: 'high'   },
   { url: 'https://news.google.com/rss/search?q=geopolitical+risk+trade+war+sanctions&hl=en-US&gl=US&ceid=US:en',         source: 'Google News',   priority: 'high'   },
+  // Mehr News (Iran) — TOP 10 marqués IMPORTANTS (géopolitique Moyen-Orient), sans doublon
+  { url: 'https://en.mehrnews.com/rss',                                                                                   source: 'Mehr News',     priority: 'high', important: true, limit: 10 },
 ];
 
 const HEADERS = {
@@ -89,9 +91,11 @@ async function fetchFeed(feed) {
 
     const $ = cheerio.load(res.data, { xmlMode: true });
     const items = [];
+    const maxItems = feed.limit || 100;            // certains flux (ex. Mehr News) limités au top N
+    const seenTitles = new Set();                  // anti-doublon par titre AU SEIN du flux
 
     $('item').each((i, el) => {
-      if (i >= 100) return false;
+      if (items.length >= maxItems) return false;   // top N atteint → on s'arrête
       const $el = $(el);
       const title = $el.find('title').first().text().trim().replace(/^<!\[CDATA\[|\]\]>$/g, '');
       const desc  = $el.find('description').first().text().trim().replace(/^<!\[CDATA\[|\]\]>$/g, '').replace(/<[^>]*>/g, '');
@@ -99,10 +103,17 @@ async function fetchFeed(feed) {
       const link  = $el.find('link').first().text().trim() || $el.find('guid').first().text().trim();
 
       if (!title || title.length < 8) return;
+      const titleKey = title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      if (seenTitles.has(titleKey)) return;         // doublon de titre → on saute
+      seenTitles.add(titleKey);
 
       const combined = title + ' ' + desc;
       const category = detectCategory(combined);
       const ts = parseRSSDate(pubDate);
+
+      // "important" : flux marqué important (ex. Mehr News top 10) OU high-priority sur catégorie sensible
+      const isImportant = !!feed.important
+        || (feed.priority === 'high' && ['Geopolitical','Fed','ECB','Energy & Power','BoJ','BoE'].includes(category));
 
       items.push({
         id: `rss-${feed.source.replace(/\s/g,'').toLowerCase()}-${Buffer.from(link || title).toString('base64').substring(0,10)}-${ts}`,
@@ -114,7 +125,8 @@ async function fetchFeed(feed) {
         description: desc.substring(0, 320),
         url: link,
         tags: extractTags(category, combined),
-        priority: feed.priority === 'high' && ['Geopolitical','Fed','ECB','Energy & Power','BoJ','BoE'].includes(category) ? 'high' : 'normal',
+        priority: isImportant ? 'high' : 'normal',
+        important: isImportant || undefined,        // marqueur explicite pour le front (news importante)
       });
     });
 

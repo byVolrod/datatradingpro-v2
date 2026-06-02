@@ -5,7 +5,8 @@
  * Fallback:     Puppeteer DOM extraction (no API interception — the page's
  *               XHR returns volume %, not position %; DOM tooltip has the
  *               correct "Short 42% ... lots" position percentages).
- * Cache TTL: 5 min (shared across H1/H4/D1 — one dataset).
+ * Cache TTL: 15 min. Myfxbook ne fournit qu'UN SEUL snapshot live de positionnement
+ * retail (pas de variante par timeframe) → H1/H4/D1 partagent ce même jeu de données.
  */
 
 const puppeteer    = require('puppeteer-extra');
@@ -45,7 +46,7 @@ const LOGIN_API    = 'https://www.myfxbook.com/api/login.json';
 const OUTLOOK_API  = 'https://www.myfxbook.com/api/get-community-outlook.json';
 const CACHE_FILE   = path.join(__dirname, '..', 'cache_myfxbook.json');
 const USER_DATA    = path.join(__dirname, '..', '.chrome_profile_myfxbook');
-const CACHE_TTL    = 5 * 60 * 1000;    // 5 min in-memory cache
+const CACHE_TTL    = 15 * 60 * 1000;   // 15 min in-memory cache (sentiment retail = MAJ 15 min)
 const DISK_TTL     = 30 * 60 * 1000;   // 30 min disk cache (survives server restart)
 const SESSION_TTL  = 55 * 60 * 1000;   // 55 min session cache (token expires ~1h)
 
@@ -346,6 +347,9 @@ function _doFetch() {
 // Rafraîchissement EN ARRIÈRE-PLAN (jamais bloquant)
 function _bgRefresh() { _doFetch().catch(() => {}); }
 
+// Timestamp du dernier jeu de données réellement récupéré (pour afficher la fraîcheur).
+function outlookTs() { return Math.max(_memTs.H1 || 0, _memTs.H4 || 0, _memTs.D1 || 0); }
+
 // API publique — STALE-WHILE-REVALIDATE : on sert le cache INSTANTANÉMENT,
 // on rafraîchit en arrière-plan. Ne bloque QUE s'il n'y a aucune donnée du tout.
 async function fetchCommunityOutlook(period = 'H1') {
@@ -378,4 +382,4 @@ function clearOutlookCache() {
   _sessionTs = 0;
 }
 
-module.exports = { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, closeBrowser };
+module.exports = { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, closeBrowser, outlookTs };

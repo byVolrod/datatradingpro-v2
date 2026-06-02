@@ -1376,6 +1376,14 @@ function _dmxAllowed(symbol) {
 }
 
 let _dmxLastUpdate = 0;
+let _dmxTimer = null;
+let _dmxServerTs = 0;   // timestamp serveur du dernier snapshot retail (pour l'âge affiché)
+// Libellé de fraîcheur (le sentiment retail Myfxbook = 1 snapshot live, MAJ ~15 min)
+function _dmxAgo(ts) {
+  if (!ts) return 'Live';
+  const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  return m < 1 ? 'Live · à l\'instant' : `Live · MAJ il y a ${m} min`;
+}
 
 function buildDMXChart(forceRefresh = false) {
   const wrap = document.getElementById('dmx-table-wrap');
@@ -1384,9 +1392,9 @@ function buildDMXChart(forceRefresh = false) {
   const activeTfBtn = document.querySelector('.dmx-tf-btn--active');
   const period = activeTfBtn ? activeTfBtn.dataset.tf : 'H1';
 
-  // Sync period label in header
+  // En-tête : fraîcheur réelle du snapshot (Myfxbook = 1 jeu de données live partagé par les TF)
   const periodLbl = document.getElementById('dmx-period-label');
-  if (periodLbl) periodLbl.textContent = _DMX_TF_LABELS[period] || period;
+  if (periodLbl && !periodLbl.textContent) periodLbl.textContent = 'Live';
 
   // On NE force PLUS automatiquement : le serveur sert son cache INSTANTANÉMENT et le tient
   // à jour en arrière-plan (refresh 5 min). On ne force (refresh fond) que via le bouton Retry.
@@ -1406,6 +1414,7 @@ function buildDMXChart(forceRefresh = false) {
       }
 
       _dmxLastUpdate = Date.now();
+      if (periodLbl) periodLbl.textContent = _dmxAgo(data.updatedTs);
 
       const sortVal = document.getElementById('dmx-sort-select')?.value || 'az';
       if (sortVal === 'long')       symbols.sort((a, b) => b.longPct  - a.longPct);
@@ -1436,6 +1445,17 @@ function buildDMXChart(forceRefresh = false) {
       }).join('');
 
       wrap.innerHTML = `<div class="dmx2-list">${rows}</div>`;
+
+      // Auto-refresh tant que l'onglet DMX est visible (sert le cache serveur, MAJ 15 min)
+      if (!_dmxTimer) {
+        _dmxTimer = setInterval(() => {
+          const panel = document.getElementById('rtab-dmx');
+          if (!panel || !panel.classList.contains('active')) { clearInterval(_dmxTimer); _dmxTimer = null; return; }
+          if (periodLbl) periodLbl.textContent = _dmxAgo(_dmxServerTs);   // rafraîchit l'âge affiché
+          buildDMXChart(false);
+        }, 60 * 1000);
+      }
+      _dmxServerTs = data.updatedTs || _dmxServerTs;
     })
     .catch(() => {
       wrap.innerHTML = `<div class="dmx-loading">
