@@ -1017,6 +1017,7 @@
 
   // ─── Drawer open / close ─────────────────────────────────────────────────
   function pdOpen() {
+    if (typeof _closeOtherPanels === 'function') _closeOtherPanels('profile');   // ferme chat/notif/squawk
     document.getElementById('pd-overlay').classList.add('pd-open');
     document.getElementById('pd-drawer').classList.add('pd-open');
     document.body.style.overflow = 'hidden';

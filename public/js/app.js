@@ -3952,6 +3952,7 @@ function npToggle() {
 }
 
 function npOpen() {
+  _closeOtherPanels('notif');
   _npOpen = true;
   // Repartir sur la liste (pas le panneau de filtres)
   _npEl('np-filter-panel')?.classList.add('hidden');
@@ -4341,6 +4342,7 @@ function sqwkToggleLive() {
 }
 
 function sqwkOpen() {
+  _closeOtherPanels('sqwk');
   document.getElementById('sqwk-panel')?.classList.add('open');
   document.getElementById('sqwk-overlay')?.classList.add('open');
   document.getElementById('sqwk-btn')?.classList.add('topbar-icon--active');
@@ -4365,6 +4367,8 @@ let _chatLiveTimer = null;    // rafraîchissement live tant que le panneau est 
 let _chatSig = '';            // signature du dernier rendu (évite les re-rendus/scrolls inutiles)
 let _chatThreadUser = null;   // (mode support) userId du thread ouvert
 let _chatThreadName = '';
+let _chatInboxCache = null;   // cache de la boîte de réception (rendu instantané)
+const _chatMsgCache = {};     // cache des messages par thread (clé = userId ou 'client')
 function _sigMsgs(m){ return (m||[]).length + '|' + (m && m.length ? (m[m.length-1].id||m[m.length-1].text||'') : ''); }
 function _sigThreads(t){ return (t||[]).map(x=>x.user_id+':'+(x.unread||0)+':'+(x.lastAt||'')).join(','); }
 function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
@@ -4391,8 +4395,19 @@ function _chatClientHead(){
 function _chatCurUser(){ try { return window._pdUser || (typeof _pdUser !== 'undefined' ? _pdUser : null); } catch { return null; } }
 function _chatIsSupport(){ const u = _chatCurUser(); return !!(u && (u.role === 'admin' || u.role === 'support')); }
 
+// Panneaux topbar mutuellement exclusifs : ouvrir l'un ferme les autres
+function _closeOtherPanels(except){
+  try {
+    if (except!=='chat'  && document.getElementById('chat-panel')?.classList.contains('open')) chatClose();
+    if (except!=='notif' && typeof _npOpen!=='undefined' && _npOpen) npClose();
+    if (except!=='sqwk'  && document.getElementById('sqwk-panel')?.classList.contains('open')) sqwkClose();
+    if (except!=='profile' && document.getElementById('pd-drawer')?.classList.contains('pd-open') && typeof pdClose==='function') pdClose();
+  } catch {}
+}
+
 function chatToggle(){ document.getElementById('chat-panel')?.classList.contains('open') ? chatClose() : chatOpen(); }
 function chatOpen(){
+  _closeOtherPanels('chat');
   document.getElementById('chat-panel')?.classList.add('open');
   document.getElementById('chat-overlay')?.classList.add('open');
   document.getElementById('chat-btn')?.classList.add('topbar-icon--active');
@@ -4410,7 +4425,7 @@ function chatClose(){
 }
 
 // ── Rafraîchissement live (panneau ouvert) ────────────────────
-function _chatStartLive(){ clearInterval(_chatLiveTimer); _chatLiveTimer = setInterval(_chatLiveTick, 6000); }
+function _chatStartLive(){ clearInterval(_chatLiveTimer); _chatLiveTimer = setInterval(_chatLiveTick, 4000); }
 function _chatStopLive(){ clearInterval(_chatLiveTimer); _chatLiveTimer = null; }
 async function _chatLiveTick(){
   if (!document.getElementById('chat-panel')?.classList.contains('open')) return;
@@ -4418,20 +4433,23 @@ async function _chatLiveTick(){
     if (_chatIsSupport()){
       if (_chatThreadUser){
         const d = await (await fetch('/api/admin/chat/'+encodeURIComponent(_chatThreadUser))).json();
-        const sig = _sigMsgs(d.messages);
-        if (sig !== _chatSig){ _chatSig = sig; _chatRender(d.messages||[]); }
+        const msgs = d.messages||[]; _chatMsgCache[_chatThreadUser] = msgs;
+        const sig = _sigMsgs(msgs);
+        if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }
         _chatPollUnread();   // garde le badge à jour (autres conversations non lues)
       } else {
         const d = await (await fetch('/api/admin/chat')).json();
         const threads = d.threads || [];
+        _chatInboxCache = threads;
         _chatSetBadge(threads.filter(t=>(t.unread||0)>0).length);   // badge sync même panneau ouvert
         const sig = _sigThreads(threads);
         if (sig !== _chatSig){ _chatSig = sig; _chatRenderInbox(threads); }
       }
     } else {
       const d = await (await fetch('/api/chat')).json();
-      const sig = _sigMsgs(d.messages);
-      if (sig !== _chatSig){ _chatSig = sig; _chatRender(d.messages||[]); _chatSetBadge(0); }
+      const msgs = d.messages||[]; _chatMsgCache.client = msgs;
+      const sig = _sigMsgs(msgs);
+      if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); _chatSetBadge(0); }
     }
   } catch {}
 }
@@ -4451,12 +4469,16 @@ function _chatBackToInbox(){ _chatThreadUser = null; _chatInbox(); }
 function _chatInbox(){
   _chatThreadUser = null;
   _chatHead('Boîte de réception', 'Conversations clients · Support', false, false);
-  const list = document.getElementById('chat-list'); if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
+  const list = document.getElementById('chat-list');
+  // Rendu INSTANTANÉ depuis le cache (pas de "Chargement…" à la ré-ouverture)
+  if (_chatInboxCache){ _chatSig = _sigThreads(_chatInboxCache); _chatRenderInbox(_chatInboxCache); }
+  else if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
   fetch('/api/admin/chat').then(r=>r.json()).then(d=>{
     const threads = d.threads || [];
-    _chatSig = _sigThreads(threads);
-    _chatRenderInbox(threads);
-  }).catch(()=>{ if(list) list.innerHTML='<div class="chat-empty">Boîte de réception indisponible.</div>'; });
+    _chatInboxCache = threads;
+    const sig = _sigThreads(threads);
+    if (sig !== _chatSig || !list?.querySelector('.chat-thread')){ _chatSig = sig; _chatRenderInbox(threads); }
+  }).catch(()=>{ if(list && !_chatInboxCache) list.innerHTML='<div class="chat-empty">Boîte de réception indisponible.</div>'; });
 }
 
 function _chatRenderInbox(threads){
@@ -4482,14 +4504,18 @@ function _chatRenderInbox(threads){
 
 function _chatOpenThread(userId, name){
   _chatThreadUser = userId; _chatThreadName = name;
-  _chatSig = '';   // force le 1er rendu de la conversation
   _chatHead(name, 'Vous répondez en tant que support', true, true);
-  const list = document.getElementById('chat-list'); if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
+  const list = document.getElementById('chat-list');
+  const cached = _chatMsgCache[userId];
+  if (cached){ _chatSig = _sigMsgs(cached); _chatRender(cached); }   // instantané
+  else { _chatSig=''; if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>'; }
   fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
-    _chatSig = _sigMsgs(d.messages);
-    _chatRender(d.messages||[]);   // côté support : 'support' = mes bulles (droite), 'user' = client (gauche)
+    const msgs = d.messages||[];
+    _chatMsgCache[userId] = msgs;
+    const sig = _sigMsgs(msgs);
+    if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }   // côté support : 'support'=droite, 'user'=gauche
     _chatPollUnread();             // la conversation vient d'être lue → MAJ immédiate du badge
-  }).catch(()=>{ if(list) list.innerHTML='<div class="chat-empty">Conversation indisponible.</div>'; });
+  }).catch(()=>{ if(list && !cached) list.innerHTML='<div class="chat-empty">Conversation indisponible.</div>'; });
 }
 
 function _chatRender(messages){
@@ -4523,11 +4549,15 @@ function _chatRender(messages){
 }
 
 function _chatLoad(){
+  const list = document.getElementById('chat-list');
+  if (_chatMsgCache.client){ _chatSig = _sigMsgs(_chatMsgCache.client); _chatRender(_chatMsgCache.client); }   // instantané
   fetch('/api/chat').then(r=>r.json()).then(d=>{
-    _chatSig = _sigMsgs(d.messages);
-    _chatRender(d.messages||[]);
+    const msgs = d.messages||[];
+    _chatMsgCache.client = msgs;
+    const sig = _sigMsgs(msgs);
+    if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }
     _chatSetBadge(0);   // ouvert → réponses lues
-  }).catch(()=>{ const l=document.getElementById('chat-list'); if(l) l.innerHTML='<div class="chat-empty">Chat indisponible pour le moment.</div>'; });
+  }).catch(()=>{ if(list && !_chatMsgCache.client) list.innerHTML='<div class="chat-empty">Chat indisponible pour le moment.</div>'; });
 }
 
 // Envoi générique (texte OU data URL d'une pièce jointe) vers le bon endpoint
