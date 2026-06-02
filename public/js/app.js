@@ -3342,43 +3342,66 @@ const ARLIB_TYPE_ORDER = {
   'Daily Market Recap':        7,
 };
 
-// ── Standardisation des titres de rapports : "[Préfixe fixe]: [Sujet dynamique]" ──
-// Réplique le style rigoureux de Prime Terminal. Le préfixe dépend du type de rapport ;
-// le sujet est extrait du titre (avec fallback si le préfixe est absent).
+// ── Standardisation éditoriale des titres : "[Préfixe de session fixe]: [Sujet dynamique]" ──
+// Catalogue exact (réplique Prime Terminal). Le préfixe dépend du type de rapport OU de la
+// session du wrap ; le sujet est extrait du titre (fallback si le préfixe est absent).
 const REPORT_PREFIX = {
   'Global Economic Weekly':     'Global Economic Weekly',
   'Weekly Market Recap':        'Weekly Market Recap',
   'FX Daily':                   'FX Daily',
-  'Asia Opening Preparation':   'Asia Opening Preparation',
+  // Sessions — nomenclature demandée
+  'Asia Opening Preparation':   'Daily Asia-Pac Opening News',
   'London Opening Preparation': 'London Opening Preparation',
-  'US Opening Preparation':     'US Opening Preparation',
+  'US Opening Preparation':     'New York Opening Preparation',
+  'Asia Session Recap':         'Asia-Pac Session Recap',
   'London Session Recap':       'London Session Recap',
-  'US Session Recap':           'US Session Recap',
+  'US Session Recap':           'New York Session Recap',
   'Daily Event Review':         'Daily Event Review',
   'Daily Market Recap':         'Daily Market Recap',
 };
-const _ALL_PREFIXES = [...new Set(Object.values(REPORT_PREFIX))]
-  .sort((a, b) => b.length - a.length);   // plus longs d'abord (évite les correspondances partielles)
+// Tous les préfixes connus (valeurs du catalogue + variantes de session) pour détecter/normaliser
+// un préfixe déjà présent dans un titre brut. Plus longs d'abord → pas de correspondance partielle.
+const _ALL_PREFIXES = [...new Set([
+  ...Object.values(REPORT_PREFIX),
+  'Asia-Pac Session Recap', 'Asia Session Recap', 'Asia-Pacific Session Recap',
+  'New York Session Recap', 'US Session Recap', 'Americas Session Recap',
+  'Daily Asia-Pac Opening News', 'Asia Opening Preparation', 'US Opening Preparation',
+])].sort((a, b) => b.length - a.length);
+
+// Déduit le préfixe de session pour un SESSION WRAP InvestingLive (Asie/Europe/Amériques).
+function _wrapSessionPrefix(item) {
+  const s = `${item.session || ''} ${item.headline || item.title || ''}`;
+  if (/asia|pacific|asie/i.test(s))                       return 'Asia-Pac Session Recap';
+  if (/europe|london|londres/i.test(s))                   return 'London Session Recap';
+  if (/americ|new york|north america|\bus\b|wall/i.test(s)) return 'New York Session Recap';
+  return 'Session Recap';
+}
 
 function _reportPrefixFor(item) {
   if (item._reportType && REPORT_PREFIX[item._reportType]) return REPORT_PREFIX[item._reportType];
   // Articles ING THINK : série "FX Daily" reconnue par son titre
   if (item._source === 'ing-think' && /^\s*FX Daily\b/i.test(item.title || item.headline || '')) return 'FX Daily';
-  return null;   // session wraps & autres ING : on garde leur titre d'origine
+  // Session wraps InvestingLive → préfixe de session déduit
+  if (item._source === 'investinglive') return _wrapSessionPrefix(item);
+  return null;
 }
 
-// Renvoie le titre normalisé "Préfixe: Sujet". Si un préfixe connu est déjà présent
-// (même mal espacé, ex. "London Session Recap :"), on le normalise ; sinon on le préfixe.
+// Renvoie le titre normalisé "Préfixe: Sujet". Détecte un préfixe déjà présent (même mal
+// espacé, ex. "London Session Recap :"), sinon l'injecte ; pour les wraps, retire d'abord
+// le préfixe d'origine "… markets wrap :" pour ne garder que le sujet.
 function standardizeReportTitle(item) {
-  // Retire un éventuel suffixe "Week Ending: DD.MM.YYYY" du titre : il ne doit apparaître
-  // que dans sa ligne dédiée (.wr-doc-week), pas collé au titre (cassait la mise en page).
-  const raw = arlibCleanTitle(item.headline || item.title || '')
-    .replace(/\s*[—–-]?\s*Week Ending:\s*[\d.\/-]+\s*$/i, '')
+  let raw = arlibCleanTitle(item.headline || item.title || '')
+    .replace(/\s*[—–-]?\s*Week Ending:\s*[\d.\/-]+\s*$/i, '')   // "Week Ending: …" → ligne dédiée uniquement
     .trim();
   const prefix = _reportPrefixFor(item);
   if (!prefix) return raw;
+  // Wraps InvestingLive : retire le préfixe source "X markets/session wrap :" pour isoler le sujet
+  // (si le titre n'est QUE "… markets wrap" sans sujet → sujet vide → on garde le préfixe seul).
+  if (item._source === 'investinglive') {
+    const wrapRe = /^\s*[\w\s.,/&'-]*?\b(?:markets?|session)\s+wrap\b\s*[:\-—–]?\s*/i;
+    if (wrapRe.test(raw)) raw = raw.replace(wrapRe, '').trim();
+  }
   const escd = _ALL_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
-  // Détecte un préfixe en tête (suivi de ":" ou "-" ou "—", espaces variables)
   const m = raw.match(new RegExp('^\\s*(?:' + escd + ')\\s*[:\\-—–]?\\s*', 'i'));
   const subject = (m ? raw.slice(m[0].length) : raw).trim();
   return subject ? `${prefix}: ${subject}` : prefix;
