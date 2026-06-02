@@ -4153,6 +4153,20 @@ const RISK_ASSETS = [
   { sym: 'QQQ',      label: 'Nasdaq (Tech/Risk)',  dir:  1, norm: 1.2, wt: 1.0 },  // tech = high-beta risk
 ];
 let _riskData = null, _riskTs = 0;
+// État pour un sentiment de risque STABLE (anti flip-flop) : score lissé (EMA) + hystérésis de bande.
+let _riskScoreEMA = null, _riskPrevIdx = null;
+const RISK_LABELS = ['STRONG RISK-OFF', 'RISK-OFF', 'WEAK RISK-OFF', 'NEUTRAL', 'WEAK RISK-ON', 'RISK-ON', 'STRONG RISK-ON'];
+const RISK_BOUNDS = [-0.80, -0.30, -0.07, 0.07, 0.30, 0.55];   // 6 frontières entre les 7 bandes
+const RISK_HYST   = 0.06;                                       // marge d'hystérésis (ne switch pas pour du bruit)
+function _riskBand(score, prevIdx) {
+  let idx = 0;
+  for (let i = 0; i < RISK_BOUNDS.length; i++) if (score > RISK_BOUNDS[i]) idx = i + 1;
+  if (prevIdx == null) return idx;
+  // On ne QUITTE la bande courante que si le score franchit SA frontière + la marge d'hystérésis.
+  if (idx > prevIdx && score < RISK_BOUNDS[prevIdx] + RISK_HYST) return prevIdx;          // veut monter
+  if (idx < prevIdx && score > RISK_BOUNDS[prevIdx - 1] - RISK_HYST) return prevIdx;       // veut descendre
+  return idx;
+}
 
 async function fetchRiskSentiment() {
   if (_riskData && Date.now() - _riskTs < 3 * 60 * 1000) return _riskData;
@@ -4184,13 +4198,14 @@ async function fetchRiskSentiment() {
     return s + normalized * r.dir * r.wt;
   }, 0) / totalWt;
 
-  const label = score > 0.55  ? 'STRONG RISK-ON'
-    : score > 0.30  ? 'RISK-ON'
-    : score > 0.07  ? 'WEAK RISK-ON'
-    : score > -0.07 ? 'NEUTRAL'
-    : score > -0.30 ? 'WEAK RISK-OFF'
-    : score > -0.80 ? 'RISK-OFF'
-    : 'STRONG RISK-OFF';
+  // ── Sentiment STABLE (anti flip-flop) ───────────────────────────────────────
+  // 1) On LISSE le score (EMA) → on absorbe le bruit minute par minute.
+  // 2) Hystérésis de bande → on ne bascule risk-on/off que sur un VRAI franchissement,
+  //    pas pour une oscillation autour d'une frontière. Résultat : un vrai switch fiable.
+  _riskScoreEMA = (_riskScoreEMA == null) ? score : +(_riskScoreEMA * 0.6 + score * 0.4).toFixed(4);
+  const idx = _riskBand(_riskScoreEMA, _riskPrevIdx);
+  _riskPrevIdx = idx;
+  const label = RISK_LABELS[idx];
 
   const DESCS = {
     'STRONG RISK-ON':  'Fort appétit pour le risque sur l\'ensemble des marchés. Actions, devises risquées et actifs à haut rendement tous achetés. VIX bas.',
@@ -4202,7 +4217,7 @@ async function fetchRiskSentiment() {
     'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
   };
 
-  _riskData = { label, score: +score.toFixed(2), description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
+  _riskData = { label, score: +(_riskScoreEMA).toFixed(2), rawScore: +score.toFixed(2), description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
   _riskTs = Date.now();
   return _riskData;
 }
