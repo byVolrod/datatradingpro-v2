@@ -2159,12 +2159,12 @@ async function generateWeeklyRecapAI(force = false) {
     .filter(i => inWeek(i.timestamp) && /actual/i.test(i.description || ''))
     .map(i => `${i.country || i.currency || ''} ${i.title || i.headline || ''} — ${String(i.description).replace(/\s+/g, ' ').trim()}`);
   // 3) Autres titres macro de la semaine en complément (nettoyés du bruit social/promo)
-  const news = _recapClean(allNews.filter(i => inWeek(i.timestamp) && !i._briefing))
-    .slice(0, 120)
-    .map(i => `[${i.category || ''}] ${i.headline}`);
+  const wrapsRaw     = (_swCache || []).filter(i => inWeek(i.timestamp));
+  const weekItemsRaw = _recapClean(allNews.filter(i => inWeek(i.timestamp) && !i._briefing));
+  const news = weekItemsRaw.slice(0, 120).map(i => `[${i.category || ''}] ${i.headline}`);
 
   if (!wraps.length && !cal.length && !news.length) {
-    console.warn('[Weekly Recap] aucune donnée de la semaine → fallback'); return null;
+    console.warn('[Weekly Recap] aucune donnée de la semaine → pas de génération'); return null;
   }
   const corpus = [
     '=== SESSION WRAPS (cette semaine) ===', ...wraps.slice(0, 60),
@@ -2216,37 +2216,53 @@ ${corpus}`;
     aiNote('weekly');                                    // 1 requête Gemini consommée → comptée dans le budget
     const m = text.match(/\{[\s\S]*\}/);
     if (m) parsed = JSON.parse(m[0]);
-  } catch (e) { console.warn('[Weekly Recap] IA échec:', e.message); return null; }
-  if (!parsed || !parsed.currencies || typeof parsed.currencies !== 'object') {
-    console.warn('[Weekly Recap] JSON IA invalide → fallback'); return null;
-  }
+  } catch (e) { console.warn('[Weekly Recap] IA échec:', e.message); parsed = null; }
+  const aiOk = !!(parsed && parsed.currencies && typeof parsed.currencies === 'object');
 
-  // Titre : on garde l'accroche IA naturelle ("Weekly Market Recap: …"), comme la référence.
-  let baseTitle = String(parsed.title || 'Weekly Market Recap').trim();
-  if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
-
-  const weekly = {
-    v: 2,                    // version du format (riche : analyse + drivers par devise + dates)
-    title:      baseTitle,
-    weekEnding, weekRange,
-    summary:    parsed.summary || '',
-    insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 8) : [],
-    macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).slice(0, 6) : [],
-    currencies: {},
-  };
-  for (const c of CCY) {
-    const v = parsed.currencies[c];
-    if (!v) continue;
-    if (typeof v === 'string') {           // rétro-compat : ancien format (chaîne)
-      weekly.currencies[c] = { analysis: v.trim(), drivers: [] };
-    } else {
-      weekly.currencies[c] = {
+  let weekly;
+  if (aiOk) {
+    // ── Format RICHE (Gemini) ──
+    let baseTitle = String(parsed.title || 'Weekly Market Recap').trim();
+    if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
+    weekly = {
+      v: 2, title: baseTitle, weekEnding, weekRange,
+      summary:    parsed.summary || '',
+      insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 8) : [],
+      macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).slice(0, 6) : [],
+      currencies: {},
+    };
+    for (const c of CCY) {
+      const v = parsed.currencies[c];
+      if (!v) continue;
+      if (typeof v === 'string') weekly.currencies[c] = { analysis: v.trim(), drivers: [] };
+      else weekly.currencies[c] = {
         analysis: String(v.analysis || '').trim(),
         drivers: Array.isArray(v.drivers)
           ? v.drivers.filter(x => x && x.heading).map(x => ({ heading: String(x.heading).trim(), detail: String(x.detail || '').trim() })).slice(0, 9)
           : [],
       };
     }
+  } else {
+    // ── Fallback PAR RÈGLES — MÊME semaine (dates correctes), à partir des wraps/données de la semaine.
+    console.warn('[Weekly Recap] IA indisponible (quota ?) → fallback par règles daté sur la semaine couverte');
+    const CB = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
+    const DATA = new Set(['Economic Commentary','EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data','New Zealand Data']);
+    const grp = (label, arr) => arr.length ? { heading: label, bullets: arr.slice(0, 6).map(i => i.headline) } : null;
+    const macro = [
+      grp('Central Banks & Policy', weekItemsRaw.filter(i => CB.has(i.category))),
+      grp('Economic Data',          weekItemsRaw.filter(i => DATA.has(i.category))),
+      grp('Geopolitics',            weekItemsRaw.filter(i => i.category === 'Geopolitical')),
+      grp('FX & Commodities',       weekItemsRaw.filter(i => /FX Flows|Market Analysis|Energy|Metals/.test(i.category || ''))),
+    ].filter(Boolean);
+    weekly = {
+      v: 1,
+      title: 'Weekly Market Recap — Synthèse hebdomadaire des marchés',
+      weekEnding, weekRange,
+      summary: `Synthèse de la ${weekRange.toLowerCase()} : ${wrapsRaw.length} session(s) de marché et ${cal.length} résultat(s) économique(s) majeur(s) suivis. (Analyse détaillée par devise générée par IA dès que le quota est disponible.)`,
+      insights: wrapsRaw.slice(0, 6).map(i => (i.title || '').replace(/\s+/g, ' ').trim()).filter(Boolean),
+      macro,
+      currencies: {},   // pas d'analyse par devise sans IA
+    };
   }
 
   // Description texte (fallback/recherche/affichage simple)
@@ -2268,7 +2284,7 @@ ${corpus}`;
   // Persistance DURABLE (Supabase) → après un redémarrage Render on RECHARGE au lieu de régénérer (économie Gemini)
   auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[Weekly Recap] sauvegarde persistante échec:', e.message));
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
-  console.log(`[Weekly Recap] généré (IA) ${weekKey} — ${Object.keys(weekly.currencies).length} devises, ${weekly.insights.length} insights`);
+  console.log(`[Weekly Recap] ${weekly.v >= 2 ? 'IA v2' : 'fallback'} ${weekKey} (${weekRange}) — ${Object.keys(weekly.currencies).length} devises, ${weekly.insights.length} insights`);
   return item;
 }
 
@@ -2293,12 +2309,11 @@ async function _loadPersistedWeekly(force = false) {
 }
 
 async function generateWeeklyMarketRecap(force = false) {
+  // generateWeeklyRecapAI gère TOUT : format riche (IA) OU fallback par règles, mais TOUJOURS daté
+  // sur la semaine couverte (vendredi écoulé). On n'utilise plus le briefing générique (mal daté).
   try {
-    const item = await generateWeeklyRecapAI(force);
-    if (item) return item;
-  } catch (e) { console.warn('[Weekly Recap] chemin IA échoué:', e.message); }
-  // Fallback par règles (bullets, sans structure riche → l'UI affiche le rendu simple)
-  return generateWeeklyBriefing({ idPrefix: 'pmt-mkt-recap-', reportType: 'Weekly Market Recap', force, buildFn: buildWeeklyMarketRecap });
+    return await generateWeeklyRecapAI(force);
+  } catch (e) { console.warn('[Weekly Recap] génération échouée:', e.message); return null; }
 }
 
 // ─── Schedule all briefings ───────────────────────────────────────────────────
