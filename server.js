@@ -2138,8 +2138,9 @@ async function generateWeeklyRecapAI(force = false) {
     console.log(`[Weekly Recap] déjà généré (v2) pour ${weekKey}, skip.`);
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isV2(i)) || null;
   }
-  // Régénération : on retire le recap de cette semaine ET tout ancien recap au format obsolète (anti-doublon).
-  allNews = allNews.filter(i => !((i.id || '').startsWith(weekPrefix)) && !(i._reportType === 'Weekly Market Recap' && !_isV2(i)));
+  // Anti-doublon STRICT : on génère un recap unique → on retire TOUS les Weekly Market Recap
+  // précédents d'allNews (les anciennes semaines restent conservées dans le store weekly_reports).
+  allNews = allNews.filter(i => i._reportType !== 'Weekly Market Recap');
 
   // Fenêtre = LA SEMAINE COUVERTE (lundi 00:00 → vendredi 23:59 UTC), pas un simple "7 derniers jours".
   // → le recap reflète EXACTEMENT ce qui s'est passé sur les sessions de cette semaine-là.

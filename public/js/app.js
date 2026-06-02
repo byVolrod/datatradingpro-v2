@@ -3337,19 +3337,25 @@ const ARLIB_TYPE_ORDER = {
 };
 const ARLIB_ALLOWED_TYPES = new Set(Object.keys(ARLIB_TYPE_ORDER));
 
-const _ARLIB_WEEKLY = new Set(['Weekly Market Recap', 'Global Economic Weekly']);
 function getArlibItems() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   // Session wraps InvestingLive…
   const wraps = (_sessionWraps || []).filter(i => i.timestamp > cutoff);
-  // …+ les rapports HEBDOMADAIRES (Weekly Recap / Global Economic Weekly).
-  // Source fiable : /api/weekly-reports (quel que soit l'âge) + flux temps réel en complément.
-  const weekly = [
+  // …+ UN SEUL Weekly Market Recap (le meilleur) — anti-doublon.
+  // On rassemble tous les candidats (store /api/weekly-reports + flux temps réel), puis on n'en
+  // garde QU'UN : priorité au format riche v2, puis au plus récent.
+  const cand = [
     ...(_weeklyReports || []),
-    ...(typeof allItems !== 'undefined' ? allItems : []).filter(i => _ARLIB_WEEKLY.has(i._reportType)),
-  ].filter(i => i.timestamp > cutoff);
+    ...(typeof allItems !== 'undefined' ? allItems : []).filter(i => i._reportType === 'Weekly Market Recap'),
+  ].filter(i => i && i._reportType === 'Weekly Market Recap' && i.timestamp > cutoff);
+  const best = cand.sort((a, b) => {
+    const av = (a._weekly && a._weekly.v >= 2) ? 1 : 0;
+    const bv = (b._weekly && b._weekly.v >= 2) ? 1 : 0;
+    if (av !== bv) return bv - av;             // v2 d'abord
+    return b.timestamp - a.timestamp;          // puis le plus récent
+  })[0];
   const seen = new Set();
-  return [...weekly, ...wraps]
+  return [...(best ? [best] : []), ...wraps]
     .filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; })
     .sort((a, b) => b.timestamp - a.timestamp);
 }
