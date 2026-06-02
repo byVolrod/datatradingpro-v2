@@ -3563,7 +3563,6 @@ function aiInsToggle(btn, hostId) {
 }
 
 // ═══════════ WEEKLY MARKET RECAP — rendu riche (copie Prime Terminal) ═══════════
-let _wrCurrency = null;   // devise active dans le rapport (null = vue d'ensemble)
 function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function _wrInline(t){ return _wrEsc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); }
 function _wrParas(t){
@@ -3571,6 +3570,13 @@ function _wrParas(t){
     .map(p=>`<p class="wr-p">${_wrInline(p)}</p>`).join('');
 }
 
+const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
+const _WR_COLOR = { USD:'#ff7a00', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
+let _wrStrengthData = null;     // données de force (TW) chargées 1 seule fois pour tout le rapport
+let _wrChartObserver = null;
+
+// Rapport complet, lu de haut en bas (PAS de badges) : AI Insights → Résumé → Key Macro Highlights
+// → Currency Analysis (chaque devise à la suite : analyse + courbe ISOLÉE + drivers).
 function _renderWeeklyRecap(item) {
   const w = item._weekly || {};
   const titleEl    = document.getElementById('arlib-rnav-title');
@@ -3578,23 +3584,14 @@ function _renderWeeklyRecap(item) {
   const content    = document.getElementById('arlib-rcontent');
   const navRight   = document.querySelector('#arlib-reader-view .arlib-rnav-right');
   if (!content) return;
-  document.getElementById('arlib-ai-insights')?.remove();   // pas d'insights auto (on a les nôtres)
+  document.getElementById('arlib-ai-insights')?.remove();
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   if (titleEl) titleEl.innerHTML = `${_wrEsc(w.title)}  <span class="wr-weekending">${_wrEsc(_range)}</span>`;
-  // Même barre que les rapports Institution : bouton Masquer Insights + badge PT
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">PT</span>`;
+  if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
 
-  // Sélecteur de devises (badges) dans la barre sous le titre
-  const ccys = Object.keys(w.currencies || {});
-  if (tagsScroll) {
-    tagsScroll.innerHTML = ccys.map(c =>
-      `<span class="wr-ccy-badge" data-wr-ccy="${c}" onclick="_wrSelectCurrency('${c}')">${c}</span>`).join('');
-    tagsScroll.scrollLeft = 0;
-  }
-
-  // AI Insights : MÊME composant que l'onglet Institution (chip + flèches + cartes scrollables),
-  // alimenté par les insights pré-générés du recap (aucun appel Gemini supplémentaire).
+  // AI Insights (composant Institution, alimenté par les insights Gemini du recap)
   const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
   const insightsHtml = (w.insights && w.insights.length) ? `
     <div id="arlib-ai-insights">
@@ -3609,69 +3606,65 @@ function _renderWeeklyRecap(item) {
       <div class="ai-insights-cards">${w.insights.map(t=>`<div class="ai-insights-card">${_wrEsc(t)}</div>`).join('')}</div>
     </div>` : '';
 
-  _wrCurrency = null;
-  content.innerHTML = `<div class="wr">${insightsHtml}<div class="wr-body" id="wr-body"></div></div>`;
-  _wrRenderBody(item);
-  content.scrollTop = 0;
-}
-
-function _wrRenderBody(item) {
-  const w = item._weekly || {};
-  const body = document.getElementById('wr-body');
-  if (!body) return;
-  document.querySelectorAll('[data-wr-ccy]').forEach(b =>
-    b.classList.toggle('wr-ccy-badge--active', b.dataset.wrCcy === _wrCurrency));
-
-  let html = '';
-  if (_wrCurrency) {
-    const cd = w.currencies[_wrCurrency];
-    const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
-    const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
-    html += `<div class="wr-section-title">${_wrCurrency} Analysis</div>`;
-    html += `<div class="wr-text">${_wrParas(analysis || 'Analyse indisponible.')}</div>`;
-    // Graphique de force COMPLET (toutes devises + badges, TW) — comme l'onglet STRENGTH
-    html += `<div class="wr-section-title">Currency Strength (This Week)</div>`;
-    html += `<div class="wr-chart" id="wr-strength-chart"></div>`;
-    // Drivers (sous-sections) de la devise
-    if (drivers.length) {
-      html += `<div class="wr-section-title">${_wrCurrency} — Drivers</div>`;
+  let body = '';
+  if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+  if (w.macro && w.macro.length) {
+    body += `<div class="wr-section-title">Key Macro Highlights</div>`;
+    w.macro.forEach(s => {
+      body += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
+      (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+    });
+  }
+  const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
+  if (ccys.length) {
+    body += `<div class="wr-section-title">Currency Analysis</div>`;
+    ccys.forEach(c => {
+      const cd = w.currencies[c];
+      const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
+      const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
+      body += `<div class="wr-ccy-block">`;
+      body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}</div>`;
+      body += `<div class="wr-text">${_wrParas(analysis)}</div>`;
+      body += `<div class="wr-chart" data-wr-chart="${c}"><div class="wr-chart-loading">Chargement de la force ${c}…</div></div>`;
       drivers.forEach(d => {
-        html += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
-        if (d.detail) html += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
+        body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
+        if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
       });
-    }
-    body.innerHTML = html;
-    if (typeof buildIsolatedStrength === 'function') buildIsolatedStrength('wr-strength-chart', null, 'week');
-    return;
+      body += `</div>`;
+    });
   }
-  {
-    if (w.summary) html += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
-    if (w.macro && w.macro.length) {
-      html += `<div class="wr-section-title">Key Macro Highlights</div>`;
-      w.macro.forEach(s => {
-        html += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
-        (s.bullets||[]).forEach(b => { html += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
-      });
-    }
-    html += `<div class="wr-section-title">Currency Analysis</div>`;
-    html += `<div class="wr-hint">Sélectionnez une devise ci-dessus pour son analyse détaillée et ses drivers.</div>`;
-  }
-  // Graphique de force COMPLET (toutes devises + badges, TW)
-  html += `<div class="wr-section-title">Currency Strength (This Week)</div>`;
-  html += `<div class="wr-chart" id="wr-strength-chart"></div>`;
-  body.innerHTML = html;
 
-  if (typeof buildIsolatedStrength === 'function') {
-    buildIsolatedStrength('wr-strength-chart', _wrCurrency, 'week');
-  }
+  content.innerHTML = `<div class="wr">${insightsHtml}<div class="wr-body">${body}</div></div>`;
+  content.scrollTop = 0;
+
+  // Une seule requête de force pour tout le rapport, puis chaque courbe isolée se construit
+  // au défilement (lazy) → pas 8 graphiques d'un coup.
+  _wrStrengthData = null;
+  fetch('/api/currency-strength?period=week').then(r=>r.json()).then(d => {
+    _wrStrengthData = (d && d.currencies) ? d : null;
+    _wrLazyCharts(content);
+  }).catch(() => {
+    content.querySelectorAll('[data-wr-chart]').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>');
+  });
 }
 
-function _wrSelectCurrency(ccy) {
-  _wrCurrency = (_wrCurrency === ccy) ? null : ccy;   // re-clic sur la devise active = retour vue d'ensemble
-  if (_currentArlibItem) _wrRenderBody(_currentArlibItem);
-  const c = document.getElementById('arlib-rcontent'); if (c) c.scrollTop = 0;
+function _wrLazyCharts(content) {
+  if (!_wrStrengthData || typeof buildStrengthChart !== 'function') return;
+  if (_wrChartObserver) { try { _wrChartObserver.disconnect(); } catch {} }
+  const charts = [...content.querySelectorAll('[data-wr-chart]')];
+  charts.forEach((el, i) => { if (!el.id) el.id = 'wr-chart-' + el.dataset.wrChart + '-' + i; });
+  _wrChartObserver = new IntersectionObserver((entries, obs) => {
+    entries.forEach(e => {
+      if (e.isIntersecting && !e.target.dataset.built) {
+        e.target.dataset.built = '1';
+        e.target.innerHTML = '';
+        try { buildStrengthChart(e.target.id, _wrStrengthData, { focusCurrency: e.target.dataset.wrChart, isolated: true }); } catch {}
+        obs.unobserve(e.target);
+      }
+    });
+  }, { root: content, rootMargin: '300px 0px' });
+  charts.forEach(el => _wrChartObserver.observe(el));
 }
-window._wrSelectCurrency = _wrSelectCurrency;
 
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
