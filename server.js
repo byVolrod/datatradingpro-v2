@@ -2296,11 +2296,21 @@ ${corpus}`;
       grp('Geopolitics',            weekItemsRaw.filter(i => i.category === 'Geopolitical')),
       grp('FX & Commodities',       weekItemsRaw.filter(i => /FX Flows|Market Analysis|Energy|Metals/.test(i.category || ''))),
     ].filter(Boolean);
+    // Titre DYNAMIQUE dérivé du wrap de CLÔTURE du vendredi (même logique que le titre IA),
+    // au lieu d'un libellé générique → le titre "parle" de la semaine même sans IA.
+    let fbTitle = 'Weekly Market Recap';
+    if (closing && closing.w && closing.w.title) {
+      let t = String(closing.w.title)
+        .replace(/^\s*\[[^\]]*\]\s*/, '')           // retire un préfixe [Session]
+        .replace(/.*\bwrap[:\s-]+/i, '')            // retire "… markets wrap:"
+        .replace(/\s+/g, ' ').trim();
+      if (t.length > 3) fbTitle = 'Weekly Market Recap: ' + t.charAt(0).toUpperCase() + t.slice(1);
+    }
     weekly = {
       v: 1,
-      title: 'Weekly Market Recap — Synthèse hebdomadaire des marchés',
+      title: fbTitle,
       weekEnding, weekRange,
-      summary: `Synthèse de la ${weekRange.toLowerCase()} : ${wrapsRaw.length} session(s) de marché et ${cal.length} résultat(s) économique(s) majeur(s) suivis. (Analyse détaillée par devise générée par IA dès que le quota est disponible.)`,
+      summary: `Synthèse de la ${weekRange.toLowerCase()} : ${wrapsRaw.length} session(s) de marché et ${cal.length} résultat(s) économique(s) majeur(s) suivis.`,
       insights: wrapsRaw.slice(0, 6).map(i => (i.title || '').replace(/\s+/g, ' ').trim()).filter(Boolean),
       pairs: [],
       macro,

@@ -3594,7 +3594,7 @@ function _renderWeeklyRecap(item) {
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   if (titleEl) titleEl.innerHTML = `${_wrEsc(w.title)}  <span class="wr-weekending">${_wrEsc(_range)}</span>`;
-  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">PT</span>`;
+  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
 
   // AI Insights (composant Institution, alimenté par les insights Gemini du recap)

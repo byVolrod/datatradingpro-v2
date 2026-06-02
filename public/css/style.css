@@ -3864,9 +3864,9 @@ html, body {
 /* ═══════════ WEEKLY MARKET RECAP (copie Prime Terminal) ═══════════ */
 .wr-weekending { color:#ff7a00; font-style:italic; font-weight:600; font-size:13px; margin-left:6px; }
 /* Titre du rapport en haut du contenu (orange institutionnel PT) */
-.wr-doc-title { color:#ff7a00; font-size:15px; font-weight:600; line-height:1.375; margin:2px 0 2px; }
-.wr-doc-week  { color:#ff7a00; font-size:13px; font-style:italic; margin:0 0 16px; }
-@media (min-width:768px){ .wr-doc-title { font-size:16px; } }
+.wr-doc-title { color:#ff7a00; font-size:14px; font-weight:600; line-height:1.375; margin:2px 0 2px; }   /* text-sm, semibold, leading-snug */
+.wr-doc-week  { color:#ff7a00; font-size:13px; font-style:italic; margin:0 0 16px; }                     /* Week Ending: DD.MM.YYYY */
+@media (min-width:768px){ .wr-doc-title { font-size:16px; } }                                            /* md:text-base */
 /* Badges de devises (sélecteur sous le titre) */
 .wr-ccy-badge {
   display:inline-flex; align-items:center; justify-content:center;
@@ -3922,6 +3922,26 @@ html, body {
 @media (max-width:768px){
   .wr-insight-card { flex-basis:220px; }
   .wr-chart { height:300px; }
+  /* Reader Weekly/Analyst : marges réduites pour gagner de la largeur de lecture */
+  #arlib-ai-insights { padding:0 14px; }
+  .wr-body { padding:0 2px; }
+  .wr-doc-title { font-size:14px; }
+  .wr-section-title { font-size:13px; }
+  .wr-ccy-title { font-size:17px; }
+  /* Cartes d'insight : un peu plus étroites pour montrer qu'on peut scroller */
+  .ai-insights-card { flex-basis:240px; flex-grow:0; flex-shrink:0; width:240px; }
+}
+@media (max-width:480px){
+  .wr-chart { height:240px; }
+  #arlib-ai-insights { padding:0 10px; }
+  .ai-insights-head { padding:14px 0 10px; font-size:12px; }
+  .ai-insights-card { flex-basis:208px; width:208px; font-size:12.5px; padding:12px; }
+  .wr-doc-title { font-size:13.5px; line-height:1.4; }
+  .wr-doc-week  { font-size:12px; }
+  .wr-text, .wr-bullet { font-size:13px; }
+  .wr-macro-heading { font-size:12.5px; }
+  /* Titre de la barre nav : le Week Ending passe dessous au lieu de déborder */
+  .wr-weekending { display:block; margin-left:0; font-size:12px; }
 }
 
 /* ── AI Insights (cartes générées par IA en haut du rapport) ── */
