@@ -3419,9 +3419,11 @@ function standardizeReportTitle(item) {
     .trim();
   const prefix = _reportPrefixFor(item);
   if (!prefix) return raw;
-  // Wraps InvestingLive : retire le préfixe source "X markets/session wrap :" pour isoler le sujet
+  // Wraps InvestingLive : on PRÉFÈRE le titre IA (résumé du thème de la séance) s'il est prêt ;
+  // sinon on retire le préfixe source "X markets/session wrap :" pour isoler le sujet brut
   // (si le titre n'est QUE "… markets wrap" sans sujet → sujet vide → on garde le préfixe seul).
   if (item._source === 'investinglive') {
+    if (item.aiTitle && item.aiTitle.trim().length >= 8) return `${prefix}: ${item.aiTitle.trim()}`;
     const wrapRe = /^\s*[\w\s.,/&'-]*?\b(?:markets?|session)\s+wrap\b\s*[:\-—–]?\s*/i;
     if (wrapRe.test(raw)) raw = raw.replace(wrapRe, '').trim();
   }
