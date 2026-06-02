@@ -492,7 +492,7 @@
     document.getElementById('edit-name').value = name;
     document.getElementById('edit-role').value = role;
     document.getElementById('edit-plan').value = plan;
-    document.getElementById('edit-active').value = active;
+    document.getElementById('edit-active').value = active ? '1' : '0';   // statut actuel (Actif/Suspendu) pré-rempli
     document.getElementById('edit-duration').value = '';      // par défaut : on garde l'échéance
     document.getElementById('edit-custom-date').value = '';
     document.getElementById('edit-custom-wrap').style.display = 'none';
