@@ -3338,11 +3338,25 @@ function renderBrList() {
   if (footer) footer.textContent = `Showing ${items.length} of ${_brArticles.length} research papers`;
 }
 
-// Badge institution : ING reste "ING" (vraie source) ; tout le reste (ActionForex, FXStreet,
-// agrégateurs, source manquante) → "DTP". Ne JAMAIS afficher "ING" par défaut pour tout.
+// Badge institution = la VRAIE banque du rapport. ING→"ING", MUFG→"MUFG", autres banques
+// reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
+// identifiable) → "DTP". On ne met JAMAIS "ING" par défaut.
+const _INST_BANKS = [
+  [/\bmufg\b|mitsubishi ufj/i, 'MUFG'], [/\buob\b/i, 'UOB'], [/\bocbc\b/i, 'OCBC'],
+  [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman'],
+  [/\bmorgan stanley\b/i, 'MS'], [/\bjp ?morgan\b/i, 'JPM'], [/\bciti\b/i, 'Citi'],
+  [/\bbarclays\b/i, 'Barclays'], [/\bhsbc\b/i, 'HSBC'], [/\brabobank\b/i, 'Rabo'],
+  [/\bscotiabank\b|\bscotia\b/i, 'Scotia'], [/\bwestpac\b/i, 'Westpac'], [/\bnab\b/i, 'NAB'],
+  [/\bcommerzbank\b/i, 'Commerz'], [/\bsocgen\b|société générale|societe generale/i, 'SocGen'],
+  [/\bbnp\b/i, 'BNP'], [/crédit agricole|credit agricole|\bcacib\b/i, 'CACIB'],
+  [/standard chartered/i, 'StanChart'], [/\bwells fargo\b/i, 'Wells'],
+  [/bank of america|\bbofa\b/i, 'BofA'], [/\bdeutsche\b/i, 'Deutsche'], [/\bnatwest\b/i, 'NatWest'],
+];
 function _instBadge(item) {
   const inst = (item && item.institution) || '';
+  const hay = inst + ' ' + ((item && item.title) || (item && item.headline) || '');
   if ((item && item._source === 'ing-think') || /\bing\b/i.test(inst)) return 'ING';
+  for (const [re, label] of _INST_BANKS) if (re.test(hay)) return label;
   return 'DTP';
 }
 
@@ -4055,27 +4069,31 @@ function renderArlibReader(item) {
 
   // ── InvestingLive session wraps ────────────────────────────────────────────────
   if (item._source === 'investinglive') {
-    const SESSION_LABEL = { 'Americas': 'Americas Session', 'European': 'European Session', 'Asia-Pacific': 'Asia-Pacific Session' }[item.session] || 'Session Wrap';
+    // Structure PMT UNIFIÉE pour TOUS les session wraps : type (orange) → titre (orange)
+    // → sous-titre (orange) → date → corps. Identique quel que soit le contenu disponible.
+    const SESSION_LABEL = { 'Americas': 'Americas Session Recap', 'European': 'European Session Recap', 'Asia-Pacific': 'Asia-Pac Session Recap' }[item.session] || 'Session Recap';
+    const SUBTITLE = { 'Americas': 'Wrap-up of the North American trading session', 'European': 'Wrap-up of the European trading session', 'Asia-Pacific': 'Wrap-up of the Asia-Pacific trading session' }[item.session] || 'Daily market session wrap-up';
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
+    const _header = `
+          <div class="arlib-doc-header">
+            <div class="arlib-doc-type">${SESSION_LABEL}</div>
+            <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
+            <div class="arlib-doc-subtitle">${SUBTITLE}</div>
+            <div class="arlib-doc-meta">${dateStr}</div>
+          </div>`;
     content.innerHTML = dtpLoader('Loading session wrap…');
 
     fetch('/api/session-wrap-content?url=' + encodeURIComponent(item.url))
       .then(r => r.json())
       .then(data => {
         if (!content) return;
-        const metaBar = `
-          <div class="arlib-doc-header">
-            <div class="arlib-doc-type">${SESSION_LABEL}</div>
-            <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
-            <div class="arlib-doc-meta">${dateStr}</div>
-          </div>`;
         if (data.html && data.html.length > 80) {
-          content.innerHTML = _parseHtmlToArlib(data.html, metaBar);
+          content.innerHTML = _parseHtmlToArlib(data.html, _header);
         } else {
           const desc = item.description || '';
           content.innerHTML = desc.length > 20
-            ? `${metaBar}<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${desc}</span></div>`
-            : `${metaBar}<div class="arlib-rno-content">Contenu indisponible pour le moment.</div>`;
+            ? `${_header}<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${desc}</span></div>`
+            : `${_header}<div class="arlib-rno-content">Contenu indisponible pour le moment.</div>`;
         }
         content.scrollTop = 0;
         // Insights basés sur le VRAI contenu rendu (la description seule est trop courte)
@@ -4085,7 +4103,7 @@ function renderArlibReader(item) {
       .catch(() => {
         if (!content) return;
         const desc = item.description || '';
-        content.innerHTML = `<div class="arlib-doc-header"><div class="arlib-doc-type">${SESSION_LABEL}</div><div class="arlib-doc-title">${standardizeReportTitle(item)}</div></div>`
+        content.innerHTML = _header
           + (desc ? `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${desc}</span></div>` : `<div class="arlib-rno-content">Contenu indisponible pour le moment.</div>`);
       });
     return;

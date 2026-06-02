@@ -4131,6 +4131,16 @@ html, body {
   margin-bottom: 10px;
 }
 @media (min-width: 768px) { .arlib-doc-title { font-size: 16px; } }   /* md:text-base */
+/* Sous-titre (lead) ORANGE — structure PMT : type → titre → sous-titre → date */
+.arlib-doc-subtitle {
+  font-size: 12.5px;
+  color: #ff9a3c;
+  font-weight: 500;
+  line-height: 1.5;
+  letter-spacing: 0.01em;
+  margin: -2px 0 10px;
+  font-family: var(--font-ui);
+}
 .arlib-doc-meta {
   font-size: 11px;
   color: #555;
