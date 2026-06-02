@@ -3407,6 +3407,27 @@ if (process.env.DISABLE_MYFXBOOK === 'true') {
   setInterval(refreshMyfxbook, 5 * 60 * 1000); // then every 5 min
 }
 
+// ── KEEP-ALIVE : anti-veille Render (offre gratuite) ─────────────────────────
+// Un service Render gratuit s'endort après ~15 min sans trafic ENTRANT et met 30-60 s à se
+// réveiller → "chargement trop long". On ping notre PROPRE URL publique toutes les 13 min :
+// ça compte comme trafic entrant → le serveur reste éveillé et ses caches restent chauds,
+// donc les onglets se chargent instantanément. (Render fournit RENDER_EXTERNAL_URL.)
+const _SELF_URL = (process.env.RENDER_EXTERNAL_URL || process.env.APP_URL || '').replace(/\/+$/, '');
+if (_SELF_URL) {
+  setInterval(() => { fetch(_SELF_URL + '/healthz').catch(() => {}); }, 13 * 60 * 1000);
+  console.log(`[KeepAlive] auto-ping ${_SELF_URL}/healthz / 13 min — anti-veille (chargement rapide)`);
+}
+
+// ── PRÉCHAUFFAGE des caches au démarrage → onglets instantanés (pas de "Loading…") ──
+// On peuple les caches lourds (Currency Strength, DMX/Myfxbook, COT) en arrière-plan dès le
+// démarrage, AVANT que l'utilisateur n'ouvre les onglets → données déjà prêtes.
+setTimeout(() => {
+  try { computeCurrencyStrength('today').catch(() => {}); } catch {}
+  try { computeCurrencyStrength('week').catch(() => {}); } catch {}
+  try { if (process.env.DISABLE_MYFXBOOK !== 'true') fetchCommunityOutlook('H1').catch(() => {}); } catch {}
+  try { fetchCOTData('lev_money').catch(() => {}); } catch {}
+}, 6000);
+
 // ── Rappel abonnements : prévient l'admin (datatradingpro.contact) des comptes
 //    qui expirent bientôt ou viennent d'expirer, AVANT le blocage (grâce 48h) ──
 async function _checkExpiringSubscriptions() {
