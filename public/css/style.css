@@ -4849,7 +4849,7 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 4px 12px;
+  padding: 3px 12px;
   border-bottom: 1px solid rgba(255,255,255,0.04);
   transition: background 0.1s;
 }
@@ -4868,7 +4868,7 @@ html, body {
 
 .dmx2-bar {
   flex: 1;
-  height: 26px;
+  height: 20px;                /* barres plus fines (moins "grosses") */
   display: flex;
   border-radius: 3px;
   overflow: hidden;
@@ -6698,7 +6698,7 @@ html, body {
 
   /* DMX bars slightly smaller */
   .dmx2-sym        { width: 54px; font-size: 11px; }
-  .dmx2-bar        { height: 22px; }
+  .dmx2-bar        { height: 18px; }
   .dmx2-pct        { font-size: 10px; }
 
   /* Strength chart toolbar compact */
@@ -6745,7 +6745,7 @@ html, body {
 
   /* DMX */
   .dmx2-sym        { width: 50px; font-size: 10.5px; }
-  .dmx2-bar        { height: 22px; }
+  .dmx2-bar        { height: 18px; }
   .dmx2-pct        { font-size: 10px; }
   .dmx-header-title { font-size: 10.5px; }
 
@@ -6807,7 +6807,7 @@ html, body {
   /* DMX: compact */
   .dmx2-row        { padding: 3px 8px; }
   .dmx2-sym        { width: 46px; font-size: 10px; }
-  .dmx2-bar        { height: 20px; }
+  .dmx2-bar        { height: 17px; }
 
   /* Toolbar search: full width */
   .toolbar-search  { width: 100%; }

@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DataTradingPro</title>
+  <title>DTP</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23ffffff'/%3E%3Ctext x='50%25' y='55%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='11' fill='%23111111' letter-spacing='-0.5'%3EDTP%3C/text%3E%3C/svg%3E" />
   <link rel="icon" type="image/png" href="/favicon.png" />
   <link rel="apple-touch-icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260603o" />
+  <link rel="stylesheet" href="/css/style.css?v=20260603p" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -549,8 +549,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260603o"></script>
-<script src="/js/charts.js?v=20260603o"></script>
+<script src="/js/app.js?v=20260603p"></script>
+<script src="/js/charts.js?v=20260603p"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -866,9 +866,9 @@
     const displayName = d.user.name || d.user.email || '?';
     const initial = displayName.charAt(0).toUpperCase();
 
-    // Titre de l'onglet navigateur : "DataTradingPro - <nom utilisateur>" (fixe, après connexion)
+    // Titre de l'onglet navigateur : "DTP - <nom utilisateur>" (fixe, après connexion)
     window._dtpUser = displayName;
-    try { document.title = 'DataTradingPro - ' + displayName; } catch {}
+    try { document.title = 'DTP - ' + displayName; } catch {}
 
     // Topbar avatar letter
     const topbarAvEl = document.getElementById('topbar-avatar-letter');
