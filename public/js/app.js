@@ -3746,9 +3746,13 @@ function _renderWeeklyRecap(item) {
     </div>` : '';
 
   let body = '';
-  // Titre du rapport répété en haut du contenu (orange, comme Prime Terminal) + date de clôture
-  body += `<div class="wr-doc-title">${_wrEsc(_wrTitle)}</div>`;
-  if (_range) body += `<div class="wr-doc-week">${_wrEsc(w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)}</div>`;
+  // En-tête IDENTIQUE aux autres rapports ouverts (libellé type + titre + date + bordure),
+  // pour que le Weekly s'ouvre exactement comme les autres rapports.
+  body += `<div class="arlib-doc-header">
+      <div class="arlib-doc-type">Weekly Market Recap</div>
+      <div class="arlib-doc-title">${_wrEsc(_wrTitle)}</div>
+      ${_range ? `<div class="arlib-doc-meta">${_wrEsc(w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)}</div>` : ''}
+    </div>`;
   if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
   if (w.macro && w.macro.length) {
     body += `<div class="wr-section-title">Key Macro Highlights</div>`;
