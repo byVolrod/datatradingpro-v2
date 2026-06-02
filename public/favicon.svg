@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
-  <rect x="2.5" y="2.5" width="59" height="59" rx="15" fill="#0e0e10" stroke="#ff7a00" stroke-width="3"/>
+  <rect x="2" y="2" width="60" height="60" rx="15" fill="#e7e8ea" stroke="#202126" stroke-width="2"/>
   <text x="32" y="34" text-anchor="middle" dominant-baseline="central"
         font-family="'Segoe UI', Arial, Helvetica, sans-serif" font-weight="800"
-        font-size="22" letter-spacing="-1.5" fill="#ff7a00">DTP</text>
+        font-size="22" letter-spacing="-1.5" fill="#16181c">DTP</text>
 </svg>
