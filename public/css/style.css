@@ -4521,22 +4521,20 @@ html, body {
 .risk-widget-container {
   flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
 }
+/* Bande sentiment (façon image) : ● LABEL: phrase — fond teinté, label vif, phrase mate */
 .risk-ticker {
-  display: flex; align-items: center; gap: 8px;
-  padding: 8px 14px; font-size: 11px;
-  border-left: 2px solid; background: rgba(255,255,255,0.02); flex-shrink: 0;
-  overflow: hidden; white-space: nowrap;
+  display: flex; align-items: flex-start; gap: 8px;
+  padding: 10px 16px; font-size: 12.5px; line-height: 1.45; flex-shrink: 0;
 }
-.risk-ticker-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
-.risk-ticker-label { font-weight: 700; letter-spacing: 0.4px; flex-shrink: 0; }
-.risk-ticker-desc {
-  color: #e8eaed; font-weight: 400; letter-spacing: 0.2px;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
-}
-/* La couleur (bordure + dot + label) suit le sentiment ; la description reste neutre */
-.risk-ticker.risk-on  { border-color: var(--green);  color: var(--green);  }
-.risk-ticker.risk-off { border-color: var(--red);    color: var(--red);    }
-.risk-ticker.neutral  { border-color: var(--orange); color: var(--orange); }
+.risk-ticker-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
+.risk-ticker-txt { flex: 1; min-width: 0; }
+.risk-ticker strong { font-weight: 700; letter-spacing: 0.02em; }
+.risk-ticker.risk-off { background: rgba(120,22,22,0.13); border-top: 1px solid rgba(170,45,45,0.22); border-bottom: 1px solid rgba(170,45,45,0.22); color: #c07a72; }
+.risk-ticker.risk-off strong { color: #ec5a50; }  .risk-ticker.risk-off .risk-ticker-dot { background: #e04a3e; }
+.risk-ticker.risk-on  { background: rgba(22,120,60,0.13); border-top: 1px solid rgba(45,170,90,0.22); border-bottom: 1px solid rgba(45,170,90,0.22); color: #7fc69a; }
+.risk-ticker.risk-on strong { color: #34d27a; }  .risk-ticker.risk-on .risk-ticker-dot { background: #2ec46a; }
+.risk-ticker.neutral  { background: rgba(150,100,15,0.13); border-top: 1px solid rgba(200,140,30,0.22); border-bottom: 1px solid rgba(200,140,30,0.22); color: #cda86a; }
+.risk-ticker.neutral strong { color: #ffae33; }  .risk-ticker.neutral .risk-ticker-dot { background: #f0a022; }
 
 /* Jauge Risk — lecture (score + badge) CENTRÉE sous l'arc */
 .risk-gauge-stage { position: relative; flex: 1; min-height: 0; width: 100%; }

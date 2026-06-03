@@ -946,6 +946,21 @@ let _riskHandDI       = null;
 let _riskScoreLabel   = null;
 let _riskBadgeLabel   = null;
 
+// Bande sentiment (● LABEL: phrase EN) — partagée build + mise à jour du widget risque
+const _RISK_BAND_EN = {
+  'STRONG RISK-ON':  'Strong appetite for risk. Capital rotates into equities and high-beta. Safe havens sold.',
+  'RISK-ON':         'Risk appetite prevails. Equities and risk assets bid; defensive assets soft.',
+  'WEAK RISK-ON':    'Mild risk appetite. Constructive tone but limited conviction.',
+  'NEUTRAL':         'Balanced sentiment. Mixed signals across risk assets, no clear direction.',
+  'WEAK RISK-OFF':   'Cautious sentiment prevails. Mixed flows. Safe havens supported. Volatility elevated.',
+  'RISK-OFF':        'Risk aversion in play. Flight to safety — bonds, gold, JPY and CHF bid.',
+  'STRONG RISK-OFF': 'Strong risk aversion. Significant flight to safety across havens. Volatility high.',
+};
+function _riskBandInner(data) {
+  const phrase = _RISK_BAND_EN[data.label] || data.description || '';
+  return `<span class="risk-ticker-dot"></span><span class="risk-ticker-txt"><strong>${data.label}:</strong> ${phrase}</span>`;
+}
+
 function buildRiskGauge() {
   const wrap = document.getElementById('risk-widget');
   if (!wrap) return;
@@ -989,7 +1004,7 @@ function buildRiskGauge() {
       if (!isBuilt) {
         isBuilt = true;
         wrap.innerHTML = `
-          <div id="risk-ticker" class="risk-ticker ${cls}"><span class="risk-ticker-dot"></span><span class="risk-ticker-label">${data.label}</span><span class="risk-ticker-desc">${data.description}</span></div>
+          <div id="risk-ticker" class="risk-ticker ${cls}">${_riskBandInner(data)}</div>
           <div class="risk-gauge-stage">
             <div id="risk-gauge-div"></div>
             <div class="risk-readout">
@@ -1093,7 +1108,7 @@ function buildRiskGauge() {
         const ticker = document.getElementById('risk-ticker');
         if (ticker) {
           ticker.className = `risk-ticker ${cls}`;
-          ticker.innerHTML = `<span class="risk-ticker-dot"></span><span class="risk-ticker-label">${data.label}</span><span class="risk-ticker-desc">${data.description}</span>`;
+          ticker.innerHTML = _riskBandInner(data);
         }
       }
 
