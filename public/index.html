@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260605p" />
+  <link rel="stylesheet" href="/css/style.css?v=20260605q" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -333,7 +333,7 @@
         </div>
         <!-- Cards -->
         <div class="arlib-cards" id="arlib-list">
-          <div class="arlib-empty">Loading reports…</div>
+          <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement des rapports…</div></div>
         </div>
       </div>
 
@@ -555,8 +555,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260605p"></script>
-<script src="/js/charts.js?v=20260605p"></script>
+<script src="/js/app.js?v=20260605q"></script>
+<script src="/js/charts.js?v=20260605q"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1302,8 +1302,12 @@
   <div class="chat-search-bar" id="chat-search-bar" style="display:none">
     <span class="chat-search-ic">⌕</span>
     <input type="text" id="chat-search-input" placeholder="Rechercher un utilisateur…" oninput="_chatSearchUsers(this.value)" autocomplete="off" />
+    <span class="chat-online-count" id="chat-online-count" title="Utilisateurs en ligne" style="display:none">
+      <span class="chat-online-dot"></span><span id="chat-online-n">0</span>
+    </span>
   </div>
   <div class="chat-list" id="chat-list"></div>
+  <div class="chat-pending" id="chat-pending"></div>
   <div class="chat-input-bar">
     <input type="file" id="chat-file-img" accept="image/*" style="display:none" onchange="_chatAttach(this,'image')" />
     <input type="file" id="chat-file-doc" style="display:none" onchange="_chatAttach(this,'file')" />

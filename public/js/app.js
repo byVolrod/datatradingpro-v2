@@ -5131,15 +5131,14 @@ function _chatSetTyping(on, name){
   const list = document.getElementById('chat-list'); if (!list) return;
   let el = list.querySelector('.chat-typing');
   if (!on){ if (el) el.remove(); return; }
-  const av = (name||'?').charAt(0).toUpperCase();
   if (!el){
     el = document.createElement('div');
     el.className = 'chat-typing';
     list.appendChild(el);
   }
-  el.innerHTML = `<div class="chat-av">${_chatEsc(av)}</div>`
-    + `<div class="chat-typing-bubble"><span class="chat-typing-name">${_chatEsc(name||'')} est en train d'écrire</span>`
-    + `<span class="chat-typing-dots"><i></i><i></i><i></i></span></div>`;
+  // Subtil : pas de photo, juste un texte discret + petits points animés
+  el.innerHTML = `<span class="chat-typing-text">${_chatEsc(name||'')} est en train d'écrire</span>`
+    + `<span class="chat-typing-dots"><i></i><i></i><i></i></span>`;
   list.scrollTop = list.scrollHeight;
 }
 // Signale (throttlé) au serveur que l'on est en train d'écrire
@@ -5225,6 +5224,10 @@ function _chatRenderInbox(){
   if (_chatThreadUser) return;   // on n'écrase pas une conversation ouverte
   const threads = (_chatInboxData && _chatInboxData.threads) || [];
   const users   = (_chatInboxData && _chatInboxData.users)   || [];
+  // Compteur "en ligne" épuré à droite de la barre de recherche
+  const onlineN = users.filter(u => u.online).length;
+  const ocEl = document.getElementById('chat-online-n'); if (ocEl) ocEl.textContent = onlineN;
+  const ocWrap = document.getElementById('chat-online-count'); if (ocWrap) ocWrap.style.display = 'inline-flex';
   const userById = new Map(users.map(u => [String(u.id), u]));
   const threadIds = new Set(threads.map(t => String(t.user_id)));
   // 1) Conversations existantes, puis 2) TOUS les autres utilisateurs (pour pouvoir les contacter).
@@ -5284,6 +5287,7 @@ function _chatRender(messages){
     return;
   }
   const support = _chatIsSupport();
+  const myId = String((_chatCurUser() || {}).id || '');
   const avThemIsPhoto = !support;   // côté CLIENT, l'interlocuteur = support → photo
   const avThem = support ? _chatEsc((_chatThreadName||'?').charAt(0).toUpperCase()) : _chatSupportAvatarHtml();
   let html=''; let lastDate='';
@@ -5295,17 +5299,96 @@ function _chatRender(messages){
     // support : mes bulles = 'support' ; client : mes bulles = 'user'
     const mine = support ? (m.sender==='support') : (m.sender==='user');
     const t = m.text || '';
+    const isImg = /^data:image\//.test(t);
     let inner;
-    if (/^data:image\//.test(t))      inner = `<a href="${t}" target="_blank" rel="noopener"><img class="chat-img" src="${t}" alt="image jointe"></a>`;
-    else if (/^data:/.test(t))        inner = `<a class="chat-file" href="${t}" download>📎 Fichier joint</a>`;
-    else                              inner = `<div class="chat-text">${_chatEsc(t)}</div>`;
-    html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}">`
+    if (isImg)                  inner = `<img class="chat-img" src="${t}" alt="image jointe" onclick="_chatLightbox(this.src)">`;
+    else if (/^data:/.test(t))  inner = `<a class="chat-file" href="${t}" download>📎 Fichier joint</a>`;
+    else                        inner = `<div class="chat-text">${_chatEsc(t)}</div>`;
+    const mid = _chatEsc(String(m.id || ''));
+    // Sélecteur de réaction (au survol) — disponible pour tout le monde
+    const picker = `<div class="chat-react-picker">`
+      + `<button type="button" title="J'aime" onclick="_chatReact('${mid}','👍')">👍</button>`
+      + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">❤️</button>`
+      + `<button type="button" title="Feu" onclick="_chatReact('${mid}','🔥')">🔥</button></div>`;
+    // Actions admin (modifier le texte / supprimer) — uniquement côté support
+    const admin = support
+      ? `${!/^data:/.test(t) ? `<button class="chat-act" type="button" title="Modifier" onclick="_chatEditMsg('${mid}')">✎</button>` : ''}`
+        + `<button class="chat-act chat-act--del" type="button" title="Supprimer" onclick="_chatDeleteMsg('${mid}')">🗑</button>`
+      : '';
+    html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}" data-mid="${mid}">`
       + (mine?'':`<div class="chat-av${avThemIsPhoto?' has-photo':''}">${avThem}</div>`)
-      + `<div class="chat-bubble${/^data:image\//.test(t)?' chat-bubble--img':''}">${inner}`
-      + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div></div>`;
+      + `<div class="chat-bubble-wrap">`
+      + `<div class="chat-bubble-line">`
+      + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}`
+      + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div>`
+      + `<div class="chat-actions">${picker}${admin}</div>`
+      + `</div>`
+      + _chatReactionsHtml(m, myId, mid)
+      + `</div></div>`;
   });
   list.innerHTML = html;
   list.scrollTop = list.scrollHeight;
+}
+
+// Pastilles des réactions existantes (emoji + nombre ; surlignées si J'AI réagi)
+function _chatReactionsHtml(m, myId, mid){
+  const r = m && m.reactions;
+  if (!r || typeof r !== 'object') return '';
+  let pills = '';
+  ['👍','❤️','🔥'].forEach(em=>{
+    const arr = Array.isArray(r[em]) ? r[em] : [];
+    if (!arr.length) return;
+    const mine = arr.map(String).includes(myId);
+    pills += `<button class="chat-reaction${mine?' chat-reaction--mine':''}" type="button" onclick="_chatReact('${mid}','${em}')">${em} ${arr.length}</button>`;
+  });
+  return pills ? `<div class="chat-reactions">${pills}</div>` : '';
+}
+
+// Clé de cache des messages selon le contexte (support→thread user, client→'client')
+function _chatCacheKey(){ return (_chatIsSupport() && _chatThreadUser) ? _chatThreadUser : 'client'; }
+
+// Réagir à un message (toggle) — MAJ optimiste du cache puis re-render
+function _chatReact(id, emoji){
+  if (!id) return;
+  fetch('/api/chat/react', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, emoji }) })
+    .then(r=>r.json()).then(d=>{
+      const arr = _chatMsgCache[_chatCacheKey()];
+      if (Array.isArray(arr)){
+        const msg = arr.find(x=>String(x.id)===String(id));
+        if (msg){ msg.reactions = d.reactions || {}; _chatSig=''; _chatRender(arr); }
+      }
+    }).catch(()=>{});
+}
+
+// Admin : supprimer un message
+function _chatDeleteMsg(id){
+  if (!id || !confirm('Supprimer ce message ?')) return;
+  fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'DELETE' })
+    .then(r=>r.json()).then(()=>{ if (_chatThreadUser){ _chatMsgCache[_chatThreadUser]=null; _chatSig=''; _chatOpenThread(_chatThreadUser, _chatThreadName); } }).catch(()=>{});
+}
+// Admin : modifier le texte d'un message
+function _chatEditMsg(id){
+  if (!id) return;
+  const arr = _chatThreadUser ? _chatMsgCache[_chatThreadUser] : null;
+  const cur = Array.isArray(arr) ? ((arr.find(x=>String(x.id)===String(id))||{}).text || '') : '';
+  const next = prompt('Modifier le message :', cur);
+  if (next == null || !next.trim()) return;
+  fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ text: next.trim() }) })
+    .then(r=>r.json()).then(()=>{ if (_chatThreadUser){ _chatMsgCache[_chatThreadUser]=null; _chatSig=''; _chatOpenThread(_chatThreadUser, _chatThreadName); } }).catch(()=>{});
+}
+
+// Lightbox image (dans le panneau chat) — clic sur le fond pour revenir au chat
+function _chatLightbox(src){
+  if (!src) return;
+  const host = document.getElementById('chat-panel') || document.body;
+  let ov = document.getElementById('chat-lightbox');
+  if (!ov){
+    ov = document.createElement('div'); ov.id='chat-lightbox'; ov.className='chat-lightbox';
+    ov.addEventListener('click', e=>{ if (e.target === ov) ov.classList.remove('visible'); });
+    host.appendChild(ov);
+  }
+  ov.innerHTML = `<img src="${src}" alt="image">`;
+  ov.classList.add('visible');
 }
 
 function _chatLoad(){
@@ -5366,13 +5449,39 @@ function _chatCompressImage(file, cb){
   reader.readAsDataURL(file);
 }
 
-// Pièce jointe (image ou fichier) → envoyée en data URL. Les images sont compressées (toute taille OK).
+// ── Aperçu d'image AVANT envoi : l'utilisateur peut Envoyer ou Annuler (se désister) ──
+let _chatPendingImg = null;
+function _chatShowPending(dataUrl){
+  _chatPendingImg = dataUrl;
+  const bar = document.getElementById('chat-pending'); if (!bar) { _chatPost(dataUrl); return; }
+  bar.innerHTML = `<div class="chat-pending-card">`
+    + `<img class="chat-pending-thumb" src="${dataUrl}" alt="aperçu">`
+    + `<div class="chat-pending-mid"><div class="chat-pending-title">Image prête à envoyer</div>`
+    + `<div class="chat-pending-hint">Vérifie l'aperçu puis envoie, ou annule.</div></div>`
+    + `<div class="chat-pending-btns">`
+    + `<button type="button" class="chat-pending-cancel" onclick="_chatCancelPending()">Annuler</button>`
+    + `<button type="button" class="chat-pending-send" onclick="_chatSendPending()">Envoyer</button>`
+    + `</div></div>`;
+  bar.classList.add('visible');
+}
+function _chatCancelPending(){
+  _chatPendingImg = null;
+  const bar = document.getElementById('chat-pending');
+  if (bar){ bar.classList.remove('visible'); bar.innerHTML = ''; }
+}
+function _chatSendPending(){
+  const u = _chatPendingImg;
+  _chatCancelPending();
+  if (u) _chatPost(u);
+}
+
+// Pièce jointe (image ou fichier) → data URL. Les images passent par l'aperçu (Envoyer/Annuler).
 function _chatAttach(input, kind){
   const f = input.files && input.files[0];
   input.value = '';
   if(!f) return;
   if (kind === 'image' || (f.type && f.type.indexOf('image') === 0)){
-    _chatCompressImage(f, url => _chatPost(url));   // compression → toujours sous la limite
+    _chatCompressImage(f, url => _chatShowPending(url));   // aperçu avant envoi
     return;
   }
   if(f.size > 1.5*1024*1024){ alert('Fichier trop volumineux (max 1,5 Mo).'); return; }
@@ -5408,14 +5517,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(inp){
     inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); chatSend(); } });
     inp.addEventListener('input', ()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,90)+'px'; if(inp.value.trim()) _chatSendTyping(); });
-    // Coller une image (Ctrl+V / clic droit → Coller) → compressée puis envoyée, fluide (toute taille OK).
+    // Coller une image (Ctrl+V) → compressée puis APERÇU (Envoyer/Annuler), pas d'envoi direct.
     inp.addEventListener('paste', e=>{
       const items = (e.clipboardData && e.clipboardData.items) || [];
       for (const it of items){
         if (it.type && it.type.indexOf('image') === 0){
           const f = it.getAsFile(); if(!f) continue;
           e.preventDefault();
-          _chatCompressImage(f, url => _chatPost(url));   // compression canvas → plus de rejet de taille
+          _chatCompressImage(f, url => _chatShowPending(url));   // aperçu avant envoi
           return;
         }
       }
