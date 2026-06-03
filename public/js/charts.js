@@ -1961,7 +1961,8 @@ function renderCalTable() {
     const timeCell = `<td class="cth-time"><span class="cal-chv">›</span> ${dispTime}</td>`;
 
     // Day-separator colspan includes all 9 columns (no chv column)
-    tbody += `<tr class="${rowCls}">
+    const _evUrl = ev.url ? ` data-url="${encodeURIComponent(ev.url)}"` : '';
+    tbody += `<tr class="${rowCls} cal-row--click" data-idx="${i}"${_evUrl}>
       ${timeCell}
       <td class="cth-flag">${CAL_FLAG(ev.currency)}</td>
       <td class="cth-curr">${ev.currency || ''}</td>
@@ -1993,6 +1994,15 @@ function renderCalTable() {
     <tbody>${tbody}</tbody>
   </table>`;
 
+  // Clic sur une ligne → panneau détail (Specs + History), SANS Related Stories
+  wrap.querySelectorAll('tr.cal-row--click').forEach(tr => {
+    tr.addEventListener('click', () => {
+      const idx = parseInt(tr.dataset.idx, 10);
+      const ev  = evs[idx];
+      if (ev) openCalDetail(ev);
+    });
+  });
+
   // Auto-scroll to the next upcoming event (only on first render per tab open)
   if (_calNeedsScroll) {
     _calNeedsScroll = false;
@@ -2006,6 +2016,86 @@ function renderCalTable() {
       }
     });
   }
+}
+
+// ─── Panneau détail d'un événement calendrier (Specs + History) ───────────────
+const _calDetailCache = {};   // url → { specs, history } (cache navigateur : pas de re-fetch)
+function _calEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _calColorCell(actual, forecast, previous) {
+  if (!actual) return '<span class="cv-empty">—</span>';
+  const a = parseFloat(actual), f = parseFloat(forecast), p = parseFloat(previous);
+  let ref = !isNaN(f) ? f : (!isNaN(p) ? p : NaN), cls = '';
+  if (!isNaN(a) && !isNaN(ref)) cls = a > ref ? 'cv-pos' : a < ref ? 'cv-neg' : '';
+  return `<span class="cv-actual ${cls}">${_calEsc(actual)}</span>`;
+}
+async function openCalDetail(ev) {
+  // Overlay + carte
+  let ov = document.getElementById('cal-detail-overlay');
+  if (!ov) {
+    ov = document.createElement('div');
+    ov.id = 'cal-detail-overlay';
+    ov.className = 'cal-detail-overlay';
+    ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('visible'); });
+    document.body.appendChild(ov);
+  }
+  const dateStr = ev.timestamp
+    ? new Date(ev.timestamp).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    : '';
+  const timeStr = calFormatTime(ev.timestamp) || ev.time || '';
+  const headVals = `
+    <div class="cal-detail-vals">
+      <div class="cdv"><span class="cdv-lbl">Actual</span>${_calColorCell(ev.actual, ev.forecast, ev.previous)}</div>
+      <div class="cdv"><span class="cdv-lbl">Forecast</span><span class="cv-forecast">${ev.forecast ? _calEsc(ev.forecast) : '—'}</span></div>
+      <div class="cdv"><span class="cdv-lbl">Previous</span><span class="cv-prev">${ev.previous ? _calEsc(ev.previous) : '—'}</span></div>
+    </div>`;
+  ov.innerHTML = `
+    <div class="cal-detail-card">
+      <div class="cal-detail-head">
+        <div class="cal-detail-titlewrap">
+          <span class="cal-detail-flag">${CAL_FLAG(ev.currency)}</span>
+          <div>
+            <div class="cal-detail-title">${_calEsc(ev.title || '')}</div>
+            <div class="cal-detail-sub">${_calEsc(ev.currency || '')} · ${_calEsc(dateStr)}${timeStr ? ' · ' + _calEsc(timeStr) : ''}</div>
+          </div>
+        </div>
+        <span class="cal-detail-close" id="cal-detail-close">×</span>
+      </div>
+      ${headVals}
+      <div class="cal-detail-body" id="cal-detail-body">${window.dtpLoader ? window.dtpLoader('Loading details…', { small: true }) : 'Loading…'}</div>
+    </div>`;
+  ov.classList.add('visible');
+  document.getElementById('cal-detail-close')?.addEventListener('click', () => ov.classList.remove('visible'));
+
+  const body = document.getElementById('cal-detail-body');
+  if (!ev.url) { body.innerHTML = '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>'; return; }
+
+  // Cache navigateur
+  let d = _calDetailCache[ev.url];
+  if (!d) {
+    try {
+      d = await fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url)).then(r => r.json());
+      if (d && ((d.specs && d.specs.length) || (d.history && d.history.length))) _calDetailCache[ev.url] = d;
+    } catch { d = null; }
+  }
+  if (!document.getElementById('cal-detail-body')) return;   // panneau fermé entre-temps
+
+  const specsHtml = (d && d.specs && d.specs.length)
+    ? `<div class="cal-detail-section">Specs</div>
+       <table class="cal-specs-table">${d.specs.map(s => `<tr><td class="cal-spec-lbl">${_calEsc(s.label)}</td><td class="cal-spec-val">${_calEsc(s.value)}</td></tr>`).join('')}</table>`
+    : '';
+  const histHtml = (d && d.history && d.history.length)
+    ? `<div class="cal-detail-section">History</div>
+       <table class="cal-hist-table">
+         <thead><tr><th>Date</th><th>Actual</th><th>Forecast</th><th>Previous</th></tr></thead>
+         <tbody>${d.history.map(h => `<tr>
+           <td>${_calEsc(h.date || '')}</td>
+           <td>${_calColorCell(h.actual, h.forecast, h.previous)}</td>
+           <td><span class="cv-forecast">${h.forecast ? _calEsc(h.forecast) : '—'}</span></td>
+           <td><span class="cv-prev">${h.previous ? _calEsc(h.previous) : '—'}</span></td>
+         </tr>`).join('')}</tbody>
+       </table>`
+    : '';
+  body.innerHTML = (specsHtml + histHtml) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
 }
 
 // ── Calendar helper: refresh data from server ─────────────────────────────────

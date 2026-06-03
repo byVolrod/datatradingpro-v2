@@ -117,6 +117,7 @@ function parseCalendarXml($, items, rawEvs, now, windowMs) {
     const forecast = $el.find('forecast').text().trim();
     const previous = $el.find('previous').text().trim();
     const actual   = $el.find('actual').text().trim();
+    const eventUrl = $el.find('url').text().trim();   // page FF de l'événement (Specs + History au clic)
 
     if (!title || impact === 'Holiday' || impact === 'Non-Economic') return;
     const ts = parseEventTime(dateStr, timeStr);
@@ -128,6 +129,7 @@ function parseCalendarXml($, items, rawEvs, now, windowMs) {
       id, timestamp: ts,
       time:     new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
       currency: country, impact, title, actual, forecast, previous,
+      url: eventUrl,
     });
 
     // Feed items: only events within the 2-week window (current + next)

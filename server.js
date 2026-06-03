@@ -11,7 +11,7 @@ const cors      = require('cors');
 const Anthropic = require('@anthropic-ai/sdk');
 const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
-const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll } = require('./scrapers/forexfactory-news');
+const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail } = require('./scrapers/forexfactory-news');
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
@@ -658,9 +658,61 @@ app.get('/api/calendar', async (_req, res) => {
   if (!allCalendar || !allCalendar.length) await _ensureCalendar();
   res.json({ items: allCalendar || [] });
 });
+// ── Actuals du calendrier : le flux XML FF n'a PAS d'actuals → on les lit sur la page FF
+//    (1 seul fetch Puppeteer pour toute la table, profil CF chaud) puis on les superpose. ──
+const _calActualsMap = new Map();   // "CUR|titrenorm" → { actual, forecast, previous }
+let _calActualsAt = 0, _calActualsInflight = null;
+const _calKey = (cur, title) => String(cur || '').toUpperCase().trim() + '|' + String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+async function _refreshCalActuals(force) {
+  if (!force && Date.now() - _calActualsAt < 5 * 60 * 1000) return;
+  if (_calActualsInflight) return _calActualsInflight;
+  _calActualsInflight = (async () => {
+    try {
+      const rows = await fetchCalendarActuals();
+      if (Array.isArray(rows) && rows.length) {
+        for (const r of rows) {
+          if (!r.title) continue;
+          const k = _calKey(r.currency, r.title);
+          const prev = _calActualsMap.get(k) || {};
+          // on n'écrase jamais une valeur connue par du vide (un scrape peut rater une cellule)
+          _calActualsMap.set(k, {
+            actual:   r.actual   || prev.actual   || '',
+            forecast: r.forecast || prev.forecast || '',
+            previous: r.previous || prev.previous || '',
+          });
+        }
+        _calActualsAt = Date.now();
+      }
+    } catch (e) { console.error('[CalActuals]', e.message); }
+    finally { _calActualsInflight = null; }
+  })();
+  return _calActualsInflight;
+}
+function _overlayActuals(events) {
+  if (!_calActualsMap.size) return events;
+  return events.map(ev => {
+    if (ev.actual && ev.actual !== '') return ev;                 // déjà un actual → on garde
+    const a = _calActualsMap.get(_calKey(ev.currency, ev.title));
+    if (a && (a.actual || a.forecast || a.previous)) {
+      return { ...ev, actual: a.actual || '', forecast: ev.forecast || a.forecast || '', previous: ev.previous || a.previous || '' };
+    }
+    return ev;
+  });
+}
 app.get('/api/calendar-events', async (_req, res) => {
   if (!getCalendarRaw().length) await _ensureCalendar();
-  res.json({ items: getCalendarRaw() });
+  _refreshCalActuals().catch(() => {});                            // rafraîchit en arrière-plan (non bloquant)
+  res.json({ items: _overlayActuals(getCalendarRaw()) });
+});
+
+// Détail d'un événement (Specs + History) lu sur la page FF — SANS Related Stories.
+app.get('/api/calendar-detail', async (req, res) => {
+  const { url } = req.query;
+  if (!url) return res.json({ specs: [], history: [] });
+  try {
+    const d = await fetchEventDetail(url);
+    res.json({ specs: (d && d.specs) || [], history: (d && d.history) || [] });
+  } catch (e) { res.json({ specs: [], history: [], error: e.message }); }
 });
 
 // ── Mosaic background images ──────────────────────────────────────────────────
@@ -4045,6 +4097,8 @@ async function refreshNews() {
 
   // Calendar events go to their own store — NOT mixed into the news feed
   if (ffCalItems.length > 0) allCalendar = ffCalItems;
+  // Actuals lus sur la page FF (le flux XML n'en a pas) — arrière-plan, borné par cache 5 min.
+  _refreshCalActuals().catch(() => {});
 
   // Also inject HIGH-impact past calendar events (with actual values) into the news feed
   const calReleased = ffCalItems.filter(i =>
