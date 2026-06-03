@@ -3845,7 +3845,8 @@ async function _loadAIInsights(item, el) {
       // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
       const p = _aiInsightsInflight[ck] || (_aiInsightsInflight[ck] = fetch('/api/report-insights', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, text, title: item.headline || item.title || '' }),
+        // `lines` = puces réelles du rapport → secours = plusieurs petites cartes (1 par puce), jamais un gros bloc collé.
+        body: JSON.stringify({ id: item.id, text, title: item.headline || item.title || '', lines: Array.isArray(item.lines) ? item.lines : undefined }),
       }).then(r => r.json()).finally(() => { delete _aiInsightsInflight[ck]; }));
       d = await p;
       // On ne met en cache que les VRAIS insights IA (pas le secours extractif) → ils pourront
@@ -4056,6 +4057,18 @@ function renderArlibReader(item) {
   // ── Build content HTML ──
   let html = '';
 
+  // Récupère les PUCES réellement rendues du rapport (texte propre, sans la pastille) → servent
+  // de base aux AI Insights : 1 carte par puce = plusieurs petites cases, jamais un gros bloc.
+  function _collectReportLines(root) {
+    if (!root) return [];
+    const out = [];
+    root.querySelectorAll('.arlib-rbullet > span:not(.arlib-rbullet-dot), .arlib-rbullet-sub > span:not(.arlib-rbullet-dot)').forEach(s => {
+      const t = (s.textContent || '').replace(/\s+/g, ' ').trim();
+      if (t.length > 8) out.push(t);
+    });
+    return out.slice(0, 40);
+  }
+
   // ── Fonction de parsing HTML commune (InvestingLive + ING Think) ─────────────
   function _parseHtmlToArlib(rawHtml, metaBar) {
     const tmp = document.createElement('div');
@@ -4175,7 +4188,8 @@ function renderArlibReader(item) {
         content.scrollTop = 0;
         // Insights basés sur le VRAI contenu rendu (la description seule est trop courte)
         const _full = (content.innerText || '').trim();
-        if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full }, insightsEl);
+        const _lines = _collectReportLines(content);   // puces réelles → secours = plusieurs petites cartes
+        if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full, lines: _lines }, insightsEl);
       })
       .catch(() => {
         if (!content) return;
@@ -4210,7 +4224,8 @@ function renderArlibReader(item) {
         }
         content.scrollTop = 0;
         const _full = (content.innerText || '').trim();
-        if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full }, insightsEl);
+        const _lines = _collectReportLines(content);
+        if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full, lines: _lines }, insightsEl);
       })
       .catch(() => {
         if (!content) return;
