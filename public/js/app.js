@@ -5293,7 +5293,7 @@ function _chatOpenThread(userId, name){
     const sig = _sigMsgs(msgs);
     if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }   // côté support : 'support'=droite, 'user'=gauche
     _chatPollUnread();             // la conversation vient d'être lue → MAJ immédiate du badge
-  }).catch(()=>{ if(list && !cached) list.innerHTML='<div class="chat-empty">Conversation indisponible.</div>'; });
+  }).catch(()=>{ /* échec transitoire : on garde le loader ; le live tick (4s) réessaie tout seul */ });
 }
 
 function _chatRender(messages){
@@ -5494,7 +5494,7 @@ function _chatLoad(){
     const sig = _sigMsgs(msgs);
     if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }
     _chatSetBadge(0);   // ouvert → réponses lues
-  }).catch(()=>{ if(list && !_chatMsgCache.client) list.innerHTML='<div class="chat-empty">Chat indisponible pour le moment.</div>'; });
+  }).catch(()=>{ /* échec transitoire : on garde le loader ; le rafraîchissement live (4s) réessaie tout seul */ });
 }
 
 // Envoi générique (texte OU data URL d'une pièce jointe) vers le bon endpoint

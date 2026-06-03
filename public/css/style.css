@@ -2461,7 +2461,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   color: var(--text4);
   letter-spacing: 0.04em;
 }
-.bias-content { padding: 16px 18px; overflow-y: auto; flex: 1; }
+.bias-content { padding: 16px 18px; overflow-y: auto; flex: 1; min-height: 0; }
+/* Quand bias-content ne contient QUE le loader → on le centre (même rendu que les autres onglets) */
+.bias-content:has(> .dtp-loader) { display: flex; align-items: center; justify-content: center; padding: 0; }
 .bias-loading { color: var(--text4); font-size: 13px; padding: 24px 4px; }
 .bias-overview {
   background: rgba(247,148,29,0.06);

@@ -240,12 +240,21 @@
     .badge-expired { background: rgba(231,76,60,0.12); color: #ef4444; border: 1px solid rgba(231,76,60,0.3); }
     /* Chat support admin */
     .ad-chat { display:flex; gap:14px; height:420px; background:#0f0f12; border:1px solid #232328; border-radius:10px; overflow:hidden; }
-    .ad-chat-threads { width:280px; flex-shrink:0; border-right:1px solid #232328; overflow-y:auto; }
-    .ad-thread { padding:11px 14px; border-bottom:1px solid #1a1a1f; cursor:pointer; }
+    .ad-chat-threads { width:280px; flex-shrink:0; border-right:1px solid #232328; overflow-y:auto; overflow-x:hidden; scrollbar-width:thin; scrollbar-color:#2a2f3a transparent; }
+    .ad-chat-threads::-webkit-scrollbar, .ad-chat-msgs::-webkit-scrollbar { width:7px; height:7px; }
+    .ad-chat-threads::-webkit-scrollbar-track, .ad-chat-msgs::-webkit-scrollbar-track { background:transparent; }
+    .ad-chat-threads::-webkit-scrollbar-thumb, .ad-chat-msgs::-webkit-scrollbar-thumb { background:#2a2f3a; border-radius:6px; border:2px solid transparent; background-clip:content-box; }
+    .ad-chat-threads::-webkit-scrollbar-thumb:hover, .ad-chat-msgs::-webkit-scrollbar-thumb:hover { background:#3a4150; background-clip:content-box; }
+    .ad-thread { padding:11px 14px; border-bottom:1px solid #1a1a1f; cursor:pointer; min-width:0; }
     .ad-thread:hover, .ad-thread.active { background:#1a1a1f; }
-    .ad-thread-name { font-size:13px; font-weight:600; color:#e2e8f0; display:flex; align-items:center; gap:6px; }
-    .ad-thread-badge { background:#ef4444; color:#fff; font-size:10px; font-weight:700; border-radius:9px; padding:0 6px; }
-    .ad-thread-last { font-size:11px; color:#6b7280; margin-top:2px; }
+    .ad-thread-name { font-size:13px; font-weight:600; color:#e2e8f0; display:flex; align-items:center; gap:6px; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ad-thread-badge { background:#ef4444; color:#fff; font-size:10px; font-weight:700; border-radius:9px; padding:0 6px; flex-shrink:0; }
+    .ad-thread-last { font-size:11px; color:#828b98; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .ad-online-count { display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:#22c55e; font-family:var(--font-mono); }
+    .ad-online-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,.6); }
+    .adm-live { display:inline-flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:#22c55e; font-family:var(--font-mono); margin-right:8px; }
+    .adm-live-dot { width:7px; height:7px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,.6); animation:admPulse 2s infinite; }
+    @keyframes admPulse { 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
     .ad-chat-conv { flex:1; display:flex; flex-direction:column; min-width:0; }
     .ad-chat-msgs { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:8px; }
     .ad-msg { max-width:78%; padding:8px 12px; border-radius:10px; font-size:13px; line-height:1.45; }
@@ -327,8 +336,8 @@
     <button class="adm-tab" data-tab="users" onclick="admTab('users')">Utilisateurs</button>
     <button class="adm-tab" data-tab="support" onclick="admTab('support')">Support <span class="adm-tab-badge" id="adm-tab-chat" style="display:none">0</span></button>
     <span class="adm-tabs-spacer"></span>
+    <span class="adm-live"><span class="adm-live-dot"></span>Temps réel</span>
     <span class="fin-sub" id="fin-asof"></span>
-    <button class="btn-sm" onclick="refreshAll()" title="Rafraîchir les données">↻ Rafraîchir</button>
   </div>
 
   <!-- ═══ Onglet : Tableau de bord ═══ -->
@@ -474,6 +483,8 @@
    <div class="panel-head">
      <span class="ph-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg></span>
      <h2>Messages support <span class="ph-count">(<span id="ad-chat-count">—</span>)</span></h2>
+     <span class="ph-spacer"></span>
+     <span class="ad-online-count" id="ad-online-count"></span>
    </div>
    <div class="panel-body">
   <div class="ad-chat">
@@ -571,8 +582,9 @@
     loadUsers();
     loadFinance();
     loadAdChat();
-    setInterval(loadAdChat, 20000);   // rafraîchit les conversations
-    setInterval(loadFinance, 5 * 60 * 1000);   // KPIs financiers rafraîchis toutes les 5 min
+    // Mise à jour AUTOMATIQUE en temps réel (plus de bouton Rafraîchir) :
+    setInterval(loadAdChat, 10000);                          // conversations + en ligne : 10s
+    setInterval(() => { loadFinance(); loadUsers(); }, 45000); // KPIs + utilisateurs : 45s
   });
 
   // ── Onglets ─────────────────────────────────────────────────────────────────
@@ -639,7 +651,7 @@
     const eur = n => cur + Math.round(n || 0).toLocaleString('fr-FR');
     const sign = v => (v >= 0 ? '+' : '') + v;
     const asof = document.getElementById('fin-asof');
-    if (asof) asof.textContent = 'au ' + new Date(d.generatedAt).toLocaleString('fr-FR');
+    if (asof) asof.textContent = (d.source === 'whop' ? 'chiffres Whop · ' : '') + 'au ' + new Date(d.generatedAt).toLocaleString('fr-FR');
 
     const kpis = [
       { l: 'MRR · revenu mensuel', v: eur(k.mrr), sub: `ARPU ${eur(k.arpu)} / abonné`, accent: true },
@@ -682,19 +694,30 @@
   function _esc2(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
   async function loadAdChat() {
     try {
-      const d = await fetch('/api/admin/chat').then(r => r.json());
+      const [d, su] = await Promise.all([
+        fetch('/api/admin/chat').then(r => r.json()).catch(() => ({ threads: [] })),
+        fetch('/api/support/users').then(r => r.json()).catch(() => ({ users: [] })),
+      ]);
       const threads = d.threads || [];
+      const online = (su.users || []).filter(u => u.online).length;
       document.getElementById('ad-chat-count').textContent = threads.length;
       const _unread = threads.filter(t => (t.unread || 0) > 0).length;
       const _tb = document.getElementById('adm-tab-chat');
       if (_tb) { _tb.textContent = _unread; _tb.style.display = _unread > 0 ? '' : 'none'; }
+      const oc = document.getElementById('ad-online-count');
+      if (oc) oc.innerHTML = `<span class="ad-online-dot"></span>${online} en ligne`;
       const el = document.getElementById('ad-chat-threads');
       if (!threads.length) { el.innerHTML = '<div class="empty-state">Aucun message.</div>'; return; }
-      el.innerHTML = threads.map(t => `
-        <div class="ad-thread${t.user_id===_adChatUser?' active':''}" onclick="openAdThread('${t.user_id}')">
+      el.innerHTML = threads.map(t => {
+        let last = String(t.last || '');
+        if (/^data:image\//.test(last)) last = '📷 Image';
+        else if (/^data:/.test(last))   last = '📎 Pièce jointe';
+        else last = last.slice(0, 48);
+        return `<div class="ad-thread${t.user_id===_adChatUser?' active':''}" onclick="openAdThread('${t.user_id}')">
           <div class="ad-thread-name">${_esc2(t.name || t.email || ('User '+t.user_id))}${t.unread?` <span class="ad-thread-badge">${t.unread}</span>`:''}</div>
-          <div class="ad-thread-last">${_esc2(String(t.last||'').slice(0,42))}</div>
-        </div>`).join('');
+          <div class="ad-thread-last">${_esc2(last)}</div>
+        </div>`;
+      }).join('');
       if (_adChatUser) openAdThread(_adChatUser, true);
     } catch {}
   }
