@@ -4471,7 +4471,8 @@ document.addEventListener('DOMContentLoaded', () => {
   _npEl('np-chime-select')?.addEventListener('change', e => {
     _npChime = e.target.value;
     localStorage.setItem('np_chime', _npChime);
-    if (_npChime !== 'none') _npPlaySound(0.3); // preview
+    if (_npChime !== 'none') _npPlaySound(0.3);   // preview
+    else _npStopVoice();                           // "Aucun son" → coupe aussi la voix en cours
   });
   // On open, pre-fill with recent important items from allItems
   // (done in npOpen)
@@ -4535,8 +4536,9 @@ function _npVolumeLevel() {
   return _npVolume === 'fort' ? 0.55 : _npVolume === 'doux' ? 0.2 : 0;
 }
 // Silence GLOBAL : "Muet" ou notifications OFF → AUCUN son dans l'app (carillon + voix squawk).
-// (Le réglage "Chime: none" ne coupe QUE le carillon, pas la voix.)
-function _npGlobalMute() { return !_npEnabled || _npVolume === 'mute'; }
+// Le réglage SON des notifications est le MAÎTRE de TOUT le son (carillon + voix squawk) :
+// OFF, "Muet", OU carillon "Aucun" → silence TOTAL, y compris la voix qui lit les news.
+function _npGlobalMute() { return !_npEnabled || _npVolume === 'mute' || _npChime === 'none'; }
 // Coupe immédiatement toute voix en cours (squawk TTS)
 function _npStopVoice() { try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch {} }
 
