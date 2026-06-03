@@ -129,6 +129,44 @@
     .table-wrap { background: var(--bg2); border: 1px solid var(--border2); border-radius: 12px; overflow-x: auto; box-shadow: 0 8px 28px rgba(0,0,0,0.25); }
     .users-table { min-width: 880px; }   /* garde les colonnes lisibles → scroll horizontal sur petit écran */
 
+    /* ── Avatars initiales (colonne Nom) ── */
+    .u-name-cell { display: flex; align-items: center; gap: 11px; }
+    .u-avatar {
+      width: 30px; height: 30px; border-radius: 50%; flex-shrink: 0;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: #0a0a0a;
+    }
+    .u-name-txt { color: var(--text); font-weight: 500; }
+
+    /* ── En-têtes triables ── */
+    .users-table th.sortable { cursor: pointer; user-select: none; transition: color 0.12s; }
+    .users-table th.sortable:hover { color: var(--text2); }
+    .users-table th .sort-arrow { opacity: 0; margin-left: 4px; font-size: 8px; transition: opacity 0.12s; }
+    .users-table th.sorted { color: var(--orange); }
+    .users-table th.sorted .sort-arrow { opacity: 1; }
+
+    /* ── Cartes stats cliquables (= filtres rapides) ── */
+    .stat-card.clickable { cursor: pointer; }
+    .stat-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px rgba(247,148,29,0.45), 0 8px 22px rgba(0,0,0,0.3); }
+
+    /* ── Pagination ── */
+    .pagination { display: flex; align-items: center; gap: 8px; padding: 16px 2px 2px; flex-wrap: wrap; }
+    .pg-info { font-size: 11px; color: var(--text3); font-family: var(--font-mono); }
+    .pg-spacer { flex: 1; }
+    .pg-btn, .pg-num {
+      padding: 6px 11px; font-size: 12px; border-radius: 7px; cursor: pointer;
+      border: 1px solid var(--border2); background: var(--bg2); color: var(--text2);
+      font-family: var(--font-mono); transition: color 0.12s, border-color 0.12s, background 0.12s;
+    }
+    .pg-num { min-width: 32px; text-align: center; padding: 6px 9px; }
+    .pg-btn:hover:not(:disabled), .pg-num:hover:not(.active) { color: var(--text); border-color: #3a3a42; background: var(--bg3); }
+    .pg-btn:disabled { opacity: 0.35; cursor: default; }
+    .pg-pages { display: flex; gap: 5px; }
+    .pg-num.active { background: var(--orange); color: #000; border-color: var(--orange); font-weight: 700; }
+    .pg-ellipsis { color: var(--text4); padding: 6px 2px; font-family: var(--font-mono); font-size: 12px; }
+    .pg-per { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--text3); font-family: var(--font-mono); }
+    .pg-per select { background: var(--bg2); border: 1px solid var(--border2); border-radius: 7px; padding: 6px 8px; color: var(--text2); font-size: 11px; font-family: var(--font-mono); outline: none; cursor: pointer; }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .page { padding: 18px 14px 48px; }
@@ -317,13 +355,13 @@
     <table class="users-table" id="users-table">
       <thead>
         <tr>
-          <th>Nom</th>
-          <th>Email</th>
-          <th>Rôle</th>
+          <th class="sortable" data-sort="name">Nom <span class="sort-arrow">▲</span></th>
+          <th class="sortable" data-sort="email">Email <span class="sort-arrow">▲</span></th>
+          <th class="sortable" data-sort="role">Rôle <span class="sort-arrow">▲</span></th>
           <th>Plan</th>
-          <th>Statut</th>
-          <th>Abonnement</th>
-          <th>Dernière connexion</th>
+          <th class="sortable" data-sort="status">Statut <span class="sort-arrow">▲</span></th>
+          <th class="sortable" data-sort="expiry">Abonnement <span class="sort-arrow">▲</span></th>
+          <th class="sortable" data-sort="last">Dernière connexion <span class="sort-arrow">▲</span></th>
           <th>Actions</th>
         </tr>
       </thead>
@@ -332,6 +370,7 @@
       </tbody>
     </table>
   </div>
+  <div class="pagination" id="pagination"></div>
    </div>
   </div>
 
@@ -480,6 +519,7 @@
   // ── Load users ──────────────────────────────────────────────────────────────
   let _allUsers = [];
   let _fSearch = '', _fStatus = 'all', _fRole = 'all';
+  let _page = 1, _perPage = 12, _sortKey = 'expiry', _sortDir = 1;   // tri défaut : échéance la + proche d'abord
 
   async function loadUsers() {
     const users = await fetch('/api/admin/users').then(r => r.json());
@@ -510,34 +550,102 @@
     const u = _allUsers;
     const n = s => u.filter(x => subState(x) === s).length;
     const cards = [
-      { v: u.length,                                  l: 'Utilisateurs', c: 'accent', i: 'users'  },
-      { v: n('active'),                               l: 'Actifs',       c: 'ok',     i: 'ok'     },
-      { v: n('soon'),                                 l: 'Expire ≤ 7j',  c: 'warn',   i: 'warn'   },
-      { v: n('expired'),                              l: 'Expirés',      c: 'danger', i: 'expired'},
-      { v: n('suspended'),                            l: 'Suspendus',    c: 'danger', i: 'susp'   },
-      { v: u.filter(x => x.role === 'client').length, l: 'Clients',      c: 'info',   i: 'client' },
+      { v: u.length,                                  l: 'Utilisateurs', c: 'accent', i: 'users',   dim:'status', val:'all'       },
+      { v: n('active'),                               l: 'Actifs',       c: 'ok',     i: 'ok',      dim:'status', val:'active'    },
+      { v: n('soon'),                                 l: 'Expire ≤ 7j',  c: 'warn',   i: 'warn',    dim:'status', val:'soon'      },
+      { v: n('expired'),                              l: 'Expirés',      c: 'danger', i: 'expired', dim:'status', val:'expired'   },
+      { v: n('suspended'),                            l: 'Suspendus',    c: 'danger', i: 'susp',    dim:'status', val:'suspended' },
+      { v: u.filter(x => x.role === 'client').length, l: 'Clients',      c: 'info',   i: 'client',  dim:'role',   val:'client'    },
     ];
+    const isActive = c => c.dim === 'status'
+      ? (_fStatus === c.val && (c.val !== 'all' || _fRole === 'all'))
+      : (_fRole === c.val);
     document.getElementById('stats-row').innerHTML = cards.map(c =>
-      `<div class="stat-card ${c.c}">
+      `<div class="stat-card clickable ${c.c}${isActive(c) ? ' active' : ''}" onclick="statFilter('${c.dim}','${c.val}')" title="Filtrer : ${c.l}">
          <div class="stat-ic">${_ICON[c.i] || ''}</div>
          <div><div class="stat-value">${c.v}</div><div class="stat-label">${c.l}</div></div>
        </div>`).join('');
   }
 
-  function renderUserRows() {
-    const tbody = document.getElementById('users-tbody');
-    let users = _allUsers;
+  // Filtre rapide depuis une carte stat (synchronise les menus déroulants)
+  function statFilter(dim, val) {
+    if (dim === 'status') { _fStatus = val; if (val === 'all') _fRole = 'all'; }
+    else if (dim === 'role') { _fRole = val; _fStatus = 'all'; }
+    document.getElementById('flt-status').value = _fStatus;
+    document.getElementById('flt-role').value   = _fRole;
+    _page = 1;
+    renderStats(); renderUserRows();
+  }
+
+  // Avatar à initiales — couleur dérivée de l'email (stable, pas de random)
+  const _AVA_COLORS = ['#f7941d','#60a5fa','#2ecc71','#a78bfa','#f472b6','#22d3ee','#fb923c','#34d399','#e879f9','#facc15'];
+  function _avatar(u) {
+    const base = (u.name || u.email || '?').trim();
+    const initials = base.split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase() || '?';
+    let h = 0; const key = (u.email || base); for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) >>> 0;
+    const col = _AVA_COLORS[h % _AVA_COLORS.length];
+    return `<span class="u-avatar" style="background:${col}">${initials}</span>`;
+  }
+
+  // Tri : renvoie une clé comparable selon la colonne
+  function _sortVal(u, key) {
+    switch (key) {
+      case 'name':   return (u.name || u.email || '').toLowerCase();
+      case 'email':  return (u.email || '').toLowerCase();
+      case 'role':   return ({ admin:0, support:1, client:2 })[u.role] ?? 3;
+      case 'status': return ({ suspended:0, expired:1, soon:2, active:3 })[subState(u)] ?? 4;
+      case 'last':   return u.last_login ? new Date(u.last_login).getTime() : 0;
+      case 'expiry':
+        if (u.role === 'admin' || u.role === 'support') return 9e15;       // staff = jamais d'échéance → tout en bas
+        if (!u.expires_at) return 8e15;                                    // illimité → après les datés
+        return new Date(u.expires_at).getTime();
+      default: return 0;
+    }
+  }
+
+  function _filteredUsers() {
+    let users = _allUsers.slice();
     if (_fSearch)            users = users.filter(u => ((u.name||'') + ' ' + (u.email||'')).toLowerCase().includes(_fSearch));
     if (_fStatus !== 'all')  users = users.filter(u => subState(u) === _fStatus);
     if (_fRole !== 'all')    users = users.filter(u => u.role === _fRole);
+    users.sort((a, b) => {
+      const va = _sortVal(a, _sortKey), vb = _sortVal(b, _sortKey);
+      if (va < vb) return -1 * _sortDir;
+      if (va > vb) return  1 * _sortDir;
+      return (a.email||'').localeCompare(b.email||'');
+    });
+    return users;
+  }
+
+  function renderUserRows() {
+    const tbody = document.getElementById('users-tbody');
+    const users = _filteredUsers();
     document.getElementById('user-count').textContent = users.length;
+
+    // En-têtes : flèche de tri active
+    document.querySelectorAll('.users-table th.sortable').forEach(th => {
+      const active = th.dataset.sort === _sortKey;
+      th.classList.toggle('sorted', active);
+      const ar = th.querySelector('.sort-arrow');
+      if (ar) ar.textContent = active ? (_sortDir === 1 ? '▲' : '▼') : '▲';
+    });
+
     if (!users.length) {
-      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun utilisateur</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" class="empty-state">Aucun utilisateur ne correspond aux filtres.</td></tr>';
+      document.getElementById('pagination').innerHTML = '';
       return;
     }
-    tbody.innerHTML = users.map(u => `
+
+    // Pagination
+    const per = _perPage === 0 ? users.length : _perPage;
+    const totalPages = Math.max(1, Math.ceil(users.length / per));
+    if (_page > totalPages) _page = totalPages;
+    const start = (_page - 1) * per;
+    const pageUsers = users.slice(start, start + per);
+
+    tbody.innerHTML = pageUsers.map(u => `
       <tr data-id="${u.id}">
-        <td class="name">${u.name || '—'}</td>
+        <td><div class="u-name-cell">${_avatar(u)}<span class="u-name-txt">${u.name || '—'}</span></div></td>
         <td class="email">${u.email}</td>
         <td><span class="badge badge-${u.role}">${u.role}</span></td>
         <td><span class="badge ${isTrialUser(u) ? 'badge-soon' : 'badge-client'}">${isTrialUser(u) ? 'Essai gratuit' : 'Professionnel'}</span></td>
@@ -550,6 +658,53 @@
           <button class="btn-sm btn-danger" onclick="deleteUser(${u.id},'${esc(u.email)}')">Suppr.</button>
         </td>
       </tr>`).join('');
+
+    renderPagination(users.length, totalPages, start, pageUsers.length);
+  }
+
+  function renderPagination(total, totalPages, start, shown) {
+    const el = document.getElementById('pagination');
+    if (!el) return;
+    const from = total ? start + 1 : 0;
+    const to   = start + shown;
+    // Numéros de page condensés (1 … p-1 p p+1 … N)
+    let nums = [];
+    const add = n => nums.push(`<button class="pg-num${n === _page ? ' active' : ''}" onclick="gotoPage(${n})">${n}</button>`);
+    const ell = () => nums.push('<span class="pg-ellipsis">…</span>');
+    if (totalPages <= 7) { for (let i=1;i<=totalPages;i++) add(i); }
+    else {
+      add(1);
+      if (_page > 3) ell();
+      for (let i = Math.max(2, _page-1); i <= Math.min(totalPages-1, _page+1); i++) add(i);
+      if (_page < totalPages-2) ell();
+      add(totalPages);
+    }
+    el.innerHTML = `
+      <span class="pg-info">${from}–${to} sur ${total}</span>
+      <div class="pg-spacer"></div>
+      <button class="pg-btn" onclick="gotoPage(${_page-1})" ${_page<=1?'disabled':''}>‹ Préc.</button>
+      <div class="pg-pages">${nums.join('')}</div>
+      <button class="pg-btn" onclick="gotoPage(${_page+1})" ${_page>=totalPages?'disabled':''}>Suiv. ›</button>
+      <div class="pg-per">
+        <span>Par page</span>
+        <select onchange="setPerPage(this.value)">
+          <option value="12"${_perPage===12?' selected':''}>12</option>
+          <option value="25"${_perPage===25?' selected':''}>25</option>
+          <option value="50"${_perPage===50?' selected':''}>50</option>
+          <option value="0"${_perPage===0?' selected':''}>Tout</option>
+        </select>
+      </div>`;
+  }
+
+  function gotoPage(n) {
+    _page = Math.max(1, n);
+    renderUserRows();
+    document.querySelector('.users-table')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function setPerPage(v) { _perPage = parseInt(v, 10) || 0; _page = 1; renderUserRows(); }
+  function sortBy(key) {
+    if (_sortKey === key) _sortDir = -_sortDir; else { _sortKey = key; _sortDir = 1; }
+    _page = 1; renderUserRows();
   }
 
   // Essai gratuit = durée d'abonnement (création → expiration) ≤ ~1 semaine
@@ -710,10 +865,14 @@
     el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
   });
 
-  // Recherche + filtres
-  document.getElementById('flt-search').addEventListener('input',  e => { _fSearch = e.target.value.trim().toLowerCase(); renderUserRows(); });
-  document.getElementById('flt-status').addEventListener('change', e => { _fStatus = e.target.value; renderUserRows(); });
-  document.getElementById('flt-role').addEventListener('change',   e => { _fRole   = e.target.value; renderUserRows(); });
+  // Recherche + filtres (retour page 1 + maj surbrillance des cartes stats)
+  document.getElementById('flt-search').addEventListener('input',  e => { _fSearch = e.target.value.trim().toLowerCase(); _page = 1; renderUserRows(); });
+  document.getElementById('flt-status').addEventListener('change', e => { _fStatus = e.target.value; _page = 1; renderStats(); renderUserRows(); });
+  document.getElementById('flt-role').addEventListener('change',   e => { _fRole   = e.target.value; _page = 1; renderStats(); renderUserRows(); });
+
+  // Tri au clic sur les en-têtes de colonnes
+  document.querySelectorAll('.users-table th.sortable').forEach(th =>
+    th.addEventListener('click', () => sortBy(th.dataset.sort)));
 </script>
 </body>
 </html>
