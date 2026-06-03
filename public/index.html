@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260603x" />
+  <link rel="stylesheet" href="/css/style.css?v=20260603y" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -546,8 +546,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260603x"></script>
-<script src="/js/charts.js?v=20260603x"></script>
+<script src="/js/app.js?v=20260603y"></script>
+<script src="/js/charts.js?v=20260603y"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -907,9 +907,9 @@
     const _trialUntil = d.user.expiresAt ? new Date(d.user.expiresAt).toLocaleDateString('fr-FR') : '';
     if (d.user.active) {
       if (d.user.isTrial) {
-        // Abonnement 1 semaine = ESSAI GRATUIT (pas de prix mensuel)
+        // Abonnement 1 semaine = ESSAI GRATUIT (pas de prix mensuel, pas de texte "Essai gratuit")
         if (badge)    { badge.textContent = 'Essai'; badge.style.background = 'rgba(46,204,113,0.15)'; badge.style.color = '#2ecc71'; badge.style.border = '1px solid rgba(46,204,113,0.3)'; }
-        if (priceEl)  priceEl.innerHTML = '<span style="color:#2ecc71">Essai gratuit</span>';
+        if (priceEl)  priceEl.innerHTML = '';
         if (planText) planText.textContent = _trialUntil ? `Période d'essai gratuite — jusqu'au ${_trialUntil}` : "Période d'essai gratuite";
         if (planCard) planCard.style.borderColor = 'rgba(46,204,113,0.2)';
       } else {
