@@ -1770,7 +1770,11 @@ function buildNewsItem(item) {
   arrowEl.className = 'news-arrow-col';
   if (expandEl) {
     arrowEl.textContent = '∨';
-    arrowEl.onclick = e => { e.stopPropagation(); openPanel(hasInfo ? 'info' : reactionTagEl ? 'reaction' : 'analysis'); };
+    const _togglePanel = e => { e.stopPropagation(); openPanel(hasInfo ? 'info' : hasNotes ? 'analysis' : 'reaction'); };
+    arrowEl.onclick = _togglePanel;
+    // Clic sur le TITRE de la news → déroule aussi (description / analyse / réaction)
+    headline.classList.add('news-headline--clickable');
+    headline.onclick = _togglePanel;
   }
   el.insertBefore(arrowEl, content);
 

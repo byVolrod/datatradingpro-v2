@@ -673,8 +673,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 
 @keyframes pulse-green {
-  0%, 100% { opacity: 1; box-shadow: 0 0 6px var(--green); }
-  50% { opacity: 0.6; box-shadow: 0 0 3px var(--green); }
+  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--green); transform: scale(1); }
+  50% { opacity: 0.35; box-shadow: 0 0 2px var(--green); transform: scale(0.82); }
 }
 
 .ctrl-btn {
@@ -907,14 +907,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   animation: breaking-pulse 2s ease-out;
 }
 /* La zone dépliée d'une news importante garde le même fond bordeaux */
-.news-item--breaking .news-description,
 .news-item--breaking .article-points--clean { background: transparent; }
 .news-item--breaking .news-headline { color: #e2e8f0; font-weight: 600; }  /* contraste fort */
 .news-item--breaking .news-time { color: #cbd5e1; }
 .news-item--breaking .news-category-text { color: #cbd5e1; }
 .news-item--breaking:hover { background: #271517; }      /* survol : bordeaux quasi imperceptible (juste un soupçon au-dessus du fond #241415) */
 /* La description et ses enfants restent transparents → le hover bordeaux les traverse aussi */
-.news-item--breaking:hover .news-description,
 .news-item--breaking:hover .article-points--clean,
 .news-item--breaking:hover .news-content { background: transparent !important; }
 .news-item--breaking:hover .news-headline { color: #ffffff; }
@@ -1033,7 +1031,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   line-height: 1.65;
   display: none;
 }
-.news-description.visible { display: block; }
+.news-description.visible {
+  display: block;
+  background: #0a0b0e;                         /* fond sombre dédié (comme l'image), indépendant du hover rouge */
+  margin-top: 10px;
+  padding: 11px 14px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
+}
+.news-headline--clickable { cursor: pointer; }
+.news-headline--clickable:hover { text-decoration: underline; text-decoration-color: rgba(255,255,255,0.25); text-underline-offset: 3px; }
 
 /* Bullet list inside expand panel */
 .article-points {
