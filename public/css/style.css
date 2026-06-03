@@ -5372,10 +5372,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   font-family: var(--font-mono);
 }
 
-/* Table */
+/* Table — haute densité, lignes monoblocs, jamais d'arrondi */
 .cal-table {
   width: 100%;
   border-collapse: collapse;
+  border-radius: 0;
   font-size: 11px;
 }
 
@@ -5480,32 +5481,36 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   top: 28px; /* colle juste sous le thead */
   z-index: 3;
 }
+/* Divider de jour : bande sombre OPAQUE (couvre les lignes au scroll), texte gris discret */
 .cal-day-sep td {
-  background: oklab(0.268617 0.000012286 0.00000536442 / 1);
-  color: #888;
+  background: #15161a;
+  color: #9aa0a6;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   font-family: var(--font-ui);
-  letter-spacing: 0.02em;
-  padding: 7px 14px 6px;
-  border-top: 1px solid #1e1e1e;
-  border-bottom: 1px solid #1e1e1e;
+  letter-spacing: 0.03em;
+  padding: 6px 14px 5px;
+  border-top: 1px solid #050505;
+  border-bottom: 1px solid #050505;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.6);
 }
 
-/* Event rows */
+/* Event rows — bloc compact, séparateur 1px, aucun arrondi */
 .cal-row {
   border-bottom: 1px solid #101010;
+  border-radius: 0;
   transition: background 0.12s;
   cursor: default;
 }
 .cal-row:hover { background: #0e0e0e; }
 
 .cal-row td {
-  padding: 8px 6px;
+  padding: 6px 6px;
   vertical-align: middle;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-radius: 0;
   font-size: 11px;
   color: #666;
 }
@@ -5574,12 +5579,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   white-space: nowrap;
 }
 
-/* Impact dots — colored by level */
+/* Impact = Dot Matrix ●●● : les 3 points sont TOUJOURS rendus, les inactifs estompés (opacité variable) */
 .cal-row td.cth-imp { text-align: center; white-space: nowrap; }
-.ci-high    { font-size: 10px; letter-spacing: 2px; color: #ef4444; }
-.ci-med     { font-size: 10px; letter-spacing: 2px; color: #f59e0b; }
-.ci-low     { font-size: 10px; letter-spacing: 2px; color: #4ade80; }
-.ci-dot-off { opacity: 0.12; }
+.ci-high, .ci-med, .ci-low { font-size: 10px; letter-spacing: 2.5px; }
+.ci-high    { color: #ef4444; }   /* High  → ●●● pleins */
+.ci-med     { color: #f59e0b; }   /* Med   → ●● pleins + 1 estompé */
+.ci-low     { color: #4ade80; }   /* Low   → ● plein + 2 estompés */
+.ci-dot-off { opacity: 0.2; }     /* points inactifs de la matrice */
 
 /* Value columns */
 .cal-row td.cth-val { text-align: right; font-family: var(--font-mono); font-size: 11px; }
@@ -5587,9 +5593,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .cv-forecast { color: #ccc; }
 .cv-prev     { color: #ccc; }
 .cv-empty    { color: #252525; }
-.cv-actual   { font-weight: 700; color: #fff; }
-.cv-pos      { color: #22c55e !important; }
-.cv-neg      { color: #ef4444 !important; }
+.cv-actual   { font-weight: 700; color: #fff; }   /* blanc par défaut (égal, ou pas de forecast) */
+.cv-pos      { color: #22e06a !important; }        /* Deviation > forecast : vert fluo */
+.cv-neg      { color: #ff3b3b !important; }        /* Deviation < forecast : rouge écarlate */
 
 /* Lightning bolt on actual values that beat/miss */
 .cv-bolt {

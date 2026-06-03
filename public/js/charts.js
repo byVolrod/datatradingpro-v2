@@ -2111,25 +2111,21 @@ function calImpDots(impact) {
   return '<span class="ci-low">●<span class="ci-dot-off">●●</span></span>';
 }
 
-function calActualCell(actual, forecast, previous) {
-  if (!actual || actual === '') return '<span class="cv-empty">—</span>';
-  const a = parseFloat(actual), f = parseFloat(forecast), p = parseFloat(previous);
-  let cls = '', bolt = '', ref = NaN;
-  // Résultat coloré :
-  //   vert  = la donnée est SORTIE AU-DESSUS de la référence (positif)
-  //   rouge = la donnée est SORTIE EN-DESSOUS (négatif)
-  //   blanc = égale, ou aucune référence (neutre)
-  // Référence = prévision en PRIORITÉ ; sinon le précédent (pour colorer un max de résultats).
-  if (forecast && forecast !== '' && !isNaN(f))       ref = f;
-  else if (previous && previous !== '' && !isNaN(p))  ref = p;
-  if (!isNaN(a) && !isNaN(ref)) {
-    if (a > ref)      cls = 'cv-pos';
-    else if (a < ref) cls = 'cv-neg';
-    // Éclair ⚡ seulement sur une SURPRISE notable (écart ≥ 10% vs référence)
-    const denom = Math.abs(ref) > 1e-9 ? Math.abs(ref) : 1;
-    if (cls && Math.abs(a - ref) / denom >= 0.10) bolt = '<span class="cv-bolt">⚡</span>';
+// Deviation Signaling — colore l'ACTUAL UNIQUEMENT par rapport au FORECAST (fidèle Prime Terminal) :
+//   actual > forecast → vert fluo (cv-pos) ; actual < forecast → rouge écarlate (cv-neg) ; égal → blanc.
+//   Aucun forecast → blanc : on ne colore JAMAIS via le previous (sinon faux signal de déviation).
+function calActualCell(actual, forecast) {
+  if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
+  let cls = '';
+  if (forecast != null && forecast !== '') {
+    const a = parseFloat(String(actual).replace(',', '.'));
+    const f = parseFloat(String(forecast).replace(',', '.'));
+    if (!isNaN(a) && !isNaN(f)) {
+      if (a > f)      cls = 'cv-pos';   // surprise haussière
+      else if (a < f) cls = 'cv-neg';   // surprise baissière
+    }
   }
-  return `<span class="cv-actual ${cls}">${bolt}${actual}</span>`;
+  return `<span class="cv-actual ${cls}">${actual}</span>`;
 }
 
 function calFormatTime(ts) {
@@ -2213,7 +2209,7 @@ function renderCalTable() {
       <td class="cth-curr">${ev.currency || ''}</td>
       <td class="cth-imp">${calImpDots(ev.impact)}</td>
       <td class="cth-event">${ev.title || ''}</td>
-      <td class="cth-val">${calActualCell(ev.actual, ev.forecast, ev.previous)}</td>
+      <td class="cth-val">${calActualCell(ev.actual, ev.forecast)}</td>
       <td class="cth-val">${hi}</td>
       <td class="cth-val">${fcast}</td>
       <td class="cth-val">${lo}</td>
@@ -2266,11 +2262,15 @@ function renderCalTable() {
 // ─── Panneau détail d'un événement calendrier (Specs + History) ───────────────
 const _calDetailCache = {};   // url → { specs, history } (cache navigateur : pas de re-fetch)
 function _calEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
-function _calColorCell(actual, forecast, previous) {
+function _calColorCell(actual, forecast) {
   if (!actual) return '<span class="cv-empty">—</span>';
-  const a = parseFloat(actual), f = parseFloat(forecast), p = parseFloat(previous);
-  let ref = !isNaN(f) ? f : (!isNaN(p) ? p : NaN), cls = '';
-  if (!isNaN(a) && !isNaN(ref)) cls = a > ref ? 'cv-pos' : a < ref ? 'cv-neg' : '';
+  // Même Deviation Signaling que la table : comparaison au FORECAST seul (blanc si absent).
+  let cls = '';
+  if (forecast != null && forecast !== '') {
+    const a = parseFloat(String(actual).replace(',', '.'));
+    const f = parseFloat(String(forecast).replace(',', '.'));
+    if (!isNaN(a) && !isNaN(f)) cls = a > f ? 'cv-pos' : a < f ? 'cv-neg' : '';
+  }
   return `<span class="cv-actual ${cls}">${_calEsc(actual)}</span>`;
 }
 // En-tête de valeurs (Actual / Forecast / Previous) d'un événement
