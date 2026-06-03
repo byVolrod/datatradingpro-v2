@@ -4291,6 +4291,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .ai-insights-cards--fixed .ai-insights-card { flex: none; width: auto; }
 /* Icône puce IA (SVG fin, orange) */
 .ai-chip { vertical-align: middle; flex-shrink: 0; }
+.ai-insights-logo { width: 16px; height: 16px; object-fit: contain; flex-shrink: 0; }   /* logo Macro AI local */
 /* Badge marque DTP (blanc, texte noir gras) — en haut du rapport */
 .arlib-rnav-right { display: flex; align-items: center; gap: 12px; }
 .arlib-dtp-badge {
@@ -7947,11 +7948,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
    La table large défile horizontalement quand le volet est étroit — comportement sûr.) */
 
 /* ════════════════════ MACRO AI ASSISTANT (chat IA) ════════════════════ */
-.ai-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1190; opacity: 0; pointer-events: none; transition: opacity .2s; }
+/* Rideau flouté : commence SOUS la topbar (icônes d'onglets restent nettes & cliquables) ;
+   floute + assombrit le dashboard derrière, sans recouvrir la navbar. */
+.ai-backdrop { position: fixed; inset: var(--topbar-h) 0 0 0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); z-index: 1399; opacity: 0; pointer-events: none; transition: opacity .22s; }
 .ai-backdrop.open { opacity: 1; pointer-events: auto; }
 .ai-panel {
-  position: fixed; top: 0; right: 0; height: 100%; width: 430px; max-width: 100vw;
-  background: #0c0c0e; z-index: 1200; display: flex; flex-direction: column;
+  position: fixed; top: var(--topbar-h); right: 0; height: calc(100dvh - var(--topbar-h)); width: 430px; max-width: 100vw;
+  background: #0c0c0e; z-index: 1401; display: flex; flex-direction: column;   /* sous la navbar → icônes d'onglets toujours cliquables */
   transform: translateX(100%); transition: transform .24s cubic-bezier(.2,.8,.2,1);
   border-left: 1px solid #1c1c20; border-radius: 0;
 }
