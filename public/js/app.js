@@ -418,8 +418,19 @@ function _flashBreakingNews(item) {
   if (!textEl) return;
 
   // Mémorise la news annoncée → les renders FUTURS ne la masqueront jamais (synchro bandeau ↔ flux).
-  // (Elle est déjà affichée ici : le flash n'est déclenché que pour une news présente dans le feed.)
   _flashedNewsId = item.id || null;
+
+  // GARANTIE synchro bandeau ↔ feed : la news annoncée doit apparaître EN HAUT du flux, jamais
+  // enterrée par un horodatage source périmé (breaking arrivé "maintenant" mais daté d'avant).
+  // → on la remonte au sommet (timestamp = maintenant) et on ré-affiche.
+  const _it = allItems.find(i => i.id === item.id);
+  const _topTs = allItems.length ? (allItems[0].timestamp || 0) : 0;
+  if (_it && (_it.timestamp || 0) < _topTs) {
+    _it.timestamp = Date.now();
+    _it.time = new Date(_it.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    allItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    renderNews(true);
+  }
 
   // Dynamic label: BREAKING (FJ urgent only) vs LIVE
   const _isFJ = item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-');
