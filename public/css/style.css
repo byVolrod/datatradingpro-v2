@@ -1514,11 +1514,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   justify-content: center;
   gap: 14px;
   width: 100%;
-  min-height: 140px;
+  height: 100%;            /* remplit le conteneur (qui a une hauteur) → centrage vertical FIABLE partout */
+  min-height: 160px;       /* sinon (conteneur sans hauteur) au moins 160px */
   padding: 32px 16px;
   text-align: center;
   box-sizing: border-box;
-  margin: auto;            /* centre dans un conteneur flex/block */
+  margin: auto;            /* centre horizontalement dans un conteneur block */
+  flex: 1 1 auto;          /* remplit un parent flex-column (sinon top-aligné) */
   grid-column: 1 / -1;     /* span TOUTES les colonnes si le parent est une grille (ex. COT) */
   grid-row: 1 / -1;        /* … et toutes les rangées → centrage parfait */
 }
@@ -5895,15 +5897,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   transition: background 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;  /* MAJ fluide "live" */
 }
 .meter-brick--off { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); box-shadow: none; }
+/* Aplat plat aux couleurs identité du site (comme la bande risk/sentiment), SANS effet brillant/glow */
 .meter-brick--pos {
-  background: linear-gradient(180deg, #34e07a, #15a34a);
-  border-color: #3fe684;
-  box-shadow: inset 0 1px 2px rgba(255,255,255,0.28), 0 0 7px rgba(34,197,94,0.40);
+  background: #22c55e;
+  border-color: #22c55e;
+  box-shadow: none;
 }
 .meter-brick--neg {
-  background: linear-gradient(180deg, #f24a4a, #b81d1d);
-  border-color: #f55c5c;
-  box-shadow: inset 0 1px 2px rgba(255,255,255,0.20), 0 0 7px rgba(220,38,38,0.40);
+  background: #ef4444;
+  border-color: #ef4444;
+  box-shadow: none;
 }
 /* La brique la plus proche du zéro = "tête" de barre → coins plus marqués (lecture nette) */
 .meter-half-top .meter-brick:last-child { border-top-left-radius: 5px; border-top-right-radius: 5px; }
