@@ -313,16 +313,18 @@ function handleMessage(msg) {
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
     if (allItems.length > 2000) allItems = allItems.slice(0, 2000);
     if (!isFirstUpdate) {
-      // Bannière LIVE : on ne flashe QUE si la news importante est RÉELLEMENT VISIBLE dans le feed
-      // (passe les filtres catégorie/bruit/dédup) → la notif est TOUJOURS synchro avec une news
-      // affichée. Sinon (filtrée/non visible) → pas de notif. Anticipe le désync à l'avenir.
-      const _visibleIds = new Set(getFilteredItems().map(i => i.id));
-      _flashBreakingNews(truly_new.find(i => _visibleIds.has(i.id) && !(i._briefing || i.source === 'PMT' || isPrimerItem(i)) && _isImportantNews(i)));
       const added = npPush(truly_new);   // alimente le panneau ; renvoie le nb RÉELLEMENT ajouté
       newCount += added;                 // badge = exactement ce qui est dans le panneau (pas les rapports/primers)
       _setNotifBadge(newCount);
     }
     renderNews(!isFirstUpdate);
+    if (!isFirstUpdate) {
+      // Bannière LIVE : on flashe APRÈS le rendu, et UNIQUEMENT si la news importante est
+      // RÉELLEMENT AFFICHÉE dans le feed (passe les filtres ET dans les `displayLimit` premières).
+      // → la notif est TOUJOURS synchro avec une news visible ; sinon pas de notif. (Anti-désync.)
+      const _renderedIds = new Set(getFilteredItems().slice(0, displayLimit).map(i => i.id));
+      _flashBreakingNews(truly_new.find(i => _renderedIds.has(i.id) && !(i._briefing || i.source === 'PMT' || isPrimerItem(i)) && _isImportantNews(i)));
+    }
     // Refresh analyst library if a new briefing arrived and analyst view is active
     if (truly_new.some(i => i._briefing || i.source === 'PMT')) {
       const analystPanel = document.getElementById('view-analyst');
