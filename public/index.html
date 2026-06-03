@@ -894,12 +894,12 @@
     // Badge plan dynamique (Professionnel si actif, Suspendu sinon)
     const hdrBadge = document.getElementById('pd-hdr-badge');
     if (hdrBadge) {
-      hdrBadge.textContent = 'Professionnel';
+      hdrBadge.textContent = d.user.active ? 'Professionnel · Mensuel' : 'Suspendu';
       hdrBadge.style.background = d.user.active
-        ? 'rgba(247,148,29,0.15)' : 'rgba(231,76,60,0.12)';
+        ? 'rgba(247,148,29,0.08)' : 'rgba(231,76,60,0.10)';
       hdrBadge.style.color  = d.user.active ? '#f7941d' : '#ef4444';
       hdrBadge.style.border = d.user.active
-        ? '1px solid rgba(247,148,29,0.3)' : '1px solid rgba(231,76,60,0.3)';
+        ? '1px solid rgba(247,148,29,0.55)' : '1px solid rgba(231,76,60,0.5)';
     }
 
     // Pre-fill profile fields

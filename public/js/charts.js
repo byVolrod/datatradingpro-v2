@@ -2241,12 +2241,12 @@ function renderCalTable() {
     <tbody>${tbody}</tbody>
   </table>`;
 
-  // Clic sur une ligne → panneau détail (Specs + History), SANS Related Stories
+  // Clic sur une ligne → DÉROULÉ INLINE (Specs + History) sous la ligne — PAS de fenêtre modale
   wrap.querySelectorAll('tr.cal-row--click').forEach(tr => {
     tr.addEventListener('click', () => {
       const idx = parseInt(tr.dataset.idx, 10);
       const ev  = evs[idx];
-      if (ev) openCalDetail(ev);
+      if (ev) toggleCalDetailRow(tr, ev);
     });
   });
 
@@ -2275,57 +2275,17 @@ function _calColorCell(actual, forecast, previous) {
   if (!isNaN(a) && !isNaN(ref)) cls = a > ref ? 'cv-pos' : a < ref ? 'cv-neg' : '';
   return `<span class="cv-actual ${cls}">${_calEsc(actual)}</span>`;
 }
-async function openCalDetail(ev) {
-  // Overlay + carte
-  let ov = document.getElementById('cal-detail-overlay');
-  if (!ov) {
-    ov = document.createElement('div');
-    ov.id = 'cal-detail-overlay';
-    ov.className = 'cal-detail-overlay';
-    ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('visible'); });
-    document.body.appendChild(ov);
-  }
-  const dateStr = ev.timestamp
-    ? new Date(ev.timestamp).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })
-    : '';
-  const timeStr = calFormatTime(ev.timestamp) || ev.time || '';
-  const headVals = `
+// En-tête de valeurs (Actual / Forecast / Previous) d'un événement
+function _calDetailHeadVals(ev) {
+  return `
     <div class="cal-detail-vals">
       <div class="cdv"><span class="cdv-lbl">Actual</span>${_calColorCell(ev.actual, ev.forecast, ev.previous)}</div>
       <div class="cdv"><span class="cdv-lbl">Forecast</span><span class="cv-forecast">${ev.forecast ? _calEsc(ev.forecast) : '—'}</span></div>
       <div class="cdv"><span class="cdv-lbl">Previous</span><span class="cv-prev">${ev.previous ? _calEsc(ev.previous) : '—'}</span></div>
     </div>`;
-  ov.innerHTML = `
-    <div class="cal-detail-card">
-      <div class="cal-detail-head">
-        <div class="cal-detail-titlewrap">
-          <span class="cal-detail-flag">${CAL_FLAG(ev.currency)}</span>
-          <div>
-            <div class="cal-detail-title">${_calEsc(ev.title || '')}</div>
-            <div class="cal-detail-sub">${_calEsc(ev.currency || '')} · ${_calEsc(dateStr)}${timeStr ? ' · ' + _calEsc(timeStr) : ''}</div>
-          </div>
-        </div>
-        <span class="cal-detail-close" id="cal-detail-close">×</span>
-      </div>
-      ${headVals}
-      <div class="cal-detail-body" id="cal-detail-body">${window.dtpLoader ? window.dtpLoader('Chargement des détails…', { small: true }) : 'Chargement…'}</div>
-    </div>`;
-  ov.classList.add('visible');
-  document.getElementById('cal-detail-close')?.addEventListener('click', () => ov.classList.remove('visible'));
-
-  const body = document.getElementById('cal-detail-body');
-  if (!ev.url) { body.innerHTML = '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>'; return; }
-
-  // Cache navigateur
-  let d = _calDetailCache[ev.url];
-  if (!d) {
-    try {
-      d = await fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url)).then(r => r.json());
-      if (d && ((d.specs && d.specs.length) || (d.history && d.history.length))) _calDetailCache[ev.url] = d;
-    } catch { d = null; }
-  }
-  if (!document.getElementById('cal-detail-body')) return;   // panneau fermé entre-temps
-
+}
+// HTML Specs + History à partir des données détail (réutilisé par le déroulé inline)
+function _calDetailBodyHtml(d) {
   const specsHtml = (d && d.specs && d.specs.length)
     ? `<div class="cal-detail-section">Specs</div>
        <table class="cal-specs-table">${d.specs.map(s => `<tr><td class="cal-spec-lbl">${_calEsc(s.label)}</td><td class="cal-spec-val">${_calEsc(s.value)}</td></tr>`).join('')}</table>`
@@ -2342,7 +2302,57 @@ async function openCalDetail(ev) {
          </tr>`).join('')}</tbody>
        </table>`
     : '';
-  body.innerHTML = (specsHtml + histHtml) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
+  return (specsHtml + histHtml);
+}
+
+// Clic sur un événement → ouvre/ferme un DÉROULÉ INLINE sous la ligne (accordéon). PAS de fenêtre modale.
+async function toggleCalDetailRow(tr, ev) {
+  if (!tr || !tr.parentNode) return;
+  const tbody = tr.parentNode;
+  // Toggle : si le déroulé de CETTE ligne est déjà ouvert juste en dessous → le fermer
+  const after = tr.nextElementSibling;
+  if (after && after.classList.contains('cal-detail-row')) {
+    after.remove();
+    tr.classList.remove('cal-row--expanded');
+    return;
+  }
+  // Un seul déroulé ouvert à la fois : fermer les autres
+  tbody.querySelectorAll('.cal-detail-row').forEach(r => r.remove());
+  tbody.querySelectorAll('.cal-row--expanded').forEach(r => r.classList.remove('cal-row--expanded'));
+  tr.classList.add('cal-row--expanded');
+
+  const dateStr = ev.timestamp
+    ? new Date(ev.timestamp).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    : '';
+  const timeStr = calFormatTime(ev.timestamp) || ev.time || '';
+  const detailRow = document.createElement('tr');
+  detailRow.className = 'cal-detail-row';
+  detailRow.innerHTML = `<td colspan="10"><div class="cal-detail-inline">
+      <div class="cal-detail-inline-head">
+        <span class="cal-detail-flag">${CAL_FLAG(ev.currency)}</span>
+        <div>
+          <div class="cal-detail-title">${_calEsc(ev.title || '')}</div>
+          <div class="cal-detail-sub">${_calEsc(ev.currency || '')} · ${_calEsc(dateStr)}${timeStr ? ' · ' + _calEsc(timeStr) : ''}</div>
+        </div>
+      </div>
+      ${_calDetailHeadVals(ev)}
+      <div class="cal-detail-body">${window.dtpLoader ? window.dtpLoader('Chargement des détails…', { small: true }) : 'Chargement…'}</div>
+    </div></td>`;
+  tr.after(detailRow);
+  const bodyEl = detailRow.querySelector('.cal-detail-body');
+
+  if (!ev.url) { if (bodyEl) bodyEl.innerHTML = '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>'; return; }
+
+  // Cache navigateur
+  let d = _calDetailCache[ev.url];
+  if (!d) {
+    try {
+      d = await fetch('/api/calendar-detail?url=' + encodeURIComponent(ev.url)).then(r => r.json());
+      if (d && ((d.specs && d.specs.length) || (d.history && d.history.length))) _calDetailCache[ev.url] = d;
+    } catch { d = null; }
+  }
+  if (!bodyEl || !bodyEl.isConnected) return;   // déroulé fermé entre-temps
+  bodyEl.innerHTML = _calDetailBodyHtml(d) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
 }
 
 // ── Calendar helper: refresh data from server ─────────────────────────────────
