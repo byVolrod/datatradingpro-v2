@@ -49,13 +49,21 @@ function dtpToast(msg) {
 function aiComingSoon() { dtpToast('🤖 AI — bientôt disponible'); }
 window.dtpToast = dtpToast; window.aiComingSoon = aiComingSoon;
 
-// ════════════════ MACRO AI ASSISTANT — chat IA (état VOLATIL, reset au reload) ════════════════
+// ════════════════ MACRO AI ASSISTANT — chat IA (volatil, streaming typewriter) ════════════════
 let _aiMsgs = [];
 let _aiBusy = false;
-const AI_CHIP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/></svg>';
+let _aiTyper = null;
+const AI_AVATAR = '/assets/images/macro-ai-logo.png';            // logo officiel sauvegardé en local (autonome)
+const AI_CHIP = `<img class="ai-chip-img" src="${AI_AVATAR}" alt="Macro AI" width="22" height="22" loading="lazy">`;
 function _aiTime() { try { return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
 function _aiEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _aiMd(s) { return _aiEsc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); }
+// Markdown TOLÉRANT au streaming : masque une séquence ** non encore fermée (pas d'astérisques affichés ni de crash)
+function _aiMdStream(s) {
+  let t = String(s || '');
+  if (((t.match(/\*\*/g) || []).length) % 2 === 1) t = t.replace(/\*\*(?![\s\S]*\*\*)/, '');
+  return _aiMd(t);
+}
 function _aiWelcomeMsg() { return { role: 'ai', text: "Hello! I'm your Macro AI assistant. Ask me about market trends, economic indicators, or get insights on global markets.", time: _aiTime() }; }
 
 function aiOpen() {
@@ -84,41 +92,73 @@ function aiRender() {
   _aiMsgs.forEach((m, i) => {
     if (m.role === 'user') {
       html += `<div class="ai-row ai-row--user"><div class="ai-bubble-user">${_aiEsc(m.text)}</div><div class="ai-time">${m.time}</div></div>`;
+    } else if (m.thinking) {
+      // « L'IA écrit… » : avatar local + 3 points qui rebondissent (avant le 1er chunk de texte)
+      html += `<div class="ai-row ai-row--ai"><div class="ai-chip">${AI_CHIP}</div><div class="ai-ai-body"><div class="ai-thinking"><span></span><span></span><span></span></div></div></div>`;
     } else {
-      const body = m.typing
-        ? '<span class="ai-typing"><span></span><span></span><span></span></span>'
-        : _aiMd(m.text);
-      const src = (!m.typing && m.sources && m.sources.length) ? _aiSourcesHtml(m.sources, i) : '';
-      const time = m.typing ? '' : `<div class="ai-time">${m.time}</div>`;
+      const body = m.streaming ? _aiMdStream(m.text) : _aiMd(m.text);
+      // Sources + heure UNIQUEMENT à la fin du streaming (jamais pendant)
+      const src = (!m.streaming && m.sources && m.sources.length) ? _aiSourcesHtml(m.sources, i) : '';
+      const time = m.streaming ? '' : `<div class="ai-time">${m.time}</div>`;
       html += `<div class="ai-row ai-row--ai"><div class="ai-chip">${AI_CHIP}</div><div class="ai-ai-body"><div class="ai-ai-text">${body}</div>${src}${time}</div></div>`;
     }
   });
   box.innerHTML = html;
   box.scrollTop = box.scrollHeight;
 }
+// Autoscroll intelligent : suit l'écriture seulement si l'utilisateur est déjà près du bas
+function _aiAutoScroll() {
+  const box = document.getElementById('ai-messages'); if (!box) return;
+  if (box.scrollHeight - box.scrollTop - box.clientHeight < 90) box.scrollTop = box.scrollHeight;
+}
+// Effet typewriter : révèle le texte par petits chunks (coupe au milieu d'un mot, façon flux SSE)
+function _aiStream(msg) {
+  const full = msg.full || '';
+  msg.text = ''; msg.streaming = true;
+  let i = 0;
+  const tick = () => {
+    i = Math.min(full.length, i + 3);
+    msg.text = full.slice(0, i);
+    const el = document.querySelector('#ai-messages .ai-row--ai:last-of-type .ai-ai-text');
+    if (el) el.innerHTML = _aiMdStream(msg.text);
+    _aiAutoScroll();
+    if (i < full.length) { _aiTyper = setTimeout(tick, 14); }
+    else { msg.streaming = false; msg.text = full; _aiTyper = null; _aiBusy = false; aiRender(); }
+  };
+  tick();
+}
 async function aiSend() {
   const inp = document.getElementById('ai-input'); if (!inp) return;
   const q = inp.value.trim(); if (!q || _aiBusy) return;
-  inp.value = '';
+  inp.value = ''; aiInputGrow(inp);
   if (!_aiMsgs.length) _aiMsgs = [_aiWelcomeMsg()];
   _aiMsgs.push({ role: 'user', text: q, time: _aiTime() });
-  _aiMsgs.push({ role: 'ai', typing: true });
+  _aiMsgs.push({ role: 'ai', thinking: true });
   _aiBusy = true; aiRender();
   try {
     const r = await fetch('/api/ai/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: q }) });
     const d = await r.json().catch(() => ({}));
-    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].typing) _aiMsgs.pop();
-    if (r.ok && d.answer) _aiMsgs.push({ role: 'ai', text: d.answer, sources: d.sources || [], time: _aiTime() });
-    else _aiMsgs.push({ role: 'ai', text: "Sorry, I'm temporarily unavailable. Please try again shortly.", time: _aiTime() });
+    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();   // coupe « thinking » dès réception
+    if (r.ok && d.answer) {
+      const msg = { role: 'ai', full: d.answer, text: '', sources: d.sources || [], streaming: true, time: _aiTime() };
+      _aiMsgs.push(msg); aiRender(); _aiStream(msg);   // démarre le typewriter (les sources sortiront à la fin)
+    } else {
+      _aiMsgs.push({ role: 'ai', text: "Sorry, I'm temporarily unavailable. Please try again shortly.", time: _aiTime() });
+      _aiBusy = false; aiRender();
+    }
   } catch (e) {
-    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].typing) _aiMsgs.pop();
+    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();
     _aiMsgs.push({ role: 'ai', text: 'Connection error. Please try again.', time: _aiTime() });
-  } finally { _aiBusy = false; aiRender(); }
+    _aiBusy = false; aiRender();
+  }
 }
+// Enter = envoi · Shift+Enter = nouvelle ligne
+function aiInputKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); aiSend(); } }
+function aiInputGrow(el) { if (!el) return; el.style.height = 'auto'; el.style.height = Math.min(el.scrollHeight, 120) + 'px'; }
 function aiClearAsk() { const b = document.getElementById('ai-clear-banner'); if (b) b.classList.add('show'); }
 function aiClearCancel() { const b = document.getElementById('ai-clear-banner'); if (b) b.classList.remove('show'); }
-function aiClearConfirm() { _aiMsgs = [_aiWelcomeMsg()]; aiClearCancel(); aiRender(); }
-window.aiOpen = aiOpen; window.aiClose = aiClose; window.aiSend = aiSend;
+function aiClearConfirm() { if (_aiTyper) { clearTimeout(_aiTyper); _aiTyper = null; } _aiBusy = false; _aiMsgs = [_aiWelcomeMsg()]; aiClearCancel(); aiRender(); }
+window.aiOpen = aiOpen; window.aiClose = aiClose; window.aiSend = aiSend; window.aiInputKey = aiInputKey; window.aiInputGrow = aiInputGrow;
 window.aiToggleSources = aiToggleSources; window.aiClearAsk = aiClearAsk; window.aiClearCancel = aiClearCancel; window.aiClearConfirm = aiClearConfirm;
 // Le bouton AI de la topbar ouvre le volet Macro AI Assistant
 (function () { var b = document.getElementById('ai-btn'); if (b) b.addEventListener('click', aiOpen); })();
@@ -5177,7 +5217,7 @@ const CHAT_SUPPORT_NAME  = 'Équipe de support';
 const CHAT_SUPPORT_SUB   = 'Répond généralement en quelques minutes';
 const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la photo ne charge pas)
 // Photo support (portrait pro/institutionnel). Modifiable : remplace l'URL par la tienne.
-const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=220&h=220&fit=crop&crop=faces&auto=format&q=85';
+const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=240&h=240&fit=crop&crop=faces&auto=format&q=88';
 // Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
 function _chatSupportAvatarHtml(){
   if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);
