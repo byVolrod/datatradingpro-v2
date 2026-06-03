@@ -931,6 +931,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   transition: background 0.1s;
   gap: 0;
   background: #121214;              /* anthracite très sombre (standard) */
+  --news-desc-bleed: 246px;        /* décalage du contenu = padding 14 + icône 34 + heure 48 + catégorie 150 */
 }
 .news-item .news-headline { color: #e2e8f0; }   /* texte principal */
 
@@ -1107,11 +1108,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 .news-description.visible {
   display: block;
-  background: #0a0b0e;                          /* boîte sombre DISTINCTE du titre (comme PMT) */
+  background: #19191c;                                       /* fond description (couleur PMT exacte) */
   margin-top: 10px;
-  padding: 11px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.05);
+  margin-left: calc(var(--news-desc-bleed) * -1);           /* fond étendu jusqu'au bord GAUCHE de la ligne */
+  margin-right: -14px;                                       /* … et jusqu'au bord DROIT (toute la ligne) */
+  padding: 11px 14px 11px var(--news-desc-bleed);           /* texte ré-aligné sous le titre */
+  border-radius: 0;
+  border: none;
 }
 .news-headline--clickable { cursor: pointer; }
 .news-headline--clickable:hover { text-decoration: none; }   /* pas de soulignement au survol */
@@ -7157,7 +7160,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .clock-wx-row, .clock-wind-row { font-size: 9px; }
 
   /* News items: full-width readable */
-  .news-item       { gap: 8px; padding: 9px 10px; }
+  .news-item       { gap: 8px; padding: 9px 10px; --news-desc-bleed: 196px; }   /* décalage recalculé (gaps + colonnes mobiles) */
+  .news-description.visible { margin-right: -10px; }
   .news-time       { min-width: 38px; font-size: 10px; }
   .news-category-text { width: 80px; font-size: 10px; }
   .news-headline   { font-size: 12px; }
@@ -8094,6 +8098,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .fxl-table { min-width: 600px; font-size: 10px; }
   .cth-event { min-width: 108px; font-size: 10px; }
   .news-category-text { width: 62px; font-size: 10px; }
+  .news-item { --news-desc-bleed: 178px; }   /* décalage description recalculé (mobile) */
   .news-time { min-width: 30px; }
   .chat-pending-item { width: 46px; height: 46px; }
   .chat-edit-box { max-width: 88vw; }
