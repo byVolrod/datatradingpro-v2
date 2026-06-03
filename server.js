@@ -398,9 +398,24 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
     const arpu = activeSubs ? mrr / activeSubs : 0;
     const growthPct = newLastMonth ? ((newThisMonth - newLastMonth) / newLastMonth * 100) : (newThisMonth ? 100 : 0);
     const churnRate = (activeSubs + churned30) ? (churned30 / (activeSubs + churned30) * 100) : 0;
-    // Prévision : ajout net mensuel récent (nouveaux abonnés payants 30j − churn 30j) → projection MRR
     const netAdds = newSubs30 - churned30;
-    const forecast = [1, 2, 3].map(m => +(Math.max(0, mrr + netAdds * arpu * m)).toFixed(2));
+
+    // Revenu NET par mois (12 derniers mois) = somme du MRR des clients RÉELLEMENT actifs ce mois-là.
+    // Aucune projection/prévision : uniquement du net tombé.
+    const revenueByMonth = {};
+    for (let i = 11; i >= 0; i--) { const d = new Date(); d.setUTCMonth(d.getUTCMonth() - i); revenueByMonth[monthKey(d.getTime())] = 0; }
+    for (const u of users) {
+      if (u.role !== 'client') continue;
+      const c = classify(u); if (c.mrr <= 0) continue;
+      const crt = u.created_at ? new Date(u.created_at).getTime() : 0;
+      const exp = u.expires_at ? new Date(u.expires_at).getTime() : Number.POSITIVE_INFINITY;
+      for (const mk of Object.keys(revenueByMonth)) {
+        const [yy, mm] = mk.split('-').map(Number);
+        const mStart = Date.UTC(yy, mm - 1, 1), mEnd = Date.UTC(yy, mm, 1) - 1;
+        if (crt <= mEnd && exp >= mStart) revenueByMonth[mk] += c.mrr;
+      }
+    }
+    Object.keys(revenueByMonth).forEach(k => { revenueByMonth[k] = +revenueByMonth[k].toFixed(2); });
 
     res.json({
       generatedAt: new Date().toISOString(),
@@ -414,7 +429,7 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
       },
       distribution: dist,
       signupsByMonth,
-      forecast,
+      revenueByMonth,
       whop: { configured: (() => { try { return whop.configured(); } catch { return false; } })(), renewUrl: process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/', webhookSecret: !!process.env.WHOP_WEBHOOK_SECRET },
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
