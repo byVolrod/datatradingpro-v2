@@ -540,7 +540,7 @@
         <td class="name">${u.name || '—'}</td>
         <td class="email">${u.email}</td>
         <td><span class="badge badge-${u.role}">${u.role}</span></td>
-        <td><span class="badge badge-client">Professionnel</span></td>
+        <td><span class="badge ${isTrialUser(u) ? 'badge-soon' : 'badge-client'}">${isTrialUser(u) ? 'Essai gratuit' : 'Professionnel'}</span></td>
         <td><span class="badge ${u.active ? 'badge-active' : 'badge-suspended'}">${u.active ? 'Actif' : 'Suspendu'}</span></td>
         <td>${subInfo(u)}</td>
         <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px">${u.last_login ? new Date(u.last_login).toLocaleString('fr-FR') : '—'}</td>
@@ -552,6 +552,12 @@
       </tr>`).join('');
   }
 
+  // Essai gratuit = durée d'abonnement (création → expiration) ≤ ~1 semaine
+  function isTrialUser(u) {
+    if (u.role === 'admin' || u.role === 'support' || !u.expires_at || !u.created_at) return false;
+    const span = new Date(u.expires_at) - new Date(u.created_at);
+    return span > 0 && span <= 8.5 * 86400000;
+  }
   // Affiche l'état de l'abonnement (illimité / actif jusqu'au… / expiré)
   function subInfo(u) {
     if (u.role === 'admin')   return '<span class="badge badge-admin">∞ admin</span>';

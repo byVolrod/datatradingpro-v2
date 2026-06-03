@@ -113,11 +113,15 @@ async function getAllUsers() {
 }
 
 async function getUserById(id) {
-  const { data } = await supabase
+  let { data, error } = await supabase
     .from(TABLE)
-    .select('id, email, name, role, plan, active')
+    .select('id, email, name, role, plan, active, created_at, expires_at')
     .eq('id', id)
     .single();
+  // Tolérance si les colonnes created_at/expires_at n'existent pas encore
+  if (error && /(expires_at|created_at)/.test(error.message || '')) {
+    ({ data } = await supabase.from(TABLE).select('id, email, name, role, plan, active').eq('id', id).single());
+  }
   return data || null;
 }
 

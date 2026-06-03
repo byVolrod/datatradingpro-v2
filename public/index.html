@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260603v" />
+  <link rel="stylesheet" href="/css/style.css?v=20260603w" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -372,15 +372,12 @@
     </div>
 
     <div class="right-panel-tabs" id="right-panel-tabs">
-      <div class="right-tab right-tab--nav" id="rtab-prev">‹</div>
       <div class="right-tab right-tab--active" data-rtab="world">› WORLD</div>
       <div class="right-tab" data-rtab="risk">› RISK</div>
       <div class="right-tab" data-rtab="strength">› STRENGTH</div>
       <div class="right-tab" data-rtab="meter">› METER</div>
       <div class="right-tab" data-rtab="cot">› COT</div>
       <div class="right-tab" data-rtab="dmx">› DMX</div>
-      <div class="right-tab-spacer"></div>
-      <div class="right-tab right-tab--icon right-tab--close">×</div>
     </div>
 
     <div class="right-content">
@@ -549,8 +546,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260603v"></script>
-<script src="/js/charts.js?v=20260603v"></script>
+<script src="/js/app.js?v=20260603w"></script>
+<script src="/js/charts.js?v=20260603w"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -774,7 +771,7 @@
                 Professionnel
                 <span class="pd-plan-active-badge" id="pd-plan-status-badge">Actif</span>
               </div>
-              <div class="pd-plan-price">24,99 €<span style="font-size:10px;font-weight:400;color:#888">/mois</span></div>
+              <div class="pd-plan-price" id="pd-plan-price">24,99 €<span style="font-size:10px;font-weight:400;color:#888">/mois</span></div>
             </div>
             <div class="pd-plan-next" id="pd-plan-status-text">Abonnement actif</div>
           </div>
@@ -906,10 +903,21 @@
     const badge    = document.getElementById('pd-plan-status-badge');
     const planText = document.getElementById('pd-plan-status-text');
     const planCard = document.getElementById('pd-plan-card');
+    const priceEl  = document.getElementById('pd-plan-price');
+    const _trialUntil = d.user.expiresAt ? new Date(d.user.expiresAt).toLocaleDateString('fr-FR') : '';
     if (d.user.active) {
-      if (badge)    { badge.textContent = 'Actif'; badge.style.background = 'rgba(46,204,113,0.15)'; badge.style.color = '#2ecc71'; badge.style.border = '1px solid rgba(46,204,113,0.3)'; }
-      if (planText) planText.textContent = 'Abonnement actif — Professionnel';
-      if (planCard) planCard.style.borderColor = 'rgba(46,204,113,0.2)';
+      if (d.user.isTrial) {
+        // Abonnement 1 semaine = ESSAI GRATUIT (pas de prix mensuel)
+        if (badge)    { badge.textContent = 'Essai'; badge.style.background = 'rgba(46,204,113,0.15)'; badge.style.color = '#2ecc71'; badge.style.border = '1px solid rgba(46,204,113,0.3)'; }
+        if (priceEl)  priceEl.innerHTML = '<span style="color:#2ecc71">Essai gratuit</span>';
+        if (planText) planText.textContent = _trialUntil ? `Période d'essai gratuite — jusqu'au ${_trialUntil}` : "Période d'essai gratuite";
+        if (planCard) planCard.style.borderColor = 'rgba(46,204,113,0.2)';
+      } else {
+        if (badge)    { badge.textContent = 'Actif'; badge.style.background = 'rgba(46,204,113,0.15)'; badge.style.color = '#2ecc71'; badge.style.border = '1px solid rgba(46,204,113,0.3)'; }
+        if (priceEl)  priceEl.innerHTML = '24,99 €<span style="font-size:10px;font-weight:400;color:#888">/mois</span>';
+        if (planText) planText.textContent = 'Abonnement actif — Professionnel';
+        if (planCard) planCard.style.borderColor = 'rgba(46,204,113,0.2)';
+      }
     } else {
       if (badge)    { badge.textContent = 'Inactif'; badge.style.background = 'rgba(231,76,60,0.1)'; badge.style.color = '#ef4444'; badge.style.border = '1px solid rgba(231,76,60,0.3)'; }
       if (planText) planText.textContent = 'Abonnement suspendu — contactez le support';
