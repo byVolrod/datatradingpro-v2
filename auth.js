@@ -280,6 +280,66 @@ async function chatThreads() {
   return [...byUser.values()];
 }
 
+// ── Suppression d'un message (admin) ──────────────────────────
+async function chatDelete(id) {
+  await _chatEnsureDb();
+  if (_chatDb) {
+    const { error } = await supabase.from(CHAT_TABLE).delete().eq('id', id);
+    if (!error) return true;
+    if (_chatTableMissing(error)) _chatDb = false; else return false;
+  }
+  const before = _chatFile.length;
+  _chatFile = _chatFile.filter(m => String(m.id) !== String(id));
+  if (_chatFile.length !== before) { _chatSaveFile(); return true; }
+  return false;
+}
+
+// ── Édition du texte d'un message (admin) ──────────────────────
+async function chatUpdate(id, text) {
+  await _chatEnsureDb();
+  const safe = String(text).slice(0, 2000);
+  if (_chatDb) {
+    const { data, error } = await supabase.from(CHAT_TABLE).update({ text: safe }).eq('id', id).select().single();
+    if (!error) return data;
+    if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
+  }
+  const m = _chatFile.find(x => String(x.id) === String(id));
+  if (m) { m.text = safe; _chatSaveFile(); }
+  return m || null;
+}
+
+// ── Réactions emoji (👍 ❤️ 🔥) — toggle par réacteur ───────────
+const _CHAT_EMOJIS = ['👍', '❤️', '🔥'];
+function _toggleReaction(reactions, emoji, who) {
+  const r = (reactions && typeof reactions === 'object') ? { ...reactions } : {};
+  const arr = Array.isArray(r[emoji]) ? r[emoji].slice() : [];
+  const i = arr.indexOf(who);
+  if (i >= 0) arr.splice(i, 1); else arr.push(who);
+  if (arr.length) r[emoji] = arr; else delete r[emoji];
+  return r;
+}
+async function chatReact(id, emoji, who) {
+  if (!_CHAT_EMOJIS.includes(emoji) || !who) return null;
+  await _chatEnsureDb();
+  if (_chatDb) {
+    const { data: rows, error: selErr } = await supabase.from(CHAT_TABLE).select('id,reactions').eq('id', id).limit(1);
+    if (selErr) {
+      if (_chatTableMissing(selErr)) _chatDb = false; else return null;
+    } else {
+      const row = rows && rows[0]; if (!row) return null;
+      const reactions = _toggleReaction(row.reactions || {}, emoji, String(who));
+      const { error: updErr } = await supabase.from(CHAT_TABLE).update({ reactions }).eq('id', id);
+      // updErr possible si la colonne `reactions` n'existe pas encore → on renvoie quand même (UI optimiste)
+      return reactions;
+    }
+  }
+  const m = _chatFile.find(x => String(x.id) === String(id));
+  if (!m) return null;
+  m.reactions = _toggleReaction(m.reactions || {}, emoji, String(who));
+  _chatSaveFile();
+  return m.reactions;
+}
+
 module.exports = {
   isStaff,
   seedAdmin,
@@ -295,6 +355,9 @@ module.exports = {
   chatMarkRead,
   chatUnread,
   chatThreads,
+  chatDelete,
+  chatUpdate,
+  chatReact,
   weeklyReportSave,
   weeklyReportList,
   emailLogHas,

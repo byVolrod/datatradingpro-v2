@@ -724,6 +724,30 @@ app.post('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Réaction emoji (👍 ❤️ 🔥) sur un message — client OU support ; toggle par réacteur
+app.post('/api/chat/react', async (req, res) => {
+  const who = req.session?.userId;
+  if (!who) return res.status(401).json({ error: 'Non autorisé' });
+  const { id, emoji } = req.body || {};
+  if (!id || !emoji) return res.status(400).json({ error: 'Paramètres manquants' });
+  try {
+    const reactions = await auth.chatReact(id, emoji, who);
+    res.json({ ok: reactions !== null, reactions });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Admin : supprimer un message
+app.delete('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
+  try { res.json({ ok: await auth.chatDelete(req.params.id) }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Admin : modifier le texte d'un message
+app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
+  const text = (req.body?.text || '').trim();
+  if (!text) return res.status(400).json({ error: 'Message vide' });
+  try { const msg = await auth.chatUpdate(req.params.id, text); res.json({ ok: !!msg, message: msg }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
 app.get('/api/news/history', (req, res) => {
   const before = parseInt(req.query.before) || Date.now();
