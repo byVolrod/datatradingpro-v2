@@ -681,21 +681,37 @@ function _calIndicatorTokens(title) {
   return String(title || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z/ ]/g, ' ').split(/\s+/)
     .filter(w => w.length >= 3 && !_CAL_STOP.has(w)).slice(0, 4);
 }
-function _calExtractActual(text, fc, pv) {
+function _calExtractActual(text, fc, pv, anchorTokens) {
+  const nf = _calNormNum(fc), np = _calNormNum(pv);
+  const _isYear = nx => /^(19|20)\d\d$/.test(nx);
   // 1) Format explicite "Actual: X"
   let m = text.match(/\bactual[:\s]+(-?\d[\d.,]*\s*[%kmb]?)/i);
   if (m) return m[1].replace(/\s+/g, '');
   // 2) Ancrage sur la prévision/le précédent CONNUS → l'actual est le nombre juste avant
   const nums = _calNumTokens(text);
   if (nums.length) {
-    const norm = nums.map(_calNormNum); const nf = _calNormNum(fc), np = _calNormNum(pv);
+    const norm = nums.map(_calNormNum);
     let idx = nf ? norm.indexOf(nf) : -1;
     if (idx < 0 && np) idx = norm.indexOf(np);
-    if (idx > 0) { for (let j = idx - 1; j >= 0; j--) { if (norm[j] !== nf && norm[j] !== np) return nums[j]; } }
+    if (idx > 0) { for (let j = idx - 1; j >= 0; j--) { if (norm[j] !== nf && norm[j] !== np && !_isYear(norm[j])) return nums[j]; } }
   }
   // 3) "<actual> vs/exp/forecast …" (gère un "(" éventuel : "54.4 (expect 52.3)")
   m = text.match(/(-?\d[\d.,]*\s*[%kmb]?)\s*\(?\s*(?:vs\.?|versus|exp|expected|forecast|consensus|est|prior|previous)\b/i);
-  return m ? m[1].replace(/\s+/g, '') : '';
+  if (m) return m[1].replace(/\s+/g, '');
+  // 4) Titre "INDICATEUR … VALEUR" sans repère (ex. "Spanish Unemployment Change -57.2K") :
+  //    1er nombre APRÈS le dernier mot-clé indicateur, ≠ prévision/précédent, et pas une année.
+  if (Array.isArray(anchorTokens) && anchorTokens.length) {
+    const low = text.toLowerCase();
+    let pos = -1;
+    for (const t of anchorTokens) { const i = low.lastIndexOf(t); if (i >= 0 && i + t.length > pos) pos = i + t.length; }
+    if (pos >= 0) {
+      for (const x of _calNumTokens(text.slice(pos))) {
+        const nx = _calNormNum(x);
+        if (nx !== nf && nx !== np && !_isYear(nx)) return x;
+      }
+    }
+  }
+  return '';
 }
 // Pays/devise → regex de correspondance dans le texte de la news (pour ne pas confondre 2 pays)
 const _CCY_RE = {
@@ -747,7 +763,7 @@ function _backfillActualsFromNews() {
         ? acronyms.every(a => new RegExp('\\b' + a + '\\b', 'i').test(hay))   // tous les acronymes présents
         : hay.includes(longest);                                              // sinon le mot-clé principal
       if (!sigOk) continue;
-      const actual = _calExtractActual(text, ev.forecast, ev.previous);
+      const actual = _calExtractActual(text, ev.forecast, ev.previous, acronyms.length ? acronyms : [longest]);
       const na = _calNormNum(actual);
       if (actual && na !== _calNormNum(ev.forecast) && na !== _calNormNum(ev.previous)) {
         const prev = _calActualsMap.get(k) || {};
@@ -816,6 +832,32 @@ app.get('/api/calendar-detail', async (req, res) => {
     const d = await fetchEventDetail(url);
     res.json({ specs: (d && d.specs) || [], history: (d && d.history) || [] });
   } catch (e) { res.json({ specs: [], history: [], error: e.message }); }
+});
+
+// Diagnostic des Actuals du calendrier : où en est le remplissage (FF page + news) et ce qui manque.
+app.get('/api/calendar-actuals-debug', async (_req, res) => {
+  try {
+    await _refreshCalActuals(true).catch(() => {});            // force une lecture FF (best-effort)
+    const filled = _backfillActualsFromNews();
+    const now = Date.now();
+    const events = getCalendarRaw();
+    const past = events.filter(e => e.timestamp <= now);
+    const withActual = _overlayActuals(events).filter(e => e.actual && e.actual !== '');
+    const missing = _overlayActuals(past)
+      .filter(e => (!e.actual || e.actual === '') && !/speaks|speech|holiday|meeting|member|auction/i.test(e.title || ''))
+      .slice(0, 25)
+      .map(e => ({ cur: e.currency, title: e.title, forecast: e.forecast, previous: e.previous, date: new Date(e.timestamp).toISOString().slice(0, 10) }));
+    res.json({
+      ff: { rows: _calActuals.rows.length, withActual: _calActuals.rows.filter(r => r.actual).length, lastFetchAgoMin: Math.round((now - _calActualsAt) / 60000) },
+      mapSize: _calActualsMap.size,
+      backfilledThisRun: filled,
+      calendarEvents: events.length,
+      pastEvents: past.length,
+      eventsShownWithActual: withActual.length,
+      newsInWindow: (allNews || []).filter(n => n && n.timestamp && now - n.timestamp < 4 * 86400000 && _CAL_DATA_RE.test((n.headline || '') + ' ' + (n.description || ''))).length,
+      stillMissing: missing,
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── Mosaic background images ──────────────────────────────────────────────────
@@ -4405,6 +4447,44 @@ async function _checkTrialUpsell() {
 (function scheduleTrialUpsell() {
   setTimeout(_checkTrialUpsell, 30000);                       // rattrapage au démarrage (redémarrages Render)
   setInterval(_checkTrialUpsell, 6 * 60 * 60 * 1000);        // puis toutes les 6 h
+})();
+
+// ── RÉENGAGEMENT : client inactif depuis ≥ 7 jours sur le terminal ───────────
+//    On relance UNE FOIS par épisode d'inactivité (ancre = jour de dernière connexion,
+//    ou de création si jamais connecté). Anti-doublon durable via email_log → si le client
+//    revient puis repart 7 j, il sera relancé à nouveau (nouvelle ancre), mais jamais 2× pour
+//    le même épisode. Fenêtre 7–30 j (on ne harcèle pas les comptes froids/abandonnés).
+async function _checkReengagement() {
+  try {
+    const users = await auth.getAllUsers();
+    const now   = Date.now();
+    const DAY   = 24 * 60 * 60 * 1000;
+    let sent = 0;
+    for (const u of users) {
+      if (!u || u.role !== 'client' || !u.active) continue;
+      // Abonnement expiré → c'est le mail de renouvellement qui s'applique, pas celui-ci
+      if (u.expires_at && new Date(u.expires_at).getTime() < now) continue;
+      const lastTs = u.last_login ? new Date(u.last_login).getTime()
+                   : (u.created_at ? new Date(u.created_at).getTime() : 0);
+      if (!Number.isFinite(lastTs) || !lastTs) continue;
+      const days = Math.floor((now - lastTs) / DAY);
+      if (days < 7 || days > 30) continue;                    // inactif 7 à 30 jours
+      const anchor = new Date(lastTs).toISOString().slice(0, 10);
+      const key = `reengage:${u.id}:${anchor}`;
+      if (await auth.emailLogHas(key)) continue;              // déjà relancé pour cet épisode
+      const ok = await mailer.sendReengagement({ to: u.email, name: u.name, days });
+      if (ok) {
+        await auth.emailLogAdd(key);
+        sent++;
+        console.log(`[Reengage] Relance envoyée → ${u.email} (inactif ${days}j)`);
+        if (sent >= 25) break;                               // garde-fou : max 25 envois / passage
+      }
+    }
+  } catch (e) { console.error('[Reengage]', e.message); }
+}
+(function scheduleReengagement() {
+  setTimeout(_checkReengagement, 60000);                      // rattrapage 60s après le démarrage
+  setInterval(_checkReengagement, 12 * 60 * 60 * 1000);      // puis toutes les 12 h
 })();
 
 // COT — check for new weekly data every 6 h, broadcast on change

@@ -1970,7 +1970,10 @@ function renderFxList() {
   }).join('');
 
   if (!_fxlData) {
-    body.innerHTML = `<tr><td class="fxl-msg" colspan="${FXL_COLS.length}">${_fxlLoading ? 'Chargement…' : 'Aucune donnée'}</td></tr>`;
+    const _msg = _fxlLoading
+      ? (window.dtpLoader ? window.dtpLoader('Chargement de la FX List…') : 'Chargement…')
+      : 'Aucune donnée';
+    body.innerHTML = `<tr><td class="fxl-msg" colspan="${FXL_COLS.length}">${_msg}</td></tr>`;
     return;
   }
 
