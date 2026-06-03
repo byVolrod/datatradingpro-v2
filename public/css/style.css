@@ -1459,7 +1459,7 @@ html, body {
 .dtp-loader__label {
   font-size: 13px;
   letter-spacing: .02em;
-  color: #6b7a99;            /* bleu-gris doux, comme la référence */
+  color: #e8eaed;            /* blanc cassé (lisible) */
 }
 .dtp-loader--sm { min-height: 90px; gap: 10px; padding: 18px 12px; }
 .dtp-loader--sm .dtp-loader__spin { width: 26px; height: 26px; border-width: 2px; }
@@ -3810,7 +3810,7 @@ html, body {
 }
 .arlib-card-date {
   font-size: 10.5px;
-  color: #8a8a90;        /* gris neutre (pas bleuté) */
+  color: #e8eaed;        /* blanc cassé (lisible) */
   font-family: var(--font-ui);
   white-space: nowrap;
 }
@@ -4488,7 +4488,7 @@ html, body {
 .risk-ticker-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0; }
 .risk-ticker-label { font-weight: 700; letter-spacing: 0.4px; flex-shrink: 0; }
 .risk-ticker-desc {
-  color: var(--text3); font-weight: 400; letter-spacing: 0.2px;
+  color: #e8eaed; font-weight: 400; letter-spacing: 0.2px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0;
 }
 /* La couleur (bordure + dot + label) suit le sentiment ; la description reste neutre */
