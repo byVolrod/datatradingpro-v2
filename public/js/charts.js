@@ -1940,22 +1940,27 @@ function _fxlFmtPx(v, sym) {
   return v.toFixed(dp);
 }
 
-function _fxlSparkline(arr, w = 80, h = 24) {
+// Sparkline silhouette — 12px de haut, sans axes ni fioritures (SVG miniature)
+function _fxlSparkline(arr, w = 80, h = 12) {
   const vals = (arr || []).filter(v => v != null);
   if (vals.length < 2) return '';
   const min = Math.min(...vals), max = Math.max(...vals);
   const range = max - min || 1;
+  const pad = 1;                                   // marge 1px haut/bas → la ligne ne touche pas les bords
   const stepX = w / (vals.length - 1);
-  const pts = vals.map((v, i) => `${(i * stepX).toFixed(1)},${(h - ((v - min) / range) * h).toFixed(1)}`).join(' ');
+  const pts = vals.map((v, i) => `${(i * stepX).toFixed(1)},${(pad + (h - 2 * pad) - ((v - min) / range) * (h - 2 * pad)).toFixed(1)}`).join(' ');
   const up = vals[vals.length - 1] >= vals[0];
-  const color = up ? 'var(--green)' : 'var(--red)';
+  const color = up ? 'var(--st-pos)' : 'var(--st-neg)';
   return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.2"/></svg>`;
 }
 
+// Heatmap Cell : fond vert/rouge dont l'OPACITÉ est proportionnelle à la force du %
 function _fxlPctCell(v) {
   if (v == null) return '<span class="fxl-pct fxl-na">N/A</span>';
   const cls = v >= 0 ? 'pos' : 'neg';
-  return `<span class="fxl-pct fxl-pct--${cls}">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+  const rgb = v >= 0 ? '34,197,94' : '239,68,68';                       // vert-500 / rouge-500
+  const a = Math.max(0.07, Math.min(0.45, Math.abs(v) / 12 * 0.45 + 0.07));  // ∝ |%|, plafonné pour garder le texte lisible
+  return `<span class="fxl-pct fxl-pct--${cls}" style="background:rgba(${rgb},${a.toFixed(3)})">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
 }
 
 function _fxlStrengthCell(v, maxAbs) {
@@ -1974,9 +1979,10 @@ function _fxlFlag(ccy) {
 function _fxlDonut(pct) {
   const v = Math.max(0, Math.min(100, pct ?? 50));
   const r = 8, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
+  // Anneau de progression radial BICOLORE (stroke-dasharray) : part verte = flux haussiers, reste rouge
   return `<svg class="fxl-dmx" width="22" height="22" viewBox="0 0 22 22">`
-    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--red)" stroke-width="4"/>`
-    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--green)" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 11 11)"/>`
+    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--st-neg)" stroke-width="4"/>`
+    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--st-pos)" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 11 11)"/>`
     + `</svg>`;
 }
 
@@ -2038,7 +2044,7 @@ function renderFxList() {
 
   body.innerHTML = pairs.map(p =>
     `<tr class="fxl-row">` +
-    FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
+    FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}${c.type === 'pct' ? ' fxl-td--heat' : ''}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
     `</tr>`
   ).join('');
 

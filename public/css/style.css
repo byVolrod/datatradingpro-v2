@@ -2489,7 +2489,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ═══════════════════════════════════════════════
    ONGLET BIAS — biais hebdomadaire
 ═══════════════════════════════════════════════ */
-.panel-bias { display: flex; flex-direction: column; height: 100%; }
+.panel-bias { display: flex; flex-direction: column; flex: 1; min-width: 0; height: 100%; }   /* flex:1 → remplit toute la largeur de la vue (sinon panneau étroit = loader collé à gauche) */
 .bias-update-badge {
   font-size: 10px;
   font-family: var(--font-mono);
@@ -7845,11 +7845,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .fxl-th--sortable:hover { color: var(--text); }
 .fxl-sort { color: var(--text4); margin-left: 4px; font-size: 8px; }
 
-.fxl-row { border-bottom: 1px solid var(--border); }
+.fxl-row { border-bottom: 1px solid var(--hud-line); }   /* ligne de flux ultra-fine (HUD) */
 .fxl-row:hover { background: var(--bg2); }
-.fxl-td { padding: 6px 12px; white-space: nowrap; vertical-align: middle; color: var(--text); border-right: 1px solid var(--border); }
+.fxl-td { padding: 6px 12px; white-space: nowrap; vertical-align: middle; color: var(--text); border-right: 1px solid var(--border); border-radius: 0; }
 .fxl-td--right { text-align: right; }
 .fxl-td--center { text-align: center; }
+.fxl-td--heat { padding: 0; }   /* la cellule heatmap remplit tout l'espace (couleur edge-to-edge) */
 
 .fxl-sym { display: flex; align-items: center; gap: 8px; }
 .fxl-flag { width: 18px; height: 18px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; }
@@ -7860,10 +7861,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .fxl-last-px { color: var(--text2); font-size: 10px; }
 .fxl-spark { display: block; }
 
-.fxl-pct { font-size: 11px; padding: 2px 6px; border-radius: var(--radius); }
-.fxl-pct--pos { color: var(--green); background: rgba(46, 204, 113, .10); }
-.fxl-pct--neg { color: var(--red);   background: rgba(231, 76, 60, .10); }
-.fxl-na { color: var(--text4); }
+/* Heatmap Cell : bloc plein, edge-to-edge, sans arrondi (le fond rgba est posé inline ∝ |%|) */
+.fxl-pct { display: block; box-sizing: border-box; text-align: right; padding: 8px 12px; border-radius: 0; font-family: var(--font-mono); font-size: 11px; font-weight: 600; }
+.fxl-pct--pos { color: #62e996; }
+.fxl-pct--neg { color: #ff7676; }
+.fxl-na { color: var(--text4); background: transparent; font-weight: 500; }
 
 .fxl-str { display: flex; justify-content: center; }
 .fxl-str-track { position: relative; width: 90px; height: 6px; background: var(--bg4); border-radius: 3px; }
