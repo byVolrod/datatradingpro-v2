@@ -5820,7 +5820,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let dragging = false;
   const clampWidth = w => {
     const min = 360;
-    const max = Math.min(820, window.innerWidth - 460);   // garde ≥ 460px au panneau de gauche
+    const max = Math.min(Math.round(window.innerWidth * 0.58), window.innerWidth - 420);   // jusqu'à ~58% (le défaut 50/50 ne re-snappe pas)
     return Math.max(min, Math.min(max, w));
   };
   const onMove = e => {
