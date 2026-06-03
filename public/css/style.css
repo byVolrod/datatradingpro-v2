@@ -7697,13 +7697,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-menu-i-del:hover { background:rgba(239,68,68,.14); color:#ef4444; border-color:rgba(239,68,68,.4); }
 
 /* Barre de réactions au-dessus du "Lu" : posées = toujours visibles ; vides = au survol (discret) */
-/* Sélecteur flottant (façon Instagram) — au survol, au-dessus du coin de la bulle */
-.chat-react-picker { position:absolute; bottom:calc(100% + 5px); z-index:6; display:flex; gap:1px; background:#222530; border:1px solid #3a3f4b; border-radius:18px; padding:3px 5px; box-shadow:0 5px 16px rgba(0,0,0,.55); opacity:0; pointer-events:none; transform:translateY(5px) scale(.96); transition:opacity .13s, transform .13s; }
-.chat-row--them .chat-react-picker { left:0; }
-.chat-row--me   .chat-react-picker { right:0; }
-.chat-bubble:hover .chat-react-picker, .chat-react-picker:hover { opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
-.chat-react-picker button { background:none; border:none; cursor:pointer; font-size:17px; line-height:1; padding:2px 3px; border-radius:50%; transition:transform .1s; }
-.chat-react-picker button:hover { transform:scale(1.3); }
+/* Sélecteur flottant — SOUS la bulle, apparaît au survol de toute la ligne (stable, on a le temps de viser) */
+.chat-react-picker { position:absolute; top:calc(100% + 4px); z-index:6; display:flex; gap:2px; background:#15171d; border:1px solid #2a2f3a; border-radius:22px; padding:4px 6px; box-shadow:0 8px 22px rgba(0,0,0,.5); opacity:0; pointer-events:none; transform:translateY(-4px); transition:opacity .16s ease, transform .16s ease; transition-delay:.04s; }
+.chat-row--them .chat-react-picker { left:6px; }
+.chat-row--me   .chat-react-picker { right:6px; }
+.chat-row:hover .chat-react-picker, .chat-react-picker:hover { opacity:1; pointer-events:auto; transform:translateY(0); transition-delay:0s; }
+.chat-react-picker button { background:none; border:none; cursor:pointer; font-size:16px; line-height:1; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition:transform .12s ease, background .12s ease; }
+.chat-react-picker button:hover { transform:scale(1.18); background:rgba(255,255,255,.07); }
 /* Pastilles posées (façon LinkedIn) — sous la bulle, alignées côté bulle */
 .chat-reactions { display:flex; gap:4px; flex-wrap:wrap; }
 .chat-reactions:not(:empty) { margin-top:4px; }
