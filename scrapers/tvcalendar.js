@@ -64,4 +64,61 @@ async function fetchTVCalendar() {
   }
 }
 
-module.exports = { fetchTVCalendar };
+// Importance TradingView → impact façon ForexFactory
+function _impact(imp) {
+  if (imp == null) return 'Medium';
+  const n = Number(imp);
+  if (n >= 1) return 'High';
+  if (n <= -1) return 'Low';
+  const s = String(imp).toLowerCase();
+  if (s === 'high') return 'High';
+  if (s === 'low')  return 'Low';
+  return 'Medium';
+}
+
+// Calendrier COMPLET TradingView : TOUS les events (passés ET futurs) avec actual/forecast/previous
+// + importance, sur une fenêtre LARGE (35 j passé → 14 j futur). Source DIRECTE des actuals →
+// aucun matching, donc la colonne ACTUAL est exacte et couvre aussi les anciennes données.
+let _fullCache = { ts: 0, events: [] };
+async function fetchTVCalendarFull() {
+  if (Date.now() - _fullCache.ts < TTL && _fullCache.events.length) return _fullCache.events;
+  const now = Date.now();
+  const from = new Date(now - 21 * 86400000).toISOString();   // 3 semaines passées (anciennes données)
+  const to   = new Date(now + 10 * 86400000).toISOString();   // 10 jours à venir
+  const url  = `https://economic-calendar.tradingview.com/events?from=${from}&to=${to}&countries=${COUNTRIES}`;
+  try {
+    const r = await axios.get(url, {
+      timeout: 14000,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Origin': 'https://www.tradingview.com',
+        'Referer': 'https://www.tradingview.com/',
+        'Accept': 'application/json',
+      },
+    });
+    const items = Array.isArray(r.data) ? r.data : (r.data && r.data.result) || [];
+    const events = items
+      .filter(e => e && e.title && e.date)
+      .map(e => ({
+        currency: CC2CCY[e.country] || e.country,
+        title:    String(e.title),
+        impact:   _impact(e.importance),
+        actual:   e.actual   != null ? _fmt(e.actual,   e.unit, e.scale) : '',
+        forecast: e.forecast != null ? _fmt(e.forecast, e.unit, e.scale) : '',
+        previous: e.previous != null ? _fmt(e.previous, e.unit, e.scale) : '',
+        ts:       new Date(e.date).getTime(),
+      }))
+      .filter(e => e.currency && Number.isFinite(e.ts))
+      .sort((a, b) => a.ts - b.ts);
+    if (events.length) {
+      _fullCache = { ts: Date.now(), events };
+      console.log(`[TVCalendar] complet : ${events.length} événements (${events.filter(e => e.actual).length} avec actual)`);
+    }
+    return _fullCache.events;
+  } catch (e) {
+    console.error('[TVCalendar full]', e.response ? e.response.status : e.message);
+    return _fullCache.events;
+  }
+}
+
+module.exports = { fetchTVCalendar, fetchTVCalendarFull };
