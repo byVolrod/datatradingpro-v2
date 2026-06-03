@@ -1875,26 +1875,38 @@ const _insightsCache = _loadJsonMap(INSIGHTS_FILE);   // persistant → pas de r
 // Secours SANS IA : extrait des phrases clés du rapport → les cartes s'affichent toujours,
 // même quand le quota Gemini est épuisé.
 const _SRC_LINE_RE = /this article was written by|\bwritten by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com|follow .* on (?:twitter|x)\b|©\s*\d{4}/i;
-function _fallbackInsights(text, title) {
+function _fallbackInsights(text, title, lines) {
   const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const tnorm = norm(title).slice(0, 80);
-  let parts = String(text)
-    .split(/(?<=[.!?])\s+|\n+/)
-    .map(s => s.trim())
-    .filter(s => s.length > 28 && /[a-z]/.test(s) && !_SRC_LINE_RE.test(s));   // pas de ligne source
-  // N'utilise JAMAIS le TITRE du rapport comme insight (sinon il s'affiche en 1re carte).
-  if (tnorm.length > 10) {
-    parts = parts.filter(s => {
+  // Nettoie + dédoublonne une liste de candidats → renvoie au plus 6 phrases propres (cartes distinctes).
+  const _clean = (arr, minLen) => {
+    const seen = new Set(); const out = [];
+    for (let s of (arr || [])) {
+      s = String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim()
+            .replace(/\s*(?:…|\.{2,})\s*$/, '').trim();                         // pas de "…" final
+      if (s.length < (minLen || 24) || !/[a-z]/i.test(s)) continue;
+      if (_SRC_LINE_RE.test(s)) continue;                                       // pas de ligne source
       const n = norm(s);
-      return !(n === tnorm || n.startsWith(tnorm) || tnorm.startsWith(n.slice(0, 60)));
-    });
+      // N'utilise JAMAIS le TITRE comme insight (sinon il s'affiche en 1re carte).
+      if (tnorm.length > 10 && (n === tnorm || n.startsWith(tnorm) || tnorm.startsWith(n.slice(0, 60)))) continue;
+      if (seen.has(n)) continue; seen.add(n);
+      out.push(s);
+      if (out.length >= 6) break;
+    }
+    return out;
+  };
+  // 1) Lignes structurées fournies (puces réelles du rapport) → 1 carte par puce = plusieurs petites cases.
+  if (Array.isArray(lines) && lines.length) {
+    const cards = _clean(lines, 18);
+    if (cards.length >= 2) return cards.map(s => ({ asset: '', bias: 'neutral', text: s }));
   }
-  // Garde des phrases complètes (jamais de "…" qui coupe le sens) : on retire un éventuel "..." final.
-  parts = parts.map(s => s.replace(/\s*(?:…|\.{2,})\s*$/, '').trim()).filter(s => s.length > 6);
-  return parts.slice(0, 6).map(s => ({ asset: '', bias: 'neutral', text: s }));
+  // 2) Sinon : découpage par phrases.
+  const parts = _clean(String(text).split(/(?<=[.!?])\s+|\n+/), 28);
+  return parts.map(s => ({ asset: '', bias: 'neutral', text: s }));
 }
 app.post('/api/report-insights', async (req, res) => {
-  const { id, text, title } = req.body || {};
+  const { id, text, title, lines } = req.body || {};
+  const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
   const key = 'v3:' + (id || clean.slice(0, 100));   // v3 = insights centrés devises/instruments concrets
@@ -1933,10 +1945,10 @@ ${clean.slice(0, 4000)}`;
       auth.aiCacheSet('ins:' + key, insights).catch(() => {});   // + durable (Supabase) anti-régénération
       return res.json({ insights });
     }
-    res.json({ insights: _fallbackInsights(clean, title), fallback: true });   // Gemini vide → secours extractif
+    res.json({ insights: _fallbackInsights(clean, title, _lines), fallback: true });   // Gemini vide → secours extractif
   } catch (e) {
     console.error('[Insights]', e.message);
-    res.json({ insights: _fallbackInsights(clean, title), fallback: true });   // quota/erreur → secours extractif
+    res.json({ insights: _fallbackInsights(clean, title, _lines), fallback: true });   // quota/erreur → secours extractif
   }
 });
 
