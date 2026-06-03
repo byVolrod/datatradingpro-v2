@@ -1330,10 +1330,8 @@ function buildCOTChart() {
                 <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#10b981" stroke-width="8"
                   stroke-dasharray="${lArc} ${lGap}" stroke-dashoffset="${lArc}" stroke-linecap="round"/>
               </g>
-              <text x="${cx}" y="${cy - 1}" text-anchor="middle" font-size="13" font-weight="700"
+              <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="13" font-weight="700"
                 fill="#e2e8f0" font-family="JetBrains Mono,monospace">${cur.key}</text>
-              <text x="${cx}" y="${cy + 10}" text-anchor="middle" font-size="6.5" fill="#64748b"
-                font-family="JetBrains Mono,monospace">${cur.derived ? 'calc' : 'CME'}</text>
             </svg>
           </div>
           <div class="cot-stats">
