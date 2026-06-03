@@ -157,6 +157,7 @@ let reconnectTimer    = null;
 let newCount          = 0;
 let displayLimit      = 100;   // items shown at once
 let serverTotal       = 0;     // total items available on server
+const _openNewsPanels = {};    // id → onglet ouvert PAR L'UTILISATEUR (persiste entre re-renders ; aucune ouverture auto)
 let loadingMore       = false;
 let _wsInitReceived   = false; // true once server sends its first 'initial' message
 const _analysisCache  = new Map(); // item.id → bullets[]
@@ -1781,6 +1782,7 @@ function buildNewsItem(item) {
     if (isOpen && isSameTab) {
       expandEl.classList.remove('visible');
       activeTab = null;
+      if (item && item.id != null) delete _openNewsPanels[item.id];   // fermé par l'utilisateur → on n'y revient plus
       [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
       if (arrowEl) arrowEl.textContent = '∨';
       return;
@@ -1788,6 +1790,7 @@ function buildNewsItem(item) {
 
     if (arrowEl) arrowEl.textContent = '^';
     activeTab = tab;
+    if (item && item.id != null) _openNewsPanels[item.id] = tab;       // ouvert par l'utilisateur → reste ouvert (persiste)
     // État actif des pills (Info/Analyse/Réaction) — un seul actif à la fois
     [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
     const _activePill = tab === 'info' ? infoTagEl : tab === 'analysis' ? analysisTagEl : reactionTagEl;
@@ -2101,9 +2104,13 @@ function buildNewsItem(item) {
   // headline → tags → [expand panel when open]
   content.insertBefore(tagsEl, expandEl);
 
-  // PRIMER / Speaker / Grouped: auto-expand Info panel only for newly-arrived items
-  if (item._new && (isPrimer || isSpeaker || hasGrouped) && expandEl && hasInfo) {
-    requestAnimationFrame(() => openPanel('info'));
+  // Plus AUCUNE ouverture automatique : une description ne s'ouvre QUE si l'utilisateur l'a ouverte.
+  // On restaure simplement l'onglet qu'il avait ouvert (persiste entre re-renders / arrivées de news).
+  if (expandEl && item && _openNewsPanels[item.id]) {
+    const _t  = _openNewsPanels[item.id];
+    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'reaction' && reactionTagEl);
+    if (_ok) requestAnimationFrame(() => openPanel(_t));
+    else delete _openNewsPanels[item.id];                    // l'onglet n'existe plus → on nettoie
   }
 
   // ── Background reaction check ──
