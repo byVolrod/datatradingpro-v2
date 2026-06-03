@@ -7833,3 +7833,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .fxl-badge--neut { color: #d4b94e; background: rgba(212, 185, 78, .12); }
 
 .fxl-msg { text-align: center; color: var(--text3); padding: 30px; }
+
+/* ═══════════════ CORRECTIFS RESPONSIVE (tablette / téléphone) ═══════════════ */
+/* Tablette ≤ 768px : les volets latéraux passent en pleine largeur (au lieu de 420-440px
+   qui mangeaient la moitié de l'écran), et les grandes tables s'assouplissent. */
+@media (max-width: 768px) {
+  .chat-panel, .np-panel, .settings-panel { width: 100% !important; max-width: 100% !important; }
+  .fxl-table { min-width: 760px; font-size: 10.5px; }
+  .am-chart, .am-chart--donut { height: 200px; }
+}
+/* Téléphone ≤ 480px : topbar désencombrée + tables compactes + vignettes plus petites. */
+@media (max-width: 480px) {
+  .topbar { padding: 0 10px; gap: 4px; }
+  .topbar-ai-btn { display: none; }              /* bouton "AI — bientôt" masqué sur petit écran */
+  .topbar-symbol-search { display: none; }
+  .fxl-table { min-width: 600px; font-size: 10px; }
+  .cth-event { min-width: 108px; font-size: 10px; }
+  .news-category-text { width: 62px; font-size: 10px; }
+  .news-time { min-width: 30px; }
+  .chat-pending-item { width: 46px; height: 46px; }
+  .chat-edit-box { max-width: 88vw; }
+  .adm-tabs { overflow-x: auto; }                /* onglets admin scrollables si trop étroits */
+}
