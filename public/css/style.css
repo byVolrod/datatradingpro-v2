@@ -569,15 +569,22 @@ html, body {
   z-index: 30;
   align-self: stretch;
 }
-.layout-resizer::before {     /* ligne orange ULTRA-FINE (1px) centrée — constante, AUCUNE accentuation */
+.layout-resizer::before {     /* ligne orange nette et constante (pas de sous-pixel → vrai orange, AUCUNE accentuation) */
   content: '';
   position: absolute;
-  top: 0; bottom: 0; left: 50%;
-  width: 1px; transform: translateX(-0.5px);
+  top: 0; bottom: 0; left: 1px;
+  width: 2px;
   background: #ff7a00;
 }
 /* Au survol/glissement : on ne change QUE le curseur, jamais la couleur/épaisseur de la ligne */
 body.is-resizing { cursor: col-resize; user-select: none; }
+/* Bordure ACTIVE orange : s'allume autour des blocs pendant le glissement (façon Prime Terminal),
+   purement volatile (rien n'est conservé au rechargement). */
+body.is-resizing #panel-right,
+body.is-resizing #views-col {
+  outline: 1px solid #ff7a00;
+  outline-offset: -1px;
+}
 body.is-resizing iframe { pointer-events: none; }
 /* Mobile/tablette ≤1024px : on masque la barre (le drag est désactivé en JS) */
 @media (max-width: 1024px) {
