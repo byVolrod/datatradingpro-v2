@@ -717,8 +717,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
   }
 
   // Croisillon : ligne verticale pointillés gris clair, suit la souris + dots magnétiques
+  // snapToSeriesBy 'y!' → le tooltip suit la courbe la PLUS PROCHE du curseur (celle réellement
+  // survolée) et n'affiche QUE celle-ci → on lit le bon nom (USD sur USD, GBP sur GBP…).
   const cursor = chart.set('cursor', am5xy.XYCursor.new(root, {
-    behavior: 'none', snapToSeries: seriesArr, snapToSeriesBy: 'x',
+    behavior: 'none', snapToSeries: seriesArr, snapToSeriesBy: 'y!',
   }));
   cursor.lineX.setAll({ stroke: am5.color(0x475569), strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.9 });
   cursor.lineY.set('visible', false);
