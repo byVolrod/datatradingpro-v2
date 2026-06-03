@@ -855,7 +855,8 @@ async function _fetchSessionWraps(full = false) {
   const before = _swCache.length;
   _swCache = [...merged.values()]
     .filter(i => i.timestamp > cutoff)
-    .sort((a, b) => b.timestamp - a.timestamp);
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 200);   // plafond DUR (anti-OOM Render)
 
   // ── Titres IA AVANT publication ──────────────────────────────────────────────
   // On génère les titres IA des nouveaux wraps AVANT d'écrire/diffuser, pour que le
@@ -1548,7 +1549,8 @@ async function _fetchBankResearch(full = false) {
   _brCache = [...merged.values()]
     // Scotiabank exempté du cutoff d'âge (publications espacées : on garde toujours les dernières)
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
-    .sort((a, b) => b.timestamp - a.timestamp);
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, 180);   // plafond DUR (anti-OOM Render : chaque item peut porter un fullContent)
 
   try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
   _persistHistory('bank_research', _brCache);   // persistance durable (Supabase, rétention 1 mois)
@@ -1644,8 +1646,10 @@ function _persistHistory(key, arr) {
   // débattu (max 1 écriture / 5 s par clé) pour ne pas marteler la BDD
   clearTimeout(_histSaveTimers[key]);
   _histSaveTimers[key] = setTimeout(() => {
-    const cap = key === 'bank_research' ? 200 : 120;
-    auth.aiCacheSet('hist:' + key, _histPrune(arr).slice(0, cap)).catch(() => {});
+    const cap = key === 'bank_research' ? 180 : 120;
+    // On NE persiste PAS le lourd `fullContent`/`content` (re-scrapé au démarrage) → payload BDD léger.
+    const light = _histPrune(arr).slice(0, cap).map(({ fullContent, content, ...rest }) => rest);
+    auth.aiCacheSet('hist:' + key, light).catch(() => {});
   }, 5000);
   if (_histSaveTimers[key].unref) _histSaveTimers[key].unref();
 }

@@ -2832,6 +2832,9 @@ html, body {
   .topbar-symbol-search { display: none; }
   .topbar-center { padding: 0 4px; justify-content: flex-end; min-width: 0; }
   .topbar-right  { gap: 6px; }
+  /* Bouton AI compact sur mobile (évite de surcharger la topbar) */
+  .topbar-ai-btn { height: 30px; padding: 0 8px; font-size: 10.5px; }
+  .topbar-ai-lock { font-size: 8px; top: -5px; right: -5px; padding: 1.5px; }
   /* Le bouton risk repasse en largeur auto (sinon 230px écrase le logo sur mobile) */
   .topbar-sentiment { width: auto !important; min-width: 0; flex: 0 0 auto; padding: 0 9px; height: 30px; font-size: 9px; }
   /* La bannière d'alerte prend trop de place sur mobile */
