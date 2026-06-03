@@ -5090,7 +5090,7 @@ const CHAT_SUPPORT_NAME  = 'Équipe de support';
 const CHAT_SUPPORT_SUB   = 'Répond généralement en quelques minutes';
 const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la photo ne charge pas)
 // Photo support (portrait pro/institutionnel). Modifiable : remplace l'URL par la tienne.
-const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=220&h=220&fit=crop&crop=faces&auto=format&q=85';
+const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=220&h=220&fit=crop&crop=faces&auto=format&q=85';
 // Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
 function _chatSupportAvatarHtml(){
   if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);
