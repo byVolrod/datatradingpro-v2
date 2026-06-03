@@ -569,16 +569,14 @@ html, body {
   z-index: 30;
   align-self: stretch;
 }
-.layout-resizer::before {     /* ligne orange ULTRA-FINE (1px) centrée */
+.layout-resizer::before {     /* ligne orange ULTRA-FINE (1px) centrée — constante, AUCUNE accentuation */
   content: '';
   position: absolute;
   top: 0; bottom: 0; left: 50%;
   width: 1px; transform: translateX(-0.5px);
   background: #ff7a00;
-  transition: width 0.12s, background 0.12s;
 }
-.layout-resizer:hover::before,
-.layout-resizer.dragging::before { width: 3px; transform: translateX(-1.5px); background: #ff9a30; box-shadow: 0 0 8px rgba(255,122,0,0.5); }
+/* Au survol/glissement : on ne change QUE le curseur, jamais la couleur/épaisseur de la ligne */
 body.is-resizing { cursor: col-resize; user-select: none; }
 body.is-resizing iframe { pointer-events: none; }
 /* Mobile/tablette ≤1024px : on masque la barre (le drag est désactivé en JS) */
@@ -4556,8 +4554,8 @@ body.is-resizing iframe { pointer-events: none; }
 }
 /* Bande sentiment (façon image) : ● LABEL: phrase — fond teinté, label vif, phrase mate */
 .risk-ticker {
-  display: flex; align-items: flex-start; gap: 8px;
-  padding: 10px 16px; font-size: 12.5px; line-height: 1.45; flex-shrink: 0;
+  display: flex; align-items: flex-start; gap: 7px;
+  padding: 7px 13px; font-size: 11px; line-height: 1.4; flex-shrink: 0;
 }
 .risk-ticker-dot { width: 6px; height: 6px; border-radius: 50%; margin-top: 6px; flex-shrink: 0; }
 .risk-ticker-txt { flex: 1; min-width: 0; }
