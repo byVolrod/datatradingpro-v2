@@ -69,8 +69,8 @@ function _aiWelcomeMsg() { return { role: 'ai', text: "Hello! I'm your Macro AI 
 function aiOpen() {
   const p = document.getElementById('ai-panel'), b = document.getElementById('ai-backdrop');
   if (!p) return;
-  // Exclusion mutuelle : un seul volet latéral ouvert à la fois
-  ['chat-panel', 'np-panel', 'squawk-panel', 'settings-panel'].forEach(id => { const e = document.getElementById(id); if (e) e.classList.remove('open'); });
+  // Exclusion mutuelle : ferme proprement tout autre volet (état + classes) avant d'ouvrir l'AI
+  if (typeof _closeOtherPanels === 'function') _closeOtherPanels('ai');
   if (!_aiMsgs.length) _aiMsgs = [_aiWelcomeMsg()];
   aiRender();
   p.classList.add('open'); if (b) b.classList.add('open'); p.setAttribute('aria-hidden', 'false');
@@ -5247,6 +5247,7 @@ function _chatIsSupport(){ const u = _chatCurUser(); return !!(u && (u.role === 
 // Panneaux topbar mutuellement exclusifs : ouvrir l'un ferme les autres
 function _closeOtherPanels(except){
   try {
+    if (except!=='ai'    && document.getElementById('ai-panel')?.classList.contains('open') && typeof aiClose==='function') aiClose();
     if (except!=='chat'  && document.getElementById('chat-panel')?.classList.contains('open')) chatClose();
     if (except!=='notif' && typeof _npOpen!=='undefined' && _npOpen) npClose();
     if (except!=='sqwk'  && document.getElementById('sqwk-panel')?.classList.contains('open')) sqwkClose();
