@@ -1874,13 +1874,14 @@ const INSIGHTS_FILE = path.join(__dirname, 'cache_insights.json');
 const _insightsCache = _loadJsonMap(INSIGHTS_FILE);   // persistant → pas de réappel Gemini à la réouverture
 // Secours SANS IA : extrait des phrases clés du rapport → les cartes s'affichent toujours,
 // même quand le quota Gemini est épuisé.
+const _SRC_LINE_RE = /this article was written by|\bwritten by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com|follow .* on (?:twitter|x)\b|©\s*\d{4}/i;
 function _fallbackInsights(text, title) {
   const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const tnorm = norm(title).slice(0, 80);
   let parts = String(text)
     .split(/(?<=[.!?])\s+|\n+/)
     .map(s => s.trim())
-    .filter(s => s.length > 28 && /[a-z]/.test(s));
+    .filter(s => s.length > 28 && /[a-z]/.test(s) && !_SRC_LINE_RE.test(s));   // pas de ligne source
   // N'utilise JAMAIS le TITRE du rapport comme insight (sinon il s'affiche en 1re carte).
   if (tnorm.length > 10) {
     parts = parts.filter(s => {
@@ -1950,8 +1951,10 @@ app.post('/api/analyse', async (req, res) => {
   const cacheKey = headline.substring(0, 100);
   if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
 
-  // Secours sans IA (quota épuisé) : on extrait des puces du contenu → l'Analyse n'est jamais vide
-  const _analyseFallback = () => _fallbackInsights(String(description || '') + ' ' + headline).map(o => o.text);
+  // Sans IA : l'Analyse ne ferait que RÉPÉTER la description (déjà montrée dans Info) → on renvoie
+  // VIDE pour masquer le tag Analyse (pas de répétition). L'Analyse n'apparaît QUE si l'IA produit
+  // une vraie analyse distincte. (L'IA est la SEULE source d'une analyse de valeur.)
+  const _analyseFallback = () => [];
 
   // Budget Gemini : on traite l'analyse à la demande comme une news importante
   if (!aiAllowed('news', { important: true })) return res.json({ bullets: _analyseFallback(), fallback: true });
@@ -1967,9 +1970,11 @@ Headline: ${headline}
 Category: ${category}${ctx}
 
 Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
+- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
 - Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
 - Explain the concrete causal mechanism for THIS story, not generic phrasing.
 - Max 22 words per bullet. Vary the angle per news; do not reuse the same wording across news.
+- NEVER include source/author attribution.
 - NO bold, NO markdown, NO asterisks. Plain text only.
 - Start each bullet with • . Reply ONLY with the bullets, no preamble.`, 320);
     const bullets = text.split('\n')
