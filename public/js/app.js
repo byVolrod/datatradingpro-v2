@@ -2853,7 +2853,7 @@ function initAnalystTab() {
       const insightsWrap = document.createElement('div');
       insightsWrap.id = 'arlib-insights-panel';
       insightsWrap.className = 'arlib-insights-panel';
-      insightsWrap.innerHTML = '<div class="arlib-insights-loading">⏳ Analyse Claude en cours…</div>';
+      insightsWrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Analyse en cours…', { small: true }) : '<div class="arlib-insights-loading">Analyse en cours…</div>');
 
       // Remove existing insights panel if any
       document.getElementById('arlib-insights-panel')?.remove();
@@ -4014,7 +4014,7 @@ function _renderWeeklyRecap(item) {
       body += `<div class="wr-ccy-block">`;
       body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}</div>`;
       body += `<div class="wr-text">${_wrParas(analysis)}</div>`;
-      body += `<div class="wr-chart" data-wr-chart="${c}"><div class="wr-chart-loading">Chargement de la force ${c}…</div></div>`;
+      body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
       drivers.forEach(d => {
         body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
         if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
@@ -5146,7 +5146,7 @@ function _chatInbox(){
   const sb = document.getElementById('chat-search-bar'); if (sb) sb.style.display = 'flex';   // recherche visible
   const list = document.getElementById('chat-list');
   if (_chatInboxCache){ _chatInboxData = _chatInboxCache; _chatRenderInbox(); }
-  else if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
+  else if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…', { small: true }) : '<div class="chat-empty">Chargement…</div>');
   Promise.all([
     fetch('/api/admin/chat').then(r=>r.json()).catch(()=>({ threads: [] })),
     fetch('/api/support/users').then(r=>r.json()).catch(()=>({ users: [] })),
@@ -5207,7 +5207,7 @@ function _chatOpenThread(userId, name){
   const list = document.getElementById('chat-list');
   const cached = _chatMsgCache[userId];
   if (cached){ _chatSig = _sigMsgs(cached); _chatRender(cached); }   // instantané
-  else { _chatSig=''; if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>'; }
+  else { _chatSig=''; if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…', { small: true }) : '<div class="chat-empty">Chargement…</div>'); }
   fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
     const msgs = d.messages||[];
     _chatMsgCache[userId] = msgs;

@@ -892,7 +892,7 @@ async function buildStrengthCharts() {
       activePeriod = period;
       const el = document.getElementById(containerId);
       if (!silent || periodChanged || !chartCtl) {
-        if (el && !chartCtl) el.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--text4);font-size:10px;font-family:var(--font-mono)">Loading…</div>';
+        if (el && !chartCtl) el.innerHTML = (window.dtpLoader ? window.dtpLoader('Loading…', { small: true }) : 'Loading…');
       }
       try {
         const url  = `/api/currency-strength?period=${period}${force ? '&force=1' : ''}`;
@@ -2357,7 +2357,7 @@ async function buildCalendar() {
         }
       } catch {
         if (attempt < 4) {
-          wrap.innerHTML = `<div class="cal-loading">Connecting… (attempt ${attempt}/4)</div>`;
+          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader(`Connexion… (essai ${attempt}/4)`) : `Connecting… (${attempt}/4)`);
           await new Promise(r => setTimeout(r, 3000));
         }
       }
