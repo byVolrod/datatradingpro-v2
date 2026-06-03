@@ -4083,6 +4083,27 @@ function renderArlibReader(item) {
     // Lignes d'attribution de source à masquer ("This article was written by X at investinglive.com", etc.)
     const _isSrcLine = t => /this article was written by|written by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|think\.ing|fxstreet|actionforex|forexlive)\.com|follow .* on (?:twitter|x)\b|©\s*\d{4}/i.test(t || '');
 
+    // ── Bloc AUTEURS (ING & autres) : JAMAIS affiché. On saute l'en-tête "Authors", les noms
+    //    d'auteurs (en-têtes) et leurs bios, jusqu'au vrai contenu. Borné (anti-faux positif).
+    let _authorMode = false, _authorSkipped = 0;
+    const _sectionWord = /\b(outlook|market|markets|rates?|fx|today|tomorrow|summary|overview|forecast|view|analysis|economy|economic|inflation|policy|data|week|day|trade|risk|dollar|euro|pound|yen|currenc|bond|bonds|equit|commodit|oil|gold|gas|yield|cpi|gdp|pmi|session|recap|preview|highlights?|takeaways?)\b/i;
+    const _isPersonName = t => {
+      t = (t || '').trim(); const w = t.split(/\s+/);
+      return w.length >= 2 && w.length <= 4 && t.length <= 42 && !/[:.]$/.test(t) && !_sectionWord.test(t)
+        && w.every(x => /^[\p{Lu}][\p{L}'.\-]*$/u.test(x) || x === '&');
+    };
+    const _isAuthorBio = t => /\b(global head|regional head|head of (?:markets|research|fx|rates|strategy|economics)|chief economist|senior economist|fx strategist|fi strategist|rates strategist|strategist (?:covering|and|for|of|based)|economist (?:covering|at|for|and|based)|joined (?:the bank|ing|the firm)|provides? (?:short|medium)|short[- ]and medium[- ]term|medium[- ]term (?:fx )?recommendations|began (?:his|her) career|main focus is on)\b/i.test(t || '');
+    // Renvoie true si la ligne appartient au bloc auteurs (→ ne pas rendre)
+    const _skipAuthor = (text, isHeader) => {
+      const t = (text || '').trim();
+      if (/^authors?$/i.test(t)) { _authorMode = true; _authorSkipped = 0; return true; }   // en-tête "Authors"
+      if (!_authorMode) return false;
+      if (_authorSkipped >= 12) { _authorMode = false; return false; }                        // garde-fou : bloc borné
+      if ((isHeader && _isPersonName(t)) || _isAuthorBio(t) || _isPersonName(t)) { _authorSkipped++; return true; }
+      _authorMode = false;                                                                     // vrai contenu → fin du bloc
+      return false;
+    };
+
     const walk = (el) => {
       // Ignore les nœuds COMMENTAIRE (8) et INSTRUCTION (7) : une déclaration <?xml …?>
       // injectée via innerHTML devient un commentaire dont le texte "?xml version…" fuyait
@@ -4093,17 +4114,21 @@ function renderArlibReader(item) {
         if (el.nodeType !== 3) return;                       // pas un vrai nœud texte → on ignore
         const t = (el.textContent || '').trim();
         if (/^<?\s*\??\s*xml\b/i.test(t)) return;            // garde-fou : déclaration XML résiduelle
+        if (_skipAuthor(t, false)) return;                   // bloc auteurs → jamais affiché
         if (t.length > 15 && !_isSrcLine(t)) { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`; bulletCount++; }
         return;
       }
       if (/^h[1-6]$/.test(tag)) {
         const t = el.textContent.trim();
+        if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur → ignoré
         if (t) { html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`; }
       } else if (tag === 'p') {
         const text = el.textContent.trim();
         if (!text || _isSrcLine(text)) return;
         // Paragraphe court terminant par ":" → section header
-        if (/^[\w\s&/':()#–-]{1,45}:$/.test(text) && text.length <= 46) {
+        const _isColonHead = /^[\w\s&/':()#–-]{1,45}:$/.test(text) && text.length <= 46;
+        if (_skipAuthor(text, _isColonHead)) return;         // bio / nom d'auteur → ignoré
+        if (_isColonHead) {
           html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${text.slice(0,-1).toUpperCase()}</div>`;
           return;
         }
@@ -4113,6 +4138,7 @@ function renderArlibReader(item) {
         const a = el.querySelector('a[href]');
         const text = el.textContent.trim();
         if (!text || _isSrcLine(text)) return;
+        if (_skipAuthor(text, false)) return;                // bio d'auteur en liste → ignoré
         if (a) {
           const href = a.getAttribute('href') || '';
           const lnk = fixLinks(el.innerHTML.trim());
@@ -4131,6 +4157,7 @@ function renderArlibReader(item) {
         html += `<hr class="arlib-rdivider">`;
       } else if ((tag === 'strong' || tag === 'b') && !el.closest('p, li')) {
         const t = el.textContent.trim();
+        if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré
         if (t.length > 3) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
         else Array.from(el.childNodes).forEach(walk);
       } else {
@@ -4143,9 +4170,10 @@ function renderArlibReader(item) {
     // Fallback si rien n'a été produit
     if (bulletCount === 0) {
       html = metaBar;
+      _authorMode = false; _authorSkipped = 0;
       tmp.querySelectorAll('p, li').forEach(el => {
         const raw = el.textContent.trim();
-        if (raw.length > 5 && !_isSrcLine(raw)) {
+        if (raw.length > 5 && !_isSrcLine(raw) && !_skipAuthor(raw, false) && !_isAuthorBio(raw)) {
           const t = fixLinks(el.innerHTML).trim();
           html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`;
         }
@@ -4209,10 +4237,8 @@ function renderArlibReader(item) {
       .then(r => r.json())
       .then(data => {
         if (!content) return;
-        const cats = (item.categories || []).slice(0,3).join(' · ');
         const metaBar = `
           <div class="arlib-doc-header">
-            <div class="arlib-doc-type">${cats || 'Analyse de marché'}</div>
             <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
             <div class="arlib-doc-meta">${dateStr}</div>
             ${item.description ? `<div class="arlib-doc-desc">${item.description}</div>` : ''}

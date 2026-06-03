@@ -1708,6 +1708,9 @@ function _stripSource(html) {
     // phrase d'attribution complète (hors balises), jusqu'au domaine source
     .replace(/(?:this article was written by|written by)\b[^<]*?\b(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com\.?/gi, '')
     .replace(/\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com\.?/gi, '')
+    // en-tête "Authors" + titres de section auteur (ING) → retirés (aucun auteur affiché)
+    .replace(/<(h[1-6])[^>]*>\s*authors?\s*<\/\1>/gi, '')
+    .replace(/<p[^>]*>\s*authors?\s*<\/p>/gi, '')
     // crédits photo / "Source:" résiduels
     .replace(/<p[^>]*>\s*(?:source|photo|image)\s*:[\s\S]*?<\/p>/gi, '')
     // "The post … appeared first on …" (pied de page WordPress des flux ActionForex/FXStreet)
@@ -1773,6 +1776,7 @@ app.get('/api/bank-research-content', async (req, res) => {
       + '[class*="social"],[class*="related"],[class*="subscribe"],[class*="newsletter"],[class*="sidebar"],[class*="widget"],'
       + '[class*="share"],[id*="share"],[class*="sharethis"],[class*="addthis"],[class*="download"],'
       + '[class*="quick-link"],[class*="quick-links"],[class*="publication-modal"],[class*="pmc__"],[class*="breadcrumb"],'
+      + '[class*="author"],[class*="contributor"],[class*="byline"],[rel="author"],[class*="profile-card"],[class*="bio"],'
       + '[class*="disclaimer"],[class*="cta"],[class*="signup"],[class*="paywall"],#comments').remove();
 
     // Retire les liens/boutons isolés "Share / Download / Print / PDF / Tweet / Email"
