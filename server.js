@@ -4353,6 +4353,9 @@ async function refreshNews() {
   _smartTagNews().catch(() => {});
   // Analyse IA PRÉ-CALCULÉE des news importantes (arrière-plan, bornée) → tag « Analyse » prêt dans le feed.
   _enrichAnalyses().catch(() => {});
+  // ANTICIPATION calendrier : dès qu'une news de résultat arrive, on remplit l'actual de l'événement
+  // correspondant (sans attendre l'ouverture de l'onglet calendrier) → on récupère tout au fil de l'eau.
+  try { _backfillActualsFromNews(); } catch {}
 }
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
