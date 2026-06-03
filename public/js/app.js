@@ -168,6 +168,17 @@ window.aiToggleSources = aiToggleSources; window.aiClearAsk = aiClearAsk; window
 // Le bouton AI de la topbar bascule le volet Macro AI Assistant
 (function () { var b = document.getElementById('ai-btn'); if (b) b.addEventListener('click', aiToggle); })();
 
+// ── Sélecteur de langue (dropdown custom à vraies images de drapeaux — les emoji-drapeaux ne s'affichent pas sur Windows) ──
+function pdLangToggle(e) { if (e) e.stopPropagation(); document.getElementById('pd-lang-menu')?.classList.toggle('open'); }
+function pdLangPick(val, name, iso) {
+  const inp = document.getElementById('pd-lang'); if (inp) inp.value = val;
+  const cur = document.getElementById('pd-lang-current'); if (cur) cur.textContent = name;
+  const flag = document.getElementById('pd-lang-cur-flag'); if (flag) flag.src = `https://flagcdn.com/24x18/${iso}.png`;
+  document.getElementById('pd-lang-menu')?.classList.remove('open');
+}
+window.pdLangToggle = pdLangToggle; window.pdLangPick = pdLangPick;
+document.addEventListener('click', e => { const dd = document.getElementById('pd-lang-dd'); if (dd && !dd.contains(e.target)) document.getElementById('pd-lang-menu')?.classList.remove('open'); });
+
 // ═══ World clocks ══════════════════════════
 const CLOCKS = [
   { city: 'London',   code: 'LON', country: 'UK',  tz: 'Europe/London',    lat: 51.5074, lon: -0.1278  },
@@ -669,6 +680,8 @@ function _newsKey(h) {
 }
 // Bruit / faible valeur marché → masqué
 const _NEWS_NOISE = /(is\s+\w+\s+a\s+buy|should you buy|analysis today at|read more at|click here|sign up|subscribe|webinar|giveaway|promo|sponsored|advertisement|\bad\b|top \d+ (stocks|picks)|motley fool|zacks)/i;
+// Blocklist EXPLICITE des news inutiles/spam (ex: taux de change quotidiens Banque de Russie). Extensible.
+const _NEWS_BLOCK = /bank of russia|центральн|official exchange rates on selected date|set the official|reference exchange rate/i;
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
@@ -685,6 +698,7 @@ function getFilteredItems() {
     if (/^@[A-Za-z]/i.test(_h))   return false;
     if (_h.replace(/[^a-z0-9]/gi, '').length < 14) return false;   // titres trop courts / sans valeur
     if (_NEWS_NOISE.test(_h)) return false;                        // promo / faible valeur
+    if (_NEWS_BLOCK.test(_h)) return false;                        // spam explicitement bloqué (Banque de Russie, taux de change…)
 
     // ── Filtre intelligent : on masque les reposts au titre quasi-identique ──
     const key = _newsKey(_h);
