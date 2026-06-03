@@ -5329,11 +5329,9 @@ function _chatRender(messages){
     html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}" data-mid="${mid}">`
       + (mine?'':`<div class="chat-av${avThemIsPhoto?' has-photo':''}">${avThem}</div>`)
       + `<div class="chat-bubble-wrap">`
-      + `<div class="chat-bubble-line">`
       + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}`
       + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div>`
-      + `<div class="chat-actions">${picker}${admin}</div>`
-      + `</div>`
+      + `<div class="chat-actions">${picker}${admin}</div>`   // SOUS la bulle, discret au survol
       + _chatReactionsHtml(m, myId, mid)
       + `</div></div>`;
   });
@@ -5371,21 +5369,52 @@ function _chatReact(id, emoji){
     }).catch(()=>{});
 }
 
-// Admin : supprimer un message
+// Admin : supprimer un message — confirmation INLINE dans le message (plus de fenêtre native)
 function _chatDeleteMsg(id){
-  if (!id || !confirm('Supprimer ce message ?')) return;
+  if (!id) return;
+  const sel = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
+  const row = document.querySelector(`.chat-row[data-mid="${sel}"]`);
+  const wrap = row && row.querySelector('.chat-bubble-wrap');
+  if (!wrap) { _chatDoDelete(id); return; }
+  if (wrap.querySelector('.chat-del-confirm')) return;             // déjà affichée
+  const c = document.createElement('div');
+  c.className = 'chat-del-confirm';
+  c.innerHTML = `<span>Supprimer ce message&nbsp;?</span>`
+    + `<button type="button" class="chat-del-yes">Supprimer</button>`
+    + `<button type="button" class="chat-del-no">Annuler</button>`;
+  wrap.appendChild(c);
+  c.querySelector('.chat-del-no').onclick = () => c.remove();
+  c.querySelector('.chat-del-yes').onclick = () => _chatDoDelete(id);
+}
+function _chatDoDelete(id){
   fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'DELETE' })
     .then(r=>r.json()).then(()=>{ if (_chatThreadUser){ _chatMsgCache[_chatThreadUser]=null; _chatSig=''; _chatOpenThread(_chatThreadUser, _chatThreadName); } }).catch(()=>{});
 }
-// Admin : modifier le texte d'un message
+// Admin : modifier le texte d'un message — édition INLINE dans la bulle (plus de fenêtre native)
 function _chatEditMsg(id){
   if (!id) return;
-  const arr = _chatThreadUser ? _chatMsgCache[_chatThreadUser] : null;
-  const cur = Array.isArray(arr) ? ((arr.find(x=>String(x.id)===String(id))||{}).text || '') : '';
-  const next = prompt('Modifier le message :', cur);
-  if (next == null || !next.trim()) return;
-  fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ text: next.trim() }) })
-    .then(r=>r.json()).then(()=>{ if (_chatThreadUser){ _chatMsgCache[_chatThreadUser]=null; _chatSig=''; _chatOpenThread(_chatThreadUser, _chatThreadName); } }).catch(()=>{});
+  const sel = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
+  const row = document.querySelector(`.chat-row[data-mid="${sel}"]`);
+  const bubble = row && row.querySelector('.chat-bubble');
+  const textEl = bubble && bubble.querySelector('.chat-text');
+  if (!textEl) return;                                  // pas de texte (image/fichier) → pas d'édition
+  if (bubble.querySelector('.chat-edit-box')) return;   // déjà en édition
+  const box = document.createElement('div');
+  box.className = 'chat-edit-box';
+  box.innerHTML = `<textarea class="chat-edit-input"></textarea>`
+    + `<div class="chat-edit-btns"><button type="button" class="chat-edit-save">Enregistrer</button>`
+    + `<button type="button" class="chat-edit-cancel">Annuler</button></div>`;
+  const ta = box.querySelector('.chat-edit-input'); ta.value = textEl.textContent;
+  textEl.style.display = 'none';
+  bubble.insertBefore(box, textEl.nextSibling);
+  ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  const close = () => { box.remove(); textEl.style.display = ''; };
+  box.querySelector('.chat-edit-cancel').onclick = close;
+  box.querySelector('.chat-edit-save').onclick = () => {
+    const next = ta.value.trim(); if (!next) return;
+    fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'PATCH', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ text: next }) })
+      .then(r=>r.json()).then(()=>{ if (_chatThreadUser){ _chatMsgCache[_chatThreadUser]=null; _chatSig=''; _chatOpenThread(_chatThreadUser, _chatThreadName); } }).catch(()=>{});
+  };
 }
 
 // Lightbox image (dans le panneau chat) — clic sur le fond pour revenir au chat

@@ -7671,18 +7671,34 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-bubble-wrap { display:flex; flex-direction:column; max-width:84%; min-width:0; }
 .chat-row--me   .chat-bubble-wrap { align-items:flex-end; }
 .chat-row--them .chat-bubble-wrap { align-items:flex-start; }
-.chat-bubble-line { display:flex; align-items:center; gap:6px; max-width:100%; min-width:0; }
-.chat-row--me .chat-bubble-line { flex-direction:row-reverse; }   /* actions à gauche de MA bulle */
 .chat-bubble-wrap .chat-bubble { max-width:100%; }
-.chat-actions { display:flex; align-items:center; gap:1px; opacity:0; transition:opacity .12s; flex-shrink:0; }
-.chat-bubble-line:hover .chat-actions { opacity:1; }
+/* Actions SOUS la bulle (discret, apparaît au survol du message) — aligné côté bulle */
+.chat-actions { display:flex; align-items:center; gap:2px; opacity:0; transition:opacity .14s; margin-top:3px; }
+.chat-row:hover .chat-actions { opacity:1; }
 .chat-react-picker { display:flex; gap:0; }
-.chat-react-picker button, .chat-act { background:none; border:none; cursor:pointer; line-height:1; padding:3px 4px; border-radius:6px; transition:background .12s, transform .12s; }
-.chat-react-picker button { font-size:14px; opacity:.9; }
-.chat-react-picker button:hover { background:rgba(255,255,255,.08); transform:scale(1.15); opacity:1; }
-.chat-act { font-size:12.5px; color:#8a93a3; }
-.chat-act:hover { background:rgba(255,255,255,.08); color:#e2e8f0; }
+.chat-react-picker button, .chat-act { background:none; border:none; cursor:pointer; line-height:1; padding:2px 4px; border-radius:6px; transition:background .12s, transform .12s, opacity .12s; }
+.chat-react-picker button { font-size:13px; opacity:.55; }   /* discret au repos */
+.chat-react-picker button:hover { background:rgba(255,255,255,.08); transform:scale(1.18); opacity:1; }
+.chat-act { font-size:12px; color:#8a93a3; opacity:.7; }
+.chat-act:hover { background:rgba(255,255,255,.08); color:#e2e8f0; opacity:1; }
 .chat-act--del:hover { color:#ef4444; background:rgba(239,68,68,.12); }
+/* Confirmation de suppression INLINE (remplace la fenêtre native du navigateur) */
+.chat-del-confirm { display:flex; align-items:center; gap:7px; margin-top:4px; font-size:11px; color:#9aa4b2; background:#15171d; border:1px solid #262b36; border-radius:8px; padding:4px 4px 4px 10px; animation:chatTypingIn .15s ease; }
+.chat-del-confirm button { border:none; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:600; cursor:pointer; font-family:var(--font-ui); }
+.chat-del-yes { background:rgba(239,68,68,.16); color:#ef4444; }
+.chat-del-yes:hover { background:rgba(239,68,68,.28); }
+.chat-del-no { background:#1a1c22; color:#9aa4b2; }
+.chat-del-no:hover { color:#e8eaed; }
+/* Édition INLINE d'un message (remplace prompt() natif) */
+.chat-edit-box { margin-top:6px; width:100%; }
+.chat-edit-input { width:100%; min-width:170px; min-height:38px; resize:vertical; background:#0d0f13; border:1px solid #2a2f3a; border-radius:7px; padding:6px 9px; color:#e2e8f0; font-size:13px; font-family:var(--font-ui); outline:none; box-sizing:border-box; }
+.chat-edit-input:focus { border-color:rgba(247,148,29,.5); }
+.chat-edit-btns { display:flex; gap:6px; margin-top:5px; }
+.chat-edit-btns button { border:none; border-radius:6px; padding:4px 11px; font-size:11px; font-weight:600; cursor:pointer; font-family:var(--font-ui); }
+.chat-edit-save { background:#f7941d; color:#0a0a0c; }
+.chat-edit-save:hover { background:#ffa733; }
+.chat-edit-cancel { background:#1a1c22; color:#9aa4b2; }
+.chat-edit-cancel:hover { color:#e8eaed; }
 .chat-reactions { display:flex; gap:4px; margin-top:3px; flex-wrap:wrap; }
 .chat-reaction { background:#15171d; border:1px solid #262b36; border-radius:12px; padding:1px 8px; font-size:11px; color:#cdd3dc; cursor:pointer; line-height:1.6; transition:border-color .12s, background .12s; }
 .chat-reaction:hover { border-color:#3a4150; }
