@@ -824,4 +824,10 @@ function _parseEventDetail(html) {
 // Pas de pré-lancement au démarrage : le navigateur démarre à la 1ère utilisation
 // puis se ferme tout seul après inactivité (économie mémoire 512 Mo).
 
-module.exports = { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail };
+// Fermeture forcée du navigateur (appelée par le watchdog mémoire anti-OOM 512 Mo)
+async function closeBrowser() {
+  if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }
+  if (_browser) { try { await _browser.close(); } catch {} _browser = null; console.log('[FF-News] navigateur fermé (watchdog mémoire)'); }
+}
+
+module.exports = { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail, closeBrowser };

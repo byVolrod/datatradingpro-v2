@@ -335,6 +335,90 @@ app.get('/api/admin/users', requireAdmin, async (_req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Dashboard FINANCIER admin (KPIs + revenu estimé + prévision + Whop) ──────
+//    Tout est calculé depuis la table users (données réelles). Le revenu est ESTIMÉ
+//    à partir des prix connus (mensuel/annuel) et de la durée d'accès de chaque abonné.
+const PRICE_MONTHLY = parseFloat(process.env.PRICE_MONTHLY) || 24.99;
+const PRICE_ANNUAL  = parseFloat(process.env.PRICE_ANNUAL)  || 239.99;
+app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
+  try {
+    const users = await auth.getAllUsers();
+    const now = Date.now(), DAY = 86400000;
+    const monthKey = ts => { const d = new Date(ts); return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'); };
+    const curMonth = monthKey(now);
+    const lastMonth = monthKey(new Date(new Date().setUTCMonth(new Date().getUTCMonth() - 1)));
+
+    // Classe un client → cycle + revenu mensuel-équivalent (mrr)
+    const classify = u => {
+      if (u.role !== 'client') return { cycle: 'staff', mrr: 0 };
+      const crt = u.created_at ? new Date(u.created_at).getTime() : 0;
+      const exp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
+      if (!exp) return { cycle: 'unlimited', mrr: 0 };                 // accès offert / illimité
+      const span = crt ? exp - crt : 0;
+      if (span > 0 && span <= 8.5 * DAY) return { cycle: 'trial', mrr: 0 };
+      if (span >= 300 * DAY) return { cycle: 'annual', mrr: PRICE_ANNUAL / 12 };
+      return { cycle: 'monthly', mrr: PRICE_MONTHLY };                 // mensuel (ou multi-mois ramené au mois)
+    };
+
+    const dist = { monthly: 0, annual: 0, trial: 0, unlimited: 0 };
+    const signupsByMonth = {};                                        // 12 derniers mois
+    for (let i = 11; i >= 0; i--) { const d = new Date(); d.setUTCMonth(d.getUTCMonth() - i); signupsByMonth[monthKey(d.getTime())] = 0; }
+
+    let totalUsers = users.length, clients = 0, activeSubs = 0, trials = 0, suspended = 0, expired = 0;
+    let mrr = 0, atRiskMrr = 0, expiringSoon = 0, newThisMonth = 0, newLastMonth = 0, churned30 = 0, newSubs30 = 0;
+
+    for (const u of users) {
+      if (u.role === 'client') {
+        clients++;
+        const c = classify(u);
+        const exp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
+        const isExpired = exp && exp < now;
+        const isActive  = u.active && !isExpired;
+        if (!u.active) suspended++;
+        if (isExpired) expired++;
+        // churn : abonnés payants expirés dans les 30 derniers jours
+        if (exp && now - exp > 0 && now - exp <= 30 * DAY && c.mrr > 0) churned30++;
+        if (isActive && c.cycle in dist) dist[c.cycle]++;
+        if (isActive && c.mrr > 0) { activeSubs++; mrr += c.mrr; }
+        if (isActive && c.cycle === 'trial') trials++;
+        if (isActive && c.mrr > 0 && exp && exp - now > 0 && exp - now <= 7 * DAY) { expiringSoon++; atRiskMrr += c.mrr; }
+      }
+      // inscriptions par mois (tous comptes)
+      if (u.created_at) {
+        const mk = monthKey(new Date(u.created_at).getTime());
+        if (mk in signupsByMonth) signupsByMonth[mk]++;
+        if (mk === curMonth) newThisMonth++;
+        if (mk === lastMonth) newLastMonth++;
+        if (now - new Date(u.created_at).getTime() <= 30 * DAY && u.role === 'client' && classify(u).mrr > 0) newSubs30++;
+      }
+    }
+
+    const arr = mrr * 12;
+    const arpu = activeSubs ? mrr / activeSubs : 0;
+    const growthPct = newLastMonth ? ((newThisMonth - newLastMonth) / newLastMonth * 100) : (newThisMonth ? 100 : 0);
+    const churnRate = (activeSubs + churned30) ? (churned30 / (activeSubs + churned30) * 100) : 0;
+    // Prévision : ajout net mensuel récent (nouveaux abonnés payants 30j − churn 30j) → projection MRR
+    const netAdds = newSubs30 - churned30;
+    const forecast = [1, 2, 3].map(m => +(Math.max(0, mrr + netAdds * arpu * m)).toFixed(2));
+
+    res.json({
+      generatedAt: new Date().toISOString(),
+      pricing: { monthly: PRICE_MONTHLY, annual: PRICE_ANNUAL, currency: '€' },
+      kpis: {
+        totalUsers, clients, activeSubs, trials, suspended, expired,
+        mrr: +mrr.toFixed(2), arr: +arr.toFixed(2), arpu: +arpu.toFixed(2),
+        newThisMonth, newLastMonth, growthPct: +growthPct.toFixed(1),
+        churned30, churnRate: +churnRate.toFixed(1), netAdds,
+        expiringSoon, atRiskMrr: +atRiskMrr.toFixed(2),
+      },
+      distribution: dist,
+      signupsByMonth,
+      forecast,
+      whop: { configured: (() => { try { return whop.configured(); } catch { return false; } })(), renewUrl: process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/', webhookSecret: !!process.env.WHOP_WEBHOOK_SECRET },
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Diagnostic IA — révèle l'état RÉEL des clés sur le serveur déployé (sans exposer
 // les valeurs) + un test de génération en direct. Ouvre /api/admin/ai-status connecté
 // en admin pour savoir si Gemini/Claude fonctionnent sur Render.
@@ -5134,15 +5218,17 @@ server.keepAliveTimeout = 65 * 1000;   // > intervalle keep-alive (anti coupures
 setInterval(() => {
   try {
     const rssMo = process.memoryUsage().rss / (1024 * 1024);
-    if (rssMo > 430) {
-      console.warn(`[MEM] RSS ${rssMo.toFixed(0)} Mo — fermeture des navigateurs non essentiels (anti-OOM)`);
+    // Seuil PRÉVENTIF à 400 Mo (avant l'OOM/502 de Render à 512) : on libère les navigateurs.
+    if (rssMo > 400) {
+      console.warn(`[MEM] RSS ${rssMo.toFixed(0)} Mo — nettoyage anti-OOM (fermeture navigateurs)`);
       try { clearOutlookCache(); } catch {}
       try { require('./scrapers/myfxbook').closeBrowser?.(); } catch {}
+      try { require('./scrapers/forexfactory-news').closeBrowser?.(); } catch {}   // le + gros (Chromium FF)
       try { if (typeof _ilBrowser !== 'undefined' && _ilBrowser) { _ilBrowser.close().catch(() => {}); _ilBrowser = null; } } catch {}
       if (global.gc) { try { global.gc(); } catch {} }
     }
   } catch {}
-}, 60 * 1000);
+}, 30 * 1000);   // vérification 2× plus fréquente
 
 server.listen(PORT, async () => {
   // Seed admin user on first run
