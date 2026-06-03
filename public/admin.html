@@ -9,12 +9,17 @@
   <link rel="apple-touch-icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <!-- amCharts 5 — mêmes graphiques que le reste du site (courbes, donut, hover) -->
+  <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
+  <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
       --bg:     #0a0a0a; --bg2: #111; --bg3: #191919; --bg4: #1e1e1e;
       --border: #1e1e1e; --border2: #2a2a2a;
-      --text:  #e8e8e8; --text2: #aaa; --text3: #666; --text4: #444;
+      --text:  #f0f1f3; --text2: #b8bec8; --text3: #939aa4; --text4: #5c616b;
       --orange: #f7941d; --orange-bg: rgba(247,148,29,0.1);
       --red: #e74c3c;  --green: #2ecc71;
       --font-ui: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
@@ -264,6 +269,27 @@
     .fin-panel { margin-bottom:20px; }
     .fin-note { font-size:10px; color:var(--text4); font-style:italic; }
     @media(max-width:900px){ .fin-row { grid-template-columns:1fr; } }
+
+    /* ── Onglets (navigation rapide, pas de scroll interminable) ── */
+    .adm-tabs { display:flex; align-items:center; gap:4px; margin-bottom:24px; border-bottom:1px solid var(--border2); }
+    .adm-tab { background:none; border:none; border-bottom:2px solid transparent; color:var(--text2); font-family:var(--font-ui); font-size:13px; font-weight:600; padding:11px 16px; cursor:pointer; transition:color .12s, border-color .12s; display:flex; align-items:center; gap:7px; margin-bottom:-1px; }
+    .adm-tab:hover { color:var(--text); }
+    .adm-tab--active { color:#fff; border-bottom-color:var(--orange); }
+    .adm-tab-badge { background:#ef4444; color:#fff; font-size:10px; font-weight:700; min-width:17px; height:17px; border-radius:9px; display:inline-flex; align-items:center; justify-content:center; padding:0 5px; }
+    .adm-tabs-spacer { flex:1; }
+    .adm-tabs .fin-sub { font-family:var(--font-mono); }
+    .tab-panel { display:none; }
+    .tab-panel--active { display:block; animation:tabIn .24s ease; }
+    @keyframes tabIn { from { opacity:0; transform:translateY(7px); } to { opacity:1; transform:none; } }
+
+    /* ── Conteneurs amCharts (courbes + donut) ── */
+    .am-chart { width:100%; height:236px; }
+    .am-fallback { display:flex; align-items:center; justify-content:center; height:236px; color:var(--text3); font-size:12px; font-family:var(--font-mono); }
+
+    /* Lisibilité : libellés secondaires plus clairs (blanc cassé, fini le gris illisible) */
+    .fin-kpi-label, .stat-label, .users-table th { color:#bcc2cc !important; }
+    .fin-kpi-sub { color:#8e949e; }
+    .panel-head .ph-count { color:#9aa1ab; }
     .fc-mrr { font-size:30px; font-weight:800; font-family:var(--font-mono); color:var(--orange); }
     .fc-line { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text2); }
     .fc-line span:last-child { font-family:var(--font-mono); color:var(--text); font-weight:600; }
@@ -295,35 +321,43 @@
 
 <div class="page">
 
-  <!-- ════ Dashboard financier (direction DTP) ════ -->
-  <div class="section-title" style="display:flex;align-items:center;gap:10px;">
-    <span>Dashboard financier</span>
+  <!-- Onglets (navigation rapide — pas de scroll interminable) -->
+  <div class="adm-tabs">
+    <button class="adm-tab adm-tab--active" data-tab="dash" onclick="admTab('dash')">Tableau de bord</button>
+    <button class="adm-tab" data-tab="users" onclick="admTab('users')">Utilisateurs</button>
+    <button class="adm-tab" data-tab="support" onclick="admTab('support')">Support <span class="adm-tab-badge" id="adm-tab-chat" style="display:none">0</span></button>
+    <span class="adm-tabs-spacer"></span>
     <span class="fin-sub" id="fin-asof"></span>
-  </div>
-  <div class="fin-kpis" id="fin-kpis"></div>
-  <div class="fin-row">
-    <div class="panel-card fin-panel">
-      <div class="panel-head"><span class="ph-ic">💶</span><h2>Revenu &amp; prévision</h2><span class="ph-spacer"></span><span class="fin-note">estimation</span></div>
-      <div class="panel-body" id="fin-forecast"></div>
-    </div>
-    <div class="panel-card fin-panel">
-      <div class="panel-head"><span class="ph-ic">📊</span><h2>Répartition des abonnés</h2></div>
-      <div class="panel-body" id="fin-dist"></div>
-    </div>
-  </div>
-  <div class="fin-row">
-    <div class="panel-card fin-panel fin-panel--wide">
-      <div class="panel-head"><span class="ph-ic">📈</span><h2>Inscriptions — 12 derniers mois</h2></div>
-      <div class="panel-body" id="fin-chart"></div>
-    </div>
-    <div class="panel-card fin-panel">
-      <div class="panel-head"><span class="ph-ic">🔗</span><h2>Intégration Whop</h2></div>
-      <div class="panel-body" id="fin-whop"></div>
-    </div>
+    <button class="btn-sm" onclick="refreshAll()" title="Rafraîchir les données">↻ Rafraîchir</button>
   </div>
 
-  <!-- Stats -->
-  <div class="section-title">Utilisateurs — vue d'ensemble</div>
+  <!-- ═══ Onglet : Tableau de bord ═══ -->
+  <section class="tab-panel tab-panel--active" id="tab-dash">
+    <div class="fin-kpis" id="fin-kpis"></div>
+    <div class="fin-row">
+      <div class="panel-card fin-panel fin-panel--wide">
+        <div class="panel-head"><span class="ph-ic">💶</span><h2>Revenu net mensuel — 12 mois</h2></div>
+        <div class="panel-body"><div class="am-chart" id="fin-rev-am"></div></div>
+      </div>
+      <div class="panel-card fin-panel">
+        <div class="panel-head"><span class="ph-ic">📊</span><h2>Répartition des abonnés</h2></div>
+        <div class="panel-body"><div class="am-chart am-chart--donut" id="fin-dist-am"></div></div>
+      </div>
+    </div>
+    <div class="fin-row">
+      <div class="panel-card fin-panel fin-panel--wide">
+        <div class="panel-head"><span class="ph-ic">📈</span><h2>Inscriptions — 12 derniers mois</h2></div>
+        <div class="panel-body"><div class="am-chart" id="fin-chart-am"></div></div>
+      </div>
+      <div class="panel-card fin-panel">
+        <div class="panel-head"><span class="ph-ic">🔗</span><h2>Intégration Whop</h2></div>
+        <div class="panel-body" id="fin-whop"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Onglet : Utilisateurs ═══ -->
+  <section class="tab-panel" id="tab-users">
   <div class="stats-row" id="stats-row"></div>
 
   <!-- Add user -->
@@ -431,6 +465,10 @@
    </div>
   </div>
 
+  </section>
+
+  <!-- ═══ Onglet : Support ═══ -->
+  <section class="tab-panel" id="tab-support">
   <!-- Support -->
   <div class="panel-card">
    <div class="panel-head">
@@ -450,6 +488,7 @@
   </div>
    </div>
   </div>
+  </section>
 
 </div>
 
@@ -536,7 +575,63 @@
     setInterval(loadFinance, 5 * 60 * 1000);   // KPIs financiers rafraîchis toutes les 5 min
   });
 
-  // ── Dashboard financier ─────────────────────────────────────────────────────
+  // ── Onglets ─────────────────────────────────────────────────────────────────
+  function admTab(name) {
+    document.querySelectorAll('.adm-tab').forEach(b => b.classList.toggle('adm-tab--active', b.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('tab-panel--active', p.id === 'tab-' + name));
+    if (name === 'dash') setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 40);
+  }
+  function refreshAll() { loadUsers(); loadFinance(); loadAdChat(); }
+
+  // ── amCharts 5 : courbes (area lissée) + donut, style du site (dark + orange) ──
+  const _amRoots = {};
+  function _amReady() { return typeof am5 !== 'undefined'; }
+  function _amDispose(id) { if (_amRoots[id]) { try { _amRoots[id].dispose(); } catch {} _amRoots[id] = null; } }
+  function _amArea(id, data, colorHex, prefix) {
+    const host = document.getElementById(id); if (!host) return;
+    if (!_amReady()) { host.innerHTML = '<div class="am-fallback">Graphique indisponible.</div>'; return; }
+    _amDispose(id);
+    const root = am5.Root.new(id); _amRoots[id] = root;
+    root._logo?.set('forceHidden', true); root._logo?.dispose();
+    root.setThemes([am5themes_Animated.new(root)]);
+    const color = am5.color(colorHex);
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX:false, panY:false, wheelX:'none', wheelY:'none', paddingLeft:2, paddingRight:10, paddingTop:12, paddingBottom:2 }));
+    const xR = am5xy.AxisRendererX.new(root, { minGridDistance:28 });
+    xR.grid.template.setAll({ strokeOpacity:0 });
+    xR.labels.template.setAll({ fill:am5.color(0xcfd4da), fontSize:10, fontFamily:'JetBrains Mono' });
+    const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, { categoryField:'cat', renderer:xR }));
+    xAxis.data.setAll(data);
+    const yR = am5xy.AxisRendererY.new(root, {});
+    yR.grid.template.setAll({ stroke:am5.color(0x222227), strokeOpacity:0.7 });
+    yR.labels.template.setAll({ fill:am5.color(0x9aa0a6), fontSize:10, fontFamily:'JetBrains Mono' });
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { min:0, renderer:yR }));
+    const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, { xAxis, yAxis, valueYField:'val', categoryXField:'cat', stroke:color, fill:color, tooltip:am5.Tooltip.new(root, { labelText:(prefix||'') + '{valueY}' }) }));
+    series.strokes.template.setAll({ strokeWidth:2.5 });
+    series.fills.template.setAll({ visible:true, fillGradient: am5.LinearGradient.new(root, { stops:[{ color, opacity:0.32 }, { color, opacity:0.02 }], rotation:90 }) });
+    series.bullets.push(() => am5.Bullet.new(root, { sprite: am5.Circle.new(root, { radius:3, fill:color, stroke:am5.color(0x0a0a0a), strokeWidth:1.5 }) }));
+    series.data.setAll(data);
+    chart.set('cursor', am5xy.XYCursor.new(root, { behavior:'none', xAxis, yAxis }));
+    series.appear(700); chart.appear(700, 80);
+  }
+  function _amDonut(id, data) {
+    const host = document.getElementById(id); if (!host) return;
+    if (!_amReady()) { host.innerHTML = '<div class="am-fallback">Graphique indisponible.</div>'; return; }
+    _amDispose(id);
+    if (!data.length) { host.innerHTML = '<div class="am-fallback">Aucun abonné actif.</div>'; return; }
+    const root = am5.Root.new(id); _amRoots[id] = root;
+    root._logo?.set('forceHidden', true); root._logo?.dispose();
+    root.setThemes([am5themes_Animated.new(root)]);
+    const chart = root.container.children.push(am5percent.PieChart.new(root, { innerRadius: am5.percent(62), paddingTop:4, paddingBottom:4 }));
+    const series = chart.series.push(am5percent.PieSeries.new(root, { categoryField:'cat', valueField:'val', alignLabels:false }));
+    series.set('colors', am5.ColorSet.new(root, { colors: data.map(d => am5.color(d.color)) }));
+    series.slices.template.setAll({ stroke:am5.color(0x0a0a0a), strokeWidth:2 });
+    series.labels.template.setAll({ fill:am5.color(0xcfd4da), fontSize:10, fontFamily:'JetBrains Mono', text:'{category} {value}' });
+    series.ticks.template.setAll({ stroke:am5.color(0x3a3a40), strokeOpacity:0.6 });
+    series.data.setAll(data);
+    series.appear(700, 90);
+  }
+
+  // ── Dashboard financier (NET réel uniquement — aucune prévision) ─────────────
   async function loadFinance() {
     let d; try { d = await fetch('/api/admin/finance').then(r => r.json()); } catch { return; }
     if (!d || !d.kpis) return;
@@ -544,48 +639,34 @@
     const eur = n => cur + Math.round(n || 0).toLocaleString('fr-FR');
     const sign = v => (v >= 0 ? '+' : '') + v;
     const asof = document.getElementById('fin-asof');
-    if (asof) asof.textContent = '· au ' + new Date(d.generatedAt).toLocaleString('fr-FR');
+    if (asof) asof.textContent = 'au ' + new Date(d.generatedAt).toLocaleString('fr-FR');
 
     const kpis = [
       { l: 'MRR · revenu mensuel', v: eur(k.mrr), sub: `ARPU ${eur(k.arpu)} / abonné`, accent: true },
       { l: 'ARR · annualisé',      v: eur(k.arr), sub: `${k.activeSubs} abonné(s) actif(s)` },
       { l: 'Abonnés actifs',       v: k.activeSubs, sub: `${k.trials} essai(s) en cours` },
-      { l: 'Nouveaux ce mois',     v: k.newThisMonth, sub: `<span class="${k.growthPct >= 0 ? 'fin-up' : 'fin-down'}">${sign(k.growthPct)}% vs mois -1</span>` },
-      { l: 'Taux de churn (30j)',  v: k.churnRate + '%', sub: `${k.churned30} expiré(s)` },
+      { l: 'Clients',              v: k.clients, sub: `${k.newThisMonth} nouveau(x) ce mois` },
+      { l: 'Ajout net (30j)',      v: sign(k.netAdds), sub: `<span class="${k.growthPct >= 0 ? 'fin-up' : 'fin-down'}">${sign(k.growthPct)}% vs mois -1</span>` },
+      { l: 'Churn (30j)',          v: k.churnRate + '%', sub: `${k.churned30} expiré(s)` },
       { l: 'Revenu à risque',      v: eur(k.atRiskMrr), sub: `${k.expiringSoon} expire(nt) ≤ 7j` },
     ];
     document.getElementById('fin-kpis').innerHTML = kpis.map(c =>
       `<div class="fin-kpi${c.accent ? ' fin-kpi--accent' : ''}"><div class="fin-kpi-label">${c.l}</div><div class="fin-kpi-val">${c.v}</div><div class="fin-kpi-sub">${c.sub || ''}</div></div>`).join('');
 
-    // Revenu & prévision
-    const fc = d.forecast || [];
-    const fcBars = [{ v: k.mrr, l: 'Auj.' }, { v: fc[0], l: 'M+1' }, { v: fc[1], l: 'M+2' }, { v: fc[2], l: 'M+3' }];
-    const maxFc = Math.max(...fcBars.map(b => b.v || 0), 1);
-    document.getElementById('fin-forecast').innerHTML = `
-      <div class="fc-mrr">${eur(k.mrr)} <span style="font-size:13px;color:var(--text3);font-weight:500">MRR</span></div>
-      <div class="fc-line"><span>Ajout net mensuel</span><span class="${k.netAdds >= 0 ? 'fin-up' : 'fin-down'}">${sign(k.netAdds)} abonné(s)</span></div>
-      <div class="fc-line"><span>ARR projeté</span><span>${eur(k.arr)}</span></div>
-      <div style="margin:14px 0 2px;font-size:11px;color:var(--text3)">Prévision MRR (estimation, M+1 → M+3)</div>
-      <div class="fc-bars">${fcBars.map(b => `<div class="fc-bar-wrap"><div class="fc-bar" style="height:${Math.max(4, ((b.v || 0) / maxFc) * 64)}px"></div><div class="fc-bar-lbl">${b.l}</div><div class="fc-bar-lbl">${eur(b.v)}</div></div>`).join('')}</div>`;
-
-    // Répartition
-    const dist = d.distribution || {};
-    const dE = [['monthly', 'Mensuel', '#f7941d'], ['annual', 'Annuel', '#60a5fa'], ['trial', 'Essai gratuit', '#f59e0b'], ['unlimited', 'Illimité/offert', '#2ecc71']];
-    const dMax = Math.max(...dE.map(([key]) => dist[key] || 0), 1);
-    document.getElementById('fin-dist').innerHTML = dE.map(([key, name, col]) => {
-      const val = dist[key] || 0;
-      return `<div class="dist-row"><span class="dist-name">${name}</span><div class="dist-bar-wrap"><div class="dist-bar" style="width:${val / dMax * 100}%;background:${col}"></div></div><span class="dist-val">${val}</span></div>`;
-    }).join('');
-
-    // Inscriptions 12 mois (SVG)
+    // Revenu net mensuel — courbe (orange)
+    const rev = d.revenueByMonth || {};
+    _amArea('fin-rev-am', Object.keys(rev).map(m => ({ cat: m.slice(2), val: rev[m] })), 0xf7941d, cur);
+    // Inscriptions 12 mois — courbe (bleu)
     const sm = d.signupsByMonth || {};
-    const months = Object.keys(sm);
-    const mx = Math.max(...Object.values(sm), 1);
-    const bw = 100 / Math.max(months.length, 1);
-    const bars = months.map((m, i) => { const h = (sm[m] / mx) * 90; return `<rect x="${i * bw + bw * 0.15}" y="${100 - h}" width="${bw * 0.7}" height="${h}" fill="#f7941d" opacity="0.85"><title>${m}: ${sm[m]}</title></rect>`; }).join('');
-    document.getElementById('fin-chart').innerHTML =
-      `<svg class="fin-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">${bars}</svg>`
-      + `<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);font-family:var(--font-mono);margin-top:3px">${months.map((m, i) => i % 2 === 0 ? `<span>${m.slice(2)}</span>` : '<span></span>').join('')}</div>`;
+    _amArea('fin-chart-am', Object.keys(sm).map(m => ({ cat: m.slice(2), val: sm[m] })), 0x60a5fa, '');
+    // Répartition des abonnés — donut
+    const dist = d.distribution || {};
+    _amDonut('fin-dist-am', [
+      { cat:'Mensuel',  val:dist.monthly   || 0, color:0xf7941d },
+      { cat:'Annuel',   val:dist.annual    || 0, color:0x60a5fa },
+      { cat:'Essai',    val:dist.trial     || 0, color:0xf59e0b },
+      { cat:'Illimité', val:dist.unlimited || 0, color:0x2ecc71 },
+    ].filter(x => x.val > 0));
 
     // Whop
     const w = d.whop || {};
@@ -604,6 +685,9 @@
       const d = await fetch('/api/admin/chat').then(r => r.json());
       const threads = d.threads || [];
       document.getElementById('ad-chat-count').textContent = threads.length;
+      const _unread = threads.filter(t => (t.unread || 0) > 0).length;
+      const _tb = document.getElementById('adm-tab-chat');
+      if (_tb) { _tb.textContent = _unread; _tb.style.display = _unread > 0 ? '' : 'none'; }
       const el = document.getElementById('ad-chat-threads');
       if (!threads.length) { el.innerHTML = '<div class="empty-state">Aucun message.</div>'; return; }
       el.innerHTML = threads.map(t => `
@@ -666,8 +750,12 @@
   let _page = 1, _perPage = 12, _sortKey = 'expiry', _sortDir = 1;   // tri défaut : échéance la + proche d'abord
 
   async function loadUsers() {
-    const users = await fetch('/api/admin/users').then(r => r.json());
-    _allUsers = Array.isArray(users) ? users : [];
+    let resp = null;
+    try { resp = await fetch('/api/admin/users').then(r => r.json()); }
+    catch (e) { console.error('[admin] loadUsers échec', e); }
+    // Tolère un tableau OU un objet { users:[…] }
+    _allUsers = Array.isArray(resp) ? resp : (resp && Array.isArray(resp.users) ? resp.users : []);
+    console.log('[admin] utilisateurs chargés :', _allUsers.length);
     renderStats();
     renderUserRows();
     if (typeof loadFinance === 'function') loadFinance();   // KPIs financiers à jour après toute modif
