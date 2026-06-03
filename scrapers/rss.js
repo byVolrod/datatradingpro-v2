@@ -145,7 +145,7 @@ async function fetchFeed(feed) {
         category,
         source: feed.source,
         headline: title.replace(/\s+/g, ' ').substring(0, 260),
-        description: desc.substring(0, 320),
+        description: desc.substring(0, 500),
         url: link,
         tags: extractTags(category, combined),
         priority: isImportant ? 'high' : 'normal',
