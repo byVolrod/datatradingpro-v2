@@ -466,13 +466,14 @@ html, body {
   transition: color .2s ease-out, background .2s ease-out, transform .2s ease-out;
   position: relative;
 }
-/* Fintech Icon Glow & Lift : au survol, l'icône s'éclaire, grossit et se soulève légèrement */
-.topbar-icon:hover { color: #f4f4f5; background: rgba(255,255,255,0.06); border-color: transparent; transform: translateY(-1px) scale(1.1); }
-.topbar-icon:hover svg { filter: drop-shadow(0 0 4px rgba(255,255,255,0.42)); }
+/* Hover discret & NET : légère mise en lumière + micro-grossissement, sans saut ni gros halo */
+.topbar-icon:hover { color: #f4f4f5; background: rgba(255,255,255,0.05); border-color: transparent; transform: scale(1.06); }
+.topbar-icon:hover svg { filter: drop-shadow(0 0 2px rgba(255,255,255,0.28)); }
 .topbar-icon svg { width: 18px; height: 18px; transition: filter .2s ease-out; }   /* + grandes → plus lisibles */
 .topbar-icon--ai svg { width: 21px; height: 21px; }
-.topbar-icon--ai:hover svg { filter: drop-shadow(0 0 5px rgba(0,218,80,0.55)); }   /* AI : halo vert */
-.topbar-icon--sqwk:hover svg { filter: drop-shadow(0 0 5px rgba(239,68,68,0.5)); } /* Squawk : halo rouge */
+.topbar-icon--ai:hover { transform: scale(1.04); }                                 /* AI : effet subtil et net */
+.topbar-icon--ai:hover svg { filter: drop-shadow(0 0 2px rgba(0,218,80,0.35)); }
+.topbar-icon--sqwk:hover svg { filter: drop-shadow(0 0 2px rgba(239,68,68,0.3)); }
 
 /* Bouton AI (style Prime Terminal — pastille "AI" verte) */
 .topbar-ai-btn {
@@ -7657,7 +7658,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 #chat-btn.topbar-icon--active::after,
 #np-bell-btn.np-bell--active::after { background: #f4f4f5; box-shadow: 0 0 6px rgba(244,244,245,0.45); }   /* blanc */
 #ai-btn.topbar-icon--active::after  { background: #00e676; box-shadow: 0 0 7px rgba(0,230,118,0.6); }      /* AI vert */
-#sqwk-btn.topbar-icon--active::after { background: #ff3d00; box-shadow: 0 0 7px rgba(255,61,0,0.6); }       /* Squawk rouge */
+#sqwk-btn.topbar-icon--active::after { background: #22c55e; box-shadow: 0 0 7px rgba(34,197,94,0.55); }       /* Squawk : trait VERT */
 @media (max-width: 480px) { .sqwk-panel { width: 100%; max-width: 100%; } }
 .sqwk-audio { background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.9; }
 .sqwk-audio--off { opacity: 0.4; filter: grayscale(1); }
