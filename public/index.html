@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260605t" />
+  <link rel="stylesheet" href="/css/style.css?v=20260605u" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -555,8 +555,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260605t"></script>
-<script src="/js/charts.js?v=20260605t"></script>
+<script src="/js/app.js?v=20260605u"></script>
+<script src="/js/charts.js?v=20260605u"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1309,7 +1309,7 @@
   <div class="chat-list" id="chat-list"></div>
   <div class="chat-pending" id="chat-pending"></div>
   <div class="chat-input-bar">
-    <input type="file" id="chat-file-img" accept="image/*" style="display:none" onchange="_chatAttach(this,'image')" />
+    <input type="file" id="chat-file-img" accept="image/*" multiple style="display:none" onchange="_chatAttach(this,'image')" />
     <input type="file" id="chat-file-doc" style="display:none" onchange="_chatAttach(this,'file')" />
     <button class="chat-attach" title="Envoyer une image" onclick="document.getElementById('chat-file-img').click()">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/></svg>

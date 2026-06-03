@@ -7704,14 +7704,17 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-reaction:hover { border-color:#3a4150; }
 .chat-reaction--mine { background:rgba(247,148,29,.14); border-color:rgba(247,148,29,.5); color:#f7941d; }
 
-/* ── Aperçu d'image avant envoi (Envoyer / Annuler) ── */
+/* ── Aperçu d'images avant envoi (jusqu'à 5, alignées, croix pour retirer) ── */
 .chat-pending { display:none; flex-shrink:0; padding:9px 12px; border-top:1px solid #1c1c20; background:#0c0e12; }
 .chat-pending.visible { display:block; animation:chatTypingIn .18s ease; }
-.chat-pending-card { display:flex; align-items:center; gap:11px; }
-.chat-pending-thumb { width:48px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #262b36; flex-shrink:0; }
-.chat-pending-mid { flex:1; min-width:0; }
-.chat-pending-title { font-size:12.5px; color:#e8eaed; font-weight:600; }
-.chat-pending-hint { font-size:11px; color:#7a8493; margin-top:1px; }
+.chat-pending-card { display:flex; flex-direction:column; gap:8px; }
+.chat-pending-thumbs { display:flex; gap:8px; flex-wrap:wrap; }
+.chat-pending-item { position:relative; width:54px; height:54px; flex-shrink:0; }
+.chat-pending-item img { width:100%; height:100%; object-fit:cover; border-radius:8px; border:1px solid #262b36; }
+.chat-pending-x { position:absolute; top:-6px; right:-6px; width:18px; height:18px; border-radius:50%; border:none; background:#15171d; color:#cdd3dc; font-size:13px; line-height:1; cursor:pointer; display:flex; align-items:center; justify-content:center; box-shadow:0 1px 4px rgba(0,0,0,.55); transition:background .12s, color .12s; }
+.chat-pending-x:hover { background:#ef4444; color:#fff; }
+.chat-pending-foot { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.chat-pending-count { font-size:11.5px; color:#7a8493; }
 .chat-pending-btns { display:flex; gap:6px; flex-shrink:0; }
 .chat-pending-cancel, .chat-pending-send { border:none; border-radius:7px; padding:7px 13px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font-ui); transition:background .12s, color .12s; }
 .chat-pending-cancel { background:#1a1c22; color:#9aa4b2; border:1px solid #262b36; }
