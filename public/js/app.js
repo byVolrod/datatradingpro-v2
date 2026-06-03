@@ -2469,12 +2469,13 @@ function _renderRiskGauge(data) {
 function _applyRiskTopbar(data) {
   const cls   = _sentClass(data.label);
   const arrow = cls === 'risk-on' ? '↗' : cls === 'risk-off' ? '↘' : '→';
+  const short = cls === 'risk-on' ? 'RISK ON' : cls === 'risk-off' ? 'RISK OFF' : 'NEUTRAL';
   const dotEl = document.getElementById('sentiment-dot-top');
   const lblEl = document.getElementById('sentiment-label-top');
   const btnEl = document.getElementById('sentiment-btn');
-  // Flèche directionnelle dans une petite pastille (look "↘ RISK OFF ⌄") au lieu du point neutre
+  // Look "↘ RISK OFF ⌄" : flèche fine colorée + libellé COURT (pas la forme longue)
   if (dotEl) { dotEl.textContent = arrow; dotEl.className = 'sentiment-dir ' + cls; }
-  if (lblEl) lblEl.textContent = data.label;
+  if (lblEl) lblEl.textContent = short;
   if (btnEl) btnEl.className = 'topbar-sentiment ' + cls;
 }
 
@@ -2502,8 +2503,14 @@ function _renderRiskPopup(data) {
   const frLabel = LABEL_FR[data.label] || data.label;
   if (lbl) { lbl.textContent = frLabel; lbl.className = 'rp-label ' + cls; }
   if (ti) ti.textContent = `Sentiment du marché : ${frLabel}`;
+  // Bande sentiment pleine largeur : ● LABEL : phrase (colorée selon le risque)
+  const band = el('rp-band');
+  if (band) {
+    band.className = 'rp-band ' + cls;
+    band.innerHTML = `<span class="rp-band-dot"></span><span class="rp-band-txt"><strong>${data.label} :</strong> ${data.description || ''}</span>`;
+  }
   const de = el('rp-desc');
-  if (de) de.textContent = data.description;
+  if (de) de.style.display = 'none';   // la phrase est désormais dans la bande (plus de doublon)
   const as = el('rp-assets');
   if (as) {
     as.innerHTML = (data.assets || []).map(a => {
