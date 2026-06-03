@@ -5356,14 +5356,13 @@ function _chatRender(messages){
 function _chatPickerHtml(mid){
   return `<div class="chat-react-picker">`
     + `<button type="button" title="J'aime" onclick="_chatReact('${mid}','👍')">👍</button>`
-    + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">❤️</button>`
-    + `<button type="button" title="Feu" onclick="_chatReact('${mid}','🔥')">🔥</button></div>`;
+    + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">❤️</button></div>`;
 }
 // Pastilles des réactions POSÉES (façon LinkedIn) — sous la bulle ; surlignées si J'AI réagi.
 function _chatReactionsHtml(m, myId, mid){
   const r = (m && m.reactions && typeof m.reactions === 'object') ? m.reactions : {};
   let pills = '';
-  ['👍','❤️','🔥'].forEach(em=>{
+  ['👍','❤️'].forEach(em=>{
     const arr = Array.isArray(r[em]) ? r[em] : [];
     if (!arr.length) return;
     const mine = arr.map(String).includes(myId);
@@ -5397,7 +5396,7 @@ function _chatReact(id, emoji){
     const src = (msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : {};
     const had = Array.isArray(src[emoji]) && src[emoji].map(String).includes(myId);
     const r = {};
-    ['👍','❤️','🔥'].forEach(k=>{ const a2 = Array.isArray(src[k]) ? src[k].map(String).filter(x=>x!==myId) : []; if (a2.length) r[k]=a2; });
+    ['👍','❤️'].forEach(k=>{ const a2 = Array.isArray(src[k]) ? src[k].map(String).filter(x=>x!==myId) : []; if (a2.length) r[k]=a2; });
     if (!had){ (r[emoji] = r[emoji] || []).push(myId); }
     msg.reactions = r;
     _chatSig = _sigMsgs(arr);

@@ -319,8 +319,8 @@ async function chatUpdate(id, text) {
   return m || null;
 }
 
-// ── Réactions emoji (👍 ❤️ 🔥) — toggle par réacteur ───────────
-const _CHAT_EMOJIS = ['👍', '❤️', '🔥'];
+// ── Réactions emoji (👍 ❤️) — toggle par réacteur ───────────
+const _CHAT_EMOJIS = ['👍', '❤️'];
 function _toggleReaction(reactions, emoji, who) {
   const r = (reactions && typeof reactions === 'object') ? { ...reactions } : {};
   const arr = Array.isArray(r[emoji]) ? r[emoji].slice() : [];
