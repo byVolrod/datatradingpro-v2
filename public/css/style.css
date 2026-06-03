@@ -1506,13 +1506,16 @@ html, body {
   flex-direction: column;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+  max-height: 42%;                 /* plafond → laisse de la place au widget du bas (jauge…) */
+  overflow: hidden;
 }
 
 .clocks-bar {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));  /* 5 villes (Londres, NY, Tokyo, Dubai, Paris) */
   background: var(--bg1);
-  flex-shrink: 0;
+  flex-shrink: 1;
+  overflow-y: auto;                /* sécurité : scroll si jamais ça déborde */
 }
 /* En dessous de 1150px de viewport → horloges sur 2×2 */
 @media (max-width: 1150px) {
@@ -1534,7 +1537,7 @@ html, body {
 
 .clock-item {
   min-width: 0;
-  padding: 9px 14px 9px;
+  padding: 6px 13px;               /* compact → World Clock plus court */
   border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -1552,7 +1555,7 @@ html, body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
 }
 .clock-wday {
   font-family: var(--font-mono);
@@ -1572,13 +1575,13 @@ html, body {
 
 .clock-time {
   font-family: var(--font-mono);
-  font-size: 22px;
+  font-size: 19px;
   font-weight: 700;
   color: #f2f2f2;                     /* quasi-blanc → chiffres bien nets */
   letter-spacing: -0.02em;
-  line-height: 1.05;
+  line-height: 1.02;
   white-space: nowrap;
-  margin-bottom: 3px;
+  margin-bottom: 1px;
 }
 
 /* GMT (petite ligne) PUIS ville (ligne dédiée pleine largeur) → ville TOUJOURS entière */
@@ -1587,7 +1590,7 @@ html, body {
   flex-direction: column;
   align-items: flex-start;
   gap: 1px;
-  margin-bottom: 7px;
+  margin-bottom: 4px;
   overflow: hidden;
 }
 .clock-gmt {
@@ -1616,7 +1619,7 @@ html, body {
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 .clock-country-row {
   font-family: var(--font-mono);
