@@ -3456,6 +3456,26 @@ function renderBrReader(item) {
     ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
     : '';
 
+  // Contenu DÉJÀ fourni (ex. SEB via API) → on l'affiche directement, aucun re-fetch.
+  if (item.fullContent && content) {
+    const _inst = _instBadge(item);
+    const _tagline = _inst === 'ING' ? 'THINK economic and financial analysis'
+      : _inst === 'DTP' ? 'Institutional research' : _inst + ' Research';
+    const headerHtml = `<div class="br-ing-header">${_instLogoHtml(_inst)}<div class="br-ing-tagline">${_tagline}</div></div><div class="br-ing-divider"></div>`;
+    content.innerHTML = `<div class="br-document">
+        ${headerHtml}
+        <div class="br-ing-meta"><span class="br-ing-type">${_inst === 'DTP' ? 'Research' : _inst}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
+        <div class="br-doc-title">${item.title}</div>
+        <div class="br-doc-body">${item.fullContent}</div>
+        <div class="br-doc-footer"><a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">Lire l'original →</a></div>
+      </div>`;
+    _brFixImages(content);
+    content.scrollTop = 0;
+    const _full = (content.innerText || '').trim();
+    if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
+    return;
+  }
+
   fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
     .then(r => r.json())
     .then(data => {
