@@ -594,23 +594,26 @@ body.is-resizing iframe { pointer-events: none; }
 
 /* ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) ══ */
 .clocks-resizer {
-  flex: 0 0 7px;
-  height: 7px;
+  /* Plus AUCUN espace ajouté : le World Clock est collé aux onglets (comme l'image).
+     La séparation visible = la bordure (1px) de .clocks-panel. La zone de saisie (::before)
+     chevauche le bas du World Clock (zone météo, non cliquable) → invisible au repos. */
+  flex: 0 0 0;
+  height: 0;
   cursor: row-resize;
-  background: transparent;
   position: relative;
   z-index: 30;
+  overflow: visible;
 }
-.clocks-resizer::before {     /* AU REPOS : trait fin légèrement visible (repère) */
+.clocks-resizer::before {     /* zone grabbable de 8px, AU-DESSUS de la frontière → n'ajoute pas d'espace */
   content: '';
   position: absolute;
-  left: 0; right: 0; top: 50%; transform: translateY(-1px);
-  height: 2px;
-  background: rgba(255,255,255,0.09);
+  left: 0; right: 0;
+  top: -8px; height: 8px;
+  background: transparent;
   transition: background 0.12s;
 }
 .clocks-resizer:hover::before,
-body.is-resizing-v .clocks-resizer::before { background: rgba(255,122,0,0.72); }
+body.is-resizing-v .clocks-resizer::before { background: rgba(255,122,0,0.16); }  /* repère discret au survol/drag */
 body.is-resizing-v { cursor: row-resize; user-select: none; }
 body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outline-offset: -1px; }
 @media (max-width: 1024px) {
@@ -1572,7 +1575,6 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .clocks-bar {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));  /* 5 villes (Londres, NY, Tokyo, Dubai, Paris) */
-  column-gap: 6px;                 /* léger espace entre les villes */
   background: var(--bg1);
   flex-shrink: 1;
   overflow-y: auto;                /* sécurité : scroll si jamais ça déborde */
@@ -1598,6 +1600,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .clock-item {
   min-width: 0;
   padding: 6px 13px;               /* compact → World Clock plus court */
+  border-right: 1px solid var(--border);   /* séparateurs verticaux entre villes (comme l'image) */
   display: flex;
   flex-direction: column;
   cursor: default;
@@ -1606,8 +1609,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   position: relative;
 }
 
+.clock-item:last-child { border-right: none; }
 .clock-item:hover { background: var(--bg2); }
-.clock-item--local { box-shadow: inset 2px 0 0 var(--border2); }
+.clock-item--local { border-right: 2px solid var(--border2); }
 
 .clock-top-row {
   display: flex;
@@ -6956,8 +6960,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .np-origin--risk    { color: #ef4444; background: rgba(239,68,68,.12);  border-color: rgba(239,68,68,.32); }
 .np-origin--analyst { color: #a78bfa; background: rgba(167,139,250,.12);border-color: rgba(167,139,250,.32); }
 
-/* Bell active state */
-#np-bell-btn.np-bell--active { color: #f7941d; }
+/* Bell active state (couleur définie plus bas avec le trait vert) */
+#np-bell-btn.np-bell--active { color: #fff; }
 
 /* Topbar bell cursor */
 #np-bell-btn { cursor: pointer; }
@@ -7506,6 +7510,26 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sqwk-text { color: #d4d4d8; font-size: 13px; font-weight: 400; line-height: 1.6; word-break: break-word; }
 .sqwk-footer { padding: 10px 14px; border-top: 1px solid #1c1c20; text-align: center; font-size: 10.5px; color: #555; flex-shrink: 0; }
 .topbar-icon--active { color: #f7941d !important; }
+
+/* Volet ouvert (MESSAGERIE ou NOTIFICATIONS) → icône claire + trait vert dessous,
+   aligné sur le bas du topbar (comme Prime Terminal). Scopé chat + cloche uniquement :
+   le squawk (#sqwk-btn) garde sa couleur rouge/vert et n'a pas de trait. */
+#chat-btn.topbar-icon--active,
+#np-bell-btn.np-bell--active { color: #fff !important; }
+#chat-btn.topbar-icon--active::after,
+#np-bell-btn.np-bell--active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -10px;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 2px;
+  border-radius: 2px;
+  background: #22c55e;                          /* trait vert */
+  box-shadow: 0 0 6px rgba(34,197,94,0.5);
+  pointer-events: none;
+}
 @media (max-width: 480px) { .sqwk-panel { width: 100%; max-width: 100%; } }
 .sqwk-audio { background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.9; }
 .sqwk-audio--off { opacity: 0.4; filter: grayscale(1); }
