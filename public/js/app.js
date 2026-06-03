@@ -49,6 +49,80 @@ function dtpToast(msg) {
 function aiComingSoon() { dtpToast('🤖 AI — bientôt disponible'); }
 window.dtpToast = dtpToast; window.aiComingSoon = aiComingSoon;
 
+// ════════════════ MACRO AI ASSISTANT — chat IA (état VOLATIL, reset au reload) ════════════════
+let _aiMsgs = [];
+let _aiBusy = false;
+const AI_CHIP = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 2v2M15 2v2M9 20v2M15 20v2M2 9h2M2 15h2M20 9h2M20 15h2"/><rect x="9.5" y="9.5" width="5" height="5" rx="1"/></svg>';
+function _aiTime() { try { return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
+function _aiEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _aiMd(s) { return _aiEsc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); }
+function _aiWelcomeMsg() { return { role: 'ai', text: "Hello! I'm your Macro AI assistant. Ask me about market trends, economic indicators, or get insights on global markets.", time: _aiTime() }; }
+
+function aiOpen() {
+  const p = document.getElementById('ai-panel'), b = document.getElementById('ai-backdrop');
+  if (!p) return;
+  if (!_aiMsgs.length) _aiMsgs = [_aiWelcomeMsg()];
+  aiRender();
+  p.classList.add('open'); if (b) b.classList.add('open'); p.setAttribute('aria-hidden', 'false');
+  setTimeout(() => { const i = document.getElementById('ai-input'); if (i) i.focus(); }, 230);
+}
+function aiClose() {
+  const p = document.getElementById('ai-panel'), b = document.getElementById('ai-backdrop');
+  if (p) { p.classList.remove('open'); p.setAttribute('aria-hidden', 'true'); }
+  if (b) b.classList.remove('open');
+  aiClearCancel();
+}
+function _aiSourcesHtml(sources, idx) {
+  const items = (sources || []).map(s =>
+    `<div class="ai-source"><span class="ai-source-dot"></span><div><div class="ai-source-name">${_aiEsc(s.name)}</div><div class="ai-source-date">${_aiEsc(s.date)}</div></div></div>`).join('');
+  return `<div class="ai-sources" id="ai-src-${idx}"><span class="ai-sources-head" onclick="aiToggleSources(${idx})"><span class="ai-sources-arrow">›</span> ${(sources || []).length} sources used</span><div class="ai-sources-list">${items}</div></div>`;
+}
+function aiToggleSources(idx) { const el = document.getElementById('ai-src-' + idx); if (el) el.classList.toggle('open'); }
+function aiRender() {
+  const box = document.getElementById('ai-messages'); if (!box) return;
+  let html = '<div class="ai-day-sep"><span>Today</span></div>';
+  _aiMsgs.forEach((m, i) => {
+    if (m.role === 'user') {
+      html += `<div class="ai-row ai-row--user"><div class="ai-bubble-user">${_aiEsc(m.text)}</div><div class="ai-time">${m.time}</div></div>`;
+    } else {
+      const body = m.typing
+        ? '<span class="ai-typing"><span></span><span></span><span></span></span>'
+        : _aiMd(m.text);
+      const src = (!m.typing && m.sources && m.sources.length) ? _aiSourcesHtml(m.sources, i) : '';
+      const time = m.typing ? '' : `<div class="ai-time">${m.time}</div>`;
+      html += `<div class="ai-row ai-row--ai"><div class="ai-chip">${AI_CHIP}</div><div class="ai-ai-body"><div class="ai-ai-text">${body}</div>${src}${time}</div></div>`;
+    }
+  });
+  box.innerHTML = html;
+  box.scrollTop = box.scrollHeight;
+}
+async function aiSend() {
+  const inp = document.getElementById('ai-input'); if (!inp) return;
+  const q = inp.value.trim(); if (!q || _aiBusy) return;
+  inp.value = '';
+  if (!_aiMsgs.length) _aiMsgs = [_aiWelcomeMsg()];
+  _aiMsgs.push({ role: 'user', text: q, time: _aiTime() });
+  _aiMsgs.push({ role: 'ai', typing: true });
+  _aiBusy = true; aiRender();
+  try {
+    const r = await fetch('/api/ai/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: q }) });
+    const d = await r.json().catch(() => ({}));
+    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].typing) _aiMsgs.pop();
+    if (r.ok && d.answer) _aiMsgs.push({ role: 'ai', text: d.answer, sources: d.sources || [], time: _aiTime() });
+    else _aiMsgs.push({ role: 'ai', text: "Sorry, I'm temporarily unavailable. Please try again shortly.", time: _aiTime() });
+  } catch (e) {
+    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].typing) _aiMsgs.pop();
+    _aiMsgs.push({ role: 'ai', text: 'Connection error. Please try again.', time: _aiTime() });
+  } finally { _aiBusy = false; aiRender(); }
+}
+function aiClearAsk() { const b = document.getElementById('ai-clear-banner'); if (b) b.classList.add('show'); }
+function aiClearCancel() { const b = document.getElementById('ai-clear-banner'); if (b) b.classList.remove('show'); }
+function aiClearConfirm() { _aiMsgs = [_aiWelcomeMsg()]; aiClearCancel(); aiRender(); }
+window.aiOpen = aiOpen; window.aiClose = aiClose; window.aiSend = aiSend;
+window.aiToggleSources = aiToggleSources; window.aiClearAsk = aiClearAsk; window.aiClearCancel = aiClearCancel; window.aiClearConfirm = aiClearConfirm;
+// Le bouton AI de la topbar ouvre le volet Macro AI Assistant
+(function () { var b = document.getElementById('ai-btn'); if (b) b.addEventListener('click', aiOpen); })();
+
 // ═══ World clocks ══════════════════════════
 const CLOCKS = [
   { city: 'London',   code: 'LON', country: 'UK',  tz: 'Europe/London',    lat: 51.5074, lon: -0.1278  },

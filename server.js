@@ -771,6 +771,37 @@ app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
 });
 
 app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
+
+// ── Macro AI Assistant : chat IA (Gemini→Claude) avec CONTEXTE marché réel + sources réelles ──
+const _aiChatMem = {};   // cache process (clé = hash question) ; aussi persisté dans ai_cache (quota Gemini)
+function _aiChatKey(q) { return 'aichat:' + require('crypto').createHash('md5').update(q.toLowerCase().trim()).digest('hex').slice(0, 22); }
+function _fmtDMY(ts) { const d = ts ? new Date(ts) : new Date(); const p = n => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`; }
+app.post('/api/ai/chat', async (req, res) => {
+  const q = String((req.body && req.body.message) || '').trim().slice(0, 600);
+  if (!q) return res.status(400).json({ error: 'Message vide' });
+  // Sources RÉELLES = news récentes effectivement fournies en contexte à l'IA (pas de mock)
+  const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
+  const sources = newsCtx.map(n => ({ name: n.source || n.category || 'Market Wire', date: _fmtDMY(n.timestamp) }));
+  const key = _aiChatKey(q);
+  let answer = _aiChatMem[key];
+  if (!answer) { try { const c = await auth.aiCacheGet(key); if (c && typeof c === 'string') answer = c; } catch {} }
+  if (!answer) {
+    let biasLine = '';
+    try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current PMT Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
+    const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
+    const prompt = `You are PMT's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. Answer the user's question in ONE concise, data-driven paragraph (max ~140 words), institutional tone, no preamble, no disclaimer. Wrap key market terms in **double asterisks** to bold them (e.g. **weak bearish**, **EUR/USD**, central banks, **risk-off**).
+${biasLine}
+Recent market headlines (context):
+${heads}
+
+User question: ${q}`;
+    try { answer = await ai.generateText(prompt, 380); } catch (e) { answer = null; }
+    if (answer && answer.trim()) { answer = answer.trim(); _aiChatMem[key] = answer; auth.aiCacheSet(key, answer).catch(() => {}); }
+    else answer = null;
+  }
+  if (!answer) return res.status(503).json({ error: 'AI temporairement indisponible' });
+  res.json({ answer, sources });
+});
 app.get('/api/news/history', (req, res) => {
   const before = parseInt(req.query.before) || Date.now();
   const limit  = Math.min(parseInt(req.query.limit) || 100, 200);

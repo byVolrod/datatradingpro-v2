@@ -7958,6 +7958,81 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .fxl-th:nth-child(4), .fxl-td:nth-child(4) { display: none; }     /* SEASONAL */
 }
 
+/* ════════════════════ MACRO AI ASSISTANT (chat IA) ════════════════════ */
+.ai-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1190; opacity: 0; pointer-events: none; transition: opacity .2s; }
+.ai-backdrop.open { opacity: 1; pointer-events: auto; }
+.ai-panel {
+  position: fixed; top: 0; right: 0; height: 100%; width: 430px; max-width: 100vw;
+  background: #0c0c0e; z-index: 1200; display: flex; flex-direction: column;
+  transform: translateX(100%); transition: transform .24s cubic-bezier(.2,.8,.2,1);
+  border-left: 1px solid #1c1c20; border-radius: 0;
+}
+.ai-panel.open { transform: translateX(0); }
+/* En-tête */
+.ai-header { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid #1a1a1e; flex: 0 0 auto; }
+.ai-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.ai-head-ic {
+  width: 30px; height: 30px; flex: 0 0 auto; border-radius: 8px 8px 8px 2px;
+  background: rgba(0,230,118,0.14); border: 1px solid rgba(0,230,118,0.42); color: #00e676;
+  font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; font-family: var(--font-ui);
+}
+.ai-head-title { font-size: 13px; font-weight: 600; color: #e9eaed; line-height: 1.2; }
+.ai-head-status { display: flex; align-items: center; gap: 5px; font-size: 11px; color: #00e676; margin-top: 2px; }
+.ai-status-dot { width: 6px; height: 6px; border-radius: 50%; background: #00e676; box-shadow: 0 0 5px rgba(0,230,118,0.8); }
+.ai-header-right { display: flex; align-items: center; gap: 2px; }
+.ai-hdr-btn { width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; background: none; border: none; color: #6b7280; cursor: pointer; border-radius: 6px; transition: color .12s, background .12s; }
+.ai-hdr-btn:hover { color: #e4e6ea; background: rgba(255,255,255,0.05); }
+/* Bandeau de confirmation rouge */
+.ai-clear-banner { display: none; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: #e03e3e; color: #fff; flex: 0 0 auto; animation: aiBannerIn .18s ease-out; }
+.ai-clear-banner.show { display: flex; }
+.ai-clear-txt { font-size: 13px; font-weight: 600; }
+.ai-clear-check { opacity: .92; margin-right: 2px; }
+.ai-clear-actions { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
+.ai-clear-yes { background: #fff; color: #171717; padding: 2px 9px; border: none; border-radius: 3px; font-size: 12px; font-weight: 700; cursor: pointer; }
+.ai-clear-cancel { background: none; border: none; color: #fff; font-size: 14px; cursor: pointer; opacity: .9; line-height: 1; padding: 2px; }
+.ai-clear-cancel:hover { opacity: 1; }
+@keyframes aiBannerIn { from { transform: translateY(-100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+/* Fil de messages */
+.ai-messages { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.ai-day-sep { display: flex; align-items: center; gap: 12px; color: #6b7280; font-size: 11px; }
+.ai-day-sep::before, .ai-day-sep::after { content: ''; flex: 1; height: 1px; background: #1a1a1e; }
+/* Message utilisateur (droite) */
+.ai-row--user { display: flex; flex-direction: column; align-items: flex-end; }
+.ai-bubble-user { background: #1c1c1f; color: #e9eaed; padding: 9px 12px; border-radius: 10px; font-size: 13px; line-height: 1.5; max-width: 82%; word-wrap: break-word; }
+.ai-time { font-size: 10px; color: #6b7280; margin-top: 4px; }
+/* Message IA (gauche, sans fond) */
+.ai-row--ai { display: flex; gap: 10px; align-items: flex-start; }
+.ai-chip { width: 30px; height: 30px; flex: 0 0 auto; border-radius: 6px; border: 1px solid rgba(255,122,0,0.4); color: #ff7a00; display: flex; align-items: center; justify-content: center; background: rgba(255,122,0,0.08); }
+.ai-ai-body { flex: 1; min-width: 0; }
+.ai-ai-text { color: #d7dade; font-size: 13px; line-height: 1.62; word-wrap: break-word; }
+.ai-ai-text strong { color: #fff; font-weight: 700; }
+/* Accordéon des sources */
+.ai-sources { margin-top: 9px; }
+.ai-sources-head { display: inline-flex; align-items: center; gap: 6px; color: #ff7a00; font-size: 12px; font-weight: 500; cursor: pointer; user-select: none; }
+.ai-sources-arrow { display: inline-block; font-size: 11px; transition: transform .18s ease; }
+.ai-sources.open .ai-sources-arrow { transform: rotate(90deg); }
+.ai-sources-list { display: none; margin-top: 9px; padding-left: 3px; flex-direction: column; gap: 9px; }
+.ai-sources.open .ai-sources-list { display: flex; }
+.ai-source { display: flex; gap: 9px; align-items: flex-start; }
+.ai-source-dot { width: 5px; height: 5px; border-radius: 50%; background: #cfd3da; margin-top: 5px; flex: 0 0 auto; }
+.ai-source-name { font-size: 12px; color: #d7dade; line-height: 1.3; }
+.ai-source-date { font-size: 11px; color: #8a8f98; margin-top: 1px; }
+/* Indicateur "écrit…" */
+.ai-typing { display: inline-flex; gap: 4px; align-items: center; padding: 3px 0; }
+.ai-typing span { width: 6px; height: 6px; border-radius: 50%; background: #ff7a00; opacity: .5; animation: aiTyping 1.1s infinite ease-in-out; }
+.ai-typing span:nth-child(2) { animation-delay: .15s; }
+.ai-typing span:nth-child(3) { animation-delay: .3s; }
+@keyframes aiTyping { 0%,100% { opacity: .25; transform: translateY(0); } 50% { opacity: 1; transform: translateY(-3px); } }
+/* Barre d'input */
+.ai-inputbar { display: flex; align-items: center; gap: 8px; padding: 10px 12px 4px; flex: 0 0 auto; }
+.ai-input { flex: 1; min-width: 0; background: #0a0a0c; border: 1px solid #262629; border-radius: 4px; color: #e9eaed; font-size: 13px; padding: 9px 11px; outline: none; font-family: var(--font-ui); }
+.ai-input::placeholder { color: #5b5f66; font-size: 12px; }
+.ai-input:focus { border-color: #3a3a40; }
+.ai-send { width: 34px; height: 34px; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; background: none; border: 1px solid #ff7a00; color: #ff7a00; border-radius: 4px; cursor: pointer; transition: background .12s; }
+.ai-send:hover { background: rgba(255,122,0,0.12); }
+.ai-legal { text-align: center; font-size: 11px; color: #6b7280; padding: 4px 12px 12px; flex: 0 0 auto; }
+@media (max-width: 480px) { .ai-panel { width: 100%; border-left: none; } }
+
 /* ═══════════════ CORRECTIFS RESPONSIVE (tablette / téléphone) ═══════════════ */
 /* Tablette ≤ 768px : les volets latéraux passent en pleine largeur (au lieu de 420-440px
    qui mangeaient la moitié de l'écran), et les grandes tables s'assouplissent. */
