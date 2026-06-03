@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260603s" />
+  <link rel="stylesheet" href="/css/style.css?v=20260603t" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -548,8 +548,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260603s"></script>
-<script src="/js/charts.js?v=20260603s"></script>
+<script src="/js/app.js?v=20260603t"></script>
+<script src="/js/charts.js?v=20260603t"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1280,6 +1280,10 @@
       <div class="chat-head-sub" id="chat-head-sub"><span class="chat-presence"></span>Répond généralement en quelques minutes</div>
     </div>
     <button class="chat-close" onclick="chatClose()">×</button>
+  </div>
+  <div class="chat-search-bar" id="chat-search-bar" style="display:none">
+    <span class="chat-search-ic">⌕</span>
+    <input type="text" id="chat-search-input" placeholder="Rechercher un utilisateur…" oninput="_chatSearchUsers(this.value)" autocomplete="off" />
   </div>
   <div class="chat-list" id="chat-list"></div>
   <div class="chat-input-bar">

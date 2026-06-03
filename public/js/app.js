@@ -5008,12 +5008,15 @@ async function _chatLiveTick(){
         _chatSetTyping(d.typing, _chatThreadName);   // le client tape ?
         _chatPollUnread();   // garde le badge à jour (autres conversations non lues)
       } else {
-        const d = await (await fetch('/api/admin/chat')).json();
-        const threads = d.threads || [];
-        _chatInboxCache = threads;
-        _chatSetBadge(threads.filter(t=>(t.unread||0)>0).length);   // badge sync même panneau ouvert
-        const sig = _sigThreads(threads);
-        if (sig !== _chatSig){ _chatSig = sig; _chatRenderInbox(threads); }
+        // Inbox : on rafraîchit conversations + liste utilisateurs (statut en ligne) en parallèle.
+        const [d1, d2] = await Promise.all([
+          (await fetch('/api/admin/chat')).json().catch(()=>({ threads: [] })),
+          (await fetch('/api/support/users')).json().catch(()=>({ users: [] })),
+        ]);
+        _chatInboxData = { threads: d1.threads || [], users: d2.users || [] };
+        _chatInboxCache = _chatInboxData;
+        _chatSetBadge((_chatInboxData.threads||[]).filter(t=>(t.unread||0)>0).length);
+        _chatRenderInbox();
       }
     } else {
       const d = await (await fetch('/api/chat')).json();
@@ -5036,37 +5039,63 @@ function _chatHead(name, sub, showBack, showInput){
 }
 function _chatBackToInbox(){ _chatThreadUser = null; _chatInbox(); }
 
+let _chatInboxData  = { threads: [], users: [] };
+let _chatInboxQuery = '';
 function _chatInbox(){
   _chatThreadUser = null;
   _chatHead('Boîte de réception', 'Conversations clients · Support', false, false);
+  const sb = document.getElementById('chat-search-bar'); if (sb) sb.style.display = 'flex';   // recherche visible
   const list = document.getElementById('chat-list');
-  // Rendu INSTANTANÉ depuis le cache (pas de "Chargement…" à la ré-ouverture)
-  if (_chatInboxCache){ _chatSig = _sigThreads(_chatInboxCache); _chatRenderInbox(_chatInboxCache); }
+  if (_chatInboxCache){ _chatInboxData = _chatInboxCache; _chatRenderInbox(); }
   else if (list) list.innerHTML = '<div class="chat-empty">Chargement…</div>';
-  fetch('/api/admin/chat').then(r=>r.json()).then(d=>{
-    const threads = d.threads || [];
-    _chatInboxCache = threads;
-    const sig = _sigThreads(threads);
-    if (sig !== _chatSig || !list?.querySelector('.chat-thread')){ _chatSig = sig; _chatRenderInbox(threads); }
-  }).catch(()=>{ if(list && !_chatInboxCache) list.innerHTML='<div class="chat-empty">Boîte de réception indisponible.</div>'; });
+  Promise.all([
+    fetch('/api/admin/chat').then(r=>r.json()).catch(()=>({ threads: [] })),
+    fetch('/api/support/users').then(r=>r.json()).catch(()=>({ users: [] })),
+  ]).then(([d1, d2])=>{
+    _chatInboxData = { threads: d1.threads || [], users: d2.users || [] };
+    _chatInboxCache = _chatInboxData;
+    _chatSetBadge((_chatInboxData.threads || []).filter(t => (t.unread || 0) > 0).length);
+    _chatRenderInbox();
+  });
 }
+// Recherche d'un utilisateur (par nom/email) — filtre le rendu sans perdre la saisie.
+function _chatSearchUsers(q){ _chatInboxQuery = (q || '').toLowerCase().trim(); _chatRenderInbox(); }
 
-function _chatRenderInbox(threads){
+function _chatRenderInbox(){
   const list = document.getElementById('chat-list'); if (!list) return;
   if (_chatThreadUser) return;   // on n'écrase pas une conversation ouverte
-  if (!threads.length){ list.innerHTML='<div class="chat-empty">Aucune conversation pour le moment.</div>'; return; }
+  const threads = (_chatInboxData && _chatInboxData.threads) || [];
+  const users   = (_chatInboxData && _chatInboxData.users)   || [];
+  const userById = new Map(users.map(u => [String(u.id), u]));
+  const threadIds = new Set(threads.map(t => String(t.user_id)));
+  // 1) Conversations existantes, puis 2) TOUS les autres utilisateurs (pour pouvoir les contacter).
+  const entries = [];
+  threads.forEach(t => entries.push({
+    id: String(t.user_id), name: t.name || t.email || t.user_id, email: t.email || '',
+    role: (userById.get(String(t.user_id)) || {}).role || 'user',
+    last: t.last || '', lastAt: t.lastAt || 0, unread: t.unread || 0,
+    online: !!(userById.get(String(t.user_id)) || {}).online, hasThread: true,
+  }));
+  users.forEach(u => { if (!threadIds.has(String(u.id))) entries.push({
+    id: String(u.id), name: u.name || u.email || u.id, email: u.email || '',
+    role: u.role || 'user', last: '', lastAt: 0, unread: 0, online: !!u.online, hasThread: false,
+  }); });
+  const q = _chatInboxQuery;
+  const filtered = q ? entries.filter(e => (e.name + ' ' + e.email).toLowerCase().includes(q)) : entries;
+  if (!filtered.length){ list.innerHTML = `<div class="chat-empty">${q ? 'Aucun utilisateur trouvé.' : 'Aucun utilisateur.'}</div>`; return; }
   let html = '';
-  threads.forEach(t=>{
-    const label = t.name || t.email || t.user_id;
-    let last = t.last||'';
+  filtered.forEach(e => {
+    let last = e.last;
     if (/^data:image\//.test(last)) last = '📷 Image';
     else if (/^data:/.test(last))   last = '📎 Pièce jointe';
-    const when = t.lastAt ? new Date(t.lastAt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}) : '';
-    const unread = t.unread>0 ? `<span class="chat-thread-badge">${t.unread>9?'9+':t.unread}</span>` : '';
-    html += `<div class="chat-thread${t.unread>0?' chat-thread--unread':''}" onclick="_chatOpenThread('${_chatEsc(t.user_id)}','${_chatEsc(label).replace(/'/g,"\\'")}')">`
-      + `<div class="chat-thread-av">${_chatEsc(label.charAt(0).toUpperCase())}</div>`
-      + `<div class="chat-thread-body"><div class="chat-thread-top"><span class="chat-thread-name">${_chatEsc(label)}</span>${unread}</div>`
-      + `<div class="chat-thread-last">${_chatEsc(last.slice(0,60))}</div></div>`
+    const sub = e.hasThread ? _chatEsc(last.slice(0, 60)) : '<span class="chat-thread-start">Démarrer une conversation</span>';
+    const when = e.lastAt ? new Date(e.lastAt).toLocaleString('fr-FR',{ day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+    const unread = e.unread>0 ? `<span class="chat-thread-badge">${e.unread>9?'9+':e.unread}</span>` : '';
+    const roleTag = (e.role === 'admin' || e.role === 'support') ? `<span class="chat-role-tag">${_chatEsc(e.role)}</span>` : '';
+    html += `<div class="chat-thread${e.unread>0?' chat-thread--unread':''}" onclick="_chatOpenThread('${_chatEsc(e.id)}','${_chatEsc(e.name).replace(/'/g,"\\'")}')">`
+      + `<div class="chat-thread-av${e.online?' is-online':''}">${_chatEsc(e.name.charAt(0).toUpperCase())}<span class="chat-presence-dot" title="${e.online?'En ligne':'Hors ligne'}"></span></div>`
+      + `<div class="chat-thread-body"><div class="chat-thread-top"><span class="chat-thread-name">${_chatEsc(e.name)}</span>${roleTag}${unread}</div>`
+      + `<div class="chat-thread-last">${sub}</div></div>`
       + `<div class="chat-thread-when">${when}</div></div>`;
   });
   list.innerHTML = html;
@@ -5074,6 +5103,7 @@ function _chatRenderInbox(threads){
 
 function _chatOpenThread(userId, name){
   _chatThreadUser = userId; _chatThreadName = name;
+  const sb = document.getElementById('chat-search-bar'); if (sb) sb.style.display = 'none';   // pas de recherche dans une conv
   _chatHead(name, 'Vous répondez en tant que support', true, true);
   const list = document.getElementById('chat-list');
   const cached = _chatMsgCache[userId];
