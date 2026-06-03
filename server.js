@@ -1329,8 +1329,7 @@ function _brLoadFile() {
 // Sources de recherche institutionnelle / analystes (flux RSS publics, sans navigateur)
 const BR_FEEDS = [
   { url: 'https://think.ing.com/rss/',          institution: 'ING',        source: 'ing-think',   paged: true  },
-  { url: 'https://www.actionforex.com/feed/',   institution: 'ActionForex',source: 'actionforex', paged: false }, // agrège les notes de banques (UOB, Danske, OCBC…)
-  { url: 'https://www.fxstreet.com/rss/analysis', institution: 'FXStreet', source: 'fxstreet',    paged: false },
+  // FXStreet et ActionForex retirés sur demande. Sources institution = ING + MUFG + SEB + Scotiabank.
 ];
 
 // Parse un flux RSS de recherche → ajoute les items dans `merged`
@@ -1444,6 +1443,44 @@ async function _fetchSebInto(merged, cutoff, UA) {
   }
 }
 
+// Scotiabank Economics — landing pages "Global Week Ahead" + "Global Outlook & Forecast Tables".
+// HTML statique : la landing liste les posts (titre + date dans le slug), chaque post a le
+// contenu complet (récupéré à l'ouverture). Badge "Scotia".
+const SCOTIA_PAGES = [
+  { url: 'https://www.scotiabank.com/ca/en/about/economics/economics-publications.global-week-ahead.html', kw: 'global-week-ahead', cat: 'Macro' },
+  { url: 'https://www.scotiabank.com/ca/en/about/economics/economics-publications.global-outlook-and-forecast-tables.html', kw: 'forecast-tables', cat: 'Macro' },
+];
+async function _fetchScotiaInto(merged, cutoff, UA) {
+  for (const page of SCOTIA_PAGES) {
+    try {
+      const r = await axios.get(page.url, { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+      if (r.status !== 200) continue;
+      const $ = cheerio.load(r.data);
+      const seen = new Set(); const posts = [];
+      $('a[href*="/post."]').each((_, a) => {
+        const href = ($(a).attr('href') || '').trim();
+        if (!/\/post\./i.test(href) || !new RegExp(page.kw, 'i').test(href)) return;
+        const title = $(a).text().replace(/\s+/g, ' ').trim();
+        if (!title || title.length < 10) return;
+        const link = href.startsWith('http') ? href : 'https://www.scotiabank.com' + href;
+        if (seen.has(link)) return; seen.add(link);
+        // Date depuis le slug : "…week-ahead.may-22--2026.html" ou "…forecast-tables.2026.march-24--2026.html"
+        let ts = Date.now();
+        const dm = href.match(/\.([a-z]+)-(\d{1,2})-+(\d{4})\.html/i);
+        if (dm) { const d = new Date(`${dm[1]} ${dm[2]} ${dm[3]}`); if (!isNaN(d.getTime())) ts = d.getTime(); }
+        posts.push({ title, link, ts });
+      });
+      // Publications ESPACÉES (hebdo/trimestriel) → on garde les 6 plus récentes, SANS cutoff d'âge
+      // (sinon les "forecast tables" — dernières datant de plusieurs semaines — seraient exclues).
+      posts.sort((a, b) => b.ts - a.ts).slice(0, 6).forEach(p => {
+        const id = 'br-' + Buffer.from(p.link).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        if (merged.has(id)) return;
+        merged.set(id, { id, title: p.title, url: p.link, timestamp: p.ts, categories: [page.cat], description: '', institution: 'Scotiabank', _source: 'scotia' });
+      });
+    } catch (e) { console.warn('[Scotia]', e.message); }
+  }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -1471,10 +1508,13 @@ async function _fetchBankResearch(full = false) {
   await _fetchMufgInto(merged, cutoff, UA);
   // SEB (API JSON publique, titres anglais uniquement) — fusionné dans le même cache
   await _fetchSebInto(merged, cutoff, UA);
+  // Scotiabank Economics (HTML statique) — fusionné dans le même cache
+  await _fetchScotiaInto(merged, cutoff, UA);
 
   const before = _brCache.length;
   _brCache = [...merged.values()]
-    .filter(i => i.timestamp > cutoff)
+    // Scotiabank exempté du cutoff d'âge (publications espacées : on garde toujours les dernières)
+    .filter(i => i.timestamp > cutoff || i._source === 'scotia')
     .sort((a, b) => b.timestamp - a.timestamp);
 
   try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
@@ -1646,7 +1686,7 @@ function _stripSource(html) {
     .trim();
 }
 
-const _BR_CONTENT_HOSTS = /^https:\/\/(www\.)?(think\.ing\.com|actionforex\.com|fxstreet\.com|mufgresearch\.com)\//i;
+const _BR_CONTENT_HOSTS = /^https:\/\/(www\.)?(think\.ing\.com|mufgresearch\.com|scotiabank\.com)\//i;
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
@@ -1712,10 +1752,16 @@ app.get('/api/bank-research-content', async (req, res) => {
     });
 
     // Extract body HTML (avec images) — inclut .blog-content (MUFG)
-    const body = $('.blog-content, [class*="blog-content"], [class*="article-body"], [class*="article__body"], [class*="article-content"], [class*="post-content"], .content-body, article .content, .entry-content, .wysiwyg, .rich-text').first().html()
-              || $('main article').first().html()
-              || $('main').first().html()
-              || '';
+    // Scotiabank : le corps est réparti sur plusieurs composants cmp-text/c--body → on les concatène.
+    let body = '';
+    if (/scotiabank\.com/i.test(url)) {
+      body = $('[class*="cmp-text"], [class*="c--body"]').map((_, el) => $(el).html()).get().join('\n');
+    }
+    body = body
+      || $('.blog-content, [class*="blog-content"], [class*="article-body"], [class*="article__body"], [class*="article-content"], [class*="post-content"], .content-body, article .content, .entry-content, .wysiwyg, .rich-text').first().html()
+      || $('main article').first().html()
+      || $('main').first().html()
+      || '';
 
     // Corriger les URLs relatives des images → absolues (selon l'hôte réel de l'article)
     const clean = body
