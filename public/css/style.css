@@ -1529,6 +1529,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   flex-shrink: 0;
 }
 .dtp-loader__label {
+  font-family: var(--font-mono);   /* MÊME police pour tous les loaders (fini l'héritage du conteneur) */
   font-size: 13px;
   letter-spacing: .02em;
   color: #e8eaed;            /* blanc cassé (lisible) */
