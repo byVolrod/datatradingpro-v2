@@ -12,7 +12,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail } = require('./scrapers/forexfactory-news');
-const { fetchTVCalendar } = require('./scrapers/tvcalendar');   // actuals calendrier (HTTP TradingView, sans Cloudflare)
+const { fetchTVCalendar, fetchTVCalendarFull } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
@@ -1081,10 +1081,35 @@ function _overlayActuals(events) {
     return ev;
   });
 }
+// ── Calendrier construit DIRECTEMENT depuis TradingView (events + actual/forecast/previous +
+// importance natifs → aucun matching, colonne ACTUAL exacte en temps réel + anciennes données). ──
+let _tvCalCache = { ts: 0, items: [] };
+async function _buildTVCalendar() {
+  if (Date.now() - _tvCalCache.ts < 4 * 60 * 1000 && _tvCalCache.items.length) return _tvCalCache.items;
+  let evs = null;
+  try { evs = await fetchTVCalendarFull(); } catch {}
+  if (!Array.isArray(evs) || !evs.length) return _tvCalCache.items;   // échec → on garde le dernier bon snapshot
+  const items = evs.filter(e => e.impact === 'High' || e.impact === 'Medium').map(e => ({   // focus événements tradables
+    id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),
+    timestamp: e.ts,
+    time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+    currency: e.currency, impact: e.impact, title: e.title,
+    actual: e.actual || '', forecast: e.forecast || '', previous: e.previous || '',
+    url: '',
+  }));
+  _tvCalCache = { ts: Date.now(), items };
+  return items;
+}
 app.get('/api/calendar-events', async (_req, res) => {
+  // SOURCE PRINCIPALE : TradingView (actuals natifs, aucun matching) → exact + temps réel + anciennes données.
+  let items = [];
+  try { items = await _buildTVCalendar(); } catch {}
+  if (items && items.length) return res.json({ items });
+
+  // REPLI (si TradingView est indisponible) : ancienne logique faireconomy + overlay des actuals.
   if (!getCalendarRaw().length) await _ensureCalendar();
-  try { await _refreshTVActuals(); } catch {}                      // SOURCE PRINCIPALE : actuals TradingView (HTTP, sans CF)
-  try { _backfillActualsFromNews(); } catch {}                     // complément : actuals depuis notre flux de news
+  try { await _refreshTVActuals(); } catch {}
+  try { _backfillActualsFromNews(); } catch {}
   res.json({ items: _overlayActuals(getCalendarRaw()) });
 });
 
@@ -5484,8 +5509,8 @@ server.listen(PORT, async () => {
   auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {});
   setInterval(() => auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {}), 24 * 60 * 60 * 1000);
   // PRÉ-CHARGE les actuals (TradingView) → la colonne Actual est remplie dès la 1re ouverture du calendrier.
-  setTimeout(async () => { try { await _calActualsLoad(); await _ensureCalendar(); await _refreshTVActuals(); } catch {} }, 9000);
-  setInterval(() => _refreshTVActuals().catch(() => {}), 5 * 60 * 1000);   // rafraîchi toutes les 5 min (temps réel)
+  setTimeout(async () => { try { await _calActualsLoad(); await _buildTVCalendar(); await _ensureCalendar(); await _refreshTVActuals(); } catch {} }, 9000);
+  setInterval(() => { _buildTVCalendar().catch(() => {}); _refreshTVActuals().catch(() => {}); }, 5 * 60 * 1000);   // calendrier + actuals rafraîchis toutes les 5 min (temps réel)
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
