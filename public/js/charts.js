@@ -1918,7 +1918,6 @@ const FXL_COLS = [
   { key: 'sparkLast', label: 'Last Price', sortable: false, align: 'center', type: 'price'   },
   { key: 'changePct', label: 'Change %',   sortable: true,  align: 'right',  type: 'change'  },
   { key: 'seasonal',  label: 'Seasonal',   sortable: false, align: 'center', type: 'season'  },
-  { key: 'pattern',   label: 'Pattern',    sortable: false, align: 'center', type: 'pattern' },
   { key: 'dmx',       label: 'DMX',        sortable: true,  align: 'center', type: 'donut'   },
   { key: 'fund',      label: 'Fund.',      sortable: true,  align: 'center', type: 'badge'   },
   { key: 'research',  label: 'Research',   sortable: true,  align: 'center', type: 'badge'   },

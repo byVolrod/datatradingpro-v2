@@ -7942,21 +7942,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* ── Élasticité : quand le volet gauche rétrécit, les colonnes secondaires se masquent
    proprement (effet rideau) au lieu d'imposer tout de suite une scrollbar horizontale.
-   Ordre des colonnes : 1 Symbol · 2 Last · 3 Change% · 4 Seasonal · 5 Pattern · 6 DMX ·
-   7 Fund · 8 Research · 9 Bias · 10 1M · 11 3M · 12 12M · 13 Trend · 14 Strength ── */
-@container (max-width: 1160px) {
-  .fxl-table { min-width: 1080px; }
-  .fxl-th:nth-child(13), .fxl-td:nth-child(13) { display: none; }   /* TREND */
+   Ordre des colonnes (PATTERN retirée) : 1 Symbol · 2 Last · 3 Change% · 4 Seasonal ·
+   5 DMX · 6 Fund · 7 Research · 8 Bias · 9 1M · 10 3M · 11 12M · 12 Trend · 13 Strength ── */
+@container (max-width: 1120px) {
+  .fxl-table { min-width: 1000px; }
+  .fxl-th:nth-child(12), .fxl-td:nth-child(12) { display: none; }   /* TREND */
 }
-@container (max-width: 1020px) {
-  .fxl-table { min-width: 900px; }
+@container (max-width: 980px) {
+  .fxl-table { min-width: 840px; }
   .fxl-th:nth-child(3),  .fxl-td:nth-child(3),                      /* CHANGE % (souvent N/A) */
-  .fxl-th:nth-child(12), .fxl-td:nth-child(12) { display: none; }   /* 12M % */
+  .fxl-th:nth-child(11), .fxl-td:nth-child(11) { display: none; }   /* 12M % */
 }
-@container (max-width: 880px) {
-  .fxl-table { min-width: 720px; }
-  .fxl-th:nth-child(4), .fxl-td:nth-child(4),                       /* SEASONAL */
-  .fxl-th:nth-child(5), .fxl-td:nth-child(5) { display: none; }     /* PATTERN */
+@container (max-width: 850px) {
+  .fxl-table { min-width: 680px; }
+  .fxl-th:nth-child(4), .fxl-td:nth-child(4) { display: none; }     /* SEASONAL */
 }
 
 /* ═══════════════ CORRECTIFS RESPONSIVE (tablette / téléphone) ═══════════════ */
