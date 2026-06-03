@@ -4915,6 +4915,8 @@ function _sqwkPollReal() {
 //   _sqwkAuto = flux texte (toggle "Connexion automatique")  |  _sqwkLive = audio/voix (bouton play)
 function _sqwkRefresh() {
   const active = _sqwkAuto || _sqwkLive;   // le flux tourne si l'un OU l'autre est actif
+  // Icône topbar : verte si le squawk est actif, ROUGE s'il est désactivé (off)
+  document.getElementById('sqwk-btn')?.classList.toggle('sqwk-on', active);
   const st = document.getElementById('sqwk-toggle-state');
   const tg = document.getElementById('sqwk-toggle');
   const status = document.getElementById('sqwk-status');

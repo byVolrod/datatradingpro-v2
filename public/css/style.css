@@ -7399,6 +7399,11 @@ html, body {
 .sqwk-audio { background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.9; }
 .sqwk-audio--off { opacity: 0.4; filter: grayscale(1); }
 
+/* Icône Squawk (topbar) : VERTE quand le flux est actif, ROUGE quand désactivé (off).
+   Placé après .topbar-icon--active pour gagner la précédence (état = info principale). */
+.topbar-icon--sqwk { color: #ef4444 !important; }            /* désactivé → rouge */
+.topbar-icon--sqwk.sqwk-on { color: #22c55e !important; }     /* actif (auto OU live) → vert */
+
 /* Squawk — état connecté : bouton STOP rouge */
 .sqwk-play--live { border-color: #ef4444 !important; background: rgba(239,68,68,0.12) !important; color: #ef4444 !important; font-size: 12px; border-radius: 7px !important; }
 /* Bandeau vert "Flux en direct connecté" */

@@ -1775,9 +1775,10 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
 
-    // BANK / FX LIST : pleine largeur → on masque la colonne de droite (table seule).
-    // BIAS : on GARDE la colonne de droite (World Clock + courbes de force) et on active STRENGTH.
-    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', view === 'bank' || view === 'fxlist');
+    // BANK : pleine largeur → on masque la colonne de droite (table seule).
+    // FX LIST / BIAS : on GARDE la colonne de droite (World Clock + Mètre/force) comme Prime Terminal ;
+    //   la table FX List défile horizontalement dans le panneau de gauche.
+    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', view === 'bank');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
       if (strengthTab && !strengthTab.classList.contains('right-tab--active')) strengthTab.click();
