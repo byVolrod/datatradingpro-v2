@@ -315,9 +315,9 @@ html, body {
   display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
   font-size: 13px; font-weight: 800; line-height: 1;
 }
-.sentiment-dir.risk-on  { color: #2ee06a; }
-.sentiment-dir.risk-off { color: #ff5a66; }
-.sentiment-dir.neutral  { color: #ffb02e; }
+.sentiment-dir.risk-on  { color: rgb(34,197,94); }
+.sentiment-dir.risk-off { color: rgb(239,68,68); }
+.sentiment-dir.neutral  { color: rgb(245,158,11); }
 
 .sentiment-arrow { color: var(--text3); font-size: 9px; }
 
@@ -4577,9 +4577,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* Topbar sentiment live colors */
 /* Fond teinté pour rendre le bouton risk bien visible (comme PMT) */
-.topbar-sentiment.risk-on  { color: #2ee06a; border-color: rgba(34,197,94,0.55);  background: rgba(34,197,94,0.14); }
-.topbar-sentiment.risk-off { color: #ff5a66; border-color: rgba(239,68,68,0.55);  background: rgba(239,68,68,0.14); }
-.topbar-sentiment.neutral  { color: #ffb02e; border-color: rgba(245,158,11,0.55); background: rgba(245,158,11,0.14); }
+/* Couleurs exactes Prime Terminal : bg 12% · bordure 35% · texte plein */
+.topbar-sentiment.risk-on  { color: rgb(34,197,94);  border-color: rgba(34,197,94,0.35);  background: rgba(34,197,94,0.12); }
+.topbar-sentiment.risk-off { color: rgb(239,68,68);  border-color: rgba(239,68,68,0.35);  background: rgba(239,68,68,0.12); }
+.topbar-sentiment.neutral  { color: rgb(245,158,11); border-color: rgba(245,158,11,0.35); background: rgba(245,158,11,0.12); }
 
 /* ═══════════════ RISK GAUGE (in RISK tab) ═══════════════ */
 .risk-widget-container {
