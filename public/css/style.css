@@ -987,22 +987,22 @@ html, body {
   border: none;
 }
 .article-points--clean li {
-  color: #94a3b8;
+  color: #e8eaed;
   font-size: 13px;
   font-weight: 400;
   line-height: 1.6;
   margin-bottom: 10px;          /* espacement aéré (space-y-3) */
 }
 .article-points--clean li:last-child { margin-bottom: 0; }
-.article-points--clean li::marker { color: rgba(156,163,175,0.5); }
+.article-points--clean li::marker { color: rgba(232,234,237,0.6); }
 /* Mots-clés / chiffres importants en gras clair */
 .article-points--clean li strong {
-  color: #e5e7eb;
+  color: #ffffff;
   font-weight: 700;
 }
 .article-points li {
   margin-bottom: 3px;
-  color: #94a3b8;
+  color: #e8eaed;
   font-size: 11.5px;
   line-height: 1.55;
 }

@@ -1492,8 +1492,9 @@ function _toBullets(raw, maxItems = 4) {
     .filter(s => s.length > 6)                 // ignorer fragments vides/courts
     .filter(s => !/^[^a-z0-9]*$/i.test(s))     // ignorer ponctuation seule
     .filter(s => !/:\s*$/.test(s))             // ignorer labels "Report from X:"
-    // Bruit métadonnées (auteur/source) — pas de valeur marché
+    // Bruit métadonnées (auteur/source) — pas de valeur marché (n'importe où dans la phrase)
     .filter(s => !/^(?:authored by|written by|by\s+[A-Z]|via\s+|source\s*:|courtesy of|published by|republished)/i.test(s))
+    .filter(s => !/(?:this article was written by|\bwritten by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com|follow .* on (?:twitter|x)\b)/i.test(s))
     .filter(s => !/^[\w .'-]+\bvia\b\s+the\b/i.test(s))
     .slice(0, maxItems);
 }
