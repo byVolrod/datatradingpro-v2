@@ -186,6 +186,13 @@ let _chatDb = true;            // bascule sur fichier si la table manque
 let _chatFile = [];
 try { _chatFile = JSON.parse(fs.readFileSync(CHAT_FILE, 'utf8')) || []; } catch {}
 function _chatSaveFile() { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(_chatFile)); } catch {} }
+
+// Réactions emoji stockées À PART (indépendant du schéma chat_messages → marche toujours, sans
+// migration). Forme : { "<msgId>": { "👍": ["userId", …], "❤️": […], "🔥": […] } }
+const REACT_FILE = path.join(__dirname, 'cache_reactions.json');
+let _reactStore = {};
+try { _reactStore = JSON.parse(fs.readFileSync(REACT_FILE, 'utf8')) || {}; } catch {}
+function _reactSave() { try { fs.writeFileSync(REACT_FILE, JSON.stringify(_reactStore)); } catch {} }
 function _chatTableMissing(err) { return err && /chat_messages|schema cache|does not exist|relation/i.test(err.message); }
 
 // Auto-récupération : si on est en mode fichier (table absente au démarrage), on re-sonde
@@ -231,12 +238,15 @@ async function chatInsert({ user_id, sender, text }) {
 
 async function chatList(userId) {
   await _chatEnsureDb();
+  let rows = null;
   if (_chatDb) {
     const { data, error } = await supabase.from(CHAT_TABLE).select('*').eq('user_id', String(userId)).order('created_at', { ascending: true });
-    if (!error) return data || [];
-    if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
+    if (!error) rows = data || [];
+    else if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
   }
-  return _chatFile.filter(m => m.user_id === String(userId)).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  if (rows == null) rows = _chatFile.filter(m => m.user_id === String(userId)).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  rows.forEach(m => { const r = _reactStore[String(m.id)]; if (r) m.reactions = r; });   // overlay réactions
+  return rows;
 }
 
 // Marque comme lus les messages reçus par `recipient` ('user' lit le support, 'support' lit l'user)
@@ -283,6 +293,7 @@ async function chatThreads() {
 // ── Suppression d'un message (admin) ──────────────────────────
 async function chatDelete(id) {
   await _chatEnsureDb();
+  if (_reactStore[String(id)]) { delete _reactStore[String(id)]; _reactSave(); }   // nettoie les réactions
   if (_chatDb) {
     const { error } = await supabase.from(CHAT_TABLE).delete().eq('id', id);
     if (!error) return true;
@@ -320,24 +331,12 @@ function _toggleReaction(reactions, emoji, who) {
 }
 async function chatReact(id, emoji, who) {
   if (!_CHAT_EMOJIS.includes(emoji) || !who) return null;
-  await _chatEnsureDb();
-  if (_chatDb) {
-    const { data: rows, error: selErr } = await supabase.from(CHAT_TABLE).select('id,reactions').eq('id', id).limit(1);
-    if (selErr) {
-      if (_chatTableMissing(selErr)) _chatDb = false; else return null;
-    } else {
-      const row = rows && rows[0]; if (!row) return null;
-      const reactions = _toggleReaction(row.reactions || {}, emoji, String(who));
-      const { error: updErr } = await supabase.from(CHAT_TABLE).update({ reactions }).eq('id', id);
-      // updErr possible si la colonne `reactions` n'existe pas encore → on renvoie quand même (UI optimiste)
-      return reactions;
-    }
-  }
-  const m = _chatFile.find(x => String(x.id) === String(id));
-  if (!m) return null;
-  m.reactions = _toggleReaction(m.reactions || {}, emoji, String(who));
-  _chatSaveFile();
-  return m.reactions;
+  // Store dédié → marche que les messages soient en BDD ou en fichier, sans colonne `reactions`.
+  const key = String(id);
+  const next = _toggleReaction(_reactStore[key] || {}, emoji, String(who));
+  if (Object.keys(next).length) _reactStore[key] = next; else delete _reactStore[key];
+  _reactSave();
+  return _reactStore[key] || {};
 }
 
 module.exports = {

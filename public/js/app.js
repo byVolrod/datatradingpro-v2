@@ -5076,7 +5076,12 @@ let _chatThreadUser = null;   // (mode support) userId du thread ouvert
 let _chatThreadName = '';
 let _chatInboxCache = null;   // cache de la boîte de réception (rendu instantané)
 const _chatMsgCache = {};     // cache des messages par thread (clé = userId ou 'client')
-function _sigMsgs(m){ return (m||[]).length + '|' + (m && m.length ? (m[m.length-1].id||m[m.length-1].text||'') : ''); }
+function _sigMsgs(m){
+  const a = m||[]; let s = a.length + '|' + (a.length ? (a[a.length-1].id||a[a.length-1].text||'') : '');
+  // inclut un résumé des réactions → détecte les changements (synchro des 2 côtés)
+  s += '|' + a.map(x => x.reactions ? Object.keys(x.reactions).map(k=>k+(x.reactions[k]||[]).length).join('') : '').join(',');
+  return s;
+}
 function _sigThreads(t){ return (t||[]).map(x=>x.user_id+':'+(x.unread||0)+':'+(x.lastAt||'')).join(','); }
 function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
@@ -5085,7 +5090,7 @@ const CHAT_SUPPORT_NAME  = 'Équipe de support';
 const CHAT_SUPPORT_SUB   = 'Répond généralement en quelques minutes';
 const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la photo ne charge pas)
 // Photo support (portrait pro/institutionnel). Modifiable : remplace l'URL par la tienne.
-const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=160&h=160&fit=crop&crop=faces&auto=format&q=72';
+const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=160&h=160&fit=crop&crop=faces&auto=format&q=80';
 // Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
 function _chatSupportAvatarHtml(){
   if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);
@@ -5316,58 +5321,94 @@ function _chatRender(messages){
     else if (/^data:/.test(t))  inner = `<a class="chat-file" href="${t}" download>📎 Fichier joint</a>`;
     else                        inner = `<div class="chat-text">${_chatEsc(t)}</div>`;
     const mid = _chatEsc(String(m.id || ''));
-    // Sélecteur de réaction (au survol) — disponible pour tout le monde
-    const picker = `<div class="chat-react-picker">`
-      + `<button type="button" title="J'aime" onclick="_chatReact('${mid}','👍')">👍</button>`
-      + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">❤️</button>`
-      + `<button type="button" title="Feu" onclick="_chatReact('${mid}','🔥')">🔥</button></div>`;
-    // Actions admin (modifier le texte / supprimer) — uniquement côté support
-    const admin = support
-      ? `${!/^data:/.test(t) ? `<button class="chat-act" type="button" title="Modifier" onclick="_chatEditMsg('${mid}')">✎</button>` : ''}`
-        + `<button class="chat-act chat-act--del" type="button" title="Supprimer" onclick="_chatDeleteMsg('${mid}')">🗑</button>`
+    const isTxt = !/^data:/.test(t);
+    // Menu ⋯ (modifier / supprimer) — SÉPARÉ des réactions, côté support uniquement
+    const menu = support
+      ? `<div class="chat-msg-menu">`
+        + `<button class="chat-menu-btn" type="button" title="Options" onclick="_chatToggleMenu(this)">⋯</button>`
+        + `<div class="chat-menu-pop">`
+        + (isTxt ? `<button type="button" onclick="_chatEditMsg('${mid}')">✎ Modifier</button>` : '')
+        + `<button type="button" class="chat-menu-del" onclick="_chatDeleteMsg('${mid}')">🗑 Supprimer</button>`
+        + `</div></div>`
       : '';
     html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}" data-mid="${mid}">`
       + (mine?'':`<div class="chat-av${avThemIsPhoto?' has-photo':''}">${avThem}</div>`)
       + `<div class="chat-bubble-wrap">`
-      + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}`
-      + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div>`
-      + `<div class="chat-actions">${picker}${admin}</div>`   // SOUS la bulle, discret au survol
-      + _chatReactionsHtml(m, myId, mid)
+      + `<div class="chat-bubble-row">`
+      + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}</div>`
+      + menu
+      + `</div>`
+      + _chatReactBarHtml(m, myId, mid)
+      + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div>`
       + `</div></div>`;
   });
   list.innerHTML = html;
   list.scrollTop = list.scrollHeight;
 }
 
-// Pastilles des réactions existantes (emoji + nombre ; surlignées si J'AI réagi)
-function _chatReactionsHtml(m, myId, mid){
-  const r = m && m.reactions;
-  if (!r || typeof r !== 'object') return '';
-  let pills = '';
-  ['👍','❤️','🔥'].forEach(em=>{
+// Barre de réactions (👍 ❤️ 🔥) au-dessus du "Lu" : celles déjà posées sont visibles (emoji + nombre,
+// surlignées si J'AI réagi) ; les autres apparaissent au survol du message (discret).
+function _chatReactBarHtml(m, myId, mid){
+  const r = (m && m.reactions && typeof m.reactions === 'object') ? m.reactions : {};
+  const btns = ['👍','❤️','🔥'].map(em=>{
     const arr = Array.isArray(r[em]) ? r[em] : [];
-    if (!arr.length) return;
+    const cnt = arr.length;
     const mine = arr.map(String).includes(myId);
-    pills += `<button class="chat-reaction${mine?' chat-reaction--mine':''}" type="button" onclick="_chatReact('${mid}','${em}')">${em} ${arr.length}</button>`;
-  });
-  return pills ? `<div class="chat-reactions">${pills}</div>` : '';
+    const cls = 'chat-react' + (cnt>0?' has':'') + (mine?' mine':'');
+    return `<button class="${cls}" type="button" onclick="_chatReact('${mid}','${em}')">${em}${cnt>0?`<span class="chat-react-n">${cnt}</span>`:''}</button>`;
+  }).join('');
+  return `<div class="chat-react-bar">${btns}</div>`;
 }
 
 // Clé de cache des messages selon le contexte (support→thread user, client→'client')
 function _chatCacheKey(){ return (_chatIsSupport() && _chatThreadUser) ? _chatThreadUser : 'client'; }
 
-// Réagir à un message (toggle) — MAJ optimiste du cache puis re-render
+// MAJ chirurgicale d'UNE barre de réactions (pas de re-render complet → pas de saut de scroll)
+function _chatUpdateReactBar(id){
+  const myId = String((_chatCurUser() || {}).id || '');
+  const arr = _chatMsgCache[_chatCacheKey()];
+  const msg = Array.isArray(arr) ? arr.find(x=>String(x.id)===String(id)) : null;
+  if (!msg) return;
+  const sel = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
+  const bar = document.querySelector(`.chat-row[data-mid="${sel}"] .chat-react-bar`);
+  if (bar) bar.outerHTML = _chatReactBarHtml(msg, myId, _chatEsc(String(id)));
+}
+
+// Réagir à un message (toggle) — INSTANTANÉ (optimiste, MAJ ciblée) puis persistance serveur
 function _chatReact(id, emoji){
   if (!id) return;
+  const myId = String((_chatCurUser() || {}).id || '');
+  const arr = _chatMsgCache[_chatCacheKey()];
+  const msg = Array.isArray(arr) ? arr.find(x=>String(x.id)===String(id)) : null;
+  if (msg){
+    const r = (msg.reactions && typeof msg.reactions === 'object') ? JSON.parse(JSON.stringify(msg.reactions)) : {};
+    const list = Array.isArray(r[emoji]) ? r[emoji].map(String) : [];
+    const i = list.indexOf(myId);
+    if (i>=0) list.splice(i,1); else list.push(myId);
+    if (list.length) r[emoji]=list; else delete r[emoji];
+    msg.reactions = r;
+    _chatSig = _sigMsgs(arr);        // évite que le live tick ré-écrase juste après
+    _chatUpdateReactBar(id);          // affichage immédiat, sans saut de scroll
+  }
   fetch('/api/chat/react', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, emoji }) })
     .then(r=>r.json()).then(d=>{
-      const arr = _chatMsgCache[_chatCacheKey()];
-      if (Array.isArray(arr)){
-        const msg = arr.find(x=>String(x.id)===String(id));
-        if (msg){ msg.reactions = d.reactions || {}; _chatSig=''; _chatRender(arr); }
-      }
+      const a2 = _chatMsgCache[_chatCacheKey()];
+      const m2 = Array.isArray(a2) ? a2.find(x=>String(x.id)===String(id)) : null;
+      if (m2){ m2.reactions = d.reactions || {}; _chatSig = _sigMsgs(a2); _chatUpdateReactBar(id); }
     }).catch(()=>{});
 }
+
+// Menu ⋯ d'un message (ouvre/ferme le popup modifier/supprimer)
+function _chatToggleMenu(btn){
+  const pop = btn.parentNode && btn.parentNode.querySelector('.chat-menu-pop');
+  if (!pop) return;
+  const wasOpen = pop.classList.contains('open');
+  document.querySelectorAll('.chat-menu-pop.open').forEach(p=>p.classList.remove('open'));
+  if (!wasOpen) pop.classList.add('open');
+}
+document.addEventListener('click', e => {   // clic ailleurs → ferme les menus
+  if (!e.target.closest || !e.target.closest('.chat-msg-menu')) document.querySelectorAll('.chat-menu-pop.open').forEach(p=>p.classList.remove('open'));
+});
 
 // Admin : supprimer un message — confirmation INLINE dans le message (plus de fenêtre native)
 function _chatDeleteMsg(id){
@@ -5379,8 +5420,7 @@ function _chatDeleteMsg(id){
   if (wrap.querySelector('.chat-del-confirm')) return;             // déjà affichée
   const c = document.createElement('div');
   c.className = 'chat-del-confirm';
-  c.innerHTML = `<span>Supprimer ce message&nbsp;?</span>`
-    + `<button type="button" class="chat-del-yes">Supprimer</button>`
+  c.innerHTML = `<button type="button" class="chat-del-yes">Supprimer</button>`
     + `<button type="button" class="chat-del-no">Annuler</button>`;
   wrap.appendChild(c);
   c.querySelector('.chat-del-no').onclick = () => c.remove();
