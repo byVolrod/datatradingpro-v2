@@ -922,6 +922,7 @@ async function buildStrengthCharts() {
 // ═══════════════════════════════════════════════
 
 let _riskRefreshTimer = null;
+let _riskGaugeOnUpdate = null;   // listener du snapshot risque partagé (source unique)
 let _riskGaugeRoot    = null;
 let _riskHandDI       = null;
 let _riskScoreLabel   = null;
@@ -939,10 +940,13 @@ function buildRiskGauge() {
 
   let isBuilt = false;
 
-  async function loadAndRender() {
+  async function loadAndRender(dataArg) {
     try {
-      const data = await fetch('/api/risk-sentiment').then(r => r.json());
+      // Source unique : on réutilise le snapshot partagé (fetché par app.js) si dispo,
+      // sinon on fetch une fois et on alimente le snapshot. → jamais de divergence.
+      const data = dataArg || window._dtpRisk || await fetch('/api/risk-sentiment').then(r => r.json());
       if (data.error) throw new Error(data.error);
+      window._dtpRisk = data;
 
       const GAUGE_LABEL_FR = {
         'STRONG RISK-ON':  'FORT APPÉTIT POUR LE RISQUE',
@@ -958,7 +962,7 @@ function buildRiskGauge() {
       const isOff = /risk-off/i.test(data.label);
       const cls   = isOn ? 'risk-on' : isOff ? 'risk-off' : 'neutral';
       const sentColor = isOn ? 0x2dc653 : isOff ? 0xd62828 : 0xfcbf49;
-      const gaugeVal  = Math.max(-100, Math.min(100, +(data.score * 50).toFixed(1)));   // échelle de référence (widget Risk)
+      const gaugeVal  = Math.max(-100, Math.min(100, +((typeof data.pct === 'number' ? data.pct : data.score * 50)).toFixed(1)));   // pct canonique serveur
       const display   = `${gaugeVal > 0 ? '+' : ''}${gaugeVal.toFixed(1)}%`;
 
       // Sync topbar sentiment button
@@ -1087,7 +1091,11 @@ function buildRiskGauge() {
   }
 
   loadAndRender();
-  _riskRefreshTimer = setInterval(loadAndRender, 3 * 60 * 1000);
+  // Pas de poller indépendant : on suit le snapshot partagé diffusé par app.js
+  // (_loadRiskSentiment). → topbar, popup et jauge METER affichent TOUJOURS la même valeur.
+  if (_riskGaugeOnUpdate) window.removeEventListener('dtp-risk', _riskGaugeOnUpdate);
+  _riskGaugeOnUpdate = e => loadAndRender(e.detail);
+  window.addEventListener('dtp-risk', _riskGaugeOnUpdate);
 }
 
 // ═══════════════════════════════════════════════
@@ -1767,9 +1775,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === view));
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
 
-    // BANK : pleine largeur → on masque la colonne de droite (table + graphique seuls).
+    // BANK / FX LIST : pleine largeur → on masque la colonne de droite (table seule).
     // BIAS : on GARDE la colonne de droite (World Clock + courbes de force) et on active STRENGTH.
-    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', view === 'bank');
+    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', view === 'bank' || view === 'fxlist');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
       if (strengthTab && !strengthTab.classList.contains('right-tab--active')) strengthTab.click();
@@ -1782,6 +1790,10 @@ document.addEventListener('DOMContentLoaded', () => {
       loadBankView();
     }
     if (view === 'calendar') buildCalendar();
+    if (view === 'fxlist' && typeof loadFxListView === 'function') {
+      if (!window._fxlistTabInited) { window._fxlistTabInited = true; initFxListTab(); }
+      loadFxListView();
+    }
     if (view === 'institution' && typeof loadInstitutionView === 'function') {
       if (!window._institutionTabInited) { window._institutionTabInited = true; loadInstitutionView(); }
       else renderBrList();
@@ -1836,6 +1848,164 @@ document.addEventListener('DOMContentLoaded', () => {
   // WORLD is the default active right tab — init immediately
   initRightTab('world');
 });
+
+// ─── FX LIST — Overview table ─────────────────────────────────────────────────
+const FXL_COLS = [
+  { key: 'symbol',    label: 'Symbol',     sortable: true,  align: 'left',   type: 'sym'    },
+  { key: 'sparkLast', label: 'Last Price', sortable: false, align: 'center', type: 'spark'  },
+  { key: 'changePct', label: 'Change %',   sortable: true,  align: 'right',  type: 'pct'    },
+  { key: 'seasonal',  label: 'Seasonal',   sortable: false, align: 'center', type: 'spark'  },
+  { key: 'pattern',   label: 'Pattern',    sortable: false, align: 'center', type: 'micro'  },
+  { key: 'dmx',       label: 'DMX',        sortable: true,  align: 'center', type: 'donut'  },
+  { key: 'fund',      label: 'Fund.',      sortable: true,  align: 'center', type: 'badge'  },
+  { key: 'research',  label: 'Research',   sortable: true,  align: 'center', type: 'badge'  },
+  { key: 'bias',      label: 'Bias',       sortable: true,  align: 'center', type: 'badge'  },
+  { key: 'ret1M',     label: '1M %',       sortable: true,  align: 'right',  type: 'pct'    },
+  { key: 'ret3M',     label: '3M %',       sortable: true,  align: 'right',  type: 'pct'    },
+  { key: 'ret12M',    label: '12M %',      sortable: true,  align: 'right',  type: 'pct'    },
+  { key: 'trend',     label: 'Trend',      sortable: false, align: 'center', type: 'spark'  },
+  { key: 'strength',  label: 'Strength',   sortable: true,  align: 'center', type: 'str'    },
+];
+const _SIG_RANK = { Bullish: 1, Neutral: 0, Bearish: -1 };
+let _fxlData = null;
+let _fxlSort = { key: 'symbol', dir: 1 };
+let _fxlLoading = false;
+
+function _fxlFmtPx(v, sym) {
+  if (v == null) return '—';
+  const dp = /JPY$/.test(sym) ? 3 : (v >= 50 ? 2 : 5);
+  return v.toFixed(dp);
+}
+
+function _fxlSparkline(arr, w = 80, h = 24) {
+  const vals = (arr || []).filter(v => v != null);
+  if (vals.length < 2) return '';
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max - min || 1;
+  const stepX = w / (vals.length - 1);
+  const pts = vals.map((v, i) => `${(i * stepX).toFixed(1)},${(h - ((v - min) / range) * h).toFixed(1)}`).join(' ');
+  const up = vals[vals.length - 1] >= vals[0];
+  const color = up ? 'var(--green)' : 'var(--red)';
+  return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.2"/></svg>`;
+}
+
+function _fxlPctCell(v) {
+  if (v == null) return '<span class="fxl-pct fxl-na">N/A</span>';
+  const cls = v >= 0 ? 'pos' : 'neg';
+  return `<span class="fxl-pct fxl-pct--${cls}">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+}
+
+function _fxlStrengthCell(v, maxAbs) {
+  const mag = maxAbs > 0 ? Math.min(100, Math.abs(v) / maxAbs * 100) : 0;
+  const cls = v >= 0 ? 'pos' : 'neg';
+  return `<div class="fxl-str" title="${v >= 0 ? '+' : ''}${v.toFixed(2)}"><div class="fxl-str-track"><div class="fxl-str-bar fxl-str-bar--${cls}" style="width:${mag.toFixed(0)}%"></div></div></div>`;
+}
+
+function _fxlFlag(ccy) {
+  const iso = (typeof _CURR_ISO !== 'undefined') ? _CURR_ISO[ccy] : null;
+  if (!iso) return '<span class="fxl-flag fxl-flag--ph"></span>';
+  return `<img src="https://flagcdn.com/w40/${iso}.png" alt="${ccy}" class="fxl-flag" loading="lazy">`;
+}
+
+// DMX donut — green arc = share of bullish days (0–100), red = remainder
+function _fxlDonut(pct) {
+  const v = Math.max(0, Math.min(100, pct ?? 50));
+  const r = 8, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
+  return `<svg class="fxl-dmx" width="22" height="22" viewBox="0 0 22 22">`
+    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--red)" stroke-width="4"/>`
+    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--green)" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 11 11)"/>`
+    + `</svg>`;
+}
+
+function _fxlBadge(label) {
+  const cls = label === 'Bullish' ? 'bull' : label === 'Bearish' ? 'bear' : 'neut';
+  return `<span class="fxl-badge fxl-badge--${cls}">${label || 'Neutral'}</span>`;
+}
+
+function _fxlCell(col, p, maxAbsStr) {
+  switch (col.type) {
+    case 'sym':   return `<div class="fxl-sym">${_fxlFlag(p.base)}<span class="fxl-sym-txt">${p.symbol}</span></div>`;
+    case 'spark': return col.key === 'sparkLast'
+      ? `<div class="fxl-last"><span class="fxl-last-px">${_fxlFmtPx(p.last, p.symbol)}</span>${_fxlSparkline(p[col.key])}</div>`
+      : _fxlSparkline(p[col.key]);
+    case 'micro': return _fxlSparkline(p[col.key], 44, 22);
+    case 'donut': return _fxlDonut(p[col.key]);
+    case 'badge': return _fxlBadge(p[col.key]);
+    case 'pct':   return _fxlPctCell(p[col.key]);
+    case 'str':   return _fxlStrengthCell(p[col.key], maxAbsStr);
+    default:      return '';
+  }
+}
+
+function renderFxList() {
+  const head = document.getElementById('fxl-head');
+  const body = document.getElementById('fxl-body');
+  if (!head || !body) return;
+
+  head.innerHTML = FXL_COLS.map(c => {
+    const active = _fxlSort.key === c.key;
+    const arrow = c.sortable ? `<span class="fxl-sort">${active ? (_fxlSort.dir > 0 ? '▲' : '▼') : '↕'}</span>` : '';
+    return `<th class="fxl-th fxl-th--${c.align} ${c.sortable ? 'fxl-th--sortable' : ''}" ${c.sortable ? `data-sort="${c.key}"` : ''}>${c.label}${arrow}</th>`;
+  }).join('');
+
+  if (!_fxlData) {
+    body.innerHTML = `<tr><td class="fxl-msg" colspan="${FXL_COLS.length}">${_fxlLoading ? 'Chargement…' : 'Aucune donnée'}</td></tr>`;
+    return;
+  }
+
+  const pairs = _fxlData.pairs.slice();
+  const { key, dir } = _fxlSort;
+  pairs.sort((a, b) => {
+    if (key === 'symbol') return a.symbol.localeCompare(b.symbol) * dir;
+    if (['fund', 'research', 'bias'].includes(key)) {
+      return ((_SIG_RANK[a[key]] ?? 0) - (_SIG_RANK[b[key]] ?? 0)) * dir;
+    }
+    const av = a[key] == null ? -Infinity : a[key];
+    const bv = b[key] == null ? -Infinity : b[key];
+    return (av - bv) * dir;
+  });
+
+  const maxAbsStr = Math.max(...pairs.map(p => Math.abs(p.strength || 0)), 0.0001);
+
+  body.innerHTML = pairs.map(p =>
+    `<tr class="fxl-row">` +
+    FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
+    `</tr>`
+  ).join('');
+
+  const upd = document.getElementById('fxl-updated');
+  if (upd && _fxlData.updatedAt) {
+    const d = new Date(_fxlData.updatedAt);
+    upd.textContent = 'MAJ ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+  }
+}
+
+async function loadFxListView(force = false) {
+  _fxlLoading = true;
+  renderFxList();
+  try {
+    const r = await fetch('/api/fxlist' + (force ? '?force=1' : ''));
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    _fxlData = await r.json();
+  } catch (e) {
+    console.warn('[fxlist] load failed', e);
+  } finally {
+    _fxlLoading = false;
+    renderFxList();
+  }
+}
+
+function initFxListTab() {
+  document.getElementById('fxl-head')?.addEventListener('click', e => {
+    const th = e.target.closest('[data-sort]');
+    if (!th) return;
+    const key = th.dataset.sort;
+    if (_fxlSort.key === key) _fxlSort.dir *= -1;
+    else _fxlSort = { key, dir: key === 'symbol' ? 1 : -1 };
+    renderFxList();
+  });
+  document.getElementById('fxl-refresh')?.addEventListener('click', () => loadFxListView(true));
+}
 
 // ─── Economic Calendar ────────────────────────────────────────────────────────
 

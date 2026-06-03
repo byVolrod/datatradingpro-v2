@@ -232,16 +232,20 @@
   </div>
   <!-- ══ VIEW: FX LIST — En cours de développement ══ -->
   <div class="view-panel hidden" id="view-fxlist">
-    <div class="wip-container">
-      <div class="wip-icon">
-        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
-          <circle cx="12" cy="12" r="10"/>
-          <polyline points="12,6 12,12 16,14"/>
-        </svg>
+    <div class="fxl-wrap">
+      <div class="fxl-toolbar">
+        <div class="fxl-title">Overview List <span class="fxl-title-tag">[Forex]</span></div>
+        <div class="fxl-toolbar-right">
+          <span class="fxl-updated" id="fxl-updated"></span>
+          <button class="fxl-refresh" id="fxl-refresh" title="Rafraîchir">↻</button>
+        </div>
       </div>
-      <div class="wip-title">En cours de développement</div>
-      <div class="wip-subtitle">L'onglet FX List sera bientôt disponible.</div>
-      <div class="wip-badge">COMING SOON</div>
+      <div class="fxl-table-scroll">
+        <table class="fxl-table">
+          <thead><tr id="fxl-head"></tr></thead>
+          <tbody id="fxl-body"></tbody>
+        </table>
+      </div>
     </div>
   </div>
   <!-- ══ VIEW: INSTITUTION ══ -->

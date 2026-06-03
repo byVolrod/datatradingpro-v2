@@ -4614,6 +4614,135 @@ app.get('/api/currency-strength', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── FX List Overview ─────────────────────────────────────────────────────────
+// Per-pair overview table (FX LIST view). Every column is derived from a single
+// Yahoo Finance 5-year daily series per pair (28 calls, same budget as
+// currency-strength) — last price, daily change, 1M/3M/12M returns, price/trend
+// sparklines, a 12-month seasonal curve, a recent micro-pattern, a DMX donut
+// (bullish-days ratio), an auto relative-strength score, and Fund./Research/Bias
+// signals derived from strength / 3M / 1M momentum respectively.
+let _fxlCache = null, _fxlTs = 0;
+const FXL_TTL = 10 * 60 * 1000; // 10 min
+
+function _pctChange(now, then) {
+  if (now == null || then == null || then === 0) return null;
+  return +((now / then - 1) * 100).toFixed(2);
+}
+// Downsample an array to at most n points (keeps first & last) — for sparklines
+function _downsample(arr, n) {
+  if (arr.length <= n) return arr.slice();
+  const out = [];
+  const step = (arr.length - 1) / (n - 1);
+  for (let i = 0; i < n; i++) out.push(arr[Math.round(i * step)]);
+  return out;
+}
+// Bullish/Neutral/Bearish label from a numeric signal + symmetric thresholds
+function _signal(v, hi, lo) {
+  if (v == null) return 'Neutral';
+  if (v >= hi) return 'Bullish';
+  if (v <= lo) return 'Bearish';
+  return 'Neutral';
+}
+// 12-point cumulative seasonal curve: average return per calendar month across years
+function _seasonal(ts, closes) {
+  const monthEnd = new Map();
+  for (let i = 0; i < ts.length; i++) {
+    const d = new Date(ts[i] * 1000);
+    monthEnd.set(`${d.getUTCFullYear()}-${d.getUTCMonth()}`, { m: d.getUTCMonth(), c: closes[i] });
+  }
+  const seq = [...monthEnd.values()];
+  const sum = Array(12).fill(0), cnt = Array(12).fill(0);
+  for (let i = 1; i < seq.length; i++) {
+    const r = (seq[i].c / seq[i - 1].c - 1) * 100;
+    if (Number.isFinite(r)) { sum[seq[i].m] += r; cnt[seq[i].m]++; }
+  }
+  const avg = sum.map((s, i) => cnt[i] ? s / cnt[i] : 0);
+  let acc = 0;
+  return avg.map(a => +(acc += a).toFixed(3)); // Jan→Dec cumulative
+}
+
+async function computeFxList() {
+  if (_fxlCache && Date.now() - _fxlTs < FXL_TTL) return _fxlCache;
+  await getYFSession();
+
+  const rows = await Promise.all(CS_PAIRS.map(async p => {
+    try {
+      const raw = await yfFetch(p.sym, '1d', '5y');
+      const res = raw?.chart?.result?.[0];
+      if (!res) return null;
+      const rawTs = res.timestamp || [];
+      const rawClose = res.indicators?.quote?.[0]?.close || [];
+      const ts = [], closes = [];
+      for (let i = 0; i < rawClose.length; i++) {
+        if (rawClose[i] != null && rawTs[i] != null) { ts.push(rawTs[i]); closes.push(rawClose[i]); }
+      }
+      if (closes.length < 30) return null;
+
+      const n = closes.length;
+      const last = closes[n - 1];
+      const prev = closes[n - 2];
+      const at = d => closes[Math.max(0, n - 1 - d)]; // d trading days ago
+
+      // DMX: share of up-days over the last 14 sessions (0–100) — drives the donut
+      const win = closes.slice(-15);
+      let up = 0, tot = 0;
+      for (let i = 1; i < win.length; i++) { if (win[i] >= win[i - 1]) up++; tot++; }
+      const dmx = tot ? Math.round((up / tot) * 100) : 50;
+
+      return {
+        symbol: `${p.b}/${p.q}`,
+        base: p.b, quote: p.q,
+        last,
+        changePct: _pctChange(last, prev),
+        ret1M:  _pctChange(last, at(21)),
+        ret3M:  _pctChange(last, at(63)),
+        ret12M: _pctChange(last, at(252)),
+        sparkLast: _downsample(closes.slice(-30), 24),
+        trend:     _downsample(closes.slice(-252), 48),
+        pattern:   _downsample(closes.slice(-10), 10),
+        seasonal:  _seasonal(ts, closes),
+        dmx,
+      };
+    } catch { return null; }
+  }));
+
+  const valid = rows.filter(Boolean);
+  if (valid.length < 7) return null;
+
+  // ── Auto relative strength: per-currency = avg 1M return across its pairs ────
+  const score = {}, cnt = {};
+  CS_CURRENCIES.forEach(c => { score[c] = 0; cnt[c] = 0; });
+  valid.forEach(r => {
+    if (r.ret1M == null) return;
+    score[r.base]  += r.ret1M; cnt[r.base]++;
+    score[r.quote] -= r.ret1M; cnt[r.quote]++;
+  });
+  const ccyStr = {};
+  CS_CURRENCIES.forEach(c => { ccyStr[c] = cnt[c] ? score[c] / cnt[c] : 0; });
+
+  // Fund. ← strength | Research ← 3M momentum | Bias ← 1M momentum
+  valid.forEach(r => {
+    r.strength = +((ccyStr[r.base] - ccyStr[r.quote])).toFixed(2);
+    r.fund     = _signal(r.strength, 1, -1);
+    r.research = _signal(r.ret3M, 2, -2);
+    r.bias     = _signal(r.ret1M, 1, -1);
+  });
+
+  const data = { pairs: valid, updatedAt: new Date().toISOString() };
+  _fxlCache = data; _fxlTs = Date.now();
+  console.log(`[FXL] ${valid.length}/${CS_PAIRS.length} pairs loaded`);
+  return data;
+}
+
+app.get('/api/fxlist', async (req, res) => {
+  if (req.query.force === '1') _fxlCache = null;
+  try {
+    const data = await computeFxList();
+    if (!data) return res.status(503).json({ error: 'Data unavailable' });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Risk Sentiment ───────────────────────────────────────────────────────────
 //
 // Each asset has:
@@ -4694,7 +4823,10 @@ async function fetchRiskSentiment() {
     'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
   };
 
-  _riskData = { label, score: +(_riskScoreEMA).toFixed(2), rawScore: +score.toFixed(2), description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
+  // pct = SEULE valeur d'affichage (× 50, bornée). Calculée ici une fois pour TOUTES
+  // les vues (topbar, popup, jauge METER) → plus jamais de divergence -6%/-4%.
+  const pct = Math.max(-100, Math.min(100, +(_riskScoreEMA * 50).toFixed(1)));
+  _riskData = { label, score: +(_riskScoreEMA).toFixed(2), rawScore: +score.toFixed(2), pct, description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
   _riskTs = Date.now();
   return _riskData;
 }
