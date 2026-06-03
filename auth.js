@@ -329,11 +329,23 @@ function _toggleReaction(reactions, emoji, who) {
   if (arr.length) r[emoji] = arr; else delete r[emoji];
   return r;
 }
+// UNE seule réaction par personne (façon Instagram) : on retire `who` de partout, puis on
+// (re)pose son emoji — sauf s'il cliquait celui qu'il avait déjà (toggle off).
+function _setSingleReaction(reactions, emoji, who) {
+  const had = Array.isArray((reactions || {})[emoji]) && reactions[emoji].map(String).includes(String(who));
+  const r = {};
+  for (const [k, arr] of Object.entries(reactions || {})) {
+    const filtered = (Array.isArray(arr) ? arr : []).map(String).filter(x => x !== String(who));
+    if (filtered.length) r[k] = filtered;
+  }
+  if (!had) { (r[emoji] = r[emoji] || []).push(String(who)); }
+  return r;
+}
 async function chatReact(id, emoji, who) {
   if (!_CHAT_EMOJIS.includes(emoji) || !who) return null;
   // Store dédié → marche que les messages soient en BDD ou en fichier, sans colonne `reactions`.
   const key = String(id);
-  const next = _toggleReaction(_reactStore[key] || {}, emoji, String(who));
+  const next = _setSingleReaction(_reactStore[key] || {}, emoji, String(who));
   if (Object.keys(next).length) _reactStore[key] = next; else delete _reactStore[key];
   _reactSave();
   return _reactStore[key] || {};
