@@ -3349,7 +3349,7 @@ function renderBrList() {
         </div>
       </div>
       <div class="br-card-right">
-        <span class="br-inst-logo ${_instBadge(item) === 'ING' ? 'ing' : 'dtp'}">${_instBadge(item)}</span>
+        <span class="br-inst-logo-card">${_instLogoHtml(_instBadge(item))}</span>
         <span class="br-card-date">${dateStr}</span>
         <svg class="br-bookmark" width="12" height="14" viewBox="0 0 12 14" fill="none">
           <path d="M1 1h10v12l-5-3-5 3V1z" stroke="currentColor" stroke-width="1.2"/>
