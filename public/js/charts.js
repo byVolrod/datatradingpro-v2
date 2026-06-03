@@ -1601,10 +1601,10 @@ function buildSessionMap() {
 
   // ── 4 key trading cities ──────────────────────
   const SESSION_CITIES = [
-    { id: 'london',  name: 'London',   tz: 'Europe/London',    lon: -0.12,  lat: 51.5,  open: 8, close: 17, labelLeft: true  },
-    { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0,  lat: 40.7,  open: 9, close: 17, labelLeft: true  },
-    { id: 'tokyo',   name: 'Tokyo',    tz: 'Asia/Tokyo',       lon: 139.7,  lat: 35.7,  open: 9, close: 15, labelLeft: false },
-    { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2,  lat: -33.9, open: 9, close: 17, labelLeft: false },
+    { id: 'london',  name: 'London',   tz: 'Europe/London',    lon: -0.12,  lat: 51.5,  open: 8, close: 17, labelLeft: true,  color: 0xf79400 },
+    { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0,  lat: 40.7,  open: 9, close: 17, labelLeft: true,  color: 0xa855f7 },
+    { id: 'tokyo',   name: 'Tokyo',    tz: 'Asia/Tokyo',       lon: 139.7,  lat: 35.7,  open: 9, close: 15, labelLeft: false, color: 0x22d3ee },
+    { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2,  lat: -33.9, open: 9, close: 17, labelLeft: false, color: 0x34d399 },
   ];
 
   function isCityOpen4(city, now) {
@@ -1624,6 +1624,7 @@ function buildSessionMap() {
       name:      c.name,
       isOpen:    isCityOpen4(c, now),
       labelLeft: c.labelLeft,
+      color:     c.color,
     }));
   }
 
@@ -1635,59 +1636,62 @@ function buildSessionMap() {
   pointSeries.bullets.push((root, series, dataItem) => {
     const data   = dataItem.dataContext;
     const isOpen = data.isOpen;
+    const accent = data.color || 0xf79400;        // couleur propre à la session (London=orange, NY=violet…)
     const cont   = am5.Container.new(root, {});
 
     // City clock label box
-    const boxX = data.labelLeft ? -90 : 8;
+    const boxX = data.labelLeft ? -94 : 8;
 
     const box = cont.children.push(am5.Container.new(root, {
-      x: boxX, y: -38,
-      width: 82,
-      paddingTop: 4, paddingBottom: 4, paddingLeft: 6, paddingRight: 6,
+      x: boxX, y: -40,
+      width: 86,
+      paddingTop: 5, paddingBottom: 5, paddingLeft: 8, paddingRight: 8,
       layout: root.verticalLayout,
     }));
 
     box.set('background', am5.RoundedRectangle.new(root, {
-      fill:        isOpen ? am5.color(0x1a1200) : am5.color(0x0c1526),
-      fillOpacity: 0.93,
-      stroke:      isOpen ? am5.color(0xf79400) : am5.color(0x253550),
-      strokeWidth: 1,
-      cornerRadiusTL: 3, cornerRadiusTR: 3, cornerRadiusBL: 3, cornerRadiusBR: 3,
+      fill:        am5.color(0x0c0c10),
+      fillOpacity: 0.9,
+      stroke:      isOpen ? am5.color(accent) : am5.color(0x2a3550),
+      strokeWidth: isOpen ? 1.4 : 1,
+      cornerRadiusTL: 6, cornerRadiusTR: 6, cornerRadiusBL: 6, cornerRadiusBR: 6,
+      shadowColor: isOpen ? am5.color(accent) : undefined,
+      shadowBlur:  isOpen ? 10 : 0, shadowOpacity: isOpen ? 0.35 : 0,
     }));
 
     const timeLabel = box.children.push(am5.Label.new(root, {
       text:       '--:--:--',
-      fill:       am5.color(isOpen ? 0xf79400 : 0x6688aa),
-      fontSize:   11, fontWeight: '700',
+      fill:       am5.color(isOpen ? accent : 0x8fa3bf),
+      fontSize:   11.5, fontWeight: '700',
       fontFamily: '"JetBrains Mono", monospace',
       width: am5.percent(100),
     }));
 
     box.children.push(am5.Label.new(root, {
       text:       data.name,
-      fill:       am5.color(isOpen ? 0xccaa66 : 0x445566),
-      fontSize:   9,
+      fill:       am5.color(isOpen ? 0xe8eaed : 0x6a7a90),
+      fontSize:   9.5, fontWeight: '600',
       fontFamily: '"JetBrains Mono", monospace',
       width: am5.percent(100),
     }));
 
     _cityTimeLabelRefs[data.id] = timeLabel;
 
-    // Pulse ring for open sessions
+    // Pulse ring for open sessions (couleur de la session)
     if (isOpen) {
       const ring = cont.children.push(
-        am5.Circle.new(root, { radius: 7, fillOpacity: 0, stroke: am5.color(0xf7941d), strokeOpacity: 0.7, strokeWidth: 1.5 })
+        am5.Circle.new(root, { radius: 7, fillOpacity: 0, stroke: am5.color(accent), strokeOpacity: 0.75, strokeWidth: 1.5 })
       );
-      ring.animate({ key: 'radius',        from: 5,   to: 20, duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
-      ring.animate({ key: 'strokeOpacity', from: 0.7, to: 0,  duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
+      ring.animate({ key: 'radius',        from: 5,   to: 22, duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
+      ring.animate({ key: 'strokeOpacity', from: 0.75, to: 0, duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
     }
 
-    // City dot
+    // City dot (couleur de la session si ouverte)
     cont.children.push(am5.Circle.new(root, {
       radius:      isOpen ? 5 : 3,
-      fill:        isOpen ? am5.color(0xf7941d) : am5.color(0x555570),
-      stroke:      isOpen ? am5.color(0xffc87a) : am5.color(0x333350),
-      strokeWidth: isOpen ? 1.5 : 0.8,
+      fill:        isOpen ? am5.color(accent) : am5.color(0x555570),
+      stroke:      isOpen ? am5.color(0xffffff) : am5.color(0x333350),
+      strokeWidth: isOpen ? 1.4 : 0.8,
     }));
 
     return am5.Bullet.new(root, { sprite: cont });
