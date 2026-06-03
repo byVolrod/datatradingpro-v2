@@ -471,19 +471,21 @@ html, body {
 /* Bouton AI (style Prime Terminal — pastille "AI" verte) */
 .topbar-ai-btn {
   position: relative;
-  display: flex; align-items: center; justify-content: center;
-  height: 26px; padding: 0 10px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center; gap: 5px;
+  height: 26px; padding: 0 8px 0 10px; border-radius: 6px;
   font-size: 11px; font-weight: 800; letter-spacing: 0.05em;
   color: #22c55e; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.38);
   cursor: default; transition: background 0.15s, color 0.15s; font-family: var(--font-ui);
 }
 .topbar-ai-btn:hover { background: rgba(34,197,94,0.20); }
-/* Cadenas "bientôt disponible" en coin du badge AI — fond TRANSPARENT */
-.topbar-ai-lock {
-  position: absolute; top: -7px; right: -7px;
-  font-size: 10px; line-height: 1;
-  background: transparent; border: none; padding: 0;
+/* Badge "en développement" — pastille SOON pro (remplace le cadenas) */
+.topbar-ai-soon {
+  font-size: 8px; font-weight: 800; letter-spacing: 0.08em; line-height: 1;
+  color: #ffb96b; background: rgba(255,122,0,0.16); border: 1px solid rgba(255,122,0,0.45);
+  padding: 2px 4px; border-radius: 3px; text-transform: uppercase;
+  animation: ai-soon-pulse 2.4s ease-in-out infinite;
 }
+@keyframes ai-soon-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.55; } }
 
 /* Toast "bientôt disponible" */
 .dtp-toast {
@@ -611,53 +613,43 @@ body.is-resizing iframe { pointer-events: none; }
   .layout-resizer { display: none !important; }
 }
 
-/* ════════════════ CURTAIN OVERLAY SPLITTER (desktop ≥1025px) ════════════════
-   Le panneau droit (World Clock / Risk / Meter) devient un RIDEAU absolu superposé.
-   Le panneau gauche occupe tout l'arrière-plan ; son contenu + sa scrollbar restent
-   décalés à gauche du rideau (padding de sécurité) → la barre orange, placée à la
-   jointure au-dessus de tout (z-30), n'entre plus JAMAIS en conflit avec la scrollbar.
-   --sidebar-w est un état runtime (modifié au drag) ; AUCUNE persistance → reset au reload. */
+/* ════════════ SPLIT LAYOUT — CSS GRID SYNCHRONE (desktop ≥1025px) ════════════
+   Conteneur grille piloté par --sidebar-w : [ 1fr | barre 6px | sidebar-w ].
+   Donner 1fr au panneau GAUCHE force le navigateur à recalculer sa largeur à la
+   MÊME frame que le déplacement souris → resize parfaitement synchrone, sans décalage.
+   Le contenu gauche garde un petit padding (buffer) pour décoller sa scrollbar de la
+   barre. --sidebar-w = état runtime (drag) ; AUCUNE persistance → reset au reload. */
 @media (min-width: 1025px) {
   .main-layout {
-    display: block;
-    position: relative;                       /* bloc conteneur du rideau */
-    --sidebar-w: clamp(380px, 45%, 800px);    /* largeur par défaut du rideau */
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 6px var(--sidebar-w);
+    --sidebar-w: clamp(360px, 30%, 760px);
+    position: relative;
   }
-  .views-col {
-    position: absolute; inset: 0;
-    width: 100%;
-    padding-right: calc(var(--sidebar-w) + 14px);   /* contenu + scrollbar à gauche du rideau (≈ pr-3.5) */
-    box-sizing: border-box;
-    z-index: 10;
-  }
-  .panel-right {
-    position: absolute; top: 0; right: 0; bottom: 0;
-    width: var(--sidebar-w);
-    z-index: 20;                              /* rideau au-dessus du fond */
-    background: #0c0c0e;                       /* rideau opaque */
-  }
+  .views-col   { min-width: 0; padding-right: 6px; box-sizing: border-box; }   /* buffer scrollbar ↔ barre */
+  .panel-right { min-width: 0; }
   .layout-resizer {
-    position: absolute; top: 0; bottom: 0;
-    left: auto; right: var(--sidebar-w);       /* jointure = bord gauche du rideau */
-    width: 8px;                                /* zone de préhension confortable */
-    transform: translateX(50%);                /* centrée sur la jointure */
-    z-index: 30;                               /* AU-DESSUS du rideau ET du fond */
+    position: relative; align-self: stretch;
+    width: 6px; z-index: 30; cursor: col-resize; background: transparent;
   }
   .layout-resizer::before { left: 50%; right: auto; transform: translateX(-50%); width: 2px; }
-  /* Active Border Indicator : contour orange VIF uniquement sur le rideau pendant le drag */
-  body.is-resizing #panel-right {
-    outline: 1.5px solid #ff7a00;
-    outline-offset: -1px;
-    box-shadow: -2px 0 0 0 #ff7a00;
-  }
-  /* Rideau masqué (vue BANK) → plus de marge de sécurité ni de barre */
+  /* Anti-lag : pendant le glissement, les enfants ne captent plus la souris (ni hover ni sélection) */
+  body.is-resizing .views-col,
+  body.is-resizing .panel-right { pointer-events: none; }
+  /* Active Border Indicator : contour orange vif sur le panneau redimensionné pendant le drag */
+  body.is-resizing #panel-right { outline: 1.5px solid #ff7a00; outline-offset: -1px; }
+  /* Vue pleine largeur (BANK) → grille à une seule colonne, barre + panneau droit masqués */
+  .main-layout.hide-right-panel { grid-template-columns: 1fr; }
+  .hide-right-panel .layout-resizer,
+  .hide-right-panel #panel-right { display: none; }
   .hide-right-panel .views-col { padding-right: 0; }
-  .hide-right-panel .layout-resizer { display: none; }
 }
-/* FX List < 1600px : le rideau est masqué (table pleine largeur) → on neutralise marge + barre */
+/* FX List < 1600px : table pleine largeur → grille à une seule colonne */
 @media (min-width: 1025px) and (max-width: 1599px) {
+  .main-layout.is-fxlist { grid-template-columns: 1fr; }
+  .main-layout.is-fxlist .layout-resizer,
+  .main-layout.is-fxlist #panel-right { display: none; }
   .main-layout.is-fxlist .views-col { padding-right: 0; }
-  .main-layout.is-fxlist .layout-resizer { display: none; }
 }
 
 /* ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) ══ */
@@ -3011,7 +3003,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .topbar-right  { gap: 6px; }
   /* Bouton AI compact sur mobile (évite de surcharger la topbar) */
   .topbar-ai-btn { height: 30px; padding: 0 8px; font-size: 10.5px; }
-  .topbar-ai-lock { font-size: 9px; top: -6px; right: -6px; }
+  .topbar-ai-soon { font-size: 7px; padding: 1px 3px; }
   /* Le bouton risk repasse en largeur auto (sinon 230px écrase le logo sur mobile) */
   .topbar-sentiment { width: auto !important; min-width: 0; flex: 0 0 auto; padding: 0 9px; height: 30px; font-size: 9px; }
   /* La bannière d'alerte prend trop de place sur mobile */
@@ -5954,7 +5946,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   flex-direction: column;
   min-width: 0;
   cursor: pointer;
+  position: relative;
 }
+/* Voile de survol : léger dégradé vert du haut (group-hover/column de Prime Terminal) */
+.meter-col::after {
+  content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
+  background: linear-gradient(rgba(0,218,80,0.05), transparent 55%, transparent);
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.meter-col:hover::after { opacity: 1; }
 .meter-col-head {
   display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 6px;
   width: 100%;
@@ -5978,33 +5978,24 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .meter-stack {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  gap: 0;                              /* pas de gap : la grille est dessinée par les bordures */
-  border: 1px solid #141416;          /* cadre de colonne (matrice de fond) */
-  background: #0a0a0c;                 /* trame de fond quasi invisible */
+  gap: 3px;                           /* écart entre briques (façon Prime Terminal) */
 }
-.meter-half { flex: 1; display: flex; flex-direction: column; gap: 0; }
+.meter-half { flex: 1; display: flex; flex-direction: column; gap: 3px; }
 .meter-zero { display: none; }
+/* Brique = bloc rounded-sm, bordure border/60, ombre interne (valeurs DOM exactes de Prime Terminal) */
 .meter-brick {
   flex: 1; min-height: 5px;
-  border-radius: 0;                              /* angulaire : blocs bruts */
-  border-bottom: 1px solid #111113;              /* ligne fine très sombre entre segments (grille) */
-  background: transparent;                       /* éteinte : laisse voir la trame du stack */
-  transition: background 0.3s ease, box-shadow 0.3s ease;   /* MAJ fluide "live" */
+  border-radius: 2px;                                  /* rounded-sm */
+  border: 1px solid rgba(30,30,32,0.6);                /* border-border/60 (éteinte) */
+  background: #0c0c0e;                                 /* bg-primary (trame de fond visible) */
+  box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06);      /* shadow-inner */
+  overflow: hidden;
+  transition: background 0.4s ease, border-color 0.4s ease;   /* MAJ fluide "live" */
 }
-.meter-brick--off { background: transparent; box-shadow: none; }
-/* Aplats PURS très lumineux, sans dégradé interne (couleurs institutionnelles intenses) */
-.meter-brick--pos { background: #00e676; border-bottom-color: #050505; box-shadow: none; }   /* +  vert vif */
-.meter-brick--neg { background: #ff3d00; border-bottom-color: #050505; box-shadow: none; }   /* −  rouge vif */
-/* ── Zero-Baseline Under-Glow : filament cuivre incandescent au contact de l'axe central ── */
-/* idx 0 = brique qui touche la ligne zéro (bas du haut / haut du bas) → toujours allumée si la valeur ≠ 0 */
-.meter-half-top .meter-brick--pos[data-idx="0"] {
-  border-bottom: 2px solid rgba(217,119,6,0.92);                                              /* filament cuivre cuit */
-  box-shadow: inset 0 -5px 9px -3px rgba(245,158,11,0.78), 0 2px 7px -1px rgba(245,158,11,0.5);
-}
-.meter-half-bot .meter-brick--neg[data-idx="0"] {
-  border-top: 2px solid rgba(217,119,6,0.92);
-  box-shadow: inset 0 5px 9px -3px rgba(245,158,11,0.78), 0 -2px 7px -1px rgba(245,158,11,0.5);
-}
+.meter-brick--off { background: #0c0c0e; border-color: rgba(30,30,32,0.6); }
+/* Aplats PURS aux couleurs EXACTES de Prime Terminal (inspectées dans le DOM) */
+.meter-brick--pos { background: rgba(0,218,80,0.867); border-color: rgba(0,218,80,0.3); }   /* +  vert */
+.meter-brick--neg { background: rgba(255,0,0,0.933);  border-color: rgba(255,0,0,0.3);  }   /* −  rouge */
 /* Tooltip flottant */
 .meter-tooltip {
   position: fixed; z-index: 9999; display: none;
@@ -7854,7 +7845,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 @media (max-width:480px){ .chat-panel { width:100%; max-width:100%; } }
 
 /* ═══ FX LIST — Overview table ═══════════════════════════════════ */
-.fxl-wrap { display: flex; flex-direction: column; height: 100%; min-width: 0; background: #0a0a0c; position: relative; border-radius: 0; }
+.fxl-wrap { display: flex; flex-direction: column; height: 100%; min-width: 0; background: #0a0a0c; position: relative; border-radius: 0; container-type: inline-size; }
 /* Loader centré dans la zone VISIBLE (overlay, pas dans la table large 1240px) */
 .fxl-loader { position: absolute; inset: var(--toolbar-h) 0 0 0; display: flex; align-items: center; justify-content: center; background: #0a0a0c; z-index: 5; }
 .fxl-toolbar {
@@ -7948,6 +7939,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .fxl-badge--bear { color: #f0786a; background: #2a1512; }   /* rouge sur marron brique */
 
 .fxl-msg { text-align: center; color: var(--text3); padding: 30px; }
+
+/* ── Élasticité : quand le volet gauche rétrécit, les colonnes secondaires se masquent
+   proprement (effet rideau) au lieu d'imposer tout de suite une scrollbar horizontale.
+   Ordre des colonnes : 1 Symbol · 2 Last · 3 Change% · 4 Seasonal · 5 Pattern · 6 DMX ·
+   7 Fund · 8 Research · 9 Bias · 10 1M · 11 3M · 12 12M · 13 Trend · 14 Strength ── */
+@container (max-width: 1160px) {
+  .fxl-table { min-width: 1080px; }
+  .fxl-th:nth-child(13), .fxl-td:nth-child(13) { display: none; }   /* TREND */
+}
+@container (max-width: 1020px) {
+  .fxl-table { min-width: 900px; }
+  .fxl-th:nth-child(3),  .fxl-td:nth-child(3),                      /* CHANGE % (souvent N/A) */
+  .fxl-th:nth-child(12), .fxl-td:nth-child(12) { display: none; }   /* 12M % */
+}
+@container (max-width: 880px) {
+  .fxl-table { min-width: 720px; }
+  .fxl-th:nth-child(4), .fxl-td:nth-child(4),                       /* SEASONAL */
+  .fxl-th:nth-child(5), .fxl-td:nth-child(5) { display: none; }     /* PATTERN */
+}
 
 /* ═══════════════ CORRECTIFS RESPONSIVE (tablette / téléphone) ═══════════════ */
 /* Tablette ≤ 768px : les volets latéraux passent en pleine largeur (au lieu de 420-440px
