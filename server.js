@@ -488,14 +488,22 @@ function computeExpiry({ duration, expiresAt, startDate }) {
   return d.toISOString();
 }
 
+// Message d'accueil envoyé automatiquement par le support à chaque NOUVEAU client (dans le chat).
+const WELCOME_CHAT = "Bonjour et bienvenue sur DataTradingPro 👋\n\nJe suis là pour t'accompagner. Ton accès est activé : tu as le flux de news en temps réel, le calendrier économique, la force des devises et les analyses institutionnelles.\n\nPour bien démarrer pendant la session de Londres : ouvre le Live Squawk et le calendrier.\n\nUne question ou besoin d'un coup de main ? Écris-moi directement ici, je te réponds. Bons trades ! — L'équipe DataTradingPro";
+function _sendWelcomeChat(userId) {
+  if (!userId) return;
+  auth.chatInsert({ user_id: userId, sender: 'support', text: WELCOME_CHAT }).catch(() => {});
+}
+
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
   try {
     const body = { ...req.body, expiresAt: computeExpiry(req.body) };
-    await auth.createUser(body);
+    const newUser = await auth.createUser(body);
     res.json({ ok: true });
-    // Email de bienvenue : uniquement pour les CLIENTS (pas le staff admin/support)
+    // Email + message de bienvenue : uniquement pour les CLIENTS (pas le staff admin/support)
     if (body.email && (body.role || 'client') === 'client') {
       mailer.sendWelcome({ to: body.email, name: body.name, password: body.password, expiresAt: body.expiresAt }).catch(() => {});
+      _sendWelcomeChat(newUser && newUser.id);
     }
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
@@ -575,8 +583,9 @@ async function _whopRenewOrCreate(mem) {
     console.log(`[Whop] Renouvelé: ${mem.email} → ${mem.expiresAt || 'illimité'}`);
   } else {
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
-    await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
+    const wu = await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
     mailer.sendWelcome({ to: mem.email, name: '', password: pwd, expiresAt: mem.expiresAt }).catch(() => {});
+    _sendWelcomeChat(wu && wu.id);
     mailer.sendAdminRenewalNotice({ clientEmail: mem.email, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
     console.log(`[Whop] Compte créé: ${mem.email}`);
   }

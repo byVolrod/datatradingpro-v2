@@ -622,18 +622,43 @@
       const d = await fetch('/api/admin/chat/' + userId).then(r => r.json());
       const msgs = d.messages || [];
       const box = document.getElementById('ad-chat-msgs');
-      box.innerHTML = msgs.map(m => `<div class="ad-msg ad-msg--${m.sender}"><div>${_esc2(m.text)}</div><div class="ad-msg-meta">${new Date(m.created_at).toLocaleString('fr-FR')}</div></div>`).join('') || '<div class="empty-state">Pas encore de message.</div>';
+      box.innerHTML = msgs.map(m => {
+        const t = m.text || '';
+        const body = /^data:image\//.test(t)
+          ? `<a href="${t}" target="_blank" rel="noopener"><img src="${t}" alt="image" style="max-width:220px;max-height:220px;border-radius:8px;display:block"></a>`
+          : _esc2(t);
+        return `<div class="ad-msg ad-msg--${m.sender}"><div>${body}</div><div class="ad-msg-meta">${new Date(m.created_at).toLocaleString('fr-FR')}</div></div>`;
+      }).join('') || '<div class="empty-state">Pas encore de message.</div>';
       box.scrollTop = box.scrollHeight;
     } catch {}
+  }
+  async function _adChatPost(text) {
+    if (!text || !_adChatUser) return;
+    await fetch('/api/admin/chat/' + _adChatUser, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) }).catch(()=>{});
+    openAdThread(_adChatUser);
   }
   async function adChatSend() {
     const inp = document.getElementById('ad-chat-text');
     const text = (inp.value||'').trim();
-    if (!text || !_adChatUser) return;
+    if (!text) return;
     inp.value = '';
-    await fetch('/api/admin/chat/' + _adChatUser, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}) }).catch(()=>{});
-    openAdThread(_adChatUser);
+    _adChatPost(text);
   }
+  // Coller une image (Ctrl+V) dans la réponse support → envoyée directement
+  document.getElementById('ad-chat-text')?.addEventListener('paste', e => {
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for (const it of items) {
+      if (it.type && it.type.indexOf('image') === 0) {
+        const f = it.getAsFile(); if (!f) continue;
+        e.preventDefault();
+        if (f.size > 900*1024) { alert('Image trop volumineuse (max 900 Ko).'); return; }
+        const reader = new FileReader();
+        reader.onload = () => _adChatPost(String(reader.result));
+        reader.readAsDataURL(f);
+        return;
+      }
+    }
+  });
 
   // ── Load users ──────────────────────────────────────────────────────────────
   let _allUsers = [];

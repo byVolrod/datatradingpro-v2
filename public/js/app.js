@@ -5332,6 +5332,22 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(inp){
     inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); chatSend(); } });
     inp.addEventListener('input', ()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,90)+'px'; if(inp.value.trim()) _chatSendTyping(); });
+    // Coller une image (Ctrl+V / clic droit → Coller) → envoyée directement, fluide.
+    inp.addEventListener('paste', e=>{
+      const items = (e.clipboardData && e.clipboardData.items) || [];
+      for (const it of items){
+        if (it.type && it.type.indexOf('image') === 0){
+          const f = it.getAsFile(); if(!f) continue;
+          e.preventDefault();
+          if (f.size > 900*1024){ alert('Image trop volumineuse (max 900 Ko).'); return; }
+          const reader = new FileReader();
+          reader.onload  = () => _chatPost(String(reader.result));   // data:image/...;base64,…
+          reader.onerror = () => alert("Impossible de lire l'image collée.");
+          reader.readAsDataURL(f);
+          return;
+        }
+      }
+    });
   }
   _chatPollUnread();
   _chatPollTimer = setInterval(_chatPollUnread, 8000);   // notif réactive (8s)
