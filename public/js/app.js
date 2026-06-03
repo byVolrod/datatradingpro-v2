@@ -5329,3 +5329,45 @@ document.addEventListener('DOMContentLoaded', ()=>{
   _chatPollUnread();
   _chatPollTimer = setInterval(_chatPollUnread, 8000);   // notif réactive (8s)
 });
+
+// ── Resizable Split Panel : barre orange draggable entre views-col et panel-right ──
+//    État runtime (pas de localStorage) → la largeur revient à la valeur par défaut (CSS 50%)
+//    à CHAQUE rechargement. Drag clampé (min/max) et DÉSACTIVÉ sur ≤1024px (mobile/tablette).
+(function initLayoutResizer() {
+  const resizer = document.getElementById('layout-resizer');
+  const panel   = document.getElementById('panel-right');
+  if (!resizer || !panel) return;
+  const isDesktop = () => window.matchMedia('(min-width: 1025px)').matches;
+  let dragging = false;
+  const clampWidth = w => {
+    const min = 360;
+    const max = Math.min(820, window.innerWidth - 460);   // garde ≥ 460px au panneau de gauche
+    return Math.max(min, Math.min(max, w));
+  };
+  const onMove = e => {
+    if (!dragging) return;
+    const x = e.touches ? e.touches[0].clientX : e.clientX;
+    const w = clampWidth(window.innerWidth - x);          // panneau droit = largeur depuis le bord droit
+    panel.style.flex  = '0 0 ' + w + 'px';
+    panel.style.width = w + 'px';
+  };
+  const stop = () => {
+    if (!dragging) return;
+    dragging = false;
+    resizer.classList.remove('dragging');
+    document.body.classList.remove('is-resizing');
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', stop);
+  };
+  resizer.addEventListener('mousedown', e => {
+    if (!isDesktop()) return;                              // drag off sur mobile/tablette
+    e.preventDefault();
+    dragging = true;
+    resizer.classList.add('dragging');
+    document.body.classList.add('is-resizing');
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', stop);
+  });
+  // Repli sur mobile → on rend la main au CSS (largeur par défaut)
+  window.addEventListener('resize', () => { if (!isDesktop()) { panel.style.flex = ''; panel.style.width = ''; } });
+})();

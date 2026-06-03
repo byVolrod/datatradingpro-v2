@@ -559,6 +559,33 @@ html, body {
   overflow: hidden;
 }
 
+/* ══ Barre de redimensionnement (Resizable Split Panel) — ligne orange fine façon Prime Terminal ══ */
+.layout-resizer {
+  flex: 0 0 4px;            /* zone de préhension 4px */
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  position: relative;
+  z-index: 30;
+  align-self: stretch;
+}
+.layout-resizer::before {     /* ligne orange ULTRA-FINE (1px) centrée */
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0; left: 50%;
+  width: 1px; transform: translateX(-0.5px);
+  background: #ff7a00;
+  transition: width 0.12s, background 0.12s;
+}
+.layout-resizer:hover::before,
+.layout-resizer.dragging::before { width: 3px; transform: translateX(-1.5px); background: #ff9a30; box-shadow: 0 0 8px rgba(255,122,0,0.5); }
+body.is-resizing { cursor: col-resize; user-select: none; }
+body.is-resizing iframe { pointer-events: none; }
+/* Mobile/tablette ≤1024px : on masque la barre (le drag est désactivé en JS) */
+@media (max-width: 1024px) {
+  .layout-resizer { display: none !important; }
+}
+
 /* ═══════════════ PANEL (LEFT) ═══════════════ */
 .panel {
   display: flex;
