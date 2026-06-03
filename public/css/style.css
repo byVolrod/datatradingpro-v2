@@ -7652,7 +7652,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-row { display:flex; align-items:flex-end; gap:8px; max-width:100%; }
 .chat-row--me { justify-content:flex-end; }
 .chat-av { width:26px; height:26px; border-radius:50%; background:#1f2a44; color:#8ab4f8; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
-.chat-bubble { max-width:74%; padding:9px 12px; border-radius:12px; font-size:13px; line-height:1.5; }
+.chat-bubble { max-width:74%; padding:9px 12px; border-radius:12px; font-size:13px; line-height:1.5; position:relative; }
 .chat-row--them .chat-bubble { background:#1a1c22; color:#e2e8f0; border-bottom-left-radius:4px; }
 .chat-row--me   .chat-bubble { background:#243044; color:#eaf1fb; border-bottom-right-radius:4px; }
 .chat-text { white-space:pre-wrap; word-break:break-word; }
@@ -7689,14 +7689,21 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-menu-i-del:hover { background:rgba(239,68,68,.14); color:#ef4444; border-color:rgba(239,68,68,.4); }
 
 /* Barre de réactions au-dessus du "Lu" : posées = toujours visibles ; vides = au survol (discret) */
-.chat-react-bar { display:flex; gap:3px; margin-top:3px; }
-.chat-react { background:none; border:1px solid transparent; border-radius:13px; cursor:pointer; font-size:13px; line-height:1.25; padding:1px 6px; display:inline-flex; align-items:center; gap:3px; opacity:0; transition:opacity .14s, background .12s, border-color .12s, transform .12s; }
-.chat-row:hover .chat-react { opacity:.55; }                 /* survol : on voit les 3 choix */
-.chat-react:hover { opacity:1; background:rgba(255,255,255,.07); transform:scale(1.08); }
-.chat-react.has { opacity:1; background:#15171d; border-color:#262b36; }   /* déjà posée → visible en permanence */
-.chat-react.mine { opacity:1; background:rgba(247,148,29,.15); border-color:rgba(247,148,29,.5); }
-.chat-react-n { font-size:11px; font-weight:700; color:#cdd3dc; font-family:var(--font-mono); }
-.chat-react.mine .chat-react-n { color:#f7941d; }
+/* Sélecteur flottant (façon Instagram) — au survol, au-dessus du coin de la bulle */
+.chat-react-picker { position:absolute; bottom:calc(100% + 5px); z-index:6; display:flex; gap:1px; background:#222530; border:1px solid #3a3f4b; border-radius:18px; padding:3px 5px; box-shadow:0 5px 16px rgba(0,0,0,.55); opacity:0; pointer-events:none; transform:translateY(5px) scale(.96); transition:opacity .13s, transform .13s; }
+.chat-row--them .chat-react-picker { left:0; }
+.chat-row--me   .chat-react-picker { right:0; }
+.chat-bubble:hover .chat-react-picker, .chat-react-picker:hover { opacity:1; pointer-events:auto; transform:translateY(0) scale(1); }
+.chat-react-picker button { background:none; border:none; cursor:pointer; font-size:17px; line-height:1; padding:2px 3px; border-radius:50%; transition:transform .1s; }
+.chat-react-picker button:hover { transform:scale(1.3); }
+/* Pastilles posées (façon LinkedIn) — sous la bulle, alignées côté bulle */
+.chat-reactions { display:flex; gap:4px; flex-wrap:wrap; }
+.chat-reactions:not(:empty) { margin-top:4px; }
+.chat-reaction-pill { display:inline-flex; align-items:center; gap:3px; background:#1a1d25; border:1px solid #2a2f3a; border-radius:13px; padding:1px 8px; font-size:13px; line-height:1.5; cursor:pointer; transition:border-color .12s, background .12s; }
+.chat-reaction-pill:hover { border-color:#3a4150; }
+.chat-reaction-pill.mine { background:rgba(247,148,29,.16); border-color:rgba(247,148,29,.55); }
+.chat-reaction-pill .n { font-size:11px; font-weight:700; color:#cdd3dc; font-family:var(--font-mono); }
+.chat-reaction-pill.mine .n { color:#f7941d; }
 
 /* Confirmation de suppression INLINE — juste les options, compacte (sans phrase) */
 .chat-del-confirm { display:flex; align-items:center; gap:6px; margin-top:4px; animation:chatTypingIn .15s ease; }
