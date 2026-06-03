@@ -2406,6 +2406,7 @@ function closeSettings(e) {
 // ═══ Status toast ═════════════════════════
 let statusTimer = null;
 function showStatus(msg, type) {
+  if (type === 'ok') return;   // plus d'indicateur "Connected" (inutile) — on ne montre que les erreurs
   let el = document.querySelector('.connection-status');
   if (!el) {
     el = document.createElement('div');
