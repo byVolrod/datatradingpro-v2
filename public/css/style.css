@@ -471,13 +471,13 @@ html, body {
 /* Bouton AI (style Prime Terminal — pastille "AI" verte) */
 .topbar-ai-btn {
   position: relative;
-  display: flex; align-items: center; justify-content: center; gap: 5px;
-  height: 26px; padding: 0 8px 0 10px; border-radius: 6px;
-  font-size: 11px; font-weight: 800; letter-spacing: 0.05em;
+  display: flex; align-items: center; justify-content: center;
+  height: 26px; padding: 0 12px; border-radius: 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.06em;
   color: #22c55e; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.38);
-  cursor: default; transition: background 0.15s, color 0.15s; font-family: var(--font-ui);
+  cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; font-family: var(--font-ui);
 }
-.topbar-ai-btn:hover { background: rgba(34,197,94,0.20); }
+.topbar-ai-btn:hover { background: rgba(34,197,94,0.22); border-color: rgba(34,197,94,0.6); }
 /* Badge "en développement" — pastille SOON pro (remplace le cadenas) */
 .topbar-ai-soon {
   font-size: 8px; font-weight: 800; letter-spacing: 0.08em; line-height: 1;
@@ -622,17 +622,20 @@ body.is-resizing iframe { pointer-events: none; }
 @media (min-width: 1025px) {
   .main-layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 6px var(--sidebar-w);
+    grid-template-columns: minmax(0, 1fr) 1px var(--sidebar-w);   /* séparateur 1px : aucun espace au milieu */
     --sidebar-w: clamp(360px, 30%, 760px);
     position: relative;
   }
-  .views-col   { min-width: 0; padding-right: 6px; box-sizing: border-box; }   /* buffer scrollbar ↔ barre */
+  .views-col   { min-width: 0; }
   .panel-right { min-width: 0; }
   .layout-resizer {
     position: relative; align-self: stretch;
-    width: 6px; z-index: 30; cursor: col-resize; background: transparent;
+    width: 1px; z-index: 30; cursor: col-resize; background: transparent;
   }
-  .layout-resizer::before { left: 50%; right: auto; transform: translateX(-50%); width: 2px; }
+  /* Ligne 1px visible (orange au survol/drag) */
+  .layout-resizer::before { left: 0; right: auto; transform: none; width: 1px; }
+  /* Zone de préhension invisible élargie (±6px) pour rester facile à attraper malgré la ligne fine */
+  .layout-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: -6px; right: -6px; cursor: col-resize; z-index: 31; }
   /* Anti-lag : pendant le glissement, les enfants ne captent plus la souris (ni hover ni sélection) */
   body.is-resizing .views-col,
   body.is-resizing .panel-right { pointer-events: none; }
@@ -5986,13 +5989,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .meter-brick {
   flex: 1; min-height: 5px;
   border-radius: 2px;                                  /* rounded-sm */
-  border: 1px solid rgba(30,30,32,0.6);                /* border-border/60 (éteinte) */
-  background: #0c0c0e;                                 /* bg-primary (trame de fond visible) */
+  border: 1px solid rgba(255,255,255,0.05);            /* trame éteinte TOUJOURS visible (jamais "vide") */
+  background: #121214;                                 /* cellule de fond légèrement éclaircie */
   box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06);      /* shadow-inner */
   overflow: hidden;
   transition: background 0.4s ease, border-color 0.4s ease;   /* MAJ fluide "live" */
 }
-.meter-brick--off { background: #0c0c0e; border-color: rgba(30,30,32,0.6); }
+.meter-brick--off { background: #121214; border-color: rgba(255,255,255,0.05); }
 /* Aplats PURS aux couleurs EXACTES de Prime Terminal (inspectées dans le DOM) */
 .meter-brick--pos { background: rgba(0,218,80,0.867); border-color: rgba(0,218,80,0.3); }   /* +  vert */
 .meter-brick--neg { background: rgba(255,0,0,0.933);  border-color: rgba(255,0,0,0.3);  }   /* −  rouge */
@@ -7845,7 +7848,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 @media (max-width:480px){ .chat-panel { width:100%; max-width:100%; } }
 
 /* ═══ FX LIST — Overview table ═══════════════════════════════════ */
-.fxl-wrap { display: flex; flex-direction: column; height: 100%; min-width: 0; background: #0a0a0c; position: relative; border-radius: 0; container-type: inline-size; }
+.fxl-wrap { display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; width: 100%; min-width: 0; background: #0a0a0c; position: relative; border-radius: 0; }
 /* Loader centré dans la zone VISIBLE (overlay, pas dans la table large 1240px) */
 .fxl-loader { position: absolute; inset: var(--toolbar-h) 0 0 0; display: flex; align-items: center; justify-content: center; background: #0a0a0c; z-index: 5; }
 .fxl-toolbar {
@@ -7940,23 +7943,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 .fxl-msg { text-align: center; color: var(--text3); padding: 30px; }
 
-/* ── Élasticité : quand le volet gauche rétrécit, les colonnes secondaires se masquent
-   proprement (effet rideau) au lieu d'imposer tout de suite une scrollbar horizontale.
-   Ordre des colonnes (PATTERN retirée) : 1 Symbol · 2 Last · 3 Change% · 4 Seasonal ·
-   5 DMX · 6 Fund · 7 Research · 8 Bias · 9 1M · 10 3M · 11 12M · 12 Trend · 13 Strength ── */
-@container (max-width: 1120px) {
-  .fxl-table { min-width: 1000px; }
-  .fxl-th:nth-child(12), .fxl-td:nth-child(12) { display: none; }   /* TREND */
-}
-@container (max-width: 980px) {
-  .fxl-table { min-width: 840px; }
-  .fxl-th:nth-child(3),  .fxl-td:nth-child(3),                      /* CHANGE % (souvent N/A) */
-  .fxl-th:nth-child(11), .fxl-td:nth-child(11) { display: none; }   /* 12M % */
-}
-@container (max-width: 850px) {
-  .fxl-table { min-width: 680px; }
-  .fxl-th:nth-child(4), .fxl-td:nth-child(4) { display: none; }     /* SEASONAL */
-}
+/* (Élasticité par container-query retirée : provoquait l'effondrement de .fxl-wrap.
+   La table large défile horizontalement quand le volet est étroit — comportement sûr.) */
 
 /* ════════════════════ MACRO AI ASSISTANT (chat IA) ════════════════════ */
 .ai-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1190; opacity: 0; pointer-events: none; transition: opacity .2s; }
