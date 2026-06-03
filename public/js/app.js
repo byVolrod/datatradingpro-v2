@@ -3385,6 +3385,27 @@ const _BANK_BRAND = {
   NAB: '#c20029', ANZ: '#1b8fea', Nordea: '#0000a0', SEB: '#5ca800',
 };
 function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
+// Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
+const _BANK_DOMAIN = {
+  ING: 'ing.com', MUFG: 'mufg.jp', Natixis: 'natixis.com', CACIB: 'ca-cib.com',
+  Goldman: 'goldmansachs.com', JPM: 'jpmorgan.com', MS: 'morganstanley.com', Citi: 'citigroup.com',
+  Barclays: 'barclays.com', HSBC: 'hsbc.com', Deutsche: 'db.com', UOB: 'uobgroup.com',
+  OCBC: 'ocbc.com', Danske: 'danskebank.com', Nomura: 'nomura.com', SocGen: 'societegenerale.com',
+  BNP: 'bnpparibas.com', StanChart: 'sc.com', BofA: 'bankofamerica.com', Wells: 'wellsfargo.com',
+  NatWest: 'natwest.com', Rabo: 'rabobank.com', Scotia: 'scotiabank.com', Westpac: 'westpac.com.au',
+  Commerz: 'commerzbank.com', NAB: 'nab.com.au', ANZ: 'anz.com', Nordea: 'nordea.com', SEB: 'sebgroup.com',
+};
+// HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
+function _instLogoHtml(label) {
+  const color = _instBrandColor(label);
+  const wm = `<span class="br-dtp-logo" style="color:${color}">${label}</span>`;
+  const dom = _BANK_DOMAIN[label];
+  if (!dom || label === 'DTP') return wm;
+  const url = `https://logo.clearbit.com/${dom}`;
+  return `<span class="br-bank-logo-wrap"><img class="br-bank-logo" src="${url}" alt="${label}" `
+    + `onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';">`
+    + `<span class="br-dtp-logo" style="color:${color};display:none">${label}</span></span>`;
+}
 
 // Robustesse images : masque toute image cassée / placeholder (jamais de cadre d'image vide).
 function _brFixImages(root) {
@@ -3437,17 +3458,10 @@ function renderBrReader(item) {
       if (!content) return;
       const _inst = _instBadge(item);
       const isIngDoc = _inst === 'ING';
-      // En-tête de marque selon la source : ING Think pour ING, sinon le sigle de la banque
-      // (MUFG, etc.) ou "DTP" pour les agrégateurs non identifiés.
-      const headerHtml = isIngDoc
-        ? `<div class="br-ing-header">
-             <div class="br-ing-logo"><svg viewBox="0 0 56 24" height="28" fill="none" xmlns="http://www.w3.org/2000/svg"><text x="0" y="20" font-family="Arial Black,Arial,sans-serif" font-size="22" font-weight="900" fill="#FF6200">ING</text></svg></div>
-             <div class="br-ing-tagline">THINK economic and financial analysis</div>
-           </div><div class="br-ing-divider"></div>`
-        : `<div class="br-ing-header">
-             <div class="br-dtp-logo" style="color:${_instBrandColor(_inst)}">${_inst}</div>
-             <div class="br-ing-tagline">${_inst === 'DTP' ? 'Institutional research' : _inst + ' Research'}</div>
-           </div><div class="br-ing-divider"></div>`;
+      // En-tête : VRAI logo de la banque (ING, MUFG, Goldman…) avec repli wordmark si indispo.
+      const _tagline = _inst === 'ING' ? 'THINK economic and financial analysis'
+        : _inst === 'DTP' ? 'Institutional research' : _inst + ' Research';
+      const headerHtml = `<div class="br-ing-header">${_instLogoHtml(_inst)}<div class="br-ing-tagline">${_tagline}</div></div><div class="br-ing-divider"></div>`;
       const origLabel = isIngDoc ? 'Lire l\'original sur ING Think →' : 'Lire l\'original →';
       if (data.html && data.html.length > 100) {
         const subtitle    = data.subtitle || item.description || '';

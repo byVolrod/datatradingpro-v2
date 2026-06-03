@@ -6991,6 +6991,9 @@ html, body {
 .br-ing-logo svg text { line-height: 1; }
 /* Logo DTP (rapports non-ING : ActionForex/FXStreet/agrégateurs) */
 .br-dtp-logo { font-family: 'Arial Black', Arial, sans-serif; font-size: 22px; font-weight: 900; color: #ff7a00; letter-spacing: 0.02em; }
+/* Vrai logo de la banque (image) dans l'en-tête du rapport — repli wordmark si indispo */
+.br-bank-logo-wrap { display: inline-flex; align-items: center; }
+.br-bank-logo { height: 28px; max-width: 150px; object-fit: contain; object-position: left center; vertical-align: middle; }
 .br-ing-tagline {
   font-family: 'Arial', sans-serif;
   font-size: 13px;
