@@ -1521,6 +1521,15 @@ function _stripSource(html) {
     .replace(/(?:read more|continue reading|lire la suite(?: du rapport)?|read the full (?:report|article|story))\s*(?:[»>→…]|\.\.\.)?/gi, '')
     // marqueurs de troncature "[…]" / "[&#8230;]" / "(...)"
     .replace(/\[\s*(?:&#8230;|…|\.\.\.)\s*\]/g, '')
+    // ── Pied de page MUFG/Natixis : "For other … please download the PDF version attached
+    //    at the top of this page" + liens "Disclaimer / Terms and Conditions" → retirés (le
+    //    rapport complet est déjà dans le corps ; on ne garde QUE le rapport, propre).
+    .replace(/<p[^>]*>\s*for other[\s\S]*?download the pdf[\s\S]*?<\/p>/gi, '')
+    .replace(/for other (?:currenc(?:y|ies)|pages?|markets?)[^.<]*?(?:please )?download the pdf version[^.<]*\.?/gi, '')
+    .replace(/(?:please )?download the (?:full )?pdf version[^.<]*(?:attached[^.<]*)?\.?/gi, '')
+    .replace(/<a[^>]*>\s*(?:disclaimer|terms\s*(?:and|&)\s*conditions|terms of use|privacy policy|cookie policy)\s*<\/a>/gi, '')
+    .replace(/\bdisclaimer\s+terms\s+(?:and|&)\s+conditions\b\.?/gi, '')
+    .replace(/(?:\s|>)(?:disclaimer|terms\s+(?:and|&)\s+conditions|terms of use)\s*(?=<|\s*$)/gi, ' ')
     .trim();
 }
 
