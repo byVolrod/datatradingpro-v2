@@ -1555,23 +1555,23 @@ function buildSessionMap() {
       paddingTop: 4, paddingBottom: 4, paddingLeft: 4, paddingRight: 4,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));  // océan anthracite (cohérent)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x000000), fillOpacity: 1 }));  // fond NOIR pur (comme PMT)
 
   // Rendu ÉPURÉ : pas de grille (graticule) → carte propre comme la référence.
 
-  // Country polygons — green on dark ocean
+  // Country polygons — vert plus clair sur océan noir (valeurs PMT)
   const polygonSeries = chart.series.push(
     am5map.MapPolygonSeries.new(root, { geoJSON: am5geodata_worldLow, exclude: ['AQ'] })
   );
   polygonSeries.mapPolygons.template.setAll({
-    fill: am5.color(0x2d6020), stroke: am5.color(0x36701f),
+    fill: am5.color(0x3d8f43), stroke: am5.color(0x4aa052),
     strokeWidth: 0.4, fillOpacity: 1, interactive: true, tooltipText: '{name}',
   });
-  polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x3a7a28) });
+  polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x4aa052) });
 
-  // ── Terminateur JOUR/NUIT : voile sombre sur l'hémisphère de nuit (mis à jour en direct) ──
+  // ── Terminateur JOUR/NUIT : voile sombre plus DOUX/transparent (projection de session ~18%) ──
   const nightSeries = chart.series.push(am5map.MapPolygonSeries.new(root, {}));
-  nightSeries.mapPolygons.template.setAll({ fill: am5.color(0x05070a), fillOpacity: 0.46, strokeOpacity: 0, interactive: false });
+  nightSeries.mapPolygons.template.setAll({ fill: am5.color(0x05070a), fillOpacity: 0.4, strokeOpacity: 0, interactive: false });
   function _nightPolygon(now) {
     const rad = Math.PI / 180, deg = 180 / Math.PI;
     const yStart = Date.UTC(now.getUTCFullYear(), 0, 0);
@@ -1597,7 +1597,7 @@ function buildSessionMap() {
   // ── Orange UTC vertical line ──────────────────
   const utcLineSeries = chart.series.push(am5map.MapLineSeries.new(root, {}));
   utcLineSeries.mapLines.template.setAll({
-    stroke: am5.color(0xf79400), strokeWidth: 2, strokeOpacity: 0.95,
+    stroke: am5.color(0xf79400), strokeWidth: 1.4, strokeOpacity: 0.7,   // trait fin (PMT)
   });
 
   const utcLabelSeries = chart.series.push(am5map.MapPointSeries.new(root, {}));
@@ -1605,7 +1605,7 @@ function buildSessionMap() {
   utcLabelSeries.bullets.push((r) => {
     const cont = am5.Container.new(r, {});
     cont.children.push(am5.RoundedRectangle.new(r, {
-      width: 54, height: 20,
+      width: 46, height: 19,
       fill: am5.color(0xf79400), fillOpacity: 1,
       cornerRadiusTL: 4, cornerRadiusTR: 4, cornerRadiusBL: 4, cornerRadiusBR: 4,
       centerX: am5.percent(50), centerY: am5.percent(50),
@@ -1624,10 +1624,15 @@ function buildSessionMap() {
   function refreshUTCLine(now) {
     const h = now.getUTCHours() + now.getUTCMinutes() / 60;
     const lon = (h - 12) * 15;
-    const utcTime = now.toLocaleTimeString('en-GB', {
-      hour: '2-digit', minute: '2-digit', timeZone: 'UTC', hour12: false,
+    // Petit timer orange = COUNTDOWN jusqu'au prochain événement de session (ouverture/fermeture), comme PMT
+    const utcH = h + now.getUTCSeconds() / 3600;
+    let best = Infinity;
+    SESSION_BLOCKS.forEach(s => {
+      [s.utcOpen, s.utcClose].forEach(b => { let d = b - utcH; if (d <= 0) d += 24; if (d < best) best = d; });
     });
-    if (_utcLabel) _utcLabel.set('text', utcTime);
+    const totalMin = Math.max(0, Math.round(best * 60));
+    const cd = String(Math.floor(totalMin / 60)).padStart(2, '0') + ':' + String(totalMin % 60).padStart(2, '0');
+    if (_utcLabel) _utcLabel.set('text', cd);
     if (_lastUTCLineLon === null || Math.abs(lon - _lastUTCLineLon) >= 0.25) {
       _lastUTCLineLon = lon;
       utcLineSeries.data.setAll([{ geometry: { type: 'LineString', coordinates: [[lon, 85], [lon, -85]] } }]);
@@ -1679,25 +1684,26 @@ function buildSessionMap() {
     const boxX = data.labelLeft ? -94 : 8;
 
     const box = cont.children.push(am5.Container.new(root, {
-      x: boxX, y: -40,
-      width: 86,
-      paddingTop: 5, paddingBottom: 5, paddingLeft: 8, paddingRight: 8,
+      x: boxX - 4, y: -38,
+      width: 78,
+      paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7,
       layout: root.verticalLayout,
     }));
 
     box.set('background', am5.RoundedRectangle.new(root, {
-      fill:        am5.color(0x0c0c10),
-      fillOpacity: 0.9,
-      stroke:      isOpen ? am5.color(accent) : am5.color(0x2a3550),
-      strokeWidth: isOpen ? 1.4 : 1,
-      cornerRadiusTL: 6, cornerRadiusTR: 6, cornerRadiusBL: 6, cornerRadiusBR: 6,
+      fill:          am5.color(0x0a0f1e),       // rgba(10,15,30,.85) — bleu nuit PMT
+      fillOpacity:   0.85,
+      stroke:        isOpen ? am5.color(accent) : am5.color(0x5078ff),
+      strokeOpacity: isOpen ? 0.9 : 0.25,        // bordure bleue discrète (rgba(80,120,255,.25))
+      strokeWidth:   isOpen ? 1.4 : 1,
+      cornerRadiusTL: 5, cornerRadiusTR: 5, cornerRadiusBL: 5, cornerRadiusBR: 5,
       shadowColor: isOpen ? am5.color(accent) : undefined,
-      shadowBlur:  isOpen ? 10 : 0, shadowOpacity: isOpen ? 0.35 : 0,
+      shadowBlur:  isOpen ? 9 : 0, shadowOpacity: isOpen ? 0.3 : 0,
     }));
 
     const timeLabel = box.children.push(am5.Label.new(root, {
       text:       '--:--:--',
-      fill:       am5.color(isOpen ? accent : 0x8fa3bf),
+      fill:       am5.color(isOpen ? accent : 0xc8d2e0),   // texte plus lumineux
       fontSize:   11.5, fontWeight: '700',
       fontFamily: '"JetBrains Mono", monospace',
       width: am5.percent(100),
@@ -1705,7 +1711,7 @@ function buildSessionMap() {
 
     box.children.push(am5.Label.new(root, {
       text:       data.name,
-      fill:       am5.color(isOpen ? 0xe8eaed : 0x6a7a90),
+      fill:       am5.color(isOpen ? 0xf4f6f9 : 0x8b97ab),
       fontSize:   9.5, fontWeight: '600',
       fontFamily: '"JetBrains Mono", monospace',
       width: am5.percent(100),
@@ -1745,13 +1751,9 @@ function buildSessionMap() {
   }
 
   function updateHeader(now) {
-    const utcH = now.getUTCHours() + now.getUTCMinutes() / 60;
-    const active = SESSION_BLOCKS.filter(s => isSessionActive(s, utcH)).map(s => s.name);
-    const labEl  = document.getElementById('active-sessions-label');
-    if (labEl) {
-      labEl.textContent = active.length ? active.join(' · ') + ' Open' : 'Closed';
-      labEl.style.color = active.length ? 'var(--orange)' : 'var(--text4)';
-    }
+    // PMT affiche simplement "Live" (vert) à côté du point — pas la liste des sessions
+    const labEl = document.getElementById('active-sessions-label');
+    if (labEl) { labEl.textContent = 'Live'; labEl.style.color = '#22c55e'; }
   }
 
   let _nightTick = 0;

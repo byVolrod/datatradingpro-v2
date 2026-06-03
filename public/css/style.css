@@ -223,18 +223,11 @@ html, body {
   overflow: hidden;
 }
 #bnf-text {
-  display: block;
+  display: inline-block;            /* largeur = contenu → le marquee révèle TOUT le titre */
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;          /* une ligne propre, tronquée proprement */
   color: #ffffff;
   font-weight: 600;
-}
-@keyframes bnf-scroll {
-  0%   { transform: translateX(0); }
-  18%  { transform: translateX(0); }
-  88%  { transform: translateX(-320px); }
-  100% { transform: translateX(-320px); }
+  will-change: transform;
 }
 
 /* ── News toast notification ── */

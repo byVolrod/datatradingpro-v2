@@ -561,12 +561,11 @@ function _flashBreakingNews(item) {
   }
   flash.classList.toggle('bnf--breaking', isBreakingItem);
 
-  // Show actual headline + reset scroll animation
-  textEl.style.animation = 'none';
-  void textEl.offsetWidth; // force reflow so animation re-triggers
+  // Titre COMPLET (pas d'ellipse) + reset du défilement
+  textEl.style.transition = 'none';
+  textEl.style.transform  = 'translateX(0)';
   textEl.textContent = (item.headline || 'Market Update')
     .replace(/^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]\s*/i, '');
-  textEl.style.animation = '';
 
   flash.classList.add('visible');
   if (input) input.style.opacity = '0';
@@ -576,10 +575,24 @@ function _flashBreakingNews(item) {
   flash.onclick = () => _jumpToNews(item.id);
 
   clearTimeout(_breakingTimer);
-  _breakingTimer = setTimeout(() => {
-    flash.classList.remove('visible');
-    if (input) input.style.opacity = '';
-  }, 9000);
+  // Marquee adaptatif : si le titre dépasse la barre, on le fait défiler JUSQU'À SA FIN puis on garde
+  // le bandeau visible le temps nécessaire (vitesse ~ constante, indépendante de la longueur).
+  requestAnimationFrame(() => {
+    const clip = textEl.parentElement;
+    const overflow = textEl.scrollWidth - (clip ? clip.clientWidth : 0);
+    let holdMs = 9000;
+    if (overflow > 6) {
+      const dur = Math.min(16, Math.max(4, overflow / 45));     // ~45 px/s
+      holdMs = Math.round((dur + 1.2) * 1000 + 1800);            // pause initiale + défilement + petite pause finale
+      textEl.style.transition = `transform ${dur}s linear 1.2s`;
+      requestAnimationFrame(() => { textEl.style.transform = `translateX(${-overflow}px)`; });
+    }
+    _breakingTimer = setTimeout(() => {
+      flash.classList.remove('visible');
+      textEl.style.transition = 'none'; textEl.style.transform = 'translateX(0)';
+      if (input) input.style.opacity = '';
+    }, holdMs);
+  });
 }
 
 // Saute à une news précise dans le flux (depuis la barre LIVE) : passe en vue News, lève la limite
