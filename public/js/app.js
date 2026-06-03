@@ -2503,11 +2503,21 @@ function _renderRiskPopup(data) {
   const frLabel = LABEL_FR[data.label] || data.label;
   if (lbl) { lbl.textContent = frLabel; lbl.className = 'rp-label ' + cls; }
   if (ti) ti.textContent = `Sentiment du marché : ${frLabel}`;
-  // Bande sentiment pleine largeur : ● LABEL : phrase (colorée selon le risque)
+  // Bande sentiment pleine largeur : ● LABEL: phrase (colorée selon le risque) — texte EN, façon image
   const band = el('rp-band');
   if (band) {
+    const BAND_EN = {
+      'STRONG RISK-ON':  'Strong appetite for risk. Capital rotates into equities and high-beta. Safe havens sold.',
+      'RISK-ON':         'Risk appetite prevails. Equities and risk assets bid; defensive assets soft.',
+      'WEAK RISK-ON':    'Mild risk appetite. Constructive tone but limited conviction.',
+      'NEUTRAL':         'Balanced sentiment. Mixed signals across risk assets, no clear direction.',
+      'WEAK RISK-OFF':   'Cautious sentiment prevails. Mixed flows. Safe havens supported. Volatility elevated.',
+      'RISK-OFF':        'Risk aversion in play. Flight to safety — bonds, gold, JPY and CHF bid.',
+      'STRONG RISK-OFF': 'Strong risk aversion. Significant flight to safety across havens. Volatility high.',
+    };
+    const phrase = BAND_EN[data.label] || data.description || '';
     band.className = 'rp-band ' + cls;
-    band.innerHTML = `<span class="rp-band-dot"></span><span class="rp-band-txt"><strong>${data.label} :</strong> ${data.description || ''}</span>`;
+    band.innerHTML = `<span class="rp-band-dot"></span><span class="rp-band-txt"><strong>${data.label}:</strong> ${phrase}</span>`;
   }
   const de = el('rp-desc');
   if (de) de.style.display = 'none';   // la phrase est désormais dans la bande (plus de doublon)

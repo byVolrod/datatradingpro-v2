@@ -1544,19 +1544,42 @@ function buildSessionMap() {
   );
   chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));  // océan anthracite (cohérent)
 
-  // Subtle graticule grid
-  const graticuleSeries = chart.series.push(am5map.GraticuleSeries.new(root, { step: 30 }));
-  graticuleSeries.mapLines.template.setAll({ stroke: am5.color(0x2a2a2e), strokeOpacity: 0.6, strokeWidth: 0.4 });  // grille grise subtile (lisible sur anthracite)
+  // Rendu ÉPURÉ : pas de grille (graticule) → carte propre comme la référence.
 
   // Country polygons — green on dark ocean
   const polygonSeries = chart.series.push(
     am5map.MapPolygonSeries.new(root, { geoJSON: am5geodata_worldLow, exclude: ['AQ'] })
   );
   polygonSeries.mapPolygons.template.setAll({
-    fill: am5.color(0x2d6020), stroke: am5.color(0x3a7025),
-    strokeWidth: 0.5, fillOpacity: 1, interactive: true, tooltipText: '{name}',
+    fill: am5.color(0x2d6020), stroke: am5.color(0x36701f),
+    strokeWidth: 0.4, fillOpacity: 1, interactive: true, tooltipText: '{name}',
   });
   polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x3a7a28) });
+
+  // ── Terminateur JOUR/NUIT : voile sombre sur l'hémisphère de nuit (mis à jour en direct) ──
+  const nightSeries = chart.series.push(am5map.MapPolygonSeries.new(root, {}));
+  nightSeries.mapPolygons.template.setAll({ fill: am5.color(0x05070a), fillOpacity: 0.46, strokeOpacity: 0, interactive: false });
+  function _nightPolygon(now) {
+    const rad = Math.PI / 180, deg = 180 / Math.PI;
+    const yStart = Date.UTC(now.getUTCFullYear(), 0, 0);
+    const doy = Math.floor((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - yStart) / 86400000);
+    const decl = -23.44 * Math.cos(rad * (360 / 365) * (doy + 10)) * rad;        // déclinaison solaire (rad)
+    const utcH = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
+    const lonSun = -15 * (utcH - 12);                                            // longitude subsolaire
+    const tanDecl = Math.tan(decl) || 1e-9;
+    const coords = [];
+    for (let lon = -180; lon <= 180; lon += 2) {
+      const lat = Math.atan(-Math.cos((lon - lonSun) * rad) / tanDecl) * deg;     // latitude du terminateur
+      coords.push([lon, Math.max(-89.9, Math.min(89.9, lat))]);
+    }
+    const darkPole = decl > 0 ? -85 : 85;                                        // pôle en nuit (clampé = limite Mercator)
+    coords.push([180, darkPole], [-180, darkPole], [coords[0][0], coords[0][1]]);
+    return coords;
+  }
+  function refreshNight(now) {
+    try { nightSeries.data.setAll([{ geometry: { type: 'Polygon', coordinates: [_nightPolygon(now)] } }]); } catch {}
+  }
+  refreshNight(new Date());
 
   // ── Orange UTC vertical line ──────────────────
   const utcLineSeries = chart.series.push(am5map.MapLineSeries.new(root, {}));
@@ -1718,11 +1741,13 @@ function buildSessionMap() {
     }
   }
 
+  let _nightTick = 0;
   mapClockTimer = setInterval(() => {
     const now = new Date();
     updateHeader(now);
     refreshUTCLine(now);
     updateCityTimes(now);
+    if ((_nightTick++ % 60) === 0) refreshNight(now);   // terminateur jour/nuit : maj 1×/min
   }, 1000);
 
   updateHeader(new Date());
