@@ -1196,7 +1196,7 @@ function buildMeterChart() {
         const v   = _meterValues[ccy];
         if (v == null) return;
         const m = METER_META[ccy] || { iso: '', name: ccy };
-        const col2 = v >= 0 ? '#22c55e' : '#dc2626';
+        const col2 = v >= 0 ? '#22e06a' : '#ff3b3b';   // charte : --st-pos / --st-neg
         tip.innerHTML = `<div class="meter-tip-name">${_flagImg(m.iso, 14)} ${m.name}</div>`
           + `<div class="meter-tip-val" style="color:${col2}">${(v >= 0 ? '+' : '') + v.toFixed(2)}</div>`;
         tip.style.display = 'block';
@@ -1234,7 +1234,7 @@ function buildMeterChart() {
       const valEl = col.querySelector('.meter-col-val');
       if (valEl) {
         valEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
-        valEl.style.color = v > 0 ? '#22c55e' : v < 0 ? '#dc2626' : '#64748b';
+        valEl.style.color = v > 0 ? '#22e06a' : v < 0 ? '#ff3b3b' : '#64748b';   // charte HUD
       }
     });
   }
@@ -2111,21 +2111,25 @@ function calImpDots(impact) {
   return '<span class="ci-low">●<span class="ci-dot-off">●●</span></span>';
 }
 
-// Deviation Signaling — colore l'ACTUAL UNIQUEMENT par rapport au FORECAST (fidèle Prime Terminal) :
-//   actual > forecast → vert fluo (cv-pos) ; actual < forecast → rouge écarlate (cv-neg) ; égal → blanc.
-//   Aucun forecast → blanc : on ne colore JAMAIS via le previous (sinon faux signal de déviation).
+// ─── Deviation Signaling — utilitaire SÉMANTIQUE UNIFIÉ ───────────────────────
+// Compare une donnée chiffrée (actual) à sa référence (forecast) et renvoie la classe
+// de la charte : 'cv-pos' (supérieur/favorable → vert), 'cv-neg' (inférieur → rouge),
+// '' (égal ou non comparable → blanc). Fidèle Prime Terminal : SANS référence valable
+// → neutre, on ne déduit JAMAIS un signal du previous. Réutilisable par tout composant
+// data-driven affichant un résultat chiffré (calendrier, scanner, métriques…).
+function deviationClass(actual, ref) {
+  if (actual == null || actual === '' || ref == null || ref === '') return '';
+  const a = parseFloat(String(actual).replace(',', '.'));
+  const r = parseFloat(String(ref).replace(',', '.'));
+  if (isNaN(a) || isNaN(r)) return '';
+  return a > r ? 'cv-pos' : a < r ? 'cv-neg' : '';
+}
+window.deviationClass = deviationClass;
+
+// Cellule ACTUAL du calendrier : déviation vs FORECAST seul (blanc si forecast absent).
 function calActualCell(actual, forecast) {
   if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
-  let cls = '';
-  if (forecast != null && forecast !== '') {
-    const a = parseFloat(String(actual).replace(',', '.'));
-    const f = parseFloat(String(forecast).replace(',', '.'));
-    if (!isNaN(a) && !isNaN(f)) {
-      if (a > f)      cls = 'cv-pos';   // surprise haussière
-      else if (a < f) cls = 'cv-neg';   // surprise baissière
-    }
-  }
-  return `<span class="cv-actual ${cls}">${actual}</span>`;
+  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${actual}</span>`;
 }
 
 function calFormatTime(ts) {
@@ -2264,14 +2268,8 @@ const _calDetailCache = {};   // url → { specs, history } (cache navigateur : 
 function _calEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _calColorCell(actual, forecast) {
   if (!actual) return '<span class="cv-empty">—</span>';
-  // Même Deviation Signaling que la table : comparaison au FORECAST seul (blanc si absent).
-  let cls = '';
-  if (forecast != null && forecast !== '') {
-    const a = parseFloat(String(actual).replace(',', '.'));
-    const f = parseFloat(String(forecast).replace(',', '.'));
-    if (!isNaN(a) && !isNaN(f)) cls = a > f ? 'cv-pos' : a < f ? 'cv-neg' : '';
-  }
-  return `<span class="cv-actual ${cls}">${_calEsc(actual)}</span>`;
+  // Même Deviation Signaling unifié que la table (comparaison au FORECAST seul).
+  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${_calEsc(actual)}</span>`;
 }
 // En-tête de valeurs (Actual / Forecast / Previous) d'un événement
 function _calDetailHeadVals(ev) {
