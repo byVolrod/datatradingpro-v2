@@ -12,6 +12,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail } = require('./scrapers/forexfactory-news');
+const { fetchTVCalendar } = require('./scrapers/tvcalendar');   // actuals calendrier (HTTP TradingView, sans Cloudflare)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
@@ -758,7 +759,10 @@ const _calKeyDated = (cur, title, ts) => _calKey(cur, title) + '|' + (ts ? new D
 // prévision OU le précédent du calendrier apparaisse dans la news (corroboration → haute précision),
 // puis on en extrait l'actual. Aucune valeur ambiguë n'est posée (jamais de fausse donnée).
 const _CAL_DATA_RE = /\b(vs\.?|versus|exp\.?|expected|forecast|consensus|est\.?|actual|prelim|flash|prior|previous|m\/m|y\/y|q\/q)\b/i;
-const _CAL_STOP = new Set(['the','a','of','for','and','data','rate','index','change','net','core','seasonally','adjusted','flash','final','prelim','prel','total','new','mom','yoy','qoq','spanish','german','french','italian','japanese','chinese','american','british','australian','canadian','swiss','spain','germany','france','italy','japan','china','america','britain','australia','canada','switzerland']);
+// NB : mom/yoy/qoq/final/flash NE sont PAS des stopwords ici → ils distinguent m/m vs y/y et flash vs final.
+const _CAL_STOP = new Set(['the','a','of','for','and','data','rate','index','change','net','core','seasonally','adjusted','prelim','prel','total','new','spanish','german','french','italian','japanese','chinese','american','british','australian','canadian','swiss','spain','germany','france','italy','japan','china','america','britain','australia','canada','switzerland']);
+// Pays → forme canonique (pour rapprocher "Italian"↔"Italy", "Spanish"↔"Spain"…) — token DISTINCTIF.
+const _CAL_CTRY = { spanish:'es', spain:'es', italian:'it', italy:'it', german:'de', germany:'de', french:'fr', france:'fr', japanese:'jp', japan:'jp', chinese:'cn', china:'cn', american:'us', britain:'uk', british:'uk', australian:'au', australia:'au', canadian:'ca', canada:'ca', swiss:'ch', switzerland:'ch', spanish_:'es' };
 function _calNumTokens(s) { return (String(s).match(/-?\d[\d,]*\.?\d*\s*[%KMBkmb]?/g) || []).map(x => x.replace(/\s+/g, '')); }
 function _calNormNum(s) { return String(s || '').replace(/[, ]/g, '').toUpperCase().replace(/%$/, ''); }
 function _calIndicatorTokens(title) {
@@ -862,6 +866,69 @@ function _backfillActualsFromNews() {
   }
   return filled;
 }
+// ── SOURCE PRINCIPALE des actuals : TradingView (HTTP, sans Cloudflare). On rapproche chaque
+//    événement TV (qui a un actual) de NOTRE événement par devise + même heure (±90 min) +
+//    recouvrement de titre, puis on remplit la colonne Actual. Fiable et en temps réel.
+function _calTitleTokens(title) {
+  const words = String(title || '').toLowerCase()
+    .replace(/m\/m/g, ' mom ').replace(/y\/y/g, ' yoy ').replace(/q\/q/g, ' qoq ')   // garde la périodicité distinctive
+    .replace(/\([^)]*\)/g, ' ').replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(Boolean);
+  const out = new Set();
+  for (const w of words) {
+    if (_CAL_CTRY[w]) { out.add('ctry_' + _CAL_CTRY[w]); continue; }   // pays canonique distinctif
+    if (w.length >= 3 && !_CAL_STOP.has(w)) out.add(w);
+  }
+  return out;
+}
+function _calOverlap(a, b) { let n = 0; for (const w of a) if (b.has(w)) n++; return n; }
+async function _refreshTVActuals() {
+  let tv;
+  try { tv = await fetchTVCalendar(); } catch { return 0; }
+  if (!Array.isArray(tv) || !tv.length) return 0;
+  const ours = getCalendarRaw();
+  const tvTok = tv.map(t => ({ t, tok: _calTitleTokens(t.title) }));
+  // 1) DÉCALAGE HORAIRE : nos timestamps (parseEventTime) et TradingView (UTC) ont un offset de tz.
+  //    On l'estime par la MÉDIANE des écarts sur les événements à candidat UNIQUE (titre distinctif).
+  const diffs = [];
+  for (const ev of ours) {
+    const et = _calTitleTokens(ev.title); if (et.size < 2) continue;
+    let max = 0, cnt = 0, cand = null;
+    for (const x of tvTok) {
+      if (x.t.currency !== ev.currency) continue;
+      if (Math.abs(x.t.ts - ev.timestamp) > 30 * 3600000) continue;   // même semaine
+      const ov = _calOverlap(et, x.tok);
+      if (ov > max) { max = ov; cnt = 1; cand = x.t; }
+      else if (ov === max && ov > 0) cnt++;
+    }
+    if (cand && max >= 2 && cnt === 1) diffs.push(cand.ts - ev.timestamp);
+  }
+  let offset = 0;
+  if (diffs.length) { diffs.sort((a, b) => a - b); offset = diffs[Math.floor(diffs.length / 2)]; }
+  // 2) REMPLISSAGE : recouvrement de titre MAX, puis le plus PROCHE en temps (corrigé du décalage).
+  //    Indispensable car TradingView ne met pas le pays dans le titre (5 "Services PMI" EUR = même
+  //    titre, distingués uniquement par l'heure).
+  let filled = 0;
+  for (const ev of ours) {
+    if (!ev || (ev.actual && ev.actual !== '')) continue;
+    const k = _calKeyDated(ev.currency, ev.title, ev.timestamp);
+    if (_calActualsMap.get(k)?.actual) continue;
+    const et = _calTitleTokens(ev.title); if (!et.size) continue;
+    let best = null, bs = 0, bd = Infinity;
+    for (const x of tvTok) {
+      if (x.t.currency !== ev.currency) continue;
+      const diff = Math.abs((x.t.ts - offset) - ev.timestamp);
+      if (diff > 45 * 60 * 1000) continue;                            // ±45 min après correction
+      const ov = _calOverlap(et, x.tok);
+      if (ov < 1) continue;
+      if (ov > bs || (ov === bs && diff < bd)) { bs = ov; bd = diff; best = x.t; }
+    }
+    if (best && bs >= 1) {
+      _calActualsMap.set(k, { actual: best.actual, forecast: best.forecast || ev.forecast || '', previous: best.previous || ev.previous || '' });
+      filled++;
+    }
+  }
+  return filled;
+}
 async function _refreshCalActuals(force) {
   // Throttle sur la TENTATIVE (pas le succès) : sinon, si FF échoue (Cloudflare), Puppeteer serait
   // relancé à CHAQUE requête calendrier → gâchis mémoire (risque 502). Espacé à 15 min.
@@ -908,8 +975,8 @@ function _overlayActuals(events) {
 }
 app.get('/api/calendar-events', async (_req, res) => {
   if (!getCalendarRaw().length) await _ensureCalendar();
-  _refreshCalActuals().catch(() => {});                            // page FF (best-effort, arrière-plan)
-  try { _backfillActualsFromNews(); } catch {}                     // SOURCE FIABLE : actuals depuis le flux news
+  try { await _refreshTVActuals(); } catch {}                      // SOURCE PRINCIPALE : actuals TradingView (HTTP, sans CF)
+  try { _backfillActualsFromNews(); } catch {}                     // complément : actuals depuis notre flux de news
   res.json({ items: _overlayActuals(getCalendarRaw()) });
 });
 
@@ -4376,8 +4443,9 @@ async function refreshNews() {
 
   // Calendar events go to their own store — NOT mixed into the news feed
   if (ffCalItems.length > 0) allCalendar = ffCalItems;
-  // Actuals lus sur la page FF (le flux XML n'en a pas) — arrière-plan, borné par cache 5 min.
-  _refreshCalActuals().catch(() => {});
+  // Actuals : source PRINCIPALE TradingView (HTTP, sans Cloudflare) + complément depuis nos news.
+  _refreshTVActuals().catch(() => {});
+  try { _backfillActualsFromNews(); } catch {}
 
   // Also inject HIGH-impact past calendar events (with actual values) into the news feed
   const calReleased = ffCalItems.filter(i =>
