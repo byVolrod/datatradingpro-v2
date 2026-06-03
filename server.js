@@ -156,14 +156,26 @@ allNews = loadHistory().map(item => {
 });
 
 // ─── Session ──────────────────────────────────────────────────────────────────
-app.use(session({
+const _sessionMw = session({
   name:     'dtp_session',
   secret:   process.env.SESSION_SECRET || 'dtp-secret-key-change-me',
   httpOnly: true,
   sameSite: 'lax',
   secure:   process.env.NODE_ENV === 'production',  // HTTPS uniquement en prod
   maxAge:   30 * 24 * 60 * 60 * 1000,   // 30 jours — l'utilisateur reste connecté
-}));
+});
+app.use(_sessionMw);
+
+// ─── Présence "en ligne" (suivi des connexions WebSocket par utilisateur) ─────
+const _onlineUsers = new Map();   // userId → nombre d'onglets/WS ouverts
+function _isUserOnline(id) { return _onlineUsers.has(String(id)); }
+function _wsUserIdFromReq(req) {
+  try {
+    const fakeRes = { end() {}, setHeader() {}, getHeader() {}, writeHead() {} };
+    _sessionMw(req, fakeRes, () => {});
+    return req.session && req.session.userId ? String(req.session.userId) : null;
+  } catch { return null; }
+}
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
@@ -574,6 +586,20 @@ app.get('/api/admin/chat', requireSupport, async (_req, res) => {
     const users = await auth.getAllUsers();
     const byId = new Map(users.map(u => [String(u.id), u]));
     res.json({ threads: threads.map(t => ({ ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '' })) });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// TOUS les utilisateurs (staff uniquement) avec statut "en ligne" → permet au support de
+// contacter n'importe qui, pas seulement ceux qui ont déjà écrit. + recherche côté client.
+app.get('/api/support/users', requireSupport, async (req, res) => {
+  try {
+    const me = String(req.session?.userId || '');
+    const users = await auth.getAllUsers();
+    res.json({
+      users: users
+        .filter(u => String(u.id) !== me)   // on ne se liste pas soi-même
+        .map(u => ({ id: u.id, name: u.name || '', email: u.email || '', role: u.role || 'user', online: _isUserOnline(u.id) }))
+        .sort((a, b) => (b.online - a.online) || (a.name || a.email).localeCompare(b.name || b.email)),
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.get('/api/admin/chat/:userId', requireSupport, async (req, res) => {
@@ -3935,13 +3961,21 @@ wss.on('connection', (ws, req) => {
     if (!ok) { try { ws.close(1008, 'origin not allowed'); } catch {} return; }
   }
   console.log(`[WS] Client connected (${wss.clients.size})`);
+
+  // Présence : on associe ce WS à l'utilisateur (cookie de session) → statut "en ligne".
+  const _uid = _wsUserIdFromReq(req);
+  if (_uid) _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1);
+
   ws.send(JSON.stringify({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length }));
   // Envoyer aussi les session wraps et bank research au moment de la connexion
   if (_swCache.length > 0) ws.send(JSON.stringify({ type: 'sw_update', items: _swCache }));
   if (_brCache.length > 0) ws.send(JSON.stringify({ type: 'br_update', items: _brCache }));
 
   ws.on('error', err => console.error('[WS]', err.message));
-  ws.on('close', () => console.log(`[WS] Disconnected (${wss.clients.size} left)`));
+  ws.on('close', () => {
+    if (_uid) { const n = (_onlineUsers.get(_uid) || 1) - 1; if (n <= 0) _onlineUsers.delete(_uid); else _onlineUsers.set(_uid, n); }
+    console.log(`[WS] Disconnected (${wss.clients.size} left)`);
+  });
 });
 
 // ─── Start ───────────────────────────────────────────────────────────────────
