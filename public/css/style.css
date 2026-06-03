@@ -12,9 +12,9 @@
   --bg3:         #141414;
   --bg4:         #181818;
   --bg5:         #1c1c1c;
-  --border:      #1e1e1e;
-  --border2:     #252525;
-  --border3:     #2e2e2e;
+  --border:      #232327;   /* séparateur principal — légèrement plus lisible (grille discrète) */
+  --border2:     #2a2a2f;
+  --border3:     #333339;
   --text:        #d8d8d8;
   --text2:       #999999;
   --text3:       #666666;
@@ -45,7 +45,9 @@
   --st-neg:      #ff3b3b;   /* inférieur / défavorable — rouge écarlate     */
   --st-flat:     #e8eaed;   /* égal / neutre — blanc                        */
   /* ─ Ligne de flux ultra-fine (border-collapse HUD ≈ neutral-900/60) ─── */
-  --hud-line:    rgba(28,28,30,0.6);
+  --hud-line:    rgba(255,255,255,0.055);   /* ligne de grille data (claire & faible opacité, façon Bloomberg/PMT) */
+  --grid-line-v: rgba(255,255,255,0.035);   /* séparateurs VERTICAUX (encore + discrets) */
+  --panel-depth: 0 1px 2px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.018);  /* profondeur très légère (interne + externe) */
   --font-ui:     'Inter', system-ui, -apple-system, sans-serif;
   --font-mono:   'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --radius:      3px;
@@ -691,7 +693,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(255,255,255,0.06);   /* contour neutre discret (plus d'orange) */
+  border: 1px solid rgba(255,255,255,0.07);   /* contour neutre discret, harmonisé */
+  box-shadow: var(--panel-depth);             /* profondeur quasi imperceptible (interne + externe) */
   overflow: hidden;
   position: relative;
 }
@@ -1620,7 +1623,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   font-family: var(--font-mono);   /* MÊME police pour tous les loaders (fini l'héritage du conteneur) */
   font-size: 13px;
   letter-spacing: .02em;
-  color: #e8eaed;            /* blanc cassé (lisible) */
+  color: #9aa0a8;            /* gris doux (plus discret que le blanc) */
 }
 .dtp-loader--sm { min-height: 90px; gap: 10px; padding: 18px 12px; }
 .dtp-loader--sm .dtp-loader__spin { width: 26px; height: 26px; border-width: 2px; }
@@ -5566,7 +5569,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* Event rows — bloc compact, séparateur 1px, aucun arrondi */
 .cal-row {
-  border-bottom: 1px solid #101010;
+  border-bottom: 1px solid var(--hud-line);   /* séparateur horizontal harmonisé (grille de lecture) */
   border-radius: 0;
   transition: background 0.12s;
   cursor: default;
@@ -5580,9 +5583,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   overflow: hidden;
   text-overflow: ellipsis;
   border-radius: 0;
+  border-right: 1px solid var(--grid-line-v);   /* fines lignes verticales (très discrètes) */
   font-size: 11px;
   color: #666;
 }
+.cal-row td:last-child, .cal-table thead th:last-child { border-right: none; }
+.cal-table thead th { border-right: 1px solid var(--grid-line-v); }
 
 /* Chevron */
 .cal-row td.cth-chv { padding: 0 0 0 10px; text-align: center; }
