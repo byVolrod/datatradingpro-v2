@@ -511,7 +511,7 @@ function computeExpiry({ duration, expiresAt, startDate }) {
 }
 
 // Message d'accueil envoyé automatiquement par le support à chaque NOUVEAU client (dans le chat).
-const WELCOME_CHAT = "Bonjour et bienvenue sur DataTradingPro 👋\n\nJe suis là pour t'accompagner. Ton accès est activé : tu as le flux de news en temps réel, le calendrier économique, la force des devises et les analyses institutionnelles.\n\nPour bien démarrer pendant la session de Londres : ouvre le Live Squawk et le calendrier.\n\nUne question ou besoin d'un coup de main ? Écris-moi directement ici, je te réponds. Bons trades ! — L'équipe DataTradingPro";
+const WELCOME_CHAT = "Bonjour et bienvenue sur DataTradingPro 👋\n\nJe suis là pour t'accompagner. Ton accès est activé : tu as le flux de news en temps réel, le calendrier économique, la force des devises et les analyses institutionnelles.\n\nPour bien démarrer pendant la session de Londres : ouvre le Live Squawk et le calendrier.\n\nUne question ou besoin d'un coup de main ? Écris-moi directement ici, je te réponds. Bons trades !\n\nL'équipe DataTradingPro";
 function _sendWelcomeChat(userId) {
   if (!userId) return;
   auth.chatInsert({ user_id: userId, sender: 'support', text: WELCOME_CHAT }).catch(() => {});
@@ -5282,11 +5282,9 @@ async function fetchRiskSentiment() {
     'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
   };
 
-  // pct = SEULE valeur d'affichage. Calculée ici une fois pour TOUTES les vues
-  // (topbar, popup, jauge) → plus jamais de divergence. Échelle CALIBRÉE sur Prime Terminal
-  // (RISK_PCT_SCALE 21.5 : un score lissé de -0.54 → ~-11.5% comme PMT, au lieu de -26.8% en ×50).
-  const RISK_PCT_SCALE = 21.5;
-  const pct = Math.max(-100, Math.min(100, +(_riskScoreEMA * RISK_PCT_SCALE).toFixed(1)));
+  // pct = SEULE valeur d'affichage (× 50, bornée). Calculée ici une fois pour TOUTES
+  // les vues (topbar, popup, jauge METER) → plus jamais de divergence -6%/-4%.
+  const pct = Math.max(-100, Math.min(100, +(_riskScoreEMA * 50).toFixed(1)));
   _riskData = { label, score: +(_riskScoreEMA).toFixed(2), rawScore: +score.toFixed(2), pct, description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
   _riskTs = Date.now();
   return _riskData;

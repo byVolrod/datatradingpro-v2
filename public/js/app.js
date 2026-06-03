@@ -2492,10 +2492,10 @@ function _renderRiskGauge(data) {
   };
   const frLabel = LABEL_FR[data.label] || data.label;
 
-  // pct = valeur canonique du serveur (source unique). Repli sur score×21.5 (échelle calibrée PMT).
-  const gv      = (typeof data.pct === 'number') ? data.pct : Math.max(-100, Math.min(100, score * 21.5));
-  // L'aiguille suit le MÊME nombre que l'affichage (pct) → aiguille ↔ % toujours cohérents.
-  const angle   = Math.max(-90, Math.min(90, gv * 0.9));
+  // Needle: -90° = full risk-off, 0° = neutral, +90° = full risk-on
+  const angle   = Math.max(-90, Math.min(90, score * 90));
+  // pct = valeur canonique fournie par le serveur (source unique). Repli sur score×50.
+  const gv      = (typeof data.pct === 'number') ? data.pct : Math.max(-100, Math.min(100, score * 50));
   const pctAbs  = Math.abs(gv).toFixed(1);
   const pctSign = gv >= 0 ? '' : '-';
 
@@ -5090,7 +5090,7 @@ const CHAT_SUPPORT_NAME  = 'Équipe de support';
 const CHAT_SUPPORT_SUB   = 'Répond généralement en quelques minutes';
 const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la photo ne charge pas)
 // Photo support (portrait pro/institutionnel). Modifiable : remplace l'URL par la tienne.
-const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=220&h=220&fit=crop&crop=faces&auto=format&q=85';
+const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=220&h=220&fit=crop&crop=faces&auto=format&q=85';
 // Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
 function _chatSupportAvatarHtml(){
   if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);
