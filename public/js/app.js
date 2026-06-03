@@ -3366,6 +3366,7 @@ const _INST_BANKS = [
   [/\bbnp\b/i, 'BNP'], [/crédit agricole|credit agricole|\bcacib\b/i, 'CACIB'],
   [/standard chartered/i, 'StanChart'], [/\bwells fargo\b/i, 'Wells'],
   [/bank of america|\bbofa\b/i, 'BofA'], [/\bdeutsche\b/i, 'Deutsche'], [/\bnatwest\b/i, 'NatWest'],
+  [/\bnatixis\b/i, 'Natixis'], [/\banz\b/i, 'ANZ'], [/\bnordea\b/i, 'Nordea'], [/\bseb\b/i, 'SEB'],
 ];
 function _instBadge(item) {
   const inst = (item && item.institution) || '';
@@ -3374,6 +3375,16 @@ function _instBadge(item) {
   for (const [re, label] of _INST_BANKS) if (re.test(hay)) return label;
   return 'DTP';
 }
+// Couleur de marque par banque → "logo" wordmark coloré dans l'en-tête du rapport.
+const _BANK_BRAND = {
+  ING: '#ff6200', MUFG: '#e60012', Natixis: '#5b2d86', CACIB: '#009597', Goldman: '#6f93c0',
+  JPM: '#7a2a2a', MS: '#00a3e0', Citi: '#1b5fae', Barclays: '#00aeef', HSBC: '#db0011',
+  Deutsche: '#2c7be5', UOB: '#1b5fae', OCBC: '#e2231a', Danske: '#19a6dc', Nomura: '#c0233a',
+  SocGen: '#e60028', BNP: '#00915a', StanChart: '#1b8fea', BofA: '#1f5fb0', Wells: '#d71e28',
+  NatWest: '#7b3fa0', Rabo: '#fe6e00', Scotia: '#ec111a', Westpac: '#d5002b', Commerz: '#e7b000',
+  NAB: '#c20029', ANZ: '#1b8fea', Nordea: '#0000a0', SEB: '#5ca800',
+};
+function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
 
 // Robustesse images : masque toute image cassée / placeholder (jamais de cadre d'image vide).
 function _brFixImages(root) {
@@ -3434,7 +3445,7 @@ function renderBrReader(item) {
              <div class="br-ing-tagline">THINK economic and financial analysis</div>
            </div><div class="br-ing-divider"></div>`
         : `<div class="br-ing-header">
-             <div class="br-dtp-logo">${_inst}</div>
+             <div class="br-dtp-logo" style="color:${_instBrandColor(_inst)}">${_inst}</div>
              <div class="br-ing-tagline">${_inst === 'DTP' ? 'Institutional research' : _inst + ' Research'}</div>
            </div><div class="br-ing-divider"></div>`;
       const origLabel = isIngDoc ? 'Lire l\'original sur ING Think →' : 'Lire l\'original →';
