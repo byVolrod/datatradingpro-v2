@@ -250,6 +250,36 @@
     .ad-chat-reply { display:flex; gap:8px; padding:10px 12px; border-top:1px solid #232328; }
     .ad-chat-reply input { flex:1; background:#161619; border:1px solid var(--border2,#2a2a30); border-radius:8px; padding:9px 12px; color:#e2e8f0; font-size:13px; outline:none; }
     .ad-chat-reply button { background:#f7941d; color:#0a0a0c; border:none; border-radius:8px; padding:0 16px; font-weight:700; cursor:pointer; }
+
+    /* ── Dashboard financier ── */
+    .fin-sub { font-size:10px; color:var(--text4); font-weight:500; text-transform:none; letter-spacing:0; }
+    .fin-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:13px; margin-bottom:18px; }
+    .fin-kpi { background:linear-gradient(160deg,var(--bg3),var(--bg2)); border:1px solid var(--border2); border-radius:14px; padding:15px 16px; }
+    .fin-kpi-label { font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:var(--text3); }
+    .fin-kpi-val { font-size:25px; font-weight:700; font-family:var(--font-mono); color:var(--text); margin-top:9px; line-height:1; }
+    .fin-kpi-sub { font-size:11px; margin-top:8px; font-family:var(--font-mono); color:var(--text3); }
+    .fin-kpi--accent .fin-kpi-val { color:var(--orange); }
+    .fin-up { color:var(--green); } .fin-down { color:#ef4444; }
+    .fin-row { display:grid; grid-template-columns:1fr 1fr; gap:18px; margin-bottom:6px; }
+    .fin-panel { margin-bottom:20px; }
+    .fin-note { font-size:10px; color:var(--text4); font-style:italic; }
+    @media(max-width:900px){ .fin-row { grid-template-columns:1fr; } }
+    .fc-mrr { font-size:30px; font-weight:800; font-family:var(--font-mono); color:var(--orange); }
+    .fc-line { display:flex; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text2); }
+    .fc-line span:last-child { font-family:var(--font-mono); color:var(--text); font-weight:600; }
+    .fc-bars { display:flex; gap:10px; align-items:flex-end; margin-top:16px; height:80px; }
+    .fc-bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; gap:4px; }
+    .fc-bar { width:80%; background:linear-gradient(180deg,var(--orange),#9c5200); border-radius:5px 5px 0 0; min-height:4px; }
+    .fc-bar-lbl { font-size:9px; color:var(--text3); font-family:var(--font-mono); }
+    .dist-row { display:flex; align-items:center; gap:10px; padding:9px 0; }
+    .dist-name { width:80px; font-size:12px; color:var(--text2); }
+    .dist-bar-wrap { flex:1; height:10px; background:var(--bg3); border-radius:5px; overflow:hidden; }
+    .dist-bar { height:100%; border-radius:5px; transition:width .4s; }
+    .dist-val { width:34px; text-align:right; font-family:var(--font-mono); font-size:13px; color:var(--text); font-weight:600; }
+    .fin-chart-svg { width:100%; height:150px; display:block; }
+    .whop-stat { display:flex; align-items:center; gap:9px; padding:9px 0; font-size:13px; color:var(--text2); border-bottom:1px solid var(--border); }
+    .whop-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
+    .whop-on { background:var(--green); } .whop-off { background:#ef4444; }
   </style>
 </head>
 <body>
@@ -265,8 +295,35 @@
 
 <div class="page">
 
+  <!-- ════ Dashboard financier (direction DTP) ════ -->
+  <div class="section-title" style="display:flex;align-items:center;gap:10px;">
+    <span>Dashboard financier</span>
+    <span class="fin-sub" id="fin-asof"></span>
+  </div>
+  <div class="fin-kpis" id="fin-kpis"></div>
+  <div class="fin-row">
+    <div class="panel-card fin-panel">
+      <div class="panel-head"><span class="ph-ic">💶</span><h2>Revenu &amp; prévision</h2><span class="ph-spacer"></span><span class="fin-note">estimation</span></div>
+      <div class="panel-body" id="fin-forecast"></div>
+    </div>
+    <div class="panel-card fin-panel">
+      <div class="panel-head"><span class="ph-ic">📊</span><h2>Répartition des abonnés</h2></div>
+      <div class="panel-body" id="fin-dist"></div>
+    </div>
+  </div>
+  <div class="fin-row">
+    <div class="panel-card fin-panel fin-panel--wide">
+      <div class="panel-head"><span class="ph-ic">📈</span><h2>Inscriptions — 12 derniers mois</h2></div>
+      <div class="panel-body" id="fin-chart"></div>
+    </div>
+    <div class="panel-card fin-panel">
+      <div class="panel-head"><span class="ph-ic">🔗</span><h2>Intégration Whop</h2></div>
+      <div class="panel-body" id="fin-whop"></div>
+    </div>
+  </div>
+
   <!-- Stats -->
-  <div class="section-title">Vue d'ensemble</div>
+  <div class="section-title">Utilisateurs — vue d'ensemble</div>
   <div class="stats-row" id="stats-row"></div>
 
   <!-- Add user -->
@@ -473,9 +530,71 @@
     if (d.user.role !== 'admin') { window.location.href = '/'; return; }
     document.getElementById('admin-name').textContent = d.user.name || d.user.email;
     loadUsers();
+    loadFinance();
     loadAdChat();
     setInterval(loadAdChat, 20000);   // rafraîchit les conversations
+    setInterval(loadFinance, 5 * 60 * 1000);   // KPIs financiers rafraîchis toutes les 5 min
   });
+
+  // ── Dashboard financier ─────────────────────────────────────────────────────
+  async function loadFinance() {
+    let d; try { d = await fetch('/api/admin/finance').then(r => r.json()); } catch { return; }
+    if (!d || !d.kpis) return;
+    const k = d.kpis, cur = (d.pricing && d.pricing.currency) || '€';
+    const eur = n => cur + Math.round(n || 0).toLocaleString('fr-FR');
+    const sign = v => (v >= 0 ? '+' : '') + v;
+    const asof = document.getElementById('fin-asof');
+    if (asof) asof.textContent = '· au ' + new Date(d.generatedAt).toLocaleString('fr-FR');
+
+    const kpis = [
+      { l: 'MRR · revenu mensuel', v: eur(k.mrr), sub: `ARPU ${eur(k.arpu)} / abonné`, accent: true },
+      { l: 'ARR · annualisé',      v: eur(k.arr), sub: `${k.activeSubs} abonné(s) actif(s)` },
+      { l: 'Abonnés actifs',       v: k.activeSubs, sub: `${k.trials} essai(s) en cours` },
+      { l: 'Nouveaux ce mois',     v: k.newThisMonth, sub: `<span class="${k.growthPct >= 0 ? 'fin-up' : 'fin-down'}">${sign(k.growthPct)}% vs mois -1</span>` },
+      { l: 'Taux de churn (30j)',  v: k.churnRate + '%', sub: `${k.churned30} expiré(s)` },
+      { l: 'Revenu à risque',      v: eur(k.atRiskMrr), sub: `${k.expiringSoon} expire(nt) ≤ 7j` },
+    ];
+    document.getElementById('fin-kpis').innerHTML = kpis.map(c =>
+      `<div class="fin-kpi${c.accent ? ' fin-kpi--accent' : ''}"><div class="fin-kpi-label">${c.l}</div><div class="fin-kpi-val">${c.v}</div><div class="fin-kpi-sub">${c.sub || ''}</div></div>`).join('');
+
+    // Revenu & prévision
+    const fc = d.forecast || [];
+    const fcBars = [{ v: k.mrr, l: 'Auj.' }, { v: fc[0], l: 'M+1' }, { v: fc[1], l: 'M+2' }, { v: fc[2], l: 'M+3' }];
+    const maxFc = Math.max(...fcBars.map(b => b.v || 0), 1);
+    document.getElementById('fin-forecast').innerHTML = `
+      <div class="fc-mrr">${eur(k.mrr)} <span style="font-size:13px;color:var(--text3);font-weight:500">MRR</span></div>
+      <div class="fc-line"><span>Ajout net mensuel</span><span class="${k.netAdds >= 0 ? 'fin-up' : 'fin-down'}">${sign(k.netAdds)} abonné(s)</span></div>
+      <div class="fc-line"><span>ARR projeté</span><span>${eur(k.arr)}</span></div>
+      <div style="margin:14px 0 2px;font-size:11px;color:var(--text3)">Prévision MRR (estimation, M+1 → M+3)</div>
+      <div class="fc-bars">${fcBars.map(b => `<div class="fc-bar-wrap"><div class="fc-bar" style="height:${Math.max(4, ((b.v || 0) / maxFc) * 64)}px"></div><div class="fc-bar-lbl">${b.l}</div><div class="fc-bar-lbl">${eur(b.v)}</div></div>`).join('')}</div>`;
+
+    // Répartition
+    const dist = d.distribution || {};
+    const dE = [['monthly', 'Mensuel', '#f7941d'], ['annual', 'Annuel', '#60a5fa'], ['trial', 'Essai gratuit', '#f59e0b'], ['unlimited', 'Illimité/offert', '#2ecc71']];
+    const dMax = Math.max(...dE.map(([key]) => dist[key] || 0), 1);
+    document.getElementById('fin-dist').innerHTML = dE.map(([key, name, col]) => {
+      const val = dist[key] || 0;
+      return `<div class="dist-row"><span class="dist-name">${name}</span><div class="dist-bar-wrap"><div class="dist-bar" style="width:${val / dMax * 100}%;background:${col}"></div></div><span class="dist-val">${val}</span></div>`;
+    }).join('');
+
+    // Inscriptions 12 mois (SVG)
+    const sm = d.signupsByMonth || {};
+    const months = Object.keys(sm);
+    const mx = Math.max(...Object.values(sm), 1);
+    const bw = 100 / Math.max(months.length, 1);
+    const bars = months.map((m, i) => { const h = (sm[m] / mx) * 90; return `<rect x="${i * bw + bw * 0.15}" y="${100 - h}" width="${bw * 0.7}" height="${h}" fill="#f7941d" opacity="0.85"><title>${m}: ${sm[m]}</title></rect>`; }).join('');
+    document.getElementById('fin-chart').innerHTML =
+      `<svg class="fin-chart-svg" viewBox="0 0 100 100" preserveAspectRatio="none">${bars}</svg>`
+      + `<div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text3);font-family:var(--font-mono);margin-top:3px">${months.map((m, i) => i % 2 === 0 ? `<span>${m.slice(2)}</span>` : '<span></span>').join('')}</div>`;
+
+    // Whop
+    const w = d.whop || {};
+    document.getElementById('fin-whop').innerHTML = `
+      <div class="whop-stat"><span class="whop-dot ${w.configured ? 'whop-on' : 'whop-off'}"></span> API Whop ${w.configured ? 'connectée' : '— non configurée (WHOP_API_KEY)'}</div>
+      <div class="whop-stat"><span class="whop-dot ${w.webhookSecret ? 'whop-on' : 'whop-off'}"></span> Webhook ${w.webhookSecret ? 'sécurisé (token actif)' : '— non protégé (WHOP_WEBHOOK_SECRET)'}</div>
+      <div class="whop-stat" style="border-bottom:none"><span class="whop-dot whop-on"></span> Renouvellement auto + email à chaque paiement</div>
+      <a href="${w.renewUrl}" target="_blank" rel="noopener" class="btn-sm btn-primary" style="margin-top:14px;display:inline-block;text-decoration:none">Ouvrir la page Whop →</a>`;
+  }
 
   // ── Chat support (admin) ──────────────────────────────────────────────────
   let _adChatUser = null;
@@ -526,6 +645,7 @@
     _allUsers = Array.isArray(users) ? users : [];
     renderStats();
     renderUserRows();
+    if (typeof loadFinance === 'function') loadFinance();   // KPIs financiers à jour après toute modif
   }
 
   // État d'abonnement d'un utilisateur (pour stats + filtres + badge)
