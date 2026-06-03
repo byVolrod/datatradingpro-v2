@@ -393,6 +393,7 @@ const _BREAKING_RX = /\b(?:attack|airstrike|missile|troops|invasion|war|escalat|
 
 // News "importante" = même critère que la surbrillance rouge du flux :
 // priorité haute, urgente (FJ), ou donnée à fort impact.
+let _flashedNewsId = null;   // id de la news actuellement annoncée dans le bandeau LIVE (jamais masquée du feed)
 function _isImportantNews(item) {
   if (!item) return false;
   const impactStr = String(item.impact || '').toLowerCase();
@@ -415,6 +416,10 @@ function _flashBreakingNews(item) {
   const textEl  = document.getElementById('bnf-text');
   const labelEl = flash.querySelector('.bnf-label');
   if (!textEl) return;
+
+  // Mémorise la news annoncée → les renders FUTURS ne la masqueront jamais (synchro bandeau ↔ flux).
+  // (Elle est déjà affichée ici : le flash n'est déclenché que pour une news présente dans le feed.)
+  _flashedNewsId = item.id || null;
 
   // Dynamic label: BREAKING (FJ urgent only) vs LIVE
   const _isFJ = item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-');
@@ -450,9 +455,22 @@ function _flashBreakingNews(item) {
 // d'affichage si besoin, scrolle dessus et la surligne brièvement.
 function _jumpToNews(id) {
   if (!id) return;
+  const _sel = x => `.news-item[data-id="${(window.CSS && CSS.escape) ? CSS.escape(x) : x}"]`;
+  _flashedNewsId = id;                          // force la news à rester visible dans le feed
   const go = () => {
-    let row = document.querySelector(`.news-item[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`);
-    if (!row) { try { displayLimit = Math.max(displayLimit || 100, 400); renderNews(); } catch {} row = document.querySelector(`.news-item[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`); }
+    let row = document.querySelector(_sel(id));
+    if (!row) {                                  // pas dans le DOM → on lève la limite + on ré-affiche
+      try { displayLimit = Math.max(displayLimit || 100, 600); searchQuery = ''; const sb = document.getElementById('search-input'); if (sb) sb.value = ''; renderNews(); } catch {}
+      row = document.querySelector(_sel(id));
+    }
+    if (!row) {                                  // toujours absente (dédupée) → on saute sur le quasi-duplicat visible (même clé)
+      const target = allItems.find(i => i.id === id);
+      if (target) {
+        const k = _newsKey(target.headline || '');
+        const rep = k && getFilteredItems().find(i => _newsKey(i.headline || '') === k);
+        if (rep) row = document.querySelector(_sel(rep.id));
+      }
+    }
     if (row) {
       row.scrollIntoView({ behavior: 'smooth', block: 'center' });
       row.classList.add('news-item--flash');
@@ -499,15 +517,20 @@ function syncDropdownUI() {
 // ═══ News Rendering ═══════════════════════
 // Empreinte d'un titre pour dédoublonner les reposts quasi-identiques (clé courte → + agressif)
 function _newsKey(h) {
+  // slice 72 (au lieu de 40) : deux events DIFFÉRENTS ("Iran strikes Gaza" vs "Iran strikes Israel")
+  // ne collapsent plus sur la même clé → on ne masque plus par erreur une news importante distincte.
   return String(h || '').toLowerCase()
     .replace(/[^a-z0-9 ]/g, '').replace(/\b(the|a|an|of|to|in|on|for|and|as|is|at|by)\b/g, '')
-    .replace(/\s+/g, ' ').trim().slice(0, 40);
+    .replace(/\s+/g, ' ').trim().slice(0, 72);
 }
 // Bruit / faible valeur marché → masqué
 const _NEWS_NOISE = /(is\s+\w+\s+a\s+buy|should you buy|analysis today at|read more at|click here|sign up|subscribe|webinar|giveaway|promo|sponsored|advertisement|\bad\b|top \d+ (stocks|picks)|motley fool|zacks)/i;
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
+    // SYNCHRO bandeau LIVE ↔ feed : la news actuellement annoncée dans le bandeau n'est JAMAIS
+    // masquée (ni par la dédup, ni par un filtre) → on la retrouve TOUJOURS dans le flux.
+    if (item.id && item.id === _flashedNewsId) { const k = _newsKey(item.headline || ''); if (k) seen.add(k); return true; }
     // Rapports DTP/PMT (briefings, recaps, opening news) : masqués du flux pour l'instant (à revoir plus tard).
     if (item._briefing || item.source === 'PMT') return false;
     if (!isCategoryEnabled(item.category)) return false;
