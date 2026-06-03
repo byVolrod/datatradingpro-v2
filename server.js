@@ -1404,6 +1404,46 @@ async function _fetchMufgInto(merged, cutoff, UA) {
   } catch (e) { console.warn('[MUFG]', e.message); }
 }
 
+// SEB Research (banque SEB) — SPA, mais on tape DIRECTEMENT son API JSON publique :
+// mapi/v2/reports?language=English&assetclass=<FX|Central Banks|Macro>. Le filtre language=English
+// ne renvoie QUE les rapports au titre anglais (exigence). Le corps (heading+text) est dans l'API
+// → pas de Puppeteer, pas de PDF à parser. Badge "SEB".
+const SEB_ASSET_CLASSES = ['FX', 'Central Banks', 'Macro'];
+function _cleanSebText(heading, text) {
+  let h = String(text || '').replace(/&nbsp;/gi, ' ');
+  h = _stripSource(h);                                   // retire disclaimers / mentions résiduelles
+  return ((heading ? `<h3>${heading}</h3>` : '') + h).replace(/\s{3,}/g, '\n').trim();
+}
+async function _fetchSebInto(merged, cutoff, UA) {
+  for (const ac of SEB_ASSET_CLASSES) {
+    try {
+      const url = `https://research.sebgroup.com/mapi/v2/reports?nbrows=25&language=English&assetclass=${encodeURIComponent(ac)}&ingress=2000`;
+      const r = await axios.get(url, { timeout: 12000, headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Referer': 'https://research.sebgroup.com/macro-ficc' }, validateStatus: s => s < 500 });
+      if (r.status !== 200 || !r.data || !Array.isArray(r.data.reports)) continue;
+      for (const rep of r.data.reports) {
+        const title = String(rep.title || '').trim();
+        if (!title || !/[a-z]/i.test(title)) continue;
+        // Sécurité "titre anglais" : on écarte les titres avec lettres nordiques (å, ä, ö, ø, æ).
+        if (/[åäöøæ]/i.test(title)) continue;
+        const ts = rep.publishedDate ? (new Date(rep.publishedDate).getTime() || Date.now()) : Date.now();
+        if (ts < cutoff) continue;
+        const link = `https://research.sebgroup.com/macro-ficc/reports/${rep.articleId}`;
+        const id = 'br-' + Buffer.from('seb-' + rep.articleId).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        if (merged.has(id)) continue;   // dédoublonnage (un article peut être dans plusieurs asset classes)
+        const body = _cleanSebText(rep.heading, rep.text);
+        if (body.replace(/<[^>]*>/g, '').trim().length < 60) continue;
+        const desc = String(rep.ingress || rep.text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+        merged.set(id, {
+          id, title, url: link, timestamp: ts,
+          categories: (Array.isArray(rep.displayTags) && rep.displayTags.length ? rep.displayTags : (rep.assetClass || ['FX'])).slice(0, 6),
+          description: desc, institution: 'SEB', _source: 'seb',
+          fullContent: body,   // contenu déjà fourni par l'API → affiché directement (aucun re-fetch)
+        });
+      }
+    } catch (e) { console.warn('[SEB]', e.message); }
+  }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -1429,6 +1469,8 @@ async function _fetchBankResearch(full = false) {
 
   // MUFG (scrape HTML, pas de RSS) — fusionné dans le même cache
   await _fetchMufgInto(merged, cutoff, UA);
+  // SEB (API JSON publique, titres anglais uniquement) — fusionné dans le même cache
+  await _fetchSebInto(merged, cutoff, UA);
 
   const before = _brCache.length;
   _brCache = [...merged.values()]
