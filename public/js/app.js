@@ -5660,7 +5660,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 (function initLayoutResizer() {
   const resizer = document.getElementById('layout-resizer');
   const panel   = document.getElementById('panel-right');
-  if (!resizer || !panel) return;
+  const layout  = document.getElementById('main-layout');
+  if (!resizer || !panel || !layout) return;
   const isDesktop = () => window.matchMedia('(min-width: 1025px)').matches;
   let dragging = false;
   const clampWidth = w => {
@@ -5671,9 +5672,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const onMove = e => {
     if (!dragging) return;
     const x = e.touches ? e.touches[0].clientX : e.clientX;
-    const w = clampWidth(window.innerWidth - x);          // panneau droit = largeur depuis le bord droit
-    panel.style.flex  = '0 0 ' + w + 'px';
-    panel.style.width = w + 'px';
+    const w = clampWidth(window.innerWidth - x);          // rideau droit = largeur depuis le bord droit
+    // Curtain Overlay : on pilote la largeur du rideau via la variable CSS. Le contenu gauche
+    // + sa scrollbar suivent automatiquement (padding-right) → barre orange toujours isolée.
+    layout.style.setProperty('--sidebar-w', w + 'px');
   };
   const stop = () => {
     if (!dragging) return;
@@ -5692,8 +5694,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.addEventListener('mousemove', onMove);
     window.addEventListener('mouseup', stop);
   });
-  // Repli sur mobile → on rend la main au CSS (largeur par défaut)
-  window.addEventListener('resize', () => { if (!isDesktop()) { panel.style.flex = ''; panel.style.width = ''; } });
+  // Repli sur mobile → on rend la main au CSS (largeur par défaut, pas de persistance)
+  window.addEventListener('resize', () => { if (!isDesktop()) layout.style.removeProperty('--sidebar-w'); });
 })();
 
 // ── Resizer HORIZONTAL : hauteur du World Clock (barre entre World Clock et les onglets) ──

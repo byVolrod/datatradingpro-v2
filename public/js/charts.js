@@ -1196,7 +1196,7 @@ function buildMeterChart() {
         const v   = _meterValues[ccy];
         if (v == null) return;
         const m = METER_META[ccy] || { iso: '', name: ccy };
-        const col2 = v >= 0 ? '#22e06a' : '#ff3b3b';   // charte : --st-pos / --st-neg
+        const col2 = v >= 0 ? '#00e676' : '#ff3d00';   // couleurs intenses du Meter
         tip.innerHTML = `<div class="meter-tip-name">${_flagImg(m.iso, 14)} ${m.name}</div>`
           + `<div class="meter-tip-val" style="color:${col2}">${(v >= 0 ? '+' : '') + v.toFixed(2)}</div>`;
         tip.style.display = 'block';
@@ -1234,7 +1234,7 @@ function buildMeterChart() {
       const valEl = col.querySelector('.meter-col-val');
       if (valEl) {
         valEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
-        valEl.style.color = v > 0 ? '#22e06a' : v < 0 ? '#ff3b3b' : '#64748b';   // charte HUD
+        valEl.style.color = v > 0 ? '#00e676' : v < 0 ? '#ff3d00' : '#64748b';   // couleurs intenses du Meter
       }
     });
   }
