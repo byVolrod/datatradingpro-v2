@@ -861,6 +861,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   align-items: flex-start;
   padding: 11px 14px;
   border-bottom: 1px solid var(--border);
+  border-radius: 0;                /* lignes strictes type table haute densité, jamais d'arrondi */
   cursor: pointer;
   transition: background 0.1s;
   gap: 0;
@@ -888,17 +889,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-item--high:hover .news-time { color: #dddddd; }
 .news-item--high:hover .news-category-text { color: #dddddd; }
 
-/* Strong red — explicitly urgent FJ items (red on FJ site) */
+/* State Highlight — news urgente (urgent / isUrgent) : fond bordeaux ultra-sombre (bg-red-950/20 ≈ #241414) */
 .news-item--urgent {
-  background: rgba(220,38,38,0.14);
+  background: #241414;                              /* bordeaux désaturé mat, salle de marché */
+  border-bottom: 1px solid rgba(127,29,29,0.22);   /* séparateur rouge discret */
+  border-radius: 0;                                /* lignes strictes type table, jamais d'arrondi */
 }
-.news-item--urgent .news-headline { color: #ffffff; }
-.news-item--urgent .news-time { color: #cccccc; }
-.news-item--urgent .news-category-text { color: #cccccc; }
-.news-item--urgent:hover { background: rgba(220,38,38,0.21); }
+.news-item--urgent .news-headline { color: #f1f5f9; font-weight: 600; }
+.news-item--urgent .news-time { color: #cbd5e1; }
+.news-item--urgent .news-category-text { color: #cbd5e1; }
+.news-item--urgent:hover { background: #2a1618; }  /* survol : un soupçon au-dessus du fond */
 .news-item--urgent:hover .news-headline { color: #ffffff; }
-.news-item--urgent:hover .news-time { color: #dddddd; }
-.news-item--urgent:hover .news-category-text { color: #dddddd; }
+.news-item--urgent:hover .news-time { color: #e2e8f0; }
+.news-item--urgent:hover .news-category-text { color: #e2e8f0; }
+/* Icône d'alerte rouge "!" à l'extrême gauche de la ligne urgente */
+.news-item--urgent .news-alert-icon {
+  background: rgba(218,41,43,0.28);
+  color: #f87171;
+  border-color: rgba(218,41,43,0.55);
+}
 
 /* Breaking / High Impact — palette Prime Terminal (bordeaux subtil) */
 .news-item--breaking {
