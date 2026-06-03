@@ -995,7 +995,7 @@ function buildRiskGauge() {
       const isOff = /risk-off/i.test(data.label);
       const cls   = isOn ? 'risk-on' : isOff ? 'risk-off' : 'neutral';
       const sentColor = isOn ? 0x2dc653 : isOff ? 0xd62828 : 0xfcbf49;
-      const gaugeVal  = Math.max(-100, Math.min(100, +((typeof data.pct === 'number' ? data.pct : data.score * 21.5)).toFixed(1)));   // pct canonique serveur (echelle calibree PMT)
+      const gaugeVal  = Math.max(-100, Math.min(100, +((typeof data.pct === 'number' ? data.pct : data.score * 50)).toFixed(1)));   // pct canonique serveur
       const display   = `${gaugeVal > 0 ? '+' : ''}${gaugeVal.toFixed(1)}%`;
 
       // Sync topbar sentiment button
