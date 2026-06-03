@@ -578,10 +578,10 @@ html, body {
 }
 /* Au survol/glissement : on ne change QUE le curseur, jamais la couleur/épaisseur de la ligne */
 body.is-resizing { cursor: col-resize; user-select: none; }
-/* Bordure ACTIVE orange : s'allume autour des blocs pendant le glissement (façon Prime Terminal),
-   purement volatile (rien n'est conservé au rechargement). */
-body.is-resizing #panel-right,
-body.is-resizing #views-col {
+/* Bordure ACTIVE orange : s'allume UNIQUEMENT autour du panneau redimensionné (le panneau droit,
+   celui que ce séparateur pilote — cadre World Clock / Risk Sentiment) pendant le glissement.
+   Purement volatile : rien n'est conservé, reset auto au rechargement. */
+body.is-resizing #panel-right {
   outline: 1px solid #ff7a00;
   outline-offset: -1px;
 }
