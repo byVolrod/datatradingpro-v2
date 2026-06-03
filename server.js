@@ -313,7 +313,14 @@ app.get('/api/auth/me', async (req, res) => {
     // Toujours relire depuis la DB → les changements admin (active, plan…) sont immédiatement reflétés
     const fresh = await auth.getUserById(req.session.userId);
     if (!fresh) { req.session = null; return res.json({ loggedIn: false }); }
-    const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active };
+    // Essai gratuit : durée d'abonnement (création → expiration) ≤ ~1 semaine.
+    let isTrial = false;
+    const expiresAt = fresh.expires_at || null;
+    if (expiresAt && fresh.created_at) {
+      const span = new Date(expiresAt).getTime() - new Date(fresh.created_at).getTime();
+      isTrial = span > 0 && span <= 8.5 * 24 * 60 * 60 * 1000;
+    }
+    const user = { id: fresh.id, email: fresh.email, name: fresh.name, role: fresh.role, plan: fresh.plan, active: !!fresh.active, expiresAt, isTrial };
     req.session.user = user; // maintenir la session à jour
     res.json({ loggedIn: true, user });
   } catch {

@@ -237,7 +237,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  mainPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
+  mainPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
 
   const valueAxis = mainPanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -332,7 +332,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  volumePanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
+  volumePanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
 
   const volumeValueAxis = volumePanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -384,7 +384,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  rsiPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
+  rsiPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
 
   const rsiValueAxis = rsiPanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -428,7 +428,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  scrollbar.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));
+  scrollbar.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
 
   const sbDateAxis = scrollbar.chart.xAxes.push(
     am5xy.GaplessDateAxis.new(root, {
@@ -582,7 +582,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       layout: root.verticalLayout,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));  // anthracite doux (un peu moins noir)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));  // anthracite doux (un peu moins noir)
   chart.zoomOutButton.set('forceHidden', true);
   // Clip strict : les courbes ne débordent jamais hors de la zone de tracé
   chart.plotContainer.set('maskContent', true);
@@ -1516,7 +1516,7 @@ function buildSessionMap() {
       paddingTop: 4, paddingBottom: 4, paddingLeft: 4, paddingRight: 4,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x141417), fillOpacity: 1 }));  // océan anthracite (cohérent)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));  // océan anthracite (cohérent)
 
   // Subtle graticule grid
   const graticuleSeries = chart.series.push(am5map.GraticuleSeries.new(root, { step: 30 }));
