@@ -4319,7 +4319,7 @@ async function fetchRiskSentiment() {
   const DESCS = {
     'STRONG RISK-ON':  'Fort appétit pour le risque sur l\'ensemble des marchés. Actions, devises risquées et actifs à haut rendement tous achetés. VIX bas.',
     'RISK-ON':         'Appétit pour le risque positif. Les actions et devises risquées sont demandées, les valeurs refuges sous légère pression.',
-    'WEAK RISK-ON':    'Légère amélioration de l\'appétit au risque. Les flux retournent vers les actions et les devises risquées. Les valeurs refuges s\'affaiblissent, VIX en baisse.',
+    'WEAK RISK-ON':    'Léger regain d\'appétit pour le risque : actions et devises risquées favorisées, valeurs refuges en repli.',
     'NEUTRAL':         'Le sentiment de marché est équilibré. Signaux mixtes sur les actifs risqués, pas de tendance directionnelle claire.',
     'WEAK RISK-OFF':   'Légère aversion au risque. Prudence ambiante — obligations et valeurs refuges trouvent un support modéré.',
     'RISK-OFF':        'Aversion au risque en hausse. Les capitaux se déplacent vers les valeurs refuges, les obligations et les devises défensives.',
