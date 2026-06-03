@@ -423,17 +423,37 @@ html, body {
   justify-content: center;
   font-size: 13px;
   font-weight: 600;
-  color: #c5ccd8;                         /* plus clair → mieux visible */
-  background: rgba(255,255,255,0.045);    /* léger fond pour faire ressortir */
-  border: 1px solid var(--border2);
+  color: #aeb6c2;                          /* icônes nettes, sans cadre */
+  background: transparent;                 /* plus de fond carré */
+  border: 1px solid transparent;
   cursor: pointer;
   border-radius: var(--radius);
-  transition: all 0.15s;
+  transition: color 0.15s, background 0.15s;
   position: relative;
 }
 
-.topbar-icon:hover { color: #fff; background: rgba(255,255,255,0.10); border-color: #3a3a42; }
-.topbar-icon svg { width: 16px; height: 16px; }
+.topbar-icon:hover { color: #fff; background: rgba(255,255,255,0.07); border-color: transparent; }
+.topbar-icon svg { width: 18px; height: 18px; }   /* + grandes → plus lisibles */
+
+/* Bouton AI (style Prime Terminal — pastille "AI" verte) */
+.topbar-ai-btn {
+  display: flex; align-items: center; justify-content: center;
+  height: 26px; padding: 0 10px; border-radius: 6px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.05em;
+  color: #22c55e; background: rgba(34,197,94,0.12); border: 1px solid rgba(34,197,94,0.38);
+  cursor: pointer; transition: background 0.15s, color 0.15s; font-family: var(--font-ui);
+}
+.topbar-ai-btn:hover { background: rgba(34,197,94,0.20); color: #4ade80; }
+
+/* Toast "bientôt disponible" */
+.dtp-toast {
+  position: fixed; left: 50%; bottom: 32px; transform: translateX(-50%) translateY(12px);
+  background: #16161a; color: #e5e9ef; border: 1px solid #2c2c34; border-radius: 8px;
+  padding: 11px 18px; font-size: 13px; font-weight: 600; z-index: 9999;
+  box-shadow: 0 8px 28px rgba(0,0,0,0.5); opacity: 0; pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.dtp-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .topbar-icon--sym { font-size: 13px; }
 
 /* Auth topbar */
@@ -1415,6 +1435,9 @@ html, body {
   padding: 32px 16px;
   text-align: center;
   box-sizing: border-box;
+  margin: auto;            /* centre dans un conteneur flex/block */
+  grid-column: 1 / -1;     /* span TOUTES les colonnes si le parent est une grille (ex. COT) */
+  grid-row: 1 / -1;        /* … et toutes les rangées → centrage parfait */
 }
 .dtp-loader__spin {
   width: 40px;
