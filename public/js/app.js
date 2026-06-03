@@ -1698,6 +1698,10 @@ function buildNewsItem(item) {
     ].filter(Boolean).join('');
 
     const infoBody = (() => {
+      // ── [MARKET UPDATE] (Convera) : rapport COMPLET avec images, affiché directement ──
+      if (item._marketUpdate && item.fullContent) {
+        return `<div class="market-update-body">${item.fullContent}</div>`;
+      }
       // ── PRIMER: structured bullet display ──
       if (isPrimer) {
         const bullets = parsePrimerBullets(item.description);

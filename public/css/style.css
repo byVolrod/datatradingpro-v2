@@ -939,6 +939,17 @@ html, body {
   padding-left: 16px;
   margin: 0;
 }
+/* [MARKET UPDATE] (Convera) : rapport complet avec images, rendu propre dans le feed */
+.market-update-body { font-size: 13px; line-height: 1.62; color: var(--text2); padding: 4px 22px 8px; overflow-wrap: anywhere; }
+.market-update-body img { max-width: 100%; height: auto; display: block; margin: 12px 0; border-radius: 4px; }
+.market-update-body p { margin: 0 0 10px; }
+.market-update-body h1, .market-update-body h2, .market-update-body h3, .market-update-body h4 { font-size: 13.5px; font-weight: 700; color: var(--text); margin: 14px 0 7px; line-height: 1.35; }
+.market-update-body strong, .market-update-body b { color: var(--text); }
+.market-update-body a { color: var(--orange); text-decoration: none; }
+.market-update-body ul, .market-update-body ol { padding-left: 20px; margin: 0 0 10px; }
+.market-update-body li { margin: 0 0 5px; }
+.market-update-body table { width: 100%; max-width: 100%; border-collapse: collapse; font-size: 12px; display: block; overflow-x: auto; margin: 12px 0; }
+.market-update-body th, .market-update-body td { border: 1px solid var(--border2); padding: 5px 8px; text-align: left; }
 /* Style "clean" — liste intégrée directement sur le fond (sans cadre gris), style Prime Terminal */
 .article-points--clean {
   list-style: disc;
