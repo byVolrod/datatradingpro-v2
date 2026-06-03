@@ -5567,13 +5567,8 @@ function _chatRenderPending(){
     `<div class="chat-pending-item"><img src="${u}" alt="aperçu">`
     + `<button type="button" class="chat-pending-x" title="Retirer" onclick="_chatRemovePending(${i})">×</button></div>`
   ).join('');
-  bar.innerHTML = `<div class="chat-pending-card">`
-    + `<div class="chat-pending-thumbs">${thumbs}</div>`
-    + `<div class="chat-pending-foot">`
-    + `<div class="chat-pending-btns">`
-    + `<button type="button" class="chat-pending-cancel" onclick="_chatCancelPending()">Annuler</button>`
-    + `<button type="button" class="chat-pending-send" onclick="_chatSendPending()">Envoyer</button>`
-    + `</div></div></div>`;
+  // Juste les vignettes (chacune avec sa croix) — envoi avec Entrée, annulation via la croix.
+  bar.innerHTML = `<div class="chat-pending-thumbs">${thumbs}</div>`;
   bar.classList.add('visible');
 }
 function _chatRemovePending(i){ _chatPendingImgs.splice(i, 1); _chatRenderPending(); }
