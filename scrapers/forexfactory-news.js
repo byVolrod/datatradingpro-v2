@@ -677,7 +677,151 @@ async function getArticleContent(url, headline = '') {
   }
 }
 
+// ─── Economic Calendar — ACTUALS (le flux XML n'a pas d'actuals → on lit la page FF) ──
+// Un SEUL fetch de la page /calendar (CF passée via le profil chaud) → actuals de toute la
+// table. Le serveur les fusionne dans les événements. Cache 5 min (réutilise le browser vivant).
+const FF_CAL_URL    = 'https://www.forexfactory.com/calendar';
+const CAL_ACT_TTL   = 5 * 60 * 1000;
+let _calActuals     = { ts: 0, rows: [] };
+const _sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function _waitCloudflare(page, max = 30) {
+  for (let i = 0; i < max; i++) {
+    let t = ''; try { t = await page.title(); } catch {}
+    if (t && !/just a moment|checking your browser|cloudflare|attention required/i.test(t)) return;
+    await _sleep(1000);
+  }
+}
+
+// Navigation FF résiliente au challenge Cloudflare (qui peut détacher la frame initiale).
+// Calque la technique éprouvée de fetchFromPage : waitUntil 'load' + attente que CF se résolve
+// in-page (pas de domcontentloaded qui rend la main trop tôt), puis attente du vrai contenu.
+async function _gotoFF(page, url, sel) {
+  try {
+    await page.goto(url, { waitUntil: 'load', timeout: 35_000 });
+  } catch {
+    // CF a redirigé/détaché la frame → on laisse la navigation se terminer puis on continue
+    await page.waitForNavigation({ waitUntil: 'load', timeout: 15_000 }).catch(() => {});
+  }
+  await _waitCloudflare(page);
+  await page.waitForFunction(
+    () => !/just a moment|checking your browser/i.test(document.title) && document.querySelectorAll('a[href]').length > 15,
+    { timeout: 15_000, polling: 500 }
+  ).catch(() => {});
+  if (sel) await page.waitForSelector(sel, { timeout: 12_000 }).catch(() => {});
+}
+
+// Lit le HTML courant de la page (avec retries) → résilient au détachement de frame par CF.
+async function _safeContent(page) {
+  for (let i = 0; i < 3; i++) {
+    try { const h = await page.content(); if (h && h.length > 500) return h; } catch {}
+    await _sleep(1500);
+  }
+  return '';
+}
+
+function _parseCalRows(html) {
+  if (!html) return [];
+  const $ = cheerio.load(html);
+  const out = [];
+  $('tr.calendar__row, tr.calendar_row, tr[data-event-id]').each((_, el) => {
+    const r = $(el);
+    const pick = sels => { for (const s of sels) { const t = r.find(s).first().text().replace(/\s+/g, ' ').trim(); if (t) return t; } return ''; };
+    const currency = pick(['.calendar__currency', '.currency']);
+    const title    = pick(['.calendar__event-title', '.calendar__event', '.event']);
+    const actual   = pick(['.calendar__actual', '.actual']);
+    const forecast = pick(['.calendar__forecast', '.forecast']);
+    const previous = pick(['.calendar__previous', '.previous']);
+    if (title && currency) out.push({ currency, title, actual, forecast, previous });
+  });
+  return out;
+}
+
+async function fetchCalendarActuals() {
+  if (Date.now() - _calActuals.ts < CAL_ACT_TTL && _calActuals.rows.length) return _calActuals.rows;
+  const browser = await getBrowser();
+  const page    = await browser.newPage();
+  try {
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+    await _gotoFF(page, FF_CAL_URL, 'tr.calendar__row, tr.calendar_row, tr[data-event-id]');
+    const rows = _parseCalRows(await _safeContent(page));
+    if (rows && rows.length) { _calActuals = { ts: Date.now(), rows }; console.log(`[FF-CalActuals] ${rows.length} rows (${rows.filter(r => r.actual).length} with actual)`); }
+    return _calActuals.rows;
+  } catch (e) {
+    console.error('[FF-CalActuals]', e.message);
+    return _calActuals.rows;
+  } finally {
+    await page.close().catch(() => {});
+    armIdleClose();
+  }
+}
+
+// ─── Economic Calendar — DÉTAIL d'un événement (Specs + History, SANS Related Stories) ──
+const _detailCache = new Map();              // url → { ts, specs, history }
+const DETAIL_TTL   = 6 * 60 * 60 * 1000;     // 6 h (specs/history changent lentement)
+async function fetchEventDetail(url) {
+  if (!/^https?:\/\/(www\.)?forexfactory\.com\/calendar\//i.test(url || '')) return null;
+  const hit = _detailCache.get(url);
+  if (hit && Date.now() - hit.ts < DETAIL_TTL) return hit;
+  const browser = await getBrowser();
+  const page    = await browser.newPage();
+  try {
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+    await _gotoFF(page, url);
+    await _sleep(1000);
+    const data = _parseEventDetail(await _safeContent(page));
+    const out = { ts: Date.now(), specs: data.specs || [], history: data.history || [] };
+    _detailCache.set(url, out);
+    if (_detailCache.size > 300) _detailCache.delete(_detailCache.keys().next().value);
+    return out;
+  } catch (e) {
+    console.error('[FF-EventDetail]', e.message);
+    return hit || null;
+  } finally {
+    await page.close().catch(() => {});
+    armIdleClose();
+  }
+}
+
+function _parseEventDetail(html) {
+  if (!html) return { specs: [], history: [] };
+  const $ = cheerio.load(html);
+  const clean = s => (s || '').replace(/\s+/g, ' ').trim();
+  // ── SPECS : paires libellé/valeur (Source, Measures, Usual Effect, Frequency, Why Traders Care…) ──
+  const SPEC = /^(source|measures|usual effect|frequency|next release|why traders care|derived via|acro expand|also called|ff notes|description)\s*:?\s*$/i;
+  const specs = []; const seen = new Set();
+  $('table tr, .calendarspecs__row, .calendar__specs tr, [class*="spec"] tr, dl > div').each((_, row) => {
+    const cells = $(row).children();
+    if (cells.length < 2) return;
+    const label = clean($(cells[0]).text()).replace(/:$/, '');
+    const value = clean(cells.slice(1).map((i, c) => $(c).text()).get().join(' '));
+    if (SPEC.test(label) && value && value.length < 600 && !seen.has(label.toLowerCase())) {
+      seen.add(label.toLowerCase()); specs.push({ label, value });
+    }
+  });
+  // ── HISTORY : table avec colonnes Actual / Forecast / Previous ──
+  let history = [];
+  $('table').each((_, tb) => {
+    if (history.length) return;
+    const head = clean($(tb).text()).toLowerCase().slice(0, 200);
+    if (!(head.includes('actual') && (head.includes('forecast') || head.includes('previous')))) return;
+    const headerCells = $(tb).find('thead th, thead td').length
+      ? $(tb).find('thead th, thead td').map((i, h) => clean($(h).text()).toLowerCase()).get()
+      : $(tb).find('tr').first().find('th, td').map((i, h) => clean($(h).text()).toLowerCase()).get();
+    const idx = name => headerCells.findIndex(h => h.includes(name));
+    const iDate = Math.max(0, idx('date')), iAct = idx('actual'), iFc = idx('forecast'), iPr = idx('previous');
+    if (iAct < 0) return;
+    $(tb).find('tbody tr').each((_, tr) => {
+      const c = $(tr).find('td'); if (!c.length) return;
+      const g = i => (i >= 0 && c[i]) ? clean($(c[i]).text()) : '';
+      const row = { date: g(iDate), actual: g(iAct), forecast: g(iFc), previous: g(iPr) };
+      if (row.actual || row.forecast || row.previous) history.push(row);
+    });
+  });
+  return { specs, history: history.slice(0, 12) };
+}
+
 // Pas de pré-lancement au démarrage : le navigateur démarre à la 1ère utilisation
 // puis se ferme tout seul après inactivité (économie mémoire 512 Mo).
 
-module.exports = { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll };
+module.exports = { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail };
