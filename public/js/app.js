@@ -1660,7 +1660,7 @@ function _dataReleaseBullets(item) {
 
 function buildNewsItem(item) {
   const el = document.createElement('div');
-  const isUrgent   = item.urgent === true;
+  const isUrgent   = item.urgent === true || item.isUrgent === true;
   const isPrimer   = isPrimerItem(item);
   const isSpeaker  = isSpeakerOpener(item);
   const hasGrouped = Array.isArray(item._groupedQuotes) && item._groupedQuotes.length > 0;
@@ -1674,14 +1674,16 @@ function buildNewsItem(item) {
   const isHighImpactData = item._highImpact === true || impactStr === 'high' || impactStr === 'critical'; // Option B
   // C) Toute news prioritaire (rond rouge "!") → même fond/hover rouge léger
   const isRed           = isFJUrgent || isHighImpactData || item.priority === 'high';
+  // State Highlight : une news urgente (urgent/isUrgent) OU rouge → fond bordeaux ultra-sombre + icône "!"
+  const isAlert         = isRed || isUrgent;
   const baseClass       = isRed ? ' news-item--breaking' : '';
-  el.className = `news-item${baseClass}${isPrimer ? ' news-item--primer' : ''}${(isSpeaker || hasGrouped) ? ' news-item--speaker' : ''}${item._new ? ' news-item--new' : ''}${isRead(item.id) ? ' news-item--read' : ''}`;
+  el.className = `news-item${baseClass}${isUrgent ? ' news-item--urgent' : ''}${isPrimer ? ' news-item--primer' : ''}${(isSpeaker || hasGrouped) ? ' news-item--speaker' : ''}${item._new ? ' news-item--new' : ''}${isRead(item.id) ? ' news-item--read' : ''}`;
   el.dataset.id = item.id;
 
   // ── Icon col ──
   const iconCol = document.createElement('div');
   iconCol.className = 'news-icon-col';
-  if (item.priority === 'high') {
+  if (isAlert) {
     const badge = document.createElement('div');
     badge.className = 'news-alert-icon';
     badge.textContent = '!';
