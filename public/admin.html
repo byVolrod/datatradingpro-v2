@@ -315,6 +315,106 @@
     .whop-stat { display:flex; align-items:center; gap:9px; padding:9px 0; font-size:13px; color:var(--text2); border-bottom:1px solid var(--border); }
     .whop-dot { width:9px; height:9px; border-radius:50%; flex-shrink:0; }
     .whop-on { background:var(--green); } .whop-off { background:#ef4444; }
+
+    /* ═══════════════════════════════════════════════════════════════════════
+       HARMONISATION HUD — cohérence avec le terminal DataTradingPro
+       Flat (zéro gradient), anguleux (≤6px), hairlines subtiles, profondeur
+       discrète (pas d'ombres flashy ni de lift au survol). Couche additive :
+       ne touche pas au HTML ni au JS, surcharge seulement l'esthétique.
+       ═══════════════════════════════════════════════════════════════════════ */
+    :root {
+      --hud-line: rgba(255,255,255,0.055);
+      --hud-line-strong: rgba(255,255,255,0.09);
+      --panel: #0c0c0e; --panel2: #0e0e11; --panel3: #131316;
+      --panel-depth: 0 1px 2px rgba(0,0,0,0.22), inset 0 1px 0 rgba(255,255,255,0.018);
+      --border:  #1b1b1e; --border2: #26262b;
+    }
+    html, body { background: #0a0a0a; }
+
+    /* — Topbar : aplat + hairline (comme la navbar terminal) — */
+    .topbar { background: var(--panel); border-bottom: 1px solid var(--hud-line-strong); box-shadow: var(--panel-depth); }
+
+    /* — Cartes & panneaux : aplats anguleux, profondeur discrète, zéro lift — */
+    .add-form, .stat-card, .panel-card, .fin-kpi, .table-wrap {
+      background: var(--panel2); border: 1px solid var(--hud-line);
+      border-radius: 6px; box-shadow: var(--panel-depth);
+    }
+    .panel-card { background: var(--panel); }
+    .stat-card { transition: border-color 0.14s; }
+    .stat-card:hover { transform: none; box-shadow: var(--panel-depth); border-color: var(--hud-line-strong); }
+    .stat-card.active { box-shadow: 0 0 0 1px rgba(247,148,29,0.4), var(--panel-depth); border-color: var(--orange); }
+    .stat-ic, .panel-head .ph-ic { border-radius: 6px; }
+    .panel-head { border-bottom: 1px solid var(--hud-line); }
+
+    /* — Tableaux : grille hairline + en-tête collant sombre (le scroll-x d'origine est préservé) — */
+    .users-table th { background: var(--panel); border-bottom: 1px solid var(--hud-line-strong); }
+    .users-table td { border-bottom: 1px solid var(--hud-line); }
+    .fc-line, .whop-stat { border-bottom: 1px solid var(--hud-line); }
+
+    /* — Formulaires : champs anguleux cohérents — */
+    .add-form input, .add-form select, .modal input, .modal select,
+    .toolbar input, .toolbar select { border-radius: 5px; border-color: var(--border2); }
+    .add-form input:focus, .add-form select:focus,
+    .toolbar input:focus, .toolbar select:focus,
+    .modal input:focus, .modal select:focus { border-color: var(--orange); }
+
+    /* — Modal, toasts, pagination, chips : arrondis serrés + ombres sobres — */
+    .modal { border-radius: 8px; box-shadow: 0 20px 56px rgba(0,0,0,0.62); }
+    .toast { border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+    .pg-btn, .pg-num, .pg-per select { border-radius: 4px; }
+    .badge { border-radius: 4px; }
+
+    /* — Barres / jauges : aplat orange (plus de dégradé) — */
+    .fc-bar { background: var(--orange); border-radius: 3px 3px 0 0; }
+    .dist-bar-wrap, .dist-bar { border-radius: 3px; }
+
+    /* — Chat support : cohérent avec le terminal — */
+    .ad-chat { border-radius: 6px; border-color: var(--hud-line-strong); background: var(--panel); }
+    .ad-chat-threads { border-right-color: var(--hud-line); }
+    .ad-thread { border-bottom-color: var(--hud-line); }
+    .ad-thread:hover, .ad-thread.active { background: #16161a; }
+    .ad-msg { border-radius: 7px; }
+    .ad-chat-reply { border-top-color: var(--hud-line); }
+    .ad-chat-reply input { border-radius: 5px; }
+    .ad-chat-reply button { border-radius: 5px; }
+
+    /* — Onglets : soulignement orange, base hairline — */
+    .adm-tabs { border-bottom: 1px solid var(--hud-line-strong); }
+
+    /* ═══ RESPONSIVE — adapté à tous les écrans (tablette → mobile) ═══ */
+    @media (max-width: 1024px) {
+      .page { padding: 22px 22px 56px; }
+      .topbar { padding: 0 20px; }
+    }
+    @media (max-width: 760px) {
+      .adm-tabs { overflow-x: auto; scrollbar-width: none; flex-wrap: nowrap; }
+      .adm-tabs::-webkit-scrollbar { display: none; }
+      .adm-tab { flex-shrink: 0; }
+      .adm-tabs-spacer, .adm-tabs .fin-sub { display: none; }
+      .fin-row { grid-template-columns: 1fr; }
+      .fin-kpis { grid-template-columns: repeat(2, 1fr); }
+      /* Chat support : empilé verticalement sur mobile */
+      .ad-chat { flex-direction: column; height: auto; }
+      .ad-chat-threads { width: 100%; max-height: 190px; border-right: none; border-bottom: 1px solid var(--hud-line-strong); }
+      .ad-chat-conv { min-height: 340px; }
+      .ad-msg { max-width: 86%; }
+      .pagination { gap: 6px; }
+      .pg-per { display: none; }
+    }
+    @media (max-width: 480px) {
+      .page { padding: 16px 12px 44px; }
+      .topbar { padding: 0 14px; gap: 10px; }
+      .topbar-logo { font-size: 15px; }
+      .stats-row { grid-template-columns: repeat(2, 1fr); gap: 9px; }
+      .stat-card { padding: 13px 14px; gap: 11px; }
+      .stat-ic { width: 34px; height: 34px; }
+      .stat-value { font-size: 21px; }
+      .fin-kpis { grid-template-columns: 1fr; }
+      .panel-body { padding: 14px 14px; }
+      .panel-head { padding: 13px 14px; }
+      .modal { width: calc(100vw - 28px); }
+      .btn-sm { padding: 5px 10px; }
+    }
   </style>
 </head>
 <body>
