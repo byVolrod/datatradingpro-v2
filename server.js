@@ -663,6 +663,102 @@ app.get('/api/calendar', async (_req, res) => {
 const _calActualsMap = new Map();   // "CUR|titrenorm" → { actual, forecast, previous }
 let _calActualsAt = 0, _calActualsInflight = null;
 const _calKey = (cur, title) => String(cur || '').toUpperCase().trim() + '|' + String(title || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
+// Clé DATÉE (jour UTC) : un événement récurrent (ex. "Crude Oil Inventories" chaque semaine) a
+// un actual DIFFÉRENT à chaque parution → on ne réutilise jamais l'ancien.
+const _calKeyDated = (cur, title, ts) => _calKey(cur, title) + '|' + (ts ? new Date(ts).toISOString().slice(0, 10) : '');
+
+// ── Remplissage des Actuals depuis le FLUX DE NEWS (source fiable, indépendante de Cloudflare) ──
+// Le flux XML FF n'a pas d'actuals et la page FF est protégée par CF sur Render. Mais nos news
+// (FinancialJuice/InvestingLive/RSS) publient le résultat ("Services PMI 50.1 vs 48.2 expected").
+// On rapproche chaque événement passé d'une news (mêmes mots-clés d'indicateur) en EXIGEANT que la
+// prévision OU le précédent du calendrier apparaisse dans la news (corroboration → haute précision),
+// puis on en extrait l'actual. Aucune valeur ambiguë n'est posée (jamais de fausse donnée).
+const _CAL_DATA_RE = /\b(vs\.?|versus|exp\.?|expected|forecast|consensus|est\.?|actual|prelim|flash|prior|previous|m\/m|y\/y|q\/q)\b/i;
+const _CAL_STOP = new Set(['the','a','of','for','and','data','rate','index','change','net','core','seasonally','adjusted','flash','final','prelim','prel','total','new','mom','yoy','qoq','spanish','german','french','italian','japanese','chinese','american','british','australian','canadian','swiss','spain','germany','france','italy','japan','china','america','britain','australia','canada','switzerland']);
+function _calNumTokens(s) { return (String(s).match(/-?\d[\d,]*\.?\d*\s*[%KMBkmb]?/g) || []).map(x => x.replace(/\s+/g, '')); }
+function _calNormNum(s) { return String(s || '').replace(/[, ]/g, '').toUpperCase().replace(/%$/, ''); }
+function _calIndicatorTokens(title) {
+  return String(title || '').toLowerCase().replace(/\([^)]*\)/g, ' ').replace(/[^a-z/ ]/g, ' ').split(/\s+/)
+    .filter(w => w.length >= 3 && !_CAL_STOP.has(w)).slice(0, 4);
+}
+function _calExtractActual(text, fc, pv) {
+  // 1) Format explicite "Actual: X"
+  let m = text.match(/\bactual[:\s]+(-?\d[\d.,]*\s*[%kmb]?)/i);
+  if (m) return m[1].replace(/\s+/g, '');
+  // 2) Ancrage sur la prévision/le précédent CONNUS → l'actual est le nombre juste avant
+  const nums = _calNumTokens(text);
+  if (nums.length) {
+    const norm = nums.map(_calNormNum); const nf = _calNormNum(fc), np = _calNormNum(pv);
+    let idx = nf ? norm.indexOf(nf) : -1;
+    if (idx < 0 && np) idx = norm.indexOf(np);
+    if (idx > 0) { for (let j = idx - 1; j >= 0; j--) { if (norm[j] !== nf && norm[j] !== np) return nums[j]; } }
+  }
+  // 3) "<actual> vs/exp/forecast …" (gère un "(" éventuel : "54.4 (expect 52.3)")
+  m = text.match(/(-?\d[\d.,]*\s*[%kmb]?)\s*\(?\s*(?:vs\.?|versus|exp|expected|forecast|consensus|est|prior|previous)\b/i);
+  return m ? m[1].replace(/\s+/g, '') : '';
+}
+// Pays/devise → regex de correspondance dans le texte de la news (pour ne pas confondre 2 pays)
+const _CCY_RE = {
+  USD: /\b(u\.?s\.?a?|united states|american|fed\b|dollar)\b/i,
+  EUR: /\b(euro\w*|ecb|german\w*|france|french|spain|spanish|ital\w*|netherlands|dutch|portug\w*|greece|greek|ireland|irish|belg\w*|austria\w*)\b/i,
+  GBP: /\b(u\.?k\.?|britain|british|england|sterling|boe\b|pound)\b/i,
+  JPY: /\b(japan\w*|boj\b|\byen\b)\b/i,
+  AUD: /\b(austral\w*|aussie|rba\b)\b/i,
+  NZD: /\b(new zealand|\bnz\b|kiwi|rbnz\b)\b/i,
+  CAD: /\b(canad\w*|boc\b)\b/i,
+  CHF: /\b(switz\w*|swiss|snb\b)\b/i,
+  CNY: /\b(chin\w*|pboc\b|yuan|renminbi)\b/i,
+};
+// Pays SPÉCIFIQUE détecté dans le titre (Spain≠Italy même si tous deux EUR) → regex stricte
+const _SPEC_COUNTRY = [
+  [/\b(spain|spanish)\b/i, /\b(spain|spanish)\b/i], [/\b(italy|italian)\b/i, /\b(italy|italian)\b/i],
+  [/\b(german|germany)\b/i, /\b(german|germany)\b/i], [/\b(france|french)\b/i, /\b(france|french)\b/i],
+  [/\b(netherlands|dutch)\b/i, /\b(netherlands|dutch)\b/i], [/\b(portugal|portuguese)\b/i, /\b(portugal|portuguese)\b/i],
+];
+function _eventCountryRe(ev) {
+  const t = ev.title || '';
+  for (const [kw, re] of _SPEC_COUNTRY) if (kw.test(t)) return re;
+  return _CCY_RE[String(ev.currency || '').toUpperCase()] || null;
+}
+function _backfillActualsFromNews() {
+  if (!Array.isArray(allNews) || !allNews.length) return 0;
+  const now = Date.now();
+  const news = allNews.filter(n => n && n.timestamp && now - n.timestamp < 4 * 86400000
+    && _CAL_DATA_RE.test((n.headline || '') + ' ' + (n.description || '')));
+  if (!news.length) return 0;
+  let filled = 0;
+  for (const ev of getCalendarRaw()) {
+    if (!ev || ev.timestamp > now) continue;                        // futur → pas d'actual
+    if (/speaks|speech|holiday|meeting|member/i.test(ev.title || '')) continue;   // pas de valeur chiffrée
+    const k = _calKeyDated(ev.currency, ev.title, ev.timestamp);
+    if (_calActualsMap.get(k)?.actual) continue;                    // déjà rempli
+    const cre = _eventCountryRe(ev);
+    if (!cre) continue;
+    // Acronymes du titre (PMI/GDP/CPI/ADP/ISM…) = signature très distinctive ; sinon le mot le + long
+    const acronyms = (String(ev.title).match(/\b[A-Z]{2,5}\b/g) || []).map(a => a.toLowerCase());
+    const longest  = _calIndicatorTokens(ev.title).sort((a, b) => b.length - a.length)[0] || '';
+    if (!acronyms.length && longest.length < 4) continue;           // pas assez distinctif → on s'abstient
+    for (const n of news) {
+      if (Math.abs(n.timestamp - ev.timestamp) > 36 * 3600 * 1000) continue;   // ±36h
+      const text = (n.headline || '') + ' ' + (n.description || '');
+      if (!cre.test(text)) continue;                                // bon pays/devise
+      const hay = text.toLowerCase();
+      const sigOk = acronyms.length
+        ? acronyms.every(a => new RegExp('\\b' + a + '\\b', 'i').test(hay))   // tous les acronymes présents
+        : hay.includes(longest);                                              // sinon le mot-clé principal
+      if (!sigOk) continue;
+      const actual = _calExtractActual(text, ev.forecast, ev.previous);
+      const na = _calNormNum(actual);
+      if (actual && na !== _calNormNum(ev.forecast) && na !== _calNormNum(ev.previous)) {
+        const prev = _calActualsMap.get(k) || {};
+        _calActualsMap.set(k, { actual, forecast: ev.forecast || prev.forecast || '', previous: ev.previous || prev.previous || '' });
+        filled++;
+        break;
+      }
+    }
+  }
+  return filled;
+}
 async function _refreshCalActuals(force) {
   if (!force && Date.now() - _calActualsAt < 5 * 60 * 1000) return;
   if (_calActualsInflight) return _calActualsInflight;
@@ -670,9 +766,15 @@ async function _refreshCalActuals(force) {
     try {
       const rows = await fetchCalendarActuals();
       if (Array.isArray(rows) && rows.length) {
+        // Index des événements du calendrier par clé sans date → pour retrouver la date (clé datée)
+        const evByKey = {};
+        for (const ev of getCalendarRaw()) (evByKey[_calKey(ev.currency, ev.title)] ||= []).push(ev);
         for (const r of rows) {
           if (!r.title) continue;
-          const k = _calKey(r.currency, r.title);
+          const evs = evByKey[_calKey(r.currency, r.title)];
+          if (!evs || !evs.length) continue;
+          const ev = evs.filter(e => e.timestamp <= Date.now()).sort((a, b) => b.timestamp - a.timestamp)[0] || evs[0];
+          const k = _calKeyDated(ev.currency, ev.title, ev.timestamp);
           const prev = _calActualsMap.get(k) || {};
           // on n'écrase jamais une valeur connue par du vide (un scrape peut rater une cellule)
           _calActualsMap.set(k, {
@@ -692,7 +794,7 @@ function _overlayActuals(events) {
   if (!_calActualsMap.size) return events;
   return events.map(ev => {
     if (ev.actual && ev.actual !== '') return ev;                 // déjà un actual → on garde
-    const a = _calActualsMap.get(_calKey(ev.currency, ev.title));
+    const a = _calActualsMap.get(_calKeyDated(ev.currency, ev.title, ev.timestamp));
     if (a && (a.actual || a.forecast || a.previous)) {
       return { ...ev, actual: a.actual || '', forecast: ev.forecast || a.forecast || '', previous: ev.previous || a.previous || '' };
     }
@@ -701,7 +803,8 @@ function _overlayActuals(events) {
 }
 app.get('/api/calendar-events', async (_req, res) => {
   if (!getCalendarRaw().length) await _ensureCalendar();
-  _refreshCalActuals().catch(() => {});                            // rafraîchit en arrière-plan (non bloquant)
+  _refreshCalActuals().catch(() => {});                            // page FF (best-effort, arrière-plan)
+  try { _backfillActualsFromNews(); } catch {}                     // SOURCE FIABLE : actuals depuis le flux news
   res.json({ items: _overlayActuals(getCalendarRaw()) });
 });
 
