@@ -5282,9 +5282,11 @@ async function fetchRiskSentiment() {
     'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
   };
 
-  // pct = SEULE valeur d'affichage (× 50, bornée). Calculée ici une fois pour TOUTES
-  // les vues (topbar, popup, jauge METER) → plus jamais de divergence -6%/-4%.
-  const pct = Math.max(-100, Math.min(100, +(_riskScoreEMA * 50).toFixed(1)));
+  // pct = SEULE valeur d'affichage. Calculée ici une fois pour TOUTES les vues
+  // (topbar, popup, jauge) → plus jamais de divergence. Échelle CALIBRÉE sur Prime Terminal
+  // (RISK_PCT_SCALE 21.5 : un score lissé de -0.54 → ~-11.5% comme PMT, au lieu de -26.8% en ×50).
+  const RISK_PCT_SCALE = 21.5;
+  const pct = Math.max(-100, Math.min(100, +(_riskScoreEMA * RISK_PCT_SCALE).toFixed(1)));
   _riskData = { label, score: +(_riskScoreEMA).toFixed(2), rawScore: +score.toFixed(2), pct, description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
   _riskTs = Date.now();
   return _riskData;
