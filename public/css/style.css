@@ -967,7 +967,8 @@ html, body {
   margin: 0;
 }
 /* [MARKET UPDATE] (Convera) : rapport complet avec images, rendu propre dans le feed */
-.market-update-body { font-size: 13px; line-height: 1.62; color: var(--text2); padding: 4px 22px 8px; overflow-wrap: anywhere; }
+.market-update-body { font-size: 13px; line-height: 1.62; color: #e8eaed; padding: 4px 22px 8px; overflow-wrap: anywhere; }
+.market-update-body p, .market-update-body li { color: #e8eaed; }
 .market-update-body img { max-width: 100%; height: auto; display: block; margin: 12px 0; border-radius: 4px; }
 .market-update-body p { margin: 0 0 10px; }
 .market-update-body h1, .market-update-body h2, .market-update-body h3, .market-update-body h4 { font-size: 13.5px; font-weight: 700; color: var(--text); margin: 14px 0 7px; line-height: 1.35; }
