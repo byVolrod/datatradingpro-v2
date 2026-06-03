@@ -594,19 +594,19 @@ body.is-resizing iframe { pointer-events: none; }
 
 /* ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) ══ */
 .clocks-resizer {
-  flex: 0 0 4px;
-  height: 4px;
+  flex: 0 0 7px;
+  height: 7px;
   cursor: row-resize;
   background: transparent;
   position: relative;
   z-index: 30;
 }
-.clocks-resizer::before {     /* AU REPOS : trait neutre discret */
+.clocks-resizer::before {     /* AU REPOS : trait fin légèrement visible (repère) */
   content: '';
   position: absolute;
-  left: 0; right: 0; top: 1px;
+  left: 0; right: 0; top: 50%; transform: translateY(-1px);
   height: 2px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.09);
   transition: background 0.12s;
 }
 .clocks-resizer:hover::before,
@@ -1571,6 +1571,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .clocks-bar {
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));  /* 5 villes (Londres, NY, Tokyo, Dubai, Paris) */
+  column-gap: 6px;                 /* léger espace entre les villes */
   background: var(--bg1);
   flex-shrink: 1;
   overflow-y: auto;                /* sécurité : scroll si jamais ça déborde */
@@ -1596,7 +1597,6 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .clock-item {
   min-width: 0;
   padding: 6px 13px;               /* compact → World Clock plus court */
-  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   cursor: default;
@@ -1605,9 +1605,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   position: relative;
 }
 
-.clock-item:last-child { border-right: none; }
 .clock-item:hover { background: var(--bg2); }
-.clock-item--local { border-right: 2px solid var(--border2); }
+.clock-item--local { box-shadow: inset 2px 0 0 var(--border2); }
 
 .clock-top-row {
   display: flex;
