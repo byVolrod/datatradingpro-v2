@@ -1002,44 +1002,30 @@ function buildRiskGauge() {
           })
         );
 
-        // Dégradé institutionnel raffiné (moins néon) : rouge → ambre → émeraude, lissé sur 72 bandes
-        const _gs = [
-          [0.00, [198, 52,  48 ]],   // rouge raffiné
-          [0.22, [216, 90,  44 ]],   // rouge-orangé
-          [0.40, [228, 138, 40 ]],   // orange
-          [0.50, [222, 178, 66 ]],   // ambre
-          [0.60, [170, 196, 78 ]],   // jaune-vert
-          [0.80, [92,  178, 104]],   // vert
-          [1.00, [42,  158, 96 ]],   // émeraude
-        ];
-        const _lc = (s, t) => {
-          for (let i = 0; i < s.length - 1; i++) {
-            const [t0, c0] = s[i], [t1, c1] = s[i + 1];
-            if (t <= t1) {
-              const u = (t - t0) / (t1 - t0);
-              return (Math.round(c0[0]+u*(c1[0]-c0[0])) << 16) |
-                     (Math.round(c0[1]+u*(c1[1]-c0[1])) <<  8) |
-                      Math.round(c0[2]+u*(c1[2]-c0[2]));
-            }
-          }
-          return 0x2a9e60;
-        };
-        const NB = 72;                                   // bandes fines → arc ultra-lisse
-        for (let i = 0; i < NB; i++) {
-          const v  = -100 + i * (200 / NB);
-          const ev = v + (200 / NB) + 0.3;               // léger chevauchement → aucun liseré
-          const c  = _lc(_gs, (i + 0.5) / NB);
-          const r  = axis.createAxisRange(axis.makeDataItem({ value: v, endValue: ev }));
-          r.get('axisFill').setAll({ visible: true, fill: am5.color(c), fillOpacity: 1, strokeOpacity: 0 });
-          r.get('grid')?.setAll({ visible: false });
-          r.get('tick')?.setAll({ visible: false });
-          r.get('label')?.setAll({ visible: false });
-        }
-
-        // UN SEUL repère central, fin et discret (épuré) — sépare risk-off / risk-on
-        const dr = axis.createAxisRange(axis.makeDataItem({ value: -0.5, endValue: 0.5 }));
-        dr.get('axisFill').setAll({ visible: true, fill: am5.color(0x0b0e13), fillOpacity: 0.5, strokeOpacity: 0 });
-        ['grid', 'tick', 'label'].forEach(k => dr.get(k)?.setAll({ visible: false }));
+        // Arc LISSE & PRO : un SEUL remplissage avec un dégradé linéaire continu (horizontal :
+        // rouge à gauche → ambre au centre → émeraude à droite). Aucune bande, aucun liseré.
+        const _arc = axis.createAxisRange(axis.makeDataItem({ value: -100, endValue: 100 }));
+        _arc.get('axisFill').setAll({
+          visible: true,
+          fillOpacity: 1,
+          strokeOpacity: 0,
+          fill: am5.color(0xddb23a),   // base de secours si le dégradé ne s'applique pas
+          fillGradient: am5.LinearGradient.new(root, {
+            rotation: 0,   // 0° = horizontal (gauche → droite), aligné sur le demi-cercle
+            stops: [
+              { color: am5.color(0xc63430) },   // rouge (extrême gauche)
+              { color: am5.color(0xdb5a2c) },
+              { color: am5.color(0xe88a28) },    // orange
+              { color: am5.color(0xddb23a) },    // ambre (centre / neutre)
+              { color: am5.color(0xa9c64a) },    // jaune-vert
+              { color: am5.color(0x5cb060) },
+              { color: am5.color(0x2a9e60) },    // émeraude (extrême droite)
+            ],
+          }),
+        });
+        _arc.get('grid')?.setAll({ visible: false });
+        _arc.get('tick')?.setAll({ visible: false });
+        _arc.get('label')?.setAll({ visible: false });
 
         // Aiguille moderne et épurée : fine, effilée, teinte neutre claire. PAS de gros rond
         // au pivot → juste un petit point net de la même couleur (look jauge pro).
