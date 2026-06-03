@@ -983,9 +983,9 @@ function buildRiskGauge() {
           am5radar.RadarChart.new(root, {
             panX: false, panY: false,
             startAngle: -180, endAngle: 0,
-            radius: am5.percent(82),
-            innerRadius: am5.percent(75),               // arc plus FIN (épuré)
-            paddingTop: 18, paddingBottom: 26,
+            radius: am5.percent(80),
+            innerRadius: am5.percent(73),               // arc plus FIN (épuré)
+            paddingTop: 14, paddingBottom: 64,           // + d'espace sous l'arc → dégage le pivot du texte
             paddingLeft: 44, paddingRight: 44,
           })
         );
