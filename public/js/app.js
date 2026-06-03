@@ -2492,10 +2492,10 @@ function _renderRiskGauge(data) {
   };
   const frLabel = LABEL_FR[data.label] || data.label;
 
-  // Needle: -90° = full risk-off, 0° = neutral, +90° = full risk-on
-  const angle   = Math.max(-90, Math.min(90, score * 90));
-  // pct = valeur canonique fournie par le serveur (source unique). Repli sur score×50.
-  const gv      = (typeof data.pct === 'number') ? data.pct : Math.max(-100, Math.min(100, score * 50));
+  // pct = valeur canonique du serveur (source unique). Repli sur score×21.5 (échelle calibrée PMT).
+  const gv      = (typeof data.pct === 'number') ? data.pct : Math.max(-100, Math.min(100, score * 21.5));
+  // L'aiguille suit le MÊME nombre que l'affichage (pct) → aiguille ↔ % toujours cohérents.
+  const angle   = Math.max(-90, Math.min(90, gv * 0.9));
   const pctAbs  = Math.abs(gv).toFixed(1);
   const pctSign = gv >= 0 ? '' : '-';
 
