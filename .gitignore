@@ -28,3 +28,4 @@ data/
 # Render / local secrets & settings
 .env.render
 .claude/
+apercu-email-reengagement.html

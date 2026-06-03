@@ -268,6 +268,54 @@ async function sendTrialUpsell({ to, name, expiresAt }) {
   return _send(to, 'Votre essai DataTradingPro est terminé — réactivez votre accès', _layout('Fin d\'essai', body));
 }
 
+// ── 5) Réengagement : utilisateur inactif depuis ~7 jours (marketing, "reviens !") ──
+//    Ton direct (tutoiement), centré sur NOS fonctionnalités réelles. But : recliquer
+//    et reprendre l'habitude d'ouvrir le terminal pendant les sessions.
+function _buildReengagement(name, days) {
+  const prenom = (name || '').split(' ')[0] || 'trader';
+  const d = days || 7;
+  // Encart "Pour démarrer en 5 minutes" (bordure orange, à notre sauce)
+  const startBox = `
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
+      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f7941d;border-radius:10px;margin:20px 0;">
+      <tr><td style="padding:16px 18px;">
+        <div style="color:#f7941d;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
+        <div style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:10px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</div>
+        <div style="color:#e2e8f0;font-size:14px;line-height:1.9;">
+          → <strong style="color:#fff;">Live Squawk</strong> <span style="color:#94a3b8;">(les news qui bougent les marchés, en direct)</span><br>
+          → <strong style="color:#fff;">Calendrier économique</strong> <span style="color:#94a3b8;">(résultats live + détail de l'événement au clic)</span><br>
+          → <strong style="color:#fff;">Force des devises · COT · DMX</strong> <span style="color:#94a3b8;">(qui est fort, qui est faible, d'un coup d'œil)</span>
+        </div>
+        <div style="color:#8a9097;font-size:12.5px;font-style:italic;margin-top:12px;">Tu auras compris ce que t'apporte DataTradingPro en moins de temps qu'un café. ☕</div>
+      </td></tr>
+    </table>`;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:20px;font-weight:800;">Hey ${prenom},</p>
+    <p style="margin:0 0 14px;">Il y a ${d} jours, tu as activé ton accès à <strong style="color:#fff;">DataTradingPro</strong>. Depuis, je ne t'ai pas vu revenir.</p>
+    <p style="margin:0 0 8px;color:#94a3b8;">C'est peut-être que&nbsp;:</p>
+    <ul style="margin:0 0 6px;padding-left:18px;color:#cbd5e1;font-size:14px;line-height:1.8;">
+      <li>Tu n'as pas eu le temps d'explorer <span style="color:#94a3b8;">(le terminal est dense, c'est vrai)</span></li>
+      <li>Tu ne sais pas par où commencer</li>
+      <li>Quelque chose ne t'a pas plu — dans ce cas, <strong style="color:#fff;">réponds-moi</strong>, je lis tout</li>
+    </ul>
+    ${startBox}
+    ${_button('Revenir sur le terminal →', APP_URL)}
+    <p style="margin:18px 0 10px;color:#94a3b8;font-size:13px;">Et tout le reste t'attend aussi&nbsp;:</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📊 <strong style="color:#fff;">FX List</strong> — vue d'ensemble Forex (force, biais, momentum 1M/3M/12M)</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🏛️ <strong style="color:#fff;">Rapports institutionnels</strong> — ING, MUFG, SEB, Scotiabank… avec AI Insights</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📝 <strong style="color:#fff;">Session Recaps &amp; Weekly</strong> — le marché résumé, à ta place</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🌡️ <strong style="color:#fff;">Sentiment de risque</strong> live + sentiment retail contrarien</td></tr>
+    </table>
+    ${_spamNote()}
+    <p style="margin:14px 0 0;font-size:13px;">On se revoit sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: `${prenom}, ton terminal DataTradingPro t'attend 👀`, html: _layout('On se revoit ?', body) };
+}
+async function sendReengagement({ to, name, days }) {
+  const { subject, html } = _buildReengagement(name, days);
+  return _send(to, subject, html);
+}
+
 // ── Rappel ADMIN : abonnements à renouveler (envoyé à datatradingpro.contact) ──
 async function sendAdminExpiryReminder({ clients, to }) {
   if (!clients || !clients.length) return false;
@@ -315,4 +363,4 @@ async function sendAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNe
   return _send(admin, `DTP — ${kind} : ${clientEmail}`, _layout('Notification DTP', body));
 }
 
-module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset, sendTrialUpsell, sendAdminExpiryReminder, sendAdminRenewalNotice };
+module.exports = { sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset, sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice };
