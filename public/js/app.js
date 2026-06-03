@@ -74,12 +74,14 @@ function aiOpen() {
   if (!_aiMsgs.length) _aiMsgs = [_aiWelcomeMsg()];
   aiRender();
   p.classList.add('open'); if (b) b.classList.add('open'); p.setAttribute('aria-hidden', 'false');
+  const btn = document.getElementById('ai-btn'); if (btn) btn.classList.add('topbar-icon--active');   // barre verte active
   setTimeout(() => { const i = document.getElementById('ai-input'); if (i) i.focus(); }, 230);
 }
 function aiClose() {
   const p = document.getElementById('ai-panel'), b = document.getElementById('ai-backdrop');
   if (p) { p.classList.remove('open'); p.setAttribute('aria-hidden', 'true'); }
   if (b) b.classList.remove('open');
+  const btn = document.getElementById('ai-btn'); if (btn) btn.classList.remove('topbar-icon--active');
   aiClearCancel();
 }
 function _aiSourcesHtml(sources, idx) {
@@ -160,10 +162,11 @@ function aiInputGrow(el) { if (!el) return; el.style.height = 'auto'; el.style.h
 function aiClearAsk() { const b = document.getElementById('ai-clear-banner'); if (b) b.classList.add('show'); }
 function aiClearCancel() { const b = document.getElementById('ai-clear-banner'); if (b) b.classList.remove('show'); }
 function aiClearConfirm() { if (_aiTyper) { clearTimeout(_aiTyper); _aiTyper = null; } _aiBusy = false; _aiMsgs = [_aiWelcomeMsg()]; aiClearCancel(); aiRender(); }
-window.aiOpen = aiOpen; window.aiClose = aiClose; window.aiSend = aiSend; window.aiInputKey = aiInputKey; window.aiInputGrow = aiInputGrow;
+function aiToggle() { const p = document.getElementById('ai-panel'); if (p && p.classList.contains('open')) aiClose(); else aiOpen(); }
+window.aiOpen = aiOpen; window.aiClose = aiClose; window.aiToggle = aiToggle; window.aiSend = aiSend; window.aiInputKey = aiInputKey; window.aiInputGrow = aiInputGrow;
 window.aiToggleSources = aiToggleSources; window.aiClearAsk = aiClearAsk; window.aiClearCancel = aiClearCancel; window.aiClearConfirm = aiClearConfirm;
-// Le bouton AI de la topbar ouvre le volet Macro AI Assistant
-(function () { var b = document.getElementById('ai-btn'); if (b) b.addEventListener('click', aiOpen); })();
+// Le bouton AI de la topbar bascule le volet Macro AI Assistant
+(function () { var b = document.getElementById('ai-btn'); if (b) b.addEventListener('click', aiToggle); })();
 
 // ═══ World clocks ══════════════════════════
 const CLOCKS = [

@@ -461,12 +461,16 @@ html, body {
   border: 1px solid transparent;
   cursor: pointer;
   border-radius: var(--radius);
-  transition: color 0.15s, background 0.15s;
+  transition: color .2s ease-out, background .2s ease-out, transform .2s ease-out;
   position: relative;
 }
-
-.topbar-icon:hover { color: #fff; background: rgba(255,255,255,0.07); border-color: transparent; }
-.topbar-icon svg { width: 18px; height: 18px; }   /* + grandes → plus lisibles */
+/* Fintech Icon Glow & Lift : au survol, l'icône s'éclaire, grossit et se soulève légèrement */
+.topbar-icon:hover { color: #f4f4f5; background: rgba(255,255,255,0.06); border-color: transparent; transform: translateY(-1px) scale(1.1); }
+.topbar-icon:hover svg { filter: drop-shadow(0 0 4px rgba(255,255,255,0.42)); }
+.topbar-icon svg { width: 18px; height: 18px; transition: filter .2s ease-out; }   /* + grandes → plus lisibles */
+.topbar-icon--ai svg { width: 21px; height: 21px; }
+.topbar-icon--ai:hover svg { filter: drop-shadow(0 0 5px rgba(0,218,80,0.55)); }   /* AI : halo vert */
+.topbar-icon--sqwk:hover svg { filter: drop-shadow(0 0 5px rgba(239,68,68,0.5)); } /* Squawk : halo rouge */
 
 /* Bouton AI (style Prime Terminal — pastille "AI" verte) */
 .topbar-ai-btn {
@@ -5966,7 +5970,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   font-family: var(--font-ui); padding-bottom: 10px;
   white-space: nowrap; text-align: center;
 }
-.meter-ticker { font-weight: 700; letter-spacing: 0.04em; color: #e8eaed; }
+.meter-ticker { font-size: 10px; font-weight: 600; letter-spacing: 0.08em; color: #a1a1aa; }   /* zinc-400, tracking-wider */
 .meter-flag-img {
   height: 14px; width: 14px; object-fit: cover;
   border-radius: 50%; display: block;            /* mini-drapeau ROND aligné en tête de colonne */
@@ -5982,24 +5986,26 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .meter-stack {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  gap: 3px;                           /* écart entre briques (façon Prime Terminal) */
+  gap: 0;                             /* AUCUN écart : blocs collés, séparés par une seule ligne 1px */
 }
-.meter-half { flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.meter-half { flex: 1; display: flex; flex-direction: column; gap: 0; }
 .meter-zero { display: none; }
-/* Brique = bloc rounded-sm, bordure border/60, ombre interne (valeurs DOM exactes de Prime Terminal) */
+/* Brique compacte rectiligne : blocs serrés séparés par une UNIQUE bordure inférieure 1px très sombre */
 .meter-brick {
   flex: 1; min-height: 5px;
-  border-radius: 2px;                                  /* rounded-sm */
-  border: 1px solid rgba(255,255,255,0.05);            /* trame éteinte TOUJOURS visible (jamais "vide") */
-  background: #121214;                                 /* cellule de fond légèrement éclaircie */
-  box-shadow: inset 0 2px 4px 0 rgba(0,0,0,0.06);      /* shadow-inner */
+  border-radius: 0;
+  border-bottom: 1px solid #111113;                    /* séparateur millimétrique (collé) */
+  background: rgba(18,18,20,0.4);                       /* trame éteinte (toujours visible) */
   overflow: hidden;
-  transition: background 0.4s ease, border-color 0.4s ease;   /* MAJ fluide "live" */
+  transition: background 0.35s ease, box-shadow 0.35s ease;   /* MAJ fluide "live" */
 }
-.meter-brick--off { background: #121214; border-color: rgba(255,255,255,0.05); }
-/* Aplats PURS aux couleurs EXACTES de Prime Terminal (inspectées dans le DOM) */
-.meter-brick--pos { background: rgba(0,218,80,0.867); border-color: rgba(0,218,80,0.3); }   /* +  vert */
-.meter-brick--neg { background: rgba(255,0,0,0.933);  border-color: rgba(255,0,0,0.3);  }   /* −  rouge */
+.meter-brick--off { background: rgba(18,18,20,0.4); box-shadow: none; }
+/* Aplats PURS aux couleurs EXACTES de Prime Terminal (DOM) */
+.meter-brick--pos { background: rgba(0,218,80,0.867); border-bottom-color: #050505; }   /* +  vert */
+.meter-brick--neg { background: rgba(255,0,0,0.933);  border-bottom-color: #050505; }   /* −  rouge */
+/* Under-Glow : fine lueur cuivrée incandescente à l'axe zéro (où démarrent les blocs) */
+.meter-half-top .meter-brick--pos[data-idx="0"] { box-shadow: inset 0 -3px 6px -3px rgba(217,119,6,0.55); }
+.meter-half-bot .meter-brick--neg[data-idx="0"] { box-shadow: inset 0  3px 6px -3px rgba(217,119,6,0.55); }
 /* Tooltip flottant */
 .meter-tooltip {
   position: fixed; z-index: 9999; display: none;
@@ -7626,21 +7632,26 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
    le squawk (#sqwk-btn) garde sa couleur rouge/vert et n'a pas de trait. */
 #chat-btn.topbar-icon--active,
 #np-bell-btn.np-bell--active { color: #fff !important; }
+/* Barre d'état actif (base) sous l'icône du volet ouvert */
 #chat-btn.topbar-icon--active::after,
 #np-bell-btn.np-bell--active::after,
-#sqwk-btn.topbar-icon--active::after {   /* squawk : trait vert AUSSI, mais garde sa couleur rouge/vert */
+#sqwk-btn.topbar-icon--active::after,
+#ai-btn.topbar-icon--active::after {
   content: "";
   position: absolute;
   left: 50%;
-  bottom: -10px;
+  bottom: -11px;
   transform: translateX(-50%);
-  width: 20px;
+  width: 18px;
   height: 2px;
   border-radius: 2px;
-  background: #22c55e;                          /* trait vert */
-  box-shadow: 0 0 6px rgba(34,197,94,0.5);
   pointer-events: none;
 }
+/* Couleurs sémantiques de la barre active */
+#chat-btn.topbar-icon--active::after,
+#np-bell-btn.np-bell--active::after { background: #f4f4f5; box-shadow: 0 0 6px rgba(244,244,245,0.45); }   /* blanc */
+#ai-btn.topbar-icon--active::after  { background: #00e676; box-shadow: 0 0 7px rgba(0,230,118,0.6); }      /* AI vert */
+#sqwk-btn.topbar-icon--active::after { background: #ff3d00; box-shadow: 0 0 7px rgba(255,61,0,0.6); }       /* Squawk rouge */
 @media (max-width: 480px) { .sqwk-panel { width: 100%; max-width: 100%; } }
 .sqwk-audio { background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.9; }
 .sqwk-audio--off { opacity: 0.4; filter: grayscale(1); }
