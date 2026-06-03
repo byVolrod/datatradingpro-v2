@@ -5324,12 +5324,7 @@ function _chatRender(messages){
     const isTxt = !/^data:/.test(t);
     // Menu ⋯ (modifier / supprimer) — SÉPARÉ des réactions, côté support uniquement
     const menu = support
-      ? `<div class="chat-msg-menu">`
-        + `<button class="chat-menu-btn" type="button" title="Options" onclick="_chatToggleMenu(this)">⋯</button>`
-        + `<div class="chat-menu-pop">`
-        + (isTxt ? `<button type="button" onclick="_chatEditMsg('${mid}')">✎ Modifier</button>` : '')
-        + `<button type="button" class="chat-menu-del" onclick="_chatDeleteMsg('${mid}')">🗑 Supprimer</button>`
-        + `</div></div>`
+      ? `<div class="chat-msg-menu"><button class="chat-menu-btn" type="button" title="Options" onclick="_chatToggleMenu(this)">⋯</button></div>`
       : '';
     html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}" data-mid="${mid}">`
       + (mine?'':`<div class="chat-av${avThemIsPhoto?' has-photo':''}">${avThem}</div>`)
@@ -5381,11 +5376,13 @@ function _chatReact(id, emoji){
   const arr = _chatMsgCache[_chatCacheKey()];
   const msg = Array.isArray(arr) ? arr.find(x=>String(x.id)===String(id)) : null;
   if (msg){
-    const r = (msg.reactions && typeof msg.reactions === 'object') ? JSON.parse(JSON.stringify(msg.reactions)) : {};
-    const list = Array.isArray(r[emoji]) ? r[emoji].map(String) : [];
-    const i = list.indexOf(myId);
-    if (i>=0) list.splice(i,1); else list.push(myId);
-    if (list.length) r[emoji]=list; else delete r[emoji];
+    // UNE seule réaction par personne (Instagram) : on retire la mienne de partout puis on pose
+    // l'emoji cliqué — sauf si c'était déjà le mien (toggle off).
+    const src = (msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : {};
+    const had = Array.isArray(src[emoji]) && src[emoji].map(String).includes(myId);
+    const r = {};
+    ['👍','❤️','🔥'].forEach(k=>{ const a2 = Array.isArray(src[k]) ? src[k].map(String).filter(x=>x!==myId) : []; if (a2.length) r[k]=a2; });
+    if (!had){ (r[emoji] = r[emoji] || []).push(myId); }
     msg.reactions = r;
     _chatSig = _sigMsgs(arr);        // évite que le live tick ré-écrase juste après
     _chatUpdateReactBar(id);          // affichage immédiat, sans saut de scroll
@@ -5398,16 +5395,26 @@ function _chatReact(id, emoji){
     }).catch(()=>{});
 }
 
-// Menu ⋯ d'un message (ouvre/ferme le popup modifier/supprimer)
+// Menu ⋯ d'un message → menu INLINE sous le message (jamais coupé par l'overflow, 100% responsive)
 function _chatToggleMenu(btn){
-  const pop = btn.parentNode && btn.parentNode.querySelector('.chat-menu-pop');
-  if (!pop) return;
-  const wasOpen = pop.classList.contains('open');
-  document.querySelectorAll('.chat-menu-pop.open').forEach(p=>p.classList.remove('open'));
-  if (!wasOpen) pop.classList.add('open');
+  const wrap = btn.closest('.chat-bubble-wrap'); if (!wrap) return;
+  const open = wrap.querySelector('.chat-menu-inline');
+  document.querySelectorAll('.chat-menu-inline').forEach(el => { if (el !== open) el.remove(); });
+  if (open){ open.remove(); return; }
+  const row = wrap.closest('.chat-row');
+  const mid = row ? row.dataset.mid : '';
+  const isTxt = !!wrap.querySelector('.chat-text');
+  const m = document.createElement('div');
+  m.className = 'chat-menu-inline';
+  m.innerHTML = (isTxt ? `<button type="button" class="chat-menu-i-edit">✎ Modifier</button>` : '')
+    + `<button type="button" class="chat-menu-i-del">🗑 Supprimer</button>`;
+  wrap.appendChild(m);
+  if (isTxt) m.querySelector('.chat-menu-i-edit').onclick = () => { m.remove(); _chatEditMsg(mid); };
+  m.querySelector('.chat-menu-i-del').onclick = () => { m.remove(); _chatDeleteMsg(mid); };
 }
-document.addEventListener('click', e => {   // clic ailleurs → ferme les menus
-  if (!e.target.closest || !e.target.closest('.chat-msg-menu')) document.querySelectorAll('.chat-menu-pop.open').forEach(p=>p.classList.remove('open'));
+document.addEventListener('click', e => {   // clic ailleurs → ferme les menus inline
+  if (!e.target.closest || (!e.target.closest('.chat-msg-menu') && !e.target.closest('.chat-menu-inline')))
+    document.querySelectorAll('.chat-menu-inline').forEach(el => el.remove());
 });
 
 // Admin : supprimer un message — confirmation INLINE dans le message (plus de fenêtre native)
@@ -5503,7 +5510,9 @@ function _chatPost(text){
 function chatSend(){
   const inp = document.getElementById('chat-input');
   const text = (inp?.value||'').trim();
-  if(!text) return;
+  // Entrée = envoyer : s'il y a des images en attente, on les envoie (pas besoin de cliquer "Envoyer").
+  if (_chatPendingImgs && _chatPendingImgs.length) _chatSendPending();
+  if(!text){ if(inp){ inp.style.height='auto'; } return; }
   inp.value=''; inp.style.height='auto';
   _chatPost(text);
 }
@@ -5555,7 +5564,6 @@ function _chatRenderPending(){
   bar.innerHTML = `<div class="chat-pending-card">`
     + `<div class="chat-pending-thumbs">${thumbs}</div>`
     + `<div class="chat-pending-foot">`
-    + `<span class="chat-pending-count">${n} image${n>1?'s':''} prête${n>1?'s':''}${n>=CHAT_MAX_IMGS?' · max':''}</span>`
     + `<div class="chat-pending-btns">`
     + `<button type="button" class="chat-pending-cancel" onclick="_chatCancelPending()">Annuler</button>`
     + `<button type="button" class="chat-pending-send" onclick="_chatSendPending()">Envoyer</button>`
