@@ -309,7 +309,17 @@ function handleMessage(msg) {
     const incoming = (msg.items || []).map(item => isFirstUpdate ? item : { ...item, _new: true });
     const existingIds = new Set(allItems.map(i => i.id));
     const truly_new = incoming.filter(i => !existingIds.has(i.id));
-    if (truly_new.length === 0) return;
+    // News déjà affichées mais ENRICHIES après coup (analyse IA pré-calculée) → on patch en place
+    // pour que le tag « Analyse » apparaisse directement dans le feed, sans clic ni rechargement.
+    let _patched = false;
+    for (const inc of incoming) {
+      if (!existingIds.has(inc.id)) continue;
+      if (Array.isArray(inc.analyse) && inc.analyse.length) {
+        const ex = allItems.find(i => i.id === inc.id);
+        if (ex && !(Array.isArray(ex.analyse) && ex.analyse.length)) { ex.analyse = inc.analyse; _patched = true; }
+      }
+    }
+    if (truly_new.length === 0) { if (_patched) renderNews(true); return; }
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
     if (allItems.length > 2000) allItems = allItems.slice(0, 2000);
     if (!isFirstUpdate) {
@@ -1631,11 +1641,11 @@ function buildNewsItem(item) {
 
   // Pre-compute
   const rawDesc   = (item.description || '').replace(/<[^>]*>/g, '').trim();
-  // Tag « Analyse » : primers/speakers/groupés, OU news à contenu riche (vraie analyse possible),
-  // sauf celles qui ont déjà renvoyé "rien".
-  // Market updates (Convera) : on garde Info (le rapport complet) mais PAS le bouton Analyse.
-  const hasNotes  = !item._marketUpdate && (isPrimer || isSpeaker || hasGrouped || _analysisCache.has(item.id)
-                     || (rawDesc.length > 40 && !_analysisNoData.has(item.id))) && rawDesc.length > 20;
+  // Tag « Analyse » : affiché UNIQUEMENT si une vraie analyse IA a été PRÉ-CALCULÉE côté serveur
+  // et attachée à la news (item.analyse). Sinon → juste Info (système intelligent : pas d'analyse
+  // si la news ne le mérite pas / si le budget IA ne l'a pas produite). Plus de clic, plus de
+  // « Analyse en cours… », plus de bouton qui disparaît.
+  const hasNotes  = !item._marketUpdate && Array.isArray(item.analyse) && item.analyse.length > 0;
   // For speaker openers: only show ⓘ Info if there's actual content (desc bullets OR existing quotes)
   const speakerQuotesAtRender = isSpeaker ? getSpeakerQuotes(speakerKey, item.timestamp) : [];
   // hasArticleUrl: used only inside openPanel to fetch deeper content when description is short
@@ -1878,43 +1888,9 @@ function buildNewsItem(item) {
     }
 
     if (tab === 'analysis') {
-      const cached = _analysisCache.get(item.id);
-      if (cached) {
-        expandEl.innerHTML = _renderInfoBullets(cached);   // convertit **gras** + style propre
-        expandEl.classList.add('visible');
-      } else {
-        expandEl.innerHTML = `<div class="expand-loading">Analyse en cours…</div>`;
-        expandEl.classList.add('visible');
-        fetch('/api/analyse', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ headline: item.headline, category: item.category, description: item.description }),
-        })
-        .then(r => r.json())
-        .then(data => {
-          if (activeTab !== 'analysis') return;
-          if (!data.bullets?.length) {
-            // No analysis available — remove tag silently, close panel
-            _analysisNoData.add(item.id);
-            if (analysisTagEl) { analysisTagEl.remove(); analysisTagEl = null; }
-            expandEl.classList.remove('visible');
-            activeTab = null;
-            if (arrowEl) arrowEl.textContent = '∨';
-            return;
-          }
-          if (!data.fallback) _analysisCache.set(item.id, data.bullets);   // on ne cache que la vraie analyse IA
-          expandEl.innerHTML = _renderInfoBullets(data.bullets);   // convertit **gras** + style propre
-        })
-        .catch(() => {
-          if (activeTab !== 'analysis') return;
-          // Error — same: remove tag, close panel
-          _analysisNoData.add(item.id);
-          if (analysisTagEl) { analysisTagEl.remove(); analysisTagEl = null; }
-          expandEl.classList.remove('visible');
-          activeTab = null;
-          if (arrowEl) arrowEl.textContent = '∨';
-        });
-      }
+      // Analyse PRÉ-CALCULÉE côté serveur, attachée à la news → affichage instantané, aucun fetch.
+      expandEl.innerHTML = _renderInfoBullets(item.analyse || []);
+      expandEl.classList.add('visible');
       if (analysisTagEl) analysisTagEl.classList.add('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       return;
@@ -2047,7 +2023,7 @@ function buildNewsItem(item) {
     tagsEl.appendChild(infoTagEl);
   }
 
-  if (hasNotes && !_analysisNoData.has(item.id)) {
+  if (hasNotes) {
     analysisTagEl = document.createElement('span');
     analysisTagEl.className = 'tag tag--analyse';
     analysisTagEl.style.cursor = 'pointer';
