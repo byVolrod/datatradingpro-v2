@@ -5495,42 +5495,55 @@ function _chatCompressImage(file, cb){
   reader.readAsDataURL(file);
 }
 
-// ── Aperçu d'image AVANT envoi : l'utilisateur peut Envoyer ou Annuler (se désister) ──
-let _chatPendingImg = null;
-function _chatShowPending(dataUrl){
-  _chatPendingImg = dataUrl;
-  const bar = document.getElementById('chat-pending'); if (!bar) { _chatPost(dataUrl); return; }
+// ── Aperçu d'images AVANT envoi (jusqu'à 5) : ajouter / retirer (croix) / Envoyer / Annuler ──
+const CHAT_MAX_IMGS = 5;
+let _chatPendingImgs = [];
+function _chatAddPending(dataUrl){
+  if (!dataUrl) return;
+  if (_chatPendingImgs.length >= CHAT_MAX_IMGS) { _chatRenderPending(); return; }   // max 5 atteint
+  _chatPendingImgs.push(dataUrl);
+  _chatRenderPending();
+}
+function _chatRenderPending(){
+  const bar = document.getElementById('chat-pending'); if (!bar) return;
+  const n = _chatPendingImgs.length;
+  if (!n){ bar.classList.remove('visible'); bar.innerHTML = ''; return; }
+  const thumbs = _chatPendingImgs.map((u, i) =>
+    `<div class="chat-pending-item"><img src="${u}" alt="aperçu">`
+    + `<button type="button" class="chat-pending-x" title="Retirer" onclick="_chatRemovePending(${i})">×</button></div>`
+  ).join('');
   bar.innerHTML = `<div class="chat-pending-card">`
-    + `<img class="chat-pending-thumb" src="${dataUrl}" alt="aperçu">`
-    + `<div class="chat-pending-mid"><div class="chat-pending-title">Image prête à envoyer</div>`
-    + `<div class="chat-pending-hint">Vérifie l'aperçu puis envoie, ou annule.</div></div>`
+    + `<div class="chat-pending-thumbs">${thumbs}</div>`
+    + `<div class="chat-pending-foot">`
+    + `<span class="chat-pending-count">${n} image${n>1?'s':''} prête${n>1?'s':''}${n>=CHAT_MAX_IMGS?' · max':''}</span>`
     + `<div class="chat-pending-btns">`
     + `<button type="button" class="chat-pending-cancel" onclick="_chatCancelPending()">Annuler</button>`
     + `<button type="button" class="chat-pending-send" onclick="_chatSendPending()">Envoyer</button>`
-    + `</div></div>`;
+    + `</div></div></div>`;
   bar.classList.add('visible');
 }
-function _chatCancelPending(){
-  _chatPendingImg = null;
-  const bar = document.getElementById('chat-pending');
-  if (bar){ bar.classList.remove('visible'); bar.innerHTML = ''; }
-}
+function _chatRemovePending(i){ _chatPendingImgs.splice(i, 1); _chatRenderPending(); }
+function _chatCancelPending(){ _chatPendingImgs = []; _chatRenderPending(); }
 function _chatSendPending(){
-  const u = _chatPendingImg;
-  _chatCancelPending();
-  if (u) _chatPost(u);
+  const imgs = _chatPendingImgs.slice();
+  _chatPendingImgs = []; _chatRenderPending();
+  (function next(k){ if (k >= imgs.length) return; Promise.resolve(_chatPost(imgs[k])).then(() => next(k + 1)); })(0);   // ordre conservé
 }
 
-// Pièce jointe (image ou fichier) → data URL. Les images passent par l'aperçu (Envoyer/Annuler).
+// Pièce jointe (image(s) ou fichier) → data URL. Les images passent par l'aperçu (jusqu'à 5).
 function _chatAttach(input, kind){
-  const f = input.files && input.files[0];
+  const files = input.files ? Array.from(input.files) : [];
   input.value = '';
-  if(!f) return;
-  if (kind === 'image' || (f.type && f.type.indexOf('image') === 0)){
-    _chatCompressImage(f, url => _chatShowPending(url));   // aperçu avant envoi
+  if (!files.length) return;
+  if (kind === 'image'){
+    files.filter(f => f.type && f.type.indexOf('image') === 0)
+         .slice(0, CHAT_MAX_IMGS)
+         .forEach(f => _chatCompressImage(f, url => _chatAddPending(url)));
     return;
   }
-  if(f.size > 1.5*1024*1024){ alert('Fichier trop volumineux (max 1,5 Mo).'); return; }
+  const f = files[0];
+  if (f.type && f.type.indexOf('image') === 0){ _chatCompressImage(f, url => _chatAddPending(url)); return; }
+  if (f.size > 1.5*1024*1024){ alert('Fichier trop volumineux (max 1,5 Mo).'); return; }
   const reader = new FileReader();
   reader.onload = () => _chatPost(String(reader.result));   // data:...;base64,…
   reader.onerror = () => alert("Impossible de lire le fichier.");
@@ -5570,7 +5583,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         if (it.type && it.type.indexOf('image') === 0){
           const f = it.getAsFile(); if(!f) continue;
           e.preventDefault();
-          _chatCompressImage(f, url => _chatShowPending(url));   // aperçu avant envoi
+          _chatCompressImage(f, url => _chatAddPending(url));   // ajoute à l'aperçu (jusqu'à 5)
           return;
         }
       }
