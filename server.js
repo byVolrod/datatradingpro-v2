@@ -394,6 +394,12 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
       }
     }
 
+    // Chiffres RÉELS Whop (si configuré) → priment sur l'estimation locale pour MRR + abonnés actifs.
+    let whopStats = null;
+    try { whopStats = await whop.getStats(PRICE_MONTHLY); } catch {}
+    const useWhop = !!(whopStats && typeof whopStats.active === 'number');
+    if (useWhop) { activeSubs = whopStats.active; mrr = whopStats.mrr; }
+
     const arr = mrr * 12;
     const arpu = activeSubs ? mrr / activeSubs : 0;
     const growthPct = newLastMonth ? ((newThisMonth - newLastMonth) / newLastMonth * 100) : (newThisMonth ? 100 : 0);
@@ -419,6 +425,7 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
 
     res.json({
       generatedAt: new Date().toISOString(),
+      source: useWhop ? 'whop' : 'local',   // 'whop' = MRR/abonnés réels Whop ; 'local' = estimation table users
       pricing: { monthly: PRICE_MONTHLY, annual: PRICE_ANNUAL, currency: '€' },
       kpis: {
         totalUsers, clients, activeSubs, trials, suspended, expired,
