@@ -611,6 +611,55 @@ body.is-resizing iframe { pointer-events: none; }
   .layout-resizer { display: none !important; }
 }
 
+/* ════════════════ CURTAIN OVERLAY SPLITTER (desktop ≥1025px) ════════════════
+   Le panneau droit (World Clock / Risk / Meter) devient un RIDEAU absolu superposé.
+   Le panneau gauche occupe tout l'arrière-plan ; son contenu + sa scrollbar restent
+   décalés à gauche du rideau (padding de sécurité) → la barre orange, placée à la
+   jointure au-dessus de tout (z-30), n'entre plus JAMAIS en conflit avec la scrollbar.
+   --sidebar-w est un état runtime (modifié au drag) ; AUCUNE persistance → reset au reload. */
+@media (min-width: 1025px) {
+  .main-layout {
+    display: block;
+    position: relative;                       /* bloc conteneur du rideau */
+    --sidebar-w: clamp(380px, 45%, 800px);    /* largeur par défaut du rideau */
+  }
+  .views-col {
+    position: absolute; inset: 0;
+    width: 100%;
+    padding-right: calc(var(--sidebar-w) + 14px);   /* contenu + scrollbar à gauche du rideau (≈ pr-3.5) */
+    box-sizing: border-box;
+    z-index: 10;
+  }
+  .panel-right {
+    position: absolute; top: 0; right: 0; bottom: 0;
+    width: var(--sidebar-w);
+    z-index: 20;                              /* rideau au-dessus du fond */
+    background: #0c0c0e;                       /* rideau opaque */
+  }
+  .layout-resizer {
+    position: absolute; top: 0; bottom: 0;
+    left: auto; right: var(--sidebar-w);       /* jointure = bord gauche du rideau */
+    width: 8px;                                /* zone de préhension confortable */
+    transform: translateX(50%);                /* centrée sur la jointure */
+    z-index: 30;                               /* AU-DESSUS du rideau ET du fond */
+  }
+  .layout-resizer::before { left: 50%; right: auto; transform: translateX(-50%); width: 2px; }
+  /* Active Border Indicator : contour orange VIF uniquement sur le rideau pendant le drag */
+  body.is-resizing #panel-right {
+    outline: 1.5px solid #ff7a00;
+    outline-offset: -1px;
+    box-shadow: -2px 0 0 0 #ff7a00;
+  }
+  /* Rideau masqué (vue BANK) → plus de marge de sécurité ni de barre */
+  .hide-right-panel .views-col { padding-right: 0; }
+  .hide-right-panel .layout-resizer { display: none; }
+}
+/* FX List < 1600px : le rideau est masqué (table pleine largeur) → on neutralise marge + barre */
+@media (min-width: 1025px) and (max-width: 1599px) {
+  .main-layout.is-fxlist .views-col { padding-right: 0; }
+  .main-layout.is-fxlist .layout-resizer { display: none; }
+}
+
 /* ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) ══ */
 .clocks-resizer {
   /* Plus AUCUN espace ajouté : le World Clock est collé aux onglets (comme l'image).
@@ -5915,9 +5964,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 .meter-ticker { font-weight: 700; letter-spacing: 0.04em; color: #e8eaed; }
 .meter-flag-img {
-  height: 11px; width: 16px; object-fit: cover;
-  border-radius: 2px; display: block;
-  box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+  height: 14px; width: 14px; object-fit: cover;
+  border-radius: 50%; display: block;            /* mini-drapeau ROND aligné en tête de colonne */
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.10);
 }
 /* Valeur chiffrée sous chaque colonne */
 .meter-col-val {
@@ -5929,29 +5978,27 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .meter-stack {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  gap: 2px;                       /* écart axe central = écart entre toutes les briques */
+  gap: 0;                              /* pas de gap : la grille est dessinée par les bordures */
+  border: 1px solid #141416;          /* cadre de colonne (matrice de fond) */
+  background: #0a0a0c;                 /* trame de fond quasi invisible */
 }
-.meter-half { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.meter-zero { display: none; }    /* plus de trou au milieu — gap uniforme */
+.meter-half { flex: 1; display: flex; flex-direction: column; gap: 0; }
+.meter-zero { display: none; }
 .meter-brick {
   flex: 1; min-height: 5px;
-  border-radius: 1px;                   /* HUD : blocs bruts, quasi rectangulaires */
-  border: 1px solid rgba(255,255,255,0.05);
-  background: rgba(255,255,255,0.03);   /* éteinte : grille fantôme homogène */
-  transition: background 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;  /* MAJ fluide "live" */
+  border-radius: 0;                              /* angulaire : blocs bruts */
+  border-bottom: 1px solid #111113;              /* ligne fine très sombre entre segments (grille) */
+  background: transparent;                       /* éteinte : laisse voir la trame du stack */
+  transition: background 0.3s ease, box-shadow 0.3s ease;   /* MAJ fluide "live" */
 }
-.meter-brick--off { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); box-shadow: none; }
-/* Aplat plat mappé sur la charte (gain / perte), SANS effet brillant/glow */
-.meter-brick--pos {
-  background: var(--st-pos);
-  border-color: var(--st-pos);
-  box-shadow: none;
-}
-.meter-brick--neg {
-  background: var(--st-neg);
-  border-color: var(--st-neg);
-  box-shadow: none;
-}
+.meter-brick--off { background: transparent; box-shadow: none; }
+/* Aplats PURS très lumineux, sans dégradé interne (couleurs institutionnelles intenses) */
+.meter-brick--pos { background: #00e676; border-bottom-color: #050505; box-shadow: none; }   /* +  vert vif */
+.meter-brick--neg { background: #ff3d00; border-bottom-color: #050505; box-shadow: none; }   /* −  rouge vif */
+/* ── Zero-Baseline Under-Glow : filament chaud incandescent au contact de l'axe central ── */
+/* idx 0 = brique qui touche la ligne zéro (bas du haut / haut du bas) → toujours allumée si la valeur ≠ 0 */
+.meter-half-top .meter-brick--pos[data-idx="0"] { box-shadow: inset 0 -3px 7px -2px rgba(245,158,11,0.60); }
+.meter-half-bot .meter-brick--neg[data-idx="0"] { box-shadow: inset 0  3px 7px -2px rgba(245,158,11,0.60); }
 /* Tooltip flottant */
 .meter-tooltip {
   position: fixed; z-index: 9999; display: none;
