@@ -2467,7 +2467,7 @@ app.post('/api/report-insights', async (req, res) => {
   const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = 'v3:' + (id || clean.slice(0, 100));   // v3 = insights centrés devises/instruments concrets
+  const key = 'v4:' + (id || clean.slice(0, 100));   // v4 = carrousel PMT (mix narratif + actif/signal BUY/SELL/NEUTRAL)
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
@@ -2476,26 +2476,35 @@ app.post('/api/report-insights', async (req, res) => {
     if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: stored }); }
   } catch {}
   try {
-    const prompt = `Tu es analyste FX & marchés. À partir de ce rapport, IDENTIFIE les DEVISES et INSTRUMENTS réellement traités et, pour CHACUN, déduis le BIAIS et un résumé orienté trader.
+    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style Prime Terminal). À partir de ce rapport de session, génère 8 à 10 "insights" courts pour un carrousel "AI Insights", classés par importance.
+Mélange DEUX types de cartes (comme Prime Terminal) :
+(A) 2 à 4 insights NARRATIFS de haut niveau qui résument les thèmes clés (géopolitique, tarifs, énergie, sentiment…) → asset=null ET signal=null.
+(B) des insights par ACTIF concret réellement discuté (ex: "USD/JPY","AUD/USD","EUR/USD","US Dollar","Brent Crude","Spot Gold","S&P 500","US 10Y","Bitcoin") AVEC un signal technique quand le rapport implique une direction claire : "BUY" (haussier), "SELL" (baissier) ou "NEUTRAL" (équilibré). Si l'actif est juste un constat d'actualité SANS direction nette → signal=null.
 Règles STRICTES :
-- N'inclus QUE des actifs CONCRETS réellement discutés (ex: "EUR/USD", "US Dollar", "GBP", "JPY", "AUD", "Gold", "Brent Crude", "S&P 500", "US 10Y", "Bitcoin"). JAMAIS de catégorie vague ("FX", "Markets", "Macro", "Forex", "Currencies").
-- Priorise les DEVISES du rapport. 4 à 6 insights max, le plus pertinent d'abord.
-- "asset": l'instrument précis (devise / paire / indice / matière première / taux).
-- "bias": "bullish" | "bearish" | "neutral" — la direction que le rapport implique pour cet actif.
-- "text": UNE phrase concise (max 24 mots), en anglais, orientée trader : LE driver clé + l'impact directionnel.
-Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"...","bias":"...","text":"..."}]}
+- JAMAIS d'actif générique vague ("FX","Markets","Macro","Forex","Currencies") → pour ceux-là, fais-en un insight narratif (asset=null).
+- "text": UNE phrase concise (max 26 mots), en anglais, orientée trader (le driver clé + l'impact).
+- N'invente rien : base-toi uniquement sur le rapport.
+Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"USD/JPY"|null,"signal":"BUY"|"SELL"|"NEUTRAL"|null,"text":"..."}]}
 Rapport :
-${clean.slice(0, 4000)}`;
+${clean.slice(0, 4500)}`;
     // Insights de rapport = catégorie "analyst" ; Claude prend le relais hors budget Gemini.
-    const out = await aiSmart('analyst', prompt, 900);
+    const out = await aiSmart('analyst', prompt, 1100);
     const m = out.match(/\{[\s\S]*\}/);
     const _GENERIC = /^(fx|forex|markets?|macro|currenc(?:y|ies)|the market|general|n\/?a)$/i;
     const insights = m
       ? (JSON.parse(m[0]).insights || [])
           .filter(o => o && typeof o.text === 'string' && o.text.length > 8)
-          .map(o => ({ asset: String(o.asset || '').slice(0, 40), bias: String(o.bias || 'neutral').toLowerCase(), text: o.text }))
-          .filter(o => o.asset && !_GENERIC.test(o.asset.trim()))   // rejette les actifs génériques ("FX", "Markets"…)
-          .slice(0, 6)
+          .map(o => {
+            let asset = String(o.asset == null ? '' : o.asset).trim().slice(0, 40);
+            if (_GENERIC.test(asset)) asset = '';                       // actif générique → carte narrative
+            let signal = String(o.signal || o.bias || '').trim().toUpperCase();
+            if (signal === 'BULLISH') signal = 'BUY';
+            else if (signal === 'BEARISH') signal = 'SELL';
+            if (!['BUY', 'SELL', 'NEUTRAL'].includes(signal)) signal = '';
+            if (!asset) signal = '';                                    // pas de badge sans actif
+            return { asset: asset || null, signal: signal || null, text: o.text };
+          })
+          .slice(0, 12)
       : [];
     if (insights.length) {
       _insightsCache.set(key, insights);
