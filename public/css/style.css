@@ -27,6 +27,25 @@
   --green-dim:   #1a7a44;
   --red:         #e74c3c;
   --blue:        #3498db;
+
+  /* ═══════════════════════════════════════════════════════════════════
+     DESIGN TOKENS SÉMANTIQUES — charte « états de marché » (HUD immuable)
+     Dictionnaire centralisé : tout composant data-driven (Biais, Calendrier,
+     News, Scanner) DOIT mapper ses états sur ces tokens, jamais de hex en dur.
+     ─ Fonds de cellule (Heatmap) : intensité maximale aux extrêmes ─────── */
+  --st-vbull:    #0b7a40;   /* Très Haussier  — émeraude saturé profond     */
+  --st-bull:     #1a9d54;   /* Haussier       — vert standard contrasté     */
+  --st-wbull:    #145531;   /* Haussier faible— vert atténué (demi-pas)     */
+  --st-neutral:  #2b2b31;   /* Neutre         — anthracite mat discret      */
+  --st-wbear:    #6e2a26;   /* Baissier faible— rouge atténué (demi-pas)    */
+  --st-bear:     #9b3328;   /* Baissier       — rouge/brique atténué        */
+  --st-vbear:    #dc2626;   /* Très Baissier  — rouge vif d'alerte          */
+  /* ─ Textes financiers & barres live (gain / perte / neutre) ─────────── */
+  --st-pos:      #22e06a;   /* supérieur / favorable — vert fluo            */
+  --st-neg:      #ff3b3b;   /* inférieur / défavorable — rouge écarlate     */
+  --st-flat:     #e8eaed;   /* égal / neutre — blanc                        */
+  /* ─ Ligne de flux ultra-fine (border-collapse HUD ≈ neutral-900/60) ─── */
+  --hud-line:    rgba(28,28,30,0.6);
   --font-ui:     'Inter', system-ui, -apple-system, sans-serif;
   --font-mono:   'JetBrains Mono', 'Fira Code', 'Consolas', monospace;
   --radius:      3px;
@@ -1252,7 +1271,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   align-items: center;
   gap: 4px;
   padding: 3px 9px;
-  border-radius: 4px;
+  border-radius: 3px;               /* micro-badge HUD : 3px max */
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -2580,7 +2599,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* table-layout fixed : colonne indicateurs fixe, les 8 devises se partagent le reste → CHF toujours visible */
 .sb-grid { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
 .sb-grid th.sb-ind, .sb-grid td.sb-ind { width: 165px; }
-.sb-grid th, .sb-grid td { border: 1px solid #0c0c0e; }
+.sb-grid th, .sb-grid td { border: 1px solid var(--hud-line); }   /* grille HUD ultra-fine unifiée */
 .sb-grid thead th {
   background: #101012;
   color: #8a93a3;
@@ -2601,23 +2620,24 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sb-cur { width: auto; }
 .sb-cell {
   text-align: center;
-  padding: 9px 3px;
+  padding: 6px 3px;                 /* densité HUD : padding minimal */
   font-weight: 600;
   font-size: 11px;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  border-radius: 0;                 /* blocs bruts, jamais d'arrondi */
 }
 .sb-conclusion .sb-ind { background: #1a1a1f; color: #fff; font-weight: 700; border-left: 2px solid #f7941d; }
-/* Couleurs des cellules */
-.sb-vbull   { background: #0f7a3d; }
-.sb-bull    { background: #1c9d57; }
-.sb-wbull   { background: #14663a; }
-.sb-neutral { background: #2f2f36; color: #cbd5e1; }
-.sb-wbear   { background: #7a2e2a; }
-.sb-bear    { background: #c0392b; }
-.sb-vbear   { background: #7f1d1d; }
+/* Couleurs des cellules — mappées sur la charte sémantique (Heatmap) */
+.sb-vbull   { background: var(--st-vbull); }
+.sb-bull    { background: var(--st-bull); }
+.sb-wbull   { background: var(--st-wbull); }
+.sb-neutral { background: var(--st-neutral); color: #cbd5e1; }
+.sb-wbear   { background: var(--st-wbear); }
+.sb-bear    { background: var(--st-bear); }    /* Baissier  → brique atténué */
+.sb-vbear   { background: var(--st-vbear); }   /* Très Baissier → rouge vif d'alerte */
 
 /* ═══════════════════════════════════════════════
    RAPPORTS DTP (opening news) — rubriques + snapshot
@@ -5593,9 +5613,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .cv-forecast { color: #ccc; }
 .cv-prev     { color: #ccc; }
 .cv-empty    { color: #252525; }
-.cv-actual   { font-weight: 700; color: #fff; }   /* blanc par défaut (égal, ou pas de forecast) */
-.cv-pos      { color: #22e06a !important; }        /* Deviation > forecast : vert fluo */
-.cv-neg      { color: #ff3b3b !important; }        /* Deviation < forecast : rouge écarlate */
+.cv-actual   { font-weight: 700; color: var(--st-flat); }   /* égal, ou pas de forecast → blanc */
+.cv-pos      { color: var(--st-pos) !important; }            /* Deviation > forecast : vert fluo */
+.cv-neg      { color: var(--st-neg) !important; }            /* Deviation < forecast : rouge écarlate */
 
 /* Lightning bolt on actual values that beat/miss */
 .cv-bolt {
@@ -5915,26 +5935,23 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .meter-zero { display: none; }    /* plus de trou au milieu — gap uniforme */
 .meter-brick {
   flex: 1; min-height: 5px;
-  border-radius: 3px;
+  border-radius: 1px;                   /* HUD : blocs bruts, quasi rectangulaires */
   border: 1px solid rgba(255,255,255,0.05);
   background: rgba(255,255,255,0.03);   /* éteinte : grille fantôme homogène */
   transition: background 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;  /* MAJ fluide "live" */
 }
 .meter-brick--off { background: rgba(255,255,255,0.03); border-color: rgba(255,255,255,0.05); box-shadow: none; }
-/* Aplat plat aux couleurs identité du site (comme la bande risk/sentiment), SANS effet brillant/glow */
+/* Aplat plat mappé sur la charte (gain / perte), SANS effet brillant/glow */
 .meter-brick--pos {
-  background: #22c55e;
-  border-color: #22c55e;
+  background: var(--st-pos);
+  border-color: var(--st-pos);
   box-shadow: none;
 }
 .meter-brick--neg {
-  background: #ef4444;
-  border-color: #ef4444;
+  background: var(--st-neg);
+  border-color: var(--st-neg);
   box-shadow: none;
 }
-/* La brique la plus proche du zéro = "tête" de barre → coins plus marqués (lecture nette) */
-.meter-half-top .meter-brick:last-child { border-top-left-radius: 5px; border-top-right-radius: 5px; }
-.meter-half-bot .meter-brick:first-child { border-bottom-left-radius: 5px; border-bottom-right-radius: 5px; }
 /* Tooltip flottant */
 .meter-tooltip {
   position: fixed; z-index: 9999; display: none;
