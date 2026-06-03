@@ -923,30 +923,45 @@ app.get('/api/calendar-detail', async (req, res) => {
   } catch (e) { res.json({ specs: [], history: [], error: e.message }); }
 });
 
-// Diagnostic des Actuals du calendrier : où en est le remplissage (FF page + news) et ce qui manque.
+// Diagnostic des Actuals du calendrier (page HTML lisible → ouvre l'URL et screenshote-la).
 app.get('/api/calendar-actuals-debug', async (_req, res) => {
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   try {
-    await _refreshCalActuals(true).catch(() => {});            // force une lecture FF (best-effort)
+    let ffErr = '';
+    try { await _refreshCalActuals(true); } catch (e) { ffErr = e.message || String(e); }
     const filled = _backfillActualsFromNews();
     const now = Date.now();
     const events = getCalendarRaw();
     const past = events.filter(e => e.timestamp <= now);
-    const withActual = _overlayActuals(events).filter(e => e.actual && e.actual !== '');
+    const overlaid = _overlayActuals(events);
+    const withActual = overlaid.filter(e => e.actual && e.actual !== '');
     const missing = _overlayActuals(past)
       .filter(e => (!e.actual || e.actual === '') && !/speaks|speech|holiday|meeting|member|auction/i.test(e.title || ''))
-      .slice(0, 25)
-      .map(e => ({ cur: e.currency, title: e.title, forecast: e.forecast, previous: e.previous, date: new Date(e.timestamp).toISOString().slice(0, 10) }));
-    res.json({
-      ff: { rows: _calActuals.rows.length, withActual: _calActuals.rows.filter(r => r.actual).length, lastFetchAgoMin: Math.round((now - _calActualsAt) / 60000) },
-      mapSize: _calActualsMap.size,
-      backfilledThisRun: filled,
-      calendarEvents: events.length,
-      pastEvents: past.length,
-      eventsShownWithActual: withActual.length,
-      newsInWindow: (allNews || []).filter(n => n && n.timestamp && now - n.timestamp < 4 * 86400000 && _CAL_DATA_RE.test((n.headline || '') + ' ' + (n.description || ''))).length,
-      stillMissing: missing,
-    });
-  } catch (e) { res.status(500).json({ error: e.message }); }
+      .slice(0, 30);
+    // Échantillon de NOS news récentes contenant un chiffre (= candidats au remplissage)
+    const dataNews = (allNews || [])
+      .filter(n => n && n.timestamp && now - n.timestamp < 2 * 86400000 && /\d/.test(n.headline || ''))
+      .slice(0, 40);
+    const ffRows = (_calActuals.rows || []).filter(r => r.actual).slice(0, 20);
+
+    const row = (cells) => '<tr>' + cells.map(c => `<td style="padding:4px 9px;border-bottom:1px solid #222">${c}</td>`).join('') + '</tr>';
+    const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<body style="background:#0d0d0d;color:#e8eaed;font-family:monospace;font-size:13px;padding:18px;line-height:1.5">
+<h2 style="color:#f7941d">Diagnostic — Actuals calendrier</h2>
+<div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:18px">
+  <div><b>Page FF (Puppeteer)</b><br>lignes: <b>${(_calActuals.rows || []).length}</b> · avec actual: <b style="color:${ffRows.length ? '#2ecc71' : '#ef4444'}">${(_calActuals.rows || []).filter(r => r.actual).length}</b><br>dernier essai: il y a ${Math.round((now - _calActualsAt) / 60000)} min${ffErr ? `<br><span style="color:#ef4444">erreur: ${esc(ffErr)}</span>` : ''}</div>
+  <div><b>Remplissage news</b><br>news récentes avec chiffre: <b>${dataNews.length}+</b><br>actuals stockés (map): <b>${_calActualsMap.size}</b> · remplis ce run: <b>${filled}</b></div>
+  <div><b>Calendrier</b><br>événements: <b>${events.length}</b> · passés: <b>${past.length}</b><br>affichés AVEC actual: <b style="color:${withActual.length ? '#2ecc71' : '#ef4444'}">${withActual.length}</b></div>
+</div>
+<h3 style="color:#f7941d">FF — lignes récupérées (échantillon)</h3>
+${ffRows.length ? `<table style="border-collapse:collapse">${ffRows.map(r => row([esc(r.currency), esc(r.title), `<b style="color:#2ecc71">${esc(r.actual)}</b>`, esc(r.forecast), esc(r.previous)])).join('')}</table>` : '<div style="color:#ef4444">0 ligne → Cloudflare bloque la page FF sur Render (ou sélecteurs). On dépend donc du flux news.</div>'}
+<h3 style="color:#f7941d;margin-top:20px">Événements passés ENCORE SANS actual (${missing.length})</h3>
+<table style="border-collapse:collapse">${missing.map(e => row([esc(e.currency), esc(e.title), 'prev:' + esc(e.forecast || '—'), new Date(e.timestamp).toISOString().slice(5, 10)])).join('')}</table>
+<h3 style="color:#f7941d;margin-top:20px">Nos news récentes avec un chiffre (échantillon — est-ce que les résultats y sont ?)</h3>
+<table style="border-collapse:collapse">${dataNews.map(n => row([new Date(n.timestamp).toISOString().slice(5, 16).replace('T', ' '), esc(n.source || ''), esc((n.headline || '').slice(0, 90))])).join('')}</table>
+</body>`;
+    res.set('Content-Type', 'text/html; charset=utf-8').send(html);
+  } catch (e) { res.status(500).send('<pre style="color:#ef4444">' + esc(e.message) + '</pre>'); }
 });
 
 // ── Mosaic background images ──────────────────────────────────────────────────
