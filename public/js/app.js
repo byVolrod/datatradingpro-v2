@@ -5036,15 +5036,23 @@ function _sigThreads(t){ return (t||[]).map(x=>x.user_id+':'+(x.unread||0)+':'+(
 function _chatEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 // ── Identité support affichée au client (modifiable) ──
-const CHAT_SUPPORT_NAME = 'Équipe de support';
-const CHAT_SUPPORT_SUB  = 'Répond généralement en quelques minutes';
-const CHAT_SUPPORT_AV   = 'DTP';                       // initiales de l'avatar (ou laisse 'DTP')
+const CHAT_SUPPORT_NAME  = 'Équipe de support';
+const CHAT_SUPPORT_SUB   = 'Répond généralement en quelques minutes';
+const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la photo ne charge pas)
+// Photo support (portrait pro/institutionnel). Modifiable : remplace l'URL par la tienne.
+const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1560250097-0b93528c311a?w=160&h=160&fit=crop&crop=faces&auto=format&q=72';
+// Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
+function _chatSupportAvatarHtml(){
+  if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);
+  return `<img src="${CHAT_SUPPORT_PHOTO}" alt="Support" referrerpolicy="no-referrer" `
+       + `onerror="this.parentNode&&this.parentNode.classList.remove('has-photo');this.outerHTML='${CHAT_SUPPORT_AV}';">`;
+}
 
 // En-tête côté CLIENT (nom + sous-titre)
 function _chatClientHead(){
   const n=document.getElementById('chat-head-name'); if(n) n.textContent=CHAT_SUPPORT_NAME;
   const s=document.getElementById('chat-head-sub');  if(s) s.innerHTML='<span class="chat-presence"></span>'+_chatEsc(CHAT_SUPPORT_SUB);
-  const av=document.getElementById('chat-head-av');  if(av) av.textContent=CHAT_SUPPORT_AV;
+  const av=document.getElementById('chat-head-av');  if(av){ av.classList.add('has-photo'); av.innerHTML=_chatSupportAvatarHtml(); }
   document.getElementById('chat-back')?.classList.add('hidden');
   document.querySelector('.chat-input-bar')?.classList.remove('hidden');
   document.querySelector('.chat-hint')?.classList.remove('hidden');
@@ -5242,7 +5250,8 @@ function _chatRender(messages){
     return;
   }
   const support = _chatIsSupport();
-  const avThem = support ? _chatEsc((_chatThreadName||'?').charAt(0).toUpperCase()) : 'DTP';
+  const avThemIsPhoto = !support;   // côté CLIENT, l'interlocuteur = support → photo
+  const avThem = support ? _chatEsc((_chatThreadName||'?').charAt(0).toUpperCase()) : _chatSupportAvatarHtml();
   let html=''; let lastDate='';
   messages.forEach(m=>{
     const d = new Date(m.created_at);
@@ -5257,7 +5266,7 @@ function _chatRender(messages){
     else if (/^data:/.test(t))        inner = `<a class="chat-file" href="${t}" download>📎 Fichier joint</a>`;
     else                              inner = `<div class="chat-text">${_chatEsc(t)}</div>`;
     html += `<div class="chat-row ${mine?'chat-row--me':'chat-row--them'}">`
-      + (mine?'':`<div class="chat-av">${avThem}</div>`)
+      + (mine?'':`<div class="chat-av${avThemIsPhoto?' has-photo':''}">${avThem}</div>`)
       + `<div class="chat-bubble${/^data:image\//.test(t)?' chat-bubble--img':''}">${inner}`
       + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div></div></div>`;
   });
@@ -5268,6 +5277,7 @@ function _chatRender(messages){
 function _chatLoad(){
   const list = document.getElementById('chat-list');
   if (_chatMsgCache.client){ _chatSig = _sigMsgs(_chatMsgCache.client); _chatRender(_chatMsgCache.client); }   // instantané
+  else if (list){ list.innerHTML = (window.dtpLoader ? window.dtpLoader('Connexion au support…') : '<div class="chat-empty">Connexion au support…</div>'); }   // loader éclipse au 1er chargement
   fetch('/api/chat').then(r=>r.json()).then(d=>{
     const msgs = d.messages||[];
     _chatMsgCache.client = msgs;
@@ -5294,12 +5304,44 @@ function chatSend(){
   inp.value=''; inp.style.height='auto';
   _chatPost(text);
 }
-// Pièce jointe (image ou fichier) → envoyée en data URL (cap 900 Ko)
+// Compresse/redimensionne une image (File/Blob) → data URL JPEG (max 1600px, qualité ~0.82).
+// Garantit qu'un screenshot collé/joint passe TOUJOURS sous la limite (plus de rejet "trop volumineux").
+function _chatCompressImage(file, cb){
+  const reader = new FileReader();
+  reader.onload = () => {
+    const src = String(reader.result);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const MAX = 1600;
+        let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (w > MAX || h > MAX){ const r = Math.min(MAX/w, MAX/h); w = Math.round(w*r); h = Math.round(h*r); }
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const ctx = cv.getContext('2d');
+        ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, w, h);   // fond blanc (sinon transparence PNG → noir)
+        ctx.drawImage(img, 0, 0, w, h);
+        let out = cv.toDataURL('image/jpeg', 0.82);
+        if (out.length > 1.4*1024*1024) out = cv.toDataURL('image/jpeg', 0.6);   // encore trop gros → +compression
+        cb(out);
+      } catch { cb(src); }   // fallback : data URL d'origine
+    };
+    img.onerror = () => cb(src);
+    img.src = src;
+  };
+  reader.onerror = () => alert("Impossible de lire l'image.");
+  reader.readAsDataURL(file);
+}
+
+// Pièce jointe (image ou fichier) → envoyée en data URL. Les images sont compressées (toute taille OK).
 function _chatAttach(input, kind){
   const f = input.files && input.files[0];
   input.value = '';
   if(!f) return;
-  if(f.size > 900*1024){ alert('Fichier trop volumineux (max 900 Ko).'); return; }
+  if (kind === 'image' || (f.type && f.type.indexOf('image') === 0)){
+    _chatCompressImage(f, url => _chatPost(url));   // compression → toujours sous la limite
+    return;
+  }
+  if(f.size > 1.5*1024*1024){ alert('Fichier trop volumineux (max 1,5 Mo).'); return; }
   const reader = new FileReader();
   reader.onload = () => _chatPost(String(reader.result));   // data:...;base64,…
   reader.onerror = () => alert("Impossible de lire le fichier.");
@@ -5332,18 +5374,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if(inp){
     inp.addEventListener('keydown', e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); chatSend(); } });
     inp.addEventListener('input', ()=>{ inp.style.height='auto'; inp.style.height=Math.min(inp.scrollHeight,90)+'px'; if(inp.value.trim()) _chatSendTyping(); });
-    // Coller une image (Ctrl+V / clic droit → Coller) → envoyée directement, fluide.
+    // Coller une image (Ctrl+V / clic droit → Coller) → compressée puis envoyée, fluide (toute taille OK).
     inp.addEventListener('paste', e=>{
       const items = (e.clipboardData && e.clipboardData.items) || [];
       for (const it of items){
         if (it.type && it.type.indexOf('image') === 0){
           const f = it.getAsFile(); if(!f) continue;
           e.preventDefault();
-          if (f.size > 900*1024){ alert('Image trop volumineuse (max 900 Ko).'); return; }
-          const reader = new FileReader();
-          reader.onload  = () => _chatPost(String(reader.result));   // data:image/...;base64,…
-          reader.onerror = () => alert("Impossible de lire l'image collée.");
-          reader.readAsDataURL(f);
+          _chatCompressImage(f, url => _chatPost(url));   // compression canvas → plus de rejet de taille
           return;
         }
       }
