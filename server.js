@@ -5180,13 +5180,41 @@ function _seasonal(ts, closes) {
   return avg.map(a => +(acc += a).toFixed(3)); // Jan→Dec cumulative
 }
 
-async function computeFxList() {
-  if (_fxlCache && Date.now() - _fxlTs < FXL_TTL) return _fxlCache;
-  await getYFSession();
+let _fxlBusy = false;
+const FXL_CACHE_KEY = 'fxlist_v1';
 
-  const rows = await Promise.all(CS_PAIRS.map(async p => {
+// Persistance (survit aux redéploiements Render : disque éphémère → Supabase ai_cache)
+let _fxlSaveTimer = null;
+function _fxlPersist() {
+  clearTimeout(_fxlSaveTimer);
+  _fxlSaveTimer = setTimeout(() => { if (_fxlCache) auth.aiCacheSet(FXL_CACHE_KEY, _fxlCache).catch(() => {}); }, 1500);
+  if (_fxlSaveTimer.unref) _fxlSaveTimer.unref();
+}
+async function _fxlLoadPersisted() {
+  try {
+    const c = await auth.aiCacheGet(FXL_CACHE_KEY);
+    if (!_fxlCache && c && Array.isArray(c.pairs) && c.pairs.length >= 7) {
+      _fxlCache = c; _fxlTs = 0;   // servi IMMÉDIATEMENT au boot ; ts=0 → un refresh se fera en arrière-plan
+      console.log(`[FXL] ${c.pairs.length} paires restaurées du cache persistant`);
+    }
+  } catch {}
+}
+
+// Mappe `items` via `fn` avec une concurrence LIMITÉE (évite le rate-limit Yahoo Finance)
+async function _poolMap(items, limit, fn) {
+  const out = new Array(items.length);
+  let idx = 0;
+  async function worker() { while (idx < items.length) { const i = idx++; out[i] = await fn(items[i], i); } }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+  return out;
+}
+
+// Calcul LOURD (fetch Yahoo) — par lots de 5 (anti-throttle), range 3 ans (assez pour 12M + saisonnalité, + léger que 5y)
+async function _computeFxListFresh() {
+  await getYFSession();
+  const rows = await _poolMap(CS_PAIRS, 5, async p => {
     try {
-      const raw = await yfFetch(p.sym, '1d', '5y');
+      const raw = await yfFetch(p.sym, '1d', '3y');
       const res = raw?.chart?.result?.[0];
       if (!res) return null;
       const rawTs = res.timestamp || [];
@@ -5223,10 +5251,10 @@ async function computeFxList() {
         dmx,
       };
     } catch { return null; }
-  }));
+  });
 
   const valid = rows.filter(Boolean);
-  if (valid.length < 7) return null;
+  if (valid.length < 7) return null;   // fetch trop partiel → on ne remplace pas le cache (stale conservé)
 
   // ── Auto relative strength: per-currency = avg 1M return across its pairs ────
   const score = {}, cnt = {};
@@ -5247,19 +5275,41 @@ async function computeFxList() {
     r.bias     = _signal(r.ret1M, 1, -1);
   });
 
-  const data = { pairs: valid, updatedAt: new Date().toISOString() };
-  _fxlCache = data; _fxlTs = Date.now();
-  console.log(`[FXL] ${valid.length}/${CS_PAIRS.length} pairs loaded`);
-  return data;
+  return { pairs: valid, updatedAt: new Date().toISOString() };
+}
+
+// Cache + stale-while-error + persistance. NE renvoie JAMAIS vide si on a déjà eu des données un jour.
+async function computeFxList() {
+  if (_fxlCache && Date.now() - _fxlTs < FXL_TTL) return _fxlCache;   // frais → direct
+  if (_fxlBusy) return _fxlCache;                                     // déjà en calcul → on sert l'actuel (peut être stale)
+  _fxlBusy = true;
+  try {
+    const fresh = await _computeFxListFresh();
+    if (fresh) {
+      _fxlCache = fresh; _fxlTs = Date.now();
+      _fxlPersist();
+      console.log(`[FXL] ${fresh.pairs.length}/${CS_PAIRS.length} paires chargées`);
+    } else {
+      console.warn('[FXL] fetch insuffisant → conservation du dernier cache (stale)');
+    }
+  } catch (e) {
+    console.warn('[FXL] échec calcul:', e.message);
+  } finally {
+    _fxlBusy = false;
+  }
+  return _fxlCache;   // frais si OK, sinon dernier bon snapshot ; null seulement si on n'a JAMAIS rien eu
 }
 
 app.get('/api/fxlist', async (req, res) => {
-  if (req.query.force === '1') _fxlCache = null;
+  if (req.query.force === '1') _fxlTs = 0;   // force un refresh SANS vider le cache (fallback préservé)
   try {
     const data = await computeFxList();
     if (!data) return res.status(503).json({ error: 'Data unavailable' });
     res.json(data);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    if (_fxlCache) return res.json(_fxlCache);   // stale en dernier recours plutôt qu'une erreur
+    res.status(500).json({ error: e.message });
+  }
 });
 
 // ─── Risk Sentiment ───────────────────────────────────────────────────────────
@@ -5511,6 +5561,10 @@ server.listen(PORT, async () => {
   // PRÉ-CHARGE les actuals (TradingView) → la colonne Actual est remplie dès la 1re ouverture du calendrier.
   setTimeout(async () => { try { await _calActualsLoad(); await _buildTVCalendar(); await _ensureCalendar(); await _refreshTVActuals(); } catch {} }, 9000);
   setInterval(() => { _buildTVCalendar().catch(() => {}); _refreshTVActuals().catch(() => {}); }, 5 * 60 * 1000);   // calendrier + actuals rafraîchis toutes les 5 min (temps réel)
+  // FX LIST : restaure le dernier snapshot persistant (affiché instantanément au boot, même si Yahoo throttle)
+  // puis recalcule en arrière-plan ; refresh régulier ensuite → la table n'est JAMAIS vide.
+  setTimeout(async () => { try { await _fxlLoadPersisted(); await computeFxList(); } catch {} }, 12000);
+  setInterval(() => { _fxlTs = 0; computeFxList().catch(() => {}); }, FXL_TTL);
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
