@@ -8034,18 +8034,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 @media (max-width: 480px) { .ai-panel { width: 100%; border-left: none; } .ai-inputhint { padding-left: 12px; text-align: center; } }
 
 /* ═══════════════ CORRECTIFS RESPONSIVE (tablette / téléphone) ═══════════════ */
+/* Tablette ≤ 1024px : la barre de redimensionnement est masquée (drag off), les volets
+   latéraux (chat/notif/réglages/AI) prennent toute la largeur, World Clock plus compact. */
+@media (max-width: 1024px) {
+  .ai-panel { width: 100%; border-left: none; }
+  .clocks-bar { flex-wrap: wrap; }
+}
 /* Tablette ≤ 768px : les volets latéraux passent en pleine largeur (au lieu de 420-440px
    qui mangeaient la moitié de l'écran), et les grandes tables s'assouplissent. */
 @media (max-width: 768px) {
-  .chat-panel, .np-panel, .settings-panel { width: 100% !important; max-width: 100% !important; }
+  .chat-panel, .np-panel, .settings-panel, .ai-panel { width: 100% !important; max-width: 100% !important; border-left: none; }
   .fxl-table { min-width: 760px; font-size: 10.5px; }
   .am-chart, .am-chart--donut { height: 200px; }
+  .topbar { gap: 6px; }
 }
 /* Téléphone ≤ 480px : topbar désencombrée + tables compactes + vignettes plus petites. */
 @media (max-width: 480px) {
   .topbar { padding: 0 10px; gap: 4px; }
-  .topbar-ai-btn { display: none; }              /* bouton "AI — bientôt" masqué sur petit écran */
   .topbar-symbol-search { display: none; }
+  .topbar-ai-btn { height: 24px; padding: 0 8px; font-size: 10.5px; }   /* AI reste accessible (chat fonctionnel) */
   .fxl-table { min-width: 600px; font-size: 10px; }
   .cth-event { min-width: 108px; font-size: 10px; }
   .news-category-text { width: 62px; font-size: 10px; }
@@ -8053,4 +8060,5 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .chat-pending-item { width: 46px; height: 46px; }
   .chat-edit-box { max-width: 88vw; }
   .adm-tabs { overflow-x: auto; }                /* onglets admin scrollables si trop étroits */
+  .ai-bubble-user { max-width: 88%; }
 }
