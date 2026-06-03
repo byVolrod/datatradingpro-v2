@@ -1814,7 +1814,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
   function _setDocTitle(_view) {
-    try { document.title = 'DTP' + (window._dtpUser ? ' - ' + window._dtpUser : ''); } catch {}
+    try { document.title = 'DTP' + (window._dtpUser ? ' | ' + window._dtpUser : ''); } catch {}
   }
 
   function activateView(view, { persist = true } = {}) {
@@ -1914,55 +1914,94 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ─── FX LIST — Overview table ─────────────────────────────────────────────────
 const FXL_COLS = [
-  { key: 'symbol',    label: 'Symbol',     sortable: true,  align: 'left',   type: 'sym'    },
-  { key: 'sparkLast', label: 'Last Price', sortable: false, align: 'center', type: 'spark'  },
-  { key: 'changePct', label: 'Change %',   sortable: true,  align: 'right',  type: 'pct'    },
-  { key: 'seasonal',  label: 'Seasonal',   sortable: false, align: 'center', type: 'spark'  },
-  { key: 'pattern',   label: 'Pattern',    sortable: false, align: 'center', type: 'micro'  },
-  { key: 'dmx',       label: 'DMX',        sortable: true,  align: 'center', type: 'donut'  },
-  { key: 'fund',      label: 'Fund.',      sortable: true,  align: 'center', type: 'badge'  },
-  { key: 'research',  label: 'Research',   sortable: true,  align: 'center', type: 'badge'  },
-  { key: 'bias',      label: 'Bias',       sortable: true,  align: 'center', type: 'badge'  },
-  { key: 'ret1M',     label: '1M %',       sortable: true,  align: 'right',  type: 'pct'    },
-  { key: 'ret3M',     label: '3M %',       sortable: true,  align: 'right',  type: 'pct'    },
-  { key: 'ret12M',    label: '12M %',      sortable: true,  align: 'right',  type: 'pct'    },
-  { key: 'trend',     label: 'Trend',      sortable: false, align: 'center', type: 'spark'  },
-  { key: 'strength',  label: 'Strength',   sortable: true,  align: 'center', type: 'str'    },
+  { key: 'symbol',    label: 'Symbol',     sortable: true,  align: 'left',   type: 'sym'     },
+  { key: 'sparkLast', label: 'Last Price', sortable: false, align: 'center', type: 'price'   },
+  { key: 'changePct', label: 'Change %',   sortable: true,  align: 'right',  type: 'change'  },
+  { key: 'seasonal',  label: 'Seasonal',   sortable: false, align: 'center', type: 'season'  },
+  { key: 'pattern',   label: 'Pattern',    sortable: false, align: 'center', type: 'pattern' },
+  { key: 'dmx',       label: 'DMX',        sortable: true,  align: 'center', type: 'donut'   },
+  { key: 'fund',      label: 'Fund.',      sortable: true,  align: 'center', type: 'badge'   },
+  { key: 'research',  label: 'Research',   sortable: true,  align: 'center', type: 'badge'   },
+  { key: 'bias',      label: 'Bias',       sortable: true,  align: 'center', type: 'badge'   },
+  { key: 'ret1M',     label: '1M %',       sortable: true,  align: 'right',  type: 'pct', heat: true },
+  { key: 'ret3M',     label: '3M %',       sortable: true,  align: 'right',  type: 'pct', heat: true },
+  { key: 'ret12M',    label: '12M %',      sortable: true,  align: 'right',  type: 'pct', heat: true },
+  { key: 'trend',     label: 'Trend',      sortable: false, align: 'center', type: 'trend'   },
+  { key: 'strength',  label: 'Strength',   sortable: true,  align: 'center', type: 'str'     },
 ];
 const _SIG_RANK = { Bullish: 1, Neutral: 0, Bearish: -1 };
 let _fxlData = null;
 let _fxlSort = { key: 'symbol', dir: 1 };
 let _fxlLoading = false;
 
-function _fxlFmtPx(v, sym) {
-  if (v == null) return '—';
-  const dp = /JPY$/.test(sym) ? 3 : (v >= 50 ? 2 : 5);
-  return v.toFixed(dp);
+// Points (x,y) d'une série dans une boîte w×h (marge verticale 1px) — base commune des sparklines
+function _fxlSparkPts(vals, w, h) {
+  const min = Math.min(...vals), max = Math.max(...vals);
+  const range = max - min || 1, pad = 1, ih = h - 2 * pad, stepX = w / (vals.length - 1);
+  return vals.map((v, i) => [ +(i * stepX).toFixed(1), +(pad + ih - ((v - min) / range) * ih).toFixed(1) ]);
 }
 
-// Sparkline silhouette — 12px de haut, sans axes ni fioritures (SVG miniature)
-function _fxlSparkline(arr, w = 80, h = 12) {
+// LAST PRICE — ligne blanche, dernier segment coloré selon le sens du dernier tick (vert/rouge fluo)
+function _fxlPriceSpark(arr, w = 78, h = 14) {
   const vals = (arr || []).filter(v => v != null);
   if (vals.length < 2) return '';
-  const min = Math.min(...vals), max = Math.max(...vals);
-  const range = max - min || 1;
-  const pad = 1;                                   // marge 1px haut/bas → la ligne ne touche pas les bords
-  const stepX = w / (vals.length - 1);
-  const pts = vals.map((v, i) => `${(i * stepX).toFixed(1)},${(pad + (h - 2 * pad) - ((v - min) / range) * (h - 2 * pad)).toFixed(1)}`).join(' ');
-  const up = vals[vals.length - 1] >= vals[0];
-  const color = up ? 'var(--st-pos)' : 'var(--st-neg)';
-  return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="${color}" stroke-width="1.2"/></svg>`;
+  const pts = _fxlSparkPts(vals, w, h);
+  const a = vals[vals.length - 2], b = vals[vals.length - 1];
+  const tick = b > a ? '#00e676' : b < a ? '#ff3d00' : '#e8eaed';
+  return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">`
+    + `<polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="#cfd3da" stroke-width="1"/>`
+    + `<polyline points="${pts.slice(-2).map(p => p.join(',')).join(' ')}" fill="none" stroke="${tick}" stroke-width="1.4"/></svg>`;
 }
 
-// Heatmap Cell : fond vert/rouge dont l'OPACITÉ est proportionnelle à la force du %
+// SEASONAL — sparkline ondulé multi-segments : chaque segment coloré selon sa pente (turquoise / rouge)
+function _fxlSeasonSpark(arr, w = 78, h = 14) {
+  const vals = (arr || []).filter(v => v != null);
+  if (vals.length < 2) return '';
+  const pts = _fxlSparkPts(vals, w, h);
+  let segs = '';
+  for (let i = 1; i < pts.length; i++) {
+    const up = vals[i] >= vals[i - 1];
+    segs += `<line x1="${pts[i-1][0]}" y1="${pts[i-1][1]}" x2="${pts[i][0]}" y2="${pts[i][1]}" stroke="${up ? '#2dd4bf' : '#ff3b5c'}" stroke-width="1"/>`;
+  }
+  return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${segs}</svg>`;
+}
+
+// TREND — micro-ligne fine mono, couleur selon la direction macro
+function _fxlTrendSpark(arr, w = 78, h = 14) {
+  const vals = (arr || []).filter(v => v != null);
+  if (vals.length < 2) return '';
+  const pts = _fxlSparkPts(vals, w, h);
+  const up = vals[vals.length - 1] >= vals[0];
+  return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${up ? '#00cc99' : '#ff3b5c'}" stroke-width="1"/></svg>`;
+}
+
+// PATTERN — micro-matrice de 5 carrés : allumés (blanc) selon les hausses récentes, sinon éteints
+function _fxlPattern(arr) {
+  const vals = (arr || []).filter(v => v != null);
+  if (vals.length < 2) return '<span class="fxl-pat"></span>';
+  const n = 5, step = (vals.length - 1) / n, s = [];
+  for (let i = 0; i <= n; i++) s.push(vals[Math.round(i * step)]);
+  let sq = '';
+  for (let i = 1; i <= n; i++) sq += `<i class="fxl-pat-sq${s[i] > s[i-1] ? ' on' : ''}"></i>`;
+  return `<span class="fxl-pat">${sq}</span>`;
+}
+
+// CHANGE % — texte simple (N/A gris foncé si absent, sinon coloré sans fond)
+function _fxlChangeCell(v) {
+  if (v == null) return '<span class="fxl-na">N/A</span>';
+  return `<span class="fxl-chg fxl-chg--${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
+}
+
+// Heatmap Cell (1M/3M/12M) — fond plein vert/rouge à OPACITÉ ∝ |%|, texte turquoise/rouge
 function _fxlPctCell(v) {
   if (v == null) return '<span class="fxl-pct fxl-na">N/A</span>';
   const cls = v >= 0 ? 'pos' : 'neg';
-  const rgb = v >= 0 ? '34,197,94' : '239,68,68';                       // vert-500 / rouge-500
-  const a = Math.max(0.07, Math.min(0.45, Math.abs(v) / 12 * 0.45 + 0.07));  // ∝ |%|, plafonné pour garder le texte lisible
+  const rgb = v >= 0 ? '16,185,129' : '225,29,46';
+  const a = Math.max(0.12, Math.min(0.52, Math.abs(v) / 12 * 0.5 + 0.12));
   return `<span class="fxl-pct fxl-pct--${cls}" style="background:rgba(${rgb},${a.toFixed(3)})">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
 }
 
+// STRENGTH — vumètre horizontal ultra-fin (2px), remplissage vers la droite, turquoise/fuchsia
 function _fxlStrengthCell(v, maxAbs) {
   const mag = maxAbs > 0 ? Math.min(100, Math.abs(v) / maxAbs * 100) : 0;
   const cls = v >= 0 ? 'pos' : 'neg';
@@ -1975,14 +2014,13 @@ function _fxlFlag(ccy) {
   return `<img src="https://flagcdn.com/w40/${iso}.png" alt="${ccy}" class="fxl-flag" loading="lazy">`;
 }
 
-// DMX donut — green arc = share of bullish days (0–100), red = remainder
+// DMX — donut radial bicolore segmenté : part turquoise = flux haussiers, reste fuchsia
 function _fxlDonut(pct) {
   const v = Math.max(0, Math.min(100, pct ?? 50));
-  const r = 8, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
-  // Anneau de progression radial BICOLORE (stroke-dasharray) : part verte = flux haussiers, reste rouge
-  return `<svg class="fxl-dmx" width="22" height="22" viewBox="0 0 22 22">`
-    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--st-neg)" stroke-width="4"/>`
-    + `<circle cx="11" cy="11" r="${r}" fill="none" stroke="var(--st-pos)" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 11 11)"/>`
+  const r = 7, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
+  return `<svg class="fxl-dmx" width="20" height="20" viewBox="0 0 20 20">`
+    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="#ff0055" stroke-width="4"/>`
+    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="#00cc99" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 10 10)"/>`
     + `</svg>`;
 }
 
@@ -1993,16 +2031,17 @@ function _fxlBadge(label) {
 
 function _fxlCell(col, p, maxAbsStr) {
   switch (col.type) {
-    case 'sym':   return `<div class="fxl-sym">${_fxlFlag(p.base)}<span class="fxl-sym-txt">${p.symbol}</span></div>`;
-    case 'spark': return col.key === 'sparkLast'
-      ? `<div class="fxl-last"><span class="fxl-last-px">${_fxlFmtPx(p.last, p.symbol)}</span>${_fxlSparkline(p[col.key])}</div>`
-      : _fxlSparkline(p[col.key]);
-    case 'micro': return _fxlSparkline(p[col.key], 44, 22);
-    case 'donut': return _fxlDonut(p[col.key]);
-    case 'badge': return _fxlBadge(p[col.key]);
-    case 'pct':   return _fxlPctCell(p[col.key]);
-    case 'str':   return _fxlStrengthCell(p[col.key], maxAbsStr);
-    default:      return '';
+    case 'sym':     return `<div class="fxl-sym">${_fxlFlag(p.base)}<span class="fxl-sym-txt">${p.symbol}</span></div>`;
+    case 'price':   return `<div class="fxl-last">${_fxlPriceSpark(p.sparkLast)}</div>`;
+    case 'season':  return _fxlSeasonSpark(p.seasonal);
+    case 'trend':   return _fxlTrendSpark(p.trend);
+    case 'pattern': return _fxlPattern(p.pattern);
+    case 'donut':   return _fxlDonut(p.dmx);
+    case 'badge':   return _fxlBadge(p[col.key]);
+    case 'change':  return _fxlChangeCell(p.changePct);
+    case 'pct':     return _fxlPctCell(p[col.key]);
+    case 'str':     return _fxlStrengthCell(p[col.key], maxAbsStr);
+    default:        return '';
   }
 }
 
@@ -2013,7 +2052,9 @@ function renderFxList() {
 
   head.innerHTML = FXL_COLS.map(c => {
     const active = _fxlSort.key === c.key;
-    const arrow = c.sortable ? `<span class="fxl-sort">${active ? (_fxlSort.dir > 0 ? '▲' : '▼') : '↕'}</span>` : '';
+    // Flèche de tri ⇅ visible sur SYMBOL et STRENGTH (et sur la colonne triée active) ; les autres trient en silence
+    const showArrow = c.sortable && (c.key === 'symbol' || c.key === 'strength' || active);
+    const arrow = showArrow ? `<span class="fxl-sort${active ? ' active' : ''}">${active ? (_fxlSort.dir > 0 ? '▲' : '▼') : '⇅'}</span>` : '';
     return `<th class="fxl-th fxl-th--${c.align} ${c.sortable ? 'fxl-th--sortable' : ''}" ${c.sortable ? `data-sort="${c.key}"` : ''}>${c.label}${arrow}</th>`;
   }).join('');
 
@@ -2044,7 +2085,7 @@ function renderFxList() {
 
   body.innerHTML = pairs.map(p =>
     `<tr class="fxl-row">` +
-    FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}${c.type === 'pct' ? ' fxl-td--heat' : ''}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
+    FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}${c.heat ? ' fxl-td--heat' : ''}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
     `</tr>`
   ).join('');
 
