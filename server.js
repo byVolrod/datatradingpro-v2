@@ -3897,6 +3897,82 @@ const AI_TAG_DAILY_MAX = parseInt(process.env.AI_TAG_DAILY_MAX, 10) || 25;
 const _aiTagCache = new Map();          // id → tags[] (cache mémoire chaud)
 let _aiTagDay = '', _aiTagDayCount = 0; // compteur journalier (cap dur)
 let _aiTagBusy = false;
+
+// ─── Analyse PRÉ-CALCULÉE des news (en arrière-plan, bornée, cachée) ──────────
+// L'analyse n'est PAS générée au clic : un passage de fond la produit pour les news qui
+// la MÉRITENT (importantes + assez de matière), la cache (durable Supabase + disque) et
+// l'attache à l'objet news (item.analyse). Le front affiche le tag « Analyse » uniquement
+// si item.analyse existe → parfois Info+Analyse, parfois juste Info. Budget strict.
+const AI_ANALYSE_DAILY_MAX = parseInt(process.env.AI_ANALYSE_DAILY_MAX, 10) || 18;
+let _aiAnaDay = '', _aiAnaDayCount = 0, _aiAnaBusy = false;
+function _meritsAnalysis(item) {
+  if (!item || item._briefing || item._marketUpdate) return false;
+  if (Date.now() - item.timestamp > 6 * 60 * 60 * 1000) return false;            // récentes uniquement
+  const desc = String(item.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  if (desc.length < 120) return false;                                           // pas assez de matière → Info suffit
+  return item.priority === 'high' || item.important === true;                    // importantes uniquement
+}
+function _parseAnalyseBullets(text) {
+  return String(text || '').split('\n').map(l => l.trim())
+    .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim())
+    .filter(Boolean).slice(0, 3);
+}
+async function _enrichAnalyses() {
+  if (_aiAnaBusy) return;
+  const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  if (!hasAI) return;
+  _aiAnaBusy = true;
+  try {
+    const today = _aiDay();
+    if (_aiAnaDay !== today) { _aiAnaDay = today; _aiAnaDayCount = 0; }           // reset journalier
+    let perCycle = 1;                                                             // 1 génération IA par passage
+    for (const item of allNews) {
+      if (!item || (Array.isArray(item.analyse) && item.analyse.length)) continue; // déjà analysée
+      if (!_meritsAnalysis(item)) continue;
+      const ck = 'ana:' + item.id;
+      // 1) cache mémoire chaud
+      if (_analyseCache.has(ck)) {
+        const b = _analyseCache.get(ck);
+        if (Array.isArray(b) && b.length) { item.analyse = b; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      // 2) cache durable (Supabase) — aucune requête IA
+      let cached = null; try { cached = await auth.aiCacheGet(ck); } catch {}
+      if (Array.isArray(cached)) {
+        _analyseCache.set(ck, cached);
+        if (cached.length) { item.analyse = cached; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      // 3) génération IA (bornée par cap journalier + 1/cycle)
+      if (perCycle <= 0 || _aiAnaDayCount >= AI_ANALYSE_DAILY_MAX) break;
+      perCycle--; _aiAnaDayCount++;
+      try {
+        const desc = String(item.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 600);
+        const out = await aiSmart('news',
+`You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+
+Headline: ${item.headline}
+Category: ${item.category || '—'}
+Context: ${desc}
+
+Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
+- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
+- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
+- Explain the concrete causal mechanism for THIS story, not generic phrasing.
+- Max 22 words per bullet. NEVER include source/author attribution.
+- NO bold, NO markdown, NO asterisks. Plain text only.
+- Start each bullet with • . Reply ONLY with the bullets, no preamble.`,
+          320, { important: true, claudeOverBudget: false });
+        const bullets = _parseAnalyseBullets(out);
+        _analyseCache.set(ck, bullets);                                          // cache même vide → on ne réessaie pas
+        if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
+        _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
+        auth.aiCacheSet(ck, bullets).catch(() => {});
+        if (bullets.length) { item.analyse = bullets; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+      } catch { /* budget épuisé / pas de clé → la news reste en Info seul */ }
+    }
+  } finally { _aiAnaBusy = false; }
+}
 function _mergeAiTags(item, aiTags) {
   // catégorie d'abord (souvent masquée par le front), puis tags IA nets — au plus 4
   return [...new Set([item.category, ...(aiTags || [])])].slice(0, 4);
@@ -3976,6 +4052,8 @@ async function refreshNews() {
 
   // Affinage IA des tags pour les news importantes (arrière-plan, borné, caché).
   _smartTagNews().catch(() => {});
+  // Analyse IA PRÉ-CALCULÉE des news importantes (arrière-plan, bornée) → tag « Analyse » prêt dans le feed.
+  _enrichAnalyses().catch(() => {});
 }
 
 // ─── WebSocket ───────────────────────────────────────────────────────────────
