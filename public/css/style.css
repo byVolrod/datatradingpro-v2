@@ -412,8 +412,8 @@ html, body {
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 0 12px;
-  font-size: 10px;
+  padding: 0 14px;
+  font-size: 11px;
   font-weight: 600;
   font-family: var(--font-mono);
   color: var(--text3);
@@ -623,7 +623,7 @@ body.is-resizing iframe { pointer-events: none; }
   .main-layout {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 1px var(--sidebar-w);   /* séparateur 1px : aucun espace au milieu */
-    --sidebar-w: clamp(360px, 30%, 760px);
+    --sidebar-w: clamp(420px, 50%, 1040px);   /* DÉFAUT 50/50 au rechargement (volets égaux) */
     position: relative;
   }
   .views-col   { min-width: 0; }
@@ -634,8 +634,9 @@ body.is-resizing iframe { pointer-events: none; }
   }
   /* Ligne 1px visible (orange au survol/drag) */
   .layout-resizer::before { left: 0; right: auto; transform: none; width: 1px; }
-  /* Zone de préhension invisible élargie (±6px) pour rester facile à attraper malgré la ligne fine */
-  .layout-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: -6px; right: -6px; cursor: col-resize; z-index: 31; }
+  /* Zone de préhension DÉCALÉE vers la droite (côté panneau droit) → ne recouvre PLUS la scrollbar
+     du panneau gauche (qui reste cliquable). On garde la ligne + une large zone à droite pour attraper. */
+  .layout-resizer::after { content: ''; position: absolute; top: 0; bottom: 0; left: -1px; right: -12px; cursor: col-resize; z-index: 31; }
   /* Anti-lag : pendant le glissement, les enfants ne captent plus la souris (ni hover ni sélection) */
   body.is-resizing .views-col,
   body.is-resizing .panel-right { pointer-events: none; }
@@ -1347,11 +1348,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 .tag--info:hover, .tag--analyse:hover, .tag--reaction:hover { color: var(--text2); border-color: #3a3a3a; }
 
-.tag--info.tag--active     { background: #0e7490; border-color: #0e7490; color: #fff; }   /* cyan / sarcelle foncé */
-.tag--analyse.tag--active  { background: #1e3a8a; border-color: #1e3a8a; color: #fff; }   /* bleu marine institutionnel */
-.tag--reaction.tag--active { background: #6b21a8; border-color: #6b21a8; color: #fff; }   /* violet / pourpre */
-.tag--analyse.tag--active .tag-icon,
-.tag--reaction.tag--active .tag-icon { color: #fff; }
+/* État actif (volet ouvert) = MÊME apparence que l'état normal (aucun changement de couleur au clic) */
 
 /* Info : style contour cyan/sarcelle, CONSERVÉ même déplié (pas de fond plein) */
 .tag--info {
@@ -1362,11 +1359,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .tag--info .tag-icon { color: #17c2c2; }
 .tag--info:hover { color: #2de0e0; border-color: rgba(0,188,188,0.7); }
 .tag--info.tag--active {
-  background: rgba(0,188,188,0.14);
-  border-color: #17c2c2;
-  color: #2de0e0;
+  background: rgba(0,188,188,0.06);
+  border-color: rgba(0,188,188,0.45);
+  color: #17c2c2;
 }
-.tag--info.tag--active .tag-icon { color: #2de0e0; }
+.tag--info.tag--active .tag-icon { color: #17c2c2; }
 
 /* Analyse : style contour bleu, conservé même déplié */
 .tag--analyse {
@@ -1377,11 +1374,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .tag--analyse .tag-icon { color: #60a5fa; }
 .tag--analyse:hover { color: #93c5fd; border-color: rgba(59,130,246,0.7); }
 .tag--analyse.tag--active {
-  background: rgba(59,130,246,0.15);
-  border-color: #3b82f6;
-  color: #93c5fd;
+  background: rgba(59,130,246,0.07);
+  border-color: rgba(59,130,246,0.45);
+  color: #60a5fa;
 }
-.tag--analyse.tag--active .tag-icon { color: #93c5fd; }
+.tag--analyse.tag--active .tag-icon { color: #60a5fa; }
 
 /* Réaction : style contour violet, conservé même déplié */
 .tag--reaction {
@@ -1392,11 +1389,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .tag--reaction .tag-icon { color: #a78bfa; }
 .tag--reaction:hover { color: #c4b5fd; border-color: rgba(139,92,246,0.72); }
 .tag--reaction.tag--active {
-  background: rgba(139,92,246,0.16);
-  border-color: #8b5cf6;
-  color: #c4b5fd;
+  background: rgba(139,92,246,0.07);
+  border-color: rgba(139,92,246,0.45);
+  color: #a78bfa;
 }
-.tag--reaction.tag--active .tag-icon { color: #c4b5fd; }
+.tag--reaction.tag--active .tag-icon { color: #a78bfa; }
 
 /* ═══════════════ RÉACTION — bloc ticker minimaliste (style Prime) ═══════════════ */
 .rx-block {
@@ -1823,10 +1820,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 .right-tab {
   height: 100%;
-  padding: 0 12px;
+  padding: 0 13px;
   display: flex;
   align-items: center;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   color: var(--text3);
   cursor: pointer;
@@ -2797,10 +2794,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .bank-chart-pair { font-weight: 700; color: #fff; }
 .bank-chart-price { color: #22c55e; font-family: var(--font-mono); font-size: 13px; }
 .bank-chart { flex: 1; min-height: 0; }
-.bank-chart-loading, .bank-loading {
+.bank-chart-loading {
   display: flex; align-items: center; justify-content: center;
   height: 100%; padding: 24px; color: var(--text4); font-size: 13px;
 }
+/* .bank-loading est une CELLULE <td colspan=10> : surtout PAS display:flex (sinon le colspan saute
+   et la cellule se rétrécit à gauche). On garde le comportement table-cell + on centre le loader interne. */
+.bank-loading { text-align: center; vertical-align: middle; padding: 70px 0; color: var(--text4); font-size: 13px; }
 
 .bank-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .bank-table thead th {
