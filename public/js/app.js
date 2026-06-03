@@ -1487,7 +1487,7 @@ function _toBullets(raw, maxItems = 4) {
     parts = text.split(/(?<=\.)\s+(?=[A-Z"«])/);
   }
 
-  return parts
+  let bullets = parts
     .map(s => s.trim().replace(/^[-•*]\s*/, ''))
     .filter(s => s.length > 6)                 // ignorer fragments vides/courts
     .filter(s => !/^[^a-z0-9]*$/i.test(s))     // ignorer ponctuation seule
@@ -1497,6 +1497,14 @@ function _toBullets(raw, maxItems = 4) {
     .filter(s => !/(?:this article was written by|\bwritten by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com|follow .* on (?:twitter|x)\b)/i.test(s))
     .filter(s => !/^[\w .'-]+\bvia\b\s+the\b/i.test(s))
     .slice(0, maxItems);
+
+  // ── Fin PROPRE : chaque puce se termine sur une phrase complète, jamais sur "..." ──
+  // 1) on retire un éventuel "…"/"..." de fin de puce.
+  bullets = bullets.map(s => s.replace(/\s*(?:…|\.{2,})\s*$/, '').trim()).filter(s => s.length > 6);
+  // 2) si la DERNIÈRE puce est une phrase tronquée (pas de ponctuation finale), on l'enlève —
+  //    sauf si c'est la seule (on la garde alors telle quelle, sans le "...").
+  while (bullets.length > 1 && !/[.!?%»”"'’)\]]$/.test(bullets[bullets.length - 1])) bullets.pop();
+  return bullets;
 }
 
 // ── Mini-badge actif coloré (▲ SPX / ▼ Gold) en préfixe de puce ──────────────

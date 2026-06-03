@@ -1889,8 +1889,8 @@ function _fallbackInsights(text, title) {
       return !(n === tnorm || n.startsWith(tnorm) || tnorm.startsWith(n.slice(0, 60)));
     });
   }
-  // Tronque proprement les phrases trop longues plutôt que de les exclure
-  parts = parts.map(s => s.length > 200 ? s.slice(0, 190).replace(/\s+\S*$/, '') + '…' : s);
+  // Garde des phrases complètes (jamais de "…" qui coupe le sens) : on retire un éventuel "..." final.
+  parts = parts.map(s => s.replace(/\s*(?:…|\.{2,})\s*$/, '').trim()).filter(s => s.length > 6);
   return parts.slice(0, 6).map(s => ({ asset: '', bias: 'neutral', text: s }));
 }
 app.post('/api/report-insights', async (req, res) => {
