@@ -1753,6 +1753,34 @@ async function aiSmart(category, prompt, maxTokens, opts = {}) {
 const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
 
+// ── PRÉCHAUFFAGE : segmente les rapports EN AVANCE (cache persistant) → ouverture INSTANTANÉE ──
+// Le coût (Gemini) est payé en tâche de fond, jamais quand l'utilisateur ouvre un rapport.
+async function _prewarmWrapSeg(item) {
+  const url = item && item.url;
+  if (!url || !url.startsWith('https://investinglive.com/') || _swSegCache.has(url)) return false;
+  if (!aiAllowed('analyst')) return false;                     // respecte l'enveloppe budget Gemini
+  try {
+    let points = null;
+    if (item.content && item.content.length > 100) points = _extractWrapPoints(_cleanWrapHtml(item.content));
+    if (!points || points.length < 3) { const data = await _fetchILContentHttp(url); if (data && data.points && data.points.length >= 3) points = data.points; }
+    if (!points || points.length < 3) return false;
+    aiNote('analyst');
+    const seg = await _segmentWrapAI(points);
+    _swSegCache.set(url, seg || null);                          // mémorise même un échec (null) pour ne pas réessayer en boucle
+    if (seg) { _saveJsonMap(SW_SEG_FILE, _swSegCache); return true; }
+  } catch (e) { console.warn('[SW prewarm]', e.message); }
+  return false;
+}
+let _swPrewarmBusy = false;
+async function _prewarmWrapSegs() {
+  if (_swPrewarmBusy) return;
+  _swPrewarmBusy = true;
+  try {
+    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(i.url)).slice(0, 3);
+    for (const item of todo) { if (!aiAllowed('analyst')) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
+  } finally { _swPrewarmBusy = false; }
+}
+
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
 async function _segmentWrapAI(points) {
   const prompt = `Tu es analyste de marché. Voici des titres de news financières issus d'un récap de session de marché, en vrac.
@@ -5596,6 +5624,9 @@ server.listen(PORT, async () => {
   // puis recalcule en arrière-plan ; refresh régulier ensuite → la table n'est JAMAIS vide.
   setTimeout(async () => { try { await _fxlLoadPersisted(); await computeFxList(); } catch {} }, 12000);
   setInterval(() => { _fxlTs = 0; computeFxList().catch(() => {}); }, FXL_TTL);
+  // Rapports Analyst/Institution : pré-segmente en arrière-plan → ouverture instantanée (cache persistant)
+  setTimeout(() => { _prewarmWrapSegs().catch(() => {}); }, 25000);
+  setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 4 * 60 * 1000);
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─

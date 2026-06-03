@@ -69,6 +69,8 @@ function _aiWelcomeMsg() { return { role: 'ai', text: "Hello! I'm your Macro AI 
 function aiOpen() {
   const p = document.getElementById('ai-panel'), b = document.getElementById('ai-backdrop');
   if (!p) return;
+  // Exclusion mutuelle : un seul volet latéral ouvert à la fois
+  ['chat-panel', 'np-panel', 'squawk-panel', 'settings-panel'].forEach(id => { const e = document.getElementById(id); if (e) e.classList.remove('open'); });
   if (!_aiMsgs.length) _aiMsgs = [_aiWelcomeMsg()];
   aiRender();
   p.classList.add('open'); if (b) b.classList.add('open'); p.setAttribute('aria-hidden', 'false');
@@ -4086,7 +4088,7 @@ async function _loadAIInsights(item, el) {
       const txt = typeof ins === 'string' ? ins : (ins.text || '');
       return `<div class="ai-insights-card">${esc(txt)}</div>`;
     }).join('');
-    const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
+    const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
     // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
     el.innerHTML = `<div class="ai-insights-head">
         <span class="ai-insights-title">${chip} AI Insights</span>
@@ -4153,7 +4155,7 @@ function _renderWeeklyRecap(item) {
   if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
 
   // AI Insights (composant Institution, alimenté par les insights Gemini du recap)
-  const chip = `<svg class="ai-chip" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="7" width="10" height="10" rx="1.5"/><path d="M9 3v2M12 3v2M15 3v2M9 19v2M12 19v2M15 19v2M3 9h2M3 12h2M3 15h2M19 9h2M19 12h2M19 15h2"/></svg>`;
+  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
   // Cartes : insights thématiques (texte) PUIS paires/instruments avec badge de biais (SELL/BUY/NEUTRAL)
   const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrEsc(typeof t === 'string' ? t : (t.text || ''))}</div>`);
   const pairCards = (w.pairs || []).map(p => {
