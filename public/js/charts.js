@@ -1776,9 +1776,11 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
 
     // BANK : pleine largeur → on masque la colonne de droite (table seule).
-    // FX LIST / BIAS : on GARDE la colonne de droite (World Clock + Mètre/force) comme Prime Terminal ;
-    //   la table FX List défile horizontalement dans le panneau de gauche.
-    document.getElementById('main-layout')?.classList.toggle('hide-right-panel', view === 'bank');
+    // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme Prime Terminal SUR GRAND
+    //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
+    const _ml = document.getElementById('main-layout');
+    _ml?.classList.toggle('hide-right-panel', view === 'bank');
+    _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
       if (strengthTab && !strengthTab.classList.contains('right-tab--active')) strengthTab.click();

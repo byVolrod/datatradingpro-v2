@@ -2600,6 +2600,14 @@ html, body {
 .hide-right-panel #panel-right { display: none !important; }
 .hide-right-panel .views-col { flex: 1 1 100% !important; max-width: 100% !important; width: 100% !important; }
 
+/* FX LIST responsive : côte à côte avec le panneau droit UNIQUEMENT sur très grand écran
+   (≥1600px, façon Prime Terminal) ; en dessous, la table (large) reprend toute la largeur
+   pour rester lisible — sinon elle se retrouve écrasée sur ~280px. */
+@media (max-width: 1599px) {
+  .main-layout.is-fxlist #panel-right { display: none !important; }
+  .main-layout.is-fxlist .views-col { flex: 1 1 100% !important; max-width: 100% !important; width: 100% !important; }
+}
+
 .panel-bank { display: flex; flex-direction: column; height: 100%; flex: 1 1 auto; width: 100%; min-width: 0; }
 #view-bank { display: flex; width: 100%; }
 .bank-update { font-size: 10px; font-family: var(--font-mono); color: var(--text4); }
