@@ -4099,10 +4099,17 @@ async function _loadAIInsights(item, el) {
   {
     if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    // Cartes = texte descriptif seul (pas de titre d'actif ni badge de biais)
+    // Cartes : en-tête optionnel (actif + badge signal BUY/SELL/NEUTRAL), comme Prime Terminal.
     const cards = d.insights.map(ins => {
-      const txt = typeof ins === 'string' ? ins : (ins.text || '');
-      return `<div class="ai-insights-card">${esc(txt)}</div>`;
+      if (typeof ins === 'string') return `<div class="ai-insights-card"><div class="ai-card-text">${esc(ins)}</div></div>`;
+      const asset = ins.asset || '';
+      let sig = String(ins.signal || ins.bias || '').toUpperCase();
+      if (sig === 'BULLISH') sig = 'BUY'; else if (sig === 'BEARISH') sig = 'SELL';
+      if (!['BUY', 'SELL', 'NEUTRAL'].includes(sig)) sig = '';
+      const head = asset
+        ? `<div class="ai-card-head"><span class="ai-card-asset">${esc(asset)}</span>${sig ? `<span class="ai-bias ai-bias--${sig.toLowerCase()}">${sig}</span>` : ''}</div>`
+        : '';
+      return `<div class="ai-insights-card">${head}<div class="ai-card-text">${esc(ins.text || '')}</div></div>`;
     }).join('');
     const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
     // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
