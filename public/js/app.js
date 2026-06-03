@@ -10,7 +10,7 @@
 // Option { small:true } pour les petites zones (sous-onglets compacts).
 function dtpLoader(label, opts) {
   const sm = opts && opts.small ? ' dtp-loader--sm' : '';
-  const txt = String(label == null ? 'Loading…' : label)
+  const txt = String(label == null ? 'Chargement…' : label)
     .replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
   return `<div class="dtp-loader${sm}"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">${txt}</div></div>`;
 }
@@ -1832,7 +1832,7 @@ function buildNewsItem(item) {
 
     if (tab === 'reaction') {
       const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-      expandEl.innerHTML = dtpLoader('Loading market data…', { small: true });
+      expandEl.innerHTML = dtpLoader('Chargement des données de marché…', { small: true });
       expandEl.classList.add('visible');
       if (reactionTagEl) reactionTagEl.classList.add('tag--active');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
@@ -1920,7 +1920,7 @@ function buildNewsItem(item) {
 
     // Info tab — if no inline description but has a ForexFactory article URL, fetch real content
     if (tab === 'info' && rawDesc.length <= 30 && hasArticleUrl) {
-      expandEl.innerHTML = dtpLoader('Loading article…', { small: true });
+      expandEl.innerHTML = dtpLoader('Chargement de l’article…', { small: true });
       expandEl.classList.add('visible');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
@@ -2620,7 +2620,7 @@ async function loadInstCOT(force = false) {
   const grid = document.getElementById('inst-cot-grid');
   const info = document.getElementById('inst-cot-info');
   if (!grid) return;
-  grid.innerHTML = dtpLoader('Loading COT data…');
+  grid.innerHTML = dtpLoader('Chargement des données COT…');
   try {
     const data = await fetch(`/api/cot?type=${_instCotType}`).then(r => r.json());
     if (!data.currencies?.length) { grid.innerHTML = '<div class="inst-empty">No COT data available</div>'; return; }
@@ -2657,7 +2657,7 @@ async function loadInstCOT(force = false) {
 async function loadInstRetail(force = false) {
   const grid = document.getElementById('inst-retail-grid');
   if (!grid) return;
-  grid.innerHTML = dtpLoader('Loading retail sentiment…');
+  grid.innerHTML = dtpLoader('Chargement du sentiment retail…');
   try {
     const url = `/api/community-outlook?period=H1${force ? '&force=1' : ''}`;
     const resp = await fetch(url).then(r => r.json());
@@ -2959,7 +2959,7 @@ function loadBiasView() {
   const host = document.getElementById('bias-content');
   if (!host) return;
   if (_biasData) { renderBiasView(_biasData); return; }
-  host.innerHTML = dtpLoader('Loading Smart Bias Tracker data…');
+  host.innerHTML = dtpLoader('Chargement du Smart Bias Tracker…');
   fetch('/api/smart-bias')
     .then(r => r.json())
     .then(d => { _biasData = d; renderBiasView(d); })
@@ -3172,7 +3172,7 @@ function buildBankChart(p) {
   const el = document.getElementById('bank-chart');
   if (!el || typeof am5 === 'undefined') return;
   if (_bankChartRoot) { try { _bankChartRoot.dispose(); } catch {} _bankChartRoot = null; }
-  el.innerHTML = dtpLoader('Loading chart…', { small: true });
+  el.innerHTML = dtpLoader('Chargement du graphique…', { small: true });
 
   fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair))
     .then(r => r.json())
@@ -3494,7 +3494,7 @@ function renderBrReader(item) {
   if (titleEl) titleEl.textContent = item.title;
   if (badge)   badge.textContent   = _instBadge(item);
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
-  if (content) content.innerHTML   = dtpLoader('Loading article…');
+  if (content) content.innerHTML   = dtpLoader('Chargement de l’article…');
 
   // ── AI Insights (comme l'onglet Analyst) ──
   let brIns = document.getElementById('br-ai-insights');
@@ -4244,7 +4244,7 @@ function renderArlibReader(item) {
             <div class="arlib-doc-subtitle">${SUBTITLE}</div>
             <div class="arlib-doc-meta">${dateStr}</div>
           </div>`;
-    content.innerHTML = dtpLoader('Loading session wrap…');
+    content.innerHTML = dtpLoader('Chargement du résumé de session…');
 
     fetch('/api/session-wrap-content?url=' + encodeURIComponent(item.url))
       .then(r => r.json())
@@ -4276,7 +4276,7 @@ function renderArlibReader(item) {
   // ── ING Think research articles ───────────────────────────────────────────────
   if (item._source === 'ing-think') {
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    content.innerHTML = dtpLoader('Loading research article…');
+    content.innerHTML = dtpLoader('Chargement du rapport…');
 
     fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
       .then(r => r.json())
