@@ -434,12 +434,34 @@ function _flashBreakingNews(item) {
 
   flash.classList.add('visible');
   if (input) input.style.opacity = '0';
+  // Cliquable → on saute à la news dans le flux (fini "la notif sans retrouver la news")
+  flash.style.cursor = 'pointer';
+  flash.title = 'Cliquer pour voir la news dans le flux';
+  flash.onclick = () => _jumpToNews(item.id);
 
   clearTimeout(_breakingTimer);
   _breakingTimer = setTimeout(() => {
     flash.classList.remove('visible');
     if (input) input.style.opacity = '';
   }, 9000);
+}
+
+// Saute à une news précise dans le flux (depuis la barre LIVE) : passe en vue News, lève la limite
+// d'affichage si besoin, scrolle dessus et la surligne brièvement.
+function _jumpToNews(id) {
+  if (!id) return;
+  const go = () => {
+    let row = document.querySelector(`.news-item[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`);
+    if (!row) { try { displayLimit = Math.max(displayLimit || 100, 400); renderNews(); } catch {} row = document.querySelector(`.news-item[data-id="${(window.CSS && CSS.escape) ? CSS.escape(id) : id}"]`); }
+    if (row) {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      row.classList.add('news-item--flash');
+      setTimeout(() => row.classList.remove('news-item--flash'), 2400);
+    }
+  };
+  const newsTab = document.querySelector('.nav-item[data-view="news"]');
+  if (newsTab && !newsTab.classList.contains('active')) { newsTab.click(); setTimeout(go, 140); }
+  else go();
 }
 
 // ═══ Filter ═══════════════════════════════
@@ -2450,8 +2472,9 @@ function _applyRiskTopbar(data) {
   const dotEl = document.getElementById('sentiment-dot-top');
   const lblEl = document.getElementById('sentiment-label-top');
   const btnEl = document.getElementById('sentiment-btn');
+  // Flèche directionnelle dans une petite pastille (look "↘ RISK OFF ⌄") au lieu du point neutre
+  if (dotEl) { dotEl.textContent = arrow; dotEl.className = 'sentiment-dir ' + cls; }
   if (lblEl) lblEl.textContent = data.label;
-  if (dotEl) dotEl.style.background = cls === 'risk-on' ? 'var(--green)' : cls === 'risk-off' ? 'var(--red)' : 'var(--orange)';
   if (btnEl) btnEl.className = 'topbar-sentiment ' + cls;
 }
 
