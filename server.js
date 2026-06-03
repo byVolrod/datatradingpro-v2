@@ -807,6 +807,38 @@ const _calKey = (cur, title) => String(cur || '').toUpperCase().trim() + '|' + S
 // un actual DIFFÉRENT à chaque parution → on ne réutilise jamais l'ancien.
 const _calKeyDated = (cur, title, ts) => _calKey(cur, title) + '|' + (ts ? new Date(ts).toISOString().slice(0, 10) : '');
 
+// ── PERSISTANCE des actuals (Supabase via aiCache, repli fichier) ──────────────────────────────
+// La map est en mémoire → un redémarrage Render (veille/redeploy) la viderait et les ACTUAL
+// disparaîtraient (TradingView ne ré-expose que ~5 jours). On la sauvegarde donc et on la recharge
+// au démarrage → les valeurs sont CONSERVÉES et s'accumulent. Purge des entrées > 70 jours.
+let _calActualsSaveTimer = null;
+function _calActualsSave() {
+  clearTimeout(_calActualsSaveTimer);
+  _calActualsSaveTimer = setTimeout(() => {
+    try {
+      const cutoff = new Date(Date.now() - 70 * 86400000).toISOString().slice(0, 10);
+      const obj = {};
+      for (const [k, v] of _calActualsMap) {
+        const day = k.slice(k.lastIndexOf('|') + 1);
+        if (day && day < cutoff) { _calActualsMap.delete(k); continue; }   // purge ancien
+        if (v && v.actual) obj[k] = v;                                     // on ne persiste que ce qui a un actual
+      }
+      auth.aiCacheSet('cal_actuals_v1', obj).catch(() => {});
+    } catch {}
+  }, 2500);
+  if (_calActualsSaveTimer.unref) _calActualsSaveTimer.unref();
+}
+async function _calActualsLoad() {
+  try {
+    const obj = await auth.aiCacheGet('cal_actuals_v1');
+    if (obj && typeof obj === 'object') {
+      let n = 0;
+      for (const [k, v] of Object.entries(obj)) { if (v && v.actual) { _calActualsMap.set(k, v); n++; } }
+      console.log(`[CalActuals] ${n} actual(s) restauré(s) depuis le cache persistant`);
+    }
+  } catch (e) { console.error('[CalActuals] load', e.message); }
+}
+
 // ── Remplissage des Actuals depuis le FLUX DE NEWS (source fiable, indépendante de Cloudflare) ──
 // Le flux XML FF n'a pas d'actuals et la page FF est protégée par CF sur Render. Mais nos news
 // (FinancialJuice/InvestingLive/RSS) publient le résultat ("Services PMI 50.1 vs 48.2 expected").
@@ -919,6 +951,7 @@ function _backfillActualsFromNews() {
       }
     }
   }
+  if (filled) _calActualsSave();
   return filled;
 }
 // ── SOURCE PRINCIPALE des actuals : TradingView (HTTP, sans Cloudflare). On rapproche chaque
@@ -1000,6 +1033,7 @@ async function _refreshTVActualsInner() {
       filled++;
     }
   }
+  if (filled) _calActualsSave();
   return filled;
 }
 async function _refreshCalActuals(force) {
@@ -1029,6 +1063,7 @@ async function _refreshCalActuals(force) {
             previous: r.previous || prev.previous || '',
           });
         }
+        _calActualsSave();
       }
     } catch (e) { console.error('[CalActuals]', e.message); }
     finally { _calActualsInflight = null; }
@@ -5449,7 +5484,7 @@ server.listen(PORT, async () => {
   auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {});
   setInterval(() => auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {}), 24 * 60 * 60 * 1000);
   // PRÉ-CHARGE les actuals (TradingView) → la colonne Actual est remplie dès la 1re ouverture du calendrier.
-  setTimeout(async () => { try { await _ensureCalendar(); await _refreshTVActuals(); } catch {} }, 9000);
+  setTimeout(async () => { try { await _calActualsLoad(); await _ensureCalendar(); await _refreshTVActuals(); } catch {} }, 9000);
   setInterval(() => _refreshTVActuals().catch(() => {}), 5 * 60 * 1000);   // rafraîchi toutes les 5 min (temps réel)
 });
 
