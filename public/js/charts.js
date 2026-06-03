@@ -714,6 +714,24 @@ function buildStrengthChart(containerId, data, opts = {}) {
     seriesArr.push(series);
     seriesMap[ccy] = series;
     labelMap[ccy]  = { range, value: lastV };
+
+    // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit)
+    series.events.on('hidden', () => { try { range.get('label')?.set('forceHidden', true);  range.get('grid')?.set('forceHidden', true);  } catch {} });
+    series.events.on('shown',  () => { try { range.get('label')?.set('forceHidden', false); range.get('grid')?.set('forceHidden', false); } catch {} });
+  }
+
+  // ── Légende cliquable (en haut) : clic sur une devise = masquer / réafficher sa courbe ──
+  if (!_focus) {
+    const legend = chart.children.unshift(am5.Legend.new(root, {
+      centerX: am5.percent(0), x: am5.percent(0),
+      marginTop: 0, marginBottom: 6, paddingLeft: 0, paddingTop: 0,
+    }));
+    legend.labels.template.setAll({ fill: am5.color(0xcbd5e1), fontSize: 11, fontFamily: '"JetBrains Mono", monospace', paddingLeft: 3, paddingRight: 0 });
+    legend.valueLabels.template.set('forceHidden', true);                       // pas de valeur dans la légende (juste le nom)
+    legend.markers.template.setAll({ width: 11, height: 11 });
+    legend.markerRectangles.template.setAll({ cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 });
+    legend.itemContainers.template.setAll({ paddingTop: 1, paddingBottom: 1, paddingLeft: 4, paddingRight: 4 });
+    legend.data.setAll(chart.series.values);
   }
 
   // Croisillon : ligne verticale pointillés gris clair, suit la souris + dots magnétiques
@@ -1983,9 +2001,8 @@ function renderFxList() {
   }
 }
 
-async function loadFxListView(force = false) {
-  _fxlLoading = true;
-  renderFxList();
+async function loadFxListView(force = false, silent = false) {
+  if (!silent) { _fxlLoading = true; renderFxList(); }   // silent = auto-refresh → on ne vide pas la table
   try {
     const r = await fetch('/api/fxlist' + (force ? '?force=1' : ''));
     if (!r.ok) throw new Error('HTTP ' + r.status);
@@ -1998,6 +2015,7 @@ async function loadFxListView(force = false) {
   }
 }
 
+let _fxlAutoTimer = null;
 function initFxListTab() {
   document.getElementById('fxl-head')?.addEventListener('click', e => {
     const th = e.target.closest('[data-sort]');
@@ -2007,7 +2025,13 @@ function initFxListTab() {
     else _fxlSort = { key, dir: key === 'symbol' ? 1 : -1 };
     renderFxList();
   });
-  document.getElementById('fxl-refresh')?.addEventListener('click', () => loadFxListView(true));
+  // Auto-actualisation (la donnée serveur est mise en cache 10 min) — UNIQUEMENT quand l'onglet
+  // FX List est visible, sans vider la table (mise à jour silencieuse, façon flux temps réel).
+  if (_fxlAutoTimer) clearInterval(_fxlAutoTimer);
+  _fxlAutoTimer = setInterval(() => {
+    const panel = document.getElementById('view-fxlist');
+    if (panel && !panel.classList.contains('hidden') && _fxlData) loadFxListView(false, true);
+  }, 3 * 60 * 1000);
 }
 
 // ─── Economic Calendar ────────────────────────────────────────────────────────
