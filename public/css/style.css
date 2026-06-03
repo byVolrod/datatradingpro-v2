@@ -2591,6 +2591,7 @@ html, body {
 
 /* Soleil météo (horloges) en orange */
 .clock-sun { color: #f7941d; font-variant-emoji: text; }
+.clock-moon { color: #8ab4f8; font-variant-emoji: text; }   /* croissant bleuté la nuit (comme la réf.) */
 
 /* Panneau de filtres des notifications */
 .np-filter-panel { padding: 16px 18px; overflow-y: auto; }
@@ -4438,17 +4439,17 @@ html, body {
   position: relative;
 }
 .rp-gauge-svg {
-  width: 200px;
-  height: 120px;
+  width: 182px;               /* arc très légèrement réduit → laisse de la place au bouton */
+  height: 109px;
 }
 .rp-gauge-lbl {
-  margin-top: 6px;
+  margin-top: 8px;
   font-family: var(--font-mono);
-  font-size: 13px;            /* + grand → bien lisible sous la jauge */
+  font-size: 14.5px;          /* bouton un peu plus grand → bien lisible sous la jauge */
   font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  padding: 7px 18px;
+  padding: 9px 22px;
   border-radius: 7px;
   border: 1.5px solid transparent;
   background: transparent;
@@ -7542,7 +7543,9 @@ html, body {
 @media (max-width:480px){ .chat-panel { width:100%; max-width:100%; } }
 
 /* ═══ FX LIST — Overview table ═══════════════════════════════════ */
-.fxl-wrap { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--bg); }
+.fxl-wrap { display: flex; flex-direction: column; height: 100%; min-width: 0; background: var(--bg); position: relative; }
+/* Loader centré dans la zone VISIBLE (overlay, pas dans la table large 1240px) */
+.fxl-loader { position: absolute; inset: var(--toolbar-h) 0 0 0; display: flex; align-items: center; justify-content: center; background: var(--bg); z-index: 5; }
 .fxl-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 12px; height: var(--toolbar-h);
@@ -7558,14 +7561,22 @@ html, body {
 }
 .fxl-refresh:hover { color: var(--orange); border-color: var(--orange-dim); }
 
-.fxl-table-scroll { flex: 1 1 auto; min-width: 0; overflow: auto; }
+.fxl-table-scroll { flex: 1 1 auto; min-width: 0; overflow: auto; position: relative; }
+/* Scrollbars fines & minimalistes (gauche/droite + haut/bas) */
+.fxl-table-scroll { scrollbar-width: thin; scrollbar-color: #2c2c33 transparent; }
+.fxl-table-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+.fxl-table-scroll::-webkit-scrollbar-track { background: transparent; }
+.fxl-table-scroll::-webkit-scrollbar-thumb { background: #2c2c33; border-radius: 6px; border: 2px solid transparent; background-clip: content-box; }
+.fxl-table-scroll::-webkit-scrollbar-thumb:hover { background: #3d3d46; background-clip: content-box; }
+.fxl-table-scroll::-webkit-scrollbar-corner { background: transparent; }
 .fxl-table { width: 100%; min-width: 1240px; border-collapse: collapse; font-family: var(--font-mono); font-size: 11px; }
 
 .fxl-th {
   position: sticky; top: 0; z-index: 2; background: var(--bg2);
   color: var(--text3); font-weight: 600; font-size: 10px; letter-spacing: .5px; text-transform: uppercase;
-  padding: 8px 12px; border-bottom: 1px solid var(--border2); white-space: nowrap;
+  padding: 8px 12px; border-bottom: 1px solid var(--border2); border-right: 1px solid var(--border); white-space: nowrap;
 }
+.fxl-th:last-child, .fxl-td:last-child { border-right: none; }
 /* Freeze the Symbol column while scrolling horizontally */
 .fxl-th--left { left: 0; z-index: 3; text-align: left; }
 .fxl-td--left { position: sticky; left: 0; z-index: 1; background: var(--bg); }
@@ -7578,7 +7589,7 @@ html, body {
 
 .fxl-row { border-bottom: 1px solid var(--border); }
 .fxl-row:hover { background: var(--bg2); }
-.fxl-td { padding: 6px 12px; white-space: nowrap; vertical-align: middle; color: var(--text); }
+.fxl-td { padding: 6px 12px; white-space: nowrap; vertical-align: middle; color: var(--text); border-right: 1px solid var(--border); }
 .fxl-td--right { text-align: right; }
 .fxl-td--center { text-align: center; }
 
