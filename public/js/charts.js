@@ -969,7 +969,7 @@ function buildRiskGauge() {
   if (_riskGaugeRoot) { _riskGaugeRoot.dispose(); _riskGaugeRoot = null; }
   _riskHandDI = _riskScoreLabel = _riskBadgeLabel = null;
 
-  wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la jauge de risque…', { small: true }) : 'Chargement…');
+  wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la jauge de risque…') : 'Chargement…');
 
   let isBuilt = false;
 
@@ -1273,7 +1273,7 @@ function buildMeterChart() {
 function buildCOTChart() {
   const grid = document.getElementById('cot-grid');
   if (!grid) return;
-  grid.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des données COT…', { small: true }) : 'Chargement des données COT…');
+  grid.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des données COT…') : 'Chargement des données COT…');
 
   const activeTypeBtn = document.querySelector('.cot-type-btn--active');
   const cotType = activeTypeBtn ? activeTypeBtn.dataset.cotType : 'lev_money';
@@ -1401,7 +1401,7 @@ function buildDMXChart(forceRefresh = false) {
   const url = `/api/community-outlook?period=${period}${forceRefresh ? '&force=1' : ''}`;
 
   // On n'affiche "Chargement…" que si l'onglet est vide (sinon on garde l'ancien rendu → pas de flash)
-  if (!wrap.querySelector('.dmx2-row')) wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des données DMX…', { small: true }) : 'Chargement…');
+  if (!wrap.querySelector('.dmx2-row')) wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des données DMX…') : 'Chargement…');
 
   fetch(url)
     .then(r => r.json())
