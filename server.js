@@ -1878,7 +1878,7 @@ app.post('/api/report-insights', async (req, res) => {
   const { id, text, title } = req.body || {};
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = 'v2:' + (id || clean.slice(0, 100));   // v2 = format structuré {asset,bias,text}
+  const key = 'v3:' + (id || clean.slice(0, 100));   // v3 = insights centrés devises/instruments concrets
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
@@ -1887,21 +1887,25 @@ app.post('/api/report-insights', async (req, res) => {
     if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: stored }); }
   } catch {}
   try {
-    const prompt = `Tu es analyste de marché. À partir de ce rapport, dégage 4 à 6 "insights" clés, chacun centré sur UN actif/instrument.
-Pour chaque insight renvoie un objet :
-- "asset": l'instrument concerné (ex: "S&P 500", "Nasdaq 100", "Gold", "Brent Crude", "EUR/USD", "US Dollar", "US 10Y", "Bitcoin")
-- "bias": "bullish" | "bearish" | "neutral" (direction/sentiment du marché pour cet actif)
-- "text": UNE phrase concise (max 26 mots), en anglais, orientée trader (mécanisme + impact)
+    const prompt = `Tu es analyste FX & marchés. À partir de ce rapport, IDENTIFIE les DEVISES et INSTRUMENTS réellement traités et, pour CHACUN, déduis le BIAIS et un résumé orienté trader.
+Règles STRICTES :
+- N'inclus QUE des actifs CONCRETS réellement discutés (ex: "EUR/USD", "US Dollar", "GBP", "JPY", "AUD", "Gold", "Brent Crude", "S&P 500", "US 10Y", "Bitcoin"). JAMAIS de catégorie vague ("FX", "Markets", "Macro", "Forex", "Currencies").
+- Priorise les DEVISES du rapport. 4 à 6 insights max, le plus pertinent d'abord.
+- "asset": l'instrument précis (devise / paire / indice / matière première / taux).
+- "bias": "bullish" | "bearish" | "neutral" — la direction que le rapport implique pour cet actif.
+- "text": UNE phrase concise (max 24 mots), en anglais, orientée trader : LE driver clé + l'impact directionnel.
 Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"...","bias":"...","text":"..."}]}
 Rapport :
 ${clean.slice(0, 4000)}`;
     // Insights de rapport = catégorie "analyst" ; Claude prend le relais hors budget Gemini.
     const out = await aiSmart('analyst', prompt, 900);
     const m = out.match(/\{[\s\S]*\}/);
+    const _GENERIC = /^(fx|forex|markets?|macro|currenc(?:y|ies)|the market|general|n\/?a)$/i;
     const insights = m
       ? (JSON.parse(m[0]).insights || [])
           .filter(o => o && typeof o.text === 'string' && o.text.length > 8)
           .map(o => ({ asset: String(o.asset || '').slice(0, 40), bias: String(o.bias || 'neutral').toLowerCase(), text: o.text }))
+          .filter(o => o.asset && !_GENERIC.test(o.asset.trim()))   // rejette les actifs génériques ("FX", "Markets"…)
           .slice(0, 6)
       : [];
     if (insights.length) {

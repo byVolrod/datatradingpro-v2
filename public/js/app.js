@@ -3283,18 +3283,26 @@ function markBrRead(id) {
 }
 function isBrRead(id) { return _brReadIds.has(String(id)); }
 
-// Peuple AUTOMATIQUEMENT le filtre par institution depuis les institutions réellement
-// présentes (ING, MUFG, et toute nouvelle banque ajoutée plus tard).
-function _populateBrInstFilter() {
-  const sel = document.getElementById('br-inst');
-  if (!sel) return;
+// Peuple AUTOMATIQUEMENT les 3 filtres Bank Research depuis les données réelles → toujours
+// cohérents quand on ajoute/retire une source institution (ING, MUFG, SEB, Scotiabank…).
+function _selSync(id, html) {
+  const sel = document.getElementById(id); if (!sel) return;
   const cur = sel.value || 'all';
-  const insts = [...new Set((_brArticles || []).map(i => i && i.institution).filter(Boolean))].sort();
-  const LABELS = { ING: 'ING Think', MUFG: 'MUFG', ActionForex: 'ActionForex', FXStreet: 'FXStreet' };
-  const html = '<option value="all">All Institutes</option>' +
-    insts.map(i => `<option value="${i}">${LABELS[i] || i}</option>`).join('');
   if (sel.innerHTML !== html) sel.innerHTML = html;
   sel.value = [...sel.options].some(o => o.value === cur) ? cur : 'all';
+}
+function _populateBrInstFilter() {
+  const arts = _brArticles || [];
+  // 1) Institutions présentes
+  const LABELS = { ING: 'ING Think', MUFG: 'MUFG', SEB: 'SEB', Scotiabank: 'Scotiabank' };
+  const insts = [...new Set(arts.map(i => i && i.institution).filter(Boolean))].sort();
+  _selSync('br-inst', '<option value="all">All Institutes</option>' +
+    insts.map(i => `<option value="${i}">${LABELS[i] || i}</option>`).join(''));
+  // 2) Types présents (Articles / Opinions)
+  const types = [...new Set(arts.map(i => _brItemType(i)).filter(Boolean))];
+  const TLAB = { article: 'Articles', opinion: 'Opinions' };
+  _selSync('br-type', '<option value="all">All Files</option>' +
+    types.map(t => `<option value="${t}">${TLAB[t] || t}</option>`).join(''));
 }
 
 function renderBrList() {
