@@ -823,8 +823,11 @@ function _eventCountryRe(ev) {
 function _backfillActualsFromNews() {
   if (!Array.isArray(allNews) || !allNews.length) return 0;
   const now = Date.now();
+  // Candidats = toute news récente CONTENANT UN CHIFFRE (les résultats "valeur seule" comme
+  // "US ISM Services PMI 54.5" sont ainsi captés). La précision vient du filtre par-événement
+  // ci-dessous (pays + indicateur + valeur ≠ prévision/précédent), pas de ce pré-filtre large.
   const news = allNews.filter(n => n && n.timestamp && now - n.timestamp < 4 * 86400000
-    && _CAL_DATA_RE.test((n.headline || '') + ' ' + (n.description || '')));
+    && /\d/.test((n.headline || '') + ' ' + (n.description || '')));
   if (!news.length) return 0;
   let filled = 0;
   for (const ev of getCalendarRaw()) {
@@ -860,8 +863,11 @@ function _backfillActualsFromNews() {
   return filled;
 }
 async function _refreshCalActuals(force) {
-  if (!force && Date.now() - _calActualsAt < 5 * 60 * 1000) return;
+  // Throttle sur la TENTATIVE (pas le succès) : sinon, si FF échoue (Cloudflare), Puppeteer serait
+  // relancé à CHAQUE requête calendrier → gâchis mémoire (risque 502). Espacé à 15 min.
+  if (!force && Date.now() - _calActualsAt < 15 * 60 * 1000) return;
   if (_calActualsInflight) return _calActualsInflight;
+  _calActualsAt = Date.now();
   _calActualsInflight = (async () => {
     try {
       const rows = await fetchCalendarActuals();
@@ -883,7 +889,6 @@ async function _refreshCalActuals(force) {
             previous: r.previous || prev.previous || '',
           });
         }
-        _calActualsAt = Date.now();
       }
     } catch (e) { console.error('[CalActuals]', e.message); }
     finally { _calActualsInflight = null; }

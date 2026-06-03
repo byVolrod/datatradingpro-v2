@@ -2443,11 +2443,11 @@ async function buildCalendar() {
 
   renderCalTable();
 
-  // Auto-refresh calendar data every 15 minutes (single interval, started once)
+  // Auto-refresh calendrier toutes les 5 min (les actuals apparaissent vite après chaque sortie)
   if (!window._calAutoRefreshInterval) {
     window._calAutoRefreshInterval = setInterval(() => {
       _refreshCalendarData(false);
-    }, 15 * 60 * 1000);
+    }, 5 * 60 * 1000);
   }
 }
 
