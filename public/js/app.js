@@ -5216,7 +5216,7 @@ function _chatInbox(){
   const sb = document.getElementById('chat-search-bar'); if (sb) sb.style.display = 'flex';   // recherche visible
   const list = document.getElementById('chat-list');
   if (_chatInboxCache){ _chatInboxData = _chatInboxCache; _chatRenderInbox(); }
-  else if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…', { small: true }) : '<div class="chat-empty">Chargement…</div>');
+  else if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…') : '<div class="chat-empty">Chargement…</div>');
   Promise.all([
     fetch('/api/admin/chat').then(r=>r.json()).catch(()=>({ threads: [] })),
     fetch('/api/support/users').then(r=>r.json()).catch(()=>({ users: [] })),
@@ -5281,7 +5281,7 @@ function _chatOpenThread(userId, name){
   const list = document.getElementById('chat-list');
   const cached = _chatMsgCache[userId];
   if (cached){ _chatSig = _sigMsgs(cached); _chatRender(cached); }   // instantané
-  else { _chatSig=''; if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…', { small: true }) : '<div class="chat-empty">Chargement…</div>'); }
+  else { _chatSig=''; if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…') : '<div class="chat-empty">Chargement…</div>'); }
   fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
     const msgs = d.messages||[];
     _chatMsgCache[userId] = msgs;
@@ -5387,8 +5387,14 @@ function _chatDeleteMsg(id){
   c.querySelector('.chat-del-yes').onclick = () => _chatDoDelete(id);
 }
 function _chatDoDelete(id){
-  fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'DELETE' })
-    .then(r=>r.json()).then(()=>{ if (_chatThreadUser){ _chatMsgCache[_chatThreadUser]=null; _chatSig=''; _chatOpenThread(_chatThreadUser, _chatThreadName); } }).catch(()=>{});
+  // Suppression SILENCIEUSE : on retire la bulle du DOM + du cache immédiatement, sans recharger la discussion.
+  const sel = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
+  const row = document.querySelector(`.chat-row[data-mid="${sel}"]`);
+  if (row) row.remove();
+  const key = _chatCacheKey();
+  const arr = _chatMsgCache[key];
+  if (Array.isArray(arr)) { _chatMsgCache[key] = arr.filter(m => String(m.id) !== String(id)); _chatSig = _sigMsgs(_chatMsgCache[key]); }
+  fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'DELETE' }).catch(()=>{});   // serveur en arrière-plan
 }
 // Admin : modifier le texte d'un message — édition INLINE dans la bulle (plus de fenêtre native)
 function _chatEditMsg(id){
