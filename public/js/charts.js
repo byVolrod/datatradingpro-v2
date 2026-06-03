@@ -892,7 +892,7 @@ async function buildStrengthCharts() {
       activePeriod = period;
       const el = document.getElementById(containerId);
       if (!silent || periodChanged || !chartCtl) {
-        if (el && !chartCtl) el.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…', { small: true }) : 'Chargement…');
+        if (el && !chartCtl) el.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la force des devises…') : 'Chargement…');
       }
       try {
         const url  = `/api/currency-strength?period=${period}${force ? '&force=1' : ''}`;

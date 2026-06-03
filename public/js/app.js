@@ -5090,7 +5090,7 @@ const CHAT_SUPPORT_NAME  = 'Équipe de support';
 const CHAT_SUPPORT_SUB   = 'Répond généralement en quelques minutes';
 const CHAT_SUPPORT_AV    = 'DTP';                      // initiales (repli si la photo ne charge pas)
 // Photo support (portrait pro/institutionnel). Modifiable : remplace l'URL par la tienne.
-const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1568602471122-7832951cc4c5?w=220&h=220&fit=crop&crop=faces&auto=format&q=85';
+const CHAT_SUPPORT_PHOTO = 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=220&h=220&fit=crop&crop=faces&auto=format&q=85';
 // Avatar support en HTML : photo + repli automatique sur les initiales si le chargement échoue.
 function _chatSupportAvatarHtml(){
   if (!CHAT_SUPPORT_PHOTO) return _chatEsc(CHAT_SUPPORT_AV);
@@ -5330,10 +5330,10 @@ function _chatRender(messages){
       + (mine?'':`<div class="chat-av${avThemIsPhoto?' has-photo':''}">${avThem}</div>`)
       + `<div class="chat-bubble-wrap">`
       + `<div class="chat-bubble-row">`
-      + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}</div>`
+      + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}${_chatPickerHtml(mid)}</div>`
       + menu
       + `</div>`
-      + _chatReactBarHtml(m, myId, mid)
+      + _chatReactionsHtml(m, myId, mid)
       + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div>`
       + `</div></div>`;
   });
@@ -5341,57 +5341,63 @@ function _chatRender(messages){
   list.scrollTop = list.scrollHeight;
 }
 
-// Barre de réactions (👍 ❤️ 🔥) au-dessus du "Lu" : celles déjà posées sont visibles (emoji + nombre,
-// surlignées si J'AI réagi) ; les autres apparaissent au survol du message (discret).
-function _chatReactBarHtml(m, myId, mid){
+// Sélecteur de réaction (façon Instagram) : petite barre flottante 👍 ❤️ 🔥 au survol de la bulle.
+function _chatPickerHtml(mid){
+  return `<div class="chat-react-picker">`
+    + `<button type="button" title="J'aime" onclick="_chatReact('${mid}','👍')">👍</button>`
+    + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">❤️</button>`
+    + `<button type="button" title="Feu" onclick="_chatReact('${mid}','🔥')">🔥</button></div>`;
+}
+// Pastilles des réactions POSÉES (façon LinkedIn) — sous la bulle ; surlignées si J'AI réagi.
+function _chatReactionsHtml(m, myId, mid){
   const r = (m && m.reactions && typeof m.reactions === 'object') ? m.reactions : {};
-  const btns = ['👍','❤️','🔥'].map(em=>{
+  let pills = '';
+  ['👍','❤️','🔥'].forEach(em=>{
     const arr = Array.isArray(r[em]) ? r[em] : [];
-    const cnt = arr.length;
+    if (!arr.length) return;
     const mine = arr.map(String).includes(myId);
-    const cls = 'chat-react' + (cnt>0?' has':'') + (mine?' mine':'');
-    return `<button class="${cls}" type="button" onclick="_chatReact('${mid}','${em}')">${em}${cnt>0?`<span class="chat-react-n">${cnt}</span>`:''}</button>`;
-  }).join('');
-  return `<div class="chat-react-bar">${btns}</div>`;
+    pills += `<button class="chat-reaction-pill${mine?' mine':''}" type="button" onclick="_chatReact('${mid}','${em}')">${em}<span class="n">${arr.length}</span></button>`;
+  });
+  return `<div class="chat-reactions">${pills}</div>`;   // toujours présent (cible de MAJ chirurgicale)
 }
 
 // Clé de cache des messages selon le contexte (support→thread user, client→'client')
 function _chatCacheKey(){ return (_chatIsSupport() && _chatThreadUser) ? _chatThreadUser : 'client'; }
 
-// MAJ chirurgicale d'UNE barre de réactions (pas de re-render complet → pas de saut de scroll)
-function _chatUpdateReactBar(id){
+// MAJ chirurgicale des pastilles d'UN message (pas de re-render complet → pas de saut de scroll)
+function _chatUpdateReactions(id){
   const myId = String((_chatCurUser() || {}).id || '');
   const arr = _chatMsgCache[_chatCacheKey()];
   const msg = Array.isArray(arr) ? arr.find(x=>String(x.id)===String(id)) : null;
   if (!msg) return;
   const sel = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
-  const bar = document.querySelector(`.chat-row[data-mid="${sel}"] .chat-react-bar`);
-  if (bar) bar.outerHTML = _chatReactBarHtml(msg, myId, _chatEsc(String(id)));
+  const el = document.querySelector(`.chat-row[data-mid="${sel}"] .chat-reactions`);
+  if (el) el.outerHTML = _chatReactionsHtml(msg, myId, _chatEsc(String(id)));
 }
 
-// Réagir à un message (toggle) — INSTANTANÉ (optimiste, MAJ ciblée) puis persistance serveur
+// Réagir à un message (toggle) — INSTANTANÉ (optimiste, MAJ ciblée) puis persistance serveur.
+// UNE seule réaction par personne. Ne fait JAMAIS disparaître la réaction sur une réponse vide/erreur.
 function _chatReact(id, emoji){
   if (!id) return;
   const myId = String((_chatCurUser() || {}).id || '');
   const arr = _chatMsgCache[_chatCacheKey()];
   const msg = Array.isArray(arr) ? arr.find(x=>String(x.id)===String(id)) : null;
   if (msg){
-    // UNE seule réaction par personne (Instagram) : on retire la mienne de partout puis on pose
-    // l'emoji cliqué — sauf si c'était déjà le mien (toggle off).
     const src = (msg.reactions && typeof msg.reactions === 'object') ? msg.reactions : {};
     const had = Array.isArray(src[emoji]) && src[emoji].map(String).includes(myId);
     const r = {};
     ['👍','❤️','🔥'].forEach(k=>{ const a2 = Array.isArray(src[k]) ? src[k].map(String).filter(x=>x!==myId) : []; if (a2.length) r[k]=a2; });
     if (!had){ (r[emoji] = r[emoji] || []).push(myId); }
     msg.reactions = r;
-    _chatSig = _sigMsgs(arr);        // évite que le live tick ré-écrase juste après
-    _chatUpdateReactBar(id);          // affichage immédiat, sans saut de scroll
+    _chatSig = _sigMsgs(arr);
+    _chatUpdateReactions(id);
   }
   fetch('/api/chat/react', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ id, emoji }) })
     .then(r=>r.json()).then(d=>{
+      if (!d || d.reactions == null) return;   // 401/erreur/vide → on GARDE l'état optimiste (plus de disparition)
       const a2 = _chatMsgCache[_chatCacheKey()];
       const m2 = Array.isArray(a2) ? a2.find(x=>String(x.id)===String(id)) : null;
-      if (m2){ m2.reactions = d.reactions || {}; _chatSig = _sigMsgs(a2); _chatUpdateReactBar(id); }
+      if (m2){ m2.reactions = d.reactions; _chatSig = _sigMsgs(a2); _chatUpdateReactions(id); }
     }).catch(()=>{});
 }
 
