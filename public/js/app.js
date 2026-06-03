@@ -2501,27 +2501,24 @@ function _renderRiskPopup(data) {
     'RISK-OFF':        'AVERSION AU RISQUE',
     'STRONG RISK-OFF': 'FORTE AVERSION AU RISQUE',
   };
-  const frLabel = LABEL_FR[data.label] || data.label;
-  if (lbl) { lbl.textContent = frLabel; lbl.className = 'rp-label ' + cls; }
-  if (ti) ti.textContent = `Sentiment du marché : ${frLabel}`;
-  // Bande sentiment pleine largeur : ● LABEL: phrase (colorée selon le risque) — texte EN, façon image
-  const band = el('rp-band');
-  if (band) {
-    const BAND_EN = {
-      'STRONG RISK-ON':  'Strong appetite for risk. Capital rotates into equities and high-beta. Safe havens sold.',
-      'RISK-ON':         'Risk appetite prevails. Equities and risk assets bid; defensive assets soft.',
-      'WEAK RISK-ON':    'Mild risk appetite. Constructive tone but limited conviction.',
-      'NEUTRAL':         'Balanced sentiment. Mixed signals across risk assets, no clear direction.',
-      'WEAK RISK-OFF':   'Cautious sentiment prevails. Mixed flows. Safe havens supported. Volatility elevated.',
-      'RISK-OFF':        'Risk aversion in play. Flight to safety — bonds, gold, JPY and CHF bid.',
-      'STRONG RISK-OFF': 'Strong risk aversion. Significant flight to safety across havens. Volatility high.',
-    };
-    const phrase = BAND_EN[data.label] || data.description || '';
-    band.className = 'rp-band ' + cls;
-    band.innerHTML = `<span class="rp-band-dot"></span><span class="rp-band-txt"><strong>${data.label}:</strong> ${phrase}</span>`;
-  }
+  // En-tête type "Market Sentiment: RISK OFF" (façon dropdown image)
+  if (lbl) { lbl.textContent = `Market Sentiment: ${data.label}`; lbl.className = 'rp-label ' + cls; }
+  if (ti) ti.textContent = `Market Sentiment: ${data.label}`;
+  // Dropdown épuré : pas de jauge ni de bande dans ce popup (la jauge vit dans l'onglet RISK)
+  const gw = el('rp-gauge-wrap'); if (gw) gw.style.display = 'none';
+  const band = el('rp-band'); if (band) band.style.display = 'none';
+  // Description longue (anglais) selon le niveau de risque — exactement comme l'image
+  const POPUP_DESC_EN = {
+    'STRONG RISK-ON':  'Strong risk appetite dominates. Capital is rotating aggressively into equities and high-beta assets as investors chase returns, with safe havens broadly sold.',
+    'RISK-ON':         'Risk appetite is firmly in control. Equities and cyclical assets are bid while defensive positioning unwinds, reflecting confidence in the growth outlook.',
+    'WEAK RISK-ON':    'A mild risk-on tone prevails. Constructive sentiment supports risk assets, but conviction is limited and positioning stays cautious.',
+    'NEUTRAL':         'Market sentiment is balanced. Signals across asset classes are mixed, with no clear directional bias as participants await fresh catalysts.',
+    'WEAK RISK-OFF':   'Caution is creeping in. Flows are mixed, safe havens are quietly supported and volatility is elevated as participants trim risk exposure.',
+    'RISK-OFF':        'Market participants are seeking safety amid uncertainty. Defensive positioning is evident across asset classes as investors prioritize capital preservation over returns due to geopolitical tensions, economic concerns, or monetary tightening.',
+    'STRONG RISK-OFF': 'Risk aversion dominates. A pronounced flight to safety is underway across havens — bonds, gold, JPY and CHF — as participants slash exposure and volatility spikes.',
+  };
   const de = el('rp-desc');
-  if (de) de.style.display = 'none';   // la phrase est désormais dans la bande (plus de doublon)
+  if (de) { de.style.display = ''; de.textContent = POPUP_DESC_EN[data.label] || data.description || ''; }
   const as = el('rp-assets');
   if (as) {
     as.innerHTML = (data.assets || []).map(a => {
@@ -2537,10 +2534,8 @@ function _renderRiskPopup(data) {
   const up = el('rp-updated');
   if (up && data.updatedAt) {
     const d = new Date(data.updatedAt);
-    up.textContent = `Mis à jour : ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+    up.textContent = `Updated: ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
   }
-  // Render gauge
-  _renderRiskGauge(data);
 }
 
 let _riskPopupData = null;
@@ -2570,7 +2565,19 @@ document.addEventListener('DOMContentLoaded', () => {
       e.stopPropagation();
       const wasHidden = overlay.classList.contains('hidden');
       overlay.classList.toggle('hidden');
-      if (wasHidden && _riskPopupData) _renderRiskPopup(_riskPopupData);
+      if (wasHidden) {
+        if (_riskPopupData) _renderRiskPopup(_riskPopupData);
+        // Ancrage : dropdown positionné juste SOUS le bouton RISK (façon image)
+        const card = document.getElementById('risk-popup');
+        if (card) {
+          const r = sentBtn.getBoundingClientRect();
+          card.style.position = 'fixed';
+          card.style.margin = '0';
+          card.style.transform = 'none';     // annule le centrage CSS (translateX)
+          card.style.top  = (r.bottom + 8) + 'px';
+          card.style.left = Math.max(8, Math.min(r.left, window.innerWidth - 452)) + 'px';
+        }
+      }
     });
   }
   if (rpClose) rpClose.addEventListener('click', () => overlay?.classList.add('hidden'));
