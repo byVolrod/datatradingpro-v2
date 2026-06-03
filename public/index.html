@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260606s" />
+  <link rel="stylesheet" href="/css/style.css?v=20260606t" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -555,8 +555,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260606s"></script>
-<script src="/js/charts.js?v=20260606s"></script>
+<script src="/js/app.js?v=20260606t"></script>
+<script src="/js/charts.js?v=20260606t"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1289,6 +1289,43 @@
 
 <!-- ══ CHAT SUPPORT PANEL ══ -->
 <div class="chat-overlay" id="chat-overlay" onclick="chatClose()"></div>
+<!-- ══ VOLET: Macro AI Assistant (chat IA — état volatil, reset au reload) ══ -->
+<div class="ai-panel" id="ai-panel" aria-hidden="true">
+  <div class="ai-clear-banner" id="ai-clear-banner">
+    <span class="ai-clear-txt"><span class="ai-clear-check">✓</span> Really want to clear this chat?</span>
+    <div class="ai-clear-actions">
+      <button class="ai-clear-yes" onclick="aiClearConfirm()">Yes</button>
+      <button class="ai-clear-cancel" onclick="aiClearCancel()" aria-label="Annuler">✕</button>
+    </div>
+  </div>
+  <div class="ai-header">
+    <div class="ai-header-left">
+      <span class="ai-head-ic" aria-hidden="true">AI</span>
+      <div class="ai-head-meta">
+        <div class="ai-head-title">Macro AI Assistant</div>
+        <div class="ai-head-status"><span class="ai-status-dot"></span>Online</div>
+      </div>
+    </div>
+    <div class="ai-header-right">
+      <button class="ai-hdr-btn" title="Effacer la conversation" onclick="aiClearAsk()" aria-label="Effacer la conversation">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m13 11 9-9"/><path d="M14.64 12.64A2 2 0 0 1 15 15l-3.8 3.8a2 2 0 0 1-2.7.18L4.7 15.2a2 2 0 0 1 .18-2.7L8.7 8.7a2 2 0 0 1 2.36-.36"/><path d="m9 11 4 4"/><path d="M5 16.5 3.5 18a2.12 2.12 0 0 0 3 3L8 19.5"/></svg>
+      </button>
+      <button class="ai-hdr-btn" title="Fermer" onclick="aiClose()" aria-label="Fermer">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="ai-messages" id="ai-messages"></div>
+  <div class="ai-inputbar">
+    <input class="ai-input" id="ai-input" type="text" placeholder="Ask about markets, trends, data..." autocomplete="off" onkeydown="if(event.key==='Enter'){event.preventDefault();aiSend();}" />
+    <button class="ai-send" id="ai-send" onclick="aiSend()" title="Envoyer" aria-label="Envoyer">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg>
+    </button>
+  </div>
+  <div class="ai-legal">AI responses are for informational purposes only</div>
+</div>
+<div class="ai-backdrop" id="ai-backdrop" onclick="aiClose()"></div>
+
 <div class="chat-panel" id="chat-panel">
   <div class="chat-header">
     <button class="chat-back hidden" id="chat-back" onclick="_chatBackToInbox()" title="Retour à la boîte de réception">‹</button>
