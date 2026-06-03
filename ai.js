@@ -27,15 +27,22 @@ const ANTHROPIC_KEYS = [
 
 async function _gemini(model, prompt, maxTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
-  const r = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      contents: [{ parts: [{ text: prompt }] }],
-      // thinkingBudget:0 → pas de "réflexion" qui consomme les tokens de sortie (réponses fiables/rapides)
-      generationConfig: { maxOutputTokens: maxTokens, temperature: 0.5, thinkingConfig: { thinkingBudget: 0 } },
-    }),
-  });
+  // Timeout 20s : une requête Gemini bloquée ne doit jamais s'empiler / geler la file (anti-OOM/502)
+  const _ctrl = new AbortController();
+  const _to = setTimeout(() => _ctrl.abort(), 20000);
+  let r;
+  try {
+    r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      signal: _ctrl.signal,
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        // thinkingBudget:0 → pas de "réflexion" qui consomme les tokens de sortie (réponses fiables/rapides)
+        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.5, thinkingConfig: { thinkingBudget: 0 } },
+      }),
+    });
+  } finally { clearTimeout(_to); }
   if (!r.ok) {
     const t = await r.text().catch(() => '');
     const err = new Error(`Gemini ${model} ${r.status}: ${t.slice(0, 150)}`);

@@ -936,7 +936,15 @@ function _calTitleTokens(title) {
   return out;
 }
 function _calOverlap(a, b) { let n = 0; for (const w of a) if (b.has(w)) n++; return n; }
+let _tvActualsBusy = false;
 async function _refreshTVActuals() {
+  if (_tvActualsBusy) return 0;          // anti-empilement si un appel précédent traîne (réseau lent)
+  _tvActualsBusy = true;
+  try {
+    return await _refreshTVActualsInner();
+  } finally { _tvActualsBusy = false; }
+}
+async function _refreshTVActualsInner() {
   let tv;
   try { tv = await fetchTVCalendar(); } catch { return 0; }
   if (!Array.isArray(tv) || !tv.length) return 0;
@@ -4481,6 +4489,7 @@ async function _smartTagNews() {
           : String(out).split(/[,\n;]/).map(s => s.trim()).filter(Boolean)
               .map(s => AI_TAG_VOCAB[up.indexOf(s.toUpperCase())]).filter(Boolean).slice(0, 3);
         _aiTagCache.set(item.id, picked);
+        if (_aiTagCache.size > 3000) _aiTagCache.delete(_aiTagCache.keys().next().value);   // cap mémoire (anti-OOM)
         item.tags = _mergeAiTags(item, picked); item._aiTagged = true;
         auth.aiCacheSet('tag:' + item.id, picked).catch(() => {});
       } catch { /* budget épuisé / pas de clé → on garde les tags mots-clés (déjà précis) */ }
@@ -4635,7 +4644,10 @@ if (process.env.DISABLE_MYFXBOOK === 'true') {
 // donc les onglets se chargent instantanément. (Render fournit RENDER_EXTERNAL_URL.)
 const _SELF_URL = (process.env.RENDER_EXTERNAL_URL || process.env.APP_URL || '').replace(/\/+$/, '');
 if (_SELF_URL) {
-  setInterval(() => { fetch(_SELF_URL + '/healthz').catch(() => {}); }, 13 * 60 * 1000);
+  setInterval(() => {
+    const _c = new AbortController(); const _t = setTimeout(() => _c.abort(), 8000);
+    fetch(_SELF_URL + '/healthz', { signal: _c.signal }).catch(() => {}).finally(() => clearTimeout(_t));
+  }, 13 * 60 * 1000);
   console.log(`[KeepAlive] auto-ping ${_SELF_URL}/healthz / 13 min — anti-veille (chargement rapide)`);
 }
 
