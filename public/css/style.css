@@ -569,20 +569,21 @@ html, body {
   z-index: 30;
   align-self: stretch;
 }
-.layout-resizer::before {     /* ligne orange nette et constante (pas de sous-pixel → vrai orange, AUCUNE accentuation) */
+.layout-resizer::before {     /* AU REPOS : trait neutre discret (pas d'orange) */
   content: '';
   position: absolute;
   top: 0; bottom: 0; left: 1px;
   width: 2px;
-  background: #ff7a00;
+  background: rgba(255,255,255,0.05);
+  transition: background 0.12s;
 }
-/* Au survol/glissement : on ne change QUE le curseur, jamais la couleur/épaisseur de la ligne */
+/* L'orange (adouci) n'apparaît QU'au survol et pendant le glissement */
+.layout-resizer:hover::before,
+body.is-resizing .layout-resizer::before { background: rgba(255,122,0,0.72); }
 body.is-resizing { cursor: col-resize; user-select: none; }
-/* Bordure ACTIVE orange : s'allume UNIQUEMENT autour du panneau redimensionné (le panneau droit,
-   celui que ce séparateur pilote — cadre World Clock / Risk Sentiment) pendant le glissement.
-   Purement volatile : rien n'est conservé, reset auto au rechargement. */
+/* Bordure ACTIVE (orange adouci) autour du panneau redimensionné — uniquement pendant le glissement */
 body.is-resizing #panel-right {
-  outline: 1px solid #ff7a00;
+  outline: 1px solid rgba(255,122,0,0.8);
   outline-offset: -1px;
 }
 body.is-resizing iframe { pointer-events: none; }
