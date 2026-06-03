@@ -633,10 +633,19 @@ function renderNews(hasNew = false) {
     fragment.appendChild(btn);
   }
 
-  const scrollTop = newsList.scrollTop;
+  // Anti-décalage : on mesure AVANT de reconstruire la liste.
+  const prevScrollTop    = newsList.scrollTop;
+  const prevScrollHeight = newsList.scrollHeight;
+  const atTop = prevScrollTop <= 4;                 // l'utilisateur est (quasi) en haut du feed
   newsList.innerHTML = '';
   newsList.appendChild(fragment);
-  if (!hasNew) newsList.scrollTop = scrollTop;
+  if (hasNew) {
+    // Une news vient d'ARRIVER : si l'utilisateur était en haut, on lui montre la nouvelle (haut du feed) ;
+    // s'il lisait plus bas, on ANCRE sa position (pas de saut) en compensant la hauteur ajoutée au-dessus.
+    newsList.scrollTop = atTop ? 0 : prevScrollTop + (newsList.scrollHeight - prevScrollHeight);
+  } else {
+    newsList.scrollTop = prevScrollTop;             // re-rendu (filtre, patch…) → on garde la position exacte
+  }
 }
 
 async function loadMore() {
@@ -2104,8 +2113,10 @@ function buildNewsItem(item) {
 }
 
 function formatDate(ts) {
+  // timeZone Paris explicite : les en-têtes de jour collent à l'heure de Paris affichée
+  // (item.time), même si le navigateur est dans un autre fuseau → plus de décalage de date.
   return new Date(ts).toLocaleDateString('en-GB', {
-    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric',
+    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris',
   });
 }
 
