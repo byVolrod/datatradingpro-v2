@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260607b" />
+  <link rel="stylesheet" href="/css/style.css?v=20260607c" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -557,8 +557,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260607b"></script>
-<script src="/js/charts.js?v=20260607b"></script>
+<script src="/js/app.js?v=20260607c"></script>
+<script src="/js/charts.js?v=20260607c"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -633,12 +633,20 @@
           </div>
 
           <label class="pd-label">Langue</label>
-          <select class="pd-select" id="pd-lang">
-            <option value="fr">🇫🇷 Français</option>
-            <option value="en">🇬🇧 English</option>
-            <option value="de">🇩🇪 Deutsch</option>
-            <option value="es">🇪🇸 Español</option>
-          </select>
+          <div class="pd-lang-dd" id="pd-lang-dd">
+            <button type="button" class="pd-lang-trigger" onclick="pdLangToggle(event)">
+              <img class="pd-lang-flag" id="pd-lang-cur-flag" src="https://flagcdn.com/24x18/fr.png" alt="">
+              <span class="pd-lang-name" id="pd-lang-current">Français</span>
+              <svg class="pd-lang-chev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            </button>
+            <div class="pd-lang-menu" id="pd-lang-menu">
+              <div class="pd-lang-opt" onclick="pdLangPick('fr','Français','fr')"><img src="https://flagcdn.com/24x18/fr.png" alt=""><span>Français</span></div>
+              <div class="pd-lang-opt" onclick="pdLangPick('en','English','gb')"><img src="https://flagcdn.com/24x18/gb.png" alt=""><span>English</span></div>
+              <div class="pd-lang-opt" onclick="pdLangPick('de','Deutsch','de')"><img src="https://flagcdn.com/24x18/de.png" alt=""><span>Deutsch</span></div>
+              <div class="pd-lang-opt" onclick="pdLangPick('es','Español','es')"><img src="https://flagcdn.com/24x18/es.png" alt=""><span>Español</span></div>
+            </div>
+            <input type="hidden" id="pd-lang" value="fr">
+          </div>
 
           <button class="pd-btn" id="pd-save-profile-btn" onclick="pdSaveProfile()">Mettre à jour les données</button>
           <div class="pd-msg" id="pd-profile-msg"></div>

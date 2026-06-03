@@ -1106,14 +1106,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 .news-description.visible {
   display: block;
-  background: transparent;                     /* MÊME fond que le titre/la carte (continuité visuelle), suit le hover */
+  background: #0a0b0e;                          /* boîte sombre DISTINCTE du titre (comme PMT) */
   margin-top: 10px;
   padding: 11px 14px;
-  border-radius: 0;
-  border: none;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.05);
 }
 .news-headline--clickable { cursor: pointer; }
-.news-headline--clickable:hover { text-decoration: underline; text-decoration-color: rgba(255,255,255,0.25); text-underline-offset: 3px; }
+.news-headline--clickable:hover { text-decoration: none; }   /* pas de soulignement au survol */
 
 /* Bullet list inside expand panel */
 .article-points {
@@ -6409,6 +6409,29 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .pd-select:focus { border-color: #f7941d; }
 .pd-select option { background: #1a1a1a; color: #e8e8e8; }
 
+/* ── Dropdown langue custom (vraies images de drapeaux) ── */
+.pd-lang-dd { position: relative; margin-bottom: 12px; }
+.pd-lang-trigger {
+  width: 100%; display: flex; align-items: center; gap: 9px;
+  background: #141414; border: 1px solid #252525; border-radius: 4px;
+  padding: 7px 10px; font-family: 'Inter', sans-serif; font-size: 12px; color: #e8e8e8;
+  cursor: pointer; outline: none; transition: border-color .12s;
+}
+.pd-lang-trigger:hover { border-color: #2e2e34; }
+.pd-lang-trigger:focus { border-color: #f7941d; }
+.pd-lang-flag { width: 20px; height: 15px; object-fit: cover; border-radius: 2px; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+.pd-lang-name { flex: 1; text-align: left; }
+.pd-lang-chev { color: #666; flex: 0 0 auto; }
+.pd-lang-menu {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; right: 0; z-index: 30;
+  background: #16161a; border: 1px solid #2a2a30; border-radius: 5px; overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.55);
+}
+.pd-lang-menu.open { display: block; }
+.pd-lang-opt { display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; font-size: 12px; color: #d4d8de; transition: background .1s; }
+.pd-lang-opt:hover { background: rgba(247,148,29,0.12); color: #fff; }
+.pd-lang-opt img { width: 20px; height: 15px; object-fit: cover; border-radius: 2px; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+
 /* Clock display */
 .pd-clock-display {
   display: flex;
@@ -7789,12 +7812,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* Barre de réactions au-dessus du "Lu" : posées = toujours visibles ; vides = au survol (discret) */
 /* Sélecteur flottant — SOUS la bulle, apparaît au survol de toute la ligne (stable, on a le temps de viser) */
-.chat-react-picker { position:absolute; top:calc(100% + 4px); z-index:6; display:flex; gap:2px; background:#15171d; border:1px solid #2a2f3a; border-radius:22px; padding:4px 6px; box-shadow:0 8px 22px rgba(0,0,0,.5); opacity:0; pointer-events:none; transform:translateY(-4px); transition:opacity .16s ease, transform .16s ease; transition-delay:.04s; }
+.chat-react-picker { position:absolute; top:calc(100% + 3px); z-index:6; display:flex; gap:1px; background:#15171d; border:1px solid #2a2f3a; border-radius:14px; padding:2px 4px; box-shadow:0 6px 18px rgba(0,0,0,.5); opacity:0; pointer-events:none; transform:translateY(-4px); transition:opacity .16s ease, transform .16s ease; transition-delay:.04s; }
 .chat-row--them .chat-react-picker { left:6px; }
 .chat-row--me   .chat-react-picker { right:6px; }
 .chat-row:hover .chat-react-picker, .chat-react-picker:hover { opacity:1; pointer-events:auto; transform:translateY(0); transition-delay:0s; }
-.chat-react-picker button { background:none; border:none; cursor:pointer; font-size:16px; line-height:1; width:30px; height:30px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition:transform .12s ease, background .12s ease; }
-.chat-react-picker button:hover { transform:scale(1.18); background:rgba(255,255,255,.07); }
+/* Taille alignée sur la pastille de réaction posée (compacte) */
+.chat-react-picker button { background:none; border:none; cursor:pointer; font-size:13px; line-height:1; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition:transform .12s ease, background .12s ease; }
+.chat-react-picker button:hover { transform:scale(1.15); background:rgba(255,255,255,.07); }
 /* Pastilles posées (façon LinkedIn) — sous la bulle, alignées côté bulle */
 .chat-reactions { display:flex; gap:4px; flex-wrap:wrap; }
 .chat-reactions:not(:empty) { margin-top:4px; }
