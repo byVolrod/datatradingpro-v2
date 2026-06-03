@@ -1973,13 +1973,16 @@ function renderFxList() {
     return `<th class="fxl-th fxl-th--${c.align} ${c.sortable ? 'fxl-th--sortable' : ''}" ${c.sortable ? `data-sort="${c.key}"` : ''}>${c.label}${arrow}</th>`;
   }).join('');
 
+  const _loader = document.getElementById('fxl-loader');
   if (!_fxlData) {
-    const _msg = _fxlLoading
-      ? (window.dtpLoader ? window.dtpLoader('Chargement de la FX List…') : 'Chargement…')
-      : 'Aucune donnée';
-    body.innerHTML = `<tr><td class="fxl-msg" colspan="${FXL_COLS.length}">${_msg}</td></tr>`;
+    body.innerHTML = '';
+    if (_loader) {   // loader CENTRÉ dans la zone visible (overlay), pas dans la table large
+      if (_fxlLoading) { _loader.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la FX List…') : 'Chargement…'); _loader.style.display = 'flex'; }
+      else { _loader.innerHTML = '<div class="fxl-msg">Aucune donnée</div>'; _loader.style.display = 'flex'; }
+    }
     return;
   }
+  if (_loader) _loader.style.display = 'none';
 
   const pairs = _fxlData.pairs.slice();
   const { key, dir } = _fxlSort;

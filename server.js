@@ -4117,7 +4117,37 @@ allNews = allNews.filter(i => {
 // ─── Dedup ───────────────────────────────────────────────────────────────────
 
 function norm(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 55); }
-function isDuplicate(item, list) { const n = norm(item.headline); return list.some(e => norm(e.headline) === n); }
+// Normalisation "forte" : retire les préfixes (Breaking:, Update:…) ET l'attribution de source
+// en fin de titre (« … – Scotiabank », « … - BBH ») → deux formulations de la MÊME news matchent.
+function _normHl(s) {
+  return String(s || '').toLowerCase()
+    .replace(/^\s*(breaking|update|alert|flash|just in|developing|exclusive|live)\s*[:\-–—]\s*/i, '')
+    .replace(/\s*[–\-—]\s*[\w .&'/]{2,30}$/,'')            // attribution source en fin de titre
+    .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function _hlTokens(s) { return new Set(_normHl(s).split(' ').filter(w => w.length > 3)); }
+// Doublon = titre identique, OU identique après nettoyage préfixe/source, OU ≥80% de tokens
+// communs avec une news des 45 dernières minutes (même histoire reformulée par une autre source).
+function isDuplicate(item, list) {
+  const n  = norm(item.headline);
+  const hn = _normHl(item.headline);
+  const tk = _hlTokens(item.headline);
+  const ts = item.timestamp || Date.now();
+  for (const e of list) {
+    if (norm(e.headline) === n) return true;                       // exact
+    if (Math.abs((e.timestamp || 0) - ts) > 45 * 60 * 1000) continue;   // quasi-dup : fenêtre 45 min
+    if (_normHl(e.headline) === hn) return true;                   // identique après nettoyage
+    if (tk.size >= 4) {
+      const et = _hlTokens(e.headline);
+      if (et.size >= 4) {
+        let inter = 0; for (const t of tk) if (et.has(t)) inter++;
+        const uni = tk.size + et.size - inter;
+        if (uni > 0 && inter / uni >= 0.8) return true;            // ~même news reformulée
+      }
+    }
+  }
+  return false;
+}
 
 // ─── Broadcast ───────────────────────────────────────────────────────────────
 
