@@ -37,6 +37,18 @@ function lsSet(key, v) {
 }
 window.lsGet = lsGet; window.lsSet = lsSet;
 
+// Toast léger (messages courts type "bientôt disponible")
+function dtpToast(msg) {
+  let t = document.getElementById('dtp-toast');
+  if (!t) { t = document.createElement('div'); t.id = 'dtp-toast'; t.className = 'dtp-toast'; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(window._dtpToastT);
+  window._dtpToastT = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function aiComingSoon() { dtpToast('🤖 AI — bientôt disponible'); }
+window.dtpToast = dtpToast; window.aiComingSoon = aiComingSoon;
+
 // ═══ World clocks ══════════════════════════
 const CLOCKS = [
   { city: 'London',   code: 'LON', country: 'UK',  tz: 'Europe/London',    lat: 51.5074, lon: -0.1278  },

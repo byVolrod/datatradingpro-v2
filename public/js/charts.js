@@ -546,8 +546,8 @@ const CS_COLORS = {
   NZD: 0xec4899,  // rose magenta
 };
 
-const STF_ORDER  = ['today', 'week', '8h', '1d', '5d', '7d', '1m'];
-const STF_LABELS = { today: 'TD', week: 'TW', '8h': '8H', '1d': '1D', '5d': '5D', '7d': '7D', '1m': '1M' };
+const STF_ORDER  = ['today', 'week', '8h', '1d', '7d', '1m'];   // 5D retiré
+const STF_LABELS = { today: 'TD', week: 'TW', '8h': '8H', '1d': '1D', '7d': '7D', '1m': '1M' };
 
 let _strengthRoot  = null;
 let _strengthTimer = null;
