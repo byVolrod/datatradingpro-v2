@@ -313,8 +313,11 @@ function handleMessage(msg) {
     allItems = [...truly_new, ...allItems].sort((a, b) => b.timestamp - a.timestamp);
     if (allItems.length > 2000) allItems = allItems.slice(0, 2000);
     if (!isFirstUpdate) {
-      // Bannière LIVE : on prend la 1re news IMPORTANTE parmi les nouvelles (sinon rien ne flashe)
-      _flashBreakingNews(truly_new.find(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i)) && _isImportantNews(i)));
+      // Bannière LIVE : on ne flashe QUE si la news importante est RÉELLEMENT VISIBLE dans le feed
+      // (passe les filtres catégorie/bruit/dédup) → la notif est TOUJOURS synchro avec une news
+      // affichée. Sinon (filtrée/non visible) → pas de notif. Anticipe le désync à l'avenir.
+      const _visibleIds = new Set(getFilteredItems().map(i => i.id));
+      _flashBreakingNews(truly_new.find(i => _visibleIds.has(i.id) && !(i._briefing || i.source === 'PMT' || isPrimerItem(i)) && _isImportantNews(i)));
       const added = npPush(truly_new);   // alimente le panneau ; renvoie le nb RÉELLEMENT ajouté
       newCount += added;                 // badge = exactement ce qui est dans le panneau (pas les rapports/primers)
       _setNotifBadge(newCount);
@@ -1619,7 +1622,8 @@ function buildNewsItem(item) {
   const rawDesc   = (item.description || '').replace(/<[^>]*>/g, '').trim();
   // Tag « Analyse » : primers/speakers/groupés, OU news à contenu riche (vraie analyse possible),
   // sauf celles qui ont déjà renvoyé "rien".
-  const hasNotes  = (isPrimer || isSpeaker || hasGrouped || _analysisCache.has(item.id)
+  // Market updates (Convera) : on garde Info (le rapport complet) mais PAS le bouton Analyse.
+  const hasNotes  = !item._marketUpdate && (isPrimer || isSpeaker || hasGrouped || _analysisCache.has(item.id)
                      || (rawDesc.length > 40 && !_analysisNoData.has(item.id))) && rawDesc.length > 20;
   // For speaker openers: only show ⓘ Info if there's actual content (desc bullets OR existing quotes)
   const speakerQuotesAtRender = isSpeaker ? getSpeakerQuotes(speakerKey, item.timestamp) : [];
@@ -4539,8 +4543,11 @@ function _npVolumeLevel() {
 // Le réglage SON des notifications est le MAÎTRE de TOUT le son (carillon + voix squawk) :
 // OFF, "Muet", OU carillon "Aucun" → silence TOTAL, y compris la voix qui lit les news.
 function _npGlobalMute() { return !_npEnabled || _npVolume === 'mute' || _npChime === 'none'; }
-// Coupe immédiatement toute voix en cours (squawk TTS)
-function _npStopVoice() { try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch {} }
+// Coupe immédiatement TOUT son en cours : voix squawk (TTS) + carillon (suspend l'AudioContext).
+function _npStopVoice() {
+  try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch {}
+  try { if (_npAudioCtx && _npAudioCtx.state === 'running') _npAudioCtx.suspend(); } catch {}
+}
 
 // ── Push toggle (Web Notifications API) ──────────────────────
 function npTogglePush() {
@@ -4613,10 +4620,9 @@ function npPush(items) {
     _npPlaySound(_npVolumeLevel());
   }
 
-  // Web Push notification (only for high priority items)
-  // Quand le son est coupé (Muet / carillon "none"), on NE crée PAS de notif navigateur :
-  // certains OS jouent leur propre son malgré silent:true. Le panneau interne, lui, se met à jour.
-  const muted = (_npVolume === 'mute' || _npChime === 'none');
+  // Web Push notification (only for high priority items) — JAMAIS de son OS : on force silent:true
+  // (le carillon interne est la SEULE source de son), et on ne crée RIEN si le son est coupé.
+  const muted = (typeof _npGlobalMute === 'function' && _npGlobalMute());
   if (_npPush && !muted && 'Notification' in window && Notification.permission === 'granted') {
     const hi = items.find(i => i.priority === 'high' || i.urgent);
     if (hi) {
@@ -4624,7 +4630,7 @@ function npPush(items) {
         body:   hi.headline,
         icon:   '/favicon.png',
         tag:    'dtp-' + hi.id,
-        silent: false,
+        silent: true,   // pas de son OS — seul le carillon interne (respectant Muet) sonne
       });
     }
   }
@@ -4750,8 +4756,8 @@ function _npSyncUI() {
 
 // ── Sound engine (Web Audio API — no audio files needed) ──────
 function _npPlaySound(volume) {
-  // Garde dure : aucun son si coupé (Muet) ou carillon désactivé, quel que soit l'appelant
-  if (_npVolume === 'mute' || _npChime === 'none') return;
+  // Garde dure : aucun son si OFF / Muet / carillon désactivé, quel que soit l'appelant
+  if (typeof _npGlobalMute === 'function' && _npGlobalMute()) return;
   if (volume <= 0) return;
   try {
     if (!_npAudioCtx) _npAudioCtx = new (window.AudioContext || window.webkitAudioContext)();

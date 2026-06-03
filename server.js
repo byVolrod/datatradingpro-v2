@@ -1584,6 +1584,13 @@ function _cleanConveraHtml(html) {
     .replace(/(?:read more|continue reading)\b[^<]*/gi, '')
     // Attribution VISIBLE seulement (jamais dans les URLs d'images) : "Source: Convera", "© Convera"…
     .replace(/(?:source|written by|©|copyright)\s*:?\s*convera[^<.]*\.?/gi, '')
+    // Pied de page Convera : "Have a question? Ask…@convera.com" + disclaimer "*The (FX) rates published…"
+    .replace(/<p[^>]*>\s*have a question\?[\s\S]*?<\/p>/gi, '')
+    .replace(/have a question\?[^<]*@[^<\s]+/gi, '')
+    .replace(/<p[^>]*>\s*\*?\s*the (?:fx )?rates published[\s\S]*?<\/p>/gi, '')
+    .replace(/\*?\s*the (?:fx )?rates published by[\s\S]*?(?:financial offer|other sites)[^<.]*\.?/gi, '')
+    .replace(/<p[^>]*>\s*\*[\s\S]*?(?:research purposes only|financial offer)[\s\S]*?<\/p>/gi, '')
+    .replace(/ask\s*market\s*insights@convera\.com/gi, '')
     .trim();
   return out;
 }

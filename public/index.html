@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260603w" />
+  <link rel="stylesheet" href="/css/style.css?v=20260603x" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -57,7 +57,7 @@
   </div>
 
   <div class="topbar-right">
-    <div class="topbar-ai-btn" id="ai-btn" onclick="aiComingSoon()" title="AI — bientôt disponible">AI</div>
+    <div class="topbar-ai-btn" id="ai-btn" title="🔒 AI — bientôt disponible"><span class="topbar-ai-txt">AI</span><span class="topbar-ai-lock" aria-hidden="true">🔒</span></div>
     <div class="topbar-icon topbar-icon--sqwk" id="sqwk-btn" onclick="sqwkToggle()" title="Squawk FinancialJuice en direct">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
         <circle cx="12" cy="12" r="2" fill="#22c55e" stroke="none"/>
@@ -70,7 +70,7 @@
       <span class="notif-dot" id="notif-badge" style="display:none"></span>
     </div>
     <div class="topbar-icon" id="chat-btn" onclick="chatToggle()" title="Support DataTradingPro">
-      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H9l-4 4v-4H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H7l-3 3V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2z"/><path d="M18 9h1a2 2 0 0 1 2 2v9l-3-3h-5a2 2 0 0 1-2-2v-1"/></svg>
       <span class="notif-badge" id="chat-badge" style="display:none">0</span>
     </div>
     <div id="topbar-avatar" onclick="pdToggle()" title="Mon profil">
@@ -546,8 +546,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260603w"></script>
-<script src="/js/charts.js?v=20260603w"></script>
+<script src="/js/app.js?v=20260603x"></script>
+<script src="/js/charts.js?v=20260603x"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1264,11 +1264,11 @@
       <div class="sqwk-title">Squawk de marché en direct</div>
       <div class="sqwk-status" id="sqwk-status"><span class="sqwk-dot"></span> Disconnected</div>
     </div>
-    <div class="sqwk-auto">
-      <span class="sqwk-auto-lbl">Connexion automatique</span>
-      <div class="sqwk-toggle" id="sqwk-toggle" onclick="sqwkToggleAuto()"><span class="sqwk-toggle-state" id="sqwk-toggle-state">OFF</span></div>
-    </div>
     <button class="sqwk-close" onclick="sqwkClose()">×</button>
+  </div>
+  <div class="sqwk-subbar">
+    <span class="sqwk-auto-lbl">Connexion automatique</span>
+    <div class="sqwk-toggle" id="sqwk-toggle" onclick="sqwkToggleAuto()"><span class="sqwk-toggle-state" id="sqwk-toggle-state">OFF</span></div>
   </div>
   <div class="sqwk-live-note hidden" id="sqwk-live-note">
     <span class="sqwk-note-dot"></span>
