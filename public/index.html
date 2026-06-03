@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260605g" />
+  <link rel="stylesheet" href="/css/style.css?v=20260605h" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -368,12 +368,15 @@
   <!-- ══ SHARED RIGHT PANEL (always visible on all tabs) ══ -->
   <div class="panel-right" id="panel-right">
 
-    <div class="clocks-panel">
+    <div class="clocks-panel" id="clocks-panel">
       <div class="chart-header">
         <span class="chart-header-title">World Clock</span>
       </div>
       <div class="clocks-bar" id="clocks-bar"></div>
     </div>
+
+    <!-- ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) — desktop seulement ══ -->
+    <div class="clocks-resizer" id="clocks-resizer" title="Glisser pour redimensionner"></div>
 
     <div class="right-panel-tabs" id="right-panel-tabs">
       <div class="right-tab right-tab--active" data-rtab="world">› WORLD</div>
@@ -552,8 +555,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260605g"></script>
-<script src="/js/charts.js?v=20260605g"></script>
+<script src="/js/app.js?v=20260605h"></script>
+<script src="/js/charts.js?v=20260605h"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

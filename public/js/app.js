@@ -5378,3 +5378,41 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Repli sur mobile → on rend la main au CSS (largeur par défaut)
   window.addEventListener('resize', () => { if (!isDesktop()) { panel.style.flex = ''; panel.style.width = ''; } });
 })();
+
+// ── Resizer HORIZONTAL : hauteur du World Clock (barre entre World Clock et les onglets) ──
+//    État runtime → reset à la valeur par défaut (CSS) au rechargement. Désactivé ≤1024px.
+(function initClocksResizer() {
+  const resizer = document.getElementById('clocks-resizer');
+  const clocks  = document.getElementById('clocks-panel');
+  const panel   = document.getElementById('panel-right');
+  if (!resizer || !clocks || !panel) return;
+  const isDesktop = () => window.matchMedia('(min-width: 1025px)').matches;
+  let dragging = false;
+  const onMove = e => {
+    if (!dragging) return;
+    const y = e.touches ? e.touches[0].clientY : e.clientY;
+    const top = clocks.getBoundingClientRect().top;
+    const min = 90;
+    const max = Math.max(min, panel.getBoundingClientRect().height - 220);  // garde la place aux onglets + contenu
+    const h = Math.max(min, Math.min(max, y - top));
+    clocks.style.flex = '0 0 ' + h + 'px';
+    clocks.style.maxHeight = 'none';            // override le plafond 42%
+    clocks.style.height = h + 'px';
+  };
+  const stop = () => {
+    if (!dragging) return;
+    dragging = false;
+    document.body.classList.remove('is-resizing-v');
+    window.removeEventListener('mousemove', onMove);
+    window.removeEventListener('mouseup', stop);
+  };
+  resizer.addEventListener('mousedown', e => {
+    if (!isDesktop()) return;
+    e.preventDefault();
+    dragging = true;
+    document.body.classList.add('is-resizing-v');
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', stop);
+  });
+  window.addEventListener('resize', () => { if (!isDesktop()) { clocks.style.flex = ''; clocks.style.maxHeight = ''; clocks.style.height = ''; } });
+})();

@@ -2392,12 +2392,12 @@ async function buildCalendar() {
         }
         // Empty response — server may still be fetching; wait and retry
         if (attempt < 4) {
-          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader(`Chargement du calendrier économique… (${attempt}/4)`) : 'Chargement…');
+          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement du calendrier économique…') : 'Chargement…');
           await new Promise(r => setTimeout(r, 3000));
         }
       } catch {
         if (attempt < 4) {
-          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader(`Connexion… (essai ${attempt}/4)`) : `Connecting… (${attempt}/4)`);
+          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Connexion…') : 'Connecting…');
           await new Promise(r => setTimeout(r, 3000));
         }
       }
