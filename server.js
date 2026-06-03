@@ -1440,6 +1440,77 @@ async function _fetchBankResearch(full = false) {
   console.log(`[BankResearch] ${_brCache.length} articles (was ${before}) — ${full ? 'full 30d' : 'quick'} refresh`);
 }
 
+// ═══ Convera "Daily Market Updates" → injectés dans le FEED NEWS en [MARKET UPDATE] ═══
+// Flux RSS WordPress (content:encoded = rapport complet AVEC images). On nettoie (source
+// retirée, images résolues), on préfixe le titre, on tague "Analysis" et on stocke le
+// rapport complet (item.fullContent) affiché directement à l'ouverture.
+const CONVERA_FEED = 'https://convera.com/blog/topic/market-insights/fx-research/daily-market-updates/feed/';
+let _converaFetchedAt = 0;
+function _cleanConveraHtml(html) {
+  let h = String(html || '').replace(/^<!\[CDATA\[|\]\]>$/g, '');
+  const $ = cheerio.load(`<div id="_cv">${h}</div>`);
+  // bruit + tout ce qui référence la source
+  $('#_cv script, #_cv style, #_cv iframe, #_cv form, [class*="share"], [class*="social"], [class*="related"], [class*="subscribe"], [class*="newsletter"], [class*="author"], [class*="cta"], [class*="wp-block-buttons"]').remove();
+  // images lazy → src réel
+  $('#_cv img').each((_, img) => {
+    const $i = $(img);
+    const real = $i.attr('data-src') || $i.attr('data-lazy-src') || $i.attr('src') || '';
+    if (real) $i.attr('src', real);
+    $i.removeAttr('data-src').removeAttr('data-lazy-src').removeAttr('srcset').removeAttr('loading');
+    const s = $i.attr('src') || '';
+    if (!s || /^data:|placeholder|spacer/i.test(s)) $i.remove();
+  });
+  // retire liens/mentions de la source Convera + "the post … appeared first on"
+  $('#_cv a').each((_, a) => { if (/convera/i.test($(a).attr('href') || '')) $(a).replaceWith($(a).text()); });
+  let out = ($('#_cv').html() || '');
+  out = out
+    .replace(/<p[^>]*>\s*the post[\s\S]*?appeared first on[\s\S]*?<\/p>/gi, '')
+    .replace(/the post\b[^<]*?appeared first on[^<]*?\.?/gi, '')
+    .replace(/(?:read more|continue reading)\b[^<]*/gi, '')
+    // Attribution VISIBLE seulement (jamais dans les URLs d'images) : "Source: Convera", "© Convera"…
+    .replace(/(?:source|written by|©|copyright)\s*:?\s*convera[^<.]*\.?/gi, '')
+    .trim();
+  return out;
+}
+async function _fetchConveraUpdates() {
+  _converaFetchedAt = Date.now();
+  const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
+  try {
+    const r = await axios.get(CONVERA_FEED, { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+    if (r.status !== 200) return;
+    const cutoff = Date.now() - 10 * 24 * 60 * 60 * 1000;   // 10 jours
+    const items = r.data.match(/<item>[\s\S]*?<\/item>/g) || [];
+    const added = [];
+    for (const it of items) {
+      const title = ((it.match(/<title>([\s\S]*?)<\/title>/) || [])[1] || '').replace(/^<!\[CDATA\[|\]\]>$/g, '').trim();
+      const link  = ((it.match(/<link>([\s\S]*?)<\/link>/) || [])[1] || '').trim();
+      const pub   = ((it.match(/<pubDate>([\s\S]*?)<\/pubDate>/) || [])[1] || '').trim();
+      const enc   = (it.match(/<content:encoded>([\s\S]*?)<\/content:encoded>/) || [])[1] || '';
+      if (!title) continue;
+      const ts = pub ? (new Date(pub).getTime() || Date.now()) : Date.now();
+      if (ts < cutoff) continue;
+      const content = _cleanConveraHtml(enc);
+      if (content.replace(/<[^>]*>/g, '').trim().length < 80) continue;   // pas de vrai contenu
+      const id = 'mu-convera-' + Buffer.from(link || title).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-14);
+      const desc = content.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 280);
+      added.push({
+        id, headline: '[MARKET UPDATE] - ' + title, timestamp: ts,
+        time: new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+        category: 'Market Analysis', source: '', priority: 'normal',
+        tags: ['Analysis'], description: desc, fullContent: content, _marketUpdate: true,
+      });
+    }
+    const have = new Set(allNews.map(i => i.id));
+    const fresh = added.filter(i => !have.has(i.id));
+    if (fresh.length) {
+      allNews = [...fresh, ...allNews].sort((a, b) => b.timestamp - a.timestamp).slice(0, 2000);
+      saveHistory();
+      try { broadcast({ type: 'news_update', items: fresh, total: allNews.length }); } catch {}
+      console.log(`[Convera] +${fresh.length} market update(s) injecté(s) dans le feed`);
+    }
+  } catch (e) { console.warn('[Convera]', e.message); }
+}
+
 // ═══ Persistance DURABLE des historiques scrappés (Supabase, rétention ~1 mois) ═══
 // But : après un redémarrage Render (disque éphémère), RECHARGER les session wraps et
 // la recherche institution depuis la BDD au lieu de tout re-scraper / re-solliciter l'IA.
@@ -4477,6 +4548,8 @@ server.listen(PORT, async () => {
   await _loadPersistedHistories();
   _fetchSessionWraps(true).catch(() => {});
   _fetchBankResearch(true).catch(() => {});
+  setTimeout(() => _fetchConveraUpdates().catch(() => {}), 8000);              // [MARKET UPDATE] Convera
+  setInterval(() => _fetchConveraUpdates().catch(() => {}), 20 * 60 * 1000);   // rafraîchi toutes les 20 min
   // Rétention "max 1 mois" : purge du cache BDD (historiques + résultats IA) au démarrage puis chaque jour.
   auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {});
   setInterval(() => auth.aiCachePrune(HISTORY_KEEP_MS).catch(() => {}), 24 * 60 * 60 * 1000);
