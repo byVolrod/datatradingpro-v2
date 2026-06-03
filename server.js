@@ -5282,10 +5282,15 @@ async function fetchRiskSentiment() {
     'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
   };
 
-  // pct = SEULE valeur d'affichage (× 50, bornée). Calculée ici une fois pour TOUTES
-  // les vues (topbar, popup, jauge METER) → plus jamais de divergence -6%/-4%.
-  const pct = Math.max(-100, Math.min(100, +(_riskScoreEMA * 50).toFixed(1)));
-  _riskData = { label, score: +(_riskScoreEMA).toFixed(2), rawScore: +score.toFixed(2), pct, description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
+  // Le % d'affichage est CALÉ sur la bande du label (cohérence label ↔ nombre ↔ aiguille) :
+  // grâce à l'hystérésis le label peut rester "collé" (ex. NEUTRAL) alors que le score brut a
+  // glissé ; sans ce calage on afficherait un NEUTRAL à -9.4% (zone risk-off). On borne donc le
+  // score affiché à la plage de SA bande → un NEUTRAL ne montre jamais plus de ±3,5%.
+  const _bandLo = idx > 0 ? RISK_BOUNDS[idx - 1] : -1;
+  const _bandHi = idx < RISK_BOUNDS.length ? RISK_BOUNDS[idx] : 1;
+  const _emaShown = Math.max(_bandLo, Math.min(_bandHi, _riskScoreEMA));
+  const pct = Math.max(-100, Math.min(100, +(_emaShown * 50).toFixed(1)));   // une fois pour TOUTES les vues
+  _riskData = { label, score: +(_emaShown).toFixed(2), rawScore: +score.toFixed(2), pct, description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
   _riskTs = Date.now();
   return _riskData;
 }
