@@ -445,12 +445,11 @@ html, body {
   cursor: default; transition: background 0.15s, color 0.15s; font-family: var(--font-ui);
 }
 .topbar-ai-btn:hover { background: rgba(34,197,94,0.20); }
-/* Cadenas "bientôt disponible" en coin du badge AI */
+/* Cadenas "bientôt disponible" en coin du badge AI — fond TRANSPARENT */
 .topbar-ai-lock {
-  position: absolute; top: -6px; right: -6px;
-  font-size: 9px; line-height: 1;
-  background: #1a1a1e; border: 1px solid #2c2c34; border-radius: 50%;
-  padding: 2px; filter: grayscale(0.2);
+  position: absolute; top: -7px; right: -7px;
+  font-size: 10px; line-height: 1;
+  background: transparent; border: none; padding: 0;
 }
 
 /* Toast "bientôt disponible" */
@@ -2834,7 +2833,7 @@ html, body {
   .topbar-right  { gap: 6px; }
   /* Bouton AI compact sur mobile (évite de surcharger la topbar) */
   .topbar-ai-btn { height: 30px; padding: 0 8px; font-size: 10.5px; }
-  .topbar-ai-lock { font-size: 8px; top: -5px; right: -5px; padding: 1.5px; }
+  .topbar-ai-lock { font-size: 9px; top: -6px; right: -6px; }
   /* Le bouton risk repasse en largeur auto (sinon 230px écrase le logo sur mobile) */
   .topbar-sentiment { width: auto !important; min-width: 0; flex: 0 0 auto; padding: 0 9px; height: 30px; font-size: 9px; }
   /* La bannière d'alerte prend trop de place sur mobile */
@@ -2898,6 +2897,9 @@ html, body {
   #topbar-avatar { width: 28px; height: 28px; font-size: 11px; }
   /* Cibles tactiles : garder les icônes topbar assez grandes au doigt */
   .topbar-icon { width: 34px; height: 34px; }
+  /* Logo raccourci en "DTP" → libère ~110px pour que tout (dont le bouton AI) tienne */
+  .logo-text { font-size: 0 !important; letter-spacing: 0; }
+  .logo-text::before { content: 'DTP'; font-size: 15px; font-weight: 800; letter-spacing: 0.5px; }
 
   /* Nav items plus petits */
   .nav-item { font-size: 10px; padding: 0 8px; }
