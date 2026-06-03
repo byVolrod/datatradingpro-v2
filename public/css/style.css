@@ -3543,6 +3543,11 @@ html, body {
 .br-inst-logo.ing { background: #ff6200; color: #fff; }
 .br-inst-logo.dtp { background: #ff7a00; color: #fff; }   /* marque DTP (ActionForex/FXStreet/agrégateurs) */
 .br-inst-logo--lg { font-size: 12px; padding: 4px 12px; border-radius: 4px; }
+/* Logo banque (vrai logo Clearbit) dans les cartes de la liste institution — version compacte */
+.br-inst-logo-card { display: inline-flex; align-items: center; }
+.br-inst-logo-card .br-bank-logo-wrap { display: inline-flex; align-items: center; }
+.br-inst-logo-card .br-bank-logo { height: 16px; max-width: 78px; object-fit: contain; object-position: right center; vertical-align: middle; }
+.br-inst-logo-card .br-dtp-logo { font-family: var(--font-mono); font-size: 11px; font-weight: 800; letter-spacing: 0.03em; }
 
 /* Reader */
 .br-rnav { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; background: var(--bg2); }
