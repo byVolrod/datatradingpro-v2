@@ -4196,7 +4196,7 @@ html, body {
 }
 .arlib-doc-meta {
   font-size: 11px;
-  color: #555;
+  color: #e8eaed;   /* date lisible (blanc cassé) — plus de gris sombre illisible */
   font-family: var(--font-mono);
 }
 .arlib-doc-desc {
