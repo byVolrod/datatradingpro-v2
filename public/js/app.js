@@ -2426,8 +2426,8 @@ function _renderRiskGauge(data) {
 
   // Needle: -90° = full risk-off, 0° = neutral, +90° = full risk-on
   const angle   = Math.max(-90, Math.min(90, score * 90));
-  // Même échelle que le widget METER de l'onglet Risk (× 50) → valeurs identiques
-  const gv      = Math.max(-100, Math.min(100, score * 50));
+  // pct = valeur canonique fournie par le serveur (source unique). Repli sur score×50.
+  const gv      = (typeof data.pct === 'number') ? data.pct : Math.max(-100, Math.min(100, score * 50));
   const pctAbs  = Math.abs(gv).toFixed(1);
   const pctSign = gv >= 0 ? '' : '-';
 
@@ -2509,6 +2509,10 @@ async function _loadRiskSentiment() {
     const data = await fetch('/api/risk-sentiment').then(r => r.json());
     if (data.error) return;
     _riskPopupData = data;
+    // Snapshot GLOBAL partagé : topbar, popup et jauge METER lisent tous CE même objet
+    // (+ event de mise à jour) → fini les divergences -6%/-4% entre vues.
+    window._dtpRisk = data;
+    window.dispatchEvent(new CustomEvent('dtp-risk', { detail: data }));
     _applyRiskTopbar(data);
     const overlay = document.getElementById('risk-popup-overlay');
     if (overlay && !overlay.classList.contains('hidden')) _renderRiskPopup(data);
@@ -4779,7 +4783,14 @@ function _npSyncUI() {
 
   // Chime select
   const sel = _npEl('np-chime-select');
-  if (sel) sel.value = _npChime;
+  if (sel) {
+    sel.value = _npChime;
+    // En SILENCE (Muet OU notifications OFF) : type de son verrouillé + grisé (non modifiable).
+    // NB : "Aucun son" est un choix valide, donc il ne grise PAS le select.
+    const silenced = !_npEnabled || _npVolume === 'mute';
+    sel.disabled = silenced;
+    sel.classList.toggle('np-select--locked', silenced);
+  }
 }
 
 // ── Sound engine (Web Audio API — no audio files needed) ──────
