@@ -1752,12 +1752,13 @@ async function aiSmart(category, prompt, maxTokens, opts = {}) {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
+const SW_SEG_VER  = 'v2:';   // bump → régénère la segmentation (titres de section D'ORIGINE au lieu de catégories fixes)
 
 // ── PRÉCHAUFFAGE : segmente les rapports EN AVANCE (cache persistant) → ouverture INSTANTANÉE ──
 // Le coût (Gemini) est payé en tâche de fond, jamais quand l'utilisateur ouvre un rapport.
 async function _prewarmWrapSeg(item) {
   const url = item && item.url;
-  if (!url || !url.startsWith('https://investinglive.com/') || _swSegCache.has(url)) return false;
+  if (!url || !url.startsWith('https://investinglive.com/') || _swSegCache.has(SW_SEG_VER + url)) return false;
   if (!aiAllowed('analyst')) return false;                     // respecte l'enveloppe budget Gemini
   try {
     let points = null;
@@ -1766,7 +1767,7 @@ async function _prewarmWrapSeg(item) {
     if (!points || points.length < 3) return false;
     aiNote('analyst');
     const seg = await _segmentWrapAI(points);
-    _swSegCache.set(url, seg || null);                          // mémorise même un échec (null) pour ne pas réessayer en boucle
+    _swSegCache.set(SW_SEG_VER + url, seg || null);                          // mémorise même un échec (null) pour ne pas réessayer en boucle
     if (seg) { _saveJsonMap(SW_SEG_FILE, _swSegCache); return true; }
   } catch (e) { console.warn('[SW prewarm]', e.message); }
   return false;
@@ -1776,22 +1777,24 @@ async function _prewarmWrapSegs() {
   if (_swPrewarmBusy) return;
   _swPrewarmBusy = true;
   try {
-    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(i.url)).slice(0, 3);
+    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 3);
     for (const item of todo) { if (!aiAllowed('analyst')) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
   } finally { _swPrewarmBusy = false; }
 }
 
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
 async function _segmentWrapAI(points) {
-  const prompt = `Tu es analyste de marché. Voici des titres de news financières issus d'un récap de session de marché, en vrac.
-Regroupe-les en rubriques thématiques claires. Rubriques autorisées (n'utilise que celles pertinentes) :
-GEOPOLITICS, CENTRAL BANKS, ECONOMIC DATA, FX, COMMODITIES, EQUITIES, FIXED INCOME, CRYPTO, CHINA & ASIA, LOOKING AHEAD, OTHER.
+  const prompt = `Voici, DANS L'ORDRE, les éléments d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
+Reconstruis la structure D'ORIGINE du rapport (façon Prime Terminal) :
+- Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", "NOTABLE EUROPEAN DATA RECAP", etc.).
+- Regroupe chaque puce SOUS son en-tête D'ORIGINE, dans l'ordre du texte.
 Règles STRICTES :
-- Garde chaque titre EXACTEMENT tel quel (ne reformule pas, ne traduis pas).
-- Ignore les titres promotionnels ou hors-sujet (ex: "Is Palantir a Buy?", "...analysis today at investingLive.com").
-- Ordonne les rubriques de la plus importante à la moins importante.
-Réponds UNIQUEMENT en JSON valide : [{"section":"NOM_RUBRIQUE","items":["titre 1","titre 2"]}]
-Titres :
+- Utilise les titres de section EXACTEMENT tels qu'ils apparaissent (NE les remplace PAS par des catégories génériques type "GEOPOLITICS/EQUITIES", ne traduis pas, ne reformule pas).
+- Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce).
+- Garde chaque puce EXACTEMENT telle quelle.
+- Ignore les éléments promotionnels/hors-sujet ("...at investingLive.com", etc.).
+Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE D'ORIGINE","items":["puce 1","puce 2"]}]
+Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
   const text = await ai.generateText(prompt, 2500);
   const m = text.match(/\[[\s\S]*\]/);
@@ -1829,8 +1832,12 @@ function _extractWrapPoints(html) {
   try {
     const $ = cheerio.load(html);
     const pts = [];
-    $('li, p').each((_, el) => {
+    $('h1, h2, h3, h4, strong, b, li, p').each((_, el) => {
       const t = $(el).text().replace(/\s+/g, ' ').trim();
+      // En-tête de section = ligne COURTE entièrement en MAJUSCULES (ex: FX, COMMODITIES, IRAN CONFLICT,
+      // EUROPEAN TRADE: EQUITIES, TRADE/TARIFFS…) → on la capte même < 12 car pour préserver la structure d'origine.
+      const isHeader = t.length >= 2 && t.length <= 52 && t === t.toUpperCase() && /[A-Z]/.test(t) && /^[A-Z0-9][A-Z0-9 &:/'.\-]+$/.test(t);
+      if (isHeader) { pts.push(t); return; }
       if (t.length >= 12 && t.length <= 240) pts.push(t);
     });
     return [...new Set(pts)];   // dédupe en gardant l'ordre
@@ -1861,11 +1868,11 @@ app.get('/api/session-wrap-content', async (req, res) => {
   // ── 1.5 Segmentation thématique IA (rubriques, style rapport DTP), persistée ──
   //  Budget Gemini : compte dans l'enveloppe "analyst" (semaine 50%, week-end OFF).
   if (points && points.length >= 3) {
-    let seg = _swSegCache.get(url);
+    let seg = _swSegCache.get(SW_SEG_VER + url);
     if (seg === undefined && aiAllowed('analyst')) {
       try { aiNote('analyst'); seg = await _segmentWrapAI(points); }
       catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
-      _swSegCache.set(url, seg || null);
+      _swSegCache.set(SW_SEG_VER + url, seg || null);
       if (seg) _saveJsonMap(SW_SEG_FILE, _swSegCache);   // persiste les succès
     }
     if (seg) {
