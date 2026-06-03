@@ -624,7 +624,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .panel {
   display: flex;
   flex-direction: column;
-  border: 1px solid rgba(247,148,29,0.22);   /* contour orange subtil sur chaque bloc */
+  border: 1px solid rgba(255,255,255,0.06);   /* contour neutre discret (plus d'orange) */
   overflow: hidden;
   position: relative;
 }
@@ -7667,42 +7667,55 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-typing-dots i:nth-child(3) { animation-delay:.4s; }
 @keyframes chatDot { 0%,60%,100% { opacity:.3; transform:translateY(0); } 30% { opacity:1; transform:translateY(-3px); } }
 
-/* ── Bulle + actions (réactions / modération admin) ── */
+/* ── Bulle + menu ⋯ + barre de réactions ── */
 .chat-bubble-wrap { display:flex; flex-direction:column; max-width:84%; min-width:0; }
 .chat-row--me   .chat-bubble-wrap { align-items:flex-end; }
 .chat-row--them .chat-bubble-wrap { align-items:flex-start; }
 .chat-bubble-wrap .chat-bubble { max-width:100%; }
-/* Actions SOUS la bulle (discret, apparaît au survol du message) — aligné côté bulle */
-.chat-actions { display:flex; align-items:center; gap:2px; opacity:0; transition:opacity .14s; margin-top:3px; }
-.chat-row:hover .chat-actions { opacity:1; }
-.chat-react-picker { display:flex; gap:0; }
-.chat-react-picker button, .chat-act { background:none; border:none; cursor:pointer; line-height:1; padding:2px 4px; border-radius:6px; transition:background .12s, transform .12s, opacity .12s; }
-.chat-react-picker button { font-size:13px; opacity:.55; }   /* discret au repos */
-.chat-react-picker button:hover { background:rgba(255,255,255,.08); transform:scale(1.18); opacity:1; }
-.chat-act { font-size:12px; color:#8a93a3; opacity:.7; }
-.chat-act:hover { background:rgba(255,255,255,.08); color:#e2e8f0; opacity:1; }
-.chat-act--del:hover { color:#ef4444; background:rgba(239,68,68,.12); }
-/* Confirmation de suppression INLINE (remplace la fenêtre native du navigateur) */
-.chat-del-confirm { display:flex; align-items:center; gap:7px; margin-top:4px; font-size:11px; color:#9aa4b2; background:#15171d; border:1px solid #262b36; border-radius:8px; padding:4px 4px 4px 10px; animation:chatTypingIn .15s ease; }
-.chat-del-confirm button { border:none; border-radius:6px; padding:3px 10px; font-size:11px; font-weight:600; cursor:pointer; font-family:var(--font-ui); }
+.chat-bubble-row { display:flex; align-items:center; gap:4px; max-width:100%; min-width:0; }
+.chat-row--me .chat-bubble-row { flex-direction:row-reverse; }   /* ⋯ à gauche de MA bulle */
+
+/* Menu ⋯ (modifier / supprimer) — séparé des réactions */
+.chat-msg-menu { position:relative; flex-shrink:0; }
+.chat-menu-btn { background:none; border:none; cursor:pointer; color:#7a8493; font-size:17px; line-height:1; padding:2px 5px; border-radius:6px; opacity:0; transition:opacity .14s, background .12s, color .12s; }
+.chat-row:hover .chat-menu-btn { opacity:.8; }
+.chat-menu-btn:hover { opacity:1; color:#e8eaed; background:rgba(255,255,255,.08); }
+.chat-menu-pop { position:absolute; top:100%; margin-top:3px; z-index:20; display:none; min-width:130px; background:#1a1c22; border:1px solid #2a2f3a; border-radius:9px; padding:4px; box-shadow:0 10px 30px rgba(0,0,0,.55); }
+.chat-row--them .chat-menu-pop { left:0; }
+.chat-row--me   .chat-menu-pop { right:0; }
+.chat-menu-pop.open { display:block; animation:chatTypingIn .14s ease; }
+.chat-menu-pop button { display:flex; align-items:center; gap:8px; width:100%; background:none; border:none; cursor:pointer; color:#cdd3dc; font-size:12.5px; font-family:var(--font-ui); text-align:left; padding:7px 10px; border-radius:6px; white-space:nowrap; }
+.chat-menu-pop button:hover { background:rgba(255,255,255,.06); color:#fff; }
+.chat-menu-pop .chat-menu-del:hover { background:rgba(239,68,68,.14); color:#ef4444; }
+
+/* Barre de réactions au-dessus du "Lu" : posées = toujours visibles ; vides = au survol (discret) */
+.chat-react-bar { display:flex; gap:3px; margin-top:3px; }
+.chat-react { background:none; border:1px solid transparent; border-radius:13px; cursor:pointer; font-size:13px; line-height:1.25; padding:1px 6px; display:inline-flex; align-items:center; gap:3px; opacity:0; transition:opacity .14s, background .12s, border-color .12s, transform .12s; }
+.chat-row:hover .chat-react { opacity:.55; }                 /* survol : on voit les 3 choix */
+.chat-react:hover { opacity:1; background:rgba(255,255,255,.07); transform:scale(1.08); }
+.chat-react.has { opacity:1; background:#15171d; border-color:#262b36; }   /* déjà posée → visible en permanence */
+.chat-react.mine { opacity:1; background:rgba(247,148,29,.15); border-color:rgba(247,148,29,.5); }
+.chat-react-n { font-size:11px; font-weight:700; color:#cdd3dc; font-family:var(--font-mono); }
+.chat-react.mine .chat-react-n { color:#f7941d; }
+
+/* Confirmation de suppression INLINE — juste les options, compacte (sans phrase) */
+.chat-del-confirm { display:flex; align-items:center; gap:6px; margin-top:4px; animation:chatTypingIn .15s ease; }
+.chat-del-confirm button { border:none; border-radius:7px; padding:4px 13px; font-size:11px; font-weight:600; cursor:pointer; font-family:var(--font-ui); }
 .chat-del-yes { background:rgba(239,68,68,.16); color:#ef4444; }
-.chat-del-yes:hover { background:rgba(239,68,68,.28); }
-.chat-del-no { background:#1a1c22; color:#9aa4b2; }
+.chat-del-yes:hover { background:rgba(239,68,68,.3); }
+.chat-del-no { background:#1a1c22; color:#9aa4b2; border:1px solid #262b36; }
 .chat-del-no:hover { color:#e8eaed; }
-/* Édition INLINE d'un message (remplace prompt() natif) */
-.chat-edit-box { margin-top:6px; width:100%; }
-.chat-edit-input { width:100%; min-width:170px; min-height:38px; resize:vertical; background:#0d0f13; border:1px solid #2a2f3a; border-radius:7px; padding:6px 9px; color:#e2e8f0; font-size:13px; font-family:var(--font-ui); outline:none; box-sizing:border-box; }
-.chat-edit-input:focus { border-color:rgba(247,148,29,.5); }
-.chat-edit-btns { display:flex; gap:6px; margin-top:5px; }
-.chat-edit-btns button { border:none; border-radius:6px; padding:4px 11px; font-size:11px; font-weight:600; cursor:pointer; font-family:var(--font-ui); }
+
+/* Édition INLINE — responsive et épurée */
+.chat-edit-box { margin-top:6px; width:100%; max-width:min(340px, 78vw); }
+.chat-edit-input { width:100%; min-height:40px; resize:vertical; background:#0d0f13; border:1px solid #2a2f3a; border-radius:9px; padding:8px 11px; color:#e8eaed; font-size:13px; line-height:1.45; font-family:var(--font-ui); outline:none; box-sizing:border-box; }
+.chat-edit-input:focus { border-color:rgba(247,148,29,.55); }
+.chat-edit-btns { display:flex; gap:7px; margin-top:6px; }
+.chat-edit-btns button { border:none; border-radius:7px; padding:6px 14px; font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font-ui); transition:background .12s, color .12s; }
 .chat-edit-save { background:#f7941d; color:#0a0a0c; }
 .chat-edit-save:hover { background:#ffa733; }
 .chat-edit-cancel { background:#1a1c22; color:#9aa4b2; }
 .chat-edit-cancel:hover { color:#e8eaed; }
-.chat-reactions { display:flex; gap:4px; margin-top:3px; flex-wrap:wrap; }
-.chat-reaction { background:#15171d; border:1px solid #262b36; border-radius:12px; padding:1px 8px; font-size:11px; color:#cdd3dc; cursor:pointer; line-height:1.6; transition:border-color .12s, background .12s; }
-.chat-reaction:hover { border-color:#3a4150; }
-.chat-reaction--mine { background:rgba(247,148,29,.14); border-color:rgba(247,148,29,.5); color:#f7941d; }
 
 /* ── Aperçu d'images avant envoi (jusqu'à 5, alignées, croix pour retirer) ── */
 .chat-pending { display:none; flex-shrink:0; padding:9px 12px; border-top:1px solid #1c1c20; background:#0c0e12; }
