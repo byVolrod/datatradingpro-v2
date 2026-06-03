@@ -4458,9 +4458,9 @@ html, body {
 .risk-gauge-stage { position: relative; flex: 1; min-height: 0; width: 100%; }
 #risk-gauge-div { position: absolute; inset: 0; }
 .risk-readout {
-  position: absolute; left: 50%; bottom: 7%;
+  position: absolute; left: 50%; bottom: 5%;
   transform: translateX(-50%);
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  display: flex; flex-direction: column; align-items: center; gap: 15px;   /* score / badge bien espacés */
   text-align: center; pointer-events: none; z-index: 5;
 }
 .risk-readout-score {
