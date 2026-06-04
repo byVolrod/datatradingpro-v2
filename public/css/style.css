@@ -2718,7 +2718,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbs-badge--na { background: #2a2a30; color: #6b7280; }   /* pas de donnée récente → tiret discret (jamais inventé) */
 .sbs-children { background: #060608; }
 .sbs-child-note { padding: 8px 14px 8px 38px; font-size: 11px; color: #71717a; font-style: italic; }
-.sbs-narr { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-bottom: 14px; }
+.sbs-narr-title { font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 10px; }
+.sbs-narr { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-bottom: 14px; white-space: pre-wrap; }
 .sbs-narr b { color: #fff; }
 .sbs-risk-title { font-size: 11px; font-weight: 700; color: #f7941d; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 8px; }
 .sbs-risk-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(18,18,20,.4); border: 1px solid rgba(20,20,22,.6); padding: 7px 9px; border-radius: 3px; margin-bottom: 5px; }
