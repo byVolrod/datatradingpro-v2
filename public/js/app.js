@@ -1917,7 +1917,7 @@ function buildNewsItem(item) {
   arrowEl = document.createElement('div');
   arrowEl.className = 'news-arrow-col';
   if (expandEl) {
-    arrowEl.textContent = '∨';
+    arrowEl.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     const _togglePanel = e => { e.stopPropagation(); openPanel(hasInfo ? 'info' : hasNotes ? 'analysis' : 'reaction'); };
     arrowEl.onclick = _togglePanel;
     // Clic sur le TITRE de la news → déroule aussi (description / analyse / réaction)
@@ -1936,11 +1936,11 @@ function buildNewsItem(item) {
       activeTab = null;
       if (item && item.id != null) delete _openNewsPanels[item.id];   // fermé par l'utilisateur → on n'y revient plus
       [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
-      if (arrowEl) arrowEl.textContent = '∨';
+      if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
       return;
     }
 
-    if (arrowEl) arrowEl.textContent = '^';
+    if (arrowEl) arrowEl.classList.add('news-arrow-col--open');
     activeTab = tab;
     if (item && item.id != null) _openNewsPanels[item.id] = tab;       // ouvert par l'utilisateur → reste ouvert (persiste)
     // État actif des pills (Info/Analyse/Réaction) — un seul actif à la fois
@@ -2047,7 +2047,7 @@ function buildNewsItem(item) {
               openPanel('info');  // switch to Info panel
             } else {
               expandEl.classList.remove('visible');
-              if (arrowEl) arrowEl.textContent = '∨';
+              if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
             }
             return;
           } else {
@@ -2101,7 +2101,7 @@ function buildNewsItem(item) {
             openPanel('info');
           } else {
             expandEl.classList.remove('visible');
-            if (arrowEl) arrowEl.textContent = '∨';
+            if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
           }
         });
       return;
@@ -2133,7 +2133,7 @@ function buildNewsItem(item) {
             if (infoTagEl) { infoTagEl.remove(); infoTagEl = null; }
             activeTab = null;
             expandEl.classList.remove('visible');
-            if (arrowEl) arrowEl.textContent = '∨';
+            if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
           }
         })
         .catch(() => {
@@ -2141,7 +2141,7 @@ function buildNewsItem(item) {
           // Network error — close panel silently, keep the tag
           activeTab = null;
           expandEl.classList.remove('visible');
-          if (arrowEl) arrowEl.textContent = '∨';
+          if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
         });
       return;
     }
@@ -2288,7 +2288,7 @@ function buildNewsItem(item) {
             expandEl = document.createElement('div');
             expandEl.className = 'news-description';
             content.appendChild(expandEl);
-            arrowEl.textContent = '∨';
+            arrowEl.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
             arrowEl.onclick = e => { e.stopPropagation(); openPanel('reaction'); };
           }
           reactionTagEl = document.createElement('span');

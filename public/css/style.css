@@ -1069,6 +1069,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   transition: color 0.15s;
 }
 .news-arrow-col:hover { color: rgba(255,255,255,0.65); }
+/* Chevron UNIQUE (même icône pour toutes les news, importantes ou non) qui pivote à l'ouverture
+   — fini le mélange ∨ (arrondi) / ^ (pointu). Couleur via currentColor → identique partout. */
+.news-arrow-col svg { display: block; margin: 0 auto; transition: transform .16s ease; }
+.news-arrow-col--open svg { transform: rotate(180deg); }
 
 /* ── Content col ── */
 .news-content { flex: 1; min-width: 0; }
