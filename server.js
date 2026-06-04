@@ -1823,7 +1823,8 @@ async function _prewarmWrapSegs() {
   if (_swPrewarmBusy) return;
   _swPrewarmBusy = true;
   try {
-    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 3);
+    // Couvre tout le backlog (jusqu'à 12/cycle) → tous les wraps structurés proactivement, pas seulement à l'ouverture.
+    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 12);
     for (const item of todo) { if (!aiAllowed('analyst')) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
   } finally { _swPrewarmBusy = false; }
 }
@@ -1836,10 +1837,10 @@ async function _prewarmBrSegs() {
   if (_brPrewarmBusy) return;
   _brPrewarmBusy = true;
   try {
-    const dayCut = Date.now() - 36 * 60 * 60 * 1000;   // ~aujourd'hui + la veille
+    const dayCut = Date.now() - 4 * 24 * 60 * 60 * 1000;   // ~4 derniers jours → couvre tout le DailyFX récent de l'onglet
     const todo = (_brCache || [])
       .filter(i => i.url && _BR_CONTENT_HOSTS.test(i.url) && (i.timestamp || 0) > dayCut && !_brSegCache.has(BR_SEG_VER + i.url))
-      .slice(0, 4);
+      .slice(0, 10);
     for (const item of todo) {
       if (!aiAllowed('analyst')) break;
       try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 30000 }); }
