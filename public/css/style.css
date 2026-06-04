@@ -7837,8 +7837,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .react-ic { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; flex-shrink:0; }
 .react-ic svg { width:10px; height:10px; display:block; }
 .react-ic svg path { fill:#fff; }
-.react-ic--like { background:#378fe9; }
-.react-ic--love { background:#e0484d; }
+.react-ic--like { background:#f7941d; }   /* orange signature DTP (au lieu du bleu LinkedIn) — coherence charte */
+.react-ic--love { background:#ef4444; }   /* rouge du site */
+.chat-retry-btn { background:none; border:none; color:#f7941d; cursor:pointer; font:inherit; text-decoration:underline; padding:0; }
 .chat-reaction-pill { gap:4px; }   /* badge + compteur bien espacés */
 
 /* Confirmation de suppression INLINE — juste les options, compacte (sans phrase) */

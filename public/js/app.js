@@ -5362,14 +5362,19 @@ async function _chatLiveTick(){
         _chatPollUnread();   // garde le badge à jour (autres conversations non lues)
       } else {
         // Inbox : on rafraîchit conversations + liste utilisateurs (statut en ligne) en parallèle.
-        const [d1, d2] = await Promise.all([
-          (await fetch('/api/admin/chat')).json().catch(()=>({ threads: [] })),
-          (await fetch('/api/support/users')).json().catch(()=>({ users: [] })),
+        const [threads, users] = await Promise.all([
+          (await fetch('/api/admin/chat')).json().then(d => Array.isArray(d.threads) ? d.threads : null).catch(()=>null),
+          (await fetch('/api/support/users')).json().then(d => Array.isArray(d.users) ? d.users : null).catch(()=>null),
         ]);
-        _chatInboxData = { threads: d1.threads || [], users: d2.users || [] };
-        _chatInboxCache = _chatInboxData;
-        _chatSetBadge((_chatInboxData.threads||[]).filter(t=>(t.unread||0)>0).length);
-        _chatRenderInbox();
+        if (threads !== null || users !== null) {        // refresh TOLÉRANT : jamais d'écrasement par du vide
+          _chatInboxData = {
+            threads: threads !== null ? threads : (_chatInboxData.threads || []),
+            users:   users   !== null ? users   : (_chatInboxData.users   || []),
+          };
+          _chatInboxCache = _chatInboxData;
+          _chatSetBadge((_chatInboxData.threads||[]).filter(t=>(t.unread||0)>0).length);
+          _chatRenderInbox();
+        }
       }
     } else {
       const d = await (await fetch('/api/chat')).json();
@@ -5401,11 +5406,21 @@ function _chatInbox(){
   const list = document.getElementById('chat-list');
   if (_chatInboxCache){ _chatInboxData = _chatInboxCache; _chatRenderInbox(); }
   else if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…') : '<div class="chat-empty">Chargement…</div>');
+  // Chargement TOLÉRANT aux pannes : on ne remplace JAMAIS la liste par du vide sur une erreur
+  // réseau / 500 / auth (cold-start Render, latence Supabase…). On garde la dernière liste connue.
+  // → fini le faux bug « Aucun utilisateur » dû à un simple hoquet de chargement.
   Promise.all([
-    fetch('/api/admin/chat').then(r=>r.json()).catch(()=>({ threads: [] })),
-    fetch('/api/support/users').then(r=>r.json()).catch(()=>({ users: [] })),
-  ]).then(([d1, d2])=>{
-    _chatInboxData = { threads: d1.threads || [], users: d2.users || [] };
+    fetch('/api/admin/chat').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => Array.isArray(d.threads) ? d.threads : null).catch(() => null),
+    fetch('/api/support/users').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => Array.isArray(d.users) ? d.users : null).catch(() => null),
+  ]).then(([threads, users])=>{
+    if (threads === null && users === null) {            // les DEUX ont échoué → on NE blanchit pas
+      if (!_chatInboxCache && list) list.innerHTML = `<div class="chat-empty">Chargement impossible — <button type="button" class="chat-retry-btn" onclick="_chatInbox()">réessayer</button></div>`;
+      return;
+    }
+    _chatInboxData = {
+      threads: threads !== null ? threads : (_chatInboxData.threads || []),   // garde l'ancien si échec partiel
+      users:   users   !== null ? users   : (_chatInboxData.users   || []),
+    };
     _chatInboxCache = _chatInboxData;
     _chatSetBadge((_chatInboxData.threads || []).filter(t => (t.unread || 0) > 0).length);
     _chatRenderInbox();
@@ -5439,7 +5454,7 @@ function _chatRenderInbox(){
   }); });
   const q = _chatInboxQuery;
   const filtered = q ? entries.filter(e => (e.name + ' ' + e.email).toLowerCase().includes(q)) : entries;
-  if (!filtered.length){ list.innerHTML = `<div class="chat-empty">${q ? 'Aucun utilisateur trouvé.' : 'Aucun utilisateur.'}</div>`; return; }
+  if (!filtered.length){ list.innerHTML = `<div class="chat-empty">${q ? 'Aucun utilisateur trouvé.' : 'Aucun client pour le moment.'}</div>`; return; }
   let html = '';
   filtered.forEach(e => {
     let last = e.last;
