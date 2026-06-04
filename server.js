@@ -1722,7 +1722,7 @@ function aiAllowed(category, opts = {}) {
   if (_aiIsWeekend()) {
     // Week-end (marchés fermés) : news OFF, mais on PRIORISE le contenu premium
     // (Analyst + AI Insights, Institution, Bias) → toujours frais à l'ouverture.
-    if (category === 'news')    return false;
+    if (category === 'news')    return !!opts.important && share(0.40);   // WE : news IMPORTANTES aussi (géopolitique, etc.)
     if (category === 'analyst') return share(0.55);   // Analyst + AI Insights
     if (category === 'bank')    return share(0.45);   // Institution (ING)
     if (category === 'bias')    return share(0.35);
@@ -1732,7 +1732,7 @@ function aiAllowed(category, opts = {}) {
   // activé en semaine grâce aux 3 clés). News importantes et Bias gardent une part plus modeste.
   if (category === 'analyst') return share(0.60);                       // Analyst + AI Insights (rapports + report-insights)
   if (category === 'bank')    return share(0.40);                       // Institution (ING) — ON en semaine
-  if (category === 'news')    return !!opts.important && share(0.40);   // news IMPORTANTES uniquement
+  if (category === 'news')    return !!opts.important && share(0.55);   // news IMPORTANTES — PRIORISÉES (au niveau des onglets premium)
   if (category === 'bias')    return share(0.15);
   return false;
 }
