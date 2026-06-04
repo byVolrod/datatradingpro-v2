@@ -60,9 +60,12 @@ let _gmailTransport = null;
 function _getGmailTransport() {
   if (_gmailTransport) return _gmailTransport;
   const nodemailer = require('nodemailer');
+  // ⚠️ Render free-tier : le port 465 (SSL implicite) TIME-OUT → on utilise le 587 (STARTTLS),
+  // généralement ouvert là où le 465 est filtré. Variable GMAIL_SMTP_PORT pour override si besoin.
+  const port = parseInt(process.env.GMAIL_SMTP_PORT || '587', 10);
   _gmailTransport = nodemailer.createTransport({
-    host: 'smtp.gmail.com', port: 465, secure: true,
-    family: 4, lookup: _ipv4Lookup,   // ⚠️ FORCE IPv4 (DNS) : Render n'a pas d'IPv6 → sans ça, ENETUNREACH → Gmail KO → repli Mailjet non délivré.
+    host: 'smtp.gmail.com', port, secure: port === 465, requireTLS: port !== 465,
+    family: 4, lookup: _ipv4Lookup,   // ⚠️ FORCE IPv4 (DNS) : Render n'a pas d'IPv6 → sans ça, ENETUNREACH.
     pool: true, maxConnections: 3, maxMessages: 50,   // mutualise les connexions → meilleur débit
     auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
     connectionTimeout: 12000, greetingTimeout: 9000, socketTimeout: 15000,   // échec rapide → repli propre si souci
