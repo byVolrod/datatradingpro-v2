@@ -7790,10 +7790,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   pointer-events: none;
 }
 /* Couleurs sémantiques de la barre active */
+/* Trait VERT pour les 4 icônes de volet (AI, Squawk, Notif, Messages) — uniforme */
 #chat-btn.topbar-icon--active::after,
-#np-bell-btn.np-bell--active::after { background: #f4f4f5; box-shadow: 0 0 6px rgba(244,244,245,0.45); }   /* blanc */
-#ai-btn.topbar-icon--active::after  { background: #00e676; box-shadow: 0 0 7px rgba(0,230,118,0.6); }      /* AI vert */
-#sqwk-btn.topbar-icon--active::after { background: #22c55e; box-shadow: 0 0 7px rgba(34,197,94,0.55); }       /* Squawk : trait VERT */
+#np-bell-btn.np-bell--active::after,
+#ai-btn.topbar-icon--active::after,
+#sqwk-btn.topbar-icon--active::after { background: #22c55e; box-shadow: 0 0 7px rgba(34,197,94,0.55); }
 @media (max-width: 480px) { .sqwk-panel { width: 100%; max-width: 100%; } }
 .sqwk-audio { background: none; border: none; font-size: 15px; cursor: pointer; padding: 0 2px; line-height: 1; opacity: 0.9; }
 .sqwk-audio--off { opacity: 0.4; filter: grayscale(1); }

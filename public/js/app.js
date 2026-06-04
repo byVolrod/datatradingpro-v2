@@ -3341,7 +3341,6 @@ function renderBiasView(d) {
   }</tr>`;
 
   host.innerHTML = `
-    <div class="sbm-title-row"><span class="sbm-title">Smart Bias Tracker</span></div>
     <div class="sbm-grid-wrap">
       <table class="sbm-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
     </div>
