@@ -464,8 +464,8 @@ html, body {
 .topbar-icon:hover svg { filter: drop-shadow(0 0 2px rgba(255,255,255,0.28)); }
 .topbar-icon svg { width: 18px; height: 18px; transition: filter .2s ease-out; }   /* + grandes → plus lisibles */
 .topbar-icon--ai svg { width: 21px; height: 21px; }
-.topbar-icon--ai:hover { transform: scale(1.04); }                                 /* AI : effet subtil et net */
-.topbar-icon--ai:hover svg { filter: drop-shadow(0 0 2px rgba(0,218,80,0.35)); }
+.topbar-icon--ai:hover { transform: scale(1.02); }                                 /* AI : effet subtil et net */
+.topbar-icon--ai:hover svg { filter: drop-shadow(0 0 1px rgba(0,218,80,0.18)); }
 .topbar-icon--sqwk:hover svg { filter: drop-shadow(0 0 2px rgba(239,68,68,0.3)); }
 
 /* Bouton AI (style Prime Terminal — pastille "AI" verte) */
@@ -969,11 +969,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-item--urgent:hover .news-time { color: #e2e8f0; }
 .news-item--urgent:hover .news-category-text { color: #e2e8f0; }
 /* Icône d'alerte rouge "!" à l'extrême gauche de la ligne urgente */
-.news-item--urgent .news-alert-icon {
-  background: rgba(218,41,43,0.28);
-  color: #f87171;
-  border-color: rgba(218,41,43,0.55);
-}
+.news-item--urgent .news-alert-icon { background: none; border: none; }
 
 /* Breaking / High Impact — palette Prime Terminal (bordeaux subtil) */
 .news-item--breaking {
@@ -994,11 +990,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-item--breaking:hover .news-time { color: #e2e8f0; }
 .news-item--breaking:hover .news-category-text { color: #e2e8f0; }
 .news-item--breaking:hover .article-points--clean li { color: #d8c3c5; }   /* puces un peu plus claires au survol */
-.news-item--breaking .news-alert-icon {
-  background: rgba(218,41,43,0.30);
-  color: #da292b;
-  border-color: rgba(218,41,43,0.55);
-}
+.news-item--breaking .news-alert-icon { background: none; border: none; }
 
 @keyframes breaking-pulse {
   0%   { background: #3a1a1c; box-shadow: inset 0 0 0 1px rgba(218,41,43,0.45); }
@@ -1024,18 +1016,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-alert-icon {
   width: 16px;
   height: 16px;
-  border-radius: 50%;
-  background: rgba(220,38,38,0.2);
-  border: 1.5px solid #e74c3c;
-  color: #f87171;
-  font-size: 9px;
-  font-weight: 800;
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   line-height: 1;
 }
+.news-alert-icon svg { width: 12px; height: 12px; display: block; }
 
 /* ── Time col ── */
 .news-time {
@@ -1105,6 +1092,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   margin-bottom: 2px;
   line-height: 1.65;
   display: none;
+  cursor: text;                    /* texte SÉLECTIONNABLE (curseur I-beam), pas un curseur main */
+  user-select: text;
 }
 .news-description.visible {
   display: block;
@@ -1115,6 +1104,18 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   padding: 11px 14px 11px var(--news-desc-bleed);           /* texte ré-aligné sous le titre */
   border-radius: 0;
   border: none;
+}
+/* News urgente/breaking dépliée : la boîte grise couvre proprement TOUTE la zone sous
+   le titre — fini le fond bordeaux qui débordait à gauche et juste en dessous */
+.news-item--urgent .news-description.visible,
+.news-item--breaking .news-description.visible {
+  margin-left: calc((var(--news-desc-bleed) + 6px) * -1);   /* +6px de marge de sécurité à gauche */
+  padding-left: calc(var(--news-desc-bleed) + 6px);         /* texte ré-aligné (inchangé) */
+  margin-bottom: -11px;                                     /* le gris descend jusqu'à la bordure basse */
+}
+.news-item--urgent:has(.news-description.visible),
+.news-item--breaking:has(.news-description.visible) {
+  border-bottom-color: rgba(255,255,255,0.05);              /* plus de liseré rougeâtre sous une news dépliée */
 }
 .news-headline--clickable { cursor: pointer; }
 .news-headline--clickable:hover { text-decoration: none; }   /* pas de soulignement au survol */
@@ -4688,11 +4689,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .risk-ticker-txt { flex: 1; min-width: 0; }
 .risk-ticker strong { font-weight: 700; letter-spacing: 0.02em; }
 /* Fonds Prime Terminal : color-mix(in oklab, <couleur> 10%, transparent) — fallback rgba d'abord */
-.risk-ticker.risk-off { background: rgba(239,68,68,0.20); background: color-mix(in oklab, #ef4444 20%, transparent); border: 1px solid rgba(239,68,68,0.42); border-color: color-mix(in oklab, #ef4444 42%, transparent); color: #e8978d; }
+.risk-ticker.risk-off { background: rgba(239,68,68,0.11); background: color-mix(in oklab, #ef4444 11%, transparent); border: 1px solid rgba(239,68,68,0.24); border-color: color-mix(in oklab, #ef4444 24%, transparent); color: #d99a92; }
 .risk-ticker.risk-off strong { color: #ef4444; }  .risk-ticker.risk-off .risk-ticker-dot { background: #ef4444; }
-.risk-ticker.risk-on  { background: rgba(34,197,94,0.10); background: color-mix(in oklab, #22c55e 10%, transparent); border: 1px solid rgba(34,197,94,0.22); border-color: color-mix(in oklab, #22c55e 24%, transparent); color: #84c69d; }
+.risk-ticker.risk-on  { background: rgba(34,197,94,0.08); background: color-mix(in oklab, #22c55e 8%, transparent); border: 1px solid rgba(34,197,94,0.18); border-color: color-mix(in oklab, #22c55e 18%, transparent); color: #84c69d; }
 .risk-ticker.risk-on strong { color: #22c55e; }  .risk-ticker.risk-on .risk-ticker-dot { background: #22c55e; }
-.risk-ticker.neutral  { background: rgba(249,115,22,0.10); background: color-mix(in oklab, #f97316 10%, transparent); border: 1px solid rgba(249,115,22,0.24); border-color: color-mix(in oklab, #f97316 28%, transparent); color: #dd9a64; }
+.risk-ticker.neutral  { background: rgba(249,115,22,0.08); background: color-mix(in oklab, #f97316 8%, transparent); border: 1px solid rgba(249,115,22,0.18); border-color: color-mix(in oklab, #f97316 18%, transparent); color: #dd9a64; }
 .risk-ticker.neutral strong { color: #f97316; }  .risk-ticker.neutral .risk-ticker-dot { background: #f97316; }
 
 /* Jauge Risk — lecture (score + badge) CENTRÉE sous l'arc */
@@ -5553,7 +5554,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Divider de jour : bande sombre OPAQUE (couvre les lignes au scroll), texte gris discret */
 .cal-day-sep td {
   background: #15161a;
-  color: #9aa0a6;
+  color: #f1f5f9;
   font-size: 11px;
   font-weight: 700;
   font-family: var(--font-ui);
