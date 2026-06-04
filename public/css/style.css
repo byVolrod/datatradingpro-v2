@@ -7850,7 +7850,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* Barre de réactions au-dessus du "Lu" : posées = toujours visibles ; vides = au survol (discret) */
 /* Sélecteur flottant — SOUS la bulle, apparaît au survol de toute la ligne (stable, on a le temps de viser) */
-.chat-react-picker { position:absolute; top:calc(100% + 3px); z-index:6; display:flex; gap:1px; background:#15171d; border:1px solid #2a2f3a; border-radius:14px; padding:2px 4px; box-shadow:0 6px 18px rgba(0,0,0,.5); opacity:0; pointer-events:none; transform:translateY(-4px); transition:opacity .16s ease, transform .16s ease; transition-delay:.04s; }
+/* Picker AU-DESSUS de la bulle (et non dessous) → ne chevauche plus les pastilles de réaction posées sous la bulle (fini l'empilement au survol). */
+.chat-react-picker { position:absolute; bottom:calc(100% + 3px); top:auto; z-index:6; display:flex; gap:1px; background:#15171d; border:1px solid #2a2f3a; border-radius:14px; padding:2px 4px; box-shadow:0 6px 18px rgba(0,0,0,.5); opacity:0; pointer-events:none; transform:translateY(4px); transition:opacity .16s ease, transform .16s ease; transition-delay:.04s; }
 .chat-row--them .chat-react-picker { left:6px; }
 .chat-row--me   .chat-react-picker { right:6px; }
 .chat-row:hover .chat-react-picker, .chat-react-picker:hover { opacity:1; pointer-events:auto; transform:translateY(0); transition-delay:0s; }
@@ -7866,11 +7867,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-reaction-pill .n { font-size:11px; font-weight:700; color:#cdd3dc; font-family:var(--font-mono); }
 .chat-reaction-pill.mine .n { color:#f7941d; }
 /* Icônes de réaction façon LinkedIn : badge rond plat + glyphe blanc (bleu J'aime, rouge Cœur) */
-.react-ic { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; flex-shrink:0; }
-.react-ic svg { width:10px; height:10px; display:block; }
-.react-ic svg path { fill:#fff; }
-.react-ic--like { background:#f7941d; }   /* orange signature DTP (au lieu du bleu LinkedIn) — coherence charte */
-.react-ic--love { background:#ef4444; }   /* rouge du site */
+.react-ic { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; flex-shrink:0; }
+.react-ic svg { width:14px; height:14px; display:block; }
+/* Icônes PLATES colorées — plus de disque/cercle autour de la réaction */
+.react-ic--like svg path { fill:#f7941d; }   /* pouce orange signature DTP */
+.react-ic--love svg path { fill:#ef4444; }   /* coeur rouge du site */
 .chat-retry-btn { background:none; border:none; color:#f7941d; cursor:pointer; font:inherit; text-decoration:underline; padding:0; }
 .chat-reaction-pill { gap:4px; }   /* badge + compteur bien espacés */
 
