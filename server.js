@@ -1871,7 +1871,8 @@ ${points.map(p => '- ' + p).join('\n')}`;
     if (!sec || !sec.section || !Array.isArray(sec.items) || !sec.items.length) continue;
     html += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
   }
-  return html.length > 50 ? html : null;
+  if (html.length > 50) { console.log(`[SW seg] OK -> ${arr.length} sections (wrap structure par IA)`); return html; }
+  return null;
 }
 
 // Structure un ARTICLE de recherche EN PROSE (ex: ING THINK "FX Daily") en rubriques claires
@@ -1901,7 +1902,8 @@ ${clean.slice(0, 5200)}`;
     if (!sec || !sec.section || !Array.isArray(sec.items) || !sec.items.length) continue;
     html += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
   }
-  return html.length > 80 ? html : null;
+  if (html.length > 80) { console.log(`[BR seg] OK -> ${arr.length} sections (DailyFX structure par IA)`); return html; }
+  return null;
 }
 
 // Nettoyage HTML commun (retire médias/scripts)
