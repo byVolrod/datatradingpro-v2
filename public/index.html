@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260608g" />
+  <link rel="stylesheet" href="/css/style.css?v=20260608h" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -95,6 +95,7 @@
   <a href="#" class="nav-item" data-view="institution">› INSTITUTION</a>
   <a href="#" class="nav-item" data-view="analyst">› ANALYST</a>
   <a href="#" class="nav-item" data-view="bias">› BIAS</a>
+  <a href="#" class="nav-item" data-view="weekahead">› WEEK AHEAD</a>
   <a href="#" class="nav-item" data-view="bank">› BANK</a>
   <a href="#" class="nav-item nav-item--mobile-only" data-view="markets">› MARCHÉS</a>
 </div>
@@ -155,6 +156,13 @@
       </div>
     </div>
   </div><!-- /#view-bias -->
+
+  <!-- ══ VIEW: WEEK AHEAD — aperçu hebdomadaire (timeline + risk amCharts) ══ -->
+  <div class="view-panel hidden" id="view-weekahead">
+    <div class="wa-scroll" id="wa-content">
+      <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement du Week Ahead…</div></div>
+    </div>
+  </div><!-- /#view-weekahead -->
 
   <!-- ══ VIEW: BANK — Transactions bancaires (positions des banques) ══ -->
   <div class="view-panel hidden" id="view-bank">
@@ -563,8 +571,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260608g"></script>
-<script src="/js/charts.js?v=20260608g"></script>
+<script src="/js/app.js?v=20260608h"></script>
+<script src="/js/charts.js?v=20260608h"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
