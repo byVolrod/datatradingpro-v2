@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260608j" />
+  <link rel="stylesheet" href="/css/style.css?v=20260608k" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -571,8 +571,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260608j"></script>
-<script src="/js/charts.js?v=20260608j"></script>
+<script src="/js/app.js?v=20260608k"></script>
+<script src="/js/charts.js?v=20260608k"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -890,6 +890,12 @@
     if (!d.loggedIn) { window.location.href = '/login'; return; }
     _pdUser = d.user;
     window._pdUser = d.user;   // exposé globalement pour app.js (badge chat support, etc.)
+    // Onglet WEEK AHEAD : réservé au staff (admin/support) — masqué pour les clients.
+    try {
+      const _isStaff = !!(d.user && (d.user.role === 'admin' || d.user.role === 'support'));
+      window._pdIsStaff = _isStaff;
+      if (!_isStaff) document.querySelectorAll('[data-view="weekahead"]').forEach(el => { el.style.display = 'none'; });
+    } catch {}
     // Dès que le rôle est connu, on vérifie les messages non lus (badge sur l'icône chat)
     if (typeof _chatPollUnread === 'function') _chatPollUnread();
     const displayName = d.user.name || d.user.email || '?';
