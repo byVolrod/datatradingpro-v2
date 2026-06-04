@@ -1821,6 +1821,27 @@ async function _prewarmWrapSegs() {
   } finally { _swPrewarmBusy = false; }
 }
 
+// ── PRÉCHAUFFAGE DailyFX (ING) : structure EN AVANCE les rapports du jour → ouverture instantanée ──
+// Réutilise l'endpoint /api/bank-research-content (même extraction + structuration IA + cache) via un
+// appel local, pour ne PAS dupliquer la logique. Borné aux rapports récents non encore structurés.
+let _brPrewarmBusy = false;
+async function _prewarmBrSegs() {
+  if (_brPrewarmBusy) return;
+  _brPrewarmBusy = true;
+  try {
+    const dayCut = Date.now() - 36 * 60 * 60 * 1000;   // ~aujourd'hui + la veille
+    const todo = (_brCache || [])
+      .filter(i => i.url && _BR_CONTENT_HOSTS.test(i.url) && (i.timestamp || 0) > dayCut && !_brSegCache.has(BR_SEG_VER + i.url))
+      .slice(0, 4);
+    for (const item of todo) {
+      if (!aiAllowed('analyst')) break;
+      try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 30000 }); }
+      catch (e) { console.warn('[BR prewarm]', e.message); }
+      await new Promise(r => setTimeout(r, 1500));
+    }
+  } finally { _brPrewarmBusy = false; }
+}
+
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
 async function _segmentWrapAI(points) {
   const prompt = `Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
@@ -5731,6 +5752,9 @@ server.listen(PORT, async () => {
   // Rapports Analyst/Institution : pré-segmente en arrière-plan → ouverture instantanée (cache persistant)
   setTimeout(() => { _prewarmWrapSegs().catch(() => {}); }, 25000);
   setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 4 * 60 * 1000);
+  // DailyFX (ING) : structure EN AVANCE les rapports du jour (décalé pour ne pas chevaucher les wraps)
+  setTimeout(() => { _prewarmBrSegs().catch(() => {}); }, 45000);
+  setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 5 * 60 * 1000);
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
