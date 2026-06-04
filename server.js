@@ -3991,7 +3991,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v2-grounded';   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
+const BIAS_VER = 'v3-narr';   // v3 : + narratif IA hebdo par devise (repli data-driven)   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -4141,13 +4141,44 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   rows.push({ key: 'trend', label: 'Trend', values: trend });
   rows.push({ key: 'seasonality', label: 'Seasonality', values: gem.seasonality || {} });
 
-  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion };
+  // Narratif IA hebdo par devise (UN seul appel → JSON). Repli null → le frontend compose une synthèse data-driven.
+  let narrative = null;
+  try { narrative = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); } catch {}
+  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative };
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
   // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
   console.log(`[SmartBias] OK — sources: COT=${cotLine ? 'oui' : 'NON'} retail=${retailLine ? 'oui' : 'NON'} banques=${bankLine ? 'oui' : 'NON'} calendrier=${calLine ? 'oui' : 'NON'} | conclusion: ${SB_CURRENCIES.map(c => c + '=' + (conclusion[c] || '?')).join(' ')}`);
   try { broadcast({ type: 'smartbias_update', bias: _smartBias }); } catch {}
   return _smartBias;
+}
+
+// Narratif hebdo par devise : UN seul appel IA → JSON {USD:'...',…}. Repli null si IA indispo (quota)
+// → le frontend compose alors une synthèse data-driven (0 token). Cache porté par l'objet _smartBias.
+async function _sbGenerateNarratives(rows, conclusion, ctxLines) {
+  try {
+    const matrix = SB_CURRENCIES.map(c => {
+      const ind = rows.map(r => `${r.label}=${r.values[c] || 'Neutral'}`).join(', ');
+      return `${c} (Overall ${conclusion[c] || 'Neutral'}): ${ind}`;
+    }).join('\n');
+    const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 1400);
+    const prompt = `You are a senior FX strategist. For EACH of the 8 currencies, write a concise 2-3 sentence WEEKLY bias narrative in English, grounded ONLY on the indicator values and context below. Explain WHY the bias is what it is. Do NOT invent data; if signals are mixed, say so.
+
+INDICATORS:
+${matrix}
+
+CONTEXT (real sources):
+${ctx}
+
+Return ONLY valid JSON, no prose: {"USD":"...","EUR":"...","GBP":"...","CAD":"...","AUD":"...","NZD":"...","JPY":"...","CHF":"..."}`;
+    const out = await ai.generateText(prompt, 1500);
+    const m = out && out.match(/\{[\s\S]*\}/);
+    if (!m) return null;
+    const obj = JSON.parse(m[0]);
+    const narr = {};
+    SB_CURRENCIES.forEach(c => { if (typeof obj[c] === 'string' && obj[c].trim()) narr[c] = obj[c].trim(); });
+    return Object.keys(narr).length ? narr : null;
+  } catch (e) { console.warn('[SmartBias] narratif IA échec → repli data-driven:', e.message); return null; }
 }
 
 app.get('/api/smart-bias', async (req, res) => {

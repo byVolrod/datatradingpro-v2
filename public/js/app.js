@@ -3385,10 +3385,13 @@ function _sbOpenSummary(curr) {
   const score = { 'Very Bullish': 2, 'Bullish': 1, 'Weak Bullish': 1, 'Uptrend': 1, 'Neutral': 0, 'Range': 0, 'Weak Bearish': -1, 'Bearish': -1, 'Downtrend': -1, 'Very Bearish': -2 };
   const bulls = rows.filter(r => (score[r.values[curr]] || 0) > 0).map(r => r.label);
   const bears = rows.filter(r => (score[r.values[curr]] || 0) < 0).map(r => r.label);
-  const narrative = `Biais global <b>${esc(overall)}</b> sur ${esc(curr)}. `
+  // Narratif IA hebdo si dispo (généré côté serveur), sinon synthèse data-driven (0 token).
+  const aiNarr = (d.narrative && typeof d.narrative[curr] === 'string' && d.narrative[curr].trim()) ? d.narrative[curr].trim() : null;
+  const narrative = aiNarr ? esc(aiNarr)
+    : (`Biais global <b>${esc(overall)}</b> sur ${esc(curr)}. `
     + (bulls.length ? `Soutiens haussiers : ${esc(bulls.join(', '))}. ` : '')
     + (bears.length ? `Pressions baissières : ${esc(bears.join(', '))}. ` : '')
-    + (!bulls.length && !bears.length ? 'Signaux globalement neutres, sans direction marquée. ' : '');
+    + (!bulls.length && !bears.length ? 'Signaux globalement neutres, sans direction marquée. ' : ''));
 
   wrap.innerHTML = `
     <div class="sbs-panel">
