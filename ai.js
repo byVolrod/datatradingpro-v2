@@ -28,6 +28,17 @@ const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.5
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
 
+// ── Plafond DUR d'appels Claude par jour → les crédits (PAYANTS) ne s'emballent JAMAIS.
+// Claude n'est qu'un REPLI (Gemini gratuit gère le gros) ; ce cap garantit un coût borné
+// même si Gemini est indisponible longtemps. Surchargeable via CLAUDE_DAILY_MAX (Render).
+const CLAUDE_DAILY_MAX = parseInt(process.env.CLAUDE_DAILY_MAX, 10) || 50;
+let _claudeDay = '', _claudeCount = 0;
+function _claudeBudgetOk() {
+  const d = new Date().toISOString().slice(0, 10);
+  if (d !== _claudeDay) { _claudeDay = d; _claudeCount = 0; }   // reset quotidien
+  return _claudeCount < CLAUDE_DAILY_MAX;
+}
+
 // Toutes les clés Anthropic disponibles (ANTHROPIC_API_KEY puis _2, _3, _4, _5).
 // On déduplique et on retire les vides.
 const ANTHROPIC_KEYS = [
@@ -116,6 +127,7 @@ function _getAnthropicClient(key) {
 
 async function _anthropic(prompt, maxTokens) {
   if (!ANTHROPIC_KEYS.length) throw new Error('Aucune clé Anthropic configurée');
+  if (!_claudeBudgetOk()) throw new Error(`Claude: plafond du jour atteint (${CLAUDE_DAILY_MAX}/jour) → crédits préservés`);
   const n = ANTHROPIC_KEYS.length;
   const start = _anthropicCursor % n;
   _anthropicCursor = (_anthropicCursor + 1) % n;   // la prochaine génération démarre sur la clé suivante
@@ -134,6 +146,7 @@ async function _anthropic(prompt, maxTokens) {
       });
       const text = (msg.content?.[0]?.text || '').trim();
       if (!text) throw new Error('Claude: réponse vide');
+      _claudeCount++;   // appel Claude réussi → compté dans le plafond du jour (crédits bornés)
       return text;
     } catch (e) {
       lastErr = e;
@@ -190,6 +203,8 @@ function status() {
     geminiModels: GEMINI_MODELS,
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,
+    claudeDailyMax: CLAUDE_DAILY_MAX,
+    claudeUsedToday: _claudeCount,
   };
 }
 
