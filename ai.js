@@ -8,17 +8,16 @@
  */
 'use strict';
 
-// Plusieurs clés Gemini supportées (GEMINI_API_KEY puis _2, _3, _4, _5 + GOOGLE_API_KEY) :
-// rotation round-robin + bascule automatique sur la clé suivante en cas d'erreur
-// (429 / quota épuisé) → on CUMULE les quotas gratuits et on encaisse les pics.
-const GEMINI_KEYS = [
-  process.env.GEMINI_API_KEY,
-  process.env.GEMINI_API_KEY2,
-  process.env.GEMINI_API_KEY3,
-  process.env.GEMINI_API_KEY4,
-  process.env.GEMINI_API_KEY5,
-  process.env.GOOGLE_API_KEY,
-].map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+// Clés Gemini chargées DYNAMIQUEMENT : GEMINI_API_KEY puis _2, _3, … jusqu'à _30 (toute clé
+// présente est prise automatiquement, SANS toucher au code) + GOOGLE_API_KEY. Rotation round-robin
+// + bascule sur la clé suivante en cas de 429 → on CUMULE les quotas gratuits et on encaisse les pics.
+const GEMINI_KEYS = (() => {
+  const out = [];
+  if (process.env.GEMINI_API_KEY) out.push(process.env.GEMINI_API_KEY);
+  for (let i = 2; i <= 30; i++) { const v = process.env['GEMINI_API_KEY' + i]; if (v) out.push(v); }   // _2.._30 auto-détectées
+  if (process.env.GOOGLE_API_KEY) out.push(process.env.GOOGLE_API_KEY);
+  return out.map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+})();
 let _geminiCursor = 0;   // round-robin : clé de départ différente à chaque génération
 
 // Cascade de modèles GRATUITS : chaque modèle a un quota gratuit SÉPARÉ → quand l'un renvoie 429
@@ -42,15 +41,16 @@ function _claudeBudgetOk() {
   return _claudeCount < CLAUDE_DAILY_MAX;
 }
 
-// Toutes les clés Anthropic disponibles (ANTHROPIC_API_KEY puis _2, _3, _4, _5).
-// On déduplique et on retire les vides.
-const ANTHROPIC_KEYS = [
-  process.env.ANTHROPIC_API_KEY,
-  process.env.ANTHROPIC_API_KEY2,
-  process.env.ANTHROPIC_API_KEY3,
-  process.env.ANTHROPIC_API_KEY4,
-  process.env.ANTHROPIC_API_KEY5,
-].map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+// Toutes les clés Anthropic disponibles, chargées DYNAMIQUEMENT (ANTHROPIC_API_KEY puis _2.._30).
+const ANTHROPIC_KEYS = (() => {
+  const out = [];
+  if (process.env.ANTHROPIC_API_KEY) out.push(process.env.ANTHROPIC_API_KEY);
+  for (let i = 2; i <= 30; i++) { const v = process.env['ANTHROPIC_API_KEY' + i]; if (v) out.push(v); }
+  return out.map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+})();
+
+// Visibilité au démarrage : combien de clés sont réellement chargées (jamais les valeurs).
+console.log(`[AI] Clés chargées → Gemini: ${GEMINI_KEYS.length} · Claude: ${ANTHROPIC_KEYS.length} | modèles Gemini: ${GEMINI_MODELS.length}`);
 
 // ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
 // Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
