@@ -273,18 +273,44 @@ async function chatUnread(userId, fromSender) {
 }
 
 // Admin : liste des conversations (un thread par utilisateur ayant écrit)
+// Aperçu court d'un message (JAMAIS le base64 d'une image collée → payload léger)
+function _chatPreview(t) {
+  const s = String(t || '');
+  if (/^data:image\//.test(s)) return '📷 Image';
+  if (/^data:/.test(s))        return '📎 Pièce jointe';
+  return s.slice(0, 120);
+}
+
+// Liste des threads pour la boîte de réception support.
+// OPTIMISÉ : on ne télécharge PLUS toute la table (avec les images base64) juste pour
+// un aperçu + le compteur de non-lus.
+//   1) méta SANS le champ `text` → dates + non-lus de TOUS les threads (rapide, léger)
+//   2) seulement les messages RÉCENTS avec `text` → aperçu des conversations actives
 async function chatThreads() {
   await _chatEnsureDb();
-  let rows = [];
+  let meta = [], recent = [];
   if (_chatDb) {
-    const { data, error } = await supabase.from(CHAT_TABLE).select('*').order('created_at', { ascending: false });
-    if (!error) rows = data || [];
-    else if (_chatTableMissing(error)) _chatDb = false;
+    const { data: m, error: e1 } = await supabase.from(CHAT_TABLE)
+      .select('user_id, sender, created_at, read').order('created_at', { ascending: false });
+    if (!e1) meta = m || [];
+    else if (_chatTableMissing(e1)) _chatDb = false;
+    if (_chatDb) {
+      const { data: r } = await supabase.from(CHAT_TABLE)
+        .select('user_id, text, created_at').order('created_at', { ascending: false }).limit(400);
+      recent = r || [];
+    }
   }
-  if (!_chatDb) rows = [..._chatFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  if (!_chatDb) {
+    meta   = [..._chatFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    recent = meta;
+  }
+  // Aperçu du dernier message par utilisateur (depuis les messages récents)
+  const previewByUser = new Map();
+  for (const m of recent) if (!previewByUser.has(m.user_id)) previewByUser.set(m.user_id, _chatPreview(m.text));
+  // Dernier horodatage + non-lus par utilisateur (depuis la méta légère, exhaustive)
   const byUser = new Map();
-  for (const m of rows) {
-    if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: m.text, lastAt: m.created_at, unread: 0 });
+  for (const m of meta) {
+    if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: previewByUser.get(m.user_id) || '', lastAt: m.created_at, unread: 0 });
     if (m.sender === 'user' && !m.read) byUser.get(m.user_id).unread++;
   }
   return [...byUser.values()];
