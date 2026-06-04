@@ -3412,6 +3412,7 @@ function _sbOpenSummary(curr) {
   _sbInitSplitter();
   _sbLoadRiskEvents();
   _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
+  _sbLoadCal();       // précharge le calendrier → accordéon Fundamental instantané
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
 window._sbOpenSummary = _sbOpenSummary;
@@ -3454,6 +3455,41 @@ function _sbRenderBankChildren(box, cur) {
     return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(b.name)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${stance}</span></div>`;
   }).join('');
 }
+// ── Accordéon Fundamental : sous-indicateurs dérivés du CALENDRIER réel (actual vs forecast), 0 IA, 0 invention ──
+let _sbCalEv = null;
+function _sbLoadCal() {
+  if (_sbCalEv) return Promise.resolve(_sbCalEv);
+  return fetch('/api/calendar-events').then(r => r.json())
+    .then(d => { _sbCalEv = (d && d.items) || []; return _sbCalEv; })
+    .catch(() => { _sbCalEv = []; return _sbCalEv; });
+}
+const SB_FUND_SUBS = [
+  { label: 'Economic Growth',     re: /\bGDP\b|gross domestic/i },
+  { label: 'Rising Prices',       re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price/i },
+  { label: 'Consumer Confidence', re: /consumer confidence|consumer sentiment|michigan/i },
+  { label: 'Factory Activity',    re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur/i },
+  { label: 'Service Activity',    re: /services? pmi|ism (services|non-manufactur)/i },
+  { label: 'New Homes Started',   re: /housing starts|new home/i },
+  { label: 'Building Permits',    re: /building permits/i },
+  { label: 'Retail Sales',        re: /retail sales/i },
+];
+function _sbNum(v) { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; }
+function _sbFundStance(actual, forecast) {
+  const a = _sbNum(actual), f = _sbNum(forecast);
+  if (a == null || f == null) return null;
+  const thr = Math.abs(f) * 0.001 + 0.0001;
+  return a > f + thr ? 'Bullish' : a < f - thr ? 'Bearish' : 'Neutral';   // beat = haussier (surprise de donnée)
+}
+function _sbRenderFundChildren(box, cur) {
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const evs = (_sbCalEv || []).filter(e => e && e.currency === cur && e.actual != null && e.actual !== '');
+  box.innerHTML = SB_FUND_SUBS.map(sub => {
+    const ev = evs.filter(e => sub.re.test(e.title || '')).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+    const stance = ev ? _sbFundStance(ev.actual, ev.forecast) : null;
+    if (!stance) return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge sbs-badge--na">—</span></div>`;
+    return `<div class="sbs-row sbs-row--child" title="${esc(ev.title)} : ${esc(ev.actual)} vs ${esc(ev.forecast)}"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${stance}</span></div>`;
+  }).join('');
+}
 function _sbToggleAcc(key) {
   const box = document.getElementById('sbs-acc-' + key);
   const row = document.querySelector(`.sbs-acc[data-acc="${key}"]`);
@@ -3466,7 +3502,8 @@ function _sbToggleAcc(key) {
     box.innerHTML = `<div class="sbs-child-note">Chargement des banques…</div>`;
     _sbLoadBankPos().then(() => _sbRenderBankChildren(box, _sbActiveCur));
   } else {
-    box.innerHTML = `<div class="sbs-child-note">Détail économique (Economic Growth, Rising Prices, PMI…) — dérivé du calendrier, bientôt.</div>`;
+    box.innerHTML = `<div class="sbs-child-note">Chargement du calendrier…</div>`;
+    _sbLoadCal().then(() => _sbRenderFundChildren(box, _sbActiveCur));
   }
 }
 window._sbToggleAcc = _sbToggleAcc;

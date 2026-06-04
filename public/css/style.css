@@ -2701,6 +2701,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbs-acc-arrow { display: inline-block; color: #6b7280; transition: transform .15s; }
 .sbs-acc--open .sbs-acc-arrow { transform: rotate(90deg); }
 .sbs-badge { flex: 0 0 64px; width: 64px; text-align: center; padding: 3px 0; font-size: 10px; font-weight: 700; color: #fff; border-radius: 2px; }
+.sbs-badge--na { background: #2a2a30; color: #6b7280; }   /* pas de donnée récente → tiret discret (jamais inventé) */
 .sbs-children { background: #060608; }
 .sbs-child-note { padding: 8px 14px 8px 38px; font-size: 11px; color: #71717a; font-style: italic; }
 .sbs-narr { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-bottom: 14px; }
