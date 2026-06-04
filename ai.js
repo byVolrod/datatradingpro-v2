@@ -21,9 +21,10 @@ const GEMINI_KEYS = [
 ].map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
 let _geminiCursor = 0;   // round-robin : clé de départ différente à chaque génération
 
-// Meilleur modèle réellement dispo sur le quota gratuit en 1er, repli ensuite.
-// (gemini-2.5-pro nécessite un plan payant → 429 en gratuit ; 2.5-flash est excellent et gratuit)
-const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.5-pro')
+// Cascade de modèles GRATUITS : chaque modèle a un quota gratuit SÉPARÉ → quand l'un renvoie 429
+// (quota épuisé), on bascule sur le suivant ⇒ on cumule plusieurs quotas gratuits (~3× la capacité).
+// On retire gemini-2.5-pro (payant → 429 systématique en gratuit). Surchargeable via GEMINI_MODEL.
+const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.0-flash,gemini-1.5-flash')
   .split(',').map(s => s.trim()).filter(Boolean);
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
