@@ -1723,9 +1723,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .clock-time {
   font-family: var(--font-mono);   /* World Clock = police PMT (Inter) */
   font-size: 19px;
-  font-weight: 600;
+  font-weight: 500;                    /* moins gras (un cran de plus) */
   color: #f2f2f2;                     /* quasi-blanc → chiffres bien nets */
-  letter-spacing: -0.02em;
+  letter-spacing: -0.025em;            /* + serré → un peu moins large */
   line-height: 1.02;
   white-space: nowrap;
   margin-bottom: 1px;
@@ -1750,7 +1750,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .clock-city-label {
   font-family: var(--font-mono);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;                    /* villes : moins grasses aussi */
   white-space: nowrap;
   letter-spacing: 0.02em;
   width: 100%;
