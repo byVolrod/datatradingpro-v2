@@ -998,7 +998,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-item--breaking:hover .news-headline { color: #ffffff; }
 .news-item--breaking:hover .news-time { color: #e2e8f0; }
 .news-item--breaking:hover .news-category-text { color: #e2e8f0; }
-.news-item--breaking:hover .article-points--clean li { color: #d8c3c5; }   /* puces un peu plus claires au survol */
+/* Survol de la news : la DESCRIPTION dépliée NE CHANGE PAS — fond #19191c ET texte #e8eaed FIGÉS
+   (demande utilisateur : glisser le curseur dessus ne doit pas altérer fond ni texte). */
+.news-item:hover .news-description.visible,
+.news-item--urgent:hover .news-description.visible,
+.news-item--breaking:hover .news-description.visible { background: #19191c; }
+.news-item--breaking:hover .article-points--clean li,
+.news-item--urgent:hover .article-points--clean li,
+.news-item--breaking:hover .article-points li,
+.news-item--urgent:hover .article-points li { color: #e8eaed; }
 .news-item--breaking .news-alert-icon { background: none; border: none; }
 
 @keyframes breaking-pulse {
