@@ -3417,14 +3417,12 @@ function _sbOpenSummary(curr) {
         <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%">${leftRows}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
         <div class="sbs-right" id="sbs-right">
+          <div class="sbs-narr-title">${esc(curr)} Performance Last Week:</div>
           <div class="sbs-narr">${narrative}</div>
-          <div class="sbs-risk-title">Key Risk Events for the Week Ahead</div>
-          <div class="sbs-risk" id="sbs-risk"><div class="sbs-risk-load">Chargement…</div></div>
         </div>
       </div>
     </div>`;
   _sbInitSplitter();
-  _sbLoadRiskEvents();
   _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
   _sbLoadCal();       // précharge le calendrier → accordéon Fundamental instantané
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
