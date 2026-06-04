@@ -4250,13 +4250,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .wr-section-title { font-size:13px; }
   .wr-ccy-title { font-size:17px; }
   /* Cartes d'insight : un peu plus étroites pour montrer qu'on peut scroller */
-  .ai-insights-card { flex-basis:210px; flex-grow:0; flex-shrink:0; width:210px; }
+  .ai-insights-card { flex-basis:178px; flex-grow:0; flex-shrink:0; width:178px; }
 }
 @media (max-width:480px){
   .wr-chart { height:240px; }
   #arlib-ai-insights { padding:0 10px; }
   .ai-insights-head { padding:14px 0 10px; font-size:12px; }
-  .ai-insights-card { flex-basis:208px; width:208px; font-size:12.5px; padding:12px; }
+  .ai-insights-card { flex-basis:170px; width:170px; font-size:12.5px; padding:12px; }
   .wr-doc-title { font-size:13.5px; line-height:1.4; }
   .wr-doc-week  { font-size:12px; }
   .wr-text, .wr-bullet { font-size:13px; }
@@ -4313,7 +4313,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arlib-hide-insights:hover { color: var(--text); }
 .arlib-hide-insights .eye { font-size: 13px; }
 .ai-insights-card {
-  flex: 0 0 224px; background: #111113; border: 1px solid #1f1f24;
+  flex: 0 0 196px; background: #111113; border: 1px solid #1f1f24;
   border-radius: 6px; padding: 14px 15px;
   font-size: 12.5px; line-height: 1.6; color: #e2e8f0; font-weight: 400;
 }
