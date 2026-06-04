@@ -24,7 +24,9 @@ let _geminiCursor = 0;   // round-robin : clé de départ différente à chaque 
 // Cascade de modèles GRATUITS : chaque modèle a un quota gratuit SÉPARÉ → quand l'un renvoie 429
 // (quota épuisé), on bascule sur le suivant ⇒ on cumule plusieurs quotas gratuits (~3× la capacité).
 // On retire gemini-2.5-pro (payant → 429 systématique en gratuit). Surchargeable via GEMINI_MODEL.
-const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.0-flash,gemini-1.5-flash')
+// Modèles GRATUITS VALIDES (gemini-1.5-flash est DÉPRÉCIÉ → 404). Les '-lite' ont un quota gratuit
+// bien plus élevé → plus de marge. Chaque modèle a un quota SÉPARÉ → on cumule (4 modèles × N clés).
+const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.0-flash,gemini-2.5-flash-lite,gemini-2.0-flash-lite')
   .split(',').map(s => s.trim()).filter(Boolean);
 
 const CLAUDE_MODEL = process.env.CLAUDE_MODEL || 'claude-haiku-4-5-20251001';
@@ -165,7 +167,7 @@ async function _anthropic(prompt, maxTokens) {
 // retente pas pendant un court délai → zéro appel gaspillé sur une clé saturée, charge répartie sur
 // les autres. Auto-réparant : dès que le cooldown expire, la clé est ré-essayée automatiquement.
 const _gemCooldown = new Map();   // "model|idx" → fin de cooldown (timestamp)
-function _gemCool(model, idx, status) { _gemCooldown.set(model + '|' + idx, Date.now() + (status === 429 ? 90000 : 25000)); }
+function _gemCool(model, idx, status) { _gemCooldown.set(model + '|' + idx, Date.now() + (status === 404 ? 6 * 3600 * 1000 : status === 429 ? 90000 : 25000)); }   // 404 (modèle invalide) = mis de côté 6h
 function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
 // Suivi quotidien (visibilité "combien d'appels / 429 par jour" → pour anticiper le besoin de quota).
 let _aiDay = '', _aiStats = { gemini: 0, gemini429: 0, claude: 0, claudeFail: 0, fallback: 0 };
@@ -193,7 +195,7 @@ async function generateText(prompt, maxTokens = 1500) {
         catch (e) {
           lastErr = e;
           if (e.status === 429) { _gemCool(model, idx, 429); _aiStat('gemini429'); }
-          else if (e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
+          else if (e.status === 404 || e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
           console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 110)} → suivant`);
         }
       }

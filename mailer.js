@@ -14,6 +14,15 @@
  */
 'use strict';
 
+// ⚠️ Render n'a PAS d'IPv6 sortant → on force la résolution DNS en IPv4 (sinon Gmail/SMTP tente l'IPv6
+// et échoue en ENETUNREACH → repli silencieux sur Mailjet non délivré). 'family:4' seul ne suffit pas.
+const dns = require('dns');
+try { dns.setDefaultResultOrder('ipv4first'); } catch {}
+function _ipv4Lookup(host, opts, cb) {
+  if (typeof opts === 'function') { cb = opts; opts = {}; }
+  return dns.lookup(host, Object.assign({}, opts, { family: 4 }), cb);
+}
+
 const RESEND_API_KEY     = process.env.RESEND_API_KEY || '';
 const MAILJET_API_KEY    = process.env.MAILJET_API_KEY || '';
 const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY || '';
@@ -53,7 +62,7 @@ function _getGmailTransport() {
   const nodemailer = require('nodemailer');
   _gmailTransport = nodemailer.createTransport({
     host: 'smtp.gmail.com', port: 465, secure: true,
-    family: 4,   // ⚠️ FORCE IPv4 : Render n'a pas d'IPv6 sortant → 'service:gmail' résolvait en IPv6 → ENETUNREACH → Gmail échouait TOUJOURS (repli silencieux sur Mailjet non délivré). IPv4 = Gmail fonctionne enfin.
+    family: 4, lookup: _ipv4Lookup,   // ⚠️ FORCE IPv4 (DNS) : Render n'a pas d'IPv6 → sans ça, ENETUNREACH → Gmail KO → repli Mailjet non délivré.
     pool: true, maxConnections: 3, maxMessages: 50,   // mutualise les connexions → meilleur débit
     auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
     connectionTimeout: 12000, greetingTimeout: 9000, socketTimeout: 15000,   // échec rapide → repli propre si souci
