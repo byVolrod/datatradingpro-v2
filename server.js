@@ -1740,6 +1740,27 @@ function aiAllowed(category, opts = {}) {
 }
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); }
 
+// ── Contexte LIVE du terminal injecté dans l'IA (système ÉVOLUTIF) ───────────
+// Instantané COURT de l'état RÉEL du terminal (régime de risque, force des devises…),
+// bâti à partir des données DÉJÀ calculées (zéro fetch). ai.js l'injecte dans CHAQUE appel
+// (Gemini + Claude) → l'IA s'adapte en continu à l'état du marché → sorties évolutives.
+function _aiTerminalContext() {
+  try {
+    const out = [`Now (UTC): ${new Date().toISOString().replace('T', ' ').slice(0, 16)}`];
+    if (_riskData && _riskData.label) {
+      out.push(`Global risk regime: ${_riskData.label}${typeof _riskData.score === 'number' ? ` (score ${_riskData.score})` : ''}`);
+    }
+    const cs = _csCache && _csCache['1d'] && _csCache['1d'].data;
+    if (cs && cs.series && Array.isArray(cs.currencies)) {
+      const lastV = c => { const a = (cs.series[c] || []).filter(d => d && d.v != null); return a.length ? a[a.length - 1].v : null; };
+      const ranked = cs.currencies.map(c => [c, lastV(c)]).filter(x => x[1] != null).sort((a, b) => b[1] - a[1]);
+      if (ranked.length >= 3) out.push(`Currency strength 24h (strongest→weakest): ${ranked.map(r => r[0]).join(' > ')}`);
+    }
+    return out.length ? out.join('\n') : null;
+  } catch { return null; }
+}
+try { if (ai && typeof ai.setLiveContext === 'function') ai.setLiveContext(_aiTerminalContext); } catch {}
+
 // ── Routeur IA unifié (pool Gemini gratuit + Claude multi-clés) ──────────────
 // Politique intelligente, zéro blocage tant qu'une ressource est dispo :
 //   1) Si le budget Gemini du jour le permet → Gemini d'abord (repli Claude intégré

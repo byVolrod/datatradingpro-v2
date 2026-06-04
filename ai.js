@@ -52,6 +52,23 @@ Rules — identical for every request, every model, every key:
 - The SPECIFIC instructions of each request ALWAYS take precedence over style: follow the requested output format EXACTLY (e.g. "JSON only" → return only valid JSON; "one paragraph" → one paragraph; requested language → that language).
 - Keep terminology/conventions consistent (tickers, central banks, BUY/SELL/NEUTRAL, risk-on/risk-off, bullish/bearish) so the output reads the SAME no matter which model answers.`;
 
+// ── Contexte LIVE (système ÉVOLUTIF) ─────────────────────────────────────────
+// Le serveur enregistre une fonction qui renvoie l'état temps réel du terminal
+// (régime de risque, force des devises…). On l'injecte dans CHAQUE appel (Gemini ET
+// Claude) → l'IA "voit" en permanence l'état à jour du marché et s'adapte en continu.
+let _liveContext = null;
+function setLiveContext(fn) { _liveContext = (typeof fn === 'function') ? fn : null; }
+function _buildSystem() {
+  if (!_liveContext) return AI_SYSTEM;
+  try {
+    const c = _liveContext();
+    if (c && String(c).trim()) {
+      return AI_SYSTEM + '\n\n--- LIVE TERMINAL STATE (real-time snapshot of THIS terminal — use it to stay accurate & relevant; never contradict it) ---\n' + String(c).trim();
+    }
+  } catch { /* contexte indispo → on garde le système de base */ }
+  return AI_SYSTEM;
+}
+
 async function _gemini(model, key, prompt, maxTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   // Timeout 20s : une requête Gemini bloquée ne doit jamais s'empiler / geler la file (anti-OOM/502)
@@ -64,7 +81,7 @@ async function _gemini(model, key, prompt, maxTokens) {
       headers: { 'Content-Type': 'application/json' },
       signal: _ctrl.signal,
       body: JSON.stringify({
-        systemInstruction: { parts: [{ text: AI_SYSTEM }] },   // même contexte/rôle/règles que Claude → cohérence
+        systemInstruction: { parts: [{ text: _buildSystem() }] },   // contexte commun + état LIVE du terminal → cohérent & évolutif
         contents: [{ parts: [{ text: prompt }] }],
         // thinkingBudget:0 → pas de "réflexion" qui consomme les tokens de sortie (réponses fiables/rapides)
         // temperature 0.4 (alignée sur Claude) → moins de variance, sorties homogènes
@@ -111,7 +128,7 @@ async function _anthropic(prompt, maxTokens) {
         model: CLAUDE_MODEL,
         max_tokens: maxTokens,
         temperature: 0.4,    // alignée sur Gemini → moins de variance entre modèles
-        system: AI_SYSTEM,   // même contexte/rôle/règles que Gemini → cohérence
+        system: _buildSystem(),   // contexte commun + état LIVE du terminal → cohérent & évolutif
         messages: [{ role: 'user', content: prompt }],
       });
       const text = (msg.content?.[0]?.text || '').trim();
@@ -178,6 +195,7 @@ function status() {
 module.exports = {
   generateText,
   generateTextClaudeOnly,
+  setLiveContext,
   hasAnthropic,
   status,
   _anthropicKeyCount: () => ANTHROPIC_KEYS.length,
