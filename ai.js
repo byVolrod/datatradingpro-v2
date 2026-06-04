@@ -1,13 +1,26 @@
 /**
  * ai.js — Génération de texte IA
  * Priorité à Google Gemini (gratuit). Repli sur Anthropic Claude si configuré.
- * Plusieurs clés Anthropic supportées (ANTHROPIC_API_KEY, _2, _3, _4…) :
- * rotation round-robin + bascule automatique sur la clé suivante en cas d'erreur
- * (429 / quota / surcharge) → on cumule les quotas et on maximise la disponibilité.
+ * Plusieurs clés Gemini (GEMINI_API_KEY, _2.._5 + GOOGLE_API_KEY) ET plusieurs clés
+ * Anthropic (ANTHROPIC_API_KEY, _2.._5) supportées : rotation round-robin + bascule
+ * automatique sur la clé suivante en cas d'erreur (429 / quota / surcharge)
+ * → on cumule les quotas des deux fournisseurs et on maximise la disponibilité.
  */
 'use strict';
 
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || '';
+// Plusieurs clés Gemini supportées (GEMINI_API_KEY puis _2, _3, _4, _5 + GOOGLE_API_KEY) :
+// rotation round-robin + bascule automatique sur la clé suivante en cas d'erreur
+// (429 / quota épuisé) → on CUMULE les quotas gratuits et on encaisse les pics.
+const GEMINI_KEYS = [
+  process.env.GEMINI_API_KEY,
+  process.env.GEMINI_API_KEY2,
+  process.env.GEMINI_API_KEY3,
+  process.env.GEMINI_API_KEY4,
+  process.env.GEMINI_API_KEY5,
+  process.env.GOOGLE_API_KEY,
+].map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+let _geminiCursor = 0;   // round-robin : clé de départ différente à chaque génération
+
 // Meilleur modèle réellement dispo sur le quota gratuit en 1er, repli ensuite.
 // (gemini-2.5-pro nécessite un plan payant → 429 en gratuit ; 2.5-flash est excellent et gratuit)
 const GEMINI_MODELS  = (process.env.GEMINI_MODEL || 'gemini-2.5-flash,gemini-2.5-pro')
@@ -25,8 +38,8 @@ const ANTHROPIC_KEYS = [
   process.env.ANTHROPIC_API_KEY5,
 ].map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
 
-async function _gemini(model, prompt, maxTokens) {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
+async function _gemini(model, key, prompt, maxTokens) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   // Timeout 20s : une requête Gemini bloquée ne doit jamais s'empiler / geler la file (anti-OOM/502)
   const _ctrl = new AbortController();
   const _to = setTimeout(() => _ctrl.abort(), 20000);
@@ -98,12 +111,24 @@ async function _anthropic(prompt, maxTokens) {
 }
 
 async function generateText(prompt, maxTokens = 1500) {
-  // ── Option A : Google Gemini (gratuit) — essaie chaque modèle dans l'ordre ──
-  if (GEMINI_API_KEY) {
+  // ── Option A : Google Gemini (gratuit) — multi-clés + multi-modèles ──────────
+  // Pour CHAQUE modèle, on essaie TOUTES les clés (rotation round-robin) : le meilleur
+  // modèle (flash) est ainsi tenté sur l'ensemble des clés avant de passer au suivant
+  // → quotas cumulés, bascule auto sur 429/quota épuisé.
+  if (GEMINI_KEYS.length) {
     let lastErr;
+    const n = GEMINI_KEYS.length;
+    const start = _geminiCursor % n;
+    _geminiCursor = (_geminiCursor + 1) % n;
     for (const model of GEMINI_MODELS) {
-      try { return await _gemini(model, prompt, maxTokens); }
-      catch (e) { lastErr = e; console.warn('[AI]', e.message, '→ modèle suivant'); }
+      for (let i = 0; i < n; i++) {
+        const idx = (start + i) % n;
+        try { return await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); }
+        catch (e) {
+          lastErr = e;
+          console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 110)} → suivant`);
+        }
+      }
     }
     if (!ANTHROPIC_KEYS.length) throw lastErr || new Error('Gemini indisponible');
   }
@@ -125,7 +150,7 @@ function hasAnthropic() { return ANTHROPIC_KEYS.length > 0; }
 // Diagnostic (sans exposer les valeurs) : quelles ressources IA sont configurées.
 function status() {
   return {
-    gemini: !!GEMINI_API_KEY,
+    geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,
