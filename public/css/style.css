@@ -1100,7 +1100,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ── Expand panel — clean bullet list, no tabs, no source header ── */
 .news-description {
   font-size: 13px;
-  color: #94a3b8;                  /* gris intermédiaire Prime */
+  color: #e2e8f0;                  /* blanc (cohérent avec le titre de la news) */
   margin-top: 8px;
   margin-bottom: 2px;
   line-height: 1.65;
