@@ -3200,7 +3200,7 @@ async function loadWeekAheadView() {
     _waPollCount++;
     const visible = !document.getElementById('view-weekahead')?.classList.contains('hidden');
     if (_waPollCount <= 6 && visible) {
-      host.innerHTML = `<div class="wa-prep"><div class="dtp-loader dtp-loader--sm"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Préparation du Week Ahead…</div></div><div class="wa-prep-note">L'aperçu de la semaine se génère (calendrier + IA). Actualisation automatique…</div></div>`;
+      host.innerHTML = window.dtpLoader ? window.dtpLoader('Chargement du Week Ahead…') : '<div class="wa-empty">Chargement…</div>';   // loader STANDARD centré (comme les autres onglets)
       _waPollTimer = setTimeout(loadWeekAheadView, 12000);   // re-poll dans 12s
     } else {
       host.innerHTML = `<div class="wa-empty">L'aperçu de la semaine se génère en arrière-plan — reviens dans quelques minutes, il s'affichera automatiquement.</div>`;
