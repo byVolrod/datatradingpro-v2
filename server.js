@@ -1571,7 +1571,7 @@ function _ilArmIdleClose() {
   if (_ilIdleTimer) clearTimeout(_ilIdleTimer);
   _ilIdleTimer = setTimeout(async () => {
     if (_ilBrowser) { try { await _ilBrowser.close(); } catch {} _ilBrowser = null; console.log('[InvestingLive] navigateur fermé (inactif)'); }
-  }, 90_000);
+  }, 45_000);
   if (_ilIdleTimer.unref) _ilIdleTimer.unref();
 }
 
@@ -1582,7 +1582,12 @@ async function _getIlBrowser() {
     executablePath: _resolveChrome(),
     headless: true,
     args: ['--no-sandbox','--disable-setuid-sandbox','--disable-dev-shm-usage','--disable-gpu',
-           '--single-process','--no-zygote','--disable-extensions'],
+           '--single-process','--no-zygote','--disable-extensions',
+           // Économie RAM (Render 512 Mo) : moins de processus + heap plafonné + services inutiles coupés
+           '--disable-features=IsolateOrigins,site-per-process,TranslateUI',
+           '--disable-background-timer-throttling','--disable-backgrounding-occluded-windows','--disable-renderer-backgrounding',
+           '--disable-software-rasterizer','--disable-background-networking','--disable-default-apps','--disable-sync',
+           '--mute-audio','--no-first-run','--js-flags=--max-old-space-size=192'],
   });
   _ilBrowser.on('disconnected', () => { _ilBrowser = null; });
   return _ilBrowser;
@@ -1852,8 +1857,8 @@ async function _prewarmWrapSegs() {
   if (_swPrewarmBusy) return;
   _swPrewarmBusy = true;
   try {
-    // Couvre tout le backlog (jusqu'à 12/cycle) → tous les wraps structurés proactivement, pas seulement à l'ouverture.
-    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 12);
+    // Backlog borné à 6/cycle (anti-OOM + éco tokens) → couvert progressivement sur quelques cycles.
+    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 6);
     for (const item of todo) { if (!aiAllowed('analyst')) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
   } finally { _swPrewarmBusy = false; }
 }
@@ -1869,7 +1874,7 @@ async function _prewarmBrSegs() {
     const dayCut = Date.now() - 4 * 24 * 60 * 60 * 1000;   // ~4 derniers jours → couvre tout le DailyFX récent de l'onglet
     const todo = (_brCache || [])
       .filter(i => i.url && _BR_CONTENT_HOSTS.test(i.url) && (i.timestamp || 0) > dayCut && !_brSegCache.has(BR_SEG_VER + i.url))
-      .slice(0, 10);
+      .slice(0, 5);   // borné à 5/cycle (anti-OOM + éco tokens)
     for (const item of todo) {
       if (!aiAllowed('analyst')) break;
       try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 30000 }); }

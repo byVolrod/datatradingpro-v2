@@ -135,6 +135,10 @@ async function getBrowser() {
         '--no-default-browser-check',
         // Économie mémoire (hébergement 512 Mo)
         '--single-process', '--no-zygote', '--disable-gpu', '--disable-extensions',
+        '--disable-features=IsolateOrigins,site-per-process,TranslateUI',
+        '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
+        '--disable-software-rasterizer', '--disable-background-networking', '--disable-default-apps', '--disable-sync',
+        '--mute-audio', '--blink-settings=imagesEnabled=false', '--js-flags=--max-old-space-size=192',
       ],
     });
     _browser.on('disconnected', () => { _browser = null; });

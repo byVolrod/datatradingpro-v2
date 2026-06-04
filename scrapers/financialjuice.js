@@ -178,8 +178,14 @@ async function getFJBrowser() {
       '--no-sandbox', '--disable-setuid-sandbox',
       '--disable-blink-features=AutomationControlled',
       '--disable-dev-shm-usage',
-      // Économie mémoire (hébergement 512 Mo)
+      // Économie mémoire (hébergement 512 Mo) — squawk permanent : on coupe tout le superflu
       '--single-process', '--no-zygote', '--disable-gpu', '--disable-extensions',
+      '--disable-features=IsolateOrigins,site-per-process,TranslateUI',
+      '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding',
+      '--disable-software-rasterizer', '--disable-background-networking', '--disable-default-apps', '--disable-sync',
+      '--mute-audio', '--no-first-run',
+      '--blink-settings=imagesEnabled=false',          // relais WS : aucune image utile → grosse éco RAM/bande passante
+      '--js-flags=--max-old-space-size=192',
     ],
   });
   _fjBrowser.on('disconnected', () => { _fjBrowser = null; });
