@@ -61,6 +61,31 @@ function _getGmailTransport() {
   return _gmailTransport;
 }
 
+// ── MONITORING EMAIL : auto-test Gmail (système de vérification) + compteurs ──
+const _mailStats = { sent: 0, failed: 0, byProvider: {}, gmailVerified: null, gmailError: null, lastVerifyAt: null };
+// Teste la connexion Gmail SMTP (appelé au démarrage + périodiquement) → on SAIT si Gmail marche.
+async function verifyGmail() {
+  if (!(GMAIL_USER && GMAIL_APP_PASSWORD)) { _mailStats.gmailVerified = false; _mailStats.gmailError = 'Gmail non configuré'; return false; }
+  try {
+    await _getGmailTransport().verify();
+    _mailStats.gmailVerified = true; _mailStats.gmailError = null; _mailStats.lastVerifyAt = Date.now();
+    console.log('[Mailer] ✅ Gmail vérifié (SMTP IPv4 OK) — les emails partiront bien via Gmail.');
+    return true;
+  } catch (e) {
+    _mailStats.gmailVerified = false; _mailStats.gmailError = String(e.message).slice(0, 160); _mailStats.lastVerifyAt = Date.now();
+    console.error('[Mailer] ❌ Gmail INDISPONIBLE:', _mailStats.gmailError, '→ repli Mailjet (vérifier IPv4 / mot de passe d\'app).');
+    return false;
+  }
+}
+// Santé email (pour l'admin) : Gmail OK ?, compteurs envoyés/échoués, par fournisseur.
+function getMailHealth() {
+  return {
+    gmail:   { configured: !!(GMAIL_USER && GMAIL_APP_PASSWORD), verified: _mailStats.gmailVerified, error: _mailStats.gmailError, lastCheck: _mailStats.lastVerifyAt },
+    mailjet: !!(MAILJET_API_KEY && MAILJET_SECRET_KEY),
+    sent: _mailStats.sent, failed: _mailStats.failed, byProvider: _mailStats.byProvider,
+  };
+}
+
 // ── Envois par fournisseur (chacun renvoie true/false ; une exception → on tente le suivant) ──
 // Gmail SMTP : l'email part des serveurs Google AUTHENTIFIÉS comme l'expéditeur @gmail.com →
 // SPF/DKIM alignés → délivrabilité FIABLE vers les boîtes Gmail. (Un From @gmail.com routé via un
@@ -141,9 +166,10 @@ async function _send(to, subject, html) {
     return false;
   }
   for (const [nom, fn] of chain) {
-    try { if (await fn(to, subject, html)) return true; }   // succès → on s'arrête
+    try { if (await fn(to, subject, html)) { _mailStats.sent++; _mailStats.byProvider[nom] = (_mailStats.byProvider[nom] || 0) + 1; return true; } }   // succès → on s'arrête + compteur
     catch (e) { console.error(`[Mailer] ${nom} erreur:`, e.message); }   // échec → fournisseur suivant
   }
+  _mailStats.failed++;
   console.error(`[Mailer] ❌ Tous les fournisseurs ont échoué → ${to}: "${subject}"`);
   return false;
 }
@@ -523,4 +549,6 @@ module.exports = {
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
+  // monitoring / vérification
+  verifyGmail, getMailHealth,
 };
