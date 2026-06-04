@@ -3292,17 +3292,24 @@ function _waBuildChart(days) {
   } catch (e) { /* le graphique est un bonus → ne jamais casser la timeline */ }
 }
 
-function _sbCls(v) {
+// Devise → code pays ISO (flagcdn) pour les micro-drapeaux ronds.
+const SB_FLAG_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', CAD: 'ca', AUD: 'au', NZD: 'nz', JPY: 'jp', CHF: 'ch' };
+function _sbFlag(c) {
+  const iso = SB_FLAG_ISO[c];
+  return iso ? `<img class="sbm-flag" src="https://flagcdn.com/w20/${iso}.png" srcset="https://flagcdn.com/w40/${iso}.png 2x" alt="" loading="lazy">` : '';
+}
+// Valeur de biais → classe couleur sémantique FIXE (5 états, hex exacts PMT : voir CSS .sbm-*).
+function _sbColorCls(v) {
   switch (v) {
-    case 'Very Bullish': return 'sb-vbull';
+    case 'Very Bullish': return 'sbm-vbull';
     case 'Bullish':
-    case 'Uptrend':      return 'sb-bull';
-    case 'Weak Bullish': return 'sb-wbull';
+    case 'Weak Bullish':
+    case 'Uptrend':      return 'sbm-bull';
     case 'Bearish':
-    case 'Downtrend':    return 'sb-bear';
-    case 'Very Bearish': return 'sb-vbear';
-    case 'Weak Bearish': return 'sb-wbear';
-    default:             return 'sb-neutral';   // Neutral, Range
+    case 'Weak Bearish':
+    case 'Downtrend':    return 'sbm-bear';
+    case 'Very Bearish': return 'sbm-vbear';
+    default:             return 'sbm-neut';   // Neutral, Range
   }
 }
 
@@ -3322,20 +3329,140 @@ function renderBiasView(d) {
   }
 
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const head = `<tr><th class="sb-ind">Indicators</th>${cur.map(c => `<th class="sb-cur">${c}</th>`).join('')}</tr>`;
+  // En-têtes : micro-drapeau rond + code devise, cliquable → ouvre le Bias Summary inférieur.
+  const head = `<tr><th class="sbm-ind">Indicators</th>${cur.map(c =>
+    `<th class="sbm-cur" onclick="_sbOpenSummary('${c}')"><span class="sbm-cur-in">${_sbFlag(c)}<span>${esc(c)}</span></span></th>`).join('')}</tr>`;
   const body = rows.map(r =>
-    `<tr><td class="sb-ind"><span class="sb-ind-arrow">›</span> ${esc(r.label)}</td>${
-      cur.map(c => { const v = r.values[c] || 'Neutral'; return `<td class="sb-cell ${_sbCls(v)}">${esc(v)}</td>`; }).join('')
+    `<tr><td class="sbm-ind">${esc(r.label)}</td>${
+      cur.map(c => { const v = r.values[c] || 'Neutral'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(v)}">${esc(v)}</td>`; }).join('')
     }</tr>`).join('');
-  const concl = `<tr class="sb-conclusion"><td class="sb-ind">Overall Conclusion</td>${
-    cur.map(c => { const v = (d.conclusion || {})[c] || 'Neutral'; return `<td class="sb-cell ${_sbCls(v)}">${esc(v)}</td>`; }).join('')
+  const concl = `<tr class="sbm-overall"><td class="sbm-ind">Overall</td>${
+    cur.map(c => { const v = (d.conclusion || {})[c] || 'Neutral'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${esc(v)}</td>`; }).join('')
   }</tr>`;
 
   host.innerHTML = `
-    <div class="sb-title-row"><span class="sb-title">Smart Bias Tracker</span></div>
-    <div class="sb-grid-wrap">
-      <table class="sb-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
+    <div class="sbm-title-row"><span class="sbm-title">Smart Bias Tracker</span><span class="sbm-hint">Clique une devise pour le détail ↓</span></div>
+    <div class="sbm-grid-wrap">
+      <table class="sbm-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
+    </div>
+    <div id="sbm-summary" class="sbm-summary-host"></div>`;
+}
+
+// ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──
+let _sbActiveCur = null, _sbSplitFrac = 0.46;
+function _sbOpenSummary(curr) {
+  _sbActiveCur = curr;
+  const wrap = document.getElementById('sbm-summary');
+  const d = _biasData;
+  if (!wrap || !d) return;
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rows = d.rows || [];
+  const val = key => { const r = rows.find(x => x.key === key || x.label === key); return r ? (r.values[curr] || 'Neutral') : null; };
+  const overall = (d.conclusion || {})[curr] || 'Neutral';
+
+  // Lignes d'indicateurs (volet gauche) — chaque ligne = libellé + badge 64px coloré.
+  const line = (label, v, opts) => {
+    if (v == null) return '';
+    const o = opts || {};
+    return `<div class="sbs-row${o.child ? ' sbs-row--child' : ''}${o.acc ? ' sbs-acc' : ''}"${o.acc ? ` data-acc="${o.acc}" onclick="_sbToggleAcc('${o.acc}')"` : ''}>
+      <span class="sbs-row-lbl">${o.acc ? '<span class="sbs-acc-arrow">›</span> ' : ''}${esc(label)}</span>
+      <span class="sbs-badge ${_sbColorCls(v)}">${esc(v)}</span></div>`;
+  };
+
+  const leftRows = [
+    line('Fundamental Data', val('fundamental'), { acc: 'fundamental' }),
+    `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
+    line('Bank Overview', val('bankOverview'), { acc: 'bankOverview' }),
+    `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
+    line('Hedge Fund Positioning', val('hedgeFund')),
+    line('Retail Positioning', val('retail')),
+    line('Monetary Policy', val('monetary')),
+    line('Trend', val('trend')),
+    line('Seasonality', val('seasonality')),
+  ].filter(Boolean).join('');
+
+  // Narratif data-driven (sans IA) : synthèse à partir des indicateurs de la devise.
+  const score = { 'Very Bullish': 2, 'Bullish': 1, 'Weak Bullish': 1, 'Uptrend': 1, 'Neutral': 0, 'Range': 0, 'Weak Bearish': -1, 'Bearish': -1, 'Downtrend': -1, 'Very Bearish': -2 };
+  const bulls = rows.filter(r => (score[r.values[curr]] || 0) > 0).map(r => r.label);
+  const bears = rows.filter(r => (score[r.values[curr]] || 0) < 0).map(r => r.label);
+  const narrative = `Biais global <b>${esc(overall)}</b> sur ${esc(curr)}. `
+    + (bulls.length ? `Soutiens haussiers : ${esc(bulls.join(', '))}. ` : '')
+    + (bears.length ? `Pressions baissières : ${esc(bears.join(', '))}. ` : '')
+    + (!bulls.length && !bears.length ? 'Signaux globalement neutres, sans direction marquée. ' : '');
+
+  wrap.innerHTML = `
+    <div class="sbs-panel">
+      <div class="sbs-head">
+        <span class="sbs-head-title">Bias Summary <span class="sbs-head-cur">${_sbFlag(curr)} ${esc(curr)}</span></span>
+        <button class="sbs-close" type="button" onclick="_sbCloseSummary()" title="Fermer">✕</button>
+      </div>
+      <div class="sbs-body" id="sbs-body">
+        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%">${leftRows}</div>
+        <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
+        <div class="sbs-right" id="sbs-right">
+          <div class="sbs-narr">${narrative}</div>
+          <div class="sbs-risk-title">Key Risk Events for the Week Ahead</div>
+          <div class="sbs-risk" id="sbs-risk"><div class="sbs-risk-load">Chargement…</div></div>
+        </div>
+      </div>
     </div>`;
+  _sbInitSplitter();
+  _sbLoadRiskEvents();
+  requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+}
+window._sbOpenSummary = _sbOpenSummary;
+function _sbCloseSummary() { const w = document.getElementById('sbm-summary'); if (w) w.innerHTML = ''; _sbActiveCur = null; }
+window._sbCloseSummary = _sbCloseSummary;
+
+// Accordéons Fundamental / Bank Overview — affichent les SOURCES RÉELLES (pas de fausses valeurs) :
+// le détail par sous-indicateur viendra du backend. Pour l'instant : note honnête.
+function _sbToggleAcc(key) {
+  const box = document.getElementById('sbs-acc-' + key);
+  const row = document.querySelector(`.sbs-acc[data-acc="${key}"]`);
+  if (!box) return;
+  const open = box.hasAttribute('hidden') ? false : true;
+  if (open) { box.setAttribute('hidden', ''); row && row.classList.remove('sbs-acc--open'); return; }
+  box.removeAttribute('hidden'); row && row.classList.add('sbs-acc--open');
+  if (!box.dataset.loaded) {
+    box.dataset.loaded = '1';
+    box.innerHTML = `<div class="sbs-child-note">Détail par sous-indicateur (${key === 'fundamental' ? 'Economic Growth, Rising Prices, PMI…' : 'Goldman Sachs, ING, Nomura…'}) — bientôt disponible.</div>`;
+  }
+}
+window._sbToggleAcc = _sbToggleAcc;
+
+// Splitter redimensionnable (1px) entre volets gauche/droite.
+function _sbInitSplitter() {
+  const split = document.getElementById('sbs-split'), body = document.getElementById('sbs-body'), left = document.getElementById('sbs-left');
+  if (!split || !body || !left) return;
+  let dragging = false;
+  const onMove = e => {
+    if (!dragging) return;
+    const rect = body.getBoundingClientRect();
+    let frac = (e.clientX - rect.left) / rect.width;
+    frac = Math.max(0.2, Math.min(0.8, frac));
+    _sbSplitFrac = frac;
+    left.style.flexBasis = (frac * 100).toFixed(1) + '%';
+  };
+  split.addEventListener('mousedown', e => { dragging = true; document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none'; e.preventDefault(); });
+  window.addEventListener('mousemove', onMove);
+  window.addEventListener('mouseup', () => { if (dragging) { dragging = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; } });
+}
+
+// Key Risk Events : réutilise le Week Ahead (calendrier) → jours + impact.
+function _sbLoadRiskEvents() {
+  const box = document.getElementById('sbs-risk');
+  if (!box) return;
+  const render = d => {
+    const days = (d && d.days) || [];
+    if (!days.length) { box.innerHTML = '<div class="sbs-risk-load">Aucun événement majeur cette semaine.</div>'; return; }
+    const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    box.innerHTML = days.map(day => {
+      const hi = /high/i.test(day.impact || ''); const imp = hi ? 'HIGH' : (/(medium|med)/i.test(day.impact || '') ? 'MED' : 'LOW');
+      return `<div class="sbs-risk-row"><span class="sbs-risk-day">${esc((day.dow || '').slice(0, 3))} — ${esc(day.title || '')}</span><span class="sbs-risk-imp sbs-imp--${imp.toLowerCase()}">${imp}</span></div>`;
+    }).join('');
+  };
+  if (_waData) { render(_waData); return; }
+  fetch('/api/week-ahead').then(r => r.json()).then(d => { if (d && d.days) _waData = d; render(d); }).catch(() => { box.innerHTML = '<div class="sbs-risk-load">Risques indisponibles.</div>'; });
 }
 
 function _sbStartClocks() {
