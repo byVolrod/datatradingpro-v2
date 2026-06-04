@@ -4207,12 +4207,18 @@ app.get('/api/week-ahead', async (_req, res) => {
   setTimeout(() => {
     const stale = !_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt || (Date.now() - _smartBias.generatedAt > 7 * 24 * 60 * 60 * 1000);
     if (stale) generateSmartBias(true).catch(() => {});
-  }, 45 * 1000);
+  }, 75 * 1000);   // 75s : après le burst du préchauffage des rapports → moins de contention RPM Gemini
   // Week Ahead : régénère au démarrage si vide / version périmée / >1 semaine (décalé après le bias).
   setTimeout(() => {
     const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000);
     if (stale) generateWeekAhead(true).catch(() => {});
-  }, 55 * 1000);
+  }, 90 * 1000);   // 90s : encore après le bias
+  // AUTO-RÉPARATION horaire : si le bias OU le Week Ahead n'a pas pu se générer (quota Gemini épuisé / Claude
+  // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
+  setInterval(() => {
+    if (!_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt) generateSmartBias(true).catch(() => {});
+    if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt) setTimeout(() => generateWeekAhead(true).catch(() => {}), 9000);
+  }, 60 * 60 * 1000);
 })();
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
