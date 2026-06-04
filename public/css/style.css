@@ -4896,7 +4896,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .cot-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  grid-auto-rows: 1fr;              /* les rangées remplissent toute la hauteur */
+  /* Hauteur de rangée MINIMALE (208px) pour que chaque carte ait la place d'afficher
+     en-tête + légende + donut + stats sans s'écraser. Si tout ne tient pas (ex. 2 colonnes
+     × 4 rangées dans un panneau court), le panneau DÉFILE au lieu d'écraser/chevaucher. */
+  grid-auto-rows: minmax(228px, 1fr);
+  overflow-y: auto;
   gap: 1px;
   background: #0d0d0d;              /* même fond que les autres panneaux (au lieu du gris var(--border)) */
   flex: 1;
@@ -4941,9 +4945,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ── Jauge + labels flottants ── */
 .cot-gauge-wrap {
   position: relative; display: flex; align-items: center; justify-content: center;
-  width: 100%; flex: 1; min-height: 0; padding: 10px 0;
+  width: 100%; flex: 1; min-height: 0; padding: 4px 0;
 }
-.cot-donut { display: block; width: 96px; max-width: 70%; height: auto; }
+/* Donut borné À LA FOIS en largeur (62% de la cellule) ET en hauteur (100% de sa case) :
+   il rétrécit avec sa case quand la cellule est courte (responsive), ratio préservé,
+   au lieu de déborder et de chevaucher le badge / la légende. */
+.cot-donut { display: block; width: auto; height: auto; max-width: 62%; max-height: 100%; }
 .cot-float {
   position: absolute; font-size: 10px; font-weight: 700;
   font-family: var(--font-mono); white-space: nowrap;
