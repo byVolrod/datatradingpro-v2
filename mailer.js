@@ -28,6 +28,11 @@ const MAILJET_API_KEY    = process.env.MAILJET_API_KEY || '';
 const MAILJET_SECRET_KEY = process.env.MAILJET_SECRET_KEY || '';
 const GMAIL_USER         = process.env.GMAIL_USER || '';
 const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g, ''); // les MDP d'app Gmail ont des espaces
+// ── API Gmail (OAuth2, HTTPS port 443) — SEUL moyen d'envoyer DEPUIS le compte Google sur Render
+// (le SMTP 465/587 est bloqué par Render free-tier). Envoi aligné DMARC → boîte de réception.
+const GMAIL_OAUTH_CLIENT_ID     = process.env.GMAIL_OAUTH_CLIENT_ID || '';
+const GMAIL_OAUTH_CLIENT_SECRET = process.env.GMAIL_OAUTH_CLIENT_SECRET || '';
+const GMAIL_OAUTH_REFRESH_TOKEN = process.env.GMAIL_OAUTH_REFRESH_TOKEN || '';
 const APP_URL            = process.env.APP_URL || 'https://datatradingpro.onrender.com';
 const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'datatradingpro.contact@gmail.com';
 // Lien de paiement/renouvellement Whop (page DTP). Configurable via WHOP_RENEW_URL.
@@ -73,29 +78,97 @@ function _getGmailTransport() {
   return _gmailTransport;
 }
 
-// ── MONITORING EMAIL : auto-test Gmail (système de vérification) + compteurs ──
-const _mailStats = { sent: 0, failed: 0, byProvider: {}, gmailVerified: null, gmailError: null, lastVerifyAt: null };
-// Teste la connexion Gmail SMTP (appelé au démarrage + périodiquement) → on SAIT si Gmail marche.
+// ── MONITORING EMAIL : auto-test (système de vérification) + compteurs ──
+const _mailStats = { sent: 0, failed: 0, byProvider: {}, gmailVerified: null, gmailError: null, lastVerifyAt: null, apiVerified: null, apiError: null };
+// Teste l'API Gmail (canal principal) en récupérant un access_token. Si OK → les emails partiront
+// vraiment du compte Google → boîte de réception. Teste aussi le SMTP en secours (souvent KO sur Render).
 async function verifyGmail() {
-  if (!(GMAIL_USER && GMAIL_APP_PASSWORD)) { _mailStats.gmailVerified = false; _mailStats.gmailError = 'Gmail non configuré'; return false; }
-  try {
-    await _getGmailTransport().verify();
-    _mailStats.gmailVerified = true; _mailStats.gmailError = null; _mailStats.lastVerifyAt = Date.now();
-    console.log('[Mailer] ✅ Gmail vérifié (SMTP IPv4 OK) — les emails partiront bien via Gmail.');
-    return true;
-  } catch (e) {
-    _mailStats.gmailVerified = false; _mailStats.gmailError = String(e.message).slice(0, 160); _mailStats.lastVerifyAt = Date.now();
-    console.error('[Mailer] ❌ Gmail INDISPONIBLE:', _mailStats.gmailError, '→ repli Mailjet (vérifier IPv4 / mot de passe d\'app).');
-    return false;
+  _mailStats.lastVerifyAt = Date.now();
+  // 1) API Gmail (canal principal, HTTPS) — le seul qui marche sur Render.
+  if (_GMAIL_API_READY) {
+    try {
+      await _gmailAccessToken();
+      _mailStats.apiVerified = true; _mailStats.apiError = null;
+      console.log('[Mailer] ✅ API Gmail vérifiée (OAuth OK, HTTPS) — les emails partiront du compte Google → boîte de réception.');
+    } catch (e) {
+      _mailStats.apiVerified = false; _mailStats.apiError = String(e.message).slice(0, 160);
+      console.error('[Mailer] ❌ API Gmail KO:', _mailStats.apiError, '— vérifier GMAIL_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN.');
+    }
+  } else {
+    _mailStats.apiVerified = false; _mailStats.apiError = 'API Gmail non configurée (3 env vars OAuth manquantes)';
+    console.warn('[Mailer] ⚠️ API Gmail non configurée → ajoute GMAIL_OAUTH_CLIENT_ID/SECRET/REFRESH_TOKEN pour livrer en boîte de réception.');
   }
+  // 2) SMTP (secours) — généralement bloqué par Render, on teste sans bruit.
+  if (GMAIL_USER && GMAIL_APP_PASSWORD) {
+    try { await _getGmailTransport().verify(); _mailStats.gmailVerified = true; _mailStats.gmailError = null; }
+    catch (e) { _mailStats.gmailVerified = false; _mailStats.gmailError = String(e.message).slice(0, 120); }
+  }
+  return _mailStats.apiVerified === true;
 }
-// Santé email (pour l'admin) : Gmail OK ?, compteurs envoyés/échoués, par fournisseur.
+// Santé email (pour l'admin) : API Gmail OK ?, SMTP ?, compteurs envoyés/échoués, par fournisseur.
 function getMailHealth() {
   return {
+    gmailApi: { configured: _GMAIL_API_READY, verified: _mailStats.apiVerified, error: _mailStats.apiError },
     gmail:   { configured: !!(GMAIL_USER && GMAIL_APP_PASSWORD), verified: _mailStats.gmailVerified, error: _mailStats.gmailError, lastCheck: _mailStats.lastVerifyAt },
     mailjet: !!(MAILJET_API_KEY && MAILJET_SECRET_KEY),
     sent: _mailStats.sent, failed: _mailStats.failed, byProvider: _mailStats.byProvider,
   };
+}
+
+// ── API GMAIL (OAuth2 / HTTPS 443) — canal PRINCIPAL sur Render (SMTP bloqué) ─────────────────
+// Envoie via gmail.googleapis.com : l'email part DU compte Google authentifié → SPF/DKIM/DMARC
+// alignés → boîte de réception. Utilise uniquement le port 443 (jamais bloqué par Render).
+const _GMAIL_API_READY = !!(GMAIL_OAUTH_CLIENT_ID && GMAIL_OAUTH_CLIENT_SECRET && GMAIL_OAUTH_REFRESH_TOKEN);
+let _gmApiToken = { value: '', exp: 0 };
+// Échange le refresh_token contre un access_token (caché ~50 min).
+async function _gmailAccessToken() {
+  if (_gmApiToken.value && Date.now() < _gmApiToken.exp) return _gmApiToken.value;
+  const body = new URLSearchParams({
+    client_id: GMAIL_OAUTH_CLIENT_ID, client_secret: GMAIL_OAUTH_CLIENT_SECRET,
+    refresh_token: GMAIL_OAUTH_REFRESH_TOKEN, grant_type: 'refresh_token',
+  });
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 12000);
+  try {
+    const r = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: body.toString(), signal: ctrl.signal,
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || !j.access_token) throw new Error(`OAuth ${r.status}: ${(j.error_description || j.error || '').slice(0, 120)}`);
+    _gmApiToken = { value: j.access_token, exp: Date.now() + (j.expires_in || 3600) * 1000 - 120000 };
+    return _gmApiToken.value;
+  } finally { clearTimeout(t); }
+}
+// Construit un message MIME RFC822 et l'encode en base64url (format attendu par l'API Gmail).
+function _buildRaw(to, subject, html) {
+  const fromHeader = `DataTradingPro <${GMAIL_USER || SUPPORT_EMAIL}>`;
+  // Sujet en UTF-8 encodé (RFC 2047) pour les accents/emojis.
+  const subjEnc = '=?UTF-8?B?' + Buffer.from(subject, 'utf8').toString('base64') + '?=';
+  const lines = [
+    `From: ${fromHeader}`, `To: ${to}`, `Reply-To: ${SUPPORT_EMAIL}`,
+    `Subject: ${subjEnc}`, 'MIME-Version: 1.0',
+    'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
+    Buffer.from(html, 'utf8').toString('base64'),
+  ];
+  return Buffer.from(lines.join('\r\n'), 'utf8')
+    .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+async function _sendGmailApi(to, subject, html) {
+  const token = await _gmailAccessToken();
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 15000);
+  try {
+    const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ raw: _buildRaw(to, subject, html) }), signal: ctrl.signal,
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      throw new Error(`Gmail API ${r.status}: ${txt.slice(0, 200)}`);
+    }
+    console.log(`[Mailer] ✅ (API Gmail) "${subject}" → ${to}`);
+    return true;
+  } finally { clearTimeout(t); }
 }
 
 // ── Envois par fournisseur (chacun renvoie true/false ; une exception → on tente le suivant) ──
@@ -165,11 +238,13 @@ function _isDuplicate(to, subject) {
 }
 
 // ── Envoi bas niveau : valide, dé-doublonne, puis essaie les fournisseurs DANS L'ORDRE ──
-// Ordre = Gmail (le plus délivrable pour un expéditeur @gmail.com) → Mailjet → Resend.
+// Ordre = API Gmail (HTTPS, depuis le compte Google, aligné DMARC → boîte de réception) →
+//         Gmail SMTP (bloqué sur Render mais gardé si jamais débloqué) → Mailjet → Resend.
 async function _send(to, subject, html) {
   if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide — email ignoré:', to); return false; }
   if (_isDuplicate(to, subject)) { console.warn(`[Mailer] doublon ignoré (<12s) → ${to}: "${subject}"`); return false; }
   const chain = [];
+  if (_GMAIL_API_READY)                      chain.push(['API Gmail', _sendGmailApi]);   // ← PRINCIPAL (port 443)
   if (GMAIL_USER && GMAIL_APP_PASSWORD)      chain.push(['Gmail',   _sendGmail]);
   if (MAILJET_API_KEY && MAILJET_SECRET_KEY) chain.push(['Mailjet', _sendMailjet]);
   if (RESEND_API_KEY)                        chain.push(['Resend',  _sendResend]);
