@@ -4019,18 +4019,30 @@ function _renderArlibTags() {
   const scroll = document.getElementById('arlib-rtags-scroll');
   const tags = _arlibCurrentTags || [];
   if (scroll) {
-    const MAX = 6, shown = tags.slice(0, MAX), extra = tags.length - shown.length;
-    let html = shown.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
-    if (extra > 0) html += `<span class="arlib-rtag arlib-rtag--more" title="${tags.slice(MAX).join(', ')}">+${extra}</span>`;
-    scroll.innerHTML = html;
+    // Façon PMT : TOUS les tags dans une rangée scrollable (chevrons ‹ ›), sans troncature "+N".
+    scroll.innerHTML = tags.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
     scroll.scrollLeft = 0;
   }
+  // Date retirée de cette rangée (façon PMT : ‹ tags › ; le badge DTP reste dans la barre du haut).
   const dateEl = document.getElementById('arlib-rdate');
-  if (dateEl) {
-    const it = _currentArlibItem;
-    const d = it && it.timestamp ? new Date(it.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
-    dateEl.innerHTML = d ? `<span class="arlib-rdate-badge">DTP</span><span>${d}</span>` : '';
-  }
+  if (dateEl) dateEl.innerHTML = '';
+  _updateArlibTagArrows();
+  requestAnimationFrame(_updateArlibTagArrows);   // re-mesure après layout (scrollWidth fiable)
+}
+// Défilement horizontal des tags via les chevrons ‹ ›
+function _arlibTagScroll(dir) {
+  const s = document.getElementById('arlib-rtags-scroll');
+  if (s) s.scrollBy({ left: dir * 180, behavior: 'smooth' });
+}
+// Masque les chevrons s'il n'y a rien à faire défiler ; sinon les affiche (façon PMT)
+function _updateArlibTagArrows() {
+  const s = document.getElementById('arlib-rtags-scroll');
+  const prev = document.getElementById('arlib-rtags-prev');
+  const next = document.getElementById('arlib-rtags-next');
+  if (!s || !prev || !next) return;
+  const overflow = s.scrollWidth > s.clientWidth + 4;
+  prev.style.display = overflow ? 'flex' : 'none';
+  next.style.display = overflow ? 'flex' : 'none';
 }
 // Enrichit les tags du rapport OUVERT à partir du CONTENU COMPLET (vue d'ensemble).
 function _arlibEnrichTags(fullText) {

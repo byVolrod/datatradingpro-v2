@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260608b" />
+  <link rel="stylesheet" href="/css/style.css?v=20260608c" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -354,9 +354,9 @@
         </div>
         <!-- Tags scroll bar -->
         <div class="arlib-rtags-bar">
-          <button class="arlib-rtags-arrow" id="arlib-rtags-prev">‹</button>
+          <button class="arlib-rtags-arrow" id="arlib-rtags-prev" onclick="_arlibTagScroll(-1)" aria-label="Tags precedents">‹</button>
           <div class="arlib-rtags-scroll" id="arlib-rtags-scroll"></div>
-          <button class="arlib-rtags-arrow" id="arlib-rtags-next">›</button>
+          <button class="arlib-rtags-arrow" id="arlib-rtags-next" onclick="_arlibTagScroll(1)" aria-label="Tags suivants">›</button>
           <div class="arlib-rdate" id="arlib-rdate"></div>
         </div>
         <!-- Content -->
@@ -563,8 +563,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260608b"></script>
-<script src="/js/charts.js?v=20260608b"></script>
+<script src="/js/app.js?v=20260608c"></script>
+<script src="/js/charts.js?v=20260608c"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

@@ -4135,17 +4135,17 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   padding: 0 4px;
 }
 .arlib-rtags-arrow {
-  font-size: 16px;
-  color: #3a3a3a;
+  font-size: 17px;
+  color: #6a6a70;
   background: none;
   border: none;
   cursor: pointer;
-  padding: 0 6px;
+  padding: 0 8px;
   line-height: 1;
   flex-shrink: 0;
   transition: color 0.1s;
 }
-.arlib-rtags-arrow:hover { color: #777; }
+.arlib-rtags-arrow:hover { color: #c8c8cc; }
 .arlib-rtags-scroll {
   flex: 1;
   display: flex;
@@ -4166,9 +4166,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   white-space: nowrap;
   cursor: default;
 }
-.arlib-rtag--more { color: #6b7280; }   /* indicateur "+N" un peu plus discret */
-/* Flèches de scroll remplacées par le "+N" + le bloc date/badge à droite (façon PMT) */
-.arlib-rtags-arrow { display: none; }
+.arlib-rtag--more { color: #6b7280; }   /* (legacy) — on affiche désormais TOUS les tags scrollables façon PMT */
+/* Flèches de scroll VISIBLES façon PMT (‹ ›) — masquées par JS s'il n'y a rien à faire défiler */
+.arlib-rtags-arrow { display: flex; align-items: center; }
 .arlib-rdate {
   display: flex; align-items: center; gap: 7px; flex-shrink: 0;
   padding: 0 12px 0 10px;
