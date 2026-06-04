@@ -497,6 +497,32 @@ app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
   });
 });
 
+// TEST D'ENVOI EMAIL (admin) : envoie un vrai email et affiche le canal qui a réussi.
+// Ouvre dans le navigateur (connecté en admin) : /api/admin/mail-test  → vers ton propre email
+//   ou /api/admin/mail-test?to=client@example.com  → vers une adresse précise.
+app.get('/api/admin/mail-test', requireAdmin, async (req, res) => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const to = String(req.query.to || req.session.user.email || '').trim();
+  const r = await mailer.sendTest(to).catch(e => ({ ok: false, provider: null, lastError: String(e && e.message || e) }));
+  const color = r.ok ? '#22c55e' : '#ef4444';
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1"><title>Test email DTP</title>
+  <style>body{background:#0c0c0e;color:#e5e7eb;font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
+  .box{background:#141416;border:1px solid #26262b;border-radius:12px;padding:32px 40px;max-width:560px;text-align:center}
+  .big{font-size:48px;line-height:1}h1{color:${color};font-size:22px;margin:10px 0}
+  code{background:#0a0a0c;padding:2px 8px;border-radius:5px;color:#f7941d;font-size:13px}a{color:#f7941d}</style></head>
+  <body><div class="box"><div class="big">${r.ok ? '✅' : '❌'}</div>
+  <h1>${r.ok ? 'Email envoyé !' : "Échec de l'envoi"}</h1>
+  <p>Destinataire : <code>${esc(to)}</code></p>
+  ${r.ok
+    ? `<p>Canal utilisé : <code>${esc(r.provider)}</code></p>
+       <p style="color:#94a3b8;font-size:14px;margin-top:18px">👉 Vérifie <b>la boîte de réception</b> de ${esc(to)} (et au pire les spams).
+       Si le canal est <b>API Gmail</b>, l'email arrive en boîte principale. 🎉</p>`
+    : `<p style="color:#fca5a5;font-size:13px;word-break:break-word">${esc(r.lastError || 'erreur inconnue')}</p>`}
+  <p style="margin-top:22px"><a href="/api/admin/mail-test?to=${encodeURIComponent(to)}">↻ Renvoyer</a></p></div></body></html>`;
+  res.set('Content-Type', 'text/html; charset=utf-8').send(html);
+});
+
 // Calcule la date d'expiration à partir d'une durée choisie par l'admin
 function computeExpiry({ duration, expiresAt, startDate }) {
   if (duration === 'unlimited') return null;                 // abonnement illimité
