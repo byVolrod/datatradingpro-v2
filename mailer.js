@@ -252,13 +252,26 @@ async function _send(to, subject, html) {
     console.warn('[Mailer] Aucun fournisseur configuré (GMAIL_*, MAILJET_* ou RESEND_API_KEY) — email non envoyé:', subject);
     return false;
   }
+  const errors = [];
   for (const [nom, fn] of chain) {
-    try { if (await fn(to, subject, html)) { _mailStats.sent++; _mailStats.byProvider[nom] = (_mailStats.byProvider[nom] || 0) + 1; return true; } }   // succès → on s'arrête + compteur
-    catch (e) { console.error(`[Mailer] ${nom} erreur:`, e.message); }   // échec → fournisseur suivant
+    try { if (await fn(to, subject, html)) { _mailStats.sent++; _mailStats.byProvider[nom] = (_mailStats.byProvider[nom] || 0) + 1; _mailStats.lastProvider = nom; return nom; } }   // succès → renvoie le canal gagnant
+    catch (e) { console.error(`[Mailer] ${nom} erreur:`, e.message); errors.push(`${nom}: ${e.message}`); }   // échec → fournisseur suivant
   }
   _mailStats.failed++;
+  _mailStats.lastError = errors.join(' | ');
   console.error(`[Mailer] ❌ Tous les fournisseurs ont échoué → ${to}: "${subject}"`);
   return false;
+}
+
+// Envoi de test (bouton admin) : renvoie le canal utilisé pour preuve de bout en bout.
+async function sendTest(to) {
+  const html = _layout('Test d\'envoi', `
+    <h2 style="color:#f7941d;margin:0 0 12px;">✅ Test d'envoi DataTradingPro</h2>
+    <p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Si tu lis cet email <b>dans ta boîte de réception</b> (pas les spams),
+    l'envoi fonctionne parfaitement. 🎉</p>
+    <p style="color:#64748b;font-size:13px;">Email automatique de vérification — tu peux l'ignorer.</p>`);
+  const provider = await _send(to, 'DataTradingPro — test d\'envoi ✅', html);   // string (canal) si OK, false sinon
+  return { ok: !!provider, provider: provider || null, lastError: _mailStats.lastError || null };
 }
 
 // ── Gabarit HTML commun (dark, professionnel — Prime Terminal) ────────────────
@@ -637,5 +650,5 @@ module.exports = {
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
-  verifyGmail, getMailHealth,
+  verifyGmail, getMailHealth, sendTest,
 };
