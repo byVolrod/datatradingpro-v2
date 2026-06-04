@@ -1670,12 +1670,13 @@ function _saveJsonMap(file, map) {
 //  Répartition intra-journée :
 //   • Semaine : 50% news IMPORTANTES + 50% rapports analyst ; bias/bank OFF.
 //   • Week-end : news + analyst OFF ; bias + bank ON (dans la limite du plafond).
-const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 1200;
+// 3 clés Gemini en rotation → enveloppe ÉLARGIE (~3× le free-tier d'1 clé). Pacing mensuel conservé.
+const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 9000;   // ~300 appels/jour lissés sur le mois
 // Garde-fous quotidiens : plancher confortable (toujours ≥ MIN appels/jour, même en fin de mois)
-// et plafond de sécurité (jamais > MAX/jour pour rester sous la limite free-tier Gemini).
-const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 40;
-const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 200;
-const AI_BURST         = parseInt(process.env.GEMINI_BURST, 10) || 8;   // tolérance de pic instantané (pacing)
+// et plafond de sécurité (jamais > MAX/jour → réparti sur 3 clés ≈ 150/clé/jour, sous la limite free-tier par clé).
+const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 120;
+const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 450;
+const AI_BURST         = parseInt(process.env.GEMINI_BURST, 10) || 14;   // tolérance de pic instantané (pacing)
 const AI_USAGE_FILE = path.join(__dirname, 'cache_ai_usage.json');
 let _aiUsage = { month: '', day: '', total: 0, dayCounts: {} };
 try { _aiUsage = Object.assign(_aiUsage, JSON.parse(fs.readFileSync(AI_USAGE_FILE, 'utf8'))); } catch {}
@@ -1715,14 +1716,24 @@ function aiAllowed(category, opts = {}) {
     const pacedCeil = Math.ceil(cap * _aiDayFraction()) + AI_BURST;
     if (dayTotal >= pacedCeil) return false;
   }
+  // Part du quota du jour allouée à une catégorie (PRIORITÉ = part plus grande). Le plafond DUR
+  // du jour (dayTotal ≥ cap) reste la limite globale ; ces parts règlent qui passe en premier.
+  const share = f => catUsed < Math.floor(cap * f);
   if (_aiIsWeekend()) {
-    if (category === 'news' || category === 'analyst') return false;   // WE : news + analyst OFF
-    return true;                                                       // WE : bias / bank ON
+    // Week-end (marchés fermés) : news OFF, mais on PRIORISE le contenu premium
+    // (Analyst + AI Insights, Institution, Bias) → toujours frais à l'ouverture.
+    if (category === 'news')    return false;
+    if (category === 'analyst') return share(0.55);   // Analyst + AI Insights
+    if (category === 'bank')    return share(0.45);   // Institution (ING)
+    if (category === 'bias')    return share(0.35);
+    return share(0.30);
   }
-  if (category === 'bias' || category === 'bank') return false;        // semaine : réservés au WE
-  const half = Math.floor(cap / 2);
-  if (category === 'news')    return !!opts.important && catUsed < half;
-  if (category === 'analyst') return catUsed < half;
+  // Semaine : PRIORITÉ aux onglets premium → Analyst/AI Insights (60%) + Institution (40%, désormais
+  // activé en semaine grâce aux 3 clés). News importantes et Bias gardent une part plus modeste.
+  if (category === 'analyst') return share(0.60);                       // Analyst + AI Insights (rapports + report-insights)
+  if (category === 'bank')    return share(0.40);                       // Institution (ING) — ON en semaine
+  if (category === 'news')    return !!opts.important && share(0.40);   // news IMPORTANTES uniquement
+  if (category === 'bias')    return share(0.15);
   return false;
 }
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); }
