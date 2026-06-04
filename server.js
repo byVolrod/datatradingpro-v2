@@ -4108,6 +4108,60 @@ app.get('/api/smart-bias', async (req, res) => {
   res.json(_smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
 });
 
+// ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
+const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
+const WA_VER = 'v1';
+let _weekAhead = null;
+try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
+try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
+
+async function generateWeekAhead(force = false) {
+  const WK = 7 * 24 * 60 * 60 * 1000;
+  if (!force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < WK) return _weekAhead;
+  const now = Date.now();
+  const horizon = now + 8 * 24 * 60 * 60 * 1000;
+  const up = (allCalendar || []).filter(e => e && e.timestamp > now - 12 * 3600 * 1000 && e.timestamp < horizon && (e.impact === 'High' || e.impact === 'Medium'));
+  const byDay = {};
+  up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(`${e.currency} ${e.title}${e.forecast ? ` (exp ${e.forecast})` : ''} [${e.impact}]`); });
+  const keys = Object.keys(byDay).sort().slice(0, 5);
+  if (!keys.length) { console.warn('[WeekAhead] calendrier vide → on garde l\'existant'); return _weekAhead; }
+  const calStr = keys.map(k => `${new Date(k + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' })}: ${byDay[k].slice(0, 14).join('; ')}`).join('\n');
+  const heads = (allNews || []).filter(i => i.timestamp > now - WK).slice(0, 50).map(i => i.headline).join('\n');
+  const prompt = `You are a senior macro strategist writing a "Week Ahead" preview for an FX/macro trading terminal.
+From the UPCOMING high/medium-impact economic calendar (grouped by day) + recent headlines, produce a day-by-day outlook. ONE entry per day that has notable events (max 5 days, chronological).
+For each day: a short institutional TITLE (theme of the day), a 2-3 sentence DESCRIPTION (what to watch and why it matters for markets), an IMPACT ("HIGH" or "MEDIUM"), and a RISK integer 0-100 (expected market-moving intensity).
+Base it ONLY on the data provided; name the actual releases/events; do not invent events.
+CALENDAR (upcoming, by day):
+${calStr}
+RECENT HEADLINES (context):
+${heads || 'n/a'}
+Return ONLY valid JSON: {"week":"<e.g. 1-5 June>","days":[{"dow":"Monday","date":"<DD>","month":"<3-letter MON upper>","title":"...","description":"...","impact":"HIGH","risk":70}]}`;
+  let data;
+  try {
+    aiNote('bias');
+    const t = await ai.generateText(prompt, 2400);
+    const m = t.match(/\{[\s\S]*\}/);
+    if (!m) throw new Error('no JSON');
+    data = JSON.parse(m[0]);
+  } catch (e) { console.error('[WeekAhead]', e.message); return _weekAhead; }
+  if (!data || !Array.isArray(data.days) || !data.days.length) return _weekAhead;
+  const days = data.days.slice(0, 5).map(d => ({
+    dow: String(d.dow || '').slice(0, 12), date: String(d.date || '').replace(/\D/g, '').slice(0, 2), month: String(d.month || '').slice(0, 4).toUpperCase(),
+    title: String(d.title || '').slice(0, 170), description: String(d.description || '').slice(0, 750),
+    impact: /high/i.test(d.impact) ? 'HIGH' : 'MEDIUM', risk: Math.max(0, Math.min(100, parseInt(d.risk, 10) || 50)),
+  })).filter(d => d.title);
+  if (!days.length) return _weekAhead;
+  _weekAhead = { generatedAt: Date.now(), v: WA_VER, week: String(data.week || '').slice(0, 40), days };
+  try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
+  auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
+  console.log(`[WeekAhead] OK — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
+  return _weekAhead;
+}
+app.get('/api/week-ahead', async (_req, res) => {
+  if (!_weekAhead) { try { await generateWeekAhead(true); } catch {} }
+  res.json(_weekAhead || { week: '', days: [] });
+});
+
 // Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide
 (function scheduleWeeklyBias() {
   function msToNextSunday(h, m) {
@@ -4125,6 +4179,7 @@ app.get('/api/smart-bias', async (req, res) => {
   const runAll = () => {
     generateSmartBias(true).catch(e => console.error('[SmartBias] failed:', e.message));
     generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
+    generateWeekAhead(true).catch(e => console.error('[WeekAhead] failed:', e.message));   // Week Ahead : même batch hebdo
   };
   setTimeout(function run() {
     runAll();
@@ -4136,6 +4191,11 @@ app.get('/api/smart-bias', async (req, res) => {
     const stale = !_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt || (Date.now() - _smartBias.generatedAt > 7 * 24 * 60 * 60 * 1000);
     if (stale) generateSmartBias(true).catch(() => {});
   }, 45 * 1000);
+  // Week Ahead : régénère au démarrage si vide / version périmée / >1 semaine (décalé après le bias).
+  setTimeout(() => {
+    const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000);
+    if (stale) generateWeekAhead(true).catch(() => {});
+  }, 55 * 1000);
 })();
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
