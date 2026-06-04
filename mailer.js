@@ -239,15 +239,19 @@ function _isDuplicate(to, subject) {
 
 // ── Envoi bas niveau : valide, dé-doublonne, puis essaie les fournisseurs DANS L'ORDRE ──
 // Ordre = API Gmail (HTTPS, depuis le compte Google, aligné DMARC → boîte de réception) →
-//         Gmail SMTP (bloqué sur Render mais gardé si jamais débloqué) → Mailjet → Resend.
+//         Gmail SMTP (secours, même compte). 100% Google : Mailjet/Resend désactivés par défaut.
 async function _send(to, subject, html) {
   if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide — email ignoré:', to); return false; }
   if (_isDuplicate(to, subject)) { console.warn(`[Mailer] doublon ignoré (<12s) → ${to}: "${subject}"`); return false; }
   const chain = [];
-  if (_GMAIL_API_READY)                      chain.push(['API Gmail', _sendGmailApi]);   // ← PRINCIPAL (port 443)
-  if (GMAIL_USER && GMAIL_APP_PASSWORD)      chain.push(['Gmail',   _sendGmail]);
-  if (MAILJET_API_KEY && MAILJET_SECRET_KEY) chain.push(['Mailjet', _sendMailjet]);
-  if (RESEND_API_KEY)                        chain.push(['Resend',  _sendResend]);
+  if (_GMAIL_API_READY)                      chain.push(['API Gmail', _sendGmailApi]);   // ← PRINCIPAL (port 443, depuis le compte Google)
+  if (GMAIL_USER && GMAIL_APP_PASSWORD)      chain.push(['Gmail',   _sendGmail]);        // secours (même compte ; SMTP bloqué Render mais gardé si débloqué)
+  // Mailjet/Resend RETIRÉS (demande : 100% Google). Un From @gmail.com routé via un tiers
+  // tombe en spam → inutile. Réactivables sans code via MAIL_ALLOW_THIRDPARTY=1 si besoin.
+  if (process.env.MAIL_ALLOW_THIRDPARTY === '1') {
+    if (MAILJET_API_KEY && MAILJET_SECRET_KEY) chain.push(['Mailjet', _sendMailjet]);
+    if (RESEND_API_KEY)                        chain.push(['Resend',  _sendResend]);
+  }
   if (!chain.length) {
     console.warn('[Mailer] Aucun fournisseur configuré (GMAIL_*, MAILJET_* ou RESEND_API_KEY) — email non envoyé:', subject);
     return false;
