@@ -3185,14 +3185,26 @@ function loadBiasView() {
 window.loadBiasView = loadBiasView;
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
-let _waData = null, _waChartRoot = null;
+let _waData = null, _waChartRoot = null, _waPollTimer = null, _waPollCount = 0;
 async function loadWeekAheadView() {
   const host = document.getElementById('wa-content');
   if (!host) return;
+  const isPoll = !!_waPollTimer;                 // continuation d'un poll ?
+  if (_waPollTimer) { clearTimeout(_waPollTimer); _waPollTimer = null; }
+  if (!isPoll) _waPollCount = 0;                 // clic frais sur l'onglet → on repart à zéro
   try {
     const d = await fetch('/api/week-ahead').then(r => r.json());
-    if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _renderWeekAhead(d); }
-    else if (!_waData) host.innerHTML = '<div class="wa-empty">Le Week Ahead sera généré ce week-end (ou dès que le calendrier de la semaine est disponible).</div>';
+    if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waPollCount = 0; _renderWeekAhead(d); return; }
+    if (_waData) return;                          // on a déjà des données affichées → on n'écrase pas
+    // Pas encore de données → la génération tourne en arrière-plan côté serveur.
+    _waPollCount++;
+    const visible = !document.getElementById('view-weekahead')?.classList.contains('hidden');
+    if (_waPollCount <= 6 && visible) {
+      host.innerHTML = `<div class="wa-prep"><div class="dtp-loader dtp-loader--sm"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Préparation du Week Ahead…</div></div><div class="wa-prep-note">L'aperçu de la semaine se génère (calendrier + IA). Actualisation automatique…</div></div>`;
+      _waPollTimer = setTimeout(loadWeekAheadView, 12000);   // re-poll dans 12s
+    } else {
+      host.innerHTML = `<div class="wa-empty">L'aperçu de la semaine se génère en arrière-plan — reviens dans quelques minutes, il s'affichera automatiquement.</div>`;
+    }
   } catch { if (!_waData) host.innerHTML = '<div class="wa-empty">Week Ahead indisponible pour le moment.</div>'; }
 }
 window.loadWeekAheadView = loadWeekAheadView;
