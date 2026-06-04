@@ -235,6 +235,13 @@ app.get('/admin', requireAuth, requireAdmin, (_req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
+// Galerie de prévisualisation des emails transactionnels (admin) : voir TOUS les emails rendus,
+// avec données d'exemple + l'ordre réel des fournisseurs d'envoi. Aucun email n'est envoyé.
+app.get('/admin/emails', requireAuth, requireAdmin, (_req, res) => {
+  try { res.type('html').send(mailer.renderEmailGallery()); }
+  catch (e) { res.status(500).send('Erreur preview emails: ' + e.message); }
+});
+
 // ─── Auth routes ──────────────────────────────────────────────────────────────
 // ── Rate-limiting léger en mémoire (anti brute-force / abus, sans dépendance) ──
 const _rlBuckets = new Map();   // clé → [timestamps]
