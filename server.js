@@ -502,6 +502,40 @@ app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
   });
 });
 
+// TEST IA LISIBLE (admin) : lance une VRAIE génération et affiche QUEL provider a répondu + latence.
+// Ouvre /api/admin/ai-test dans le navigateur (connecté en admin) — page HTML, pas du JSON brut.
+app.get('/api/admin/ai-test', requireAdmin, async (_req, res) => {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const snap = () => { try { return ai.status().usageToday || {}; } catch { return {}; } };
+  const u0 = snap(); const t0 = Date.now();
+  let ok = false, sample = '', err = '';
+  try { const out = await ai.generateText('Réponds exactement: OK', 20); ok = true; sample = String(out).trim().slice(0, 100); }
+  catch (e) { err = String((e && e.message) || e).slice(0, 220); }
+  const ms = Date.now() - t0;
+  const st = (() => { try { return ai.status(); } catch { return {}; } })();
+  const u1 = st.usageToday || {}; const diff = k => (u1[k] || 0) - (u0[k] || 0);
+  const provider = diff('gemini') > 0 ? 'Gemini' : diff('github') > 0 ? ('GitHub Models (' + ((st.github && st.github.model) || 'gpt-4o') + ')') : (diff('fallback') > 0 || diff('claude') > 0) ? 'Claude' : '—';
+  const intel = st.intel || {}; const color = ok ? '#22c55e' : '#ef4444';
+  const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test IA DTP</title>
+  <style>body{background:#0c0c0e;color:#e5e7eb;font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
+  .box{background:#141416;border:1px solid #26262b;border-radius:12px;padding:30px 38px;max-width:600px;width:100%}
+  .big{font-size:46px;text-align:center;line-height:1}h1{color:${color};font-size:22px;margin:8px 0 18px;text-align:center}
+  table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 4px;border-bottom:1px solid #1f1f24}td:first-child{color:#8a93a3;width:46%}
+  code{background:#0a0a0c;padding:2px 7px;border-radius:5px;color:#f7941d}a{color:#f7941d}.muted{color:#6b7280;font-size:12px;margin-top:16px;text-align:center}</style></head>
+  <body><div class="box"><div class="big">${ok ? '✅' : '❌'}</div><h1>${ok ? 'IA opérationnelle' : 'Échec IA'}</h1>
+  <table>
+    <tr><td>Provider qui a répondu</td><td><code>${esc(provider)}</code></td></tr>
+    <tr><td>Latence</td><td>${ms} ms</td></tr>
+    ${ok ? `<tr><td>Réponse</td><td><code>${esc(sample)}</code></td></tr>` : `<tr><td>Erreur</td><td style="color:#fca5a5;font-size:12px">${esc(err)}</td></tr>`}
+    <tr><td>Ressources</td><td>Gemini ${st.geminiKeys || 0} clés · GitHub ${(st.github && st.github.tokens) || 0} tokens · Claude ${st.anthropicKeys || 0} clés</td></tr>
+    <tr><td>Token-bucket RPM</td><td>${intel.rpmBucket != null ? intel.rpmBucket : '?'} / ${intel.rpmTarget || '?'}</td></tr>
+    <tr><td>Breakers ouverts</td><td>${intel.breakersOpen != null ? intel.breakersOpen : '?'}</td></tr>
+    <tr><td>Usage aujourd'hui</td><td>Gemini ${u1.gemini || 0} · GitHub ${u1.github || 0} · 429 ${u1.gemini429 || 0}</td></tr>
+  </table>
+  <p class="muted"><a href="/api/admin/ai-test">↻ Relancer le test</a></p></div></body></html>`;
+  res.set('Content-Type', 'text/html; charset=utf-8').send(html);
+});
+
 // TEST D'ENVOI EMAIL (admin) : envoie un vrai email et affiche le canal qui a réussi.
 // Ouvre dans le navigateur (connecté en admin) : /api/admin/mail-test  → vers ton propre email
 //   ou /api/admin/mail-test?to=client@example.com  → vers une adresse précise.
