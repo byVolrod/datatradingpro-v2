@@ -2864,6 +2864,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 @media (max-width: 1100px) {
   .bank-layout { flex-direction: column; }
   .bank-chart-col { width: auto; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: 340px; }
+  /* Topbar : la recherche centrale est ABSOLUE-centrée → sur écran moyen elle chevauche le bloc
+     de droite (RISK + icônes). On la masque dès 1100px (au lieu de 768) → plus de chevauchement. */
+  .topbar-symbol-search { display: none; }
 }
 
 /* ═══════════════════════════════════════════════
