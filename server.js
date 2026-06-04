@@ -3994,18 +3994,44 @@ async function generateSmartBias(force = false) {
 
   const cutoff = Date.now() - WEEK;
   const heads  = allNews.filter(i => i.timestamp > cutoff).slice(0, 150).map(i => `[${i.category || ''}] ${i.headline}`).join('\n');
+
+  // ── ANCRAGE sur les VRAIES sources DTP (anti faux-bias / hors-sujet) ─────────
+  // hedgeFund ← COT réel ; bankOverview ← rapports de banque réels ; + régime de risque.
+  let cotLine = '';
+  try {
+    const cot = await fetchCOTData('noncomm');   // CFTC non-commercial = grandes spéculatives (≈ hedge funds)
+    if (Array.isArray(cot) && cot.length) cotLine = cot.map(r => `${r.key}: net ${r.net > 0 ? '+' : ''}${r.net} (${r.sentiment}, ${r.longPct}%L/${r.shortPct}%S)`).join('; ');
+  } catch (e) { console.warn('[SmartBias] COT indispo:', e.message); }
+  let bankLine = '';
+  try {
+    const rec = (_brCache || []).filter(i => (i.timestamp || 0) > cutoff).map(i => i.headline || i.title).filter(Boolean).slice(0, 14);
+    if (rec.length) bankLine = rec.join(' | ');
+  } catch {}
+  let riskLine = '';
+  try { if (_riskData && _riskData.label) riskLine = `${_riskData.label}${typeof _riskData.score === 'number' ? ` (score ${_riskData.score})` : ''}`; } catch {}
+
   const prompt = `You are a senior FX strategist building a "Smart Bias" matrix for the 8 major currencies: ${SB_CURRENCIES.join(', ')}.
 For EACH currency, rate each indicator using EXACTLY one of: "Very Bullish", "Bullish", "Neutral", "Bearish", "Very Bearish".
-Indicators:
-- fundamental: macro/data momentum
-- bankOverview: aggregate sell-side bank stance
-- hedgeFund: CFTC/COT large-speculator positioning
-- retail: retail crowd positioning (often contrarian)
-- monetary: central-bank policy stance
-- seasonality: typical seasonal tendency for early June
-Use the past-week headlines + your macro knowledge. Be decisive (do NOT make everything Neutral).
-Headlines:
+
+ABSOLUTE RULE — NEVER invent a bias: base EACH rating ONLY on the DATA PROVIDED BELOW. If the data for a currency/indicator is mixed, weak or ABSENT, rate it "Neutral". A wrong directional bias is WORSE than Neutral — do NOT force decisiveness.
+
+Map each indicator to its SOURCE (use ONLY that source):
+- fundamental: macro/data momentum → from the PAST-WEEK HEADLINES (data surprises, growth, inflation).
+- bankOverview: aggregate sell-side bank stance → from the BANK RESEARCH headlines below ONLY (no bank coverage for a currency → Neutral).
+- hedgeFund: large-speculator positioning → from the COT DATA below ONLY (net long → Bullish, net short → Bearish; bigger net = stronger conviction). Currency absent from COT → Neutral.
+- retail: retail crowd positioning (contrarian) → infer cautiously from headlines, else Neutral.
+- monetary: central-bank policy stance → from headlines mentioning central banks / rate decisions / officials.
+- seasonality: typical early-June seasonal tendency (your knowledge) — keep it modest.
+
+== COT DATA (CFTC non-commercial / large specs — the ONLY source for hedgeFund) ==
+${cotLine || 'n/a'}
+== RECENT BANK RESEARCH headlines (the ONLY source for bankOverview) ==
+${bankLine || 'n/a'}
+== GLOBAL RISK REGIME (context) ==
+${riskLine || 'n/a'}
+== PAST-WEEK HEADLINES ==
 ${heads || 'n/a'}
+
 Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"hedgeFund":{...},"retail":{...},"monetary":{...},"seasonality":{...}}}`;
 
   let gem = {};
