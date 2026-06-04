@@ -1862,7 +1862,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme Prime Terminal SUR GRAND
     //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
     const _ml = document.getElementById('main-layout');
-    _ml?.classList.toggle('hide-right-panel', view === 'bank');
+    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead');   // Week Ahead en pleine largeur (timeline + chart) → loader centré comme les autres
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');

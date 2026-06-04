@@ -4128,7 +4128,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v1';
+const WA_VER = 'v2-cal';   // v2 : 100% calendrier (0 IA) → bump force la régénération
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4140,39 +4140,42 @@ async function generateWeekAhead(force = false) {
   const horizon = now + 8 * 24 * 60 * 60 * 1000;
   const up = (allCalendar || []).filter(e => e && e.timestamp > now - 12 * 3600 * 1000 && e.timestamp < horizon && (e.impact === 'High' || e.impact === 'Medium'));
   const byDay = {};
-  up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(`${e.currency} ${e.title}${e.forecast ? ` (exp ${e.forecast})` : ''} [${e.impact}]`); });
+  up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(e); });
   const keys = Object.keys(byDay).sort().slice(0, 5);
   if (!keys.length) { console.warn('[WeekAhead] calendrier vide → on garde l\'existant'); return _weekAhead; }
-  const calStr = keys.map(k => `${new Date(k + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'short' })}: ${byDay[k].slice(0, 14).join('; ')}`).join('\n');
-  const heads = (allNews || []).filter(i => i.timestamp > now - WK).slice(0, 50).map(i => i.headline).join('\n');
-  const prompt = `You are a senior macro strategist writing a "Week Ahead" preview for an FX/macro trading terminal.
-From the UPCOMING high/medium-impact economic calendar (grouped by day) + recent headlines, produce a day-by-day outlook. ONE entry per day that has notable events (max 5 days, chronological).
-For each day: a short institutional TITLE (theme of the day), a 2-3 sentence DESCRIPTION (what to watch and why it matters for markets), an IMPACT ("HIGH" or "MEDIUM"), and a RISK integer 0-100 (expected market-moving intensity).
-Base it ONLY on the data provided; name the actual releases/events; do not invent events.
-CALENDAR (upcoming, by day):
-${calStr}
-RECENT HEADLINES (context):
-${heads || 'n/a'}
-Return ONLY valid JSON: {"week":"<e.g. 1-5 June>","days":[{"dow":"Monday","date":"<DD>","month":"<3-letter MON upper>","title":"...","description":"...","impact":"HIGH","risk":70}]}`;
-  let data;
-  try {
-    aiNote('bias');
-    const t = await ai.generateText(prompt, 2400);
-    const m = t.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('no JSON');
-    data = JSON.parse(m[0]);
-  } catch (e) { console.error('[WeekAhead]', e.message); return _weekAhead; }
-  if (!data || !Array.isArray(data.days) || !data.days.length) return _weekAhead;
-  const days = data.days.slice(0, 5).map(d => ({
-    dow: String(d.dow || '').slice(0, 12), date: String(d.date || '').replace(/\D/g, '').slice(0, 2), month: String(d.month || '').slice(0, 4).toUpperCase(),
-    title: String(d.title || '').slice(0, 170), description: String(d.description || '').slice(0, 750),
-    impact: /high/i.test(d.impact) ? 'HIGH' : 'MEDIUM', risk: Math.max(0, Math.min(100, parseInt(d.risk, 10) || 50)),
-  })).filter(d => d.title);
+  // ── 100% DATA-DRIVEN (calendrier du terminal, AUCUN appel IA) → fiable + zéro consommation ──
+  const _theme = t => { t = (t || '').toLowerCase();
+    if (/\bcpi\b|inflation|hicp|\bppi\b|\bpce\b|price index/.test(t)) return 'Inflation';
+    if (/payroll|\bnfp\b|employ|jobless|unemploy|labou?r|\bjobs\b/.test(t)) return 'Labour Market';
+    if (/\bgdp\b|growth/.test(t)) return 'Growth';
+    if (/\bpmi\b|\bism\b|manufacturing|services|industrial/.test(t)) return 'Activity (PMI)';
+    if (/rate decision|monetary policy|central bank|fomc|\becb\b|\bboe\b|\bboj\b|\brba\b|\bsnb\b|\bboc\b|interest rate|rate statement/.test(t)) return 'Central Banks';
+    if (/retail|sales|consumer|spending|confidence/.test(t)) return 'Consumer';
+    if (/trade|export|import|current account/.test(t)) return 'Trade';
+    return null; };
+  const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  const days = keys.map(k => {
+    const evs = byDay[k].slice().sort((a, b) => (b.impact === 'High' ? 1 : 0) - (a.impact === 'High' ? 1 : 0));
+    const d = new Date(k + 'T12:00:00Z');
+    const hiEvs = evs.filter(e => e.impact === 'High');
+    const risk = Math.max(15, Math.min(100, Math.round(evs.reduce((s, e) => s + (e.impact === 'High' ? 3 : 1), 0) * 9)));
+    const ccys = [...new Set(hiEvs.map(e => e.currency).filter(Boolean))].slice(0, 3);
+    const themes = [...new Set(evs.map(e => _theme(e.title || '')).filter(Boolean))].slice(0, 2);
+    const title = (themes.length ? themes.join(' & ') : 'Key Economic Data') + (ccys.length ? ' — ' + ccys.join(', ') : '');
+    const base = (hiEvs.length ? hiEvs : evs).slice(0, 7);
+    const description = base.map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (prév. ${e.forecast})` : ''}`.trim()).join(' · ') || 'Données économiques de la journée.';
+    return {
+      dow: d.toLocaleDateString('en-US', { weekday: 'long' }), date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
+      title: title.slice(0, 170), description: description.slice(0, 750), impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+    };
+  });
   if (!days.length) return _weekAhead;
-  _weekAhead = { generatedAt: Date.now(), v: WA_VER, week: String(data.week || '').slice(0, 40), days };
+  const first = new Date(keys[0] + 'T12:00:00Z'), last = new Date(keys[keys.length - 1] + 'T12:00:00Z');
+  const week = `${first.getUTCDate()}-${last.getUTCDate()} ${last.toLocaleDateString('en-US', { month: 'long' })}`;
+  _weekAhead = { generatedAt: Date.now(), v: WA_VER, week, days };
   try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
   auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
-  console.log(`[WeekAhead] OK — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
+  console.log(`[WeekAhead] OK (calendrier, 0 IA) — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
   return _weekAhead;
 }
 let _waGenerating = false;
