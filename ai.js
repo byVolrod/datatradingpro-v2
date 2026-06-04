@@ -50,13 +50,20 @@ const ANTHROPIC_KEYS = (() => {
 })();
 
 // ── GitHub Models (Microsoft/Azure inference, OpenAI-compatible) — 3ᵉ provider gratuit ──
-// Repli APRÈS Gemini, AVANT Claude. Appelé en fetch (pas de SDK openai). Token = GITHUB_TOKEN (Render).
-const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
+// Repli APRÈS Gemini, AVANT Claude. Appelé en fetch (pas de SDK openai). MULTI-TOKENS dynamiques
+// (GITHUB_TOKEN + _2.._20) → des tokens de COMPTES GitHub différents CUMULENT leur quota gratuit.
+const GITHUB_TOKENS = (() => {
+  const out = [];
+  if (process.env.GITHUB_TOKEN) out.push(process.env.GITHUB_TOKEN);
+  for (let i = 2; i <= 20; i++) { const v = process.env['GITHUB_TOKEN' + i]; if (v) out.push(v); }
+  return out.map(t => (t || '').trim()).filter(Boolean).filter((t, i, a) => a.indexOf(t) === i);
+})();
+let _ghCursor = 0;
 const GITHUB_MODEL = process.env.GITHUB_MODEL || 'gpt-4o';
 const GITHUB_BASE  = process.env.GITHUB_MODELS_URL || 'https://models.inference.ai.azure.com';
 
 // Visibilité au démarrage : combien de ressources IA sont chargées (jamais les valeurs).
-console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKEN ? 'oui (' + GITHUB_MODEL + ')' : 'non'} · Claude: ${ANTHROPIC_KEYS.length} clés`);
+console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODEL + ')' : ''} · Claude: ${ANTHROPIC_KEYS.length} clés`);
 
 // ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
 // Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
@@ -202,22 +209,29 @@ function _hFail(model, idx, is429) { const h = _h(model, idx); h.fail++; if (is4
 function _hBroken(model, idx) { return _h(model, idx).breakerUntil > Date.now(); }
 function _hScore(model, idx) { const h = _h(model, idx); const tot = h.ok + h.fail; const sr = tot ? h.ok / tot : 0.6; return Math.max(0, sr - Math.min(0.3, h.ewmaMs / 20000) - h.consec * 0.05); }   // succès pondéré latence
 
-// Provider GitHub Models (OpenAI-compatible) — fetch, contexte système partagé, timeout 30s.
+// Provider GitHub Models (OpenAI-compatible) — fetch, contexte système partagé, rotation multi-comptes.
 async function _githubModels(prompt, maxTokens) {
-  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
-  try {
-    const r = await fetch(GITHUB_BASE + '/chat/completions', {
-      method: 'POST',
-      headers: { 'Authorization': 'Bearer ' + GITHUB_TOKEN, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: GITHUB_MODEL, messages: [{ role: 'system', content: AI_SYSTEM }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.7 }),
-      signal: ctrl.signal,
-    });
-    if (!r.ok) { const e = new Error('GitHub Models ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 140)); e.status = r.status; throw e; }
-    const j = await r.json();
-    const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-    if (!out || !String(out).trim()) throw new Error('GitHub Models: réponse vide');
-    return String(out).trim();
-  } finally { clearTimeout(t); }
+  const n = GITHUB_TOKENS.length; _ghCursor = (_ghCursor + 1) % n;
+  let lastErr;
+  for (let i = 0; i < n; i++) {
+    const tok = GITHUB_TOKENS[(_ghCursor + i) % n];
+    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+    try {
+      const r = await fetch(GITHUB_BASE + '/chat/completions', {
+        method: 'POST',
+        headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: GITHUB_MODEL, messages: [{ role: 'system', content: AI_SYSTEM }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.7 }),
+        signal: ctrl.signal,
+      });
+      if (!r.ok) { const e = new Error('GitHub Models ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 120)); e.status = r.status; throw e; }
+      const j = await r.json();
+      const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+      if (!out || !String(out).trim()) throw new Error('réponse vide');
+      return String(out).trim();
+    } catch (e) { lastErr = e; }   // 429/échec d'un compte → on tente le token suivant (autre compte = autre quota)
+    finally { clearTimeout(t); }
+  }
+  throw lastErr || new Error('GitHub Models: tous les tokens ont échoué');
 }
 
 async function generateText(prompt, maxTokens = 1500) {
@@ -248,11 +262,11 @@ async function generateText(prompt, maxTokens = 1500) {
         }
       }
     }
-    if (!GITHUB_TOKEN && !ANTHROPIC_KEYS.length) throw lastErr || new Error('Gemini indisponible');
+    if (!GITHUB_TOKENS.length && !ANTHROPIC_KEYS.length) throw lastErr || new Error('Gemini indisponible');
   }
 
   // ── Option B : GitHub Models (gpt-4o, quota gratuit Microsoft) — repli AVANT Claude ──
-  if (GITHUB_TOKEN) {
+  if (GITHUB_TOKENS.length) {
     try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
     catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → Claude`); _aiStat('githubFail'); }
   }
@@ -276,7 +290,7 @@ function status() {
   return {
     geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
-    github: { configured: !!GITHUB_TOKEN, model: GITHUB_MODEL },
+    github: { tokens: GITHUB_TOKENS.length, model: GITHUB_MODEL },
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,
     claudeDailyMax: CLAUDE_DAILY_MAX,
