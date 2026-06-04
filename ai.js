@@ -49,8 +49,14 @@ const ANTHROPIC_KEYS = (() => {
   return out.map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
 })();
 
-// Visibilité au démarrage : combien de clés sont réellement chargées (jamais les valeurs).
-console.log(`[AI] Clés chargées → Gemini: ${GEMINI_KEYS.length} · Claude: ${ANTHROPIC_KEYS.length} | modèles Gemini: ${GEMINI_MODELS.length}`);
+// ── GitHub Models (Microsoft/Azure inference, OpenAI-compatible) — 3ᵉ provider gratuit ──
+// Repli APRÈS Gemini, AVANT Claude. Appelé en fetch (pas de SDK openai). Token = GITHUB_TOKEN (Render).
+const GITHUB_TOKEN = (process.env.GITHUB_TOKEN || '').trim();
+const GITHUB_MODEL = process.env.GITHUB_MODEL || 'gpt-4o';
+const GITHUB_BASE  = process.env.GITHUB_MODELS_URL || 'https://models.inference.ai.azure.com';
+
+// Visibilité au démarrage : combien de ressources IA sont chargées (jamais les valeurs).
+console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKEN ? 'oui (' + GITHUB_MODEL + ')' : 'non'} · Claude: ${ANTHROPIC_KEYS.length} clés`);
 
 // ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
 // Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
@@ -170,10 +176,10 @@ const _gemCooldown = new Map();   // "model|idx" → fin de cooldown (timestamp)
 function _gemCool(model, idx, status) { _gemCooldown.set(model + '|' + idx, Date.now() + (status === 404 ? 6 * 3600 * 1000 : status === 429 ? 90000 : 25000)); }   // 404 (modèle invalide) = mis de côté 6h
 function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
 // Suivi quotidien (visibilité "combien d'appels / 429 par jour" → pour anticiper le besoin de quota).
-let _aiDay = '', _aiStats = { gemini: 0, gemini429: 0, claude: 0, claudeFail: 0, fallback: 0 };
+let _aiDay = '', _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, claude: 0, claudeFail: 0, fallback: 0 };
 function _aiStat(f) {
   const d = new Date().toISOString().slice(0, 10);
-  if (d !== _aiDay) { _aiDay = d; _aiStats = { gemini: 0, gemini429: 0, claude: 0, claudeFail: 0, fallback: 0 }; }
+  if (d !== _aiDay) { _aiDay = d; _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, claude: 0, claudeFail: 0, fallback: 0 }; }
   _aiStats[f] = (_aiStats[f] || 0) + 1;
 }
 
@@ -195,6 +201,24 @@ function _hOk(model, idx, ms) { const h = _h(model, idx); h.ok++; h.consec = 0; 
 function _hFail(model, idx, is429) { const h = _h(model, idx); h.fail++; if (is429) h.f429++; h.consec++; if (h.consec >= 4) h.breakerUntil = Date.now() + 5 * 60 * 1000; }   // 4 échecs d'affilée → breaker 5 min
 function _hBroken(model, idx) { return _h(model, idx).breakerUntil > Date.now(); }
 function _hScore(model, idx) { const h = _h(model, idx); const tot = h.ok + h.fail; const sr = tot ? h.ok / tot : 0.6; return Math.max(0, sr - Math.min(0.3, h.ewmaMs / 20000) - h.consec * 0.05); }   // succès pondéré latence
+
+// Provider GitHub Models (OpenAI-compatible) — fetch, contexte système partagé, timeout 30s.
+async function _githubModels(prompt, maxTokens) {
+  const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+  try {
+    const r = await fetch(GITHUB_BASE + '/chat/completions', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + GITHUB_TOKEN, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: GITHUB_MODEL, messages: [{ role: 'system', content: AI_SYSTEM }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.7 }),
+      signal: ctrl.signal,
+    });
+    if (!r.ok) { const e = new Error('GitHub Models ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 140)); e.status = r.status; throw e; }
+    const j = await r.json();
+    const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+    if (!out || !String(out).trim()) throw new Error('GitHub Models: réponse vide');
+    return String(out).trim();
+  } finally { clearTimeout(t); }
+}
 
 async function generateText(prompt, maxTokens = 1500) {
   // ── Option A : Google Gemini (gratuit) — multi-clés + multi-modèles ──────────
@@ -224,13 +248,19 @@ async function generateText(prompt, maxTokens = 1500) {
         }
       }
     }
-    if (!ANTHROPIC_KEYS.length) throw lastErr || new Error('Gemini indisponible');
+    if (!GITHUB_TOKEN && !ANTHROPIC_KEYS.length) throw lastErr || new Error('Gemini indisponible');
   }
 
-  // ── Option B : Anthropic Claude (multi-clés, rotation + bascule) ────────────
+  // ── Option B : GitHub Models (gpt-4o, quota gratuit Microsoft) — repli AVANT Claude ──
+  if (GITHUB_TOKEN) {
+    try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
+    catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → Claude`); _aiStat('githubFail'); }
+  }
+
+  // ── Option C : Anthropic Claude (multi-clés, rotation + bascule) ────────────
   if (ANTHROPIC_KEYS.length) { _aiStat('fallback'); return _anthropic(prompt, maxTokens); }
 
-  throw new Error('Aucune clé IA configurée (GEMINI_API_KEY ou ANTHROPIC_API_KEY…)');
+  throw new Error('Aucune ressource IA configurée (GEMINI / GITHUB_TOKEN / ANTHROPIC)');
 }
 
 // Génère via Claude UNIQUEMENT (ignore Gemini). Utile quand le budget Gemini soft
@@ -246,6 +276,7 @@ function status() {
   return {
     geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
+    github: { configured: !!GITHUB_TOKEN, model: GITHUB_MODEL },
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,
     claudeDailyMax: CLAUDE_DAILY_MAX,
