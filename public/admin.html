@@ -22,9 +22,10 @@
       --text:  #f0f1f3; --text2: #b8bec8; --text3: #939aa4; --text4: #5c616b;
       --orange: #f7941d; --orange-bg: rgba(247,148,29,0.1);
       --red: #e74c3c;  --green: #2ecc71;
-      --font-ui: 'Inter', sans-serif; --font-mono: 'JetBrains Mono', monospace;
+      --font-pmt: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+      --font-ui: var(--font-pmt); --font-mono: var(--font-pmt);   /* police PMT partout (admin aligné) */
     }
-    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-size: 13px; }
+    html, body { height: 100%; background: var(--bg); color: var(--text); font-family: var(--font-ui); font-variant-numeric: tabular-nums; font-size: 13px; }
 
     /* ── Topbar ── */
     .topbar {
@@ -707,12 +708,12 @@
     const chart = root.container.children.push(am5xy.XYChart.new(root, { panX:false, panY:false, wheelX:'none', wheelY:'none', paddingLeft:2, paddingRight:10, paddingTop:12, paddingBottom:2 }));
     const xR = am5xy.AxisRendererX.new(root, { minGridDistance:28 });
     xR.grid.template.setAll({ strokeOpacity:0 });
-    xR.labels.template.setAll({ fill:am5.color(0xcfd4da), fontSize:10, fontFamily:'JetBrains Mono' });
+    xR.labels.template.setAll({ fill:am5.color(0xcfd4da), fontSize:10, fontFamily:'Inter, -apple-system, sans-serif' });
     const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, { categoryField:'cat', renderer:xR }));
     xAxis.data.setAll(data);
     const yR = am5xy.AxisRendererY.new(root, {});
     yR.grid.template.setAll({ stroke:am5.color(0x222227), strokeOpacity:0.7 });
-    yR.labels.template.setAll({ fill:am5.color(0x9aa0a6), fontSize:10, fontFamily:'JetBrains Mono' });
+    yR.labels.template.setAll({ fill:am5.color(0x9aa0a6), fontSize:10, fontFamily:'Inter, -apple-system, sans-serif' });
     const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { min:0, renderer:yR }));
     const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, { xAxis, yAxis, valueYField:'val', categoryXField:'cat', stroke:color, fill:color, tooltip:am5.Tooltip.new(root, { labelText:(prefix||'') + '{valueY}' }) }));
     series.strokes.template.setAll({ strokeWidth:2.5 });
@@ -734,7 +735,7 @@
     const series = chart.series.push(am5percent.PieSeries.new(root, { categoryField:'cat', valueField:'val', alignLabels:false }));
     series.set('colors', am5.ColorSet.new(root, { colors: data.map(d => am5.color(d.color)) }));
     series.slices.template.setAll({ stroke:am5.color(0x0a0a0a), strokeWidth:2 });
-    series.labels.template.setAll({ fill:am5.color(0xcfd4da), fontSize:10, fontFamily:'JetBrains Mono', text:'{category} {value}' });
+    series.labels.template.setAll({ fill:am5.color(0xcfd4da), fontSize:10, fontFamily:'Inter, -apple-system, sans-serif', text:'{category} {value}' });
     series.ticks.template.setAll({ stroke:am5.color(0x3a3a40), strokeOpacity:0.6 });
     series.data.setAll(data);
     series.appear(700, 90);
