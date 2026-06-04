@@ -14,6 +14,7 @@
 
 ## Workflow (chaque changement)
 - **Commit + push à chaque fois** (Render redéploie depuis `main`). Messages FR, finir par `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.
+- **BACKUP OBLIGATOIRE** : après CHAQUE `git push origin main`, faire AUSSI `git push backup main` (remote `backup` = `https://github.com/byVolrod/datatradingpro-v2-backup.git`, repo privé miroir). Le backup doit toujours rester à jour avec origin. (Si le remote `backup` manque sur une nouvelle machine : `git remote add backup https://github.com/byVolrod/datatradingpro-v2-backup.git`.)
 - **Cache-busting** : bumper `?v=YYYYMMDDx` sur app.js/charts.js/style.css dans `public/index.html`. Rappeler **Ctrl+F5**.
 - Toujours `node -c` les fichiers JS + vérifier l'équilibre des accolades CSS avant commit.
 
