@@ -4184,7 +4184,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arlib-rcontent {
   flex: 1;
   overflow-y: auto;
-  padding: 28px 32px 48px;
+  /* Contenu CENTRÉ en colonne lisible (~1040px) façon PMT : inset auto sur écran large,
+     min 32px sinon. La scrollbar reste au bord, le fond remplit toute la largeur. */
+  padding: 28px max(32px, calc((100% - 1040px) / 2)) 48px;
   background: #161619;
 }
 
@@ -4287,7 +4289,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 
 /* ── AI Insights (cartes générées par IA en haut du rapport) ── */
-#arlib-ai-insights { background: #161619; padding: 0 32px; }
+/* AI Insights alignés sur la MÊME colonne centrée que le contenu (inset auto, min 32px) */
+#arlib-ai-insights { background: #161619; padding: 0 max(32px, calc((100% - 1040px) / 2)); }
 #arlib-ai-insights:empty { display: none; }
 .ai-insights-head {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
