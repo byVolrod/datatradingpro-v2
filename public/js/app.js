@@ -2239,7 +2239,7 @@ function buildNewsItem(item) {
     infoTagEl.className = 'tag tag--info';
     infoTagEl.style.cursor = 'pointer';
     // Grouped speaker cards → "Infos" badge with count; openers → "Info"; others → "Info"
-    infoTagEl.innerHTML = '<span class="tag-icon">ⓘ</span> Info';
+    infoTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="3.5" r="0.75" fill="currentColor"/></svg> Info';
     infoTagEl.onclick = e => { e.stopPropagation(); openPanel('info'); };
     tagsEl.appendChild(infoTagEl);
   }
@@ -2248,7 +2248,7 @@ function buildNewsItem(item) {
     analysisTagEl = document.createElement('span');
     analysisTagEl.className = 'tag tag--analyse';
     analysisTagEl.style.cursor = 'pointer';
-    analysisTagEl.innerHTML = '<span class="tag-icon">⊙</span> Analyse';
+    analysisTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M5.75 0.75C6.40661 0.75 7.05679 0.879329 7.66342 1.1306C8.27005 1.38188 8.82124 1.75017 9.28553 2.21447C9.74983 2.67876 10.1181 3.22996 10.3694 3.83659C10.6207 4.44321 10.75 5.09339 10.75 5.75M5.75 0.75V5.75M5.75 0.75C2.98858 0.75 0.75 2.98858 0.75 5.75C0.75 8.51142 2.98858 10.75 5.75 10.75C8.51142 10.75 10.75 8.51143 10.75 5.75M5.75 0.75C8.51142 0.75 10.75 2.98858 10.75 5.75M10.75 5.75L5.75 5.75M10.75 5.75C10.75 6.53906 10.5633 7.3169 10.205 8.01995C9.84681 8.723 9.32728 9.33129 8.68893 9.79508L5.75 5.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Analyse';
     analysisTagEl.onclick = e => { e.stopPropagation(); openPanel('analysis'); };
     tagsEl.appendChild(analysisTagEl);
   }
