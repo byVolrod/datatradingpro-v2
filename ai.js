@@ -195,11 +195,16 @@ function _aiStat(f) {
 // circuit breaker sur les couples qui échouent en série. 100% en mémoire (1 instance), provider-agnostic-ready.
 
 // ── Token bucket GLOBAL Gemini : lisse notre débit pour rester SOUS le RPM (anti-rafale) ──
-const _GEM_RPM = parseInt(process.env.GEMINI_RPM, 10) || 12;   // req/min visées (conservateur sous le free-tier)
+const _GEM_RPM = parseInt(process.env.GEMINI_RPM, 10) || 12;   // RPM de base (sous le free-tier)
+// THROTTLING PRÉDICTIF : on ralentit PROGRESSIVEMENT le débit AVANT la saturation, selon la pression
+// quota (fraction du budget du jour déjà consommée, poussée par server.js). 100%→85%→70%→50%→30%.
+let _quotaPressure = 0;
+function setQuotaPressure(f) { _quotaPressure = Math.max(0, Math.min(1, Number(f) || 0)); }
+function _effRpm() { const p = _quotaPressure; const k = p < 0.5 ? 1 : p < 0.7 ? 0.85 : p < 0.85 ? 0.7 : p < 0.95 ? 0.5 : 0.3; return Math.max(2, _GEM_RPM * k); }
 let _gemBucket = _GEM_RPM, _gemBucketTs = Date.now();
-function _gemBucketRefill() { const now = Date.now(); _gemBucket = Math.min(_GEM_RPM, _gemBucket + ((now - _gemBucketTs) / 1000) * (_GEM_RPM / 60)); _gemBucketTs = now; }
+function _gemBucketRefill() { const now = Date.now(); _gemBucket = Math.min(_GEM_RPM, _gemBucket + ((now - _gemBucketTs) / 1000) * (_effRpm() / 60)); _gemBucketTs = now; }
 function _gemBucketTake() { _gemBucketRefill(); if (_gemBucket >= 1) { _gemBucket -= 1; return true; } return false; }
-async function _gemBucketGate() { let waited = 0; while (!_gemBucketTake() && waited < 5000) { const refill = (1 - _gemBucket) / (_GEM_RPM / 60) * 1000; const w = Math.min(800, Math.max(50, refill)); await new Promise(r => setTimeout(r, w)); waited += w; } }
+async function _gemBucketGate() { let waited = 0; while (!_gemBucketTake() && waited < 6000) { const refill = (1 - _gemBucket) / (_effRpm() / 60) * 1000; const w = Math.min(900, Math.max(50, refill)); await new Promise(r => setTimeout(r, w)); waited += w; } }
 
 // ── Santé par (modèle, clé) : score de routing + circuit breaker ──
 const _gemHealth = new Map();   // "model|idx" → {ok, fail, f429, ewmaMs, consec, breakerUntil}
@@ -302,6 +307,7 @@ function status() {
     intel: {
       rpmTarget: _GEM_RPM,
       rpmBucket: Math.round((() => { _gemBucketRefill(); return _gemBucket; })() * 10) / 10,   // jetons dispo (proche de RPM = pas de rafale)
+      effRpm: Math.round(_effRpm() * 10) / 10, pressure: Math.round(_quotaPressure * 100) / 100,   // throttling prédictif
       breakersOpen: [..._gemHealth.values()].filter(h => h.breakerUntil > Date.now()).length,
       health: [..._gemHealth.entries()].map(([k, h]) => ({ k, ok: h.ok, fail: h.fail, f429: h.f429, ewmaMs: Math.round(h.ewmaMs), broken: h.breakerUntil > Date.now() }))
         .sort((a, b) => (b.ok + b.fail) - (a.ok + a.fail)).slice(0, 12),
@@ -312,6 +318,7 @@ function status() {
 module.exports = {
   generateText,
   generateTextClaudeOnly,
+  setQuotaPressure,
   setLiveContext,
   hasAnthropic,
   status,
