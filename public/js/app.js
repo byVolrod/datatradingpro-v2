@@ -3411,24 +3411,62 @@ function _sbOpenSummary(curr) {
     </div>`;
   _sbInitSplitter();
   _sbLoadRiskEvents();
+  _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
 window._sbOpenSummary = _sbOpenSummary;
 function _sbCloseSummary() { const w = document.getElementById('sbm-summary'); if (w) w.innerHTML = ''; _sbActiveCur = null; }
 window._sbCloseSummary = _sbCloseSummary;
 
-// Accordéons Fundamental / Bank Overview — affichent les SOURCES RÉELLES (pas de fausses valeurs) :
-// le détail par sous-indicateur viendra du backend. Pour l'instant : note honnête.
+// ── Accordéons : Bank Overview branché sur les VRAIES positions de banques (terminal Institution) ──
+// Le biais de chaque banque sur la devise est DÉRIVÉ de sa position réelle (0 invention, 0 IA) :
+//   long GBP/USD → haussier GBP ; long EUR/GBP → baissier GBP ; etc.
+let _sbBankPos = null;
+function _sbLoadBankPos() {
+  if (_sbBankPos) return Promise.resolve(_sbBankPos);
+  return fetch('/api/bank-positions').then(r => r.json())
+    .then(d => { _sbBankPos = (d && d.positions) || []; return _sbBankPos; })
+    .catch(() => { _sbBankPos = []; return _sbBankPos; });
+}
+function _sbBankStance(pos, cur) {
+  const parts = String(pos.pair || '').toUpperCase().split('/');
+  if (parts.length !== 2) return null;
+  const [base, quote] = parts;
+  const isBuy = pos.dir ? pos.dir === 'buy' : (/buy/i.test(pos.orderType || '') || (Number(pos.tp) > Number(pos.entry)));
+  if (base === cur)  return isBuy ? 'Bullish' : 'Bearish';
+  if (quote === cur) return isBuy ? 'Bearish' : 'Bullish';
+  return null;   // devise absente de cette paire
+}
+function _sbRenderBankChildren(box, cur) {
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const byBank = new Map();   // agrège par banque : net haussier/baissier sur la devise
+  (_sbBankPos || []).forEach(p => {
+    const st = _sbBankStance(p, cur); if (!st) return;
+    const name = (p.bank || '').replace(/\s+Research$/i, '').trim(); if (!name) return;
+    const e = byBank.get(name) || { name, score: 0 };
+    e.score += st === 'Bullish' ? 1 : -1;
+    byBank.set(name, e);
+  });
+  const banks = [...byBank.values()];
+  if (!banks.length) { box.innerHTML = `<div class="sbs-child-note">Aucune position de banque sur ${esc(cur)} dans le terminal actuellement.</div>`; return; }
+  box.innerHTML = banks.map(b => {
+    const stance = b.score > 0 ? 'Bullish' : b.score < 0 ? 'Bearish' : 'Neutral';
+    return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(b.name)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${stance}</span></div>`;
+  }).join('');
+}
 function _sbToggleAcc(key) {
   const box = document.getElementById('sbs-acc-' + key);
   const row = document.querySelector(`.sbs-acc[data-acc="${key}"]`);
   if (!box) return;
-  const open = box.hasAttribute('hidden') ? false : true;
-  if (open) { box.setAttribute('hidden', ''); row && row.classList.remove('sbs-acc--open'); return; }
+  if (!box.hasAttribute('hidden')) { box.setAttribute('hidden', ''); row && row.classList.remove('sbs-acc--open'); return; }
   box.removeAttribute('hidden'); row && row.classList.add('sbs-acc--open');
-  if (!box.dataset.loaded) {
-    box.dataset.loaded = '1';
-    box.innerHTML = `<div class="sbs-child-note">Détail par sous-indicateur (${key === 'fundamental' ? 'Economic Growth, Rising Prices, PMI…' : 'Goldman Sachs, ING, Nomura…'}) — bientôt disponible.</div>`;
+  if (box.dataset.loaded) return;
+  box.dataset.loaded = '1';
+  if (key === 'bankOverview') {
+    box.innerHTML = `<div class="sbs-child-note">Chargement des banques…</div>`;
+    _sbLoadBankPos().then(() => _sbRenderBankChildren(box, _sbActiveCur));
+  } else {
+    box.innerHTML = `<div class="sbs-child-note">Détail économique (Economic Growth, Rising Prices, PMI…) — dérivé du calendrier, bientôt.</div>`;
   }
 }
 window._sbToggleAcc = _sbToggleAcc;
