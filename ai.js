@@ -38,6 +38,20 @@ const ANTHROPIC_KEYS = [
   process.env.ANTHROPIC_API_KEY5,
 ].map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
 
+// ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
+// Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
+// même rôle, mêmes règles → sorties COHÉRENTES quel que soit le modèle/la clé qui répond
+// (fini les décalages Gemini ↔ Claude). N'écrase JAMAIS les consignes propres à chaque tâche.
+const AI_SYSTEM = process.env.AI_SYSTEM_PROMPT || `You are the institutional AI analyst engine that powers DataTradingPro (DTP) — a professional, real-time FX & macro trading terminal modeled faithfully on Prime Terminal (PMT). The terminal gives traders live market data, breaking news, an economic calendar, currency-strength and risk-sentiment gauges, institutional research, market session wraps, and AI-generated insights.
+
+Across EVERY feature (news tagging & analysis, analyst report segmentation & insights, the Macro AI chat, smart bias, research) you are ONE and the same persona: a concise, data-driven INSTITUTIONAL macro / forex analyst.
+
+Rules — identical for every request, every model, every key:
+- Be factual and precise. NEVER invent prices, figures, dates, quotes, tickers or events; if a value isn't provided, do not fabricate it. Accuracy on financial data is critical.
+- Institutional tone: direct, professional, no preamble, no filler, no disclaimers; never mention being an AI.
+- The SPECIFIC instructions of each request ALWAYS take precedence over style: follow the requested output format EXACTLY (e.g. "JSON only" → return only valid JSON; "one paragraph" → one paragraph; requested language → that language).
+- Keep terminology/conventions consistent (tickers, central banks, BUY/SELL/NEUTRAL, risk-on/risk-off, bullish/bearish) so the output reads the SAME no matter which model answers.`;
+
 async function _gemini(model, key, prompt, maxTokens) {
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
   // Timeout 20s : une requête Gemini bloquée ne doit jamais s'empiler / geler la file (anti-OOM/502)
@@ -50,9 +64,11 @@ async function _gemini(model, key, prompt, maxTokens) {
       headers: { 'Content-Type': 'application/json' },
       signal: _ctrl.signal,
       body: JSON.stringify({
+        systemInstruction: { parts: [{ text: AI_SYSTEM }] },   // même contexte/rôle/règles que Claude → cohérence
         contents: [{ parts: [{ text: prompt }] }],
         // thinkingBudget:0 → pas de "réflexion" qui consomme les tokens de sortie (réponses fiables/rapides)
-        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.5, thinkingConfig: { thinkingBudget: 0 } },
+        // temperature 0.4 (alignée sur Claude) → moins de variance, sorties homogènes
+        generationConfig: { maxOutputTokens: maxTokens, temperature: 0.4, thinkingConfig: { thinkingBudget: 0 } },
       }),
     });
   } finally { clearTimeout(_to); }
@@ -94,6 +110,8 @@ async function _anthropic(prompt, maxTokens) {
       const msg = await client.messages.create({
         model: CLAUDE_MODEL,
         max_tokens: maxTokens,
+        temperature: 0.4,    // alignée sur Gemini → moins de variance entre modèles
+        system: AI_SYSTEM,   // même contexte/rôle/règles que Gemini → cohérence
         messages: [{ role: 'user', content: prompt }],
       });
       const text = (msg.content?.[0]?.text || '').trim();
