@@ -1788,6 +1788,11 @@ const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
 const SW_SEG_VER  = 'v3:';   // bump → régénère (v3 : l'IA PEAUFINE désormais les puces en prose pro, faits préservés)
 
+// Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
+const BR_SEG_FILE = path.join(__dirname, 'cache_br_seg.json');
+const _brSegCache = _loadJsonMap(BR_SEG_FILE);
+const BR_SEG_VER  = 'v1:';   // bump → régénère (l'IA réorganise l'article en rubriques claires façon PMT)
+
 // ── PRÉCHAUFFAGE : segmente les rapports EN AVANCE (cache persistant) → ouverture INSTANTANÉE ──
 // Le coût (Gemini) est payé en tâche de fond, jamais quand l'utilisateur ouvre un rapport.
 async function _prewarmWrapSeg(item) {
@@ -1838,6 +1843,36 @@ ${points.map(p => '- ' + p).join('\n')}`;
     html += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
   }
   return html.length > 50 ? html : null;
+}
+
+// Structure un ARTICLE de recherche EN PROSE (ex: ING THINK "FX Daily") en rubriques claires
+// façon Prime Terminal/DTP. Réorganise + clarifie SANS JAMAIS inventer (mêmes garde-fous que les wraps).
+// Renvoie du HTML <strong>SECTION</strong><ul><li>…</li></ul> ou null (→ on garde le HTML brut).
+async function _structureArticleAI(text, title) {
+  const clean = String(text || '').replace(/\s+/g, ' ').trim();
+  if (clean.length < 220) return null;     // trop court pour valoir une passe IA
+  const prompt = `Tu es analyste FX & macro pour un terminal pro (style Prime Terminal). Voici un rapport de recherche de banque (souvent un "FX Daily", rédigé en prose).
+Réorganise-le en un rapport PROPRE structuré en RUBRIQUES claires, façon Prime Terminal :
+- Choisis des EN-TÊTES pertinents D'APRÈS LE CONTENU réel (ex: "OVERVIEW", "USD", "EUR", "GBP", "JPY", "AUD", "RATES", "COMMODITIES", "CENTRAL BANKS", "WHAT TO WATCH", "RISK EVENTS"…). Ne crée jamais une rubrique sans contenu réel.
+- Sous chaque en-tête, des phrases claires, concises et professionnelles (corrige grammaire, fragments, répétitions) : 1 à 4 puces par rubrique, qui se lisent comme un vrai récap d'analyste.
+RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, %, paires/tickers, banques centrales, prévisions, citations, dates. N'INVENTE RIEN, n'ajoute aucune opinion personnelle. Tu réorganises et clarifies UNIQUEMENT.
+- Garde la langue d'origine du rapport (généralement l'anglais). Ignore le promotionnel/légal ("Download", disclaimers, "This publication has been prepared by…").
+Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE","items":["phrase 1","phrase 2"]}]
+Titre : ${String(title || '').slice(0, 160)}
+Rapport :
+${clean.slice(0, 5200)}`;
+  // Gemini uniquement (pas de bascule Claude ici → credit-safe ; le repli est le HTML brut)
+  const out = await ai.generateText(prompt, 2200);
+  const m = out.match(/\[[\s\S]*\]/);
+  if (!m) return null;
+  const arr = JSON.parse(m[0]);
+  const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let html = '';
+  for (const sec of arr) {
+    if (!sec || !sec.section || !Array.isArray(sec.items) || !sec.items.length) continue;
+    html += `<strong>${esc(sec.section)}</strong><ul>${sec.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`;
+  }
+  return html.length > 80 ? html : null;
 }
 
 // Nettoyage HTML commun (retire médias/scripts)
@@ -2419,7 +2454,29 @@ app.get('/api/bank-research-content', async (req, res) => {
       } catch { dateFormatted = pubDate; }
     }
 
-    res.json({ html: _stripSource(clean), subtitle, date: dateFormatted, section, country, articleType });
+    // ── Structuration IA en rubriques claires façon PMT (DailyFX/recherche en prose) ──
+    //  Persistée (hot + Supabase durable), budget-aware (Gemini only) ; repli = HTML brut d'origine.
+    let outHtml = clean, outSource = 'raw';
+    try {
+      const key = BR_SEG_VER + url;
+      let seg = _brSegCache.get(key);
+      if (seg === undefined) {                                  // pas en cache chaud → tente le cache durable
+        try { const dur = await auth.aiCacheGet('brseg:' + key); if (typeof dur === 'string' && dur.length > 80) { seg = dur; _brSegCache.set(key, dur); } } catch {}
+      }
+      if (seg === undefined && aiAllowed('analyst')) {          // ni chaud ni durable → on génère (si budget Gemini OK)
+        const plain = clean
+          .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
+          .replace(/<[^>]*>/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/[ \t]{2,}/g, ' ').trim();
+        aiNote('analyst');
+        try { seg = await _structureArticleAI(plain, subtitle || ''); }
+        catch (e) { console.warn('[BR struct AI]', e.message); seg = null; }
+        _brSegCache.set(key, seg || null);                      // mémorise même l'échec (null) → pas de réessai en boucle
+        if (seg) { _saveJsonMap(BR_SEG_FILE, _brSegCache); auth.aiCacheSet('brseg:' + key, seg).catch(() => {}); }
+      }
+      if (typeof seg === 'string' && seg.length > 80) { outHtml = seg; outSource = 'ai'; }
+    } catch (e) { console.warn('[BR struct]', e.message); }
+
+    res.json({ html: _stripSource(outHtml), source: outSource, subtitle, date: dateFormatted, section, country, articleType });
   } catch (e) {
     res.json({ html: '', error: e.message });
   }
