@@ -3950,38 +3950,58 @@ function arlibItemType(item) {
   return 'briefing';
 }
 
+// Détection de tags-clés (Fed, Inflation, Oil, Gold, Geopolitics, USD, EUR…) à partir d'un TEXTE.
+const _ARLIB_TAG_CHECKS = [
+  [/\bfed\b|fomc|powell|federal reserve/,         'Fed'],
+  [/\becb\b|lagarde|eurozone/,                     'ECB'],
+  [/\bboe\b|bailey|sterling/,                      'BoE'],
+  [/\bboj\b|ueda|kuroda|yen\b|japan/,              'BoJ'],
+  [/\brba\b|bullock|australia/,                    'RBA'],
+  [/\bsnb\b|switzerland|\bchf\b|franc/,            'SNB'],
+  [/\bboc\b|canada|\bcad\b|loonie/,                'BoC'],
+  [/\bgdp\b|growth rate/,                          'GDP'],
+  [/\bcpi\b|inflation|pce|hicp|ppi/,               'Inflation'],
+  [/\bpmi\b|manufacturing|services|ism/,           'PMI'],
+  [/payroll|\bnfp\b|jobless|unemployment|labou?r market/, 'Jobs'],
+  [/trade|tariff/,                                 'Trade'],
+  [/oil|crude|brent|opec|\bwti\b|energy|natural gas/, 'Oil'],
+  [/gold|\bxau\b|silver|copper|metal/,             'Gold'],
+  [/iran|russia|ukraine|israel|ceasefire|geopolit|war\b|missile|conflict/, 'Geopolitics'],
+  [/nasdaq|s&p|equity|equities|stocks?\b|dow\b|dax|ftse/, 'Equities'],
+  [/yield|treasury|bond|bund|gilt|jgb/,            'Bonds'],
+  [/dollar|dxy|\busd\b/,                           'USD'],
+  [/euro|\beur\b/,                                 'EUR'],
+  [/\bgbp\b|sterling|pound/,                       'GBP'],
+  [/\bjpy\b|yen/,                                  'JPY'],
+  [/\baud\b|aussie/,                               'AUD'],
+  [/bitcoin|\bbtc\b|crypto|ether|\beth\b/,         'Crypto'],
+  [/china|pboc|yuan|\bcny\b/,                      'China'],
+  [/asia|asian|apac/,                              'Asia'],
+  [/hawk|dovish|rate cut|rate hike|rate hold|basis point|\bbps\b/, 'Rates'],
+];
+function _tagsFromText(text, cap = 12) {
+  const h = (text || '').toLowerCase();
+  const out = [];
+  for (const [rx, label] of _ARLIB_TAG_CHECKS) { if (rx.test(h) && out.length < cap) out.push(label); }
+  return out;
+}
 function arlibItemTags(item) {
-  const tags = [];
-  const h = (item.headline + ' ' + (item.description || '')).toLowerCase();
-  const checks = [
-    [/\bfed\b|fomc|powell|federal reserve/,         'Fed'],
-    [/\becb\b|lagarde|eurozone/,                     'ECB'],
-    [/\bboe\b|bailey|sterling/,                      'BoE'],
-    [/\bboj\b|ueda|kuroda|yen\b|japan/,              'BoJ'],
-    [/\brba\b|bullock|australia/,                    'RBA'],
-    [/\bgdp\b|growth rate/,                          'GDP'],
-    [/\bcpi\b|inflation|pce|hicp/,                   'Inflation'],
-    [/\bpmi\b|manufacturing|services/,               'PMI'],
-    [/trade|tariff/,                                 'Trade'],
-    [/oil|crude|brent|opec|energy/,                  'Oil'],
-    [/gold|xau/,                                     'Gold'],
-    [/iran|russia|ukraine|israel|ceasefire|geopolit/,'Geopolitics'],
-    [/nasdaq|s&p|equity|equities/,                   'Equities'],
-    [/yield|treasury|bond/,                          'Bonds'],
-    [/dollar|dxy|\busd\b/,                           'USD'],
-    [/euro|\beur\b/,                                 'EUR'],
-    [/\bgbp\b|sterling|pound/,                       'GBP'],
-    [/\bjpy\b|yen/,                                  'JPY'],
-    [/china|pboc/,                                   'China'],
-    [/asia|asian/,                                   'Asia'],
-    [/hawk|dovish|rate cut|rate hike|rate hold/,     'Rates'],
-  ];
-  for (const [rx, label] of checks) { if (rx.test(h) && tags.length < 12) tags.push(label); }
+  const tags = _tagsFromText(item.headline + ' ' + (item.description || ''));
   for (const t of (item.tags || [])) {
     if (!tags.includes(t) && !['High','Medium','FinancialJuice','PMT'].includes(t) && t !== item.category && tags.length < 12)
       tags.push(t);
   }
   return tags;
+}
+// Enrichit la barre de tags du rapport OUVERT à partir du CONTENU COMPLET (vue d'ensemble du rapport).
+function _arlibEnrichTags(fullText) {
+  const scroll = document.getElementById('arlib-rtags-scroll');
+  if (!scroll || !fullText || fullText.length < 80) return;
+  const more = _tagsFromText(fullText, 16);
+  const existing = [...scroll.querySelectorAll('.arlib-rtag')].map(e => (e.textContent || '').trim()).filter(Boolean);
+  const all = [...new Set([...existing, ...more])].slice(0, 16);
+  scroll.innerHTML = all.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
+  scroll.scrollLeft = 0;
 }
 
 function arlibCleanTitle(headline) {
@@ -4418,9 +4438,7 @@ function renderArlibReader(item) {
           html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${lnk}</span></div>`;
           if (href.includes('://') && text.length > 12) sources.push({ href, text });
         } else {
-          // Mini-badge actif si la puce est courte et mentionne un actif + direction
-          const badge = text.length <= 160 ? _assetBadgePrefix(text) : '';
-          html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${badge}${_emphasize(text)}</span></div>`;
+          html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${_emphasize(text)}</span></div>`;   // plus de badge ▼/▲ inline (jugé moche)
         }
         bulletCount++;
       } else if (tag === 'blockquote') {
@@ -4485,6 +4503,7 @@ function renderArlibReader(item) {
         content.scrollTop = 0;
         // Insights basés sur le VRAI contenu rendu (la description seule est trop courte)
         const _full = (content.innerText || '').trim();
+        _arlibEnrichTags(_full);   // + de tags-clés en en-tête (vue d'ensemble du rapport)
         const _lines = _collectReportLines(content);   // puces réelles → secours = plusieurs petites cartes
         if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full, lines: _lines }, insightsEl);
       })
@@ -4519,6 +4538,7 @@ function renderArlibReader(item) {
         }
         content.scrollTop = 0;
         const _full = (content.innerText || '').trim();
+        _arlibEnrichTags(_full);   // + de tags-clés en en-tête (vue d'ensemble du rapport)
         const _lines = _collectReportLines(content);
         if (_full.length > 200) _loadAIInsights({ id: item.id, headline: item.headline, description: _full, lines: _lines }, insightsEl);
       })
