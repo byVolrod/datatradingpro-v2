@@ -5577,6 +5577,15 @@ let _chatThreadUser = null;   // (mode support) userId du thread ouvert
 let _chatThreadName = '';
 let _chatInboxCache = null;   // cache de la boîte de réception (rendu instantané)
 const _chatMsgCache = {};     // cache des messages par thread (clé = userId ou 'client')
+// Cache LOCALSTORAGE (survit au reload) → l'historique s'affiche INSTANTANÉMENT, la MAJ se fait en fond.
+function _chatLSGet(k){ try { return JSON.parse(localStorage.getItem('dtp_chat_' + k) || 'null'); } catch { return null; } }
+function _chatLSSet(k, v){ try { localStorage.setItem('dtp_chat_' + k, JSON.stringify(v)); } catch {} }
+function _chatPersistMsgs(){ _chatLSSet('msgs', _chatMsgCache); }   // sauve le cache messages (best-effort)
+// Hydratation immédiate depuis le stockage local (dès le chargement du script) → zéro spinner au reload.
+try {
+  const _lsInbox = _chatLSGet('inbox'); if (_lsInbox && (_lsInbox.threads || _lsInbox.users)) _chatInboxCache = _lsInbox;
+  const _lsMsgs = _chatLSGet('msgs'); if (_lsMsgs && typeof _lsMsgs === 'object') Object.assign(_chatMsgCache, _lsMsgs);
+} catch {}
 function _sigMsgs(m){
   const a = m||[]; let s = a.length + '|' + (a.length ? (a[a.length-1].id||a[a.length-1].text||'') : '');
   // inclut un résumé des réactions → détecte les changements (synchro des 2 côtés)
@@ -5695,13 +5704,14 @@ async function _chatLiveTick(){
             users:   users   !== null ? users   : (_chatInboxData.users   || []),
           };
           _chatInboxCache = _chatInboxData;
+          _chatLSSet('inbox', _chatInboxData);
           _chatSetBadge((_chatInboxData.threads||[]).filter(t=>(t.unread||0)>0).length);
           _chatRenderInbox();
         }
       }
     } else {
       const d = await (await fetch('/api/chat')).json();
-      const msgs = d.messages||[]; _chatMsgCache.client = msgs;
+      const msgs = d.messages||[]; _chatMsgCache.client = msgs; _chatPersistMsgs();
       const sig = _sigMsgs(msgs);
       if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); _chatSetBadge(0); }
       _chatSetTyping(d.typing, 'Support DataTradingPro');   // le support tape ?
@@ -5745,6 +5755,7 @@ function _chatInbox(){
       users:   users   !== null ? users   : (_chatInboxData.users   || []),
     };
     _chatInboxCache = _chatInboxData;
+    _chatLSSet('inbox', _chatInboxData);   // persiste → affichage instantané au prochain reload
     _chatSetBadge((_chatInboxData.threads || []).filter(t => (t.unread || 0) > 0).length);
     _chatRenderInbox();
   });
@@ -5807,6 +5818,7 @@ function _chatOpenThread(userId, name){
   fetch('/api/admin/chat/'+encodeURIComponent(userId)).then(r=>r.json()).then(d=>{
     const msgs = d.messages||[];
     _chatMsgCache[userId] = msgs;
+    _chatPersistMsgs();
     const sig = _sigMsgs(msgs);
     if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }   // côté support : 'support'=droite, 'user'=gauche
     _chatPollUnread();             // la conversation vient d'être lue → MAJ immédiate du badge
@@ -5847,10 +5859,9 @@ function _chatRender(messages){
       + (mine?'':`<div class="chat-av${avThemIsPhoto?' has-photo':''}">${avThem}</div>`)
       + `<div class="chat-bubble-wrap">`
       + `<div class="chat-bubble-row">`
-      + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}${_chatPickerHtml(mid)}</div>`
+      + `<div class="chat-bubble${isImg?' chat-bubble--img':''}">${inner}${_chatPickerHtml(mid)}${_chatReactionsHtml(m, myId, mid)}</div>`
       + menu
       + `</div>`
-      + _chatReactionsHtml(m, myId, mid)
       + `<div class="chat-meta">${time}${mine?' · '+(m.read?'Lu':'Envoyé'):''}</div>`
       + `</div></div>`;
   });
@@ -6019,7 +6030,7 @@ function _chatLoad(){
   else if (list){ list.innerHTML = (window.dtpLoader ? window.dtpLoader('Connexion au support…') : '<div class="chat-empty">Connexion au support…</div>'); }   // loader éclipse au 1er chargement
   fetch('/api/chat').then(r=>r.json()).then(d=>{
     const msgs = d.messages||[];
-    _chatMsgCache.client = msgs;
+    _chatMsgCache.client = msgs; _chatPersistMsgs();
     const sig = _sigMsgs(msgs);
     if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }
     _chatSetBadge(0);   // ouvert → réponses lues

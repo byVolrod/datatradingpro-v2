@@ -545,10 +545,22 @@ function computeExpiry({ duration, expiresAt, startDate }) {
 }
 
 // Message d'accueil envoyé automatiquement par le support à chaque NOUVEAU client (dans le chat).
-const WELCOME_CHAT = "Bonjour et bienvenue sur DataTradingPro 👋\n\nJe suis là pour t'accompagner. Ton accès est activé : tu as le flux de news en temps réel, le calendrier économique, la force des devises et les analyses institutionnelles.\n\nPour bien démarrer pendant la session de Londres : ouvre le Live Squawk et le calendrier.\n\nUne question ou besoin d'un coup de main ? Écris-moi directement ici, je te réponds. Bons trades !\n\nL'équipe DataTradingPro";
+// Message de bienvenue DYNAMIQUE : s'adapte à l'heure (Paris) → session active + recap d'analyste qui arrive.
+function welcomeChat() {
+  let h = 12;
+  try { h = parseInt(new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', hour12: false }).slice(0, 2), 10) || 12; } catch {}
+  let sess, recap;
+  if (h < 8)       { sess = 'asiatique';  recap = 'de la session américaine'; }   // nuit/tôt → US vient de clôturer
+  else if (h < 13) { sess = 'de Londres'; recap = 'de la session asiatique'; }     // matin → l'Asie vient de clôturer
+  else if (h < 17) { sess = 'américaine'; recap = 'de la session de Londres'; }    // après-midi → Londres clôture
+  else             { sess = 'américaine'; recap = 'de la session américaine'; }    // soir → US en cours
+  return "Bonjour et bienvenue sur DataTradingPro 👋\n\nJe suis là pour t'accompagner. Ton accès est activé : tu as le flux de news en temps réel, le calendrier économique, la force des devises et les analyses institutionnelles.\n\n"
+    + `Pour bien démarrer pendant la session ${sess} : ouvre le rapport d'analyste (le recap ${recap} qui arrive) et le calendrier économique.\n\n`
+    + "Une question ou besoin d'un coup de main ? Écris-moi directement ici, je te réponds. Bons trades !\n\nL'équipe DataTradingPro";
+}
 function _sendWelcomeChat(userId) {
   if (!userId) return;
-  auth.chatInsert({ user_id: userId, sender: 'support', text: WELCOME_CHAT }).catch(() => {});
+  auth.chatInsert({ user_id: userId, sender: 'support', text: welcomeChat() }).catch(() => {});
 }
 
 app.post('/api/admin/users', requireAdmin, async (req, res) => {

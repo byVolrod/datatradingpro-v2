@@ -7932,8 +7932,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-react-picker button { background:none; border:none; cursor:pointer; font-size:13px; line-height:1; width:22px; height:22px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition:transform .12s ease, background .12s ease; }
 .chat-react-picker button:hover { transform:scale(1.15); background:rgba(255,255,255,.07); }
 /* Pastilles posées (façon LinkedIn) — sous la bulle, alignées côté bulle */
-.chat-reactions { display:flex; gap:4px; flex-wrap:wrap; }
-.chat-reactions:not(:empty) { margin-top:4px; }
+/* Réactions POSÉES : ancrées en BAS À DROITE de la bulle (débord façon Messenger), jamais au-dessus */
+.chat-reactions { position:absolute; bottom:-10px; right:14px; z-index:10; display:flex; gap:4px; flex-wrap:wrap; }
+.chat-reactions:empty { display:none; }
+/* Quand une bulle a des réactions, on pousse l'heure plus bas pour qu'elle ne chevauche pas les emojis */
+.chat-bubble-wrap:has(.chat-reactions:not(:empty)) .chat-meta { margin-top:14px; }
 .chat-reaction-pill { display:inline-flex; align-items:center; gap:3px; background:#1a1d25; border:1px solid #2a2f3a; border-radius:13px; padding:1px 8px; font-size:13px; line-height:1.5; cursor:pointer; transition:border-color .12s, background .12s; }
 .chat-reaction-pill:hover { border-color:#3a4150; }
 .chat-reaction-pill.mine { background:rgba(247,148,29,.16); border-color:rgba(247,148,29,.55); }
