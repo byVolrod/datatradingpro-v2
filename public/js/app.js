@@ -4301,7 +4301,16 @@ function renderArlibReader(item) {
     content.parentNode.insertBefore(insightsEl, content);
   }
   insightsEl.innerHTML = '';
-  _loadAIInsights(item, insightsEl);
+  // Les sources à contenu ASYNCHRONE (session wraps InvestingLive, ING Think) rechargent les
+  // insights APRÈS le chargement du contenu (avec le vrai texte complet). On NE les charge PAS
+  // ici — sinon double requête + le panneau se VIDE pendant le chargement = les AI Insights
+  // "disparaissent". On laisse un placeholder « analyse… » jusqu'à ce que le contenu soit prêt.
+  const _asyncSrc = item && (item._source === 'investinglive' || item._source === 'ing-think');
+  if (_asyncSrc) {
+    insightsEl.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16"> AI Insights</span> <span class="ai-insights-load">· analyse…</span></div>`;
+  } else {
+    _loadAIInsights(item, insightsEl);
+  }
 
   // Bouton Masquer/Afficher Insights en haut du rapport (comme PT)
   const navRight = document.querySelector('#arlib-reader-view .arlib-rnav-right');
