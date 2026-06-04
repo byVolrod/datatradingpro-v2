@@ -288,30 +288,32 @@ function _chatPreview(t) {
 //   2) seulement les messages RÉCENTS avec `text` → aperçu des conversations actives
 async function chatThreads() {
   await _chatEnsureDb();
-  let meta = [], recent = [];
+  // PERF : avant, on lisait TOUTE la table (sans limite) à chaque ouverture juste pour compter les
+  // non-lus → lent quand l'historique grossit. Désormais : 2 requêtes LÉGÈRES en PARALLÈLE →
+  //   (1) les 400 messages récents (aperçu + dernier horodatage par thread)
+  //   (2) UNIQUEMENT les non-lus côté client (compteur badge) — petit volume.
+  let recent = [], unread = [];
   if (_chatDb) {
-    const { data: m, error: e1 } = await supabase.from(CHAT_TABLE)
-      .select('user_id, sender, created_at, read').order('created_at', { ascending: false });
-    if (!e1) meta = m || [];
-    else if (_chatTableMissing(e1)) _chatDb = false;
-    if (_chatDb) {
-      const { data: r } = await supabase.from(CHAT_TABLE)
-        .select('user_id, text, created_at').order('created_at', { ascending: false }).limit(400);
-      recent = r || [];
-    }
+    const [rRes, uRes] = await Promise.all([
+      supabase.from(CHAT_TABLE).select('user_id, sender, text, created_at').order('created_at', { ascending: false }).limit(400),
+      supabase.from(CHAT_TABLE).select('user_id').eq('sender', 'user').eq('read', false),
+    ]);
+    if (rRes.error) { if (_chatTableMissing(rRes.error)) _chatDb = false; }
+    else { recent = rRes.data || []; unread = (uRes && uRes.data) || []; }
   }
   if (!_chatDb) {
-    meta   = [..._chatFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
-    recent = meta;
+    recent = [..._chatFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+    unread = recent.filter(m => m.sender === 'user' && !m.read);
   }
-  // Aperçu du dernier message par utilisateur (depuis les messages récents)
-  const previewByUser = new Map();
-  for (const m of recent) if (!previewByUser.has(m.user_id)) previewByUser.set(m.user_id, _chatPreview(m.text));
-  // Dernier horodatage + non-lus par utilisateur (depuis la méta légère, exhaustive)
+  // Dernier message + horodatage par utilisateur (depuis les récents)
   const byUser = new Map();
-  for (const m of meta) {
-    if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: previewByUser.get(m.user_id) || '', lastAt: m.created_at, unread: 0 });
-    if (m.sender === 'user' && !m.read) byUser.get(m.user_id).unread++;
+  for (const m of recent) {
+    if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: _chatPreview(m.text), lastAt: m.created_at, unread: 0 });
+  }
+  // Compteur de non-lus (ajoute aussi les threads dont le dernier message dépasse les 400 récents)
+  for (const m of unread) {
+    if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: '', lastAt: null, unread: 0 });
+    byUser.get(m.user_id).unread++;
   }
   return [...byUser.values()];
 }

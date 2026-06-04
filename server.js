@@ -739,8 +739,7 @@ app.get('/api/chat/unread', async (req, res) => {
 // Côté admin : voir les conversations + répondre
 app.get('/api/admin/chat', requireSupport, async (_req, res) => {
   try {
-    const threads = await auth.chatThreads();
-    const users = await auth.getAllUsers();
+    const [threads, users] = await Promise.all([auth.chatThreads(), auth.getAllUsers()]);   // parallèle = 1 seul aller-retour
     const byId = new Map(users.map(u => [String(u.id), u]));
     res.json({ threads: threads.map(t => ({ ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '' })) });
   } catch (e) { res.status(500).json({ error: e.message }); }
