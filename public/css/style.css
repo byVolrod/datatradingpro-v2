@@ -1019,8 +1019,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   flex-shrink: 0;
   display: flex;
   align-items: flex-start;
-  justify-content: center;
-  padding-top: 1px;
+  justify-content: flex-start;   /* icône rouge à l'EXTRÊME GAUCHE (comme PMT, plus centrée dans la colonne) */
+  padding-top: 2px;              /* alignée verticalement sur l'heure / la 1re ligne du titre */
 }
 .news-alert-icon {
   width: 16px;
@@ -1364,13 +1364,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
 /* Hover (volet FERMÉ) : on laisse entrevoir la couleur du volet — affordance cliquable */
-.tag--info:hover     { color: #17c2c2; border-color: rgba(0,188,188,0.45); }
+.tag--info:hover     { color: #2ecc71; border-color: rgba(46,204,113,0.45); }
 .tag--analyse:hover  { color: #60a5fa; border-color: rgba(59,130,246,0.45); }
 .tag--reaction:hover { color: #a78bfa; border-color: rgba(139,92,246,0.45); }
 
 /* ACTIF = description DÉROULÉE → tag ALLUMÉ (Info cyan / Analyse bleu / Réaction violet).
    L'icône ⓘ hérite de la couleur (pas de règle .tag-icon → suit le `color` du tag). */
-.tag--info.tag--active     { background: rgba(0,188,188,0.12);  border-color: rgba(0,188,188,0.6);  color: #17c2c2; }
+.tag--info.tag--active     { background: rgba(46,204,113,0.12); border-color: rgba(46,204,113,0.6); color: #2ecc71; }
 .tag--analyse.tag--active  { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.6); color: #60a5fa; }
 .tag--reaction.tag--active { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.6); color: #a78bfa; }
 
