@@ -3341,11 +3341,21 @@ function renderBiasView(d) {
   }</tr>`;
 
   host.innerHTML = `
-    <div class="sbm-title-row"><span class="sbm-title">Smart Bias Tracker</span><span class="sbm-hint">Clique une devise pour le détail ↓</span></div>
+    <div class="sbm-title-row"><span class="sbm-title">Smart Bias Tracker</span></div>
     <div class="sbm-grid-wrap">
       <table class="sbm-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
     </div>
     <div id="sbm-summary" class="sbm-summary-host"></div>`;
+  // Bias Summary affiché DIRECTEMENT (plus de clic requis) : on garde la devise active, sinon la 1ère.
+  if (cur.length) _sbOpenSummary(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
+}
+// Libellé de semaine façon PMT : "1-7/06/2026" (lundi→dimanche).
+function _sbWeekLabel(ts) {
+  const d = ts ? new Date(ts) : new Date();
+  const dow = d.getDay() || 7;
+  const mon = new Date(d); mon.setDate(d.getDate() - dow + 1);
+  const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
+  return `${mon.getDate()}-${sun.getDate()}/${String(sun.getMonth() + 1).padStart(2, '0')}/${sun.getFullYear()}`;
 }
 
 // ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──
@@ -3396,8 +3406,12 @@ function _sbOpenSummary(curr) {
   wrap.innerHTML = `
     <div class="sbs-panel">
       <div class="sbs-head">
-        <span class="sbs-head-title">Bias Summary <span class="sbs-head-cur">${_sbFlag(curr)} ${esc(curr)}</span></span>
-        <button class="sbs-close" type="button" onclick="_sbCloseSummary()" title="Fermer">✕</button>
+        <span class="sbs-head-title">Bias Summary</span>
+        <div class="sbs-head-ctrls">
+          <span class="sbs-dd-flag">${_sbFlag(curr)}</span>
+          <select class="sbs-dd" onchange="_sbOpenSummary(this.value)" title="Devise">${(d.currencies || []).map(c => `<option value="${c}"${c === curr ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
+          <select class="sbs-dd" title="Semaine (historique à venir)"><option>${esc(_sbWeekLabel(d.generatedAt))}</option></select>
+        </div>
       </div>
       <div class="sbs-body" id="sbs-body">
         <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%">${leftRows}</div>
