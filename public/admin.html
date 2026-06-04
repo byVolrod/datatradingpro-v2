@@ -99,6 +99,9 @@
     .users-table .email { color: var(--text); font-family: var(--font-mono); }
     .users-table .name  { color: var(--text2); }
     .users-table .actions { display: flex; gap: 6px; }
+    /* Confirmation INLINE de suppression (remplace le confirm() natif) */
+    .del-confirm { display: inline-flex; align-items: center; gap: 6px; }
+    .del-confirm-txt { font-size: 11px; font-weight: 700; color: var(--text2); white-space: nowrap; }
 
     .badge {
       display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 600;
@@ -856,7 +859,7 @@
       if (it.type && it.type.indexOf('image') === 0) {
         const f = it.getAsFile(); if (!f) continue;
         e.preventDefault();
-        if (f.size > 900*1024) { alert('Image trop volumineuse (max 900 Ko).'); return; }
+        if (f.size > 900*1024) { showToast('Image trop volumineuse (max 900 Ko).', 'err'); return; }
         const reader = new FileReader();
         reader.onload = () => _adChatPost(String(reader.result));
         reader.readAsDataURL(f);
@@ -1009,7 +1012,7 @@
         <td class="actions">
           <button class="btn-sm" onclick="openEdit(${u.id},'${esc(u.name)}','${u.role}','${u.plan}',${u.active})">Modifier</button>
           <button class="btn-sm" onclick="openPwd(${u.id})">MDP</button>
-          <button class="btn-sm btn-danger" onclick="deleteUser(${u.id},'${esc(u.email)}')">Suppr.</button>
+          <button class="btn-sm btn-danger" onclick="deleteUser(${u.id})">Suppr.</button>
         </td>
       </tr>`).join('');
 
@@ -1126,12 +1129,37 @@
     }
   });
 
-  // ── Delete ──────────────────────────────────────────────────────────────────
-  async function deleteUser(id, email) {
-    if (!confirm(`Supprimer ${email} ?`)) return;
-    await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
-    loadUsers();
-    showToast('✓ Utilisateur supprimé');
+  // ── Delete (confirmation INLINE dans la ligne — aucun dialog natif) ───────────
+  function deleteUser(id) {
+    const cell = document.querySelector(`tr[data-id="${id}"] td.actions`);
+    if (!cell || cell.dataset.confirming) return;
+    cell.dataset.prevHtml  = cell.innerHTML;   // mémorise les boutons pour pouvoir annuler
+    cell.dataset.confirming = '1';
+    cell.innerHTML = `<span class="del-confirm">
+        <span class="del-confirm-txt">Supprimer&nbsp;?</span>
+        <button class="btn-sm btn-danger" onclick="confirmDeleteUser(${id})">Oui</button>
+        <button class="btn-sm" onclick="cancelDeleteUser(${id})">Non</button>
+      </span>`;
+  }
+  function cancelDeleteUser(id) {
+    const cell = document.querySelector(`tr[data-id="${id}"] td.actions`);
+    if (cell && cell.dataset.prevHtml != null) {
+      cell.innerHTML = cell.dataset.prevHtml;
+      delete cell.dataset.prevHtml; delete cell.dataset.confirming;
+    }
+  }
+  async function confirmDeleteUser(id) {
+    const cell = document.querySelector(`tr[data-id="${id}"] td.actions`);
+    if (cell) cell.innerHTML = `<span class="del-confirm-txt" style="opacity:.6">Suppression…</span>`;
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+      if (!r.ok) throw new Error('http');
+      showToast('✓ Utilisateur supprimé');
+      loadUsers();
+    } catch {
+      showToast('Erreur lors de la suppression — réessayez', 'err');
+      loadUsers();
+    }
   }
 
   // ── Edit modal ──────────────────────────────────────────────────────────────
@@ -1199,7 +1227,7 @@
   async function savePwd() {
     const id  = document.getElementById('pwd-id').value;
     const pwd = document.getElementById('pwd-new').value;
-    if (!pwd || pwd.length < 6) { alert('Min. 6 caractères'); return; }
+    if (!pwd || pwd.length < 6) { showToast('Min. 6 caractères', 'err'); return; }
     await fetch(`/api/admin/users/${id}/password`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ password: pwd }),
