@@ -1349,7 +1349,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .tag--green     { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.4); color: #ffffff; }
 .tag--red                    { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff; }
 .tag[data-cat="Sanctions"]   { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff !important; }
-.tag[data-cat="UK"]          { color: #ffffff !important; }
+.tag[data-cat="UK"]          { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef !important; }   /* UK = meme style que US (neutre) */
 .tag--purple    { background: rgba(155,89,182,0.1); border: 1px solid rgba(155,89,182,0.2); color: #9b59b6; }
 .tag--gray      { background: var(--bg4); border: 1px solid var(--border3); color: var(--text4); }
 /* Badge Rumour — info non confirmée (ambre) */
@@ -2912,7 +2912,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .tag[data-cat="EU"],
 .tag[data-cat="Asia"],
 .tag[data-cat="Energy"]              { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
-.tag[data-cat="UK"]                  { background: rgba(52,152,219,0.1); border: 1px solid rgba(52,152,219,0.25); color: #ffffff; }
+.tag[data-cat="UK"]                  { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }   /* UK = meme style que US (neutre, plus de bleu) */
 
 /* ═══════════════════════════════════════════════
    AMCHARTS OVERRIDES — match terminal theme
@@ -3157,7 +3157,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .tag[data-cat="Global News"]    { background: var(--bg5); border-color: var(--border2); color: var(--text3); }
 .tag[data-cat="Asian News"]     { background: rgba(231,76,60,0.1); border-color: rgba(231,76,60,0.2); color: #e74c3c; }
 .tag[data-cat="Trade"]          { background: rgba(52,73,94,0.4); border-color: rgba(52,73,94,0.6); color: #95a5a6; }
-.tag[data-cat="UK"]             { background: rgba(52,152,219,0.1); border-color: rgba(52,152,219,0.25); color: #ffffff; }
+.tag[data-cat="UK"]             { background: #1a1a1e; border-color: rgba(255,255,255,0.07); color: #e6e9ef; }   /* UK = meme style que US (neutre, plus de bleu) */
 .tag[data-cat="Data"]           { background: var(--bg5); border-color: var(--border2); color: #ffffff; }
 .tag[data-cat="Inflation"]      { background: var(--bg5); border-color: var(--border2); color: #ffffff; }
 .tag[data-cat="Rates"],
