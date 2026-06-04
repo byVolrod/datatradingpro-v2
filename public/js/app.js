@@ -4200,12 +4200,32 @@ async function _loadAIInsights(item, el) {
         <span class="ai-insights-title">${chip} AI Insights</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
-          <span class="ai-insights-count">${d.insights.length} insights</span>
+          <span class="ai-insights-count"></span>
           <button type="button" onclick="aiInsScroll(this,1)">›</button>
         </span>
       </div>
       <div class="ai-insights-cards">${cards}</div>`;
+    const cardsEl = el.querySelector('.ai-insights-cards');
+    if (cardsEl) {
+      cardsEl.addEventListener('scroll', () => _aiInsCount(cardsEl), { passive: true });
+      requestAnimationFrame(() => _aiInsCount(cardsEl));   // pagination "1-N of M" façon PMT
+    }
   }
+}
+// Compteur de pagination "1-3 of 10" — mis à jour selon la position de défilement du carrousel
+function _aiInsCount(cardsEl) {
+  if (!cardsEl) return;
+  const head = cardsEl.previousElementSibling;
+  const countEl = head && head.querySelector('.ai-insights-count');
+  if (!countEl) return;
+  const total = cardsEl.children.length;
+  if (!total) { countEl.textContent = ''; return; }
+  const first = cardsEl.firstElementChild;
+  const step = first ? (first.getBoundingClientRect().width + 12) : 292;   // largeur carte + gap
+  const per = Math.max(1, Math.round(cardsEl.clientWidth / step));
+  const start = Math.min(total, Math.round(cardsEl.scrollLeft / step) + 1);
+  const end = Math.min(total, start + per - 1);
+  countEl.textContent = `${start}-${end} of ${total}`;
 }
 
 // Défilement des cartes AI Insights via les flèches (scopé au panneau cliqué)
