@@ -52,9 +52,11 @@ function _getGmailTransport() {
   if (_gmailTransport) return _gmailTransport;
   const nodemailer = require('nodemailer');
   _gmailTransport = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com', port: 465, secure: true,
+    family: 4,   // ⚠️ FORCE IPv4 : Render n'a pas d'IPv6 sortant → 'service:gmail' résolvait en IPv6 → ENETUNREACH → Gmail échouait TOUJOURS (repli silencieux sur Mailjet non délivré). IPv4 = Gmail fonctionne enfin.
     pool: true, maxConnections: 3, maxMessages: 50,   // mutualise les connexions → meilleur débit
     auth: { user: GMAIL_USER, pass: GMAIL_APP_PASSWORD },
+    connectionTimeout: 12000, greetingTimeout: 9000, socketTimeout: 15000,   // échec rapide → repli propre si souci
   });
   return _gmailTransport;
 }
