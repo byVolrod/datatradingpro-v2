@@ -4174,9 +4174,14 @@ Return ONLY valid JSON: {"week":"<e.g. 1-5 June>","days":[{"dow":"Monday","date"
   console.log(`[WeekAhead] OK — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
   return _weekAhead;
 }
-app.get('/api/week-ahead', async (_req, res) => {
-  if (!_weekAhead) { try { await generateWeekAhead(true); } catch {} }
-  res.json(_weekAhead || { week: '', days: [] });
+let _waGenerating = false;
+app.get('/api/week-ahead', (_req, res) => {
+  // NE BLOQUE JAMAIS : si pas encore généré, on lance la génération EN ARRIÈRE-PLAN et on répond tout de suite.
+  if (!_weekAhead && !_waGenerating) {
+    _waGenerating = true;
+    generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; });
+  }
+  res.json(_weekAhead || { week: '', days: [], generating: true });   // generating:true → le front affiche "préparation…" et re-poll
 });
 
 // Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide
