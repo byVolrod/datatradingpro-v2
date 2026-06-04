@@ -177,6 +177,25 @@ function _aiStat(f) {
   _aiStats[f] = (_aiStats[f] || 0) + 1;
 }
 
+// ════════════ PHASE 1 — AI TRAFFIC INTELLIGENCE (router scoré + token-bucket + circuit breaker) ════════════
+// But : éviter les RAFALES (RPM = cause des 429), router vers les (modèle,clé) les plus SAINS, et ouvrir un
+// circuit breaker sur les couples qui échouent en série. 100% en mémoire (1 instance), provider-agnostic-ready.
+
+// ── Token bucket GLOBAL Gemini : lisse notre débit pour rester SOUS le RPM (anti-rafale) ──
+const _GEM_RPM = parseInt(process.env.GEMINI_RPM, 10) || 12;   // req/min visées (conservateur sous le free-tier)
+let _gemBucket = _GEM_RPM, _gemBucketTs = Date.now();
+function _gemBucketRefill() { const now = Date.now(); _gemBucket = Math.min(_GEM_RPM, _gemBucket + ((now - _gemBucketTs) / 1000) * (_GEM_RPM / 60)); _gemBucketTs = now; }
+function _gemBucketTake() { _gemBucketRefill(); if (_gemBucket >= 1) { _gemBucket -= 1; return true; } return false; }
+async function _gemBucketGate() { let waited = 0; while (!_gemBucketTake() && waited < 5000) { const refill = (1 - _gemBucket) / (_GEM_RPM / 60) * 1000; const w = Math.min(800, Math.max(50, refill)); await new Promise(r => setTimeout(r, w)); waited += w; } }
+
+// ── Santé par (modèle, clé) : score de routing + circuit breaker ──
+const _gemHealth = new Map();   // "model|idx" → {ok, fail, f429, ewmaMs, consec, breakerUntil}
+function _h(model, idx) { const k = model + '|' + idx; let h = _gemHealth.get(k); if (!h) { h = { ok: 0, fail: 0, f429: 0, ewmaMs: 1500, consec: 0, breakerUntil: 0 }; _gemHealth.set(k, h); } return h; }
+function _hOk(model, idx, ms) { const h = _h(model, idx); h.ok++; h.consec = 0; h.breakerUntil = 0; h.ewmaMs = h.ewmaMs * 0.7 + ms * 0.3; }
+function _hFail(model, idx, is429) { const h = _h(model, idx); h.fail++; if (is429) h.f429++; h.consec++; if (h.consec >= 4) h.breakerUntil = Date.now() + 5 * 60 * 1000; }   // 4 échecs d'affilée → breaker 5 min
+function _hBroken(model, idx) { return _h(model, idx).breakerUntil > Date.now(); }
+function _hScore(model, idx) { const h = _h(model, idx); const tot = h.ok + h.fail; const sr = tot ? h.ok / tot : 0.6; return Math.max(0, sr - Math.min(0.3, h.ewmaMs / 20000) - h.consec * 0.05); }   // succès pondéré latence
+
 async function generateText(prompt, maxTokens = 1500) {
   // ── Option A : Google Gemini (gratuit) — multi-clés + multi-modèles ──────────
   // Pour CHAQUE modèle, on essaie TOUTES les clés (rotation round-robin) : le meilleur
@@ -185,18 +204,23 @@ async function generateText(prompt, maxTokens = 1500) {
   if (GEMINI_KEYS.length) {
     let lastErr;
     const n = GEMINI_KEYS.length;
-    const start = _geminiCursor % n;
     _geminiCursor = (_geminiCursor + 1) % n;
+    await _gemBucketGate();   // anti-rafale : 1 jeton/appel → lisse le débit ENTRE les appels (la cause des 429)
+    // Ordre des MODÈLES = cascade qualité (flash d'abord). Au sein d'un modèle, les clés sont ordonnées
+    // par SANTÉ (succès récent + latence), cooldown/breaker filtrés.
     for (const model of GEMINI_MODELS) {
-      for (let i = 0; i < n; i++) {
-        const idx = (start + i) % n;
-        if (_gemIsCool(model, idx)) continue;   // (modèle, clé) en cooldown 429 → on saute (anti-gaspillage + charge répartie)
-        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); _aiStat('gemini'); return out; }
+      const cand = [];
+      for (let i = 0; i < n; i++) { const idx = (_geminiCursor + i) % n; if (_gemIsCool(model, idx) || _hBroken(model, idx)) continue; cand.push(idx); }
+      cand.sort((a, b) => _hScore(model, b) - _hScore(model, a));   // meilleure santé d'abord
+      for (const idx of cand) {
+        const t0 = Date.now();
+        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); _hOk(model, idx, Date.now() - t0); _aiStat('gemini'); return out; }
         catch (e) {
-          lastErr = e;
-          if (e.status === 429) { _gemCool(model, idx, 429); _aiStat('gemini429'); }
+          lastErr = e; const is429 = e.status === 429;
+          _hFail(model, idx, is429);
+          if (is429) { _gemCool(model, idx, 429); _aiStat('gemini429'); }
           else if (e.status === 404 || e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
-          console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 110)} → suivant`);
+          console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suivant`);
         }
       }
     }
@@ -229,6 +253,14 @@ function status() {
     today: _aiDay,
     usageToday: _aiStats,                                                   // {gemini, gemini429, claude, fallback} → "le nombre par jour"
     geminiCoolingNow: [..._gemCooldown.entries()].filter(([, t]) => t > Date.now()).length,   // couples (modèle,clé) en cooldown 429
+    // ── AI Traffic Intelligence (Phase 1) ──
+    intel: {
+      rpmTarget: _GEM_RPM,
+      rpmBucket: Math.round((() => { _gemBucketRefill(); return _gemBucket; })() * 10) / 10,   // jetons dispo (proche de RPM = pas de rafale)
+      breakersOpen: [..._gemHealth.values()].filter(h => h.breakerUntil > Date.now()).length,
+      health: [..._gemHealth.entries()].map(([k, h]) => ({ k, ok: h.ok, fail: h.fail, f429: h.f429, ewmaMs: Math.round(h.ewmaMs), broken: h.breakerUntil > Date.now() }))
+        .sort((a, b) => (b.ok + b.fail) - (a.ok + a.fail)).slice(0, 12),
+    },
   };
 }
 
