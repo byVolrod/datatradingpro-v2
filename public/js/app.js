@@ -3993,15 +3993,32 @@ function arlibItemTags(item) {
   }
   return tags;
 }
-// Enrichit la barre de tags du rapport OUVERT à partir du CONTENU COMPLET (vue d'ensemble du rapport).
-function _arlibEnrichTags(fullText) {
+// Tags du rapport OUVERT (liste complète) + rendu façon PMT : 6 pills max + "+N", puis
+// date + badge DTP à droite de la barre.
+let _arlibCurrentTags = [];
+function _renderArlibTags() {
   const scroll = document.getElementById('arlib-rtags-scroll');
-  if (!scroll || !fullText || fullText.length < 80) return;
+  const tags = _arlibCurrentTags || [];
+  if (scroll) {
+    const MAX = 6, shown = tags.slice(0, MAX), extra = tags.length - shown.length;
+    let html = shown.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
+    if (extra > 0) html += `<span class="arlib-rtag arlib-rtag--more" title="${tags.slice(MAX).join(', ')}">+${extra}</span>`;
+    scroll.innerHTML = html;
+    scroll.scrollLeft = 0;
+  }
+  const dateEl = document.getElementById('arlib-rdate');
+  if (dateEl) {
+    const it = _currentArlibItem;
+    const d = it && it.timestamp ? new Date(it.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '';
+    dateEl.innerHTML = d ? `<span class="arlib-rdate-badge">DTP</span><span>${d}</span>` : '';
+  }
+}
+// Enrichit les tags du rapport OUVERT à partir du CONTENU COMPLET (vue d'ensemble).
+function _arlibEnrichTags(fullText) {
+  if (!fullText || fullText.length < 80) return;
   const more = _tagsFromText(fullText, 16);
-  const existing = [...scroll.querySelectorAll('.arlib-rtag')].map(e => (e.textContent || '').trim()).filter(Boolean);
-  const all = [...new Set([...existing, ...more])].slice(0, 16);
-  scroll.innerHTML = all.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
-  scroll.scrollLeft = 0;
+  _arlibCurrentTags = [...new Set([...(_arlibCurrentTags || []), ...more])].slice(0, 16);
+  _renderArlibTags();
 }
 
 function arlibCleanTitle(headline) {
@@ -4342,10 +4359,8 @@ function renderArlibReader(item) {
   const tags  = arlibItemTags(item);
 
   if (titleEl) titleEl.textContent = title;
-  if (tagsScroll) {
-    tagsScroll.innerHTML = tags.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
-    tagsScroll.scrollLeft = 0;
-  }
+  _arlibCurrentTags = tags;
+  _renderArlibTags();   // pills façon PMT (6 max + "+N") + date & badge DTP à droite
 
   // ── Build content HTML ──
   let html = '';
