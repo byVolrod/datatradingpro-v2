@@ -1832,7 +1832,7 @@ function buildNewsItem(item) {
   if (isAlert) {
     const badge = document.createElement('div');
     badge.className = 'news-alert-icon';
-    badge.textContent = '!';
+    badge.innerHTML = '<svg width="12" height="12" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 3.5V5.5M5.5 7.5H5.505M10.5 5.5C10.5 8.26142 8.26142 10.5 5.5 10.5C2.73858 10.5 0.5 8.26142 0.5 5.5C0.5 2.73858 2.73858 0.5 5.5 0.5C8.26142 0.5 10.5 2.73858 10.5 5.5Z" stroke="#FB0000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     iconCol.appendChild(badge);
   }
   el.appendChild(iconCol);
