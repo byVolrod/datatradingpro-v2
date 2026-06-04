@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260607l" />
+  <link rel="stylesheet" href="/css/style.css?v=20260607m" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -24,6 +24,11 @@
   <script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
 </head>
 <body>
+
+<!-- ═══════════════════ SPLASH D'INITIALISATION (loader éclipse plein écran) ═══════════════════ -->
+<div id="boot-loader">
+  <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Initializing dashboard…</div></div>
+</div>
 
 <!-- ═══════════════════ TOP BAR (row 1) ═══════════════════ -->
 <div class="topbar">
@@ -557,8 +562,8 @@
   </div>
 </div>
 
-<script src="/js/app.js?v=20260607l"></script>
-<script src="/js/charts.js?v=20260607l"></script>
+<script src="/js/app.js?v=20260607m"></script>
+<script src="/js/charts.js?v=20260607m"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1379,5 +1384,20 @@
   </div>
   <div class="chat-hint">Appuyez sur Entrée pour envoyer, Maj + Entrée pour nouvelle ligne</div>
 </div>
+
+<!-- Masquage du splash d'initialisation : à la fin du chargement (+ court délai), AVEC filet de sécurité anti-blocage -->
+<script>
+  (function () {
+    function hideBoot() {
+      var b = document.getElementById('boot-loader');
+      if (!b || b.classList.contains('is-hidden')) return;
+      b.classList.add('is-hidden');
+      setTimeout(function () { if (b && b.parentNode) b.parentNode.removeChild(b); }, 550);
+    }
+    if (document.readyState === 'complete') setTimeout(hideBoot, 450);
+    else window.addEventListener('load', function () { setTimeout(hideBoot, 450); });
+    setTimeout(hideBoot, 9000);   // ne JAMAIS rester bloqué (filet de sécurité)
+  })();
+</script>
 </body>
 </html>
