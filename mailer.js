@@ -313,7 +313,8 @@ function buildTrialUpsell({ name, expiresAt }) {
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, sans délai</td></tr>
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Calendrier économique et résultats live</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Analyses institutionnelles &amp; Weekly Market Recap</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Analyses institutionnelles &amp; Rapports de banques</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ FX Weekly Recap &amp; FX Daily Recap</td></tr>
     </table>
     ${_button('Activer mon abonnement mensuel', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Abonnement mensuel sans engagement — votre accès est réactivé immédiatement après l'inscription.</p>
