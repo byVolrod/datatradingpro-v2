@@ -1471,8 +1471,8 @@ async function _swEnsureAiTitles(internal = false) {
   _swTitleBusy = true;
   let changed = false;
   try {
-    let budget = 8;        // max 8 générations IA par passage (le reste au passage suivant)
-    let fetchBudget = 5;   // max 5 récupérations de contenu par passage (wraps d'archive sans description)
+    let budget = 3;        // max 3 générations IA/passage (abaissé pour le quota ; reste au passage suivant)
+    let fetchBudget = 4;   // max récupérations de contenu par passage (wraps d'archive sans description)
     for (const w of _swCache.slice(0, 80)) {   // TOUS les wraps affichés dans l'onglet Analyst
       if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant (skip → 0 coût)
       try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}
@@ -1497,17 +1497,17 @@ async function _swEnsureAiTitles(internal = false) {
       if (budget <= 0) continue;
       const src = (body || w.title || '').slice(0, 600);
       if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
+      if (!aiAllowed('analyst')) { budget = 0; continue; }   // budget IA du jour épuisé → on garde le titre heuristique (gratuit)
       budget--;
       try {
-        // generateText direct (Gemini→Claude, comme le Weekly) → pas bloqué par le budget soft :
-        // les titres sont 1×/wrap et mis en cache, donc on privilégie la fiabilité.
+        // generateText (Gemini→Claude) MAIS désormais compté dans le budget (aiNote) → protège le quota.
         const out = await ai.generateText(
           `Voici le résumé d'une session de marché (FX/indices/matières premières). Écris UN titre de presse ` +
           `PERCUTANT et CONCIS (idéalement 5 à 8 mots, max 9), en anglais, qui capte LE thème principal. ` +
           `Style "headline" : direct, verbe fort, pas de remplissage. Interdits : le mot "wrap", toute mention ` +
           `de source, toute date, les guillemets. Réponds avec le titre SEUL.\n\n${src}`, 90);
         let t = String(out || '').split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 90);
-        if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; auth.aiCacheSet('swt2:' + w.id, t).catch(() => {}); continue; }
+        if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; aiNote('analyst'); auth.aiCacheSet('swt2:' + w.id, t).catch(() => {}); continue; }
         throw new Error('titre IA vide');
       } catch {
         // IA indisponible → titre de secours heuristique (marqué 'h' → l'IA réessaiera
@@ -1525,7 +1525,7 @@ async function _swEnsureAiTitles(internal = false) {
   return changed;
 }
 // Relance périodique (couvre les nouveaux wraps + le backfill échelonné)
-setInterval(() => _swEnsureAiTitles().catch(() => {}), 4 * 60 * 1000);
+setInterval(() => _swEnsureAiTitles().catch(() => {}), 15 * 60 * 1000);   // 15 min (éco quota ; titre heuristique immédiat en attendant)
 
 app.get('/api/session-wraps', (_req, res) => {
   res.json(_swCache);
@@ -1720,12 +1720,13 @@ function _saveJsonMap(file, map) {
 //  Répartition intra-journée :
 //   • Semaine : 50% news IMPORTANTES + 50% rapports analyst ; bias/bank OFF.
 //   • Week-end : news + analyst OFF ; bias + bank ON (dans la limite du plafond).
-// 4 clés Gemini en rotation → enveloppe ÉLARGIE (~4× le free-tier d'1 clé). Pacing mensuel conservé.
-const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 12000;  // ~400 appels/jour lissés sur le mois
-// Garde-fous quotidiens : plancher confortable (toujours ≥ MIN appels/jour, même en fin de mois)
-// et plafond de sécurité (jamais > MAX/jour → réparti sur 4 clés ≈ 150/clé/jour, sous la limite free-tier par clé).
-const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 160;
-const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 600;
+// ⚠️ RÉALITÉ : le quota gratuit Gemini est PAR PROJET Google (pas par clé). Si les clés partagent
+// le même projet → UN seul quota partagé. Le quota se réinitialise CHAQUE JOUR → l'objectif est que
+// la conso QUOTIDIENNE reste bien sous le quota gratuit du jour (et donc ça tient tout le mois).
+// Budget abaissé pour tenir confortablement sur un quota gratuit mono-projet.
+const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 7500;   // ~250 appels/jour lissés
+const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 120;
+const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 280;   // plafond DUR/jour → marge sous le free-tier
 const AI_BURST         = parseInt(process.env.GEMINI_BURST, 10) || 18;   // tolérance de pic instantané (pacing)
 const AI_USAGE_FILE = path.join(__dirname, 'cache_ai_usage.json');
 let _aiUsage = { month: '', day: '', total: 0, dayCounts: {} };
@@ -1869,7 +1870,7 @@ async function _prewarmWrapSegs() {
   _swPrewarmBusy = true;
   try {
     // Backlog borné à 6/cycle (anti-OOM + éco tokens) → couvert progressivement sur quelques cycles.
-    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 6);
+    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 3);
     for (const item of todo) { if (!aiAllowed('analyst')) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
   } finally { _swPrewarmBusy = false; }
 }
@@ -1885,7 +1886,7 @@ async function _prewarmBrSegs() {
     const dayCut = Date.now() - 4 * 24 * 60 * 60 * 1000;   // ~4 derniers jours → couvre tout le DailyFX récent de l'onglet
     const todo = (_brCache || [])
       .filter(i => i.url && _BR_CONTENT_HOSTS.test(i.url) && (i.timestamp || 0) > dayCut && !_brSegCache.has(BR_SEG_VER + i.url))
-      .slice(0, 5);   // borné à 5/cycle (anti-OOM + éco tokens)
+      .slice(0, 3);   // borné à 3/cycle (anti-OOM + éco quota)
     for (const item of todo) {
       if (!aiAllowed('analyst')) break;
       try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 30000 }); }
@@ -4854,7 +4855,7 @@ function mergeItems(incoming) {
 // de fortes limites pour préserver le quota : cap journalier + 1/cycle + cache durable +
 // jamais de dépense Claude (claudeOverBudget:false → repli mots-clés si budget épuisé).
 const AI_TAG_VOCAB = ['US','EU','UK','Japan','China','Fed','ECB','BoJ','BoE','Rates','Inflation','Data','Oil','Metals','Gold','Geopolitics','Risk','Crypto','Equities','Bonds','FX','Trade'];
-const AI_TAG_DAILY_MAX = parseInt(process.env.AI_TAG_DAILY_MAX, 10) || 25;
+const AI_TAG_DAILY_MAX = parseInt(process.env.AI_TAG_DAILY_MAX, 10) || 12;   // abaissé (éco quota) — repli mots-clés couvre le reste
 const _aiTagCache = new Map();          // id → tags[] (cache mémoire chaud)
 let _aiTagDay = '', _aiTagDayCount = 0; // compteur journalier (cap dur)
 let _aiTagBusy = false;
@@ -4864,7 +4865,7 @@ let _aiTagBusy = false;
 // la MÉRITENT (importantes + assez de matière), la cache (durable Supabase + disque) et
 // l'attache à l'objet news (item.analyse). Le front affiche le tag « Analyse » uniquement
 // si item.analyse existe → parfois Info+Analyse, parfois juste Info. Budget strict.
-const AI_ANALYSE_DAILY_MAX = parseInt(process.env.AI_ANALYSE_DAILY_MAX, 10) || 18;
+const AI_ANALYSE_DAILY_MAX = parseInt(process.env.AI_ANALYSE_DAILY_MAX, 10) || 10;   // abaissé (éco quota)
 let _aiAnaDay = '', _aiAnaDayCount = 0, _aiAnaBusy = false;
 function _meritsAnalysis(item) {
   if (!item || item._briefing || item._marketUpdate) return false;
@@ -5990,10 +5991,10 @@ server.listen(PORT, async () => {
   setInterval(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 30 * 60 * 1000);
   // Rapports Analyst/Institution : pré-segmente en arrière-plan → ouverture instantanée (cache persistant)
   setTimeout(() => { _prewarmWrapSegs().catch(() => {}); }, 25000);
-  setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 4 * 60 * 1000);
+  setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 12 * 60 * 1000);   // 12 min (éco quota)
   // DailyFX (ING) : structure EN AVANCE les rapports du jour (décalé pour ne pas chevaucher les wraps)
   setTimeout(() => { _prewarmBrSegs().catch(() => {}); }, 45000);
-  setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 5 * 60 * 1000);
+  setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 15 * 60 * 1000);   // 15 min (éco quota)
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
