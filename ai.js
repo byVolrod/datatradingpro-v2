@@ -147,7 +147,7 @@ async function _anthropic(prompt, maxTokens) {
       });
       const text = (msg.content?.[0]?.text || '').trim();
       if (!text) throw new Error('Claude: réponse vide');
-      _claudeCount++;   // appel Claude réussi → compté dans le plafond du jour (crédits bornés)
+      _claudeCount++; _aiStat('claude');   // appel Claude réussi → compté dans le plafond du jour (crédits bornés)
       return text;
     } catch (e) {
       lastErr = e;
@@ -158,6 +158,21 @@ async function _anthropic(prompt, maxTokens) {
     }
   }
   throw lastErr || new Error('Toutes les clés Anthropic ont échoué');
+}
+
+// ── Gestion ADAPTATIVE du quota Gemini : cooldown par (modèle, clé) sur 429 + stats du jour ──
+// Quand un couple (modèle, clé) renvoie 429 (quota/RPM saturé), on le met en cooldown : on ne le
+// retente pas pendant un court délai → zéro appel gaspillé sur une clé saturée, charge répartie sur
+// les autres. Auto-réparant : dès que le cooldown expire, la clé est ré-essayée automatiquement.
+const _gemCooldown = new Map();   // "model|idx" → fin de cooldown (timestamp)
+function _gemCool(model, idx, status) { _gemCooldown.set(model + '|' + idx, Date.now() + (status === 429 ? 90000 : 25000)); }
+function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
+// Suivi quotidien (visibilité "combien d'appels / 429 par jour" → pour anticiper le besoin de quota).
+let _aiDay = '', _aiStats = { gemini: 0, gemini429: 0, claude: 0, claudeFail: 0, fallback: 0 };
+function _aiStat(f) {
+  const d = new Date().toISOString().slice(0, 10);
+  if (d !== _aiDay) { _aiDay = d; _aiStats = { gemini: 0, gemini429: 0, claude: 0, claudeFail: 0, fallback: 0 }; }
+  _aiStats[f] = (_aiStats[f] || 0) + 1;
 }
 
 async function generateText(prompt, maxTokens = 1500) {
@@ -173,9 +188,12 @@ async function generateText(prompt, maxTokens = 1500) {
     for (const model of GEMINI_MODELS) {
       for (let i = 0; i < n; i++) {
         const idx = (start + i) % n;
-        try { return await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); }
+        if (_gemIsCool(model, idx)) continue;   // (modèle, clé) en cooldown 429 → on saute (anti-gaspillage + charge répartie)
+        try { const out = await _gemini(model, GEMINI_KEYS[idx], prompt, maxTokens); _aiStat('gemini'); return out; }
         catch (e) {
           lastErr = e;
+          if (e.status === 429) { _gemCool(model, idx, 429); _aiStat('gemini429'); }
+          else if (e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
           console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 110)} → suivant`);
         }
       }
@@ -184,7 +202,7 @@ async function generateText(prompt, maxTokens = 1500) {
   }
 
   // ── Option B : Anthropic Claude (multi-clés, rotation + bascule) ────────────
-  if (ANTHROPIC_KEYS.length) return _anthropic(prompt, maxTokens);
+  if (ANTHROPIC_KEYS.length) { _aiStat('fallback'); return _anthropic(prompt, maxTokens); }
 
   throw new Error('Aucune clé IA configurée (GEMINI_API_KEY ou ANTHROPIC_API_KEY…)');
 }
@@ -206,6 +224,9 @@ function status() {
     claudeModel: CLAUDE_MODEL,
     claudeDailyMax: CLAUDE_DAILY_MAX,
     claudeUsedToday: _claudeCount,
+    today: _aiDay,
+    usageToday: _aiStats,                                                   // {gemini, gemini429, claude, fallback} → "le nombre par jour"
+    geminiCoolingNow: [..._gemCooldown.entries()].filter(([, t]) => t > Date.now()).length,   // couples (modèle,clé) en cooldown 429
   };
 }
 

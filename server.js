@@ -482,6 +482,7 @@ app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
     };
   } catch (e) { budget = { error: String(e && e.message || e) }; }
   res.json({
+    mail: (() => { try { return mailer.getMailHealth(); } catch { return null; } })(),   // santé email (Gmail vérifié ?, envoyés/échoués)
     env: {
       GEMINI_API_KEY: !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY),
       ANTHROPIC_API_KEY: !!process.env.ANTHROPIC_API_KEY,
@@ -5908,6 +5909,9 @@ server.listen(PORT, async () => {
   // puis recalcule en arrière-plan ; refresh régulier ensuite → la table n'est JAMAIS vide.
   setTimeout(async () => { try { await _fxlLoadPersisted(); await computeFxList(); } catch {} }, 12000);
   setInterval(() => { _fxlTs = 0; computeFxList().catch(() => {}); }, FXL_TTL);
+  // VÉRIFICATION EMAIL : auto-test Gmail au démarrage + toutes les 30 min → on sait TOUJOURS si l'envoi marche (log + /api/admin/ai-status).
+  setTimeout(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 8000);
+  setInterval(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 30 * 60 * 1000);
   // Rapports Analyst/Institution : pré-segmente en arrière-plan → ouverture instantanée (cache persistant)
   setTimeout(() => { _prewarmWrapSegs().catch(() => {}); }, 25000);
   setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 4 * 60 * 1000);
