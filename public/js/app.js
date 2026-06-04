@@ -54,7 +54,8 @@ let _aiMsgs = [];
 let _aiBusy = false;
 let _aiTyper = null;
 const AI_AVATAR = '/assets/images/macro-ai-logo.png';            // logo officiel sauvegardé en local (autonome)
-const AI_CHIP = `<img class="ai-chip-img" src="${AI_AVATAR}" alt="Macro AI" width="22" height="22" loading="lazy">`;
+try { const _aiAv = new Image(); _aiAv.src = AI_AVATAR; } catch {}   // PRÉCHARGÉ dès le boot → l'avatar s'affiche EN MÊME TEMPS que le message (plus jamais après)
+const AI_CHIP = `<img class="ai-chip-img" src="${AI_AVATAR}" alt="Macro AI" width="22" height="22" decoding="sync">`;
 function _aiTime() { try { return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
 function _aiEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _aiMd(s) { return _aiEsc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); }
