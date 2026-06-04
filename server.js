@@ -3943,6 +3943,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
+const BIAS_VER = 'v2-grounded';   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -3964,6 +3965,8 @@ const SMART_BIAS_SEED = {
 let _smartBias = null;
 try { _smartBias = JSON.parse(fs.readFileSync(SMART_BIAS_FILE, 'utf8')); } catch {}
 if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) _smartBias = SMART_BIAS_SEED;
+// Recharge le bias DURABLE (Supabase) s'il est plus frais que le disque/seed (le disque Render est éphémère).
+try { auth.aiCacheGet('smartbias:matrix').then(b => { if (b && Array.isArray(b.rows) && b.rows.length && b.generatedAt && (!_smartBias.generatedAt || b.generatedAt > _smartBias.generatedAt)) _smartBias = b; }).catch(() => {}); } catch {}
 const SB_GEM_ROWS = [
   { key: 'fundamental', label: 'Fundamental Data' },
   { key: 'bankOverview', label: 'Bank Overview' },
@@ -4017,6 +4020,15 @@ async function generateSmartBias(force = false) {
     const rows = (Array.isArray(out) ? out : []).filter(s => MAJ.test(s.symbol)).map(s => `${s.symbol}: ${s.longPct}%L/${s.shortPct}%S (retail ${s.trend})`);
     if (rows.length) retailLine = rows.join('; ');
   } catch (e) { console.warn('[SmartBias] retail indispo:', e.message); }
+  // fundamental/monetary ← CALENDRIER réel : events High/Medium avec actual vs forecast (= surprises de données + décisions CB).
+  let calLine = '';
+  try {
+    const evs = (allCalendar || [])
+      .filter(e => e && (e.impact === 'High' || e.impact === 'Medium') && e.actual && e.forecast && SB_CURRENCIES.includes(e.currency))
+      .slice(0, 32)
+      .map(e => `${e.currency} ${e.title}: actual ${e.actual} vs exp ${e.forecast}`);
+    if (evs.length) calLine = evs.join('; ');
+  } catch (e) { console.warn('[SmartBias] calendrier indispo:', e.message); }
 
   const prompt = `You are a senior FX strategist building a "Smart Bias" matrix for the 8 major currencies: ${SB_CURRENCIES.join(', ')}.
 For EACH currency, rate each indicator using EXACTLY one of: "Very Bullish", "Bullish", "Neutral", "Bearish", "Very Bearish".
@@ -4024,11 +4036,11 @@ For EACH currency, rate each indicator using EXACTLY one of: "Very Bullish", "Bu
 ABSOLUTE RULE — NEVER invent a bias: base EACH rating ONLY on the DATA PROVIDED BELOW. If the data for a currency/indicator is mixed, weak or ABSENT, rate it "Neutral". A wrong directional bias is WORSE than Neutral — do NOT force decisiveness.
 
 Map each indicator to its SOURCE (use ONLY that source):
-- fundamental: macro/data momentum → from the PAST-WEEK HEADLINES (data surprises, growth, inflation).
+- fundamental: macro/data momentum → from the CALENDAR DATA below (actual vs forecast: beats → Bullish, misses → Bearish) + the PAST-WEEK HEADLINES.
 - bankOverview: aggregate sell-side bank stance → from the BANK RESEARCH headlines below ONLY (no bank coverage for a currency → Neutral).
 - hedgeFund: large-speculator positioning → from the COT DATA below ONLY (net long → Bullish, net short → Bearish; bigger net = stronger conviction). Currency absent from COT → Neutral.
 - retail: retail crowd positioning (CONTRARIAN) → from the RETAIL SENTIMENT below. Retail heavily LONG a currency (via its pairs) → bias it Bearish; heavily SHORT → Bullish. No retail data for a currency → Neutral.
-- monetary: central-bank policy stance → from headlines mentioning central banks / rate decisions / officials.
+- monetary: central-bank policy stance → from CALENDAR central-bank events (rate decisions) + headlines mentioning central banks / officials.
 - seasonality: typical early-June seasonal tendency (your knowledge) — keep it modest.
 
 == COT DATA (CFTC non-commercial / large specs — the ONLY source for hedgeFund) ==
@@ -4039,6 +4051,8 @@ ${bankLine || 'n/a'}
 ${riskLine || 'n/a'}
 == RETAIL SENTIMENT (myfxbook crowd — CONTRARIAN, the ONLY source for retail) ==
 ${retailLine || 'n/a'}
+== CALENDAR — high/medium-impact releases, actual vs forecast (source for fundamental & monetary) ==
+${calLine || 'n/a'}
 == PAST-WEEK HEADLINES ==
 ${heads || 'n/a'}
 
@@ -4079,9 +4093,11 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   rows.push({ key: 'trend', label: 'Trend', values: trend });
   rows.push({ key: 'seasonality', label: 'Seasonality', values: gem.seasonality || {} });
 
-  _smartBias = { generatedAt: Date.now(), currencies: SB_CURRENCIES, rows, conclusion };
+  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion };
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
-  console.log('[SmartBias] matrix generated');
+  auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
+  // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
+  console.log(`[SmartBias] OK — sources: COT=${cotLine ? 'oui' : 'NON'} retail=${retailLine ? 'oui' : 'NON'} banques=${bankLine ? 'oui' : 'NON'} calendrier=${calLine ? 'oui' : 'NON'} | conclusion: ${SB_CURRENCIES.map(c => c + '=' + (conclusion[c] || '?')).join(' ')}`);
   try { broadcast({ type: 'smartbias_update', bias: _smartBias }); } catch {}
   return _smartBias;
 }
@@ -4114,8 +4130,12 @@ app.get('/api/smart-bias', async (req, res) => {
     runAll();
     setInterval(runAll, 7 * 24 * 60 * 60 * 1000);
   }, delay);
-  // Premier remplissage si le cache est vide (ex: tout premier déploiement)
-  if (!_smartBias) setTimeout(() => generateSmartBias(true).catch(() => {}), 30 * 1000);
+  // Régénère au démarrage si vide / seed (non daté) / version périmée / >1 semaine → bias toujours frais + ancré.
+  // (45s pour laisser le calendrier + le cache Supabase se charger d'abord.) Persisté ensuite sur Supabase → pas de régén à chaque déploiement.
+  setTimeout(() => {
+    const stale = !_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt || (Date.now() - _smartBias.generatedAt > 7 * 24 * 60 * 60 * 1000);
+    if (stale) generateSmartBias(true).catch(() => {});
+  }, 45 * 1000);
 })();
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
