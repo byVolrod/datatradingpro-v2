@@ -93,7 +93,12 @@ async function verifyLogin(email, password) {
 }
 
 // ─── CRUD utilisateurs ────────────────────────────────────────────────────────
-async function getAllUsers() {
+// Cache mémoire COURT (10 s) : getAllUsers est appelé par les jobs de fond (trial/reengagement/expiry)
+// + l'inbox support → on évite de répéter un full-scan. Les écritures invalident via _bustUsersCache().
+let _allUsersCache = { ts: 0, data: null };
+function _bustUsersCache() { _allUsersCache = { ts: 0, data: null }; }
+async function getAllUsers(opts = {}) {
+  if (!opts.fresh && _allUsersCache.data && Date.now() - _allUsersCache.ts < 10000) return _allUsersCache.data;
   const { data, error } = await supabase
     .from(TABLE)
     .select('id, email, name, role, plan, active, created_at, last_login, expires_at')
@@ -106,10 +111,12 @@ async function getAllUsers() {
       .select('id, email, name, role, plan, active, created_at, last_login')
       .order('created_at', { ascending: false });
     if (fallback.error) throw new Error(fallback.error.message);
-    return fallback.data || [];
+    _allUsersCache = { ts: Date.now(), data: fallback.data || [] };
+    return _allUsersCache.data;
   }
   if (error) throw new Error(error.message);
-  return data || [];
+  _allUsersCache = { ts: Date.now(), data: data || [] };
+  return _allUsersCache.data;
 }
 
 async function getUserById(id) {
