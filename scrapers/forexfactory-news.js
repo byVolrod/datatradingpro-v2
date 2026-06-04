@@ -627,8 +627,13 @@ async function getArticleContent(url, headline = '') {
       const NOISE = /\b(code of conduct|thread has|misleading title|website coordinator|newsstand|forum rules|report post|posted by\s+\w|medium impact|high impact|low impact|breaking\s+\d|\d+\s+comments?|min ago|hr ago|days? ago|\d{1,2}:\d{2}(am|pm)|\d+,\d{3}|livesquawk|pic\.twitter|@\w{3,}\s*[|\(]|click here|read more|sign up|newsletter|subscribe|advertisement|cookie|terms of use|privacy policy|all rights reserved|follow us|share this|get the latest)\b/i;
 
       // ── Extract all candidate paragraphs ──
+      // innerText (et NON textContent) : respecte les sauts de ligne entre éléments-blocs.
+      // textContent collait les lignes/messages concaténés ("ready"+"Ukraine" -> "readyUkraine",
+      // "personnel"+"More" -> "personnelMore"). innerText insère le saut -> mots bien séparés.
       const candidates = [...bodyEl.querySelectorAll('p, li')]
-        .map(el => el.textContent.replace(/\s+/g, ' ').trim())
+        .map(el => (el.innerText || el.textContent || '')
+          .replace(/([;:])(?=[A-Za-z])/g, '$1 ')   // espace après un ":" / ";" collé à un mot ("end:In" -> "end: In")
+          .replace(/\s+/g, ' ').trim())
         .filter(t => t.length >= 45 && t.length <= 600)
         .filter(t => !NOISE.test(t))
         .filter(t => /[a-z]{5,}/.test(t))
