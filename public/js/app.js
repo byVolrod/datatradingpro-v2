@@ -2119,7 +2119,7 @@ function buildNewsItem(item) {
 
     // Info tab — if no inline description but has a ForexFactory article URL, fetch real content
     if (tab === 'info' && rawDesc.length <= 30 && hasArticleUrl) {
-      expandEl.innerHTML = dtpLoader('Chargement de l’article…', { small: true });
+      expandEl.innerHTML = dtpLoader('Chargement du résumé…', { small: true });
       expandEl.classList.add('visible');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
@@ -2128,7 +2128,11 @@ function buildNewsItem(item) {
         .then(data => {
           if (activeTab !== 'info') return;
           if (data.points && data.points.length > 0) {
-            expandEl.innerHTML = `<ul class="article-points">${data.points.map(p => `<li>${p}</li>`).join('')}</ul>`;
+            // Image illustrative (si l'article en a une) — propre, arrondie ; se retire d'elle-même si cassée.
+            const _img = (data.image && /^https?:\/\//.test(data.image))
+              ? `<div class="article-img-wrap"><img class="article-img" src="${data.image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.article-img-wrap').remove()"></div>`
+              : '';
+            expandEl.innerHTML = `${_img}<ul class="article-points">${data.points.map(p => `<li>${p}</li>`).join('')}</ul>`;
           } else {
             // API confirmed no content → remove Info tag entirely
             if (infoTagEl) { infoTagEl.remove(); infoTagEl = null; }
