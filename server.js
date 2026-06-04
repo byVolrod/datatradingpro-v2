@@ -1786,7 +1786,7 @@ async function aiSmart(category, prompt, maxTokens, opts = {}) {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v2:';   // bump → régénère la segmentation (titres de section D'ORIGINE au lieu de catégories fixes)
+const SW_SEG_VER  = 'v3:';   // bump → régénère (v3 : l'IA PEAUFINE désormais les puces en prose pro, faits préservés)
 
 // ── PRÉCHAUFFAGE : segmente les rapports EN AVANCE (cache persistant) → ouverture INSTANTANÉE ──
 // Le coût (Gemini) est payé en tâche de fond, jamais quand l'utilisateur ouvre un rapport.
@@ -1818,16 +1818,13 @@ async function _prewarmWrapSegs() {
 
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
 async function _segmentWrapAI(points) {
-  const prompt = `Voici, DANS L'ORDRE, les éléments d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
-Reconstruis la structure D'ORIGINE du rapport (façon Prime Terminal) :
-- Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", "NOTABLE EUROPEAN DATA RECAP", etc.).
-- Regroupe chaque puce SOUS son en-tête D'ORIGINE, dans l'ordre du texte.
-Règles STRICTES :
-- Utilise les titres de section EXACTEMENT tels qu'ils apparaissent (NE les remplace PAS par des catégories génériques type "GEOPOLITICS/EQUITIES", ne traduis pas, ne reformule pas).
-- Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce).
-- Garde chaque puce EXACTEMENT telle quelle.
-- Ignore les éléments promotionnels/hors-sujet ("...at investingLive.com", etc.).
-Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE D'ORIGINE","items":["puce 1","puce 2"]}]
+  const prompt = `Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
+Produis un rapport PROPRE et PROFESSIONNEL façon Prime Terminal (ton d'analyste institutionnel) :
+- Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", etc.) et garde-les EXACTEMENT tels quels (ne traduis pas, ne renomme pas).
+- Sous chaque en-tête, PEAUFINE/REFORMULE les puces en phrases claires, concises et professionnelles : corrige la grammaire, supprime les fragments, répétitions et le cruft, fais des phrases complètes qui se lisent comme un vrai récap d'analyste (pas un copier-coller brut).
+RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, pourcentages, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN. Tu améliores UNIQUEMENT la formulation et la clarté, jamais le contenu factuel.
+- Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel/hors-sujet ("...at investingLive.com", etc.).
+Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE D'ORIGINE","items":["phrase reformulée 1","phrase 2"]}]
 Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
   const text = await ai.generateText(prompt, 2500);

@@ -4467,13 +4467,7 @@ function renderArlibReader(item) {
     const SESSION_LABEL = { 'Americas': 'New York Session Recap', 'European': 'London Session Recap', 'Asia-Pacific': 'Asia-Pac Session Recap' }[item.session] || 'Session Recap';
     const SUBTITLE = { 'Americas': 'Wrap-up of the New York trading session', 'European': 'Wrap-up of the London trading session', 'Asia-Pacific': 'Wrap-up of the Asia-Pacific trading session' }[item.session] || 'Daily market session wrap-up';
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    const _header = `
-          <div class="arlib-doc-header">
-            <div class="arlib-doc-type">${SESSION_LABEL}</div>
-            <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
-            <div class="arlib-doc-subtitle">${SUBTITLE}</div>
-            <div class="arlib-doc-meta">${dateStr}</div>
-          </div>`;
+    const _header = '';   // en-tête retiré → on entame DIRECT le rapport (le titre reste dans la barre de navigation du lecteur)
     content.innerHTML = dtpLoader('Chargement du résumé de session…');
 
     fetch('/api/session-wrap-content?url=' + encodeURIComponent(item.url))
