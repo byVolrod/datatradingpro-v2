@@ -64,7 +64,7 @@ function _aiMdStream(s) {
   if (((t.match(/\*\*/g) || []).length) % 2 === 1) t = t.replace(/\*\*(?![\s\S]*\*\*)/, '');
   return _aiMd(t);
 }
-function _aiWelcomeMsg() { return { role: 'ai', text: "Hello! I'm your Macro AI assistant. Ask me about market trends, economic indicators, or get insights on global markets.", time: _aiTime() }; }
+function _aiWelcomeMsg() { return { role: 'ai', text: "Bonjour ! Je suis votre assistant IA Macro. Posez-moi des questions sur les tendances du marché, les indicateurs économiques ou les perspectives des marchés mondiaux.", time: _aiTime() }; }
 
 function aiOpen() {
   const p = document.getElementById('ai-panel'), b = document.getElementById('ai-backdrop');
