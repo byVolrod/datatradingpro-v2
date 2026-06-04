@@ -494,6 +494,11 @@ app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
     test,
     budget,
     swTitles: { total: _swCache.length, withAiTitle: _swCache.filter(w => w && w.aiTitle).length },
+    // Usage learner (Phase 1) : ce que le système a APPRIS de la demande (créneau jour×heure × catégorie).
+    learner: {
+      currentSlot: _aiDemandSlot(), expectedNow: aiExpectedDemand(), slotsLearned: Object.keys(_aiDemand).length,
+      busiestSlots: Object.entries(_aiDemand).map(([s, v]) => ({ slot: s, total: v._t || 0 })).sort((a, b) => b.total - a.total).slice(0, 6),
+    },
   });
 });
 
@@ -1497,7 +1502,7 @@ async function _swEnsureAiTitles(internal = false) {
       if (budget <= 0) continue;
       const src = (body || w.title || '').slice(0, 600);
       if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
-      if (!aiAllowed('analyst')) { budget = 0; continue; }   // budget IA du jour épuisé → on garde le titre heuristique (gratuit)
+      if (!aiAllowed('analyst', { priority: 'background' })) { budget = 0; continue; }   // budget IA du jour épuisé → on garde le titre heuristique (gratuit)
       budget--;
       try {
         // generateText (Gemini→Claude) MAIS désormais compté dans le budget (aiNote) → protège le quota.
@@ -1737,6 +1742,21 @@ function _aiDay()       { return new Date().toLocaleDateString('en-CA', { timeZo
 function _aiIsWeekend() { const d = new Date().toLocaleDateString('en-US', { weekday: 'short', timeZone: 'Europe/Paris' }); return d === 'Sat' || d === 'Sun'; }
 function _aiDaysLeftInMonth() { const p = _aiParis(); const last = new Date(p.getFullYear(), p.getMonth() + 1, 0).getDate(); return Math.max(1, last - p.getDate() + 1); }
 function _aiSave() { try { fs.writeFileSync(AI_USAGE_FILE, JSON.stringify(_aiUsage)); } catch {} }
+// ── USAGE LEARNER (Phase 1) : profil de demande par (jour-semaine × heure × catégorie) → apprend les patterns ──
+const AI_DEMAND_FILE = path.join(__dirname, 'cache_ai_demand.json');
+let _aiDemand = {};   // "wd-hh" → { _t: total, <category>: count }
+try { _aiDemand = JSON.parse(fs.readFileSync(AI_DEMAND_FILE, 'utf8')) || {}; } catch {}
+auth.aiCacheGet('aidemand:v1').then(d => { if (d && typeof d === 'object') _aiDemand = Object.assign({}, d, _aiDemand); }).catch(() => {});   // hydrate durable (survit aux redéploys)
+function _aiDemandSlot() { const p = _aiParis(); return p.getDay() + '-' + p.getHours(); }   // 0(dim)-6 × 0-23h (Paris)
+let _aiDemandSaveT = null;
+function _aiDemandNote(category) {
+  const slot = _aiDemandSlot();
+  const s = _aiDemand[slot] || (_aiDemand[slot] = {});
+  s[category] = (s[category] || 0) + 1; s._t = (s._t || 0) + 1;
+  if (!_aiDemandSaveT) _aiDemandSaveT = setTimeout(() => { _aiDemandSaveT = null; try { fs.writeFileSync(AI_DEMAND_FILE, JSON.stringify(_aiDemand)); } catch {} auth.aiCacheSet('aidemand:v1', _aiDemand).catch(() => {}); }, 60000);
+}
+// Demande attendue pour un créneau (total observé sur l'historique) → base du prewarm prédictif (Phase 2).
+function aiExpectedDemand(slot) { const s = _aiDemand[slot || _aiDemandSlot()]; return s ? (s._t || 0) : 0; }
 function _aiReset() {
   const mo = _aiMonth(), d = _aiDay();
   if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {} }; _aiSave(); }
@@ -1765,16 +1785,18 @@ function _aiQuietHours() {
 }
 function aiAllowed(category, opts = {}) {
   _aiReset();
-  if (_aiQuietHours() && !opts.scheduled) return false;   // 21h→8h30 : IA de fond coupée (éco quota nuit)
+  const prio = opts.priority || 'normal';   // TIERS : 'user' (on-demand) > 'normal' > 'background' (préchauffage)
+  if (_aiQuietHours() && !opts.scheduled && prio !== 'user') return false;   // 21h→7h : fond coupé (l'user passe quand même)
   const cap      = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts).reduce((a, b) => a + b, 0);
   const catUsed  = _aiUsage.dayCounts[category] || 0;
   if (dayTotal >= cap) return false;                                   // plafond DUR du jour atteint
+  // TIER BACKGROUND (préchauffage) : on RÉSERVE ~25% du quota du jour aux requêtes user → le fond cède en premier.
+  if (prio === 'background' && dayTotal >= Math.floor(cap * 0.75)) return false;
   // ── Pacing intra-journée ────────────────────────────────────────────────────
-  // On n'autorise au plus que la PART ÉCOULÉE du jour (+ un petit burst) → la conso
-  // s'étale jusqu'au reset au lieu d'être cramée le matin. Les générations PLANIFIÉES
-  // (opts.scheduled : briefings/recaps programmés) ne sont jamais freinées par le pacing.
-  if (!opts.scheduled) {
+  // On n'autorise au plus que la PART ÉCOULÉE du jour (+ un petit burst) → la conso s'étale jusqu'au reset.
+  // Sauf : générations PLANIFIÉES (opts.scheduled) ET priorité 'user' (l'utilisateur n'est jamais freiné).
+  if (!opts.scheduled && prio !== 'user') {
     const pacedCeil = Math.ceil(cap * _aiDayFraction()) + AI_BURST;
     if (dayTotal >= pacedCeil) return false;
   }
@@ -1800,7 +1822,7 @@ function aiAllowed(category, opts = {}) {
   if (category === 'bias')    return share(0.30);
   return false;
 }
-function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); }
+function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); _aiDemandNote(category); }
 
 // ── Contexte LIVE du terminal injecté dans l'IA (système ÉVOLUTIF) ───────────
 // Instantané COURT de l'état RÉEL du terminal (régime de risque, force des devises…),
@@ -1862,7 +1884,7 @@ async function _prewarmWrapSeg(item) {
   if (!url || !url.startsWith('https://investinglive.com/') || _swSegCache.has(SW_SEG_VER + url)) return false;
   // Déjà dans le cache DURABLE Supabase ? → hydrate la mémoire, AUCUNE régénération (survit aux redéploys = grosse économie de quota Gemini).
   try { const dur = await auth.aiCacheGet('swseg:' + SW_SEG_VER + url); if (typeof dur === 'string' && dur.length > 50) { _swSegCache.set(SW_SEG_VER + url, dur); return false; } } catch {}
-  if (!aiAllowed('analyst')) return false;                     // respecte l'enveloppe budget Gemini
+  if (!aiAllowed('analyst', { priority: 'background' })) return false;                     // respecte l'enveloppe budget Gemini
   try {
     let points = null;
     if (item.content && item.content.length > 100) points = _extractWrapPoints(_cleanWrapHtml(item.content));
@@ -1882,7 +1904,7 @@ async function _prewarmWrapSegs() {
   try {
     // Backlog borné à 6/cycle (anti-OOM + éco tokens) → couvert progressivement sur quelques cycles.
     const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 3);
-    for (const item of todo) { if (!aiAllowed('analyst')) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
+    for (const item of todo) { if (!aiAllowed('analyst', { priority: 'background' })) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
   } finally { _swPrewarmBusy = false; }
 }
 
@@ -1899,7 +1921,7 @@ async function _prewarmBrSegs() {
       .filter(i => i.url && _BR_CONTENT_HOSTS.test(i.url) && (i.timestamp || 0) > dayCut && !_brSegCache.has(BR_SEG_VER + i.url))
       .slice(0, 3);   // borné à 3/cycle (anti-OOM + éco quota)
     for (const item of todo) {
-      if (!aiAllowed('analyst')) break;
+      if (!aiAllowed('analyst', { priority: 'background' })) break;
       try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 30000 }); }
       catch (e) { console.warn('[BR prewarm]', e.message); }
       await new Promise(r => setTimeout(r, 1500));
@@ -4462,10 +4484,10 @@ const BANK_EXTRACT_FILE = path.join(__dirname, 'cache_bank_extract.json');
 const _bankExtracted = _loadJsonMap(BANK_EXTRACT_FILE);   // articleId → true (déjà traité)
 async function _extractBankPositionsAI() {
   if (!ai || !_brCache) return;
-  if (!aiAllowed('bank')) return;   // budget Gemini : extraction réservée au week-end
+  if (!aiAllowed('bank', { priority: 'background' })) return;   // budget Gemini : extraction réservée au week-end
   const candidates = _brCache.filter(a => a._source === 'actionforex' && !_bankExtracted.has(a.id)).slice(0, 8);
   for (const art of candidates) {
-    if (!aiAllowed('bank')) break;
+    if (!aiAllowed('bank', { priority: 'background' })) break;
     _bankExtracted.set(art.id, true);   // on marque traité quoi qu'il arrive (évite de reboucler)
     try {
       aiNote('bank');
