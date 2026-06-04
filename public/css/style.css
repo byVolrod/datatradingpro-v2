@@ -922,16 +922,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* News item — palette Prime Terminal */
 .news-item {
+  /* Colonnes pilotées par variables → le décalage du fond de description (--news-desc-bleed)
+     est AUTO-CALCULÉ : padding-gauche + icône + heure + catégorie + flèche. Plus jamais de
+     bug de décalage (changer une largeur recalcule le bleed). Spacing aéré façon PMT. */
+  --c-pad: 18px; --c-icon: 32px; --c-time: 58px; --c-cat: 150px; --c-arrow: 28px;
+  --news-desc-bleed: calc(var(--c-pad) + var(--c-icon) + var(--c-time) + var(--c-cat) + var(--c-arrow));
   display: flex;
   align-items: flex-start;
-  padding: 11px 14px;
+  padding: 12px var(--c-pad);
   border-bottom: 1px solid var(--border);
   border-radius: 0;                /* lignes strictes type table haute densité, jamais d'arrondi */
   cursor: pointer;
   transition: background 0.1s;
   gap: 0;
   background: #121214;              /* anthracite très sombre (standard) */
-  --news-desc-bleed: 246px;        /* décalage du contenu = padding 14 + icône 34 + heure 48 + catégorie 150 */
 }
 .news-item .news-headline { color: #e2e8f0; }   /* texte principal */
 
@@ -1006,7 +1010,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* ── Priority icon col ── */
 .news-icon-col {
-  width: 34px;
+  width: var(--c-icon);
   flex-shrink: 0;
   display: flex;
   align-items: flex-start;
@@ -1029,7 +1033,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   font-family: var(--font-mono);
   font-size: 11px;
   color: #bbb;
-  width: 48px;
+  width: var(--c-time);
   flex-shrink: 0;
   padding-top: 2px;
   letter-spacing: 0.02em;
@@ -1041,7 +1045,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-category-text {
   font-size: 11px;
   color: #bbb;
-  width: 150px;
+  width: var(--c-cat);
   flex-shrink: 0;
   padding-right: 10px;
   padding-top: 2px;
@@ -1053,7 +1057,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* ── Arrow / expand indicator col ── */
 .news-arrow-col {
-  width: 16px;
+  width: var(--c-arrow);
   flex-shrink: 0;
   padding-top: 1px;
   font-size: 10px;
@@ -1100,7 +1104,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   background: #19191c;                                       /* fond description (couleur PMT exacte) */
   margin-top: 10px;
   margin-left: calc(var(--news-desc-bleed) * -1);           /* fond étendu jusqu'au bord GAUCHE de la ligne */
-  margin-right: -14px;                                       /* … et jusqu'au bord DROIT (toute la ligne) */
+  margin-right: calc(var(--c-pad) * -1);                     /* … et jusqu'au bord DROIT (suit le padding de la card → toujours pile au bord) */
   padding: 11px 14px 11px var(--news-desc-bleed);           /* texte ré-aligné sous le titre */
   border-radius: 0;
   border: none;
@@ -1311,8 +1315,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 0;
+  gap: 5px;
+  margin-top: 9px;              /* plus d'air entre le titre et les tags (façon PMT) */
   margin-bottom: 0;
 }
 
@@ -1320,19 +1324,19 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 3px 9px;
-  border-radius: 3px;               /* micro-badge HUD : 3px max */
-  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;               /* micro-badge HUD compact façon PMT */
+  font-size: 10.5px;
   font-weight: 500;
   letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: default;
 }
 
-.tag--default   { background: var(--bg5); border: 1px solid var(--border2); color: var(--text3); }
-.tag--neutral   { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
-.tag--orange    { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
-.tag--blue      { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
+.tag--default   { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #cfd4dc; }
+.tag--neutral   { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }
+.tag--orange    { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }
+.tag--blue      { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }
 .tag--green     { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.4); color: #ffffff; }
 .tag--red                    { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff; }
 .tag[data-cat="Sanctions"]   { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff !important; }
@@ -1656,6 +1660,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 
 .clocks-bar {
+  font-family: 'Roboto Mono', var(--font-mono);   /* police World Clock façon PMT (cascade à tout le bloc) */
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));  /* 5 villes (Londres, NY, Tokyo, Dubai, Paris) */
   background: var(--bg1);
@@ -1719,7 +1724,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 
 .clock-time {
-  font-family: var(--font-mono);
+  font-family: 'Roboto Mono', var(--font-mono);   /* police World Clock façon PMT */
   font-size: 19px;
   font-weight: 700;
   color: #f2f2f2;                     /* quasi-blanc → chiffres bien nets */
@@ -7162,8 +7167,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .clock-wx-row, .clock-wind-row { font-size: 9px; }
 
   /* News items: full-width readable */
-  .news-item       { gap: 8px; padding: 9px 10px; --news-desc-bleed: 196px; }   /* décalage recalculé (gaps + colonnes mobiles) */
-  .news-description.visible { margin-right: -10px; }
+  .news-item       { --c-pad: 12px; --c-icon: 26px; --c-time: 52px; --c-cat: 112px; --c-arrow: 22px; padding: 10px var(--c-pad); }   /* colonnes mobiles → bleed gauche ET droit suivent --c-pad */
   .news-time       { min-width: 38px; font-size: 10px; }
   .news-category-text { width: 80px; font-size: 10px; }
   .news-headline   { font-size: 12px; }
@@ -8107,7 +8111,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .fxl-table { min-width: 600px; font-size: 10px; }
   .cth-event { min-width: 108px; font-size: 10px; }
   .news-category-text { width: 62px; font-size: 10px; }
-  .news-item { --news-desc-bleed: 178px; }   /* décalage description recalculé (mobile) */
+  .news-item { --c-pad: 10px; --c-icon: 24px; --c-time: 50px; --c-cat: 96px; --c-arrow: 18px; }   /* colonnes mobiles → bleed auto-calculé */
   .news-time { min-width: 30px; }
   .chat-pending-item { width: 46px; height: 46px; }
   .chat-edit-box { max-width: 88vw; }
