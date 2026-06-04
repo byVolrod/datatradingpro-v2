@@ -871,7 +871,7 @@
   // ── Load users ──────────────────────────────────────────────────────────────
   let _allUsers = [];
   let _fSearch = '', _fStatus = 'all', _fRole = 'all';
-  let _page = 1, _perPage = 12, _sortKey = 'expiry', _sortDir = 1;   // tri défaut : échéance la + proche d'abord
+  let _page = 1, _perPage = 12, _sortKey = 'created', _sortDir = -1;   // tri défaut : inscription la + récente d'abord
 
   async function loadUsers() {
     let resp = null;
@@ -952,6 +952,7 @@
       case 'role':   return ({ admin:0, support:1, client:2 })[u.role] ?? 3;
       case 'status': return ({ suspended:0, expired:1, soon:2, active:3 })[subState(u)] ?? 4;
       case 'last':   return u.last_login ? new Date(u.last_login).getTime() : 0;
+      case 'created': return u.created_at ? new Date(u.created_at).getTime() : 0;   // date d'inscription
       case 'expiry':
         if (u.role === 'admin' || u.role === 'support') return 9e15;       // staff = jamais d'échéance → tout en bas
         if (!u.expires_at) return 8e15;                                    // illimité → après les datés
