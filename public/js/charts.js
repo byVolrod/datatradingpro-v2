@@ -957,7 +957,28 @@ const _RISK_BAND_EN = {
   'STRONG RISK-OFF': 'Strong risk aversion. Significant flight to safety across havens. Volatility high.',
 };
 function _riskBandInner(data) {
-  const phrase = _RISK_BAND_EN[data.label] || data.description || '';
+  // Phrase façon PMT, construite à partir des VRAIES données (assets réels) → plus jamais
+  // d'affirmation figée qui contredit le marché (ex. « VIX trending lower » alors qu'il monte).
+  const A = {};
+  (data.assets || []).forEach(a => { A[a.label] = a.chg; });
+  const eq    = ((A['S&P 500'] || 0) + (A['Nasdaq (Tech/Risk)'] || 0)) / 2;
+  const haven = ((A['Or (Sécurité)'] || 0) + (A['Obligations US'] || 0)) / 2;
+  const vix   = A['VIX (Volatilité)'] || 0;
+  const LEAD = {
+    'STRONG RISK-ON':  'Strong appetite for risk.',
+    'RISK-ON':         'Risk appetite firmly in play.',
+    'WEAK RISK-ON':    'Risk appetite improving gradually.',
+    'NEUTRAL':         'Balanced risk appetite. Markets consolidating.',
+    'WEAK RISK-OFF':   'Caution creeping in.',
+    'RISK-OFF':        'Risk aversion in play.',
+    'STRONG RISK-OFF': 'Strong risk aversion.',
+  };
+  const eqTxt    = eq    > 0.1 ? 'Equities bid' : eq    < -0.1 ? 'Equities under pressure' : 'Equities steady';
+  const havenTxt = haven > 0.1 ? 'safe havens bid' : haven < -0.1 ? 'safe havens soften' : 'safe havens mixed';
+  const vixTxt   = `VIX ${vix >= 0 ? '+' : ''}${vix.toFixed(1)}%`;
+  const phrase = (data.assets && data.assets.length)
+    ? `${LEAD[data.label] || ''} ${eqTxt}, ${havenTxt}. ${vixTxt}.`
+    : (_RISK_BAND_EN[data.label] || data.description || '');
   return `<span class="risk-ticker-dot"></span><span class="risk-ticker-txt"><strong>${data.label}:</strong> ${phrase}</span>`;
 }
 
