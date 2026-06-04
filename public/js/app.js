@@ -3184,6 +3184,102 @@ function loadBiasView() {
 }
 window.loadBiasView = loadBiasView;
 
+// ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
+let _waData = null, _waChartRoot = null;
+async function loadWeekAheadView() {
+  const host = document.getElementById('wa-content');
+  if (!host) return;
+  try {
+    const d = await fetch('/api/week-ahead').then(r => r.json());
+    if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _renderWeekAhead(d); }
+    else if (!_waData) host.innerHTML = '<div class="wa-empty">Le Week Ahead sera généré ce week-end (ou dès que le calendrier de la semaine est disponible).</div>';
+  } catch { if (!_waData) host.innerHTML = '<div class="wa-empty">Week Ahead indisponible pour le moment.</div>'; }
+}
+window.loadWeekAheadView = loadWeekAheadView;
+
+function _renderWeekAhead(d) {
+  const host = document.getElementById('wa-content');
+  if (!host) return;
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const todayD = String(new Date().getDate());
+  const rows = (d.days || []).map(day => {
+    const isToday = String(day.date) === todayD;
+    const hi = /high/i.test(day.impact);
+    return `<div class="wa-day${isToday ? ' wa-day--today' : ''}">
+      <div class="wa-node">
+        <span class="wa-dow">${esc((day.dow || '').slice(0, 3).toUpperCase())}</span>
+        <span class="wa-date">${esc(day.date || '')}</span>
+        <span class="wa-month">${esc((day.month || '').slice(0, 3).toUpperCase())}</span>
+      </div>
+      <div class="wa-card">
+        <div class="wa-card-head">
+          <span class="wa-card-title">${esc(day.title)}</span>
+          <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}">${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
+        </div>
+        <div class="wa-card-desc">${esc(day.description)}</div>
+        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>
+      </div>
+    </div>`;
+  }).join('');
+  host.innerHTML = `<div class="wa-wrap">
+    <div class="wa-head"><span class="wa-title">Week Ahead</span>${d.week ? `<span class="wa-week">${esc(d.week)}</span>` : ''}</div>
+    <div class="wa-chartbox"><div class="wa-chart-label">WEEKLY RISK PROFILE</div><div class="wa-chart" id="wa-risk-chart"></div></div>
+    <div class="wa-timeline">${rows}</div>
+  </div>`;
+  requestAnimationFrame(() => {
+    host.querySelectorAll('.wa-card').forEach(c => {
+      const desc = c.querySelector('.wa-card-desc'), btn = c.querySelector('.wa-more');
+      if (desc && btn && desc.scrollHeight <= desc.clientHeight + 4) btn.style.display = 'none';   // pas de débordement → pas de bouton
+    });
+    _waBuildChart(d.days || []);
+  });
+}
+function _waToggle(btn) {
+  const card = btn.closest('.wa-card'); if (!card) return;
+  const open = card.classList.toggle('wa-card--open');
+  btn.innerHTML = open ? 'Show Less <span class="wa-more-chev">∧</span>' : 'Read More <span class="wa-more-chev">∨</span>';
+}
+window._waToggle = _waToggle;
+// Sparkline amCharts (Weekly Risk Profile) — orange mat, dégradé vers le noir, sans grille/axe (look cockpit).
+function _waBuildChart(days) {
+  const el = document.getElementById('wa-risk-chart');
+  if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
+  try {
+    if (_waChartRoot) { try { _waChartRoot.dispose(); } catch {} _waChartRoot = null; }
+    const root = am5.Root.new('wa-risk-chart');
+    _waChartRoot = root;
+    try { root._logo && root._logo.dispose(); } catch {}
+    const chart = root.container.children.push(am5xy.XYChart.new(root, {
+      panX: false, panY: false, wheelX: 'none', wheelY: 'none',
+      paddingLeft: 4, paddingRight: 4, paddingTop: 4, paddingBottom: 0,
+    }));
+    const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, {
+      categoryField: 'day', renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 16 }),
+    }));
+    xAxis.get('renderer').grid.template.set('forceHidden', true);
+    xAxis.get('renderer').labels.template.setAll({ fill: am5.color(0x8a8a90), fontSize: 10 });
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+      min: 0, max: 100, renderer: am5xy.AxisRendererY.new(root, {}),
+    }));
+    yAxis.get('renderer').grid.template.set('forceHidden', true);
+    yAxis.get('renderer').labels.template.set('forceHidden', true);
+    const series = chart.series.push(am5xy.SmoothedXLineSeries.new(root, {
+      xAxis, yAxis, valueYField: 'risk', categoryXField: 'day', stroke: am5.color(0xe28b41), fill: am5.color(0xe28b41),
+    }));
+    series.strokes.template.setAll({ strokeWidth: 2 });
+    series.fills.template.setAll({
+      visible: true,
+      fillGradient: am5.LinearGradient.new(root, {
+        rotation: 90,
+        stops: [{ color: am5.color(0xe28b41), opacity: 0.35 }, { color: am5.color(0x0c0c0e), opacity: 0 }],
+      }),
+    });
+    const data = (days || []).map(d => ({ day: (d.dow || '').slice(0, 3), risk: typeof d.risk === 'number' ? d.risk : 50 }));
+    xAxis.data.setAll(data);
+    series.data.setAll(data);
+  } catch (e) { /* le graphique est un bonus → ne jamais casser la timeline */ }
+}
+
 function _sbCls(v) {
   switch (v) {
     case 'Very Bullish': return 'sb-vbull';

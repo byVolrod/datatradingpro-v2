@@ -1832,7 +1832,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
-  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'bank'];
+  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank'];
   // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
@@ -1887,6 +1887,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'analyst' && typeof loadAnalystView === 'function') {
       if (!window._analystTabInited) { window._analystTabInited = true; initAnalystTab(); }
       loadAnalystView();
+    }
+    if (view === 'weekahead' && typeof loadWeekAheadView === 'function') {
+      loadWeekAheadView();
     }
 
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour
