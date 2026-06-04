@@ -1363,54 +1363,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   color: var(--text3);
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.tag--info:hover, .tag--analyse:hover, .tag--reaction:hover { color: var(--text2); border-color: #3a3a3a; }
+/* Hover (volet FERMÉ) : on laisse entrevoir la couleur du volet — affordance cliquable */
+.tag--info:hover     { color: #17c2c2; border-color: rgba(0,188,188,0.45); }
+.tag--analyse:hover  { color: #60a5fa; border-color: rgba(59,130,246,0.45); }
+.tag--reaction:hover { color: #a78bfa; border-color: rgba(139,92,246,0.45); }
 
-/* État actif (volet ouvert) = MÊME apparence que l'état normal (aucun changement de couleur au clic) */
-
-/* Info : style contour cyan/sarcelle, CONSERVÉ même déplié (pas de fond plein) */
-.tag--info {
-  background: rgba(0,188,188,0.06);
-  border: 1px solid rgba(0,188,188,0.45);
-  color: #17c2c2;
-}
-.tag--info .tag-icon { color: #17c2c2; }
-.tag--info:hover { color: #2de0e0; border-color: rgba(0,188,188,0.7); }
-.tag--info.tag--active {
-  background: rgba(0,188,188,0.06);
-  border-color: rgba(0,188,188,0.45);
-  color: #17c2c2;
-}
-.tag--info.tag--active .tag-icon { color: #17c2c2; }
-
-/* Analyse : style contour bleu, conservé même déplié */
-.tag--analyse {
-  background: rgba(59,130,246,0.07);
-  border: 1px solid rgba(59,130,246,0.45);
-  color: #60a5fa;
-}
-.tag--analyse .tag-icon { color: #60a5fa; }
-.tag--analyse:hover { color: #93c5fd; border-color: rgba(59,130,246,0.7); }
-.tag--analyse.tag--active {
-  background: rgba(59,130,246,0.07);
-  border-color: rgba(59,130,246,0.45);
-  color: #60a5fa;
-}
-.tag--analyse.tag--active .tag-icon { color: #60a5fa; }
-
-/* Réaction : style contour violet, conservé même déplié */
-.tag--reaction {
-  background: rgba(139,92,246,0.07);
-  border: 1px solid rgba(139,92,246,0.45);
-  color: #a78bfa;
-}
-.tag--reaction .tag-icon { color: #a78bfa; }
-.tag--reaction:hover { color: #c4b5fd; border-color: rgba(139,92,246,0.72); }
-.tag--reaction.tag--active {
-  background: rgba(139,92,246,0.07);
-  border-color: rgba(139,92,246,0.45);
-  color: #a78bfa;
-}
-.tag--reaction.tag--active .tag-icon { color: #a78bfa; }
+/* ACTIF = description DÉROULÉE → tag ALLUMÉ (Info cyan / Analyse bleu / Réaction violet).
+   L'icône ⓘ hérite de la couleur (pas de règle .tag-icon → suit le `color` du tag). */
+.tag--info.tag--active     { background: rgba(0,188,188,0.12);  border-color: rgba(0,188,188,0.6);  color: #17c2c2; }
+.tag--analyse.tag--active  { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.6); color: #60a5fa; }
+.tag--reaction.tag--active { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.6); color: #a78bfa; }
 
 /* ═══════════════ RÉACTION — bloc ticker minimaliste (style Prime) ═══════════════ */
 .rx-block {
