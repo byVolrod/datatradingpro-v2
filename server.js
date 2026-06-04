@@ -1722,18 +1722,20 @@ function aiAllowed(category, opts = {}) {
   if (_aiIsWeekend()) {
     // Week-end (marchés fermés) : news OFF, mais on PRIORISE le contenu premium
     // (Analyst + AI Insights, Institution, Bias) → toujours frais à l'ouverture.
-    if (category === 'news')    return !!opts.important && share(0.40);   // WE : news IMPORTANTES aussi (géopolitique, etc.)
-    if (category === 'analyst') return share(0.55);   // Analyst + AI Insights
+    if (category === 'news')    return !!opts.important && share(0.40);   // WE : news importantes (géopolitique, etc.)
+    if (category === 'analyst') return share(0.45);   // Analyst + AI Insights
     if (category === 'bank')    return share(0.45);   // Institution (ING)
-    if (category === 'bias')    return share(0.35);
+    if (category === 'bias')    return share(0.40);
     return share(0.30);
   }
   // Semaine : PRIORITÉ aux onglets premium → Analyst/AI Insights (60%) + Institution (40%, désormais
   // activé en semaine grâce aux 3 clés). News importantes et Bias gardent une part plus modeste.
-  if (category === 'analyst') return share(0.60);                       // Analyst + AI Insights (rapports + report-insights)
-  if (category === 'bank')    return share(0.40);                       // Institution (ING) — ON en semaine
-  if (category === 'news')    return !!opts.important && share(0.55);   // news IMPORTANTES — PRIORISÉES (au niveau des onglets premium)
-  if (category === 'bias')    return share(0.15);
+  // Sources premium ÉQUILIBRÉES à part égale (≈45 % chacune) : Analyst/AI Insights, News, Institution.
+  // Bias un cran en dessous. Le plafond DUR du jour reste la limite globale.
+  if (category === 'analyst') return share(0.45);                       // Analyst + AI Insights
+  if (category === 'bank')    return share(0.45);                       // Institution (ING)
+  if (category === 'news')    return !!opts.important && share(0.45);   // news importantes
+  if (category === 'bias')    return share(0.30);
   return false;
 }
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); }
