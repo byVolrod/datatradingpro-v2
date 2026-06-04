@@ -1824,6 +1824,7 @@ function aiAllowed(category, opts = {}) {
   const cap      = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts).reduce((a, b) => a + b, 0);
   const catUsed  = _aiUsage.dayCounts[category] || 0;
+  try { ai.setQuotaPressure(cap ? dayTotal / cap : 0); } catch {}     // throttling PRÉDICTIF : ralentit le débit avant saturation
   if (dayTotal >= cap) return false;                                   // plafond DUR du jour atteint
   // TIER BACKGROUND (préchauffage) : on RÉSERVE ~25% du quota du jour aux requêtes user → le fond cède en premier.
   if (prio === 'background' && dayTotal >= Math.floor(cap * 0.75)) return false;
