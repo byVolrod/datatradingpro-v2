@@ -147,12 +147,12 @@ async function aiSend() {
       const msg = { role: 'ai', full: d.answer, text: '', sources: d.sources || [], streaming: true, time: _aiTime() };
       _aiMsgs.push(msg); aiRender(); _aiStream(msg);   // démarre le typewriter (les sources sortiront à la fin)
     } else {
-      _aiMsgs.push({ role: 'ai', text: "Sorry, I'm temporarily unavailable. Please try again shortly.", time: _aiTime() });
+      _aiMsgs.push({ role: 'ai', text: "🛠️ This feature is currently under development and will be available very soon. Thank you for your patience!", time: _aiTime() });
       _aiBusy = false; aiRender();
     }
   } catch (e) {
     if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();
-    _aiMsgs.push({ role: 'ai', text: 'Connection error. Please try again.', time: _aiTime() });
+    _aiMsgs.push({ role: 'ai', text: "🛠️ This feature is currently under development and will be available very soon. Thank you for your patience!", time: _aiTime() });
     _aiBusy = false; aiRender();
   }
 }
@@ -5508,11 +5508,18 @@ function _chatRender(messages){
   list.scrollTop = list.scrollHeight;
 }
 
-// Sélecteur de réaction (façon Instagram) : petite barre flottante 👍 ❤️ 🔥 au survol de la bulle.
+// Icônes de réaction façon LinkedIn : badges ronds plats à glyphe blanc (pas d'emoji OS
+// → rendu pro et identique sur tous les OS ; fini les emojis « façon Insta » de Windows).
+const _REACT_ICONS = {
+  '👍': '<span class="react-ic react-ic--like"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 21h4V9H2v12zm20-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L13.17 1 6.59 7.59C6.22 7.95 6 8.45 6 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-2z"/></svg></span>',
+  '❤️': '<span class="react-ic react-ic--love"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg></span>',
+};
+function _reactIcon(em){ return _REACT_ICONS[em] || em; }
+// Sélecteur de réaction : petite barre flottante au survol de la bulle (icônes LinkedIn).
 function _chatPickerHtml(mid){
   return `<div class="chat-react-picker">`
-    + `<button type="button" title="J'aime" onclick="_chatReact('${mid}','👍')">👍</button>`
-    + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">❤️</button></div>`;
+    + `<button type="button" title="J'aime" onclick="_chatReact('${mid}','👍')">${_reactIcon('👍')}</button>`
+    + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">${_reactIcon('❤️')}</button></div>`;
 }
 // Pastilles des réactions POSÉES (façon LinkedIn) — sous la bulle ; surlignées si J'AI réagi.
 function _chatReactionsHtml(m, myId, mid){
@@ -5522,7 +5529,7 @@ function _chatReactionsHtml(m, myId, mid){
     const arr = Array.isArray(r[em]) ? r[em] : [];
     if (!arr.length) return;
     const mine = arr.map(String).includes(myId);
-    pills += `<button class="chat-reaction-pill${mine?' mine':''}" type="button" onclick="_chatReact('${mid}','${em}')">${em}<span class="n">${arr.length}</span></button>`;
+    pills += `<button class="chat-reaction-pill${mine?' mine':''}" type="button" onclick="_chatReact('${mid}','${em}')">${_reactIcon(em)}<span class="n">${arr.length}</span></button>`;
   });
   return `<div class="chat-reactions">${pills}</div>`;   // toujours présent (cible de MAJ chirurgicale)
 }
