@@ -1267,6 +1267,7 @@ const TAG_CLASS = {
   'Asia':        'tag--neutral',
   'Energy':      'tag--neutral',
   'US':          'tag--neutral',
+  'UK':          'tag--neutral',
   'EU':          'tag--neutral',
 };
 
