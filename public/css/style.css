@@ -1105,12 +1105,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   border-radius: 0;
   border: none;
 }
-/* News urgente/breaking dépliée : la boîte grise couvre proprement TOUTE la zone sous
-   le titre — fini le fond bordeaux qui débordait à gauche et juste en dessous */
+/* News urgente/breaking dépliée : la boîte grise couvre proprement toute la zone sous
+   le titre — fini le fond bordeaux qui débordait juste en dessous.
+   (On NE déborde PAS à gauche : .news-list a overflow-x:auto, un débord créerait une
+   scrollbar horizontale. Le -246 d'origine atteint déjà exactement le bord gauche.) */
 .news-item--urgent .news-description.visible,
 .news-item--breaking .news-description.visible {
-  margin-left: calc((var(--news-desc-bleed) + 6px) * -1);   /* +6px de marge de sécurité à gauche */
-  padding-left: calc(var(--news-desc-bleed) + 6px);         /* texte ré-aligné (inchangé) */
   margin-bottom: -11px;                                     /* le gris descend jusqu'à la bordure basse */
 }
 .news-item--urgent:has(.news-description.visible),
@@ -4689,11 +4689,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .risk-ticker-txt { flex: 1; min-width: 0; }
 .risk-ticker strong { font-weight: 700; letter-spacing: 0.02em; }
 /* Fonds Prime Terminal : color-mix(in oklab, <couleur> 10%, transparent) — fallback rgba d'abord */
-.risk-ticker.risk-off { background: rgba(239,68,68,0.11); background: color-mix(in oklab, #ef4444 11%, transparent); border: 1px solid rgba(239,68,68,0.24); border-color: color-mix(in oklab, #ef4444 24%, transparent); color: #d99a92; }
+.risk-ticker.risk-off { background: #1f1416; border: 1px solid rgba(239,68,68,0.22); color: #d99a92; }
 .risk-ticker.risk-off strong { color: #ef4444; }  .risk-ticker.risk-off .risk-ticker-dot { background: #ef4444; }
-.risk-ticker.risk-on  { background: rgba(34,197,94,0.08); background: color-mix(in oklab, #22c55e 8%, transparent); border: 1px solid rgba(34,197,94,0.18); border-color: color-mix(in oklab, #22c55e 18%, transparent); color: #84c69d; }
+.risk-ticker.risk-on  { background: #131d17; border: 1px solid rgba(34,197,94,0.20); color: #84c69d; }
 .risk-ticker.risk-on strong { color: #22c55e; }  .risk-ticker.risk-on .risk-ticker-dot { background: #22c55e; }
-.risk-ticker.neutral  { background: rgba(249,115,22,0.08); background: color-mix(in oklab, #f97316 8%, transparent); border: 1px solid rgba(249,115,22,0.18); border-color: color-mix(in oklab, #f97316 18%, transparent); color: #dd9a64; }
+.risk-ticker.neutral  { background: #1f1a12; border: 1px solid rgba(249,115,22,0.20); color: #dd9a64; }
 .risk-ticker.neutral strong { color: #f97316; }  .risk-ticker.neutral .risk-ticker-dot { background: #f97316; }
 
 /* Jauge Risk — lecture (score + badge) CENTRÉE sous l'arc */
@@ -7832,6 +7832,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-reaction-pill.mine { background:rgba(247,148,29,.16); border-color:rgba(247,148,29,.55); }
 .chat-reaction-pill .n { font-size:11px; font-weight:700; color:#cdd3dc; font-family:var(--font-mono); }
 .chat-reaction-pill.mine .n { color:#f7941d; }
+/* Icônes de réaction façon LinkedIn : badge rond plat + glyphe blanc (bleu J'aime, rouge Cœur) */
+.react-ic { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; flex-shrink:0; }
+.react-ic svg { width:10px; height:10px; display:block; }
+.react-ic svg path { fill:#fff; }
+.react-ic--like { background:#378fe9; }
+.react-ic--love { background:#e0484d; }
+.chat-reaction-pill { gap:4px; }   /* badge + compteur bien espacés */
 
 /* Confirmation de suppression INLINE — juste les options, compacte (sans phrase) */
 .chat-del-confirm { display:flex; align-items:center; gap:6px; margin-top:4px; animation:chatTypingIn .15s ease; }
