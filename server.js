@@ -1670,13 +1670,13 @@ function _saveJsonMap(file, map) {
 //  Répartition intra-journée :
 //   • Semaine : 50% news IMPORTANTES + 50% rapports analyst ; bias/bank OFF.
 //   • Week-end : news + analyst OFF ; bias + bank ON (dans la limite du plafond).
-// 3 clés Gemini en rotation → enveloppe ÉLARGIE (~3× le free-tier d'1 clé). Pacing mensuel conservé.
-const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 9000;   // ~300 appels/jour lissés sur le mois
+// 4 clés Gemini en rotation → enveloppe ÉLARGIE (~4× le free-tier d'1 clé). Pacing mensuel conservé.
+const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) || 12000;  // ~400 appels/jour lissés sur le mois
 // Garde-fous quotidiens : plancher confortable (toujours ≥ MIN appels/jour, même en fin de mois)
-// et plafond de sécurité (jamais > MAX/jour → réparti sur 3 clés ≈ 150/clé/jour, sous la limite free-tier par clé).
-const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 120;
-const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 450;
-const AI_BURST         = parseInt(process.env.GEMINI_BURST, 10) || 14;   // tolérance de pic instantané (pacing)
+// et plafond de sécurité (jamais > MAX/jour → réparti sur 4 clés ≈ 150/clé/jour, sous la limite free-tier par clé).
+const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 160;
+const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 600;
+const AI_BURST         = parseInt(process.env.GEMINI_BURST, 10) || 18;   // tolérance de pic instantané (pacing)
 const AI_USAGE_FILE = path.join(__dirname, 'cache_ai_usage.json');
 let _aiUsage = { month: '', day: '', total: 0, dayCounts: {} };
 try { _aiUsage = Object.assign(_aiUsage, JSON.parse(fs.readFileSync(AI_USAGE_FILE, 'utf8'))); } catch {}
