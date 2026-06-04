@@ -1805,6 +1805,8 @@ const BR_SEG_VER  = 'v1:';   // bump → régénère (l'IA réorganise l'article
 async function _prewarmWrapSeg(item) {
   const url = item && item.url;
   if (!url || !url.startsWith('https://investinglive.com/') || _swSegCache.has(SW_SEG_VER + url)) return false;
+  // Déjà dans le cache DURABLE Supabase ? → hydrate la mémoire, AUCUNE régénération (survit aux redéploys = grosse économie de quota Gemini).
+  try { const dur = await auth.aiCacheGet('swseg:' + SW_SEG_VER + url); if (typeof dur === 'string' && dur.length > 50) { _swSegCache.set(SW_SEG_VER + url, dur); return false; } } catch {}
   if (!aiAllowed('analyst')) return false;                     // respecte l'enveloppe budget Gemini
   try {
     let points = null;
@@ -1814,7 +1816,7 @@ async function _prewarmWrapSeg(item) {
     aiNote('analyst');
     const seg = await _segmentWrapAI(points);
     _swSegCache.set(SW_SEG_VER + url, seg || null);                          // mémorise même un échec (null) pour ne pas réessayer en boucle
-    if (seg) { _saveJsonMap(SW_SEG_FILE, _swSegCache); return true; }
+    if (seg) { _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, seg).catch(() => {}); return true; }   // + durable Supabase
   } catch (e) { console.warn('[SW prewarm]', e.message); }
   return false;
 }
@@ -1966,11 +1968,14 @@ app.get('/api/session-wrap-content', async (req, res) => {
   //  Budget Gemini : compte dans l'enveloppe "analyst" (semaine 50%, week-end OFF).
   if (points && points.length >= 3) {
     let seg = _swSegCache.get(SW_SEG_VER + url);
+    if (seg === undefined) {                                   // pas en mémoire → cache DURABLE Supabase (survit aux redéploys Render éphémères)
+      try { const dur = await auth.aiCacheGet('swseg:' + SW_SEG_VER + url); if (typeof dur === 'string' && dur.length > 50) { seg = dur; _swSegCache.set(SW_SEG_VER + url, dur); } } catch {}
+    }
     if (seg === undefined && aiAllowed('analyst')) {
       try { aiNote('analyst'); seg = await _segmentWrapAI(points); }
       catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
       _swSegCache.set(SW_SEG_VER + url, seg || null);
-      if (seg) _saveJsonMap(SW_SEG_FILE, _swSegCache);   // persiste les succès
+      if (seg) { _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, seg).catch(() => {}); }   // persiste (disque + Supabase durable)
     }
     if (seg) {
       if (cached) cached.content = seg;
