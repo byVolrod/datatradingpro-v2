@@ -35,73 +35,75 @@ function _getGmailTransport() {
   return _gmailTransport;
 }
 
-// ── Envoi bas niveau (non bloquant, tolérant aux erreurs) ─────────────────────
-// Priorité à Gmail (gratuit, envoie à tout le monde) ; sinon Resend.
+// ── Envois par fournisseur (chacun renvoie true/false ; une exception → on tente le suivant) ──
+// Gmail SMTP : l'email part des serveurs Google AUTHENTIFIÉS comme l'expéditeur @gmail.com →
+// SPF/DKIM alignés → délivrabilité FIABLE vers les boîtes Gmail. (Un From @gmail.com routé via un
+// ESP tiers comme Mailjet n'est PAS aligné → Gmail le jette avant même les spams : c'est ce qui
+// faisait que des clients ne recevaient « rien ».)
+async function _sendGmail(to, subject, html) {
+  const from = _parseFrom();
+  const fromHeader = `${from.name || 'DataTradingPro'} <${GMAIL_USER}>`;   // expéditeur = compte authentifié (alignement garanti)
+  await _getGmailTransport().sendMail({ from: fromHeader, replyTo: SUPPORT_EMAIL, to, subject, html });
+  console.log(`[Mailer] ✅ (Gmail) "${subject}" → ${to}`);
+  return true;
+}
+async function _sendMailjet(to, subject, html) {
+  const from = _parseFrom();
+  const auth = Buffer.from(`${MAILJET_API_KEY}:${MAILJET_SECRET_KEY}`).toString('base64');
+  const textPart = html.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+  const r = await fetch('https://api.mailjet.com/v3.1/send', {
+    method: 'POST',
+    headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ Messages: [{
+      From: { Email: from.email, Name: from.name },
+      To: [{ Email: to }],
+      Subject: subject,
+      HTMLPart: html,
+      TextPart: textPart,
+      ReplyTo: { Email: SUPPORT_EMAIL },
+      TrackOpens: 'disabled',     // pas de pixel de suivi → meilleure délivrabilité
+      TrackClicks: 'disabled',    // pas de réécriture des liens → moins de spam
+    }] }),
+  });
+  if (!r.ok) {
+    const t = await r.text().catch(() => '');
+    console.error(`[Mailer] Mailjet échec (${r.status}) → ${to}:`, t.slice(0, 400));
+    return false;
+  }
+  console.log(`[Mailer] ✅ (Mailjet) "${subject}" → ${to}`);
+  return true;
+}
+async function _sendResend(to, subject, html) {
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html }),
+  });
+  if (!r.ok) {
+    const txt = await r.text().catch(() => '');
+    console.error(`[Mailer] Resend échec (${r.status}) → ${to}:`, txt.slice(0, 300));
+    return false;
+  }
+  console.log(`[Mailer] ✅ (Resend) "${subject}" → ${to}`);
+  return true;
+}
+
+// ── Envoi bas niveau : essaie les fournisseurs DANS L'ORDRE avec un VRAI repli sur échec ──
+// Ordre = Gmail (le plus délivrable pour un expéditeur @gmail.com) → Mailjet → Resend.
 async function _send(to, subject, html) {
-  // Option A — Mailjet (gratuit, envoie à tous, sender vérifié sans domaine)
-  if (MAILJET_API_KEY && MAILJET_SECRET_KEY) {
-    try {
-      const from = _parseFrom();
-      const auth = Buffer.from(`${MAILJET_API_KEY}:${MAILJET_SECRET_KEY}`).toString('base64');
-      const textPart = html.replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-      const r = await fetch('https://api.mailjet.com/v3.1/send', {
-        method: 'POST',
-        headers: { 'Authorization': `Basic ${auth}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ Messages: [{
-          From: { Email: from.email, Name: from.name },
-          To: [{ Email: to }],
-          Subject: subject,
-          HTMLPart: html,
-          TextPart: textPart,
-          ReplyTo: { Email: SUPPORT_EMAIL },
-          TrackOpens: 'disabled',     // pas de pixel de suivi → meilleure délivrabilité
-          TrackClicks: 'disabled',    // pas de réécriture des liens → moins de spam
-        }] }),
-      });
-      if (!r.ok) {
-        const t = await r.text().catch(() => '');
-        console.error(`[Mailer] Mailjet échec (${r.status}) → ${to}:`, t.slice(0, 400));
-        return false;
-      }
-      console.log(`[Mailer] ✅ (Mailjet) "${subject}" → ${to}`);
-      return true;
-    } catch (e) {
-      console.error('[Mailer] Mailjet erreur:', e.message);
-      return false;
-    }
+  const chain = [];
+  if (GMAIL_USER && GMAIL_APP_PASSWORD)      chain.push(['Gmail',   _sendGmail]);
+  if (MAILJET_API_KEY && MAILJET_SECRET_KEY) chain.push(['Mailjet', _sendMailjet]);
+  if (RESEND_API_KEY)                        chain.push(['Resend',  _sendResend]);
+  if (!chain.length) {
+    console.warn('[Mailer] Aucun fournisseur configuré (GMAIL_*, MAILJET_* ou RESEND_API_KEY) — email non envoyé:', subject);
+    return false;
   }
-  // Option B — Gmail (gratuit, sans domaine)
-  if (GMAIL_USER && GMAIL_APP_PASSWORD) {
-    try {
-      await _getGmailTransport().sendMail({ from: EMAIL_FROM, to, subject, html });
-      console.log(`[Mailer] ✅ (Gmail) "${subject}" → ${to}`);
-      return true;
-    } catch (e) {
-      console.error('[Mailer] Gmail échec:', e.message);
-      return false;
-    }
+  for (const [nom, fn] of chain) {
+    try { if (await fn(to, subject, html)) return true; }   // succès → on s'arrête
+    catch (e) { console.error(`[Mailer] ${nom} erreur:`, e.message); }   // échec → fournisseur suivant
   }
-  // Option B — Resend (nécessite un domaine vérifié pour écrire à des tiers)
-  if (RESEND_API_KEY) {
-    try {
-      const r = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: EMAIL_FROM, to: [to], subject, html }),
-      });
-      if (!r.ok) {
-        const txt = await r.text().catch(() => '');
-        console.error(`[Mailer] Resend échec (${r.status}) → ${to}:`, txt.slice(0, 300));
-        return false;
-      }
-      console.log(`[Mailer] ✅ (Resend) "${subject}" → ${to}`);
-      return true;
-    } catch (e) {
-      console.error('[Mailer] Resend erreur:', e.message);
-      return false;
-    }
-  }
-  console.warn('[Mailer] Aucun fournisseur configuré (MAILJET_*, GMAIL_* ou RESEND_API_KEY) — email non envoyé:', subject);
+  console.error(`[Mailer] ❌ Tous les fournisseurs ont échoué → ${to}: "${subject}"`);
   return false;
 }
 
