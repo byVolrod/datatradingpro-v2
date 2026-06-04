@@ -113,7 +113,7 @@ function analystPreview() {
       <div id="arlib-ai-insights">
         <div class="ai-insights-head">
           <span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16"> AI Insights</span>
-          <span class="ai-insights-nav"><button type="button">‹</button><span class="ai-insights-count">${insights.length} insights</span><button type="button">›</button></span>
+          <span class="ai-insights-nav"><button type="button">‹</button><span class="ai-insights-count">1-4 of ${insights.length}</span><button type="button">›</button></span>
         </div>
         <div class="ai-insights-cards">${insights.join('')}</div>
       </div>
@@ -123,6 +123,52 @@ function analystPreview() {
 </body></html>`;
 }
 app.get('/analyst', (_req, res) => res.type('html').send(analystPreview()));
+
+// ── Aperçu du volet chat Macro AI (message de bienvenue + avatar, vrai style.css) ──
+app.get('/chat', (_req, res) => {
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Aperçu chat Macro AI — DTP</title>
+<link rel="stylesheet" href="/css/style.css">
+<style>
+  body { margin:0; background:#0a0a0c; }
+  /* Volet forcé VISIBLE et plein écran pour l'aperçu (en prod il est en drawer à droite, sous la topbar) */
+  .ai-panel { position:fixed !important; inset:0 !important; transform:none !important; opacity:1 !important; visibility:visible !important;
+              width:100% !important; max-width:420px !important; height:100vh !important; display:flex !important; flex-direction:column !important; }
+</style></head>
+<body>
+  <div class="ai-panel" id="ai-panel">
+    <div class="ai-header">
+      <div class="ai-header-left">
+        <span class="ai-head-ic" aria-hidden="true">AI</span>
+        <div class="ai-head-meta">
+          <div class="ai-head-title">Macro AI Assistant</div>
+          <div class="ai-head-status"><span class="ai-status-dot"></span>Online</div>
+        </div>
+      </div>
+      <div class="ai-header-right">
+        <button class="ai-hdr-btn" title="Fermer"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>
+      </div>
+    </div>
+    <div class="ai-messages" id="ai-messages">
+      <div class="ai-day-sep"><span>Today</span></div>
+      <div class="ai-row ai-row--ai">
+        <div class="ai-chip"><img class="ai-chip-img" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="22" height="22" decoding="sync"></div>
+        <div class="ai-ai-body">
+          <div class="ai-ai-text">Bonjour ! Je suis votre assistant IA Macro. Posez-moi des questions sur les tendances du marché, les indicateurs économiques ou les perspectives des marchés mondiaux.</div>
+          <div class="ai-time">20:48</div>
+        </div>
+      </div>
+    </div>
+    <div class="ai-inputbar">
+      <button class="ai-attach" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg></button>
+      <button class="ai-attach" type="button"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg></button>
+      <textarea class="ai-input" rows="1" placeholder="Type your message..."></textarea>
+      <button class="ai-send"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/></svg></button>
+    </div>
+    <div class="ai-inputhint">Press Enter to send, Shift + Enter for new line</div>
+  </div>
+</body></html>`);
+});
 
 // Sert les fichiers statiques (CSS, images, logo macro-ai) APRÈS les routes spécifiques.
 app.use(express.static(path.join(__dirname, 'public')));
