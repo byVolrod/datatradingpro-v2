@@ -6793,6 +6793,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   position: fixed;
   top: var(--topbar-h); left: 0; right: 0; bottom: 0;   /* sous la topbar → icônes cliquables */
   z-index: 1100;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);   /* rideau flouté comme les autres volets (fini le dashboard net derrière) */
 }
 .np-overlay.open { display: block; }
 
@@ -7587,8 +7588,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sqwk-overlay {
   /* démarre SOUS la topbar → les icônes (notif, profil) restent visibles ET cliquables */
   position: fixed; top: var(--topbar-h); left: 0; right: 0; bottom: 0;
-  background: rgba(0,0,0,0.45);
-  opacity: 0; pointer-events: none; transition: opacity 0.2s; z-index: 1400;
+  background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);   /* rideau flouté comme les autres volets */
+  opacity: 0; pointer-events: none; transition: opacity 0.22s; z-index: 1400;
 }
 .sqwk-overlay.open { opacity: 1; pointer-events: auto; }
 .sqwk-panel {
@@ -7706,7 +7707,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ═══════════════════════════════════════════════
    CHAT SUPPORT PANEL
 ═══════════════════════════════════════════════ */
-.chat-overlay { position: fixed; top: var(--topbar-h); left:0; right:0; bottom:0; background: rgba(0,0,0,0.45); opacity:0; pointer-events:none; transition: opacity .2s; z-index: 1400; }
+.chat-overlay { position: fixed; top: var(--topbar-h); left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); opacity:0; pointer-events:none; transition: opacity .22s; z-index: 1400; }   /* rideau flouté comme le volet IA → le dashboard ne transparaît plus net derrière */
 .chat-overlay.open { opacity:1; pointer-events:auto; }
 .chat-panel {
   position: fixed; top: var(--topbar-h); right: 0; height: calc(100dvh - var(--topbar-h));
@@ -7780,8 +7781,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .chat-row--me { justify-content:flex-end; }
 .chat-av { width:26px; height:26px; border-radius:50%; background:#1f2a44; color:#8ab4f8; font-size:9px; font-weight:800; display:flex; align-items:center; justify-content:center; flex-shrink:0; overflow:hidden; }
 .chat-bubble { max-width:74%; padding:9px 12px; border-radius:12px; font-size:13px; line-height:1.5; position:relative; }
-.chat-row--them .chat-bubble { background:#1a1c22; color:#e2e8f0; border-bottom-left-radius:4px; }
-.chat-row--me   .chat-bubble { background:#243044; color:#eaf1fb; border-bottom-right-radius:4px; }
+.chat-row--them .chat-bubble { background:#15161a; color:#e2e8f0; border-bottom-left-radius:4px; }   /* neutre HUD (fini le bleu) — cohérent avec le chat IA */
+.chat-row--me   .chat-bubble { background:#1c1c1f; color:#e9eaed; border-bottom-right-radius:4px; }   /* même gris que la bulle user du chat IA */
 .chat-text { white-space:pre-wrap; word-break:break-word; }
 .chat-meta { font-size:10px; color:#8a93a3; margin-top:4px; }
 .chat-row--me .chat-meta { text-align:right; }
