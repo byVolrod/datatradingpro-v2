@@ -2070,34 +2070,51 @@ function _parseResearchFeed(xml, feed, cutoff, merged) {
 // (cartes en HTML statique, AUCUN login). Le contenu de chaque article est récupéré à
 // l'ouverture par /api/bank-research-content. Badge "MUFG".
 const _MONTHS_RE = 'jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec';
+// AVANT : seul /fx/ était scrapé → on RATAIT tous les rapports macro/rates/credit (ex: "US Labor Update" en /macro/).
+// MAINTENANT : on scrape les 4 catégories MUFG. La liste est paginée en JS (le HTTP ne voit que la page 1),
+// donc on ajoute aussi une liste de rapports importants par URL directe (pour les anciens hors page 1).
+const MUFG_CATS  = ['fx', 'macro', 'rates', 'credit'];
+const MUFG_EXTRA = ['https://www.mufgresearch.com/macro/us-labor-update-may-8-2026/'];
+
+function _mufgParseDate(slug) {
+  let dm = slug.match(new RegExp('(\\d{1,2})-(' + _MONTHS_RE + ')[a-z]*-(\\d{4})', 'i'));   // DD-month-YYYY (ex: 18-may-2026)
+  if (dm) { const d = new Date(`${dm[2]} ${dm[1]} ${dm[3]}`); if (!isNaN(d.getTime())) return d.getTime(); }
+  dm = slug.match(new RegExp('(' + _MONTHS_RE + ')[a-z]*-(\\d{1,2})-(\\d{4})', 'i'));        // month-DD-YYYY (ex: may-8-2026)
+  if (dm) { const d = new Date(`${dm[1]} ${dm[2]} ${dm[3]}`); if (!isNaN(d.getTime())) return d.getTime(); }
+  return null;
+}
+function _mufgAdd(merged, seen, href, cat, cutoff) {
+  href = (href || '').trim();
+  if (!new RegExp('^/' + cat + '/[a-z]', 'i').test(href) || seen.has(href)) return;   // exclut /cat/ et la pagination /cat/?page=
+  seen.add(href);
+  const link = 'https://www.mufgresearch.com' + href;
+  const slug = href.replace(new RegExp('^/' + cat + '/', 'i'), '').replace(/\/+$/, '');
+  const ts = _mufgParseDate(slug) || Date.now();
+  if (ts < cutoff) return;
+  const title = slug
+    .replace(new RegExp('-(\\d{1,2}-(?:' + _MONTHS_RE + ')[a-z]*|(?:' + _MONTHS_RE + ')[a-z]*-\\d{1,2})-\\d{4}$', 'i'), '')
+    .replace(/-/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\b(Fx|Us|Usd|Eur|Jpy|Gbp|Cad|Aud|Nzd|Chf|Cny|Ai|Ecb|Boj|Fed|Cpi|Gdp|Em)\b/gi, m => m.toUpperCase());
+  const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+  if (merged.has(id)) return;
+  merged.set(id, { id, title, url: link, timestamp: ts, categories: [cat.toUpperCase()], description: '', institution: 'MUFG', _source: 'mufg' });
+}
 async function _fetchMufgInto(merged, cutoff, UA) {
-  try {
-    const r = await axios.get('https://www.mufgresearch.com/fx/', {
-      timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500,
-    });
-    if (r.status !== 200) return;
-    const $ = cheerio.load(r.data);
-    const seen = new Set();
-    $('.card a[href^="/fx/"]').each((_, a) => {
-      const href = ($(a).attr('href') || '').trim();
-      if (!/^\/fx\/.+/.test(href) || href === '/fx/' || seen.has(href)) return;
-      seen.add(href);
-      const link = 'https://www.mufgresearch.com' + href;
-      const slug = href.replace(/^\/fx\//, '').replace(/\/+$/, '');
-      // Date depuis le slug (… -DD-month-YYYY)
-      let ts = Date.now();
-      const dm = slug.match(new RegExp('(\\d{1,2})-(' + _MONTHS_RE + ')[a-z]*-(\\d{4})', 'i'));
-      if (dm) { const d = new Date(`${dm[2]} ${dm[1]} ${dm[3]}`); if (!isNaN(d.getTime())) ts = d.getTime(); }
-      if (ts < cutoff) return;
-      // Titre depuis le slug (sans la date), avec sigles en capitales
-      let title = slug.replace(new RegExp('-\\d{1,2}-(?:' + _MONTHS_RE + ')[a-z]*-\\d{4}$', 'i'), '')
-        .replace(/-/g, ' ').trim().replace(/\b\w/g, c => c.toUpperCase())
-        .replace(/\b(Fx|Us|Usd|Eur|Jpy|Gbp|Cad|Aud|Nzd|Chf|Cny|Ai|Ecb|Boj|Fed|Cpi|Gdp)\b/gi, m => m.toUpperCase());
-      const id = 'br-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
-      if (merged.has(id)) return;
-      merged.set(id, { id, title, url: link, timestamp: ts, categories: ['FX'], description: '', institution: 'MUFG', _source: 'mufg' });
-    });
-  } catch (e) { console.warn('[MUFG]', e.message); }
+  const seen = new Set();
+  for (const cat of MUFG_CATS) {
+    try {
+      const r = await axios.get('https://www.mufgresearch.com/' + cat + '/', {
+        timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500,
+      });
+      if (r.status !== 200) continue;
+      const $ = cheerio.load(r.data);
+      $('.card a[href^="/' + cat + '/"]').each((_, a) => _mufgAdd(merged, seen, $(a).attr('href'), cat, cutoff));
+    } catch (e) { console.warn('[MUFG ' + cat + ']', e.message); }
+  }
+  // Rapports importants ajoutés à la main (hors page 1 statique de la liste).
+  for (const url of MUFG_EXTRA) {
+    try { const u = new URL(url); _mufgAdd(merged, seen, u.pathname, u.pathname.split('/')[1], cutoff); } catch {}
+  }
 }
 
 // SEB Research (banque SEB) — SPA, mais on tape DIRECTEMENT son API JSON publique :
