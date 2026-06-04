@@ -25,7 +25,7 @@ function applyTerminalTheme(root) {
   theme.rule('Grid').setAll({ stroke: am5.color(0x1e1e1e), strokeOpacity: 1, strokeWidth: 1 });
   theme.rule('AxisRendererX').setAll({ stroke: am5.color(0x1e1e1e), strokeOpacity: 1 });
   theme.rule('AxisRendererY').setAll({ stroke: am5.color(0x1e1e1e), strokeOpacity: 1 });
-  theme.rule('Label').setAll({ fill: am5.color(0x666666), fontSize: 10, fontFamily: '"JetBrains Mono", monospace' });
+  theme.rule('Label').setAll({ fill: am5.color(0x666666), fontSize: 10, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif' });
   theme.rule('Tooltip').setAll({
     background: am5.Rectangle.new(root, {
       fill: am5.color(0x141414),
@@ -35,7 +35,7 @@ function applyTerminalTheme(root) {
     }),
     paddingTop: 6, paddingBottom: 6, paddingLeft: 10, paddingRight: 10,
   });
-  theme.rule('Label', ['tooltip']).setAll({ fill: am5.color(0xd8d8d8), fontSize: 11, fontFamily: '"JetBrains Mono", monospace' });
+  theme.rule('Label', ['tooltip']).setAll({ fill: am5.color(0xd8d8d8), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif' });
 
   return theme;
 }
@@ -612,13 +612,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
   });
   xTip.label.setAll({
     fill: am5.color(0xffffff), fontSize: 10,
-    fontFamily: '"JetBrains Mono", monospace', fontWeight: '400',
+    fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', fontWeight: '400',
   });
   xAxis.set('tooltip', xTip);
   xAxis.set('tooltipDateFormat', 'dd/MM/yyyy HH:mm');
   xAxis.get('renderer').labels.template.setAll({
     fill: am5.color(0xffffff), fontSize: 10,
-    fontFamily: '"JetBrains Mono", monospace',
+    fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
   });
   xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x1f2937), strokeOpacity: 0.5, strokeDasharray: [3, 3] });
 
@@ -627,7 +627,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   yAxisRenderer.labels.template.setAll({
     visible: true,
     fill: am5.color(0x94a3b8), fontSize: 9,
-    fontFamily: '"JetBrains Mono", monospace',
+    fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
     minPosition: 0.02, maxPosition: 0.98,
     paddingLeft: 4,
   });
@@ -696,7 +696,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     range.get('label').setAll({
       text: `${ccy}  ${valStr}`,
       fill: am5.color(0xffffff),
-      fontSize: 10, fontFamily: '"JetBrains Mono", monospace', fontWeight: '700',
+      fontSize: 10, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', fontWeight: '700',
       centerY: am5.percent(50),
       paddingTop: 3, paddingBottom: 3, paddingLeft: 6, paddingRight: 6,
       background: am5.RoundedRectangle.new(root, {
@@ -726,7 +726,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       centerX: am5.percent(0), x: am5.percent(0),
       marginTop: 0, marginBottom: 6, paddingLeft: 0, paddingTop: 0,
     }));
-    legend.labels.template.setAll({ fill: am5.color(0xcbd5e1), fontSize: 11, fontFamily: '"JetBrains Mono", monospace', paddingLeft: 3, paddingRight: 0 });
+    legend.labels.template.setAll({ fill: am5.color(0xcbd5e1), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 3, paddingRight: 0 });
     legend.valueLabels.template.set('forceHidden', true);                       // pas de valeur dans la légende (juste le nom)
     legend.markers.template.setAll({ width: 11, height: 11 });
     legend.markerRectangles.template.setAll({ cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 });
@@ -1331,7 +1331,7 @@ function buildCOTChart() {
                   stroke-dasharray="${lArc} ${lGap}" stroke-dashoffset="${lArc}" stroke-linecap="round"/>
               </g>
               <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="13" font-weight="700"
-                fill="#e2e8f0" font-family="JetBrains Mono,monospace">${cur.key}</text>
+                fill="#e2e8f0" font-family="-apple-system,'Inter','Segoe UI',sans-serif">${cur.key}</text>
             </svg>
           </div>
           <div class="cot-stats">
@@ -1613,7 +1613,7 @@ function buildSessionMap() {
     _utcLabel = cont.children.push(am5.Label.new(r, {
       text: '--:--',
       fill: am5.color(0x000000),
-      fontSize: 10, fontFamily: '"JetBrains Mono", monospace', fontWeight: '700',
+      fontSize: 10, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', fontWeight: '700',
       centerX: am5.percent(50), centerY: am5.percent(50),
       oversizedBehavior: 'none',
     }));
@@ -1705,7 +1705,7 @@ function buildSessionMap() {
       text:       '--:--:--',
       fill:       am5.color(isOpen ? accent : 0xc8d2e0),   // texte plus lumineux
       fontSize:   11.5, fontWeight: '700',
-      fontFamily: '"JetBrains Mono", monospace',
+      fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
       width: am5.percent(100),
     }));
 
@@ -1713,7 +1713,7 @@ function buildSessionMap() {
       text:       data.name,
       fill:       am5.color(isOpen ? 0xf4f6f9 : 0x8b97ab),
       fontSize:   9.5, fontWeight: '600',
-      fontFamily: '"JetBrains Mono", monospace',
+      fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
       width: am5.percent(100),
     }));
 
