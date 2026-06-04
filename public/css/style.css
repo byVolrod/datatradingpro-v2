@@ -2670,7 +2670,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-ind { background: #0d0d0d; color: #cbd5e1; text-align: left; padding: 7px 12px; white-space: nowrap; font-weight: 500; }
 .sbm-grid th.sbm-ind { text-align: left; color: #8a93a3; }
 .sbm-cell { text-align: center; padding: 6px 3px; font-weight: 600; font-size: 10.5px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 0; cursor: pointer; }
-.sbm-overall .sbm-ind { background: #1a1a1f; color: #fff; font-weight: 700; border-left: 2px solid #f7941d; }
+.sbm-overall .sbm-ind { background: #1a1a1f; color: #fff; font-weight: 700; border-left: 3px solid #f7941d; }
+/* Ligne Overall Conclusion : badges à DÉGRADÉ + flèche directionnelle (façon PMT) */
+.sbm-arr { font-weight: 800; margin-right: 3px; }
+.sbm-concl.sbm-vbull { background: linear-gradient(180deg, #047857, #065f46); }
+.sbm-concl.sbm-bull  { background: linear-gradient(180deg, #059669, #047857); }
+.sbm-concl.sbm-neut  { background: linear-gradient(180deg, #6b7280, #4b5563); }
+.sbm-concl.sbm-bear  { background: linear-gradient(180deg, #dc2626, #991b1b); }
+.sbm-concl.sbm-vbear { background: linear-gradient(180deg, #991b1b, #7f1d1d); }
 /* Couleurs sémantiques FIXES (hex exacts PMT) — fond + texte blanc */
 .sbm-vbull { background: #047857; color: #fff; }
 .sbm-bull  { background: #059669; color: #fff; }

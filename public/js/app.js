@@ -3336,8 +3336,9 @@ function renderBiasView(d) {
     `<tr><td class="sbm-ind">${esc(r.label)}</td>${
       cur.map(c => { const v = r.values[c] || 'Neutral'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(v)}">${esc(v)}</td>`; }).join('')
     }</tr>`).join('');
-  const concl = `<tr class="sbm-overall"><td class="sbm-ind">Overall</td>${
-    cur.map(c => { const v = (d.conclusion || {})[c] || 'Neutral'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${esc(v)}</td>`; }).join('')
+  const arrow = v => /bull|uptrend/i.test(v) ? '<span class="sbm-arr">↗</span>' : /bear|downtrend/i.test(v) ? '<span class="sbm-arr">↘</span>' : '';
+  const concl = `<tr class="sbm-overall"><td class="sbm-ind">Overall Conclusion</td>${
+    cur.map(c => { const v = (d.conclusion || {})[c] || 'Neutral'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(v)}</td>`; }).join('')
   }</tr>`;
 
   host.innerHTML = `
