@@ -1753,8 +1753,19 @@ function _aiDayFraction() {
   const p = _aiParis();
   return Math.min(1, (p.getHours() * 3600 + p.getMinutes() * 60 + p.getSeconds()) / 86400);
 }
+// Fenêtre CALME (heure de Paris) : 21h00 → 8h30 = on coupe l'IA de fond pour économiser le quota
+// (peu d'activité la nuit). Réglable via AI_QUIET_START/AI_QUIET_END (minutes depuis minuit).
+const AI_QUIET_START = parseInt(process.env.AI_QUIET_START, 10) || (21 * 60);      // 21:00
+const AI_QUIET_END   = parseInt(process.env.AI_QUIET_END, 10)   || (8 * 60 + 30);  // 8:30
+function _aiQuietHours() {
+  let h = 12, m = 0;
+  try { const s = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false }); h = parseInt(s.slice(0, 2), 10); m = parseInt(s.slice(3, 5), 10); } catch {}
+  const mins = h * 60 + m;
+  return AI_QUIET_START > AI_QUIET_END ? (mins >= AI_QUIET_START || mins < AI_QUIET_END) : (mins >= AI_QUIET_START && mins < AI_QUIET_END);
+}
 function aiAllowed(category, opts = {}) {
   _aiReset();
+  if (_aiQuietHours() && !opts.scheduled) return false;   // 21h→8h30 : IA de fond coupée (éco quota nuit)
   const cap      = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts).reduce((a, b) => a + b, 0);
   const catUsed  = _aiUsage.dayCounts[category] || 0;
