@@ -4009,6 +4009,14 @@ async function generateSmartBias(force = false) {
   } catch {}
   let riskLine = '';
   try { if (_riskData && _riskData.label) riskLine = `${_riskData.label}${typeof _riskData.score === 'number' ? ` (score ${_riskData.score})` : ''}`; } catch {}
+  // retail ← sentiment crowd RÉEL (myfxbook), par paire ; l'IA mappe symbole→devise (contrarian).
+  let retailLine = '';
+  try {
+    const out = await fetchCommunityOutlook('H1');
+    const MAJ = /^(EURUSD|GBPUSD|USDJPY|USDCHF|USDCAD|AUDUSD|NZDUSD|EURGBP|EURJPY|GBPJPY|AUDJPY|EURCHF|EURAUD|CADJPY)$/;
+    const rows = (Array.isArray(out) ? out : []).filter(s => MAJ.test(s.symbol)).map(s => `${s.symbol}: ${s.longPct}%L/${s.shortPct}%S (retail ${s.trend})`);
+    if (rows.length) retailLine = rows.join('; ');
+  } catch (e) { console.warn('[SmartBias] retail indispo:', e.message); }
 
   const prompt = `You are a senior FX strategist building a "Smart Bias" matrix for the 8 major currencies: ${SB_CURRENCIES.join(', ')}.
 For EACH currency, rate each indicator using EXACTLY one of: "Very Bullish", "Bullish", "Neutral", "Bearish", "Very Bearish".
@@ -4019,7 +4027,7 @@ Map each indicator to its SOURCE (use ONLY that source):
 - fundamental: macro/data momentum → from the PAST-WEEK HEADLINES (data surprises, growth, inflation).
 - bankOverview: aggregate sell-side bank stance → from the BANK RESEARCH headlines below ONLY (no bank coverage for a currency → Neutral).
 - hedgeFund: large-speculator positioning → from the COT DATA below ONLY (net long → Bullish, net short → Bearish; bigger net = stronger conviction). Currency absent from COT → Neutral.
-- retail: retail crowd positioning (contrarian) → infer cautiously from headlines, else Neutral.
+- retail: retail crowd positioning (CONTRARIAN) → from the RETAIL SENTIMENT below. Retail heavily LONG a currency (via its pairs) → bias it Bearish; heavily SHORT → Bullish. No retail data for a currency → Neutral.
 - monetary: central-bank policy stance → from headlines mentioning central banks / rate decisions / officials.
 - seasonality: typical early-June seasonal tendency (your knowledge) — keep it modest.
 
@@ -4029,6 +4037,8 @@ ${cotLine || 'n/a'}
 ${bankLine || 'n/a'}
 == GLOBAL RISK REGIME (context) ==
 ${riskLine || 'n/a'}
+== RETAIL SENTIMENT (myfxbook crowd — CONTRARIAN, the ONLY source for retail) ==
+${retailLine || 'n/a'}
 == PAST-WEEK HEADLINES ==
 ${heads || 'n/a'}
 
