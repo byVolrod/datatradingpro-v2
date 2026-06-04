@@ -1120,6 +1120,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   display: block;
   background: #19191c;                                       /* fond description (couleur PMT exacte) */
   margin-top: 10px;
+  margin-bottom: -12px;                                      /* le fond descend JUSQU'AU séparateur (comble le padding-bas 12px = fini le noir avant la ligne) */
   margin-left: calc(var(--news-desc-bleed) * -1);           /* fond étendu jusqu'au bord GAUCHE de la ligne */
   margin-right: calc(var(--c-pad) * -1);                     /* … et jusqu'au bord DROIT (suit le padding de la card → toujours pile au bord) */
   padding: 11px 14px 11px var(--news-desc-bleed);           /* texte ré-aligné sous le titre */
@@ -1132,7 +1133,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
    scrollbar horizontale. Le -246 d'origine atteint déjà exactement le bord gauche.) */
 .news-item--urgent .news-description.visible,
 .news-item--breaking .news-description.visible {
-  margin-bottom: -11px;                                     /* le gris descend jusqu'à la bordure basse */
+  margin-bottom: -12px;                                     /* le gris descend jusqu'à la bordure basse (comble le padding-bas) */
 }
 .news-item--urgent:has(.news-description.visible),
 .news-item--breaking:has(.news-description.visible) {
@@ -1146,6 +1147,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   list-style: disc;
   padding-left: 16px;
   margin: 0;
+}
+/* Image illustrative d'un article de news (og:image) — propre, arrondie, contenue */
+.article-img-wrap { margin: 0 0 12px; }
+.article-img {
+  display: block; width: 100%; max-height: 200px; object-fit: cover;
+  border-radius: 6px; border: 1px solid rgba(255,255,255,0.07); background: #0e0e10;
 }
 /* [MARKET UPDATE] (Convera) : rapport complet avec images, rendu propre dans le feed */
 .market-update-body { font-size: 13px; line-height: 1.62; color: #e8eaed; padding: 4px 22px 8px; overflow-wrap: anywhere; }

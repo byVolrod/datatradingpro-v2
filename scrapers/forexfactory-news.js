@@ -548,7 +548,7 @@ function startFFNewsPoll(callback, intervalMs = 20_000) {
 // ─── Article content fetch ────────────────────────────────────────────────────
 
 const _articleCache = new Map(); // url → { points, label, ts }
-const ARTICLE_CACHE_TTL = 30 * 60 * 1000;
+const ARTICLE_CACHE_TTL = 12 * 60 * 60 * 1000;   // 12h : un article ne change pas après publication → moins de re-scrapes = ouverture + rapide
 
 async function getArticleContent(url, headline = '') {
   if (!url) return null;
@@ -660,11 +660,15 @@ async function getArticleContent(url, headline = '') {
       const isSpeech   = /\bsays?\b|\bsaid\b|\bstates?\b|\badds?\b|\bnotes?\b|\bcalled\b/.test(sample);
       const isReaction = /market reaction|immediate reaction|price action|jumped|fell sharply/.test(sample);
 
-      return { paras, isSpeech, isReaction };
+      // Image illustrative de l'article (og:image / twitter:image) — extraite ici = mise en cache, aucun fetch en double.
+      const _ogImg = document.querySelector('meta[property="og:image"]') || document.querySelector('meta[name="twitter:image"]');
+      const image = (_ogImg && _ogImg.getAttribute('content')) || '';
+      return { paras, isSpeech, isReaction, image };
     }, hlWords);
 
     const label = result.isReaction ? 'Reaction' : result.isSpeech ? 'Says' : 'Analysis';
-    const out = { points: result.paras, label, ts: Date.now() };
+    const img = (result.image && /^https?:\/\//.test(result.image)) ? result.image : '';
+    const out = { points: result.paras, label, image: img, ts: Date.now() };
     _articleCache.set(cacheKey, out);
     return out;
 
