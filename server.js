@@ -4079,7 +4079,9 @@ const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
 const _sbMk = a => Object.fromEntries(SB_CURRENCIES.map((c, i) => [c, a[i]]));
 const SMART_BIAS_SEED = {
-  generatedAt: 1748793600000,   // 2026-06-01 18:00 Paris
+  // Daté à -14 j (toujours en 2026, et toujours > 7 j → reste "stale" donc déclenche la régén au boot,
+  // tout en affichant une semaine de l'année courante si jamais le seed est servi avant la régén).
+  generatedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
   currencies: SB_CURRENCIES,
   rows: [
     { key: 'fundamental',  label: 'Fundamental Data',        values: _sbMk(['Bullish', 'Bullish', 'Neutral', 'Neutral', 'Bullish', 'Bullish', 'Bearish', 'Neutral']) },
@@ -4216,18 +4218,29 @@ ${heads || 'n/a'}
 Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"hedgeFund":{...},"retail":{...},"monetary":{...}}}`;
 
   let gem = {};
+  let aiOk = false;
   try {
     aiNote('bias');
     const t = await ai.generateText(prompt, 2400);
     const m = t.match(/\{[\s\S]*\}/);
     if (!m) throw new Error('No JSON');
     gem = JSON.parse(m[0]).rows || {};
+    aiOk = Object.keys(gem).length > 0;
   } catch (e) {
     console.error('[SmartBias]', e.message);
-    return _smartBias;   // garde l'ancienne matrice (seed ou précédente)
   }
-  // Gemini n'a rien renvoyé d'exploitable → on garde la matrice actuelle (pas d'écrasement vide)
-  if (!Object.keys(gem).length) return _smartBias;
+  // IA indisponible (quota / JSON KO) → on NE bloque PLUS la mise à jour (sinon le seed périmé
+  // reste servi avec une vieille date et SANS narratif). On réutilise les dernières valeurs IA
+  // connues (matrice précédente ou seed) pour les 5 lignes IA, MAIS on rafraîchit quand même
+  // Trend + Seasonality (réels) + generatedAt → la date reste à jour et la saisonnalité exacte.
+  if (!aiOk) {
+    console.warn('[SmartBias] IA indispo → on conserve les lignes IA précédentes et on rafraîchit Trend/Seasonality/date');
+    const prevRows = (_smartBias && Array.isArray(_smartBias.rows)) ? _smartBias.rows : [];
+    ['fundamental', 'bankOverview', 'hedgeFund', 'retail', 'monetary'].forEach(k => {
+      const r = prevRows.find(x => x.key === k);
+      gem[k] = (r && r.values) ? r.values : {};
+    });
+  }
 
   const trend = await _sbTrendRow();
   const seasonality = await _sbSeasonalityRow();   // RÉELLE (saisonnalité 5 ans, cf. _sbSeasonalityRow) — plus de devinette IA
@@ -4249,14 +4262,17 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   rows.push({ key: 'trend', label: 'Trend', values: trend });
   rows.push({ key: 'seasonality', label: 'Seasonality', values: seasonality });
 
-  // Narratif IA hebdo par devise (UN seul appel → JSON). Repli null → le frontend compose une synthèse data-driven.
-  let narrative = null;
-  try { narrative = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); } catch {}
+  // Narratif IA hebdo par devise (UN seul appel → JSON). On conserve le narratif précédent en repli
+  // (ne JAMAIS le perdre), et on ne retente PAS d'appel IA si l'IA vient déjà d'échouer (quota).
+  let narrative = (_smartBias && _smartBias.narrative) || null;
+  if (aiOk) {
+    try { const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); if (n) narrative = n; } catch {}
+  }
   _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
   // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
-  console.log(`[SmartBias] OK — sources: COT=${cotLine ? 'oui' : 'NON'} retail=${retailLine ? 'oui' : 'NON'} banques=${bankLine ? 'oui' : 'NON'} calendrier=${calLine ? 'oui' : 'NON'} | conclusion: ${SB_CURRENCIES.map(c => c + '=' + (conclusion[c] || '?')).join(' ')}`);
+  console.log(`[SmartBias] ${aiOk ? 'OK' : 'IA-DOWN (rows précédentes + Trend/Seasonality réels)'} — sources: COT=${cotLine ? 'oui' : 'NON'} retail=${retailLine ? 'oui' : 'NON'} banques=${bankLine ? 'oui' : 'NON'} calendrier=${calLine ? 'oui' : 'NON'} | conclusion: ${SB_CURRENCIES.map(c => c + '=' + (conclusion[c] || '?')).join(' ')}`);
   try { broadcast({ type: 'smartbias_update', bias: _smartBias }); } catch {}
   return _smartBias;
 }

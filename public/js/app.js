@@ -3400,6 +3400,49 @@ function _sbToggleCurDd(e) { e.stopPropagation(); const m = e.currentTarget.quer
 function _sbPickCur(c) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbOpenSummary(c); }
 window._sbToggleCurDd = _sbToggleCurDd; window._sbPickCur = _sbPickCur;
 if (!window._sbCddCloser) { window._sbCddCloser = true; document.addEventListener('click', () => document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', ''))); }
+// Qualificatifs FR par niveau de biais (formulation neutre en genre → s'insere apres "est ...").
+const _SB_QUAL = {
+  'Very Bullish': 'nettement favorable', 'Bullish': 'favorable', 'Weak Bullish': 'légèrement favorable',
+  'Neutral': 'neutre', 'Range': 'neutre', 'N/A': 'neutre',
+  'Weak Bearish': 'légèrement défavorable', 'Bearish': 'défavorable', 'Very Bearish': 'nettement défavorable',
+  'Uptrend': 'favorable', 'Downtrend': 'défavorable',
+};
+const _SB_TREND_Q = { 'Uptrend': 'haussière', 'Downtrend': 'baissière', 'Range': 'sans direction nette', 'Neutral': 'sans direction nette', 'N/A': 'sans direction nette' };
+
+// Narratif data-driven (0 token, sans IA) : vraie synthese institutionnelle multi-phrases batie
+// sur les indicateurs reels de la matrice. Sert de repli quand le narratif IA est absent (quota/seed).
+function _sbFallbackNarrative(curr, val, overall, bulls, bears, esc) {
+  const q  = v => _SB_QUAL[v] || 'neutre';
+  const qt = v => _SB_TREND_Q[v] || 'sans direction nette';
+  const has = v => v && v !== 'N/A';
+  const fund = val('fundamental'), mon = val('monetary'), hf = val('hedgeFund'),
+        ret = val('retail'), bank = val('bankOverview'), tr = val('trend'), seas = val('seasonality');
+  const P = [];
+  P.push(`Le biais hebdomadaire global ressort <b>${esc(overall)}</b> sur ${esc(curr)}.`);
+  const macro = [];
+  if (has(fund)) macro.push(`le contexte fondamental est ${q(fund)}`);
+  if (has(mon))  macro.push(`la politique monétaire est ${q(mon)}`);
+  if (macro.length) P.push(`Sur le plan macro, ${macro.join(' et ')}.`);
+  const pos = [];
+  if (has(hf))   pos.push(`celui des fonds (COT) est ${q(hf)}`);
+  if (has(ret))  pos.push(`le sentiment retail est ${q(ret)}`);
+  if (has(bank)) pos.push(`le consensus bancaire est ${q(bank)}`);
+  if (pos.length) P.push(`Côté positionnement, ${pos.join(', ')}.`);
+  const tech = [];
+  if (has(tr))   tech.push(`la tendance est ${qt(tr)}`);
+  if (has(seas)) tech.push(`la saisonnalité est ${q(seas)}`);
+  if (tech.length) P.push(`Techniquement, ${tech.join(' et ')}.`);
+  if (bulls.length || bears.length) {
+    let s = '';
+    if (bulls.length) s += `Soutiens haussiers : ${esc(bulls.join(', '))}. `;
+    if (bears.length) s += `Pressions baissières : ${esc(bears.join(', '))}.`;
+    P.push(s.trim());
+  } else {
+    P.push('Signaux globalement neutres, sans direction marquée.');
+  }
+  return P.join(' ');
+}
+
 function _sbOpenSummary(curr) {
   _sbActiveCur = curr;
   const wrap = document.getElementById('sbm-summary');
@@ -3437,11 +3480,7 @@ function _sbOpenSummary(curr) {
   const bears = rows.filter(r => (score[r.values[curr]] || 0) < 0).map(r => r.label);
   // Narratif IA hebdo si dispo (généré côté serveur), sinon synthèse data-driven (0 token).
   const aiNarr = (d.narrative && typeof d.narrative[curr] === 'string' && d.narrative[curr].trim()) ? d.narrative[curr].trim() : null;
-  const narrative = aiNarr ? esc(aiNarr)
-    : (`Biais global <b>${esc(overall)}</b> sur ${esc(curr)}. `
-    + (bulls.length ? `Soutiens haussiers : ${esc(bulls.join(', '))}. ` : '')
-    + (bears.length ? `Pressions baissières : ${esc(bears.join(', '))}. ` : '')
-    + (!bulls.length && !bears.length ? 'Signaux globalement neutres, sans direction marquée. ' : ''));
+  const narrative = aiNarr ? esc(aiNarr) : _sbFallbackNarrative(curr, val, overall, bulls, bears, esc);
 
   wrap.innerHTML = `
     <div class="sbs-panel">
