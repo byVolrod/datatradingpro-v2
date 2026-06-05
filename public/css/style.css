@@ -6111,6 +6111,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 
 .strength-main-chart { flex: 1; min-height: 0; }
+/* Badges bi-couleur de fin de courbe (Currency Strength, façon PMT) : [devise = couleur pleine][valeur = teinte claire], texte noir, collés */
+.cs-badge { display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9.5px; font-weight: 800; line-height: 1; white-space: nowrap; border-radius: 3px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.55); pointer-events: none; }
+.cs-badge-ccy { color: #0a0a0a; padding: 3px 4px 3px 5px; letter-spacing: .02em; }
+.cs-badge-val { color: #0a0a0a; padding: 3px 5px 3px 4px; font-variant-numeric: tabular-nums; }
 
 /* ═══════════════ METER — jauges à briques (égaliseur) ═══════════════ */
 .meter-grid {
