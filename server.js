@@ -164,6 +164,7 @@ const _sessionMw = session({
   httpOnly: true,
   sameSite: 'lax',
   secure:   process.env.NODE_ENV === 'production',  // HTTPS uniquement en prod
+  domain:   process.env.NODE_ENV === 'production' ? '.datatradingpro.com' : undefined,  // login PARTAGÉ apex ↔ www ↔ desk
   maxAge:   30 * 24 * 60 * 60 * 1000,   // 30 jours — l'utilisateur reste connecté
 });
 app.use(_sessionMw);
