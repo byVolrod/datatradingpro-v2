@@ -3309,6 +3309,7 @@ function _sbColorCls(v) {
     case 'Weak Bearish':
     case 'Downtrend':    return 'sbm-bear';
     case 'Very Bearish': return 'sbm-vbear';
+    case 'N/A':          return 'sbm-na';      // donnée non chargée
     default:             return 'sbm-neut';   // Neutral, Range
   }
 }
@@ -3334,11 +3335,11 @@ function renderBiasView(d) {
     `<th class="sbm-cur" onclick="_sbOpenSummary('${c}')"><span class="sbm-cur-in">${_sbFlag(c)}<span>${esc(c)}</span></span></th>`).join('')}</tr>`;
   const body = rows.map(r =>
     `<tr><td class="sbm-ind">${esc(r.label)}</td>${
-      cur.map(c => { const v = r.values[c] || 'Neutral'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(v)}">${esc(v)}</td>`; }).join('')
+      cur.map(c => { const v = r.values[c] || 'N/A'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(v)}">${esc(v)}</td>`; }).join('')
     }</tr>`).join('');
   const arrow = v => /bull|uptrend/i.test(v) ? '<span class="sbm-arr">↗</span>' : /bear|downtrend/i.test(v) ? '<span class="sbm-arr">↘</span>' : '';
   const concl = `<tr class="sbm-overall"><td class="sbm-ind">Overall Conclusion</td>${
-    cur.map(c => { const v = (d.conclusion || {})[c] || 'Neutral'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(v)}</td>`; }).join('')
+    cur.map(c => { const v = (d.conclusion || {})[c] || 'N/A'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(v)}</td>`; }).join('')
   }</tr>`;
 
   host.innerHTML = `
@@ -3394,8 +3395,8 @@ function _sbOpenSummary(curr) {
   if (!wrap || !d) return;
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const rows = d.rows || [];
-  const val = key => { const r = rows.find(x => x.key === key || x.label === key); return r ? (r.values[curr] || 'Neutral') : null; };
-  const overall = (d.conclusion || {})[curr] || 'Neutral';
+  const val = key => { const r = rows.find(x => x.key === key || x.label === key); return r ? (r.values[curr] || 'N/A') : null; };
+  const overall = (d.conclusion || {})[curr] || 'N/A';
 
   // Lignes d'indicateurs (volet gauche) — chaque ligne = libellé + badge 64px coloré.
   const line = (label, v, opts) => {
