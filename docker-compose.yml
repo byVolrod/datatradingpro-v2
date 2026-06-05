@@ -6,6 +6,9 @@ services:
   datatradingpro:
     build: .
     container_name: datatradingpro
+    # Nettoie les verrous Chromium périmés (de l'ancien conteneur) AVANT de lancer le serveur
+    # → puppeteer (FF-News, FJ, myfxbook) relance correctement après chaque redéploiement/redémarrage.
+    command: sh -c "rm -f /app/.chrome_profile_fj/Singleton* /app/.chrome_profile_ff/Singleton* /app/.chrome_profile_myfxbook/Singleton* 2>/dev/null; exec node server.js"
     restart: unless-stopped          # redémarre tout seul (reboot NAS inclus)
     ports:
       - "3000:3000"                  # accès : http://IP-DU-NAS:3000
