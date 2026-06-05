@@ -4136,7 +4136,7 @@ function renderBrReader(item) {
             ${subtitle ? `<div class="br-ing-lead">${subtitle}</div>` : ''}
 
             <!-- ── Corps de l'article ── -->
-            <div class="br-doc-body">${data.html}</div>
+            <div class="br-doc-body${data.source === 'ai' ? ' br-structured' : ''}">${data.html}</div>
 
             <div class="br-doc-footer">
               <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">${origLabel}</a>
