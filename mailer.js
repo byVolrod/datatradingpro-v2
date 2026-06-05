@@ -240,11 +240,32 @@ function _isDuplicate(to, subject) {
 // ── Envoi bas niveau : valide, dé-doublonne, puis essaie les fournisseurs DANS L'ORDRE ──
 // Ordre = API Gmail (HTTPS, depuis le compte Google, aligné DMARC → boîte de réception) →
 //         Gmail SMTP (secours, même compte). 100% Google : Mailjet/Resend désactivés par défaut.
+// ── SMTP OVH — envoi DEPUIS contact@datatradingpro.com (aligné SPF/DKIM du domaine → boîte de réception) ──
+let _ovhTransport = null;
+function _getOvhTransport() {
+  if (_ovhTransport) return _ovhTransport;
+  const nodemailer = require('nodemailer');
+  const host = process.env.OVH_SMTP_HOST || 'ssl0.ovh.net';
+  const port = parseInt(process.env.OVH_SMTP_PORT || '465', 10);
+  _ovhTransport = nodemailer.createTransport({
+    host, port, secure: port === 465, requireTLS: port !== 465,
+    auth: { user: process.env.OVH_SMTP_USER, pass: process.env.OVH_SMTP_PASS },
+  });
+  return _ovhTransport;
+}
+async function _sendOvhSmtp(to, subject, html) {
+  if (!process.env.OVH_SMTP_USER || !process.env.OVH_SMTP_PASS) return false;
+  const from = process.env.EMAIL_FROM || process.env.OVH_SMTP_USER;   // ex. "DataTradingPro <contact@datatradingpro.com>"
+  await _getOvhTransport().sendMail({ from, to, subject, html });
+  return true;
+}
+
 async function _send(to, subject, html) {
   if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide — email ignoré:', to); return false; }
   if (_isDuplicate(to, subject)) { console.warn(`[Mailer] doublon ignoré (<12s) → ${to}: "${subject}"`); return false; }
   const chain = [];
-  if (_GMAIL_API_READY)                      chain.push(['API Gmail', _sendGmailApi]);   // ← PRINCIPAL (port 443, depuis le compte Google)
+  if (process.env.OVH_SMTP_USER && process.env.OVH_SMTP_PASS) chain.push(['OVH SMTP', _sendOvhSmtp]);  // ← PRINCIPAL : DEPUIS contact@datatradingpro.com (aligné SPF/DKIM domaine → inbox)
+  if (_GMAIL_API_READY)                      chain.push(['API Gmail', _sendGmailApi]);   // secours (port 443, depuis le compte Google)
   if (GMAIL_USER && GMAIL_APP_PASSWORD)      chain.push(['Gmail',   _sendGmail]);        // secours (même compte ; SMTP bloqué Render mais gardé si débloqué)
   // Mailjet/Resend RETIRÉS (demande : 100% Google). Un From @gmail.com routé via un tiers
   // tombe en spam → inutile. Réactivables sans code via MAIL_ALLOW_THIRDPARTY=1 si besoin.
