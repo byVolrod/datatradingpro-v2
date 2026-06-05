@@ -630,7 +630,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
     minPosition: 0.012, maxPosition: 0.99,
   });
-  xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x1f2937), strokeOpacity: 0.5, strokeDasharray: [3, 3] });
+  xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x1c1c1e), strokeOpacity: 0.9, strokeDasharray: [3, 3] });   // gris très sombre discret (PMT)
   // Axe X façon PMT : la DATE pleine au changement de jour (ex. "05/06/2026" tout à gauche) + heures HH:mm ensuite.
   xAxis.set('dateFormats',             { minute: 'HH:mm', hour: 'HH:mm', day: 'dd/MM/yyyy', week: 'dd/MM', month: 'MMM yyyy' });
   xAxis.set('periodChangeDateFormats', { minute: 'HH:mm', hour: 'dd/MM/yyyy', day: 'dd/MM/yyyy', week: 'MMM', month: 'yyyy' });
@@ -652,7 +652,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
   // Grille horizontale discrète : pointillés gris foncé
   yAxisRenderer.grid.template.setAll({
-    stroke: am5.color(0x1f2937), strokeOpacity: 0.7, strokeWidth: 1, strokeDasharray: [3, 3],
+    stroke: am5.color(0x1c1c1e), strokeOpacity: 0.9, strokeWidth: 1, strokeDasharray: [3, 3],   // gris très sombre discret (PMT)
   });
 
   const yAxis = chart.yAxes.push(

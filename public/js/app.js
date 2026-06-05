@@ -3375,7 +3375,7 @@ function _sbWeekLabel(ts) {
 }
 
 // ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──
-let _sbActiveCur = null, _sbSplitFrac = 0.46, _sbMatrixH = null;   // _sbMatrixH = hauteur matrice (null = auto, sinon fixée par le glissement)
+let _sbActiveCur = null, _sbSplitFrac = 0.30, _sbMatrixH = null;   // 30% gauche / 70% droite (façon PMT) · _sbMatrixH = hauteur matrice (null = auto)
 // Splitter orange HORIZONTAL : glisser pour redimensionner la matrice ↔ le panneau détail.
 function _sbVSplitStart(e) {
   e.preventDefault();
@@ -4460,8 +4460,7 @@ function renderArlibList() {
     const isING  = item._source === 'ing-think';
     const badgeLabel = isPMT ? 'DTP'
       : isSW  ? (item.session || 'SW').slice(0,3).toUpperCase()
-      : isING ? 'FX'           // rapports ING Think dans Analyst = FX Daily → badge "FX"
-      : '';
+      : '';                    // (tag "FX" des rapports ING Think retiré à la demande)
     const badgeClass = 'arlib-ptbadge-small';   // FX/SW/DTP : même style neutre (blanc) que les autres
     const badge = badgeLabel ? `<span class="${badgeClass}">${badgeLabel}</span>` : '';
 
