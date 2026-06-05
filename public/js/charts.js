@@ -565,6 +565,16 @@ function _smoothCS(pts) {
   });
 }
 
+// Teinte CLAIRE d'une couleur (blend vers le blanc) → rectangle de droite du badge (valeur).
+function _lighten(hexInt, amt) {
+  const r = (hexInt >> 16) & 255, g = (hexInt >> 8) & 255, b = hexInt & 255;
+  const lr = Math.round(r + (255 - r) * amt), lg = Math.round(g + (255 - g) * amt), lb = Math.round(b + (255 - b) * amt);
+  return '#' + ((lr << 16) | (lg << 8) | lb).toString(16).padStart(6, '0');
+}
+// Badge bi-couleur (façon PMT) : [code devise — couleur pleine] [valeur — teinte claire], texte noir.
+function _csBadgeHtml(ccy, fullHex, lightHex, valStr) {
+  return `<div class="cs-badge"><span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span><span class="cs-badge-val" style="background:${lightHex}">${valStr}</span></div>`;
+}
 function buildStrengthChart(containerId, data, opts = {}) {
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
   const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
@@ -578,15 +588,14 @@ function buildStrengthChart(containerId, data, opts = {}) {
 
   const chart = root.container.children.push(
     am5xy.XYChart.new(root, {
-      paddingLeft: 0, paddingRight: 0, paddingTop: 4, paddingBottom: 0,
+      paddingLeft: 0, paddingRight: 2, paddingTop: 4, paddingBottom: 3,
       layout: root.verticalLayout,
     })
   );
   chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));  // anthracite doux (un peu moins noir)
   chart.zoomOutButton.set('forceHidden', true);
-  // Clip strict : les courbes ne débordent jamais hors de la zone de tracé
+  // Clip : SEULES les courbes sont clippées (pas les axes ni les badges → l'axe X et les étiquettes droites restent visibles)
   chart.plotContainer.set('maskContent', true);
-  chart.set('maskContent', true);
 
   const _firstSeries = Object.values(data.series).find(s => s.length >= 2) || [];
   const _dtMs = _firstSeries.length >= 2 ? _firstSeries[1].t - _firstSeries[0].t : 0;
@@ -617,12 +626,20 @@ function buildStrengthChart(containerId, data, opts = {}) {
   xAxis.set('tooltip', xTip);
   xAxis.set('tooltipDateFormat', 'dd/MM/yyyy HH:mm');
   xAxis.get('renderer').labels.template.setAll({
-    fill: am5.color(0xffffff), fontSize: 10,
+    fill: am5.color(0x6b7280), fontSize: 10,            // gris discret (façon PMT)
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
+    minPosition: 0.012, maxPosition: 0.99,
   });
   xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x1f2937), strokeOpacity: 0.5, strokeDasharray: [3, 3] });
+  // Axe X façon PMT : la DATE pleine au changement de jour (ex. "05/06/2026" tout à gauche) + heures HH:mm ensuite.
+  xAxis.set('dateFormats',             { minute: 'HH:mm', hour: 'HH:mm', day: 'dd/MM/yyyy', week: 'dd/MM', month: 'MMM yyyy' });
+  xAxis.set('periodChangeDateFormats', { minute: 'HH:mm', hour: 'dd/MM/yyyy', day: 'dd/MM/yyyy', week: 'MMM', month: 'yyyy' });
+  xAxis.set('gridIntervals', [
+    { timeUnit: 'minute', count: 30 }, { timeUnit: 'hour', count: 1 }, { timeUnit: 'hour', count: 3 },
+    { timeUnit: 'hour', count: 6 }, { timeUnit: 'day', count: 1 }, { timeUnit: 'week', count: 1 }, { timeUnit: 'month', count: 1 },
+  ]);
 
-  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: 46 });
+  const yAxisRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: 66 });
   // Chiffres de l'axe Y dans la gouttière (hors zone de tracé → pas de chevauchement)
   yAxisRenderer.labels.template.setAll({
     visible: true,
@@ -631,13 +648,15 @@ function buildStrengthChart(containerId, data, opts = {}) {
     minPosition: 0.02, maxPosition: 0.98,
     paddingLeft: 4,
   });
+  // Échelle PMT : 2 décimales fixes + décimale FRANÇAISE (virgule) → "4,00 / 0,00 / -16,00".
+  yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
   // Grille horizontale discrète : pointillés gris foncé
   yAxisRenderer.grid.template.setAll({
     stroke: am5.color(0x1f2937), strokeOpacity: 0.7, strokeWidth: 1, strokeDasharray: [3, 3],
   });
 
   const yAxis = chart.yAxes.push(
-    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer })
+    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00' })
   );
 
   // Zero reference line — gris clair UNI (distincte de la grille pointillée)
@@ -649,14 +668,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
   const seriesMap = {};
   const labelMap  = {};   // ccy → { range } pour mise à jour en place
 
-  // Échelle proportionnelle (99e percentile) recalculée à chaque jeu de données
+  // Échelle INSTITUTIONNELLE (façon PMT) : force ×100 → 0.11 devient 11,86. Compression UNIQUEMENT si extrême.
   function computeScale(d) {
+    const BASE = 100;
     const abs = d.currencies
       .flatMap(c => (d.series[c] || []).map(x => x.v != null ? Math.abs(x.v) : null).filter(v => v != null))
       .sort((a, b) => a - b);
-    const refMax = abs.length > 10 ? abs[Math.floor(abs.length * 0.99)] : (abs[abs.length - 1] || 0.01);
-    const CAP = 25;
-    return refMax > CAP ? CAP / refMax : 1;
+    const ref    = abs.length > 10 ? abs[Math.floor(abs.length * 0.99)] : (abs[abs.length - 1] || 0.01);
+    const refMax = ref * BASE;
+    const CAP    = 45;   // PMT culmine à ~±28 → cap large pour ne jamais déborder
+    return refMax > CAP ? (BASE * CAP / refMax) : BASE;
   }
   let scaleFactor = computeScale(data);
 
@@ -692,17 +713,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
     const lastV  = (lastPt && lastPt.v != null) ? lastPt.v : 0;
     const rangeItem = yAxis.makeDataItem({ value: lastV });
     const range     = yAxis.createAxisRange(rangeItem);
-    const valStr    = (lastV >= 0 ? '+' : '') + lastV.toFixed(2);
+    const valStr    = lastV.toFixed(2).replace('.', ',');   // valeur SANS "+", décimale FR (façon PMT)
     range.get('label').setAll({
-      text: `${ccy}  ${valStr}`,
-      fill: am5.color(0xffffff),
-      fontSize: 10, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', fontWeight: '700',
+      html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), valStr),
       centerY: am5.percent(50),
-      paddingTop: 3, paddingBottom: 3, paddingLeft: 6, paddingRight: 6,
-      background: am5.RoundedRectangle.new(root, {
-        fill: color, fillOpacity: 1,
-        cornerRadiusTL: 3, cornerRadiusTR: 3, cornerRadiusBL: 3, cornerRadiusBR: 3,
-      }),
+      centerX: am5.percent(0),   // ancré à l'axe → colonne droite parfaitement alignée (aucun décalage horizontal)
     });
     range.get('tick').set('visible', false);
     range.get('grid').setAll({ stroke: color, strokeOpacity: 0.20, strokeDasharray: [3, 3] });
@@ -713,7 +728,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
 
     seriesArr.push(series);
     seriesMap[ccy] = series;
-    labelMap[ccy]  = { range, value: lastV };
+    labelMap[ccy]  = { range, value: lastV, hexStr, hexColor };
 
     // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit)
     series.events.on('hidden', () => { try { range.get('label')?.set('forceHidden', true);  range.get('grid')?.set('forceHidden', true);  } catch {} });
@@ -756,7 +771,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const min = yAxis.get('min'), max = yAxis.get('max');
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
-      const GAP = 16;  // px minimum entre deux badges
+      const GAP = 19;  // px minimum entre deux badges (façon PMT : empilement propre, aucun chevauchement)
       // Position pixel de chaque badge (0 = haut)
       const arr = Object.entries(labelMap).map(([ccy, o]) => {
         const v = o.value != null ? o.value : 0;
@@ -794,7 +809,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       if (lbl && lbl.range) {
         lbl.value = lv;
         try { lbl.range.set('value', lv); } catch {}
-        try { lbl.range.get('label')?.set('text', `${ccy}  ${(lv >= 0 ? '+' : '') + lv.toFixed(2)}`); } catch {}
+        try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','))); } catch {}
       }
     }
     setTimeout(declutter, 60);   // recalibrer l'anti-collision après mise à jour
