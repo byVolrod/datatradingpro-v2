@@ -5,6 +5,22 @@
 
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* ═══ THÈMES (boutons Profil → Mode Clair / Sombre / Moyen) ════════════════════
+   Surcharge des variables STRUCTURELLES (fonds, textes, bordures) via la classe
+   body.theme-X posée par pdSetTheme(). Les couleurs SÉMANTIQUES (orange, vert,
+   rouge, états de marché --st-*) restent identiques quel que soit le thème. */
+body.theme-medium {           /* gris moyen — variante adoucie du sombre */
+  --bg:#1e2024; --bg1:#24262b; --bg2:#2a2d33; --bg3:#30343b; --bg4:#363a42; --bg5:#3c4049;
+  --border:#3a3e46; --border2:#454a54; --border3:#515763;
+  --text:#e8eaed; --text2:#b4b8bf; --text3:#888d96; --text4:#5e636c;
+}
+body.theme-light {            /* clair — fonds clairs, texte sombre, orange conservé */
+  --bg:#f3f4f6; --bg1:#ffffff; --bg2:#f8f9fb; --bg3:#eef0f3; --bg4:#e7e9ee; --bg5:#dfe2e8;
+  --border:#e2e5ea; --border2:#d3d7dd; --border3:#c3c8d0;
+  --text:#181b20; --text2:#565c64; --text3:#868c95; --text4:#aeb4bd;
+}
+body.theme-light, body.theme-medium { background:var(--bg); color:var(--text); }
+
 :root {
   --bg:          #0a0a0a;
   --bg1:         #0d0d0d;
