@@ -4195,7 +4195,7 @@ function renderBrReader(item) {
   if (titleEl) titleEl.textContent = item.title;
   if (badge)   badge.textContent   = _instBadge(item);
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
-  if (content) content.innerHTML   = dtpLoader('Chargement de l’article…');
+  if (content) { content.classList.remove('br-rcontent--pdf'); content.innerHTML = dtpLoader('Chargement de l’article…'); }
 
   // ── AI Insights (comme l'onglet Analyst) ──
   let brIns = document.getElementById('br-ai-insights');
@@ -4226,10 +4226,7 @@ function renderBrReader(item) {
         <div class="br-doc-body">${item.fullContent}</div>
         <div class="br-doc-footer"><a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">Lire l'original →</a></div>
       </div>`;
-    _brFixImages(content);
-    content.scrollTop = 0;
-    const _full = (content.innerText || '').trim();
-    if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
+    _brFinalizeReader(item, brIns);
     return;
   }
 
@@ -4290,10 +4287,7 @@ function renderBrReader(item) {
             </div>
           </div>`;
       }
-      _brFixImages(content);   // masque toute image cassée
-      // Insights basés sur le VRAI contenu de l'article (la description seule est trop courte)
-      const _full = (content.innerText || '').trim();
-      if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
+      _brFinalizeReader(item, brIns);   // images + insights + bascule en PDF embarqué
     })
     .catch(() => {
       if (!content) return;
@@ -4305,7 +4299,197 @@ function renderBrReader(item) {
           ${preview ? `<div class="br-doc-body">${preview.split(/\n{2,}/).map(p => `<p>${p}</p>`).join('')}</div>` : ''}
           <div class="br-doc-footer"><a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">Lire l'original →</a></div>
         </div>`;
+      _brFinalizeReader(item, brIns);
     });
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// Rapport de banque (onglet Institution) → VRAI PDF généré côté client (jsPDF).
+// 0 Mo serveur (anti-OOM Render), affiché en document embarqué comme PMT + téléchargeable.
+// Repli HTML automatique si jsPDF indispo ou en cas d'erreur. Institution UNIQUEMENT.
+// ════════════════════════════════════════════════════════════════════════════
+let _brPdfState = null;   // { url, filename, html }
+
+// Découpe le corps HTML rendu en sections {heading, blocks:[{type:'p'|'li', text}]}.
+// Gère le format IA structuré (<strong>SECTION</strong><ul><li>…) ET le HTML brut (<h3>/<p>).
+function _brExtractSections(body) {
+  if (!body) return [];
+  const sections = [];
+  let cur = null;
+  const ensure = () => { if (!cur) { cur = { heading: '', blocks: [] }; sections.push(cur); } return cur; };
+  body.childNodes.forEach(node => {
+    if (node.nodeType === 3) { const t = (node.textContent || '').replace(/\s+/g, ' ').trim(); if (t) ensure().blocks.push({ type: 'p', text: t }); return; }
+    if (node.nodeType !== 1) return;
+    const tag = node.tagName;
+    const txt = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    if (tag === 'STRONG' || tag === 'B' || /^H[1-5]$/.test(tag)) { if (txt) { cur = { heading: txt, blocks: [] }; sections.push(cur); } }
+    else if (tag === 'UL' || tag === 'OL') { node.querySelectorAll('li').forEach(li => { const t = (li.textContent || '').replace(/\s+/g, ' ').trim(); if (t) ensure().blocks.push({ type: 'li', text: t }); }); }
+    else if (txt) ensure().blocks.push({ type: 'p', text: txt });
+  });
+  return sections;
+}
+
+function _brHexRgb(hex) {
+  const h = String(hex || '#222').replace('#', '');
+  return [parseInt(h.slice(0, 2), 16) || 34, parseInt(h.slice(2, 4), 16) || 34, parseInt(h.slice(4, 6), 16) || 34];
+}
+function _brLoadImg(src) {
+  return new Promise(res => {
+    if (!src) return res(null);
+    const img = new Image();
+    img.onload = () => res(img); img.onerror = () => res(null);
+    img.src = src;
+  });
+}
+function _brPdfFilename(label, title) {
+  const slug = (title || 'rapport').replace(/[^a-z0-9]+/gi, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'rapport';
+  return `${label || 'DTP'}-${slug}.pdf`;
+}
+function _brShortUrl(u) { try { return new URL(u).hostname.replace(/^www\./, ''); } catch { return ''; } }
+
+// Construit le document PDF (A4) avec les primitives jsPDF : en-tête banque + logo, titre,
+// sous-titre, sections (titre + puces), pied de page paginé. Pas de html2canvas (net + léger).
+async function _brBuildPdf(doc) {
+  const jsPDFns = window.jspdf && window.jspdf.jsPDF;
+  const pdf = new jsPDFns({ unit: 'mm', format: 'a4', compress: true });
+  const PW = 210, PH = 297, M = 18, CW = PW - M * 2, BOT = PH - 16;
+  const brand = _brHexRgb(doc.brand);
+  let y = M;
+  const br = need => { if (y + need > BOT) { pdf.addPage(); y = M; } };
+
+  // ── En-tête : logo + nom banque (gauche), date (droite) ──
+  const img = await _brLoadImg(doc.logoUrl);
+  let hx = M;
+  if (img && img.width) {
+    const lw = 13, lh = Math.min(13, lw * (img.height / img.width));
+    try { pdf.addImage(img, 'PNG', M, y + 1, lw, lh); hx = M + lw + 4; } catch {}
+  }
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(15); pdf.setTextColor(brand[0], brand[1], brand[2]);
+  pdf.text(doc.label === 'DTP' ? 'DataTradingPro' : (doc.label + ' Research'), hx, y + 6);
+  pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(120, 120, 128);
+  if (doc.tagline) pdf.text(doc.tagline, hx, y + 10.5);
+  if (doc.date) { pdf.setFontSize(9); pdf.setTextColor(90, 90, 98); pdf.text(doc.date, PW - M, y + 6, { align: 'right' }); }
+  y += 16;
+  // Filet : segment de marque + fin gris
+  pdf.setDrawColor(brand[0], brand[1], brand[2]); pdf.setLineWidth(0.9); pdf.line(M, y, M + 38, y);
+  pdf.setDrawColor(214, 214, 218); pdf.setLineWidth(0.2); pdf.line(M + 39, y, PW - M, y);
+  y += 7;
+  // Meta : TYPE   PAYS
+  const meta = [doc.metaType, doc.country].filter(Boolean).join('     ');
+  if (meta) { pdf.setFont('helvetica', 'normal'); pdf.setFontSize(8); pdf.setTextColor(140, 140, 148); pdf.text(meta.toUpperCase(), M, y); y += 6; }
+  // Titre
+  pdf.setFont('helvetica', 'bold'); pdf.setFontSize(18); pdf.setTextColor(22, 22, 26);
+  pdf.splitTextToSize(doc.title || '', CW).forEach(line => { br(9); pdf.text(line, M, y); y += 8; });
+  y += 1;
+  // Sous-titre (italique)
+  if (doc.subtitle) {
+    pdf.setFont('helvetica', 'italic'); pdf.setFontSize(11); pdf.setTextColor(95, 95, 104);
+    pdf.splitTextToSize(doc.subtitle, CW).forEach(line => { br(6); pdf.text(line, M, y); y += 6; });
+    y += 2;
+  }
+  y += 2;
+  // Sections
+  (doc.sections || []).forEach(sec => {
+    if (sec.heading) {
+      br(11); y += 2;
+      pdf.setFont('helvetica', 'bold'); pdf.setFontSize(11); pdf.setTextColor(brand[0], brand[1], brand[2]);
+      pdf.text(sec.heading.toUpperCase(), M, y); y += 6;
+    }
+    (sec.blocks || []).forEach(b => {
+      pdf.setFont('helvetica', 'normal'); pdf.setFontSize(10); pdf.setTextColor(42, 42, 48);
+      if (b.type === 'li') {
+        pdf.splitTextToSize(b.text, CW - 5).forEach((line, i) => {
+          br(5.4);
+          if (i === 0) { pdf.setTextColor(brand[0], brand[1], brand[2]); pdf.text('•', M, y); pdf.setTextColor(42, 42, 48); }
+          pdf.text(line, M + 5, y); y += 5.4;
+        });
+        y += 1.2;
+      } else {
+        pdf.splitTextToSize(b.text, CW).forEach(line => { br(5.4); pdf.text(line, M, y); y += 5.4; });
+        y += 2.6;
+      }
+    });
+    y += 2;
+  });
+  // Pieds de page paginés
+  const n = pdf.getNumberOfPages();
+  for (let i = 1; i <= n; i++) {
+    pdf.setPage(i);
+    pdf.setDrawColor(226, 226, 230); pdf.setLineWidth(0.2); pdf.line(M, PH - 12, PW - M, PH - 12);
+    pdf.setFont('helvetica', 'normal'); pdf.setFontSize(7); pdf.setTextColor(150, 150, 156);
+    pdf.text(doc.sourceUrl ? ('Source : ' + _brShortUrl(doc.sourceUrl) + ' · DataTradingPro') : 'DataTradingPro', M, PH - 8);
+    pdf.text(i + ' / ' + n, PW - M, PH - 8, { align: 'right' });
+  }
+  return pdf;
+}
+
+// Affiche le rapport courant en mode 'pdf' (iframe embarqué) ou 'text' (HTML d'origine).
+function _brPdfShow(mode) {
+  const content = document.getElementById('br-rcontent');
+  if (!content || !_brPdfState) return;
+  content.classList.add('br-rcontent--pdf');
+  const bar = (lbl, action) =>
+    `<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 Rapport PDF</span><span class="br-pdf-bar-actions">` +
+    `<button type="button" class="br-pdf-btn" onclick="_brPdfDownload()">⬇ Télécharger</button>` +
+    `<button type="button" class="br-pdf-btn" onclick="_brPdfShow('${action}')">${lbl}</button></span></div>`;
+  if (mode === 'text') {
+    content.innerHTML = bar('Afficher en PDF', 'pdf') + `<div class="br-pdf-textwrap">${_brPdfState.html}</div>`;
+    _brFixImages(content);
+  } else {
+    content.innerHTML = bar('Afficher en texte', 'text') +
+      `<iframe class="br-pdf-frame" src="${_brPdfState.url}#toolbar=1&navpanes=0&view=FitH" title="Rapport PDF"></iframe>`;
+  }
+  content.scrollTop = 0;
+}
+function _brPdfDownload() {
+  if (!_brPdfState) return;
+  const a = document.createElement('a');
+  a.href = _brPdfState.url; a.download = _brPdfState.filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+window._brPdfShow = _brPdfShow; window._brPdfDownload = _brPdfDownload;
+
+// Génère le PDF à partir du .br-document déjà rendu, puis l'affiche embarqué. Repli HTML si échec.
+async function _brRenderAsPdf(item) {
+  const content = document.getElementById('br-rcontent');
+  if (!content) return;
+  const docEl = content.querySelector('.br-document');
+  const jsPDFns = window.jspdf && window.jspdf.jsPDF;
+  if (!docEl || !jsPDFns) return;   // pas de lib / pas de doc → on conserve le HTML (repli)
+  try {
+    const html = content.innerHTML;   // sauvegarde pour le toggle "texte" + repli
+    const label = _instBadge(item);
+    const data = {
+      label, brand: _instBrandColor(label),
+      tagline: label === 'ING' ? 'THINK economic and financial analysis' : label === 'DTP' ? 'Institutional research' : label + ' Research',
+      logoUrl: _BANK_LOCAL_LOGO[label] || null,
+      title: (docEl.querySelector('.br-doc-title')?.textContent || item.title || '').trim(),
+      metaType: (docEl.querySelector('.br-ing-type')?.textContent || '').trim(),
+      date: (docEl.querySelector('.br-ing-date')?.textContent || '').trim(),
+      country: (docEl.querySelector('.br-ing-country')?.textContent || '').trim(),
+      subtitle: (docEl.querySelector('.br-ing-lead')?.textContent || '').trim(),
+      sections: _brExtractSections(docEl.querySelector('.br-doc-body')),
+      sourceUrl: item.url || '',
+    };
+    if (!data.sections.length && data.subtitle) data.sections = [{ heading: '', blocks: [{ type: 'p', text: data.subtitle }] }];
+    if (!data.sections.length) return;   // rien de structuré → on garde le HTML (ex. aperçu vide)
+    const pdf = await _brBuildPdf(data);
+    const url = URL.createObjectURL(pdf.output('blob'));
+    if (_brPdfState && _brPdfState.url) { try { URL.revokeObjectURL(_brPdfState.url); } catch {} }
+    _brPdfState = { url, filename: _brPdfFilename(label, data.title), html };
+    _brPdfShow('pdf');
+  } catch (e) { console.warn('[BR-PDF] génération échouée → repli HTML', e); }
+}
+
+// Finalise le lecteur banque (images, insights) PUIS bascule en PDF embarqué.
+function _brFinalizeReader(item, brIns) {
+  const content = document.getElementById('br-rcontent');
+  if (!content) return;
+  _brFixImages(content);
+  content.scrollTop = 0;
+  const _full = (content.innerText || '').trim();
+  if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
+  _brRenderAsPdf(item);
 }
 
 function arlibShowList() {
