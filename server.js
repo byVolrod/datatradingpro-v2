@@ -19,6 +19,7 @@ const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlook
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
 const ai = require('./ai');           // génération IA (Gemini gratuit, repli Claude)
+const { concludeBias } = require('./lib/bias-calc');   // calcul DÉTERMINISTE de l'Overall Conclusion (pur, testable)
 const whop = require('./whop');       // vérification des abonnements Whop (auto-renouvellement)
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-extra');
@@ -4202,15 +4203,12 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   if (!Object.keys(gem).length) return _smartBias;
 
   const trend = await _sbTrendRow();
-  // Conclusion = agrégat pondéré simple
-  const score = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2, 'Uptrend': 1, 'Downtrend': -1, 'Range': 0 };
+  // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés PMT.
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
-    let s = 0, n = 0;
-    SB_GEM_ROWS.forEach(r => { const v = gem[r.key]?.[c]; if (v != null && score[v] != null) { s += score[v]; n++; } });
-    s += score[trend[c]] || 0; n++;
-    const avg = n ? s / n : 0;
-    conclusion[c] = avg > 0.55 ? 'Bullish' : avg > 0.15 ? 'Weak Bullish' : avg < -0.55 ? 'Bearish' : avg < -0.15 ? 'Weak Bearish' : 'Neutral';
+    const vals = SB_GEM_ROWS.map(r => (gem[r.key] ? gem[r.key][c] : null));
+    vals.push(trend[c]);
+    conclusion[c] = concludeBias(vals);
   });
 
   // Ordre d'affichage : Fundamental, Bank, HedgeFund, Retail, Monetary, Trend, Seasonality
