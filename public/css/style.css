@@ -4064,6 +4064,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   padding: 2px 6px;
   letter-spacing: 0.06em;
 }
+/* Logo DTP (favicon) en lieu et place du badge texte région/source */
+.arlib-ptbadge-logo {
+  width: 20px; height: 20px; border-radius: 4px;
+  display: inline-block; vertical-align: middle; flex-shrink: 0;
+}
 .arlib-card-date {
   font-size: 10.5px;
   color: #e8eaed;        /* blanc cassé (lisible) */
