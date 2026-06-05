@@ -2686,6 +2686,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-neut  { background: #6b7280; color: #fff; }
 .sbm-bear  { background: #dc2626; color: #fff; }
 .sbm-vbear { background: #991b1b; color: #fff; }
+.sbm-na { background: #1a1a1f; color: #5b5b64; }   /* N/A : donnée non chargée (gris atténué distinct) */
 
 /* ── Bias Summary Panel (inférieur, redimensionnable) ── */
 .sbm-summary-host { margin-top: 0; }

@@ -170,6 +170,60 @@ app.get('/chat', (_req, res) => {
 </body></html>`);
 });
 
+// ── Aperçu de l'onglet Week Ahead (vrai style.css + amCharts via CDN, données d'exemple) ──
+app.get('/weekahead', (_req, res) => {
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const days = [
+    { dow: 'Monday', date: '1', month: 'JUN', title: 'Manufacturing Momentum and Labour Market Signals', impact: 'HIGH', open: true, description: 'The week begins with a broad set of manufacturing and activity indicators, including Global Manufacturing Final PMIs, South Korean trade data, German and Swiss retail sales, Swiss GDP, Eurozone unemployment, and the US ISM Manufacturing PMI. Attention will focus on whether the strong rebound seen in US manufacturing is sustained after S&P Global’s flash survey reached a multi-year high.' },
+    { dow: 'Tuesday', date: '2', month: 'JUN', title: 'Inflation Takes Centre Stage in Europe', impact: 'HIGH', description: 'Tuesday’s focus is inflation, led by the Eurozone HICP release alongside South Korean CPI, New Zealand export and import prices, and Poland’s central bank policy announcement. Eurozone inflation is expected to remain around 3.0% year-on-year.' },
+    { dow: 'Wednesday', date: '3', month: 'JUN', title: 'Growth and Services Activity Under Scrutiny', impact: 'HIGH', description: 'Wednesday brings a heavy schedule featuring Australian GDP, Eurozone producer prices, US ADP employment, ISM Services PMI, Factory Orders, the Fed Beige Book, and Global Final PMIs.' },
+    { dow: 'Thursday', date: '4', month: 'JUN', title: 'European Inflation Watch and Labour Market Updates', impact: 'HIGH', description: 'Inflation data from Sweden and Switzerland headline Thursday’s calendar, alongside Australian trade figures, Spanish industrial production, Eurozone retail sales and construction PMI, plus US Challenger layoffs and weekly jobless claims.' },
+    { dow: 'Friday', date: '5', month: 'JUN', title: 'Global Labour Market Test and Key Central Bank Decision', impact: 'HIGH', description: 'Friday concludes the week with the RBI policy announcement, Canadian employment data, US Non-Farm Payrolls, Japanese household spending, Eurozone employment and GDP revisions.' },
+  ];
+  const rows = days.map(d => {
+    const hi = /high/i.test(d.impact), today = d.date === '4';
+    return `<div class="wa-day${today ? ' wa-day--today' : ''}">
+      <div class="wa-node"><span class="wa-dow">${d.dow.slice(0, 3).toUpperCase()}</span><span class="wa-date">${d.date}</span><span class="wa-month">${d.month}</span></div>
+      <div class="wa-card${d.open ? ' wa-card--open' : ''}">
+        <div class="wa-card-head"><span class="wa-card-title">${esc(d.title)}</span><span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}">${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span></div>
+        <div class="wa-card-desc">${esc(d.description)}</div>
+        <button class="wa-more" onclick="waToggle(this)">${d.open ? 'Show Less <span class="wa-more-chev">∧</span>' : 'Read More <span class="wa-more-chev">∨</span>'}</button>
+      </div></div>`;
+  }).join('');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<style>body{margin:0;background:#0c0c0e;}.wa-scroll{height:100vh;}</style></head>
+<body>
+<div class="wa-scroll"><div class="wa-wrap">
+  <div class="wa-head"><span class="wa-title">Week Ahead</span><span class="wa-week">1-5 June</span></div>
+  <div class="wa-chartbox"><div class="wa-chart-label">WEEKLY RISK PROFILE</div><div class="wa-chart" id="wa-risk-chart"></div></div>
+  <div class="wa-timeline">${rows}</div>
+</div></div>
+<script>
+function waToggle(b){var c=b.closest('.wa-card');var o=c.classList.toggle('wa-card--open');b.innerHTML=o?'Show Less <span class="wa-more-chev">∧</span>':'Read More <span class="wa-more-chev">∨</span>';}
+window.addEventListener('load',function(){
+  if(typeof am5==='undefined'||typeof am5xy==='undefined')return;
+  try{
+    var root=am5.Root.new('wa-risk-chart');try{root._logo&&root._logo.dispose();}catch(e){}
+    var chart=root.container.children.push(am5xy.XYChart.new(root,{panX:false,panY:false,paddingLeft:4,paddingRight:4,paddingTop:4,paddingBottom:0}));
+    var xAxis=chart.xAxes.push(am5xy.CategoryAxis.new(root,{categoryField:'day',renderer:am5xy.AxisRendererX.new(root,{minGridDistance:16})}));
+    xAxis.get('renderer').grid.template.set('forceHidden',true);
+    xAxis.get('renderer').labels.template.setAll({fill:am5.color(0x8a8a90),fontSize:10});
+    var yAxis=chart.yAxes.push(am5xy.ValueAxis.new(root,{min:0,max:100,renderer:am5xy.AxisRendererY.new(root,{})}));
+    yAxis.get('renderer').grid.template.set('forceHidden',true);yAxis.get('renderer').labels.template.set('forceHidden',true);
+    var series=chart.series.push(am5xy.SmoothedXLineSeries.new(root,{xAxis:xAxis,yAxis:yAxis,valueYField:'risk',categoryXField:'day',stroke:am5.color(0xe28b41),fill:am5.color(0xe28b41)}));
+    series.strokes.template.setAll({strokeWidth:2});
+    series.fills.template.setAll({visible:true,fillGradient:am5.LinearGradient.new(root,{rotation:90,stops:[{color:am5.color(0xe28b41),opacity:0.35},{color:am5.color(0x0c0c0e),opacity:0}]})});
+    var data=[{day:'Mon',risk:72},{day:'Tue',risk:80},{day:'Wed',risk:68},{day:'Thu',risk:64},{day:'Fri',risk:88}];
+    xAxis.data.setAll(data);series.data.setAll(data);
+  }catch(e){console.error(e);}
+});
+</script>
+</body></html>`);
+});
+
 // Sert les fichiers statiques (CSS, images, logo macro-ai) APRÈS les routes spécifiques.
 app.use(express.static(path.join(__dirname, 'public')));
 

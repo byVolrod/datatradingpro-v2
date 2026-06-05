@@ -297,7 +297,7 @@ function buildStockChart(symbol) {
 
   // ── EMA 20 ───────────────────────────────────
   const ema20 = mainPanel.series.push(
-    am5xy.SmoothedXLineSeries.new(root, {
+    am5xy.LineSeries.new(root, {
       name: 'EMA 20',
       xAxis: dateAxis,
       yAxis: valueAxis,
@@ -311,7 +311,7 @@ function buildStockChart(symbol) {
 
   // ── EMA 50 ───────────────────────────────────
   const ema50 = mainPanel.series.push(
-    am5xy.SmoothedXLineSeries.new(root, {
+    am5xy.LineSeries.new(root, {
       name: 'EMA 50',
       xAxis: dateAxis,
       yAxis: valueAxis,
@@ -868,7 +868,7 @@ async function buildStrengthCharts() {
   const paneHtml = (side, defPeriod) => `
     <div class="strength-pane" data-side="${side}">
       <div class="strength-tf-bar">
-        <span class="strength-chart-label">Force de la devise</span>
+        <span class="strength-chart-label">Currency Strength</span>
         <span style="flex:1"></span>
         ${STF_ORDER.map(p =>
           `<button class="stf-btn stf-tf-btn${p === defPeriod ? ' stf-btn--active' : ''}" data-period="${p}">${STF_LABELS[p]}</button>`
