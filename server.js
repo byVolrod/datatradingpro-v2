@@ -4073,7 +4073,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v5-pro';   // v5 : narratif IA INSTITUTIONNEL long (chrono/banque centrale/data/taux/outlook) + figures exactes   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
+const BIAS_VER = 'v6-sat';   // v6 : narratif découplé + auto-réessai (self-heal) si périmé/quota + régén SAMEDI   // bump → force une régén (ici : purge le cache périmé 2025 + nouveau planning samedi)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -4223,7 +4223,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   // Narratif IA hebdo par devise (UN seul appel → JSON). Repli null → le frontend compose une synthèse data-driven.
   let narrative = null;
   try { narrative = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); } catch {}
-  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative };
+  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
   // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
@@ -4267,10 +4267,51 @@ Return ONLY valid JSON (no prose, no fences): {"USD":"...","EUR":"...","GBP":"..
   } catch (e) { console.warn('[SmartBias] narratif IA échec → repli data-driven:', e.message); return null; }
 }
 
+// ── SELF-HEAL : réessai EN TÂCHE DE FOND (throttlé + verrouillé → AUCUN doublon de requête) ──
+// Corrige la cause racine : si la génération hebdo tombe sur un quota épuisé, l'ancienne matrice
+// (potentiellement périmée d'une saison) reste servie indéfiniment. Ici, à chaque ouverture de
+// l'onglet Bias on relance discrètement la régén SI c'est périmé, OU on remplit juste le narratif
+// s'il manque. Une fois généré, c'est caché jusqu'au samedi suivant → zéro régénération inutile.
+function _sbBiasStale() {
+  return !_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt
+    || (Date.now() - _smartBias.generatedAt > 7 * 24 * 60 * 60 * 1000);
+}
+let _sbNarrBusy = false, _sbNarrLastTry = 0;
+async function _sbEnsureNarrative() {
+  if (!_smartBias) return;
+  if (_smartBias.narrative && Object.keys(_smartBias.narrative).length) return;   // déjà là → pas de doublon
+  if (_sbNarrBusy) return;
+  if (typeof _aiQuietHours === 'function' && _aiQuietHours()) return;             // heures creuses → on attend
+  if (Date.now() - _sbNarrLastTry < 10 * 60 * 1000) return;                       // 1 tentative / 10 min max
+  _sbNarrBusy = true; _sbNarrLastTry = Date.now();
+  try {
+    const narr = await _sbGenerateNarratives(_smartBias.rows, _smartBias.conclusion, _smartBias.ctxLines || []);
+    if (narr && Object.keys(narr).length) {
+      _smartBias.narrative = narr;
+      try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
+      auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});            // DURABLE → survit aux restarts
+      try { broadcast({ type: 'smartbias_update', bias: _smartBias }); } catch {} // MAJ live de l'onglet ouvert
+      console.log('[SmartBias] narratif rempli a posteriori (retry ciblé) → cache + broadcast (reste jusqu\'au samedi)');
+    }
+  } catch (e) { console.warn('[SmartBias] retry narratif échec:', e.message); }
+  finally { _sbNarrBusy = false; }
+}
+let _sbFreshBusy = false, _sbFreshLastTry = 0;
+async function _sbEnsureFresh() {
+  if (_sbBiasStale()) {                          // 1) matrice périmée (vieille version / >7j / absente) → régén complète
+    if (_sbFreshBusy) return;
+    if (Date.now() - _sbFreshLastTry < 10 * 60 * 1000) return;
+    _sbFreshBusy = true; _sbFreshLastTry = Date.now();
+    try { await generateSmartBias(true); } catch {} finally { _sbFreshBusy = false; }
+    return;
+  }
+  await _sbEnsureNarrative();                    // 2) matrice fraîche mais narratif manquant → retry ciblé
+}
+
 app.get('/api/smart-bias', async (req, res) => {
-  if (req.query.force === '1') { try { await generateSmartBias(true); } catch {} }
-  else if (!_smartBias)        { try { await generateSmartBias(true); } catch {} }
+  if (req.query.force === '1' || !_smartBias) { try { await generateSmartBias(true); } catch {} }
   res.json(_smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
+  if (req.query.force !== '1') _sbEnsureFresh();   // tâche de fond : self-heal si périmé / narratif si manquant
 });
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
@@ -4337,18 +4378,18 @@ app.get('/api/week-ahead', (_req, res) => {
 
 // Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide
 (function scheduleWeeklyBias() {
-  function msToNextSunday(h, m) {
+  function msToNextWeekday(dow, h, m) {   // dow : 0=dim … 6=sam (heure de Paris)
     const now    = new Date();
     const paris  = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
     const target = new Date(paris);
-    const daysToSun = (7 - paris.getDay()) % 7;   // 0 = dimanche
-    target.setDate(paris.getDate() + daysToSun);
+    const delta  = (dow - paris.getDay() + 7) % 7;
+    target.setDate(paris.getDate() + delta);
     target.setHours(h, m, 0, 0);
     if (target <= paris) target.setDate(target.getDate() + 7);
     return target.getTime() - paris.getTime();
   }
-  const delay = msToNextSunday(18, 0);
-  console.log(`[Bias] Génération hebdo (dimanche 18h) dans ${Math.round(delay / 60000)} min`);
+  const delay = msToNextWeekday(6, 0, 30);   // SAMEDI 00h30 Paris (≈ « samedi minuit », après la clôture de vendredi)
+  console.log(`[Bias] Génération hebdo (samedi 00h30 Paris) dans ${Math.round(delay / 60000)} min`);
   const runAll = () => {
     generateSmartBias(true).catch(e => console.error('[SmartBias] failed:', e.message));
     generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
