@@ -4461,8 +4461,9 @@ function renderArlibList() {
     const badgeLabel = isPMT ? 'DTP'
       : isSW  ? (item.session || 'SW').slice(0,3).toUpperCase()
       : '';                    // (tag "FX" des rapports ING Think retiré à la demande)
-    const badgeClass = 'arlib-ptbadge-small';   // FX/SW/DTP : même style neutre (blanc) que les autres
-    const badge = badgeLabel ? `<span class="${badgeClass}">${badgeLabel}</span>` : '';
+    // Logo DTP à la place du code texte (DTP / ASI / EUR / AME) → branding terminal uniforme
+    // sur les rapports badgés (rapports DTP + session wraps).
+    const badge = badgeLabel ? `<img class="arlib-ptbadge-logo" src="/favicon.svg" alt="DTP" width="20" height="20" loading="lazy">` : '';
 
     const card = document.createElement('div');
     const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
