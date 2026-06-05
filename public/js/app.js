@@ -3437,7 +3437,7 @@ function _sbOpenSummary(curr) {
         <span class="sbs-head-title">Smart Bias Tracker</span>
         <div class="sbs-head-ctrls">
           ${_sbCurDropdown(curr, d.currencies)}
-          <select class="sbs-dd" title="Semaine (historique à venir)"><option>${esc(_sbWeekLabel(d.generatedAt))}</option></select>
+          <span class="sbs-cdd sbs-cdd--date" title="Semaine couverte (historique à venir)"><span class="sbs-cdd-cur">${esc(_sbWeekLabel(d.generatedAt))}</span><span class="sbs-cdd-caret">⌄</span></span>
         </div>
       </div>
       <div class="sbs-body" id="sbs-body">
