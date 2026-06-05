@@ -50,7 +50,7 @@ const _CSP_DIRECTIVES = {
   imgSrc:          ["'self'", 'data:', 'blob:', 'https:'],
   fontSrc:         ["'self'", 'data:', 'https:'],
   connectSrc:      ["'self'", 'https:', 'wss:', 'ws:'],
-  frameSrc:        ["'self'", 'https:'],
+  frameSrc:        ["'self'", 'https:', 'blob:'],   // blob: → PDF généré côté client (rapports Institution) embarqué en <iframe>
   workerSrc:       ["'self'", 'blob:'],
   objectSrc:       ["'none'"],
   baseUri:         ["'self'"],
