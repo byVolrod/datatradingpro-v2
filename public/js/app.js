@@ -3345,10 +3345,17 @@ function renderBiasView(d) {
   // En-têtes : micro-drapeau rond + code devise, cliquable → ouvre le Bias Summary inférieur.
   const head = `<tr><th class="sbm-ind">Indicators</th>${cur.map(c =>
     `<th class="sbm-cur" onclick="_sbOpenSummary('${c}')"><span class="sbm-cur-in">${_sbFlag(c)}<span>${esc(c)}</span></span></th>`).join('')}</tr>`;
-  const body = rows.map(r =>
-    `<tr><td class="sbm-ind">${esc(r.label)}</td>${
+  // Fundamental Data & Bank Overview = accordéons dans la matrice (clic → sous-indicateurs par devise).
+  const _accKeys = { fundamental: 1, bankOverview: 1 };
+  const body = rows.map(r => {
+    const isAcc = _accKeys[r.key];
+    const indCell = isAcc
+      ? `<td class="sbm-ind sbm-ind-acc" onclick="_sbMatToggleAcc('${r.key}',event)" title="Déplier les sous-indicateurs"><span class="sbm-acc-arrow">›</span>${esc(r.label)}</td>`
+      : `<td class="sbm-ind">${esc(r.label)}</td>`;
+    return `<tr data-mrow="${esc(r.key || '')}">${indCell}${
       cur.map(c => { const v = r.values[c] || 'N/A'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(v)}">${esc(v)}</td>`; }).join('')
-    }</tr>`).join('');
+    }</tr>`;
+  }).join('');
   const arrow = v => /bull|uptrend/i.test(v) ? '<span class="sbm-arr">↗</span>' : /bear|downtrend/i.test(v) ? '<span class="sbm-arr">↘</span>' : '';
   const concl = `<tr class="sbm-overall"><td class="sbm-ind">Overall Conclusion</td>${
     cur.map(c => { const v = (d.conclusion || {})[c] || 'N/A'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(v)}</td>`; }).join('')
@@ -3472,6 +3479,8 @@ function _sbOpenSummary(curr) {
     line('Monetary Policy', val('monetary')),
     line('Trend', val('trend')),
     line('Seasonality', val('seasonality')),
+    // Ligne Overall (conclusion) — encadrée orange façon PMT, en bas de la liste.
+    `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${esc(overall)}</span></div>`,
   ].filter(Boolean).join('');
 
   // Narratif data-driven (sans IA) : synthèse à partir des indicateurs de la devise.
@@ -3492,7 +3501,7 @@ function _sbOpenSummary(curr) {
         </div>
       </div>
       <div class="sbs-body" id="sbs-body">
-        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%">${leftRows}</div>
+        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Bias Summary</div>${leftRows}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} Performance Last Week:</div>
@@ -3597,6 +3606,71 @@ function _sbToggleAcc(key) {
   }
 }
 window._sbToggleAcc = _sbToggleAcc;
+
+// ── Accordéon de la MATRICE supérieure : Fundamental Data / Bank Overview se déplient en
+// sous-indicateurs avec une valeur PAR DEVISE (mêmes sources réelles que le volet : calendrier
+// pour Fundamental, positions de banques pour Bank Overview). 0 invention, 0 IA. ──
+function _sbMatEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function _sbFundMatrixRows(cur) {
+  return SB_FUND_SUBS.map(sub => {
+    const values = {};
+    cur.forEach(c => {
+      const ev = (_sbCalEv || []).filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && sub.re.test(e.title || ''))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+      values[c] = ev ? (_sbFundStance(ev.actual, ev.forecast) || '—') : '—';
+    });
+    return { label: sub.label, values };
+  });
+}
+function _sbBankMatrixRows(cur) {
+  const byBank = new Map();
+  (_sbBankPos || []).forEach(p => {
+    const name = (p.bank || '').replace(/\s+Research$/i, '').trim(); if (!name) return;
+    let e = byBank.get(name); if (!e) { e = { name, scores: {} }; byBank.set(name, e); }
+    cur.forEach(c => { const st = _sbBankStance(p, c); if (st) e.scores[c] = (e.scores[c] || 0) + (st === 'Bullish' ? 1 : -1); });
+  });
+  return [...byBank.values()].map(b => {
+    const values = {};
+    cur.forEach(c => { const s = b.scores[c] || 0; values[c] = s > 0 ? 'Bullish' : s < 0 ? 'Bearish' : '—'; });
+    return { label: b.name, values };
+  });
+}
+function _sbMatToggleAcc(key, e) {
+  if (e) e.stopPropagation();
+  const table = document.querySelector('.sbm-grid'); if (!table) return;
+  const headRow = table.querySelector(`tr[data-mrow="${key}"]`); if (!headRow) return;
+  const arrow = headRow.querySelector('.sbm-acc-arrow');
+  const existing = table.querySelectorAll(`tr.sbm-sub-row[data-parent="${key}"]`);
+  if (existing.length) { existing.forEach(n => n.remove()); arrow && arrow.classList.remove('open'); return; }   // toggle off
+  arrow && arrow.classList.add('open');
+  const cur = (_biasData && _biasData.currencies) || [];
+  const loading = document.createElement('tr');
+  loading.className = 'sbm-sub-row'; loading.dataset.parent = key;
+  loading.innerHTML = `<td class="sbm-ind sbm-sub">…</td><td class="sbm-cell sbm-na" colspan="${cur.length}">Chargement…</td>`;
+  headRow.after(loading);
+  const render = subRows => {
+    loading.remove();
+    let anchor = headRow;
+    if (!subRows.length) {
+      const tr = document.createElement('tr'); tr.className = 'sbm-sub-row'; tr.dataset.parent = key;
+      tr.innerHTML = `<td class="sbm-ind sbm-sub">—</td><td class="sbm-cell sbm-na" colspan="${cur.length}">Aucune donnée récente.</td>`;
+      anchor.after(tr); return;
+    }
+    subRows.forEach(sr => {
+      const tr = document.createElement('tr'); tr.className = 'sbm-sub-row'; tr.dataset.parent = key;
+      tr.innerHTML = `<td class="sbm-ind sbm-sub">${_sbMatEsc(sr.label)}</td>` + cur.map(c => {
+        const v = sr.values[c] || '—';
+        return v === '—'
+          ? `<td class="sbm-cell sbm-na">—</td>`
+          : `<td class="sbm-cell ${_sbColorCls(v)}" title="${_sbMatEsc(c)} · ${_sbMatEsc(sr.label)} : ${_sbMatEsc(v)}">${_sbMatEsc(v)}</td>`;
+      }).join('');
+      anchor.after(tr); anchor = tr;
+    });
+  };
+  if (key === 'fundamental') _sbLoadCal().then(() => render(_sbFundMatrixRows(cur)));
+  else _sbLoadBankPos().then(() => render(_sbBankMatrixRows(cur)));
+}
+window._sbMatToggleAcc = _sbMatToggleAcc;
 
 // Splitter redimensionnable (1px) entre volets gauche/droite.
 function _sbInitSplitter() {
