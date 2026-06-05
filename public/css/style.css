@@ -2661,7 +2661,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-grid { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
 .sbm-grid th.sbm-ind, .sbm-grid td.sbm-ind { width: 165px; }
 /* Cellules COLLÉES — séparées uniquement par une fine bordure 1px anthracite #111113 */
-.sbm-grid th, .sbm-grid td { border-bottom: 1px solid #111113; border-right: 1px solid #111113; }
+.sbm-grid th, .sbm-grid td { border: 1px solid #262626; }   /* quadrillage parfait 1px #262626 (spec PMT) */
 .sbm-grid thead th { background: #101012; color: #8a93a3; font-weight: 600; padding: 5px 6px; text-align: center; }
 .sbm-cur { cursor: pointer; transition: background .12s; }
 /* (survol de la matrice retiré à la demande — pas de highlight au passage du curseur) */
