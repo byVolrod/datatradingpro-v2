@@ -1,11 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────
-#  Prime Terminal — Synology Container Manager (ou tout Docker)
+#  DataTradingPro — Container Manager / VPS Docker
 #  Construit l'image (Chromium inclus) et lance le serveur en permanence.
 # ─────────────────────────────────────────────────────────────────────
 services:
-  prime-terminal:
+  datatradingpro:
     build: .
-    container_name: prime-terminal
+    container_name: datatradingpro
     restart: unless-stopped          # redémarre tout seul (reboot NAS inclus)
     ports:
       - "3000:3000"                  # accès : http://IP-DU-NAS:3000
