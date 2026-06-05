@@ -771,17 +771,20 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const min = yAxis.get('min'), max = yAxis.get('max');
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
-      const GAP = 19;  // px minimum entre deux badges (façon PMT : empilement propre, aucun chevauchement)
-      // Position pixel de chaque badge (0 = haut)
+      const GAP = 20;  // hauteur badge + marge (façon PMT) : empilement strict, aucun chevauchement
+      // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas
       const arr = Object.entries(labelMap).map(([ccy, o]) => {
         const v = o.value != null ? o.value : 0;
         const px = (max - v) / (max - min) * h;
         return { ccy, o, basePx: px, px };
       }).filter(x => isFinite(x.basePx)).sort((a, b) => a.px - b.px);
-      // Passe descendante : pousse vers le bas si trop proche
+      // Passe descendante : tout badge à moins de GAP du précédent est poussé vers le bas
       for (let i = 1; i < arr.length; i++) {
         if (arr[i].px - arr[i - 1].px < GAP) arr[i].px = arr[i - 1].px + GAP;
       }
+      // Si la pile déborde en bas du cadre, on la remonte EN BLOC → aucun badge coupé / hors-grille
+      const over = arr.length ? Math.max(0, arr[arr.length - 1].px - (h - 2)) : 0;
+      if (over > 0) arr.forEach(x => { x.px -= over; });
       arr.forEach(x => {
         const lbl = x.o.range?.get('label');
         if (lbl) try { lbl.set('dy', Math.round(x.px - x.basePx)); } catch {}
