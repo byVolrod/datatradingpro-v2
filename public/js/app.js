@@ -3342,9 +3342,12 @@ function renderBiasView(d) {
   }</tr>`;
 
   host.innerHTML = `
-    <div class="sbm-grid-wrap">
-      <table class="sbm-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
+    <div class="sbm-matrix-zone" id="sbm-matrix-zone" style="height:${_sbMatrixH}px">
+      <div class="sbm-grid-wrap">
+        <table class="sbm-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
+      </div>
     </div>
+    <div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>
     <div id="sbm-summary" class="sbm-summary-host"></div>`;
   // Bias Summary affiché DIRECTEMENT (plus de clic requis) : on garde la devise active, sinon la 1ère.
   if (cur.length) _sbOpenSummary(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
@@ -3359,7 +3362,31 @@ function _sbWeekLabel(ts) {
 }
 
 // ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──
-let _sbActiveCur = null, _sbSplitFrac = 0.46;
+let _sbActiveCur = null, _sbSplitFrac = 0.46, _sbMatrixH = 340;   // _sbMatrixH = hauteur matrice (volatile, splitter orange)
+// Splitter orange HORIZONTAL : glisser pour redimensionner la matrice ↔ le panneau détail.
+function _sbVSplitStart(e) {
+  e.preventDefault();
+  const zone = document.getElementById('sbm-matrix-zone'); if (!zone) return;
+  const startY = e.clientY, startH = zone.offsetHeight;
+  document.body.style.cursor = 'row-resize'; document.body.style.userSelect = 'none';
+  const onMove = ev => { let h = startH + (ev.clientY - startY); h = Math.max(120, Math.min(760, h)); _sbMatrixH = h; zone.style.height = h + 'px'; };
+  const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); document.body.style.cursor = ''; document.body.style.userSelect = ''; };
+  window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp);
+}
+window._sbVSplitStart = _sbVSplitStart;
+// Dropdown devise CUSTOM (drapeau rond + code + caret ; popover "Scanner" ; actif = orange, hover = clair).
+function _sbCurDropdown(curr, currencies) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const items = (currencies || []).map(c =>
+    `<div class="sbs-cdd-item${c === curr ? ' active' : ''}" onclick="event.stopPropagation();_sbPickCur('${c}')">${_sbFlag(c)}<span>${esc(c)}</span></div>`).join('');
+  return `<div class="sbs-cdd" onclick="_sbToggleCurDd(event)">
+    <span class="sbs-cdd-cur">${_sbFlag(curr)}<span>${esc(curr)}</span></span><span class="sbs-cdd-caret">⌄</span>
+    <div class="sbs-cdd-menu" hidden><div class="sbs-cdd-title">Scanner</div>${items}</div></div>`;
+}
+function _sbToggleCurDd(e) { e.stopPropagation(); const m = e.currentTarget.querySelector('.sbs-cdd-menu'); if (!m) return; const wasOpen = !m.hasAttribute('hidden'); document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); if (!wasOpen) m.removeAttribute('hidden'); }
+function _sbPickCur(c) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbOpenSummary(c); }
+window._sbToggleCurDd = _sbToggleCurDd; window._sbPickCur = _sbPickCur;
+if (!window._sbCddCloser) { window._sbCddCloser = true; document.addEventListener('click', () => document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', ''))); }
 function _sbOpenSummary(curr) {
   _sbActiveCur = curr;
   const wrap = document.getElementById('sbm-summary');
@@ -3408,8 +3435,7 @@ function _sbOpenSummary(curr) {
       <div class="sbs-head">
         <span class="sbs-head-title">Bias Summary</span>
         <div class="sbs-head-ctrls">
-          <span class="sbs-dd-flag">${_sbFlag(curr)}</span>
-          <select class="sbs-dd" onchange="_sbOpenSummary(this.value)" title="Devise">${(d.currencies || []).map(c => `<option value="${c}"${c === curr ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
+          ${_sbCurDropdown(curr, d.currencies)}
           <select class="sbs-dd" title="Semaine (historique à venir)"><option>${esc(_sbWeekLabel(d.generatedAt))}</option></select>
         </div>
       </div>
