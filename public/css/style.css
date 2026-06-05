@@ -2664,7 +2664,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-grid th, .sbm-grid td { border-bottom: 1px solid #111113; border-right: 1px solid #111113; }
 .sbm-grid thead th { background: #101012; color: #8a93a3; font-weight: 600; padding: 5px 6px; text-align: center; }
 .sbm-cur { cursor: pointer; transition: background .12s; }
-.sbm-cur:hover { background: #17171b; }
+/* (survol de la matrice retiré à la demande — pas de highlight au passage du curseur) */
 .sbm-cur-in { display: flex; align-items: center; gap: 6px; justify-content: center; }
 .sbm-flag { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
 .sbm-ind { background: #0d0d0d; color: #cbd5e1; text-align: left; padding: 4px 12px; white-space: nowrap; font-weight: 500; }
@@ -2704,7 +2704,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbs-dd:focus { outline: none; border-color: #f7941d; }
 /* Splitter ORANGE horizontal entre la matrice et les détails (redimensionnable) */
 .sbm-matrix-zone { overflow-y: auto; }
-.sbm-vsplit { height: 4px; background: #f7941d; cursor: row-resize; margin: 0; transition: background .12s, box-shadow .12s; }   /* collé : zéro vide entre matrice et bas */
+/* Splitter horizontal = même logique que le resizer News : 1px neutre, orange au survol/drag, collé (zéro vide) */
+.sbm-vsplit { height: 1px; background: #1c1c20; cursor: row-resize; margin: 0; position: relative; }
+.sbm-vsplit::after { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; cursor: row-resize; }   /* zone grabbable */
+.sbm-vsplit:hover, body.is-resizing-v .sbm-vsplit { background: rgba(255,122,0,0.72); }
 .sbm-vsplit:hover { background: #ff9a2e; box-shadow: 0 0 8px rgba(247,148,29,.45); }
 /* Dropdown devise CUSTOM (drapeau rond + code + caret ; popover "Scanner") */
 .sbs-cdd { position: relative; display: inline-flex; align-items: center; gap: 6px; background: #0c0c0e; border: 1px solid #26262b; border-radius: 5px; padding: 4px 9px; cursor: pointer; font-size: 11px; color: #e5e7eb; min-width: 82px; }
@@ -2721,9 +2724,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbs-body { display: flex; align-items: stretch; position: relative; height: 420px; }
 .sbs-left { flex-grow: 0; flex-shrink: 0; flex-basis: 46%; overflow-y: auto; padding: 6px 0; }
 .sbs-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 12px 14px; }
-.sbs-split { flex: 0 0 3px; width: 3px; background: #f7941d; cursor: col-resize; position: relative; transition: background .12s, box-shadow .12s; }
-.sbs-split::after { content: ''; position: absolute; top: 0; bottom: 0; left: -5px; right: -5px; }   /* zone de clic élargie */
-.sbs-split:hover { background: #ff9a2e; box-shadow: 0 0 8px rgba(247,148,29,.45); }
+/* Splitter vertical = même style que le resizer News (.layout-resizer) : 1px neutre, orange au survol/drag */
+.sbs-split { flex: 0 0 1px; width: 1px; background: #1c1c20; cursor: col-resize; position: relative; }
+.sbs-split::after { content: ''; position: absolute; top: 0; bottom: 0; left: -6px; right: -6px; cursor: col-resize; }   /* zone grabbable */
+.sbs-split:hover, body.is-resizing .sbs-split { background: rgba(255,122,0,0.72); }
 .sbs-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 14px; border-bottom: 1px solid rgba(20,20,22,.6); }
 .sbs-row-lbl { font-size: 12px; color: #cbd5e1; }
 .sbs-acc { cursor: pointer; }
