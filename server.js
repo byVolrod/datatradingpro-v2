@@ -4951,12 +4951,19 @@ function mergeItems(incoming) {
   // Spam cap: max 8 data items per batch across all data categories
   const DATA_CATS_CAP = new Set(['Economic Commentary', 'EU Data', 'US Data', 'UK Data',
     'Swiss Data', 'Japanese Data', 'Canadian Data', 'Australian Data', 'Chinese Data']);
+  // Données TIER-1 (GDP, CPI/inflation, NFP/payrolls, chômage, emploi, ventes au détail,
+  // décisions de taux) → JAMAIS plafonnées, quel que soit le libellé : abrégé ("GDP") OU
+  // en toutes lettres ("Gross Domestic Product"), FF calendar OU FinancialJuice/FXStreet.
+  // Le plafond ne doit étouffer que le BRUIT data secondaire, pas les vraies sorties importantes.
+  const TIER1_DATA_RE = /\b(gdp|gross\s+domestic\s+product|cpi|consumer\s+price|core\s+inflation|inflation\s+rate|\bpce\b|hicp|nonfarm|non.?farm\s+payroll|\bpayrolls?\b|unemployment|employment\s+change|retail\s+sales|rate\s+decision|(?:fomc|ecb|boe|boj|snb|rba|rbnz|boc)\b)/i;
   const recentData = allNews.filter(
     i => DATA_CATS_CAP.has(i.category) && Date.now() - i.timestamp < 2 * 60_000
   ).length;
   let dataAllowed = Math.max(0, 8 - recentData);
   const capped = newItems.filter(i => {
     if (!DATA_CATS_CAP.has(i.category)) return true;
+    // Tier-1 (priorité haute OU libellé reconnu) → exempté du plafond : jamais perdu.
+    if (i.priority === 'high' || TIER1_DATA_RE.test(i.headline || '')) return true;
     if (dataAllowed > 0) { dataAllowed--; return true; }
     return false;
   });
