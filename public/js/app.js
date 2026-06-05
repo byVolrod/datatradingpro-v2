@@ -3342,7 +3342,7 @@ function renderBiasView(d) {
   }</tr>`;
 
   host.innerHTML = `
-    <div class="sbm-matrix-zone" id="sbm-matrix-zone" style="height:${_sbMatrixH}px">
+    <div class="sbm-matrix-zone" id="sbm-matrix-zone"${_sbMatrixH ? ` style="height:${_sbMatrixH}px"` : ''}>
       <div class="sbm-grid-wrap">
         <table class="sbm-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
       </div>
@@ -3362,7 +3362,7 @@ function _sbWeekLabel(ts) {
 }
 
 // ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──
-let _sbActiveCur = null, _sbSplitFrac = 0.46, _sbMatrixH = 340;   // _sbMatrixH = hauteur matrice (volatile, splitter orange)
+let _sbActiveCur = null, _sbSplitFrac = 0.46, _sbMatrixH = null;   // _sbMatrixH = hauteur matrice (null = auto, sinon fixée par le glissement)
 // Splitter orange HORIZONTAL : glisser pour redimensionner la matrice ↔ le panneau détail.
 function _sbVSplitStart(e) {
   e.preventDefault();
@@ -3433,7 +3433,7 @@ function _sbOpenSummary(curr) {
   wrap.innerHTML = `
     <div class="sbs-panel">
       <div class="sbs-head">
-        <span class="sbs-head-title">Bias Summary</span>
+        <span class="sbs-head-title">Smart Bias Tracker</span>
         <div class="sbs-head-ctrls">
           ${_sbCurDropdown(curr, d.currencies)}
           <select class="sbs-dd" title="Semaine (historique à venir)"><option>${esc(_sbWeekLabel(d.generatedAt))}</option></select>
