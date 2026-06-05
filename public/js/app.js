@@ -4036,13 +4036,20 @@ const _BANK_DOMAIN = {
   NatWest: 'natwest.com', Rabo: 'rabobank.com', Scotia: 'scotiabank.com', Westpac: 'westpac.com.au',
   Commerz: 'commerzbank.com', NAB: 'nab.com.au', ANZ: 'anz.com', Nordea: 'nordea.com', SEB: 'sebgroup.com',
 };
+// Logos téléchargés en local (assets PMT) → prioritaires sur Clearbit pour ces banques.
+const _BANK_LOCAL_LOGO = {
+  MUFG: '/assets/images/banks/MUFG.png',
+  SEB:  '/assets/images/banks/SEB.png',
+  ING:  '/assets/images/banks/ING.png',
+};
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
   const color = _instBrandColor(label);
   const wm = `<span class="br-dtp-logo" style="color:${color}">${label}</span>`;
-  const dom = _BANK_DOMAIN[label];
-  if (!dom || label === 'DTP') return wm;
-  const url = `https://logo.clearbit.com/${dom}`;
+  if (label === 'DTP') return wm;
+  // Logo local (MUFG/SEB/ING) prioritaire, sinon Clearbit via le domaine officiel.
+  const url = _BANK_LOCAL_LOGO[label] || (_BANK_DOMAIN[label] ? `https://logo.clearbit.com/${_BANK_DOMAIN[label]}` : null);
+  if (!url) return wm;
   return `<span class="br-bank-logo-wrap"><img class="br-bank-logo" src="${url}" alt="${label}" `
     + `onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';">`
     + `<span class="br-dtp-logo" style="color:${color};display:none">${label}</span></span>`;
@@ -4460,7 +4467,8 @@ function renderArlibList() {
     const isING  = item._source === 'ing-think';
     const badgeLabel = isPMT ? 'DTP'
       : isSW  ? (item.session || 'SW').slice(0,3).toUpperCase()
-      : '';                    // (tag "FX" des rapports ING Think retiré à la demande)
+      : isING ? 'DTP'          // FX Daily (ING Think) → logo DTP aussi
+      : '';
     // Logo DTP à la place du code texte (DTP / ASI / EUR / AME) → branding terminal uniforme
     // sur les rapports badgés (rapports DTP + session wraps).
     const badge = badgeLabel ? `<img class="arlib-ptbadge-logo" src="/favicon.svg" alt="DTP" width="20" height="20" loading="lazy">` : '';
