@@ -4045,14 +4045,14 @@ const _BANK_LOCAL_LOGO = {
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
   const color = _instBrandColor(label);
-  const wm = `<span class="br-dtp-logo" style="color:${color}">${label}</span>`;
-  if (label === 'DTP') return wm;
+  // Nom de la banque : TOUJOURS affiché (à côté du logo).
+  const name = `<span class="br-dtp-logo br-inst-name" style="color:${color}">${label}</span>`;
+  if (label === 'DTP') return name;
   // Logo local (MUFG/SEB/ING) prioritaire, sinon Clearbit via le domaine officiel.
   const url = _BANK_LOCAL_LOGO[label] || (_BANK_DOMAIN[label] ? `https://logo.clearbit.com/${_BANK_DOMAIN[label]}` : null);
-  if (!url) return wm;
-  return `<span class="br-bank-logo-wrap"><img class="br-bank-logo" src="${url}" alt="${label}" `
-    + `onerror="this.style.display='none';this.nextElementSibling.style.display='inline-block';">`
-    + `<span class="br-dtp-logo" style="color:${color};display:none">${label}</span></span>`;
+  if (!url) return name;
+  // Logo + NOM côte à côte : le nom reste toujours visible ; le logo se masque seulement s'il échoue.
+  return `<span class="br-bank-logo-wrap"><img class="br-bank-logo" src="${url}" alt="${label}" onerror="this.style.display='none'">${name}</span>`;
 }
 
 // Robustesse images : masque toute image cassée / placeholder (jamais de cadre d'image vide).
