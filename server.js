@@ -4316,7 +4316,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v2-cal';   // v2 : 100% calendrier (0 IA) → bump force la régénération
+const WA_VER = 'v3-detailed';   // v3 : liste d'événements DÉTAILLÉE par jour (façon PMT) → bump force la régénération
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4350,11 +4350,18 @@ async function generateWeekAhead(force = false) {
     const ccys = [...new Set(hiEvs.map(e => e.currency).filter(Boolean))].slice(0, 3);
     const themes = [...new Set(evs.map(e => _theme(e.title || '')).filter(Boolean))].slice(0, 2);
     const title = (themes.length ? themes.join(' & ') : 'Key Economic Data') + (ccys.length ? ' — ' + ccys.join(', ') : '');
-    const base = (hiEvs.length ? hiEvs : evs).slice(0, 7);
+    const base = (hiEvs.length ? hiEvs : evs).slice(0, 10);
     const description = base.map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (prév. ${e.forecast})` : ''}`.trim()).join(' · ') || 'Données économiques de la journée.';
+    // Liste DÉTAILLÉE d'événements (façon PMT) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
+    const events = base.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(e => ({
+      time: e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '',
+      ccy: e.currency || '', title: (e.title || '').slice(0, 90),
+      forecast: e.forecast || '', previous: e.previous || '',
+      impact: e.impact === 'High' ? 'HIGH' : 'MED',
+    }));
     return {
       dow: d.toLocaleDateString('en-US', { weekday: 'long' }), date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
-      title: title.slice(0, 170), description: description.slice(0, 750), impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+      title: title.slice(0, 170), description: description.slice(0, 750), events, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
     };
   });
   if (!days.length) return _weekAhead;
@@ -4369,11 +4376,11 @@ async function generateWeekAhead(force = false) {
 let _waGenerating = false;
 app.get('/api/week-ahead', (_req, res) => {
   // NE BLOQUE JAMAIS : si pas encore généré, on lance la génération EN ARRIÈRE-PLAN et on répond tout de suite.
-  if (!_weekAhead && !_waGenerating) {
+  if ((!_weekAhead || _weekAhead.v !== WA_VER) && !_waGenerating) {   // absent OU version périmée → régén self-heal en fond
     _waGenerating = true;
     generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; });
   }
-  res.json(_weekAhead || { week: '', days: [], generating: true });   // generating:true → le front affiche "préparation…" et re-poll
+  res.json(_weekAhead || { week: '', days: [], generating: true });   // sert l'existant (upgradé en fond si périmé) ; generating:true → front re-poll
 });
 
 // Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide

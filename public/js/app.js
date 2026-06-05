@@ -3228,8 +3228,19 @@ function _renderWeekAhead(d) {
           <span class="wa-card-title">${esc(day.title)}</span>
           <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}">${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
         </div>
+        ${Array.isArray(day.events) && day.events.length ? `
+        <div class="wa-events">${day.events.map(ev => `
+          <div class="wa-ev">
+            <span class="wa-ev-time">${esc(ev.time || '—')}</span>
+            <span class="wa-ev-ccy">${esc(ev.ccy || '')}</span>
+            <span class="wa-ev-name" title="${esc(ev.title || '')}">${esc(ev.title || '')}</span>
+            <span class="wa-ev-data">${ev.forecast ? `<span class="wa-ev-k">prév.</span> ${esc(ev.forecast)}` : ''}${ev.previous ? ` <span class="wa-ev-k">préc.</span> ${esc(ev.previous)}` : ''}</span>
+            <span class="wa-ev-imp wa-ev-imp--${ev.impact === 'HIGH' ? 'high' : 'med'}" title="${ev.impact === 'HIGH' ? 'High impact' : 'Medium impact'}"></span>
+          </div>`).join('')}</div>
+        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>`
+        : `
         <div class="wa-card-desc">${esc(day.description)}</div>
-        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>
+        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>`}
       </div>
     </div>`;
   }).join('');
@@ -3240,8 +3251,9 @@ function _renderWeekAhead(d) {
   </div>`;
   requestAnimationFrame(() => {
     host.querySelectorAll('.wa-card').forEach(c => {
-      const desc = c.querySelector('.wa-card-desc'), btn = c.querySelector('.wa-more');
-      if (desc && btn && desc.scrollHeight <= desc.clientHeight + 4) btn.style.display = 'none';   // pas de débordement → pas de bouton
+      const body = c.querySelector('.wa-events') || c.querySelector('.wa-card-desc');
+      const btn = c.querySelector('.wa-more');
+      if (body && btn && body.scrollHeight <= body.clientHeight + 4) btn.style.display = 'none';   // pas de débordement → pas de bouton
     });
     _waBuildChart(d.days || []);
   });
