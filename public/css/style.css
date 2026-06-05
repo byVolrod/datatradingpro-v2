@@ -4365,6 +4365,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .ai-insights-nav button:hover { color: #fff; }
 .ai-insights-count { font-size: 11px; font-weight: 500; color: #737373; font-family: var(--font-mono); }   /* neutral-500 mono */
 .ai-insights-load { font-size: 11px; font-weight: 500; color: var(--text4); font-style: italic; }
+.ai-insights-loading { font-size: 12px; color: #6b7280; padding: 4px 0 2px; }   /* "Loading summaries…" sous le titre (même endroit que le header final) */
 .ai-insights-cards {
   display: flex; gap: 12px; overflow-x: auto; padding-bottom: 18px;   /* gap-3 */
   border-bottom: 1px solid #1e1e1e;

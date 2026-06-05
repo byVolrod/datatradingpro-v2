@@ -4520,7 +4520,7 @@ async function _loadAIInsights(item, el) {
   const ck = item.id || (item.headline || '').slice(0, 60);
   let d = _aiInsightsCache[ck];
   if (!d) {
-    el.innerHTML = '<div class="ai-insights-head"><span class="ai-insights-dot">✦</span> AI Insights <span class="ai-insights-load">· analyse…</span></div>';
+    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16" decoding="sync"> AI Insights</span></div><div class="ai-insights-loading">Loading summaries…</div>`;
     try {
       // Déduplication : si une requête est déjà en vol pour CE rapport (ex. double appel
       // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
