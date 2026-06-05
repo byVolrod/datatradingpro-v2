@@ -4073,7 +4073,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v3-narr';   // v3 : + narratif IA hebdo par devise (repli data-driven)   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
+const BIAS_VER = 'v4-struct';   // v4 : narratif IA STRUCTURÉ (synthèse/dynamique/thèmes/outlook) + conclusion déterministe   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -4241,16 +4241,22 @@ async function _sbGenerateNarratives(rows, conclusion, ctxLines) {
       return `${c} (Overall ${conclusion[c] || 'Neutral'}): ${ind}`;
     }).join('\n');
     const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 1400);
-    const prompt = `You are a senior FX strategist. For EACH of the 8 currencies, write a concise 2-3 sentence WEEKLY bias narrative in English, grounded ONLY on the indicator values and context below. Explain WHY the bias is what it is. Do NOT invent data; if signals are mixed, say so.
+    const prompt = `You are a senior institutional FX strategist writing the weekly "Performance Last Week" desk notes. For EACH of the 8 currencies, write a STRUCTURED professional report (~150-200 words) in English, grounded ONLY on the indicators + context below. NEVER contradict the computed Overall bias.
+
+Each report MUST follow this structure (flowing prose, short paragraphs, NO markdown headers, NO bullet symbols):
+1) Opening synthesis linking the currency to global flows (geopolitics, liquidity/risk sentiment, USD direction).
+2) Week dynamics: early-week vs midweek vs Thursday/Friday.
+3) Themes: impact of economic data (growth, inflation, consumption, energy…) AND the relevant central bank's stance (USD=Fed, EUR=ECB, GBP=BoE, JPY=BoJ, CHF=SNB, CAD=BoC, AUD=RBA, NZD=RBNZ).
+4) Outlook: end with "Near term:" (explicit bias + breakout conditions), then "Longer term:" (structural macro view).
 
 INDICATORS:
 ${matrix}
 
-CONTEXT (real sources):
+CONTEXT (real sources this week):
 ${ctx}
 
-Return ONLY valid JSON, no prose: {"USD":"...","EUR":"...","GBP":"...","CAD":"...","AUD":"...","NZD":"...","JPY":"...","CHF":"..."}`;
-    const out = await ai.generateText(prompt, 1500);
+Return ONLY valid JSON (no prose, no markdown fences), values are the report strings: {"USD":"...","EUR":"...","GBP":"...","CAD":"...","AUD":"...","NZD":"...","JPY":"...","CHF":"..."}`;
+    const out = await ai.generateText(prompt, 3000);
     const m = out && out.match(/\{[\s\S]*\}/);
     if (!m) return null;
     const obj = JSON.parse(m[0]);
