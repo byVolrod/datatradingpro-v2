@@ -4103,7 +4103,7 @@ const SB_GEM_ROWS = [
   { key: 'hedgeFund', label: 'Hedge Fund Positioning' },
   { key: 'retail', label: 'Retail Positioning' },
   { key: 'monetary', label: 'Monetary Policy' },
-  { key: 'seasonality', label: 'Seasonality' },
+  // seasonality : NON géré par l'IA → calculé en dur depuis la saisonnalité réelle (cf. _sbSeasonalityRow)
 ];
 
 // Trend RÉEL dérivé de la force des devises (pente sur la semaine)
@@ -4118,6 +4118,34 @@ async function _sbTrendRow() {
       out[c] = d > 0.4 ? 'Uptrend' : d < -0.4 ? 'Downtrend' : 'Range';
     });
   } catch { SB_CURRENCIES.forEach(c => out[c] = 'Range'); }
+  return out;
+}
+
+// Seasonality RÉELLE (même méthodo que market-bulls : rendement moyen du mois civil sur 5 ans),
+// dérivée de la courbe saisonnière déjà calculée par FX List (_seasonal) → AUCUN fetch en plus, AUCUNE IA.
+// Par paire : rendement saisonnier du MOIS COURANT = seasonal[m] - seasonal[m-1] (courbe cumulée Jan→Déc).
+// Agrégation par devise comme la force : la devise de base gagne quand la paire monte, la devise de cotation perd.
+async function _sbSeasonalityRow() {
+  const out = {};
+  try {
+    const fx = await computeFxList();
+    const pairs = fx?.pairs || [];
+    const m = new Date().getUTCMonth();   // mois courant (le bias se régénère chaque semaine)
+    const score = {}, cnt = {};
+    SB_CURRENCIES.forEach(c => { score[c] = 0; cnt[c] = 0; });
+    pairs.forEach(p => {
+      const s = p.seasonal;
+      if (!Array.isArray(s) || s.length < 12) return;
+      const mRet = s[m] - (m > 0 ? s[m - 1] : 0);   // rendement saisonnier moyen du mois courant
+      if (!Number.isFinite(mRet)) return;
+      if (SB_CURRENCIES.includes(p.base))  { score[p.base]  += mRet; cnt[p.base]++; }
+      if (SB_CURRENCIES.includes(p.quote)) { score[p.quote] -= mRet; cnt[p.quote]++; }
+    });
+    SB_CURRENCIES.forEach(c => {
+      const avg = cnt[c] ? score[c] / cnt[c] : 0;   // tendance saisonnière nette de la devise (%)
+      out[c] = avg > 0.25 ? 'Bullish' : avg < -0.25 ? 'Bearish' : 'Neutral';
+    });
+  } catch { SB_CURRENCIES.forEach(c => out[c] = 'Neutral'); }
   return out;
 }
 
@@ -4171,7 +4199,6 @@ Map each indicator to its SOURCE (use ONLY that source):
 - hedgeFund: large-speculator positioning → from the COT DATA below ONLY (net long → Bullish, net short → Bearish; bigger net = stronger conviction). Currency absent from COT → Neutral.
 - retail: retail crowd positioning (CONTRARIAN) → from the RETAIL SENTIMENT below. Retail heavily LONG a currency (via its pairs) → bias it Bearish; heavily SHORT → Bullish. No retail data for a currency → Neutral.
 - monetary: central-bank policy stance → from CALENDAR central-bank events (rate decisions) + headlines mentioning central banks / officials.
-- seasonality: typical early-June seasonal tendency (your knowledge) — keep it modest.
 
 == COT DATA (CFTC non-commercial / large specs — the ONLY source for hedgeFund) ==
 ${cotLine || 'n/a'}
@@ -4186,7 +4213,7 @@ ${calLine || 'n/a'}
 == PAST-WEEK HEADLINES ==
 ${heads || 'n/a'}
 
-Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"hedgeFund":{...},"retail":{...},"monetary":{...},"seasonality":{...}}}`;
+Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"hedgeFund":{...},"retail":{...},"monetary":{...}}}`;
 
   let gem = {};
   try {
@@ -4203,11 +4230,13 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   if (!Object.keys(gem).length) return _smartBias;
 
   const trend = await _sbTrendRow();
+  const seasonality = await _sbSeasonalityRow();   // RÉELLE (saisonnalité 5 ans, cf. _sbSeasonalityRow) — plus de devinette IA
   // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés PMT.
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
     const vals = SB_GEM_ROWS.map(r => (gem[r.key] ? gem[r.key][c] : null));
     vals.push(trend[c]);
+    vals.push(seasonality[c]);
     conclusion[c] = concludeBias(vals);
   });
 
@@ -4218,7 +4247,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
     rows.push({ key: k, label: def.label, values: gem[k] || {} });
   });
   rows.push({ key: 'trend', label: 'Trend', values: trend });
-  rows.push({ key: 'seasonality', label: 'Seasonality', values: gem.seasonality || {} });
+  rows.push({ key: 'seasonality', label: 'Seasonality', values: seasonality });
 
   // Narratif IA hebdo par devise (UN seul appel → JSON). Repli null → le frontend compose une synthèse data-driven.
   let narrative = null;
