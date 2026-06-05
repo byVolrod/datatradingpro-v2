@@ -4073,7 +4073,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v4-struct';   // v4 : narratif IA STRUCTURÉ (synthèse/dynamique/thèmes/outlook) + conclusion déterministe   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
+const BIAS_VER = 'v5-pro';   // v5 : narratif IA INSTITUTIONNEL long (chrono/banque centrale/data/taux/outlook) + figures exactes   // bump → force une régénération (ici : nouvel ancrage COT/retail/banques/calendrier)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -4240,23 +4240,24 @@ async function _sbGenerateNarratives(rows, conclusion, ctxLines) {
       const ind = rows.map(r => `${r.label}=${r.values[c] || 'Neutral'}`).join(', ');
       return `${c} (Overall ${conclusion[c] || 'Neutral'}): ${ind}`;
     }).join('\n');
-    const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 1400);
-    const prompt = `You are a senior institutional FX strategist writing the weekly "Performance Last Week" desk notes. For EACH of the 8 currencies, write a STRUCTURED professional report (~150-200 words) in English, grounded ONLY on the indicators + context below. NEVER contradict the computed Overall bias.
+    const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 2600);   // + de données réelles → figures exactes
+    const prompt = `You are a TOP-TIER institutional FX strategist and macro analyst. For EACH of the 8 currencies, write the weekly "[CCY] Performance Last Week" desk report — LONG and exhaustive (~350-450 words EACH), cold, analytical, technical. Use institutional FX vocabulary (safe-haven demand, hawkish repricing, rangebound, lacklustre, stagflation-style mix, front-end yields, bid-to-cover, higher-for-longer). MAXIMUM information density: every sentence carries a macro fact, a figure, a central-bank decision, or a precise geopolitical flow — NO filler. NEVER contradict each currency's computed Overall bias. Ground EVERYTHING strictly on the REAL data below (do not invent figures).
 
-Each report MUST follow this structure (flowing prose, short paragraphs, NO markdown headers, NO bullet symbols):
-1) Opening synthesis linking the currency to global flows (geopolitics, liquidity/risk sentiment, USD direction).
-2) Week dynamics: early-week vs midweek vs Thursday/Friday.
-3) Themes: impact of economic data (growth, inflation, consumption, energy…) AND the relevant central bank's stance (USD=Fed, EUR=ECB, GBP=BoE, JPY=BoJ, CHF=SNB, CAD=BoC, AUD=RBA, NZD=RBNZ).
-4) Outlook: end with "Near term:" (explicit bias + breakout conditions), then "Longer term:" (structural macro view).
+Each report MUST follow EXACTLY this structure (flowing prose, NO markdown headers, NO bullets):
+Para 1 — Weekly chronology: tie the currency to the week's themes (Middle East geopolitics, global risk appetite, USD sentiment); detail "Early in the week", "Midweek", "By Thursday/Friday".
+Para 2 — Monetary policy: the relevant central bank (USD=Fed, EUR=ECB, GBP=BoE, JPY=BoJ, CHF=SNB, CAD=BoC, AUD=RBA, NZD=RBNZ); NAME the speakers found in the context and explain their stance (higher-for-longer, second-round inflation vigilance).
+Para 3 — Macro data: cite the week's releases with EXACT actual vs consensus figures from the context; explain the impact on investor psychology and purchasing power.
+Para 4 — Rates & bonds: government bond behaviour (Treasuries/Gilts/Bunds/JGBs…) and debt auctions (bid-to-cover) from the context.
+Outlook — "Near term:" explicit bias (aligned with the computed bias) + the precise technical/fundamental triggers that would invalidate it; then "Longer term:" structural macro balance (stagflation risk, political risk premium, growth resilience).
 
-INDICATORS:
+COMPUTED BIAS MATRIX (never contradict these colours):
 ${matrix}
 
-CONTEXT (real sources this week):
+REAL CONTEXT (this week — COT, bank research, economic calendar actual vs forecast, risk regime, news):
 ${ctx}
 
-Return ONLY valid JSON (no prose, no markdown fences), values are the report strings: {"USD":"...","EUR":"...","GBP":"...","CAD":"...","AUD":"...","NZD":"...","JPY":"...","CHF":"..."}`;
-    const out = await ai.generateText(prompt, 3000);
+Return ONLY valid JSON (no prose, no fences): {"USD":"...","EUR":"...","GBP":"...","CAD":"...","AUD":"...","NZD":"...","JPY":"...","CHF":"..."}`;
+    const out = await ai.generateText(prompt, 6000);
     const m = out && out.match(/\{[\s\S]*\}/);
     if (!m) return null;
     const obj = JSON.parse(m[0]);
