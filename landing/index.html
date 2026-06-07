@@ -110,6 +110,48 @@
   @media(max-width:880px){.features{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:560px){.features{grid-template-columns:1fr}}
 
+  /* ── SHOWCASE (le terminal en action) ── */
+  #showcase{border-top:1px solid var(--line)}
+  .show-row{display:grid;grid-template-columns:1fr 1fr;gap:clamp(28px,5vw,64px);align-items:center;margin-bottom:clamp(48px,8vw,88px)}
+  .show-row:last-child{margin-bottom:0}
+  .show-row.rev .show-txt{order:2}
+  .show-txt .tag{font-size:12.5px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:.09em}
+  .show-txt h3{font-size:clamp(21px,3.2vw,29px);font-weight:800;letter-spacing:-.02em;margin:11px 0 13px;line-height:1.16}
+  .show-txt>p{color:var(--text2);font-size:15px;line-height:1.7;margin-bottom:18px}
+  .show-txt ul{list-style:none;display:flex;flex-direction:column;gap:11px}
+  .show-txt li{display:flex;gap:10px;font-size:14.5px;color:var(--text)}
+  .show-txt li svg{width:18px;height:18px;color:var(--orange);flex-shrink:0;margin-top:2px}
+  .shot{position:relative;border:1px solid var(--line2);border-radius:12px;overflow:hidden;background:var(--bg1);box-shadow:0 40px 90px -50px #000,0 0 0 1px rgba(247,148,29,.04)}
+  .shot-bar{display:flex;align-items:center;gap:7px;padding:9px 13px;background:var(--bg2);border-bottom:1px solid var(--line)}
+  .shot-bar .d{width:9px;height:9px;border-radius:50%}
+  .shot-bar .t{margin-left:8px;font-family:var(--mono);font-size:11px;color:var(--text3)}
+  @media(max-width:760px){.show-row{grid-template-columns:1fr;gap:22px}.show-row.rev .show-txt{order:0}}
+  /* matrice de biais */
+  .bmx{font-family:var(--mono)}
+  .bmx-row{display:grid;grid-template-columns:78px repeat(6,1fr);gap:3px;margin-bottom:3px}
+  .bmx-head span{color:var(--text3);text-align:center;font-weight:700;font-size:10px;padding:2px 0}
+  .bmx-head span:first-child{text-align:left}
+  .bmx-lbl{display:flex;align-items:center;color:var(--text2);font-size:10px}
+  .bmx-row i{display:flex;align-items:center;justify-content:center;height:27px;border-radius:3px;color:#fff;font-size:10px;font-weight:700;font-style:normal}
+  .bmx .vb{background:#047857}.bmx .b{background:#059669}.bmx .n{background:#6b7280}.bmx .be{background:#dc2626}.bmx .vbe{background:#991b1b}
+  /* égaliseur force des devises */
+  .cse{display:flex;align-items:stretch;justify-content:space-between;gap:6px;height:212px;padding:16px 8px}
+  .cse-col{display:flex;flex-direction:column;align-items:center;flex:1}
+  .cse-up,.cse-dn{display:flex;flex-direction:column;gap:3px;width:100%;align-items:center;flex:1}
+  .cse-up{justify-content:flex-end}.cse-dn{justify-content:flex-start}
+  .cse-seg{width:78%;height:7px;border-radius:1px;background:var(--bg3)}
+  .cse-seg.g{background:rgba(0,218,80,.867)}
+  .cse-seg.r{background:rgba(255,0,0,.78)}
+  .cse-axis{height:2px;width:100%;background:var(--line2);margin:5px 0}
+  .cse-lbl{font-family:var(--mono);font-size:10px;color:var(--text2);margin-top:8px;text-align:center}
+  /* chat IA */
+  .chat{display:flex;flex-direction:column;gap:10px;padding:18px}
+  .chat .msg{font-size:13px;line-height:1.55;padding:10px 13px;border-radius:11px;max-width:90%}
+  .chat .user{align-self:flex-end;background:var(--bg3);border-bottom-right-radius:3px}
+  .chat .ai{align-self:flex-start;background:rgba(247,148,29,.07);border:1px solid rgba(247,148,29,.18);border-bottom-left-radius:3px}
+  .chat .ai b{color:var(--orange)}
+  .chat .src{font-size:11px;color:var(--orange);font-family:var(--mono);align-self:flex-start}
+
   /* ── COMMENT CA MARCHE ── */
   #process{background:var(--bg1);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
   .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;counter-reset:s}
@@ -169,6 +211,7 @@
       </a>
       <div class="nav-links">
         <a href="#features">Fonctionnalités</a>
+        <a href="#showcase">Le terminal</a>
         <a href="#process">Comment ça marche</a>
         <a href="#tarifs">Tarifs</a>
       </div>
@@ -258,6 +301,81 @@
   </div>
 </section>
 
+<!-- SHOWCASE -->
+<section id="showcase">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="tag">Le terminal en action</div>
+      <h2>Pensé comme un desk institutionnel</h2>
+      <p>Dense, lisible, temps réel. Chaque module transforme la donnée brute en décision.</p>
+    </div>
+
+    <div class="show-row">
+      <div class="show-txt">
+        <div class="tag">Smart Bias Tracker</div>
+        <h3>Sache où penche le marché avant d'entrer</h3>
+        <p>Un biais hebdomadaire par devise, croisant croissance, inflation, emploi, taux et positionnement institutionnel — synthétisé dans une matrice lisible d'un coup d'œil.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Échelle Very Bullish → Very Bearish par indicateur</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Détail COT &amp; positionnement des banques</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Narratif IA régénéré automatiquement chaque semaine</li>
+        </ul>
+      </div>
+      <div class="shot">
+        <img src="/assets/screens/bias.png" alt="Smart Bias Tracker DataTradingPro" style="width:100%;display:block" onload="var m=this.parentNode.querySelector('.shot-mock');if(m)m.style.display='none'" onerror="this.remove()">
+        <div class="shot-mock">
+          <div class="shot-bar"><span class="d" style="background:#ff5f56"></span><span class="d" style="background:#ffbd2e"></span><span class="d" style="background:#27c93f"></span><span class="t">Smart Bias · Hebdo</span></div>
+          <div id="biasMatrix" class="bmx" style="padding:14px"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="show-row rev">
+      <div class="show-txt">
+        <div class="tag">Force des devises</div>
+        <h3>La force relative des 8 majeures, en direct</h3>
+        <p>Un égaliseur bidirectionnel façon salle de marché : vert vers le haut pour la force, rouge vers le bas pour la faiblesse. Repère instantanément les devises à acheter et à vendre.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Multi-timeframe (jour / semaine)</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 8 devises majeures suivies en continu</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Lecture immédiate des paires les plus tendues</li>
+        </ul>
+      </div>
+      <div class="shot">
+        <img src="/assets/screens/strength.png" alt="Force des devises DataTradingPro" style="width:100%;display:block" onload="var m=this.parentNode.querySelector('.shot-mock');if(m)m.style.display='none'" onerror="this.remove()">
+        <div class="shot-mock">
+          <div class="shot-bar"><span class="d" style="background:#ff5f56"></span><span class="d" style="background:#ffbd2e"></span><span class="d" style="background:#27c93f"></span><span class="t">Currency Strength · Semaine</span></div>
+          <div id="strengthEq" class="cse"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="show-row">
+      <div class="show-txt">
+        <div class="tag">Assistant Macro IA</div>
+        <h3>Pose ta question macro, obtiens une réponse sourcée</h3>
+        <p>Un assistant propulsé par Gemini et Claude, nourri du contexte Smart Bias et des news en temps réel. Synthèses, explications, scénarios — avec les sources utilisées.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Réponses en streaming, instantanées</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Contextualisé sur tes données de marché</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sources citées à chaque réponse</li>
+        </ul>
+      </div>
+      <div class="shot">
+        <img src="/assets/screens/ai.png" alt="Assistant Macro IA DataTradingPro" style="width:100%;display:block" onload="var m=this.parentNode.querySelector('.shot-mock');if(m)m.style.display='none'" onerror="this.remove()">
+        <div class="shot-mock">
+          <div class="shot-bar"><span class="d" style="background:#ff5f56"></span><span class="d" style="background:#ffbd2e"></span><span class="d" style="background:#27c93f"></span><span class="t">Assistant Macro IA</span></div>
+          <div class="chat">
+            <div class="msg user">Quel est le biais sur l'EUR cette semaine ?</div>
+            <div class="msg ai"><b>EUR — légèrement haussier.</b> L'inflation core surprend à la hausse et le positionnement COT reste net acheteur. Point d'attention : la BCE jeudi — un ton restrictif renforcerait le biais.</div>
+            <div class="src">▸ 3 sources utilisées · 14:32</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- COMMENT CA MARCHE -->
 <section id="process">
   <div class="wrap">
@@ -343,5 +461,35 @@
   </div>
 </footer>
 
+<script>
+(function(){
+  var M=document.getElementById('biasMatrix');
+  if(M){
+    var ccy=['USD','EUR','GBP','JPY','AUD','CAD'];
+    var rows=[
+      ['Croissance','b','vb','n','be','b','n'],
+      ['Inflation','vb','b','b','vbe','n','be'],
+      ['Emploi','b','n','vb','be','b','b'],
+      ['Taux','vb','be','b','vbe','n','n'],
+      ['PMI','n','b','be','n','vb','b'],
+      ['Sentiment','b','vb','n','be','b','vb']
+    ];
+    var sym={vb:'++',b:'+',n:'•',be:'–',vbe:'––'};
+    var h='<div class="bmx-row bmx-head"><span>Indicateur</span>'+ccy.map(function(c){return '<span>'+c+'</span>';}).join('')+'</div>';
+    h+=rows.map(function(r){return '<div class="bmx-row"><span class="bmx-lbl">'+r[0]+'</span>'+r.slice(1).map(function(c){return '<i class="'+c+'">'+sym[c]+'</i>';}).join('')+'</div>';}).join('');
+    M.innerHTML=h;
+  }
+  var S=document.getElementById('strengthEq');
+  if(S){
+    var data=[['USD',3],['EUR',1],['GBP',2],['JPY',-3],['CHF',2],['AUD',-1],['CAD',-2],['NZD',-4]];
+    S.innerHTML=data.map(function(d){
+      var v=d[1],up='',dn='',i,j;
+      for(i=4;i>=1;i--) up+='<span class="cse-seg'+(v>=i?' g':'')+'"></span>';
+      for(j=1;j<=4;j++) dn+='<span class="cse-seg'+(v<=-j?' r':'')+'"></span>';
+      return '<div class="cse-col"><div class="cse-up">'+up+'</div><div class="cse-axis"></div><div class="cse-dn">'+dn+'</div><div class="cse-lbl">'+d[0]+'</div></div>';
+    }).join('');
+  }
+})();
+</script>
 </body>
 </html>
