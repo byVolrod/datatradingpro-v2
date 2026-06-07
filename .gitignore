@@ -3,8 +3,9 @@ node_modules/
 
 # ── Secrets (NE JAMAIS committer) ───────────────────────────────────────────────
 .env
-.env.local
-.env.production
+.env.*
+!.env.example
+!.env.sample
 
 # ── Profils Chrome (persistance cookies Puppeteer) ──────────────────────────────
 .chrome_profile_*/
