@@ -522,7 +522,7 @@ async function emailLogAdd(key) {
 const AICACHE_TABLE = 'ai_cache';
 const AICACHE_FILE  = path.join(__dirname, 'cache_ai_store.json');
 let _aiCacheDb = true;
-let _aiCacheFile = {};   // { key: value }
+let _aiCacheFile = {};   // { key: value } (repli disque)
 try { _aiCacheFile = JSON.parse(fs.readFileSync(AICACHE_FILE, 'utf8')) || {}; } catch {}
 let _aiCacheSaveTimer = null;
 function _aiCacheSaveFile() {
@@ -530,6 +530,29 @@ function _aiCacheSaveFile() {
   _aiCacheSaveTimer = setTimeout(() => { try { fs.writeFileSync(AICACHE_FILE, JSON.stringify(_aiCacheFile)); } catch {} }, 1500);
   if (_aiCacheSaveTimer.unref) _aiCacheSaveTimer.unref();
 }
+
+// ══ CACHE MÉMOIRE en amont de Supabase (ANTI-EGRESS / anti-quota) ══════════════════════════════
+// L'app tourne en INSTANCE UNIQUE (1 conteneur Node) → la RAM fait autorité une fois chargée.
+// On lit Supabase au PLUS une fois par clé, puis on sert la mémoire ; chaque aiCacheSet met aussi
+// la RAM à jour → cohérence totale SANS relire la BDD. Effet : la bande passante de sortie
+// (egress, ce qui déclenche le mail de quota Supabase) chute drastiquement car les boucles de
+// fond (news, FX, session wraps…) qui tournent 24/7 ne retéléchargent plus les gros objets JSON.
+const _aiMem = new Map();                       // key -> { v: value, ts: epoch_ms }
+const AICACHE_MEM_TTL = 6 * 60 * 60 * 1000;     // refresh de sécurité (6 h) ; instance unique → quasi jamais atteint
+const AICACHE_MEM_MAX = 4000;                   // garde-fou RAM (éviction des plus anciennes au-delà)
+function _aiMemSet(k, v) {
+  _aiMem.set(k, { v, ts: Date.now() });
+  if (_aiMem.size > AICACHE_MEM_MAX) { let n = _aiMem.size - AICACHE_MEM_MAX + 200; for (const key of _aiMem.keys()) { if (n-- <= 0) break; _aiMem.delete(key); } }
+}
+// Circuit-breaker : si Supabase renvoie une erreur (quota / restriction « fair use » / réseau),
+// on cesse de le solliciter pendant un cooldown → l'app sert RAM+fichier et NE CASSE JAMAIS.
+let _aiCacheCooldownUntil = 0;
+function _aiSupabaseDown() { return Date.now() < _aiCacheCooldownUntil; }
+function _aiTripBreaker(err) {
+  if (!_aiSupabaseDown()) console.warn('[AICache] Supabase indisponible/quota → repli mémoire+fichier 10 min :', err && err.message);
+  _aiCacheCooldownUntil = Date.now() + 10 * 60 * 1000;
+}
+
 function _aiCacheTableMissing(err) { return err && /ai_cache|schema cache|does not exist|relation/i.test(err.message); }
 let _aiCacheProbeTs = 0;
 async function _aiCacheEnsureDb() {
@@ -537,8 +560,7 @@ async function _aiCacheEnsureDb() {
   const now = Date.now();
   if (now - _aiCacheProbeTs < 30000) return;
   _aiCacheProbeTs = now;
-  const { error } = await supabase.from(AICACHE_TABLE).select('key').limit(1);
-  if (error) return;
+  try { const { error } = await supabase.from(AICACHE_TABLE).select('key').limit(1); if (error) return; } catch { return; }
   _aiCacheDb = true;
   const keys = Object.keys(_aiCacheFile);
   if (keys.length) {
@@ -548,23 +570,40 @@ async function _aiCacheEnsureDb() {
     else _aiCacheDb = false;
   }
 }
-async function aiCacheGet(key) {
+async function aiCacheGet(key, maxAge = AICACHE_MEM_TTL) {
+  const k = String(key);
+  // 1) RAM fraîche → ZÉRO egress (cas ultra-majoritaire).
+  const m = _aiMem.get(k);
+  if (m && (Date.now() - m.ts) < maxAge) return m.v;
+  // 2) Supabase en cooldown (quota/restriction) → repli RAM périmée puis fichier, sans réseau.
+  if (_aiSupabaseDown()) {
+    if (m) return m.v;
+    return Object.prototype.hasOwnProperty.call(_aiCacheFile, k) ? _aiCacheFile[k] : null;
+  }
+  // 3) Lecture BDD (au plus une fois par clé), puis on mémorise.
   await _aiCacheEnsureDb();
   if (_aiCacheDb) {
-    const { data, error } = await supabase.from(AICACHE_TABLE).select('value').eq('key', String(key)).limit(1);
-    if (!error) return (data && data[0]) ? data[0].value : null;
-    if (_aiCacheTableMissing(error)) _aiCacheDb = false; else throw new Error(error.message);
+    try {
+      const { data, error } = await supabase.from(AICACHE_TABLE).select('value').eq('key', k).limit(1);
+      if (!error) { const v = (data && data[0]) ? data[0].value : null; _aiMemSet(k, v); return v; }
+      if (_aiCacheTableMissing(error)) _aiCacheDb = false; else { _aiTripBreaker(error); if (m) return m.v; }
+    } catch (e) { _aiTripBreaker(e); if (m) return m.v; }
   }
-  return Object.prototype.hasOwnProperty.call(_aiCacheFile, String(key)) ? _aiCacheFile[String(key)] : null;
+  return Object.prototype.hasOwnProperty.call(_aiCacheFile, k) ? _aiCacheFile[k] : null;
 }
 async function aiCacheSet(key, value) {
+  const k = String(key);
+  _aiMemSet(k, value);   // RAM à jour AVANT le réseau → toutes les lectures suivantes = 0 egress
+  if (_aiSupabaseDown()) { _aiCacheFile[k] = value; _aiCacheSaveFile(); return; }
   await _aiCacheEnsureDb();
   if (_aiCacheDb) {
-    const { error } = await supabase.from(AICACHE_TABLE).upsert([{ key: String(key), value, created_at: new Date().toISOString() }], { onConflict: 'key' });
-    if (!error) return;
-    if (_aiCacheTableMissing(error)) _aiCacheDb = false; else throw new Error(error.message);
+    try {
+      const { error } = await supabase.from(AICACHE_TABLE).upsert([{ key: k, value, created_at: new Date().toISOString() }], { onConflict: 'key' });
+      if (!error) return;
+      if (_aiCacheTableMissing(error)) _aiCacheDb = false; else { _aiTripBreaker(error); _aiCacheFile[k] = value; _aiCacheSaveFile(); return; }
+    } catch (e) { _aiTripBreaker(e); _aiCacheFile[k] = value; _aiCacheSaveFile(); return; }
   }
-  _aiCacheFile[String(key)] = value;
+  _aiCacheFile[k] = value;
   _aiCacheSaveFile();
 }
 // Purge des entrées plus vieilles que maxAgeMs (rétention "max 1 mois").
