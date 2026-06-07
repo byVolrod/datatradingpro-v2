@@ -33,8 +33,8 @@ const GMAIL_APP_PASSWORD = (process.env.GMAIL_APP_PASSWORD || '').replace(/\s+/g
 const GMAIL_OAUTH_CLIENT_ID     = process.env.GMAIL_OAUTH_CLIENT_ID || '';
 const GMAIL_OAUTH_CLIENT_SECRET = process.env.GMAIL_OAUTH_CLIENT_SECRET || '';
 const GMAIL_OAUTH_REFRESH_TOKEN = process.env.GMAIL_OAUTH_REFRESH_TOKEN || '';
-const APP_URL            = process.env.APP_URL || 'https://datatradingpro.onrender.com';
-const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'datatradingpro.contact@gmail.com';
+const APP_URL            = process.env.APP_URL || 'https://desk.datatradingpro.com';
+const SUPPORT_EMAIL      = process.env.SUPPORT_EMAIL || 'contact@datatradingpro.com';
 // Lien de paiement/renouvellement Whop (page DTP). Configurable via WHOP_RENEW_URL.
 const WHOP_RENEW_URL     = process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/';
 // Expéditeur. On IGNORE l'ancienne valeur volrod.dev (migration) → adresse de contact dédiée.
