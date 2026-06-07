@@ -311,7 +311,7 @@ function _layout(title, bodyHtml) {
         <!-- Header -->
         <tr><td style="padding:28px 32px 18px;border-bottom:1px solid #26262b;">
           <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">DataTradingPro</div>
-          <div style="font-size:12px;font-weight:600;color:#f7941d;margin-top:4px;">Boostez votre trading grâce à des données qui font bouger les graphiques !</div>
+          <div style="font-size:12px;font-weight:600;color:#f7941d;margin-top:4px;">Terminal de news &amp; d'analyse de marché en temps réel</div>
         </td></tr>
         <!-- Body -->
         <tr><td style="padding:28px 32px;color:#cbd5e1;font-size:15px;line-height:1.65;">
