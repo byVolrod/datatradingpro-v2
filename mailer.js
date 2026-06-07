@@ -256,7 +256,8 @@ function _getOvhTransport() {
 async function _sendOvhSmtp(to, subject, html) {
   if (!process.env.OVH_SMTP_USER || !process.env.OVH_SMTP_PASS) return false;
   const from = process.env.EMAIL_FROM || process.env.OVH_SMTP_USER;   // ex. "DataTradingPro <contact@datatradingpro.com>"
-  await _getOvhTransport().sendMail({ from, to, subject, html });
+  await _getOvhTransport().sendMail({ from, to, subject, html,
+    headers: { 'List-Unsubscribe': '<mailto:' + SUPPORT_EMAIL + '?subject=Unsubscribe>' } });   // mail-tester / bonnes pratiques
   return true;
 }
 
