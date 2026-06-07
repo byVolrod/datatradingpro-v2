@@ -138,6 +138,17 @@
   .cta-final h2{font-size:clamp(26px,4.5vw,42px);font-weight:800;letter-spacing:-.02em;margin-bottom:14px}
   .cta-final p{color:var(--text2);font-size:clamp(15px,2vw,17px);margin-bottom:30px;max-width:520px;margin-left:auto;margin-right:auto}
 
+  /* ── FAQ ── */
+  #faq{background:var(--bg1);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .faq{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  .faq details{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:0 20px;transition:.15s}
+  .faq details[open]{border-color:var(--line2)}
+  .faq summary{list-style:none;cursor:pointer;padding:18px 0;font-size:15.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .faq summary::-webkit-details-marker{display:none}
+  .faq summary::after{content:"+";color:var(--orange);font-size:24px;font-weight:300;line-height:1;transition:transform .2s}
+  .faq details[open] summary::after{transform:rotate(45deg)}
+  .faq details p{padding:0 0 18px;color:var(--text2);font-size:14.5px;line-height:1.65}
+
   /* ── FOOTER ── */
   footer{border-top:1px solid var(--line);background:var(--bg1);padding:clamp(32px,5vw,44px) 0}
   .foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px}
@@ -285,6 +296,21 @@
       </ul>
       <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner — 24,99 €/mois →</a>
       <div class="reassure">Paiement sécurisé · Résiliable à tout moment</div>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq">
+  <div class="wrap">
+    <div class="sec-head"><div class="tag">FAQ</div><h2>Questions fréquentes</h2></div>
+    <div class="faq">
+      <details><summary>Faut-il installer un logiciel ?</summary><p>Non — DataTradingPro fonctionne entièrement dans ton navigateur, sur ordinateur, tablette et mobile. Aucune installation, aucune extension.</p></details>
+      <details><summary>D'où viennent les données ?</summary><p>De sources de marché reconnues : calendrier économique, flux de news institutionnels, données COT, force des devises et sentiment — agrégées et rafraîchies en temps réel.</p></details>
+      <details><summary>L'abonnement est-il sans engagement ?</summary><p>Oui. 24,99 €/mois, résiliable à tout moment en un clic depuis ton espace, sans frais cachés.</p></details>
+      <details><summary>Pour qui est DataTradingPro ?</summary><p>Pour les traders et investisseurs qui veulent toute la donnée macro, FX et institutionnelle au même endroit, sans jongler entre dix onglets.</p></details>
+      <details><summary>Comment j'accède au terminal après paiement ?</summary><p>Immédiatement : tu te connectes sur desk.datatradingpro.com et l'ensemble du terminal se charge en temps réel.</p></details>
+      <details><summary>Est-ce un conseil en investissement ?</summary><p>Non. Toutes les données sont fournies à titre informatif et d'aide à la décision — jamais comme un conseil financier personnalisé.</p></details>
     </div>
   </div>
 </section>
