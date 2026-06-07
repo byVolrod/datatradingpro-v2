@@ -3,126 +3,148 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DataTradingPro — Le terminal de marché des traders sérieux</title>
-<meta name="description" content="News temps réel, calendrier économique, Smart Bias, force des devises et assistant macro IA. Toute la donnée institutionnelle dans une seule interface.">
-<link rel="icon" href="/assets/images/macro-ai-logo.png">
+<title>DataTradingPro — Terminal de marché institutionnel en temps réel</title>
+<meta name="description" content="Le terminal des traders sérieux : news institutionnelles, calendrier économique, Smart Bias, force des devises et assistant macro IA. Toute la donnée de marché, en temps réel.">
+<meta property="og:title" content="DataTradingPro — Terminal de marché en temps réel">
+<meta property="og:description" content="News, calendrier, Smart Bias, force des devises & IA macro. La donnée institutionnelle dans une seule interface.">
+<meta property="og:type" content="website">
+<!-- Favicon SVG (chandelier orange sur fond sombre, net a toutes les tailles) -->
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0d'/%3E%3Crect x='18' y='22' width='7' height='22' rx='1.5' fill='%2322c55e'/%3E%3Crect x='20.5' y='14' width='2' height='38' fill='%2322c55e'/%3E%3Crect x='39' y='26' width='7' height='18' rx='1.5' fill='%23f7941d'/%3E%3Crect x='41.5' y='18' width='2' height='34' fill='%23f7941d'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0b0d'/%3E%3Crect x='18' y='22' width='7' height='22' rx='1.5' fill='%2322c55e'/%3E%3Crect x='20.5' y='14' width='2' height='38' fill='%2322c55e'/%3E%3Crect x='39' y='26' width='7' height='18' rx='1.5' fill='%23f7941d'/%3E%3Crect x='41.5' y='18' width='2' height='34' fill='%23f7941d'/%3E%3C/svg%3E">
 <style>
   :root{
-    --bg:#0a0a0a; --bg1:#0d0d0d; --bg2:#111111; --bg3:#141414; --bg5:#1c1c1c;
-    --border:#232327; --border2:#2a2a2f;
-    --text:#e6e6e6; --text2:#9a9a9a; --text3:#666;
-    --orange:#f7941d; --orange2:#ff7a00; --orange-dim:#c47515;
-    --green:#22c55e; --red:#e74c3c;
-    --font:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",sans-serif;
-    --mono:"SF Mono",ui-monospace,"Menlo",monospace;
+    --bg:#08080a; --bg1:#0d0d10; --bg2:#121216; --bg3:#17171c; --line:#1f1f26; --line2:#2a2a32;
+    --text:#f0f0f2; --text2:#a6a6ad; --text3:#6f6f78;
+    --orange:#f7941d; --orange2:#ffae42; --green:#22c55e; --red:#ef4444;
+    --font:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --maxw:1180px;
   }
   *{margin:0;padding:0;box-sizing:border-box}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth;-webkit-text-size-adjust:100%}
   body{background:var(--bg);color:var(--text);font-family:var(--font);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   a{color:inherit;text-decoration:none}
-  .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
-  .btn{display:inline-flex;align-items:center;gap:8px;font-weight:600;font-size:14px;padding:11px 20px;border-radius:7px;border:1px solid transparent;cursor:pointer;transition:.15s}
-  .btn-primary{background:var(--orange);color:#000}
-  .btn-primary:hover{background:var(--orange2);transform:translateY(-1px)}
-  .btn-ghost{border-color:var(--border2);color:var(--text)}
+  img{max-width:100%;display:block}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;padding:12px 22px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:.16s;white-space:nowrap}
+  .btn-primary{background:var(--orange);color:#0a0a0a}
+  .btn-primary:hover{background:var(--orange2);transform:translateY(-1px);box-shadow:0 8px 24px -8px rgba(247,148,29,.5)}
+  .btn-ghost{border-color:var(--line2);color:var(--text)}
   .btn-ghost:hover{border-color:var(--orange);color:var(--orange)}
+  .ico{width:18px;height:18px;flex-shrink:0}
 
   /* ── NAV ── */
-  header{position:sticky;top:0;z-index:50;background:rgba(10,10,10,.82);backdrop-filter:blur(12px);border-bottom:1px solid var(--border)}
-  nav{display:flex;align-items:center;justify-content:space-between;height:62px}
-  .logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:17px;letter-spacing:-.01em}
-  .logo img{width:26px;height:26px;border-radius:6px}
+  header{position:sticky;top:0;z-index:60;background:rgba(8,8,10,.8);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  nav{display:flex;align-items:center;justify-content:space-between;height:64px;gap:16px}
+  .logo{display:flex;align-items:center;gap:9px;font-weight:800;font-size:18px;letter-spacing:-.02em;flex-shrink:0}
+  .logo svg{width:28px;height:28px}
   .logo b{color:var(--orange)}
-  .nav-links{display:flex;align-items:center;gap:30px}
+  .nav-links{display:flex;align-items:center;gap:32px}
   .nav-links a{font-size:14px;color:var(--text2);transition:.15s}
   .nav-links a:hover{color:var(--text)}
-  .nav-cta{display:flex;align-items:center;gap:12px}
-  @media(max-width:760px){.nav-links{display:none}}
+  .nav-cta{display:flex;align-items:center;gap:10px;flex-shrink:0}
+  .nav-login{font-size:14px;color:var(--text2);transition:.15s}
+  .nav-login:hover{color:var(--text)}
+  @media(max-width:820px){.nav-links{display:none}}
+  @media(max-width:520px){.nav-login{display:none}}
 
   /* ── HERO ── */
-  .hero{position:relative;padding:90px 0 70px;text-align:center;overflow:hidden}
-  .hero::before{content:"";position:absolute;top:-200px;left:50%;transform:translateX(-50%);width:900px;height:600px;background:radial-gradient(ellipse,rgba(247,148,29,.13),transparent 65%);pointer-events:none}
-  .pill{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--orange);background:rgba(247,148,29,.08);border:1px solid rgba(247,148,29,.25);padding:5px 13px;border-radius:100px;margin-bottom:26px;font-weight:600}
-  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green)}
-  h1{font-size:clamp(34px,5.4vw,60px);line-height:1.08;font-weight:800;letter-spacing:-.02em;margin-bottom:22px}
-  h1 .grad{background:linear-gradient(120deg,var(--orange),#ffb84d);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
-  .hero p.sub{font-size:clamp(16px,2vw,19px);color:var(--text2);max-width:660px;margin:0 auto 34px}
-  .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:14px}
-  .hero-cta .btn{padding:14px 26px;font-size:15px}
-  .hero-note{font-size:12.5px;color:var(--text3)}
+  .hero{position:relative;padding:clamp(56px,9vw,104px) 0 clamp(40px,6vw,64px);text-align:center;overflow:hidden}
+  .hero::before{content:"";position:absolute;top:-260px;left:50%;transform:translateX(-50%);width:min(1000px,140vw);height:680px;background:radial-gradient(ellipse,rgba(247,148,29,.14),transparent 62%);pointer-events:none}
+  .pill{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--orange);background:rgba(247,148,29,.08);border:1px solid rgba(247,148,29,.22);padding:6px 14px;border-radius:100px;margin-bottom:26px;font-weight:600}
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.8s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+  h1{font-size:clamp(31px,6vw,58px);line-height:1.07;font-weight:800;letter-spacing:-.025em;margin-bottom:20px}
+  h1 .grad{background:linear-gradient(120deg,var(--orange),#ffc46b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .hero p.sub{font-size:clamp(15px,2.3vw,19px);color:var(--text2);max-width:640px;margin:0 auto 32px}
+  .hero-cta{display:flex;gap:13px;justify-content:center;flex-wrap:wrap;margin-bottom:16px}
+  .hero-cta .btn{padding:14px 28px;font-size:15px}
+  .hero-note{font-size:12.5px;color:var(--text3);display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+  .hero-note span{display:inline-flex;align-items:center;gap:6px}
+  .hero-note .ok{color:var(--green)}
 
   /* ── TERMINAL MOCKUP ── */
-  .mock{max-width:980px;margin:54px auto 0;border:1px solid var(--border2);border-radius:12px;background:var(--bg1);box-shadow:0 40px 120px -40px rgba(0,0,0,.9),0 0 0 1px rgba(247,148,29,.06);overflow:hidden}
-  .mock-bar{display:flex;align-items:center;gap:8px;padding:11px 15px;background:var(--bg2);border-bottom:1px solid var(--border)}
+  .mock{max-width:1000px;margin:clamp(40px,6vw,60px) auto 0;border:1px solid var(--line2);border-radius:14px;background:var(--bg1);box-shadow:0 50px 130px -50px #000,0 0 0 1px rgba(247,148,29,.05);overflow:hidden}
+  .mock-bar{display:flex;align-items:center;gap:8px;padding:11px 16px;background:var(--bg2);border-bottom:1px solid var(--line)}
   .mock-bar .d{width:11px;height:11px;border-radius:50%}
   .mock-bar .d1{background:#ff5f56}.mock-bar .d2{background:#ffbd2e}.mock-bar .d3{background:#27c93f}
   .mock-bar .url{margin-left:12px;font-family:var(--mono);font-size:11.5px;color:var(--text3)}
-  .mock-bar .live{margin-left:auto;font-size:10.5px;color:var(--green);display:flex;align-items:center;gap:5px;font-weight:600}
+  .mock-bar .live{margin-left:auto;font-size:10.5px;color:var(--green);display:flex;align-items:center;gap:5px;font-weight:700;letter-spacing:.04em}
   .mock-bar .live .dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse 1.6s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
-  .mock-body{display:grid;grid-template-columns:1.4fr 1fr;gap:1px;background:var(--border);min-height:300px}
-  .mock-panel{background:var(--bg1);padding:15px}
-  .mp-h{font-size:11px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;margin-bottom:11px;font-weight:700}
+  .mock-body{display:grid;grid-template-columns:1.45fr 1fr;gap:1px;background:var(--line)}
+  .mp{background:var(--bg1);padding:16px}
+  .mp-h{font-size:10.5px;color:var(--text3);text-transform:uppercase;letter-spacing:.09em;margin-bottom:12px;font-weight:700}
   .tick{display:flex;justify-content:space-between;align-items:center;padding:7px 0;border-bottom:1px solid var(--bg3);font-size:12.5px;font-family:var(--mono)}
   .tick:last-child{border:none}
-  .tick .sym{color:var(--text);font-weight:600}
-  .up{color:var(--green)}.down{color:var(--red)}
-  .barwrap{display:flex;flex-direction:column;gap:9px;margin-top:4px}
+  .tick .sym{color:var(--text2);font-weight:500}
+  .up{color:var(--green)}.down{color:var(--red)}.amb{color:var(--orange)}
+  .barwrap{display:flex;flex-direction:column;gap:10px;margin-top:3px}
   .bar{display:flex;align-items:center;gap:9px;font-family:var(--mono);font-size:11.5px}
-  .bar .lbl{width:34px;color:var(--text2)}
-  .bar .track{flex:1;height:8px;background:var(--bg3);border-radius:3px;overflow:hidden}
-  .bar .fill{height:100%;border-radius:3px}
-  @media(max-width:760px){.mock-body{grid-template-columns:1fr}.mock-panel:nth-child(2){display:none}}
+  .bar .lbl{width:32px;color:var(--text2)}
+  .bar .track{flex:1;height:7px;background:var(--bg3);border-radius:4px;overflow:hidden}
+  .bar .fill{height:100%;border-radius:4px}
+  @media(max-width:720px){.mock-body{grid-template-columns:1fr}.mp--hide{display:none}}
 
   /* ── STATS ── */
-  .stats{border-top:1px solid var(--border);border-bottom:1px solid var(--border);background:var(--bg1);margin-top:72px}
-  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)}
-  .stat{background:var(--bg1);padding:30px 18px;text-align:center}
-  .stat .n{font-size:30px;font-weight:800;color:var(--orange);font-family:var(--mono)}
-  .stat .l{font-size:12.5px;color:var(--text2);margin-top:5px}
-  @media(max-width:680px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+  .stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg1);margin-top:clamp(56px,8vw,80px)}
+  .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+  .stat{background:var(--bg1);padding:clamp(22px,4vw,32px) 16px;text-align:center}
+  .stat .n{font-size:clamp(24px,4vw,30px);font-weight:800;color:var(--orange);font-family:var(--mono)}
+  .stat .l{font-size:12.5px;color:var(--text2);margin-top:6px}
+  @media(max-width:640px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
 
   /* ── SECTIONS ── */
-  section{padding:88px 0}
-  .sec-head{text-align:center;max-width:640px;margin:0 auto 54px}
-  .sec-head .tag{font-size:13px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:.08em}
-  .sec-head h2{font-size:clamp(28px,3.6vw,40px);font-weight:800;letter-spacing:-.02em;margin:12px 0}
-  .sec-head p{color:var(--text2);font-size:16px}
+  section{padding:clamp(60px,9vw,96px) 0}
+  .sec-head{text-align:center;max-width:660px;margin:0 auto clamp(40px,6vw,56px)}
+  .sec-head .tag{font-size:13px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:.09em}
+  .sec-head h2{font-size:clamp(26px,4.5vw,40px);font-weight:800;letter-spacing:-.02em;margin:12px 0}
+  .sec-head p{color:var(--text2);font-size:clamp(15px,2vw,16.5px)}
 
   .features{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  .feat{background:var(--bg1);border:1px solid var(--border);border-radius:11px;padding:26px;transition:.18s}
-  .feat:hover{border-color:var(--border2);transform:translateY(-3px);background:var(--bg2)}
-  .feat .ico{width:44px;height:44px;border-radius:10px;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.2);display:flex;align-items:center;justify-content:center;font-size:21px;margin-bottom:16px}
+  .feat{background:var(--bg1);border:1px solid var(--line);border-radius:12px;padding:clamp(22px,3vw,28px);transition:.18s}
+  .feat:hover{border-color:var(--line2);transform:translateY(-3px);background:var(--bg2)}
+  .feat .fi{width:46px;height:46px;border-radius:11px;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.2);display:flex;align-items:center;justify-content:center;margin-bottom:16px;color:var(--orange)}
+  .feat .fi svg{width:22px;height:22px}
   .feat h3{font-size:17px;font-weight:700;margin-bottom:8px}
-  .feat p{font-size:14px;color:var(--text2);line-height:1.6}
-  @media(max-width:900px){.features{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:600px){.features{grid-template-columns:1fr}}
+  .feat p{font-size:14px;color:var(--text2)}
+  @media(max-width:880px){.features{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){.features{grid-template-columns:1fr}}
+
+  /* ── COMMENT CA MARCHE ── */
+  #process{background:var(--bg1);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;counter-reset:s}
+  .step{position:relative;padding-left:8px}
+  .step .num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--orange);border:1px solid var(--line2);width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;margin-bottom:16px;background:var(--bg2)}
+  .step h3{font-size:17px;font-weight:700;margin-bottom:7px}
+  .step p{font-size:14px;color:var(--text2)}
+  @media(max-width:680px){.steps{grid-template-columns:1fr;gap:28px}}
 
   /* ── PRICING ── */
-  #tarifs{background:var(--bg1);border-top:1px solid var(--border)}
-  .price-card{max-width:420px;margin:0 auto;background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--orange-dim);border-radius:16px;padding:38px 32px;text-align:center;position:relative;box-shadow:0 30px 80px -40px rgba(247,148,29,.3)}
-  .price-card .badge{position:absolute;top:-12px;left:50%;transform:translateX(-50%);background:var(--orange);color:#000;font-size:11.5px;font-weight:800;padding:4px 14px;border-radius:100px;text-transform:uppercase;letter-spacing:.05em}
-  .price-card h3{font-size:20px;font-weight:700;margin-bottom:6px}
-  .price-card .amt{font-size:48px;font-weight:800;margin:14px 0 2px}
-  .price-card .amt small{font-size:16px;color:var(--text2);font-weight:500}
-  .price-card ul{list-style:none;text-align:left;margin:26px 0;display:flex;flex-direction:column;gap:12px}
-  .price-card li{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--text)}
-  .price-card li::before{content:"✓";color:var(--green);font-weight:800;font-size:15px}
-  .price-card .btn{width:100%;justify-content:center;padding:14px;font-size:15px}
+  .price-card{max-width:430px;margin:0 auto;background:linear-gradient(180deg,var(--bg2),var(--bg1));border:1px solid var(--orange);border-radius:18px;padding:clamp(30px,5vw,40px) clamp(24px,4vw,34px);text-align:center;position:relative;box-shadow:0 40px 90px -45px rgba(247,148,29,.35)}
+  .price-card .badge{position:absolute;top:-13px;left:50%;transform:translateX(-50%);background:var(--orange);color:#0a0a0a;font-size:11.5px;font-weight:800;padding:5px 15px;border-radius:100px;text-transform:uppercase;letter-spacing:.05em}
+  .price-card h3{font-size:19px;font-weight:700;margin-bottom:4px}
+  .price-card .sub{font-size:13.5px;color:var(--text2);margin-bottom:18px}
+  .price-card .amt{font-size:clamp(40px,8vw,52px);font-weight:800;line-height:1}
+  .price-card .amt small{font-size:17px;color:var(--text2);font-weight:500}
+  .price-card ul{list-style:none;text-align:left;margin:24px 0;display:flex;flex-direction:column;gap:13px}
+  .price-card li{display:flex;align-items:flex-start;gap:10px;font-size:14.5px;color:var(--text)}
+  .price-card li svg{width:18px;height:18px;color:var(--green);flex-shrink:0;margin-top:1px}
+  .price-card .btn{width:100%;padding:15px;font-size:15px}
+  .price-card .reassure{font-size:12px;color:var(--text3);margin-top:14px}
 
   /* ── CTA FINAL ── */
-  .cta-final{text-align:center;padding:96px 24px;position:relative;overflow:hidden}
-  .cta-final::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 120%,rgba(247,148,29,.14),transparent 60%);pointer-events:none}
-  .cta-final h2{font-size:clamp(28px,4vw,42px);font-weight:800;letter-spacing:-.02em;margin-bottom:16px}
-  .cta-final p{color:var(--text2);font-size:17px;margin-bottom:30px}
+  .cta-final{text-align:center;padding:clamp(70px,11vw,110px) clamp(16px,4vw,24px);position:relative;overflow:hidden}
+  .cta-final::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 130%,rgba(247,148,29,.15),transparent 58%);pointer-events:none}
+  .cta-final h2{font-size:clamp(26px,4.5vw,42px);font-weight:800;letter-spacing:-.02em;margin-bottom:14px}
+  .cta-final p{color:var(--text2);font-size:clamp(15px,2vw,17px);margin-bottom:30px;max-width:520px;margin-left:auto;margin-right:auto}
 
   /* ── FOOTER ── */
-  footer{border-top:1px solid var(--border);background:var(--bg1);padding:44px 0}
-  .foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:20px}
+  footer{border-top:1px solid var(--line);background:var(--bg1);padding:clamp(32px,5vw,44px) 0}
+  .foot{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:18px}
   .foot .logo{font-size:15px}
-  .foot-links{display:flex;gap:24px;font-size:13.5px;color:var(--text2)}
+  .foot-links{display:flex;gap:22px;font-size:13.5px;color:var(--text2);flex-wrap:wrap}
   .foot-links a:hover{color:var(--orange)}
-  .foot-copy{font-size:12.5px;color:var(--text3);margin-top:20px;text-align:center;border-top:1px solid var(--border);padding-top:20px}
+  .foot-copy{font-size:12px;color:var(--text3);margin-top:22px;text-align:center;border-top:1px solid var(--line);padding-top:20px;line-height:1.7}
 </style>
 </head>
 <body>
@@ -130,15 +152,18 @@
 <header>
   <div class="wrap">
     <nav>
-      <a class="logo" href="/"><img src="/assets/images/macro-ai-logo.png" alt="">Data<b>TradingPro</b></a>
+      <a class="logo" href="/">
+        <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#101014"/><rect x="18" y="22" width="7" height="22" rx="1.5" fill="#22c55e"/><rect x="20.5" y="14" width="2" height="38" fill="#22c55e"/><rect x="39" y="26" width="7" height="18" rx="1.5" fill="#f7941d"/><rect x="41.5" y="18" width="2" height="34" fill="#f7941d"/></svg>
+        Data<b>TradingPro</b>
+      </a>
       <div class="nav-links">
         <a href="#features">Fonctionnalités</a>
-        <a href="#apercu">Aperçu</a>
+        <a href="#process">Comment ça marche</a>
         <a href="#tarifs">Tarifs</a>
       </div>
       <div class="nav-cta">
-        <a class="btn btn-ghost" href="https://desk.datatradingpro.com/">Se connecter</a>
-        <a class="btn btn-primary" href="https://desk.datatradingpro.com/">Accéder au terminal →</a>
+        <a class="nav-login" href="https://desk.datatradingpro.com/">Se connecter</a>
+        <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal</a>
       </div>
     </nav>
   </div>
@@ -148,38 +173,42 @@
 <div class="hero">
   <div class="wrap">
     <div class="pill"><span class="dot"></span> Données de marché en temps réel</div>
-    <h1>Le terminal de marché<br>des <span class="grad">traders sérieux</span></h1>
-    <p class="sub">News institutionnelles, calendrier économique, biais hebdomadaires intelligents, force des devises et un assistant macro IA — toute la donnée de marché réunie dans une seule interface professionnelle.</p>
+    <h1>La donnée de marché institutionnelle,<br><span class="grad">dans une seule interface</span></h1>
+    <p class="sub">News, calendrier économique, biais hebdomadaires intelligents, force des devises et un assistant macro IA. DataTradingPro réunit les outils des desks professionnels — en temps réel, sans installation.</p>
     <div class="hero-cta">
-      <a class="btn btn-primary" href="https://desk.datatradingpro.com/">Démarrer maintenant →</a>
+      <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal →</a>
       <a class="btn btn-ghost" href="#features">Découvrir les fonctionnalités</a>
     </div>
-    <div class="hero-note">Accès instantané · Données en direct · Sans installation</div>
+    <div class="hero-note">
+      <span class="ok">✓ Accès instantané</span>
+      <span class="ok">✓ Données en direct</span>
+      <span class="ok">✓ Sans engagement</span>
+    </div>
 
-    <!-- Terminal mockup -->
-    <div class="mock" id="apercu">
+    <!-- Maquette terminal -->
+    <div class="mock">
       <div class="mock-bar">
         <span class="d d1"></span><span class="d d2"></span><span class="d d3"></span>
         <span class="url">desk.datatradingpro.com</span>
         <span class="live"><span class="dot"></span>LIVE</span>
       </div>
       <div class="mock-body">
-        <div class="mock-panel">
+        <div class="mp">
           <div class="mp-h">Calendrier économique · Aujourd'hui</div>
-          <div class="tick"><span class="sym">USD · Core CPI m/m</span><span class="up">+0,3% ▲</span></div>
-          <div class="tick"><span class="sym">EUR · ECB Rate Decision</span><span class="down">4,25% ▼</span></div>
-          <div class="tick"><span class="sym">GBP · GDP q/q</span><span class="up">+0,2% ▲</span></div>
-          <div class="tick"><span class="sym">USD · Fed Chair Powell</span><span style="color:var(--orange)">16:00</span></div>
-          <div class="tick"><span class="sym">JPY · BoJ Press Conf.</span><span style="color:var(--text2)">—</span></div>
+          <div class="tick"><span class="sym">USD · Core CPI m/m</span><span class="up">+0,3 % ▲</span></div>
+          <div class="tick"><span class="sym">EUR · Décision BCE</span><span class="down">4,25 % ▼</span></div>
+          <div class="tick"><span class="sym">GBP · PIB t/t</span><span class="up">+0,2 % ▲</span></div>
+          <div class="tick"><span class="sym">USD · Discours Powell (Fed)</span><span class="amb">16:00</span></div>
+          <div class="tick"><span class="sym">JPY · Conf. presse BoJ</span><span class="sym">—</span></div>
         </div>
-        <div class="mock-panel">
-          <div class="mp-h">Force des devises · TW</div>
+        <div class="mp mp--hide">
+          <div class="mp-h">Force des devises · Semaine</div>
           <div class="barwrap">
-            <div class="bar"><span class="lbl">CHF</span><div class="track"><div class="fill" style="width:88%;background:#facc15"></div></div><span class="up">+11,86</span></div>
-            <div class="bar"><span class="lbl">GBP</span><div class="track"><div class="fill" style="width:78%;background:#22c55e"></div></div><span class="up">+10,29</span></div>
-            <div class="bar"><span class="lbl">EUR</span><div class="track"><div class="fill" style="width:66%;background:#e74c3c"></div></div><span class="up">+8,29</span></div>
-            <div class="bar"><span class="lbl">USD</span><div class="track"><div class="fill" style="width:30%;background:#f7941d"></div></div><span class="down">-8,43</span></div>
-            <div class="bar"><span class="lbl">NZD</span><div class="track"><div class="fill" style="width:14%;background:#ec4899"></div></div><span class="down">-145,5</span></div>
+            <div class="bar"><span class="lbl">CHF</span><div class="track"><div class="fill" style="width:90%;background:#facc15"></div></div><span class="up">+11,9</span></div>
+            <div class="bar"><span class="lbl">GBP</span><div class="track"><div class="fill" style="width:78%;background:#22c55e"></div></div><span class="up">+10,3</span></div>
+            <div class="bar"><span class="lbl">EUR</span><div class="track"><div class="fill" style="width:66%;background:#ef4444"></div></div><span class="up">+8,3</span></div>
+            <div class="bar"><span class="lbl">USD</span><div class="track"><div class="fill" style="width:32%;background:#f7941d"></div></div><span class="down">−8,4</span></div>
+            <div class="bar"><span class="lbl">NZD</span><div class="track"><div class="fill" style="width:12%;background:#ec4899"></div></div><span class="down">−14,5</span></div>
           </div>
         </div>
       </div>
@@ -191,7 +220,7 @@
 <div class="stats">
   <div class="wrap">
     <div class="stats-grid">
-      <div class="stat"><div class="n">1 134+</div><div class="l">événements calendrier</div></div>
+      <div class="stat"><div class="n">1 100+</div><div class="l">événements calendrier</div></div>
       <div class="stat"><div class="n">28</div><div class="l">paires suivies</div></div>
       <div class="stat"><div class="n">8</div><div class="l">devises majeures</div></div>
       <div class="stat"><div class="n">24/7</div><div class="l">temps réel</div></div>
@@ -205,15 +234,31 @@
     <div class="sec-head">
       <div class="tag">Fonctionnalités</div>
       <h2>Tout ce dont un trader a besoin</h2>
-      <p>Une suite complète d'outils institutionnels, agrégés et analysés en temps réel.</p>
+      <p>Une suite complète d'outils institutionnels, agrégés et analysés en continu.</p>
     </div>
     <div class="features">
-      <div class="feat"><div class="ico">📰</div><h3>News en temps réel</h3><p>Flux ForexFactory, FinancialJuice et agrégateurs RSS réunis, avec alertes breaking news instantanées.</p></div>
-      <div class="feat"><div class="ico">📅</div><h3>Calendrier économique</h3><p>Événements à fort impact, valeurs <em>actual vs prévision</em> en direct, et analyse de la semaine à venir.</p></div>
-      <div class="feat"><div class="ico">🎯</div><h3>Smart Bias Tracker</h3><p>Biais hebdomadaire par devise, croisant fondamentaux, COT, positionnement des banques et technique.</p></div>
-      <div class="feat"><div class="ico">📊</div><h3>Force des devises</h3><p>Force relative des 8 majeures en multi-timeframe, avec graphiques haute densité façon salle de marché.</p></div>
-      <div class="feat"><div class="ico">🤖</div><h3>Assistant Macro IA</h3><p>Narratifs institutionnels, synthèses macro et chat IA propulsé par Gemini et Claude, mis en cache intelligemment.</p></div>
-      <div class="feat"><div class="ico">🏦</div><h3>Recherche institutionnelle</h3><p>Rapports de banques (ING, MUFG, SEB…), données COT et positionnement des grands intervenants.</p></div>
+      <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><h3>News en temps réel</h3><p>Flux ForexFactory, FinancialJuice et agrégateurs RSS réunis, avec alertes breaking news instantanées.</p></div>
+      <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div><h3>Calendrier économique</h3><p>Événements à fort impact, valeurs <em>réel vs prévision</em> en direct, et aperçu de la semaine à venir.</p></div>
+      <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.7" fill="currentColor"/></svg></div><h3>Smart Bias Tracker</h3><p>Biais hebdomadaire par devise, croisant fondamentaux, COT, positionnement des banques et technique.</p></div>
+      <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></div><h3>Force des devises</h3><p>Force relative des 8 majeures en multi-timeframe, en graphiques haute densité façon salle de marché.</p></div>
+      <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/><circle cx="12" cy="12" r="2.5"/></svg></div><h3>Assistant Macro IA</h3><p>Narratifs institutionnels, synthèses macro et chat IA propulsés par Gemini et Claude, mis en cache.</p></div>
+      <div class="feat"><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-5 8 5v11M9 21v-6h6v6"/></svg></div><h3>Recherche institutionnelle</h3><p>Rapports de banques (ING, MUFG, SEB…), données COT et positionnement des grands intervenants.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- COMMENT CA MARCHE -->
+<section id="process">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="tag">Comment ça marche</div>
+      <h2>Opérationnel en 2 minutes</h2>
+      <p>Aucune installation. Tout fonctionne dans ton navigateur.</p>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><h3>Active ton accès</h3><p>Abonne-toi en quelques secondes via notre page de paiement sécurisée.</p></div>
+      <div class="step"><div class="num">2</div><h3>Ouvre le terminal</h3><p>Connecte-toi sur <b>desk.datatradingpro.com</b> — la donnée se charge en temps réel.</p></div>
+      <div class="step"><div class="num">3</div><h3>Trade informé</h3><p>News, biais, calendrier et IA macro au même endroit pour décider plus vite.</p></div>
     </div>
   </div>
 </section>
@@ -229,15 +274,17 @@
     <div class="price-card">
       <div class="badge">Professionnel</div>
       <h3>Accès Terminal Pro</h3>
-      <div class="amt">29€ <small>/ mois</small></div>
+      <div class="sub">Tout DataTradingPro, en continu</div>
+      <div class="amt">24,99 € <small>/ mois</small></div>
       <ul>
-        <li>News & calendrier en temps réel</li>
-        <li>Smart Bias & force des devises</li>
-        <li>Assistant Macro IA illimité</li>
-        <li>Recherche institutionnelle & COT</li>
-        <li>Mises à jour en continu</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> News &amp; calendrier en temps réel</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Smart Bias &amp; force des devises</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Assistant Macro IA illimité</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Recherche institutionnelle &amp; COT</li>
+        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Mises à jour en continu</li>
       </ul>
-      <a class="btn btn-primary" href="https://desk.datatradingpro.com/">S'abonner →</a>
+      <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner — 24,99 €/mois →</a>
+      <div class="reassure">Paiement sécurisé · Résiliable à tout moment</div>
     </div>
   </div>
 </section>
@@ -246,8 +293,8 @@
 <div class="cta-final">
   <div class="wrap">
     <h2>Prêt à trader avec les bons outils ?</h2>
-    <p>Rejoignez DataTradingPro et accédez au terminal en quelques secondes.</p>
-    <a class="btn btn-primary" href="https://desk.datatradingpro.com/" style="padding:15px 30px;font-size:16px">Accéder au terminal →</a>
+    <p>Rejoins DataTradingPro et accède au terminal de marché en quelques secondes.</p>
+    <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/" style="padding:16px 32px;font-size:16px">Accéder au terminal →</a>
   </div>
 </div>
 
@@ -255,7 +302,10 @@
 <footer>
   <div class="wrap">
     <div class="foot">
-      <a class="logo" href="/"><img src="/assets/images/macro-ai-logo.png" alt="" style="width:22px;height:22px;border-radius:5px">Data<b>TradingPro</b></a>
+      <a class="logo" href="/">
+        <svg viewBox="0 0 64 64" aria-hidden="true" style="width:24px;height:24px"><rect width="64" height="64" rx="14" fill="#101014"/><rect x="18" y="22" width="7" height="22" rx="1.5" fill="#22c55e"/><rect x="20.5" y="14" width="2" height="38" fill="#22c55e"/><rect x="39" y="26" width="7" height="18" rx="1.5" fill="#f7941d"/><rect x="41.5" y="18" width="2" height="34" fill="#f7941d"/></svg>
+        Data<b>TradingPro</b>
+      </a>
       <div class="foot-links">
         <a href="#features">Fonctionnalités</a>
         <a href="#tarifs">Tarifs</a>
@@ -263,7 +313,7 @@
         <a href="mailto:contact@datatradingpro.com">Contact</a>
       </div>
     </div>
-    <div class="foot-copy">© 2026 DataTradingPro · contact@datatradingpro.com · Toutes les données sont fournies à titre informatif et ne constituent pas un conseil en investissement.</div>
+    <div class="foot-copy">© 2026 DataTradingPro · contact@datatradingpro.com<br>Toutes les données sont fournies à titre informatif et ne constituent pas un conseil en investissement.</div>
   </div>
 </footer>
 
