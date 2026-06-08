@@ -881,11 +881,17 @@ app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
+// PRIMER : briefings auto-générés (Daily Recap, London Session/Opening, Asia-Pac…) → MASQUÉS du site
+// (demande utilisateur). Détection robuste : flag interne _briefing OU titre commençant par « PRIMER ».
+const _isPrimerNews = n => !!(n && (n._briefing || /^\s*\[?\s*primer\b/i.test(String(n.headline || ''))));
+app.get('/api/news', (_req, res) => {
+  const items = allNews.filter(n => !_isPrimerNews(n)).slice(0, 200);
+  res.json({ items, total: items.length });
+});
 
 // PUBLIC (page Week Ahead) : MÊME flux que l'onglet News (allNews), projeté pour le ticker public.
 app.get('/api/week-ahead-news', (_req, res) => {
-  const items = (Array.isArray(allNews) ? allNews : []).slice(0, 120).map(n => ({
+  const items = (Array.isArray(allNews) ? allNews : []).filter(n => !_isPrimerNews(n)).slice(0, 120).map(n => ({
     headline: (n.headline || '').slice(0, 240),
     timestamp: n.timestamp || 0,
     category: n.category || (Array.isArray(n.tags) && n.tags[0]) || '',
@@ -929,7 +935,7 @@ app.get('/api/news/history', (req, res) => {
   const before = parseInt(req.query.before) || Date.now();
   const limit  = Math.min(parseInt(req.query.limit) || 100, 200);
   const items  = allNews
-    .filter(i => i.timestamp < before)
+    .filter(i => i.timestamp < before && !_isPrimerNews(i))
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, limit);
   res.json({ items, total: allNews.length });
@@ -5672,6 +5678,13 @@ function isDuplicate(item, list) {
 // ─── Broadcast ───────────────────────────────────────────────────────────────
 
 function broadcast(data) {
+  // Ne JAMAIS diffuser les briefings PRIMER au site (masqués sur demande utilisateur) : on les retire
+  // des mises à jour news poussées en temps réel ; si l'envoi ne contenait que ça, on l'abandonne.
+  if (data && data.type === 'news_update' && Array.isArray(data.items)) {
+    const items = data.items.filter(n => !_isPrimerNews(n));
+    if (!items.length) return;
+    data = { ...data, items };
+  }
   const payload = JSON.stringify(data);
   wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) c.send(payload); });
 }
