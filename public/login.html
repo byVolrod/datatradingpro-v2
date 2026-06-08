@@ -518,7 +518,7 @@
   /* ── Mosaic: scrolling columns ── */
   (function () {
     const mosaic = document.getElementById('lp-mosaic');
-    const B = 'https://desk.prime-terminal.com/assets/login-images/';
+    const B = '';   // plus aucune dependance externe : tuiles decoratives generees en CSS
 
     const COL_IMGS = [
       ['195x130%20(2).webp','195x130-1.jpg','195x130-1.webp','195x130-1%20(2).webp',
@@ -569,8 +569,8 @@
         const ti = document.createElement('div');
         ti.className = 'lp-tile-inner';
         ti.style.transform = `rotateY(${ANGLES[i % ANGLES.length]}deg)`;
-        const img = document.createElement('img');
-        img.src = src; img.alt = ''; img.loading = 'eager'; img.draggable = false;
+        const img = document.createElement('div');
+        img.style.cssText = 'width:100%;height:100%;background:linear-gradient(135deg,hsl(' + ((205 + i * 31) % 360) + ',16%,13%),#0b0b0e)';
         const ov = document.createElement('div');
         ov.className = 'lp-tile-overlay';
         ti.appendChild(img); ti.appendChild(ov);

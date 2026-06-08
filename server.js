@@ -1969,7 +1969,7 @@ async function _prewarmBrSegs() {
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
 async function _segmentWrapAI(points) {
   const prompt = `Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
-Produis un rapport PROPRE et PROFESSIONNEL façon Prime Terminal (ton d'analyste institutionnel) :
+Produis un rapport PROPRE et PROFESSIONNEL façon DataTradingPro (ton d'analyste institutionnel) :
 - Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", etc.) et garde-les EXACTEMENT tels quels (ne traduis pas, ne renomme pas).
 - Sous chaque en-tête, PEAUFINE/REFORMULE les puces en phrases claires, concises et professionnelles : corrige la grammaire, supprime les fragments, répétitions et le cruft, fais des phrases complètes qui se lisent comme un vrai récap d'analyste (pas un copier-coller brut).
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, pourcentages, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN. Tu améliores UNIQUEMENT la formulation et la clarté, jamais le contenu factuel.
@@ -1992,13 +1992,13 @@ ${points.map(p => '- ' + p).join('\n')}`;
 }
 
 // Structure un ARTICLE de recherche EN PROSE (ex: ING THINK "FX Daily") en rubriques claires
-// façon Prime Terminal/DTP. Réorganise + clarifie SANS JAMAIS inventer (mêmes garde-fous que les wraps).
+// façon DataTradingPro/DTP. Réorganise + clarifie SANS JAMAIS inventer (mêmes garde-fous que les wraps).
 // Renvoie du HTML <strong>SECTION</strong><ul><li>…</li></ul> ou null (→ on garde le HTML brut).
 async function _structureArticleAI(text, title) {
   const clean = String(text || '').replace(/\s+/g, ' ').trim();
   if (clean.length < 220) return null;     // trop court pour valoir une passe IA
-  const prompt = `Tu es analyste FX & macro pour un terminal pro (style Prime Terminal). Voici un rapport de recherche de banque (souvent un "FX Daily", rédigé en prose).
-Réorganise-le en un rapport PROPRE structuré en RUBRIQUES claires, façon Prime Terminal :
+  const prompt = `Tu es analyste FX & macro pour un terminal pro (style DataTradingPro). Voici un rapport de recherche de banque (souvent un "FX Daily", rédigé en prose).
+Réorganise-le en un rapport PROPRE structuré en RUBRIQUES claires, façon DataTradingPro :
 - Choisis des EN-TÊTES pertinents D'APRÈS LE CONTENU réel (ex: "OVERVIEW", "USD", "EUR", "GBP", "JPY", "AUD", "RATES", "COMMODITIES", "CENTRAL BANKS", "WHAT TO WATCH", "RISK EVENTS"…). Ne crée jamais une rubrique sans contenu réel.
 - Sous chaque en-tête, des phrases claires, concises et professionnelles (corrige grammaire, fragments, répétitions) : 1 à 4 puces par rubrique, qui se lisent comme un vrai récap d'analyste.
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, %, paires/tickers, banques centrales, prévisions, citations, dates. N'INVENTE RIEN, n'ajoute aucune opinion personnelle. Tu réorganises et clarifies UNIQUEMENT.
@@ -2738,8 +2738,8 @@ app.post('/api/report-insights', async (req, res) => {
     if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: stored }); }
   } catch {}
   try {
-    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style Prime Terminal). À partir de ce rapport de session, génère 8 à 10 "insights" courts pour un carrousel "AI Insights", classés par importance.
-Mélange DEUX types de cartes (comme Prime Terminal) :
+    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport de session, génère 8 à 10 "insights" courts pour un carrousel "AI Insights", classés par importance.
+Mélange DEUX types de cartes (comme DataTradingPro) :
 (A) 2 à 4 insights NARRATIFS de haut niveau qui résument les thèmes clés (géopolitique, tarifs, énergie, sentiment…) → asset=null ET signal=null.
 (B) des insights par ACTIF concret réellement discuté (ex: "USD/JPY","AUD/USD","EUR/USD","US Dollar","Brent Crude","Spot Gold","S&P 500","US 10Y","Bitcoin") AVEC un signal technique quand le rapport implique une direction claire : "BUY" (haussier), "SELL" (baissier) ou "NEUTRAL" (équilibré). Si l'actif est juste un constat d'actualité SANS direction nette → signal=null.
 Règles STRICTES :
@@ -3669,7 +3669,7 @@ function _mostRecentFriday() {
 }
 
 // ── Weekly Market Recap RICHE (Gemini → JSON structuré) ──
-// Copie de la logique Prime Terminal : résumé global, cartes d'insights, Key Macro Highlights,
+// Copie de la logique DataTradingPro : résumé global, cartes d'insights, Key Macro Highlights,
 // et analyse détaillée par devise (USD…NZD). Renvoie null si l'IA échoue (→ fallback par règles).
 async function generateWeeklyRecapAI(force = false) {
   const idPrefix = 'pmt-mkt-recap-';
@@ -6137,7 +6137,7 @@ server.listen(PORT, async () => {
   await auth.seedAdmin();
 
   console.log(`\n╔════════════════════════════════════════╗`);
-  console.log(`║   DataTradingPro — Prime Terminal       ║`);
+  console.log(`║   DataTradingPro — Terminal       ║`);
   console.log(`║   http://localhost:${PORT}                  ║`);
   console.log(`║   Admin panel : /admin                  ║`);
   console.log(`╚════════════════════════════════════════╝\n`);
