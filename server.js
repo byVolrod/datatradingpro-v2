@@ -2343,6 +2343,8 @@ const BLACKROCK_SEED = [
   'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260511-record-us-stocks-disconnect-or-not.pdf',
   'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260406-spotting-pockets-of-em-resilience.pdf',
   'https://www.blackrock.com/corporate/literature/market-commentary/weekly-investment-commentary-en-us-20260420-a-supercharged-ai-mega-force.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260427-persistent-inflation-constrains-policy.pdf',
+  'https://www.blackrock.com/corporate/literature/market-commentary/weekly-investment-commentary-en-us-20260518-upping-developed-stocks-strategically.pdf',
 ];
 function _blackrockItemFromUrl(url) {
   const m = String(url || '').match(/weekly-investment-commentary-en-us-(\d{4})(\d{2})(\d{2})-([a-z0-9-]+)\.pdf/i);
