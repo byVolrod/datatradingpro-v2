@@ -3216,6 +3216,7 @@ function _renderWeekAhead(d) {
   const rows = (d.days || []).map(day => {
     const isToday = String(day.date) === todayD;
     const hi = /high/i.test(day.impact);
+    const flags = Array.isArray(day.ccys) ? day.ccys.map(c => _sbFlag(c)).filter(Boolean).join('') : '';
     return `<div class="wa-day${isToday ? ' wa-day--today' : ''}">
       <div class="wa-node">
         <span class="wa-dow">${esc((day.dow || '').slice(0, 3).toUpperCase())}</span>
@@ -3224,7 +3225,10 @@ function _renderWeekAhead(d) {
       </div>
       <div class="wa-card">
         <div class="wa-card-head">
-          <span class="wa-card-title">${esc(day.title)}</span>
+          <div class="wa-card-headl">
+            <span class="wa-card-title">${esc(day.title)}</span>
+            ${flags ? `<span class="wa-flags">${flags}</span>` : ''}
+          </div>
           <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}">${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
         </div>
         ${Array.isArray(day.events) && day.events.length ? `
