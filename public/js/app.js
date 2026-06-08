@@ -2053,23 +2053,20 @@ function buildNewsItem(item) {
             }
             return;
           } else {
-            // Ticker minimaliste : un chip par actif, ▲/▼ colorés discrets
-            const tickerHtml = data.moves.map(m => {
-              const up    = m.dir === 'up';
-              const cls   = up ? 'rx-up' : 'rx-dn';
-              const arrow = up ? '▲' : '▼';
-              return `<span class="rx-ticker ${cls}">`
+            // Réaction façon flux marché : une PUCE par actif, prix AVANT → APRÈS + variation (style "X passé de A à B").
+            const movesHtml = data.moves.map(m => {
+              const cls = m.dir === 'up' ? 'rx-up' : 'rx-dn';
+              const u   = m.unit ? ' ' + m.unit : '';
+              return `<li class="rx-li ${cls}">`
                 + `<span class="rx-name">${m.label}</span>`
-                + `<span class="rx-arrow">${arrow}</span>`
-                + `<span class="rx-val">${m.move}${m.unit ? ' ' + m.unit : ''}</span>`
+                + `<span class="rx-flow">${m.refPrice}${u} <span class="rx-ar">&rarr;</span> ${m.peakPrice}${u}</span>`
                 + `<span class="rx-pct">${m.movePct}</span>`
-                + `<span class="rx-time">${m.minutes}m</span>`
-                + `</span>`;
+                + `</li>`;
             }).join('');
             expandEl.innerHTML =
               `<div class="rx-block${isRed ? ' rx-block--alert' : ''}">`
-              + `<div class="rx-head">Réaction à : ${nowTime}</div>`
-              + `<div class="rx-tickers">${tickerHtml}</div>`
+              + `<div class="rx-head">R&eacute;action &agrave; : ${nowTime}</div>`
+              + `<ul class="rx-list">${movesHtml}</ul>`
               + `<div class="rx-explain" id="rx-explain-${item.id}"></div>`
               + `</div>`;
 
