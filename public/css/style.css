@@ -3855,7 +3855,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Logo banque (vrai logo Clearbit) dans les cartes de la liste institution — version compacte */
 .br-inst-logo-card { display: inline-flex; align-items: center; }
 .br-inst-logo-card .br-bank-logo-wrap { display: inline-flex; align-items: center; }
-.br-inst-logo-card .br-bank-logo { height: 16px; max-width: 78px; object-fit: contain; object-position: right center; vertical-align: middle; }
+.br-inst-logo-card .br-bank-logo { height: 15px; max-width: 50px; object-fit: contain; object-position: right center; vertical-align: middle; }
 .br-inst-logo-card .br-dtp-logo { font-family: var(--font-mono); font-size: 11px; font-weight: 800; letter-spacing: 0.03em; }
 /* Nom de banque affiché À CÔTÉ du logo (toujours visible) → petit espace logo↔nom */
 .br-inst-logo-card .br-inst-name { margin-left: 6px; }
@@ -7683,7 +7683,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .br-dtp-logo { font-family: 'Arial Black', Arial, sans-serif; font-size: 22px; font-weight: 900; color: #ff7a00; letter-spacing: 0.02em; }
 /* Vrai logo de la banque (image) dans l'en-tête du rapport — repli wordmark si indispo */
 .br-bank-logo-wrap { display: inline-flex; align-items: center; }
-.br-bank-logo { height: 28px; max-width: 150px; object-fit: contain; object-position: left center; vertical-align: middle; }
+.br-bank-logo { height: 24px; max-width: 104px; object-fit: contain; object-position: left center; vertical-align: middle; }
 .br-ing-tagline {
   font-family: 'Arial', sans-serif;
   font-size: 13px;
