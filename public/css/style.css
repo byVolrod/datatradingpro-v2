@@ -8295,6 +8295,39 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .taux-last.n { color: #9a9aa2; }
 .taux-bias { color: #a6a6ad; max-width: 380px; font-size: 12px; line-height: 1.45; }
 .taux-loading, .taux-empty { text-align: center; color: #6f6f78; padding: 44px 0; }
+/* ── TAUX : cartes "Interest Rate Probability" (estimation maison) ── */
+.taux-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 12px; overflow-y: auto; align-content: start; }
+@media (max-width: 1100px) { .taux-grid { grid-template-columns: 1fr; } }
+.rtc { background: #0b0b0e; border: 1px solid #1c1c20; border-radius: 8px; padding: 14px 16px; }
+.rtc-head { display: flex; align-items: center; gap: 9px; margin-bottom: 10px; }
+.rtc-flag { width: 22px; height: 16px; object-fit: cover; border-radius: 3px; border: 1px solid #1c1c20; flex: 0 0 auto; }
+.rtc-bank { font-size: 13.5px; font-weight: 700; color: #f0f0f2; }
+.rtc-bank i { color: #6f6f78; font-style: normal; font-weight: 400; font-size: 11.5px; }
+.rtc-move { margin-left: auto; font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 4px; white-space: nowrap; }
+.rtc-move.g, .rtc-base.g { background: rgba(0,230,118,.12); color: #00e676; }
+.rtc-move.r, .rtc-base.r { background: rgba(255,61,0,.12); color: #ff3d00; }
+.rtc-move.n, .rtc-base.n { background: rgba(255,179,0,.12); color: #ffb300; }
+.rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; padding: 10px 0; border-top: 1px solid #131316; border-bottom: 1px solid #131316; }
+.rtc-metrics > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.rtc-k { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #6a6a73; }
+.rtc-v { font-size: 13px; font-weight: 700; color: #e6e9ef; font-family: var(--mono, ui-monospace, monospace); }
+.rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff3d00; } .rtc-v.n { color: #ffb300; }
+.rtc-dist { display: flex; flex-direction: column; gap: 5px; padding: 12px 0 4px; }
+.rtc-bar { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.rtc-bl { width: 62px; color: #8a8a93; flex: 0 0 auto; }
+.rtc-track { flex: 1; height: 13px; background: #15151b; border-radius: 3px; overflow: hidden; }
+.rtc-track i { display: block; height: 100%; border-radius: 3px; transition: width .4s; }
+.rtc-track i.n { background: #6b7280; } .rtc-track i.g { background: #047857; } .rtc-track i.r { background: #991b1b; }
+.rtc-bp { width: 38px; text-align: right; color: #cfcfd4; font-family: var(--mono, ui-monospace, monospace); flex: 0 0 auto; }
+.rtc-tbl { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px; font-family: var(--mono, ui-monospace, monospace); }
+.rtc-tbl th { color: #6a6a73; font-weight: 600; text-align: right; padding: 5px 6px; border-bottom: 1px solid #1c1c20; font-size: 9.5px; text-transform: uppercase; white-space: nowrap; }
+.rtc-tbl th:first-child { text-align: left; }
+.rtc-tbl td { padding: 6px; border-bottom: 1px solid #111113; text-align: right; color: #cfcfd4; white-space: nowrap; }
+.rtc-tbl tr:last-child td { border-bottom: 0; }
+.rtc-tbl td:first-child { text-align: left; color: #e6e9ef; }
+.rtc-tbl td.g { color: #00e676; } .rtc-tbl td.r { color: #ff3d00; }
+.rtc-day { color: #6a6a73; } .rtc-impl { color: #9a9aa2; }
+.rtc-base { font-size: 9.5px; font-weight: 800; padding: 2px 6px; border-radius: 3px; }
 /* ── Onglets : réorganisation par glisser (appui maintenu) ── */
 .nav-reordering { cursor: grabbing !important; user-select: none; }
 .nav-reordering .nav-item { transition: transform .12s ease; }
