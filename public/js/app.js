@@ -3219,7 +3219,6 @@ function _renderWeekAhead(d) {
   const rows = (d.days || []).map(day => {
     const isToday = String(day.date) === todayD;
     const hi = /high/i.test(day.impact);
-    const flags = Array.isArray(day.ccys) ? day.ccys.map(c => _sbFlag(c)).filter(Boolean).join('') : '';
     return `<div class="wa-day${isToday ? ' wa-day--today' : ''}">
       <div class="wa-node">
         <span class="wa-dow">${esc((day.dow || '').slice(0, 3).toUpperCase())}</span>
@@ -3230,7 +3229,6 @@ function _renderWeekAhead(d) {
         <div class="wa-card-head">
           <div class="wa-card-headl">
             <span class="wa-card-title">${esc(day.headline || day.title)}</span>
-            ${flags ? `<span class="wa-flags">${flags}</span>` : ''}
           </div>
           <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
         </div>
