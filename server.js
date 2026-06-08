@@ -182,7 +182,8 @@ function _wsUserIdFromReq(req) {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing']);
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing',
+  '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news']);   // page Week Ahead PUBLIQUE
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/'];
 
 function requireAuth(req, res, next) {
@@ -857,6 +858,18 @@ app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
 });
 
 app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
+
+// PUBLIC (page Week Ahead) : flux de news allégé (teaser capé, pas l'archive premium complète).
+app.get('/api/week-ahead-news', (_req, res) => {
+  const items = (Array.isArray(allNews) ? allNews : []).slice(0, 45).map(n => ({
+    headline: (n.headline || '').slice(0, 240),
+    timestamp: n.timestamp || 0,
+    category: n.category || (Array.isArray(n.tags) && n.tags[0]) || '',
+    priority: n.priority || 'low',
+    tags: Array.isArray(n.tags) ? n.tags.slice(0, 3) : [],
+  }));
+  res.json({ items, total: items.length });
+});
 
 // ── Macro AI Assistant : chat IA (Gemini→Claude) avec CONTEXTE marché réel + sources réelles ──
 const _aiChatMem = {};   // cache process (clé = hash question) ; aussi persisté dans ai_cache (quota Gemini)
@@ -1848,6 +1861,7 @@ function aiAllowed(category, opts = {}) {
     if (category === 'bank')    return share(0.45);   // Institution (ING)
     if (category === 'bias')    return share(0.40);
     if (category === 'ratesbias') return share(0.18);   // biais TAUX : part modeste, hebdo
+    if (category === 'weekahead') return share(0.22);   // éditorial Week Ahead : hebdo
     return share(0.30);
   }
   // Semaine : PRIORITÉ aux onglets premium → Analyst/AI Insights (60%) + Institution (40%, désormais
@@ -1859,6 +1873,7 @@ function aiAllowed(category, opts = {}) {
   if (category === 'news')    return !!opts.important && share(0.45);   // news importantes
   if (category === 'bias')    return share(0.30);
   if (category === 'ratesbias') return share(0.18);   // biais TAUX : part modeste, hebdo
+  if (category === 'weekahead') return share(0.22);   // éditorial Week Ahead : hebdo
   return false;
 }
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); _aiDemandNote(category); }
@@ -4393,7 +4408,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v6-tvcal';   // v6 : source calendrier TradingView (noms+prév.+actuals fiables) + refresh temps réel ~40 min | accroches FR + drapeaux | semaine en cours → bump force la régén
+const WA_VER = 'v7-editorial';   // v7 : éditorial IA hebdo (titre+résumé/jour façon PMT) | source calendrier TradingView + refresh temps réel ~40 min | accroches FR + drapeaux | semaine en cours → bump force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4460,13 +4475,45 @@ async function generateWeekAhead(force = false) {
     };
   });
   if (!days.length) return _weekAhead;
+  const weekKey = keys[0];                       // lundi de la semaine = clé éditorial (1 génération IA / semaine, cachée)
+  try { await _waApplyEditorial(days, weekKey); } catch {}
   const first = new Date(keys[0] + 'T12:00:00Z'), last = new Date(keys[keys.length - 1] + 'T12:00:00Z');
   const week = `${first.getUTCDate()}-${last.getUTCDate()} ${last.toLocaleDateString('en-US', { month: 'long' })}`;
   _weekAhead = { generatedAt: Date.now(), v: WA_VER, week, days };
   try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
   auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
-  console.log(`[WeekAhead] OK (calendrier, 0 IA) — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
+  console.log(`[WeekAhead] OK — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
   return _weekAhead;
+}
+// Éditorial IA du Week Ahead (titre + résumé par jour, façon PMT) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
+let _waEditorial = { weekKey: null, days: {}, at: 0 };
+async function _waApplyEditorial(days, weekKey) {
+  const apply = map => { if (!map) return; days.forEach(d => { const e = map[d.date] || map[String(d.date)] || map[('0' + d.date).slice(-2)]; if (e && e.headline) { d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
+  try {
+    if (_waEditorial.weekKey === weekKey && _waEditorial.days && Object.keys(_waEditorial.days).length) { apply(_waEditorial.days); return; }
+    const cached = await auth.aiCacheGet('weekahead:editorial').catch(() => null);
+    if (cached && cached.weekKey === weekKey && cached.days && Object.keys(cached.days).length) { _waEditorial = cached; apply(cached.days); return; }
+  } catch {}
+  const lines = days.map(d => {
+    const evs = (d.events || []).slice(0, 8).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (prév. ' + e.forecast + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
+    return `${d.date} (${d.dow}) : ${evs || 'données mineures'}`;
+  }).join('\n');
+  const prompt = 'Tu es analyste macro pour un terminal de trading. Pour CHAQUE jour ci-dessous, rédige en FRANCAIS : (1) un titre éditorial court et accrocheur façon manchette (6 à 12 mots, sans guillemets, sans point final), (2) un résumé de 1 à 2 phrases sur ce que les marchés vont surveiller ce jour-là. Style institutionnel, factuel, concret (cite les publications clés).\n\nÉvénements de la semaine :\n' + lines + '\n\nRéponds UNIQUEMENT par un JSON strict, une entrée par numéro de jour fourni : {"' + (days[0] ? days[0].date : 'J') + '":{"headline":"...","summary":"..."}, ...}. Aucun texte autour.';
+  let txt;
+  try { txt = await aiSmart('weekahead', prompt, 1100, { scheduled: true }); }
+  catch (e) { console.log('[WeekAhead IA] indisponible → titres déterministes:', e.message); return; }
+  try {
+    const m = String(txt).match(/\{[\s\S]*\}/);
+    const obj = JSON.parse(m ? m[0] : String(txt));
+    const clean = {};
+    days.forEach(d => { const v = obj[d.date] || obj[String(d.date)] || obj[('0' + d.date).slice(-2)]; if (v && v.headline) clean[d.date] = { headline: String(v.headline).replace(/^["']|["']$/g, '').slice(0, 120), summary: String(v.summary || '').slice(0, 340) }; });
+    if (Object.keys(clean).length) {
+      _waEditorial = { weekKey, days: clean, at: Date.now() };
+      await auth.aiCacheSet('weekahead:editorial', _waEditorial).catch(() => {});
+      apply(clean);
+      console.log('[WeekAhead IA] éditorial généré (' + Object.keys(clean).length + ' jours) → cache hebdo');
+    }
+  } catch (e) { console.log('[WeekAhead IA] parse échec → titres déterministes'); }
 }
 let _waGenerating = false;
 app.get('/api/week-ahead', (_req, res) => {

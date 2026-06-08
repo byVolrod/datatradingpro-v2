@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Week Ahead — Agenda macro de la semaine | DataTradingPro</title>
+<meta name="description" content="L'agenda macro de la semaine à venir : événements économiques à fort impact, news en temps réel et calendrier économique complet. Gratuit, par DataTradingPro.">
+<link rel="canonical" href="https://desk.datatradingpro.com/week-ahead">
+<meta property="og:title" content="Week Ahead — Agenda macro de la semaine | DataTradingPro">
+<meta property="og:description" content="Événements à fort impact, news temps réel et calendrier économique de la semaine.">
+<meta property="og:type" content="website">
+<meta name="robots" content="index,follow">
+<link rel="icon" href="/favicon.ico">
+<style>
+  :root{
+    --bg:#0a0a0c; --bg1:#0c0c0e; --bg2:#121216; --bg3:#17171c; --line:#1c1c20; --line2:#26262b;
+    --text:#f0f0f2; --text2:#a6a6ad; --text3:#6f6f78;
+    --orange:#ff7a00; --orange2:#f7941d; --green:#00e676; --red:#ff3d00; --amber:#ffb300;
+    --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+    --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --topbar-h:50px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--text);font-family:var(--ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit;text-decoration:none}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:#2a2a30;border-radius:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+
+  /* Top bar */
+  .wap-top{height:var(--topbar-h);display:flex;align-items:center;gap:14px;padding:0 18px;border-bottom:1px solid var(--line);background:var(--bg1);position:sticky;top:0;z-index:20}
+  .wap-logo{font-weight:800;letter-spacing:-.01em;font-size:15px}
+  .wap-logo b{color:var(--orange)}
+  .wap-sep{width:1px;height:18px;background:var(--line2)}
+  .wap-title{font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--text2)}
+  .wap-spacer{flex:1}
+  .wap-status{font-family:var(--mono);font-size:11px;letter-spacing:.08em;color:var(--green);display:inline-flex;align-items:center;gap:6px}
+  .wap-status::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 6px rgba(0,230,118,.6);animation:pulse 2.4s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+  @media(prefers-reduced-motion:reduce){.wap-status::before{animation:none}}
+  .wap-cta{background:var(--orange);color:#1a1206;font-weight:700;font-size:12.5px;padding:8px 14px;border-radius:5px;white-space:nowrap}
+  .wap-cta:hover{background:#ff9226}
+
+  /* 3-panel grid */
+  .wap-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.18fr);gap:1px;background:var(--line);height:calc(100dvh - var(--topbar-h))}
+  .wap-left{background:var(--bg1);overflow-y:auto;padding:16px 18px}
+  .wap-right{display:grid;grid-template-rows:minmax(0,1fr) minmax(0,1fr);gap:1px;background:var(--line);min-height:0}
+  .panel{background:var(--bg1);display:flex;flex-direction:column;min-height:0}
+  .panel-head{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--bg2);flex:0 0 auto}
+  .panel-head h2{font-size:13.5px;font-weight:700;letter-spacing:.01em}
+  .panel-head .ph-meta{font-family:var(--mono);font-size:10.5px;color:var(--orange2);letter-spacing:.04em}
+  .panel-head .ph-live{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.1em;color:var(--green);display:inline-flex;align-items:center;gap:5px}
+  .panel-head .ph-live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--green)}
+  .panel-body{overflow-y:auto;min-height:0;flex:1 1 auto}
+
+  /* ── Week Ahead (left) ── */
+  .wa-h{display:flex;align-items:baseline;gap:12px;margin-bottom:6px}
+  .wa-h h1{font-size:20px;font-weight:800;letter-spacing:-.01em}
+  .wa-h .wa-week{font-family:var(--mono);font-size:12px;color:var(--orange2);letter-spacing:.03em}
+  .wa-chartbox{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:9px 11px 5px;margin:12px 0 20px}
+  .wa-chart-label{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--text3);margin-bottom:3px}
+  .wa-spark{width:100%;height:46px;display:block}
+  .wa-timeline{position:relative}
+  .wa-timeline::before{content:"";position:absolute;left:24px;top:24px;bottom:24px;width:2px;margin-left:-1px;background:var(--line2)}
+  .wa-day{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px;position:relative}
+  .wa-node{flex:0 0 50px;width:50px;height:50px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line2);z-index:1}
+  .wa-day--today .wa-node{border-color:rgba(255,122,0,.6);box-shadow:0 0 12px rgba(255,122,0,.25)}
+  .wa-dow{font-size:8.5px;font-weight:700;color:var(--text3);letter-spacing:.04em}
+  .wa-date{font-size:17px;font-weight:800;color:var(--text);line-height:1.05}
+  .wa-day--today .wa-date{color:var(--orange2)}
+  .wa-month{font-size:8px;font-weight:600;color:var(--text3);letter-spacing:.04em}
+  .wa-card{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line);border-radius:7px;padding:12px 14px}
+  .wa-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:7px}
+  .wa-card-headl{display:flex;flex-direction:column;gap:6px;min-width:0}
+  .wa-card-title{font-size:14.5px;font-weight:700;color:var(--orange);line-height:1.3}
+  .wa-flags{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
+  .wa-flags img{width:15px;height:15px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px var(--line2)}
+  .wa-impact{flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:4px;border:1px solid;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
+  .wa-impact::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
+  .wa-impact--high{color:#ff5a3c;background:rgba(255,61,0,.08);border-color:rgba(255,61,0,.4)}
+  .wa-impact--medium{color:#ffb300;background:rgba(255,179,0,.08);border-color:rgba(255,179,0,.35)}
+  .wa-desc{font-size:13px;line-height:1.6;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .wa-card--open .wa-desc{-webkit-line-clamp:unset;overflow:visible}
+  .wa-more{background:none;border:none;cursor:pointer;color:var(--orange);font-size:12px;font-weight:600;font-family:var(--ui);padding:8px 0 0;display:inline-flex;align-items:center;gap:5px}
+  .wa-more:hover{color:#ff9a3c}
+
+  /* ── News ticker (right top) ── */
+  .nw-day{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--text3);padding:9px 16px 5px;text-transform:uppercase;position:sticky;top:0;background:var(--bg1)}
+  .nw{display:grid;grid-template-columns:46px 1fr;gap:12px;padding:9px 16px;border-top:1px solid var(--line)}
+  .nw-time{font-family:var(--mono);font-size:11px;color:var(--text3)}
+  .nw-time .nw-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:5px;vertical-align:middle;background:var(--text3)}
+  .nw--high .nw-dot{background:var(--red);box-shadow:0 0 5px rgba(255,61,0,.5)}
+  .nw-head{font-size:13px;line-height:1.45;color:var(--text)}
+  .nw-cat{font-family:var(--mono);font-size:9.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--orange2);display:block;margin-bottom:3px}
+  .nw-tags{margin-top:5px;display:flex;gap:5px;flex-wrap:wrap}
+  .nw-tag{font-size:9.5px;font-weight:600;letter-spacing:.03em;color:var(--text2);background:var(--bg3);border:1px solid var(--line2);border-radius:3px;padding:1px 6px}
+
+  /* ── Calendar (right bottom) ── */
+  .cal-filters{display:flex;align-items:center;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line);flex:0 0 auto;background:var(--bg1)}
+  .cal-fbtn{font-size:11px;font-weight:600;color:var(--text2);background:var(--bg2);border:1px solid var(--line2);border-radius:4px;padding:4px 11px;cursor:pointer;font-family:var(--ui)}
+  .cal-fbtn.on{color:#1a1206;background:var(--orange);border-color:var(--orange)}
+  .cal-day{font-family:var(--mono);font-size:10px;font-weight:700;letter-spacing:.06em;color:var(--text3);padding:9px 16px 5px;text-transform:uppercase;background:var(--bg2)}
+  .cal-row{display:grid;grid-template-columns:48px 30px 38px 30px minmax(0,1fr) 64px 64px 64px;gap:8px;align-items:center;padding:7px 16px;border-top:1px solid var(--line);font-size:12px}
+  .cal-row:hover{background:var(--bg2)}
+  .cal-time{font-family:var(--mono);color:var(--text3);font-size:11px}
+  .cal-flag img{width:18px;height:13px;border-radius:2px;object-fit:cover;display:block}
+  .cal-ccy{font-family:var(--mono);font-weight:700;font-size:11px;color:var(--text2)}
+  .cal-imp{display:inline-flex;gap:2px}
+  .cal-imp i{width:5px;height:5px;border-radius:50%;background:var(--line2)}
+  .cal-imp.high i:nth-child(-n+3){background:var(--red)}
+  .cal-imp.medium i:nth-child(-n+2){background:var(--amber)}
+  .cal-imp.low i:nth-child(-n+1){background:var(--text3)}
+  .cal-ev{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dfe3ea}
+  .cal-num{font-family:var(--mono);font-size:11px;text-align:right;color:var(--text2)}
+  .cal-num.act{color:var(--text);font-weight:700}
+  .cal-th{display:grid;grid-template-columns:48px 30px 38px 30px minmax(0,1fr) 64px 64px 64px;gap:8px;padding:6px 16px;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:9px;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);background:var(--bg1);position:sticky;top:0;z-index:1}
+  .cal-th span:nth-child(n+6){text-align:right}
+
+  .empty{color:var(--text3);font-size:12.5px;padding:26px 16px;text-align:center}
+  .loading{color:var(--text3);font-size:12.5px;padding:26px 16px;text-align:center}
+
+  /* Responsive */
+  @media(max-width:980px){
+    .wap-grid{grid-template-columns:1fr;height:auto;overflow:visible}
+    .wap-left{max-height:none}
+    .wap-right{grid-template-rows:560px 560px}
+    .wap-title{display:none}
+  }
+</style>
+</head>
+<body>
+  <header class="wap-top">
+    <a class="wap-logo" href="https://datatradingpro.com/">Data<b>TradingPro</b></a>
+    <span class="wap-sep"></span>
+    <span class="wap-title">Week Ahead</span>
+    <span class="wap-spacer"></span>
+    <span class="wap-status">Live</span>
+    <a class="wap-cta" href="https://desk.datatradingpro.com/">Accéder au terminal →</a>
+  </header>
+
+  <main class="wap-grid">
+    <section class="wap-left">
+      <div class="wa-h"><h1>Week Ahead</h1><span class="wa-week" id="wa-week"></span></div>
+      <div class="wa-chartbox"><div class="wa-chart-label">WEEKLY RISK PROFILE</div><svg class="wa-spark" id="wa-spark" viewBox="0 0 300 46" preserveAspectRatio="none"></svg></div>
+      <div class="wa-timeline" id="wa-timeline"><div class="loading">Chargement de la semaine…</div></div>
+    </section>
+
+    <section class="wap-right">
+      <div class="panel">
+        <div class="panel-head"><h2>Realtime Headline Ticker</h2><span class="ph-live">Live</span></div>
+        <div class="panel-body" id="news-body"><div class="loading">Chargement des news…</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Economic Event Calendar</h2><span class="ph-meta" id="cal-range"></span><span class="ph-live">Live</span></div>
+        <div class="cal-filters" id="cal-filters">
+          <button class="cal-fbtn on" data-f="all">All</button>
+          <button class="cal-fbtn" data-f="High">High</button>
+          <button class="cal-fbtn" data-f="Medium">Med</button>
+          <button class="cal-fbtn" data-f="Low">Low</button>
+        </div>
+        <div class="panel-body" id="cal-body"><div class="loading">Chargement du calendrier…</div></div>
+      </div>
+    </section>
+  </main>
+
+<script>
+(function(){
+  var FLAG={USD:'us',EUR:'eu',GBP:'gb',JPY:'jp',CHF:'ch',CAD:'ca',AUD:'au',NZD:'nz',CNY:'cn',CNH:'cn',HKD:'hk',SGD:'sg',SEK:'se',NOK:'no',MXN:'mx',ZAR:'za',TRY:'tr',INR:'in',BRL:'br',KRW:'kr',PLN:'pl',RUB:'ru',XAU:'',XAG:''};
+  function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function flag(c){var i=FLAG[c];return i?'<img src="https://flagcdn.com/w40/'+i+'.png" alt="'+esc(c)+'" loading="lazy">':'';}
+  function flagRound(c){var i=FLAG[c];return i?'<img src="https://flagcdn.com/w40/'+i+'.png" alt="" loading="lazy">':'';}
+  function pad(n){return n<10?'0'+n:''+n;}
+  function fmtTime(ts){var d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes());}
+
+  // Fenêtre de la semaine en cours (Lun→Dim, week-end → semaine à venir)
+  function weekWindow(){
+    var d=new Date(),dow=d.getDay();
+    var toMon=(dow===0)?1:(dow===6)?2:(1-dow);
+    var mon=new Date(d.getFullYear(),d.getMonth(),d.getDate()+toMon,0,0,0,0);
+    return {start:mon.getTime(),end:mon.getTime()+7*86400000};
+  }
+
+  /* ── Week Ahead (gauche) ── */
+  function renderWA(d){
+    document.getElementById('wa-week').textContent=d.week||'';
+    var days=(d.days||[]);
+    var todayD=String(new Date().getDate());
+    var rows=days.map(function(day){
+      var isToday=String(day.date)===todayD;
+      var hi=/high/i.test(day.impact||'');
+      var ttl=day.headline||day.title||'Événements de la journée';
+      var desc=day.summary||day.description||'';
+      var flags=(Array.isArray(day.ccys)?day.ccys:[]).map(flagRound).join('');
+      return '<div class="wa-day'+(isToday?' wa-day--today':'')+'">'
+        +'<div class="wa-node"><span class="wa-dow">'+esc((day.dow||'').slice(0,3).toUpperCase())+'</span>'
+        +'<span class="wa-date">'+esc(day.date||'')+'</span><span class="wa-month">'+esc((day.month||'').slice(0,3).toUpperCase())+'</span></div>'
+        +'<div class="wa-card">'
+          +'<div class="wa-card-head"><div class="wa-card-headl"><span class="wa-card-title">'+esc(ttl)+'</span>'
+          +(flags?'<span class="wa-flags">'+flags+'</span>':'')+'</div>'
+          +'<span class="wa-impact wa-impact--'+(hi?'high':'medium')+'">'+(hi?'HIGH IMPACT':'MEDIUM IMPACT')+'</span></div>'
+          +'<div class="wa-desc">'+esc(desc)+'</div>'
+          +'<button class="wa-more" type="button">Read More ∨</button>'
+        +'</div></div>';
+    }).join('');
+    var host=document.getElementById('wa-timeline');
+    host.innerHTML=rows||'<div class="empty">Aucun événement majeur cette semaine.</div>';
+    host.querySelectorAll('.wa-card').forEach(function(c){
+      var body=c.querySelector('.wa-desc'),btn=c.querySelector('.wa-more');
+      if(body&&btn&&body.scrollHeight<=body.clientHeight+4){btn.style.display='none';}
+      if(btn)btn.addEventListener('click',function(){var o=c.classList.toggle('wa-card--open');btn.textContent=o?'Show Less ∧':'Read More ∨';});
+    });
+    spark(days);
+  }
+  function spark(days){
+    var svg=document.getElementById('wa-spark');if(!svg)return;
+    var v=days.map(function(d){return typeof d.risk==='number'?d.risk:50;});
+    if(!v.length){svg.innerHTML='';return;}
+    var W=300,H=46,n=v.length,max=100;
+    var pts=v.map(function(r,i){var x=n===1?W/2:(i/(n-1))*W;var y=H-4-(r/max)*(H-8);return [x,y];});
+    var line=pts.map(function(p,i){return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
+    var area=line+' L'+W+' '+H+' L0 '+H+' Z';
+    svg.innerHTML='<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a00" stop-opacity=".35"/><stop offset="1" stop-color="#0a0a0c" stop-opacity="0"/></linearGradient></defs>'
+      +'<path d="'+area+'" fill="url(#wg)"/><path d="'+line+'" fill="none" stroke="#ff7a00" stroke-width="2" stroke-linejoin="round"/>';
+  }
+
+  /* ── News (droite haut) ── */
+  function renderNews(items){
+    var host=document.getElementById('news-body');
+    if(!items||!items.length){host.innerHTML='<div class="empty">News indisponibles pour le moment.</div>';return;}
+    var out='',lastDay='';
+    items.forEach(function(n){
+      var d=new Date(n.timestamp||Date.now());
+      var dayKey=d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+      if(dayKey!==lastDay){lastDay=dayKey;out+='<div class="nw-day">'+esc(dayKey)+'</div>';}
+      var hi=(n.priority==='high');
+      var tags=(Array.isArray(n.tags)?n.tags:[]).map(function(t){return '<span class="nw-tag">'+esc(t)+'</span>';}).join('');
+      out+='<div class="nw'+(hi?' nw--high':'')+'"><div class="nw-time"><span class="nw-dot"></span>'+fmtTime(n.timestamp||Date.now())+'</div>'
+        +'<div>'+(n.category?'<span class="nw-cat">'+esc(n.category)+'</span>':'')+'<div class="nw-head">'+esc(n.headline)+'</div>'
+        +(tags?'<div class="nw-tags">'+tags+'</div>':'')+'</div></div>';
+    });
+    host.innerHTML=out;
+  }
+
+  /* ── Calendar (droite bas) ── */
+  var _calItems=[],_calFilter='all';
+  function impClass(imp){var s=String(imp||'').toLowerCase();return s==='high'?'high':(s==='medium'?'medium':'low');}
+  function renderCal(){
+    var host=document.getElementById('cal-body');
+    var win=weekWindow();
+    var list=_calItems.filter(function(e){return e&&e.timestamp>=win.start&&e.timestamp<win.end;});
+    if(_calFilter!=='all')list=list.filter(function(e){return String(e.impact)===_calFilter;});
+    list.sort(function(a,b){return (a.timestamp||0)-(b.timestamp||0);});
+    document.getElementById('cal-range').textContent=fmtRange(win);
+    if(!list.length){host.innerHTML='<div class="empty">Aucun événement pour ce filtre.</div>';return;}
+    var out='<div class="cal-th"><span>Heure</span><span></span><span>Dev.</span><span>Imp.</span><span>Événement</span><span>Actuel</span><span>Prév.</span><span>Préc.</span></div>';
+    var lastDay='';
+    list.forEach(function(e){
+      var d=new Date(e.timestamp);
+      var dayKey=d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+      if(dayKey!==lastDay){lastDay=dayKey;out+='<div class="cal-day">'+esc(dayKey)+'</div>';}
+      var ic=impClass(e.impact);
+      out+='<div class="cal-row">'
+        +'<span class="cal-time">'+fmtTime(e.timestamp)+'</span>'
+        +'<span class="cal-flag">'+flag(e.currency)+'</span>'
+        +'<span class="cal-ccy">'+esc(e.currency||'')+'</span>'
+        +'<span class="cal-imp '+ic+'"><i></i><i></i><i></i></span>'
+        +'<span class="cal-ev" title="'+esc(e.title||'')+'">'+esc(e.title||'')+'</span>'
+        +'<span class="cal-num'+(e.actual?' act':'')+'">'+esc(e.actual||'–')+'</span>'
+        +'<span class="cal-num">'+esc(e.forecast||'–')+'</span>'
+        +'<span class="cal-num">'+esc(e.previous||'–')+'</span>'
+      +'</div>';
+    });
+    host.innerHTML=out;
+  }
+  function fmtRange(win){
+    var a=new Date(win.start),b=new Date(win.end-86400000);
+    return pad(a.getDate())+'/'+pad(a.getMonth()+1)+' – '+pad(b.getDate())+'/'+pad(b.getMonth()+1)+'/'+b.getFullYear();
+  }
+  document.getElementById('cal-filters').addEventListener('click',function(e){
+    var b=e.target.closest('.cal-fbtn');if(!b)return;
+    this.querySelectorAll('.cal-fbtn').forEach(function(x){x.classList.remove('on');});
+    b.classList.add('on');_calFilter=b.dataset.f;renderCal();
+  });
+
+  /* ── Fetch + poll ── */
+  function load(){
+    fetch('/api/week-ahead').then(function(r){return r.json();}).then(function(d){if(d&&Array.isArray(d.days))renderWA(d);}).catch(function(){});
+    fetch('/api/week-ahead-news').then(function(r){return r.json();}).then(function(d){renderNews(d&&d.items);}).catch(function(){});
+    fetch('/api/calendar-events').then(function(r){return r.json();}).then(function(d){_calItems=(d&&d.items)||[];renderCal();}).catch(function(){
+      document.getElementById('cal-body').innerHTML='<div class="empty">Calendrier indisponible.</div>';
+    });
+  }
+  load();
+  setInterval(load,60000);
+})();
+</script>
+</body>
+</html>
