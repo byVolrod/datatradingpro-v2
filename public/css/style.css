@@ -334,7 +334,16 @@ html, body {
 .nav-item--symbol .sym-x { margin-left: 3px; font-size: 14px; line-height: 1; color: #8a8a93; padding: 0 3px; border-radius: 3px; }
 .nav-item--symbol .sym-x:hover { color: #fff; background: #2a2a30; }
 #view-symbol { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.sym-grid { display: grid; grid-template-columns: 1.55fr 1fr; grid-template-rows: 1.4fr 1fr; gap: 8px; padding: 8px; height: 100%; min-height: 0; box-sizing: border-box; }
+.sym-grid { display: grid; grid-template-columns: var(--sym-col, 1.55fr) 6px minmax(0, 1fr); grid-template-rows: var(--sym-row, 1.4fr) 6px minmax(0, 1fr); gap: 0; padding: 8px; height: 100%; min-height: 0; box-sizing: border-box; }
+/* Splitters orange draggables (vertical entre colonnes, horizontal entre lignes) — volatils (reset au reload) */
+.sym-vsplit { background: transparent; cursor: col-resize; position: relative; z-index: 30; }
+.sym-vsplit::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 2px; background: rgba(255,255,255,0.05); transition: background .12s; }
+.sym-vsplit:hover::before, .sym-vsplit.dragging::before { background: rgba(255,122,0,0.72); }
+.sym-hsplit { background: transparent; cursor: row-resize; position: relative; z-index: 30; }
+.sym-hsplit::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 2px; background: rgba(255,255,255,0.05); transition: background .12s; }
+.sym-hsplit:hover::before, .sym-hsplit.dragging::before { background: rgba(255,122,0,0.72); }
+.sym-grid.sym-dragging * { pointer-events: none; user-select: none; }
+.sym-grid.sym-dragging .sym-vsplit, .sym-grid.sym-dragging .sym-hsplit { pointer-events: auto; }
 .sym-panel { background: #0c0c0f; border: 1px solid #1c1c20; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; }
 .sym-phead { flex: 0 0 auto; height: 30px; display: flex; align-items: center; padding: 0 11px; border-bottom: 1px solid #18181c; }
 .sym-ptitle { font-family: var(--font-mono, monospace); font-size: 11.5px; font-weight: 700; color: #e9eaed; letter-spacing: .03em; }
@@ -360,8 +369,9 @@ html, body {
 #sym-cal { overflow: auto; padding: 0; }
 #sym-cal .cal-table { min-width: 560px; }
 #sym-news { padding: 0; }
-#sym-news .news-item { --c-pad: 11px; --c-icon: 0px; --c-time: 46px; --c-cat: 86px; --c-arrow: 0px; padding: 8px 11px; }
-#sym-news .news-headline { font-size: 11.5px; margin-bottom: 0; }
+/* #sym-news = rendu RICHE identique au ticker News (icône d'alerte + chevron restaurés), compacté pour le panneau */
+#sym-news .news-item { --c-pad: 11px; --c-icon: 22px; --c-time: 46px; --c-cat: 80px; --c-arrow: 20px; padding: 9px 11px; }
+#sym-news .news-headline { font-size: 11.5px; }
 #sym-news .date-header { padding: 6px 11px 5px; }
 
 /* — Dropdown : double drapeau rond + en-tête « # Foreign Exchange (N) » — */
@@ -446,7 +456,11 @@ html, body {
 .sym-cb-note b { color: #ffb300; }
 .sym-cb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
 
-@media (max-width: 1100px) { .sym-grid { grid-template-columns: 1fr; grid-template-rows: 320px 240px 240px 240px; overflow-y: auto; } }
+@media (max-width: 1100px) {
+  .sym-grid { grid-template-columns: 1fr; grid-template-rows: repeat(4, minmax(240px, auto)); overflow-y: auto; }
+  .sym-grid > .sym-panel { grid-column: 1 !important; grid-row: auto !important; }
+  .sym-vsplit, .sym-hsplit { display: none; }
+}
 @media (max-width: 900px) { .sym-bz-grid, .sym-cb-grid { grid-template-columns: 1fr; } }
 
 .topbar-sentiment {

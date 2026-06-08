@@ -281,6 +281,10 @@ const SETTINGS_PANEL = {
 
 // ═══ State ════════════════════════════════
 let allItems          = [];
+// Exposé pour la vue symbole (charts.js) : rendu news RICHE identique au ticker.
+// getter (et non window.allItems figé) car allItems est réassigné par renderNews/WS.
+window.getNewsMaster = () => allItems;
+try { window.buildNewsItem = buildNewsItem; } catch {}   // rendu d'une ligne .news-item complète (badges/icône/chevron)
 let enabledCategories = new Set(INTERNAL_CATS); // all on by default
 let searchQuery       = '';
 let ws                = null;
