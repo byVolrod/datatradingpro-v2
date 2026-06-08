@@ -1906,7 +1906,6 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!VALID_VIEWS.includes(view)) view = 'news';
     // WEEK AHEAD réservé au staff (admin/support) → un client est renvoyé sur 'news'.
     if (view === 'weekahead' && window._pdIsStaff === false) view = 'news';
-    if (view === 'taux' && window._pdIsAdmin === false) view = 'news';   // TAUX : admin uniquement
     _setDocTitle(view);
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
 

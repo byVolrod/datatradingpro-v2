@@ -4689,7 +4689,7 @@ const CENTRAL_BANKS = [
   { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, last:{ date:'2023-11-07', bps:25,  dir:'hike' }, next:'2026-06-16', est:{ dir:'cut',  prob:50 }, bias:'Statu quo prolongé : premières baisses possibles si l\'inflation reflue.' },
   { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:4.25, last:{ date:'2024-11-27', bps:-50, dir:'cut'  }, next:'2026-05-28', est:{ dir:'cut',  prob:55 }, bias:'Croissance faible : poursuite des baisses pour soutenir l\'activité.' },
 ];
-app.get('/api/rates', requireAdmin, (_req, res) => {
+app.get('/api/rates', (_req, res) => {
   res.json({ asOf: 'valeurs de référence — à confirmer', banks: CENTRAL_BANKS });
 });
 
