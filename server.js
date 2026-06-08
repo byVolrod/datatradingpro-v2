@@ -4637,7 +4637,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v14-percur-editorial';   // v14 : éditorial IA généré JOUR PAR JOUR (anti-troncature, + explicite) → force la régén
+const WA_VER = 'v15-percur-robuste';   // v15 : éditorial jour-par-jour + anti cache-partiel-bloqué + repli déterministe enrichi → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4694,11 +4694,17 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     const _top = base.slice(0, 4).map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (fcst ${e.forecast})` : ''}`.trim()).filter(Boolean);
     const _cb = base.find(e => /rate decision|interest rate|monetary policy|rate statement|deposit facility|refinancing/i.test(e.title || ''));
     const _ccysEn = [...new Set(base.map(e => e.currency).filter(Boolean))].slice(0, 5);
+    const _themeTxt = enThemes.length ? enThemes.join(' and ').toLowerCase() : (hiEvs.length ? 'high-impact data' : 'a lighter macro slate');
     const _dp = [];
-    if (_top.length) _dp.push(`Markets will digest ${_top.join(', ')}${base.length > 4 ? ', among other releases' : ''}.`);
-    if (_cb) _dp.push(`The ${_cb.currency} ${String(_cb.title).replace(/\s*\(.*?\)\s*/g, '').trim()} is the day's focal point, with investors weighing the policy path ahead.`);
-    if (_ccysEn.length) _dp.push(`${_ccysEn.join(', ')} are the currencies most in focus.`);
-    _dp.push(hiEvs.length ? 'Watch the high-impact prints closely for direction across rates and FX.' : 'A lighter calendar leaves price action driven by broader macro themes.');
+    _dp.push(hiEvs.length
+      ? `${dowEn} delivers a data-heavy session built around ${_themeTxt}, with several market-moving prints capable of resetting near-term direction.`
+      : `${dowEn} brings a calmer calendar, leaving ${_ccysEn[0] || 'major FX'} more driven by broader macro themes, central-bank expectations and risk sentiment than by scheduled data.`);
+    if (_top.length) _dp.push(`The docket features ${_top.join(', ')}${base.length > 4 ? ', alongside other second-tier releases' : ''} — each a read on ${(enThemes[0] || 'the macro pulse').toLowerCase()} that can shift rate-path expectations.`);
+    if (_cb) _dp.push(`The ${_cb.currency} ${String(_cb.title).replace(/\s*\(.*?\)\s*/g, '').trim()} is the focal point: the decision and accompanying guidance will steer ${_cb.currency} and front-end yields, with any surprise rippling across rates and equities.`);
+    if (_ccysEn.length) _dp.push(`${_ccysEn.join(', ')} sit in the crosshairs — watch the knee-jerk in FX, sovereign yields and risk assets as the actuals land versus consensus.`);
+    _dp.push(hiEvs.length
+      ? `Beats or misses on the high-impact prints are the clearest catalysts for a directional move into the close.`
+      : `With little on the tape, positioning, central-bank speakers and headline risk are likely to set the tone.`);
     const description = _dp.join(' ') || 'Economic data on the day.';
     // Liste DÉTAILLÉE d'événements (façon DTP) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
     const events = base.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(e => ({
@@ -4709,7 +4715,7 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     }));
     return {
       dow: dowEn, date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
-      title: title.slice(0, 170), description: description.slice(0, 750), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+      title: title.slice(0, 170), description: description.slice(0, 920), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
     };
   });
   if (!days.length) return _weekAhead;
@@ -4728,17 +4734,18 @@ let _waEditorial = { weekKey: null, items: [], at: 0 };
 async function _waApplyEditorial(days, weekKey, gen = false) {
   // Appariement par INDEX (ordre des jours) → robuste. Applique titre + résumé indépendamment.
   const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
-  try {
-    if (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items) && _waEditorial.items.length >= days.length) { apply(_waEditorial.items); return; }
-    const cached = await auth.aiCacheGet('weekahead:editorial5').catch(() => null);
-    if (cached && cached.weekKey === weekKey && Array.isArray(cached.items) && cached.items.length >= days.length) { _waEditorial = cached; apply(cached.items); return; }
-  } catch {}
-  if (!gen) return;   // AUCUNE requête IA hors génération planifiée → l'éditorial reste FIXE (jamais d'appel à l'arrivée d'un utilisateur ni au refresh data 40 min)
+  // 1) Charge l'éditorial déjà connu pour CETTE semaine (mémoire puis cache durable) et l'applique aussitôt.
+  let cachedItems = (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items)) ? _waEditorial.items : null;
+  if (!cachedItems) { try { const c = await auth.aiCacheGet('weekahead:editorial6').catch(() => null); if (c && c.weekKey === weekKey && Array.isArray(c.items)) { _waEditorial = c; cachedItems = c.items; } } catch {} }
+  if (cachedItems) apply(cachedItems);
+  const _complete = cachedItems && cachedItems.length >= days.length && days.every((_, i) => cachedItems[i] && cachedItems[i].summary);
+  if (_complete || !gen) return;   // déjà complet → fini ; sinon, hors génération planifiée → repli déterministe pour les jours manquants
   // Génération JOUR PAR JOUR (prompt court → AUCUNE troncature JSON ; un échec n'affecte qu'UN jour)
   // → résumés riches et explicites. Petits appels via le flux quota standard (aiSmart, {scheduled}).
   const focusWk = [...new Set(days.flatMap(d => d.ccys || []))].slice(0, 6).join(', ');
   const items = [];
   for (let i = 0; i < days.length; i++) {
+    if (cachedItems && cachedItems[i] && cachedItems[i].summary) { items.push(cachedItems[i]); continue; }   // jour déjà rédigé → on garde (anti cache-partiel-bloqué)
     const d = days[i];
     const evs = (d.events || []).slice(0, 9).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (fcst ' + e.forecast + ')' : ''}${e.previous ? ' (prev ' + e.previous + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
     const prompt = `You are a senior macro strategist writing the "week ahead" preview for an institutional trading terminal. Write, in ENGLISH, the preview for ONE trading day: ${d.dow} ${d.date} ${d.month}.
@@ -4765,13 +4772,11 @@ Reply ONLY as compact JSON: {"headline":"...","summary":"..."} — nothing else.
     } else { items.push(null); }
   }
   if (items.some(it => it && (it.headline || it.summary))) {
-    // Jamais de régression : on complète les jours en échec avec l'ancien cache si présent.
-    const prev = (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items)) ? _waEditorial.items : [];
-    const merged = days.map((_, i) => items[i] || prev[i] || null);
+    const merged = days.map((_, i) => items[i] || (cachedItems && cachedItems[i]) || null);
     _waEditorial = { weekKey, items: merged, at: Date.now() };
-    await auth.aiCacheSet('weekahead:editorial5', _waEditorial).catch(() => {});
+    await auth.aiCacheSet('weekahead:editorial6', _waEditorial).catch(() => {});
     apply(merged);
-    console.log('[WeekAhead IA] éditorial jour-par-jour (' + merged.filter(Boolean).length + '/' + days.length + ' jours) → cache hebdo');
+    console.log('[WeekAhead IA] éditorial jour-par-jour (' + merged.filter(it => it && it.summary).length + '/' + days.length + ' jours) → cache hebdo');
   }
 }
 let _waGenerating = false;
@@ -4818,7 +4823,7 @@ app.get('/api/week-ahead', async (req, res) => {
   }, 75 * 1000);   // 75s : après le burst du préchauffage des rapports → moins de contention RPM Gemini
   // Week Ahead : régénère au démarrage si vide / version périmée / >1 semaine (décalé après le bias).
   setTimeout(() => {
-    const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000) || !(_weekAhead.editorialAI > 0);
+    const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000) || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length;
     if (stale) generateWeekAhead(true, true).catch(() => {});   // démarrage : data + éditorial IA si manquant
   }, 90 * 1000);   // 90s : encore après le bias
   // Rafraîchissement TEMPS RÉEL du Week Ahead : régénère toutes les ~40 min (calendrier TradingView frais : prévisions/actuals).
@@ -4827,7 +4832,7 @@ app.get('/api/week-ahead', async (req, res) => {
   // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
   setInterval(() => {
     if (_sbBiasStale()) generateSmartBias(true).catch(() => {});   // récupération de fond (version/âge >7j/absent) — jamais sur le chemin utilisateur
-    if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || !(_weekAhead.editorialAI > 0)) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire de l'éditorial s'il manque
+    if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire tant que TOUS les jours n'ont pas l'éditorial IA
   }, 60 * 60 * 1000);
 })();
 
