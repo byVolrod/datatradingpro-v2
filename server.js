@@ -2388,6 +2388,12 @@ const RESEARCH_SPA_SITES = [
       { title: 'The Investment Institute — Monthly Outlook', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO.pdf', date: '2026-05-04', pdf: true },
       { title: 'The Compass 2026: A Strategic Guide for Investors', url: 'https://www.unicreditgroup.eu/en/press-media/press-releases/2025/december/unicredit-investment-institute-presents--the-compass-2026---a-st.html', date: '2025-12-15' },
     ] },
+  { name: 'Société Générale', institution: 'Societe Generale', source: 'socgen', host: 'sgmarkets.com',
+    url: 'https://insight-public.sgmarkets.com/insights?categories=15%2B12%2B6%2B18%2B4',
+    hrefRe: /sgmarkets\.com\/(?:insights?\/[a-z0-9].+|publication|article|content|videos\/[a-z0-9].+)/i,
+    seed: [
+      { title: 'SG Cross Asset Research — Latest Insights', url: 'https://insight-public.sgmarkets.com/insights?categories=15%2B12%2B6%2B18%2B4', date: '2026-06-08' },
+    ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
@@ -2447,6 +2453,44 @@ async function _fetchWellsInto(merged, UA) {
   } catch (e) { console.warn('[Wells] scrape échec:', e.message); }
 }
 
+// HSBC — Wealth Insights (Singapour). Page en HTML SERVEUR (non bloquée, pas de login) → scrape direct
+// axios+cheerio des articles "/wealth/insights/<cat>/<sous-cat>/<slug>/" + seed des derniers connus (datés).
+const HSBC_BASE = 'https://www.hsbc.com.sg';
+const HSBC_SEED = [
+  { t: 'Differentiation matters as the market rally continues', u: '/wealth/insights/asset-class-views/investment-monthly/differentiation-matters-as-the-market-rally-continues/', d: '2026-06-01' },
+  { t: 'Investment Weekly: Are we in a bubble?', u: '/wealth/insights/asset-class-views/investment-weekly/article/', d: '2026-06-08' },
+  { t: 'Investment Outlook: HSBC Perspectives Q3 2026', u: '/wealth/insights/market-outlook/investment-outlook/the-new-investment-trifecta-ai-energy-and-defence/', d: '2026-05-21' },
+  { t: 'Trump-Xi summit – managed rivalry helps stabilise expectations', u: '/wealth/insights/market-outlook/special-coverage/trump-xi-summit-managed-rivalry-helps-stabilise-expectations/', d: '2026-05-18' },
+  { t: 'Fed holds firm as inflation and uncertainty persist', u: '/wealth/insights/market-outlook/special-coverage/fed-holds-firm-as-inflation-and-uncertainty-persist/', d: '2026-04-30' },
+  { t: 'FX Viewpoint: USD — At a crossroads?', u: '/wealth/insights/fx-insights/fx-viewpoint/usd-at-a-crossroads/', d: '2026-06-08' },
+  { t: 'Daily FX Focus', u: '/wealth/insights/fx-insights/daily-fx-focus/fx/', d: '2026-06-08' },
+];
+async function _fetchHsbcInto(merged, UA) {
+  HSBC_SEED.forEach(s => {
+    const url = HSBC_BASE + s.u;
+    const ts = Date.parse(s.d + 'T12:00:00Z'); if (isNaN(ts)) return;
+    const id = 'br-' + Buffer.from(url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+    if (!merged.has(id)) merged.set(id, { id, title: s.t, url, timestamp: ts, categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
+  });
+  try {
+    const res = await axios.get(HSBC_BASE + '/wealth/insights/', { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+    if (res.status === 200) {
+      const $ = cheerio.load(res.data);
+      const seen = new Set();
+      $('a[href*="/wealth/insights/"]').each((_, a) => {
+        let href = ($(a).attr('href') || '').trim().split('#')[0].split('?')[0];
+        if (!href.startsWith('http')) href = HSBC_BASE + (href.startsWith('/') ? href : '/' + href);
+        const segs = href.replace(/^https?:\/\/[^/]+/, '').split('/').filter(Boolean);
+        if (segs.length < 4) return;   // article = cat/sous-cat/slug (≥4 segments) ; on écarte les pages catégories
+        const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
+        if (title.length < 12 || title.length > 160 || seen.has(href)) return; seen.add(href);
+        const id = 'br-' + Buffer.from(href).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), categories: ['Macro'], description: '', institution: 'HSBC', _source: 'hsbc' });
+      });
+    }
+  } catch (e) { console.warn('[HSBC] scrape échec:', e.message); }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -2482,12 +2526,14 @@ async function _fetchBankResearch(full = false) {
   await _fetchResearchSpaInto(merged, cutoff);
   // Wells Fargo — CIB Economics (HTML serveur, scrape direct + rapports phares seedés)
   await _fetchWellsInto(merged, UA);
+  // HSBC — Wealth Insights (HTML serveur, scrape direct + derniers articles seedés)
+  await _fetchHsbcInto(merged, UA);
 
   const before = _brCache.length;
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _keepAll = i => i._source === 'blackrock' || i._source === 'danske' || i._source === 'natixis' || i._source === 'unicredit' || i._source === 'wells';   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
