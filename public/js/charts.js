@@ -2679,20 +2679,45 @@ window._retryCalendar = function() {
   const PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPCAD','GBPAUD','GBPNZD','AUDJPY','AUDCHF','AUDCAD','AUDNZD','NZDJPY','NZDCHF','NZDCAD','CADJPY','CADCHF','CHFJPY','XAUUSD','XAGUSD'];
   const MAJORS = ['USD','EUR','JPY','GBP','AUD','CHF','CAD','NZD'];
   const FLAG = { USD:'us', EUR:'eu', JPY:'jp', GBP:'gb', AUD:'au', CHF:'ch', CAD:'ca', NZD:'nz' };
+  const CCY_NAME = { USD:'US Dollar', EUR:'Euro', JPY:'Japanese Yen', GBP:'British Pound', AUD:'Australian Dollar', CHF:'Swiss Franc', CAD:'Canadian Dollar', NZD:'New Zealand Dollar', XAU:'Gold', XAG:'Silver' };
   const NEWS_KW = { USD:'dollar|fed\\b|fomc|powell', EUR:'euro|ecb\\b|lagarde', JPY:'yen|boj\\b|ueda', GBP:'pound|sterling|boe\\b|bailey', AUD:'aussie|rba\\b', CHF:'franc|snb\\b', CAD:'loonie|boc\\b|macklem', NZD:'kiwi|rbnz\\b' };
-  let _recent = [], _active = null, _tvPending = false;
+  let _recent = [], _active = null, _tvPending = false, _subtab = 'overview';
+  // Caches volatils (réinitialisés au reload) → évitent de refetch à chaque changement de sous-onglet.
+  let _cBias = null, _cCot = null, _cRates = null, _cFx = null, _cRetail = null;
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);
   const tvSymbol = p => p === 'XAUUSD' ? 'OANDA:XAUUSD' : p === 'XAGUSD' ? 'OANDA:XAGUSD' : 'FX:' + p;
   const _esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+  const _nf = n => (n == null || isNaN(n)) ? '—' : Number(n).toLocaleString('fr-FR');
+  // Drapeau rond pour le dropdown (devise → flagcdn, métaux → pastille dorée/argentée).
+  const _ddFlag = (c, extra) => {
+    const f = FLAG[c];
+    if (f) return '<img class="sym-dd-flag' + (extra || '') + '" src="https://flagcdn.com/40x30/' + f + '.png" alt="">';
+    const m = c === 'XAU' ? 'Au' : c === 'XAG' ? 'Ag' : '·';
+    return '<span class="sym-dd-flag sym-dd-flag--metal' + (extra || '') + '">' + m + '</span>';
+  };
+  // Valeur de biais → classe couleur sémantique FIXE (mêmes hex que .sbm-* de la vue BIAS).
+  const _biasCls = v => ({ 'Very Bullish':'sbm-vbull','Bullish':'sbm-bull','Weak Bullish':'sbm-bull','Uptrend':'sbm-bull','Bearish':'sbm-bear','Weak Bearish':'sbm-bear','Downtrend':'sbm-bear','Very Bearish':'sbm-vbear','N/A':'sbm-na' }[v] || 'sbm-neut');
 
+  // ── Dropdown d'autocomplétion : en-tête « # Foreign Exchange (N) » + double drapeau rond + nom complet ──
   function renderDd(q) {
     q = (q || '').toUpperCase().replace(/[^A-Z]/g, '');
-    let list, head;
-    if (!q) { list = _recent.length ? _recent.slice(0,7) : PAIRS.slice(0,7); head = _recent.length ? 'Recent Searches' : 'Paires majeures'; }
-    else { list = PAIRS.filter(p => p.includes(q)).slice(0,8); head = ''; }
-    dd.innerHTML = (head ? '<div class="sym-dd-head">' + head + '</div>' : '')
-      + (list.length ? list.map(p => '<div class="sym-dd-row" data-pair="' + p + '"><span class="sym-dd-sym">' + p + '</span><span class="sym-dd-name">' + pretty(p) + '</span></div>').join('')
-                     : '<div class="sym-dd-empty">Aucune paire</div>');
+    let list, recent = false;
+    if (!q) { recent = _recent.length > 0; list = (recent ? _recent : PAIRS).slice(0, 12); }
+    else {
+      list = PAIRS.filter(p => p.includes(q))
+        .sort((a, b) => (a.startsWith(q) ? 0 : 1) - (b.startsWith(q) ? 0 : 1) || a.localeCompare(b))
+        .slice(0, 12);
+    }
+    const head = recent ? 'Recent Searches' : 'Foreign Exchange';
+    dd.innerHTML = '<div class="sym-dd-head"><span class="sym-dd-hash">#</span> ' + head + ' <span class="sym-dd-count">(' + list.length + ')</span></div>'
+      + (list.length ? list.map(p => {
+          const c1 = p.slice(0,3), c2 = p.slice(3);
+          const name = (CCY_NAME[c1] || c1) + ' / ' + (CCY_NAME[c2] || c2);
+          return '<div class="sym-dd-row" data-pair="' + p + '">'
+            + '<span class="sym-dd-flags">' + _ddFlag(c1, '') + _ddFlag(c2, ' sym-dd-flag--2') + '</span>'
+            + '<span class="sym-dd-txt"><span class="sym-dd-sym">' + p + '</span><span class="sym-dd-name">' + name + '</span></span></div>';
+        }).join('')
+      : '<div class="sym-dd-empty">Aucune paire</div>');
     dd.classList.remove('hidden');
   }
   const hideDd = () => dd.classList.add('hidden');
@@ -2700,11 +2725,22 @@ window._retryCalendar = function() {
   input.addEventListener('focus', () => renderDd(input.value));
   input.addEventListener('input', () => renderDd(input.value));
   input.addEventListener('keydown', e => {
-    if (e.key === 'Enter') { const q = input.value.toUpperCase().replace(/[^A-Z]/g,''); const m = PAIRS.find(p => p === q) || PAIRS.find(p => p.includes(q)); if (m) openSymbol(m); }
+    if (e.key === 'Enter') { const q = input.value.toUpperCase().replace(/[^A-Z]/g,''); if (q.length < 2) return; const m = PAIRS.find(p => p === q) || PAIRS.find(p => p.includes(q)); if (m) openSymbol(m); }
     else if (e.key === 'Escape') { hideDd(); input.blur(); }
   });
   dd.addEventListener('mousedown', e => { const row = e.target.closest('.sym-dd-row'); if (row) { e.preventDefault(); openSymbol(row.dataset.pair); } });
   document.addEventListener('click', e => { if (!e.target.closest('.topbar-symbol-search')) hideDd(); });
+
+  // ── Barre de sous-onglets (délégation : #sym-subtabs est statique dans le HTML) ──
+  const subtabs = document.getElementById('sym-subtabs');
+  if (subtabs) subtabs.addEventListener('click', e => { const b = e.target.closest('.sym-subtab'); if (b && b.dataset.sub) setSubtab(b.dataset.sub); });
+
+  function setSubtab(name) {
+    _subtab = name;
+    document.querySelectorAll('#sym-subtabs .sym-subtab').forEach(b => b.classList.toggle('sym-subtab--active', b.dataset.sub === name));
+    document.querySelectorAll('#sym-content .sym-subview').forEach(v => v.classList.toggle('hidden', v.id !== 'sym-sub-' + name));
+    loadSymbolView();
+  }
 
   function openSymbol(pair) {
     _active = pair;
@@ -2730,7 +2766,8 @@ window._retryCalendar = function() {
   window.openSymbol = openSymbol;
 
   function closeSymbol() {
-    _active = null; window._symLastTvPair = null;
+    _active = null; window._symLastTvPair = null; window._symOvPair = null;
+    setSubtab('overview');   // remet la barre + les volets sur Overview pour la prochaine ouverture
     const tab = document.getElementById('nav-symbol'); if (tab) tab.remove();
     const host = document.getElementById('sym-tv'); if (host) host.innerHTML = '';
     if (window.activateView) window.activateView('news');
@@ -2745,21 +2782,50 @@ window._retryCalendar = function() {
     s.onload = () => { if (window.TradingView) cb(); }; document.head.appendChild(s);
   }
 
+  // ── Rendu principal : labels communs (paire en orange) + dispatch vers le sous-onglet actif ──
   function loadSymbolView() {
     const pair = _active; if (!pair) return;
-    const lbl = document.getElementById('sym-pair-lbl'); if (lbl) lbl.textContent = pretty(pair);
-    const base = MAJORS.includes(pair.slice(0,3)) ? pair.slice(0,3) : (MAJORS.includes(pair.slice(3)) ? pair.slice(3) : 'USD');
-    const ccys = [pair.slice(0,3), pair.slice(3)].filter(c => MAJORS.includes(c));
-    // 1) Chart TradingView (recréé seulement si la paire change)
+    const c1 = pair.slice(0,3), c2 = pair.slice(3);
+    const base = MAJORS.includes(c1) ? c1 : (MAJORS.includes(c2) ? c2 : 'USD');
+    const ccys = [c1, c2].filter(c => MAJORS.includes(c));
+    const barLbl = document.getElementById('sym-bar-pair'); if (barLbl) barLbl.textContent = '[' + pretty(pair) + ']';
+    const lbl = document.getElementById('sym-pair-lbl'); if (lbl) lbl.textContent = '[' + pretty(pair) + ']';
+    if (_subtab === 'overview') renderOverview(pair, base, ccys);
+    else if (_subtab === 'bias') renderBias(pair, c1, c2);
+    else if (_subtab === 'cotbase') renderCot('sym-sub-cotbase', c1, pair, 'base');
+    else if (_subtab === 'cotquote') renderCot('sym-sub-cotquote', c2, pair, 'quote');
+    else if (_subtab === 'seasonality') renderSeasonality(pair);
+    else if (_subtab === 'retail') renderRetail(pair);
+    else if (_subtab === 'cb') renderCb(pair, ccys);
+  }
+  window.loadSymbolView = loadSymbolView;
+
+  // ── Overview : chart TradingView + Currency Strength (doublon du compteur par défaut) + calendrier + news filtrés ──
+  function renderOverview(pair, base, ccys) {
+    // Chart TradingView (recréé seulement si la paire change)
     const host = document.getElementById('sym-tv');
     if (host && (window._symLastTvPair !== pair || !host.firstElementChild)) {
       host.innerHTML = '<div id="sym-tv-w" style="width:100%;height:100%"></div>';
       window._symLastTvPair = pair;
       ensureTv(() => { try { new window.TradingView.widget({ container_id: 'sym-tv-w', symbol: tvSymbol(pair), interval: '60', timezone: 'Europe/Paris', theme: 'dark', style: '1', locale: 'fr', autosize: true, hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true }); } catch (e) {} });
     }
-    // 2) Force des devises (devise de base surlignée)
-    try { if (window.buildIsolatedStrength) window.buildIsolatedStrength('sym-strength', base, 'week'); } catch {}
-    // 3) Calendrier filtré sur la paire
+    // Les panneaux data ne se re-rendent que si la paire a changé (évite de refetch en revenant sur Overview).
+    if (window._symOvPair === pair) return;
+    window._symOvPair = pair;
+    // Currency Strength = doublon du compteur par défaut (toutes les devises colorées, comme le dashboard).
+    const sEl = document.getElementById('sym-strength');
+    if (sEl) {
+      fetch('/api/currency-strength?period=week').then(r => r.json()).then(data => {
+        if (!data || !data.currencies) { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; return; }
+        try { if (typeof disposeRoot === 'function') disposeRoot('sym-strength'); } catch {}   // anti-fuite amCharts (Render 512Mo)
+        sEl.innerHTML = '';
+        try {
+          if (typeof buildStrengthChart === 'function') buildStrengthChart('sym-strength', data, {});
+          else if (window.buildIsolatedStrength) window.buildIsolatedStrength('sym-strength', base, 'week');
+        } catch { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; }
+      }).catch(() => { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; });
+    }
+    // Calendrier filtré sur la paire
     fetch('/api/calendar-events').then(r => r.json()).then(d => {
       const cal = document.getElementById('sym-cal'); if (!cal) return;
       const now = Date.now();
@@ -2771,7 +2837,7 @@ window._retryCalendar = function() {
         return '<div class="sym-cal-row"><span class="sym-cal-t">' + t + '</span><span class="sym-cal-c">' + (e.currency || '') + '</span><span class="sym-cal-ev">' + _esc((e.title || '').slice(0, 70)) + '</span><span class="sym-imp sym-imp--' + imp + '"></span></div>';
       }).join('') : '<div class="sym-empty">Aucun événement à venir pour ' + pretty(pair) + '.</div>';
     }).catch(() => {});
-    // 4) News filtrées sur la paire
+    // News filtrées sur la paire
     const parts = ccys.map(c => '\\b' + c.toLowerCase() + '\\b' + (NEWS_KW[c] ? '|' + NEWS_KW[c] : '')).join('|');
     const re = parts ? new RegExp('(' + parts + ')', 'i') : null;
     fetch('/api/week-ahead-news').then(r => r.json()).then(d => {
@@ -2785,5 +2851,163 @@ window._retryCalendar = function() {
       }).join('') : '<div class="sym-empty">Pas de news récente pour ' + pretty(pair) + '.</div>';
     }).catch(() => {});
   }
-  window.loadSymbolView = loadSymbolView;
+
+  // ── Smart Bias : 2 colonnes (base / quote) tirées de /api/smart-bias ──
+  function renderBias(pair, c1, c2) {
+    const hostEl = document.getElementById('sym-sub-bias'); if (!hostEl) return;
+    hostEl.innerHTML = '<div class="sym-load">Chargement du Smart Bias…</div>';
+    const go = d => {
+      const cur = (d && d.currencies) || [], rows = (d && d.rows) || [];
+      const cols = [c1, c2].filter(c => cur.includes(c));
+      if (!cols.length) { hostEl.innerHTML = '<div class="sym-empty">Smart Bias indisponible pour ' + pretty(pair) + '.</div>'; return; }
+      const colHtml = cols.map(c => {
+        const concl = (d.conclusion && d.conclusion[c]) || 'Neutral';
+        const flag = FLAG[c] ? '<img class="sym-bz-flag" src="https://flagcdn.com/40x30/' + FLAG[c] + '.png" alt="">' : '';
+        const indis = rows.map(r => {
+          const v = (r.values && r.values[c]) || 'N/A';
+          return '<div class="sym-bz-row"><span class="sym-bz-lbl">' + _esc(r.label || r.key || '') + '</span><span class="sym-bz-badge ' + _biasCls(v) + '">' + _esc(v) + '</span></div>';
+        }).join('');
+        const narr = (d.narrative && d.narrative[c]) ? _esc(String(d.narrative[c]).replace(/\*\*/g, '')) : '';
+        return '<div class="sym-bz-col">'
+          + '<div class="sym-bz-head">' + flag + '<span class="sym-bz-ccy">' + c + '</span><span class="sym-bz-concl ' + _biasCls(concl) + '">' + _esc(concl) + '</span></div>'
+          + '<div class="sym-bz-rows">' + indis + '</div>'
+          + (narr ? '<div class="sym-bz-narr">' + narr + '</div>' : '')
+          + '</div>';
+      }).join('');
+      hostEl.innerHTML = '<div class="sym-bz-grid">' + colHtml + '</div>'
+        + '<div class="sym-src">Source : Smart Bias Tracker (matrice multi-indicateurs · COT, Myfxbook, calendrier, saisonnalité, rapports banques). Narratif IA figé chaque semaine.</div>';
+    };
+    if (_cBias) { go(_cBias); return; }
+    fetch('/api/smart-bias').then(r => r.json()).then(d => { if (d && d.currencies) _cBias = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Smart Bias indisponible.</div>'; });
+  }
+
+  // ── COT (CFTC) : positionnement non-commercial de la devise (base ou quote) ──
+  function renderCot(hostId, ccy, pair, role) {
+    const hostEl = document.getElementById(hostId); if (!hostEl) return;
+    hostEl.innerHTML = '<div class="sym-load">Chargement COT (CFTC)…</div>';
+    const go = d => {
+      const arr = (d && d.currencies) || [];
+      const row = arr.find(x => x.key === ccy);
+      if (!row) { hostEl.innerHTML = '<div class="sym-empty">Données COT (CFTC) indisponibles pour ' + ccy + '.</div>'; return; }
+      const lp = Math.round(row.longPct || 0), sp = Math.round(row.shortPct || 0);
+      const sent = row.sentiment || 'Neutral';
+      const sCls = /bull/i.test(sent) ? 'g' : /bear/i.test(sent) ? 'r' : 'n';
+      const flag = FLAG[ccy] ? '<img class="sym-cot-flag" src="https://flagcdn.com/40x30/' + FLAG[ccy] + '.png" alt="">' : '';
+      const rd = row.reportDate ? new Date(row.reportDate).toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' }) : '—';
+      hostEl.innerHTML =
+        '<div class="sym-cot">'
+        + '<div class="sym-cot-head">' + flag + '<span class="sym-cot-ccy">' + ccy + '</span>'
+        + '<span class="sym-cot-role">' + (role === 'base' ? 'Devise de base' : 'Devise de cotation') + ' · ' + pretty(pair) + '</span>'
+        + '<span class="sym-cot-sent rtc-move ' + sCls + '">' + _esc(sent) + '</span></div>'
+        + '<div class="sym-cot-bar"><i class="sym-cot-long" style="width:' + lp + '%">' + (lp >= 12 ? 'Long ' + lp + '%' : '') + '</i><i class="sym-cot-short" style="width:' + sp + '%">' + (sp >= 12 ? 'Short ' + sp + '%' : '') + '</i></div>'
+        + '<div class="sym-cot-metrics">'
+        + '<div><span class="sym-cot-k">Position nette</span><span class="sym-cot-v ' + ((row.net || 0) >= 0 ? 'g' : 'r') + '">' + ((row.net || 0) >= 0 ? '+' : '') + _nf(row.net) + '</span></div>'
+        + '<div><span class="sym-cot-k">Contrats longs</span><span class="sym-cot-v">' + _nf(row.longPos) + '</span></div>'
+        + '<div><span class="sym-cot-k">Contrats shorts</span><span class="sym-cot-v">' + _nf(row.shortPos) + '</span></div>'
+        + '<div><span class="sym-cot-k">Rapport CFTC</span><span class="sym-cot-v" style="font-size:12px">' + rd + '</span></div>'
+        + '</div>'
+        + '<div class="sym-src">Source : CFTC Commitments of Traders — Legacy Futures, traders non-commerciaux (spéculateurs)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
+        + '</div>';
+    };
+    if (_cCot) { go(_cCot); return; }
+    fetch('/api/cot?type=noncomm').then(r => r.json()).then(d => { if (d && d.currencies) _cCot = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">COT indisponible.</div>'; });
+  }
+
+  // ── Seasonality : courbe du rendement mensuel cumulé moyen (3 ans), via /api/fxlist ──
+  function renderSeasonality(pair) {
+    const hostEl = document.getElementById('sym-sub-seasonality'); if (!hostEl) return;
+    hostEl.innerHTML = '<div class="sym-load">Chargement de la saisonnalité…</div>';
+    const sym = pretty(pair);
+    const go = d => {
+      const pairs = (d && d.pairs) || [];
+      const row = pairs.find(p => p.symbol === sym) || pairs.find(p => (p.base + p.quote) === pair);
+      const seas = row && Array.isArray(row.seasonal) ? row.seasonal : null;
+      if (!seas || !seas.length) { hostEl.innerHTML = '<div class="sym-empty">Saisonnalité indisponible pour ' + sym + '.</div>'; return; }
+      const M = ['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
+      const cur = new Date().getMonth();
+      const mn = Math.min(0, ...seas), mx = Math.max(0, ...seas), rng = (mx - mn) || 1;
+      const W = 760, H = 230, P = 30, bw = (W - 2 * P) / seas.length;
+      const y0 = H - P - ((0 - mn) / rng) * (H - 2 * P);
+      const bars = seas.map((v, i) => {
+        const x = P + i * bw + 3, h = Math.abs((v / rng) * (H - 2 * P)), w = bw - 6;
+        const y = v >= 0 ? y0 - h : y0;
+        const col = v >= 0 ? '#00e676' : '#ff3d00';
+        const hl = i === cur ? ' class="sym-seas-cur"' : '';
+        return '<rect' + hl + ' x="' + x.toFixed(1) + '" y="' + y.toFixed(1) + '" width="' + w.toFixed(1) + '" height="' + Math.max(1, h).toFixed(1) + '" fill="' + col + '" rx="1.5"/>'
+          + '<text x="' + (x + w / 2).toFixed(1) + '" y="' + (H - P + 14) + '" text-anchor="middle" class="sym-seas-mlbl">' + M[i] + '</text>';
+      }).join('');
+      hostEl.innerHTML =
+        '<div class="sym-seas">'
+        + '<div class="sym-seas-head"><span class="sym-seas-ttl">Saisonnalité — rendement mensuel cumulé moyen</span><span class="sym-seas-sub">[' + sym + ']</span></div>'
+        + '<svg viewBox="0 0 ' + W + ' ' + H + '" class="sym-seas-svg" preserveAspectRatio="xMidYMid meet">'
+        + '<line x1="' + P + '" y1="' + y0.toFixed(1) + '" x2="' + (W - P) + '" y2="' + y0.toFixed(1) + '" stroke="#2a2a30" stroke-width="1"/>'
+        + bars + '</svg>'
+        + '<div class="sym-src">Mois courant en surbrillance orange. Source : rendements mensuels Yahoo Finance moyennés sur 3 ans (vert = mois historiquement haussier, rouge = baissier).</div>'
+        + '</div>';
+    };
+    if (_cFx) { go(_cFx); return; }
+    fetch('/api/fxlist').then(r => r.json()).then(d => { if (d && d.pairs) _cFx = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Saisonnalité indisponible.</div>'; });
+  }
+
+  // ── Retail Sentiment : jauge long/short particuliers (Myfxbook), via /api/community-outlook ──
+  function renderRetail(pair) {
+    const hostEl = document.getElementById('sym-sub-retail'); if (!hostEl) return;
+    hostEl.innerHTML = '<div class="sym-load">Chargement du sentiment retail…</div>';
+    const go = d => {
+      const arr = (d && d.symbols) || [];
+      const row = arr.find(s => s.symbol === pair) || arr.find(s => (s.symbol || '').replace('/', '') === pair);
+      if (!row) { hostEl.innerHTML = '<div class="sym-empty">Sentiment retail indisponible pour ' + pretty(pair) + '.</div>'; return; }
+      const lp = Math.round(row.longPct || 0), sp = Math.round(row.shortPct || 0);
+      const lean = lp >= sp ? 'Long' : 'Short';
+      const contra = lp >= sp ? 'Bearish' : 'Bullish';
+      hostEl.innerHTML =
+        '<div class="sym-rt">'
+        + '<div class="sym-rt-head"><span class="sym-rt-ttl">Retail Sentiment</span><span class="sym-rt-sub">[' + pretty(pair) + ']</span></div>'
+        + '<div class="sym-rt-bar"><i class="sym-rt-long" style="width:' + lp + '%"></i><i class="sym-rt-short" style="width:' + sp + '%"></i></div>'
+        + '<div class="sym-rt-lbls"><span class="g">Long ' + lp + '%</span><span class="r">Short ' + sp + '%</span></div>'
+        + '<div class="sym-rt-note">La majorité des traders particuliers est positionnée <b>' + lean + '</b> → lecture contrarian : biais <b class="' + (contra === 'Bullish' ? 'g' : 'r') + '">' + contra + '</b>.</div>'
+        + '<div class="sym-src">Source : Myfxbook Community Outlook (positions réelles des comptes particuliers)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
+        + '</div>';
+    };
+    if (_cRetail) { go(_cRetail); return; }
+    fetch('/api/community-outlook?period=H1').then(r => r.json()).then(d => { if (d && d.symbols) _cRetail = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Sentiment retail indisponible.</div>'; });
+  }
+
+  // ── Central Bank pricing : cartes TAUX (réutilise le rendu .rtc) des 2 banques de la paire ──
+  function renderCb(pair, ccys) {
+    const hostEl = document.getElementById('sym-sub-cb'); if (!hostEl) return;
+    hostEl.innerHTML = '<div class="sym-load">Chargement du pricing banques centrales…</div>';
+    const MV = { HOLD: { lbl:'Maintien', cls:'n' }, HIKE: { lbl:'Hausse', cls:'g' }, CUT: { lbl:'Baisse', cls:'r' } };
+    const fr = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
+    const bps = v => (v > 0 ? '+' : '') + Number(v).toFixed(1) + ' bps';
+    const card = b => {
+      const mv = MV[b.move] || MV.HOLD, sc = b.scenario || { hold:0, hike:0, cut:0 };
+      const rows = (b.meetings || []).map(m => { const mm = MV[m.baseCase] || MV.HOLD;
+        return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'j</td><td class="r">' + m.cut + '%</td><td>' + m.hold + '%</td><td class="g">' + m.hike + '%</td><td class="rtc-impl">' + bps(m.impliedBps) + '</td><td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>'; }).join('');
+      return '<div class="rtc">'
+        + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy"><span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span><span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
+        + '<div class="rtc-metrics">'
+        + '<div class="rtc-m--rate"><span class="rtc-k">Taux actuel</span><span class="rtc-v rtc-rate">' + Number(b.rate).toFixed(2) + '%</span></div>'
+        + '<div><span class="rtc-k">Probabilit&eacute;</span><span class="rtc-v ' + mv.cls + '">' + b.prob + '%</span></div>'
+        + '<div><span class="rtc-k">&Delta; attendu</span><span class="rtc-v">' + bps(b.expBps) + '</span></div>'
+        + '<div><span class="rtc-k">R&eacute;union</span><span class="rtc-v">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
+        + '</div>'
+        + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des sc&eacute;narios</div>'
+        + '<div class="rtc-bar"><span class="rtc-bl">Maintien</span><span class="rtc-track"><i class="n" style="width:' + sc.hold + '%"></i></span><span class="rtc-bp">' + sc.hold + '%</span></div>'
+        + '<div class="rtc-bar"><span class="rtc-bl">Hausse</span><span class="rtc-track"><i class="g" style="width:' + sc.hike + '%"></i></span><span class="rtc-bp">' + sc.hike + '%</span></div>'
+        + '<div class="rtc-bar"><span class="rtc-bl">Baisse</span><span class="rtc-track"><i class="r" style="width:' + sc.cut + '%"></i></span><span class="rtc-bp">' + sc.cut + '%</span></div>'
+        + '</div>'
+        + '<table class="rtc-tbl"><thead><tr><th>R&eacute;union</th><th>J</th><th>Baisse</th><th>Maintien</th><th>Hausse</th><th>&Delta; impl.</th><th>Base</th></tr></thead><tbody>' + rows + '</tbody></table>'
+        + '</div>';
+    };
+    const go = d => {
+      const banks = (d && d.banks) || [];
+      const sel = ccys.map(c => banks.find(b => b.code === c)).filter(Boolean);
+      if (!sel.length) { hostEl.innerHTML = '<div class="sym-empty">Pricing banques centrales indisponible pour ' + pretty(pair) + '.</div>'; return; }
+      hostEl.innerHTML = '<div class="sym-cb-note">Estimation <b>modèle maison</b> ré-ancrée sur les décisions réelles du calendrier — ce n\'est PAS un pricing de marché (OIS / Fed Funds futures).</div>'
+        + '<div class="sym-cb-grid">' + sel.map(card).join('') + '</div>';
+    };
+    if (_cRates) { go(_cRates); return; }
+    fetch('/api/rates').then(r => r.json()).then(d => { if (d && d.banks) _cRates = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Pricing indisponible.</div>'; });
+  }
 })();

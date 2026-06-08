@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260610D" />
+  <link rel="stylesheet" href="/css/style.css?v=20260610F" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -107,25 +107,45 @@
   <!-- ══ VIEWS COLUMN — left, fills remaining space ══ -->
   <div class="views-col" id="views-col">
 
-    <!-- VIEW: SYMBOL (recherche → onglet pair : chart TradingView + force devises + calendrier + news) -->
+    <!-- VIEW: SYMBOL (recherche → onglet pair : sous-onglets Overview / Smart Bias / COT / Seasonality / Retail / Central Bank) -->
     <div class="view-panel hidden" id="view-symbol">
-      <div class="sym-grid">
-        <div class="sym-panel sym-panel--chart">
-          <div class="sym-phead"><span class="sym-ptitle">Technical Chart · <span id="sym-pair-lbl">—</span></span></div>
-          <div class="sym-body" id="sym-tv"></div>
+      <div class="sym-subtabs" id="sym-subtabs">
+        <span class="sym-bar-pair" id="sym-bar-pair">[—]</span>
+        <button class="sym-subtab sym-subtab--active" data-sub="overview" type="button">Overview</button>
+        <button class="sym-subtab" data-sub="bias" type="button">Smart Bias</button>
+        <button class="sym-subtab" data-sub="cotbase" type="button">COT base</button>
+        <button class="sym-subtab" data-sub="cotquote" type="button">COT quote</button>
+        <button class="sym-subtab" data-sub="seasonality" type="button">Seasonality</button>
+        <button class="sym-subtab" data-sub="retail" type="button">Retail Sentiment</button>
+        <button class="sym-subtab" data-sub="cb" type="button">Central Bank</button>
+      </div>
+      <div class="sym-content" id="sym-content">
+        <div class="sym-subview" id="sym-sub-overview">
+          <div class="sym-grid">
+            <div class="sym-panel sym-panel--chart">
+              <div class="sym-phead"><span class="sym-ptitle">Technical Charts <span class="sym-hsep">|</span> <span class="sym-pair-orange" id="sym-pair-lbl">—</span></span></div>
+              <div class="sym-body" id="sym-tv"></div>
+            </div>
+            <div class="sym-panel">
+              <div class="sym-phead"><span class="sym-ptitle">Currency Strength</span></div>
+              <div class="sym-body" id="sym-strength"></div>
+            </div>
+            <div class="sym-panel">
+              <div class="sym-phead"><span class="sym-ptitle">Economic Calendar</span></div>
+              <div class="sym-body sym-scroll" id="sym-cal"></div>
+            </div>
+            <div class="sym-panel">
+              <div class="sym-phead"><span class="sym-ptitle">Realtime News</span></div>
+              <div class="sym-body sym-scroll" id="sym-news"></div>
+            </div>
+          </div>
         </div>
-        <div class="sym-panel">
-          <div class="sym-phead"><span class="sym-ptitle">Currency Strength</span></div>
-          <div class="sym-body" id="sym-strength"></div>
-        </div>
-        <div class="sym-panel">
-          <div class="sym-phead"><span class="sym-ptitle">Economic Calendar</span></div>
-          <div class="sym-body sym-scroll" id="sym-cal"></div>
-        </div>
-        <div class="sym-panel">
-          <div class="sym-phead"><span class="sym-ptitle">Realtime News</span></div>
-          <div class="sym-body sym-scroll" id="sym-news"></div>
-        </div>
+        <div class="sym-subview hidden" id="sym-sub-bias"></div>
+        <div class="sym-subview hidden" id="sym-sub-cotbase"></div>
+        <div class="sym-subview hidden" id="sym-sub-cotquote"></div>
+        <div class="sym-subview hidden" id="sym-sub-seasonality"></div>
+        <div class="sym-subview hidden" id="sym-sub-retail"></div>
+        <div class="sym-subview hidden" id="sym-sub-cb"></div>
       </div>
     </div>
 
@@ -626,7 +646,7 @@
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script src="/js/app.js?v=20260610E"></script>
-<script src="/js/charts.js?v=20260610D"></script>
+<script src="/js/charts.js?v=20260610F"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
