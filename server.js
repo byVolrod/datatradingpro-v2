@@ -4212,7 +4212,7 @@ function _sbDataNarrative(curr, rows, conclusion) {
   return P.join(' ');
 }
 // Remplit le narratif MANQUANT (par devise) à partir de la matrice FIGÉE → une fois rempli, ne change plus (le repli IA ne réécrit pas un narratif non vide).
-function _sbEnsureNarrative(bias) {
+function _sbFillNarrative(bias) {
   if (!bias || !Array.isArray(bias.rows) || !bias.rows.length) return bias;
   bias.narrative = bias.narrative || {};
   (bias.currencies || SB_CURRENCIES).forEach(c => {
@@ -4348,7 +4348,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
     }
   } catch {}
   _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
-  _sbEnsureNarrative(_smartBias);   // FIGE le narratif de chaque devise (IA si dispo, sinon synthèse data-driven) → ne change plus de la semaine
+  _sbFillNarrative(_smartBias);   // FIGE le narratif de chaque devise (IA si dispo, sinon synthèse data-driven) → ne change plus de la semaine
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
   // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
@@ -4438,7 +4438,7 @@ app.get('/api/smart-bias', async (req, res) => {
   if (req.query.at) {
     const ts = Number(req.query.at);
     const snap = [_smartBias, ..._smartBiasHistory].find(s => s && Number(s.generatedAt) === ts);
-    return res.json((snap && _sbEnsureNarrative(snap)) || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
+    return res.json((snap && _sbFillNarrative(snap)) || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
   }
   if (req.query.force === '1' || !_smartBias) { try { await generateSmartBias(true); } catch {} }
   // Liste des semaines disponibles (courante + historique), dédupliquées par semaine, 5 max.
@@ -4448,9 +4448,9 @@ app.get('/api/smart-bias', async (req, res) => {
     .filter(s => { const k = _sbWeekKey(s.generatedAt); if (_seen.has(k)) return false; _seen.add(k); return true; })
     .slice(0, 5)
     .map(s => ({ generatedAt: s.generatedAt }));
-  if (_smartBias) _sbEnsureNarrative(_smartBias);   // narratif FIGÉ servi (rempli depuis la matrice gelée s'il manquait) → stable toute la semaine
+  if (_smartBias) _sbFillNarrative(_smartBias);   // narratif FIGÉ servi (rempli depuis la matrice gelée s'il manquait) → stable toute la semaine
   res.json(Object.assign({}, _smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} }, { history }));
-  if (req.query.force !== '1') _sbEnsureFresh();   // tâche de fond : self-heal si périmé / narratif si manquant
+  // AUCUN appel IA déclenché par l'arrivée d'un utilisateur : la (re)génération du bias est UNIQUEMENT planifiée (samedi) + timers de fond (démarrage / horaire). Le narratif est figé (rempli data-driven s'il manque).
 });
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
@@ -4623,7 +4623,7 @@ app.get('/api/week-ahead', (_req, res) => {
   // AUTO-RÉPARATION horaire : si le bias OU le Week Ahead n'a pas pu se générer (quota Gemini épuisé / Claude
   // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
   setInterval(() => {
-    if (!_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt) generateSmartBias(true).catch(() => {});
+    if (_sbBiasStale()) generateSmartBias(true).catch(() => {});   // récupération de fond (version/âge >7j/absent) — jamais sur le chemin utilisateur
     if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || !(_weekAhead.editorialAI > 0)) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire de l'éditorial s'il manque
   }, 60 * 60 * 1000);
 })();
