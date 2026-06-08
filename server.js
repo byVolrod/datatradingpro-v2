@@ -4461,14 +4461,23 @@ function _sbDataNarrative(curr, rows, conclusion) {
   } else P.push('Signaux globalement neutres, sans direction marquée.');
   return P.join(' ');
 }
-// Remplit le narratif MANQUANT (par devise) à partir de la matrice FIGÉE → une fois rempli, ne change plus (le repli IA ne réécrit pas un narratif non vide).
+// Un narratif est « réel » (IA) s'il est substantiel ET n'est PAS la synthèse data-driven de secours
+// (cette dernière commence TOUJOURS par « Le biais hebdomadaire global ressort … » en français).
+function _sbIsRealNarrative(t) {
+  t = (t == null ? '' : String(t)).trim();
+  return t.length > 80 && !/^Le biais hebdomadaire global ressort/i.test(t);   // seuil aligné sur _sbGenerateNarratives (>80) → pas de boucle
+}
+// Résout le narratif pour l'AFFICHAGE SANS muter le cache : IA réel si présent, sinon synthèse data-driven.
+// → le cache interne (_smartBias.narrative) ne contient JAMAIS le repli, donc le retry IA sait quoi régénérer
+//   (sinon le repli « gèle » le narratif et l'IA ne le réécrit jamais — c'était le bug).
 function _sbFillNarrative(bias) {
   if (!bias || !Array.isArray(bias.rows) || !bias.rows.length) return bias;
-  bias.narrative = bias.narrative || {};
+  const src = bias.narrative || {};
+  const narrative = {};
   (bias.currencies || SB_CURRENCIES).forEach(c => {
-    if (!bias.narrative[c] || !String(bias.narrative[c]).trim()) bias.narrative[c] = _sbDataNarrative(c, bias.rows, bias.conclusion);
+    narrative[c] = _sbIsRealNarrative(src[c]) ? src[c] : _sbDataNarrative(c, bias.rows, bias.conclusion);
   });
-  return bias;
+  return Object.assign({}, bias, { narrative });   // COPIE → ne mute pas bias.narrative (qui reste IA-seul)
 }
 async function generateSmartBias(force = false) {
   const WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -4584,8 +4593,10 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   // Narratif IA hebdo par devise (UN seul appel → JSON). On conserve le narratif précédent en repli
   // (ne JAMAIS le perdre), et on ne retente PAS d'appel IA si l'IA vient déjà d'échouer (quota).
   let narrative = (_smartBias && _smartBias.narrative) || null;
+  // On NE garde en repli que les narratifs RÉELS (IA) — jamais une synthèse de secours héritée d'un ancien cache.
+  if (narrative) { const _clean = {}; for (const _c of SB_CURRENCIES) if (_sbIsRealNarrative(narrative[_c])) _clean[_c] = narrative[_c]; narrative = Object.keys(_clean).length ? _clean : null; }
   if (aiOk) {
-    try { const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); if (n) narrative = n; } catch {}
+    try { const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); if (n) narrative = Object.assign({}, narrative || {}, n); } catch {}
   }
   // Versioning : on archive la semaine sortante (max 5 semaines distinctes) quand on bascule sur une NOUVELLE semaine.
   try {
@@ -4598,7 +4609,8 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
     }
   } catch {}
   _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
-  _sbFillNarrative(_smartBias);   // FIGE le narratif de chaque devise (IA si dispo, sinon synthèse data-driven) → ne change plus de la semaine
+  // NB : on NE remplit PLUS le repli dans _smartBias.narrative (il reste IA-seul). Le repli data-driven est
+  // ajouté UNIQUEMENT à l'affichage par _sbFillNarrative → le retry IA (_sbEnsureNarrative) régénère ce qui manque.
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
   // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
@@ -4611,11 +4623,12 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
 // JSON ; un échec n'impacte qu'UNE devise, les autres restent IA). Passe par le quota standard, en
 // mode {scheduled} (cycle hebdo planifié — jamais à l'arrivée d'un utilisateur). Repli null si rien
 // n'aboutit → _sbFillNarrative compose alors une synthèse data-driven (0 token). Cache porté par _smartBias.
-async function _sbGenerateNarratives(rows, conclusion, ctxLines) {
+async function _sbGenerateNarratives(rows, conclusion, ctxLines, only) {
   const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 2400);
   const CB_OF = { USD: 'the Fed', EUR: 'the ECB', GBP: 'the BoE', JPY: 'the BoJ', CHF: 'the SNB', CAD: 'the BoC', AUD: 'the RBA', NZD: 'the RBNZ' };
+  const list = (Array.isArray(only) && only.length) ? only.filter(c => SB_CURRENCIES.includes(c)) : SB_CURRENCIES;
   const narr = {};
-  for (const c of SB_CURRENCIES) {
+  for (const c of list) {
     try {
       const ind  = rows.map(r => `${r.label}=${r.values[c] || 'Neutral'}`).join(', ');
       const bias = conclusion[c] || 'Neutral';
@@ -4653,20 +4666,23 @@ function _sbBiasStale() {
 }
 let _sbNarrBusy = false, _sbNarrLastTry = 0;
 async function _sbEnsureNarrative() {
-  if (!_smartBias) return;
-  if (_smartBias.narrative && Object.keys(_smartBias.narrative).length) return;   // déjà là → pas de doublon
+  if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) return;
+  const have = _smartBias.narrative || {};
+  const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]));        // devises sans VRAI narratif IA (absent OU repli)
+  if (!missing.length) return;                                                    // tous réels → rien à régénérer
   if (_sbNarrBusy) return;
   if (typeof _aiQuietHours === 'function' && _aiQuietHours()) return;             // heures creuses → on attend
   if (Date.now() - _sbNarrLastTry < 10 * 60 * 1000) return;                       // 1 tentative / 10 min max
   _sbNarrBusy = true; _sbNarrLastTry = Date.now();
   try {
-    const narr = await _sbGenerateNarratives(_smartBias.rows, _smartBias.conclusion, _smartBias.ctxLines || []);
+    const narr = await _sbGenerateNarratives(_smartBias.rows, _smartBias.conclusion, _smartBias.ctxLines || [], missing);
     if (narr && Object.keys(narr).length) {
-      _smartBias.narrative = narr;
+      _smartBias.narrative = Object.assign({}, _smartBias.narrative || {}, narr); // merge : garde l'existant réel, ajoute les régénérés
       try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
       auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});            // DURABLE → survit aux restarts
-      try { broadcast({ type: 'smartbias_update', bias: _smartBias }); } catch {} // MAJ live de l'onglet ouvert
-      console.log('[SmartBias] narratif rempli a posteriori (retry ciblé) → cache + broadcast (reste jusqu\'au samedi)');
+      try { broadcast({ type: 'smartbias_update', bias: _sbFillNarrative(_smartBias) }); } catch {} // MAJ live (narratif résolu)
+      const done = SB_CURRENCIES.filter(c => _sbIsRealNarrative((_smartBias.narrative || {})[c])).length;
+      console.log(`[SmartBias] narratif IA (retry ciblé) : ${Object.keys(narr).length} régénéré(s) → ${done}/${SB_CURRENCIES.length} réels → cache + broadcast`);
     }
   } catch (e) { console.warn('[SmartBias] retry narratif échec:', e.message); }
   finally { _sbNarrBusy = false; }
@@ -4698,8 +4714,9 @@ app.get('/api/smart-bias', async (req, res) => {
     .filter(s => { const k = _sbWeekKey(s.generatedAt); if (_seen.has(k)) return false; _seen.add(k); return true; })
     .slice(0, 5)
     .map(s => ({ generatedAt: s.generatedAt }));
-  if (_smartBias) _sbFillNarrative(_smartBias);   // narratif FIGÉ servi (rempli depuis la matrice gelée s'il manquait) → stable toute la semaine
-  res.json(Object.assign({}, _smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} }, { history }));
+  // Narratif RÉSOLU pour l'affichage (IA réel si dispo, sinon synthèse data-driven) — SANS muter le cache interne.
+  const _resolved = _smartBias ? _sbFillNarrative(_smartBias) : { currencies: SB_CURRENCIES, rows: [], conclusion: {} };
+  res.json(Object.assign({}, _resolved, { history }));
   // AUCUN appel IA déclenché par l'arrivée d'un utilisateur : la (re)génération du bias est UNIQUEMENT planifiée (samedi) + timers de fond (démarrage / horaire). Le narratif est figé (rempli data-driven s'il manque).
 });
 
@@ -4900,8 +4917,15 @@ app.get('/api/week-ahead', async (req, res) => {
   // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
   setInterval(() => {
     if (_sbBiasStale()) generateSmartBias(true).catch(() => {});   // récupération de fond (version/âge >7j/absent) — jamais sur le chemin utilisateur
+    else _sbEnsureNarrative().catch(() => {});                     // matrice fraîche mais narratif IA manquant/repli → retry ciblé (USD & co)
     if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire tant que TOUS les jours n'ont pas l'éditorial IA
   }, 60 * 60 * 1000);
+  // Narratif Smart Bias — AUTO-RÉPARATION rapide & récurrente (correctif du bug : le repli data-driven « gelait »
+  // le narratif et l'IA ne le réécrivait jamais). On régénère le narratif IA manquant ~130 s après le démarrage
+  // puis toutes les 12 min — throttlé en interne (10 min), hors heures creuses, ne régénère QUE les devises
+  // sans vrai narratif IA, et s'arrête dès que les 8 devises en ont un. Quota mini, jamais sur le chemin utilisateur.
+  setTimeout(() => { _sbEnsureNarrative().catch(() => {}); }, 130 * 1000);
+  setInterval(() => { _sbEnsureNarrative().catch(() => {}); }, 12 * 60 * 1000);
 })();
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
