@@ -149,7 +149,7 @@ function _detectEconAgencyEarly(text) {
   return null;
 }
 
-allNews = loadHistory().map(item => {
+allNews = loadHistory().filter(item => item && !/^\s*\[?\s*primer\b/i.test(item.headline || '')).map(item => {   // purge des "PRIMER" déjà persistés
   if (item.category === 'Economic Commentary' && item.source === 'FinancialJuice') {
     const agency = _detectEconAgencyEarly(item.headline);
     if (agency) return { ...item, source: agency };
@@ -5289,6 +5289,8 @@ function mergeItems(incoming) {
     if (isNoise(item.headline)) return false;
     // Drop tabloid / gossip / sports / lifestyle — même venant d'une source curated
     if (isGlobalNewsNoise(item.headline)) return false;
+    // Drop "PRIMER" prep posts (ex. « PRIMER — London Opening Preparation ») — sans intérêt marché actionnable.
+    if (/^\s*\[?\s*primer\b/i.test(item.headline || '')) return false;
     // Drop FJElite bank research stubs — "Bank: Title - FJElite" with no description
     if (/- FJElite$/i.test(item.headline) && !item.description?.trim() && /^[^:]{3,40}:\s+\S/.test(item.headline)) return false;
 

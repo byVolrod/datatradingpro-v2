@@ -694,6 +694,7 @@ function getFilteredItems() {
     if (!isCategoryEnabled(item.category)) return false;
     // Social-media reposts and failed-scrape stubs — no market value
     const _h = item.headline || '';
+    if (/^\s*\[?\s*primer\b/i.test(_h)) return false;   // posts "PRIMER" (prep de séance) — retirés du flux
     if (/^\[No Title\]/i.test(_h)) return false;
     if (/^RT @/i.test(_h))         return false;
     if (/^@[A-Za-z]/i.test(_h))   return false;
@@ -3276,7 +3277,7 @@ function _waRenderNews(items){
   const host=document.getElementById('wa-news-body'); if(!host) return;
   if(!items||!items.length){ host.innerHTML='<div class="wa3-empty">News indisponibles.</div>'; return; }
   let out='',last='';
-  items.slice(0,120).forEach(n=>{
+  items.filter(n=>n&&!/^\s*\[?\s*primer\b/i.test(n.headline||'')).slice(0,120).forEach(n=>{
     const d=new Date(n.timestamp||Date.now());
     const dk=d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
     if(dk!==last){ last=dk; out+=`<div class="wan-day">${_waEsc(dk)}</div>`; }
