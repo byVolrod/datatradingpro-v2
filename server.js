@@ -4175,6 +4175,51 @@ async function _sbSeasonalityRow() {
   return out;
 }
 
+// ── Narratif Smart Bias data-driven (réplique du repli client) FIGÉ dans le snapshot → ne change plus en cours de semaine ──
+const _SB_QUAL_S  = { 'Very Bullish':'nettement favorable','Bullish':'favorable','Weak Bullish':'légèrement favorable','Neutral':'neutre','Range':'neutre','N/A':'neutre','Weak Bearish':'légèrement défavorable','Bearish':'défavorable','Very Bearish':'nettement défavorable','Uptrend':'favorable','Downtrend':'défavorable' };
+const _SB_TREND_S = { 'Uptrend':'haussière','Downtrend':'baissière','Range':'sans direction nette','Neutral':'sans direction nette','N/A':'sans direction nette' };
+const _SB_SCORE_S = { 'Very Bullish':2,'Bullish':1,'Weak Bullish':1,'Uptrend':1,'Neutral':0,'Range':0,'Weak Bearish':-1,'Bearish':-1,'Downtrend':-1,'Very Bearish':-2 };
+function _sbDataNarrative(curr, rows, conclusion) {
+  rows = rows || [];
+  const val = k => { const r = rows.find(x => x.key === k); return r ? (r.values[curr] || 'N/A') : 'N/A'; };
+  const q  = v => _SB_QUAL_S[v]  || 'neutre';
+  const qt = v => _SB_TREND_S[v] || 'sans direction nette';
+  const has = v => v && v !== 'N/A';
+  const overall = (conclusion && conclusion[curr]) || 'Neutral';
+  const fund=val('fundamental'),mon=val('monetary'),hf=val('hedgeFund'),ret=val('retail'),bank=val('bankOverview'),tr=val('trend'),seas=val('seasonality');
+  const bulls = rows.filter(r => (_SB_SCORE_S[r.values[curr]]||0) > 0).map(r => r.label);
+  const bears = rows.filter(r => (_SB_SCORE_S[r.values[curr]]||0) < 0).map(r => r.label);
+  const P = [`Le biais hebdomadaire global ressort ${overall} sur ${curr}.`];
+  const macro = [];
+  if (has(fund)) macro.push(`le contexte fondamental est ${q(fund)}`);
+  if (has(mon))  macro.push(`la politique monétaire est ${q(mon)}`);
+  if (macro.length) P.push(`Sur le plan macro, ${macro.join(' et ')}.`);
+  const pos = [];
+  if (has(hf))   pos.push(`celui des fonds (COT) est ${q(hf)}`);
+  if (has(ret))  pos.push(`le sentiment retail est ${q(ret)}`);
+  if (has(bank)) pos.push(`le consensus bancaire est ${q(bank)}`);
+  if (pos.length) P.push(`Côté positionnement, ${pos.join(', ')}.`);
+  const tech = [];
+  if (has(tr))   tech.push(`la tendance est ${qt(tr)}`);
+  if (has(seas)) tech.push(`la saisonnalité est ${q(seas)}`);
+  if (tech.length) P.push(`Techniquement, ${tech.join(' et ')}.`);
+  if (bulls.length || bears.length) {
+    let s = '';
+    if (bulls.length) s += `Soutiens haussiers : ${bulls.join(', ')}. `;
+    if (bears.length) s += `Pressions baissières : ${bears.join(', ')}.`;
+    P.push(s.trim());
+  } else P.push('Signaux globalement neutres, sans direction marquée.');
+  return P.join(' ');
+}
+// Remplit le narratif MANQUANT (par devise) à partir de la matrice FIGÉE → une fois rempli, ne change plus (le repli IA ne réécrit pas un narratif non vide).
+function _sbEnsureNarrative(bias) {
+  if (!bias || !Array.isArray(bias.rows) || !bias.rows.length) return bias;
+  bias.narrative = bias.narrative || {};
+  (bias.currencies || SB_CURRENCIES).forEach(c => {
+    if (!bias.narrative[c] || !String(bias.narrative[c]).trim()) bias.narrative[c] = _sbDataNarrative(c, bias.rows, bias.conclusion);
+  });
+  return bias;
+}
 async function generateSmartBias(force = false) {
   const WEEK = 7 * 24 * 60 * 60 * 1000;
   if (!force && _smartBias && Date.now() - (_smartBias.generatedAt || 0) < WEEK) return _smartBias;
@@ -4303,6 +4348,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
     }
   } catch {}
   _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
+  _sbEnsureNarrative(_smartBias);   // FIGE le narratif de chaque devise (IA si dispo, sinon synthèse data-driven) → ne change plus de la semaine
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
   // Observabilité : sources REELLEMENT recues + conclusion par devise → permet de verifier l'absence de faux bias.
@@ -4392,7 +4438,7 @@ app.get('/api/smart-bias', async (req, res) => {
   if (req.query.at) {
     const ts = Number(req.query.at);
     const snap = [_smartBias, ..._smartBiasHistory].find(s => s && Number(s.generatedAt) === ts);
-    return res.json(snap || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
+    return res.json((snap && _sbEnsureNarrative(snap)) || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
   }
   if (req.query.force === '1' || !_smartBias) { try { await generateSmartBias(true); } catch {} }
   // Liste des semaines disponibles (courante + historique), dédupliquées par semaine, 5 max.
@@ -4402,6 +4448,7 @@ app.get('/api/smart-bias', async (req, res) => {
     .filter(s => { const k = _sbWeekKey(s.generatedAt); if (_seen.has(k)) return false; _seen.add(k); return true; })
     .slice(0, 5)
     .map(s => ({ generatedAt: s.generatedAt }));
+  if (_smartBias) _sbEnsureNarrative(_smartBias);   // narratif FIGÉ servi (rempli depuis la matrice gelée s'il manquait) → stable toute la semaine
   res.json(Object.assign({}, _smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} }, { history }));
   if (req.query.force !== '1') _sbEnsureFresh();   // tâche de fond : self-heal si périmé / narratif si manquant
 });
