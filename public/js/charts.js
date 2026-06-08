@@ -1859,36 +1859,47 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   async function loadTauxView() {
-    const tb = document.getElementById('taux-tbody');
-    if (!tb) return;
-    const DIR = {
-      hike: { lbl: 'Hausse',   cls: 'g', ar: '▲' },
-      hold: { lbl: 'Maintien', cls: 'n', ar: '■' },
-      cut:  { lbl: 'Baisse',   cls: 'r', ar: '▼' },
-    };
+    const host = document.getElementById('taux-grid');
+    if (!host) return;
+    const MV = { HOLD: { lbl: 'Maintien', cls: 'n' }, HIKE: { lbl: 'Hausse', cls: 'g' }, CUT: { lbl: 'Baisse', cls: 'r' } };
+    const fr  = d => { try { const p = String(d).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return d; } };
+    const bps = v => (v > 0 ? '+' : '') + Number(v).toFixed(1) + ' bps';
     try {
       const r = await fetch('/api/rates');
-      if (r.status === 403) { tb.innerHTML = '<tr><td colspan="6" class="taux-empty">Réservé aux administrateurs.</td></tr>'; return; }
       const d = await r.json();
       const banks = (d && d.banks) || [];
-      if (!banks.length) { tb.innerHTML = '<tr><td colspan="6" class="taux-empty">Aucune donnée.</td></tr>'; return; }
-      tb.innerHTML = banks.map(b => {
-        const e = DIR[b.est && b.est.dir] || DIR.hold;
-        const l = DIR[b.last && b.last.dir] || DIR.hold;
-        const bps = b.last ? ((b.last.bps > 0 ? '+' : '') + b.last.bps + ' pb') : '—';
-        return '<tr>'
-          + '<td class="taux-bank"><img class="taux-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy"><span><b>' + b.bank + '</b><i>' + (b.full || '') + '</i></span></td>'
-          + '<td class="taux-rate">' + Number(b.rate).toFixed(2) + ' %</td>'
-          + '<td class="taux-last ' + l.cls + '">' + l.ar + ' ' + bps + '<i>' + ((b.last && b.last.date) || '') + '</i></td>'
-          + '<td class="taux-next">' + (b.next || '—') + '</td>'
-          + '<td><span class="taux-badge ' + e.cls + '">' + e.ar + ' ' + e.lbl + ' · ' + (b.est ? b.est.prob : '') + '%</span></td>'
-          + '<td class="taux-bias">' + (b.bias || '') + '</td>'
-          + '</tr>';
+      if (!banks.length) { host.innerHTML = '<div class="taux-empty">Aucune donnée.</div>'; return; }
+      host.innerHTML = banks.map(b => {
+        const mv = MV[b.move] || MV.HOLD;
+        const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
+        const rows = (b.meetings || []).map(m => {
+          const mm = MV[m.baseCase] || MV.HOLD;
+          return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'j</td>'
+            + '<td class="r">' + m.cut + '%</td><td>' + m.hold + '%</td><td class="g">' + m.hike + '%</td>'
+            + '<td class="rtc-impl">' + bps(m.impliedBps) + '</td>'
+            + '<td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>';
+        }).join('');
+        return '<div class="rtc">'
+          + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
+          + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
+          + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
+          + '<div class="rtc-metrics">'
+          + '<div><span class="rtc-k">Prochain mvt</span><span class="rtc-v ' + mv.cls + '">' + mv.lbl + '</span></div>'
+          + '<div><span class="rtc-k">Probabilité</span><span class="rtc-v">' + b.prob + '%</span></div>'
+          + '<div><span class="rtc-k">&Delta; attendu</span><span class="rtc-v">' + bps(b.expBps) + '</span></div>'
+          + '<div><span class="rtc-k">Taux actuel</span><span class="rtc-v">' + Number(b.rate).toFixed(2) + '%</span></div>'
+          + '<div><span class="rtc-k">R&eacute;union</span><span class="rtc-v">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
+          + '</div>'
+          + '<div class="rtc-dist">'
+          + '<div class="rtc-bar"><span class="rtc-bl">Maintien</span><span class="rtc-track"><i class="n" style="width:' + sc.hold + '%"></i></span><span class="rtc-bp">' + sc.hold + '%</span></div>'
+          + '<div class="rtc-bar"><span class="rtc-bl">Hausse</span><span class="rtc-track"><i class="g" style="width:' + sc.hike + '%"></i></span><span class="rtc-bp">' + sc.hike + '%</span></div>'
+          + '<div class="rtc-bar"><span class="rtc-bl">Baisse</span><span class="rtc-track"><i class="r" style="width:' + sc.cut + '%"></i></span><span class="rtc-bp">' + sc.cut + '%</span></div>'
+          + '</div>'
+          + '<table class="rtc-tbl"><thead><tr><th>R&eacute;union</th><th>J</th><th>Baisse</th><th>Maintien</th><th>Hausse</th><th>&Delta; impl.</th><th>Base</th></tr></thead><tbody>' + rows + '</tbody></table>'
+          + '</div>';
       }).join('');
-      const upd = document.getElementById('taux-update');
-      if (upd && d.asOf) upd.textContent = d.asOf;
     } catch (e) {
-      tb.innerHTML = '<tr><td colspan="6" class="taux-empty">Erreur de chargement.</td></tr>';
+      host.innerHTML = '<div class="taux-empty">Erreur de chargement.</div>';
     }
   }
 

@@ -4676,21 +4676,71 @@ app.get('/api/pricing', (_req, res) => {
     url: process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/' });
 });
 
-// ─── TAUX (admin) — taux directeurs des 8 banques centrales + estimation maison ───
-// "Estimation maison" = notre lecture (dir hike/hold/cut + probabilité), pas un flux marché.
-// Valeurs de référence éditables ici ; à confirmer / mettre à jour par l'admin.
-const CENTRAL_BANKS = [
-  { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',          rate:4.50, last:{ date:'2024-12-18', bps:-25, dir:'cut'  }, next:'2026-06-17', est:{ dir:'hold', prob:70 }, bias:'Inflation proche de la cible et emploi résilient : pause prolongée, léger biais baissier à terme.' },
-  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',     rate:3.15, last:{ date:'2024-12-12', bps:-25, dir:'cut'  }, next:'2026-06-04', est:{ dir:'cut',  prob:60 }, bias:'Désinflation et croissance molle : poursuite prudente de l\'assouplissement.' },
-  { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:4.75, last:{ date:'2024-11-07', bps:-25, dir:'cut'  }, next:'2026-06-19', est:{ dir:'cut',  prob:55 }, bias:'Inflation des services collante : assouplissement graduel, dépendant des données.' },
-  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.25, last:{ date:'2024-07-31', bps:25,  dir:'hike' }, next:'2026-06-16', est:{ dir:'hike', prob:55 }, bias:'Normalisation lente : hausses graduelles si salaires et inflation se confirment.' },
-  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:1.00, last:{ date:'2024-12-12', bps:-50, dir:'cut'  }, next:'2026-06-18', est:{ dir:'hold', prob:55 }, bias:'Inflation faible et franc fort : marge de baisse limitée, proche du plancher.' },
-  { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:3.25, last:{ date:'2024-12-11', bps:-50, dir:'cut'  }, next:'2026-06-04', est:{ dir:'hold', prob:50 }, bias:'Cycle d\'assouplissement avancé : rythme ralenti, dépendant de l\'emploi.' },
-  { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, last:{ date:'2023-11-07', bps:25,  dir:'hike' }, next:'2026-06-16', est:{ dir:'cut',  prob:50 }, bias:'Statu quo prolongé : premières baisses possibles si l\'inflation reflue.' },
-  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:4.25, last:{ date:'2024-11-27', bps:-50, dir:'cut'  }, next:'2026-05-28', est:{ dir:'cut',  prob:55 }, bias:'Croissance faible : poursuite des baisses pour soutenir l\'activité.' },
+// ─── TAUX — probabilités de taux directeurs (estimation MAISON, façon "Interest Rate Probability") ───
+// On déduit nous-mêmes : prochaine réunion (calendrier 2026 factuel), prochain mouvement, probabilités
+// Maintien/Hausse/Baisse, Δ implicite (bps) et base case — sans flux marché. Se met à jour quand les dates passent.
+// Calendriers de réunions 2026 (dates officielles publiées) :
+const CB_MEETINGS = {
+  USD: ['2026-06-17','2026-07-29','2026-09-16','2026-10-28','2026-12-09'],
+  EUR: ['2026-06-11','2026-07-23','2026-09-10','2026-10-29','2026-12-17'],
+  GBP: ['2026-06-18','2026-07-30','2026-09-17','2026-11-05','2026-12-17'],
+  JPY: ['2026-06-16','2026-07-31','2026-09-18','2026-10-30','2026-12-18'],
+  CHF: ['2026-06-18','2026-09-24','2026-12-17'],
+  CAD: ['2026-06-10','2026-07-15','2026-09-16','2026-10-28','2026-12-09'],
+  AUD: ['2026-06-16','2026-08-11','2026-09-29','2026-11-03','2026-12-08'],
+  NZD: ['2026-07-08','2026-08-26','2026-10-07','2026-11-25'],
+};
+// Config maison par banque : taux actuel + biais directionnel + conviction + pas (bps).
+const CB = [
+  { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',           rate:4.50, bias:'hold', lean:'cut', conv:0.78, step:25 },
+  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:3.15, bias:'cut',              conv:0.58, step:25 },
+  { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:4.75, bias:'cut',              conv:0.52, step:25 },
+  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.50, bias:'hike',             conv:0.55, step:25 },
+  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:1.00, bias:'hold', lean:'cut', conv:0.62, step:25 },
+  { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:3.25, bias:'hold', lean:'cut', conv:0.55, step:25 },
+  { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, bias:'cut',              conv:0.50, step:25 },
+  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:4.25, bias:'cut',              conv:0.55, step:25 },
 ];
+// Modèle maison : scénario d'une réunion (idx 0 = prochaine ; la conviction du biais croît avec l'horizon).
+function _rateScenario(b, idx) {
+  let hold, hike, cut;
+  if (b.bias === 'hold') {
+    hold = Math.max(0.35, Math.min(0.95, b.conv - idx * 0.09));
+    const rest = 1 - hold, leanCut = b.lean !== 'hike', share = Math.min(0.88, 0.62 + idx * 0.05);
+    cut  = leanCut ? rest * share : rest * (1 - share);
+    hike = rest - cut;
+  } else if (b.bias === 'cut') {
+    cut  = Math.max(0.30, Math.min(0.97, b.conv + idx * 0.11));
+    const rest = 1 - cut; hold = rest * 0.82; hike = rest - hold;
+  } else { // hike
+    hike = Math.max(0.30, Math.min(0.97, b.conv + idx * 0.11));
+    const rest = 1 - hike; hold = rest * 0.82; cut = rest - hold;
+  }
+  const s = hold + hike + cut || 1; hold /= s; hike /= s; cut /= s;
+  const impliedBps = (hike - cut) * b.step;
+  const baseCase = (hold >= hike && hold >= cut) ? 'HOLD' : (hike >= cut ? 'HIKE' : 'CUT');
+  return { hold, hike, cut, impliedBps, baseCase };
+}
 app.get('/api/rates', (_req, res) => {
-  res.json({ asOf: 'valeurs de référence — à confirmer', banks: CENTRAL_BANKS });
+  const now = Date.now();
+  const banks = CB.map(b => {
+    const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 5);
+    const meetings = sched.map((d, i) => {
+      const sc = _rateScenario(b, i);
+      const days = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - now) / 86400000));
+      return { date: d, days, hold: Math.round(sc.hold * 100), hike: Math.round(sc.hike * 100), cut: Math.round(sc.cut * 100),
+               impliedBps: +sc.impliedBps.toFixed(1), baseCase: sc.baseCase };
+    });
+    const n = meetings[0], sc0 = _rateScenario(b, 0);
+    return {
+      code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: b.rate,
+      next: n ? n.date : null, nextDays: n ? n.days : null,
+      move: sc0.baseCase, prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 100), expBps: +sc0.impliedBps.toFixed(1),
+      scenario: { hold: Math.round(sc0.hold * 100), hike: Math.round(sc0.hike * 100), cut: Math.round(sc0.cut * 100) },
+      meetings,
+    };
+  });
+  res.json({ asOf: now, model: 'maison', banks });
 });
 
 // CRUD admin (ajout / édition / suppression de positions)

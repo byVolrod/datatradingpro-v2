@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260609I" />
+  <link rel="stylesheet" href="/css/style.css?v=20260609K" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -214,28 +214,14 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <span class="panel-title">Taux directeurs des banques centrales</span>
-          <span class="taux-sub">Estimation maison · Hausse = vert, Baisse = rouge, Maintien = ambre · valeurs à confirmer</span>
+          <span class="taux-sub">Probabilités estimées maison (Maintien / Hausse / Baisse par réunion) — pas un flux marché</span>
         </div>
         <div class="panel-header-controls">
           <span class="bank-update" id="taux-update"></span>
         </div>
       </div>
-      <div class="taux-wrap">
-        <table class="taux-table">
-          <thead>
-            <tr>
-              <th>Banque centrale</th>
-              <th>Taux directeur</th>
-              <th>Dernier mouvement</th>
-              <th>Prochaine réunion</th>
-              <th>Estimation maison</th>
-              <th>Biais</th>
-            </tr>
-          </thead>
-          <tbody id="taux-tbody">
-            <tr><td colspan="6" class="taux-loading"><div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement des taux…</div></div></td></tr>
-          </tbody>
-        </table>
+      <div class="taux-grid" id="taux-grid">
+        <div class="taux-loading"><div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement des probabilités de taux…</div></div></div>
       </div>
     </div>
   </div><!-- /#view-taux -->
@@ -605,7 +591,7 @@
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script src="/js/app.js?v=20260609I"></script>
-<script src="/js/charts.js?v=20260609J"></script>
+<script src="/js/charts.js?v=20260609K"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
