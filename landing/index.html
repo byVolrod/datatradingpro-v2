@@ -30,6 +30,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
 <style>
   :root{
     --bg:#08080a; --bg1:#0d0d10; --bg2:#121216; --bg3:#17171c; --line:#1f1f26; --line2:#2a2a32;
@@ -443,6 +444,1983 @@
   .foot-links{display:flex;gap:22px;font-size:13.5px;color:var(--text2);flex-wrap:wrap}
   .foot-links a:hover{color:var(--orange)}
   .foot-copy{font-size:12px;color:var(--text3);margin-top:22px;text-align:center;border-top:1px solid var(--line);padding-top:20px;line-height:1.7}
+
+/* ============ sec2 ============ */
+/* ====== sec2 — Product Overview (pmt-overview-*) ====== */
+.pmt-overview-section{
+  background:#08080a;
+  color:#f0f0f2;
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+  padding:clamp(56px,8vw,104px) 0;
+  border-bottom:1px solid #1f1f26;
+  -webkit-font-smoothing:antialiased;
+}
+.pmt-overview-section *{box-sizing:border-box;}
+.pmt-container{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 clamp(16px,4vw,24px);
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);
+  gap:clamp(32px,5vw,64px);
+  align-items:center;
+}
+
+/* ----- Colonne gauche ----- */
+.pmt-left-content{min-width:0;}
+.pmt-tagline{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:#f7941d;background:rgba(247,148,29,.08);
+  border:1px solid rgba(247,148,29,.22);
+  padding:6px 14px;border-radius:100px;margin-bottom:20px;
+}
+.pmt-tagline i{font-size:11px;}
+.pmt-main-heading{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:800;letter-spacing:-.01em;
+  font-size:clamp(28px,4.2vw,44px);line-height:1.08;
+  margin:0 0 16px;color:#f0f0f2;
+}
+.pmt-description{
+  font-size:clamp(14.5px,1.6vw,16px);line-height:1.65;color:#a6a6ad;
+  margin:0 0 28px;max-width:540px;
+}
+
+/* ----- Liste des modules ----- */
+.pmt-features-list{list-style:none;margin:0 0 26px;padding:0;display:flex;flex-direction:column;gap:14px;}
+.pmt-feature-item{display:flex;gap:14px;align-items:flex-start;}
+.pmt-icon-box{
+  flex-shrink:0;width:40px;height:40px;border-radius:10px;
+  background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);
+  color:#f7941d;display:flex;align-items:center;justify-content:center;
+  font-size:16px;transition:.16s;
+}
+.pmt-feature-item:hover .pmt-icon-box{background:rgba(247,148,29,.16);border-color:rgba(247,148,29,.4);}
+.pmt-feature-text{display:flex;flex-direction:column;gap:3px;font-size:13.5px;line-height:1.5;color:#a6a6ad;min-width:0;}
+.pmt-feature-text strong{color:#f0f0f2;font-weight:700;font-size:14.5px;}
+
+/* ----- Barre d'état ----- */
+.pmt-status-bar{
+  display:inline-flex;align-items:center;gap:9px;
+  font-size:12.5px;font-weight:600;color:#a6a6ad;
+  background:#0d0d10;border:1px solid #1f1f26;border-radius:10px;
+  padding:9px 15px;
+}
+.pmt-pulse-dot{
+  width:7px;height:7px;border-radius:50%;flex-shrink:0;
+  background:#22c55e;box-shadow:0 0 8px #22c55e;
+  animation:pmtOvPulse 1.8s infinite;
+}
+@keyframes pmtOvPulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* ----- Colonne droite ----- */
+.pmt-right-column{min-width:0;display:flex;flex-direction:column;gap:18px;}
+.pmt-terminal-wrapper{
+  border-radius:14px;overflow:hidden;
+  border:1px solid #2a2a32;background:#0a0a0c;
+  box-shadow:0 30px 80px -40px #000;
+}
+
+/* ----- Maquette terminal CSS ----- */
+.pmt-terminal-image{
+  display:block;background:#0a0a0c;
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+.pmt-term-chrome{
+  display:flex;align-items:center;gap:7px;
+  padding:9px 13px;background:#0d0d10;border-bottom:1px solid #1f1f26;
+}
+.pmt-term-dot{width:9px;height:9px;border-radius:50%;background:#2a2a32;flex-shrink:0;}
+.pmt-term-dot:nth-child(1){background:#ef4444;}
+.pmt-term-dot:nth-child(2){background:#ffb300;}
+.pmt-term-dot:nth-child(3){background:#22c55e;}
+.pmt-term-url{
+  margin-left:8px;font-size:11px;color:#6f6f78;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.pmt-term-live{
+  margin-left:auto;display:inline-flex;align-items:center;gap:6px;
+  font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#f7941d;flex-shrink:0;
+}
+.pmt-term-nav{
+  display:flex;gap:4px;flex-wrap:wrap;
+  padding:8px 12px;border-bottom:1px solid #1f1f26;background:#08080a;
+}
+.pmt-term-tab{font-size:10px;font-weight:600;color:#6f6f78;letter-spacing:.03em;}
+.pmt-term-tab.on{color:#f7941d;}
+.pmt-term-body{
+  display:grid;grid-template-columns:1.35fr 1fr;gap:1px;
+  background:#1f1f26;
+}
+.pmt-term-panel{background:#0a0a0c;padding:12px;min-width:0;}
+.pmt-term-ptitle{
+  font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:#6f6f78;margin-bottom:10px;
+}
+.pmt-term-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #141419;}
+.pmt-term-row:last-child{border-bottom:0;}
+.pmt-term-time{font-size:10px;color:#6f6f78;flex-shrink:0;}
+.pmt-term-tx{font-size:11px;color:#f0f0f2;line-height:1.35;flex:1;min-width:0;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;}
+.pmt-term-bdg{
+  font-size:8.5px;font-weight:700;letter-spacing:.04em;
+  padding:2px 6px;border-radius:4px;flex-shrink:0;
+}
+.pmt-term-bdg.high{color:#ef4444;background:rgba(239,68,68,.14);}
+.pmt-term-bdg.med{color:#ffb300;background:rgba(255,179,0,.14);}
+.pmt-term-bdg.low{color:#22c55e;background:rgba(34,197,94,.14);}
+.pmt-term-fx{display:flex;align-items:center;gap:9px;padding:6px 0;}
+.pmt-term-fx-sym{font-size:11px;font-weight:700;color:#a6a6ad;width:34px;flex-shrink:0;}
+.pmt-term-fx-bar{flex:1;height:6px;border-radius:3px;background:#141419;overflow:hidden;}
+.pmt-term-fx-bar i{display:block;height:100%;border-radius:3px;}
+.pmt-term-fx-bar i.pos{background:#22c55e;}
+.pmt-term-fx-bar i.neg{background:#ef4444;}
+
+/* ----- Cartes métriques ----- */
+.pmt-bottom-metrics{
+  display:grid;grid-template-columns:1fr 1fr;gap:12px;
+}
+.pmt-metric-card{
+  display:flex;gap:12px;align-items:flex-start;
+  background:#0d0d10;border:1px solid #1f1f26;border-radius:12px;
+  padding:14px 15px;transition:.16s;
+}
+.pmt-metric-card:hover{border-color:#2a2a32;background:#121216;}
+.pmt-metric-icon{
+  flex-shrink:0;width:34px;height:34px;border-radius:9px;
+  background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);
+  color:#f7941d;display:flex;align-items:center;justify-content:center;font-size:14px;
+}
+.pmt-metric-content{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.pmt-metric-title{font-size:13.5px;font-weight:700;color:#f0f0f2;}
+.pmt-metric-desc{font-size:11.5px;line-height:1.45;color:#6f6f78;}
+
+/* ----- Responsive ----- */
+@media(max-width:980px){
+  .pmt-container{grid-template-columns:1fr;gap:40px;}
+  .pmt-left-content{text-align:left;}
+  .pmt-description{max-width:none;}
+}
+@media(max-width:560px){
+  .pmt-term-body{grid-template-columns:1fr;}
+  .pmt-bottom-metrics{grid-template-columns:1fr;}
+  .pmt-term-nav{gap:8px;}
+}
+@media (prefers-reduced-motion: reduce){
+  .pmt-pulse-dot{animation:none;}
+  .pmt-icon-box,.pmt-metric-card{transition:none;}
+}
+
+/* ============ sec3 ============ */
+/* ===== sec3 — Modules clés / Core Features ===== */
+.pmt-sec3-wrapper{
+  --s3-bg:#08080a; --s3-bg1:#0d0d10; --s3-bg2:#121216; --s3-bg3:#17171c;
+  --s3-line:#1f1f26; --s3-line2:#2a2a32;
+  --s3-text:#f0f0f2; --s3-text2:#a6a6ad; --s3-text3:#6f6f78;
+  --s3-orange:#f7941d; --s3-orange2:#ffae42;
+  --s3-serif:"Playfair Display",Georgia,"Times New Roman",serif;
+  --s3-font:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+  position:relative;
+  background:var(--s3-bg);
+  color:var(--s3-text);
+  font-family:var(--s3-font);
+  padding:clamp(64px,9vw,116px) clamp(16px,4vw,24px);
+  border-top:1px solid var(--s3-line);
+  border-bottom:1px solid var(--s3-line);
+  overflow:hidden;
+}
+.pmt-sec3-wrapper *{box-sizing:border-box;}
+
+/* ---- Hero header ---- */
+.pmt-sec3-hero{
+  position:relative;
+  max-width:1180px;
+  margin:0 auto clamp(40px,6vw,68px);
+}
+.pmt-sec3-image-area{
+  position:absolute;
+  inset:-120px -40px auto -40px;
+  height:340px;
+  pointer-events:none;
+  z-index:0;
+}
+.pmt-sec3-bg-img{
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(60% 80% at 50% 0%, rgba(247,148,29,.10), transparent 70%),
+    radial-gradient(40% 60% at 78% 30%, rgba(247,148,29,.06), transparent 75%);
+  filter:blur(2px);
+  -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 92%);
+  mask-image:linear-gradient(180deg,#000 0%,transparent 92%);
+}
+.pmt-sec3-header-content{
+  position:relative;
+  z-index:1;
+  max-width:760px;
+}
+.pmt-sec3-tagline{
+  display:inline-block;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.16em;
+  text-transform:uppercase;
+  color:var(--s3-orange);
+  padding:5px 11px;
+  border:1px solid rgba(247,148,29,.28);
+  background:rgba(247,148,29,.07);
+  border-radius:999px;
+  margin-bottom:18px;
+}
+.pmt-sec3-title{
+  font-family:var(--s3-serif);
+  font-weight:800;
+  letter-spacing:-.015em;
+  line-height:1.08;
+  font-size:clamp(28px,4.6vw,46px);
+  color:#fff;
+  margin:0 0 16px;
+}
+.pmt-sec3-desc{
+  font-size:clamp(15px,1.7vw,17px);
+  line-height:1.65;
+  color:var(--s3-text2);
+  margin:0;
+  max-width:680px;
+}
+
+/* ---- Cards grid ---- */
+.pmt-sec3-grid{
+  position:relative;
+  z-index:1;
+  max-width:1180px;
+  margin:0 auto;
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:18px;
+}
+.pmt-sec3-card{
+  display:flex;
+  flex-direction:column;
+  background:var(--s3-bg1);
+  border:1px solid var(--s3-line);
+  border-radius:14px;
+  padding:26px 22px 22px;
+  text-decoration:none;
+  color:inherit;
+  position:relative;
+  overflow:hidden;
+  transition:border-color .2s ease, transform .2s ease, background .2s ease;
+}
+.pmt-sec3-card::before{
+  content:"";
+  position:absolute;
+  inset:0 0 auto 0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,var(--s3-orange),transparent);
+  opacity:0;
+  transition:opacity .25s ease;
+}
+.pmt-sec3-card:hover{
+  border-color:rgba(247,148,29,.42);
+  background:var(--s3-bg2);
+  transform:translateY(-3px);
+}
+.pmt-sec3-card:hover::before{opacity:1;}
+.pmt-sec3-card:focus-visible{
+  outline:2px solid var(--s3-orange);
+  outline-offset:3px;
+}
+.pmt-sec3-icon-orb{
+  width:46px;
+  height:46px;
+  border-radius:12px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(247,148,29,.1);
+  border:1px solid rgba(247,148,29,.24);
+  color:var(--s3-orange);
+  font-size:19px;
+  margin-bottom:18px;
+  transition:background .2s ease, color .2s ease;
+}
+.pmt-sec3-card:hover .pmt-sec3-icon-orb{
+  background:rgba(247,148,29,.16);
+}
+.pmt-sec3-card-title{
+  font-size:18px;
+  font-weight:700;
+  letter-spacing:-.01em;
+  color:#fff;
+  margin:0 0 9px;
+}
+.pmt-sec3-card-desc{
+  font-size:13.5px;
+  line-height:1.62;
+  color:var(--s3-text2);
+  margin:0 0 18px;
+  flex:1;
+}
+.pmt-sec3-arrow-link{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-size:13px;
+  font-weight:600;
+  color:var(--s3-orange);
+  margin-top:auto;
+}
+.pmt-sec3-arrow-link i{
+  font-size:12px;
+  transition:transform .2s ease;
+}
+.pmt-sec3-card:hover .pmt-sec3-arrow-link{color:var(--s3-orange2);}
+.pmt-sec3-card:hover .pmt-sec3-arrow-link i{transform:translateX(4px);}
+
+/* ---- Footer line ---- */
+.pmt-sec3-footer{
+  position:relative;
+  z-index:1;
+  max-width:1180px;
+  margin:clamp(40px,6vw,64px) auto 0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:11px;
+  padding-top:clamp(28px,4vw,40px);
+  border-top:1px solid var(--s3-line);
+  font-size:15px;
+  font-weight:600;
+  letter-spacing:.01em;
+  color:var(--s3-text);
+  text-align:center;
+}
+.pmt-sec3-footer-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:30px;
+  height:30px;
+  border-radius:8px;
+  background:rgba(247,148,29,.1);
+  border:1px solid rgba(247,148,29,.24);
+  color:var(--s3-orange);
+  font-size:14px;
+  flex-shrink:0;
+}
+
+/* ---- Responsive ---- */
+@media (max-width:1080px){
+  .pmt-sec3-grid{grid-template-columns:repeat(2,1fr);}
+}
+@media (max-width:860px){
+  .pmt-sec3-image-area{inset:-90px -20px auto -20px;height:280px;}
+}
+@media (max-width:560px){
+  .pmt-sec3-grid{grid-template-columns:1fr;}
+  .pmt-sec3-footer{flex-direction:column;gap:9px;}
+}
+@media (prefers-reduced-motion:reduce){
+  .pmt-sec3-card,
+  .pmt-sec3-card .pmt-sec3-icon-orb,
+  .pmt-sec3-arrow-link i,
+  .pmt-sec3-card::before{transition:none!important;}
+  .pmt-sec3-card:hover{transform:none;}
+  .pmt-sec3-card:hover .pmt-sec3-arrow-link i{transform:none;}
+}
+
+/* ============ sec4 ============ */
+.pmt-sec4-body{background:var(--bg,#08080a);padding:clamp(56px,8vw,104px) 0;border-top:1px solid var(--line,#1f1f26)}
+.pmt-sec4-container{max-width:var(--maxw,1180px);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
+
+/* Header */
+.pmt-sec4-header-row{max-width:760px;margin:0 auto clamp(40px,5vw,60px);text-align:center}
+.pmt-sec4-tagline{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange,#f7941d);background:rgba(247,148,29,.09);border:1px solid rgba(247,148,29,.22);padding:5px 13px;border-radius:999px;margin-bottom:18px}
+.pmt-sec4-heading{font-family:var(--serif,"Playfair Display",serif);font-weight:800;letter-spacing:-.015em;font-size:clamp(26px,4.4vw,42px);line-height:1.12;color:var(--text,#f0f0f2)}
+.pmt-sec4-lead-text{margin-top:16px;font-size:clamp(15px,1.6vw,17px);line-height:1.65;color:var(--text2,#a6a6ad)}
+
+/* Framework row */
+.pmt-sec4-framework-row{display:flex;align-items:stretch;justify-content:center;gap:14px}
+.pmt-sec4-step-card{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--bg1,#0d0d10);border:1px solid var(--line,#1f1f26);border-radius:14px;padding:22px 20px 24px}
+.pmt-sec4-card-meta{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
+.pmt-sec4-step-num{flex-shrink:0;font-family:var(--serif,"Playfair Display",serif);font-weight:800;font-size:30px;line-height:1;color:var(--orange,#f7941d);opacity:.9}
+.pmt-sec4-step-title{font-size:18px;font-weight:700;letter-spacing:-.01em;color:var(--text,#f0f0f2);margin-bottom:5px}
+.pmt-sec4-step-desc{font-size:13.5px;line-height:1.5;color:var(--text2,#a6a6ad)}
+.pmt-sec4-step-desc b{color:var(--text,#f0f0f2);font-weight:600}
+
+/* Flow arrows */
+.pmt-sec4-flow-arrow{flex-shrink:0;align-self:center;display:flex;align-items:center;justify-content:center;color:var(--orange,#f7941d);opacity:.55}
+.pmt-sec4-flow-arrow svg{width:26px;height:26px}
+
+/* Mini terminal shared */
+.pmt-sec4-mini-terminal{margin-top:auto;background:#08080a;border:1px solid var(--line,#1f1f26);border-radius:10px;overflow:hidden;font-family:var(--mono,ui-monospace,Menlo,Consolas,monospace);display:flex;flex-direction:column}
+.pmt-sec4-term-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line,#1f1f26);background:var(--bg2,#121216);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--text2,#a6a6ad)}
+.pmt-sec4-live-indicator{display:inline-flex;align-items:center;gap:6px;font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--orange,#f7941d)}
+.pmt-sec4-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green,#22c55e);box-shadow:0 0 7px var(--green,#22c55e);animation:pmtSec4Pulse 1.6s ease-in-out infinite}
+@keyframes pmtSec4Pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+/* Card 1 — news rows */
+.pmt-sec4-term-row{display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid rgba(31,31,38,.7)}
+.pmt-sec4-term-row:last-of-type{border-bottom:0}
+.pmt-sec4-badge{flex-shrink:0;font-size:8.5px;font-weight:800;letter-spacing:.06em;padding:3px 6px;border-radius:4px;line-height:1;min-width:34px;text-align:center}
+.pmt-sec4-badge.red{background:rgba(239,68,68,.16);color:var(--red,#ef4444)}
+.pmt-sec4-badge.orange{background:rgba(255,179,0,.15);color:var(--amber,#ffb300)}
+.pmt-sec4-badge.green{background:rgba(34,197,94,.15);color:var(--green,#22c55e)}
+.pmt-sec4-term-text-block{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pmt-sec4-term-headline{font-size:11.5px;line-height:1.35;color:var(--text,#f0f0f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pmt-sec4-term-subtext{font-size:9.5px;color:var(--text3,#6f6f78)}
+.pmt-sec4-term-time{flex-shrink:0;font-size:10px;color:var(--text3,#6f6f78);font-variant-numeric:tabular-nums}
+.pmt-sec4-term-footer-link{padding:8px 12px;border-top:1px solid var(--line,#1f1f26);background:var(--bg2,#121216);font-size:10px;letter-spacing:.02em;color:var(--text3,#6f6f78);text-align:center}
+
+/* Card 2 — bias */
+.pmt-sec4-flex-grid{display:flex;gap:10px;padding:12px}
+.pmt-sec4-flex-grid>div{flex:1;background:var(--bg2,#121216);border:1px solid var(--line,#1f1f26);border-radius:7px;padding:9px 11px}
+.pmt-sec4-bias-title{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3,#6f6f78);margin-bottom:5px}
+.pmt-sec4-bias-value{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--text,#f0f0f2)}
+.pmt-sec4-bias-value.up{color:var(--green,#22c55e)}
+.pmt-sec4-driver-list{padding:2px 12px 6px;display:flex;flex-direction:column;gap:7px}
+.pmt-sec4-driver-item{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--text2,#a6a6ad)}
+.pmt-sec4-dot-matrix{display:inline-flex;gap:3px;flex-shrink:0}
+.pmt-sec4-dot{width:7px;height:7px;border-radius:2px;background:var(--line2,#2a2a32)}
+.pmt-sec4-dot.active-green{background:var(--green,#22c55e)}
+.pmt-sec4-dot.active-orange{background:var(--amber,#ffb300)}
+
+/* Tables (cards 2 & 3) */
+.pmt-sec4-table{width:calc(100% - 24px);margin:6px 12px 12px;border-collapse:collapse}
+.pmt-sec4-table td{padding:6px 0;border-bottom:1px solid rgba(31,31,38,.7);font-size:11px;color:var(--text2,#a6a6ad)}
+.pmt-sec4-table tr:last-child td{border-bottom:0}
+.pmt-sec4-table td:last-child{text-align:right;font-weight:700;color:var(--text,#f0f0f2);font-variant-numeric:tabular-nums}
+.pmt-sec4-table-val.red{color:var(--red,#ef4444)}
+.pmt-sec4-table-val.green{color:var(--green,#22c55e)}
+
+/* Card 3 — chart + order */
+.pmt-sec4-chart-placeholder{position:relative;margin:12px 12px 4px;height:118px;background:linear-gradient(180deg,#0a0a0c,#08080a);border:1px solid var(--line,#1f1f26);border-radius:7px;overflow:hidden}
+.pmt-sec4-chart-line-svg{position:absolute;inset:0;width:100%;height:100%}
+.pmt-sec4-grid-line{stroke:rgba(42,42,50,.5);stroke-width:1;stroke-dasharray:3 4}
+.pmt-sec4-price-line{fill:none;stroke:var(--orange,#f7941d);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px rgba(247,148,29,.35))}
+.pmt-sec4-chart-label{position:absolute;right:7px;font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;line-height:1;white-space:nowrap}
+.pmt-sec4-chart-label.tp{top:8px;color:var(--green,#22c55e);background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.3)}
+.pmt-sec4-chart-label.entry{top:50%;transform:translateY(-50%);color:var(--orange,#f7941d);background:rgba(247,148,29,.14);border:1px solid rgba(247,148,29,.3)}
+.pmt-sec4-chart-label.sl{bottom:8px;color:var(--red,#ef4444);background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.3)}
+.pmt-sec4-btn-order{display:flex;align-items:center;justify-content:center;margin:6px 12px 0;padding:10px;background:var(--orange,#f7941d);color:#0a0a0a;font-family:var(--font,sans-serif);font-size:12.5px;font-weight:700;border-radius:7px;transition:.16s;cursor:pointer}
+.pmt-sec4-btn-order:hover{background:var(--orange2,#ffae42);transform:translateY(-1px)}
+.pmt-sec4-disclaimer{padding:8px 12px 12px;font-family:var(--font,sans-serif);font-size:9.5px;line-height:1.4;color:var(--text3,#6f6f78);text-align:center}
+
+/* Metrics bar */
+.pmt-sec4-metrics-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:clamp(36px,5vw,56px);background:var(--line,#1f1f26);border:1px solid var(--line,#1f1f26);border-radius:14px;overflow:hidden}
+.pmt-sec4-metric-item{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;padding:24px 16px;background:var(--bg1,#0d0d10)}
+.pmt-sec4-metric-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);color:var(--orange,#f7941d)}
+.pmt-sec4-metric-icon svg{width:18px;height:18px}
+.pmt-sec4-metric-num{font-family:var(--serif,"Playfair Display",serif);font-weight:800;font-size:clamp(20px,2.6vw,26px);line-height:1.05;color:var(--text,#f0f0f2)}
+.pmt-sec4-metric-label{font-size:12px;line-height:1.4;color:var(--text2,#a6a6ad)}
+
+/* Responsive */
+@media(max-width:980px){
+  .pmt-sec4-framework-row{flex-direction:column;gap:0}
+  .pmt-sec4-flow-arrow{transform:rotate(90deg);margin:6px 0}
+  .pmt-sec4-step-card{max-width:520px;width:100%;margin:0 auto}
+}
+@media(max-width:680px){
+  .pmt-sec4-metrics-bar{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:380px){
+  .pmt-sec4-metrics-bar{grid-template-columns:1fr}
+  .pmt-sec4-metric-item{flex-direction:row;text-align:left;gap:12px;padding:16px}
+}
+@media (prefers-reduced-motion:reduce){
+  .pmt-sec4-live-dot{animation:none}
+  .pmt-sec4-btn-order:hover{transform:none}
+}
+
+/* ============ sec5 ============ */
+.pmt-s5-viewport{
+  background:#08080a;
+  color:#f0f0f2;
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+  line-height:1.6;
+  border-top:1px solid #1f1f26;
+  border-bottom:1px solid #1f1f26;
+  padding:clamp(54px,8vw,96px) clamp(16px,4vw,32px);
+}
+.pmt-s5-boundless{
+  max-width:1180px;
+  margin:0 auto;
+}
+.pmt-s5-layout-split{
+  display:grid;
+  grid-template-columns:1.35fr .9fr;
+  gap:clamp(28px,4vw,56px);
+  align-items:start;
+}
+
+/* ── Colonne gauche ── */
+.pmt-s5-content-stack{min-width:0}
+.pmt-s5-label{
+  display:inline-block;
+  font-size:12.5px;
+  font-weight:700;
+  text-transform:uppercase;
+  letter-spacing:.09em;
+  color:#f7941d;
+}
+.pmt-s5-headline{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:800;
+  letter-spacing:-.01em;
+  font-size:clamp(27px,4.4vw,42px);
+  line-height:1.1;
+  margin:12px 0 14px;
+  color:#f0f0f2;
+}
+.pmt-s5-paragraph{
+  color:#a6a6ad;
+  font-size:clamp(15px,2vw,16.5px);
+  max-width:560px;
+  margin:0 0 26px;
+}
+
+/* ── Bandeau note / statut ── */
+.pmt-s5-rating-strip{
+  display:flex;
+  align-items:center;
+  flex-wrap:wrap;
+  gap:12px;
+  padding:13px 16px;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:12px;
+  margin-bottom:26px;
+}
+.pmt-s5-stars{
+  color:#f7941d;
+  font-size:14px;
+  letter-spacing:2px;
+  display:inline-flex;
+  gap:3px;
+}
+.pmt-s5-metric-lbl{
+  font-size:13px;
+  font-weight:600;
+  color:#f0f0f2;
+}
+.pmt-s5-divider{
+  width:1px;
+  height:18px;
+  background:#2a2a32;
+}
+.pmt-s5-secure-status{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-size:12.5px;
+  color:#a6a6ad;
+}
+.pmt-s5-secure-status i{color:#22c55e;font-size:11px}
+
+/* ── Cartes témoignage ── */
+.pmt-s5-cards-cluster{
+  display:flex;
+  flex-direction:column;
+  gap:14px;
+}
+.pmt-s5-testimonial-card{
+  position:relative;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:14px;
+  padding:20px 22px;
+  transition:border-color .18s ease,background .18s ease;
+}
+.pmt-s5-testimonial-card:hover{
+  border-color:#2a2a32;
+  background:#121216;
+}
+.pmt-s5-quote-icon{
+  position:absolute;
+  top:18px;
+  right:20px;
+  font-size:20px;
+  color:rgba(247,148,29,.22);
+}
+.pmt-s5-quote-body{
+  font-size:14.5px;
+  color:#d6d6da;
+  margin:0 0 16px;
+  max-width:48ch;
+}
+.pmt-s5-author-row{
+  display:flex;
+  align-items:center;
+  gap:12px;
+}
+.pmt-s5-avatar-circle{
+  width:42px;
+  height:42px;
+  flex-shrink:0;
+  border-radius:50%;
+  background:linear-gradient(135deg,#17171c,#121216);
+  border:1px solid #2a2a32;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight:800;
+  font-size:15px;
+  color:#a6a6ad;
+}
+.pmt-s5-author-name{
+  display:block;
+  font-weight:700;
+  font-size:13.5px;
+  color:#f0f0f2;
+}
+.pmt-s5-author-title{
+  display:block;
+  font-size:12px;
+  color:#6f6f78;
+  margin-top:2px;
+}
+
+/* ── Colonne droite : value props ── */
+.pmt-s5-totals-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.pmt-s5-total-box{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  gap:7px;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:14px;
+  padding:20px 18px 22px;
+  min-height:160px;
+  transition:border-color .18s ease,background .18s ease;
+}
+.pmt-s5-total-box:hover{
+  border-color:#2a2a32;
+  background:#121216;
+}
+.pmt-s5-total-icon{
+  width:38px;
+  height:38px;
+  border-radius:10px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(247,148,29,.1);
+  border:1px solid rgba(247,148,29,.22);
+  color:#f7941d;
+  font-size:15px;
+  margin-bottom:4px;
+}
+.pmt-s5-total-num{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:800;
+  font-size:clamp(22px,3vw,27px);
+  line-height:1.05;
+  color:#f7941d;
+  letter-spacing:-.01em;
+}
+.pmt-s5-total-tag{
+  font-size:13px;
+  font-weight:700;
+  color:#f0f0f2;
+}
+.pmt-s5-total-desc{
+  font-size:12.5px;
+  color:#a6a6ad;
+  line-height:1.5;
+}
+
+/* ── Mention légale ── */
+.pmt-s5-legal-sub{
+  margin-top:clamp(28px,4vw,44px);
+  padding-top:20px;
+  border-top:1px solid #1f1f26;
+  font-size:12px;
+  color:#6f6f78;
+  line-height:1.6;
+  max-width:880px;
+}
+
+/* ── Responsive ── */
+@media (max-width:980px){
+  .pmt-s5-layout-split{grid-template-columns:1fr;gap:34px}
+  .pmt-s5-paragraph{max-width:none}
+}
+@media (max-width:560px){
+  .pmt-s5-totals-grid{grid-template-columns:1fr}
+  .pmt-s5-total-box{min-height:0}
+  .pmt-s5-rating-strip{gap:10px}
+  .pmt-s5-divider{display:none}
+  .pmt-s5-testimonial-card{padding:18px}
+}
+
+/* ============ sec6 ============ */
+.pmt-sec6-viewport{
+  background:#08080a;
+  padding:clamp(56px,9vw,104px) 0;
+  border-top:1px solid #1f1f26;
+  color:#f0f0f2;
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+}
+.pmt-sec6-boundless{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 clamp(16px,4vw,24px);
+}
+.pmt-sec6-split-grid{
+  display:flex;
+  flex-direction:column;
+}
+.pmt-sec6-info-stack{
+  display:flex;
+  flex-direction:column;
+  max-width:880px;
+}
+.pmt-sec6-eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  align-self:flex-start;
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:#f7941d;
+  border:1px solid #2a2a32;
+  border-radius:6px;
+  padding:6px 12px;
+  background:#0d0d10;
+  margin-bottom:22px;
+}
+.pmt-sec6-eyebrow i{font-size:11px}
+.pmt-sec6-headline{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:800;
+  letter-spacing:-.01em;
+  font-size:clamp(28px,4.6vw,46px);
+  line-height:1.1;
+  color:#f0f0f2;
+  margin:0 0 24px;
+  max-width:18ch;
+}
+.pmt-sec6-paragraph{
+  font-size:clamp(15px,1.5vw,17px);
+  line-height:1.7;
+  color:#a6a6ad;
+  max-width:62ch;
+}
+.pmt-sec6-para-spacing{
+  margin-top:18px;
+}
+.pmt-sec6-features-row{
+  display:grid;
+  grid-template-columns:repeat(4,1fr);
+  gap:16px;
+  margin-top:clamp(36px,5vw,52px);
+}
+.pmt-sec6-feature-box{
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:12px;
+  padding:24px 22px;
+  display:flex;
+  flex-direction:column;
+  transition:border-color .18s ease,transform .18s ease,background .18s ease;
+}
+.pmt-sec6-feature-box:hover{
+  border-color:#2a2a32;
+  background:#121216;
+  transform:translateY(-2px);
+}
+.pmt-sec6-icon-container{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:42px;
+  height:42px;
+  border-radius:10px;
+  background:rgba(247,148,29,.1);
+  border:1px solid rgba(247,148,29,.28);
+  color:#f7941d;
+  font-size:16px;
+  margin-bottom:18px;
+}
+.pmt-sec6-box-title{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:700;
+  font-size:18px;
+  letter-spacing:-.01em;
+  color:#f0f0f2;
+  margin:0 0 8px;
+  line-height:1.2;
+}
+.pmt-sec6-box-desc{
+  font-size:13.5px;
+  line-height:1.6;
+  color:#a6a6ad;
+  margin:0;
+}
+
+@media (max-width:1024px){
+  .pmt-sec6-features-row{
+    grid-template-columns:repeat(2,1fr);
+  }
+}
+@media (max-width:860px){
+  .pmt-sec6-features-row{
+    grid-template-columns:1fr;
+    gap:12px;
+  }
+  .pmt-sec6-headline{max-width:100%}
+  .pmt-sec6-paragraph{max-width:100%}
+  .pmt-sec6-feature-box{padding:20px 18px}
+}
+
+/* ============ sec7 ============ */
+.pmt-sec7-viewport{
+  background:#08080a;
+  color:#f0f0f2;
+  font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
+  padding:clamp(56px,8vw,104px) 0;
+  border-top:1px solid #1f1f26;
+}
+.pmt-sec7-boundless{
+  max-width:1180px;
+  margin:0 auto;
+  padding:0 clamp(16px,4vw,24px);
+}
+
+/* ── Layout principal ── */
+.pmt-sec7-split-layout{
+  display:grid;
+  grid-template-columns:1.05fr .95fr;
+  gap:clamp(28px,4vw,56px);
+  align-items:start;
+}
+
+/* ── Colonne gauche ── */
+.pmt-sec7-left-stack{min-width:0;}
+.pmt-sec7-eyebrow{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:#f7941d;
+  background:rgba(247,148,29,.08);
+  border:1px solid rgba(247,148,29,.22);
+  padding:6px 12px;
+  border-radius:999px;
+}
+.pmt-sec7-eyebrow i{font-size:12px;}
+.pmt-sec7-headline{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:800;
+  letter-spacing:-.01em;
+  font-size:clamp(26px,3.6vw,38px);
+  line-height:1.14;
+  margin:18px 0 14px;
+  color:#f0f0f2;
+}
+.pmt-sec7-description{
+  font-size:clamp(14.5px,1.5vw,16px);
+  line-height:1.65;
+  color:#a6a6ad;
+  max-width:520px;
+  margin-bottom:clamp(24px,3vw,34px);
+}
+
+/* ── 4 piliers ── */
+.pmt-sec7-pillars-grid{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:14px;
+}
+.pmt-sec7-pillar-box{
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:12px;
+  padding:18px 18px 20px;
+  transition:border-color .18s,transform .18s,background .18s;
+}
+.pmt-sec7-pillar-box:hover{
+  border-color:#2a2a32;
+  background:#121216;
+  transform:translateY(-2px);
+}
+.pmt-sec7-pillar-icon{
+  width:38px;
+  height:38px;
+  border-radius:9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:rgba(247,148,29,.1);
+  border:1px solid rgba(247,148,29,.22);
+  color:#f7941d;
+  font-size:16px;
+  margin-bottom:13px;
+}
+.pmt-sec7-pillar-title{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-size:17px;
+  font-weight:700;
+  color:#f0f0f2;
+  margin-bottom:7px;
+  letter-spacing:-.01em;
+}
+.pmt-sec7-pillar-desc{
+  font-size:13px;
+  line-height:1.55;
+  color:#a6a6ad;
+}
+
+/* ── Colonne droite : flux news ── */
+.pmt-sec7-news-container{
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:14px;
+  overflow:hidden;
+  display:flex;
+  flex-direction:column;
+}
+.pmt-sec7-news-top-bar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:13px 16px;
+  background:#121216;
+  border-bottom:1px solid #1f1f26;
+}
+.pmt-sec7-news-branding{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  font-size:12px;
+  font-weight:700;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  color:#f0f0f2;
+}
+.pmt-sec7-news-dot{
+  width:7px;
+  height:7px;
+  border-radius:50%;
+  background:#22c55e;
+  box-shadow:0 0 7px #22c55e;
+  animation:pmtSec7Pulse 1.6s infinite;
+  flex-shrink:0;
+}
+@keyframes pmtSec7Pulse{
+  0%,100%{opacity:1;transform:scale(1);}
+  50%{opacity:.4;transform:scale(.8);}
+}
+.pmt-sec7-view-all-cta{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  font-size:12px;
+  font-weight:600;
+  color:#f7941d;
+  white-space:nowrap;
+  transition:color .15s,gap .15s;
+}
+.pmt-sec7-view-all-cta:hover{color:#ffae42;gap:9px;}
+.pmt-sec7-view-all-cta i{font-size:10px;}
+
+.pmt-sec7-news-list-stack{
+  list-style:none;
+  margin:0;
+  padding:0;
+  flex:1;
+}
+.pmt-sec7-news-list-item{
+  display:grid;
+  grid-template-columns:auto 1fr auto;
+  align-items:center;
+  gap:12px;
+  padding:13px 16px;
+  border-bottom:1px solid #15151a;
+  transition:background .15s;
+}
+.pmt-sec7-news-list-item:hover{background:#101015;}
+.pmt-sec7-news-list-item:last-child{border-bottom:0;}
+.pmt-sec7-item-timestamp{
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-size:10.5px;
+  color:#6f6f78;
+  white-space:nowrap;
+  min-width:58px;
+}
+.pmt-sec7-item-headline{
+  font-size:13px;
+  line-height:1.4;
+  color:#f0f0f2;
+}
+.pmt-sec7-impact-node{
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-size:9.5px;
+  font-weight:700;
+  letter-spacing:.04em;
+  white-space:nowrap;
+  padding:3px 7px;
+  border-radius:5px;
+  border:1px solid transparent;
+}
+.pmt-impact-high{
+  color:#ef4444;
+  background:rgba(239,68,68,.1);
+  border-color:rgba(239,68,68,.28);
+}
+.pmt-impact-med{
+  color:#ffb300;
+  background:rgba(255,179,0,.1);
+  border-color:rgba(255,179,0,.28);
+}
+.pmt-impact-low{
+  color:#22c55e;
+  background:rgba(34,197,94,.1);
+  border-color:rgba(34,197,94,.28);
+}
+
+.pmt-sec7-news-bottom-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 16px;
+  background:#0a0a0c;
+  border-top:1px solid #1f1f26;
+}
+.pmt-sec7-footer-motto{
+  font-size:11.5px;
+  color:#6f6f78;
+}
+.pmt-sec7-live-radar{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-size:10.5px;
+  letter-spacing:.04em;
+  color:#a6a6ad;
+  white-space:nowrap;
+}
+.pmt-sec7-radar-blip{
+  position:relative;
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  background:#f7941d;
+  flex-shrink:0;
+}
+.pmt-sec7-radar-blip::after{
+  content:"";
+  position:absolute;
+  inset:-4px;
+  border-radius:50%;
+  border:1px solid rgba(247,148,29,.5);
+  animation:pmtSec7Radar 1.8s ease-out infinite;
+}
+@keyframes pmtSec7Radar{
+  0%{transform:scale(.5);opacity:1;}
+  100%{transform:scale(1.6);opacity:0;}
+}
+
+/* ── Matrice confiance ── */
+.pmt-sec7-compliance-matrix{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:14px;
+  margin-top:clamp(32px,4vw,48px);
+  padding-top:clamp(32px,4vw,44px);
+  border-top:1px solid #1f1f26;
+}
+.pmt-sec7-matrix-item{
+  display:flex;
+  align-items:flex-start;
+  gap:13px;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:12px;
+  padding:18px;
+}
+.pmt-sec7-matrix-icon{
+  width:40px;
+  height:40px;
+  border-radius:10px;
+  flex-shrink:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#17171c;
+  border:1px solid #2a2a32;
+  color:#f7941d;
+  font-size:16px;
+}
+.pmt-sec7-matrix-heading{
+  font-size:14.5px;
+  font-weight:700;
+  color:#f0f0f2;
+  margin-bottom:5px;
+  letter-spacing:-.005em;
+}
+.pmt-sec7-matrix-desc{
+  font-size:12.5px;
+  line-height:1.55;
+  color:#a6a6ad;
+}
+
+/* ── Avertissement risque ── */
+.pmt-sec7-risk-disclosure-row{
+  margin-top:clamp(28px,3.5vw,40px);
+  background:#0a0a0c;
+  border:1px solid #1f1f26;
+  border-radius:10px;
+  padding:16px 18px;
+}
+.pmt-sec7-risk-paragraph{
+  font-size:11.5px;
+  line-height:1.7;
+  color:#6f6f78;
+}
+.pmt-sec7-risk-paragraph strong{color:#a6a6ad;font-weight:700;}
+
+/* ── Copyright ── */
+.pmt-sec7-copyright-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  flex-wrap:wrap;
+  gap:8px 18px;
+  margin-top:24px;
+  padding-top:22px;
+  border-top:1px solid #1f1f26;
+}
+.pmt-sec7-copyright-text{
+  font-size:12px;
+  color:#6f6f78;
+}
+.pmt-sec7-copyright-price{
+  font-size:12px;
+  font-weight:600;
+  color:#a6a6ad;
+}
+
+/* ── Responsive ── */
+@media(max-width:980px){
+  .pmt-sec7-split-layout{grid-template-columns:1fr;gap:32px;}
+  .pmt-sec7-description{max-width:none;}
+}
+@media(max-width:860px){
+  .pmt-sec7-compliance-matrix{grid-template-columns:1fr;}
+}
+@media(max-width:560px){
+  .pmt-sec7-pillars-grid{grid-template-columns:1fr;}
+  .pmt-sec7-news-list-item{
+    grid-template-columns:1fr auto;
+    grid-template-areas:"time impact" "headline headline";
+    gap:6px 10px;
+  }
+  .pmt-sec7-item-timestamp{grid-area:time;min-width:0;}
+  .pmt-sec7-impact-node{grid-area:impact;justify-self:end;}
+  .pmt-sec7-item-headline{grid-area:headline;}
+  .pmt-sec7-copyright-row{flex-direction:column;align-items:flex-start;}
+}
+
+/* ============ sec8 ============ */
+.pmt-sec8-container{
+  background:#08080a;
+  color:#f0f0f2;
+  font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+  padding:96px 24px;
+  border-top:1px solid #1f1f26;
+}
+.pmt-sec8-layout-wrapper{
+  max-width:1180px;
+  margin:0 auto;
+}
+
+/* ---------- Header ---------- */
+.pmt-sec8-header-block{
+  display:flex;
+  align-items:flex-end;
+  justify-content:space-between;
+  gap:32px;
+  margin-bottom:48px;
+}
+.pmt-sec8-header-text{max-width:680px;}
+.pmt-sec8-eyebrow{
+  display:inline-block;
+  font-size:12px;
+  font-weight:600;
+  letter-spacing:.18em;
+  text-transform:uppercase;
+  color:#f7941d;
+  margin-bottom:16px;
+}
+.pmt-sec8-title{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:700;
+  font-size:40px;
+  line-height:1.12;
+  letter-spacing:-.01em;
+  color:#f0f0f2;
+  margin:0 0 16px;
+}
+.pmt-sec8-subtitle{
+  font-size:16px;
+  line-height:1.65;
+  color:#a6a6ad;
+  margin:0;
+}
+.pmt-sec8-primary-btn{
+  flex:none;
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  background:#f7941d;
+  color:#08080a;
+  font-size:14px;
+  font-weight:600;
+  text-decoration:none;
+  padding:13px 22px;
+  border-radius:10px;
+  white-space:nowrap;
+  transition:background .18s ease,transform .18s ease;
+}
+.pmt-sec8-primary-btn:hover{background:#ffae42;transform:translateY(-1px);}
+.pmt-sec8-primary-btn i{font-size:12px;}
+
+/* ---------- Grid ---------- */
+.pmt-sec8-grid-matrix{
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
+  gap:20px;
+}
+.pmt-sec8-card-node{
+  display:flex;
+  flex-direction:column;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:14px;
+  overflow:hidden;
+  transition:border-color .2s ease,transform .2s ease;
+}
+.pmt-sec8-card-node:hover{
+  border-color:#2a2a32;
+  transform:translateY(-3px);
+}
+
+/* ---------- Card visual shell ---------- */
+.pmt-sec8-card-visual{
+  position:relative;
+  height:150px;
+  background:linear-gradient(160deg,#121216 0%,#0a0a0c 100%);
+  border-bottom:1px solid #1f1f26;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:18px;
+  overflow:hidden;
+}
+
+/* Visual 1 : video */
+.pmt-ui-video{
+  position:relative;
+  width:100%;
+  height:100%;
+  border-radius:8px;
+  background:
+    radial-gradient(120% 120% at 50% 0%,rgba(247,148,29,.10),transparent 60%),
+    repeating-linear-gradient(135deg,#0e0e12 0 6px,#101015 6px 12px);
+  border:1px solid #2a2a32;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+.pmt-ui-play-icon{
+  width:46px;
+  height:46px;
+  border-radius:50%;
+  background:#f7941d;
+  color:#08080a;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-size:15px;
+  padding-left:3px;
+  box-shadow:0 0 0 6px rgba(247,148,29,.12);
+}
+.pmt-ui-timestamp{
+  position:absolute;
+  right:8px;
+  bottom:8px;
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-size:11px;
+  color:#f0f0f2;
+  background:rgba(8,8,10,.78);
+  border:1px solid #2a2a32;
+  border-radius:5px;
+  padding:2px 7px;
+}
+
+/* Visual 2 : checklist */
+.pmt-ui-checklist{
+  list-style:none;
+  margin:0;
+  padding:0;
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+}
+.pmt-ui-check-row{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  font-size:12px;
+  color:#6f6f78;
+  background:#0a0a0c;
+  border:1px solid #1f1f26;
+  border-radius:7px;
+  padding:7px 10px;
+}
+.pmt-ui-check-row i{font-size:11px;color:#3a3a42;flex:none;}
+.pmt-ui-check-row.is-done{color:#f0f0f2;border-color:#2a2a32;}
+.pmt-ui-check-row.is-done i{color:#22c55e;}
+
+/* Visual 3 : bias matrix */
+.pmt-ui-bias-graphic{
+  width:100%;
+  background:#0a0a0c;
+  border:1px solid #1f1f26;
+  border-radius:8px;
+  padding:10px;
+}
+.pmt-ui-bias-header{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.04em;
+  color:#a6a6ad;
+  margin-bottom:9px;
+}
+.pmt-ui-bias-pill{
+  font-size:10px;
+  font-weight:600;
+  padding:2px 8px;
+  border-radius:20px;
+  color:#08080a;
+}
+.pmt-ui-bias-pill.is-bull{background:#22c55e;}
+.pmt-ui-bias-rows{display:flex;flex-direction:column;gap:6px;}
+.pmt-ui-bias-line{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  font-size:11px;
+  color:#f0f0f2;
+}
+.pmt-ui-bias-cell{
+  flex:1;
+  height:8px;
+  border-radius:3px;
+  opacity:.9;
+}
+.pmt-ui-bias-cell.is-bull{background:#22c55e;}
+.pmt-ui-bias-cell.is-bear{background:#ef4444;}
+.pmt-ui-bias-cell.is-neutral{background:#ffb300;}
+
+/* Visual 4 : chart */
+.pmt-ui-chart{
+  position:relative;
+  width:100%;
+  height:100%;
+  background:#0a0a0c;
+  border:1px solid #1f1f26;
+  border-radius:8px;
+  padding:10px 10px 0;
+  display:flex;
+  flex-direction:column;
+}
+.pmt-ui-chart svg{width:100%;height:64px;display:block;}
+.pmt-ui-chart-axis{stroke:#1f1f26;stroke-width:1;}
+.pmt-ui-chart-line{
+  fill:none;
+  stroke:#f7941d;
+  stroke-width:2;
+  stroke-linecap:round;
+  stroke-linejoin:round;
+}
+.pmt-ui-chart-dot{fill:#f7941d;}
+.pmt-ui-chart-bars{
+  display:flex;
+  align-items:flex-end;
+  gap:6px;
+  height:24px;
+  padding:5px 2px 8px;
+}
+.pmt-ui-chart-bars i{
+  flex:1;
+  background:#2a2a32;
+  border-radius:2px 2px 0 0;
+  min-height:3px;
+}
+
+/* Visual 5 : news setup */
+.pmt-ui-news-setup{
+  width:100%;
+  display:flex;
+  flex-direction:column;
+  gap:9px;
+}
+.pmt-ui-news-row{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  background:#0a0a0c;
+  border:1px solid #1f1f26;
+  border-radius:7px;
+  padding:8px 10px;
+}
+.pmt-ui-news-dot{
+  width:8px;
+  height:8px;
+  border-radius:50%;
+  flex:none;
+}
+.pmt-ui-news-dot.is-red{background:#ef4444;}
+.pmt-ui-news-dot.is-amber{background:#ffb300;}
+.pmt-ui-news-dot.is-green{background:#22c55e;}
+.pmt-ui-news-line{
+  height:7px;
+  border-radius:4px;
+  background:linear-gradient(90deg,#2a2a32,#1f1f26);
+  width:55%;
+}
+.pmt-ui-news-line.is-wide{width:82%;}
+
+/* Visual 6 : workspace */
+.pmt-ui-workspace-layout{
+  width:100%;
+  height:100%;
+  display:grid;
+  grid-template-columns:1.7fr 1fr;
+  grid-template-rows:1fr 1fr auto;
+  gap:7px;
+}
+.pmt-ui-box{
+  background:#0a0a0c;
+  border:1px solid #1f1f26;
+  border-radius:6px;
+}
+.pmt-ui-box-main{
+  grid-row:1 / 3;
+  position:relative;
+  overflow:hidden;
+  display:flex;
+  align-items:flex-end;
+  padding:8px;
+}
+.pmt-highlight{
+  display:block;
+  width:100%;
+  height:42%;
+  border-radius:4px;
+  background:linear-gradient(180deg,rgba(247,148,29,.35),rgba(247,148,29,.05));
+  border:1px solid rgba(247,148,29,.4);
+}
+.pmt-ui-box-side-top{grid-column:2;grid-row:1;}
+.pmt-ui-box-side-bottom{grid-column:2;grid-row:2;}
+.pmt-ui-box-strip{
+  grid-column:1 / 3;
+  grid-row:3;
+  height:14px;
+  background:repeating-linear-gradient(90deg,#1f1f26 0 10px,#0a0a0c 10px 16px);
+}
+
+/* ---------- Card content ---------- */
+.pmt-sec8-card-content{
+  display:flex;
+  flex-direction:column;
+  padding:20px;
+  flex:1;
+}
+.pmt-sec8-card-meta-label{
+  font-size:11px;
+  font-weight:600;
+  letter-spacing:.14em;
+  text-transform:uppercase;
+  color:#f7941d;
+  margin-bottom:10px;
+}
+.pmt-sec8-card-title{
+  font-family:"Playfair Display",Georgia,"Times New Roman",serif;
+  font-weight:700;
+  font-size:19px;
+  line-height:1.25;
+  color:#f0f0f2;
+  margin:0 0 9px;
+}
+.pmt-sec8-card-desc{
+  font-size:13.5px;
+  line-height:1.6;
+  color:#a6a6ad;
+  margin:0 0 16px;
+  flex:1;
+}
+.pmt-sec8-inline-link{
+  display:inline-flex;
+  align-items:center;
+  gap:7px;
+  font-size:13px;
+  font-weight:600;
+  color:#f7941d;
+  text-decoration:none;
+  align-self:flex-start;
+  transition:gap .18s ease,color .18s ease;
+}
+.pmt-sec8-inline-link i{font-size:10px;}
+.pmt-sec8-inline-link:hover{color:#ffae42;gap:11px;}
+
+/* ---------- Footer ---------- */
+.pmt-sec8-resource-footer{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:24px;
+  margin-top:40px;
+  padding:22px 24px;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:12px;
+}
+.pmt-sec8-footer-left-info{
+  display:flex;
+  align-items:center;
+  gap:13px;
+  font-size:14px;
+  color:#a6a6ad;
+}
+.pmt-sec8-footer-left-info i{
+  font-size:18px;
+  color:#f7941d;
+  flex:none;
+}
+.pmt-sec8-footer-cta-anchor{
+  flex:none;
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  font-size:14px;
+  font-weight:600;
+  color:#f0f0f2;
+  text-decoration:none;
+  padding:11px 20px;
+  border:1px solid #f7941d;
+  border-radius:10px;
+  white-space:nowrap;
+  transition:background .18s ease,color .18s ease;
+}
+.pmt-sec8-footer-cta-anchor i{font-size:12px;color:#f7941d;transition:color .18s ease;}
+.pmt-sec8-footer-cta-anchor:hover{background:#f7941d;color:#08080a;}
+.pmt-sec8-footer-cta-anchor:hover i{color:#08080a;}
+
+/* ---------- Responsive ---------- */
+@media (max-width:1024px){
+  .pmt-sec8-grid-matrix{grid-template-columns:repeat(2,1fr);}
+  .pmt-sec8-title{font-size:34px;}
+}
+@media (max-width:860px){
+  .pmt-sec8-container{padding:72px 20px;}
+  .pmt-sec8-header-block{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:24px;
+  }
+  .pmt-sec8-grid-matrix{grid-template-columns:1fr;}
+  .pmt-sec8-resource-footer{
+    flex-direction:column;
+    align-items:flex-start;
+    gap:18px;
+  }
+  .pmt-sec8-footer-cta-anchor{width:100%;justify-content:center;}
+}
+@media (max-width:480px){
+  .pmt-sec8-title{font-size:28px;}
+  .pmt-sec8-primary-btn{width:100%;justify-content:center;}
+}
+
+/* ============ sec9 ============ */
+/* ============ SECTION 9 — Équipe ============ */
+.section9{
+  position:relative;
+  padding:96px 24px 104px;
+  background:#08080a;
+  overflow:hidden;
+}
+.section9-bg{
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(900px 420px at 50% -10%, rgba(247,148,29,0.07), transparent 70%),
+    radial-gradient(700px 500px at 100% 110%, rgba(247,148,29,0.05), transparent 70%);
+  z-index:0;
+}
+.section9-container{
+  position:relative;
+  z-index:1;
+  max-width:1180px;
+  margin:0 auto;
+}
+
+/* --- En-tête --- */
+.section9-heading{
+  font-family:"Playfair Display", Georgia, serif;
+  font-weight:800;
+  font-size:clamp(28px, 4.2vw, 46px);
+  line-height:1.12;
+  color:#f0f0f2;
+  text-align:center;
+  margin:0 0 18px;
+  letter-spacing:-0.01em;
+}
+.section9-heading .accent{
+  color:#f7941d;
+}
+.section9-description{
+  font-family:"Inter", system-ui, sans-serif;
+  font-size:clamp(15px, 1.5vw, 17px);
+  line-height:1.7;
+  color:#a6a6ad;
+  text-align:center;
+  max-width:720px;
+  margin:0 auto 52px;
+}
+
+/* --- Grille de stats --- */
+.section9-stats{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:16px;
+  margin:0 auto 64px;
+}
+.section9-stat-card{
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:18px 20px;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:12px;
+  transition:border-color .2s ease, transform .2s ease;
+}
+.section9-stat-card:hover{
+  border-color:#2a2a32;
+  transform:translateY(-2px);
+}
+.section9-stat-icon{
+  flex:0 0 auto;
+  width:44px;
+  height:44px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:10px;
+  background:rgba(247,148,29,0.12);
+  color:#f7941d;
+  font-size:18px;
+}
+.section9-stat-content{
+  display:flex;
+  flex-direction:column;
+  gap:2px;
+  min-width:0;
+}
+.section9-stat-number{
+  font-family:"Inter", system-ui, sans-serif;
+  font-weight:700;
+  font-size:18px;
+  color:#f0f0f2;
+  line-height:1.15;
+}
+.section9-stat-label{
+  font-family:"Inter", system-ui, sans-serif;
+  font-size:12.5px;
+  color:#6f6f78;
+  letter-spacing:.01em;
+}
+
+/* --- Grille de cartes équipe --- */
+.section9-team-grid{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:20px;
+  margin-bottom:60px;
+}
+.section9-team-card{
+  position:relative;
+  display:flex;
+  flex-direction:column;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:14px;
+  overflow:hidden;
+  transition:border-color .22s ease, transform .22s ease;
+}
+.section9-team-card:hover{
+  border-color:#2a2a32;
+  transform:translateY(-4px);
+}
+.section9-team-card:hover .section9-team-underline{
+  width:64px;
+}
+.section9-team-card:hover .section9-team-image::after{
+  opacity:.55;
+}
+
+/* Visuel = dégradé CSS (pas d'image) */
+.section9-team-image{
+  position:relative;
+  height:128px;
+  background:#121216;
+  overflow:hidden;
+}
+.section9-team-image::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  background-image:
+    linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px);
+  background-size:22px 22px;
+  opacity:.5;
+}
+.section9-team-image::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  opacity:.4;
+  transition:opacity .25s ease;
+  background:radial-gradient(120px 90px at 30% 20%, rgba(255,255,255,0.12), transparent 70%);
+}
+.section9-team-image--analysts{
+  background:linear-gradient(135deg, #102a22 0%, #0c1f1a 55%, #08080a 100%);
+}
+.section9-team-image--dev{
+  background:linear-gradient(135deg, #1a1530 0%, #14112a 55%, #08080a 100%);
+}
+.section9-team-image--design{
+  background:linear-gradient(135deg, #2a1a0c 0%, #20140a 55%, #08080a 100%);
+}
+.section9-team-image--support{
+  background:linear-gradient(135deg, #0c2030 0%, #0a1828 55%, #08080a 100%);
+}
+
+.section9-team-content{
+  display:flex;
+  flex-direction:column;
+  flex:1 1 auto;
+  padding:18px 18px 22px;
+}
+.section9-team-title{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:10px;
+}
+.section9-team-icon{
+  flex:0 0 auto;
+  width:34px;
+  height:34px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  border-radius:9px;
+  background:rgba(247,148,29,0.12);
+  color:#f7941d;
+  font-size:15px;
+}
+.section9-team-name{
+  font-family:"Inter", system-ui, sans-serif;
+  font-weight:700;
+  font-size:16.5px;
+  color:#f0f0f2;
+  margin:0;
+  line-height:1.2;
+}
+.section9-team-description{
+  font-family:"Inter", system-ui, sans-serif;
+  font-size:13.5px;
+  line-height:1.62;
+  color:#a6a6ad;
+  margin:0 0 16px;
+}
+.section9-team-underline{
+  display:block;
+  width:32px;
+  height:3px;
+  margin-top:auto;
+  border-radius:3px;
+  background:linear-gradient(90deg, #f7941d, #ffae42);
+  transition:width .25s ease;
+}
+
+/* --- Footer message --- */
+.section9-footer{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  max-width:760px;
+  margin:0 auto;
+  padding:18px 24px;
+  background:#0d0d10;
+  border:1px solid #1f1f26;
+  border-radius:12px;
+}
+.section9-footer-icon{
+  flex:0 0 auto;
+  color:#ef4444;
+  font-size:16px;
+}
+.section9-footer-text{
+  font-family:"Inter", system-ui, sans-serif;
+  font-size:14.5px;
+  color:#a6a6ad;
+  margin:0;
+  text-align:center;
+}
+
+/* ============ RESPONSIVE ============ */
+@media (max-width:1080px){
+  .section9-stats{ grid-template-columns:repeat(2, 1fr); }
+  .section9-team-grid{ grid-template-columns:repeat(2, 1fr); }
+}
+@media (max-width:860px){
+  .section9{ padding:72px 18px 80px; }
+  .section9-description{ margin-bottom:40px; }
+  .section9-stats{ gap:12px; margin-bottom:48px; }
+  .section9-team-grid{ gap:16px; }
+}
+@media (max-width:560px){
+  .section9-stats{ grid-template-columns:1fr; }
+  .section9-team-grid{ grid-template-columns:1fr; }
+  .section9-footer{ flex-direction:row; align-items:flex-start; text-align:left; }
+  .section9-footer-text{ text-align:left; }
+}
+
+/* ============ sec10 ============ */
+.section10{position:relative;background:#08080a;padding:96px 24px;overflow:hidden;font-family:var(--sans,"Inter",system-ui,-apple-system,Segoe UI,Roboto,sans-serif);color:#f0f0f2}
+.section10-bg{position:absolute;inset:0;pointer-events:none;background:radial-gradient(1100px 480px at 50% -8%,rgba(247,148,29,.10),transparent 60%),radial-gradient(800px 400px at 100% 100%,rgba(247,148,29,.05),transparent 55%)}
+.section10-container{position:relative;max-width:1180px;margin:0 auto}
+
+/* Header */
+.section10-header{text-align:center;max-width:740px;margin:0 auto 34px}
+.section10-label{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:2.5px;color:#f7941d;text-transform:uppercase;padding:6px 14px;border:1px solid rgba(247,148,29,.28);border-radius:999px;background:rgba(247,148,29,.06)}
+.section10-label i{font-size:11px}
+.section10-heading{font-family:var(--serif,"Playfair Display",Georgia,serif);font-weight:800;font-size:clamp(28px,4.4vw,46px);line-height:1.12;margin:20px 0 0;color:#f0f0f2}
+.section10-heading .accent{color:#f7941d}
+
+/* Toggle */
+.section10-toggle-container{display:flex;justify-content:center;margin:0 0 40px}
+.section10-toggle-container-inner{display:inline-flex;align-items:center;gap:12px;padding:8px 14px;background:#0d0d10;border:1px solid #1f1f26;border-radius:999px}
+.section10-toggle-label{background:none;border:0;cursor:pointer;font:inherit;font-size:14px;font-weight:600;color:#a6a6ad;padding:4px 8px;border-radius:8px;transition:color .18s}
+.section10-toggle-label.is-active{color:#f0f0f2}
+.section10-toggle-label:hover{color:#f0f0f2}
+.section10-toggle-switch{position:relative;width:46px;height:24px;border:1px solid #2a2a32;border-radius:999px;background:#121216;cursor:pointer;padding:0;flex:0 0 auto;transition:background .2s,border-color .2s}
+.section10-toggle-switch[aria-checked="true"]{background:rgba(247,148,29,.22);border-color:rgba(247,148,29,.55)}
+.section10-toggle-knob{position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#f7941d;transition:transform .2s ease}
+.section10-toggle-switch[aria-checked="true"] .section10-toggle-knob{transform:translateX(22px)}
+.section10-toggle-badge{font-size:11.5px;font-weight:700;color:#22c55e;background:rgba(34,197,94,.10);border:1px solid rgba(34,197,94,.30);padding:4px 10px;border-radius:999px;white-space:nowrap}
+
+/* Pricing grid */
+.section10-pricing-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;max-width:840px;margin:0 auto 56px}
+.section10-pricing-card{position:relative;display:flex;flex-direction:column;background:#0d0d10;border:1px solid #1f1f26;border-radius:14px;padding:30px 28px;transition:border-color .2s,transform .2s}
+.section10-pricing-card:hover{border-color:#2a2a32;transform:translateY(-3px)}
+.section10-pricing-card.featured{border-color:rgba(247,148,29,.55);background:linear-gradient(180deg,rgba(247,148,29,.06),#0d0d10 38%)}
+.section10-best-value{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#08080a;background:#f7941d;padding:5px 14px;border-radius:999px;white-space:nowrap}
+.section10-plan-name{margin:0;font-family:var(--sans,"Inter",sans-serif);font-size:15px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#a6a6ad}
+.section10-price-container{display:flex;align-items:baseline;gap:8px;margin:14px 0 4px}
+.section10-price{font-family:var(--serif,"Playfair Display",Georgia,serif);font-size:48px;font-weight:800;line-height:1;color:#f0f0f2}
+.featured .section10-price{color:#f7941d}
+.section10-price-unit{font-size:15px;font-weight:600;color:#6f6f78}
+.section10-billing-info{margin:0 0 20px;font-size:13px;line-height:1.55;color:#a6a6ad;min-height:36px}
+.section10-billing-info .highlight{color:#f0f0f2;font-weight:600}
+.section10-features{list-style:none;margin:0 0 26px;padding:0;display:flex;flex-direction:column;gap:13px;border-top:1px solid #1f1f26;padding-top:22px}
+.section10-feature{display:flex;align-items:flex-start;gap:11px;font-size:13.5px;line-height:1.45;color:#d6d6da}
+.section10-feature-icon{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;margin-top:1px;border-radius:50%;background:rgba(34,197,94,.12);color:#22c55e;font-size:10px}
+.featured .section10-feature-icon{background:rgba(247,148,29,.14);color:#f7941d}
+.section10-cta-button{margin-top:auto;display:inline-flex;align-items:center;justify-content:center;gap:9px;text-decoration:none;font-size:15px;font-weight:700;padding:13px 20px;border-radius:10px;border:1px solid rgba(247,148,29,.55);color:#f7941d;background:transparent;transition:background .18s,color .18s,border-color .18s}
+.section10-cta-button:hover{background:rgba(247,148,29,.10);border-color:#ffae42;color:#ffae42}
+.featured .section10-cta-button{background:#f7941d;border-color:#f7941d;color:#08080a}
+.featured .section10-cta-button:hover{background:#ffae42;border-color:#ffae42;color:#08080a}
+.section10-cta-arrow{transition:transform .18s}
+.section10-cta-button:hover .section10-cta-arrow{transform:translateX(3px)}
+
+/* Stats */
+.section10-stats{text-align:center;margin:0 auto 40px;max-width:960px}
+.section10-stats-label{display:block;font-size:12px;font-weight:700;letter-spacing:2.5px;text-transform:uppercase;color:#6f6f78;margin-bottom:24px}
+.section10-stats-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.section10-stat-item{background:#0d0d10;border:1px solid #1f1f26;border-radius:12px;padding:22px 18px}
+.section10-stat-number{display:block;font-family:var(--serif,"Playfair Display",Georgia,serif);font-size:30px;font-weight:800;color:#f0f0f2;margin-bottom:8px}
+.section10-stat-description{display:block;font-size:13px;line-height:1.5;color:#a6a6ad}
+.section10-stat-stars{display:inline-flex;gap:2px;color:#ffb300;margin-bottom:8px}
+
+/* Help */
+.section10-help-section{margin:0 auto 40px;max-width:960px}
+.section10-help-section-inner{display:flex;align-items:center;gap:18px;background:#0d0d10;border:1px solid #1f1f26;border-radius:14px;padding:22px 26px;flex-wrap:wrap}
+.section10-help-icon{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:rgba(247,148,29,.10);border:1px solid rgba(247,148,29,.28);color:#f7941d;font-size:19px}
+.section10-help-content{flex:1 1 300px;min-width:240px}
+.section10-help-title{margin:0 0 5px;font-size:16px;font-weight:700;color:#f0f0f2}
+.section10-help-text{margin:0;font-size:13.5px;line-height:1.55;color:#a6a6ad}
+.section10-help-button{flex:0 0 auto;text-decoration:none;font-size:14px;font-weight:600;color:#f0f0f2;border:1px solid #2a2a32;background:#121216;padding:11px 18px;border-radius:10px;transition:border-color .18s,color .18s}
+.section10-help-button:hover{border-color:rgba(247,148,29,.55);color:#f7941d}
+
+/* Bottom CTA */
+.section10-bottom-cta{display:flex;align-items:center;justify-content:space-between;gap:24px;background:linear-gradient(120deg,rgba(247,148,29,.10),#0d0d10 55%);border:1px solid rgba(247,148,29,.30);border-radius:16px;padding:30px 34px;max-width:1180px;margin:0 auto;flex-wrap:wrap}
+.section10-bottom-cta-content{display:flex;align-items:center;gap:18px;flex:1 1 320px;min-width:260px}
+.section10-bottom-cta-icon{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;width:50px;height:50px;border-radius:12px;background:#f7941d;color:#08080a;font-size:21px}
+.section10-bottom-cta-title{margin:0 0 5px;font-family:var(--serif,"Playfair Display",Georgia,serif);font-size:23px;font-weight:800;color:#f0f0f2}
+.section10-bottom-cta-subtitle{margin:0;font-size:14px;line-height:1.5;color:#a6a6ad}
+.section10-bottom-cta-buttons{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.section10-bottom-button{text-decoration:none;font-size:15px;font-weight:700;padding:13px 22px;border-radius:10px;transition:background .18s,color .18s,border-color .18s;white-space:nowrap}
+.section10-bottom-button.primary{background:#f7941d;color:#08080a;border:1px solid #f7941d}
+.section10-bottom-button.primary:hover{background:#ffae42;border-color:#ffae42}
+.section10-bottom-button.secondary{background:transparent;color:#f0f0f2;border:1px solid #2a2a32}
+.section10-bottom-button.secondary:hover{border-color:rgba(247,148,29,.55);color:#f7941d}
+
+/* Responsive */
+@media (max-width:860px){
+  .section10{padding:72px 18px}
+  .section10-pricing-grid{grid-template-columns:1fr;max-width:440px;gap:26px}
+  .section10-stats-grid{grid-template-columns:1fr}
+  .section10-help-section-inner{flex-direction:column;align-items:flex-start;text-align:left}
+  .section10-help-button{width:100%;text-align:center}
+  .section10-bottom-cta{flex-direction:column;align-items:flex-start;text-align:left}
+  .section10-bottom-cta-buttons{width:100%}
+  .section10-bottom-button{flex:1 1 auto;text-align:center}
+}
+@media (max-width:480px){
+  .section10-toggle-badge{display:none}
+  .section10-price{font-size:40px}
+  .section10-bottom-cta-content{flex-direction:column;align-items:flex-start}
+}
 </style>
 <script type="application/ld+json">
 {
@@ -635,395 +2613,1040 @@
   </div>
 </section>
 
-<!-- OVERVIEW (cockpit) -->
-<section id="overview">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Vue d'ensemble du terminal</div>
-      <h2>Tout le marché macro sur une seule grille</h2>
-      <p>Tous les modules institutionnels réunis dans une grille haute densité, en lecture continue. Conçue pour être lue d'un coup d'œil : le signal en haut, le contexte en dessous.</p>
+
+<!-- ============ sec2 ============ -->
+<section class="pmt-overview-section" id="apercu">
+  <div class="pmt-container">
+
+    <!-- Colonne gauche : tagline + titre + description + 5 modules + barre d'état -->
+    <div class="pmt-left-content">
+      <span class="pmt-tagline"><i class="fa-solid fa-layer-group"></i> Vue d'ensemble du produit</span>
+      <h2 class="pmt-main-heading">Temps réel. Intégré. Actionnable.</h2>
+      <p class="pmt-description">
+        Tous vos flux macro et forex réunis sur un seul écran, dans le navigateur. Plus de dix onglets à recouper :
+        la news priorisée, le calendrier économique, le Smart Bias et la force des devises se lisent d'un coup d'œil,
+        avec l'IA macro pour relier le tout. Des données first-party, mises à jour en continu.
+      </p>
+
+      <ul class="pmt-features-list">
+        <li class="pmt-feature-item">
+          <span class="pmt-icon-box"><i class="fa-solid fa-bolt"></i></span>
+          <span class="pmt-feature-text">
+            <strong>Terminal de news en direct</strong>
+            Le fil macro priorisé par impact (HIGH / MED / LOW), filtrable par devise, sans rafraîchir la page.
+          </span>
+        </li>
+        <li class="pmt-feature-item">
+          <span class="pmt-icon-box"><i class="fa-solid fa-compass"></i></span>
+          <span class="pmt-feature-text">
+            <strong>Smart Bias Tracker</strong>
+            Le biais directionnel des huit majeures, agrégé des fondamentaux et du positionnement (COT).
+          </span>
+        </li>
+        <li class="pmt-feature-item">
+          <span class="pmt-icon-box"><i class="fa-solid fa-database"></i></span>
+          <span class="pmt-feature-text">
+            <strong>Données macro &amp; recherche</strong>
+            Calendrier économique, COT (CFTC), Week Ahead, taux des banques centrales et notes de banques.
+          </span>
+        </li>
+        <li class="pmt-feature-item">
+          <span class="pmt-icon-box"><i class="fa-solid fa-chart-line"></i></span>
+          <span class="pmt-feature-text">
+            <strong>Force des devises</strong>
+            Le Currency Strength en lecture instantanée : qui mène, qui décroche, en un coup d'œil.
+          </span>
+        </li>
+        <li class="pmt-feature-item">
+          <span class="pmt-icon-box"><i class="fa-solid fa-robot"></i></span>
+          <span class="pmt-feature-text">
+            <strong>Assistant Macro IA</strong>
+            Posez une question sur un biais ou une actualité : l'IA répond avec le contexte du terminal et ses sources.
+          </span>
+        </li>
+      </ul>
+
+      <div class="pmt-status-bar">
+        <span class="pmt-pulse-dot"></span>
+        Tous les modules en temps réel &middot; Mis à jour à l'instant
+      </div>
     </div>
-    <div class="ov">
-      <div class="chrome"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="url">desk.datatradingpro.com</span><span class="live"><span class="dot"></span>APERÇU</span></div>
-      <div class="ov-tb">
-        <span class="lg">DataTradingPro</span>
-        <span class="sf">Search symbols…</span>
-        <span class="sent">SENTIMENT · NEUTRAL ▾</span>
-      </div>
-      <div class="ov-nav">
-        <span class="nt on">› NEWS</span><span class="nt">› CALENDAR</span><span class="nt">› FX LIST</span><span class="nt">› INSTITUTION</span><span class="nt">› ANALYST</span><span class="nt">› BIAS</span><span class="nt">› WEEK AHEAD</span><span class="nt">› TAUX</span><span class="nt">› BANK</span>
-      </div>
-      <div class="ov-body">
-        <div class="ov-col">
-          <div class="ov-sec">
-            <div class="ov-st">Realtime Headlines <span class="lv"><span class="dot"></span>APERÇU</span></div>
-            <div class="ovn"><span class="tm">13:34</span><span class="tx">CPI américain : 3,4 % a/a, conforme aux attentes</span><span class="bdg h">HIGH</span></div>
-            <div class="ovn"><span class="tm">13:21</span><span class="tx">Powell : approche dépendante des données, pas d'urgence à baisser</span><span class="bdg m">MED</span></div>
-            <div class="ovn"><span class="tm">12:58</span><span class="tx">Lagarde (BCE) : la désinflation se poursuit</span><span class="bdg m">MED</span></div>
-            <div class="ovn"><span class="tm">12:15</span><span class="tx">Le WTI recule sous 78 $ sur des craintes de demande</span><span class="bdg l">LOW</span></div>
-            <div class="ovn"><span class="tm">11:40</span><span class="tx">Le yen se renforce après la révision du PIB</span><span class="bdg l">LOW</span></div>
+
+    <!-- Colonne droite : maquette terminal CSS + cartes métriques -->
+    <div class="pmt-right-column">
+      <div class="pmt-terminal-wrapper">
+        <!-- Maquette CSS du terminal (remplace le screenshot) -->
+        <div class="pmt-terminal-image" role="img" aria-label="Aperçu du terminal DataTradingPro : fil de news priorisé et force des devises">
+          <div class="pmt-term-chrome">
+            <span class="pmt-term-dot"></span><span class="pmt-term-dot"></span><span class="pmt-term-dot"></span>
+            <span class="pmt-term-url">desk.datatradingpro.com</span>
+            <span class="pmt-term-live"><span class="pmt-pulse-dot"></span>APERÇU</span>
           </div>
-          <div class="ov-sec">
-            <div class="ov-st">Macro Calendar · Aujourd'hui</div>
-            <div class="tick"><span class="sym">USD · Core CPI m/m</span><span class="up">+0,3 % ▲</span></div>
-            <div class="tick"><span class="sym">EUR · Décision BCE</span><span class="down">4,25 % ▼</span></div>
-            <div class="tick"><span class="sym">GBP · PIB t/t</span><span class="up">+0,2 % ▲</span></div>
-            <div class="tick"><span class="sym">USD · Discours Powell (Fed)</span><span class="amb">16:00</span></div>
+          <div class="pmt-term-nav">
+            <span class="pmt-term-tab on">› NEWS</span>
+            <span class="pmt-term-tab">› CALENDAR</span>
+            <span class="pmt-term-tab">› BIAS</span>
+            <span class="pmt-term-tab">› FX</span>
+            <span class="pmt-term-tab">› TAUX</span>
           </div>
-        </div>
-        <div class="ov-col">
-          <div class="ov-sec" style="border-bottom:0">
-            <div class="ov-st">Assistant Macro IA</div>
-            <div class="chat" style="padding:4px 0">
-              <div class="msg user">Biais EUR cette semaine ?</div>
-              <div class="msg ai"><b>EUR — légèrement haussier.</b> Inflation core au-dessus des attentes et COT net acheteur. Risque : BCE jeudi.</div>
-              <div class="src">▸ 3 sources utilisées · 14:32</div>
+          <div class="pmt-term-body">
+            <div class="pmt-term-panel">
+              <div class="pmt-term-ptitle">Realtime Headlines</div>
+              <div class="pmt-term-row"><span class="pmt-term-time">13:34</span><span class="pmt-term-tx">CPI américain conforme aux attentes</span><span class="pmt-term-bdg high">HIGH</span></div>
+              <div class="pmt-term-row"><span class="pmt-term-time">12:58</span><span class="pmt-term-tx">BCE : la désinflation se poursuit</span><span class="pmt-term-bdg med">MED</span></div>
+              <div class="pmt-term-row"><span class="pmt-term-time">11:40</span><span class="pmt-term-tx">Le yen se raffermit après le PIB</span><span class="pmt-term-bdg low">LOW</span></div>
+            </div>
+            <div class="pmt-term-panel">
+              <div class="pmt-term-ptitle">Force des devises</div>
+              <div class="pmt-term-fx"><span class="pmt-term-fx-sym">USD</span><span class="pmt-term-fx-bar"><i style="width:82%" class="pos"></i></span></div>
+              <div class="pmt-term-fx"><span class="pmt-term-fx-sym">GBP</span><span class="pmt-term-fx-bar"><i style="width:60%" class="pos"></i></span></div>
+              <div class="pmt-term-fx"><span class="pmt-term-fx-sym">EUR</span><span class="pmt-term-fx-bar"><i style="width:38%" class="neg"></i></span></div>
+              <div class="pmt-term-fx"><span class="pmt-term-fx-sym">JPY</span><span class="pmt-term-fx-bar"><i style="width:24%" class="neg"></i></span></div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- Cartes métriques (honnêtes, sans SOC2 ni uptime inventé) -->
+      <div class="pmt-bottom-metrics">
+        <div class="pmt-metric-card">
+          <span class="pmt-metric-icon"><i class="fa-solid fa-bolt"></i></span>
+          <span class="pmt-metric-content">
+            <span class="pmt-metric-title">Temps réel</span>
+            <span class="pmt-metric-desc">News, calendrier et force des devises mis à jour en continu, sans rechargement.</span>
+          </span>
+        </div>
+        <div class="pmt-metric-card">
+          <span class="pmt-metric-icon"><i class="fa-solid fa-window-maximize"></i></span>
+          <span class="pmt-metric-content">
+            <span class="pmt-metric-title">Dans le navigateur</span>
+            <span class="pmt-metric-desc">Aucune installation. Le terminal s'ouvre sur desk.datatradingpro.com.</span>
+          </span>
+        </div>
+        <div class="pmt-metric-card">
+          <span class="pmt-metric-icon"><i class="fa-solid fa-fingerprint"></i></span>
+          <span class="pmt-metric-content">
+            <span class="pmt-metric-title">Données first-party</span>
+            <span class="pmt-metric-desc">Flux agrégés et structurés en interne : news, COT (CFTC), taux et agenda macro.</span>
+          </span>
+        </div>
+        <div class="pmt-metric-card">
+          <span class="pmt-metric-icon"><i class="fa-solid fa-users"></i></span>
+          <span class="pmt-metric-content">
+            <span class="pmt-metric-title">Communauté JustOneTrader</span>
+            <span class="pmt-metric-desc">Un terminal pensé avec et pour des traders, dès 24,99 €/mois sans engagement.</span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ sec3 ============ -->
+<section class="pmt-sec3-wrapper" id="modules-cles" aria-labelledby="pmt-sec3-title">
+  <div class="pmt-sec3-hero">
+    <div class="pmt-sec3-image-area" aria-hidden="true">
+      <div class="pmt-sec3-bg-img"></div>
+    </div>
+    <div class="pmt-sec3-header-content">
+      <span class="pmt-sec3-tagline">Modules clés</span>
+      <h2 class="pmt-sec3-title" id="pmt-sec3-title">Tout ce qu'il vous faut. Rien de superflu.</h2>
+      <p class="pmt-sec3-desc">Les quatre piliers du terminal DataTradingPro, réunis sur un seul écran : l'actualité priorisée, le biais de marché, un espace de travail à votre main et la donnée macro brute. Tout en temps réel, directement dans le navigateur.</p>
+    </div>
+  </div>
+
+  <div class="pmt-sec3-grid">
+    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+      <h3 class="pmt-sec3-card-title">News temps réel</h3>
+      <p class="pmt-sec3-card-desc">L'actualité forex &amp; macro institutionnelle, triée par impact HIGH / MED / LOW et filtrable par devise ou par source. Vous voyez d'abord ce qui bouge les marchés.</p>
+      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+    </a>
+
+    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span>
+      <h3 class="pmt-sec3-card-title">Smart Bias Tracker</h3>
+      <p class="pmt-sec3-card-desc">Un biais hebdomadaire par devise, synthétisé dans une matrice lisible : fondamentaux, taux des banques centrales, COT et positionnement des banques croisés, avec un narratif IA régénéré chaque semaine.</p>
+      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+    </a>
+
+    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i></span>
+      <h3 class="pmt-sec3-card-title">Workspace modulaire</h3>
+      <p class="pmt-sec3-card-desc">Un espace de travail à votre main : ouvrez les modules dont vous avez besoin, redimensionnez les panneaux, recherchez une paire pour l'épingler. Le cockpit s'adapte à votre façon de lire le marché.</p>
+      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+    </a>
+
+    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+      <h3 class="pmt-sec3-card-title">Macro Data Hub</h3>
+      <p class="pmt-sec3-card-desc">La donnée macro réunie au même endroit : calendrier économique (réel vs prévision), Week Ahead, taux des banques centrales, COT de la CFTC et recherche des grandes banques. La matière première de vos décisions.</p>
+      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+    </a>
+  </div>
+
+  <div class="pmt-sec3-footer">
+    <span class="pmt-sec3-footer-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
+    <span>Pensé pour les traders. Conçu pour décider.</span>
+  </div>
+</section>
+
+<!-- ============ sec4 ============ -->
+<section class="pmt-sec4-body" id="framework">
+  <div class="pmt-sec4-container">
+
+    <div class="pmt-sec4-header-row">
+      <div class="pmt-sec4-tagline">Méthode de décision</div>
+      <h2 class="pmt-sec4-heading">De l'information à la décision. Sans le bruit.</h2>
+      <p class="pmt-sec4-lead-text">Trois temps nets : on rassemble le marché, on croise les signaux, puis on tranche. DataTradingPro s'arrête à la décision — l'exécution reste chez votre courtier.</p>
+    </div>
+
+    <div class="pmt-sec4-framework-row">
+
+      <!-- ÉTAPE 01 — AGRÉGER -->
+      <div class="pmt-sec4-step-card">
+        <div class="pmt-sec4-card-meta">
+          <span class="pmt-sec4-step-num">01</span>
+          <div>
+            <h3 class="pmt-sec4-step-title">Agréger</h3>
+            <p class="pmt-sec4-step-desc">Toutes vos sources macro &amp; FX réunies sur un seul écran, en flux continu.</p>
+          </div>
+        </div>
+        <div class="pmt-sec4-mini-terminal">
+          <div class="pmt-sec4-term-header">
+            <span>Flux temps réel</span>
+            <span class="pmt-sec4-live-indicator"><span class="pmt-sec4-live-dot"></span>APERÇU</span>
+          </div>
+          <div class="pmt-sec4-term-row">
+            <span class="pmt-sec4-badge red">HIGH</span>
+            <div class="pmt-sec4-term-text-block">
+              <span class="pmt-sec4-term-headline">USD · CPI conforme aux attentes (3,4 % a/a)</span>
+              <span class="pmt-sec4-term-subtext">Reuters</span>
+            </div>
+            <span class="pmt-sec4-term-time">13:34</span>
+          </div>
+          <div class="pmt-sec4-term-row">
+            <span class="pmt-sec4-badge orange">MED</span>
+            <div class="pmt-sec4-term-text-block">
+              <span class="pmt-sec4-term-headline">EUR · Lagarde : la désinflation se poursuit</span>
+              <span class="pmt-sec4-term-subtext">BCE</span>
+            </div>
+            <span class="pmt-sec4-term-time">12:58</span>
+          </div>
+          <div class="pmt-sec4-term-row">
+            <span class="pmt-sec4-badge orange">MED</span>
+            <div class="pmt-sec4-term-text-block">
+              <span class="pmt-sec4-term-headline">USD · Powell : pas d'urgence à baisser les taux</span>
+              <span class="pmt-sec4-term-subtext">Bloomberg</span>
+            </div>
+            <span class="pmt-sec4-term-time">12:15</span>
+          </div>
+          <div class="pmt-sec4-term-row">
+            <span class="pmt-sec4-badge green">LOW</span>
+            <div class="pmt-sec4-term-text-block">
+              <span class="pmt-sec4-term-headline">JPY · Le yen se renforce après la révision du PIB</span>
+              <span class="pmt-sec4-term-subtext">Nikkei</span>
+            </div>
+            <span class="pmt-sec4-term-time">11:40</span>
+          </div>
+          <div class="pmt-sec4-term-footer-link">News · Calendrier · COT · Force des devises</div>
+        </div>
+      </div>
+
+      <span class="pmt-sec4-flow-arrow" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><polyline points="13 5 20 12 13 19"></polyline></svg>
+      </span>
+
+      <!-- ÉTAPE 02 — VALIDER -->
+      <div class="pmt-sec4-step-card">
+        <div class="pmt-sec4-card-meta">
+          <span class="pmt-sec4-step-num">02</span>
+          <div>
+            <h3 class="pmt-sec4-step-title">Valider</h3>
+            <p class="pmt-sec4-step-desc">Croisez Smart Bias, calendrier et flux cross-asset pour confirmer la direction.</p>
+          </div>
+        </div>
+        <div class="pmt-sec4-mini-terminal">
+          <div class="pmt-sec4-term-header">
+            <span>Smart Bias · EUR/USD</span>
+            <span class="pmt-sec4-live-indicator"><span class="pmt-sec4-live-dot"></span>APERÇU</span>
+          </div>
+          <div class="pmt-sec4-flex-grid">
+            <div>
+              <div class="pmt-sec4-bias-title">Biais directionnel</div>
+              <div class="pmt-sec4-bias-value up">BULLISH ▲</div>
+            </div>
+            <div>
+              <div class="pmt-sec4-bias-title">Confiance</div>
+              <div class="pmt-sec4-bias-value">72 %</div>
+            </div>
+          </div>
+          <div class="pmt-sec4-driver-list">
+            <div class="pmt-sec4-driver-item">
+              <span>Momentum inflation</span>
+              <span class="pmt-sec4-dot-matrix">
+                <span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot"></span>
+              </span>
+            </div>
+            <div class="pmt-sec4-driver-item">
+              <span>Positionnement COT</span>
+              <span class="pmt-sec4-dot-matrix">
+                <span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot"></span><span class="pmt-sec4-dot"></span>
+              </span>
+            </div>
+            <div class="pmt-sec4-driver-item">
+              <span>Écart de taux</span>
+              <span class="pmt-sec4-dot-matrix">
+                <span class="pmt-sec4-dot active-orange"></span><span class="pmt-sec4-dot active-orange"></span><span class="pmt-sec4-dot active-orange"></span><span class="pmt-sec4-dot"></span><span class="pmt-sec4-dot"></span>
+              </span>
+            </div>
+          </div>
+          <table class="pmt-sec4-table">
+            <tbody>
+              <tr><td>DXY</td><td class="pmt-sec4-table-val red">104,2 ▼</td></tr>
+              <tr><td>US10Y</td><td class="pmt-sec4-table-val green">4,28 % ▲</td></tr>
+              <tr><td>ES</td><td class="pmt-sec4-table-val green">5 312 ▲</td></tr>
+              <tr><td>GOLD</td><td class="pmt-sec4-table-val green">2 348 ▲</td></tr>
+              <tr><td>WTI</td><td class="pmt-sec4-table-val red">77,9 ▼</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <span class="pmt-sec4-flow-arrow" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><polyline points="13 5 20 12 13 19"></polyline></svg>
+      </span>
+
+      <!-- ÉTAPE 03 — DÉCIDER -->
+      <div class="pmt-sec4-step-card">
+        <div class="pmt-sec4-card-meta">
+          <span class="pmt-sec4-step-num">03</span>
+          <div>
+            <h3 class="pmt-sec4-step-title">Décider</h3>
+            <p class="pmt-sec4-step-desc">Posez votre plan — niveaux et risque clairs — puis exécutez sur <b>votre</b> plateforme.</p>
+          </div>
+        </div>
+        <div class="pmt-sec4-mini-terminal">
+          <div class="pmt-sec4-term-header">
+            <span>Plan de trade · EUR/USD</span>
+            <span class="pmt-sec4-live-indicator"><span class="pmt-sec4-live-dot"></span>EXEMPLE</span>
+          </div>
+          <div class="pmt-sec4-chart-placeholder">
+            <svg class="pmt-sec4-chart-line-svg" viewBox="0 0 260 120" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="0" y1="30" x2="260" y2="30" class="pmt-sec4-grid-line"></line>
+              <line x1="0" y1="62" x2="260" y2="62" class="pmt-sec4-grid-line"></line>
+              <line x1="0" y1="94" x2="260" y2="94" class="pmt-sec4-grid-line"></line>
+              <polyline points="0,92 26,84 52,88 78,72 104,76 130,58 156,62 182,46 208,52 234,36 260,30" class="pmt-sec4-price-line"></polyline>
+            </svg>
+            <span class="pmt-sec4-chart-label tp">TP · 1,0980</span>
+            <span class="pmt-sec4-chart-label entry">Entrée · 1,0865</span>
+            <span class="pmt-sec4-chart-label sl">SL · 1,0810</span>
+          </div>
+          <table class="pmt-sec4-table">
+            <tbody>
+              <tr><td>Taille de position</td><td class="pmt-sec4-table-val">0,5 lot</td></tr>
+              <tr><td>Risque</td><td class="pmt-sec4-table-val">1,0 % du capital</td></tr>
+              <tr><td>Ratio R/R</td><td class="pmt-sec4-table-val green">1 : 2,1</td></tr>
+            </tbody>
+          </table>
+          <a class="pmt-sec4-btn-order" href="https://whop.com/joined/justonetrader/products/jot-dtp/" target="_blank" rel="noopener">Exécuter chez votre courtier</a>
+          <p class="pmt-sec4-disclaimer">Exemple illustratif. DataTradingPro n'exécute aucun ordre et ne donne pas de conseil personnalisé.</p>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="pmt-sec4-metrics-bar">
+      <div class="pmt-sec4-metric-item">
+        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>
+        </span>
+        <span class="pmt-sec4-metric-num">24/7</span>
+        <span class="pmt-sec4-metric-label">Données en temps réel</span>
+      </div>
+      <div class="pmt-sec4-metric-item">
+        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"></rect><rect x="14" y="3" width="7" height="7" rx="1.2"></rect><rect x="3" y="14" width="7" height="7" rx="1.2"></rect><rect x="14" y="14" width="7" height="7" rx="1.2"></rect></svg>
+        </span>
+        <span class="pmt-sec4-metric-num">10 modules</span>
+        <span class="pmt-sec4-metric-label">News, Calendrier, Bias, COT, IA…</span>
+      </div>
+      <div class="pmt-sec4-metric-item">
+        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z"></path></svg>
+        </span>
+        <span class="pmt-sec4-metric-num">8 devises</span>
+        <span class="pmt-sec4-metric-label">Majeures G8 couvertes</span>
+      </div>
+      <div class="pmt-sec4-metric-item">
+        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21h6"></path></svg>
+        </span>
+        <span class="pmt-sec4-metric-num">100 % navigateur</span>
+        <span class="pmt-sec4-metric-label">Rien à installer</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ sec5 ============ -->
+<section class="pmt-s5-viewport" id="confiance" aria-labelledby="pmt-s5-title">
+  <div class="pmt-s5-boundless">
+    <div class="pmt-s5-layout-split">
+
+      <!-- Colonne gauche : accroche + bandeau + témoignages -->
+      <div class="pmt-s5-content-stack">
+        <span class="pmt-s5-label">La confiance, prouvée</span>
+        <h2 class="pmt-s5-headline" id="pmt-s5-title">Pensé pour les traders qui prennent le contexte au sérieux</h2>
+        <p class="pmt-s5-paragraph">On ne vous promet pas la lune avec de faux chiffres ni des avis inventés. On vous donne un terminal honnête, des données datées et attribuées, et la liberté de partir quand vous voulez. Voici ce que des membres de la communauté JustOneTrader en retiennent.</p>
+
+        <div class="pmt-s5-rating-strip">
+          <span class="pmt-s5-stars" aria-hidden="true">
+            <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+          </span>
+          <span class="pmt-s5-metric-lbl">Retours de la communauté</span>
+          <span class="pmt-s5-divider" aria-hidden="true"></span>
+          <span class="pmt-s5-secure-status"><i class="fa-solid fa-lock"></i> Sans engagement, résiliable en un clic</span>
+        </div>
+
+        <div class="pmt-s5-cards-cluster">
+
+          <article class="pmt-s5-testimonial-card">
+            <i class="fa-solid fa-quote-right pmt-s5-quote-icon" aria-hidden="true"></i>
+            <p class="pmt-s5-quote-body">J'avais dix onglets ouverts en permanence. Maintenant le contexte macro, les news à fort impact et la force des devises sont au même endroit. Je perds beaucoup moins de temps avant d'ouvrir une position.</p>
+            <div class="pmt-s5-author-row">
+              <span class="pmt-s5-avatar-circle" aria-hidden="true">M</span>
+              <span>
+                <span class="pmt-s5-author-name">Un membre de la communauté</span>
+                <span class="pmt-s5-author-title">Day trader forex</span>
+              </span>
+            </div>
+          </article>
+
+          <article class="pmt-s5-testimonial-card">
+            <i class="fa-solid fa-quote-right pmt-s5-quote-icon" aria-hidden="true"></i>
+            <p class="pmt-s5-quote-body">Ce que j'apprécie, c'est l'honnêteté : chaque donnée est sourcée et horodatée. Le Smart Bias me sert de point de départ le lundi, je n'ai plus à recompiler la semaine moi-même.</p>
+            <div class="pmt-s5-author-row">
+              <span class="pmt-s5-avatar-circle" aria-hidden="true">S</span>
+              <span>
+                <span class="pmt-s5-author-name">Un membre de la communauté</span>
+                <span class="pmt-s5-author-title">Swing trader, indices &amp; FX</span>
+              </span>
+            </div>
+          </article>
+
+          <article class="pmt-s5-testimonial-card">
+            <i class="fa-solid fa-quote-right pmt-s5-quote-icon" aria-hidden="true"></i>
+            <p class="pmt-s5-quote-body">Le calendrier avec le réel vs prévision et la recherche des banques directement dans le navigateur, ça change la donne. Et 24,99 € sans engagement, c'est honnête comparé à ce que je payais avant.</p>
+            <div class="pmt-s5-author-row">
+              <span class="pmt-s5-avatar-circle" aria-hidden="true">A</span>
+              <span>
+                <span class="pmt-s5-author-name">Un membre de la communauté</span>
+                <span class="pmt-s5-author-title">Trader macro à temps partiel</span>
+              </span>
+            </div>
+          </article>
+
+        </div>
+      </div>
+
+      <!-- Colonne droite : value props honnêtes (remplace les totaux inventés) -->
+      <div class="pmt-s5-totals-grid" role="list">
+
+        <div class="pmt-s5-total-box" role="listitem">
+          <span class="pmt-s5-total-icon"><i class="fa-solid fa-bolt"></i></span>
+          <span class="pmt-s5-total-num">Temps réel</span>
+          <span class="pmt-s5-total-tag">News &amp; marché en direct</span>
+          <span class="pmt-s5-total-desc">Pastilles LIVE et horodatage vérifiables, du flux de news au Squawk.</span>
+        </div>
+
+        <div class="pmt-s5-total-box" role="listitem">
+          <span class="pmt-s5-total-icon"><i class="fa-solid fa-database"></i></span>
+          <span class="pmt-s5-total-num">First-party</span>
+          <span class="pmt-s5-total-tag">Données datées &amp; sourcées</span>
+          <span class="pmt-s5-total-desc">Chaque chiffre est attribué : vous savez toujours d'où il vient.</span>
+        </div>
+
+        <div class="pmt-s5-total-box" role="listitem">
+          <span class="pmt-s5-total-icon"><i class="fa-solid fa-layer-group"></i></span>
+          <span class="pmt-s5-total-num">10 modules</span>
+          <span class="pmt-s5-total-tag">Un seul terminal</span>
+          <span class="pmt-s5-total-desc">News, calendrier, Smart Bias, COT, Week Ahead, taux, recherche, IA…</span>
+        </div>
+
+        <div class="pmt-s5-total-box" role="listitem">
+          <span class="pmt-s5-total-icon"><i class="fa-solid fa-tag"></i></span>
+          <span class="pmt-s5-total-num">24,99 €</span>
+          <span class="pmt-s5-total-tag">Par mois, sans engagement</span>
+          <span class="pmt-s5-total-desc">Un prix clair, résiliable en un clic, aucun frais caché.</span>
+        </div>
+
+      </div>
+
+    </div>
+
+    <p class="pmt-s5-legal-sub">Témoignages anonymisés de membres de la communauté JustOneTrader. DataTradingPro est un terminal de données : pas de courtage, pas de signaux garantis, pas de promesse de gain. Le trading comporte un risque de perte en capital.</p>
+  </div>
+</section>
+
+<!-- ============ sec6 ============ -->
+<section class="pmt-sec6-viewport" id="mission" aria-labelledby="pmt-sec6-title">
+  <div class="pmt-sec6-boundless">
+    <div class="pmt-sec6-split-grid">
+
+      <div class="pmt-sec6-info-stack">
+        <span class="pmt-sec6-eyebrow"><i class="fa-solid fa-compass" aria-hidden="true"></i> Our Mission</span>
+        <h2 class="pmt-sec6-headline" id="pmt-sec6-title">Conçu par des traders, pas par des marketeux.</h2>
+
+        <p class="pmt-sec6-paragraph">
+          DataTradingPro est né d'un constat simple : pour suivre la macro et le forex, il fallait jongler entre dix onglets, recopier des chiffres à la main et reconstituer le contexte soi-même. Nous avons rassemblé l'essentiel — news temps réel, calendrier économique, Smart Bias, force des devises, COT, taux des banques centrales et recherche institutionnelle — dans un seul terminal, directement dans le navigateur.
+        </p>
+        <p class="pmt-sec6-paragraph pmt-sec6-para-spacing">
+          Pas de promesses miraculeuses, pas de signaux magiques. Juste des données first-party en temps réel et des outils pensés pour la lecture du marché, par des gens qui tradent. L'objectif : vous faire gagner du temps sur la collecte d'information pour que vous puissiez vous concentrer sur la décision. À 24,99 €/mois, sans engagement.
+        </p>
+
+        <div class="pmt-sec6-features-row">
+
+          <div class="pmt-sec6-feature-box">
+            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-clock" aria-hidden="true"></i></span>
+            <h3 class="pmt-sec6-box-title">Gagner du temps</h3>
+            <p class="pmt-sec6-box-desc">Tout au même endroit. Fini les dix onglets et le copier-coller : l'information arrive déjà agrégée et structurée.</p>
+          </div>
+
+          <div class="pmt-sec6-feature-box">
+            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i></span>
+            <h3 class="pmt-sec6-box-title">Voir plus</h3>
+            <p class="pmt-sec6-box-desc">Smart Bias, force des devises, COT et taux croisés : une vue d'ensemble du marché plutôt qu'un signal isolé.</p>
+          </div>
+
+          <div class="pmt-sec6-feature-box">
+            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+            <h3 class="pmt-sec6-box-title">Réagir plus vite</h3>
+            <p class="pmt-sec6-box-desc">News et calendrier économique en temps réel. Quand le marché bouge, l'information est déjà sous vos yeux.</p>
+          </div>
+
+          <div class="pmt-sec6-feature-box">
+            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
+            <h3 class="pmt-sec6-box-title">Décider avec conviction</h3>
+            <p class="pmt-sec6-box-desc">Le contexte macro complet en un coup d'œil pour entrer en position en comprenant le pourquoi, pas seulement le quoi.</p>
+          </div>
+
+        </div>
+      </div>
+
     </div>
   </div>
 </section>
 
-<!-- (Panneau « Étendue de données / Data scope » retiré à la demande de l'utilisateur) -->
+<!-- ============ sec7 ============ -->
+<section class="pmt-sec7-viewport" aria-labelledby="pmt-sec7-title">
+  <div class="pmt-sec7-boundless">
 
-<!-- PROBLEME (avant / après) -->
-<section id="problem">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Le problème</div>
-      <h2>Dix onglets ouverts. Aucun ne se parle.</h2>
-      <p>Le trader sérieux ne manque pas d'information : il en a trop. DataTradingPro inverse le rapport — moins de fenêtres, plus de clarté.</p>
-    </div>
-    <div class="ba">
-      <div class="ba-before">
-        <div class="ba-cap">Avant — dix onglets</div>
-        <div class="ba-chaos">
-          <div class="ghost g1"><div class="gt">calendrier.xlsx</div><div class="gl"></div><div class="gl s"></div></div>
-          <div class="ghost g2"><div class="gt">fil-news · onglet 4</div><div class="gl"></div><div class="gl s"></div></div>
-          <div class="ghost g3"><div class="gt">COT_report.pdf</div><div class="gl"></div><div class="gl s"></div></div>
-          <div class="ghost g4"><div class="gt">force-fx · widget</div><div class="gl"></div><div class="gl s"></div></div>
-        </div>
-      </div>
-      <div class="ba-arrow">→</div>
-      <div class="ba-after">
-        <div class="ba-cap">Après — un seul écran trié</div>
-        <div class="ba-clean">
-          <div class="chrome"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="url">desk.datatradingpro.com</span><span class="live"><span class="dot"></span>APERÇU</span></div>
-          <div class="body">
-            <div class="ovn"><span class="tm">13:34</span><span class="tx">CPI US conforme aux attentes</span><span class="bdg h">HIGH</span></div>
-            <div class="ovn"><span class="tm">12:58</span><span class="tx">BCE : désinflation en cours</span><span class="bdg m">MED</span></div>
-            <div class="ovn"><span class="tm">11:40</span><span class="tx">Yen plus ferme après le PIB</span><span class="bdg l">LOW</span></div>
+    <div class="pmt-sec7-split-layout">
+
+      <!-- Colonne gauche : narratif + 4 piliers -->
+      <div class="pmt-sec7-left-stack">
+        <span class="pmt-sec7-eyebrow"><i class="fa-solid fa-shield-halved"></i> Fiabilité &amp; infrastructure</span>
+        <h2 class="pmt-sec7-headline" id="pmt-sec7-title">Une infrastructure sur laquelle compter quand le marché bouge.</h2>
+        <p class="pmt-sec7-description">DataTradingPro tourne dans votre navigateur, sur des données first-party que nous agrégeons en temps réel. Pas de promesse marketing : juste des flux à jour, des méthodes lisibles et une équipe joignable quand vous en avez besoin.</p>
+
+        <div class="pmt-sec7-pillars-grid">
+          <div class="pmt-sec7-pillar-box">
+            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-bolt"></i></div>
+            <h3 class="pmt-sec7-pillar-title">Temps réel</h3>
+            <p class="pmt-sec7-pillar-desc">News priorisée, calendrier économique, force des devises et Smart Bias mis à jour en continu, sur un seul écran.</p>
+          </div>
+          <div class="pmt-sec7-pillar-box">
+            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-diagram-project"></i></div>
+            <h3 class="pmt-sec7-pillar-title">Méthode transparente</h3>
+            <p class="pmt-sec7-pillar-desc">Les biais et les analyses s'appuient sur des sources identifiables (COT/CFTC, banques centrales, recherche bancaire), pas sur une boîte noire.</p>
+          </div>
+          <div class="pmt-sec7-pillar-box">
+            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-headset"></i></div>
+            <h3 class="pmt-sec7-pillar-title">Support à taille humaine</h3>
+            <p class="pmt-sec7-pillar-desc">Une vraie communauté JustOneTrader derrière le terminal. Vos questions trouvent une réponse, sans ticket perdu dans le vide.</p>
+          </div>
+          <div class="pmt-sec7-pillar-box">
+            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
+            <h3 class="pmt-sec7-pillar-title">Amélioration continue</h3>
+            <p class="pmt-sec7-pillar-desc">Le terminal évolue au rythme du marché et de vos retours : nouveaux modules, données et corrections déployés en continu.</p>
           </div>
         </div>
       </div>
-    </div>
-  </div>
-</section>
 
-<!-- FEATURES -->
-<section id="features">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Les modules</div>
-      <h2>Huit modules, une seule interface</h2>
-      <p>Huit sources de données qui couvrent tout le cycle macro : actualité, agenda, positionnement, recherche, force et biais.</p>
-    </div>
-    <div class="features">
-      <div class="feat"><span class="tagm">FX</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><h3>News priorisée</h3><p>News forex &amp; macro institutionnelles, triées par impact HIGH / MED / LOW en temps réel.</p></div>
-      <div class="feat"><span class="tagm">MACRO</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div><h3>Calendar</h3><p>Calendrier économique en temps réel : <em>réel vs prévision</em>, vue Week Ahead et détail au clic.</p></div>
-      <div class="feat"><span class="tagm">BIAS</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.7" fill="currentColor"/></svg></div><h3>Smart Bias Tracker</h3><p>Biais hebdomadaire par devise : fondamentaux, taux, COT et banques croisés, avec narratif IA.</p></div>
-      <div class="feat"><span class="tagm">FX</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></div><h3>Force des devises</h3><p>Currency strength des 8 devises majeures, multi-timeframe, façon salle de marché.</p></div>
-      <div class="feat"><span class="tagm">IA</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/><circle cx="12" cy="12" r="2.5"/></svg></div><h3>Assistant Macro IA</h3><p>Assistant macro IA : réponses sourcées en streaming, calées sur votre biais et vos news.</p></div>
-      <div class="feat"><span class="tagm">BANK</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-5 8 5v11M9 21v-6h6v6"/></svg></div><h3>Recherche institutionnelle</h3><p>Recherche des grandes banques internationales, agrégée et structurée par devise.</p></div>
-      <div class="feat"><span class="tagm">ANALYST</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16l3-4 2.5 2.5L17 8"/></svg></div><h3>Analyst</h3><p>Rapports <strong>Daily</strong>, <strong>Weekly</strong> et <strong>recaps de séance</strong> structurés par IA, avec AI Insights.</p></div>
-      <div class="feat"><span class="tagm">COT</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M7 21v-6M12 21V9M17 21v-10"/><circle cx="7" cy="12" r="1.5"/><circle cx="12" cy="6" r="1.5"/><circle cx="17" cy="8" r="1.5"/></svg></div><h3>Positions des banques</h3><p>Positionnement des banques (Bank Overview) et données COT de la CFTC, en 5 catégories.</p></div>
-    </div>
-    <div class="feat-wide">
-      <div class="fw-search"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg> Rechercher une devise, un événement…</div>
-      <div class="fw-drop">Impact ▾</div>
-      <div class="fw-drop">Devise ▾</div>
-      <div class="fw-lbl"><b>Triez par priorité</b> : par impact, par devise, par source.</div>
-    </div>
-  </div>
-</section>
+      <!-- Colonne droite : flux news live (maquette CSS) -->
+      <aside class="pmt-sec7-news-container" aria-label="Aperçu du flux de news DataTradingPro">
+        <div class="pmt-sec7-news-top-bar">
+          <span class="pmt-sec7-news-branding"><span class="pmt-sec7-news-dot"></span> DTP Live Market News</span>
+          <a class="pmt-sec7-view-all-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Tout voir <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
 
-<!-- SHOWCASE (terminal en action) -->
-<section id="showcase">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Le terminal en action</div>
-      <h2>Voyez la clarté, pas juste la promesse</h2>
-      <p>Trois modules signature reproduits fidèlement, avec les vraies couleurs et le vrai comportement du terminal.</p>
-    </div>
-
-    <div class="show-row">
-      <div class="show-txt">
-        <div class="tag">Smart Bias Tracker</div>
-        <h3>Sachez où penche le marché avant d'entrer</h3>
-        <p>Un biais hebdomadaire par devise, synthétisé dans une matrice lisible d'un coup d'œil.</p>
-        <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Échelle Very Bullish → Very Bearish par indicateur</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Détail COT &amp; positionnement des banques</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Narratif IA régénéré automatiquement chaque semaine</li>
+        <ul class="pmt-sec7-news-list-stack">
+          <li class="pmt-sec7-news-list-item">
+            <span class="pmt-sec7-item-timestamp">il y a 2 min</span>
+            <span class="pmt-sec7-item-headline">La BCE laisse entendre qu'elle reste dépendante des données avant sa prochaine décision</span>
+            <span class="pmt-sec7-impact-node pmt-impact-high">EUR · Fort</span>
+          </li>
+          <li class="pmt-sec7-news-list-item">
+            <span class="pmt-sec7-item-timestamp">il y a 11 min</span>
+            <span class="pmt-sec7-item-headline">États-Unis : l'inflation cœur ressort en ligne avec les attentes du marché</span>
+            <span class="pmt-sec7-impact-node pmt-impact-high">USD · Fort</span>
+          </li>
+          <li class="pmt-sec7-news-list-item">
+            <span class="pmt-sec7-item-timestamp">il y a 24 min</span>
+            <span class="pmt-sec7-item-headline">Le pétrole se stabilise après les tensions géopolitiques au Moyen-Orient</span>
+            <span class="pmt-sec7-impact-node pmt-impact-med">WTI · Moyen</span>
+          </li>
+          <li class="pmt-sec7-news-list-item">
+            <span class="pmt-sec7-item-timestamp">il y a 38 min</span>
+            <span class="pmt-sec7-item-headline">Royaume-Uni : les ventes au détail surprennent légèrement à la hausse</span>
+            <span class="pmt-sec7-impact-node pmt-impact-med">GBP · Moyen</span>
+          </li>
+          <li class="pmt-sec7-news-list-item">
+            <span class="pmt-sec7-item-timestamp">il y a 52 min</span>
+            <span class="pmt-sec7-item-headline">La BoJ maintient le statu quo, le yen reste sous surveillance</span>
+            <span class="pmt-sec7-impact-node pmt-impact-low">JPY · Faible</span>
+          </li>
         </ul>
+
+        <div class="pmt-sec7-news-bottom-row">
+          <span class="pmt-sec7-footer-motto">Données first-party, agrégées en continu.</span>
+          <span class="pmt-sec7-live-radar">
+            <span class="pmt-sec7-radar-blip"></span> Mises à jour temps réel
+          </span>
+        </div>
+      </aside>
+
+    </div>
+
+    <!-- Matrice confiance (sécurité / vie privée / accès) — sans badge SOC2 -->
+    <div class="pmt-sec7-compliance-matrix">
+      <div class="pmt-sec7-matrix-item">
+        <div class="pmt-sec7-matrix-icon"><i class="fa-solid fa-lock"></i></div>
+        <div>
+          <h4 class="pmt-sec7-matrix-heading">Sécurité par défaut</h4>
+          <p class="pmt-sec7-matrix-desc">Accès chiffré (HTTPS) et authentification gérée via Whop. Aucune clé ni donnée sensible n'est exposée côté navigateur.</p>
+        </div>
       </div>
-      <div class="shot">
-        <img src="/assets/screens/bias.png" alt="Smart Bias Tracker DataTradingPro" style="width:100%;display:block" onload="var m=this.parentNode.querySelector('.shot-mock');if(m)m.style.display='none'" onerror="this.remove()">
-        <div class="shot-mock">
-          <div class="chrome"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="url">Smart Bias · Hebdo</span></div>
-          <div id="biasMatrix" class="bmx" style="padding:14px"></div>
+      <div class="pmt-sec7-matrix-item">
+        <div class="pmt-sec7-matrix-icon"><i class="fa-solid fa-user-shield"></i></div>
+        <div>
+          <h4 class="pmt-sec7-matrix-heading">Vie privée d'abord</h4>
+          <p class="pmt-sec7-matrix-desc">Nous ne revendons pas vos données. Le strict nécessaire est collecté pour faire fonctionner votre accès au terminal.</p>
+        </div>
+      </div>
+      <div class="pmt-sec7-matrix-item">
+        <div class="pmt-sec7-matrix-icon"><i class="fa-solid fa-globe"></i></div>
+        <div>
+          <h4 class="pmt-sec7-matrix-heading">Pensé pour les traders</h4>
+          <p class="pmt-sec7-matrix-desc">Conçu par et pour des traders de la communauté JustOneTrader, accessible partout depuis un simple navigateur.</p>
         </div>
       </div>
     </div>
 
-    <div class="show-row rev">
-      <div class="show-txt">
-        <div class="tag">Force des devises</div>
-        <h3>La force relative des 8 majeures, en direct</h3>
-        <p>Un égaliseur façon salle de marché : vert pour la force, rouge pour la faiblesse. Les paires les plus tendues sautent aux yeux.</p>
-        <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Multi-timeframe (jour / semaine)</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> 8 devises majeures suivies en continu</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Lecture immédiate des paires les plus tendues</li>
-        </ul>
-      </div>
-      <div class="shot">
-        <img src="/assets/screens/strength.png" alt="Force des devises DataTradingPro" style="width:100%;display:block" onload="var m=this.parentNode.querySelector('.shot-mock');if(m)m.style.display='none'" onerror="this.remove()">
-        <div class="shot-mock">
-          <div class="chrome"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="url">Currency Strength · Semaine</span></div>
-          <div id="strengthEq" class="cse"></div>
-        </div>
-      </div>
+    <!-- Avertissement risque -->
+    <div class="pmt-sec7-risk-disclosure-row">
+      <p class="pmt-sec7-risk-paragraph"><strong>Avertissement sur les risques.</strong> Le trading sur le Forex et les produits dérivés comporte un risque élevé de perte en capital et ne convient pas à tous les investisseurs. DataTradingPro fournit des informations, des données et des analyses à visée éducative et informative : il ne s'agit en aucun cas d'un conseil en investissement ni d'une incitation à acheter ou vendre. Les performances passées ne préjugent pas des performances futures. Vous restez seul responsable de vos décisions de trading.</p>
     </div>
 
-    <div class="show-row">
-      <div class="show-txt">
-        <div class="tag">Assistant Macro IA</div>
-        <h3>Posez votre question macro, obtenez une réponse sourcée</h3>
-        <p>Nourri de votre Smart Bias et des news en temps réel : synthèses, explications, scénarios — toujours sourcés.</p>
-        <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Réponses en streaming, instantanées</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Contextualisé sur vos données de marché</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Sources citées à chaque réponse</li>
-        </ul>
+    <!-- Copyright -->
+    <div class="pmt-sec7-copyright-row">
+      <span class="pmt-sec7-copyright-text">© 2026 DataTradingPro — une initiative de la communauté JustOneTrader. Tous droits réservés.</span>
+      <span class="pmt-sec7-copyright-price">À partir de 24,99 €/mois, sans engagement.</span>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ sec8 ============ -->
+<section class="pmt-sec8-container" id="ressources">
+  <div class="pmt-sec8-layout-wrapper">
+
+    <div class="pmt-sec8-header-block">
+      <div class="pmt-sec8-header-text">
+        <span class="pmt-sec8-eyebrow">Apprendre &amp; progresser</span>
+        <h2 class="pmt-sec8-title">Maîtrisez le workflow DataTradingPro.</h2>
+        <p class="pmt-sec8-subtitle">Des guides courts et concrets pour passer de la donnée brute à une lecture de marché claire : prise en main du desk, lecture du Smart Bias, configuration du terminal News et organisation de votre espace de travail.</p>
       </div>
-      <div class="shot">
-        <img src="/assets/screens/ai.png" alt="Assistant Macro IA DataTradingPro" style="width:100%;display:block" onload="var m=this.parentNode.querySelector('.shot-mock');if(m)m.style.display='none'" onerror="this.remove()">
-        <div class="shot-mock">
-          <div class="chrome"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="url">Assistant Macro IA</span></div>
-          <div class="chat">
-            <div class="msg user">Quel est le biais sur l'EUR cette semaine et quels risques jeudi ?</div>
-            <div class="msg ai"><b>EUR — légèrement haussier.</b> L'inflation core surprend à la hausse et le positionnement COT reste net acheteur. Point d'attention : la BCE jeudi — un ton restrictif renforcerait le biais.</div>
-            <div class="src">▸ 3 sources utilisées · 14:32</div>
+      <a class="pmt-sec8-primary-btn" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        Découvrir les guides <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
+    <div class="pmt-sec8-grid-matrix">
+
+      <!-- Carte 1 : Tutoriels vidéo -->
+      <article class="pmt-sec8-card-node">
+        <div class="pmt-sec8-card-visual">
+          <div class="pmt-ui-video">
+            <span class="pmt-ui-play-icon"><i class="fa-solid fa-play"></i></span>
+            <span class="pmt-ui-timestamp">06:12</span>
           </div>
         </div>
-      </div>
+        <div class="pmt-sec8-card-content">
+          <span class="pmt-sec8-card-meta-label">Tutoriels vidéo</span>
+          <h3 class="pmt-sec8-card-title">Le desk en 6 minutes</h3>
+          <p class="pmt-sec8-card-desc">Une visite guidée de l'interface : navigation entre les modules, ouverture d'une paire et lecture des panneaux temps réel.</p>
+          <a class="pmt-sec8-inline-link" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Regarder <i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+      </article>
+
+      <!-- Carte 2 : Prise en main -->
+      <article class="pmt-sec8-card-node">
+        <div class="pmt-sec8-card-visual">
+          <ul class="pmt-ui-checklist">
+            <li class="pmt-ui-check-row is-done"><i class="fa-solid fa-check"></i> Connexion via JustOneTrader</li>
+            <li class="pmt-ui-check-row is-done"><i class="fa-solid fa-check"></i> Choisir ses paires de travail</li>
+            <li class="pmt-ui-check-row"><i class="fa-regular fa-circle"></i> Activer le Smart Bias</li>
+            <li class="pmt-ui-check-row"><i class="fa-regular fa-circle"></i> Configurer les alertes News</li>
+          </ul>
+        </div>
+        <div class="pmt-sec8-card-content">
+          <span class="pmt-sec8-card-meta-label">Prise en main</span>
+          <h3 class="pmt-sec8-card-title">Premiers pas sur la plateforme</h3>
+          <p class="pmt-sec8-card-desc">Une checklist pas à pas pour configurer votre compte et avoir un environnement opérationnel dès la première session.</p>
+          <a class="pmt-sec8-inline-link" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Commencer <i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+      </article>
+
+      <!-- Carte 3 : Smart Bias -->
+      <article class="pmt-sec8-card-node">
+        <div class="pmt-sec8-card-visual">
+          <div class="pmt-ui-bias-graphic">
+            <div class="pmt-ui-bias-header">
+              <span>Smart Bias</span>
+              <span class="pmt-ui-bias-pill is-bull">Bullish</span>
+            </div>
+            <div class="pmt-ui-bias-rows">
+              <div class="pmt-ui-bias-line"><span>USD</span><i class="pmt-ui-bias-cell is-bull"></i></div>
+              <div class="pmt-ui-bias-line"><span>EUR</span><i class="pmt-ui-bias-cell is-neutral"></i></div>
+              <div class="pmt-ui-bias-line"><span>GBP</span><i class="pmt-ui-bias-cell is-bear"></i></div>
+              <div class="pmt-ui-bias-line"><span>JPY</span><i class="pmt-ui-bias-cell is-bull"></i></div>
+            </div>
+          </div>
+        </div>
+        <div class="pmt-sec8-card-content">
+          <span class="pmt-sec8-card-meta-label">Smart Bias</span>
+          <h3 class="pmt-sec8-card-title">Lire la matrice de biais</h3>
+          <p class="pmt-sec8-card-desc">Comprendre comment le Smart Bias agrège fondamentaux et positionnement des banques pour situer chaque devise.</p>
+          <a class="pmt-sec8-inline-link" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Lire le guide <i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+      </article>
+
+      <!-- Carte 4 : Week Ahead -->
+      <article class="pmt-sec8-card-node">
+        <div class="pmt-sec8-card-visual">
+          <div class="pmt-ui-chart">
+            <svg viewBox="0 0 200 90" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="0" y1="68" x2="200" y2="68" class="pmt-ui-chart-axis"/>
+              <polyline class="pmt-ui-chart-line" points="4,60 30,52 56,58 82,38 108,44 134,24 160,30 196,14"/>
+              <circle class="pmt-ui-chart-dot" cx="196" cy="14" r="3"/>
+            </svg>
+            <div class="pmt-ui-chart-bars">
+              <i style="height:38%"></i><i style="height:62%"></i><i style="height:48%"></i><i style="height:78%"></i><i style="height:56%"></i>
+            </div>
+          </div>
+        </div>
+        <div class="pmt-sec8-card-content">
+          <span class="pmt-sec8-card-meta-label">Week Ahead</span>
+          <h3 class="pmt-sec8-card-title">Préparer sa semaine</h3>
+          <p class="pmt-sec8-card-desc">Anticiper les rendez-vous macro à fort impact et structurer votre plan de la semaine à partir du calendrier économique.</p>
+          <a class="pmt-sec8-inline-link" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Voir la méthode <i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+      </article>
+
+      <!-- Carte 5 : Terminal News -->
+      <article class="pmt-sec8-card-node">
+        <div class="pmt-sec8-card-visual">
+          <div class="pmt-ui-news-setup">
+            <div class="pmt-ui-news-row">
+              <span class="pmt-ui-news-dot is-red"></span>
+              <span class="pmt-ui-news-line is-wide"></span>
+            </div>
+            <div class="pmt-ui-news-row">
+              <span class="pmt-ui-news-dot is-amber"></span>
+              <span class="pmt-ui-news-line"></span>
+            </div>
+            <div class="pmt-ui-news-row">
+              <span class="pmt-ui-news-dot is-green"></span>
+              <span class="pmt-ui-news-line is-wide"></span>
+            </div>
+            <div class="pmt-ui-news-row">
+              <span class="pmt-ui-news-dot is-amber"></span>
+              <span class="pmt-ui-news-line"></span>
+            </div>
+          </div>
+        </div>
+        <div class="pmt-sec8-card-content">
+          <span class="pmt-sec8-card-meta-label">Terminal News</span>
+          <h3 class="pmt-sec8-card-title">Configurer le flux d'actualités</h3>
+          <p class="pmt-sec8-card-desc">Filtrer le flux temps réel par devise et par impact pour ne garder que les titres qui comptent pour vos positions.</p>
+          <a class="pmt-sec8-inline-link" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Configurer <i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+      </article>
+
+      <!-- Carte 6 : Espace de travail -->
+      <article class="pmt-sec8-card-node">
+        <div class="pmt-sec8-card-visual">
+          <div class="pmt-ui-workspace-layout">
+            <div class="pmt-ui-box pmt-ui-box-main"><span class="pmt-highlight"></span></div>
+            <div class="pmt-ui-box pmt-ui-box-side-top"></div>
+            <div class="pmt-ui-box pmt-ui-box-side-bottom"></div>
+            <div class="pmt-ui-box pmt-ui-box-strip"></div>
+          </div>
+        </div>
+        <div class="pmt-sec8-card-content">
+          <span class="pmt-sec8-card-meta-label">Espace de travail</span>
+          <h3 class="pmt-sec8-card-title">Organiser son cockpit</h3>
+          <p class="pmt-sec8-card-desc">Disposer modules et volets pour garder l'essentiel sous les yeux : biais, force des devises, news et calendrier au même endroit.</p>
+          <a class="pmt-sec8-inline-link" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Optimiser <i class="fa-solid fa-chevron-right"></i></a>
+        </div>
+      </article>
+
     </div>
+
+    <div class="pmt-sec8-resource-footer">
+      <div class="pmt-sec8-footer-left-info">
+        <i class="fa-solid fa-graduation-cap"></i>
+        <span>Tous les guides sont accessibles dans le navigateur, sans installation, dès votre inscription.</span>
+      </div>
+      <a class="pmt-sec8-footer-cta-anchor" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        Rejoindre DataTradingPro <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+
   </div>
 </section>
 
-<!-- FRAMEWORK -->
-<section id="framework">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Méthode de décision</div>
-      <h2>Agréger. Valider. Décider.</h2>
-      <p>Trois temps nets — et on s'arrête à la décision, jamais à l'ordre. L'exécution reste chez votre courtier.</p>
+<!-- ============ sec9 ============ -->
+<!-- section9 start -->
+<section class="section9" id="equipe">
+  <div class="section9-bg"></div>
+  <div class="section9-container">
+
+    <h2 class="section9-heading">L'équipe derrière <span class="accent">DataTradingPro</span></h2>
+    <p class="section9-description">
+      Une petite équipe de traders, d'analystes macro et de développeurs réunie autour de la communauté
+      JustOneTrader. Nous construisons le terminal que nous voulions utiliser nous-mêmes : des données
+      réelles, en temps réel, directement dans le navigateur — sans promesses gonflées.
+    </p>
+
+    <div class="section9-stats">
+      <div class="section9-stat-card">
+        <div class="section9-stat-icon"><i class="fa-solid fa-chart-line"></i></div>
+        <div class="section9-stat-content">
+          <div class="section9-stat-number">Macro</div>
+          <div class="section9-stat-label">Analyse de marché</div>
+        </div>
+      </div>
+      <div class="section9-stat-card">
+        <div class="section9-stat-icon"><i class="fa-solid fa-code"></i></div>
+        <div class="section9-stat-content">
+          <div class="section9-stat-number">Temps réel</div>
+          <div class="section9-stat-label">Données first-party</div>
+        </div>
+      </div>
+      <div class="section9-stat-card">
+        <div class="section9-stat-icon"><i class="fa-solid fa-compass-drafting"></i></div>
+        <div class="section9-stat-content">
+          <div class="section9-stat-number">Cockpit</div>
+          <div class="section9-stat-label">Design haute densité</div>
+        </div>
+      </div>
+      <div class="section9-stat-card">
+        <div class="section9-stat-icon"><i class="fa-solid fa-headset"></i></div>
+        <div class="section9-stat-content">
+          <div class="section9-stat-number">Discord</div>
+          <div class="section9-stat-label">Support communautaire</div>
+        </div>
+      </div>
     </div>
-    <div class="steps">
-      <div class="stepc">
-        <div class="num">01</div>
-        <h3>Agréger</h3>
-        <p>Toutes vos sources macro/FX au même endroit, en temps réel.</p>
-        <div class="step-mini">
-          <div class="mini-flows"><span>News</span><i>→</i><span>Calendar</span><i>→</i><span>COT</span><i>→</i><span>Force</span></div>
+
+    <div class="section9-team-grid">
+
+      <div class="section9-team-card">
+        <div class="section9-team-image section9-team-image--analysts"></div>
+        <div class="section9-team-content">
+          <div class="section9-team-title">
+            <span class="section9-team-icon"><i class="fa-solid fa-magnifying-glass-chart"></i></span>
+            <h3 class="section9-team-name">Analystes marché</h3>
+          </div>
+          <p class="section9-team-description">
+            Ils décodent les banques centrales, le calendrier économique et le positionnement (COT, Smart Bias)
+            pour transformer le flux macro en lecture claire du marché forex.
+          </p>
+          <span class="section9-team-underline"></span>
         </div>
       </div>
-      <div class="stepc">
-        <div class="num">02</div>
-        <h3>Valider</h3>
-        <p>Croisez Smart Bias, calendrier, force et COT — puis confirmez avec l'Assistant IA sourcé.</p>
-        <div class="step-mini">
-          <span class="mini-badge mb-green">● EUR · BULLISH</span>
-          <span class="mini-badge mb-amber">● USD · NEUTRAL</span>
-          <span class="mini-src">▸ 3 sources utilisées · 14:32</span>
+
+      <div class="section9-team-card">
+        <div class="section9-team-image section9-team-image--dev"></div>
+        <div class="section9-team-content">
+          <div class="section9-team-title">
+            <span class="section9-team-icon"><i class="fa-solid fa-code"></i></span>
+            <h3 class="section9-team-name">Développement</h3>
+          </div>
+          <p class="section9-team-description">
+            Ils tiennent le terminal en ligne et rapide : flux de données temps réel, intégration de l'IA macro
+            et une interface pensée pour tenir dans le navigateur, sans installation.
+          </p>
+          <span class="section9-team-underline"></span>
         </div>
       </div>
-      <div class="stepc">
-        <div class="num">03</div>
-        <h3>Décider</h3>
-        <p>Un biais clair, des risques datés. Vous tranchez et exécutez sur <b>votre</b> plateforme.</p>
-        <div class="step-mini">
-          <div class="step-verdict"><span>Biais EUR</span><span>BULLISH ▲</span></div>
-          <span class="mini-badge mb-red">Jeudi · BCE — HIGH</span>
-          <span class="mini-badge mb-amber">Vendredi · NFP — MED</span>
+
+      <div class="section9-team-card">
+        <div class="section9-team-image section9-team-image--design"></div>
+        <div class="section9-team-content">
+          <div class="section9-team-title">
+            <span class="section9-team-icon"><i class="fa-solid fa-compass-drafting"></i></span>
+            <h3 class="section9-team-name">Produit &amp; Design</h3>
+          </div>
+          <p class="section9-team-description">
+            Ils façonnent l'expérience cockpit : densité d'information maîtrisée, lisibilité sous pression et
+            une charte sombre premium cohérente sur chacun des modules.
+          </p>
+          <span class="section9-team-underline"></span>
         </div>
       </div>
+
+      <div class="section9-team-card">
+        <div class="section9-team-image section9-team-image--support"></div>
+        <div class="section9-team-content">
+          <div class="section9-team-title">
+            <span class="section9-team-icon"><i class="fa-solid fa-people-group"></i></span>
+            <h3 class="section9-team-name">Support &amp; Communauté</h3>
+          </div>
+          <p class="section9-team-description">
+            Ils animent la communauté JustOneTrader sur Discord, répondent aux questions et font remonter vos
+            retours pour orienter les prochaines évolutions du terminal.
+          </p>
+          <span class="section9-team-underline"></span>
+        </div>
+      </div>
+
     </div>
-    <div class="honesty"><b>DataTradingPro est un terminal de données et de news.</b> Il n'exécute aucun ordre et ne fournit pas de conseil en investissement personnalisé. La décision et l'exécution restent entièrement les vôtres.</div>
+
+    <div class="section9-footer">
+      <span class="section9-footer-icon"><i class="fa-solid fa-heart"></i></span>
+      <p class="section9-footer-text">
+        Construit par des traders, pour des traders — au sein de la communauté JustOneTrader.
+      </p>
+    </div>
+
   </div>
 </section>
+<!-- section9 end -->
 
-<!-- DEPTH (recoupement) -->
-<section id="depth">
-  <div class="wrap">
-    <div class="depth">
-      <div class="depth-txt">
-        <div class="tag" style="color:var(--orange);font-size:12.5px;font-weight:700;text-transform:uppercase;letter-spacing:.09em">Pourquoi la profondeur compte</div>
-        <h3>Le bon trade naît du recoupement</h3>
-        <p>Une donnée isolée ment souvent ; trois données concordantes rarement. DTP croise plusieurs angles sur la même devise, en un coup d'œil — et chaque chiffre reste sourçable.</p>
-        <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Le COT décliné en 5 catégories d'acteurs : voir <em>qui</em> achète, pas seulement combien</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> La recherche des grandes banques replace votre lecture dans le narratif du moment</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Tout est daté et sourçable : vous savez toujours d'où vient l'information</li>
+<!-- ============ sec10 ============ -->
+<section class="section10" id="tarifs">
+  <div class="section10-bg" aria-hidden="true"></div>
+  <div class="section10-container">
+
+    <div class="section10-header">
+      <span class="section10-label"><i class="fa-solid fa-tag"></i> TARIFS</span>
+      <h2 class="section10-heading">Un prix clair, <span class="accent">sans surprise.</span> Choisissez votre rythme.</h2>
+    </div>
+
+    <div class="section10-toggle-container">
+      <div class="section10-toggle-container-inner">
+        <button type="button" class="section10-toggle-label is-active" data-period="monthly" aria-pressed="true">Mensuel</button>
+        <button type="button" class="section10-toggle-switch" role="switch" aria-checked="false" aria-label="Basculer entre mensuel et annuel">
+          <span class="section10-toggle-knob"></span>
+        </button>
+        <button type="button" class="section10-toggle-label" data-period="annual" aria-pressed="false">Annuel</button>
+        <span class="section10-toggle-badge">≈ 20 % d'économie</span>
+      </div>
+    </div>
+
+    <div class="section10-pricing-grid">
+
+      <!-- Plan mensuel -->
+      <div class="section10-pricing-card">
+        <h3 class="section10-plan-name">Mensuel</h3>
+        <div class="section10-price-container">
+          <span class="section10-price">24,99 €</span>
+          <span class="section10-price-unit">/ mois</span>
+        </div>
+        <p class="section10-billing-info">Sans engagement, <span class="highlight">résiliable à tout moment</span>. Pas de frais cachés.</p>
+        <ul class="section10-features">
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> News temps réel priorisée &amp; Calendrier économique</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Smart Bias &amp; Currency Strength (force des devises)</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> COT (CFTC), Week Ahead &amp; TAUX banques centrales</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Recherche Institution &amp; Analyst Report</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Macro AI &amp; mises à jour incluses, dans le navigateur</li>
         </ul>
+        <a class="section10-cta-button" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Essai 7 jours <span class="section10-cta-arrow">→</span></a>
       </div>
-      <div class="corr">
-        <h4>EUR — recoupement</h4>
-        <div class="corr-sub">3 angles, 1 verdict</div>
-        <div class="corr-row"><span class="csrc">Calendar</span><span><span class="bdg h">HIGH</span> Core CPI +0,3 %</span><span class="cval up">surprise ↑</span></div>
-        <div class="corr-row"><span class="csrc">COT</span><span>Leveraged Funds : net acheteur</span><span class="corr-bar"><i style="width:74%"></i></span></div>
-        <div class="corr-row"><span class="csrc">Force</span><span>EUR en haut de l'égaliseur</span><span class="cval up">+8,3</span></div>
-        <div class="corr-verdict">Biais : haussier corroboré (3/3)</div>
+
+      <!-- Plan annuel (mis en avant) -->
+      <div class="section10-pricing-card featured">
+        <span class="section10-best-value">Le plus avantageux</span>
+        <h3 class="section10-plan-name">Annuel</h3>
+        <div class="section10-price-container">
+          <span class="section10-price">20 €</span>
+          <span class="section10-price-unit">/ mois</span>
+        </div>
+        <p class="section10-billing-info">Facturé <span class="highlight">239,99 €/an</span> (estimation à confirmer). Soit ≈ 60 € d'économie sur l'année.</p>
+        <ul class="section10-features">
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Tout le terminal : News, Calendrier, Smart Bias</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Currency Strength, COT, Week Ahead &amp; TAUX</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Recherche Institution &amp; Analyst Report</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Macro AI &amp; toutes les évolutions futures</li>
+          <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Accès à la communauté JustOneTrader</li>
+        </ul>
+        <a class="section10-cta-button" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Essai 7 jours <span class="section10-cta-arrow">→</span></a>
+      </div>
+
+    </div>
+
+    <div class="section10-stats">
+      <span class="section10-stats-label">CE QUE VOUS OBTENEZ</span>
+      <div class="section10-stats-grid">
+        <div class="section10-stat-item">
+          <span class="section10-stat-number">10</span>
+          <span class="section10-stat-description">modules macro &amp; forex réunis sur un seul écran</span>
+        </div>
+        <div class="section10-stat-item">
+          <span class="section10-stat-number">Temps réel</span>
+          <span class="section10-stat-description">données first-party, directement dans le navigateur</span>
+        </div>
+        <div class="section10-stat-item">
+          <span class="section10-stat-number">7 jours</span>
+          <span class="section10-stat-description">d'essai pour tester avant de vous décider</span>
+        </div>
       </div>
     </div>
+
+    <div class="section10-help-section">
+      <div class="section10-help-section-inner">
+        <span class="section10-help-icon"><i class="fa-solid fa-circle-question"></i></span>
+        <div class="section10-help-content">
+          <h4 class="section10-help-title">Besoin d'être guidé avant de vous lancer ?</h4>
+          <p class="section10-help-text">Rejoignez la communauté JustOneTrader : un membre peut vous montrer comment tirer parti de chaque module du terminal.</p>
+        </div>
+        <a class="section10-help-button" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Découvrir la communauté</a>
+      </div>
+    </div>
+
+    <div class="section10-bottom-cta">
+      <div class="section10-bottom-cta-content">
+        <span class="section10-bottom-cta-icon"><i class="fa-solid fa-bolt"></i></span>
+        <div class="section10-bottom-cta-text">
+          <h3 class="section10-bottom-cta-title">Essayez sans risque pendant 7 jours</h3>
+          <p class="section10-bottom-cta-subtitle">24,99 €/mois ensuite, sans engagement, résiliable en un clic.</p>
+        </div>
+      </div>
+      <div class="section10-bottom-cta-buttons">
+        <a class="section10-bottom-button primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Démarrer l'essai 7 jours →</a>
+        <a class="section10-bottom-button secondary" href="#fonctionnalites">Voir les modules</a>
+      </div>
+    </div>
+
   </div>
 </section>
 
-<!-- MISSION -->
-<section id="mission">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Notre approche</div>
-      <h2>Pensé par des traders, pas par des marketeux</h2>
-      <p>DataTradingPro est né d'un problème vécu : trop d'onglets, trop de connexions, des outils qui ne se parlent pas. Pendant qu'on jongle entre news, graphiques et tableaux, le marché, lui, bouge.</p>
-    </div>
-    <div class="mission-grid">
-      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h4>Gagner du temps</h4><p>Tout au même endroit — fini les fenêtres dispersées.</p></div>
-      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></div><h4>Voir plus</h4><p>Données, news et contexte réunis et hiérarchisés.</p></div>
-      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg></div><h4>Réagir vite</h4><p>Le signal à fort impact remonte en haut, en temps réel.</p></div>
-      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h4>Décider avec clarté</h4><p>Un biais clair et sourcé — vous tranchez en connaissance de cause.</p></div>
-    </div>
-  </div>
-</section>
-
-<!-- TRUST -->
-<section id="trust">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Pourquoi nous faire confiance</div>
-      <h2>La confiance se prouve, elle ne se promet pas</h2>
-      <p>On remplace les faux témoignages et les notes étoilées par des engagements vérifiables et l'honnêteté sur ce que DTP est — et n'est pas.</p>
-    </div>
-    <div class="trust-grid">
-      <div class="tcell"><div class="ti2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 13.42 20.6a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><circle cx="7" cy="7" r="1.2" fill="currentColor"/></svg></div><h4>Sources nommées</h4><p>Données datées et attribuées — vous savez toujours d'où vient l'information.</p></div>
-      <div class="tcell"><div class="ti2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h4>Temps réel vérifiable</h4><p>Pastilles LIVE, horodatage des news et du Squawk en direct.</p></div>
-      <div class="tcell"><div class="ti2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></svg></div><h4>Aucun courtage</h4><p>DTP est un terminal de données. L'exécution reste chez votre broker.</p></div>
-      <div class="tcell"><div class="ti2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg></div><h4>Sans engagement</h4><p>Résiliable en un clic, paiement sécurisé, aucun frais caché.</p></div>
-    </div>
-    <div class="sources">
-      <span class="slbl">Ce que tu obtiens :</span>
-      <span class="src">News institutionnelles</span><span class="src">Calendrier mondial</span><span class="src">Données COT</span><span class="src">Recherche bancaire</span><span class="src">Force des devises</span><span class="src">Assistant IA</span>
-    </div>
-    <div class="notbox">
-      <h4>Ce que DataTradingPro <span style="color:var(--orange)">n'est pas</span></h4>
-      <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Pas un courtier — aucun ordre exécuté</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Pas de signaux garantis</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Pas de promesse de gain</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Pas de conseil en investissement personnalisé</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- RESSOURCES (apprendre) -->
-<section id="ressources">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Ressources</div>
-      <h2>Apprenez à exploiter le terminal</h2>
-      <p>Des guides clairs, pas-à-pas, pour chaque module — de la première connexion à la lecture avancée du marché.</p>
-    </div>
-    <div class="res-grid">
-      <a class="res-card" href="/documentation/prise-en-main.html"><span class="res-cat">Démarrer</span><h3>Prise en main</h3><p>Accès, première connexion, tour du terminal.</p><span class="res-go">Lire le guide →</span></a>
-      <a class="res-card" href="/documentation/smart-bias.html"><span class="res-cat">Module</span><h3>Smart Bias Tracker</h3><p>Lire la matrice de biais hebdomadaire par devise.</p><span class="res-go">Lire le guide →</span></a>
-      <a class="res-card" href="/documentation/news.html"><span class="res-cat">Module</span><h3>News priorisée</h3><p>Filtrer le flux par impact, devise et catégorie.</p><span class="res-go">Lire le guide →</span></a>
-      <a class="res-card" href="/documentation/calendrier.html"><span class="res-cat">Module</span><h3>Calendrier économique</h3><p>Réel vs prévision, Week Ahead, détail au clic.</p><span class="res-go">Lire le guide →</span></a>
-      <a class="res-card" href="/documentation/force-des-devises.html"><span class="res-cat">Module</span><h3>Force des devises</h3><p>Currency strength des 8 majeures, en direct.</p><span class="res-go">Lire le guide →</span></a>
-      <a class="res-card" href="/documentation/assistant-ia.html"><span class="res-cat">Module</span><h3>Assistant Macro IA</h3><p>Poser une question, obtenir une réponse sourcée.</p><span class="res-go">Lire le guide →</span></a>
-    </div>
-    <div class="res-foot"><span>De nouveaux guides régulièrement.</span><a href="/documentation/">Toute la documentation →</a></div>
-  </div>
-</section>
-
-<!-- PRICING -->
-<section id="tarifs">
-  <div class="wrap">
-    <div class="sec-head">
-      <div class="tag">Tarif</div>
-      <h2>Un accès, tout le terminal</h2>
-      <p>Un seul abonnement, sans palier confus ni option cachée. La clarté du produit jusque dans le prix.</p>
-    </div>
-    <div class="price-toggle" role="tablist" aria-label="Période de facturation">
-      <button class="pt-opt pt-on" id="pt-month" type="button" role="tab" aria-selected="true" onclick="setBilling('month')">Mensuel</button>
-      <button class="pt-opt" id="pt-year" type="button" role="tab" aria-selected="false" onclick="setBilling('year')">Annuel <span class="pt-save">−20%</span></button>
-    </div>
-    <div class="price-card">
-      <div class="badge">Accès Pro</div>
-      <h3>Accès Terminal Pro</h3>
-      <div class="sub">Tout DataTradingPro, en continu</div>
-      <div class="amt"><span id="price-main">24,99 €</span> <small id="price-per">/ mois</small></div>
-      <div class="sub" id="price-note" style="margin-top:8px">Soit moins de 0,83 € par jour — sans engagement.</div>
-      <ul>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> News &amp; Calendar priorisés en temps réel</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Smart Bias &amp; force des devises</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Recherche institutionnelle &amp; COT (5 catégories)</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Assistant Macro IA sourcé</li>
-        <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Accès navigateur, mises à jour en continu</li>
-      </ul>
-      <div style="color:var(--green);font-size:13px;font-weight:600;margin-bottom:12px">✓ Sans engagement · Résiliable à tout moment</div>
-      <a class="btn btn-primary" id="price-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner — 24,99 €/mois →</a>
-      <div class="reassure">Paiement sécurisé · Résiliable à tout moment · Aucun frais caché</div>
-    </div>
-  </div>
-</section>
-
-<!-- FAQ -->
-<section id="faq">
-  <div class="wrap">
-    <div class="sec-head"><div class="tag">Questions fréquentes</div><h2>Les questions qu'on nous pose vraiment</h2></div>
-    <div class="faq">
-      <details><summary>DataTradingPro passe-t-il des ordres à ma place ?</summary><p>Non. C'est un terminal de données, de news et de recherche. Vous exécutez vous-même chez votre courtier — DTP éclaire la décision, il ne la prend jamais et n'exécute aucun ordre.</p></details>
-      <details><summary>Est-ce un conseil en investissement ?</summary><p>Non. Toutes les données sont fournies à titre informatif et d'aide à la décision — jamais comme un conseil financier personnalisé.</p></details>
-      <details><summary>Faut-il installer un logiciel ?</summary><p>Non — tout fonctionne dans le navigateur, sur ordinateur, tablette et mobile. Aucune installation, aucune extension.</p></details>
-      <details><summary>D'où viennent les données ?</summary><p>De sources de marché institutionnelles reconnues — calendrier économique, news, positionnement, recherche et force des devises — agrégées et rafraîchies en temps réel. Le détail de nos sources fait partie de notre savoir-faire.</p></details>
-      <details><summary>L'abonnement est-il sans engagement ?</summary><p>Oui. 24,99 €/mois, résiliable à tout moment en un clic, sans frais cachés.</p></details>
-      <details><summary>Comment j'accède au terminal après paiement ?</summary><p>Le paiement se fait sur Whop. Juste après, tu reçois un email avec tes identifiants (login + mot de passe), et tu es automatiquement ajouté à notre serveur Discord avec la communauté. Tu te connectes ensuite sur desk.datatradingpro.com et tout se charge en temps réel.</p></details>
-    </div>
-  </div>
-</section>
-
-<!-- CTA FINAL -->
-<div class="cta-final">
-  <div class="wrap">
-    <h2>Moins d'onglets. Moins de doute. Une décision nette.</h2>
-    <p>Arrêtez de reconstituer le marché à la main dans dix fenêtres. Ouvrez un seul écran qui a déjà fait le tri — tout le contexte macro, FX et institutionnel, en temps réel.</p>
-    <div class="ctas">
-      <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal — 24,99 €/mois →</a>
-      <a class="btn btn-ghost" href="https://desk.datatradingpro.com/">Se connecter</a>
-    </div>
-    <div class="micro">
-      <span>Accès immédiat · Sans engagement · Temps réel</span>
-      <span class="mono"><span class="dot"></span>desk.datatradingpro.com · LIVE</span>
-    </div>
-  </div>
-</div>
-
-<!-- FOOTER -->
-</main>
 <footer>
   <div class="wrap">
     <div class="foot">
