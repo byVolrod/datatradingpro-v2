@@ -3273,6 +3273,43 @@ function _waLoadPanels(){
 window._waLoadPanels=_waLoadPanels;
 // Tant que la vue Week Ahead est ouverte : on rafraîchit le doublon calendrier (le ticker News, lui, est déjà live).
 setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v && !v.classList.contains('hidden')){ _waLoadPanels(); } }, 60000);
+
+// ── Week Ahead : glisser pour redimensionner — splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──
+(function initWaResize(){
+  const wa3 = document.getElementById('wa3');
+  const vsplit = document.getElementById('wa3-vsplit');
+  const hsplit = document.getElementById('wa3-hsplit');
+  if (!wa3) return;
+  function drag(handle, axis, target, prop){
+    if (!handle || !target) return;
+    const down = e => {
+      e.preventDefault();
+      const rect = target.getBoundingClientRect();
+      handle.classList.add('dragging'); wa3.classList.add('wa-dragging');
+      const move = ev => {
+        const p = ev.touches ? ev.touches[0] : ev;
+        if (axis === 'x') {
+          const v = Math.max(rect.width * 0.25, Math.min(rect.width * 0.75, p.clientX - rect.left));
+          target.style.setProperty(prop, v + 'px');
+        } else {
+          const v = Math.max(rect.height * 0.2, Math.min(rect.height * 0.8, p.clientY - rect.top));
+          target.style.setProperty(prop, v + 'px');
+        }
+      };
+      const up = () => {
+        document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
+        document.removeEventListener('touchmove', move); document.removeEventListener('touchend', up);
+        handle.classList.remove('dragging'); wa3.classList.remove('wa-dragging');
+      };
+      document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+      document.addEventListener('touchmove', move, { passive:false }); document.addEventListener('touchend', up);
+    };
+    handle.addEventListener('mousedown', down);
+    handle.addEventListener('touchstart', down, { passive:false });
+  }
+  drag(vsplit, 'x', wa3, '--wa-left');                                  // gauche/droite (sur #wa3)
+  drag(hsplit, 'y', hsplit && hsplit.parentNode, '--wa-top');          // ticker/calendrier (sur .wa3-right)
+})();
 // Sparkline amCharts (Weekly Risk Profile) — orange mat, dégradé vers le noir, sans grille/axe (look cockpit).
 function _waBuildChart(days) {
   const el = document.getElementById('wa-risk-chart');
