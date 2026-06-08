@@ -4341,7 +4341,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v7-percur';   // v7 : narratif IA généré DEVISE PAR DEVISE (anti-troncature) → force 1 régén pour remplacer le repli déterministe en cache   // bump → force une régén (self-heal au démarrage/horaire)
+const BIAS_VER = 'v8-fr';   // v8 : narratif IA rédigé EN FRANÇAIS → bump pour régénérer en FR les narratifs anglais en cache   // bump → force une régén (self-heal au démarrage/horaire)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -4625,28 +4625,28 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
 // n'aboutit → _sbFillNarrative compose alors une synthèse data-driven (0 token). Cache porté par _smartBias.
 async function _sbGenerateNarratives(rows, conclusion, ctxLines, only) {
   const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 2400);
-  const CB_OF = { USD: 'the Fed', EUR: 'the ECB', GBP: 'the BoE', JPY: 'the BoJ', CHF: 'the SNB', CAD: 'the BoC', AUD: 'the RBA', NZD: 'the RBNZ' };
+  const CB_OF = { USD: 'la Fed', EUR: 'la BCE', GBP: 'la BoE', JPY: 'la BoJ', CHF: 'la BNS', CAD: 'la BoC', AUD: 'la RBA', NZD: 'la RBNZ' };
   const list = (Array.isArray(only) && only.length) ? only.filter(c => SB_CURRENCIES.includes(c)) : SB_CURRENCIES;
   const narr = {};
   for (const c of list) {
     try {
       const ind  = rows.map(r => `${r.label}=${r.values[c] || 'Neutral'}`).join(', ');
       const bias = conclusion[c] || 'Neutral';
-      const prompt = `You are a TOP-TIER institutional FX strategist. Write the weekly "${c} Performance Last Week" desk report for ${c} ONLY — ~350-450 words, cold, analytical, technical, dense institutional vocabulary (safe-haven demand, hawkish repricing, rangebound, front-end yields, higher-for-longer). Every sentence must carry a macro fact, a figure, a central-bank decision or a precise flow — NO filler. NEVER contradict ${c}'s computed Overall bias (${bias}). Ground EVERYTHING strictly on the REAL data below; do not invent figures. Write in your OWN words — never copy any external source.
+      const prompt = `Tu es un stratège FX institutionnel de tout premier plan. Rédige EN FRANÇAIS le rapport hebdomadaire de marché pour ${c} UNIQUEMENT — ~350-450 mots, ton froid, analytique, technique, vocabulaire institutionnel dense (demande de valeurs refuges, repricing hawkish, marché sans tendance, rendements de la partie courte, "higher-for-longer"). Chaque phrase doit porter un fait macro, un chiffre, une décision de banque centrale ou un flux précis — AUCUN remplissage. Ne CONTREDIS JAMAIS le biais Overall calculé de ${c} (${bias}). Appuie TOUT strictement sur les données RÉELLES ci-dessous ; n'invente aucun chiffre. Écris avec TES PROPRES mots — ne recopie jamais une source externe.
 
-Structure as flowing prose (NO markdown, NO headers, NO bullets):
-- Weekly chronology ("Early in the week" / "Midweek" / "By Thursday/Friday") tying ${c} to the week's themes and global risk appetite.
-- Monetary policy: ${CB_OF[c] || 'the central bank'} — name any officials quoted in the context and explain their stance.
-- Macro data: the week's releases with EXACT actual vs consensus figures from the context.
-- Rates & bonds: government-bond behaviour and auctions (bid-to-cover) from the context.
-- Outlook: "Near term:" the explicit bias (aligned with ${bias}) + the triggers that would invalidate it; then "Longer term:" the structural macro balance.
+Structure en prose fluide (PAS de markdown, PAS de titres, PAS de puces) :
+- Chronologie de la semaine ("En début de semaine" / "En milieu de semaine" / "Jeudi-vendredi") reliant ${c} aux thèmes de la semaine et à l'appétit pour le risque mondial.
+- Politique monétaire : ${CB_OF[c] || 'la banque centrale'} — cite les officiels mentionnés dans le contexte et explique leur posture.
+- Données macro : les publications de la semaine avec les chiffres EXACTS réalisé vs consensus tirés du contexte.
+- Taux & obligations : comportement des emprunts d'État et adjudications (bid-to-cover) tirés du contexte.
+- Perspectives : "À court terme :" le biais explicite (aligné sur ${bias}) + les catalyseurs qui l'invalideraient ; puis "À plus long terme :" l'équilibre macro structurel.
 
-${c} indicators: ${ind}
+Indicateurs ${c} : ${ind}
 
-REAL CONTEXT (this week — COT, bank research, economic calendar actual vs forecast, risk regime, news):
+CONTEXTE RÉEL (cette semaine — COT, recherche bancaire, calendrier économique réalisé vs prévu, régime de risque, actualités) :
 ${ctx}
 
-Return ONLY the ${c} report text — no preamble, no labels, no quotes, no JSON, no code fences.`;
+Renvoie UNIQUEMENT le texte du rapport ${c} — aucun préambule, aucune étiquette, aucun guillemet, aucun JSON, aucune balise de code. Commence DIRECTEMENT par la chronologie de la semaine (ne commence JAMAIS par "Le biais hebdomadaire global ressort").`;
       const out = await aiSmart('bias', prompt, 1100, { scheduled: true });
       const txt = (out || '').replace(/```[a-z]*|```/gi, '').trim();
       if (txt && txt.length > 80) narr[c] = txt.slice(0, 2400);
