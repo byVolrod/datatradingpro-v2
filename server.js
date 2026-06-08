@@ -873,9 +873,9 @@ app.post('/api/ai/chat', async (req, res) => {
   if (!answer) { try { const c = await auth.aiCacheGet(key); if (c && typeof c === 'string') answer = c; } catch {} }
   if (!answer) {
     let biasLine = '';
-    try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current PMT Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
+    try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current DTP Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
     const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
-    const prompt = `You are PMT's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. Answer the user's question in ONE concise, data-driven paragraph (max ~140 words), institutional tone, no preamble, no disclaimer. Wrap key market terms in **double asterisks** to bold them (e.g. **weak bearish**, **EUR/USD**, central banks, **risk-off**).
+    const prompt = `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. Answer the user's question in ONE concise, data-driven paragraph (max ~140 words), institutional tone, no preamble, no disclaimer. Wrap key market terms in **double asterisks** to bold them (e.g. **weak bearish**, **EUR/USD**, central banks, **risk-off**).
 ${biasLine}
 Recent market headlines (context):
 ${heads}
@@ -1912,7 +1912,7 @@ const SW_SEG_VER  = 'v3:';   // bump → régénère (v3 : l'IA PEAUFINE désorm
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(__dirname, 'cache_br_seg.json');
 const _brSegCache = _loadJsonMap(BR_SEG_FILE);
-const BR_SEG_VER  = 'v1:';   // bump → régénère (l'IA réorganise l'article en rubriques claires façon PMT)
+const BR_SEG_VER  = 'v1:';   // bump → régénère (l'IA réorganise l'article en rubriques claires façon DTP)
 
 // ── PRÉCHAUFFAGE : segmente les rapports EN AVANCE (cache persistant) → ouverture INSTANTANÉE ──
 // Le coût (Gemini) est payé en tâche de fond, jamais quand l'utilisateur ouvre un rapport.
@@ -2621,7 +2621,7 @@ app.get('/api/bank-research-content', async (req, res) => {
       } catch { dateFormatted = pubDate; }
     }
 
-    // ── Structuration IA en rubriques claires façon PMT (DailyFX/recherche en prose) ──
+    // ── Structuration IA en rubriques claires façon DTP (DailyFX/recherche en prose) ──
     //  Persistée (hot + Supabase durable), budget-aware (Gemini only) ; repli = HTML brut d'origine.
     let outHtml = clean, outSource = 'raw';
     try {
@@ -2729,7 +2729,7 @@ app.post('/api/report-insights', async (req, res) => {
   const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = 'v4:' + (id || clean.slice(0, 100));   // v4 = carrousel PMT (mix narratif + actif/signal BUY/SELL/NEUTRAL)
+  const key = 'v4:' + (id || clean.slice(0, 100));   // v4 = carrousel DTP (mix narratif + actif/signal BUY/SELL/NEUTRAL)
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
@@ -2834,7 +2834,7 @@ Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rule
   }
 });
 
-// ─── Info "tag" : résumé Gemini clair & synthétique (style rapport PMT), cache persistant ──
+// ─── Info "tag" : résumé Gemini clair & synthétique (style rapport DTP), cache persistant ──
 const INFO_CACHE_FILE = path.join(__dirname, 'cache_news_info.json');
 const _infoCache = _loadJsonMap(INFO_CACHE_FILE);
 app.post('/api/news-info', async (req, res) => {
@@ -3168,7 +3168,7 @@ app.get('/api/london-prep', async (req, res) => {
   }, delay);
 })();
 
-// ─── PMT Daily US Opening Briefing ──────────────────────────────────────────
+// ─── DTP Daily US Opening Briefing ──────────────────────────────────────────
 // Auto-generated at 14:45 Paris (≈ 08:45 NY) and injected directly into the news feed
 
 const _US_BRIEFING_ID_PREFIX = 'pmt-us-briefing-';
@@ -3238,10 +3238,10 @@ Rules: start each bullet with a dash (-). Be specific (name pairs, levels, bps).
     const now  = Date.now();
     const item = {
       id:          todayPrefix + '-' + now,
-      headline:    `PRIMER - PMT Daily US Opening News — ${shortDate}`,
+      headline:    `PRIMER - DTP Daily US Opening News — ${shortDate}`,
       description,
       category:    'Market Analysis',
-      source:      'PMT',
+      source:      'DTP',
       time:        timeStr,
       timestamp:   now,
       priority:    'normal',
@@ -3288,7 +3288,7 @@ app.get('/api/us-briefing/generate', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-// ─── Generic PMT daily briefing generator ────────────────────────────────────
+// ─── Generic DTP daily briefing generator ────────────────────────────────────
 
 function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = false, buildFn, dateOffset = 0 }) {
   // dateOffset=0 → today, dateOffset=1 → yesterday
@@ -3299,7 +3299,7 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
 
   const todayPrefix = idPrefix + dateKey;
   if (!force && allNews.some(i => (i.id || '').startsWith(todayPrefix))) {
-    console.log(`[PMT] ${reportType} already generated for ${dateKey}, skipping.`);
+    console.log(`[DTP] ${reportType} already generated for ${dateKey}, skipping.`);
     return;
   }
   // Remove existing same-day briefings (replace on force, or clean stale)
@@ -3340,7 +3340,7 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
     headline:    `PRIMER — ${subtitle}`,
     description,
     category:    'Market Analysis',
-    source:      'PMT',
+    source:      'DTP',
     time:        timeStr,
     timestamp:   now,
     priority:    'normal',
@@ -3352,7 +3352,7 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
   allNews = [item, ...allNews].slice(0, 2000);
   saveHistory();
   broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
-  console.log(`[PMT] "${item.headline}" → ${bullets.length} bullets (${recent.length} items)`);
+  console.log(`[DTP] "${item.headline}" → ${bullets.length} bullets (${recent.length} items)`);
   return item;
 }
 
@@ -3470,7 +3470,7 @@ function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }
   const weekPrefix = idPrefix + weekKey;
 
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix))) {
-    console.log(`[PMT] ${reportType} already generated for ${weekKey}, skipping.`); return;
+    console.log(`[DTP] ${reportType} already generated for ${weekKey}, skipping.`); return;
   }
   if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(weekPrefix));
 
@@ -3497,14 +3497,14 @@ function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }
   const description = bullets.filter(Boolean).map(b => `- ${b.replace(/^[-•·]\s*/,'').trim()}`).join('\n');
   const item = {
     id: weekPrefix + '-' + now, headline: `PRIMER — ${subtitle}`, description,
-    category: 'Market Analysis', source: 'PMT', time: timeStr, timestamp: now,
+    category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
     priority: 'normal', tags: tags.length ? tags : [reportType],
     _briefing: true, _reportType: reportType,
   };
   allNews = [item, ...allNews].slice(0, 2000);
   saveHistory();
   broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
-  console.log(`[PMT] "${item.headline}" → ${bullets.length} bullets (7d window)`);
+  console.log(`[DTP] "${item.headline}" → ${bullets.length} bullets (7d window)`);
   return item;
 }
 
@@ -3899,7 +3899,7 @@ ${corpus}`;
     id: weekPrefix + '-' + now,
     headline: `${weekly.title} Week Ending: ${weekEnding}`,   // carte liste = format référence (titre + Week Ending)
     description: descParts.filter(Boolean).join('\n'),
-    category: 'Market Analysis', source: 'PMT', time: timeStr, timestamp: satTs,   // daté au SAMEDI
+    category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: satTs,   // daté au SAMEDI
     priority: 'normal', tags: ['Weekly Recap', 'Markets', 'FX'],
     _briefing: true, _reportType: 'Weekly Market Recap', _weekly: weekly,
   };
@@ -3978,18 +3978,18 @@ async function generateWeeklyMarketRecap(force = false) {
 
   for (const { fn, h, m, name } of daily) {
     const delay = msToNextParis(h, m);
-    console.log(`[PMT] ${name} scheduled in ${Math.round(delay / 60000)} min`);
+    console.log(`[DTP] ${name} scheduled in ${Math.round(delay / 60000)} min`);
     setTimeout(function run() {
-      fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message));
-      setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 24 * 60 * 60 * 1000);
+      fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message));
+      setInterval(() => fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message)), 24 * 60 * 60 * 1000);
     }, delay);
   }
   for (const { fn, hUTC, mUTC, name } of weekly) {
     const delay = msToNextSaturdayUTC(hUTC, mUTC);
-    console.log(`[PMT] ${name} (samedi ${hUTC}:${String(mUTC).padStart(2,'0')} UTC) dans ${Math.round(delay / 60000)} min`);
+    console.log(`[DTP] ${name} (samedi ${hUTC}:${String(mUTC).padStart(2,'0')} UTC) dans ${Math.round(delay / 60000)} min`);
     setTimeout(function run() {
-      fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message));
-      setInterval(() => fn().catch(e => console.error(`[PMT] ${name} failed:`, e.message)), 7 * 24 * 60 * 60 * 1000);
+      fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message));
+      setInterval(() => fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message)), 7 * 24 * 60 * 60 * 1000);
     }, delay);
   }
 
@@ -3999,7 +3999,7 @@ async function generateWeeklyMarketRecap(force = false) {
     // 1) On RECHARGE d'abord les rapports hebdo persistés (Supabase) → pas de régénération Gemini inutile
     await _loadPersistedWeekly();
 
-    daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] startup ${name} failed:`, e.message)));
+    daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[DTP] startup ${name} failed:`, e.message)));
 
     // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le week-end, les rapports hebdo
     // (samedi 02:00 UTC) n'ont pas été générés. La dédup par semaine ISO + le rechargement
@@ -4007,7 +4007,7 @@ async function generateWeeklyMarketRecap(force = false) {
     // Garde-fou : uniquement samedi/dimanche (UTC), pas en milieu de semaine.
     const uDay = new Date().getUTCDay();   // 0=dim, 6=sam
     if (uDay === 6 || uDay === 0) {
-      weekly.forEach(({ fn, name }) => fn().catch(e => console.error(`[PMT] rattrapage hebdo ${name} échec:`, e.message)));
+      weekly.forEach(({ fn, name }) => fn().catch(e => console.error(`[DTP] rattrapage hebdo ${name} échec:`, e.message)));
     }
   }, 25 * 1000);
 })();
@@ -4245,7 +4245,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
 
   const trend = await _sbTrendRow();
   const seasonality = await _sbSeasonalityRow();   // RÉELLE (saisonnalité 5 ans, cf. _sbSeasonalityRow) — plus de devinette IA
-  // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés PMT.
+  // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés DTP.
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
     const vals = SB_GEM_ROWS.map(r => (gem[r.key] ? gem[r.key][c] : null));
@@ -4362,7 +4362,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v3-detailed';   // v3 : liste d'événements DÉTAILLÉE par jour (façon PMT) → bump force la régénération
+const WA_VER = 'v3-detailed';   // v3 : liste d'événements DÉTAILLÉE par jour (façon DTP) → bump force la régénération
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4398,7 +4398,7 @@ async function generateWeekAhead(force = false) {
     const title = (themes.length ? themes.join(' & ') : 'Key Economic Data') + (ccys.length ? ' — ' + ccys.join(', ') : '');
     const base = (hiEvs.length ? hiEvs : evs).slice(0, 10);
     const description = base.map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (prév. ${e.forecast})` : ''}`.trim()).join(' · ') || 'Données économiques de la journée.';
-    // Liste DÉTAILLÉE d'événements (façon PMT) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
+    // Liste DÉTAILLÉE d'événements (façon DTP) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
     const events = base.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(e => ({
       time: e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '',
       ccy: e.currency || '', title: (e.title || '').slice(0, 90),
@@ -4472,7 +4472,7 @@ app.get('/api/week-ahead', (_req, res) => {
 })();
 
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
-// Seed (issu des captures PMT) + éditions admin + extraction Gemini des flux recherche.
+// Seed (issu des captures DTP) + éditions admin + extraction Gemini des flux recherche.
 // Le statut (Active / TP touché / SL touché) et le prix se mettent à jour en TEMPS RÉEL (Yahoo).
 const BANK_FILE = path.join(__dirname, 'cache_bank_positions.json');
 const BANK_SEED = [
@@ -4698,8 +4698,8 @@ app.get('/api/briefings/generate-all', async (req, res) => {
   ] : [];
 
   for (const { name, fn } of [...todayFns, ...yesterdayFns]) {
-    try { await fn(); console.log(`[PMT] ${name} done`); }
-    catch (e) { console.error(`[PMT] ${name} failed:`, e.message); }
+    try { await fn(); console.log(`[DTP] ${name} done`); }
+    catch (e) { console.error(`[DTP] ${name} failed:`, e.message); }
     await new Promise(r => setTimeout(r, 1500));
   }
 });
@@ -4756,7 +4756,7 @@ function detectCategory(text) {
   if (/\btrade\b|tariff|export|import|wto|supply chain|trade war/.test(t)) return 'Trade';
   if (/\basia\b|japan|china|korea|singapore|hong kong|thailand|vietnam|india/.test(t)) return 'Asian News';
   if (/wheat|corn|soy|coffee|sugar|cocoa|agriculture|crop|cattle/.test(t)) return 'Ags & Softs';
-  if (/prime minister|parliament|election|congress|senate|white house/.test(t)) return 'PMT Update';
+  if (/prime minister|parliament|election|congress|senate|white house/.test(t)) return 'DTP Update';
   return 'Global News';
 }
 
@@ -4908,7 +4908,7 @@ function upgradeItemPriority(item) {
 
 // Purge noise from history on every server start
 allNews = allNews.filter(i => {
-  if (i._briefing || i.source === 'PMT') return true;          // garder les rapports internes
+  if (i._briefing || i.source === 'DTP') return true;          // garder les rapports internes
   if (isNoise(i.headline)) return false;
   if (isGlobalNewsNoise(i.headline)) return false;
   // Global News générique sans pertinence financière → purge
@@ -4964,7 +4964,7 @@ function mergeItems(incoming) {
   // Curated sources bypass the keyword filter — they're already financial news
   const relevant = incoming.filter(item => {
     // Internal briefings always pass through
-    if (item._briefing || item.source === 'PMT') return true;
+    if (item._briefing || item.source === 'DTP') return true;
 
     const fullText = item.headline + ' ' + (item.description || '');
 
