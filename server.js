@@ -4393,7 +4393,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v4-weekcurrent';   // v4 : fenêtre ancrée à la SEMAINE EN COURS (Lun→Dim) → bump force la régénération
+const WA_VER = 'v5-headline';   // v5 : accroches éditoriales FR + drapeaux devises | fenêtre ancrée SEMAINE EN COURS (Lun→Dim) → bump force la régénération
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4422,15 +4422,25 @@ async function generateWeekAhead(force = false) {
     if (/retail|sales|consumer|spending|confidence/.test(t)) return 'Consumer';
     if (/trade|export|import|current account/.test(t)) return 'Trade';
     return null; };
+  // Accroche éditoriale FR (façon PMT) — déterministe, 0 IA.
+  const THEME_FR = { 'Inflation': "l'inflation", 'Labour Market': "l'emploi", 'Growth': 'la croissance', 'Activity (PMI)': "l'activité (PMI)", 'Central Banks': 'les banques centrales', 'Consumer': 'la consommation', 'Trade': 'le commerce extérieur' };
+  const DAY_FR = { Monday: 'lundi', Tuesday: 'mardi', Wednesday: 'mercredi', Thursday: 'jeudi', Friday: 'vendredi', Saturday: 'samedi', Sunday: 'dimanche' };
+  const _cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
   const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
   const days = keys.map(k => {
     const evs = byDay[k].slice().sort((a, b) => (b.impact === 'High' ? 1 : 0) - (a.impact === 'High' ? 1 : 0));
     const d = new Date(k + 'T12:00:00Z');
     const hiEvs = evs.filter(e => e.impact === 'High');
     const risk = Math.max(15, Math.min(100, Math.round(evs.reduce((s, e) => s + (e.impact === 'High' ? 3 : 1), 0) * 9)));
-    const ccys = [...new Set(hiEvs.map(e => e.currency).filter(Boolean))].slice(0, 3);
+    const ccys = [...new Set([...hiEvs, ...evs].map(e => e.currency).filter(Boolean))].slice(0, 4);
     const themes = [...new Set(evs.map(e => _theme(e.title || '')).filter(Boolean))].slice(0, 2);
-    const title = (themes.length ? themes.join(' & ') : 'Key Economic Data') + (ccys.length ? ' — ' + ccys.join(', ') : '');
+    const dowEn = d.toLocaleDateString('en-US', { weekday: 'long' });
+    const dayFr = DAY_FR[dowEn] || 'la séance';
+    const frThemes = themes.map(t => THEME_FR[t]).filter(Boolean);
+    let title;
+    if (frThemes.length >= 2)       title = `${_cap(frThemes[0])} et ${frThemes[1]} rythment ce ${dayFr}`;
+    else if (frThemes.length === 1) title = `${_cap(frThemes[0])} au cœur de ce ${dayFr}`;
+    else                            title = hiEvs.length ? `Événements à risque ce ${dayFr}` : `Séance plus calme ce ${dayFr}`;
     const base = (hiEvs.length ? hiEvs : evs).slice(0, 10);
     const description = base.map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (prév. ${e.forecast})` : ''}`.trim()).join(' · ') || 'Données économiques de la journée.';
     // Liste DÉTAILLÉE d'événements (façon DTP) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
@@ -4441,8 +4451,8 @@ async function generateWeekAhead(force = false) {
       impact: e.impact === 'High' ? 'HIGH' : 'MED',
     }));
     return {
-      dow: d.toLocaleDateString('en-US', { weekday: 'long' }), date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
-      title: title.slice(0, 170), description: description.slice(0, 750), events, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+      dow: dowEn, date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
+      title: title.slice(0, 170), description: description.slice(0, 750), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
     };
   });
   if (!days.length) return _weekAhead;
