@@ -2879,8 +2879,16 @@ window._retryCalendar = function() {
         try { if (typeof disposeRoot === 'function') disposeRoot('sym-strength'); } catch {}   // anti-fuite amCharts (Render 512Mo)
         sEl.innerHTML = '';
         try {
-          if (typeof buildStrengthChart === 'function') buildStrengthChart('sym-strength', data, {});
-          else if (window.buildIsolatedStrength) window.buildIsolatedStrength('sym-strength', base, 'week');
+          if (typeof buildStrengthChart === 'function') {
+            const sc = buildStrengthChart('sym-strength', data, {});
+            // « Smart » : ne garder en couleur que les 2 devises de la paire ; les 6 autres sont masquées
+            // → grisées dans la légende + sans badge de valeur, mais re-cliquables (comme le tab principal).
+            if (sc && sc.seriesMap && ccys.length) {
+              Object.keys(sc.seriesMap).forEach(c => { if (!ccys.includes(c)) { try { sc.seriesMap[c].hide(0); } catch {} } });
+            }
+          } else if (window.buildIsolatedStrength) {
+            window.buildIsolatedStrength('sym-strength', base, 'week');
+          }
         } catch { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; }
       }).catch(() => { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; });
     }
