@@ -3226,13 +3226,13 @@ function _renderWeekAhead(d) {
         <span class="wa-date">${esc(day.date || '')}</span>
         <span class="wa-month">${esc((day.month || '').slice(0, 3).toUpperCase())}</span>
       </div>
-      <div class="wa-card">
+      <div class="wa-card ${hi ? 'wa-card--high' : 'wa-card--med'}">
         <div class="wa-card-head">
           <div class="wa-card-headl">
             <span class="wa-card-title">${esc(day.headline || day.title)}</span>
             ${flags ? `<span class="wa-flags">${flags}</span>` : ''}
           </div>
-          <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}">${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
+          <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
         </div>
         <div class="wa-card-desc">${esc(day.summary || day.description || '')}</div>
         <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>

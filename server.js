@@ -4498,7 +4498,7 @@ async function _waApplyEditorial(days, weekKey) {
     const evs = (d.events || []).slice(0, 8).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (prév. ' + e.forecast + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
     return `${d.date} (${d.dow}) : ${evs || 'données mineures'}`;
   }).join('\n');
-  const prompt = 'Tu es analyste macro pour un terminal de trading. Pour CHAQUE jour ci-dessous, rédige en FRANCAIS : (1) un titre éditorial court et accrocheur façon manchette (6 à 12 mots, sans guillemets, sans point final), (2) un résumé de 1 à 2 phrases sur ce que les marchés vont surveiller ce jour-là. Style institutionnel, factuel, concret (cite les publications clés).\n\nÉvénements de la semaine :\n' + lines + '\n\nRéponds UNIQUEMENT par un JSON strict, une entrée par numéro de jour fourni : {"' + (days[0] ? days[0].date : 'J') + '":{"headline":"...","summary":"..."}, ...}. Aucun texte autour.';
+  const prompt = 'Tu es analyste macro pour un terminal de trading. Pour CHAQUE jour ci-dessous, rédige en FRANCAIS : (1) un titre éditorial court et accrocheur façon manchette (6 à 12 mots, sans guillemets, sans point final), (2) un résumé de 2 à 3 phrases (un paragraphe court) qui explique ce que les marchés vont surveiller ce jour-là — cite les publications/banques centrales clés et leur enjeu. Style institutionnel, factuel, concret, ENTIEREMENT REDIGE (pas une simple liste). Ne recopie aucune autre source : formule avec tes propres mots.\n\nÉvénements de la semaine :\n' + lines + '\n\nRéponds UNIQUEMENT par un JSON strict, une entrée par numéro de jour fourni : {"' + (days[0] ? days[0].date : 'J') + '":{"headline":"...","summary":"..."}, ...}. Aucun texte autour.';
   let txt;
   try { txt = await aiSmart('weekahead', prompt, 1100, { scheduled: true }); }
   catch (e) { console.log('[WeekAhead IA] indisponible → titres déterministes:', e.message); return; }
@@ -4506,7 +4506,7 @@ async function _waApplyEditorial(days, weekKey) {
     const m = String(txt).match(/\{[\s\S]*\}/);
     const obj = JSON.parse(m ? m[0] : String(txt));
     const clean = {};
-    days.forEach(d => { const v = obj[d.date] || obj[String(d.date)] || obj[('0' + d.date).slice(-2)]; if (v && v.headline) clean[d.date] = { headline: String(v.headline).replace(/^["']|["']$/g, '').slice(0, 120), summary: String(v.summary || '').slice(0, 340) }; });
+    days.forEach(d => { const v = obj[d.date] || obj[String(d.date)] || obj[('0' + d.date).slice(-2)]; if (v && v.headline) clean[d.date] = { headline: String(v.headline).replace(/^["']|["']$/g, '').slice(0, 120), summary: String(v.summary || '').slice(0, 460) }; });
     if (Object.keys(clean).length) {
       _waEditorial = { weekKey, days: clean, at: Date.now() };
       await auth.aiCacheSet('weekahead:editorial', _waEditorial).catch(() => {});
