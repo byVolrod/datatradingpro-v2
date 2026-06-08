@@ -4091,7 +4091,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v6-sat';   // v6 : narratif découplé + auto-réessai (self-heal) si périmé/quota + régén SAMEDI   // bump → force une régén (ici : purge le cache périmé 2025 + nouveau planning samedi)
+const BIAS_VER = 'v7-percur';   // v7 : narratif IA généré DEVISE PAR DEVISE (anti-troncature) → force 1 régén pour remplacer le repli déterministe en cache   // bump → force une régén (self-heal au démarrage/horaire)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
