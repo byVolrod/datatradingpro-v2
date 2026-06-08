@@ -2700,6 +2700,8 @@ window._retryCalendar = function() {
   };
   // Valeur de biais → classe couleur sémantique FIXE (mêmes hex que .sbm-* de la vue BIAS).
   const _biasCls = v => ({ 'Very Bullish':'sbm-vbull','Bullish':'sbm-bull','Weak Bullish':'sbm-bull','Uptrend':'sbm-bull','Bearish':'sbm-bear','Weak Bearish':'sbm-bear','Downtrend':'sbm-bear','Very Bearish':'sbm-vbear','N/A':'sbm-na' }[v] || 'sbm-neut');
+  const _DD_CLOCK = '<svg class="sym-dd-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7.5V12l3 2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const _DD_HASH = '<span class="sym-dd-hash">#</span>';
 
   // ── Dropdown d'autocomplétion : en-tête « # Foreign Exchange (N) » + double drapeau rond + nom complet ──
   // Une ligne de paire : double drapeau rond + code + nom complet des 2 devises.
@@ -2710,26 +2712,28 @@ window._retryCalendar = function() {
       + '<span class="sym-dd-flags">' + _ddFlag(c1, '') + _ddFlag(c2, ' sym-dd-flag--2') + '</span>'
       + '<span class="sym-dd-txt"><span class="sym-dd-sym">' + p + '</span><span class="sym-dd-name">' + name + '</span></span></div>';
   }
-  function _ddSection(icon, title, list) {
+  function _ddSection(iconHtml, title, list) {
     if (!list.length) return '';
-    return '<div class="sym-dd-head"><span class="sym-dd-hash">' + icon + '</span> ' + title + ' <span class="sym-dd-count">(' + list.length + ')</span></div>'
+    return '<div class="sym-dd-head">' + iconHtml + ' ' + title + ' <span class="sym-dd-count">(' + list.length + ')</span></div>'
       + list.map(_ddRow).join('');
   }
-  // Dropdown « intelligent » : section HISTORIQUE (5 dernières paires ouvertes cette session) puis
-  // section FOREIGN EXCHANGE (paires filtrées sur les lettres saisies, préfixe d'abord ; majors si vide).
+  // Dropdown « intelligent » façon PMT :
+  //  • champ VIDE (clic/focus) → UNIQUEMENT « Recent Searches » (horloge) = 6 dernières paires ouvertes ;
+  //    s'il n'y a aucun historique, on propose les paires majeures.
+  //  • en SAISIE → « Recent Searches » filtrées + « Foreign Exchange » (paires qui matchent, préfixe d'abord).
   function renderDd(q) {
     q = (q || '').toUpperCase().replace(/[^A-Z]/g, '');
-    let recents = _recent.slice(0, 5);
+    let recents = _recent.slice(0, 6);
     if (q) recents = recents.filter(p => p.includes(q));
-    let fx;
+    let fx = [];
     if (q) {
       fx = PAIRS.filter(p => p.includes(q) && !recents.includes(p))
         .sort((a, b) => (a.startsWith(q) ? 0 : 1) - (b.startsWith(q) ? 0 : 1) || a.localeCompare(b))
         .slice(0, 10);
-    } else {
-      fx = PAIRS.filter(p => !recents.includes(p)).slice(0, 8);
+    } else if (!recents.length) {
+      fx = PAIRS.slice(0, 8);   // aucun historique encore → on propose les paires majeures
     }
-    const html = _ddSection('↻', 'Recent Searches', recents) + _ddSection('#', 'Foreign Exchange', fx);
+    const html = _ddSection(_DD_CLOCK, 'Recent Searches', recents) + _ddSection(_DD_HASH, 'Foreign Exchange', fx);
     dd.innerHTML = html || '<div class="sym-dd-empty">Aucune paire</div>';
     positionDd();
     dd.classList.remove('hidden');
@@ -2744,6 +2748,7 @@ window._retryCalendar = function() {
   const hideDd = () => dd.classList.add('hidden');
 
   input.addEventListener('focus', () => renderDd(input.value));
+  input.addEventListener('click', () => renderDd(input.value));
   input.addEventListener('input', () => renderDd(input.value));
   input.addEventListener('keydown', e => {
     if (e.key === 'Enter') { const q = input.value.toUpperCase().replace(/[^A-Z]/g,''); if (q.length < 2) return; const m = PAIRS.find(p => p === q) || PAIRS.find(p => p.includes(q)); if (m) openSymbol(m); }
