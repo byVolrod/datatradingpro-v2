@@ -2870,30 +2870,66 @@ window._retryCalendar = function() {
         } catch { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; }
       }).catch(() => { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; });
     }
-    // Calendrier filtré sur la paire
+    // Calendrier filtré sur la paire — MÊME rendu que Week Ahead (.cal-table : drapeaux ronds, points d'impact,
+    // ACTUAL/FORECAST/PREVIOUS, séparateurs de jour) via les helpers globaux du calendrier.
     fetch('/api/calendar-events').then(r => r.json()).then(d => {
       const cal = document.getElementById('sym-cal'); if (!cal) return;
+      const evs = ((d && d.items) || []).filter(e => e && ccys.includes(e.currency))
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).slice(0, 80);
+      if (!evs.length) { cal.innerHTML = '<div class="sym-empty">Aucun événement pour ' + pretty(pair) + '.</div>'; return; }
       const now = Date.now();
-      const evs = ((d && d.items) || []).filter(e => e && ccys.includes(e.currency) && (e.timestamp || 0) > now - 36 * 3600000)
-        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).slice(0, 24);
-      cal.innerHTML = evs.length ? evs.map(e => {
-        const t = e.timestamp ? new Date(e.timestamp).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
-        const imp = e.impact === 'High' ? 'h' : e.impact === 'Medium' ? 'm' : 'l';
-        return '<div class="sym-cal-row"><span class="sym-cal-t">' + t + '</span><span class="sym-cal-c">' + (e.currency || '') + '</span><span class="sym-cal-ev">' + _esc((e.title || '').slice(0, 70)) + '</span><span class="sym-imp sym-imp--' + imp + '"></span></div>';
-      }).join('') : '<div class="sym-empty">Aucun événement à venir pour ' + pretty(pair) + '.</div>';
+      const nextIdx = evs.findIndex(e => (e.timestamp || 0) >= now);
+      let lastDay = '', tb = '';
+      evs.forEach((ev, i) => {
+        const ts = ev.timestamp || 0;
+        if (ts) {
+          const dk = new Date(ts).toLocaleDateString('en-GB', { timeZone: 'UTC' });
+          if (dk !== lastDay) {
+            lastDay = dk; const dt = new Date(ts);
+            tb += '<tr class="cal-day-sep"><td colspan="8">'
+              + dt.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' }) + ', '
+              + dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }) + '</td></tr>';
+          }
+        }
+        const imp = (ev.impact || '').toLowerCase();
+        const cls = 'cal-row' + (i === nextIdx ? ' cal-row--next' : '') + (ts && ts < now ? ' cal-row--past' : '') + (imp === 'high' ? ' cal-row--high' : imp === 'medium' ? ' cal-row--med' : '');
+        const fc = (ev.forecast != null && ev.forecast !== '') ? '<span class="cv-forecast">' + _esc(ev.forecast) + '</span>' : '<span class="cv-empty">—</span>';
+        const pv = (ev.previous != null && ev.previous !== '') ? '<span class="cv-prev">' + _esc(ev.previous) + '</span>' : '<span class="cv-empty">—</span>';
+        tb += '<tr class="' + cls + '">'
+          + '<td class="cth-time">' + calFormatTime(ts) + '</td>'
+          + '<td class="cth-flag">' + CAL_FLAG(ev.currency) + '</td>'
+          + '<td class="cth-curr">' + (ev.currency || '') + '</td>'
+          + '<td class="cth-imp">' + calImpDots(ev.impact) + '</td>'
+          + '<td class="cth-event">' + _esc(ev.title || '') + '</td>'
+          + '<td class="cth-val">' + calActualCell(ev.actual, ev.forecast) + '</td>'
+          + '<td class="cth-val">' + fc + '</td>'
+          + '<td class="cth-val">' + pv + '</td></tr>';
+      });
+      cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Time</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">EVENT</th><th class="cth-val">ACTUAL</th><th class="cth-val">FORECAST</th><th class="cth-val">PREVIOUS</th></tr></thead><tbody>' + tb + '</tbody></table>';
     }).catch(() => {});
-    // News filtrées sur la paire
+    // News filtrées sur la paire — MÊME rendu que Week Ahead (.news-item : heure + catégorie + titre, séparateurs de jour).
     const parts = ccys.map(c => '\\b' + c.toLowerCase() + '\\b' + (NEWS_KW[c] ? '|' + NEWS_KW[c] : '')).join('|');
     const re = parts ? new RegExp('(' + parts + ')', 'i') : null;
     fetch('/api/week-ahead-news').then(r => r.json()).then(d => {
       const nl = document.getElementById('sym-news'); if (!nl) return;
       const items = ((d && d.items) || []).filter(n => n && (
         (re && re.test(n.headline || '')) || (Array.isArray(n.tags) && n.tags.some(t => ccys.includes((t || '').toUpperCase())))
-      )).slice(0, 30);
-      nl.innerHTML = items.length ? items.map(n => {
-        const t = n.timestamp ? new Date(n.timestamp).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '';
-        return '<div class="sym-news-row"><span class="sym-news-t">' + t + '</span><span class="sym-news-h">' + _esc((n.headline || '').slice(0, 150)) + '</span></div>';
-      }).join('') : '<div class="sym-empty">Pas de news récente pour ' + pretty(pair) + '.</div>';
+      )).slice(0, 40);
+      if (!items.length) { nl.innerHTML = '<div class="sym-empty">Pas de news récente pour ' + pretty(pair) + '.</div>'; return; }
+      let lastD = '', h = '';
+      items.forEach(n => {
+        const ts = n.timestamp || 0;
+        if (ts) {
+          const dk = new Date(ts).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
+          if (dk !== lastD) { lastD = dk; h += '<div class="date-header">' + dk + '</div>'; }
+        }
+        const t = ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
+        h += '<div class="news-item' + (n.priority === 'high' ? ' news-item--high' : '') + '">'
+          + '<div class="news-time">' + t + '</div>'
+          + '<div class="news-category-text">' + (n.category ? _esc(n.category) : '') + '</div>'
+          + '<div class="news-content"><div class="news-headline">' + _esc(n.headline || '') + '</div></div></div>';
+      });
+      nl.innerHTML = h;
     }).catch(() => {});
   }
 
