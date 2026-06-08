@@ -330,7 +330,7 @@ html, body {
 .nav-item--symbol .sym-tab-flag { width: 16px; height: 12px; object-fit: cover; border-radius: 2px; }
 .nav-item--symbol .sym-x { margin-left: 3px; font-size: 14px; line-height: 1; color: #8a8a93; padding: 0 3px; border-radius: 3px; }
 .nav-item--symbol .sym-x:hover { color: #fff; background: #2a2a30; }
-#view-symbol { height: 100%; }
+#view-symbol { height: 100%; display: flex; flex-direction: column; min-height: 0; }
 .sym-grid { display: grid; grid-template-columns: 1.55fr 1fr; grid-template-rows: 1.4fr 1fr; gap: 8px; padding: 8px; height: 100%; min-height: 0; box-sizing: border-box; }
 .sym-panel { background: #0c0c0f; border: 1px solid #1c1c20; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; min-width: 0; }
 .sym-phead { flex: 0 0 auto; height: 30px; display: flex; align-items: center; padding: 0 11px; border-bottom: 1px solid #18181c; }
@@ -346,7 +346,92 @@ html, body {
 .sym-imp { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
 .sym-imp--h { background: #ff3d00; } .sym-imp--m { background: #ffb300; } .sym-imp--l { background: #6b7280; }
 .sym-empty { padding: 16px; color: #6a6a73; font-size: 11.5px; text-align: center; }
+.sym-load { padding: 26px; color: #7a7a83; font-size: 12px; text-align: center; }
+.sym-src { padding: 9px 13px 16px; color: #5b5b64; font-size: 10px; line-height: 1.4; }
+
+/* — Dropdown : double drapeau rond + en-tête « # Foreign Exchange (N) » — */
+.sym-dd-head { display: flex; align-items: center; gap: 5px; }
+.sym-dd-hash { color: #ff7a00; font-family: var(--font-mono, monospace); font-weight: 700; }
+.sym-dd-count { color: #5b5b64; }
+.sym-dd-flags { display: inline-flex; align-items: center; flex: 0 0 auto; }
+.sym-dd-flag { width: 19px; height: 19px; border-radius: 50%; object-fit: cover; border: 1.5px solid #0e0e12; box-shadow: 0 0 0 1px #2a2a30; }
+.sym-dd-flag--2 { margin-left: -7px; }
+.sym-dd-flag--metal { display: inline-flex; align-items: center; justify-content: center; font-size: 8px; font-weight: 700; color: #0c0c0e; background: linear-gradient(135deg, #f4c14a, #caa23a); box-shadow: 0 0 0 1px #2a2a30; }
+.sym-dd-txt { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.sym-dd-row .sym-dd-sym { min-width: 0; font-size: 12.5px; }
+.sym-dd-row .sym-dd-name { font-size: 10.5px; }
+
+/* — Barre de sous-onglets (façon PMT : paire orange + onglets denses, soulignement orange actif) — */
+.sym-subtabs { flex: 0 0 auto; display: flex; align-items: center; gap: 1px; height: 36px; padding: 0 9px; border-bottom: 1px solid #18181c; overflow-x: auto; background: #0a0a0c; }
+.sym-subtabs::-webkit-scrollbar { height: 0; }
+.sym-bar-pair { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12.5px; color: #ff7a00; margin-right: 13px; white-space: nowrap; flex: 0 0 auto; }
+.sym-subtab { background: none; border: 0; border-bottom: 2px solid transparent; color: #8a8a93; font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 600; letter-spacing: .02em; padding: 0 11px; height: 36px; cursor: pointer; white-space: nowrap; flex: 0 0 auto; }
+.sym-subtab:hover { color: #cfcfd4; }
+.sym-subtab--active { color: #fff; border-bottom-color: #ff7a00; }
+.sym-content { flex: 1 1 auto; min-height: 0; position: relative; }
+.sym-subview { position: absolute; inset: 0; overflow-y: auto; }
+.sym-subview#sym-sub-overview { overflow: hidden; }
+.sym-subview.hidden { display: none; }
+.sym-hsep { color: #3a3a40; margin: 0 5px; }
+.sym-pair-orange { color: #ff7a00; font-weight: 700; }
+
+/* — Smart Bias (2 colonnes : base / quote) — */
+.sym-bz-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+.sym-bz-col { background: #0c0c0f; border: 1px solid #1c1c20; border-radius: 6px; overflow: hidden; }
+.sym-bz-head { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border-bottom: 1px solid #18181c; }
+.sym-bz-flag { width: 20px; height: 15px; object-fit: cover; border-radius: 2px; }
+.sym-bz-ccy { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 13px; color: #eceef2; }
+.sym-bz-concl { margin-left: auto; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 4px; color: #fff; }
+.sym-bz-rows { padding: 4px 0; }
+.sym-bz-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 11px; border-bottom: 1px solid #111113; }
+.sym-bz-lbl { font-size: 11.5px; color: #c8c9cf; }
+.sym-bz-badge { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 4px; min-width: 70px; text-align: center; color: #fff; flex: 0 0 auto; }
+.sym-bz-narr { padding: 11px; font-size: 11.5px; line-height: 1.55; color: #b5b7be; white-space: pre-line; border-top: 1px solid #18181c; }
+
+/* — COT (CFTC) — */
+.sym-cot { max-width: 780px; margin: 0 auto; padding: 16px; }
+.sym-cot-head { display: flex; align-items: center; gap: 9px; margin-bottom: 14px; }
+.sym-cot-flag { width: 24px; height: 18px; object-fit: cover; border-radius: 2px; }
+.sym-cot-ccy { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 16px; color: #eceef2; }
+.sym-cot-role { color: #7a7a83; font-size: 11px; }
+.sym-cot-sent { margin-left: auto; }
+.sym-cot-bar { display: flex; height: 30px; border-radius: 5px; overflow: hidden; border: 1px solid #1c1c20; }
+.sym-cot-long, .sym-cot-short { display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; white-space: nowrap; color: #fff; }
+.sym-cot-long { background: #059669; } .sym-cot-short { background: #dc2626; }
+.sym-cot-metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; margin-top: 14px; background: #1c1c20; border: 1px solid #1c1c20; border-radius: 6px; overflow: hidden; }
+.sym-cot-metrics > div { background: #0c0c0f; display: flex; flex-direction: column; gap: 4px; padding: 11px; }
+.sym-cot-k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: #7a7a83; }
+.sym-cot-v { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 14px; color: #e9eaed; }
+.sym-cot-v.g { color: #00da50; } .sym-cot-v.r { color: #ff4d2e; }
+
+/* — Seasonality — */
+.sym-seas { padding: 16px; }
+.sym-seas-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+.sym-seas-ttl { font-size: 12px; font-weight: 700; color: #e9eaed; }
+.sym-seas-sub { color: #ff7a00; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12px; }
+.sym-seas-svg { width: 100%; max-width: 780px; height: auto; display: block; }
+.sym-seas-mlbl { fill: #7a7a83; font-size: 11px; font-family: var(--font-mono, monospace); }
+.sym-seas-cur { stroke: #ff7a00; stroke-width: 1.5; }
+
+/* — Retail Sentiment — */
+.sym-rt { max-width: 640px; margin: 0 auto; padding: 20px; }
+.sym-rt-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 16px; }
+.sym-rt-ttl { font-size: 13px; font-weight: 700; color: #e9eaed; }
+.sym-rt-sub { color: #ff7a00; font-family: var(--font-mono, monospace); font-weight: 700; }
+.sym-rt-bar { display: flex; height: 38px; border-radius: 6px; overflow: hidden; border: 1px solid #1c1c20; }
+.sym-rt-long { background: #059669; } .sym-rt-short { background: #dc2626; }
+.sym-rt-lbls { display: flex; justify-content: space-between; margin-top: 7px; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12px; }
+.sym-rt-lbls .g { color: #00da50; } .sym-rt-lbls .r { color: #ff4d2e; }
+.sym-rt-note { margin-top: 16px; font-size: 12px; line-height: 1.5; color: #b5b7be; }
+.sym-rt-note .g { color: #00da50; } .sym-rt-note .r { color: #ff4d2e; }
+
+/* — Central Bank pricing (réutilise .rtc) — */
+.sym-cb-note { padding: 10px 13px; font-size: 11px; color: #9a9aa3; border-bottom: 1px solid #18181c; background: #0d0d10; line-height: 1.45; }
+.sym-cb-note b { color: #ffb300; }
+.sym-cb-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px; }
+
 @media (max-width: 1100px) { .sym-grid { grid-template-columns: 1fr; grid-template-rows: 320px 240px 240px 240px; overflow-y: auto; } }
+@media (max-width: 900px) { .sym-bz-grid, .sym-cb-grid { grid-template-columns: 1fr; } }
 
 .topbar-sentiment {
   display: flex;
