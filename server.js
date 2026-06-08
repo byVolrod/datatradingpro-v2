@@ -4100,6 +4100,12 @@ try { _smartBias = JSON.parse(fs.readFileSync(SMART_BIAS_FILE, 'utf8')); } catch
 if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) _smartBias = SMART_BIAS_SEED;
 // Recharge le bias DURABLE (Supabase) s'il est plus frais que le disque/seed (le disque Render est éphémère).
 try { auth.aiCacheGet('smartbias:matrix').then(b => { if (b && Array.isArray(b.rows) && b.rows.length && b.generatedAt && (!_smartBias.generatedAt || b.generatedAt > _smartBias.generatedAt)) _smartBias = b; }).catch(() => {}); } catch {}
+// ── Versioning Smart Bias : historique des semaines (max 5), durable (fichier + Supabase) ──
+const SMART_BIAS_HIST_FILE = path.join(__dirname, 'cache_smart_bias_history.json');
+function _sbWeekKey(ts) { const d = new Date(ts); const dow = d.getDay() || 7; const m = new Date(d); m.setDate(d.getDate() - dow + 1); m.setHours(0, 0, 0, 0); return m.getFullYear() + '-' + (m.getMonth() + 1) + '-' + m.getDate(); }
+let _smartBiasHistory = [];
+try { const h = JSON.parse(fs.readFileSync(SMART_BIAS_HIST_FILE, 'utf8')); if (Array.isArray(h)) _smartBiasHistory = h; } catch {}
+try { auth.aiCacheGet('smartbias:history').then(h => { if (Array.isArray(h) && h.length) { const cur = (_smartBiasHistory[0] && _smartBiasHistory[0].generatedAt) || 0; const dur = (h[0] && h[0].generatedAt) || 0; if (dur >= cur) _smartBiasHistory = h; } }).catch(() => {}); } catch {}
 const SB_GEM_ROWS = [
   { key: 'fundamental', label: 'Fundamental Data' },
   { key: 'bankOverview', label: 'Bank Overview' },
@@ -4269,6 +4275,16 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   if (aiOk) {
     try { const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); if (n) narrative = n; } catch {}
   }
+  // Versioning : on archive la semaine sortante (max 5 semaines distinctes) quand on bascule sur une NOUVELLE semaine.
+  try {
+    if (_smartBias && _smartBias.generatedAt && Array.isArray(_smartBias.rows) && _smartBias.rows.length
+        && _sbWeekKey(_smartBias.generatedAt) !== _sbWeekKey(Date.now())) {
+      const k = _sbWeekKey(_smartBias.generatedAt);
+      _smartBiasHistory = [_smartBias, ..._smartBiasHistory.filter(s => s && s.generatedAt && _sbWeekKey(s.generatedAt) !== k)].slice(0, 5);
+      try { fs.writeFileSync(SMART_BIAS_HIST_FILE, JSON.stringify(_smartBiasHistory)); } catch {}
+      auth.aiCacheSet('smartbias:history', _smartBiasHistory).catch(() => {});
+    }
+  } catch {}
   _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
   auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys, pas de régén/quota gaspille
@@ -4355,8 +4371,21 @@ async function _sbEnsureFresh() {
 }
 
 app.get('/api/smart-bias', async (req, res) => {
+  // Versioning : renvoyer le snapshot d'une semaine archivée (?at=<generatedAt>).
+  if (req.query.at) {
+    const ts = Number(req.query.at);
+    const snap = [_smartBias, ..._smartBiasHistory].find(s => s && Number(s.generatedAt) === ts);
+    return res.json(snap || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
+  }
   if (req.query.force === '1' || !_smartBias) { try { await generateSmartBias(true); } catch {} }
-  res.json(_smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
+  // Liste des semaines disponibles (courante + historique), dédupliquées par semaine, 5 max.
+  const _seen = new Set();
+  const history = [_smartBias, ..._smartBiasHistory]
+    .filter(s => s && s.generatedAt)
+    .filter(s => { const k = _sbWeekKey(s.generatedAt); if (_seen.has(k)) return false; _seen.add(k); return true; })
+    .slice(0, 5)
+    .map(s => ({ generatedAt: s.generatedAt }));
+  res.json(Object.assign({}, _smartBias || { currencies: SB_CURRENCIES, rows: [], conclusion: {} }, { history }));
   if (req.query.force !== '1') _sbEnsureFresh();   // tâche de fond : self-heal si périmé / narratif si manquant
 });
 

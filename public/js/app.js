@@ -510,9 +510,9 @@ function handleMessage(msg) {
   } else if (msg.type === 'smartbias_update' || msg.type === 'bias_update') {
     // Nouvelle matrice Smart Bias générée → on met à jour l'onglet Bias
     if (msg.type === 'smartbias_update' && msg.bias) {
-      _biasData = msg.bias;
+      _biasData = null; _biasView = null; _biasViewTs = null;   // force le re-fetch avec l'historique (versioning)
       const biasPanel = document.getElementById('view-bias');
-      if (biasPanel && !biasPanel.classList.contains('hidden')) renderBiasView(_biasData);
+      if (biasPanel && !biasPanel.classList.contains('hidden')) loadBiasView();
     }
   }
 }
@@ -3163,6 +3163,8 @@ function loadAnalystView() {
 
 // ═══════════════════ ONGLET BIAS — Smart Bias Tracker (matrice) ═══════════════════
 let _biasData    = null;
+let _biasView    = null;   // snapshot actuellement AFFICHÉ (courant ou semaine archivée)
+let _biasViewTs  = null;   // generatedAt de la semaine affichée
 let _sbClockTimer = null;
 const SB_CLOCKS = [
   { city: 'London',   code: 'LON',  tz: 'Europe/London' },
@@ -3175,11 +3177,11 @@ const SB_CLOCKS = [
 function loadBiasView() {
   const host = document.getElementById('bias-content');
   if (!host) return;
-  if (_biasData) { renderBiasView(_biasData); return; }
+  if (_biasData) { renderBiasView(_biasView || _biasData); return; }
   host.innerHTML = dtpLoader('Chargement du Smart Bias Tracker…');
   fetch('/api/smart-bias')
     .then(r => r.json())
-    .then(d => { _biasData = d; renderBiasView(d); })
+    .then(d => { _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; renderBiasView(d); })
     .catch(() => { host.innerHTML = '<div class="bias-loading">Smart Bias indisponible pour le moment.</div>'; });
 }
 window.loadBiasView = loadBiasView;
@@ -3407,6 +3409,33 @@ function _sbToggleCurDd(e) { e.stopPropagation(); const m = e.currentTarget.quer
 function _sbPickCur(c) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbOpenSummary(c); }
 window._sbToggleCurDd = _sbToggleCurDd; window._sbPickCur = _sbPickCur;
 if (!window._sbCddCloser) { window._sbCddCloser = true; document.addEventListener('click', () => document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', ''))); }
+// Dropdown HISTORIQUE de dates (versioning Smart Bias, 5 semaines max) — format DTP "1-7/06/2026".
+function _sbDateDropdown(activeTs) {
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const hist = (_biasData && Array.isArray(_biasData.history) ? _biasData.history : []).slice(0, 5);
+  const label = esc(_sbWeekLabel(activeTs));
+  if (hist.length <= 1) {
+    return `<span class="sbs-cdd sbs-cdd--date" title="Semaine couverte"><span class="sbs-cdd-cur">${label}</span></span>`;
+  }
+  const items = hist.map(h => {
+    const ts = Number(h.generatedAt);
+    return `<div class="sbs-cdd-item${ts === Number(activeTs) ? ' active' : ''}" onclick="event.stopPropagation();_sbPickWeek(${ts})">${esc(_sbWeekLabel(ts))}</div>`;
+  }).join('');
+  return `<div class="sbs-cdd sbs-cdd--date" onclick="_sbToggleCurDd(event)" title="Historique (5 semaines max)">
+    <span class="sbs-cdd-cur">${label}</span><span class="sbs-cdd-caret">⌄</span>
+    <div class="sbs-cdd-menu" hidden><div class="sbs-cdd-title">Historique</div>${items}</div></div>`;
+}
+function _sbPickWeek(ts) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbSwitchWeek(ts); }
+async function _sbSwitchWeek(ts) {
+  ts = Number(ts);
+  if (ts === Number(_biasViewTs)) return;
+  if (_biasData && Number(_biasData.generatedAt) === ts) { _biasView = _biasData; _biasViewTs = ts; renderBiasView(_biasView); return; }
+  try {
+    const snap = await fetch('/api/smart-bias?at=' + ts).then(r => r.json());
+    if (snap && Array.isArray(snap.rows) && snap.rows.length) { _biasView = snap; _biasViewTs = ts; renderBiasView(_biasView); }
+  } catch {}
+}
+window._sbDateDropdown = _sbDateDropdown; window._sbPickWeek = _sbPickWeek; window._sbSwitchWeek = _sbSwitchWeek;
 // Qualificatifs FR par niveau de biais (formulation neutre en genre → s'insere apres "est ...").
 const _SB_QUAL = {
   'Very Bullish': 'nettement favorable', 'Bullish': 'favorable', 'Weak Bullish': 'légèrement favorable',
@@ -3453,7 +3482,7 @@ function _sbFallbackNarrative(curr, val, overall, bulls, bears, esc) {
 function _sbOpenSummary(curr) {
   _sbActiveCur = curr;
   const wrap = document.getElementById('sbm-summary');
-  const d = _biasData;
+  const d = _biasView || _biasData;
   if (!wrap || !d) return;
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const rows = d.rows || [];
@@ -3497,7 +3526,7 @@ function _sbOpenSummary(curr) {
         <span class="sbs-head-title">Smart Bias Tracker</span>
         <div class="sbs-head-ctrls">
           ${_sbCurDropdown(curr, d.currencies)}
-          <span class="sbs-cdd sbs-cdd--date" title="Semaine couverte (historique à venir)"><span class="sbs-cdd-cur">${esc(_sbWeekLabel(d.generatedAt))}</span><span class="sbs-cdd-caret">⌄</span></span>
+          ${_sbDateDropdown(_biasViewTs != null ? _biasViewTs : (d.generatedAt || 0))}
         </div>
       </div>
       <div class="sbs-body" id="sbs-body">
