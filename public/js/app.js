@@ -3190,7 +3190,7 @@ async function loadWeekAheadView() {
   if (!host) return;
   const isPoll = !!_waPollTimer;                 // continuation d'un poll ?
   if (_waPollTimer) { clearTimeout(_waPollTimer); _waPollTimer = null; }
-  if (!isPoll) _waPollCount = 0;                 // clic frais sur l'onglet → on repart à zéro
+  if (!isPoll) { _waPollCount = 0; _waBindCalFilters(); _waLoadNews(); _waLoadCal(); }   // ouverture fraîche → charge aussi les panneaux droite (News + Calendar)
   try {
     const d = await fetch('/api/week-ahead').then(r => r.json());
     if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waPollCount = 0; _renderWeekAhead(d); return; }
@@ -3226,24 +3226,13 @@ function _renderWeekAhead(d) {
       <div class="wa-card">
         <div class="wa-card-head">
           <div class="wa-card-headl">
-            <span class="wa-card-title">${esc(day.title)}</span>
+            <span class="wa-card-title">${esc(day.headline || day.title)}</span>
             ${flags ? `<span class="wa-flags">${flags}</span>` : ''}
           </div>
           <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}">${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
         </div>
-        ${Array.isArray(day.events) && day.events.length ? `
-        <div class="wa-events">${day.events.map(ev => `
-          <div class="wa-ev">
-            <span class="wa-ev-time">${esc(ev.time || '—')}</span>
-            <span class="wa-ev-ccy">${esc(ev.ccy || '')}</span>
-            <span class="wa-ev-name" title="${esc(ev.title || '')}">${esc(ev.title || '')}</span>
-            <span class="wa-ev-data">${ev.forecast ? `<span class="wa-ev-k">prév.</span> ${esc(ev.forecast)}` : ''}${ev.previous ? ` <span class="wa-ev-k">préc.</span> ${esc(ev.previous)}` : ''}</span>
-            <span class="wa-ev-imp wa-ev-imp--${ev.impact === 'HIGH' ? 'high' : 'med'}" title="${ev.impact === 'HIGH' ? 'High impact' : 'Medium impact'}"></span>
-          </div>`).join('')}</div>
-        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>`
-        : `
-        <div class="wa-card-desc">${esc(day.description)}</div>
-        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>`}
+        <div class="wa-card-desc">${esc(day.summary || day.description || '')}</div>
+        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>
       </div>
     </div>`;
   }).join('');
@@ -3267,6 +3256,59 @@ function _waToggle(btn) {
   btn.innerHTML = open ? 'Show Less <span class="wa-more-chev">∧</span>' : 'Read More <span class="wa-more-chev">∨</span>';
 }
 window._waToggle = _waToggle;
+
+// ── Week Ahead (desk) : panneaux droite News + Calendar (façon PMT), mêmes données que les onglets News/Calendar ──
+const _WA_FLAG = { USD:'us', EUR:'eu', GBP:'gb', JPY:'jp', CHF:'ch', CAD:'ca', AUD:'au', NZD:'nz', CNY:'cn', CNH:'cn', HKD:'hk', SGD:'sg', SEK:'se', NOK:'no', MXN:'mx', ZAR:'za', TRY:'tr', INR:'in', BRL:'br', KRW:'kr', PLN:'pl', RUB:'ru' };
+function _waEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function _waFlagRect(c){ const i=_WA_FLAG[c]; return i?`<img src="https://flagcdn.com/w40/${i}.png" alt="${_waEsc(c)}" loading="lazy">`:''; }
+function _waPad(n){ return n<10?'0'+n:''+n; }
+function _waFmtTime(ts){ const d=new Date(ts); return _waPad(d.getHours())+':'+_waPad(d.getMinutes()); }
+function _waWeekWindow(){ const d=new Date(),dow=d.getDay(); const toMon=(dow===0)?1:(dow===6)?2:(1-dow); const mon=new Date(d.getFullYear(),d.getMonth(),d.getDate()+toMon,0,0,0,0); return { start:mon.getTime(), end:mon.getTime()+7*86400000 }; }
+let _waCalItems = [], _waCalFilter = 'all', _waCalBound = false;
+function _waLoadNews(){ fetch('/api/news').then(r=>r.json()).then(d=>_waRenderNews(d&&d.items)).catch(()=>{}); }
+function _waRenderNews(items){
+  const host=document.getElementById('wa-news-body'); if(!host) return;
+  if(!items||!items.length){ host.innerHTML='<div class="wa3-empty">News indisponibles.</div>'; return; }
+  let out='',last='';
+  items.slice(0,120).forEach(n=>{
+    const d=new Date(n.timestamp||Date.now());
+    const dk=d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+    if(dk!==last){ last=dk; out+=`<div class="wan-day">${_waEsc(dk)}</div>`; }
+    const hi=(n.priority==='high');
+    const tags=(Array.isArray(n.tags)?n.tags:[]).slice(0,3).map(t=>`<span class="wan-tag">${_waEsc(t)}</span>`).join('');
+    const cat=n.category||(Array.isArray(n.tags)&&n.tags[0])||'';
+    out+=`<div class="wan${hi?' wan--high':''}"><div class="wan-time"><span class="wan-dot"></span>${_waFmtTime(n.timestamp||Date.now())}</div><div>${cat?`<span class="wan-cat">${_waEsc(cat)}</span>`:''}<div class="wan-head">${_waEsc(n.headline||'')}</div>${tags?`<div class="wan-tags">${tags}</div>`:''}</div></div>`;
+  });
+  host.innerHTML=out;
+}
+function _waLoadCal(){ fetch('/api/calendar-events').then(r=>r.json()).then(d=>{ _waCalItems=(d&&d.items)||[]; _waRenderCal(); }).catch(()=>{ const h=document.getElementById('wa-cal-body'); if(h) h.innerHTML='<div class="wa3-empty">Calendrier indisponible.</div>'; }); }
+function _waImpCls(imp){ const s=String(imp||'').toLowerCase(); return s==='high'?'high':(s==='medium'?'medium':'low'); }
+function _waRenderCal(){
+  const host=document.getElementById('wa-cal-body'); if(!host) return;
+  const win=_waWeekWindow();
+  let list=_waCalItems.filter(e=>e&&e.timestamp>=win.start&&e.timestamp<win.end);
+  if(_waCalFilter!=='all') list=list.filter(e=>String(e.impact)===_waCalFilter);
+  list.sort((a,b)=>(a.timestamp||0)-(b.timestamp||0));
+  const range=document.getElementById('wa-cal-range');
+  if(range){ const a=new Date(win.start),b=new Date(win.end-86400000); range.textContent=_waPad(a.getDate())+'/'+_waPad(a.getMonth()+1)+' – '+_waPad(b.getDate())+'/'+_waPad(b.getMonth()+1)+'/'+b.getFullYear(); }
+  if(!list.length){ host.innerHTML='<div class="wa3-empty">Aucun événement pour ce filtre.</div>'; return; }
+  let out='<div class="wac-th"><span>Heure</span><span></span><span>Dev.</span><span>Imp.</span><span>Événement</span><span>Actuel</span><span>Prév.</span><span>Préc.</span></div>';
+  let last='';
+  list.forEach(e=>{
+    const d=new Date(e.timestamp);
+    const dk=d.toLocaleDateString('fr-FR',{weekday:'long',day:'2-digit',month:'2-digit',year:'numeric'});
+    if(dk!==last){ last=dk; out+=`<div class="wac-day">${_waEsc(dk)}</div>`; }
+    const ic=_waImpCls(e.impact);
+    out+=`<div class="wac-row"><span class="wac-time">${_waFmtTime(e.timestamp)}</span><span class="wac-flag">${_waFlagRect(e.currency)}</span><span class="wac-ccy">${_waEsc(e.currency||'')}</span><span class="wac-imp ${ic}"><i></i><i></i><i></i></span><span class="wac-ev" title="${_waEsc(e.title||'')}">${_waEsc(e.title||'')}</span><span class="wac-num${e.actual?' act':''}">${_waEsc(e.actual||'–')}</span><span class="wac-num">${_waEsc(e.forecast||'–')}</span><span class="wac-num">${_waEsc(e.previous||'–')}</span></div>`;
+  });
+  host.innerHTML=out;
+}
+function _waBindCalFilters(){
+  if(_waCalBound) return; const bar=document.getElementById('wa-cal-filters'); if(!bar) return; _waCalBound=true;
+  bar.addEventListener('click',function(e){ const b=e.target.closest('.wa3-fbtn'); if(!b) return; bar.querySelectorAll('.wa3-fbtn').forEach(x=>x.classList.remove('on')); b.classList.add('on'); _waCalFilter=b.dataset.f; _waRenderCal(); });
+}
+// Rafraîchissement live des panneaux droite tant que la vue Week Ahead est ouverte (60s).
+setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v && !v.classList.contains('hidden')){ _waLoadNews(); _waLoadCal(); } }, 60000);
 // Sparkline amCharts (Weekly Risk Profile) — orange mat, dégradé vers le noir, sans grille/axe (look cockpit).
 function _waBuildChart(days) {
   const el = document.getElementById('wa-risk-chart');

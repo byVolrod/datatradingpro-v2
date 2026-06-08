@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260609M" />
+  <link rel="stylesheet" href="/css/style.css?v=20260609N" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -159,8 +159,26 @@
 
   <!-- ══ VIEW: WEEK AHEAD — aperçu hebdomadaire (timeline + risk amCharts) ══ -->
   <div class="view-panel hidden" id="view-weekahead">
-    <div class="wa-scroll" id="wa-content">
-      <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement du Week Ahead…</div></div>
+    <div class="wa3">
+      <div class="wa-scroll" id="wa-content">
+        <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement du Week Ahead…</div></div>
+      </div>
+      <div class="wa3-right">
+        <div class="wa3-panel">
+          <div class="wa3-phead"><span class="wa3-ptitle">Realtime Headline Ticker</span><span class="wa3-live">Live</span></div>
+          <div class="wa3-pbody" id="wa-news-body"></div>
+        </div>
+        <div class="wa3-panel">
+          <div class="wa3-phead"><span class="wa3-ptitle">Economic Event Calendar</span><span class="wa3-pmeta" id="wa-cal-range"></span><span class="wa3-live">Live</span></div>
+          <div class="wa3-fbar" id="wa-cal-filters">
+            <button class="wa3-fbtn on" data-f="all">All</button>
+            <button class="wa3-fbtn" data-f="High">High</button>
+            <button class="wa3-fbtn" data-f="Medium">Med</button>
+            <button class="wa3-fbtn" data-f="Low">Low</button>
+          </div>
+          <div class="wa3-pbody" id="wa-cal-body"></div>
+        </div>
+      </div>
     </div>
   </div><!-- /#view-weekahead -->
 
@@ -588,7 +606,7 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260609J"></script>
+<script src="/js/app.js?v=20260609K"></script>
 <script src="/js/charts.js?v=20260609L"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
