@@ -350,6 +350,14 @@ html, body {
 .sym-load { padding: 26px; color: #7a7a83; font-size: 12px; text-align: center; }
 .sym-src { padding: 9px 13px 16px; color: #5b5b64; font-size: 10px; line-height: 1.4; }
 
+/* Vue symbole — Calendar & News au look Week Ahead (.cal-table / .news-item) adaptés aux panneaux étroits */
+#sym-cal { overflow: auto; padding: 0; }
+#sym-cal .cal-table { min-width: 560px; }
+#sym-news { padding: 0; }
+#sym-news .news-item { --c-pad: 11px; --c-icon: 0px; --c-time: 46px; --c-cat: 86px; --c-arrow: 0px; padding: 8px 11px; }
+#sym-news .news-headline { font-size: 11.5px; margin-bottom: 0; }
+#sym-news .date-header { padding: 6px 11px 5px; }
+
 /* — Dropdown : double drapeau rond + en-tête « # Foreign Exchange (N) » — */
 .sym-dd-head { display: flex; align-items: center; gap: 5px; }
 .sym-dd-hash { color: #ff7a00; font-family: var(--font-mono, monospace); font-weight: 700; }
