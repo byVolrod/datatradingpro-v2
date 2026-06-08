@@ -2702,25 +2702,35 @@ window._retryCalendar = function() {
   const _biasCls = v => ({ 'Very Bullish':'sbm-vbull','Bullish':'sbm-bull','Weak Bullish':'sbm-bull','Uptrend':'sbm-bull','Bearish':'sbm-bear','Weak Bearish':'sbm-bear','Downtrend':'sbm-bear','Very Bearish':'sbm-vbear','N/A':'sbm-na' }[v] || 'sbm-neut');
 
   // ── Dropdown d'autocomplétion : en-tête « # Foreign Exchange (N) » + double drapeau rond + nom complet ──
+  // Une ligne de paire : double drapeau rond + code + nom complet des 2 devises.
+  function _ddRow(p) {
+    const c1 = p.slice(0,3), c2 = p.slice(3);
+    const name = (CCY_NAME[c1] || c1) + ' / ' + (CCY_NAME[c2] || c2);
+    return '<div class="sym-dd-row" data-pair="' + p + '">'
+      + '<span class="sym-dd-flags">' + _ddFlag(c1, '') + _ddFlag(c2, ' sym-dd-flag--2') + '</span>'
+      + '<span class="sym-dd-txt"><span class="sym-dd-sym">' + p + '</span><span class="sym-dd-name">' + name + '</span></span></div>';
+  }
+  function _ddSection(icon, title, list) {
+    if (!list.length) return '';
+    return '<div class="sym-dd-head"><span class="sym-dd-hash">' + icon + '</span> ' + title + ' <span class="sym-dd-count">(' + list.length + ')</span></div>'
+      + list.map(_ddRow).join('');
+  }
+  // Dropdown « intelligent » : section HISTORIQUE (5 dernières paires ouvertes cette session) puis
+  // section FOREIGN EXCHANGE (paires filtrées sur les lettres saisies, préfixe d'abord ; majors si vide).
   function renderDd(q) {
     q = (q || '').toUpperCase().replace(/[^A-Z]/g, '');
-    let list, recent = false;
-    if (!q) { recent = _recent.length > 0; list = (recent ? _recent : PAIRS).slice(0, 12); }
-    else {
-      list = PAIRS.filter(p => p.includes(q))
+    let recents = _recent.slice(0, 5);
+    if (q) recents = recents.filter(p => p.includes(q));
+    let fx;
+    if (q) {
+      fx = PAIRS.filter(p => p.includes(q) && !recents.includes(p))
         .sort((a, b) => (a.startsWith(q) ? 0 : 1) - (b.startsWith(q) ? 0 : 1) || a.localeCompare(b))
-        .slice(0, 12);
+        .slice(0, 10);
+    } else {
+      fx = PAIRS.filter(p => !recents.includes(p)).slice(0, 8);
     }
-    const head = recent ? 'Recent Searches' : 'Foreign Exchange';
-    dd.innerHTML = '<div class="sym-dd-head"><span class="sym-dd-hash">#</span> ' + head + ' <span class="sym-dd-count">(' + list.length + ')</span></div>'
-      + (list.length ? list.map(p => {
-          const c1 = p.slice(0,3), c2 = p.slice(3);
-          const name = (CCY_NAME[c1] || c1) + ' / ' + (CCY_NAME[c2] || c2);
-          return '<div class="sym-dd-row" data-pair="' + p + '">'
-            + '<span class="sym-dd-flags">' + _ddFlag(c1, '') + _ddFlag(c2, ' sym-dd-flag--2') + '</span>'
-            + '<span class="sym-dd-txt"><span class="sym-dd-sym">' + p + '</span><span class="sym-dd-name">' + name + '</span></span></div>';
-        }).join('')
-      : '<div class="sym-dd-empty">Aucune paire</div>');
+    const html = _ddSection('↻', 'Recent Searches', recents) + _ddSection('#', 'Foreign Exchange', fx);
+    dd.innerHTML = html || '<div class="sym-dd-empty">Aucune paire</div>';
     positionDd();
     dd.classList.remove('hidden');
   }
