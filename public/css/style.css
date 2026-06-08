@@ -170,7 +170,8 @@ html, body {
   color: var(--text3);
   font-size: 11px;
   position: relative;
-  overflow: hidden;
+  /* PAS d'overflow:hidden ici → sinon le dropdown #sym-dd (positionné sous la barre) est clippé/invisible.
+     L'overlay LIVE se masque lui-même (inset:0 + border-radius + overflow:hidden). */
 }
 
 /* ── Bannière d'alerte (style DataTradingPro) — pill une seule ligne, alignée ── */
