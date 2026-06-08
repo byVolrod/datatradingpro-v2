@@ -26,7 +26,7 @@
   .up{color:#00e676}.down{color:#ff3d00}.amb{color:#ffb300}
   /* header */
   .dd-top{display:flex;align-items:center;gap:11px;padding:9px 14px;background:#0d0d11;border-bottom:1px solid #1c1c22;flex-shrink:0}
-  .dd-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;color:#f0f0f2;letter-spacing:-.01em}
+  .dd-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;color:#ffffff;letter-spacing:-.01em}
   .dd-logo svg{width:20px;height:20px}
   .dd-logo b{color:#f7941d}
   .dd-sim{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.07em;color:#f7941d;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.32);padding:3px 9px;border-radius:100px}
@@ -271,7 +271,7 @@
     root.innerHTML =
       '<div class="dd-win">' +
         '<div class="dd-top">' +
-          '<span class="dd-logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><rect x="18" y="22" width="7" height="22" rx="1.5" fill="#22c55e"/><rect x="20.5" y="14" width="2" height="38" fill="#22c55e"/><rect x="39" y="26" width="7" height="18" rx="1.5" fill="#f7941d"/><rect x="41.5" y="18" width="2" height="34" fill="#f7941d"/></svg>Data<b>TradingPro</b></span>' +
+          '<span class="dd-logo">DataTradingPro</span>' +
           '<span class="dd-sim"><span class="pd"></span>SIMULATION</span>' +
           '<span class="dd-clock dd-mono" id="dd-clock">' + clockTxt + '</span>' +
           '<a class="dd-cta" href="' + WHOP + '">Accéder au terminal — 24,99 €/mois →</a><button class="dd-x" aria-label="Fermer">✕</button>' +
