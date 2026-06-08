@@ -85,25 +85,28 @@
   .wa-chart-label{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--text3);margin-bottom:3px}
   .wa-spark{width:100%;height:46px;display:block}
   .wa-timeline{position:relative}
-  .wa-timeline::before{content:"";position:absolute;left:24px;top:24px;bottom:24px;width:2px;margin-left:-1px;background:var(--line2)}
-  .wa-day{display:flex;align-items:flex-start;gap:16px;margin-bottom:16px;position:relative}
-  .wa-node{flex:0 0 50px;width:50px;height:50px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg);border:1px solid var(--line2);z-index:1}
-  .wa-day--today .wa-node{border-color:rgba(255,122,0,.6);box-shadow:0 0 12px rgba(255,122,0,.25)}
-  .wa-dow{font-size:8.5px;font-weight:700;color:var(--text3);letter-spacing:.04em}
-  .wa-date{font-size:17px;font-weight:800;color:var(--text);line-height:1.05}
-  .wa-day--today .wa-date{color:var(--orange2)}
-  .wa-month{font-size:8px;font-weight:600;color:var(--text3);letter-spacing:.04em}
-  .wa-card{flex:1;min-width:0;background:var(--bg2);border:1px solid var(--line);border-radius:7px;padding:12px 14px}
-  .wa-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:7px}
+  .wa-timeline::before{content:"";position:absolute;left:36px;top:32px;bottom:32px;width:1px;margin-left:-.5px;background:linear-gradient(to bottom,var(--line),rgba(255,122,0,.32),var(--line))}
+  .wa-day{display:flex;align-items:center;gap:16px;margin-bottom:16px;position:relative}
+  .wa-node{flex:0 0 72px;width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg2);border:2px solid var(--line2);z-index:1;transition:.15s}
+  .wa-node:hover{border-color:rgba(255,122,0,.5)}
+  .wa-day--today .wa-node{background:rgba(255,122,0,.12);border-color:rgba(255,122,0,.55);box-shadow:0 0 18px rgba(255,122,0,.3)}
+  .wa-dow{font-size:9.5px;font-weight:500;color:var(--text2);letter-spacing:.08em;text-transform:uppercase}
+  .wa-date{font-size:21px;font-weight:700;color:var(--text);line-height:1.05;font-variant-numeric:tabular-nums;margin:1px 0}
+  .wa-day--today .wa-dow,.wa-day--today .wa-month{color:var(--text)}
+  .wa-month{font-size:9.5px;font-weight:500;color:var(--text2);letter-spacing:.08em;text-transform:uppercase}
+  .wa-card{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--line);border-left:2px solid #2a2a32;border-radius:0;padding:12px 14px;transition:.15s}
+  .wa-card:hover{border-color:rgba(255,122,0,.3)}
+  .wa-card--high{border-left-color:rgba(255,61,0,.6)}.wa-card--med{border-left-color:rgba(255,179,0,.5)}
+  .wa-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px}
   .wa-card-headl{display:flex;flex-direction:column;gap:6px;min-width:0}
-  .wa-card-title{font-size:14.5px;font-weight:700;color:var(--orange);line-height:1.3}
+  .wa-card-title{font-size:13px;font-weight:600;color:var(--text);line-height:1.3}
   .wa-flags{display:inline-flex;align-items:center;gap:5px;flex-wrap:wrap}
   .wa-flags img{width:15px;height:15px;border-radius:50%;object-fit:cover;box-shadow:0 0 0 1px var(--line2)}
-  .wa-impact{flex-shrink:0;font-size:9px;font-weight:800;letter-spacing:.04em;padding:3px 8px;border-radius:4px;border:1px solid;white-space:nowrap;display:inline-flex;align-items:center;gap:5px}
-  .wa-impact::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor}
-  .wa-impact--high{color:#ff5a3c;background:rgba(255,61,0,.08);border-color:rgba(255,61,0,.4)}
-  .wa-impact--medium{color:#ffb300;background:rgba(255,179,0,.08);border-color:rgba(255,179,0,.35)}
-  .wa-desc{font-size:13px;line-height:1.6;color:#cbd5e1;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+  .wa-impact{flex-shrink:0;font-size:9px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid;white-space:nowrap;display:inline-flex;align-items:center;gap:4px}
+  .wa-impact svg{width:11px;height:11px}
+  .wa-impact--high{color:#ff5a3c;background:rgba(255,61,0,.18);border-color:rgba(255,61,0,.35)}
+  .wa-impact--medium{color:#ffb300;background:rgba(255,179,0,.16);border-color:rgba(255,179,0,.3)}
+  .wa-desc{font-size:13px;line-height:1.55;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .wa-card--open .wa-desc{-webkit-line-clamp:unset;overflow:visible}
   .wa-more{background:none;border:none;cursor:pointer;color:var(--orange);font-size:12px;font-weight:600;font-family:var(--ui);padding:8px 0 0;display:inline-flex;align-items:center;gap:5px}
   .wa-more:hover{color:#ff9a3c}
@@ -218,10 +221,10 @@
       return '<div class="wa-day'+(isToday?' wa-day--today':'')+'">'
         +'<div class="wa-node"><span class="wa-dow">'+esc((day.dow||'').slice(0,3).toUpperCase())+'</span>'
         +'<span class="wa-date">'+esc(day.date||'')+'</span><span class="wa-month">'+esc((day.month||'').slice(0,3).toUpperCase())+'</span></div>'
-        +'<div class="wa-card">'
+        +'<div class="wa-card '+(hi?'wa-card--high':'wa-card--med')+'">'
           +'<div class="wa-card-head"><div class="wa-card-headl"><span class="wa-card-title">'+esc(ttl)+'</span>'
           +(flags?'<span class="wa-flags">'+flags+'</span>':'')+'</div>'
-          +'<span class="wa-impact wa-impact--'+(hi?'high':'medium')+'">'+(hi?'HIGH IMPACT':'MEDIUM IMPACT')+'</span></div>'
+          +'<span class="wa-impact wa-impact--'+(hi?'high':'medium')+'"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>'+(hi?'HIGH IMPACT':'MEDIUM IMPACT')+'</span></div>'
           +'<div class="wa-desc">'+esc(desc)+'</div>'
           +'<button class="wa-more" type="button">Read More ∨</button>'
         +'</div></div>';
