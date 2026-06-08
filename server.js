@@ -2380,9 +2380,10 @@ const RESEARCH_SPA_SITES = [
     url: 'https://research.danskebank.com/research/',
     hrefRe: /danskebank\.com\/.*(?:\/link\/[a-z0-9]+\/\$file\/.+\.pdf|research\/article|\/article\/|articlekey|researchkey|insights\/\d{4}\/\d+|\/[0-9a-f]{8,})/i,
     seed: [
+      { title: 'FX Forecast Update', url: 'https://research.danskebank.com/link/FXForecastUpdate170426/$file/FX%20ForecastUpdate_170426.pdf', date: '2026-04-17', pdf: true },
+      { title: 'Weekly Focus', url: 'https://research.danskebank.com/link/WeeklyFocus060326/$file/Weekly%20Focus_060326.pdf', date: '2026-03-06', pdf: true },
+      { title: 'Nordic Outlook (March 2026)', url: 'https://research.danskebank.com/link/NordicOutlook,March26/$file/Nordic%20Outlook,%20March%2026.pdf', date: '2026-03-04', pdf: true },
       { title: 'FX Forecast Update — USD to weather AI valuation woes', url: 'https://research.danskebank.com/link/FXForecastUpdate181125/$file/FX%20Forecast%20Update_181125.pdf', date: '2025-11-18', pdf: true },
-      { title: 'Weekly Focus — Danske Bank Research', url: 'https://research.danskebank.com/link/WeeklyFocus211125/$file/WeeklyFocus_211125.pdf', date: '2025-11-21', pdf: true },
-      { title: 'Nordic Outlook: Nordic economies stand to improve', url: 'https://danskebank.com/news-and-insights/news-archive/insights/2026/04032026', date: '2026-03-04' },
     ] },
   { name: 'UniCredit', institution: 'UniCredit', source: 'unicredit', host: 'unicredit.eu',
     url: 'https://www.the-investment-institute.unicredit.eu/en/',
@@ -2411,6 +2412,8 @@ const RESEARCH_SPA_SITES = [
     seed: [
       { title: 'Macro & Markets: The inflation shock may outlast the war', url: 'https://corporate.nordea.com/article/103780/macro-markets-the-inflation-shock-may-outlast-the-war', date: '2026-05-03' },
       { title: 'Macro & Markets Forecast Edition: from cuts to hikes', url: 'https://corporate.nordea.com/article/103467/macro-markets-forecast-edition-from-cuts-to-hikes', date: '2026-04-17' },
+      { title: 'Macro & Markets forecast edition: Recent dollar strength may prove temporary', url: 'https://corporate.nordea.com/article/103088/macro-markets-forecast-edition-recent-dollar-strength-may-prove-temporary', date: '2026-03-13' },
+      { title: 'Macro & Markets forecast edition: Central banks on hold', url: 'https://corporate.nordea.com/article/102801/macro-markets-forecast-edition-central-banks-on-hold', date: '2026-02-13' },
       { title: 'Macro & Markets: Warsh\'s way or the highway', url: 'https://corporate.nordea.com/article/102685/macro-markets-warshs-way-or-the-highway', date: '2026-02-05' },
     ] },
   { name: 'Lloyds Bank', institution: 'Lloyds Bank', source: 'lloyds', host: 'lloydsbank.com',
@@ -2420,6 +2423,17 @@ const RESEARCH_SPA_SITES = [
       { title: 'Market Insights Weekly', url: 'https://www.lloydsbank.com/business/resource-centre/insight/market-insights-weekly.html', date: '2026-06-08' },
       { title: 'Business Barometer', url: 'https://www.lloydsbank.com/business/resource-centre/insight/business-barometer.html', date: '2026-06-01' },
       { title: 'UK Sector Tracker', url: 'https://www.lloydsbank.com/business/resource-centre/insight/uk-sector-tracker.html', date: '2026-05-28' },
+    ] },
+  { name: 'KBC', institution: 'KBC', source: 'kbc', host: 'kbc.com',
+    url: 'https://www.kbc.com/en/economics.html',
+    hrefRe: /kbc\.com\/en\/economics\/publications\/.+\.html/i,
+    seed: [
+      { title: 'Rising energy prices are pulling climate action in two directions', url: 'https://www.kbc.com/en/economics/publications/hogere-energieprijzen-trekken-klimaatactie-in-twee-richtingen.html', date: '2026-06-02' },
+      { title: 'Economic Perspectives May 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-may-2026.html', date: '2026-05-22' },
+      { title: 'Wide valuation differences in EU housing markets', url: 'https://www.kbc.com/en/economics/publications/wide-valuation-differences-in-eu-housing-markets.html', date: '2026-05-18' },
+      { title: 'UAE quits OPEC as the cartel weakens — what does it mean for oil prices?', url: 'https://www.kbc.com/en/economics/publications/EconomicBriefs1.html', date: '2026-05-07' },
+      { title: 'Economic Perspectives April 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-april-2026.html', date: '2026-04-23' },
+      { title: 'Economic Perspectives March 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-march-2026.html', date: '2026-03-01' },
     ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
@@ -2484,13 +2498,13 @@ async function _fetchWellsInto(merged, UA) {
 // axios+cheerio des articles "/wealth/insights/<cat>/<sous-cat>/<slug>/" + seed des derniers connus (datés).
 const HSBC_BASE = 'https://www.hsbc.com.sg';
 const HSBC_SEED = [
-  { t: 'Differentiation matters as the market rally continues', u: '/wealth/insights/asset-class-views/investment-monthly/differentiation-matters-as-the-market-rally-continues/', d: '2026-06-01' },
-  { t: 'Investment Weekly: Are we in a bubble?', u: '/wealth/insights/asset-class-views/investment-weekly/article/', d: '2026-06-08' },
+  { t: 'FX Viewpoint: GBP — Resilient, but two key risks', u: '/wealth/insights/fx-insights/fx-viewpoint/gbp-resilient-but-two-key-risks/', d: '2026-05-19' },
+  { t: 'FX Viewpoint: "Risk-on" rally, but questions remain', u: '/wealth/insights/fx-insights/fx-viewpoint/risk-on-rally-but-questions-remain/', d: '2026-05-11' },
+  { t: 'FX Viewpoint Flash: JPY — FX Intervention?', u: '/wealth/insights/fx-insights/fx-viewpoint/jpy-fx-intervention/', d: '2026-05-05' },
   { t: 'Investment Outlook: HSBC Perspectives Q3 2026', u: '/wealth/insights/market-outlook/investment-outlook/the-new-investment-trifecta-ai-energy-and-defence/', d: '2026-05-21' },
   { t: 'Trump-Xi summit – managed rivalry helps stabilise expectations', u: '/wealth/insights/market-outlook/special-coverage/trump-xi-summit-managed-rivalry-helps-stabilise-expectations/', d: '2026-05-18' },
   { t: 'Fed holds firm as inflation and uncertainty persist', u: '/wealth/insights/market-outlook/special-coverage/fed-holds-firm-as-inflation-and-uncertainty-persist/', d: '2026-04-30' },
-  { t: 'FX Viewpoint: USD — At a crossroads?', u: '/wealth/insights/fx-insights/fx-viewpoint/usd-at-a-crossroads/', d: '2026-06-08' },
-  { t: 'Daily FX Focus', u: '/wealth/insights/fx-insights/daily-fx-focus/fx/', d: '2026-06-08' },
+  { t: 'Investment Monthly: A bullish outlook still requires strategic diversification', u: '/wealth/insights/asset-class-views/investment-monthly/a-bullish-outlook-still-requires-strategic-diversification/', d: '2026-01-09' },
 ];
 async function _fetchHsbcInto(merged, UA) {
   HSBC_SEED.forEach(s => {
@@ -2560,7 +2574,7 @@ async function _fetchBankResearch(full = false) {
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
@@ -2749,7 +2763,7 @@ function _stripSource(html) {
     .trim();
 }
 
-const _BR_CONTENT_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(think\.ing\.com|mufgresearch\.com|scotiabank\.com|bluematrix\.com|hsbc\.com\.sg|syzgroup\.com|danskebank\.com|unicreditgroup\.eu)\//i;
+const _BR_CONTENT_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(think\.ing\.com|mufgresearch\.com|scotiabank\.com|bluematrix\.com|hsbc\.com\.sg|syzgroup\.com|danskebank\.com|unicreditgroup\.eu|kbc\.com|corporate\.nordea\.com|economics\.cibccm\.com)\//i;
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
