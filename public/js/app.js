@@ -686,9 +686,10 @@ const _NEWS_BLOCK = /bank of russia|центральн|official exchange rates o
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
-    // SYNCHRO bandeau LIVE ↔ feed : la news actuellement annoncée dans le bandeau n'est JAMAIS
-    // masquée (ni par la dédup, ni par un filtre) → on la retrouve TOUJOURS dans le flux.
-    if (item.id && item.id === _flashedNewsId) { const k = _newsKey(item.headline || ''); if (k) seen.add(k); return true; }
+    // SYNCHRO bandeau LIVE ↔ feed : la news annoncée dans le bandeau n'est jamais masquée par la
+    // dédup → on la retrouve TOUJOURS dans le flux. MAIS si une RECHERCHE est active, elle doit
+    // respecter le filtre comme les autres (sinon "BoJ" laisse passer la news flashée hors-sujet).
+    if (!searchQuery && item.id && item.id === _flashedNewsId) { const k = _newsKey(item.headline || ''); if (k) seen.add(k); return true; }
     // Rapports DTP/DTP (briefings, recaps, opening news) : masqués du flux pour l'instant (à revoir plus tard).
     if (item._briefing || item.source === 'DTP') return false;
     if (!isCategoryEnabled(item.category)) return false;

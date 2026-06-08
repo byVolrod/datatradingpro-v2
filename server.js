@@ -4357,39 +4357,39 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   return _smartBias;
 }
 
-// Narratif hebdo par devise : UN seul appel IA → JSON {USD:'...',…}. Repli null si IA indispo (quota)
-// → le frontend compose alors une synthèse data-driven (0 token). Cache porté par l'objet _smartBias.
+// Narratif hebdo par devise : UN appel aiSmart('bias') PAR devise (prompt court → AUCUNE troncature
+// JSON ; un échec n'impacte qu'UNE devise, les autres restent IA). Passe par le quota standard, en
+// mode {scheduled} (cycle hebdo planifié — jamais à l'arrivée d'un utilisateur). Repli null si rien
+// n'aboutit → _sbFillNarrative compose alors une synthèse data-driven (0 token). Cache porté par _smartBias.
 async function _sbGenerateNarratives(rows, conclusion, ctxLines) {
-  try {
-    const matrix = SB_CURRENCIES.map(c => {
-      const ind = rows.map(r => `${r.label}=${r.values[c] || 'Neutral'}`).join(', ');
-      return `${c} (Overall ${conclusion[c] || 'Neutral'}): ${ind}`;
-    }).join('\n');
-    const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 2600);   // + de données réelles → figures exactes
-    const prompt = `You are a TOP-TIER institutional FX strategist and macro analyst. For EACH of the 8 currencies, write the weekly "[CCY] Performance Last Week" desk report — LONG and exhaustive (~350-450 words EACH), cold, analytical, technical. Use institutional FX vocabulary (safe-haven demand, hawkish repricing, rangebound, lacklustre, stagflation-style mix, front-end yields, bid-to-cover, higher-for-longer). MAXIMUM information density: every sentence carries a macro fact, a figure, a central-bank decision, or a precise geopolitical flow — NO filler. NEVER contradict each currency's computed Overall bias. Ground EVERYTHING strictly on the REAL data below (do not invent figures).
+  const ctx = (ctxLines || []).filter(Boolean).join('\n').slice(0, 2400);
+  const CB_OF = { USD: 'the Fed', EUR: 'the ECB', GBP: 'the BoE', JPY: 'the BoJ', CHF: 'the SNB', CAD: 'the BoC', AUD: 'the RBA', NZD: 'the RBNZ' };
+  const narr = {};
+  for (const c of SB_CURRENCIES) {
+    try {
+      const ind  = rows.map(r => `${r.label}=${r.values[c] || 'Neutral'}`).join(', ');
+      const bias = conclusion[c] || 'Neutral';
+      const prompt = `You are a TOP-TIER institutional FX strategist. Write the weekly "${c} Performance Last Week" desk report for ${c} ONLY — ~350-450 words, cold, analytical, technical, dense institutional vocabulary (safe-haven demand, hawkish repricing, rangebound, front-end yields, higher-for-longer). Every sentence must carry a macro fact, a figure, a central-bank decision or a precise flow — NO filler. NEVER contradict ${c}'s computed Overall bias (${bias}). Ground EVERYTHING strictly on the REAL data below; do not invent figures. Write in your OWN words — never copy any external source.
 
-Each report MUST follow EXACTLY this structure (flowing prose, NO markdown headers, NO bullets):
-Para 1 — Weekly chronology: tie the currency to the week's themes (Middle East geopolitics, global risk appetite, USD sentiment); detail "Early in the week", "Midweek", "By Thursday/Friday".
-Para 2 — Monetary policy: the relevant central bank (USD=Fed, EUR=ECB, GBP=BoE, JPY=BoJ, CHF=SNB, CAD=BoC, AUD=RBA, NZD=RBNZ); NAME the speakers found in the context and explain their stance (higher-for-longer, second-round inflation vigilance).
-Para 3 — Macro data: cite the week's releases with EXACT actual vs consensus figures from the context; explain the impact on investor psychology and purchasing power.
-Para 4 — Rates & bonds: government bond behaviour (Treasuries/Gilts/Bunds/JGBs…) and debt auctions (bid-to-cover) from the context.
-Outlook — "Near term:" explicit bias (aligned with the computed bias) + the precise technical/fundamental triggers that would invalidate it; then "Longer term:" structural macro balance (stagflation risk, political risk premium, growth resilience).
+Structure as flowing prose (NO markdown, NO headers, NO bullets):
+- Weekly chronology ("Early in the week" / "Midweek" / "By Thursday/Friday") tying ${c} to the week's themes and global risk appetite.
+- Monetary policy: ${CB_OF[c] || 'the central bank'} — name any officials quoted in the context and explain their stance.
+- Macro data: the week's releases with EXACT actual vs consensus figures from the context.
+- Rates & bonds: government-bond behaviour and auctions (bid-to-cover) from the context.
+- Outlook: "Near term:" the explicit bias (aligned with ${bias}) + the triggers that would invalidate it; then "Longer term:" the structural macro balance.
 
-COMPUTED BIAS MATRIX (never contradict these colours):
-${matrix}
+${c} indicators: ${ind}
 
 REAL CONTEXT (this week — COT, bank research, economic calendar actual vs forecast, risk regime, news):
 ${ctx}
 
-Return ONLY valid JSON (no prose, no fences): {"USD":"...","EUR":"...","GBP":"...","CAD":"...","AUD":"...","NZD":"...","JPY":"...","CHF":"..."}`;
-    const out = await ai.generateText(prompt, 6000);
-    const m = out && out.match(/\{[\s\S]*\}/);
-    if (!m) return null;
-    const obj = JSON.parse(m[0]);
-    const narr = {};
-    SB_CURRENCIES.forEach(c => { if (typeof obj[c] === 'string' && obj[c].trim()) narr[c] = obj[c].trim(); });
-    return Object.keys(narr).length ? narr : null;
-  } catch (e) { console.warn('[SmartBias] narratif IA échec → repli data-driven:', e.message); return null; }
+Return ONLY the ${c} report text — no preamble, no labels, no quotes, no JSON, no code fences.`;
+      const out = await aiSmart('bias', prompt, 1100, { scheduled: true });
+      const txt = (out || '').replace(/```[a-z]*|```/gi, '').trim();
+      if (txt && txt.length > 80) narr[c] = txt.slice(0, 2400);
+    } catch (e) { console.warn(`[SmartBias] narratif ${c} échec:`, e.message); }
+  }
+  return Object.keys(narr).length ? narr : null;
 }
 
 // ── SELF-HEAL : réessai EN TÂCHE DE FOND (throttlé + verrouillé → AUCUN doublon de requête) ──
@@ -4818,13 +4818,14 @@ const CB_MEETINGS = {
   USD: ['2026-01-28','2026-03-18','2026-04-29','2026-06-17','2026-07-29','2026-09-16','2026-10-28','2026-12-09','2027-01-27','2027-03-17','2027-04-28','2027-06-09','2027-07-28','2027-09-15','2027-10-27','2027-12-08'],
   EUR: ['2026-02-05','2026-03-19','2026-04-30','2026-06-11','2026-07-23','2026-09-10','2026-10-29','2026-12-17','2027-02-04','2027-03-18','2027-04-29','2027-06-10','2027-07-22','2027-09-09','2027-10-28','2027-12-16'],
   GBP: ['2026-02-05','2026-03-19','2026-04-30','2026-06-18','2026-07-30','2026-09-17','2026-11-05','2026-12-17','2027-02-04','2027-03-18','2027-04-29','2027-06-17','2027-07-29','2027-09-16','2027-11-04','2027-12-16'],
-  JPY: ['2026-01-23','2026-03-19','2026-04-28','2026-06-16','2026-07-31','2026-09-18','2026-10-30','2026-12-18'],
+  JPY: ['2026-01-23','2026-03-19','2026-04-28','2026-06-16','2026-07-31','2026-09-18','2026-10-30','2026-12-18','2027-01-22','2027-03-18','2027-04-27','2027-06-15','2027-07-30','2027-09-17','2027-10-29','2027-12-17'],
   CHF: ['2026-03-19','2026-06-18','2026-09-24','2026-12-10','2027-03-18','2027-06-24','2027-09-23','2027-12-16'],
-  CAD: ['2026-01-28','2026-03-18','2026-04-29','2026-06-10','2026-07-15','2026-09-02','2026-10-28','2026-12-09'],
+  CAD: ['2026-01-28','2026-03-18','2026-04-29','2026-06-10','2026-07-15','2026-09-02','2026-10-28','2026-12-09','2027-01-27','2027-03-17','2027-04-28','2027-06-09','2027-07-14','2027-09-01','2027-10-27','2027-12-08'],
   AUD: ['2026-02-03','2026-03-17','2026-05-05','2026-06-16','2026-08-11','2026-09-29','2026-11-03','2026-12-08','2027-02-09','2027-03-23','2027-05-04','2027-06-22','2027-08-10','2027-09-21','2027-11-02','2027-12-14'],
   NZD: ['2026-02-18','2026-04-08','2026-05-27','2026-07-08','2026-09-02','2026-10-28','2026-12-09','2027-02-10','2027-03-17','2027-05-05','2027-06-16','2027-08-04','2027-09-15','2027-10-27','2027-12-08'],
 };
-// JPY & CAD : calendrier 2027 pas encore publié par la banque → à compléter quand dispo (le système roule sans casser).
+// JPY & CAD : dates 2027 ESTIMÉES (calendrier officiel pas encore publié) — alignées sur le jour de semaine du cycle 2026,
+// cohérentes avec la nature « modèle maison » de l'onglet. À remplacer par les dates officielles dès publication.
 // Config maison par banque : taux actuel + biais directionnel + conviction + pas (bps).
 // rate = taux d'ANCRAGE initial ; bias/conv/lean = lecture maison ; floor/ceil = taux terminal (anti-emballement).
 const CB = [
