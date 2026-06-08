@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260609P" />
+  <link rel="stylesheet" href="/css/style.css?v=20260609Q" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -159,15 +159,17 @@
 
   <!-- ══ VIEW: WEEK AHEAD — aperçu hebdomadaire (timeline + risk amCharts) ══ -->
   <div class="view-panel hidden" id="view-weekahead">
-    <div class="wa3">
+    <div class="wa3" id="wa3">
       <div class="wa-scroll" id="wa-content">
         <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement du Week Ahead…</div></div>
       </div>
+      <div class="wa3-vsplit" id="wa3-vsplit" title="Glisser pour redimensionner"></div>
       <div class="wa3-right">
         <div class="wa3-panel">
           <div class="wa3-phead"><span class="wa3-ptitle">Realtime Headline Ticker</span><span class="wa3-live">Live</span></div>
           <div class="wa3-pbody" id="wa-news-body"></div>
         </div>
+        <div class="wa3-hsplit" id="wa3-hsplit" title="Glisser pour redimensionner"></div>
         <div class="wa3-panel">
           <div class="wa3-phead"><span class="wa3-ptitle">Economic Event Calendar</span><span class="wa3-live">Live</span></div>
           <div class="wa3-pbody" id="wa-cal-body"></div>
@@ -600,7 +602,7 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260609N"></script>
+<script src="/js/app.js?v=20260609O"></script>
 <script src="/js/charts.js?v=20260609N"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->

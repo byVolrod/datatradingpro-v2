@@ -4558,9 +4558,31 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wa-card--open .wa-ev-name { white-space: normal; }   /* déployé → on lit l'intitulé complet */
 
 /* ── Week Ahead : layout 3 panneaux (façon PMT) : Week Ahead | News + Calendar ── */
-.wa3 { flex: 1; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.18fr); gap: 1px; background: #1c1c20; }
-.wa3 > .wa-scroll { min-height: 0; }
-.wa3-right { display: grid; grid-template-rows: minmax(0,1fr) minmax(0,1fr); gap: 1px; background: #1c1c20; min-width: 0; min-height: 0; }
+.wa3 { flex: 1; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-columns: var(--wa-left, 47%) 6px minmax(0,1fr); overflow: hidden; }
+/* Frise gauche : remplit la hauteur, distribue les 5 jours, MONOBLOC (aucun scroll interne) */
+.wa3 > .wa-scroll { min-height: 0; min-width: 0; overflow: hidden; display: flex; flex-direction: column; padding: 12px 14px; }
+.wa3 .wa-wrap { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.wa3 .wa-head { flex: 0 0 auto; }
+.wa3 .wa-chartbox { flex: 0 0 auto; margin: 8px 0 10px; padding: 6px 9px 2px; }
+.wa3 .wa-chart { height: 44px; }
+.wa3 .wa-chart-label { margin-bottom: 1px; }
+.wa3 .wa-timeline { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; justify-content: space-between; gap: 6px; }
+.wa3 .wa-timeline::before { left: 23px; top: 14px; bottom: 14px; }
+.wa3 .wa-day { margin-bottom: 0; align-items: center; }
+.wa3 .wa-node { flex: 0 0 46px; width: 46px; height: 46px; }
+.wa3 .wa-card { padding: 8px 12px; }
+.wa3 .wa-card-head { margin-bottom: 4px; }
+.wa3 .wa-card-title { font-size: 12.5px; line-height: 1.25; }
+.wa3 .wa-card-desc { font-size: 11px; line-height: 1.45; -webkit-line-clamp: 2; }
+.wa3 .wa-more { display: none; }   /* monobloc : le détail complet est dans le calendrier de droite */
+/* Splitters glisser-redimensionner (volatils : reset au reload) */
+.wa3-vsplit { background: #1c1c20; cursor: col-resize; position: relative; z-index: 6; }
+.wa3-vsplit:hover, .wa3-vsplit.dragging { background: #ff7a00; }
+.wa3-hsplit { background: #1c1c20; cursor: row-resize; position: relative; z-index: 6; }
+.wa3-hsplit:hover, .wa3-hsplit.dragging { background: #ff7a00; }
+.wa3.wa-dragging *  { pointer-events: none; user-select: none; }
+.wa3.wa-dragging .wa3-vsplit, .wa3.wa-dragging .wa3-hsplit { pointer-events: auto; }
+.wa3-right { display: grid; grid-template-rows: var(--wa-top, 1fr) 6px minmax(0,1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .wa3-panel { background: #0c0c0e; display: flex; flex-direction: column; min-height: 0; }
 .wa3-phead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #1c1c20; background: #121216; flex: 0 0 auto; }
 .wa3-ptitle { font-size: 13px; font-weight: 700; color: #f0f0f2; }
