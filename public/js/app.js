@@ -4190,7 +4190,7 @@ function renderBrList() {
 // reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
 // identifiable) → "DTP". On ne met JAMAIS "ING" par défaut.
 const _INST_BANKS = [
-  [/\bblackrock\b/i, 'BlackRock'], [/\bunicredit\b/i, 'UniCredit'], [/\bsyz\b/i, 'Syz'],
+  [/\bblackrock\b/i, 'BlackRock'], [/\bunicredit\b/i, 'UniCredit'], [/\bsyz\b/i, 'Syz'], [/\bcibc\b/i, 'CIBC'],
   [/\bmufg\b|mitsubishi ufj/i, 'MUFG'], [/\buob\b/i, 'UOB'], [/\bocbc\b/i, 'OCBC'],
   [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman'],
   [/\bmorgan stanley\b/i, 'MS'], [/\bjp ?morgan\b/i, 'JPM'], [/\bciti\b/i, 'Citi'],
@@ -4217,7 +4217,7 @@ const _BANK_BRAND = {
   SocGen: '#e60028', BNP: '#00915a', StanChart: '#1b8fea', BofA: '#1f5fb0', 'Wells Fargo': '#d71e28',
   NatWest: '#7b3fa0', Rabo: '#fe6e00', Scotia: '#ec111a', Westpac: '#d5002b', Commerz: '#e7b000',
   NAB: '#c20029', ANZ: '#1b8fea', Nordea: '#0000a0', SEB: '#5ca800',
-  BlackRock: '#ededf0', UniCredit: '#e2231a', Syz: '#ff9c0c',
+  BlackRock: '#ededf0', UniCredit: '#e2231a', Syz: '#ff9c0c', CIBC: '#b71e3f',
 };
 function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
 // Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
@@ -4229,7 +4229,7 @@ const _BANK_DOMAIN = {
   BNP: 'bnpparibas.com', StanChart: 'sc.com', BofA: 'bankofamerica.com', 'Wells Fargo': 'wellsfargo.com',
   NatWest: 'natwest.com', Rabo: 'rabobank.com', Scotia: 'scotiabank.com', Westpac: 'westpac.com.au',
   Commerz: 'commerzbank.com', NAB: 'nab.com.au', ANZ: 'anz.com', Nordea: 'nordea.com', SEB: 'sebgroup.com',
-  UniCredit: 'unicredit.eu', Syz: 'syzgroup.com',
+  UniCredit: 'unicredit.eu', Syz: 'syzgroup.com', CIBC: 'cibccm.com',
 };
 // Logos téléchargés en local (assets DTP) → prioritaires sur Clearbit pour ces banques.
 const _BANK_LOCAL_LOGO = {
@@ -4245,6 +4245,8 @@ const _BANK_LOCAL_LOGO = {
   SocGen:    '/assets/images/banks/SocGen.png',      // logo Société Générale (carré rouge/noir)
   HSBC:      '/assets/images/banks/HSBC.png',        // hexagone rouge HSBC (fond transparent), rogné
   Syz:       '/assets/images/banks/Syz.png',         // logo Syz Private Banking (orange)
+  CIBC:      '/assets/images/banks/CIBC.png',        // losange rouge CIBC Capital Markets
+  Nordea:    '/assets/images/banks/Nordea.png',      // icône bleue Nordea (fond blanc keyé)
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {

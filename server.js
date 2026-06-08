@@ -2397,6 +2397,22 @@ const RESEARCH_SPA_SITES = [
     seed: [
       { title: 'SG Cross Asset Research — Latest Insights', url: 'https://insight-public.sgmarkets.com/insights?categories=15%2B12%2B6%2B18%2B4', date: '2026-06-08' },
     ] },
+  { name: 'CIBC', institution: 'CIBC', source: 'cibc', host: 'cibccm.com',
+    url: 'https://economics.cibccm.com/',
+    hrefRe: /cibccm\.com\/(?:cds\?id=[0-9a-f-]+|en\/(?:research|insights)\/).+/i,
+    seed: [
+      { title: 'Economics & FICC Strategy — Forecast Update', url: 'https://economics.cibccm.com/cds?id=397aa355-2b74-4665-abb8-f63b2d4be59e&flag=E', date: '2026-02-11' },
+      { title: 'Economics & FICC Strategy — Forecast Update', url: 'https://economics.cibccm.com/cds?id=bd5c0060-20fa-49f3-b22e-c2aa9868975a&flag=E', date: '2026-01-15' },
+      { title: 'Economics & FICC Strategy — Forecast Update', url: 'https://economics.cibccm.com/cds?id=1cd05bcf-60ad-47c2-9a5c-e86d913f8c91&flag=E', date: '2026-01-05' },
+    ] },
+  { name: 'Nordea', institution: 'Nordea', source: 'nordea', host: 'nordea.com',
+    url: 'https://corporate.nordea.com/research/series/181/macro-markets-strategy',
+    hrefRe: /nordea\.com\/article\/\d+\/.+/i,
+    seed: [
+      { title: 'Macro & Markets: The inflation shock may outlast the war', url: 'https://corporate.nordea.com/article/103780/macro-markets-the-inflation-shock-may-outlast-the-war', date: '2026-05-03' },
+      { title: 'Macro & Markets Forecast Edition: from cuts to hikes', url: 'https://corporate.nordea.com/article/103467/macro-markets-forecast-edition-from-cuts-to-hikes', date: '2026-04-17' },
+      { title: 'Macro & Markets: Warsh\'s way or the highway', url: 'https://corporate.nordea.com/article/102685/macro-markets-warshs-way-or-the-highway', date: '2026-02-05' },
+    ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
@@ -2536,7 +2552,7 @@ async function _fetchBankResearch(full = false) {
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
