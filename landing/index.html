@@ -245,6 +245,15 @@
   .res-foot a{color:var(--orange);font-weight:600}
   @media(max-width:880px){#ressources .res-grid{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:560px){#ressources .res-grid{grid-template-columns:1fr}}
+  .hero-eyebrow{font-size:12.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--orange);margin-bottom:16px}
+  #mission .mission-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:6px}
+  .mcell{background:var(--bg1);border:1px solid var(--line);border-radius:13px;padding:22px 20px}
+  .mcell .mi{width:42px;height:42px;border-radius:11px;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.2);display:flex;align-items:center;justify-content:center;color:var(--orange);margin-bottom:14px}
+  .mcell .mi svg{width:20px;height:20px}
+  .mcell h4{font-size:15px;font-weight:700;margin-bottom:6px}
+  .mcell p{font-size:13px;color:var(--text2);line-height:1.5}
+  @media(max-width:880px){#mission .mission-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){#mission .mission-grid{grid-template-columns:1fr}}
 
   /* ── SHOWCASE (terminal en action) ── */
   #showcase{border-top:1px solid var(--line)}
@@ -532,6 +541,7 @@
 <!-- HERO -->
 <div class="hero">
   <div class="wrap">
+    <div class="hero-eyebrow">Terminal macro &amp; forex · pour traders sérieux</div>
     <h1>Le marché crie.<br><span class="grad">Ce terminal vous le résume.</span></h1>
     <p class="sub">News, calendrier, Smart Bias, force des devises et IA macro — filtrés et réunis sur un seul écran. Vous arrêtez de fouiller dix onglets : vous voyez l'essentiel d'un coup d'œil.</p>
     <div class="hero-cta">
@@ -811,6 +821,23 @@
         <div class="corr-row"><span class="csrc">Force</span><span>EUR en haut de l'égaliseur</span><span class="cval up">+8,3</span></div>
         <div class="corr-verdict">Biais : haussier corroboré (3/3)</div>
       </div>
+    </div>
+  </div>
+</section>
+
+<!-- MISSION -->
+<section id="mission">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="tag">Notre approche</div>
+      <h2>Pensé par des traders, pas par des marketeux</h2>
+      <p>DataTradingPro est né d'un problème vécu : trop d'onglets, trop de connexions, des outils qui ne se parlent pas. Pendant qu'on jongle entre news, graphiques et tableaux, le marché, lui, bouge.</p>
+    </div>
+    <div class="mission-grid">
+      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h4>Gagner du temps</h4><p>Tout au même endroit — fini les fenêtres dispersées.</p></div>
+      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></div><h4>Voir plus</h4><p>Données, news et contexte réunis et hiérarchisés.</p></div>
+      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7l1-8z"/></svg></div><h4>Réagir vite</h4><p>Le signal à fort impact remonte en haut, en temps réel.</p></div>
+      <div class="mcell"><div class="mi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h4>Décider avec clarté</h4><p>Un biais clair et sourcé — vous tranchez en connaissance de cause.</p></div>
     </div>
   </div>
 </section>
