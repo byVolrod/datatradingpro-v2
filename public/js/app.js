@@ -828,6 +828,8 @@ function renderNews(hasNew = false) {
   } else {
     newsList.scrollTop = prevScrollTop;             // re-rendu (filtre, patch…) → on garde la position exacte
   }
+  // Miroir LIVE : si l'onglet Week Ahead est ouvert, son « Realtime Headline Ticker » suit le MÊME flux (WebSocket) que l'onglet News.
+  try { const _wav = document.getElementById('view-weekahead'); if (_wav && !_wav.classList.contains('hidden') && typeof _waRenderNews === 'function') _waRenderNews(allItems); } catch {}
 }
 
 async function loadMore() {
@@ -3265,7 +3267,11 @@ function _waPad(n){ return n<10?'0'+n:''+n; }
 function _waFmtTime(ts){ const d=new Date(ts); return _waPad(d.getHours())+':'+_waPad(d.getMinutes()); }
 function _waWeekWindow(){ const d=new Date(),dow=d.getDay(); const toMon=(dow===0)?1:(dow===6)?2:(1-dow); const mon=new Date(d.getFullYear(),d.getMonth(),d.getDate()+toMon,0,0,0,0); return { start:mon.getTime(), end:mon.getTime()+7*86400000 }; }
 let _waCalItems = [], _waCalFilter = 'all', _waCalBound = false;
-function _waLoadNews(){ fetch('/api/news').then(r=>r.json()).then(d=>_waRenderNews(d&&d.items)).catch(()=>{}); }
+function _waLoadNews(){
+  // MÊME flux que l'onglet News : on lit le tableau live `allItems` (alimenté par le WebSocket). Repli HTTP si pas encore prêt.
+  if (typeof allItems !== 'undefined' && Array.isArray(allItems) && allItems.length) { _waRenderNews(allItems); return; }
+  fetch('/api/news').then(r=>r.json()).then(d=>_waRenderNews(d&&d.items)).catch(()=>{});
+}
 function _waRenderNews(items){
   const host=document.getElementById('wa-news-body'); if(!host) return;
   if(!items||!items.length){ host.innerHTML='<div class="wa3-empty">News indisponibles.</div>'; return; }
