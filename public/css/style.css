@@ -353,6 +353,7 @@ html, body {
 /* — Dropdown : double drapeau rond + en-tête « # Foreign Exchange (N) » — */
 .sym-dd-head { display: flex; align-items: center; gap: 5px; }
 .sym-dd-hash { color: #ff7a00; font-family: var(--font-mono, monospace); font-weight: 700; }
+.sym-dd-ico { width: 11px; height: 11px; color: #8a8a93; flex: 0 0 auto; }
 .sym-dd-count { color: #5b5b64; }
 .sym-dd-flags { display: inline-flex; align-items: center; flex: 0 0 auto; }
 .sym-dd-flag { width: 19px; height: 19px; border-radius: 50%; object-fit: cover; border: 1.5px solid #0e0e12; box-shadow: 0 0 0 1px #2a2a30; }
