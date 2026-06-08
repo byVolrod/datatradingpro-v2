@@ -347,7 +347,7 @@
     <nav>
       <a class="logo" href="/">
         <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="34" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="26" letter-spacing="-1.5" fill="#ffffff">DT<tspan fill="#f7941d">P</tspan></text></svg>
-        Data<b>TradingPro</b>
+        DataTradingPro
       </a>
       <div class="nav-links">
         <div class="nav-item">
@@ -391,7 +391,7 @@
 <div class="ticker">
   <div class="badge"><span class="dot"></span><span>APERÇU MARCHÉ</span></div>
   <div class="ticker-mask">
-    <div class="ticker-track">
+    <div class="ticker-track" id="tkTrack">
       <span class="ti"><span class="s">EUR/USD</span><span class="p">1,0774</span><span class="c down">−0,02%</span></span>
       <span class="ti"><span class="s">USD/JPY</span><span class="p">156,92</span><span class="c up">+0,28%</span></span>
       <span class="ti"><span class="s">GBP/USD</span><span class="p">1,2618</span><span class="c up">+0,15%</span></span>
@@ -445,7 +445,7 @@
     <div class="ov">
       <div class="chrome"><span class="d d1"></span><span class="d d2"></span><span class="d d3"></span><span class="url">desk.datatradingpro.com</span><span class="live"><span class="dot"></span>APERÇU</span></div>
       <div class="ov-tb">
-        <span class="lg">◈ Data<b>TradingPro</b></span>
+        <span class="lg">DataTradingPro</span>
         <span class="sf">Search symbols…</span>
         <span class="sent">SENTIMENT · NEUTRAL ▾</span>
       </div>
@@ -541,12 +541,12 @@
       <p>Chaque carte est une source de données à part entière. Réunies, elles couvrent le cycle macro complet : actualité, agenda, positionnement, recherche, force, biais et synthèse IA.</p>
     </div>
     <div class="features">
-      <div class="feat"><span class="tagm">FX</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><h3>News priorisée</h3><p>Flux ForexFactory, FinancialJuice et FXStreet agrégés, classés par impact HIGH / MED / LOW, breaking news mis en avant.</p></div>
+      <div class="feat"><span class="tagm">FX</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></div><h3>News priorisée</h3><p>Flux de news institutionnels agrégés, classés par impact HIGH / MED / LOW, breaking news mis en avant.</p></div>
       <div class="feat"><span class="tagm">MACRO</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></div><h3>Calendar</h3><p>Événements à fort impact, valeurs <em>réel vs prévision</em> en direct, vue Week Ahead et détail au clic.</p></div>
       <div class="feat"><span class="tagm">BIAS</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="0.7" fill="currentColor"/></svg></div><h3>Smart Bias Tracker</h3><p>Biais hebdomadaire par devise, croisant fondamentaux, COT et positionnement bancaire.</p></div>
       <div class="feat"><span class="tagm">FX</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></div><h3>Force des devises</h3><p>Égaliseur bidirectionnel des 8 majeures, en multi-timeframe, façon salle de marché.</p></div>
-      <div class="feat"><span class="tagm">IA</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/><circle cx="12" cy="12" r="2.5"/></svg></div><h3>Assistant Macro IA</h3><p>Réponses sourcées en streaming, contextualisées sur votre Smart Bias et vos news (Gemini + repli Claude).</p></div>
-      <div class="feat"><span class="tagm">BANK</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-5 8 5v11M9 21v-6h6v6"/></svg></div><h3>Recherche institutionnelle</h3><p>Rapports des grandes banques (ING, MUFG, SEB…) agrégés et structurés par devise.</p></div>
+      <div class="feat"><span class="tagm">IA</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><path d="M9 2v3M15 2v3M9 19v3M15 19v3M2 9h3M2 15h3M19 9h3M19 15h3"/><circle cx="12" cy="12" r="2.5"/></svg></div><h3>Assistant Macro IA</h3><p>Réponses sourcées en streaming, contextualisées sur votre Smart Bias et vos news (modèles IA de pointe).</p></div>
+      <div class="feat"><span class="tagm">BANK</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-5 8 5v11M9 21v-6h6v6"/></svg></div><h3>Recherche institutionnelle</h3><p>Rapports des grandes banques internationales, agrégés et structurés par devise.</p></div>
       <div class="feat"><span class="tagm">ANALYST</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16l3-4 2.5 2.5L17 8"/></svg></div><h3>Analyst</h3><p>Rapports d'analystes structurés par IA : synthèses de séance, AI Insights et catalogue de recherche au clic.</p></div>
       <div class="feat"><span class="tagm">COT</span><div class="fi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M7 21v-6M12 21V9M17 21v-10"/><circle cx="7" cy="12" r="1.5"/><circle cx="12" cy="6" r="1.5"/><circle cx="17" cy="8" r="1.5"/></svg></div><h3>Positions des banques</h3><p>Le positionnement des grandes banques par devise (Bank Overview) et les données COT de la CFTC, en 5 catégories d'acteurs.</p></div>
     </div>
@@ -612,7 +612,7 @@
       <div class="show-txt">
         <div class="tag">Assistant Macro IA</div>
         <h3>Posez votre question macro, obtenez une réponse sourcée</h3>
-        <p>Un assistant propulsé par Gemini et Claude, nourri du contexte Smart Bias et des news en temps réel. Synthèses, explications, scénarios — avec les sources utilisées.</p>
+        <p>Un assistant propulsé par des modèles IA de pointe, nourri du contexte Smart Bias et des news en temps réel. Synthèses, explications, scénarios — avec les sources utilisées.</p>
         <ul>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Réponses en streaming, instantanées</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Contextualisé sur vos données de marché</li>
@@ -717,8 +717,8 @@
       <div class="tcell"><div class="ti2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z"/></svg></div><h4>Sans engagement</h4><p>Résiliable en un clic, paiement sécurisé, aucun frais caché.</p></div>
     </div>
     <div class="sources">
-      <span class="slbl">Données &amp; moteurs utilisés :</span>
-      <span class="src">ForexFactory</span><span class="src">FinancialJuice</span><span class="src">FXStreet</span><span class="src">CFTC / COT</span><span class="src">ING</span><span class="src">MUFG</span><span class="src">SEB</span><span class="src">Gemini</span><span class="src">Claude</span>
+      <span class="slbl">Ce que tu obtiens :</span>
+      <span class="src">News institutionnelles</span><span class="src">Calendrier mondial</span><span class="src">Données COT</span><span class="src">Recherche bancaire</span><span class="src">Force des devises</span><span class="src">Assistant IA</span>
     </div>
     <div class="notbox">
       <h4>Ce que DataTradingPro <span style="color:var(--orange)">n'est pas</span></h4>
@@ -768,9 +768,9 @@
       <details><summary>DataTradingPro passe-t-il des ordres à ma place ?</summary><p>Non. C'est un terminal de données, de news et de recherche. Vous exécutez vous-même chez votre courtier — DTP éclaire la décision, il ne la prend jamais et n'exécute aucun ordre.</p></details>
       <details><summary>Est-ce un conseil en investissement ?</summary><p>Non. Toutes les données sont fournies à titre informatif et d'aide à la décision — jamais comme un conseil financier personnalisé.</p></details>
       <details><summary>Faut-il installer un logiciel ?</summary><p>Non — tout fonctionne dans le navigateur, sur ordinateur, tablette et mobile. Aucune installation, aucune extension.</p></details>
-      <details><summary>D'où viennent les données ?</summary><p>De sources reconnues : calendrier économique, flux de news institutionnels (ForexFactory, FinancialJuice, FXStreet), données COT de la CFTC, recherche de banques et force FX — agrégées et rafraîchies en temps réel.</p></details>
+      <details><summary>D'où viennent les données ?</summary><p>De sources de marché institutionnelles reconnues — calendrier économique, news, positionnement, recherche et force des devises — agrégées et rafraîchies en temps réel. Le détail de nos sources fait partie de notre savoir-faire.</p></details>
       <details><summary>L'abonnement est-il sans engagement ?</summary><p>Oui. 24,99 €/mois, résiliable à tout moment en un clic, sans frais cachés.</p></details>
-      <details><summary>Comment j'accède au terminal après paiement ?</summary><p>Immédiatement : vous vous connectez sur desk.datatradingpro.com et l'ensemble du terminal se charge en temps réel.</p></details>
+      <details><summary>Comment j'accède au terminal après paiement ?</summary><p>Le paiement se fait sur Whop. Juste après, tu reçois un email avec tes identifiants (login + mot de passe), et tu es automatiquement ajouté à notre serveur Discord avec la communauté. Tu te connectes ensuite sur desk.datatradingpro.com et tout se charge en temps réel.</p></details>
     </div>
   </div>
 </section>
@@ -797,7 +797,7 @@
     <div class="foot">
       <a class="logo" href="/">
         <svg viewBox="0 0 64 64" aria-hidden="true" style="width:24px;height:24px"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="34" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="26" letter-spacing="-1.5" fill="#ffffff">DT<tspan fill="#f7941d">P</tspan></text></svg>
-        Data<b>TradingPro</b>
+        DataTradingPro
       </a>
       <div class="foot-links">
         <a href="#overview">Le terminal</a>
@@ -842,6 +842,24 @@ function closeMenu(){var o=document.getElementById('mobileMenu');if(o)o.classLis
       for(j=1;j<=4;j++) dn+='<span class="cse-seg'+(v<=-j?' r':'')+'"></span>';
       return '<div class="cse-col"><div class="cse-up">'+up+'</div><div class="cse-axis"></div><div class="cse-dn">'+dn+'</div><div class="cse-lbl">'+d[0]+'</div></div>';
     }).join('');
+  }
+  var TK=document.getElementById('tkTrack');
+  if(TK){
+    var tkFmt=function(n,dec){try{return n.toLocaleString('fr-FR',{minimumFractionDigits:dec,maximumFractionDigits:dec});}catch(e){return String(n);}};
+    var tkCell=function(it){
+      var sign=it.chg>=0?'+':'−',dir=it.chg>=0?'up':'down';
+      var price=tkFmt(it.price,it.dec)+(it.yield?'%':'');
+      var chg=sign+tkFmt(Math.abs(it.chg),2)+(it.yield?'':'%');
+      return '<span class="ti"><span class="s">'+String(it.label).replace('&','&amp;')+'</span><span class="p">'+price+'</span><span class="c '+dir+'">'+chg+'</span></span>';
+    };
+    var tkLoad=function(){
+      fetch('https://desk.datatradingpro.com/api/ticker').then(function(r){return r.json();}).then(function(d){
+        if(!d||!d.items||!d.items.length)return;
+        var html=d.items.map(tkCell).join('');
+        TK.innerHTML=html+html;
+      }).catch(function(){});
+    };
+    tkLoad();setInterval(tkLoad,60000);
   }
 })();
 </script>

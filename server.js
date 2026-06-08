@@ -4593,6 +4593,44 @@ app.get('/api/market-snapshot', async (_req, res) => {
   } catch (e) { res.json({ groups: [], updatedAt: Date.now() }); }
 });
 
+// ─── Ticker public (landing datatradingpro.com) — prix réels Yahoo, CORS ouvert ───
+const TICKER_SYMS = [
+  { sym: 'EURUSD=X', label: 'EUR/USD', dec: 4 },
+  { sym: 'USDJPY=X', label: 'USD/JPY', dec: 2 },
+  { sym: 'GBPUSD=X', label: 'GBP/USD', dec: 4 },
+  { sym: 'GC=F',     label: 'XAU/USD', dec: 2 },
+  { sym: '^GSPC',    label: 'S&P 500', dec: 2 },
+  { sym: '^IXIC',    label: 'NASDAQ',  dec: 0 },
+  { sym: 'DX-Y.NYB', label: 'DXY',     dec: 2 },
+  { sym: 'CL=F',     label: 'WTI',     dec: 2 },
+  { sym: 'BTC-USD',  label: 'BTC/USD', dec: 0 },
+  { sym: '^TNX',     label: 'US 10Y',  dec: 2, yield: true },
+];
+let _tickerCache = { ts: 0, data: null };
+app.get('/api/ticker', async (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=60');
+  if (_tickerCache.data && Date.now() - _tickerCache.ts < 60 * 1000) return res.json(_tickerCache.data);
+  try {
+    await getYFSession();
+    const items = [];
+    await Promise.all(TICKER_SYMS.map(async (a, i) => {
+      try {
+        const raw  = await yfFetch(a.sym, '5m', '1d');
+        const meta = raw?.chart?.result?.[0]?.meta;
+        const price = meta?.regularMarketPrice;
+        const prev  = meta?.chartPreviousClose;
+        if (price == null || !prev) return;
+        const chg = a.yield ? +(price - prev).toFixed(2) : +((price / prev - 1) * 100).toFixed(2);
+        items[i] = { label: a.label, price: +price.toFixed(a.dec), dec: a.dec, chg, yield: !!a.yield };
+      } catch {}
+    }));
+    const data = { updatedAt: Date.now(), items: items.filter(Boolean) };
+    if (data.items.length) _tickerCache = { ts: Date.now(), data };
+    res.json(data);
+  } catch (e) { res.json({ items: [], updatedAt: Date.now() }); }
+});
+
 // CRUD admin (ajout / édition / suppression de positions)
 app.post('/api/bank-positions', requireAdmin, (req, res) => {
   const b = req.body || {};
