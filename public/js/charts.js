@@ -1866,6 +1866,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const bps = v => (v > 0 ? '+' : '') + Number(v).toFixed(1) + ' bps';
     const SPK = { HIKE: 'M0 14 L12 10 L24 12 L36 5 L48 2', CUT: 'M0 2 L12 6 L24 4 L36 10 L48 14', HOLD: 'M0 9 L12 7 L24 9 L36 7 L48 8' };
     const SPC = { HIKE: '#00da50', CUT: '#ff4d2e', HOLD: '#abb4c3' };
+    // Sparkline data-driven (probabilité / Δ implicite au fil des réunions) → tendance réelle, jamais inventée.
+    const spk = (arr, color) => {
+      if (!arr || arr.length < 2) arr = (arr && arr.length) ? [arr[0], arr[0]] : [0, 0];
+      const n = arr.length, mn = Math.min(...arr), mx = Math.max(...arr), rng = (mx - mn) || 1, W = 48, H = 16, P = 2;
+      const d = arr.map((v, i) => { const x = (i / (n - 1)) * W, y = H - P - ((v - mn) / rng) * (H - 2 * P); return x.toFixed(1) + ' ' + y.toFixed(1); });
+      return '<svg class="rtc-msp" viewBox="0 0 ' + W + ' ' + H + '" fill="none"><path d="M' + d.join(' L') + '" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    };
     try {
       const r = await fetch('/api/rates');
       const d = await r.json();
@@ -1874,6 +1881,9 @@ document.addEventListener('DOMContentLoaded', () => {
       host.innerHTML = banks.map(b => {
         const mv = MV[b.move] || MV.HOLD;
         const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
+        const col = SPC[b.move] || SPC.HOLD;
+        const probSeries = [b.prob].concat((b.meetings || []).map(m => Math.max(m.hold, m.hike, m.cut)));
+        const bpsSeries = [0].concat((b.meetings || []).map(m => m.impliedBps));
         const rows = (b.meetings || []).map(m => {
           const mm = MV[m.baseCase] || MV.HOLD;
           return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'j</td>'
@@ -1884,12 +1894,11 @@ document.addEventListener('DOMContentLoaded', () => {
         return '<div class="rtc">'
           + '<div class="rtc-head"><span class="rtc-dot ' + mv.cls + '"></span><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
           + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
-          + '<svg class="rtc-spark" width="48" height="16" viewBox="0 0 48 16" fill="none"><path d="' + (SPK[b.move] || SPK.HOLD) + '" stroke="' + (SPC[b.move] || SPC.HOLD) + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
           + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
           + '<div class="rtc-metrics">'
-          + '<div><span class="rtc-k">Prochain mvt</span><span class="rtc-v ' + mv.cls + '">' + mv.lbl + '</span></div>'
-          + '<div><span class="rtc-k">Probabilité</span><span class="rtc-v">' + b.prob + '%</span></div>'
-          + '<div><span class="rtc-k">&Delta; attendu</span><span class="rtc-v">' + bps(b.expBps) + '</span></div>'
+          + '<div><span class="rtc-k">Prochain mvt</span><span class="rtc-v ' + mv.cls + '">' + mv.lbl + '</span><svg class="rtc-msp" viewBox="0 0 48 16" fill="none"><path d="' + (SPK[b.move] || SPK.HOLD) + '" stroke="' + col + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg></div>'
+          + '<div><span class="rtc-k">Probabilité</span><span class="rtc-v">' + b.prob + '%</span>' + spk(probSeries, col) + '</div>'
+          + '<div><span class="rtc-k">&Delta; attendu</span><span class="rtc-v">' + bps(b.expBps) + '</span>' + spk(bpsSeries.map(Math.abs), col) + '</div>'
           + '<div><span class="rtc-k">Taux actuel</span><span class="rtc-v">' + Number(b.rate).toFixed(2) + '%</span></div>'
           + '<div><span class="rtc-k">R&eacute;union</span><span class="rtc-v">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
           + '</div>'
