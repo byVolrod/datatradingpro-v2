@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   Prime Terminal — Frontend Logic
+   DataTradingPro — Frontend Logic
 ═══════════════════════════════════════════ */
 
 'use strict';
@@ -233,7 +233,7 @@ const INTERNAL_CATS = [
   'Fed', 'ECB', 'BoJ', 'BoE', 'BoC', 'RBA', 'SNB', 'RBNZ',
   'Geopolitical', 'Economic Commentary', 'FX Flows', 'Market Analysis',
   'Energy & Power', 'Metals', 'Crypto', 'Fixed Income',
-  'Global News', 'Asian News', 'Trade', 'PMT Update', 'Ags & Softs',
+  'Global News', 'Asian News', 'Trade', 'DTP Update', 'Ags & Softs',
   'EU Data', 'US Data', 'UK Data', 'Swiss Data', 'Japanese Data',
   'Canadian Data', 'Australian Data', 'Chinese Data',
 ];
@@ -249,7 +249,7 @@ const SETTINGS_PANEL = {
   'Macro & Data': [
     { label: 'Economic Commentary', cat: 'Economic Commentary' },
     { label: 'Trade',               cat: 'Trade'               },
-    { label: 'PMT Update',          cat: 'PMT Update'          },
+    { label: 'DTP Update',          cat: 'DTP Update'          },
   ],
   'Marchés': [
     { label: 'FX Flows',        cat: 'FX Flows'        },
@@ -292,7 +292,7 @@ const _openNewsPanels = {};    // id → onglet ouvert PAR L'UTILISATEUR (persis
 let loadingMore       = false;
 let _wsInitReceived   = false; // true once server sends its first 'initial' message
 const _analysisCache  = new Map(); // item.id → bullets[]
-const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style PMT, mémoire session)
+const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style DTP, mémoire session)
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
 let   _snapCache      = null;      // dernier Market Snapshot (prix réels) — partagé entre rapports
 // Rend des puces Info/Analyse : texte propre, SANS gras ni balises (on retire HTML <…> et markdown **…**)
@@ -465,10 +465,10 @@ function handleMessage(msg) {
       // RÉELLEMENT AFFICHÉE dans le feed (passe les filtres ET dans les `displayLimit` premières).
       // → la notif est TOUJOURS synchro avec une news visible ; sinon pas de notif. (Anti-désync.)
       const _renderedIds = new Set(getFilteredItems().slice(0, displayLimit).map(i => i.id));
-      _flashBreakingNews(truly_new.find(i => _renderedIds.has(i.id) && !(i._briefing || i.source === 'PMT' || isPrimerItem(i)) && _isImportantNews(i)));
+      _flashBreakingNews(truly_new.find(i => _renderedIds.has(i.id) && !(i._briefing || i.source === 'DTP' || isPrimerItem(i)) && _isImportantNews(i)));
     }
     // Refresh analyst library if a new briefing arrived and analyst view is active
-    if (truly_new.some(i => i._briefing || i.source === 'PMT')) {
+    if (truly_new.some(i => i._briefing || i.source === 'DTP')) {
       const analystPanel = document.getElementById('view-analyst');
       if (analystPanel && !analystPanel.classList.contains('hidden')) {
         renderArlibList();
@@ -539,7 +539,7 @@ function _isImportantNews(item) {
 
 function _flashBreakingNews(item) {
   // On ne fait JAMAIS flasher un rapport DTP/primer dans la bannière LIVE (plus de "PRIMER — …")
-  if (!item || item._briefing || item.source === 'PMT' || isPrimerItem(item)) return;
+  if (!item || item._briefing || item.source === 'DTP' || isPrimerItem(item)) return;
   // Bannière LIVE = UNIQUEMENT les news importantes (pas les news de routine)
   if (!_isImportantNews(item)) return;
   const flash = document.getElementById('breaking-news-flash');
@@ -689,8 +689,8 @@ function getFilteredItems() {
     // SYNCHRO bandeau LIVE ↔ feed : la news actuellement annoncée dans le bandeau n'est JAMAIS
     // masquée (ni par la dédup, ni par un filtre) → on la retrouve TOUJOURS dans le flux.
     if (item.id && item.id === _flashedNewsId) { const k = _newsKey(item.headline || ''); if (k) seen.add(k); return true; }
-    // Rapports DTP/PMT (briefings, recaps, opening news) : masqués du flux pour l'instant (à revoir plus tard).
-    if (item._briefing || item.source === 'PMT') return false;
+    // Rapports DTP/DTP (briefings, recaps, opening news) : masqués du flux pour l'instant (à revoir plus tard).
+    if (item._briefing || item.source === 'DTP') return false;
     if (!isCategoryEnabled(item.category)) return false;
     // Social-media reposts and failed-scrape stubs — no market value
     const _h = item.headline || '';
@@ -1595,7 +1595,7 @@ function stripSpeakerPrefix(headline) {
 
 // Detect PRIMER / PREVIEW briefing items (Newsquawk-style aggregated reports)
 function isPrimerItem(item) {
-  if (item._briefing || item.source === 'PMT') return true;   // rapports DTP (rendu structuré conservé)
+  if (item._briefing || item.source === 'DTP') return true;   // rapports DTP (rendu structuré conservé)
   const h = item.headline || '';
   return /^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]/i.test(h);
 }
@@ -1637,7 +1637,7 @@ function _reportLead(s) {
     '<strong class="rpt-key">$1</strong>'
   );
 }
-// Remplace la marque PMT par DTP dans les titres de rapport
+// Remplace la marque DTP par DTP dans les titres de rapport
 function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP'); }
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)
@@ -1884,7 +1884,7 @@ function buildNewsItem(item) {
       .trim();
     // Rapports DTP (briefings) → présentés comme des news, SANS badge PRIMER/ANALYST.
     // Les autres primers (institution/calendrier) gardent leur badge.
-    const isReport = item._briefing || item.source === 'PMT';
+    const isReport = item._briefing || item.source === 'DTP';
     if (!isReport) {
       const badge = document.createElement('span');
       badge.className = 'primer-badge';
@@ -2171,7 +2171,7 @@ function buildNewsItem(item) {
       }
     }
 
-    // Amélioration Gemini (style PMT), mise en cache → aucune requête aux ouvertures suivantes
+    // Amélioration Gemini (style DTP), mise en cache → aucune requête aux ouvertures suivantes
     const _improvable = !isPrimer && !hasGrouped && !isSpeaker && rawDesc.length >= 30;
     if (_improvable) {
       if (_infoCache.has(item.id)) {
@@ -3310,7 +3310,7 @@ function _sbFlag(c) {
   const iso = SB_FLAG_ISO[c];
   return iso ? `<img class="sbm-flag" src="https://flagcdn.com/w20/${iso}.png" srcset="https://flagcdn.com/w40/${iso}.png 2x" alt="" loading="lazy">` : '';
 }
-// Valeur de biais → classe couleur sémantique FIXE (5 états, hex exacts PMT : voir CSS .sbm-*).
+// Valeur de biais → classe couleur sémantique FIXE (5 états, hex exacts DTP : voir CSS .sbm-*).
 function _sbColorCls(v) {
   switch (v) {
     case 'Very Bullish': return 'sbm-vbull';
@@ -3372,7 +3372,7 @@ function renderBiasView(d) {
   // Bias Summary affiché DIRECTEMENT (plus de clic requis) : on garde la devise active, sinon la 1ère.
   if (cur.length) _sbOpenSummary(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
 }
-// Libellé de semaine façon PMT : "1-7/06/2026" (lundi→dimanche).
+// Libellé de semaine façon DTP : "1-7/06/2026" (lundi→dimanche).
 function _sbWeekLabel(ts) {
   const d = ts ? new Date(ts) : new Date();
   const dow = d.getDay() || 7;
@@ -3382,7 +3382,7 @@ function _sbWeekLabel(ts) {
 }
 
 // ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──
-let _sbActiveCur = null, _sbSplitFrac = 0.30, _sbMatrixH = null;   // 30% gauche / 70% droite (façon PMT) · _sbMatrixH = hauteur matrice (null = auto)
+let _sbActiveCur = null, _sbSplitFrac = 0.30, _sbMatrixH = null;   // 30% gauche / 70% droite (façon DTP) · _sbMatrixH = hauteur matrice (null = auto)
 // Splitter orange HORIZONTAL : glisser pour redimensionner la matrice ↔ le panneau détail.
 function _sbVSplitStart(e) {
   e.preventDefault();
@@ -3479,7 +3479,7 @@ function _sbOpenSummary(curr) {
     line('Monetary Policy', val('monetary')),
     line('Trend', val('trend')),
     line('Seasonality', val('seasonality')),
-    // Ligne Overall (conclusion) — encadrée orange façon PMT, en bas de la liste.
+    // Ligne Overall (conclusion) — encadrée orange façon DTP, en bas de la liste.
     `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${esc(overall)}</span></div>`,
   ].filter(Boolean).join('');
 
@@ -4149,7 +4149,7 @@ const _BANK_DOMAIN = {
   NatWest: 'natwest.com', Rabo: 'rabobank.com', Scotia: 'scotiabank.com', Westpac: 'westpac.com.au',
   Commerz: 'commerzbank.com', NAB: 'nab.com.au', ANZ: 'anz.com', Nordea: 'nordea.com', SEB: 'sebgroup.com',
 };
-// Logos téléchargés en local (assets PMT) → prioritaires sur Clearbit pour ces banques.
+// Logos téléchargés en local (assets DTP) → prioritaires sur Clearbit pour ces banques.
 const _BANK_LOCAL_LOGO = {
   MUFG: '/assets/images/banks/MUFG.png',
   SEB:  '/assets/images/banks/SEB.png',
@@ -4305,7 +4305,7 @@ function renderBrReader(item) {
 
 // ════════════════════════════════════════════════════════════════════════════
 // Rapport de banque (onglet Institution) → VRAI PDF généré côté client (jsPDF).
-// 0 Mo serveur (anti-OOM Render), affiché en document embarqué comme PMT + téléchargeable.
+// 0 Mo serveur (anti-OOM Render), affiché en document embarqué comme DTP + téléchargeable.
 // Repli HTML automatique si jsPDF indispo ou en cas d'erreur. Institution UNIQUEMENT.
 // ════════════════════════════════════════════════════════════════════════════
 let _brPdfState = null;   // { url, filename, html }
@@ -4517,7 +4517,7 @@ const ARLIB_TYPE_ORDER = {
 };
 
 // ── Standardisation éditoriale des titres : "[Préfixe de session fixe]: [Sujet dynamique]" ──
-// Catalogue exact (réplique Prime Terminal). Le préfixe dépend du type de rapport OU de la
+// Catalogue exact (réplique DataTradingPro). Le préfixe dépend du type de rapport OU de la
 // session du wrap ; le sujet est extrait du titre (fallback si le préfixe est absent).
 const REPORT_PREFIX = {
   'Global Economic Weekly':     'Global Economic Weekly',
@@ -4635,7 +4635,7 @@ function arlibItemType(item) {
   if (item._source === 'investinglive') return 'recap';
   if (item._reportType === 'London Session Recap' || item._reportType === 'US Session Recap') return 'recap';
   if (item._reportType === 'Daily Event Review') return 'briefing';
-  if (item.source === 'PMT' || item._briefing) return 'briefing';
+  if (item.source === 'DTP' || item._briefing) return 'briefing';
   const h = (item.headline || '').toLowerCase();
   if (/recap|review|wrap|summary/i.test(h)) return 'recap';
   if (item.category === 'Market Analysis') return 'fxdaily';
@@ -4680,23 +4680,23 @@ function _tagsFromText(text, cap = 12) {
 function arlibItemTags(item) {
   const tags = _tagsFromText(item.headline + ' ' + (item.description || ''));
   for (const t of (item.tags || [])) {
-    if (!tags.includes(t) && !['High','Medium','FinancialJuice','PMT'].includes(t) && t !== item.category && tags.length < 12)
+    if (!tags.includes(t) && !['High','Medium','FinancialJuice','DTP'].includes(t) && t !== item.category && tags.length < 12)
       tags.push(t);
   }
   return tags;
 }
-// Tags du rapport OUVERT (liste complète) + rendu façon PMT : 6 pills max + "+N", puis
+// Tags du rapport OUVERT (liste complète) + rendu façon DTP : 6 pills max + "+N", puis
 // date + badge DTP à droite de la barre.
 let _arlibCurrentTags = [];
 function _renderArlibTags() {
   const scroll = document.getElementById('arlib-rtags-scroll');
   const tags = _arlibCurrentTags || [];
   if (scroll) {
-    // Façon PMT : TOUS les tags dans une rangée scrollable (chevrons ‹ ›), sans troncature "+N".
+    // Façon DTP : TOUS les tags dans une rangée scrollable (chevrons ‹ ›), sans troncature "+N".
     scroll.innerHTML = tags.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
     scroll.scrollLeft = 0;
   }
-  // Date retirée de cette rangée (façon PMT : ‹ tags › ; le badge DTP reste dans la barre du haut).
+  // Date retirée de cette rangée (façon DTP : ‹ tags › ; le badge DTP reste dans la barre du haut).
   const dateEl = document.getElementById('arlib-rdate');
   if (dateEl) dateEl.innerHTML = '';
   _updateArlibTagArrows();
@@ -4707,7 +4707,7 @@ function _arlibTagScroll(dir) {
   const s = document.getElementById('arlib-rtags-scroll');
   if (s) s.scrollBy({ left: dir * 180, behavior: 'smooth' });
 }
-// Masque les chevrons s'il n'y a rien à faire défiler ; sinon les affiche (façon PMT)
+// Masque les chevrons s'il n'y a rien à faire défiler ; sinon les affiche (façon DTP)
 function _updateArlibTagArrows() {
   const s = document.getElementById('arlib-rtags-scroll');
   const prev = document.getElementById('arlib-rtags-prev');
@@ -4759,7 +4759,7 @@ function renderArlibList() {
     const title   = standardizeReportTitle(item);
 
     // Source badge
-    const isPMT  = item.source === 'PMT' || item._briefing || isPrimerItem(item);
+    const isPMT  = item.source === 'DTP' || item._briefing || isPrimerItem(item);
     const isSW   = item._source === 'investinglive';
     const isING  = item._source === 'ing-think';
     const badgeLabel = isPMT ? 'DTP'
@@ -4856,7 +4856,7 @@ async function _loadAIInsights(item, el) {
   {
     if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    // Cartes : en-tête optionnel (actif + badge signal BUY/SELL/NEUTRAL), comme Prime Terminal.
+    // Cartes : en-tête optionnel (actif + badge signal BUY/SELL/NEUTRAL), comme DataTradingPro.
     const cards = d.insights.map(ins => {
       if (typeof ins === 'string') return `<div class="ai-insights-card"><div class="ai-card-text">${esc(ins)}</div></div>`;
       const asset = ins.asset || '';
@@ -4882,7 +4882,7 @@ async function _loadAIInsights(item, el) {
     const cardsEl = el.querySelector('.ai-insights-cards');
     if (cardsEl) {
       cardsEl.addEventListener('scroll', () => _aiInsCount(cardsEl), { passive: true });
-      requestAnimationFrame(() => _aiInsCount(cardsEl));   // pagination "1-N of M" façon PMT
+      requestAnimationFrame(() => _aiInsCount(cardsEl));   // pagination "1-N of M" façon DTP
     }
   }
 }
@@ -4922,7 +4922,7 @@ function aiInsToggle(btn, hostId) {
   btn.innerHTML = willHide ? `${_EYE} Afficher Insights` : `${_EYE_OFF} Masquer Insights`;
 }
 
-// ═══════════ WEEKLY MARKET RECAP — rendu riche (copie Prime Terminal) ═══════════
+// ═══════════ WEEKLY MARKET RECAP — rendu riche (copie DataTradingPro) ═══════════
 function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 function _wrInline(t){ return _wrEsc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); }
 function _wrParas(t){
@@ -5085,7 +5085,7 @@ function renderArlibReader(item) {
 
   if (titleEl) titleEl.textContent = title;
   _arlibCurrentTags = tags;
-  _renderArlibTags();   // pills façon PMT (6 max + "+N") + date & badge DTP à droite
+  _renderArlibTags();   // pills façon DTP (6 max + "+N") + date & badge DTP à droite
 
   // ── Build content HTML ──
   let html = '';
@@ -5218,7 +5218,7 @@ function renderArlibReader(item) {
 
   // ── InvestingLive session wraps ────────────────────────────────────────────────
   if (item._source === 'investinglive') {
-    // Structure PMT UNIFIÉE pour TOUS les session wraps : type (orange) → titre (orange)
+    // Structure DTP UNIFIÉE pour TOUS les session wraps : type (orange) → titre (orange)
     // → sous-titre (orange) → date → corps. Identique quel que soit le contenu disponible.
     // Nomenclature VILLE (London / New York / Asia-Pac) — identique au titre (standardizeReportTitle)
     // → label, titre et sous-titre cohérents (fini "London" vs "European").
@@ -5289,7 +5289,7 @@ function renderArlibReader(item) {
     return;
   }
 
-  if (item._briefing || item.source === 'PMT') {
+  if (item._briefing || item.source === 'DTP') {
     const bullets = parsePrimerBullets(item.description);
     if (!bullets.length) {
       html = `<div class="arlib-rno-content">No content — regenerate via /api/briefings/generate-all?force=1</div>`;
@@ -5481,7 +5481,7 @@ try { _npCatFilters = JSON.parse(localStorage.getItem('np_cat_filters') || '{}')
 function _npCatOn(key) { return _npCatFilters[key] !== false; }
 function _npItemCat(item) {
   if (item._reportNotif === 'analyst' || item._source === 'investinglive') return 'analyst';
-  if (item._briefing || item.source === 'PMT') return 'analyst';
+  if (item._briefing || item.source === 'DTP') return 'analyst';
   const c = (item.category || '').toLowerCase();
   if (item._reportNotif === 'institution' || item._source === 'ing-think' || /research|institution/.test(c)) return 'research';
   if (/geopolit|risk|energy|sanction|war/.test(c)) return 'risk';
@@ -5494,7 +5494,7 @@ function _npOrigin(item) {
   if (item._reportNotif === 'institution' || item._source === 'ing-think') return { label: 'Institution', cls: 'analyst' };
   if (item._reportNotif === 'analyst' || item._source === 'investinglive') return { label: 'Analyst', cls: 'analyst' };
   if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return { label: 'Squawk', cls: 'squawk' };
-  if (item._briefing || item.source === 'PMT') return { label: 'Analyse', cls: 'analyst' };
+  if (item._briefing || item.source === 'DTP') return { label: 'Analyse', cls: 'analyst' };
   const c = (item.category || '').toLowerCase();
   if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return { label: 'Calendrier', cls: 'cal' };
   if (/geopolit|risk|energy|sanction|war/.test(c)) return { label: 'Risque', cls: 'risk' };
@@ -5553,7 +5553,7 @@ function npOpen() {
   // Pre-fill from allItems if panel is empty
   if (_npItems.length === 0 && allItems.length > 0) {
     const recent = allItems
-      .filter(i => !(i._briefing || i.source === 'PMT' || isPrimerItem(i)))   // pas de primers/rapports
+      .filter(i => !(i._briefing || i.source === 'DTP' || isPrimerItem(i)))   // pas de primers/rapports
       .filter(i => i.priority === 'high' || i.urgent || i.category === 'Geopolitical')
       .slice(0, 40);
     recent.forEach(i => { if (!_npReadIds.has(i.id)) _npItems.push(i); });
@@ -5659,7 +5659,7 @@ function npPush(items) {
   if (!items?.length) return 0;
   let newOnes = 0;
   items.forEach(item => {
-    if (item._briefing || item.source === 'PMT' || isPrimerItem(item)) return;   // pas de primers en notif
+    if (item._briefing || item.source === 'DTP' || isPrimerItem(item)) return;   // pas de primers en notif
     if (_npReadIds.has(item.id)) return;
     _npReadIds.add(item.id);
     _npItems.unshift(item);
@@ -5728,7 +5728,7 @@ function _npRenderList() {
 
   const filtered = _npItems.filter(item => {
     if (!_npCatOn(_npItemCat(item))) return false;   // filtre par catégorie (panneau Filtre)
-    if (_npFilter === 'analyst')  return item._briefing || item.source === 'PMT' || !!item._reportNotif || item._source === 'investinglive' || item._source === 'ing-think';
+    if (_npFilter === 'analyst')  return item._briefing || item.source === 'DTP' || !!item._reportNotif || item._source === 'investinglive' || item._source === 'ing-think';
     if (_npFilter === 'risk')     return /geopolit|risk|energy|sanction/i.test(item.category || '');
     if (_npFilter === 'breaking') return item.priority === 'high' || item.urgent;
     return true; // 'all'
@@ -5874,7 +5874,7 @@ function _sqwkEsc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&
 // Une VRAIE news exploitable pour le squawk (pas de rapport/primer/bruit)
 function _sqwkUsable(it) {
   if (!it || !it.headline) return false;
-  if (it._briefing || it.source === 'PMT' || (typeof isPrimerItem === 'function' && isPrimerItem(it))) return false;
+  if (it._briefing || it.source === 'DTP' || (typeof isPrimerItem === 'function' && isPrimerItem(it))) return false;
   const h = it.headline;
   if (/^\[No Title\]|^RT @|^@[A-Za-z]/.test(h)) return false;
   return h.replace(/[^a-z0-9]/gi, '').length >= 14;

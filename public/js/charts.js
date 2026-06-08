@@ -1,10 +1,10 @@
 /* ═══════════════════════════════════════════════
-   Prime Terminal — amCharts 5 Charts
+   DataTradingPro — amCharts 5 Charts
    Stock · Strength · Risk · Meter · COT · DMX
 ═══════════════════════════════════════════════ */
 'use strict';
 
-// ── amCharts theme matching Prime Terminal ────────────────────────────────────
+// ── amCharts theme matching DataTradingPro ────────────────────────────────────
 function applyTerminalTheme(root) {
   const theme = am5.Theme.new(root);
 
@@ -534,7 +534,7 @@ function rebuildStockChart(symbol) {
 //  STRENGTH — Real Currency Strength (Single Chart + TF Selector)
 // ═══════════════════════════════════════════════
 
-// Palette exacte (référence Prime Terminal)
+// Palette exacte (référence DataTradingPro)
 const CS_COLORS = {
   USD: 0xff7a00,  // orange vif
   EUR: 0xdc2626,  // rouge
@@ -571,7 +571,7 @@ function _lighten(hexInt, amt) {
   const lr = Math.round(r + (255 - r) * amt), lg = Math.round(g + (255 - g) * amt), lb = Math.round(b + (255 - b) * amt);
   return '#' + ((lr << 16) | (lg << 8) | lb).toString(16).padStart(6, '0');
 }
-// Badge bi-couleur (façon PMT) : [code devise — couleur pleine] [valeur — teinte claire], texte noir.
+// Badge bi-couleur (façon DTP) : [code devise — couleur pleine] [valeur — teinte claire], texte noir.
 function _csBadgeHtml(ccy, fullHex, lightHex, valStr) {
   return `<div class="cs-badge"><span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span><span class="cs-badge-val" style="background:${lightHex}">${valStr}</span></div>`;
 }
@@ -626,12 +626,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
   xAxis.set('tooltip', xTip);
   xAxis.set('tooltipDateFormat', 'dd/MM/yyyy HH:mm');
   xAxis.get('renderer').labels.template.setAll({
-    fill: am5.color(0x6b7280), fontSize: 10,            // gris discret (façon PMT)
+    fill: am5.color(0x6b7280), fontSize: 10,            // gris discret (façon DTP)
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
     minPosition: 0.012, maxPosition: 0.99,
   });
-  xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x1c1c1e), strokeOpacity: 0.9, strokeDasharray: [3, 3] });   // gris très sombre discret (PMT)
-  // Axe X façon PMT : la DATE pleine au changement de jour (ex. "05/06/2026" tout à gauche) + heures HH:mm ensuite.
+  xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x1c1c1e), strokeOpacity: 0.9, strokeDasharray: [3, 3] });   // gris très sombre discret (DTP)
+  // Axe X façon DTP : la DATE pleine au changement de jour (ex. "05/06/2026" tout à gauche) + heures HH:mm ensuite.
   xAxis.set('dateFormats',             { minute: 'HH:mm', hour: 'HH:mm', day: 'dd/MM/yyyy', week: 'dd/MM', month: 'MMM yyyy' });
   xAxis.set('periodChangeDateFormats', { minute: 'HH:mm', hour: 'dd/MM/yyyy', day: 'dd/MM/yyyy', week: 'MMM', month: 'yyyy' });
   xAxis.set('gridIntervals', [
@@ -648,11 +648,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
     minPosition: 0.02, maxPosition: 0.98,
     paddingLeft: 4,
   });
-  // Échelle PMT : 2 décimales fixes + décimale FRANÇAISE (virgule) → "4,00 / 0,00 / -16,00".
+  // Échelle DTP : 2 décimales fixes + décimale FRANÇAISE (virgule) → "4,00 / 0,00 / -16,00".
   yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
   // Grille horizontale discrète : pointillés gris foncé
   yAxisRenderer.grid.template.setAll({
-    stroke: am5.color(0x1c1c1e), strokeOpacity: 0.9, strokeWidth: 1, strokeDasharray: [3, 3],   // gris très sombre discret (PMT)
+    stroke: am5.color(0x1c1c1e), strokeOpacity: 0.9, strokeWidth: 1, strokeDasharray: [3, 3],   // gris très sombre discret (DTP)
   });
 
   const yAxis = chart.yAxes.push(
@@ -668,7 +668,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   const seriesMap = {};
   const labelMap  = {};   // ccy → { range } pour mise à jour en place
 
-  // Échelle INSTITUTIONNELLE (façon PMT) : force ×100 → 0.11 devient 11,86. Compression UNIQUEMENT si extrême.
+  // Échelle INSTITUTIONNELLE (façon DTP) : force ×100 → 0.11 devient 11,86. Compression UNIQUEMENT si extrême.
   function computeScale(d) {
     const BASE = 100;
     const abs = d.currencies
@@ -676,7 +676,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       .sort((a, b) => a - b);
     const ref    = abs.length > 10 ? abs[Math.floor(abs.length * 0.99)] : (abs[abs.length - 1] || 0.01);
     const refMax = ref * BASE;
-    const CAP    = 45;   // PMT culmine à ~±28 → cap large pour ne jamais déborder
+    const CAP    = 45;   // DTP culmine à ~±28 → cap large pour ne jamais déborder
     return refMax > CAP ? (BASE * CAP / refMax) : BASE;
   }
   let scaleFactor = computeScale(data);
@@ -713,7 +713,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     const lastV  = (lastPt && lastPt.v != null) ? lastPt.v : 0;
     const rangeItem = yAxis.makeDataItem({ value: lastV });
     const range     = yAxis.createAxisRange(rangeItem);
-    const valStr    = lastV.toFixed(2).replace('.', ',');   // valeur SANS "+", décimale FR (façon PMT)
+    const valStr    = lastV.toFixed(2).replace('.', ',');   // valeur SANS "+", décimale FR (façon DTP)
     range.get('label').setAll({
       html: _csBadgeHtml(ccy, hexStr, _lighten(hexColor, 0.6), valStr),
       centerY: am5.percent(50),
@@ -771,7 +771,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const min = yAxis.get('min'), max = yAxis.get('max');
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
-      const GAP = 20;  // hauteur badge + marge (façon PMT) : empilement strict, aucun chevauchement
+      const GAP = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas
       const arr = Object.entries(labelMap).map(([ccy, o]) => {
         const v = o.value != null ? o.value : 0;
@@ -975,7 +975,7 @@ const _RISK_BAND_EN = {
   'STRONG RISK-OFF': 'Strong risk aversion. Significant flight to safety across havens. Volatility high.',
 };
 function _riskBandInner(data) {
-  // Phrase façon PMT, construite à partir des VRAIES données (assets réels) → plus jamais
+  // Phrase façon DTP, construite à partir des VRAIES données (assets réels) → plus jamais
   // d'affirmation figée qui contredit le marché (ex. « VIX trending lower » alors qu'il monte).
   const A = {};
   (data.assets || []).forEach(a => { A[a.label] = a.chg; });
@@ -1235,7 +1235,7 @@ function buildMeterChart() {
         const v   = _meterValues[ccy];
         if (v == null) return;
         const m = METER_META[ccy] || { iso: '', name: ccy };
-        const col2 = v >= 0 ? '#00da50' : '#ff3b3b';   // couleurs Meter PMT
+        const col2 = v >= 0 ? '#00da50' : '#ff3b3b';   // couleurs Meter DTP
         tip.innerHTML = `<div class="meter-tip-name">${_flagImg(m.iso, 14)} ${m.name}</div>`
           + `<div class="meter-tip-val" style="color:${col2}">${(v >= 0 ? '+' : '') + v.toFixed(2)}</div>`;
         tip.style.display = 'block';
@@ -1273,7 +1273,7 @@ function buildMeterChart() {
       const valEl = col.querySelector('.meter-col-val');
       if (valEl) {
         valEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
-        valEl.style.color = v > 0 ? '#00da50' : v < 0 ? '#ff3b3b' : '#64748b';   // couleurs Meter PMT
+        valEl.style.color = v > 0 ? '#00da50' : v < 0 ? '#ff3b3b' : '#64748b';   // couleurs Meter DTP
       }
     });
   }
@@ -1594,11 +1594,11 @@ function buildSessionMap() {
       paddingTop: 4, paddingBottom: 4, paddingLeft: 4, paddingRight: 4,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x000000), fillOpacity: 1 }));  // fond NOIR pur (comme PMT)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x000000), fillOpacity: 1 }));  // fond NOIR pur (comme DTP)
 
   // Rendu ÉPURÉ : pas de grille (graticule) → carte propre comme la référence.
 
-  // Country polygons — vert plus clair sur océan noir (valeurs PMT)
+  // Country polygons — vert plus clair sur océan noir (valeurs DTP)
   const polygonSeries = chart.series.push(
     am5map.MapPolygonSeries.new(root, { geoJSON: am5geodata_worldLow, exclude: ['AQ'] })
   );
@@ -1636,7 +1636,7 @@ function buildSessionMap() {
   // ── Orange UTC vertical line ──────────────────
   const utcLineSeries = chart.series.push(am5map.MapLineSeries.new(root, {}));
   utcLineSeries.mapLines.template.setAll({
-    stroke: am5.color(0xf79400), strokeWidth: 1.4, strokeOpacity: 0.7,   // trait fin (PMT)
+    stroke: am5.color(0xf79400), strokeWidth: 1.4, strokeOpacity: 0.7,   // trait fin (DTP)
   });
 
   const utcLabelSeries = chart.series.push(am5map.MapPointSeries.new(root, {}));
@@ -1663,7 +1663,7 @@ function buildSessionMap() {
   function refreshUTCLine(now) {
     const h = now.getUTCHours() + now.getUTCMinutes() / 60;
     const lon = (h - 12) * 15;
-    // Petit timer orange = COUNTDOWN jusqu'au prochain événement de session (ouverture/fermeture), comme PMT
+    // Petit timer orange = COUNTDOWN jusqu'au prochain événement de session (ouverture/fermeture), comme DTP
     const utcH = h + now.getUTCSeconds() / 3600;
     let best = Infinity;
     SESSION_BLOCKS.forEach(s => {
@@ -1730,7 +1730,7 @@ function buildSessionMap() {
     }));
 
     box.set('background', am5.RoundedRectangle.new(root, {
-      fill:          am5.color(0x0a0f1e),       // rgba(10,15,30,.85) — bleu nuit PMT
+      fill:          am5.color(0x0a0f1e),       // rgba(10,15,30,.85) — bleu nuit DTP
       fillOpacity:   0.85,
       stroke:        isOpen ? am5.color(accent) : am5.color(0x5078ff),
       strokeOpacity: isOpen ? 0.9 : 0.25,        // bordure bleue discrète (rgba(80,120,255,.25))
@@ -1790,7 +1790,7 @@ function buildSessionMap() {
   }
 
   function updateHeader(now) {
-    // PMT affiche simplement "Live" (vert) à côté du point — pas la liste des sessions
+    // DTP affiche simplement "Live" (vert) à côté du point — pas la liste des sessions
     const labEl = document.getElementById('active-sessions-label');
     if (labEl) { labEl.textContent = 'Live'; labEl.style.color = '#22c55e'; }
   }
@@ -1879,7 +1879,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('.view-panel').forEach(p => p.classList.toggle('hidden', p.id !== `view-${view}`));
 
     // BANK : pleine largeur → on masque la colonne de droite (table seule).
-    // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme Prime Terminal SUR GRAND
+    // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND
     //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
     const _ml = document.getElementById('main-layout');
     _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead');   // Week Ahead en pleine largeur (timeline + chart) → loader centré comme les autres
@@ -2206,7 +2206,7 @@ function calImpDots(impact) {
 // ─── Deviation Signaling — utilitaire SÉMANTIQUE UNIFIÉ ───────────────────────
 // Compare une donnée chiffrée (actual) à sa référence (forecast) et renvoie la classe
 // de la charte : 'cv-pos' (supérieur/favorable → vert), 'cv-neg' (inférieur → rouge),
-// '' (égal ou non comparable → blanc). Fidèle Prime Terminal : SANS référence valable
+// '' (égal ou non comparable → blanc). Fidèle DataTradingPro : SANS référence valable
 // → neutre, on ne déduit JAMAIS un signal du previous. Réutilisable par tout composant
 // data-driven affichant un résultat chiffré (calendrier, scanner, métriques…).
 function deviationClass(actual, ref) {
