@@ -4455,7 +4455,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v12-en-fallback';   // v12 : repli déterministe RICHE en anglais (titre + paragraphe desk-style) + sans drapeaux → force la régén
+const WA_VER = 'v13-quota-editorial';   // v13 : éditorial IA via le flux quota standard (aiSmart, comme Analyst/Bias) → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4562,12 +4562,9 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
     + 'Days:\n' + lines + '\n\nReply ONLY with a JSON ARRAY of ' + days.length + ' objects, in the SAME ORDER as the days: [{"headline":"...","summary":"..."}, ...]. No text around it.';
   let txt;
   try {
-    // Généré 1×/semaine → Claude en priorité (multi-clés, pas de quota dur). Repli Gemini si Claude échoue.
-    if (ai.hasAnthropic && ai.hasAnthropic()) {
-      try { txt = await ai.generateTextClaudeOnly(prompt, 2200); }
-      catch (e1) { console.log('[WeekAhead IA] Claude KO → repli Gemini:', e1.message); txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true }); }
-    } else { txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true }); }
-  } catch (e) { console.log('[WeekAhead IA] indisponible → titres déterministes:', e.message); return; }
+    // MÊME flux quota que les autres fonctionnalités (Analyst / Bias / News) : Gemini dans le budget du jour → repli Claude intégré. 1 requête / semaine (scheduled = pas de pacing).
+    txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true });
+  } catch (e) { console.log('[WeekAhead IA] indisponible → repli déterministe:', e.message); return; }
   try {
     let arr = null;
     try { const m = String(txt).match(/\[[\s\S]*\]/); if (m) arr = JSON.parse(m[0]); } catch {}
