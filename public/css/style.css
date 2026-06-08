@@ -8283,6 +8283,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .taux-last.n { color: #9a9aa2; }
 .taux-bias { color: #a6a6ad; max-width: 380px; font-size: 12px; line-height: 1.45; }
 .taux-loading, .taux-empty { text-align: center; color: #6f6f78; padding: 44px 0; }
+/* ── Onglets : réorganisation par glisser (appui maintenu) ── */
+.nav-reordering { cursor: grabbing !important; user-select: none; }
+.nav-reordering .nav-item { transition: transform .12s ease; }
+.nav-item--dragging { opacity: .55; background: rgba(247,148,29,.14); border-radius: 5px; cursor: grabbing; }
 
 .ai-panel.open { transform: translateX(0); }
 /* En-tête */

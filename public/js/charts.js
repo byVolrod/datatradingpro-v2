@@ -1961,6 +1961,66 @@ document.addEventListener('DOMContentLoaded', () => {
     activateView(a.dataset.view);
   });
 
+  // ── Réorganisation des onglets : appui maintenu (~0,5 s) puis glisser. Ordre mémorisé (localStorage). ──
+  (function initNavReorder() {
+    const nav = document.getElementById('topbar-nav');
+    if (!nav) return;
+    const LS = 'dtp_nav_order';
+    const tabs = () => [...nav.querySelectorAll('.nav-item[data-view]')].filter(t => !t.classList.contains('nav-item--mobile-only'));
+    const mobileTab = () => nav.querySelector('.nav-item--mobile-only');
+    // Restaurer l'ordre sauvegardé (les onglets inconnus/masqués restent en place).
+    try {
+      const saved = JSON.parse(localStorage.getItem(LS) || 'null');
+      if (Array.isArray(saved) && saved.length) {
+        const mob = mobileTab();
+        saved.forEach(v => { const el = nav.querySelector('.nav-item[data-view="' + v + '"]'); if (el) { mob ? nav.insertBefore(el, mob) : nav.appendChild(el); } });
+      }
+    } catch {}
+    const saveOrder = () => { try { localStorage.setItem(LS, JSON.stringify(tabs().map(t => t.dataset.view))); } catch {} };
+
+    let pressTimer = null, dragging = null, dragMode = false, startX = 0, suppressClick = false;
+    const afterEl = x => {
+      let best = null, bestOff = -Infinity;
+      tabs().filter(t => t !== dragging).forEach(t => {
+        const b = t.getBoundingClientRect(); const off = x - b.left - b.width / 2;
+        if (off < 0 && off > bestOff) { bestOff = off; best = t; }
+      });
+      return best;
+    };
+    nav.addEventListener('pointerdown', e => {
+      const item = e.target.closest('.nav-item[data-view]');
+      if (!item || item.classList.contains('nav-item--mobile-only')) return;
+      startX = e.clientX;
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(() => {
+        dragMode = true; dragging = item; item.classList.add('nav-item--dragging'); nav.classList.add('nav-reordering');
+        try { item.setPointerCapture(e.pointerId); } catch {}
+      }, 480);
+    });
+    nav.addEventListener('pointermove', e => {
+      if (!dragMode) { if (pressTimer && Math.abs(e.clientX - startX) > 8) { clearTimeout(pressTimer); pressTimer = null; } return; }
+      if (!dragging) return;
+      e.preventDefault();
+      const after = afterEl(e.clientX), mob = mobileTab();
+      if (after) nav.insertBefore(dragging, after);
+      else if (mob) nav.insertBefore(dragging, mob);
+      else nav.appendChild(dragging);
+    });
+    const endDrag = () => {
+      clearTimeout(pressTimer); pressTimer = null;
+      if (dragMode && dragging) {
+        dragging.classList.remove('nav-item--dragging'); nav.classList.remove('nav-reordering');
+        saveOrder();
+        suppressClick = true; setTimeout(() => { suppressClick = false; }, 60);
+      }
+      dragMode = false; dragging = null;
+    };
+    nav.addEventListener('pointerup', endDrag);
+    nav.addEventListener('pointercancel', endDrag);
+    // Empêche la navigation déclenchée par le clic qui suit un glisser.
+    nav.addEventListener('click', e => { if (suppressClick) { e.stopPropagation(); e.preventDefault(); } }, true);
+  })();
+
   // ── Restaurer le dernier onglet visité (vue + sous-onglet du panneau droit) ──
   let _savedView = 'news';
   try { _savedView = localStorage.getItem('dtp_active_view') || 'news'; } catch {}
