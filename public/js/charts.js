@@ -2703,6 +2703,7 @@ window._retryCalendar = function() {
         document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
         document.removeEventListener('touchmove', move); document.removeEventListener('touchend', up);
         handle.classList.remove('dragging'); grid.classList.remove('sym-dragging'); document.body.style.cursor = '';
+        try { window.dispatchEvent(new Event('resize')); } catch {}   // le chart TradingView se recale sur la nouvelle largeur
       };
       document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
       document.addEventListener('touchmove', move, { passive: false }); document.addEventListener('touchend', up);
@@ -2945,7 +2946,11 @@ window._retryCalendar = function() {
     if (host && (window._symLastTvPair !== pair || !host.firstElementChild)) {
       host.innerHTML = '<div id="sym-tv-w" style="width:100%;height:100%"></div>';
       window._symLastTvPair = pair;
-      ensureTv(() => { try { new window.TradingView.widget({ container_id: 'sym-tv-w', symbol: tvSymbol(pair), interval: '60', timezone: 'Europe/Paris', theme: 'dark', style: '1', locale: 'fr', autosize: true, hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true }); } catch (e) {} });
+      ensureTv(() => { try { new window.TradingView.widget({ container_id: 'sym-tv-w', symbol: tvSymbol(pair), interval: '60', timezone: 'Europe/Paris', theme: 'dark', style: '1', locale: 'fr', autosize: true, hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true });
+        // TradingView (autosize) ne se recalibre que sur un resize global → on le pousse après le chargement
+        // de l'iframe pour qu'il remplisse tout le panneau (sinon zone grise à droite du chart).
+        [350, 1000, 1800].forEach(d => setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch {} }, d));
+      } catch (e) {} });
     }
     // Les panneaux data ne se re-rendent que si la paire a changé (évite de refetch en revenant sur Overview).
     if (window._symOvPair === pair) return;
