@@ -127,11 +127,7 @@ html, body {
   height: var(--topbar-h);
 }
 
-.logo-icon {
-  display: flex;
-  align-items: center;
-}
-.logo-icon svg { width: 20px; height: 20px; display: block; }
+.logo-icon { display: none; }   /* badge retire de l-en-tete : wordmark seul, blanc */
 
 .logo-text {
   font-family: var(--font-ui);
