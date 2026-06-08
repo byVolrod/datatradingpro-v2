@@ -4455,7 +4455,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v11-en-deskstyle';   // v11 : descriptions IA style "note de desk macro" (4-6 phrases, EN) + repli Gemini → force la régén
+const WA_VER = 'v12-en-fallback';   // v12 : repli déterministe RICHE en anglais (titre + paragraphe desk-style) + sans drapeaux → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4501,14 +4501,23 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     const ccys = [...new Set([...hiEvs, ...evs].map(e => e.currency).filter(Boolean))].slice(0, 4);
     const themes = [...new Set(evs.map(e => _theme(e.title || '')).filter(Boolean))].slice(0, 2);
     const dowEn = d.toLocaleDateString('en-US', { weekday: 'long' });
-    const dayFr = DAY_FR[dowEn] || 'la séance';
-    const frThemes = themes.map(t => THEME_FR[t]).filter(Boolean);
+    // Repli déterministe RICHE en ANGLAIS (façon note de desk) — affiché tant que l'éditorial IA n'a pas généré. L'IA, quand dispo, l'écrase via day.headline/day.summary.
+    const THEME_EN_H = { 'Inflation': 'Inflation', 'Labour Market': 'Labour Data', 'Growth': 'Growth Data', 'Activity (PMI)': 'PMI Surveys', 'Central Banks': 'Central Banks', 'Consumer': 'Consumer Data', 'Trade': 'Trade Data' };
+    const enThemes = themes.map(t => THEME_EN_H[t]).filter(Boolean);
     let title;
-    if (frThemes.length >= 2)       title = `${_cap(frThemes[0])} et ${frThemes[1]} rythment ce ${dayFr}`;
-    else if (frThemes.length === 1) title = `${_cap(frThemes[0])} au cœur de ce ${dayFr}`;
-    else                            title = hiEvs.length ? `Événements à risque ce ${dayFr}` : `Séance plus calme ce ${dayFr}`;
+    if (enThemes.length >= 2)       title = `${enThemes[0]} and ${enThemes[1]} Drive ${dowEn}'s Trading`;
+    else if (enThemes.length === 1) title = `${enThemes[0]} Takes Center Stage on ${dowEn}`;
+    else                            title = hiEvs.length ? `Key Risk Events on ${dowEn}` : `A Quieter ${dowEn} Session`;
     const base = (hiEvs.length ? hiEvs : evs).slice(0, 10);
-    const description = base.map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (prév. ${e.forecast})` : ''}`.trim()).join(' · ') || 'Données économiques de la journée.';
+    const _top = base.slice(0, 4).map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (fcst ${e.forecast})` : ''}`.trim()).filter(Boolean);
+    const _cb = base.find(e => /rate decision|interest rate|monetary policy|rate statement|deposit facility|refinancing/i.test(e.title || ''));
+    const _ccysEn = [...new Set(base.map(e => e.currency).filter(Boolean))].slice(0, 5);
+    const _dp = [];
+    if (_top.length) _dp.push(`Markets will digest ${_top.join(', ')}${base.length > 4 ? ', among other releases' : ''}.`);
+    if (_cb) _dp.push(`The ${_cb.currency} ${String(_cb.title).replace(/\s*\(.*?\)\s*/g, '').trim()} is the day's focal point, with investors weighing the policy path ahead.`);
+    if (_ccysEn.length) _dp.push(`${_ccysEn.join(', ')} are the currencies most in focus.`);
+    _dp.push(hiEvs.length ? 'Watch the high-impact prints closely for direction across rates and FX.' : 'A lighter calendar leaves price action driven by broader macro themes.');
+    const description = _dp.join(' ') || 'Economic data on the day.';
     // Liste DÉTAILLÉE d'événements (façon DTP) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
     const events = base.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(e => ({
       time: e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '',
