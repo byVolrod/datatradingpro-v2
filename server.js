@@ -4460,7 +4460,7 @@ let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
 
-async function generateWeekAhead(force = false) {
+async function generateWeekAhead(force = false, genEditorial = false) {
   const FRESH = 40 * 60 * 1000;   // contenu rafraîchi ~40 min → prévisions/actuals quasi temps réel (la semaine affichée reste la semaine en cours)
   if (!force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < FRESH) return _weekAhead;
   const now = Date.now();
@@ -4523,7 +4523,7 @@ async function generateWeekAhead(force = false) {
   });
   if (!days.length) return _weekAhead;
   const weekKey = keys[0];                       // lundi de la semaine = clé éditorial (1 génération IA / semaine, cachée)
-  try { await _waApplyEditorial(days, weekKey); } catch {}
+  try { await _waApplyEditorial(days, weekKey, genEditorial); } catch {}   // genEditorial=false → applique le cache (0 IA) ; true → génère (planifié)
   const first = new Date(keys[0] + 'T12:00:00Z'), last = new Date(keys[keys.length - 1] + 'T12:00:00Z');
   const week = `${first.getUTCDate()}-${last.getUTCDate()} ${last.toLocaleDateString('en-US', { month: 'long' })}`;
   _weekAhead = { generatedAt: Date.now(), v: WA_VER, week, days, editorialAI: days.filter(d => d.headline && d.summary).length };   // editorialAI = nb de jours rédigés par l'IA (diagnostic)
@@ -4534,14 +4534,15 @@ async function generateWeekAhead(force = false) {
 }
 // Éditorial IA du Week Ahead (titre + résumé par jour, façon PMT) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
 let _waEditorial = { weekKey: null, items: [], at: 0 };
-async function _waApplyEditorial(days, weekKey) {
-  // Appariement par INDEX (ordre des jours) → robuste, plus de bug de clé. Applique titre + résumé indépendamment.
+async function _waApplyEditorial(days, weekKey, gen = false) {
+  // Appariement par INDEX (ordre des jours) → robuste. Applique titre + résumé indépendamment.
   const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
   try {
     if (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items) && _waEditorial.items.length >= days.length) { apply(_waEditorial.items); return; }
     const cached = await auth.aiCacheGet('weekahead:editorial3').catch(() => null);
     if (cached && cached.weekKey === weekKey && Array.isArray(cached.items) && cached.items.length >= days.length) { _waEditorial = cached; apply(cached.items); return; }
   } catch {}
+  if (!gen) return;   // AUCUNE requête IA hors génération planifiée → l'éditorial reste FIXE (jamais d'appel à l'arrivée d'un utilisateur ni au refresh data 40 min)
   const lines = days.map((d, i) => {
     const evs = (d.events || []).slice(0, 8).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (fcst ' + e.forecast + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
     return `Day ${i + 1} (${d.dow} ${d.date}): ${evs || 'minor data'}`;
@@ -4551,8 +4552,11 @@ async function _waApplyEditorial(days, weekKey) {
     + '(2) a DETAILED 3 to 5 sentence analytical paragraph: explain what markets will digest that day, the context and the stakes, what investors will watch concretely, and the possible implications for currencies, rates and equities. Cite the key releases, central-bank decisions AND any relevant corporate/geopolitical themes. Institutional, analytical, rich and concrete tone — NEVER a plain list of events. Write entirely in your own words; do not copy any source.\n\n'
     + 'Days:\n' + lines + '\n\nReply ONLY with a JSON ARRAY of ' + days.length + ' objects, in the SAME ORDER as the days: [{"headline":"...","summary":"..."}, ...]. No text around it.';
   let txt;
-  try { txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true }); }
-  catch (e) { console.log('[WeekAhead IA] indisponible → titres déterministes:', e.message); return; }
+  try {
+    // Généré 1×/semaine seulement → on PRIVILÉGIE Claude (multi-clés, pas de quota dur comme Gemini free-tier) pour garantir la génération.
+    if (ai.hasAnthropic && ai.hasAnthropic()) txt = await ai.generateTextClaudeOnly(prompt, 2200);
+    else txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true });
+  } catch (e) { console.log('[WeekAhead IA] indisponible → titres déterministes:', e.message); return; }
   try {
     let arr = null;
     try { const m = String(txt).match(/\[[\s\S]*\]/); if (m) arr = JSON.parse(m[0]); } catch {}
@@ -4596,7 +4600,7 @@ app.get('/api/week-ahead', (_req, res) => {
   const runAll = () => {
     generateSmartBias(true).catch(e => console.error('[SmartBias] failed:', e.message));
     generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
-    generateWeekAhead(true).catch(e => console.error('[WeekAhead] failed:', e.message));   // Week Ahead : même batch hebdo
+    generateWeekAhead(true, true).catch(e => console.error('[WeekAhead] failed:', e.message));   // Week Ahead : data + ÉDITORIAL IA (1×/semaine)
     _aiRefreshRatesBias().catch(e => console.error('[RatesBias IA] failed:', e.message));  // biais TAUX : refresh IA hebdo (caché)
   };
   setTimeout(function run() {
@@ -4611,8 +4615,8 @@ app.get('/api/week-ahead', (_req, res) => {
   }, 75 * 1000);   // 75s : après le burst du préchauffage des rapports → moins de contention RPM Gemini
   // Week Ahead : régénère au démarrage si vide / version périmée / >1 semaine (décalé après le bias).
   setTimeout(() => {
-    const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000);
-    if (stale) generateWeekAhead(true).catch(() => {});
+    const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000) || !(_weekAhead.editorialAI > 0);
+    if (stale) generateWeekAhead(true, true).catch(() => {});   // démarrage : data + éditorial IA si manquant
   }, 90 * 1000);   // 90s : encore après le bias
   // Rafraîchissement TEMPS RÉEL du Week Ahead : régénère toutes les ~40 min (calendrier TradingView frais : prévisions/actuals).
   setInterval(() => { if (!_waGenerating) { _waGenerating = true; generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; }); } }, 40 * 60 * 1000);
@@ -4620,7 +4624,7 @@ app.get('/api/week-ahead', (_req, res) => {
   // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
   setInterval(() => {
     if (!_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt) generateSmartBias(true).catch(() => {});
-    if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt) setTimeout(() => generateWeekAhead(true).catch(() => {}), 9000);
+    if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || !(_weekAhead.editorialAI > 0)) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire de l'éditorial s'il manque
   }, 60 * 60 * 1000);
 })();
 
