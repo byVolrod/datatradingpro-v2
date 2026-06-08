@@ -12,12 +12,12 @@
 
   /* ---------- styles ---------- */
   var CSS = `
-  #dtp-demo{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;
+  #dtp-demo{position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px;overflow:hidden;
     background:rgba(4,4,6,.88);backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;opacity:0;transition:opacity .25s}
   #dtp-demo.on{opacity:1}
   #dtp-demo *{box-sizing:border-box}
-  .dd-win{position:relative;width:min(1220px,100%);height:min(88vh,800px);display:flex;flex-direction:column;
+  .dd-win{position:relative;width:min(1220px,100%);max-width:100%;height:min(88vh,800px);display:flex;flex-direction:column;
     background:#0a0a0c;border:1px solid #26262e;border-radius:12px;overflow:hidden;
     box-shadow:0 60px 160px -40px #000,0 0 0 1px rgba(247,148,29,.05);
     transform:translateY(14px) scale(.99);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
@@ -33,7 +33,7 @@
   .dd-sim .pd{width:6px;height:6px;border-radius:50%;background:#f7941d;animation:ddpulse 1.5s infinite}
   @keyframes ddpulse{0%,100%{opacity:1}50%{opacity:.25}}
   .dd-clock{margin-left:4px;font-size:11.5px;color:#7f7f88}
-  .dd-actions{margin-left:auto;display:flex;align-items:center;gap:9px}
+  .dd-top>.dd-cta{margin-left:auto}
   .dd-cta{background:#f7941d;color:#0a0a0a;font-weight:700;font-size:12.5px;padding:8px 15px;border-radius:7px;border:0;cursor:pointer;text-decoration:none;transition:.15s;white-space:nowrap}
   .dd-cta:hover{background:#ffae42;box-shadow:0 8px 22px -8px rgba(247,148,29,.6)}
   .dd-x{width:30px;height:30px;border-radius:7px;border:1px solid #2a2a32;background:transparent;color:#9a9aa3;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
@@ -107,10 +107,19 @@
   }
   @media(max-width:560px){
     #dtp-demo{padding:0}
-    .dd-win{height:100%;border-radius:0;border:0}
-    .dd-grid{grid-template-columns:1fr;grid-auto-rows:200px;grid-template-rows:none;overflow-y:auto}
+    .dd-win{height:100%;height:100dvh;max-width:100vw;border-radius:0;border:0}
+    .dd-top{flex-wrap:wrap;gap:8px 9px;padding:8px 12px}
+    .dd-logo{font-size:12px}.dd-logo svg{width:18px;height:18px}
+    .dd-sim{font-size:9px;padding:3px 7px}
+    .dd-x{order:4;margin-left:auto}
+    .dd-top>.dd-cta{order:5;flex-basis:100%;margin-left:0;text-align:center;font-size:12px;padding:9px 12px}
+    .dd-grid{grid-template-columns:1fr;grid-auto-rows:210px;grid-template-rows:none;overflow-y:auto;overflow-x:hidden}
     .dd-news,.dd-bias{grid-column:span 1}
     .dd-clock,.dd-tick{display:none}
+    .dd-bmx{padding:9px 8px;overflow-x:hidden}
+    .dd-brow{grid-template-columns:44px repeat(5,1fr);gap:3px}
+    .dd-foot{gap:8px 12px}
+    .dd-foot .grow{display:none}
   }`;
 
   /* ---------- données simulées ---------- */
@@ -265,7 +274,7 @@
           '<span class="dd-logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><rect x="18" y="22" width="7" height="22" rx="1.5" fill="#22c55e"/><rect x="20.5" y="14" width="2" height="38" fill="#22c55e"/><rect x="39" y="26" width="7" height="18" rx="1.5" fill="#f7941d"/><rect x="41.5" y="18" width="2" height="34" fill="#f7941d"/></svg>Data<b>TradingPro</b></span>' +
           '<span class="dd-sim"><span class="pd"></span>SIMULATION</span>' +
           '<span class="dd-clock dd-mono" id="dd-clock">' + clockTxt + '</span>' +
-          '<span class="dd-actions"><a class="dd-cta" href="' + WHOP + '">Accéder au terminal — 24,99 €/mois →</a><button class="dd-x" aria-label="Fermer">✕</button></span>' +
+          '<a class="dd-cta" href="' + WHOP + '">Accéder au terminal — 24,99 €/mois →</a><button class="dd-x" aria-label="Fermer">✕</button>' +
         '</div>' +
         '<div class="dd-tick">' + tickHtml + '</div>' +
         '<div class="dd-grid">' +
