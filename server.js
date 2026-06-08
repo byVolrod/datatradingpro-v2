@@ -2340,6 +2340,8 @@ const BLACKROCK_SEED = [
   'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260413-back-to-overweight-us-stocks.pdf',
   'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260504-earnings-strength-keeps-us-risk-on.pdf',
   'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260511-record-us-stocks-disconnect-or-not.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260406-spotting-pockets-of-em-resilience.pdf',
+  'https://www.blackrock.com/corporate/literature/market-commentary/weekly-investment-commentary-en-us-20260420-a-supercharged-ai-mega-force.pdf',
 ];
 function _blackrockItemFromUrl(url) {
   const m = String(url || '').match(/weekly-investment-commentary-en-us-(\d{4})(\d{2})(\d{2})-([a-z0-9-]+)\.pdf/i);
@@ -2367,13 +2369,31 @@ async function _fetchBlackRockInto(merged) {
 const RESEARCH_SPA_SITES = [
   { name: 'Natixis', institution: 'Natixis', source: 'natixis', host: 'natixis.com',
     url: 'https://www.research.natixis.com/Site/en/forex/latest-publications?type=MORNING_LINE',
-    hrefRe: /natixis\.com\/Site\/[a-z]{2}\/(?:publication|forex|fixed-income|economy|cross-asset)\/.+/i },
+    hrefRe: /natixis\.com\/(?:Site\/[a-z]{2}\/(?:latest-publications\/publication|publication|forex|fixed-income|economy|cross-asset)\/.+|articles\/.+)/i,
+    seed: [
+      { title: '2026: Entering a New Market Regime', url: 'https://home.cib.natixis.com/articles/2026-entering-a-new-market-regime', date: '2026-01-15' },
+    ] },
   { name: 'Danske', institution: 'Danske', source: 'danske', host: 'danskebank.com',
     url: 'https://research.danskebank.com/research/',
-    hrefRe: /danskebank\.com\/.*(?:research\/article|\/article\/|articlekey|researchkey|\/[0-9a-f]{8,})/i },
+    hrefRe: /danskebank\.com\/.*(?:\/link\/[a-z0-9]+\/\$file\/.+\.pdf|research\/article|\/article\/|articlekey|researchkey|insights\/\d{4}\/\d+|\/[0-9a-f]{8,})/i,
+    seed: [
+      { title: 'FX Forecast Update — USD to weather AI valuation woes', url: 'https://research.danskebank.com/link/FXForecastUpdate181125/$file/FX%20Forecast%20Update_181125.pdf', date: '2025-11-18', pdf: true },
+      { title: 'Weekly Focus — Danske Bank Research', url: 'https://research.danskebank.com/link/WeeklyFocus211125/$file/WeeklyFocus_211125.pdf', date: '2025-11-21', pdf: true },
+      { title: 'Nordic Outlook: Nordic economies stand to improve', url: 'https://danskebank.com/news-and-insights/news-archive/insights/2026/04032026', date: '2026-03-04' },
+    ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
+    // Seeds = rapports réels connus (garantis, 0 fetch) → remplissent l'onglet même si le scrape est bloqué.
+    for (const s of (cfg.seed || [])) {
+      const ts = Date.parse(s.date + 'T12:00:00Z'); if (isNaN(ts)) continue;
+      const id = 'br-' + Buffer.from(s.url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+      if (merged.has(id)) continue;
+      const it = { id, title: s.title, url: s.url, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source };
+      if (s.pdf) it._pdf = true;
+      merged.set(id, it);
+    }
+    // Découverte live (best-effort, échec silencieux)
     try {
       const pubs = await scrapeResearchSpa(cfg);
       for (const p of (pubs || [])) {
@@ -2424,8 +2444,9 @@ async function _fetchBankResearch(full = false) {
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _bron = _all.filter(i => i._source === 'blackrock');
-  const _rest = _all.filter(i => i._source !== 'blackrock')
+  const _keepAll = i => i._source === 'blackrock' || i._source === 'danske' || i._source === 'natixis';   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _bron = _all.filter(_keepAll);
+  const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 180);   // plafond DUR (anti-OOM Render : chaque item peut porter un fullContent)
