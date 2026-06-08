@@ -4393,21 +4393,25 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v5-headline';   // v5 : accroches éditoriales FR + drapeaux devises | fenêtre ancrée SEMAINE EN COURS (Lun→Dim) → bump force la régénération
+const WA_VER = 'v6-tvcal';   // v6 : source calendrier TradingView (noms+prév.+actuals fiables) + refresh temps réel ~40 min | accroches FR + drapeaux | semaine en cours → bump force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
 
 async function generateWeekAhead(force = false) {
-  const WK = 7 * 24 * 60 * 60 * 1000;
-  if (!force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < WK) return _weekAhead;
+  const FRESH = 40 * 60 * 1000;   // contenu rafraîchi ~40 min → prévisions/actuals quasi temps réel (la semaine affichée reste la semaine en cours)
+  if (!force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < FRESH) return _weekAhead;
   const now = Date.now();
   // « Semaine en cours » : fenêtre ancrée au LUNDI de la semaine (Lun→Dim). Le week-end → semaine à venir.
   const _d = new Date(now), _dow = _d.getUTCDay();                 // 0=dim … 6=sam
   const _toMon = (_dow === 0) ? 1 : (_dow === 6) ? 2 : (1 - _dow); // jours jusqu'au lundi cible
   const monday = Date.UTC(_d.getUTCFullYear(), _d.getUTCMonth(), _d.getUTCDate() + _toMon, 0, 0, 0);
   const weekEnd = monday + 7 * 24 * 60 * 60 * 1000;
-  const up = (allCalendar || []).filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd && (e.impact === 'High' || e.impact === 'Medium'));
+  // Données calendrier FIABLES : MÊME source que l'onglet Calendar — TradingView (noms + prévisions + actuals natifs, temps réel). Repli ForexFactory si indispo.
+  let cal = [];
+  try { cal = await _buildTVCalendar(); } catch {}
+  if (!Array.isArray(cal) || !cal.length) cal = allCalendar || [];
+  const up = cal.filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd && (e.impact === 'High' || e.impact === 'Medium'));
   const byDay = {};
   up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(e); });
   const keys = Object.keys(byDay).sort().slice(0, 7);
@@ -4467,7 +4471,8 @@ async function generateWeekAhead(force = false) {
 let _waGenerating = false;
 app.get('/api/week-ahead', (_req, res) => {
   // NE BLOQUE JAMAIS : si pas encore généré, on lance la génération EN ARRIÈRE-PLAN et on répond tout de suite.
-  if ((!_weekAhead || _weekAhead.v !== WA_VER) && !_waGenerating) {   // absent OU version périmée → régén self-heal en fond
+  const _waStale = !_weekAhead || _weekAhead.v !== WA_VER || (Date.now() - (_weekAhead.generatedAt || 0) > 40 * 60 * 1000);
+  if (_waStale && !_waGenerating) {   // absent / version périmée / >40 min → régén self-heal en fond (données fraîches)
     _waGenerating = true;
     generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; });
   }
@@ -4509,6 +4514,8 @@ app.get('/api/week-ahead', (_req, res) => {
     const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000);
     if (stale) generateWeekAhead(true).catch(() => {});
   }, 90 * 1000);   // 90s : encore après le bias
+  // Rafraîchissement TEMPS RÉEL du Week Ahead : régénère toutes les ~40 min (calendrier TradingView frais : prévisions/actuals).
+  setInterval(() => { if (!_waGenerating) { _waGenerating = true; generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; }); } }, 40 * 60 * 1000);
   // AUTO-RÉPARATION horaire : si le bias OU le Week Ahead n'a pas pu se générer (quota Gemini épuisé / Claude
   // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
   setInterval(() => {
