@@ -4232,9 +4232,10 @@ const _BANK_DOMAIN = {
 };
 // Logos téléchargés en local (assets DTP) → prioritaires sur Clearbit pour ces banques.
 const _BANK_LOCAL_LOGO = {
-  MUFG: '/assets/images/banks/MUFG.png',
-  SEB:  '/assets/images/banks/SEB.png',
-  ING:  '/assets/images/banks/ING.png',
+  MUFG:    '/assets/images/banks/MUFG.png',
+  SEB:     '/assets/images/banks/SEB.png',
+  ING:     '/assets/images/banks/ING.png',
+  Natixis: '/assets/images/banks/Natixis.png',   // téléchargé + recoloré blanc (local → aucune dépendance externe)
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
