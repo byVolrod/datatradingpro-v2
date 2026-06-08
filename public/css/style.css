@@ -128,8 +128,10 @@ html, body {
 }
 
 .logo-icon {
-  display: none;                 /* titre épuré comme la référence */
+  display: flex;
+  align-items: center;
 }
+.logo-icon svg { width: 20px; height: 20px; display: block; }
 
 .logo-text {
   font-family: var(--font-ui);
