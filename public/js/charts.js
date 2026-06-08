@@ -2676,6 +2676,9 @@ window._retryCalendar = function() {
   const input = document.getElementById('topbar-symbol-input');
   const dd = document.getElementById('sym-dd');
   if (!input || !dd) return;
+  // Portail : on déplace le dropdown dans <body> → il échappe à TOUT overflow:hidden / contexte d'empilement
+  // d'un ancêtre (topbar, navbar…). Positionné en `fixed` sous l'input via positionDd().
+  try { document.body.appendChild(dd); } catch {}
   const PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPCAD','GBPAUD','GBPNZD','AUDJPY','AUDCHF','AUDCAD','AUDNZD','NZDJPY','NZDCHF','NZDCAD','CADJPY','CADCHF','CHFJPY','XAUUSD','XAGUSD'];
   const MAJORS = ['USD','EUR','JPY','GBP','AUD','CHF','CAD','NZD'];
   const FLAG = { USD:'us', EUR:'eu', JPY:'jp', GBP:'gb', AUD:'au', CHF:'ch', CAD:'ca', NZD:'nz' };
@@ -2718,7 +2721,15 @@ window._retryCalendar = function() {
             + '<span class="sym-dd-txt"><span class="sym-dd-sym">' + p + '</span><span class="sym-dd-name">' + name + '</span></span></div>';
         }).join('')
       : '<div class="sym-dd-empty">Aucune paire</div>');
+    positionDd();
     dd.classList.remove('hidden');
+  }
+  // Positionne le dropdown (fixed) juste sous l'input, aligné à gauche, largeur ≥ 330px.
+  function positionDd() {
+    const r = input.getBoundingClientRect();
+    dd.style.left = Math.round(r.left) + 'px';
+    dd.style.top = Math.round(r.bottom + 6) + 'px';
+    dd.style.width = Math.max(330, Math.round(r.width)) + 'px';
   }
   const hideDd = () => dd.classList.add('hidden');
 
@@ -2729,7 +2740,9 @@ window._retryCalendar = function() {
     else if (e.key === 'Escape') { hideDd(); input.blur(); }
   });
   dd.addEventListener('mousedown', e => { const row = e.target.closest('.sym-dd-row'); if (row) { e.preventDefault(); openSymbol(row.dataset.pair); } });
-  document.addEventListener('click', e => { if (!e.target.closest('.topbar-symbol-search')) hideDd(); });
+  document.addEventListener('click', e => { if (!e.target.closest('.topbar-symbol-search') && !e.target.closest('#sym-dd')) hideDd(); });
+  window.addEventListener('resize', () => { if (!dd.classList.contains('hidden')) positionDd(); });
+  window.addEventListener('scroll', () => { if (!dd.classList.contains('hidden')) positionDd(); }, true);
 
   // ── Barre de sous-onglets (délégation : #sym-subtabs est statique dans le HTML) ──
   const subtabs = document.getElementById('sym-subtabs');
