@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Force des devises — Documentation DataTradingPro</title>
+<meta name="description" content="L'égaliseur de force des devises classe les 8 majeures pour repérer d'un coup d'oeil les paires les plus tendues.">
+<link rel="canonical" href="https://datatradingpro.com/documentation/force-des-devises">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#08080a">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Force des devises — Documentation DataTradingPro">
+<meta property="og:description" content="L'égaliseur de force des devises classe les 8 majeures pour repérer d'un coup d'oeil les paires les plus tendues.">
+<meta property="og:url" content="https://datatradingpro.com/documentation/force-des-devises">
+<meta property="og:image" content="https://datatradingpro.com/assets/og-cover.png">
+<meta property="og:site_name" content="DataTradingPro">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/documentation/doc.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Force des devises","description":"L'égaliseur de force des devises classe les 8 majeures pour repérer d'un coup d'oeil les paires les plus tendues.","inLanguage":"fr-FR","author":{"@type":"Organization","name":"DataTradingPro"},"publisher":{"@type":"Organization","name":"DataTradingPro","logo":{"@type":"ImageObject","url":"https://datatradingpro.com/assets/logo.png"}},"mainEntityOfPage":"https://datatradingpro.com/documentation/force-des-devises"}</script>
+</head><body>
+<a href="#doc-main" class="skip-link">Aller au contenu</a>
+<header class="doc-top"><div class="doc-top-in">
+  <button class="doc-back" type="button" onclick="if(history.length>1){history.back()}else{location.href='/'}" aria-label="Revenir à la page précédente">&lsaquo; Retour</button>
+  <a class="doc-logo" href="/">Data<b>TradingPro</b></a>
+  <a class="doc-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal</a>
+</div></header>
+<main class="doc-main" id="doc-main">
+  <nav class="doc-bc"><a href="/">Accueil</a> <span>/</span> <a href="/documentation/">Documentation</a> <span>/</span> <em>Force des devises</em></nav>
+  <div class="doc-cat">Modules</div>
+  <h1>Force des devises</h1>
+  <div class="doc-meta">5 min de lecture</div>
+  <article class="doc-body">
+<p>Le module <strong>Force des devises</strong> condense en un seul visuel ce que vous mettriez plusieurs minutes à reconstituer paire par paire : quelles devises sont <strong>achetées</strong>, lesquelles sont <strong>vendues</strong>, et avec quelle intensité. Plutôt que de scruter l'EUR/USD, le GBP/JPY et l'AUD/USD séparément, vous lisez d'abord la <em>force isolée</em> de chaque devise, puis vous en déduisez les paires qui méritent votre attention.</p>
+
+<h2>Ce que mesure l'égaliseur</h2>
+<p>DataTradingPro suit en continu les <strong>8 devises majeures</strong> — USD, EUR, GBP, JPY, CHF, CAD, AUD et NZD — et calcule pour chacune un score de force relatif. Le résultat s'affiche sous forme d'<strong>égaliseur bidirectionnel</strong> : un axe central représente le point neutre, les barres qui montent (vert) traduisent une devise <strong>forte / achetée</strong>, celles qui descendent (rouge) une devise <strong>faible / vendue</strong>.</p>
+<p>L'idée est de décomposer le mouvement. Une paire bouge toujours sous l'effet de <em>deux</em> devises : si l'EUR/USD chute, est-ce un euro faible, un dollar fort, ou les deux à la fois ? L'égaliseur répond instantanément en isolant chaque jambe du couple.</p>
+
+<h3>Lire la force et la faiblesse</h3>
+<ul>
+<li><strong>Barre verte haute</strong> : la devise est massivement recherchée sur l'horizon affiché.</li>
+<li><strong>Barre rouge basse</strong> : la devise est sous pression, vendue.</li>
+<li><strong>Proche de l'axe central</strong> : devise neutre, sans biais directionnel marqué.</li>
+</ul>
+<p>La trame de l'égaliseur reste toujours visible : même une devise neutre occupe sa colonne, ce qui vous donne une référence de comparaison permanente entre les huit majeures.</p>
+
+<h2>Le multi-timeframe</h2>
+<p>Une force n'a de sens que rapportée à une <strong>échelle de temps</strong>. Le module se lit sur plusieurs horizons : un horizon court révèle l'élan <em>intraday</em> et les rotations rapides, tandis qu'un horizon plus large dégage la <strong>tendance de fond</strong>. Comparer les deux est souvent le plus instructif :</p>
+<ul>
+<li><strong>Alignement</strong> court terme et long terme dans le même sens : la dynamique est cohérente, le mouvement a de la profondeur.</li>
+<li><strong>Divergence</strong> entre horizons : une devise forte sur la semaine mais qui faiblit sur la séance peut signaler un essoufflement ou une simple respiration.</li>
+</ul>
+<p>Changez de timeframe pour confirmer qu'un déséquilibre est durable et pas seulement un soubresaut de quelques heures.</p>
+
+<h2>Repérer les paires les plus tendues</h2>
+<p>C'est l'usage le plus direct du module. La paire la plus <strong>tendue</strong> est celle qui oppose la devise la plus forte à la devise la plus faible du moment.</p>
+<ol>
+<li>Repérez la barre verte la plus haute (devise la plus forte).</li>
+<li>Repérez la barre rouge la plus basse (devise la plus faible).</li>
+<li>Croisez les deux : vous obtenez la paire où l'écart de force est maximal.</li>
+</ol>
+<p>Exemple de raisonnement : si l'USD domine en haut et le JPY s'effondre en bas, le couple USD/JPY concentre le plus gros différentiel — c'est là que la tension entre les deux devises est la plus nette. À l'inverse, deux devises également fortes forment une paire peu directionnelle, souvent à éviter pour qui cherche du mouvement franc.</p>
+
+<h3>Croiser avec les autres modules</h3>
+<p>La force des devises gagne à être recoupée. Confrontez-la au module <strong>Bias</strong> pour vérifier qu'un biais fondamental soutient bien la force constatée, au <strong>Calendar</strong> et à <strong>Week Ahead</strong> pour anticiper les publications susceptibles de rebattre les cartes, et au flux <strong>News</strong> pour comprendre le <em>pourquoi</em> derrière un déséquilibre soudain.</p>
+
+<h2>À garder en tête</h2>
+<p>DataTradingPro est un <strong>terminal de données et de news</strong>. La force des devises est un outil de <em>lecture du marché</em> : elle vous aide à voir où se situe la pression acheteuse et vendeuse, pas à décider d'une position à votre place. Le module <strong>n'exécute aucun ordre</strong> et ne constitue <strong>pas un conseil en investissement</strong> personnalisé. L'analyse, la gestion du risque et l'exécution restent entièrement de votre ressort, sur votre courtier.</p>
+  </article>
+  <div class="doc-nav"><a class="doc-prevnext prev" href="/documentation/smart-bias.html">&lsaquo; Smart Bias Tracker</a><a class="doc-prevnext next" href="/documentation/assistant-ia.html">Assistant Macro IA &rsaquo;</a></div>
+  <div class="doc-cta-card">
+    <h3>Passez à la pratique</h3>
+    <p>Retrouvez ce module en données réelles dans le terminal.</p>
+    <a class="btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal — 24,99 €/mois</a>
+    <a class="doc-back-site" href="/">&larr; Revenir au site</a>
+  </div>
+</main>
+<footer class="doc-foot">
+  <span>&copy; DataTradingPro — Terminal de données macro &amp; forex. Aucun conseil en investissement.</span>
+  <a href="/documentation/">Toute la documentation &rsaquo;</a>
+</footer>
+</body></html>
