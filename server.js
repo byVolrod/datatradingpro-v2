@@ -182,7 +182,7 @@ function _wsUserIdFromReq(req) {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker']);
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing']);
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/'];
 
 function requireAuth(req, res, next) {
@@ -4658,6 +4658,18 @@ app.get('/api/ticker', async (_req, res) => {
     if (data.items.length) _tickerCache = { ts: Date.now(), data };
     res.json(data);
   } catch (e) { res.json({ items: [], updatedAt: Date.now() }); }
+});
+
+// ─── Pricing public (landing) — prix réels depuis la config serveur (PRICE_MONTHLY / PRICE_ANNUAL) ───
+app.get('/api/pricing', (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=3600');
+  const monthly = PRICE_MONTHLY, annual = PRICE_ANNUAL;
+  const monthlyPerYear = +(monthly * 12).toFixed(2);
+  const annualPerMonth = +(annual / 12).toFixed(2);
+  const savePct = monthlyPerYear > 0 ? Math.round((1 - annual / monthlyPerYear) * 100) : 0;
+  res.json({ currency: '€', monthly, annual, annualPerMonth, monthlyPerYear, savePct,
+    url: process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/' });
 });
 
 // ─── TAUX (admin) — taux directeurs des 8 banques centrales + estimation maison ───
