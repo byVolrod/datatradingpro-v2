@@ -4631,6 +4631,23 @@ app.get('/api/ticker', async (_req, res) => {
   } catch (e) { res.json({ items: [], updatedAt: Date.now() }); }
 });
 
+// ─── TAUX (admin) — taux directeurs des 8 banques centrales + estimation maison ───
+// "Estimation maison" = notre lecture (dir hike/hold/cut + probabilité), pas un flux marché.
+// Valeurs de référence éditables ici ; à confirmer / mettre à jour par l'admin.
+const CENTRAL_BANKS = [
+  { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',          rate:4.50, last:{ date:'2024-12-18', bps:-25, dir:'cut'  }, next:'2026-06-17', est:{ dir:'hold', prob:70 }, bias:'Inflation proche de la cible et emploi résilient : pause prolongée, léger biais baissier à terme.' },
+  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',     rate:3.15, last:{ date:'2024-12-12', bps:-25, dir:'cut'  }, next:'2026-06-04', est:{ dir:'cut',  prob:60 }, bias:'Désinflation et croissance molle : poursuite prudente de l\'assouplissement.' },
+  { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:4.75, last:{ date:'2024-11-07', bps:-25, dir:'cut'  }, next:'2026-06-19', est:{ dir:'cut',  prob:55 }, bias:'Inflation des services collante : assouplissement graduel, dépendant des données.' },
+  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.25, last:{ date:'2024-07-31', bps:25,  dir:'hike' }, next:'2026-06-16', est:{ dir:'hike', prob:55 }, bias:'Normalisation lente : hausses graduelles si salaires et inflation se confirment.' },
+  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:1.00, last:{ date:'2024-12-12', bps:-50, dir:'cut'  }, next:'2026-06-18', est:{ dir:'hold', prob:55 }, bias:'Inflation faible et franc fort : marge de baisse limitée, proche du plancher.' },
+  { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:3.25, last:{ date:'2024-12-11', bps:-50, dir:'cut'  }, next:'2026-06-04', est:{ dir:'hold', prob:50 }, bias:'Cycle d\'assouplissement avancé : rythme ralenti, dépendant de l\'emploi.' },
+  { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, last:{ date:'2023-11-07', bps:25,  dir:'hike' }, next:'2026-06-16', est:{ dir:'cut',  prob:50 }, bias:'Statu quo prolongé : premières baisses possibles si l\'inflation reflue.' },
+  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:4.25, last:{ date:'2024-11-27', bps:-50, dir:'cut'  }, next:'2026-05-28', est:{ dir:'cut',  prob:55 }, bias:'Croissance faible : poursuite des baisses pour soutenir l\'activité.' },
+];
+app.get('/api/rates', requireAdmin, (_req, res) => {
+  res.json({ asOf: 'valeurs de référence — à confirmer', banks: CENTRAL_BANKS });
+});
+
 // CRUD admin (ajout / édition / suppression de positions)
 app.post('/api/bank-positions', requireAdmin, (req, res) => {
   const b = req.body || {};

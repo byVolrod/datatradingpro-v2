@@ -8257,6 +8257,33 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   transform: translateX(100%); transition: transform .24s cubic-bezier(.2,.8,.2,1);
   border-left: 1px solid #1c1c20; border-radius: 0;
 }
+/* ── TAUX — taux directeurs des banques centrales (admin) ──────────────── */
+.panel-taux { padding: 0; }
+.panel-taux .taux-sub { font-size: 11px; color: #ffb300; margin-left: 10px; letter-spacing: .02em; font-weight: 500; }
+.taux-wrap { overflow-x: auto; }
+.taux-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.taux-table thead th { position: sticky; top: 0; background: #0d0d10; color: #8a8a93; font-weight: 600; text-align: left; padding: 9px 14px; border-bottom: 1px solid #1c1c20; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; z-index: 1; }
+.taux-table tbody td { padding: 11px 14px; border-bottom: 1px solid #111113; vertical-align: middle; }
+.taux-table tbody tr:hover { background: #101014; }
+.taux-bank { display: flex; align-items: center; gap: 10px; min-width: 190px; }
+.taux-flag { width: 26px; height: 20px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; border: 1px solid #1c1c20; }
+.taux-bank span { display: flex; flex-direction: column; line-height: 1.25; }
+.taux-bank b { color: #f0f0f2; font-weight: 700; font-size: 13px; }
+.taux-bank i { color: #6f6f78; font-style: normal; font-size: 11px; }
+.taux-rate { font-family: var(--mono, ui-monospace, monospace); font-weight: 700; color: #f0f0f2; font-size: 14px; white-space: nowrap; }
+.taux-last { font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; font-size: 12px; }
+.taux-last i { display: block; color: #6f6f78; font-style: normal; font-size: 10.5px; margin-top: 1px; }
+.taux-next { font-family: var(--mono, ui-monospace, monospace); color: #cfcfd4; white-space: nowrap; }
+.taux-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 4px; font-weight: 700; font-size: 11.5px; white-space: nowrap; border: 1px solid transparent; }
+.taux-badge.g { color: #00e676; background: rgba(0,230,118,.1); border-color: rgba(0,230,118,.28); }
+.taux-badge.r { color: #ff3d00; background: rgba(255,61,0,.12); border-color: rgba(255,61,0,.3); }
+.taux-badge.n { color: #ffb300; background: rgba(255,179,0,.1); border-color: rgba(255,179,0,.28); }
+.taux-last.g { color: #00e676; }
+.taux-last.r { color: #ff3d00; }
+.taux-last.n { color: #9a9aa2; }
+.taux-bias { color: #a6a6ad; max-width: 380px; font-size: 12px; line-height: 1.45; }
+.taux-loading, .taux-empty { text-align: center; color: #6f6f78; padding: 44px 0; }
+
 .ai-panel.open { transform: translateX(0); }
 /* En-tête */
 .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 11px 14px; border-bottom: 1px solid #1a1a1e; flex: 0 0 auto; }
