@@ -1882,7 +1882,7 @@ document.addEventListener('DOMContentLoaded', () => {
             + '<td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>';
         }).join('');
         return '<div class="rtc">'
-          + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
+          + '<div class="rtc-head"><span class="rtc-dot ' + mv.cls + '"></span><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
           + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
           + '<svg class="rtc-spark" width="48" height="16" viewBox="0 0 48 16" fill="none"><path d="' + (SPK[b.move] || SPK.HOLD) + '" stroke="' + (SPC[b.move] || SPC.HOLD) + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
           + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
@@ -1894,9 +1894,11 @@ document.addEventListener('DOMContentLoaded', () => {
           + '<div><span class="rtc-k">R&eacute;union</span><span class="rtc-v">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
           + '</div>'
           + '<div class="rtc-dist">'
+          + '<div class="rtc-dist-h">Distribution des sc&eacute;narios</div>'
           + '<div class="rtc-bar"><span class="rtc-bl">Maintien</span><span class="rtc-track"><i class="n" style="width:' + sc.hold + '%"></i></span><span class="rtc-bp">' + sc.hold + '%</span></div>'
           + '<div class="rtc-bar"><span class="rtc-bl">Hausse</span><span class="rtc-track"><i class="g" style="width:' + sc.hike + '%"></i></span><span class="rtc-bp">' + sc.hike + '%</span></div>'
           + '<div class="rtc-bar"><span class="rtc-bl">Baisse</span><span class="rtc-track"><i class="r" style="width:' + sc.cut + '%"></i></span><span class="rtc-bp">' + sc.cut + '%</span></div>'
+          + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>'
           + '</div>'
           + '<table class="rtc-tbl"><thead><tr><th>R&eacute;union</th><th>J</th><th>Baisse</th><th>Maintien</th><th>Hausse</th><th>&Delta; impl.</th><th>Base</th></tr></thead><tbody>' + rows + '</tbody></table>'
           + '</div>';
