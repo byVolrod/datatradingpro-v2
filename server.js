@@ -1847,6 +1847,7 @@ function aiAllowed(category, opts = {}) {
     if (category === 'analyst') return share(0.45);   // Analyst + AI Insights
     if (category === 'bank')    return share(0.45);   // Institution (ING)
     if (category === 'bias')    return share(0.40);
+    if (category === 'ratesbias') return share(0.18);   // biais TAUX : part modeste, hebdo
     return share(0.30);
   }
   // Semaine : PRIORITÉ aux onglets premium → Analyst/AI Insights (60%) + Institution (40%, désormais
@@ -1857,6 +1858,7 @@ function aiAllowed(category, opts = {}) {
   if (category === 'bank')    return share(0.45);                       // Institution (ING)
   if (category === 'news')    return !!opts.important && share(0.45);   // news importantes
   if (category === 'bias')    return share(0.30);
+  if (category === 'ratesbias') return share(0.18);   // biais TAUX : part modeste, hebdo
   return false;
 }
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); _aiDemandNote(category); }
@@ -4480,6 +4482,7 @@ app.get('/api/week-ahead', (_req, res) => {
     generateSmartBias(true).catch(e => console.error('[SmartBias] failed:', e.message));
     generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
     generateWeekAhead(true).catch(e => console.error('[WeekAhead] failed:', e.message));   // Week Ahead : même batch hebdo
+    _aiRefreshRatesBias().catch(e => console.error('[RatesBias IA] failed:', e.message));  // biais TAUX : refresh IA hebdo (caché)
   };
   setTimeout(function run() {
     runAll();
@@ -4753,6 +4756,12 @@ function _effBias(b, rate) {
   if (b.bias === 'hike' && rate >= b.ceil  - 1e-9) return 'hold';
   return b.bias;
 }
+// Biais IA optionnel (cache hebdo) : écrase le biais/conviction config par banque si disponible. Repli config sinon.
+let _aiRatesBias = {};
+function _cbResolved(b) {
+  const a = _aiRatesBias[b.code];
+  return (a && a.bias) ? { ...b, bias: a.bias, conv: (a.conv != null ? a.conv : b.conv) } : b;
+}
 // Actualisation : applique le mouvement maison à chaque réunion passée non encore traitée.
 function _refreshRates() {
   const now = Date.now();
@@ -4762,7 +4771,8 @@ function _refreshRates() {
     (CB_MEETINGS[b.code] || []).slice().sort().forEach(d => {
       if (Date.parse(d + 'T00:00:00Z') >= now) return;             // réunion future
       if (st.lastMeeting && d <= st.lastMeeting) return;           // déjà traitée
-      const sc = _rateScenario({ ...b, bias: _effBias(b, st.rate) }, 0);
+      const rb = _cbResolved(b);
+      const sc = _rateScenario({ ...rb, bias: _effBias(rb, st.rate) }, 0);
       if (sc.baseCase === 'HIKE')      st.rate = Math.min(b.ceil,  +(st.rate + b.step / 100).toFixed(2));
       else if (sc.baseCase === 'CUT')  st.rate = Math.max(b.floor, +(st.rate - b.step / 100).toFixed(2));
       st.lastMeeting = d;
@@ -4780,7 +4790,8 @@ app.get('/api/rates', (_req, res) => {
   const now = Date.now();
   const banks = CB.map(b => {
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
-    const bb = { ...b, bias: _effBias(b, st.rate) };               // biais effectif (s'arrête au taux terminal)
+    const rb = _cbResolved(b);
+    const bb = { ...rb, bias: _effBias(rb, st.rate) };             // biais (IA si dispo) + arrêt au taux terminal
     const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 5);
     const meetings = sched.map((d, i) => {
       const sc = _rateScenario(bb, i);
@@ -4799,6 +4810,36 @@ app.get('/api/rates', (_req, res) => {
   });
   res.json({ asOf: now, model: 'maison', updatedAt: _ratesState.updatedAt, banks });
 });
+
+// ── Actualisation IA (optionnelle, "uniquement si besoin") des biais TAUX : hebdo, EN CACHE, jamais à l'ouverture. ──
+async function _aiRefreshRatesBias() {
+  try {
+    const cached = await auth.aiCacheGet('rates:aibias').catch(() => null);
+    if (cached && cached.banks && cached.at && Date.now() - cached.at < 6 * 86400000) { _aiRatesBias = cached.banks; return; }
+  } catch {}
+  const cbNews = (Array.isArray(allNews) ? allNews : [])
+    .filter(n => n && /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|boc|macklem|rba|snb|rbnz)\b|rate decision|interest rate|inflation|\bcpi\b/i.test((n.headline || '') + ' ' + (n.category || '')))
+    .slice(0, 22).map(n => '- ' + (n.headline || '').slice(0, 120));
+  const rates = CB.map(b => b.bank + ' ' + (((_ratesState.banks[b.code] || {}).rate) ?? b.rate) + '%').join(', ');
+  const prompt = 'Tu es économiste macro. Pour chaque banque centrale, estime le BIAIS de politique monétaire (direction la plus probable de la prochaine variation) et une conviction de 0 à 1.\n\n'
+    + 'Taux directeurs actuels : ' + rates + '.\n\nActualité récente :\n' + (cbNews.join('\n') || '(peu de news)')
+    + '\n\nRéponds UNIQUEMENT par un JSON strict, sans texte autour : {"USD":{"bias":"hold","conv":0.7},"EUR":{"bias":"cut","conv":0.6},"GBP":{},"JPY":{},"CHF":{},"CAD":{},"AUD":{},"NZD":{}}. bias ∈ {"hike","hold","cut"}.';
+  let txt;
+  try { txt = await aiSmart('ratesbias', prompt, 600, { scheduled: true }); }
+  catch (e) { console.log('[RatesBias IA] indisponible → on garde la config maison:', e.message); return; }
+  try {
+    const m = String(txt).match(/\{[\s\S]*\}/);
+    const obj = JSON.parse(m ? m[0] : String(txt));
+    const clean = {};
+    CB.forEach(b => { const v = obj[b.code]; if (v && /^(hike|hold|cut)$/.test(v.bias || '')) clean[b.code] = { bias: v.bias, conv: Math.max(0.3, Math.min(0.97, +v.conv || b.conv)) }; });
+    if (Object.keys(clean).length >= 4) {
+      _aiRatesBias = clean;
+      await auth.aiCacheSet('rates:aibias', { at: Date.now(), banks: clean }).catch(() => {});
+      console.log('[RatesBias IA] biais actualisés (' + Object.keys(clean).length + ' banques) → cache durable');
+    }
+  } catch (e) { console.log('[RatesBias IA] parse échec → on garde la config maison'); }
+}
+setTimeout(() => { _aiRefreshRatesBias().catch(() => {}); }, 20000);   // démarrage : charge le cache (appel IA seulement si périmé)
 
 // CRUD admin (ajout / édition / suppression de positions)
 app.post('/api/bank-positions', requireAdmin, (req, res) => {
