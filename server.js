@@ -2159,7 +2159,8 @@ function _brLoadFile() {
 // Sources de recherche institutionnelle / analystes (flux RSS publics, sans navigateur)
 const BR_FEEDS = [
   { url: 'https://think.ing.com/rss/',          institution: 'ING',        source: 'ing-think',   paged: true  },
-  // FXStreet et ActionForex retirés sur demande. Sources institution = ING + MUFG + SEB + Scotiabank.
+  { url: 'https://blog.syzgroup.com/fast-food-for-thought/rss.xml', institution: 'Syz', source: 'syz', paged: false },   // Syz « Fast Food for Thought » (HubSpot RSS)
+  // FXStreet et ActionForex retirés sur demande.
 ];
 
 // Parse un flux RSS de recherche → ajoute les items dans `merged`
@@ -2722,7 +2723,7 @@ function _stripSource(html) {
     .trim();
 }
 
-const _BR_CONTENT_HOSTS = /^https:\/\/(www\.)?(think\.ing\.com|mufgresearch\.com|scotiabank\.com)\//i;
+const _BR_CONTENT_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(think\.ing\.com|mufgresearch\.com|scotiabank\.com|bluematrix\.com|hsbc\.com\.sg|syzgroup\.com|danskebank\.com|unicreditgroup\.eu)\//i;
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
@@ -2798,6 +2799,9 @@ app.get('/api/bank-research-content', async (req, res) => {
       || $('.blog-content, [class*="blog-content"], [class*="article-body"], [class*="article__body"], [class*="article-content"], [class*="post-content"], .content-body, article .content, .entry-content, .wysiwyg, .rich-text').first().html()
       || $('main article').first().html()
       || $('main').first().html()
+      || $('article').first().html()
+      || $('[role="main"]').first().html()
+      || $('body').html()   // dernier recours : tout le body (déjà nettoyé des scripts/nav/footer/partage) → garantit un contenu PDF-isable
       || '';
 
     // Corriger les URLs relatives des images → absolues (selon l'hôte réel de l'article)

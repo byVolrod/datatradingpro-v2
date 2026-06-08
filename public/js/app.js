@@ -4190,7 +4190,7 @@ function renderBrList() {
 // reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
 // identifiable) → "DTP". On ne met JAMAIS "ING" par défaut.
 const _INST_BANKS = [
-  [/\bblackrock\b/i, 'BlackRock'], [/\bunicredit\b/i, 'UniCredit'],
+  [/\bblackrock\b/i, 'BlackRock'], [/\bunicredit\b/i, 'UniCredit'], [/\bsyz\b/i, 'Syz'],
   [/\bmufg\b|mitsubishi ufj/i, 'MUFG'], [/\buob\b/i, 'UOB'], [/\bocbc\b/i, 'OCBC'],
   [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman'],
   [/\bmorgan stanley\b/i, 'MS'], [/\bjp ?morgan\b/i, 'JPM'], [/\bciti\b/i, 'Citi'],
@@ -4198,7 +4198,7 @@ const _INST_BANKS = [
   [/\bscotiabank\b|\bscotia\b/i, 'Scotia'], [/\bwestpac\b/i, 'Westpac'], [/\bnab\b/i, 'NAB'],
   [/\bcommerzbank\b/i, 'Commerz'], [/\bsocgen\b|société générale|societe generale/i, 'SocGen'],
   [/\bbnp\b/i, 'BNP'], [/crédit agricole|credit agricole|\bcacib\b/i, 'CACIB'],
-  [/standard chartered/i, 'StanChart'], [/\bwells fargo\b/i, 'Wells'],
+  [/standard chartered/i, 'StanChart'], [/\bwells fargo\b/i, 'Wells Fargo'],
   [/bank of america|\bbofa\b/i, 'BofA'], [/\bdeutsche\b/i, 'Deutsche'], [/\bnatwest\b/i, 'NatWest'],
   [/\bnatixis\b/i, 'Natixis'], [/\banz\b/i, 'ANZ'], [/\bnordea\b/i, 'Nordea'], [/\bseb\b/i, 'SEB'],
 ];
@@ -4214,10 +4214,10 @@ const _BANK_BRAND = {
   ING: '#ff6200', MUFG: '#e60012', Natixis: '#5b2d86', CACIB: '#009597', Goldman: '#6f93c0',
   JPM: '#7a2a2a', MS: '#00a3e0', Citi: '#1b5fae', Barclays: '#00aeef', HSBC: '#db0011',
   Deutsche: '#2c7be5', UOB: '#1b5fae', OCBC: '#e2231a', Danske: '#19a6dc', Nomura: '#c0233a',
-  SocGen: '#e60028', BNP: '#00915a', StanChart: '#1b8fea', BofA: '#1f5fb0', Wells: '#d71e28',
+  SocGen: '#e60028', BNP: '#00915a', StanChart: '#1b8fea', BofA: '#1f5fb0', 'Wells Fargo': '#d71e28',
   NatWest: '#7b3fa0', Rabo: '#fe6e00', Scotia: '#ec111a', Westpac: '#d5002b', Commerz: '#e7b000',
   NAB: '#c20029', ANZ: '#1b8fea', Nordea: '#0000a0', SEB: '#5ca800',
-  BlackRock: '#ededf0', UniCredit: '#e2231a',
+  BlackRock: '#ededf0', UniCredit: '#e2231a', Syz: '#ff9c0c',
 };
 function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
 // Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
@@ -4226,10 +4226,10 @@ const _BANK_DOMAIN = {
   Goldman: 'goldmansachs.com', JPM: 'jpmorgan.com', MS: 'morganstanley.com', Citi: 'citigroup.com',
   Barclays: 'barclays.com', HSBC: 'hsbc.com', Deutsche: 'db.com', UOB: 'uobgroup.com',
   OCBC: 'ocbc.com', Danske: 'danskebank.com', Nomura: 'nomura.com', SocGen: 'societegenerale.com',
-  BNP: 'bnpparibas.com', StanChart: 'sc.com', BofA: 'bankofamerica.com', Wells: 'wellsfargo.com',
+  BNP: 'bnpparibas.com', StanChart: 'sc.com', BofA: 'bankofamerica.com', 'Wells Fargo': 'wellsfargo.com',
   NatWest: 'natwest.com', Rabo: 'rabobank.com', Scotia: 'scotiabank.com', Westpac: 'westpac.com.au',
   Commerz: 'commerzbank.com', NAB: 'nab.com.au', ANZ: 'anz.com', Nordea: 'nordea.com', SEB: 'sebgroup.com',
-  UniCredit: 'unicredit.eu',
+  UniCredit: 'unicredit.eu', Syz: 'syzgroup.com',
 };
 // Logos téléchargés en local (assets DTP) → prioritaires sur Clearbit pour ces banques.
 const _BANK_LOCAL_LOGO = {
@@ -4240,10 +4240,11 @@ const _BANK_LOCAL_LOGO = {
   BlackRock: '/assets/images/banks/BlackRock.png',   // wordmark blanc (fond noir keyé), rogné
   Danske:    '/assets/images/banks/Danske.png',      // logo authentique deux-tons « Danske Bank »
   Scotia:    '/assets/images/banks/Scotia.png',      // icône rouge Scotiabank (fond transparent), rognée
-  Wells:     '/assets/images/banks/Wells.png',       // logo Wells Fargo (carré rouge, texte jaune)
+  'Wells Fargo': '/assets/images/banks/Wells.png',   // logo Wells Fargo (carré rouge, texte jaune)
   UniCredit: '/assets/images/banks/UniCredit.png',   // icône rouge UniCredit (fond transparent), rognée
   SocGen:    '/assets/images/banks/SocGen.png',      // logo Société Générale (carré rouge/noir)
   HSBC:      '/assets/images/banks/HSBC.png',        // hexagone rouge HSBC (fond transparent), rogné
+  Syz:       '/assets/images/banks/Syz.png',         // logo Syz Private Banking (orange)
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
