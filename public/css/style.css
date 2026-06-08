@@ -2733,6 +2733,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbs-close:hover { color: #fff; }
 /* Dropdowns du header (devise + date) — compacts façon DTP */
 .sbs-head-ctrls { display: flex; align-items: center; gap: 6px; }
+/* Dropdowns "Scanner" + historique remontés dans l'en-tête du haut du Smart Bias Tracker */
+.bias-head-dd { display: inline-flex; align-items: center; gap: 6px; }
+.bias-head-dd .sbs-cdd { padding: 3px 8px; }
 .sbs-dd-flag { display: inline-flex; }
 .sbs-dd-flag .sbm-flag { width: 16px; height: 16px; }
 .sbs-dd { background: #0c0c0e; color: #e5e7eb; border: 1px solid #26262b; border-radius: 4px; font-size: 11px; padding: 3px 6px; cursor: pointer; font-family: inherit; }
