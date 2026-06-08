@@ -4573,7 +4573,8 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
   } catch (e) { console.log('[WeekAhead IA] parse échec → titres déterministes:', e.message); }
 }
 let _waGenerating = false;
-app.get('/api/week-ahead', (_req, res) => {
+app.get('/api/week-ahead', async (req, res) => {
+  if (req.query.force === '1') { try { await generateWeekAhead(true, true); } catch {} return res.json(_weekAhead || { week: '', days: [], generating: true }); }   // force=1 → régénère AVEC l'éditorial IA (déclenchement manuel admin)
   // NE BLOQUE JAMAIS : si pas encore généré, on lance la génération EN ARRIÈRE-PLAN et on répond tout de suite.
   const _waStale = !_weekAhead || _weekAhead.v !== WA_VER || (Date.now() - (_weekAhead.generatedAt || 0) > 40 * 60 * 1000);
   if (_waStale && !_waGenerating) {   // absent / version périmée / >40 min → régén self-heal en fond (données fraîches)
