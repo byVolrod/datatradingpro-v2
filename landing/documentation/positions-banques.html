@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Positions des banques — Documentation DataTradingPro</title>
+<meta name="description" content="Lire le positionnement des grandes banques par devise et les données COT de la CFTC pour voir qui achète et qui vend.">
+<link rel="canonical" href="https://datatradingpro.com/documentation/positions-banques">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#08080a">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Positions des banques — Documentation DataTradingPro">
+<meta property="og:description" content="Lire le positionnement des grandes banques par devise et les données COT de la CFTC pour voir qui achète et qui vend.">
+<meta property="og:url" content="https://datatradingpro.com/documentation/positions-banques">
+<meta property="og:image" content="https://datatradingpro.com/assets/og-cover.png">
+<meta property="og:site_name" content="DataTradingPro">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/documentation/doc.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Positions des banques","description":"Lire le positionnement des grandes banques par devise et les données COT de la CFTC pour voir qui achète et qui vend.","inLanguage":"fr-FR","author":{"@type":"Organization","name":"DataTradingPro"},"publisher":{"@type":"Organization","name":"DataTradingPro","logo":{"@type":"ImageObject","url":"https://datatradingpro.com/assets/logo.png"}},"mainEntityOfPage":"https://datatradingpro.com/documentation/positions-banques"}</script>
+</head><body>
+<a href="#doc-main" class="skip-link">Aller au contenu</a>
+<header class="doc-top"><div class="doc-top-in">
+  <button class="doc-back" type="button" onclick="if(history.length>1){history.back()}else{location.href='/'}" aria-label="Revenir à la page précédente">&lsaquo; Retour</button>
+  <a class="doc-logo" href="/">Data<b>TradingPro</b></a>
+  <a class="doc-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal</a>
+</div></header>
+<main class="doc-main" id="doc-main">
+  <nav class="doc-bc"><a href="/">Accueil</a> <span>/</span> <a href="/documentation/">Documentation</a> <span>/</span> <em>Positions des banques</em></nav>
+  <div class="doc-cat">Modules</div>
+  <h1>Positions des banques</h1>
+  <div class="doc-meta">5 min de lecture</div>
+  <article class="doc-body">
+<p>Le module <strong>Positions des banques</strong> (onglet <strong>Bank</strong>) rassemble deux lectures complémentaires du positionnement institutionnel sur le marché des changes : le <strong>Bank Overview</strong>, qui agrège les vues des grandes banques d'investissement par devise, et les données <strong>COT</strong> de la CFTC, qui répartissent les positions ouvertes par catégorie d'acteurs. L'objectif est simple : voir, d'un coup d'oeil, qui achète et qui vend, et à quelle conviction.</p>
+
+<h2>Bank Overview : le consensus des grandes banques</h2>
+<p>Le Bank Overview synthétise le biais publié par les grandes banques (Goldman Sachs, ING, Nomura, et d'autres) sur chaque devise majeure. Pour une paire ou un code devise donné, vous voyez si l'institution penche côté achat, vente ou neutre, ce qui permet de mesurer un <strong>consensus de marché</strong> et de repérer les divergences.</p>
+<p>Concrètement :</p>
+<ul>
+<li>Sélectionnez une <strong>devise</strong> (par exemple EUR, GBP, USD) pour afficher les vues recensées.</li>
+<li>Lisez les <strong>badges directionnels</strong> : haussier, baissier ou neutre selon le code couleur du terminal.</li>
+<li>Comparez les banques entre elles : un consensus large pèse plus qu'un avis isolé, et un désaccord net signale un thème de marché à surveiller.</li>
+</ul>
+<p>Le Bank Overview se croise utilement avec le module <strong>Bias</strong> et le calendrier économique : un biais de banque qui rejoint un événement macro à venir donne du contexte à un mouvement, sans pour autant constituer un signal d'entrée.</p>
+
+<h2>Données COT : les 5 catégories d'acteurs de la CFTC</h2>
+<p>Le rapport <strong>COT</strong> (Commitments of Traders) est publié chaque semaine par la <strong>CFTC</strong>. Il décompose les positions ouvertes sur les contrats à terme en grandes catégories d'opérateurs, ce qui révèle le positionnement réel derrière les prix. Les cinq catégories types à lire :</p>
+<ul>
+<li><strong>Dealers / intermédiaires</strong> : les teneurs de marché, souvent à contre-courant de la tendance car ils couvrent le flux de leurs clients.</li>
+<li><strong>Asset managers / institutionnels</strong> : gérants et fonds longs terme, généralement alignés sur la tendance de fond.</li>
+<li><strong>Leveraged funds</strong> : hedge funds et capitaux spéculatifs, les plus réactifs et les plus suivis pour lire le momentum.</li>
+<li><strong>Autres acteurs déclarants</strong> : grands participants ne rentrant pas dans les catégories ci-dessus.</li>
+<li><strong>Petits opérateurs non déclarants</strong> : positions sous le seuil de déclaration, souvent considérées comme le côté « retail ».</li>
+</ul>
+<p>Pour chaque catégorie, on regarde les positions <strong>longues</strong> et <strong>courtes</strong>, le solde net et surtout sa <strong>variation d'une semaine sur l'autre</strong>. C'est l'évolution, plus que le niveau absolu, qui raconte l'histoire : un net spéculatif qui se renforce semaine après semaine traduit une conviction qui monte ; un net qui s'aplatit ou se retourne signale un essoufflement.</p>
+
+<h2>Comment l'utiliser en pratique</h2>
+<p>Une routine de lecture efficace :</p>
+<ul>
+<li><strong>Choisissez la devise</strong> qui vous intéresse et notez le biais agrégé du Bank Overview.</li>
+<li><strong>Confirmez avec le COT</strong> : le positionnement des leveraged funds va-t-il dans le même sens que le consensus des banques, ou contre ?</li>
+<li><strong>Lisez la variation hebdomadaire</strong> pour distinguer une tendance qui s'installe d'un positionnement déjà extrême (risque de retournement).</li>
+<li><strong>Croisez avec le calendrier et la news</strong> pour comprendre le « pourquoi » du flux.</li>
+</ul>
+<p>Cas d'usage typiques : repérer un consensus fort avant une publication macro, détecter une divergence banques / spéculateurs, ou identifier un positionnement saturé sur une devise.</p>
+
+<h2>Un terminal de données, pas un conseil</h2>
+<p>Le module Positions des banques affiche des <strong>données et des analyses</strong> de positionnement. DataTradingPro est un <strong>terminal de données et de news</strong> : il n'exécute aucun ordre et ne fournit aucun conseil en investissement personnalisé. Le COT reflète par ailleurs des positions <strong>passées</strong> à la date d'arrêté du rapport, et non une recommandation. La décision et l'exécution restent chez vous, sur votre courtier.</p>
+  </article>
+  <div class="doc-nav"><a class="doc-prevnext prev" href="/documentation/analyst.html">&lsaquo; Analyst</a><span></span></div>
+  <div class="doc-cta-card">
+    <h3>Passez à la pratique</h3>
+    <p>Retrouvez ce module en données réelles dans le terminal.</p>
+    <a class="btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal — 24,99 €/mois</a>
+    <a class="doc-back-site" href="/">&larr; Revenir au site</a>
+  </div>
+</main>
+<footer class="doc-foot">
+  <span>&copy; DataTradingPro — Terminal de données macro &amp; forex. Aucun conseil en investissement.</span>
+  <a href="/documentation/">Toute la documentation &rsaquo;</a>
+</footer>
+</body></html>

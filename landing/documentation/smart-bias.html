@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart Bias Tracker — Documentation DataTradingPro</title>
+<meta name="description" content="Lisez le biais hebdomadaire de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et banques.">
+<link rel="canonical" href="https://datatradingpro.com/documentation/smart-bias">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta name="theme-color" content="#08080a">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Smart Bias Tracker — Documentation DataTradingPro">
+<meta property="og:description" content="Lisez le biais hebdomadaire de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et banques.">
+<meta property="og:url" content="https://datatradingpro.com/documentation/smart-bias">
+<meta property="og:image" content="https://datatradingpro.com/assets/og-cover.png">
+<meta property="og:site_name" content="DataTradingPro">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/documentation/doc.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Smart Bias Tracker","description":"Lisez le biais hebdomadaire de chaque devise sur une échelle Very Bullish à Very Bearish, croisé avec fondamentaux, taux, COT et banques.","inLanguage":"fr-FR","author":{"@type":"Organization","name":"DataTradingPro"},"publisher":{"@type":"Organization","name":"DataTradingPro","logo":{"@type":"ImageObject","url":"https://datatradingpro.com/assets/logo.png"}},"mainEntityOfPage":"https://datatradingpro.com/documentation/smart-bias"}</script>
+</head><body>
+<a href="#doc-main" class="skip-link">Aller au contenu</a>
+<header class="doc-top"><div class="doc-top-in">
+  <button class="doc-back" type="button" onclick="if(history.length>1){history.back()}else{location.href='/'}" aria-label="Revenir à la page précédente">&lsaquo; Retour</button>
+  <a class="doc-logo" href="/">Data<b>TradingPro</b></a>
+  <a class="doc-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal</a>
+</div></header>
+<main class="doc-main" id="doc-main">
+  <nav class="doc-bc"><a href="/">Accueil</a> <span>/</span> <a href="/documentation/">Documentation</a> <span>/</span> <em>Smart Bias Tracker</em></nav>
+  <div class="doc-cat">Modules</div>
+  <h1>Smart Bias Tracker</h1>
+  <div class="doc-meta">5 min de lecture</div>
+  <article class="doc-body">
+<p>Le <strong>Smart Bias Tracker</strong> (onglet <strong>Bias</strong>) condense en une seule matrice le positionnement hebdomadaire des principales devises. Là où le terminal vous donne ailleurs le détail brut — news, calendrier, COT institutionnel, prévisions de banques — ce module agrège ces signaux en une lecture unique : pour chaque paire, le biais penche-t-il à l'achat, à la vente, ou reste-t-il neutre cette semaine ? L'objectif est de vous faire gagner du temps de synthèse, pas de décider à votre place.</p>
+
+<h2>Lire la matrice de biais</h2>
+<p>Le cœur du module est une grille haute densité. En colonnes, les devises (chacune précédée de son drapeau) ; les cellules affichent le biais sur une échelle à cinq niveaux, codée par couleur :</p>
+<ul>
+<li><strong>Very Bullish</strong> et <strong>Bullish</strong> — vert (conviction haussière forte puis modérée) ;</li>
+<li><strong>Neutral</strong> — gris (pas de direction claire, signaux contradictoires ou marché en attente) ;</li>
+<li><strong>Bearish</strong> et <strong>Very Bearish</strong> — rouge (conviction baissière modérée puis forte).</li>
+</ul>
+<p>La lecture se fait d'un coup d'œil : une ligne de cellules vertes face à une devise rouge dessine un déséquilibre net sur la paire correspondante. Les cellules sont collées et séparées par de fines bordures pour maximiser la quantité d'information par pixel, dans l'esprit cockpit du terminal.</p>
+
+<h2>Les indicateurs croisés derrière le score</h2>
+<p>Un biais n'a de valeur que si l'on sait ce qui le construit. Cliquez sur une cellule ou sur l'en-tête d'une devise : le layout se divise et fait apparaître le <strong>panneau de synthèse</strong> sous la table. À gauche, la liste des indicateurs qui alimentent le score, regroupés en familles :</p>
+<ul>
+<li><strong>Fondamentaux</strong> — croissance, inflation, confiance des consommateurs, activité industrielle et des services, immobilier, ventes au détail. Accordéon dépliable pour voir chaque sous-indicateur et son badge.</li>
+<li><strong>Taux</strong> — orientation de la politique monétaire et attentes de marché sur la banque centrale concernée.</li>
+<li><strong>COT</strong> — positionnement net des intervenants institutionnels (Commitment of Traders).</li>
+<li><strong>Banques</strong> — vue d'ensemble des prévisions des grandes institutions sur la devise.</li>
+</ul>
+<p>Chaque ligne se termine par son propre badge directionnel : vous voyez ainsi quels piliers tirent le biais dans un sens, et lesquels le contredisent. Un score « Neutral » qui masque deux indicateurs opposés ne se lit pas comme un consensus mou — la décomposition vous le révèle.</p>
+
+<h2>Narratif IA et sélecteur de devise</h2>
+<p>À droite du panneau, un <strong>narratif IA</strong> met en mots la situation : il résume pourquoi la devise est orientée ainsi, quels indicateurs pèsent le plus, et liste les <strong>événements à risque de la semaine</strong> susceptibles de faire bouger le biais, avec leur niveau d'impact (LOW / MED / HIGH). Ce texte est une mise en contexte des données, pas une recommandation d'achat ou de vente.</p>
+<p>En haut du panneau, deux sélecteurs compacts pilotent l'affichage. Le premier, le <strong>Scanner</strong>, change la devise active sans quitter la vue. Le second ouvre l'<strong>historique des biais</strong> : le module conserve un <strong>versioning sur 5 semaines</strong>, daté au format jour-jour/mois/année. Vous comparez ainsi le biais courant à celui des semaines précédentes pour repérer un retournement progressif ou une conviction qui se renforce.</p>
+
+<h2>Cas d'usage concret</h2>
+<ul>
+<li>En début de semaine, balayez la matrice pour repérer les paires aux biais les plus tranchés.</li>
+<li>Ouvrez le panneau d'une devise pour vérifier que fondamentaux, taux, COT et banques pointent dans la même direction.</li>
+<li>Lisez le narratif IA et notez les événements HIGH du calendrier hebdomadaire.</li>
+<li>Comparez avec l'historique 5 semaines pour distinguer un biais durable d'un signal ponctuel.</li>
+</ul>
+<p><strong>Rappel :</strong> DataTradingPro est un terminal de données et de news. Le Smart Bias Tracker agrège et contextualise l'information ; il ne passe aucun ordre et ne constitue pas un conseil en investissement personnalisé. L'analyse finale, la décision et l'exécution restent chez vous, sur votre courtier.</p>
+  </article>
+  <div class="doc-nav"><a class="doc-prevnext prev" href="/documentation/calendrier.html">&lsaquo; Calendrier économique</a><a class="doc-prevnext next" href="/documentation/force-des-devises.html">Force des devises &rsaquo;</a></div>
+  <div class="doc-cta-card">
+    <h3>Passez à la pratique</h3>
+    <p>Retrouvez ce module en données réelles dans le terminal.</p>
+    <a class="btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal — 24,99 €/mois</a>
+    <a class="doc-back-site" href="/">&larr; Revenir au site</a>
+  </div>
+</main>
+<footer class="doc-foot">
+  <span>&copy; DataTradingPro — Terminal de données macro &amp; forex. Aucun conseil en investissement.</span>
+  <a href="/documentation/">Toute la documentation &rsaquo;</a>
+</footer>
+</body></html>
