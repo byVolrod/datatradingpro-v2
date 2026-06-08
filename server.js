@@ -4391,7 +4391,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v3-detailed';   // v3 : liste d'événements DÉTAILLÉE par jour (façon DTP) → bump force la régénération
+const WA_VER = 'v4-weekcurrent';   // v4 : fenêtre ancrée à la SEMAINE EN COURS (Lun→Dim) → bump force la régénération
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4400,11 +4400,15 @@ async function generateWeekAhead(force = false) {
   const WK = 7 * 24 * 60 * 60 * 1000;
   if (!force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < WK) return _weekAhead;
   const now = Date.now();
-  const horizon = now + 8 * 24 * 60 * 60 * 1000;
-  const up = (allCalendar || []).filter(e => e && e.timestamp > now - 12 * 3600 * 1000 && e.timestamp < horizon && (e.impact === 'High' || e.impact === 'Medium'));
+  // « Semaine en cours » : fenêtre ancrée au LUNDI de la semaine (Lun→Dim). Le week-end → semaine à venir.
+  const _d = new Date(now), _dow = _d.getUTCDay();                 // 0=dim … 6=sam
+  const _toMon = (_dow === 0) ? 1 : (_dow === 6) ? 2 : (1 - _dow); // jours jusqu'au lundi cible
+  const monday = Date.UTC(_d.getUTCFullYear(), _d.getUTCMonth(), _d.getUTCDate() + _toMon, 0, 0, 0);
+  const weekEnd = monday + 7 * 24 * 60 * 60 * 1000;
+  const up = (allCalendar || []).filter(e => e && e.timestamp >= monday && e.timestamp < weekEnd && (e.impact === 'High' || e.impact === 'Medium'));
   const byDay = {};
   up.forEach(e => { const k = new Date(e.timestamp).toISOString().slice(0, 10); (byDay[k] = byDay[k] || []).push(e); });
-  const keys = Object.keys(byDay).sort().slice(0, 5);
+  const keys = Object.keys(byDay).sort().slice(0, 7);
   if (!keys.length) { console.warn('[WeekAhead] calendrier vide → on garde l\'existant'); return _weekAhead; }
   // ── 100% DATA-DRIVEN (calendrier du terminal, AUCUN appel IA) → fiable + zéro consommation ──
   const _theme = t => { t = (t || '').toLowerCase();
