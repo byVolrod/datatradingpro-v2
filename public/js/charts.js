@@ -1850,12 +1850,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
-  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank'];
+  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux'];
   // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
   function _setDocTitle(_view) {
     try { document.title = 'DTP' + (window._dtpUser ? ' | ' + window._dtpUser : ''); } catch {}
+  }
+
+  async function loadTauxView() {
+    const tb = document.getElementById('taux-tbody');
+    if (!tb) return;
+    const DIR = {
+      hike: { lbl: 'Hausse',   cls: 'g', ar: '▲' },
+      hold: { lbl: 'Maintien', cls: 'n', ar: '■' },
+      cut:  { lbl: 'Baisse',   cls: 'r', ar: '▼' },
+    };
+    try {
+      const r = await fetch('/api/rates');
+      if (r.status === 403) { tb.innerHTML = '<tr><td colspan="6" class="taux-empty">Réservé aux administrateurs.</td></tr>'; return; }
+      const d = await r.json();
+      const banks = (d && d.banks) || [];
+      if (!banks.length) { tb.innerHTML = '<tr><td colspan="6" class="taux-empty">Aucune donnée.</td></tr>'; return; }
+      tb.innerHTML = banks.map(b => {
+        const e = DIR[b.est && b.est.dir] || DIR.hold;
+        const l = DIR[b.last && b.last.dir] || DIR.hold;
+        const bps = b.last ? ((b.last.bps > 0 ? '+' : '') + b.last.bps + ' pb') : '—';
+        return '<tr>'
+          + '<td class="taux-bank"><img class="taux-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy"><span><b>' + b.bank + '</b><i>' + (b.full || '') + '</i></span></td>'
+          + '<td class="taux-rate">' + Number(b.rate).toFixed(2) + ' %</td>'
+          + '<td class="taux-last ' + l.cls + '">' + l.ar + ' ' + bps + '<i>' + ((b.last && b.last.date) || '') + '</i></td>'
+          + '<td class="taux-next">' + (b.next || '—') + '</td>'
+          + '<td><span class="taux-badge ' + e.cls + '">' + e.ar + ' ' + e.lbl + ' · ' + (b.est ? b.est.prob : '') + '%</span></td>'
+          + '<td class="taux-bias">' + (b.bias || '') + '</td>'
+          + '</tr>';
+      }).join('');
+      const upd = document.getElementById('taux-update');
+      if (upd && d.asOf) upd.textContent = d.asOf;
+    } catch (e) {
+      tb.innerHTML = '<tr><td colspan="6" class="taux-empty">Erreur de chargement.</td></tr>';
+    }
   }
 
   function activateView(view, { persist = true } = {}) {
@@ -1872,6 +1906,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!VALID_VIEWS.includes(view)) view = 'news';
     // WEEK AHEAD réservé au staff (admin/support) → un client est renvoyé sur 'news'.
     if (view === 'weekahead' && window._pdIsStaff === false) view = 'news';
+    if (view === 'taux' && window._pdIsAdmin === false) view = 'news';   // TAUX : admin uniquement
     _setDocTitle(view);
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
 
@@ -1882,7 +1917,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND
     //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
     const _ml = document.getElementById('main-layout');
-    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead');   // Week Ahead en pleine largeur (timeline + chart) → loader centré comme les autres
+    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux');   // Week Ahead en pleine largeur (timeline + chart) → loader centré comme les autres
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
@@ -1911,6 +1946,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'weekahead' && typeof loadWeekAheadView === 'function') {
       loadWeekAheadView();
     }
+    if (view === 'taux') loadTauxView();
 
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour
     if (persist) { try { localStorage.setItem('dtp_active_view', view); } catch {} }

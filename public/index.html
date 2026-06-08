@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260609D" />
+  <link rel="stylesheet" href="/css/style.css?v=20260609E" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -96,6 +96,7 @@
   <a href="#" class="nav-item" data-view="bias">› BIAS</a>
   <a href="#" class="nav-item" data-view="weekahead">› WEEK AHEAD</a>
   <a href="#" class="nav-item" data-view="bank">› BANK</a>
+  <a href="#" class="nav-item" data-view="taux">› TAUX</a>
   <a href="#" class="nav-item nav-item--mobile-only" data-view="markets">› MARCHÉS</a>
 </div>
 
@@ -206,6 +207,38 @@
       </div>
     </div>
   </div><!-- /#view-bank -->
+
+  <!-- ══ VIEW: TAUX — Taux directeurs (ADMIN ONLY) — estimation maison ══ -->
+  <div class="view-panel hidden" id="view-taux">
+    <div class="panel panel-taux">
+      <div class="panel-header">
+        <div class="panel-header-left">
+          <span class="panel-title">Taux directeurs des banques centrales</span>
+          <span class="taux-sub">Estimation maison · à confirmer</span>
+        </div>
+        <div class="panel-header-controls">
+          <span class="bank-update" id="taux-update"></span>
+        </div>
+      </div>
+      <div class="taux-wrap">
+        <table class="taux-table">
+          <thead>
+            <tr>
+              <th>Banque centrale</th>
+              <th>Taux directeur</th>
+              <th>Dernier mouvement</th>
+              <th>Prochaine réunion</th>
+              <th>Estimation maison</th>
+              <th>Biais</th>
+            </tr>
+          </thead>
+          <tbody id="taux-tbody">
+            <tr><td colspan="6" class="taux-loading"><div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement des taux…</div></div></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div><!-- /#view-taux -->
 
   <!-- ══ VIEW: CALENDAR ══ -->
   <div class="view-panel hidden" id="view-calendar">
@@ -572,7 +605,7 @@
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script src="/js/app.js?v=20260609C"></script>
-<script src="/js/charts.js?v=20260609C"></script>
+<script src="/js/charts.js?v=20260609E"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -895,6 +928,10 @@
       const _isStaff = !!(d.user && (d.user.role === 'admin' || d.user.role === 'support'));
       window._pdIsStaff = _isStaff;
       if (!_isStaff) document.querySelectorAll('[data-view="weekahead"]').forEach(el => { el.style.display = 'none'; });
+      // Onglet TAUX : réservé aux ADMIN uniquement — masqué pour clients ET support.
+      const _isAdmin = !!(d.user && d.user.role === 'admin');
+      window._pdIsAdmin = _isAdmin;
+      if (!_isAdmin) document.querySelectorAll('[data-view="taux"]').forEach(el => { el.style.display = 'none'; });
     } catch {}
     // Dès que le rôle est connu, on vérifie les messages non lus (badge sur l'icône chat)
     if (typeof _chatPollUnread === 'function') _chatPollUnread();
