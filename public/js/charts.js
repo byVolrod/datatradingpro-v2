@@ -2734,22 +2734,24 @@ window._retryCalendar = function() {
   }
   // Dropdown « intelligent » façon PMT :
   //  • champ VIDE (clic/focus) → UNIQUEMENT « Recent Searches » (horloge) = 6 dernières paires ouvertes ;
-  //    s'il n'y a aucun historique, on propose les paires majeures.
+  //    s'il n'y a aucun historique → état vide « Aucune recherche récente » (JAMAIS les paires majeures).
   //  • en SAISIE → « Recent Searches » filtrées + « Foreign Exchange » (paires qui matchent, préfixe d'abord).
   function renderDd(q) {
     q = (q || '').toUpperCase().replace(/[^A-Z]/g, '');
-    let recents = _recent.slice(0, 6);
-    if (q) recents = recents.filter(p => p.includes(q));
-    let fx = [];
-    if (q) {
-      fx = PAIRS.filter(p => p.includes(q) && !recents.includes(p))
+    let html;
+    if (!q) {
+      const recents = _recent.slice(0, 6);
+      html = '<div class="sym-dd-head">' + _DD_CLOCK + ' Recent Searches <span class="sym-dd-count">(' + recents.length + ')</span></div>'
+        + (recents.length ? recents.map(_ddRow).join('') : '<div class="sym-dd-empty">Aucune recherche récente</div>');
+    } else {
+      const recents = _recent.slice(0, 6).filter(p => p.includes(q));
+      const fx = PAIRS.filter(p => p.includes(q) && !recents.includes(p))
         .sort((a, b) => (a.startsWith(q) ? 0 : 1) - (b.startsWith(q) ? 0 : 1) || a.localeCompare(b))
         .slice(0, 10);
-    } else if (!recents.length) {
-      fx = PAIRS.slice(0, 8);   // aucun historique encore → on propose les paires majeures
+      html = _ddSection(_DD_CLOCK, 'Recent Searches', recents) + _ddSection(_DD_HASH, 'Foreign Exchange', fx);
+      if (!html) html = '<div class="sym-dd-empty">Aucune paire</div>';
     }
-    const html = _ddSection(_DD_CLOCK, 'Recent Searches', recents) + _ddSection(_DD_HASH, 'Foreign Exchange', fx);
-    dd.innerHTML = html || '<div class="sym-dd-empty">Aucune paire</div>';
+    dd.innerHTML = html;
     positionDd();
     dd.classList.remove('hidden');
   }
