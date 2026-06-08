@@ -254,6 +254,12 @@
   .mcell p{font-size:13px;color:var(--text2);line-height:1.5}
   @media(max-width:880px){#mission .mission-grid{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:520px){#mission .mission-grid{grid-template-columns:1fr}}
+  /* Ambiance de fond originale (premium, sans aucune image tierce) */
+  #problem,#showcase,#trust{position:relative;overflow:hidden}
+  #problem::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(900px 520px at 80% 8%,rgba(247,148,29,.08),transparent 60%),radial-gradient(760px 520px at 8% 92%,rgba(40,52,110,.20),transparent 62%)}
+  #showcase::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(820px 520px at 12% 6%,rgba(247,148,29,.06),transparent 58%)}
+  #trust::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(820px 520px at 88% 90%,rgba(34,197,94,.05),transparent 60%)}
+  #problem .wrap,#showcase .wrap,#trust .wrap{position:relative;z-index:1}
 
   /* ── SHOWCASE (terminal en action) ── */
   #showcase{border-top:1px solid var(--line)}
@@ -573,7 +579,7 @@
         <span class="sent">SENTIMENT · NEUTRAL ▾</span>
       </div>
       <div class="ov-nav">
-        <span class="nt on">› NEWS</span><span class="nt">› CALENDAR</span><span class="nt">› FX LIST</span><span class="nt">› INSTITUTION</span><span class="nt">› ANALYST</span><span class="nt">› BIAS</span><span class="nt">› WEEK AHEAD</span><span class="nt">› BANK</span>
+        <span class="nt on">› NEWS</span><span class="nt">› CALENDAR</span><span class="nt">› FX LIST</span><span class="nt">› INSTITUTION</span><span class="nt">› ANALYST</span><span class="nt">› BIAS</span><span class="nt">› WEEK AHEAD</span><span class="nt">› TAUX</span><span class="nt">› BANK</span>
       </div>
       <div class="ov-body">
         <div class="ov-col">
