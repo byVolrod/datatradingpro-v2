@@ -1967,8 +1967,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'taux') loadTauxView();
     if (view === 'symbol' && window.loadSymbolView) window.loadSymbolView();
 
-    // Mémoriser l'onglet actif pour le rouvrir au prochain retour
-    if (persist) { try { localStorage.setItem('dtp_active_view', view); } catch {} }
+    // Mémoriser l'onglet actif pour le rouvrir au prochain retour.
+    // 'symbol' = vue paire TRANSITOIRE (la paire est volatile) → jamais persistée, sinon au reload on
+    // restaure une vue symbole sans paire = 4 panneaux vides. On garde donc la dernière vraie vue.
+    if (persist && view !== 'symbol') { try { localStorage.setItem('dtp_active_view', view); } catch {} }
   }
   // Exposé globalement au cas où d'autres modules veulent changer de vue
   window.activateView = activateView;
@@ -2043,6 +2045,7 @@ document.addEventListener('DOMContentLoaded', () => {
   try { _savedView = localStorage.getItem('dtp_active_view') || 'news'; } catch {}
   // 'markets' n'a de sens que sur mobile (sinon retour au flux)
   if (_savedView === 'markets' && window.innerWidth > 768) _savedView = 'news';
+  if (_savedView === 'symbol') _savedView = 'news';   // sécurité : ancienne valeur 'symbol' en cache → pas de paire au reload
   if (_savedView !== 'news') {
     activateView(_savedView, { persist: false });   // 'news' est déjà actif par défaut dans le HTML
   }
