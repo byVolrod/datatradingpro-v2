@@ -4592,6 +4592,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wa3-live { margin-left: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: .1em; color: #00e676; display: inline-flex; align-items: center; gap: 5px; }
 .wa3-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #00e676; box-shadow: 0 0 5px rgba(0,230,118,.5); }
 .wa3-pbody { overflow-y: auto; min-height: 0; flex: 1 1 auto; }
+/* Calendrier "doublé" : on garde TOUTES les colonnes lisibles (scroll horizontal si le panneau est étroit) */
+#wa-cal-body { overflow-x: auto; }
+#wa-cal-body .cal-table { min-width: 760px; }
 .wa3-fbar { display: flex; align-items: center; gap: 6px; padding: 7px 14px; border-bottom: 1px solid #1c1c20; flex: 0 0 auto; background: #0c0c0e; }
 .wa3-fbtn { font-size: 11px; font-weight: 600; color: #a6a6ad; background: #121216; border: 1px solid #26262b; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
 .wa3-fbtn.on { color: #1a1206; background: #ff7a00; border-color: #ff7a00; }
