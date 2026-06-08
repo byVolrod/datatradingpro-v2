@@ -1845,7 +1845,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
-  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux'];
+  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux', 'symbol'];
   // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
@@ -1935,7 +1935,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND
     //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
     const _ml = document.getElementById('main-layout');
-    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux');   // Week Ahead en pleine largeur (timeline + chart) → loader centré comme les autres
+    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol');   // Week Ahead / Symbole en pleine largeur
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
@@ -1965,6 +1965,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadWeekAheadView();
     }
     if (view === 'taux') loadTauxView();
+    if (view === 'symbol' && window.loadSymbolView) window.loadSymbolView();
 
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour
     if (persist) { try { localStorage.setItem('dtp_active_view', view); } catch {} }
@@ -2665,3 +2666,124 @@ window._retryCalendar = function() {
   _calEvents = [];
   buildCalendar();
 };
+
+// ═══════════════════════════════════════════════════════════════════════════════
+//  Recherche symbole → onglet pair (chart TradingView + force devises + calendrier + news)
+//  Taper une paire dans « Search Symbols » ouvre/maj un onglet dynamique (croix pour fermer),
+//  vue 4 panneaux 100 % axée sur la paire. Volatil (recents non persistés).
+// ═══════════════════════════════════════════════════════════════════════════════
+(function initSymbolSearch() {
+  const input = document.getElementById('topbar-symbol-input');
+  const dd = document.getElementById('sym-dd');
+  if (!input || !dd) return;
+  const PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','USDCAD','AUDUSD','NZDUSD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPCAD','GBPAUD','GBPNZD','AUDJPY','AUDCHF','AUDCAD','AUDNZD','NZDJPY','NZDCHF','NZDCAD','CADJPY','CADCHF','CHFJPY','XAUUSD','XAGUSD'];
+  const MAJORS = ['USD','EUR','JPY','GBP','AUD','CHF','CAD','NZD'];
+  const FLAG = { USD:'us', EUR:'eu', JPY:'jp', GBP:'gb', AUD:'au', CHF:'ch', CAD:'ca', NZD:'nz' };
+  const NEWS_KW = { USD:'dollar|fed\\b|fomc|powell', EUR:'euro|ecb\\b|lagarde', JPY:'yen|boj\\b|ueda', GBP:'pound|sterling|boe\\b|bailey', AUD:'aussie|rba\\b', CHF:'franc|snb\\b', CAD:'loonie|boc\\b|macklem', NZD:'kiwi|rbnz\\b' };
+  let _recent = [], _active = null, _tvPending = false;
+  const pretty = p => p.slice(0,3) + '/' + p.slice(3);
+  const tvSymbol = p => p === 'XAUUSD' ? 'OANDA:XAUUSD' : p === 'XAGUSD' ? 'OANDA:XAGUSD' : 'FX:' + p;
+  const _esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+
+  function renderDd(q) {
+    q = (q || '').toUpperCase().replace(/[^A-Z]/g, '');
+    let list, head;
+    if (!q) { list = _recent.length ? _recent.slice(0,7) : PAIRS.slice(0,7); head = _recent.length ? 'Recent Searches' : 'Paires majeures'; }
+    else { list = PAIRS.filter(p => p.includes(q)).slice(0,8); head = ''; }
+    dd.innerHTML = (head ? '<div class="sym-dd-head">' + head + '</div>' : '')
+      + (list.length ? list.map(p => '<div class="sym-dd-row" data-pair="' + p + '"><span class="sym-dd-sym">' + p + '</span><span class="sym-dd-name">' + pretty(p) + '</span></div>').join('')
+                     : '<div class="sym-dd-empty">Aucune paire</div>');
+    dd.classList.remove('hidden');
+  }
+  const hideDd = () => dd.classList.add('hidden');
+
+  input.addEventListener('focus', () => renderDd(input.value));
+  input.addEventListener('input', () => renderDd(input.value));
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { const q = input.value.toUpperCase().replace(/[^A-Z]/g,''); const m = PAIRS.find(p => p === q) || PAIRS.find(p => p.includes(q)); if (m) openSymbol(m); }
+    else if (e.key === 'Escape') { hideDd(); input.blur(); }
+  });
+  dd.addEventListener('mousedown', e => { const row = e.target.closest('.sym-dd-row'); if (row) { e.preventDefault(); openSymbol(row.dataset.pair); } });
+  document.addEventListener('click', e => { if (!e.target.closest('.topbar-symbol-search')) hideDd(); });
+
+  function openSymbol(pair) {
+    _active = pair;
+    _recent = [pair, ..._recent.filter(p => p !== pair)].slice(0, 8);
+    input.value = ''; hideDd(); try { input.blur(); } catch {}
+    const nav = document.getElementById('topbar-nav');
+    let tab = document.getElementById('nav-symbol');
+    if (!tab && nav) {
+      tab = document.createElement('a'); tab.id = 'nav-symbol'; tab.href = '#';
+      tab.className = 'nav-item nav-item--symbol'; tab.dataset.view = 'symbol';
+      const mob = nav.querySelector('.nav-item--mobile-only');
+      mob ? nav.insertBefore(tab, mob) : nav.appendChild(tab);
+    }
+    if (tab) {
+      const f = FLAG[pair.slice(0,3)];
+      tab.innerHTML = (f ? '<img class="sym-tab-flag" src="https://flagcdn.com/16x12/' + f + '.png" alt="">' : '')
+        + '<span>' + pretty(pair) + '</span><span class="sym-x" title="Fermer">×</span>';
+      const x = tab.querySelector('.sym-x');
+      if (x) x.addEventListener('click', ev => { ev.preventDefault(); ev.stopPropagation(); closeSymbol(); });
+    }
+    if (window.activateView) window.activateView('symbol');
+  }
+  window.openSymbol = openSymbol;
+
+  function closeSymbol() {
+    _active = null; window._symLastTvPair = null;
+    const tab = document.getElementById('nav-symbol'); if (tab) tab.remove();
+    const host = document.getElementById('sym-tv'); if (host) host.innerHTML = '';
+    if (window.activateView) window.activateView('news');
+  }
+  window.closeSymbol = closeSymbol;
+
+  function ensureTv(cb) {
+    if (window.TradingView) { cb(); return; }
+    if (_tvPending) { let n = 0; const t = setInterval(() => { if (window.TradingView || ++n > 60) { clearInterval(t); if (window.TradingView) cb(); } }, 200); return; }
+    _tvPending = true;
+    const s = document.createElement('script'); s.src = 'https://s3.tradingview.com/tv.js'; s.async = true;
+    s.onload = () => { if (window.TradingView) cb(); }; document.head.appendChild(s);
+  }
+
+  function loadSymbolView() {
+    const pair = _active; if (!pair) return;
+    const lbl = document.getElementById('sym-pair-lbl'); if (lbl) lbl.textContent = pretty(pair);
+    const base = MAJORS.includes(pair.slice(0,3)) ? pair.slice(0,3) : (MAJORS.includes(pair.slice(3)) ? pair.slice(3) : 'USD');
+    const ccys = [pair.slice(0,3), pair.slice(3)].filter(c => MAJORS.includes(c));
+    // 1) Chart TradingView (recréé seulement si la paire change)
+    const host = document.getElementById('sym-tv');
+    if (host && (window._symLastTvPair !== pair || !host.firstElementChild)) {
+      host.innerHTML = '<div id="sym-tv-w" style="width:100%;height:100%"></div>';
+      window._symLastTvPair = pair;
+      ensureTv(() => { try { new window.TradingView.widget({ container_id: 'sym-tv-w', symbol: tvSymbol(pair), interval: '60', timezone: 'Europe/Paris', theme: 'dark', style: '1', locale: 'fr', autosize: true, hide_side_toolbar: true, allow_symbol_change: false, save_image: false, withdateranges: true }); } catch (e) {} });
+    }
+    // 2) Force des devises (devise de base surlignée)
+    try { if (window.buildIsolatedStrength) window.buildIsolatedStrength('sym-strength', base, 'week'); } catch {}
+    // 3) Calendrier filtré sur la paire
+    fetch('/api/calendar-events').then(r => r.json()).then(d => {
+      const cal = document.getElementById('sym-cal'); if (!cal) return;
+      const now = Date.now();
+      const evs = ((d && d.items) || []).filter(e => e && ccys.includes(e.currency) && (e.timestamp || 0) > now - 36 * 3600000)
+        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).slice(0, 24);
+      cal.innerHTML = evs.length ? evs.map(e => {
+        const t = e.timestamp ? new Date(e.timestamp).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }) : '';
+        const imp = e.impact === 'High' ? 'h' : e.impact === 'Medium' ? 'm' : 'l';
+        return '<div class="sym-cal-row"><span class="sym-cal-t">' + t + '</span><span class="sym-cal-c">' + (e.currency || '') + '</span><span class="sym-cal-ev">' + _esc((e.title || '').slice(0, 70)) + '</span><span class="sym-imp sym-imp--' + imp + '"></span></div>';
+      }).join('') : '<div class="sym-empty">Aucun événement à venir pour ' + pretty(pair) + '.</div>';
+    }).catch(() => {});
+    // 4) News filtrées sur la paire
+    const parts = ccys.map(c => '\\b' + c.toLowerCase() + '\\b' + (NEWS_KW[c] ? '|' + NEWS_KW[c] : '')).join('|');
+    const re = parts ? new RegExp('(' + parts + ')', 'i') : null;
+    fetch('/api/week-ahead-news').then(r => r.json()).then(d => {
+      const nl = document.getElementById('sym-news'); if (!nl) return;
+      const items = ((d && d.items) || []).filter(n => n && (
+        (re && re.test(n.headline || '')) || (Array.isArray(n.tags) && n.tags.some(t => ccys.includes((t || '').toUpperCase())))
+      )).slice(0, 30);
+      nl.innerHTML = items.length ? items.map(n => {
+        const t = n.timestamp ? new Date(n.timestamp).toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit' }) : '';
+        return '<div class="sym-news-row"><span class="sym-news-t">' + t + '</span><span class="sym-news-h">' + _esc((n.headline || '').slice(0, 150)) + '</span></div>';
+      }).join('') : '<div class="sym-empty">Pas de news récente pour ' + pretty(pair) + '.</div>';
+    }).catch(() => {});
+  }
+  window.loadSymbolView = loadSymbolView;
+})();
