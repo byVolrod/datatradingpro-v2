@@ -610,21 +610,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
       renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 60 }),
     })
   );
-  // Badge temporel dynamique sur l'axe X (fond noir opaque, bordure grise, mono blanc)
-  const xTip = am5.Tooltip.new(root, {
-    getFillFromSprite: false,
-    labelText: '{valueX.formatDate("dd/MM/yyyy HH:mm")}',
-  });
-  xTip.get('background').setAll({
-    fill: am5.color(0x0b0b0c), fillOpacity: 1,
-    stroke: am5.color(0x3a3a42), strokeWidth: 1,
-  });
-  xTip.label.setAll({
-    fill: am5.color(0xffffff), fontSize: 10,
-    fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', fontWeight: '400',
-  });
-  xAxis.set('tooltip', xTip);
-  xAxis.set('tooltipDateFormat', 'dd/MM/yyyy HH:mm');
+  // Axe X : AUCUN tooltip de date — curseur « sans information » demandé
+  // (uniquement le croisillon + le point d'ancrage coloré sur la courbe survolée).
   xAxis.get('renderer').labels.template.setAll({
     fill: am5.color(0x6b7280), fontSize: 10,            // gris discret (façon DTP)
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
@@ -756,11 +743,19 @@ function buildStrengthChart(containerId, data, opts = {}) {
     behavior: 'none', snapToSeries: seriesArr, snapToSeriesBy: 'y!',
   }));
   cursor.lineX.setAll({ stroke: am5.color(0x475569), strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.9 });
-  cursor.lineY.set('visible', false);
-  // Point d'ancrage coloré sur chaque courbe au croisement du croisillon
+  // Croisillon complet (vertical + horizontal), pointillés gris — comme l'image demandée.
+  cursor.lineY.setAll({ visible: true, stroke: am5.color(0x475569), strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.9 });
+  // Point d'ancrage coloré sur la courbe survolée, MAIS bulle d'info masquée (« sans information ») :
+  // on garde le tooltip ACTIF (c'est lui qui dessine le point) en rendant son fond transparent + son texte invisible.
   seriesArr.forEach(s => {
     s.bullets.clear();
     s.set('snapTooltip', true);
+    const tt = s.get('tooltip');
+    if (tt) {
+      tt.label.set('forceHidden', true);
+      const bg = tt.get('background'); if (bg) bg.setAll({ fillOpacity: 0, strokeOpacity: 0 });
+      tt.setAll({ paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 });
+    }
   });
 
   chart.series.values.forEach((s, i) => s.appear(500, i * 20));
@@ -1892,7 +1887,7 @@ document.addEventListener('DOMContentLoaded', () => {
             + '<td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>';
         }).join('');
         return '<div class="rtc">'
-          + '<div class="rtc-head"><span class="rtc-dot ' + mv.cls + '"></span><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
+          + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
           + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
           + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
           + '<div class="rtc-metrics">'
