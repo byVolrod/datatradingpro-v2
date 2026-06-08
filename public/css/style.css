@@ -8286,7 +8286,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ── Onglets : réorganisation par glisser (appui maintenu) ── */
 .nav-reordering { cursor: grabbing !important; user-select: none; }
 .nav-reordering .nav-item { transition: transform .12s ease; }
-.nav-item--dragging { opacity: .55; background: rgba(247,148,29,.14); border-radius: 5px; cursor: grabbing; }
+.nav-item--dragging { background: rgba(247,148,29,.2); outline: 1px solid #ff7a00; border-radius: 5px; cursor: grabbing; transform: translateY(-2px); box-shadow: 0 6px 16px -6px rgba(0,0,0,.6); position: relative; z-index: 5; }
 
 .ai-panel.open { transform: translateX(0); }
 /* En-tête */
