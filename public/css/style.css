@@ -352,6 +352,10 @@ html, body {
 .sym-load { padding: 26px; color: #7a7a83; font-size: 12px; text-align: center; }
 .sym-src { padding: 9px 13px 16px; color: #5b5b64; font-size: 10px; line-height: 1.4; }
 
+/* Vue symbole — sélecteur de période du Currency Strength (TD/TW/8H/1D/7D/1M) compact dans l'en-tête */
+#sym-strength-tf { display: inline-flex; gap: 1px; align-items: center; flex: 0 0 auto; }
+#sym-strength-tf .stf-btn { height: 22px; padding: 0 6px; font-size: 10px; }
+
 /* Vue symbole — Calendar & News au look Week Ahead (.cal-table / .news-item) adaptés aux panneaux étroits */
 #sym-cal { overflow: auto; padding: 0; }
 #sym-cal .cal-table { min-width: 560px; }

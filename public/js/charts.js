@@ -2716,6 +2716,7 @@ window._retryCalendar = function() {
   }).catch(() => {});
   // Caches volatils (réinitialisés au reload) → évitent de refetch à chaque changement de sous-onglet.
   let _cBias = null, _cCot = null, _cRates = null, _cFx = null, _cRetail = null;
+  let _symStrPeriod = 'today';   // période active du Currency Strength de la vue symbole (TD par défaut, comme l'accueil)
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);
   const tvSymbol = p => p === 'XAUUSD' ? 'OANDA:XAUUSD' : p === 'XAGUSD' ? 'OANDA:XAGUSD' : 'FX:' + p;
   const _esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -2859,6 +2860,45 @@ window._retryCalendar = function() {
   }
   window.loadSymbolView = loadSymbolView;
 
+  // ── Currency Strength de la vue symbole : widget complet (sélecteur de période TD/TW/8H/1D/7D/1M)
+  //    focalisé sur la paire (les 2 devises de la paire colorées, les autres masquées/re-cliquables) ──
+  function _pairCcys() {
+    const p = _active; if (!p) return [];
+    return [p.slice(0, 3), p.slice(3)].filter(c => MAJORS.includes(c));
+  }
+  function buildSymStrengthBar() {
+    const bar = document.getElementById('sym-strength-tf');
+    if (!bar || bar.dataset.built) return;
+    bar.dataset.built = '1';
+    const ORDER = (typeof STF_ORDER !== 'undefined' && STF_ORDER.length) ? STF_ORDER : ['today', 'week', '8h', '1d', '7d', '1m'];
+    const LBL   = (typeof STF_LABELS !== 'undefined') ? STF_LABELS : { today: 'TD', week: 'TW', '8h': '8H', '1d': '1D', '7d': '7D', '1m': '1M' };
+    bar.innerHTML = ORDER.map(p => '<button class="stf-btn sym-stf-btn' + (p === _symStrPeriod ? ' stf-btn--active' : '') + '" data-period="' + p + '">' + (LBL[p] || p) + '</button>').join('');
+    bar.addEventListener('click', e => {
+      const b = e.target.closest('.sym-stf-btn'); if (!b) return;
+      bar.querySelectorAll('.sym-stf-btn').forEach(x => x.classList.remove('stf-btn--active'));
+      b.classList.add('stf-btn--active');
+      _symStrPeriod = b.dataset.period;
+      loadSymStrength();
+    });
+  }
+  function loadSymStrength() {
+    const sEl = document.getElementById('sym-strength'); if (!sEl) return;
+    const ccys = _pairCcys();
+    fetch('/api/currency-strength?period=' + _symStrPeriod).then(r => r.json()).then(data => {
+      if (!data || !data.currencies) { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; return; }
+      try { if (typeof disposeRoot === 'function') disposeRoot('sym-strength'); } catch {}   // anti-fuite amCharts (Render 512Mo)
+      sEl.innerHTML = '';
+      try {
+        const sc = (typeof buildStrengthChart === 'function') ? buildStrengthChart('sym-strength', data, {}) : null;
+        if (sc && sc.seriesMap && ccys.length) {
+          Object.keys(sc.seriesMap).forEach(c => { if (!ccys.includes(c)) { try { sc.seriesMap[c].hide(0); } catch {} } });
+        } else if (!sc && window.buildIsolatedStrength) {
+          window.buildIsolatedStrength('sym-strength', ccys[0] || 'USD', _symStrPeriod);
+        }
+      } catch { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; }
+    }).catch(() => { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; });
+  }
+
   // ── Overview : chart TradingView + Currency Strength (doublon du compteur par défaut) + calendrier + news filtrés ──
   function renderOverview(pair, base, ccys) {
     // Chart TradingView (recréé seulement si la paire change)
@@ -2871,27 +2911,10 @@ window._retryCalendar = function() {
     // Les panneaux data ne se re-rendent que si la paire a changé (évite de refetch en revenant sur Overview).
     if (window._symOvPair === pair) return;
     window._symOvPair = pair;
-    // Currency Strength = doublon du compteur par défaut (toutes les devises colorées, comme le dashboard).
-    const sEl = document.getElementById('sym-strength');
-    if (sEl) {
-      fetch('/api/currency-strength?period=week').then(r => r.json()).then(data => {
-        if (!data || !data.currencies) { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; return; }
-        try { if (typeof disposeRoot === 'function') disposeRoot('sym-strength'); } catch {}   // anti-fuite amCharts (Render 512Mo)
-        sEl.innerHTML = '';
-        try {
-          if (typeof buildStrengthChart === 'function') {
-            const sc = buildStrengthChart('sym-strength', data, {});
-            // « Smart » : ne garder en couleur que les 2 devises de la paire ; les 6 autres sont masquées
-            // → grisées dans la légende + sans badge de valeur, mais re-cliquables (comme le tab principal).
-            if (sc && sc.seriesMap && ccys.length) {
-              Object.keys(sc.seriesMap).forEach(c => { if (!ccys.includes(c)) { try { sc.seriesMap[c].hide(0); } catch {} } });
-            }
-          } else if (window.buildIsolatedStrength) {
-            window.buildIsolatedStrength('sym-strength', base, 'week');
-          }
-        } catch { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; }
-      }).catch(() => { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; });
-    }
+    // Currency Strength = doublon du widget de l'accueil (sélecteur de période TD/TW/8H/1D/7D/1M),
+    // mais focalisé sur la paire : seules les 2 devises de la paire restent colorées (les autres masquées).
+    buildSymStrengthBar();
+    loadSymStrength();
     // Calendrier filtré sur la paire — MÊME rendu que Week Ahead (.cal-table : drapeaux ronds, points d'impact,
     // ACTUAL/FORECAST/PREVIOUS, séparateurs de jour) via les helpers globaux du calendrier.
     fetch('/api/calendar-events').then(r => r.json()).then(d => {
