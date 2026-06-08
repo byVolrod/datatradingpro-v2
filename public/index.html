@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260610A" />
+  <link rel="stylesheet" href="/css/style.css?v=20260610D" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -39,7 +39,8 @@
   <div class="topbar-center">
     <div class="topbar-symbol-search">
       <span class="search-icon">⌕</span>
-      <input type="text" placeholder="Search Symbols…" id="topbar-symbol-input" />
+      <input type="text" placeholder="Search Symbols…" id="topbar-symbol-input" autocomplete="off" />
+      <div class="sym-dd hidden" id="sym-dd"></div>
       <!-- Bandeau LIVE : superposé en overlay pour COUVRIR toute la case de recherche -->
       <div class="breaking-news-flash" id="breaking-news-flash">
         <span class="bnf-icon">
@@ -105,6 +106,28 @@
 
   <!-- ══ VIEWS COLUMN — left, fills remaining space ══ -->
   <div class="views-col" id="views-col">
+
+    <!-- VIEW: SYMBOL (recherche → onglet pair : chart TradingView + force devises + calendrier + news) -->
+    <div class="view-panel hidden" id="view-symbol">
+      <div class="sym-grid">
+        <div class="sym-panel sym-panel--chart">
+          <div class="sym-phead"><span class="sym-ptitle">Technical Chart · <span id="sym-pair-lbl">—</span></span></div>
+          <div class="sym-body" id="sym-tv"></div>
+        </div>
+        <div class="sym-panel">
+          <div class="sym-phead"><span class="sym-ptitle">Currency Strength</span></div>
+          <div class="sym-body" id="sym-strength"></div>
+        </div>
+        <div class="sym-panel">
+          <div class="sym-phead"><span class="sym-ptitle">Economic Calendar</span></div>
+          <div class="sym-body sym-scroll" id="sym-cal"></div>
+        </div>
+        <div class="sym-panel">
+          <div class="sym-phead"><span class="sym-ptitle">Realtime News</span></div>
+          <div class="sym-body sym-scroll" id="sym-news"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- VIEW: NEWS -->
     <div class="view-panel" id="view-news">
@@ -603,7 +626,7 @@
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script src="/js/app.js?v=20260610C"></script>
-<script src="/js/charts.js?v=20260609P"></script>
+<script src="/js/charts.js?v=20260610D"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
