@@ -2159,7 +2159,7 @@ function _brLoadFile() {
 // Sources de recherche institutionnelle / analystes (flux RSS publics, sans navigateur)
 const BR_FEEDS = [
   { url: 'https://think.ing.com/rss/',          institution: 'ING',        source: 'ing-think',   paged: true  },
-  { url: 'https://blog.syzgroup.com/fast-food-for-thought/rss.xml', institution: 'Syz', source: 'syz', paged: false },   // Syz « Fast Food for Thought » (HubSpot RSS)
+  { url: 'https://blog.syzgroup.com/fast-food-for-thought/rss.xml', institution: 'Syz Group', source: 'syz', paged: false },   // Syz Group « Fast Food for Thought » (HubSpot RSS)
   // FXStreet et ActionForex retirés sur demande.
 ];
 
@@ -2413,6 +2413,14 @@ const RESEARCH_SPA_SITES = [
       { title: 'Macro & Markets Forecast Edition: from cuts to hikes', url: 'https://corporate.nordea.com/article/103467/macro-markets-forecast-edition-from-cuts-to-hikes', date: '2026-04-17' },
       { title: 'Macro & Markets: Warsh\'s way or the highway', url: 'https://corporate.nordea.com/article/102685/macro-markets-warshs-way-or-the-highway', date: '2026-02-05' },
     ] },
+  { name: 'Lloyds Bank', institution: 'Lloyds Bank', source: 'lloyds', host: 'lloydsbank.com',
+    url: 'https://www.lloydsbank.com/business/resource-centre/insight.html',
+    hrefRe: /lloydsbank\.com\/business\/(?:resource-centre\/insight|corporate-banking)\/.+\.html/i,
+    seed: [
+      { title: 'Market Insights Weekly', url: 'https://www.lloydsbank.com/business/resource-centre/insight/market-insights-weekly.html', date: '2026-06-08' },
+      { title: 'Business Barometer', url: 'https://www.lloydsbank.com/business/resource-centre/insight/business-barometer.html', date: '2026-06-01' },
+      { title: 'UK Sector Tracker', url: 'https://www.lloydsbank.com/business/resource-centre/insight/uk-sector-tracker.html', date: '2026-05-28' },
+    ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
@@ -2552,7 +2560,7 @@ async function _fetchBankResearch(full = false) {
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
