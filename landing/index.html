@@ -57,6 +57,12 @@
   .btn-ghost:hover{border-color:var(--orange);color:var(--orange)}
   .ico{width:18px;height:18px;flex-shrink:0}
   .up{color:var(--green)}.down{color:var(--red)}.amb{color:var(--amber)}
+  .price-toggle{display:flex;gap:4px;width:max-content;max-width:100%;margin:0 auto 22px;background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:4px}
+  .pt-opt{background:none;border:0;color:var(--text2);font:inherit;font-size:14px;font-weight:600;padding:9px 18px;border-radius:8px;cursor:pointer;transition:.15s;display:inline-flex;align-items:center;gap:7px;white-space:nowrap}
+  .pt-opt:hover{color:var(--text)}
+  .pt-opt.pt-on{background:var(--orange);color:#0a0a0a}
+  .pt-save{font-size:11px;font-weight:700;background:rgba(34,197,94,.16);color:var(--green);padding:2px 6px;border-radius:5px}
+  .pt-opt.pt-on .pt-save{background:rgba(10,10,10,.16);color:#0a0a0a}
 
   /* ── NAV ── */
   header{position:sticky;top:0;z-index:60;background:rgba(8,8,10,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
@@ -834,12 +840,16 @@
       <h2>Un accès, tout le terminal</h2>
       <p>Un seul abonnement, sans palier confus ni option cachée. La clarté du produit jusque dans le prix.</p>
     </div>
+    <div class="price-toggle" role="tablist" aria-label="Période de facturation">
+      <button class="pt-opt pt-on" id="pt-month" type="button" role="tab" aria-selected="true" onclick="setBilling('month')">Mensuel</button>
+      <button class="pt-opt" id="pt-year" type="button" role="tab" aria-selected="false" onclick="setBilling('year')">Annuel <span class="pt-save">−20%</span></button>
+    </div>
     <div class="price-card">
       <div class="badge">Accès Pro</div>
       <h3>Accès Terminal Pro</h3>
       <div class="sub">Tout DataTradingPro, en continu</div>
-      <div class="amt">24,99 € <small>/ mois</small></div>
-      <div class="sub" style="margin-top:8px">Soit moins de 0,83 € par jour — tout votre contexte macro réuni.</div>
+      <div class="amt"><span id="price-main">24,99 €</span> <small id="price-per">/ mois</small></div>
+      <div class="sub" id="price-note" style="margin-top:8px">Soit moins de 0,83 € par jour — sans engagement.</div>
       <ul>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> News &amp; Calendar priorisés en temps réel</li>
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Smart Bias &amp; force des devises</li>
@@ -848,7 +858,7 @@
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg> Accès navigateur, mises à jour en continu</li>
       </ul>
       <div style="color:var(--green);font-size:13px;font-weight:600;margin-bottom:12px">✓ Sans engagement · Résiliable à tout moment</div>
-      <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner — 24,99 €/mois →</a>
+      <a class="btn btn-primary" id="price-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner — 24,99 €/mois →</a>
       <div class="reassure">Paiement sécurisé · Résiliable à tout moment · Aucun frais caché</div>
     </div>
   </div>
@@ -907,6 +917,35 @@
   </div>
 </footer>
 
+<script>
+(function(){
+  var P = window.__pricing = { currency:'€', monthly:24.99, annual:239.99, annualPerMonth:20.00, monthlyPerYear:299.88, savePct:20, url:'https://whop.com/joined/justonetrader/products/jot-dtp/' };
+  function eur(n){ try{ return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }catch(e){ return n+' €'; } }
+  function setBilling(p){
+    var on = p==='year';
+    var m=document.getElementById('pt-month'), y=document.getElementById('pt-year');
+    var main=document.getElementById('price-main'), per=document.getElementById('price-per'), note=document.getElementById('price-note'), cta=document.getElementById('price-cta');
+    if(!m||!main) return;
+    m.classList.toggle('pt-on',!on); y.classList.toggle('pt-on',on);
+    m.setAttribute('aria-selected',!on); y.setAttribute('aria-selected',on);
+    if(on){
+      main.textContent=eur(P.annualPerMonth); per.textContent='/ mois';
+      note.innerHTML='Facturé <strong>'+eur(P.annual)+'/an</strong> — <span class="up">économisez '+P.savePct+'%</span> (au lieu de '+eur(P.monthlyPerYear)+').';
+      cta.textContent="S'abonner — "+eur(P.annual)+'/an →';
+    } else {
+      main.textContent=eur(P.monthly); per.textContent='/ mois';
+      note.innerHTML='Soit ~'+eur(P.monthly/30.44)+' par jour — sans engagement.';
+      cta.textContent="S'abonner — "+eur(P.monthly)+'/mois →';
+    }
+    if(cta && P.url) cta.href=P.url;
+  }
+  window.setBilling=setBilling;
+  fetch('https://desk.datatradingpro.com/api/pricing').then(function(r){return r.json();}).then(function(d){
+    if(d&&d.monthly){ window.__pricing=P=Object.assign(P,d); var y=document.getElementById('pt-year'); setBilling(y&&y.classList.contains('pt-on')?'year':'month'); }
+  }).catch(function(){});
+  setBilling('month');
+})();
+</script>
 <script src="/demo.js?v=2" defer></script>
 <script>
 function closeMenu(){var o=document.getElementById('mobileMenu');if(o)o.classList.remove('open');var b=document.querySelector('.nav-burger');if(b)b.setAttribute('aria-expanded','false');}
