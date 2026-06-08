@@ -3263,7 +3263,7 @@ window._waToggle = _waToggle;
 // ── Week Ahead (desk) : panneaux droite = VRAIS DOUBLONS (miroir live) des onglets News (#news-list) et Calendar (#cal-table-wrap) ──
 // On clone le HTML rendu des onglets réels → look + contenu STRICTEMENT identiques (classes CSS globales).
 function _waSyncNews(){ const src=document.getElementById('news-list'), dst=document.getElementById('wa-news-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.indexOf('empty-state')<0) dst.innerHTML=h; }
-function _waSyncCal(){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.trim()) dst.innerHTML=h; }
+function _waSyncCal(){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.trim()) dst.innerHTML=h; const dr=document.getElementById('cal-daterange'), meta=document.getElementById('wa-cal-range'); if(dr&&meta) meta.textContent=(dr.textContent||'').trim(); }
 window._waSyncNews=_waSyncNews; window._waSyncCal=_waSyncCal;
 function _waLoadPanels(){
   _waSyncNews();   // News : doublon instantané (l'onglet News est déjà tenu à jour en direct par renderNews + WebSocket)
