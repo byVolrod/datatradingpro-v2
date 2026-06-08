@@ -5018,15 +5018,18 @@ const CB_MEETINGS = {
 // cohérentes avec la nature « modèle maison » de l'onglet. À remplacer par les dates officielles dès publication.
 // Config maison par banque : taux actuel + biais directionnel + conviction + pas (bps).
 // rate = taux d'ANCRAGE initial ; bias/conv/lean = lecture maison ; floor/ceil = taux terminal (anti-emballement).
+// Taux directeurs ANCRES sur les vraies décisions (vérifiés juin 2026 : Fed 3.75, BCE 2.00, BoE 3.75,
+// BoJ 0.75, SNB 0.00, BoC 2.25, RBA 4.35, RBNZ 2.25). Biais = direction réelle constatée. Ces ancres
+// sont ensuite re-vérifiées en continu par _aiVerifyRates (calendrier réel + news) → fiabilité durable.
 const CB = [
-  { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',           rate:4.50, bias:'hold', lean:'cut', conv:0.78, step:25, floor:3.00, ceil:5.50 },
-  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:3.15, bias:'cut',              conv:0.58, step:25, floor:1.75, ceil:4.00 },
-  { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:4.75, bias:'cut',              conv:0.52, step:25, floor:3.00, ceil:5.25 },
-  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.50, bias:'hike',             conv:0.55, step:25, floor:0.00, ceil:1.50 },
-  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:1.00, bias:'hold', lean:'cut', conv:0.62, step:25, floor:0.25, ceil:2.00 },
-  { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:3.25, bias:'hold', lean:'cut', conv:0.55, step:25, floor:2.25, ceil:4.00 },
-  { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, bias:'cut',              conv:0.50, step:25, floor:3.10, ceil:4.60 },
-  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:4.25, bias:'cut',              conv:0.55, step:25, floor:2.75, ceil:4.50 },
+  { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',           rate:3.75, bias:'hold', lean:'cut', conv:0.70, step:25, floor:2.50, ceil:4.75 },
+  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:2.00, bias:'hike',             conv:0.55, step:25, floor:1.50, ceil:3.25 },
+  { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:3.75, bias:'hold', lean:'cut', conv:0.55, step:25, floor:2.50, ceil:4.75 },
+  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.75, bias:'hike',             conv:0.60, step:25, floor:0.10, ceil:1.75 },
+  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:0.00, bias:'hold',             conv:0.65, step:25, floor:-0.25, ceil:1.50 },
+  { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:2.25, bias:'hold', lean:'cut', conv:0.60, step:25, floor:1.50, ceil:3.50 },
+  { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, bias:'hike',             conv:0.52, step:25, floor:3.35, ceil:4.85 },
+  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:2.25, bias:'hold', lean:'cut', conv:0.60, step:25, floor:1.75, ceil:3.50 },
 ];
 // Modèle maison : scénario d'une réunion (idx 0 = prochaine ; la conviction du biais croît avec l'horizon).
 function _rateScenario(b, idx) {
@@ -5052,17 +5055,20 @@ function _rateScenario(b, idx) {
 // État persistant : taux courant + dernière réunion traitée, par banque. Le taux ÉVOLUE
 // automatiquement à chaque réunion PASSÉE (selon le base case maison), borné par floor/ceil.
 const RATES_STATE_FILE = path.join(__dirname, 'cache_rates_state.json');
+const RATES_VER = 'v2-2026-06-verified';   // bump → RÉ-ANCRE tous les taux sur la config vérifiée (efface toute dérive persistée Supabase/disque)
 let _ratesState = null;
 function _initRatesState() {
   if (!_ratesState || !_ratesState.banks) _ratesState = { banks: {}, updatedAt: Date.now() };
   const now = Date.now();
+  const reanchor = _ratesState.ver !== RATES_VER;   // nouvelle version → réinitialisation sur les VRAIS taux vérifiés
   CB.forEach(b => {
-    if (!_ratesState.banks[b.code]) {
+    if (reanchor || !_ratesState.banks[b.code]) {
       // Ancre : `rate` reflète déjà les réunions passées → on ne traitera QUE les réunions futures (pas de double comptage).
       const past = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') < now).sort();
       _ratesState.banks[b.code] = { rate: b.rate, lastMeeting: past.length ? past[past.length - 1] : null };
     }
   });
+  if (reanchor) { _ratesState.ver = RATES_VER; _ratesState.updatedAt = now; try { _saveRatesState(); } catch {} }
 }
 try { _ratesState = JSON.parse(fs.readFileSync(RATES_STATE_FILE, 'utf8')); } catch {}
 _initRatesState();
@@ -5104,6 +5110,7 @@ function _refreshRates() {
     _ratesState.updatedAt = now; _saveRatesState();
     // Un taux a RÉELLEMENT bougé (décision tombée) → ré-estimation IA des biais/probabilités immédiate (pas d'attente de l'hebdo).
     try { _aiRefreshRatesBias(true).catch(() => {}); } catch {}
+    try { _aiVerifyRates(true).catch(() => {}); } catch {}   // + re-vérifie le taux sur les données réelles (corrige une projection maison erronée)
   }
   return changed;
 }
@@ -5166,6 +5173,72 @@ async function _aiRefreshRatesBias(force = false) {
   } catch (e) { console.log('[RatesBias IA] parse échec → on garde la config maison'); }
 }
 setTimeout(() => { _aiRefreshRatesBias().catch(() => {}); }, 20000);   // démarrage : charge le cache (appel IA seulement si périmé)
+
+// ── Vérification IA des TAUX (fiabilité DURABLE) : on ré-ancre les taux courants sur les VRAIES
+//    décisions — actuals des décisions de taux du CALENDRIER + news — au lieu de la seule projection
+//    maison. Cache 3 j, planifié (jamais à l'ouverture utilisateur). Garde-fou : taux plausible (±3 pts
+//    de l'ancre vérifiée) → aucune hallucination ne peut casser l'affichage.
+let _aiVerifiedRates = {};
+function _applyVerifiedRates() {
+  let changed = false;
+  CB.forEach(b => {
+    const v = _aiVerifiedRates[b.code], st = _ratesState.banks[b.code];
+    if (v && st && typeof v.rate === 'number' && Math.abs(st.rate - v.rate) > 1e-9) {
+      st.rate = v.rate;   // taux RÉEL (ancré sur le calendrier) → écrase la dérive du modèle maison
+      const past = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') < Date.now()).sort();
+      if (past.length) st.lastMeeting = past[past.length - 1];   // la dernière réunion est déjà intégrée → pas de re-projection
+      changed = true;
+    }
+  });
+  if (changed) { _ratesState.updatedAt = Date.now(); _saveRatesState(); }
+}
+async function _aiVerifyRates(force = false) {
+  try {
+    const cached = await auth.aiCacheGet('rates:aiverified').catch(() => null);
+    if (cached && cached.banks) { _aiVerifiedRates = cached.banks; _applyVerifiedRates(); }
+    if (!force && cached && cached.at && Date.now() - cached.at < 3 * 86400000) return;   // frais → pas d'appel IA
+  } catch {}
+  const cutoff = Date.now() - 160 * 86400000;
+  const calLines = (Array.isArray(allCalendar) ? allCalendar : [])
+    .filter(e => e && e.actual && SB_CURRENCIES.includes(e.currency) && e.timestamp > cutoff
+      && /interest rate|rate decision|rate statement|monetary policy|deposit facility|refinanc|cash rate|official cash|bank rate|policy rate|funds rate/i.test(e.title || ''))
+    .sort((a, b) => b.timestamp - a.timestamp).slice(0, 45)
+    .map(e => `${e.currency} | ${e.title} | actual ${e.actual} | ${new Date(e.timestamp).toISOString().slice(0, 10)}`);
+  const newsLines = (Array.isArray(allNews) ? allNews : [])
+    .filter(n => n && n.timestamp > cutoff && /\b(fed|fomc|ecb|boe|boj|snb|boc|rba|rbnz)\b/i.test(n.headline || '') && /\b(rate|bps|basis point|hold|hike|cut|raise|lower|unchanged)\b/i.test(n.headline || ''))
+    .slice(0, 25).map(n => '- ' + (n.headline || '').slice(0, 140));
+  if (calLines.length + newsLines.length < 3) return;   // pas assez de données réelles → on garde l'ancrage config vérifié
+  const prompt = `From the REAL data below (economic-calendar central-bank rate decisions WITH actual values, plus news), determine the CURRENT policy interest rate (a number, in %) for each of the 8 central banks. Use ONLY the data provided; if a bank's current rate cannot be determined, return null for it — do NOT guess.
+Banks: USD=Federal Reserve (target range upper bound), EUR=ECB deposit facility rate, GBP=Bank of England Bank Rate, JPY=Bank of Japan policy rate, CHF=SNB policy rate, CAD=Bank of Canada overnight rate, AUD=RBA cash rate, NZD=RBNZ OCR.
+
+CALENDAR RATE DECISIONS (currency | title | actual | date), most recent first:
+${calLines.join('\n') || '(none)'}
+
+NEWS:
+${newsLines.join('\n') || '(none)'}
+
+Return ONLY strict JSON, a number or null per bank: {"USD":3.75,"EUR":2.0,"GBP":3.75,"JPY":0.75,"CHF":0.0,"CAD":2.25,"AUD":4.35,"NZD":2.25}. No text.`;
+  let txt;
+  try { txt = await aiSmart('ratesbias', prompt, 400, { scheduled: true }); }
+  catch (e) { console.log('[RatesVerify IA] indispo:', e.message); return; }
+  try {
+    const m = String(txt).match(/\{[\s\S]*\}/);
+    const obj = JSON.parse(m ? m[0] : String(txt));
+    const next = {};
+    CB.forEach(b => {
+      const v = obj[b.code];
+      if (typeof v === 'number' && isFinite(v) && v >= -1.5 && v <= 25 && Math.abs(v - b.rate) <= 3) next[b.code] = { rate: +(+v).toFixed(2), at: Date.now() };
+    });
+    if (Object.keys(next).length >= 3) {
+      _aiVerifiedRates = next;
+      await auth.aiCacheSet('rates:aiverified', { at: Date.now(), banks: next }).catch(() => {});
+      _applyVerifiedRates();
+      console.log('[RatesVerify IA] taux ancrés sur données réelles → ' + Object.keys(next).map(c => c + '=' + next[c].rate).join(' '));
+    }
+  } catch (e) { console.log('[RatesVerify IA] parse échec'); }
+}
+setTimeout(() => { _aiVerifyRates().catch(() => {}); }, 60000);                 // démarrage (après chargement calendrier/news)
+setInterval(() => { _aiVerifyRates().catch(() => {}); }, 24 * 3600 * 1000);     // quotidien
 
 // CRUD admin (ajout / édition / suppression de positions)
 app.post('/api/bank-positions', requireAdmin, (req, res) => {
