@@ -4789,7 +4789,11 @@ function _refreshRates() {
       changed = true;
     });
   });
-  if (changed) { _ratesState.updatedAt = now; _saveRatesState(); }
+  if (changed) {
+    _ratesState.updatedAt = now; _saveRatesState();
+    // Un taux a RÉELLEMENT bougé (décision tombée) → ré-estimation IA des biais/probabilités immédiate (pas d'attente de l'hebdo).
+    try { _aiRefreshRatesBias(true).catch(() => {}); } catch {}
+  }
   return changed;
 }
 setInterval(() => { try { _refreshRates(); } catch {} }, 6 * 3600 * 1000);   // quotidien (4×/jour)
@@ -4821,11 +4825,12 @@ app.get('/api/rates', (_req, res) => {
   res.json({ asOf: now, model: 'maison', updatedAt: _ratesState.updatedAt, banks });
 });
 
-// ── Actualisation IA (optionnelle, "uniquement si besoin") des biais TAUX : hebdo, EN CACHE, jamais à l'ouverture. ──
-async function _aiRefreshRatesBias() {
+// ── Actualisation IA (optionnelle) des biais TAUX : déclenchée AU CHANGEMENT RÉEL d'un taux (force=true) ou en filet hebdo. EN CACHE, jamais à l'ouverture. ──
+async function _aiRefreshRatesBias(force = false) {
   try {
     const cached = await auth.aiCacheGet('rates:aibias').catch(() => null);
-    if (cached && cached.banks && cached.at && Date.now() - cached.at < 6 * 86400000) { _aiRatesBias = cached.banks; return; }
+    // force=true (un taux vient de bouger) → on ré-estime sans attendre l'expiration du cache.
+    if (!force && cached && cached.banks && cached.at && Date.now() - cached.at < 6 * 86400000) { _aiRatesBias = cached.banks; return; }
   } catch {}
   const cbNews = (Array.isArray(allNews) ? allNews : [])
     .filter(n => n && /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|boc|macklem|rba|snb|rbnz)\b|rate decision|interest rate|inflation|\bcpi\b/i.test((n.headline || '') + ' ' + (n.category || '')))
