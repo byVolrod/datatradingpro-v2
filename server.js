@@ -2381,6 +2381,13 @@ const RESEARCH_SPA_SITES = [
       { title: 'Weekly Focus — Danske Bank Research', url: 'https://research.danskebank.com/link/WeeklyFocus211125/$file/WeeklyFocus_211125.pdf', date: '2025-11-21', pdf: true },
       { title: 'Nordic Outlook: Nordic economies stand to improve', url: 'https://danskebank.com/news-and-insights/news-archive/insights/2026/04032026', date: '2026-03-04' },
     ] },
+  { name: 'UniCredit', institution: 'UniCredit', source: 'unicredit', host: 'unicredit.eu',
+    url: 'https://www.the-investment-institute.unicredit.eu/en/',
+    hrefRe: /unicredit\.eu\/.*(?:coffee-break|the-compass|the-checkpoint|\/publication|\/insight|\/article|\.pdf|\/[0-9a-f]{8,})/i,
+    seed: [
+      { title: 'The Investment Institute — Monthly Outlook', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO.pdf', date: '2026-05-04', pdf: true },
+      { title: 'The Compass 2026: A Strategic Guide for Investors', url: 'https://www.unicreditgroup.eu/en/press-media/press-releases/2025/december/unicredit-investment-institute-presents--the-compass-2026---a-st.html', date: '2025-12-15' },
+    ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
@@ -2404,6 +2411,40 @@ async function _fetchResearchSpaInto(merged, cutoff) {
       }
     } catch (e) { console.warn(`[ResearchSPA ${cfg.source}] échec:`, e.message); }
   }
+}
+
+// Wells Fargo — CIB Economics. Page en HTML SERVEUR (pas de SPA/anti-bot) → scrape direct axios+cheerio
+// des liens "bluematrix.com/docs/html/<uuid>.html". Les UUID sont des pointeurs STABLES vers la DERNIÈRE
+// version de chaque rapport → on les seed (toujours à jour, timestamp=now) + on scrape pour en découvrir d'autres.
+const WELLS_REPORTS = [
+  { t: 'Weekly Economic & Financial Commentary', u: 'https://wellsfargo.bluematrix.com/docs/html/a5739dfc-1156-4c35-90f9-d20a060ff19a.html' },
+  { t: 'U.S. Economic Outlook',                  u: 'https://wellsfargo.bluematrix.com/docs/html/821dcc50-5a10-4396-b646-5fe7118b76e5.html' },
+  { t: 'International Economic Outlook',          u: 'https://wellsfargo.bluematrix.com/docs/html/b5b3c955-d0d5-4790-87fd-3aa28403ad96.html' },
+  { t: 'U.S. Economic Forecast',                 u: 'https://wellsfargo.bluematrix.com/docs/html/88d2eafa-3a64-4cca-b013-4093132d9c99.html' },
+  { t: 'International Economic Forecast',         u: 'https://wellsfargo.bluematrix.com/docs/html/5a40089f-bd2f-46bb-bf5e-afff22061029.html' },
+];
+async function _fetchWellsInto(merged, UA) {
+  const now = Date.now();
+  WELLS_REPORTS.forEach((r, i) => {
+    const id = 'br-' + Buffer.from(r.u).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+    if (!merged.has(id)) merged.set(id, { id, title: r.t, url: r.u, timestamp: now - i * 3600000, categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
+  });
+  try {
+    const res = await axios.get('https://www.wellsfargo.com/cib/insights/economics/', { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+    if (res.status === 200) {
+      const $ = cheerio.load(res.data);
+      $('a[href*="bluematrix.com/docs/html"]').each((_, a) => {
+        let href = ($(a).attr('href') || '').trim();
+        if (href.startsWith('//')) href = 'https:' + href;
+        if (!/^https?:\/\//.test(href)) return;
+        href = href.split('#')[0];
+        const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
+        if (title.length < 6) return;
+        const id = 'br-' + Buffer.from(href).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        if (!merged.has(id)) merged.set(id, { id, title: title.slice(0, 120), url: href, timestamp: Date.now(), categories: ['Macro'], description: '', institution: 'Wells Fargo', _source: 'wells' });
+      });
+    }
+  } catch (e) { console.warn('[Wells] scrape échec:', e.message); }
 }
 
 async function _fetchBankResearch(full = false) {
@@ -2437,14 +2478,16 @@ async function _fetchBankResearch(full = false) {
   await _fetchScotiaInto(merged, cutoff, UA);
   // BlackRock Investment Institute (PDF hebdo) — seed 2026 garanti + découverte Puppeteer best-effort
   await _fetchBlackRockInto(merged);
-  // Natixis (Morning Line) + Danske — recherche sur sites SPA, Puppeteer best-effort (échec silencieux)
+  // Natixis (Morning Line) + Danske + UniCredit — recherche sur sites SPA, Puppeteer best-effort (échec silencieux)
   await _fetchResearchSpaInto(merged, cutoff);
+  // Wells Fargo — CIB Economics (HTML serveur, scrape direct + rapports phares seedés)
+  await _fetchWellsInto(merged, UA);
 
   const before = _brCache.length;
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _keepAll = i => i._source === 'blackrock' || i._source === 'danske' || i._source === 'natixis';   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => i._source === 'blackrock' || i._source === 'danske' || i._source === 'natixis' || i._source === 'unicredit' || i._source === 'wells';   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')

@@ -4190,7 +4190,7 @@ function renderBrList() {
 // reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
 // identifiable) → "DTP". On ne met JAMAIS "ING" par défaut.
 const _INST_BANKS = [
-  [/\bblackrock\b/i, 'BlackRock'],
+  [/\bblackrock\b/i, 'BlackRock'], [/\bunicredit\b/i, 'UniCredit'],
   [/\bmufg\b|mitsubishi ufj/i, 'MUFG'], [/\buob\b/i, 'UOB'], [/\bocbc\b/i, 'OCBC'],
   [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman'],
   [/\bmorgan stanley\b/i, 'MS'], [/\bjp ?morgan\b/i, 'JPM'], [/\bciti\b/i, 'Citi'],
@@ -4217,7 +4217,7 @@ const _BANK_BRAND = {
   SocGen: '#e60028', BNP: '#00915a', StanChart: '#1b8fea', BofA: '#1f5fb0', Wells: '#d71e28',
   NatWest: '#7b3fa0', Rabo: '#fe6e00', Scotia: '#ec111a', Westpac: '#d5002b', Commerz: '#e7b000',
   NAB: '#c20029', ANZ: '#1b8fea', Nordea: '#0000a0', SEB: '#5ca800',
-  BlackRock: '#ededf0',
+  BlackRock: '#ededf0', UniCredit: '#e2231a',
 };
 function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
 // Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
@@ -4229,6 +4229,7 @@ const _BANK_DOMAIN = {
   BNP: 'bnpparibas.com', StanChart: 'sc.com', BofA: 'bankofamerica.com', Wells: 'wellsfargo.com',
   NatWest: 'natwest.com', Rabo: 'rabobank.com', Scotia: 'scotiabank.com', Westpac: 'westpac.com.au',
   Commerz: 'commerzbank.com', NAB: 'nab.com.au', ANZ: 'anz.com', Nordea: 'nordea.com', SEB: 'sebgroup.com',
+  UniCredit: 'unicredit.eu',
 };
 // Logos téléchargés en local (assets DTP) → prioritaires sur Clearbit pour ces banques.
 const _BANK_LOCAL_LOGO = {
@@ -4239,6 +4240,8 @@ const _BANK_LOCAL_LOGO = {
   BlackRock: '/assets/images/banks/BlackRock.png',   // wordmark blanc (fond noir keyé), rogné
   Danske:    '/assets/images/banks/Danske.png',      // logo authentique deux-tons « Danske Bank »
   Scotia:    '/assets/images/banks/Scotia.png',      // icône rouge Scotiabank (fond transparent), rognée
+  Wells:     '/assets/images/banks/Wells.png',       // logo Wells Fargo (carré rouge, texte jaune)
+  UniCredit: '/assets/images/banks/UniCredit.png',   // icône rouge UniCredit (fond transparent), rognée
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
