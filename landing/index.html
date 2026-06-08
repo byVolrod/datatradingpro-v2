@@ -179,14 +179,28 @@
   .tick .sym{color:var(--text2);font-weight:500}
   @media(max-width:720px){.ov-body{grid-template-columns:1fr}}
 
-  /* ── STATS ── */
-  .stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg1)}
+  /* ── STATS · Panneau HUD "DATA SCOPE" ── */
+  .stats{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg)}
+  .stats .wrap{padding-top:clamp(34px,5vw,52px);padding-bottom:clamp(34px,5vw,52px)}
+  .stats-panel{border:1px solid var(--line);border-radius:6px;background:var(--bg1);overflow:hidden}
+  .stats-head{display:flex;align-items:center;gap:9px;padding:11px 16px;border-bottom:1px solid var(--line);background:var(--bg2)}
+  .stats-dot{width:7px;height:7px;border-radius:50%;background:var(--orange);flex:0 0 auto;animation:statsPulse 2.6s ease-in-out infinite}
+  @keyframes statsPulse{0%,100%{opacity:1}50%{opacity:.3}}
+  @media(prefers-reduced-motion:reduce){.stats-dot{animation:none}}
+  .stats-head-title{font-family:var(--mono);font-size:11px;font-weight:600;letter-spacing:.18em;text-transform:uppercase;color:var(--text2)}
+  .stats-head-sub{margin-left:auto;font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--text3)}
   .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
-  .stat{background:var(--bg1);padding:clamp(22px,4vw,30px) 16px;text-align:center}
-  .stat .n{font-size:clamp(26px,4vw,32px);font-weight:800;color:var(--orange);font-family:var(--mono)}
-  .stat .l{font-size:12.5px;color:var(--text2);margin-top:6px}
-  .stats-note{font-size:11.5px;color:var(--text3);text-align:center;padding:14px 16px 0}
-  @media(max-width:640px){.stats-grid{grid-template-columns:repeat(2,1fr)}}
+  .stat{position:relative;background:var(--bg1);padding:clamp(18px,3vw,24px) 16px clamp(20px,3.2vw,26px);min-height:138px;display:flex;flex-direction:column;align-items:flex-start;transition:background .18s ease}
+  .stat-top{display:flex;align-items:center;justify-content:space-between;width:100%;color:var(--text3)}
+  .stat-ico{width:16px;height:16px;flex:0 0 auto;stroke:var(--orange);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+  .stat-idx{font-family:var(--mono);font-size:10px;font-weight:600;letter-spacing:.06em;color:var(--text3)}
+  .stat .n{font-family:var(--mono);font-size:clamp(27px,4vw,34px);font-weight:800;line-height:1;color:var(--orange);letter-spacing:-.01em;font-variant-numeric:tabular-nums;margin-top:14px}
+  .stat .n::after{content:"";display:block;width:22px;height:2px;margin-top:11px;background:var(--orange);opacity:.55;border-radius:1px;transition:width .18s ease,opacity .18s ease}
+  .stat .l{font-size:12px;color:var(--text2);margin-top:11px;line-height:1.35;letter-spacing:.01em}
+  .stat:hover{background:var(--bg2)}
+  .stat:hover .n::after{width:30px;opacity:1}
+  .stats-note{font-size:11.5px;color:var(--text3);line-height:1.55;padding:13px 16px;border-top:1px solid var(--line);background:var(--bg2)}
+  @media(max-width:640px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stat{min-height:128px;padding:18px 14px 20px}.stats-head-sub{display:none}}
 
   /* ── SECTIONS ── */
   section{padding:clamp(58px,8.5vw,94px) 0}
@@ -618,13 +632,48 @@
 <!-- STATS -->
 <div class="stats">
   <div class="wrap">
-    <div class="stats-grid">
-      <div class="stat"><div class="n">8</div><div class="l">devises majeures</div></div>
-      <div class="stat"><div class="n">28</div><div class="l">paires FX croisées</div></div>
-      <div class="stat"><div class="n">5</div><div class="l">catégories COT</div></div>
-      <div class="stat"><div class="n">24/7</div><div class="l">temps réel</div></div>
+    <div class="stats-panel">
+      <div class="stats-head">
+        <span class="stats-dot" aria-hidden="true"></span>
+        <span class="stats-head-title">Étendue de données</span>
+        <span class="stats-head-sub">Data scope</span>
+      </div>
+      <div class="stats-grid">
+        <div class="stat">
+          <div class="stat-top">
+            <svg class="stat-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3v18"/><path d="M5 4h13l-2.4 3.2L18 11H5"/></svg>
+            <span class="stat-idx">01</span>
+          </div>
+          <div class="n">8</div>
+          <div class="l">Devises majeures</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top">
+            <svg class="stat-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 8h15"/><path d="M14 4l4 4-4 4"/><path d="M21 16H6"/><path d="M10 12l-4 4 4 4"/></svg>
+            <span class="stat-idx">02</span>
+          </div>
+          <div class="n">28</div>
+          <div class="l">Paires FX croisées</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top">
+            <svg class="stat-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V13"/><path d="M9.5 20V8"/><path d="M15 20v-9"/><path d="M20.5 20V4"/></svg>
+            <span class="stat-idx">03</span>
+          </div>
+          <div class="n">5</div>
+          <div class="l">Catégories COT</div>
+        </div>
+        <div class="stat">
+          <div class="stat-top">
+            <svg class="stat-ico" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.2"/><path d="M12 7.5v4.6l3 1.9"/></svg>
+            <span class="stat-idx">04</span>
+          </div>
+          <div class="n">24/7</div>
+          <div class="l">Temps réel</div>
+        </div>
+      </div>
+      <div class="stats-note">Étendue de données à date — DataTradingPro agrège des sources publiques et institutionnelles reconnues. Ce sont des capacités, pas des promesses de performance.</div>
     </div>
-    <div class="stats-note">Étendue de données à date — DataTradingPro agrège des sources publiques et institutionnelles reconnues. Ce sont des capacités, pas des promesses de performance.</div>
   </div>
 </div>
 
