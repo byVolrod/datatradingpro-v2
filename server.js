@@ -13,6 +13,7 @@ const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHis
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail } = require('./scrapers/forexfactory-news');
 const { scrapeBlackRock } = require('./scrapers/blackrock');   // BlackRock Investment Institute — Weekly Commentary (PDF hebdo, Puppeteer best-effort)
+const { scrapeResearchSpa } = require('./scrapers/research-spa');   // Natixis / Danske — recherche sur sites SPA (Puppeteer best-effort)
 const { fetchTVCalendar, fetchTVCalendarFull } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
@@ -2361,6 +2362,30 @@ async function _fetchBlackRockInto(merged) {
   } catch (e) { console.warn('[BlackRock] découverte échec:', e.message); }
 }
 
+// Natixis (Morning Line FX) + Danske (recherche) — sites SPA, Puppeteer best-effort (scrapers/research-spa.js).
+// Heuristique STRICTE → aucune pollution si bloqué/gated. Items = lien vers l'original (ouvert sur le site banque).
+const RESEARCH_SPA_SITES = [
+  { name: 'Natixis', institution: 'Natixis', source: 'natixis', host: 'natixis.com',
+    url: 'https://www.research.natixis.com/Site/en/forex/latest-publications?type=MORNING_LINE',
+    hrefRe: /natixis\.com\/Site\/[a-z]{2}\/(?:publication|forex|fixed-income|economy|cross-asset)\/.+/i },
+  { name: 'Danske', institution: 'Danske', source: 'danske', host: 'danskebank.com',
+    url: 'https://research.danskebank.com/research/',
+    hrefRe: /danskebank\.com\/.*(?:research\/article|\/article\/|articlekey|researchkey|\/[0-9a-f]{8,})/i },
+];
+async function _fetchResearchSpaInto(merged, cutoff) {
+  for (const cfg of RESEARCH_SPA_SITES) {
+    try {
+      const pubs = await scrapeResearchSpa(cfg);
+      for (const p of (pubs || [])) {
+        if (!p || !p.url || (p.ts && p.ts < cutoff)) continue;
+        const id = 'br-' + Buffer.from(p.url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+        if (merged.has(id)) continue;
+        merged.set(id, { id, title: p.title, url: p.url, timestamp: p.ts || Date.now(), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+      }
+    } catch (e) { console.warn(`[ResearchSPA ${cfg.source}] échec:`, e.message); }
+  }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -2392,6 +2417,8 @@ async function _fetchBankResearch(full = false) {
   await _fetchScotiaInto(merged, cutoff, UA);
   // BlackRock Investment Institute (PDF hebdo) — seed 2026 garanti + découverte Puppeteer best-effort
   await _fetchBlackRockInto(merged);
+  // Natixis (Morning Line) + Danske — recherche sur sites SPA, Puppeteer best-effort (échec silencieux)
+  await _fetchResearchSpaInto(merged, cutoff);
 
   const before = _brCache.length;
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
@@ -4496,7 +4523,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v13-quota-editorial';   // v13 : éditorial IA via le flux quota standard (aiSmart, comme Analyst/Bias) → force la régén
+const WA_VER = 'v14-percur-editorial';   // v14 : éditorial IA généré JOUR PAR JOUR (anti-troncature, + explicite) → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4589,37 +4616,49 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
   const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
   try {
     if (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items) && _waEditorial.items.length >= days.length) { apply(_waEditorial.items); return; }
-    const cached = await auth.aiCacheGet('weekahead:editorial4').catch(() => null);
+    const cached = await auth.aiCacheGet('weekahead:editorial5').catch(() => null);
     if (cached && cached.weekKey === weekKey && Array.isArray(cached.items) && cached.items.length >= days.length) { _waEditorial = cached; apply(cached.items); return; }
   } catch {}
   if (!gen) return;   // AUCUNE requête IA hors génération planifiée → l'éditorial reste FIXE (jamais d'appel à l'arrivée d'un utilisateur ni au refresh data 40 min)
-  const lines = days.map((d, i) => {
-    const evs = (d.events || []).slice(0, 8).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (fcst ' + e.forecast + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
-    return `Day ${i + 1} (${d.dow} ${d.date}): ${evs || 'minor data'}`;
-  }).join('\n');
-  const prompt = 'You are a senior macro strategist writing the "week ahead" preview for an institutional trading terminal. For EACH day below (in order), write in ENGLISH:\n'
-    + '(1) a catchy editorial headline in news-headline style (6 to 12 words, no quotes, no trailing period);\n'
-    + '(2) a DETAILED 4 to 6 sentence analytical paragraph in the style of a professional macro desk note: OPEN by framing the day\'s overarching theme, then weave in the key data releases and central-bank decisions WITH their context and stakes (expected direction/magnitude when relevant), highlight the cross-asset implications (currencies, rates, equities, commodities), and CLOSE with what investors will be watching most closely. Bring in relevant corporate or geopolitical angles when they matter. Institutional, analytical, forward-looking and concrete — NEVER a flat list of events. Write entirely in your own words; never copy any external source.\n\n'
-    + 'Days:\n' + lines + '\n\nReply ONLY with a JSON ARRAY of ' + days.length + ' objects, in the SAME ORDER as the days: [{"headline":"...","summary":"..."}, ...]. No text around it.';
-  let txt;
-  try {
-    // MÊME flux quota que les autres fonctionnalités (Analyst / Bias / News) : Gemini dans le budget du jour → repli Claude intégré. 1 requête / semaine (scheduled = pas de pacing).
-    txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true });
-  } catch (e) { console.log('[WeekAhead IA] indisponible → repli déterministe:', e.message); return; }
-  try {
-    let arr = null;
-    try { const m = String(txt).match(/\[[\s\S]*\]/); if (m) arr = JSON.parse(m[0]); } catch {}
-    if (!Array.isArray(arr)) { try { const m = String(txt).match(/\{[\s\S]*\}/); if (m) { const o = JSON.parse(m[0]); if (o && typeof o === 'object') arr = Array.isArray(o.days) ? o.days : Object.values(o); } } catch {} }
-    if (Array.isArray(arr) && arr.length) {
-      const items = arr.slice(0, days.length).map(v => ({ headline: String((v && v.headline) || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: String((v && v.summary) || '').slice(0, 900) }));
-      if (items.some(it => it.headline || it.summary)) {
-        _waEditorial = { weekKey, items, at: Date.now() };
-        await auth.aiCacheSet('weekahead:editorial4', _waEditorial).catch(() => {});
-        apply(items);
-        console.log('[WeekAhead IA] éditorial généré (' + items.length + ' jours) → cache hebdo');
-      }
-    }
-  } catch (e) { console.log('[WeekAhead IA] parse échec → titres déterministes:', e.message); }
+  // Génération JOUR PAR JOUR (prompt court → AUCUNE troncature JSON ; un échec n'affecte qu'UN jour)
+  // → résumés riches et explicites. Petits appels via le flux quota standard (aiSmart, {scheduled}).
+  const focusWk = [...new Set(days.flatMap(d => d.ccys || []))].slice(0, 6).join(', ');
+  const items = [];
+  for (let i = 0; i < days.length; i++) {
+    const d = days[i];
+    const evs = (d.events || []).slice(0, 9).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (fcst ' + e.forecast + ')' : ''}${e.previous ? ' (prev ' + e.previous + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
+    const prompt = `You are a senior macro strategist writing the "week ahead" preview for an institutional trading terminal. Write, in ENGLISH, the preview for ONE trading day: ${d.dow} ${d.date} ${d.month}.
+
+Scheduled releases / events that day (currency, title, forecast, previous):
+${evs || 'No major scheduled data — a quieter session.'}
+
+Currencies in focus across the week: ${focusWk || 'major FX'}.
+
+Produce:
+(1) HEADLINE — a catchy news-style headline, 6 to 12 words, no quotes, no trailing period.
+(2) SUMMARY — a DETAILED, EXPLICIT 4 to 6 sentence desk note. OPEN by framing the day's overarching theme; then explain the KEY releases and central-bank events WITH their stakes and the expected direction/magnitude where relevant; spell out the CROSS-ASSET implications (FX, rates, equities, commodities) and WHY they matter; close with exactly what investors will watch most closely for direction. Concrete and analytical — NEVER a flat list. Write entirely in your own words; never copy any source.
+
+Reply ONLY as compact JSON: {"headline":"...","summary":"..."} — nothing else.`;
+    let txt = null;
+    try { txt = await aiSmart('weekahead', prompt, 750, { scheduled: true }); }
+    catch (e) { items.push(null); continue; }
+    let obj = null;
+    try { const m = String(txt).match(/\{[\s\S]*\}/); if (m) obj = JSON.parse(m[0]); } catch {}
+    if (obj && (obj.headline || obj.summary)) {
+      items.push({ headline: String(obj.headline || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: String(obj.summary || '').slice(0, 950) });
+    } else if (txt && String(txt).replace(/\s+/g, ' ').trim().length > 60) {
+      items.push({ headline: '', summary: String(txt).replace(/```[a-z]*|```/gi, '').trim().slice(0, 950) });
+    } else { items.push(null); }
+  }
+  if (items.some(it => it && (it.headline || it.summary))) {
+    // Jamais de régression : on complète les jours en échec avec l'ancien cache si présent.
+    const prev = (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items)) ? _waEditorial.items : [];
+    const merged = days.map((_, i) => items[i] || prev[i] || null);
+    _waEditorial = { weekKey, items: merged, at: Date.now() };
+    await auth.aiCacheSet('weekahead:editorial5', _waEditorial).catch(() => {});
+    apply(merged);
+    console.log('[WeekAhead IA] éditorial jour-par-jour (' + merged.filter(Boolean).length + '/' + days.length + ' jours) → cache hebdo');
+  }
 }
 let _waGenerating = false;
 app.get('/api/week-ahead', async (req, res) => {
