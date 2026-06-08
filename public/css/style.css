@@ -4571,10 +4571,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wa3 .wa-timeline { gap: 14px; }
 .wa3 .wa-card-desc { -webkit-line-clamp: 2; }
 /* Splitters glisser-redimensionner (volatils : reset au reload) */
-.wa3-vsplit { background: #1c1c20; cursor: col-resize; position: relative; z-index: 6; }
-.wa3-vsplit:hover, .wa3-vsplit.dragging { background: #ff7a00; }
-.wa3-hsplit { background: #1c1c20; cursor: row-resize; position: relative; z-index: 6; }
-.wa3-hsplit:hover, .wa3-hsplit.dragging { background: #ff7a00; }
+/* Resizers identiques à l'onglet News (.layout-resizer) : trait fin neutre au repos, orange au survol/drag */
+.wa3-vsplit { background: transparent; cursor: col-resize; position: relative; z-index: 30; }
+.wa3-vsplit::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 2px; background: rgba(255,255,255,0.05); transition: background .12s; }
+.wa3-vsplit:hover::before, .wa3-vsplit.dragging::before { background: rgba(255,122,0,0.72); }
+.wa3-hsplit { background: transparent; cursor: row-resize; position: relative; z-index: 30; }
+.wa3-hsplit::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 2px; background: rgba(255,255,255,0.05); transition: background .12s; }
+.wa3-hsplit:hover::before, .wa3-hsplit.dragging::before { background: rgba(255,122,0,0.72); }
 .wa3.wa-dragging *  { pointer-events: none; user-select: none; }
 .wa3.wa-dragging .wa3-vsplit, .wa3.wa-dragging .wa3-hsplit { pointer-events: auto; }
 .wa3-right { display: grid; grid-template-rows: var(--wa-top, 1fr) 6px minmax(0,1fr); min-width: 0; min-height: 0; overflow: hidden; }

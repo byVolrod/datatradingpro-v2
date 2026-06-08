@@ -4408,7 +4408,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v7-editorial';   // v7 : éditorial IA hebdo (titre+résumé/jour façon PMT) | source calendrier TradingView + refresh temps réel ~40 min | accroches FR + drapeaux | semaine en cours → bump force la régén
+const WA_VER = 'v8-ai-editorial';   // v8 : éditorial IA robuste (appariement par index) → force la régén + ré-génération du résumé IA par jour
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4486,34 +4486,36 @@ async function generateWeekAhead(force = false) {
   return _weekAhead;
 }
 // Éditorial IA du Week Ahead (titre + résumé par jour, façon PMT) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
-let _waEditorial = { weekKey: null, days: {}, at: 0 };
+let _waEditorial = { weekKey: null, items: [], at: 0 };
 async function _waApplyEditorial(days, weekKey) {
-  const apply = map => { if (!map) return; days.forEach(d => { const e = map[d.date] || map[String(d.date)] || map[('0' + d.date).slice(-2)]; if (e && e.headline) { d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
+  // Appariement par INDEX (ordre des jours) → robuste, plus de bug de clé. Applique titre + résumé indépendamment.
+  const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
   try {
-    if (_waEditorial.weekKey === weekKey && _waEditorial.days && Object.keys(_waEditorial.days).length) { apply(_waEditorial.days); return; }
+    if (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items) && _waEditorial.items.length >= days.length) { apply(_waEditorial.items); return; }
     const cached = await auth.aiCacheGet('weekahead:editorial').catch(() => null);
-    if (cached && cached.weekKey === weekKey && cached.days && Object.keys(cached.days).length) { _waEditorial = cached; apply(cached.days); return; }
+    if (cached && cached.weekKey === weekKey && Array.isArray(cached.items) && cached.items.length >= days.length) { _waEditorial = cached; apply(cached.items); return; }
   } catch {}
-  const lines = days.map(d => {
+  const lines = days.map((d, i) => {
     const evs = (d.events || []).slice(0, 8).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (prév. ' + e.forecast + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
-    return `${d.date} (${d.dow}) : ${evs || 'données mineures'}`;
+    return `Jour ${i + 1} (${d.dow} ${d.date}) : ${evs || 'données mineures'}`;
   }).join('\n');
-  const prompt = 'Tu es analyste macro pour un terminal de trading. Pour CHAQUE jour ci-dessous, rédige en FRANCAIS : (1) un titre éditorial court et accrocheur façon manchette (6 à 12 mots, sans guillemets, sans point final), (2) un résumé de 2 à 3 phrases (un paragraphe court) qui explique ce que les marchés vont surveiller ce jour-là — cite les publications/banques centrales clés et leur enjeu. Style institutionnel, factuel, concret, ENTIEREMENT REDIGE (pas une simple liste). Ne recopie aucune autre source : formule avec tes propres mots.\n\nÉvénements de la semaine :\n' + lines + '\n\nRéponds UNIQUEMENT par un JSON strict, une entrée par numéro de jour fourni : {"' + (days[0] ? days[0].date : 'J') + '":{"headline":"...","summary":"..."}, ...}. Aucun texte autour.';
+  const prompt = 'Tu es analyste macro pour un terminal de trading. Pour CHAQUE jour ci-dessous (dans l\'ordre), rédige en FRANCAIS : (1) un titre éditorial court et accrocheur façon manchette (6 à 12 mots, sans guillemets, sans point final), (2) un résumé de 2 à 3 phrases (un paragraphe court) expliquant ce que les marchés vont surveiller ce jour-là — cite les publications/banques centrales clés et leur enjeu. Style institutionnel, factuel, ENTIEREMENT REDIGE (pas une simple liste). Formule avec tes propres mots.\n\nJours :\n' + lines + '\n\nRéponds UNIQUEMENT par un TABLEAU JSON de ' + days.length + ' objets, dans le MÊME ORDRE que les jours : [{"headline":"...","summary":"..."}, ...]. Aucun texte autour.';
   let txt;
-  try { txt = await aiSmart('weekahead', prompt, 1100, { scheduled: true }); }
+  try { txt = await aiSmart('weekahead', prompt, 1300, { scheduled: true }); }
   catch (e) { console.log('[WeekAhead IA] indisponible → titres déterministes:', e.message); return; }
   try {
-    const m = String(txt).match(/\{[\s\S]*\}/);
-    const obj = JSON.parse(m ? m[0] : String(txt));
-    const clean = {};
-    days.forEach(d => { const v = obj[d.date] || obj[String(d.date)] || obj[('0' + d.date).slice(-2)]; if (v && v.headline) clean[d.date] = { headline: String(v.headline).replace(/^["']|["']$/g, '').slice(0, 120), summary: String(v.summary || '').slice(0, 460) }; });
-    if (Object.keys(clean).length) {
-      _waEditorial = { weekKey, days: clean, at: Date.now() };
-      await auth.aiCacheSet('weekahead:editorial', _waEditorial).catch(() => {});
-      apply(clean);
-      console.log('[WeekAhead IA] éditorial généré (' + Object.keys(clean).length + ' jours) → cache hebdo');
+    const m = String(txt).match(/\[[\s\S]*\]/);
+    const arr = JSON.parse(m ? m[0] : String(txt));
+    if (Array.isArray(arr) && arr.length) {
+      const items = arr.slice(0, days.length).map(v => ({ headline: String((v && v.headline) || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: String((v && v.summary) || '').slice(0, 460) }));
+      if (items.some(it => it.headline || it.summary)) {
+        _waEditorial = { weekKey, items, at: Date.now() };
+        await auth.aiCacheSet('weekahead:editorial', _waEditorial).catch(() => {});
+        apply(items);
+        console.log('[WeekAhead IA] éditorial généré (' + items.length + ' jours) → cache hebdo');
+      }
     }
-  } catch (e) { console.log('[WeekAhead IA] parse échec → titres déterministes'); }
+  } catch (e) { console.log('[WeekAhead IA] parse échec → titres déterministes:', e.message); }
 }
 let _waGenerating = false;
 app.get('/api/week-ahead', (_req, res) => {

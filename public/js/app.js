@@ -3286,6 +3286,7 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
       e.preventDefault();
       const rect = target.getBoundingClientRect();
       handle.classList.add('dragging'); wa3.classList.add('wa-dragging');
+      document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize';
       const move = ev => {
         const p = ev.touches ? ev.touches[0] : ev;
         if (axis === 'x') {
@@ -3299,7 +3300,7 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
       const up = () => {
         document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
         document.removeEventListener('touchmove', move); document.removeEventListener('touchend', up);
-        handle.classList.remove('dragging'); wa3.classList.remove('wa-dragging');
+        handle.classList.remove('dragging'); wa3.classList.remove('wa-dragging'); document.body.style.cursor = '';
       };
       document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
       document.addEventListener('touchmove', move, { passive:false }); document.addEventListener('touchend', up);
