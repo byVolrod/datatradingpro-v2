@@ -4232,10 +4232,13 @@ const _BANK_DOMAIN = {
 };
 // Logos téléchargés en local (assets DTP) → prioritaires sur Clearbit pour ces banques.
 const _BANK_LOCAL_LOGO = {
-  MUFG:    '/assets/images/banks/MUFG.png',
-  SEB:     '/assets/images/banks/SEB.png',
-  ING:     '/assets/images/banks/ING.png',
-  Natixis: '/assets/images/banks/Natixis.png',   // téléchargé + recoloré blanc (local → aucune dépendance externe)
+  MUFG:      '/assets/images/banks/MUFG.png',
+  SEB:       '/assets/images/banks/SEB.png',
+  ING:       '/assets/images/banks/ING.png',
+  Natixis:   '/assets/images/banks/Natixis.png',     // téléchargé + recoloré blanc (local → aucune dépendance externe)
+  BlackRock: '/assets/images/banks/BlackRock.png',   // wordmark blanc (fond noir keyé), rogné
+  Danske:    '/assets/images/banks/Danske.png',      // logo authentique deux-tons « Danske Bank »
+  Scotia:    '/assets/images/banks/Scotia.png',      // icône rouge Scotiabank (fond transparent), rognée
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
