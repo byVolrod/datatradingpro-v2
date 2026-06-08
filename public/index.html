@@ -605,7 +605,7 @@
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script src="/js/app.js?v=20260609I"></script>
-<script src="/js/charts.js?v=20260609H"></script>
+<script src="/js/charts.js?v=20260609J"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -928,10 +928,8 @@
       const _isStaff = !!(d.user && (d.user.role === 'admin' || d.user.role === 'support'));
       window._pdIsStaff = _isStaff;
       if (!_isStaff) document.querySelectorAll('[data-view="weekahead"]').forEach(el => { el.style.display = 'none'; });
-      // Onglet TAUX : réservé aux ADMIN uniquement — masqué pour clients ET support.
-      const _isAdmin = !!(d.user && d.user.role === 'admin');
-      window._pdIsAdmin = _isAdmin;
-      if (!_isAdmin) document.querySelectorAll('[data-view="taux"]').forEach(el => { el.style.display = 'none'; });
+      // Onglet TAUX : visible par tous les utilisateurs connectés.
+      window._pdIsAdmin = !!(d.user && d.user.role === 'admin');
     } catch {}
     // Dès que le rôle est connu, on vérifie les messages non lus (badge sur l'icône chat)
     if (typeof _chatPollUnread === 'function') _chatPollUnread();
