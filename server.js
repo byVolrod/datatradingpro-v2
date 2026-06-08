@@ -4679,27 +4679,30 @@ app.get('/api/pricing', (_req, res) => {
 // ─── TAUX — probabilités de taux directeurs (estimation MAISON, façon "Interest Rate Probability") ───
 // On déduit nous-mêmes : prochaine réunion (calendrier 2026 factuel), prochain mouvement, probabilités
 // Maintien/Hausse/Baisse, Δ implicite (bps) et base case — sans flux marché. Se met à jour quand les dates passent.
-// Calendriers de réunions 2026 (dates officielles publiées) :
+// Calendriers OFFICIELS de réunions 2026-2027 (sources vérifiées : Fed, BCE, BoE, BoJ, SNB, BoC, RBA, RBNZ).
+// Année complète : les réunions PASSÉES alimentent le moteur d'actualisation ; le tableau n'affiche que les futures.
 const CB_MEETINGS = {
-  USD: ['2026-06-17','2026-07-29','2026-09-16','2026-10-28','2026-12-09'],
-  EUR: ['2026-06-11','2026-07-23','2026-09-10','2026-10-29','2026-12-17'],
-  GBP: ['2026-06-18','2026-07-30','2026-09-17','2026-11-05','2026-12-17'],
-  JPY: ['2026-06-16','2026-07-31','2026-09-18','2026-10-30','2026-12-18'],
-  CHF: ['2026-06-18','2026-09-24','2026-12-17'],
-  CAD: ['2026-06-10','2026-07-15','2026-09-16','2026-10-28','2026-12-09'],
-  AUD: ['2026-06-16','2026-08-11','2026-09-29','2026-11-03','2026-12-08'],
-  NZD: ['2026-07-08','2026-08-26','2026-10-07','2026-11-25'],
+  USD: ['2026-01-28','2026-03-18','2026-04-29','2026-06-17','2026-07-29','2026-09-16','2026-10-28','2026-12-09','2027-01-27','2027-03-17','2027-04-28','2027-06-09','2027-07-28','2027-09-15','2027-10-27','2027-12-08'],
+  EUR: ['2026-02-05','2026-03-19','2026-04-30','2026-06-11','2026-07-23','2026-09-10','2026-10-29','2026-12-17','2027-02-04','2027-03-18','2027-04-29','2027-06-10','2027-07-22','2027-09-09','2027-10-28','2027-12-16'],
+  GBP: ['2026-02-05','2026-03-19','2026-04-30','2026-06-18','2026-07-30','2026-09-17','2026-11-05','2026-12-17','2027-02-04','2027-03-18','2027-04-29','2027-06-17','2027-07-29','2027-09-16','2027-11-04','2027-12-16'],
+  JPY: ['2026-01-23','2026-03-19','2026-04-28','2026-06-16','2026-07-31','2026-09-18','2026-10-30','2026-12-18'],
+  CHF: ['2026-03-19','2026-06-18','2026-09-24','2026-12-10','2027-03-18','2027-06-24','2027-09-23','2027-12-16'],
+  CAD: ['2026-01-28','2026-03-18','2026-04-29','2026-06-10','2026-07-15','2026-09-02','2026-10-28','2026-12-09'],
+  AUD: ['2026-02-03','2026-03-17','2026-05-05','2026-06-16','2026-08-11','2026-09-29','2026-11-03','2026-12-08','2027-02-09','2027-03-23','2027-05-04','2027-06-22','2027-08-10','2027-09-21','2027-11-02','2027-12-14'],
+  NZD: ['2026-02-18','2026-04-08','2026-05-27','2026-07-08','2026-09-02','2026-10-28','2026-12-09','2027-02-10','2027-03-17','2027-05-05','2027-06-16','2027-08-04','2027-09-15','2027-10-27','2027-12-08'],
 };
+// JPY & CAD : calendrier 2027 pas encore publié par la banque → à compléter quand dispo (le système roule sans casser).
 // Config maison par banque : taux actuel + biais directionnel + conviction + pas (bps).
+// rate = taux d'ANCRAGE initial ; bias/conv/lean = lecture maison ; floor/ceil = taux terminal (anti-emballement).
 const CB = [
-  { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',           rate:4.50, bias:'hold', lean:'cut', conv:0.78, step:25 },
-  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:3.15, bias:'cut',              conv:0.58, step:25 },
-  { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:4.75, bias:'cut',              conv:0.52, step:25 },
-  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.50, bias:'hike',             conv:0.55, step:25 },
-  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:1.00, bias:'hold', lean:'cut', conv:0.62, step:25 },
-  { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:3.25, bias:'hold', lean:'cut', conv:0.55, step:25 },
-  { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, bias:'cut',              conv:0.50, step:25 },
-  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:4.25, bias:'cut',              conv:0.55, step:25 },
+  { code:'USD', cc:'us', bank:'Fed',  full:'Réserve fédérale (US)',           rate:4.50, bias:'hold', lean:'cut', conv:0.78, step:25, floor:3.00, ceil:5.50 },
+  { code:'EUR', cc:'eu', bank:'BCE',  full:'Banque centrale européenne',      rate:3.15, bias:'cut',              conv:0.58, step:25, floor:1.75, ceil:4.00 },
+  { code:'GBP', cc:'gb', bank:'BoE',  full:'Banque d\'Angleterre',            rate:4.75, bias:'cut',              conv:0.52, step:25, floor:3.00, ceil:5.25 },
+  { code:'JPY', cc:'jp', bank:'BoJ',  full:'Banque du Japon',                 rate:0.50, bias:'hike',             conv:0.55, step:25, floor:0.00, ceil:1.50 },
+  { code:'CHF', cc:'ch', bank:'SNB',  full:'Banque nationale suisse',         rate:1.00, bias:'hold', lean:'cut', conv:0.62, step:25, floor:0.25, ceil:2.00 },
+  { code:'CAD', cc:'ca', bank:'BoC',  full:'Banque du Canada',                rate:3.25, bias:'hold', lean:'cut', conv:0.55, step:25, floor:2.25, ceil:4.00 },
+  { code:'AUD', cc:'au', bank:'RBA',  full:'Banque de réserve d\'Australie',  rate:4.35, bias:'cut',              conv:0.50, step:25, floor:3.10, ceil:4.60 },
+  { code:'NZD', cc:'nz', bank:'RBNZ', full:'Banque de réserve de N.-Zélande', rate:4.25, bias:'cut',              conv:0.55, step:25, floor:2.75, ceil:4.50 },
 ];
 // Modèle maison : scénario d'une réunion (idx 0 = prochaine ; la conviction du biais croît avec l'horizon).
 function _rateScenario(b, idx) {
@@ -4721,26 +4724,80 @@ function _rateScenario(b, idx) {
   const baseCase = (hold >= hike && hold >= cut) ? 'HOLD' : (hike >= cut ? 'HIKE' : 'CUT');
   return { hold, hike, cut, impliedBps, baseCase };
 }
+// ─── Moteur d'ACTUALISATION des taux ───────────────────────────────────────────
+// État persistant : taux courant + dernière réunion traitée, par banque. Le taux ÉVOLUE
+// automatiquement à chaque réunion PASSÉE (selon le base case maison), borné par floor/ceil.
+const RATES_STATE_FILE = path.join(__dirname, 'cache_rates_state.json');
+let _ratesState = null;
+function _initRatesState() {
+  if (!_ratesState || !_ratesState.banks) _ratesState = { banks: {}, updatedAt: Date.now() };
+  const now = Date.now();
+  CB.forEach(b => {
+    if (!_ratesState.banks[b.code]) {
+      // Ancre : `rate` reflète déjà les réunions passées → on ne traitera QUE les réunions futures (pas de double comptage).
+      const past = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') < now).sort();
+      _ratesState.banks[b.code] = { rate: b.rate, lastMeeting: past.length ? past[past.length - 1] : null };
+    }
+  });
+}
+try { _ratesState = JSON.parse(fs.readFileSync(RATES_STATE_FILE, 'utf8')); } catch {}
+_initRatesState();
+try { auth.aiCacheGet('rates:state').then(s => { if (s && s.banks) { _ratesState = s; _initRatesState(); } }).catch(() => {}); } catch {}
+function _saveRatesState() {
+  try { fs.writeFileSync(RATES_STATE_FILE, JSON.stringify(_ratesState)); } catch {}
+  auth.aiCacheSet('rates:state', _ratesState).catch(() => {});   // DURABLE (Supabase) → survit aux redéploys
+}
+// Biais EFFECTIF : on bascule sur Maintien dès que le taux terminal (plancher/plafond) est atteint.
+function _effBias(b, rate) {
+  if (b.bias === 'cut'  && rate <= b.floor + 1e-9) return 'hold';
+  if (b.bias === 'hike' && rate >= b.ceil  - 1e-9) return 'hold';
+  return b.bias;
+}
+// Actualisation : applique le mouvement maison à chaque réunion passée non encore traitée.
+function _refreshRates() {
+  const now = Date.now();
+  let changed = false;
+  CB.forEach(b => {
+    const st = _ratesState.banks[b.code];
+    (CB_MEETINGS[b.code] || []).slice().sort().forEach(d => {
+      if (Date.parse(d + 'T00:00:00Z') >= now) return;             // réunion future
+      if (st.lastMeeting && d <= st.lastMeeting) return;           // déjà traitée
+      const sc = _rateScenario({ ...b, bias: _effBias(b, st.rate) }, 0);
+      if (sc.baseCase === 'HIKE')      st.rate = Math.min(b.ceil,  +(st.rate + b.step / 100).toFixed(2));
+      else if (sc.baseCase === 'CUT')  st.rate = Math.max(b.floor, +(st.rate - b.step / 100).toFixed(2));
+      st.lastMeeting = d;
+      changed = true;
+    });
+  });
+  if (changed) { _ratesState.updatedAt = now; _saveRatesState(); }
+  return changed;
+}
+setInterval(() => { try { _refreshRates(); } catch {} }, 6 * 3600 * 1000);   // quotidien (4×/jour)
+setTimeout(() => { try { _refreshRates(); } catch {} }, 8000);              // au démarrage
+
 app.get('/api/rates', (_req, res) => {
+  try { _refreshRates(); } catch {}
   const now = Date.now();
   const banks = CB.map(b => {
+    const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
+    const bb = { ...b, bias: _effBias(b, st.rate) };               // biais effectif (s'arrête au taux terminal)
     const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 5);
     const meetings = sched.map((d, i) => {
-      const sc = _rateScenario(b, i);
+      const sc = _rateScenario(bb, i);
       const days = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - now) / 86400000));
       return { date: d, days, hold: Math.round(sc.hold * 100), hike: Math.round(sc.hike * 100), cut: Math.round(sc.cut * 100),
                impliedBps: +sc.impliedBps.toFixed(1), baseCase: sc.baseCase };
     });
-    const n = meetings[0], sc0 = _rateScenario(b, 0);
+    const n = meetings[0], sc0 = _rateScenario(bb, 0);
     return {
-      code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: b.rate,
+      code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: st.rate,
       next: n ? n.date : null, nextDays: n ? n.days : null,
       move: sc0.baseCase, prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 100), expBps: +sc0.impliedBps.toFixed(1),
       scenario: { hold: Math.round(sc0.hold * 100), hike: Math.round(sc0.hike * 100), cut: Math.round(sc0.cut * 100) },
       meetings,
     };
   });
-  res.json({ asOf: now, model: 'maison', banks });
+  res.json({ asOf: now, model: 'maison', updatedAt: _ratesState.updatedAt, banks });
 });
 
 // CRUD admin (ajout / édition / suppression de positions)
