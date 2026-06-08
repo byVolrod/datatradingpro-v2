@@ -3416,6 +3416,8 @@ function renderBiasView(d) {
     </div>
     <div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>
     <div id="sbm-summary" class="sbm-summary-host"></div>`;
+  // Dropdowns "Scanner" + historique de semaines dans l'en-tête du haut.
+  _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
   // Bias Summary affiché DIRECTEMENT (plus de clic requis) : on garde la devise active, sinon la 1ère.
   if (cur.length) _sbOpenSummary(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
 }
@@ -3454,6 +3456,16 @@ function _sbToggleCurDd(e) { e.stopPropagation(); const m = e.currentTarget.quer
 function _sbPickCur(c) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbOpenSummary(c); }
 window._sbToggleCurDd = _sbToggleCurDd; window._sbPickCur = _sbPickCur;
 if (!window._sbCddCloser) { window._sbCddCloser = true; document.addEventListener('click', () => document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', ''))); }
+// Remonte les 2 dropdowns (Scanner devise + historique de semaines) dans l'EN-TÊTE du haut (haut-droite, façon capture).
+function _sbRenderHeadDd(active) {
+  const el = document.getElementById('bias-head-dd'); if (!el) return;
+  const d = _biasView || _biasData;
+  if (!d || !Array.isArray(d.currencies) || !d.currencies.length) { el.innerHTML = ''; return; }
+  const cur = d.currencies;
+  const a = (active && cur.includes(active)) ? active : (cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
+  el.innerHTML = _sbCurDropdown(a, cur) + _sbDateDropdown(_biasViewTs != null ? _biasViewTs : (d.generatedAt || 0));
+}
+window._sbRenderHeadDd = _sbRenderHeadDd;
 // Dropdown HISTORIQUE de dates (versioning Smart Bias, 5 semaines max) — format DTP "1-7/06/2026".
 function _sbDateDropdown(activeTs) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -3567,13 +3579,6 @@ function _sbOpenSummary(curr) {
 
   wrap.innerHTML = `
     <div class="sbs-panel">
-      <div class="sbs-head">
-        <span class="sbs-head-title">Smart Bias Tracker</span>
-        <div class="sbs-head-ctrls">
-          ${_sbCurDropdown(curr, d.currencies)}
-          ${_sbDateDropdown(_biasViewTs != null ? _biasViewTs : (d.generatedAt || 0))}
-        </div>
-      </div>
       <div class="sbs-body" id="sbs-body">
         <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Bias Summary</div>${leftRows}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
@@ -3586,6 +3591,7 @@ function _sbOpenSummary(curr) {
   _sbInitSplitter();
   _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
   _sbLoadCal();       // précharge le calendrier → accordéon Fundamental instantané
+  _sbRenderHeadDd(curr);   // synchronise le dropdown "Scanner" de l'en-tête sur la devise active
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
 window._sbOpenSummary = _sbOpenSummary;
