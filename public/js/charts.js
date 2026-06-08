@@ -2675,6 +2675,45 @@ window._retryCalendar = function() {
 //  Taper une paire dans « Search Symbols » ouvre/maj un onglet dynamique (croix pour fermer),
 //  vue 4 panneaux 100 % axée sur la paire. Volatil (recents non persistés).
 // ═══════════════════════════════════════════════════════════════════════════════
+// ── Splitters redimensionnables de la vue symbole (grille 2x2) : vertical entre colonnes (--sym-col),
+//    horizontal entre lignes (--sym-row). Volatil : la taille vit inline → reset au reload (charte). ──
+(function initSymResize() {
+  const grid = document.getElementById('sym-grid');
+  if (!grid) return;
+  const vsplit = document.getElementById('sym-vsplit');
+  const hsplit = document.getElementById('sym-hsplit');
+  function drag(handle, axis, prop) {
+    if (!handle) return;
+    const down = e => {
+      e.preventDefault();
+      const rect = grid.getBoundingClientRect();
+      handle.classList.add('dragging'); grid.classList.add('sym-dragging');
+      document.body.style.cursor = axis === 'x' ? 'col-resize' : 'row-resize';
+      const move = ev => {
+        const p = ev.touches ? ev.touches[0] : ev;
+        if (axis === 'x') {
+          const v = Math.max(rect.width * 0.22, Math.min(rect.width * 0.78, p.clientX - rect.left));
+          grid.style.setProperty(prop, v + 'px');
+        } else {
+          const v = Math.max(rect.height * 0.2, Math.min(rect.height * 0.8, p.clientY - rect.top));
+          grid.style.setProperty(prop, v + 'px');
+        }
+      };
+      const up = () => {
+        document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up);
+        document.removeEventListener('touchmove', move); document.removeEventListener('touchend', up);
+        handle.classList.remove('dragging'); grid.classList.remove('sym-dragging'); document.body.style.cursor = '';
+      };
+      document.addEventListener('mousemove', move); document.addEventListener('mouseup', up);
+      document.addEventListener('touchmove', move, { passive: false }); document.addEventListener('touchend', up);
+    };
+    handle.addEventListener('mousedown', down);
+    handle.addEventListener('touchstart', down, { passive: false });
+  }
+  drag(vsplit, 'x', '--sym-col');   // splitter vertical → colonnes
+  drag(hsplit, 'y', '--sym-row');   // splitter horizontal → lignes
+})();
+
 (function initSymbolSearch() {
   const input = document.getElementById('topbar-symbol-input');
   const dd = document.getElementById('sym-dd');
@@ -2952,30 +2991,36 @@ window._retryCalendar = function() {
       });
       cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Time</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">EVENT</th><th class="cth-val">ACTUAL</th><th class="cth-val">FORECAST</th><th class="cth-val">PREVIOUS</th></tr></thead><tbody>' + tb + '</tbody></table>';
     }).catch(() => {});
-    // News filtrées sur la paire — MÊME rendu que Week Ahead (.news-item : heure + catégorie + titre, séparateurs de jour).
+    // News filtrées sur la paire — EXACTEMENT le « Realtime Headline Ticker » de l'onglet News :
+    // on tire du tableau maître (allItems) et on rend chaque item via buildNewsItem (badges, icône
+    // d'alerte, chevron, expansion). Filtre = 2 devises de la paire + leurs banques centrales.
     const parts = ccys.map(c => '\\b' + c.toLowerCase() + '\\b' + (NEWS_KW[c] ? '|' + NEWS_KW[c] : '')).join('|');
     const re = parts ? new RegExp('(' + parts + ')', 'i') : null;
-    fetch('/api/week-ahead-news').then(r => r.json()).then(d => {
+    (function renderSymNews() {
       const nl = document.getElementById('sym-news'); if (!nl) return;
-      const items = ((d && d.items) || []).filter(n => n && (
-        (re && re.test(n.headline || '')) || (Array.isArray(n.tags) && n.tags.some(t => ccys.includes((t || '').toUpperCase())))
-      )).slice(0, 40);
+      const master = (typeof window.getNewsMaster === 'function') ? window.getNewsMaster() : [];
+      const items = (Array.isArray(master) ? master : []).filter(n => n
+        && !(n._briefing || n.source === 'DTP')                              // pas de briefings PRIMER (masqués du site)
+        && !/^\s*\[?\s*primer\b/i.test(n.headline || '')
+        && ((re && re.test(n.headline || '')) || (Array.isArray(n.tags) && n.tags.some(t => ccys.includes((t || '').toUpperCase()))))
+      ).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 40);
       if (!items.length) { nl.innerHTML = '<div class="sym-empty">Pas de news récente pour ' + pretty(pair) + '.</div>'; return; }
-      let lastD = '', h = '';
+      nl.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      let lastD = '';
       items.forEach(n => {
         const ts = n.timestamp || 0;
         if (ts) {
           const dk = new Date(ts).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric' });
-          if (dk !== lastD) { lastD = dk; h += '<div class="date-header">' + dk + '</div>'; }
+          if (dk !== lastD) { lastD = dk; const hd = document.createElement('div'); hd.className = 'date-header'; hd.textContent = dk; frag.appendChild(hd); }
         }
-        const t = ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '';
-        h += '<div class="news-item' + (n.priority === 'high' ? ' news-item--high' : '') + '">'
-          + '<div class="news-time">' + t + '</div>'
-          + '<div class="news-category-text">' + (n.category ? _esc(n.category) : '') + '</div>'
-          + '<div class="news-content"><div class="news-headline">' + _esc(n.headline || '') + '</div></div></div>';
+        try {
+          if (typeof window.buildNewsItem === 'function') frag.appendChild(window.buildNewsItem(n));
+          else { const d2 = document.createElement('div'); d2.className = 'news-item'; d2.innerHTML = '<div class="news-time">' + (ts ? new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '') + '</div><div class="news-content"><div class="news-headline">' + _esc(n.headline || '') + '</div></div>'; frag.appendChild(d2); }
+        } catch {}
       });
-      nl.innerHTML = h;
-    }).catch(() => {});
+      nl.appendChild(frag);
+    })();
   }
 
   // ── Smart Bias : 2 colonnes (base / quote) tirées de /api/smart-bias ──

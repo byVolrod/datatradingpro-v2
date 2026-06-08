@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260610M" />
+  <link rel="stylesheet" href="/css/style.css?v=20260610N" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -121,23 +121,25 @@
       </div>
       <div class="sym-content" id="sym-content">
         <div class="sym-subview" id="sym-sub-overview">
-          <div class="sym-grid">
-            <div class="sym-panel sym-panel--chart">
+          <div class="sym-grid" id="sym-grid">
+            <div class="sym-panel sym-panel--chart" style="grid-column:1;grid-row:1">
               <div class="sym-phead"><span class="sym-ptitle">Technical Charts <span class="sym-hsep">|</span> <span class="sym-pair-orange" id="sym-pair-lbl">—</span></span></div>
               <div class="sym-body" id="sym-tv"></div>
             </div>
-            <div class="sym-panel">
+            <div class="sym-panel" style="grid-column:3;grid-row:1">
               <div class="sym-phead"><span class="sym-ptitle">Currency Strength</span><span style="flex:1"></span><span class="sym-stf-bar" id="sym-strength-tf"></span></div>
               <div class="sym-body" id="sym-strength"></div>
             </div>
-            <div class="sym-panel">
+            <div class="sym-panel" style="grid-column:1;grid-row:3">
               <div class="sym-phead"><span class="sym-ptitle">Economic Calendar</span></div>
               <div class="sym-body sym-scroll" id="sym-cal"></div>
             </div>
-            <div class="sym-panel">
+            <div class="sym-panel" style="grid-column:3;grid-row:3">
               <div class="sym-phead"><span class="sym-ptitle">Realtime Headline Ticker</span></div>
               <div class="sym-body sym-scroll" id="sym-news"></div>
             </div>
+            <div class="sym-vsplit" id="sym-vsplit" style="grid-column:2;grid-row:1/4" title="Glisser pour redimensionner"></div>
+            <div class="sym-hsplit" id="sym-hsplit" style="grid-column:1/4;grid-row:2" title="Glisser pour redimensionner"></div>
           </div>
         </div>
         <div class="sym-subview hidden" id="sym-sub-bias"></div>
@@ -645,8 +647,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260610E"></script>
-<script src="/js/charts.js?v=20260610R"></script>
+<script src="/js/app.js?v=20260610F"></script>
+<script src="/js/charts.js?v=20260610S"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
