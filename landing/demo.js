@@ -8,7 +8,7 @@
   if (window.DTPDemo) return;
 
   var WHOP = 'https://whop.com/joined/justonetrader/products/jot-dtp/';
-  var timers = [], root = null, chartState = null;
+  var timers = [], root = null, chartState = null, prevFocus = null;
 
   /* ---------- styles ---------- */
   var CSS = `
@@ -258,7 +258,7 @@
       return '<div class="dd-crow" data-i="' + i + '"><span class="tm">' + c[0] + '</span><span class="dd-bdg ' + bcl + '">' + c[2] + '</span><span class="ev">' + c[3] + '</span><span class="dd-val"><span class="f">prév. ' + c[4] + '</span></span></div>';
     }).join('');
 
-    root = el('<div id="dtp-demo" role="dialog" aria-label="Démo DataTradingPro"></div>');
+    root = el('<div id="dtp-demo" role="dialog" aria-modal="true" aria-label="Démo DataTradingPro — aperçu en simulation"></div>');
     root.innerHTML =
       '<div class="dd-win">' +
         '<div class="dd-top">' +
@@ -298,6 +298,8 @@
 
     // boucles "vivantes"
     var clk = root.querySelector('#dd-clock'); var sec = 13 * 3600 + 42 * 60 + 7;
+    var reduce = false; try { reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) {}
+    if (!reduce) {
     timers.push(setInterval(function () { sec = (sec + 1) % 86400; var hh = (sec / 3600 | 0), mm = ((sec % 3600) / 60 | 0), ss = sec % 60; clk.textContent = ('0' + hh).slice(-2) + ':' + ('0' + mm).slice(-2) + ':' + ('0' + ss).slice(-2); }, 1000));
     timers.push(setInterval(tickChart, 130));
     timers.push(setInterval(function () {
@@ -309,6 +311,7 @@
     timers.push(setInterval(function () { nudgeStrength(root.querySelector('#dd-str')); }, 1500));
     timers.push(setInterval(function () { refreshTicker(root); }, 1300));
     timers.push(setInterval(function () { revealActual(root); }, 4200));
+    }
     window.addEventListener('resize', drawChart);
   }
   function refreshTicker(root) {
@@ -328,15 +331,25 @@
     var beat = Math.random() < 0.5;
     r.querySelector('.dd-val').innerHTML = '<span class="' + (beat ? 'up' : 'down') + '">' + (beat ? '▲ ' : '▼ ') + fcs + '</span> <span class="f">prév. ' + fcs + '</span>';
   }
-  function onKey(e) { if (e.key === 'Escape') close(); }
+  function onKey(e) {
+    if (e.key === 'Escape') { close(); return; }
+    if (e.key === 'Tab' && root) {
+      var f = root.querySelectorAll('a[href],button,[tabindex]:not([tabindex="-1"])');
+      if (!f.length) return;
+      var first = f[0], last = f[f.length - 1];
+      if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+      else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  }
 
   /* ---------- API ---------- */
   function open() {
     if (root) return;
+    prevFocus = document.activeElement;
     if (!document.getElementById('dtp-demo-style')) { var st = document.createElement('style'); st.id = 'dtp-demo-style'; st.textContent = CSS; document.head.appendChild(st); }
     build();
     document.body.style.overflow = 'hidden';
-    requestAnimationFrame(function () { root.classList.add('on'); setTimeout(drawChart, 60); });
+    requestAnimationFrame(function () { root.classList.add('on'); setTimeout(drawChart, 60); var x = root.querySelector('.dd-x'); if (x) x.focus(); });
   }
   function close() {
     if (!root) return;
@@ -346,6 +359,7 @@
     var r = root; root = null; chartState = null;
     r.classList.remove('on');
     document.body.style.overflow = '';
+    if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (e) {} } prevFocus = null;
     setTimeout(function () { if (r && r.parentNode) r.parentNode.removeChild(r); }, 260);
   }
   window.DTPDemo = { open: open, close: close };
