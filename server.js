@@ -859,9 +859,9 @@ app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
 
 app.get('/api/news',     (_req, res) => res.json({ items: allNews.slice(0, 200), total: allNews.length }));
 
-// PUBLIC (page Week Ahead) : flux de news allégé (teaser capé, pas l'archive premium complète).
+// PUBLIC (page Week Ahead) : MÊME flux que l'onglet News (allNews), projeté pour le ticker public.
 app.get('/api/week-ahead-news', (_req, res) => {
-  const items = (Array.isArray(allNews) ? allNews : []).slice(0, 45).map(n => ({
+  const items = (Array.isArray(allNews) ? allNews : []).slice(0, 120).map(n => ({
     headline: (n.headline || '').slice(0, 240),
     timestamp: n.timestamp || 0,
     category: n.category || (Array.isArray(n.tags) && n.tags[0]) || '',
