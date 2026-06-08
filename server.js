@@ -4455,7 +4455,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
-const WA_VER = 'v10-en-editorial';   // v10 : descriptions IA détaillées EN ANGLAIS (3-5 phrases) + parsing robuste → force la régén
+const WA_VER = 'v11-en-deskstyle';   // v11 : descriptions IA style "note de desk macro" (4-6 phrases, EN) + repli Gemini → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -4539,7 +4539,7 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
   const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
   try {
     if (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items) && _waEditorial.items.length >= days.length) { apply(_waEditorial.items); return; }
-    const cached = await auth.aiCacheGet('weekahead:editorial3').catch(() => null);
+    const cached = await auth.aiCacheGet('weekahead:editorial4').catch(() => null);
     if (cached && cached.weekKey === weekKey && Array.isArray(cached.items) && cached.items.length >= days.length) { _waEditorial = cached; apply(cached.items); return; }
   } catch {}
   if (!gen) return;   // AUCUNE requête IA hors génération planifiée → l'éditorial reste FIXE (jamais d'appel à l'arrivée d'un utilisateur ni au refresh data 40 min)
@@ -4547,25 +4547,27 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
     const evs = (d.events || []).slice(0, 8).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (fcst ' + e.forecast + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
     return `Day ${i + 1} (${d.dow} ${d.date}): ${evs || 'minor data'}`;
   }).join('\n');
-  const prompt = 'You are a senior macro analyst for an institutional trading terminal. For EACH day below (in order), write in ENGLISH:\n'
+  const prompt = 'You are a senior macro strategist writing the "week ahead" preview for an institutional trading terminal. For EACH day below (in order), write in ENGLISH:\n'
     + '(1) a catchy editorial headline in news-headline style (6 to 12 words, no quotes, no trailing period);\n'
-    + '(2) a DETAILED 3 to 5 sentence analytical paragraph: explain what markets will digest that day, the context and the stakes, what investors will watch concretely, and the possible implications for currencies, rates and equities. Cite the key releases, central-bank decisions AND any relevant corporate/geopolitical themes. Institutional, analytical, rich and concrete tone — NEVER a plain list of events. Write entirely in your own words; do not copy any source.\n\n'
+    + '(2) a DETAILED 4 to 6 sentence analytical paragraph in the style of a professional macro desk note: OPEN by framing the day\'s overarching theme, then weave in the key data releases and central-bank decisions WITH their context and stakes (expected direction/magnitude when relevant), highlight the cross-asset implications (currencies, rates, equities, commodities), and CLOSE with what investors will be watching most closely. Bring in relevant corporate or geopolitical angles when they matter. Institutional, analytical, forward-looking and concrete — NEVER a flat list of events. Write entirely in your own words; never copy any external source.\n\n'
     + 'Days:\n' + lines + '\n\nReply ONLY with a JSON ARRAY of ' + days.length + ' objects, in the SAME ORDER as the days: [{"headline":"...","summary":"..."}, ...]. No text around it.';
   let txt;
   try {
-    // Généré 1×/semaine seulement → on PRIVILÉGIE Claude (multi-clés, pas de quota dur comme Gemini free-tier) pour garantir la génération.
-    if (ai.hasAnthropic && ai.hasAnthropic()) txt = await ai.generateTextClaudeOnly(prompt, 2200);
-    else txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true });
+    // Généré 1×/semaine → Claude en priorité (multi-clés, pas de quota dur). Repli Gemini si Claude échoue.
+    if (ai.hasAnthropic && ai.hasAnthropic()) {
+      try { txt = await ai.generateTextClaudeOnly(prompt, 2200); }
+      catch (e1) { console.log('[WeekAhead IA] Claude KO → repli Gemini:', e1.message); txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true }); }
+    } else { txt = await aiSmart('weekahead', prompt, 2200, { scheduled: true }); }
   } catch (e) { console.log('[WeekAhead IA] indisponible → titres déterministes:', e.message); return; }
   try {
     let arr = null;
     try { const m = String(txt).match(/\[[\s\S]*\]/); if (m) arr = JSON.parse(m[0]); } catch {}
     if (!Array.isArray(arr)) { try { const m = String(txt).match(/\{[\s\S]*\}/); if (m) { const o = JSON.parse(m[0]); if (o && typeof o === 'object') arr = Array.isArray(o.days) ? o.days : Object.values(o); } } catch {} }
     if (Array.isArray(arr) && arr.length) {
-      const items = arr.slice(0, days.length).map(v => ({ headline: String((v && v.headline) || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: String((v && v.summary) || '').slice(0, 750) }));
+      const items = arr.slice(0, days.length).map(v => ({ headline: String((v && v.headline) || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: String((v && v.summary) || '').slice(0, 900) }));
       if (items.some(it => it.headline || it.summary)) {
         _waEditorial = { weekKey, items, at: Date.now() };
-        await auth.aiCacheSet('weekahead:editorial3', _waEditorial).catch(() => {});
+        await auth.aiCacheSet('weekahead:editorial4', _waEditorial).catch(() => {});
         apply(items);
         console.log('[WeekAhead IA] éditorial généré (' + items.length + ' jours) → cache hebdo');
       }
