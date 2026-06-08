@@ -4242,6 +4242,8 @@ const _BANK_LOCAL_LOGO = {
   Scotia:    '/assets/images/banks/Scotia.png',      // icône rouge Scotiabank (fond transparent), rognée
   Wells:     '/assets/images/banks/Wells.png',       // logo Wells Fargo (carré rouge, texte jaune)
   UniCredit: '/assets/images/banks/UniCredit.png',   // icône rouge UniCredit (fond transparent), rognée
+  SocGen:    '/assets/images/banks/SocGen.png',      // logo Société Générale (carré rouge/noir)
+  HSBC:      '/assets/images/banks/HSBC.png',        // hexagone rouge HSBC (fond transparent), rogné
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
