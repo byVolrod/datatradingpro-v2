@@ -232,6 +232,19 @@
   @media(max-width:1080px){.features{grid-template-columns:repeat(3,1fr)}}
   @media(max-width:820px){.features{grid-template-columns:repeat(2,1fr)}}
   @media(max-width:520px){.features{grid-template-columns:1fr}}
+  /* Ressources */
+  #ressources .res-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+  .res-card{background:var(--bg1);border:1px solid var(--line);border-radius:13px;padding:22px 20px;transition:.18s;display:flex;flex-direction:column}
+  .res-card:hover{border-color:var(--line2);transform:translateY(-3px);background:var(--bg2)}
+  .res-cat{font-size:10px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--orange);margin-bottom:10px}
+  .res-card h3{font-size:17px;font-weight:700;margin-bottom:7px}
+  .res-card p{font-size:13.5px;color:var(--text2);line-height:1.5;flex:1}
+  .res-go{margin-top:14px;font-size:13px;font-weight:600;color:var(--orange)}
+  .res-card:hover .res-go{color:var(--orange2)}
+  .res-foot{margin-top:18px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:15px 20px;background:var(--bg1);border:1px solid var(--line);border-radius:12px;font-size:13.5px;color:var(--text2)}
+  .res-foot a{color:var(--orange);font-weight:600}
+  @media(max-width:880px){#ressources .res-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:560px){#ressources .res-grid{grid-template-columns:1fr}}
 
   /* ── SHOWCASE (terminal en action) ── */
   #showcase{border-top:1px solid var(--line)}
@@ -829,6 +842,26 @@
         <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18M6 6l12 12"/></svg> Pas de conseil en investissement personnalisé</li>
       </ul>
     </div>
+  </div>
+</section>
+
+<!-- RESSOURCES (apprendre) -->
+<section id="ressources">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="tag">Ressources</div>
+      <h2>Apprenez à exploiter le terminal</h2>
+      <p>Des guides clairs, pas-à-pas, pour chaque module — de la première connexion à la lecture avancée du marché.</p>
+    </div>
+    <div class="res-grid">
+      <a class="res-card" href="/documentation/prise-en-main.html"><span class="res-cat">Démarrer</span><h3>Prise en main</h3><p>Accès, première connexion, tour du terminal.</p><span class="res-go">Lire le guide →</span></a>
+      <a class="res-card" href="/documentation/smart-bias.html"><span class="res-cat">Module</span><h3>Smart Bias Tracker</h3><p>Lire la matrice de biais hebdomadaire par devise.</p><span class="res-go">Lire le guide →</span></a>
+      <a class="res-card" href="/documentation/news.html"><span class="res-cat">Module</span><h3>News priorisée</h3><p>Filtrer le flux par impact, devise et catégorie.</p><span class="res-go">Lire le guide →</span></a>
+      <a class="res-card" href="/documentation/calendrier.html"><span class="res-cat">Module</span><h3>Calendrier économique</h3><p>Réel vs prévision, Week Ahead, détail au clic.</p><span class="res-go">Lire le guide →</span></a>
+      <a class="res-card" href="/documentation/force-des-devises.html"><span class="res-cat">Module</span><h3>Force des devises</h3><p>Currency strength des 8 majeures, en direct.</p><span class="res-go">Lire le guide →</span></a>
+      <a class="res-card" href="/documentation/assistant-ia.html"><span class="res-cat">Module</span><h3>Assistant Macro IA</h3><p>Poser une question, obtenir une réponse sourcée.</p><span class="res-go">Lire le guide →</span></a>
+    </div>
+    <div class="res-foot"><span>De nouveaux guides régulièrement.</span><a href="/documentation/">Toute la documentation →</a></div>
   </div>
 </section>
 
