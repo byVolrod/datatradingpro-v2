@@ -4499,7 +4499,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wa-scroll { height: 100%; overflow-y: auto; background: #0c0c0e; }
 .wa-wrap { padding: 18px max(20px, calc((100% - 1040px) / 2)) 44px; }   /* colonne centrée façon DTP */
 .wa-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; }
-.wa-title { font-size: 18px; font-weight: 800; color: #fff; letter-spacing: -0.01em; }
+.wa-title { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: 0.02em; text-transform: uppercase; }   /* titre de vue harmonisé (hiérarchie cohérente) */
 .wa-week { font-size: 12px; color: #e28b41; font-weight: 600; font-family: var(--font-mono); }
 .wa-empty { padding: 46px 24px; color: #8a8a90; font-size: 13px; text-align: center; line-height: 1.6; }
 .wa-prep { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 50px 24px; }
@@ -4584,8 +4584,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wa3.wa-dragging .wa3-vsplit, .wa3.wa-dragging .wa3-hsplit { pointer-events: auto; }
 .wa3-right { display: grid; grid-template-rows: var(--wa-top, 1fr) 6px minmax(0,1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .wa3-panel { background: #0c0c0e; display: flex; flex-direction: column; min-height: 0; }
-.wa3-phead { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #1c1c20; background: #121216; flex: 0 0 auto; }
-.wa3-ptitle { font-size: 13px; font-weight: 700; color: #f0f0f2; }
+.wa3-phead { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--bg3); flex: 0 0 auto; }   /* aligné sur .panel-header (cohérence inter-onglets) */
+.wa3-ptitle { font-size: 11px; font-weight: 500; color: var(--text); letter-spacing: 0.03em; }   /* = .panel-title (identité graphique homogène) */
 .wa3-pmeta { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10.5px; color: #f7941d; letter-spacing: .04em; }
 .wa3-live { margin-left: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: .1em; color: #00e676; display: inline-flex; align-items: center; gap: 5px; }
 .wa3-live::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #00e676; box-shadow: 0 0 5px rgba(0,230,118,.5); }
@@ -8367,12 +8367,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .taux-bias { color: #a6a6ad; max-width: 380px; font-size: 12px; line-height: 1.45; }
 .taux-loading, .taux-empty { text-align: center; color: #6f6f78; padding: 44px 0; }
 /* ── TAUX : grille 4 colonnes haute densité (cartes "Interest Rate Probability", estimation maison) ── */
-.taux-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; padding: 10px; overflow-y: auto; align-content: start; flex: 1 1 auto; min-height: 0; }
-@media (max-width: 1560px) { .taux-grid { grid-template-columns: repeat(3, 1fr); } }
+.taux-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, minmax(0,1fr)); gap: 8px; padding: 8px; overflow: hidden; align-content: stretch; flex: 1 1 auto; min-height: 0; }   /* MONOBLOC 4×2 : 8 banques sur un écran, sans scroll */
+@media (max-width: 1560px) { .taux-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; overflow-y: auto; align-content: start; } }
 @media (max-width: 1180px) { .taux-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px)  { .taux-grid { grid-template-columns: 1fr; } }
-.rtc { background: #0c0c0f; border: 1px solid #1c1c20; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; }
-.rtc-head { display: flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 10px; border-bottom: 1px solid #18181c; }
+.rtc { background: #0c0c0f; border: 1px solid #1c1c20; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
+.rtc-head { display: flex; align-items: center; gap: 7px; min-height: 33px; padding: 0 10px; border-bottom: 1px solid #18181c; flex: 0 0 auto; }
 .rtc-flag { width: 18px; height: 18px; object-fit: cover; border-radius: 50%; border: 1px solid #1c1c20; flex: 0 0 auto; }
 .rtc-bank { font-size: 12px; font-weight: 700; color: #f0f0f2; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rtc-bank i { color: #6f6f78; font-style: normal; font-weight: 400; font-size: 11px; }
@@ -8382,13 +8382,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rtc-move.g, .rtc-base.g { background: rgba(0,218,80,.14); color: #00da50; border-color: rgba(0,218,80,.5); }
 .rtc-move.r, .rtc-base.r { background: rgba(255,61,0,.14); color: #ff4d2e; border-color: rgba(255,61,0,.5); }
 .rtc-move.n, .rtc-base.n { background: rgba(171,180,195,.12); color: #abb4c3; border-color: rgba(171,180,195,.4); }
-.rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); }
+.rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); flex: 0 0 auto; }
 .rtc-metrics > div { display: flex; flex-direction: column; gap: 2px; padding: 7px 8px; border-right: 1px solid #131316; border-bottom: 1px solid #131316; min-width: 0; }
 .rtc-metrics > div:last-child { border-right: 0; }
 .rtc-k { font-size: 8px; text-transform: uppercase; letter-spacing: .03em; color: #6a6a73; white-space: nowrap; }
 .rtc-v { font-size: 12px; font-weight: 700; color: #e6e9ef; font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .rtc-v.g { color: #00da50; } .rtc-v.r { color: #ff4d2e; } .rtc-v.n { color: #abb4c3; }
-.rtc-dist { display: flex; flex-direction: column; gap: 4px; padding: 10px 10px 6px; }
+.rtc-dist { display: flex; flex-direction: column; gap: 4px; padding: 10px 10px 6px; flex: 0 0 auto; }
 .rtc-bar { display: flex; align-items: center; gap: 7px; font-size: 10.5px; }
 .rtc-bl { width: 54px; color: #8a8a93; flex: 0 0 auto; }
 .rtc-track { flex: 1; height: 12px; background: #15151b; border-radius: 3px; }
