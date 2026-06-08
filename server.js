@@ -182,7 +182,7 @@ function _wsUserIdFromReq(req) {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz']);
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker']);
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/'];
 
 function requireAuth(req, res, next) {
