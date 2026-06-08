@@ -4190,6 +4190,7 @@ function renderBrList() {
 // reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
 // identifiable) → "DTP". On ne met JAMAIS "ING" par défaut.
 const _INST_BANKS = [
+  [/\bblackrock\b/i, 'BlackRock'],
   [/\bmufg\b|mitsubishi ufj/i, 'MUFG'], [/\buob\b/i, 'UOB'], [/\bocbc\b/i, 'OCBC'],
   [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman'],
   [/\bmorgan stanley\b/i, 'MS'], [/\bjp ?morgan\b/i, 'JPM'], [/\bciti\b/i, 'Citi'],
@@ -4216,6 +4217,7 @@ const _BANK_BRAND = {
   SocGen: '#e60028', BNP: '#00915a', StanChart: '#1b8fea', BofA: '#1f5fb0', Wells: '#d71e28',
   NatWest: '#7b3fa0', Rabo: '#fe6e00', Scotia: '#ec111a', Westpac: '#d5002b', Commerz: '#e7b000',
   NAB: '#c20029', ANZ: '#1b8fea', Nordea: '#0000a0', SEB: '#5ca800',
+  BlackRock: '#ededf0',
 };
 function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
 // Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
@@ -4261,6 +4263,29 @@ function _brFixImages(root) {
   });
 }
 
+// PDF natif (BlackRock weekly commentary…) : on affiche le VRAI PDF distant dans un iframe
+// (barre Ouvrir/Télécharger + repli lien). Aucune extraction serveur, aucun AI Insights (le
+// serveur ne peut pas lire le PDF — BlackRock est derrière Akamai ; c'est le navigateur de
+// l'utilisateur qui charge le PDF directement depuis blackrock.com).
+function _brShowNativePdf(item) {
+  const content = document.getElementById('br-rcontent');
+  if (!content) return;
+  content.classList.add('br-rcontent--pdf');
+  const brIns = document.getElementById('br-ai-insights'); if (brIns) brIns.innerHTML = '';
+  const brBtn = document.getElementById('br-insights-btn'); if (brBtn) brBtn.style.display = 'none';
+  const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+  const inst = _instBadge(item);
+  const safe = (item.url || '').replace(/"/g, '%22');
+  const ttl  = (item.title || 'PDF').replace(/"/g, '');
+  content.innerHTML =
+    `<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 ${inst} — Weekly commentary${dateStr ? ' · ' + dateStr : ''}</span>` +
+    `<span class="br-pdf-bar-actions">` +
+    `<a class="br-pdf-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir ↗</a>` +
+    `<a class="br-pdf-btn" href="${safe}" download>⬇ Télécharger</a></span></div>` +
+    `<iframe class="br-pdf-frame" src="${safe}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>` +
+    `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le PDF ne s'affiche pas ? <a href="${safe}" target="_blank" rel="noopener" style="color:#ff7a00">Ouvrez-le dans un nouvel onglet ↗</a></div>`;
+}
+
 function renderBrReader(item) {
   // Masquer la liste, afficher le reader en pleine largeur
   document.getElementById('br-list-view')?.classList.add('hidden');
@@ -4274,6 +4299,8 @@ function renderBrReader(item) {
   if (titleEl) titleEl.textContent = item.title;
   if (badge)   badge.textContent   = _instBadge(item);
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
+  // ── PDF natif (BlackRock weekly commentary…) : embarque le VRAI PDF, pas d'extraction HTML/IA ──
+  if (item && (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || ''))) return _brShowNativePdf(item);
   if (content) { content.classList.remove('br-rcontent--pdf'); content.innerHTML = dtpLoader('Chargement de l’article…'); }
 
   // ── AI Insights (comme l'onglet Analyst) ──
@@ -4286,7 +4313,7 @@ function renderBrReader(item) {
   if (brIns) { brIns.innerHTML = ''; _loadAIInsights(item, brIns); }
   // Bouton Afficher/Masquer Insights
   const brBtn = document.getElementById('br-insights-btn');
-  if (brBtn) { brBtn.innerHTML = `${_EYE_OFF} Masquer Insights`; brBtn.onclick = () => aiInsToggle(brBtn, 'br-ai-insights'); }
+  if (brBtn) { brBtn.style.display = ''; brBtn.innerHTML = `${_EYE_OFF} Masquer Insights`; brBtn.onclick = () => aiInsToggle(brBtn, 'br-ai-insights'); }
 
   const dateStr = item.timestamp
     ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })

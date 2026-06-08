@@ -12,6 +12,7 @@ const Anthropic = require('@anthropic-ai/sdk');
 const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHistoricalNews } = require('./scrapers/financialjuice');
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail } = require('./scrapers/forexfactory-news');
+const { scrapeBlackRock } = require('./scrapers/blackrock');   // BlackRock Investment Institute — Weekly Commentary (PDF hebdo, Puppeteer best-effort)
 const { fetchTVCalendar, fetchTVCalendarFull } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
@@ -2326,6 +2327,40 @@ async function _fetchScotiaInto(merged, cutoff, UA) {
   }
 }
 
+// BlackRock Investment Institute — "Weekly market commentary" (PDF hebdo officiels).
+// Page derrière Akamai (403 en HTTP) → découverte via Puppeteer (scrapers/blackrock.js, best-effort).
+// On garde TOUJOURS un seed 2026 (liens PDF officiels vérifiés) pour le backfill, même si Akamai
+// bloque. Chaque item = lien direct vers le VRAI PDF (ouvert/embarqué côté client, aucune extraction serveur).
+const BLACKROCK_SEED = [
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260112-us-earnings-broadening-strength.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260302-rethinking-long-term-investing.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260309-gauging-the-mideast-supply-shock.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260330-mideast-shock-fuels-investing-themes.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260413-back-to-overweight-us-stocks.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260504-earnings-strength-keeps-us-risk-on.pdf',
+  'https://www.blackrock.com/us/individual/literature/market-commentary/weekly-investment-commentary-en-us-20260511-record-us-stocks-disconnect-or-not.pdf',
+];
+function _blackrockItemFromUrl(url) {
+  const m = String(url || '').match(/weekly-investment-commentary-en-us-(\d{4})(\d{2})(\d{2})-([a-z0-9-]+)\.pdf/i);
+  if (!m) return null;
+  const ts = Date.parse(`${m[1]}-${m[2]}-${m[3]}T12:00:00Z`);
+  if (isNaN(ts)) return null;
+  const title = m[4].replace(/-/g, ' ').trim()
+    .replace(/\b\w/g, c => c.toUpperCase())
+    .replace(/\b(Us|Uk|Eu|Ai|Fx|Em|Esg|Ecb|Boj|Boe|Fed|Rba|Gdp|Cpi|Q1|Q2|Q3|Q4)\b/gi, x => x.toUpperCase());
+  const id = 'br-' + Buffer.from('blackrock-' + m[1] + m[2] + m[3] + '-' + m[4]).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+  return { id, title, url: url.split('#')[0].split('?')[0], timestamp: ts, categories: ['Macro'], description: '', institution: 'BlackRock', _source: 'blackrock', _pdf: true };
+}
+async function _fetchBlackRockInto(merged) {
+  // 1) Seed 2026 — toujours présent (0 fetch, garanti même si Akamai bloque le scrape).
+  for (const u of BLACKROCK_SEED) { const it = _blackrockItemFromUrl(u); if (it && !merged.has(it.id)) merged.set(it.id, it); }
+  // 2) Découverte temps réel des nouveaux PDF (Puppeteer best-effort, échec silencieux).
+  try {
+    const found = await scrapeBlackRock();
+    for (const f of (found || [])) { const it = _blackrockItemFromUrl(f && f.url); if (it && !merged.has(it.id)) merged.set(it.id, it); }
+  } catch (e) { console.warn('[BlackRock] découverte échec:', e.message); }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -2355,13 +2390,19 @@ async function _fetchBankResearch(full = false) {
   await _fetchSebInto(merged, cutoff, UA);
   // Scotiabank Economics (HTML statique) — fusionné dans le même cache
   await _fetchScotiaInto(merged, cutoff, UA);
+  // BlackRock Investment Institute (PDF hebdo) — seed 2026 garanti + découverte Puppeteer best-effort
+  await _fetchBlackRockInto(merged);
 
   const before = _brCache.length;
-  _brCache = [...merged.values()]
-    // Scotiabank exempté du cutoff d'âge (publications espacées : on garde toujours les dernières)
+  // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
+  // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
+  const _all  = [...merged.values()];
+  const _bron = _all.filter(i => i._source === 'blackrock');
+  const _rest = _all.filter(i => i._source !== 'blackrock')
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 180);   // plafond DUR (anti-OOM Render : chaque item peut porter un fullContent)
+  _brCache = [..._bron, ..._rest].sort((a, b) => b.timestamp - a.timestamp);
 
   try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
   _persistHistory('bank_research', _brCache);   // persistance durable (Supabase, rétention 1 mois)
