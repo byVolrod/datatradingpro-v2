@@ -2684,7 +2684,10 @@ window._retryCalendar = function() {
   const FLAG = { USD:'us', EUR:'eu', JPY:'jp', GBP:'gb', AUD:'au', CHF:'ch', CAD:'ca', NZD:'nz' };
   const CCY_NAME = { USD:'US Dollar', EUR:'Euro', JPY:'Japanese Yen', GBP:'British Pound', AUD:'Australian Dollar', CHF:'Swiss Franc', CAD:'Canadian Dollar', NZD:'New Zealand Dollar', XAU:'Gold', XAG:'Silver' };
   const NEWS_KW = { USD:'dollar|fed\\b|fomc|powell', EUR:'euro|ecb\\b|lagarde', JPY:'yen|boj\\b|ueda', GBP:'pound|sterling|boe\\b|bailey', AUD:'aussie|rba\\b', CHF:'franc|snb\\b', CAD:'loonie|boc\\b|macklem', NZD:'kiwi|rbnz\\b' };
+  const _RECENT_KEY = 'dtp_sym_recent';   // historique PERSISTANT (léger : ~6 codes de paire) — exception localStorage validée par l'utilisateur
   let _recent = [], _active = null, _tvPending = false, _subtab = 'overview';
+  try { const _r = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]'); if (Array.isArray(_r)) _recent = _r.filter(p => PAIRS.includes(p)).slice(0, 8); } catch {}
+  const _saveRecent = () => { try { localStorage.setItem(_RECENT_KEY, JSON.stringify(_recent.slice(0, 8))); } catch {} };
   // Caches volatils (réinitialisés au reload) → évitent de refetch à chaque changement de sous-onglet.
   let _cBias = null, _cCot = null, _cRates = null, _cFx = null, _cRetail = null;
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);
@@ -2772,7 +2775,7 @@ window._retryCalendar = function() {
 
   function openSymbol(pair) {
     _active = pair;
-    _recent = [pair, ..._recent.filter(p => p !== pair)].slice(0, 8);
+    _recent = [pair, ..._recent.filter(p => p !== pair)].slice(0, 8); _saveRecent();
     input.value = ''; hideDd(); try { input.blur(); } catch {}
     const nav = document.getElementById('topbar-nav');
     let tab = document.getElementById('nav-symbol');
