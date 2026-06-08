@@ -342,6 +342,28 @@ app.get('/api/auth/me', async (req, res) => {
   }
 });
 
+// ── Historique « Recent Searches » de la recherche symbole, PERSISTANT PAR COMPTE ──
+// Stockage léger via le KV durable Supabase (auth.aiCacheSet/Get), clé symrecent:<userId> → suit la
+// reconnexion (même sur un autre appareil). Valeur = { recent: [<6 codes de paire>] }. 0 schéma, 0 charge notable.
+const _SYM_RX = /^[A-Z]{6}$/;
+app.get('/api/sym-recent', async (req, res) => {
+  if (!req.session?.userId) return res.json({ recent: [] });
+  try {
+    const v = await auth.aiCacheGet('symrecent:' + req.session.userId);
+    const recent = (v && Array.isArray(v.recent)) ? v.recent.filter(p => typeof p === 'string' && _SYM_RX.test(p)).slice(0, 8) : [];
+    res.json({ recent });
+  } catch { res.json({ recent: [] }); }
+});
+app.post('/api/sym-recent', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const arr = Array.isArray(req.body?.recent) ? req.body.recent : [];
+    const recent = arr.filter(p => typeof p === 'string' && _SYM_RX.test(p)).slice(0, 8);
+    await auth.aiCacheSet('symrecent:' + req.session.userId, { recent });
+    res.json({ ok: true, recent });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
 // ─── Admin routes (admin only) — tous async pour Supabase ────────────────────
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
   try { res.json(await auth.getAllUsers()); }

@@ -2687,7 +2687,19 @@ window._retryCalendar = function() {
   const _RECENT_KEY = 'dtp_sym_recent';   // historique PERSISTANT (léger : ~6 codes de paire) — exception localStorage validée par l'utilisateur
   let _recent = [], _active = null, _tvPending = false, _subtab = 'overview';
   try { const _r = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]'); if (Array.isArray(_r)) _recent = _r.filter(p => PAIRS.includes(p)).slice(0, 8); } catch {}
-  const _saveRecent = () => { try { localStorage.setItem(_RECENT_KEY, JSON.stringify(_recent.slice(0, 8))); } catch {} };
+  const _saveRecent = () => {
+    try { localStorage.setItem(_RECENT_KEY, JSON.stringify(_recent.slice(0, 8))); } catch {}                       // cache local instantané
+    try { fetch('/api/sym-recent', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recent: _recent.slice(0, 8) }) }).catch(() => {}); } catch {}   // synchro compte (suit la reconnexion)
+  };
+  // Au chargement : on récupère l'historique LIÉ AU COMPTE (suit la reconnexion, même autre appareil).
+  // S'il existe côté serveur, il fait foi et re-synchronise le cache local.
+  fetch('/api/sym-recent').then(r => r.json()).then(d => {
+    if (d && Array.isArray(d.recent) && d.recent.length) {
+      _recent = d.recent.filter(p => PAIRS.includes(p)).slice(0, 8);
+      try { localStorage.setItem(_RECENT_KEY, JSON.stringify(_recent)); } catch {}
+      if (dd && !dd.classList.contains('hidden')) renderDd(input.value);   // rafraîchir si le menu est déjà ouvert
+    }
+  }).catch(() => {});
   // Caches volatils (réinitialisés au reload) → évitent de refetch à chaque changement de sous-onglet.
   let _cBias = null, _cCot = null, _cRates = null, _cFx = null, _cRetail = null;
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);

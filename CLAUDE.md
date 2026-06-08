@@ -22,7 +22,7 @@
 - Fond noir pur **`#0c0c0e`** / `#0a0a0c`, compact, **sans ombres portées**, angles carrés ou micro-arrondis (`3px`→`6px` max). Max de données par pixel (cockpit / salle de marché).
 - Lignes de séparation fines : `border-b` très sombre (≈ `neutral-900/60`, token `--hud-line`).
 - **Pas de dialogs natifs** (confirm/prompt/alert) → confirmations/édition **inline**.
-- **Volatilité** : historique de chat, position du splitter orange, etc. = **purement volatils**, reset au reload (**pas de localStorage**). **Exception validée par l'utilisateur** : l'historique « Recent Searches » de la recherche symbole (desk) **PERSISTE** via `localStorage` (clé `dtp_sym_recent`, ~6 codes de paire) → ne PAS le re-rendre volatil.
+- **Volatilité** : historique de chat, position du splitter orange, etc. = **purement volatils**, reset au reload (**pas de localStorage**). **Exception validée par l'utilisateur** : l'historique « Recent Searches » de la recherche symbole (desk) **PERSISTE PAR COMPTE** → source de vérité = KV Supabase `symrecent:<userId>` (endpoints `GET/POST /api/sym-recent`), récupéré au chargement (suit la reconnexion, même sur un autre appareil) ; `localStorage` (clé `dtp_sym_recent`) = simple cache instantané. Ne PAS le re-rendre volatil.
 
 ## Tokens sémantiques — états de marché (charte immuable)
 - **BUY / UPTREND / BULLISH** → vert émeraude vif `#00e676` (ou `#00cc99` turquoise selon contexte).
