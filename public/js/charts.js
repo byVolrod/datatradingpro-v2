@@ -2890,6 +2890,8 @@ window._retryCalendar = function() {
     const ccys = [c1, c2].filter(c => MAJORS.includes(c));
     const barLbl = document.getElementById('sym-bar-pair'); if (barLbl) barLbl.textContent = '[' + pretty(pair) + ']';
     const lbl = document.getElementById('sym-pair-lbl'); if (lbl) lbl.textContent = '[' + pretty(pair) + ']';
+    const cbBtn = document.querySelector('#sym-subtabs .sym-subtab[data-sub="cotbase"]'); if (cbBtn) cbBtn.textContent = 'COT ' + c1;
+    const cqBtn = document.querySelector('#sym-subtabs .sym-subtab[data-sub="cotquote"]'); if (cqBtn) cqBtn.textContent = 'COT ' + c2;
     if (_subtab === 'overview') renderOverview(pair, base, ccys);
     else if (_subtab === 'bias') renderBias(pair, c1, c2);
     else if (_subtab === 'cotbase') renderCot('sym-sub-cotbase', c1, pair, 'base');
