@@ -1864,6 +1864,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const MV = { HOLD: { lbl: 'Maintien', cls: 'n' }, HIKE: { lbl: 'Hausse', cls: 'g' }, CUT: { lbl: 'Baisse', cls: 'r' } };
     const fr  = d => { try { const p = String(d).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return d; } };
     const bps = v => (v > 0 ? '+' : '') + Number(v).toFixed(1) + ' bps';
+    const SPK = { HIKE: 'M0 14 L12 10 L24 12 L36 5 L48 2', CUT: 'M0 2 L12 6 L24 4 L36 10 L48 14', HOLD: 'M0 9 L12 7 L24 9 L36 7 L48 8' };
+    const SPC = { HIKE: '#00da50', CUT: '#ff4d2e', HOLD: '#abb4c3' };
     try {
       const r = await fetch('/api/rates');
       const d = await r.json();
@@ -1882,6 +1884,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return '<div class="rtc">'
           + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
           + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
+          + '<svg class="rtc-spark" width="48" height="16" viewBox="0 0 48 16" fill="none"><path d="' + (SPK[b.move] || SPK.HOLD) + '" stroke="' + (SPC[b.move] || SPC.HOLD) + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'
           + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
           + '<div class="rtc-metrics">'
           + '<div><span class="rtc-k">Prochain mvt</span><span class="rtc-v ' + mv.cls + '">' + mv.lbl + '</span></div>'
