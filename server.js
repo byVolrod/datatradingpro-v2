@@ -2562,26 +2562,33 @@ const RESEARCH_SPA_SITES = [
       { title: 'Nordic Outlook (March 2026)', url: 'https://research.danskebank.com/link/NordicOutlook,March26/$file/Nordic%20Outlook,%20March%2026.pdf', date: '2026-03-04', pdf: true },
       { title: 'FX Forecast Update — USD to weather AI valuation woes', url: 'https://research.danskebank.com/link/FXForecastUpdate181125/$file/FX%20Forecast%20Update_181125.pdf', date: '2025-11-18', pdf: true },
     ] },
-  { name: 'UniCredit', institution: 'UniCredit', source: 'unicredit', host: 'unicredit.eu',
-    url: 'https://www.the-investment-institute.unicredit.eu/en/',
-    hrefRe: /unicredit\.eu\/.*(?:coffee-break|the-compass|the-checkpoint|\/publication|\/insight|\/article|\.pdf|\/[0-9a-f]{8,})/i,
+  { name: 'UniCredit', institution: 'UniCredit', source: 'unicredit', host: 'unicreditgroup.eu',
+    url: 'https://www.unicreditgroup.eu/en/business/our-investment-insights.html',
+    hrefRe: /unicreditgroup\.eu\/content\/dam\/unicreditgroup-eu\/documents\/en\/business\/OurInvestmentInsights\/[^"'\s]+\.pdf/i,
     seed: [
-      { title: 'The Investment Institute — Monthly Outlook', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO.pdf', date: '2026-05-04', pdf: true },
-      { title: 'The Compass 2026: A Strategic Guide for Investors', url: 'https://www.unicreditgroup.eu/en/press-media/press-releases/2025/december/unicredit-investment-institute-presents--the-compass-2026---a-st.html', date: '2025-12-15' },
+      { title: 'The Compass Checkpoint — dernière édition (Investment Institute)', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO.pdf', date: '2026-04-21', pdf: true },
+      { title: 'The Compass 2026: A Strategic Guide for Investors in a Year of Adjustment', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/The-Compass-2026_English.pdf', date: '2025-12-04', pdf: true },
+      { title: 'The Compass 2026 — Strategic Outlook (press release)', url: 'https://www.unicreditgroup.eu/en/press-media/press-releases/2025/december/unicredit-investment-institute-presents--the-compass-2026---a-st.html', date: '2025-12-04' },
+      { title: 'The Investment Institute — The Compass Checkpoint, 16 July 2025', url: 'https://www.unicreditgroup.eu/content/dam/unicreditgroup-eu/documents/en/business/OurInvestmentInsights/DEF_ENG_MO_JUL25.pdf', date: '2025-07-16', pdf: true },
     ] },
-  { name: 'Société Générale', institution: 'Societe Generale', source: 'socgen', host: 'sgmarkets.com',
-    url: 'https://insight-public.sgmarkets.com/insights?categories=15%2B12%2B6%2B18%2B4',
-    hrefRe: /sgmarkets\.com\/(?:insights?\/[a-z0-9].+|publication|article|content|videos\/[a-z0-9].+)/i,
+  { name: 'Société Générale', institution: 'Societe Generale', source: 'socgen', host: 'societegenerale.com',
+    url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/tagfilter/cross-asset-research/',
+    hrefRe: /societegenerale\.com\/(?:en\/news-insights\/.*news-details\/news\/[^"'?#\s]+\/|[^"'\s]*\.pdf)/i,
     seed: [
-      { title: 'SG Cross Asset Research — Latest Insights', url: 'https://insight-public.sgmarkets.com/insights?categories=15%2B12%2B6%2B18%2B4', date: '2026-06-08' },
+      { title: "Asia's 2026 Market Outlook: Resilience amid rotation", url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/asias-2026-market-outlook-resilience-amid-rotation-1/', date: '2025-12-11' },
+      { title: 'Structured Products in 2026: Redefining Control in Uncertain Markets', url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/structured-products-in-2026-redefining-control-in-uncertain-markets/', date: '2025-12-08' },
+      { title: 'Weekly Update — In 2026, governments will shape interest rates', url: 'https://www.privatebanking.societegenerale.com/en/insights/weekly-update-2026-will-the-governments-that-will-shape-the-interest-rates/', date: '2025-12-05', pdf: true },
+      { title: 'The ECB can cut its rates further (SG Cross Asset Research)', url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/the-ecb-can-cut-its-rates-further/', date: '2025-05-06' },
     ] },
   { name: 'CIBC', institution: 'CIBC', source: 'cibc', host: 'cibccm.com',
     url: 'https://economics.cibccm.com/',
-    hrefRe: /cibccm\.com\/(?:cds\?id=[0-9a-f-]+|en\/(?:research|insights)\/).+/i,
+    hrefRe: /cibccm\.com\/cds\?(?:[^"'\s]*&)?(?:flag=E&)?id=[0-9a-f-]{8,}/i,
     seed: [
-      { title: 'Economics & FICC Strategy — Forecast Update', url: 'https://economics.cibccm.com/cds?id=397aa355-2b74-4665-abb8-f63b2d4be59e&flag=E', date: '2026-02-11' },
-      { title: 'Economics & FICC Strategy — Forecast Update', url: 'https://economics.cibccm.com/cds?id=bd5c0060-20fa-49f3-b22e-c2aa9868975a&flag=E', date: '2026-01-15' },
-      { title: 'Economics & FICC Strategy — Forecast Update', url: 'https://economics.cibccm.com/cds?id=1cd05bcf-60ad-47c2-9a5c-e86d913f8c91&flag=E', date: '2026-01-05' },
+      { title: 'Economics — The Week Ahead (Mar 30 – Apr 3, 2026)', url: 'https://economics.cibccm.com/cds?id=d3922370-e2fa-4a54-9738-caadcdef12be&flag=E', date: '2026-03-27', pdf: true },
+      { title: 'Economics — In Focus (March 2, 2026)', url: 'https://economics.cibccm.com/cds?id=e07b6277-f16e-4c01-889b-97a0c37210b0&flag=E', date: '2026-03-02', pdf: true },
+      { title: 'Economics — Economic Flash! (February 27, 2026)', url: 'https://economics.cibccm.com/cds?id=73b0487c-2691-47dc-a05d-b540ddd20d76&flag=E', date: '2026-02-27', pdf: true },
+      { title: 'Economics & FICC Strategy — Forecast Update Table (February 11, 2026)', url: 'https://economics.cibccm.com/cds?id=397aa355-2b74-4665-abb8-f63b2d4be59e&flag=E', date: '2026-02-11', pdf: true },
+      { title: 'Economics — The Week Ahead (Feb 2 – 6, 2026)', url: 'https://economics.cibccm.com/cds?id=8b680879-2c84-4142-ac28-449cd08cbc9b&flag=E', date: '2026-02-02', pdf: true },
     ] },
   { name: 'Nordea', institution: 'Nordea', source: 'nordea', host: 'nordea.com',
     url: 'https://corporate.nordea.com/research/series/181/macro-markets-strategy',
@@ -2603,14 +2610,41 @@ const RESEARCH_SPA_SITES = [
     ] },
   { name: 'KBC', institution: 'KBC', source: 'kbc', host: 'kbc.com',
     url: 'https://www.kbc.com/en/economics.html',
-    hrefRe: /kbc\.com\/en\/economics\/publications\/.+\.html/i,
+    hrefRe: /kbc\.com\/en\/economics\/publications\/[^"'\s]+\.html/i,
     seed: [
       { title: 'Rising energy prices are pulling climate action in two directions', url: 'https://www.kbc.com/en/economics/publications/hogere-energieprijzen-trekken-klimaatactie-in-twee-richtingen.html', date: '2026-06-02' },
       { title: 'Economic Perspectives May 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-may-2026.html', date: '2026-05-22' },
-      { title: 'Wide valuation differences in EU housing markets', url: 'https://www.kbc.com/en/economics/publications/wide-valuation-differences-in-eu-housing-markets.html', date: '2026-05-18' },
-      { title: 'UAE quits OPEC as the cartel weakens — what does it mean for oil prices?', url: 'https://www.kbc.com/en/economics/publications/EconomicBriefs1.html', date: '2026-05-07' },
-      { title: 'Economic Perspectives April 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-april-2026.html', date: '2026-04-23' },
-      { title: 'Economic Perspectives March 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-march-2026.html', date: '2026-03-01' },
+      { title: 'The misery index revisited: what it tells us on the eve of yet another shock', url: 'https://www.kbc.com/en/economics/publications/the-misery-index-revisited.html', date: '2026-03-17' },
+      { title: 'Economic Perspectives April 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-april-2026.html', date: '2026-04-21' },
+      { title: 'Economic Perspectives March 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-march-2026.html', date: '2026-03-23' },
+      { title: 'Economic Perspectives February 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-february-2026.html', date: '2026-02-16' },
+    ] },
+  { name: 'Amundi', institution: 'Amundi', source: 'amundi', host: 'research-center.amundi.com',
+    url: 'https://research-center.amundi.com/',
+    hrefRe: /research-center\.amundi\.com\/article\/[^"'\s]+/i,
+    seed: [
+      { title: 'Global Investment Views — June 2026', url: 'https://research-center.amundi.com/article/global-investment-views-june-2026', date: '2026-06-04' },
+      { title: 'Global Investment Views — May 2026', url: 'https://research-center.amundi.com/article/global-investment-views-may-2026', date: '2026-05-06' },
+      { title: 'Cross Asset Investment Strategy — May 2026', url: 'https://research-center.amundi.com/article/cross-asset-investment-strategy-may-2026', date: '2026-05-05' },
+      { title: 'Rethinking global diversification', url: 'https://research-center.amundi.com/article/rethinking-global-diversification', date: '2026-05-22' },
+    ] },
+  { name: 'Westpac', institution: 'Westpac', source: 'westpac', host: 'westpaciq.com.au',
+    url: 'https://www.westpaciq.com.au/economics',
+    hrefRe: /westpaciq\.com\.au\/(?:economics|markets|article|publications?|research)\/[^"'\s]+/i,
+    seed: [
+      { title: 'Australian Business Conditions and Confidence, May', url: 'https://www.westpaciq.com.au/economics/2026/06/australian-business-conditions-may-2026', date: '2026-06-09' },
+      { title: 'Consumer Sentiment — Consumers still down in the dumps', url: 'https://www.westpaciq.com.au/economics/2026/06/matthew-csi-video-june-2026', date: '2026-06-10' },
+      { title: 'Morning Report', url: 'https://www.westpaciq.com.au/economics/2026/06/Morning-report-10-Jun-2026', date: '2026-06-10' },
+      { title: 'Around the Grounds — Markets', url: 'https://www.westpaciq.com.au/markets/2026/06/around-the-grounds-20260610', date: '2026-06-10' },
+    ] },
+  { name: 'QCAM', institution: 'QCAM', source: 'qcam', host: 'q-cam.com',
+    url: 'https://q-cam.com/news-publications/',
+    hrefRe: /q-cam\.com\/news_type\/[^"'\s]+/i,
+    seed: [
+      { title: 'QCAM Insight — Currency Update March 2026', url: 'https://q-cam.com/news_type/qcam-insight-currency-update-march-2026/', date: '2026-03-24' },
+      { title: 'FX Now! The Week Ahead — An FX compass in Central Bank Weeks', url: 'https://q-cam.com/news_type/fx-now-the-week-ahead/', date: '2026-03-16' },
+      { title: 'Temporary Shock or Game Changer?', url: 'https://q-cam.com/news_type/temporary-shock-or-game-changer/', date: '2026-03-05' },
+      { title: 'Two-Way Volatility Risks — QCAM Monthly (January 2026)', url: 'https://q-cam.com/news_type/two-way-volatility-risks-qcam-monthly-january-2026/', date: '2026-01-08' },
     ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
@@ -2751,7 +2785,7 @@ async function _fetchBankResearch(full = false) {
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc', 'amundi', 'westpac', 'qcam'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
