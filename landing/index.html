@@ -58,7 +58,7 @@
   .skip-link{position:absolute;left:-9999px;top:0;z-index:1000;background:var(--orange);color:#0a0a0a;padding:10px 16px;font-weight:700;border-radius:0 0 8px 0}
   .skip-link:focus{left:0}
   img{max-width:100%;display:block}
-  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(20px,4.5vw,24px)}
   h1,h2{font-family:var(--serif);font-weight:800;letter-spacing:-.01em}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:14px;padding:12px 22px;border-radius:8px;border:1px solid transparent;cursor:pointer;transition:.16s;white-space:nowrap}
   .btn-primary{background:var(--orange);color:#0a0a0a}
@@ -309,8 +309,15 @@
   @media(max-width:640px){.stats-grid{grid-template-columns:repeat(2,1fr)}.stat{min-height:128px;padding:18px 14px 20px}.stats-head-sub{display:none}}
 
   /* ── SECTIONS ── */
-  section{padding:clamp(58px,8.5vw,94px) 0}
+  section{padding:clamp(62px,8.5vw,94px) 0}
   .sec-head{text-align:center;max-width:680px;margin:0 auto clamp(38px,5vw,54px)}
+  /* Aération mobile : plus d'air entre les blocs + titres qui respirent */
+  @media(max-width:600px){
+    .sec-head{margin-bottom:clamp(30px,8vw,42px)}
+    h1,h2,.dtp-ov-title,.dtpov-title,.dtp-sec3-title,.dtp-sec4-lead,.dtp-sec7-headline{line-height:1.14}
+    .features,.steps,#ressources .res-grid,#mission .mission-grid{gap:16px}
+    .price-card{margin-left:auto;margin-right:auto}
+  }
   .sec-head .tag{font-size:12.5px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:.09em}
   .sec-head h2{font-size:clamp(27px,4.6vw,44px);line-height:1.1;margin:12px 0}
   .sec-head p{color:var(--text2);font-size:clamp(15px,2vw,16.5px)}
