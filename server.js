@@ -4437,6 +4437,43 @@ function _sbSentimentRow() {
   return out;
 }
 
+// Biais par BANQUE et par devise, dérivé de la recherche RÉELLE de chaque banque (onglet Institution).
+// → Couvre AUTOMATIQUEMENT toute banque présente dans _brCache : ajouter une source banque dans
+//   Institution la fait apparaître ici. 1 appel IA/banque (hebdo, caché). Repli : {} (le front retombe
+//   alors sur les positions de trade). N'invente rien (basé sur les titres de recherche réels).
+async function _sbBankStances() {
+  if (!Array.isArray(_brCache) || !_brCache.length) return {};
+  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;   // ~2 semaines de recherche récente
+  const byBank = new Map();
+  for (const a of _brCache) {
+    if (!a || !a.institution || (a.timestamp || 0) < cutoff) continue;
+    const arr = byBank.get(a.institution) || [];
+    if (arr.length < 8) arr.push(`${a.title || ''}${a.description ? ' — ' + String(a.description).replace(/<[^>]*>/g, ' ').slice(0, 160) : ''}`);
+    byBank.set(a.institution, arr);
+  }
+  const out = {};
+  const OKV = ['Very Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bearish'];
+  for (const [bank, heads] of byBank) {
+    if (!aiAllowed('bank', { scheduled: true })) break;   // budget IA épuisé → on s'arrête (repli côté front)
+    const digest = heads.join('\n').slice(0, 1800);
+    const prompt = `Tu es analyste FX. D'après UNIQUEMENT les titres de recherche récents de la banque "${bank}" ci-dessous, déduis son biais directionnel sur chaque devise majeure (${SB_CURRENCIES.join(', ')}).
+Réponds UNIQUEMENT en JSON: {${SB_CURRENCIES.map(c => `"${c}":"Bullish|Bearish|Neutral"`).join(',')}}. Si la banque ne se prononce pas clairement sur une devise → "Neutral". N'invente RIEN.
+
+Recherche ${bank} :
+${digest}`;
+    try {
+      aiNote('bank');
+      const t = await aiSmart('bank', prompt, 220, { scheduled: true });
+      const m = (t || '').match(/\{[\s\S]*\}/); if (!m) continue;
+      const obj = JSON.parse(m[0]);
+      const st = {};
+      for (const c of SB_CURRENCIES) if (OKV.includes(obj[c])) st[c] = obj[c];
+      if (Object.keys(st).length) out[(bank || '').replace(/\s+Research$/i, '').trim()] = st;
+    } catch (e) { /* best-effort : banque suivante */ }
+  }
+  return out;
+}
+
 // Seasonality RÉELLE (même méthodo que market-bulls : rendement moyen du mois civil sur 5 ans),
 // dérivée de la courbe saisonnière déjà calculée par FX List (_seasonal) → AUCUN fetch en plus, AUCUNE IA.
 // Par paire : rendement saisonnier du MOIS COURANT = seasonal[m] - seasonal[m-1] (courbe cumulée Jan→Déc).
@@ -4665,6 +4702,10 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
       if (n) { narrative = Object.assign({}, narrative || {}, n); for (const _c of Object.keys(n)) narrativeBias[_c] = conclusion[_c]; }
     } catch {}
   }
+  // Biais par BANQUE (toutes les banques d'Institution) — recalculé si l'IA est dispo, sinon on
+  // conserve le précédent (le front retombe sur les positions si rien). 0 invention.
+  let bankStances = (_smartBias && _smartBias.bankStances) || {};
+  if (aiOk) { try { const bsr = await _sbBankStances(); if (bsr && Object.keys(bsr).length) bankStances = bsr; } catch {} }
   // Versioning : on archive la semaine sortante (max 5 semaines distinctes) quand on bascule sur une NOUVELLE semaine.
   try {
     if (_smartBias && _smartBias.generatedAt && Array.isArray(_smartBias.rows) && _smartBias.rows.length
@@ -4675,7 +4716,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
       auth.aiCacheSet('smartbias:history', _smartBiasHistory).catch(() => {});
     }
   } catch {}
-  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, narrativeBias, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
+  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, narrativeBias, bankStances, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
   // NB : on NE remplit PLUS le repli dans _smartBias.narrative (il reste IA-seul). Le repli data-driven est
   // ajouté UNIQUEMENT à l'affichage par _sbFillNarrative → le retry IA (_sbEnsureNarrative) régénère ce qui manque.
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
@@ -4746,24 +4787,35 @@ async function _sbEnsureNarrative() {
   // À régénérer : narratif absent / repli / TRONQUÉ, OU narratif dont le biais ne reflète PLUS le
   // Overall courant (cohérence garantie narratif ↔ matrice).
   const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]) || nb[c] !== concl[c]);
-  if (!missing.length) return;                                                    // tous réels ET cohérents → rien à régénérer
+  const needBank = !_smartBias.bankStances || !Object.keys(_smartBias.bankStances).length;   // biais par banque pas encore rempli
+  if (!missing.length && !needBank) return;                                       // tout réel/cohérent ET banques OK → rien à faire
   if (_sbNarrBusy) return;
   if (typeof _aiQuietHours === 'function' && _aiQuietHours()) return;             // heures creuses → on attend
   if (Date.now() - _sbNarrLastTry < 10 * 60 * 1000) return;                       // 1 tentative / 10 min max
   _sbNarrBusy = true; _sbNarrLastTry = Date.now();
   try {
-    const narr = await _sbGenerateNarratives(_smartBias.rows, _smartBias.conclusion, _smartBias.ctxLines || [], missing);
-    if (narr && Object.keys(narr).length) {
-      _smartBias.narrative = Object.assign({}, _smartBias.narrative || {}, narr); // merge : garde l'existant réel, ajoute les régénérés
-      _smartBias.narrativeBias = Object.assign({}, _smartBias.narrativeBias || {});
-      for (const c of Object.keys(narr)) _smartBias.narrativeBias[c] = concl[c];   // tag = Overall reflété par le nouveau texte
+    let changed = false, doneN = 0;
+    if (missing.length) {
+      const narr = await _sbGenerateNarratives(_smartBias.rows, _smartBias.conclusion, _smartBias.ctxLines || [], missing);
+      if (narr && Object.keys(narr).length) {
+        _smartBias.narrative = Object.assign({}, _smartBias.narrative || {}, narr); // merge : garde l'existant réel, ajoute les régénérés
+        _smartBias.narrativeBias = Object.assign({}, _smartBias.narrativeBias || {});
+        for (const c of Object.keys(narr)) _smartBias.narrativeBias[c] = concl[c];   // tag = Overall reflété par le nouveau texte
+        doneN = Object.keys(narr).length; changed = true;
+      }
+    }
+    if (needBank) {   // remplit le biais par banque (toutes les banques d'Institution) dès que l'IA est dispo
+      const bs = await _sbBankStances();
+      if (bs && Object.keys(bs).length) { _smartBias.bankStances = bs; changed = true; }
+    }
+    if (changed) {
       try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
       auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});            // DURABLE → survit aux restarts
-      try { broadcast({ type: 'smartbias_update', bias: _sbFillNarrative(_smartBias) }); } catch {} // MAJ live (narratif résolu)
+      try { broadcast({ type: 'smartbias_update', bias: _sbFillNarrative(_smartBias) }); } catch {} // MAJ live
       const done = SB_CURRENCIES.filter(c => _sbIsRealNarrative((_smartBias.narrative || {})[c])).length;
-      console.log(`[SmartBias] narratif IA (retry ciblé) : ${Object.keys(narr).length} régénéré(s) → ${done}/${SB_CURRENCIES.length} réels → cache + broadcast`);
+      console.log(`[SmartBias] retry IA : narratifs ${doneN} régénéré(s) (${done}/${SB_CURRENCIES.length} réels), banques ${Object.keys(_smartBias.bankStances || {}).length} → cache + broadcast`);
     }
-  } catch (e) { console.warn('[SmartBias] retry narratif échec:', e.message); }
+  } catch (e) { console.warn('[SmartBias] retry IA échec:', e.message); }
   finally { _sbNarrBusy = false; }
 }
 let _sbFreshBusy = false, _sbFreshLastTry = 0;
