@@ -803,7 +803,7 @@ app.put('/api/auth/me/profile', async (req, res) => {
 const REF_TARGET     = parseInt(process.env.REFERRAL_TARGET || '3', 10);   // 3 parrainages = 1 mois offert
 const REF_BONUS_DAYS = parseInt(process.env.REFERRAL_BONUS_DAYS || '30', 10);
 const REF_MAX_AGE_DAYS = parseInt(process.env.REFERRAL_MAX_AGE_DAYS || '45', 10); // le filleul doit être un compte récent
-const REF_BASE_URL   = process.env.REFERRAL_BASE_URL || 'https://datatradingpro.com';
+const REF_BASE_URL   = process.env.REFERRAL_BASE_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp';
 const KV_FOREVER     = 8640000000000;   // lit la valeur quel que soit son âge
 
 function _refMaskEmail(e) {
@@ -857,6 +857,7 @@ app.get('/api/referrals', async (req, res) => {
       count, target: REF_TARGET, progress: count % REF_TARGET,
       untilNext: (REF_TARGET - (count % REF_TARGET)) % REF_TARGET || REF_TARGET,
       rewards: rec.rewards || 0, bonusDays: rec.bonusDays || 0,
+      earnings: '0,00 €',   // modèle Whop affiliation : les gains réels viennent du dashboard Whop (à brancher)
       history: (rec.referrals || []).slice(-15).reverse()
     });
   } catch (e) { console.error('[Referral] get:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
