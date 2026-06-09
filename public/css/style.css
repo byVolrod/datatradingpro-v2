@@ -1512,18 +1512,19 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: 4px;               /* micro-badge HUD compact façon DTP */
-  font-size: 10.5px;
+  border-radius: 6px;               /* badge arrondi (façon référence) */
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.01em;
   white-space: nowrap;
   cursor: default;
 }
 
-.tag--default   { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #cfd4dc; }
-.tag--neutral   { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }
-.tag--orange    { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }
-.tag--blue      { background: #1a1a1e; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }
+.tag--default   { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
+.tag--neutral   { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
+.tag--orange    { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
+.tag--blue      { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
+.tag--default:hover, .tag--neutral:hover, .tag--orange:hover, .tag--blue:hover { background: #2f2f37; }
 .tag--green     { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.4); color: #ffffff; }
 .tag--red                    { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff; }
 .tag[data-cat="Sanctions"]   { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff !important; }
@@ -1550,7 +1551,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Hover : teinte un peu plus vive + contour plus net */
 .tag--info:hover     { color: #4fb39c; border-color: rgba(63,146,128,0.55); }
 .tag--analyse:hover  { color: #1898c2; border-color: rgba(0,122,163,0.55); }
-.tag--reaction:hover { background: #5f519e; border-color: #5f519e; color: #ffffff; }   /* survol = couleur inversée (rempli) */
+.tag--reaction:hover { background: rgba(95,81,158,0.18); border-color: #8d7ed6; color: #b9adff; }   /* survol = contour violet plus vif (pas rempli) */
 
 /* ACTIF = description DÉROULÉE → tag ALLUMÉ (Info cyan / Analyse bleu / Réaction violet).
    L'icône ⓘ hérite de la couleur (pas de règle .tag-icon → suit le `color` du tag). */
