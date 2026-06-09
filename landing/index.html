@@ -142,7 +142,7 @@
 
   /* ── HERO (inspiration terminal pro texte à gauche + image desk en fond) ── */
   .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:#070709}
-  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=2") center center/cover no-repeat;opacity:1;pointer-events:none}
+  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;opacity:1;pointer-events:none;filter:contrast(1.07) saturate(1.06) brightness(1.02);image-rendering:-webkit-optimize-contrast}
   .hero{position:relative;width:100%;min-height:620px;display:flex;align-items:center;overflow:hidden;background:#070709;border-bottom:1px solid var(--line)}
   .hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.92) 18%,rgba(7,7,9,.6) 42%,rgba(7,7,9,.2) 64%,rgba(7,7,9,0) 85%)}
   .hero .hero-inner{position:relative;z-index:2;width:100%;display:grid;grid-template-columns:1fr;gap:32px;align-items:center}
@@ -1005,9 +1005,10 @@
   width:44%;
   height:clamp(280px,32vw,400px);
   z-index:0;
-  background:#08080a url("/img/testimonial-trader.jpg?v=1") center left/cover no-repeat;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 78%,transparent 100%);
-  mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 78%,transparent 100%);
+  background:#08080a url("/img/testimonial-trader.jpg?v=2") center left/cover no-repeat;
+  filter:contrast(1.05) saturate(1.05);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 88%,transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 12%,#000 88%,transparent 100%);
 }
 
 /* ── Colonne gauche ── */
@@ -1500,6 +1501,11 @@
 }
 .dtp-sec7-view-all-cta:hover{color:#ffae42;gap:9px;}
 .dtp-sec7-view-all-cta i{font-size:10px;}
+.dtp-sec7-sources{display:flex;align-items:center;flex-wrap:wrap;gap:7px;padding:9px 16px;background:#0e0e12;border-bottom:1px solid #15151a;}
+.dtp-sec7-src-label{font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6f6f78;margin-right:2px;}
+.dtp-sec7-src{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;color:#cfcfd6;font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;background:#15151b;border:1px solid #20202a;border-radius:5px;padding:2px 7px;}
+.dtp-sec7-src i{width:5px;height:5px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;animation:dtpSec7Pulse 1.6s infinite;flex-shrink:0;}
+.dtp-sec7-src-count{font-size:10px;font-weight:700;color:#f7941d;margin-left:auto;}
 
 .dtp-sec7-news-list-stack{
   list-style:none;
@@ -2522,7 +2528,7 @@
   .dtp-sec3-preview{min-width:0;display:flex}
   .t3{width:100%;align-self:stretch;display:flex;flex-direction:column;background:#0a0a0c;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px -40px #000}
   .t3-top{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#0d0d10;border-bottom:1px solid var(--line)}
-  .t3-brand{font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap}
+  .t3-brand{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap;flex:0 0 auto}
   .t3-brand b{color:var(--orange)}
   .t3-search{flex:1;min-width:0;font-size:10.5px;color:var(--text3);background:#0a0a0c;border:1px solid var(--line);border-radius:6px;padding:5px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .t3-neutral{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.25);border-radius:5px;padding:4px 8px;white-space:nowrap}
@@ -2562,10 +2568,23 @@
   .dtp-ov-desc{font-size:clamp(14.5px,1.6vw,17px);color:var(--text2);line-height:1.6}
   .dash{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:#0a0a0c;box-shadow:0 40px 100px -50px #000}
   .dash-top{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#0d0d10;border-bottom:1px solid var(--line)}
-  .dash-brand{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap}
+  .dash-brand{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--text);white-space:nowrap;flex:0 0 auto}
   .dash-brand b{color:var(--orange)}
   .dash-search{flex:1;min-width:0;font-size:11px;color:var(--text3);background:#0a0a0c;border:1px solid var(--line);border-radius:6px;padding:6px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dash-ws{font-size:11px;color:var(--text2);white-space:nowrap}
+  /* ── Logo + icônes topbar fidèles au desk (maquettes) ── */
+  .mk-logo{width:19px;height:19px;border-radius:5px;overflow:hidden;flex:0 0 auto;display:inline-block}
+  .mk-logo svg{width:100%;height:100%;display:block}
+  .mk-tbicons{display:inline-flex;align-items:center;gap:6px;flex:0 0 auto}
+  .mk-ntrl{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.25);border-radius:5px;padding:3px 7px;white-space:nowrap;flex:0 0 auto}
+  .mk-ntrl i{width:6px;height:6px;border-radius:50%;background:var(--orange)}
+  .mk-ico{width:21px;height:21px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line);border-radius:6px;background:#0a0a0c;color:var(--text3);flex:0 0 auto}
+  .mk-ico svg{width:12px;height:12px;display:block}
+  .mk-ico.ai{border-color:rgba(0,218,80,.32);background:transparent;padding:0}
+  .mk-ico.ai svg{width:19px;height:19px}
+  .mk-ava{width:21px;height:21px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:9.5px;font-weight:800;color:#fff;background:linear-gradient(135deg,#f7941d,#a85706);flex:0 0 auto;position:relative}
+  .mk-ava::after{content:"";position:absolute;right:-1px;bottom:-1px;width:6px;height:6px;border-radius:50%;background:#22c55e;border:1.5px solid #0d0d10}
+  @media(max-width:620px){.mk-tbicons .mk-ico:nth-child(n+3){display:none}.mk-ntrl{display:none}}
   .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line)}
   .dash-w{background:#0a0a0c;padding:11px 13px;min-width:0;min-height:150px}
   .dash-wh{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:var(--text);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--line)}
@@ -3006,9 +3025,16 @@ img,video{height:auto}
 
     <div class="dash" aria-hidden="true">
       <div class="dash-top">
-        <span class="dash-brand"><b>DTP</b>&nbsp;DataTradingPro</span>
+        <span class="dash-brand"><span class="mk-logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="35" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="30" letter-spacing="-1.5" fill="#fff">DT<tspan fill="#f7941d">P</tspan></text></svg></span>DataTradingPro</span>
         <span class="dash-search">Rechercher un symbole…</span>
-        <span class="dash-ws">Workspace 1 ▾</span>
+        <span class="mk-ntrl"><i></i> NEUTRAL ▾</span>
+        <span class="mk-tbicons">
+          <span class="mk-ico ai"><svg viewBox="0 0 17 17" fill="none"><path d="M0.00176811 3.09868C0.156673 1.47465 1.46488 0.149026 3.09032 0L13.9156 0.0102899C15.5259 0.179541 16.844 1.53993 16.9458 3.16716C17.1177 5.92272 16.8139 8.85782 16.9437 11.6322C16.8044 13.2463 15.4406 14.6212 13.8219 14.7326C12.8154 14.8018 11.7356 14.6716 10.7217 14.7387L8.76769 16.9215C8.55938 17.0362 8.30404 17.0291 8.11907 16.8747L6.22414 14.7387C5.20983 14.672 4.13009 14.8022 3.12392 14.7326C1.48999 14.6202 0.125906 13.2289 0 11.5985L0.00176811 3.09832V3.09868Z" fill="#0F3B21"/><path d="M6.27815 4.25H7.6669L9.69505 10.1291H8.52722L8.10907 8.86654H5.83633L5.41005 10.1291H4.25L6.27815 4.25ZM7.80086 7.91927L6.97235 5.44151L6.14384 7.91927H7.80086Z" fill="#00DA50"/><path d="M10.3511 4.25H11.4242V10.1291H10.3511V4.25Z" fill="#00DA50"/></svg></span>
+          <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/><path d="M6.2 6.2a8 8 0 0 0 0 11.6M17.8 6.2a8 8 0 0 1 0 11.6"/></svg></span>
+          <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H7l-3 3V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2z"/><path d="M18 9h1a2 2 0 0 1 2 2v9l-3-3h-5a2 2 0 0 1-2-2v-1"/></svg></span>
+          <span class="mk-ava">A</span>
+        </span>
       </div>
       <div class="dash-grid">
 
@@ -3122,9 +3148,16 @@ img,video{height:auto}
     <div class="dtp-sec3-preview" aria-hidden="true">
       <div class="t3">
         <div class="t3-top">
-          <span class="t3-brand"><b>DTP</b>&nbsp;DataTradingPro</span>
+          <span class="t3-brand"><span class="mk-logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="35" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="30" letter-spacing="-1.5" fill="#fff">DT<tspan fill="#f7941d">P</tspan></text></svg></span>DataTradingPro</span>
           <span class="t3-search">Rechercher un symbole…</span>
-          <span class="t3-neutral"><i></i> NEUTRAL</span>
+          <span class="mk-ntrl"><i></i> NEUTRAL ▾</span>
+          <span class="mk-tbicons">
+            <span class="mk-ico ai"><svg viewBox="0 0 17 17" fill="none"><path d="M0.00176811 3.09868C0.156673 1.47465 1.46488 0.149026 3.09032 0L13.9156 0.0102899C15.5259 0.179541 16.844 1.53993 16.9458 3.16716C17.1177 5.92272 16.8139 8.85782 16.9437 11.6322C16.8044 13.2463 15.4406 14.6212 13.8219 14.7326C12.8154 14.8018 11.7356 14.6716 10.7217 14.7387L8.76769 16.9215C8.55938 17.0362 8.30404 17.0291 8.11907 16.8747L6.22414 14.7387C5.20983 14.672 4.13009 14.8022 3.12392 14.7326C1.48999 14.6202 0.125906 13.2289 0 11.5985L0.00176811 3.09832V3.09868Z" fill="#0F3B21"/><path d="M6.27815 4.25H7.6669L9.69505 10.1291H8.52722L8.10907 8.86654H5.83633L5.41005 10.1291H4.25L6.27815 4.25ZM7.80086 7.91927L6.97235 5.44151L6.14384 7.91927H7.80086Z" fill="#00DA50"/><path d="M10.3511 4.25H11.4242V10.1291H10.3511V4.25Z" fill="#00DA50"/></svg></span>
+            <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/><path d="M6.2 6.2a8 8 0 0 0 0 11.6M17.8 6.2a8 8 0 0 1 0 11.6"/></svg></span>
+            <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+            <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H7l-3 3V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2z"/><path d="M18 9h1a2 2 0 0 1 2 2v9l-3-3h-5a2 2 0 0 1-2-2v-1"/></svg></span>
+            <span class="mk-ava">A</span>
+          </span>
         </div>
         <div class="t3-tabs"><span class="on">NEWS</span><span>CALENDAR</span><span>FX LIST</span><span>BIAS</span><span>WEEK AHEAD</span><span>TAUX</span></div>
         <div class="t3-body">
@@ -3501,8 +3534,17 @@ img,video{height:auto}
       <!-- Colonne droite : flux news live (maquette CSS) -->
       <aside class="dtp-sec7-news-container" aria-label="Aperçu du flux de news DataTradingPro">
         <div class="dtp-sec7-news-top-bar">
-          <span class="dtp-sec7-news-branding"><span class="dtp-sec7-news-dot"></span> DTP Live Market News</span>
+          <span class="dtp-sec7-news-branding"><span class="dtp-sec7-news-dot"></span> Live Market News</span>
           <a class="dtp-sec7-view-all-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Tout voir <i class="fa-solid fa-arrow-right"></i></a>
+        </div>
+
+        <div class="dtp-sec7-sources" aria-hidden="true">
+          <span class="dtp-sec7-src-label">Sources agrégées en continu</span>
+          <span class="dtp-sec7-src"><i></i>Reuters</span>
+          <span class="dtp-sec7-src"><i></i>BCE</span>
+          <span class="dtp-sec7-src"><i></i>Fed</span>
+          <span class="dtp-sec7-src"><i></i>CFTC</span>
+          <span class="dtp-sec7-src-count">+18 flux</span>
         </div>
 
         <ul class="dtp-sec7-news-list-stack">
