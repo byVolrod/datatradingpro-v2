@@ -199,7 +199,13 @@ function _chatSaveFile() { try { fs.writeFileSync(CHAT_FILE, JSON.stringify(_cha
 const REACT_FILE = path.join(__dirname, 'cache_reactions.json');
 let _reactStore = {};
 try { _reactStore = JSON.parse(fs.readFileSync(REACT_FILE, 'utf8')) || {}; } catch {}
-function _reactSave() { try { fs.writeFileSync(REACT_FILE, JSON.stringify(_reactStore)); } catch {} }
+// Persistance DURABLE : le fichier disque est wipé à chaque rebuild conteneur (disque éphémère) →
+// on recharge ET on sauve aussi dans Supabase KV (ai_cache) pour que les réactions survivent aux déploiements.
+(async () => { try { const kv = await aiCacheGet('chat:reactions', 366 * 86400000); if (kv && typeof kv === 'object') _reactStore = Object.assign({}, kv, _reactStore); } catch {} })();
+function _reactSave() {
+  try { fs.writeFileSync(REACT_FILE, JSON.stringify(_reactStore)); } catch {}
+  try { aiCacheSet('chat:reactions', _reactStore); } catch {}   // durable → survit aux rebuilds
+}
 function _chatTableMissing(err) { return err && /chat_messages|schema cache|does not exist|relation/i.test(err.message); }
 
 // Auto-récupération : si on est en mode fichier (table absente au démarrage), on re-sonde
