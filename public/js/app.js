@@ -3563,6 +3563,8 @@ function _sbOpenSummary(curr) {
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
     line('Bank Overview', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
+    line('Technical', val('technical')),
+    line('Sentiment', val('sentiment')),
     line('Hedge Fund Positioning', val('hedgeFund')),
     line('Retail Positioning', val('retail')),
     line('Monetary Policy', val('monetary')),
