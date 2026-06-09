@@ -1541,10 +1541,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   color: var(--text3);
   transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-/* PAR DÉFAUT : couleurs DTP — Info = sarcelle-vert #3F9280, Analyse = bleu #007AA3
-   (fond transparent + contour léger). Réaction reste neutre (gris). */
-.tag--info    { background: transparent; border-color: rgba(63,146,128,0.3); color: #3f9280; }
-.tag--analyse { background: transparent; border-color: rgba(0,122,163,0.3);  color: #007aa3; }
+/* PAR DÉFAUT : couleurs DTP — Info = sarcelle-vert #3F9280, Analyse = bleu #007AA3,
+   Réaction = violet léger #8B5CF6 (fond transparent + contour léger, comme Info/Analyse). */
+.tag--info     { background: transparent; border-color: rgba(63,146,128,0.3); color: #3f9280; }
+.tag--analyse  { background: transparent; border-color: rgba(0,122,163,0.3);  color: #007aa3; }
+.tag--reaction { background: transparent; border-color: rgba(139,92,246,0.3); color: #8b5cf6; }
 .tag-svg { flex-shrink: 0; }   /* icône SVG des tags Info/Analyse → hérite de la couleur (currentColor) */
 /* Hover : teinte un peu plus vive + contour plus net */
 .tag--info:hover     { color: #4fb39c; border-color: rgba(63,146,128,0.55); }
