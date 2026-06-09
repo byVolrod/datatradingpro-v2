@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260610S" />
+  <link rel="stylesheet" href="/css/style.css?v=20260610T" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -897,23 +897,20 @@
       </button>
       <div class="pd-section-content">
         <div class="pd-section-inner" id="pd-ref-inner">
-          <div class="pd-ref-hero">🎁 <b>3 parrainages = 1 mois offert.</b> Partagez votre lien, on s'occupe du reste.</div>
-          <label class="pd-label" style="margin-top:4px">Votre lien de parrainage</label>
+          <h3 class="pd-ref-headline">Gagnez 10% sur chaque parrainage — de façon récurrente, tant que votre filleul reste abonné&nbsp;!</h3>
+          <p class="pd-ref-desc">Avec notre programme d'affiliation, vous touchez du cash à chaque nouvelle inscription. Une audience engagée&nbsp;? Partagez votre lien unique sur vos réseaux, votre blog ou votre site — et regardez vos gains grandir.</p>
+          <label class="pd-label">Votre lien de parrainage</label>
           <div class="pd-ref-linkrow">
             <input class="pd-input" id="pd-ref-link" readonly value="Chargement…" onclick="this.select()">
             <button class="pd-btn pd-ref-copy" id="pd-ref-copy" onclick="referralCopy()">Copier</button>
           </div>
           <div class="pd-ref-stats">
-            <div class="pd-ref-stat"><b id="pd-ref-count">0</b><span>Filleuls</span></div>
-            <div class="pd-ref-stat"><b id="pd-ref-rewards">0</b><span>Mois offerts</span></div>
+            <div class="pd-ref-stat"><b id="pd-ref-count">0</b><span>Total filleuls</span></div>
+            <div class="pd-ref-stat pd-ref-stat--earn"><b id="pd-ref-earn">0,00 €</b><span>Gains</span></div>
           </div>
-          <div class="pd-ref-prog">
-            <div class="pd-ref-prog-top"><span id="pd-ref-prog-label">0 / 3 vers votre prochain mois offert</span></div>
-            <div class="pd-ref-bar"><i id="pd-ref-bar-fill"></i></div>
-          </div>
-          <div class="pd-ref-histwrap">
-            <div class="pd-ref-histtitle">Historique</div>
-            <div id="pd-ref-history" class="pd-ref-history"><div class="pd-ref-empty">Aucun filleul pour le moment.</div></div>
+          <label class="pd-label">Historique des récompenses</label>
+          <div id="pd-ref-history" class="pd-ref-history pd-ref-history--card">
+            <div class="pd-ref-empty"><svg class="pd-ref-gift" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C9 3 12 5 12 8c0-3 3-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg><div class="pd-ref-empty-t">Aucun filleul pour le moment</div><div class="pd-ref-empty-s">Partagez votre lien pour commencer à gagner.</div></div>
           </div>
         </div>
       </div>
@@ -1220,13 +1217,10 @@
       const $ = id => document.getElementById(id);
       if ($('pd-ref-link'))       $('pd-ref-link').value = d.link;
       if ($('pd-ref-count'))      $('pd-ref-count').textContent = d.count;
-      if ($('pd-ref-rewards'))    $('pd-ref-rewards').textContent = d.rewards;
-      if ($('pd-ref-prog-label')) $('pd-ref-prog-label').textContent = d.progress + ' / ' + d.target + ' vers votre prochain mois offert';
-      if ($('pd-ref-bar-fill'))   $('pd-ref-bar-fill').style.width = Math.round((d.progress / d.target) * 100) + '%';
+      if ($('pd-ref-earn'))       $('pd-ref-earn').textContent = d.earnings || '0,00 €';
       const h = $('pd-ref-history');
-      if (h) {
-        if (!d.history || !d.history.length) { h.innerHTML = '<div class="pd-ref-empty">Aucun filleul pour le moment.</div>'; }
-        else { h.innerHTML = d.history.map(x => { const dt = x.at ? new Date(x.at).toLocaleDateString('fr-FR') : ''; const em = String(x.email || 'Filleul').replace(/[<>&]/g, ''); return '<div class="pd-ref-hrow"><span class="pd-ref-hmail">' + em + '</span><span class="pd-ref-hdate">' + dt + '</span></div>'; }).join(''); }
+      if (h && d.history && d.history.length) {
+        h.innerHTML = d.history.map(x => { const dt = x.at ? new Date(x.at).toLocaleDateString('fr-FR') : ''; const em = String(x.email || 'Filleul').replace(/[<>&]/g, ''); return '<div class="pd-ref-hrow"><span class="pd-ref-hmail">' + em + '</span><span class="pd-ref-hdate">' + dt + '</span></div>'; }).join('');
       }
     }).catch(()=>{});
   };

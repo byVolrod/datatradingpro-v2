@@ -6726,7 +6726,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   padding: 14px 16px 18px;
 }
 
-/* ── Parrainage (drawer profil) ── */
+/* ── Parrainage (drawer profil) — modèle affiliation Whop ── */
+.pd-ref-headline{font-size:14px;font-weight:600;color:#f0f0f2;line-height:1.45;margin:0 0 8px}
+.pd-ref-desc{font-size:13px;color:#9aa0a8;line-height:1.55;margin:0 0 16px}
+.pd-ref-stat--earn{border-color:rgba(34,197,94,.45) !important;background:rgba(34,197,94,.08) !important}
+.pd-ref-stat--earn b{color:#22c55e !important}
+.pd-ref-history--card{display:block;max-height:none;background:#0b0b0d;border:1px solid #1a1a1f;border-radius:8px;padding:0}
+.pd-ref-history--card .pd-ref-empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:34px 16px;text-align:center}
+.pd-ref-gift{color:rgba(247,148,29,.35);margin-bottom:8px}
+.pd-ref-empty-t{font-size:13px;color:#a0a8b0}
+.pd-ref-empty-s{font-size:11.5px;color:#6b7178}
 .pd-ref-hero{background:rgba(247,148,29,.08);border:1px solid rgba(247,148,29,.28);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;color:#f3d9b0;margin-bottom:14px}
 .pd-ref-hero b{color:#f7941d}
 .pd-ref-linkrow{display:flex;gap:8px;margin:6px 0 14px}
