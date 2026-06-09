@@ -155,8 +155,34 @@
   .hero-cta .btn{padding:13px 24px;font-size:14.5px}
   .hero-trust{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--text3);margin-top:2px}
   .hero-trust .ok{display:inline-flex;align-items:center;gap:6px;color:var(--green)}
-  @media(min-width:768px){.hero .hero-inner{grid-template-columns:minmax(0,1fr) minmax(0,42%);gap:40px}.hero-copy{padding-right:24px}}
+  @media(min-width:768px){.hero .hero-inner{grid-template-columns:minmax(0,1fr) minmax(0,47%);gap:40px}.hero-copy{padding-right:24px}.hero-mock{display:block}}
   @media(max-width:767px){.hero{min-height:560px}.hero-photo{opacity:.72;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%);mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%)}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.45) 0%,rgba(7,7,9,.8) 62%,#070709 100%)}}
+  /* ── HERO MOCK (terminal vectoriel net — remplace la photo) ── */
+  .hero-bg{position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(120% 95% at 80% 26%,rgba(247,148,29,.10),transparent 58%),radial-gradient(90% 80% at 42% 122%,rgba(34,197,94,.045),transparent 60%)}
+  .hero-mock{display:none;position:relative;z-index:2;width:100%;border:1px solid #26262c;border-radius:12px;overflow:hidden;background:#0a0a0c;box-shadow:0 34px 80px -42px rgba(0,0,0,.92)}
+  .hm-top{display:flex;align-items:center;gap:9px;padding:9px 11px;background:#0d0d10;border-bottom:1px solid var(--line)}
+  .hm-brand{display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap;flex:0 0 auto}
+  .hm-search{flex:1;min-width:0;font-size:10.5px;color:var(--text3);background:#0a0a0c;border:1px solid var(--line);border-radius:6px;padding:5px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hm-tabs{display:flex;background:#0b0b0e;border-bottom:1px solid var(--line);padding:0 5px;overflow:hidden}
+  .hm-tabs span{font-size:10px;font-weight:600;letter-spacing:.03em;color:var(--text3);padding:8px 9px;white-space:nowrap;border-bottom:2px solid transparent}
+  .hm-tabs span.on{color:var(--orange);border-bottom-color:var(--orange)}
+  .hm-body{display:grid;grid-template-columns:1fr .9fr}
+  .hm-news{border-right:1px solid var(--line);padding:3px 0 5px}
+  .hm-ph{display:flex;align-items:center;justify-content:space-between;padding:8px 11px 6px;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3)}
+  .hm-live{display:inline-flex;align-items:center;gap:5px;color:#22c55e}
+  .hm-live i{width:5px;height:5px;border-radius:50%;background:#22c55e;box-shadow:0 0 5px #22c55e;animation:dtpSec7Pulse 1.6s infinite}
+  .hm-row{display:grid;grid-template-columns:auto auto 1fr;gap:7px;align-items:center;padding:5px 11px;font-size:10.5px}
+  .hm-row .t{color:var(--text3);font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:9px;white-space:nowrap}
+  .hm-row .tag{font-size:8px;font-weight:700;padding:1px 5px;border-radius:4px;background:#1a1a20;color:var(--text2);white-space:nowrap}
+  .hm-row .tag.high{color:#ef4444;background:rgba(239,68,68,.12)}
+  .hm-row .tag.med{color:#ffb300;background:rgba(255,179,0,.12)}
+  .hm-row .x{color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .hm-side{padding:8px 10px}
+  .hm-side-h{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--text3);margin-bottom:6px}
+  .hm-chart{width:100%;height:auto;display:block}
+  .hm-grid{stroke:#1c1c1e;stroke-opacity:.5;stroke-dasharray:3 3;stroke-width:1}
+  .hm-l{fill:none;stroke-width:1.7}
+  .hm-lab{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:8px;font-weight:700}
   .hero-statband{background:#070709;border-bottom:1px solid var(--line)}
   .hero-statband .hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:transparent;max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
   .hero-statband .hs{display:flex;align-items:center;gap:15px;padding:20px clamp(10px,1.8vw,22px);background:transparent;border-left:1px solid var(--line)}
@@ -2776,8 +2802,7 @@
 
 <!-- HERO (inspiration terminal pro texte à gauche + image desk en fond) -->
 <section class="hero" aria-label="DataTradingPro — terminal macro & forex en temps réel">
-  <div class="hero-photo" aria-hidden="true"></div>
-  <div class="hero-fade" aria-hidden="true"></div>
+  <div class="hero-bg" aria-hidden="true"></div>
   <div class="wrap hero-inner">
     <div class="hero-copy">
       <span class="hero-eyebrow">Conçu pour les professionnels</span>
@@ -2791,6 +2816,46 @@
         <span class="ok">&#10003; Accès navigateur immédiat</span>
         <span class="ok">&#10003; Données en temps réel</span>
         <span class="ok">&#10003; Sans engagement</span>
+      </div>
+    </div>
+    <div class="hero-mock" aria-hidden="true">
+      <div class="hm-top">
+        <span class="hm-brand"><span class="mk-logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="35" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="30" letter-spacing="-1.5" fill="#fff">DT<tspan fill="#f7941d">P</tspan></text></svg></span>DataTradingPro</span>
+        <span class="hm-search">Rechercher un symbole…</span>
+        <span class="mk-ntrl"><i></i> NEUTRAL ▾</span>
+        <span class="mk-tbicons">
+          <span class="mk-ico ai"><svg viewBox="0 0 17 17" fill="none"><path d="M0.00176811 3.09868C0.156673 1.47465 1.46488 0.149026 3.09032 0L13.9156 0.0102899C15.5259 0.179541 16.844 1.53993 16.9458 3.16716C17.1177 5.92272 16.8139 8.85782 16.9437 11.6322C16.8044 13.2463 15.4406 14.6212 13.8219 14.7326C12.8154 14.8018 11.7356 14.6716 10.7217 14.7387L8.76769 16.9215C8.55938 17.0362 8.30404 17.0291 8.11907 16.8747L6.22414 14.7387C5.20983 14.672 4.13009 14.8022 3.12392 14.7326C1.48999 14.6202 0.125906 13.2289 0 11.5985L0.00176811 3.09832V3.09868Z" fill="#0F3B21"/><path d="M6.27815 4.25H7.6669L9.69505 10.1291H8.52722L8.10907 8.86654H5.83633L5.41005 10.1291H4.25L6.27815 4.25ZM7.80086 7.91927L6.97235 5.44151L6.14384 7.91927H7.80086Z" fill="#00DA50"/><path d="M10.3511 4.25H11.4242V10.1291H10.3511V4.25Z" fill="#00DA50"/></svg></span>
+          <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/><path d="M6.2 6.2a8 8 0 0 0 0 11.6M17.8 6.2a8 8 0 0 1 0 11.6"/></svg></span>
+          <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+          <span class="mk-ava">A</span>
+        </span>
+      </div>
+      <div class="hm-tabs"><span class="on">NEWS</span><span>CALENDAR</span><span>BIAS</span><span>FX LIST</span><span>WEEK AHEAD</span><span>TAUX</span></div>
+      <div class="hm-body">
+        <div class="hm-news">
+          <div class="hm-ph">Realtime Headlines <span class="hm-live"><i></i> LIVE</span></div>
+          <div class="hm-row"><span class="t">15:01</span><span class="tag high">HIGH</span><span class="x">US CPI conforme aux attentes (3,4 %)</span></div>
+          <div class="hm-row"><span class="t">14:59</span><span class="tag">FED</span><span class="x">Fed funds effectif : 3,62 % en juin</span></div>
+          <div class="hm-row"><span class="t">14:43</span><span class="tag med">MED</span><span class="x">Citi sur USD/JPY — vendeur dans la hausse</span></div>
+          <div class="hm-row"><span class="t">14:31</span><span class="tag">BCE</span><span class="x">L'euro efface ses gains après Lagarde</span></div>
+          <div class="hm-row"><span class="t">14:18</span><span class="tag high">HIGH</span><span class="x">BoE : décision de taux à 12:00</span></div>
+          <div class="hm-row"><span class="t">14:04</span><span class="tag">GEO</span><span class="x">Pétrole : tensions au Moyen-Orient</span></div>
+        </div>
+        <div class="hm-side">
+          <div class="hm-side-h">Force des devises</div>
+          <svg class="hm-chart" viewBox="0 0 220 150">
+            <line x1="6" y1="34" x2="186" y2="34" class="hm-grid"/><line x1="6" y1="80" x2="186" y2="80" class="hm-grid"/><line x1="6" y1="126" x2="186" y2="126" class="hm-grid"/>
+            <polyline class="hm-l" stroke="#eab308" points="6,86 40,72 78,76 116,52 152,58 184,30"/>
+            <polyline class="hm-l" stroke="#f7941d" points="6,87 40,80 78,86 116,66 152,60 184,42"/>
+            <polyline class="hm-l" stroke="#22c55e" points="6,88 40,84 78,78 116,72 152,64 184,56"/>
+            <polyline class="hm-l" stroke="#ec4899" points="6,89 40,90 78,82 116,86 152,80 184,76"/>
+            <polyline class="hm-l" stroke="#3b82f6" points="6,90 40,92 78,90 116,94 152,96 184,98"/>
+            <polyline class="hm-l" stroke="#22d3ee" points="6,90 40,88 78,96 116,98 152,106 184,112"/>
+            <polyline class="hm-l" stroke="#a855f7" points="6,91 40,96 78,102 116,108 152,118 184,124"/>
+            <polyline class="hm-l" stroke="#ef4444" points="6,92 40,100 78,110 116,122 152,132 184,142"/>
+            <g class="hm-lab"><text x="190" y="33" fill="#eab308">NZD</text><text x="190" y="45" fill="#f7941d">USD</text><text x="190" y="59" fill="#22c55e">GBP</text><text x="190" y="79" fill="#ec4899">AUD</text><text x="190" y="101" fill="#3b82f6">EUR</text><text x="190" y="115" fill="#22d3ee">CHF</text><text x="190" y="127" fill="#a855f7">CAD</text><text x="190" y="145" fill="#ef4444">JPY</text></g>
+          </svg>
+        </div>
       </div>
     </div>
   </div>
