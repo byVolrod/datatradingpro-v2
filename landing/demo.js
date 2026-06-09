@@ -45,9 +45,8 @@
   .dd-tick .px{color:#e8e8ea}
   .dd-tick .ch{font-size:10.5px}
   /* grid */
-  .dd-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1.45fr 1fr;grid-template-rows:1fr 1fr;gap:1px;background:#15151d}
+  .dd-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1.4fr 1.05fr;grid-template-rows:1fr;gap:1px;background:#15151d}
   .dd-p{background:#0b0b0e;display:flex;flex-direction:column;min-height:0;overflow:hidden}
-  .dd-news{grid-row:span 2}
   .dd-ph{display:flex;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid #16161c;flex-shrink:0}
   .dd-ph .ttl{font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9a9aa3}
   .dd-ph .live{margin-left:auto;font-size:9px;font-weight:700;color:#00e676;display:flex;align-items:center;gap:5px;letter-spacing:.05em}
@@ -102,7 +101,7 @@
   .dd-foot .msg{font-size:12px;color:#cfcfd4}
   .dd-foot .msg b{color:#f7941d}
   @media(max-width:820px){
-    .dd-grid{grid-template-columns:1fr 1fr}
+    .dd-grid{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
     .dd-news{grid-row:span 1;grid-column:span 2}
   }
   @media(max-width:560px){
@@ -262,11 +261,6 @@
       var chg = rnd(-0.4, 0.5); var cls = chg >= 0 ? 'up' : 'down';
       return '<div class="it"><span class="sym">' + t[0] + '</span><span class="px dd-mono">' + fmt(t[1], t[3]) + '</span><span class="ch dd-mono ' + cls + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span></div>';
     }).join('');
-    var calHtml = CAL.map(function (c, i) {
-      var bcl = c[2] === 'HIGH' ? 'b-high' : c[2] === 'MED' ? 'b-med' : 'b-low';
-      return '<div class="dd-crow" data-i="' + i + '"><span class="tm">' + c[0] + '</span><span class="dd-bdg ' + bcl + '">' + c[2] + '</span><span class="ev">' + c[3] + '</span><span class="dd-val"><span class="f">prév. ' + c[4] + '</span></span></div>';
-    }).join('');
-
     root = el('<div id="dtp-demo" role="dialog" aria-modal="true" aria-label="Démo DataTradingPro — aperçu en simulation"></div>');
     root.innerHTML =
       '<div class="dd-win">' +
@@ -281,8 +275,6 @@
           '<div class="dd-p dd-news"><div class="dd-ph"><span class="ttl">Live News</span><span class="live"><span class="pd"></span>EN DIRECT</span></div><div class="dd-feed" id="dd-feed"></div></div>' +
           '<div class="dd-p"><div class="dd-ph"><span class="ttl">EUR/USD · M5</span><span class="live"><span class="pd"></span>LIVE</span></div><div class="dd-chart-wrap"><div class="dd-px" id="dd-px"></div><canvas id="dd-canvas"></canvas></div></div>' +
           '<div class="dd-p dd-bias"><div class="dd-ph"><span class="ttl">Smart Bias</span></div><div class="dd-bmx" id="dd-bias"></div></div>' +
-          '<div class="dd-p"><div class="dd-ph"><span class="ttl">Force des devises</span></div><div class="dd-cse" id="dd-str"></div></div>' +
-          '<div class="dd-p"><div class="dd-ph"><span class="ttl">Calendrier éco.</span></div><div class="dd-cal" id="dd-cal">' + calHtml + '</div></div>' +
         '</div>' +
         '<div class="dd-foot">' +
           '<span class="note">Démo en temps simulé — données fictives à des fins d\'illustration.</span>' +
@@ -297,7 +289,6 @@
     var feed = root.querySelector('#dd-feed');
     var seed = NEWS.slice(0, 6); seed.forEach(function (d) { feed.insertAdjacentHTML('beforeend', newsItem(d)); });
     renderBias(root.querySelector('#dd-bias'));
-    renderStrength(root.querySelector('#dd-str'));
     initChart(root.querySelector('#dd-canvas'), root.querySelector('#dd-px'));
 
     // interactions de fermeture
@@ -317,9 +308,7 @@
       while (feed.children.length > 9) feed.removeChild(feed.lastChild);
     }, 2600));
     timers.push(setInterval(function () { flipBias(root.querySelector('#dd-bias')); }, 2300));
-    timers.push(setInterval(function () { nudgeStrength(root.querySelector('#dd-str')); }, 1500));
     timers.push(setInterval(function () { refreshTicker(root); }, 1300));
-    timers.push(setInterval(function () { revealActual(root); }, 4200));
     }
     window.addEventListener('resize', drawChart);
   }
