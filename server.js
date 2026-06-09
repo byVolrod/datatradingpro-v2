@@ -4475,7 +4475,10 @@ function _sbDataNarrative(curr, rows, conclusion) {
 // (cette dernière commence TOUJOURS par « Le biais hebdomadaire global ressort … » en français).
 function _sbIsRealNarrative(t) {
   t = (t == null ? '' : String(t)).trim();
-  return t.length > 80 && !/^Le biais hebdomadaire global ressort/i.test(t);   // seuil aligné sur _sbGenerateNarratives (>80) → pas de boucle
+  if (t.length <= 80) return false;
+  if (/^Le biais hebdomadaire global ressort/i.test(t)) return false;   // mon repli data-driven (pas le vrai narratif IA)
+  if (!/[.!?»"”]$/.test(t)) return false;   // TRONQUÉ (coupé en plein mot/phrase, ex. "…de la polit") → à régénérer
+  return true;
 }
 // Résout le narratif pour l'AFFICHAGE SANS muter le cache : IA réel si présent, sinon synthèse data-driven.
 // → le cache interne (_smartBias.narrative) ne contient JAMAIS le repli, donc le retry IA sait quoi régénérer
@@ -4657,9 +4660,15 @@ CONTEXTE RÉEL (cette semaine — COT, recherche bancaire, calendrier économiqu
 ${ctx}
 
 Renvoie UNIQUEMENT le texte du rapport ${c} — aucun préambule, aucune étiquette, aucun guillemet, aucun JSON, aucune balise de code. Commence DIRECTEMENT par la chronologie de la semaine (ne commence JAMAIS par "Le biais hebdomadaire global ressort").`;
-      const out = await aiSmart('bias', prompt, 1100, { scheduled: true });
-      const txt = (out || '').replace(/```[a-z]*|```/gi, '').trim();
-      if (txt && txt.length > 80) narr[c] = txt.slice(0, 2400);
+      const out = await aiSmart('bias', prompt, 1500, { scheduled: true });   // assez de tokens pour ~350-450 mots COMPLETS
+      let txt = (out || '').replace(/```[a-z]*|```/gi, '').trim();
+      // Plafond GÉNÉREUX (le rapport fait ~2800-3200 car.). Si jamais on dépasse, on coupe à la
+      // DERNIÈRE phrase complète → plus jamais de mot tronqué ("…de la polit").
+      if (txt.length > 4000) {
+        const m = txt.slice(0, 4000).match(/^[\s\S]*[.!?»][»"”]?/);
+        txt = (m ? m[0] : txt.slice(0, 4000)).trim();
+      }
+      if (txt && txt.length > 80) narr[c] = txt;
     } catch (e) { console.warn(`[SmartBias] narratif ${c} échec:`, e.message); }
   }
   return Object.keys(narr).length ? narr : null;
