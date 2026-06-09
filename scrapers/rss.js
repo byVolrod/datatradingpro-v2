@@ -47,7 +47,7 @@ function detectCategory(text) {
   if (/\btrade\b|tariff|export|import|wto|supply chain|trade war|protectionism/.test(t)) return 'Trade';
   if (/\basia\b|japan|china|korea|singapore|hong kong|thailand|vietnam|indonesia|india/.test(t)) return 'Asian News';
   if (/wheat|corn|soy|cotton|coffee|sugar|cocoa|agriculture|crop|livestock|cattle/.test(t)) return 'Ags & Softs';
-  if (/prime minister|parliament|election|vote|congress|senate|white house/.test(t)) return 'PMT Update';
+  if (/prime minister|parliament|election|vote|congress|senate|white house/.test(t)) return 'Gov Update';
   return 'Global News';
 }
 

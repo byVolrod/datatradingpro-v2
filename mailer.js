@@ -300,7 +300,7 @@ async function sendTest(to) {
   return { ok: !!provider, provider: provider || null, lastError: _mailStats.lastError || null };
 }
 
-// ── Gabarit HTML commun (dark, professionnel — Prime Terminal) ────────────────
+// ── Gabarit HTML commun (dark, professionnel — DataTradingPro) ────────────────
 function _layout(title, bodyHtml) {
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

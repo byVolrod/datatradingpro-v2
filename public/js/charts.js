@@ -726,7 +726,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     series.events.on('shown',  () => { try { range.get('label')?.set('forceHidden', false); range.get('grid')?.set('forceHidden', false); } catch {} });
 
     // Mode « paire » : on masque d'emblée les devises hors-paire (courbe + badge). La légende les
-    // conserve (grisées, re-cliquables), exactement comme la référence PMT.
+    // conserve (grisées, re-cliquables), exactement la référence pro.
     if (_only && !_only.has(ccy)) { try { series.hide(0); } catch {} }
   }
 
@@ -2796,7 +2796,7 @@ window._retryCalendar = function() {
     return '<div class="sym-dd-head">' + iconHtml + ' ' + title + ' <span class="sym-dd-count">(' + list.length + ')</span></div>'
       + list.map(_ddRow).join('');
   }
-  // Dropdown « intelligent » façon PMT :
+  // Dropdown « intelligent » épuré :
   //  • champ VIDE (clic/focus) → UNIQUEMENT « Recent Searches » (horloge) = 6 dernières paires ouvertes ;
   //    s'il n'y a aucun historique → état vide « Aucune recherche récente » (JAMAIS les paires majeures).
   //  • en SAISIE → « Recent Searches » filtrées + « Foreign Exchange » (paires qui matchent, préfixe d'abord).
