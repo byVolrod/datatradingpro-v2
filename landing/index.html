@@ -142,9 +142,9 @@
 
   /* ── HERO (clone PMT : texte à gauche + image desk en fond) ── */
   .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:#070709}
-  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=1") center center/cover no-repeat;opacity:1;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 14%,#000 38%);mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 14%,#000 38%)}
+  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=1") center right/cover no-repeat;opacity:1;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 9%,#000 20%);mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.45) 9%,#000 20%)}
   .hero{position:relative;width:100%;min-height:620px;display:flex;align-items:center;overflow:hidden;background:#070709;border-bottom:1px solid var(--line)}
-  .hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.6) 32%,rgba(7,7,9,0) 62%)}
+  .hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.86) 24%,rgba(7,7,9,0) 47%)}
   .hero .hero-inner{position:relative;z-index:2;width:100%;display:grid;grid-template-columns:1fr;gap:32px;align-items:center}
   .hero-copy{max-width:600px;display:flex;flex-direction:column;align-items:flex-start;gap:19px;padding:clamp(48px,7vw,76px) 0}
   .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:6px}
@@ -155,7 +155,7 @@
   .hero-cta .btn{padding:13px 24px;font-size:14.5px}
   .hero-trust{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--text3);margin-top:2px}
   .hero-trust .ok{display:inline-flex;align-items:center;gap:6px;color:var(--green)}
-  @media(min-width:768px){.hero-photo{width:60%}.hero .hero-inner{grid-template-columns:1fr 1fr;gap:40px}}
+  @media(min-width:768px){.hero-photo{width:54%}.hero .hero-inner{grid-template-columns:minmax(0,1fr) minmax(0,46%);gap:40px}.hero-copy{padding-right:24px}}
   @media(max-width:767px){.hero{min-height:560px}.hero-photo{opacity:.72;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%);mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%)}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.45) 0%,rgba(7,7,9,.8) 62%,#070709 100%)}}
   .hero-statband{background:#070709;border-bottom:1px solid var(--line)}
   .hero-statband .hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:transparent;max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
@@ -2693,9 +2693,9 @@
 <!-- BANDE DE STATS (strip sous le hero, façon PMT) -->
 <section class="hero-statband" aria-label="Chiffres clés DataTradingPro">
   <div class="wrap hs-grid">
-    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg></span><div><b>3&nbsp;500+</b><em>Actus &amp; données en direct / jour</em></div></div>
-    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.2 4-6.5 8-6.5s8 2.3 8 6.5"/></svg></span><div><b>12&nbsp;000+</b><em>Traders professionnels actifs</em></div></div>
-    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v5.5c0 4.8-3.4 8-8 9.5-4.6-1.5-8-4.7-8-9.5V6z"/><path d="M8.5 12l2.5 2.5 4.5-4.5"/></svg></span><div><b>99,98&nbsp;%</b><em>Disponibilité de la plateforme</em></div></div>
+    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg></span><div><b>Multi-actifs</b><em>FX, indices, matières premières &amp; crypto</em></div></div>
+    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.2 4-6.5 8-6.5s8 2.3 8 6.5"/></svg></span><div><b>Pour les pros</b><em>Conçu pour traders &amp; analystes macro</em></div></div>
+    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v5.5c0 4.8-3.4 8-8 9.5-4.6-1.5-8-4.7-8-9.5V6z"/><path d="M8.5 12l2.5 2.5 4.5-4.5"/></svg></span><div><b>100%&nbsp;navigateur</b><em>Aucune installation, accès immédiat</em></div></div>
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.6 3.6 3 8 3s8-1.4 8-3V5M4 12c0 1.6 3.6 3 8 3s8-1.4 8-3"/></svg></span><div><b>Source directe</b><em>Données first-party, temps réel</em></div></div>
   </div>
 </section>
