@@ -4308,7 +4308,8 @@ function _instLogoHtml(label) {
   const name = `<span class="br-dtp-logo br-inst-name" style="color:${color}">${label}</span>`;
   if (label === 'DTP') return name;
   // Logo local (MUFG/SEB/ING) prioritaire, sinon Clearbit via le domaine officiel.
-  const url = _BANK_LOCAL_LOGO[label] || (_BANK_DOMAIN[label] ? `https://logo.clearbit.com/${_BANK_DOMAIN[label]}` : null);
+  // Logo local prioritaire ; sinon service de favicons OFFICIEL fiable (Clearbit ayant fermé → renvoyait des images cassées).
+  const url = _BANK_LOCAL_LOGO[label] || (_BANK_DOMAIN[label] ? `https://www.google.com/s2/favicons?sz=128&domain=${_BANK_DOMAIN[label]}` : null);
   if (!url) return name;
   // Logo + NOM côte à côte : le nom reste toujours visible ; le logo se masque seulement s'il échoue.
   return `<span class="br-bank-logo-wrap"><img class="br-bank-logo" src="${url}" alt="${label}" onerror="this.style.display='none'">${name}</span>`;
