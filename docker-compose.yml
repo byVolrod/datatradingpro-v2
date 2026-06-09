@@ -18,11 +18,13 @@ services:
       - NODE_ENV=production
       - PORT=3000
       - PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
+      - DATA_DIR=/app/data           # caches durables (anti-doublon emails) → survit aux redémarrages
     volumes:
       # Persistance : cookies Puppeteer + caches survivent aux redémarrages
       - ./data/chrome_fj:/app/.chrome_profile_fj
       - ./data/chrome_ff:/app/.chrome_profile_ff
       - ./data/chrome_myfxbook:/app/.chrome_profile_myfxbook
+      - ./data/app:/app/data         # anti-doublon emails (cache_email_log.json) → 1 seul envoi, restarts inclus
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
       interval: 60s
