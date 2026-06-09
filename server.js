@@ -1881,8 +1881,10 @@ function aiAllowed(category, opts = {}) {
   const catUsed  = _aiUsage.dayCounts[category] || 0;
   try { ai.setQuotaPressure(cap ? dayTotal / cap : 0); } catch {}     // throttling PRÉDICTIF : ralentit le débit avant saturation
   if (dayTotal >= cap) return false;                                   // plafond DUR du jour atteint
-  // TIER BACKGROUND (préchauffage) : on RÉSERVE ~25% du quota du jour aux requêtes user → le fond cède en premier.
-  if (prio === 'background' && dayTotal >= Math.floor(cap * 0.75)) return false;
+  // TIER BACKGROUND (préchauffage) : on RÉSERVE ~40% du quota du jour aux requêtes user ET au contenu
+  // CRITIQUE planifié (narratifs Smart Bias, biais par banque, Week Ahead) → le préchauffage cède EN PREMIER
+  // et bien plus tôt → on ne brûle jamais tout le quota sur du prewarming « au cas où ».
+  if (prio === 'background' && dayTotal >= Math.floor(cap * 0.60)) return false;
   // ── Pacing intra-journée ────────────────────────────────────────────────────
   // On n'autorise au plus que la PART ÉCOULÉE du jour (+ un petit burst) → la conso s'étale jusqu'au reset.
   // Sauf : générations PLANIFIÉES (opts.scheduled) ET priorité 'user' (l'utilisateur n'est jamais freiné).
