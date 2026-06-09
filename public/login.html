@@ -344,30 +344,23 @@
       color: var(--text2);
       flex-shrink: 0;
     }
-    .lp-lang-select {
-      background: var(--bg3);
-      border: 1px solid var(--border2);
-      border-radius: 4px;
-      padding: 4px 28px 4px 10px;
-      font-size: 11px;
-      color: var(--text2);
-      font-family: var(--font-ui);
-      outline: none;
-      cursor: pointer;
-      appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 8px center;
-    }
-    .lp-lang-select:hover { border-color: #2e2e34; }
-    .lp-lang-select:focus { border-color: var(--orange); }
-    .lp-lang-select option {
-      background: #161619;
-      color: #e2e8f0;
-      border: none;
-    }
-    .lp-lang-flag { display: inline-flex; align-items: center; }
-    .lp-lang-flag svg { width: 22px; height: 15px; border-radius: 2px; box-shadow: 0 0 0 1px rgba(255,255,255,0.12); display: block; }
+    .lp-lang-select { display: none; }   /* natif masqué, remplacé par le dropdown custom DTP */
+    /* ── Dropdown custom DTP (réutilisable : panneau sombre arrondi, ✓ orange sur l'item sélectionné) ── */
+    .dtpsel { position: relative; display: inline-block; font-family: var(--font-ui); }
+    .dtpsel-btn { display: flex; align-items: center; gap: 8px; background: #18181c; border: 1px solid #2a2a31; border-radius: 8px; padding: 7px 32px 7px 11px; font-size: 12.5px; color: #e6e8ec; cursor: pointer; outline: none; position: relative; min-width: 128px; transition: border-color .15s; }
+    .dtpsel-btn:hover { border-color: #3a3a44; }
+    .dtpsel.open .dtpsel-btn { border-color: var(--orange); }
+    .dtpsel-lbl { display: inline-flex; align-items: center; gap: 8px; }
+    .dtpsel-caret { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); transition: transform .2s; color: #8a8a92; pointer-events: none; line-height: 0; }
+    .dtpsel.open .dtpsel-caret { transform: translateY(-50%) rotate(180deg); }
+    .dtpsel-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; background: #18181c; border: 1px solid #2a2a31; border-radius: 8px; padding: 5px; box-shadow: 0 18px 44px -14px rgba(0,0,0,.75); z-index: 1000; display: none; max-height: 280px; overflow-y: auto; }
+    .dtpsel.open .dtpsel-panel { display: block; }
+    .dtpsel-item { display: flex; align-items: center; gap: 9px; padding: 8px 28px 8px 10px; border-radius: 6px; font-size: 12.5px; color: #c8cdd6; cursor: pointer; white-space: nowrap; position: relative; transition: background .12s; }
+    .dtpsel-item:hover { background: #26262c; color: #fff; }
+    .dtpsel-item.sel { background: rgba(247,148,29,.10); color: #fff; }
+    .dtpsel-item.sel::after { content: "✓"; position: absolute; right: 10px; color: var(--orange); font-weight: 700; font-size: 12px; }
+    .dtpsel-flag { width: 21px; height: 14px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.14); flex-shrink: 0; display: inline-flex; }
+    .dtpsel-flag svg { width: 100%; height: 100%; display: block; }
 
     /* Download buttons */
     .lp-dl-row {
@@ -501,7 +494,6 @@
     <!-- Language -->
     <div class="lp-lang-row">
       <span class="lp-lang-label">Langue :</span>
-      <span class="lp-lang-flag" id="lp-lang-flag"><svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/><rect x="2" width="1" height="2" fill="#ce1126"/></svg></span>
       <select class="lp-lang-select" id="lp-lang">
         <option value="fr" selected>Français</option>
         <option value="en">English</option>
@@ -643,11 +635,40 @@
     fr: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/><rect x="2" width="1" height="2" fill="#ce1126"/></svg>',
     en: '<svg viewBox="0 0 60 30"><clipPath id="uk-t"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="uk-s"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#uk-t)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#uk-s)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>',
   };
-  const _langFlagEl = document.getElementById('lp-lang-flag');
+  // Composant dropdown custom DTP, réutilisable : enrichit n'importe quel <select> en menu stylé.
+  function enhanceSelect(sel, flags) {
+    flags = flags || {};
+    if (!sel || sel.dataset.enhanced) return; sel.dataset.enhanced = '1';
+    const fSpan = v => flags[v] ? '<span class="dtpsel-flag">' + flags[v] + '</span>' : '';
+    const dd = document.createElement('div'); dd.className = 'dtpsel';
+    const btn = document.createElement('div'); btn.className = 'dtpsel-btn'; btn.tabIndex = 0; btn.setAttribute('role', 'button');
+    const lbl = document.createElement('span'); lbl.className = 'dtpsel-lbl';
+    const caret = document.createElement('span'); caret.className = 'dtpsel-caret';
+    caret.innerHTML = '<svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    btn.appendChild(lbl); btn.appendChild(caret);
+    const panel = document.createElement('div'); panel.className = 'dtpsel-panel';
+    const renderBtn = () => { const o = sel.options[sel.selectedIndex] || sel.options[0]; lbl.innerHTML = fSpan(o.value) + '<span>' + o.text + '</span>'; };
+    Array.from(sel.options).forEach(o => {
+      const it = document.createElement('div'); it.className = 'dtpsel-item' + (o.selected ? ' sel' : '');
+      it.innerHTML = fSpan(o.value) + '<span>' + o.text + '</span>';
+      it.addEventListener('click', () => {
+        sel.value = o.value;
+        panel.querySelectorAll('.dtpsel-item').forEach(x => x.classList.remove('sel'));
+        it.classList.add('sel'); renderBtn(); dd.classList.remove('open');
+        sel.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+      panel.appendChild(it);
+    });
+    btn.addEventListener('click', e => { e.stopPropagation(); dd.classList.toggle('open'); });
+    btn.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dd.classList.toggle('open'); } else if (e.key === 'Escape') dd.classList.remove('open'); });
+    document.addEventListener('click', e => { if (!dd.contains(e.target)) dd.classList.remove('open'); });
+    dd.appendChild(btn); dd.appendChild(panel);
+    sel.parentNode.insertBefore(dd, sel.nextSibling);
+    renderBtn();
+    return dd;
+  }
   const _langSelect = document.getElementById('lp-lang');
-  function _setFlag(lang) { _langFlagEl.innerHTML = _FLAGS[lang] || _FLAGS.fr; }
-  _setFlag(_langSelect.value);
-  _langSelect.addEventListener('change', () => _setFlag(_langSelect.value));
+  enhanceSelect(_langSelect, _FLAGS);
 
   // Autofocus email
   document.getElementById('lp-email').focus();
