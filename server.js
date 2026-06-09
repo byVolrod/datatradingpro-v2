@@ -4665,26 +4665,31 @@ function _sbDataNarrative(curr, rows, conclusion) {
   const fund=val('fundamental'),mon=val('monetary'),hf=val('hedgeFund'),ret=val('retail'),bank=val('bankOverview'),tr=val('trend'),seas=val('seasonality');
   const bulls = rows.filter(r => (_SB_SCORE_S[r.values[curr]]||0) > 0).map(r => r.label);
   const bears = rows.filter(r => (_SB_SCORE_S[r.values[curr]]||0) < 0).map(r => r.label);
-  const P = [`Le biais hebdomadaire global ressort ${overall} sur ${curr}.`];
-  const macro = [];
-  if (has(fund)) macro.push(`le contexte fondamental est ${q(fund)}`);
-  if (has(mon))  macro.push(`la politique monétaire est ${q(mon)}`);
-  if (macro.length) P.push(`Sur le plan macro, ${macro.join(' et ')}.`);
+  const OVR = { 'Very Bullish':'nettement haussier','Bullish':'haussier','Weak Bullish':'légèrement haussier','Neutral':'neutre','Range':'neutre','N/A':'neutre','Weak Bearish':'légèrement baissier','Bearish':'baissier','Very Bearish':'nettement baissier' };
+  const ov = OVR[overall] || 'neutre';
+  const P = [`Cette semaine, le biais sur ${curr} ressort ${ov}.`];
+  // Macro : on relie fondamentaux et politique monétaire en une lecture
+  if (has(fund) && has(mon)) {
+    const coherent = q(fund) === q(mon);
+    P.push(`Sur le plan macro, le contexte fondamental est ${q(fund)} et la politique monétaire ${q(mon)} — ${coherent ? 'des signaux qui vont dans le même sens' : 'des signaux à nuancer l’un par l’autre'}.`);
+  } else if (has(fund)) P.push(`Côté macro, le contexte fondamental ressort ${q(fund)}.`);
+  else if (has(mon))   P.push(`Côté macro, la politique monétaire ressort ${q(mon)}.`);
+  // Positionnement : COT / retail / banques en récit
   const pos = [];
-  if (has(hf))   pos.push(`celui des fonds (COT) est ${q(hf)}`);
-  if (has(ret))  pos.push(`le sentiment retail est ${q(ret)}`);
-  if (has(bank)) pos.push(`le consensus bancaire est ${q(bank)}`);
-  if (pos.length) P.push(`Côté positionnement, ${pos.join(', ')}.`);
+  if (has(hf))   pos.push(`les fonds (COT) sont ${q(hf)}`);
+  if (has(ret))  pos.push(`le sentiment retail ${q(ret)}`);
+  if (has(bank)) pos.push(`le consensus bancaire ${q(bank)}`);
+  if (pos.length) P.push(`Au niveau du positionnement, ${pos.join(', ')}.`);
+  // Technique
   const tech = [];
   if (has(tr))   tech.push(`la tendance est ${qt(tr)}`);
-  if (has(seas)) tech.push(`la saisonnalité est ${q(seas)}`);
+  if (has(seas)) tech.push(`la saisonnalité ${q(seas)}`);
   if (tech.length) P.push(`Techniquement, ${tech.join(' et ')}.`);
-  if (bulls.length || bears.length) {
-    let s = '';
-    if (bulls.length) s += `Soutiens haussiers : ${bulls.join(', ')}. `;
-    if (bears.length) s += `Pressions baissières : ${bears.join(', ')}.`;
-    P.push(s.trim());
-  } else P.push('Signaux globalement neutres, sans direction marquée.');
+  // Conclusion : soutiens vs pressions, formulée en bilan
+  if (bulls.length && bears.length) P.push(`Au total, les soutiens (${bulls.join(', ')}) et les pressions (${bears.join(', ')}) se compensent en partie — d'où un biais ${ov} sans conviction tranchée.`);
+  else if (bulls.length) P.push(`Les principaux soutiens viennent de ${bulls.join(', ')}, sans réelle force opposée.`);
+  else if (bears.length) P.push(`Les principales pressions viennent de ${bears.join(', ')}, sans réel soutien en face.`);
+  else P.push('Aucun facteur ne domine nettement : un biais sans direction marquée.');
   return P.join(' ');
 }
 // Un narratif est « réel » (IA) s'il est substantiel ET n'est PAS la synthèse data-driven de secours
@@ -4692,7 +4697,7 @@ function _sbDataNarrative(curr, rows, conclusion) {
 function _sbIsRealNarrative(t) {
   t = (t == null ? '' : String(t)).trim();
   if (t.length <= 80) return false;
-  if (/^Le biais hebdomadaire global ressort/i.test(t)) return false;   // mon repli data-driven (pas le vrai narratif IA)
+  if (/^(Cette semaine, le biais sur|Le biais hebdomadaire (global )?ressort)/i.test(t)) return false;   // mon repli data-driven (pas le vrai narratif IA)
   if (!/[.!?»"”]$/.test(t)) return false;   // TRONQUÉ (coupé en plein mot/phrase, ex. "…de la polit") → à régénérer
   return true;
 }
