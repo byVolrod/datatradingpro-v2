@@ -2483,6 +2483,25 @@
   ::-webkit-scrollbar-thumb:hover{background:#50505c}
   ::-webkit-scrollbar-corner{background:#0a0a0c}
 
+  /* ── Accessibilité : respect du « mouvement réduit » (WCAG) ── */
+  @media(prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  }
+  /* ── Responsive ultra-petit écran (audit) ── */
+  @media(max-width:460px){
+    .trust-grid{grid-template-columns:1fr}
+    .section10-pricing-card{padding:clamp(18px,5vw,30px) clamp(16px,4.5vw,28px)}
+    .section10-bottom-cta-content{min-width:0}
+    .section10-help-content{min-width:0}
+  }
+  @media(max-width:380px){
+    .hero{min-height:480px}
+    .hero-statband .hs b{font-size:clamp(19px,5.4vw,25px)}
+    .stats-grid,.pmt-sec3-grid,.section10-stats-grid,.mission-grid,.section9-team-grid,.section9-stats{grid-template-columns:1fr}
+    .features,.steps,.trust-grid,.section9-team-grid{gap:12px}
+    nav{height:auto;min-height:52px}
+    .ticker .badge{padding:0 8px}
+  }
 </style>
 <script type="application/ld+json">
 {
@@ -2552,16 +2571,16 @@
       </a>
       <div class="nav-links">
         <div class="nav-item">
-          <a class="nav-trigger" href="#overview">Le terminal <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></a>
+          <a class="nav-trigger" href="#apercu">Le terminal <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></a>
           <div class="dd">
-            <a href="#features"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span><span class="dt">News priorisée</span><span class="dz">Flux institutionnels classés par impact</span></span></a>
-            <a href="#features"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span><span class="dt">Calendrier éco.</span><span class="dz">Réel vs prévision · Week Ahead</span></span></a>
-            <a href="#showcase"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></svg></span><span><span class="dt">Smart Bias Tracker</span><span class="dz">Biais hebdo multi-facteurs par devise</span></span></a>
-            <a href="#showcase"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span><span><span class="dt">Force des devises</span><span class="dz">Égaliseur des 8 majeures</span></span></a>
-            <a href="#showcase"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg></span><span><span class="dt">Assistant Macro IA</span><span class="dz">Réponses sourcées en direct</span></span></a>
-            <a href="#features"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16l3-4 2.5 2.5L17 8"/></svg></span><span><span class="dt">Analyst</span><span class="dz">Daily, Weekly &amp; recaps de séance par IA</span></span></a>
-            <a href="#features"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M7 21v-6M12 21V9M17 21v-10"/></svg></span><span><span class="dt">Positions des banques</span><span class="dz">Bank Overview + COT (CFTC)</span></span></a>
-            <a href="#features"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-5 8 5v11"/></svg></span><span><span class="dt">Recherche institutionnelle</span><span class="dz">Rapports des grandes banques</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><span><span class="dt">News priorisée</span><span class="dz">Flux institutionnels classés par impact</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span><span><span class="dt">Calendrier éco.</span><span class="dz">Réel vs prévision · Week Ahead</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/></svg></span><span><span class="dt">Smart Bias Tracker</span><span class="dz">Biais hebdo multi-facteurs par devise</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 4-6"/></svg></span><span><span class="dt">Force des devises</span><span class="dz">Égaliseur des 8 majeures</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="5" width="14" height="14" rx="3"/><circle cx="12" cy="12" r="2.5"/></svg></span><span><span class="dt">Assistant Macro IA</span><span class="dz">Réponses sourcées en direct</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 16l3-4 2.5 2.5L17 8"/></svg></span><span><span class="dt">Analyst</span><span class="dz">Daily, Weekly &amp; recaps de séance par IA</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M7 21v-6M12 21V9M17 21v-10"/></svg></span><span><span class="dt">Positions des banques</span><span class="dz">Bank Overview + COT (CFTC)</span></span></a>
+            <a href="#modules-cles"><span class="di"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M4 21V10l8-5 8 5v11"/></svg></span><span><span class="dt">Recherche institutionnelle</span><span class="dz">Rapports des grandes banques</span></span></a>
           </div>
         </div>
         <div class="nav-item">
@@ -2589,8 +2608,8 @@
   </div>
   <div class="mobile-menu" id="mobileMenu">
     <div class="wrap">
-      <a href="#overview" onclick="closeMenu()">Le terminal</a>
-      <a href="#features" onclick="closeMenu()">Modules</a>
+      <a href="#apercu" onclick="closeMenu()">Le terminal</a>
+      <a href="#modules-cles" onclick="closeMenu()">Modules</a>
       <a href="/documentation/" onclick="closeMenu()">Documentation</a>
       <a href="#framework" onclick="closeMenu()">Méthode</a>
       <a href="#tarifs" onclick="closeMenu()">Tarifs</a>
@@ -2642,7 +2661,7 @@
       <p class="hero-sub">News en direct, données macro, Smart Bias, graphiques et recherche banques centrales — réunis dans un seul espace de travail pour décider avec clarté et conviction.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Essai 7 jours — 24,99 €/mois →</a>
-        <a class="btn btn-ghost" href="#demo" onclick="event.preventDefault();window.DTPDemo&&DTPDemo.open()"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Voir le terminal</a>
+        <a class="btn btn-ghost" href="#apercu" onclick="event.preventDefault();window.DTPDemo&&DTPDemo.open()"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Voir le terminal</a>
       </div>
       <div class="hero-trust">
         <span class="ok">&#10003; Accès navigateur immédiat</span>
@@ -3690,10 +3709,44 @@
       </div>
       <div class="section10-bottom-cta-buttons">
         <a class="section10-bottom-button primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Démarrer l'essai 7 jours →</a>
-        <a class="section10-bottom-button secondary" href="#fonctionnalites">Voir les modules</a>
+        <a class="section10-bottom-button secondary" href="#modules-cles">Voir les modules</a>
       </div>
     </div>
 
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq" aria-labelledby="faq-title">
+  <div class="wrap" style="padding:clamp(54px,8vw,90px) 0">
+    <h2 id="faq-title" style="text-align:center;font-size:clamp(26px,4vw,40px);margin-bottom:10px">Questions fréquentes</h2>
+    <p style="text-align:center;color:var(--text2);max-width:560px;margin:0 auto clamp(28px,4vw,44px)">Tout ce qu'il faut savoir avant de commencer — sans engagement, résiliable en un clic.</p>
+    <div class="faq">
+      <details>
+        <summary>DataTradingPro passe-t-il des ordres à ma place&nbsp;?</summary>
+        <p>Non. C'est un terminal de données, de news et de recherche. Vous exécutez vous-même chez votre courtier — DTP éclaire la décision, il ne la prend jamais et n'exécute aucun ordre.</p>
+      </details>
+      <details>
+        <summary>Est-ce un conseil en investissement&nbsp;?</summary>
+        <p>Non. Toutes les données sont fournies à titre informatif et d'aide à la décision — jamais comme un conseil financier personnalisé.</p>
+      </details>
+      <details>
+        <summary>Faut-il installer un logiciel&nbsp;?</summary>
+        <p>Non — tout fonctionne dans le navigateur, sur ordinateur, tablette et mobile. Aucune installation, aucune extension.</p>
+      </details>
+      <details>
+        <summary>D'où viennent les données&nbsp;?</summary>
+        <p>De sources de marché institutionnelles reconnues — calendrier économique, news, positionnement, recherche et force des devises — agrégées et rafraîchies en temps réel. Le détail de nos sources fait partie de notre savoir-faire.</p>
+      </details>
+      <details>
+        <summary>L'abonnement est-il sans engagement&nbsp;?</summary>
+        <p>Oui. 24,99&nbsp;€/mois, résiliable à tout moment en un clic, sans frais cachés.</p>
+      </details>
+      <details>
+        <summary>Comment j'accède au terminal après paiement&nbsp;?</summary>
+        <p>Le paiement se fait sur Whop. Juste après, tu reçois un email avec tes identifiants (login + mot de passe), et tu es automatiquement ajouté à notre serveur Discord avec la communauté. Tu te connectes ensuite sur desk.datatradingpro.com et tout se charge en temps réel.</p>
+      </details>
+    </div>
   </div>
 </section>
 
@@ -3705,8 +3758,8 @@
         DataTradingPro
       </a>
       <div class="foot-links">
-        <a href="#overview">Le terminal</a>
-        <a href="#features">Modules</a>
+        <a href="#apercu">Le terminal</a>
+        <a href="#modules-cles">Modules</a>
         <a href="#tarifs">Tarifs</a>
         <a href="#faq">FAQ</a>
         <a href="https://desk.datatradingpro.com/">Se connecter</a>
