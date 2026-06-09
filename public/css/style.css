@@ -6744,7 +6744,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .pd-ref-hero b{color:#f7941d}
 .pd-ref-linkrow{display:flex;gap:8px;margin:6px 0 14px}
 .pd-ref-linkrow .pd-input{flex:1;min-width:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
-.pd-ref-copy{flex:0 0 auto;width:auto;padding-left:18px;padding-right:18px;white-space:nowrap}
+.pd-ref-linkrow .pd-ref-copy{flex:0 0 auto;width:auto;padding-left:18px;padding-right:18px;white-space:nowrap}
 .pd-ref-copy.pd-ref-copied{background:#22c55e !important;border-color:#22c55e !important;color:#06210f !important}
 .pd-ref-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .pd-ref-stat{background:#0f0f12;border:1px solid #1e1e1e;border-radius:8px;padding:12px;text-align:center}
