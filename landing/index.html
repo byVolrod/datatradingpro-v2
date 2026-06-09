@@ -155,10 +155,12 @@
   .hero-cta .btn{padding:13px 24px;font-size:14.5px}
   .hero-trust{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--text3);margin-top:2px}
   .hero-trust .ok{display:inline-flex;align-items:center;gap:6px;color:var(--green)}
-  @media(min-width:768px){.hero .hero-inner{grid-template-columns:minmax(0,1fr) minmax(0,47%);gap:52px}.hero-copy{padding-right:40px}.hero .hero-mock{display:block}}
+  @media(min-width:768px){.hero .hero-inner{grid-template-columns:minmax(0,1fr) minmax(0,47%);gap:52px}.hero-copy{padding-right:40px}.hero .hero-shot{display:block}}
   @media(max-width:767px){.hero{min-height:560px}.hero-photo{opacity:.72;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%);mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%)}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.45) 0%,rgba(7,7,9,.8) 62%,#070709 100%)}}
-  /* ── HERO MOCK (terminal vectoriel net — remplace la photo) ── */
+  /* ── HERO : image (desk Gemini) fondue dans le noir, positionnée comme les autres sections ── */
   .hero-bg{position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(120% 95% at 80% 26%,rgba(247,148,29,.10),transparent 58%),radial-gradient(90% 80% at 42% 122%,rgba(34,197,94,.045),transparent 60%)}
+  .hero-shot{display:none;position:relative;z-index:2;width:100%;height:clamp(320px,33vw,430px);background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;border-radius:12px;filter:contrast(1.06) saturate(1.05) brightness(1.02);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 17%,#000 94%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 17%,#000 94%,transparent 100%)}
+  .hero-shot::after{content:"";position:absolute;inset:0;border-radius:12px;pointer-events:none;background:linear-gradient(90deg,#070709 0,rgba(7,7,9,0) 26%)}
   .hero-mock{display:none;position:relative;z-index:2;width:100%;overflow:hidden;background:transparent;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 90%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 90%,transparent 100%)}
   .hero-mock::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#070709 0,rgba(7,7,9,0) 22%)}
   .hm-top{display:flex;align-items:center;gap:9px;padding:9px 11px;background:#0d0d10;border-bottom:1px solid var(--line)}
@@ -2821,46 +2823,7 @@
         <span class="ok">&#10003; Sans engagement</span>
       </div>
     </div>
-    <div class="hero-mock" aria-hidden="true">
-      <div class="hm-top">
-        <span class="hm-brand"><span class="mk-logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="35" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="30" letter-spacing="-1.5" fill="#fff">DT<tspan fill="#f7941d">P</tspan></text></svg></span>DataTradingPro</span>
-        <span class="hm-search">Rechercher un symbole…</span>
-        <span class="mk-ntrl"><i></i> NEUTRAL ▾</span>
-        <span class="mk-tbicons">
-          <span class="mk-ico ai"><svg viewBox="0 0 17 17" fill="none"><path d="M0.00176811 3.09868C0.156673 1.47465 1.46488 0.149026 3.09032 0L13.9156 0.0102899C15.5259 0.179541 16.844 1.53993 16.9458 3.16716C17.1177 5.92272 16.8139 8.85782 16.9437 11.6322C16.8044 13.2463 15.4406 14.6212 13.8219 14.7326C12.8154 14.8018 11.7356 14.6716 10.7217 14.7387L8.76769 16.9215C8.55938 17.0362 8.30404 17.0291 8.11907 16.8747L6.22414 14.7387C5.20983 14.672 4.13009 14.8022 3.12392 14.7326C1.48999 14.6202 0.125906 13.2289 0 11.5985L0.00176811 3.09832V3.09868Z" fill="#0F3B21"/><path d="M6.27815 4.25H7.6669L9.69505 10.1291H8.52722L8.10907 8.86654H5.83633L5.41005 10.1291H4.25L6.27815 4.25ZM7.80086 7.91927L6.97235 5.44151L6.14384 7.91927H7.80086Z" fill="#00DA50"/><path d="M10.3511 4.25H11.4242V10.1291H10.3511V4.25Z" fill="#00DA50"/></svg></span>
-          <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/><path d="M6.2 6.2a8 8 0 0 0 0 11.6M17.8 6.2a8 8 0 0 1 0 11.6"/></svg></span>
-          <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
-          <span class="mk-ava">A</span>
-        </span>
-      </div>
-      <div class="hm-tabs"><span class="on">NEWS</span><span>CALENDAR</span><span>BIAS</span><span>FX LIST</span><span>WEEK AHEAD</span><span>TAUX</span></div>
-      <div class="hm-body">
-        <div class="hm-news">
-          <div class="hm-ph">Realtime Headlines <span class="hm-live"><i></i> LIVE</span></div>
-          <div class="hm-row"><span class="t">15:01</span><span class="tag high">HIGH</span><span class="x">US CPI conforme aux attentes (3,4 %)</span></div>
-          <div class="hm-row"><span class="t">14:59</span><span class="tag">FED</span><span class="x">Fed funds effectif : 3,62 % en juin</span></div>
-          <div class="hm-row"><span class="t">14:43</span><span class="tag med">MED</span><span class="x">Citi sur USD/JPY — vendeur dans la hausse</span></div>
-          <div class="hm-row"><span class="t">14:31</span><span class="tag">BCE</span><span class="x">L'euro efface ses gains après Lagarde</span></div>
-          <div class="hm-row"><span class="t">14:18</span><span class="tag high">HIGH</span><span class="x">BoE : décision de taux à 12:00</span></div>
-          <div class="hm-row"><span class="t">14:04</span><span class="tag">GEO</span><span class="x">Pétrole : tensions au Moyen-Orient</span></div>
-        </div>
-        <div class="hm-side">
-          <div class="hm-side-h">Force des devises</div>
-          <svg class="hm-chart" viewBox="0 0 220 150">
-            <line x1="6" y1="34" x2="186" y2="34" class="hm-grid"/><line x1="6" y1="80" x2="186" y2="80" class="hm-grid"/><line x1="6" y1="126" x2="186" y2="126" class="hm-grid"/>
-            <polyline class="hm-l" stroke="#eab308" points="6,86 40,72 78,76 116,52 152,58 184,30"/>
-            <polyline class="hm-l" stroke="#f7941d" points="6,87 40,80 78,86 116,66 152,60 184,42"/>
-            <polyline class="hm-l" stroke="#22c55e" points="6,88 40,84 78,78 116,72 152,64 184,56"/>
-            <polyline class="hm-l" stroke="#ec4899" points="6,89 40,90 78,82 116,86 152,80 184,76"/>
-            <polyline class="hm-l" stroke="#3b82f6" points="6,90 40,92 78,90 116,94 152,96 184,98"/>
-            <polyline class="hm-l" stroke="#22d3ee" points="6,90 40,88 78,96 116,98 152,106 184,112"/>
-            <polyline class="hm-l" stroke="#a855f7" points="6,91 40,96 78,102 116,108 152,118 184,124"/>
-            <polyline class="hm-l" stroke="#ef4444" points="6,92 40,100 78,110 116,122 152,132 184,142"/>
-            <g class="hm-lab"><text x="190" y="33" fill="#eab308">NZD</text><text x="190" y="45" fill="#f7941d">USD</text><text x="190" y="59" fill="#22c55e">GBP</text><text x="190" y="79" fill="#ec4899">AUD</text><text x="190" y="101" fill="#3b82f6">EUR</text><text x="190" y="115" fill="#22d3ee">CHF</text><text x="190" y="127" fill="#a855f7">CAD</text><text x="190" y="145" fill="#ef4444">JPY</text></g>
-          </svg>
-        </div>
-      </div>
-    </div>
+    <div class="hero-shot" aria-hidden="true"></div>
   </div>
 </section>
 
@@ -2992,15 +2955,16 @@ img,video{height:auto}
       <div class="dtpov-shotwrap" aria-hidden="true">
         <div class="dtpt">
           <div class="dtpt-topbar">
-            <div class="dtpt-logo"><span class="dtpt-logo-mark">DT<i>P</i></span><span class="dtpt-logo-text">DataTradingPro</span></div>
-            <div class="dtpt-search">⌕ Search Symbols…</div>
-            <div class="dtpt-sent">NEUTRAL ▾</div>
-            <div class="dtpt-tools">
-              <svg viewBox="0 0 24 24" fill="none" stroke="#00DA50" stroke-width="1.6"><rect x="3" y="3" width="18" height="15" rx="3"/><path d="M8 9h.01M16 9h.01M9 14h6" stroke-linecap="round"/></svg>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/></svg>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
-              <span class="dtpt-ava">J</span>
-            </div>
+            <div class="dtpt-logo"><span class="mk-logo"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="35" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="30" letter-spacing="-1.5" fill="#fff">DT<tspan fill="#f7941d">P</tspan></text></svg></span><span class="dtpt-logo-text">DataTradingPro</span></div>
+            <div class="dtpt-search">⌕ Rechercher un symbole…</div>
+            <span class="mk-ntrl" style="margin-left:auto"><i></i> NEUTRAL ▾</span>
+            <span class="mk-tbicons">
+              <span class="mk-ico ai"><svg viewBox="0 0 17 17" fill="none"><path d="M0.00176811 3.09868C0.156673 1.47465 1.46488 0.149026 3.09032 0L13.9156 0.0102899C15.5259 0.179541 16.844 1.53993 16.9458 3.16716C17.1177 5.92272 16.8139 8.85782 16.9437 11.6322C16.8044 13.2463 15.4406 14.6212 13.8219 14.7326C12.8154 14.8018 11.7356 14.6716 10.7217 14.7387L8.76769 16.9215C8.55938 17.0362 8.30404 17.0291 8.11907 16.8747L6.22414 14.7387C5.20983 14.672 4.13009 14.8022 3.12392 14.7326C1.48999 14.6202 0.125906 13.2289 0 11.5985L0.00176811 3.09832V3.09868Z" fill="#0F3B21"/><path d="M6.27815 4.25H7.6669L9.69505 10.1291H8.52722L8.10907 8.86654H5.83633L5.41005 10.1291H4.25L6.27815 4.25ZM7.80086 7.91927L6.97235 5.44151L6.14384 7.91927H7.80086Z" fill="#00DA50"/><path d="M10.3511 4.25H11.4242V10.1291H10.3511V4.25Z" fill="#00DA50"/></svg></span>
+              <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/><path d="M6.2 6.2a8 8 0 0 0 0 11.6M17.8 6.2a8 8 0 0 1 0 11.6"/></svg></span>
+              <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+              <span class="mk-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H7l-3 3V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2z"/><path d="M18 9h1a2 2 0 0 1 2 2v9l-3-3h-5a2 2 0 0 1-2-2v-1"/></svg></span>
+              <span class="mk-ava">J</span>
+            </span>
           </div>
           <div class="dtpt-nav">
             <span class="dtpt-tab dtpt-tab--active">› NEWS</span>

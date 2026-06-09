@@ -879,6 +879,14 @@ app.post('/api/referrals/claim', async (req, res) => {
       if (ageDays > REF_MAX_AGE_DAYS) return res.json({ ok: false, reason: 'too-old' });
     }
     await auth.aiCacheSet('referredby:' + me, String(refUserId)).catch(() => {});   // verrou immuable
+    // Email de bienvenue au FILLEUL (programme : 3 inscrits = 1 mois offert)
+    try {
+      if (meUser && meUser.email) {
+        let _refName = '';
+        try { const _ru = await auth.getUserById(refUserId); _refName = (_ru && _ru.name) || ''; } catch {}
+        mailer.sendReferredWelcome({ to: meUser.email, name: meUser.name, referrerName: _refName }).catch(() => {});
+      }
+    } catch {}
     const rec = await _refGetRecord(refUserId);
     rec.referrals = rec.referrals || [];
     rec.referrals.push({ email: _refMaskEmail(meUser && meUser.email), at: Date.now() });
