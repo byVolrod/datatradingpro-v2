@@ -1346,6 +1346,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 .article-points--clean li:last-child { margin-bottom: 0; }
 .article-points--clean li::marker { color: rgba(232,234,237,0.6); }
+/* Sous-titre dans une description Info (ex. « Four points: ») — libellé, pas une puce */
+.article-points--clean li.ip-head { list-style: none; margin-left: -18px; margin-top: 9px; margin-bottom: 3px; font-size: 12px; font-weight: 700; letter-spacing: .01em; color: #f0f0f2; }
+.article-points--clean li.ip-head::marker { content: ""; }
 /* Mots-clés / chiffres importants en gras clair */
 .article-points--clean li strong {
   color: #ffffff;

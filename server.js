@@ -3267,25 +3267,27 @@ app.post('/api/news-info', async (req, res) => {
 
   try {
     aiNote('news');
-    const text = await ai.generateText(`You are an editor for a professional financial news terminal (trading-desk style, like Newsquawk).
-Summarise the information below into 2 to 3 SHORT bullets, tailored to THIS specific news (never a template).
-STRICT rules:
-- Keep the exact key figures (percentages, levels, dates) but stay concise.
-- Capture what is ACTUALLY new/important in THIS story — vary the angle per news, do not reuse wording.
-- One idea per bullet, max 24 words, neutral factual tone (no investment advice).
-- NO bold, NO markdown, NO asterisks — plain text only.
+    const text = await ai.generateText(`You are an editor for a professional financial news terminal (trading-desk style).
+Summarise the story below into clear bullets capturing the KEY FACTS of THIS specific news (never a template).
+RULES:
+- 3 to 6 bullets depending on the real substance (more concrete facts = more bullets; never padding).
+- Keep the exact key figures and specifics (percentages, levels, dates, places, programs, names).
+- Put **bold** (markdown double asterisks) on the single most important phrase or number — sparingly (0 to 2 times total in the whole answer).
+- If the story enumerates a list (e.g. four demands/points/conditions), you MAY add ONE short header line ending with a colon (e.g. "Four points:") then that list as bullets right after.
+- One clear idea per bullet, neutral factual tone, no investment advice.
+- NEVER mention the news outlet or source: drop any "via X", "Reuters reports", "according to <agency/newspaper>", and all outlet names.
 - Same language as the source (usually English → answer in English).
-- No preamble, no conclusion: reply ONLY with the bullets, each starting with •.
+- Reply ONLY with the lines: bullets start with •, the optional single header line ends with ":". No preamble, no conclusion.
 
 Headline: ${headline}
 Category: ${category || '—'}
-Content: ${rawDesc.substring(0, 900)}`, 400);
+Content: ${rawDesc.substring(0, 1100)}`, 650);
 
-    const bullets = text.split('\n')
-      .map(l => l.trim())
-      .filter(l => /^[•\-\*]/.test(l))
-      .map(l => l.replace(/^[•\-\*]\s*/, '').trim())
-      .filter(Boolean);
+    const bullets = [];
+    text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
+      if (/^[•\-\*]/.test(l)) { const b = l.replace(/^[•\-\*]\s*/, '').trim(); if (b) bullets.push(b); }
+      else if (l.length <= 46 && /\S.{1,44}:$/.test(l) && !/[.!?]/.test(l.slice(0, -1))) bullets.push(l);   // ligne sous-titre
+    });
 
     const result = { bullets };
     if (bullets.length) {
