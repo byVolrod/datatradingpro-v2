@@ -140,9 +140,9 @@
 
   /* ── HERO (clone PMT : texte à gauche + image desk en fond) ── */
   .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:#070709}
-  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=1") center center/cover no-repeat;opacity:.92;pointer-events:none}
+  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=1") center center/cover no-repeat;opacity:.95;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 52%);mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 52%)}
   .hero{position:relative;width:100%;min-height:620px;display:flex;align-items:center;overflow:hidden;background:#070709;border-bottom:1px solid var(--line)}
-  .hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(to right,#070709 0%,#070709 24%,rgba(7,7,9,.86) 46%,rgba(7,7,9,.34) 72%,rgba(7,7,9,0) 100%)}
+  .hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.6) 32%,rgba(7,7,9,0) 62%)}
   .hero .hero-inner{position:relative;z-index:2;width:100%;display:grid;grid-template-columns:1fr;gap:32px;align-items:center}
   .hero-copy{max-width:600px;display:flex;flex-direction:column;align-items:flex-start;gap:19px;padding:clamp(48px,7vw,76px) 0}
   .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:6px}
@@ -153,8 +153,8 @@
   .hero-cta .btn{padding:13px 24px;font-size:14.5px}
   .hero-trust{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--text3);margin-top:2px}
   .hero-trust .ok{display:inline-flex;align-items:center;gap:6px;color:var(--green)}
-  @media(min-width:768px){.hero-photo{width:53%}.hero .hero-inner{grid-template-columns:1fr 1fr;gap:40px}}
-  @media(max-width:767px){.hero{min-height:560px}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.55) 0%,rgba(7,7,9,.82) 60%,#070709 100%)}}
+  @media(min-width:768px){.hero-photo{width:60%}.hero .hero-inner{grid-template-columns:1fr 1fr;gap:40px}}
+  @media(max-width:767px){.hero{min-height:560px}.hero-photo{opacity:.42;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%);mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%)}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.45) 0%,rgba(7,7,9,.8) 62%,#070709 100%)}}
   .hero-statband{background:#070709;border-bottom:1px solid var(--line)}
   .hero-statband .hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:transparent;max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
   .hero-statband .hs{display:flex;align-items:center;gap:15px;padding:20px clamp(10px,1.8vw,22px);background:transparent;border-left:1px solid var(--line)}
@@ -2665,7 +2665,7 @@
       <h1>Un seul poste de commande pour les <span class="grad">traders macro sérieux</span>.</h1>
       <p class="hero-sub">News, macro, Smart Bias et recherche — réunis sur un seul écran pour décider sans le bruit.</p>
       <div class="hero-cta">
-        <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Essai 7 jours — 24,99 €/mois →</a>
+        <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner — 24,99 €/mois →</a>
         <a class="btn btn-ghost" href="#apercu" onclick="event.preventDefault();window.DTPDemo&&DTPDemo.open()"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Voir le terminal</a>
       </div>
       <div class="hero-trust">
@@ -3165,55 +3165,6 @@
   </div>
 </section>
 
-<!-- ============ sec6 ============ -->
-<section class="pmt-sec6-viewport" id="mission" aria-labelledby="pmt-sec6-title">
-  <div class="pmt-sec6-boundless">
-    <div class="pmt-sec6-split-grid">
-
-      <div class="pmt-sec6-info-stack">
-        <span class="pmt-sec6-eyebrow"><i class="fa-solid fa-compass" aria-hidden="true"></i> Our Mission</span>
-        <h2 class="pmt-sec6-headline" id="pmt-sec6-title">Conçu par des traders, pas par des marketeux.</h2>
-
-        <p class="pmt-sec6-paragraph">
-          DataTradingPro est né d'un constat simple : pour suivre la macro et le forex, il fallait jongler entre dix onglets, recopier des chiffres à la main et reconstituer le contexte soi-même. Nous avons rassemblé l'essentiel — news temps réel, calendrier économique, Smart Bias, force des devises, COT, taux des banques centrales et recherche institutionnelle — dans un seul terminal, directement dans le navigateur.
-        </p>
-        <p class="pmt-sec6-paragraph pmt-sec6-para-spacing">
-          Pas de promesses miraculeuses, pas de signaux magiques. Juste des données first-party en temps réel et des outils pensés pour la lecture du marché, par des gens qui tradent. L'objectif : vous faire gagner du temps sur la collecte d'information pour que vous puissiez vous concentrer sur la décision. À 24,99 €/mois, sans engagement.
-        </p>
-
-        <div class="pmt-sec6-features-row">
-
-          <div class="pmt-sec6-feature-box">
-            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-clock" aria-hidden="true"></i></span>
-            <h3 class="pmt-sec6-box-title">Gagner du temps</h3>
-            <p class="pmt-sec6-box-desc">Tout au même endroit. Fini les dix onglets et le copier-coller : l'information arrive déjà agrégée et structurée.</p>
-          </div>
-
-          <div class="pmt-sec6-feature-box">
-            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-magnifying-glass-chart" aria-hidden="true"></i></span>
-            <h3 class="pmt-sec6-box-title">Voir plus</h3>
-            <p class="pmt-sec6-box-desc">Smart Bias, force des devises, COT et taux croisés : une vue d'ensemble du marché plutôt qu'un signal isolé.</p>
-          </div>
-
-          <div class="pmt-sec6-feature-box">
-            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
-            <h3 class="pmt-sec6-box-title">Réagir plus vite</h3>
-            <p class="pmt-sec6-box-desc">News et calendrier économique en temps réel. Quand le marché bouge, l'information est déjà sous vos yeux.</p>
-          </div>
-
-          <div class="pmt-sec6-feature-box">
-            <span class="pmt-sec6-icon-container"><i class="fa-solid fa-circle-check" aria-hidden="true"></i></span>
-            <h3 class="pmt-sec6-box-title">Décider avec conviction</h3>
-            <p class="pmt-sec6-box-desc">Le contexte macro complet en un coup d'œil pour entrer en position en comprenant le pourquoi, pas seulement le quoi.</p>
-          </div>
-
-        </div>
-      </div>
-
-    </div>
-  </div>
-</section>
-
 <!-- ============ sec7 ============ -->
 <section class="pmt-sec7-viewport" aria-labelledby="pmt-sec7-title">
   <div class="pmt-sec7-boundless">
@@ -3651,7 +3602,7 @@
           <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Recherche Institution &amp; Analyst Report</li>
           <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Macro AI &amp; mises à jour incluses, dans le navigateur</li>
         </ul>
-        <a class="section10-cta-button" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Essai 7 jours <span class="section10-cta-arrow">→</span></a>
+        <a class="section10-cta-button" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner <span class="section10-cta-arrow">→</span></a>
       </div>
 
       <!-- Plan annuel (mis en avant) -->
@@ -3670,7 +3621,7 @@
           <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Macro AI &amp; toutes les évolutions futures</li>
           <li class="section10-feature"><span class="section10-feature-icon"><i class="fa-solid fa-check"></i></span> Accès à la communauté JustOneTrader</li>
         </ul>
-        <a class="section10-cta-button" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Essai 7 jours <span class="section10-cta-arrow">→</span></a>
+        <a class="section10-cta-button" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner <span class="section10-cta-arrow">→</span></a>
       </div>
 
     </div>
@@ -3687,8 +3638,8 @@
           <span class="section10-stat-description">données first-party, directement dans le navigateur</span>
         </div>
         <div class="section10-stat-item">
-          <span class="section10-stat-number">7 jours</span>
-          <span class="section10-stat-description">d'essai pour tester avant de vous décider</span>
+          <span class="section10-stat-number">Sans engagement</span>
+          <span class="section10-stat-description">résiliable en un clic, aucun frais caché</span>
         </div>
       </div>
     </div>
@@ -3708,12 +3659,12 @@
       <div class="section10-bottom-cta-content">
         <span class="section10-bottom-cta-icon"><i class="fa-solid fa-bolt"></i></span>
         <div class="section10-bottom-cta-text">
-          <h3 class="section10-bottom-cta-title">Essayez sans risque pendant 7 jours</h3>
-          <p class="section10-bottom-cta-subtitle">24,99 €/mois ensuite, sans engagement, résiliable en un clic.</p>
+          <h3 class="section10-bottom-cta-title">Accédez au terminal complet</h3>
+          <p class="section10-bottom-cta-subtitle">24,99 €/mois, sans engagement, résiliable en un clic.</p>
         </div>
       </div>
       <div class="section10-bottom-cta-buttons">
-        <a class="section10-bottom-button primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Démarrer l'essai 7 jours →</a>
+        <a class="section10-bottom-button primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal →</a>
         <a class="section10-bottom-button secondary" href="#modules-cles">Voir les modules</a>
       </div>
     </div>
