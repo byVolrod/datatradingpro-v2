@@ -4444,11 +4444,17 @@ function _sbSentimentRow() {
 async function _sbBankStances() {
   if (!Array.isArray(_brCache) || !_brCache.length) return {};
   const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;   // ~2 semaines de recherche récente
+  const _strip = h => String(h || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const byBank = new Map();
   for (const a of _brCache) {
     if (!a || !a.institution || (a.timestamp || 0) < cutoff) continue;
     const arr = byBank.get(a.institution) || [];
-    if (arr.length < 8) arr.push(`${a.title || ''}${a.description ? ' — ' + String(a.description).replace(/<[^>]*>/g, ' ').slice(0, 160) : ''}`);
+    if (arr.length < 6) {
+      // Biais basé sur le CONTENU RÉEL de la recherche (pas juste le titre) : fullContent (SEB/PDF) →
+      // contenu structuré IA en cache (_brSegCache) → description → titre. C'est la matière de l'onglet Institution.
+      const body = a.fullContent || (a.url && _brSegCache.get(BR_SEG_VER + a.url)) || a.description || '';
+      arr.push(`• ${a.title || ''}. ${_strip(body)}`.slice(0, 1300));
+    }
     byBank.set(a.institution, arr);
   }
   const out = {};
@@ -4458,8 +4464,8 @@ async function _sbBankStances() {
     const clean = (bank || '').replace(/\s+Research$/i, '').trim();
     const st = {};
     if (!aiDown && aiAllowed('bank', { scheduled: true })) {
-      const digest = heads.join('\n').slice(0, 1800);
-      const prompt = `Tu es analyste FX. D'après UNIQUEMENT les titres de recherche récents de la banque "${bank}" ci-dessous, déduis son biais directionnel sur chaque devise majeure (${SB_CURRENCIES.join(', ')}).
+      const digest = heads.join('\n\n').slice(0, 3500);
+      const prompt = `Tu es analyste FX. D'après UNIQUEMENT la recherche récente (articles / notes / PDF) de la banque "${bank}" ci-dessous, déduis son biais directionnel sur chaque devise majeure (${SB_CURRENCIES.join(', ')}).
 Réponds UNIQUEMENT en JSON: {${SB_CURRENCIES.map(c => `"${c}":"Bullish|Bearish|Neutral"`).join(',')}}. Si la banque ne se prononce pas clairement sur une devise → "Neutral". N'invente RIEN.
 
 Recherche ${bank} :
