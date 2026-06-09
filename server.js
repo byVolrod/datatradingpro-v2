@@ -711,13 +711,23 @@ async function _whopRenewOrCreate(mem) {
     if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
     const wasInactive = !existing.active;
     await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
+    // Anti-doublon DURABLE : Whop peut refire le MÊME renouvellement (retries du webhook, ou plusieurs
+    // types d'events pour un seul paiement) → 1 SEUL email par (user, échéance). Clé = échéance, donc
+    // un VRAI renouvellement (nouvelle date) ré-enverra bien un mail.
+    const dedupKey = `whop-renew:${existing.id}:${mem.expiresAt || 'unlimited'}`;
+    if (await auth.emailLogHas(dedupKey)) { console.log(`[Whop] Renouvellement déjà notifié (anti-doublon) → ${mem.email}`); return; }
+    await auth.emailLogAdd(dedupKey);
     if (wasInactive) mailer.sendReactivated({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
     else             mailer.sendRenewed({ to: existing.email, name: existing.name, expiresAt: mem.expiresAt }).catch(() => {});
     mailer.sendAdminRenewalNotice({ clientEmail: existing.email, clientName: existing.name, expiresAt: mem.expiresAt, isNew: false }).catch(() => {});
     console.log(`[Whop] Renouvelé: ${mem.email} → ${mem.expiresAt || 'illimité'}`);
   } else {
+    // Anti-doublon : 1 seul mail de bienvenue par email (même si Whop refire l'event de création).
+    const dedupKey = `whop-welcome:${mem.email}`;
+    if (await auth.emailLogHas(dedupKey)) { console.log(`[Whop] Bienvenue déjà envoyée (anti-doublon) → ${mem.email}`); return; }
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
     const wu = await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
+    await auth.emailLogAdd(dedupKey);
     mailer.sendWelcome({ to: mem.email, name: '', password: pwd, expiresAt: mem.expiresAt }).catch(() => {});
     _sendWelcomeChat(wu && wu.id);
     mailer.sendAdminRenewalNotice({ clientEmail: mem.email, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
