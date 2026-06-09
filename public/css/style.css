@@ -1550,7 +1550,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Hover : teinte un peu plus vive + contour plus net */
 .tag--info:hover     { color: #4fb39c; border-color: rgba(63,146,128,0.55); }
 .tag--analyse:hover  { color: #1898c2; border-color: rgba(0,122,163,0.55); }
-.tag--reaction:hover { color: #a78bfa; border-color: rgba(139,92,246,0.45); }
+.tag--reaction:hover { background: #5f519e; border-color: #5f519e; color: #ffffff; }   /* survol = couleur inversée (rempli) */
 
 /* ACTIF = description DÉROULÉE → tag ALLUMÉ (Info cyan / Analyse bleu / Réaction violet).
    L'icône ⓘ hérite de la couleur (pas de règle .tag-icon → suit le `color` du tag). */
