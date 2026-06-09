@@ -997,12 +997,13 @@
   position:absolute;
   top:0;
   right:0;
-  bottom:0;
-  width:52%;
+  bottom:auto;
+  width:44%;
+  height:clamp(280px,32vw,400px);
   z-index:0;
   background:#08080a url("/img/testimonial-trader.jpg?v=1") center left/cover no-repeat;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%);
-  mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 78%,transparent 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 78%,transparent 100%);
 }
 
 /* ── Colonne gauche ── */
@@ -1069,11 +1070,12 @@
 }
 .pmt-s5-secure-status i{color:#22c55e;font-size:11px}
 
-/* ── Cartes témoignage ── */
+/* ── Cartes témoignage (rangée pleine largeur, 3 colonnes) ── */
 .pmt-s5-cards-cluster{
-  display:flex;
-  flex-direction:column;
+  display:grid;
+  grid-template-columns:repeat(3,1fr);
   gap:14px;
+  margin-top:clamp(26px,3.5vw,40px);
 }
 .pmt-s5-testimonial-card{
   position:relative;
@@ -1098,7 +1100,6 @@
   font-size:14.5px;
   color:#d6d6da;
   margin:0 0 16px;
-  max-width:48ch;
 }
 .pmt-s5-author-row{
   display:flex;
@@ -1142,6 +1143,7 @@
 @media (max-width:860px){
   .pmt-s5-photo{display:none}
   .pmt-s5-content-stack{max-width:none}
+  .pmt-s5-cards-cluster{grid-template-columns:1fr 1fr}
   .pmt-s5-totals-grid{grid-template-columns:1fr 1fr}
 }
 .pmt-s5-total-box{
@@ -1209,6 +1211,7 @@
   .pmt-s5-paragraph{max-width:none}
 }
 @media (max-width:560px){
+  .pmt-s5-cards-cluster{grid-template-columns:1fr}
   .pmt-s5-totals-grid{grid-template-columns:1fr}
   .pmt-s5-total-box{min-height:0}
   .pmt-s5-rating-strip{gap:10px}
@@ -2701,6 +2704,213 @@
 </section>
 
 
+<!-- ============ APERÇU DU PRODUIT (mock fidèle desk.datatradingpro.com) ============ -->
+<style id="dtpov-styles">
+.dtpov{background:#070709;border-bottom:1px solid var(--line);padding:clamp(54px,8vw,104px) 0}
+.dtpov-wrap{max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
+.dtpov-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:clamp(28px,4vw,56px);align-items:center}
+.dtpov-eyebrow{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange)}
+.dtpov-title{font-family:var(--serif);font-weight:800;letter-spacing:-.015em;font-size:clamp(30px,4.6vw,50px);line-height:1.06;margin:14px 0 16px;color:#fff}
+.dtpov-sub{color:var(--text2);font-size:clamp(15px,1.7vw,17px);line-height:1.65;max-width:46ch;margin:0 0 24px}
+.dtpov-feats{list-style:none;margin:0 0 24px;padding:0}
+.dtpov-feat{display:flex;gap:14px;align-items:flex-start;padding:13px 0;border-top:1px solid var(--line)}
+.dtpov-feat:last-child{border-bottom:1px solid var(--line)}
+.dtpov-feat-ic{flex-shrink:0;width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.24);color:var(--orange)}
+.dtpov-feat-ic svg{width:18px;height:18px}
+.dtpov-feat-txt b{display:block;font-size:14.5px;font-weight:700;color:var(--text);margin-bottom:2px}
+.dtpov-feat-txt span{font-size:13px;color:var(--text2);line-height:1.45}
+.dtpov-status{display:inline-flex;align-items:center;gap:9px;padding:11px 16px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--text)}
+.dtpov-status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.6s infinite}
+.dtpov-status-time{color:var(--text3);margin-left:6px}
+.dtpov-trust{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:clamp(34px,4.5vw,56px);padding-top:clamp(26px,3vw,34px);border-top:1px solid var(--line)}
+.dtpov-trust-item{display:flex;gap:12px;align-items:flex-start}
+.dtpov-trust-ic{flex-shrink:0;color:var(--orange);margin-top:1px}
+.dtpov-trust-ic svg{width:22px;height:22px}
+.dtpov-trust-item b{display:block;font-size:13.5px;font-weight:700;color:var(--text);margin-bottom:2px}
+.dtpov-trust-item span{font-size:12px;color:var(--text2);line-height:1.4}
+/* ── Mock terminal fidèle au desk ── */
+.dtpov-shotwrap{position:relative}
+.dtpt{position:relative;width:100%;background:#0a0a0a;border:1px solid #2a2a2f;border-radius:11px;overflow:hidden;font-family:var(--font);box-shadow:0 30px 70px -34px rgba(0,0,0,.85)}
+.dtpt-topbar{display:flex;align-items:center;gap:8px;height:38px;padding:0 10px;background:#111;border-bottom:1px solid #232327}
+.dtpt-logo{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.dtpt-logo-mark{font:900 11px/1 Arial,sans-serif;letter-spacing:-.5px;color:#fff;background:#101014;border-radius:5px;padding:4px 5px}
+.dtpt-logo-mark i{color:var(--orange);font-style:normal}
+.dtpt-logo-text{font-size:12px;font-weight:700;color:#fff;letter-spacing:-.01em;white-space:nowrap}
+.dtpt-search{flex:1;min-width:0;max-width:200px;margin-left:6px;display:flex;align-items:center;gap:6px;height:24px;padding:0 9px;background:#0d0d0d;border:1px solid #232327;border-radius:6px;color:#5e636c;font-size:10.5px;overflow:hidden;white-space:nowrap}
+.dtpt-sent{display:flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:5px;font-size:9px;font-weight:700;letter-spacing:.04em;color:rgb(249,115,22);background:rgba(249,115,22,.12);border:1px solid rgba(249,115,22,.35);flex-shrink:0}
+.dtpt-sent::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.dtpt-tools{margin-left:auto;display:flex;align-items:center;gap:8px;color:#888;flex-shrink:0}
+.dtpt-tools svg{width:14px;height:14px;display:block}
+.dtpt-ava{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#1c1c1c,#141414);border:1px solid #2a2a2f;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#bbb}
+.dtpt-nav{display:flex;align-items:stretch;height:28px;background:#1a1a1a;border-bottom:1px solid #232327;overflow:hidden}
+.dtpt-tab{display:flex;align-items:center;padding:0 10px;font-family:var(--mono);font-size:9.5px;font-weight:600;letter-spacing:.02em;color:#888;border-right:1px solid #232327;white-space:nowrap}
+.dtpt-tab--active{color:#e8e8e8;background:#141414}
+.dtpt-body{display:grid;grid-template-columns:1fr .94fr;gap:1px;background:#232327;height:300px}
+.dtpt-panel{background:#0a0a0a;display:flex;flex-direction:column;min-height:0;min-width:0}
+.dtpt-phead{display:flex;align-items:center;gap:6px;height:26px;padding:0 10px;border-bottom:1px solid #18181c;font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;color:#e9eaed;flex-shrink:0}
+.dtpt-live{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+.dtpt-tf{margin-left:auto;font-family:var(--mono);font-size:8px;color:#666;letter-spacing:.08em}
+.dtpt-tf i{color:var(--orange);font-style:normal}
+.dtpt-rows{overflow:hidden}
+.dtpt-row{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:7px;align-items:center;padding:6px 10px;border-bottom:1px solid #121214}
+.dtpt-row .t{font-family:var(--mono);font-size:9px;color:#777}
+.dtpt-row .c{font-size:8px;color:#7a7f87;text-transform:uppercase;letter-spacing:.03em;white-space:nowrap}
+.dtpt-row .h{font-size:10px;color:#cfcfcf;line-height:1.3;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dtpt-tag{font-size:7px;font-weight:700;padding:1px 4px;border-radius:3px;letter-spacing:.04em;white-space:nowrap}
+.dtpt-tag--hi{color:#ff5a47;background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.3)}
+.dtpt-tag--med{color:#ffb300;background:rgba(255,179,0,.13);border:1px solid rgba(255,179,0,.3)}
+.dtpt-tag--neu{color:#9aa0a8;background:#141417;border:1px solid #232327}
+.dtpt-rcol{display:flex;flex-direction:column;background:#0a0a0a;min-width:0}
+.dtpt-clocks{display:flex;border-bottom:1px solid #18181c}
+.dtpt-clock{flex:1;padding:6px 8px;border-right:1px solid #141417}
+.dtpt-clock:last-child{border-right:none}
+.dtpt-clock .city{display:block;font-size:7.5px;color:#777;letter-spacing:.03em}
+.dtpt-clock .tm{font-family:var(--mono);font-size:11px;color:#e8e8e8;font-weight:600}
+.dtpt-rtabs{display:flex;height:22px;background:#1a1a1a;border-bottom:1px solid #232327;overflow:hidden}
+.dtpt-rtab{display:flex;align-items:center;padding:0 8px;font-family:var(--mono);font-size:8px;font-weight:600;color:#888;border-right:1px solid #232327;white-space:nowrap}
+.dtpt-rtab--active{color:#e8e8e8;background:#141414}
+.dtpt-strength{flex:1;position:relative;padding:7px 8px;min-height:0}
+.dtpt-strength svg{width:100%;height:100%;display:block}
+@media(max-width:960px){.dtpov-grid{grid-template-columns:1fr;gap:34px}.dtpov-sub{max-width:none}.dtpt-body{height:280px}}
+@media(max-width:720px){.dtpov-trust{grid-template-columns:1fr 1fr;gap:16px}}
+@media(max-width:560px){.dtpt-search{display:none}.dtpt-body{height:248px}.dtpt-clock:nth-child(3){display:none}}
+@media(max-width:460px){.dtpov-trust{grid-template-columns:1fr}}
+@media(max-width:420px){.dtpt-tools svg:nth-child(n+3){display:none}}
+/* ── Garde-fous responsive globaux (tous appareils) ── */
+html,body{overflow-x:hidden;overflow-x:clip}
+img,svg,video,canvas,picture{max-width:100%}
+img,video{height:auto}
+.pmt-sec7-news-list-item,.pmt-sec7-item-headline,.section10-feature,.pmt-s5-author-row,.pmt-s5-quote-body{min-width:0}
+.pmt-sec7-item-headline,.section10-feature,.faq summary,.pmt-s5-quote-body{overflow-wrap:anywhere}
+#modules-cles,#framework,#confiance,#tarifs,#faq,#contenu{scroll-margin-top:80px}
+@media(max-width:560px){.nav-cta .btn{padding:9px 13px;font-size:12.5px}}
+@media(max-width:767px){.hero-photo{opacity:.55}}
+</style>
+<section class="dtpov" aria-labelledby="dtpov-title">
+  <div class="dtpov-wrap">
+    <div class="dtpov-grid">
+      <div class="dtpov-copy">
+        <span class="dtpov-eyebrow">Aperçu du produit</span>
+        <h2 class="dtpov-title" id="dtpov-title">Temps réel. Intégré. Actionnable.</h2>
+        <p class="dtpov-sub">DataTradingPro réunit news en direct, données macro, Smart Bias, graphiques et recherche dans un seul espace — pour voir plus, comprendre plus vite et décider avec conviction.</p>
+        <ul class="dtpov-feats">
+          <li class="dtpov-feat">
+            <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>
+            <span class="dtpov-feat-txt"><b>Terminal d'actus en direct</b><span>Titres en temps réel &amp; alertes à fort impact.</span></span>
+          </li>
+          <li class="dtpov-feat">
+            <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></span>
+            <span class="dtpov-feat-txt"><b>Smart Bias Tracker</b><span>Biais directionnel &amp; signaux de conviction (IA).</span></span>
+          </li>
+          <li class="dtpov-feat">
+            <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span>
+            <span class="dtpov-feat-txt"><b>Données macro &amp; recherche</b><span>Publications clés, surprises de données, notes de banques.</span></span>
+          </li>
+          <li class="dtpov-feat">
+            <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 5-7"/></svg></span>
+            <span class="dtpov-feat-txt"><b>Graphiques avancés</b><span>Graphiques de qualité institutionnelle (amCharts).</span></span>
+          </li>
+          <li class="dtpov-feat">
+            <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
+            <span class="dtpov-feat-txt"><b>Espace de travail modulaire</b><span>Entièrement modulable, conçu autour de votre façon de travailler.</span></span>
+          </li>
+        </ul>
+        <div class="dtpov-status"><span class="dtpov-status-dot"></span> Tous les systèmes opérationnels <span class="dtpov-status-time">Mis à jour à l'instant ›</span></div>
+      </div>
+
+      <div class="dtpov-shotwrap" aria-hidden="true">
+        <div class="dtpt">
+          <div class="dtpt-topbar">
+            <div class="dtpt-logo"><span class="dtpt-logo-mark">DT<i>P</i></span><span class="dtpt-logo-text">DataTradingPro</span></div>
+            <div class="dtpt-search">⌕ Search Symbols…</div>
+            <div class="dtpt-sent">NEUTRAL ▾</div>
+            <div class="dtpt-tools">
+              <svg viewBox="0 0 24 24" fill="none" stroke="#00DA50" stroke-width="1.6"><rect x="3" y="3" width="18" height="15" rx="3"/><path d="M8 9h.01M16 9h.01M9 14h6" stroke-linecap="round"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/><path d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/></svg>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+              <span class="dtpt-ava">J</span>
+            </div>
+          </div>
+          <div class="dtpt-nav">
+            <span class="dtpt-tab dtpt-tab--active">› NEWS</span>
+            <span class="dtpt-tab">› CALENDAR</span>
+            <span class="dtpt-tab">› FX LIST</span>
+            <span class="dtpt-tab">› INSTITUTION</span>
+            <span class="dtpt-tab">› ANALYST</span>
+            <span class="dtpt-tab">› BIAS</span>
+            <span class="dtpt-tab">› WEEK AHEAD</span>
+            <span class="dtpt-tab">› TAUX</span>
+            <span class="dtpt-tab">› BANK</span>
+          </div>
+          <div class="dtpt-body">
+            <div class="dtpt-panel">
+              <div class="dtpt-phead">Realtime Headline Ticker <span class="dtpt-live"></span></div>
+              <div class="dtpt-rows">
+                <div class="dtpt-row"><span class="t">15:01</span><span class="c">Geopolitical</span><span class="h">China delivers Moon samples to Russian scientists</span><span class="dtpt-tag dtpt-tag--neu">GEO</span></div>
+                <div class="dtpt-row"><span class="t">15:00</span><span class="c">Markets</span><span class="h">Wall St set for higher open as chips extend gains</span><span class="dtpt-tag dtpt-tag--med">MED</span></div>
+                <div class="dtpt-row"><span class="t">15:00</span><span class="c">ECB</span><span class="h">Forex reserves rose €100 mln to €344.3 bln</span><span class="dtpt-tag dtpt-tag--neu">EU</span></div>
+                <div class="dtpt-row"><span class="t">14:59</span><span class="c">Fed</span><span class="h">Effective fed funds rate: 3.62% June 8th</span><span class="dtpt-tag dtpt-tag--hi">HIGH</span></div>
+                <div class="dtpt-row"><span class="t">14:59</span><span class="c">Crypto</span><span class="h">Bitcoin to hit new all-time highs within 3 years</span><span class="dtpt-tag dtpt-tag--neu">BTC</span></div>
+                <div class="dtpt-row"><span class="t">14:43</span><span class="c">FX</span><span class="h">Citi on USDJPY — sell rallies into 158</span><span class="dtpt-tag dtpt-tag--med">MED</span></div>
+                <div class="dtpt-row"><span class="t">14:40</span><span class="c">Geopolitical</span><span class="h">Futures rise with Israel-Iran tensions cooling</span><span class="dtpt-tag dtpt-tag--neu">GEO</span></div>
+              </div>
+            </div>
+            <div class="dtpt-rcol">
+              <div class="dtpt-clocks">
+                <div class="dtpt-clock"><span class="city">LON</span><span class="tm">14:04</span></div>
+                <div class="dtpt-clock"><span class="city">NY</span><span class="tm">09:04</span></div>
+                <div class="dtpt-clock"><span class="city">TKY</span><span class="tm">22:04</span></div>
+              </div>
+              <div class="dtpt-rtabs">
+                <span class="dtpt-rtab">› WORLD</span>
+                <span class="dtpt-rtab">› RISK</span>
+                <span class="dtpt-rtab dtpt-rtab--active">› STRENGTH</span>
+                <span class="dtpt-rtab">› METER</span>
+                <span class="dtpt-rtab">› COT</span>
+              </div>
+              <div class="dtpt-strength">
+                <svg viewBox="0 0 260 150" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+                  <g stroke="#18181c" stroke-width="1"><line x1="0" y1="30" x2="260" y2="30"/><line x1="0" y1="60" x2="260" y2="60"/><line x1="0" y1="90" x2="260" y2="90"/><line x1="0" y1="120" x2="260" y2="120"/></g>
+                  <polyline fill="none" stroke="#ec4899" stroke-width="1.6" points="0,120 30,95 60,72 90,82 120,50 150,40 180,55 210,30 240,38 260,26"/>
+                  <polyline fill="none" stroke="#22c55e" stroke-width="1.6" points="0,118 40,103 80,94 120,86 160,74 200,68 230,64 260,58"/>
+                  <polyline fill="none" stroke="#ef4444" stroke-width="1.6" points="0,116 50,109 100,101 150,98 200,93 260,88"/>
+                  <polyline fill="none" stroke="#f7941d" stroke-width="1.6" points="0,110 40,117 80,127 120,131 160,137 200,140 260,141"/>
+                  <polyline fill="none" stroke="#eab308" stroke-width="1.6" points="0,113 50,121 100,130 150,135 200,142 260,146"/>
+                  <g font-family="monospace" font-size="7" font-weight="700">
+                    <rect x="213" y="20" width="45" height="11" rx="2" fill="#ec4899"/><text x="216" y="28.5" fill="#0a0a0a">NZD 37,09</text>
+                    <rect x="213" y="52" width="45" height="11" rx="2" fill="#22c55e"/><text x="216" y="60.5" fill="#0a0a0a">GBP 24,52</text>
+                    <rect x="216" y="81" width="42" height="11" rx="2" fill="#ef4444"/><text x="219" y="89.5" fill="#0a0a0a">EUR 9,92</text>
+                    <rect x="208" y="134" width="50" height="11" rx="2" fill="#f7941d"/><text x="211" y="142.5" fill="#0a0a0a">USD -33,21</text>
+                  </g>
+                </svg>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dtpov-trust">
+      <div class="dtpov-trust-item">
+        <span class="dtpov-trust-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg></span>
+        <span><b>Accès navigateur</b><span>100% en ligne, rien à installer.</span></span>
+      </div>
+      <div class="dtpov-trust-item">
+        <span class="dtpov-trust-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+        <span><b>Données sourcées &amp; horodatées</b><span>Chaque donnée est datée et attribuée.</span></span>
+      </div>
+      <div class="dtpov-trust-item">
+        <span class="dtpov-trust-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M9 12l2 2 4-4"/></svg></span>
+        <span><b>Sans engagement</b><span>Résiliable en un clic.</span></span>
+      </div>
+      <div class="dtpov-trust-item">
+        <span class="dtpov-trust-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M16 8.5a3 3 0 0 1 0 5M18 15.5c2.1.5 3.5 1.9 3.5 4.5"/></svg></span>
+        <span><b>Conçu pour les pros</b><span>Traders &amp; analystes macro.</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ============ sec3 ============ -->
 <section class="pmt-sec3-wrapper" id="modules-cles" aria-labelledby="pmt-sec3-title">
   <div class="pmt-sec3-hero">
@@ -2969,8 +3179,10 @@
           <span class="pmt-s5-divider" aria-hidden="true"></span>
           <span class="pmt-s5-secure-status"><i class="fa-solid fa-lock"></i> Sans engagement, résiliable en un clic</span>
         </div>
+      </div>
 
-        <div class="pmt-s5-cards-cluster">
+      <!-- Cartes témoignage : rangée pleine largeur (3 colonnes), façon PMT -->
+      <div class="pmt-s5-cards-cluster">
 
           <article class="pmt-s5-testimonial-card">
             <i class="fa-solid fa-quote-right pmt-s5-quote-icon" aria-hidden="true"></i>
@@ -3008,7 +3220,6 @@
             </div>
           </article>
 
-        </div>
       </div>
     </div>
 
