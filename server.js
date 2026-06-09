@@ -5903,6 +5903,9 @@ const OPINION_DEMOTE_RE = /\b(\d{1,3}\s*%\s*(approves?|supports?|behind|backs?|e
 // CB category: only keep high if there's a concrete action/decision word
 const CB_ACTION_RE = /\b(cuts?\s+rates?|hikes?\s+rates?|raises?\s+rates?|lowers?\s+rates?|rate\s+(decision|hike|cut|hold|change|increase|decrease|unchanged)|(fomc|ecb|boe|boj|boc|rba|rbnz|snb)\s+(rate|decision|statement|minutes|votes?|decides?|holds?|cuts?|hikes?)|emergency\s+(meeting|rate|cut|decision)|(rate|policy)\s+(left\s+)?unchanged|(holds?|keeps?|maintains?)\s+(rates?|policy)\s+(steady|unchanged|at)|pauses?\s+(hiking|cutting|tightening|easing)|pivots?\s+(to|toward)|rate\s+(at|to)\s+[\d.]+|basis\s+points?\s+(cut|hike|raise|increase|decrease))\b/i;
 
+// ── Géopolitique tier-1 : action militaire / attaque / guerre → IMPORTANT (rouge).
+//    Les simples propos diplomatiques ("we prefer diplomacy") NE matchent PAS ici.
+const GEO_TIER1_RE = /\b(attacks?|assault|invasions?|invade[sd]?|air\s?strikes?|missiles?|drone\s+strikes?|sho(?:t|oting)\s+down|shoots?\s+down|warheads?|nuclear\s+(?:strike|attack|test|weapon)|declares?\s+war|act\s+of\s+war|retaliat\w*|military\s+(?:response|action|strike|operation|retaliation)|respond\s+militarily|escalat\w*|strait\s+of\s+hormuz|oil\s+embargo|emergency\s+(?:meeting|session|summit))\b/i;
 function upgradeItemPriority(item) {
   const h = item.headline || '';
 
@@ -5914,7 +5917,7 @@ function upgradeItemPriority(item) {
   const isHighImpactData = HIGH_IMPACT_RE.test(h) || hasHighImpactField;
 
   // Never touch urgent/breaking — those are source-confirmed (déjà rouges)
-  if (item.urgent) return isHighImpactData ? { ...item, _highImpact: true } : item;
+  if (item.urgent) return (isHighImpactData || GEO_TIER1_RE.test(h)) ? { ...item, _highImpact: true } : item;
 
   // ── Smart demote: opinion/support/approval statements → not high priority ──
   if (item.priority === 'high' && OPINION_DEMOTE_RE.test(h)) {
@@ -5927,8 +5930,8 @@ function upgradeItemPriority(item) {
     return { ...item, priority: 'normal', _highImpact: isHighImpactData };
   }
 
-  // ── Upgrade: actual tier-1 data releases ─────────────────────────────────
-  if (isHighImpactData) {
+  // ── Upgrade: donnée macro tier-1 RÉELLE, OU géopolitique tier-1 (militaire/attaque/guerre) ──
+  if (isHighImpactData || GEO_TIER1_RE.test(h)) {
     return { ...item, priority: 'high', _highImpact: true };
   }
 
@@ -5953,7 +5956,8 @@ function norm(s) { return (s || '').toLowerCase().replace(/[^a-z0-9]/g, '').subs
 function _normHl(s) {
   return String(s || '').toLowerCase()
     .replace(/^\s*(breaking|update|alert|flash|just in|developing|exclusive|live)\s*[:\-–—]\s*/i, '')
-    .replace(/\s*[–\-—]\s*[\w .&'/]{2,30}$/,'')            // attribution source en fin de titre
+    .replace(/\s*[–\-—|]\s*[\w .&'/]{2,30}$/,'')           // attribution source en fin (- / | Source)
+    .replace(/\s*\(\s*[\w .&'/]{2,30}\)\s*$/,'')           // attribution entre parenthèses en fin "(Mehr News)"
     .replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ').trim();
 }
 function _hlTokens(s) { return new Set(_normHl(s).split(' ').filter(w => w.length > 3)); }
@@ -5966,14 +5970,14 @@ function isDuplicate(item, list) {
   const ts = item.timestamp || Date.now();
   for (const e of list) {
     if (norm(e.headline) === n) return true;                       // exact
-    if (Math.abs((e.timestamp || 0) - ts) > 45 * 60 * 1000) continue;   // quasi-dup : fenêtre 45 min
+    if (Math.abs((e.timestamp || 0) - ts) > 180 * 60 * 1000) continue;   // quasi-dup : fenêtre 3 h (attrape les reprises tardives)
     if (_normHl(e.headline) === hn) return true;                   // identique après nettoyage
     if (tk.size >= 4) {
       const et = _hlTokens(e.headline);
       if (et.size >= 4) {
         let inter = 0; for (const t of tk) if (et.has(t)) inter++;
         const uni = tk.size + et.size - inter;
-        if (uni > 0 && inter / uni >= 0.8) return true;            // ~même news reformulée
+        if (uni > 0 && inter / uni >= 0.72) return true;          // ~même news reformulée (seuil assoupli)
       }
     }
   }
