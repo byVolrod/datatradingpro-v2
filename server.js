@@ -4351,7 +4351,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v10-stable-overall';   // v10 : Technical+Sentiment AFFICHES mais HORS Overall (volatils) → Overall stable, narratif coherent
+const BIAS_VER = 'v11-banks-all';   // v11 : liste TOUTES les banques d'Institution dans Bank Overview (biais IA a la reprise)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -4453,23 +4453,25 @@ async function _sbBankStances() {
   }
   const out = {};
   const OKV = ['Very Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bearish'];
+  let aiDown = false;   // circuit breaker : au 1er échec IA on cesse de tenter → on liste QUAND MÊME toutes les banques (Neutral), pas 16 appels qui plantent
   for (const [bank, heads] of byBank) {
-    if (!aiAllowed('bank', { scheduled: true })) break;   // budget IA épuisé → on s'arrête (repli côté front)
-    const digest = heads.join('\n').slice(0, 1800);
-    const prompt = `Tu es analyste FX. D'après UNIQUEMENT les titres de recherche récents de la banque "${bank}" ci-dessous, déduis son biais directionnel sur chaque devise majeure (${SB_CURRENCIES.join(', ')}).
+    const clean = (bank || '').replace(/\s+Research$/i, '').trim();
+    const st = {};
+    if (!aiDown && aiAllowed('bank', { scheduled: true })) {
+      const digest = heads.join('\n').slice(0, 1800);
+      const prompt = `Tu es analyste FX. D'après UNIQUEMENT les titres de recherche récents de la banque "${bank}" ci-dessous, déduis son biais directionnel sur chaque devise majeure (${SB_CURRENCIES.join(', ')}).
 Réponds UNIQUEMENT en JSON: {${SB_CURRENCIES.map(c => `"${c}":"Bullish|Bearish|Neutral"`).join(',')}}. Si la banque ne se prononce pas clairement sur une devise → "Neutral". N'invente RIEN.
 
 Recherche ${bank} :
 ${digest}`;
-    try {
-      aiNote('bank');
-      const t = await aiSmart('bank', prompt, 220, { scheduled: true });
-      const m = (t || '').match(/\{[\s\S]*\}/); if (!m) continue;
-      const obj = JSON.parse(m[0]);
-      const st = {};
-      for (const c of SB_CURRENCIES) if (OKV.includes(obj[c])) st[c] = obj[c];
-      if (Object.keys(st).length) out[(bank || '').replace(/\s+Research$/i, '').trim()] = st;
-    } catch (e) { /* best-effort : banque suivante */ }
+      try {
+        aiNote('bank');
+        const t = await aiSmart('bank', prompt, 220, { scheduled: true });
+        const m = (t || '').match(/\{[\s\S]*\}/);
+        if (m) { const obj = JSON.parse(m[0]); for (const c of SB_CURRENCIES) if (OKV.includes(obj[c])) st[c] = obj[c]; }
+      } catch (e) { aiDown = true; }   // IA indispo (quota/crédit) → banques suivantes listées en Neutral, biais réels à la reprise IA
+    }
+    out[clean] = st;   // TOUJOURS lister la banque (Neutral pour les devises sans biais IA → jamais de faux biais)
   }
   return out;
 }
@@ -4704,8 +4706,10 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   }
   // Biais par BANQUE (toutes les banques d'Institution) — recalculé si l'IA est dispo, sinon on
   // conserve le précédent (le front retombe sur les positions si rien). 0 invention.
-  let bankStances = (_smartBias && _smartBias.bankStances) || {};
-  if (aiOk) { try { const bsr = await _sbBankStances(); if (bsr && Object.keys(bsr).length) bankStances = bsr; } catch {} }
+  // On liste TOUJOURS toutes les banques d'Institution (même IA coupée → Neutral, biais réels à la reprise).
+  let bankStances = {};
+  try { bankStances = await _sbBankStances(); } catch {}
+  if (!Object.keys(bankStances).length && _smartBias && _smartBias.bankStances) bankStances = _smartBias.bankStances;
   // Versioning : on archive la semaine sortante (max 5 semaines distinctes) quand on bascule sur une NOUVELLE semaine.
   try {
     if (_smartBias && _smartBias.generatedAt && Array.isArray(_smartBias.rows) && _smartBias.rows.length
@@ -4787,7 +4791,8 @@ async function _sbEnsureNarrative() {
   // À régénérer : narratif absent / repli / TRONQUÉ, OU narratif dont le biais ne reflète PLUS le
   // Overall courant (cohérence garantie narratif ↔ matrice).
   const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]) || nb[c] !== concl[c]);
-  const needBank = !_smartBias.bankStances || !Object.keys(_smartBias.bankStances).length;   // biais par banque pas encore rempli
+  // Re-tente tant qu'AUCUNE banque n'a de vrai biais IA (banques listées en Neutral = IA pas encore passée).
+  const needBank = !_smartBias.bankStances || !Object.values(_smartBias.bankStances).some(st => st && Object.keys(st).length);
   if (!missing.length && !needBank) return;                                       // tout réel/cohérent ET banques OK → rien à faire
   if (_sbNarrBusy) return;
   if (typeof _aiQuietHours === 'function' && _aiQuietHours()) return;             // heures creuses → on attend
