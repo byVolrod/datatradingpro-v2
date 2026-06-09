@@ -142,13 +142,13 @@
 
   /* ── HERO (inspiration terminal pro texte à gauche + image desk en fond) ── */
   /* ── HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande stats en bas ── */
-  .hero{position:relative;width:100%;overflow:hidden;background:#070709;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:clamp(600px,80vh,840px)}
+  .hero{position:relative;width:100%;overflow:hidden;background:#070709;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:clamp(520px,calc(100svh - 90px),900px)}
   .hero-shot{position:absolute;inset:0;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;filter:contrast(1.05) saturate(1.04)}
   .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.95) 22%,rgba(7,7,9,.62) 46%,rgba(7,7,9,.18) 70%,rgba(7,7,9,0) 100%),linear-gradient(0deg,rgba(7,7,9,.92) 0%,rgba(7,7,9,.25) 20%,rgba(7,7,9,0) 36%)}
-  .hero .hero-inner{position:relative;z-index:2;width:100%;flex:1;display:flex;align-items:center;padding:clamp(40px,5.5vw,76px) 0 clamp(24px,3vw,40px)}
-  .hero-copy{max-width:560px;display:flex;flex-direction:column;align-items:flex-start;gap:17px}
+  .hero .hero-inner{position:relative;z-index:2;width:100%;flex:1;display:flex;align-items:center;padding:clamp(14px,2.4vw,34px) 0 clamp(12px,1.6vw,22px)}
+  .hero-copy{max-width:560px;display:flex;flex-direction:column;align-items:flex-start;gap:13px}
   .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:6px}
-  .hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(33px,5.4vw,56px);line-height:1.05;letter-spacing:-.015em;margin:0;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.6)}
+  .hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(28px,4.3vw,46px);line-height:1.06;letter-spacing:-.015em;margin:0;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.6)}
   .hero h1 .grad{background:linear-gradient(120deg,var(--orange),#ffc46b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   .hero-sub{font-size:clamp(14.5px,1.7vw,17px);color:var(--text2);max-width:520px;line-height:1.6;text-shadow:0 1px 14px rgba(0,0,0,.5)}
   .hero-cta{display:flex;flex-wrap:wrap;gap:13px;margin-top:4px}
@@ -157,7 +157,7 @@
   .hero-stars{color:#f7941d;font-size:15px;letter-spacing:3px;line-height:1}
   .hero-rating-txt{font-size:12.5px;color:var(--text2)}
   .hero-rating-txt strong{color:#fff;font-weight:700}
-  .hero-tm{display:flex;gap:13px;align-items:flex-start;max-width:520px;margin:4px 0 0;padding:14px 16px;background:rgba(12,12,15,.62);border:1px solid var(--line);border-radius:12px;-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)}
+  .hero-tm{display:flex;gap:11px;align-items:flex-start;max-width:520px;margin:2px 0 0;padding:11px 14px;background:rgba(12,12,15,.62);border:1px solid var(--line);border-radius:12px;-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)}
   .hero-tm-av{flex:0 0 auto;width:46px;height:46px;border-radius:50%;overflow:hidden;line-height:0}
   .hero-tm-q{margin:0 0 8px;font-size:13px;line-height:1.55;color:#dfe3ea}
   .hero-tm-cite{display:flex;flex-direction:column;gap:1px}
@@ -194,7 +194,7 @@
   .hm-lab{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:8px;font-weight:700}
   .hero-statband{background:#070709;border-bottom:1px solid var(--line)}
   .hero-statband .hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:transparent;max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
-  .hero-statband .hs{display:flex;align-items:center;gap:15px;padding:20px clamp(10px,1.8vw,22px);background:transparent;border-left:1px solid var(--line)}
+  .hero-statband .hs{display:flex;align-items:center;gap:13px;padding:13px clamp(10px,1.8vw,22px);background:transparent;border-left:1px solid var(--line)}
   .hero-statband .hs:first-child{border-left:none;padding-left:0}
   .hero-statband .hs-ic{width:auto;height:auto;background:transparent;border:none;border-radius:0;color:var(--orange);flex-shrink:0;display:flex;align-items:center}
   .hero-statband .hs-ic svg{width:30px;height:30px}
