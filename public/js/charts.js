@@ -600,6 +600,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // Clip : SEULES les courbes sont clippées (pas les axes ni les badges → l'axe X et les étiquettes droites restent visibles)
   chart.plotContainer.set('maskContent', true);
   try { chart.gridContainer.toBack(); } catch (e) {}   // grille STRICTEMENT derrière les courbes (1er plan = lignes)
+  try { chart.seriesContainer.toFront(); } catch (e) {}   // double sécurité : courbes TOUJOURS au 1er plan (jamais coupées par la grille)
 
   const _firstSeries = Object.values(data.series).find(s => s.length >= 2) || [];
   const _dtMs = _firstSeries.length >= 2 ? _firstSeries[1].t - _firstSeries[0].t : 0;
@@ -621,7 +622,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
     minPosition: 0.012, maxPosition: 0.99,
   });
-  xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x1c1c1e), strokeOpacity: 0.3, strokeDasharray: [3, 3] });   // grille DISCRÈTE derrière les courbes (1er plan = les lignes)
+  xAxis.get('renderer').grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeDasharray: [2, 4] });   // grille TRÈS discrète GRIS (jamais "trait noir"), derrière les courbes
   // Axe X façon DTP : la DATE pleine au changement de jour (ex. "05/06/2026" tout à gauche) + heures HH:mm ensuite.
   xAxis.set('dateFormats',             { minute: 'HH:mm', hour: 'HH:mm', day: 'dd/MM/yyyy', week: 'dd/MM', month: 'MMM yyyy' });
   xAxis.set('periodChangeDateFormats', { minute: 'HH:mm', hour: 'dd/MM/yyyy', day: 'dd/MM/yyyy', week: 'MMM', month: 'yyyy' });
@@ -643,7 +644,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   yAxisRenderer.labels.template.adapters.add('text', t => (t == null ? t : String(t).replace('.', ',')));
   // Grille horizontale discrète : pointillés gris foncé
   yAxisRenderer.grid.template.setAll({
-    stroke: am5.color(0x1c1c1e), strokeOpacity: 0.3, strokeWidth: 1, strokeDasharray: [3, 3],   // grille DISCRÈTE derrière les courbes
+    stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeWidth: 1, strokeDasharray: [2, 4],   // grille TRÈS discrète GRIS (jamais "trait noir")
   });
 
   const yAxis = chart.yAxes.push(
