@@ -6170,10 +6170,16 @@ async function _checkReengagement() {
     }
   } catch (e) { console.error('[Reengage]', e.message); }
 }
-(function scheduleReengagement() {
-  setTimeout(_checkReengagement, 60000);                      // rattrapage 60s après le démarrage
-  setInterval(_checkReengagement, 12 * 60 * 60 * 1000);      // puis toutes les 12 h
-})();
+// ⛔ RÉENGAGEMENT DÉSACTIVÉ (demande client : 1 SEUL email, le jour de la fin d'essai — pas de
+//    relance marketing récurrente). Le sur-envoi de ce mail (anti-doublon perdu à chaque redémarrage
+//    du conteneur Docker) a flagué le domaine en spam. On garde la fonction, on coupe la planification.
+//    Pour le réactiver un jour : décommenter ci-dessous APRÈS avoir rendu l'anti-doublon durable
+//    (table Supabase email_log + volume Docker pour cache_email_log.json — fait dans ce commit).
+void _checkReengagement;
+// (function scheduleReengagement() {
+//   setTimeout(_checkReengagement, 60000);                   // rattrapage 60s après le démarrage
+//   setInterval(_checkReengagement, 12 * 60 * 60 * 1000);   // puis toutes les 12 h
+// })();
 
 // COT — check for new weekly data every 6 h, broadcast on change
 let _lastCotHash = '';

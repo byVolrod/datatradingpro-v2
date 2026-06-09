@@ -471,7 +471,11 @@ async function weeklyReportList() {
 // même après un redémarrage Render. Même pattern que weekly : table `email_log`
 // (key text PK + sent_at) + fallback fichier + auto-récupération.
 const EMAILLOG_TABLE = 'email_log';
-const EMAILLOG_FILE  = path.join(__dirname, 'cache_email_log.json');
+// Fichier de repli de l'anti-doublon : DOIT survivre aux redémarrages du conteneur Docker, sinon
+// chaque restart ré-arme l'envoi (→ spam). En Docker, DATA_DIR pointe vers un volume persistant.
+const _DATA_DIR = process.env.DATA_DIR || __dirname;
+try { if (_DATA_DIR !== __dirname) fs.mkdirSync(_DATA_DIR, { recursive: true }); } catch {}
+const EMAILLOG_FILE  = path.join(_DATA_DIR, 'cache_email_log.json');
 let _emailDb = true;
 let _emailFile = {};   // { key: sent_at_iso }
 try { _emailFile = JSON.parse(fs.readFileSync(EMAILLOG_FILE, 'utf8')) || {}; } catch {}
