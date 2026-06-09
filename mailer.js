@@ -611,6 +611,7 @@ function getEmailCatalog() {
     { key: 'reengagement',  audience: 'Client', label: 'Réengagement (inactif ~7j)',       trigger: 'Utilisateur inactif depuis ~7 jours',         ..._buildReengagement(s.name, 7) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
     { key: 'adminRenewal',  audience: 'Admin',  label: 'Notif paiement / nouveau client',  trigger: 'Paiement Whop traité (→ toi)',                ...buildAdminRenewalNotice({ clientEmail: s.to, clientName: s.name, expiresAt: s.expiresAt, isNew: true }) },
+    { key: 'referredWelcome',  audience: 'Client', label: 'Parrainage — bienvenue filleul',  trigger: 'Un filleul s\'inscrit via un parrain',          ...buildReferredWelcome({ name: s.name, referrerName: 'Alex' }) },
     { key: 'referralCredited', audience: 'Client', label: 'Parrainage — filleul confirmé', trigger: 'Un filleul s\'abonne via votre lien',          ...buildReferralCredited({ name: s.name, count: 1, untilNext: 2 }) },
     { key: 'referralReward',   audience: 'Client', label: 'Parrainage — mois offert',       trigger: '3 parrainages atteints → 1 mois offert',      ...buildReferralReward({ name: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
     { key: 'adminReferral',    audience: 'Admin',  label: 'Parrainage — mois crédité (→ toi)', trigger: 'Un membre débloque un mois offert',         ...buildAdminReferralReward({ refEmail: s.to, refName: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
@@ -713,15 +714,36 @@ function buildAdminReferralReward({ refEmail, refName, count, newExpiresAt }) {
 }
 async function sendAdminReferralReward(d) { const m = buildAdminReferralReward(d); const to = d.to || process.env.ADMIN_EMAIL || SUPPORT_EMAIL; return _send(to, m.subject, m.html); }
 
+// ── 12) Parrainage : bienvenue du FILLEUL (→ le parrainé) ────────────────────
+function buildReferredWelcome({ name, referrerName }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
+  const par = referrerName ? _esc(referrerName) : 'votre parrain';
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue 🤝 — et à vous de jouer</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom}, vous avez rejoint <strong style="color:#fff;">DataTradingPro</strong> grâce à ${par}. Vous pouvez maintenant en profiter à votre tour avec notre programme de parrainage.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(247,148,29,0.10);border:1px solid rgba(247,148,29,0.4);border-radius:12px;margin:18px 0;">
+      <tr><td style="padding:18px 20px;text-align:center;">
+        <div style="font-size:22px;font-weight:800;color:#f7941d;letter-spacing:-.01em;">3 inscrits&nbsp;=&nbsp;1 mois offert</div>
+        <div style="font-size:13px;color:#f3d9b0;margin-top:6px;">Et ça se cumule : chaque palier de 3 filleuls ajoute un mois d'accès.</div>
+      </td></tr>
+    </table>
+    <p style="margin:0 0 14px;">Partagez votre lien personnel : à chaque <strong style="color:#fff;">3ᵉ</strong> abonné venu grâce à vous, nous créditons <strong style="color:#f7941d;">1 mois d'accès offert</strong> sur votre compte. Votre lien se trouve dans <strong style="color:#fff;">Profil&nbsp;▸&nbsp;Parrainages</strong>.</p>
+    ${_button('Voir mon lien de parrainage', APP_URL)}
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">Bon trading,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'DataTradingPro — bienvenue 🎁 3 inscrits = 1 mois offert', html: _layout('Parrainage — bienvenue', body) };
+}
+async function sendReferredWelcome(d) { const m = buildReferredWelcome(d); return _send(d.to, m.subject, m.html); }
+
 module.exports = {
   // envoi (API publique inchangée)
   sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
-  sendReferralCredited, sendReferralReward, sendAdminReferralReward,
+  sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
-  buildReferralCredited, buildReferralReward, buildAdminReferralReward,
+  buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
