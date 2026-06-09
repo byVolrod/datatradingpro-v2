@@ -1581,12 +1581,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 /* Phrase d'explication Gemini de la réaction */
 .rx-explain {
-  margin-top: 8px;
-  font-size: 12.5px;
-  line-height: 1.55;
-  color: #cbd5e1;
+  margin-top: 10px;
+  padding-left: 16px;
+  position: relative;
+  font-size: 13px;            /* aligné sur la description Info/Analyse (.article-points--clean li) */
+  line-height: 1.6;
+  color: #e8eaed;
   font-family: var(--font-ui);
 }
+.rx-explain::before { content: "•"; position: absolute; left: 4px; top: -1px; color: rgba(232,234,237,0.6); }
 .rx-explain:empty { display: none; }
 /* Ligne de tickers — chips inline, scan rapide */
 .rx-tickers {
