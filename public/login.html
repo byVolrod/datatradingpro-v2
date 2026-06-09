@@ -555,8 +555,7 @@
     ];
     const ANGLES = [-10,4,-2,-8,6,0,-6,8,2,-4,-10,4,-2,-8,6,0];
     // Mosaique : visuels DataTradingPro (nos propres images terminal), crops varies via object-position.
-    const LOGIN_IMGS = ['/css/login-images/t1.jpg','/css/login-images/t2.jpg','/css/login-images/t3.jpg'];
-    const LOGIN_POS  = ['14% 16%','60% 20%','86% 30%','22% 58%','48% 40%','78% 66%','30% 82%','70% 86%','40% 26%','58% 70%','12% 44%','90% 52%'];
+    const LOGIN_IMGS = ['/css/login-images/t1.jpg','/css/login-images/t2.jpg','/css/login-images/t3.jpg','/css/login-images/t4.jpg','/css/login-images/t5.jpg','/css/login-images/t6.jpg','/css/login-images/t7.jpg','/css/login-images/t8.jpg','/css/login-images/t9.jpg'];
 
     function buildCol(ci, srcs) {
       const col = document.createElement('div');
@@ -574,8 +573,8 @@
         const img = document.createElement('img');
         const k = ci * 11 + i * 5;
         img.src = LOGIN_IMGS[k % LOGIN_IMGS.length];
-        img.alt = ''; img.loading = 'lazy'; img.draggable = false;
-        img.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:' + LOGIN_POS[k % LOGIN_POS.length] + ';display:block';
+        img.alt = ''; img.loading = 'eager'; img.draggable = false;
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:center;display:block';
         const ov = document.createElement('div');
         ov.className = 'lp-tile-overlay';
         ti.appendChild(img); ti.appendChild(ov);
