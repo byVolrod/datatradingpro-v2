@@ -36,8 +36,10 @@
 <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer">
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap"><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer"></noscript>
 <style>
   :root{
     --bg:#08080a; --bg1:#0d0d10; --bg2:#121216; --bg3:#17171c; --line:#1f1f26; --line2:#2a2a32;
@@ -2502,6 +2504,9 @@
     nav{height:auto;min-height:52px}
     .ticker .badge{padding:0 8px}
   }
+  /* ── Focus clavier visible sur les cartes interactives (a11y) ── */
+  .pmt-sec3-card:focus-visible,.res-card:focus-visible,.pmt-s5-testimonial-card:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
+  .skip-link:focus{outline:2px solid var(--text);outline-offset:-4px}
 </style>
 <script type="application/ld+json">
 {
@@ -2658,7 +2663,7 @@
     <div class="hero-copy">
       <span class="hero-eyebrow">Conçu pour les professionnels</span>
       <h1>Un seul poste de commande pour les <span class="grad">traders macro sérieux</span>.</h1>
-      <p class="hero-sub">News en direct, données macro, Smart Bias, graphiques et recherche banques centrales — réunis dans un seul espace de travail pour décider avec clarté et conviction.</p>
+      <p class="hero-sub">News, macro, Smart Bias et recherche — réunis sur un seul écran pour décider sans le bruit.</p>
       <div class="hero-cta">
         <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Essai 7 jours — 24,99 €/mois →</a>
         <a class="btn btn-ghost" href="#apercu" onclick="event.preventDefault();window.DTPDemo&&DTPDemo.open()"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Voir le terminal</a>
