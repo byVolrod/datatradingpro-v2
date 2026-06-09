@@ -300,10 +300,16 @@ const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini sty
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
 let   _snapCache      = null;      // dernier Market Snapshot (prix réels) — partagé entre rapports
 // Rend des puces Info/Analyse : texte propre, SANS gras ni balises (on retire HTML <…> et markdown **…**)
+// Décode les entités HTML (&amp; → &, etc.) AVANT de ré-échapper → évite "S&amp;P" affiché tel quel.
+function _decodeEntities(s) {
+  return String(s == null ? '' : s)
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&nbsp;/g, ' ');
+}
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const html = (bullets || [])
-    .map(b => String(b).replace(/<[^>]+>/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim())  // retire balises HTML + markdown
+    .map(b => _decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim())  // décode entités + retire balises/markdown
     .filter(Boolean)
     .map(b => `<li>${esc(b)}</li>`).join('');
   return `<ul class="article-points article-points--clean">${html}</ul>`;
@@ -2085,7 +2091,7 @@ function buildNewsItem(item) {
             const _applyExplain = txt => {
               if (!txt) return;
               const el = document.getElementById(`rx-explain-${item.id}`);
-              if (el && activeTab === 'reaction') el.textContent = txt;
+              if (el && activeTab === 'reaction') el.textContent = _decodeEntities(txt);
             };
             if (_reactCache.has(item.id)) {
               _applyExplain(_reactCache.get(item.id));
