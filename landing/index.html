@@ -143,8 +143,8 @@
   /* ── HERO (inspiration terminal pro texte à gauche + image desk en fond) ── */
   /* ── HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande stats en bas ── */
   .hero{position:relative;width:100%;overflow:hidden;background:#020203;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:clamp(500px,calc(100svh - 96px),780px)}
-  /* PAR DÉFAUT (desktop) : image ENTIÈRE (contain = jamais zoomée ni coupée), calée à droite (55%) */
-  .hero-shot{position:absolute;top:0;bottom:0;right:0;left:auto;width:55%;z-index:0;background:#020203 url("/img/hero-terminal.jpg?v=3") center center/contain no-repeat;filter:contrast(1.05) saturate(1.04);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 26%,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 26%,#000 100%)}
+  /* PAR DÉFAUT (desktop) : image RECADRÉE plus haute (ratio ~1.34) calée à droite (55%), cover = remplit sans zoom excessif */
+  .hero-shot{position:absolute;top:0;bottom:0;right:0;left:auto;width:55%;z-index:0;background:#020203 url("/img/hero-terminal-tall.jpg?v=1") center center/cover no-repeat;filter:contrast(1.05) saturate(1.04);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 26%,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 26%,#000 100%)}
   /* Voile : NOIR 100% opaque à gauche (texte) → fondu large → transparent à droite (image se dissout dans le noir) */
   .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#020203 0%,#020203 46%,rgba(2,2,3,.4) 62%,rgba(2,2,3,0) 84%),linear-gradient(0deg,rgba(2,2,3,.8) 0%,rgba(2,2,3,.1) 24%,rgba(2,2,3,0) 40%)}
   /* Mobile : l'image redevient un FOND plein recadré (cover) derrière le texte */
