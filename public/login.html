@@ -49,6 +49,7 @@
       position: relative;
       overflow: hidden;
       background: #070d14;
+      border-right: 1px solid rgba(247,148,29,0.32);
     }
 
     /* Scrolling columns mosaic */
@@ -411,7 +412,7 @@
     @media (max-width: 900px) {
       html, body { overflow: auto; }
       .lp-layout { flex-direction: column; height: auto; overflow: visible; }
-      .lp-left   { flex: none; height: 38vh; min-height: 220px; }
+      .lp-left   { flex: none; height: 38vh; min-height: 220px; border-right: none; }
       .lp-right  { flex: none; padding: 36px 28px; }
       .lp-left-card { bottom: 8%; }
       .lp-title  { font-size: 32px; margin-bottom: 24px; }

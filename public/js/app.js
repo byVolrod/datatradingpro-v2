@@ -6856,3 +6856,57 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   window.addEventListener('resize', () => { if (!isDesktop()) { clocks.style.flex = ''; clocks.style.maxHeight = ''; clocks.style.height = ''; } });
 })();
+
+
+/* ── Dropdown custom DTP : remplace les <select> natifs par un menu stylé (panneau en portail -> aucun clipping). ── */
+(function(){
+  let _openDD = null;
+  function _close(){ if(!_openDD) return; _openDD.classList.remove('open'); var p=_openDD._panel; if(p&&p.parentNode) p.parentNode.removeChild(p); _openDD=null; }
+  document.addEventListener('mousedown', function(e){ if(_openDD && !_openDD.contains(e.target) && !(_openDD._panel&&_openDD._panel.contains(e.target))) _close(); });
+  document.addEventListener('keydown', function(e){ if(e.key==='Escape') _close(); });
+  window.addEventListener('scroll', _close, true);
+  window.addEventListener('resize', _close);
+  function _flag(flags,v){ return flags[v] ? '<span class="dtpsel-flag">'+flags[v]+'</span>' : ''; }
+  function _renderBtn(sel,dd,flags){ var o=sel.options[sel.selectedIndex]||sel.options[0]; if(!o) return; dd._lbl.innerHTML=_flag(flags,o.value)+'<span>'+o.text+'</span>'; }
+  function _open(sel,dd,flags){
+    _close();
+    var panel=document.createElement('div'); panel.className='dtpsel-panel'; dd._panel=panel;
+    Array.prototype.forEach.call(sel.options,function(o){
+      var it=document.createElement('div'); it.className='dtpsel-item'+(o.selected?' sel':'');
+      it.innerHTML=_flag(flags,o.value)+'<span>'+o.text+'</span>';
+      it.addEventListener('click',function(ev){ ev.stopPropagation(); sel.value=o.value; _renderBtn(sel,dd,flags); _close(); sel.dispatchEvent(new Event('change',{bubbles:true})); });
+      panel.appendChild(it);
+    });
+    var r=dd._btn.getBoundingClientRect();
+    panel.style.position='fixed'; panel.style.left=r.left+'px'; panel.style.top=(r.bottom+5)+'px'; panel.style.minWidth=r.width+'px';
+    document.body.appendChild(panel);
+    var ph=panel.getBoundingClientRect().height;
+    if(r.bottom+5+ph>window.innerHeight && r.top-5-ph>0) panel.style.top=(r.top-5-ph)+'px';
+    dd.classList.add('open'); _openDD=dd;
+  }
+  window.enhanceSelect=function(sel,flags){
+    flags=flags||{};
+    if(!sel||sel.dataset.enhanced||sel.multiple) return; sel.dataset.enhanced='1';
+    sel.classList.add('dtpsel-native');
+    var dd=document.createElement('div'); dd.className='dtpsel';
+    var btn=document.createElement('div'); btn.className='dtpsel-btn'; btn.tabIndex=0; btn.setAttribute('role','button');
+    var lbl=document.createElement('span'); lbl.className='dtpsel-lbl';
+    var caret=document.createElement('span'); caret.className='dtpsel-caret';
+    caret.innerHTML='<svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    btn.appendChild(lbl); btn.appendChild(caret); dd._btn=btn; dd._lbl=lbl;
+    btn.addEventListener('click',function(e){ e.stopPropagation(); if(_openDD===dd)_close(); else _open(sel,dd,flags); });
+    btn.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault(); if(_openDD===dd)_close(); else _open(sel,dd,flags);} });
+    dd.appendChild(btn);
+    sel.parentNode.insertBefore(dd,sel.nextSibling);
+    _renderBtn(sel,dd,flags);
+    sel.addEventListener('change',function(){ _renderBtn(sel,dd,flags); });
+    try{ new MutationObserver(function(){ _renderBtn(sel,dd,flags); if(_openDD===dd) _open(sel,dd,flags); }).observe(sel,{childList:true}); }catch(_){}
+    return dd;
+  };
+  window.enhanceAllSelects=function(root){ (root||document).querySelectorAll('select:not([data-enhanced]):not([data-no-enhance])').forEach(function(s){ window.enhanceSelect(s); }); };
+  function _init(){
+    window.enhanceAllSelects(document);
+    try{ new MutationObserver(function(muts){ for(var i=0;i<muts.length;i++){ var a=muts[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType!==1) continue; if(n.tagName==='SELECT') window.enhanceSelect(n); else if(n.querySelectorAll) n.querySelectorAll('select:not([data-enhanced])').forEach(function(s){ window.enhanceSelect(s); }); } } }).observe(document.body,{childList:true,subtree:true}); }catch(_){}
+  }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_init); else _init();
+})();
