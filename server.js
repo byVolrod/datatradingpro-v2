@@ -2646,6 +2646,17 @@ const RESEARCH_SPA_SITES = [
       { title: 'Temporary Shock or Game Changer?', url: 'https://q-cam.com/news_type/temporary-shock-or-game-changer/', date: '2026-03-05' },
       { title: 'Two-Way Volatility Risks — QCAM Monthly (January 2026)', url: 'https://q-cam.com/news_type/two-way-volatility-risks-qcam-monthly-january-2026/', date: '2026-01-08' },
     ] },
+  { name: 'Goldman Sachs', institution: 'Goldman Sachs', source: 'goldman', host: 'goldmansachs.com',
+    url: 'https://www.goldmansachs.com/insights/outlooks',
+    hrefRe: /goldmansachs\.com\/(?:insights\/(?:articles|goldman-sachs-research|outlooks)\/|pdfs\/insights\/)[^"'\s]+/i,
+    seed: [
+      { title: 'Macro Outlook 2026: Sturdy Growth, Stagnant Jobs, Stable Prices', url: 'https://www.goldmansachs.com/insights/goldman-sachs-research/macro-outlook-2026-sturdy-growth-stagnant-jobs-stable-prices', date: '2025-11-18' },
+      { title: 'Markets Outlook 2026: Some Like It Hot', url: 'https://www.goldmansachs.com/insights/goldman-sachs-research/markets-outlook-2026-some-like-it-hot', date: '2025-11-19' },
+      { title: 'The Global Economy Is Forecast to Post "Sturdy" Growth of 2.8% in 2026', url: 'https://www.goldmansachs.com/insights/articles/the-global-economy-forecast-to-post-sturdy-growth-in-2026', date: '2025-11-18' },
+      { title: 'Global Stocks Are Projected to Return 11% in the Next 12 Months', url: 'https://www.goldmansachs.com/insights/articles/global-stocks-are-projected-to-return-11-percent-in-next-12-months', date: '2025-11-20' },
+      { title: 'Commodity Outlook 2026: Ride the Power Race and Supply Waves', url: 'https://www.goldmansachs.com/insights/goldman-sachs-research/commodity-outlook-2026-ride-the-power-race-and-supply-waves', date: '2025-11-21' },
+      { title: 'Commodities Outlook 2026 (PDF)', url: 'https://www.goldmansachs.com/pdfs/insights/goldman-sachs-research/2026-outlooks/CommoditiesOutlook2026.pdf', date: '2025-11-21', pdf: true },
+    ] },
 ];
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
@@ -2785,7 +2796,7 @@ async function _fetchBankResearch(full = false) {
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _all  = [...merged.values()];
-  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc', 'amundi', 'westpac', 'qcam'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc', 'amundi', 'westpac', 'qcam', 'goldman'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
@@ -2974,7 +2985,7 @@ function _stripSource(html) {
     .trim();
 }
 
-const _BR_CONTENT_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(think\.ing\.com|mufgresearch\.com|scotiabank\.com|bluematrix\.com|hsbc\.com\.sg|syzgroup\.com|danskebank\.com|unicreditgroup\.eu|kbc\.com|corporate\.nordea\.com|economics\.cibccm\.com)\//i;
+const _BR_CONTENT_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(think\.ing\.com|mufgresearch\.com|scotiabank\.com|bluematrix\.com|hsbc\.com\.sg|syzgroup\.com|danskebank\.com|unicreditgroup\.eu|kbc\.com|corporate\.nordea\.com|economics\.cibccm\.com|research-center\.amundi\.com|q-cam\.com)\//i;
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
