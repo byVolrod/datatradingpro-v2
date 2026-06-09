@@ -1521,7 +1521,7 @@ function buildEconGroup(group) {
 
     const hl = document.createElement('span');
     hl.className = 'econ-group-headline';
-    hl.textContent = item.headline;
+    hl.textContent = _dtpTitle(item.headline);
     row.appendChild(hl);
 
     if (item.source) {
@@ -1646,7 +1646,9 @@ function _reportLead(s) {
   );
 }
 // Remplace la marque DTP par DTP dans les titres de rapport
-function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP'); }
+// Suffixes de SOURCE à ne PAS afficher dans le flux temps réel (on coupe " - Source" en fin de titre)
+const _NEWS_SRC_RE = /\s*[-–—]\s*(Truth Social|Twitter\/?X?|Telegram|Reuters|Bloomberg|CNBC|Sky News(?: Arabia)?|Financial ?Juice|RTRS|BBG|Newswires?|WSJ|FT)\.?\s*$/i;
+function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP').replace(_NEWS_SRC_RE, '').trim(); }
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)
 function _renderSnapshot(data) {
@@ -1903,7 +1905,7 @@ function buildNewsItem(item) {
     titleSpan.textContent = _dtpTitle(titleText);
     headline.appendChild(titleSpan);
   } else {
-    headline.textContent = item.headline;
+    headline.textContent = _dtpTitle(item.headline);
   }
   content.appendChild(headline);
 
@@ -2281,10 +2283,12 @@ function buildNewsItem(item) {
   //   1. Within the 5-day YF 1m data window
   //   2. Genuinely market-moving categories / high priority
   // This avoids spamming the API with routine data or speaker items.
-  const _REACTION_CATS = /^(Geopolitical|Energy & Power|Metals|Trade|Fed|ECB|BoJ|BoE|BoC|RBA|SNB|RBNZ|Fixed Income|FX Flows|Market Analysis)$/;
-  const _REACTION_KW   = /iran|opec|oil|ukraine|russia|israel|nato|ceasefire|nuclear|sanction|tariff|rate (decision|hike|cut)|emergency|breaking|war|conflict|attack|strike/i;
+  // On ne CHERCHE une réaction que sur des news vraiment susceptibles de bouger le marché macro
+  // (sinon on spamme l'API + on tague tout). Le vrai filtre reste le seuil de mouvement côté serveur.
+  const _REACTION_CATS = /^(Geopolitical|Energy & Power|Metals|Fed|ECB|BoJ|BoE|Fixed Income)$/;
+  const _REACTION_KW   = /\b(iran|opec\+?|ukraine|russia|israel|war|conflict|invasion|attack|strike|ceasefire|nuclear|emergency|rate (decision|hike|cut)|tariff|sanction)\b/i;
   const _isMarketMoving = item.priority === 'high' || item.urgent
-    || _REACTION_CATS.test(item.category)
+    || (_REACTION_CATS.test(item.category) && _REACTION_KW.test(item.headline))
     || _REACTION_KW.test(item.headline);
 
   if (item.timestamp && Date.now() - item.timestamp < REACTION_AGE_LIMIT && _isMarketMoving) {
@@ -2305,7 +2309,7 @@ function buildNewsItem(item) {
           reactionTagEl = document.createElement('span');
           reactionTagEl.className = 'tag tag--reaction';
           reactionTagEl.style.cursor = 'pointer';
-          reactionTagEl.innerHTML = '<span class="tag-icon">↗</span> Réaction';
+          reactionTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M1.5 9L4.5 6L7 8.5L10.5 3.5M10.5 3.5H8M10.5 3.5V6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Réaction';
           reactionTagEl.onclick = e => { e.stopPropagation(); openPanel('reaction'); };
           tagsEl.appendChild(reactionTagEl);
         })

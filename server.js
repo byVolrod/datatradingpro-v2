@@ -7059,13 +7059,14 @@ app.get('/api/risk-sentiment', async (req, res) => {
 // Thresholds = minimum ABSOLUTE move AND minimum % move required in the 15-min window.
 // Both must be exceeded to qualify as a "real strong reaction".
 // These are intentionally strict — routine volatility must NOT trigger a Réaction tag.
+// Seuils RELEVÉS : une "réaction" doit être un VRAI mouvement marqué (pas du bruit de routine).
 const MOVE_ASSETS = [
-  { sym: 'BZ=F',      label: 'Brent crude',   unit: '$/bbl', decimals: 2, threshold: 0.70,   minPct: 0.80  },
-  { sym: 'GC=F',      label: 'Or (XAU/USD)',  unit: '$/oz',  decimals: 1, threshold: 7.0,    minPct: 0.40  },
-  { sym: 'DX-Y.NYB', label: 'DXY',            unit: 'pts',   decimals: 3, threshold: 0.25,   minPct: 0.22  },
-  { sym: 'EURUSD=X', label: 'EUR/USD',         unit: '',      decimals: 5, threshold: 0.0020, minPct: 0.17  },
-  { sym: 'QQQ',       label: 'Nasdaq (QQQ)',   unit: 'USD',   decimals: 2, threshold: 1.20,   minPct: 0.28  },
-  { sym: 'SPY',       label: 'S&P 500 (SPY)',  unit: 'USD',   decimals: 2, threshold: 0.90,   minPct: 0.17  },
+  { sym: 'BZ=F',      label: 'Brent crude',   unit: '$/bbl', decimals: 2, threshold: 1.20,   minPct: 1.40  },
+  { sym: 'GC=F',      label: 'Or (XAU/USD)',  unit: '$/oz',  decimals: 1, threshold: 12.0,   minPct: 0.80  },
+  { sym: 'DX-Y.NYB', label: 'DXY',            unit: 'pts',   decimals: 3, threshold: 0.45,   minPct: 0.45  },
+  { sym: 'EURUSD=X', label: 'EUR/USD',         unit: '',      decimals: 5, threshold: 0.0042, minPct: 0.40  },
+  { sym: 'QQQ',       label: 'Nasdaq (QQQ)',   unit: 'USD',   decimals: 2, threshold: 2.60,   minPct: 0.70  },
+  { sym: 'SPY',       label: 'S&P 500 (SPY)',  unit: 'USD',   decimals: 2, threshold: 2.40,   minPct: 0.50  },
 ];
 const _moveCache = new Map();
 
@@ -7084,7 +7085,7 @@ app.get('/api/market-moves', async (req, res) => {
   await getYFSession();
 
   const sinceSec  = Math.floor(since / 1000);
-  const windowSec = 15 * 60; // look at the 15 minutes following the event
+  const windowSec = 8 * 60; // réaction = mouvement RAPIDE dans les ~8 min suivant l'event (pas une dérive lente)
 
   const moves = (await Promise.all(MOVE_ASSETS.map(async asset => {
     try {
