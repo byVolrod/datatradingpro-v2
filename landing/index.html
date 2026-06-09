@@ -2554,6 +2554,48 @@
   .t3-chart .t3-lab text{font-size:8px;font-weight:700;font-family:var(--mono)}
   @media(max-width:920px){.pmt-sec3-split{grid-template-columns:1fr}.pmt-sec3-preview{order:-1}}
   @media(max-width:560px){.pmt-sec3-cards-col{grid-template-columns:1fr}.t3-body{grid-template-columns:1fr}.t3-news{border-right:0;border-bottom:1px solid var(--line)}}
+  /* ── Vue d'ensemble : dashboard terminal (6 widgets façon desk) ── */
+  .pmt-ov{background:var(--bg);border-bottom:1px solid var(--line);padding:clamp(48px,7vw,84px) 0}
+  .pmt-ov-head{text-align:center;max-width:680px;margin:0 auto clamp(28px,4vw,44px)}
+  .pmt-ov-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.08);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:100px;margin-bottom:16px}
+  .pmt-ov-title{font-size:clamp(28px,4.4vw,46px);line-height:1.08;margin-bottom:14px}
+  .pmt-ov-desc{font-size:clamp(14.5px,1.6vw,17px);color:var(--text2);line-height:1.6}
+  .dash{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:#0a0a0c;box-shadow:0 40px 100px -50px #000}
+  .dash-top{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#0d0d10;border-bottom:1px solid var(--line)}
+  .dash-brand{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap}
+  .dash-brand b{color:var(--orange)}
+  .dash-search{flex:1;min-width:0;font-size:11px;color:var(--text3);background:#0a0a0c;border:1px solid var(--line);border-radius:6px;padding:6px 10px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dash-ws{font-size:11px;color:var(--text2);white-space:nowrap}
+  .dash-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--line)}
+  .dash-w{background:#0a0a0c;padding:11px 13px;min-width:0;min-height:150px}
+  .dash-wh{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:11px;font-weight:700;color:var(--text);margin-bottom:9px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+  .dash-live{display:inline-flex;align-items:center;gap:4px;font-size:8.5px;font-weight:700;color:var(--green)}
+  .dash-live i{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 5px var(--green)}
+  .dash-px{font-size:11px;font-weight:700;color:var(--green);font-family:var(--mono)}
+  .dash-row,.dash-brow,.dash-mrow{display:flex;align-items:center;gap:7px;padding:4px 0;font-size:10px}
+  .dash-row:not(:last-child),.dash-brow:not(:last-child),.dash-mrow:not(:last-child){border-bottom:1px solid #131318}
+  .dash-t{font-size:9px;color:var(--text3);flex-shrink:0;font-family:var(--mono)}
+  .dash-x{flex:1;min-width:0;color:var(--text2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dash-bd{font-size:7.5px;font-weight:700;color:var(--text3);background:#15151a;border-radius:3px;padding:1px 4px;flex-shrink:0}
+  .dash-bd.high{color:var(--red);background:rgba(239,68,68,.14)}
+  .dash-bd.med{color:var(--amber);background:rgba(255,179,0,.14)}
+  .dash-bd.low{color:var(--green);background:rgba(34,197,94,.12)}
+  .dash-vv{font-size:10px;font-weight:600;color:var(--text);font-family:var(--mono);flex-shrink:0;min-width:36px;text-align:right}
+  .dash-pair{flex:1;min-width:0;font-size:9.5px;font-weight:600;color:var(--text);font-family:var(--mono)}
+  .dash-bias{font-size:8px;font-weight:700;flex-shrink:0}
+  .dash-bias.up{color:var(--green)}.dash-bias.dn{color:var(--red)}
+  .dash-dots{display:inline-flex;gap:2px;flex-shrink:0}
+  .dash-dots i{width:5px;height:5px;border-radius:50%;background:#26262e}
+  .dash-dots i.g{background:var(--green)}.dash-dots i.r{background:var(--red)}
+  .dash-chg{font-size:9px;font-weight:700;flex-shrink:0;min-width:42px;text-align:right;font-family:var(--mono)}
+  .dash-chg.up{color:var(--green)}.dash-chg.dn{color:var(--red)}
+  .dash-chart{width:100%;height:118px;display:block}
+  .dash-chart .dash-g{stroke:#1a1a20;stroke-width:1;stroke-dasharray:3 3}
+  .dash-chart .dash-price{fill:none;stroke:var(--orange);stroke-width:1.8;stroke-linejoin:round;stroke-linecap:round}
+  .dash-chart .dash-ema{fill:none;stroke:#3b82f6;stroke-width:1;stroke-opacity:.55}
+  .dash-chart .dash-s{fill:none;stroke-width:1.5;stroke-linejoin:round;stroke-linecap:round}
+  @media(max-width:860px){.dash-grid{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.dash-grid{grid-template-columns:1fr}.dash-search{display:none}}
 </style>
 <script type="application/ld+json">
 {
@@ -2948,6 +2990,88 @@ img,video{height:auto}
       <div class="dtpov-trust-item">
         <span class="dtpov-trust-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M16 8.5a3 3 0 0 1 0 5M18 15.5c2.1.5 3.5 1.9 3.5 4.5"/></svg></span>
         <span><b>Conçu pour les pros</b><span>Traders &amp; analystes macro.</span></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ Vue d'ensemble — dashboard terminal ============ -->
+<section class="pmt-ov" id="apercu" aria-labelledby="pmt-ov-title">
+  <div class="wrap">
+    <div class="pmt-ov-head">
+      <span class="pmt-ov-tag">Vue d'ensemble</span>
+      <h2 class="pmt-ov-title" id="pmt-ov-title">Temps réel. Intégré. Actionnable.</h2>
+      <p class="pmt-ov-desc">Tout votre flux macro &amp; forex sur un seul écran — news priorisée, graphiques, Smart Bias, calendrier et force des devises, exactement comme dans le terminal. Fini les dix onglets.</p>
+    </div>
+
+    <div class="dash" aria-hidden="true">
+      <div class="dash-top">
+        <span class="dash-brand"><b>DTP</b>&nbsp;DataTradingPro</span>
+        <span class="dash-search">Rechercher un symbole…</span>
+        <span class="dash-ws">Workspace 1 ▾</span>
+      </div>
+      <div class="dash-grid">
+
+        <div class="dash-w">
+          <div class="dash-wh">Live News Terminal <span class="dash-live"><i></i> LIVE</span></div>
+          <div class="dash-row"><span class="dash-t">10:31</span><span class="dash-x">Fed/Barkin : approche dépendante des données</span><span class="dash-bd high">HIGH</span></div>
+          <div class="dash-row"><span class="dash-t">10:21</span><span class="dash-x">US CPI (a/a) à 3,4 % vs 3,3 % att.</span><span class="dash-bd high">HIGH</span></div>
+          <div class="dash-row"><span class="dash-t">10:15</span><span class="dash-x">BCE/Lagarde : baisses liées aux données</span><span class="dash-bd med">MED</span></div>
+          <div class="dash-row"><span class="dash-t">10:07</span><span class="dash-x">US Jobless Claims 212K vs 225K att.</span><span class="dash-bd med">MED</span></div>
+          <div class="dash-row"><span class="dash-t">10:01</span><span class="dash-x">Caixin Services PMI Chine 52,9</span><span class="dash-bd low">LOW</span></div>
+        </div>
+
+        <div class="dash-w">
+          <div class="dash-wh">EUR/USD <span class="dash-px">1,0774</span></div>
+          <svg class="dash-chart" viewBox="0 0 300 150" preserveAspectRatio="none">
+            <line x1="0" y1="38" x2="300" y2="38" class="dash-g"/><line x1="0" y1="94" x2="300" y2="94" class="dash-g"/>
+            <polyline class="dash-ema" points="6,72 40,68 74,76 108,62 142,74 176,54 210,66 244,42 278,54 296,46"/>
+            <polyline class="dash-price" points="6,82 40,74 74,86 108,66 142,82 176,55 210,74 244,42 278,62 296,48"/>
+          </svg>
+        </div>
+
+        <div class="dash-w">
+          <div class="dash-wh">Smart Bias Tracker</div>
+          <div class="dash-brow"><span class="dash-pair">EUR/USD</span><span class="dash-bias up">BULLISH</span><span class="dash-dots"><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i></i></span><span class="dash-chg up">+0,18</span></div>
+          <div class="dash-brow"><span class="dash-pair">GBP/USD</span><span class="dash-bias up">BULLISH</span><span class="dash-dots"><i class="g"></i><i class="g"></i><i class="g"></i><i></i><i></i></span><span class="dash-chg up">+0,12</span></div>
+          <div class="dash-brow"><span class="dash-pair">USD/JPY</span><span class="dash-bias dn">BEARISH</span><span class="dash-dots"><i class="r"></i><i class="r"></i><i class="r"></i><i></i><i></i></span><span class="dash-chg dn">-0,15</span></div>
+          <div class="dash-brow"><span class="dash-pair">XAU/USD</span><span class="dash-bias up">BULLISH</span><span class="dash-dots"><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i><i class="g"></i></span><span class="dash-chg up">+0,23</span></div>
+          <div class="dash-brow"><span class="dash-pair">US 10Y</span><span class="dash-bias dn">BEARISH</span><span class="dash-dots"><i class="r"></i><i class="r"></i><i></i><i></i><i></i></span><span class="dash-chg dn">-0,06</span></div>
+        </div>
+
+        <div class="dash-w">
+          <div class="dash-wh">Calendrier macro</div>
+          <div class="dash-row"><span class="dash-t">08:30</span><span class="dash-x">US CPI (a/a)</span><span class="dash-bd high">HIGH</span><span class="dash-vv">3,4%</span></div>
+          <div class="dash-row"><span class="dash-t">08:30</span><span class="dash-x">US Core CPI</span><span class="dash-bd high">HIGH</span><span class="dash-vv">3,6%</span></div>
+          <div class="dash-row"><span class="dash-t">10:00</span><span class="dash-x">US Retail Sales</span><span class="dash-bd med">MED</span><span class="dash-vv">0,2%</span></div>
+          <div class="dash-row"><span class="dash-t">14:00</span><span class="dash-x">FOMC Minutes</span><span class="dash-bd high">HIGH</span><span class="dash-vv">—</span></div>
+          <div class="dash-row"><span class="dash-t">14:30</span><span class="dash-x">Fed Powell — discours</span><span class="dash-bd high">HIGH</span><span class="dash-vv">—</span></div>
+        </div>
+
+        <div class="dash-w">
+          <div class="dash-wh">Force des devises</div>
+          <svg class="dash-chart" viewBox="0 0 300 150" preserveAspectRatio="none">
+            <line x1="0" y1="40" x2="300" y2="40" class="dash-g"/><line x1="0" y1="75" x2="300" y2="75" class="dash-g"/><line x1="0" y1="110" x2="300" y2="110" class="dash-g"/>
+            <polyline class="dash-s" style="stroke:#eab308" points="6,72 56,58 106,64 156,40 206,48 296,28"/>
+            <polyline class="dash-s" style="stroke:#22c55e" points="6,74 56,70 106,64 156,60 206,52 296,46"/>
+            <polyline class="dash-s" style="stroke:#ef4444" points="6,76 56,80 106,72 156,78 206,70 296,66"/>
+            <polyline class="dash-s" style="stroke:#3b82f6" points="6,77 56,82 106,78 156,84 206,86 296,82"/>
+            <polyline class="dash-s" style="stroke:#22d3ee" points="6,78 56,76 106,86 156,82 206,92 296,96"/>
+            <polyline class="dash-s" style="stroke:#a855f7" points="6,79 56,86 106,94 156,98 206,108 296,114"/>
+            <polyline class="dash-s" style="stroke:#f7941d" points="6,80 56,90 106,98 156,108 206,118 296,126"/>
+            <polyline class="dash-s" style="stroke:#ec4899" points="6,81 56,96 106,108 156,120 206,128 296,140"/>
+          </svg>
+        </div>
+
+        <div class="dash-w">
+          <div class="dash-wh">Market Overview</div>
+          <div class="dash-mrow"><span class="dash-x">S&amp;P 500</span><span class="dash-vv">5 026</span><span class="dash-chg up">+1,23%</span></div>
+          <div class="dash-mrow"><span class="dash-x">NASDAQ 100</span><span class="dash-vv">17 891</span><span class="dash-chg up">+1,56%</span></div>
+          <div class="dash-mrow"><span class="dash-x">EUR/USD</span><span class="dash-vv">1,0774</span><span class="dash-chg dn">-0,02%</span></div>
+          <div class="dash-mrow"><span class="dash-x">GOLD</span><span class="dash-vv">2 348</span><span class="dash-chg up">+0,45%</span></div>
+          <div class="dash-mrow"><span class="dash-x">WTI CRUDE</span><span class="dash-vv">77,9</span><span class="dash-chg dn">-1,21%</span></div>
+        </div>
+
       </div>
     </div>
   </div>
