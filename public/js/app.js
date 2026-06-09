@@ -308,10 +308,21 @@ function _decodeEntities(s) {
 }
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const html = (bullets || [])
-    .map(b => _decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim())  // décode entités + retire balises/markdown
-    .filter(Boolean)
-    .map(b => `<li>${esc(b)}</li>`).join('');
+  // coupe toute attribution de source ("via NYT", "- Reuters", "(Mehr News)") en fin de puce
+  const stripSrc = t => t.replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim();
+  const items = (bullets || [])
+    .map(b => _decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+  const html = items.map(it => {
+    const noMd = it.replace(/\*\*/g, '').trim();
+    // sous-titre : ligne courte finissant par ":" (ex. « Four points: ») → libellé, pas une puce
+    if (noMd.length <= 44 && /\S.{1,42}:$/.test(noMd) && !/[.!?]/.test(noMd.slice(0, -1))) {
+      return `<li class="ip-head">${esc(stripSrc(noMd))}</li>`;
+    }
+    // garde le GRAS markdown **…** → <strong>
+    const body = esc(stripSrc(it)).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+    return `<li>${body}</li>`;
+  }).join('');
   return `<ul class="article-points article-points--clean">${html}</ul>`;
 }
 let _sessionWraps = [];
@@ -1654,7 +1665,7 @@ function _reportLead(s) {
 // Remplace la marque DTP par DTP dans les titres de rapport
 // Suffixes de SOURCE à ne PAS afficher dans le flux temps réel (on coupe " - Source" en fin de titre)
 const _NEWS_SRC_RE = /\s*[-–—]\s*(?:Axios|Politico|Semafor|Punchbowl|Reuters|RTRS|Bloomberg|BBG|CNBC|CNN|BBC|NBC|ABC|CBS|MSNBC|Fox(?: News| Business)?|Newsmax|OANN|WSJ|Wall Street Journal|FT|Financial Times|NYT|New York Times|Washington Post|WaPo|Forbes|Barron'?s|MarketWatch|Dow Jones|Investing\.com|FXStreet|Forex ?Live|Zero ?Hedge|The Block|CoinDesk|AP|AFP|DPA|ANSA|EFE|PA Media|Xinhua|TASS|RIA(?: Novosti)?|Interfax|Sputnik|Mehr(?: News)?|IRNA|Fars(?: News)?|Tasnim|Press TV|Tehran Times|Al[\s-]?Jazeera|Al[\s-]?Arabiya|Sky News(?: Arabia)?|Anadolu|Trend|Nikkei|Kyodo|Jiji|Yonhap|SCMP|Global Times|Caixin|Times of Israel|Jerusalem Post|Haaretz|Ynet|The Guardian|Guardian|Telegraph|Independent|Economist|Truth Social|Twitter\/?X?|X \(Twitter\)|Telegram|Financial ?Juice|Newswires?|[a-z0-9][a-z0-9-]*\.(?:com|net|org|io))\.?\s*$/i;
-function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP').replace(_NEWS_SRC_RE, '').trim(); }
+function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP').replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim(); }
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)
 function _renderSnapshot(data) {
