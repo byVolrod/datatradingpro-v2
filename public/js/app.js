@@ -4239,6 +4239,7 @@ function renderBrList() {
 // identifiable) → "DTP". On ne met JAMAIS "ING" par défaut.
 const _INST_BANKS = [
   [/\bblackrock\b/i, 'BlackRock'], [/\bunicredit\b/i, 'UniCredit'], [/\bsyz\b/i, 'Syz Group'], [/\bcibc\b/i, 'CIBC'], [/\blloyds\b/i, 'Lloyds Bank'], [/\bkbc\b/i, 'KBC'],
+  [/\bamundi\b/i, 'Amundi'], [/\bqcam\b|q-?cam/i, 'QCAM'],
   [/\bmufg\b|mitsubishi ufj/i, 'MUFG'], [/\buob\b/i, 'UOB'], [/\bocbc\b/i, 'OCBC'],
   [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman'],
   [/\bmorgan stanley\b/i, 'MS'], [/\bjp ?morgan\b/i, 'JPM'], [/\bciti\b/i, 'Citi'],
@@ -4266,6 +4267,7 @@ const _BANK_BRAND = {
   NatWest: '#7b3fa0', Rabo: '#fe6e00', Scotia: '#ec111a', Westpac: '#d5002b', Commerz: '#e7b000',
   NAB: '#c20029', ANZ: '#1b8fea', Nordea: '#0000a0', SEB: '#5ca800',
   BlackRock: '#ededf0', UniCredit: '#e2231a', 'Syz Group': '#ff9c0c', CIBC: '#b71e3f', 'Lloyds Bank': '#0a9d58', KBC: '#0097db',
+  Amundi: '#0093d0', QCAM: '#e30613',
 };
 function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
 // Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
@@ -4278,6 +4280,7 @@ const _BANK_DOMAIN = {
   NatWest: 'natwest.com', Rabo: 'rabobank.com', Scotia: 'scotiabank.com', Westpac: 'westpac.com.au',
   Commerz: 'commerzbank.com', NAB: 'nab.com.au', ANZ: 'anz.com', Nordea: 'nordea.com', SEB: 'sebgroup.com',
   UniCredit: 'unicredit.eu', 'Syz Group': 'syzgroup.com', CIBC: 'cibccm.com', 'Lloyds Bank': 'lloydsbank.com', KBC: 'kbc.com',
+  Amundi: 'amundi.com', QCAM: 'q-cam.com',
 };
 // Logos téléchargés en local (assets DTP) → prioritaires sur Clearbit pour ces banques.
 const _BANK_LOCAL_LOGO = {
@@ -6864,7 +6867,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _close(){ if(!_openDD) return; _openDD.classList.remove('open'); var p=_openDD._panel; if(p&&p.parentNode) p.parentNode.removeChild(p); _openDD=null; }
   document.addEventListener('mousedown', function(e){ if(_openDD && !_openDD.contains(e.target) && !(_openDD._panel&&_openDD._panel.contains(e.target))) _close(); });
   document.addEventListener('keydown', function(e){ if(e.key==='Escape') _close(); });
-  window.addEventListener('scroll', _close, true);
+  // Fermer sur scroll EXTÉRIEUR seulement : un scroll DANS le panneau (molette ou glisser la
+  // scrollbar) ne doit pas fermer le menu. En phase capture, e.target = l'élément réellement scrollé.
+  window.addEventListener('scroll', function(e){
+    if(!_openDD) return;
+    var p=_openDD._panel, t=e.target;
+    if(p && t && t.nodeType===1 && (t===p || p.contains(t))) return;   // scroll interne au panneau → garder ouvert
+    _close();
+  }, true);
   window.addEventListener('resize', _close);
   function _flag(flags,v){ return flags[v] ? '<span class="dtpsel-flag">'+flags[v]+'</span>' : ''; }
   function _renderBtn(sel,dd,flags){ var o=sel.options[sel.selectedIndex]||sel.options[0]; if(!o) return; dd._lbl.innerHTML=_flag(flags,o.value)+'<span>'+o.text+'</span>'; }

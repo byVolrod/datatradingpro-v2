@@ -57,6 +57,24 @@ function _parseDate(ctx) {
   return null;
 }
 
+// Repli robuste : extrait une date depuis l'URL/slug quand la carte n'en porte pas
+// (ex. /2026/06/10/, global-investment-views-june-2026, EP202605E). Best-effort, jamais d'exception.
+function _dateFromUrl(url) {
+  if (!url) return null;
+  const u = String(url); let m;
+  // .../2026/06/  ou  .../2026/06/10/
+  if ((m = u.match(/\/(20\d{2})\/(0?[1-9]|1[0-2])(?:\/(\d{1,2}))?(?:\/|-|_)/))) { const t = Date.UTC(+m[1], +m[2] - 1, +(m[3] || 15), 12); if (!isNaN(t)) return t; }
+  // -june-2026 / _may-2026 / march-2026
+  if ((m = u.match(/(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*[-_ ](20\d{2})/i))) {
+    const MN = { jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5, jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11 };
+    const mo = MN[m[1].slice(0, 3).toLowerCase()]; const t = Date.UTC(+m[2], mo, 15, 12);
+    if (mo != null && !isNaN(t)) return t;
+  }
+  // compact YYYYMM (ex. EP202605E) précédé d'un séparateur non-chiffre
+  if ((m = u.match(/[^\d](20\d{2})(0[1-9]|1[0-2])(?:\D|$)/))) { const t = Date.UTC(+m[1], +m[2] - 1, 15, 12); if (!isNaN(t)) return t; }
+  return null;
+}
+
 async function _scrapeSite(cfg) {
   let browser = null;
   try {
@@ -105,7 +123,7 @@ async function scrapeResearchSpa(cfg) {
     const seen = new Set(); const items = []; let dated = 0;
     for (const r of raw) {
       if (seen.has(r.url)) continue; seen.add(r.url);
-      const real = _parseDate(r.ctx);
+      const real = _parseDate(r.ctx) || _dateFromUrl(r.url);
       if (real) dated++;
       items.push({ title: r.title, url: r.url, ts: real || Date.now() });
     }
