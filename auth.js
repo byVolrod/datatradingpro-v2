@@ -494,29 +494,39 @@ async function _emailEnsureDb() {
   if (keys.length) {
     const rows = keys.map(k => ({ key: k, sent_at: _emailFile[k] }));
     const { error: insErr } = await supabase.from(EMAILLOG_TABLE).upsert(rows, { onConflict: 'key' });
-    if (!insErr) { _emailFile = {}; _emailSaveFile(); console.log(`[EmailLog] table détectée → ${rows.length} entrée(s) migrée(s) en BDD`); }
+    if (!insErr) { console.log(`[EmailLog] table détectée → ${rows.length} entrée(s) migrée(s) en BDD (fichier conservé comme backstop anti-spam)`); }
     else _emailDb = false;
   }
 }
 async function emailLogHas(key) {
+  const k = String(key);
+  // Backstop LOCAL en premier (fichier sur volume persistant) : si l'envoi est déjà loggé, on ne
+  // renvoie JAMAIS le mail — même si Supabase est indisponible/hoquette. Anti-spam ultime.
+  if (Object.prototype.hasOwnProperty.call(_emailFile, k)) return true;
   await _emailEnsureDb();
   if (_emailDb) {
-    const { data, error } = await supabase.from(EMAILLOG_TABLE).select('key').eq('key', String(key)).limit(1);
+    const { data, error } = await supabase.from(EMAILLOG_TABLE).select('key').eq('key', k).limit(1);
     if (!error) return !!(data && data.length);
-    if (_emailTableMissing(error)) _emailDb = false; else throw new Error(error.message);
+    if (_emailTableMissing(error)) _emailDb = false;
+    // Autre erreur Supabase : on NE lève PAS (sinon l'appelant pourrait re-tenter l'envoi). On
+    // retourne "non loggé" ; l'emailLogAdd qui suit l'envoi écrira de toute façon le backstop local.
   }
-  return Object.prototype.hasOwnProperty.call(_emailFile, String(key));
+  return false;
 }
 async function emailLogAdd(key) {
-  await _emailEnsureDb();
-  const row = { key: String(key), sent_at: new Date().toISOString() };
-  if (_emailDb) {
-    const { error } = await supabase.from(EMAILLOG_TABLE).upsert([row], { onConflict: 'key' });
-    if (!error) return;
-    if (_emailTableMissing(error)) _emailDb = false; else throw new Error(error.message);
-  }
-  _emailFile[row.key] = row.sent_at;
-  _emailSaveFile();
+  const k = String(key);
+  const sent_at = new Date().toISOString();
+  // 1) TOUJOURS écrire le backstop local EN PREMIER (fichier sur volume) → la clé est persistée
+  //    même si Supabase échoue → garantit « 1 seul envoi », redémarrages/déploiements inclus.
+  _emailFile[k] = sent_at; _emailSaveFile();
+  // 2) Best-effort Supabase (durabilité multi-instances) — n'interrompt jamais, ne lève jamais.
+  try {
+    await _emailEnsureDb();
+    if (_emailDb) {
+      const { error } = await supabase.from(EMAILLOG_TABLE).upsert([{ key: k, sent_at }], { onConflict: 'key' });
+      if (error && _emailTableMissing(error)) _emailDb = false;
+    }
+  } catch {}
 }
 
 // ═══════════════════ CACHE IA DURABLE (anti-régénération / anti-doublon) ═══════════════════
