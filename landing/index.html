@@ -937,6 +937,10 @@
 .pmt-sec4-chart-placeholder{position:relative;margin:12px 12px 4px;height:118px;background:linear-gradient(180deg,#0a0a0c,#08080a);border:1px solid var(--line,#1f1f26);border-radius:7px;overflow:hidden}
 .pmt-sec4-chart-line-svg{position:absolute;inset:0;width:100%;height:100%}
 .pmt-sec4-grid-line{stroke:rgba(42,42,50,.5);stroke-width:1;stroke-dasharray:3 4}
+.pmt-sec4-lvl{stroke-width:1;stroke-dasharray:3 4;opacity:.65}
+.pmt-sec4-lvl.tp{stroke:var(--green,#22c55e)}
+.pmt-sec4-lvl.entry{stroke:var(--orange,#f7941d)}
+.pmt-sec4-lvl.sl{stroke:var(--red,#ef4444)}
 .pmt-sec4-price-line{fill:none;stroke:var(--orange,#f7941d);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px rgba(247,148,29,.35))}
 .pmt-sec4-chart-label{position:absolute;right:7px;font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;line-height:1;white-space:nowrap}
 .pmt-sec4-chart-label.tp{top:8px;color:var(--green,#22c55e);background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.3)}
@@ -3032,11 +3036,6 @@ img,video{height:auto}
       </div>
     </div>
   </div>
-
-  <div class="pmt-sec3-footer">
-    <span class="pmt-sec3-footer-icon"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span>
-    <span>Pensé pour les traders. Conçu pour décider.</span>
-  </div>
 </section>
 
 <!-- ============ sec4 ============ -->
@@ -3181,9 +3180,9 @@ img,video{height:auto}
           </div>
           <div class="pmt-sec4-chart-placeholder">
             <svg class="pmt-sec4-chart-line-svg" viewBox="0 0 260 120" preserveAspectRatio="none" aria-hidden="true">
-              <line x1="0" y1="30" x2="260" y2="30" class="pmt-sec4-grid-line"></line>
-              <line x1="0" y1="62" x2="260" y2="62" class="pmt-sec4-grid-line"></line>
-              <line x1="0" y1="94" x2="260" y2="94" class="pmt-sec4-grid-line"></line>
+              <line x1="0" y1="16" x2="260" y2="16" class="pmt-sec4-lvl tp"></line>
+              <line x1="0" y1="60" x2="260" y2="60" class="pmt-sec4-lvl entry"></line>
+              <line x1="0" y1="105" x2="260" y2="105" class="pmt-sec4-lvl sl"></line>
               <polyline points="0,92 26,84 52,88 78,72 104,76 130,58 156,62 182,46 208,52 234,36 260,30" class="pmt-sec4-price-line"></polyline>
             </svg>
             <span class="pmt-sec4-chart-label tp">TP · 1,0980</span>
