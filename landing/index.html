@@ -2883,6 +2883,18 @@
 .dtpov-feat-ic svg{width:18px;height:18px}
 .dtpov-feat-txt b{display:block;font-size:14.5px;font-weight:700;color:var(--text);margin-bottom:2px}
 .dtpov-feat-txt span{font-size:13px;color:var(--text2);line-height:1.45}
+/* Showcase interactif : clic sur une fonctionnalité → la maquette détaille cette fonctionnalité */
+.dtpov-feat{cursor:pointer;transition:opacity .15s}
+.dtpov-feat:not(.dtpov-feat--active){opacity:.58}
+.dtpov-feat:hover{opacity:.85}
+.dtpov-feat--active{opacity:1}
+.dtpov-feat--active .dtpov-feat-ic{background:var(--orange);color:#0a0a0a;border-color:var(--orange)}
+.dtpov-feat--active .dtpov-feat-txt b{color:var(--orange)}
+.dtpt-mk:not(.dtpt-mk--on){display:none}
+.dtpt-ws{display:grid;grid-template-columns:1fr 1fr 1fr;gap:7px;padding:11px}
+.dtpt-wstile{background:#0e0e12;border:1px solid var(--line);border-radius:7px;padding:10px 9px}
+.dtpt-wstile b{display:block;font-size:11.5px;color:#e8e8ea;margin-bottom:2px}
+.dtpt-wstile span{font-size:10px;color:#7a7a82}
 .dtpov-status{display:inline-flex;align-items:center;gap:9px;padding:11px 16px;background:var(--bg1);border:1px solid var(--line);border-radius:10px;font-size:13px;color:var(--text)}
 .dtpov-status-dot{width:8px;height:8px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:pulse 1.6s infinite}
 .dtpov-status-time{color:var(--text3);margin-left:6px}
@@ -2957,24 +2969,24 @@ img,video{height:auto}
         <span class="dtpov-eyebrow">Aperçu du produit</span>
         <h2 class="dtpov-title" id="dtpov-title">Temps réel. Intégré. Actionnable.</h2>
         <p class="dtpov-sub">DataTradingPro réunit news en direct, données macro, Smart Bias, graphiques et recherche dans un seul espace — pour voir plus, comprendre plus vite et décider avec conviction.</p>
-        <ul class="dtpov-feats">
-          <li class="dtpov-feat">
+        <ul class="dtpov-feats" role="tablist">
+          <li class="dtpov-feat dtpov-feat--active" data-mk="news" onclick="dtpovShow('news',this)" tabindex="0" role="tab">
             <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></svg></span>
             <span class="dtpov-feat-txt"><b>Terminal d'actus en direct</b><span>Titres en temps réel &amp; alertes à fort impact.</span></span>
           </li>
-          <li class="dtpov-feat">
+          <li class="dtpov-feat" data-mk="bias" onclick="dtpovShow('bias',this)" tabindex="0" role="tab">
             <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/><path d="M12 1v3M12 20v3M1 12h3M20 12h3"/></svg></span>
             <span class="dtpov-feat-txt"><b>Smart Bias Tracker</b><span>Biais directionnel &amp; signaux de conviction (IA).</span></span>
           </li>
-          <li class="dtpov-feat">
+          <li class="dtpov-feat" data-mk="macro" onclick="dtpovShow('macro',this)" tabindex="0" role="tab">
             <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/></svg></span>
             <span class="dtpov-feat-txt"><b>Données macro &amp; recherche</b><span>Publications clés, surprises de données, notes de banques.</span></span>
           </li>
-          <li class="dtpov-feat">
+          <li class="dtpov-feat" data-mk="charts" onclick="dtpovShow('charts',this)" tabindex="0" role="tab">
             <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-4 3 3 5-7"/></svg></span>
-            <span class="dtpov-feat-txt"><b>Graphiques avancés</b><span>Graphiques de qualité institutionnelle (amCharts).</span></span>
+            <span class="dtpov-feat-txt"><b>Graphiques avancés</b><span>Graphiques de qualité institutionnelle, fluides et réactifs.</span></span>
           </li>
-          <li class="dtpov-feat">
+          <li class="dtpov-feat" data-mk="workspace" onclick="dtpovShow('workspace',this)" tabindex="0" role="tab">
             <span class="dtpov-feat-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></span>
             <span class="dtpov-feat-txt"><b>Espace de travail modulaire</b><span>Entièrement modulable, conçu autour de votre façon de travailler.</span></span>
           </li>
@@ -3008,7 +3020,7 @@ img,video{height:auto}
             <span class="dtpt-tab">› BANK</span>
           </div>
           <div class="dtpt-body">
-            <div class="dtpt-panel">
+            <div class="dtpt-panel dtpt-mk dtpt-mk--on" data-mk="news">
               <div class="dtpt-phead">Realtime Headline Ticker <span class="dtpt-live"></span></div>
               <div class="dtpt-rows">
                 <div class="dtpt-row"><span class="t">15:01</span><span class="c">Geopolitical</span><span class="h">China delivers Moon samples to Russian scientists</span><span class="dtpt-tag dtpt-tag--neu">GEO</span></div>
@@ -3018,6 +3030,49 @@ img,video{height:auto}
                 <div class="dtpt-row"><span class="t">14:59</span><span class="c">Crypto</span><span class="h">Bitcoin to hit new all-time highs within 3 years</span><span class="dtpt-tag dtpt-tag--neu">BTC</span></div>
                 <div class="dtpt-row"><span class="t">14:43</span><span class="c">FX</span><span class="h">Citi on USDJPY — sell rallies into 158</span><span class="dtpt-tag dtpt-tag--med">MED</span></div>
                 <div class="dtpt-row"><span class="t">14:40</span><span class="c">Geopolitical</span><span class="h">Futures rise with Israel-Iran tensions cooling</span><span class="dtpt-tag dtpt-tag--neu">GEO</span></div>
+              </div>
+            </div>
+            <div class="dtpt-panel dtpt-mk" data-mk="bias">
+              <div class="dtpt-phead">Smart Bias Tracker</div>
+              <div class="dtpt-rows">
+                <div class="dtpt-row"><span class="h">EUR/USD</span><span class="dtpt-tag" style="background:#059669;color:#fff">BULLISH</span><span class="c" style="color:#22c55e">+0,18</span></div>
+                <div class="dtpt-row"><span class="h">GBP/USD</span><span class="dtpt-tag" style="background:#059669;color:#fff">BULLISH</span><span class="c" style="color:#22c55e">+0,12</span></div>
+                <div class="dtpt-row"><span class="h">USD/JPY</span><span class="dtpt-tag" style="background:#dc2626;color:#fff">BEARISH</span><span class="c" style="color:#ef4444">-0,15</span></div>
+                <div class="dtpt-row"><span class="h">XAU/USD</span><span class="dtpt-tag" style="background:#047857;color:#fff">VERY BULL</span><span class="c" style="color:#22c55e">+0,23</span></div>
+                <div class="dtpt-row"><span class="h">AUD/USD</span><span class="dtpt-tag" style="background:#6b7280;color:#fff">NEUTRAL</span><span class="c" style="color:#9ca3af">0,00</span></div>
+                <div class="dtpt-row"><span class="h">US 10Y</span><span class="dtpt-tag" style="background:#dc2626;color:#fff">BEARISH</span><span class="c" style="color:#ef4444">-0,06</span></div>
+              </div>
+            </div>
+            <div class="dtpt-panel dtpt-mk" data-mk="macro">
+              <div class="dtpt-phead">Calendrier macro &amp; recherche</div>
+              <div class="dtpt-rows">
+                <div class="dtpt-row"><span class="t">08:30</span><span class="h">US CPI (a/a)</span><span class="dtpt-tag dtpt-tag--hi">HIGH</span><span class="c">3,4%</span></div>
+                <div class="dtpt-row"><span class="t">08:30</span><span class="h">US Core CPI</span><span class="dtpt-tag dtpt-tag--hi">HIGH</span><span class="c">3,6%</span></div>
+                <div class="dtpt-row"><span class="t">10:00</span><span class="h">US Retail Sales</span><span class="dtpt-tag dtpt-tag--med">MED</span><span class="c">0,2%</span></div>
+                <div class="dtpt-row"><span class="t">14:00</span><span class="h">FOMC Minutes</span><span class="dtpt-tag dtpt-tag--hi">HIGH</span><span class="c">—</span></div>
+                <div class="dtpt-row"><span class="t">14:30</span><span class="h">Fed Powell — discours</span><span class="dtpt-tag dtpt-tag--hi">HIGH</span><span class="c">—</span></div>
+                <div class="dtpt-row"><span class="c">Banque</span><span class="h">HSBC · FX Viewpoint: USD, EUR &amp; rates</span><span class="dtpt-tag dtpt-tag--neu">PDF</span></div>
+              </div>
+            </div>
+            <div class="dtpt-panel dtpt-mk" data-mk="charts">
+              <div class="dtpt-phead">EUR/USD · 1,0774 <span style="color:#22c55e;font-weight:700;margin-left:6px">+0,42%</span></div>
+              <div style="padding:16px 12px">
+                <svg viewBox="0 0 300 150" preserveAspectRatio="none" style="width:100%;height:148px;display:block">
+                  <g stroke="#18181c" stroke-width="1"><line x1="0" y1="38" x2="300" y2="38"/><line x1="0" y1="75" x2="300" y2="75"/><line x1="0" y1="112" x2="300" y2="112"/></g>
+                  <polyline fill="none" stroke="#f7941d" stroke-width="2" points="0,120 30,108 60,114 90,92 120,98 150,72 180,80 210,52 240,60 270,38 300,44"/>
+                  <polyline fill="none" stroke="#3b82f6" stroke-width="1.4" points="0,124 30,114 60,118 90,100 120,104 150,84 180,90 210,66 240,72 270,52 300,56"/>
+                </svg>
+              </div>
+            </div>
+            <div class="dtpt-panel dtpt-mk" data-mk="workspace">
+              <div class="dtpt-phead">Espace de travail modulaire</div>
+              <div class="dtpt-ws">
+                <div class="dtpt-wstile"><b>News</b><span>Flux priorisé</span></div>
+                <div class="dtpt-wstile"><b>Smart Bias</b><span>8 majeures</span></div>
+                <div class="dtpt-wstile"><b>Calendrier</b><span>Réel vs prév.</span></div>
+                <div class="dtpt-wstile"><b>Force devises</b><span>Égaliseur</span></div>
+                <div class="dtpt-wstile"><b>Charts</b><span>Avancés</span></div>
+                <div class="dtpt-wstile"><b>Institution</b><span>Rapports</span></div>
               </div>
             </div>
             <div class="dtpt-rcol">
@@ -3075,6 +3130,17 @@ img,video{height:auto}
     </div>
   </div>
 </section>
+<script>
+/* Showcase produit : clic sur une fonctionnalité → la maquette détaille cette fonctionnalité (panneau + onglet actif). */
+function dtpovShow(mk){
+  document.querySelectorAll('.dtpov-feat').forEach(function(f){ f.classList.toggle('dtpov-feat--active', f.dataset.mk===mk); });
+  document.querySelectorAll('.dtpov .dtpt-mk').forEach(function(p){ p.classList.toggle('dtpt-mk--on', p.dataset.mk===mk); });
+  var tabMap={news:'NEWS',bias:'BIAS',macro:'CALENDAR',charts:'FXLIST',workspace:'NEWS'};
+  var want=tabMap[mk]||'NEWS';
+  document.querySelectorAll('.dtpov .dtpt-nav .dtpt-tab').forEach(function(t){ t.classList.toggle('dtpt-tab--active', t.textContent.replace(/[^A-Za-z]/g,'').toUpperCase()===want); });
+}
+document.querySelectorAll('.dtpov-feat').forEach(function(f){ f.addEventListener('keydown', function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); dtpovShow(f.dataset.mk); } }); });
+</script>
 
 <!-- ============ sec3 ============ -->
 <section class="dtp-sec3-wrapper" id="modules-cles" aria-labelledby="dtp-sec3-title">
