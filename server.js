@@ -5501,6 +5501,56 @@ function _refreshRates() {
 setInterval(() => { try { _refreshRates(); } catch {} }, 6 * 3600 * 1000);   // quotidien (4×/jour)
 setTimeout(() => { try { _refreshRates(); } catch {} }, 8000);              // au démarrage
 
+// ── FedWatch : probabilités IMPLICITES DU MARCHÉ (futures Fed Funds ZQ) pour le prochain FOMC ──
+// Méthode CME : contrat du MOIS DE RÉUNION (moyenne mensuelle = split avant/après la décision) +
+// contrat du MOIS SUIVANT = taux EFFECTIF post-réunion. Les deux étant des taux effectifs implicites,
+// l'écart "effectif vs cible" s'ANNULE → la proba est propre. Fed uniquement (seul flux gratuit fiable).
+const FF_MONTH_CODE = ['F','G','H','J','K','M','N','Q','U','V','X','Z'];   // Jan..Déc
+let _fedWatch = null;
+async function _ffImplied(sym) {
+  try {
+    const r = await axios.get(yfUrl(sym, '1d', '1mo'), { headers: yfHeaders(), timeout: 10000, validateStatus: () => true });
+    if (r.status !== 200) return null;
+    const p = r.data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+    return (typeof p === 'number' && p > 50 && p < 101) ? 100 - p : null;   // taux implicite = 100 − prix
+  } catch { return null; }
+}
+async function _computeFedWatch() {
+  try {
+    await getYFSession();
+    const now = Date.now();
+    const next = (CB_MEETINGS.USD || []).find(d => Date.parse(d + 'T18:00:00Z') > now - 6 * 3600000);
+    if (!next) return;
+    const dt = new Date(next + 'T00:00:00Z');
+    const Y = dt.getUTCFullYear(), mo = dt.getUTCMonth(), day = dt.getUTCDate();
+    const N = new Date(Date.UTC(Y, mo + 1, 0)).getUTCDate();               // jours dans le mois de réunion
+    const meetSym = 'ZQ' + FF_MONTH_CODE[mo] + String(Y).slice(2) + '.CBT';
+    const nMo = (mo + 1) % 12, nY = mo === 11 ? Y + 1 : Y;
+    const nextSym = 'ZQ' + FF_MONTH_CODE[nMo] + String(nY).slice(2) + '.CBT';
+    const [Rmeet, rAfter] = await Promise.all([_ffImplied(meetSym), _ffImplied(nextSym)]);
+    if (Rmeet == null || rAfter == null) return;
+    const preDays = day, postDays = N - day;                               // décision jour `day` → nouveau taux dès `day+1`
+    if (preDays <= 0 || postDays <= 0) return;
+    const rBefore = (Rmeet * N - rAfter * postDays) / preDays;             // taux effectif AVANT la réunion (déduit)
+    if (!isFinite(rBefore) || rBefore < -1 || rBefore > 12) return;        // garde-fou anti-aberration
+    const change = rAfter - rBefore, step = 0.25;
+    const pMove = Math.max(0, Math.min(1, Math.abs(change) / step));
+    _fedWatch = {
+      meeting: next,
+      cut:  Math.round((change < -0.001 ? pMove : 0) * 100),
+      hold: Math.round((1 - pMove) * 100),
+      hike: Math.round((change >  0.001 ? pMove : 0) * 100),
+      impliedRate: +rAfter.toFixed(3),        // taux directeur attendu par le marché APRÈS la réunion
+      changeBps:  +(change * 100).toFixed(1), // variation attendue (bps)
+      src: 'CME Fed Funds futures (ZQ)', at: now,
+    };
+    auth.aiCacheSet('rates:fedwatch', _fedWatch).catch(() => {});
+  } catch (e) { console.error('[FedWatch]', e.message); }
+}
+auth.aiCacheGet('rates:fedwatch').then(v => { if (v && v.at) _fedWatch = v; }).catch(() => {});
+setTimeout(_computeFedWatch, 9000);
+setInterval(_computeFedWatch, 45 * 60 * 1000);   // rafraîchi ~45 min (données futures = quasi temps réel)
+
 app.get('/api/rates', (_req, res) => {
   try { _refreshRates(); } catch {}
   const now = Date.now();
@@ -5522,6 +5572,7 @@ app.get('/api/rates', (_req, res) => {
       move: sc0.baseCase, prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 100), expBps: +sc0.impliedBps.toFixed(1),
       scenario: { hold: Math.round(sc0.hold * 100), hike: Math.round(sc0.hike * 100), cut: Math.round(sc0.cut * 100) },
       meetings,
+      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : proba RÉELLES du marché (futures)
     };
   });
   res.json({ asOf: now, model: 'maison', updatedAt: _ratesState.updatedAt, banks });
