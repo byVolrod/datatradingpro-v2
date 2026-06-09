@@ -4443,19 +4443,22 @@ function renderBrReader(item) {
             </div>
           </div>`;
       } else {
-        // Contenu complet indisponible → on affiche TOUJOURS quelque chose d'utile :
-        // l'aperçu (description du flux) rendu proprement, + lien source-aware.
+        // Pas d'extraction texte (site protégé/anti-bot/login) → on EMBARQUE le rapport ORIGINAL
+        // dans une iframe (chargée par le navigateur de l'utilisateur, comme un PDF natif), avec
+        // l'aperçu du flux s'il existe + bouton Ouvrir + repli lien. Jamais de « indisponible ».
         const preview = (item.description || '').trim();
+        const safe = (item.url || '').replace(/"/g, '&quot;');
+        const ttl  = (item.title || 'Rapport').replace(/"/g, '');
+        const typeLbl = _inst === 'DTP' ? 'Research' : _inst;
         content.innerHTML = `
           <div class="br-document">
             ${headerHtml}
-            <div class="br-ing-meta"><span class="br-ing-type">${item.institution && !isIngDoc ? 'DTP' : 'Research'}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
+            <div class="br-ing-meta"><span class="br-ing-type">${typeLbl}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
             <div class="br-doc-title">${item.title}</div>
-            ${preview ? `<div class="br-doc-body">${preview.split(/\n{2,}/).map(p => `<p>${p}</p>`).join('')}</div>`
-                      : `<div class="br-no-content">Aperçu indisponible pour ce rapport.</div>`}
-            <div class="br-doc-footer">
-              <a href="${item.url}" target="_blank" rel="noopener" class="br-ext-link">${origLabel}</a>
-            </div>
+            ${preview ? `<div class="br-ing-lead">${preview}</div>` : ''}
+            <div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 Rapport original</span><span class="br-pdf-bar-actions"><a class="br-pdf-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir ↗</a></span></div>
+            <iframe class="br-pdf-frame" src="${safe}" title="${ttl}" referrerpolicy="no-referrer" loading="lazy" style="width:100%;height:72vh;min-height:460px;border:0;border-radius:6px;background:#0b0b0e;margin-top:8px"></iframe>
+            <div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le rapport ne s'affiche pas ici ? <a href="${safe}" target="_blank" rel="noopener" style="color:#ff7a00">${origLabel}</a></div>
           </div>`;
       }
       _brFinalizeReader(item, brIns);   // images + insights + bascule en PDF embarqué
