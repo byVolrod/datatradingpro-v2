@@ -6101,8 +6101,10 @@ async function _checkExpiringSubscriptions() {
 void _checkExpiringSubscriptions;
 
 // ── FIN D'ESSAI GRATUIT (1 semaine) ──────────────────────────────────────────
-//    LE JOUR où l'essai a expiré, on invite le client à prendre l'abonnement
-//    mensuel. Envoi UNIQUE par essai (anti-doublon durable via email_log).
+//    1 SEUL email, LE JOUR D'EXPIRATION de la période d'essai → invitation à
+//    passer à l'abonnement mensuel. JAMAIS répété : anti-doublon durable
+//    (email_log Supabase + fichier sur volume persistant) → clé unique par essai.
+//    Le check 6 h ne fait que DÉTECTER l'expiration le jour même ; il n'envoie qu'1×.
 async function _checkTrialUpsell() {
   try {
     const users = await auth.getAllUsers();
@@ -6129,12 +6131,13 @@ async function _checkTrialUpsell() {
     }
   } catch (e) { console.error('[TrialUpsell]', e.message); }
 }
-// Planification : vérification TOUTES LES 6 H (l'essai expiré est donc détecté
-// rapidement après la fin) + rattrapage 30s après le démarrage. L'anti-doublon
-// (email_log Supabase) garantit un seul envoi même avec des passages fréquents.
+// Planification : on VÉRIFIE toutes les 6 h (→ l'expiration est repérée le jour même) + un
+// rattrapage 30 s après chaque démarrage du conteneur. ATTENTION : 6 h = fréquence de CHECK,
+// PAS d'envoi → grâce à l'anti-doublon durable, le client ne reçoit qu'UN SEUL mail, le jour
+// d'expiration de son essai (jamais une relance par heure/par redémarrage).
 (function scheduleTrialUpsell() {
-  setTimeout(_checkTrialUpsell, 30000);                       // rattrapage au démarrage (redémarrages Render)
-  setInterval(_checkTrialUpsell, 6 * 60 * 60 * 1000);        // puis toutes les 6 h
+  setTimeout(_checkTrialUpsell, 30000);                       // rattrapage au démarrage (redémarrages conteneur)
+  setInterval(_checkTrialUpsell, 6 * 60 * 60 * 1000);        // puis re-vérifie toutes les 6 h (1 seul envoi via anti-doublon)
 })();
 
 // ── RÉENGAGEMENT : client inactif depuis ≥ 7 jours sur le terminal ───────────
