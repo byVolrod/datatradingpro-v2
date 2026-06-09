@@ -4351,7 +4351,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v9-techsent';   // v9 : ajout des lignes Technical + Sentiment (Overall recalculé) → bump pour régénérer matrice + narratifs cohérents   // bump → force une régén (self-heal au démarrage/horaire)
+const BIAS_VER = 'v10-stable-overall';   // v10 : Technical+Sentiment AFFICHES mais HORS Overall (volatils) → Overall stable, narratif coherent
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -4619,11 +4619,13 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   const sentiment = _sbSentimentRow();             // régime de risque mappé par devise
   // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés DTP.
   // Elle agrège TOUTES les lignes (dont Technical + Sentiment) → le Overall reflète exactement la matrice.
+  // IMPORTANT : Technical (force 1j) et Sentiment (régime de risque) sont VOLATILS (intra-journée).
+  // On les AFFICHE comme lignes (façon PMT) mais on NE les inclut PAS dans le Overall, sinon le
+  // Overall dériverait en continu et contredirait le narratif (généré périodiquement). Le Overall
+  // reste donc calé sur les indicateurs STABLES (hebdo/mensuels) → cohérence narratif ↔ matrice garantie.
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
     const vals = SB_GEM_ROWS.map(r => (gem[r.key] ? gem[r.key][c] : null));
-    vals.push(technical[c]);
-    vals.push(sentiment[c]);
     vals.push(trend[c]);
     vals.push(seasonality[c]);
     conclusion[c] = concludeBias(vals);
