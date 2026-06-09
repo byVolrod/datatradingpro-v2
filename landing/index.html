@@ -2512,6 +2512,44 @@
   /* ── Focus clavier visible sur les cartes interactives (a11y) ── */
   .pmt-sec3-card:focus-visible,.res-card:focus-visible,.pmt-s5-testimonial-card:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
   .skip-link:focus{outline:2px solid var(--text);outline-offset:-4px}
+  /* ── sec3 : 2 colonnes (modules à gauche, aperçu terminal à droite) ── */
+  .pmt-sec3-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:clamp(22px,3vw,44px);align-items:stretch;margin-top:clamp(28px,4vw,44px)}
+  .pmt-sec3-cards-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-content:start}
+  .pmt-sec3-preview{min-width:0;display:flex}
+  .t3{width:100%;align-self:stretch;display:flex;flex-direction:column;background:#0a0a0c;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px -40px #000}
+  .t3-top{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#0d0d10;border-bottom:1px solid var(--line)}
+  .t3-brand{font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap}
+  .t3-brand b{color:var(--orange)}
+  .t3-search{flex:1;min-width:0;font-size:10.5px;color:var(--text3);background:#0a0a0c;border:1px solid var(--line);border-radius:6px;padding:5px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .t3-neutral{display:inline-flex;align-items:center;gap:5px;font-size:10px;font-weight:700;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.25);border-radius:5px;padding:4px 8px;white-space:nowrap}
+  .t3-neutral i{width:6px;height:6px;border-radius:50%;background:var(--orange)}
+  .t3-tabs{display:flex;gap:14px;padding:8px 12px;border-bottom:1px solid var(--line);overflow:hidden}
+  .t3-tabs span{font-size:9.5px;font-weight:600;letter-spacing:.03em;color:var(--text3);white-space:nowrap}
+  .t3-tabs span.on{color:var(--orange)}
+  .t3-body{flex:1;display:grid;grid-template-columns:1fr 1fr;min-height:0}
+  .t3-news{padding:10px 12px;border-right:1px solid var(--line);min-width:0}
+  .t3-ptitle{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;color:var(--text);margin-bottom:8px}
+  .t3-live{width:6px;height:6px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green)}
+  .t3-row{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid #131318}
+  .t3-row:last-child{border-bottom:0}
+  .t3-t{font-size:9px;color:var(--text3);flex-shrink:0;font-family:var(--mono)}
+  .t3-tag{font-size:8px;font-weight:700;color:var(--text3);background:#15151a;border-radius:3px;padding:1px 4px;flex-shrink:0}
+  .t3-tag.high{color:var(--red);background:rgba(239,68,68,.14)}
+  .t3-tag.med{color:var(--amber);background:rgba(255,179,0,.14)}
+  .t3-x{font-size:10px;color:var(--text2);line-height:1.3;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .t3-side{padding:10px 12px;display:flex;flex-direction:column;min-width:0}
+  .t3-clocks{display:flex;gap:8px;margin-bottom:10px}
+  .t3-clocks span{flex:1;display:flex;flex-direction:column;font-size:11px;font-weight:700;color:var(--text);background:#0d0d10;border:1px solid var(--line);border-radius:6px;padding:6px 7px}
+  .t3-clocks b{font-size:8px;font-weight:600;color:var(--text3);margin-bottom:2px}
+  .t3-stabs{display:flex;gap:10px;margin-bottom:8px}
+  .t3-stabs span{font-size:8.5px;font-weight:600;color:var(--text3)}
+  .t3-stabs span.on{color:var(--orange)}
+  .t3-chart{width:100%;flex:1;min-height:120px}
+  .t3-chart .t3-grid{stroke:#1a1a20;stroke-width:1}
+  .t3-chart .t3-l{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
+  .t3-chart .t3-lab text{font-size:8px;font-weight:700;font-family:var(--mono)}
+  @media(max-width:920px){.pmt-sec3-split{grid-template-columns:1fr}.pmt-sec3-preview{order:-1}}
+  @media(max-width:560px){.pmt-sec3-cards-col{grid-template-columns:1fr}.t3-body{grid-template-columns:1fr}.t3-news{border-right:0;border-bottom:1px solid var(--line)}}
 </style>
 <script type="application/ld+json">
 {
@@ -2924,34 +2962,75 @@ img,video{height:auto}
     </div>
   </div>
 
-  <div class="pmt-sec3-grid">
-    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
-      <h3 class="pmt-sec3-card-title">News temps réel</h3>
-      <p class="pmt-sec3-card-desc">L'actu forex &amp; macro triée par impact (HIGH / MED / LOW), filtrable par devise. Vous voyez d'abord ce qui bouge les marchés.</p>
-      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-    </a>
+  <div class="pmt-sec3-split">
+    <div class="pmt-sec3-cards-col">
+      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+        <h3 class="pmt-sec3-card-title">News temps réel</h3>
+        <p class="pmt-sec3-card-desc">L'actu forex &amp; macro triée par impact (HIGH / MED / LOW), filtrable par devise. Vous voyez d'abord ce qui bouge les marchés.</p>
+        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span>
+        <h3 class="pmt-sec3-card-title">Smart Bias Tracker</h3>
+        <p class="pmt-sec3-card-desc">Le biais hebdo de chaque devise dans une matrice claire : fondamentaux, taux, COT et positionnement croisés — avec un narratif IA chaque semaine.</p>
+        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i></span>
+        <h3 class="pmt-sec3-card-title">Workspace modulaire</h3>
+        <p class="pmt-sec3-card-desc">Ouvrez les modules utiles, redimensionnez les panneaux, épinglez une paire. Le cockpit s'adapte à votre façon de lire le marché.</p>
+        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+        <h3 class="pmt-sec3-card-title">Macro Data Hub</h3>
+        <p class="pmt-sec3-card-desc">Calendrier (réel vs prévision), Week Ahead, taux, COT (CFTC) et recherche des grandes banques — la matière première de vos décisions.</p>
+        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      </a>
+    </div>
 
-    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span>
-      <h3 class="pmt-sec3-card-title">Smart Bias Tracker</h3>
-      <p class="pmt-sec3-card-desc">Le biais hebdo de chaque devise dans une matrice claire : fondamentaux, taux, COT et positionnement croisés — avec un narratif IA chaque semaine.</p>
-      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-    </a>
-
-    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i></span>
-      <h3 class="pmt-sec3-card-title">Workspace modulaire</h3>
-      <p class="pmt-sec3-card-desc">Ouvrez les modules utiles, redimensionnez les panneaux, épinglez une paire. Le cockpit s'adapte à votre façon de lire le marché.</p>
-      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-    </a>
-
-    <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-      <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
-      <h3 class="pmt-sec3-card-title">Macro Data Hub</h3>
-      <p class="pmt-sec3-card-desc">Calendrier (réel vs prévision), Week Ahead, taux, COT (CFTC) et recherche des grandes banques — la matière première de vos décisions.</p>
-      <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
-    </a>
+    <!-- Aperçu terminal (maquette façon desk) -->
+    <div class="pmt-sec3-preview" aria-hidden="true">
+      <div class="t3">
+        <div class="t3-top">
+          <span class="t3-brand"><b>DTP</b>&nbsp;DataTradingPro</span>
+          <span class="t3-search">Rechercher un symbole…</span>
+          <span class="t3-neutral"><i></i> NEUTRAL</span>
+        </div>
+        <div class="t3-tabs"><span class="on">NEWS</span><span>CALENDAR</span><span>FX LIST</span><span>BIAS</span><span>WEEK AHEAD</span><span>TAUX</span></div>
+        <div class="t3-body">
+          <div class="t3-news">
+            <div class="t3-ptitle">Realtime Headline Ticker <i class="t3-live"></i></div>
+            <div class="t3-row"><span class="t3-t">15:01</span><span class="t3-tag">GEO</span><span class="t3-x">La Chine livre un échantillon lunaire au labo</span></div>
+            <div class="t3-row"><span class="t3-t">15:00</span><span class="t3-tag med">MED</span><span class="t3-x">Wall St ouvre en hausse, appétit pour le risque</span></div>
+            <div class="t3-row"><span class="t3-t">15:00</span><span class="t3-tag">EU</span><span class="t3-x">Réserves de change : +100 Mds € à 344 Mds €</span></div>
+            <div class="t3-row"><span class="t3-t">14:59</span><span class="t3-tag high">HIGH</span><span class="t3-x">Fed funds effectif : 3,62 % en juin</span></div>
+            <div class="t3-row"><span class="t3-t">14:59</span><span class="t3-tag">BTC</span><span class="t3-x">Bitcoin proche d'un nouveau record absolu</span></div>
+            <div class="t3-row"><span class="t3-t">14:43</span><span class="t3-tag med">MED</span><span class="t3-x">Citi sur USD/JPY — vendeur dans la hausse vers 158</span></div>
+            <div class="t3-row"><span class="t3-t">14:40</span><span class="t3-tag">GEO</span><span class="t3-x">Les futures montent malgré les tensions Israël-Iran</span></div>
+            <div class="t3-row"><span class="t3-t">14:31</span><span class="t3-tag high">HIGH</span><span class="t3-x">US CPI conforme aux attentes (3,4 % a/a)</span></div>
+            <div class="t3-row"><span class="t3-t">14:18</span><span class="t3-tag">FX</span><span class="t3-x">L'euro efface ses gains après Lagarde</span></div>
+          </div>
+          <div class="t3-side">
+            <div class="t3-clocks"><span><b>LON</b> 14:04</span><span><b>NY</b> 09:04</span><span><b>TKY</b> 22:04</span></div>
+            <div class="t3-stabs"><span>WORLD</span><span>RISK</span><span class="on">STRENGTH</span><span>METER</span><span>COT</span></div>
+            <svg class="t3-chart" viewBox="0 0 300 230" preserveAspectRatio="none">
+              <line x1="8" y1="40" x2="270" y2="40" class="t3-grid"/><line x1="8" y1="115" x2="270" y2="115" class="t3-grid"/><line x1="8" y1="190" x2="270" y2="190" class="t3-grid"/>
+              <polyline class="t3-l" style="stroke:#eab308" points="8,112 56,96 104,102 152,72 200,80 246,48"/>
+              <polyline class="t3-l" style="stroke:#f7941d" points="8,113 56,106 104,116 152,94 200,88 246,62"/>
+              <polyline class="t3-l" style="stroke:#22c55e" points="8,114 56,111 104,106 152,100 200,92 246,84"/>
+              <polyline class="t3-l" style="stroke:#ec4899" points="8,115 56,117 104,110 152,114 200,107 246,104"/>
+              <polyline class="t3-l" style="stroke:#3b82f6" points="8,116 56,120 104,116 152,121 200,124 246,126"/>
+              <polyline class="t3-l" style="stroke:#22d3ee" points="8,116 56,114 104,121 152,119 200,128 246,138"/>
+              <polyline class="t3-l" style="stroke:#a855f7" points="8,117 56,123 104,128 152,131 200,140 246,152"/>
+              <polyline class="t3-l" style="stroke:#ef4444" points="8,118 56,128 104,136 152,150 200,161 246,178"/>
+              <g class="t3-lab"><text x="251" y="51" fill="#eab308">NZD</text><text x="251" y="65" fill="#f7941d">USD</text><text x="251" y="87" fill="#22c55e">GBP</text><text x="251" y="107" fill="#ec4899">AUD</text><text x="251" y="126" fill="#3b82f6">EUR</text><text x="251" y="141" fill="#22d3ee">CHF</text><text x="251" y="155" fill="#a855f7">CAD</text><text x="251" y="181" fill="#ef4444">JPY</text></g>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 
   <div class="pmt-sec3-footer">
