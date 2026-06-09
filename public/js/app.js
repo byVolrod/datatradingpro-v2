@@ -6910,3 +6910,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_init); else _init();
 })();
+
+
+/* Dissuasion anti-copie (deterrent, PAS une securite reelle) : bloque clic-droit + raccourcis devtools/source. */
+(function(){
+  try{
+    document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+    document.addEventListener('keydown', function(e){
+      var k=(e.key||'').toUpperCase();
+      if (k==='F12' || (e.ctrlKey&&e.shiftKey&&(k==='I'||k==='J'||k==='C')) || ((e.ctrlKey||e.metaKey)&&(k==='U'||k==='S'))){ e.preventDefault(); return false; }
+    });
+  }catch(_){}
+})();
