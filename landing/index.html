@@ -145,9 +145,9 @@
   .hero{position:relative;width:100%;overflow:hidden;background:#020203;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:clamp(500px,calc(100svh - 96px),780px)}
   /* PAR DÉFAUT (desktop) : BLOC IMAGE dédié, calé à droite (55%), <img object-cover> = pas de zoom destructeur */
   .hero-shot{position:absolute;top:0;bottom:0;right:0;left:auto;width:55%;z-index:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%)}
-  .hero-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center center;filter:contrast(1.05) saturate(1.04)}
-  /* Voile par-dessus : NOIR 100% à gauche (texte) → fondu large → transparent à droite (image révélée proprement) */
-  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#020203 0%,#020203 42%,rgba(2,2,3,.45) 60%,rgba(2,2,3,0) 88%),linear-gradient(0deg,rgba(2,2,3,.78) 0%,rgba(2,2,3,.1) 24%,rgba(2,2,3,0) 40%)}
+  .hero-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:right bottom;opacity:.85;filter:contrast(1.05) saturate(1.04)}
+  /* Voile par-dessus : NOIR 100% à gauche → transparent à droite. PAS de dégradé bas → l'image continue derrière la bande de stats */
+  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#020203 0%,#020203 40%,rgba(2,2,3,.3) 58%,rgba(2,2,3,0) 90%)}
   /* Mobile : l'image passe en fond plein (cover) derrière le texte, sans masque */
   @media(max-width:880px){.hero .hero-shot{left:0;right:0;width:100%;-webkit-mask-image:none;mask-image:none}.hero-shot img{object-position:center center}}
   .hero .hero-inner{position:relative;z-index:2;width:100%;flex:1;display:flex;align-items:center;padding:clamp(14px,2.4vw,34px) 0 clamp(12px,1.6vw,22px)}
@@ -168,7 +168,7 @@
   .hero-tm-cite{display:flex;flex-direction:column;gap:1px}
   .hero-tm-name{font-size:12.5px;font-weight:700;color:#fff}
   .hero-tm-role{font-size:11px;color:var(--text3)}
-  .hero .hero-statband{position:relative;z-index:2;background:rgba(7,7,9,.5);border-top:1px solid var(--line);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+  .hero .hero-statband{position:relative;z-index:2;background:rgba(2,2,3,.62);border-top:1px solid var(--line);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
   @media(min-width:768px){.hero-copy{padding-right:24px}}
   @media(max-width:880px){.hero-veil{background:linear-gradient(180deg,rgba(7,7,9,.72) 0%,rgba(7,7,9,.3) 38%,rgba(7,7,9,.5) 78%,rgba(7,7,9,.92) 100%)}}
   @media(max-width:620px){.hero{min-height:auto}.hero .hero-inner{padding:clamp(20px,6vw,36px) 0 clamp(18px,4vw,26px)}.hero-copy{max-width:none;gap:14px}.hero h1{font-size:clamp(30px,8.4vw,42px)}.hero-cta{flex-direction:column;align-items:stretch;width:100%;gap:11px}.hero-cta .btn{width:100%;justify-content:center;padding:15px 20px}.hero-tm{display:flex;max-width:none}.hero-rating-txt{font-size:12px}}
@@ -3858,7 +3858,7 @@ img,video{height:auto}
   setBilling('month');
 })();
 </script>
-<script src="/demo.js?v=3" defer></script>
+<script src="/demo.js?v=4" defer></script>
 <script>
 function closeMenu(){var o=document.getElementById('mobileMenu');if(o)o.classList.remove('open');var b=document.querySelector('.nav-burger');if(b)b.setAttribute('aria-expanded','false');}
 (function(){
