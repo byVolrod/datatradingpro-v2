@@ -7160,25 +7160,30 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .pd-invoice-dl { font-size: 14px; color: #555; cursor: pointer; flex-shrink: 0; margin-left: 8px; }
 .pd-invoice-dl:hover { color: #f7941d; }
 
-/* ── Support section ── */
+/* ── Support section (encadrés façon PMT) ── */
 .pd-support-link {
   display: flex;
   align-items: center;
-  padding: 13px 16px;
-  border-bottom: 1px solid #1a1a1a;
-  color: #888;
-  font-size: 12px;
+  gap: 12px;
+  padding: 11px 13px;
+  margin-bottom: 8px;
+  border: 1px solid #1f1f26;
+  border-radius: 8px;
+  background: #0e0e11;
+  color: #b5b5bd;
+  font-size: 13px;
   text-decoration: none;
   font-family: 'Inter', sans-serif;
-  transition: background 0.15s, color 0.15s;
-  gap: 12px;
-  margin-left: -16px;
-  margin-right: -16px;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
 }
-.pd-support-link:hover { background: rgba(255,255,255,0.03); color: #ccc; }
-.pd-support-icon { font-size: 15px; flex-shrink: 0; width: 20px; text-align: center; }
+.pd-support-link:last-child { margin-bottom: 0; }
+.pd-support-link:hover { background: #16161b; border-color: #2a2a32; color: #f0f0f2; }
+.pd-support-icon { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; flex-shrink: 0; color: #8a8a93; }
+.pd-support-icon svg { width: 18px; height: 18px; }
+.pd-support-link:hover .pd-support-icon { color: #f7941d; }
 .pd-support-text { flex: 1; }
-.pd-support-ext { font-size: 11px; color: #444; flex-shrink: 0; }
+.pd-support-ext { display: inline-flex; align-items: center; color: #5a5a62; flex-shrink: 0; }
+.pd-support-ext svg { width: 15px; height: 15px; }
 
 /* Placeholder text */
 .pd-placeholder {
