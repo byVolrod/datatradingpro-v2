@@ -1653,7 +1653,7 @@ function _reportLead(s) {
 }
 // Remplace la marque DTP par DTP dans les titres de rapport
 // Suffixes de SOURCE à ne PAS afficher dans le flux temps réel (on coupe " - Source" en fin de titre)
-const _NEWS_SRC_RE = /\s*[-–—]\s*(Truth Social|Twitter\/?X?|Telegram|Reuters|Bloomberg|CNBC|Sky News(?: Arabia)?|Financial ?Juice|RTRS|BBG|Newswires?|WSJ|FT)\.?\s*$/i;
+const _NEWS_SRC_RE = /\s*[-–—]\s*(?:Axios|Politico|Semafor|Punchbowl|Reuters|RTRS|Bloomberg|BBG|CNBC|CNN|BBC|NBC|ABC|CBS|MSNBC|Fox(?: News| Business)?|Newsmax|OANN|WSJ|Wall Street Journal|FT|Financial Times|NYT|New York Times|Washington Post|WaPo|Forbes|Barron'?s|MarketWatch|Dow Jones|Investing\.com|FXStreet|Forex ?Live|Zero ?Hedge|The Block|CoinDesk|AP|AFP|DPA|ANSA|EFE|PA Media|Xinhua|TASS|RIA(?: Novosti)?|Interfax|Sputnik|Mehr(?: News)?|IRNA|Fars(?: News)?|Tasnim|Press TV|Tehran Times|Al[\s-]?Jazeera|Al[\s-]?Arabiya|Sky News(?: Arabia)?|Anadolu|Trend|Nikkei|Kyodo|Jiji|Yonhap|SCMP|Global Times|Caixin|Times of Israel|Jerusalem Post|Haaretz|Ynet|The Guardian|Guardian|Telegraph|Independent|Economist|Truth Social|Twitter\/?X?|X \(Twitter\)|Telegram|Financial ?Juice|Newswires?|[a-z0-9][a-z0-9-]*\.(?:com|net|org|io))\.?\s*$/i;
 function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP').replace(_NEWS_SRC_RE, '').trim(); }
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)

@@ -141,26 +141,32 @@
   @media(max-width:560px){.ticker .badge span{display:none}}
 
   /* ── HERO (inspiration terminal pro texte à gauche + image desk en fond) ── */
-  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:#070709}
-  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;opacity:1;pointer-events:none;filter:contrast(1.07) saturate(1.06) brightness(1.02);image-rendering:-webkit-optimize-contrast}
-  .hero{position:relative;width:100%;min-height:470px;display:flex;align-items:center;overflow:hidden;background:#070709;border-bottom:1px solid var(--line)}
-  .hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.92) 18%,rgba(7,7,9,.6) 42%,rgba(7,7,9,.2) 64%,rgba(7,7,9,0) 85%)}
-  .hero .hero-inner{position:relative;z-index:2;width:100%;display:grid;grid-template-columns:1fr;gap:32px;align-items:center}
-  .hero-copy{max-width:548px;display:flex;flex-direction:column;align-items:flex-start;gap:19px;padding:clamp(34px,4.5vw,54px) 0}
+  /* ── HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande stats en bas ── */
+  .hero{position:relative;width:100%;overflow:hidden;background:#070709;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:clamp(600px,80vh,840px)}
+  .hero-shot{position:absolute;inset:0;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;filter:contrast(1.05) saturate(1.04)}
+  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.95) 22%,rgba(7,7,9,.62) 46%,rgba(7,7,9,.18) 70%,rgba(7,7,9,0) 100%),linear-gradient(0deg,rgba(7,7,9,.92) 0%,rgba(7,7,9,.25) 20%,rgba(7,7,9,0) 36%)}
+  .hero .hero-inner{position:relative;z-index:2;width:100%;flex:1;display:flex;align-items:center;padding:clamp(40px,5.5vw,76px) 0 clamp(24px,3vw,40px)}
+  .hero-copy{max-width:560px;display:flex;flex-direction:column;align-items:flex-start;gap:17px}
   .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:6px}
-  .hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(33px,5.4vw,56px);line-height:1.05;letter-spacing:-.015em;margin:0;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.55)}
+  .hero h1{font-family:var(--serif);font-weight:800;font-size:clamp(33px,5.4vw,56px);line-height:1.05;letter-spacing:-.015em;margin:0;color:#fff;text-shadow:0 2px 22px rgba(0,0,0,.6)}
   .hero h1 .grad{background:linear-gradient(120deg,var(--orange),#ffc46b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
   .hero-sub{font-size:clamp(14.5px,1.7vw,17px);color:var(--text2);max-width:520px;line-height:1.6;text-shadow:0 1px 14px rgba(0,0,0,.5)}
   .hero-cta{display:flex;flex-wrap:wrap;gap:13px;margin-top:4px}
   .hero-cta .btn{padding:13px 24px;font-size:14.5px}
-  .hero-trust{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--text3);margin-top:2px}
-  .hero-trust .ok{display:inline-flex;align-items:center;gap:6px;color:var(--green)}
-  @media(min-width:768px){.hero .hero-inner{grid-template-columns:minmax(0,1fr) minmax(0,55%);gap:36px}.hero-copy{padding-right:34px}.hero .hero-shot{display:block}}
-  @media(max-width:767px){.hero{min-height:560px}.hero-photo{opacity:.72;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%);mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%)}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.45) 0%,rgba(7,7,9,.8) 62%,#070709 100%)}}
-  /* ── HERO : image (desk Gemini) fondue dans le noir, positionnée comme les autres sections ── */
-  .hero-bg{position:absolute;inset:0;z-index:0;pointer-events:none;background:radial-gradient(120% 95% at 80% 26%,rgba(247,148,29,.10),transparent 58%),radial-gradient(90% 80% at 42% 122%,rgba(34,197,94,.045),transparent 60%)}
-  .hero-shot{display:none;position:relative;z-index:2;width:calc(100% + clamp(24px,20vw,440px));align-self:stretch;min-height:clamp(330px,36vw,470px);background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;border-radius:14px 0 0 14px;filter:contrast(1.06) saturate(1.05) brightness(1.02);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 13%,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 13%,#000 100%)}
-  .hero-shot::after{content:"";position:absolute;inset:0;border-radius:14px 0 0 14px;pointer-events:none;background:linear-gradient(90deg,#070709 0,rgba(7,7,9,0) 24%)}
+  .hero-rating{display:flex;align-items:center;flex-wrap:wrap;gap:7px 11px;margin-top:3px}
+  .hero-stars{color:#f7941d;font-size:15px;letter-spacing:3px;line-height:1}
+  .hero-rating-txt{font-size:12.5px;color:var(--text2)}
+  .hero-rating-txt strong{color:#fff;font-weight:700}
+  .hero-tm{display:flex;gap:13px;align-items:flex-start;max-width:520px;margin:4px 0 0;padding:14px 16px;background:rgba(12,12,15,.62);border:1px solid var(--line);border-radius:12px;-webkit-backdrop-filter:blur(7px);backdrop-filter:blur(7px)}
+  .hero-tm-av{flex:0 0 auto;width:46px;height:46px;border-radius:50%;overflow:hidden;line-height:0}
+  .hero-tm-q{margin:0 0 8px;font-size:13px;line-height:1.55;color:#dfe3ea}
+  .hero-tm-cite{display:flex;flex-direction:column;gap:1px}
+  .hero-tm-name{font-size:12.5px;font-weight:700;color:#fff}
+  .hero-tm-role{font-size:11px;color:var(--text3)}
+  .hero .hero-statband{position:relative;z-index:2;background:rgba(7,7,9,.5);border-top:1px solid var(--line);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+  @media(min-width:768px){.hero-copy{padding-right:24px}}
+  @media(max-width:880px){.hero-veil{background:linear-gradient(0deg,rgba(7,7,9,.94) 0%,rgba(7,7,9,.6) 42%,rgba(7,7,9,.35) 100%)}}
+  @media(max-width:620px){.hero-tm{display:none}.hero{min-height:540px}}
   .hero-mock{display:none;position:relative;z-index:2;width:100%;overflow:hidden;background:transparent;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 90%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 90%,transparent 100%)}
   .hero-mock::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#070709 0,rgba(7,7,9,0) 22%)}
   .hm-top{display:flex;align-items:center;gap:9px;padding:9px 11px;background:#0d0d10;border-bottom:1px solid var(--line)}
@@ -2805,9 +2811,10 @@
   </div>
 </div>
 
-<!-- HERO (inspiration terminal pro texte à gauche + image desk en fond) -->
+<!-- HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande de stats en bas -->
 <section class="hero" aria-label="DataTradingPro — terminal macro & forex en temps réel">
-  <div class="hero-bg" aria-hidden="true"></div>
+  <div class="hero-shot" aria-hidden="true"></div>
+  <div class="hero-veil" aria-hidden="true"></div>
   <div class="wrap hero-inner">
     <div class="hero-copy">
       <span class="hero-eyebrow">Conçu pour les professionnels</span>
@@ -2817,23 +2824,26 @@
         <a class="btn btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">S'abonner — 24,99 €/mois →</a>
         <a class="btn btn-ghost" href="#modules-cles" onclick="event.preventDefault();window.DTPDemo&&DTPDemo.open()"><svg class="ico" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>Voir le terminal</a>
       </div>
-      <div class="hero-trust">
-        <span class="ok">&#10003; Accès navigateur immédiat</span>
-        <span class="ok">&#10003; Données en temps réel</span>
-        <span class="ok">&#10003; Sans engagement</span>
+      <div class="hero-rating">
+        <span class="hero-stars" aria-hidden="true">★★★★★</span>
+        <span class="hero-rating-txt"><strong>Adopté</strong> par les traders de la communauté JustOneTrader</span>
       </div>
+      <figure class="hero-tm">
+        <span class="hero-tm-av" aria-hidden="true"><svg viewBox="0 0 48 48" width="46" height="46"><circle cx="24" cy="24" r="24" fill="#241f1a"/><circle cx="24" cy="19" r="8" fill="#6b5942"/><path d="M9 43c1-8 7.5-12 15-12s14 4 15 12z" fill="#6b5942"/></svg></span>
+        <div>
+          <blockquote class="hero-tm-q">« DataTradingPro est devenu mon réflexe quotidien : news en temps réel, macro et Smart Bias réunis pour filtrer le bruit et rester concentré sur ce qui bouge vraiment les marchés. »</blockquote>
+          <figcaption class="hero-tm-cite"><span class="hero-tm-name">— Alexandre M.</span><span class="hero-tm-role">Trader FX &amp; Macro · membre JustOneTrader</span></figcaption>
+        </div>
+      </figure>
     </div>
-    <div class="hero-shot" aria-hidden="true"></div>
   </div>
-</section>
-
-<!-- BANDE DE STATS (strip sous le hero, épuré) -->
-<section class="hero-statband" aria-label="Chiffres clés DataTradingPro">
-  <div class="wrap hs-grid">
+  <div class="hero-statband" aria-label="Chiffres clés DataTradingPro">
+    <div class="wrap hs-grid">
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg></span><div><b>Multi-actifs</b><em>FX, indices, matières premières &amp; crypto</em></div></div>
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.2 4-6.5 8-6.5s8 2.3 8 6.5"/></svg></span><div><b>Pour tous les niveaux</b><em>Du débutant au trader confirmé</em></div></div>
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v5.5c0 4.8-3.4 8-8 9.5-4.6-1.5-8-4.7-8-9.5V6z"/><path d="M8.5 12l2.5 2.5 4.5-4.5"/></svg></span><div><b>100%&nbsp;navigateur</b><em>Aucune installation, accès immédiat</em></div></div>
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.6 3.6 3 8 3s8-1.4 8-3V5M4 12c0 1.6 3.6 3 8 3s8-1.4 8-3"/></svg></span><div><b>Source directe</b><em>Données first-party, temps réel</em></div></div>
+    </div>
   </div>
 </section>
 
