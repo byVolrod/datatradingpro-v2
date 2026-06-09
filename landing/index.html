@@ -2563,6 +2563,17 @@
   "itemListElement": [ { "@type": "ListItem", "position": 1, "name": "Accueil", "item": "https://datatradingpro.com/" } ]
 }
 </script>
+<style id="dtp-optim">
+  /* Optimisation landing — passe 1 : retrait des étiquettes/eyebrows décoratifs de section
+     (« TARIFS », « Modules clés », « Conçu pour les professionnels »… → prennent de la place
+     pour rien, on épure et on étend le contenu). Réversible : il suffit de retirer ce bloc. */
+  .hero-eyebrow,
+  .pmt-sec3-tagline,
+  .pmt-sec4-tagline,
+  .pmt-s5-label,
+  .pmt-sec7-eyebrow,
+  .section10-label { display: none !important; }
+</style>
 </head>
 <body>
 <a href="#contenu" class="skip-link">Aller au contenu</a>
