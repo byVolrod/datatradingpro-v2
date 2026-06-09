@@ -143,10 +143,12 @@
   /* ── HERO (inspiration terminal pro texte à gauche + image desk en fond) ── */
   /* ── HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande stats en bas ── */
   .hero{position:relative;width:100%;overflow:hidden;background:#070709;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:clamp(520px,calc(100svh - 90px),900px)}
-  .hero-shot{position:absolute;inset:0;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;filter:contrast(1.05) saturate(1.04)}
-  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,#070709 33%,rgba(7,7,9,.5) 50%,rgba(7,7,9,0) 70%),linear-gradient(0deg,rgba(7,7,9,.9) 0%,rgba(7,7,9,.18) 22%,rgba(7,7,9,0) 38%)}
-  /* Desktop : image CONFINÉE à droite (~64%), fondue dans le noir sur son bord gauche → gauche = noir uni */
-  @media(min-width:880px){.hero .hero-shot{left:auto;right:0;width:64%;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 36%,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 36%,#000 100%)}}
+  /* PAR DÉFAUT (desktop) : image CONFINÉE à droite (58%), calée right:0 — la gauche reste NOIR UNI */
+  .hero-shot{position:absolute;top:0;bottom:0;right:0;left:auto;width:58%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=3") center center/cover no-repeat;filter:contrast(1.05) saturate(1.04);-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 30%,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 30%,#000 100%)}
+  /* Voile : noir plein à gauche (texte) → transparent vers la droite (image) = coupure asymétrique nette */
+  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,#070709 40%,rgba(7,7,9,.55) 54%,rgba(7,7,9,.12) 66%,rgba(7,7,9,0) 76%),linear-gradient(0deg,rgba(7,7,9,.9) 0%,rgba(7,7,9,.18) 22%,rgba(7,7,9,0) 38%)}
+  /* Mobile : l'image redevient un FOND plein (pas confinée à droite) */
+  @media(max-width:880px){.hero .hero-shot{left:0;right:0;width:100%;-webkit-mask-image:none;mask-image:none}}
   .hero .hero-inner{position:relative;z-index:2;width:100%;flex:1;display:flex;align-items:center;padding:clamp(14px,2.4vw,34px) 0 clamp(12px,1.6vw,22px)}
   .hero-copy{max-width:560px;display:flex;flex-direction:column;align-items:flex-start;gap:13px}
   .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:6px}
