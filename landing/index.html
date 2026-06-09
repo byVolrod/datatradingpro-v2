@@ -140,7 +140,7 @@
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
   @media(max-width:560px){.ticker .badge span{display:none}}
 
-  /* ── HERO (clone PMT : texte à gauche + image desk en fond) ── */
+  /* ── HERO (inspiration terminal pro texte à gauche + image desk en fond) ── */
   .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:#070709}
   .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=2") center center/cover no-repeat;opacity:1;pointer-events:none}
   .hero{position:relative;width:100%;min-height:620px;display:flex;align-items:center;overflow:hidden;background:#070709;border-bottom:1px solid var(--line)}
@@ -191,7 +191,7 @@
   .hero-quote .hq-name{display:block;margin-top:8px;font-style:normal;font-weight:700;color:var(--orange);font-size:13px}
   .hero-quote .hq-role{display:block;font-style:normal;color:var(--text3);font-size:12px}
   /* (ancien responsive hero retiré — le hero split-screen gère son propre responsive, aligné à gauche) */
-  /* ── STATS (bande posée SUR l'image du hero, façon PMT) ── */
+  /* ── STATS (bande posée SUR l'image du hero, épuré) ── */
   .hero-statbar{position:relative;border-top:1px solid rgba(255,255,255,.09);background:linear-gradient(to top,rgba(7,7,9,.92) 0%,rgba(7,7,9,.58) 55%,rgba(7,7,9,.08) 100%);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
   .hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
   .hero-statbar .hs-grid{background:transparent;gap:0;max-width:none;padding:0 clamp(20px,4.2vw,52px)}
@@ -485,8 +485,8 @@
   .foot-copy{font-size:12px;color:var(--text3);margin-top:22px;text-align:center;border-top:1px solid var(--line);padding-top:20px;line-height:1.7}
 
 /* ============ sec2 ============ */
-/* ====== sec2 — Product Overview (pmt-overview-*) ====== */
-.pmt-overview-section{
+/* ====== sec2 — Product Overview (dtp-overview-*) ====== */
+.dtp-overview-section{
   background:#08080a;
   color:#f0f0f2;
   font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
@@ -494,8 +494,8 @@
   border-bottom:1px solid #1f1f26;
   -webkit-font-smoothing:antialiased;
 }
-.pmt-overview-section *{box-sizing:border-box;}
-.pmt-container{
+.dtp-overview-section *{box-sizing:border-box;}
+.dtp-container{
   max-width:1180px;
   margin:0 auto;
   padding:0 clamp(16px,4vw,24px);
@@ -506,153 +506,153 @@
 }
 
 /* ----- Colonne gauche ----- */
-.pmt-left-content{min-width:0;}
-.pmt-tagline{
+.dtp-left-content{min-width:0;}
+.dtp-tagline{
   display:inline-flex;align-items:center;gap:8px;
   font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
   color:#f7941d;background:rgba(247,148,29,.08);
   border:1px solid rgba(247,148,29,.22);
   padding:6px 14px;border-radius:100px;margin-bottom:20px;
 }
-.pmt-tagline i{font-size:11px;}
-.pmt-main-heading{
+.dtp-tagline i{font-size:11px;}
+.dtp-main-heading{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:800;letter-spacing:-.01em;
   font-size:clamp(28px,4.2vw,44px);line-height:1.08;
   margin:0 0 16px;color:#f0f0f2;
 }
-.pmt-description{
+.dtp-description{
   font-size:clamp(14.5px,1.6vw,16px);line-height:1.65;color:#a6a6ad;
   margin:0 0 28px;max-width:540px;
 }
 
 /* ----- Liste des modules ----- */
-.pmt-features-list{list-style:none;margin:0 0 26px;padding:0;display:flex;flex-direction:column;gap:14px;}
-.pmt-feature-item{display:flex;gap:14px;align-items:flex-start;}
-.pmt-icon-box{
+.dtp-features-list{list-style:none;margin:0 0 26px;padding:0;display:flex;flex-direction:column;gap:14px;}
+.dtp-feature-item{display:flex;gap:14px;align-items:flex-start;}
+.dtp-icon-box{
   flex-shrink:0;width:40px;height:40px;border-radius:10px;
   background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);
   color:#f7941d;display:flex;align-items:center;justify-content:center;
   font-size:16px;transition:.16s;
 }
-.pmt-feature-item:hover .pmt-icon-box{background:rgba(247,148,29,.16);border-color:rgba(247,148,29,.4);}
-.pmt-feature-text{display:flex;flex-direction:column;gap:3px;font-size:13.5px;line-height:1.5;color:#a6a6ad;min-width:0;}
-.pmt-feature-text strong{color:#f0f0f2;font-weight:700;font-size:14.5px;}
+.dtp-feature-item:hover .dtp-icon-box{background:rgba(247,148,29,.16);border-color:rgba(247,148,29,.4);}
+.dtp-feature-text{display:flex;flex-direction:column;gap:3px;font-size:13.5px;line-height:1.5;color:#a6a6ad;min-width:0;}
+.dtp-feature-text strong{color:#f0f0f2;font-weight:700;font-size:14.5px;}
 
 /* ----- Barre d'état ----- */
-.pmt-status-bar{
+.dtp-status-bar{
   display:inline-flex;align-items:center;gap:9px;
   font-size:12.5px;font-weight:600;color:#a6a6ad;
   background:#0d0d10;border:1px solid #1f1f26;border-radius:10px;
   padding:9px 15px;
 }
-.pmt-pulse-dot{
+.dtp-pulse-dot{
   width:7px;height:7px;border-radius:50%;flex-shrink:0;
   background:#22c55e;box-shadow:0 0 8px #22c55e;
-  animation:pmtOvPulse 1.8s infinite;
+  animation:dtpOvPulse 1.8s infinite;
 }
-@keyframes pmtOvPulse{0%,100%{opacity:1}50%{opacity:.35}}
+@keyframes dtpOvPulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 /* ----- Colonne droite ----- */
-.pmt-right-column{min-width:0;display:flex;flex-direction:column;gap:18px;}
-.pmt-terminal-wrapper{
+.dtp-right-column{min-width:0;display:flex;flex-direction:column;gap:18px;}
+.dtp-terminal-wrapper{
   border-radius:14px;overflow:hidden;
   border:1px solid #2a2a32;background:#0a0a0c;
   box-shadow:0 30px 80px -40px #000;
 }
 
 /* ----- Maquette terminal CSS ----- */
-.pmt-terminal-image{
+.dtp-terminal-image{
   display:block;background:#0a0a0c;
   font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
 }
-.pmt-term-chrome{
+.dtp-term-chrome{
   display:flex;align-items:center;gap:7px;
   padding:9px 13px;background:#0d0d10;border-bottom:1px solid #1f1f26;
 }
-.pmt-term-dot{width:9px;height:9px;border-radius:50%;background:#2a2a32;flex-shrink:0;}
-.pmt-term-dot:nth-child(1){background:#ef4444;}
-.pmt-term-dot:nth-child(2){background:#ffb300;}
-.pmt-term-dot:nth-child(3){background:#22c55e;}
-.pmt-term-url{
+.dtp-term-dot{width:9px;height:9px;border-radius:50%;background:#2a2a32;flex-shrink:0;}
+.dtp-term-dot:nth-child(1){background:#ef4444;}
+.dtp-term-dot:nth-child(2){background:#ffb300;}
+.dtp-term-dot:nth-child(3){background:#22c55e;}
+.dtp-term-url{
   margin-left:8px;font-size:11px;color:#6f6f78;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
-.pmt-term-live{
+.dtp-term-live{
   margin-left:auto;display:inline-flex;align-items:center;gap:6px;
   font-size:9.5px;font-weight:700;letter-spacing:.06em;color:#f7941d;flex-shrink:0;
 }
-.pmt-term-nav{
+.dtp-term-nav{
   display:flex;gap:4px;flex-wrap:wrap;
   padding:8px 12px;border-bottom:1px solid #1f1f26;background:#08080a;
 }
-.pmt-term-tab{font-size:10px;font-weight:600;color:#6f6f78;letter-spacing:.03em;}
-.pmt-term-tab.on{color:#f7941d;}
-.pmt-term-body{
+.dtp-term-tab{font-size:10px;font-weight:600;color:#6f6f78;letter-spacing:.03em;}
+.dtp-term-tab.on{color:#f7941d;}
+.dtp-term-body{
   display:grid;grid-template-columns:1.35fr 1fr;gap:1px;
   background:#1f1f26;
 }
-.pmt-term-panel{background:#0a0a0c;padding:12px;min-width:0;}
-.pmt-term-ptitle{
+.dtp-term-panel{background:#0a0a0c;padding:12px;min-width:0;}
+.dtp-term-ptitle{
   font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
   color:#6f6f78;margin-bottom:10px;
 }
-.pmt-term-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #141419;}
-.pmt-term-row:last-child{border-bottom:0;}
-.pmt-term-time{font-size:10px;color:#6f6f78;flex-shrink:0;}
-.pmt-term-tx{font-size:11px;color:#f0f0f2;line-height:1.35;flex:1;min-width:0;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;}
-.pmt-term-bdg{
+.dtp-term-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #141419;}
+.dtp-term-row:last-child{border-bottom:0;}
+.dtp-term-time{font-size:10px;color:#6f6f78;flex-shrink:0;}
+.dtp-term-tx{font-size:11px;color:#f0f0f2;line-height:1.35;flex:1;min-width:0;font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;}
+.dtp-term-bdg{
   font-size:8.5px;font-weight:700;letter-spacing:.04em;
   padding:2px 6px;border-radius:4px;flex-shrink:0;
 }
-.pmt-term-bdg.high{color:#ef4444;background:rgba(239,68,68,.14);}
-.pmt-term-bdg.med{color:#ffb300;background:rgba(255,179,0,.14);}
-.pmt-term-bdg.low{color:#22c55e;background:rgba(34,197,94,.14);}
-.pmt-term-fx{display:flex;align-items:center;gap:9px;padding:6px 0;}
-.pmt-term-fx-sym{font-size:11px;font-weight:700;color:#a6a6ad;width:34px;flex-shrink:0;}
-.pmt-term-fx-bar{flex:1;height:6px;border-radius:3px;background:#141419;overflow:hidden;}
-.pmt-term-fx-bar i{display:block;height:100%;border-radius:3px;}
-.pmt-term-fx-bar i.pos{background:#22c55e;}
-.pmt-term-fx-bar i.neg{background:#ef4444;}
+.dtp-term-bdg.high{color:#ef4444;background:rgba(239,68,68,.14);}
+.dtp-term-bdg.med{color:#ffb300;background:rgba(255,179,0,.14);}
+.dtp-term-bdg.low{color:#22c55e;background:rgba(34,197,94,.14);}
+.dtp-term-fx{display:flex;align-items:center;gap:9px;padding:6px 0;}
+.dtp-term-fx-sym{font-size:11px;font-weight:700;color:#a6a6ad;width:34px;flex-shrink:0;}
+.dtp-term-fx-bar{flex:1;height:6px;border-radius:3px;background:#141419;overflow:hidden;}
+.dtp-term-fx-bar i{display:block;height:100%;border-radius:3px;}
+.dtp-term-fx-bar i.pos{background:#22c55e;}
+.dtp-term-fx-bar i.neg{background:#ef4444;}
 
 /* ----- Cartes métriques ----- */
-.pmt-bottom-metrics{
+.dtp-bottom-metrics{
   display:grid;grid-template-columns:1fr 1fr;gap:12px;
 }
-.pmt-metric-card{
+.dtp-metric-card{
   display:flex;gap:12px;align-items:flex-start;
   background:#0d0d10;border:1px solid #1f1f26;border-radius:12px;
   padding:14px 15px;transition:.16s;
 }
-.pmt-metric-card:hover{border-color:#2a2a32;background:#121216;}
-.pmt-metric-icon{
+.dtp-metric-card:hover{border-color:#2a2a32;background:#121216;}
+.dtp-metric-icon{
   flex-shrink:0;width:34px;height:34px;border-radius:9px;
   background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);
   color:#f7941d;display:flex;align-items:center;justify-content:center;font-size:14px;
 }
-.pmt-metric-content{display:flex;flex-direction:column;gap:3px;min-width:0;}
-.pmt-metric-title{font-size:13.5px;font-weight:700;color:#f0f0f2;}
-.pmt-metric-desc{font-size:11.5px;line-height:1.45;color:#6f6f78;}
+.dtp-metric-content{display:flex;flex-direction:column;gap:3px;min-width:0;}
+.dtp-metric-title{font-size:13.5px;font-weight:700;color:#f0f0f2;}
+.dtp-metric-desc{font-size:11.5px;line-height:1.45;color:#6f6f78;}
 
 /* ----- Responsive ----- */
 @media(max-width:980px){
-  .pmt-container{grid-template-columns:1fr;gap:40px;}
-  .pmt-left-content{text-align:left;}
-  .pmt-description{max-width:none;}
+  .dtp-container{grid-template-columns:1fr;gap:40px;}
+  .dtp-left-content{text-align:left;}
+  .dtp-description{max-width:none;}
 }
 @media(max-width:560px){
-  .pmt-term-body{grid-template-columns:1fr;}
-  .pmt-bottom-metrics{grid-template-columns:1fr;}
-  .pmt-term-nav{gap:8px;}
+  .dtp-term-body{grid-template-columns:1fr;}
+  .dtp-bottom-metrics{grid-template-columns:1fr;}
+  .dtp-term-nav{gap:8px;}
 }
 @media (prefers-reduced-motion: reduce){
-  .pmt-pulse-dot{animation:none;}
-  .pmt-icon-box,.pmt-metric-card{transition:none;}
+  .dtp-pulse-dot{animation:none;}
+  .dtp-icon-box,.dtp-metric-card{transition:none;}
 }
 
 /* ============ sec3 ============ */
 /* ===== sec3 — Modules clés / Core Features ===== */
-.pmt-sec3-wrapper{
+.dtp-sec3-wrapper{
   --s3-bg:#08080a; --s3-bg1:#0d0d10; --s3-bg2:#121216; --s3-bg3:#17171c;
   --s3-line:#1f1f26; --s3-line2:#2a2a32;
   --s3-text:#f0f0f2; --s3-text2:#a6a6ad; --s3-text3:#6f6f78;
@@ -668,22 +668,22 @@
   border-bottom:1px solid var(--s3-line);
   overflow:hidden;
 }
-.pmt-sec3-wrapper *{box-sizing:border-box;}
+.dtp-sec3-wrapper *{box-sizing:border-box;}
 
 /* ---- Hero header ---- */
-.pmt-sec3-hero{
+.dtp-sec3-hero{
   position:relative;
   max-width:1180px;
   margin:0 auto clamp(40px,6vw,68px);
 }
-.pmt-sec3-image-area{
+.dtp-sec3-image-area{
   position:absolute;
   inset:-120px -40px auto -40px;
   height:340px;
   pointer-events:none;
   z-index:0;
 }
-.pmt-sec3-bg-img{
+.dtp-sec3-bg-img{
   position:absolute;
   inset:0;
   background:
@@ -693,12 +693,12 @@
   -webkit-mask-image:linear-gradient(180deg,#000 0%,transparent 92%);
   mask-image:linear-gradient(180deg,#000 0%,transparent 92%);
 }
-.pmt-sec3-header-content{
+.dtp-sec3-header-content{
   position:relative;
   z-index:1;
   max-width:760px;
 }
-.pmt-sec3-tagline{
+.dtp-sec3-tagline{
   display:inline-block;
   font-size:12px;
   font-weight:700;
@@ -711,7 +711,7 @@
   border-radius:999px;
   margin-bottom:18px;
 }
-.pmt-sec3-title{
+.dtp-sec3-title{
   font-family:var(--s3-serif);
   font-weight:800;
   letter-spacing:-.015em;
@@ -720,7 +720,7 @@
   color:#fff;
   margin:0 0 16px;
 }
-.pmt-sec3-desc{
+.dtp-sec3-desc{
   font-size:clamp(15px,1.7vw,17px);
   line-height:1.65;
   color:var(--s3-text2);
@@ -729,7 +729,7 @@
 }
 
 /* ---- Cards grid ---- */
-.pmt-sec3-grid{
+.dtp-sec3-grid{
   position:relative;
   z-index:1;
   max-width:1180px;
@@ -738,7 +738,7 @@
   grid-template-columns:repeat(4,1fr);
   gap:18px;
 }
-.pmt-sec3-card{
+.dtp-sec3-card{
   display:flex;
   flex-direction:column;
   background:var(--s3-bg1);
@@ -751,7 +751,7 @@
   overflow:hidden;
   transition:border-color .2s ease, transform .2s ease, background .2s ease;
 }
-.pmt-sec3-card::before{
+.dtp-sec3-card::before{
   content:"";
   position:absolute;
   inset:0 0 auto 0;
@@ -760,17 +760,17 @@
   opacity:0;
   transition:opacity .25s ease;
 }
-.pmt-sec3-card:hover{
+.dtp-sec3-card:hover{
   border-color:rgba(247,148,29,.42);
   background:var(--s3-bg2);
   transform:translateY(-3px);
 }
-.pmt-sec3-card:hover::before{opacity:1;}
-.pmt-sec3-card:focus-visible{
+.dtp-sec3-card:hover::before{opacity:1;}
+.dtp-sec3-card:focus-visible{
   outline:2px solid var(--s3-orange);
   outline-offset:3px;
 }
-.pmt-sec3-icon-orb{
+.dtp-sec3-icon-orb{
   width:46px;
   height:46px;
   border-radius:12px;
@@ -784,24 +784,24 @@
   margin-bottom:18px;
   transition:background .2s ease, color .2s ease;
 }
-.pmt-sec3-card:hover .pmt-sec3-icon-orb{
+.dtp-sec3-card:hover .dtp-sec3-icon-orb{
   background:rgba(247,148,29,.16);
 }
-.pmt-sec3-card-title{
+.dtp-sec3-card-title{
   font-size:18px;
   font-weight:700;
   letter-spacing:-.01em;
   color:#fff;
   margin:0 0 9px;
 }
-.pmt-sec3-card-desc{
+.dtp-sec3-card-desc{
   font-size:13.5px;
   line-height:1.62;
   color:var(--s3-text2);
   margin:0 0 18px;
   flex:1;
 }
-.pmt-sec3-arrow-link{
+.dtp-sec3-arrow-link{
   display:inline-flex;
   align-items:center;
   gap:7px;
@@ -810,15 +810,15 @@
   color:var(--s3-orange);
   margin-top:auto;
 }
-.pmt-sec3-arrow-link i{
+.dtp-sec3-arrow-link i{
   font-size:12px;
   transition:transform .2s ease;
 }
-.pmt-sec3-card:hover .pmt-sec3-arrow-link{color:var(--s3-orange2);}
-.pmt-sec3-card:hover .pmt-sec3-arrow-link i{transform:translateX(4px);}
+.dtp-sec3-card:hover .dtp-sec3-arrow-link{color:var(--s3-orange2);}
+.dtp-sec3-card:hover .dtp-sec3-arrow-link i{transform:translateX(4px);}
 
 /* ---- Footer line ---- */
-.pmt-sec3-footer{
+.dtp-sec3-footer{
   position:relative;
   z-index:1;
   max-width:1180px;
@@ -835,7 +835,7 @@
   color:var(--s3-text);
   text-align:center;
 }
-.pmt-sec3-footer-icon{
+.dtp-sec3-footer-icon{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -851,133 +851,133 @@
 
 /* ---- Responsive ---- */
 @media (max-width:1080px){
-  .pmt-sec3-grid{grid-template-columns:repeat(2,1fr);}
+  .dtp-sec3-grid{grid-template-columns:repeat(2,1fr);}
 }
 @media (max-width:860px){
-  .pmt-sec3-image-area{inset:-90px -20px auto -20px;height:280px;}
+  .dtp-sec3-image-area{inset:-90px -20px auto -20px;height:280px;}
 }
 @media (max-width:560px){
-  .pmt-sec3-grid{grid-template-columns:1fr;}
-  .pmt-sec3-footer{flex-direction:column;gap:9px;}
+  .dtp-sec3-grid{grid-template-columns:1fr;}
+  .dtp-sec3-footer{flex-direction:column;gap:9px;}
 }
 @media (prefers-reduced-motion:reduce){
-  .pmt-sec3-card,
-  .pmt-sec3-card .pmt-sec3-icon-orb,
-  .pmt-sec3-arrow-link i,
-  .pmt-sec3-card::before{transition:none!important;}
-  .pmt-sec3-card:hover{transform:none;}
-  .pmt-sec3-card:hover .pmt-sec3-arrow-link i{transform:none;}
+  .dtp-sec3-card,
+  .dtp-sec3-card .dtp-sec3-icon-orb,
+  .dtp-sec3-arrow-link i,
+  .dtp-sec3-card::before{transition:none!important;}
+  .dtp-sec3-card:hover{transform:none;}
+  .dtp-sec3-card:hover .dtp-sec3-arrow-link i{transform:none;}
 }
 
 /* ============ sec4 ============ */
-.pmt-sec4-body{background:var(--bg,#08080a);padding:clamp(56px,8vw,104px) 0;border-top:1px solid var(--line,#1f1f26)}
-.pmt-sec4-container{max-width:var(--maxw,1180px);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
+.dtp-sec4-body{background:var(--bg,#08080a);padding:clamp(56px,8vw,104px) 0;border-top:1px solid var(--line,#1f1f26)}
+.dtp-sec4-container{max-width:var(--maxw,1180px);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
 
 /* Header */
-.pmt-sec4-header-row{max-width:760px;margin:0 auto clamp(40px,5vw,60px);text-align:center}
-.pmt-sec4-tagline{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange,#f7941d);background:rgba(247,148,29,.09);border:1px solid rgba(247,148,29,.22);padding:5px 13px;border-radius:999px;margin-bottom:18px}
-.pmt-sec4-heading{font-family:var(--serif,"Playfair Display",serif);font-weight:800;letter-spacing:-.015em;font-size:clamp(26px,4.4vw,42px);line-height:1.12;color:var(--text,#f0f0f2)}
-.pmt-sec4-lead-text{margin-top:16px;font-size:clamp(15px,1.6vw,17px);line-height:1.65;color:var(--text2,#a6a6ad)}
+.dtp-sec4-header-row{max-width:760px;margin:0 auto clamp(40px,5vw,60px);text-align:center}
+.dtp-sec4-tagline{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--orange,#f7941d);background:rgba(247,148,29,.09);border:1px solid rgba(247,148,29,.22);padding:5px 13px;border-radius:999px;margin-bottom:18px}
+.dtp-sec4-heading{font-family:var(--serif,"Playfair Display",serif);font-weight:800;letter-spacing:-.015em;font-size:clamp(26px,4.4vw,42px);line-height:1.12;color:var(--text,#f0f0f2)}
+.dtp-sec4-lead-text{margin-top:16px;font-size:clamp(15px,1.6vw,17px);line-height:1.65;color:var(--text2,#a6a6ad)}
 
 /* Framework row */
-.pmt-sec4-framework-row{display:flex;align-items:stretch;justify-content:center;gap:14px}
-.pmt-sec4-step-card{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--bg1,#0d0d10);border:1px solid var(--line,#1f1f26);border-radius:14px;padding:22px 20px 24px}
-.pmt-sec4-card-meta{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
-.pmt-sec4-step-num{flex-shrink:0;font-family:var(--serif,"Playfair Display",serif);font-weight:800;font-size:30px;line-height:1;color:var(--orange,#f7941d);opacity:.9}
-.pmt-sec4-step-title{font-size:18px;font-weight:700;letter-spacing:-.01em;color:var(--text,#f0f0f2);margin-bottom:5px}
-.pmt-sec4-step-desc{font-size:13.5px;line-height:1.5;color:var(--text2,#a6a6ad)}
-.pmt-sec4-step-desc b{color:var(--text,#f0f0f2);font-weight:600}
+.dtp-sec4-framework-row{display:flex;align-items:stretch;justify-content:center;gap:14px}
+.dtp-sec4-step-card{flex:1 1 0;min-width:0;display:flex;flex-direction:column;background:var(--bg1,#0d0d10);border:1px solid var(--line,#1f1f26);border-radius:14px;padding:22px 20px 24px}
+.dtp-sec4-card-meta{display:flex;align-items:flex-start;gap:14px;margin-bottom:18px}
+.dtp-sec4-step-num{flex-shrink:0;font-family:var(--serif,"Playfair Display",serif);font-weight:800;font-size:30px;line-height:1;color:var(--orange,#f7941d);opacity:.9}
+.dtp-sec4-step-title{font-size:18px;font-weight:700;letter-spacing:-.01em;color:var(--text,#f0f0f2);margin-bottom:5px}
+.dtp-sec4-step-desc{font-size:13.5px;line-height:1.5;color:var(--text2,#a6a6ad)}
+.dtp-sec4-step-desc b{color:var(--text,#f0f0f2);font-weight:600}
 
 /* Flow arrows */
-.pmt-sec4-flow-arrow{flex-shrink:0;align-self:center;display:flex;align-items:center;justify-content:center;color:var(--orange,#f7941d);opacity:.55}
-.pmt-sec4-flow-arrow svg{width:26px;height:26px}
+.dtp-sec4-flow-arrow{flex-shrink:0;align-self:center;display:flex;align-items:center;justify-content:center;color:var(--orange,#f7941d);opacity:.55}
+.dtp-sec4-flow-arrow svg{width:26px;height:26px}
 
 /* Mini terminal shared */
-.pmt-sec4-mini-terminal{margin-top:auto;background:#08080a;border:1px solid var(--line,#1f1f26);border-radius:10px;overflow:hidden;font-family:var(--mono,ui-monospace,Menlo,Consolas,monospace);display:flex;flex-direction:column}
-.pmt-sec4-term-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line,#1f1f26);background:var(--bg2,#121216);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--text2,#a6a6ad)}
-.pmt-sec4-live-indicator{display:inline-flex;align-items:center;gap:6px;font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--orange,#f7941d)}
-.pmt-sec4-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green,#22c55e);box-shadow:0 0 7px var(--green,#22c55e);animation:pmtSec4Pulse 1.6s ease-in-out infinite}
-@keyframes pmtSec4Pulse{0%,100%{opacity:1}50%{opacity:.35}}
+.dtp-sec4-mini-terminal{margin-top:auto;background:#08080a;border:1px solid var(--line,#1f1f26);border-radius:10px;overflow:hidden;font-family:var(--mono,ui-monospace,Menlo,Consolas,monospace);display:flex;flex-direction:column}
+.dtp-sec4-term-header{display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-bottom:1px solid var(--line,#1f1f26);background:var(--bg2,#121216);font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--text2,#a6a6ad)}
+.dtp-sec4-live-indicator{display:inline-flex;align-items:center;gap:6px;font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--orange,#f7941d)}
+.dtp-sec4-live-dot{width:6px;height:6px;border-radius:50%;background:var(--green,#22c55e);box-shadow:0 0 7px var(--green,#22c55e);animation:dtpSec4Pulse 1.6s ease-in-out infinite}
+@keyframes dtpSec4Pulse{0%,100%{opacity:1}50%{opacity:.35}}
 
 /* Card 1 — news rows */
-.pmt-sec4-term-row{display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid rgba(31,31,38,.7)}
-.pmt-sec4-term-row:last-of-type{border-bottom:0}
-.pmt-sec4-badge{flex-shrink:0;font-size:8.5px;font-weight:800;letter-spacing:.06em;padding:3px 6px;border-radius:4px;line-height:1;min-width:34px;text-align:center}
-.pmt-sec4-badge.red{background:rgba(239,68,68,.16);color:var(--red,#ef4444)}
-.pmt-sec4-badge.orange{background:rgba(255,179,0,.15);color:var(--amber,#ffb300)}
-.pmt-sec4-badge.green{background:rgba(34,197,94,.15);color:var(--green,#22c55e)}
-.pmt-sec4-term-text-block{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
-.pmt-sec4-term-headline{font-size:11.5px;line-height:1.35;color:var(--text,#f0f0f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.pmt-sec4-term-subtext{font-size:9.5px;color:var(--text3,#6f6f78)}
-.pmt-sec4-term-time{flex-shrink:0;font-size:10px;color:var(--text3,#6f6f78);font-variant-numeric:tabular-nums}
-.pmt-sec4-term-footer-link{padding:8px 12px;border-top:1px solid var(--line,#1f1f26);background:var(--bg2,#121216);font-size:10px;letter-spacing:.02em;color:var(--text3,#6f6f78);text-align:center}
+.dtp-sec4-term-row{display:flex;align-items:center;gap:9px;padding:8px 12px;border-bottom:1px solid rgba(31,31,38,.7)}
+.dtp-sec4-term-row:last-of-type{border-bottom:0}
+.dtp-sec4-badge{flex-shrink:0;font-size:8.5px;font-weight:800;letter-spacing:.06em;padding:3px 6px;border-radius:4px;line-height:1;min-width:34px;text-align:center}
+.dtp-sec4-badge.red{background:rgba(239,68,68,.16);color:var(--red,#ef4444)}
+.dtp-sec4-badge.orange{background:rgba(255,179,0,.15);color:var(--amber,#ffb300)}
+.dtp-sec4-badge.green{background:rgba(34,197,94,.15);color:var(--green,#22c55e)}
+.dtp-sec4-term-text-block{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.dtp-sec4-term-headline{font-size:11.5px;line-height:1.35;color:var(--text,#f0f0f2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dtp-sec4-term-subtext{font-size:9.5px;color:var(--text3,#6f6f78)}
+.dtp-sec4-term-time{flex-shrink:0;font-size:10px;color:var(--text3,#6f6f78);font-variant-numeric:tabular-nums}
+.dtp-sec4-term-footer-link{padding:8px 12px;border-top:1px solid var(--line,#1f1f26);background:var(--bg2,#121216);font-size:10px;letter-spacing:.02em;color:var(--text3,#6f6f78);text-align:center}
 
 /* Card 2 — bias */
-.pmt-sec4-flex-grid{display:flex;gap:10px;padding:12px}
-.pmt-sec4-flex-grid>div{flex:1;background:var(--bg2,#121216);border:1px solid var(--line,#1f1f26);border-radius:7px;padding:9px 11px}
-.pmt-sec4-bias-title{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3,#6f6f78);margin-bottom:5px}
-.pmt-sec4-bias-value{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--text,#f0f0f2)}
-.pmt-sec4-bias-value.up{color:var(--green,#22c55e)}
-.pmt-sec4-driver-list{padding:2px 12px 6px;display:flex;flex-direction:column;gap:7px}
-.pmt-sec4-driver-item{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--text2,#a6a6ad)}
-.pmt-sec4-dot-matrix{display:inline-flex;gap:3px;flex-shrink:0}
-.pmt-sec4-dot{width:7px;height:7px;border-radius:2px;background:var(--line2,#2a2a32)}
-.pmt-sec4-dot.active-green{background:var(--green,#22c55e)}
-.pmt-sec4-dot.active-orange{background:var(--amber,#ffb300)}
+.dtp-sec4-flex-grid{display:flex;gap:10px;padding:12px}
+.dtp-sec4-flex-grid>div{flex:1;background:var(--bg2,#121216);border:1px solid var(--line,#1f1f26);border-radius:7px;padding:9px 11px}
+.dtp-sec4-bias-title{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--text3,#6f6f78);margin-bottom:5px}
+.dtp-sec4-bias-value{font-size:15px;font-weight:800;letter-spacing:-.01em;color:var(--text,#f0f0f2)}
+.dtp-sec4-bias-value.up{color:var(--green,#22c55e)}
+.dtp-sec4-driver-list{padding:2px 12px 6px;display:flex;flex-direction:column;gap:7px}
+.dtp-sec4-driver-item{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11px;color:var(--text2,#a6a6ad)}
+.dtp-sec4-dot-matrix{display:inline-flex;gap:3px;flex-shrink:0}
+.dtp-sec4-dot{width:7px;height:7px;border-radius:2px;background:var(--line2,#2a2a32)}
+.dtp-sec4-dot.active-green{background:var(--green,#22c55e)}
+.dtp-sec4-dot.active-orange{background:var(--amber,#ffb300)}
 
 /* Tables (cards 2 & 3) */
-.pmt-sec4-table{width:calc(100% - 24px);margin:6px 12px 12px;border-collapse:collapse}
-.pmt-sec4-table td{padding:6px 0;border-bottom:1px solid rgba(31,31,38,.7);font-size:11px;color:var(--text2,#a6a6ad)}
-.pmt-sec4-table tr:last-child td{border-bottom:0}
-.pmt-sec4-table td:last-child{text-align:right;font-weight:700;color:var(--text,#f0f0f2);font-variant-numeric:tabular-nums}
-.pmt-sec4-table-val.red{color:var(--red,#ef4444)}
-.pmt-sec4-table-val.green{color:var(--green,#22c55e)}
+.dtp-sec4-table{width:calc(100% - 24px);margin:6px 12px 12px;border-collapse:collapse}
+.dtp-sec4-table td{padding:6px 0;border-bottom:1px solid rgba(31,31,38,.7);font-size:11px;color:var(--text2,#a6a6ad)}
+.dtp-sec4-table tr:last-child td{border-bottom:0}
+.dtp-sec4-table td:last-child{text-align:right;font-weight:700;color:var(--text,#f0f0f2);font-variant-numeric:tabular-nums}
+.dtp-sec4-table-val.red{color:var(--red,#ef4444)}
+.dtp-sec4-table-val.green{color:var(--green,#22c55e)}
 
 /* Card 3 — chart + order */
-.pmt-sec4-chart-placeholder{position:relative;margin:12px 12px 4px;height:118px;background:linear-gradient(180deg,#0a0a0c,#08080a);border:1px solid var(--line,#1f1f26);border-radius:7px;overflow:hidden}
-.pmt-sec4-chart-line-svg{position:absolute;inset:0;width:100%;height:100%}
-.pmt-sec4-grid-line{stroke:rgba(42,42,50,.5);stroke-width:1;stroke-dasharray:3 4}
-.pmt-sec4-lvl{stroke-width:1;stroke-dasharray:3 4;opacity:.65}
-.pmt-sec4-lvl.tp{stroke:var(--green,#22c55e)}
-.pmt-sec4-lvl.entry{stroke:var(--orange,#f7941d)}
-.pmt-sec4-lvl.sl{stroke:var(--red,#ef4444)}
-.pmt-sec4-price-line{fill:none;stroke:var(--orange,#f7941d);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px rgba(247,148,29,.35))}
-.pmt-sec4-chart-label{position:absolute;right:7px;font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;line-height:1;white-space:nowrap}
-.pmt-sec4-chart-label.tp{top:8px;color:var(--green,#22c55e);background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.3)}
-.pmt-sec4-chart-label.entry{top:50%;transform:translateY(-50%);color:var(--orange,#f7941d);background:rgba(247,148,29,.14);border:1px solid rgba(247,148,29,.3)}
-.pmt-sec4-chart-label.sl{bottom:8px;color:var(--red,#ef4444);background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.3)}
-.pmt-sec4-btn-order{display:flex;align-items:center;justify-content:center;margin:6px 12px 0;padding:10px;background:var(--orange,#f7941d);color:#0a0a0a;font-family:var(--font,sans-serif);font-size:12.5px;font-weight:700;border-radius:7px;transition:.16s;cursor:pointer}
-.pmt-sec4-btn-order:hover{background:var(--orange2,#ffae42);transform:translateY(-1px)}
-.pmt-sec4-disclaimer{padding:8px 12px 12px;font-family:var(--font,sans-serif);font-size:9.5px;line-height:1.4;color:var(--text3,#6f6f78);text-align:center}
+.dtp-sec4-chart-placeholder{position:relative;margin:12px 12px 4px;height:118px;background:linear-gradient(180deg,#0a0a0c,#08080a);border:1px solid var(--line,#1f1f26);border-radius:7px;overflow:hidden}
+.dtp-sec4-chart-line-svg{position:absolute;inset:0;width:100%;height:100%}
+.dtp-sec4-grid-line{stroke:rgba(42,42,50,.5);stroke-width:1;stroke-dasharray:3 4}
+.dtp-sec4-lvl{stroke-width:1;stroke-dasharray:3 4;opacity:.65}
+.dtp-sec4-lvl.tp{stroke:var(--green,#22c55e)}
+.dtp-sec4-lvl.entry{stroke:var(--orange,#f7941d)}
+.dtp-sec4-lvl.sl{stroke:var(--red,#ef4444)}
+.dtp-sec4-price-line{fill:none;stroke:var(--orange,#f7941d);stroke-width:2;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 0 4px rgba(247,148,29,.35))}
+.dtp-sec4-chart-label{position:absolute;right:7px;font-size:8.5px;font-weight:700;letter-spacing:.02em;padding:2px 6px;border-radius:4px;line-height:1;white-space:nowrap}
+.dtp-sec4-chart-label.tp{top:8px;color:var(--green,#22c55e);background:rgba(34,197,94,.14);border:1px solid rgba(34,197,94,.3)}
+.dtp-sec4-chart-label.entry{top:50%;transform:translateY(-50%);color:var(--orange,#f7941d);background:rgba(247,148,29,.14);border:1px solid rgba(247,148,29,.3)}
+.dtp-sec4-chart-label.sl{bottom:8px;color:var(--red,#ef4444);background:rgba(239,68,68,.14);border:1px solid rgba(239,68,68,.3)}
+.dtp-sec4-btn-order{display:flex;align-items:center;justify-content:center;margin:6px 12px 0;padding:10px;background:var(--orange,#f7941d);color:#0a0a0a;font-family:var(--font,sans-serif);font-size:12.5px;font-weight:700;border-radius:7px;transition:.16s;cursor:pointer}
+.dtp-sec4-btn-order:hover{background:var(--orange2,#ffae42);transform:translateY(-1px)}
+.dtp-sec4-disclaimer{padding:8px 12px 12px;font-family:var(--font,sans-serif);font-size:9.5px;line-height:1.4;color:var(--text3,#6f6f78);text-align:center}
 
 /* Metrics bar */
-.pmt-sec4-metrics-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:clamp(36px,5vw,56px);background:var(--line,#1f1f26);border:1px solid var(--line,#1f1f26);border-radius:14px;overflow:hidden}
-.pmt-sec4-metric-item{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;padding:24px 16px;background:var(--bg1,#0d0d10)}
-.pmt-sec4-metric-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);color:var(--orange,#f7941d)}
-.pmt-sec4-metric-icon svg{width:18px;height:18px}
-.pmt-sec4-metric-num{font-family:var(--serif,"Playfair Display",serif);font-weight:800;font-size:clamp(20px,2.6vw,26px);line-height:1.05;color:var(--text,#f0f0f2)}
-.pmt-sec4-metric-label{font-size:12px;line-height:1.4;color:var(--text2,#a6a6ad)}
+.dtp-sec4-metrics-bar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;margin-top:clamp(36px,5vw,56px);background:var(--line,#1f1f26);border:1px solid var(--line,#1f1f26);border-radius:14px;overflow:hidden}
+.dtp-sec4-metric-item{display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;padding:24px 16px;background:var(--bg1,#0d0d10)}
+.dtp-sec4-metric-icon{display:flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);color:var(--orange,#f7941d)}
+.dtp-sec4-metric-icon svg{width:18px;height:18px}
+.dtp-sec4-metric-num{font-family:var(--serif,"Playfair Display",serif);font-weight:800;font-size:clamp(20px,2.6vw,26px);line-height:1.05;color:var(--text,#f0f0f2)}
+.dtp-sec4-metric-label{font-size:12px;line-height:1.4;color:var(--text2,#a6a6ad)}
 
 /* Responsive */
 @media(max-width:980px){
-  .pmt-sec4-framework-row{flex-direction:column;gap:0}
-  .pmt-sec4-flow-arrow{transform:rotate(90deg);margin:6px 0}
-  .pmt-sec4-step-card{max-width:520px;width:100%;margin:0 auto}
+  .dtp-sec4-framework-row{flex-direction:column;gap:0}
+  .dtp-sec4-flow-arrow{transform:rotate(90deg);margin:6px 0}
+  .dtp-sec4-step-card{max-width:520px;width:100%;margin:0 auto}
 }
 @media(max-width:680px){
-  .pmt-sec4-metrics-bar{grid-template-columns:repeat(2,1fr)}
+  .dtp-sec4-metrics-bar{grid-template-columns:repeat(2,1fr)}
 }
 @media(max-width:380px){
-  .pmt-sec4-metrics-bar{grid-template-columns:1fr}
-  .pmt-sec4-metric-item{flex-direction:row;text-align:left;gap:12px;padding:16px}
+  .dtp-sec4-metrics-bar{grid-template-columns:1fr}
+  .dtp-sec4-metric-item{flex-direction:row;text-align:left;gap:12px;padding:16px}
 }
 @media (prefers-reduced-motion:reduce){
-  .pmt-sec4-live-dot{animation:none}
-  .pmt-sec4-btn-order:hover{transform:none}
+  .dtp-sec4-live-dot{animation:none}
+  .dtp-sec4-btn-order:hover{transform:none}
 }
 
 /* ============ sec5 ============ */
-.pmt-s5-viewport{
+.dtp-s5-viewport{
   position:relative;
   overflow:hidden;
   background:#08080a;
@@ -988,16 +988,16 @@
   border-bottom:1px solid #1f1f26;
   padding:clamp(54px,8vw,96px) clamp(16px,4vw,32px);
 }
-.pmt-s5-boundless{
+.dtp-s5-boundless{
   position:relative;
   z-index:1;
   max-width:1180px;
   margin:0 auto;
 }
-.pmt-s5-layout-split{
+.dtp-s5-layout-split{
   display:block;
 }
-.pmt-s5-photo{
+.dtp-s5-photo{
   position:absolute;
   top:0;
   right:0;
@@ -1011,8 +1011,8 @@
 }
 
 /* ── Colonne gauche ── */
-.pmt-s5-content-stack{min-width:0;max-width:560px}
-.pmt-s5-label{
+.dtp-s5-content-stack{min-width:0;max-width:560px}
+.dtp-s5-label{
   display:inline-block;
   font-size:12.5px;
   font-weight:700;
@@ -1020,7 +1020,7 @@
   letter-spacing:.09em;
   color:#f7941d;
 }
-.pmt-s5-headline{
+.dtp-s5-headline{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:800;
   letter-spacing:-.01em;
@@ -1029,7 +1029,7 @@
   margin:12px 0 14px;
   color:#f0f0f2;
 }
-.pmt-s5-paragraph{
+.dtp-s5-paragraph{
   color:#a6a6ad;
   font-size:clamp(15px,2vw,16.5px);
   max-width:560px;
@@ -1037,7 +1037,7 @@
 }
 
 /* ── Bandeau note / statut ── */
-.pmt-s5-rating-strip{
+.dtp-s5-rating-strip{
   display:flex;
   align-items:center;
   flex-wrap:wrap;
@@ -1048,40 +1048,40 @@
   border-radius:12px;
   margin-bottom:26px;
 }
-.pmt-s5-stars{
+.dtp-s5-stars{
   color:#f7941d;
   font-size:14px;
   letter-spacing:2px;
   display:inline-flex;
   gap:3px;
 }
-.pmt-s5-metric-lbl{
+.dtp-s5-metric-lbl{
   font-size:13px;
   font-weight:600;
   color:#f0f0f2;
 }
-.pmt-s5-divider{
+.dtp-s5-divider{
   width:1px;
   height:18px;
   background:#2a2a32;
 }
-.pmt-s5-secure-status{
+.dtp-s5-secure-status{
   display:inline-flex;
   align-items:center;
   gap:7px;
   font-size:12.5px;
   color:#a6a6ad;
 }
-.pmt-s5-secure-status i{color:#22c55e;font-size:11px}
+.dtp-s5-secure-status i{color:#22c55e;font-size:11px}
 
 /* ── Cartes témoignage (rangée pleine largeur, 3 colonnes) ── */
-.pmt-s5-cards-cluster{
+.dtp-s5-cards-cluster{
   display:grid;
   grid-template-columns:repeat(3,1fr);
   gap:14px;
   margin-top:clamp(26px,3.5vw,40px);
 }
-.pmt-s5-testimonial-card{
+.dtp-s5-testimonial-card{
   position:relative;
   background:#0d0d10;
   border:1px solid #1f1f26;
@@ -1089,28 +1089,28 @@
   padding:20px 22px;
   transition:border-color .18s ease,background .18s ease;
 }
-.pmt-s5-testimonial-card:hover{
+.dtp-s5-testimonial-card:hover{
   border-color:#2a2a32;
   background:#121216;
 }
-.pmt-s5-quote-icon{
+.dtp-s5-quote-icon{
   position:absolute;
   top:18px;
   right:20px;
   font-size:20px;
   color:rgba(247,148,29,.22);
 }
-.pmt-s5-quote-body{
+.dtp-s5-quote-body{
   font-size:14.5px;
   color:#d6d6da;
   margin:0 0 16px;
 }
-.pmt-s5-author-row{
+.dtp-s5-author-row{
   display:flex;
   align-items:center;
   gap:12px;
 }
-.pmt-s5-avatar-circle{
+.dtp-s5-avatar-circle{
   width:42px;
   height:42px;
   flex-shrink:0;
@@ -1124,13 +1124,13 @@
   font-size:15px;
   color:#a6a6ad;
 }
-.pmt-s5-author-name{
+.dtp-s5-author-name{
   display:block;
   font-weight:700;
   font-size:13.5px;
   color:#f0f0f2;
 }
-.pmt-s5-author-title{
+.dtp-s5-author-title{
   display:block;
   font-size:12px;
   color:#6f6f78;
@@ -1138,19 +1138,19 @@
 }
 
 /* ── Colonne droite : value props ── */
-.pmt-s5-totals-grid{
+.dtp-s5-totals-grid{
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:14px;
   margin-top:clamp(30px,4vw,52px);
 }
 @media (max-width:860px){
-  .pmt-s5-photo{display:none}
-  .pmt-s5-content-stack{max-width:none}
-  .pmt-s5-cards-cluster{grid-template-columns:1fr 1fr}
-  .pmt-s5-totals-grid{grid-template-columns:1fr 1fr}
+  .dtp-s5-photo{display:none}
+  .dtp-s5-content-stack{max-width:none}
+  .dtp-s5-cards-cluster{grid-template-columns:1fr 1fr}
+  .dtp-s5-totals-grid{grid-template-columns:1fr 1fr}
 }
-.pmt-s5-total-box{
+.dtp-s5-total-box{
   display:flex;
   flex-direction:column;
   align-items:flex-start;
@@ -1162,11 +1162,11 @@
   min-height:160px;
   transition:border-color .18s ease,background .18s ease;
 }
-.pmt-s5-total-box:hover{
+.dtp-s5-total-box:hover{
   border-color:#2a2a32;
   background:#121216;
 }
-.pmt-s5-total-icon{
+.dtp-s5-total-icon{
   width:38px;
   height:38px;
   border-radius:10px;
@@ -1179,7 +1179,7 @@
   font-size:15px;
   margin-bottom:4px;
 }
-.pmt-s5-total-num{
+.dtp-s5-total-num{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:800;
   font-size:clamp(22px,3vw,27px);
@@ -1187,19 +1187,19 @@
   color:#f7941d;
   letter-spacing:-.01em;
 }
-.pmt-s5-total-tag{
+.dtp-s5-total-tag{
   font-size:13px;
   font-weight:700;
   color:#f0f0f2;
 }
-.pmt-s5-total-desc{
+.dtp-s5-total-desc{
   font-size:12.5px;
   color:#a6a6ad;
   line-height:1.5;
 }
 
 /* ── Mention légale ── */
-.pmt-s5-legal-sub{
+.dtp-s5-legal-sub{
   margin-top:clamp(28px,4vw,44px);
   padding-top:20px;
   border-top:1px solid #1f1f26;
@@ -1211,41 +1211,41 @@
 
 /* ── Responsive ── */
 @media (max-width:980px){
-  .pmt-s5-layout-split{grid-template-columns:1fr;gap:34px}
-  .pmt-s5-paragraph{max-width:none}
+  .dtp-s5-layout-split{grid-template-columns:1fr;gap:34px}
+  .dtp-s5-paragraph{max-width:none}
 }
 @media (max-width:560px){
-  .pmt-s5-cards-cluster{grid-template-columns:1fr}
-  .pmt-s5-totals-grid{grid-template-columns:1fr}
-  .pmt-s5-total-box{min-height:0}
-  .pmt-s5-rating-strip{gap:10px}
-  .pmt-s5-divider{display:none}
-  .pmt-s5-testimonial-card{padding:18px}
+  .dtp-s5-cards-cluster{grid-template-columns:1fr}
+  .dtp-s5-totals-grid{grid-template-columns:1fr}
+  .dtp-s5-total-box{min-height:0}
+  .dtp-s5-rating-strip{gap:10px}
+  .dtp-s5-divider{display:none}
+  .dtp-s5-testimonial-card{padding:18px}
 }
 
 /* ============ sec6 ============ */
-.pmt-sec6-viewport{
+.dtp-sec6-viewport{
   background:#08080a;
   padding:clamp(56px,9vw,104px) 0;
   border-top:1px solid #1f1f26;
   color:#f0f0f2;
   font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
 }
-.pmt-sec6-boundless{
+.dtp-sec6-boundless{
   max-width:1180px;
   margin:0 auto;
   padding:0 clamp(16px,4vw,24px);
 }
-.pmt-sec6-split-grid{
+.dtp-sec6-split-grid{
   display:flex;
   flex-direction:column;
 }
-.pmt-sec6-info-stack{
+.dtp-sec6-info-stack{
   display:flex;
   flex-direction:column;
   max-width:880px;
 }
-.pmt-sec6-eyebrow{
+.dtp-sec6-eyebrow{
   display:inline-flex;
   align-items:center;
   gap:8px;
@@ -1262,8 +1262,8 @@
   background:#0d0d10;
   margin-bottom:22px;
 }
-.pmt-sec6-eyebrow i{font-size:11px}
-.pmt-sec6-headline{
+.dtp-sec6-eyebrow i{font-size:11px}
+.dtp-sec6-headline{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:800;
   letter-spacing:-.01em;
@@ -1273,22 +1273,22 @@
   margin:0 0 24px;
   max-width:18ch;
 }
-.pmt-sec6-paragraph{
+.dtp-sec6-paragraph{
   font-size:clamp(15px,1.5vw,17px);
   line-height:1.7;
   color:#a6a6ad;
   max-width:62ch;
 }
-.pmt-sec6-para-spacing{
+.dtp-sec6-para-spacing{
   margin-top:18px;
 }
-.pmt-sec6-features-row{
+.dtp-sec6-features-row{
   display:grid;
   grid-template-columns:repeat(4,1fr);
   gap:16px;
   margin-top:clamp(36px,5vw,52px);
 }
-.pmt-sec6-feature-box{
+.dtp-sec6-feature-box{
   background:#0d0d10;
   border:1px solid #1f1f26;
   border-radius:12px;
@@ -1297,12 +1297,12 @@
   flex-direction:column;
   transition:border-color .18s ease,transform .18s ease,background .18s ease;
 }
-.pmt-sec6-feature-box:hover{
+.dtp-sec6-feature-box:hover{
   border-color:#2a2a32;
   background:#121216;
   transform:translateY(-2px);
 }
-.pmt-sec6-icon-container{
+.dtp-sec6-icon-container{
   display:inline-flex;
   align-items:center;
   justify-content:center;
@@ -1315,7 +1315,7 @@
   font-size:16px;
   margin-bottom:18px;
 }
-.pmt-sec6-box-title{
+.dtp-sec6-box-title{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:700;
   font-size:18px;
@@ -1324,7 +1324,7 @@
   margin:0 0 8px;
   line-height:1.2;
 }
-.pmt-sec6-box-desc{
+.dtp-sec6-box-desc{
   font-size:13.5px;
   line-height:1.6;
   color:#a6a6ad;
@@ -1332,36 +1332,36 @@
 }
 
 @media (max-width:1024px){
-  .pmt-sec6-features-row{
+  .dtp-sec6-features-row{
     grid-template-columns:repeat(2,1fr);
   }
 }
 @media (max-width:860px){
-  .pmt-sec6-features-row{
+  .dtp-sec6-features-row{
     grid-template-columns:1fr;
     gap:12px;
   }
-  .pmt-sec6-headline{max-width:100%}
-  .pmt-sec6-paragraph{max-width:100%}
-  .pmt-sec6-feature-box{padding:20px 18px}
+  .dtp-sec6-headline{max-width:100%}
+  .dtp-sec6-paragraph{max-width:100%}
+  .dtp-sec6-feature-box{padding:20px 18px}
 }
 
 /* ============ sec7 ============ */
-.pmt-sec7-viewport{
+.dtp-sec7-viewport{
   background:#08080a;
   color:#f0f0f2;
   font-family:-apple-system,BlinkMacSystemFont,"Inter","Segoe UI",Roboto,sans-serif;
   padding:clamp(56px,8vw,104px) 0;
   border-top:1px solid #1f1f26;
 }
-.pmt-sec7-boundless{
+.dtp-sec7-boundless{
   max-width:1180px;
   margin:0 auto;
   padding:0 clamp(16px,4vw,24px);
 }
 
 /* ── Layout principal ── */
-.pmt-sec7-split-layout{
+.dtp-sec7-split-layout{
   display:grid;
   grid-template-columns:1.05fr .95fr;
   gap:clamp(28px,4vw,56px);
@@ -1369,8 +1369,8 @@
 }
 
 /* ── Colonne gauche ── */
-.pmt-sec7-left-stack{min-width:0;}
-.pmt-sec7-eyebrow{
+.dtp-sec7-left-stack{min-width:0;}
+.dtp-sec7-eyebrow{
   display:inline-flex;
   align-items:center;
   gap:8px;
@@ -1384,8 +1384,8 @@
   padding:6px 12px;
   border-radius:999px;
 }
-.pmt-sec7-eyebrow i{font-size:12px;}
-.pmt-sec7-headline{
+.dtp-sec7-eyebrow i{font-size:12px;}
+.dtp-sec7-headline{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:800;
   letter-spacing:-.01em;
@@ -1394,7 +1394,7 @@
   margin:18px 0 14px;
   color:#f0f0f2;
 }
-.pmt-sec7-description{
+.dtp-sec7-description{
   font-size:clamp(14.5px,1.5vw,16px);
   line-height:1.65;
   color:#a6a6ad;
@@ -1403,24 +1403,24 @@
 }
 
 /* ── 4 piliers ── */
-.pmt-sec7-pillars-grid{
+.dtp-sec7-pillars-grid{
   display:grid;
   grid-template-columns:1fr 1fr;
   gap:14px;
 }
-.pmt-sec7-pillar-box{
+.dtp-sec7-pillar-box{
   background:#0d0d10;
   border:1px solid #1f1f26;
   border-radius:12px;
   padding:18px 18px 20px;
   transition:border-color .18s,transform .18s,background .18s;
 }
-.pmt-sec7-pillar-box:hover{
+.dtp-sec7-pillar-box:hover{
   border-color:#2a2a32;
   background:#121216;
   transform:translateY(-2px);
 }
-.pmt-sec7-pillar-icon{
+.dtp-sec7-pillar-icon{
   width:38px;
   height:38px;
   border-radius:9px;
@@ -1433,7 +1433,7 @@
   font-size:16px;
   margin-bottom:13px;
 }
-.pmt-sec7-pillar-title{
+.dtp-sec7-pillar-title{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-size:17px;
   font-weight:700;
@@ -1441,14 +1441,14 @@
   margin-bottom:7px;
   letter-spacing:-.01em;
 }
-.pmt-sec7-pillar-desc{
+.dtp-sec7-pillar-desc{
   font-size:13px;
   line-height:1.55;
   color:#a6a6ad;
 }
 
 /* ── Colonne droite : flux news ── */
-.pmt-sec7-news-container{
+.dtp-sec7-news-container{
   background:#0d0d10;
   border:1px solid #1f1f26;
   border-radius:14px;
@@ -1456,7 +1456,7 @@
   display:flex;
   flex-direction:column;
 }
-.pmt-sec7-news-top-bar{
+.dtp-sec7-news-top-bar{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -1465,7 +1465,7 @@
   background:#121216;
   border-bottom:1px solid #1f1f26;
 }
-.pmt-sec7-news-branding{
+.dtp-sec7-news-branding{
   display:inline-flex;
   align-items:center;
   gap:8px;
@@ -1475,20 +1475,20 @@
   text-transform:uppercase;
   color:#f0f0f2;
 }
-.pmt-sec7-news-dot{
+.dtp-sec7-news-dot{
   width:7px;
   height:7px;
   border-radius:50%;
   background:#22c55e;
   box-shadow:0 0 7px #22c55e;
-  animation:pmtSec7Pulse 1.6s infinite;
+  animation:dtpSec7Pulse 1.6s infinite;
   flex-shrink:0;
 }
-@keyframes pmtSec7Pulse{
+@keyframes dtpSec7Pulse{
   0%,100%{opacity:1;transform:scale(1);}
   50%{opacity:.4;transform:scale(.8);}
 }
-.pmt-sec7-view-all-cta{
+.dtp-sec7-view-all-cta{
   display:inline-flex;
   align-items:center;
   gap:6px;
@@ -1498,16 +1498,16 @@
   white-space:nowrap;
   transition:color .15s,gap .15s;
 }
-.pmt-sec7-view-all-cta:hover{color:#ffae42;gap:9px;}
-.pmt-sec7-view-all-cta i{font-size:10px;}
+.dtp-sec7-view-all-cta:hover{color:#ffae42;gap:9px;}
+.dtp-sec7-view-all-cta i{font-size:10px;}
 
-.pmt-sec7-news-list-stack{
+.dtp-sec7-news-list-stack{
   list-style:none;
   margin:0;
   padding:0;
   flex:1;
 }
-.pmt-sec7-news-list-item{
+.dtp-sec7-news-list-item{
   display:grid;
   grid-template-columns:auto 1fr auto;
   align-items:center;
@@ -1516,21 +1516,21 @@
   border-bottom:1px solid #15151a;
   transition:background .15s;
 }
-.pmt-sec7-news-list-item:hover{background:#101015;}
-.pmt-sec7-news-list-item:last-child{border-bottom:0;}
-.pmt-sec7-item-timestamp{
+.dtp-sec7-news-list-item:hover{background:#101015;}
+.dtp-sec7-news-list-item:last-child{border-bottom:0;}
+.dtp-sec7-item-timestamp{
   font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   font-size:10.5px;
   color:#6f6f78;
   white-space:nowrap;
   min-width:58px;
 }
-.pmt-sec7-item-headline{
+.dtp-sec7-item-headline{
   font-size:13px;
   line-height:1.4;
   color:#f0f0f2;
 }
-.pmt-sec7-impact-node{
+.dtp-sec7-impact-node{
   font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
   font-size:9.5px;
   font-weight:700;
@@ -1540,23 +1540,23 @@
   border-radius:5px;
   border:1px solid transparent;
 }
-.pmt-impact-high{
+.dtp-impact-high{
   color:#ef4444;
   background:rgba(239,68,68,.1);
   border-color:rgba(239,68,68,.28);
 }
-.pmt-impact-med{
+.dtp-impact-med{
   color:#ffb300;
   background:rgba(255,179,0,.1);
   border-color:rgba(255,179,0,.28);
 }
-.pmt-impact-low{
+.dtp-impact-low{
   color:#22c55e;
   background:rgba(34,197,94,.1);
   border-color:rgba(34,197,94,.28);
 }
 
-.pmt-sec7-news-bottom-row{
+.dtp-sec7-news-bottom-row{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -1565,11 +1565,11 @@
   background:#0a0a0c;
   border-top:1px solid #1f1f26;
 }
-.pmt-sec7-footer-motto{
+.dtp-sec7-footer-motto{
   font-size:11.5px;
   color:#6f6f78;
 }
-.pmt-sec7-live-radar{
+.dtp-sec7-live-radar{
   display:inline-flex;
   align-items:center;
   gap:7px;
@@ -1579,7 +1579,7 @@
   color:#a6a6ad;
   white-space:nowrap;
 }
-.pmt-sec7-radar-blip{
+.dtp-sec7-radar-blip{
   position:relative;
   width:8px;
   height:8px;
@@ -1587,21 +1587,21 @@
   background:#f7941d;
   flex-shrink:0;
 }
-.pmt-sec7-radar-blip::after{
+.dtp-sec7-radar-blip::after{
   content:"";
   position:absolute;
   inset:-4px;
   border-radius:50%;
   border:1px solid rgba(247,148,29,.5);
-  animation:pmtSec7Radar 1.8s ease-out infinite;
+  animation:dtpSec7Radar 1.8s ease-out infinite;
 }
-@keyframes pmtSec7Radar{
+@keyframes dtpSec7Radar{
   0%{transform:scale(.5);opacity:1;}
   100%{transform:scale(1.6);opacity:0;}
 }
 
 /* ── Matrice confiance ── */
-.pmt-sec7-compliance-matrix{
+.dtp-sec7-compliance-matrix{
   display:grid;
   grid-template-columns:repeat(3,1fr);
   gap:14px;
@@ -1609,7 +1609,7 @@
   padding-top:clamp(32px,4vw,44px);
   border-top:1px solid #1f1f26;
 }
-.pmt-sec7-matrix-item{
+.dtp-sec7-matrix-item{
   display:flex;
   align-items:flex-start;
   gap:13px;
@@ -1618,7 +1618,7 @@
   border-radius:12px;
   padding:18px;
 }
-.pmt-sec7-matrix-icon{
+.dtp-sec7-matrix-icon{
   width:40px;
   height:40px;
   border-radius:10px;
@@ -1631,36 +1631,36 @@
   color:#f7941d;
   font-size:16px;
 }
-.pmt-sec7-matrix-heading{
+.dtp-sec7-matrix-heading{
   font-size:14.5px;
   font-weight:700;
   color:#f0f0f2;
   margin-bottom:5px;
   letter-spacing:-.005em;
 }
-.pmt-sec7-matrix-desc{
+.dtp-sec7-matrix-desc{
   font-size:12.5px;
   line-height:1.55;
   color:#a6a6ad;
 }
 
 /* ── Avertissement risque ── */
-.pmt-sec7-risk-disclosure-row{
+.dtp-sec7-risk-disclosure-row{
   margin-top:clamp(28px,3.5vw,40px);
   background:#0a0a0c;
   border:1px solid #1f1f26;
   border-radius:10px;
   padding:16px 18px;
 }
-.pmt-sec7-risk-paragraph{
+.dtp-sec7-risk-paragraph{
   font-size:11.5px;
   line-height:1.7;
   color:#6f6f78;
 }
-.pmt-sec7-risk-paragraph strong{color:#a6a6ad;font-weight:700;}
+.dtp-sec7-risk-paragraph strong{color:#a6a6ad;font-weight:700;}
 
 /* ── Copyright ── */
-.pmt-sec7-copyright-row{
+.dtp-sec7-copyright-row{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -1670,11 +1670,11 @@
   padding-top:22px;
   border-top:1px solid #1f1f26;
 }
-.pmt-sec7-copyright-text{
+.dtp-sec7-copyright-text{
   font-size:12px;
   color:#6f6f78;
 }
-.pmt-sec7-copyright-price{
+.dtp-sec7-copyright-price{
   font-size:12px;
   font-weight:600;
   color:#a6a6ad;
@@ -1682,48 +1682,48 @@
 
 /* ── Responsive ── */
 @media(max-width:980px){
-  .pmt-sec7-split-layout{grid-template-columns:1fr;gap:32px;}
-  .pmt-sec7-description{max-width:none;}
+  .dtp-sec7-split-layout{grid-template-columns:1fr;gap:32px;}
+  .dtp-sec7-description{max-width:none;}
 }
 @media(max-width:860px){
-  .pmt-sec7-compliance-matrix{grid-template-columns:1fr;}
+  .dtp-sec7-compliance-matrix{grid-template-columns:1fr;}
 }
 @media(max-width:560px){
-  .pmt-sec7-pillars-grid{grid-template-columns:1fr;}
-  .pmt-sec7-news-list-item{
+  .dtp-sec7-pillars-grid{grid-template-columns:1fr;}
+  .dtp-sec7-news-list-item{
     grid-template-columns:1fr auto;
     grid-template-areas:"time impact" "headline headline";
     gap:6px 10px;
   }
-  .pmt-sec7-item-timestamp{grid-area:time;min-width:0;}
-  .pmt-sec7-impact-node{grid-area:impact;justify-self:end;}
-  .pmt-sec7-item-headline{grid-area:headline;}
-  .pmt-sec7-copyright-row{flex-direction:column;align-items:flex-start;}
+  .dtp-sec7-item-timestamp{grid-area:time;min-width:0;}
+  .dtp-sec7-impact-node{grid-area:impact;justify-self:end;}
+  .dtp-sec7-item-headline{grid-area:headline;}
+  .dtp-sec7-copyright-row{flex-direction:column;align-items:flex-start;}
 }
 
 /* ============ sec8 ============ */
-.pmt-sec8-container{
+.dtp-sec8-container{
   background:#08080a;
   color:#f0f0f2;
   font-family:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   padding:96px 24px;
   border-top:1px solid #1f1f26;
 }
-.pmt-sec8-layout-wrapper{
+.dtp-sec8-layout-wrapper{
   max-width:1180px;
   margin:0 auto;
 }
 
 /* ---------- Header ---------- */
-.pmt-sec8-header-block{
+.dtp-sec8-header-block{
   display:flex;
   align-items:flex-end;
   justify-content:space-between;
   gap:32px;
   margin-bottom:48px;
 }
-.pmt-sec8-header-text{max-width:680px;}
-.pmt-sec8-eyebrow{
+.dtp-sec8-header-text{max-width:680px;}
+.dtp-sec8-eyebrow{
   display:inline-block;
   font-size:12px;
   font-weight:600;
@@ -1732,7 +1732,7 @@
   color:#f7941d;
   margin-bottom:16px;
 }
-.pmt-sec8-title{
+.dtp-sec8-title{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:700;
   font-size:40px;
@@ -1741,13 +1741,13 @@
   color:#f0f0f2;
   margin:0 0 16px;
 }
-.pmt-sec8-subtitle{
+.dtp-sec8-subtitle{
   font-size:16px;
   line-height:1.65;
   color:#a6a6ad;
   margin:0;
 }
-.pmt-sec8-primary-btn{
+.dtp-sec8-primary-btn{
   flex:none;
   display:inline-flex;
   align-items:center;
@@ -1762,16 +1762,16 @@
   white-space:nowrap;
   transition:background .18s ease,transform .18s ease;
 }
-.pmt-sec8-primary-btn:hover{background:#ffae42;transform:translateY(-1px);}
-.pmt-sec8-primary-btn i{font-size:12px;}
+.dtp-sec8-primary-btn:hover{background:#ffae42;transform:translateY(-1px);}
+.dtp-sec8-primary-btn i{font-size:12px;}
 
 /* ---------- Grid ---------- */
-.pmt-sec8-grid-matrix{
+.dtp-sec8-grid-matrix{
   display:grid;
   grid-template-columns:repeat(3,1fr);
   gap:20px;
 }
-.pmt-sec8-card-node{
+.dtp-sec8-card-node{
   display:flex;
   flex-direction:column;
   background:#0d0d10;
@@ -1780,13 +1780,13 @@
   overflow:hidden;
   transition:border-color .2s ease,transform .2s ease;
 }
-.pmt-sec8-card-node:hover{
+.dtp-sec8-card-node:hover{
   border-color:#2a2a32;
   transform:translateY(-3px);
 }
 
 /* ---------- Card visual shell ---------- */
-.pmt-sec8-card-visual{
+.dtp-sec8-card-visual{
   position:relative;
   height:150px;
   background:linear-gradient(160deg,#121216 0%,#0a0a0c 100%);
@@ -1799,7 +1799,7 @@
 }
 
 /* Visual 1 : video */
-.pmt-ui-video{
+.dtp-ui-video{
   position:relative;
   width:100%;
   height:100%;
@@ -1812,7 +1812,7 @@
   align-items:center;
   justify-content:center;
 }
-.pmt-ui-play-icon{
+.dtp-ui-play-icon{
   width:46px;
   height:46px;
   border-radius:50%;
@@ -1825,7 +1825,7 @@
   padding-left:3px;
   box-shadow:0 0 0 6px rgba(247,148,29,.12);
 }
-.pmt-ui-timestamp{
+.dtp-ui-timestamp{
   position:absolute;
   right:8px;
   bottom:8px;
@@ -1839,7 +1839,7 @@
 }
 
 /* Visual 2 : checklist */
-.pmt-ui-checklist{
+.dtp-ui-checklist{
   list-style:none;
   margin:0;
   padding:0;
@@ -1848,7 +1848,7 @@
   flex-direction:column;
   gap:8px;
 }
-.pmt-ui-check-row{
+.dtp-ui-check-row{
   display:flex;
   align-items:center;
   gap:9px;
@@ -1859,19 +1859,19 @@
   border-radius:7px;
   padding:7px 10px;
 }
-.pmt-ui-check-row i{font-size:11px;color:#3a3a42;flex:none;}
-.pmt-ui-check-row.is-done{color:#f0f0f2;border-color:#2a2a32;}
-.pmt-ui-check-row.is-done i{color:#22c55e;}
+.dtp-ui-check-row i{font-size:11px;color:#3a3a42;flex:none;}
+.dtp-ui-check-row.is-done{color:#f0f0f2;border-color:#2a2a32;}
+.dtp-ui-check-row.is-done i{color:#22c55e;}
 
 /* Visual 3 : bias matrix */
-.pmt-ui-bias-graphic{
+.dtp-ui-bias-graphic{
   width:100%;
   background:#0a0a0c;
   border:1px solid #1f1f26;
   border-radius:8px;
   padding:10px;
 }
-.pmt-ui-bias-header{
+.dtp-ui-bias-header{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -1881,16 +1881,16 @@
   color:#a6a6ad;
   margin-bottom:9px;
 }
-.pmt-ui-bias-pill{
+.dtp-ui-bias-pill{
   font-size:10px;
   font-weight:600;
   padding:2px 8px;
   border-radius:20px;
   color:#08080a;
 }
-.pmt-ui-bias-pill.is-bull{background:#22c55e;}
-.pmt-ui-bias-rows{display:flex;flex-direction:column;gap:6px;}
-.pmt-ui-bias-line{
+.dtp-ui-bias-pill.is-bull{background:#22c55e;}
+.dtp-ui-bias-rows{display:flex;flex-direction:column;gap:6px;}
+.dtp-ui-bias-line{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -1899,18 +1899,18 @@
   font-size:11px;
   color:#f0f0f2;
 }
-.pmt-ui-bias-cell{
+.dtp-ui-bias-cell{
   flex:1;
   height:8px;
   border-radius:3px;
   opacity:.9;
 }
-.pmt-ui-bias-cell.is-bull{background:#22c55e;}
-.pmt-ui-bias-cell.is-bear{background:#ef4444;}
-.pmt-ui-bias-cell.is-neutral{background:#ffb300;}
+.dtp-ui-bias-cell.is-bull{background:#22c55e;}
+.dtp-ui-bias-cell.is-bear{background:#ef4444;}
+.dtp-ui-bias-cell.is-neutral{background:#ffb300;}
 
 /* Visual 4 : chart */
-.pmt-ui-chart{
+.dtp-ui-chart{
   position:relative;
   width:100%;
   height:100%;
@@ -1921,24 +1921,24 @@
   display:flex;
   flex-direction:column;
 }
-.pmt-ui-chart svg{width:100%;height:64px;display:block;}
-.pmt-ui-chart-axis{stroke:#1f1f26;stroke-width:1;}
-.pmt-ui-chart-line{
+.dtp-ui-chart svg{width:100%;height:64px;display:block;}
+.dtp-ui-chart-axis{stroke:#1f1f26;stroke-width:1;}
+.dtp-ui-chart-line{
   fill:none;
   stroke:#f7941d;
   stroke-width:2;
   stroke-linecap:round;
   stroke-linejoin:round;
 }
-.pmt-ui-chart-dot{fill:#f7941d;}
-.pmt-ui-chart-bars{
+.dtp-ui-chart-dot{fill:#f7941d;}
+.dtp-ui-chart-bars{
   display:flex;
   align-items:flex-end;
   gap:6px;
   height:24px;
   padding:5px 2px 8px;
 }
-.pmt-ui-chart-bars i{
+.dtp-ui-chart-bars i{
   flex:1;
   background:#2a2a32;
   border-radius:2px 2px 0 0;
@@ -1946,13 +1946,13 @@
 }
 
 /* Visual 5 : news setup */
-.pmt-ui-news-setup{
+.dtp-ui-news-setup{
   width:100%;
   display:flex;
   flex-direction:column;
   gap:9px;
 }
-.pmt-ui-news-row{
+.dtp-ui-news-row{
   display:flex;
   align-items:center;
   gap:10px;
@@ -1961,25 +1961,25 @@
   border-radius:7px;
   padding:8px 10px;
 }
-.pmt-ui-news-dot{
+.dtp-ui-news-dot{
   width:8px;
   height:8px;
   border-radius:50%;
   flex:none;
 }
-.pmt-ui-news-dot.is-red{background:#ef4444;}
-.pmt-ui-news-dot.is-amber{background:#ffb300;}
-.pmt-ui-news-dot.is-green{background:#22c55e;}
-.pmt-ui-news-line{
+.dtp-ui-news-dot.is-red{background:#ef4444;}
+.dtp-ui-news-dot.is-amber{background:#ffb300;}
+.dtp-ui-news-dot.is-green{background:#22c55e;}
+.dtp-ui-news-line{
   height:7px;
   border-radius:4px;
   background:linear-gradient(90deg,#2a2a32,#1f1f26);
   width:55%;
 }
-.pmt-ui-news-line.is-wide{width:82%;}
+.dtp-ui-news-line.is-wide{width:82%;}
 
 /* Visual 6 : workspace */
-.pmt-ui-workspace-layout{
+.dtp-ui-workspace-layout{
   width:100%;
   height:100%;
   display:grid;
@@ -1987,12 +1987,12 @@
   grid-template-rows:1fr 1fr auto;
   gap:7px;
 }
-.pmt-ui-box{
+.dtp-ui-box{
   background:#0a0a0c;
   border:1px solid #1f1f26;
   border-radius:6px;
 }
-.pmt-ui-box-main{
+.dtp-ui-box-main{
   grid-row:1 / 3;
   position:relative;
   overflow:hidden;
@@ -2000,7 +2000,7 @@
   align-items:flex-end;
   padding:8px;
 }
-.pmt-highlight{
+.dtp-highlight{
   display:block;
   width:100%;
   height:42%;
@@ -2008,9 +2008,9 @@
   background:linear-gradient(180deg,rgba(247,148,29,.35),rgba(247,148,29,.05));
   border:1px solid rgba(247,148,29,.4);
 }
-.pmt-ui-box-side-top{grid-column:2;grid-row:1;}
-.pmt-ui-box-side-bottom{grid-column:2;grid-row:2;}
-.pmt-ui-box-strip{
+.dtp-ui-box-side-top{grid-column:2;grid-row:1;}
+.dtp-ui-box-side-bottom{grid-column:2;grid-row:2;}
+.dtp-ui-box-strip{
   grid-column:1 / 3;
   grid-row:3;
   height:14px;
@@ -2018,13 +2018,13 @@
 }
 
 /* ---------- Card content ---------- */
-.pmt-sec8-card-content{
+.dtp-sec8-card-content{
   display:flex;
   flex-direction:column;
   padding:20px;
   flex:1;
 }
-.pmt-sec8-card-meta-label{
+.dtp-sec8-card-meta-label{
   font-size:11px;
   font-weight:600;
   letter-spacing:.14em;
@@ -2032,7 +2032,7 @@
   color:#f7941d;
   margin-bottom:10px;
 }
-.pmt-sec8-card-title{
+.dtp-sec8-card-title{
   font-family:"Playfair Display",Georgia,"Times New Roman",serif;
   font-weight:700;
   font-size:19px;
@@ -2040,14 +2040,14 @@
   color:#f0f0f2;
   margin:0 0 9px;
 }
-.pmt-sec8-card-desc{
+.dtp-sec8-card-desc{
   font-size:13.5px;
   line-height:1.6;
   color:#a6a6ad;
   margin:0 0 16px;
   flex:1;
 }
-.pmt-sec8-inline-link{
+.dtp-sec8-inline-link{
   display:inline-flex;
   align-items:center;
   gap:7px;
@@ -2058,11 +2058,11 @@
   align-self:flex-start;
   transition:gap .18s ease,color .18s ease;
 }
-.pmt-sec8-inline-link i{font-size:10px;}
-.pmt-sec8-inline-link:hover{color:#ffae42;gap:11px;}
+.dtp-sec8-inline-link i{font-size:10px;}
+.dtp-sec8-inline-link:hover{color:#ffae42;gap:11px;}
 
 /* ---------- Footer ---------- */
-.pmt-sec8-resource-footer{
+.dtp-sec8-resource-footer{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -2073,19 +2073,19 @@
   border:1px solid #1f1f26;
   border-radius:12px;
 }
-.pmt-sec8-footer-left-info{
+.dtp-sec8-footer-left-info{
   display:flex;
   align-items:center;
   gap:13px;
   font-size:14px;
   color:#a6a6ad;
 }
-.pmt-sec8-footer-left-info i{
+.dtp-sec8-footer-left-info i{
   font-size:18px;
   color:#f7941d;
   flex:none;
 }
-.pmt-sec8-footer-cta-anchor{
+.dtp-sec8-footer-cta-anchor{
   flex:none;
   display:inline-flex;
   align-items:center;
@@ -2100,33 +2100,33 @@
   white-space:nowrap;
   transition:background .18s ease,color .18s ease;
 }
-.pmt-sec8-footer-cta-anchor i{font-size:12px;color:#f7941d;transition:color .18s ease;}
-.pmt-sec8-footer-cta-anchor:hover{background:#f7941d;color:#08080a;}
-.pmt-sec8-footer-cta-anchor:hover i{color:#08080a;}
+.dtp-sec8-footer-cta-anchor i{font-size:12px;color:#f7941d;transition:color .18s ease;}
+.dtp-sec8-footer-cta-anchor:hover{background:#f7941d;color:#08080a;}
+.dtp-sec8-footer-cta-anchor:hover i{color:#08080a;}
 
 /* ---------- Responsive ---------- */
 @media (max-width:1024px){
-  .pmt-sec8-grid-matrix{grid-template-columns:repeat(2,1fr);}
-  .pmt-sec8-title{font-size:34px;}
+  .dtp-sec8-grid-matrix{grid-template-columns:repeat(2,1fr);}
+  .dtp-sec8-title{font-size:34px;}
 }
 @media (max-width:860px){
-  .pmt-sec8-container{padding:72px 20px;}
-  .pmt-sec8-header-block{
+  .dtp-sec8-container{padding:72px 20px;}
+  .dtp-sec8-header-block{
     flex-direction:column;
     align-items:flex-start;
     gap:24px;
   }
-  .pmt-sec8-grid-matrix{grid-template-columns:1fr;}
-  .pmt-sec8-resource-footer{
+  .dtp-sec8-grid-matrix{grid-template-columns:1fr;}
+  .dtp-sec8-resource-footer{
     flex-direction:column;
     align-items:flex-start;
     gap:18px;
   }
-  .pmt-sec8-footer-cta-anchor{width:100%;justify-content:center;}
+  .dtp-sec8-footer-cta-anchor{width:100%;justify-content:center;}
 }
 @media (max-width:480px){
-  .pmt-sec8-title{font-size:28px;}
-  .pmt-sec8-primary-btn{width:100%;justify-content:center;}
+  .dtp-sec8-title{font-size:28px;}
+  .dtp-sec8-primary-btn{width:100%;justify-content:center;}
 }
 
 /* ============ sec9 ============ */
@@ -2508,18 +2508,18 @@
   @media(max-width:380px){
     .hero{min-height:480px}
     .hero-statband .hs b{font-size:clamp(19px,5.4vw,25px)}
-    .stats-grid,.pmt-sec3-grid,.section10-stats-grid,.mission-grid,.section9-team-grid,.section9-stats{grid-template-columns:1fr}
+    .stats-grid,.dtp-sec3-grid,.section10-stats-grid,.mission-grid,.section9-team-grid,.section9-stats{grid-template-columns:1fr}
     .features,.steps,.trust-grid,.section9-team-grid{gap:12px}
     nav{height:auto;min-height:52px}
     .ticker .badge{padding:0 8px}
   }
   /* ── Focus clavier visible sur les cartes interactives (a11y) ── */
-  .pmt-sec3-card:focus-visible,.res-card:focus-visible,.pmt-s5-testimonial-card:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
+  .dtp-sec3-card:focus-visible,.res-card:focus-visible,.dtp-s5-testimonial-card:focus-visible{outline:3px solid var(--orange);outline-offset:-3px}
   .skip-link:focus{outline:2px solid var(--text);outline-offset:-4px}
   /* ── sec3 : 2 colonnes (modules à gauche, aperçu terminal à droite) ── */
-  .pmt-sec3-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:clamp(22px,3vw,44px);align-items:stretch;margin-top:clamp(28px,4vw,44px)}
-  .pmt-sec3-cards-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-content:start}
-  .pmt-sec3-preview{min-width:0;display:flex}
+  .dtp-sec3-split{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.08fr);gap:clamp(22px,3vw,44px);align-items:stretch;margin-top:clamp(28px,4vw,44px)}
+  .dtp-sec3-cards-col{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-content:start}
+  .dtp-sec3-preview{min-width:0;display:flex}
   .t3{width:100%;align-self:stretch;display:flex;flex-direction:column;background:#0a0a0c;border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px -40px #000}
   .t3-top{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#0d0d10;border-bottom:1px solid var(--line)}
   .t3-brand{font-size:11.5px;font-weight:700;color:var(--text);white-space:nowrap}
@@ -2552,14 +2552,14 @@
   .t3-chart .t3-grid{stroke:#1a1a20;stroke-width:1}
   .t3-chart .t3-l{fill:none;stroke-width:1.6;stroke-linejoin:round;stroke-linecap:round}
   .t3-chart .t3-lab text{font-size:8px;font-weight:700;font-family:var(--mono)}
-  @media(max-width:920px){.pmt-sec3-split{grid-template-columns:1fr}.pmt-sec3-preview{order:-1}}
-  @media(max-width:560px){.pmt-sec3-cards-col{grid-template-columns:1fr}.t3-body{grid-template-columns:1fr}.t3-news{border-right:0;border-bottom:1px solid var(--line)}}
+  @media(max-width:920px){.dtp-sec3-split{grid-template-columns:1fr}.dtp-sec3-preview{order:-1}}
+  @media(max-width:560px){.dtp-sec3-cards-col{grid-template-columns:1fr}.t3-body{grid-template-columns:1fr}.t3-news{border-right:0;border-bottom:1px solid var(--line)}}
   /* ── Vue d'ensemble : dashboard terminal (6 widgets façon desk) ── */
-  .pmt-ov{background:var(--bg);border-bottom:1px solid var(--line);padding:clamp(48px,7vw,84px) 0}
-  .pmt-ov-head{text-align:center;max-width:680px;margin:0 auto clamp(28px,4vw,44px)}
-  .pmt-ov-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.08);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:100px;margin-bottom:16px}
-  .pmt-ov-title{font-size:clamp(28px,4.4vw,46px);line-height:1.08;margin-bottom:14px}
-  .pmt-ov-desc{font-size:clamp(14.5px,1.6vw,17px);color:var(--text2);line-height:1.6}
+  .dtp-ov{background:var(--bg);border-bottom:1px solid var(--line);padding:clamp(48px,7vw,84px) 0}
+  .dtp-ov-head{text-align:center;max-width:680px;margin:0 auto clamp(28px,4vw,44px)}
+  .dtp-ov-tag{display:inline-block;font-size:12px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.08);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:100px;margin-bottom:16px}
+  .dtp-ov-title{font-size:clamp(28px,4.4vw,46px);line-height:1.08;margin-bottom:14px}
+  .dtp-ov-desc{font-size:clamp(14.5px,1.6vw,17px);color:var(--text2);line-height:1.6}
   .dash{border:1px solid var(--line2);border-radius:14px;overflow:hidden;background:#0a0a0c;box-shadow:0 40px 100px -50px #000}
   .dash-top{display:flex;align-items:center;gap:12px;padding:10px 14px;background:#0d0d10;border-bottom:1px solid var(--line)}
   .dash-brand{font-size:12px;font-weight:700;color:var(--text);white-space:nowrap}
@@ -2657,10 +2657,10 @@
      (« TARIFS », « Modules clés », « Conçu pour les professionnels »… → prennent de la place
      pour rien, on épure et on étend le contenu). Réversible : il suffit de retirer ce bloc. */
   .hero-eyebrow,
-  .pmt-sec3-tagline,
-  .pmt-sec4-tagline,
-  .pmt-s5-label,
-  .pmt-sec7-eyebrow,
+  .dtp-sec3-tagline,
+  .dtp-sec4-tagline,
+  .dtp-s5-label,
+  .dtp-sec7-eyebrow,
   .section10-label { display: none !important; }
 </style>
 </head>
@@ -2755,7 +2755,7 @@
   </div>
 </div>
 
-<!-- HERO (clone PMT : texte à gauche + image desk en fond) -->
+<!-- HERO (inspiration terminal pro texte à gauche + image desk en fond) -->
 <section class="hero" aria-label="DataTradingPro — terminal macro & forex en temps réel">
   <div class="hero-photo" aria-hidden="true"></div>
   <div class="hero-fade" aria-hidden="true"></div>
@@ -2777,11 +2777,11 @@
   </div>
 </section>
 
-<!-- BANDE DE STATS (strip sous le hero, façon PMT) -->
+<!-- BANDE DE STATS (strip sous le hero, épuré) -->
 <section class="hero-statband" aria-label="Chiffres clés DataTradingPro">
   <div class="wrap hs-grid">
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg></span><div><b>Multi-actifs</b><em>FX, indices, matières premières &amp; crypto</em></div></div>
-    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.2 4-6.5 8-6.5s8 2.3 8 6.5"/></svg></span><div><b>Pour les pros</b><em>Conçu pour traders &amp; analystes macro</em></div></div>
+    <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4.2 4-6.5 8-6.5s8 2.3 8 6.5"/></svg></span><div><b>Pour tous les niveaux</b><em>Du débutant au trader confirmé</em></div></div>
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 3v5.5c0 4.8-3.4 8-8 9.5-4.6-1.5-8-4.7-8-9.5V6z"/><path d="M8.5 12l2.5 2.5 4.5-4.5"/></svg></span><div><b>100%&nbsp;navigateur</b><em>Aucune installation, accès immédiat</em></div></div>
     <div class="hs"><span class="hs-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v14c0 1.6 3.6 3 8 3s8-1.4 8-3V5M4 12c0 1.6 3.6 3 8 3s8-1.4 8-3"/></svg></span><div><b>Source directe</b><em>Données first-party, temps réel</em></div></div>
   </div>
@@ -2864,8 +2864,8 @@
 html,body{overflow-x:hidden}
 img,svg,video,canvas,picture{max-width:100%}
 img,video{height:auto}
-.pmt-sec7-news-list-item,.pmt-sec7-item-headline,.section10-feature,.pmt-s5-author-row,.pmt-s5-quote-body{min-width:0}
-.pmt-sec7-item-headline,.section10-feature,.faq summary,.pmt-s5-quote-body{overflow-wrap:anywhere}
+.dtp-sec7-news-list-item,.dtp-sec7-item-headline,.section10-feature,.dtp-s5-author-row,.dtp-s5-quote-body{min-width:0}
+.dtp-sec7-item-headline,.section10-feature,.faq summary,.dtp-s5-quote-body{overflow-wrap:anywhere}
 #modules-cles,#framework,#confiance,#tarifs,#faq,#contenu{scroll-margin-top:80px}
 @media(max-width:560px){.nav-cta .btn{padding:9px 13px;font-size:12.5px}}
 @media(max-width:767px){.hero-photo{opacity:.55}}
@@ -2989,19 +2989,19 @@ img,video{height:auto}
       </div>
       <div class="dtpov-trust-item">
         <span class="dtpov-trust-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-5 6-5s6 1.7 6 5"/><path d="M16 8.5a3 3 0 0 1 0 5M18 15.5c2.1.5 3.5 1.9 3.5 4.5"/></svg></span>
-        <span><b>Conçu pour les pros</b><span>Traders &amp; analystes macro.</span></span>
+        <span><b>Pour tous les niveaux</b><span>Du débutant au trader confirmé.</span></span>
       </div>
     </div>
   </div>
 </section>
 
 <!-- ============ Vue d'ensemble — dashboard terminal ============ -->
-<section class="pmt-ov" id="apercu" aria-labelledby="pmt-ov-title">
+<section class="dtp-ov" id="apercu" aria-labelledby="dtp-ov-title">
   <div class="wrap">
-    <div class="pmt-ov-head">
-      <span class="pmt-ov-tag">Vue d'ensemble</span>
-      <h2 class="pmt-ov-title" id="pmt-ov-title">Temps réel. Intégré. Actionnable.</h2>
-      <p class="pmt-ov-desc">Tout votre flux macro &amp; forex sur un seul écran — news priorisée, graphiques, Smart Bias, calendrier et force des devises, exactement comme dans le terminal. Fini les dix onglets.</p>
+    <div class="dtp-ov-head">
+      <span class="dtp-ov-tag">Vue d'ensemble</span>
+      <h2 class="dtp-ov-title" id="dtp-ov-title">Temps réel. Intégré. Actionnable.</h2>
+      <p class="dtp-ov-desc">Tout votre flux macro &amp; forex sur un seul écran — news priorisée, graphiques, Smart Bias, calendrier et force des devises, exactement comme dans le terminal. Fini les dix onglets.</p>
     </div>
 
     <div class="dash" aria-hidden="true">
@@ -3078,48 +3078,48 @@ img,video{height:auto}
 </section>
 
 <!-- ============ sec3 ============ -->
-<section class="pmt-sec3-wrapper" id="modules-cles" aria-labelledby="pmt-sec3-title">
-  <div class="pmt-sec3-hero">
-    <div class="pmt-sec3-image-area" aria-hidden="true">
-      <div class="pmt-sec3-bg-img"></div>
+<section class="dtp-sec3-wrapper" id="modules-cles" aria-labelledby="dtp-sec3-title">
+  <div class="dtp-sec3-hero">
+    <div class="dtp-sec3-image-area" aria-hidden="true">
+      <div class="dtp-sec3-bg-img"></div>
     </div>
-    <div class="pmt-sec3-header-content">
-      <span class="pmt-sec3-tagline">Modules clés</span>
-      <h2 class="pmt-sec3-title" id="pmt-sec3-title">Tout ce qu'il vous faut. Rien de superflu.</h2>
-      <p class="pmt-sec3-desc">Les quatre piliers du terminal DataTradingPro, réunis sur un seul écran : l'actualité priorisée, le biais de marché, un espace de travail à votre main et la donnée macro brute. Tout en temps réel, directement dans le navigateur.</p>
+    <div class="dtp-sec3-header-content">
+      <span class="dtp-sec3-tagline">Modules clés</span>
+      <h2 class="dtp-sec3-title" id="dtp-sec3-title">Tout ce qu'il vous faut. Rien de superflu.</h2>
+      <p class="dtp-sec3-desc">Les quatre piliers du terminal DataTradingPro, réunis sur un seul écran : l'actualité priorisée, le biais de marché, un espace de travail à votre main et la donnée macro brute. Tout en temps réel, directement dans le navigateur.</p>
     </div>
   </div>
 
-  <div class="pmt-sec3-split">
-    <div class="pmt-sec3-cards-col">
-      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
-        <h3 class="pmt-sec3-card-title">News temps réel</h3>
-        <p class="pmt-sec3-card-desc">L'actu forex &amp; macro triée par impact (HIGH / MED / LOW), filtrable par devise. Vous voyez d'abord ce qui bouge les marchés.</p>
-        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+  <div class="dtp-sec3-split">
+    <div class="dtp-sec3-cards-col">
+      <a class="dtp-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="dtp-sec3-icon-orb"><i class="fa-solid fa-bolt" aria-hidden="true"></i></span>
+        <h3 class="dtp-sec3-card-title">News temps réel</h3>
+        <p class="dtp-sec3-card-desc">L'actu forex &amp; macro triée par impact (HIGH / MED / LOW), filtrable par devise. Vous voyez d'abord ce qui bouge les marchés.</p>
+        <span class="dtp-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
       </a>
-      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span>
-        <h3 class="pmt-sec3-card-title">Smart Bias Tracker</h3>
-        <p class="pmt-sec3-card-desc">Le biais hebdo de chaque devise dans une matrice claire : fondamentaux, taux, COT et positionnement croisés — avec un narratif IA chaque semaine.</p>
-        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      <a class="dtp-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="dtp-sec3-icon-orb"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span>
+        <h3 class="dtp-sec3-card-title">Smart Bias Tracker</h3>
+        <p class="dtp-sec3-card-desc">Le biais hebdo de chaque devise dans une matrice claire : fondamentaux, taux, COT et positionnement croisés — avec un narratif IA chaque semaine.</p>
+        <span class="dtp-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
       </a>
-      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i></span>
-        <h3 class="pmt-sec3-card-title">Workspace modulaire</h3>
-        <p class="pmt-sec3-card-desc">Ouvrez les modules utiles, redimensionnez les panneaux, épinglez une paire. Le cockpit s'adapte à votre façon de lire le marché.</p>
-        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      <a class="dtp-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="dtp-sec3-icon-orb"><i class="fa-solid fa-table-cells-large" aria-hidden="true"></i></span>
+        <h3 class="dtp-sec3-card-title">Workspace modulaire</h3>
+        <p class="dtp-sec3-card-desc">Ouvrez les modules utiles, redimensionnez les panneaux, épinglez une paire. Le cockpit s'adapte à votre façon de lire le marché.</p>
+        <span class="dtp-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
       </a>
-      <a class="pmt-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
-        <span class="pmt-sec3-icon-orb"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
-        <h3 class="pmt-sec3-card-title">Macro Data Hub</h3>
-        <p class="pmt-sec3-card-desc">Calendrier (réel vs prévision), Week Ahead, taux, COT (CFTC) et recherche des grandes banques — la matière première de vos décisions.</p>
-        <span class="pmt-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
+      <a class="dtp-sec3-card" href="https://whop.com/joined/justonetrader/products/jot-dtp/">
+        <span class="dtp-sec3-icon-orb"><i class="fa-solid fa-database" aria-hidden="true"></i></span>
+        <h3 class="dtp-sec3-card-title">Macro Data Hub</h3>
+        <p class="dtp-sec3-card-desc">Calendrier (réel vs prévision), Week Ahead, taux, COT (CFTC) et recherche des grandes banques — la matière première de vos décisions.</p>
+        <span class="dtp-sec3-arrow-link">Découvrir le module <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></span>
       </a>
     </div>
 
     <!-- Aperçu terminal (maquette façon desk) -->
-    <div class="pmt-sec3-preview" aria-hidden="true">
+    <div class="dtp-sec3-preview" aria-hidden="true">
       <div class="t3">
         <div class="t3-top">
           <span class="t3-brand"><b>DTP</b>&nbsp;DataTradingPro</span>
@@ -3163,198 +3163,198 @@ img,video{height:auto}
 </section>
 
 <!-- ============ sec4 ============ -->
-<section class="pmt-sec4-body" id="framework">
-  <div class="pmt-sec4-container">
+<section class="dtp-sec4-body" id="framework">
+  <div class="dtp-sec4-container">
 
-    <div class="pmt-sec4-header-row">
-      <div class="pmt-sec4-tagline">Méthode de décision</div>
-      <h2 class="pmt-sec4-heading">De l'information à la décision. Sans le bruit.</h2>
-      <p class="pmt-sec4-lead-text">Trois temps nets : on rassemble le marché, on croise les signaux, puis on tranche. DataTradingPro s'arrête à la décision — l'exécution reste chez votre courtier.</p>
+    <div class="dtp-sec4-header-row">
+      <div class="dtp-sec4-tagline">Méthode de décision</div>
+      <h2 class="dtp-sec4-heading">De l'information à la décision. Sans le bruit.</h2>
+      <p class="dtp-sec4-lead-text">Trois temps nets : on rassemble le marché, on croise les signaux, puis on tranche. DataTradingPro s'arrête à la décision — l'exécution reste chez votre courtier.</p>
     </div>
 
-    <div class="pmt-sec4-framework-row">
+    <div class="dtp-sec4-framework-row">
 
       <!-- ÉTAPE 01 — AGRÉGER -->
-      <div class="pmt-sec4-step-card">
-        <div class="pmt-sec4-card-meta">
-          <span class="pmt-sec4-step-num">01</span>
+      <div class="dtp-sec4-step-card">
+        <div class="dtp-sec4-card-meta">
+          <span class="dtp-sec4-step-num">01</span>
           <div>
-            <h3 class="pmt-sec4-step-title">Agréger</h3>
-            <p class="pmt-sec4-step-desc">Toutes vos sources macro &amp; FX réunies sur un seul écran, en flux continu.</p>
+            <h3 class="dtp-sec4-step-title">Agréger</h3>
+            <p class="dtp-sec4-step-desc">Toutes vos sources macro &amp; FX réunies sur un seul écran, en flux continu.</p>
           </div>
         </div>
-        <div class="pmt-sec4-mini-terminal">
-          <div class="pmt-sec4-term-header">
+        <div class="dtp-sec4-mini-terminal">
+          <div class="dtp-sec4-term-header">
             <span>Flux temps réel</span>
-            <span class="pmt-sec4-live-indicator"><span class="pmt-sec4-live-dot"></span>APERÇU</span>
+            <span class="dtp-sec4-live-indicator"><span class="dtp-sec4-live-dot"></span>APERÇU</span>
           </div>
-          <div class="pmt-sec4-term-row">
-            <span class="pmt-sec4-badge red">HIGH</span>
-            <div class="pmt-sec4-term-text-block">
-              <span class="pmt-sec4-term-headline">USD · CPI conforme aux attentes (3,4 % a/a)</span>
-              <span class="pmt-sec4-term-subtext">Reuters</span>
+          <div class="dtp-sec4-term-row">
+            <span class="dtp-sec4-badge red">HIGH</span>
+            <div class="dtp-sec4-term-text-block">
+              <span class="dtp-sec4-term-headline">USD · CPI conforme aux attentes (3,4 % a/a)</span>
+              <span class="dtp-sec4-term-subtext">Reuters</span>
             </div>
-            <span class="pmt-sec4-term-time">13:34</span>
+            <span class="dtp-sec4-term-time">13:34</span>
           </div>
-          <div class="pmt-sec4-term-row">
-            <span class="pmt-sec4-badge orange">MED</span>
-            <div class="pmt-sec4-term-text-block">
-              <span class="pmt-sec4-term-headline">EUR · Lagarde : la désinflation se poursuit</span>
-              <span class="pmt-sec4-term-subtext">BCE</span>
+          <div class="dtp-sec4-term-row">
+            <span class="dtp-sec4-badge orange">MED</span>
+            <div class="dtp-sec4-term-text-block">
+              <span class="dtp-sec4-term-headline">EUR · Lagarde : la désinflation se poursuit</span>
+              <span class="dtp-sec4-term-subtext">BCE</span>
             </div>
-            <span class="pmt-sec4-term-time">12:58</span>
+            <span class="dtp-sec4-term-time">12:58</span>
           </div>
-          <div class="pmt-sec4-term-row">
-            <span class="pmt-sec4-badge orange">MED</span>
-            <div class="pmt-sec4-term-text-block">
-              <span class="pmt-sec4-term-headline">USD · Powell : pas d'urgence à baisser les taux</span>
-              <span class="pmt-sec4-term-subtext">Bloomberg</span>
+          <div class="dtp-sec4-term-row">
+            <span class="dtp-sec4-badge orange">MED</span>
+            <div class="dtp-sec4-term-text-block">
+              <span class="dtp-sec4-term-headline">USD · Powell : pas d'urgence à baisser les taux</span>
+              <span class="dtp-sec4-term-subtext">Bloomberg</span>
             </div>
-            <span class="pmt-sec4-term-time">12:15</span>
+            <span class="dtp-sec4-term-time">12:15</span>
           </div>
-          <div class="pmt-sec4-term-row">
-            <span class="pmt-sec4-badge green">LOW</span>
-            <div class="pmt-sec4-term-text-block">
-              <span class="pmt-sec4-term-headline">JPY · Le yen se renforce après la révision du PIB</span>
-              <span class="pmt-sec4-term-subtext">Nikkei</span>
+          <div class="dtp-sec4-term-row">
+            <span class="dtp-sec4-badge green">LOW</span>
+            <div class="dtp-sec4-term-text-block">
+              <span class="dtp-sec4-term-headline">JPY · Le yen se renforce après la révision du PIB</span>
+              <span class="dtp-sec4-term-subtext">Nikkei</span>
             </div>
-            <span class="pmt-sec4-term-time">11:40</span>
+            <span class="dtp-sec4-term-time">11:40</span>
           </div>
-          <div class="pmt-sec4-term-footer-link">News · Calendrier · COT · Force des devises</div>
+          <div class="dtp-sec4-term-footer-link">News · Calendrier · COT · Force des devises</div>
         </div>
       </div>
 
-      <span class="pmt-sec4-flow-arrow" aria-hidden="true">
+      <span class="dtp-sec4-flow-arrow" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><polyline points="13 5 20 12 13 19"></polyline></svg>
       </span>
 
       <!-- ÉTAPE 02 — VALIDER -->
-      <div class="pmt-sec4-step-card">
-        <div class="pmt-sec4-card-meta">
-          <span class="pmt-sec4-step-num">02</span>
+      <div class="dtp-sec4-step-card">
+        <div class="dtp-sec4-card-meta">
+          <span class="dtp-sec4-step-num">02</span>
           <div>
-            <h3 class="pmt-sec4-step-title">Valider</h3>
-            <p class="pmt-sec4-step-desc">Croisez Smart Bias, calendrier et flux cross-asset pour confirmer la direction.</p>
+            <h3 class="dtp-sec4-step-title">Valider</h3>
+            <p class="dtp-sec4-step-desc">Croisez Smart Bias, calendrier et flux cross-asset pour confirmer la direction.</p>
           </div>
         </div>
-        <div class="pmt-sec4-mini-terminal">
-          <div class="pmt-sec4-term-header">
+        <div class="dtp-sec4-mini-terminal">
+          <div class="dtp-sec4-term-header">
             <span>Smart Bias · EUR/USD</span>
-            <span class="pmt-sec4-live-indicator"><span class="pmt-sec4-live-dot"></span>APERÇU</span>
+            <span class="dtp-sec4-live-indicator"><span class="dtp-sec4-live-dot"></span>APERÇU</span>
           </div>
-          <div class="pmt-sec4-flex-grid">
+          <div class="dtp-sec4-flex-grid">
             <div>
-              <div class="pmt-sec4-bias-title">Biais directionnel</div>
-              <div class="pmt-sec4-bias-value up">BULLISH ▲</div>
+              <div class="dtp-sec4-bias-title">Biais directionnel</div>
+              <div class="dtp-sec4-bias-value up">BULLISH ▲</div>
             </div>
             <div>
-              <div class="pmt-sec4-bias-title">Confiance</div>
-              <div class="pmt-sec4-bias-value">72 %</div>
+              <div class="dtp-sec4-bias-title">Confiance</div>
+              <div class="dtp-sec4-bias-value">72 %</div>
             </div>
           </div>
-          <div class="pmt-sec4-driver-list">
-            <div class="pmt-sec4-driver-item">
+          <div class="dtp-sec4-driver-list">
+            <div class="dtp-sec4-driver-item">
               <span>Momentum inflation</span>
-              <span class="pmt-sec4-dot-matrix">
-                <span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot"></span>
+              <span class="dtp-sec4-dot-matrix">
+                <span class="dtp-sec4-dot active-green"></span><span class="dtp-sec4-dot active-green"></span><span class="dtp-sec4-dot active-green"></span><span class="dtp-sec4-dot active-green"></span><span class="dtp-sec4-dot"></span>
               </span>
             </div>
-            <div class="pmt-sec4-driver-item">
+            <div class="dtp-sec4-driver-item">
               <span>Positionnement COT</span>
-              <span class="pmt-sec4-dot-matrix">
-                <span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot active-green"></span><span class="pmt-sec4-dot"></span><span class="pmt-sec4-dot"></span>
+              <span class="dtp-sec4-dot-matrix">
+                <span class="dtp-sec4-dot active-green"></span><span class="dtp-sec4-dot active-green"></span><span class="dtp-sec4-dot active-green"></span><span class="dtp-sec4-dot"></span><span class="dtp-sec4-dot"></span>
               </span>
             </div>
-            <div class="pmt-sec4-driver-item">
+            <div class="dtp-sec4-driver-item">
               <span>Écart de taux</span>
-              <span class="pmt-sec4-dot-matrix">
-                <span class="pmt-sec4-dot active-orange"></span><span class="pmt-sec4-dot active-orange"></span><span class="pmt-sec4-dot active-orange"></span><span class="pmt-sec4-dot"></span><span class="pmt-sec4-dot"></span>
+              <span class="dtp-sec4-dot-matrix">
+                <span class="dtp-sec4-dot active-orange"></span><span class="dtp-sec4-dot active-orange"></span><span class="dtp-sec4-dot active-orange"></span><span class="dtp-sec4-dot"></span><span class="dtp-sec4-dot"></span>
               </span>
             </div>
           </div>
-          <table class="pmt-sec4-table">
+          <table class="dtp-sec4-table">
             <tbody>
-              <tr><td>DXY</td><td class="pmt-sec4-table-val red">104,2 ▼</td></tr>
-              <tr><td>US10Y</td><td class="pmt-sec4-table-val green">4,28 % ▲</td></tr>
-              <tr><td>ES</td><td class="pmt-sec4-table-val green">5 312 ▲</td></tr>
-              <tr><td>GOLD</td><td class="pmt-sec4-table-val green">2 348 ▲</td></tr>
-              <tr><td>WTI</td><td class="pmt-sec4-table-val red">77,9 ▼</td></tr>
+              <tr><td>DXY</td><td class="dtp-sec4-table-val red">104,2 ▼</td></tr>
+              <tr><td>US10Y</td><td class="dtp-sec4-table-val green">4,28 % ▲</td></tr>
+              <tr><td>ES</td><td class="dtp-sec4-table-val green">5 312 ▲</td></tr>
+              <tr><td>GOLD</td><td class="dtp-sec4-table-val green">2 348 ▲</td></tr>
+              <tr><td>WTI</td><td class="dtp-sec4-table-val red">77,9 ▼</td></tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <span class="pmt-sec4-flow-arrow" aria-hidden="true">
+      <span class="dtp-sec4-flow-arrow" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="12" x2="20" y2="12"></line><polyline points="13 5 20 12 13 19"></polyline></svg>
       </span>
 
       <!-- ÉTAPE 03 — DÉCIDER -->
-      <div class="pmt-sec4-step-card">
-        <div class="pmt-sec4-card-meta">
-          <span class="pmt-sec4-step-num">03</span>
+      <div class="dtp-sec4-step-card">
+        <div class="dtp-sec4-card-meta">
+          <span class="dtp-sec4-step-num">03</span>
           <div>
-            <h3 class="pmt-sec4-step-title">Décider</h3>
-            <p class="pmt-sec4-step-desc">Posez votre plan — niveaux et risque clairs — puis exécutez sur <b>votre</b> plateforme.</p>
+            <h3 class="dtp-sec4-step-title">Décider</h3>
+            <p class="dtp-sec4-step-desc">Posez votre plan — niveaux et risque clairs — puis exécutez sur <b>votre</b> plateforme.</p>
           </div>
         </div>
-        <div class="pmt-sec4-mini-terminal">
-          <div class="pmt-sec4-term-header">
+        <div class="dtp-sec4-mini-terminal">
+          <div class="dtp-sec4-term-header">
             <span>Plan de trade · EUR/USD</span>
-            <span class="pmt-sec4-live-indicator"><span class="pmt-sec4-live-dot"></span>EXEMPLE</span>
+            <span class="dtp-sec4-live-indicator"><span class="dtp-sec4-live-dot"></span>EXEMPLE</span>
           </div>
-          <div class="pmt-sec4-chart-placeholder">
-            <svg class="pmt-sec4-chart-line-svg" viewBox="0 0 260 120" preserveAspectRatio="none" aria-hidden="true">
-              <line x1="0" y1="16" x2="260" y2="16" class="pmt-sec4-lvl tp"></line>
-              <line x1="0" y1="60" x2="260" y2="60" class="pmt-sec4-lvl entry"></line>
-              <line x1="0" y1="105" x2="260" y2="105" class="pmt-sec4-lvl sl"></line>
-              <polyline points="0,92 26,84 52,88 78,72 104,76 130,58 156,62 182,46 208,52 234,36 260,30" class="pmt-sec4-price-line"></polyline>
+          <div class="dtp-sec4-chart-placeholder">
+            <svg class="dtp-sec4-chart-line-svg" viewBox="0 0 260 120" preserveAspectRatio="none" aria-hidden="true">
+              <line x1="0" y1="16" x2="260" y2="16" class="dtp-sec4-lvl tp"></line>
+              <line x1="0" y1="60" x2="260" y2="60" class="dtp-sec4-lvl entry"></line>
+              <line x1="0" y1="105" x2="260" y2="105" class="dtp-sec4-lvl sl"></line>
+              <polyline points="0,92 26,84 52,88 78,72 104,76 130,58 156,62 182,46 208,52 234,36 260,30" class="dtp-sec4-price-line"></polyline>
             </svg>
-            <span class="pmt-sec4-chart-label tp">TP · 1,0980</span>
-            <span class="pmt-sec4-chart-label entry">Entrée · 1,0865</span>
-            <span class="pmt-sec4-chart-label sl">SL · 1,0810</span>
+            <span class="dtp-sec4-chart-label tp">TP · 1,0980</span>
+            <span class="dtp-sec4-chart-label entry">Entrée · 1,0865</span>
+            <span class="dtp-sec4-chart-label sl">SL · 1,0810</span>
           </div>
-          <table class="pmt-sec4-table">
+          <table class="dtp-sec4-table">
             <tbody>
-              <tr><td>Taille de position</td><td class="pmt-sec4-table-val">0,5 lot</td></tr>
-              <tr><td>Risque</td><td class="pmt-sec4-table-val">1,0 % du capital</td></tr>
-              <tr><td>Ratio R/R</td><td class="pmt-sec4-table-val green">1 : 2,1</td></tr>
+              <tr><td>Taille de position</td><td class="dtp-sec4-table-val">0,5 lot</td></tr>
+              <tr><td>Risque</td><td class="dtp-sec4-table-val">1,0 % du capital</td></tr>
+              <tr><td>Ratio R/R</td><td class="dtp-sec4-table-val green">1 : 2,1</td></tr>
             </tbody>
           </table>
-          <a class="pmt-sec4-btn-order" href="https://whop.com/joined/justonetrader/products/jot-dtp/" target="_blank" rel="noopener">Exécuter chez votre courtier</a>
-          <p class="pmt-sec4-disclaimer">Exemple illustratif. DataTradingPro n'exécute aucun ordre et ne donne pas de conseil personnalisé.</p>
+          <a class="dtp-sec4-btn-order" href="https://whop.com/joined/justonetrader/products/jot-dtp/" target="_blank" rel="noopener">Exécuter chez votre courtier</a>
+          <p class="dtp-sec4-disclaimer">Exemple illustratif. DataTradingPro n'exécute aucun ordre et ne donne pas de conseil personnalisé.</p>
         </div>
       </div>
 
     </div>
 
-    <div class="pmt-sec4-metrics-bar">
-      <div class="pmt-sec4-metric-item">
-        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+    <div class="dtp-sec4-metrics-bar">
+      <div class="dtp-sec4-metric-item">
+        <span class="dtp-sec4-metric-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><polyline points="12 7 12 12 15.5 14"></polyline></svg>
         </span>
-        <span class="pmt-sec4-metric-num">24/7</span>
-        <span class="pmt-sec4-metric-label">Données en temps réel</span>
+        <span class="dtp-sec4-metric-num">24/7</span>
+        <span class="dtp-sec4-metric-label">Données en temps réel</span>
       </div>
-      <div class="pmt-sec4-metric-item">
-        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+      <div class="dtp-sec4-metric-item">
+        <span class="dtp-sec4-metric-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.2"></rect><rect x="14" y="3" width="7" height="7" rx="1.2"></rect><rect x="3" y="14" width="7" height="7" rx="1.2"></rect><rect x="14" y="14" width="7" height="7" rx="1.2"></rect></svg>
         </span>
-        <span class="pmt-sec4-metric-num">10 modules</span>
-        <span class="pmt-sec4-metric-label">News, Calendrier, Bias, COT, IA…</span>
+        <span class="dtp-sec4-metric-num">10 modules</span>
+        <span class="dtp-sec4-metric-label">News, Calendrier, Bias, COT, IA…</span>
       </div>
-      <div class="pmt-sec4-metric-item">
-        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+      <div class="dtp-sec4-metric-item">
+        <span class="dtp-sec4-metric-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18"></path><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18Z"></path></svg>
         </span>
-        <span class="pmt-sec4-metric-num">8 devises</span>
-        <span class="pmt-sec4-metric-label">Majeures G8 couvertes</span>
+        <span class="dtp-sec4-metric-num">8 devises</span>
+        <span class="dtp-sec4-metric-label">Majeures G8 couvertes</span>
       </div>
-      <div class="pmt-sec4-metric-item">
-        <span class="pmt-sec4-metric-icon" aria-hidden="true">
+      <div class="dtp-sec4-metric-item">
+        <span class="dtp-sec4-metric-icon" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="14" rx="2"></rect><path d="M3 9h18"></path><path d="M9 21h6"></path></svg>
         </span>
-        <span class="pmt-sec4-metric-num">100 % navigateur</span>
-        <span class="pmt-sec4-metric-label">Rien à installer</span>
+        <span class="dtp-sec4-metric-num">100 % navigateur</span>
+        <span class="dtp-sec4-metric-label">Rien à installer</span>
       </div>
     </div>
 
@@ -3362,62 +3362,62 @@ img,video{height:auto}
 </section>
 
 <!-- ============ sec5 ============ -->
-<section class="pmt-s5-viewport" id="confiance" aria-labelledby="pmt-s5-title">
-  <div class="pmt-s5-photo" aria-hidden="true"></div>
-  <div class="pmt-s5-boundless">
-    <div class="pmt-s5-layout-split">
+<section class="dtp-s5-viewport" id="confiance" aria-labelledby="dtp-s5-title">
+  <div class="dtp-s5-photo" aria-hidden="true"></div>
+  <div class="dtp-s5-boundless">
+    <div class="dtp-s5-layout-split">
 
       <!-- Colonne gauche : accroche + bandeau + témoignages -->
-      <div class="pmt-s5-content-stack">
-        <span class="pmt-s5-label">La confiance, prouvée</span>
-        <h2 class="pmt-s5-headline" id="pmt-s5-title">Pensé pour les traders qui prennent le contexte au sérieux</h2>
-        <p class="pmt-s5-paragraph">On ne vous promet pas la lune avec de faux chiffres ni des avis inventés. On vous donne un terminal honnête, des données datées et attribuées, et la liberté de partir quand vous voulez. Voici ce que des membres de la communauté JustOneTrader en retiennent.</p>
+      <div class="dtp-s5-content-stack">
+        <span class="dtp-s5-label">La confiance, prouvée</span>
+        <h2 class="dtp-s5-headline" id="dtp-s5-title">Pensé pour les traders qui prennent le contexte au sérieux</h2>
+        <p class="dtp-s5-paragraph">On ne vous promet pas la lune avec de faux chiffres ni des avis inventés. On vous donne un terminal honnête, des données datées et attribuées, et la liberté de partir quand vous voulez. Voici ce que des membres de la communauté JustOneTrader en retiennent.</p>
 
-        <div class="pmt-s5-rating-strip">
-          <span class="pmt-s5-stars" aria-hidden="true">
+        <div class="dtp-s5-rating-strip">
+          <span class="dtp-s5-stars" aria-hidden="true">
             <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
           </span>
-          <span class="pmt-s5-metric-lbl">Retours de la communauté</span>
-          <span class="pmt-s5-divider" aria-hidden="true"></span>
-          <span class="pmt-s5-secure-status"><i class="fa-solid fa-lock"></i> Sans engagement, résiliable en un clic</span>
+          <span class="dtp-s5-metric-lbl">Retours de la communauté</span>
+          <span class="dtp-s5-divider" aria-hidden="true"></span>
+          <span class="dtp-s5-secure-status"><i class="fa-solid fa-lock"></i> Sans engagement, résiliable en un clic</span>
         </div>
       </div>
 
-      <!-- Cartes témoignage : rangée pleine largeur (3 colonnes), façon PMT -->
-      <div class="pmt-s5-cards-cluster">
+      <!-- Cartes témoignage : rangée pleine largeur (3 colonnes), épuré -->
+      <div class="dtp-s5-cards-cluster">
 
-          <article class="pmt-s5-testimonial-card">
-            <i class="fa-solid fa-quote-right pmt-s5-quote-icon" aria-hidden="true"></i>
-            <p class="pmt-s5-quote-body">J'avais dix onglets ouverts en permanence. Maintenant le contexte macro, les news à fort impact et la force des devises sont au même endroit. Je perds beaucoup moins de temps avant d'ouvrir une position.</p>
-            <div class="pmt-s5-author-row">
-              <span class="pmt-s5-avatar-circle" aria-hidden="true">M</span>
+          <article class="dtp-s5-testimonial-card">
+            <i class="fa-solid fa-quote-right dtp-s5-quote-icon" aria-hidden="true"></i>
+            <p class="dtp-s5-quote-body">J'avais dix onglets ouverts en permanence. Maintenant le contexte macro, les news à fort impact et la force des devises sont au même endroit. Je perds beaucoup moins de temps avant d'ouvrir une position.</p>
+            <div class="dtp-s5-author-row">
+              <span class="dtp-s5-avatar-circle" aria-hidden="true">M</span>
               <span>
-                <span class="pmt-s5-author-name">Un membre de la communauté</span>
-                <span class="pmt-s5-author-title">Day trader forex</span>
+                <span class="dtp-s5-author-name">Un membre de la communauté</span>
+                <span class="dtp-s5-author-title">Day trader forex</span>
               </span>
             </div>
           </article>
 
-          <article class="pmt-s5-testimonial-card">
-            <i class="fa-solid fa-quote-right pmt-s5-quote-icon" aria-hidden="true"></i>
-            <p class="pmt-s5-quote-body">Ce que j'apprécie, c'est l'honnêteté : chaque donnée est sourcée et horodatée. Le Smart Bias me sert de point de départ le lundi, je n'ai plus à recompiler la semaine moi-même.</p>
-            <div class="pmt-s5-author-row">
-              <span class="pmt-s5-avatar-circle" aria-hidden="true">S</span>
+          <article class="dtp-s5-testimonial-card">
+            <i class="fa-solid fa-quote-right dtp-s5-quote-icon" aria-hidden="true"></i>
+            <p class="dtp-s5-quote-body">Ce que j'apprécie, c'est l'honnêteté : chaque donnée est sourcée et horodatée. Le Smart Bias me sert de point de départ le lundi, je n'ai plus à recompiler la semaine moi-même.</p>
+            <div class="dtp-s5-author-row">
+              <span class="dtp-s5-avatar-circle" aria-hidden="true">S</span>
               <span>
-                <span class="pmt-s5-author-name">Un membre de la communauté</span>
-                <span class="pmt-s5-author-title">Swing trader, indices &amp; FX</span>
+                <span class="dtp-s5-author-name">Un membre de la communauté</span>
+                <span class="dtp-s5-author-title">Swing trader, indices &amp; FX</span>
               </span>
             </div>
           </article>
 
-          <article class="pmt-s5-testimonial-card">
-            <i class="fa-solid fa-quote-right pmt-s5-quote-icon" aria-hidden="true"></i>
-            <p class="pmt-s5-quote-body">Le calendrier avec le réel vs prévision et la recherche des banques directement dans le navigateur, ça change la donne. Et 24,99 € sans engagement, c'est honnête comparé à ce que je payais avant.</p>
-            <div class="pmt-s5-author-row">
-              <span class="pmt-s5-avatar-circle" aria-hidden="true">A</span>
+          <article class="dtp-s5-testimonial-card">
+            <i class="fa-solid fa-quote-right dtp-s5-quote-icon" aria-hidden="true"></i>
+            <p class="dtp-s5-quote-body">Le calendrier avec le réel vs prévision et la recherche des banques directement dans le navigateur, ça change la donne. Et 24,99 € sans engagement, c'est honnête comparé à ce que je payais avant.</p>
+            <div class="dtp-s5-author-row">
+              <span class="dtp-s5-avatar-circle" aria-hidden="true">A</span>
               <span>
-                <span class="pmt-s5-author-name">Un membre de la communauté</span>
-                <span class="pmt-s5-author-title">Trader macro à temps partiel</span>
+                <span class="dtp-s5-author-name">Un membre de la communauté</span>
+                <span class="dtp-s5-author-title">Trader macro à temps partiel</span>
               </span>
             </div>
           </article>
@@ -3425,35 +3425,35 @@ img,video{height:auto}
       </div>
     </div>
 
-      <!-- Encarts value-props pleine largeur (façon PMT, bas de section) -->
-      <div class="pmt-s5-totals-grid" role="list">
+      <!-- Encarts value-props pleine largeur (épuré, bas de section) -->
+      <div class="dtp-s5-totals-grid" role="list">
 
-        <div class="pmt-s5-total-box" role="listitem">
-          <span class="pmt-s5-total-icon"><i class="fa-solid fa-bolt"></i></span>
-          <span class="pmt-s5-total-num">Temps réel</span>
-          <span class="pmt-s5-total-tag">News &amp; marché en direct</span>
-          <span class="pmt-s5-total-desc">Pastilles LIVE et horodatage vérifiables, du flux de news au Squawk.</span>
+        <div class="dtp-s5-total-box" role="listitem">
+          <span class="dtp-s5-total-icon"><i class="fa-solid fa-bolt"></i></span>
+          <span class="dtp-s5-total-num">Temps réel</span>
+          <span class="dtp-s5-total-tag">News &amp; marché en direct</span>
+          <span class="dtp-s5-total-desc">Pastilles LIVE et horodatage vérifiables, du flux de news au Squawk.</span>
         </div>
 
-        <div class="pmt-s5-total-box" role="listitem">
-          <span class="pmt-s5-total-icon"><i class="fa-solid fa-database"></i></span>
-          <span class="pmt-s5-total-num">First-party</span>
-          <span class="pmt-s5-total-tag">Données datées &amp; sourcées</span>
-          <span class="pmt-s5-total-desc">Chaque chiffre est attribué : vous savez toujours d'où il vient.</span>
+        <div class="dtp-s5-total-box" role="listitem">
+          <span class="dtp-s5-total-icon"><i class="fa-solid fa-database"></i></span>
+          <span class="dtp-s5-total-num">First-party</span>
+          <span class="dtp-s5-total-tag">Données datées &amp; sourcées</span>
+          <span class="dtp-s5-total-desc">Chaque chiffre est attribué : vous savez toujours d'où il vient.</span>
         </div>
 
-        <div class="pmt-s5-total-box" role="listitem">
-          <span class="pmt-s5-total-icon"><i class="fa-solid fa-layer-group"></i></span>
-          <span class="pmt-s5-total-num">10 modules</span>
-          <span class="pmt-s5-total-tag">Un seul terminal</span>
-          <span class="pmt-s5-total-desc">News, calendrier, Smart Bias, COT, Week Ahead, taux, recherche, IA…</span>
+        <div class="dtp-s5-total-box" role="listitem">
+          <span class="dtp-s5-total-icon"><i class="fa-solid fa-layer-group"></i></span>
+          <span class="dtp-s5-total-num">10 modules</span>
+          <span class="dtp-s5-total-tag">Un seul terminal</span>
+          <span class="dtp-s5-total-desc">News, calendrier, Smart Bias, COT, Week Ahead, taux, recherche, IA…</span>
         </div>
 
-        <div class="pmt-s5-total-box" role="listitem">
-          <span class="pmt-s5-total-icon"><i class="fa-solid fa-tag"></i></span>
-          <span class="pmt-s5-total-num">24,99 €</span>
-          <span class="pmt-s5-total-tag">Par mois, sans engagement</span>
-          <span class="pmt-s5-total-desc">Un prix clair, résiliable en un clic, aucun frais caché.</span>
+        <div class="dtp-s5-total-box" role="listitem">
+          <span class="dtp-s5-total-icon"><i class="fa-solid fa-tag"></i></span>
+          <span class="dtp-s5-total-num">24,99 €</span>
+          <span class="dtp-s5-total-tag">Par mois, sans engagement</span>
+          <span class="dtp-s5-total-desc">Un prix clair, résiliable en un clic, aucun frais caché.</span>
         </div>
 
       </div>
@@ -3463,80 +3463,80 @@ img,video{height:auto}
 </section>
 
 <!-- ============ sec7 ============ -->
-<section class="pmt-sec7-viewport" aria-labelledby="pmt-sec7-title">
-  <div class="pmt-sec7-boundless">
+<section class="dtp-sec7-viewport" aria-labelledby="dtp-sec7-title">
+  <div class="dtp-sec7-boundless">
 
-    <div class="pmt-sec7-split-layout">
+    <div class="dtp-sec7-split-layout">
 
       <!-- Colonne gauche : narratif + 4 piliers -->
-      <div class="pmt-sec7-left-stack">
-        <span class="pmt-sec7-eyebrow"><i class="fa-solid fa-shield-halved"></i> Fiabilité &amp; infrastructure</span>
-        <h2 class="pmt-sec7-headline" id="pmt-sec7-title">Une infrastructure sur laquelle compter quand le marché bouge.</h2>
-        <p class="pmt-sec7-description">DataTradingPro tourne dans votre navigateur, sur des données first-party que nous agrégeons en temps réel. Pas de promesse marketing : juste des flux à jour, des méthodes lisibles et une équipe joignable quand vous en avez besoin.</p>
+      <div class="dtp-sec7-left-stack">
+        <span class="dtp-sec7-eyebrow"><i class="fa-solid fa-shield-halved"></i> Fiabilité &amp; infrastructure</span>
+        <h2 class="dtp-sec7-headline" id="dtp-sec7-title">Une infrastructure sur laquelle compter quand le marché bouge.</h2>
+        <p class="dtp-sec7-description">DataTradingPro tourne dans votre navigateur, sur des données first-party que nous agrégeons en temps réel. Pas de promesse marketing : juste des flux à jour, des méthodes lisibles et une équipe joignable quand vous en avez besoin.</p>
 
-        <div class="pmt-sec7-pillars-grid">
-          <div class="pmt-sec7-pillar-box">
-            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-bolt"></i></div>
-            <h3 class="pmt-sec7-pillar-title">Temps réel</h3>
-            <p class="pmt-sec7-pillar-desc">News priorisée, calendrier économique, force des devises et Smart Bias mis à jour en continu, sur un seul écran.</p>
+        <div class="dtp-sec7-pillars-grid">
+          <div class="dtp-sec7-pillar-box">
+            <div class="dtp-sec7-pillar-icon"><i class="fa-solid fa-bolt"></i></div>
+            <h3 class="dtp-sec7-pillar-title">Temps réel</h3>
+            <p class="dtp-sec7-pillar-desc">News priorisée, calendrier économique, force des devises et Smart Bias mis à jour en continu, sur un seul écran.</p>
           </div>
-          <div class="pmt-sec7-pillar-box">
-            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-diagram-project"></i></div>
-            <h3 class="pmt-sec7-pillar-title">Méthode transparente</h3>
-            <p class="pmt-sec7-pillar-desc">Les biais et les analyses s'appuient sur des sources identifiables (COT/CFTC, banques centrales, recherche bancaire), pas sur une boîte noire.</p>
+          <div class="dtp-sec7-pillar-box">
+            <div class="dtp-sec7-pillar-icon"><i class="fa-solid fa-diagram-project"></i></div>
+            <h3 class="dtp-sec7-pillar-title">Méthode transparente</h3>
+            <p class="dtp-sec7-pillar-desc">Les biais et les analyses s'appuient sur des sources identifiables (COT/CFTC, banques centrales, recherche bancaire), pas sur une boîte noire.</p>
           </div>
-          <div class="pmt-sec7-pillar-box">
-            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-headset"></i></div>
-            <h3 class="pmt-sec7-pillar-title">Support à taille humaine</h3>
-            <p class="pmt-sec7-pillar-desc">Une vraie communauté JustOneTrader derrière le terminal. Vos questions trouvent une réponse, sans ticket perdu dans le vide.</p>
+          <div class="dtp-sec7-pillar-box">
+            <div class="dtp-sec7-pillar-icon"><i class="fa-solid fa-headset"></i></div>
+            <h3 class="dtp-sec7-pillar-title">Support à taille humaine</h3>
+            <p class="dtp-sec7-pillar-desc">Une vraie communauté JustOneTrader derrière le terminal. Vos questions trouvent une réponse, sans ticket perdu dans le vide.</p>
           </div>
-          <div class="pmt-sec7-pillar-box">
-            <div class="pmt-sec7-pillar-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
-            <h3 class="pmt-sec7-pillar-title">Amélioration continue</h3>
-            <p class="pmt-sec7-pillar-desc">Le terminal évolue au rythme du marché et de vos retours : nouveaux modules, données et corrections déployés en continu.</p>
+          <div class="dtp-sec7-pillar-box">
+            <div class="dtp-sec7-pillar-icon"><i class="fa-solid fa-arrows-rotate"></i></div>
+            <h3 class="dtp-sec7-pillar-title">Amélioration continue</h3>
+            <p class="dtp-sec7-pillar-desc">Le terminal évolue au rythme du marché et de vos retours : nouveaux modules, données et corrections déployés en continu.</p>
           </div>
         </div>
       </div>
 
       <!-- Colonne droite : flux news live (maquette CSS) -->
-      <aside class="pmt-sec7-news-container" aria-label="Aperçu du flux de news DataTradingPro">
-        <div class="pmt-sec7-news-top-bar">
-          <span class="pmt-sec7-news-branding"><span class="pmt-sec7-news-dot"></span> DTP Live Market News</span>
-          <a class="pmt-sec7-view-all-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Tout voir <i class="fa-solid fa-arrow-right"></i></a>
+      <aside class="dtp-sec7-news-container" aria-label="Aperçu du flux de news DataTradingPro">
+        <div class="dtp-sec7-news-top-bar">
+          <span class="dtp-sec7-news-branding"><span class="dtp-sec7-news-dot"></span> DTP Live Market News</span>
+          <a class="dtp-sec7-view-all-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Tout voir <i class="fa-solid fa-arrow-right"></i></a>
         </div>
 
-        <ul class="pmt-sec7-news-list-stack">
-          <li class="pmt-sec7-news-list-item">
-            <span class="pmt-sec7-item-timestamp">il y a 2 min</span>
-            <span class="pmt-sec7-item-headline">La BCE laisse entendre qu'elle reste dépendante des données avant sa prochaine décision</span>
-            <span class="pmt-sec7-impact-node pmt-impact-high">EUR · Fort</span>
+        <ul class="dtp-sec7-news-list-stack">
+          <li class="dtp-sec7-news-list-item">
+            <span class="dtp-sec7-item-timestamp">il y a 2 min</span>
+            <span class="dtp-sec7-item-headline">La BCE laisse entendre qu'elle reste dépendante des données avant sa prochaine décision</span>
+            <span class="dtp-sec7-impact-node dtp-impact-high">EUR · Fort</span>
           </li>
-          <li class="pmt-sec7-news-list-item">
-            <span class="pmt-sec7-item-timestamp">il y a 11 min</span>
-            <span class="pmt-sec7-item-headline">États-Unis : l'inflation cœur ressort en ligne avec les attentes du marché</span>
-            <span class="pmt-sec7-impact-node pmt-impact-high">USD · Fort</span>
+          <li class="dtp-sec7-news-list-item">
+            <span class="dtp-sec7-item-timestamp">il y a 11 min</span>
+            <span class="dtp-sec7-item-headline">États-Unis : l'inflation cœur ressort en ligne avec les attentes du marché</span>
+            <span class="dtp-sec7-impact-node dtp-impact-high">USD · Fort</span>
           </li>
-          <li class="pmt-sec7-news-list-item">
-            <span class="pmt-sec7-item-timestamp">il y a 24 min</span>
-            <span class="pmt-sec7-item-headline">Le pétrole se stabilise après les tensions géopolitiques au Moyen-Orient</span>
-            <span class="pmt-sec7-impact-node pmt-impact-med">WTI · Moyen</span>
+          <li class="dtp-sec7-news-list-item">
+            <span class="dtp-sec7-item-timestamp">il y a 24 min</span>
+            <span class="dtp-sec7-item-headline">Le pétrole se stabilise après les tensions géopolitiques au Moyen-Orient</span>
+            <span class="dtp-sec7-impact-node dtp-impact-med">WTI · Moyen</span>
           </li>
-          <li class="pmt-sec7-news-list-item">
-            <span class="pmt-sec7-item-timestamp">il y a 38 min</span>
-            <span class="pmt-sec7-item-headline">Royaume-Uni : les ventes au détail surprennent légèrement à la hausse</span>
-            <span class="pmt-sec7-impact-node pmt-impact-med">GBP · Moyen</span>
+          <li class="dtp-sec7-news-list-item">
+            <span class="dtp-sec7-item-timestamp">il y a 38 min</span>
+            <span class="dtp-sec7-item-headline">Royaume-Uni : les ventes au détail surprennent légèrement à la hausse</span>
+            <span class="dtp-sec7-impact-node dtp-impact-med">GBP · Moyen</span>
           </li>
-          <li class="pmt-sec7-news-list-item">
-            <span class="pmt-sec7-item-timestamp">il y a 52 min</span>
-            <span class="pmt-sec7-item-headline">La BoJ maintient le statu quo, le yen reste sous surveillance</span>
-            <span class="pmt-sec7-impact-node pmt-impact-low">JPY · Faible</span>
+          <li class="dtp-sec7-news-list-item">
+            <span class="dtp-sec7-item-timestamp">il y a 52 min</span>
+            <span class="dtp-sec7-item-headline">La BoJ maintient le statu quo, le yen reste sous surveillance</span>
+            <span class="dtp-sec7-impact-node dtp-impact-low">JPY · Faible</span>
           </li>
         </ul>
 
-        <div class="pmt-sec7-news-bottom-row">
-          <span class="pmt-sec7-footer-motto">Données first-party, agrégées en continu.</span>
-          <span class="pmt-sec7-live-radar">
-            <span class="pmt-sec7-radar-blip"></span> Mises à jour temps réel
+        <div class="dtp-sec7-news-bottom-row">
+          <span class="dtp-sec7-footer-motto">Données first-party, agrégées en continu.</span>
+          <span class="dtp-sec7-live-radar">
+            <span class="dtp-sec7-radar-blip"></span> Mises à jour temps réel
           </span>
         </div>
       </aside>
@@ -3544,26 +3544,26 @@ img,video{height:auto}
     </div>
 
     <!-- Matrice confiance (sécurité / vie privée / accès) — sans badge SOC2 -->
-    <div class="pmt-sec7-compliance-matrix">
-      <div class="pmt-sec7-matrix-item">
-        <div class="pmt-sec7-matrix-icon"><i class="fa-solid fa-lock"></i></div>
+    <div class="dtp-sec7-compliance-matrix">
+      <div class="dtp-sec7-matrix-item">
+        <div class="dtp-sec7-matrix-icon"><i class="fa-solid fa-lock"></i></div>
         <div>
-          <h4 class="pmt-sec7-matrix-heading">Sécurité par défaut</h4>
-          <p class="pmt-sec7-matrix-desc">Accès chiffré (HTTPS) et authentification gérée via Whop. Aucune clé ni donnée sensible n'est exposée côté navigateur.</p>
+          <h4 class="dtp-sec7-matrix-heading">Sécurité par défaut</h4>
+          <p class="dtp-sec7-matrix-desc">Accès chiffré (HTTPS) et authentification gérée via Whop. Aucune clé ni donnée sensible n'est exposée côté navigateur.</p>
         </div>
       </div>
-      <div class="pmt-sec7-matrix-item">
-        <div class="pmt-sec7-matrix-icon"><i class="fa-solid fa-user-shield"></i></div>
+      <div class="dtp-sec7-matrix-item">
+        <div class="dtp-sec7-matrix-icon"><i class="fa-solid fa-user-shield"></i></div>
         <div>
-          <h4 class="pmt-sec7-matrix-heading">Vie privée d'abord</h4>
-          <p class="pmt-sec7-matrix-desc">Nous ne revendons pas vos données. Le strict nécessaire est collecté pour faire fonctionner votre accès au terminal.</p>
+          <h4 class="dtp-sec7-matrix-heading">Vie privée d'abord</h4>
+          <p class="dtp-sec7-matrix-desc">Nous ne revendons pas vos données. Le strict nécessaire est collecté pour faire fonctionner votre accès au terminal.</p>
         </div>
       </div>
-      <div class="pmt-sec7-matrix-item">
-        <div class="pmt-sec7-matrix-icon"><i class="fa-solid fa-globe"></i></div>
+      <div class="dtp-sec7-matrix-item">
+        <div class="dtp-sec7-matrix-icon"><i class="fa-solid fa-globe"></i></div>
         <div>
-          <h4 class="pmt-sec7-matrix-heading">Pensé pour les traders</h4>
-          <p class="pmt-sec7-matrix-desc">Conçu par et pour des traders de la communauté JustOneTrader, accessible partout depuis un simple navigateur.</p>
+          <h4 class="dtp-sec7-matrix-heading">Pensé pour les traders</h4>
+          <p class="dtp-sec7-matrix-desc">Conçu par et pour des traders de la communauté JustOneTrader, accessible partout depuis un simple navigateur.</p>
         </div>
       </div>
     </div>

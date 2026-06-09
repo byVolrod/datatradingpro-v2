@@ -3450,7 +3450,7 @@ app.get('/api/london-prep', async (req, res) => {
 // ─── DTP Daily US Opening Briefing ──────────────────────────────────────────
 // Auto-generated at 14:45 Paris (≈ 08:45 NY) and injected directly into the news feed
 
-const _US_BRIEFING_ID_PREFIX = 'pmt-us-briefing-';
+const _US_BRIEFING_ID_PREFIX = 'dtp-us-briefing-';
 
 async function generateUSOpeningBriefing() {
   const dateStr = new Date().toLocaleDateString('en-GB', {
@@ -3916,28 +3916,28 @@ function buildWeeklyMarketRecap({ dateStr, s, reportType }) {
 
 // ─── Wrappers (async for schedule .catch() compatibility) ────────────────────
 async function generateAsiaOpeningBriefing(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'pmt-asia-briefing-', reportType: 'Asia Opening Preparation', cutoffHours: 12, force, buildFn: buildAsiaOpening, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-asia-briefing-', reportType: 'Asia Opening Preparation', cutoffHours: 12, force, buildFn: buildAsiaOpening, dateOffset });
 }
 async function generateLondonRecap(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'pmt-london-recap-', reportType: 'London Session Recap', cutoffHours: 9, force, buildFn: buildLondonRecap, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-london-recap-', reportType: 'London Session Recap', cutoffHours: 9, force, buildFn: buildLondonRecap, dateOffset });
 }
 async function generateUSRecap(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'pmt-us-recap-', reportType: 'US Session Recap', cutoffHours: 10, force, buildFn: buildUSRecap, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-us-recap-', reportType: 'US Session Recap', cutoffHours: 10, force, buildFn: buildUSRecap, dateOffset });
 }
 async function generateDailyEventReview(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'pmt-daily-review-', reportType: 'Daily Event Review', cutoffHours: 24, force, buildFn: buildDailyReview, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-daily-review-', reportType: 'Daily Event Review', cutoffHours: 24, force, buildFn: buildDailyReview, dateOffset });
 }
 async function _generateUSOpeningNew(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'pmt-us-briefing-', reportType: 'US Opening Preparation', cutoffHours: 8, force, buildFn: buildUSOpening, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-us-briefing-', reportType: 'US Opening Preparation', cutoffHours: 8, force, buildFn: buildUSOpening, dateOffset });
 }
 async function generateLondonOpeningBriefing(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'pmt-london-opening-', reportType: 'London Opening Preparation', cutoffHours: 10, force, buildFn: buildLondonOpening, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-london-opening-', reportType: 'London Opening Preparation', cutoffHours: 10, force, buildFn: buildLondonOpening, dateOffset });
 }
 async function generateDailyMarketRecap(force = false, dateOffset = 0) {
-  return generateDailyBriefing({ idPrefix: 'pmt-daily-recap-', reportType: 'Daily Market Recap', cutoffHours: 24, force, buildFn: buildDailyMarketRecap, dateOffset });
+  return generateDailyBriefing({ idPrefix: 'dtp-daily-recap-', reportType: 'Daily Market Recap', cutoffHours: 24, force, buildFn: buildDailyMarketRecap, dateOffset });
 }
 async function generateGlobalEconomicWeekly(force = false) {
-  return generateWeeklyBriefing({ idPrefix: 'pmt-econ-weekly-', reportType: 'Global Economic Weekly', force, buildFn: buildGlobalEconomicWeekly });
+  return generateWeeklyBriefing({ idPrefix: 'dtp-econ-weekly-', reportType: 'Global Economic Weekly', force, buildFn: buildGlobalEconomicWeekly });
 }
 // Vendredi le plus récent (≤ maintenant) — utilisé pour la mention "Week Ending: dd.mm.yyyy"
 function _mostRecentFriday() {
@@ -3951,7 +3951,7 @@ function _mostRecentFriday() {
 // Copie de la logique DataTradingPro : résumé global, cartes d'insights, Key Macro Highlights,
 // et analyse détaillée par devise (USD…NZD). Renvoie null si l'IA échoue (→ fallback par règles).
 async function generateWeeklyRecapAI(force = false) {
-  const idPrefix = 'pmt-mkt-recap-';
+  const idPrefix = 'dtp-mkt-recap-';
   const now  = Date.now();
   // On clé le recap sur la SEMAINE COUVERTE (celle se terminant le vendredi écoulé),
   // pas sur le jour de génération → une génération en milieu de semaine (pour voir la semaine
@@ -4667,7 +4667,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés DTP.
   // Elle agrège TOUTES les lignes (dont Technical + Sentiment) → le Overall reflète exactement la matrice.
   // IMPORTANT : Technical (force 1j) et Sentiment (régime de risque) sont VOLATILS (intra-journée).
-  // On les AFFICHE comme lignes (façon PMT) mais on NE les inclut PAS dans le Overall, sinon le
+  // On les AFFICHE comme lignes (épuré) mais on NE les inclut PAS dans le Overall, sinon le
   // Overall dériverait en continu et contredirait le narratif (généré périodiquement). Le Overall
   // reste donc calé sur les indicateurs STABLES (hebdo/mensuels) → cohérence narratif ↔ matrice garantie.
   const conclusion = {};
@@ -4678,7 +4678,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
     conclusion[c] = concludeBias(vals);
   });
 
-  // Ordre d'affichage (aligné PMT) : Fundamental, Bank Overview, Technical, Sentiment,
+  // Ordre d'affichage (aligné pro) : Fundamental, Bank Overview, Technical, Sentiment,
   // Hedge Fund, Retail, Monetary, Trend, Seasonality.
   const rows = [];
   const _pushGem = k => { const def = SB_GEM_ROWS.find(r => r.key === k); rows.push({ key: k, label: def.label, values: gem[k] || {} }); };
@@ -4899,7 +4899,7 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     if (/retail|sales|consumer|spending|confidence/.test(t)) return 'Consumer';
     if (/trade|export|import|current account/.test(t)) return 'Trade';
     return null; };
-  // Accroche éditoriale FR (façon PMT) — déterministe, 0 IA.
+  // Accroche éditoriale FR (épuré) — déterministe, 0 IA.
   const THEME_FR = { 'Inflation': "l'inflation", 'Labour Market': "l'emploi", 'Growth': 'la croissance', 'Activity (PMI)': "l'activité (PMI)", 'Central Banks': 'les banques centrales', 'Consumer': 'la consommation', 'Trade': 'le commerce extérieur' };
   const DAY_FR = { Monday: 'lundi', Tuesday: 'mardi', Wednesday: 'mercredi', Thursday: 'jeudi', Friday: 'vendredi', Saturday: 'samedi', Sunday: 'dimanche' };
   const _cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
@@ -4958,7 +4958,7 @@ async function generateWeekAhead(force = false, genEditorial = false) {
   console.log(`[WeekAhead] OK — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
   return _weekAhead;
 }
-// Éditorial IA du Week Ahead (titre + résumé par jour, façon PMT) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
+// Éditorial IA du Week Ahead (titre + résumé par jour, épuré) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
 let _waEditorial = { weekKey: null, items: [], at: 0 };
 async function _waApplyEditorial(days, weekKey, gen = false) {
   // Appariement par INDEX (ordre des jours) → robuste. Applique titre + résumé indépendamment.

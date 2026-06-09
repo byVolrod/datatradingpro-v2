@@ -387,7 +387,7 @@ html, body {
 .sym-dd-row .sym-dd-sym { min-width: 0; font-size: 12.5px; }
 .sym-dd-row .sym-dd-name { font-size: 10.5px; }
 
-/* — Barre de sous-onglets (façon PMT : paire orange + onglets denses, soulignement orange actif) — */
+/* — Barre de sous-onglets (épuré : paire orange + onglets denses, soulignement orange actif) — */
 .sym-subtabs { flex: 0 0 auto; display: flex; align-items: center; gap: 1px; height: 36px; padding: 0 9px; border-bottom: 1px solid #18181c; overflow-x: auto; background: #0a0a0c; }
 .sym-subtabs::-webkit-scrollbar { height: 0; }
 .sym-bar-pair { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12.5px; color: #ff7a00; margin-right: 13px; white-space: nowrap; flex: 0 0 auto; }
@@ -4714,7 +4714,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wa-ev-imp--med  { background: #ffb300; }
 .wa-card--open .wa-ev-name { white-space: normal; }   /* déployé → on lit l'intitulé complet */
 
-/* ── Week Ahead : layout 3 panneaux (façon PMT) : Week Ahead | News + Calendar ── */
+/* ── Week Ahead : layout 3 panneaux (épuré) : Week Ahead | News + Calendar ── */
 .wa3 { flex: 1; min-width: 0; min-height: 0; width: 100%; display: grid; grid-template-columns: var(--wa-left, 47%) 6px minmax(0,1fr); overflow: hidden; }
 /* Frise gauche : design "frise" (grands cercles + ligne dégradée), défilement interne si la semaine dépasse l'écran */
 .wa3 > .wa-scroll { min-height: 0; min-width: 0; overflow-y: auto; overflow-x: hidden; padding: 12px 14px; }
@@ -7162,7 +7162,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .pd-invoice-dl { font-size: 14px; color: #555; cursor: pointer; flex-shrink: 0; margin-left: 8px; }
 .pd-invoice-dl:hover { color: #f7941d; }
 
-/* ── Support section (encadrés façon PMT) ── */
+/* ── Support section (encadrés épuré) ── */
 .pd-support-link {
   display: flex;
   align-items: center;
