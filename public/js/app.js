@@ -3624,6 +3624,17 @@ function _sbBankStance(pos, cur) {
 }
 function _sbRenderBankChildren(box, cur) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // ── Source PRIORITAIRE : biais IA par banque (toutes les banques d'Institution, dynamique) ──
+  const bs = _biasData && _biasData.bankStances;
+  if (bs && Object.keys(bs).length) {
+    const banks = Object.keys(bs).sort();
+    box.innerHTML = banks.map(name => {
+      const stance = (bs[name] || {})[cur] || 'Neutral';
+      return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(name)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(stance)}</span></div>`;
+    }).join('');
+    return;
+  }
+  // ── Repli : positions de trade extraites (ancien mécanisme) ──
   const byBank = new Map();   // agrège par banque : net haussier/baissier sur la devise
   (_sbBankPos || []).forEach(p => {
     const st = _sbBankStance(p, cur); if (!st) return;
@@ -3708,6 +3719,16 @@ function _sbFundMatrixRows(cur) {
   });
 }
 function _sbBankMatrixRows(cur) {
+  // Source PRIORITAIRE : biais IA par banque (toutes les banques d'Institution, valeur par devise).
+  const bs = _biasData && _biasData.bankStances;
+  if (bs && Object.keys(bs).length) {
+    return Object.keys(bs).sort().map(name => {
+      const values = {};
+      cur.forEach(c => { values[c] = (bs[name] || {})[c] || '—'; });
+      return { label: name, values };
+    });
+  }
+  // Repli : positions de trade extraites.
   const byBank = new Map();
   (_sbBankPos || []).forEach(p => {
     const name = (p.bank || '').replace(/\s+Research$/i, '').trim(); if (!name) return;
