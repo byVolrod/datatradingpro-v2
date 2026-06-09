@@ -142,14 +142,14 @@
 
   /* ── HERO (inspiration terminal pro texte à gauche + image desk en fond) ── */
   /* ── HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande stats en bas ── */
-  .hero{position:relative;width:100%;overflow:hidden;background:#020203;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:440px}
-  /* PAR DÉFAUT (desktop) : BLOC IMAGE dédié, calé à droite (55%), <img object-cover> = pas de zoom destructeur */
-  .hero-shot{position:absolute;top:0;bottom:0;right:0;left:auto;width:55%;z-index:0;overflow:hidden;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%);mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%)}
-  .hero-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:right bottom;opacity:.85;filter:contrast(1.05) saturate(1.04)}
-  /* Voile par-dessus : NOIR 100% à gauche → transparent à droite. PAS de dégradé bas → l'image continue derrière la bande de stats */
-  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#020203 0%,#020203 40%,rgba(2,2,3,.3) 58%,rgba(2,2,3,0) 90%)}
-  /* Mobile : l'image passe en fond plein (cover) derrière le texte, sans masque */
-  @media(max-width:880px){.hero .hero-shot{left:0;right:0;width:100%;-webkit-mask-image:none;mask-image:none}.hero-shot img{object-position:center center}}
+  .hero{position:relative;width:100%;overflow:hidden;background:#020203;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:clamp(500px,60svh,640px);padding:0}
+  /* IMAGE PLEIN CADRE (full-bleed) : la scène DTP couvre tout le hero, l'image est coupée pile au bas (bande stats) */
+  .hero-shot{position:absolute;inset:0;z-index:0;overflow:hidden}
+  .hero-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 44%;opacity:.94;filter:contrast(1.06) saturate(1.05)}
+  /* Voile par-dessus : NOIR à gauche (lisibilité texte) → image révélée à droite, + léger assombrissement haut/bas */
+  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#020203 0%,rgba(2,2,3,.93) 26%,rgba(2,2,3,.62) 50%,rgba(2,2,3,.22) 76%,rgba(2,2,3,0) 100%),linear-gradient(180deg,rgba(2,2,3,.5) 0%,rgba(2,2,3,0) 22%),linear-gradient(0deg,rgba(2,2,3,.42) 0%,rgba(2,2,3,0) 16%)}
+  /* Mobile : on garde le centre de la scène (moniteur + laptop) */
+  @media(max-width:880px){.hero-shot img{object-position:center center}}
   .hero .hero-inner{position:relative;z-index:2;width:100%;flex:1;display:flex;align-items:center;padding:clamp(14px,2.4vw,34px) 0 clamp(12px,1.6vw,22px)}
   .hero-copy{max-width:560px;display:flex;flex-direction:column;align-items:flex-start;gap:13px}
   .hero-eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--orange);background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.22);padding:5px 12px;border-radius:6px}
@@ -170,7 +170,7 @@
   .hero-tm-role{font-size:11px;color:var(--text3)}
   .hero .hero-statband{position:relative;z-index:2;background:rgba(2,2,3,.62);border-top:1px solid var(--line);-webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px)}
   @media(min-width:768px){.hero-copy{padding-right:24px}}
-  @media(max-width:880px){.hero-veil{background:linear-gradient(180deg,rgba(7,7,9,.72) 0%,rgba(7,7,9,.3) 38%,rgba(7,7,9,.5) 78%,rgba(7,7,9,.92) 100%)}}
+  @media(max-width:880px){.hero-veil{background:linear-gradient(180deg,rgba(2,2,3,.86) 0%,rgba(2,2,3,.6) 34%,rgba(2,2,3,.66) 72%,rgba(2,2,3,.95) 100%)}}
   @media(max-width:620px){.hero{min-height:auto}.hero .hero-inner{padding:clamp(20px,6vw,36px) 0 clamp(18px,4vw,26px)}.hero-copy{max-width:none;gap:14px}.hero h1{font-size:clamp(30px,8.4vw,42px)}.hero-cta{flex-direction:column;align-items:stretch;width:100%;gap:11px}.hero-cta .btn{width:100%;justify-content:center;padding:15px 20px}.hero-tm{display:flex;max-width:none}.hero-rating-txt{font-size:12px}}
   .hero-mock{display:none;position:relative;z-index:2;width:100%;overflow:hidden;background:transparent;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 90%,transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 16%,#000 90%,transparent 100%)}
   .hero-mock::after{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,#070709 0,rgba(7,7,9,0) 22%)}
@@ -2825,7 +2825,7 @@
 
 <!-- HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande de stats en bas -->
 <section class="hero" aria-label="DataTradingPro — terminal macro & forex en temps réel">
-  <div class="hero-shot" aria-hidden="true"><img src="/img/hero-terminal.jpg?v=4" alt="" loading="eager" decoding="async"></div>
+  <div class="hero-shot" aria-hidden="true"><img src="/img/hero-desk.jpg?v=1" alt="" loading="eager" decoding="async"></div>
   <div class="hero-veil" aria-hidden="true"></div>
   <div class="wrap hero-inner">
     <div class="hero-copy">
