@@ -578,6 +578,9 @@ function _csBadgeHtml(ccy, fullHex, lightHex, valStr) {
 function buildStrengthChart(containerId, data, opts = {}) {
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
   const _iso   = !!opts.isolated;              // graphique autonome (rapport) → ne touche pas la réf. globale
+  // (optionnel) n'afficher QUE ces devises (ex. les 2 de la paire EURAUD → EUR+AUD) : les autres
+  // sont masquées d'emblée ET exclues de l'animation d'apparition (sinon `appear` les ré-affiche).
+  const _only  = (Array.isArray(opts.onlyCurrencies) && opts.onlyCurrencies.length) ? new Set(opts.onlyCurrencies) : null;
   disposeRoot(containerId);
   const container = document.getElementById(containerId);
   if (container) container.innerHTML = '';
@@ -720,6 +723,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
     // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit)
     series.events.on('hidden', () => { try { range.get('label')?.set('forceHidden', true);  range.get('grid')?.set('forceHidden', true);  } catch {} });
     series.events.on('shown',  () => { try { range.get('label')?.set('forceHidden', false); range.get('grid')?.set('forceHidden', false); } catch {} });
+
+    // Mode « paire » : on masque d'emblée les devises hors-paire (courbe + badge). La légende les
+    // conserve (grisées, re-cliquables), exactement comme la référence PMT.
+    if (_only && !_only.has(ccy)) { try { series.hide(0); } catch {} }
   }
 
   // ── Légende cliquable (en haut) : clic sur une devise = masquer / réafficher sa courbe ──
@@ -758,7 +765,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
     }
   });
 
-  chart.series.values.forEach((s, i) => s.appear(500, i * 20));
+  // Apparition animée — SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
+  chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
 
   // ── Anti-collision des badges : écarte verticalement ceux trop proches ───────
   function declutter() {
@@ -2931,10 +2939,10 @@ window._retryCalendar = function() {
       try { if (typeof disposeRoot === 'function') disposeRoot('sym-strength'); } catch {}   // anti-fuite amCharts (Render 512Mo)
       sEl.innerHTML = '';
       try {
-        const sc = (typeof buildStrengthChart === 'function') ? buildStrengthChart('sym-strength', data, {}) : null;
-        if (sc && sc.seriesMap && ccys.length) {
-          Object.keys(sc.seriesMap).forEach(c => { if (!ccys.includes(c)) { try { sc.seriesMap[c].hide(0); } catch {} } });
-        } else if (!sc && window.buildIsolatedStrength) {
+        const sc = (typeof buildStrengthChart === 'function')
+          ? buildStrengthChart('sym-strength', data, ccys.length ? { onlyCurrencies: ccys } : {})
+          : null;
+        if (!sc && window.buildIsolatedStrength) {
           window.buildIsolatedStrength('sym-strength', ccys[0] || 'USD', _symStrPeriod);
         }
       } catch { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; }
