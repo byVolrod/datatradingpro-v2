@@ -142,4 +142,4 @@ async function scrapeResearchSpa(cfg) {
   } finally { _busy[key] = false; }
 }
 
-module.exports = { scrapeResearchSpa };
+module.exports = { scrapeResearchSpa, dateFromUrl: _dateFromUrl };
