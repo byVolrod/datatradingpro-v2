@@ -145,7 +145,7 @@
   .hero{position:relative;width:100%;overflow:hidden;background:#020203;border-bottom:1px solid var(--line);display:flex;flex-direction:column;min-height:calc(100svh - 108px);padding:0}
   /* IMAGE PLEIN CADRE (full-bleed) : la scène DTP couvre tout le hero, l'image est coupée pile au bas (bande stats) */
   .hero-shot{position:absolute;inset:0;z-index:0;overflow:hidden}
-  .hero-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 44%;opacity:.94;filter:contrast(1.06) saturate(1.05)}
+  .hero-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 55%;opacity:.94;filter:contrast(1.06) saturate(1.05)}
   /* Voile par-dessus : NOIR à gauche (lisibilité texte) → image révélée à droite, + léger assombrissement haut/bas */
   .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#020203 0%,rgba(2,2,3,.93) 26%,rgba(2,2,3,.62) 50%,rgba(2,2,3,.22) 76%,rgba(2,2,3,0) 100%),linear-gradient(180deg,rgba(2,2,3,.5) 0%,rgba(2,2,3,0) 22%),linear-gradient(0deg,rgba(2,2,3,.42) 0%,rgba(2,2,3,0) 16%)}
   /* Mobile : on garde le centre de la scène (moniteur + laptop) */
@@ -2827,7 +2827,7 @@
 
 <!-- HERO façon terminal pro : image plein cadre, texte + témoignage à gauche, bande de stats en bas -->
 <section class="hero" aria-label="DataTradingPro — terminal macro & forex en temps réel">
-  <div class="hero-shot" aria-hidden="true"><img src="/img/hero-desk.jpg?v=1" alt="" loading="eager" decoding="async"></div>
+  <div class="hero-shot" aria-hidden="true"><img src="/img/hero-desk.jpg?v=2" alt="" loading="eager" decoding="async"></div>
   <div class="hero-veil" aria-hidden="true"></div>
   <div class="wrap hero-inner">
     <div class="hero-copy">
