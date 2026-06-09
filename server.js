@@ -2676,7 +2676,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
         if (!p || !p.url || (p.ts && p.ts < cutoff)) continue;
         const id = 'br-' + Buffer.from(p.url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
         if (merged.has(id)) continue;
-        merged.set(id, { id, title: p.title, url: p.url, timestamp: p.ts || Date.now(), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+        merged.set(id, { id, title: p.title, url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
       }
     } catch (e) { console.warn(`[ResearchSPA ${cfg.source}] échec:`, e.message); }
 
@@ -2698,7 +2698,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
           if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
           const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
           if (merged.has(id)) return;
-          const ts = (_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now();
+          const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());   // jamais de date future
           if (ts < cutoff) return;
           merged.set(id, { id, title, url: key, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
           _added++;
@@ -2822,7 +2822,8 @@ async function _fetchBankResearch(full = false) {
   const before = _brCache.length;
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
-  const _all  = [...merged.values()];
+  const _nowTs = Date.now();
+  const _all  = [...merged.values()].map(i => (i && i.timestamp > _nowTs) ? { ...i, timestamp: _nowTs } : i);   // jamais de rapport « daté dans le futur » (mauvais parsing d'URL)
   const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc', 'amundi', 'westpac', 'qcam', 'goldman'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
