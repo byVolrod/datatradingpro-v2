@@ -6946,6 +6946,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   color: #555;
   font-size: 13px;
   pointer-events: none;
+  display: flex;
+  align-items: center;
 }
 .pd-pw-toggle {
   position: absolute;
