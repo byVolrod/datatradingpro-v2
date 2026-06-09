@@ -4351,7 +4351,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
-const BIAS_VER = 'v8-fr';   // v8 : narratif IA rédigé EN FRANÇAIS → bump pour régénérer en FR les narratifs anglais en cache   // bump → force une régén (self-heal au démarrage/horaire)
+const BIAS_VER = 'v9-techsent';   // v9 : ajout des lignes Technical + Sentiment (Overall recalculé) → bump pour régénérer matrice + narratifs cohérents   // bump → force une régén (self-heal au démarrage/horaire)
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
