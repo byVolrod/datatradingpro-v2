@@ -334,7 +334,7 @@ html, body {
 .nav-item--symbol .sym-x { margin-left: 3px; font-size: 14px; line-height: 1; color: #8a8a93; padding: 0 3px; border-radius: 3px; }
 .nav-item--symbol .sym-x:hover { color: #fff; background: #2a2a30; }
 #view-symbol { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.sym-grid { display: grid; grid-template-columns: var(--sym-col, 1.55fr) 6px minmax(0, 1fr); grid-template-rows: var(--sym-row, 1.4fr) 6px minmax(0, 1fr); gap: 0; padding: 8px; height: 100%; min-height: 0; box-sizing: border-box; }
+.sym-grid { display: grid; grid-template-columns: var(--sym-col, 1fr) 6px minmax(0, 1fr); grid-template-rows: var(--sym-row, 1fr) 6px minmax(0, 1fr); gap: 0; padding: 8px; height: 100%; min-height: 0; box-sizing: border-box; }
 /* Splitters orange draggables (vertical entre colonnes, horizontal entre lignes) — volatils (reset au reload) */
 .sym-vsplit { background: transparent; cursor: col-resize; position: relative; z-index: 30; }
 .sym-vsplit::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 2px; background: rgba(255,255,255,0.05); transition: background .12s; }
@@ -388,7 +388,8 @@ html, body {
 .sym-dd-row .sym-dd-name { font-size: 10.5px; }
 
 /* — Barre de sous-onglets (épuré : paire orange + onglets denses, soulignement orange actif) — */
-.sym-subtabs { flex: 0 0 auto; display: flex; align-items: center; gap: 1px; height: 36px; padding: 0 9px; border-bottom: 1px solid #18181c; overflow-x: auto; background: #0a0a0c; }
+/* Barre de sous-onglets paire RETIRÉE (demande utilisateur) : la vue paire = uniquement les 4 panneaux Overview, à égalité 50/50. */
+.sym-subtabs { display: none; }
 .sym-subtabs::-webkit-scrollbar { height: 0; }
 .sym-bar-pair { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12.5px; color: #ff7a00; margin-right: 13px; white-space: nowrap; flex: 0 0 auto; }
 .sym-subtab { background: none; border: 0; border-bottom: 2px solid transparent; color: #8a8a93; font-family: var(--font-mono, monospace); font-size: 11px; font-weight: 600; letter-spacing: .02em; padding: 0 11px; height: 36px; cursor: pointer; white-space: nowrap; flex: 0 0 auto; }

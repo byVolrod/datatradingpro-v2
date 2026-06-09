@@ -13,7 +13,7 @@ const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHis
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail } = require('./scrapers/forexfactory-news');
 const { scrapeBlackRock } = require('./scrapers/blackrock');   // BlackRock Investment Institute — Weekly Commentary (PDF hebdo, Puppeteer best-effort)
-const { scrapeResearchSpa } = require('./scrapers/research-spa');   // Natixis / Danske — recherche sur sites SPA (Puppeteer best-effort)
+const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/research-spa');   // Natixis / Danske — recherche sur sites SPA (Puppeteer best-effort) + extracteur de date d'URL
 const { fetchTVCalendar, fetchTVCalendarFull } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
@@ -2679,6 +2679,33 @@ async function _fetchResearchSpaInto(merged, cutoff) {
         merged.set(id, { id, title: p.title, url: p.url, timestamp: p.ts || Date.now(), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
       }
     } catch (e) { console.warn(`[ResearchSPA ${cfg.source}] échec:`, e.message); }
+
+    // Repli HTTP direct (axios+cheerio) — certains sites sont SERVER-RENDERED (ex. KBC) : leurs liens
+    // d'articles sont déjà dans le HTML initial alors que Puppeteer headless est bloqué/sert une autre
+    // page. On tente donc une extraction directe, en PLUS du scrape Puppeteer. Les sites anti-bot/SPA
+    // renvoient 403 / 0 lien → no-op silencieux. Dédupliqué (mêmes IDs que seeds + Puppeteer).
+    try {
+      const r = await axios.get(cfg.url, { timeout: 12000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36' }, validateStatus: s => s < 500 });
+      if (r.status === 200 && typeof r.data === 'string') {
+        const $ = cheerio.load(r.data); const _seen = new Set(); let _added = 0;
+        $('a[href]').each((_, a) => {
+          let href = ($(a).attr('href') || '').trim(); if (!href) return;
+          try { href = new URL(href, cfg.url).href; } catch { return; }
+          if (href.indexOf(cfg.host) < 0 || !cfg.hrefRe.test(href)) return;
+          const key = href.split('#')[0];
+          if (_seen.has(key)) return; _seen.add(key);
+          const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
+          if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
+          const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+          if (merged.has(id)) return;
+          const ts = (_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now();
+          if (ts < cutoff) return;
+          merged.set(id, { id, title, url: key, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+          _added++;
+        });
+        if (_added) console.log(`[ResearchHTTP ${cfg.source}] +${_added} lien(s) (server-rendered)`);
+      }
+    } catch {}
   }
 }
 
@@ -2898,7 +2925,7 @@ function _persistHistory(key, arr) {
   // débattu (max 1 écriture / 5 s par clé) pour ne pas marteler la BDD
   clearTimeout(_histSaveTimers[key]);
   _histSaveTimers[key] = setTimeout(() => {
-    const cap = key === 'bank_research' ? 180 : 120;
+    const cap = key === 'bank_research' ? 500 : 120;   // assez large pour restaurer TOUT le feed après un redémarrage (sinon affichage partiel « 100 of 100 »)
     // On NE persiste PAS le lourd `fullContent`/`content` (re-scrapé au démarrage) → payload BDD léger.
     const light = _histPrune(arr).slice(0, cap).map(({ fullContent, content, ...rest }) => rest);
     auth.aiCacheSet('hist:' + key, light).catch(() => {});
