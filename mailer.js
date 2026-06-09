@@ -611,6 +611,9 @@ function getEmailCatalog() {
     { key: 'reengagement',  audience: 'Client', label: 'Réengagement (inactif ~7j)',       trigger: 'Utilisateur inactif depuis ~7 jours',         ..._buildReengagement(s.name, 7) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
     { key: 'adminRenewal',  audience: 'Admin',  label: 'Notif paiement / nouveau client',  trigger: 'Paiement Whop traité (→ toi)',                ...buildAdminRenewalNotice({ clientEmail: s.to, clientName: s.name, expiresAt: s.expiresAt, isNew: true }) },
+    { key: 'referralCredited', audience: 'Client', label: 'Parrainage — filleul confirmé', trigger: 'Un filleul s\'abonne via votre lien',          ...buildReferralCredited({ name: s.name, count: 1, untilNext: 2 }) },
+    { key: 'referralReward',   audience: 'Client', label: 'Parrainage — mois offert',       trigger: '3 parrainages atteints → 1 mois offert',      ...buildReferralReward({ name: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
+    { key: 'adminReferral',    audience: 'Admin',  label: 'Parrainage — mois crédité (→ toi)', trigger: 'Un membre débloque un mois offert',         ...buildAdminReferralReward({ refEmail: s.to, refName: s.name, count: 3, newExpiresAt: now + 30 * 86400000 }) },
   ];
 }
 
@@ -666,13 +669,59 @@ function renderEmailGallery(catalog, status) {
 </body></html>`;
 }
 
+// ── 9) Parrainage : filleul confirmé (→ parrain) ─────────────────────────────
+function buildReferralCredited({ name, count, untilNext }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher client');
+  const restant = `${untilNext} parrainage${untilNext > 1 ? 's' : ''}`;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Nouveau filleul confirmé 🎉</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom}, un nouvel abonné vient de rejoindre <strong style="color:#fff;">DataTradingPro</strong> grâce à votre lien de parrainage. Merci !</p>
+    ${_credBox([['Filleuls confirmés', String(count)], ['Avant 1 mois offert', restant]])}
+    <p style="margin:0 0 14px;">Plus que <strong style="color:#f7941d;">${restant}</strong> et nous créditons <strong style="color:#fff;">1 mois d'accès offert</strong> sur votre compte.</p>
+    ${_button('Voir mes parrainages', APP_URL)}
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: `DataTradingPro — nouveau filleul confirmé (${count})`, html: _layout('Parrainage', body) };
+}
+async function sendReferralCredited(d) { const m = buildReferralCredited(d); return _send(d.to, m.subject, m.html); }
+
+// ── 10) Parrainage : mois offert débloqué (→ parrain) ────────────────────────
+function buildReferralReward({ name, count, newExpiresAt }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher client');
+  const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '—';
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">🎁 1 mois offert débloqué !</p>
+    <p style="margin:0 0 14px;">Bravo ${prenom} — vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#f7941d;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
+    ${_credBox([['Récompense', "1 mois d'accès offert"], ['Accès prolongé jusqu\'au', end]])}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès au terminal. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
+    ${_button('Accéder au terminal', APP_URL)}
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">Merci de faire grandir la communauté,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: `DataTradingPro — 🎁 mois offert débloqué (palier ${count})`, html: _layout('Récompense parrainage', body) };
+}
+async function sendReferralReward(d) { const m = buildReferralReward(d); return _send(d.to, m.subject, m.html); }
+
+// ── 11) Parrainage : notif ADMIN (→ toi) ─────────────────────────────────────
+function buildAdminReferralReward({ refEmail, refName, count, newExpiresAt }) {
+  const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '—';
+  const body = `
+    <p style="margin:0 0 12px;color:#ffffff;font-size:17px;font-weight:700;">Mois offert crédité (parrainage)</p>
+    <p style="margin:0 0 10px;">Un membre a atteint un palier de parrainage. <strong>1 mois d'accès DTP</strong> lui a été crédité automatiquement.</p>
+    ${_credBox([['Membre', refName || refEmail], ['Email', refEmail], ['Parrainages', String(count)], ['Accès prolongé au', end]])}
+    <p style="margin:0;font-size:13px;color:#9aa3b2;">Pour offrir aussi le mois côté <strong>facturation Whop</strong>, appliquez-le manuellement dans le tableau de bord Whop (le crédit ci-dessus ne touche que l'accès DTP, pas la facturation).</p>`;
+  return { subject: `DTP — mois offert crédité · ${refEmail}`, html: _layout('Admin — parrainage', body) };
+}
+async function sendAdminReferralReward(d) { const m = buildAdminReferralReward(d); const to = d.to || process.env.ADMIN_EMAIL || SUPPORT_EMAIL; return _send(to, m.subject, m.html); }
+
 module.exports = {
   // envoi (API publique inchangée)
   sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
+  sendReferralCredited, sendReferralReward, sendAdminReferralReward,
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
+  buildReferralCredited, buildReferralReward, buildAdminReferralReward,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification

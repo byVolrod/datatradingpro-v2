@@ -711,6 +711,14 @@ async function _whopRenewOrCreate(mem) {
     if (existing.role === 'admin') return;                 // on ne touche jamais aux admins
     const wasInactive = !existing.active;
     await auth.updateUser(existing.id, { active: true, expiresAt: mem.expiresAt });
+    // Parrainage : rejoue les jours OFFERTS cumulés du membre, sinon le renouvellement Whop les écraserait.
+    try {
+      const _bonus = Number(await auth.aiCacheGet('refbonus:' + existing.id, 8640000000000).catch(() => 0)) || 0;
+      if (_bonus > 0 && mem.expiresAt) {
+        const _ext = new Date(new Date(mem.expiresAt).getTime() + _bonus * 86400000).toISOString();
+        await auth.updateUser(existing.id, { expiresAt: _ext });
+      }
+    } catch (e) { console.error('[Referral] bonus reapply:', e.message); }
     // Anti-doublon DURABLE : Whop peut refire le MÊME renouvellement (retries du webhook, ou plusieurs
     // types d'events pour un seul paiement) → 1 SEUL email par (user, échéance). Clé = échéance, donc
     // un VRAI renouvellement (nouvelle date) ré-enverra bien un mail.
@@ -782,6 +790,126 @@ app.put('/api/auth/me/profile', async (req, res) => {
     console.error('[Auth] profile update error:', e.message);
     res.status(500).json({ error: 'Erreur serveur' });
   }
+});
+
+// ═══════════════════ PARRAINAGE (REFERRALS) ═══════════════════
+// Stockage KV (table ai_cache — voir note anti-prune ci-dessous) :
+//   referral:<userId>   = { code, count, referrals:[{email,at}], rewards, bonusDays, updatedAt }
+//   refcodes:index      = { "<CODE>": "<userId>" }  ← index inverse, 1 clé unique gardée "chaude"
+//   referredby:<userId> = "<parrainId>"             ← verrou : un filleul rattaché une seule fois
+//   refbonus:<userId>   = <joursOfferts cumulés>    ← rejoué à chaque renouvellement Whop
+// NB anti-prune : aiCachePrune supprime tout ce qui dépasse ~31 j → on RE-écrit (touch) ces clés à chaque
+// chargement (GET /api/referrals), donc elles restent fraîches tant que l'abonné utilise le terminal.
+const REF_TARGET     = parseInt(process.env.REFERRAL_TARGET || '3', 10);   // 3 parrainages = 1 mois offert
+const REF_BONUS_DAYS = parseInt(process.env.REFERRAL_BONUS_DAYS || '30', 10);
+const REF_MAX_AGE_DAYS = parseInt(process.env.REFERRAL_MAX_AGE_DAYS || '45', 10); // le filleul doit être un compte récent
+const REF_BASE_URL   = process.env.REFERRAL_BASE_URL || 'https://datatradingpro.com';
+const KV_FOREVER     = 8640000000000;   // lit la valeur quel que soit son âge
+
+function _refMaskEmail(e) {
+  e = String(e || ''); const i = e.indexOf('@');
+  if (i < 1) return e || 'Filleul';
+  const u = e.slice(0, i), d = e.slice(i + 1);
+  return (u.length <= 2 ? u[0] + '*' : u.slice(0, 2) + '****') + '@' + d;
+}
+function _refCodeFor(userId) {
+  const h = require('crypto').createHash('sha1').update('dtpref:' + String(userId)).digest('hex');
+  const ab = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ';   // sans 0/O/1/I
+  let n = parseInt(h.slice(0, 12), 16), s = '';
+  for (let i = 0; i < 7; i++) { s += ab[n % ab.length]; n = Math.floor(n / ab.length); }
+  return 'DTP-' + s;
+}
+function _refAddDaysISO(base, days) {
+  const t = base ? new Date(base).getTime() : Date.now();
+  const from = Math.max(isNaN(t) ? Date.now() : t, Date.now());
+  return new Date(from + days * 86400000).toISOString();
+}
+async function _refIndexAdd(code, userId) {
+  const idx = (await auth.aiCacheGet('refcodes:index', KV_FOREVER).catch(() => null)) || {};
+  idx[code] = String(userId);
+  await auth.aiCacheSet('refcodes:index', idx).catch(() => {});   // re-set ⇒ created_at rafraîchi ⇒ survit au prune
+}
+async function _refResolve(code) {
+  const idx = (await auth.aiCacheGet('refcodes:index', KV_FOREVER).catch(() => null)) || {};
+  return idx[code] || null;
+}
+async function _refGetRecord(userId) {
+  let rec = await auth.aiCacheGet('referral:' + userId, KV_FOREVER).catch(() => null);
+  if (!rec || !rec.code) rec = { code: _refCodeFor(userId), count: 0, referrals: [], rewards: 0, bonusDays: 0, updatedAt: Date.now() };
+  return rec;
+}
+async function _refSaveRecord(userId, rec) {
+  rec.updatedAt = Date.now();
+  await auth.aiCacheSet('referral:' + userId, rec).catch(() => {});   // touch
+  await _refIndexAdd(rec.code, userId);
+}
+
+// Données de parrainage du membre courant (et "touch" anti-prune)
+app.get('/api/referrals', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  try {
+    const uid = req.session.userId;
+    const rec = await _refGetRecord(uid);
+    await _refSaveRecord(uid, rec);
+    const count = rec.count || 0;
+    res.json({
+      ok: true, code: rec.code, link: REF_BASE_URL + '/?ref=' + rec.code,
+      count, target: REF_TARGET, progress: count % REF_TARGET,
+      untilNext: (REF_TARGET - (count % REF_TARGET)) % REF_TARGET || REF_TARGET,
+      rewards: rec.rewards || 0, bonusDays: rec.bonusDays || 0,
+      history: (rec.referrals || []).slice(-15).reverse()
+    });
+  } catch (e) { console.error('[Referral] get:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
+});
+
+// Rattachement d'un filleul (appelé au 1er login du filleul via le cookie dtp_ref)
+app.post('/api/referrals/claim', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const me = req.session.userId;
+  const code = String(req.body?.code || '').trim().toUpperCase();
+  try {
+    if (!/^DTP-[0-9A-Z]{4,}$/.test(code)) return res.json({ ok: false, reason: 'no-code' });
+    if (await auth.aiCacheGet('referredby:' + me, KV_FOREVER).catch(() => null)) return res.json({ ok: false, reason: 'already' });
+    const refUserId = await _refResolve(code);
+    if (!refUserId) return res.json({ ok: false, reason: 'bad-code' });
+    if (String(refUserId) === String(me)) return res.json({ ok: false, reason: 'self' });
+    const meUser = await auth.getUserById(me).catch(() => null);
+    if (meUser && meUser.created_at) {
+      const ageDays = (Date.now() - new Date(meUser.created_at).getTime()) / 86400000;
+      if (ageDays > REF_MAX_AGE_DAYS) return res.json({ ok: false, reason: 'too-old' });
+    }
+    await auth.aiCacheSet('referredby:' + me, String(refUserId)).catch(() => {});   // verrou immuable
+    const rec = await _refGetRecord(refUserId);
+    rec.referrals = rec.referrals || [];
+    rec.referrals.push({ email: _refMaskEmail(meUser && meUser.email), at: Date.now() });
+    rec.count = (rec.count || 0) + 1;
+    let rewarded = false;
+    if (rec.count % REF_TARGET === 0) {
+      rec.rewards = (rec.rewards || 0) + 1;
+      rec.bonusDays = (rec.bonusDays || 0) + REF_BONUS_DAYS;
+      rewarded = true;
+      try {
+        const refU = await auth.getUserById(refUserId);
+        if (refU && refU.role !== 'admin') {
+          const newExp = _refAddDaysISO(refU.expires_at, REF_BONUS_DAYS);
+          await auth.updateUser(refUserId, { expiresAt: newExp });               // +1 mois d'ACCÈS DTP (pas la facturation Whop)
+          await auth.aiCacheSet('refbonus:' + refUserId, rec.bonusDays).catch(() => {});
+          if (refU.email) {
+            mailer.sendReferralReward({ to: refU.email, name: refU.name, count: rec.count, newExpiresAt: newExp }).catch(() => {});
+            mailer.sendAdminReferralReward({ refEmail: refU.email, refName: refU.name, count: rec.count, newExpiresAt: newExp }).catch(() => {});
+          }
+        }
+      } catch (e) { console.error('[Referral] reward grant:', e.message); }
+    }
+    await _refSaveRecord(refUserId, rec);
+    if (!rewarded) {
+      try {
+        const refU = await auth.getUserById(refUserId);
+        if (refU && refU.email) mailer.sendReferralCredited({ to: refU.email, name: refU.name, count: rec.count, untilNext: (REF_TARGET - (rec.count % REF_TARGET)) % REF_TARGET || REF_TARGET }).catch(() => {});
+      } catch {}
+    }
+    res.json({ ok: true, rewarded });
+  } catch (e) { console.error('[Referral] claim:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
 
 // ═══════════════════ CHAT SUPPORT ═══════════════════
