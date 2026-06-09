@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260610P" />
+  <link rel="stylesheet" href="/css/style.css?v=20260610Q" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -896,8 +896,25 @@
         <span class="pd-section-arrow">›</span>
       </button>
       <div class="pd-section-content">
-        <div class="pd-section-inner">
-          <div style="color:#888;font-size:13px;line-height:1.5">Parrainez un ami et obtenez 1 mois gratuit.<br>Votre lien de parrainage sera disponible prochainement.</div>
+        <div class="pd-section-inner" id="pd-ref-inner">
+          <div class="pd-ref-hero">🎁 <b>3 parrainages = 1 mois offert.</b> Partagez votre lien, on s'occupe du reste.</div>
+          <label class="pd-label" style="margin-top:4px">Votre lien de parrainage</label>
+          <div class="pd-ref-linkrow">
+            <input class="pd-input" id="pd-ref-link" readonly value="Chargement…" onclick="this.select()">
+            <button class="pd-btn pd-ref-copy" id="pd-ref-copy" onclick="referralCopy()">Copier</button>
+          </div>
+          <div class="pd-ref-stats">
+            <div class="pd-ref-stat"><b id="pd-ref-count">0</b><span>Filleuls</span></div>
+            <div class="pd-ref-stat"><b id="pd-ref-rewards">0</b><span>Mois offerts</span></div>
+          </div>
+          <div class="pd-ref-prog">
+            <div class="pd-ref-prog-top"><span id="pd-ref-prog-label">0 / 3 vers votre prochain mois offert</span></div>
+            <div class="pd-ref-bar"><i id="pd-ref-bar-fill"></i></div>
+          </div>
+          <div class="pd-ref-histwrap">
+            <div class="pd-ref-histtitle">Historique</div>
+            <div id="pd-ref-history" class="pd-ref-history"><div class="pd-ref-empty">Aucun filleul pour le moment.</div></div>
+          </div>
         </div>
       </div>
     </div>
@@ -976,6 +993,8 @@
     } catch {}
     // Dès que le rôle est connu, on vérifie les messages non lus (badge sur l'icône chat)
     if (typeof _chatPollUnread === 'function') _chatPollUnread();
+    // Parrainage : rattache un filleul (cookie dtp_ref) puis charge les stats
+    try { if (typeof referralInit === 'function') referralInit(); } catch (e) {}
     const displayName = d.user.name || d.user.email || '?';
     const initial = displayName.charAt(0).toUpperCase();
 
@@ -1179,6 +1198,44 @@
       trigger.classList.add('pd-open');
     }
   }
+
+  // ─── Parrainage (referrals) ──────────────────────────────────────────────
+  function _dtpGetCookie(n){ const m = document.cookie.match('(?:^|; )' + n + '=([^;]*)'); return m ? decodeURIComponent(m[1]) : null; }
+  function _dtpSetRefCookie(v){ const d = location.hostname.indexOf('datatradingpro.com') > -1 ? ';domain=.datatradingpro.com' : ''; document.cookie = 'dtp_ref=' + encodeURIComponent(v) + ';path=/;max-age=5184000;samesite=lax' + d; }
+  function _dtpDelCookie(n){ const d = location.hostname.indexOf('datatradingpro.com') > -1 ? ';domain=.datatradingpro.com' : ''; document.cookie = n + '=;path=/;max-age=0' + d; }
+  window.referralInit = function referralInit(){
+    try {
+      // capture ?ref= si on arrive sur le desk avec un lien de parrainage
+      try { const urlRef = new URLSearchParams(location.search).get('ref'); if (urlRef) _dtpSetRefCookie(urlRef); } catch (e) {}
+      const ref = _dtpGetCookie('dtp_ref');
+      if (ref) {
+        fetch('/api/referrals/claim', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ code: ref }) })
+          .then(r => r.json()).then(d => { if (d && d.ok) _dtpDelCookie('dtp_ref'); }).catch(()=>{}).then(loadReferrals);
+      } else { loadReferrals(); }
+    } catch (e) { try { loadReferrals(); } catch (_) {} }
+  };
+  window.loadReferrals = function loadReferrals(){
+    fetch('/api/referrals').then(r => r.json()).then(d => {
+      if (!d || !d.ok) return;
+      const $ = id => document.getElementById(id);
+      if ($('pd-ref-link'))       $('pd-ref-link').value = d.link;
+      if ($('pd-ref-count'))      $('pd-ref-count').textContent = d.count;
+      if ($('pd-ref-rewards'))    $('pd-ref-rewards').textContent = d.rewards;
+      if ($('pd-ref-prog-label')) $('pd-ref-prog-label').textContent = d.progress + ' / ' + d.target + ' vers votre prochain mois offert';
+      if ($('pd-ref-bar-fill'))   $('pd-ref-bar-fill').style.width = Math.round((d.progress / d.target) * 100) + '%';
+      const h = $('pd-ref-history');
+      if (h) {
+        if (!d.history || !d.history.length) { h.innerHTML = '<div class="pd-ref-empty">Aucun filleul pour le moment.</div>'; }
+        else { h.innerHTML = d.history.map(x => { const dt = x.at ? new Date(x.at).toLocaleDateString('fr-FR') : ''; const em = String(x.email || 'Filleul').replace(/[<>&]/g, ''); return '<div class="pd-ref-hrow"><span class="pd-ref-hmail">' + em + '</span><span class="pd-ref-hdate">' + dt + '</span></div>'; }).join(''); }
+      }
+    }).catch(()=>{});
+  };
+  window.referralCopy = function referralCopy(){
+    const link = document.getElementById('pd-ref-link'); if (!link) return;
+    const done = () => { const b = document.getElementById('pd-ref-copy'); if (b) { const o = b.textContent; b.textContent = 'Copié ✓'; b.classList.add('pd-ref-copied'); setTimeout(() => { b.textContent = o; b.classList.remove('pd-ref-copied'); }, 1600); } };
+    const fallback = () => { try { link.select(); link.setSelectionRange(0, 99999); document.execCommand('copy'); done(); } catch (e) {} };
+    if (navigator.clipboard && navigator.clipboard.writeText) { navigator.clipboard.writeText(link.value).then(done).catch(fallback); } else { fallback(); }
+  };
 
   // ─── Helper: show msg ────────────────────────────────────────────────────
   function pdMsg(id, text, type) {

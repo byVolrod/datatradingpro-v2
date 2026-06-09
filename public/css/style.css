@@ -6722,6 +6722,29 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   padding: 14px 16px 18px;
 }
 
+/* ── Parrainage (drawer profil) ── */
+.pd-ref-hero{background:rgba(247,148,29,.08);border:1px solid rgba(247,148,29,.28);border-radius:8px;padding:10px 12px;font-size:12.5px;line-height:1.5;color:#f3d9b0;margin-bottom:14px}
+.pd-ref-hero b{color:#f7941d}
+.pd-ref-linkrow{display:flex;gap:8px;margin:6px 0 14px}
+.pd-ref-linkrow .pd-input{flex:1;min-width:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
+.pd-ref-copy{flex:0 0 auto;white-space:nowrap}
+.pd-ref-copy.pd-ref-copied{background:#22c55e !important;border-color:#22c55e !important;color:#06210f !important}
+.pd-ref-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.pd-ref-stat{background:#0f0f12;border:1px solid #1e1e1e;border-radius:8px;padding:12px;text-align:center}
+.pd-ref-stat b{display:block;font-size:22px;font-weight:800;color:#fff;line-height:1}
+.pd-ref-stat span{font-size:11px;color:#888;margin-top:4px;display:block}
+.pd-ref-prog{margin-bottom:14px}
+.pd-ref-prog-top{font-size:12px;color:#a0a8b0;margin-bottom:7px}
+.pd-ref-bar{height:8px;background:#1a1a1f;border-radius:99px;overflow:hidden}
+.pd-ref-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,#f7941d,#ffc46b);border-radius:99px;transition:width .45s ease}
+.pd-ref-histwrap{margin-top:2px}
+.pd-ref-histtitle{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#6b7178;margin-bottom:8px}
+.pd-ref-history{display:flex;flex-direction:column;gap:6px;max-height:160px;overflow-y:auto}
+.pd-ref-hrow{display:flex;justify-content:space-between;align-items:center;background:#0f0f12;border:1px solid #1a1a1f;border-radius:6px;padding:7px 10px;font-size:12px}
+.pd-ref-hmail{color:#cbd5e1;font-family:ui-monospace,Menlo,Consolas,monospace}
+.pd-ref-hdate{color:#6b7178;font-size:11px}
+.pd-ref-empty{color:#6b7178;font-size:12.5px;padding:10px 0;text-align:center}
+
 /* ── Form elements inside drawer ── */
 .pd-label {
   display: block;
