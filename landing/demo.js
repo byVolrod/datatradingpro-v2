@@ -274,7 +274,7 @@
           '<span class="dd-logo">DataTradingPro</span>' +
           '<span class="dd-sim"><span class="pd"></span>SIMULATION</span>' +
           '<span class="dd-clock dd-mono" id="dd-clock">' + clockTxt + '</span>' +
-          '<a class="dd-cta" href="' + WHOP + '">Accéder au terminal →</a><button class="dd-x" aria-label="Fermer">✕</button>' +
+          '<button class="dd-x" aria-label="Fermer">✕</button>' +
         '</div>' +
         '<div class="dd-tick">' + tickHtml + '</div>' +
         '<div class="dd-grid">' +
