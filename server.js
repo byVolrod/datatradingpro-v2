@@ -4407,6 +4407,36 @@ async function _sbTrendRow() {
   return out;
 }
 
+// Technical RÉEL : direction de la force de la devise sur 1 JOUR (lecture court terme du prix),
+// DISTINCT de Trend qui, lui, mesure la pente sur la semaine. 0 IA, 0 invention.
+async function _sbTechnicalRow() {
+  const out = {};
+  try {
+    const cs = await computeCurrencyStrength('1d');
+    SB_CURRENCIES.forEach(c => {
+      const s = cs?.series?.[c];
+      if (!s || s.length < 2) { out[c] = 'Range'; return; }
+      const d = s[s.length - 1].v - s[0].v;
+      out[c] = d > 0.3 ? 'Uptrend' : d < -0.3 ? 'Downtrend' : 'Range';
+    });
+  } catch { SB_CURRENCIES.forEach(c => out[c] = 'Range'); }
+  return out;
+}
+
+// Sentiment RÉEL : régime de risque global (Risk Sentiment du terminal, _riskData.pct ∈ [-100;+100])
+// mappé par PROFIL de devise — risk-on → pro-cycliques (AUD/NZD/CAD) haussières & refuges
+// (USD/JPY/CHF) baissiers ; inverse en risk-off. Mapping FX standard, 100% data-driven.
+const _SB_RISK_PROFILE = { AUD: 1, NZD: 1, CAD: 0.8, EUR: 0.4, GBP: 0.4, USD: -0.5, JPY: -1, CHF: -1 };
+function _sbSentimentRow() {
+  const out = {};
+  const pct = (_riskData && typeof _riskData.pct === 'number') ? _riskData.pct : 0;   // >0 risk-on, <0 risk-off
+  SB_CURRENCIES.forEach(c => {
+    const v = pct * (_SB_RISK_PROFILE[c] || 0);
+    out[c] = v > 15 ? 'Bullish' : v < -15 ? 'Bearish' : 'Neutral';
+  });
+  return out;
+}
+
 // Seasonality RÉELLE (même méthodo que market-bulls : rendement moyen du mois civil sur 5 ans),
 // dérivée de la courbe saisonnière déjà calculée par FX List (_seasonal) → AUCUN fetch en plus, AUCUNE IA.
 // Par paire : rendement saisonnier du MOIS COURANT = seasonal[m] - seasonal[m-1] (courbe cumulée Jan→Déc).
@@ -4585,31 +4615,53 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
 
   const trend = await _sbTrendRow();
   const seasonality = await _sbSeasonalityRow();   // RÉELLE (saisonnalité 5 ans, cf. _sbSeasonalityRow) — plus de devinette IA
+  const technical = await _sbTechnicalRow();       // force devise 1 jour (court terme)
+  const sentiment = _sbSentimentRow();             // régime de risque mappé par devise
   // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés DTP.
+  // Elle agrège TOUTES les lignes (dont Technical + Sentiment) → le Overall reflète exactement la matrice.
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
     const vals = SB_GEM_ROWS.map(r => (gem[r.key] ? gem[r.key][c] : null));
+    vals.push(technical[c]);
+    vals.push(sentiment[c]);
     vals.push(trend[c]);
     vals.push(seasonality[c]);
     conclusion[c] = concludeBias(vals);
   });
 
-  // Ordre d'affichage : Fundamental, Bank, HedgeFund, Retail, Monetary, Trend, Seasonality
+  // Ordre d'affichage (aligné PMT) : Fundamental, Bank Overview, Technical, Sentiment,
+  // Hedge Fund, Retail, Monetary, Trend, Seasonality.
   const rows = [];
-  ['fundamental', 'bankOverview', 'hedgeFund', 'retail', 'monetary'].forEach(k => {
-    const def = SB_GEM_ROWS.find(r => r.key === k);
-    rows.push({ key: k, label: def.label, values: gem[k] || {} });
-  });
+  const _pushGem = k => { const def = SB_GEM_ROWS.find(r => r.key === k); rows.push({ key: k, label: def.label, values: gem[k] || {} }); };
+  _pushGem('fundamental');
+  _pushGem('bankOverview');
+  rows.push({ key: 'technical', label: 'Technical', values: technical });
+  rows.push({ key: 'sentiment', label: 'Sentiment', values: sentiment });
+  _pushGem('hedgeFund');
+  _pushGem('retail');
+  _pushGem('monetary');
   rows.push({ key: 'trend', label: 'Trend', values: trend });
   rows.push({ key: 'seasonality', label: 'Seasonality', values: seasonality });
 
   // Narratif IA hebdo par devise (UN seul appel → JSON). On conserve le narratif précédent en repli
   // (ne JAMAIS le perdre), et on ne retente PAS d'appel IA si l'IA vient déjà d'échouer (quota).
   let narrative = (_smartBias && _smartBias.narrative) || null;
-  // On NE garde en repli que les narratifs RÉELS (IA) — jamais une synthèse de secours héritée d'un ancien cache.
-  if (narrative) { const _clean = {}; for (const _c of SB_CURRENCIES) if (_sbIsRealNarrative(narrative[_c])) _clean[_c] = narrative[_c]; narrative = Object.keys(_clean).length ? _clean : null; }
+  const _prevBias = (_smartBias && _smartBias.narrativeBias) || {};
+  // On NE garde en repli QUE les narratifs RÉELS (IA) ET dont le biais reflète TOUJOURS le Overall
+  // recalculé (sinon le texte contredirait la matrice → on le jette → il sera régénéré, cohérent).
+  if (narrative) {
+    const _clean = {};
+    for (const _c of SB_CURRENCIES) if (_sbIsRealNarrative(narrative[_c]) && _prevBias[_c] === conclusion[_c]) _clean[_c] = narrative[_c];
+    narrative = Object.keys(_clean).length ? _clean : null;
+  }
+  // Tag de biais : pour chaque devise, le Overall que son narratif reflète → garantit la cohérence.
+  const narrativeBias = {};
+  for (const _c of SB_CURRENCIES) if (narrative && narrative[_c]) narrativeBias[_c] = conclusion[_c];
   if (aiOk) {
-    try { const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]); if (n) narrative = Object.assign({}, narrative || {}, n); } catch {}
+    try {
+      const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]);
+      if (n) { narrative = Object.assign({}, narrative || {}, n); for (const _c of Object.keys(n)) narrativeBias[_c] = conclusion[_c]; }
+    } catch {}
   }
   // Versioning : on archive la semaine sortante (max 5 semaines distinctes) quand on bascule sur une NOUVELLE semaine.
   try {
@@ -4621,7 +4673,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
       auth.aiCacheSet('smartbias:history', _smartBiasHistory).catch(() => {});
     }
   } catch {}
-  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
+  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, narrativeBias, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
   // NB : on NE remplit PLUS le repli dans _smartBias.narrative (il reste IA-seul). Le repli data-driven est
   // ajouté UNIQUEMENT à l'affichage par _sbFillNarrative → le retry IA (_sbEnsureNarrative) régénère ce qui manque.
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
@@ -4687,8 +4739,12 @@ let _sbNarrBusy = false, _sbNarrLastTry = 0;
 async function _sbEnsureNarrative() {
   if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) return;
   const have = _smartBias.narrative || {};
-  const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]));        // devises sans VRAI narratif IA (absent OU repli)
-  if (!missing.length) return;                                                    // tous réels → rien à régénérer
+  const concl = _smartBias.conclusion || {};
+  const nb = _smartBias.narrativeBias || {};
+  // À régénérer : narratif absent / repli / TRONQUÉ, OU narratif dont le biais ne reflète PLUS le
+  // Overall courant (cohérence garantie narratif ↔ matrice).
+  const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]) || nb[c] !== concl[c]);
+  if (!missing.length) return;                                                    // tous réels ET cohérents → rien à régénérer
   if (_sbNarrBusy) return;
   if (typeof _aiQuietHours === 'function' && _aiQuietHours()) return;             // heures creuses → on attend
   if (Date.now() - _sbNarrLastTry < 10 * 60 * 1000) return;                       // 1 tentative / 10 min max
@@ -4697,6 +4753,8 @@ async function _sbEnsureNarrative() {
     const narr = await _sbGenerateNarratives(_smartBias.rows, _smartBias.conclusion, _smartBias.ctxLines || [], missing);
     if (narr && Object.keys(narr).length) {
       _smartBias.narrative = Object.assign({}, _smartBias.narrative || {}, narr); // merge : garde l'existant réel, ajoute les régénérés
+      _smartBias.narrativeBias = Object.assign({}, _smartBias.narrativeBias || {});
+      for (const c of Object.keys(narr)) _smartBias.narrativeBias[c] = concl[c];   // tag = Overall reflété par le nouveau texte
       try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
       auth.aiCacheSet('smartbias:matrix', _smartBias).catch(() => {});            // DURABLE → survit aux restarts
       try { broadcast({ type: 'smartbias_update', bias: _sbFillNarrative(_smartBias) }); } catch {} // MAJ live (narratif résolu)
