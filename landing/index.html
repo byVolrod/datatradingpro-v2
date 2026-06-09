@@ -81,7 +81,7 @@
   .logo svg{display:none}
   .logo b{color:#fff;font-weight:inherit}
   .nav-links{display:flex;align-items:center;gap:30px;margin-left:auto}
-  .nav-links a{position:relative;font-size:14px;color:var(--text2);transition:color .15s;padding:4px 0}
+  .nav-links a{position:relative;font-size:14px;color:#fff;transition:color .15s;padding:4px 0}
   .nav-links a:hover{color:var(--text)}
   .nav-links a::after{content:"";position:absolute;left:0;right:100%;bottom:-2px;height:2px;background:var(--orange);border-radius:2px;transition:right .22s ease}
   .nav-links a:hover::after{right:0}
@@ -108,7 +108,7 @@
   .nav-cta{display:flex;align-items:center;gap:10px;flex-shrink:0}
   /* Bouton CTA de la navbar : compact, calé sur la hauteur de la barre (plus le gros bouton hero) */
   .nav-cta .btn{padding:9px 18px;font-size:13.5px;line-height:1}
-  .nav-login{font-size:14px;color:var(--text2);transition:.15s}
+  .nav-login{font-size:14px;color:#fff;transition:.15s}
   .nav-login:hover{color:var(--text)}
   header>.wrap{max-width:none;padding:0 clamp(20px,4.2vw,52px)}
   .btn-outline-orange{border-color:var(--orange);color:var(--orange);background:transparent}
@@ -146,9 +146,9 @@
   /* IMAGE ENTIÈRE (contain) : toute la scène DTP visible (moniteur + laptop complet) ; un fond flouté de la même photo remplit les côtés (pas de barres noires nettes) */
   .hero-shot{position:absolute;top:0;left:0;right:0;bottom:108px;z-index:0;overflow:hidden}
   .hero-shot::before{content:"";position:absolute;inset:0;z-index:0;background:url(/img/hero-desk.jpg?v=2) center center/cover no-repeat;filter:blur(34px) brightness(.42) saturate(1.1);transform:scale(1.14)}
-  .hero-shot img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:contain;object-position:center;opacity:1;filter:contrast(1.05) saturate(1.04)}
+  .hero-shot img{position:absolute;inset:0;z-index:1;width:100%;height:100%;object-fit:contain;object-position:right center;opacity:1;filter:contrast(1.05) saturate(1.04)}
   /* Voile par-dessus : NOIR à gauche (lisibilité texte) → image révélée à droite, + léger assombrissement haut/bas */
-  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(270deg,#020203 0%,rgba(2,2,3,.78) 7%,rgba(2,2,3,0) 17%),linear-gradient(90deg,#020203 0%,rgba(2,2,3,.93) 26%,rgba(2,2,3,.62) 50%,rgba(2,2,3,.22) 76%,rgba(2,2,3,0) 100%),linear-gradient(180deg,rgba(2,2,3,.5) 0%,rgba(2,2,3,0) 22%),linear-gradient(0deg,rgba(2,2,3,.42) 0%,rgba(2,2,3,0) 16%)}
+  .hero-veil{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#020203 0%,rgba(2,2,3,.93) 26%,rgba(2,2,3,.62) 50%,rgba(2,2,3,.22) 76%,rgba(2,2,3,0) 100%),linear-gradient(180deg,rgba(2,2,3,.5) 0%,rgba(2,2,3,0) 22%),linear-gradient(0deg,rgba(2,2,3,.42) 0%,rgba(2,2,3,0) 16%)}
   /* Mobile : plein cadre (cover) plutôt que contain (évite le letterbox en portrait) */
   @media(max-width:880px){.hero-shot{bottom:0}.hero-shot::before{display:none}.hero-shot img{object-fit:cover;object-position:center center}}
   .hero .hero-inner{position:relative;z-index:2;width:100%;flex:1;display:flex;align-items:center;padding:clamp(14px,2.4vw,34px) 0 clamp(12px,1.6vw,22px)}
@@ -327,6 +327,9 @@
     h1,h2,.dtp-ov-title,.dtpov-title,.dtp-sec3-title,.dtp-sec4-lead,.dtp-sec7-headline{line-height:1.14}
     .features,.steps,#ressources .res-grid,#mission .mission-grid{gap:16px}
     .price-card{margin-left:auto;margin-right:auto}
+    html{overflow-x:clip}
+    .wrap{padding-left:18px;padding-right:18px}
+    .dtp-sec3-image-area,.dtp-sec3-bg-img{max-width:100%}
   }
   .sec-head .tag{font-size:12.5px;color:var(--orange);font-weight:700;text-transform:uppercase;letter-spacing:.09em}
   .sec-head h2{font-size:clamp(27px,4.6vw,44px);line-height:1.1;margin:12px 0}
