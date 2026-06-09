@@ -3017,10 +3017,10 @@ app.post('/api/report-insights', async (req, res) => {
     if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: stored }); }
   } catch {}
   try {
-    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport de session, génère 8 à 10 "insights" courts pour un carrousel "AI Insights", classés par importance.
-Mélange DEUX types de cartes (comme DataTradingPro) :
-(A) 2 à 4 insights NARRATIFS de haut niveau qui résument les thèmes clés (géopolitique, tarifs, énergie, sentiment…) → asset=null ET signal=null.
-(B) des insights par ACTIF concret réellement discuté (ex: "USD/JPY","AUD/USD","EUR/USD","US Dollar","Brent Crude","Spot Gold","S&P 500","US 10Y","Bitcoin") AVEC un signal technique quand le rapport implique une direction claire : "BUY" (haussier), "SELL" (baissier) ou "NEUTRAL" (équilibré). Si l'actif est juste un constat d'actualité SANS direction nette → signal=null.
+    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport (recherche de banque, note macro OU recap de session), génère 8 à 10 "insights" courts pour un carrousel "AI Insights", classés par importance.
+PRIORITÉ ABSOLUE — cartes par ACTIF avec SIGNAL : pour CHAQUE devise/paire réellement analysée ("USD/JPY","EUR/USD","GBP/USD","AUD/USD","USD/CAD","EUR/GBP","US Dollar","EUR","GBP","JPY","CHF","CAD","AUD","NZD"…) ET chaque actif clé ("Spot Gold","Brent Crude","S&P 500","US 10Y","Bitcoin"…), donne un signal dès que le rapport implique une direction : "BUY" (haussier), "SELL" (baissier) ou "NEUTRAL" (équilibré). C'est LE cœur de la valeur → vise le MAXIMUM de cartes signal, devises/paires EN PREMIER.
+Ajoute 1 à 3 cartes NARRATIVES de contexte (géopolitique, tarifs, énergie, banques centrales, sentiment…) → asset=null ET signal=null.
+Si un actif est cité SANS direction nette → signal=null.
 Règles STRICTES :
 - JAMAIS d'actif générique vague ("FX","Markets","Macro","Forex","Currencies") → pour ceux-là, fais-en un insight narratif (asset=null).
 - "text": UNE phrase concise (max 26 mots), en anglais, orientée trader (le driver clé + l'impact).
