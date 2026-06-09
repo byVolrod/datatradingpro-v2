@@ -142,7 +142,7 @@
 
   /* ── HERO (clone PMT : texte à gauche + image desk en fond) ── */
   .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line);background:#070709}
-  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=1") center center/cover no-repeat;opacity:.95;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 52%);mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.35) 22%,#000 52%)}
+  .hero-photo{position:absolute;top:0;bottom:0;right:0;width:100%;z-index:0;background:#070709 url("/img/hero-terminal.jpg?v=1") center center/cover no-repeat;opacity:1;pointer-events:none;-webkit-mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 14%,#000 38%);mask-image:linear-gradient(90deg,transparent 0%,rgba(0,0,0,.55) 14%,#000 38%)}
   .hero{position:relative;width:100%;min-height:620px;display:flex;align-items:center;overflow:hidden;background:#070709;border-bottom:1px solid var(--line)}
   .hero-fade{position:absolute;inset:0;z-index:1;pointer-events:none;background:linear-gradient(90deg,#070709 0%,rgba(7,7,9,.6) 32%,rgba(7,7,9,0) 62%)}
   .hero .hero-inner{position:relative;z-index:2;width:100%;display:grid;grid-template-columns:1fr;gap:32px;align-items:center}
@@ -156,7 +156,7 @@
   .hero-trust{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:12.5px;color:var(--text3);margin-top:2px}
   .hero-trust .ok{display:inline-flex;align-items:center;gap:6px;color:var(--green)}
   @media(min-width:768px){.hero-photo{width:60%}.hero .hero-inner{grid-template-columns:1fr 1fr;gap:40px}}
-  @media(max-width:767px){.hero{min-height:560px}.hero-photo{opacity:.42;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%);mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%)}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.45) 0%,rgba(7,7,9,.8) 62%,#070709 100%)}}
+  @media(max-width:767px){.hero{min-height:560px}.hero-photo{opacity:.72;-webkit-mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%);mask-image:linear-gradient(to bottom,#000 0,#000 30%,transparent 88%)}.hero-fade{background:linear-gradient(to bottom,rgba(7,7,9,.45) 0%,rgba(7,7,9,.8) 62%,#070709 100%)}}
   .hero-statband{background:#070709;border-bottom:1px solid var(--line)}
   .hero-statband .hs-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:0;background:transparent;max-width:var(--maxw);margin:0 auto;padding:0 clamp(16px,4vw,24px)}
   .hero-statband .hs{display:flex;align-items:center;gap:15px;padding:20px clamp(10px,1.8vw,22px);background:transparent;border-left:1px solid var(--line)}
@@ -455,15 +455,15 @@
   .price-card .reassure{font-size:12px;color:var(--text3);margin-top:14px}
 
   /* ── FAQ ── */
-  #faq{background:var(--bg1);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
-  .faq{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+  #faq{background:var(--bg1);border-top:1px solid var(--line);border-bottom:1px solid var(--line);padding:clamp(40px,5.2vw,60px) 0}
+  .faq{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:8px}
   .faq details{background:var(--bg2);border:1px solid var(--line);border-radius:11px;padding:0 20px;transition:.15s}
   .faq details[open]{border-color:var(--line2)}
-  .faq summary{list-style:none;cursor:pointer;padding:18px 0;font-size:15.5px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .faq summary{list-style:none;cursor:pointer;padding:13px 0;font-size:15px;font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:12px}
   .faq summary::-webkit-details-marker{display:none}
   .faq summary::after{content:"+";color:var(--orange);font-size:24px;font-weight:300;line-height:1;transition:transform .2s}
   .faq details[open] summary::after{transform:rotate(45deg)}
-  .faq details p{padding:0 0 18px;color:var(--text2);font-size:14.5px;line-height:1.65}
+  .faq details p{padding:0 0 14px;color:var(--text2);font-size:14.5px;line-height:1.65}
 
   /* ── CTA FINAL ── */
   .cta-final{text-align:center;padding:clamp(70px,11vw,110px) clamp(16px,4vw,24px);position:relative;overflow:hidden}
@@ -1001,8 +1001,8 @@
   width:52%;
   z-index:0;
   background:#08080a url("/img/testimonial-trader.jpg?v=1") center left/cover no-repeat;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 34%,#000 100%);
-  mask-image:linear-gradient(90deg,transparent 0,#000 34%,#000 100%);
+  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%);
+  mask-image:linear-gradient(90deg,transparent 0,#000 22%,#000 100%);
 }
 
 /* ── Colonne gauche ── */
