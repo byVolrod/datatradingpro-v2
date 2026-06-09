@@ -85,6 +85,14 @@ async function _scrapeSite(cfg) {
     for (let i = 0; i < 18; i++) { let t = ''; try { t = await page.title(); } catch {} if (t && !/just a moment|access denied|forbidden|attention required|pardon|robot/i.test(t)) break; await new Promise(r => setTimeout(r, 1000)); }
     await page.waitForFunction(() => document.querySelectorAll('a[href]').length > 15, { timeout: 12_000, polling: 500 }).catch(() => {});
     for (let i = 0; i < 3; i++) { try { await page.evaluate(() => window.scrollBy(0, document.body.scrollHeight)); } catch {} await new Promise(r => setTimeout(r, 1000)); }
+    // Hydratation SPA : attendre qu'au MOINS un lien d'article matchant le pattern apparaisse dans
+    // le DOM (CIBC/KBC injectent leurs tuiles tardivement, après le 1er rendu). Best-effort : les
+    // sites déjà peuplés résolvent instantanément, les bloqués expirent proprement (9 s max).
+    await page.waitForFunction((reSrc, host) => {
+      const re = new RegExp(reSrc, 'i');
+      return Array.prototype.some.call(document.querySelectorAll('a[href]'), a => { const h = a.href || ''; return h.indexOf(host) >= 0 && re.test(h); });
+    }, { timeout: 9000, polling: 600 }, cfg.hrefRe.source, cfg.host).catch(() => {});
+    for (let i = 0; i < 2; i++) { try { await page.evaluate(() => window.scrollBy(0, document.body.scrollHeight)); } catch {} await new Promise(r => setTimeout(r, 700)); }
     const raw = await page.evaluate((reSrc, host) => {
       const re = new RegExp(reSrc, 'i');
       const out = []; const seen = new Set();
