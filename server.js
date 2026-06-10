@@ -5641,7 +5641,7 @@ const RP_MAP = {
   CAD: { slug: 'boc', rate: t => t['Overnight Rate Target'] },
   AUD: { slug: 'rba', rate: t => t.cash_rate_target },
 };
-const RP_TTL = 30 * 60 * 1000;   // rafraîchi toutes les 30 min (la donnée bouge en intraday, pas besoin de temps réel)
+const RP_TTL = 15 * 60 * 1000;   // refetch rateprobability au max toutes les 15 min (leur donnée se met à jour ~horaire) — le front interroge /api/rates en continu
 let _rpCache = { at: 0, banks: {} };
 let _rpRefreshing = false;
 const RP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json', 'Referer': 'https://rateprobability.com/' };
