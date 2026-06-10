@@ -1910,7 +1910,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return '<div class="rtc">'
           + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
           + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
-          + '<span class="rtc-src rtc-src--' + (b.source === 'maison' ? 'est' : 'mkt') + '" title="' + (b.source === 'maison' ? 'Estimation maison' : 'Probabilités implicites de marché') + '">' + (b.source === 'maison' ? 'est.' : 'march&eacute;') + '</span>'
           + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
           + '<div class="rtc-metrics">'
           + '<div class="rtc-m--rate"><span class="rtc-k">Taux actuel</span><span class="rtc-v rtc-rate">' + Number(b.rate).toFixed(2) + '%</span></div>'
