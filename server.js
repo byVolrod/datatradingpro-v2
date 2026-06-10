@@ -5629,10 +5629,84 @@ auth.aiCacheGet('rates:fedwatch').then(v => { if (v && v.at) _fedWatch = v; }).c
 setTimeout(_computeFedWatch, 9000);
 setInterval(_computeFedWatch, 45 * 60 * 1000);   // rafraîchi ~45 min (données futures = quasi temps réel)
 
+// ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
+// API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
+// SNB (CHF) & RBNZ (NZD) = "Pro" → repli automatique sur le modèle maison. Données mises en cache (mémoire +
+// Supabase durable) et rafraîchies EN TÂCHE DE FOND (jamais à l'ouverture client) — anti-OOM : timeout + cap taille.
+const RP_MAP = {
+  USD: { slug: 'fed', rate: t => t.midpoint },
+  EUR: { slug: 'ecb', rate: t => t.ecb_deposit_facility },
+  GBP: { slug: 'boe', rate: t => t.current_target },
+  JPY: { slug: 'boj', rate: t => t.current_target },
+  CAD: { slug: 'boc', rate: t => t['Overnight Rate Target'] },
+  AUD: { slug: 'rba', rate: t => t.cash_rate_target },
+};
+const RP_TTL = 30 * 60 * 1000;   // rafraîchi toutes les 30 min (la donnée bouge en intraday, pas besoin de temps réel)
+let _rpCache = { at: 0, banks: {} };
+let _rpRefreshing = false;
+const RP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json', 'Referer': 'https://rateprobability.com/' };
+try { auth.aiCacheGet('rates:rateprob').then(c => { if (c && c.banks && c.at) _rpCache = c; }).catch(() => {}); } catch {}
+async function _rpFetchBank(slug) {
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), 8000);
+  try {
+    const r = await fetch('https://rateprobability.com/api/' + slug + '/latest', { headers: RP_HEADERS, signal: ctrl.signal });
+    if (!r.ok) return null;
+    const txt = await r.text();
+    if (txt.length > 250000) return null;                                       // garde-fou mémoire
+    const j = JSON.parse(txt);
+    if (!j || j.error || !j.today || !Array.isArray(j.today.rows)) return null;  // paywall "Pro" / format inattendu
+    return j;
+  } catch { return null; } finally { clearTimeout(to); }
+}
+function _rpTransform(code, j, now) {
+  const map = RP_MAP[code]; if (!map) return null;
+  let rate = +map.rate(j.today); if (!isFinite(rate)) return null; rate = +rate.toFixed(2);
+  const rows = (j.today.rows || []).filter(x => x && x.meeting_iso && Date.parse(x.meeting_iso + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 5);
+  if (!rows.length) return null;
+  let prev = rate;
+  const meetings = rows.map(x => {
+    const move = Math.max(0, Math.min(100, Math.round(+x.prob_move_pct || 0)));
+    const isCut = !!x.prob_is_cut;
+    const hold = Math.max(0, 100 - move), cut = isCut ? move : 0, hike = isCut ? 0 : move;
+    const impl = +x.implied_rate_post_meeting;
+    const impliedBps = isFinite(impl) ? +(((impl - prev) * 100).toFixed(1)) : 0;
+    if (isFinite(impl)) prev = impl;
+    const days = Math.max(0, Math.round((Date.parse(x.meeting_iso + 'T00:00:00Z') - now) / 86400000));
+    const baseCase = move >= 50 ? (isCut ? 'CUT' : 'HIKE') : 'HOLD';
+    return { date: x.meeting_iso, days, hold, hike, cut, impliedBps, baseCase, impliedRate: isFinite(impl) ? +impl.toFixed(3) : null };
+  });
+  const m0 = meetings[0];
+  return { code, rate, next: m0.date, nextDays: m0.days, move: m0.baseCase,
+    prob: Math.max(m0.hold, m0.hike, m0.cut), expBps: m0.impliedBps,
+    scenario: { hold: m0.hold, hike: m0.hike, cut: m0.cut }, meetings, source: 'market' };
+}
+async function _refreshRateProb(force = false) {
+  if (_rpRefreshing) return;
+  if (!force && Date.now() - _rpCache.at < RP_TTL && Object.keys(_rpCache.banks).length) return;
+  _rpRefreshing = true;
+  try {
+    const now = Date.now(), codes = Object.keys(RP_MAP);
+    const results = await Promise.allSettled(codes.map(c => _rpFetchBank(RP_MAP[c].slug).then(j => j && _rpTransform(c, j, now))));
+    const banks = {};
+    results.forEach((res, i) => { if (res.status === 'fulfilled' && res.value) banks[codes[i]] = res.value; });
+    if (Object.keys(banks).length) { _rpCache = { at: now, banks }; auth.aiCacheSet('rates:rateprob', _rpCache).catch(() => {}); }
+  } catch {} finally { _rpRefreshing = false; }
+}
+setInterval(() => { _refreshRateProb().catch(() => {}); }, RP_TTL);   // entretien périodique
+setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
+
 app.get('/api/rates', (_req, res) => {
   try { _refreshRates(); } catch {}
+  try { _refreshRateProb().catch(() => {}); } catch {}   // rafraîchit en tâche de fond si périmé (NON bloquant)
   const now = Date.now();
+  const rpFresh = (_rpCache.at && (now - _rpCache.at) < 12 * 3600 * 1000) ? _rpCache.banks : {};   // tolère 12 h (résilience si l'API tombe)
   const banks = CB.map(b => {
+    const rp = rpFresh[b.code];
+    if (rp) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
+      next: rp.next, nextDays: rp.nextDays, move: rp.move, prob: rp.prob, expBps: rp.expBps,
+      scenario: rp.scenario, meetings: rp.meetings, source: 'market',
+      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null };
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
     const rb = _cbResolved(b);
     const bb = { ...rb, bias: _effBias(rb, st.rate) };             // biais (IA si dispo) + arrêt au taux terminal
@@ -5649,11 +5723,11 @@ app.get('/api/rates', (_req, res) => {
       next: n ? n.date : null, nextDays: n ? n.days : null,
       move: sc0.baseCase, prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 100), expBps: +sc0.impliedBps.toFixed(1),
       scenario: { hold: Math.round(sc0.hold * 100), hike: Math.round(sc0.hike * 100), cut: Math.round(sc0.cut * 100) },
-      meetings,
-      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : proba RÉELLES du marché (futures)
+      meetings, source: 'maison',
+      marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : cross-check proba marché (CME futures)
     };
   });
-  res.json({ asOf: now, model: 'maison', updatedAt: _ratesState.updatedAt, banks });
+  res.json({ asOf: now, model: 'rateprobability+maison', provider: 'rateprobability.com', rpAt: _rpCache.at || null, updatedAt: _ratesState.updatedAt, banks });
 });
 
 // ── Actualisation IA (optionnelle) des biais TAUX : déclenchée AU CHANGEMENT RÉEL d'un taux (force=true) ou en filet hebdo. EN CACHE, jamais à l'ouverture. ──

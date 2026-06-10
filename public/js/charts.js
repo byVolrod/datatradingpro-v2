@@ -1899,6 +1899,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return '<div class="rtc">'
           + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
           + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
+          + '<span class="rtc-src rtc-src--' + (b.source === 'maison' ? 'est' : 'mkt') + '" title="' + (b.source === 'maison' ? 'Estimation maison — données de marché indisponibles pour cette banque' : 'Probabilités implicites de marché · rateprobability.com') + '">' + (b.source === 'maison' ? 'est.' : 'march&eacute;') + '</span>'
           + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
           + '<div class="rtc-metrics">'
           + '<div class="rtc-m--rate"><span class="rtc-k">Taux actuel</span><span class="rtc-v rtc-rate">' + Number(b.rate).toFixed(2) + '%</span></div>'
@@ -1923,6 +1924,13 @@ document.addEventListener('DOMContentLoaded', () => {
           + '<table class="rtc-tbl"><thead><tr><th>R&eacute;union</th><th>J</th><th>Baisse</th><th>Maintien</th><th>Hausse</th><th>&Delta; impl.</th><th>Base</th></tr></thead><tbody>' + rows + '</tbody></table>'
           + '</div>';
       }).join('');
+      const upd = document.getElementById('taux-update');
+      if (upd) {
+        const mkt = banks.filter(b => b.source === 'market').length;
+        let when = '';
+        try { if (d.rpAt) when = ' · maj ' + new Date(d.rpAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) {}
+        upd.innerHTML = 'Source&nbsp;: <b style="color:#cfd3da">rateprobability.com</b> &middot; ' + mkt + '/' + banks.length + ' en donn&eacute;es de march&eacute;' + when;
+      }
     } catch (e) {
       host.innerHTML = '<div class="taux-empty">Erreur de chargement.</div>';
     }
