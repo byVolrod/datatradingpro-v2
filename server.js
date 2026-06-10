@@ -803,7 +803,10 @@ app.put('/api/auth/me/profile', async (req, res) => {
 const REF_TARGET     = parseInt(process.env.REFERRAL_TARGET || '3', 10);   // 3 parrainages = 1 mois offert
 const REF_BONUS_DAYS = parseInt(process.env.REFERRAL_BONUS_DAYS || '30', 10);
 const REF_MAX_AGE_DAYS = parseInt(process.env.REFERRAL_MAX_AGE_DAYS || '45', 10); // le filleul doit être un compte récent
-const REF_BASE_URL   = process.env.REFERRAL_BASE_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp';
+// Le lien DOIT pointer vers la LANDING (et non Whop directement) : c'est elle qui capture ?ref= et
+// pose le cookie dtp_ref partagé .datatradingpro.com, lu par le desk au 1er login du filleul. Un lien
+// vers whop.com sautait cette étape → cookie jamais posé → AUCUN filleul jamais rattaché.
+const REF_BASE_URL   = process.env.REFERRAL_BASE_URL || 'https://datatradingpro.com';
 const KV_FOREVER     = 8640000000000;   // lit la valeur quel que soit son âge
 
 function _refMaskEmail(e) {
