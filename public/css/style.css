@@ -823,6 +823,13 @@ body.is-resizing iframe { pointer-events: none; }
   .main-layout.is-fxlist #panel-right { display: none; }
   .main-layout.is-fxlist .views-col { padding-right: 0; }
 }
+/* FX List ≥ 1600px : le panneau droit revient, mais la table (min-width 1240px, 14 colonnes)
+   garde la priorité → sidebar par défaut plus étroite SUR CET ONGLET (au lieu du 50/50 qui ne
+   laissait que ~800px à la table). Plancher 420px = même minimum que le clamp de base ;
+   le drag manuel (style inline posé par app.js) reste prioritaire, volatil au reload. */
+@media (min-width: 1600px) {
+  .main-layout.is-fxlist { --sidebar-w: clamp(420px, 28%, 600px); }
+}
 
 /* ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) ══ */
 .clocks-resizer {
@@ -2842,7 +2849,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-title { font-size: 14px; font-weight: 700; color: #fff; }
 .sbm-hint { font-size: 10px; color: #6b7280; }
 .sbm-grid-wrap { overflow-x: auto; }
-.sbm-grid { width: 100%; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+.sbm-grid { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 11px; table-layout: fixed; }   /* min-width : 165px (Indicators) + 8 devises × ~87px → en colonne 50% (laptops 1024-1680) le wrap .sbm-grid-wrap scrolle horizontalement au lieu d'écraser les libellés (Very Bullish…) ; le bloc ≤768px garde son min-width 620px (déclaré plus bas, prioritaire) */
 .sbm-grid th.sbm-ind, .sbm-grid td.sbm-ind { width: 165px; }
 /* Cellules COLLÉES — séparées uniquement par une fine bordure 1px anthracite #111113 */
 .sbm-grid th, .sbm-grid td { border: 1px solid #262626; }   /* quadrillage parfait 1px #262626 (spec DTP) */
@@ -3218,28 +3225,18 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
    390px   Mobile compact (iPhone)
 ═══════════════════════════════════════════════════════════ */
 
-/* ── Desktop large (≤1280px) ── */
-@media (max-width: 1280px) {
-  .views-col { flex-basis: 50%; min-width: 0; }
-  .pd-drawer { width: 420px; }
-  .np-panel   { width: 380px; }
-}
-
-/* ── Laptop / tablette paysage (≤1024px) ── */
-@media (max-width: 1024px) {
-  .views-col { flex-basis: 50%; min-width: 0; }
-  .clocks-bar { gap: 2px; }
-  .clock-card { padding: 4px 8px; gap: 3px; font-size: 10px; }
-  .clock-time { font-size: 16px; }
-  .pd-drawer  { width: 380px; }
-}
+/* ── (blocs ≤1280px / ≤1024px supprimés : doublons contredits par le bloc « RESPONSIVE —
+   comprehensive overrides » de fin de fichier, qui reste l'unique source de vérité :
+   flex-basis 55%/52% y écrasait déjà le 50% d'ici, .pd-drawer/.np-panel y sont identiques,
+   `.clock-card` était une classe morte (la vraie classe est .clock-item) et clock-time 16px
+   rendait l'heure plus petite à 1024px qu'à 768px (21px)) ── */
 
 /* ── Tablette portrait (≤768px) ── */
 @media (max-width: 768px) {
   :root {
     --topbar-h: 44px;
-    --navbar-h: 36px;
-    --header-h: 80px;
+    --navbar-h: 40px;   /* = min-height tactile des .nav-item (bloc hover:none) → plus de rognage/scroll vertical dans la navbar */
+    --header-h: calc(var(--topbar-h) + var(--navbar-h));
   }
 
   html, body { overflow-x: hidden; overflow-y: auto; }   /* pas de scroll horizontal parasite */
@@ -3301,7 +3298,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .bank-chart-col { width: 100%; min-width: 0; border-left: none; border-top: 1px solid var(--border); height: 320px; }
   .bank-table-wrap { overflow-x: auto; }
   /* Smart Bias : grille scrollable horizontalement, horloges en grille */
-  .sb-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .sbm-grid-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }   /* (était .sb-grid-wrap : classe morte — la classe réelle générée par app.js est .sbm-grid-wrap) */
   .sb-clock { min-width: 50%; }
 
   /* Navbar scroll horizontal */
@@ -3335,6 +3332,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
   /* Analyst reader */
   .arlib-rcontent { padding: 12px; }
+
+  /* INSTITUTION / ANALYST : la barre recherche + filtres passe sur 2 lignes au lieu de déborder à droite */
+  .br-toolbar, .arlib-toolbar { flex-wrap: wrap; }
+  .br-search-wrap, .arlib-search-wrap { flex: 1 1 100%; }
 
   /* News item */
   .news-item { padding: 8px 10px; }
@@ -3962,7 +3963,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .br-list-hdr { padding: 14px 20px 10px; border-bottom: 1px solid var(--border2); flex-shrink: 0; }
 .br-list-title { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; color: #e9eaed; letter-spacing: 0.04em; }
 
-.br-toolbar { display: flex; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; align-items: center; }
+.br-toolbar { display: flex; flex-wrap: wrap; gap: 8px; padding: 10px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; align-items: center; }   /* wrap : en colonne 50% (laptops), les 3 selects passent sous la recherche au lieu de l'écraser */
 .br-search-wrap { flex: 1; display: flex; align-items: center; gap: 8px; background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 5px 10px; min-width: 0; }
 .br-search { background: transparent; border: none; outline: none; font-size: 12px; color: var(--text); width: 100%; font-family: var(--font-ui); }
 .br-search::placeholder { color: var(--text3); }
@@ -4099,6 +4100,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Toolbar */
 .arlib-toolbar {
   display: flex;
+  flex-wrap: wrap;   /* colonne 50% (laptops) : les selects passent sous la recherche au lieu de l'écraser */
   align-items: center;
   gap: 8px;
   padding: 10px 16px;
@@ -4799,7 +4801,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wac-ev { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #dfe3ea; }
 .wac-num { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; text-align: right; color: #a6a6ad; }
 .wac-num.act { color: #f0f0f2; font-weight: 700; }
-@media (max-width: 980px) { .wa3 { grid-template-columns: 1fr; overflow-y: auto; } .wa3-right { grid-template-rows: 440px 440px; } }
+@media (max-width: 980px) { .wa3 { grid-template-columns: 1fr; overflow-y: auto; } }   /* (grid-template-rows 440px retiré : il écrasait le grid-auto-rows 380px du bloc ≤560px) */
 .dtp-ins  { color: #f7941d; font-weight: 700; margin-left: 4px; }
 .ai-insights-toggle {
   background: none; border: none; color: var(--text3); font-size: 11px; cursor: pointer;
@@ -5205,8 +5207,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   overflow: hidden;
 }
 .strength-pane + .strength-pane { border-left: 1px solid #1e1e22; }
-/* Sur écran étroit → empilement vertical */
-@media (max-width: 1150px) {
+/* Sur écran étroit/laptop → empilement vertical : panel-right = 50% du viewport par défaut,
+   donc côte à côte chaque courbe ne fait que ~287-345px de large sous 1380px (8 lignes devises
+   amCharts illisibles, notamment 1366×768). Empilés, chacun prend toute la largeur du panneau. */
+@media (max-width: 1380px) {
   .strength-charts-row { flex-direction: column; }
   .strength-pane + .strength-pane { border-left: none; border-top: 1px solid #1e1e22; }
 }
@@ -7724,17 +7728,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 @media (max-width: 480px) {
   :root {
     --topbar-h: 42px;
-    --navbar-h: 32px;
+    --navbar-h: 40px;   /* = min-height tactile des .nav-item → onglets non coupés (le --header-h est recalculé ligne ~8783) */
   }
 
-  /* Layout: single column, scrollable */
-  .views-col       { height: auto; min-height: 60vh; }
-  .panel-news      { height: 65vh; min-height: 360px; }
-  .panel-right     { height: 55vh; min-height: 300px; }
+  /* Layout : pleine hauteur — aligné sur le bloc mobile ≤768px (ligne ~3345). NE PAS remettre 65vh : ça créait une zone morte sous le flux + double scroll. */
+  .views-col       { height: calc(100dvh - var(--header-h)); min-height: 0; }
+  .panel-news      { height: 100%; min-height: 0; }
 
   /* Topbar: minimal */
   .topbar          { padding: 0 8px; gap: 6px; }
-  .topbar-icon     { width: 24px; height: 24px; }
+  .topbar-icon     { width: 34px; height: 34px; }   /* cible tactile : ne pas redescendre sous ~34px (le bloc ligne ~3355 fait foi) */
   .topbar-symbol-search { display: none; }
   #topbar-avatar   { width: 26px; height: 26px; font-size: 11px; }
 
@@ -7745,7 +7748,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .clock-wx-row, .clock-wind-row { display: none; } /* hide weather on very small screens */
 
   /* Profile drawer: full screen */
-  .pd-drawer       { top: 0; height: 100dvh; }
+  .pd-drawer       { top: var(--topbar-h); height: calc(100dvh - var(--topbar-h)); }   /* règle projet : volet SOUS la topbar, jamais top:0 */
   .pd-header       { padding: 14px 14px; }
   .pd-section-trigger { height: 46px; }
 
@@ -7777,7 +7780,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .strength-chart-label { display: none; }
 
   /* Right panel tabs: smaller */
-  .right-tab       { font-size: 8.5px; padding: 0 6px; letter-spacing: 0; }
+  .right-tab       { font-size: 10px; padding: 0 7px; letter-spacing: 0; }   /* lisible : la barre scrolle horizontalement, pas besoin d'écraser la police */
 
   /* METER : 8 colonnes compactes pour tenir/rester lisible sur petit écran */
   .meter-grid      { gap: 4px; padding: 8px 8px 12px; }
@@ -7802,7 +7805,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .news-item       { padding: 8px; }
   .news-headline   { font-size: 11px; }
 
-  .right-tab       { font-size: 8px; padding: 0 5px; }
+  .right-tab       { font-size: 9.5px; padding: 0 6px; }
 
   /* Hide non-essential topbar icons on very small screens */
   .topbar-icon--notif { width: 22px; height: 22px; font-size: 12px; }
@@ -8594,7 +8597,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .taux-loading, .taux-empty { text-align: center; color: #6f6f78; padding: 44px 0; }
 /* ── TAUX : grille 4 colonnes haute densité (cartes "Interest Rate Probability", estimation maison) ── */
 .taux-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, minmax(0,1fr)); gap: 8px; padding: 8px; overflow: hidden; align-content: stretch; flex: 1 1 auto; min-height: 0; }   /* MONOBLOC 4×2 : 8 banques sur un écran, sans scroll */
-@media (max-width: 1560px) { .taux-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; grid-auto-rows: max-content; overflow-y: auto; align-content: start; } }   /* en dessous du monobloc : cartes à hauteur réelle (sinon comprimées + tronquées) + scroll */
+@media (max-width: 1560px), (max-height: 860px) { .taux-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; grid-auto-rows: max-content; overflow-y: auto; align-content: start; } }   /* en dessous du monobloc OU écran peu haut (laptops 1600-1680×800-900) : cartes à hauteur réelle (sinon comprimées + tronquées) + scroll */
 @media (max-width: 1180px) { .taux-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px)  { .taux-grid { grid-template-columns: 1fr; } }
 .rtc { background: #0c0c0f; border: 1px solid #1c1c20; border-radius: 6px; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
@@ -8727,6 +8730,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .ai-inputhint { font-size: 11px; font-weight: 500; color: #6b7280; padding: 6px 12px 0 50px; flex: 0 0 auto; }
 .ai-legal { text-align: center; font-size: 11px; color: #6b7280; padding: 6px 12px 12px; flex: 0 0 auto; }
 @media (max-width: 480px) { .ai-panel { width: 100%; border-left: none; } .ai-inputhint { padding-left: 12px; text-align: center; } }
+/* iOS : la barre home (safe area) ne recouvre plus la zone de saisie / pied des volets (requiert viewport-fit=cover) */
+@media (hover: none) and (pointer: coarse) {
+  .ai-legal    { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
+  .chat-hint   { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  .sqwk-footer { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+}
 
 /* ═══════════════ CORRECTIFS RESPONSIVE (tablette / téléphone) ═══════════════ */
 /* Tablette ≤ 1024px : la barre de redimensionnement est masquée (drag off), les volets
@@ -8738,8 +8747,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Tablette ≤ 768px : les volets latéraux passent en pleine largeur (au lieu de 420-440px
    qui mangeaient la moitié de l'écran), et les grandes tables s'assouplissent. */
 @media (max-width: 768px) {
-  .chat-panel, .np-panel, .settings-panel, .ai-panel { width: 100% !important; max-width: 100% !important; border-left: none; }
+  .chat-panel, .np-panel, .settings-panel, .ai-panel, .sqwk-panel { width: 100% !important; max-width: 100% !important; border-left: none; }
   .fxl-table { min-width: 760px; font-size: 10.5px; }
+  /* Inertie tactile sur tous les conteneurs de tables larges (FX LIST / CALENDAR / BANK / Week Ahead) */
+  .fxl-table-scroll, .cal-table-wrap, .bank-table-wrap, #wa-cal-body { -webkit-overflow-scrolling: touch; }
   .am-chart, .am-chart--donut { height: 200px; }
   .topbar { gap: 6px; }
 }
@@ -8748,7 +8759,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .topbar { padding: 0 10px; gap: 4px; }
   .topbar-symbol-search { display: none; }
   .topbar-ai-btn { height: 24px; padding: 0 8px; font-size: 10.5px; }   /* AI reste accessible (chat fonctionnel) */
-  .fxl-table { min-width: 600px; font-size: 10px; }
+  .fxl-table { min-width: 640px; font-size: 11px; }   /* ≥11px : chiffres lisibles au doigt, le scroll horizontal absorbe le surplus */
   .cth-event { min-width: 108px; font-size: 10px; }
   .news-category-text { width: 62px; font-size: 10px; }
   .news-item { --c-pad: 10px; --c-icon: 24px; --c-time: 50px; --c-cat: 96px; --c-arrow: 18px; }   /* colonnes mobiles → bleed auto-calculé */
@@ -8773,6 +8784,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .sbs-badge { flex: 0 0 56px; width: 56px; }
   /* Bank — détail déplié : 3 colonnes → 1 colonne */
   .bank-detail { grid-template-columns: 1fr; gap: 12px; padding: 12px 14px 14px 20px; }
+  /* Bank — cellules compactées sur mobile : moins de scroll horizontal, lisibilité conservée (12px) */
+  .bank-table { font-size: 12px; }
+  .bank-table thead th { padding: 9px 10px; }
+  .bank-row td { padding: 8px 10px; }
 }
 @media (max-width: 1100px) {
   /* Topbar — sentiment centré (absolu) : compacté pour ne pas chevaucher les icônes (769–1100px) */
