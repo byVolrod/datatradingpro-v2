@@ -1863,6 +1863,14 @@ document.addEventListener('DOMContentLoaded', () => {
     try { document.title = 'DTP' + (window._dtpUser ? ' | ' + window._dtpUser : ''); } catch {}
   }
 
+  let _tauxPoll = null, _tauxSig = '';   // rafraîchissement TEMPS RÉEL de l'onglet TAUX
+  function _tauxTick() {
+    const v = document.getElementById('view-taux');
+    if (!v || v.classList.contains('hidden') || document.hidden) return;   // uniquement si l'onglet est visible et l'app au premier plan
+    loadTauxView();
+  }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) _tauxTick(); });   // retour sur l'app → maj immédiate
+
   async function loadTauxView() {
     const host = document.getElementById('taux-grid');
     if (!host) return;
@@ -1883,6 +1891,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const d = await r.json();
       const banks = (d && d.banks) || [];
       if (!banks.length) { host.innerHTML = '<div class="taux-empty">Aucune donnée.</div>'; return; }
+      const sig = (d.rpAt || 0) + '|' + (d.updatedAt || 0) + '|' + banks.length;
+      if (sig === _tauxSig && host.children.length && !host.querySelector('.taux-loading') && !host.querySelector('.taux-empty')) return;   // données inchangées → pas de re-rendu (évite tout clignotement)
+      _tauxSig = sig;
       host.innerHTML = banks.map(b => {
         const mv = MV[b.move] || MV.HOLD;
         const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
@@ -1929,7 +1940,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const mkt = banks.filter(b => b.source === 'market').length;
         let when = '';
         try { if (d.rpAt) when = ' · maj ' + new Date(d.rpAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) {}
-        upd.innerHTML = 'Source&nbsp;: <b style="color:#cfd3da">rateprobability.com</b> &middot; ' + mkt + '/' + banks.length + ' en donn&eacute;es de march&eacute;' + when;
+        upd.innerHTML = '<span class="live-dot live-dot--small" style="display:inline-block;vertical-align:middle;margin-right:6px"></span>Source&nbsp;: <b style="color:#cfd3da">rateprobability.com</b> &middot; ' + mkt + '/' + banks.length + ' en donn&eacute;es de march&eacute;' + when;
       }
     } catch (e) {
       host.innerHTML = '<div class="taux-empty">Erreur de chargement.</div>';
@@ -1937,6 +1948,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function activateView(view, { persist = true } = {}) {
+    if (_tauxPoll) { clearInterval(_tauxPoll); _tauxPoll = null; }   // stoppe le rafraîchissement TAUX dès qu'on quitte l'onglet
     // MARCHÉS (mobile uniquement) : on bascule sur la colonne de droite (horloges, RISK, STRENGTH, COT…)
     if (view === 'markets') {
       document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === 'markets'));
@@ -1989,7 +2001,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'weekahead' && typeof loadWeekAheadView === 'function') {
       loadWeekAheadView();
     }
-    if (view === 'taux') loadTauxView();
+    if (view === 'taux') { loadTauxView(); _tauxPoll = setInterval(_tauxTick, 60000); }   // TAUX : rafraîchi en continu (~60 s) tant que l'onglet est ouvert
     if (view === 'symbol' && window.loadSymbolView) window.loadSymbolView();
 
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour.
