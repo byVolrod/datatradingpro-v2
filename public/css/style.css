@@ -8604,6 +8604,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rtc-bank i { color: #6f6f78; font-style: normal; font-weight: 400; font-size: 11px; }
 .rtc-spark { margin-left: auto; flex: 0 0 auto; opacity: .85; }
 .rtc-move { margin-left: auto; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; white-space: nowrap; border: 1px solid; }
+.rtc-src { font-size: 8.5px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; padding: 1px 6px; border-radius: 4px; white-space: nowrap; border: 1px solid; flex: 0 0 auto; }
+.rtc-src--mkt { background: rgba(0,218,80,.10); color: #00da50; border-color: rgba(0,218,80,.32); }
+.rtc-src--est { background: rgba(255,179,0,.10); color: #ffb300; border-color: rgba(255,179,0,.32); }
 .rtc-msp { display: block; width: 100%; height: 13px; margin-top: 2px; opacity: .9; }
 .rtc-move.g, .rtc-base.g { background: rgba(0,218,80,.14); color: #00da50; border-color: rgba(0,218,80,.5); }
 .rtc-move.r, .rtc-base.r { background: rgba(255,61,0,.14); color: #ff4d2e; border-color: rgba(255,61,0,.5); }
