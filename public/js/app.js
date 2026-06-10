@@ -4241,7 +4241,7 @@ const _INST_BANKS = [
   [/\bblackrock\b/i, 'BlackRock'], [/\bunicredit\b/i, 'UniCredit'], [/\bsyz\b/i, 'Syz Group'], [/\bcibc\b/i, 'CIBC'], [/\blloyds\b/i, 'Lloyds Bank'], [/\bkbc\b/i, 'KBC'],
   [/\bamundi\b/i, 'Amundi'], [/\bqcam\b|q-?cam/i, 'QCAM'],
   [/\bmufg\b|mitsubishi ufj/i, 'MUFG'], [/\buob\b/i, 'UOB'], [/\bocbc\b/i, 'OCBC'],
-  [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman'],
+  [/\bdanske\b/i, 'Danske'], [/\bnomura\b/i, 'Nomura'], [/\bgoldman\b/i, 'Goldman Sachs'],
   [/\bmorgan stanley\b/i, 'MS'], [/\bjp ?morgan\b/i, 'JPM'], [/\bciti\b/i, 'Citi'],
   [/\bbarclays\b/i, 'Barclays'], [/\bhsbc\b/i, 'HSBC'], [/\brabobank\b/i, 'Rabo'],
   [/\bscotiabank\b|\bscotia\b/i, 'Scotia'], [/\bwestpac\b/i, 'Westpac'], [/\bnab\b/i, 'NAB'],
@@ -4260,7 +4260,7 @@ function _instBadge(item) {
 }
 // Couleur de marque par banque → "logo" wordmark coloré dans l'en-tête du rapport.
 const _BANK_BRAND = {
-  ING: '#ff6200', MUFG: '#e60012', Natixis: '#5b2d86', CACIB: '#009597', Goldman: '#6f93c0',
+  ING: '#ff6200', MUFG: '#e60012', Natixis: '#5b2d86', CACIB: '#009597', 'Goldman Sachs': '#6f93c0',
   JPM: '#7a2a2a', MS: '#00a3e0', Citi: '#1b5fae', Barclays: '#00aeef', HSBC: '#db0011',
   Deutsche: '#2c7be5', UOB: '#1b5fae', OCBC: '#e2231a', Danske: '#19a6dc', Nomura: '#c0233a',
   SocGen: '#e60028', BNP: '#00915a', StanChart: '#1b8fea', BofA: '#1f5fb0', 'Wells Fargo': '#d71e28',
@@ -4273,7 +4273,7 @@ function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
 // Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
 const _BANK_DOMAIN = {
   ING: 'ing.com', MUFG: 'mufg.jp', Natixis: 'natixis.com', CACIB: 'ca-cib.com',
-  Goldman: 'goldmansachs.com', JPM: 'jpmorgan.com', MS: 'morganstanley.com', Citi: 'citigroup.com',
+  'Goldman Sachs': 'goldmansachs.com', JPM: 'jpmorgan.com', MS: 'morganstanley.com', Citi: 'citigroup.com',
   Barclays: 'barclays.com', HSBC: 'hsbc.com', Deutsche: 'db.com', UOB: 'uobgroup.com',
   OCBC: 'ocbc.com', Danske: 'danskebank.com', Nomura: 'nomura.com', SocGen: 'societegenerale.com',
   BNP: 'bnpparibas.com', StanChart: 'sc.com', BofA: 'bankofamerica.com', 'Wells Fargo': 'wellsfargo.com',
