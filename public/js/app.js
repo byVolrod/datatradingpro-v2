@@ -5472,7 +5472,15 @@ function renderArlibReader(item) {
     const SESSION_LABEL = { 'Americas': 'New York Session Recap', 'European': 'London Session Recap', 'Asia-Pacific': 'Asia-Pac Session Recap' }[item.session] || 'Session Recap';
     const SUBTITLE = { 'Americas': 'Wrap-up of the New York trading session', 'European': 'Wrap-up of the London trading session', 'Asia-Pacific': 'Wrap-up of the Asia-Pacific trading session' }[item.session] || 'Daily market session wrap-up';
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    const _header = '';   // en-tête retiré → on entame DIRECT le rapport (le titre reste dans la barre de navigation du lecteur)
+    // En-tête INTELLIGENT : le TITRE = thème IA du recap (aiTitle, dérivé du contenu réel de la
+    // session — change à chaque rapport) ; type de session + sous-titre + date l'encadrent.
+    const _esc5 = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const _theme = (item.aiTitle && String(item.aiTitle).trim().length >= 8) ? String(item.aiTitle).trim() : '';
+    const _header = '<div class="arlib-rhead">'
+      + '<div class="arlib-rtype">' + SESSION_LABEL + '</div>'
+      + (_theme ? '<div class="arlib-rtitle">' + _esc5(_theme) + '</div>' : '')
+      + '<div class="arlib-rsub">' + SUBTITLE + ' — ' + dateStr + '</div>'
+      + '</div>';
     content.innerHTML = dtpLoader('Chargement du résumé de session…');
 
     fetch('/api/session-wrap-content?url=' + encodeURIComponent(item.url))

@@ -3606,11 +3606,35 @@ function _fallbackInsights(text, title, lines) {
   // 1) Lignes structurées fournies (puces réelles du rapport) → 1 carte par puce = plusieurs petites cases.
   if (Array.isArray(lines) && lines.length) {
     const cards = _clean(lines, 18);
-    if (cards.length >= 2) return cards.map(s => ({ asset: '', bias: 'neutral', text: s }));
+    if (cards.length >= 2) return cards.map(_insCard);
   }
   // 2) Sinon : découpage par phrases.
   const parts = _clean(String(text).split(/(?<=[.!?])\s+|\n+/), 28);
-  return parts.map(s => ({ asset: '', bias: 'neutral', text: s }));
+  return parts.map(_insCard);
+}
+// ── Détection ACTIF + DIRECTION d'une phrase (0 token) — badges BUY/SELL/NEUTRAL même sans IA ──
+// Clone PMT : chaque carte qui cite un actif (paire FX, devise, indice, or, pétrole…) reçoit son
+// badge selon la direction décrite par le rapport ; sinon carte narrative sans badge.
+const _INS_ASSET_RES = [
+  [/\b([A-Z]{3}\/[A-Z]{3})\b/, m => m[1].toUpperCase()],
+  [/\b(eurusd|gbpusd|usdjpy|usdchf|usdcad|audusd|nzdusd|eurgbp|eurjpy|gbpjpy)\b/i, m => m[1].toUpperCase().replace(/^(\w{3})(\w{3})$/, '$1/$2')],
+  [/\b(gold|xau)\b/i, () => 'Gold'], [/\b(silver|xag)\b/i, () => 'Silver'],
+  [/\b(wti|brent|crude|oil price)/i, () => 'Oil'], [/\bnatural gas\b/i, () => 'NatGas'],
+  [/\b(s&p ?500|spx)\b/i, () => 'S&P 500'], [/\bnasdaq\b/i, () => 'Nasdaq'], [/\b(dow jones|the dow)\b/i, () => 'Dow'],
+  [/\bnikkei\b/i, () => 'Nikkei'], [/\bdax\b/i, () => 'DAX'], [/\bftse\b/i, () => 'FTSE'],
+  [/\b(bitcoin|btc)\b/i, () => 'BTC'],
+  [/\b(USD|EUR|GBP|JPY|CHF|CAD|AUD|NZD)\b/, m => m[1]],
+  [/\bdollar\b/i, () => 'USD'], [/\beuro\b/i, () => 'EUR'], [/\b(sterling|pound)\b/i, () => 'GBP'], [/\byen\b/i, () => 'JPY'],
+];
+const _INS_UP = /\b(rallie[ds]?|rally|surg\w+|jump\w+|climb\w+|gain\w+|rose|rises?|rising|higher|advanc\w+|strength\w+|firmer|spik\w+|soar\w+|outperform\w+|extended? gains|en hausse|grimp\w+|s'appr[ée]ci\w+|bondi\w+)\b/i;
+const _INS_DN = /\b(f[ae]ll|fell|drops?|dropped|slid\w*|declin\w+|sank|plung\w+|tumbl\w+|weaken\w+|lower|soften\w+|losses|slump\w+|retreat\w+|underperform\w+|en baisse|recul\w+|chut\w+|s'affaibli\w+)\b/i;
+function _insCard(s) {
+  let asset = null;
+  for (const [re, fn] of _INS_ASSET_RES) { const m = s.match(re); if (m) { asset = fn(m); break; } }
+  if (!asset) return { asset: null, signal: null, text: s };
+  const up = _INS_UP.test(s), dn = _INS_DN.test(s);
+  const signal = up && !dn ? 'BUY' : (dn && !up ? 'SELL' : 'NEUTRAL');
+  return { asset, signal, text: s };
 }
 app.post('/api/report-insights', async (req, res) => {
   const { id, text, title, lines } = req.body || {};
