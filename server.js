@@ -487,15 +487,19 @@ app.get('/api/admin/finance', requireAdmin, async (_req, res) => {
 // Diagnostic IA — révèle l'état RÉEL des clés sur le serveur déployé (sans exposer
 // les valeurs) + un test de génération en direct. Ouvre /api/admin/ai-status connecté
 // en admin pour savoir si Gemini/Claude fonctionnent sur Render.
-app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
+app.get('/api/admin/ai-status', requireAdmin, async (req, res) => {
   const st = (() => { try { return ai.status(); } catch { return { error: 'ai.status indisponible' }; } })();
-  let test;
-  const t0 = Date.now();
-  try {
-    const out = await ai.generateText('Réponds exactement: OK', 20);
-    test = { ok: true, ms: Date.now() - t0, sample: String(out).slice(0, 60) };
-  } catch (e) {
-    test = { ok: false, ms: Date.now() - t0, error: String(e && e.message || e).slice(0, 300) };
+  // Mode DRY par défaut : la page de statut ne déclenche PLUS de vraie génération à chaque ouverture
+  // (en incident on la rafraîchit en boucle = RPD Gemini + crédits Claude gaspillés). ?live=1 = test réel.
+  let test = { ok: null, dry: true, hint: 'ajouter ?live=1 pour un test de génération réel' };
+  if (req.query.live === '1') {
+    const t0 = Date.now();
+    try {
+      const out = await ai.generateText('Réponds exactement: OK', 20);
+      test = { ok: true, ms: Date.now() - t0, sample: String(out).slice(0, 60) };
+    } catch (e) {
+      test = { ok: false, ms: Date.now() - t0, error: String(e && e.message || e).slice(0, 300) };
+    }
   }
   // État du budget Gemini (pacing intra-journée) — pour voir la marge restante.
   let budget = null;
@@ -513,6 +517,7 @@ app.get('/api/admin/ai-status', requireAdmin, async (_req, res) => {
       pacedCeilNow: Math.ceil(cap * frac) + AI_BURST,
       dayElapsed: Math.round(frac * 100) + '%',
       byCategory: _aiUsage.dayCounts || {},
+      claudeOverBudgetByCategory: _aiUsage.claudeCounts || {},   // déversements Claude (crédits payants) du jour, comptés À PART
       weekend: _aiIsWeekend(),
     };
   } catch (e) { budget = { error: String(e && e.message || e) }; }
@@ -1108,11 +1113,16 @@ app.get('/api/week-ahead-news', (_req, res) => {
 });
 
 // ── Macro AI Assistant : chat IA (Gemini→Claude) avec CONTEXTE marché réel + sources réelles ──
-const _aiChatMem = {};   // cache process (clé = hash question) ; aussi persisté dans ai_cache (quota Gemini)
-function _aiChatKey(q) { return 'aichat:' + require('crypto').createHash('md5').update(q.toLowerCase().trim()).digest('hex').slice(0, 22); }
+// Durci : (1) compté dans le budget via aiSmart('chat', priority:'user') — fini le bypass total ;
+// (2) rate-limit PAR UTILISATEUR (rafale + jour) — un seul compte ne peut plus vider le quota ;
+// (3) clé de cache DATÉE (jour) — une question marché ne ressert plus une réponse périmée ;
+// (4) cache mémoire borné (anti-OOM).
+const _aiChatMem = {};   // cache process (clé = hash question + jour) ; aussi persisté dans ai_cache
+function _aiChatKey(q) { return 'aichat:' + _aiDay() + ':' + require('crypto').createHash('md5').update(q.toLowerCase().trim()).digest('hex').slice(0, 22); }
 function _fmtDMY(ts) { const d = ts ? new Date(ts) : new Date(); const p = n => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`; }
-// ── Quota : 5 requêtes / jour / utilisateur sur l'Assistant IA Macro (admin + support exemptés).
-// Durable via KV Supabase (survit aux redémarrages), reset quotidien à minuit (heure de Paris). ──
+// ── Quota Assistant IA Macro (admin + support exemptés). Durable via KV Supabase (survit aux
+// redémarrages), reset quotidien minuit Paris. La limite n'est décomptée QUE sur une génération
+// RÉELLE (les hits de cache sont gratuits) ; un anti-rafale (8/min) complète contre le spam. ──
 const AI_CHAT_DAILY_LIMIT = parseInt(process.env.AI_CHAT_DAILY_LIMIT || '5', 10);
 const _aiChatDay = {};   // cache mémoire { uid: { day, count } } — évite un read KV à chaque message
 function _aiChatToday() { try { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return new Date().toISOString().slice(0, 10); } }
@@ -1132,16 +1142,9 @@ async function _aiChatDailyIncr(uid, day) {
 app.post('/api/ai/chat', async (req, res) => {
   const q = String((req.body && req.body.message) || '').trim().slice(0, 600);
   if (!q) return res.status(400).json({ error: 'Message vide' });
-  // Limite journalière par utilisateur (admin/support non limités). Message PRO renvoyé comme réponse de l'assistant.
   const _uid = req.session?.userId, _role = req.session?.user?.role;
-  let _limDay = null;
-  if (_uid && _role !== 'admin' && _role !== 'support') {
-    _limDay = _aiChatToday();
-    const _used = await _aiChatDailyCount(_uid, _limDay);
-    if (_used >= AI_CHAT_DAILY_LIMIT) {
-      return res.json({ answer: `Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain — merci de votre compréhension.`, sources: [] });
-    }
-  }
+  // Anti-rafale (8/min) : protège même les comptes exemptés de la limite/jour, sans toucher au quota durable.
+  if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) return res.status(429).json({ error: 'Trop de messages — réessayez dans une minute.' });
   // Sources RÉELLES = news récentes effectivement fournies en contexte à l'IA (pas de mock)
   const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
   const sources = newsCtx.map(n => ({ name: n.source || n.category || 'Market Wire', date: _fmtDMY(n.timestamp) }));
@@ -1149,6 +1152,14 @@ app.post('/api/ai/chat', async (req, res) => {
   let answer = _aiChatMem[key];
   if (!answer) { try { const c = await auth.aiCacheGet(key); if (c && typeof c === 'string') answer = c; } catch {} }
   if (!answer) {
+    // Limite JOUR durable (staff exempté) — vérifiée SEULEMENT ici, avant une vraie génération
+    // → les hits de cache ne consomment pas le quota. Message pro renvoyé comme réponse de l'assistant.
+    let _limDay = null;
+    if (_uid && _role !== 'admin' && _role !== 'support') {
+      _limDay = _aiChatToday();
+      if (await _aiChatDailyCount(_uid, _limDay) >= AI_CHAT_DAILY_LIMIT)
+        return res.json({ answer: `Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain — merci de votre compréhension.`, sources: [] });
+    }
     let biasLine = '';
     try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current DTP Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
     const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
@@ -1158,12 +1169,16 @@ Recent market headlines (context):
 ${heads}
 
 User question: ${q}`;
-    try { answer = await ai.generateText(prompt, 380); } catch (e) { answer = null; }
-    if (answer && answer.trim()) { answer = answer.trim(); _aiChatMem[key] = answer; auth.aiCacheSet(key, answer).catch(() => {}); }
+    try { answer = await aiSmart('chat', prompt, 380, { priority: 'user' }); } catch (e) { answer = null; }   // DANS le budget (part 'chat'), tier user
+    if (answer && answer.trim()) {
+      answer = answer.trim();
+      if (_limDay) { try { await _aiChatDailyIncr(_uid, _limDay); } catch {} }   // ne décompte la limite/jour QUE sur une génération réussie (panne/échec = non facturé)
+      if (Object.keys(_aiChatMem).length > 500) for (const k of Object.keys(_aiChatMem)) delete _aiChatMem[k];   // cap anti-OOM (reset simple)
+      _aiChatMem[key] = answer; auth.aiCacheSet(key, answer).catch(() => {});
+    }
     else answer = null;
   }
   if (!answer) return res.status(503).json({ error: 'AI temporairement indisponible' });
-  if (_limDay) { try { await _aiChatDailyIncr(_uid, _limDay); } catch {} }   // ne compte QUE les réponses réellement servies
   res.json({ answer, sources });
 });
 app.get('/api/news/history', (req, res) => {
@@ -1874,7 +1889,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
   let generating = false;
   if (!current) {
     generating = true;
-    if (Date.now() - _weeklyGenLock > 15 * 60 * 1000) {   // 1 tentative / 15 min max
+    if (Date.now() - _weeklyGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {   // 1 tentative / 15 min max — suspendu pendant une panne IA totale (backoff)
       _weeklyGenLock = Date.now();
       generateWeeklyMarketRecap(true).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
     }
@@ -2073,8 +2088,8 @@ function _aiDemandNote(category) {
 function aiExpectedDemand(slot) { const s = _aiDemand[slot || _aiDemandSlot()]; return s ? (s._t || 0) : 0; }
 function _aiReset() {
   const mo = _aiMonth(), d = _aiDay();
-  if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {} }; _aiSave(); }
-  else if (_aiUsage.day !== d) { _aiUsage.day = d; _aiUsage.dayCounts = {}; _aiSave(); }
+  if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {}, claudeCounts: {} }; _aiSave(); }
+  else if (_aiUsage.day !== d) { _aiUsage.day = d; _aiUsage.dayCounts = {}; _aiUsage.claudeCounts = {}; _aiSave(); }   // claudeCounts est un compteur DU JOUR → vidé au changement de jour (sinon la métrique « crédits Claude du jour » cumulait tout le mois)
 }
 function _aiDailyCap() {
   const remaining = Math.max(0, GEMINI_MONTHLY_BUDGET - (_aiUsage.total || 0));
@@ -2090,7 +2105,7 @@ function _aiDayFraction() {
 // Fenêtre CALME (heure de Paris) : 21h00 → 8h30 = on coupe l'IA de fond pour économiser le quota
 // (peu d'activité la nuit). Réglable via AI_QUIET_START/AI_QUIET_END (minutes depuis minuit).
 const AI_QUIET_START = parseInt(process.env.AI_QUIET_START, 10) || (21 * 60);      // 21:00
-const AI_QUIET_END   = parseInt(process.env.AI_QUIET_END, 10)   || (7 * 60);       // 7:00
+const AI_QUIET_END   = parseInt(process.env.AI_QUIET_END, 10)   || (8 * 60 + 30);  // 8:30 (aligné sur l'intention projet documentée)
 function _aiQuietHours() {
   let h = 12, m = 0;
   try { const s = new Date().toLocaleString('en-GB', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false }); h = parseInt(s.slice(0, 2), 10); m = parseInt(s.slice(3, 5), 10); } catch {}
@@ -2110,6 +2125,11 @@ function aiAllowed(category, opts = {}) {
   // CRITIQUE planifié (narratifs Smart Bias, biais par banque, Week Ahead) → le préchauffage cède EN PREMIER
   // et bien plus tôt → on ne brûle jamais tout le quota sur du prewarming « au cas où ».
   if (prio === 'background' && dayTotal >= Math.floor(cap * 0.60)) return false;
+  // PLANCHER pour le contenu PLANIFIÉ irremplaçable : les chemins 'user' (analyst/news/chat/outlook),
+  // qui sautent pacing ET heures calmes et dont les parts cumulées dépassent 100%, pourraient saturer
+  // le plafond dur et affamer les générations planifiées (narratifs, Week Ahead) — qui, elles, ne
+  // basculent plus sur Claude. On réserve donc les 10% du haut au planifié (symétrique de la réserve background).
+  if (prio === 'user' && !opts.scheduled && dayTotal >= Math.floor(cap * 0.90)) return false;
   // ── Pacing intra-journée ────────────────────────────────────────────────────
   // On n'autorise au plus que la PART ÉCOULÉE du jour (+ un petit burst) → la conso s'étale jusqu'au reset.
   // Sauf : générations PLANIFIÉES (opts.scheduled) ET priorité 'user' (l'utilisateur n'est jamais freiné).
@@ -2129,6 +2149,8 @@ function aiAllowed(category, opts = {}) {
     if (category === 'bias')    return share(0.40);
     if (category === 'ratesbias') return share(0.18);   // biais TAUX : part modeste, hebdo
     if (category === 'weekahead') return share(0.22);   // éditorial Week Ahead : hebdo
+    if (category === 'chat')    return share(0.30);     // chat Macro AI (désormais DANS le budget)
+    if (category === 'outlook') return share(0.18);     // Analyst Outlook (désormais DANS le budget)
     return share(0.30);
   }
   // Semaine : PRIORITÉ aux onglets premium → Analyst/AI Insights (60%) + Institution (40%, désormais
@@ -2141,9 +2163,42 @@ function aiAllowed(category, opts = {}) {
   if (category === 'bias')    return share(0.30);
   if (category === 'ratesbias') return share(0.18);   // biais TAUX : part modeste, hebdo
   if (category === 'weekahead') return share(0.22);   // éditorial Week Ahead : hebdo
+  if (category === 'chat')    return share(0.30);     // chat Macro AI (désormais DANS le budget)
+  if (category === 'outlook') return share(0.18);     // Analyst Outlook (désormais DANS le budget)
   return false;
 }
 function aiNote(category) { _aiReset(); _aiUsage.dayCounts[category] = (_aiUsage.dayCounts[category] || 0) + 1; _aiUsage.total = (_aiUsage.total || 0) + 1; _aiSave(); _aiDemandNote(category); }
+// Déversements Claude (crédits payants) : comptés À PART (claudeCounts) — visibles dans
+// /api/admin/ai-status, mais HORS dayCounts/total pour ne pas amputer l'enveloppe Gemini.
+function _aiNoteClaude(category) { _aiReset(); if (!_aiUsage.claudeCounts) _aiUsage.claudeCounts = {}; _aiUsage.claudeCounts[category] = (_aiUsage.claudeCounts[category] || 0) + 1; _aiSave(); }
+// ── Persistance DURABLE de l'état budget (Supabase ai_cache) ────────────────
+// Le fichier local disparaît à chaque rebuild Docker → le compteur mensuel repartait à 0 et le
+// plafond/jour se recalculait trop généreux. On réplique désormais _aiUsage + le cap Claude en
+// KV durable (modèle aidemand:v1) : hydratation au boot (max des totaux), écriture débouncée.
+let _aiUsageSaveT = null;
+{ const _origSave = _aiSave;
+  _aiSave = function () {
+    _origSave();
+    if (!_aiUsageSaveT) _aiUsageSaveT = setTimeout(() => {
+      _aiUsageSaveT = null;
+      auth.aiCacheSet('aiusage:v1', _aiUsage).catch(() => {});
+      try { auth.aiCacheSet('claudeuse:v1', ai.getClaudeState()).catch(() => {}); } catch {}
+    }, 30000);
+  };
+}
+auth.aiCacheGet('aiusage:v1').then(u => {
+  if (!u || typeof u !== 'object') return;
+  _aiReset();
+  if (u.month === _aiUsage.month) {
+    _aiUsage.total = Math.max(_aiUsage.total || 0, u.total || 0);             // max → un rebuild ne ré-ouvre jamais l'enveloppe
+    if (u.day === _aiUsage.day && u.dayCounts) {
+      for (const [k, v] of Object.entries(u.dayCounts)) _aiUsage.dayCounts[k] = Math.max(_aiUsage.dayCounts[k] || 0, v || 0);
+      if (u.claudeCounts) { if (!_aiUsage.claudeCounts) _aiUsage.claudeCounts = {}; for (const [k, v] of Object.entries(u.claudeCounts)) _aiUsage.claudeCounts[k] = Math.max(_aiUsage.claudeCounts[k] || 0, v || 0); }   // max par clé (pas Object.assign : ne pas perdre les comptes locaux du boot)
+    }
+    _aiSave();
+  }
+}).catch(() => {});
+auth.aiCacheGet('claudeuse:v1').then(s => { try { ai.hydrateClaudeState(s); } catch {} }).catch(() => {});
 
 // ── Contexte LIVE du terminal injecté dans l'IA (système ÉVOLUTIF) ───────────
 // Instantané COURT de l'état RÉEL du terminal (régime de risque, force des devises…),
@@ -2167,25 +2222,47 @@ function _aiTerminalContext() {
 try { if (ai && typeof ai.setLiveContext === 'function') ai.setLiveContext(_aiTerminalContext); } catch {}
 
 // ── Routeur IA unifié (pool Gemini gratuit + Claude multi-clés) ──────────────
-// Politique intelligente, zéro blocage tant qu'une ressource est dispo :
-//   1) Si le budget Gemini du jour le permet → Gemini d'abord (repli Claude intégré
-//      dans ai.generateText, multi-clés avec rotation/bascule).
-//   2) Budget Gemini épuisé MAIS clés Claude dispo → on génère via Claude (hors budget
-//      Gemini). Désactivable par appel via opts.claudeOverBudget=false (ex. news à fort
-//      volume) pour préserver les crédits Claude → l'appelant sert alors son fallback local.
-//   3) Rien de dispo → on relaie l'erreur (l'appelant a toujours un fallback local).
+// Politique (durcie après l'incident d'épuisement des crédits Anthropic) :
+//   1) Budget Gemini OK → ai.generateText (Gemini→GitHub→Claude intégré). Le débit
+//      n'est compté (aiNote) qu'APRÈS succès → un 429 ne consomme plus de budget.
+//      Si l'échec a DÉJÀ traversé Claude (err.claudeTried), AUCUNE 2e passe.
+//   2) Budget refusé → bascule Claude UNIQUEMENT pour les chemins utilisateur
+//      (priority:'user') ou si l'appelant le demande EXPLICITEMENT
+//      (opts.claudeOverBudget === true). Le fond/planifié n'use PLUS les crédits
+//      payants par défaut : il attend son tour (self-heal) avec son fallback local.
+//   3) Tout déversement Claude hors budget est compté à part (_aiNoteClaude) et
+//      borné par le cap CLAUDE_DAILY_MAX (persisté) → coût toujours fini et visible.
 async function aiSmart(category, prompt, maxTokens, opts = {}) {
-  const claudeOverBudget = opts.claudeOverBudget !== false;   // défaut : oui
+  // Bascule Claude hors-budget : réservée aux requêtes UTILISATEUR (sauf opt-in/out explicite).
+  const claudeOverBudget = (opts.claudeOverBudget === true) || (opts.claudeOverBudget !== false && opts.priority === 'user');
   if (aiAllowed(category, opts)) {
-    aiNote(category);
-    try { return await ai.generateText(prompt, maxTokens); }
-    catch (e) {
-      if (ai.hasAnthropic && ai.hasAnthropic()) return ai.generateTextClaudeOnly(prompt, maxTokens);
+    try {
+      // noClaude : si l'appelant interdit explicitement Claude (claudeOverBudget:false), on coupe
+      // AUSSI le repli Claude in-cascade → un flux de fond ne dépense plus de crédits payants, in-budget compris.
+      const out = await ai.generateText(prompt, maxTokens, { noClaude: opts.claudeOverBudget === false });
+      aiNote(category);   // compté APRÈS succès → les 429/échecs ne brûlent plus le budget
+      return out;
+    } catch (e) {
+      // generateText a DÉJÀ parcouru toute la cascade (Claude inclus, sauf si noClaude voulu) → on
+      // ne repasse JAMAIS par Claude ici (ce serait soit redondant, soit contraire à claudeOverBudget:false).
       throw e;
     }
   }
-  if (claudeOverBudget && ai.hasAnthropic && ai.hasAnthropic()) return ai.generateTextClaudeOnly(prompt, maxTokens);
-  throw new Error('AI indisponible (budget Gemini épuisé, aucune clé Claude utilisable)');
+  if (claudeOverBudget && ai.claudeUsable && ai.claudeUsable()) { const out = await ai.generateTextClaudeOnly(prompt, maxTokens); _aiNoteClaude(category); return out; }
+  throw new Error('AI indisponible (budget Gemini épuisé' + (opts.priority === 'user' ? ', aucune clé Claude utilisable' : ' — fond : pas de bascule crédits payants') + ')');
+}
+
+// ── COALESCING des générations à la demande ──────────────────────────────────
+// 2 requêtes IDENTIQUES simultanées (2 users ouvrent le même rapport, double-clic, retry front)
+// partagent UNE seule génération au lieu d'en lancer deux : la 2e attend la promesse de la 1re.
+// Gain direct en quota sous concurrence, zéro impact sur le chemin nominal (cache hit).
+const _aiInflightMap = new Map();   // clé → Promise en cours
+function _aiInflight(key, fn) {
+  const cur = _aiInflightMap.get(key);
+  if (cur) return cur;
+  const p = Promise.resolve().then(fn).finally(() => { _aiInflightMap.delete(key); });
+  _aiInflightMap.set(key, p);
+  return p;
 }
 
 // Cache des segmentations IA (url → HTML sectionné) — persistant
@@ -2197,12 +2274,23 @@ const SW_SEG_VER  = 'v3:';   // bump → régénère (v3 : l'IA PEAUFINE désorm
 const BR_SEG_FILE = path.join(__dirname, 'cache_br_seg.json');
 const _brSegCache = _loadJsonMap(BR_SEG_FILE);
 const BR_SEG_VER  = 'v1:';   // bump → régénère (l'IA réorganise l'article en rubriques claires façon DTP)
+const SEG_FAIL_RETRY_MS = 6 * 3600 * 1000;   // un échec de segmentation est retenté après 6 h (répare les rapports figés en brut par une panne)
+// État d'une entrée de cache de segmentation : 'ok' (HTML utilisable) · 'cooling' (échec récent <6h, ne pas régénérer)
+// · 'retry' (échec ancien ≥6h OU null hérité → à régénérer) · 'absent'. Source unique de vérité, partagée route↔prewarm.
+function _segState(v) {
+  if (typeof v === 'string' && v.length > 50) return 'ok';
+  if (v && typeof v === 'object' && v.f) return (Date.now() - v.f > SEG_FAIL_RETRY_MS) ? 'retry' : 'cooling';
+  if (v === null) return 'retry';          // null hérité (avant le marqueur daté) → on retente
+  return 'absent';
+}
 
 // ── PRÉCHAUFFAGE : segmente les rapports EN AVANCE (cache persistant) → ouverture INSTANTANÉE ──
 // Le coût (Gemini) est payé en tâche de fond, jamais quand l'utilisateur ouvre un rapport.
 async function _prewarmWrapSeg(item) {
   const url = item && item.url;
-  if (!url || !url.startsWith('https://investinglive.com/') || _swSegCache.has(SW_SEG_VER + url)) return false;
+  if (!url || !url.startsWith('https://investinglive.com/')) return false;
+  const stt = _segState(_swSegCache.get(SW_SEG_VER + url));
+  if (stt === 'ok' || stt === 'cooling') return false;   // déjà segmenté, OU échec trop récent (<6h) → on n'insiste pas
   // Déjà dans le cache DURABLE Supabase ? → hydrate la mémoire, AUCUNE régénération (survit aux redéploys = grosse économie de quota Gemini).
   try { const dur = await auth.aiCacheGet('swseg:' + SW_SEG_VER + url); if (typeof dur === 'string' && dur.length > 50) { _swSegCache.set(SW_SEG_VER + url, dur); return false; } } catch {}
   if (!aiAllowed('analyst', { priority: 'background' })) return false;                     // respecte l'enveloppe budget Gemini
@@ -2211,11 +2299,10 @@ async function _prewarmWrapSeg(item) {
     if (item.content && item.content.length > 100) points = _extractWrapPoints(_cleanWrapHtml(item.content));
     if (!points || points.length < 3) { const data = await _fetchILContentHttp(url); if (data && data.points && data.points.length >= 3) points = data.points; }
     if (!points || points.length < 3) return false;
-    aiNote('analyst');
-    const seg = await _segmentWrapAI(points);
-    _swSegCache.set(SW_SEG_VER + url, seg || null);                          // mémorise même un échec (null) pour ne pas réessayer en boucle
-    if (seg) { _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, seg).catch(() => {}); return true; }   // + durable Supabase
-  } catch (e) { console.warn('[SW prewarm]', e.message); }
+    const seg = await _segmentWrapAI(points, { noClaude: true });            // PRÉCHAUFFAGE de fond → JAMAIS de crédits Claude (fallback = on retentera)
+    if (seg) { aiNote('analyst'); _swSegCache.set(SW_SEG_VER + url, seg); _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, seg).catch(() => {}); return true; }   // compté APRÈS succès + durable
+    _swSegCache.set(SW_SEG_VER + url, { f: Date.now() });                    // échec → marqueur daté (retry 6h), plus de null permanent ni de débit
+  } catch (e) { console.warn('[SW prewarm]', e.message); _swSegCache.set(SW_SEG_VER + url, { f: Date.now() }); }
   return false;
 }
 let _swPrewarmBusy = false;
@@ -2224,7 +2311,7 @@ async function _prewarmWrapSegs() {
   _swPrewarmBusy = true;
   try {
     // Backlog borné à 6/cycle (anti-OOM + éco tokens) → couvert progressivement sur quelques cycles.
-    const todo = _swCache.filter(i => i.url && i.url.startsWith('https://investinglive.com/') && !_swSegCache.has(SW_SEG_VER + i.url)).slice(0, 3);
+    const todo = _swCache.filter(i => { if (!i.url || !i.url.startsWith('https://investinglive.com/')) return false; const s = _segState(_swSegCache.get(SW_SEG_VER + i.url)); return s === 'absent' || s === 'retry'; }).slice(0, 3);
     for (const item of todo) { if (!aiAllowed('analyst', { priority: 'background' })) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
   } finally { _swPrewarmBusy = false; }
 }
@@ -2239,7 +2326,7 @@ async function _prewarmBrSegs() {
   try {
     const dayCut = Date.now() - 4 * 24 * 60 * 60 * 1000;   // ~4 derniers jours → couvre tout le DailyFX récent de l'onglet
     const todo = (_brCache || [])
-      .filter(i => i.url && _BR_CONTENT_HOSTS.test(i.url) && (i.timestamp || 0) > dayCut && !_brSegCache.has(BR_SEG_VER + i.url))
+      .filter(i => { if (!i.url || !_BR_CONTENT_HOSTS.test(i.url) || (i.timestamp || 0) <= dayCut) return false; const s = _segState(_brSegCache.get(BR_SEG_VER + i.url)); return s === 'absent' || s === 'retry'; })   // {f:ts} récent (<6h) = on n'insiste pas ; ≥6h = on retente
       .slice(0, 3);   // borné à 3/cycle (anti-OOM + éco quota)
     for (const item of todo) {
       if (!aiAllowed('analyst', { priority: 'background' })) break;
@@ -2251,7 +2338,7 @@ async function _prewarmBrSegs() {
 }
 
 // Regroupe les titres d'un wrap en rubriques thématiques via Gemini
-async function _segmentWrapAI(points) {
+async function _segmentWrapAI(points, _opts = {}) {
   const prompt = `Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
 Produis un rapport PROPRE et PROFESSIONNEL façon DataTradingPro (ton d'analyste institutionnel) :
 - Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", etc.) et garde-les EXACTEMENT tels quels (ne traduis pas, ne renomme pas).
@@ -2261,7 +2348,7 @@ RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres,
 Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE D'ORIGINE","items":["phrase reformulée 1","phrase 2"]}]
 Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
-  const text = await ai.generateText(prompt, 2500);
+  const text = await ai.generateText(prompt, 2500, _opts);   // _opts.noClaude=true depuis le préchauffage (pas de crédits payants en fond)
   const m = text.match(/\[[\s\S]*\]/);
   if (!m) return null;
   const arr = JSON.parse(m[0]);
@@ -2369,12 +2456,21 @@ app.get('/api/session-wrap-content', async (req, res) => {
     if (seg === undefined) {                                   // pas en mémoire → cache DURABLE Supabase (survit aux redéploys Render éphémères)
       try { const dur = await auth.aiCacheGet('swseg:' + SW_SEG_VER + url); if (typeof dur === 'string' && dur.length > 50) { seg = dur; _swSegCache.set(SW_SEG_VER + url, dur); } } catch {}
     }
-    if (seg === undefined && aiAllowed('analyst')) {
-      try { aiNote('analyst'); seg = await _segmentWrapAI(points); }
-      catch (e) { console.warn('[SW seg AI]', e.message); seg = null; }
-      _swSegCache.set(SW_SEG_VER + url, seg || null);
-      if (seg) { _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, seg).catch(() => {}); }   // persiste (disque + Supabase durable)
+    // Échec mémorisé : null (héritage = définitif) ou {f:ts} (nouveau = TTL). Après 6 h on RETENTE
+    // → les rapports figés en rendu brut par une panne (l'incident) se réparent tout seuls.
+    if (seg === null) seg = undefined;
+    else if (seg && typeof seg === 'object' && seg.f) seg = (Date.now() - seg.f > 6 * 3600 * 1000) ? undefined : null;
+    if (seg === undefined && aiAllowed('analyst', { priority: 'user' })) {   // tier user : à l'ouverture, jamais freiné par les heures calmes
+      seg = await _aiInflight('swseg:' + SW_SEG_VER + url, async () => {     // coalescing : ouvertures simultanées → 1 seule génération
+        let s;
+        try { s = await _segmentWrapAI(points); aiNote('analyst'); }
+        catch (e) { console.warn('[SW seg AI]', e.message); s = null; }
+        _swSegCache.set(SW_SEG_VER + url, s || { f: Date.now() });           // échec → marqueur daté (retry 6 h), plus de null permanent
+        if (s) { _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + url, s).catch(() => {}); }   // persiste (disque + Supabase durable)
+        return s;
+      });
     }
+    if (seg && typeof seg === 'object') seg = null;   // marqueur d'échec → rendu brut pour cette requête
     if (seg) {
       if (cached) cached.content = seg;
       return res.json({ html: _stripSource(seg), source: 'ai' });
@@ -3233,16 +3329,23 @@ app.get('/api/bank-research-content', async (req, res) => {
       if (seg === undefined) {                                  // pas en cache chaud → tente le cache durable
         try { const dur = await auth.aiCacheGet('brseg:' + key); if (typeof dur === 'string' && dur.length > 80) { seg = dur; _brSegCache.set(key, dur); } } catch {}
       }
-      if (seg === undefined && aiAllowed('analyst')) {          // ni chaud ni durable → on génère (si budget Gemini OK)
+      // Échec mémorisé : null (héritage) ou {f:ts} → retry après 6 h (répare les articles figés en brut par une panne)
+      if (seg === null) seg = undefined;
+      else if (seg && typeof seg === 'object' && seg.f) seg = (Date.now() - seg.f > 6 * 3600 * 1000) ? undefined : null;
+      if (seg === undefined && aiAllowed('analyst', { priority: 'user' })) {   // ni chaud ni durable → on génère (tier user : ouverture)
         const plain = clean
           .replace(/<\/(p|div|li|h[1-6]|tr)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
           .replace(/<[^>]*>/g, ' ').replace(/\s*\n\s*/g, '\n').replace(/[ \t]{2,}/g, ' ').trim();
-        aiNote('analyst');
-        try { seg = await _structureArticleAI(plain, subtitle || ''); }
-        catch (e) { console.warn('[BR struct AI]', e.message); seg = null; }
-        _brSegCache.set(key, seg || null);                      // mémorise même l'échec (null) → pas de réessai en boucle
-        if (seg) { _saveJsonMap(BR_SEG_FILE, _brSegCache); auth.aiCacheSet('brseg:' + key, seg).catch(() => {}); }
+        seg = await _aiInflight('brseg:' + key, async () => {   // coalescing : ouvertures simultanées → 1 seule génération
+          let s;
+          try { s = await _structureArticleAI(plain, subtitle || ''); aiNote('analyst'); }
+          catch (e) { console.warn('[BR struct AI]', e.message); s = null; }
+          _brSegCache.set(key, s || { f: Date.now() });         // échec → marqueur daté (retry 6 h), plus de null permanent
+          if (s) { _saveJsonMap(BR_SEG_FILE, _brSegCache); auth.aiCacheSet('brseg:' + key, s).catch(() => {}); }
+          return s;
+        });
       }
+      if (seg && typeof seg === 'object') seg = null;           // marqueur d'échec → rendu brut pour cette requête
       if (typeof seg === 'string' && seg.length > 80) { outHtml = seg; outSource = 'ai'; }
     } catch (e) { console.warn('[BR struct]', e.message); }
 
@@ -3352,8 +3455,9 @@ Règles STRICTES :
 Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"USD/JPY"|null,"signal":"BUY"|"SELL"|"NEUTRAL"|null,"text":"..."}]}
 Rapport :
 ${clean.slice(0, 4500)}`;
-    // Insights de rapport = catégorie "analyst" ; Claude prend le relais hors budget Gemini.
-    const out = await aiSmart('analyst', prompt, 1100);
+    // Insights de rapport = catégorie "analyst", TIER USER (clic direct : jamais freiné par les heures
+    // calmes, bascule Claude autorisée) + COALESCING (2 clics simultanés sur le même rapport = 1 appel).
+    const out = await _aiInflight('ins:' + key, () => aiSmart('analyst', prompt, 1100, { priority: 'user' }));
     const m = out.match(/\{[\s\S]*\}/);
     const _GENERIC = /^(fx|forex|markets?|macro|currenc(?:y|ies)|the market|general|n\/?a)$/i;
     const insights = m
@@ -3449,12 +3553,16 @@ app.post('/api/news-info', async (req, res) => {
   const cacheKey = id || headline.substring(0, 120);
   if (_infoCache.has(cacheKey)) return res.json(_infoCache.get(cacheKey));
 
-  // Budget Gemini : semaine = news IMPORTANTES uniquement (50%), week-end = OFF
-  if (!aiAllowed('news', { important: !!req.body.important })) return res.json({ bullets: [] });
+  // Budget Gemini : semaine = news IMPORTANTES uniquement. L'importance est décidée CÔTÉ SERVEUR
+  // (regex fort-impact sur le titre/catégorie) — le flag client n'est plus qu'un simple indice,
+  // il ne peut plus consommer la part 'news' (45% du cap) sur des news quelconques.
+  const _srvImportant = /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|boc|rba|rbnz|cpi|inflation|nfp|payrolls?|gdp|pib|rate (decision|cut|hike)|interest rate|emergency|intervention|war|missile|strike|ceasefire|sanctions?|default|bailout|opec)\b/i
+    .test(String(headline || '') + ' ' + String(category || ''));
+  const _newsImportant = !!req.body.important && _srvImportant;
+  if (!aiAllowed('news', { important: _newsImportant, priority: 'user' })) return res.json({ bullets: [] });   // pré-check rapide (évite de bâtir le prompt si budget épuisé)
 
   try {
-    aiNote('news');
-    const text = await ai.generateText(`You are an editor for a professional financial news terminal (trading-desk style).
+    const text = await aiSmart('news', `You are an editor for a professional financial news terminal (trading-desk style).
 Summarise the story below into clear bullets capturing the KEY FACTS of THIS specific news (never a template).
 RULES:
 - 3 to 6 bullets depending on the real substance (more concrete facts = more bullets; never padding).
@@ -3468,7 +3576,7 @@ RULES:
 
 Headline: ${headline}
 Category: ${category || '—'}
-Content: ${rawDesc.substring(0, 1100)}`, 650);
+Content: ${rawDesc.substring(0, 1100)}`, 650, { important: _newsImportant, priority: 'user', claudeOverBudget: false });   // compté APRÈS succès + zéro crédit Claude pour ce flux (fallback local = bullets vides)
 
     const bullets = [];
     text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
@@ -3570,15 +3678,15 @@ app.post('/api/analyst-outlook', async (req, res) => {
   const { pair, cb, headlines } = req.body || {};
   if (!pair) return res.status(400).json({ error: 'pair required' });
 
-  // Clé de cache : paire + titres + heure (bucket horaire) → l'outlook se rafraîchit avec
-  // des données terminal fraîches au moins 1×/h sans re-générer à chaque clic.
+  // Clé de cache : paire + heure (bucket horaire) UNIQUEMENT — fini les `headlines` du client
+  // dans la clé (cache contournable à volonté = générations infinies). Rafraîchi au plus 1×/h/paire.
   const _hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
-  const cacheKey = `${pair}:${_hourBucket}:${(headlines || '').slice(0, 120)}`;
+  const cacheKey = `${pair}:${_hourBucket}`;
   if (_outlookCache.has(cacheKey)) return res.json(_outlookCache.get(cacheKey));
 
   try {
     const terminal = await _gatherTerminalContext(pair).catch(() => '');
-    const text = await ai.generateText(`You are a professional forex analyst. Provide a structured market outlook for ${pair}.
+    const text = await aiSmart('outlook', `You are a professional forex analyst. Provide a structured market outlook for ${pair}.
 
 CONCLUDE the bias by weighing ALL the terminal data below TOGETHER (not a single factor):
 - Currency strength & COT (leveraged funds) = momentum/trend signals.
@@ -3611,7 +3719,7 @@ Respond with ONLY valid JSON in this exact format:
     {"type": "support",    "price": "1.0750", "note": "Monthly low"}
   ]
 }
-Base "bias", "confidence" and "summary" on the WEIGHT OF EVIDENCE across the terminal data above. Be specific. Use actual levels where known. Max 3 levels. Output only valid JSON.`, 700);
+Base "bias", "confidence" and "summary" on the WEIGHT OF EVIDENCE across the terminal data above. Be specific. Use actual levels where known. Max 3 levels. Output only valid JSON.`, 700, { priority: 'user' });
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error('No JSON');
     const result = JSON.parse(jsonMatch[0]);
@@ -4672,7 +4780,7 @@ Return ONLY valid JSON, no preamble:
 }
 
 app.get('/api/bias', async (req, res) => {
-  if (req.query.force === '1') { try { await generateWeeklyBias(true); } catch {} }
+  if (req.query.force === '1' && req.session?.user?.role === 'admin') { try { await generateWeeklyBias(true); } catch {} }   // force=1 réservé ADMIN (génération lourde non gardée)
   else if (!_biasCache)        { try { await generateWeeklyBias(true); } catch {} }
   res.json(_biasCache || { items: [], overview: '', week: '' });
 });
@@ -4780,7 +4888,8 @@ async function _sbBankStances() {
     if (arr.length < 6) {
       // Biais basé sur le CONTENU RÉEL de la recherche (pas juste le titre) : fullContent (SEB/PDF) →
       // contenu structuré IA en cache (_brSegCache) → description → titre. C'est la matière de l'onglet Institution.
-      const body = a.fullContent || (a.url && _brSegCache.get(BR_SEG_VER + a.url)) || a.description || '';
+      const _seg = a.url ? _brSegCache.get(BR_SEG_VER + a.url) : null;
+      const body = a.fullContent || (typeof _seg === 'string' ? _seg : '') || a.description || '';   // (le cache peut contenir un marqueur d'échec {f:ts} → ignoré)
       arr.push(`• ${a.title || ''}. ${_strip(body)}`.slice(0, 1300));
     }
     byBank.set(a.institution, arr);
@@ -4799,8 +4908,7 @@ Réponds UNIQUEMENT en JSON: {${SB_CURRENCIES.map(c => `"${c}":"Bullish|Bearish|
 Recherche ${bank} :
 ${digest}`;
       try {
-        aiNote('bank');
-        const t = await aiSmart('bank', prompt, 220, { scheduled: true });
+        const t = await aiSmart('bank', prompt, 220, { scheduled: true });   // (aiSmart compte déjà via aiNote — le double débit de la part 'bank' est supprimé)
         const m = (t || '').match(/\{[\s\S]*\}/);
         if (m) { const obj = JSON.parse(m[0]); for (const c of SB_CURRENCIES) if (OKV.includes(obj[c])) st[c] = obj[c]; }
       } catch (e) { aiDown = true; }   // IA indispo (quota/crédit) → banques suivantes listées en Neutral, biais réels à la reprise IA
@@ -5123,6 +5231,7 @@ function _sbBiasStale() {
 }
 let _sbNarrBusy = false, _sbNarrLastTry = 0;
 async function _sbEnsureNarrative() {
+  if (ai.backoffActive && ai.backoffActive()) return;   // panne IA totale en cours → on s'espace (backoff exponentiel) au lieu de marteler
   if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) return;
   const have = _smartBias.narrative || {};
   const concl = _smartBias.conclusion || {};
@@ -5181,7 +5290,7 @@ app.get('/api/smart-bias', async (req, res) => {
     const snap = [_smartBias, ..._smartBiasHistory].find(s => s && Number(s.generatedAt) === ts);
     return res.json((snap && _sbFillNarrative(snap)) || { currencies: SB_CURRENCIES, rows: [], conclusion: {} });
   }
-  if (req.query.force === '1' || !_smartBias) { try { await generateSmartBias(true); } catch {} }
+  if ((req.query.force === '1' && req.session?.user?.role === 'admin') || !_smartBias) { try { await generateSmartBias(true); } catch {} }   // force=1 réservé ADMIN ; !_smartBias = amorçage à froid uniquement
   // Liste des semaines disponibles (courante + historique), dédupliquées par semaine, 5 max.
   const _seen = new Set();
   const history = [_smartBias, ..._smartBiasHistory]
@@ -5341,7 +5450,7 @@ Reply ONLY as compact JSON: {"headline":"...","summary":"..."} — nothing else.
 }
 let _waGenerating = false;
 app.get('/api/week-ahead', async (req, res) => {
-  if (req.query.force === '1') { try { await generateWeekAhead(true, true); } catch {} return res.json(_weekAhead || { week: '', days: [], generating: true }); }   // force=1 → régénère AVEC l'éditorial IA (déclenchement manuel admin)
+  if (req.query.force === '1' && req.session?.user?.role === 'admin') { try { await generateWeekAhead(true, true); } catch {} return res.json(_weekAhead || { week: '', days: [], generating: true }); }   // force=1 VRAIMENT réservé admin (la route est dans _PUBLIC_PATHS : sans ce contrôle, un anonyme déclenchait des générations IA)
   // NE BLOQUE JAMAIS : si pas encore généré, on lance la génération EN ARRIÈRE-PLAN et on répond tout de suite.
   const _waStale = !_weekAhead || _weekAhead.v !== WA_VER || (Date.now() - (_weekAhead.generatedAt || 0) > 40 * 60 * 1000);
   if (_waStale && !_waGenerating) {   // absent / version périmée / >40 min → régén self-heal en fond (données fraîches)
@@ -5387,10 +5496,13 @@ app.get('/api/week-ahead', async (req, res) => {
     if (stale) generateWeekAhead(true, true).catch(() => {});   // démarrage : data + éditorial IA si manquant
   }, 90 * 1000);   // 90s : encore après le bias
   // Rafraîchissement TEMPS RÉEL du Week Ahead : régénère toutes les ~40 min (calendrier TradingView frais : prévisions/actuals).
-  setInterval(() => { if (!_waGenerating) { _waGenerating = true; generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; }); } }, 40 * 60 * 1000);
+  setInterval(() => { if (ai.backoffActive && ai.backoffActive()) return; if (!_waGenerating) { _waGenerating = true; generateWeekAhead(true).catch(() => {}).finally(() => { _waGenerating = false; }); } }, 40 * 60 * 1000);
   // AUTO-RÉPARATION horaire : si le bias OU le Week Ahead n'a pas pu se générer (quota Gemini épuisé / Claude
   // sans crédit au démarrage), on réessaie chaque heure → dès que le quota se libère, ça passe et se persiste (Supabase).
+  // ⚠️ backoffActive : pendant une panne IA TOTALE, ces retries s'espacent (10 min → 6 h) au lieu
+  // de ré-attaquer à fréquence fixe — c'est ce martelage qui a contribué à vider les crédits.
   setInterval(() => {
+    if (ai.backoffActive && ai.backoffActive()) return;
     if (_sbBiasStale()) generateSmartBias(true).catch(() => {});   // récupération de fond (version/âge >7j/absent) — jamais sur le chemin utilisateur
     else _sbEnsureNarrative().catch(() => {});                     // matrice fraîche mais narratif IA manquant/repli → retry ciblé (USD & co)
     if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire tant que TOUS les jours n'ont pas l'éditorial IA

@@ -584,7 +584,7 @@ async function _aiCacheEnsureDb() {
   _aiCacheDb = true;
   const keys = Object.keys(_aiCacheFile);
   if (keys.length) {
-    const rows = keys.map(k => ({ key: k, value: _aiCacheFile[k] }));
+    const rows = keys.map(k => ({ key: k, value: _aiCacheFile[k], created_at: new Date().toISOString() }));   // touch cohérent avec aiCacheSet (sinon purge prématurée possible)
     const { error: insErr } = await supabase.from(AICACHE_TABLE).upsert(rows, { onConflict: 'key' });
     if (!insErr) { _aiCacheFile = {}; _aiCacheSaveFile(); console.log(`[AICache] table détectée → ${rows.length} entrée(s) migrée(s) en BDD`); }
     else _aiCacheDb = false;
@@ -627,12 +627,18 @@ async function aiCacheSet(key, value) {
   _aiCacheSaveFile();
 }
 // Purge des entrées plus vieilles que maxAgeMs (rétention "max 1 mois").
+// ⚠️ FILTRÉE PAR PRÉFIXE : la table est devenue un KV générique — à côté des caches IA
+// régénérables, elle stocke des données MÉTIER irremplaçables (referredby:/refbonus: = verrous
+// parrainage écrits UNE fois, symrecent:, rates:state, aiusage:…). L'ancienne purge globale les
+// effaçait après 31 j → on ne purge plus QUE les préfixes de cache IA explicitement listés.
+const AICACHE_PRUNABLE = ['swseg:', 'brseg:', 'ins:', 'swt2:', 'ana:', 'tag:', 'aichat:', 'hist:'];
 async function aiCachePrune(maxAgeMs) {
   await _aiCacheEnsureDb();
   if (!_aiCacheDb) return;   // mode fichier : pas d'horodatage par clé, fichier déjà petit/éphémère
   const cutoff = new Date(Date.now() - maxAgeMs).toISOString();
   try {
-    const { error } = await supabase.from(AICACHE_TABLE).delete().lt('created_at', cutoff);
-    if (!error) console.log('[AICache] purge des entrées > rétention effectuée');
+    const orFilter = AICACHE_PRUNABLE.map(p => `key.like.${p}%`).join(',');
+    const { error } = await supabase.from(AICACHE_TABLE).delete().lt('created_at', cutoff).or(orFilter);
+    if (!error) console.log('[AICache] purge (préfixes IA uniquement) des entrées > rétention effectuée');
   } catch {}
 }
