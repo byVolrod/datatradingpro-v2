@@ -1953,7 +1953,8 @@ document.addEventListener('DOMContentLoaded', () => {
       + '</div>'
       + '<div class="rtc-dist"><div class="rtc-dist-h">Scenario Distribution</div>' + scRows
       + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>'
-      + '<table class="rtc-tbl"><thead><tr><th>Meeting Date</th><th>Day</th><th>Cut (%)</th><th>Hold (%)</th><th>Hike (%)</th><th>Implied &Delta; (BPS)</th><th>Base Case</th></tr></thead><tbody>' + rows + '</tbody></table>'
+      // Tableau dans une zone SCROLLABLE (~3 lignes visibles, en-tête collant) → lisible ET complet
+      + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Meeting Date</th><th>Day</th><th>Cut (%)</th><th>Hold (%)</th><th>Hike (%)</th><th>Implied &Delta; (BPS)</th><th>Base Case</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       + '</div>';
   }
 

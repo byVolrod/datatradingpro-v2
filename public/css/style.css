@@ -8721,17 +8721,19 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rtc-bp { width: 48px; text-align: left; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); font-weight: 600; font-size: 10px; flex: 0 0 auto; }
 .rtc-axis { display: flex; justify-content: space-between; padding: 2px 54px 0 34px; }
 .rtc-axis span { font-size: 8px; color: #4a4a52; font-family: var(--mono, ui-monospace, monospace); }
-/* ── Tableau des réunions : en-têtes EN sur UNE ligne, colonnes propres (Meeting Date ≠ Day) ── */
-.rtc-tbl { width: 100%; border-collapse: collapse; font-size: 10px; font-family: var(--mono, ui-monospace, monospace); margin-top: auto; }
-.rtc-tbl th { color: #e6e9ef; font-weight: 600; text-align: center; padding: 3px 4px; border-top: 1px solid #18181c; border-bottom: 1px solid #18181c; font-size: 8.5px; white-space: nowrap; }
+/* ── Tableau des réunions : AGRANDI + zone SCROLLABLE (~3 lignes visibles, en-tête collant 2 lignes,
+      colonnes date/jours bien séparées — clone PMT) ── */
+.rtc-tblwrap { margin-top: auto; flex: 1 1 auto; min-height: 0; max-height: 132px; overflow-y: auto; border-top: 1px solid #18181c; }
+.rtc-tbl { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono, ui-monospace, monospace); }
+.rtc-tbl th { position: sticky; top: 0; z-index: 2; background: #0e0e11; color: #e6e9ef; font-weight: 600; text-align: center; padding: 4px 6px; border-bottom: 1px solid #18181c; font-size: 10px; line-height: 1.2; }
 .rtc-tbl th:first-child { text-align: left; padding-left: 9px; }
-.rtc-tbl td { padding: 3px 4px; border-bottom: 1px solid #111113; text-align: center; color: #cfcfd4; white-space: nowrap; }
+.rtc-tbl td { padding: 5px 6px; border-bottom: 1px solid #111113; text-align: center; color: #d8dade; white-space: nowrap; }
 .rtc-tbl tr:last-child td { border-bottom: 0; }
-.rtc-tbl td:first-child { text-align: left; color: #e6e9ef; padding-left: 9px; }
+.rtc-tbl td:first-child { text-align: left; color: #eceef2; padding-left: 9px; padding-right: 10px; }
 .rtc-day { color: #8a8a93; }
 /* Pilules Implied Δ (fond plein vert/rouge foncé, texte centré) + badge Base Case (gris sombre / vert sombre) */
-.rtc-pill { display: inline-block; font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 3px; border: 1px solid; white-space: nowrap; min-width: 56px; text-align: center; font-family: var(--mono, ui-monospace, monospace); }
-.rtc-base { display: inline-block; font-size: 8.5px; font-weight: 700; padding: 1px 7px; border-radius: 3px; border: 1px solid; min-width: 34px; text-align: center; }
+.rtc-pill { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; border: 1px solid; white-space: nowrap; min-width: 66px; text-align: center; font-family: var(--mono, ui-monospace, monospace); }
+.rtc-base { display: inline-block; font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 3px; border: 1px solid; min-width: 40px; text-align: center; }
 .rtc-pill.g, .rtc-base.g { background: rgba(0,218,80,.15);  color: #00da50; border-color: rgba(0,218,80,.5); }
 .rtc-pill.r, .rtc-base.r { background: rgba(255,0,0,.15);   color: #ff4d2e; border-color: rgba(255,0,0,.5); }
 .rtc-pill.n             { background: rgba(171,180,195,.13); color: #abb4c3; border-color: rgba(171,180,195,.4); }
