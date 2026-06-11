@@ -1921,9 +1921,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
     const col = SPC[b.move] || SPC.HOLD;
     const probSeries = [b.prob].concat((b.meetings || []).map(m => Math.max(m.hold, m.hike, m.cut)));
-    const bpsSeries  = (b.meetings || []).map(m => m.impliedBps);
     const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
-    const expCol = b.expBps > 0 ? SPC.HIKE : (b.expBps < 0 ? SPC.CUT : SPC.HOLD);
     // Scenario Distribution : uniquement les scénarios > 0, triés décroissant (PMT n'affiche pas les lignes vides)
     const scen = [['Hold', sc.hold, 'n'], ['Hike', sc.hike, 'g'], ['Cut', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
     const scRows = (scen.length ? scen : [['Hold', 0, 'n']]).map(s =>
@@ -1940,9 +1938,10 @@ document.addEventListener('DOMContentLoaded', () => {
       + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
       + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span></div>'
       + '<div class="rtc-metrics">'
-      + '<div class="rtc-m"><span class="rtc-k">Next Move</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + spk(probSeries, col) + '</div>'
-      + '<div class="rtc-m"><span class="rtc-k">Probability</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + spk(probSeries, SPC.HOLD) + '</div>'
-      + '<div class="rtc-m"><span class="rtc-k">Expected &Delta;</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + spk(bpsSeries, expCol) + '</div>'
+      + spk(probSeries, col)   // UNE SEULE courbe continue, en fond de TOUT le bandeau (jamais par cellule)
+      + '<div class="rtc-m"><span class="rtc-k">Next Move</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k">Probability</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k">Expected &Delta;</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span></div>'
       + '<div class="rtc-m"><span class="rtc-k">Current Rate</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
       + '<div class="rtc-m"><span class="rtc-k">Meeting Date</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
       + '</div>'
