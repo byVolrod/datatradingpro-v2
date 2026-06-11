@@ -593,6 +593,9 @@ function buildStrengthChart(containerId, data, opts = {}) {
     am5xy.XYChart.new(root, {
       paddingLeft: 0, paddingRight: 2, paddingTop: 4, paddingBottom: 3,
       layout: root.verticalLayout,
+      // Façon PMT : on GLISSE le graphe (drag) pour remonter l'historique. wheelY 'none' →
+      // la molette continue de scroller la page ; pinch zoom au doigt sur mobile.
+      panX: true, panY: false, wheelX: 'panX', wheelY: 'none', pinchZoomX: true,
     })
   );
   chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));  // anthracite doux (un peu moins noir)
@@ -612,6 +615,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   const xAxis = chart.xAxes.push(
     am5xy.DateAxis.new(root, {
       baseInterval, extraMin: 0, extraMax: 0,
+      maxDeviation: 0.05,   // léger élastique en bord de pan (rebond doux, jamais de vide infini)
       renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 60 }),
     })
   );
@@ -766,6 +770,12 @@ function buildStrengthChart(containerId, data, opts = {}) {
       tt.setAll({ paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0 });
     }
   });
+
+  // ── Pan façon PMT : main « grab » + fenêtre initiale sur la FIN de série → on glisse vers la
+  // gauche pour remonter le temps (comme la vidéo de référence). Appliqué UNE seule fois : les
+  // rafraîchissements périodiques ne réinitialisent jamais la vue de l'utilisateur.
+  chart.plotContainer.set('cursorOverStyle', 'grab');
+  if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.35, 1); } catch (e) {} });
 
   // Apparition animée — SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
   chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
@@ -1855,7 +1865,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
-  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux', 'symbol'];
+  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux', 'symbol', 'journal'];
   // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
@@ -1966,7 +1976,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND
     //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
     const _ml = document.getElementById('main-layout');
-    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol');   // Week Ahead / Symbole en pleine largeur
+    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol' || view === 'journal');   // Week Ahead / Symbole / Journal en pleine largeur
+    document.getElementById('journal-btn')?.classList.toggle('topbar-icon--active', view === 'journal');   // état actif du bouton topbar Journal
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
@@ -1996,6 +2007,7 @@ document.addEventListener('DOMContentLoaded', () => {
       loadWeekAheadView();
     }
     if (view === 'taux') { loadTauxView(); _tauxPoll = setInterval(_tauxTick, 60000); }   // TAUX : rafraîchi en continu (~60 s) tant que l'onglet est ouvert
+    if (view === 'journal' && typeof window.loadJournalView === 'function') window.loadJournalView();
     if (view === 'symbol' && window.loadSymbolView) window.loadSymbolView();
 
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour.

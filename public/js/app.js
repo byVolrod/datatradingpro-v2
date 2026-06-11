@@ -6941,3 +6941,141 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }catch(_){}
 })();
+
+// ═══════════════════ JOURNAL DE TRADING — privé, persistant PAR COMPTE (KV Supabase) ═══════════════════
+// Bouton topbar (à gauche de la recherche, façon PMT) → vue plein écran. Saisie INLINE (jamais de
+// dialog natif), suppression avec confirmation inline, stats calculées sur les données réelles.
+(function () {
+  let _jrList = null;        // entrées chargées (null = pas encore fetché)
+  let _jrEdit = null;        // id en cours d'édition (null = mode ajout)
+  let _jrDelPending = null;  // id en attente de confirmation de suppression
+  let _jrSaveT = null;       // debounce de sauvegarde serveur
+  const JR_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'USD/CAD', 'AUD/USD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'XAU/USD', 'BTC/USD', 'US500', 'WTI'];
+  const _esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  // Taille de pip : JPY = 0.01 ; métaux/indices/crypto/énergie = 1 ; FX standard = 0.0001
+  function _jrPipSize(pair) { const p = String(pair || ''); if (/JPY/.test(p)) return 0.01; if (/XAU|XAG|BTC|ETH|US500|US30|NAS|SPX|WTI|BRENT|OIL/i.test(p)) return 1; return 0.0001; }
+  function _jrPips(e) {
+    if (e.entry == null || e.exit == null) return null;
+    const d = (e.exit - e.entry) * (e.dir === 'SELL' ? -1 : 1);
+    return +(d / _jrPipSize(e.pair)).toFixed(1);
+  }
+  function _jrWin(e) {   // résultat d'un trade clôturé : P&L manuel prioritaire, sinon pips
+    if (e.pl != null) return e.pl > 0 ? 1 : e.pl < 0 ? -1 : 0;
+    const p = _jrPips(e);
+    return p == null ? null : (p > 0 ? 1 : p < 0 ? -1 : 0);
+  }
+  function _jrStatus(msg) { const el = document.getElementById('jr-status'); if (el) el.textContent = msg || ''; }
+  function _jrSave() {   // sauvegarde serveur (liste complète, modèle symrecent) — débouncée
+    clearTimeout(_jrSaveT);
+    _jrStatus('Sauvegarde…');
+    _jrSaveT = setTimeout(() => {
+      fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: _jrList || [] }) })
+        .then(r => r.json()).then(j => _jrStatus(j && j.ok ? 'Enregistré ✓' : 'Erreur de sauvegarde'))
+        .catch(() => _jrStatus('Hors-ligne — réessaiera'));
+    }, 600);
+  }
+  function _jrFmtDate(ts) { try { const d = new Date(ts); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); } catch (e) { return ''; } }
+  function _jrNum(v) { return v == null ? '—' : String(v).replace('.', ','); }
+
+  function _jrRenderStats() {
+    const host = document.getElementById('jr-stats'); if (!host) return;
+    const L = _jrList || [];
+    const closed = L.filter(e => e.exit != null || e.pl != null);
+    const results = closed.map(_jrWin).filter(r => r != null);
+    const wins = results.filter(r => r > 0).length;
+    const winrate = results.length ? Math.round(wins / results.length * 100) : null;
+    const pips = closed.reduce((a, e) => { const p = _jrPips(e); return a + (p || 0); }, 0);
+    const pl = L.reduce((a, e) => a + (e.pl || 0), 0);
+    const cls = v => v > 0 ? 'jr-pos' : v < 0 ? 'jr-neg' : '';
+    host.innerHTML =
+      '<span class="jr-stat"><i>Trades</i><b>' + L.length + '</b></span>'
+      + '<span class="jr-stat"><i>Ouverts</i><b>' + (L.length - closed.length) + '</b></span>'
+      + '<span class="jr-stat"><i>Winrate</i><b>' + (winrate == null ? '—' : winrate + '%') + '</b></span>'
+      + '<span class="jr-stat"><i>Pips nets</i><b class="' + cls(pips) + '">' + (pips ? (pips > 0 ? '+' : '') + pips.toFixed(1).replace('.', ',') : '—') + '</b></span>'
+      + '<span class="jr-stat"><i>P&amp;L net</i><b class="' + cls(pl) + '">' + (pl ? (pl > 0 ? '+' : '') + pl.toFixed(2).replace('.', ',') + ' €' : '—') + '</b></span>';
+  }
+
+  function _jrRenderForm() {
+    const host = document.getElementById('jr-form'); if (!host) return;
+    const e = _jrEdit != null ? (_jrList || []).find(x => x.id === _jrEdit) : null;
+    const v = (x) => x == null ? '' : String(x);
+    host.innerHTML =
+      '<input id="jr-pair" list="jr-pairs" placeholder="Paire (EUR/USD)" maxlength="12" value="' + _esc(e ? e.pair : '') + '">'
+      + '<datalist id="jr-pairs">' + JR_PAIRS.map(p => '<option value="' + p + '">').join('') + '</datalist>'
+      + '<select id="jr-dir"><option value="BUY"' + (e && e.dir === 'BUY' ? ' selected' : '') + '>BUY</option><option value="SELL"' + (e && e.dir === 'SELL' ? ' selected' : '') + '>SELL</option></select>'
+      + '<input id="jr-lots"  type="number" step="0.01" min="0" placeholder="Lots"    value="' + v(e && e.lots) + '">'
+      + '<input id="jr-entry" type="number" step="any"          placeholder="Entrée" value="' + v(e && e.entry) + '">'
+      + '<input id="jr-exit"  type="number" step="any"          placeholder="Sortie (vide = ouvert)" value="' + v(e && e.exit) + '">'
+      + '<input id="jr-pl"    type="number" step="any"          placeholder="P&L € (optionnel)" value="' + v(e && e.pl) + '">'
+      + '<input id="jr-note"  type="text" maxlength="300"       placeholder="Note (setup, raison, leçon…)" value="' + _esc(e ? e.note : '') + '">'
+      + '<button type="button" class="jr-btn jr-btn--add" id="jr-submit">' + (e ? 'Mettre à jour' : '+ Ajouter') + '</button>'
+      + (e ? '<button type="button" class="jr-btn" id="jr-cancel">Annuler</button>' : '');
+    const num = id => { const x = parseFloat(document.getElementById(id).value); return isFinite(x) ? x : null; };
+    document.getElementById('jr-submit').onclick = () => {
+      const pair = (document.getElementById('jr-pair').value || '').toUpperCase().trim();
+      if (pair.length < 2) { document.getElementById('jr-pair').focus(); return; }
+      const rec = {
+        id: e ? e.id : (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+        ts: e ? e.ts : Date.now(),
+        pair, dir: document.getElementById('jr-dir').value === 'SELL' ? 'SELL' : 'BUY',
+        lots: num('jr-lots'), entry: num('jr-entry'), exit: num('jr-exit'), pl: num('jr-pl'),
+        note: (document.getElementById('jr-note').value || '').slice(0, 300),
+      };
+      if (e) { const i = _jrList.findIndex(x => x.id === e.id); if (i >= 0) _jrList[i] = rec; }
+      else _jrList.unshift(rec);
+      _jrEdit = null;
+      _jrRender(); _jrSave();
+    };
+    const c = document.getElementById('jr-cancel'); if (c) c.onclick = () => { _jrEdit = null; _jrRenderForm(); };
+  }
+
+  function _jrRenderRows() {
+    const body = document.getElementById('jr-body'); if (!body) return;
+    const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    if (!L.length) { body.innerHTML = '<tr><td colspan="10" class="jr-empty">Aucun trade pour l’instant — ajoutez votre premier trade ci-dessus.</td></tr>'; return; }
+    body.innerHTML = L.map(e => {
+      const pips = _jrPips(e), w = _jrWin(e);
+      const open = e.exit == null && e.pl == null;
+      const cls = v => v > 0 ? 'jr-pos' : v < 0 ? 'jr-neg' : '';
+      return '<tr data-id="' + _esc(e.id) + '" class="' + (w != null ? (w > 0 ? 'jr-row-win' : w < 0 ? 'jr-row-loss' : '') : '') + '">'
+        + '<td class="jr-mono">' + _jrFmtDate(e.ts) + '</td>'
+        + '<td class="jr-pair">' + _esc(e.pair) + '</td>'
+        + '<td><span class="jr-dir jr-' + (e.dir === 'SELL' ? 'sell' : 'buy') + '">' + e.dir + '</span></td>'
+        + '<td class="jr-mono">' + _jrNum(e.lots) + '</td>'
+        + '<td class="jr-mono">' + _jrNum(e.entry) + '</td>'
+        + '<td class="jr-mono">' + (open ? '<span class="jr-open">OUVERT</span>' : _jrNum(e.exit)) + '</td>'
+        + '<td class="jr-mono ' + cls(pips) + '">' + (pips == null ? '—' : (pips > 0 ? '+' : '') + String(pips).replace('.', ',')) + '</td>'
+        + '<td class="jr-mono ' + cls(e.pl) + '">' + (e.pl == null ? '—' : (e.pl > 0 ? '+' : '') + e.pl.toFixed(2).replace('.', ',')) + '</td>'
+        + '<td class="jr-note">' + _esc(e.note) + '</td>'
+        + '<td class="jr-actions"><button type="button" class="jr-act" data-act="edit" title="Modifier">✎</button>'
+        + (_jrDelPending === e.id
+            ? '<button type="button" class="jr-act jr-act--confirm" data-act="del">Confirmer ?</button>'
+            : '<button type="button" class="jr-act jr-act--del" data-act="del" title="Supprimer">✕</button>')
+        + '</td></tr>';
+    }).join('');
+  }
+
+  function _jrRender() { _jrRenderStats(); _jrRenderForm(); _jrRenderRows(); }
+
+  // Délégation : éditer / supprimer (confirmation INLINE, jamais de confirm() natif)
+  document.addEventListener('click', ev => {
+    const btn = ev.target.closest && ev.target.closest('.jr-act');
+    if (!btn) { if (_jrDelPending) { _jrDelPending = null; _jrRenderRows(); } return; }
+    if (!_jrList) return;
+    const id = btn.closest('tr') && btn.closest('tr').dataset.id;
+    if (!id) return;
+    if (btn.dataset.act === 'edit') { _jrEdit = id; _jrDelPending = null; _jrRenderForm(); const p = document.getElementById('jr-pair'); if (p) p.focus(); }
+    else if (btn.dataset.act === 'del') {
+      if (_jrDelPending === id) { _jrList = _jrList.filter(x => x.id !== id); if (_jrEdit === id) _jrEdit = null; _jrDelPending = null; _jrRender(); _jrSave(); }
+      else { _jrDelPending = id; _jrRenderRows(); setTimeout(() => { if (_jrDelPending === id) { _jrDelPending = null; _jrRenderRows(); } }, 3500); }
+    }
+  });
+
+  window.loadJournalView = function () {
+    if (_jrList) { _jrRender(); return; }   // déjà chargé → re-render instantané (les données vivent en mémoire + serveur)
+    _jrStatus('Chargement…');
+    fetch('/api/journal').then(r => r.json())
+      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrStatus(''); _jrRender(); })
+      .catch(() => { _jrList = []; _jrStatus('Hors-ligne'); _jrRender(); });
+  };
+})();
