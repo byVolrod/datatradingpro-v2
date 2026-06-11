@@ -5127,7 +5127,9 @@ function _sbFillNarrative(bias) {
   });
   return Object.assign({}, bias, { narrative });   // COPIE → ne mute pas bias.narrative (qui reste IA-seul)
 }
-async function generateSmartBias(force = false) {
+async function generateSmartBias(force = false, weekly = false) {
+  // weekly=true : run HEBDO planifié (samedi 00h30) → réécrit AUSSI les 8 narratifs IA.
+  // weekly=false (régén en semaine : redéploiement, version, self-heal) → narratifs du samedi CONSERVÉS.
   const WEEK = 7 * 24 * 60 * 60 * 1000;
   if (!force && _smartBias && Date.now() - (_smartBias.generatedAt || 0) < WEEK) return _smartBias;
 
@@ -5250,24 +5252,28 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   rows.push({ key: 'trend', label: 'Trend', values: trend });
   rows.push({ key: 'seasonality', label: 'Seasonality', values: seasonality });
 
-  // Narratif IA hebdo par devise (UN seul appel → JSON). On conserve le narratif précédent en repli
-  // (ne JAMAIS le perdre), et on ne retente PAS d'appel IA si l'IA vient déjà d'échouer (quota).
+  // Narratif IA hebdo par devise — RÈGLE UTILISATEUR : le texte généré le SAMEDI reste FIXE
+  // jusqu'au samedi suivant. On GARDE donc TOUS les narratifs IA réels existants (même si le
+  // Overall recalculé a bougé en semaine — plus aucun rejet/régénération en cours de semaine).
+  // Seul le run HEBDO du samedi (weekly=true) réécrit les 8 textes.
   let narrative = (_smartBias && _smartBias.narrative) || null;
   const _prevBias = (_smartBias && _smartBias.narrativeBias) || {};
-  // On NE garde en repli QUE les narratifs RÉELS (IA) ET dont le biais reflète TOUJOURS le Overall
-  // recalculé (sinon le texte contredirait la matrice → on le jette → il sera régénéré, cohérent).
   if (narrative) {
     const _clean = {};
-    for (const _c of SB_CURRENCIES) if (_sbIsRealNarrative(narrative[_c]) && _prevBias[_c] === conclusion[_c]) _clean[_c] = narrative[_c];
+    for (const _c of SB_CURRENCIES) if (_sbIsRealNarrative(narrative[_c])) _clean[_c] = narrative[_c];
     narrative = Object.keys(_clean).length ? _clean : null;
   }
-  // Tag de biais : pour chaque devise, le Overall que son narratif reflète → garantit la cohérence.
+  // Tag de biais : le Overall que chaque narratif reflète (conservé tel quel pour les textes gardés).
   const narrativeBias = {};
-  for (const _c of SB_CURRENCIES) if (narrative && narrative[_c]) narrativeBias[_c] = conclusion[_c];
+  for (const _c of SB_CURRENCIES) if (narrative && narrative[_c]) narrativeBias[_c] = (_prevBias[_c] != null ? _prevBias[_c] : conclusion[_c]);
   if (aiOk) {
     try {
-      const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine]);
-      if (n) { narrative = Object.assign({}, narrative || {}, n); for (const _c of Object.keys(n)) narrativeBias[_c] = conclusion[_c]; }
+      // weekly (samedi) → on régénère TOUT ; sinon on ne génère QUE les devises sans vrai narratif.
+      const _todo = weekly ? null : SB_CURRENCIES.filter(c => !_sbIsRealNarrative((narrative || {})[c]));
+      if (weekly || (_todo && _todo.length)) {
+        const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine], _todo);
+        if (n) { narrative = Object.assign({}, narrative || {}, n); for (const _c of Object.keys(n)) narrativeBias[_c] = conclusion[_c]; }
+      }
     } catch {}
   }
   // Biais par BANQUE (toutes les banques d'Institution) — recalculé si l'IA est dispo, sinon on
@@ -5357,10 +5363,9 @@ async function _sbEnsureNarrative() {
   if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) return;
   const have = _smartBias.narrative || {};
   const concl = _smartBias.conclusion || {};
-  const nb = _smartBias.narrativeBias || {};
-  // À régénérer : narratif absent / repli / TRONQUÉ, OU narratif dont le biais ne reflète PLUS le
-  // Overall courant (cohérence garantie narratif ↔ matrice).
-  const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]) || nb[c] !== concl[c]);
+  // À régénérer : UNIQUEMENT narratif absent / repli / TRONQUÉ. RÈGLE UTILISATEUR : un texte IA
+  // généré le samedi reste FIXE jusqu'au samedi suivant — on ne le réécrit PLUS si le Overall bouge.
+  const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]));
   // Re-tente tant qu'AUCUNE banque n'a de vrai biais IA (banques listées en Neutral = IA pas encore passée).
   const needBank = !_smartBias.bankStances || !Object.values(_smartBias.bankStances).some(st => st && Object.keys(st).length);
   if (!missing.length && !needBank) return;                                       // tout réel/cohérent ET banques OK → rien à faire
@@ -5633,7 +5638,7 @@ app.get('/api/week-ahead', async (req, res) => {
   const delay = msToNextWeekday(6, 0, 30);   // SAMEDI 00h30 Paris (≈ « samedi minuit », après la clôture de vendredi)
   console.log(`[Bias] Génération hebdo (samedi 00h30 Paris) dans ${Math.round(delay / 60000)} min`);
   const runAll = () => {
-    generateSmartBias(true).catch(e => console.error('[SmartBias] failed:', e.message));
+    generateSmartBias(true, true).catch(e => console.error('[SmartBias] failed:', e.message));   // weekly=true : seul run qui RÉÉCRIT les narratifs
     generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
     generateWeekAhead(true, true).catch(e => console.error('[WeekAhead] failed:', e.message));   // Week Ahead : data + ÉDITORIAL IA (1×/semaine)
     _aiRefreshRatesBias().catch(e => console.error('[RatesBias IA] failed:', e.message));  // biais TAUX : refresh IA hebdo (caché)

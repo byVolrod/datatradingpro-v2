@@ -2937,8 +2937,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-title { font-size: 14px; font-weight: 700; color: #fff; }
 .sbm-hint { font-size: 10px; color: #6b7280; }
 .sbm-grid-wrap { overflow-x: auto; }
-.sbm-grid { width: 100%; min-width: 860px; border-collapse: collapse; font-size: 11px; table-layout: fixed; }   /* min-width : 165px (Indicators) + 8 devises × ~87px → en colonne 50% (laptops 1024-1680) le wrap .sbm-grid-wrap scrolle horizontalement au lieu d'écraser les libellés (Very Bullish…) ; le bloc ≤768px garde son min-width 620px (déclaré plus bas, prioritaire) */
-.sbm-grid th.sbm-ind, .sbm-grid td.sbm-ind { width: 165px; }
+/* La table TIENT TOUJOURS dans le conteneur (min-width 0) → la colonne CHF est ENTIÈREMENT visible
+   par défaut, sans scroll horizontal. table-layout:fixed répartit les 8 devises à parts égales ;
+   sur écran étroit les badges s'ellipsent au lieu de pousser CHF hors-champ. (≤768px : min-width
+   620px déclaré plus bas reste prioritaire → scroll sur téléphone, lisible.) */
+.sbm-grid { width: 100%; min-width: 0; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
+.sbm-grid th.sbm-ind, .sbm-grid td.sbm-ind { width: 150px; }
 /* Cellules COLLÉES — séparées uniquement par une fine bordure 1px anthracite #111113 */
 .sbm-grid th, .sbm-grid td { border: 1px solid #262626; }   /* quadrillage parfait 1px #262626 (spec DTP) */
 .sbm-grid thead th { background: #101012; color: #8a93a3; font-weight: 600; padding: 5px 6px; text-align: center; }
