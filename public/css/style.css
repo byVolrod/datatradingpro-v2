@@ -21,6 +21,53 @@ body.theme-light {            /* clair — fonds clairs, texte sombre, orange co
 }
 body.theme-light, body.theme-medium { background:var(--bg); color:var(--text); }
 
+/* ═══ MODE CLAIR — surcharges ciblées des composants à couleurs SOMBRES EN DUR ═══════
+   Beaucoup de conteneurs/tables/volets utilisent des hex noirs en dur (ne suivant pas
+   les variables) → invisibles/illisibles en clair. On les remappe ici (ajout pur, le
+   thème sombre n'est jamais touché). Les couleurs sémantiques (orange/vert/rouge) restent. */
+/* Surfaces principales (panels, volets, colonnes graphiques) → blanc */
+body.theme-light .sym-dd, body.theme-light .sym-panel, body.theme-light #sym-tv,
+body.theme-light .sym-bz-col, body.theme-light .sym-cb-note,
+body.theme-light .fxl-wrap, body.theme-light .fxl-loader, body.theme-light .cal-table-wrap,
+body.theme-light .bank-chart-col, body.theme-light .bank-chart, body.theme-light #bank-chart,
+body.theme-light .ai-panel, body.theme-light .sqwk-panel, body.theme-light .chat-panel, body.theme-light .rtc,
+body.theme-light .arlib-toolbar, body.theme-light .arlib-search-wrap, body.theme-light .arlib-filter,
+body.theme-light .sbs-panel, body.theme-light .sbs-cdd, body.theme-light .sbs-dd,
+body.theme-light .wa3-panel, body.theme-light .wa3-fbar,
+body.theme-light .cal-detail-card { background: var(--bg1) !important; }
+
+/* En-têtes sticky, cartes, dropdowns, toasts → gris clair */
+body.theme-light .topbar-symbol-search, body.theme-light #topbar-symbol-input,
+body.theme-light .fxl-th, body.theme-light .fxl-th--left, body.theme-light .fxl-td--left,
+body.theme-light .cal-table thead th, body.theme-light .cal-day-sep td, body.theme-light .cdv,
+body.theme-light .bank-table thead th, body.theme-light .taux-table thead th,
+body.theme-light .chat-header, body.theme-light .sbs-head, body.theme-light .wac-th,
+body.theme-light .wac-day, body.theme-light .wan-tag, body.theme-light .wa3-fbtn,
+body.theme-light .dtpsel-panel, body.theme-light .sbs-cdd-menu, body.theme-light .dtp-toast,
+body.theme-light .arlib-card, body.theme-light .arlib-card-icon, body.theme-light .fxl-pat-sq,
+body.theme-light .calc-card, body.theme-light .calc-results,
+body.theme-light .bank-detail-row td { background: var(--bg2) !important; }
+body.theme-light .arlib-card--read { background: var(--bg3) !important; }
+
+/* Lignes de tables hover → teinte claire (garde l'orange/rouge en accent) */
+body.theme-light .bank-row:hover, body.theme-light .fxl-row:hover, body.theme-light .cal-row:hover,
+body.theme-light .taux-table tbody tr:hover, body.theme-light .arlib-card:hover { background: var(--bg3) !important; }
+
+/* Textes forcés en blanc/gris-clair en dur → texte sombre lisible */
+body.theme-light .logo-text, body.theme-light .panel-title, body.theme-light .bank-chart-pair,
+body.theme-light .cal-table thead th, body.theme-light .cth-time, body.theme-light .cth-curr,
+body.theme-light .cth-event, body.theme-light .cal-detail-title, body.theme-light .bank-detail-line b,
+body.theme-light .calc-v, body.theme-light .sym-dd-sym { color: var(--text) !important; }
+
+/* Rideaux d'overlay sombres → voile clair discret */
+body.theme-light .ai-backdrop, body.theme-light .sqwk-overlay,
+body.theme-light .chat-overlay, body.theme-light .cal-detail-overlay { background: rgba(20,22,28,0.32) !important; }
+
+/* Inputs/zones de saisie sombres → champ clair bordé */
+body.theme-light .calc-field input, body.theme-light .calc-field select,
+body.theme-light .chat-input, body.theme-light .ai-input,
+body.theme-light .arlib-search input, body.theme-light .fxl-search input { background: var(--bg1) !important; color: var(--text) !important; }
+
 :root {
   --bg:          #0a0a0a;
   --bg1:         #0d0d0d;
