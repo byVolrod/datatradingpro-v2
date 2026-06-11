@@ -8711,16 +8711,17 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rtc-prob { color: #f7941d; }   /* Probability = ambre/orange (clone PMT text-primary) */
 /* La courbe COMBLE le bas de la cellule : étirée sur toute la largeur (preserveAspectRatio none), ~45% de hauteur */
 .rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 1px; width: auto; height: 45%; max-height: 24px; z-index: 0; opacity: .9; pointer-events: none; }
-/* ── Scenario Distribution : barres ÉPAISSES compactes, rounded-sm, % collé à droite de la barre ── */
-.rtc-dist { display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 4px; flex: 0 0 auto; }
-.rtc-dist-h { font-size: 9.5px; letter-spacing: .02em; color: #c9cbd1; margin-bottom: 3px; font-weight: 600; }
-.rtc-bar { display: flex; align-items: center; gap: 6px; font-size: 10px; }
-.rtc-bl { width: 28px; color: #8a8a93; flex: 0 0 auto; }
-.rtc-track { flex: 1; height: 16px; background: rgba(255,255,255,0.03); border-radius: 2px; }
+/* ── Scenario Distribution : OCCUPE l'espace libre entre métriques et tableau (plus de vide noir),
+      contenu centré verticalement, barres épaisses rounded-sm, % à droite de la barre ── */
+.rtc-dist { display: flex; flex-direction: column; gap: 7px; padding: 8px 9px 6px; flex: 1 1 auto; min-height: 0; justify-content: center; }
+.rtc-dist-h { font-size: 10.5px; letter-spacing: .02em; color: #c9cbd1; margin-bottom: 2px; font-weight: 600; }
+.rtc-bar { display: flex; align-items: center; gap: 7px; font-size: 11px; }
+.rtc-bl { width: 32px; color: #8a8a93; flex: 0 0 auto; }
+.rtc-track { flex: 1; height: 20px; background: rgba(255,255,255,0.03); border-radius: 2px; }
 .rtc-track i { display: block; height: 100%; border-radius: 2px; transition: width .4s; min-width: 2px; }
 .rtc-track i.n { background: #abb4c3; } .rtc-track i.g { background: rgba(0,218,80,.85); } .rtc-track i.r { background: rgba(255,61,0,.82); }
-.rtc-bp { width: 48px; text-align: left; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); font-weight: 600; font-size: 10px; flex: 0 0 auto; }
-.rtc-axis { display: flex; justify-content: space-between; padding: 2px 54px 0 34px; }
+.rtc-bp { width: 52px; text-align: left; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
+.rtc-axis { display: flex; justify-content: space-between; padding: 2px 59px 0 39px; }
 .rtc-axis span { font-size: 8px; color: #4a4a52; font-family: var(--mono, ui-monospace, monospace); }
 /* ── Tableau des réunions : AGRANDI + zone SCROLLABLE (~3 lignes visibles, en-tête collant 2 lignes,
       colonnes date/jours bien séparées — clone PMT) ── */
