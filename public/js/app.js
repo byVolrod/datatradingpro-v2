@@ -7154,3 +7154,105 @@ document.addEventListener('DOMContentLoaded', ()=>{
       .catch(() => { _jrList = []; _jrStatus('Hors-ligne'); _jrRender(); });
   };
 })();
+
+// ═══════════════════ TOAST + GATING ADMIN (Journal / Calculatrice) ═══════════════════
+function _dtpToast(msg, kind) {
+  let host = document.getElementById('dtp-toast-host');
+  if (!host) { host = document.createElement('div'); host.id = 'dtp-toast-host'; document.body.appendChild(host); }
+  const t = document.createElement('div');
+  t.className = 'dtp-toast' + (kind ? ' dtp-toast--' + kind : '');
+  t.innerHTML = '<span class="dtp-toast-ic">🛠️</span><span>' + String(msg || '').replace(/</g, '&lt;') + '</span>';
+  host.appendChild(t);
+  requestAnimationFrame(() => t.classList.add('show'));
+  setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 280); }, 4200);
+}
+// Journal & Calculatrice = fonctionnalités EN DÉVELOPPEMENT → réservées aux admins. Les autres
+// comptes voient un message au clic (jamais la vue). Le serveur garde aussi /api/journal côté admin.
+window._dtpGateTool = function (view) {
+  if (window._pdIsAdmin) { if (window.activateView) window.activateView(view); return; }
+  const label = view === 'calculator' ? 'La calculatrice de position' : 'Le journal de trading';
+  _dtpToast(label + ' est en cours de développement — réservé aux administrateurs pour le moment. Disponible bientôt pour tous.', 'dev');
+};
+
+// ═══════════════════ CALCULATRICE DE TAILLE DE POSITION (façon Myfxbook) ═══════════════════
+(function () {
+  let _rates = null;          // symbole "EUR/USD" → dernier cours
+  let _riskMode = 'pct';      // 'pct' | 'amount'
+  const ACCTS = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'];
+  function _cStatus(m) { const el = document.getElementById('calc-status'); if (el) el.textContent = m || ''; }
+  function _num(id) { const x = parseFloat((document.getElementById(id) || {}).value); return isFinite(x) ? x : null; }
+  // Résout un taux FROM→TO à partir des paires dispo : direct, inverse, ou triangulation via USD.
+  function _rate(from, to) {
+    if (from === to) return 1;
+    const r = _rates || {};
+    if (r[from + '/' + to]) return r[from + '/' + to];
+    if (r[to + '/' + from]) return 1 / r[to + '/' + from];
+    const fu = (from === 'USD') ? 1 : (r[from + '/USD'] ? r[from + '/USD'] : (r['USD/' + from] ? 1 / r['USD/' + from] : null));
+    const ut = (to === 'USD') ? 1 : (r['USD/' + to] ? r['USD/' + to] : (r[to + '/USD'] ? 1 / r[to + '/USD'] : null));
+    if (fu != null && ut != null) return fu * ut;
+    return null;
+  }
+  function _calcCompute() {
+    const acct = (document.getElementById('calc-acct') || {}).value || 'USD';
+    const balance = _num('calc-balance'), risk = _num('calc-risk'), sl = _num('calc-sl');
+    const sym = (document.getElementById('calc-pair') || {}).value || '';
+    const res = document.getElementById('calc-results'); if (!res) return;
+    if (!_rates) { res.innerHTML = '<div class="calc-empty">Cours indisponibles — réessayez.</div>'; return; }
+    if (balance == null || risk == null || sl == null || sl <= 0 || !sym) { res.innerHTML = '<div class="calc-empty">Renseignez solde, risque, stop-loss et paire.</div>'; return; }
+    const m = sym.split('/'); if (m.length !== 2) { res.innerHTML = '<div class="calc-empty">Paire invalide.</div>'; return; }
+    const base = m[0], quote = m[1];
+    const price = _rates[sym];
+    if (!price) { res.innerHTML = '<div class="calc-empty">Cours indisponible pour ' + sym + '.</div>'; return; }
+    const riskMoney = _riskMode === 'pct' ? balance * (risk / 100) : risk;
+    const pipSize = quote === 'JPY' ? 0.01 : 0.0001;
+    const contract = 100000;                                  // 1 lot standard
+    const pipValQuote = pipSize * contract;                   // valeur d'un pip (1 lot) en devise de cotation
+    const qToAcct = _rate(quote, acct);
+    if (qToAcct == null) { res.innerHTML = '<div class="calc-empty">Conversion ' + quote + '→' + acct + ' indisponible.</div>'; return; }
+    const pipValAcct = pipValQuote * qToAcct;                 // valeur d'un pip (1 lot) dans la devise du compte
+    const lots = riskMoney / (sl * pipValAcct);
+    const units = lots * contract;
+    const notionalBase = units;                               // unités de la devise de base
+    const fmt = (v, d) => (v == null || !isFinite(v)) ? '—' : v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
+    const cur = acct === 'JPY' ? '¥' : acct === 'EUR' ? '€' : acct === 'GBP' ? '£' : (acct === 'USD' || acct === 'CAD' || acct === 'AUD' || acct === 'NZD') ? '$' : acct + ' ';
+    res.innerHTML =
+      '<div class="calc-card calc-card--hero"><span class="calc-k">Taille de position</span><span class="calc-v">' + fmt(lots, 2) + ' <em>lots</em></span>'
+      + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités</span></div>'
+      + '<div class="calc-grid">'
+      + '<div class="calc-card"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? risk + ' % du solde' : 'montant fixe') + '</span></div>'
+      + '<div class="calc-card"><span class="calc-k">Valeur du pip</span><span class="calc-v">' + cur + fmt(pipValAcct * lots, 2) + '</span><span class="calc-sub">' + cur + fmt(pipValAcct, 2) + ' / lot</span></div>'
+      + '<div class="calc-card"><span class="calc-k">Stop-loss</span><span class="calc-v">' + fmt(sl, 0) + ' <em>pips</em></span><span class="calc-sub">perte max ≈ ' + cur + fmt(sl * pipValAcct * lots, 2) + '</span></div>'
+      + '<div class="calc-card"><span class="calc-k">Notionnel</span><span class="calc-v">' + fmt(notionalBase, 0) + ' ' + base + '</span><span class="calc-sub">cours ' + sym + ' : ' + fmt(price, quote === 'JPY' ? 3 : 5) + '</span></div>'
+      + '</div>';
+  }
+  function _wire() {
+    const go = document.getElementById('calc-go'); if (go) go.onclick = _calcCompute;
+    ['calc-acct', 'calc-balance', 'calc-risk', 'calc-sl', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', _calcCompute); });
+    const bal = document.getElementById('calc-balance'); if (bal) bal.addEventListener('input', () => {});
+    const mode = document.getElementById('calc-risk-mode');
+    if (mode) mode.onclick = () => {
+      _riskMode = _riskMode === 'pct' ? 'amount' : 'pct';
+      const unit = document.getElementById('calc-risk-unit'); const rk = document.getElementById('calc-risk');
+      if (_riskMode === 'pct') { mode.textContent = '%'; if (unit) unit.textContent = '%'; if (rk) { rk.value = '1'; rk.setAttribute('max', '100'); } }
+      else { mode.textContent = (document.getElementById('calc-acct') || {}).value || '$'; if (unit) unit.textContent = 'montant'; if (rk) { rk.value = '100'; rk.removeAttribute('max'); } }
+      _calcCompute();
+    };
+  }
+  window.loadCalculatorView = function () {
+    _wire();
+    if (_rates) { _calcCompute(); return; }
+    _cStatus('Chargement des cours…');
+    fetch('/api/fxlist').then(r => r.json()).then(d => {
+      _rates = {};
+      (d && d.pairs || []).forEach(p => { if (p && p.symbol && isFinite(p.last)) _rates[p.symbol] = p.last; });
+      const sel = document.getElementById('calc-pair');
+      if (sel) {
+        const syms = Object.keys(_rates).sort();
+        sel.innerHTML = (syms.length ? syms : ['EUR/USD']).map(s => '<option' + (s === 'EUR/USD' ? ' selected' : '') + '>' + s + '</option>').join('');
+      }
+      const note = document.getElementById('calc-rate-note');
+      if (note) note.textContent = d && d.updatedAt ? 'cours du ' + new Date(d.updatedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+      _cStatus(''); _calcCompute();
+    }).catch(() => { _cStatus('Cours indisponibles'); const res = document.getElementById('calc-results'); if (res) res.innerHTML = '<div class="calc-empty">Impossible de charger les cours en direct.</div>'; });
+  };
+})();
