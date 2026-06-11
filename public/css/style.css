@@ -3376,15 +3376,23 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
     height: calc(100dvh - var(--header-h));
   }
 
-  /* Topbar */
+  /* Topbar — icônes ESPACÉES et propres : plus aucun chevauchement AI / RISK ON / onde.
+     Le centre (pilule sentiment) passe en overflow:hidden → au pire il se rogne proprement,
+     il n'est PLUS recouvert par les icônes de droite ; chaque icône est en flex:none avec
+     une taille tactile uniforme (30px) et un gap régulier. */
   .topbar-symbol-search { display: none; }
-  .topbar-center { padding: 0 4px; justify-content: flex-end; min-width: 0; }
-  .topbar-right  { gap: 6px; }
+  .topbar-center { padding: 0 6px; justify-content: flex-end; min-width: 0; overflow: hidden; }
+  .topbar-right  { gap: 8px; padding-left: 10px; padding-right: 8px; flex: 0 0 auto; }
+  .topbar-icon { width: 30px; height: 30px; flex: 0 0 auto; }
+  .topbar-icon svg { width: 17px; height: 17px; }
+  .topbar-icon--ai svg { width: 19px; height: 19px; }
   /* Bouton AI compact sur mobile (évite de surcharger la topbar) */
-  .topbar-ai-btn { height: 30px; padding: 0 8px; font-size: 10.5px; }
+  .topbar-ai-btn { height: 28px; padding: 0 7px; font-size: 10px; }
   .topbar-ai-soon { font-size: 7px; padding: 1px 3px; }
-  /* Le bouton risk repasse en largeur auto (sinon 230px écrase le logo sur mobile) */
-  .topbar-sentiment { width: auto !important; min-width: 0; flex: 0 0 auto; padding: 0 9px; height: 30px; font-size: 9px; }
+  /* Pilule sentiment compacte : RISK ON lisible, flèche masquée, jamais recouverte */
+  .topbar-sentiment { width: auto !important; min-width: 0; flex: 0 0 auto; padding: 0 8px; height: 28px; font-size: 9px; letter-spacing: .04em; }
+  .sentiment-arrow { display: none; }
+  #topbar-avatar { flex: 0 0 auto; }
   /* La bannière d'alerte prend trop de place sur mobile */
   .breaking-news-flash { display: none !important; }
   .logo { flex-shrink: 0; min-width: 0; }
@@ -9015,6 +9023,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .calc-form { border-right: none; border-bottom: 1px solid var(--border); }
 }
 @media (max-width: 768px) { .topbar-icon--calc { margin-right: 6px; } }
+/* ≤480px (téléphones) : topbar encore plus serrée mais TOUJOURS espacée — rien ne se touche */
+@media (max-width: 480px) {
+  .topbar-right { gap: 6px; padding-left: 8px; padding-right: 6px; }
+  .topbar-icon { width: 28px; height: 28px; }
+  .topbar-icon svg { width: 16px; height: 16px; }
+  .topbar-icon--ai svg { width: 18px; height: 18px; }
+  .topbar-sentiment { padding: 0 7px; font-size: 8.5px; height: 26px; }
+  .topbar-icon--journal, .topbar-icon--calc { width: 28px; height: 28px; }
+  .logo-text { font-size: 14px; }
+}
 
 /* ════════ Toast (fonctionnalité en développement / messages éphémères) ════════ */
 #dtp-toast-host { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 4000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: max-content; max-width: 92vw; }
