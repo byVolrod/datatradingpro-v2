@@ -8700,16 +8700,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rtc-bank { font-size: 11px; font-weight: 600; color: #d6d8de; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)
       avec sparkline ultra-fine EN FOND bas-droite de cellule (clone PMT) ── */
-/* Bandeau 5 métriques : conteneur RELATIVE + overflow hidden — il héberge LA sparkline UNIQUE
-   du bloc (une seule courbe continue sur toute la largeur, jamais par cellule). Les bordures
-   verticales entre cellules sont SUPPRIMÉES pour ne pas couper la trajectoire de la courbe. */
-.rtc-metrics { position: relative; overflow: hidden; display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid #131316; flex: 0 0 auto; }
-.rtc-m { position: relative; z-index: 1; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 7px; min-width: 0; min-height: 46px; justify-content: flex-start; }
-.rtc-k { position: relative; z-index: 1; font-size: 9.5px; letter-spacing: .02em; color: #8a8a93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Bandeau 5 métriques (clone PMT) : chaque cellule bordée porte SA mini-courbe décorative
+   calée bas-droite DERRIÈRE le texte (z-0), libellé pouvant passer sur 2 lignes. */
+.rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid #131316; flex: 0 0 auto; }
+.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 7px; border-right: 1px solid #131316; min-width: 0; min-height: 56px; justify-content: flex-start; }
+.rtc-m:last-child { border-right: 0; }
+.rtc-k { position: relative; z-index: 1; font-size: 9.5px; letter-spacing: .02em; color: #8a8a93; line-height: 1.2; }
 .rtc-v { position: relative; z-index: 1; font-size: 11.5px; font-weight: 700; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .rtc-v.g { color: #00da50; } .rtc-v.r { color: #ff4d2e; } .rtc-v.n { color: #abb4c3; } .rtc-v.w { color: #ffffff; }
 .rtc-prob { color: #f7941d; }   /* Probability = ambre/orange (clone PMT text-primary) */
-.rtc-msp { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 40%; max-height: 15px; z-index: 0; opacity: .4; pointer-events: none; }
+.rtc-msp { position: absolute; right: -3px; bottom: -2px; width: 56px; height: 26px; z-index: 0; opacity: .9; pointer-events: none; }
 /* ── Scenario Distribution : barres ÉPAISSES compactes, rounded-sm, % collé à droite de la barre ── */
 .rtc-dist { display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 4px; flex: 0 0 auto; }
 .rtc-dist-h { font-size: 9.5px; letter-spacing: .02em; color: #c9cbd1; margin-bottom: 3px; font-weight: 600; }
