@@ -372,6 +372,42 @@ app.post('/api/sym-recent', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+// ── JOURNAL DE TRADING — persistant PAR COMPTE (KV Supabase journal:<userId>, même modèle que
+// symrecent : suit la reconnexion, même sur un autre appareil). Données PRIVÉES de l'utilisateur.
+// Le préfixe 'journal:' n'est PAS dans AICACHE_PRUNABLE → jamais purgé par la rétention 31 j. ──
+const _JR_MAX = 500;   // cap anti-abus / anti-OOM (≈ large pour un journal perso)
+const _JR_KV_TTL = 8640000000000;   // « forever » côté cache RAM (la BDD reste la vérité)
+function _jrCleanEntries(arr) {
+  if (!Array.isArray(arr)) return [];
+  const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  return arr.map(e => e && typeof e === 'object' ? {
+    id:    String(e.id || '').slice(0, 24) || (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
+    ts:    Number(e.ts) || Date.now(),
+    pair:  String(e.pair || '').toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12),
+    dir:   e.dir === 'SELL' ? 'SELL' : 'BUY',
+    lots:  num(e.lots),
+    entry: num(e.entry),
+    exit:  num(e.exit),
+    pl:    num(e.pl),
+    note:  String(e.note || '').slice(0, 300),
+  } : null).filter(e => e && e.pair.length >= 2).slice(0, _JR_MAX);
+}
+app.get('/api/journal', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ entries: [] });
+  try {
+    const v = await auth.aiCacheGet('journal:' + req.session.userId, _JR_KV_TTL);
+    res.json({ entries: _jrCleanEntries(v && v.entries) });
+  } catch { res.json({ entries: [] }); }
+});
+app.post('/api/journal', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const entries = _jrCleanEntries(req.body && req.body.entries);
+    await auth.aiCacheSet('journal:' + req.session.userId, { entries });
+    res.json({ ok: true, count: entries.length });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
 // ─── Admin routes (admin only) — tous async pour Supabase ────────────────────
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
   try { res.json(await auth.getAllUsers()); }

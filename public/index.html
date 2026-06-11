@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260611M" />
+  <link rel="stylesheet" href="/css/style.css?v=20260611N" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -37,6 +37,9 @@
   </div>
 
   <div class="topbar-center">
+    <div class="topbar-icon topbar-icon--journal" id="journal-btn" title="Journal de Trading" onclick="activateView('journal')">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 7h3M4 12h3M4 17h3M10 7h7M10 11h7M10 15h4"/></svg>
+    </div>
     <div class="topbar-symbol-search">
       <span class="search-icon">⌕</span>
       <input type="text" placeholder="Search Symbols…" id="topbar-symbol-input" autocomplete="off" />
@@ -285,6 +288,29 @@
       </div>
     </div>
   </div><!-- /#view-taux -->
+
+  <!-- ══ VIEW: JOURNAL DE TRADING — privé, persistant PAR COMPTE (KV Supabase) ══ -->
+  <div class="view-panel hidden" id="view-journal">
+    <div class="panel panel-journal">
+      <div class="panel-header">
+        <div class="panel-header-left">
+          <span class="panel-title">Journal de Trading</span>
+        </div>
+        <div class="panel-header-controls">
+          <span class="bank-update" id="jr-status"></span>
+        </div>
+      </div>
+      <div class="jr-stats" id="jr-stats"></div>
+      <div class="jr-form" id="jr-form"></div>
+      <div class="jr-table-wrap">
+        <table class="jr-table">
+          <thead><tr><th>Date</th><th>Paire</th><th>Sens</th><th>Lots</th><th>Entrée</th><th>Sortie</th><th>Pips</th><th>P&amp;L&nbsp;€</th><th>Note</th><th></th></tr></thead>
+          <tbody id="jr-body"><tr><td colspan="10" class="jr-empty">Chargement du journal…</td></tr></tbody>
+        </table>
+      </div>
+      <div class="ctx-note">Journal personnel lié à votre compte — vos trades restent privés. Outil de suivi, pas un conseil d'investissement.</div>
+    </div>
+  </div><!-- /#view-journal -->
 
   <!-- ══ VIEW: CALENDAR ══ -->
   <div class="view-panel hidden" id="view-calendar">
@@ -649,8 +675,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260611N"></script>
-<script src="/js/charts.js?v=20260611E"></script>
+<script src="/js/app.js?v=20260611O"></script>
+<script src="/js/charts.js?v=20260611F"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
