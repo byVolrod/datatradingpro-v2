@@ -1063,9 +1063,37 @@ app.get('/api/week-ahead-news', (_req, res) => {
 const _aiChatMem = {};   // cache process (clé = hash question) ; aussi persisté dans ai_cache (quota Gemini)
 function _aiChatKey(q) { return 'aichat:' + require('crypto').createHash('md5').update(q.toLowerCase().trim()).digest('hex').slice(0, 22); }
 function _fmtDMY(ts) { const d = ts ? new Date(ts) : new Date(); const p = n => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`; }
+// ── Quota : 5 requêtes / jour / utilisateur sur l'Assistant IA Macro (admin + support exemptés).
+// Durable via KV Supabase (survit aux redémarrages), reset quotidien à minuit (heure de Paris). ──
+const AI_CHAT_DAILY_LIMIT = parseInt(process.env.AI_CHAT_DAILY_LIMIT || '5', 10);
+const _aiChatDay = {};   // cache mémoire { uid: { day, count } } — évite un read KV à chaque message
+function _aiChatToday() { try { return new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return new Date().toISOString().slice(0, 10); } }
+async function _aiChatDailyCount(uid, day) {
+  const rec = _aiChatDay[uid];
+  if (rec && rec.day === day) return rec.count;
+  let n = 0;
+  try { const v = await auth.aiCacheGet('aichatcap:' + uid + ':' + day, 8640000000000); if (typeof v === 'number') n = v; else if (v && typeof v.count === 'number') n = v.count; } catch {}
+  _aiChatDay[uid] = { day, count: n };
+  return n;
+}
+async function _aiChatDailyIncr(uid, day) {
+  const rec = (_aiChatDay[uid] && _aiChatDay[uid].day === day) ? _aiChatDay[uid] : (_aiChatDay[uid] = { day, count: 0 });
+  rec.count += 1;
+  try { await auth.aiCacheSet('aichatcap:' + uid + ':' + day, rec.count); } catch {}
+}
 app.post('/api/ai/chat', async (req, res) => {
   const q = String((req.body && req.body.message) || '').trim().slice(0, 600);
   if (!q) return res.status(400).json({ error: 'Message vide' });
+  // Limite journalière par utilisateur (admin/support non limités). Message PRO renvoyé comme réponse de l'assistant.
+  const _uid = req.session?.userId, _role = req.session?.user?.role;
+  let _limDay = null;
+  if (_uid && _role !== 'admin' && _role !== 'support') {
+    _limDay = _aiChatToday();
+    const _used = await _aiChatDailyCount(_uid, _limDay);
+    if (_used >= AI_CHAT_DAILY_LIMIT) {
+      return res.json({ answer: `Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain — merci de votre compréhension.`, sources: [] });
+    }
+  }
   // Sources RÉELLES = news récentes effectivement fournies en contexte à l'IA (pas de mock)
   const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
   const sources = newsCtx.map(n => ({ name: n.source || n.category || 'Market Wire', date: _fmtDMY(n.timestamp) }));
@@ -1087,6 +1115,7 @@ User question: ${q}`;
     else answer = null;
   }
   if (!answer) return res.status(503).json({ error: 'AI temporairement indisponible' });
+  if (_limDay) { try { await _aiChatDailyIncr(_uid, _limDay); } catch {} }   // ne compte QUE les réponses réellement servies
   res.json({ answer, sources });
 });
 app.get('/api/news/history', (req, res) => {
