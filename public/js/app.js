@@ -3219,7 +3219,7 @@ async function loadWeekAheadView() {
   if (!host) return;
   const isPoll = !!_waPollTimer;                 // continuation d'un poll ?
   if (_waPollTimer) { clearTimeout(_waPollTimer); _waPollTimer = null; }
-  if (!isPoll) { _waPollCount = 0; _waLoadPanels(); }   // ouverture fraîche → clone les onglets News + Calendar dans les panneaux droite
+  if (!isPoll) { _waPollCount = 0; _waLoadPanels(true); }   // ouverture fraîche → clone News + Calendar + auto-scroll calendrier sur l'événement en cours
   try {
     const d = await fetch('/api/week-ahead').then(r => r.json());
     if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waPollCount = 0; _renderWeekAhead(d); return; }
@@ -3287,12 +3287,16 @@ window._waToggle = _waToggle;
 // ── Week Ahead (desk) : panneaux droite = VRAIS DOUBLONS (miroir live) des onglets News (#news-list) et Calendar (#cal-table-wrap) ──
 // On clone le HTML rendu des onglets réels → look + contenu STRICTEMENT identiques (classes CSS globales).
 function _waSyncNews(){ const src=document.getElementById('news-list'), dst=document.getElementById('wa-news-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.indexOf('empty-state')<0) dst.innerHTML=h; }
-function _waSyncCal(){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.trim()) dst.innerHTML=h; const dr=document.getElementById('cal-daterange'), meta=document.getElementById('wa-cal-range'); if(dr&&meta) meta.textContent=(dr.textContent||'').trim(); }
+function _waSyncCal(scroll){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.trim()) dst.innerHTML=h; const dr=document.getElementById('cal-daterange'), meta=document.getElementById('wa-cal-range'); if(dr&&meta) meta.textContent=(dr.textContent||'').trim();
+  // Auto-scroll sur l'événement EN COURS (.cal-row--next), repli sur le dernier passé. Uniquement à
+  // l'ouverture (scroll=true) — PAS au refresh 60s, pour ne pas ramener l'utilisateur de force.
+  if(scroll){ var row=dst.querySelector('.cal-row--next'); if(!row){ var p=dst.querySelectorAll('.cal-row--past'); row=p.length?p[p.length-1]:null; } if(row){ var cr=dst.getBoundingClientRect(), rr=row.getBoundingClientRect(); dst.scrollTop += (rr.top-cr.top) - dst.clientHeight/2 + rr.height/2; } }
+}
 window._waSyncNews=_waSyncNews; window._waSyncCal=_waSyncCal;
-function _waLoadPanels(){
+function _waLoadPanels(scroll){
   _waSyncNews();   // News : doublon instantané (l'onglet News est déjà tenu à jour en direct par renderNews + WebSocket)
-  try { if (typeof buildCalendar === 'function') { const r = buildCalendar(); if (r && typeof r.then === 'function') r.then(()=>_waSyncCal()).catch(()=>{}); } } catch {}
-  setTimeout(_waSyncCal, 60); setTimeout(_waSyncCal, 700);   // clone après le rendu de la table calendrier
+  try { if (typeof buildCalendar === 'function') { const r = buildCalendar(); if (r && typeof r.then === 'function') r.then(()=>_waSyncCal(scroll)).catch(()=>{}); } } catch {}
+  setTimeout(()=>_waSyncCal(scroll), 60); setTimeout(()=>_waSyncCal(scroll), 700);   // clone après le rendu de la table calendrier
 }
 window._waLoadPanels=_waLoadPanels;
 // Tant que la vue Week Ahead est ouverte : on rafraîchit le doublon calendrier (le ticker News, lui, est déjà live).
