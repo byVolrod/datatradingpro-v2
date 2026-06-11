@@ -231,7 +231,25 @@ async function _chatEnsureDb() {
   }
 }
 
+// ══ CACHE RAM CHAT — ANTI-EGRESS SUPABASE (correctif du mail de quota : 15,64 Go / 5,5 Go) ══════
+// Le drawer support poll /api/chat toutes les 4 s, l'admin /conversations toutes les 10 s et
+// /unread toutes les 8 s : chaque tick re-téléchargeait la conversation COMPLÈTE depuis Supabase
+// (pièces jointes base64 jusqu'à 1,5 Mo incluses) → des Go de bande passante sortante par jour.
+// Instance UNIQUE → la RAM fait foi : les lectures servent la mémoire, Supabase n'est relu
+// qu'après une ÉCRITURE (insert/lu/édition/suppression) ou à l'expiration d'un TTL de sécurité.
+const CHAT_MEM_TTL = 5 * 60 * 1000;
+const _chatListMem   = new Map();   // userId -> { rows, ts }
+let   _chatThreadsMem = null;       // { rows, ts }
+const _chatUnreadMem = new Map();   // "userId|sender" -> { n, ts }
+function _chatDirty(userId) {
+  if (userId != null) _chatListMem.delete(String(userId)); else _chatListMem.clear();
+  _chatThreadsMem = null;
+  if (userId != null) { _chatUnreadMem.delete(String(userId) + '|user'); _chatUnreadMem.delete(String(userId) + '|support'); }
+  else _chatUnreadMem.clear();
+}
+
 async function chatInsert({ user_id, sender, text }) {
+  _chatDirty(user_id);
   await _chatEnsureDb();
   // Texte normal : 2000 car. ; pièce jointe (data URL base64) : jusqu'à ~1,5 Mo
   const raw = String(text);
@@ -250,20 +268,29 @@ async function chatInsert({ user_id, sender, text }) {
 }
 
 async function chatList(userId) {
+  const uid = String(userId);
+  // RAM fraîche → ZÉRO egress (le poll 4 s du drawer ne touche plus Supabase)
+  const mem = _chatListMem.get(uid);
+  if (mem && (Date.now() - mem.ts) < CHAT_MEM_TTL) {
+    mem.rows.forEach(m => { const r = _reactStore[String(m.id)]; if (r) m.reactions = r; });   // réactions à jour (RAM)
+    return mem.rows;
+  }
   await _chatEnsureDb();
   let rows = null;
   if (_chatDb) {
-    const { data, error } = await supabase.from(CHAT_TABLE).select('*').eq('user_id', String(userId)).order('created_at', { ascending: true });
+    const { data, error } = await supabase.from(CHAT_TABLE).select('*').eq('user_id', uid).order('created_at', { ascending: true });
     if (!error) rows = data || [];
     else if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
   }
-  if (rows == null) rows = _chatFile.filter(m => m.user_id === String(userId)).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  if (rows == null) rows = _chatFile.filter(m => m.user_id === uid).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   rows.forEach(m => { const r = _reactStore[String(m.id)]; if (r) m.reactions = r; });   // overlay réactions
+  _chatListMem.set(uid, { rows, ts: Date.now() });
   return rows;
 }
 
 // Marque comme lus les messages reçus par `recipient` ('user' lit le support, 'support' lit l'user)
 async function chatMarkRead(userId, recipientReadsFrom) {
+  _chatDirty(userId);
   await _chatEnsureDb();
   if (_chatDb) {
     const { error } = await supabase.from(CHAT_TABLE).update({ read: true }).eq('user_id', String(userId)).eq('sender', recipientReadsFrom).eq('read', false);
@@ -276,13 +303,19 @@ async function chatMarkRead(userId, recipientReadsFrom) {
 
 // Nombre de messages non lus envoyés par `fromSender` à l'utilisateur
 async function chatUnread(userId, fromSender) {
+  const memKey = String(userId) + '|' + fromSender;
+  const mem = _chatUnreadMem.get(memKey);
+  if (mem && (Date.now() - mem.ts) < CHAT_MEM_TTL) return mem.n;   // poll 8 s → RAM
   await _chatEnsureDb();
+  let n = null;
   if (_chatDb) {
     const { count, error } = await supabase.from(CHAT_TABLE).select('id', { count: 'exact', head: true }).eq('user_id', String(userId)).eq('sender', fromSender).eq('read', false);
-    if (!error) return count || 0;
-    if (_chatTableMissing(error)) _chatDb = false; else return 0;
+    if (!error) n = count || 0;
+    else if (_chatTableMissing(error)) _chatDb = false; else return 0;
   }
-  return _chatFile.filter(m => m.user_id === String(userId) && m.sender === fromSender && !m.read).length;
+  if (n == null) n = _chatFile.filter(m => m.user_id === String(userId) && m.sender === fromSender && !m.read).length;
+  _chatUnreadMem.set(memKey, { n, ts: Date.now() });
+  return n;
 }
 
 // Admin : liste des conversations (un thread par utilisateur ayant écrit)
@@ -300,6 +333,8 @@ function _chatPreview(t) {
 //   1) méta SANS le champ `text` → dates + non-lus de TOUS les threads (rapide, léger)
 //   2) seulement les messages RÉCENTS avec `text` → aperçu des conversations actives
 async function chatThreads() {
+  // RAM fraîche → ZÉRO egress (le poll 10 s de l'admin ne touche plus Supabase)
+  if (_chatThreadsMem && (Date.now() - _chatThreadsMem.ts) < CHAT_MEM_TTL) return _chatThreadsMem.rows;
   await _chatEnsureDb();
   // PERF : avant, on lisait TOUTE la table (sans limite) à chaque ouverture juste pour compter les
   // non-lus → lent quand l'historique grossit. Désormais : 2 requêtes LÉGÈRES en PARALLÈLE →
@@ -328,11 +363,14 @@ async function chatThreads() {
     if (!byUser.has(m.user_id)) byUser.set(m.user_id, { user_id: m.user_id, last: '', lastAt: null, unread: 0 });
     byUser.get(m.user_id).unread++;
   }
-  return [...byUser.values()];
+  const out = [...byUser.values()];
+  _chatThreadsMem = { rows: out, ts: Date.now() };
+  return out;
 }
 
 // ── Suppression d'un message (admin) ──────────────────────────
 async function chatDelete(id) {
+  _chatDirty(null);   // userId inconnu ici → on invalide tout (rare : action admin)
   await _chatEnsureDb();
   if (_reactStore[String(id)]) { delete _reactStore[String(id)]; _reactSave(); }   // nettoie les réactions
   if (_chatDb) {
@@ -348,6 +386,7 @@ async function chatDelete(id) {
 
 // ── Édition du texte d'un message (admin) ──────────────────────
 async function chatUpdate(id, text) {
+  _chatDirty(null);   // userId inconnu ici → on invalide tout (rare : action admin)
   await _chatEnsureDb();
   const safe = String(text).slice(0, 2000);
   if (_chatDb) {
