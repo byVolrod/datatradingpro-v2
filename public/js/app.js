@@ -6928,16 +6928,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
 })();
 
 
-/* Dissuasion anti-copie (deterrent, PAS une securite reelle) : bloque clic-droit + raccourcis devtools/source. */
-(function(){
-  try{
-    document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
-    document.addEventListener('keydown', function(e){
-      var k=(e.key||'').toUpperCase();
-      if (k==='F12' || (e.ctrlKey&&e.shiftKey&&(k==='I'||k==='J'||k==='C')) || ((e.ctrlKey||e.metaKey)&&(k==='U'||k==='S'))){ e.preventDefault(); return false; }
-    });
-  }catch(_){}
-})();
+// (Bloc anti-clic-droit / anti-F12 retiré : protection cosmétique sans valeur de sécurité, qui
+//  dégradait l'UX — la vraie protection du code repose sur l'architecture serveur, cf. audit sécurité.)
 
 // ═══════════════════ JOURNAL DE TRADING — privé, persistant PAR COMPTE (KV Supabase) ═══════════════════
 // Bouton topbar (à gauche de la recherche, façon PMT) → vue plein écran. Saisie INLINE (jamais de
