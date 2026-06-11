@@ -8701,13 +8701,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)
       avec sparkline ultra-fine EN FOND bas-droite de cellule (clone PMT) ── */
 .rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid #131316; flex: 0 0 auto; }
-.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 7px; border-right: 1px solid #131316; min-width: 0; }
+/* Cellule métrique : parent relative+overflow-hidden, TEXTE au premier plan (z-index 1),
+   sparkline ISOLÉE en absolu plaquée en bas (hauteur ≤ 40 % de la cellule, jamais sur le texte) */
+.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 7px; border-right: 1px solid #131316; min-width: 0; min-height: 46px; justify-content: flex-start; }
 .rtc-m:last-child { border-right: 0; }
-.rtc-k { font-size: 9.5px; letter-spacing: .02em; color: #8a8a93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rtc-k { position: relative; z-index: 1; font-size: 9.5px; letter-spacing: .02em; color: #8a8a93; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rtc-v { position: relative; z-index: 1; font-size: 11.5px; font-weight: 700; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .rtc-v.g { color: #00da50; } .rtc-v.r { color: #ff4d2e; } .rtc-v.n { color: #abb4c3; } .rtc-v.w { color: #ffffff; }
 .rtc-prob { color: #f7941d; }   /* Probability = ambre/orange (clone PMT text-primary) */
-.rtc-msp { position: absolute; right: -2px; bottom: -1px; width: 54px; height: 20px; opacity: .5; pointer-events: none; }
+.rtc-msp { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 40%; max-height: 15px; z-index: 0; opacity: .4; pointer-events: none; }
 /* ── Scenario Distribution : barres ÉPAISSES compactes, rounded-sm, % collé à droite de la barre ── */
 .rtc-dist { display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 4px; flex: 0 0 auto; }
 .rtc-dist-h { font-size: 9.5px; letter-spacing: .02em; color: #c9cbd1; margin-bottom: 3px; font-weight: 600; }
