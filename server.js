@@ -2850,7 +2850,7 @@ const RESEARCH_SPA_SITES = [
       { title: 'Weekly Update — In 2026, governments will shape interest rates', url: 'https://www.privatebanking.societegenerale.com/en/insights/weekly-update-2026-will-the-governments-that-will-shape-the-interest-rates/', date: '2025-12-05', pdf: true },
       { title: 'The ECB can cut its rates further (SG Cross Asset Research)', url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/the-ecb-can-cut-its-rates-further/', date: '2025-05-06' },
     ] },
-  { name: 'CIBC', institution: 'CIBC', source: 'cibc', host: 'cibccm.com',
+  { name: 'CIBC', institution: 'CIBC', source: 'cibc', host: 'cibccm.com', jina: true,
     url: 'https://economics.cibccm.com/',
     hrefRe: /cibccm\.com\/cds\?(?:[^"'\s]*&)?(?:flag=E&)?id=[0-9a-f-]{8,}/i,
     seed: [
@@ -2878,7 +2878,7 @@ const RESEARCH_SPA_SITES = [
       { title: 'Business Barometer', url: 'https://www.lloydsbank.com/business/resource-centre/insight/business-barometer.html', date: '2026-06-01' },
       { title: 'UK Sector Tracker', url: 'https://www.lloydsbank.com/business/resource-centre/insight/uk-sector-tracker.html', date: '2026-05-28' },
     ] },
-  { name: 'KBC', institution: 'KBC', source: 'kbc', host: 'kbc.com',
+  { name: 'KBC', institution: 'KBC', source: 'kbc', host: 'kbc.com', jina: true,
     url: 'https://www.kbc.com/en/economics.html',
     hrefRe: /kbc\.com\/en\/economics\/publications\/[^"'\s]+\.html/i,
     seed: [
@@ -2976,6 +2976,39 @@ async function _fetchResearchSpaInto(merged, cutoff) {
         if (_added) console.log(`[ResearchHTTP ${cfg.source}] +${_added} lien(s) (server-rendered)`);
       }
     } catch {}
+
+    // Repli LECTEUR (r.jina.ai) — CIBC/KBC : leur CDN bloque l'IP datacenter du VPS (403 en direct
+    // ET en headless). Le lecteur public r.jina.ai rend la page (JS compris) depuis SON infra et
+    // renvoie du markdown ; on en extrait les liens [titre](url) matchant le pattern de la banque.
+    // Ciblé (flag jina:true sur la config), best-effort, silencieux en échec.
+    if (cfg.jina) {
+      try {
+        const jr = await axios.get('https://r.jina.ai/' + cfg.url, {
+          timeout: 25000,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          validateStatus: s => s < 500,
+        });
+        if (jr.status === 200 && typeof jr.data === 'string') {
+          const md = jr.data; const _seen = new Set(); let _added = 0;
+          const reMd = /\[([^\]]{14,200})\]\((https?:[^)\s]+)\)/g; let mm;
+          while ((mm = reMd.exec(md))) {
+            const title = mm[1].replace(/\s+/g, ' ').trim();
+            const href  = mm[2];
+            if (href.indexOf(cfg.host) < 0 || !cfg.hrefRe.test(href)) continue;
+            const key = href.split('#')[0];
+            if (_seen.has(key)) continue; _seen.add(key);
+            if (title.split(/\s+/).length < 3) continue;
+            const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+            if (merged.has(id)) continue;
+            const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());
+            if (ts < cutoff) continue;
+            merged.set(id, { id, title: title.slice(0, 160), url: key, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+            _added++;
+          }
+          if (_added) console.log(`[ResearchJINA ${cfg.source}] +${_added} lien(s) (via lecteur)`);
+        }
+      } catch {}
+    }
   }
 }
 
@@ -5659,9 +5692,22 @@ const BANK_SEED = [
   { id:'seed-12', bank:'Credit Agricole Research', orderType:'Market Execution', pair:'AUD/NZD', date:'2026-05-21', entry:1.2170, tp:1.1600,  sl:1.2470, source:'seed' },
 ];
 let _bankPositions = null;
-try { _bankPositions = JSON.parse(fs.readFileSync(BANK_FILE, 'utf8')); } catch {}
+let _bankFromFile  = false;
+try { _bankPositions = JSON.parse(fs.readFileSync(BANK_FILE, 'utf8')); _bankFromFile = Array.isArray(_bankPositions) && _bankPositions.length > 0; } catch {}
 if (!Array.isArray(_bankPositions) || !_bankPositions.length) _bankPositions = BANK_SEED.slice();
-function _saveBank() { try { fs.writeFileSync(BANK_FILE, JSON.stringify(_bankPositions)); } catch {} }
+function _saveBank() {
+  try { fs.writeFileSync(BANK_FILE, JSON.stringify(_bankPositions)); } catch {}
+  auth.aiCacheSet('bank:positions', _bankPositions).catch(() => {});   // durable (Supabase) — survit aux rebuilds
+}
+// Disque ÉPHÉMÈRE : au démarrage sans fichier (rebuild Docker), on restaure les positions durables
+// depuis Supabase — sinon éditions admin + extractions IA seraient perdues (retour aux seeds).
+(async () => {
+  try {
+    if (_bankFromFile) { _saveBank(); return; }   // fichier présent → pousse l'état courant vers le KV
+    const kv = await auth.aiCacheGet('bank:positions', 8640000000000);
+    if (Array.isArray(kv) && kv.length) { _bankPositions = kv; _saveBank(); console.log(`[Bank] ${kv.length} positions restaurées depuis Supabase`); }
+  } catch {}
+})();
 
 const _bankSym = p => p.replace('/', '') + '=X';   // USD/JPY → USDJPY=X
 let _bankPxCache = { ts: 0, px: {} };
@@ -6201,10 +6247,17 @@ app.post('/api/bank-positions', requireAdmin, (req, res) => {
 // ─── Extraction Gemini des positions depuis les notes de banques (ActionForex…) ───
 const BANK_EXTRACT_FILE = path.join(__dirname, 'cache_bank_extract.json');
 const _bankExtracted = _loadJsonMap(BANK_EXTRACT_FILE);   // articleId → true (déjà traité)
-async function _extractBankPositionsAI() {
+const _BANK_FX_TITLE = /\bfx\b|forex|currenc|dollar|euro\b|sterling|\byen\b|aussie|kiwi|loonie|usd|eur|gbp|jpy|aud|nzd|cad|chf|\bg10\b/i;
+async function _extractBankPositionsAI(cap = 8) {
   if (!ai || !_brCache) return;
   if (!aiAllowed('bank', { priority: 'background' })) return;   // budget Gemini : extraction réservée au week-end
-  const candidates = _brCache.filter(a => a._source === 'actionforex' && !_bankExtracted.has(a.id)).slice(0, 8);
+  // Candidats = recherche FX RÉCENTE de toutes les banques du feed (l'ancienne source 'actionforex'
+  // n'existe plus → l'extraction ne trouvait plus jamais rien et la table restait figée sur les seeds).
+  const cutRecent = Date.now() - 21 * 86400000;
+  const candidates = _brCache.filter(a =>
+    a && a.id && !_bankExtracted.has(a.id) && (a.timestamp || 0) > cutRecent &&
+    (a._source === 'actionforex' || _BANK_FX_TITLE.test(a.title || ''))
+  ).slice(0, cap);
   for (const art of candidates) {
     if (!aiAllowed('bank', { priority: 'background' })) break;
     _bankExtracted.set(art.id, true);   // on marque traité quoi qu'il arrive (évite de reboucler)
@@ -6219,13 +6272,22 @@ ${txt}`, 300);
       if (/NONE/i.test(out.slice(0, 20))) continue;
       const m = out.match(/\{[\s\S]*\}/); if (!m) continue;
       const d = JSON.parse(m[0]);
-      if (!d.pair || !/^[A-Z]{3}\/[A-Z]{3}$/.test(String(d.pair).toUpperCase()) || !d.entry) continue;
+      const pr = String(d.pair || '').toUpperCase();
+      if (!pr || !/^[A-Z]{3}\/[A-Z]{3}$/.test(pr) || !d.entry) continue;
+      // Dédoublonnage : même banque + même paire à <30 j → on garde la position existante
+      const bk = String(d.bank || art.institution || 'Bank Research').slice(0, 60);
+      const ts = art.timestamp || Date.now();
+      const dup = _bankPositions.find(p => p.pair === pr &&
+        String(p.bank).toLowerCase().split(' ')[0] === bk.toLowerCase().split(' ')[0] &&
+        Math.abs(new Date(p.date + 'T12:00:00Z').getTime() - ts) < 30 * 86400000);
+      if (dup) continue;
       _bankPositions.unshift({
         id: 'ai-' + art.id.slice(-10), source: 'ai',
-        bank: String(d.bank || art.institution || 'Bank Research').slice(0, 60),
+        bank: bk,
         orderType: ['Buy Limit', 'Sell Limit', 'Market Execution'].includes(d.orderType) ? d.orderType : 'Market Execution',
-        pair: String(d.pair).toUpperCase(), date: new Date(art.timestamp || Date.now()).toISOString().slice(0, 10),
+        pair: pr, date: new Date(ts).toISOString().slice(0, 10),
         entry: +d.entry, tp: +d.tp || 0, sl: +d.sl || 0,
+        thesis: String(art.title || '').slice(0, 240),
       });
     } catch (e) { /* best-effort */ }
   }
@@ -6236,6 +6298,31 @@ ${txt}`, 300);
 // Extraction périodique (best-effort, dépend du quota Gemini)
 setInterval(() => _extractBankPositionsAI().catch(() => {}), 60 * 60 * 1000);
 setTimeout(() => _extractBankPositionsAI().catch(() => {}), 90 * 1000);
+// ── MAJ du SAMEDI (hebdomadaire) : purge des positions CLÔTURÉES anciennes (>45 j, TP/SL touché)
+// puis passe d'extraction élargie (cap 16) sur la recherche de la semaine → la table reste fraîche.
+// Une seule exécution par samedi (verrou KV bank:satrun), peu importe les redémarrages.
+setInterval(async () => {
+  try {
+    const paris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    if (paris.getDay() !== 6) return;
+    const today = paris.toISOString().slice(0, 10);
+    const done = await auth.aiCacheGet('bank:satrun', 8640000000000).catch(() => null);
+    if (done === today) return;
+    await auth.aiCacheSet('bank:satrun', today).catch(() => {});
+    let px = {}; try { px = await _bankLivePrices(); } catch {}
+    const cut45 = Date.now() - 45 * 86400000;
+    const before = _bankPositions.length;
+    _bankPositions = _bankPositions.filter(p => {
+      const ts = new Date(String(p.date) + 'T12:00:00Z').getTime() || Date.now();
+      if (ts >= cut45) return true;                                  // récentes : on garde
+      const { status } = _bankStatus(p, px[p.pair] ?? null);
+      return status === 'Active';                                    // vieilles ET clôturées (TP/SL) : purgées
+    });
+    await _extractBankPositionsAI(16);
+    _saveBank();
+    console.log(`[Bank] MAJ samedi : ${before} → ${_bankPositions.length} positions (purge + extraction hebdo)`);
+  } catch (e) { console.warn('[Bank] MAJ samedi échec:', e.message); }
+}, 60 * 60 * 1000);
 
 // Manual triggers — force=true bypasses today's dedup check
 app.get('/api/briefing/:type/generate', async (req, res) => {
