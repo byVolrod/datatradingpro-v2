@@ -6030,13 +6030,23 @@ setInterval(_computeFedWatch, 45 * 60 * 1000);   // rafraîchi ~45 min (données
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
 // SNB (CHF) & RBNZ (NZD) = "Pro" → repli automatique sur le modèle maison. Données mises en cache (mémoire +
 // Supabase durable) et rafraîchies EN TÂCHE DE FOND (jamais à l'ouverture client) — anti-OOM : timeout + cap taille.
+// Accesseur de taux tolérant : les clés varient d'une banque à l'autre → on tente plusieurs noms,
+// sinon premier champ numérique « *rate*/*target* » trouvé. Si l'API renvoie un paywall (pas de
+// today.rows), _rpFetchBank renvoie null AVANT d'arriver ici → repli maison propre (aucun risque).
+function _rpRate(t, ...keys) {
+  for (const k of keys) { const v = +t[k]; if (isFinite(v)) return v; }
+  for (const k of Object.keys(t || {})) { if (/rate|target|midpoint|ocr/i.test(k)) { const v = +t[k]; if (isFinite(v)) return v; } }
+  return NaN;
+}
 const RP_MAP = {
-  USD: { slug: 'fed', rate: t => t.midpoint },
-  EUR: { slug: 'ecb', rate: t => t.ecb_deposit_facility },
-  GBP: { slug: 'boe', rate: t => t.current_target },
-  JPY: { slug: 'boj', rate: t => t.current_target },
-  CAD: { slug: 'boc', rate: t => t['Overnight Rate Target'] },
-  AUD: { slug: 'rba', rate: t => t.cash_rate_target },
+  USD: { slug: 'fed',  rate: t => _rpRate(t, 'midpoint') },
+  EUR: { slug: 'ecb',  rate: t => _rpRate(t, 'ecb_deposit_facility', 'deposit_facility') },
+  GBP: { slug: 'boe',  rate: t => _rpRate(t, 'current_target', 'bank_rate') },
+  JPY: { slug: 'boj',  rate: t => _rpRate(t, 'current_target', 'policy_rate') },
+  CAD: { slug: 'boc',  rate: t => _rpRate(t, 'Overnight Rate Target', 'overnight_rate_target', 'policy_rate') },
+  AUD: { slug: 'rba',  rate: t => _rpRate(t, 'cash_rate_target', 'cash_rate') },
+  CHF: { slug: 'snb',  rate: t => _rpRate(t, 'policy_rate', 'snb_policy_rate', 'current_target') },
+  NZD: { slug: 'rbnz', rate: t => _rpRate(t, 'official_cash_rate', 'ocr', 'cash_rate_target', 'current_target') },
 };
 const RP_TTL = 15 * 60 * 1000;   // refetch rateprobability au max toutes les 15 min (leur donnée se met à jour ~horaire) — le front interroge /api/rates en continu
 let _rpCache = { at: 0, banks: {} };

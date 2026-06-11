@@ -8727,7 +8727,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rtc-tbl td:first-child { text-align: left; color: #e6e9ef; padding-left: 10px; }
 .rtc-tbl td.g { color: #00da50; } .rtc-tbl td.r { color: #ff4d2e; }
 .rtc-day { color: #6a6a73; } .rtc-impl { color: #9aa0a6; }
-.rtc-base { font-size: 8.5px; font-weight: 800; padding: 1px 6px; border-radius: 4px; border: 1px solid; }
+.rtc-base { font-size: 8.5px; font-weight: 800; padding: 1px 6px; border-radius: 4px; border: 1px solid; display: inline-block; }
+/* Pilules colorées Implied Δ + Base Case — clone exact palette PMT (vert #00da50 / rouge #ff0000 / gris #abb4c3) */
+.rtc-pill { display: inline-block; font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 4px; border: 1px solid; white-space: nowrap; font-family: var(--mono, ui-monospace, monospace); }
+.rtc-pill.g, .rtc-base.g { background: rgba(0,218,80,.15);  color: #00da50; border-color: rgba(0,218,80,.5); }
+.rtc-pill.r, .rtc-base.r { background: rgba(255,0,0,.15);   color: #ff4d2e; border-color: rgba(255,0,0,.5); }
+.rtc-pill.n, .rtc-base.n { background: rgba(171,180,195,.13); color: #abb4c3; border-color: rgba(171,180,195,.4); }
 .rtc-dot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
 .rtc-dot.g { background: #00da50; box-shadow: 0 0 5px rgba(0,218,80,.6); }
 .rtc-dot.r { background: #ff4d2e; box-shadow: 0 0 5px rgba(255,61,0,.6); }
