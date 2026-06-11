@@ -1908,8 +1908,9 @@ function _heuristicWrapTitle(w) {
   let src = (w.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (!src) src = (w.title || '').replace(/\s+/g, ' ').trim();
   if (!src) return '';
-  // Retire le boilerplate de tête type "Americas fx news wrap:" / "... wrap -"
+  // Retire le boilerplate de tête type "Americas fx news wrap:" / "... wrap -" / "Headlines:"
   src = src.replace(/^[\w\s.,/&'-]*?\bwraps?\b\s*[:\-—–]?\s*/i, '').trim();
+  src = src.replace(/^headlines?\s*[:\-—–]\s*/i, '').trim();
   // 1re phrase (jusqu'au point), sinon début du texte
   let t = (src.split(/(?<=[.!?])\s/)[0] || src).trim();
   if (t.length > 72) t = t.slice(0, 72).replace(/\s+\S*$/, '').trim() + '…';
@@ -1945,6 +1946,8 @@ async function _swEnsureAiTitles(internal = false) {
 
       // Titre de secours immédiat (gratuit, sans IA) pour tout wrap encore sans titre —
       // s'applique même hors budget IA. L'IA l'améliorera ensuite si dispo.
+      // Répare aussi les titres heuristiques DÉJÀ cachés qui ont gardé le boilerplate « Headlines: ».
+      if (w.aiTitle && /^headlines?\s*[:\-—–]/i.test(w.aiTitle)) { const h = _heuristicWrapTitle(w); if (h && h !== w.aiTitle) { w.aiTitle = h; w.aiTitleV = 'h'; changed = true; } }
       if (!w.aiTitle) { const h = _heuristicWrapTitle(w); if (h) { w.aiTitle = h; w.aiTitleV = 'h'; changed = true; } }
       if (budget <= 0) continue;
       const src = (body || w.title || '').slice(0, 600);
@@ -2592,6 +2595,34 @@ app.get('/api/session-wrap-content', async (req, res) => {
     if (seg) {
       if (cached) cached.content = seg;
       return res.json({ html: _stripSource(seg), source: 'ai' });
+    }
+  }
+
+  // ── 1.55 REPLI STRUCTURANT DÉTERMINISTE (0 token) — MÊME STRUCTURE POUR TOUS LES RAPPORTS ──
+  // Si la segmentation IA n'est pas (encore) disponible (quota, échec, rapport tout frais), on
+  // construit les MÊMES rubriques <strong>SECTION</strong><ul>…</ul> à partir des points extraits :
+  // en-têtes MAJUSCULES détectés tels quels, et tout ce qui précède le 1er en-tête sous « HEADLINES ».
+  // → le viewer rend TOUJOURS la structure DTP (titres orange + puces), plus jamais une puce brute.
+  // NON persisté dans le cache de segmentation → l'IA peaufinera au retry (6 h) et remplacera.
+  if (points && points.length >= 3) {
+    const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const isHead = t => t.length >= 2 && t.length <= 52 && t === t.toUpperCase() && /[A-Z]/.test(t) && /^[A-Z0-9][A-Z0-9 &:/'.\-]+$/.test(t);
+    const SKIP = /investinglive\.com|read more|see all|view all/i;
+    const secs = []; let curSec = null;
+    for (const p of points) {
+      const t = String(p).replace(/\s+/g, ' ').trim();
+      if (!t || SKIP.test(t)) continue;
+      if (isHead(t)) { curSec = { section: t, items: [] }; secs.push(curSec); continue; }
+      const item = t.replace(/^headlines?\s*:\s*/i, '').trim();   // retire le boilerplate « Headlines: »
+      if (!item) continue;
+      if (!curSec) { curSec = { section: 'HEADLINES', items: [] }; secs.push(curSec); }
+      curSec.items.push(item);
+    }
+    let autoHtml = '';
+    for (const s2 of secs) { if (s2.items.length) autoHtml += `<strong>${esc(s2.section)}</strong><ul>${s2.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`; }
+    if (autoHtml.length > 80) {
+      console.log(`[SW seg] repli structurant -> ${secs.length} section(s) (sans IA)`);
+      return res.json({ html: _stripSource(autoHtml), source: 'auto' });
     }
   }
 
