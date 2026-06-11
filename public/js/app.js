@@ -3407,9 +3407,7 @@ function renderBiasView(d) {
   const cur  = (d && d.currencies) || [];
   const rows = (d && d.rows) || [];
   const badge = document.getElementById('bias-update-badge');
-  if (badge) badge.textContent = d && d.generatedAt
-    ? 'MAJ ' + new Date(d.generatedAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })
-    : '';
+  if (badge) badge.textContent = '';   // badge « MAJ <date> » retiré (demande utilisateur)
 
   if (!rows.length) {
     host.innerHTML = '<div class="bias-loading">La matrice Smart Bias sera générée dimanche (force : /api/smart-bias?force=1).</div>';

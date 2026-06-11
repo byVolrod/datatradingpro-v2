@@ -675,7 +675,7 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260611O"></script>
+<script src="/js/app.js?v=20260611P"></script>
 <script src="/js/charts.js?v=20260611F"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
@@ -1031,12 +1031,18 @@
     const topbarAvEl = document.getElementById('topbar-avatar-letter');
     if (topbarAvEl) topbarAvEl.textContent = initial;
 
-    // Restaurer l'avatar depuis localStorage (clé par userId pour multi-comptes)
+    // Avatar : peinture INSTANTANÉE depuis le cache local, PUIS source de vérité = serveur (KV
+    // par compte) → une photo changée sur un AUTRE appareil apparaît ici. localStorage = simple cache.
     const savedAvatar = localStorage.getItem('pd_avatar_' + d.user.id);
     if (savedAvatar) _pdAvatarDataUrl = savedAvatar;
-
-    // Drawer header avatar
     pdSetAvatarDisplay(initial, _pdAvatarDataUrl);
+    try {
+      fetch('/api/profile-avatar').then(r => r.json()).then(av => {
+        const remote = av && av.avatar;
+        if (remote && remote !== _pdAvatarDataUrl) { _pdAvatarDataUrl = remote; try { localStorage.setItem('pd_avatar_' + d.user.id, remote); } catch (e) {} pdSetAvatarDisplay(initial, remote); }
+        else if (!remote && _pdAvatarDataUrl) { _pdAvatarDataUrl = null; try { localStorage.removeItem('pd_avatar_' + d.user.id); } catch (e) {} pdSetAvatarDisplay(initial, null); }   // supprimée ailleurs → on l'enlève ici aussi
+      }).catch(() => {});
+    } catch (e) {}
 
     // Drawer header username
     const hdrName = document.getElementById('pd-hdr-username');
@@ -1145,11 +1151,24 @@
     if (!file) return;
     const reader = new FileReader();
     reader.onload = function(ev) {
-      _pdAvatarDataUrl = ev.target.result;
-      const displayName = _pdUser ? (_pdUser.name || _pdUser.email || '?') : '?';
-      pdSetAvatarDisplay(displayName.charAt(0).toUpperCase(), _pdAvatarDataUrl);
-      // Persister dans localStorage (survit aux déconnexions/rechargements)
-      if (_pdUser) localStorage.setItem('pd_avatar_' + _pdUser.id, _pdAvatarDataUrl);
+      const img = new Image();
+      img.onload = function() {
+        // Recadrage carré « cover » + redimension 256px → data URL JPEG légère (~40 Ko) : stockable
+        // en KV serveur (sync multi-appareils) sans alourdir la base ni le quota d'upload.
+        var S = 256, cv = document.createElement('canvas'); cv.width = S; cv.height = S;
+        var ctx = cv.getContext('2d');
+        var s = Math.min(img.width, img.height), sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, S, S);
+        var dataUrl; try { dataUrl = cv.toDataURL('image/jpeg', 0.85); } catch (err) { dataUrl = ev.target.result; }
+        _pdAvatarDataUrl = dataUrl;
+        var displayName = _pdUser ? (_pdUser.name || _pdUser.email || '?') : '?';
+        pdSetAvatarDisplay(displayName.charAt(0).toUpperCase(), dataUrl);
+        if (_pdUser) { try { localStorage.setItem('pd_avatar_' + _pdUser.id, dataUrl); } catch (er) {} }   // cache instantané
+        // SOURCE DE VÉRITÉ = serveur → la photo se synchronise sur TOUS les appareils
+        fetch('/api/profile-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: dataUrl }) }).catch(function(){});
+      };
+      img.onerror = function(){};   // fichier illisible → ignoré
+      img.src = ev.target.result;
     };
     reader.readAsDataURL(file);
     e.target.value = '';
@@ -1158,8 +1177,8 @@
     _pdAvatarDataUrl = null;
     const displayName = _pdUser ? (_pdUser.name || _pdUser.email || '?') : '?';
     pdSetAvatarDisplay(displayName.charAt(0).toUpperCase(), null);
-    // Supprimer du localStorage
-    if (_pdUser) localStorage.removeItem('pd_avatar_' + _pdUser.id);
+    if (_pdUser) { try { localStorage.removeItem('pd_avatar_' + _pdUser.id); } catch (e) {} }
+    fetch('/api/profile-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: null }) }).catch(function(){});   // retire la photo sur TOUS les appareils
   }
 
   // ─── Live clock ───────────────────────────────────────────────────────────
