@@ -23,6 +23,8 @@ function _normalize(m) {
     plan:      m.plan || null,
     product:   m.product || null,
     status:    m.status || null,
+    // username de l'AFFILIÉ qui a parrainé CETTE adhésion (lien ?a=<username>) — pour créditer le parrain
+    affiliateUsername: m.affiliate_username || (m.affiliate && m.affiliate.username) || null,
   };
 }
 
@@ -48,6 +50,37 @@ async function getMembershipByEmail(email) {
       String(m.email || '').toLowerCase().trim() === target && m.product === DTP_PRODUCT);
     return match ? _normalize(match) : null;
   } catch { return null; }
+}
+
+// Username Whop d'un MEMBRE (par email) → sert à construire son lien d'affiliation « ?a=<username> ».
+// Best-effort multi-versions : username direct sur le membership, objet user imbriqué, ou résolution
+// de l'id user_xxx via l'API v5. Renvoie null si introuvable (le caller a un repli).
+async function getAffiliateUsername(email) {
+  if (!WHOP_API_KEY || !email) return null;
+  const target = String(email).toLowerCase().trim();
+  try {
+    let m = null, page = 1, totalPages = 1;
+    do {
+      const r = await fetch(`${BASE}/memberships?valid=true&per=50&page=${page}&product_id=${DTP_PRODUCT}`, { headers: _auth() });
+      if (!r.ok) break;
+      const j = await r.json();
+      m = (j.data || []).find(x => String(x.email || '').toLowerCase().trim() === target);
+      if (m) break;
+      const pg = j && j.pagination;
+      totalPages = (pg && (pg.total_page || pg.total_pages)) || 1;
+      page++;
+    } while (page <= totalPages && page <= 6);
+    if (!m) return null;
+    if (m.username) return String(m.username);
+    if (m.user && typeof m.user === 'object' && m.user.username) return String(m.user.username);
+    const uid = typeof m.user === 'string' ? m.user : (m.user && m.user.id);
+    if (uid && /^user_/.test(String(uid))) {
+      for (const url of [`https://api.whop.com/api/v5/company/users/${uid}`, `https://api.whop.com/api/v5/app/users/${uid}`]) {
+        try { const u = await fetch(url, { headers: _auth() }); if (u.ok) { const ju = await u.json(); if (ju && ju.username) return String(ju.username); } } catch {}
+      }
+    }
+  } catch {}
+  return null;
 }
 
 // Statistiques RÉELLES Whop (abonnés actifs + MRR) pour le produit DTP — mises en cache 5 min
@@ -83,4 +116,4 @@ async function getStats(priceMonthly) {
   } catch { return _statsCache.data; }
 }
 
-module.exports = { getMembership, getMembershipByEmail, getStats, configured: () => !!WHOP_API_KEY };
+module.exports = { getMembership, getMembershipByEmail, getAffiliateUsername, getStats, configured: () => !!WHOP_API_KEY };
