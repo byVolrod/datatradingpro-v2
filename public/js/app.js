@@ -5055,8 +5055,7 @@ async function _loadAIInsights(item, el) {
           <button type="button" onclick="aiInsScroll(this,1)">›</button>
         </span>
       </div>
-      <div class="ai-insights-cards">${cards}</div>
-      <div class="ctx-note ctx-note--ins">Lectures de contexte issues du rapport — à comparer avec votre propre analyse. Pas des signaux d'achat/vente.</div>`;
+      <div class="ai-insights-cards">${cards}</div>`;
     const cardsEl = el.querySelector('.ai-insights-cards');
     if (cardsEl) {
       cardsEl.addEventListener('scroll', () => _aiInsCount(cardsEl), { passive: true });

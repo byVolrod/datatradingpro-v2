@@ -308,10 +308,24 @@ html, body {
   background: none;
   border: none;
   outline: none;
+  -webkit-appearance: none;       /* retire tout cadre/relief natif du champ (le « rectangle dans le rectangle ») */
+  appearance: none;
+  box-shadow: none;
+  border-radius: 0;
   color: var(--text2);
   font-size: 12px;
   font-family: var(--font-ui);
   width: 100%;
+}
+.topbar-symbol-search input:focus,
+.topbar-symbol-search input:focus-visible { outline: none; box-shadow: none; border: none; }
+/* Supprime le fond/cadre jaune d'autofill du navigateur (qui dessine un rectangle autour du texte) */
+.topbar-symbol-search input:-webkit-autofill,
+.topbar-symbol-search input:-webkit-autofill:focus {
+  -webkit-box-shadow: 0 0 0 1000px #161619 inset;
+  -webkit-text-fill-color: var(--text2);
+  caret-color: var(--text2);
+  transition: background-color 9999s ease-in-out 0s;
 }
 
 .topbar-symbol-search input::placeholder { color: var(--text4); }
