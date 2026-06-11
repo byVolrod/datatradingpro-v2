@@ -6175,8 +6175,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .cal-row--next td.cth-time { color: var(--orange) !important; font-weight: 700; }
 .cal-row--next:hover { background: rgba(247,148,29,0.09); }
 .cal-row--past td.cth-time { color: #9a9a9a; }
-.cal-row--high td.cth-curr { color: #ef4444; font-weight: 700; }
-.cal-row--med  td.cth-curr { color: #f59e0b; }
+/* Devise TOUJOURS blanche (look PMT) — l'impact est déjà indiqué par les points colorés de la colonne IMP. */
+.cal-row--high td.cth-curr { color: #ffffff; font-weight: 700; }
+.cal-row--med  td.cth-curr { color: #ffffff; }
 
 /* Current-time bar inside time cell */
 .cal-now-bar {
