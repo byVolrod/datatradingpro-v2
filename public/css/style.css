@@ -3381,7 +3381,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
      il n'est PLUS recouvert par les icônes de droite ; chaque icône est en flex:none avec
      une taille tactile uniforme (30px) et un gap régulier. */
   .topbar-symbol-search { display: none; }
-  .topbar-center { padding: 0 6px; justify-content: flex-end; min-width: 0; overflow: hidden; }
+  /* CRUCIAL : en desktop .topbar-center est en position:absolute centré (50%/translate) → sur
+     mobile la pilule restait PLANTÉE au milieu, SOUS les icônes de droite (chevauchement).
+     On la repasse DANS LE FLUX flex : elle se place naturellement entre la gauche et la droite,
+     se rétrécit si besoin (min-width 0 + overflow hidden) et ne peut plus être recouverte. */
+  .topbar-center { position: static; transform: none; flex: 1 1 auto; display: flex; align-items: center; padding: 0 6px; justify-content: flex-end; min-width: 0; overflow: hidden; }
   .topbar-right  { gap: 8px; padding-left: 10px; padding-right: 8px; flex: 0 0 auto; }
   .topbar-icon { width: 30px; height: 30px; flex: 0 0 auto; }
   .topbar-icon svg { width: 17px; height: 17px; }
