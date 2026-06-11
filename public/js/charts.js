@@ -1865,7 +1865,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
-  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux', 'symbol', 'journal'];
+  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux', 'symbol', 'journal', 'calculator'];
   // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
@@ -1976,8 +1976,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND
     //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
     const _ml = document.getElementById('main-layout');
-    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol' || view === 'journal');   // Week Ahead / Symbole / Journal en pleine largeur
+    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol' || view === 'journal' || view === 'calculator');   // pleine largeur
     document.getElementById('journal-btn')?.classList.toggle('topbar-icon--active', view === 'journal');   // état actif du bouton topbar Journal
+    document.getElementById('calc-btn')?.classList.toggle('topbar-icon--active', view === 'calculator');   // état actif du bouton topbar Calculatrice
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {
       const strengthTab = document.querySelector('.right-tab[data-rtab="strength"]');
@@ -2008,6 +2009,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (view === 'taux') { loadTauxView(); _tauxPoll = setInterval(_tauxTick, 60000); }   // TAUX : rafraîchi en continu (~60 s) tant que l'onglet est ouvert
     if (view === 'journal' && typeof window.loadJournalView === 'function') window.loadJournalView();
+    if (view === 'calculator' && typeof window.loadCalculatorView === 'function') window.loadCalculatorView();
     if (view === 'symbol' && window.loadSymbolView) window.loadSymbolView();
 
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour.

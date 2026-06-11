@@ -8887,3 +8887,44 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jr-form-sep { width: 1px; align-self: center; height: 20px; background: var(--border); margin: 0 4px; }
 .jr-btn--import { border-color: var(--border2); color: var(--text2); }
 .jr-btn--import:hover { color: var(--text); border-color: var(--orange); background: rgba(247,148,29,0.08); }
+
+/* ════════ Calculatrice de taille de position (icône topbar à côté du journal) ════════ */
+.topbar-icon--calc { margin-right: 10px; flex-shrink: 0; }
+.panel-calc { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.calc-wrap { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 0; }
+.calc-form { display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; border-right: 1px solid var(--border); }
+.calc-field { display: flex; flex-direction: column; gap: 4px; }
+.calc-field > span { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); font-weight: 700; }
+.calc-field input, .calc-field select { height: 32px; padding: 0 9px; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12.5px; font-family: var(--font-mono); width: 100%; }
+.calc-field input:focus, .calc-field select:focus { outline: none; border-color: var(--orange); }
+.calc-risk-row { display: flex; align-items: stretch; gap: 0; }
+.calc-risk-row input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
+.calc-risk-unit { display: none; }
+.calc-risk-mode { width: 40px; flex-shrink: 0; border: 1px solid var(--border); border-left: none; border-radius: 0 4px 4px 0; background: rgba(247,148,29,0.14); color: var(--orange); font-weight: 800; font-size: 13px; cursor: pointer; font-family: var(--font-mono); }
+.calc-risk-mode:hover { background: rgba(247,148,29,0.24); color: #ffb45e; }
+.calc-actions { display: flex; align-items: center; gap: 10px; margin-top: 4px; }
+.calc-actions .jr-btn { height: 32px; }
+.calc-rate-note { font-size: 9.5px; color: var(--text4); letter-spacing: 0.02em; }
+.calc-results { padding: 16px 18px; display: flex; flex-direction: column; gap: 11px; min-width: 0; align-content: start; }
+.calc-empty { color: var(--text3); font-size: 12px; padding: 22px 4px; text-align: center; border: 1px dashed var(--border); border-radius: 6px; }
+.calc-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 6px; padding: 11px 13px; display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.calc-card .calc-k { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); font-weight: 700; }
+.calc-card .calc-v { font-family: var(--font-mono); font-size: 16px; font-weight: 700; color: var(--text); }
+.calc-card .calc-v em { font-style: normal; font-size: 11px; color: var(--text3); font-weight: 600; }
+.calc-card .calc-sub { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
+.calc-card--hero { background: rgba(247,148,29,0.08); border-color: rgba(247,148,29,0.40); }
+.calc-card--hero .calc-v { font-size: 26px; color: var(--orange); }
+.calc-card--hero .calc-v em { color: rgba(247,148,29,0.7); font-size: 14px; }
+.calc-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+@media (max-width: 860px) {
+  .calc-wrap { grid-template-columns: 1fr; }
+  .calc-form { border-right: none; border-bottom: 1px solid var(--border); }
+}
+@media (max-width: 768px) { .topbar-icon--calc { margin-right: 6px; } }
+
+/* ════════ Toast (fonctionnalité en développement / messages éphémères) ════════ */
+#dtp-toast-host { position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 4000; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; width: max-content; max-width: 92vw; }
+.dtp-toast { display: flex; align-items: center; gap: 9px; background: #16161a; border: 1px solid var(--border2); border-radius: 8px; padding: 11px 16px; color: var(--text); font-size: 12.5px; line-height: 1.4; box-shadow: 0 8px 28px rgba(0,0,0,0.55); opacity: 0; transform: translateY(14px); transition: opacity 0.25s, transform 0.25s; max-width: 460px; }
+.dtp-toast.show { opacity: 1; transform: translateY(0); }
+.dtp-toast--dev { border-color: rgba(247,148,29,0.55); border-left: 3px solid var(--orange); }
+.dtp-toast-ic { font-size: 15px; flex-shrink: 0; }

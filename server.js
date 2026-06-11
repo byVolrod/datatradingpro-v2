@@ -418,6 +418,7 @@ function _jrCleanEntries(arr) {
 }
 app.get('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ entries: [] });
+  if (req.session?.user?.role !== 'admin') return res.status(403).json({ entries: [], dev: true });   // fonctionnalité en développement → admins only
   try {
     const v = await auth.aiCacheGet('journal:' + req.session.userId, _JR_KV_TTL);
     res.json({ entries: _jrCleanEntries(v && v.entries) });
@@ -425,6 +426,7 @@ app.get('/api/journal', async (req, res) => {
 });
 app.post('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
+  if (req.session?.user?.role !== 'admin') return res.status(403).json({ ok: false, dev: true });   // fonctionnalité en développement → admins only
   try {
     const entries = _jrCleanEntries(req.body && req.body.entries);
     await auth.aiCacheSet('journal:' + req.session.userId, { entries });

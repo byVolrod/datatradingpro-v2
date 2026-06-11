@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260611P" />
+  <link rel="stylesheet" href="/css/style.css?v=20260611Q" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -37,8 +37,11 @@
   </div>
 
   <div class="topbar-center">
-    <div class="topbar-icon topbar-icon--journal" id="journal-btn" title="Journal de Trading" onclick="activateView('journal')">
+    <div class="topbar-icon topbar-icon--journal" id="journal-btn" title="Journal de Trading" onclick="_dtpGateTool('journal')">
       <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 7h3M4 12h3M4 17h3M10 7h7M10 11h7M10 15h4"/></svg>
+    </div>
+    <div class="topbar-icon topbar-icon--calc" id="calc-btn" title="Calculatrice de position" onclick="_dtpGateTool('calculator')">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h4"/></svg>
     </div>
     <div class="topbar-symbol-search">
       <span class="search-icon">⌕</span>
@@ -311,6 +314,34 @@
       <div class="ctx-note">Journal personnel lié à votre compte — vos trades restent privés. Outil de suivi, pas un conseil d'investissement.</div>
     </div>
   </div><!-- /#view-journal -->
+
+  <!-- ══ VIEW: CALCULATRICE DE POSITION (façon Myfxbook) — admin only ══ -->
+  <div class="view-panel hidden" id="view-calculator">
+    <div class="panel panel-calc">
+      <div class="panel-header">
+        <div class="panel-header-left"><span class="panel-title">Calculatrice de taille de position</span></div>
+        <div class="panel-header-controls"><span class="bank-update" id="calc-status"></span></div>
+      </div>
+      <div class="calc-wrap">
+        <div class="calc-form" id="calc-form">
+          <label class="calc-field"><span>Devise du compte</span>
+            <select id="calc-acct">
+              <option>USD</option><option>EUR</option><option>GBP</option><option>JPY</option><option>CHF</option><option>CAD</option><option>AUD</option><option>NZD</option>
+            </select>
+          </label>
+          <label class="calc-field"><span>Solde du compte</span><input id="calc-balance" type="number" step="any" min="0" value="10000"></label>
+          <label class="calc-field"><span>Risque</span>
+            <span class="calc-risk-row"><input id="calc-risk" type="number" step="any" min="0" max="100" value="1"><span class="calc-risk-unit" id="calc-risk-unit">%</span><button type="button" class="calc-risk-mode" id="calc-risk-mode" title="Basculer % / montant">%</button></span>
+          </label>
+          <label class="calc-field"><span>Stop-loss (pips)</span><input id="calc-sl" type="number" step="any" min="0" value="20"></label>
+          <label class="calc-field"><span>Paire</span><select id="calc-pair"></select></label>
+          <div class="calc-actions"><button type="button" class="jr-btn jr-btn--add" id="calc-go">Calculer</button><span class="calc-rate-note" id="calc-rate-note"></span></div>
+        </div>
+        <div class="calc-results" id="calc-results"></div>
+      </div>
+      <div class="ctx-note">Calcul indicatif basé sur les cours en direct du terminal. Vérifiez auprès de votre broker (spread, commissions, taille de contrat). Pas un conseil d'investissement.</div>
+    </div>
+  </div><!-- /#view-calculator -->
 
   <!-- ══ VIEW: CALENDAR ══ -->
   <div class="view-panel hidden" id="view-calendar">
@@ -675,8 +706,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260611S"></script>
-<script src="/js/charts.js?v=20260611F"></script>
+<script src="/js/app.js?v=20260611T"></script>
+<script src="/js/charts.js?v=20260611G"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1444,7 +1475,7 @@
       <button class="np-tab np-tab--active" data-nf="all">Tout</button>
       <button class="np-tab" data-nf="analyst">Fichiers d'analystes</button>
       <button class="np-tab" data-nf="risk">Sentiment de risque</button>
-      <button class="np-tab" data-nf="breaking">A›</button>
+      <button class="np-tab" data-nf="breaking">Temps réel</button>
     </div>
     <button class="np-arrow-btn" id="np-tab-next">›</button>
     <button class="np-filter-btn" onclick="npToggleFilter()">
