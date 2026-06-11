@@ -7007,7 +7007,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '<input id="jr-pl"    type="number" step="any"          placeholder="P&L € (optionnel)" value="' + v(e && e.pl) + '">'
       + '<input id="jr-note"  type="text" maxlength="300"       placeholder="Note (setup, raison, leçon…)" value="' + _esc(e ? e.note : '') + '">'
       + '<button type="button" class="jr-btn jr-btn--add" id="jr-submit">' + (e ? 'Mettre à jour' : '+ Ajouter') + '</button>'
-      + (e ? '<button type="button" class="jr-btn" id="jr-cancel">Annuler</button>' : '');
+      + (e ? '<button type="button" class="jr-btn" id="jr-cancel">Annuler</button>' : '')
+      + '<span class="jr-form-sep"></span>'
+      + '<button type="button" class="jr-btn jr-btn--import" id="jr-import" title="Importer vos trades depuis un fichier Excel/CSV ou un export Notion (CSV). Les colonnes (paire, sens, entrée, sortie, P&amp;L, note…) sont détectées automatiquement.">&#8593; Importer (Excel / Notion)</button>'
+      + '<input type="file" id="jr-import-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" style="display:none">';
     const num = id => { const x = parseFloat(document.getElementById(id).value); return isFinite(x) ? x : null; };
     document.getElementById('jr-submit').onclick = () => {
       const pair = (document.getElementById('jr-pair').value || '').toUpperCase().trim();
@@ -7025,6 +7028,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       _jrRender(); _jrSave();
     };
     const c = document.getElementById('jr-cancel'); if (c) c.onclick = () => { _jrEdit = null; _jrRenderForm(); };
+    const imp = document.getElementById('jr-import'), impFile = document.getElementById('jr-import-file');
+    if (imp && impFile) { imp.onclick = () => impFile.click(); impFile.onchange = ev => _jrImportFile(ev); }
   }
 
   function _jrRenderRows() {
@@ -7068,6 +7073,87 @@ document.addEventListener('DOMContentLoaded', ()=>{
       else { _jrDelPending = id; _jrRenderRows(); setTimeout(() => { if (_jrDelPending === id) { _jrDelPending = null; _jrRenderRows(); } }, 3500); }
     }
   });
+
+  // ── Import Excel/CSV ou export Notion (CSV) — détection auto délimiteur + colonnes ──────────
+  function _jrCsvRows(text) {
+    text = String(text || '').replace(/^﻿/, '');   // retire le BOM
+    const fl = (text.split(/\r?\n/)[0] || '');
+    // délimiteur : Excel FR = ';', Notion/standard = ',', export tableur = tab
+    const tab = fl.split('\t').length, semi = fl.split(';').length, com = fl.split(',').length;
+    const delim = (tab > semi && tab > com) ? '\t' : (semi > com ? ';' : ',');
+    const rows = []; let row = [], cur = '', q = false;
+    for (let i = 0; i < text.length; i++) {
+      const c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === delim) { row.push(cur); cur = ''; }
+      else if (c === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (c !== '\r') cur += c;
+    }
+    if (cur.length || row.length) { row.push(cur); rows.push(row); }
+    return rows.filter(r => r.length && r.some(x => String(x).trim() !== ''));
+  }
+  function _jrNorm(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, ''); }
+  function _jrParseNum(v) {
+    let s = String(v == null ? '' : v).replace(/[^\d.,\-]/g, '').trim();
+    if (!s) return null;
+    if (s.indexOf(',') > -1 && s.indexOf('.') === -1) s = s.replace(',', '.');   // décimale française "1,2345"
+    else s = s.replace(/,/g, '');                                                // séparateurs de milliers
+    const n = parseFloat(s); return isFinite(n) ? n : null;
+  }
+  const _JR_COLS = {
+    date:  ['date', 'time', 'datetime', 'jour', 'opentime', 'opened', 'dateouverture', 'datedouverture', 'closetime', 'closedate'],
+    pair:  ['pair', 'paire', 'symbol', 'symbole', 'instrument', 'ticker', 'marche', 'market', 'actif', 'asset'],
+    dir:   ['dir', 'direction', 'sens', 'side', 'type', 'position', 'buysell', 'longshort', 'ordertype', 'action'],
+    lots:  ['lots', 'lot', 'size', 'volume', 'taille', 'quantity', 'qty', 'quantite', 'units', 'lotsize'],
+    entry: ['entry', 'entree', 'open', 'openprice', 'prixentree', 'prixdentree', 'entryprice', 'priceopen', 'cours'],
+    exit:  ['exit', 'sortie', 'close', 'closeprice', 'prixsortie', 'prixdesortie', 'exitprice', 'priceclose'],
+    pl:    ['pl', 'pnl', 'profit', 'gain', 'resultat', 'result', 'profitloss', 'net', 'netpl', 'pleur', 'gainperte'],
+    note:  ['note', 'notes', 'comment', 'commentaire', 'remarque', 'description', 'setup', 'journal', 'strategy', 'strategie', 'raison'],
+  };
+  function _jrMapHeader(headers) {
+    const norm = headers.map(_jrNorm), idx = {};
+    for (const key in _JR_COLS) {
+      const aliases = _JR_COLS[key]; let f = norm.findIndex(h => aliases.includes(h));
+      if (f < 0) f = norm.findIndex(h => h && aliases.some(a => h.indexOf(a) > -1));
+      idx[key] = f;
+    }
+    return idx;
+  }
+  function _jrImportFile(ev) {
+    const file = ev.target.files && ev.target.files[0]; if (!file) return;
+    if (!_jrList) _jrList = [];
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      try {
+        const rows = _jrCsvRows(e.target.result);
+        if (rows.length < 2) { _jrStatus('Fichier vide ou illisible'); return; }
+        const idx = _jrMapHeader(rows[0]);
+        if (idx.pair < 0) { _jrStatus('Colonne « paire » introuvable (attendu : pair / paire / symbol…)'); return; }
+        let added = 0;
+        for (let r = 1; r < rows.length; r++) {
+          const row = rows[r], get = k => idx[k] >= 0 ? String(row[idx[k]] || '').trim() : '';
+          const pair = get('pair').toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12);
+          if (pair.length < 2) continue;
+          const dir = /sell|short|vente|sld|sale/.test(_jrNorm(get('dir'))) ? 'SELL' : 'BUY';
+          let ts = Date.now(); const dv = get('date'); if (dv) { const p = Date.parse(dv); if (!isNaN(p)) ts = p; }
+          _jrList.unshift({
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + r,
+            ts, pair, dir,
+            lots: _jrParseNum(get('lots')), entry: _jrParseNum(get('entry')), exit: _jrParseNum(get('exit')),
+            pl: _jrParseNum(get('pl')), note: get('note').slice(0, 300),
+          });
+          added++;
+        }
+        if (_jrList.length > 500) _jrList = _jrList.slice(0, 500);
+        _jrEdit = null; _jrRender();
+        if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓'); }
+        else _jrStatus('Aucune ligne valide trouvée');
+      } catch (err) { _jrStatus('Échec de l\'import (' + (err && err.message || err) + ')'); }
+    };
+    reader.readAsText(file);
+    ev.target.value = '';
+  }
 
   window.loadJournalView = function () {
     if (_jrList) { _jrRender(); return; }   // déjà chargé → re-render instantané (les données vivent en mémoire + serveur)
