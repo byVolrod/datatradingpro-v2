@@ -4040,8 +4040,9 @@ function buildBankChart(p) {
       root.interfaceColors.set('text', am5.color(0x8a8a93));
 
       const chart = root.container.children.push(am5xy.XYChart.new(root, {
-        panX: true, panY: false, wheelY: 'zoomX', paddingLeft: 0, paddingRight: 2, paddingTop: 6, paddingBottom: 4,
+        panX: true, panY: false, wheelY: 'zoomX', pinchZoomX: true, paddingLeft: 0, paddingRight: 2, paddingTop: 6, paddingBottom: 4,
       }));
+      chart.zoomOutButton.set('forceHidden', true);   // masque le bouton bleu de dézoom amCharts
 
       // ── Axe prix à droite + grille discrète (façon TradingView) ──
       const yRend = am5xy.AxisRendererY.new(root, { opposite: true });
@@ -4085,7 +4086,7 @@ function buildBankChart(p) {
       series.data.setAll(candles);
 
       // ── Crosshair façon TradingView ──
-      const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'zoomX', xAxis, yAxis, snapToSeries: [series], snapToSeriesBy: 'x' }));
+      const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis, snapToSeries: [series], snapToSeriesBy: 'x' }));   // 'none' = crosshair seul ; le glisser fait un PAN (panX), plus de zoom de sélection
       cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
       cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
 
