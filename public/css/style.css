@@ -705,8 +705,9 @@ html, body {
 .topbar-logout-btn:hover { color: var(--text); border-color: var(--border2); background: var(--bg3); }
 
 .topbar-icon--notif { font-size: 13px; }
+.topbar-icon--notif:hover { transform: scale(1.1); }   /* léger zoom au survol (comme PMT hover:scale-110) */
 
-/* Pastille rouge (cloche notif) — simple point, sans chiffre */
+/* Pastille rouge (cloche notif) — point animé façon PMT : entrée « ressort » depuis le coin haut-droit */
 .notif-dot {
   position: absolute;
   top: 3px; right: 3px;
@@ -714,6 +715,18 @@ html, body {
   background: #ef4444;
   border: 1.5px solid #0a0a0c;
   border-radius: 50%;
+  transform-origin: right top;                                    /* grandit depuis le coin (transform-origin PMT) */
+  /* entrée « ressort » (= mount framer-motion de PMT) + halo qui pulse doucement (box-shadow → aucun souci d'empilement) */
+  animation: notifPop 0.42s cubic-bezier(.34, 1.56, .64, 1), notifPing 1.9s ease-out infinite;
+}
+@keyframes notifPop {
+  0%   { transform: scale(0);    }
+  55%  { transform: scale(1.25); }
+  100% { transform: scale(1);    }
+}
+@keyframes notifPing {
+  0%        { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.55); }
+  70%, 100% { box-shadow: 0 0 0 7px rgba(239, 68, 68, 0);  }
 }
 .notif-badge {
   position: absolute;
@@ -8843,7 +8856,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ═══════════ JOURNAL DE TRADING (vue plein écran + bouton topbar façon PMT) ═══════════ */
 .topbar-icon--journal { margin-right: 10px; flex-shrink: 0; }
 .topbar-icon--active, .topbar-icon--active:hover { color: var(--orange); background: rgba(247,148,29,0.10); }
-.panel-journal { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.panel-journal { display: flex; flex-direction: column; height: 100%; min-height: 0; flex: 1 1 auto; width: 100%; min-width: 0; }
 .jr-stats { display: flex; flex-wrap: wrap; gap: 16px 22px; padding: 9px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
 .jr-stat i { font-style: normal; font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); display: block; }
 .jr-stat b { font-family: var(--font-mono); font-size: 14px; font-weight: 700; color: var(--text); }
@@ -8890,7 +8903,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* ════════ Calculatrice de taille de position (icône topbar à côté du journal) ════════ */
 .topbar-icon--calc { margin-right: 10px; flex-shrink: 0; }
-.panel-calc { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.panel-calc { display: flex; flex-direction: column; height: 100%; min-height: 0; flex: 1 1 auto; width: 100%; min-width: 0; }
 .calc-wrap { flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; display: grid; grid-template-columns: minmax(0, 320px) minmax(0, 1fr); gap: 0; }
 .calc-form { display: flex; flex-direction: column; gap: 11px; padding: 16px 18px; border-right: 1px solid var(--border); }
 .calc-field { display: flex; flex-direction: column; gap: 4px; }
