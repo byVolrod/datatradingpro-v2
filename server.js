@@ -2642,7 +2642,7 @@ const RESEARCH_SPA_SITES = [
     ] },
   { name: 'Lloyds Bank', institution: 'Lloyds Bank', source: 'lloyds', host: 'lloydsbank.com',
     url: 'https://www.lloydsbank.com/business/resource-centre/insight.html',
-    hrefRe: /lloydsbank\.com\/business\/(?:resource-centre\/insight|corporate-banking)\/.+\.html/i,
+    hrefRe: /lloydsbank\.com\/business\/resource-centre\/insight\/[^"'\s]+\.html/i,   // insight UNIQUEMENT (corporate-banking = pages produit, pas des rapports)
     seed: [
       { title: 'Market Insights Weekly', url: 'https://www.lloydsbank.com/business/resource-centre/insight/market-insights-weekly.html', date: '2026-06-08' },
       { title: 'Business Barometer', url: 'https://www.lloydsbank.com/business/resource-centre/insight/business-barometer.html', date: '2026-06-01' },
@@ -2821,6 +2821,30 @@ async function _fetchHsbcInto(merged, UA) {
   } catch (e) { console.warn('[HSBC] scrape échec:', e.message); }
 }
 
+// ── Filtre de pertinence Institution (vision du terminal : macro / FX / taux / commodities) ──
+// Écarte le BRUIT que les scrapers ramènent inévitablement : liens de navigation et pages produit,
+// communication corporate (récompenses, communiqués, événements, dons, interviews), marketing ESG,
+// gestion de patrimoine, ancres génériques (« Read the article »), et archives périmées (titre
+// finissant par une année ≤ 2024). Les vrais rapports macro/FX ne matchent aucun de ces motifs.
+const _BR_NOISE = new RegExp([
+  // ancres génériques / navigation / pages produit (pas des rapports)
+  '^read the article$', '^listen to the podcast$', '^click here', '^download here',
+  'product terms', 'terms (&|and) conditions', 'commercial banking online', 'payment solutions',
+  'open account platform', 'liquidity and accounts', 'charities and not-for-profit',
+  '^consumer & technology$', '^infrastructure, energy & industrials$', '^real estate and housing$',
+  '^sustainable finance & transition$',
+  // communication corporate / RP (hors recherche)
+  'press release', 'shortlisted', 'award', 'happy holidays', 'donation', 'invited to',
+  'fund launch', 'launches with', 'marks one year', 'featured on', 'interview (on|with)',
+  'strengthens presence', 'supported women', 'investors day', 'fintech forum', 'event with',
+  // marketing ESG / gestion de patrimoine (hors vision macro/FX)
+  'why esg matters', 'esg research', 'road to esg', 'esg integration', 'esg lens', 'esg thema',
+  'hub for all esg', '^esg\\b', 'positive impact finance',
+  'legacy planning', 'premier elite', 'affluent investor',
+].join('|'), 'i');
+const _BR_STALE_YEAR = /\b(20[01][0-9]|202[0-4])\s*$/;   // titre finissant par une année ≤ 2024 = archive
+function _brIsNoise(t) { t = String(t || '').trim(); return !t || _BR_NOISE.test(t) || _BR_STALE_YEAR.test(t); }
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -2863,7 +2887,9 @@ async function _fetchBankResearch(full = false) {
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
   // Les autres sources gardent les 180 plus récentes (cutoff d'âge, sauf Scotiabank, exempté).
   const _nowTs = Date.now();
-  const _all  = [...merged.values()].map(i => (i && i.timestamp > _nowTs) ? { ...i, timestamp: _nowTs } : i);   // jamais de rapport « daté dans le futur » (mauvais parsing d'URL)
+  const _all  = [...merged.values()]
+    .filter(i => i && !_brIsNoise(i.title))   // filtre de pertinence (vision macro/FX du terminal)
+    .map(i => (i.timestamp > _nowTs) ? { ...i, timestamp: _nowTs } : i);   // jamais de rapport « daté dans le futur » (mauvais parsing d'URL)
   const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc', 'amundi', 'westpac', 'qcam', 'goldman'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
@@ -2986,7 +3012,7 @@ async function _loadPersistedHistories() {
     const br = await auth.aiCacheGet('hist:bank_research');
     if (Array.isArray(br) && br.length) {
       const have = new Set(_brCache.map(i => i.id));
-      const add  = _histPrune(br).filter(i => i && i.id && !have.has(i.id));
+      const add  = _histPrune(br).filter(i => i && i.id && !have.has(i.id) && !_brIsNoise(i.title));   // le bruit déjà persisté ne revient pas
       if (add.length) { _brCache = [..._brCache, ...add].sort((a, b) => b.timestamp - a.timestamp); console.log(`[History] ${add.length} article(s) institution rechargé(s) depuis la BDD (0 scrape)`); }
     }
   } catch (e) { console.warn('[History] reload research:', e.message); }
