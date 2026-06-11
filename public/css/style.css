@@ -3119,7 +3119,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   font-size: 13px;
 }
 .bank-chart-pair { font-weight: 700; color: #fff; }
-.bank-chart-price { color: #22c55e; font-family: var(--font-mono); font-size: 13px; }
+.bank-chart-price { color: #9a9aa3; font-family: var(--font-mono); font-size: 12.5px; }   /* prix GRIS à côté de la paire (clone PMT) */
+/* Double drapeau rond de la paire (clone PMT) */
+.bank-chart-flags { display: inline-flex; align-items: center; margin-right: 2px; }
+.bank-flag { width: 17px; height: 17px; border-radius: 50%; object-fit: cover; border: 1px solid #0e0e12; box-shadow: 0 0 0 1px #2a2a30; }
+.bank-flag--2 { margin-left: -6px; }
 .bank-chart { flex: 1; min-height: 0; }
 .bank-chart-loading {
   display: flex; align-items: center; justify-content: center;

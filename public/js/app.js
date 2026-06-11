@@ -3989,11 +3989,21 @@ function _updateBankChartPrice(p) {
   }
 }
 
+// Double drapeau rond de la paire (façon PMT) dans l'en-tête du chart
+const _BANK_ISO = { USD:'us', EUR:'eu', GBP:'gb', JPY:'jp', CHF:'ch', CAD:'ca', AUD:'au', NZD:'nz', SEK:'se', NOK:'no', DKK:'dk', PLN:'pl', MXN:'mx', ZAR:'za', SGD:'sg', HKD:'hk', TRY:'tr', CNY:'cn', CNH:'cn' };
+function _bankFlagsHtml(pair) {
+  const f = c => _BANK_ISO[c] ? `<img class="bank-flag" src="https://flagcdn.com/w20/${_BANK_ISO[c]}.png" srcset="https://flagcdn.com/w40/${_BANK_ISO[c]}.png 2x" alt="" loading="lazy">` : '';
+  const [b, q] = String(pair || '').split('/');
+  const h2 = q ? f(q) : '';
+  return f(b) + (h2 ? h2.replace('class="bank-flag"', 'class="bank-flag bank-flag--2"') : '');
+}
+
 function selectBankRow(id) {
   const p = _bankPositions.find(x => x.id === id);
   if (!p) return;
   _bankActiveId = id;
   _highlightBankRow(id);
+  const fl = document.getElementById('bank-chart-flags'); if (fl) fl.innerHTML = _bankFlagsHtml(p.pair);
   document.getElementById('bank-chart-pair').textContent = p.pair;
   _updateBankChartPrice(p);
   buildBankChart(p);
@@ -4025,6 +4035,7 @@ function buildBankChart(p) {
         try { root._logo.children.clear(); } catch {}
         try { root._logo.dispose(); } catch {}
       }
+      if (window.am5locales_fr_FR) root.locale = am5locales_fr_FR;   // mois en français (mars, avr., juin) + virgule décimale sur l'axe
       root.setThemes([am5themes_Animated.new(root)]);
       root.interfaceColors.set('text', am5.color(0x8a8a93));
 
@@ -4078,23 +4089,39 @@ function buildBankChart(p) {
       cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
       cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
 
-      // ── Lignes Entry / TP / SL + prix LIVE (la ligne live bouge ensuite sans recharger) ──
-      const mkGuide = (value, label, color, dash) => {
+      // ── Lignes Entry / Take Profit / Stop Loss + prix LIVE — clone PMT : pilule de NOM collée au
+      // bord droit DU GRAPHE + pilule de VALEUR sur l'axe de prix (façon TradingView). La ligne du
+      // prix live (verte, pointillée) bouge ensuite à chaque refresh sans recharger le chart. ──
+      const fmtFr = v => v.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+      const pill = { cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 };
+      const mkGuide = (value, name, color, dash) => {
+        // 1) ligne + pilule de VALEUR sur l'axe
         const di = yAxis.makeDataItem({ value });
         yAxis.createAxisRange(di);
         di.get('grid')?.setAll({ stroke: am5.color(color), strokeOpacity: 0.95, strokeWidth: 1, strokeDasharray: dash });
         di.get('label')?.setAll({
-          text: (label ? label + ' ' : '') + value.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }),
-          inside: true, centerY: am5.p50, fontSize: 10, fontWeight: '700', fill: am5.color(0xffffff),
-          background: am5.RoundedRectangle.new(root, { fill: am5.color(color), cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 }),
+          text: fmtFr(value), inside: false, centerY: am5.p50,
+          fontSize: 10.5, fontWeight: '700', fontFamily: mono, fill: am5.color(0xffffff),
+          background: am5.RoundedRectangle.new(root, { fill: am5.color(color), ...pill }),
         });
+        // 2) pilule de NOM dans le graphe, alignée à droite (Entry / Take Profit / Stop Loss)
+        if (name) {
+          const dn = yAxis.makeDataItem({ value });
+          yAxis.createAxisRange(dn);
+          dn.get('grid')?.setAll({ strokeOpacity: 0 });
+          dn.get('label')?.setAll({
+            text: name, inside: true, x: am5.p100, centerX: am5.p100, dx: -4, centerY: am5.p50,
+            fontSize: 10.5, fontWeight: '700', fill: am5.color(0xffffff),
+            background: am5.RoundedRectangle.new(root, { fill: am5.color(color), ...pill }),
+          });
+        }
         return di;
       };
-      if (p.entry) mkGuide(p.entry, 'Entry', 0x3b82f6, [4, 3]);
-      if (p.tp)    mkGuide(p.tp,    'TP',    0x22c55e, [4, 3]);
-      if (p.sl)    mkGuide(p.sl,    'SL',    0xef4444, [4, 3]);
+      if (p.entry) mkGuide(p.entry, 'Entry',       0x2962ff, [4, 3]);
+      if (p.tp)    mkGuide(p.tp,    'Take Profit', 0x26a69a, [4, 3]);
+      if (p.sl)    mkGuide(p.sl,    'Stop Loss',   0xef5350, [4, 3]);
       if (p.currentPrice) {
-        const di = mkGuide(p.currentPrice, '', 0xf7941d, [2, 2]);   // orange signature = prix live
+        const di = mkGuide(p.currentPrice, '', 0x26a69a, [1, 2]);   // prix live = vert pointillé (PMT)
         _bankLiveGuide = { di, pair: p.pair, dec };
       }
 
