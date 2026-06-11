@@ -1922,7 +1922,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const SPK_COL = { wavy: '#7c879b', up: '#00da50', down: '#ff4d2e' };
     const mspk = kind => {
       const p = SPK_PATH[kind], c = SPK_COL[kind], gid = 'rtcg-' + kind;
-      return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="xMaxYMax meet">'
+      return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="none">'
         + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
         + '<stop stop-color="' + c + '" stop-opacity="0.30"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/></linearGradient></defs>'
         + '<path d="' + p + ' L62 28 L0 28 Z" fill="url(#' + gid + ')"/>'
