@@ -3519,7 +3519,7 @@ app.post('/api/report-insights', async (req, res) => {
   const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = 'v4:' + (id || clean.slice(0, 100));   // v4 = carrousel DTP (mix narratif + actif/signal BUY/SELL/NEUTRAL)
+  const key = 'v5:' + (id || clean.slice(0, 100));   // v5 = bump : regénère avec les badges BUY/SELL/NEUTRAL (persona IA assouplie pour ré-émettre les tags directionnels)
   if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
