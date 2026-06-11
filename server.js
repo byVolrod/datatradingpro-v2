@@ -1162,9 +1162,33 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     let biasLine = '';
     try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current DTP Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
+    // Contexte « AI Macro » complet (philosophie PMT : data éco + banques centrales + news + risk) :
+    // on injecte AUSSI les prochaines échéances du calendrier et les taux directeurs + probas de
+    // réunion (données TAUX réelles déjà en cache — zéro fetch, zéro coût supplémentaire).
+    let calLine = '';
+    try {
+      const now = Date.now();
+      const next = (Array.isArray(allCalendar) ? allCalendar : [])
+        .filter(e => e && (e.timestamp || 0) > now && /high|medium/i.test(e.impact || ''))
+        .sort((a, b) => a.timestamp - b.timestamp).slice(0, 5)
+        .map(e => `${new Date(e.timestamp).toISOString().slice(5, 16).replace('T', ' ')}Z ${e.currency || ''} ${e.title || ''} (${e.impact})`);
+      if (next.length) calLine = 'Upcoming economic calendar (high/medium impact):\n' + next.map(s => '- ' + s).join('\n');
+    } catch {}
+    let ratesLine = '';
+    try {
+      const parts = CB.map(b => {
+        const rp = _rpCache && _rpCache.banks && _rpCache.banks[b.code];
+        if (rp && rp.meetings && rp.meetings[0]) { const m = rp.meetings[0]; return `${b.bank} ${rp.rate}% (next ${m.date}: ${m.baseCase} ${Math.max(m.hold, m.hike, m.cut)}%)`; }
+        const st = _ratesState && _ratesState.banks && _ratesState.banks[b.code];
+        return st ? `${b.bank} ${st.rate}%` : null;
+      }).filter(Boolean);
+      if (parts.length) ratesLine = 'Central bank policy rates (market-implied next-meeting odds where available): ' + parts.join(', ') + '.';
+    } catch {}
     const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
     const prompt = `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. Answer the user's question in ONE concise, data-driven paragraph (max ~140 words), institutional tone, no preamble, no disclaimer. Wrap key market terms in **double asterisks** to bold them (e.g. **weak bearish**, **EUR/USD**, central banks, **risk-off**).
 ${biasLine}
+${ratesLine}
+${calLine}
 Recent market headlines (context):
 ${heads}
 
@@ -5168,6 +5192,9 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
     }
   } catch {}
   _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, narrativeBias, bankStances, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine].filter(Boolean) };
+  // Régénération complète → les overrides admin (correctifs ponctuels d'aberrations IA) expirent :
+  // la nouvelle matrice repart sur les données fraîches, l'admin ne corrige que si besoin à nouveau.
+  try { if (Object.keys(_sbOverrides || {}).length) { _sbOverrides = {}; auth.aiCacheSet('sb:overrides', {}).catch(() => {}); } } catch {}
   // NB : on NE remplit PLUS le repli dans _smartBias.narrative (il reste IA-seul). Le repli data-driven est
   // ajouté UNIQUEMENT à l'affichage par _sbFillNarrative → le retry IA (_sbEnsureNarrative) régénère ce qui manque.
   try { fs.writeFileSync(SMART_BIAS_FILE, JSON.stringify(_smartBias)); } catch {}
@@ -5283,6 +5310,41 @@ async function _sbEnsureFresh() {
   await _sbEnsureNarrative();                    // 2) matrice fraîche mais narratif manquant → retry ciblé
 }
 
+// ── OVERRIDE ADMIN du Smart Bias (filet humain, façon « research team » PMT) ──────────────
+// Si l'IA sort une aberration, l'admin corrige une cellule (ligne × devise) ou l'Overall sans
+// attendre la régénération. Durable (KV Supabase), appliqué à la VOLÉE à l'affichage (la matrice
+// IA sous-jacente n'est pas mutée), et AUTO-EXPIRÉ à la prochaine régénération complète.
+// Usage (admin) : POST /api/admin/bias-override {ccy:"GBP", row:"fundamental"|"conclusion", value:"Bearish"|null}
+let _sbOverrides = {};   // { CCY: { rowKey|conclusion: 'Very Bullish'|'Bullish'|'Neutral'|'Bearish'|'Very Bearish' } }
+auth.aiCacheGet('sb:overrides').then(v => { if (v && typeof v === 'object') _sbOverrides = v; }).catch(() => {});
+function _sbApplyOverrides(b) {
+  if (!b || !Object.keys(_sbOverrides).length) return b;
+  const out = Object.assign({}, b, {
+    rows: (b.rows || []).map(r => {
+      let values = r.values;
+      for (const [ccy, o] of Object.entries(_sbOverrides)) if (o && o[r.key]) { if (values === r.values) values = Object.assign({}, r.values); values[ccy] = o[r.key]; }
+      return values === r.values ? r : Object.assign({}, r, { values });
+    }),
+    conclusion: Object.assign({}, b.conclusion),
+    overrides: _sbOverrides,   // exposé → le front/admin peut signaler les cellules corrigées à la main
+  });
+  for (const [ccy, o] of Object.entries(_sbOverrides)) if (o && o.conclusion) out.conclusion[ccy] = o.conclusion;
+  return out;
+}
+const _SB_OK_VALUES = ['Very Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bearish'];
+app.post('/api/admin/bias-override', requireAdmin, async (req, res) => {
+  const { ccy, row, value } = req.body || {};
+  if (!SB_CURRENCIES.includes(ccy)) return res.status(400).json({ error: 'ccy invalide (' + SB_CURRENCIES.join('/') + ')' });
+  const rowKeys = [...new Set([...(_smartBias && _smartBias.rows ? _smartBias.rows.map(r => r.key) : []), 'conclusion'])];
+  if (!rowKeys.includes(row)) return res.status(400).json({ error: 'row invalide (' + rowKeys.join(', ') + ')' });
+  if (value != null && value !== '' && !_SB_OK_VALUES.includes(value)) return res.status(400).json({ error: 'value invalide (' + _SB_OK_VALUES.join(' / ') + ' ou null pour effacer)' });
+  if (value == null || value === '') { if (_sbOverrides[ccy]) { delete _sbOverrides[ccy][row]; if (!Object.keys(_sbOverrides[ccy]).length) delete _sbOverrides[ccy]; } }
+  else (_sbOverrides[ccy] = _sbOverrides[ccy] || {})[row] = value;
+  auth.aiCacheSet('sb:overrides', _sbOverrides).catch(() => {});
+  try { if (_smartBias) broadcast({ type: 'smartbias_update', bias: _sbApplyOverrides(_sbFillNarrative(_smartBias)) }); } catch {}   // MAJ live des desks ouverts
+  res.json({ ok: true, overrides: _sbOverrides });
+});
+
 app.get('/api/smart-bias', async (req, res) => {
   // Versioning : renvoyer le snapshot d'une semaine archivée (?at=<generatedAt>).
   if (req.query.at) {
@@ -5299,7 +5361,8 @@ app.get('/api/smart-bias', async (req, res) => {
     .slice(0, 5)
     .map(s => ({ generatedAt: s.generatedAt }));
   // Narratif RÉSOLU pour l'affichage (IA réel si dispo, sinon synthèse data-driven) — SANS muter le cache interne.
-  const _resolved = _smartBias ? _sbFillNarrative(_smartBias) : { currencies: SB_CURRENCIES, rows: [], conclusion: {} };
+  // + overrides admin appliqués à la volée (correctifs humains, auto-expirés à la prochaine régén complète).
+  const _resolved = _smartBias ? _sbApplyOverrides(_sbFillNarrative(_smartBias)) : { currencies: SB_CURRENCIES, rows: [], conclusion: {} };
   res.json(Object.assign({}, _resolved, { history }));
   // AUCUN appel IA déclenché par l'arrivée d'un utilisateur : la (re)génération du bias est UNIQUEMENT planifiée (samedi) + timers de fond (démarrage / horaire). Le narratif est figé (rempli data-driven s'il manque).
 });
