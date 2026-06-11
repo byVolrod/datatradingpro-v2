@@ -7205,12 +7205,11 @@ function _dtpToast(msg, kind) {
   requestAnimationFrame(() => t.classList.add('show'));
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 280); }, 4200);
 }
-// Journal & Calculatrice = fonctionnalités EN DÉVELOPPEMENT → réservées aux admins. Les autres
-// comptes voient un message au clic (jamais la vue). Le serveur garde aussi /api/journal côté admin.
+// Calculatrice = PUBLIQUE (tous les comptes). Journal = encore réservé aux admins (en développement ;
+// le serveur garde aussi /api/journal côté admin).
 window._dtpGateTool = function (view) {
-  if (window._pdIsAdmin) { if (window.activateView) window.activateView(view); return; }
-  const label = view === 'calculator' ? 'La calculatrice de position' : 'Le journal de trading';
-  _dtpToast(label + ' est en cours de développement — réservé aux administrateurs pour le moment. Disponible bientôt pour tous.', 'dev');
+  if (view === 'calculator' || window._pdIsAdmin) { if (window.activateView) window.activateView(view); return; }
+  _dtpToast('Le journal de trading est en cours de développement — réservé aux administrateurs pour le moment. Disponible bientôt pour tous.', 'dev');
 };
 
 // ═══════════════════ CALCULATRICE DE TAILLE DE POSITION (façon Myfxbook) ═══════════════════
@@ -7289,8 +7288,6 @@ window._dtpGateTool = function (view) {
         const syms = Object.keys(_rates).sort();
         sel.innerHTML = (syms.length ? syms : ['EUR/USD']).map(s => '<option' + (s === 'EUR/USD' ? ' selected' : '') + '>' + s + '</option>').join('');
       }
-      const note = document.getElementById('calc-rate-note');
-      if (note) note.textContent = d && d.updatedAt ? 'cours du ' + new Date(d.updatedAt).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
       _cStatus(''); _calcCompute();
     }).catch(() => { _cStatus('Cours indisponibles'); const res = document.getElementById('calc-results'); if (res) res.innerHTML = '<div class="calc-empty">Impossible de charger les cours en direct.</div>'; });
   };

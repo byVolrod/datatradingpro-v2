@@ -8920,7 +8920,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .calc-field { display: flex; flex-direction: column; gap: 4px; }
 .calc-field > span { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text3); font-weight: 700; }
 .calc-field input, .calc-field select { height: 32px; padding: 0 9px; background: var(--bg2); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12.5px; font-family: var(--font-mono); width: 100%; }
-.calc-field input:focus, .calc-field select:focus { outline: none; border-color: var(--orange); }
+.calc-field input:focus, .calc-field select:focus { outline: none; border-color: var(--orange); box-shadow: 0 0 0 1.5px rgba(247,148,29,0.45); }
+.calc-field input:hover, .calc-field select:hover { border-color: #2e2e34; }
+/* Spinners natifs des champs nombre MASQUÉS (les flèches grises empilées cassaient le look HUD) */
+.calc-field input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+.calc-field input[type=number]::-webkit-outer-spin-button,
+.calc-field input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .calc-risk-row { display: flex; align-items: stretch; gap: 0; }
 .calc-risk-row input { border-top-right-radius: 0; border-bottom-right-radius: 0; }
 .calc-risk-unit { display: none; }

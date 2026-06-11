@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260611S" />
+  <link rel="stylesheet" href="/css/style.css?v=20260611T2" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -315,7 +315,7 @@
     </div>
   </div><!-- /#view-journal -->
 
-  <!-- ══ VIEW: CALCULATRICE DE POSITION (façon Myfxbook) — admin only ══ -->
+  <!-- ══ VIEW: CALCULATRICE DE POSITION (façon Myfxbook) — PUBLIQUE ══ -->
   <div class="view-panel hidden" id="view-calculator">
     <div class="panel panel-calc">
       <div class="panel-header">
@@ -335,11 +335,10 @@
           </label>
           <label class="calc-field"><span>Stop-loss (pips)</span><input id="calc-sl" type="number" step="any" min="0" value="20"></label>
           <label class="calc-field"><span>Paire</span><select id="calc-pair"></select></label>
-          <div class="calc-actions"><button type="button" class="jr-btn jr-btn--add" id="calc-go">Calculer</button><span class="calc-rate-note" id="calc-rate-note"></span></div>
+          <div class="calc-actions"><button type="button" class="jr-btn jr-btn--add" id="calc-go">Calculer</button></div>
         </div>
         <div class="calc-results" id="calc-results"></div>
       </div>
-      <div class="ctx-note">Calcul indicatif basé sur les cours en direct du terminal. Vérifiez auprès de votre broker (spread, commissions, taille de contrat). Pas un conseil d'investissement.</div>
     </div>
   </div><!-- /#view-calculator -->
 
@@ -706,7 +705,7 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260611U"></script>
+<script src="/js/app.js?v=20260611V"></script>
 <script src="/js/charts.js?v=20260611G"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
