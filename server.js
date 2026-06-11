@@ -6069,7 +6069,7 @@ async function _rpFetchBank(slug) {
 function _rpTransform(code, j, now) {
   const map = RP_MAP[code]; if (!map) return null;
   let rate = +map.rate(j.today); if (!isFinite(rate)) return null; rate = +rate.toFixed(2);
-  const rows = (j.today.rows || []).filter(x => x && x.meeting_iso && Date.parse(x.meeting_iso + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 5);
+  const rows = (j.today.rows || []).filter(x => x && x.meeting_iso && Date.parse(x.meeting_iso + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 10);   // 10 réunions (le front scrolle, ~3 visibles)
   if (!rows.length) return null;
   let prev = rate;
   const meetings = rows.map(x => {
@@ -6117,7 +6117,7 @@ app.get('/api/rates', (_req, res) => {
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
     const rb = _cbResolved(b);
     const bb = { ...rb, bias: _effBias(rb, st.rate) };             // biais (IA si dispo) + arrêt au taux terminal
-    const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 5);
+    const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 8);   // 8 réunions maison (le front scrolle)
     const meetings = sched.map((d, i) => {
       const sc = _rateScenario(bb, i);
       const days = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - now) / 86400000));
