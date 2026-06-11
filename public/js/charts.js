@@ -3200,7 +3200,8 @@ window._retryCalendar = function() {
     const card = b => {
       const mv = MV[b.move] || MV.HOLD, sc = b.scenario || { hold:0, hike:0, cut:0 };
       const rows = (b.meetings || []).map(m => { const mm = MV[m.baseCase] || MV.HOLD;
-        return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'j</td><td class="r">' + m.cut + '%</td><td>' + m.hold + '%</td><td class="g">' + m.hike + '%</td><td class="rtc-impl">' + bps(m.impliedBps) + '</td><td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>'; }).join('');
+        const ib = (m.impliedBps > 0 ? 'g' : (m.impliedBps < 0 ? 'r' : 'n'));
+        return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'j</td><td class="r">' + m.cut + '%</td><td>' + m.hold + '%</td><td class="g">' + m.hike + '%</td><td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td><td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>'; }).join('');
       return '<div class="rtc">'
         + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy"><span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span><span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
         + '<div class="rtc-metrics">'
@@ -3209,12 +3210,7 @@ window._retryCalendar = function() {
         + '<div><span class="rtc-k">&Delta; attendu</span><span class="rtc-v">' + bps(b.expBps) + '</span></div>'
         + '<div><span class="rtc-k">R&eacute;union</span><span class="rtc-v">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
         + '</div>'
-        + (b.marketImplied ? ('<div class="rtc-dist rtc-dist--mkt"><div class="rtc-dist-h">Implicite march&eacute; · Fed Funds <span class="rtc-mkt-tag">R&Eacute;EL</span></div>'
-            + '<div class="rtc-bar"><span class="rtc-bl">Maintien</span><span class="rtc-track"><i class="n" style="width:' + b.marketImplied.hold + '%"></i></span><span class="rtc-bp">' + b.marketImplied.hold + '%</span></div>'
-            + '<div class="rtc-bar"><span class="rtc-bl">Hausse</span><span class="rtc-track"><i class="g" style="width:' + b.marketImplied.hike + '%"></i></span><span class="rtc-bp">' + b.marketImplied.hike + '%</span></div>'
-            + '<div class="rtc-bar"><span class="rtc-bl">Baisse</span><span class="rtc-track"><i class="r" style="width:' + b.marketImplied.cut + '%"></i></span><span class="rtc-bp">' + b.marketImplied.cut + '%</span></div>'
-            + '<div class="rtc-mkt-sub">Taux attendu apr&egrave;s r&eacute;union : <b>' + b.marketImplied.impliedRate + '%</b></div></div>') : '')
-        + '<div class="rtc-dist"><div class="rtc-dist-h">' + (b.marketImplied ? 'Estimation maison' : 'Distribution des sc&eacute;narios') + '</div>'
+        + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des sc&eacute;narios</div>'
         + '<div class="rtc-bar"><span class="rtc-bl">Maintien</span><span class="rtc-track"><i class="n" style="width:' + sc.hold + '%"></i></span><span class="rtc-bp">' + sc.hold + '%</span></div>'
         + '<div class="rtc-bar"><span class="rtc-bl">Hausse</span><span class="rtc-track"><i class="g" style="width:' + sc.hike + '%"></i></span><span class="rtc-bp">' + sc.hike + '%</span></div>'
         + '<div class="rtc-bar"><span class="rtc-bl">Baisse</span><span class="rtc-track"><i class="r" style="width:' + sc.cut + '%"></i></span><span class="rtc-bp">' + sc.cut + '%</span></div>'
@@ -3226,8 +3222,7 @@ window._retryCalendar = function() {
       const banks = (d && d.banks) || [];
       const sel = ccys.map(c => banks.find(b => b.code === c)).filter(Boolean);
       if (!sel.length) { hostEl.innerHTML = '<div class="sym-empty">Pricing banques centrales indisponible pour ' + pretty(pair) + '.</div>'; return; }
-      hostEl.innerHTML = '<div class="sym-cb-note"><b>Fed</b> : probabilités <b>implicites du marché</b> (futures Fed Funds, temps quasi réel). Autres banques : estimation <b>maison</b> ré-ancrée sur les décisions réelles du calendrier.</div>'
-        + '<div class="sym-cb-grid">' + sel.map(card).join('') + '</div>';
+      hostEl.innerHTML = '<div class="sym-cb-grid">' + sel.map(card).join('') + '</div>';
     };
     if (_cRates) { go(_cRates); return; }
     fetch('/api/rates').then(r => r.json()).then(d => { if (d && d.banks) _cRates = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Pricing indisponible.</div>'; });
