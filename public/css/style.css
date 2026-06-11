@@ -1618,17 +1618,28 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   margin-bottom: 8px;
   font-weight: 400;
 }
-/* Phrase d'explication Gemini de la réaction */
+/* Phrase d'explication IA de la réaction — note d'analyse pro : label ANALYSE + accent orange */
 .rx-explain {
   margin-top: 10px;
-  padding-left: 16px;
-  position: relative;
-  font-size: 13px;            /* aligné sur la description Info/Analyse (.article-points--clean li) */
+  padding: 7px 10px 7px 12px;
+  font-size: 12.5px;
   line-height: 1.6;
-  color: #e8eaed;
+  color: #d4d6db;
   font-family: var(--font-ui);
+  background: rgba(247,148,29,0.045);
+  border-left: 2px solid rgba(247,148,29,0.55);
+  border-radius: 0 3px 3px 0;
 }
-.rx-explain::before { content: "•"; position: absolute; left: 4px; top: -1px; color: rgba(232,234,237,0.6); }
+.rx-explain::before {
+  content: "ANALYSE";
+  display: block;
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: #f7941d;
+  margin-bottom: 3px;
+}
 .rx-explain:empty { display: none; }
 /* Ligne de tickers — chips inline, scan rapide */
 .rx-tickers {

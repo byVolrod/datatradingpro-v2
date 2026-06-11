@@ -3861,6 +3861,7 @@ function _sbStartClocks() {
 let _bankPositions = [];
 let _bankActiveId  = null;
 let _bankChartRoot = null;
+let _bankLiveGuide = null;   // ligne de prix LIVE du chart (déplacée à chaque refresh, sans rebuild)
 let _bankTimer     = null;
 
 function loadBankView() {
@@ -3979,6 +3980,13 @@ function _highlightBankRow(id) {
 function _updateBankChartPrice(p) {
   const el = document.getElementById('bank-chart-price');
   if (el) el.textContent = p.currentPrice != null ? _bankFmt(p.pair, p.currentPrice) : '';
+  // Temps réel : déplace la ligne de prix LIVE sur le chart (sans recharger les bougies)
+  if (_bankLiveGuide && _bankLiveGuide.pair === p.pair && p.currentPrice != null) {
+    try {
+      _bankLiveGuide.di.set('value', p.currentPrice);
+      _bankLiveGuide.di.get('label')?.set('text', _bankFmt(p.pair, p.currentPrice));
+    } catch {}
+  }
 }
 
 function selectBankRow(id) {
@@ -3995,6 +4003,7 @@ function buildBankChart(p) {
   const el = document.getElementById('bank-chart');
   if (!el || typeof am5 === 'undefined') return;
   if (_bankChartRoot) { try { _bankChartRoot.dispose(); } catch {} _bankChartRoot = null; }
+  _bankLiveGuide = null;
   el.innerHTML = dtpLoader('Chargement du graphique…', { small: true });
 
   fetch('/api/bank-ohlc?pair=' + encodeURIComponent(p.pair))
@@ -4004,7 +4013,9 @@ function buildBankChart(p) {
       el.innerHTML = '';
       if (!candles.length) { el.innerHTML = '<div class="bank-chart-loading">Graphique indisponible.</div>'; return; }
 
-      const dec = p.pair.includes('JPY') ? 2 : (candles[0].Close < 10 ? 4 : 2);
+      const dec  = p.pair.includes('JPY') ? 2 : (candles[0].Close < 10 ? 4 : 2);
+      const fmt  = '#,###.' + '0'.repeat(dec);
+      const mono = "'SF Mono', ui-monospace, Menlo, Consolas, monospace";
       const root = am5.Root.new('bank-chart');
       _bankChartRoot = root;
       // Suppression robuste du logo amCharts (le petit rond bleu) : forceHidden ne suffit pas
@@ -4015,52 +4026,80 @@ function buildBankChart(p) {
         try { root._logo.dispose(); } catch {}
       }
       root.setThemes([am5themes_Animated.new(root)]);
+      root.interfaceColors.set('text', am5.color(0x8a8a93));
 
       const chart = root.container.children.push(am5xy.XYChart.new(root, {
-        panX: false, panY: false, wheelY: 'zoomX', paddingLeft: 0, paddingRight: 64, paddingBottom: 4,
+        panX: true, panY: false, wheelY: 'zoomX', paddingLeft: 0, paddingRight: 2, paddingTop: 6, paddingBottom: 4,
       }));
 
+      // ── Axe prix à droite + grille discrète (façon TradingView) ──
+      const yRend = am5xy.AxisRendererY.new(root, { opposite: true });
+      yRend.labels.template.setAll({ fill: am5.color(0x8a8a93), fontSize: 10, fontFamily: mono });
+      yRend.grid.template.setAll({ stroke: am5.color(0x1c1c20), strokeOpacity: 1 });
       const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
-        renderer: am5xy.AxisRendererY.new(root, { opposite: true }),
-        numberFormat: '#,###.' + '0'.repeat(dec),
+        renderer: yRend, numberFormat: fmt, tooltip: am5.Tooltip.new(root, {}),
       }));
+      const xRend = am5xy.AxisRendererX.new(root, {});
+      xRend.labels.template.setAll({ fill: am5.color(0x6f6f78), fontSize: 10, fontFamily: mono });
+      xRend.grid.template.setAll({ stroke: am5.color(0x16161a), strokeOpacity: 1 });
       const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
         baseInterval: { timeUnit: 'day', count: 1 },
-        renderer: am5xy.AxisRendererX.new(root, { minorGridEnabled: true }),
+        renderer: xRend, tooltip: am5.Tooltip.new(root, {}),
       }));
+      // Tooltips d'axes sombres (date en bas, prix à droite)
+      [xAxis, yAxis].forEach(ax => {
+        const tt = ax.get('tooltip'); if (!tt) return;
+        tt.get('background')?.setAll({ fill: am5.color(0x18181c), stroke: am5.color(0x2a2a30) });
+        tt.label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10, fontFamily: mono });
+      });
 
+      // ── Bougies aux couleurs TradingView + lecture OHLC au survol ──
       const series = chart.series.push(am5xy.CandlestickSeries.new(root, {
         xAxis, yAxis, valueXField: 'Date',
         openValueYField: 'Open', highValueYField: 'High', lowValueYField: 'Low', valueYField: 'Close',
+        tooltip: am5.Tooltip.new(root, {
+          pointerOrientation: 'horizontal',
+          labelText: `O {openValueY.formatNumber('${fmt}')}   H {highValueY.formatNumber('${fmt}')}   L {lowValueY.formatNumber('${fmt}')}   C {valueY.formatNumber('${fmt}')}`,
+        }),
       }));
-      series.columns.template.setAll({ strokeWidth: 1, width: am5.percent(60) });
-      const colOf = t => { const di = t.dataItem; return di && di.get('valueY') >= di.get('openValueY') ? am5.color(0x2ecc71) : am5.color(0xe74c3c); };
+      const stt = series.get('tooltip');
+      if (stt) {
+        stt.get('background')?.setAll({ fill: am5.color(0x141418), stroke: am5.color(0x2a2a30) });
+        stt.label.setAll({ fill: am5.color(0xe8e8ea), fontSize: 10.5, fontFamily: mono });
+      }
+      series.columns.template.setAll({ strokeWidth: 1, width: am5.percent(62) });
+      const colOf = t => { const di = t.dataItem; return di && di.get('valueY') >= di.get('openValueY') ? am5.color(0x26a69a) : am5.color(0xef5350); };
       series.columns.template.adapters.add('fill', (_f, t) => colOf(t));
       series.columns.template.adapters.add('stroke', (_s, t) => colOf(t));
       series.data.setAll(candles);
 
-      // Lignes Entry / Take Profit / Stop Loss
-      const guides = [
-        { value: p.entry, label: 'Entry',       color: 0x3b82f6 },
-        { value: p.tp,    label: 'Take Profit', color: 0x22c55e },
-        { value: p.sl,    label: 'Stop Loss',   color: 0xef4444 },
-      ];
-      // Ligne de prix actuel (comme la référence) si dispo
-      if (p.currentPrice) guides.push({ value: p.currentPrice, label: '', color: 0x10b981, live: true });
-      guides.forEach(g => {
-        if (!g.value) return;
-        const di    = yAxis.makeDataItem({ value: g.value });
-        const range = yAxis.createAxisRange(di);
-        range.get('grid').setAll({ stroke: am5.color(g.color), strokeOpacity: 0.95, strokeWidth: 1, strokeDasharray: [4, 3] });
-        di.get('label')?.setAll({
-          text: `${g.label} ${g.value.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec })}`,
-          inside: true, centerY: am5.p50, fontSize: 10, fontWeight: '700', fill: am5.color(0xffffff),
-          background: am5.RoundedRectangle.new(root, { fill: am5.color(g.color) }),
-        });
-      });
+      // ── Crosshair façon TradingView ──
+      const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'zoomX', xAxis, yAxis, snapToSeries: [series], snapToSeriesBy: 'x' }));
+      cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
+      cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
 
-      series.appear(700);
-      chart.appear(700, 80);
+      // ── Lignes Entry / TP / SL + prix LIVE (la ligne live bouge ensuite sans recharger) ──
+      const mkGuide = (value, label, color, dash) => {
+        const di = yAxis.makeDataItem({ value });
+        yAxis.createAxisRange(di);
+        di.get('grid')?.setAll({ stroke: am5.color(color), strokeOpacity: 0.95, strokeWidth: 1, strokeDasharray: dash });
+        di.get('label')?.setAll({
+          text: (label ? label + ' ' : '') + value.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec }),
+          inside: true, centerY: am5.p50, fontSize: 10, fontWeight: '700', fill: am5.color(0xffffff),
+          background: am5.RoundedRectangle.new(root, { fill: am5.color(color), cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 }),
+        });
+        return di;
+      };
+      if (p.entry) mkGuide(p.entry, 'Entry', 0x3b82f6, [4, 3]);
+      if (p.tp)    mkGuide(p.tp,    'TP',    0x22c55e, [4, 3]);
+      if (p.sl)    mkGuide(p.sl,    'SL',    0xef4444, [4, 3]);
+      if (p.currentPrice) {
+        const di = mkGuide(p.currentPrice, '', 0xf7941d, [2, 2]);   // orange signature = prix live
+        _bankLiveGuide = { di, pair: p.pair, dec };
+      }
+
+      series.appear(500);
+      chart.appear(500, 60);
     })
     .catch(() => { el.innerHTML = '<div class="bank-chart-loading">Graphique indisponible.</div>'; });
 }
