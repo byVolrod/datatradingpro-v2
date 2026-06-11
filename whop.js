@@ -52,10 +52,10 @@ async function getMembershipByEmail(email) {
   } catch { return null; }
 }
 
-// Username Whop d'un MEMBRE (par email) → sert à construire son lien d'affiliation « ?a=<username> ».
-// Best-effort multi-versions : username direct sur le membership, objet user imbriqué, ou résolution
-// de l'id user_xxx via l'API v5. Renvoie null si introuvable (le caller a un repli).
-async function getAffiliateUsername(email) {
+// Lien d'affiliation d'un MEMBRE (par email) → { pageUrl, username }.
+// pageUrl = affiliate_page_url CANONIQUE fourni par Whop (ex. https://whop.com/jot-dtp/?a=axelajt),
+// vérifié en production. Replis : username direct, objet user imbriqué, id user_xxx via v5.
+async function getAffiliateInfo(email) {
   if (!WHOP_API_KEY || !email) return null;
   const target = String(email).toLowerCase().trim();
   try {
@@ -71,17 +71,23 @@ async function getAffiliateUsername(email) {
       page++;
     } while (page <= totalPages && page <= 6);
     if (!m) return null;
-    if (m.username) return String(m.username);
-    if (m.user && typeof m.user === 'object' && m.user.username) return String(m.user.username);
-    const uid = typeof m.user === 'string' ? m.user : (m.user && m.user.id);
-    if (uid && /^user_/.test(String(uid))) {
-      for (const url of [`https://api.whop.com/api/v5/company/users/${uid}`, `https://api.whop.com/api/v5/app/users/${uid}`]) {
-        try { const u = await fetch(url, { headers: _auth() }); if (u.ok) { const ju = await u.json(); if (ju && ju.username) return String(ju.username); } } catch {}
+    const pageUrl = m.affiliate_page_url ? String(m.affiliate_page_url) : null;
+    let username = (m.username && String(m.username)) ||
+      (m.user && typeof m.user === 'object' && m.user.username && String(m.user.username)) || null;
+    if (!username && pageUrl) { const mm = pageUrl.match(/[?&]a=([^&#]+)/); if (mm) username = decodeURIComponent(mm[1]); }
+    if (!username) {
+      const uid = typeof m.user === 'string' ? m.user : (m.user && m.user.id);
+      if (uid && /^user_/.test(String(uid))) {
+        for (const url of [`https://api.whop.com/api/v5/company/users/${uid}`, `https://api.whop.com/api/v5/app/users/${uid}`]) {
+          try { const u = await fetch(url, { headers: _auth() }); if (u.ok) { const ju = await u.json(); if (ju && ju.username) { username = String(ju.username); break; } } } catch {}
+        }
       }
     }
+    return (pageUrl || username) ? { pageUrl, username } : null;
   } catch {}
   return null;
 }
+async function getAffiliateUsername(email) { const i = await getAffiliateInfo(email); return (i && i.username) || null; }
 
 // Statistiques RÉELLES Whop (abonnés actifs + MRR) pour le produit DTP — mises en cache 5 min
 // (anti-charge / anti-502). Renvoie { active, mrr } ou null si Whop n'est pas configuré.
@@ -116,4 +122,4 @@ async function getStats(priceMonthly) {
   } catch { return _statsCache.data; }
 }
 
-module.exports = { getMembership, getMembershipByEmail, getAffiliateUsername, getStats, configured: () => !!WHOP_API_KEY };
+module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, configured: () => !!WHOP_API_KEY };

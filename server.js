@@ -838,17 +838,18 @@ const KV_FOREVER     = 8640000000000;   // lit la valeur quel que soit son âge
 // l'index inverse whopaff:<username> → userId pour créditer les filleuls via le webhook.
 // Repli : si le membre n'a pas de username Whop résolvable, on redonne le lien landing ?ref= (cookie).
 const REF_WHOP_BASE = process.env.REFERRAL_WHOP_BASE || 'https://whop.com/joined/justonetrader/products/jot-dtp/';
-async function _refWhopUsername(uid) {
-  try { const c = await auth.aiCacheGet('whopuname:' + uid, KV_FOREVER); if (c && typeof c === 'string') return c; } catch {}
-  let uname = null;
-  try { const u = await auth.getUserById(uid); if (u && u.email) uname = await whop.getAffiliateUsername(u.email); } catch {}
-  if (uname) {
+async function _refWhopAffiliate(uid) {
+  try { const c = await auth.aiCacheGet('whopaffinfo:' + uid, KV_FOREVER); if (c && (c.pageUrl || c.username)) return c; } catch {}
+  let info = null;
+  try { const u = await auth.getUserById(uid); if (u && u.email) info = await whop.getAffiliateInfo(u.email); } catch {}
+  if (info && (info.pageUrl || info.username)) {
     try {
-      await auth.aiCacheSet('whopuname:' + uid, uname);
-      await auth.aiCacheSet('whopaff:' + uname.toLowerCase(), String(uid));   // index inverse (attribution webhook)
+      await auth.aiCacheSet('whopaffinfo:' + uid, info);
+      if (info.username) await auth.aiCacheSet('whopaff:' + String(info.username).toLowerCase(), String(uid));   // index inverse (attribution webhook)
     } catch {}
+    return info;
   }
-  return uname;
+  return null;
 }
 
 function _refMaskEmail(e) {
@@ -898,12 +899,13 @@ app.get('/api/referrals', async (req, res) => {
     await _refSaveRecord(uid, rec);
     const count = rec.count || 0;
     // Lien Whop d'affiliation en priorité (tracking + versement des 10 % par Whop) ; repli landing.
-    const uname = await _refWhopUsername(uid);
-    const link = uname
-      ? REF_WHOP_BASE + '?a=' + encodeURIComponent(uname)
+    // pageUrl = lien CANONIQUE renvoyé par Whop (affiliate_page_url) ; sinon on construit ?a=<username>.
+    const aff = await _refWhopAffiliate(uid);
+    const link = (aff && aff.pageUrl) ? aff.pageUrl
+      : (aff && aff.username) ? REF_WHOP_BASE + '?a=' + encodeURIComponent(aff.username)
       : REF_BASE_URL + '/?ref=' + rec.code;
     res.json({
-      ok: true, code: rec.code, link, whopAffiliate: !!uname,
+      ok: true, code: rec.code, link, whopAffiliate: !!aff,
       count, target: REF_TARGET, progress: count % REF_TARGET,
       untilNext: (REF_TARGET - (count % REF_TARGET)) % REF_TARGET || REF_TARGET,
       rewards: rec.rewards || 0, bonusDays: rec.bonusDays || 0,
