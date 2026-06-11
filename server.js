@@ -224,7 +224,13 @@ function requireSupport(req, res, next) {
 
 app.use(requireAuth);
 // extensions: ['html'] → /login sert login.html, /admin sert admin.html automatiquement
-app.use(express.static(path.join(__dirname, 'public'), { extensions: ['html'] }));
+app.use(express.static(path.join(__dirname, 'public'), {
+  extensions: ['html'],
+  // Le HTML ne doit JAMAIS être mis en cache : sinon le navigateur garde un index.html avec un
+  // ?v= périmé et ne charge jamais le nouveau CSS/JS (cause des « pas à jour » récurrents).
+  // Les assets CSS/JS restent cacheables (ils sont déjà bustés par ?v=YYYYMMDDx).
+  setHeaders: (res, fp) => { if (/\.html$/i.test(fp)) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); },
+}));
 app.use(express.json({ limit: '2mb' }));   // 2 Mo : autorise les pièces jointes chat (data URL base64)
 
 // Health check (public) — pour le monitoring / keep-alive (Render, UptimeRobot…)
@@ -233,10 +239,12 @@ app.get('/healthz', (_req, res) => res.status(200).json({ ok: true, ts: Date.now
 // Redirection /login → déjà connecté va au dashboard
 app.get('/login', (req, res) => {
   if (req.session?.userId) return res.redirect('/');
+  res.set('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
 app.get('/admin', requireAuth, requireAdmin, (_req, res) => {
+  res.set('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 
