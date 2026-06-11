@@ -748,6 +748,21 @@ async function _whopRenewOrCreate(mem) {
     _sendWelcomeChat(wu && wu.id);
     mailer.sendAdminRenewalNotice({ clientEmail: mem.email, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
     console.log(`[Whop] Compte créé: ${mem.email}`);
+    // Parrainage via lien d'affiliation Whop (?a=<username>) : l'adhésion porte l'username du
+    // parrain → on crédite le filleul ICI, sans dépendre du cookie landing. Verrou referredby
+    // = un filleul ne compte qu'une fois (même s'il repasse ensuite par la landing).
+    try {
+      const aff = mem.affiliateUsername && String(mem.affiliateUsername).toLowerCase();
+      if (aff && wu && wu.id) {
+        const refUid = await auth.aiCacheGet('whopaff:' + aff, 8640000000000).catch(() => null);
+        const already = await auth.aiCacheGet('referredby:' + wu.id, 8640000000000).catch(() => null);
+        if (refUid && String(refUid) !== String(wu.id) && !already) {
+          await auth.aiCacheSet('referredby:' + wu.id, String(refUid)).catch(() => {});
+          await _refCreditFilleul(String(refUid), wu);
+          console.log(`[Referral] Filleul attribué via lien Whop: ${mem.email} → parrain ${refUid} (a=${aff})`);
+        }
+      }
+    } catch (e) { console.error('[Referral] attribution Whop:', e.message); }
   }
 }
 async function _whopSuspend(email) {
@@ -817,6 +832,25 @@ const REF_MAX_AGE_DAYS = parseInt(process.env.REFERRAL_MAX_AGE_DAYS || '45', 10)
 const REF_BASE_URL   = process.env.REFERRAL_BASE_URL || 'https://datatradingpro.com';
 const KV_FOREVER     = 8640000000000;   // lit la valeur quel que soit son âge
 
+// ── Lien d'affiliation WHOP (décision utilisateur) : le panneau Parrainages donne le lien Whop
+// « ?a=<username> » — c'est Whop qui tracke le clic, attribue la vente et VERSE les 10 % récurrents.
+// Le username Whop du membre est résolu par email via l'API (caché en KV), et on mémorise
+// l'index inverse whopaff:<username> → userId pour créditer les filleuls via le webhook.
+// Repli : si le membre n'a pas de username Whop résolvable, on redonne le lien landing ?ref= (cookie).
+const REF_WHOP_BASE = process.env.REFERRAL_WHOP_BASE || 'https://whop.com/joined/justonetrader/products/jot-dtp/';
+async function _refWhopUsername(uid) {
+  try { const c = await auth.aiCacheGet('whopuname:' + uid, KV_FOREVER); if (c && typeof c === 'string') return c; } catch {}
+  let uname = null;
+  try { const u = await auth.getUserById(uid); if (u && u.email) uname = await whop.getAffiliateUsername(u.email); } catch {}
+  if (uname) {
+    try {
+      await auth.aiCacheSet('whopuname:' + uid, uname);
+      await auth.aiCacheSet('whopaff:' + uname.toLowerCase(), String(uid));   // index inverse (attribution webhook)
+    } catch {}
+  }
+  return uname;
+}
+
 function _refMaskEmail(e) {
   e = String(e || ''); const i = e.indexOf('@');
   if (i < 1) return e || 'Filleul';
@@ -863,8 +897,13 @@ app.get('/api/referrals', async (req, res) => {
     const rec = await _refGetRecord(uid);
     await _refSaveRecord(uid, rec);
     const count = rec.count || 0;
+    // Lien Whop d'affiliation en priorité (tracking + versement des 10 % par Whop) ; repli landing.
+    const uname = await _refWhopUsername(uid);
+    const link = uname
+      ? REF_WHOP_BASE + '?a=' + encodeURIComponent(uname)
+      : REF_BASE_URL + '/?ref=' + rec.code;
     res.json({
-      ok: true, code: rec.code, link: REF_BASE_URL + '/?ref=' + rec.code,
+      ok: true, code: rec.code, link, whopAffiliate: !!uname,
       count, target: REF_TARGET, progress: count % REF_TARGET,
       untilNext: (REF_TARGET - (count % REF_TARGET)) % REF_TARGET || REF_TARGET,
       rewards: rec.rewards || 0, bonusDays: rec.bonusDays || 0,
@@ -899,38 +938,45 @@ app.post('/api/referrals/claim', async (req, res) => {
         mailer.sendReferredWelcome({ to: meUser.email, name: meUser.name, referrerName: _refName }).catch(() => {});
       }
     } catch {}
-    const rec = await _refGetRecord(refUserId);
-    rec.referrals = rec.referrals || [];
-    rec.referrals.push({ email: _refMaskEmail(meUser && meUser.email), at: Date.now() });
-    rec.count = (rec.count || 0) + 1;
-    let rewarded = false;
-    if (rec.count % REF_TARGET === 0) {
-      rec.rewards = (rec.rewards || 0) + 1;
-      rec.bonusDays = (rec.bonusDays || 0) + REF_BONUS_DAYS;
-      rewarded = true;
-      try {
-        const refU = await auth.getUserById(refUserId);
-        if (refU && refU.role !== 'admin') {
-          const newExp = _refAddDaysISO(refU.expires_at, REF_BONUS_DAYS);
-          await auth.updateUser(refUserId, { expiresAt: newExp });               // +1 mois d'ACCÈS DTP (pas la facturation Whop)
-          await auth.aiCacheSet('refbonus:' + refUserId, rec.bonusDays).catch(() => {});
-          if (refU.email) {
-            mailer.sendReferralReward({ to: refU.email, name: refU.name, count: rec.count, newExpiresAt: newExp }).catch(() => {});
-            mailer.sendAdminReferralReward({ refEmail: refU.email, refName: refU.name, count: rec.count, newExpiresAt: newExp }).catch(() => {});
-          }
-        }
-      } catch (e) { console.error('[Referral] reward grant:', e.message); }
-    }
-    await _refSaveRecord(refUserId, rec);
-    if (!rewarded) {
-      try {
-        const refU = await auth.getUserById(refUserId);
-        if (refU && refU.email) mailer.sendReferralCredited({ to: refU.email, name: refU.name, count: rec.count, untilNext: (REF_TARGET - (rec.count % REF_TARGET)) % REF_TARGET || REF_TARGET }).catch(() => {});
-      } catch {}
-    }
+    const rewarded = await _refCreditFilleul(String(refUserId), meUser);
     res.json({ ok: true, rewarded });
   } catch (e) { console.error('[Referral] claim:', e.message); res.status(500).json({ error: 'Erreur serveur' }); }
 });
+
+// Crédite UN filleul au parrain (compteur, récompense « 3 inscrits = +30 j », emails).
+// Utilisé par la route claim (cookie landing) ET par le webhook Whop (lien d'affiliation ?a=).
+async function _refCreditFilleul(refUserId, fillUser) {
+  const rec = await _refGetRecord(refUserId);
+  rec.referrals = rec.referrals || [];
+  rec.referrals.push({ email: _refMaskEmail(fillUser && fillUser.email), at: Date.now() });
+  rec.count = (rec.count || 0) + 1;
+  let rewarded = false;
+  if (rec.count % REF_TARGET === 0) {
+    rec.rewards = (rec.rewards || 0) + 1;
+    rec.bonusDays = (rec.bonusDays || 0) + REF_BONUS_DAYS;
+    rewarded = true;
+    try {
+      const refU = await auth.getUserById(refUserId);
+      if (refU && refU.role !== 'admin') {
+        const newExp = _refAddDaysISO(refU.expires_at, REF_BONUS_DAYS);
+        await auth.updateUser(refUserId, { expiresAt: newExp });               // +1 mois d'ACCÈS DTP (pas la facturation Whop)
+        await auth.aiCacheSet('refbonus:' + refUserId, rec.bonusDays).catch(() => {});
+        if (refU.email) {
+          mailer.sendReferralReward({ to: refU.email, name: refU.name, count: rec.count, newExpiresAt: newExp }).catch(() => {});
+          mailer.sendAdminReferralReward({ refEmail: refU.email, refName: refU.name, count: rec.count, newExpiresAt: newExp }).catch(() => {});
+        }
+      }
+    } catch (e) { console.error('[Referral] reward grant:', e.message); }
+  }
+  await _refSaveRecord(refUserId, rec);
+  if (!rewarded) {
+    try {
+      const refU = await auth.getUserById(refUserId);
+      if (refU && refU.email) mailer.sendReferralCredited({ to: refU.email, name: refU.name, count: rec.count, untilNext: (REF_TARGET - (rec.count % REF_TARGET)) % REF_TARGET || REF_TARGET }).catch(() => {});
+    } catch {}
+  }
+  return rewarded;
+}
 
 // ═══════════════════ CHAT SUPPORT ═══════════════════
 // Indicateur "en train d'écrire" (poll) : { userId: { user: ts, support: ts } }
