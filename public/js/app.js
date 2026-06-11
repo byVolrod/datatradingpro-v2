@@ -3681,15 +3681,17 @@ function _sbLoadCal() {
     .then(d => { _sbCalEv = (d && d.items) || []; return _sbCalEv; })
     .catch(() => { _sbCalEv = []; return _sbCalEv; });
 }
+// Regex ÉLARGIES par pays (Tankan JP, Ivey CA, GfK UK/DE, Westpac AU, ANZ NZ, approvals/consents…)
+// → chaque devise matche sa propre publication nationale, plus de cases vides évitables.
 const SB_FUND_SUBS = [
-  { label: 'Economic Growth',     re: /\bGDP\b|gross domestic/i },
-  { label: 'Rising Prices',       re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price/i },
-  { label: 'Consumer Confidence', re: /consumer confidence|consumer sentiment|michigan/i },
-  { label: 'Factory Activity',    re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur/i },
-  { label: 'Service Activity',    re: /services? pmi|ism (services|non-manufactur)/i },
+  { label: 'Economic Growth',     re: /\bGDP\b|gross domestic|economic growth/i },
+  { label: 'Rising Prices',       re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price|pce price|core pce/i },
+  { label: 'Consumer Confidence', re: /consumer confidence|consumer sentiment|michigan|gfk|westpac consumer|anz.*confidence/i },
+  { label: 'Factory Activity',    re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur|tankan|ivey|manufacturing production/i },
+  { label: 'Service Activity',    re: /services? pmi|ism (services|non-manufactur)|tertiary industry/i },
   { label: 'New Homes Started',   re: /housing starts|new home/i },
-  { label: 'Building Permits',    re: /building permits/i },
-  { label: 'Retail Sales',        re: /retail sales/i },
+  { label: 'Building Permits',    re: /building permits|building approvals|building consents/i },
+  { label: 'Retail Sales',        re: /retail sales|retail trade/i },
 ];
 function _sbNum(v) { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; }
 function _sbFundStance(actual, forecast) {
@@ -3704,7 +3706,8 @@ function _sbRenderFundChildren(box, cur) {
   box.innerHTML = SB_FUND_SUBS.map(sub => {
     const ev = evs.filter(e => sub.re.test(e.title || '')).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
     const stance = ev ? _sbFundStance(ev.actual, ev.forecast) : null;
-    if (!stance) return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge sbs-badge--na">—</span></div>`;
+    // Pas de publication récente → Neutral par défaut (convention du terminal : pas de donnée = Neutral, jamais de case vide)
+    if (!stance) return `<div class="sbs-row sbs-row--child" title="Pas de publication récente — Neutral par défaut"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls('Neutral')}">Neutral</span></div>`;
     return `<div class="sbs-row sbs-row--child" title="${esc(ev.title)} : ${esc(ev.actual)} vs ${esc(ev.forecast)}"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${stance}</span></div>`;
   }).join('');
 }
@@ -3736,7 +3739,7 @@ function _sbFundMatrixRows(cur) {
     cur.forEach(c => {
       const ev = (_sbCalEv || []).filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && sub.re.test(e.title || ''))
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
-      values[c] = ev ? (_sbFundStance(ev.actual, ev.forecast) || '—') : '—';
+      values[c] = ev ? (_sbFundStance(ev.actual, ev.forecast) || 'Neutral') : 'Neutral';   // pas de donnée → Neutral (plus de case vide)
     });
     return { label: sub.label, values };
   });

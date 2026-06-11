@@ -1596,17 +1596,49 @@ async function _buildTVCalendar() {
   _tvCalCache = { ts: Date.now(), items };
   return items;
 }
+// ── HISTORIQUE GLISSANT du calendrier (60 j) : chaque événement PUBLIÉ (actual présent) est
+// accumulé (mémoire + Supabase 'calhist:events') et fusionné dans /api/calendar-events.
+// Raison : la fenêtre TradingView ne couvre que la semaine courante → les sous-indicateurs du
+// Smart Bias (Economic Growth, Retail Sales…) tombaient sur « — » pour la plupart des devises.
+// Avec l'historique, chaque devise garde sa DERNIÈRE publication réelle (GDP trimestriel compris).
+let _calHist = new Map();   // clé "CCY|titre normalisé" → événement le plus récent
+try { auth.aiCacheGet('calhist:events').then(v => { if (Array.isArray(v)) v.forEach(e => { if (e && e._k) _calHist.set(e._k, e); }); }).catch(() => {}); } catch {}
+let _calHistDirty = false;
+function _calHistKey(e) { return e.currency + '|' + String(e.title).toLowerCase().replace(/\s+/g, ' ').trim(); }
+function _calHistAbsorb(items) {
+  try {
+    const cut = Date.now() - 60 * 86400000;
+    for (const e of items || []) {
+      if (!e || !e.currency || !e.title || e.actual == null || e.actual === '' || !((e.timestamp || 0) > cut)) continue;
+      const k = _calHistKey(e);
+      const prev = _calHist.get(k);
+      if (!prev || (e.timestamp || 0) > (prev.timestamp || 0)) { _calHist.set(k, Object.assign({}, e, { _k: k })); _calHistDirty = true; }
+    }
+    for (const [k, e] of _calHist) if (!((e.timestamp || 0) > cut)) { _calHist.delete(k); _calHistDirty = true; }
+    if (_calHist.size > 1200) {   // cap mémoire (anti-OOM)
+      const keep = [..._calHist.values()].sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 1000);
+      _calHist = new Map(keep.map(e => [e._k, e])); _calHistDirty = true;
+    }
+  } catch {}
+}
+setInterval(() => { if (_calHistDirty) { _calHistDirty = false; auth.aiCacheSet('calhist:events', [..._calHist.values()]).catch(() => {}); } }, 5 * 60 * 1000);
+function _calHistMerge(items) {
+  const seen = new Set((items || []).filter(e => e && e.currency && e.title).map(_calHistKey));
+  return (items || []).concat([..._calHist.values()].filter(e => !seen.has(e._k)));
+}
 app.get('/api/calendar-events', async (_req, res) => {
   // SOURCE PRINCIPALE : TradingView (actuals natifs, aucun matching) → exact + temps réel + anciennes données.
   let items = [];
   try { items = await _buildTVCalendar(); } catch {}
-  if (items && items.length) return res.json({ items });
+  if (items && items.length) { _calHistAbsorb(items); return res.json({ items: _calHistMerge(items) }); }
 
   // REPLI (si TradingView est indisponible) : ancienne logique faireconomy + overlay des actuals.
   if (!getCalendarRaw().length) await _ensureCalendar();
   try { await _refreshTVActuals(); } catch {}
   try { _backfillActualsFromNews(); } catch {}
-  res.json({ items: _overlayActuals(getCalendarRaw()) });
+  const its = _overlayActuals(getCalendarRaw());
+  _calHistAbsorb(its);
+  res.json({ items: _calHistMerge(its) });
 });
 
 // Détail d'un événement (Specs + History) lu sur la page FF — SANS Related Stories.
@@ -5115,15 +5147,26 @@ function _sbIsRealNarrative(t) {
   if (!/[.!?»"”]$/.test(t)) return false;   // TRONQUÉ (coupé en plein mot/phrase, ex. "…de la polit") → à régénérer
   return true;
 }
-// Résout le narratif pour l'AFFICHAGE SANS muter le cache : IA réel si présent, sinon synthèse data-driven.
-// → le cache interne (_smartBias.narrative) ne contient JAMAIS le repli, donc le retry IA sait quoi régénérer
-//   (sinon le repli « gèle » le narratif et l'IA ne le réécrit jamais — c'était le bug).
+// Dernier narratif IA RÉEL connu pour une devise dans l'HISTORIQUE hebdo (semaines archivées).
+// → quand l'IA est à quota et que le texte de la semaine manque, on sert le DERNIER rapport IA
+//   généré (semaine précédente) plutôt que le template data-driven : toujours un vrai texte.
+function _sbHistNarrative(c) {
+  try {
+    for (const s of _smartBiasHistory || []) {
+      if (s && s.narrative && _sbIsRealNarrative(s.narrative[c])) return s.narrative[c];
+    }
+  } catch {}
+  return null;
+}
+// Résout le narratif pour l'AFFICHAGE SANS muter le cache : IA réel si présent, sinon dernier texte
+// IA de l'HISTORIQUE, sinon synthèse data-driven. Le cache interne (_smartBias.narrative) ne contient
+// JAMAIS de repli, donc le retry IA sait toujours quoi régénérer.
 function _sbFillNarrative(bias) {
   if (!bias || !Array.isArray(bias.rows) || !bias.rows.length) return bias;
   const src = bias.narrative || {};
   const narrative = {};
   (bias.currencies || SB_CURRENCIES).forEach(c => {
-    narrative[c] = _sbIsRealNarrative(src[c]) ? src[c] : _sbDataNarrative(c, bias.rows, bias.conclusion);
+    narrative[c] = _sbIsRealNarrative(src[c]) ? src[c] : (_sbHistNarrative(c) || _sbDataNarrative(c, bias.rows, bias.conclusion));
   });
   return Object.assign({}, bias, { narrative });   // COPIE → ne mute pas bias.narrative (qui reste IA-seul)
 }
