@@ -372,6 +372,30 @@ app.post('/api/sym-recent', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+// ── PHOTO DE PROFIL (avatar) — persistante PAR COMPTE (KV Supabase avatar:<userId>, modèle symrecent).
+// Stockée comme data URL (déjà compressée/recadrée côté client à ~256px → ~20-60 Ko). Suit la
+// reconnexion → modifier sa photo sur un appareil la met à jour sur TOUS les autres. Préfixe hors purge 31j. ──
+const _AV_MAX = 300000;   // garde-fou : data URL > ~300 Ko refusée (le client envoie ~40 Ko après recadrage)
+app.get('/api/profile-avatar', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ avatar: null });
+  try {
+    const v = await auth.aiCacheGet('avatar:' + req.session.userId, 8640000000000);
+    const a = (v && typeof v.avatar === 'string') ? v.avatar : (typeof v === 'string' ? v : null);
+    res.json({ avatar: (a && /^data:image\//.test(a)) ? a : null });
+  } catch { res.json({ avatar: null }); }
+});
+app.post('/api/profile-avatar', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const a = req.body && req.body.avatar;
+    if (a === null || a === '') { await auth.aiCacheSet('avatar:' + req.session.userId, { avatar: null }); return res.json({ ok: true, avatar: null }); }
+    if (typeof a !== 'string' || !/^data:image\/(png|jpe?g|webp|gif);base64,/.test(a)) return res.status(400).json({ ok: false, error: 'format image invalide' });
+    if (a.length > _AV_MAX) return res.status(413).json({ ok: false, error: 'image trop lourde (recadrez/compressez)' });
+    await auth.aiCacheSet('avatar:' + req.session.userId, { avatar: a });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
 // ── JOURNAL DE TRADING — persistant PAR COMPTE (KV Supabase journal:<userId>, même modèle que
 // symrecent : suit la reconnexion, même sur un autre appareil). Données PRIVÉES de l'utilisateur.
 // Le préfixe 'journal:' n'est PAS dans AICACHE_PRUNABLE → jamais purgé par la rétention 31 j. ──
