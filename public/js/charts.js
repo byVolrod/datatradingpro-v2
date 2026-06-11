@@ -1910,19 +1910,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const num = (v, dec) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
     const pct = v => num(v, 2) + '%';
     const bps = v => (v > 0 ? '+' : '') + num(v, 2) + ' bps';
-    // Mini-courbes décoratives PMT, une PAR cellule, calées bas-droite derrière le texte :
-    // ondulée grise (neutre/Hold), dents de scie MONTANTES vertes (Hike/Δ positif), descendantes rouges (Cut/Δ négatif).
+    // Mini-courbes décoratives PMT, une PAR cellule, calées bas-droite derrière le texte.
+    // Tracés en COURBES DE BÉZIER lissées (fini les dents de scie anguleuses) + dégradé sous la
+    // ligne qui s'estompe vers le bas : ondulée grise (neutre/Hold), montante verte (Hike/Δ+),
+    // descendante rouge (Cut/Δ−).
     const SPK_PATH = {
-      wavy: 'M0 18 L4 12 L7 16 L10 13 L13 17 L17 11 L20 15 L24 13 L27 17 L31 12 L34 15 L38 13 L42 17 L46 12 L50 15 L54 13 L58 16 L62 12',
-      up:   'M0 26 L6 22 L10 24 L15 18 L19 21 L24 15 L28 18 L33 12 L37 15 L42 9 L46 12 L51 6 L56 9 L62 3',
-      down: 'M0 3 L6 6 L10 5 L15 10 L19 8 L24 13 L28 11 L33 16 L37 14 L42 19 L46 17 L51 22 L56 20 L62 25',
+      wavy: 'M0 17 C5 11, 9 11, 13 15 C17 19, 21 19, 25 14 C29 9, 33 9, 37 14 C41 19, 45 19, 49 14 C53 9, 57 10, 62 13',
+      up:   'M0 26 C5 24, 7 25, 10 23 C14 20, 16 23, 20 21 C25 18, 27 21, 31 17 C35 13, 37 16, 41 12 C45 8, 47 11, 51 7 C55 3, 58 4, 62 2',
+      down: 'M0 2 C5 4, 7 3, 10 5 C14 8, 16 5, 20 7 C25 10, 27 7, 31 11 C35 15, 37 12, 41 16 C45 20, 47 17, 51 21 C55 25, 58 24, 62 26',
     };
-    const SPK_COL = { wavy: '#667085', up: '#00da50', down: '#ff4d2e' };
+    const SPK_COL = { wavy: '#7c879b', up: '#00da50', down: '#ff4d2e' };
     const mspk = kind => {
-      const p = SPK_PATH[kind], c = SPK_COL[kind];
+      const p = SPK_PATH[kind], c = SPK_COL[kind], gid = 'rtcg-' + kind;
       return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="xMaxYMax meet">'
-        + '<path d="' + p + ' L62 28 L0 28 Z" fill="' + c + '" opacity="0.1"/>'
-        + '<path d="' + p + '" stroke="' + c + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+        + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
+        + '<stop stop-color="' + c + '" stop-opacity="0.30"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/></linearGradient></defs>'
+        + '<path d="' + p + ' L62 28 L0 28 Z" fill="url(#' + gid + ')"/>'
+        + '<path d="' + p + '" stroke="' + c + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     };
     const mv = MVC[b.move] || MVC.HOLD;
     const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
