@@ -1906,21 +1906,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const _RTC_EN = { USD: 'Federal Reserve (OIS)', EUR: 'European Central Bank', GBP: 'Bank of England', JPY: 'Bank of Japan', CHF: 'Swiss National Bank', CAD: 'Bank of Canada', AUD: 'Reserve Bank of Australia', NZD: 'Reserve Bank of New Zealand' };
   function _rtcCard(b) {
     const MVC = { HOLD: { txt: 'Hold', cls: 'w' }, HIKE: { txt: 'Hike', cls: 'g' }, CUT: { txt: 'Cut', cls: 'r' } };
-    const SPC = { HIKE: '#00da50', CUT: '#ff4d2e', HOLD: '#667085' };
     const fr  = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
     const num = (v, dec) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
     const pct = v => num(v, 2) + '%';
     const bps = v => (v > 0 ? '+' : '') + num(v, 2) + ' bps';
-    const spk = (arr, color) => {
-      if (!arr || arr.length < 2) arr = (arr && arr.length) ? [arr[0], arr[0]] : [0, 0];
-      const n = arr.length, mn = Math.min(...arr), mx = Math.max(...arr), rng = (mx - mn) || 1, W = 54, H = 20, P = 2;
-      const pts = arr.map((v, i) => { const x = (i / (n - 1)) * W, y = H - P - ((v - mn) / rng) * (H - 2 * P); return x.toFixed(1) + ' ' + y.toFixed(1); });
-      return '<svg class="rtc-msp" viewBox="0 0 ' + W + ' ' + H + '" fill="none" preserveAspectRatio="none"><path d="M' + pts.join(' L') + '" stroke="' + color + '" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    // Mini-courbes décoratives PMT, une PAR cellule, calées bas-droite derrière le texte :
+    // ondulée grise (neutre/Hold), dents de scie MONTANTES vertes (Hike/Δ positif), descendantes rouges (Cut/Δ négatif).
+    const SPK_PATH = {
+      wavy: 'M0 18 L4 12 L7 16 L10 13 L13 17 L17 11 L20 15 L24 13 L27 17 L31 12 L34 15 L38 13 L42 17 L46 12 L50 15 L54 13 L58 16 L62 12',
+      up:   'M0 26 L6 22 L10 24 L15 18 L19 21 L24 15 L28 18 L33 12 L37 15 L42 9 L46 12 L51 6 L56 9 L62 3',
+      down: 'M0 3 L6 6 L10 5 L15 10 L19 8 L24 13 L28 11 L33 16 L37 14 L42 19 L46 17 L51 22 L56 20 L62 25',
+    };
+    const SPK_COL = { wavy: '#667085', up: '#00da50', down: '#ff4d2e' };
+    const mspk = kind => {
+      const p = SPK_PATH[kind], c = SPK_COL[kind];
+      return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="xMaxYMax meet">'
+        + '<path d="' + p + ' L62 28 L0 28 Z" fill="' + c + '" opacity="0.1"/>'
+        + '<path d="' + p + '" stroke="' + c + '" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     };
     const mv = MVC[b.move] || MVC.HOLD;
     const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
-    const col = SPC[b.move] || SPC.HOLD;
-    const probSeries = [b.prob].concat((b.meetings || []).map(m => Math.max(m.hold, m.hike, m.cut)));
+    const mvSpk  = b.move === 'HIKE' ? 'up' : (b.move === 'CUT' ? 'down' : 'wavy');
+    const expSpk = b.expBps > 0 ? 'up' : (b.expBps < 0 ? 'down' : 'wavy');
     const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
     // Scenario Distribution : uniquement les scénarios > 0, triés décroissant (PMT n'affiche pas les lignes vides)
     const scen = [['Hold', sc.hold, 'n'], ['Hike', sc.hike, 'g'], ['Cut', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
@@ -1938,10 +1945,9 @@ document.addEventListener('DOMContentLoaded', () => {
       + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
       + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span></div>'
       + '<div class="rtc-metrics">'
-      + spk(probSeries, col)   // UNE SEULE courbe continue, en fond de TOUT le bandeau (jamais par cellule)
-      + '<div class="rtc-m"><span class="rtc-k">Next Move</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span></div>'
-      + '<div class="rtc-m"><span class="rtc-k">Probability</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span></div>'
-      + '<div class="rtc-m"><span class="rtc-k">Expected &Delta;</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k">Next Move</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Probability</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + mspk('wavy') + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Expected &Delta;</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Current Rate</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
       + '<div class="rtc-m"><span class="rtc-k">Meeting Date</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
       + '</div>'
