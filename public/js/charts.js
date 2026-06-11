@@ -1884,18 +1884,6 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadTauxView() {
     const host = document.getElementById('taux-grid');
     if (!host) return;
-    const MV = { HOLD: { lbl: 'Maintien', cls: 'n' }, HIKE: { lbl: 'Hausse', cls: 'g' }, CUT: { lbl: 'Baisse', cls: 'r' } };
-    const fr  = d => { try { const p = String(d).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return d; } };
-    const bps = v => (v > 0 ? '+' : '') + Number(v).toFixed(1) + ' bps';
-    const SPK = { HIKE: 'M0 14 L12 10 L24 12 L36 5 L48 2', CUT: 'M0 2 L12 6 L24 4 L36 10 L48 14', HOLD: 'M0 9 L12 7 L24 9 L36 7 L48 8' };
-    const SPC = { HIKE: '#00da50', CUT: '#ff4d2e', HOLD: '#abb4c3' };
-    // Sparkline data-driven (probabilité / Δ implicite au fil des réunions) → tendance réelle, jamais inventée.
-    const spk = (arr, color) => {
-      if (!arr || arr.length < 2) arr = (arr && arr.length) ? [arr[0], arr[0]] : [0, 0];
-      const n = arr.length, mn = Math.min(...arr), mx = Math.max(...arr), rng = (mx - mn) || 1, W = 48, H = 16, P = 2;
-      const d = arr.map((v, i) => { const x = (i / (n - 1)) * W, y = H - P - ((v - mn) / rng) * (H - 2 * P); return x.toFixed(1) + ' ' + y.toFixed(1); });
-      return '<svg class="rtc-msp" viewBox="0 0 ' + W + ' ' + H + '" fill="none"><path d="M' + d.join(' L') + '" stroke="' + color + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    };
     try {
       const r = await fetch('/api/rates');
       const d = await r.json();
@@ -1904,45 +1892,64 @@ document.addEventListener('DOMContentLoaded', () => {
       const sig = (d.rpAt || 0) + '|' + (d.updatedAt || 0) + '|' + banks.length;
       if (sig === _tauxSig && host.children.length && !host.querySelector('.taux-loading') && !host.querySelector('.taux-empty')) return;   // données inchangées → pas de re-rendu (évite tout clignotement)
       _tauxSig = sig;
-      host.innerHTML = banks.map(b => {
-        const mv = MV[b.move] || MV.HOLD;
-        const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
-        const col = SPC[b.move] || SPC.HOLD;
-        const probSeries = [b.prob].concat((b.meetings || []).map(m => Math.max(m.hold, m.hike, m.cut)));
-        const bpsSeries = [0].concat((b.meetings || []).map(m => m.impliedBps));
-        const rows = (b.meetings || []).map(m => {
-          const mm = MV[m.baseCase] || MV.HOLD;
-          const ib = (m.impliedBps > 0 ? 'g' : (m.impliedBps < 0 ? 'r' : 'n'));   // pilule Δ colorée (clone PMT)
-          return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'j</td>'
-            + '<td class="r">' + m.cut + '%</td><td>' + m.hold + '%</td><td class="g">' + m.hike + '%</td>'
-            + '<td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td>'
-            + '<td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>';
-        }).join('');
-        return '<div class="rtc">'
-          + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
-          + '<span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span>'
-          + '<span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
-          + '<div class="rtc-metrics">'
-          + '<div class="rtc-m--rate"><span class="rtc-k">Taux actuel</span><span class="rtc-v rtc-rate">' + Number(b.rate).toFixed(2) + '%</span></div>'
-          + '<div><span class="rtc-k">Probabilit&eacute;</span><span class="rtc-v ' + mv.cls + '">' + b.prob + '%</span>' + spk(probSeries, col) + '</div>'
-          + '<div><span class="rtc-k">&Delta; attendu</span><span class="rtc-v">' + bps(b.expBps) + '</span>' + spk(bpsSeries.map(Math.abs), col) + '</div>'
-          + '<div><span class="rtc-k">R&eacute;union</span><span class="rtc-v">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
-          + '</div>'
-          + '<div class="rtc-dist">'
-          + '<div class="rtc-dist-h">Distribution des sc&eacute;narios</div>'
-          + '<div class="rtc-bar"><span class="rtc-bl">Maintien</span><span class="rtc-track"><i class="n" style="width:' + sc.hold + '%"></i></span><span class="rtc-bp">' + sc.hold + '%</span></div>'
-          + '<div class="rtc-bar"><span class="rtc-bl">Hausse</span><span class="rtc-track"><i class="g" style="width:' + sc.hike + '%"></i></span><span class="rtc-bp">' + sc.hike + '%</span></div>'
-          + '<div class="rtc-bar"><span class="rtc-bl">Baisse</span><span class="rtc-track"><i class="r" style="width:' + sc.cut + '%"></i></span><span class="rtc-bp">' + sc.cut + '%</span></div>'
-          + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div>'
-          + '</div>'
-          + '<table class="rtc-tbl"><thead><tr><th>R&eacute;union</th><th>J</th><th>Baisse</th><th>Maintien</th><th>Hausse</th><th>&Delta; impl.</th><th>Base</th></tr></thead><tbody>' + rows + '</tbody></table>'
-          + '</div>';
-      }).join('');
+      host.innerHTML = banks.map(_rtcCard).join('');
       const upd = document.getElementById('taux-update');
       if (upd) upd.innerHTML = '';   // aucune attribution de source affichée (demande utilisateur)
     } catch (e) {
       host.innerHTML = '<div class="taux-empty">Erreur de chargement.</div>';
     }
+  }
+
+  // ── Carte « Interest Rate Probability » — CLONE PMT, partagée entre l'onglet TAUX et la vue paire ──
+  // Terminologie financière EN d'origine (Next Move/Probability/Expected Δ/Current Rate/Meeting Date,
+  // Scenario Distribution, Cut/Hold/Hike, Implied Δ (BPS), Base Case). Sparklines data-driven en fond.
+  const _RTC_EN = { USD: 'Federal Reserve (OIS)', EUR: 'European Central Bank', GBP: 'Bank of England', JPY: 'Bank of Japan', CHF: 'Swiss National Bank', CAD: 'Bank of Canada', AUD: 'Reserve Bank of Australia', NZD: 'Reserve Bank of New Zealand' };
+  function _rtcCard(b) {
+    const MVC = { HOLD: { txt: 'Hold', cls: 'w' }, HIKE: { txt: 'Hike', cls: 'g' }, CUT: { txt: 'Cut', cls: 'r' } };
+    const SPC = { HIKE: '#00da50', CUT: '#ff4d2e', HOLD: '#667085' };
+    const fr  = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
+    const num = (v, dec) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+    const pct = v => num(v, 2) + '%';
+    const bps = v => (v > 0 ? '+' : '') + num(v, 2) + ' bps';
+    const spk = (arr, color) => {
+      if (!arr || arr.length < 2) arr = (arr && arr.length) ? [arr[0], arr[0]] : [0, 0];
+      const n = arr.length, mn = Math.min(...arr), mx = Math.max(...arr), rng = (mx - mn) || 1, W = 54, H = 20, P = 2;
+      const pts = arr.map((v, i) => { const x = (i / (n - 1)) * W, y = H - P - ((v - mn) / rng) * (H - 2 * P); return x.toFixed(1) + ' ' + y.toFixed(1); });
+      return '<svg class="rtc-msp" viewBox="0 0 ' + W + ' ' + H + '" fill="none" preserveAspectRatio="none"><path d="M' + pts.join(' L') + '" stroke="' + color + '" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    };
+    const mv = MVC[b.move] || MVC.HOLD;
+    const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
+    const col = SPC[b.move] || SPC.HOLD;
+    const probSeries = [b.prob].concat((b.meetings || []).map(m => Math.max(m.hold, m.hike, m.cut)));
+    const bpsSeries  = (b.meetings || []).map(m => m.impliedBps);
+    const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
+    const expCol = b.expBps > 0 ? SPC.HIKE : (b.expBps < 0 ? SPC.CUT : SPC.HOLD);
+    // Scenario Distribution : uniquement les scénarios > 0, triés décroissant (PMT n'affiche pas les lignes vides)
+    const scen = [['Hold', sc.hold, 'n'], ['Hike', sc.hike, 'g'], ['Cut', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
+    const scRows = (scen.length ? scen : [['Hold', 0, 'n']]).map(s =>
+      '<div class="rtc-bar"><span class="rtc-bl">' + s[0] + '</span><span class="rtc-track"><i class="' + s[2] + '" style="width:' + Math.max(0.6, s[1]) + '%"></i></span><span class="rtc-bp">' + pct(s[1]) + '</span></div>').join('');
+    const rows = (b.meetings || []).map(m => {
+      const ib = m.impliedBps > 0 ? 'g' : (m.impliedBps < 0 ? 'r' : 'n');
+      const bc = m.baseCase === 'HIKE' ? 'g' : (m.baseCase === 'CUT' ? 'r' : 'n');
+      return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'd</td>'
+        + '<td>' + pct(m.cut) + '</td><td>' + pct(m.hold) + '</td><td>' + pct(m.hike) + '</td>'
+        + '<td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td>'
+        + '<td><span class="rtc-base ' + bc + '">' + m.baseCase + '</span></td></tr>';
+    }).join('');
+    return '<div class="rtc">'
+      + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
+      + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span></div>'
+      + '<div class="rtc-metrics">'
+      + '<div class="rtc-m"><span class="rtc-k">Next Move</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + spk(probSeries, col) + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Probability</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + spk(probSeries, SPC.HOLD) + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Expected &Delta;</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + spk(bpsSeries, expCol) + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Current Rate</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k">Meeting Date</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
+      + '</div>'
+      + '<div class="rtc-dist"><div class="rtc-dist-h">Scenario Distribution</div>' + scRows
+      + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>'
+      + '<table class="rtc-tbl"><thead><tr><th>Meeting Date</th><th>Day</th><th>Cut (%)</th><th>Hold (%)</th><th>Hike (%)</th><th>Implied &Delta; (BPS)</th><th>Base Case</th></tr></thead><tbody>' + rows + '</tbody></table>'
+      + '</div>';
   }
 
   function activateView(view, { persist = true } = {}) {
@@ -3194,30 +3201,7 @@ window._retryCalendar = function() {
   function renderCb(pair, ccys) {
     const hostEl = document.getElementById('sym-sub-cb'); if (!hostEl) return;
     hostEl.innerHTML = '<div class="sym-load">Chargement du pricing banques centrales…</div>';
-    const MV = { HOLD: { lbl:'Maintien', cls:'n' }, HIKE: { lbl:'Hausse', cls:'g' }, CUT: { lbl:'Baisse', cls:'r' } };
-    const fr = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
-    const bps = v => (v > 0 ? '+' : '') + Number(v).toFixed(1) + ' bps';
-    const card = b => {
-      const mv = MV[b.move] || MV.HOLD, sc = b.scenario || { hold:0, hike:0, cut:0 };
-      const rows = (b.meetings || []).map(m => { const mm = MV[m.baseCase] || MV.HOLD;
-        const ib = (m.impliedBps > 0 ? 'g' : (m.impliedBps < 0 ? 'r' : 'n'));
-        return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'j</td><td class="r">' + m.cut + '%</td><td>' + m.hold + '%</td><td class="g">' + m.hike + '%</td><td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td><td><span class="rtc-base ' + mm.cls + '">' + m.baseCase + '</span></td></tr>'; }).join('');
-      return '<div class="rtc">'
-        + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy"><span class="rtc-bank">' + b.bank + ' <i>· ' + (b.full || '') + '</i></span><span class="rtc-move ' + mv.cls + '">' + mv.lbl + '</span></div>'
-        + '<div class="rtc-metrics">'
-        + '<div class="rtc-m--rate"><span class="rtc-k">Taux actuel</span><span class="rtc-v rtc-rate">' + Number(b.rate).toFixed(2) + '%</span></div>'
-        + '<div><span class="rtc-k">Probabilit&eacute;</span><span class="rtc-v ' + mv.cls + '">' + b.prob + '%</span></div>'
-        + '<div><span class="rtc-k">&Delta; attendu</span><span class="rtc-v">' + bps(b.expBps) + '</span></div>'
-        + '<div><span class="rtc-k">R&eacute;union</span><span class="rtc-v">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
-        + '</div>'
-        + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des sc&eacute;narios</div>'
-        + '<div class="rtc-bar"><span class="rtc-bl">Maintien</span><span class="rtc-track"><i class="n" style="width:' + sc.hold + '%"></i></span><span class="rtc-bp">' + sc.hold + '%</span></div>'
-        + '<div class="rtc-bar"><span class="rtc-bl">Hausse</span><span class="rtc-track"><i class="g" style="width:' + sc.hike + '%"></i></span><span class="rtc-bp">' + sc.hike + '%</span></div>'
-        + '<div class="rtc-bar"><span class="rtc-bl">Baisse</span><span class="rtc-track"><i class="r" style="width:' + sc.cut + '%"></i></span><span class="rtc-bp">' + sc.cut + '%</span></div>'
-        + '</div>'
-        + '<table class="rtc-tbl"><thead><tr><th>R&eacute;union</th><th>J</th><th>Baisse</th><th>Maintien</th><th>Hausse</th><th>&Delta; impl.</th><th>Base</th></tr></thead><tbody>' + rows + '</tbody></table>'
-        + '</div>';
-    };
+    const card = _rtcCard;   // même carte « Interest Rate Probability » que l'onglet TAUX (clone PMT, une seule source de vérité)
     const go = d => {
       const banks = (d && d.banks) || [];
       const sel = ccys.map(c => banks.find(b => b.code === c)).filter(Boolean);

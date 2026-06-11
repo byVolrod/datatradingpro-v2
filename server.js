@@ -6073,9 +6073,9 @@ function _rpTransform(code, j, now) {
   if (!rows.length) return null;
   let prev = rate;
   const meetings = rows.map(x => {
-    const move = Math.max(0, Math.min(100, Math.round(+x.prob_move_pct || 0)));
+    const move = Math.max(0, Math.min(100, +(+x.prob_move_pct || 0).toFixed(2)));   // 2 décimales réelles (clone PMT : 79,76 %)
     const isCut = !!x.prob_is_cut;
-    const hold = Math.max(0, 100 - move), cut = isCut ? move : 0, hike = isCut ? 0 : move;
+    const hold = +Math.max(0, 100 - move).toFixed(2), cut = isCut ? move : 0, hike = isCut ? 0 : move;
     const impl = +x.implied_rate_post_meeting;
     const impliedBps = isFinite(impl) ? +(((impl - prev) * 100).toFixed(1)) : 0;
     if (isFinite(impl)) prev = impl;
@@ -6121,15 +6121,15 @@ app.get('/api/rates', (_req, res) => {
     const meetings = sched.map((d, i) => {
       const sc = _rateScenario(bb, i);
       const days = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - now) / 86400000));
-      return { date: d, days, hold: Math.round(sc.hold * 100), hike: Math.round(sc.hike * 100), cut: Math.round(sc.cut * 100),
+      return { date: d, days, hold: Math.round(sc.hold * 10000) / 100, hike: Math.round(sc.hike * 10000) / 100, cut: Math.round(sc.cut * 10000) / 100,
                impliedBps: +sc.impliedBps.toFixed(1), baseCase: sc.baseCase };
     });
     const n = meetings[0], sc0 = _rateScenario(bb, 0);
     return {
       code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: st.rate,
       next: n ? n.date : null, nextDays: n ? n.days : null,
-      move: sc0.baseCase, prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 100), expBps: +sc0.impliedBps.toFixed(1),
-      scenario: { hold: Math.round(sc0.hold * 100), hike: Math.round(sc0.hike * 100), cut: Math.round(sc0.cut * 100) },
+      move: sc0.baseCase, prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 10000) / 100, expBps: +sc0.impliedBps.toFixed(1),
+      scenario: { hold: Math.round(sc0.hold * 10000) / 100, hike: Math.round(sc0.hike * 10000) / 100, cut: Math.round(sc0.cut * 10000) / 100 },
       meetings, source: 'maison',
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : cross-check proba marché (CME futures)
     };
