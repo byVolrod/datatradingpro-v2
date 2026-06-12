@@ -290,10 +290,19 @@
     .lp-info-ic { color: #58a6ff; font-weight: 700; flex-shrink: 0; }
     .lp-info a { color: #58a6ff; text-decoration: none; font-weight: 600; }
     .lp-info a:hover { text-decoration: underline; }
+    /* Carte « abonnement expiré/inactif » — alerte structurée PRO : titre (icône) + message + action */
+    .lp-error--renew { padding: 14px 15px; border-radius: 6px; }
+    .lp-renew-card { display: flex; flex-direction: column; }
+    .lp-renew-title {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 12.5px; font-weight: 700; color: #f1f1f3; letter-spacing: .01em;
+    }
+    .lp-renew-title svg { width: 15px; height: 15px; color: #ef4444; flex: 0 0 auto; }
+    .lp-renew-msg { margin-top: 6px; font-size: 12px; line-height: 1.55; color: #d9a9a4; }
     .lp-renew-btn {
-      display: inline-block; margin-top: 10px; padding: 7px 16px;
+      display: block; width: 100%; text-align: center; margin-top: 12px; padding: 10px 16px;
       background: var(--orange, #f7941d); color: #0a0a0c; font-weight: 700;
-      font-size: 12px; border-radius: 6px; text-decoration: none;
+      font-size: 12.5px; border-radius: 6px; text-decoration: none; transition: filter .15s;
     }
     .lp-renew-btn:hover { filter: brightness(1.08); }
     /* Message de succès (mot de passe oublié) — vert, distinct de l'erreur rouge */
@@ -601,6 +610,7 @@
   form.addEventListener('submit', async e => {
     e.preventDefault();
     errEl.classList.remove('visible');
+    errEl.classList.remove('lp-error--renew');
     btn.disabled = true;
     btn.innerHTML = '<span class="lp-spinner"></span>Connexion…';
 
@@ -619,9 +629,14 @@
       } else {
         errEl.classList.remove('lp-msg-success');
         const _msg = (data.error || 'Email ou mot de passe incorrect').replace(/</g, '&lt;');
-        // Abonnement suspendu/expiré → on propose le bouton de renouvellement Whop
+        // Abonnement suspendu/expiré → carte d'alerte structurée pro : titre + message + action
+        errEl.classList.toggle('lp-error--renew', !!data.renewUrl);
         errEl.innerHTML = data.renewUrl
-          ? `${_msg}<a href="${data.renewUrl}" target="_blank" rel="noopener" class="lp-renew-btn">Renouveler mon abonnement</a>`
+          ? `<div class="lp-renew-card">`
+            + `<div class="lp-renew-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${(data.renewTitle || 'Abonnement expiré').replace(/</g, '&lt;')}</div>`
+            + `<div class="lp-renew-msg">${_msg}</div>`
+            + `<a href="${data.renewUrl}" target="_blank" rel="noopener" class="lp-renew-btn">Renouveler mon abonnement</a>`
+            + `</div>`
           : _msg;
         errEl.classList.add('visible');
       }
@@ -641,6 +656,7 @@
     const emailEl = document.getElementById('lp-email');
     const email   = (emailEl.value || '').trim();
     const errEl   = document.getElementById('lp-error');
+    errEl.classList.remove('lp-error--renew');   // on quitte la mise en forme carte « renouvellement »
     // Pas de fenêtre native : on reste sur la page, design pro.
     if (!email) {
       errEl.classList.remove('lp-msg-success');

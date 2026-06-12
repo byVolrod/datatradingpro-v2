@@ -285,11 +285,11 @@ app.post('/api/auth/login', async (req, res) => {
     if (!user) return res.json({ error: 'Email ou mot de passe incorrect' });
     const _renewUrl = process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/';
     if (user.suspended) {
-      return res.json({ error: 'Votre abonnement n\'est plus actif. Renouvelez pour retrouver l\'accès au terminal.', renewUrl: _renewUrl });
+      return res.json({ error: 'Votre abonnement n\'est plus actif. Renouvelez-le pour retrouver l\'accès complet au terminal.', renewTitle: 'Abonnement inactif', renewUrl: _renewUrl });
     }
     if (user.expired) {
       const d = new Date(user.expiresAt).toLocaleDateString('fr-FR');
-      return res.json({ error: `Votre abonnement a expiré le ${d}. Renouvelez pour retrouver l'accès.`, renewUrl: _renewUrl });
+      return res.json({ error: `Votre abonnement a expiré le ${d}. Renouvelez-le dès maintenant pour retrouver l'accès complet au terminal.`, renewTitle: 'Abonnement expiré', renewUrl: _renewUrl });
     }
     req.session.userId = user.id;
     req.session.user   = user;
