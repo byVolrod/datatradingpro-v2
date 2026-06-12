@@ -9053,6 +9053,19 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jr-pop-ck { margin-left: auto; color: var(--orange); font-weight: 700; }
 .jr-pop-new { color: var(--orange); font-weight: 600; }
 .jr-pop-clear { color: var(--text3); }
+/* Colonnes éditables : en-têtes cliquables (menu) + ajout de propriété */
+.jr-th { cursor: pointer; user-select: none; }
+.jr-th:hover { color: var(--text); background: #16161a; }
+.jr-th-caret { opacity: 0; font-size: 8px; margin-left: 4px; color: var(--text3); transition: opacity .12s; }
+.jr-th:hover .jr-th-caret { opacity: 1; }
+.jr-th-addcol { cursor: pointer; color: var(--text3); font-size: 15px; font-weight: 700; text-align: center; min-width: 30px; background: #101013; }
+.jr-th-addcol:hover { color: var(--orange); background: #16161a; }
+.jr-cv-text { color: var(--text2); }
+.jr-pop-ttl { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); padding: 2px 6px 7px; }
+.jr-nc-ic { display: inline-block; width: 16px; text-align: center; color: var(--text3); font-size: 11px; }
+.jr-pop-del { color: #ff4d2e; }
+.jr-pop-del:hover { background: rgba(255,61,0,0.10); }
+.jr-prop-eye { display: inline-block; width: 14px; color: var(--orange); }
 #jr-log-view.hidden, #jr-dashboard.hidden { display: none; }
 
 /* ════════ Performance Dashboard (façon Performance Dashboard 3.0, identité HUD) ════════ */
@@ -9082,8 +9095,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jrd-row--charts { grid-template-columns: 224px minmax(0, 1fr); }
 .jrd-card--donut, .jrd-card--eq { display: flex; flex-direction: column; }
 .jr-chart-am { width: 100%; min-width: 0; }
-.jr-chart-am--eq { height: 216px; }
-.jr-chart-am--donut { height: 148px; }
+.jr-chart-am--eq { height: 234px; }
+.jr-chart-am--donut { height: 156px; }
 .jrd-eqtoggle { margin-left: auto; display: inline-flex; gap: 3px; }
 .jrd-eqtoggle button { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); font-size: 9.5px; font-weight: 600; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-family: var(--font-ui); transition: .12s; }
 .jrd-eqtoggle button:hover { color: var(--text); border-color: var(--border2); }

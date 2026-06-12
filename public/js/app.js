@@ -7072,7 +7072,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     clearTimeout(_jrSaveT);
     _jrStatus('Sauvegarde…');
     _jrSaveT = setTimeout(() => {
-      fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: _jrList || [], custom: _jrCustom }) })
+      fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: _jrList || [], custom: _jrCustom, cols: _jrColsToStore() }) })
         .then(r => r.json()).then(j => _jrStatus(j && j.ok ? 'Enregistré ✓' : 'Erreur de sauvegarde'))
         .catch(() => _jrStatus('Hors-ligne — réessaiera'));
     }, 600);
@@ -7121,6 +7121,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
     { k: 'err',     label: 'ERREUR',         type: 'multi',    w: 132 },
     { k: 'account', label: 'Account',        type: 'select',   w: 124 },
   ];
+  // ── COLONNES PERSONNALISABLES (façon Notion), PAR COMPTE : ajout / suppr / renommer / masquer / réordonner ──
+  const _JR_BUILTIN = {}; _JR_COLDEF.forEach(c => { _JR_BUILTIN[c.k] = c; });
+  const _JR_CELLTYPES = ['title', 'date', 'day', 'select', 'multi', 'num', 'money', 'progress', 'ring', 'text'];
+  let _jrCols = null;   // colonnes actives du compte (null = pas encore chargé)
+  function _jrDefaultCols() { return _JR_COLDEF.map(c => ({ ...c, builtin: true, hidden: false })); }
+  function _jrColsFromStore(stored) {
+    if (!Array.isArray(stored) || !stored.length) return _jrDefaultCols();
+    const seen = new Set(), cols = [];
+    for (const s of stored) {
+      const k = String((s && s.k) || '').slice(0, 32); if (!k || seen.has(k)) continue; seen.add(k);
+      if (s.builtin !== false && _JR_BUILTIN[k]) cols.push({ ..._JR_BUILTIN[k], builtin: true, label: String(s.label || _JR_BUILTIN[k].label).slice(0, 40), hidden: !!s.hidden });
+      else { const type = _JR_CELLTYPES.includes(s.type) ? s.type : 'text'; cols.push({ k, label: String(s.label || k).slice(0, 40), type, builtin: false, hidden: !!s.hidden, w: Math.max(70, Math.min(280, +s.w || 130)) }); }
+    }
+    if (!cols.some(c => c.k === 'pair')) cols.unshift({ ..._JR_BUILTIN.pair, builtin: true, hidden: false });
+    return cols;
+  }
+  function _jrColsToStore() { return (_jrCols || []).map(c => c.builtin ? { k: c.k, builtin: true, label: c.label, hidden: !!c.hidden } : { k: c.k, builtin: false, label: c.label, type: c.type, hidden: !!c.hidden, w: c.w }); }
+  function _jrGet(e, col) { return col.builtin ? e[col.k] : (e.props && e.props[col.k]); }
+  function _jrSet(e, col, v) { if (col.builtin) e[col.k] = v; else { e.props = e.props || {}; e.props[col.k] = v; } }
+  function _jrColsVisible() { return (_jrCols || _jrDefaultCols()).filter(c => !c.hidden); }
+
   // Gabarit d'options PAR DÉFAUT du DTP — proposé tant qu'aucun import perso n'a personnalisé le journal.
   // Dès qu'un compte importe (_jrCustom=true), on n'affiche QUE ses options (pas de mélange avec le DTP).
   const _JR_DTP_DEFAULTS = {
@@ -7154,8 +7175,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   };
   function _jrHash(s) { let h = 0; s = String(s || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
   function _jrHexChip(hex) {
-    const n = hex.replace('#', ''), r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16), lt = c => Math.round(c + (255 - c) * 0.5);
-    return { bg: 'rgba(' + r + ',' + g + ',' + b + ',.16)', fg: 'rgb(' + lt(r) + ',' + lt(g) + ',' + lt(b) + ')', bd: 'rgba(' + r + ',' + g + ',' + b + ',.36)' };
+    const n = hex.replace('#', ''), r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16), lt = c => Math.round(c + (255 - c) * 0.58);
+    return { bg: 'rgba(' + r + ',' + g + ',' + b + ',.19)', fg: 'rgb(' + lt(r) + ',' + lt(g) + ',' + lt(b) + ')', bd: 'rgba(' + r + ',' + g + ',' + b + ',.42)' };
   }
   function _jrChip(colKey, value) {
     const sem = _JR_SEMCOL[colKey] && _JR_SEMCOL[colKey][String(value).toLowerCase()];
@@ -7164,8 +7185,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrChipHtml(text, c) { return '<span class="jr-chip" style="background:' + c.bg + ';color:' + c.fg + ';border-color:' + c.bd + '">' + _esc(text) + '</span>'; }
   function _jrOptions(col) {
     const set = new Map(), add = v => { v = String(v == null ? '' : v).trim(); if (v) { const k = v.toLowerCase(); if (!set.has(k)) set.set(k, v); } };
-    if (_JR_STRUCT[col.k] || !_jrCustom) (_JR_DTP_DEFAULTS[col.k] || []).forEach(add);   // gabarit DTP (ou colonne structurelle)
-    for (const e of (_jrList || [])) { const v = e[col.k]; if (Array.isArray(v)) v.forEach(add); else add(v); }   // + valeurs réelles (perso)
+    if (col.builtin && (_JR_STRUCT[col.k] || !_jrCustom)) (_JR_DTP_DEFAULTS[col.k] || []).forEach(add);   // gabarit DTP (colonnes builtin uniquement)
+    for (const e of (_jrList || [])) { const v = _jrGet(e, col); if (Array.isArray(v)) v.forEach(add); else add(v); }   // + valeurs réelles (perso / colonnes custom)
     return Array.from(set.values());
   }
   const _JR_MONTHS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
@@ -7179,10 +7200,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return '<span class="jr-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="#26262c" stroke-width="2.6"/><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" transform="rotate(-90 12 12)"/></svg><b>' + _jrFmtNum(val) + '</b></span>';
   }
   function _jrCell(e, col) {
-    const v = e[col.k];
+    const v = _jrGet(e, col);
     switch (col.type) {
       case 'title': return '<span class="jr-cv-title">' + (e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>') + '</span>';
-      case 'date': return e.ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(e.ts) + '</span>' : '<i class="jr-ph">—</i>';
+      case 'text': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : '<span class="jr-cv-text">' + _esc(v) + '</span>';
+      case 'date': { const ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">—</i>'; }
       case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIPS[8]) : '<i class="jr-ph">—</i>'; }
       case 'select': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; return _jrChipHtml((col.disp && col.disp[v]) || v, _jrChip(col.k, v)); }
       case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">—</i>'; }
@@ -7200,27 +7222,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
       '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
       + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (CSV) / Excel — remplace le gabarit DTP par TON journal">&#8593; Importer (Excel / Notion)</button>'
       + '<input type="file" id="jr-import-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" style="display:none">'
+      + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">&#9881; Propriétés</button>'
       + '<span class="jr-tb-spacer"></span>'
       + '<span class="jr-tb-mode ' + (_jrCustom ? 'jr-tb-mode--perso' : '') + '">' + (_jrCustom ? '● Journal perso' : '○ Gabarit DTP') + '</span>';
     const add = document.getElementById('jr-add'); if (add) add.onclick = _jrAddRow;
+    const pr = document.getElementById('jr-props'); if (pr) pr.onclick = () => _jrPropsMenu(pr);
     const imp = document.getElementById('jr-import'), f = document.getElementById('jr-import-file');
     if (imp && f) { imp.onclick = () => f.click(); f.onchange = ev => _jrImportFile(ev); }
   }
   function _jrAddRow() {
     if (!_jrList) _jrList = [];
-    const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ts: Date.now(), pair: '', dir: 'BUY', lots: null, entry: null, exit: null, pl: null, note: '', result: '', session: '', grade: '', account: '', fonda: null, rr: null, risk: null, r: null, pnlPct: null, equity: null, conf: [], entryT: [], err: [], setup: [], tf: [], sl: [] };
+    const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ts: Date.now(), pair: '', dir: 'BUY', lots: null, entry: null, exit: null, pl: null, note: '', result: '', session: '', grade: '', account: '', fonda: null, rr: null, risk: null, r: null, pnlPct: null, equity: null, conf: [], entryT: [], err: [], setup: [], tf: [], sl: [], props: {} };
     _jrList.unshift(e); _jrRender();
     setTimeout(() => { const td = document.querySelector('#jr-grid tbody tr[data-id="' + e.id + '"] td[data-k="pair"]'); if (td) _jrEditCell(td); }, 30);
   }
 
   function _jrRenderGrid() {
     const tbl = document.getElementById('jr-grid'); if (!tbl) return;
+    const cols = _jrColsVisible();
     const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    const head = '<thead><tr>' + _JR_COLDEF.map(c => '<th style="min-width:' + c.w + 'px">' + _esc(c.label) + '</th>').join('') + '<th class="jr-th-act"></th></tr></thead>';
-    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + (_JR_COLDEF.length + 1) + '">Aucun trade — clique « + Nouveau » ou importe ton journal Notion (CSV).</td></tr></tbody>'; return; }
+    const head = '<thead><tr>' + cols.map(c => '<th class="jr-th" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
+    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + (cols.length + 1) + '">Aucun trade — clique « + Nouveau » ou importe ton journal Notion (CSV).</td></tr></tbody>'; return; }
     tbl.innerHTML = head + '<tbody>' + L.map(e =>
       '<tr data-id="' + _esc(e.id) + '">'
-      + _JR_COLDEF.map(c => '<td class="jr-c jr-c--' + c.type + '" data-k="' + c.k + '">' + _jrCell(e, c) + '</td>').join('')
+      + cols.map(c => '<td class="jr-c jr-c--' + c.type + '" data-k="' + c.k + '">' + _jrCell(e, c) + '</td>').join('')
       + '<td class="jr-c-act">' + (_jrDelPending === e.id ? '<button class="jr-rowdel jr-rowdel--c" data-act="del">Suppr. ?</button>' : '<button class="jr-rowdel" data-act="del" title="Supprimer">&#10005;</button>') + '</td>'
       + '</tr>').join('') + '</tbody>';
   }
@@ -7245,7 +7270,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   function _jrEditCell(td) {
     const tr = td.closest('tr'), id = tr && tr.dataset.id, k = td.dataset.k;
-    const col = _JR_COLDEF.find(c => c.k === k), e = (_jrList || []).find(x => x.id === id);
+    const col = (_jrCols || _jrDefaultCols()).find(c => c.k === k), e = (_jrList || []).find(x => x.id === id);
     if (!col || !e || col.type === 'day') return;
     if (col.type === 'select') return _jrEditSelect(td, e, col);
     if (col.type === 'multi') return _jrEditMulti(td, e, col);
@@ -7253,20 +7278,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return _jrEditText(td, e, col);
   }
   function _jrEditText(td, e, col) {
-    const raw = col.type === 'title' ? (e.pair || '') : (e[col.k] == null ? '' : String(e[col.k]).replace('.', ','));
+    const isNum = ['num', 'money', 'progress', 'ring'].includes(col.type), cur = _jrGet(e, col);
+    const raw = isNum ? (cur == null ? '' : String(cur).replace('.', ',')) : (cur == null ? '' : String(cur));
     const inp = document.createElement('input'); inp.className = 'jr-cell-input'; inp.value = raw;
     td.innerHTML = ''; td.appendChild(inp); inp.focus(); inp.select();
     const done = save => {
-      if (save) { if (col.type === 'title') e.pair = inp.value.toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12); else e[col.k] = _jrParseNum(inp.value); _jrSave(); }
+      if (save) {
+        if (isNum) _jrSet(e, col, _jrParseNum(inp.value));
+        else if (col.type === 'title') _jrSet(e, col, inp.value.toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12));
+        else _jrSet(e, col, inp.value.slice(0, 160));
+        _jrSave();
+      }
       _jrPaint(td, e, col); _jrRenderStats();
     };
     inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') { ev.preventDefault(); done(false); } };
     inp.onblur = () => done(true);
   }
   function _jrEditDate(td, e, col) {
-    const inp = document.createElement('input'); inp.type = 'date'; inp.className = 'jr-cell-input'; inp.value = e.ts ? _jrTsToInput(e.ts) : '';
+    const cur = _jrGet(e, col);
+    const inp = document.createElement('input'); inp.type = 'date'; inp.className = 'jr-cell-input'; inp.value = cur ? _jrTsToInput(cur) : '';
     td.innerHTML = ''; td.appendChild(inp); inp.focus();
-    const done = save => { if (save && inp.value) { const a = inp.value.split('-').map(Number); e.ts = Date.UTC(a[0], a[1] - 1, a[2], 12, 0, 0); _jrSave(); _jrRenderGrid(); return; } _jrPaint(td, e, col); };
+    const done = save => { if (save && inp.value) { const a = inp.value.split('-').map(Number); _jrSet(e, col, Date.UTC(a[0], a[1] - 1, a[2], 12, 0, 0)); _jrSave(); if (col.k === 'ts') { _jrRenderGrid(); return; } } _jrPaint(td, e, col); };
     inp.onchange = () => done(true);
     inp.onkeydown = ev => { if (ev.key === 'Escape') done(false); };
     inp.onblur = () => { if (!inp.value) done(false); };
@@ -7274,9 +7306,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrEditSelect(td, e, col) {
     const pop = _jrOpenPop(td, '<input class="jr-pop-search" placeholder="Rechercher / créer…"><div class="jr-pop-opts"></div>');
     const search = pop.querySelector('.jr-pop-search'), box = pop.querySelector('.jr-pop-opts');
-    const set = v => { e[col.k] = v; _jrSave(); _jrClosePop(); _jrPaint(td, e, col); };
+    const set = v => { _jrSet(e, col, v); _jrSave(); _jrClosePop(); _jrPaint(td, e, col); };
     const paint = filter => {
-      const f = (filter || '').trim().toLowerCase(), cur = e[col.k];
+      const f = (filter || '').trim().toLowerCase(), cur = _jrGet(e, col);
       let h = _jrOptions(col).filter(o => o.toLowerCase().includes(f)).map(o => '<button class="jr-pop-opt" data-v="' + _esc(o) + '">' + _jrChipHtml((col.disp && col.disp[o]) || o, _jrChip(col.k, o)) + (String(cur) === o ? '<span class="jr-pop-ck">✓</span>' : '') + '</button>').join('');
       if (f && !_jrOptions(col).some(o => o.toLowerCase() === f)) h += '<button class="jr-pop-opt jr-pop-new" data-v="' + _esc(filter.trim()) + '">+ Créer « ' + _esc(filter.trim()) + ' »</button>';
       h += '<button class="jr-pop-opt jr-pop-clear" data-v="">— Vider —</button>';
@@ -7287,8 +7319,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     paint('');
   }
   function _jrEditMulti(td, e, col) {
-    if (!Array.isArray(e[col.k])) e[col.k] = e[col.k] ? [String(e[col.k])] : [];
-    const arr = e[col.k];
+    let arr = _jrGet(e, col);
+    if (!Array.isArray(arr)) { arr = arr ? [String(arr)] : []; _jrSet(e, col, arr); }
     const pop = _jrOpenPop(td, '<div class="jr-pop-multi"></div>'), wrap = pop.querySelector('.jr-pop-multi');
     let _f = '';
     const addVal = v => { v = String(v).trim().slice(0, 30); if (v && !arr.some(a => a.toLowerCase() === v.toLowerCase())) { arr.push(v); _jrSave(); _jrPaint(td, e, col); } paint(''); };
@@ -7308,6 +7340,49 @@ document.addEventListener('DOMContentLoaded', ()=>{
     paint('');
   }
 
+  // ── Gestion des colonnes (façon Notion) : ajouter / renommer / masquer / déplacer / supprimer ──
+  function _jrAddColMenu(anchor) {
+    const types = [['text', 'Texte'], ['select', 'Sélecteur'], ['multi', 'Multi-tags'], ['num', 'Nombre'], ['date', 'Date']];
+    const pop = _jrOpenPop(anchor, '<div class="jr-pop-ttl">Nouvelle propriété</div><input class="jr-pop-search" id="jr-nc-name" maxlength="40" placeholder="Nom de la propriété…"><div class="jr-pop-opts">' + types.map(t => '<button class="jr-pop-opt jr-nc-type" data-t="' + t[0] + '"><span class="jr-nc-ic">' + (t[0] === 'multi' ? '☰' : t[0] === 'select' ? '◉' : t[0] === 'num' ? '#' : t[0] === 'date' ? '🗓' : 'T') + '</span> ' + t[1] + '</button>').join('') + '</div>');
+    const name = pop.querySelector('#jr-nc-name'); if (name) name.focus();
+    pop.querySelectorAll('.jr-nc-type').forEach(b => b.onclick = () => {
+      const label = ((name && name.value) || '').trim().slice(0, 40) || 'Propriété';
+      const base = label.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '') || 'col';
+      if (!_jrCols) _jrCols = _jrDefaultCols();
+      let k = 'c_' + base, i = 1; while (_jrCols.some(c => c.k === k)) k = 'c_' + base + (++i);
+      _jrCols.push({ k, label, type: b.dataset.t, builtin: false, hidden: false, w: 130 });
+      _jrClosePop(); _jrRenderGrid(); _jrSave();
+    });
+  }
+  function _jrColMenu(anchor) {
+    if (!_jrCols) _jrCols = _jrDefaultCols();
+    const k = anchor.dataset.k, col = _jrCols.find(c => c.k === k); if (!col) return;
+    const pop = _jrOpenPop(anchor,
+      '<input class="jr-pop-search" id="jr-cm-name" maxlength="40" value="' + _esc(col.label) + '" placeholder="Renommer…">'
+      + '<div class="jr-pop-opts">'
+      + '<button class="jr-pop-opt" data-a="left">&#8592; Déplacer à gauche</button>'
+      + '<button class="jr-pop-opt" data-a="right">&#8594; Déplacer à droite</button>'
+      + '<button class="jr-pop-opt" data-a="hide">&#8856; Masquer</button>'
+      + (col.builtin ? '' : '<button class="jr-pop-opt jr-pop-del" data-a="del">&#128465; Supprimer la propriété</button>')
+      + '</div>');
+    const name = pop.querySelector('#jr-cm-name');
+    const rename = () => { const v = ((name && name.value) || '').trim().slice(0, 40); if (v && v !== col.label) { col.label = v; _jrRenderGrid(); _jrSave(); } };
+    if (name) { name.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); rename(); _jrClosePop(); } }; name.onblur = rename; }
+    pop.querySelectorAll('.jr-pop-opt').forEach(b => b.onclick = () => {
+      const a = b.dataset.a, idx = _jrCols.indexOf(col);
+      if (a === 'left' && idx > 0) { _jrCols.splice(idx, 1); _jrCols.splice(idx - 1, 0, col); }
+      else if (a === 'right' && idx < _jrCols.length - 1) { _jrCols.splice(idx, 1); _jrCols.splice(idx + 1, 0, col); }
+      else if (a === 'hide') col.hidden = true;
+      else if (a === 'del') { _jrCols.splice(idx, 1); if (!col.builtin) (_jrList || []).forEach(e => { if (e.props) delete e.props[col.k]; }); }
+      _jrClosePop(); _jrRenderGrid(); _jrSave();
+    });
+  }
+  function _jrPropsMenu(anchor) {
+    if (!_jrCols) _jrCols = _jrDefaultCols();
+    const pop = _jrOpenPop(anchor, '<div class="jr-pop-ttl">Propriétés affichées</div><div class="jr-pop-opts">' + _jrCols.map(c => '<button class="jr-pop-opt jr-prop-tog" data-k="' + _esc(c.k) + '"><span class="jr-prop-eye">' + (c.hidden ? '○' : '●') + '</span> ' + _esc(c.label) + '</button>').join('') + '</div>');
+    pop.querySelectorAll('.jr-prop-tog').forEach(b => b.onclick = () => { const c = _jrCols.find(x => x.k === b.dataset.k); if (c) { c.hidden = !c.hidden; b.querySelector('.jr-prop-eye').textContent = c.hidden ? '○' : '●'; _jrRenderGrid(); _jrSave(); } });
+  }
+
   function _jrRender() { _jrRenderStats(); _jrRenderToolbar(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
 
   // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
@@ -7319,6 +7394,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       else { _jrDelPending = id; _jrRenderGrid(); setTimeout(() => { if (_jrDelPending === id) { _jrDelPending = null; _jrRenderGrid(); } }, 3500); }
       return;
     }
+    const addcol = ev.target.closest && ev.target.closest('#jr-addcol');
+    if (addcol) { _jrAddColMenu(addcol); return; }
+    const th = ev.target.closest && ev.target.closest('#jr-grid th.jr-th');
+    if (th) { _jrColMenu(th); return; }
     const td = ev.target.closest && ev.target.closest('#jr-grid td.jr-c');
     if (td) { if (!td.querySelector('.jr-cell-input')) _jrEditCell(td); return; }
     if (_jrDelPending && !(ev.target.closest && ev.target.closest('.jr-pop'))) { _jrDelPending = null; _jrRenderGrid(); }
@@ -7586,7 +7665,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (_jrList) { _jrRender(); return; }   // déjà chargé → re-render instantané (les données vivent en mémoire + serveur)
     _jrStatus('Chargement…');
     fetch('/api/journal').then(r => r.json())
-      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrCustom = !!j.custom; _jrStatus(''); _jrRender(); })
+      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrCustom = !!j.custom; _jrCols = _jrColsFromStore(j.cols); _jrStatus(''); _jrRender(); })
       .catch(() => { _jrList = []; _jrStatus('Hors-ligne'); _jrRender(); });
   };
 })();
