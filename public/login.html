@@ -114,12 +114,13 @@
       z-index: 3;
       pointer-events: none;
     }
-    /* Fondu léger sur les bords gauche & droit → la mosaïque se fond en douceur (pas de coupe nette au bord) */
+    /* Fondu sur les bords gauche & droit → la mosaïque se fond en douceur dans le décor (pas de coupe nette) */
     .lp-fade-left, .lp-fade-right {
-      position: absolute; top: 0; bottom: 0; width: 72px; z-index: 3; pointer-events: none;
+      position: absolute; top: 0; bottom: 0; z-index: 3; pointer-events: none;
     }
-    .lp-fade-left  { left: 0;  background: linear-gradient(to right, rgba(8,11,16,0.82), transparent); }
-    .lp-fade-right { right: 0; background: linear-gradient(to left,  rgba(8,11,16,0.82), transparent); }
+    .lp-fade-left  { left: 0;  width: 72px;  background: linear-gradient(to right, rgba(8,11,16,0.82), transparent); }
+    /* Bord droit : fondu plus large vers le NOIR du panneau de connexion → transition douce mosaïque → formulaire */
+    .lp-fade-right { right: 0; width: 170px; background: linear-gradient(to left,  #0a0a0a 8%, rgba(10,10,12,0.55) 55%, transparent); }
 
     @keyframes scroll-up {
       from { transform: translateY(0); }
@@ -164,13 +165,16 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: center;            /* formulaire CENTRÉ horizontalement (façon PMT) */
       padding: 48px 40px;
       overflow-y: auto;
       border-left: 1px solid #1a1a1a;
     }
+    /* Colonne de connexion en largeur FIXE → les champs/boutons ne s'étirent plus sur tout le panneau */
+    .lp-right > * { width: 100%; max-width: 360px; }
 
     .lp-title {
-      font-size: clamp(32px, 3.8vw, 50px);
+      font-size: clamp(30px, 3.2vw, 40px);   /* plafonné pour tenir dans la colonne fixe de 360px */
       font-weight: 700;
       color: #ffffff;
       font-family: var(--font-ui);
