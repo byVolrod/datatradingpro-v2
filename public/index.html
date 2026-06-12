@@ -1073,7 +1073,7 @@
     if (savedAvatar) _pdAvatarDataUrl = savedAvatar;
     pdSetAvatarDisplay(initial, _pdAvatarDataUrl);
     try {
-      fetch('/api/profile-avatar').then(r => r.json()).then(av => {
+      fetch('/api/profile-avatar?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(av => {
         const remote = av && av.avatar;
         if (remote && remote !== _pdAvatarDataUrl) { _pdAvatarDataUrl = remote; try { localStorage.setItem('pd_avatar_' + d.user.id, remote); } catch (e) {} pdSetAvatarDisplay(initial, remote); }
         else if (!remote && _pdAvatarDataUrl) {
