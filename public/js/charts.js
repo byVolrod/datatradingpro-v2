@@ -2015,8 +2015,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;   // on ne touche pas aux view-panel
     }
     if (!VALID_VIEWS.includes(view)) view = 'news';
-    // WEEK AHEAD réservé au staff (admin/support) → un client est renvoyé sur 'news'.
-    if (view === 'weekahead' && window._pdIsStaff === false) view = 'news';
+    // WEEK AHEAD : désormais PUBLIC (plus de redirection des clients vers 'news').
     _setDocTitle(view);
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
 

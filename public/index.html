@@ -708,7 +708,7 @@
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script src="/js/app.js?v=20260612B"></script>
-<script src="/js/charts.js?v=20260612F"></script>
+<script src="/js/charts.js?v=20260612G"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1040,12 +1040,9 @@
     if (!d.loggedIn) { window.location.href = '/login'; return; }
     _pdUser = d.user;
     window._pdUser = d.user;   // exposé globalement pour app.js (badge chat support, etc.)
-    // Onglet WEEK AHEAD : réservé au staff (admin/support) — masqué pour les clients.
+    // Onglets WEEK AHEAD & TAUX : PUBLICS → visibles par tous les utilisateurs connectés.
+    // (Plus aucun gating staff ; seul _pdIsAdmin sert encore, pour Journal/Calculatrice.)
     try {
-      const _isStaff = !!(d.user && (d.user.role === 'admin' || d.user.role === 'support'));
-      window._pdIsStaff = _isStaff;
-      if (!_isStaff) document.querySelectorAll('[data-view="weekahead"]').forEach(el => { el.style.display = 'none'; });
-      // Onglet TAUX : visible par tous les utilisateurs connectés.
       window._pdIsAdmin = !!(d.user && d.user.role === 'admin');
     } catch {}
     // Dès que le rôle est connu, on vérifie les messages non lus (badge sur l'icône chat)
