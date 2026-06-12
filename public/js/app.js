@@ -5386,6 +5386,30 @@ function renderArlibReader(item) {
       return false;
     };
 
+    // Découpe robuste en phrases : protège décimales (88.50) et abréviations (U.S., Mr., e.g.…)
+    // par un caractère sentinelle AVANT de couper sur « ponctuation + espace + Majuscule », puis restaure.
+    const _splitSentences = (s) => {
+      const P = '';
+      const prot = String(s)
+        .replace(/(\d)\.(\d)/g, '$1' + P + '$2')
+        .replace(/\b(U\.S|U\.K|E\.U|e\.g|i\.e|Mr|Mrs|Ms|Dr|Prof|Sen|Gov|Pres|vs|etc|No|Inc|Corp|Ltd|Co|a\.m|p\.m|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Sept?|Oct|Nov|Dec|approx|St)\./gi, m => m.replace(/\./g, P));
+      return prot.split(/(?<=[.!?])\s+(?=[A-Z"'(])/).map(x => x.replace(new RegExp(P, 'g'), '.').trim()).filter(Boolean);
+    };
+    // Puces : un paragraphe LONG (multi-phrases) est découpé en 1 puce par phrase → « tout en
+    // puces » façon recap PMT (fini les pavés). Les courts gardent leur HTML riche (liens/gras).
+    const _emitBullets = (richHtml, plainText) => {
+      const txt = (plainText || '').replace(/\s+/g, ' ').trim();
+      const parts = (txt.length > 230) ? _splitSentences(txt) : [txt];
+      if (parts.length < 2) {
+        if (txt.length > 4) { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${richHtml}</span></div>`; bulletCount++; }
+        return;
+      }
+      parts.forEach(s => {
+        if (s.length < 8) return;
+        html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${_emphasize(s)}</span></div>`; bulletCount++;
+      });
+    };
+
     const walk = (el) => {
       // Ignore les nœuds COMMENTAIRE (8) et INSTRUCTION (7) : une déclaration <?xml …?>
       // injectée via innerHTML devient un commentaire dont le texte "?xml version…" fuyait
@@ -5397,7 +5421,7 @@ function renderArlibReader(item) {
         const t = (el.textContent || '').trim();
         if (/^<?\s*\??\s*xml\b/i.test(t)) return;            // garde-fou : déclaration XML résiduelle
         if (_skipAuthor(t, false)) return;                   // bloc auteurs → jamais affiché
-        if (t.length > 15 && !_isSrcLine(t)) { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`; bulletCount++; }
+        if (t.length > 15 && !_isSrcLine(t)) _emitBullets(t, t);
         return;
       }
       if (/^h[1-6]$/.test(tag)) {
@@ -5414,8 +5438,14 @@ function renderArlibReader(item) {
           html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${text.slice(0,-1).toUpperCase()}</div>`;
           return;
         }
+        // Titre de sous-article embarqué (<p> entièrement en GRAS, court, sans ponctuation finale) → SECTION MAJUSCULES
+        const _onlyBold = el.children.length === 1 && /^(strong|b)$/i.test(el.children[0].tagName || '') && el.children[0].textContent.trim() === text;
+        if (_onlyBold && text.length <= 90 && !/[.!?]$/.test(text)) {
+          html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${text.toUpperCase()}</div>`;
+          return;
+        }
         const t = fixLinks(el.innerHTML.trim());
-        if (text.length > 5) { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`; bulletCount++; }
+        if (text.length > 5) _emitBullets(t, text);             // pavé multi-phrases → 1 puce par phrase
       } else if (tag === 'li') {
         const a = el.querySelector('a[href]');
         const text = el.textContent.trim();
@@ -5426,10 +5456,10 @@ function renderArlibReader(item) {
           const lnk = fixLinks(el.innerHTML.trim());
           html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${lnk}</span></div>`;
           if (href.includes('://') && text.length > 12) sources.push({ href, text });
+          bulletCount++;
         } else {
-          html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${_emphasize(text)}</span></div>`;   // plus de badge ▼/▲ inline (jugé moche)
+          _emitBullets(_emphasize(text), text);              // li long multi-phrases → découpé en puces (jamais de pavé)
         }
-        bulletCount++;
       } else if (tag === 'blockquote') {
         const t = el.textContent.trim();
         if (t) html += `<div class="arlib-rbullet-sub"><span class="arlib-rbullet-dot"></span><span>${t}</span></div>`;
