@@ -7200,6 +7200,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     else s = s.replace(/,/g, '');                                                // séparateurs de milliers
     const n = parseFloat(s); return isFinite(n) ? n : null;
   }
+  // Dates : gère le format Notion FRANÇAIS « 6 janvier 2026 » (Date.parse() ne sait pas) + ISO/standard en repli.
+  const _JR_FRMONTHS = ['janvier', 'fevrier', 'mars', 'avril', 'mai', 'juin', 'juillet', 'aout', 'septembre', 'octobre', 'novembre', 'decembre'];
+  function _jrParseDate(v) {
+    const s = String(v == null ? '' : v).trim(); if (!s) return null;
+    const n = s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const m = n.match(/(\d{1,2})\s+([a-z]+)\.?\s+(\d{4})/);
+    if (m) { let mo = _JR_FRMONTHS.indexOf(m[2]); if (mo < 0) mo = _JR_FRMONTHS.findIndex(x => x.slice(0, 3) === m[2].slice(0, 3)); if (mo >= 0) return Date.UTC(+m[3], mo, +m[1], 12, 0, 0); }
+    const p = Date.parse(s); return isNaN(p) ? null : p;
+  }
   const _JR_COLS = {
     date:  ['date', 'time', 'datetime', 'jour', 'opentime', 'opened', 'dateouverture', 'datedouverture', 'closetime', 'closedate'],
     pair:  ['pair', 'pairs', 'paire', 'symbol', 'symbole', 'instrument', 'ticker', 'marche', 'market', 'actif', 'asset'],
@@ -7257,7 +7266,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
           const pair = get('pair').toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12);
           if (pair.length < 2) continue;
           const dir = /sell|short|vente|sld|sale/.test(_jrNorm(get('dir'))) ? 'SELL' : 'BUY';
-          let ts = Date.now(); const dv = get('date'); if (dv) { const p = Date.parse(dv); if (!isNaN(p)) ts = p; }
+          let ts = _jrParseDate(get('date')); if (ts == null) ts = Date.now();   // dates FR Notion (« 6 janvier 2026 ») + ISO
           const tag = k => idx[k] >= 0 ? String(row[idx[k]] || '').split(/[,;|]+/).map(s => s.trim()).filter(Boolean).slice(0, 12) : [];
           _jrList.unshift({
             id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + r,
