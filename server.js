@@ -2466,6 +2466,8 @@ Produis un rapport PROPRE et PROFESSIONNEL façon DataTradingPro (ton d'analyste
 - Sous chaque en-tête, PEAUFINE/REFORMULE les puces en phrases claires, concises et professionnelles : corrige la grammaire, supprime les fragments, répétitions et le cruft, fais des phrases complètes qui se lisent comme un vrai récap d'analyste (pas un copier-coller brut).
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, pourcentages, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN. Tu améliores UNIQUEMENT la formulation et la clarté, jamais le contenu factuel.
 - Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel/hors-sujet ("...at investingLive.com", etc.).
+- EN-TÊTES COURTS type catégorie (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, CRYPTO…). Un sous-rapport au titre LONG en minuscules (ex: "New Zealand Manufacturing Returns to Contraction…") → NE le garde PAS comme en-tête : range son contenu sous une catégorie COURTE adaptée.
+- Chaque puce = UNE idée concise (≤30 mots), jamais un pavé multi-phrases (découpe les longs paragraphes en plusieurs puces courtes).
 Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE D'ORIGINE","items":["phrase reformulée 1","phrase 2"]}]
 Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
@@ -2493,6 +2495,7 @@ async function _structureArticleAI(text, title) {
 Réorganise-le en un rapport PROPRE structuré en RUBRIQUES claires, façon DataTradingPro :
 - Choisis des EN-TÊTES pertinents D'APRÈS LE CONTENU réel (ex: "OVERVIEW", "USD", "EUR", "GBP", "JPY", "AUD", "RATES", "COMMODITIES", "CENTRAL BANKS", "WHAT TO WATCH", "RISK EVENTS"…). Ne crée jamais une rubrique sans contenu réel.
 - Sous chaque en-tête, des phrases claires, concises et professionnelles (corrige grammaire, fragments, répétitions) : 1 à 4 puces par rubrique, qui se lisent comme un vrai récap d'analyste.
+- EN-TÊTES COURTS (1 à 3 mots, type catégorie). Chaque puce = UNE idée concise (≤30 mots), jamais un pavé multi-phrases : découpe les longs paragraphes en plusieurs puces courtes.
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, %, paires/tickers, banques centrales, prévisions, citations, dates. N'INVENTE RIEN, n'ajoute aucune opinion personnelle. Tu réorganises et clarifies UNIQUEMENT.
 - Garde la langue d'origine du rapport (généralement l'anglais). Ignore le promotionnel/légal ("Download", disclaimers, "This publication has been prepared by…").
 Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE","items":["phrase 1","phrase 2"]}]
