@@ -404,16 +404,20 @@ const _JR_KV_TTL = 8640000000000;   // « forever » côté cache RAM (la BDD re
 function _jrCleanEntries(arr) {
   if (!Array.isArray(arr)) return [];
   const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  const str = (v, n) => String(v == null ? '' : v).slice(0, n || 40);
+  const tags = v => (Array.isArray(v) ? v : (v ? String(v).split(/[,;|]+/) : [])).map(x => String(x || '').trim().slice(0, 30)).filter(Boolean).slice(0, 12);
   return arr.map(e => e && typeof e === 'object' ? {
     id:    String(e.id || '').slice(0, 24) || (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
     ts:    Number(e.ts) || Date.now(),
     pair:  String(e.pair || '').toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12),
     dir:   e.dir === 'SELL' ? 'SELL' : 'BUY',
-    lots:  num(e.lots),
-    entry: num(e.entry),
-    exit:  num(e.exit),
-    pl:    num(e.pl),
+    lots:  num(e.lots), entry: num(e.entry), exit: num(e.exit), pl: num(e.pl),
     note:  String(e.note || '').slice(0, 300),
+    // ── champs riches (journal façon Notion / dashboard de stats) ──
+    result: str(e.result, 12), session: str(e.session, 24), setup: str(e.setup, 48), grade: str(e.grade, 8),
+    sl: str(e.sl, 16), tf: str(e.tf, 12), account: str(e.account, 32),
+    fonda: num(e.fonda), rr: num(e.rr), risk: num(e.risk), r: num(e.r), pnlPct: num(e.pnlPct), equity: num(e.equity),
+    conf: tags(e.conf), entryT: tags(e.entryT), err: tags(e.err),
   } : null).filter(e => e && e.pair.length >= 2).slice(0, _JR_MAX);
 }
 app.get('/api/journal', async (req, res) => {

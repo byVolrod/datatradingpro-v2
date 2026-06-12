@@ -8992,6 +8992,38 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jr-btn--import { border-color: var(--border2); color: var(--text2); }
 .jr-btn--import:hover { color: var(--text); border-color: var(--orange); background: rgba(247,148,29,0.08); }
 
+/* ════════ Journal — onglets Trade Log / Dashboard ════════ */
+.jr-tabs { display: flex; gap: 2px; margin-left: 16px; }
+.jr-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text3); font-size: 12px; font-weight: 600; padding: 6px 12px; cursor: pointer; transition: color .12s, border-color .12s; }
+.jr-tab:hover { color: var(--text); }
+.jr-tab--active { color: var(--orange); border-bottom-color: var(--orange); }
+#jr-log-view.hidden, #jr-dashboard.hidden { display: none; }
+
+/* ════════ Performance Dashboard (façon Performance Dashboard 3.0, identité HUD) ════════ */
+.jrd { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 18px; display: flex; flex-direction: column; gap: 20px; }
+.jrd-sec { border: 1px solid var(--border); border-radius: 8px; padding: 14px 16px 16px; background: #0a0a0c; }
+.jrd-sec-h { font-size: 11px; font-weight: 800; letter-spacing: .08em; color: var(--orange); text-transform: uppercase; margin-bottom: 14px; }
+.jrd-rings { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 14px; }
+.jrd-ring { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 4px 0; }
+.jrd-ring-c { width: 92px; height: 92px; border-radius: 50%; border: 4px solid; display: flex; align-items: center; justify-content: center; background: #0c0c0e; }
+.jrd-ring-v { font-family: var(--font-mono); font-size: 19px; font-weight: 800; }
+.jrd-ring-l { font-size: 11px; color: var(--text2); font-weight: 600; }
+.jrd-ring-s { font-size: 10px; color: var(--text3); }
+.jrd-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 14px; margin-top: 14px; }
+.jrd-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+.jrd-card { background: #0c0c0e; border: 1px solid var(--border); border-radius: 7px; padding: 11px 13px; min-width: 0; }
+.jrd-card-h { display: flex; align-items: center; font-size: 11.5px; font-weight: 700; color: var(--text); margin-bottom: 11px; }
+.jrd-bars { display: flex; flex-direction: column; gap: 7px; }
+.jrd-bar { display: grid; grid-template-columns: 92px 1fr 46px; align-items: center; gap: 8px; }
+.jrd-bar-k { font-size: 11px; color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jrd-bar-t { height: 8px; background: #18181c; border-radius: 4px; overflow: hidden; }
+.jrd-bar-t i { display: block; height: 100%; border-radius: 4px; min-width: 2px; transition: width .3s; }
+.jrd-bar-v { font-family: var(--font-mono); font-size: 11px; color: var(--text); text-align: right; }
+.jrd-eq { width: 100%; height: 150px; display: block; }
+.jrd-empty { color: var(--text3); font-size: 12px; padding: 14px 0; text-align: center; }
+.jrd-empty-big { color: var(--text3); font-size: 13px; text-align: center; padding: 44px 16px; }
+@media (max-width: 760px) { .jrd-row { grid-template-columns: 1fr; } }
+
 /* ════════ Calculatrice de taille de position (icône topbar à côté du journal) ════════ */
 .topbar-icon--calc { margin-right: 10px; flex-shrink: 0; }
 .panel-calc { display: flex; flex-direction: column; height: 100%; min-height: 0; flex: 1 1 auto; width: 100%; min-width: 0; }
