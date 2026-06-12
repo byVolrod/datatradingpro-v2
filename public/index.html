@@ -1178,27 +1178,43 @@
   function pdAvatarFileChange(e) {
     const file = e.target.files && e.target.files[0];
     if (!file) return;
+    function _avMsg(m) { if (typeof _dtpToast === 'function') _dtpToast(m); else if (window.console) console.warn(m); }
     const reader = new FileReader();
     reader.onload = function(ev) {
       const img = new Image();
       img.onload = function() {
-        // Recadrage carré « cover » + redimension 256px → data URL JPEG légère (~40 Ko) : stockable
-        // en KV serveur (sync multi-appareils) sans alourdir la base ni le quota d'upload.
-        var S = 256, cv = document.createElement('canvas'); cv.width = S; cv.height = S;
-        var ctx = cv.getContext('2d');
-        var s = Math.min(img.width, img.height), sx = (img.width - s) / 2, sy = (img.height - s) / 2;
-        ctx.drawImage(img, sx, sy, s, s, 0, 0, S, S);
-        var dataUrl; try { dataUrl = cv.toDataURL('image/jpeg', 0.85); } catch (err) { dataUrl = ev.target.result; }
+        // Recadrage carré « cover » + downscale → JPEG. Compression PROGRESSIVE : on garantit un
+        // data URL TOUJOURS petit ET TOUJOURS au format JPEG (jamais le HEIC/PNG d'origine, jamais
+        // un pavé) → l'upload serveur réussit, donc la photo se synchronise sur TOUS les appareils.
+        function encode(size, q) {
+          const cv = document.createElement('canvas'); cv.width = size; cv.height = size;
+          const ctx = cv.getContext('2d');
+          const s = Math.min(img.width, img.height), sx = (img.width - s) / 2, sy = (img.height - s) / 2;
+          ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+          return cv.toDataURL('image/jpeg', q);
+        }
+        let dataUrl = null;
+        try {
+          dataUrl = encode(256, 0.82);
+          if (dataUrl.length > 200000) dataUrl = encode(256, 0.62);     // image très détaillée → on baisse la qualité
+          if (dataUrl.length > 200000) dataUrl = encode(192, 0.6);      // puis la taille
+          if (dataUrl.length > 200000) dataUrl = encode(160, 0.55);
+        } catch (err) { dataUrl = null; }
+        if (!dataUrl || !/^data:image\/jpeg/.test(dataUrl)) { _avMsg('Impossible de traiter cette image — essaie une autre photo (format non supporté ?).'); return; }
         _pdAvatarDataUrl = dataUrl;
         var displayName = _pdUser ? (_pdUser.name || _pdUser.email || '?') : '?';
         pdSetAvatarDisplay(displayName.charAt(0).toUpperCase(), dataUrl);
         if (_pdUser) { try { localStorage.setItem('pd_avatar_' + _pdUser.id, dataUrl); } catch (er) {} }   // cache instantané
-        // SOURCE DE VÉRITÉ = serveur → la photo se synchronise sur TOUS les appareils
-        fetch('/api/profile-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: dataUrl }) }).catch(function(){});
+        // SOURCE DE VÉRITÉ = serveur. On VÉRIFIE le succès : si l'enregistrement échoue, on prévient
+        // (sinon la photo « disparaît » au reload sur les autres appareils, le serveur n'en ayant rien).
+        fetch('/api/profile-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: dataUrl }) })
+          .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); })
+          .catch(function () { _avMsg('Photo affichée ici mais NON synchronisée (échec d\'enregistrement) — réessaie.'); });
       };
-      img.onerror = function(){};   // fichier illisible → ignoré
+      img.onerror = function () { _avMsg('Image illisible — essaie une autre photo (évite le format HEIC de l\'iPhone, ou refais une capture).'); };
       img.src = ev.target.result;
     };
+    reader.onerror = function () { _avMsg('Lecture du fichier impossible — réessaie.'); };
     reader.readAsDataURL(file);
     e.target.value = '';
   }
