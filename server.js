@@ -2207,6 +2207,106 @@ function _aiDemandNote(category) {
 }
 // Demande attendue pour un créneau (total observé sur l'historique) → base du prewarm prédictif (Phase 2).
 function aiExpectedDemand(slot) { const s = _aiDemand[slot || _aiDemandSlot()]; return s ? (s._t || 0) : 0; }
+
+// ════════════════ AI TELEMETRY & PREDICTION (monitoring + prévision d'épuisement) ════════════════
+// On échantillonne ai.status() (déjà riche : santé par modèle/clé, 429, tokens) et on cumule les
+// DELTAS dans des seaux HORAIRES persistés (ai_cache `aitel:<YYYY-MM-DDTHH>`, durables Supabase →
+// survivent aux redéploys). Aucune modification du routage : couche d'OBSERVATION pure, additive.
+let _telPrev = null, _telLiveStatus = null, _telDirty = false;
+const _telBuckets = new Map();                                                   // hourKey → seau (flush périodique vers KV)
+function _telHourKey(t) { return new Date(t || Date.now()).toISOString().slice(0, 13); }   // "2026-06-12T14"
+function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0 }; }
+function _telBucket(hk) { let b = _telBuckets.get(hk); if (!b) { b = _telEmpty(hk); _telBuckets.set(hk, b); } return b; }
+function _telSample() {
+  let st; try { st = ai.status(); } catch { return; }
+  _telLiveStatus = st;
+  const u = st.usageToday || {}, tk = st.tokensToday || {};
+  const cur = { day: st.today, gemini: u.gemini || 0, gemini429: u.gemini429 || 0, github: u.github || 0, githubFail: u.githubFail || 0,
+    claude: u.claude || 0, claudeFail: u.claudeFail || 0, fallback: u.fallback || 0,
+    gtIn: tk.geminiIn || 0, gtOut: tk.geminiOut || 0, ghIn: tk.githubIn || 0, ghOut: tk.githubOut || 0, clIn: tk.claudeIn || 0, clOut: tk.claudeOut || 0 };
+  if (_telPrev) {
+    const same = _telPrev.day === cur.day;                                      // jour changé → compteurs IA remis à 0 → cur EST le delta
+    const dl = k => same ? Math.max(0, (cur[k] || 0) - (_telPrev[k] || 0)) : (cur[k] || 0);
+    const b = _telBucket(_telHourKey());
+    b.gemini.calls += dl('gemini'); b.gemini.e429 += dl('gemini429'); b.gemini.tokIn += dl('gtIn'); b.gemini.tokOut += dl('gtOut');
+    b.github.calls += dl('github'); b.github.fail += dl('githubFail'); b.github.tokIn += dl('ghIn'); b.github.tokOut += dl('ghOut');
+    b.claude.calls += dl('claude'); b.claude.fail += dl('claudeFail'); b.claude.tokIn += dl('clIn'); b.claude.tokOut += dl('clOut');
+    b.fallback += dl('fallback');
+    if (dl('gemini') + dl('github') + dl('claude') + dl('gemini429') + dl('fallback') > 0) _telDirty = true;
+  }
+  _telPrev = cur;
+}
+async function _telFlush() {
+  if (_telDirty) { _telDirty = false; for (const [hk, b] of _telBuckets) { try { await auth.aiCacheSet('aitel:' + hk, b); } catch {} } }
+  const cut = _telHourKey(Date.now() - 8 * 24 * 3600 * 1000);                    // ne garde que ~8 jours en mémoire
+  for (const hk of [..._telBuckets.keys()]) if (hk < cut) _telBuckets.delete(hk);
+}
+async function _telLoadRange(hours) {
+  const out = [];
+  for (let i = hours - 1; i >= 0; i--) {
+    const hk = _telHourKey(Date.now() - i * 3600 * 1000);
+    let b = _telBuckets.get(hk);
+    if (!b) { try { b = await auth.aiCacheGet('aitel:' + hk); } catch {} }
+    out.push(b || _telEmpty(hk));
+  }
+  return out;
+}
+function _telHealthScore(keys, cooling, breakers, calls, errs) {
+  if (!keys) return null;
+  let s = 100;
+  s -= Math.round((cooling / keys) * 60);                                        // clés gelées → forte pénalité
+  s -= (breakers || 0) * 8;                                                       // circuit breakers ouverts
+  if (calls > 0) s -= Math.round((errs / (calls + errs)) * 30);                  // taux d'échec
+  return Math.max(0, Math.min(100, s));
+}
+// PRÉDICTION : épuisement du quota du jour, burn rate, demande à venir (learner Phase 1).
+function _telForecast(buckets) {
+  const cap = _aiDailyCap();
+  const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
+  const last3 = buckets.slice(-3);
+  const calls3h = last3.reduce((s, b) => s + (b.gemini.calls || 0) + (b.github.calls || 0), 0);
+  const ratePerHour = calls3h / Math.max(1, last3.length);
+  const remaining = Math.max(0, cap - dayTotal);
+  const hoursToExhaust = ratePerHour > 0.2 ? Math.round(remaining / ratePerHour * 10) / 10 : null;
+  const p = _aiParis(), wd = p.getDay(), hNow = p.getHours(), nextHours = [];
+  for (let i = 1; i <= 6; i++) { const h = (hNow + i) % 24, day = (wd + Math.floor((hNow + i) / 24)) % 7; nextHours.push({ h, expected: aiExpectedDemand(day + '-' + h) }); }
+  return {
+    dailyCap: cap, dayTotal, remaining, pctUsed: cap ? Math.round(dayTotal / cap * 100) : 0,
+    ratePerHour: Math.round(ratePerHour * 10) / 10, hoursToExhaust,
+    risk: !cap ? 'unknown' : (dayTotal >= cap ? 'exhausted' : (hoursToExhaust != null && hoursToExhaust < 3) ? 'high' : (dayTotal >= cap * 0.8 ? 'medium' : 'low')),
+    quietHours: _aiQuietHours(), weekend: _aiIsWeekend(), dayFraction: Math.round(_aiDayFraction() * 100) / 100, nextHours,
+  };
+}
+// Endpoint admin : santé providers + budget + tendance horaire + prévisions (alimente le dashboard).
+app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
+  try {
+    const range = Math.min(168, Math.max(6, parseInt(req.query.hours, 10) || 24));
+    const st = _telLiveStatus || (() => { try { return ai.status(); } catch { return {}; } })();
+    const buckets = await _telLoadRange(range);
+    const sum = (p, k) => buckets.reduce((s, b) => s + ((b[p] && b[p][k]) || 0), 0);
+    const u = st.usageToday || {}, intel = st.intel || {};
+    const providers = {
+      gemini: { keys: st.geminiKeys || 0, coolingKeys: st.geminiCoolingNow || 0, breakersOpen: intel.breakersOpen || 0,
+        pressure: intel.pressure || 0, effRpm: intel.effRpm || 0, rpmTarget: intel.rpmTarget || 0,
+        callsToday: u.gemini || 0, err429Today: u.gemini429 || 0, callsWindow: sum('gemini', 'calls'), err429Window: sum('gemini', 'e429'), tokInWindow: sum('gemini', 'tokIn'), tokOutWindow: sum('gemini', 'tokOut') },
+      github: { tokens: (st.github || {}).tokens || 0, coolingKeys: (st.github || {}).coolingNow || 0, callsToday: u.github || 0, failWindow: sum('github', 'fail'), callsWindow: sum('github', 'calls') },
+      claude: { keys: st.anthropicKeys || 0, usable: !!st.claudeUsable, usedToday: st.claudeUsedToday || 0, dailyMax: st.claudeDailyMax || 0, cooling: st.claudeCooling || [], callsToday: u.claude || 0, callsWindow: sum('claude', 'calls') },
+    };
+    const health = {
+      gemini: _telHealthScore(providers.gemini.keys, providers.gemini.coolingKeys, providers.gemini.breakersOpen, providers.gemini.callsToday, providers.gemini.err429Today),
+      github: providers.github.tokens ? _telHealthScore(providers.github.tokens, providers.github.coolingKeys, 0, providers.github.callsWindow, providers.github.failWindow) : null,
+      claude: providers.claude.keys ? (providers.claude.usable ? Math.max(20, 100 - Math.round(providers.claude.usedToday / Math.max(1, providers.claude.dailyMax) * 100)) : 5) : null,
+    };
+    res.json({
+      now: Date.now(), range,
+      budget: Object.assign({ monthly: GEMINI_MONTHLY_BUDGET, monthUsed: _aiUsage.total || 0 }, _telForecast(buckets)),
+      providers, health,
+      categoriesToday: _aiUsage.dayCounts || {}, claudeToday: _aiUsage.claudeCounts || {},
+      trend: buckets.map(b => ({ hour: b.hour, gemini: b.gemini.calls, github: b.github.calls, claude: b.claude.calls, e429: b.gemini.e429, fallback: b.fallback })),
+      backoff: st.backoff || {}, healthDetail: intel.health || [],
+    });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
 function _aiReset() {
   const mo = _aiMonth(), d = _aiDay();
   if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {}, claudeCounts: {} }; _aiSave(); }
@@ -8033,6 +8133,10 @@ server.listen(PORT, async () => {
   // DailyFX (ING) : structure EN AVANCE les rapports du jour (décalé pour ne pas chevaucher les wraps)
   setTimeout(() => { _prewarmBrSegs().catch(() => {}); }, 45000);
   setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 15 * 60 * 1000);   // 15 min (éco quota)
+  // AI Telemetry : échantillonne la santé IA → seaux horaires persistés (dashboard admin + prévision)
+  setTimeout(() => { try { _telSample(); } catch {} }, 6000);
+  setInterval(() => { try { _telSample(); } catch {} }, 30 * 1000);            // échantillon /30s
+  setInterval(() => { _telFlush().catch(() => {}); }, 120 * 1000);            // flush KV /2min
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─
