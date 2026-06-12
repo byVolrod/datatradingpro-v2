@@ -114,6 +114,12 @@
       z-index: 3;
       pointer-events: none;
     }
+    /* Fondu léger sur les bords gauche & droit → la mosaïque se fond en douceur (pas de coupe nette au bord) */
+    .lp-fade-left, .lp-fade-right {
+      position: absolute; top: 0; bottom: 0; width: 72px; z-index: 3; pointer-events: none;
+    }
+    .lp-fade-left  { left: 0;  background: linear-gradient(to right, rgba(8,11,16,0.82), transparent); }
+    .lp-fade-right { right: 0; background: linear-gradient(to left,  rgba(8,11,16,0.82), transparent); }
 
     @keyframes scroll-up {
       from { transform: translateY(0); }
@@ -421,6 +427,8 @@
     <div class="lp-mosaic" id="lp-mosaic"></div>
     <div class="lp-fade-top"></div>
     <div class="lp-fade-bottom"></div>
+    <div class="lp-fade-left"></div>
+    <div class="lp-fade-right"></div>
     <!-- Tagline card -->
     <div class="lp-left-card">
       <div class="lp-tagline-1">
@@ -551,17 +559,28 @@
       return col;
     }
 
-    // Grille DENSE façon PMT : on génère assez de colonnes pour remplir TOUT le panneau gauche
-    // (bord à bord, plus aucune bande noire à droite), chacune puisant dans un pool commun
-    // d'images décalé par colonne pour éviter les répétitions visibles.
-    const POOL   = COL_IMGS.flat();
+    // Grille DENSE façon PMT : on génère TOUJOURS assez de colonnes (largeur + 2 de marge) ET assez
+    // de tuiles par colonne (hauteur + 2 de marge) pour remplir tout le panneau gauche → jamais de vide.
+    // Re-généré au redimensionnement : si la fenêtre s'élargit, on re-comble immédiatement.
+    const POOL = COL_IMGS.flat();
+    const TILE_W = 195, TILE_H = 130, GAP = 3;
     const leftEl = document.querySelector('.lp-left');
-    const leftW  = (leftEl && leftEl.clientWidth) || Math.round(window.innerWidth * 0.65);
-    const TILE_W = 195, GAP = 3;
-    const need   = Math.min(10, Math.max(5, Math.ceil(leftW / (TILE_W + GAP)) + 1));
-    const colSrcs = ci => { const off = (ci * 11) % POOL.length; return POOL.slice(off).concat(POOL.slice(0, off)).slice(0, 16); };
-    mosaic.innerHTML = '';
-    for (let ci = 0; ci < need; ci++) mosaic.appendChild(buildCol(ci, colSrcs(ci)));
+    function render() {
+      const r = leftEl ? leftEl.getBoundingClientRect() : null;
+      const w = (r && r.width)  || Math.round(window.innerWidth * 0.65);
+      const h = (r && r.height) || window.innerHeight;
+      const cols  = Math.max(5, Math.min(18, Math.ceil(w / (TILE_W + GAP)) + 2));   // +2 colonnes de marge → zéro vide, même en limite
+      const tiles = Math.max(8, Math.min(26, Math.ceil(h / (TILE_H + GAP)) + 2));   // colonne assez haute pour une boucle fluide
+      const frag = document.createDocumentFragment();
+      for (let ci = 0; ci < cols; ci++) {
+        const off = (ci * 11) % POOL.length;
+        frag.appendChild(buildCol(ci, POOL.slice(off).concat(POOL.slice(0, off)).slice(0, tiles)));
+      }
+      mosaic.innerHTML = '';
+      mosaic.appendChild(frag);
+    }
+    render();
+    let _rt; window.addEventListener('resize', () => { clearTimeout(_rt); _rt = setTimeout(render, 220); });
   })();
 
   /* ── Login form ── */
