@@ -377,6 +377,7 @@ app.post('/api/sym-recent', async (req, res) => {
 // reconnexion → modifier sa photo sur un appareil la met à jour sur TOUS les autres. Préfixe hors purge 31j. ──
 const _AV_MAX = 300000;   // garde-fou : data URL > ~300 Ko refusée (le client envoie ~40 Ko après recadrage)
 app.get('/api/profile-avatar', async (req, res) => {
+  res.set('Cache-Control', 'no-store');   // JAMAIS de cache navigateur : sinon une vieille réponse {avatar:null} se fige et la photo « ne suit pas » sur l'appareil
   if (!req.session?.userId) return res.status(401).json({ avatar: null });
   try {
     const v = await auth.aiCacheGet('avatar:' + req.session.userId, 8640000000000);
