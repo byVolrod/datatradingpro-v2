@@ -5110,12 +5110,10 @@ async function _loadAIInsights(item, el) {
       let sig = String(ins.signal || ins.bias || '').toUpperCase();
       if (sig === 'BULLISH') sig = 'BUY'; else if (sig === 'BEARISH') sig = 'SELL';
       if (!['BUY', 'SELL', 'NEUTRAL'].includes(sig)) sig = '';
-      // Carte ACTIF (ticker + badge) ou carte NARRATIVE (barre orange à gauche), façon PMT.
-      if (asset) {
-        const head = `<div class="ai-card-head"><span class="ai-card-asset">${esc(asset)}</span>${sig ? `<span class="ai-bias ai-bias--${sig.toLowerCase()}">${sig}</span>` : ''}</div>`;
-        return `<div class="ai-insights-card">${head}<div class="ai-card-text">${esc(ins.text || '')}</div></div>`;
-      }
-      return `<div class="ai-insights-card ai-insights-card--macro"><span class="ai-card-bar"></span><div class="ai-card-text">${esc(ins.text || '')}</div></div>`;
+      const head = asset
+        ? `<div class="ai-card-head"><span class="ai-card-asset">${esc(asset)}</span>${sig ? `<span class="ai-bias ai-bias--${sig.toLowerCase()}">${sig}</span>` : ''}</div>`
+        : '';
+      return `<div class="ai-insights-card">${head}<div class="ai-card-text">${esc(ins.text || '')}</div></div>`;
     }).join('');
     const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
     // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
