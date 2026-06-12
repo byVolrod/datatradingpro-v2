@@ -5973,7 +5973,6 @@ app.get('/api/week-ahead', async (req, res) => {
   console.log(`[Bias] Génération hebdo (samedi 00h30 Paris) dans ${Math.round(delay / 60000)} min`);
   const runAll = () => {
     generateSmartBias(true, true).catch(e => console.error('[SmartBias] failed:', e.message));   // weekly=true : seul run qui RÉÉCRIT les narratifs
-    generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
     generateWeekAhead(true, true).catch(e => console.error('[WeekAhead] failed:', e.message));   // Week Ahead : data + ÉDITORIAL IA (1×/semaine)
     _aiRefreshRatesBias().catch(e => console.error('[RatesBias IA] failed:', e.message));  // biais TAUX : refresh IA hebdo (caché)
   };
@@ -5981,6 +5980,14 @@ app.get('/api/week-ahead', async (req, res) => {
     runAll();
     setInterval(runAll, 7 * 24 * 60 * 60 * 1000);
   }, delay);
+  // ── Weekly Bias : DÉCALÉ à la nuit du SAMEDI au DIMANCHE (dimanche 00h30 Paris), au plus près de la
+  //    réouverture FX du dimanche soir → biais frais pour la semaine, cohérent avec le prompt (« Today is Sunday »).
+  const biasDelay = msToNextWeekday(0, 0, 30);   // DIMANCHE 00h30 Paris (nuit sam.→dim.)
+  console.log(`[Bias] Weekly bias (dimanche 00h30 Paris) dans ${Math.round(biasDelay / 60000)} min`);
+  setTimeout(function runBias() {
+    generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message));
+    setInterval(() => generateWeeklyBias(true).catch(e => console.error('[Bias] failed:', e.message)), 7 * 24 * 60 * 60 * 1000);
+  }, biasDelay);
   // Régénère au démarrage si vide / seed (non daté) / version périmée / >1 semaine → bias toujours frais + ancré.
   // (45s pour laisser le calendrier + le cache Supabase se charger d'abord.) Persisté ensuite sur Supabase → pas de régén à chaque déploiement.
   setTimeout(() => {
