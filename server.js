@@ -381,7 +381,11 @@ app.get('/api/profile-avatar', async (req, res) => {
   try {
     const v = await auth.aiCacheGet('avatar:' + req.session.userId, 8640000000000);
     const a = (v && typeof v.avatar === 'string') ? v.avatar : (typeof v === 'string' ? v : null);
-    res.json({ avatar: (a && /^data:image\//.test(a)) ? a : null });
+    // deleted:true = photo SUPPRIMÉE volontairement (clé présente, avatar null) — distinct de
+    // « jamais définie » (pas de clé) → le front peut migrer un vieux cache local vers le compte
+    // SANS jamais ressusciter une photo que l'utilisateur a retirée.
+    const deleted = !!(v && typeof v === 'object' && v.avatar === null);
+    res.json({ avatar: (a && /^data:image\//.test(a)) ? a : null, deleted });
   } catch { res.json({ avatar: null }); }
 });
 app.post('/api/profile-avatar', async (req, res) => {

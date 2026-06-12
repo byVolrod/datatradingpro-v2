@@ -1076,7 +1076,17 @@
       fetch('/api/profile-avatar').then(r => r.json()).then(av => {
         const remote = av && av.avatar;
         if (remote && remote !== _pdAvatarDataUrl) { _pdAvatarDataUrl = remote; try { localStorage.setItem('pd_avatar_' + d.user.id, remote); } catch (e) {} pdSetAvatarDisplay(initial, remote); }
-        else if (!remote && _pdAvatarDataUrl) { _pdAvatarDataUrl = null; try { localStorage.removeItem('pd_avatar_' + d.user.id); } catch (e) {} pdSetAvatarDisplay(initial, null); }   // supprimée ailleurs → on l'enlève ici aussi
+        else if (!remote && _pdAvatarDataUrl) {
+          if (av && av.deleted) {
+            // Photo SUPPRIMÉE volontairement sur un autre appareil → on l'enlève ici aussi
+            _pdAvatarDataUrl = null; try { localStorage.removeItem('pd_avatar_' + d.user.id); } catch (e) {} pdSetAvatarDisplay(initial, null);
+          } else if (/^data:image\/(jpeg|png|webp)/.test(_pdAvatarDataUrl) && _pdAvatarDataUrl.length <= 300000) {
+            // MIGRATION : photo présente en cache LOCAL mais jamais enregistrée sur le COMPTE
+            // (upload antérieur à la synchro serveur) → on la pousse maintenant : elle apparaîtra
+            // ensuite sur TOUS les appareils. (L'ancien code la SUPPRIMAIT ici — c'était le bug.)
+            fetch('/api/profile-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: _pdAvatarDataUrl }) }).catch(function () {});
+          }
+        }
       }).catch(() => {});
     } catch (e) {}
 
