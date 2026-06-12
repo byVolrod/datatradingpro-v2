@@ -1857,18 +1857,27 @@ async function _fetchSessionWraps(full = false) {
         if (seen.has(slug)) continue;
         seen.add(slug);
         pageHad = true;
-        const ts = new Date(+ymd.slice(0,4), +ymd.slice(4,6) - 1, +ymd.slice(6,8), 12).getTime();
+        // Session détectée AVANT le timestamp → heure PAR SESSION (Asia ~04h < Europe ~10h < Americas ~18h UTC).
+        // Sans pubDate réelle (scrape), les 3 wraps d'un même jour auraient sinon le MÊME timestamp NOON → on
+        // ne distingue plus que l'Asie est sortie AVANT l'Europe. Les heures par session reflètent la vraie séquence.
+        let session = 'Global', sh = 12;
+        if      (/americas|north.american/.test(slug)) { session = 'Americas';     sh = 18; }
+        else if (/europe/.test(slug))                  { session = 'European';     sh = 10; }
+        else if (/asia.pacific|asian/.test(slug))      { session = 'Asia-Pacific'; sh = 4;  }
+        const ts = Date.UTC(+ymd.slice(0,4), +ymd.slice(4,6) - 1, +ymd.slice(6,8), sh);
         if (!ts || ts < cutoff) continue;
         anyRecent = true;
         const link = `https://investinglive.com/news/${slug}/`;
         const id   = 'sw-' + Buffer.from(link).toString('base64').replace(/[^a-zA-Z0-9]/g,'').slice(-16);
-        if (merged.has(id)) continue;          // déjà présent via RSS (titre propre) → ne pas écraser
+        if (merged.has(id)) {
+          // déjà présent (RSS = pubDate réelle, ou scrape antérieur). On CORRIGE juste un timestamp resté
+          // sur l'ancien défaut NOON (12:00:00 pile) → heure par session, sans toucher au titre/contenu RSS.
+          const ex = merged.get(id), dd = new Date(ex && ex.timestamp);
+          if (ex && session !== 'Global' && dd.getUTCHours() === 12 && dd.getUTCMinutes() === 0 && dd.getUTCSeconds() === 0) ex.timestamp = ts;
+          continue;
+        }
         let title = slug.replace(/^investinglive-/,'').replace(/-\d{8}$/,'').replace(/-/g,' ').trim();
         title = title.charAt(0).toUpperCase() + title.slice(1);
-        let session = 'Global';
-        if      (/americas|north.american/.test(slug)) session = 'Americas';
-        else if (/europe/.test(slug))                  session = 'European';
-        else if (/asia.pacific|asian/.test(slug))      session = 'Asia-Pacific';
         merged.set(id, { id, title, url: link, timestamp: ts, session, description: '', content: null, author: '', _source: 'investinglive' });
       }
       if (!pageHad || !anyRecent) break;       // plus d'articles, ou page entièrement hors-période
