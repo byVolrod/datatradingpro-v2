@@ -406,6 +406,33 @@ app.post('/api/profile-avatar', async (req, res) => {
 // Le préfixe 'journal:' n'est PAS dans AICACHE_PRUNABLE → jamais purgé par la rétention 31 j. ──
 const _JR_MAX = 500;   // cap anti-abus / anti-OOM (≈ large pour un journal perso)
 const _JR_KV_TTL = 8640000000000;   // « forever » côté cache RAM (la BDD reste la vérité)
+// Colonnes CUSTOM (façon Notion) : valeurs libres par entrée, rangées dans un sac `props` (clé custom → valeur).
+function _jrCleanProps(p) {
+  if (!p || typeof p !== 'object' || Array.isArray(p)) return undefined;
+  const out = {}; let n = 0;
+  for (const k in p) {
+    if (n++ >= 24) break;
+    const kk = String(k).slice(0, 32); if (!kk) continue;
+    const v = p[k];
+    if (Array.isArray(v)) { const a = v.map(x => String(x || '').trim().slice(0, 30)).filter(Boolean).slice(0, 12); if (a.length) out[kk] = a; }
+    else if (typeof v === 'number' && isFinite(v)) out[kk] = v;
+    else if (v != null && v !== '') out[kk] = String(v).slice(0, 200);
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+// Définitions de colonnes PAR COMPTE : ordre / masquage / renommage / colonnes custom (façon Notion).
+function _jrCleanCols(arr) {
+  if (!Array.isArray(arr)) return undefined;
+  const seen = new Set(), out = [];
+  for (const c of arr.slice(0, 40)) {
+    if (!c || typeof c !== 'object') continue;
+    const k = String(c.k || '').slice(0, 32); if (!k || seen.has(k)) continue; seen.add(k);
+    const col = { k, builtin: c.builtin !== false, label: String(c.label || k).slice(0, 40), hidden: !!c.hidden };
+    if (!col.builtin) { col.type = typeof c.type === 'string' ? c.type.slice(0, 10) : 'text'; const w = parseInt(c.w, 10); if (isFinite(w)) col.w = Math.max(70, Math.min(280, w)); }
+    out.push(col);
+  }
+  return out.length ? out : undefined;
+}
 function _jrCleanEntries(arr) {
   if (!Array.isArray(arr)) return [];
   const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
@@ -423,6 +450,7 @@ function _jrCleanEntries(arr) {
     result: str(e.result, 12), session: str(e.session, 24), grade: str(e.grade, 8), account: str(e.account, 32),
     fonda: num(e.fonda), rr: num(e.rr), risk: num(e.risk), r: num(e.r), pnlPct: num(e.pnlPct), equity: num(e.equity),
     conf: tags(e.conf), entryT: tags(e.entryT), err: tags(e.err), setup: tags(e.setup), tf: tags(e.tf), sl: tags(e.sl),
+    props: _jrCleanProps(e.props),   // valeurs des colonnes custom
   } : null).filter(e => e && e.pair.length >= 2).slice(0, _JR_MAX);
 }
 app.get('/api/journal', async (req, res) => {
@@ -431,8 +459,9 @@ app.get('/api/journal', async (req, res) => {
   try {
     const v = await auth.aiCacheGet('journal:' + req.session.userId, _JR_KV_TTL);
     // custom = false → gabarit DTP (options par défaut) ; true → journal PERSO importé (options de l'utilisateur uniquement)
-    res.json({ entries: _jrCleanEntries(v && v.entries), custom: !!(v && v.custom) });
-  } catch { res.json({ entries: [], custom: false }); }
+    // cols = définitions de colonnes du compte (null → le client applique le gabarit standard)
+    res.json({ entries: _jrCleanEntries(v && v.entries), custom: !!(v && v.custom), cols: (v && v.cols) || null });
+  } catch { res.json({ entries: [], custom: false, cols: null }); }
 });
 app.post('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
@@ -440,7 +469,9 @@ app.post('/api/journal', async (req, res) => {
   try {
     const entries = _jrCleanEntries(req.body && req.body.entries);
     const custom = !!(req.body && req.body.custom);   // mémorise si le compte a personnalisé son journal (import) → ne jamais re-proposer le gabarit DTP
-    await auth.aiCacheSet('journal:' + req.session.userId, { entries, custom });
+    const cols = _jrCleanCols(req.body && req.body.cols);   // colonnes du compte (ordre/masquage/renommage/custom)
+    const stored = { entries, custom }; if (cols) stored.cols = cols;
+    await auth.aiCacheSet('journal:' + req.session.userId, stored);
     res.json({ ok: true, count: entries.length });
   } catch { res.status(500).json({ ok: false }); }
 });
