@@ -8997,6 +8997,62 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jr-tab { background: none; border: none; border-bottom: 2px solid transparent; color: var(--text3); font-size: 12px; font-weight: 600; padding: 6px 12px; cursor: pointer; transition: color .12s, border-color .12s; }
 .jr-tab:hover { color: var(--text); }
 .jr-tab--active { color: var(--orange); border-bottom-color: var(--orange); }
+
+/* ════════ Journal — TRADE LOG : toolbar + grille éditable façon Notion (HUD pro) ════════ */
+#jr-log-view { display: flex; flex-direction: column; min-height: 0; flex: 1 1 auto; }
+.jr-toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.jr-tb-btn { height: 28px; padding: 0 12px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg3); color: var(--text2); font-size: 11.5px; font-family: var(--font-ui); cursor: pointer; transition: .12s; white-space: nowrap; }
+.jr-tb-btn:hover { color: var(--text); border-color: var(--border2); background: var(--bg2); }
+.jr-tb-btn--add { background: rgba(255,122,0,0.14); border-color: rgba(255,122,0,0.42); color: var(--orange); font-weight: 700; }
+.jr-tb-btn--add:hover { background: rgba(255,122,0,0.22); color: #ffb45e; border-color: rgba(255,122,0,0.6); }
+.jr-tb-spacer { flex: 1; }
+.jr-tb-mode { font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text3); padding: 3px 9px; border: 1px solid var(--border); border-radius: 20px; white-space: nowrap; }
+.jr-tb-mode--perso { color: #00e676; border-color: rgba(0,230,118,0.35); background: rgba(0,230,118,0.08); }
+
+.jr-grid-wrap { flex: 1; min-height: 0; overflow: auto; -webkit-overflow-scrolling: touch; }
+.jr-grid { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+.jr-grid thead th { position: sticky; top: 0; z-index: 3; background: #101013; text-align: left; padding: 8px 11px; font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); border-bottom: 1px solid var(--border2); border-right: 1px solid var(--hud-line); white-space: nowrap; }
+.jr-grid thead th.jr-th-act { border-right: none; min-width: 36px; }
+.jr-grid thead th:first-child { left: 0; z-index: 5; }
+.jr-grid td { border-bottom: 1px solid var(--hud-line); border-right: 1px solid var(--hud-line); vertical-align: middle; }
+.jr-grid tbody tr:hover td { background: rgba(255,255,255,0.022); }
+.jr-c { padding: 5px 9px; font-size: 11.5px; color: var(--text2); line-height: 1.35; cursor: pointer; max-width: 250px; }
+.jr-c--multi, .jr-c--select { white-space: normal; }
+.jr-c:hover { box-shadow: inset 0 0 0 1px rgba(255,122,0,0.28); }
+.jr-grid td.jr-c--title { position: sticky; left: 0; z-index: 2; background: #0c0c0e; }
+.jr-grid tbody tr:hover td.jr-c--title { background: #161619; }
+.jr-cv-title { font-weight: 700; color: var(--text); font-family: var(--font-mono); white-space: nowrap; }
+.jr-cv-date { font-family: var(--font-mono); white-space: nowrap; color: var(--text2); }
+.jr-cv-num { font-family: var(--font-mono); white-space: nowrap; }
+.jr-ph { color: #44444c; font-style: normal; }
+.jr-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 600; line-height: 1.15; padding: 2px 8px; margin: 1px 3px 1px 0; border: 1px solid transparent; border-radius: 11px; white-space: nowrap; }
+.jr-prog { display: flex; align-items: center; gap: 7px; min-width: 92px; }
+.jr-prog-t { flex: 1; height: 5px; min-width: 38px; background: #222227; border-radius: 3px; overflow: hidden; }
+.jr-prog-t i { display: block; height: 100%; border-radius: 3px; }
+.jr-prog-l { font-family: var(--font-mono); font-size: 10px; color: var(--text3); white-space: nowrap; }
+.jr-ring { display: inline-flex; align-items: center; justify-content: center; position: relative; width: 26px; height: 26px; }
+.jr-ring svg { width: 26px; height: 26px; }
+.jr-ring b { position: absolute; font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; color: var(--text); }
+.jr-c-act { padding: 4px; text-align: center; white-space: nowrap; }
+.jr-rowdel { background: none; border: 1px solid transparent; border-radius: 4px; color: #45454d; font-size: 11px; cursor: pointer; padding: 3px 7px; opacity: 0; transition: .12s; }
+.jr-grid tbody tr:hover .jr-rowdel { opacity: 1; }
+.jr-rowdel:hover { color: #ff4d2e; background: rgba(255,61,0,0.10); }
+.jr-rowdel--c { opacity: 1; color: #ff4d2e; border-color: rgba(255,61,0,0.45); background: rgba(255,61,0,0.10); font-size: 10px; font-weight: 700; }
+.jr-cell-input { width: 100%; min-width: 70px; height: 26px; padding: 0 7px; background: #1a1a1f; border: 1px solid var(--orange); border-radius: 4px; color: var(--text); font-size: 11.5px; font-family: var(--font-ui); box-shadow: 0 0 0 2px rgba(255,122,0,0.15); }
+.jr-cell-input:focus { outline: none; }
+/* Popover éditeur (select / multi) façon Notion */
+.jr-pop { position: fixed; z-index: 9000; max-width: 340px; max-height: 340px; overflow-y: auto; background: #151519; border: 1px solid var(--border2); border-radius: 8px; box-shadow: 0 14px 34px rgba(0,0,0,0.6); padding: 6px; }
+.jr-pop-search { width: 100%; height: 28px; padding: 0 8px; margin-bottom: 5px; background: #0e0e11; border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-size: 11.5px; font-family: var(--font-ui); }
+.jr-pop-search:focus { outline: none; border-color: var(--orange); }
+.jr-pop-chips { display: flex; flex-wrap: wrap; gap: 2px; padding: 2px 2px 6px; border-bottom: 1px solid var(--hud-line); margin-bottom: 6px; }
+.jr-chip-x { cursor: pointer; opacity: .55; font-weight: 700; font-size: 12px; }
+.jr-chip-x:hover { opacity: 1; }
+.jr-pop-opts { display: flex; flex-direction: column; gap: 1px; }
+.jr-pop-opt { display: flex; align-items: center; gap: 6px; text-align: left; background: none; border: none; border-radius: 5px; padding: 5px 7px; cursor: pointer; color: var(--text2); font-size: 11.5px; font-family: var(--font-ui); width: 100%; }
+.jr-pop-opt:hover { background: rgba(255,255,255,0.05); }
+.jr-pop-ck { margin-left: auto; color: var(--orange); font-weight: 700; }
+.jr-pop-new { color: var(--orange); font-weight: 600; }
+.jr-pop-clear { color: var(--text3); }
 #jr-log-view.hidden, #jr-dashboard.hidden { display: none; }
 
 /* ════════ Performance Dashboard (façon Performance Dashboard 3.0, identité HUD) ════════ */
@@ -9022,7 +9078,21 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jrd-eq { width: 100%; height: 150px; display: block; }
 .jrd-empty { color: var(--text3); font-size: 12px; padding: 14px 0; text-align: center; }
 .jrd-empty-big { color: var(--text3); font-size: 13px; text-align: center; padding: 44px 16px; }
-@media (max-width: 760px) { .jrd-row { grid-template-columns: 1fr; } }
+/* amCharts : courbe de performance + donut de répartition */
+.jrd-row--charts { grid-template-columns: 224px minmax(0, 1fr); }
+.jrd-card--donut, .jrd-card--eq { display: flex; flex-direction: column; }
+.jr-chart-am { width: 100%; min-width: 0; }
+.jr-chart-am--eq { height: 216px; }
+.jr-chart-am--donut { height: 148px; }
+.jrd-eqtoggle { margin-left: auto; display: inline-flex; gap: 3px; }
+.jrd-eqtoggle button { background: var(--bg3); border: 1px solid var(--border); color: var(--text3); font-size: 9.5px; font-weight: 600; padding: 2px 8px; border-radius: 4px; cursor: pointer; font-family: var(--font-ui); transition: .12s; }
+.jrd-eqtoggle button:hover { color: var(--text); border-color: var(--border2); }
+.jrd-eqtoggle button.active { background: rgba(255,122,0,0.15); border-color: rgba(255,122,0,0.45); color: var(--orange); }
+.jrd-legend { display: flex; flex-wrap: wrap; gap: 5px 12px; padding: 8px 2px 0; justify-content: center; }
+.jrd-leg { font-size: 10px; color: var(--text3); display: inline-flex; align-items: center; gap: 5px; }
+.jrd-leg i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
+.jrd-leg b { color: var(--text); font-family: var(--font-mono); }
+@media (max-width: 760px) { .jrd-row, .jrd-row--charts { grid-template-columns: 1fr; } }
 
 /* ════════ Calculatrice de taille de position (icône topbar à côté du journal) ════════ */
 .topbar-icon--calc { margin-right: 10px; flex-shrink: 0; }

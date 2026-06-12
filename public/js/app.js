@@ -7049,6 +7049,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 // dialog natif), suppression avec confirmation inline, stats calculées sur les données réelles.
 (function () {
   let _jrList = null;        // entrées chargées (null = pas encore fetché)
+  let _jrCustom = false;     // false = gabarit DTP (options par défaut) ; true = journal PERSO importé (options de l'utilisateur uniquement, jamais mélangées au DTP)
   let _jrEdit = null;        // id en cours d'édition (null = mode ajout)
   let _jrDelPending = null;  // id en attente de confirmation de suppression
   let _jrSaveT = null;       // debounce de sauvegarde serveur
@@ -7071,7 +7072,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     clearTimeout(_jrSaveT);
     _jrStatus('Sauvegarde…');
     _jrSaveT = setTimeout(() => {
-      fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: _jrList || [] }) })
+      fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: _jrList || [], custom: _jrCustom }) })
         .then(r => r.json()).then(j => _jrStatus(j && j.ok ? 'Enregistré ✓' : 'Erreur de sauvegarde'))
         .catch(() => _jrStatus('Hors-ligne — réessaiera'));
     }, 600);
@@ -7082,100 +7083,245 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrRenderStats() {
     const host = document.getElementById('jr-stats'); if (!host) return;
     const L = _jrList || [];
-    const closed = L.filter(e => e.exit != null || e.pl != null);
-    const results = closed.map(_jrWin).filter(r => r != null);
-    const wins = results.filter(r => r > 0).length;
-    const winrate = results.length ? Math.round(wins / results.length * 100) : null;
-    const pips = closed.reduce((a, e) => { const p = _jrPips(e); return a + (p || 0); }, 0);
-    const pl = L.reduce((a, e) => a + (e.pl || 0), 0);
+    const rs = L.map(e => e.r).filter(r => r != null && r !== '' && isFinite(Number(r))).map(Number);
+    const wins = rs.filter(r => r > 0).length;
+    const totR = rs.reduce((a, b) => a + b, 0);
+    const totD = L.reduce((a, e) => a + (Number(e.pl) || 0), 0);
+    const wr = rs.length ? Math.round(wins / rs.length * 100) : null;
     const cls = v => v > 0 ? 'jr-pos' : v < 0 ? 'jr-neg' : '';
     host.innerHTML =
       '<span class="jr-stat"><i>Trades</i><b>' + L.length + '</b></span>'
-      + '<span class="jr-stat"><i>Ouverts</i><b>' + (L.length - closed.length) + '</b></span>'
-      + '<span class="jr-stat"><i>Winrate</i><b>' + (winrate == null ? '—' : winrate + '%') + '</b></span>'
-      + '<span class="jr-stat"><i>Pips nets</i><b class="' + cls(pips) + '">' + (pips ? (pips > 0 ? '+' : '') + pips.toFixed(1).replace('.', ',') : '—') + '</b></span>'
-      + '<span class="jr-stat"><i>P&amp;L net</i><b class="' + cls(pl) + '">' + (pl ? (pl > 0 ? '+' : '') + pl.toFixed(2).replace('.', ',') + ' €' : '—') + '</b></span>';
+      + '<span class="jr-stat"><i>Winrate</i><b>' + (wr == null ? '—' : wr + '%') + '</b></span>'
+      + '<span class="jr-stat"><i>Total R</i><b class="' + cls(totR) + '">' + (totR >= 0 ? '+' : '') + (Math.round(totR * 100) / 100).toString().replace('.', ',') + '</b></span>'
+      + '<span class="jr-stat"><i>Total $</i><b class="' + cls(totD) + '">' + (totD >= 0 ? '+' : '') + Math.round(totD).toLocaleString('fr-FR') + ' $</b></span>';
   }
 
-  function _jrRenderForm() {
-    const host = document.getElementById('jr-form'); if (!host) return;
-    const e = _jrEdit != null ? (_jrList || []).find(x => x.id === _jrEdit) : null;
-    const v = (x) => x == null ? '' : String(x);
-    host.innerHTML =
-      '<input id="jr-pair" list="jr-pairs" placeholder="Paire (EUR/USD)" maxlength="12" value="' + _esc(e ? e.pair : '') + '">'
-      + '<datalist id="jr-pairs">' + JR_PAIRS.map(p => '<option value="' + p + '">').join('') + '</datalist>'
-      + '<select id="jr-dir"><option value="BUY"' + (e && e.dir === 'BUY' ? ' selected' : '') + '>BUY</option><option value="SELL"' + (e && e.dir === 'SELL' ? ' selected' : '') + '>SELL</option></select>'
-      + '<input id="jr-lots"  type="number" step="0.01" min="0" placeholder="Lots"    value="' + v(e && e.lots) + '">'
-      + '<input id="jr-entry" type="number" step="any"          placeholder="Entrée" value="' + v(e && e.entry) + '">'
-      + '<input id="jr-exit"  type="number" step="any"          placeholder="Sortie (vide = ouvert)" value="' + v(e && e.exit) + '">'
-      + '<input id="jr-pl"    type="number" step="any"          placeholder="P&L € (optionnel)" value="' + v(e && e.pl) + '">'
-      + '<input id="jr-note"  type="text" maxlength="300"       placeholder="Note (setup, raison, leçon…)" value="' + _esc(e ? e.note : '') + '">'
-      + '<button type="button" class="jr-btn jr-btn--add" id="jr-submit">' + (e ? 'Mettre à jour' : '+ Ajouter') + '</button>'
-      + (e ? '<button type="button" class="jr-btn" id="jr-cancel">Annuler</button>' : '')
-      + '<span class="jr-form-sep"></span>'
-      + '<button type="button" class="jr-btn jr-btn--import" id="jr-import" title="Importer vos trades depuis un fichier Excel/CSV ou un export Notion (CSV). Les colonnes (paire, sens, entrée, sortie, P&amp;L, note…) sont détectées automatiquement.">&#8593; Importer (Excel / Notion)</button>'
-      + '<input type="file" id="jr-import-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" style="display:none">';
-    const num = id => { const x = parseFloat(document.getElementById(id).value); return isFinite(x) ? x : null; };
-    document.getElementById('jr-submit').onclick = () => {
-      const pair = (document.getElementById('jr-pair').value || '').toUpperCase().trim();
-      if (pair.length < 2) { document.getElementById('jr-pair').focus(); return; }
-      const rec = {
-        id: e ? e.id : (Date.now().toString(36) + Math.random().toString(36).slice(2, 7)),
-        ts: e ? e.ts : Date.now(),
-        pair, dir: document.getElementById('jr-dir').value === 'SELL' ? 'SELL' : 'BUY',
-        lots: num('jr-lots'), entry: num('jr-entry'), exit: num('jr-exit'), pl: num('jr-pl'),
-        note: (document.getElementById('jr-note').value || '').slice(0, 300),
-      };
-      if (e) { const i = _jrList.findIndex(x => x.id === e.id); if (i >= 0) _jrList[i] = rec; }
-      else _jrList.unshift(rec);
-      _jrEdit = null;
-      _jrRender(); _jrSave();
-    };
-    const c = document.getElementById('jr-cancel'); if (c) c.onclick = () => { _jrEdit = null; _jrRenderForm(); };
-    const imp = document.getElementById('jr-import'), impFile = document.getElementById('jr-import-file');
-    if (imp && impFile) { imp.onclick = () => impFile.click(); impFile.onchange = ev => _jrImportFile(ev); }
+  // ═══ TRADE LOG — GRILLE ÉDITABLE FAÇON NOTION (colonnes/propriétés de l'utilisateur) ═══
+  const _JR_DIR_DISP = { BUY: 'Long', SELL: 'Short' };
+  const _JR_COLDEF = [
+    { k: 'pair',    label: 'Pairs',          type: 'title',    w: 94 },
+    { k: 'ts',      label: 'Date',           type: 'date',     w: 120 },
+    { k: 'result',  label: 'Result',         type: 'select',   w: 86 },
+    { k: 'day',     label: 'Day',            type: 'day',      w: 100 },
+    { k: 'session', label: 'Session',        type: 'select',   w: 92 },
+    { k: 'dir',     label: 'Direction',      type: 'select',   w: 92, disp: _JR_DIR_DISP },
+    { k: 'fonda',   label: 'Fonda Strength', type: 'progress', w: 128, max: 100 },
+    { k: 'conf',    label: 'Confluence',     type: 'multi',    w: 172 },
+    { k: 'tf',      label: 'Time Frame',     type: 'multi',    w: 128 },
+    { k: 'setup',   label: 'Setup',          type: 'multi',    w: 172 },
+    { k: 'entryT',  label: 'Entry',          type: 'multi',    w: 144 },
+    { k: 'sl',      label: 'SL',             type: 'multi',    w: 124 },
+    { k: 'grade',   label: 'Grade',          type: 'ring',     w: 74, max: 5 },
+    { k: 'rr',      label: 'RR Target',      type: 'num',      w: 88 },
+    { k: 'risk',    label: 'Risk %',         type: 'num',      w: 80, suffix: ' %' },
+    { k: 'r',       label: 'R PNL',          type: 'num',      w: 80, signed: true },
+    { k: 'pnlPct',  label: '% PNL',          type: 'num',      w: 82, suffix: ' %', signed: true },
+    { k: 'pl',      label: '$PNL',           type: 'money',    w: 106, signed: true },
+    { k: 'equity',  label: '$ Equity',       type: 'money',    w: 124 },
+    { k: 'err',     label: 'ERREUR',         type: 'multi',    w: 132 },
+    { k: 'account', label: 'Account',        type: 'select',   w: 124 },
+  ];
+  // Gabarit d'options PAR DÉFAUT du DTP — proposé tant qu'aucun import perso n'a personnalisé le journal.
+  // Dès qu'un compte importe (_jrCustom=true), on n'affiche QUE ses options (pas de mélange avec le DTP).
+  const _JR_DTP_DEFAULTS = {
+    result:  ['Profit', 'TP', 'BE', 'SL', 'Loss'],
+    session: ['London', 'New York', 'Asia', 'Sydney'],
+    dir:     ['BUY', 'SELL'],
+    conf:    ['Trend', 'Structure', 'Support/Résistance', 'Fibonacci', 'Order Block', 'Liquidité', 'Divergence', 'News'],
+    tf:      ['M5', 'M15', 'M30', 'H1', 'H4', 'Daily', 'Weekly'],
+    setup:   ['Breakout', 'Reversal', 'Continuation', 'Pullback', 'Range'],
+    entryT:  ['Break', 'Retest', 'Rejet', 'Pullback'],
+    sl:      ['Serré', 'Normal', 'Large', 'Structure'],
+    err:     ['FOMO', 'Sur-risque', 'Entrée anticipée', 'SL trop serré', 'Revenge trade', 'Hors plan'],
+    account: ['Main Account', 'Démo', 'Funded'],
+  };
+  const _JR_STRUCT = { result: 1, dir: 1 };   // colonnes structurelles : options de base toujours proposées
+  const _JR_CHIPS = [
+    { bg: 'rgba(127,179,255,.15)', fg: '#a8ccff', bd: 'rgba(127,179,255,.32)' },
+    { bg: 'rgba(255,196,120,.15)', fg: '#ffd093', bd: 'rgba(255,196,120,.32)' },
+    { bg: 'rgba(120,230,170,.14)', fg: '#8ef0bd', bd: 'rgba(120,230,170,.30)' },
+    { bg: 'rgba(255,140,180,.15)', fg: '#ffa6c6', bd: 'rgba(255,140,180,.32)' },
+    { bg: 'rgba(186,140,255,.15)', fg: '#ccaaff', bd: 'rgba(186,140,255,.32)' },
+    { bg: 'rgba(255,168,120,.15)', fg: '#ffba93', bd: 'rgba(255,168,120,.32)' },
+    { bg: 'rgba(120,224,224,.14)', fg: '#8fe6e6', bd: 'rgba(120,224,224,.30)' },
+    { bg: 'rgba(206,220,130,.14)', fg: '#dde88f', bd: 'rgba(206,220,130,.30)' },
+    { bg: 'rgba(165,170,190,.14)', fg: '#c2c6d6', bd: 'rgba(165,170,190,.30)' },
+  ];
+  const _JR_SEMCOL = {
+    result:  { profit: '#00e676', tp: '#00cc99', be: '#ffb300', sl: '#ff8f00', loss: '#ff3d00' },
+    dir:     { buy: '#00e676', long: '#00e676', sell: '#ff3d00', short: '#ff3d00' },
+    session: { london: '#7fb3ff', 'new york': '#ffb27f', us: '#ffb27f', asia: '#c5a3ff', sydney: '#8fe6e6' },
+  };
+  function _jrHash(s) { let h = 0; s = String(s || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+  function _jrHexChip(hex) {
+    const n = hex.replace('#', ''), r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16), lt = c => Math.round(c + (255 - c) * 0.5);
+    return { bg: 'rgba(' + r + ',' + g + ',' + b + ',.16)', fg: 'rgb(' + lt(r) + ',' + lt(g) + ',' + lt(b) + ')', bd: 'rgba(' + r + ',' + g + ',' + b + ',.36)' };
   }
-
-  function _jrRenderRows() {
-    const body = document.getElementById('jr-body'); if (!body) return;
-    const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    if (!L.length) { body.innerHTML = '<tr><td colspan="10" class="jr-empty">Aucun trade pour l’instant — ajoutez votre premier trade ci-dessus.</td></tr>'; return; }
-    body.innerHTML = L.map(e => {
-      const pips = _jrPips(e), w = _jrWin(e);
-      const open = e.exit == null && e.pl == null;
-      const cls = v => v > 0 ? 'jr-pos' : v < 0 ? 'jr-neg' : '';
-      return '<tr data-id="' + _esc(e.id) + '" class="' + (w != null ? (w > 0 ? 'jr-row-win' : w < 0 ? 'jr-row-loss' : '') : '') + '">'
-        + '<td class="jr-mono">' + _jrFmtDate(e.ts) + '</td>'
-        + '<td class="jr-pair">' + _esc(e.pair) + '</td>'
-        + '<td><span class="jr-dir jr-' + (e.dir === 'SELL' ? 'sell' : 'buy') + '">' + e.dir + '</span></td>'
-        + '<td class="jr-mono">' + _jrNum(e.lots) + '</td>'
-        + '<td class="jr-mono">' + _jrNum(e.entry) + '</td>'
-        + '<td class="jr-mono">' + (open ? '<span class="jr-open">OUVERT</span>' : _jrNum(e.exit)) + '</td>'
-        + '<td class="jr-mono ' + cls(pips) + '">' + (pips == null ? '—' : (pips > 0 ? '+' : '') + String(pips).replace('.', ',')) + '</td>'
-        + '<td class="jr-mono ' + cls(e.pl) + '">' + (e.pl == null ? '—' : (e.pl > 0 ? '+' : '') + e.pl.toFixed(2).replace('.', ',')) + '</td>'
-        + '<td class="jr-note">' + _esc(e.note) + '</td>'
-        + '<td class="jr-actions"><button type="button" class="jr-act" data-act="edit" title="Modifier">✎</button>'
-        + (_jrDelPending === e.id
-            ? '<button type="button" class="jr-act jr-act--confirm" data-act="del">Confirmer ?</button>'
-            : '<button type="button" class="jr-act jr-act--del" data-act="del" title="Supprimer">✕</button>')
-        + '</td></tr>';
-    }).join('');
+  function _jrChip(colKey, value) {
+    const sem = _JR_SEMCOL[colKey] && _JR_SEMCOL[colKey][String(value).toLowerCase()];
+    return sem ? _jrHexChip(sem) : _JR_CHIPS[_jrHash(colKey + '|' + value) % _JR_CHIPS.length];
   }
-
-  function _jrRender() { _jrRenderStats(); _jrRenderForm(); _jrRenderRows(); if (_jrTab === 'dash') _jrRenderDashboard(); }
-
-  // Délégation : éditer / supprimer (confirmation INLINE, jamais de confirm() natif)
-  document.addEventListener('click', ev => {
-    const btn = ev.target.closest && ev.target.closest('.jr-act');
-    if (!btn) { if (_jrDelPending) { _jrDelPending = null; _jrRenderRows(); } return; }
-    if (!_jrList) return;
-    const id = btn.closest('tr') && btn.closest('tr').dataset.id;
-    if (!id) return;
-    if (btn.dataset.act === 'edit') { _jrEdit = id; _jrDelPending = null; _jrRenderForm(); const p = document.getElementById('jr-pair'); if (p) p.focus(); }
-    else if (btn.dataset.act === 'del') {
-      if (_jrDelPending === id) { _jrList = _jrList.filter(x => x.id !== id); if (_jrEdit === id) _jrEdit = null; _jrDelPending = null; _jrRender(); _jrSave(); }
-      else { _jrDelPending = id; _jrRenderRows(); setTimeout(() => { if (_jrDelPending === id) { _jrDelPending = null; _jrRenderRows(); } }, 3500); }
+  function _jrChipHtml(text, c) { return '<span class="jr-chip" style="background:' + c.bg + ';color:' + c.fg + ';border-color:' + c.bd + '">' + _esc(text) + '</span>'; }
+  function _jrOptions(col) {
+    const set = new Map(), add = v => { v = String(v == null ? '' : v).trim(); if (v) { const k = v.toLowerCase(); if (!set.has(k)) set.set(k, v); } };
+    if (_JR_STRUCT[col.k] || !_jrCustom) (_JR_DTP_DEFAULTS[col.k] || []).forEach(add);   // gabarit DTP (ou colonne structurelle)
+    for (const e of (_jrList || [])) { const v = e[col.k]; if (Array.isArray(v)) v.forEach(add); else add(v); }   // + valeurs réelles (perso)
+    return Array.from(set.values());
+  }
+  const _JR_MONTHS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  const _JR_DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  function _jrFmtDateFr(ts) { try { const d = new Date(ts); return d.getDate() + ' ' + _JR_MONTHS_FR[d.getMonth()] + ' ' + d.getFullYear(); } catch (e) { return '—'; } }
+  function _jrDayEn(ts) { try { return _JR_DAYS_EN[new Date(ts).getDay()]; } catch (e) { return ''; } }
+  function _jrTsToInput(ts) { try { const d = new Date(ts), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); } catch (e) { return ''; } }
+  function _jrFmtNum(v, signed) { if (v == null || v === '') return ''; const n = Number(v); if (!isFinite(n)) return _esc(String(v)); const s = (Math.round(n * 100) / 100).toString().replace('.', ','); return (signed && n > 0 ? '+' : '') + s; }
+  function _jrRingHtml(val, max) {
+    const f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#ff7a00';
+    return '<span class="jr-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="#26262c" stroke-width="2.6"/><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" transform="rotate(-90 12 12)"/></svg><b>' + _jrFmtNum(val) + '</b></span>';
+  }
+  function _jrCell(e, col) {
+    const v = e[col.k];
+    switch (col.type) {
+      case 'title': return '<span class="jr-cv-title">' + (e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>') + '</span>';
+      case 'date': return e.ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(e.ts) + '</span>' : '<i class="jr-ph">—</i>';
+      case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIPS[8]) : '<i class="jr-ph">—</i>'; }
+      case 'select': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; return _jrChipHtml((col.disp && col.disp[v]) || v, _jrChip(col.k, v)); }
+      case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">—</i>'; }
+      case 'num': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
+      case 'money': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + (col.signed && n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
+      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#ff7a00'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + ' %</span></div>'; }
+      case 'ring': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : _jrRingHtml(Number(v), col.max || 5);
     }
+    return '';
+  }
+  function _jrPaint(td, e, col) { td.innerHTML = _jrCell(e, col); }
+  function _jrRenderToolbar() {
+    const host = document.getElementById('jr-toolbar'); if (!host) return;
+    host.innerHTML =
+      '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (CSV) / Excel — remplace le gabarit DTP par TON journal">&#8593; Importer (Excel / Notion)</button>'
+      + '<input type="file" id="jr-import-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" style="display:none">'
+      + '<span class="jr-tb-spacer"></span>'
+      + '<span class="jr-tb-mode ' + (_jrCustom ? 'jr-tb-mode--perso' : '') + '">' + (_jrCustom ? '● Journal perso' : '○ Gabarit DTP') + '</span>';
+    const add = document.getElementById('jr-add'); if (add) add.onclick = _jrAddRow;
+    const imp = document.getElementById('jr-import'), f = document.getElementById('jr-import-file');
+    if (imp && f) { imp.onclick = () => f.click(); f.onchange = ev => _jrImportFile(ev); }
+  }
+  function _jrAddRow() {
+    if (!_jrList) _jrList = [];
+    const e = { id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), ts: Date.now(), pair: '', dir: 'BUY', lots: null, entry: null, exit: null, pl: null, note: '', result: '', session: '', grade: '', account: '', fonda: null, rr: null, risk: null, r: null, pnlPct: null, equity: null, conf: [], entryT: [], err: [], setup: [], tf: [], sl: [] };
+    _jrList.unshift(e); _jrRender();
+    setTimeout(() => { const td = document.querySelector('#jr-grid tbody tr[data-id="' + e.id + '"] td[data-k="pair"]'); if (td) _jrEditCell(td); }, 30);
+  }
+
+  function _jrRenderGrid() {
+    const tbl = document.getElementById('jr-grid'); if (!tbl) return;
+    const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const head = '<thead><tr>' + _JR_COLDEF.map(c => '<th style="min-width:' + c.w + 'px">' + _esc(c.label) + '</th>').join('') + '<th class="jr-th-act"></th></tr></thead>';
+    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + (_JR_COLDEF.length + 1) + '">Aucun trade — clique « + Nouveau » ou importe ton journal Notion (CSV).</td></tr></tbody>'; return; }
+    tbl.innerHTML = head + '<tbody>' + L.map(e =>
+      '<tr data-id="' + _esc(e.id) + '">'
+      + _JR_COLDEF.map(c => '<td class="jr-c jr-c--' + c.type + '" data-k="' + c.k + '">' + _jrCell(e, c) + '</td>').join('')
+      + '<td class="jr-c-act">' + (_jrDelPending === e.id ? '<button class="jr-rowdel jr-rowdel--c" data-act="del">Suppr. ?</button>' : '<button class="jr-rowdel" data-act="del" title="Supprimer">&#10005;</button>') + '</td>'
+      + '</tr>').join('') + '</tbody>';
+  }
+
+  // ── Éditeurs de cellule (popover façon Notion) ──
+  let _jrPop = null, _jrPopOut = null;
+  function _jrPopEsc(ev) { if (ev.key === 'Escape') _jrClosePop(); }
+  function _jrClosePop() { if (_jrPop) { _jrPop.remove(); _jrPop = null; } if (_jrPopOut) { document.removeEventListener('mousedown', _jrPopOut, true); document.removeEventListener('keydown', _jrPopEsc, true); _jrPopOut = null; } }
+  function _jrOpenPop(anchor, html) {
+    _jrClosePop();
+    const p = document.createElement('div'); p.className = 'jr-pop'; p.innerHTML = html; document.body.appendChild(p);
+    const r = anchor.getBoundingClientRect();
+    p.style.minWidth = Math.max(r.width, 198) + 'px';
+    let left = r.left, top = r.bottom + 4;
+    if (left + p.offsetWidth > window.innerWidth - 8) left = Math.max(8, window.innerWidth - 8 - p.offsetWidth);
+    if (top + p.offsetHeight > window.innerHeight - 8) top = Math.max(8, r.top - p.offsetHeight - 4);
+    p.style.left = left + 'px'; p.style.top = top + 'px';
+    _jrPop = p;
+    _jrPopOut = ev => { if (_jrPop && !_jrPop.contains(ev.target) && !anchor.contains(ev.target)) _jrClosePop(); };
+    setTimeout(() => { document.addEventListener('mousedown', _jrPopOut, true); document.addEventListener('keydown', _jrPopEsc, true); }, 0);
+    return p;
+  }
+  function _jrEditCell(td) {
+    const tr = td.closest('tr'), id = tr && tr.dataset.id, k = td.dataset.k;
+    const col = _JR_COLDEF.find(c => c.k === k), e = (_jrList || []).find(x => x.id === id);
+    if (!col || !e || col.type === 'day') return;
+    if (col.type === 'select') return _jrEditSelect(td, e, col);
+    if (col.type === 'multi') return _jrEditMulti(td, e, col);
+    if (col.type === 'date') return _jrEditDate(td, e, col);
+    return _jrEditText(td, e, col);
+  }
+  function _jrEditText(td, e, col) {
+    const raw = col.type === 'title' ? (e.pair || '') : (e[col.k] == null ? '' : String(e[col.k]).replace('.', ','));
+    const inp = document.createElement('input'); inp.className = 'jr-cell-input'; inp.value = raw;
+    td.innerHTML = ''; td.appendChild(inp); inp.focus(); inp.select();
+    const done = save => {
+      if (save) { if (col.type === 'title') e.pair = inp.value.toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12); else e[col.k] = _jrParseNum(inp.value); _jrSave(); }
+      _jrPaint(td, e, col); _jrRenderStats();
+    };
+    inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') { ev.preventDefault(); done(false); } };
+    inp.onblur = () => done(true);
+  }
+  function _jrEditDate(td, e, col) {
+    const inp = document.createElement('input'); inp.type = 'date'; inp.className = 'jr-cell-input'; inp.value = e.ts ? _jrTsToInput(e.ts) : '';
+    td.innerHTML = ''; td.appendChild(inp); inp.focus();
+    const done = save => { if (save && inp.value) { const a = inp.value.split('-').map(Number); e.ts = Date.UTC(a[0], a[1] - 1, a[2], 12, 0, 0); _jrSave(); _jrRenderGrid(); return; } _jrPaint(td, e, col); };
+    inp.onchange = () => done(true);
+    inp.onkeydown = ev => { if (ev.key === 'Escape') done(false); };
+    inp.onblur = () => { if (!inp.value) done(false); };
+  }
+  function _jrEditSelect(td, e, col) {
+    const pop = _jrOpenPop(td, '<input class="jr-pop-search" placeholder="Rechercher / créer…"><div class="jr-pop-opts"></div>');
+    const search = pop.querySelector('.jr-pop-search'), box = pop.querySelector('.jr-pop-opts');
+    const set = v => { e[col.k] = v; _jrSave(); _jrClosePop(); _jrPaint(td, e, col); };
+    const paint = filter => {
+      const f = (filter || '').trim().toLowerCase(), cur = e[col.k];
+      let h = _jrOptions(col).filter(o => o.toLowerCase().includes(f)).map(o => '<button class="jr-pop-opt" data-v="' + _esc(o) + '">' + _jrChipHtml((col.disp && col.disp[o]) || o, _jrChip(col.k, o)) + (String(cur) === o ? '<span class="jr-pop-ck">✓</span>' : '') + '</button>').join('');
+      if (f && !_jrOptions(col).some(o => o.toLowerCase() === f)) h += '<button class="jr-pop-opt jr-pop-new" data-v="' + _esc(filter.trim()) + '">+ Créer « ' + _esc(filter.trim()) + ' »</button>';
+      h += '<button class="jr-pop-opt jr-pop-clear" data-v="">— Vider —</button>';
+      box.innerHTML = h;
+    };
+    box.addEventListener('click', ev => { const b = ev.target.closest('.jr-pop-opt'); if (b) set(b.dataset.v); });
+    if (search) { search.oninput = () => paint(search.value); search.focus(); }
+    paint('');
+  }
+  function _jrEditMulti(td, e, col) {
+    if (!Array.isArray(e[col.k])) e[col.k] = e[col.k] ? [String(e[col.k])] : [];
+    const arr = e[col.k];
+    const pop = _jrOpenPop(td, '<div class="jr-pop-multi"></div>'), wrap = pop.querySelector('.jr-pop-multi');
+    let _f = '';
+    const addVal = v => { v = String(v).trim().slice(0, 30); if (v && !arr.some(a => a.toLowerCase() === v.toLowerCase())) { arr.push(v); _jrSave(); _jrPaint(td, e, col); } paint(''); };
+    const rmVal = v => { const i = arr.findIndex(a => a === v); if (i >= 0) { arr.splice(i, 1); _jrSave(); _jrPaint(td, e, col); } paint(_f); };
+    const paint = filter => {
+      _f = filter || ''; const f = _f.trim().toLowerCase();
+      const avail = _jrOptions(col).filter(o => !arr.some(a => a.toLowerCase() === o.toLowerCase()) && o.toLowerCase().includes(f));
+      let h = '<div class="jr-pop-chips">' + (arr.length ? arr.map(x => { const c = _jrChip(col.k, x); return '<span class="jr-chip" style="background:' + c.bg + ';color:' + c.fg + ';border-color:' + c.bd + '">' + _esc(x) + ' <b class="jr-chip-x" data-rm="' + _esc(x) + '">×</b></span>'; }).join('') : '<i class="jr-ph">Aucune</i>') + '</div>';
+      h += '<input class="jr-pop-search" placeholder="Ajouter / créer…">';
+      h += '<div class="jr-pop-opts">' + avail.map(o => '<button class="jr-pop-opt" data-add="' + _esc(o) + '">' + _jrChipHtml(o, _jrChip(col.k, o)) + '</button>').join('');
+      if (f && !_jrOptions(col).some(o => o.toLowerCase() === f) && !arr.some(a => a.toLowerCase() === f)) h += '<button class="jr-pop-opt jr-pop-new" data-add="' + _esc(_f.trim()) + '">+ Créer « ' + _esc(_f.trim()) + ' »</button>';
+      h += '</div>';
+      wrap.innerHTML = h;
+      const s = wrap.querySelector('.jr-pop-search'); if (s) { s.value = _f; s.focus(); s.oninput = () => paint(s.value); s.onkeydown = ev => { if (ev.key === 'Enter' && s.value.trim()) { ev.preventDefault(); addVal(s.value.trim()); } }; }
+    };
+    wrap.addEventListener('click', ev => { const a = ev.target.closest('[data-add]'), r = ev.target.closest('[data-rm]'); if (a) addVal(a.dataset.add); else if (r) rmVal(r.dataset.rm); });
+    paint('');
+  }
+
+  function _jrRender() { _jrRenderStats(); _jrRenderToolbar(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
+
+  // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
+  document.addEventListener('click', ev => {
+    const del = ev.target.closest && ev.target.closest('.jr-rowdel');
+    if (del) {
+      const tr = del.closest('tr'), id = tr && tr.dataset.id; if (!id || !_jrList) return;
+      if (_jrDelPending === id) { _jrList = _jrList.filter(x => x.id !== id); _jrDelPending = null; _jrRender(); _jrSave(); }
+      else { _jrDelPending = id; _jrRenderGrid(); setTimeout(() => { if (_jrDelPending === id) { _jrDelPending = null; _jrRenderGrid(); } }, 3500); }
+      return;
+    }
+    const td = ev.target.closest && ev.target.closest('#jr-grid td.jr-c');
+    if (td) { if (!td.querySelector('.jr-cell-input')) _jrEditCell(td); return; }
+    if (_jrDelPending && !(ev.target.closest && ev.target.closest('.jr-pop'))) { _jrDelPending = null; _jrRenderGrid(); }
   });
 
   // ── Import Excel/CSV ou export Notion (CSV) — détection auto délimiteur + colonnes ──────────
@@ -7278,18 +7424,19 @@ document.addEventListener('DOMContentLoaded', ()=>{
             ts, pair, dir,
             lots: _jrParseNum(get('lots')), entry: _jrParseNum(get('entry')), exit: _jrParseNum(get('exit')),
             pl: _jrParseNum(get('pl')), note: get('note').slice(0, 300),
-            // champs riches du journal Notion → alimentent le dashboard de stats
-            result: get('result').slice(0, 12), session: get('session').slice(0, 24), setup: get('setup').slice(0, 48),
-            grade: get('grade').slice(0, 8), sl: get('sl').slice(0, 16), tf: get('tf').slice(0, 12), account: get('account').slice(0, 32),
+            // champs riches du journal Notion → sélecteurs simples (result/session/grade/account) + multi-tags (conf/entryT/err/setup/tf/sl)
+            result: get('result').slice(0, 12), session: get('session').slice(0, 24),
+            grade: get('grade').slice(0, 8), account: get('account').slice(0, 32),
             fonda: _jrParseNum(get('fonda')), rr: _jrParseNum(get('rr')), risk: _jrParseNum(get('risk')),
             r: _jrParseNum(get('r')), pnlPct: _jrParseNum(get('pnlPct')), equity: _jrParseNum(get('equity')),
-            conf: tag('conf'), entryT: tag('entryT'), err: tag('err'),
+            conf: tag('conf'), entryT: tag('entryT'), err: tag('err'), setup: tag('setup'), tf: tag('tf'), sl: tag('sl'),
           });
           added++;
         }
         if (_jrList.length > 500) _jrList = _jrList.slice(0, 500);
+        if (added) _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
         _jrEdit = null; _jrRender();
-        if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓'); }
+        if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓ — journal personnalisé'); }
         else _jrStatus('Aucune ligne valide trouvée');
       } catch (err) { _jrStatus('Échec de l\'import (' + (err && err.message || err) + ')'); }
     };
@@ -7334,18 +7481,61 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }).join('') || '<div class="jrd-empty">—</div>';
     return '<div class="jrd-card"><div class="jrd-card-h">' + _esc(title) + '</div><div class="jrd-bars">' + body + '</div></div>';
   }
-  function _jrEquity(L) {
-    const closed = L.filter(e => e.pl != null || e.exit != null).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
-    let cum = 0; const pts = closed.map(e => { cum += (_jrN(e.pl) || 0); return cum; });
-    if (pts.length < 2) return '<div class="jrd-card jrd-card--wide"><div class="jrd-card-h">Courbe d\'equity ($)</div><div class="jrd-empty">Pas assez de trades clôturés.</div></div>';
-    const W = 600, H = 150, pad = 8, mn = Math.min(0, ...pts), mx = Math.max(0, ...pts), rg = (mx - mn) || 1;
-    const x = i => pad + i / (pts.length - 1) * (W - 2 * pad), y = v => pad + (1 - (v - mn) / rg) * (H - 2 * pad);
-    const line = pts.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
-    const area = 'M' + x(0).toFixed(1) + ' ' + y(0).toFixed(1) + ' ' + pts.map((v, i) => 'L' + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ') + ' L' + x(pts.length - 1).toFixed(1) + ' ' + y(0).toFixed(1) + ' Z';
-    const last = pts[pts.length - 1];
-    return '<div class="jrd-card jrd-card--wide"><div class="jrd-card-h">Courbe d\'equity ($) <b style="margin-left:auto;color:' + (last >= 0 ? '#00e676' : '#ff3d00') + '">' + (last >= 0 ? '+' : '') + Math.round(last).toLocaleString('fr-FR') + ' $</b></div>'
-      + '<svg class="jrd-eq" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"><line x1="0" y1="' + y(0).toFixed(1) + '" x2="' + W + '" y2="' + y(0).toFixed(1) + '" stroke="#2b2b31" stroke-dasharray="3 3"/><path d="' + area + '" fill="rgba(255,122,0,0.12)"/><path d="' + line + '" fill="none" stroke="#ff7a00" stroke-width="2"/></svg></div>';
+  // ── amCharts 5 : courbe de performance (toggle % / $PNL / $Equity) + donut de répartition ──
+  let _jrEqMode = 'pct', _jrEqSeriesRef = null;
+  const _JR_EQMODE_LBL = { pct: '% cumulé', pl: '$ PNL', equity: '$ Equity' };
+  function _jrEqData(L, mode) {
+    const ok = e => mode === 'equity' ? _jrN(e.equity) != null : mode === 'pl' ? _jrN(e.pl) != null : _jrN(e.pnlPct) != null;
+    const arr = L.filter(ok).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    let cum = 0; const out = [];
+    for (const e of arr) { let y; if (mode === 'equity') y = _jrN(e.equity); else if (mode === 'pl') { cum += (_jrN(e.pl) || 0); y = cum; } else { cum += (_jrN(e.pnlPct) || 0); y = cum; } if (y != null) out.push({ t: e.ts, v: y }); }
+    return out;
   }
+  function _jrDisposeRoot(id) { try { if (typeof am5 === 'undefined') return; const ex = am5.registry.rootElements.find(r => r && r.dom && r.dom.id === id); if (ex) ex.dispose(); } catch (e) {} }
+  function _jrBuildEquityChart(L) {
+    const id = 'jr-eq-chart', el = document.getElementById(id); if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
+    _jrDisposeRoot(id);
+    const root = am5.Root.new(id); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 8, paddingTop: 10, paddingBottom: 2 }));
+    const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 66 });
+    xr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
+    xr.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9.5 });
+    const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, { baseInterval: { timeUnit: 'day', count: 1 }, renderer: xr, extraMin: 0.02, extraMax: 0.03 }));
+    xAxis.set('dateFormats', { day: 'dd MMM', week: 'dd MMM', month: 'MMM yy' });
+    xAxis.set('periodChangeDateFormats', { day: 'dd MMM', month: 'MMM yy' });
+    const yr = am5xy.AxisRendererY.new(root, { opposite: true, minWidth: 50 });
+    yr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
+    yr.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9 });
+    yr.labels.template.adapters.add('text', t => t == null ? t : String(t).replace('.', ','));
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr, maxDeviation: 0.12 }));
+    const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 })); z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.3, strokeWidth: 1 }); if (z.get('label')) z.get('label').set('visible', false);
+    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xff7a00), fill: am5.color(0xff7a00), tooltip: am5.Tooltip.new(root, { labelText: '{valueY.formatNumber("#,###.##")}', getFillFromSprite: false, background: am5.Rectangle.new(root, { fill: am5.color(0x141414), stroke: am5.color(0x333333), strokeWidth: 1 }) }) }));
+    series.strokes.template.setAll({ strokeWidth: 2.3 });
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xff7a00), opacity: 0.34 }, { color: am5.color(0xff7a00), opacity: 0.015 }] }) });
+    series.data.setAll(_jrEqData(L, _jrEqMode));
+    chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis }));
+    _jrEqSeriesRef = series; series.appear(650); chart.appear(650, 60);
+  }
+  window._jrEqSwitch = function (m) {
+    if (!_JR_EQMODE_LBL[m]) return; _jrEqMode = m;
+    document.querySelectorAll('.jrd-eqtoggle button').forEach(b => b.classList.toggle('active', b.dataset.m === m));
+    if (_jrEqSeriesRef) _jrEqSeriesRef.data.setAll(_jrEqData(_jrList || [], m));
+  };
+  function _jrBuildResultDonut(resMap) {
+    const id = 'jr-result-donut', el = document.getElementById(id); if (!el || typeof am5percent === 'undefined') return;
+    _jrDisposeRoot(id);
+    const root = am5.Root.new(id); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    const chart = root.container.children.push(am5percent.PieChart.new(root, { innerRadius: am5.percent(64), paddingTop: 2, paddingBottom: 2 }));
+    const series = chart.series.push(am5percent.PieSeries.new(root, { valueField: 'v', categoryField: 'k', alignLabels: false }));
+    series.labels.template.set('forceHidden', true); series.ticks.template.set('forceHidden', true);
+    series.slices.template.setAll({ strokeWidth: 2, stroke: am5.color(0x0c0c0e), templateField: 'st' });
+    const data = _JR_RES.filter(k => resMap[k]).map(k => ({ k, v: resMap[k], st: { fill: am5.color(parseInt(_RES_COL[k].slice(1), 16)) } }));
+    series.data.setAll(data);
+    const total = data.reduce((a, b) => a + b.v, 0);
+    series.children.push(am5.Label.new(root, { text: "[bold #ffffff fontSize:17px]" + total + "[/]\n[#8a8a92 fontSize:8.5px]TRADES", textAlign: 'center', centerX: am5.p50, centerY: am5.p50, populateText: false }));
+    series.appear(600);
+  }
+  function _jrResultLegend(resMap) { return '<div class="jrd-legend">' + _JR_RES.filter(k => resMap[k]).map(k => '<span class="jrd-leg"><i style="background:' + _RES_COL[k] + '"></i>' + k + ' <b>' + resMap[k] + '</b></span>').join('') + '</div>'; }
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
@@ -7369,7 +7559,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing((totD >= 0 ? '+' : '') + Math.round(totD).toLocaleString('fr-FR') + ' $', 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#ff7a00')
         + _jrRing((rs.length ? Math.round(wins.length / rs.length * 100) : 0) + ' %', 'Winrate', '#00cc99')
-      + '</div><div class="jrd-row">' + _jrBars('Result', resMap, { order: _JR_RES, keepZero: true, colors: _RES_COL, fmt: v => String(v) }) + _jrEquity(L) + '</div></div>'
+      + '</div><div class="jrd-row jrd-row--charts">'
+        + '<div class="jrd-card jrd-card--donut"><div class="jrd-card-h">Répartition des résultats</div><div id="jr-result-donut" class="jr-chart-am jr-chart-am--donut"></div>' + _jrResultLegend(resMap) + '</div>'
+        + '<div class="jrd-card jrd-card--eq"><div class="jrd-card-h">Courbe de performance<span class="jrd-eqtoggle">'
+          + '<button data-m="pct" class="active" onclick="_jrEqSwitch(\'pct\')">% cumulé</button>'
+          + '<button data-m="pl" onclick="_jrEqSwitch(\'pl\')">$ PNL</button>'
+          + '<button data-m="equity" onclick="_jrEqSwitch(\'equity\')">$ Equity</button>'
+        + '</span></div><div id="jr-eq-chart" class="jr-chart-am jr-chart-am--eq"></div></div>'
+      + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">CORE PERFORMANCE</div><div class="jrd-rings">'
         + _jrRing(fR(avgW), 'Avg R Win', '#00e676') + _jrRing(fR(avgL), 'Avg R Loss', '#ff3d00')
         + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
@@ -7382,13 +7579,14 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '<div class="jrd-sec"><div class="jrd-sec-h">PATTERN RECOGNITION</div><div class="jrd-grid">'
         + _jrBars('Jour', dayM, { order: _JRD }) + _jrBars('Session', sessM) + _jrBars('Paires', pairM, { max: 14 })
       + '</div></div>';
+    setTimeout(() => { try { _jrBuildResultDonut(resMap); _jrBuildEquityChart(L); } catch (e) {} }, 12);   // amCharts après insertion DOM
   }
 
   window.loadJournalView = function () {
     if (_jrList) { _jrRender(); return; }   // déjà chargé → re-render instantané (les données vivent en mémoire + serveur)
     _jrStatus('Chargement…');
     fetch('/api/journal').then(r => r.json())
-      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrStatus(''); _jrRender(); })
+      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrCustom = !!j.custom; _jrStatus(''); _jrRender(); })
       .catch(() => { _jrList = []; _jrStatus('Hors-ligne'); _jrRender(); });
   };
 })();
