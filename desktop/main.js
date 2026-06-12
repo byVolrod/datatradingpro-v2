@@ -8,9 +8,11 @@
  */
 'use strict';
 
-const { app, BrowserWindow, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell } = require('electron');
 const path = require('path');
 
+// L'app charge la RACINE du desk : le serveur décide — pas de session → page de LOGIN ;
+// session valide (« Rester connecté ») → directement le terminal. Exactement le flux web.
 const DESK_URL = 'https://desk.datatradingpro.com/';
 const ALLOWED  = ['https://desk.datatradingpro.com', 'https://datatradingpro.com', 'https://www.datatradingpro.com'];
 
@@ -20,6 +22,39 @@ if (!gotLock) app.quit();
 
 let win = null;
 
+// Menu applicatif minimal (FR) — surtout pour les RACCOURCIS : PLEIN ÉCRAN (F11 sous Windows,
+// Ctrl+Cmd+F sous macOS), zoom, recharger. La barre reste masquée (Alt l'affiche sous Windows).
+function buildMenu() {
+  const template = [
+    ...(process.platform === 'darwin' ? [{ label: 'DataTradingPro', submenu: [
+      { role: 'about',   label: 'À propos de DataTradingPro' },
+      { type: 'separator' },
+      { role: 'hide',    label: 'Masquer' },
+      { role: 'unhide',  label: 'Tout afficher' },
+      { type: 'separator' },
+      { role: 'quit',    label: 'Quitter DataTradingPro' },
+    ] }] : []),
+    { label: 'Affichage', submenu: [
+      { role: 'togglefullscreen', label: 'Plein écran' },        // F11 (Windows) / Ctrl+Cmd+F (macOS)
+      { type: 'separator' },
+      { role: 'resetZoom', label: 'Zoom 100 %' },
+      { role: 'zoomIn',    label: 'Zoom +' },
+      { role: 'zoomOut',   label: 'Zoom −' },
+      { type: 'separator' },
+      { role: 'reload',    label: 'Recharger' },
+    ] },
+    { label: 'Édition', submenu: [
+      { role: 'undo', label: 'Annuler' }, { role: 'redo', label: 'Rétablir' }, { type: 'separator' },
+      { role: 'cut', label: 'Couper' }, { role: 'copy', label: 'Copier' }, { role: 'paste', label: 'Coller' }, { role: 'selectAll', label: 'Tout sélectionner' },
+    ] },
+    { label: 'Fenêtre', submenu: [
+      { role: 'minimize', label: 'Réduire' },
+      ...(process.platform === 'darwin' ? [{ role: 'zoom', label: 'Agrandir' }] : [{ role: 'close', label: 'Fermer' }]),
+    ] },
+  ];
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template));
+}
+
 function createWindow() {
   win = new BrowserWindow({
     width: 1480,
@@ -28,6 +63,7 @@ function createWindow() {
     minHeight: 600,
     backgroundColor: '#0c0c0e',          // fond HUD pendant le chargement (pas de flash blanc)
     autoHideMenuBar: true,               // barre de menu masquée (Alt pour l'afficher sous Windows)
+    fullscreenable: true,                // plein écran : F11 (Windows) / Ctrl+Cmd+F ou bouton vert (macOS)
     title: 'DataTradingPro',
     icon: path.join(__dirname, 'build', 'icon.png'),
     webPreferences: {
@@ -62,7 +98,7 @@ app.on('second-instance', () => {
   if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
 });
 
-app.whenReady().then(createWindow);
+app.whenReady().then(() => { buildMenu(); createWindow(); });
 
 // macOS : l'app reste dans le Dock fenêtre fermée ; clic Dock → rouvre
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
