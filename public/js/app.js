@@ -7157,7 +7157,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }).join('');
   }
 
-  function _jrRender() { _jrRenderStats(); _jrRenderForm(); _jrRenderRows(); }
+  function _jrRender() { _jrRenderStats(); _jrRenderForm(); _jrRenderRows(); if (_jrTab === 'dash') _jrRenderDashboard(); }
 
   // Délégation : éditer / supprimer (confirmation INLINE, jamais de confirm() natif)
   document.addEventListener('click', ev => {
@@ -7202,21 +7202,43 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   const _JR_COLS = {
     date:  ['date', 'time', 'datetime', 'jour', 'opentime', 'opened', 'dateouverture', 'datedouverture', 'closetime', 'closedate'],
-    pair:  ['pair', 'paire', 'symbol', 'symbole', 'instrument', 'ticker', 'marche', 'market', 'actif', 'asset'],
-    dir:   ['dir', 'direction', 'sens', 'side', 'type', 'position', 'buysell', 'longshort', 'ordertype', 'action'],
+    pair:  ['pair', 'pairs', 'paire', 'symbol', 'symbole', 'instrument', 'ticker', 'marche', 'market', 'actif', 'asset'],
+    dir:   ['dir', 'direction', 'sens', 'side', 'position', 'buysell', 'longshort', 'ordertype', 'action'],
     lots:  ['lots', 'lot', 'size', 'volume', 'taille', 'quantity', 'qty', 'quantite', 'units', 'lotsize'],
-    entry: ['entry', 'entree', 'open', 'openprice', 'prixentree', 'prixdentree', 'entryprice', 'priceopen', 'cours'],
+    entry: ['openprice', 'entryprice', 'prixentree', 'prixdentree', 'priceopen'],   // PRIX d'entrée (pas les tags Entry)
     exit:  ['exit', 'sortie', 'close', 'closeprice', 'prixsortie', 'prixdesortie', 'exitprice', 'priceclose'],
-    pl:    ['pl', 'pnl', 'profit', 'gain', 'resultat', 'result', 'profitloss', 'net', 'netpl', 'pleur', 'gainperte'],
-    note:  ['note', 'notes', 'comment', 'commentaire', 'remarque', 'description', 'setup', 'journal', 'strategy', 'strategie', 'raison'],
+    note:  ['note', 'notes', 'comment', 'commentaire', 'remarque', 'description', 'journal', 'raison'],
+    // ── champs riches (journal Notion) ──
+    result:  ['result', 'resultat', 'outcome', 'issue'],
+    session: ['session', 'seance', 'marketsession'],
+    fonda:   ['fonda', 'fondastrength', 'fondastrengh', 'fondamental', 'fundamental', 'fundamentalstrength'],
+    conf:    ['confluence', 'confluences', 'confs', 'confluance'],
+    tf:      ['timeframe', 'tf', 'unitetemps', 'temporalite'],
+    setup:   ['setup', 'setups', 'pattern', 'configuration'],
+    entryT:  ['entry', 'entree', 'entrytype', 'typeentree'],   // TAGS Entry (Retest/Fibo/Break/Reject)
+    sl:      ['sl', 'stoploss', 'stop'],
+    grade:   ['grade', 'rating', 'score', 'qualite'],
+    rr:      ['rrtarget', 'rr', 'riskreward', 'rrcible', 'targetrr', 'reward'],
+    risk:    ['risk', 'risque', 'riskpct', 'risquepct'],
+    err:     ['erreur', 'erreurs', 'error', 'errors', 'mistake'],
+    account: ['account', 'compte', 'broker', 'courtier'],
+    equity:  ['equity', 'equityusd', 'balance', 'solde', 'capital'],
   };
+  const _JR_TAG_COLS = ['conf', 'entryT', 'err'];   // colonnes multi-valeurs (tags)
   function _jrMapHeader(headers) {
-    const norm = headers.map(_jrNorm), idx = {};
+    const norm = headers.map(_jrNorm), raw = headers.map(h => String(h || '').toLowerCase()), idx = {};
     for (const key in _JR_COLS) {
       const aliases = _JR_COLS[key]; let f = norm.findIndex(h => aliases.includes(h));
       if (f < 0) f = norm.findIndex(h => h && aliases.some(a => h.indexOf(a) > -1));
       idx[key] = f;
     }
+    // PNL : le % et le $ sont effacés par la normalisation → on distingue R / % / $ via le header BRUT.
+    const r = raw.findIndex(h => /\br\s*pnl\b|rpnl|\brmultiple\b/.test(h));
+    const pct = raw.findIndex(h => /%/.test(h) && /pnl|profit/.test(h));
+    const dol = raw.findIndex(h => /\$/.test(h) && /pnl|profit/.test(h));
+    idx.r = r;
+    idx.pnlPct = pct;
+    idx.pl = dol >= 0 ? dol : norm.findIndex(h => ['pl', 'pnl', 'profit', 'gain', 'profitloss', 'net', 'netpl', 'pleur', 'gainperte'].includes(h));
     return idx;
   }
   function _jrImportFile(ev) {
@@ -7236,11 +7258,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
           if (pair.length < 2) continue;
           const dir = /sell|short|vente|sld|sale/.test(_jrNorm(get('dir'))) ? 'SELL' : 'BUY';
           let ts = Date.now(); const dv = get('date'); if (dv) { const p = Date.parse(dv); if (!isNaN(p)) ts = p; }
+          const tag = k => idx[k] >= 0 ? String(row[idx[k]] || '').split(/[,;|]+/).map(s => s.trim()).filter(Boolean).slice(0, 12) : [];
           _jrList.unshift({
             id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + r,
             ts, pair, dir,
             lots: _jrParseNum(get('lots')), entry: _jrParseNum(get('entry')), exit: _jrParseNum(get('exit')),
             pl: _jrParseNum(get('pl')), note: get('note').slice(0, 300),
+            // champs riches du journal Notion → alimentent le dashboard de stats
+            result: get('result').slice(0, 12), session: get('session').slice(0, 24), setup: get('setup').slice(0, 48),
+            grade: get('grade').slice(0, 8), sl: get('sl').slice(0, 16), tf: get('tf').slice(0, 12), account: get('account').slice(0, 32),
+            fonda: _jrParseNum(get('fonda')), rr: _jrParseNum(get('rr')), risk: _jrParseNum(get('risk')),
+            r: _jrParseNum(get('r')), pnlPct: _jrParseNum(get('pnlPct')), equity: _jrParseNum(get('equity')),
+            conf: tag('conf'), entryT: tag('entryT'), err: tag('err'),
           });
           added++;
         }
@@ -7252,6 +7281,93 @@ document.addEventListener('DOMContentLoaded', ()=>{
     };
     reader.readAsText(file);
     ev.target.value = '';
+  }
+
+  // ═══ DASHBOARD DE STATS (Performance Dashboard 3.0, identité HUD) — CSS/SVG, 0 dépendance ═══
+  let _jrTab = 'log';
+  function _jrSetTab(t) {
+    _jrTab = (t === 'dash') ? 'dash' : 'log';
+    const log = document.getElementById('jr-log-view'), dash = document.getElementById('jr-dashboard');
+    if (log) log.classList.toggle('hidden', _jrTab === 'dash');
+    if (dash) dash.classList.toggle('hidden', _jrTab !== 'dash');
+    document.querySelectorAll('.jr-tab').forEach(b => b.classList.toggle('jr-tab--active', b.dataset.jt === _jrTab));
+    if (_jrTab === 'dash') _jrRenderDashboard();
+  }
+  window._jrTabClick = _jrSetTab;
+  const _JR_RES = ['Profit', 'TP', 'BE', 'SL', 'Loss'];
+  const _RES_COL = { Profit: '#00e676', TP: '#00cc99', BE: '#ffb300', SL: '#ff8f00', Loss: '#ff3d00' };
+  const _jrArr = v => Array.isArray(v) ? v.filter(Boolean) : (v ? String(v).split(/[,;|]+/).map(s => s.trim()).filter(Boolean) : []);
+  const _jrN = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
+  const _jrResOf = e => { if (e.result && _JR_RES.includes(e.result)) return e.result; const w = _jrWin(e); return w == null ? null : (w > 0 ? 'Profit' : w < 0 ? 'Loss' : 'BE'); };
+  const _jrRof = e => _jrN(e.r);
+  const _JRD = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi'];
+  const _jrDayOf = e => { try { const d = new Date(e.ts).getDay(); return (d >= 1 && d <= 5) ? _JRD[d - 1] : null; } catch (er) { return null; } };
+  function _jrRing(val, label, color, sub) {
+    return '<div class="jrd-ring"><div class="jrd-ring-c" style="border-color:' + color + '"><span class="jrd-ring-v" style="color:' + color + '">' + val + '</span></div><div class="jrd-ring-l">' + _esc(label) + '</div>' + (sub ? '<div class="jrd-ring-s">' + _esc(sub) + '</div>' : '') + '</div>';
+  }
+  function _jrBars(title, map, opt) {
+    opt = opt || {};
+    let rows = Object.entries(map).filter(([, v]) => opt.keepZero || v);
+    if (opt.order) rows.sort((a, b) => opt.order.indexOf(a[0]) - opt.order.indexOf(b[0]));
+    else rows.sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+    rows = rows.slice(0, opt.max || 18);
+    const max = Math.max(1, ...rows.map(([, v]) => Math.abs(v)));
+    const body = rows.map(([k, v]) => {
+      const w = Math.round(Math.abs(v) / max * 100);
+      const c = (opt.colors && opt.colors[k]) || (v < 0 ? '#ff3d00' : opt.color || '#ff7a00');
+      const vt = opt.fmt ? opt.fmt(v) : (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
+      return '<div class="jrd-bar"><span class="jrd-bar-k" title="' + _esc(k) + '">' + _esc(k) + '</span><span class="jrd-bar-t"><i style="width:' + w + '%;background:' + c + '"></i></span><span class="jrd-bar-v">' + vt + '</span></div>';
+    }).join('') || '<div class="jrd-empty">—</div>';
+    return '<div class="jrd-card"><div class="jrd-card-h">' + _esc(title) + '</div><div class="jrd-bars">' + body + '</div></div>';
+  }
+  function _jrEquity(L) {
+    const closed = L.filter(e => e.pl != null || e.exit != null).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    let cum = 0; const pts = closed.map(e => { cum += (_jrN(e.pl) || 0); return cum; });
+    if (pts.length < 2) return '<div class="jrd-card jrd-card--wide"><div class="jrd-card-h">Courbe d\'equity ($)</div><div class="jrd-empty">Pas assez de trades clôturés.</div></div>';
+    const W = 600, H = 150, pad = 8, mn = Math.min(0, ...pts), mx = Math.max(0, ...pts), rg = (mx - mn) || 1;
+    const x = i => pad + i / (pts.length - 1) * (W - 2 * pad), y = v => pad + (1 - (v - mn) / rg) * (H - 2 * pad);
+    const line = pts.map((v, i) => (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ');
+    const area = 'M' + x(0).toFixed(1) + ' ' + y(0).toFixed(1) + ' ' + pts.map((v, i) => 'L' + x(i).toFixed(1) + ' ' + y(v).toFixed(1)).join(' ') + ' L' + x(pts.length - 1).toFixed(1) + ' ' + y(0).toFixed(1) + ' Z';
+    const last = pts[pts.length - 1];
+    return '<div class="jrd-card jrd-card--wide"><div class="jrd-card-h">Courbe d\'equity ($) <b style="margin-left:auto;color:' + (last >= 0 ? '#00e676' : '#ff3d00') + '">' + (last >= 0 ? '+' : '') + Math.round(last).toLocaleString('fr-FR') + ' $</b></div>'
+      + '<svg class="jrd-eq" viewBox="0 0 ' + W + ' ' + H + '" preserveAspectRatio="none"><line x1="0" y1="' + y(0).toFixed(1) + '" x2="' + W + '" y2="' + y(0).toFixed(1) + '" stroke="#2b2b31" stroke-dasharray="3 3"/><path d="' + area + '" fill="rgba(255,122,0,0.12)"/><path d="' + line + '" fill="none" stroke="#ff7a00" stroke-width="2"/></svg></div>';
+  }
+  function _jrRenderDashboard() {
+    const host = document.getElementById('jr-dashboard'); if (!host) return;
+    const L = _jrList || [];
+    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucun trade — importe ton journal Notion (CSV) ou ajoute des trades pour voir les statistiques.</div>'; return; }
+    const sum = a => a.reduce((x, y) => x + y, 0);
+    const rs = L.map(_jrRof).filter(r => r != null), wins = rs.filter(r => r > 0), losses = rs.filter(r => r < 0);
+    const totR = sum(rs), totD = sum(L.map(e => _jrN(e.pl) || 0));
+    const avgW = wins.length ? sum(wins) / wins.length : 0, avgL = losses.length ? sum(losses) / losses.length : 0;
+    const longN = L.filter(e => e.dir !== 'SELL').length, shortN = L.length - longN;
+    const resMap = {}; _JR_RES.forEach(r => resMap[r] = 0); L.forEach(e => { const r = _jrResOf(e); if (r) resMap[r]++; });
+    const valR = e => { const r = _jrRof(e); return r != null ? r : 0; };
+    const grp = keyFn => { const m = {}; for (const e of L) for (const k of _jrArr(keyFn(e))) m[k] = (m[k] || 0) + valR(e); return m; };
+    const setupM = grp(e => e.setup), confM = grp(e => e.conf), gradeM = grp(e => e.grade), entryM = grp(e => e.entryT);
+    const slM = grp(e => e.sl), errM = grp(e => e.err), sessM = grp(e => e.session), dayM = grp(_jrDayOf), pairM = grp(e => e.pair);
+    const fondaM = {}; L.forEach(e => { const f = _jrN(e.fonda); if (f != null) { const k = f >= 87.5 ? '100 %' : f >= 62.5 ? '75 %' : '50 %'; fondaM[k] = (fondaM[k] || 0) + valR(e); } });
+    const rrA = (() => { const a = L.map(e => _jrN(e.rr)).filter(x => x != null); return a.length ? sum(a) / a.length : 0; })();
+    const fR = v => (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
+    host.innerHTML =
+      '<div class="jrd-sec"><div class="jrd-sec-h">PILOT PERFORMANCE</div><div class="jrd-rings">'
+        + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
+        + _jrRing((totD >= 0 ? '+' : '') + Math.round(totD).toLocaleString('fr-FR') + ' $', 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
+        + _jrRing(String(L.length), 'Trades', '#ff7a00')
+        + _jrRing((rs.length ? Math.round(wins.length / rs.length * 100) : 0) + ' %', 'Winrate', '#00cc99')
+      + '</div><div class="jrd-row">' + _jrBars('Result', resMap, { order: _JR_RES, keepZero: true, colors: _RES_COL, fmt: v => String(v) }) + _jrEquity(L) + '</div></div>'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">CORE PERFORMANCE</div><div class="jrd-rings">'
+        + _jrRing(fR(avgW), 'Avg R Win', '#00e676') + _jrRing(fR(avgL), 'Avg R Loss', '#ff3d00')
+        + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
+        + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'Avg RR cible', '#a78bfa')
+      + '</div></div>'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION HEDGE</div><div class="jrd-grid">'
+        + _jrBars('Setup', setupM) + _jrBars('Confluence', confM) + _jrBars('Entry', entryM) + _jrBars('SL', slM)
+        + _jrBars('Grade', gradeM) + _jrBars('Fonda', fondaM) + _jrBars('Erreur', errM)
+      + '</div></div>'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">PATTERN RECOGNITION</div><div class="jrd-grid">'
+        + _jrBars('Jour', dayM, { order: _JRD }) + _jrBars('Session', sessM) + _jrBars('Paires', pairM, { max: 14 })
+      + '</div></div>';
   }
 
   window.loadJournalView = function () {

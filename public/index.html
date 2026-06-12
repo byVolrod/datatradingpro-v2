@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260612N" />
+  <link rel="stylesheet" href="/css/style.css?v=20260612O" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -300,19 +300,26 @@
       <div class="panel-header">
         <div class="panel-header-left">
           <span class="panel-title">Journal de Trading</span>
+          <div class="jr-tabs">
+            <button class="jr-tab jr-tab--active" data-jt="log" onclick="_jrTabClick('log')">Trade Log</button>
+            <button class="jr-tab" data-jt="dash" onclick="_jrTabClick('dash')">Dashboard</button>
+          </div>
         </div>
         <div class="panel-header-controls">
           <span class="bank-update" id="jr-status"></span>
         </div>
       </div>
-      <div class="jr-stats" id="jr-stats"></div>
-      <div class="jr-form" id="jr-form"></div>
-      <div class="jr-table-wrap">
-        <table class="jr-table">
-          <thead><tr><th>Date</th><th>Paire</th><th>Sens</th><th>Lots</th><th>Entrée</th><th>Sortie</th><th>Pips</th><th>P&amp;L&nbsp;€</th><th>Note</th><th></th></tr></thead>
-          <tbody id="jr-body"><tr><td colspan="10" class="jr-empty">Chargement du journal…</td></tr></tbody>
-        </table>
+      <div id="jr-log-view">
+        <div class="jr-stats" id="jr-stats"></div>
+        <div class="jr-form" id="jr-form"></div>
+        <div class="jr-table-wrap">
+          <table class="jr-table">
+            <thead><tr><th>Date</th><th>Paire</th><th>Sens</th><th>Lots</th><th>Entrée</th><th>Sortie</th><th>Pips</th><th>P&amp;L&nbsp;€</th><th>Note</th><th></th></tr></thead>
+            <tbody id="jr-body"><tr><td colspan="10" class="jr-empty">Chargement du journal…</td></tr></tbody>
+          </table>
+        </div>
       </div>
+      <div id="jr-dashboard" class="jrd hidden"></div>
       <div class="ctx-note">Journal personnel lié à votre compte — vos trades restent privés. Outil de suivi, pas un conseil d'investissement.</div>
     </div>
   </div><!-- /#view-journal -->
@@ -707,7 +714,7 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260612E"></script>
+<script src="/js/app.js?v=20260612F"></script>
 <script src="/js/charts.js?v=20260612H"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
