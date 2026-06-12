@@ -5550,12 +5550,17 @@ function renderArlibReader(item) {
       .then(r => r.json())
       .then(data => {
         if (!content) return;
-        const metaBar = `
-          <div class="arlib-doc-header">
-            <div class="arlib-doc-title">${standardizeReportTitle(item)}</div>
-            <div class="arlib-doc-meta">${dateStr}</div>
-            ${item.description ? `<div class="arlib-doc-desc">${item.description}</div>` : ''}
-          </div>`;
+        // En-tête INTELLIGENT (même structure que les session recaps) : type orange → TITRE réel
+        // du rapport → sous-titre institution + date (+ description si présente).
+        const _esc6 = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const _full0 = standardizeReportTitle(item);
+        const _m0 = _full0.match(/^([^:]{2,40}):\s*(.+)$/);   // "FX Daily: Sujet…" → type + titre
+        const metaBar = '<div class="arlib-rhead">'
+          + '<div class="arlib-rtype">' + _esc6(_m0 ? _m0[1] : 'Bank Research') + '</div>'
+          + '<div class="arlib-rtitle">' + _esc6(_m0 ? _m0[2] : _full0) + '</div>'
+          + '<div class="arlib-rsub">ING — THINK economic and financial analysis — ' + dateStr + '</div>'
+          + (item.description ? '<div class="arlib-rsub">' + _esc6(item.description) + '</div>' : '')
+          + '</div>';
         if (data.html && data.html.length > 100) {
           content.innerHTML = _parseHtmlToArlib(data.html, metaBar);
         } else {
