@@ -2324,6 +2324,43 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
+
+// ── ALERTES E-MAIL ADMIN (monitoring IA) : provider en rouge / quota proche épuisement / panne totale ──
+// Anti-spam : cooldown PAR TYPE d'alerte (mémoire). Vérifié toutes les 5 min. force=true → ignore le cooldown (test).
+const _aiAlertSent = {};
+function _aiAlertDue(type, cooldownMs, force) { if (force) return true; const last = _aiAlertSent[type] || 0; if (Date.now() - last < cooldownMs) return false; _aiAlertSent[type] = Date.now(); return true; }
+async function _aiAlertCheck(force) {
+  let st; try { st = _telLiveStatus || ai.status(); } catch { return 0; }
+  if (!st || !st.usageToday) return 0;
+  let fc; try { fc = _telForecast(await _telLoadRange(3)); } catch { fc = null; }
+  const out = [];
+  if (fc && (fc.risk === 'exhausted' || fc.risk === 'high' || fc.pctUsed >= 90) && _aiAlertDue('quota', 4 * 3600 * 1000, force)) {
+    out.push({ subject: 'Quota IA du jour à ' + fc.pctUsed + '%', html:
+      '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Le quota Gemini du jour est à <b>' + fc.pctUsed + '%</b> (' + fc.dayTotal + '/' + fc.dailyCap + ').'
+      + (fc.hoursToExhaust != null ? ' Épuisement estimé dans ~<b>' + fc.hoursToExhaust + ' h</b>.' : '') + ' Risque : <b>' + fc.risk + '</b>.</p>'
+      + '<p style="color:#cbd5e1;font-size:14px;">Le service continue (repli 0-token + GitHub/Claude) ; pense à ajouter une clé Gemini si ça revient souvent.</p>' });
+  }
+  const gemH = _telHealthScore(st.geminiKeys || 0, st.geminiCoolingNow || 0, (st.intel || {}).breakersOpen || 0, (st.usageToday || {}).gemini || 0, (st.usageToday || {}).gemini429 || 0);
+  if (gemH != null && gemH < 25 && _aiAlertDue('gemini_red', 4 * 3600 * 1000, force)) {
+    out.push({ subject: 'Gemini en rouge (santé ' + gemH + '/100)', html:
+      '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Le provider <b>Gemini</b> est dégradé : santé <b>' + gemH + '/100</b>, ' + (st.geminiCoolingNow || 0) + ' couple(s) (modèle, clé) en cooldown 429 — probable quota journalier épuisé.</p>'
+      + '<p style="color:#cbd5e1;font-size:14px;">Le terminal bascule sur GitHub Models / Claude + repli déterministe. Ajoute une clé Gemini (GEMINI_API_KEY6…) si ça persiste.</p>' });
+  }
+  if (st.backoff && st.backoff.active && _aiAlertDue('backoff', 2 * 3600 * 1000, force)) {
+    out.push({ subject: 'Panne IA totale (backoff actif)', html:
+      '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Tous les fournisseurs IA ont échoué en série (' + (st.backoff.totalFails || 0) + ' échecs) → <b>backoff global actif</b>. Le contenu reste servi via le cache + le repli 0-token, mais aucune nouvelle génération IA ne passe pour l\'instant.</p>' });
+  }
+  for (const a of out) { try { const r = await mailer.sendAdminAlert(a); console.log('[AI Alert] →', a.subject, r ? '(' + r + ')' : '(non envoyé)'); } catch (e) { console.warn('[AI Alert] échec:', e.message); } }
+  return out.length;
+}
+// Test admin : envoie une alerte de TEST (vérif e-mail bout-en-bout, ignore le cooldown).
+app.post('/api/admin/ai-alert-test', requireAdmin, async (req, res) => {
+  try {
+    const r = await mailer.sendAdminAlert({ subject: 'Test alerte IA (manuel)', to: (req.body && req.body.to) || undefined,
+      html: '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Test du système d\'alerte e-mail du monitoring IA. Si tu reçois ce message, les alertes automatiques (provider en rouge, quota proche épuisement, panne totale) fonctionnent.</p>' });
+    res.json({ ok: !!r, channel: r || null });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
 function _aiReset() {
   const mo = _aiMonth(), d = _aiDay();
   if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {}, claudeCounts: {} }; _aiSave(); }
@@ -8171,6 +8208,8 @@ server.listen(PORT, async () => {
   setTimeout(() => { try { _telSample(); } catch {} }, 6000);
   setInterval(() => { try { _telSample(); } catch {} }, 30 * 1000);            // échantillon /30s
   setInterval(() => { _telFlush().catch(() => {}); }, 120 * 1000);            // flush KV /2min
+  // Alertes e-mail admin (provider en rouge / quota proche épuisement / panne totale) — /5min, après chauffe
+  setInterval(() => { _aiAlertCheck().catch(() => {}); }, 5 * 60 * 1000);
 });
 
 // ─── Graceful shutdown (Railway/Render envoient SIGTERM avant de tuer le process) ─

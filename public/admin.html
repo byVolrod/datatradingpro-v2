@@ -489,12 +489,14 @@
     .aim-pill { font-size:10px; font-weight:700; padding:2px 8px; border-radius:5px; letter-spacing:.03em; }
     .aim-pill--low{background:rgba(34,197,94,.16);color:#22c55e} .aim-pill--medium{background:rgba(255,179,0,.16);color:#ffb300}
     .aim-pill--high,.aim-pill--exhausted{background:rgba(239,68,68,.16);color:#ef4444} .aim-pill--unknown{background:#26262c;color:#9aa0a6}
+    .aim-test-btn { margin-left:auto; background:#18181c; border:1px solid #2a2a31; border-radius:6px; color:#cbd5e1; font-size:11.5px; padding:5px 10px; cursor:pointer; }
+    .aim-test-btn:hover:not(:disabled) { border-color:var(--orange,#f7941d); color:#fff; } .aim-test-btn:disabled { opacity:.6; cursor:default; }
   </style>
   <section class="tab-panel" id="tab-aimon">
     <div class="fin-kpis" id="aim-kpis"></div>
     <div class="fin-row">
       <div class="panel-card fin-panel fin-panel--wide">
-        <div class="panel-head"><span class="ph-ic">🤖</span><h2>Santé des fournisseurs IA</h2><span class="fin-sub" id="aim-asof"></span></div>
+        <div class="panel-head"><span class="ph-ic">🤖</span><h2>Santé des fournisseurs IA</h2><span class="fin-sub" id="aim-asof"></span><button class="aim-test-btn" onclick="aimTestAlert(this)" title="Envoie un e-mail d'alerte de test à l'admin">✉️ Tester l'alerte</button></div>
         <div class="panel-body"><div id="aim-providers" class="aim-prov-grid"></div></div>
       </div>
       <div class="panel-card fin-panel">
@@ -792,6 +794,16 @@
     series.ticks.template.setAll({ stroke:am5.color(0x3a3a40), strokeOpacity:0.6 });
     series.data.setAll(data);
     series.appear(700, 90);
+  }
+
+  // ── Test de l'alerte e-mail admin (provider rouge / quota / panne) ──
+  async function aimTestAlert(btn) {
+    const old = btn.textContent; btn.disabled = true; btn.textContent = 'Envoi…';
+    try {
+      const r = await fetch('/api/admin/ai-alert-test', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }).then(x => x.json());
+      btn.textContent = r.ok ? '✓ Envoyée (' + (r.channel || 'ok') + ')' : '✗ Échec d\'envoi';
+    } catch { btn.textContent = '✗ Erreur'; }
+    setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 4500);
   }
 
   // ── IA Monitor : santé providers, quota, prévision (lazy au clic + refresh 30s) ──
