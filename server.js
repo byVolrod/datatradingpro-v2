@@ -5909,19 +5909,22 @@ function _waPublishNews(weekKey) {
   if (!weekKey || !_weekAhead || !Array.isArray(_weekAhead.days) || !_weekAhead.days.length) return;
   const days = _weekAhead.days, edAI = _weekAhead.editorialAI || 0, id = 'wa-news-' + weekKey;
   const idx = allNews.findIndex(i => i.id === id), existing = idx >= 0 ? allNews[idx] : null;
-  if (!existing && edAI < 1) return;                                           // on attend l'éditorial avant de créer la news
-  if (existing && _waNewsKey === weekKey && edAI <= _waNewsEdAI) return;       // déjà publié pour cette semaine, éditorial inchangé
-  // Highlights = événements HIGH (banques centrales, inflation, emploi…), nettoyés + dédupliqués.
+  const nbEv = days.reduce((n, d) => n + (d.events || []).length, 0);
+  if (!existing && nbEv < 3) return;                                           // pas assez de calendrier pour une news utile
+  if (existing && _waNewsKey === weekKey && edAI <= _waNewsEdAI) return;       // déjà publié cette semaine ; on ne republie QUE si l'éditorial IA s'étoffe
+  // Highlights = événements HIGH ; priorité aux thèmes clés (banques centrales / inflation / emploi),
+  // sinon les premiers HIGH. Libellés nettoyés (sans parenthèses ni « Policy Announcement ») + dédupliqués.
   const KW = /(fed|fomc|boj|rba|boe|snb|ecb|boc|pboc|rbnz|cpi|inflation|retail sales|\bjobs\b|employment|payroll|nonfarm|\bgdp\b|\bpmi\b|policy announcement|rate decision|interest rate)/i;
-  const hi = [], seen = new Set();
+  const hiKW = [], hiAny = [], seen = new Set();
   for (const d of days) for (const e of (d.events || [])) {
-    if (e.impact !== 'HIGH' || !e.title || !KW.test(e.title)) continue;
+    if (e.impact !== 'HIGH' || !e.title) continue;
     const label = e.title.replace(/\s*\([^)]*\)/g, '').replace(/\s*policy announcement/i, '').replace(/\s*announcement/i, '').replace(/\s+/g, ' ').trim();
-    const k = label.toLowerCase(); if (label && !seen.has(k)) { seen.add(k); hi.push(label); }
+    const k = label.toLowerCase(); if (!label || seen.has(k)) continue; seen.add(k);
+    hiAny.push(label); if (KW.test(e.title)) hiKW.push(label);
   }
-  const top = hi.slice(0, 9);
+  const top = (hiKW.length ? hiKW : hiAny).slice(0, 9);
   const highlights = top.length > 1 ? top.slice(0, -1).join(', ') + ' and ' + top[top.length - 1]
-    : (top[0] || 'les événements macro de la semaine');
+    : (top[0] || "the week's key macro events");
   const year = weekKey.slice(0, 4);
   const headline = `DTP Week Ahead — Week in Focus ${_weekAhead.week || ''} ${year}: Highlights include ${highlights}`.replace(/\s+/g, ' ').slice(0, 230);
   // Description = calendrier par jour + section WEEK AHEAD (éditorial par jour).
