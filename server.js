@@ -2275,6 +2275,7 @@ function _telForecast(buckets) {
     ratePerHour: Math.round(ratePerHour * 10) / 10, hoursToExhaust,
     risk: !cap ? 'unknown' : (dayTotal >= cap ? 'exhausted' : (hoursToExhaust != null && hoursToExhaust < 3) ? 'high' : (dayTotal >= cap * 0.8 ? 'medium' : 'low')),
     quietHours: _aiQuietHours(), weekend: _aiIsWeekend(), dayFraction: Math.round(_aiDayFraction() * 100) / 100, nextHours,
+    prewarmActive: (typeof _prewarmGate === 'function') ? _prewarmGate() : null,                   // préchauffage de fond en marche ?
   };
 }
 // Endpoint admin : santé providers + budget + tendance horaire + prévisions (alimente le dashboard).
@@ -2526,14 +2527,29 @@ async function _prewarmWrapSeg(item) {
   } catch (e) { console.warn('[SW prewarm]', e.message); _swSegCache.set(SW_SEG_VER + url, { f: Date.now() }); }
   return false;
 }
+// ── PORTE du préchauffage INTELLIGENT (éco quota) ────────────────────────────
+// Le préchauffage n'est plus qu'un POLISSAGE : la structure des recaps est déjà GRATUITE
+// (_catHeadline, 0 token). On ne dépense donc du quota EN AVANCE que si TOUTES ces conditions
+// tiennent ; sinon SILENCE TOTAL → le quota reste aux ouvertures réelles + au contenu hebdo.
+//   1) PAS d'heures calmes (nuit 21h→8h30 = ZÉRO requête IA de fond),
+//   2) PAS de pression budget (on s'arrête tôt : la réservation de fond cède à 45% du cap),
+//   3) PAS de panne IA en cours (backoff global).
+function _prewarmGate() {
+  if (_aiQuietHours()) return false;                                                  // nuit → aucun préchauffage
+  if (typeof ai.backoffActive === 'function' && ai.backoffActive()) return false;     // IA en rade → on n'insiste pas
+  const cap = _aiDailyCap();
+  const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
+  if (cap && dayTotal >= Math.floor(cap * 0.45)) return false;                        // budget déjà bien entamé → on réserve le reste aux users
+  return true;
+}
 let _swPrewarmBusy = false;
 async function _prewarmWrapSegs() {
-  if (_swPrewarmBusy) return;
+  if (_swPrewarmBusy || !_prewarmGate()) return;
   _swPrewarmBusy = true;
   try {
-    // Backlog borné à 6/cycle (anti-OOM + éco tokens) → couvert progressivement sur quelques cycles.
-    const todo = _swCache.filter(i => { if (!i.url || !i.url.startsWith('https://investinglive.com/')) return false; const s = _segState(_swSegCache.get(SW_SEG_VER + i.url)); return s === 'absent' || s === 'retry'; }).slice(0, 3);
-    for (const item of todo) { if (!aiAllowed('analyst', { priority: 'background' })) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
+    // Backlog réduit à 2/cycle (le polissage IA n'est plus prioritaire — la structure est gratuite).
+    const todo = _swCache.filter(i => { if (!i.url || !i.url.startsWith('https://investinglive.com/')) return false; const s = _segState(_swSegCache.get(SW_SEG_VER + i.url)); return s === 'absent' || s === 'retry'; }).slice(0, 2);
+    for (const item of todo) { if (!_prewarmGate() || !aiAllowed('analyst', { priority: 'background' })) break; await _prewarmWrapSeg(item); await new Promise(r => setTimeout(r, 1500)); }
   } finally { _swPrewarmBusy = false; }
 }
 
@@ -2542,15 +2558,15 @@ async function _prewarmWrapSegs() {
 // appel local, pour ne PAS dupliquer la logique. Borné aux rapports récents non encore structurés.
 let _brPrewarmBusy = false;
 async function _prewarmBrSegs() {
-  if (_brPrewarmBusy) return;
+  if (_brPrewarmBusy || !_prewarmGate()) return;
   _brPrewarmBusy = true;
   try {
     const dayCut = Date.now() - 4 * 24 * 60 * 60 * 1000;   // ~4 derniers jours → couvre tout le DailyFX récent de l'onglet
     const todo = (_brCache || [])
       .filter(i => { if (!i.url || !_BR_CONTENT_HOSTS.test(i.url) || (i.timestamp || 0) <= dayCut) return false; const s = _segState(_brSegCache.get(BR_SEG_VER + i.url)); return s === 'absent' || s === 'retry'; })   // {f:ts} récent (<6h) = on n'insiste pas ; ≥6h = on retente
-      .slice(0, 3);   // borné à 3/cycle (anti-OOM + éco quota)
+      .slice(0, 2);   // réduit à 2/cycle (polissage opportuniste, éco quota)
     for (const item of todo) {
-      if (!aiAllowed('analyst', { priority: 'background' })) break;
+      if (!_prewarmGate() || !aiAllowed('analyst', { priority: 'background' })) break;
       try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 30000 }); }
       catch (e) { console.warn('[BR prewarm]', e.message); }
       await new Promise(r => setTimeout(r, 1500));
@@ -8129,10 +8145,10 @@ server.listen(PORT, async () => {
   setInterval(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 30 * 60 * 1000);
   // Rapports Analyst/Institution : pré-segmente en arrière-plan → ouverture instantanée (cache persistant)
   setTimeout(() => { _prewarmWrapSegs().catch(() => {}); }, 25000);
-  setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 12 * 60 * 1000);   // 12 min (éco quota)
+  setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 20 * 60 * 1000);   // 20 min (éco quota — préchauffage = polissage opportuniste)
   // DailyFX (ING) : structure EN AVANCE les rapports du jour (décalé pour ne pas chevaucher les wraps)
   setTimeout(() => { _prewarmBrSegs().catch(() => {}); }, 45000);
-  setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 15 * 60 * 1000);   // 15 min (éco quota)
+  setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 25 * 60 * 1000);   // 25 min (éco quota — préchauffage = polissage opportuniste)
   // AI Telemetry : échantillonne la santé IA → seaux horaires persistés (dashboard admin + prévision)
   setTimeout(() => { try { _telSample(); } catch {} }, 6000);
   setInterval(() => { try { _telSample(); } catch {} }, 30 * 1000);            // échantillon /30s
