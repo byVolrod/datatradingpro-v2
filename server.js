@@ -5897,8 +5897,67 @@ async function generateWeekAhead(force = false, genEditorial = false) {
   try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
   auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
   console.log(`[WeekAhead] OK — ${days.length} jours | risk: ${days.map(d => (d.dow || '').slice(0, 3) + '=' + d.risk).join(' ')}`);
+  try { _waPublishNews(weekKey); } catch (e) { console.warn('[WeekAhead news]', e.message); }   // publie/màj la news Week Ahead dans le feed
   return _weekAhead;
 }
+// ── NEWS « Week Ahead » : publiée dans le feed dès que le Week Ahead se met à jour (1×/semaine,
+//    re-mise à jour si l'éditorial s'étoffe). Façon PMT : titre « Week in Focus … : Highlights … »
+//    + calendrier par jour + éditorial. Clé par semaine → jamais de doublon (les MAJ 40 min n'en créent pas).
+let _waNewsKey = null, _waNewsEdAI = -1;
+const _WA_ABBR = { Monday: 'MON', Tuesday: 'TUE', Wednesday: 'WED', Thursday: 'THU', Friday: 'FRI', Saturday: 'SAT', Sunday: 'SUN' };
+function _waPublishNews(weekKey) {
+  if (!weekKey || !_weekAhead || !Array.isArray(_weekAhead.days) || !_weekAhead.days.length) return;
+  const days = _weekAhead.days, edAI = _weekAhead.editorialAI || 0, id = 'wa-news-' + weekKey;
+  const idx = allNews.findIndex(i => i.id === id), existing = idx >= 0 ? allNews[idx] : null;
+  if (!existing && edAI < 1) return;                                           // on attend l'éditorial avant de créer la news
+  if (existing && _waNewsKey === weekKey && edAI <= _waNewsEdAI) return;       // déjà publié pour cette semaine, éditorial inchangé
+  // Highlights = événements HIGH (banques centrales, inflation, emploi…), nettoyés + dédupliqués.
+  const KW = /(fed|fomc|boj|rba|boe|snb|ecb|boc|pboc|rbnz|cpi|inflation|retail sales|\bjobs\b|employment|payroll|nonfarm|\bgdp\b|\bpmi\b|policy announcement|rate decision|interest rate)/i;
+  const hi = [], seen = new Set();
+  for (const d of days) for (const e of (d.events || [])) {
+    if (e.impact !== 'HIGH' || !e.title || !KW.test(e.title)) continue;
+    const label = e.title.replace(/\s*\([^)]*\)/g, '').replace(/\s*policy announcement/i, '').replace(/\s*announcement/i, '').replace(/\s+/g, ' ').trim();
+    const k = label.toLowerCase(); if (label && !seen.has(k)) { seen.add(k); hi.push(label); }
+  }
+  const top = hi.slice(0, 9);
+  const highlights = top.length > 1 ? top.slice(0, -1).join(', ') + ' and ' + top[top.length - 1]
+    : (top[0] || 'les événements macro de la semaine');
+  const year = weekKey.slice(0, 4);
+  const headline = `DTP Week Ahead — Week in Focus ${_weekAhead.week || ''} ${year}: Highlights include ${highlights}`.replace(/\s+/g, ' ').slice(0, 230);
+  // Description = calendrier par jour + section WEEK AHEAD (éditorial par jour).
+  // Format « JOUR: contenu » → le client style l'étiquette du jour (puce « section ») façon PMT.
+  const cal = days.map(d => {
+    const ab = _WA_ABBR[d.dow] || String(d.dow || '').slice(0, 3).toUpperCase();
+    const evs = (d.events || []).slice(0, 14).map(e => e.title).filter(Boolean).join(' · ');
+    return ab + ': ' + (evs || 'Données économiques.');
+  });
+  const ed = days.filter(d => d.headline || d.summary).map(d => {
+    const ab = _WA_ABBR[d.dow] || String(d.dow || '').slice(0, 3).toUpperCase();
+    const head = d.headline ? d.headline.replace(/\s*[.:;]\s*$/, '') + '. ' : '';
+    return ab + ': ' + head + (d.summary || '');
+  });
+  const description = (cal.join('\n') + (ed.length ? '\n\nWEEK AHEAD\n' + ed.join('\n\n') : '')).slice(0, 9000);
+  // Tags : Week Ahead + régions/thèmes détectés.
+  const ccy = new Set(); days.forEach(d => (d.ccys || []).forEach(c => ccy.add(c)));
+  const tags = ['Week Ahead'];
+  if (ccy.has('USD')) tags.push('US');
+  if (['JPY', 'AUD', 'NZD', 'CNY'].some(c => ccy.has(c))) tags.push('Asia');
+  if (['EUR', 'GBP', 'CHF'].some(c => ccy.has(c))) tags.push('Europe');
+  if (/inflation|cpi/i.test(description)) tags.push('Inflation');
+  const ts = existing ? existing.timestamp : (_weekAhead.generatedAt || Date.now());
+  const item = {
+    id, headline, description, category: 'Market Analysis', source: 'DTP',
+    time: new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+    timestamp: ts, priority: 'normal', tags: tags.slice(0, 6),
+  };
+  const isNew = !existing;
+  if (isNew) allNews = [item, ...allNews].slice(0, 2000); else allNews[idx] = item;
+  _waNewsKey = weekKey; _waNewsEdAI = edAI;
+  try { saveHistory(); } catch {}
+  try { broadcast({ type: 'news_update', items: [{ ...item, _new: isNew }], total: allNews.length }); } catch {}
+  console.log(`[WeekAhead] news ${isNew ? 'publiée' : 'mise à jour'} (${weekKey}) — ${highlights.slice(0, 70)}`);
+}
+
 // Éditorial IA du Week Ahead (titre + résumé par jour, épuré) : 1 génération / SEMAINE, EN CACHE. Repli : titres/déscriptions déterministes déjà présents.
 let _waEditorial = { weekKey: null, items: [], at: 0 };
 async function _waApplyEditorial(days, weekKey, gen = false) {
