@@ -5905,6 +5905,29 @@ async function generateWeekAhead(force = false, genEditorial = false) {
 //    + calendrier par jour + éditorial. Clé par semaine → jamais de doublon (les MAJ 40 min n'en créent pas).
 let _waNewsKey = null, _waNewsEdAI = -1;
 const _WA_ABBR = { Monday: 'MON', Tuesday: 'TUE', Wednesday: 'WED', Thursday: 'THU', Friday: 'FRI', Saturday: 'SAT', Sunday: 'SUN' };
+const _WA_CCY_ADJ = { USD: 'US', EUR: 'EZ', GBP: 'UK', JPY: 'Japan', AUD: 'Australia', NZD: 'NZ', CAD: 'Canada', CHF: 'Swiss', CNY: 'China', CNH: 'China' };
+// Réduit un titre d'événement à un THÈME court (façon PMT) → [libellé, estBanqueCentrale]. null = pas un thème clé.
+function _waTheme(title) {
+  const t = ' ' + String(title || '').toLowerCase() + ' ';
+  if (/\bfed\b|fomc|federal funds|federal reserve/.test(t)) return ['Fed', true];
+  if (/\bboj\b|bank of japan/.test(t)) return ['BoJ', true];
+  if (/\brbnz\b|reserve bank of new zealand/.test(t)) return ['RBNZ', true];
+  if (/\brba\b|reserve bank of australia/.test(t)) return ['RBA', true];
+  if (/\bboe\b|bank of england/.test(t)) return ['BoE', true];
+  if (/\bsnb\b|swiss national bank/.test(t)) return ['SNB', true];
+  if (/\becb\b|european central bank/.test(t)) return ['ECB', true];
+  if (/\bboc\b|bank of canada/.test(t)) return ['BoC', true];
+  if (/\bpboc\b|people'?s bank of china/.test(t)) return ['PBoC', true];
+  if (/inflation|\bcpi\b|\bhicp\b/.test(t)) return ['Inflation', false];
+  if (/\bppi\b|producer price/.test(t)) return ['PPI', false];
+  if (/payroll|nonfarm|\bnfp\b/.test(t)) return ['Payrolls', false];
+  if (/unemployment|jobless|\bjobs\b|employment change|labou?r market/.test(t)) return ['Jobs', false];
+  if (/retail sales/.test(t)) return ['Retail Sales', false];
+  if (/\bgdp\b|gross domestic/.test(t)) return ['GDP', false];
+  if (/\bpmi\b|purchasing managers/.test(t)) return ['PMI', false];
+  if (/interest rate decision|rate decision|monetary policy|policy announcement/.test(t)) return ['Rate Decision', false];
+  return null;
+}
 function _waPublishNews(weekKey) {
   if (!weekKey || !_weekAhead || !Array.isArray(_weekAhead.days) || !_weekAhead.days.length) return;
   const days = _weekAhead.days, edAI = _weekAhead.editorialAI || 0, id = 'wa-news-' + weekKey;
@@ -5912,17 +5935,22 @@ function _waPublishNews(weekKey) {
   const nbEv = days.reduce((n, d) => n + (d.events || []).length, 0);
   if (!existing && nbEv < 3) return;                                           // pas assez de calendrier pour une news utile
   if (existing && _waNewsKey === weekKey && edAI <= _waNewsEdAI) return;       // déjà publié cette semaine ; on ne republie QUE si l'éditorial IA s'étoffe
-  // Highlights = événements HIGH ; priorité aux thèmes clés (banques centrales / inflation / emploi),
-  // sinon les premiers HIGH. Libellés nettoyés (sans parenthèses ni « Policy Announcement ») + dédupliqués.
-  const KW = /(fed|fomc|boj|rba|boe|snb|ecb|boc|pboc|rbnz|cpi|inflation|retail sales|\bjobs\b|employment|payroll|nonfarm|\bgdp\b|\bpmi\b|policy announcement|rate decision|interest rate)/i;
-  const hiKW = [], hiAny = [], seen = new Set();
+  // Highlights = THÈMES distincts des événements HIGH (façon PMT) : banques centrales d'abord
+  // (Fed, BoJ…), puis données géo-qualifiées (US Inflation, UK Jobs…). Repli : titres HIGH nettoyés.
+  const banks = [], data = [], hiAny = [], seen = new Set();
   for (const d of days) for (const e of (d.events || [])) {
     if (e.impact !== 'HIGH' || !e.title) continue;
-    const label = e.title.replace(/\s*\([^)]*\)/g, '').replace(/\s*policy announcement/i, '').replace(/\s*announcement/i, '').replace(/\s+/g, ' ').trim();
-    const k = label.toLowerCase(); if (!label || seen.has(k)) continue; seen.add(k);
-    hiAny.push(label); if (KW.test(e.title)) hiKW.push(label);
+    const clean = e.title.replace(/\s*\([^)]*\)/g, '').replace(/\s+/g, ' ').trim();
+    if (clean && !hiAny.some(x => x.toLowerCase() === clean.toLowerCase())) hiAny.push(clean);
+    const th = _waTheme(e.title); if (!th) continue;
+    const [name, isBank] = th;
+    const adj = _WA_CCY_ADJ[String(e.ccy || '').toUpperCase()];
+    const label = isBank ? name : ((adj ? adj + ' ' : '') + name);
+    const k = label.toLowerCase(); if (seen.has(k)) continue; seen.add(k);
+    (isBank ? banks : data).push(label);
   }
-  const top = (hiKW.length ? hiKW : hiAny).slice(0, 9);
+  let top = banks.concat(data).slice(0, 10);
+  if (!top.length) top = hiAny.slice(0, 8);                                    // aucun thème détecté → titres HIGH bruts nettoyés
   const highlights = top.length > 1 ? top.slice(0, -1).join(', ') + ' and ' + top[top.length - 1]
     : (top[0] || "the week's key macro events");
   const year = weekKey.slice(0, 4);
