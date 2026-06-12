@@ -1,0 +1,38 @@
+{
+  "name": "datatradingpro-desktop",
+  "productName": "DataTradingPro",
+  "version": "1.0.0",
+  "description": "DataTradingPro — terminal de trading (application bureau)",
+  "main": "main.js",
+  "author": "DataTradingPro",
+  "license": "UNLICENSED",
+  "scripts": {
+    "icons": "node icons.js",
+    "start": "electron .",
+    "build:win": "electron-builder --win nsis --x64",
+    "build:mac": "electron-packager . DataTradingPro --platform=darwin --arch=arm64 --icon=build/icon.icns --out=release --overwrite --app-bundle-id=com.datatradingpro.desk"
+  },
+  "devDependencies": {
+    "@electron/packager": "^18.3.6",
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.5"
+  },
+  "build": {
+    "appId": "com.datatradingpro.desk",
+    "productName": "DataTradingPro",
+    "directories": { "output": "dist" },
+    "files": ["main.js", "offline.html", "build/icon.png"],
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [{ "target": "nsis", "arch": ["x64"] }]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "artifactName": "DataTradingPro-Setup-${version}.exe",
+      "deleteAppDataOnUninstall": false
+    }
+  }
+}

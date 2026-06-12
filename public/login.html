@@ -315,6 +315,18 @@
     .lp-btn:disabled { opacity: 0.4; cursor: default; }
 
     /* Contact link */
+    /* Boutons de téléchargement de l'app bureau (clone PMT : icône + Download for / OS) */
+    .lp-dl-row { display: flex; gap: 12px; margin-top: 22px; }
+    .lp-dl-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 10px;
+      padding: 11px 14px; background: var(--bg2); border: 1px solid #26262c; border-radius: 6px;
+      text-decoration: none; cursor: pointer; transition: border-color .15s;
+    }
+    .lp-dl-btn:hover { border-color: rgba(247,148,29,0.5); }
+    .lp-dl-btn svg { width: 16px; height: 16px; color: #b9bcc4; flex: 0 0 auto; }
+    .lp-dl-k { display: block; font-size: 10.5px; color: #8a8a93; line-height: 1.2; }
+    .lp-dl-v { display: block; font-size: 13px; color: #e8e8ea; font-weight: 600; line-height: 1.25; }
+
     .lp-contact {
       font-size: 11px;
       color: var(--text3);
@@ -485,6 +497,18 @@
       <button type="submit" class="lp-btn" id="lp-btn">Se connecter</button>
 
     </form>
+
+    <!-- Application bureau (clone PMT) : 2 boutons de téléchargement Windows / macOS -->
+    <div class="lp-dl-row">
+      <a class="lp-dl-btn" href="/downloads/DataTradingPro-Setup.exe" download>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
+        <span class="lp-dl-txt"><span class="lp-dl-k">Download for</span><span class="lp-dl-v">Windows</span></span>
+      </a>
+      <a class="lp-dl-btn" href="/downloads/DataTradingPro-macOS.zip" download>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
+        <span class="lp-dl-txt"><span class="lp-dl-k">Download for</span><span class="lp-dl-v">MacOS</span></span>
+      </a>
+    </div>
 
     <!-- Contact -->
     <div class="lp-contact">
