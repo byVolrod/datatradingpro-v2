@@ -652,7 +652,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   });
 
   const yAxis = chart.yAxes.push(
-    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00' })
+    am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0 })   // maxDeviation 0 → zoom Y rigide (drag d'étirement net, sans rebond élastique)
   );
 
   // Zero reference line — gris clair UNI (distincte de la grille pointillée)
@@ -833,7 +833,47 @@ function buildStrengthChart(containerId, data, opts = {}) {
     setTimeout(declutter, 60);   // recalibrer l'anti-collision après mise à jour
   }
 
+  // Étirement vertical de l'axe Y au glisser (façon TradingView/PMT) sur la gouttière droite
+  _attachYAxisDragZoom(container, yAxis, 70);
+
   return { root, seriesMap, update };
+}
+
+// ── Étirement vertical de l'axe Y au DRAG (façon TradingView / PMT) ───────────
+// On superpose une fine bande transparente sur la gouttière de l'axe Y (à DROITE,
+// car renderer opposite:true). Un glisser vertical y zoome l'axe des valeurs :
+//   HAUT  → on étire (zoom in) → les courbes montent/descendent davantage,
+//   BAS   → on revient vers l'ajustement auto,  DOUBLE-CLIC → réinitialise.
+// Capture de pointeur → aucun listener résiduel (le grip meurt avec le conteneur au rebuild).
+// État volatil : remis à plat à chaque reconstruction (innerHTML vidé) — conforme DTP.
+function _attachYAxisDragZoom(container, yAxis, gutterW) {
+  if (!container || !yAxis || typeof window.PointerEvent === 'undefined') return;
+  if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
+  const grip = document.createElement('div');
+  grip.className = 'cs-yzoom-grip';
+  grip.style.cssText = 'position:absolute;top:0;bottom:0;right:0;width:' + (gutterW || 70) + 'px;z-index:6;cursor:ns-resize;touch-action:none;';
+  container.appendChild(grip);
+
+  const MINS = 0.12, MAXS = 1, K = 0.0065;   // scale = fraction visible de l'axe (1 = plein ; 0.12 = ~8× étiré)
+  let scale = 1, dragging = false, startY = 0, startScale = 1, raf = 0;
+  const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
+  function apply() { const h = scale / 2; try { yAxis.zoom(0.5 - h, 0.5 + h); } catch (e) {} }   // zoom centré sur le milieu de l'axe
+  function schedule() { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; apply(); }); }
+  grip.addEventListener('pointerdown', (e) => {
+    dragging = true; startY = e.clientY; startScale = scale;
+    try { grip.setPointerCapture(e.pointerId); } catch (_) {}
+    grip.classList.add('is-grabbing'); e.preventDefault(); e.stopPropagation();
+  });
+  grip.addEventListener('pointermove', (e) => {
+    if (!dragging) return;
+    scale = clamp(startScale * Math.exp((e.clientY - startY) * K), MINS, MAXS);   // dy<0 (haut) → exp<1 → scale↓ → zoom in
+    schedule(); e.preventDefault(); e.stopPropagation();
+  });
+  function end(e) { if (!dragging) return; dragging = false; grip.classList.remove('is-grabbing'); try { grip.releasePointerCapture(e.pointerId); } catch (_) {} }
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+  grip.addEventListener('lostpointercapture', () => { dragging = false; grip.classList.remove('is-grabbing'); });
+  grip.addEventListener('dblclick', (e) => { scale = 1; apply(); e.preventDefault(); e.stopPropagation(); });   // double-clic → fit auto
 }
 
 // Graphique de force ISOLÉ (réutilisé par le Weekly Recap) :
