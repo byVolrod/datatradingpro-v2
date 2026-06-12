@@ -2207,6 +2207,20 @@ function _aiDemandNote(category) {
 }
 // Demande attendue pour un créneau (total observé sur l'historique) → base du prewarm prédictif (Phase 2).
 function aiExpectedDemand(slot) { const s = _aiDemand[slot || _aiDemandSlot()]; return s ? (s._t || 0) : 0; }
+// PHASE 2 (auto-amélioration) — détecteur de PRÉ-PIC : true si l'heure courante OU la suivante est un
+// créneau CHARGÉ (≥ 80% de la moyenne des heures actives apprises), false si c'est un creux, null si pas
+// assez de données. Sert à préchauffer JUSTE AVANT les heures de pointe apprises et à rester muet ailleurs.
+function _aiDemandPrePeak() {
+  if (Object.keys(_aiDemand).length < 24) return null;                       // bootstrap : < 24 créneaux observés → on n'impose rien
+  let tot = 0, n = 0;
+  for (const k in _aiDemand) { const h = parseInt(k.split('-')[1] || '', 10); if (h >= 8 && h < 21) { tot += (_aiDemand[k]._t || 0); n++; } }
+  const avg = n ? tot / n : 0;
+  if (avg <= 0) return null;
+  const p = _aiParis(), wd = p.getDay(), hNow = p.getHours();
+  const hNext = (hNow + 1) % 24, wdNext = (wd + Math.floor((hNow + 1) / 24)) % 7;
+  const peak = Math.max(aiExpectedDemand(wd + '-' + hNow), aiExpectedDemand(wdNext + '-' + hNext));
+  return peak >= avg * 0.8;                                                  // proche/au-dessus de la moyenne → pré-pic
+}
 
 // ════════════════ AI TELEMETRY & PREDICTION (monitoring + prévision d'épuisement) ════════════════
 // On échantillonne ai.status() (déjà riche : santé par modèle/clé, 429, tokens) et on cumule les
@@ -2276,6 +2290,8 @@ function _telForecast(buckets) {
     risk: !cap ? 'unknown' : (dayTotal >= cap ? 'exhausted' : (hoursToExhaust != null && hoursToExhaust < 3) ? 'high' : (dayTotal >= cap * 0.8 ? 'medium' : 'low')),
     quietHours: _aiQuietHours(), weekend: _aiIsWeekend(), dayFraction: Math.round(_aiDayFraction() * 100) / 100, nextHours,
     prewarmActive: (typeof _prewarmGate === 'function') ? _prewarmGate() : null,                   // préchauffage de fond en marche ?
+    prePeak: (typeof _aiDemandPrePeak === 'function') ? _aiDemandPrePeak() : null,                 // Phase 2 : pré-pic de demande appris ?
+    learnedSlots: Object.keys(_aiDemand).length,                                                   // nb de créneaux appris (maturité du learner)
   };
 }
 // Endpoint admin : santé providers + budget + tendance horaire + prévisions (alimente le dashboard).
@@ -2533,13 +2549,15 @@ async function _prewarmWrapSeg(item) {
 // tiennent ; sinon SILENCE TOTAL → le quota reste aux ouvertures réelles + au contenu hebdo.
 //   1) PAS d'heures calmes (nuit 21h→8h30 = ZÉRO requête IA de fond),
 //   2) PAS de pression budget (on s'arrête tôt : la réservation de fond cède à 45% du cap),
-//   3) PAS de panne IA en cours (backoff global).
+//   3) PAS de panne IA en cours (backoff global),
+//   4) PHASE 2 (auto-amélioration) : on n'anticipe QUE près d'un pic de demande APPRIS.
 function _prewarmGate() {
   if (_aiQuietHours()) return false;                                                  // nuit → aucun préchauffage
   if (typeof ai.backoffActive === 'function' && ai.backoffActive()) return false;     // IA en rade → on n'insiste pas
   const cap = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
   if (cap && dayTotal >= Math.floor(cap * 0.45)) return false;                        // budget déjà bien entamé → on réserve le reste aux users
+  if (_aiDemandPrePeak() === false) return false;                                     // creux appris → on attend (préchauffe seulement avant la ruée)
   return true;
 }
 let _swPrewarmBusy = false;

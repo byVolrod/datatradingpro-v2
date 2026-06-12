@@ -826,7 +826,8 @@
     document.getElementById('aim-forecast').innerHTML =
       `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
       + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + 'h') : '—'}</b></div>`
-      + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : 'PAUSE (budget)') : b.prewarmActive ? 'actif' : '—'}</b></div>`
+      + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '—'}</b></div>`
+      + `<div class="aim-fc-row"><span>Phase 2 — pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
       + `<div class="aim-fc-row"><span>Backoff global</span><b>${(d.backoff && d.backoff.active) ? 'ACTIF' : 'non'}</b></div>`
       + '<div style="margin:11px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Demande attendue (apprise)</div>' + nh;
   }
