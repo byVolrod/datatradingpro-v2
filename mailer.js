@@ -735,6 +735,15 @@ function buildReferredWelcome({ name, referrerName }) {
 }
 async function sendReferredWelcome(d) { const m = buildReferredWelcome(d); return _send(d.to, m.subject, m.html); }
 
+// Alerte ADMIN — monitoring IA (provider en rouge / quota proche épuisement). L'anti-spam (cooldown)
+// est géré côté serveur ; ici on se contente d'envoyer via la chaîne habituelle (OVH→Gmail).
+async function sendAdminAlert({ subject, html, to } = {}) {
+  const dest = to || process.env.ADMIN_EMAIL || SUPPORT_EMAIL;
+  const body = '<h2 style="color:#f7941d;margin:0 0 12px;">🚨 Alerte monitoring IA</h2>' + (html || '')
+    + '<p style="color:#6b7280;font-size:12px;margin-top:16px;">Détails en direct : <a href="https://desk.datatradingpro.com/admin" style="color:#f7941d;">dashboard IA Monitor</a>.</p>';
+  return _send(dest, '[DTP Alerte IA] ' + (subject || 'Alerte'), _layout('Alerte monitoring IA', body));
+}
+
 module.exports = {
   // envoi (API publique inchangée)
   sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset,
@@ -747,5 +756,5 @@ module.exports = {
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
-  verifyGmail, getMailHealth, sendTest,
+  verifyGmail, getMailHealth, sendTest, sendAdminAlert,
 };
