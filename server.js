@@ -2553,6 +2553,24 @@ function _extractWrapPoints(html) {
   } catch { return null; }
 }
 
+// Catégorisation 0-TOKEN d'un titre par mots-clés → structure les recaps en rubriques MÊME quand
+// Gemini est à court de quota (repli déterministe), au lieu d'un tas plat sous « HEADLINES ».
+function _catHeadline(t) {
+  const s = ' ' + String(t).toLowerCase() + ' ';
+  // Ordre = du PLUS spécifique au plus large : un titre « Nikkei up on Iran deal » va en EQUITIES
+  // (sujet réel) et non en GEOPOLITICS ; le pur géopolitique (sans actif) tombe en GEOPOLITICS.
+  if (/\b(rba|fed|fomc|ecb|boe|boj|boc|pboc|snb|rbnz|central bank|rate decision|rate hike|rate cut|rate hold|hawkish|dovish|policy meeting|reference rate|basis point|\bbps\b|governor|monetary policy)\b/.test(s)) return 'CENTRAL BANKS';
+  if (/\b(pmi|gdp|cpi|ppi|inflation|manufacturing|retail sales|unemployment|jobless|payroll|nonfarm|economic data|confidence|sentiment|trade balance)\b/.test(s)) return 'ECONOMIC DATA';
+  if (/\b(nikkei|s&p|nasdaq|dow jones|\bdow\b|\basx\b|ftse|\bdax\b|hang seng|kospi|sensex|equit|stocks?|shares?|share index|equity futures)\b/.test(s)) return 'EQUITIES';
+  if (/\b(oil|crude|brent|wti|opec|gold|silver|copper|natural gas|\bgas\b|\benergy\b|commodit|bullion|platinum)\b/.test(s)) return 'COMMODITIES';
+  if (/\b(bitcoin|btc|crypto|ethereum|\beth\b|solana|stablecoin)\b/.test(s)) return 'CRYPTO';
+  if (/\b(usd|eur|gbp|jpy|chf|cad|aud|nzd|cny|yuan|dollar|euro|\byen\b|pound|sterling|\bfx\b|currenc|forex|exchange rate)\b/.test(s)) return 'FX';
+  if (/\b(iran|israel|israeli|hamas|hezbollah|\bwar\b|conflict|strikes?|drone|tanker|hormuz|supreme leader|irgc|missile|military|sanction|geopolit|ukraine|russia|gaza|houthi)\b/.test(s)) return 'GEOPOLITICS';
+  if (/\b(tariff|trade deal|trade talks?|trade war|\bwto\b|\bimport|\bexport|bridge)\b/.test(s)) return 'TRADE/TARIFFS';
+  return 'HEADLINES';
+}
+const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXED INCOME', 'COMMODITIES', 'EQUITIES', 'CRYPTO', 'TRADE/TARIFFS', 'HEADLINES'];
+
 app.get('/api/session-wrap-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !url.startsWith('https://investinglive.com/')) return res.json({ html: '' });
@@ -2611,21 +2629,25 @@ app.get('/api/session-wrap-content', async (req, res) => {
   if (points && points.length >= 3) {
     const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const isHead = t => t.length >= 2 && t.length <= 52 && t === t.toUpperCase() && /[A-Z]/.test(t) && /^[A-Z0-9][A-Z0-9 &:/'.\-]+$/.test(t);
+    const isGeneric = t => /^(HEADLINES?|NEWS|TOP STORIES|LATEST|MARKET NEWS|OTHER)$/i.test(t.replace(/[:.]\s*$/, '').trim());
     const SKIP = /investinglive\.com|read more|see all|view all/i;
-    const secs = []; let curSec = null;
+    const secs = []; let curSec = null; const auto = {};
+    const getAuto = c => (auto[c] || (auto[c] = { section: c, items: [] }));
     for (const p of points) {
       const t = String(p).replace(/\s+/g, ' ').trim();
       if (!t || SKIP.test(t)) continue;
+      if (isGeneric(t)) { curSec = null; continue; }                         // en-tête générique « HEADLINES » → on catégorise au lieu de tout empiler dessous
       if (isHead(t)) { curSec = { section: t, items: [] }; secs.push(curSec); continue; }
       const item = t.replace(/^headlines?\s*:\s*/i, '').trim();   // retire le boilerplate « Headlines: »
       if (!item) continue;
-      if (!curSec) { curSec = { section: 'HEADLINES', items: [] }; secs.push(curSec); }
-      curSec.items.push(item);
+      if (curSec) curSec.items.push(item);                                    // sous une VRAIE rubrique détectée à la source
+      else getAuto(_catHeadline(item)).items.push(item);                      // sinon → catégorisation 0-token par mot-clé
     }
+    _CAT_ORDER.forEach(c => { if (auto[c] && auto[c].items.length) secs.push(auto[c]); });   // rubriques auto dans un ordre logique
     let autoHtml = '';
     for (const s2 of secs) { if (s2.items.length) autoHtml += `<strong>${esc(s2.section)}</strong><ul>${s2.items.map(i => `<li>${esc(i)}</li>`).join('')}</ul>`; }
     if (autoHtml.length > 80) {
-      console.log(`[SW seg] repli structurant -> ${secs.length} section(s) (sans IA)`);
+      console.log(`[SW seg] repli structurant catégorisé -> ${secs.length} section(s) (0 token)`);
       return res.json({ html: _stripSource(autoHtml), source: 'auto' });
     }
   }
