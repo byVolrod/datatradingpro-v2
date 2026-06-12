@@ -6543,11 +6543,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 
 .strength-main-chart { flex: 1; min-height: 0; }
-/* Bande de préhension de l'axe Y (drag vertical = étirer l'échelle, façon TradingView/PMT).
-   Indice visuel discret : léger dégradé orange au survol/pendant le glisser sur la gouttière droite. */
-.cs-yzoom-grip { transition: background 0.15s ease; }
-.cs-yzoom-grip:hover { background: linear-gradient(to left, rgba(255,122,0,0.07), rgba(255,122,0,0) 80%); }
-.cs-yzoom-grip.is-grabbing { background: linear-gradient(to left, rgba(255,122,0,0.12), rgba(255,122,0,0) 85%); }
+/* Bande de préhension de l'axe Y (drag vertical = étirer/compresser l'échelle).
+   Aucun fond/dégradé : seul le curseur ↕ (ns-resize, inline) signale la zone — pas d'effet orange. */
+.cs-yzoom-grip { background: none; }
 /* Badges bi-couleur de fin de courbe (Currency Strength, façon DTP) : [devise = couleur pleine][valeur = teinte claire], texte noir, collés */
 .cs-badge { display: inline-flex; align-items: stretch; font-family: -apple-system, "Inter", "Segoe UI", sans-serif; font-size: 9.5px; font-weight: 800; line-height: 1; white-space: nowrap; border-radius: 3px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.55); pointer-events: none; }
 .cs-badge-ccy { color: #0a0a0a; padding: 3px 4px 3px 5px; letter-spacing: .02em; }

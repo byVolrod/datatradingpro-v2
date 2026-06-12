@@ -854,10 +854,20 @@ function _attachYAxisDragZoom(container, yAxis, gutterW) {
   grip.style.cssText = 'position:absolute;top:0;bottom:0;right:0;width:' + (gutterW || 70) + 'px;z-index:6;cursor:ns-resize;touch-action:none;';
   container.appendChild(grip);
 
-  const MINS = 0.12, MAXS = 1, K = 0.0065;   // scale = fraction visible de l'axe (1 = plein ; 0.12 = ~8× étiré)
+  const MINS = 0.12, MAXS = 3, K = 0.0065;   // scale : <1 = étiré (zoom in, ~8× max) · 1 = plein · >1 = COMPRESSÉ (désélargi, ~3×)
   let scale = 1, dragging = false, startY = 0, startScale = 1, raf = 0;
   const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  function apply() { const h = scale / 2; try { yAxis.zoom(0.5 - h, 0.5 + h); } catch (e) {} }   // zoom centré sur le milieu de l'axe
+  function apply() {
+    try {
+      if (scale <= 1) {                                                  // ÉTIRER : on zoome sur une sous-fenêtre centrée
+        yAxis.set('extraMin', 0); yAxis.set('extraMax', 0);
+        const h = scale / 2; yAxis.zoom(0.5 - h, 0.5 + h);
+      } else {                                                           // COMPRESSER (désélargir) : marge haut/bas → courbes aplaties
+        yAxis.zoom(0, 1);
+        const pad = (scale - 1) / 2; yAxis.set('extraMin', pad); yAxis.set('extraMax', pad);
+      }
+    } catch (e) {}
+  }
   function schedule() { if (raf) return; raf = requestAnimationFrame(() => { raf = 0; apply(); }); }
   grip.addEventListener('pointerdown', (e) => {
     dragging = true; startY = e.clientY; startScale = scale;
