@@ -58,8 +58,8 @@
       inset: 0;
       overflow: hidden;
       display: flex;
-      gap: 8px;
-      padding: 8px;
+      gap: 3px;          /* grille DENSE bord à bord (façon PMT) — fini les larges espaces */
+      padding: 0;
       background: #070d14;
     }
 
@@ -71,8 +71,7 @@
       flex-shrink: 0;
       width: 195px;
       height: 130px;
-      perspective: 800px;
-      margin-bottom: 8px;
+      margin-bottom: 3px;   /* serré verticalement (façon PMT) */
     }
 
     .lp-tile-inner {
@@ -81,7 +80,6 @@
       position: relative;
       overflow: hidden;
       border-radius: 2px;
-      transform-style: preserve-3d;
     }
 
     .lp-tile img {
@@ -89,14 +87,14 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      filter: blur(2.2px);
+      filter: blur(1px);   /* léger flou seulement → images bien visibles, façon PMT */
     }
 
     .lp-tile-overlay {
       position: absolute;
       inset: 0;
       background: #000;
-      opacity: 0.65;
+      opacity: 0.5;        /* voile plus léger → on distingue clairement les visuels */
     }
 
     /* Top / bottom gradient fades */
@@ -129,10 +127,10 @@
       top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
-      background: rgba(0,0,0,0.62);
-      backdrop-filter: blur(6px);
-      border: 1px solid rgba(247,148,29,0.6);
-      box-shadow: 0 0 30px -6px rgba(247,148,29,0.45), inset 0 0 24px -18px rgba(247,148,29,0.6);
+      background: rgba(8,10,14,0.80);
+      backdrop-filter: blur(5px);
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: 0 10px 34px rgba(0,0,0,0.55);
       border-radius: 10px;
       padding: 24px 32px;
       max-width: 520px;
@@ -147,9 +145,10 @@
     }
     .lp-tagline-1 strong { color: var(--orange); font-weight: 700; }
     .lp-tagline-2 {
-      font-size: 14px;
-      color: rgba(255,255,255,0.7);
-      line-height: 1.5;
+      font-size: 19px;
+      color: rgba(255,255,255,0.9);
+      line-height: 1.45;
+      font-weight: 500;
     }
 
     /* ── RIGHT panel: 35% ── */
@@ -527,21 +526,18 @@
       { dur: 208, delay: -44.8 },
       { dur: 227, delay: -27.4 }
     ];
-    const ANGLES = [-10,4,-2,-8,6,0,-6,8,2,-4,-10,4,-2,-8,6,0];
-
     function buildCol(ci, srcs) {
       const col = document.createElement('div');
       col.className = 'lp-col';
       const inner = document.createElement('div');
       inner.className = 'lp-col-inner';
-      const p = COL_PARAMS[ci];
+      const p = COL_PARAMS[ci % COL_PARAMS.length];
       inner.style.animation = `scroll-up ${p.dur}s linear ${p.delay}s infinite`;
-      [...srcs, ...srcs].forEach((src, i) => {
+      [...srcs, ...srcs].forEach((src) => {
         const tile = document.createElement('div');
         tile.className = 'lp-tile';
         const ti = document.createElement('div');
         ti.className = 'lp-tile-inner';
-        ti.style.transform = `rotateY(${ANGLES[i % ANGLES.length]}deg)`;
         const img = document.createElement('img');
         img.src = src;
         img.alt = ''; img.loading = 'eager'; img.draggable = false;
@@ -555,8 +551,17 @@
       return col;
     }
 
+    // Grille DENSE façon PMT : on génère assez de colonnes pour remplir TOUT le panneau gauche
+    // (bord à bord, plus aucune bande noire à droite), chacune puisant dans un pool commun
+    // d'images décalé par colonne pour éviter les répétitions visibles.
+    const POOL   = COL_IMGS.flat();
+    const leftEl = document.querySelector('.lp-left');
+    const leftW  = (leftEl && leftEl.clientWidth) || Math.round(window.innerWidth * 0.65);
+    const TILE_W = 195, GAP = 3;
+    const need   = Math.min(10, Math.max(5, Math.ceil(leftW / (TILE_W + GAP)) + 1));
+    const colSrcs = ci => { const off = (ci * 11) % POOL.length; return POOL.slice(off).concat(POOL.slice(0, off)).slice(0, 16); };
     mosaic.innerHTML = '';
-    COL_IMGS.forEach((srcs, ci) => mosaic.appendChild(buildCol(ci, srcs)));
+    for (let ci = 0; ci < need; ci++) mosaic.appendChild(buildCol(ci, colSrcs(ci)));
   })();
 
   /* ── Login form ── */
