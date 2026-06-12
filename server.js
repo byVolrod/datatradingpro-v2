@@ -2389,12 +2389,12 @@ function _aiInflight(key, fn) {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v3:';   // bump → régénère (v3 : l'IA PEAUFINE désormais les puces en prose pro, faits préservés)
+const SW_SEG_VER  = 'v4:';   // bump → régénère (v4 : en-têtes courts + CATÉGORISATION des listes plates "HEADLINES" en rubriques par thème)
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(__dirname, 'cache_br_seg.json');
 const _brSegCache = _loadJsonMap(BR_SEG_FILE);
-const BR_SEG_VER  = 'v1:';   // bump → régénère (l'IA réorganise l'article en rubriques claires façon DTP)
+const BR_SEG_VER  = 'v2:';   // bump → régénère (v2 : en-têtes courts type catégorie + puces concises ≤30 mots)
 const SEG_FAIL_RETRY_MS = 6 * 3600 * 1000;   // un échec de segmentation est retenté après 6 h (répare les rapports figés en brut par une panne)
 // État d'une entrée de cache de segmentation : 'ok' (HTML utilisable) · 'cooling' (échec récent <6h, ne pas régénérer)
 // · 'retry' (échec ancien ≥6h OU null hérité → à régénérer) · 'absent'. Source unique de vérité, partagée route↔prewarm.
@@ -2463,6 +2463,7 @@ async function _segmentWrapAI(points, _opts = {}) {
   const prompt = `Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
 Produis un rapport PROPRE et PROFESSIONNEL façon DataTradingPro (ton d'analyste institutionnel) :
 - Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", etc.) et garde-les EXACTEMENT tels quels (ne traduis pas, ne renomme pas).
+- ⚠️ Si le rapport est surtout une LISTE PLATE de titres sous un en-tête générique ("HEADLINES", "NEWS"…), NE laisse PAS tout sous "HEADLINES" : RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, ENERGY, TRADE/TARIFFS, CRYPTO…). Regroupe les puces par thème, dans un ordre logique. C'est la règle CLÉ : un récap doit toujours être catégorisé, jamais un simple tas de titres.
 - Sous chaque en-tête, PEAUFINE/REFORMULE les puces en phrases claires, concises et professionnelles : corrige la grammaire, supprime les fragments, répétitions et le cruft, fais des phrases complètes qui se lisent comme un vrai récap d'analyste (pas un copier-coller brut).
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, pourcentages, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN. Tu améliores UNIQUEMENT la formulation et la clarté, jamais le contenu factuel.
 - Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel/hors-sujet ("...at investingLive.com", etc.).
