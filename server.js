@@ -419,10 +419,10 @@ function _jrCleanEntries(arr) {
     lots:  num(e.lots), entry: num(e.entry), exit: num(e.exit), pl: num(e.pl),
     note:  String(e.note || '').slice(0, 300),
     // ── champs riches (journal façon Notion / dashboard de stats) ──
-    result: str(e.result, 12), session: str(e.session, 24), setup: str(e.setup, 48), grade: str(e.grade, 8),
-    sl: str(e.sl, 16), tf: str(e.tf, 12), account: str(e.account, 32),
+    // Sélecteurs simples (1 valeur) : result/session/grade/account. Multi-tags (N valeurs) : conf/entryT/err/setup/tf/sl.
+    result: str(e.result, 12), session: str(e.session, 24), grade: str(e.grade, 8), account: str(e.account, 32),
     fonda: num(e.fonda), rr: num(e.rr), risk: num(e.risk), r: num(e.r), pnlPct: num(e.pnlPct), equity: num(e.equity),
-    conf: tags(e.conf), entryT: tags(e.entryT), err: tags(e.err),
+    conf: tags(e.conf), entryT: tags(e.entryT), err: tags(e.err), setup: tags(e.setup), tf: tags(e.tf), sl: tags(e.sl),
   } : null).filter(e => e && e.pair.length >= 2).slice(0, _JR_MAX);
 }
 app.get('/api/journal', async (req, res) => {
@@ -430,15 +430,17 @@ app.get('/api/journal', async (req, res) => {
   if (req.session?.user?.role !== 'admin') return res.status(403).json({ entries: [], dev: true });   // fonctionnalité en développement → admins only
   try {
     const v = await auth.aiCacheGet('journal:' + req.session.userId, _JR_KV_TTL);
-    res.json({ entries: _jrCleanEntries(v && v.entries) });
-  } catch { res.json({ entries: [] }); }
+    // custom = false → gabarit DTP (options par défaut) ; true → journal PERSO importé (options de l'utilisateur uniquement)
+    res.json({ entries: _jrCleanEntries(v && v.entries), custom: !!(v && v.custom) });
+  } catch { res.json({ entries: [], custom: false }); }
 });
 app.post('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
   if (req.session?.user?.role !== 'admin') return res.status(403).json({ ok: false, dev: true });   // fonctionnalité en développement → admins only
   try {
     const entries = _jrCleanEntries(req.body && req.body.entries);
-    await auth.aiCacheSet('journal:' + req.session.userId, { entries });
+    const custom = !!(req.body && req.body.custom);   // mémorise si le compte a personnalisé son journal (import) → ne jamais re-proposer le gabarit DTP
+    await auth.aiCacheSet('journal:' + req.session.userId, { entries, custom });
     res.json({ ok: true, count: entries.length });
   } catch { res.status(500).json({ ok: false }); }
 });
