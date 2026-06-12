@@ -3636,18 +3636,47 @@ function _insCard(s) {
   const signal = up && !dn ? 'BUY' : (dn && !up ? 'SELL' : 'NEUTRAL');
   return { asset, signal, text: s };
 }
+// ── Cartes COURTES + sans doublon (façon PMT) ────────────────────────────────
+// PMT = 1 phrase concise par carte, 1 carte par actif. On applique à TOUTES les
+// sources (IA, secours extractif, cache) → fini les pavés et les doublons d'actif.
+function _shortInsight(s) {
+  s = String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+  const sentences = s.match(/[^.!?]+[.!?]+/g) || [s];
+  let out = (sentences[0] || s).trim();
+  if (out.length < 45 && sentences[1]) out = (out + ' ' + sentences[1].trim()).trim();   // 1re phrase trop courte → on en garde 2
+  if (out.length > 180) out = out.slice(0, 177).replace(/\s+\S*$/, '').replace(/[,;:–-]+$/, '').trim() + '…';
+  return out;
+}
+function _finalizeInsights(arr) {
+  const seenAsset = new Set(), seenText = new Set(), out = [];
+  for (let o of (arr || [])) {
+    if (typeof o === 'string') o = { asset: null, signal: null, text: o };
+    if (!o || !o.text) continue;
+    const text = _shortInsight(o.text);
+    if (!text || text.length < 9) continue;
+    const tk = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 48);
+    if (tk && seenText.has(tk)) continue;                      // texte (quasi) identique → doublon
+    const a = String(o.asset || '').toUpperCase();
+    if (a && seenAsset.has(a)) continue;                       // un SEUL insight par actif (façon PMT)
+    if (a) seenAsset.add(a);
+    if (tk) seenText.add(tk);
+    out.push({ asset: o.asset || null, signal: o.signal || null, text });
+    if (out.length >= 10) break;                               // PMT en montre ~10
+  }
+  return out;
+}
 app.post('/api/report-insights', async (req, res) => {
   const { id, text, title, lines } = req.body || {};
   const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
   const key = 'v5:' + (id || clean.slice(0, 100));   // v5 = bump : regénère avec les badges BUY/SELL/NEUTRAL (persona IA assouplie pour ré-émettre les tags directionnels)
-  if (_insightsCache.has(key)) return res.json({ insights: _insightsCache.get(key) });
+  if (_insightsCache.has(key)) return res.json({ insights: _finalizeInsights(_insightsCache.get(key)) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
   try {
     const stored = await auth.aiCacheGet('ins:' + key);
-    if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: stored }); }
+    if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: _finalizeInsights(stored) }); }
   } catch {}
   try {
     const prompt = `Tu es analyste FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport (recherche de banque, note macro OU recap de session), génère 8 à 10 "insights" courts pour un carrousel "AI Insights", classés par importance.
@@ -3656,7 +3685,7 @@ Ajoute 1 à 3 cartes NARRATIVES de contexte (géopolitique, tarifs, énergie, ba
 Si un actif est cité SANS direction nette → signal=null.
 Règles STRICTES :
 - JAMAIS d'actif générique vague ("FX","Markets","Macro","Forex","Currencies") → pour ceux-là, fais-en un insight narratif (asset=null).
-- "text": UNE phrase concise (max 26 mots), en anglais, orientée trader (le driver clé + l'impact).
+- "text": UNE SEULE phrase brève (max 20 mots), en anglais, orientée trader (le driver clé + l'impact). PAS de 2e phrase, pas de pavé.
 - N'invente rien : base-toi uniquement sur le rapport.
 Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"USD/JPY"|null,"signal":"BUY"|"SELL"|"NEUTRAL"|null,"text":"..."}]}
 Rapport :
@@ -3681,16 +3710,17 @@ ${clean.slice(0, 4500)}`;
           })
           .slice(0, 12)
       : [];
-    if (insights.length) {
-      _insightsCache.set(key, insights);
+    const finalized = _finalizeInsights(insights);   // raccourci + dédoublonné AVANT mise en cache → données propres durables
+    if (finalized.length) {
+      _insightsCache.set(key, finalized);
       _saveJsonMap(INSIGHTS_FILE, _insightsCache);   // persiste les succès sur disque (hot cache)
-      auth.aiCacheSet('ins:' + key, insights).catch(() => {});   // + durable (Supabase) anti-régénération
-      return res.json({ insights });
+      auth.aiCacheSet('ins:' + key, finalized).catch(() => {});   // + durable (Supabase) anti-régénération
+      return res.json({ insights: finalized });
     }
-    res.json({ insights: _fallbackInsights(clean, title, _lines), fallback: true });   // Gemini vide → secours extractif
+    res.json({ insights: _finalizeInsights(_fallbackInsights(clean, title, _lines)), fallback: true });   // Gemini vide → secours extractif
   } catch (e) {
     console.error('[Insights]', e.message);
-    res.json({ insights: _fallbackInsights(clean, title, _lines), fallback: true });   // quota/erreur → secours extractif
+    res.json({ insights: _finalizeInsights(_fallbackInsights(clean, title, _lines)), fallback: true });   // quota/erreur → secours extractif
   }
 });
 
