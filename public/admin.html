@@ -445,6 +445,7 @@
     <button class="adm-tab adm-tab--active" data-tab="dash" onclick="admTab('dash')">Tableau de bord</button>
     <button class="adm-tab" data-tab="users" onclick="admTab('users')">Utilisateurs</button>
     <button class="adm-tab" data-tab="support" onclick="admTab('support')">Support <span class="adm-tab-badge" id="adm-tab-chat" style="display:none">0</span></button>
+    <button class="adm-tab" data-tab="aimon" onclick="admTab('aimon')">IA Monitor</button>
   </div>
 
   <!-- ═══ Onglet : Tableau de bord ═══ -->
@@ -468,6 +469,47 @@
       <div class="panel-card fin-panel">
         <div class="panel-head"><span class="ph-ic">🔗</span><h2>Intégration Whop</h2></div>
         <div class="panel-body" id="fin-whop"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Onglet : IA Monitor ═══ -->
+  <style>
+    .aim-prov-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; }
+    .aim-prov { background:var(--bg2,#111); border:1px solid var(--border2,#26262c); border-radius:8px; padding:13px 14px; }
+    .aim-prov-top { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px; }
+    .aim-prov-name { font-size:13px; font-weight:700; color:#e8e8ea; }
+    .aim-prov-score { font-family:var(--font-mono,monospace); font-size:22px; font-weight:800; }
+    .aim-prov-bar { height:4px; border-radius:3px; background:#26262c; overflow:hidden; margin-bottom:9px; }
+    .aim-prov-bar i { display:block; height:100%; border-radius:3px; transition:width .4s; }
+    .aim-prov-lines { display:flex; flex-direction:column; gap:3px; }
+    .aim-prov-lines span { font-size:11px; color:#9aa0a6; font-family:var(--font-mono,monospace); }
+    .aim-fc-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid #1a1a1f; font-size:12.5px; color:#cbd5e1; }
+    .aim-fc-row:last-child { border-bottom:none; } .aim-fc-row b { font-family:var(--font-mono,monospace); color:#fff; }
+    .aim-pill { font-size:10px; font-weight:700; padding:2px 8px; border-radius:5px; letter-spacing:.03em; }
+    .aim-pill--low{background:rgba(34,197,94,.16);color:#22c55e} .aim-pill--medium{background:rgba(255,179,0,.16);color:#ffb300}
+    .aim-pill--high,.aim-pill--exhausted{background:rgba(239,68,68,.16);color:#ef4444} .aim-pill--unknown{background:#26262c;color:#9aa0a6}
+  </style>
+  <section class="tab-panel" id="tab-aimon">
+    <div class="fin-kpis" id="aim-kpis"></div>
+    <div class="fin-row">
+      <div class="panel-card fin-panel fin-panel--wide">
+        <div class="panel-head"><span class="ph-ic">🤖</span><h2>Santé des fournisseurs IA</h2><span class="fin-sub" id="aim-asof"></span></div>
+        <div class="panel-body"><div id="aim-providers" class="aim-prov-grid"></div></div>
+      </div>
+      <div class="panel-card fin-panel">
+        <div class="panel-head"><span class="ph-ic">🎯</span><h2>Conso par catégorie (jour)</h2></div>
+        <div class="panel-body"><div class="am-chart am-chart--donut" id="aim-cat-am"></div></div>
+      </div>
+    </div>
+    <div class="fin-row">
+      <div class="panel-card fin-panel fin-panel--wide">
+        <div class="panel-head"><span class="ph-ic">📈</span><h2>Appels IA par heure</h2></div>
+        <div class="panel-body"><div class="am-chart" id="aim-trend-am"></div></div>
+      </div>
+      <div class="panel-card fin-panel">
+        <div class="panel-head"><span class="ph-ic">🔮</span><h2>Prévision &amp; quota</h2></div>
+        <div class="panel-body" id="aim-forecast"></div>
       </div>
     </div>
   </section>
@@ -692,6 +734,7 @@
     // Mise à jour AUTOMATIQUE en temps réel (plus de bouton Rafraîchir) :
     setInterval(loadAdChat, 10000);                          // conversations + en ligne : 10s
     setInterval(() => { loadFinance(); loadUsers(); }, 45000); // KPIs + utilisateurs : 45s
+    setInterval(() => { const t = document.getElementById('tab-aimon'); if (t && t.classList.contains('tab-panel--active')) loadAIMon(); }, 30000); // IA Monitor : 30s si onglet ouvert
   });
 
   // ── Onglets ─────────────────────────────────────────────────────────────────
@@ -699,6 +742,7 @@
     document.querySelectorAll('.adm-tab').forEach(b => b.classList.toggle('adm-tab--active', b.dataset.tab === name));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('tab-panel--active', p.id === 'tab-' + name));
     if (name === 'dash') setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 40);
+    if (name === 'aimon') { loadAIMon(); setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 60); }
   }
   function refreshAll() { loadUsers(); loadFinance(); loadAdChat(); }
 
@@ -748,6 +792,42 @@
     series.ticks.template.setAll({ stroke:am5.color(0x3a3a40), strokeOpacity:0.6 });
     series.data.setAll(data);
     series.appear(700, 90);
+  }
+
+  // ── IA Monitor : santé providers, quota, prévision (lazy au clic + refresh 30s) ──
+  async function loadAIMon() {
+    let d; try { d = await fetch('/api/admin/ai-monitor').then(r => r.json()); } catch { return; }
+    if (!d || !d.budget) return;
+    const b = d.budget, h = d.health || {}, P = d.providers || {};
+    const asof = document.getElementById('aim-asof'); if (asof) asof.textContent = 'maj ' + new Date(d.now).toLocaleTimeString('fr-FR');
+    const riskLbl = { low: 'Faible', medium: 'Modéré', high: 'Élevé', exhausted: 'Épuisé', unknown: '—' }[b.risk] || b.risk;
+    const kpis = [
+      { l: 'Quota du jour', v: b.dayTotal + ' / ' + b.dailyCap, sub: b.pctUsed + '% utilisé', accent: true },
+      { l: 'Risque épuisement', v: '<span class="aim-pill aim-pill--' + b.risk + '">' + riskLbl + '</span>', sub: b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + 'h restantes') : 'conso négligeable' },
+      { l: 'Débit récent', v: b.ratePerHour + ' /h', sub: 'appels IA (3 dernières h)' },
+      { l: 'Budget mensuel', v: b.monthUsed + ' / ' + b.monthly, sub: (b.weekend ? 'week-end · ' : '') + (b.quietHours ? 'heures calmes' : 'heures actives') },
+    ];
+    document.getElementById('aim-kpis').innerHTML = kpis.map(c => `<div class="fin-kpi${c.accent ? ' fin-kpi--accent' : ''}"><div class="fin-kpi-label">${c.l}</div><div class="fin-kpi-val">${c.v}</div><div class="fin-kpi-sub">${c.sub}</div></div>`).join('');
+    const card = (label, score, lines) => {
+      const col = score == null ? '#6b7280' : score >= 75 ? '#22c55e' : score >= 40 ? '#ffb300' : '#ef4444';
+      return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-name">${label}</span><span class="aim-prov-score" style="color:${col}">${score == null ? '—' : score}</span></div><div class="aim-prov-bar"><i style="width:${score == null ? 0 : score}%;background:${col}"></i></div><div class="aim-prov-lines">${lines.map(l => '<span>' + l + '</span>').join('')}</div></div>`;
+    };
+    const g = P.gemini || {}, gh = P.github || {}, cl = P.claude || {};
+    document.getElementById('aim-providers').innerHTML =
+      card('Gemini (gratuit)', h.gemini, [g.keys + ' clés · ' + g.coolingKeys + ' gelées', g.callsToday + ' appels · ' + g.err429Today + ' × 429', 'RPM ' + g.effRpm + '/' + g.rpmTarget + ' · pression ' + Math.round((g.pressure || 0) * 100) + '%'])
+      + card('GitHub Models', h.github, gh.tokens ? [gh.tokens + ' token(s) · ' + gh.coolingKeys + ' gelés', gh.callsToday + ' appels (jour)', gh.failWindow + ' échecs (fenêtre)'] : ['non configuré'])
+      + card('Claude (payant)', h.claude, cl.keys ? [cl.keys + ' clés · ' + (cl.usable ? 'disponible' : 'indisponible'), cl.usedToday + '/' + cl.dailyMax + ' appels (jour)', (cl.cooling && cl.cooling.length ? cl.cooling.length + ' clé(s) en cooldown' : 'aucune en cooldown')] : ['non configuré']);
+    const CATCOL = { analyst: 0xf7941d, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444 };
+    const cats = Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 }));
+    _amDonut('aim-cat-am', cats);
+    const trend = (d.trend || []).map(t => ({ cat: t.hour.slice(11, 13) + 'h', val: (t.gemini || 0) + (t.github || 0) + (t.claude || 0) }));
+    _amArea('aim-trend-am', trend, 0xf7941d, '');
+    const nh = (b.nextHours || []).map(x => `<div class="aim-fc-row"><span>${String(x.h).padStart(2, '0')}h (attendu)</span><b>${x.expected}</b></div>`).join('');
+    document.getElementById('aim-forecast').innerHTML =
+      `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
+      + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + 'h') : '—'}</b></div>`
+      + `<div class="aim-fc-row"><span>Backoff global</span><b>${(d.backoff && d.backoff.active) ? 'ACTIF' : 'non'}</b></div>`
+      + '<div style="margin:11px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Demande attendue (apprise)</div>' + nh;
   }
 
   // ── Dashboard financier (NET réel uniquement — aucune prévision) ─────────────
