@@ -4196,12 +4196,12 @@ function _brTags(item) {
     [/china|pboc/i,                      'China'],
     [/yield|treasury|bond/i,             'Bonds'],
     [/trade|tariff/i,                    'Trade'],
-    [/iran|russia|ukraine|geopolit/i,    'Geopolitics'],
+    [/iran|russia|ukraine|geopolit/i,    'Geopolitical'],
   ];
   for (const [rx, label] of checks) {
     if (rx.test(h) && !tags.includes(label) && tags.length < 12) tags.push(label);
   }
-  return [...new Set(tags)].slice(0, 12);
+  return _dedupeTags(tags).slice(0, 12);
 }
 
 // ── Read tracking pour Bank Research (localStorage) ──────────────────────────
@@ -4905,7 +4905,7 @@ const _ARLIB_TAG_CHECKS = [
   [/trade|tariff/,                                 'Trade'],
   [/oil|crude|brent|opec|\bwti\b|energy|natural gas/, 'Oil'],
   [/gold|\bxau\b|silver|copper|metal/,             'Gold'],
-  [/iran|russia|ukraine|israel|ceasefire|geopolit|war\b|missile|conflict/, 'Geopolitics'],
+  [/iran|russia|ukraine|israel|ceasefire|geopolit|war\b|missile|conflict/, 'Geopolitical'],
   [/nasdaq|s&p|equity|equities|stocks?\b|dow\b|dax|ftse/, 'Equities'],
   [/yield|treasury|bond|bund|gilt|jgb/,            'Bonds'],
   [/dollar|dxy|\busd\b/,                           'USD'],
@@ -4918,19 +4918,32 @@ const _ARLIB_TAG_CHECKS = [
   [/asia|asian|apac/,                              'Asia'],
   [/hawk|dovish|rate cut|rate hike|rate hold|basis point|\bbps\b/, 'Rates'],
 ];
+// Canonicalisation + déduplication des tags : empêche DÉFINITIVEMENT les quasi-doublons
+// (ex. « Geopolitics » + « Geopolitical » côte à côte) — on garde « Geopolitical ». Dédup insensible à la casse.
+function _canonTag(t) {
+  t = String(t || '').trim();
+  if (/^geopolitic/i.test(t)) return 'Geopolitical';
+  return t;
+}
+function _dedupeTags(arr) {
+  const seen = new Set(), out = [];
+  for (let t of (arr || [])) { t = _canonTag(t); if (!t) continue; const k = t.toLowerCase(); if (!seen.has(k)) { seen.add(k); out.push(t); } }
+  return out;
+}
 function _tagsFromText(text, cap = 12) {
   const h = (text || '').toLowerCase();
   const out = [];
   for (const [rx, label] of _ARLIB_TAG_CHECKS) { if (rx.test(h) && out.length < cap) out.push(label); }
-  return out;
+  return _dedupeTags(out);
 }
 function arlibItemTags(item) {
   const tags = _tagsFromText(item.headline + ' ' + (item.description || ''));
+  const catCanon = _canonTag(item.category || '').toLowerCase();
   for (const t of (item.tags || [])) {
-    if (!tags.includes(t) && !['High','Medium','FinancialJuice','DTP'].includes(t) && t !== item.category && tags.length < 12)
-      tags.push(t);
+    if (['High','Medium','FinancialJuice','DTP'].includes(t) || _canonTag(t).toLowerCase() === catCanon) continue;
+    if (tags.length < 12) tags.push(t);
   }
-  return tags;
+  return _dedupeTags(tags).slice(0, 12);
 }
 // Tags du rapport OUVERT (liste complète) + rendu façon DTP : 6 pills max + "+N", puis
 // date + badge DTP à droite de la barre.
