@@ -1210,6 +1210,7 @@ app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
 const _isPrimerNews = n => !!(n && (n._briefing || /^\s*\[?\s*primer\b/i.test(String(n.headline || ''))));
 app.get('/api/news', (_req, res) => {
   const items = allNews.filter(n => !_isPrimerNews(n)).slice(0, 200);
+  items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
   res.json({ items, total: items.length });
 });
 
@@ -1325,6 +1326,7 @@ app.get('/api/news/history', (req, res) => {
     .filter(i => i.timestamp < before && !_isPrimerNews(i))
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, limit);
+  items.forEach(_cleanItemMd);
   res.json({ items, total: allNews.length });
 });
 // Calendrier économique — endpoints AUTO-RÉPARANTS : si les données sont vides
@@ -2087,6 +2089,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
       generateGlobalEconomicWeekly(true).catch(e => console.error('[GEW] auto-gen échec:', e.message));
     }
   }
+  items.forEach(_cleanItemMd);   // recap/GEW : titres sans markdown brut, même pour un JS en cache
   res.json({ items, generating });
 });
 
@@ -4762,6 +4765,18 @@ function _stripMd(s) {
     .replace(/[ \t]+\n/g, '\n')               // espaces avant saut de ligne
     .replace(/[ \t]{2,}/g, ' ')               // espaces multiples (préserve \n\n des paragraphes)
     .trim();
+}
+
+// Nettoie EN PLACE les champs texte affichés d'un item (titre / headline / _weekly.title) de tout
+// markdown brut. Appelé AU SERVE des endpoints → la donnée envoyée au client est toujours propre,
+// quelle que soit la version du JS en cache, et corrige rétroactivement les rapports DÉJÀ stockés
+// avec des ** (générés avant le nettoyage à la source). La mutation purge aussi la RAM partagée.
+function _cleanItemMd(it) {
+  if (!it || typeof it !== 'object') return it;
+  if (typeof it.title === 'string')    it.title    = _stripMd(it.title);
+  if (typeof it.headline === 'string') it.headline = _stripMd(it.headline);
+  if (it._weekly && typeof it._weekly.title === 'string') it._weekly.title = _stripMd(it._weekly.title);
+  return it;
 }
 
 // ─── Génération hebdomadaire (ID par semaine ISO) ────────────────────────────
