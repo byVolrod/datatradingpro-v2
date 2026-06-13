@@ -4267,6 +4267,31 @@ function _brRelevance(it) {
 // prolifique ne noie les autres. La chronologie jour-par-jour reste respectée. Vue « toutes banques »
 // uniquement ; le filtre par banque montre TOUT (rien n'est définitivement perdu).
 const _BR_CAP_PER_DAY = 35;
+// ── Anti-doublon de rapports (Analyst + Institution) ────────────────────────
+// Aucun rapport ne doit apparaître deux fois (seeds qui se recoupent, re-scrape, même rapport
+// servi par deux flux). Clé d'unicité : l'URL (identifiant le plus fiable) ; à défaut,
+// source/banque + JOUR + titre normalisé — un même titre un AUTRE jour n'est PAS un doublon
+// (ex. « Daily Coffee Break » publié chaque jour).
+function _reportDedupKey(item) {
+  let u = String(item && item.url || '').trim().toLowerCase();
+  if (u) return 'u:' + u.replace(/#.*$/, '').replace(/\/+$/, '');   // même URL = même rapport (on garde la query : un ?id= distingue 2 rapports)
+  const day = new Date((item && item.timestamp) || 0).toISOString().slice(0, 10);
+  const t   = String((item && (item.title || item.headline)) || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 90);
+  const src = String((item && (item.institution || item._reportType || item._source)) || '').toLowerCase();
+  return 't:' + src + '|' + day + '|' + t;
+}
+// Retire les doublons en gardant la 1re occurrence (les items en conflit sont le même rapport).
+function _dedupeReports(arr) {
+  const seen = new Set(), out = [];
+  for (const it of (arr || [])) {
+    if (!it) continue;
+    const k = _reportDedupKey(it);
+    if (seen.has(k)) continue;
+    seen.add(k); out.push(it);
+  }
+  return out;
+}
+
 function _brBalanceByDay(arr) {
   const dayKey = t => new Date(t || 0).toISOString().slice(0, 10);
   const byDay = new Map(); const dayOrder = [];   // jours dans l'ordre reçu (déjà date desc)
@@ -4306,7 +4331,10 @@ function renderBrList() {
   if (!list) return;
   _populateBrInstFilter();
 
-  let items = _brArticles;
+  // Anti-doublon : aucun rapport ne doit apparaître deux fois (seeds qui se recoupent, re-scrape,
+  // même URL servie par deux passages). Dédup AVANT filtres/dosage → le total « of N » est honnête.
+  const all = _dedupeReports(_brArticles);
+  let items = all;
   if (_brInst   !== 'all') items = items.filter(i => i.institution === _brInst);
   if (_brType   !== 'all') items = items.filter(i => _brItemType(i) === _brType);
   if (_brSearch)           items = items.filter(i =>
@@ -4374,7 +4402,7 @@ function renderBrList() {
     list.appendChild(card);
   }
 
-  if (footer) footer.textContent = `Showing ${items.length} of ${_brArticles.length} research papers`;
+  if (footer) footer.textContent = `Showing ${items.length} of ${all.length} research papers`;
 }
 
 // Badge institution = la VRAIE banque du rapport. ING→"ING", MUFG→"MUFG", autres banques
@@ -4931,9 +4959,9 @@ function getArlibItems() {
   })[0];
   // …+ les rapports FX Daily (ING THINK).
   const fx = (_fxDaily || []).filter(i => i.timestamp > cutoff);
-  const seen = new Set();
-  return [...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...fx, ...wraps]
-    .filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; })
+  // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
+  // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
+  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...fx, ...wraps])
     .sort(_arlibReportSort);
 }
 
