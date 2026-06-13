@@ -2068,7 +2068,9 @@ app.get('/api/weekly-reports', async (_req, res) => {
     }
   }
   // Global Economic Weekly RICHE (Week Ahead façon PMT) : même logique d'auto-génération si absent.
-  const gewCurrent = items.find(i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && Array.isArray(i._weekly.days) && i._weekly.days.length);
+  // v>=GEW_VER exigé → un GEW d'ANCIEN format (sans horaires multi-fuseaux ni commentaires) est
+  // considéré périmé et régénéré automatiquement au format courant.
+  const gewCurrent = items.find(i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && (i._weekly.v || 0) >= GEW_VER && Array.isArray(i._weekly.days) && i._weekly.days.length);
   if (!gewCurrent) {
     generating = true;
     if (Date.now() - _gewGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
@@ -4930,6 +4932,7 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon PMT (distinct du Weekly Recap rétrospectif) :
 // AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
 // JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
+const GEW_VER = 2;   // format Econoday (highlights long + horaires multi-fuseaux + commentaire/event) — bump = régén auto
 // Horaires MULTI-FUSEAUX d'un événement (clone PMT) : fuseau LOCAL du pays + GMT + EDT (US Eastern),
 // ex. « Mon 1100 CEST; Mon 0900 GMT; Mon 0500 EDT ». 100% calculé depuis le timestamp (zéro IA).
 const _GEW_TZ = { USD: 'America/New_York', EUR: 'Europe/Berlin', GBP: 'Europe/London', JPY: 'Asia/Tokyo', CHF: 'Europe/Zurich', CAD: 'America/Toronto', AUD: 'Australia/Sydney', NZD: 'Pacific/Auckland', CNY: 'Asia/Shanghai' };
@@ -4981,8 +4984,9 @@ async function generateGlobalEconomicWeekly(force = false) {
   const weekKey = `${monday.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
   const weekPrefix = idPrefix + weekKey;
 
-  // « riche » = GEW avec des jours/événements (un GEW vide — calendrier pas encore chargé — ne compte pas).
-  const _isRich = i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && Array.isArray(i._weekly.days) && i._weekly.days.length;
+  // « riche » = GEW au format COURANT (v>=GEW_VER) avec des jours/événements (un GEW vide — calendrier
+  // pas encore chargé — ou d'ancien format ne compte pas → régénéré).
+  const _isRich = i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && (i._weekly.v || 0) >= GEW_VER && Array.isArray(i._weekly.days) && i._weekly.days.length;
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix) && _isRich(i))) {
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isRich(i)) || null;
   }
@@ -5088,7 +5092,7 @@ ${list}`;
     } catch (e) { console.warn('[GEW] commentaires par event indispo:', e.message); }
   }
 
-  const weekly = { v: 2, gew: true, title, weekRange, highlights, insights, pairs, days };
+  const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, insights, pairs, days };
   // Description texte (recherche/affichage simple)
   const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : ''];
   days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / prev ' + e.previous : '') : ''}`)); });
