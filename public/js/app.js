@@ -5325,6 +5325,7 @@ function _renderWeeklyRecap(item) {
               + (e.previous ? `<span class="gew-cons"><i>Previous</i><b>${_wrEsc(e.previous)}</b></span>` : '')
               + `</div>`;
           }
+          if (e.comment) body += `<div class="gew-ev-cmt">${_wrEsc(e.comment)}</div>`;   // analyse Econoday-style
           body += `</div>`;
         });
         body += `</div>`;

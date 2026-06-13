@@ -4930,6 +4930,39 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon PMT (distinct du Weekly Recap rétrospectif) :
 // AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
 // JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
+// Horaires MULTI-FUSEAUX d'un événement (clone PMT) : fuseau LOCAL du pays + GMT + EDT (US Eastern),
+// ex. « Mon 1100 CEST; Mon 0900 GMT; Mon 0500 EDT ». 100% calculé depuis le timestamp (zéro IA).
+const _GEW_TZ = { USD: 'America/New_York', EUR: 'Europe/Berlin', GBP: 'Europe/London', JPY: 'Asia/Tokyo', CHF: 'Europe/Zurich', CAD: 'America/Toronto', AUD: 'Australia/Sydney', NZD: 'Pacific/Auckland', CNY: 'Asia/Shanghai' };
+// Abréviation [standard, heure d'été] par fuseau — l'ICU de Node renvoie « GMT-4 » au lieu de
+// « EDT » pour les fuseaux hors-Europe ; on force les sigles attendus (clone PMT).
+const _TZ_ABBR = { 'America/New_York': ['EST', 'EDT'], 'America/Toronto': ['EST', 'EDT'], 'Asia/Tokyo': ['JST', 'JST'], 'Australia/Sydney': ['AEST', 'AEDT'], 'Pacific/Auckland': ['NZST', 'NZDT'], 'Asia/Shanghai': ['CST', 'CST'], 'Europe/London': ['GMT', 'BST'], 'Europe/Berlin': ['CET', 'CEST'], 'Europe/Zurich': ['CET', 'CEST'] };
+function _tzOffMin(date, tz) {
+  const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(date).reduce((a, x) => (a[x.type] = x.value, a), {});
+  return (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - date.getTime()) / 60000;
+}
+function _tzAbbr(date, tz, icu) {
+  if (icu && !/^GMT/i.test(icu) && icu !== 'UTC') return icu;   // ICU a déjà un vrai sigle (CEST, BST…)
+  const tab = _TZ_ABBR[tz]; if (!tab) return (icu === 'UTC' ? 'GMT' : icu);
+  const y = date.getUTCFullYear();
+  const std = Math.min(_tzOffMin(new Date(Date.UTC(y, 0, 15)), tz), _tzOffMin(new Date(Date.UTC(y, 6, 15)), tz));
+  return tab[_tzOffMin(date, tz) > std ? 1 : 0];   // offset > standard → heure d'été (vrai aux 2 hémisphères)
+}
+function _gewTimes(ts, ccy) {
+  const d = new Date(ts);
+  const part = tz => {
+    try {
+      const ps = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' }).formatToParts(d);
+      const g = t => (ps.find(p => p.type === t) || {}).value || '';
+      return `${g('weekday')} ${g('hour')}${g('minute')} ${_tzAbbr(d, tz, g('timeZoneName'))}`;
+    } catch { return ''; }
+  };
+  const out = []; const seenTz = new Set();
+  const add = s => { if (s) { const tz = s.split(' ').pop(); if (!seenTz.has(tz)) { seenTz.add(tz); out.push(s); } } };
+  const local = _GEW_TZ[ccy]; if (local) add(part(local));   // fuseau du pays (CEST, JST…)
+  add(part('UTC'));                                          // GMT (référence)
+  add(part('America/New_York'));                            // EDT/EST (desk US)
+  return out.join('; ');
+}
 async function generateGlobalEconomicWeekly(force = false) {
   const idPrefix = 'dtp-econ-weekly-', now = Date.now();
   // Semaine À VENIR (lundi→vendredi UTC) : week-end/vendredi → semaine prochaine ; lun-jeu → semaine en cours.
@@ -4968,13 +5001,12 @@ async function generateGlobalEconomicWeekly(force = false) {
     .filter(e => e && e.timestamp >= weekStart && e.timestamp <= weekEnd && (e.impact === 'High' || e.impact === 'Medium') && e.title)
     .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + new Date(e.timestamp).toISOString().slice(0, 10); if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => a.timestamp - b.timestamp);
-  const fmtGMT = ts => { const d = new Date(ts), p = n => String(n).padStart(2, '0'); return p(d.getUTCHours()) + p(d.getUTCMinutes()) + ' GMT'; };
   const daysMap = {};
   for (const e of evClean) {
     const dn = DOW[new Date(e.timestamp).getUTCDay()];
     if (!ORDER.includes(dn)) continue;
     (daysMap[dn] = daysMap[dn] || []).push({
-      time: fmtGMT(e.timestamp), country: CCY_CTRY[e.currency] || e.currency || '', currency: e.currency || '',
+      time: _gewTimes(e.timestamp, e.currency), country: CCY_CTRY[e.currency] || e.currency || '', currency: e.currency || '',
       title: String(e.title).slice(0, 90), impact: e.impact === 'High' ? 'HIGH' : 'MED',
       forecast: String(e.forecast || '').slice(0, 20), previous: String(e.previous || '').slice(0, 20),
     });
@@ -5001,7 +5033,7 @@ async function generateGlobalEconomicWeekly(force = false) {
     const prompt = `You are a senior macro strategist writing the WEEK AHEAD preview ("Global Economic Weekly") for a professional FX & markets desk (depth comparable to a top-tier bank's week-ahead note). The COMING trading week (Monday–Friday) is defined by the scheduled HIGH-IMPACT events below. Write polished, specific, FORWARD-LOOKING English. Return ONLY valid JSON (no preamble, no markdown fences):
 {
   "title": "Global Economic Weekly: <punchy headline naming the 2-3 marquee themes, e.g. 'Fed, Inflation and Global Central Banks: A High-Stakes Week for Markets'>",
-  "highlights": "<3 to 5 paragraph narrative on the MARQUEE event(s) of the week — above all the central-bank decision(s) listed: what consensus expects, why it matters, the policy dilemma, the market implications. Separate paragraphs with \\n\\n. This is the 'The Week Ahead: Highlights' section.>",
+  "highlights": "<a RICH, COMPLETE editorial of 5 to 7 substantial paragraphs (~500-750 words total), in the style of an Econoday/Prime-Terminal 'Week Ahead: Highlights' note. Lead with the single biggest event of the week (usually the marquee central-bank decision): what consensus expects and the exact level/move, the policy dilemma and dual-mandate tension, named officials and their leanings, the dissent/vote picture, the data backdrop (inflation, labour, growth, geopolitics), the schedule (statement/press-conference times), and the concrete market implications across FX, rates and equities. Then cover the other marquee events. Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
   "insights": ["<forward-looking standalone insight, 1 sentence>", "... 5 to 6 cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: directional view for the WEEK AHEAD given the scheduled events>" } ]
 }
@@ -5014,7 +5046,7 @@ RECENT MACRO CONTEXT (past week, for tone only):
 ${recentCtx.join('\n')}`;
     try {
       _aiReset();
-      const text = await ai.generateText(prompt, 4096);
+      const text = await ai.generateText(prompt, 6000);   // marge généreuse → highlights complet, jamais tronqué
       aiNote('weekly');
       const m = text.match(/\{[\s\S]*\}/);
       const parsed = m ? JSON.parse(m[0]) : null;
@@ -5034,7 +5066,29 @@ ${recentCtx.join('\n')}`;
     title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} Headlines a Busy Week` : 'Key Data and Central Banks in the Week Ahead');
   }
 
-  const weekly = { v: 1, gew: true, title, weekRange, highlights, insights, pairs, days };
+  // ── Commentaire d'analyse PAR ÉVÉNEMENT (style Econoday) — UN seul appel groupé, caché (1×/sem).
+  // Best-effort : IA indisponible → events affichés SANS commentaire (jamais d'invention). On ne
+  // tente que si le 1er appel a réussi (highlights présent) → ne gaspille pas le quota en panne IA.
+  if (highlights) {
+    try {
+      const flat = []; days.forEach(d => (d.events || []).forEach(e => flat.push(e)));
+      if (flat.length) {
+        const list = flat.map((e, i) => `${i + 1}. ${e.country} ${e.title}${e.forecast ? ` — consensus ${e.forecast}${e.previous ? `, previous ${e.previous}` : ''}` : (e.previous ? ` — previous ${e.previous}` : '')}`).join('\n');
+        const cprompt = `You are an Econoday-style economist. For EACH scheduled event below, write ONE concise, specific analyst sentence: what the consensus implies versus the previous reading and why it matters for markets. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. Return ONLY valid JSON mapping each event number to its sentence, e.g. {"1":"The consensus looks for ...","2":"..."}.
+
+EVENTS:
+${list}`;
+        const ct = await ai.generateText(cprompt, 4000);
+        aiNote('weekly');
+        const cm = ct.match(/\{[\s\S]*\}/);
+        if (cm) { const obj = JSON.parse(cm[0]); flat.forEach((e, i) => { const c = obj[String(i + 1)]; if (typeof c === 'string' && c.trim().length > 15) e.comment = c.trim().slice(0, 420); }); }
+        const done = flat.filter(e => e.comment).length;
+        console.log(`[GEW] commentaires par event : ${done}/${flat.length}`);
+      }
+    } catch (e) { console.warn('[GEW] commentaires par event indispo:', e.message); }
+  }
+
+  const weekly = { v: 2, gew: true, title, weekRange, highlights, insights, pairs, days };
   // Description texte (recherche/affichage simple)
   const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : ''];
   days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / prev ' + e.previous : '') : ''}`)); });
