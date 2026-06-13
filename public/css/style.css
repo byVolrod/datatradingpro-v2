@@ -4874,18 +4874,32 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wa3-fbtn { font-size: 11px; font-weight: 600; color: #a6a6ad; background: #121216; border: 1px solid #26262b; border-radius: 4px; padding: 3px 10px; cursor: pointer; font-family: inherit; }
 .wa3-fbtn.on { color: #1a1206; background: #ff7a00; border-color: #ff7a00; }
 .wa3-empty { color: #6f6f78; font-size: 12px; padding: 22px 14px; text-align: center; }
-/* Week Ahead — RESPONSIVE : sous 1024px on empile (frise → ticker → calendrier), splitters masqués, scroll vertical global */
+/* Week Ahead — RESPONSIVE : sous 1024px on EMPILE en FLEX colonne (frise → ticker → calendrier).
+   On passe en flex (au lieu de grid) ET on neutralise tout reliquat de grille/style inline laissé
+   par les splitters desktop (grid-template-* en !important) → empilement vertical garanti, JAMAIS
+   de superposition des panneaux. Le panneau scrolle globalement ; chaque sous-panneau garde un
+   scroll interne borné (ticker/calendrier) pour ne pas faire une page interminable. */
 @media (max-width: 1024px) {
-  .wa3 { grid-template-columns: 1fr; grid-template-rows: none; grid-auto-rows: auto; overflow-y: auto; overflow-x: hidden; }
-  .wa3-vsplit, .wa3-hsplit { display: none; }
-  .wa3 > .wa-scroll { overflow: visible; }
-  .wa3-right { grid-template-rows: none; grid-auto-rows: 440px; min-height: 0; overflow: visible; }
+  #view-weekahead { height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .wa3 {
+    display: flex !important; flex-direction: column; height: auto; min-height: 0;
+    grid-template-columns: none !important; grid-template-rows: none !important;
+    overflow: visible;
+  }
+  .wa3-vsplit, .wa3-hsplit { display: none !important; }
+  .wa3 > .wa-scroll { flex: 0 0 auto; height: auto; max-height: none; overflow: visible; }
+  .wa3-right {
+    display: flex !important; flex-direction: column; flex: 0 0 auto;
+    grid-template-rows: none !important; grid-template-columns: none !important; grid-auto-rows: auto !important;
+    min-height: 0; overflow: visible;
+  }
+  .wa3-panel { flex: 0 0 auto; background: #0c0c0e; border-top: 1px solid var(--border); }
+  .wa3-panel .wa3-pbody { max-height: 65vh; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 }
 @media (max-width: 560px) {
   .wa3 .wa-node { flex: 0 0 60px; width: 60px; height: 60px; }
   .wa3 .wa-date { font-size: 18px; }
   .wa3 .wa-timeline::before { left: 30px; }
-  .wa3-right { grid-auto-rows: 380px; }
 }
 /* News (panneau droite haut) */
 .wan-day { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; font-weight: 700; letter-spacing: .06em; color: #6f6f78; padding: 8px 14px 4px; text-transform: uppercase; }
