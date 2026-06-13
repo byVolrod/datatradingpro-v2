@@ -4234,9 +4234,23 @@ function _populateBrInstFilter() {
     types.map(t => `<option value="${t}">${TLAB[t] || t}</option>`).join(''));
 }
 
-// Dosage par banque : entrelacement round-robin À L'INTÉRIEUR de chaque journée (la chronologie
-// jour-par-jour reste respectée). Évite qu'une banque prolifique (HSBC, MUFG…) noie les rapports
-// plus rares (un SEB isolé). Aucun rapport supprimé — seul l'ordre d'affichage change.
+// ── PERTINENCE « vision du terminal » : score haut = macro / banques centrales / FX / taux /
+// données éco / commodités ; pénalité pour le hors-sujet (ESG, gestion de patrimoine, corporate,
+// événementiel…). Sert à GARDER L'ESSENTIEL quand on plafonne le nombre de rapports par jour. ──
+const _BR_KEY = /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|boc|rba|rbnz|pboc|rate decision|interest rate|monetary|hawkish|dovish|rate cut|rate hike|fx|forex|currenc|dollar|euro|sterling|yen|aussie|kiwi|loonie|franc|usd|eur|gbp|jpy|aud|nzd|cad|chf|cpi|inflation|gdp|pmi|payroll|nfp|jobless|retail sales|ppi|pce|unemployment|wage|trade balance|yield|bond|treasury|gilt|bund|jgb|ois|oil|crude|brent|opec|gold|xau|natural gas|commodit|tariff|geopolit|sanction|outlook|forecast|preview|recap|week ahead|strateg|macro|economic|markets?)\b/gi;
+const _BR_OFF = /\besg\b|sustainab|net[- ]?zero|\bclimate\b|diversity|charity|donation|\baward|podcast|webinar|wealth|legacy|estate plan|premier elite|affluent|retail banking|mortgage product|insurance product|fund launch/i;
+function _brRelevance(it) {
+  const t = ((it.title || '') + ' ' + (it.description || '') + ' ' + ((it.categories || []).join(' '))).toLowerCase();
+  const m = t.match(_BR_KEY);
+  let s = m ? Math.min(m.length, 6) : 0;   // densité de mots-clés terminal (plafonnée +6)
+  if (_BR_OFF.test(t)) s -= 5;             // hors vision → relégué sous le quota
+  return s;
+}
+// Curation + dosage PAR JOUR : (1) on garde les ~CAP rapports les PLUS ESSENTIELS du jour
+// (pertinence puis récence), (2) on les ENTRELACE par banque (round-robin) pour qu'aucune banque
+// prolifique ne noie les autres. La chronologie jour-par-jour reste respectée. Vue « toutes banques »
+// uniquement ; le filtre par banque montre TOUT (rien n'est définitivement perdu).
+const _BR_CAP_PER_DAY = 35;
 function _brBalanceByDay(arr) {
   const dayKey = t => new Date(t || 0).toISOString().slice(0, 10);
   const byDay = new Map(); const dayOrder = [];   // jours dans l'ordre reçu (déjà date desc)
@@ -4247,8 +4261,16 @@ function _brBalanceByDay(arr) {
   }
   const out = [];
   for (const d of dayOrder) {
-    const byBank = new Map(); const bankOrder = [];   // banques dans l'ordre d'apparition (la + récente d'abord)
-    for (const it of byDay.get(d)) {
+    // 1) sélection des plus ESSENTIELS du jour : tri pertinence ↓ puis récence ↓, plafonné au quota
+    let day = byDay.get(d)
+      .map(it => ({ it, r: _brRelevance(it) }))
+      .sort((a, b) => b.r - a.r || (b.it.timestamp || 0) - (a.it.timestamp || 0))
+      .slice(0, _BR_CAP_PER_DAY)
+      .map(x => x.it);
+    day.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));   // récence pour l'entrelacement
+    // 2) round-robin par banque (1 rapport de chaque banque par tour)
+    const byBank = new Map(); const bankOrder = [];
+    for (const it of day) {
       const b = it.institution || it._source || '?';
       if (!byBank.has(b)) { byBank.set(b, []); bankOrder.push(b); }
       byBank.get(b).push(it);
