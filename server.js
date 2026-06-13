@@ -4955,11 +4955,16 @@ async function generateGlobalEconomicWeekly(force = false) {
   }
 
   // ── Événements programmés de la semaine à venir (High/Med), groupés par jour ──
+  // SOURCE : calendrier TradingView (primaire, couvre la semaine à venir + forecast/previous), comme
+  // /api/calendar-events. Repli sur allCalendar (ForexFactory) si TradingView indisponible.
+  let _gewCal = [];
+  try { _gewCal = await _buildTVCalendar(); } catch {}
+  if (!_gewCal || !_gewCal.length) _gewCal = allCalendar || [];
   const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
   const ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   const CCY_CTRY = { USD: 'US', EUR: 'Eurozone', GBP: 'UK', JPY: 'Japan', CHF: 'Switzerland', CAD: 'Canada', AUD: 'Australia', NZD: 'New Zealand', CNY: 'China' };
   const seen = new Set();
-  const evClean = (allCalendar || [])
+  const evClean = _gewCal
     .filter(e => e && e.timestamp >= weekStart && e.timestamp <= weekEnd && (e.impact === 'High' || e.impact === 'Medium') && e.title)
     .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + new Date(e.timestamp).toISOString().slice(0, 10); if (seen.has(k)) return false; seen.add(k); return true; })
     .sort((a, b) => a.timestamp - b.timestamp);
