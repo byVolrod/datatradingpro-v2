@@ -5323,6 +5323,9 @@ function _renderWeeklyRecap(item) {
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   // strip markdown (**gras**, *, `, _) du titre → jamais d'astérisques brutes affichées
   const _wrTitle = _mdStrip(w.gew ? String(w.title || 'Global Economic Weekly') : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title }));
+  // Le GROS titre ne doit PAS répéter le libellé de type affiché juste au-dessus (.arlib-doc-type) :
+  // on retire le préfixe « Weekly Market Recap: » / « Global Economic Weekly: » → fini la répétition.
+  const _wrSubject = _wrTitle.replace(/^\s*(Weekly Market Recap|Global Economic Weekly)\s*:\s*/i, '').trim() || _wrTitle;
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
   // via .wr-doc-week — l'afficher aussi ici cassait la mise en page).
   if (titleEl) titleEl.textContent = _wrTitle;
@@ -5361,7 +5364,7 @@ function _renderWeeklyRecap(item) {
   // En-tête IDENTIQUE aux autres rapports ouverts (libellé type + titre + date + bordure).
   body += `<div class="arlib-doc-header">
       <div class="arlib-doc-type">${isGew ? 'Global Economic Weekly' : 'Weekly Market Recap'}</div>
-      <div class="arlib-doc-title">${_wrEsc(_wrTitle)}</div>
+      <div class="arlib-doc-title">${_wrEsc(_wrSubject)}</div>
       ${(isGew ? (w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)) ? `<div class="arlib-doc-meta">${_wrEsc(isGew ? w.weekRange : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range))}</div>` : ''}
     </div>`;
   if (isGew) {
