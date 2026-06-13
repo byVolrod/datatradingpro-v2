@@ -7241,7 +7241,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const tbl = document.getElementById('jr-grid'); if (!tbl) return;
     const cols = _jrColsVisible();
     const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    const head = '<thead><tr>' + cols.map(c => '<th class="jr-th" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
+    const head = '<thead><tr>' + cols.map(c => '<th class="jr-th" draggable="true" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
     if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + (cols.length + 1) + '">Aucun trade — clique « + Nouveau » ou importe ton journal Notion (CSV).</td></tr></tbody>'; return; }
     tbl.innerHTML = head + '<tbody>' + L.map(e =>
       '<tr data-id="' + _esc(e.id) + '">'
@@ -7252,6 +7252,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // ── Éditeurs de cellule (popover façon Notion) ──
   let _jrPop = null, _jrPopOut = null;
+  let _jrDragK = null, _jrDragEndTs = 0;   // glisser-déposer des colonnes
   function _jrPopEsc(ev) { if (ev.key === 'Escape') _jrClosePop(); }
   function _jrClosePop() { if (_jrPop) { _jrPop.remove(); _jrPop = null; } if (_jrPopOut) { document.removeEventListener('mousedown', _jrPopOut, true); document.removeEventListener('keydown', _jrPopEsc, true); _jrPopOut = null; } }
   function _jrOpenPop(anchor, html) {
@@ -7397,11 +7398,54 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const addcol = ev.target.closest && ev.target.closest('#jr-addcol');
     if (addcol) { _jrAddColMenu(addcol); return; }
     const th = ev.target.closest && ev.target.closest('#jr-grid th.jr-th');
-    if (th) { _jrColMenu(th); return; }
+    if (th) { if (Date.now() - _jrDragEndTs > 200) _jrColMenu(th); return; }   // ignore le clic juste après un glisser-déposer
     const td = ev.target.closest && ev.target.closest('#jr-grid td.jr-c');
     if (td) { if (!td.querySelector('.jr-cell-input')) _jrEditCell(td); return; }
     if (_jrDelPending && !(ev.target.closest && ev.target.closest('.jr-pop'))) { _jrDelPending = null; _jrRenderGrid(); }
   });
+
+  // ── Glisser-déposer des colonnes (réordonner les en-têtes à la souris, façon Notion) ──
+  function _jrDragClean() {
+    _jrDragK = null;
+    document.querySelectorAll('#jr-grid th.jr-th--dragging, #jr-grid th.jr-th--drop-l, #jr-grid th.jr-th--drop-r')
+      .forEach(x => x.classList.remove('jr-th--dragging', 'jr-th--drop-l', 'jr-th--drop-r'));
+  }
+  function _jrMoveCol(fromK, toK, after) {
+    if (!_jrCols || fromK === toK) return;
+    const fromIdx = _jrCols.findIndex(c => c.k === fromK); if (fromIdx < 0) return;
+    const col = _jrCols.splice(fromIdx, 1)[0];
+    let toIdx = _jrCols.findIndex(c => c.k === toK);
+    if (toIdx < 0) { _jrCols.splice(fromIdx, 0, col); return; }
+    if (after) toIdx += 1;
+    _jrCols.splice(toIdx, 0, col);
+    _jrRenderGrid(); _jrSave();
+  }
+  document.addEventListener('dragstart', ev => {
+    const th = ev.target.closest && ev.target.closest('#jr-grid th.jr-th'); if (!th) return;
+    _jrDragK = th.dataset.k; _jrClosePop();
+    try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', _jrDragK); } catch (e) {}
+    th.classList.add('jr-th--dragging');
+  });
+  document.addEventListener('dragover', ev => {
+    if (!_jrDragK) return;
+    const th = ev.target.closest && ev.target.closest('#jr-grid th.jr-th'); if (!th) return;
+    ev.preventDefault(); try { ev.dataTransfer.dropEffect = 'move'; } catch (e) {}
+    document.querySelectorAll('#jr-grid th.jr-th--drop-l, #jr-grid th.jr-th--drop-r').forEach(x => x.classList.remove('jr-th--drop-l', 'jr-th--drop-r'));
+    if (th.dataset.k === _jrDragK) return;
+    const r = th.getBoundingClientRect();
+    th.classList.add(ev.clientX > r.left + r.width / 2 ? 'jr-th--drop-r' : 'jr-th--drop-l');
+  });
+  document.addEventListener('drop', ev => {
+    if (!_jrDragK) return;
+    const th = ev.target.closest && ev.target.closest('#jr-grid th.jr-th');
+    if (th && th.dataset.k !== _jrDragK) {
+      ev.preventDefault();
+      const r = th.getBoundingClientRect();
+      _jrMoveCol(_jrDragK, th.dataset.k, ev.clientX > r.left + r.width / 2);
+    }
+    _jrDragEndTs = Date.now(); _jrDragClean();
+  });
+  document.addEventListener('dragend', () => { _jrDragEndTs = Date.now(); _jrDragClean(); });
 
   // ── Import Excel/CSV ou export Notion (CSV) — détection auto délimiteur + colonnes ──────────
   function _jrCsvRows(text) {

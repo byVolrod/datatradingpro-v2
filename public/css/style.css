@@ -9074,6 +9074,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jr-th:hover .jr-th-caret { opacity: 1; }
 .jr-th-addcol { cursor: pointer; color: var(--text3); font-size: 15px; font-weight: 700; text-align: center; min-width: 30px; background: #101013; }
 .jr-th-addcol:hover { color: var(--orange); background: #16161a; }
+/* Glisser-déposer des colonnes : état dragué + ligne d'insertion orange */
+.jr-th[draggable="true"] { -webkit-user-drag: element; }
+.jr-th--dragging { opacity: 0.4; background: #1c1c22 !important; }
+.jr-th--drop-l { box-shadow: inset 3px 0 0 0 var(--orange); }
+.jr-th--drop-r { box-shadow: inset -3px 0 0 0 var(--orange); }
 .jr-cv-text { color: var(--text2); }
 .jr-pop-ttl { font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text3); padding: 2px 6px 7px; }
 .jr-nc-ic { display: inline-block; width: 16px; text-align: center; color: var(--text3); font-size: 11px; }
