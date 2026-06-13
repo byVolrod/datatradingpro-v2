@@ -4031,14 +4031,14 @@ ${clean.slice(0, 4500)}`;
       ? (JSON.parse(m[0]).insights || [])
           .filter(o => o && typeof o.text === 'string' && o.text.length > 8)
           .map(o => {
-            let asset = String(o.asset == null ? '' : o.asset).trim().slice(0, 40);
+            let asset = _stripMd(String(o.asset == null ? '' : o.asset)).slice(0, 40);
             if (_GENERIC.test(asset)) asset = '';                       // actif générique → carte narrative
             let signal = String(o.signal || o.bias || '').trim().toUpperCase();
             if (signal === 'BULLISH') signal = 'BUY';
             else if (signal === 'BEARISH') signal = 'SELL';
             if (!['BUY', 'SELL', 'NEUTRAL'].includes(signal)) signal = '';
             if (!asset) signal = '';                                    // pas de badge sans actif
-            return { asset: asset || null, signal: signal || null, text: o.text };
+            return { asset: asset || null, signal: signal || null, text: _stripMd(String(o.text)) };
           })
           .slice(0, 12)
       : [];
@@ -4741,6 +4741,29 @@ function _recapClean(items) {
   return (items || []).filter(i => i && i.headline && !_RECAP_NOISE.test(i.headline) && i.headline.replace(/[^a-z0-9]/gi, '').length >= 14);
 }
 
+// ─── Nettoyage markdown brut (À LA SOURCE) ───────────────────────────────────
+// L'IA renvoie parfois du gras/italique markdown (**…**, *…*, `…`, __…__, ~~…~~, # titres,
+// > citations, [txt](url)). On ne veut JAMAIS afficher ces caractères tels quels dans un rapport.
+// → On nettoie la donnée AVANT stockage : peu importe le point de rendu (textContent, esc, innerHTML),
+//   le texte servi est propre. Le texte est conservé, seuls les marqueurs disparaissent.
+function _stripMd(s) {
+  if (s == null) return s;
+  return String(s)
+    .replace(/```[\s\S]*?```/g, '')           // blocs de code
+    .replace(/`([^`]+)`/g, '$1')              // code inline
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')      // ***gras+ital***
+    .replace(/\*\*(.+?)\*\*/g, '$1')          // **gras**
+    .replace(/__(.+?)__/g, '$1')              // __gras__
+    .replace(/~~(.+?)~~/g, '$1')              // ~~barré~~
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')  // [texte](url) → texte
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '') // # titres
+    .replace(/^[ \t]{0,3}>[ \t]?/gm, '')      // > citations
+    .replace(/\*+/g, '')                       // astérisques résiduelles (non appariées)
+    .replace(/[ \t]+\n/g, '\n')               // espaces avant saut de ligne
+    .replace(/[ \t]{2,}/g, ' ')               // espaces multiples (préserve \n\n des paragraphes)
+    .trim();
+}
+
 // ─── Génération hebdomadaire (ID par semaine ISO) ────────────────────────────
 function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }) {
   const now  = Date.now();
@@ -5064,11 +5087,11 @@ ${recentCtx.join('\n')}`;
       const m = text.match(/\{[\s\S]*\}/);
       const parsed = m ? JSON.parse(m[0]) : null;
       if (parsed) {
-        title = String(parsed.title || title).replace(/[*_`]+/g, '').replace(/\s{2,}/g, ' ').trim();   // jamais de markdown brut dans le titre
+        title = _stripMd(String(parsed.title || title));   // jamais de markdown brut dans le titre
         if (!/global economic weekly/i.test(title)) title = 'Global Economic Weekly: ' + title.replace(/^global economic weekly:?\s*/i, '');
-        highlights = String(parsed.highlights || '').trim();
-        insights = Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => String(s).trim()).slice(0, 6) : [];
-        pairs = Array.isArray(parsed.pairs) ? parsed.pairs.filter(p => p && p.pair).map(p => ({ pair: String(p.pair).trim(), bias: (['BUY', 'SELL', 'NEUTRAL'].includes(String(p.bias || '').toUpperCase()) ? String(p.bias).toUpperCase() : 'NEUTRAL'), text: String(p.text || '').trim() })).slice(0, 8) : [];
+        highlights = _stripMd(String(parsed.highlights || ''));
+        insights = Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => _stripMd(String(s))).slice(0, 6) : [];
+        pairs = Array.isArray(parsed.pairs) ? parsed.pairs.filter(p => p && p.pair).map(p => ({ pair: String(p.pair).trim(), bias: (['BUY', 'SELL', 'NEUTRAL'].includes(String(p.bias || '').toUpperCase()) ? String(p.bias).toUpperCase() : 'NEUTRAL'), text: _stripMd(String(p.text || '')) })).slice(0, 8) : [];
       }
     } catch (e) { console.warn('[GEW] IA échec → repli déterministe:', e.message); }
   }
@@ -5094,7 +5117,7 @@ ${list}`;
         const ct = await ai.generateText(cprompt, 4000);
         aiNote('weekly');
         const cm = ct.match(/\{[\s\S]*\}/);
-        if (cm) { const obj = JSON.parse(cm[0]); flat.forEach((e, i) => { const c = obj[String(i + 1)]; if (typeof c === 'string' && c.trim().length > 15) e.comment = c.trim().slice(0, 420); }); }
+        if (cm) { const obj = JSON.parse(cm[0]); flat.forEach((e, i) => { const c = obj[String(i + 1)]; if (typeof c === 'string' && c.trim().length > 15) e.comment = _stripMd(c).slice(0, 420); }); }
         const done = flat.filter(e => e.comment).length;
         console.log(`[GEW] commentaires par event : ${done}/${flat.length}`);
       }
@@ -5291,28 +5314,28 @@ ${corpus}`;
   let weekly;
   if (aiOk) {
     // ── Format RICHE (Gemini) ──
-    let baseTitle = String(parsed.title || 'Weekly Market Recap').trim();
+    let baseTitle = _stripMd(String(parsed.title || 'Weekly Market Recap'));
     if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
     weekly = {
       v: 2, title: baseTitle, weekEnding, weekRange,
-      summary:    parsed.summary || '',
-      insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 6) : [],
+      summary:    _stripMd(parsed.summary || ''),
+      insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => _stripMd(String(s))).slice(0, 6) : [],
       pairs:      Array.isArray(parsed.pairs) ? parsed.pairs
                     .filter(p => p && p.pair)
-                    .map(p => ({ pair: String(p.pair).trim(), bias: String(p.bias || 'NEUTRAL').toUpperCase().replace(/[^A-Z]/g,''), text: String(p.text || '').trim() }))
+                    .map(p => ({ pair: String(p.pair).trim(), bias: String(p.bias || 'NEUTRAL').toUpperCase().replace(/[^A-Z]/g,''), text: _stripMd(String(p.text || '')) }))
                     .map(p => ({ ...p, bias: ['BUY','SELL','NEUTRAL'].includes(p.bias) ? p.bias : 'NEUTRAL' }))
                     .slice(0, 8) : [],
-      macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).slice(0, 6) : [],
+      macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).map(s => ({ ...s, heading: _stripMd(String(s.heading)), bullets: Array.isArray(s.bullets) ? s.bullets.map(b => _stripMd(String(b))) : s.bullets, detail: s.detail != null ? _stripMd(String(s.detail)) : s.detail })).slice(0, 6) : [],
       currencies: {},
     };
     for (const c of CCY) {
       const v = parsed.currencies[c];
       if (!v) continue;
-      if (typeof v === 'string') weekly.currencies[c] = { analysis: v.trim(), drivers: [] };
+      if (typeof v === 'string') weekly.currencies[c] = { analysis: _stripMd(v), drivers: [] };
       else weekly.currencies[c] = {
-        analysis: String(v.analysis || '').trim(),
+        analysis: _stripMd(String(v.analysis || '')),
         drivers: Array.isArray(v.drivers)
-          ? v.drivers.filter(x => x && x.heading).map(x => ({ heading: String(x.heading).trim(), detail: String(x.detail || '').trim() })).slice(0, 9)
+          ? v.drivers.filter(x => x && x.heading).map(x => ({ heading: _stripMd(String(x.heading)), detail: _stripMd(String(x.detail || '')) })).slice(0, 9)
           : [],
       };
     }
@@ -5336,14 +5359,14 @@ ${corpus}`;
         .replace(/^\s*\[[^\]]*\]\s*/, '')           // retire un préfixe [Session]
         .replace(/.*\bwrap[:\s-]+/i, '')            // retire "… markets wrap:"
         .replace(/\s+/g, ' ').trim();
-      if (t.length > 3) fbTitle = 'Weekly Market Recap: ' + t.charAt(0).toUpperCase() + t.slice(1);
+      if (t.length > 3) fbTitle = _stripMd('Weekly Market Recap: ' + t.charAt(0).toUpperCase() + t.slice(1));
     }
     weekly = {
       v: 1,
       title: fbTitle,
       weekEnding, weekRange,
       summary: `Synthèse de la ${weekRange.toLowerCase()} : ${wrapsRaw.length} session(s) de marché et ${cal.length} résultat(s) économique(s) majeur(s) suivis.`,
-      insights: wrapsRaw.slice(0, 6).map(i => (i.title || '').replace(/\s+/g, ' ').trim()).filter(Boolean),
+      insights: wrapsRaw.slice(0, 6).map(i => _stripMd((i.title || '').replace(/\s+/g, ' '))).filter(Boolean),
       pairs: [],
       macro,
       currencies: {},   // pas d'analyse par devise sans IA

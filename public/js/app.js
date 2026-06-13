@@ -1665,7 +1665,23 @@ function _reportLead(s) {
 // Remplace la marque DTP par DTP dans les titres de rapport
 // Suffixes de SOURCE à ne PAS afficher dans le flux temps réel (on coupe " - Source" en fin de titre)
 const _NEWS_SRC_RE = /\s*[-–—]\s*(?:Axios|Politico|Semafor|Punchbowl|Reuters|RTRS|Bloomberg|BBG|CNBC|CNN|BBC|NBC|ABC|CBS|MSNBC|Fox(?: News| Business)?|Newsmax|OANN|WSJ|Wall Street Journal|FT|Financial Times|NYT|New York Times|Washington Post|WaPo|Forbes|Barron'?s|MarketWatch|Dow Jones|Investing\.com|FXStreet|Forex ?Live|Zero ?Hedge|The Block|CoinDesk|AP|AFP|DPA|ANSA|EFE|PA Media|Xinhua|TASS|RIA(?: Novosti)?|Interfax|Sputnik|Mehr(?: News)?|IRNA|Fars(?: News)?|Tasnim|Press TV|Tehran Times|Al[\s-]?Jazeera|Al[\s-]?Arabiya|Sky News(?: Arabia)?|Anadolu|Trend|Nikkei|Kyodo|Jiji|Yonhap|SCMP|Global Times|Caixin|Times of Israel|Jerusalem Post|Haaretz|Ynet|The Guardian|Guardian|Telegraph|Independent|Economist|Truth Social|Twitter\/?X?|X \(Twitter\)|Telegram|Financial ?Juice|Newswires?|[a-z0-9][a-z0-9-]*\.(?:com|net|org|io))\.?\s*$/i;
-function _dtpTitle(s) { return String(s || '').replace(/\bPMT\b/g, 'DTP').replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim(); }
+// Retire les marqueurs markdown bruts (**gras**, *ital*, `code`, __ __, ~~ ~~, # titres, [txt](url))
+// en GARDANT le texte — filet de sécurité pour les titres/textes rendus en TEXTE BRUT (textContent)
+// et les rapports DÉJÀ en cache avant le nettoyage côté serveur. Aucune astérisque ne doit s'afficher.
+function _mdStrip(s) {
+  return String(s == null ? '' : s)
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/\*\*\*(.+?)\*\*\*/g, '$1')
+    .replace(/\*\*(.+?)\*\*/g, '$1')
+    .replace(/__(.+?)__/g, '$1')
+    .replace(/~~(.+?)~~/g, '$1')
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^[ \t]{0,3}#{1,6}[ \t]+/gm, '')
+    .replace(/\*+/g, '')             // titres en texte brut : aucune astérisque légitime → on enlève tout résidu
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+}
+function _dtpTitle(s) { return _mdStrip(String(s || '').replace(/\bPMT\b/g, 'DTP').replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim()); }
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)
 function _renderSnapshot(data) {
@@ -4489,7 +4505,7 @@ function renderBrReader(item) {
   const content = document.getElementById('br-rcontent');
   const badge   = document.getElementById('br-inst-badge');
 
-  if (titleEl) titleEl.textContent = item.title;
+  if (titleEl) titleEl.textContent = _mdStrip(item.title);
   if (badge)   badge.textContent   = _instBadge(item);
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   // ── PDF natif (BlackRock weekly commentary…) : embarque le VRAI PDF, pas d'extraction HTML/IA ──
@@ -5050,10 +5066,10 @@ function _arlibEnrichTags(fullText) {
 }
 
 function arlibCleanTitle(headline) {
-  return (headline || '')
+  return _mdStrip((headline || '')
     .replace(/^\s*(?:PRIMER\s*[—–-]|PREVIEW\s*[—–-]|ANALYSIS\s*[—–-])\s*/i, '')
     .replace(/^\s*investingLive\s*/i, '')
-    .trim();
+    .trim());
 }
 
 // ── Render card list ──────────────────────────────────────────────────────────
@@ -5180,7 +5196,7 @@ async function _loadAIInsights(item, el) {
   {
     if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const mdb = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');   // échappe PUIS rend **gras** → jamais d'astérisques brutes
+    const mdb = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, '');   // échappe PUIS rend **gras** + retire tout astérisque résiduel → jamais d'astérisques brutes
     // Cartes : en-tête optionnel (actif + badge signal BUY/SELL/NEUTRAL), comme DataTradingPro.
     const cards = d.insights.map(ins => {
       if (typeof ins === 'string') return `<div class="ai-insights-card"><div class="ai-card-text">${mdb(ins)}</div></div>`;
@@ -5249,7 +5265,9 @@ function aiInsToggle(btn, hostId) {
 
 // ═══════════ WEEKLY MARKET RECAP — rendu riche (copie DataTradingPro) ═══════════
 function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function _wrInline(t){ return _wrEsc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>'); }
+// **gras** → <strong> (jamais d'astérisques brutes), PUIS on retire tout astérisque résiduel
+// (marqueur non apparié d'un ancien rapport en cache) → plus aucun ** ne peut apparaître.
+function _wrInline(t){ return _wrEsc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, ''); }
 function _wrParas(t){
   return String(t||'').split(/\n{2,}|\n/).map(p=>p.trim()).filter(Boolean)
     .map(p=>`<p class="wr-p">${_wrInline(p)}</p>`).join('');
@@ -5273,7 +5291,7 @@ function _renderWeeklyRecap(item) {
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   // strip markdown (**gras**, *, `, _) du titre → jamais d'astérisques brutes affichées
-  const _wrTitle = (w.gew ? String(w.title || 'Global Economic Weekly') : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title })).replace(/[*_`]+/g, '').replace(/\s{2,}/g, ' ').trim();
+  const _wrTitle = _mdStrip(w.gew ? String(w.title || 'Global Economic Weekly') : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title }));
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
   // via .wr-doc-week — l'afficher aussi ici cassait la mise en page).
   if (titleEl) titleEl.textContent = _wrTitle;
