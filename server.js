@@ -89,7 +89,7 @@ const HISTORY_TTL  = 10 * 24 * 60 * 60 * 1000; // 10 jours (le recap hebdo a bes
 const SW_CACHE_FILE = path.join(__dirname, 'cache_session_wraps.json');
 const SW_MAX_AGE    = 30 * 24 * 60 * 60 * 1000; // 30 days
 const BR_CACHE_FILE = path.join(__dirname, 'cache_bank_research.json');
-const BR_MAX_AGE    = 30 * 24 * 60 * 60 * 1000;
+const BR_MAX_AGE    = 45 * 24 * 60 * 60 * 1000;   // 45 j (était 30) : plus de rapports des sources fréquentes (SEB/MUFG/ING…) remontent dans Institution
 
 let allNews = [];
 let allCalendar = [];   // FF calendar events served separately
@@ -3532,7 +3532,7 @@ async function _fetchBankResearch(full = false) {
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
     .sort((a, b) => b.timestamp - a.timestamp)
-    .slice(0, 180);   // plafond DUR (anti-OOM Render : chaque item peut porter un fullContent)
+    .slice(0, 260);   // plafond DUR (anti-OOM : chaque item peut porter un fullContent) — relevé 180→260
   _brCache = [..._bron, ..._rest].sort((a, b) => b.timestamp - a.timestamp);
 
   try { fs.writeFileSync(BR_CACHE_FILE, JSON.stringify(_brCache)); } catch {}
