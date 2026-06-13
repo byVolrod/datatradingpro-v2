@@ -2068,7 +2068,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
     }
   }
   // Global Economic Weekly RICHE (Week Ahead façon PMT) : même logique d'auto-génération si absent.
-  const gewCurrent = items.find(i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew);
+  const gewCurrent = items.find(i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && Array.isArray(i._weekly.days) && i._weekly.days.length);
   if (!gewCurrent) {
     generating = true;
     if (Date.now() - _gewGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
@@ -4948,11 +4948,11 @@ async function generateGlobalEconomicWeekly(force = false) {
   const weekKey = `${monday.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
   const weekPrefix = idPrefix + weekKey;
 
-  const _isRich = i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew;
+  // « riche » = GEW avec des jours/événements (un GEW vide — calendrier pas encore chargé — ne compte pas).
+  const _isRich = i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && Array.isArray(i._weekly.days) && i._weekly.days.length;
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix) && _isRich(i))) {
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isRich(i)) || null;
   }
-  allNews = allNews.filter(i => i._reportType !== 'Global Economic Weekly');   // un seul GEW à la fois
 
   // ── Événements programmés de la semaine à venir (High/Med), groupés par jour ──
   const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -4979,6 +4979,10 @@ async function generateGlobalEconomicWeekly(force = false) {
     return { day: dn, date: `${dt.getUTCDate()} ${_MOIS[dt.getUTCMonth()]}`, events: daysMap[dn].slice(0, 14) };
   });
   const nEv = days.reduce((n, d) => n + d.events.length, 0);
+  // Pas d'événements (calendrier de la semaine à venir pas encore chargé / week-end de boot) → on NE
+  // génère PAS un rapport vide et on NE touche PAS à un GEW existant (auto-réessai au prochain accès).
+  if (nEv === 0) { console.warn(`[GEW] aucun événement programmé pour ${weekKey} → pas de génération (réessai ultérieur)`); return null; }
+  allNews = allNews.filter(i => i._reportType !== 'Global Economic Weekly');   // un seul GEW à la fois (remplacé seulement si on a de vrais events)
 
   // Événements PHARES (High) pour le titre + le narratif Highlights
   const marquee = evClean.filter(e => e.impact === 'High')
@@ -7675,6 +7679,7 @@ _warm(() => fetchCOTData('lev_money'),         8000,  'COT');           // COT (
 _warm(() => computeCurrencyStrength('1d'),     11000, 'strength 1d');   // METER
 _warm(() => computeCurrencyStrength('week'),   16000, 'strength TW');   // STRENGTH droite
 if (typeof fetchRiskSentiment === 'function') _warm(() => fetchRiskSentiment(), 13000, 'risk');  // RISK
+_warm(() => generateGlobalEconomicWeekly(false), 30000, 'GEW');   // Global Economic Weekly préchauffé APRÈS le calendrier (boot+9s) → prêt + non vide
 // (Myfxbook/DMX déjà préchauffé par refreshMyfxbook au démarrage)
 
 // ── Rappel abonnements : prévient l'admin (datatradingpro.contact) des comptes
