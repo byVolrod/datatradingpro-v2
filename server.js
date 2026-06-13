@@ -5177,10 +5177,15 @@ ${corpus}`;
       currencies: {},   // pas d'analyse par devise sans IA
     };
   }
-  // Garde anti-dégradation : l'IA a échoué MAIS un recap riche existait déjà cette semaine →
-  // on conserve son contenu riche et on lui AJOUTE juste la chronologie jour-par-jour (jamais de downgrade).
-  if (!aiOk && _prevRich && _prevRich._weekly && _prevRich._weekly.v >= 2) {
-    weekly = { ..._prevRich._weekly, v: 3, days: (_prevRich._weekly.days && _prevRich._weekly.days.length) ? _prevRich._weekly.days : _fbDays };
+  // Garde anti-dégradation : si la nouvelle génération est PLUS PAUVRE que le recap riche déjà publié
+  // cette semaine (IA en échec/quota, OU caches froids après un redémarrage → moins de devises), on
+  // CONSERVE le contenu riche existant (résumé/insights/paires/macro/devises) et on ne récupère que la
+  // chronologie jour-par-jour. Régénérer « juste pour ajouter les jours » ne peut donc jamais dégrader.
+  if (_prevRich && _prevRich._weekly && _prevRich._weekly.v >= 2 &&
+      Object.keys(weekly.currencies || {}).length < Object.keys(_prevRich._weekly.currencies || {}).length) {
+    const keepDays = (weekly.days && weekly.days.length) ? weekly.days
+      : (_prevRich._weekly.days && _prevRich._weekly.days.length ? _prevRich._weekly.days : _fbDays);
+    weekly = { ..._prevRich._weekly, v: 3, days: keepDays };
   }
 
   // Description texte (fallback/recherche/affichage simple)
