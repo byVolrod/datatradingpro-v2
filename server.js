@@ -7798,11 +7798,11 @@ const _csCache = {};
 // clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
-  today: { interval: '5m',  range: '1d',  cutoffMs: null,          cutoffToday: true, clip:  5  },
+  today: { interval: '15m', range: '1d',  cutoffMs: null,          cutoffToday: true, clip:  5  },
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
   week:  { interval: '1h',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
-  '8h':  { interval: '5m',  range: '1d',  cutoffMs:  8 * 3600000,                    clip:  3  },
+  '8h':  { interval: '15m', range: '1d',  cutoffMs:  8 * 3600000,                    clip:  3  },
   '1d':  { interval: '30m', range: '5d',  cutoffMs: 24 * 3600000,                    clip:  5  },
   '5d':  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
   '7d':  { interval: '1d',  range: '1mo', cutoffMs:  7 * 86400000,                   clip: 15  },
@@ -7850,35 +7850,42 @@ async function _computeStrengthFresh(period) {
 
   await getYFSession();
 
-  const pairResults = await Promise.all(CS_PAIRS.map(async p => {
+  const loadPairs = (iv, rng) => Promise.all(CS_PAIRS.map(async p => {
     try {
-      const raw = await yfFetch(p.sym, interval, range);
+      const raw = await yfFetch(p.sym, iv, rng);
       const res = raw?.chart?.result?.[0];
       if (!res) return null;
       let ts = [...(res.timestamp || [])];
       let cl = [...(res.indicators?.quote?.[0]?.close || [])];
-
       if (cutoffSec) {
         const zipped = ts.map((t, i) => [t, cl[i]]).filter(([t]) => t != null && t >= cutoffSec);
         ts = zipped.map(([t]) => t);
         cl = zipped.map(([, c]) => c);
       }
-
       if (ts.length < 2) return null;
       return { ...p, ts, cl };
     } catch { return null; }
   }));
 
-  const pairData = pairResults.filter(Boolean);
+  let usedInterval = interval;
+  let pairData = (await loadPairs(interval, range)).filter(Boolean);
+  // REPLI D'INTERVALLE : l'intraday FIN (5m/15m) est parfois rejeté pour la session serveur (restriction
+  // intraday FX) alors que le 30m passe TOUJOURS (cf. périodes 1d/week à 28/28). Si trop peu de paires
+  // chargent, on retente en 30m sur une fenêtre large → la courbe ne tombe PLUS JAMAIS en « Data unavailable ».
+  if (pairData.length < 7 && interval !== '30m' && interval !== '1h' && interval !== '1d') {
+    console.warn(`[CS/${period}] intervalle ${interval} insuffisant (${pairData.length}/28) → repli 30m`);
+    usedInterval = '30m';
+    pairData = (await loadPairs('30m', '5d')).filter(Boolean);
+  }
   const failCount = CS_PAIRS.length - pairData.length;
   if (failCount > 0) console.warn(`[CS/${period}] ${failCount}/${CS_PAIRS.length} pairs failed to load`);
   if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs — repli sur le cache existant`); return _csCache[period] ? _csCache[period].data : null; }
-  console.log(`[CS/${period}] ${pairData.length}/28 pairs loaded — cutoff=${cutoffSec ? new Date(cutoffSec*1000).toISOString() : 'none'} clip=±${clip}%`);
+  console.log(`[CS/${period}] ${pairData.length}/28 pairs loaded (iv=${usedInterval}) — cutoff=${cutoffSec ? new Date(cutoffSec*1000).toISOString() : 'none'} clip=±${clip}%`);
 
   // Round timestamps to candle interval — aligns all 28 pairs to the same bins
   // (Yahoo Finance returns slightly different timestamps per pair, e.g. 09:30:00 vs 09:30:07)
-  const INTERVAL_SEC = { '5m': 300, '30m': 1800, '1h': 3600, '1d': 86400 };
-  const binSec = INTERVAL_SEC[interval] || 300;
+  const INTERVAL_SEC = { '5m': 300, '15m': 900, '30m': 1800, '1h': 3600, '1d': 86400 };
+  const binSec = INTERVAL_SEC[usedInterval] || 300;
 
   const tsSet = new Set();
   pairData.forEach(p => p.ts.forEach(t => {
