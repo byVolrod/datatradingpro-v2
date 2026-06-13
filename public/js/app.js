@@ -5249,18 +5249,6 @@ function _renderWeeklyRecap(item) {
       ${_range ? `<div class="arlib-doc-meta">${_wrEsc(w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)}</div>` : ''}
     </div>`;
   if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
-  // Chronologie JOUR PAR JOUR : suivre la semaine au fil des jours (avant les thèmes macro).
-  if (Array.isArray(w.days) && w.days.length) {
-    body += `<div class="wr-section-title">The Week — Day by Day</div>`;
-    body += `<div class="wr-timeline">`;
-    w.days.forEach(d => {
-      body += `<div class="wr-day">`;
-      body += `<div class="wr-day-head"><span class="wr-day-name">${_wrEsc(d.day)}</span>${d.headline ? `<span class="wr-day-tag">${_wrEsc(d.headline)}</span>` : ''}</div>`;
-      (d.bullets || []).forEach(b => { body += `<div class="wr-bullet wr-day-bullet">${_wrInline(b)}</div>`; });
-      body += `</div>`;
-    });
-    body += `</div>`;
-  }
   if (w.macro && w.macro.length) {
     body += `<div class="wr-section-title">Key Macro Highlights</div>`;
     w.macro.forEach(s => {
