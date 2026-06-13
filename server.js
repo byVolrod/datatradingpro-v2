@@ -769,19 +769,28 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     await auth.updateUser(id, fields);
     res.json({ ok: true });
 
-    // Emails selon le changement de statut (non bloquant)
+    // Emails selon le changement de statut (non bloquant) — le client est notifié à chaque action admin
     const activeReq = 'active' in req.body
       ? (req.body.active === 1 || req.body.active === true || req.body.active === '1')
       : null;
+    // Prolongation manuelle : l'admin a choisi une durée → nouvelle échéance dans le futur.
+    const _newExp = fields.expiresAt || null;
+    const _extended = !!req.body.duration && _newExp && new Date(_newExp).getTime() > Date.now();
     if (activeReq === false) {
       // Suspendu → renouvellement échoué
       auth.getUserById(id)
         .then(u => { if (u?.email && u.role === 'client') mailer.sendRenewalFailed({ to: u.email, name: u.name }); })
         .catch(() => {});
     } else if (activeReq === true && before && !before.active) {
-      // Réactivé (était suspendu) → email de réactivation
+      // Réactivé (était SUSPENDU → actif) → email de réactivation
       auth.getUserById(id)
         .then(u => { if (u?.email && u.role === 'client') mailer.sendReactivated({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
+        .catch(() => {});
+    } else if (_extended) {
+      // Prolongation/renouvellement MANUEL d'un compte déjà actif (y compris expiré-mais-actif) →
+      // email « Abonnement renouvelé » (c'était le cas non couvert : compte expiré relancé de N jours).
+      auth.getUserById(id)
+        .then(u => { if (u?.email && u.role === 'client') mailer.sendRenewed({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
         .catch(() => {});
     }
   } catch (e) { res.status(400).json({ error: e.message }); }
