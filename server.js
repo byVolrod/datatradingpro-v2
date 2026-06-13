@@ -2043,6 +2043,7 @@ app.get('/api/session-wraps', (_req, res) => {
 // depuis allNews quel que soit leur âge. Si le recap de la semaine écoulée manque, il est
 // généré automatiquement en tâche de fond (verrou anti-spam) à la 1re ouverture de l'onglet Analyst.
 let _weeklyGenLock = 0;
+let _gewGenLock = 0;
 app.get('/api/weekly-reports', async (_req, res) => {
   // Recharge d'abord les rapports persistés (Supabase/fichier) → évite toute régénération inutile
   // et fait apparaître un rapport fraîchement injecté dans le store (throttle interne 30s).
@@ -2064,6 +2065,15 @@ app.get('/api/weekly-reports', async (_req, res) => {
     if (Date.now() - _weeklyGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {   // 1 tentative / 15 min max — suspendu pendant une panne IA totale (backoff)
       _weeklyGenLock = Date.now();
       generateWeeklyMarketRecap(true).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
+    }
+  }
+  // Global Economic Weekly RICHE (Week Ahead façon PMT) : même logique d'auto-génération si absent.
+  const gewCurrent = items.find(i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew);
+  if (!gewCurrent) {
+    generating = true;
+    if (Date.now() - _gewGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
+      _gewGenLock = Date.now();
+      generateGlobalEconomicWeekly(true).catch(e => console.error('[GEW] auto-gen échec:', e.message));
     }
   }
   res.json({ items, generating });
@@ -4917,8 +4927,123 @@ async function generateLondonOpeningBriefing(force = false, dateOffset = 0) {
 async function generateDailyMarketRecap(force = false, dateOffset = 0) {
   return generateDailyBriefing({ idPrefix: 'dtp-daily-recap-', reportType: 'Daily Market Recap', cutoffHours: 24, force, buildFn: buildDailyMarketRecap, dateOffset });
 }
+// ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon PMT (distinct du Weekly Recap rétrospectif) :
+// AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
+// JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
 async function generateGlobalEconomicWeekly(force = false) {
-  return generateWeeklyBriefing({ idPrefix: 'dtp-econ-weekly-', reportType: 'Global Economic Weekly', force, buildFn: buildGlobalEconomicWeekly });
+  const idPrefix = 'dtp-econ-weekly-', now = Date.now();
+  // Semaine À VENIR (lundi→vendredi UTC) : week-end/vendredi → semaine prochaine ; lun-jeu → semaine en cours.
+  const _now = new Date(), dow = _now.getUTCDay();
+  const monday = new Date(_now);
+  if (dow === 0) monday.setUTCDate(_now.getUTCDate() + 1);
+  else if (dow >= 5) monday.setUTCDate(_now.getUTCDate() + (8 - dow));
+  else monday.setUTCDate(_now.getUTCDate() - (dow - 1));
+  monday.setUTCHours(0, 0, 0, 0);
+  const friday = new Date(monday); friday.setUTCDate(monday.getUTCDate() + 4); friday.setUTCHours(23, 59, 59, 999);
+  const weekStart = monday.getTime(), weekEnd = friday.getTime();
+  const _MOIS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  const weekRange = `Week of ${monday.getUTCDate()}–${friday.getUTCDate()} ${_MOIS[monday.getUTCMonth()]} ${monday.getUTCFullYear()}`;
+  const _j1 = new Date(monday.getUTCFullYear(), 0, 1);
+  const wk = Math.ceil(((monday - _j1) / 86400000 + _j1.getDay() + 1) / 7);
+  const weekKey = `${monday.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+  const weekPrefix = idPrefix + weekKey;
+
+  const _isRich = i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew;
+  if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix) && _isRich(i))) {
+    return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isRich(i)) || null;
+  }
+  allNews = allNews.filter(i => i._reportType !== 'Global Economic Weekly');   // un seul GEW à la fois
+
+  // ── Événements programmés de la semaine à venir (High/Med), groupés par jour ──
+  const DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const CCY_CTRY = { USD: 'US', EUR: 'Eurozone', GBP: 'UK', JPY: 'Japan', CHF: 'Switzerland', CAD: 'Canada', AUD: 'Australia', NZD: 'New Zealand', CNY: 'China' };
+  const seen = new Set();
+  const evClean = (allCalendar || [])
+    .filter(e => e && e.timestamp >= weekStart && e.timestamp <= weekEnd && (e.impact === 'High' || e.impact === 'Medium') && e.title)
+    .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + new Date(e.timestamp).toISOString().slice(0, 10); if (seen.has(k)) return false; seen.add(k); return true; })
+    .sort((a, b) => a.timestamp - b.timestamp);
+  const fmtGMT = ts => { const d = new Date(ts), p = n => String(n).padStart(2, '0'); return p(d.getUTCHours()) + p(d.getUTCMinutes()) + ' GMT'; };
+  const daysMap = {};
+  for (const e of evClean) {
+    const dn = DOW[new Date(e.timestamp).getUTCDay()];
+    if (!ORDER.includes(dn)) continue;
+    (daysMap[dn] = daysMap[dn] || []).push({
+      time: fmtGMT(e.timestamp), country: CCY_CTRY[e.currency] || e.currency || '', currency: e.currency || '',
+      title: String(e.title).slice(0, 90), impact: e.impact === 'High' ? 'HIGH' : 'MED',
+      forecast: String(e.forecast || '').slice(0, 20), previous: String(e.previous || '').slice(0, 20),
+    });
+  }
+  const days = ORDER.filter(dn => daysMap[dn]).map(dn => {
+    const dt = new Date(monday); dt.setUTCDate(monday.getUTCDate() + ORDER.indexOf(dn));
+    return { day: dn, date: `${dt.getUTCDate()} ${_MOIS[dt.getUTCMonth()]}`, events: daysMap[dn].slice(0, 14) };
+  });
+  const nEv = days.reduce((n, d) => n + d.events.length, 0);
+
+  // Événements PHARES (High) pour le titre + le narratif Highlights
+  const marquee = evClean.filter(e => e.impact === 'High')
+    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${e.forecast ? ` (consensus ${e.forecast}, prev ${e.previous || '—'})` : ''}`);
+  const recentCtx = _recapClean(allNews.filter(i => i.timestamp > now - 7 * 86400000 && !i._briefing))
+    .slice(0, 40).map(i => `[${i.category || ''}] ${i.headline}`);
+
+  // ── IA : titre + Highlights (narratif) + insights + paires (prospectif). Repli déterministe si IA KO. ──
+  let title = 'Global Economic Weekly', highlights = '', insights = [], pairs = [];
+  if (nEv > 0) {
+    const prompt = `You are a senior macro strategist writing the WEEK AHEAD preview ("Global Economic Weekly") for a professional FX & markets desk (depth comparable to a top-tier bank's week-ahead note). The COMING trading week (Monday–Friday) is defined by the scheduled HIGH-IMPACT events below. Write polished, specific, FORWARD-LOOKING English. Return ONLY valid JSON (no preamble, no markdown fences):
+{
+  "title": "Global Economic Weekly: <punchy headline naming the 2-3 marquee themes, e.g. 'Fed, Inflation and Global Central Banks: A High-Stakes Week for Markets'>",
+  "highlights": "<3 to 5 paragraph narrative on the MARQUEE event(s) of the week — above all the central-bank decision(s) listed: what consensus expects, why it matters, the policy dilemma, the market implications. Separate paragraphs with \\n\\n. This is the 'The Week Ahead: Highlights' section.>",
+  "insights": ["<forward-looking standalone insight, 1 sentence>", "... 5 to 6 cards"],
+  "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: directional view for the WEEK AHEAD given the scheduled events>" } ]
+}
+Rules: 5 to 7 key pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/USD, XAU/USD, USD/CAD…); "bias" is exactly "BUY", "SELL" or "NEUTRAL". Ground EVERYTHING in the scheduled events — no invented data. No URLs, no source attributions.
+
+UPCOMING WEEK — KEY SCHEDULED EVENTS (consensus vs previous):
+${marquee.join('\n') || '(no high-impact events scheduled)'}
+
+RECENT MACRO CONTEXT (past week, for tone only):
+${recentCtx.join('\n')}`;
+    try {
+      _aiReset();
+      const text = await ai.generateText(prompt, 4096);
+      aiNote('weekly');
+      const m = text.match(/\{[\s\S]*\}/);
+      const parsed = m ? JSON.parse(m[0]) : null;
+      if (parsed) {
+        title = String(parsed.title || title).trim();
+        if (!/global economic weekly/i.test(title)) title = 'Global Economic Weekly: ' + title.replace(/^global economic weekly:?\s*/i, '');
+        highlights = String(parsed.highlights || '').trim();
+        insights = Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => String(s).trim()).slice(0, 6) : [];
+        pairs = Array.isArray(parsed.pairs) ? parsed.pairs.filter(p => p && p.pair).map(p => ({ pair: String(p.pair).trim(), bias: (['BUY', 'SELL', 'NEUTRAL'].includes(String(p.bias || '').toUpperCase()) ? String(p.bias).toUpperCase() : 'NEUTRAL'), text: String(p.text || '').trim() })).slice(0, 8) : [];
+      }
+    } catch (e) { console.warn('[GEW] IA échec → repli déterministe:', e.message); }
+  }
+  // Repli déterministe (IA indisponible / pas de réponse) : titre + insights depuis les events phares.
+  if (!insights.length) insights = marquee.slice(0, 6);
+  if (title === 'Global Economic Weekly') {
+    const cb = evClean.find(e => /\b(FOMC|Fed|Rate Decision|Announcement|Policy|Interest Rate|BoJ|BoE|ECB|SNB|RBA|BoC|RBNZ)\b/i.test(e.title));
+    title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} Headlines a Busy Week` : 'Key Data and Central Banks in the Week Ahead');
+  }
+
+  const weekly = { v: 1, gew: true, title, weekRange, highlights, insights, pairs, days };
+  // Description texte (recherche/affichage simple)
+  const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : ''];
+  days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / prev ' + e.previous : '') : ''}`)); });
+  const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  const item = {
+    id: weekPrefix + '-' + now,
+    headline: `${title} — ${weekRange}`,
+    description: descParts.filter(Boolean).join('\n'),
+    category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
+    priority: 'normal', tags: ['Week Ahead', 'Global Economy', 'Macro'],
+    _briefing: true, _reportType: 'Global Economic Weekly', _weekly: weekly,
+  };
+  allNews = [item, ...allNews].slice(0, 2000);
+  saveHistory();
+  auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[GEW] persist échec:', e.message));
+  try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
+  console.log(`[GEW] ${weekly.highlights ? 'IA' : 'repli'} ${weekKey} (${weekRange}) — ${days.length} jours, ${nEv} events, ${pairs.length} paires`);
+  return item;
 }
 // Vendredi le plus récent (≤ maintenant) — utilisé pour la mention "Week Ending: dd.mm.yyyy"
 function _mostRecentFriday() {
