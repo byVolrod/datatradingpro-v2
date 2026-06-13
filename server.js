@@ -7798,11 +7798,11 @@ const _csCache = {};
 // clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
-  today: { interval: '15m', range: '1d',  cutoffMs: null,          cutoffToday: true, clip:  5  },
+  today: { interval: '15m', range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
   week:  { interval: '1h',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
-  '8h':  { interval: '15m', range: '1d',  cutoffMs:  8 * 3600000,                    clip:  3  },
+  '8h':  { interval: '15m', range: '5d',  cutoffMs:  8 * 3600000,                    clip:  3  },
   '1d':  { interval: '30m', range: '5d',  cutoffMs: 24 * 3600000,                    clip:  5  },
   '5d':  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
   '7d':  { interval: '1d',  range: '1mo', cutoffMs:  7 * 86400000,                   clip: 15  },
@@ -7831,11 +7831,14 @@ async function _computeStrengthFresh(period) {
 
   const { interval, range, cutoffMs, cutoffToday, cutoffWeek, clip } = cfg;
 
-  // "today" anchors the reference at midnight UTC — the professional FX day start
+  // Le FX est FERMÉ le week-end : ancrer « today »/intraday sur le SAMEDI/DIMANCHE donnerait une
+  // fenêtre VIDE → « Data unavailable ». On recule donc la référence au dernier jour de séance (vendredi).
+  const _wkBack = (() => { const d = new Date().getUTCDay(); return d === 6 ? 1 : d === 0 ? 2 : 0; })();   // sam→ven, dim→ven
   let cutoffSec = null;
   if (cutoffToday) {
-    const midnight = new Date(); midnight.setUTCHours(0, 0, 0, 0);
-    cutoffSec = Math.floor(midnight.getTime() / 1000);
+    // "today" = ouverture (00:00 UTC) du dernier jour de séance — le « jour FX » professionnel.
+    const d = new Date(); d.setUTCDate(d.getUTCDate() - _wkBack); d.setUTCHours(0, 0, 0, 0);
+    cutoffSec = Math.floor(d.getTime() / 1000);
   } else if (cutoffWeek) {
     // Lundi 00:00 UTC de la semaine en cours (vraie "this week")
     const monday = new Date();
@@ -7845,7 +7848,13 @@ async function _computeStrengthFresh(period) {
     monday.setUTCHours(0, 0, 0, 0);
     cutoffSec = Math.floor(monday.getTime() / 1000);
   } else if (cutoffMs) {
-    cutoffSec = Math.floor((Date.now() - cutoffMs) / 1000);
+    // Fenêtre glissante. Pour une fenêtre COURTE (<12h, ex. 8h), le week-end on ancre à la clôture de
+    // vendredi (~22:00 UTC) au lieu de « maintenant » (sinon vide). Les fenêtres larges (1d+) incluent
+    // déjà la dernière séance → ancre = maintenant.
+    const anchor = (_wkBack && cutoffMs < 12 * 3600000)
+      ? (() => { const f = new Date(); f.setUTCDate(f.getUTCDate() - _wkBack); f.setUTCHours(22, 0, 0, 0); return f.getTime(); })()
+      : Date.now();
+    cutoffSec = Math.floor((anchor - cutoffMs) / 1000);
   }
 
   await getYFSession();
