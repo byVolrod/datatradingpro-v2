@@ -5207,7 +5207,7 @@ function _renderWeeklyRecap(item) {
   document.getElementById('arlib-ai-insights')?.remove();
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
-  const _wrTitle = standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title });
+  const _wrTitle = w.gew ? String(w.title || 'Global Economic Weekly') : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title });
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
   // via .wr-doc-week — l'afficher aussi ici cassait la mise en page).
   if (titleEl) titleEl.textContent = _wrTitle;
@@ -5241,42 +5241,73 @@ function _renderWeeklyRecap(item) {
     </div>` : '';
 
   let body = '';
-  // En-tête IDENTIQUE aux autres rapports ouverts (libellé type + titre + date + bordure),
-  // pour que le Weekly s'ouvre exactement comme les autres rapports.
+  const isGew = !!w.gew;   // Global Economic Weekly = « Week Ahead » prospectif (façon PMT)
+  // En-tête IDENTIQUE aux autres rapports ouverts (libellé type + titre + date + bordure).
   body += `<div class="arlib-doc-header">
-      <div class="arlib-doc-type">Weekly Market Recap</div>
+      <div class="arlib-doc-type">${isGew ? 'Global Economic Weekly' : 'Weekly Market Recap'}</div>
       <div class="arlib-doc-title">${_wrEsc(_wrTitle)}</div>
-      ${_range ? `<div class="arlib-doc-meta">${_wrEsc(w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)}</div>` : ''}
+      ${(isGew ? (w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)) ? `<div class="arlib-doc-meta">${_wrEsc(isGew ? w.weekRange : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range))}</div>` : ''}
     </div>`;
-  if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
-  if (w.macro && w.macro.length) {
-    body += `<div class="wr-section-title">Key Macro Highlights</div>`;
-    w.macro.forEach(s => {
-      body += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
-      (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
-    });
-  }
-  const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
-  if (ccys.length) {
-    body += `<div class="wr-section-title">Currency Analysis</div>`;
-    ccys.forEach(c => {
-      const cd = w.currencies[c];
-      const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
-      const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
-      body += `<div class="wr-ccy-block">`;
-      body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}</div>`;
-      body += `<div class="wr-text">${_wrParas(analysis)}</div>`;
-      body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
-      drivers.forEach(d => {
-        body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
-        if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
+  if (isGew) {
+    // ── GLOBAL ECONOMIC WEEKLY : Highlights (narratif IA) + Consensus Forecasts JOUR PAR JOUR ──
+    if (w.highlights) {
+      body += `<div class="wr-section-title">The Week Ahead — Highlights</div>`;
+      body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
+    }
+    if (Array.isArray(w.days) && w.days.length) {
+      body += `<div class="wr-section-title">The Week Ahead — Consensus Forecasts</div>`;
+      w.days.forEach(d => {
+        body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(d.day)}${d.date ? `<span class="gew-day-date">${_wrEsc(d.date)}</span>` : ''}</div>`;
+        (d.events || []).forEach(e => {
+          body += `<div class="gew-ev"><div class="gew-ev-top">`
+            + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
+            + `<span class="gew-ev-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</span>`
+            + (e.impact ? `<span class="gew-imp gew-imp--${String(e.impact).toLowerCase()}">${_wrEsc(e.impact)}</span>` : '')
+            + `</div>`;
+          if (e.forecast || e.previous) {
+            body += `<div class="gew-ev-cons">`
+              + (e.forecast ? `<span class="gew-cons"><i>Consensus</i><b>${_wrEsc(e.forecast)}</b></span>` : '')
+              + (e.previous ? `<span class="gew-cons"><i>Previous</i><b>${_wrEsc(e.previous)}</b></span>` : '')
+              + `</div>`;
+          }
+          body += `</div>`;
+        });
+        body += `</div>`;
       });
-      body += `</div>`;
-    });
+    }
+  } else {
+    // ── WEEKLY MARKET RECAP : résumé + Key Macro Highlights + analyse par devise (rétrospectif) ──
+    if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+    if (w.macro && w.macro.length) {
+      body += `<div class="wr-section-title">Key Macro Highlights</div>`;
+      w.macro.forEach(s => {
+        body += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
+        (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+      });
+    }
+    const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
+    if (ccys.length) {
+      body += `<div class="wr-section-title">Currency Analysis</div>`;
+      ccys.forEach(c => {
+        const cd = w.currencies[c];
+        const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
+        const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
+        body += `<div class="wr-ccy-block">`;
+        body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}</div>`;
+        body += `<div class="wr-text">${_wrParas(analysis)}</div>`;
+        body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
+        drivers.forEach(d => {
+          body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
+          if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
+        });
+        body += `</div>`;
+      });
+    }
   }
 
   content.innerHTML = `<div class="wr">${insightsHtml}<div class="wr-body">${body}</div></div>`;
   content.scrollTop = 0;
+  if (isGew) return;   // GEW : pas de courbes de force par devise
 
   // Une seule requête de force pour tout le rapport, puis chaque courbe isolée se construit
   // au défilement (lazy) → pas 8 graphiques d'un coup.

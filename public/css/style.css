@@ -4672,6 +4672,24 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .wr-bullet::before { content:"•"; color:#ff7a00; position:absolute; left:0; }
 .wr-bullet strong { color:#fff; font-weight:600; }
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }
+/* Global Economic Weekly — Consensus Forecasts JOUR PAR JOUR (façon PMT) */
+.gew-day { margin:20px 0 6px; }
+.gew-day-h { color:#ff7a00; font-size:13px; font-weight:800; letter-spacing:.04em; padding-bottom:7px; border-bottom:1px solid #232329; margin-bottom:10px; display:flex; align-items:baseline; gap:10px; }
+.gew-day-date { color:#7a8493; font-size:11px; font-weight:600; }
+.gew-ev { padding:9px 0; border-bottom:1px solid #161619; }
+.gew-ev:last-child { border-bottom:none; }
+.gew-ev-top { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
+.gew-ev-time { font-family:var(--font-mono); font-size:10.5px; color:#7a8493; min-width:64px; }
+.gew-ev-ttl { color:#d6dde6; font-size:13px; flex:1; min-width:160px; line-height:1.4; }
+.gew-ev-ttl b { color:#fff; font-weight:700; }
+.gew-imp { font-size:9px; font-weight:800; letter-spacing:.5px; padding:1px 7px; border-radius:4px; flex-shrink:0; }
+.gew-imp--high { color:#ff3d00; background:rgba(255,61,0,.13); border:1px solid rgba(255,61,0,.4); }
+.gew-imp--med  { color:#ffb300; background:rgba(255,179,0,.12); border:1px solid rgba(255,179,0,.36); }
+.gew-ev-cons { display:flex; gap:24px; margin:7px 0 0 74px; }
+.gew-cons { display:flex; flex-direction:column; gap:1px; }
+.gew-cons i { font-style:normal; font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:#7a8493; }
+.gew-cons b { font-family:var(--font-mono); font-size:12.5px; color:#e5e9ef; font-weight:700; }
+@media (max-width:760px){ .gew-ev-cons{ margin-left:0; gap:18px; } }
 /* Graphique de force isolé */
 .wr-chart { height:380px; margin:8px 0 4px; background:#0d0d0d; border:1px solid #1c1c20; border-radius:8px; overflow:hidden; }
 .wr-chart-loading { display:flex; align-items:center; justify-content:center; height:100%; color:#6b7280; font-size:12px; }
