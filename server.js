@@ -184,9 +184,15 @@ function _wsUserIdFromReq(req) {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing',
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news']);   // page Week Ahead PUBLIQUE
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/'];
+
+// Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
+// propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
+// 1 clic (fini le « pas à jour » quand la session reste ouverte après un déploiement).
+let BUILD_VERSION = '';
+try { BUILD_VERSION = (fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').match(/app\.js\?v=([0-9A-Za-z]+)/) || [])[1] || ''; } catch {}
 
 function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
@@ -235,6 +241,8 @@ app.use(express.json({ limit: '2mb' }));   // 2 Mo : autorise les pièces jointe
 
 // Health check (public) — pour le monitoring / keep-alive (Render, UptimeRobot…)
 app.get('/healthz', (_req, res) => res.status(200).json({ ok: true, ts: Date.now() }));
+// Version du build courant → le client détecte un nouveau déploiement et propose un rechargement.
+app.get('/api/version', (_req, res) => { res.set('Cache-Control', 'no-store'); res.json({ v: BUILD_VERSION }); });
 
 // Redirection /login → déjà connecté va au dashboard
 app.get('/login', (req, res) => {

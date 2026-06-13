@@ -9205,3 +9205,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .dtp-toast.show { opacity: 1; transform: translateY(0); }
 .dtp-toast--dev { border-color: rgba(247,148,29,0.55); border-left: 3px solid var(--orange); }
 .dtp-toast-ic { font-size: 15px; flex-shrink: 0; }
+
+/* Bannière « Nouvelle version disponible » (détection de nouveau déploiement) */
+.dtp-update-banner { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(16px); z-index: 5000; display: flex; align-items: center; gap: 11px; background: #16161a; border: 1px solid rgba(247,148,29,0.55); border-left: 3px solid var(--orange); border-radius: 8px; padding: 10px 12px 10px 15px; color: var(--text); font-size: 12.5px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); opacity: 0; transition: opacity .25s, transform .25s; }
+.dtp-update-banner.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+.dtp-update-banner .dub-ic { font-size: 14px; flex-shrink: 0; }
+.dtp-update-banner .dub-btn { background: var(--orange); color: #1a1205; border: none; border-radius: 5px; padding: 5px 13px; font-size: 12px; font-weight: 700; cursor: pointer; font-family: var(--font-ui); flex-shrink: 0; }
+.dtp-update-banner .dub-btn:hover { filter: brightness(1.08); }
