@@ -35,16 +35,24 @@ const TTL = 2 * 60 * 60 * 1000;   // 2 h — recherche quotidienne, inutile de r
 const _cache = {};   // source → { items, ts }
 const _busy  = {};
 
-async function _launch(profile) {
-  return puppeteer.launch({
-    executablePath: CHROME_PATH, headless: true, userDataDir: profile,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled', '--disable-dev-shm-usage',
-      '--no-first-run', '--no-default-browser-check', '--single-process', '--no-zygote', '--disable-gpu', '--disable-extensions',
-      '--disable-features=IsolateOrigins,site-per-process,TranslateUI', '--disable-background-timer-throttling',
-      '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-software-rasterizer',
-      '--disable-background-networking', '--disable-default-apps', '--disable-sync', '--mute-audio',
-      '--blink-settings=imagesEnabled=false', '--js-flags=--max-old-space-size=192'],
-  });
+// Proxy résidentiel optionnel (RESEARCH_PROXY_URL) — même variable d'env que server.js. Route le
+// Chromium headless via le proxy pour les sites filtrant l'IP datacenter. Auth gérée page.authenticate.
+function _proxyParts() {
+  const u = process.env.RESEARCH_PROXY_URL;
+  if (!u) return null;
+  try { const p = new URL(u); return { server: p.protocol + '//' + p.hostname + ':' + (p.port || '80'), username: p.username ? decodeURIComponent(p.username) : '', password: p.password ? decodeURIComponent(p.password) : '' }; }
+  catch { return null; }
+}
+async function _launch(profile, useProxy) {
+  const args = ['--no-sandbox', '--disable-setuid-sandbox', '--disable-blink-features=AutomationControlled', '--disable-dev-shm-usage',
+    '--no-first-run', '--no-default-browser-check', '--single-process', '--no-zygote', '--disable-gpu', '--disable-extensions',
+    '--disable-features=IsolateOrigins,site-per-process,TranslateUI', '--disable-background-timer-throttling',
+    '--disable-backgrounding-occluded-windows', '--disable-renderer-backgrounding', '--disable-software-rasterizer',
+    '--disable-background-networking', '--disable-default-apps', '--disable-sync', '--mute-audio',
+    '--blink-settings=imagesEnabled=false', '--js-flags=--max-old-space-size=192'];
+  const px = useProxy ? _proxyParts() : null;
+  if (px) args.push('--proxy-server=' + px.server);
+  return puppeteer.launch({ executablePath: CHROME_PATH, headless: true, userDataDir: profile, args });
 }
 
 function _parseDate(ctx) {
@@ -78,9 +86,11 @@ function _dateFromUrl(url) {
 async function _scrapeSite(cfg) {
   let browser = null;
   try {
-    browser = await _launch(path.join(__dirname, '..', '.chrome_profile_' + cfg.source));
+    browser = await _launch(path.join(__dirname, '..', '.chrome_profile_' + cfg.source), !!cfg.proxy);
     const page = await browser.newPage();
     await page.setUserAgent(UA);
+    // Auth proxy résidentiel (si proxy actif sur ce site) → Chromium s'authentifie avant la requête
+    if (cfg.proxy) { const px = _proxyParts(); if (px && px.username) { try { await page.authenticate({ username: px.username, password: px.password }); } catch {} } }
     await page.goto(cfg.url, { waitUntil: 'load', timeout: 35_000 }).catch(() => {});
     for (let i = 0; i < 18; i++) { let t = ''; try { t = await page.title(); } catch {} if (t && !/just a moment|access denied|forbidden|attention required|pardon|robot/i.test(t)) break; await new Promise(r => setTimeout(r, 1000)); }
     await page.waitForFunction(() => document.querySelectorAll('a[href]').length > 15, { timeout: 12_000, polling: 500 }).catch(() => {});

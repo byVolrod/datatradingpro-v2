@@ -3161,7 +3161,7 @@ const RESEARCH_SPA_SITES = [
       { title: 'Weekly Update — In 2026, governments will shape interest rates', url: 'https://www.privatebanking.societegenerale.com/en/insights/weekly-update-2026-will-the-governments-that-will-shape-the-interest-rates/', date: '2025-12-05', pdf: true },
       { title: 'The ECB can cut its rates further (SG Cross Asset Research)', url: 'https://wholesale.banking.societegenerale.com/en/news-insights/all-news-insights/news-details/news/the-ecb-can-cut-its-rates-further/', date: '2025-05-06' },
     ] },
-  { name: 'CIBC', institution: 'CIBC', source: 'cibc', host: 'cibccm.com', jina: true,
+  { name: 'CIBC', institution: 'CIBC', source: 'cibc', host: 'cibccm.com', jina: true, proxy: true,
     url: 'https://economics.cibccm.com/',
     hrefRe: /cibccm\.com\/cds\?(?:[^"'\s]*&)?(?:flag=E&)?id=[0-9a-f-]{8,}/i,
     seed: [
@@ -3239,6 +3239,34 @@ const RESEARCH_SPA_SITES = [
       { title: 'Commodities Outlook 2026 (PDF)', url: 'https://www.goldmansachs.com/pdfs/insights/goldman-sachs-research/2026-outlooks/CommoditiesOutlook2026.pdf', date: '2025-11-21', pdf: true },
     ] },
 ];
+// ── PROXY résidentiel optionnel (débloque les CDN qui filtrent l'IP datacenter du VPS, ex. CIBC) ──
+// Configuré UNIQUEMENT via la variable d'env RESEARCH_PROXY_URL = http://user:pass@host:port
+// (jamais en dur / jamais committé — même règle que les clés API). Absente → comportement inchangé.
+// On parse une fois ; _proxyAxiosOpts() renvoie { proxy } pour axios, _proxyServerArg() l'arg Chrome.
+let _RESEARCH_PROXY = null;
+(function () {
+  const u = process.env.RESEARCH_PROXY_URL;
+  if (!u) return;
+  try {
+    const p = new URL(u);
+    _RESEARCH_PROXY = {
+      protocol: (p.protocol || 'http:').replace(':', ''),
+      host: p.hostname,
+      port: +p.port || (p.protocol === 'https:' ? 443 : 80),
+      username: p.username ? decodeURIComponent(p.username) : '',
+      password: p.password ? decodeURIComponent(p.password) : '',
+    };
+    console.log(`[Research] Proxy résidentiel actif (${_RESEARCH_PROXY.host}:${_RESEARCH_PROXY.port}) → sites proxy:true routés via proxy`);
+  } catch (e) { console.warn('[Research] RESEARCH_PROXY_URL invalide (ignoré):', e.message); }
+})();
+function _proxyAxiosOpts() {
+  if (!_RESEARCH_PROXY) return {};
+  const { protocol, host, port, username, password } = _RESEARCH_PROXY;
+  const proxy = { protocol, host, port };
+  if (username) proxy.auth = { username, password };
+  return { proxy };
+}
+
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
     // Seeds = rapports réels connus (garantis, 0 fetch) → remplissent l'onglet même si le scrape est bloqué.
@@ -3287,6 +3315,41 @@ async function _fetchResearchSpaInto(merged, cutoff) {
         if (_added) console.log(`[ResearchHTTP ${cfg.source}] +${_added} lien(s) (server-rendered)`);
       }
     } catch {}
+
+    // Repli PROXY RÉSIDENTIEL (sites cfg.proxy:true, ex. CIBC) — requête DIRECTE au site via le
+    // proxy résidentiel : l'IP n'est plus celle du datacenter → le CDN ne bloque plus, on récupère
+    // le vrai HTML et on en extrait les liens d'articles. N'agit QUE si RESEARCH_PROXY_URL est défini.
+    if (cfg.proxy && _RESEARCH_PROXY) {
+      try {
+        const r = await axios.get(cfg.url, {
+          timeout: 20000,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36', 'Accept-Language': 'en-US,en;q=0.9' },
+          validateStatus: s => s < 500,
+          ..._proxyAxiosOpts(),
+        });
+        if (r.status === 200 && typeof r.data === 'string') {
+          const $ = cheerio.load(r.data); const _seen = new Set(); let _added = 0;
+          $('a[href]').each((_, a) => {
+            let href = ($(a).attr('href') || '').trim(); if (!href) return;
+            try { href = new URL(href, cfg.url).href; } catch { return; }
+            if (href.indexOf(cfg.host) < 0 || !cfg.hrefRe.test(href)) return;
+            const key = href.split('#')[0];
+            if (_seen.has(key)) return; _seen.add(key);
+            const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
+            if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
+            const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+            if (merged.has(id)) return;
+            const ts = Math.min(((_dateFromUrlBr && _dateFromUrlBr(key)) || Date.now()), Date.now());
+            if (ts < cutoff) return;
+            merged.set(id, { id, title, url: key, timestamp: ts, categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+            _added++;
+          });
+          console.log(`[ResearchPROXY ${cfg.source}] HTTP ${r.status} → +${_added} lien(s) (via proxy résidentiel)`);
+        } else {
+          console.log(`[ResearchPROXY ${cfg.source}] HTTP ${r.status} (le proxy n'a pas débloqué — vérifier le proxy)`);
+        }
+      } catch (e) { console.warn(`[ResearchPROXY ${cfg.source}] échec:`, e.message); }
+    }
 
     // Repli LECTEUR (r.jina.ai) — CIBC/KBC : leur CDN bloque l'IP datacenter du VPS (403 en direct
     // ET en headless). Le lecteur public r.jina.ai rend la page (JS compris) depuis SON infra et
