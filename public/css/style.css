@@ -8973,9 +8973,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 
 /* ── Barre recherche symbole — design PMT : bord + ring orange au focus, coins arrondis ── */
-#topbar-symbol-input{border:1px solid #2a2a31;border-radius:6px;outline:none;transition:border-color .15s,box-shadow .15s}
-#topbar-symbol-input:focus,#topbar-symbol-input:focus-visible{border-color:#f7941d;box-shadow:0 0 0 1.5px #f7941d}
+/* UN SEUL rectangle : l'input n'a AUCUNE bordure/fond/coin propre → fini le « rectangle dans le
+   rectangle ». Le placeholder s'affiche directement dans le grand champ. La bordure ACTIVE orange
+   est portée par le GRAND conteneur (.topbar-symbol-search) au focus, pas par l'input. */
+#topbar-symbol-input{border:none;border-radius:0;outline:none;background:none;box-shadow:none;transition:none;-webkit-appearance:none;appearance:none}
+#topbar-symbol-input:focus,#topbar-symbol-input:focus-visible{border:none;outline:none;box-shadow:none}
 #topbar-symbol-input::placeholder{color:#7a7a82}
+.topbar-symbol-search{transition:border-color .15s,box-shadow .15s}
+.topbar-symbol-search:focus-within{border-color:#f7941d;box-shadow:0 0 0 1.5px rgba(247,148,29,.35)}
 
 /* ═══════════ JOURNAL DE TRADING (vue plein écran + bouton topbar façon PMT) ═══════════ */
 .topbar-icon--journal { margin-right: 10px; flex-shrink: 0; }
