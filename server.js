@@ -7300,7 +7300,7 @@ function mergeItems(incoming) {
 // news IMPORTANTES uniquement, l'IA affine 0–3 tags depuis un vocabulaire contrôlé — avec
 // de fortes limites pour préserver le quota : cap journalier + 1/cycle + cache durable +
 // jamais de dépense Claude (claudeOverBudget:false → repli mots-clés si budget épuisé).
-const AI_TAG_VOCAB = ['US','EU','UK','Japan','China','Fed','ECB','BoJ','BoE','Rates','Inflation','Data','Oil','Metals','Gold','Geopolitics','Risk','Crypto','Equities','Bonds','FX','Trade'];
+const AI_TAG_VOCAB = ['US','EU','UK','Japan','China','Fed','ECB','BoJ','BoE','Rates','Inflation','Data','Oil','Metals','Gold','Geopolitical','Risk','Crypto','Equities','Bonds','FX','Trade'];
 const AI_TAG_DAILY_MAX = parseInt(process.env.AI_TAG_DAILY_MAX, 10) || 12;   // abaissé (éco quota) — repli mots-clés couvre le reste
 const _aiTagCache = new Map();          // id → tags[] (cache mémoire chaud)
 let _aiTagDay = '', _aiTagDayCount = 0; // compteur journalier (cap dur)
@@ -7767,30 +7767,34 @@ const YF_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHT
 
 async function getYFSession() {
   if (_yfSession && Date.now() - _yfSessionTs < YF_SESSION_TTL) return _yfSession;
-  try {
-    // Step 1: get cookie from finance.yahoo.com (timeout court → pas de blocage au cold start)
-    const r1 = await axios.get('https://finance.yahoo.com/', {
-      headers: { 'User-Agent': YF_UA, 'Accept': 'text/html,application/xhtml+xml', 'Accept-Language': 'en-US,en;q=0.9' },
-      timeout: 6000, validateStatus: () => true, maxRedirects: 5,
-    });
-    const rawCookies = r1.headers['set-cookie'] || [];
-    const cookie = rawCookies.map(c => c.split(';')[0]).join('; ');
-
-    // Step 2: get crumb
-    const r2 = await axios.get('https://query2.finance.yahoo.com/v1/test/getcrumb', {
-      headers: { 'User-Agent': YF_UA, 'Cookie': cookie },
-      timeout: 5000, validateStatus: () => true,
-    });
-    if (r2.status === 200 && typeof r2.data === 'string' && r2.data.length > 0) {
-      _yfSession = { cookie, crumb: r2.data };
-      _yfSessionTs = Date.now();
-      console.log('[YF] session crumb acquired');
-      return _yfSession;
+  // finance.yahoo.com redirige vers la page de CONSENTEMENT UE (guce.yahoo.com) → boucle de
+  // redirections (« Maximum number of redirects exceeded ») → crumb jamais obtenu → l'intraday
+  // (today/8h) tombe à 0 paire. Correctif : on NE SUIT PAS les redirections (maxRedirects:0, on lit
+  // quand même le set-cookie de la 1re réponse) et on essaie d'abord fc.yahoo.com (pas de consent).
+  for (const cookieUrl of ['https://fc.yahoo.com/', 'https://finance.yahoo.com/']) {
+    try {
+      const r1 = await axios.get(cookieUrl, {
+        headers: { 'User-Agent': YF_UA, 'Accept': 'text/html,application/xhtml+xml,*/*', 'Accept-Language': 'en-US,en;q=0.9' },
+        timeout: 6000, validateStatus: () => true, maxRedirects: 0,   // ← ne suit PAS la redirection consent
+      });
+      const rawCookies = r1.headers['set-cookie'] || [];
+      const cookie = rawCookies.map(c => c.split(';')[0]).join('; ');
+      if (!cookie) continue;
+      const r2 = await axios.get('https://query2.finance.yahoo.com/v1/test/getcrumb', {
+        headers: { 'User-Agent': YF_UA, 'Cookie': cookie, 'Accept': '*/*', 'Referer': 'https://finance.yahoo.com/' },
+        timeout: 5000, validateStatus: () => true, maxRedirects: 0,
+      });
+      if (r2.status === 200 && typeof r2.data === 'string' && r2.data.length > 0 && !/<(?:html|!doctype)/i.test(r2.data)) {
+        _yfSession = { cookie, crumb: r2.data.trim() };
+        _yfSessionTs = Date.now();
+        console.log('[YF] session crumb acquired via ' + cookieUrl);
+        return _yfSession;
+      }
+    } catch (e) {
+      console.warn('[YF] session attempt failed (' + cookieUrl + '):', e.message);
     }
-  } catch (e) {
-    console.warn('[YF] crumb fetch failed:', e.message);
   }
-  // Fallback: no crumb — still works for some endpoints
+  console.warn('[YF] crumb indisponible → repli sans crumb (les endpoints daily fonctionnent encore)');
   _yfSession = { cookie: '', crumb: '' };
   _yfSessionTs = Date.now();
   return _yfSession;
@@ -7908,7 +7912,7 @@ async function _computeStrengthFresh(period) {
   const pairData = pairResults.filter(Boolean);
   const failCount = CS_PAIRS.length - pairData.length;
   if (failCount > 0) console.warn(`[CS/${period}] ${failCount}/${CS_PAIRS.length} pairs failed to load`);
-  if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs — aborting`); return null; }
+  if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs — repli sur le cache existant`); return _csCache[period] ? _csCache[period].data : null; }
   console.log(`[CS/${period}] ${pairData.length}/28 pairs loaded — cutoff=${cutoffSec ? new Date(cutoffSec*1000).toISOString() : 'none'} clip=±${clip}%`);
 
   // Round timestamps to candle interval — aligns all 28 pairs to the same bins
