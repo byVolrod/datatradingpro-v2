@@ -7889,6 +7889,40 @@ function _dtpToast(msg, kind) {
   requestAnimationFrame(() => t.classList.add('show'));
   setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 280); }, 4200);
 }
+
+// ── Détection d'un nouveau déploiement → bannière « Recharger » en 1 clic ─────────────────────
+// Une session restée ouverte garde l'ancien app.js en mémoire ; ce watcher compare la version
+// chargée à /api/version et propose un rechargement dès qu'un déploiement est détecté → fini le
+// « c'est pas à jour ». (Non intrusif : l'utilisateur recharge quand il veut.)
+(function _dtpVersionWatch() {
+  const src = (document.querySelector('script[src*="/js/app.js"]') || {}).src || '';
+  const myVer = (src.match(/[?&]v=([0-9A-Za-z]+)/) || [])[1] || '';
+  if (!myVer) return;
+  let shown = false;
+  function banner() {
+    if (shown || document.getElementById('dtp-update-banner')) return;
+    shown = true;
+    const b = document.createElement('div');
+    b.id = 'dtp-update-banner';
+    b.className = 'dtp-update-banner';
+    b.innerHTML = '<span class="dub-ic">🔄</span><span class="dub-txt">Nouvelle version disponible</span><button type="button" class="dub-btn">Recharger</button>';
+    b.querySelector('.dub-btn').addEventListener('click', () => location.reload());
+    document.body.appendChild(b);
+    requestAnimationFrame(() => b.classList.add('show'));
+  }
+  async function check() {
+    if (shown) return;
+    try {
+      const r = await fetch('/api/version', { cache: 'no-store' });
+      if (!r.ok) return;
+      const d = await r.json();
+      if (d && d.v && d.v !== myVer) banner();
+    } catch {}
+  }
+  setTimeout(check, 25000);        // 1er contrôle ~25 s après chargement
+  setInterval(check, 90 * 1000);   // puis toutes les 90 s
+})();
+
 // Calculatrice = PUBLIQUE (tous les comptes). Journal = encore réservé aux admins (en développement ;
 // le serveur garde aussi /api/journal côté admin).
 window._dtpGateTool = function (view) {
