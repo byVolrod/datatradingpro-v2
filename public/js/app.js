@@ -4234,6 +4234,34 @@ function _populateBrInstFilter() {
     types.map(t => `<option value="${t}">${TLAB[t] || t}</option>`).join(''));
 }
 
+// Dosage par banque : entrelacement round-robin À L'INTÉRIEUR de chaque journée (la chronologie
+// jour-par-jour reste respectée). Évite qu'une banque prolifique (HSBC, MUFG…) noie les rapports
+// plus rares (un SEB isolé). Aucun rapport supprimé — seul l'ordre d'affichage change.
+function _brBalanceByDay(arr) {
+  const dayKey = t => new Date(t || 0).toISOString().slice(0, 10);
+  const byDay = new Map(); const dayOrder = [];   // jours dans l'ordre reçu (déjà date desc)
+  for (const it of arr) {
+    const d = dayKey(it.timestamp);
+    if (!byDay.has(d)) { byDay.set(d, []); dayOrder.push(d); }
+    byDay.get(d).push(it);
+  }
+  const out = [];
+  for (const d of dayOrder) {
+    const byBank = new Map(); const bankOrder = [];   // banques dans l'ordre d'apparition (la + récente d'abord)
+    for (const it of byDay.get(d)) {
+      const b = it.institution || it._source || '?';
+      if (!byBank.has(b)) { byBank.set(b, []); bankOrder.push(b); }
+      byBank.get(b).push(it);
+    }
+    let more = true;
+    while (more) {                                   // tour par tour : 1 rapport de chaque banque
+      more = false;
+      for (const b of bankOrder) { const q = byBank.get(b); if (q.length) { out.push(q.shift()); more = true; } }
+    }
+  }
+  return out;
+}
+
 function renderBrList() {
   const list   = document.getElementById('br-list');
   const footer = document.getElementById('br-footer');
@@ -4246,6 +4274,11 @@ function renderBrList() {
   if (_brSearch)           items = items.filter(i =>
     (i.title || '').toLowerCase().includes(_brSearch) ||
     (i.description || '').toLowerCase().includes(_brSearch));
+  // DOSAGE par banque : chronologie respectée AU NIVEAU DU JOUR, mais à l'intérieur de chaque
+  // journée on ENTRELACE les banques (round-robin) → le rapport le plus récent de CHAQUE banque
+  // remonte (un SEB isolé n'est plus noyé sous 15 HSBC), aucun rapport n'est caché. Désactivé
+  // quand on a déjà filtré sur une seule banque (l'entrelacement n'a alors aucun sens).
+  if (_brInst === 'all') items = _brBalanceByDay(items);
 
   if (items.length === 0) {
     // Si aucun article du tout (pas un filtre trop strict) → on est en chargement : on montre le loader.
