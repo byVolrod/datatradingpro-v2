@@ -1990,7 +1990,7 @@ async function _swEnsureAiTitles(internal = false) {
     let fetchBudget = 4;   // max récupérations de contenu par passage (wraps d'archive sans description)
     for (const w of _swCache.slice(0, 80)) {   // TOUS les wraps affichés dans l'onglet Analyst
       if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant (skip → 0 coût)
-      try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = c; w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}
+      try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = _stripMd(c); w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}   // nettoie un titre IA mis en cache AVANT le fix (** résiduels)
 
       // Si AUCUNE matière (wrap d'archive : description vide) → on RÉCUPÈRE le contenu pour pouvoir
       // titrer AVANT publication (garantit un sujet, ex. "Asia-Pac Session Recap: …" et non le préfixe seul).
@@ -2023,7 +2023,7 @@ async function _swEnsureAiTitles(internal = false) {
           `PERCUTANT et CONCIS (idéalement 5 à 8 mots, max 9), en anglais, qui capte LE thème principal. ` +
           `Style "headline" : direct, verbe fort, pas de remplissage. Interdits : le mot "wrap", toute mention ` +
           `de source, toute date, les guillemets. Réponds avec le titre SEUL.\n\n${src}`, 90);
-        let t = String(out || '').split('\n')[0].replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 90);
+        let t = _stripMd(String(out || '').split('\n')[0]).replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 90);   // jamais de ** dans le titre IA stocké
         if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; aiNote('analyst'); auth.aiCacheSet('swt2:' + w.id, t).catch(() => {}); continue; }
         throw new Error('titre IA vide');
       } catch {
@@ -2045,6 +2045,7 @@ async function _swEnsureAiTitles(internal = false) {
 setInterval(() => _swEnsureAiTitles().catch(() => {}), 15 * 60 * 1000);   // 15 min (éco quota ; titre heuristique immédiat en attendant)
 
 app.get('/api/session-wraps', (_req, res) => {
+  _swCache.forEach(_cleanItemMd);   // titre/aiTitle sans markdown brut, même pour un JS en cache
   res.json(_swCache);
   _swEnsureAiTitles().catch(() => {});   // génère les titres IA manquants dès l'ouverture de l'onglet
   if (Date.now() - _swFetchedAt > 20 * 60 * 1000) _fetchSessionWraps(false).catch(() => {});
@@ -3680,6 +3681,7 @@ async function _loadPersistedHistories() {
 }
 
 app.get('/api/bank-research', (_req, res) => {
+  _brCache.forEach(_cleanItemMd);   // titres sans markdown brut, même pour un JS en cache
   res.json(_brCache);
   // Résilience : si le cache est VIDE (ex. cold-start avant le 1er scrape) → on déclenche tout de
   // suite une récupération (et on recharge aussi depuis le stockage durable). Sinon refresh normal.
@@ -3700,6 +3702,7 @@ app.get('/api/fx-daily', (_req, res) => {
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 30)
     .map(i => ({ ...i, _reportType: 'FX Daily' }));
+  items.forEach(_cleanItemMd);   // titres sans markdown brut, même pour un JS en cache
   res.json(items);
   if (Date.now() - _brFetchedAt > 20 * 60 * 1000) _fetchBankResearch(false).catch(() => {});
 });
@@ -4775,6 +4778,7 @@ function _cleanItemMd(it) {
   if (!it || typeof it !== 'object') return it;
   if (typeof it.title === 'string')    it.title    = _stripMd(it.title);
   if (typeof it.headline === 'string') it.headline = _stripMd(it.headline);
+  if (typeof it.aiTitle === 'string')  it.aiTitle  = _stripMd(it.aiTitle);   // titre IA des session wraps (sinon ** dans le titre de carte)
   if (it._weekly && typeof it._weekly.title === 'string') it._weekly.title = _stripMd(it._weekly.title);
   return it;
 }

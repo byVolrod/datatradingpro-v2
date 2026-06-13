@@ -4909,7 +4909,10 @@ function _reportPrefixFor(item) {
 // Renvoie le titre normalisé "Préfixe: Sujet". Détecte un préfixe déjà présent (même mal
 // espacé, ex. "London Session Recap :"), sinon l'injecte ; pour les wraps, retire d'abord
 // le préfixe d'origine "… markets wrap :" pour ne garder que le sujet.
-function standardizeReportTitle(item) {
+// Wrapper : le titre renvoyé est TOUJOURS sans markdown brut, quel que soit le chemin de retour
+// (y compris le raccourci `aiTitle` des wraps InvestingLive qui contournait arlibCleanTitle).
+function standardizeReportTitle(item) { return _mdStrip(_stdReportTitleRaw(item)); }
+function _stdReportTitleRaw(item) {
   let raw = arlibCleanTitle(item.headline || item.title || '')
     .replace(/\s*[—–-]?\s*Week Ending:\s*[\d.\/-]+\s*$/i, '')   // "Week Ending: …" → ligne dédiée uniquement
     .trim();
