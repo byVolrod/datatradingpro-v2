@@ -5238,7 +5238,7 @@ function _renderWeeklyRecap(item) {
   if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
   // Chronologie JOUR PAR JOUR : suivre la semaine au fil des jours (avant les thèmes macro).
   if (Array.isArray(w.days) && w.days.length) {
-    body += `<div class="wr-section-title">La semaine, jour par jour</div>`;
+    body += `<div class="wr-section-title">The Week — Day by Day</div>`;
     body += `<div class="wr-timeline">`;
     w.days.forEach(d => {
       body += `<div class="wr-day">`;
