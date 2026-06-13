@@ -2056,7 +2056,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
 
   // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe. Sinon (absent OU ancien
   // format), on régénère automatiquement vers le format riche (force) — 1 appel Gemini, budget-gé.
-  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 2);
+  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);   // v3 = avec chronologie jour-par-jour
 
   let generating = false;
   if (!current) {
@@ -4957,11 +4957,15 @@ async function generateWeeklyRecapAI(force = false) {
     :                                          `Semaine du ${d1} ${_MOIS_FR[m1]} ${y1} au ${d2} ${_MOIS_FR[m2]} ${y2}`;
 
   // On considère "déjà généré" UNIQUEMENT si un recap au format RICHE (v2) existe pour la semaine.
-  const _isV2 = i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 2;
+  const _isV2 = i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3;   // v3 = format avec chronologie jour-par-jour
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix) && _isV2(i))) {
     console.log(`[Weekly Recap] déjà généré (v2) pour ${weekKey}, skip.`);
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isV2(i)) || null;
   }
+  // Garde anti-dégradation : on mémorise le recap RICHE existant de CETTE semaine AVANT la purge.
+  // Si l'IA échoue pendant une régénération (quota), on préservera son contenu riche au lieu de
+  // retomber sur le fallback pauvre (régénérer « juste pour ajouter les jours » ne doit rien casser).
+  const _prevRich = allNews.find(i => (i.id || '').startsWith(weekPrefix) && i._weekly && i._weekly.v >= 2) || null;
   // Anti-doublon STRICT : on génère un recap unique → on retire TOUS les Weekly Market Recap
   // précédents d'allNews (les anciennes semaines restent conservées dans le store weekly_reports).
   allNews = allNews.filter(i => i._reportType !== 'Weekly Market Recap');
@@ -4983,9 +4987,12 @@ async function generateWeeklyRecapAI(force = false) {
     return { w, pts: (pts || []).filter(p => !_RECAP_NOISE.test(p)).slice(0, 18) };
   }));
   const wrapDetailed = _wrapDetails.filter(r => r.status === 'fulfilled').map(r => r.value);
-  // Corpus wraps détaillé : [Session] Titre — point1 · point2 · …
+  // Jour de la semaine (UTC) de chaque source → permet à l'IA de reconstruire la chronologie JOUR PAR JOUR.
+  const _DOW = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const _dow = t => _DOW[new Date(t).getUTCDay()] || '';
+  // Corpus wraps détaillé : [Jour · Session] Titre — point1 · point2 · …
   const wraps = wrapDetailed.map(({ w, pts }) =>
-    `[${w.session || 'Wrap'}] ${w.title}${pts.length ? ' — ' + pts.join(' · ') : (w.description ? ' — ' + w.description : '')}`);
+    `[${_dow(w.timestamp)} · ${w.session || 'Wrap'}] ${w.title}${pts.length ? ' — ' + pts.join(' · ') : (w.description ? ' — ' + w.description : '')}`);
   // Message de CLÔTURE de la semaine (wrap le plus récent = vendredi soir) → base du titre
   const closing = wrapDetailed[0];
   const closingMsg = closing ? `[${closing.w.session || 'Wrap'}] ${closing.w.title}${closing.pts.length ? '. ' + closing.pts.slice(0, 4).join('. ') : ''}` : '';
@@ -5000,7 +5007,7 @@ async function generateWeeklyRecapAI(force = false) {
   ];
   const _calSeen = new Set();
   const calDedup = calItems.filter(i => { const k = (i.headline || i.title || '') + i.timestamp; if (_calSeen.has(k)) return false; _calSeen.add(k); return true; });
-  const cal = calDedup.map(i => `${i.country || i.currency || i.category || ''} ${i.headline || i.title || ''}${/actual/i.test(i.description || '') ? ' — ' + String(i.description).replace(/\s+/g, ' ').trim().slice(0, 160) : ''}`);
+  const cal = calDedup.map(i => `[${_dow(i.timestamp)}] ${i.country || i.currency || i.category || ''} ${i.headline || i.title || ''}${/actual/i.test(i.description || '') ? ' — ' + String(i.description).replace(/\s+/g, ' ').trim().slice(0, 160) : ''}`);
   //    c) RÉSULTATS extraits du CONTENU des session wraps (« DATA RECAP », chiffres vs attentes).
   //       Source la PLUS FIABLE pour une semaine ÉCOULÉE : les wraps sont persistés 30 j, alors que
   //       le flux ForexFactory ne couvre que la semaine courante + la suivante (pas « semaine dernière »).
@@ -5011,7 +5018,7 @@ async function generateWeeklyRecapAI(force = false) {
     return _DATA_KW.test(t) || /\b(vs\.?|exp\.?|expected|forecast|actual|prev\.?|previous|consensus|est\.?)\b/i.test(t);
   };
   const _seenWrapData = new Set(cal.map(l => l.toLowerCase()));
-  for (const { pts } of wrapDetailed) {
+  for (const { w, pts } of wrapDetailed) {
     for (const p of (pts || [])) {
       if (cal.length >= 120) break;
       if (!_looksLikeData(p)) continue;
@@ -5019,7 +5026,7 @@ async function generateWeeklyRecapAI(force = false) {
       const k = line.toLowerCase();
       if (_seenWrapData.has(k)) continue;
       _seenWrapData.add(k);
-      cal.push(line);
+      cal.push('[' + _dow(w.timestamp) + '] ' + line);
     }
   }
   // 3) Autres titres macro de la semaine en complément (nettoyés du bruit social/promo)
@@ -5045,6 +5052,13 @@ Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS 
 {
   "title": "Weekly Market Recap: <punchy headline — DERIVE it from the CLOSING MESSAGE OF THE WEEK (its first key sentence), e.g. 'Markets End Higher as ...'>",
   "summary": "<2 to 4 sentence global overview of how markets traded this week>",
+  "days": [
+    { "day": "Monday", "headline": "<short theme of the day, 2-6 words>", "bullets": ["**Topic:** what happened that day — geopolitics, data prints (actual vs forecast), central-bank speak, notable FX/commodity/equity moves", "... 2 to 5 bullets"] },
+    { "day": "Tuesday", "headline": "...", "bullets": ["..."] },
+    { "day": "Wednesday", "headline": "...", "bullets": ["..."] },
+    { "day": "Thursday", "headline": "...", "bullets": ["..."] },
+    { "day": "Friday", "headline": "...", "bullets": ["..."] }
+  ],
   "insights": ["<concise standalone insight, 1 sentence>", "... 4 to 6 thematic insight cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<one concise sentence: why this directional bias for the week>" } ],
   "macro": [
@@ -5065,6 +5079,7 @@ Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS 
   }
 }
 Rules:
+- "days": a chronological DAY-BY-DAY timeline, one entry per trading day Monday→Friday, each with a short "headline" and 2 to 5 "bullets" capturing that day's KEY cross-market events (geopolitics, data prints with actual vs forecast, central-bank speak, notable FX/commodity/equity moves). Use the [Day · Session] tags in the corpus to place each event on the correct day so the reader can follow the week day by day. Skip a day only if genuinely nothing happened.
 - 4 to 6 macro themes; 4 to 6 thematic insight cards.
 - "pairs": 5 to 7 KEY pairs/instruments (e.g. USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold) with a directional bias for the COMING week — "bias" is exactly "BUY", "SELL" or "NEUTRAL".
 - EVERY currency in [${CCY.join(', ')}] must be present, each with a substantive, CONCISE-but-COMPLETE "analysis" (explain what happened to that currency this week, based on the session wraps) AND 4 to 8 "drivers" (heading + detail).
@@ -5087,14 +5102,27 @@ ${corpus}`;
   } catch (e) { console.warn('[Weekly Recap] IA échec:', e.message); parsed = null; }
   const aiOk = !!(parsed && parsed.currencies && typeof parsed.currencies === 'object');
 
+  // Chronologie JOUR PAR JOUR : parse IA (sanitize) + repli par règles (titres macro regroupés par jour).
+  const _parseDays = arr => Array.isArray(arr) ? arr
+    .filter(d => d && d.day && Array.isArray(d.bullets) && d.bullets.length)
+    .map(d => ({ day: String(d.day).trim().slice(0, 14), headline: String(d.headline || '').trim().slice(0, 90), bullets: d.bullets.filter(Boolean).map(b => String(b).trim()).slice(0, 6) }))
+    .slice(0, 7) : [];
+  const _ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
+  const _fbDays = (() => {
+    const byDay = {};
+    for (const i of weekItemsRaw) { const d = _DOW[new Date(i.timestamp).getUTCDay()]; if (!_ORDER.includes(d)) continue; (byDay[d] = byDay[d] || []).push(String(i.headline || '').replace(/\s+/g, ' ').trim()); }
+    return _ORDER.filter(d => byDay[d]).map(d => ({ day: d, headline: '', bullets: [...new Set(byDay[d])].filter(Boolean).slice(0, 5) }));
+  })();
+
   let weekly;
   if (aiOk) {
     // ── Format RICHE (Gemini) ──
     let baseTitle = String(parsed.title || 'Weekly Market Recap').trim();
     if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
     weekly = {
-      v: 2, title: baseTitle, weekEnding, weekRange,
+      v: 3, title: baseTitle, weekEnding, weekRange,
       summary:    parsed.summary || '',
+      days:       _parseDays(parsed.days),
       insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).slice(0, 6) : [],
       pairs:      Array.isArray(parsed.pairs) ? parsed.pairs
                     .filter(p => p && p.pair)
@@ -5142,15 +5170,22 @@ ${corpus}`;
       title: fbTitle,
       weekEnding, weekRange,
       summary: `Synthèse de la ${weekRange.toLowerCase()} : ${wrapsRaw.length} session(s) de marché et ${cal.length} résultat(s) économique(s) majeur(s) suivis.`,
+      days: _fbDays,
       insights: wrapsRaw.slice(0, 6).map(i => (i.title || '').replace(/\s+/g, ' ').trim()).filter(Boolean),
       pairs: [],
       macro,
       currencies: {},   // pas d'analyse par devise sans IA
     };
   }
+  // Garde anti-dégradation : l'IA a échoué MAIS un recap riche existait déjà cette semaine →
+  // on conserve son contenu riche et on lui AJOUTE juste la chronologie jour-par-jour (jamais de downgrade).
+  if (!aiOk && _prevRich && _prevRich._weekly && _prevRich._weekly.v >= 2) {
+    weekly = { ..._prevRich._weekly, v: 3, days: (_prevRich._weekly.days && _prevRich._weekly.days.length) ? _prevRich._weekly.days : _fbDays };
+  }
 
   // Description texte (fallback/recherche/affichage simple)
   const descParts = [weekly.summary];
+  (weekly.days || []).forEach(d => { descParts.push('\n' + d.day + (d.headline ? ' — ' + d.headline : '')); (d.bullets || []).forEach(b => descParts.push('- ' + String(b).replace(/\*\*/g, ''))); });
   weekly.macro.forEach(s => { descParts.push('\n' + s.heading); (s.bullets||[]).forEach(b => descParts.push('- ' + String(b).replace(/\*\*/g,''))); });
   for (const c of CCY) if (weekly.currencies[c]) descParts.push('\n' + c + ': ' + weekly.currencies[c].analysis);
   const timeStr = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
