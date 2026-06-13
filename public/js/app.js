@@ -4904,10 +4904,19 @@ function getArlibItems() {
     if (av !== bv) return bv - av;             // v2 d'abord
     return b.timestamp - a.timestamp;          // puis le plus récent
   })[0];
+  // …+ UN SEUL Global Economic Weekly (le meilleur : format riche v2, puis le plus récent) →
+  // VISIBLE PAR TOUS les utilisateurs (l'endpoint /api/weekly-reports est ouvert à tout compte connecté).
+  const gewCand = (_weeklyReports || []).filter(i => i && i._reportType === 'Global Economic Weekly' && i.timestamp > cutoff);
+  const bestGew = gewCand.sort((a, b) => {
+    const av = (a._weekly && a._weekly.v >= 2) ? 1 : 0;
+    const bv = (b._weekly && b._weekly.v >= 2) ? 1 : 0;
+    if (av !== bv) return bv - av;
+    return b.timestamp - a.timestamp;
+  })[0];
   // …+ les rapports FX Daily (ING THINK).
   const fx = (_fxDaily || []).filter(i => i.timestamp > cutoff);
   const seen = new Set();
-  return [...(best ? [best] : []), ...fx, ...wraps]
+  return [...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...fx, ...wraps]
     .filter(i => { if (seen.has(i.id)) return false; seen.add(i.id); return true; })
     .sort(_arlibReportSort);
 }
@@ -5171,9 +5180,10 @@ async function _loadAIInsights(item, el) {
   {
     if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const mdb = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');   // échappe PUIS rend **gras** → jamais d'astérisques brutes
     // Cartes : en-tête optionnel (actif + badge signal BUY/SELL/NEUTRAL), comme DataTradingPro.
     const cards = d.insights.map(ins => {
-      if (typeof ins === 'string') return `<div class="ai-insights-card"><div class="ai-card-text">${esc(ins)}</div></div>`;
+      if (typeof ins === 'string') return `<div class="ai-insights-card"><div class="ai-card-text">${mdb(ins)}</div></div>`;
       const asset = ins.asset || '';
       let sig = String(ins.signal || ins.bias || '').toUpperCase();
       if (sig === 'BULLISH') sig = 'BUY'; else if (sig === 'BEARISH') sig = 'SELL';
@@ -5181,7 +5191,7 @@ async function _loadAIInsights(item, el) {
       const head = asset
         ? `<div class="ai-card-head"><span class="ai-card-asset">${esc(asset)}</span>${sig ? `<span class="ai-bias ai-bias--${sig.toLowerCase()}">${sig}</span>` : ''}</div>`
         : '';
-      return `<div class="ai-insights-card">${head}<div class="ai-card-text">${esc(ins.text || '')}</div></div>`;
+      return `<div class="ai-insights-card">${head}<div class="ai-card-text">${mdb(ins.text || '')}</div></div>`;
     }).join('');
     const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
     // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
@@ -5262,7 +5272,8 @@ function _renderWeeklyRecap(item) {
   document.getElementById('arlib-ai-insights')?.remove();
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
-  const _wrTitle = w.gew ? String(w.title || 'Global Economic Weekly') : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title });
+  // strip markdown (**gras**, *, `, _) du titre → jamais d'astérisques brutes affichées
+  const _wrTitle = (w.gew ? String(w.title || 'Global Economic Weekly') : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title })).replace(/[*_`]+/g, '').replace(/\s{2,}/g, ' ').trim();
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
   // via .wr-doc-week — l'afficher aussi ici cassait la mise en page).
   if (titleEl) titleEl.textContent = _wrTitle;
@@ -5272,13 +5283,14 @@ function _renderWeeklyRecap(item) {
   // AI Insights (composant Institution, alimenté par les insights Gemini du recap)
   const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
   // Cartes : insights thématiques (texte) PUIS paires/instruments avec badge de biais (SELL/BUY/NEUTRAL)
-  const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrEsc(typeof t === 'string' ? t : (t.text || ''))}</div>`);
+  // _wrInline (pas _wrEsc) → le markdown **gras** de l'IA est rendu en <strong>, jamais affiché brut.
+  const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrInline(typeof t === 'string' ? t : (t.text || ''))}</div>`);
   const pairCards = (w.pairs || []).map(p => {
     const b = String(p.bias || 'NEUTRAL').toUpperCase();
     const cls = b === 'BUY' ? 'buy' : b === 'SELL' ? 'sell' : 'neutral';
     return `<div class="ai-insights-card ai-ins-pair">
       <div class="ai-ins-pair-head"><span class="ai-ins-pair-name">${_wrEsc(p.pair)}</span><span class="ai-ins-bias ai-ins-bias--${cls}">${_wrEsc(b)}</span></div>
-      <div class="ai-ins-pair-text">${_wrEsc(p.text || '')}</div>
+      <div class="ai-ins-pair-text">${_wrInline(p.text || '')}</div>
     </div>`;
   });
   const allCards = [...textCards, ...pairCards];

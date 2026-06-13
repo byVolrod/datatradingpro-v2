@@ -5064,7 +5064,7 @@ ${recentCtx.join('\n')}`;
       const m = text.match(/\{[\s\S]*\}/);
       const parsed = m ? JSON.parse(m[0]) : null;
       if (parsed) {
-        title = String(parsed.title || title).trim();
+        title = String(parsed.title || title).replace(/[*_`]+/g, '').replace(/\s{2,}/g, ' ').trim();   // jamais de markdown brut dans le titre
         if (!/global economic weekly/i.test(title)) title = 'Global Economic Weekly: ' + title.replace(/^global economic weekly:?\s*/i, '');
         highlights = String(parsed.highlights || '').trim();
         insights = Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => String(s).trim()).slice(0, 6) : [];
