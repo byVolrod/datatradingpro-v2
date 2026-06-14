@@ -2702,7 +2702,7 @@ async function _prewarmBrSegs() {
   try {
     const dayCut = Date.now() - 4 * 24 * 60 * 60 * 1000;   // ~4 derniers jours → couvre tout le DailyFX récent de l'onglet
     const todo = (_brCache || [])
-      .filter(i => { if (!i.url || !_BR_CONTENT_HOSTS.test(i.url) || (i.timestamp || 0) <= dayCut) return false; const s = _segState(_brSegCache.get(BR_SEG_VER + i.url)); return s === 'absent' || s === 'retry'; })   // {f:ts} récent (<6h) = on n'insiste pas ; ≥6h = on retente
+      .filter(i => { if (!i.url || !_brContentAllowed(i.url) || (i.timestamp || 0) <= dayCut) return false; const s = _segState(_brSegCache.get(BR_SEG_VER + i.url)); return s === 'absent' || s === 'retry'; })   // {f:ts} récent (<6h) = on n'insiste pas ; ≥6h = on retente
       .slice(0, 2);   // réduit à 2/cycle (polissage opportuniste, éco quota)
     for (const item of todo) {
       if (!_prewarmGate() || !aiAllowed('analyst', { priority: 'background' })) break;
@@ -3788,9 +3788,28 @@ function _dedupTitle(t) {
 }
 
 const _BR_CONTENT_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(think\.ing\.com|mufgresearch\.com|scotiabank\.com|bluematrix\.com|hsbc\.com\.sg|syzgroup\.com|danskebank\.com|unicreditgroup\.eu|kbc\.com|corporate\.nordea\.com|economics\.cibccm\.com|research-center\.amundi\.com|q-cam\.com)\//i;
+// Liste d'hôtes autorisée DÉRIVÉE des configs de sources (RESEARCH_SPA_SITES) + quelques hôtes statiques
+// (SEB, etc.). But : ne plus jamais oublier une banque → toute source ajoutée est AUTOMATIQUEMENT
+// extractible (Natixis, SocGen, Lloyds, Westpac, Goldman…). Le repli jina gère ensuite le contenu JS/anti-bot.
+const _BR_ALLOW_HOSTS = (() => {
+  const s = new Set(['sebgroup.com']);   // SEB (fournit aussi fullContent, mais on autorise par sécurité)
+  try { for (const cfg of RESEARCH_SPA_SITES) { if (cfg && cfg.host) s.add(String(cfg.host).toLowerCase()); } } catch {}
+  return [...s];
+})();
+// Autorisé si : (a) l'ancienne regex matche (sous-hôtes précis : think.ing.com, economics.cibccm.com…),
+// OU (b) l'hôte == un host de source configuré, OU (c) en est un sous-domaine (suffixe « .host » strict,
+// pour bloquer « evilwestpaciq.com.au »). HTTPS uniquement.
+function _brContentAllowed(url) {
+  if (!url || typeof url !== 'string') return false;
+  if (_BR_CONTENT_HOSTS.test(url)) return true;
+  let host;
+  try { const u = new URL(url); if (u.protocol !== 'https:') return false; host = u.hostname.toLowerCase(); }
+  catch { return false; }
+  return _BR_ALLOW_HOSTS.some(h => host === h || host.endsWith('.' + h));
+}
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
-  if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
+  if (!_brContentAllowed(url)) return res.json({ html: '' });
   // Déjà structuré (cache chaud) → réponse instantanée : on évite le re-fetch + le lecteur jina
   // (le front retombe sur item.description / dateStr pour le sous-titre et la date).
   try { const _hot = _brSegCache.get(BR_SEG_VER + url); if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' }); } catch {}
