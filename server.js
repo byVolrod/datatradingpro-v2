@@ -441,6 +441,14 @@ function _jrCleanCols(arr) {
   }
   return out.length ? out : undefined;
 }
+// Sections narratives du volet détail (façon page Notion) : clés fixes, texte long (analyse écrite).
+const _JR_SECT_KEYS = ['fondaBias', 'technical', 'entry', 'management', 'close', 'erreur'];
+function _jrCleanSections(o) {
+  if (!o || typeof o !== 'object') return undefined;
+  const out = {};
+  for (const k of _JR_SECT_KEYS) { const v = o[k]; if (v != null && v !== '') out[k] = String(v).slice(0, 4000); }
+  return Object.keys(out).length ? out : undefined;
+}
 function _jrCleanEntries(arr) {
   if (!Array.isArray(arr)) return [];
   const num = v => { const n = parseFloat(v); return isFinite(n) ? n : null; };
@@ -458,6 +466,7 @@ function _jrCleanEntries(arr) {
     result: str(e.result, 12), session: str(e.session, 24), grade: str(e.grade, 8), account: str(e.account, 32),
     fonda: num(e.fonda), rr: num(e.rr), risk: num(e.risk), r: num(e.r), pnlPct: num(e.pnlPct), equity: num(e.equity),
     conf: tags(e.conf), entryT: tags(e.entryT), err: tags(e.err), setup: tags(e.setup), tf: tags(e.tf), sl: tags(e.sl),
+    sections: _jrCleanSections(e.sections),   // analyses écrites du volet détail (Fonda Bias, Technical, Entry…)
     props: _jrCleanProps(e.props),   // valeurs des colonnes custom
   } : null).filter(e => e && e.pair.length >= 2).slice(0, _JR_MAX);
 }
