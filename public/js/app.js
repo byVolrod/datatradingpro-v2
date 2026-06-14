@@ -5328,6 +5328,10 @@ function _renderWeeklyRecap(item) {
   if (titleEl) titleEl.textContent = _wrTitle;
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
+  // La période (semaine) va dans le créneau date en haut-droite, comme tous les autres rapports →
+  // on peut retirer le gros bloc titre du corps sans perdre l'info de période.
+  const _rdateEl = document.getElementById('arlib-rdate');
+  if (_rdateEl) _rdateEl.textContent = w.gew ? (w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range);
 
   // AI Insights (composant Institution, alimenté par les insights Gemini du recap)
   const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
@@ -5358,13 +5362,8 @@ function _renderWeeklyRecap(item) {
 
   let body = '';
   const isGew = !!w.gew;   // Global Economic Weekly = « Week Ahead » prospectif (façon PMT)
-  // En-tête comme les autres rapports : UN SEUL titre complet (« Weekly Market Recap: … » /
-  // « Global Economic Weekly: … ») + date. PLUS de petit libellé de type en capitales au-dessus
-  // (il répétait le titre) → fini le doublon.
-  body += `<div class="arlib-doc-header">
-      <div class="arlib-doc-title">${_wrEsc(_wrTitle)}</div>
-      ${(isGew ? (w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range)) ? `<div class="arlib-doc-meta">${_wrEsc(isGew ? w.weekRange : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range))}</div>` : ''}
-    </div>`;
+  // Bloc titre RETIRÉ du corps : le titre reste dans la barre de nav (en haut) et la période dans le
+  // créneau date (haut-droite) → le rapport s'ouvre directement sur son contenu, sans titre répété.
   if (isGew) {
     // ── GLOBAL ECONOMIC WEEKLY : Highlights (narratif IA) + Consensus Forecasts JOUR PAR JOUR ──
     if (w.highlights) {
