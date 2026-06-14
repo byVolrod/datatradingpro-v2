@@ -8524,8 +8524,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* Barre de réactions au-dessus du "Lu" : posées = toujours visibles ; vides = au survol (discret) */
 /* Sélecteur flottant — SOUS la bulle, apparaît au survol de toute la ligne (stable, on a le temps de viser) */
-/* Picker AU-DESSUS de la bulle (et non dessous) → ne chevauche plus les pastilles de réaction posées sous la bulle (fini l'empilement au survol). */
-.chat-react-picker { position:absolute; bottom:calc(100% + 3px); top:auto; z-index:6; display:flex; gap:1px; background:#15171d; border:1px solid #2a2f3a; border-radius:14px; padding:2px 4px; box-shadow:0 6px 18px rgba(0,0,0,.5); opacity:0; pointer-events:none; transform:translateY(4px); transition:opacity .16s ease, transform .16s ease; transition-delay:.04s; }
+/* Picker EN BAS de la bulle (jamais au-dessus) → ne déborde plus en haut sur la date du 1er message.
+   Pour les messages reçus (.chat-row--them) il est ancré à GAUCHE, les pastilles posées étant en bas
+   à DROITE → pas de chevauchement. */
+.chat-react-picker { position:absolute; top:calc(100% + 3px); bottom:auto; z-index:6; display:flex; gap:1px; background:#15171d; border:1px solid #2a2f3a; border-radius:14px; padding:2px 4px; box-shadow:0 6px 18px rgba(0,0,0,.5); opacity:0; pointer-events:none; transform:translateY(-4px); transition:opacity .16s ease, transform .16s ease; transition-delay:.04s; }
 .chat-row--them .chat-react-picker { left:6px; }
 .chat-row--me   .chat-react-picker { right:6px; }
 .chat-row:hover .chat-react-picker, .chat-react-picker:hover { opacity:1; pointer-events:auto; transform:translateY(0); transition-delay:0s; }

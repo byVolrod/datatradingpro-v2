@@ -2077,7 +2077,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
 
   // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe. Sinon (absent OU ancien
   // format), on régénère automatiquement vers le format riche (force) — 1 appel Gemini, budget-gé.
-  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 2);
+  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
 
   let generating = false;
   if (!current) {
@@ -4016,7 +4016,7 @@ app.post('/api/report-insights', async (req, res) => {
   const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = 'v5:' + (id || clean.slice(0, 100));   // v5 = bump : regénère avec les badges BUY/SELL/NEUTRAL (persona IA assouplie pour ré-émettre les tags directionnels)
+  const key = 'v6fr:' + (id || clean.slice(0, 100));   // v6fr = bump : insights régénérés EN FRANÇAIS (les anciens, en anglais, sont ignorés)
   if (_insightsCache.has(key)) return res.json({ insights: _finalizeInsights(_insightsCache.get(key)) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
@@ -4031,7 +4031,7 @@ Ajoute 1 à 3 cartes NARRATIVES de contexte (géopolitique, tarifs, énergie, ba
 Si un actif est cité SANS direction nette → signal=null.
 Règles STRICTES :
 - JAMAIS d'actif générique vague ("FX","Markets","Macro","Forex","Currencies") → pour ceux-là, fais-en un insight narratif (asset=null).
-- "text": UNE SEULE phrase brève (max 20 mots), en anglais, orientée trader (le driver clé + l'impact). PAS de 2e phrase, pas de pavé.
+- "text": UNE SEULE phrase brève (max 20 mots), EN FRANÇAIS, orientée trader (le driver clé + l'impact). PAS de 2e phrase, pas de pavé. (Garde les tickers/codes tels quels : USD/JPY, S&P 500, Brent…)
 - N'invente rien : base-toi uniquement sur le rapport.
 Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"USD/JPY"|null,"signal":"BUY"|"SELL"|"NEUTRAL"|null,"text":"..."}]}
 Rapport :
@@ -4991,7 +4991,7 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon PMT (distinct du Weekly Recap rétrospectif) :
 // AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
 // JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
-const GEW_VER = 2;   // format Econoday (highlights long + horaires multi-fuseaux + commentaire/event) — bump = régén auto
+const GEW_VER = 3;   // v3 = rédigé EN FRANÇAIS (format Econoday : highlights long + horaires multi-fuseaux + commentaire/event) — bump = régén auto
 // Horaires MULTI-FUSEAUX d'un événement (clone PMT) : fuseau LOCAL du pays + GMT + EDT (US Eastern),
 // ex. « Mon 1100 CEST; Mon 0900 GMT; Mon 0500 EDT ». 100% calculé depuis le timestamp (zéro IA).
 const _GEW_TZ = { USD: 'America/New_York', EUR: 'Europe/Berlin', GBP: 'Europe/London', JPY: 'Asia/Tokyo', CHF: 'Europe/Zurich', CAD: 'America/Toronto', AUD: 'Australia/Sydney', NZD: 'Pacific/Auckland', CNY: 'Asia/Shanghai' };
@@ -5093,9 +5093,9 @@ async function generateGlobalEconomicWeekly(force = false) {
   // ── IA : titre + Highlights (narratif) + insights + paires (prospectif). Repli déterministe si IA KO. ──
   let title = 'Global Economic Weekly', highlights = '', insights = [], pairs = [];
   if (nEv > 0) {
-    const prompt = `You are a senior macro strategist writing the WEEK AHEAD preview ("Global Economic Weekly") for a professional FX & markets desk (depth comparable to a top-tier bank's week-ahead note). The COMING trading week (Monday–Friday) is defined by the scheduled HIGH-IMPACT events below. Write polished, specific, FORWARD-LOOKING English. Return ONLY valid JSON (no preamble, no markdown fences):
+    const prompt = `You are a senior macro strategist writing the WEEK AHEAD preview ("Global Economic Weekly") for a professional FX & markets desk (depth comparable to a top-tier bank's week-ahead note). The COMING trading week (Monday–Friday) is defined by the scheduled HIGH-IMPACT events below. Write ALL output text IN FRENCH (français soigné), polished, specific and FORWARD-LOOKING — keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
 {
-  "title": "Global Economic Weekly: <punchy headline naming the 2-3 marquee themes, e.g. 'Fed, Inflation and Global Central Banks: A High-Stakes Week for Markets'>",
+  "title": "Global Economic Weekly: <titre accrocheur EN FRANÇAIS nommant les 2-3 thèmes phares, ex. 'Fed, inflation et banques centrales : une semaine à hauts risques pour les marchés'>",
   "highlights": "<a RICH, COMPLETE editorial of 5 to 7 substantial paragraphs (~500-750 words total), in the style of an Econoday/Prime-Terminal 'Week Ahead: Highlights' note. Lead with the single biggest event of the week (usually the marquee central-bank decision): what consensus expects and the exact level/move, the policy dilemma and dual-mandate tension, named officials and their leanings, the dissent/vote picture, the data backdrop (inflation, labour, growth, geopolitics), the schedule (statement/press-conference times), and the concrete market implications across FX, rates and equities. Then cover the other marquee events. Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
   "insights": ["<forward-looking standalone insight, 1 sentence>", "... 5 to 6 cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: directional view for the WEEK AHEAD given the scheduled events>" } ]
@@ -5137,7 +5137,7 @@ ${recentCtx.join('\n')}`;
       const flat = []; days.forEach(d => (d.events || []).forEach(e => flat.push(e)));
       if (flat.length) {
         const list = flat.map((e, i) => `${i + 1}. ${e.country} ${e.title}${e.forecast ? ` — consensus ${e.forecast}${e.previous ? `, previous ${e.previous}` : ''}` : (e.previous ? ` — previous ${e.previous}` : '')}`).join('\n');
-        const cprompt = `You are an Econoday-style economist. For EACH scheduled event below, write ONE concise, specific analyst sentence: what the consensus implies versus the previous reading and why it matters for markets. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. Return ONLY valid JSON mapping each event number to its sentence, e.g. {"1":"The consensus looks for ...","2":"..."}.
+        const cprompt = `You are an Econoday-style economist. For EACH scheduled event below, write ONE concise, specific analyst sentence EN FRANÇAIS: what the consensus implies versus the previous reading and why it matters for markets. Keep tickers/codes/acronyms as-is. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. Return ONLY valid JSON mapping each event number to its French sentence, e.g. {"1":"Le consensus table sur ...","2":"..."}.
 
 EVENTS:
 ${list}`;
@@ -5208,7 +5208,7 @@ async function generateWeeklyRecapAI(force = false) {
     :                                          `Semaine du ${d1} ${_MOIS_FR[m1]} ${y1} au ${d2} ${_MOIS_FR[m2]} ${y2}`;
 
   // On considère "déjà généré" UNIQUEMENT si un recap au format RICHE (v2) existe pour la semaine.
-  const _isV2 = i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 2;
+  const _isV2 = i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3;
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix) && _isV2(i))) {
     console.log(`[Weekly Recap] déjà généré (v2) pour ${weekKey}, skip.`);
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isV2(i)) || null;
@@ -5288,13 +5288,13 @@ async function generateWeeklyRecapAI(force = false) {
 
   const CCY = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 
-  const prompt = `You are a senior macro strategist writing the institutional WEEKLY MARKET RECAP for a professional FX & markets desk (style and depth comparable to a top-tier bank's weekly review). The trading week (Monday–Friday) just closed. Write in polished, precise, professional English — smart, analytical and specific.
+  const prompt = `You are a senior macro strategist writing the institutional WEEKLY MARKET RECAP for a professional FX & markets desk (style and depth comparable to a top-tier bank's weekly review). The trading week (Monday–Friday) just closed. Write ALL output text IN FRENCH (français soigné, précis, professionnel) — smart, analytical and specific. Keep tickers/codes/central-bank acronyms as-is (USD/JPY, Fed, BoJ, BoE…).
 
 Quality bar: cite concrete drivers (central bank names and officials, specific data prints with actual vs forecast where available, geopolitical events, oil/equity/yield moves). Each currency narrative must read like a real desk note — multi-paragraph, day-by-day where relevant, explaining the "why" behind moves, not generic filler.
 
 Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS below (these are the authoritative week-in-review sources), using the other headlines only as supporting context. Produce the recap and return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
 {
-  "title": "Weekly Market Recap: <punchy headline — DERIVE it from the CLOSING MESSAGE OF THE WEEK (its first key sentence), e.g. 'Markets End Higher as ...'>",
+  "title": "Weekly Market Recap: <titre accrocheur EN FRANÇAIS — DÉRIVÉ du MESSAGE DE CLÔTURE DE LA SEMAINE (sa 1re phrase clé), ex. 'Les marchés terminent en hausse alors que ...'>",
   "summary": "<2 to 4 sentence global overview of how markets traded this week>",
   "insights": ["<concise standalone insight, 1 sentence>", "... 4 to 6 thematic insight cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<one concise sentence: why this directional bias for the week>" } ],
@@ -5344,7 +5344,7 @@ ${corpus}`;
     let baseTitle = _stripMd(String(parsed.title || 'Weekly Market Recap'));
     if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
     weekly = {
-      v: 2, title: baseTitle, weekEnding, weekRange,
+      v: 3, title: baseTitle, weekEnding, weekRange,   // v3 = rédigé EN FRANÇAIS
       summary:    _stripMd(parsed.summary || ''),
       insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => _stripMd(String(s))).slice(0, 6) : [],
       pairs:      Array.isArray(parsed.pairs) ? parsed.pairs
@@ -5434,11 +5434,11 @@ async function _loadPersistedWeekly(force = false) {
     let added = 0, hasV2 = false;
     for (const r of reports) {
       if (!r || !r.id) continue;
-      if (r._reportType === 'Weekly Market Recap' && r._weekly && r._weekly.v >= 2) hasV2 = true;
+      if (r._reportType === 'Weekly Market Recap' && r._weekly && r._weekly.v >= 3) hasV2 = true;
       if (!allNews.some(i => i.id === r.id)) { allNews.unshift(r); added++; }
     }
     // Si un recap au format riche (v2) est présent, on purge les anciens recaps obsolètes (anti-doublon)
-    if (hasV2) allNews = allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && !(i._weekly && i._weekly.v >= 2)));
+    if (hasV2) allNews = allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && !(i._weekly && i._weekly.v >= 3)));
     if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
   } catch (e) { console.warn('[Weekly Recap] rechargement persistant échec:', e.message); }
 }
