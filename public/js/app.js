@@ -7375,7 +7375,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrCell(e, col) {
     const v = _jrGet(e, col);
     switch (col.type) {
-      case 'title': return '<span class="jr-cv-title">' + (e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>') + '</span>';
+      case 'title': return '<span class="jr-cv-title">' + (e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>') + '</span><button class="jrd-open" data-open="' + _esc(e.id) + '" title="Ouvrir le trade"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5l-5.5 5.5M6.5 13.5h-4v-4M2.5 13.5l5.5-5.5"/></svg><span>OUVRIR</span></button>';
       case 'text': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : '<span class="jr-cv-text">' + _esc(v) + '</span>';
       case 'date': { const ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _jrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">—</i>'; }
       case 'day': { const d = e.ts ? _jrDayEn(e.ts) : ''; return d ? _jrChipHtml(d, _JR_CHIPS[8]) : '<i class="jr-ph">—</i>'; }
@@ -7451,7 +7451,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (col.type === 'date') return _jrEditDate(td, e, col);
     return _jrEditText(td, e, col);
   }
-  function _jrEditText(td, e, col) {
+  function _jrEditText(td, e, col, after) {
     const isNum = ['num', 'money', 'progress', 'ring'].includes(col.type), cur = _jrGet(e, col);
     const raw = isNum ? (cur == null ? '' : String(cur).replace('.', ',')) : (cur == null ? '' : String(cur));
     const inp = document.createElement('input'); inp.className = 'jr-cell-input'; inp.value = raw;
@@ -7463,24 +7463,24 @@ document.addEventListener('DOMContentLoaded', ()=>{
         else _jrSet(e, col, inp.value.slice(0, 160));
         _jrSave();
       }
-      _jrPaint(td, e, col); _jrRenderStats();
+      _jrPaint(td, e, col); _jrRenderStats(); if (after) after();
     };
     inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') { ev.preventDefault(); done(false); } };
     inp.onblur = () => done(true);
   }
-  function _jrEditDate(td, e, col) {
+  function _jrEditDate(td, e, col, after) {
     const cur = _jrGet(e, col);
     const inp = document.createElement('input'); inp.type = 'date'; inp.className = 'jr-cell-input'; inp.value = cur ? _jrTsToInput(cur) : '';
     td.innerHTML = ''; td.appendChild(inp); inp.focus();
-    const done = save => { if (save && inp.value) { const a = inp.value.split('-').map(Number); _jrSet(e, col, Date.UTC(a[0], a[1] - 1, a[2], 12, 0, 0)); _jrSave(); if (col.k === 'ts') { _jrRenderGrid(); return; } } _jrPaint(td, e, col); };
+    const done = save => { if (save && inp.value) { const a = inp.value.split('-').map(Number); _jrSet(e, col, Date.UTC(a[0], a[1] - 1, a[2], 12, 0, 0)); _jrSave(); if (col.k === 'ts') _jrRenderGrid(); } _jrPaint(td, e, col); if (after) after(); };
     inp.onchange = () => done(true);
     inp.onkeydown = ev => { if (ev.key === 'Escape') done(false); };
     inp.onblur = () => { if (!inp.value) done(false); };
   }
-  function _jrEditSelect(td, e, col) {
+  function _jrEditSelect(td, e, col, after) {
     const pop = _jrOpenPop(td, '<input class="jr-pop-search" placeholder="Rechercher / créer…"><div class="jr-pop-opts"></div>');
     const search = pop.querySelector('.jr-pop-search'), box = pop.querySelector('.jr-pop-opts');
-    const set = v => { _jrSet(e, col, v); _jrSave(); _jrClosePop(); _jrPaint(td, e, col); };
+    const set = v => { _jrSet(e, col, v); _jrSave(); _jrClosePop(); _jrPaint(td, e, col); if (after) after(); };
     const paint = filter => {
       const f = (filter || '').trim().toLowerCase(), cur = _jrGet(e, col);
       let h = _jrOptions(col).filter(o => o.toLowerCase().includes(f)).map(o => '<button class="jr-pop-opt" data-v="' + _esc(o) + '">' + _jrChipHtml((col.disp && col.disp[o]) || o, _jrChip(col.k, o)) + (String(cur) === o ? '<span class="jr-pop-ck">✓</span>' : '') + '</button>').join('');
@@ -7492,13 +7492,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (search) { search.oninput = () => paint(search.value); search.focus(); }
     paint('');
   }
-  function _jrEditMulti(td, e, col) {
+  function _jrEditMulti(td, e, col, after) {
     let arr = _jrGet(e, col);
     if (!Array.isArray(arr)) { arr = arr ? [String(arr)] : []; _jrSet(e, col, arr); }
     const pop = _jrOpenPop(td, '<div class="jr-pop-multi"></div>'), wrap = pop.querySelector('.jr-pop-multi');
     let _f = '';
-    const addVal = v => { v = String(v).trim().slice(0, 30); if (v && !arr.some(a => a.toLowerCase() === v.toLowerCase())) { arr.push(v); _jrSave(); _jrPaint(td, e, col); } paint(''); };
-    const rmVal = v => { const i = arr.findIndex(a => a === v); if (i >= 0) { arr.splice(i, 1); _jrSave(); _jrPaint(td, e, col); } paint(_f); };
+    const addVal = v => { v = String(v).trim().slice(0, 30); if (v && !arr.some(a => a.toLowerCase() === v.toLowerCase())) { arr.push(v); _jrSave(); _jrPaint(td, e, col); if (after) after(); } paint(''); };
+    const rmVal = v => { const i = arr.findIndex(a => a === v); if (i >= 0) { arr.splice(i, 1); _jrSave(); _jrPaint(td, e, col); if (after) after(); } paint(_f); };
     const paint = filter => {
       _f = filter || ''; const f = _f.trim().toLowerCase();
       const avail = _jrOptions(col).filter(o => !arr.some(a => a.toLowerCase() === o.toLowerCase()) && o.toLowerCase().includes(f));
@@ -7557,10 +7557,145 @@ document.addEventListener('DOMContentLoaded', ()=>{
     pop.querySelectorAll('.jr-prop-tog').forEach(b => b.onclick = () => { const c = _jrCols.find(x => x.k === b.dataset.k); if (c) { c.hidden = !c.hidden; b.querySelector('.jr-prop-eye').textContent = c.hidden ? '○' : '●'; _jrRenderGrid(); _jrSave(); } });
   }
 
+  // ═══════════════════ VOLET DÉTAIL (façon page Notion) ═══════════════════
+  // Clic sur ⤢ OUVRIR d'une ligne → un volet glisse depuis la droite : titre éditable, TOUTES les
+  // propriétés (réutilise les mêmes éditeurs que la grille via le 4e arg `after`) + sections d'analyse
+  // écrites (Fonda Bias, Technical, Entry, Management, Close, Erreur). Poignée gauche pour ÉLARGIR +
+  // bouton plein-largeur. Volet, largeur et état « élargi » = VOLATILS (reset au reload, comme les splitters).
+  const _JR_SECT_DEF = [
+    { k: 'fondaBias',  label: 'FONDAMENTALE BIAS' },
+    { k: 'technical',  label: 'TECHNICAL ANALYSIS' },
+    { k: 'entry',      label: 'ENTRY' },
+    { k: 'management', label: 'MANAGEMENT' },
+    { k: 'close',      label: 'CLOSE' },
+    { k: 'erreur',     label: 'ERREUR' },
+  ];
+  const _JR_PROP_IC = { title: 'T', date: '◷', day: '◷', select: '◉', multi: '☰', num: '#', money: '$', progress: '▦', ring: '◍', text: 'T' };
+  let _jrDetailId = null, _jrdWidth = 0, _jrdExpanded = false;   // largeur + état élargi = volatils
+
+  function _jrApplyWidth(pan) {
+    if (window.innerWidth <= 768) { pan.style.width = ''; return; }   // mobile : plein écran (CSS)
+    const maxW = Math.floor(window.innerWidth * 0.96);
+    if (_jrdExpanded) { pan.style.width = Math.floor(window.innerWidth * 0.92) + 'px'; return; }
+    pan.style.width = Math.max(380, Math.min(maxW, _jrdWidth || Math.min(560, maxW))) + 'px';
+  }
+  function _jrToggleExpand() { _jrdExpanded = !_jrdExpanded; const pan = document.getElementById('jr-detail'); if (pan) _jrApplyWidth(pan); }
+  function _jrdInitResize(handle, pan) {
+    if (!handle) return;
+    let startX = 0, startW = 0, dragging = false;
+    const move = ev => { if (!dragging) return; const dx = startX - ev.clientX; const maxW = Math.floor(window.innerWidth * 0.96); const w = Math.max(380, Math.min(maxW, startW + dx)); _jrdWidth = w; _jrdExpanded = false; pan.style.width = w + 'px'; ev.preventDefault(); };
+    const up = () => { dragging = false; document.body.classList.remove('jrd-resizing'); document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up); };
+    handle.addEventListener('mousedown', ev => { dragging = true; startX = ev.clientX; startW = pan.getBoundingClientRect().width; document.body.classList.add('jrd-resizing'); document.addEventListener('mousemove', move); document.addEventListener('mouseup', up); ev.preventDefault(); });
+  }
+  function _jrDetailEls() {
+    let ov = document.getElementById('jrd-overlay'), pan = document.getElementById('jr-detail');
+    if (pan) return { ov, pan };
+    ov = document.createElement('div'); ov.id = 'jrd-overlay'; ov.onclick = _jrCloseDetail;
+    pan = document.createElement('aside'); pan.id = 'jr-detail'; pan.setAttribute('role', 'dialog');
+    pan.innerHTML =
+      '<div class="jrd-resize" id="jrd-resize" title="Glisser pour élargir"></div>'
+      + '<div class="jrd-head">'
+      +   '<button class="jrd-ic" id="jrd-close" title="Fermer · Échap"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h8M8 4.5 11.5 8 8 11.5"/></svg></button>'
+      +   '<button class="jrd-ic" id="jrd-expand" title="Élargir / réduire"><svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5l-5.5 5.5M6.5 13.5h-4v-4M2.5 13.5l5.5-5.5"/></svg></button>'
+      +   '<span class="jrd-head-lbl">Trade</span>'
+      + '</div>'
+      + '<div class="jrd-body" id="jrd-body"></div>';
+    document.body.appendChild(ov); document.body.appendChild(pan);
+    pan.querySelector('#jrd-close').onclick = _jrCloseDetail;
+    pan.querySelector('#jrd-expand').onclick = _jrToggleExpand;
+    _jrdInitResize(pan.querySelector('#jrd-resize'), pan);
+    return { ov, pan };
+  }
+  function _jrdEsc(ev) { if (ev.key === 'Escape' && !document.querySelector('.jr-pop')) { ev.preventDefault(); _jrCloseDetail(); } }
+  function _jrOpenDetail(id) {
+    const e = (_jrList || []).find(x => x.id === id); if (!e) return;
+    _jrDetailId = id;
+    const { ov, pan } = _jrDetailEls();
+    _jrApplyWidth(pan);
+    ov.classList.add('show'); pan.classList.add('show');
+    _jrRenderDetailBody(e);
+    document.addEventListener('keydown', _jrdEsc, true);
+  }
+  function _jrCloseDetail() {
+    const ov = document.getElementById('jrd-overlay'), pan = document.getElementById('jr-detail');
+    if (ov) ov.classList.remove('show'); if (pan) pan.classList.remove('show');
+    document.removeEventListener('keydown', _jrdEsc, true);
+    _jrClosePop();
+    if (_jrDetailId) { _jrRenderGrid(); _jrRenderStats(); }   // synchronise la grille avec les modifs du volet
+    _jrDetailId = null;
+  }
+  function _jrEditDetailTitle(el, e) {
+    const inp = document.createElement('input'); inp.className = 'jrd-title-input'; inp.value = e.pair || ''; inp.maxLength = 12;
+    el.innerHTML = ''; el.appendChild(inp); inp.focus(); inp.select();
+    const done = save => {
+      if (save) { e.pair = inp.value.toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12); _jrSave(); }
+      el.innerHTML = e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>'; _jrDetailSync(e);
+    };
+    inp.onkeydown = ev => { if (ev.key === 'Enter') { ev.preventDefault(); done(true); } else if (ev.key === 'Escape') { ev.preventDefault(); done(false); } };
+    inp.onblur = () => done(true);
+  }
+  function _jrDetailSync(e) {   // met à jour le titre + le jour (dérivé de la date) + les stats SANS reconstruire (préserve les popovers ouverts)
+    if (_jrDetailId !== e.id) return;
+    const body = document.getElementById('jrd-body'); if (!body) return;
+    const tEl = body.querySelector('#jrd-title'); if (tEl && !tEl.querySelector('input')) tEl.innerHTML = e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>';
+    const dayV = body.querySelector('.jrd-prop-v[data-k="day"]'), dayCol = (_jrCols || _jrDefaultCols()).find(c => c.k === 'day');
+    if (dayV && dayCol) dayV.innerHTML = _jrCell(e, dayCol);
+    _jrRenderStats();
+  }
+  function _jrRenderDetailBody(e) {
+    const body = document.getElementById('jrd-body'); if (!body) return;
+    const cols = (_jrCols || _jrDefaultCols());
+    let h = '<div class="jrd-titlewrap"><div class="jrd-title" id="jrd-title" title="Renommer">' + (e.pair ? _esc(e.pair) : '<i class="jr-ph">Sans titre</i>') + '</div></div>';
+    h += '<div class="jrd-props">';
+    for (const col of cols) {
+      if (col.k === 'pair') continue;
+      const ro = col.type === 'day';
+      h += '<div class="jrd-prop">'
+        + '<div class="jrd-prop-k"><span class="jrd-prop-ic">' + (_JR_PROP_IC[col.type] || '•') + '</span>' + _esc(col.label) + '</div>'
+        + '<div class="jrd-prop-v' + (ro ? ' jrd-prop-v--ro' : '') + '" data-k="' + _esc(col.k) + '">' + _jrCell(e, col) + '</div>'
+        + '</div>';
+    }
+    h += '</div>';
+    h += '<div class="jrd-sections">';
+    for (const s of _JR_SECT_DEF) {
+      const val = (e.sections && e.sections[s.k]) || '';
+      h += '<div class="jrd-sect"><div class="jrd-sect-h">' + s.label + '</div>'
+        + '<textarea class="jrd-sect-ta" data-sk="' + s.k + '" placeholder="Ajoute ton analyse…" rows="2">' + _esc(val) + '</textarea></div>';
+    }
+    h += '</div>';
+    body.innerHTML = h;
+    body.scrollTop = 0;
+    const tEl = body.querySelector('#jrd-title'); if (tEl) tEl.onclick = () => _jrEditDetailTitle(tEl, e);
+    body.querySelectorAll('.jrd-prop-v').forEach(v => {
+      if (v.classList.contains('jrd-prop-v--ro')) return;
+      v.onclick = () => {
+        if (v.querySelector('.jr-cell-input')) return;
+        const col = cols.find(c => c.k === v.dataset.k); if (!col) return;
+        const after = () => _jrDetailSync(e);
+        if (col.type === 'select') _jrEditSelect(v, e, col, after);
+        else if (col.type === 'multi') _jrEditMulti(v, e, col, after);
+        else if (col.type === 'date') _jrEditDate(v, e, col, after);
+        else _jrEditText(v, e, col, after);
+      };
+    });
+    body.querySelectorAll('.jrd-sect-ta').forEach(ta => {
+      const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.min(640, ta.scrollHeight + 2) + 'px'; };
+      grow(); ta.addEventListener('input', grow);
+      ta.addEventListener('blur', () => {
+        const v = ta.value.trim(); e.sections = e.sections || {};
+        if (v) e.sections[ta.dataset.sk] = v.slice(0, 4000); else delete e.sections[ta.dataset.sk];
+        if (!Object.keys(e.sections).length) delete e.sections;
+        _jrSave();
+      });
+    });
+  }
+
   function _jrRender() { _jrRenderStats(); _jrRenderToolbar(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
 
   // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
   document.addEventListener('click', ev => {
+    const op = ev.target.closest && ev.target.closest('.jrd-open');
+    if (op) { ev.stopPropagation(); _jrOpenDetail(op.dataset.open); return; }   // ⤢ OUVRIR → volet détail (façon page Notion)
     const del = ev.target.closest && ev.target.closest('.jr-rowdel');
     if (del) {
       const tr = del.closest('tr'), id = tr && tr.dataset.id; if (!id || !_jrList) return;
