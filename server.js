@@ -5830,7 +5830,7 @@ function _sbSentimentRow() {
 //   alors sur les positions de trade). N'invente rien (basé sur les titres de recherche réels).
 async function _sbBankStances() {
   if (!Array.isArray(_brCache) || !_brCache.length) return {};
-  const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;   // ~2 semaines de recherche récente
+  const cutoff = Date.now() - 35 * 24 * 60 * 60 * 1000;   // ~5 semaines : couvre TOUTES les banques (certaines publient moins souvent que 2 semaines)
   const _strip = h => String(h || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   const byBank = new Map();
   for (const a of _brCache) {
@@ -5847,11 +5847,11 @@ async function _sbBankStances() {
   }
   const out = {};
   const OKV = ['Very Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bearish'];
-  let aiDown = false;   // circuit breaker : au 1er échec IA on cesse de tenter → on liste QUAND MÊME toutes les banques (Neutral), pas 16 appels qui plantent
+  let consecFail = 0;   // circuit breaker DOUX : on n'arrête qu'après 3 échecs IA d'AFFILÉE (un échec ponctuel/RPM ne tue plus toutes les banques suivantes) ; remis à 0 à chaque succès
   for (const [bank, heads] of byBank) {
     const clean = (bank || '').replace(/\s+Research$/i, '').trim();
     const st = {};
-    if (!aiDown && aiAllowed('bank', { scheduled: true })) {
+    if (consecFail < 3 && aiAllowed('bank', { scheduled: true })) {
       const digest = heads.join('\n\n').slice(0, 3500);
       const prompt = `Tu es analyste FX. D'après UNIQUEMENT la recherche récente (articles / notes / PDF) de la banque "${bank}" ci-dessous, déduis son biais directionnel sur chaque devise majeure (${SB_CURRENCIES.join(', ')}).
 Réponds UNIQUEMENT en JSON: {${SB_CURRENCIES.map(c => `"${c}":"Bullish|Bearish|Neutral"`).join(',')}}. Si la banque ne se prononce pas clairement sur une devise → "Neutral". N'invente RIEN.
@@ -5862,7 +5862,8 @@ ${digest}`;
         const t = await aiSmart('bank', prompt, 220, { scheduled: true });   // (aiSmart compte déjà via aiNote — le double débit de la part 'bank' est supprimé)
         const m = (t || '').match(/\{[\s\S]*\}/);
         if (m) { const obj = JSON.parse(m[0]); for (const c of SB_CURRENCIES) if (OKV.includes(obj[c])) st[c] = obj[c]; }
-      } catch (e) { aiDown = true; }   // IA indispo (quota/crédit) → banques suivantes listées en Neutral, biais réels à la reprise IA
+        consecFail = 0;   // succès → on continue sur toutes les banques suivantes
+      } catch (e) { consecFail++; }   // échec ponctuel → on tente la banque suivante ; 3 d'affilée → on s'arrête (reprise au prochain retry)
     }
     out[clean] = st;   // TOUJOURS lister la banque (Neutral pour les devises sans biais IA → jamais de faux biais)
   }
@@ -6209,8 +6210,13 @@ async function _sbEnsureNarrative() {
   // À régénérer : UNIQUEMENT narratif absent / repli / TRONQUÉ. RÈGLE UTILISATEUR : un texte IA
   // généré le samedi reste FIXE jusqu'au samedi suivant — on ne le réécrit PLUS si le Overall bouge.
   const missing = SB_CURRENCIES.filter(c => !_sbIsRealNarrative(have[c]));
-  // Re-tente tant qu'AUCUNE banque n'a de vrai biais IA (banques listées en Neutral = IA pas encore passée).
-  const needBank = !_smartBias.bankStances || !Object.values(_smartBias.bankStances).some(st => st && Object.keys(st).length);
+  // Re-tente tant qu'AU MOINS UNE banque n'a pas encore de biais (st vide OU banque éligible absente).
+  // (Avant : ne retentait QUE si AUCUNE banque n'en avait → dès que 3-4 banques passaient, les 15 autres
+  //  restaient « — » à vie. Désormais on complète jusqu'à ce que TOUTES les banques éligibles aient un biais.)
+  const _bsv = Object.values(_smartBias.bankStances || {});
+  const _bsHave = _bsv.filter(st => st && Object.keys(st).length).length;
+  const _bsEligible = new Set((_brCache || []).filter(a => a && a.institution && (a.timestamp || 0) >= Date.now() - 35 * 24 * 60 * 60 * 1000).map(a => String(a.institution).replace(/\s+Research$/i, '').trim())).size;
+  const needBank = !_bsv.length || _bsv.some(st => !st || !Object.keys(st).length) || _bsHave < _bsEligible;
   if (!missing.length && !needBank) return;                                       // tout réel/cohérent ET banques OK → rien à faire
   if (_sbNarrBusy) return;
   if (typeof _aiQuietHours === 'function' && _aiQuietHours()) return;             // heures creuses → on attend
