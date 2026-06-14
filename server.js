@@ -3751,10 +3751,44 @@ function _stripSource(html) {
     .trim();
 }
 
+// Markdown (lecteur r.jina.ai) → HTML simple pour AFFICHER le rapport tel quel. Retire les images
+// markdown + la syntaxe de liens (garde le texte), découpe en titres / listes / paragraphes.
+function _jinaMdToHtml(md) {
+  const strip = s => String(s).replace(/[*_\x60]+/g, '').trim();
+  return String(md || '')
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, '')              // images markdown → retirées
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')            // liens → texte seul
+    .split(/\n{2,}/).map(b => b.trim()).filter(Boolean)
+    .map(b => {
+      const h = b.match(/^#{1,4}\s+(.+)/);
+      if (h) return '<h3>' + strip(h[1]) + '</h3>';
+      if (/^\s*[-*+]\s+/.test(b)) {
+        const items = b.split(/\n/).filter(l => /^\s*[-*+]\s+/.test(l))
+          .map(l => '<li>' + strip(l.replace(/^\s*[-*+]\s+/, '')) + '</li>').join('');
+        return '<ul>' + items + '</ul>';
+      }
+      return '<p>' + strip(b.replace(/\n/g, ' ')) + '</p>';
+    }).join('\n');
+}
+// Déduplique un titre où la même longue phrase est répétée (scrape « PHRASE date PHRASE »).
+function _dedupTitle(t) {
+  t = String(t || '').replace(/\s+/g, ' ').trim();
+  for (let len = Math.floor(t.length / 2); len >= 18; len--) {
+    const pre = t.slice(0, len).trim();
+    if (pre.length < 18) continue;
+    const idx = t.indexOf(pre, pre.length);              // la même phrase réapparaît plus loin ?
+    if (idx >= 0) return (pre + ' ' + t.slice(pre.length, idx)).replace(/\s+/g, ' ').trim();
+  }
+  return t;
+}
+
 const _BR_CONTENT_HOSTS = /^https:\/\/([a-z0-9-]+\.)*(think\.ing\.com|mufgresearch\.com|scotiabank\.com|bluematrix\.com|hsbc\.com\.sg|syzgroup\.com|danskebank\.com|unicreditgroup\.eu|kbc\.com|corporate\.nordea\.com|economics\.cibccm\.com|research-center\.amundi\.com|q-cam\.com)\//i;
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !_BR_CONTENT_HOSTS.test(url)) return res.json({ html: '' });
+  // Déjà structuré (cache chaud) → réponse instantanée : on évite le re-fetch + le lecteur jina
+  // (le front retombe sur item.description / dateStr pour le sous-titre et la date).
+  try { const _hot = _brSegCache.get(BR_SEG_VER + url); if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' }); } catch {}
   let _origin = 'https://think.ing.com';
   try { _origin = new URL(url).origin; } catch {}
   try {
@@ -3833,12 +3867,34 @@ app.get('/api/bank-research-content', async (req, res) => {
       || '';
 
     // Corriger les URLs relatives des images → absolues (selon l'hôte réel de l'article)
-    const clean = body
+    let clean = body
       .replace(/src="\/([^"]*)"/g, `src="${_origin}/$1"`)
       .replace(/srcset="\/([^"]*)"/g, `srcset="${_origin}/$1"`)
       .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')   // SVG déco uniquement
       .replace(/\s{3,}/g, '\n')
       .trim();
+
+    // ── Repli LECTEUR r.jina.ai : si l'extraction directe est trop maigre (KBC/Goldman/CIBC : page
+    //    rendue en JS côté client OU anti-bot → cheerio ne voit qu'un shell vide), on récupère le
+    //    TEXTE RÉEL via le lecteur public (qui rend le JS depuis son infra) → le rapport s'affiche
+    //    pour de vrai (fini la carte « protégé »). Best-effort, silencieux en cas d'échec.
+    const _plainLen = clean.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length;
+    if (_plainLen < 300) {
+      try {
+        const jr = await axios.get('https://r.jina.ai/' + url, {
+          timeout: 25000,
+          headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+          validateStatus: s => s < 500,
+        });
+        if (jr.status === 200 && typeof jr.data === 'string') {
+          let md = jr.data;
+          const mc = md.indexOf('Markdown Content:');                 // en-tête ajouté par le lecteur
+          if (mc >= 0) md = md.slice(mc + 'Markdown Content:'.length);
+          const jhtml = _jinaMdToHtml(md.trim());
+          if (jhtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length > _plainLen + 200) clean = jhtml;
+        }
+      } catch {}
+    }
 
     // Format date nicely
     let dateFormatted = '';
@@ -4784,8 +4840,8 @@ function _stripMd(s) {
 // avec des ** (générés avant le nettoyage à la source). La mutation purge aussi la RAM partagée.
 function _cleanItemMd(it) {
   if (!it || typeof it !== 'object') return it;
-  if (typeof it.title === 'string')    it.title    = _stripMd(it.title);
-  if (typeof it.headline === 'string') it.headline = _stripMd(it.headline);
+  if (typeof it.title === 'string')    it.title    = _stripMd(_dedupTitle(it.title));    // + dédup « PHRASE date PHRASE »
+  if (typeof it.headline === 'string') it.headline = _stripMd(_dedupTitle(it.headline));
   if (typeof it.aiTitle === 'string')  it.aiTitle  = _stripMd(it.aiTitle);   // titre IA des session wraps (sinon ** dans le titre de carte)
   if (it._weekly && typeof it._weekly.title === 'string') it._weekly.title = _stripMd(it._weekly.title);
   return it;
