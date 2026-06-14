@@ -3816,12 +3816,15 @@ app.get('/api/bank-research-content', async (req, res) => {
   let _origin = 'https://think.ing.com';
   try { _origin = new URL(url).origin; } catch {}
   try {
-    const r = await axios.get(url, {
-      timeout: 15000,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-      validateStatus: () => true,
-    });
-    const $ = cheerio.load(r.data);
+    let r;
+    try {
+      r = await axios.get(url, {
+        timeout: 15000,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+        validateStatus: () => true,
+      });
+    } catch (e) { r = { data: '' }; }   // fetch direct KO (timeout/DNS/reset) → on N'ABANDONNE PAS : extraction vide puis repli jina
+    const $ = cheerio.load(r.data || '');
 
     // Extract metadata
     const subtitle = $('meta[property="og:description"]').attr('content')
