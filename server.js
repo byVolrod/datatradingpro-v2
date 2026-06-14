@@ -2641,7 +2641,7 @@ const SW_SEG_VER  = 'v4:';   // bump → régénère (v4 : en-têtes courts + CA
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(__dirname, 'cache_br_seg.json');
 const _brSegCache = _loadJsonMap(BR_SEG_FILE);
-const BR_SEG_VER  = 'v2:';   // bump → régénère (v2 : en-têtes courts type catégorie + puces concises ≤30 mots)
+const BR_SEG_VER  = 'v3:';   // bump → régénère (v3 : purge les faux résumés fabriqués depuis des pages "vitrine"/teaser — garde anti-teaser ajoutée)
 const SEG_FAIL_RETRY_MS = 6 * 3600 * 1000;   // un échec de segmentation est retenté après 6 h (répare les rapports figés en brut par une panne)
 // État d'une entrée de cache de segmentation : 'ok' (HTML utilisable) · 'cooling' (échec récent <6h, ne pas régénérer)
 // · 'retry' (échec ancien ≥6h OU null hérité → à régénérer) · 'absent'. Source unique de vérité, partagée route↔prewarm.
@@ -3821,7 +3821,11 @@ app.get('/api/bank-research-content', async (req, res) => {
   if (!_brContentAllowed(url)) return res.json({ html: '' });
   // Déjà structuré (cache chaud) → réponse instantanée : on évite le re-fetch + le lecteur jina
   // (le front retombe sur item.description / dateStr pour le sous-titre et la date).
-  try { const _hot = _brSegCache.get(BR_SEG_VER + url); if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' }); } catch {}
+  try {
+    const _hot = _brSegCache.get(BR_SEG_VER + url);
+    if (_hot && typeof _hot === 'object' && _hot.thin) return res.json({ html: '', source: 'thin', pdfUrl: _hot.pdfUrl || '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // page vitrine/teaser déjà détectée → on renvoie le vrai PDF (ou la carte), jamais un faux résumé
+    if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
+  } catch {}
   let _origin = 'https://think.ing.com';
   try { _origin = new URL(url).origin; } catch {}
   try {
@@ -3938,6 +3942,22 @@ app.get('/api/bank-research-content', async (req, res) => {
       try {
         dateFormatted = new Date(pubDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' });
       } catch { dateFormatted = pubDate; }
+    }
+
+    // ── GARDE ANTI « PAGE VITRINE / TEASER » (fix QCAM FX Quick Sheets, généralisé) ──
+    // Certaines pages ne sont PAS l'article : juste une accroche marketing (CTA « Subscribe »)
+    // avec le VRAI rapport en PDF téléchargeable. Avant : le texte promo (>220 car) passait à l'IA
+    // qui le réorganisait en un FAUX rapport (« OVERVIEW / PUBLICATIONS »). Désormais :
+    //  • texte réel trop maigre (<350)  → on NE fabrique RIEN ;
+    //  • OU page d'accroche (signature teaser) AVEC un PDF intégré → on renvoie le VRAI PDF.
+    // Le front affiche alors le PDF natif (ou la carte « ouvrir l'original »), jamais un résumé inventé.
+    let _embeddedPdf = '';
+    try { const _pm = String(r.data || '').match(/href=["']([^"'\s]+\.pdf)(?:["'?#]|$)/i); if (_pm) _embeddedPdf = new URL(_pm[1], _origin).href; } catch {}
+    const _plainTxt  = clean.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    const _teaserSig = /subscribe\s+(now|to)\b|receive it (each|at the start)|delivered to you|sign\s*up\b|provided for free|download (the )?(full |complete )?(report|pdf|publication)/i.test(_plainTxt);
+    if (_plainTxt.length < 350 || (_embeddedPdf && _plainTxt.length < 2000 && _teaserSig)) {
+      try { _brSegCache.set(BR_SEG_VER + url, { f: Date.now(), thin: true, pdfUrl: _embeddedPdf }); } catch {}   // marqueur : ne pas re-générer ; précache 'cooling'
+      return res.json({ html: '', source: 'thin', pdfUrl: _embeddedPdf, subtitle, date: dateFormatted, section, country, articleType });
     }
 
     // ── Structuration IA en rubriques claires façon DTP (DailyFX/recherche en prose) ──
