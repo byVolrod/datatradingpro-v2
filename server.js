@@ -6221,12 +6221,12 @@ async function _sbEnsureNarrative() {
   const needBank = !_bsv.length || _bsv.some(st => !st || !Object.keys(st).length) || _bsHave < _bsEligible;
   if (!missing.length && !needBank) return;                                       // tout réel/cohérent ET banques OK → rien à faire
   if (_sbNarrBusy) return;
-  if (typeof _aiQuietHours === 'function' && _aiQuietHours()) return;             // heures creuses → on attend
   if (Date.now() - _sbNarrLastTry < 10 * 60 * 1000) return;                       // 1 tentative / 10 min max
   _sbNarrBusy = true; _sbNarrLastTry = Date.now();
   try {
     let changed = false, doneN = 0;
-    if (missing.length) {
+    const _quiet = typeof _aiQuietHours === 'function' && _aiQuietHours();   // narratifs (lourds) = pas en heures creuses ; biais BANQUES (léger) = on complète même la nuit
+    if (missing.length && !_quiet) {
       const narr = await _sbGenerateNarratives(_smartBias.rows, _smartBias.conclusion, _smartBias.ctxLines || [], missing);
       if (narr && Object.keys(narr).length) {
         _smartBias.narrative = Object.assign({}, _smartBias.narrative || {}, narr); // merge : garde l'existant réel, ajoute les régénérés
