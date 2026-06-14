@@ -2091,15 +2091,20 @@ function _recapCoveredMonday(weekly) {   // lundi (00:00 UTC) de la semaine couv
   try { const a = String(weekly && weekly.weekEnding || '').split('.').map(Number); if (a.length !== 3 || !a[0] || !a[1] || !a[2]) return 0; return Date.UTC(a[2], a[1] - 1, a[0]) - 4 * 86400000; } catch { return 0; }
 }
 let _wrCsBackfillBusy = false;
+let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par process
 // Backfill (sans Gemini) du snapshot CS sur le recap COURANT généré avant cette fonctionnalité —
 // tant qu'on est ENCORE dans sa semaine couverte (les données 'week' correspondent alors), puis persiste.
 // Appelé à la fois sur /api/weekly-reports ET proactivement au boot (filet : si l'utilisateur n'ouvre
 // pas l'onglet aujourd'hui, le recap est quand même figé avant que la semaine ne change).
 async function _maybeBackfillRecapCs() {
   if (_wrCsBackfillBusy) return;
-  const cur = allNews.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
-  if (!cur || !cur._weekly || cur._weekly.cs) return;
-  if (_recapCoveredMonday(cur._weekly) !== _currentMondayUtc()) return;   // pas la même semaine → ne pas figer une mauvaise semaine
+  // Cible DIRECTE : le recap de la semaine EN COURS qui n'a pas encore de snapshot (et seulement lui →
+  // on ne fige jamais une mauvaise semaine, et on ignore les recaps archivés d'autres semaines).
+  const monNow = _currentMondayUtc();
+  const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
+  const cur = recaps.find(i => !i._weekly.cs && _recapCoveredMonday(i._weekly) === monNow);
+  if (!_wrCsDiagDone) { _wrCsDiagDone = true; console.log('[Weekly Recap] CS backfill check — recaps=' + recaps.length + ' monNow=' + new Date(monNow).toISOString().slice(0, 10) + ' ' + recaps.map(r => r._weekly.weekEnding + (r._weekly.cs ? '(cs)' : '(no-cs)')).join(',') + ' → cible=' + (cur ? cur._weekly.weekEnding : 'aucune')); }
+  if (!cur) return;
   _wrCsBackfillBusy = true;
   try {
     const cs = await computeCurrencyStrength('week');
