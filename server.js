@@ -5848,8 +5848,10 @@ async function _sbBankStances() {
   const out = {};
   const OKV = ['Very Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bearish'];
   let consecFail = 0;   // circuit breaker DOUX : on n'arrête qu'après 3 échecs IA d'AFFILÉE (un échec ponctuel/RPM ne tue plus toutes les banques suivantes) ; remis à 0 à chaque succès
+  const prev = (_smartBias && _smartBias.bankStances) || {};   // biais déjà déterminés aux passes précédentes
   for (const [bank, heads] of byBank) {
     const clean = (bank || '').replace(/\s+Research$/i, '').trim();
+    if (prev[clean] && Object.keys(prev[clean]).length) { out[clean] = prev[clean]; continue; }   // DÉJÀ fait → on garde, on ne re-dépense PAS le quota dessus → chaque passe traite des banques NOUVELLES (progression)
     const st = {};
     if (consecFail < 3 && aiAllowed('bank', { scheduled: true })) {
       const digest = heads.join('\n\n').slice(0, 3500);
