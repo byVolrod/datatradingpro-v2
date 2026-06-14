@@ -4166,6 +4166,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .br-ext-link { color: var(--orange); font-size: 12px; text-decoration: none; }
 .br-ext-link:hover { text-decoration: underline; }
 
+/* Carte « rapport protégé non intégrable » (remplace l'iframe vide des sites qui bloquent le framing) */
+.br-ext-card { display: flex; flex-direction: column; align-items: flex-start; gap: 13px; background: #101014; border: 1px solid var(--border2); border-left: 3px solid var(--orange); border-radius: 8px; padding: 20px 22px; margin-top: 10px; }
+.br-ext-card-ic { font-size: 24px; line-height: 1; }
+.br-ext-card-txt { font-size: 13px; line-height: 1.6; color: var(--text2); }
+.br-ext-card-btn { display: inline-block; background: var(--orange); color: #1a1205; font-weight: 700; font-size: 12.5px; padding: 9px 17px; border-radius: 6px; text-decoration: none; }
+.br-ext-card-btn:hover { filter: brightness(1.08); }
+.ai-ins-empty { padding: 14px 16px; font-size: 12px; line-height: 1.55; color: #8a8a93; }
+
 /* ═══════════════ ANALYST REPORT LIBRARY ═══════════════ */
 /* ═══════════════ ANALYST RESEARCH LIBRARY ═══════════════ */
 

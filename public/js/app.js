@@ -4584,6 +4584,7 @@ function renderBrReader(item) {
         : _inst === 'DTP' ? 'Institutional research' : _inst + ' Research';
       const headerHtml = `<div class="br-ing-header">${_instLogoHtml(_inst)}<div class="br-ing-tagline">${_tagline}</div></div><div class="br-ing-divider"></div>`;
       const origLabel = isIngDoc ? 'Lire l\'original sur ING Think →' : 'Lire l\'original →';
+      let _noEmbed = false;   // true = site protégé non extractible → carte propre, pas d'iframe vide
       if (data.html && data.html.length > 100) {
         const subtitle    = data.subtitle || item.description || '';
         const date        = data.date || dateStr;
@@ -4615,12 +4616,13 @@ function renderBrReader(item) {
             </div>
           </div>`;
       } else {
-        // Pas d'extraction texte (site protégé/anti-bot/login) → on EMBARQUE le rapport ORIGINAL
-        // dans une iframe (chargée par le navigateur de l'utilisateur, comme un PDF natif), avec
-        // l'aperçu du flux s'il existe + bouton Ouvrir + repli lien. Jamais de « indisponible ».
+        // Extraction impossible (site protégé / anti-bot / login). On N'EMBARQUE PAS l'URL d'origine
+        // en iframe : ces sites envoient X-Frame-Options / frame-ancestors → l'iframe reste un CADRE
+        // VIDE (« ça ne s'affiche pas »). On affiche une carte PROPRE : en-tête + titre + aperçu +
+        // bouton « Ouvrir le rapport original ». (Les AI Insights, panneau dédié, résument le rapport.)
+        _noEmbed = true;
         const preview = (item.description || '').trim();
         const safe = (item.url || '').replace(/"/g, '&quot;');
-        const ttl  = (item.title || 'Rapport').replace(/"/g, '');
         const typeLbl = _inst === 'DTP' ? 'Research' : _inst;
         content.innerHTML = `
           <div class="br-document">
@@ -4628,12 +4630,14 @@ function renderBrReader(item) {
             <div class="br-ing-meta"><span class="br-ing-type">${typeLbl}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
             <div class="br-doc-title">${item.title}</div>
             ${preview ? `<div class="br-ing-lead">${preview}</div>` : ''}
-            <div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 Rapport original</span><span class="br-pdf-bar-actions"><a class="br-pdf-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir ↗</a></span></div>
-            <iframe class="br-pdf-frame" src="${safe}" title="${ttl}" referrerpolicy="no-referrer" loading="lazy" style="width:100%;height:72vh;min-height:460px;border:0;border-radius:6px;background:#0b0b0e;margin-top:8px"></iframe>
-            <div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le rapport ne s'affiche pas ici ? <a href="${safe}" target="_blank" rel="noopener" style="color:#ff7a00">${origLabel}</a></div>
+            <div class="br-ext-card">
+              <div class="br-ext-card-ic">🔒</div>
+              <div class="br-ext-card-txt">Le texte intégral de ce rapport est hébergé par <strong>${typeLbl}</strong> et ne peut pas être intégré ici (le site en interdit l'affichage). Ouvrez le rapport original pour le lire en entier.</div>
+              <a class="br-ext-card-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir le rapport original ↗</a>
+            </div>
           </div>`;
       }
-      _brFinalizeReader(item, brIns);   // images + insights + bascule en PDF embarqué
+      _brFinalizeReader(item, brIns, _noEmbed);   // images + insights + (PDF seulement si vrai contenu)
     })
     .catch(() => {
       if (!content) return;
@@ -4828,12 +4832,18 @@ async function _brRenderAsPdf(item) {
 }
 
 // Finalise le lecteur banque (images, insights) PUIS bascule en PDF embarqué.
-function _brFinalizeReader(item, brIns) {
+function _brFinalizeReader(item, brIns, noContent) {
   const content = document.getElementById('br-rcontent');
   if (!content) return;
   _brFixImages(content);
   content.scrollTop = 0;
   const _full = (content.innerText || '').trim();
+  // Rapport protégé (pas de vrai contenu) → pas d'insights bidon ni de PDF d'un avertissement :
+  // on remplace le « Loading summaries… » (qui resterait bloqué) par un message clair.
+  if (noContent) {
+    if (brIns) brIns.innerHTML = '<div class="ai-ins-empty">Résumé indisponible : le contenu de ce rapport est protégé par la source. Ouvrez le rapport original pour le consulter.</div>';
+    return;
+  }
   if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
   _brRenderAsPdf(item);
 }
