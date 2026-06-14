@@ -4667,6 +4667,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   color:#ff7a00; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:.09em;
   margin:26px 0 12px; padding-bottom:6px; border-bottom:1px solid #232329;
 }
+/* En-tête Currency Strength : titre à gauche + boutons de période (TD/TW/8H…) à droite, même ligne */
+.wr-cs-head { display:flex; align-items:flex-end; justify-content:space-between; gap:10px; flex-wrap:wrap; margin:26px 0 12px; padding-bottom:6px; border-bottom:1px solid #232329; }
+.wr-cs-head .wr-section-title { margin:0; padding:0; border:none; }
+.wr-cs-tf { display:inline-flex; align-items:center; gap:3px; flex-shrink:0; }
+.wr-cs-tf .stf-btn { height:24px; padding:0 7px; font-size:10.5px; }
 /* Texte courant aéré */
 .wr-text .wr-p, .wr-summary .wr-p { color:#c9d1d9; font-size:13px; font-weight:400; line-height:1.7; margin:0 0 14px; }
 .wr-summary .wr-p { color:#d6dde6; }
