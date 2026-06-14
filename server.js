@@ -2091,6 +2091,29 @@ function _recapCoveredMonday(weekly) {   // lundi (00:00 UTC) de la semaine couv
   try { const a = String(weekly && weekly.weekEnding || '').split('.').map(Number); if (a.length !== 3 || !a[0] || !a[1] || !a[2]) return 0; return Date.UTC(a[2], a[1] - 1, a[0]) - 4 * 86400000; } catch { return 0; }
 }
 let _wrCsBackfillBusy = false;
+// Backfill (sans Gemini) du snapshot CS sur le recap COURANT généré avant cette fonctionnalité —
+// tant qu'on est ENCORE dans sa semaine couverte (les données 'week' correspondent alors), puis persiste.
+// Appelé à la fois sur /api/weekly-reports ET proactivement au boot (filet : si l'utilisateur n'ouvre
+// pas l'onglet aujourd'hui, le recap est quand même figé avant que la semaine ne change).
+async function _maybeBackfillRecapCs() {
+  if (_wrCsBackfillBusy) return;
+  const cur = allNews.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
+  if (!cur || !cur._weekly || cur._weekly.cs) return;
+  if (_recapCoveredMonday(cur._weekly) !== _currentMondayUtc()) return;   // pas la même semaine → ne pas figer une mauvaise semaine
+  _wrCsBackfillBusy = true;
+  try {
+    const cs = await computeCurrencyStrength('week');
+    if (cs && cs.currencies && cs.series) {
+      cur._weekly.cs = _csSnapshot(cs);
+      const wk = (cur.id || '').replace(/^dtp-mkt-recap-/, '').replace(/-\d+$/, '');
+      if (wk) auth.weeklyReportSave(wk, cur).catch(() => {});
+      console.log('[Weekly Recap] snapshot CS backfill ' + wk);
+    }
+  } catch (e) { console.warn('[Weekly Recap] backfill CS échec:', e.message); }
+  finally { _wrCsBackfillBusy = false; }
+}
+// Filet proactif au boot : recharge les rapports persistés puis backfill (≈50 s après le démarrage).
+setTimeout(() => { _loadPersistedWeekly(true).then(() => _maybeBackfillRecapCs()).catch(() => {}); }, 50000);
 app.get('/api/weekly-reports', async (_req, res) => {
   // Recharge d'abord les rapports persistés (Supabase/fichier) → évite toute régénération inutile
   // et fait apparaître un rapport fraîchement injecté dans le store (throttle interne 30s).
@@ -2106,20 +2129,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
   // format), on régénère automatiquement vers le format riche (force) — 1 appel Gemini, budget-gé.
   const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
 
-  // Backfill (sans Gemini) du snapshot CS pour le recap courant généré AVANT cette fonctionnalité —
-  // uniquement tant qu'on est ENCORE dans sa semaine couverte (les données 'week' correspondent alors).
-  if (current && current._weekly && !current._weekly.cs && !_wrCsBackfillBusy
-      && _recapCoveredMonday(current._weekly) === _currentMondayUtc()) {
-    _wrCsBackfillBusy = true;
-    computeCurrencyStrength('week').then(cs => {
-      if (cs && cs.currencies && cs.series) {
-        current._weekly.cs = _csSnapshot(cs);
-        const wk = (current.id || '').replace(/^dtp-mkt-recap-/, '').replace(/-\d+$/, '');
-        if (wk) auth.weeklyReportSave(wk, current).catch(() => {});
-        console.log('[Weekly Recap] snapshot CS backfill ' + wk);
-      }
-    }).catch(() => {}).finally(() => { _wrCsBackfillBusy = false; });
-  }
+  _maybeBackfillRecapCs();   // fige le recap courant (snapshot CS) s'il n'en a pas encore — async, sans Gemini
 
   let generating = false;
   if (!current) {
