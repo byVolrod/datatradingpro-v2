@@ -6555,6 +6555,23 @@ app.get('/api/week-ahead', async (req, res) => {
 });
 
 // Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide
+// ── Robustesse génération hebdo : RATTRAPAGE des samedis manqués ──────────────────────────────
+// Le run hebdo est un setTimeout(samedi 00h30) ré-armé à CHAQUE redémarrage. Or le conteneur
+// redémarre à chaque déploiement → si un redémarrage tombe APRÈS le samedi 00h30, la génération de
+// la semaine est SAUTÉE (cause du trou 1-7/06). _sbBiasStale ne le voit pas (<7j). On détecte donc
+// la dernière échéance samedi 00h30 révolue : si le bias est antérieur, on rattrape (weekly=true).
+function _biasLastSatGenMs() {
+  const now = new Date();
+  const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const t = new Date(paris);
+  t.setDate(paris.getDate() - ((paris.getDay() - 6 + 7) % 7));   // recule jusqu'au samedi
+  t.setHours(0, 30, 0, 0);
+  if (t > paris) t.setDate(t.getDate() - 7);                     // samedi 00h30 pas encore atteint cette semaine → samedi précédent
+  return now.getTime() - (paris.getTime() - t.getTime());        // delta wall-clock → epoch réelle
+}
+function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a pas eu lieu (semaine manquée)
+  return !_smartBias || !_smartBias.generatedAt || _smartBias.generatedAt < _biasLastSatGenMs() - 3 * 60 * 1000;
+}
 (function scheduleWeeklyBias() {
   function msToNextWeekday(dow, h, m) {   // dow : 0=dim … 6=sam (heure de Paris)
     const now    = new Date();
@@ -6584,8 +6601,8 @@ app.get('/api/week-ahead', async (req, res) => {
   // Régénère au démarrage si vide / seed (non daté) / version périmée / >1 semaine → bias toujours frais + ancré.
   // (45s pour laisser le calendrier + le cache Supabase se charger d'abord.) Persisté ensuite sur Supabase → pas de régén à chaque déploiement.
   setTimeout(() => {
-    const stale = !_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt || (Date.now() - _smartBias.generatedAt > 7 * 24 * 60 * 60 * 1000);
-    if (stale) generateSmartBias(true).catch(() => {});
+    const missed = _biasMissedWeekly();   // samedi sauté par un redémarrage → rattrapage AVEC narratifs (weekly)
+    if (missed || _sbBiasStale()) generateSmartBias(true, missed).catch(() => {});
   }, 75 * 1000);   // 75s : après le burst du préchauffage des rapports → moins de contention RPM Gemini
   // Week Ahead : régénère au démarrage si vide / version périmée / >1 semaine (décalé après le bias).
   setTimeout(() => {
@@ -6600,7 +6617,8 @@ app.get('/api/week-ahead', async (req, res) => {
   // de ré-attaquer à fréquence fixe — c'est ce martelage qui a contribué à vider les crédits.
   setInterval(() => {
     if (ai.backoffActive && ai.backoffActive()) return;
-    if (_sbBiasStale()) generateSmartBias(true).catch(() => {});   // récupération de fond (version/âge >7j/absent) — jamais sur le chemin utilisateur
+    const _missed = _biasMissedWeekly();                           // samedi sauté → rattrapage horaire AVEC narratifs
+    if (_missed || _sbBiasStale()) generateSmartBias(true, _missed).catch(() => {});   // récupération de fond (semaine manquée / version / âge>7j / absent) — jamais sur le chemin utilisateur
     else _sbEnsureNarrative().catch(() => {});                     // matrice fraîche mais narratif IA manquant/repli → retry ciblé (USD & co)
     if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire tant que TOUS les jours n'ont pas l'éditorial IA
   }, 60 * 60 * 1000);
