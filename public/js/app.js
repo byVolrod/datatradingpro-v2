@@ -3465,11 +3465,13 @@ function renderBiasView(d) {
 }
 // Libellé de semaine façon DTP : "1-7/06/2026" (lundi→dimanche).
 function _sbWeekLabel(ts) {
-  // Le bias récapitule la SEMAINE ÉCOULÉE (rétrospectif : bilan de ce qui s'est passé). Généré le samedi
-  // (Paris) après clôture du vendredi → c'est la semaine lun→dim qui vient de se clore. Ancré sur Paris.
+  // LOGIQUE : généré le samedi (Paris, après clôture vendredi) à partir de la semaine ÉCOULÉE (N-1),
+  // le bias SERT à trader la semaine À VENIR (N) → on LIBELLE la semaine N (à trader). Ex. généré le
+  // 13/06 (analyse 8-14) → libellé 15-21. Donc week-end (sam/dim) → décalage au lundi suivant.
   const d = new Date(ts ? new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Paris' }) : Date.now());
   const dow = d.getDay() || 7;   // 1=lun … 7=dim (Paris)
   const mon = new Date(d); mon.setDate(d.getDate() - dow + 1);
+  if (dow >= 6) mon.setDate(mon.getDate() + 7);   // généré le week-end → semaine À TRADER = la suivante
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
   return `${mon.getDate()}-${sun.getDate()}/${String(sun.getMonth() + 1).padStart(2, '0')}/${sun.getFullYear()}`;
 }
