@@ -3073,7 +3073,12 @@ async function _fetchSebInto(merged, cutoff, UA) {
         const desc = String(rep.ingress || rep.text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
         merged.set(id, {
           id, title, url: link, timestamp: ts,
-          categories: (Array.isArray(rep.displayTags) && rep.displayTags.length ? rep.displayTags : (rep.assetClass || ['FX'])).slice(0, 6),
+          // displayTags de SEB = OBJETS → on extrait la chaîne (sinon « [object Object] » en tag).
+          categories: (() => {
+            const dt = Array.isArray(rep.displayTags) ? rep.displayTags.map(t => typeof t === 'string' ? t : (t && (t.name || t.tag || t.label || t.value || t.text || t.title)) || '').filter(Boolean) : [];
+            const ac = Array.isArray(rep.assetClass) ? rep.assetClass.filter(x => typeof x === 'string') : (typeof rep.assetClass === 'string' ? [rep.assetClass] : []);
+            return (dt.length ? dt : (ac.length ? ac : ['FX'])).slice(0, 6);
+          })(),
           description: desc, institution: 'SEB', _source: 'seb',
           fullContent: body,   // contenu déjà fourni par l'API → affiché directement (aucun re-fetch)
         });
