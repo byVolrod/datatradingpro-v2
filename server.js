@@ -1978,7 +1978,7 @@ async function _fetchSessionWraps(full = false) {
 // CAPTE LE THÈME de la séance. Mis en cache DURABLEMENT (ai_cache "swt:<id>") → généré une
 // seule fois par wrap ; quota maîtrisé (anti-burst + Gemini→Claude via aiSmart). Limité aux
 // wraps RÉCENTS (ceux réellement consultés).
-const SW_TITLE_V = 2;   // version du style de titre (bump → régénère les titres existants)
+const SW_TITLE_V = 3;   // version du style de titre (bump → régénère les titres existants) ; v3 = EN FRANÇAIS
 
 // Titre de SECOURS sans IA : extrait un titre lisible du contenu du wrap (1re phrase
 // porteuse de sens), sans source/date/auteur. Appliqué immédiatement si l'IA est
@@ -2007,7 +2007,7 @@ async function _swEnsureAiTitles(internal = false) {
     let fetchBudget = 4;   // max récupérations de contenu par passage (wraps d'archive sans description)
     for (const w of _swCache.slice(0, 80)) {   // TOUS les wraps affichés dans l'onglet Analyst
       if (w.aiTitle && w.aiTitleV === SW_TITLE_V) continue;   // déjà au format courant (skip → 0 coût)
-      try { const c = await auth.aiCacheGet('swt2:' + w.id); if (c && typeof c === 'string') { w.aiTitle = _stripMd(c); w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}   // nettoie un titre IA mis en cache AVANT le fix (** résiduels)
+      try { const c = await auth.aiCacheGet('swt3:' + w.id); if (c && typeof c === 'string') { w.aiTitle = _stripMd(c); w.aiTitleV = SW_TITLE_V; changed = true; continue; } } catch {}   // cache des titres FR (swt3) — les anciens 'swt2' anglais sont ignorés → régénération en français
 
       // Si AUCUNE matière (wrap d'archive : description vide) → on RÉCUPÈRE le contenu pour pouvoir
       // titrer AVANT publication (garantit un sujet, ex. "Asia-Pac Session Recap: …" et non le préfixe seul).
@@ -2037,11 +2037,12 @@ async function _swEnsureAiTitles(internal = false) {
         // generateText (Gemini→Claude) MAIS désormais compté dans le budget (aiNote) → protège le quota.
         const out = await ai.generateText(
           `Voici le résumé d'une session de marché (FX/indices/matières premières). Écris UN titre de presse ` +
-          `PERCUTANT et CONCIS (idéalement 5 à 8 mots, max 9), en anglais, qui capte LE thème principal. ` +
+          `PERCUTANT et CONCIS (idéalement 5 à 8 mots, max 9), EN FRANÇAIS, qui capte LE thème principal ` +
+          `(garde tels quels les tickers/codes/acronymes : EUR, BoJ, XAU, S&P…). ` +
           `Style "headline" : direct, verbe fort, pas de remplissage. Interdits : le mot "wrap", toute mention ` +
           `de source, toute date, les guillemets. Réponds avec le titre SEUL.\n\n${src}`, 90);
         let t = _stripMd(String(out || '').split('\n')[0]).replace(/^["'\s]+|["'\s.]+$/g, '').slice(0, 90);   // jamais de ** dans le titre IA stocké
-        if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; aiNote('analyst'); auth.aiCacheSet('swt2:' + w.id, t).catch(() => {}); continue; }
+        if (t.length >= 8) { w.aiTitle = t; w.aiTitleV = SW_TITLE_V; changed = true; aiNote('analyst'); auth.aiCacheSet('swt3:' + w.id, t).catch(() => {}); continue; }
         throw new Error('titre IA vide');
       } catch {
         // IA indisponible → titre de secours heuristique (marqué 'h' → l'IA réessaiera
@@ -2092,6 +2093,10 @@ function _recapCoveredMonday(weekly) {   // lundi (00:00 UTC) de la semaine couv
 }
 let _wrCsBackfillBusy = false;
 let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par process
+// Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
+// ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
+// réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
+const RECAP_VER = 4;
 // Backfill (sans Gemini) du snapshot CS sur le recap COURANT généré avant cette fonctionnalité —
 // tant qu'on est ENCORE dans sa semaine couverte (les données 'week' correspondent alors), puis persiste.
 // Appelé à la fois sur /api/weekly-reports ET proactivement au boot (filet : si l'utilisateur n'ouvre
@@ -2101,7 +2106,7 @@ async function _maybeBackfillRecapCs() {
   // Cible DIRECTE : le recap de la semaine EN COURS qui n'a pas encore de snapshot (et seulement lui →
   // on ne fige jamais une mauvaise semaine, et on ignore les recaps archivés d'autres semaines).
   const monNow = _currentMondayUtc();
-  const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
+  const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_VER);
   const cur = recaps.find(i => !i._weekly.cs && _recapCoveredMonday(i._weekly) === monNow);
   if (!_wrCsDiagDone) { _wrCsDiagDone = true; console.log('[Weekly Recap] CS backfill check — recaps=' + recaps.length + ' monNow=' + new Date(monNow).toISOString().slice(0, 10) + ' ' + recaps.map(r => r._weekly.weekEnding + (r._weekly.cs ? '(cs)' : '(no-cs)')).join(',') + ' → cible=' + (cur ? cur._weekly.weekEnding : 'aucune')); }
   if (!cur) return;
@@ -2132,7 +2137,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
 
   // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe. Sinon (absent OU ancien
   // format), on régénère automatiquement vers le format riche (force) — 1 appel Gemini, budget-gé.
-  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
+  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_VER);
 
   _maybeBackfillRecapCs();   // fige le recap courant (snapshot CS) s'il n'en a pas encore — async, sans Gemini
 
@@ -5368,7 +5373,7 @@ async function generateWeeklyRecapAI(force = false) {
     :                                          `Semaine du ${d1} ${_MOIS_FR[m1]} ${y1} au ${d2} ${_MOIS_FR[m2]} ${y2}`;
 
   // On considère "déjà généré" UNIQUEMENT si un recap au format RICHE (v2) existe pour la semaine.
-  const _isV2 = i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3;
+  const _isV2 = i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_VER;
   if (!force && allNews.some(i => (i.id || '').startsWith(weekPrefix) && _isV2(i))) {
     console.log(`[Weekly Recap] déjà généré (v2) pour ${weekKey}, skip.`);
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isV2(i)) || null;
@@ -5504,7 +5509,7 @@ ${corpus}`;
     let baseTitle = _stripMd(String(parsed.title || 'Weekly Market Recap'));
     if (!/recap/i.test(baseTitle)) baseTitle = 'Weekly Market Recap: ' + baseTitle;
     weekly = {
-      v: 3, title: baseTitle, weekEnding, weekRange,   // v3 = rédigé EN FRANÇAIS
+      v: RECAP_VER, title: baseTitle, weekEnding, weekRange,   // rédigé EN FRANÇAIS (RECAP_VER)
       summary:    _stripMd(parsed.summary || ''),
       insights:   Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => _stripMd(String(s))).slice(0, 6) : [],
       pairs:      Array.isArray(parsed.pairs) ? parsed.pairs
@@ -5605,11 +5610,11 @@ async function _loadPersistedWeekly(force = false) {
     let added = 0, hasV2 = false;
     for (const r of reports) {
       if (!r || !r.id) continue;
-      if (r._reportType === 'Weekly Market Recap' && r._weekly && r._weekly.v >= 3) hasV2 = true;
+      if (r._reportType === 'Weekly Market Recap' && r._weekly && r._weekly.v >= RECAP_VER) hasV2 = true;
       if (!allNews.some(i => i.id === r.id)) { allNews.unshift(r); added++; }
     }
     // Si un recap au format riche (v2) est présent, on purge les anciens recaps obsolètes (anti-doublon)
-    if (hasV2) allNews = allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && !(i._weekly && i._weekly.v >= 3)));
+    if (hasV2) allNews = allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && !(i._weekly && i._weekly.v >= RECAP_VER)));
     if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
   } catch (e) { console.warn('[Weekly Recap] rechargement persistant échec:', e.message); }
 }
