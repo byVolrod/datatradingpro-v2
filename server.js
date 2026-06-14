@@ -2073,6 +2073,24 @@ app.get('/api/session-wraps', (_req, res) => {
 // généré automatiquement en tâche de fond (verrou anti-spam) à la 1re ouverture de l'onglet Analyst.
 let _weeklyGenLock = 0;
 let _gewGenLock = 0;
+// ── Snapshot Currency Strength FIGÉ dans le Weekly Recap : rouvert plus tard, le chart montre TOUJOURS
+//    la semaine du rapport (plus de fenêtre glissante qui dérive). Downsample ~64 pts/devise (léger, inline). ──
+function _csSnapshot(cs) {
+  const MAX = 64, series = {};
+  for (const c of (cs.currencies || [])) {
+    const s = (cs.series && cs.series[c]) || [];
+    if (s.length <= MAX) { series[c] = s.map(p => ({ t: p.t, v: p.v })); continue; }
+    const step = (s.length - 1) / (MAX - 1), out = [];
+    for (let i = 0; i < MAX; i++) { const p = s[Math.round(i * step)]; if (p) out.push({ t: p.t, v: p.v }); }
+    series[c] = out;
+  }
+  return { currencies: [...(cs.currencies || [])], series };
+}
+function _currentMondayUtc() { const m = new Date(); const dow = m.getUTCDay(); m.setUTCDate(m.getUTCDate() - (dow === 0 ? 6 : dow - 1)); m.setUTCHours(0, 0, 0, 0); return m.getTime(); }
+function _recapCoveredMonday(weekly) {   // lundi (00:00 UTC) de la semaine couverte, déduit de weekEnding "DD.MM.YYYY"
+  try { const a = String(weekly && weekly.weekEnding || '').split('.').map(Number); if (a.length !== 3 || !a[0] || !a[1] || !a[2]) return 0; return Date.UTC(a[2], a[1] - 1, a[0]) - 4 * 86400000; } catch { return 0; }
+}
+let _wrCsBackfillBusy = false;
 app.get('/api/weekly-reports', async (_req, res) => {
   // Recharge d'abord les rapports persistés (Supabase/fichier) → évite toute régénération inutile
   // et fait apparaître un rapport fraîchement injecté dans le store (throttle interne 30s).
@@ -2087,6 +2105,21 @@ app.get('/api/weekly-reports', async (_req, res) => {
   // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe. Sinon (absent OU ancien
   // format), on régénère automatiquement vers le format riche (force) — 1 appel Gemini, budget-gé.
   const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= 3);
+
+  // Backfill (sans Gemini) du snapshot CS pour le recap courant généré AVANT cette fonctionnalité —
+  // uniquement tant qu'on est ENCORE dans sa semaine couverte (les données 'week' correspondent alors).
+  if (current && current._weekly && !current._weekly.cs && !_wrCsBackfillBusy
+      && _recapCoveredMonday(current._weekly) === _currentMondayUtc()) {
+    _wrCsBackfillBusy = true;
+    computeCurrencyStrength('week').then(cs => {
+      if (cs && cs.currencies && cs.series) {
+        current._weekly.cs = _csSnapshot(cs);
+        const wk = (current.id || '').replace(/^dtp-mkt-recap-/, '').replace(/-\d+$/, '');
+        if (wk) auth.weeklyReportSave(wk, current).catch(() => {});
+        console.log('[Weekly Recap] snapshot CS backfill ' + wk);
+      }
+    }).catch(() => {}).finally(() => { _wrCsBackfillBusy = false; });
+  }
 
   let generating = false;
   if (!current) {
@@ -5511,6 +5544,17 @@ ${corpus}`;
       currencies: {},   // pas d'analyse par devise sans IA
     };
   }
+
+  // Snapshot Currency Strength de la SEMAINE COUVERTE → figé dans le rapport. Uniquement si on génère
+  // PENDANT cette semaine (ex. le samedi : 'week' = la semaine qui vient de se clore) ; sinon on s'abstient
+  // (mieux vaut le repli live que figer une mauvaise semaine).
+  weekly.weekKey = weekKey;
+  try {
+    if (_currentMondayUtc() === weekStart) {
+      const _cs = await computeCurrencyStrength('week');
+      if (_cs && _cs.currencies && _cs.series) weekly.cs = _csSnapshot(_cs);
+    }
+  } catch (e) { console.warn('[Weekly Recap] snapshot CS échec:', e.message); }
 
   // Description texte (fallback/recherche/affichage simple)
   const descParts = [weekly.summary];

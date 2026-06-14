@@ -5414,10 +5414,10 @@ function _renderWeeklyRecap(item) {
     // ── WEEKLY MARKET RECAP : résumé + Currency Strength + Key Macro Highlights + analyse par devise (rétrospectif) ──
     if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
     // Vue d'ensemble de la force des devises (les 8) — AVANT les Key Macro Highlights (demandé).
-    // Boutons de période (TD/TW/8H/1D/7D/1M, défaut TW = cette semaine), comme l'onglet STRENGTH du desk.
-    const _csTf = [['today', 'TD'], ['week', 'TW'], ['8h', '8H'], ['1d', '1D'], ['7d', '7D'], ['1m', '1M']];
+    // FIGÉE sur la semaine du rapport (badge à droite) : un recap récapitule UNE semaine, donc le chart
+    // ne dérive jamais (snapshot serveur). Rouvert plus tard → toujours les données de CETTE semaine-là.
     body += `<div class="wr-cs-head"><div class="wr-section-title">Currency Strength</div>`
-      + `<div class="wr-cs-tf">` + _csTf.map(([p, l]) => `<button class="stf-btn stf-tf-btn${p === 'week' ? ' stf-btn--active' : ''}" data-wrp="${p}">${l}</button>`).join('') + `</div></div>`;
+      + (w.weekRange ? `<span class="wr-cs-week">${_wrEsc(w.weekRange)}</span>` : '') + `</div>`;
     body += `<div class="wr-chart wr-chart--all" id="wr-cs-all">${window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
     if (w.macro && w.macro.length) {
       body += `<div class="wr-section-title">Key Macro Highlights</div>`;
@@ -5450,38 +5450,32 @@ function _renderWeeklyRecap(item) {
   content.scrollTop = 0;
   if (isGew) return;   // GEW : pas de courbes de force par devise
 
-  _wrInitCsAll();   // vue d'ensemble Currency Strength : boutons de période (défaut TW) + construction
-
-  // Une seule requête de force pour tout le rapport, puis chaque courbe isolée se construit
-  // au défilement (lazy) → pas 8 graphiques d'un coup.
-  _wrStrengthData = null;
-  fetch('/api/currency-strength?period=week').then(r=>r.json()).then(d => {
-    _wrStrengthData = (d && d.currencies) ? d : null;
+  // Force des devises : FIGÉE sur la semaine du rapport si le snapshot serveur (w.cs) est présent → le
+  // chart ne dérive PLUS (rouvert le mois prochain, il montre toujours CETTE semaine). Sinon repli live
+  // (?period=week) pour les anciens rapports sans snapshot. Vue d'ensemble + mini-courbes partagent la donnée.
+  const _csFrozen = (w.cs && w.cs.currencies && w.cs.series) ? w.cs : null;
+  if (_csFrozen) {
+    _wrStrengthData = _csFrozen;
+    _wrBuildCsAll(_csFrozen);
     _wrLazyCharts(content);
-  }).catch(() => {
-    content.querySelectorAll('[data-wr-chart]').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>');
-  });
+  } else {
+    _wrStrengthData = null;
+    fetch('/api/currency-strength?period=week').then(r=>r.json()).then(d => {
+      _wrStrengthData = (d && d.currencies) ? d : null;
+      _wrBuildCsAll(_wrStrengthData);
+      _wrLazyCharts(content);
+    }).catch(() => {
+      content.querySelectorAll('[data-wr-chart], #wr-cs-all').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>');
+    });
+  }
 }
 
-// Vue d'ensemble Currency Strength (toutes devises) avec boutons de période (TD/TW/8H/1D/7D/1M).
-// Chaque clic refait /api/currency-strength?period=<p> et reconstruit le graphe ; défaut TW (semaine).
-function _wrInitCsAll() {
+// Construit la vue d'ensemble Currency Strength (toutes devises) figée dans #wr-cs-all.
+function _wrBuildCsAll(data) {
   const host = document.getElementById('wr-cs-all'); if (!host) return;
-  const loader = () => window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>';
-  const build = period => {
-    host.innerHTML = loader();
-    fetch('/api/currency-strength?period=' + encodeURIComponent(period)).then(r => r.json()).then(d => {
-      if (!d || !d.currencies || typeof buildStrengthChart !== 'function') { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
-      host.innerHTML = '';
-      try { buildStrengthChart('wr-cs-all', d, { isolated: true }); } catch { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; }
-    }).catch(() => { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; });
-  };
-  document.querySelectorAll('.wr-cs-tf .stf-btn').forEach(b => b.onclick = () => {
-    document.querySelectorAll('.wr-cs-tf .stf-btn').forEach(x => x.classList.remove('stf-btn--active'));
-    b.classList.add('stf-btn--active');
-    build(b.dataset.wrp);
-  });
-  build('week');   // défaut TW = cette semaine
+  if (!data || !data.currencies || typeof buildStrengthChart !== 'function') { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
+  host.innerHTML = '';
+  try { buildStrengthChart('wr-cs-all', data, { isolated: true }); } catch { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; }
 }
 
 function _wrLazyCharts(content) {
