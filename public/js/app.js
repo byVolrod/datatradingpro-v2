@@ -7947,25 +7947,31 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrEqData(L, mode) {
     const ok = e => mode === 'equity' ? _jrN(e.equity) != null : mode === 'pl' ? _jrN(e.pl) != null : _jrN(e.pnlPct) != null;
     const arr = L.filter(ok).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const unit = mode === 'pct' ? ' %' : ' $';
+    // Libellés PRÉ-FORMATÉS (français) injectés dans chaque point → le tooltip les affiche tels quels.
+    // (On NE passe PLUS par les formats amCharts "+#;-#" qui rendaient un texte cassé du type "+4,92;-4,92".)
+    const fmt = n => (n > 0 ? '+' : '') + (Math.round(n * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + unit;
     let cum = 0; const out = [];
-    for (const e of arr) { let y; if (mode === 'equity') y = _jrN(e.equity); else if (mode === 'pl') { cum += (_jrN(e.pl) || 0); y = cum; } else { cum += (_jrN(e.pnlPct) || 0); y = cum; } if (y != null) out.push({ t: e.ts, v: y, d: out.length ? +(y - out[out.length - 1].v).toFixed(2) : 0, pair: e.pair || '' }); }
+    for (const e of arr) {
+      let y; if (mode === 'equity') y = _jrN(e.equity); else if (mode === 'pl') { cum += (_jrN(e.pl) || 0); y = cum; } else { cum += (_jrN(e.pnlPct) || 0); y = cum; }
+      if (y == null) continue;
+      const d = out.length ? +(y - out[out.length - 1].v).toFixed(2) : 0;
+      const dt = new Date(e.ts);
+      out.push({ t: e.ts, v: y, dateLbl: dt.getDate() + ' ' + (_JR_MONTHS_FR[dt.getMonth()] || '') + ' ' + dt.getFullYear(), vLbl: fmt(y), varLbl: 'Variation : ' + fmt(d) });
+    }
     return out;
-  }
-  // Tooltip riche du curseur (au survol/drag) : date + valeur cumulée + variation Δ, selon le mode
-  function _jrEqTipText(mode) {
-    const u = mode === 'pct' ? ' %' : ' $';
-    return '[#8a8a92 fontSize:10px]{valueX.formatDate("dd MMM yyyy")}[/]\n[bold #ff7a00 fontSize:13px]{valueY.formatNumber("+#,###.##;-#,###.##")}' + u + '[/]   [#9aa0aa fontSize:10px]Δ {d.formatNumber("+#,###.##;-#,###.##")}' + u + '[/]';
   }
   function _jrDisposeRoot(id) { try { if (typeof am5 === 'undefined') return; const ex = am5.registry.rootElements.find(r => r && r.dom && r.dom.id === id); if (ex) ex.dispose(); } catch (e) {} }
   function _jrBuildEquityChart(L) {
     const id = 'jr-eq-chart', el = document.getElementById(id); if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
     _jrDisposeRoot(id);
     const root = am5.Root.new(id); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
-    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 8, paddingTop: 10, paddingBottom: 2 }));
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 10, paddingBottom: 2 }));
     const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 66 });
     xr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
     xr.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9.5 });
-    const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, { baseInterval: { timeUnit: 'day', count: 1 }, renderer: xr, extraMin: 0.02, extraMax: 0.03 }));
+    // extraMin/Max = 0 → la courbe va jusqu'aux DEUX bords (à droite, pile contre l'axe Y) — demandé.
+    const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, { baseInterval: { timeUnit: 'day', count: 1 }, renderer: xr, extraMin: 0, extraMax: 0 }));
     xAxis.set('dateFormats', { day: 'dd MMM', week: 'dd MMM', month: 'MMM yy' });
     xAxis.set('periodChangeDateFormats', { day: 'dd MMM', month: 'MMM yy' });
     const yr = am5xy.AxisRendererY.new(root, { opposite: true, minWidth: 50 });
@@ -7974,9 +7980,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     yr.labels.template.adapters.add('text', t => t == null ? t : String(t).replace('.', ','));
     const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr, maxDeviation: 0.12 }));
     const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 })); z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.3, strokeWidth: 1 }); if (z.get('label')) z.get('label').set('visible', false);
-    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xff7a00), fill: am5.color(0xff7a00), tooltip: am5.Tooltip.new(root, { labelText: _jrEqTipText(_jrEqMode), getFillFromSprite: false, background: am5.Rectangle.new(root, { fill: am5.color(0x141414), stroke: am5.color(0x333333), strokeWidth: 1, fillOpacity: 0.97 }) }) }));
-    series.strokes.template.setAll({ strokeWidth: 2.3 });
-    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xff7a00), opacity: 0.34 }, { color: am5.color(0xff7a00), opacity: 0.015 }] }) });
+    // Tooltip clair (date • valeur cumulée • variation), libellés pré-formatés en français (zéro format amCharts cassé).
+    const _eqTip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{dateLbl}[/]\n[bold #ff7a00 fontSize:14px]{vLbl}[/]\n[#9aa0aa fontSize:10px]{varLbl}[/]' });
+    _eqTip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
+    if (_eqTip.label) _eqTip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
+    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xff7a00), fill: am5.color(0xff7a00), tooltip: _eqTip }));
+    series.strokes.template.setAll({ strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' });   // ligne plus nette et lisse
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xff7a00), opacity: 0.42 }, { color: am5.color(0xff8c1a), opacity: 0.10 }, { color: am5.color(0xff7a00), opacity: 0 }] }) });
     series.data.setAll(_jrEqData(L, _jrEqMode));
     // Curseur enrichi : trait orange pointillé qui suit la souris/le drag, accroché aux points (snapToSeries)
     // → le tooltip riche (date + valeur + Δ) s'affiche pile sur la donnée survolée.
@@ -7988,7 +7998,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window._jrEqSwitch = function (m) {
     if (!_JR_EQMODE_LBL[m]) return; _jrEqMode = m;
     document.querySelectorAll('.jrd-eqtoggle button').forEach(b => b.classList.toggle('active', b.dataset.m === m));
-    if (_jrEqSeriesRef) { _jrEqSeriesRef.data.setAll(_jrEqData(_jrList || [], m)); const _tp = _jrEqSeriesRef.get('tooltip'); if (_tp) _tp.set('labelText', _jrEqTipText(m)); }
+    if (_jrEqSeriesRef) _jrEqSeriesRef.data.setAll(_jrEqData(_jrList || [], m));   // libellés (unité comprise) déjà inclus dans chaque point
   };
   function _jrBuildResultDonut(resMap) {
     const id = 'jr-result-donut', el = document.getElementById(id); if (!el || typeof am5percent === 'undefined') return;

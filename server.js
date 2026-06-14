@@ -5156,39 +5156,14 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon PMT (distinct du Weekly Recap rétrospectif) :
 // AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
 // JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
-const GEW_VER = 3;   // v3 = rédigé EN FRANÇAIS (format Econoday : highlights long + horaires multi-fuseaux + commentaire/event) — bump = régén auto
-// Horaires MULTI-FUSEAUX d'un événement (clone PMT) : fuseau LOCAL du pays + GMT + EDT (US Eastern),
-// ex. « Mon 1100 CEST; Mon 0900 GMT; Mon 0500 EDT ». 100% calculé depuis le timestamp (zéro IA).
-const _GEW_TZ = { USD: 'America/New_York', EUR: 'Europe/Berlin', GBP: 'Europe/London', JPY: 'Asia/Tokyo', CHF: 'Europe/Zurich', CAD: 'America/Toronto', AUD: 'Australia/Sydney', NZD: 'Pacific/Auckland', CNY: 'Asia/Shanghai' };
-// Abréviation [standard, heure d'été] par fuseau — l'ICU de Node renvoie « GMT-4 » au lieu de
-// « EDT » pour les fuseaux hors-Europe ; on force les sigles attendus (clone PMT).
-const _TZ_ABBR = { 'America/New_York': ['EST', 'EDT'], 'America/Toronto': ['EST', 'EDT'], 'Asia/Tokyo': ['JST', 'JST'], 'Australia/Sydney': ['AEST', 'AEDT'], 'Pacific/Auckland': ['NZST', 'NZDT'], 'Asia/Shanghai': ['CST', 'CST'], 'Europe/London': ['GMT', 'BST'], 'Europe/Berlin': ['CET', 'CEST'], 'Europe/Zurich': ['CET', 'CEST'] };
-function _tzOffMin(date, tz) {
-  const p = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }).formatToParts(date).reduce((a, x) => (a[x.type] = x.value, a), {});
-  return (Date.UTC(p.year, p.month - 1, p.day, p.hour, p.minute) - date.getTime()) / 60000;
-}
-function _tzAbbr(date, tz, icu) {
-  if (icu && !/^GMT/i.test(icu) && icu !== 'UTC') return icu;   // ICU a déjà un vrai sigle (CEST, BST…)
-  const tab = _TZ_ABBR[tz]; if (!tab) return (icu === 'UTC' ? 'GMT' : icu);
-  const y = date.getUTCFullYear();
-  const std = Math.min(_tzOffMin(new Date(Date.UTC(y, 0, 15)), tz), _tzOffMin(new Date(Date.UTC(y, 6, 15)), tz));
-  return tab[_tzOffMin(date, tz) > std ? 1 : 0];   // offset > standard → heure d'été (vrai aux 2 hémisphères)
-}
-function _gewTimes(ts, ccy) {
+const GEW_VER = 4;   // v4 = horaire CLAIR pour un public FR (heure de Paris + GMT) au lieu du multi-fuseau confus CST/GMT/EDT ; français — bump = régén auto
+// Heure d'un événement, LISIBLE pour un utilisateur français : heure de PARIS (sa référence) + GMT.
+// 100% calculé depuis le timestamp (zéro IA). Ex. « mar. 03:00 (Paris) · 02:00 GMT ».
+function _gewTimes(ts /* , ccy (ignoré) */) {
   const d = new Date(ts);
-  const part = tz => {
-    try {
-      const ps = new Intl.DateTimeFormat('en-GB', { timeZone: tz, weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false, timeZoneName: 'short' }).formatToParts(d);
-      const g = t => (ps.find(p => p.type === t) || {}).value || '';
-      return `${g('weekday')} ${g('hour')}${g('minute')} ${_tzAbbr(d, tz, g('timeZoneName'))}`;
-    } catch { return ''; }
-  };
-  const out = []; const seenTz = new Set();
-  const add = s => { if (s) { const tz = s.split(' ').pop(); if (!seenTz.has(tz)) { seenTz.add(tz); out.push(s); } } };
-  const local = _GEW_TZ[ccy]; if (local) add(part(local));   // fuseau du pays (CEST, JST…)
-  add(part('UTC'));                                          // GMT (référence)
-  add(part('America/New_York'));                            // EDT/EST (desk US)
-  return out.join('; ');
+  const f = (tz, withDay) => { try { return new Intl.DateTimeFormat('fr-FR', { timeZone: tz, hour12: false, ...(withDay ? { weekday: 'short' } : {}), hour: '2-digit', minute: '2-digit' }).format(d); } catch { return ''; } };
+  const paris = f('Europe/Paris', true), gmt = f('UTC', false);
+  return paris ? `${paris} (Paris) · ${gmt} GMT` : (gmt ? `${gmt} GMT` : '');
 }
 async function generateGlobalEconomicWeekly(force = false) {
   const idPrefix = 'dtp-econ-weekly-', now = Date.now();
