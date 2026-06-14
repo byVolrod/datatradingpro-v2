@@ -4517,7 +4517,7 @@ function _brShowNativePdf(item) {
   const safe = (item.url || '').replace(/"/g, '%22');
   const ttl  = (item.title || 'PDF').replace(/"/g, '');
   content.innerHTML =
-    `<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 ${inst} — Weekly commentary${dateStr ? ' · ' + dateStr : ''}</span>` +
+    `<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 ${inst}${dateStr ? ' · ' + dateStr : ''}</span>` +
     `<span class="br-pdf-bar-actions">` +
     `<a class="br-pdf-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir ↗</a>` +
     `<a class="br-pdf-btn" href="${safe}" download>⬇ Télécharger</a></span></div>` +
@@ -4579,6 +4579,12 @@ function renderBrReader(item) {
     .then(r => r.json())
     .then(data => {
       if (!content) return;
+      // Page "vitrine"/teaser détectée côté serveur : le vrai rapport est un PDF intégré → on affiche
+      // le VRAI PDF natif (jamais un faux résumé IA généré depuis un texte promotionnel). Cf. QCAM.
+      if (data && data.pdfUrl) {
+        if (brIns && brIns.parentNode) brIns.remove();   // pas d'AI Insights génériques pour un vrai PDF
+        return _brShowNativePdf({ ...item, url: data.pdfUrl, _pdf: true });
+      }
       const _inst = _instBadge(item);
       const isIngDoc = _inst === 'ING';
       // En-tête : VRAI logo de la banque (ING, MUFG, Goldman…) avec repli wordmark si indispo.
@@ -5405,8 +5411,11 @@ function _renderWeeklyRecap(item) {
       });
     }
   } else {
-    // ── WEEKLY MARKET RECAP : résumé + Key Macro Highlights + analyse par devise (rétrospectif) ──
+    // ── WEEKLY MARKET RECAP : résumé + Currency Strength + Key Macro Highlights + analyse par devise (rétrospectif) ──
     if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+    // Vue d'ensemble de la force des devises (les 8, sur la semaine) — AVANT les Key Macro Highlights (demandé)
+    body += `<div class="wr-section-title">Currency Strength</div>`;
+    body += `<div class="wr-chart wr-chart--all" data-wr-chart="ALL">${window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
     if (w.macro && w.macro.length) {
       body += `<div class="wr-section-title">Key Macro Highlights</div>`;
       w.macro.forEach(s => {
@@ -5459,7 +5468,8 @@ function _wrLazyCharts(content) {
       if (e.isIntersecting && !e.target.dataset.built) {
         e.target.dataset.built = '1';
         e.target.innerHTML = '';
-        try { buildStrengthChart(e.target.id, _wrStrengthData, { focusCurrency: e.target.dataset.wrChart, isolated: true }); } catch {}
+        const _fc = e.target.dataset.wrChart;   // 'ALL' = vue d'ensemble (toutes les devises, aucune estompée)
+        try { buildStrengthChart(e.target.id, _wrStrengthData, _fc === 'ALL' ? { isolated: true } : { focusCurrency: _fc, isolated: true }); } catch {}
         obs.unobserve(e.target);
       }
     });
@@ -7919,8 +7929,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const ok = e => mode === 'equity' ? _jrN(e.equity) != null : mode === 'pl' ? _jrN(e.pl) != null : _jrN(e.pnlPct) != null;
     const arr = L.filter(ok).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
     let cum = 0; const out = [];
-    for (const e of arr) { let y; if (mode === 'equity') y = _jrN(e.equity); else if (mode === 'pl') { cum += (_jrN(e.pl) || 0); y = cum; } else { cum += (_jrN(e.pnlPct) || 0); y = cum; } if (y != null) out.push({ t: e.ts, v: y }); }
+    for (const e of arr) { let y; if (mode === 'equity') y = _jrN(e.equity); else if (mode === 'pl') { cum += (_jrN(e.pl) || 0); y = cum; } else { cum += (_jrN(e.pnlPct) || 0); y = cum; } if (y != null) out.push({ t: e.ts, v: y, d: out.length ? +(y - out[out.length - 1].v).toFixed(2) : 0, pair: e.pair || '' }); }
     return out;
+  }
+  // Tooltip riche du curseur (au survol/drag) : date + valeur cumulée + variation Δ, selon le mode
+  function _jrEqTipText(mode) {
+    const u = mode === 'pct' ? ' %' : ' $';
+    return '[#8a8a92 fontSize:10px]{valueX.formatDate("dd MMM yyyy")}[/]\n[bold #ff7a00 fontSize:13px]{valueY.formatNumber("+#,###.##;-#,###.##")}' + u + '[/]   [#9aa0aa fontSize:10px]Δ {d.formatNumber("+#,###.##;-#,###.##")}' + u + '[/]';
   }
   function _jrDisposeRoot(id) { try { if (typeof am5 === 'undefined') return; const ex = am5.registry.rootElements.find(r => r && r.dom && r.dom.id === id); if (ex) ex.dispose(); } catch (e) {} }
   function _jrBuildEquityChart(L) {
@@ -7940,17 +7955,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
     yr.labels.template.adapters.add('text', t => t == null ? t : String(t).replace('.', ','));
     const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr, maxDeviation: 0.12 }));
     const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 })); z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.3, strokeWidth: 1 }); if (z.get('label')) z.get('label').set('visible', false);
-    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xff7a00), fill: am5.color(0xff7a00), tooltip: am5.Tooltip.new(root, { labelText: '{valueY.formatNumber("#,###.##")}', getFillFromSprite: false, background: am5.Rectangle.new(root, { fill: am5.color(0x141414), stroke: am5.color(0x333333), strokeWidth: 1 }) }) }));
+    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xff7a00), fill: am5.color(0xff7a00), tooltip: am5.Tooltip.new(root, { labelText: _jrEqTipText(_jrEqMode), getFillFromSprite: false, background: am5.Rectangle.new(root, { fill: am5.color(0x141414), stroke: am5.color(0x333333), strokeWidth: 1, fillOpacity: 0.97 }) }) }));
     series.strokes.template.setAll({ strokeWidth: 2.3 });
     series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xff7a00), opacity: 0.34 }, { color: am5.color(0xff7a00), opacity: 0.015 }] }) });
     series.data.setAll(_jrEqData(L, _jrEqMode));
-    chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis }));
+    // Curseur enrichi : trait orange pointillé qui suit la souris/le drag, accroché aux points (snapToSeries)
+    // → le tooltip riche (date + valeur + Δ) s'affiche pile sur la donnée survolée.
+    const _eqCursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis, snapToSeries: [series] }));
+    _eqCursor.lineX.setAll({ stroke: am5.color(0xff7a00), strokeOpacity: 0.5, strokeWidth: 1, strokeDasharray: [2, 3] });
+    _eqCursor.lineY.set('visible', false);
     _jrEqSeriesRef = series; series.appear(650); chart.appear(650, 60);
   }
   window._jrEqSwitch = function (m) {
     if (!_JR_EQMODE_LBL[m]) return; _jrEqMode = m;
     document.querySelectorAll('.jrd-eqtoggle button').forEach(b => b.classList.toggle('active', b.dataset.m === m));
-    if (_jrEqSeriesRef) _jrEqSeriesRef.data.setAll(_jrEqData(_jrList || [], m));
+    if (_jrEqSeriesRef) { _jrEqSeriesRef.data.setAll(_jrEqData(_jrList || [], m)); const _tp = _jrEqSeriesRef.get('tooltip'); if (_tp) _tp.set('labelText', _jrEqTipText(m)); }
   };
   function _jrBuildResultDonut(resMap) {
     const id = 'jr-result-donut', el = document.getElementById(id); if (!el || typeof am5percent === 'undefined') return;
@@ -7984,10 +8003,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const fondaM = {}; L.forEach(e => { const f = _jrN(e.fonda); if (f != null) { const k = f >= 87.5 ? '100 %' : f >= 62.5 ? '75 %' : '50 %'; fondaM[k] = (fondaM[k] || 0) + valR(e); } });
     const rrA = (() => { const a = L.map(e => _jrN(e.rr)).filter(x => x != null); return a.length ? sum(a) / a.length : 0; })();
     const fR = v => (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
+    // Montant COMPACT et insécable (k$/M$) → tient dans l'anneau sans passer à la ligne (le « $ » ne saute plus)
+    const _jrMoneyShort = v => { const n = Math.round(v), a = Math.abs(n), s = n > 0 ? '+' : n < 0 ? '-' : ''; if (a >= 1e6) return s + (a / 1e6).toFixed(1).replace('.', ',') + ' M$'; if (a >= 1000) return s + (a / 1000).toFixed(1).replace('.', ',') + ' k$'; return s + a + ' $'; };
     host.innerHTML =
       '<div class="jrd-sec"><div class="jrd-sec-h">PILOT PERFORMANCE</div><div class="jrd-rings">'
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
-        + _jrRing((totD >= 0 ? '+' : '') + Math.round(totD).toLocaleString('fr-FR') + ' $', 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
+        + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#ff7a00')
         + _jrRing((rs.length ? Math.round(wins.length / rs.length * 100) : 0) + ' %', 'Winrate', '#00cc99')
       + '</div><div class="jrd-row jrd-row--charts">'
