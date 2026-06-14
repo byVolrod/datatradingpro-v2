@@ -5764,9 +5764,9 @@ if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) _
 try { auth.aiCacheGet('smartbias:matrix').then(b => { if (b && Array.isArray(b.rows) && b.rows.length && b.generatedAt && (!_smartBias.generatedAt || b.generatedAt > _smartBias.generatedAt)) _smartBias = b; }).catch(() => {}); } catch {}
 // ── Versioning Smart Bias : historique des semaines (max 5), durable (fichier + Supabase) ──
 const SMART_BIAS_HIST_FILE = path.join(__dirname, 'cache_smart_bias_history.json');
-// Clé de semaine du bias = la SEMAINE ÉCOULÉE qu'il récapitule (rétrospectif). Généré le samedi (Paris)
-// après clôture du vendredi → c'est la semaine lun→dim qui vient de se clore. Ancré sur Paris (= _sbWeekLabel front).
-function _sbWeekKey(ts) { const d = new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Paris' })); const dow = d.getDay() || 7; const m = new Date(d); m.setDate(d.getDate() - dow + 1); m.setHours(0, 0, 0, 0); return m.getFullYear() + '-' + (m.getMonth() + 1) + '-' + m.getDate(); }
+// Clé de semaine du bias = la semaine À TRADER (N). Généré le samedi (Paris) à partir de la semaine
+// écoulée (N-1) → libellé de la semaine SUIVANTE (week-end → lundi suivant). Aligné sur _sbWeekLabel (front).
+function _sbWeekKey(ts) { const d = new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Paris' })); const dow = d.getDay() || 7; const m = new Date(d); m.setDate(d.getDate() - dow + 1); m.setHours(0, 0, 0, 0); if (dow >= 6) m.setDate(m.getDate() + 7); return m.getFullYear() + '-' + (m.getMonth() + 1) + '-' + m.getDate(); }
 let _smartBiasHistory = [];
 try { const h = JSON.parse(fs.readFileSync(SMART_BIAS_HIST_FILE, 'utf8')); if (Array.isArray(h)) _smartBiasHistory = h; } catch {}
 try { auth.aiCacheGet('smartbias:history').then(h => { if (Array.isArray(h) && h.length) { const cur = (_smartBiasHistory[0] && _smartBiasHistory[0].generatedAt) || 0; const dur = (h[0] && h[0].generatedAt) || 0; if (dur >= cur) _smartBiasHistory = h; } }).catch(() => {}); } catch {}
