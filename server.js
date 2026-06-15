@@ -5895,7 +5895,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v12-retro';   // v12 : biais RÉTROSPECTIFS (semaine écoulée) + régénération des valeurs (reflètent la semaine passée, fini les valeurs figées) ; bump = régén matrice au boot
+const BIAS_VER = 'v13-directional';   // v13 : prompt DIRECTIONNEL (fini le mur de Neutral — on s'engage dès qu'une donnée penche, Neutral seulement si absent/conflit) ; bump = régén matrice + narratifs au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -6176,7 +6176,11 @@ async function generateSmartBias(force = false, weekly = false) {
   const prompt = `You are a senior FX strategist building a "Smart Bias" matrix for the 8 major currencies: ${SB_CURRENCIES.join(', ')}.
 For EACH currency, rate each indicator using EXACTLY one of: "Very Bullish", "Bullish", "Neutral", "Bearish", "Very Bearish".
 
-ABSOLUTE RULE — NEVER invent a bias: base EACH rating ONLY on the DATA PROVIDED BELOW. If the data for a currency/indicator is mixed, weak or ABSENT, rate it "Neutral". A wrong directional bias is WORSE than Neutral — do NOT force decisiveness.
+RATING RULE — be DECISIVE and DIRECTIONAL, grounded ONLY in the data below (never fabricate a signal a source does not support):
+- When the data for a currency/indicator carries ANY clear lean — even moderate — COMMIT to "Bullish" or "Bearish". Do NOT default to "Neutral" for a mild but real signal.
+- Use "Very Bullish"/"Very Bearish" when the data is strong or one-sided (large COT net, clear data beats/misses, aligned bank stance, extreme retail crowding).
+- Use "Neutral" ONLY when the data for that currency/indicator is genuinely ABSENT from the sources, or gives DIRECTLY CONFLICTING signals of similar weight.
+This bias must be USEFUL and directional for the week ahead — a wall of "Neutral" is a failure. But rating a direction with NO supporting data in the sources below is also a failure: read the data, then commit.
 
 Map each indicator to its SOURCE (use ONLY that source):
 - fundamental: macro/data momentum → from the CALENDAR DATA below (actual vs forecast: beats → Bullish, misses → Bearish) + the PAST-WEEK HEADLINES.
@@ -6771,7 +6775,8 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
   // (45s pour laisser le calendrier + le cache Supabase se charger d'abord.) Persisté ensuite sur Supabase → pas de régén à chaque déploiement.
   setTimeout(() => {
     const missed = _biasMissedWeekly();   // samedi sauté par un redémarrage → rattrapage AVEC narratifs (weekly)
-    if (missed || _sbBiasStale()) generateSmartBias(true, missed).catch(() => {});
+    const verChanged = !_smartBias || _smartBias.v !== BIAS_VER;   // nouveau BIAS_VER (prompt/logique changé) → régénère AUSSI les narratifs pour rester cohérent avec les nouvelles valeurs
+    if (missed || _sbBiasStale()) generateSmartBias(true, missed || verChanged).catch(() => {});
   }, 75 * 1000);   // 75s : après le burst du préchauffage des rapports → moins de contention RPM Gemini
   // Week Ahead : régénère au démarrage si vide / version périmée / >1 semaine (décalé après le bias).
   setTimeout(() => {
@@ -6787,7 +6792,8 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
   setInterval(() => {
     if (ai.backoffActive && ai.backoffActive()) return;
     const _missed = _biasMissedWeekly();                           // samedi sauté → rattrapage horaire AVEC narratifs
-    if (_missed || _sbBiasStale()) generateSmartBias(true, _missed).catch(() => {});   // récupération de fond (semaine manquée / version / âge>7j / absent) — jamais sur le chemin utilisateur
+    const _verChanged = !_smartBias || _smartBias.v !== BIAS_VER;   // version bumpée → régén complète (narratifs inclus)
+    if (_missed || _sbBiasStale()) generateSmartBias(true, _missed || _verChanged).catch(() => {});   // récupération de fond (semaine manquée / version / âge>7j / absent) — jamais sur le chemin utilisateur
     else _sbEnsureNarrative().catch(() => {});                     // matrice fraîche mais narratif IA manquant/repli → retry ciblé (USD & co)
     if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire tant que TOUS les jours n'ont pas l'éditorial IA
   }, 60 * 60 * 1000);
