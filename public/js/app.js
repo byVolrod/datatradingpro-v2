@@ -4524,17 +4524,12 @@ function _brShowNativePdf(item, pdfUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return;
   content.classList.add('br-rcontent--pdf');
-  const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
-  const inst = _instBadge(item);
   const raw     = pdfUrl || item.url || '';
   const rawAttr = raw.replace(/"/g, '%22');
   const proxied = _brPdfProxy(raw);
   const ttl  = (item.title || 'PDF').replace(/"/g, '');
+  // PDF brut PLEIN CADRE, sans bandeau DTP (la barre d'outils native du PDF gère zoom/impression/téléchargement).
   content.innerHTML =
-    `<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 ${inst}${dateStr ? ' · ' + dateStr : ''}</span>` +
-    `<span class="br-pdf-bar-actions">` +
-    `<a class="br-pdf-btn" href="${rawAttr}" target="_blank" rel="noopener">Ouvrir ↗</a>` +
-    `<a class="br-pdf-btn" href="${proxied}" download>⬇ Télécharger</a></span></div>` +
     `<iframe class="br-pdf-frame" src="${proxied}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>` +
     `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le PDF ne s'affiche pas ? <a href="${rawAttr}" target="_blank" rel="noopener" style="color:#ff7a00">Ouvrez-le dans un nouvel onglet ↗</a></div>`;
 }

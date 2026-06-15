@@ -1654,9 +1654,9 @@ function buildSessionMap() {
       panY:         'none',
       wheelY:       'none',
       wheelX:       'none',
-      homeZoomLevel: 1.05,
-      homeGeoPoint: { longitude: 15, latitude: 20 },
-      paddingTop: 4, paddingBottom: 4, paddingLeft: 4, paddingRight: 4,
+      homeZoomLevel: 1.3,                              // + de zoom → la carte remplit la hauteur (fini le gros vide noir en bas)
+      homeGeoPoint: { longitude: 20, latitude: 20 },   // centré pour garder NY (−74°) … Sydney (151°) à l'écran
+      paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
   );
   chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x000000), fillOpacity: 1 }));  // fond NOIR pur (comme DTP)
