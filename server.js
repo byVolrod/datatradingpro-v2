@@ -282,15 +282,22 @@ function _rateLimited(key, max, windowMs) {
 }
 
 app.post('/api/auth/login', async (req, res) => {
-  // Anti brute-force : max 10 tentatives / 5 min / IP
-  if (_rateLimited('login:' + _clientIp(req), 10, 5 * 60 * 1000)) {
+  // Anti brute-force : on ne compte QUE les ÉCHECS d'identifiants (un login réussi — ou un compte
+  // suspendu/expiré au bon mot de passe — ne pénalise JAMAIS). Un utilisateur légitime qui recharge/teste
+  // n'est donc jamais bloqué. Seuil : 20 échecs / 5 min / IP. (IP réelle via X-Forwarded-For nginx.)
+  const _rlKey = 'login:' + _clientIp(req), _rlWin = 5 * 60 * 1000;
+  const _fails = (_rlBuckets.get(_rlKey) || []).filter(t => Date.now() - t < _rlWin);
+  if (_fails.length >= 20) {
     return res.status(429).json({ error: 'Trop de tentatives de connexion. Réessayez dans quelques minutes.' });
   }
   const { email, password } = req.body || {};
   if (!email || !password) return res.json({ error: 'Email et mot de passe requis' });
   try {
     const user = await auth.verifyLogin(email, password);
-    if (!user) return res.json({ error: 'Email ou mot de passe incorrect' });
+    if (!user) {
+      _fails.push(Date.now()); _rlBuckets.set(_rlKey, _fails);   // ÉCHEC d'identifiants → compté (vrai brute-force)
+      return res.json({ error: 'Email ou mot de passe incorrect' });
+    }
     const _renewUrl = process.env.WHOP_RENEW_URL || 'https://whop.com/joined/justonetrader/products/jot-dtp/';
     if (user.suspended) {
       return res.json({ error: 'Votre abonnement n\'est plus actif. Renouvelez-le pour retrouver l\'accès complet au terminal.', renewTitle: 'Abonnement inactif', renewUrl: _renewUrl });
