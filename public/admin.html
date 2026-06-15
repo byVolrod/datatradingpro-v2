@@ -824,15 +824,16 @@
       const col = score == null ? '#6b7280' : score >= 75 ? '#22c55e' : score >= 40 ? '#ffb300' : '#ef4444';
       return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-name">${label}</span><span class="aim-prov-score" style="color:${col}">${score == null ? '—' : score}</span></div><div class="aim-prov-bar"><i style="width:${score == null ? 0 : score}%;background:${col}"></i></div><div class="aim-prov-lines">${lines.map(l => '<span>' + l + '</span>').join('')}</div></div>`;
     };
-    const g = P.gemini || {}, gh = P.github || {}, cl = P.claude || {};
+    const g = P.gemini || {}, gh = P.github || {}, cl = P.claude || {}, or = P.openrouter || {};
     document.getElementById('aim-providers').innerHTML =
       card('Gemini (gratuit)', h.gemini, [g.keys + ' clés · ' + g.coolingKeys + ' gelées', g.callsToday + ' appels · ' + g.err429Today + ' × 429', 'RPM ' + g.effRpm + '/' + g.rpmTarget + ' · pression ' + Math.round((g.pressure || 0) * 100) + '%'])
-      + card('GitHub Models', h.github, gh.tokens ? [gh.tokens + ' token(s) · ' + gh.coolingKeys + ' gelés', gh.callsToday + ' appels (jour)', gh.failWindow + ' échecs (fenêtre)'] : ['non configuré'])
+      + card('GitHub Models (gratuit)', h.github, gh.tokens ? [gh.tokens + ' token(s) × ' + (gh.models || 1) + ' modèles', gh.callsToday + ' appels (jour) · ' + (gh.failToday || 0) + ' échecs', gh.coolingKeys + ' (modèle,token) gelés'] : ['non configuré'])
+      + card('OpenRouter (gratuit)', h.openrouter, or.keys ? [or.keys + ' clé(s) · ' + or.models + ' modèles :free', or.callsToday + ' appels (jour) · ' + (or.failToday || 0) + ' échecs', or.coolingKeys + ' clé(s) en cooldown'] : ['non configuré'])
       + card('Claude (payant)', h.claude, cl.keys ? [cl.keys + ' clés · ' + (cl.usable ? 'disponible' : 'indisponible'), cl.usedToday + '/' + cl.dailyMax + ' appels (jour)', (cl.cooling && cl.cooling.length ? cl.cooling.length + ' clé(s) en cooldown' : 'aucune en cooldown')] : ['non configuré']);
     const CATCOL = { analyst: 0xf7941d, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444 };
     const cats = Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 }));
     _amDonut('aim-cat-am', cats);
-    const trend = (d.trend || []).map(t => ({ cat: t.hour.slice(11, 13) + 'h', val: (t.gemini || 0) + (t.github || 0) + (t.claude || 0) }));
+    const trend = (d.trend || []).map(t => ({ cat: t.hour.slice(11, 13) + 'h', val: (t.gemini || 0) + (t.github || 0) + (t.openrouter || 0) + (t.claude || 0) }));
     _amArea('aim-trend-am', trend, 0xf7941d, '');
     const nh = (b.nextHours || []).map(x => `<div class="aim-fc-row"><span>${String(x.h).padStart(2, '0')}h (attendu)</span><b>${x.expected}</b></div>`).join('');
     document.getElementById('aim-forecast').innerHTML =

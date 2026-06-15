@@ -81,8 +81,15 @@ const GITHUB_TOKENS = (() => {
   return out.map(t => (t || '').trim()).filter(Boolean).filter((t, i, a) => a.indexOf(t) === i);
 })();
 let _ghCursor = 0;
-const GITHUB_MODEL = process.env.GITHUB_MODEL || 'gpt-4o';
 const GITHUB_BASE  = process.env.GITHUB_MODELS_URL || 'https://models.inference.ai.azure.com';
+// Cascade de modèles GitHub : le plafond GRATUIT est PAR MODÈLE *et* PAR TOKEN (≈50/j « high » type
+// gpt-4o, ≈150/j « low » type gpt-4o-mini) → tourner sur PLUSIEURS modèles MULTIPLIE la capacité
+// gratuite/jour. Tâches courtes (≤LITE_MAXTOK) : mini d'abord (quota + élevé) ; tâches longues :
+// qualité d'abord (gpt-4o) puis repli mini. Surchargeable via GITHUB_MODELS (CSV).
+const GITHUB_MODELS = (process.env.GITHUB_MODELS || process.env.GITHUB_MODEL || 'gpt-4o,gpt-4o-mini')
+  .split(',').map(s => s.trim()).filter(Boolean);
+const GITHUB_MODELS_MINI_FIRST = [...GITHUB_MODELS].sort((a, b) => (a.includes('mini') ? 0 : 1) - (b.includes('mini') ? 0 : 1));
+const GITHUB_MODEL = GITHUB_MODELS[0];   // modèle « primaire » (affichage status/ai-test)
 
 // ── OpenRouter (openrouter.ai) — modèles GRATUITS (:free), API OpenAI-compatible. Repli APRÈS
 //    GitHub Models, AVANT Claude → capacité gratuite SUPPLÉMENTAIRE par-dessus Gemini/GitHub.
@@ -103,7 +110,7 @@ const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
   .split(',').map(s => s.trim()).filter(Boolean);
 
 // Visibilité au démarrage : combien de ressources IA sont chargées (jamais les valeurs).
-console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODEL + ')' : ''} · OpenRouter: ${OPENROUTER_KEYS.length} clé(s)${OPENROUTER_KEYS.length ? ' (' + OPENROUTER_MODELS.length + ' modèles :free)' : ''} · Claude: ${ANTHROPIC_KEYS.length} clés`);
+console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODELS.join('/') + ')' : ''} · OpenRouter: ${OPENROUTER_KEYS.length} clé(s)${OPENROUTER_KEYS.length ? ' (' + OPENROUTER_MODELS.length + ' modèles :free)' : ''} · Claude: ${ANTHROPIC_KEYS.length} clés`);
 
 // ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
 // Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
@@ -321,37 +328,52 @@ function _hBroken(model, idx) { return _h(model, idx).breakerUntil > Date.now();
 function _hScore(model, idx) { const h = _h(model, idx); const tot = h.ok + h.fail; const sr = tot ? h.ok / tot : 0.6; return Math.max(0, sr - Math.min(0.3, h.ewmaMs / 20000) - h.consec * 0.05); }   // succès pondéré latence
 
 // ── GitHub Models — cooldown PAR TOKEN (mêmes principes que les autres providers) ──
-const _ghCooldown = new Map();   // idx → fin de cooldown
-function _ghCool(idx, status) { _ghCooldown.set(idx, Date.now() + ((status === 401 || status === 403) ? 6 * 3600 * 1000 : status === 429 ? 10 * 60 * 1000 : 60000)); }
-function _ghIsCool(idx) { const t = _ghCooldown.get(idx); return !!t && t > Date.now(); }
+const _ghCooldown = new Map();   // "model|idx" → fin de cooldown (le plafond gratuit est PAR modèle ET par token)
+function _ghCool(model, idx, status, retryMs) {
+  const ms = (status === 401 || status === 403) ? 6 * 3600 * 1000
+           : status === 429 ? (retryMs && retryMs > 0 ? Math.min(retryMs + 2000, 24 * 3600 * 1000) : 60 * 60 * 1000)   // 429 = plafond/j de CE modèle atteint → cooldown long (retry-after lu si présent)
+           : 60000;
+  _ghCooldown.set(model + '|' + idx, Date.now() + ms);
+}
+function _ghIsCool(model, idx) { const t = _ghCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
 
-// Provider GitHub Models (OpenAI-compatible) — fetch, contexte système partagé, rotation multi-comptes.
+// Provider GitHub Models (OpenAI-compatible) — rotation MULTI-MODÈLES × multi-tokens. Le plafond
+// gratuit est par (modèle, token) → on cumule les quotas (ex. gpt-4o ≈50/j + gpt-4o-mini ≈150/j,
+// × chaque token). Tâches courtes → mini d'abord (quota + élevé) ; longues → qualité d'abord.
 async function _githubModels(prompt, maxTokens) {
   const n = GITHUB_TOKENS.length; _ghCursor = (_ghCursor + 1) % n;
+  const models = maxTokens <= LITE_MAXTOK ? GITHUB_MODELS_MINI_FIRST : GITHUB_MODELS;
   let lastErr;
-  for (let i = 0; i < n; i++) {
-    const idx = (_ghCursor + i) % n;
-    if (_ghIsCool(idx)) continue;   // token gelé (429/auth) → pas de re-test inutile
-    const tok = GITHUB_TOKENS[idx];
-    const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
-    try {
-      const r = await fetch(GITHUB_BASE + '/chat/completions', {
-        method: 'POST',
-        headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
-        // temperature 0.4 : ALIGNÉE sur Gemini/Claude → sorties homogènes quel que soit le provider
-        body: JSON.stringify({ model: GITHUB_MODEL, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4 }),
-        signal: ctrl.signal,
-      });
-      if (!r.ok) { const e = new Error('GitHub Models ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 120)); e.status = r.status; throw e; }
-      const j = await r.json();
-      const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
-      if (!out || !String(out).trim()) throw new Error('réponse vide');
-      const u = j.usage; if (u) _noteUsage('github', GITHUB_MODEL, u.prompt_tokens, u.completion_tokens);
-      return String(out).trim();
-    } catch (e) { lastErr = e; if (e.status) _ghCool(idx, e.status); }   // échec d'un compte → cooldown + token suivant
-    finally { clearTimeout(t); }
+  for (const model of models) {
+    for (let i = 0; i < n; i++) {
+      const idx = (_ghCursor + i) % n;
+      if (_ghIsCool(model, idx)) continue;   // (modèle, token) gelé (plafond/j ou auth) → pas de re-test inutile
+      const tok = GITHUB_TOKENS[idx];
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+      try {
+        const r = await fetch(GITHUB_BASE + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+          // temperature 0.4 : ALIGNÉE sur Gemini/Claude → sorties homogènes quel que soit le provider
+          body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4 }),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) {
+          const body = (await r.text().catch(() => '')).slice(0, 200);
+          const e = new Error('GitHub Models ' + model + ' ' + r.status + ': ' + body.slice(0, 110)); e.status = r.status;
+          if (r.status === 429) { const m = body.match(/wait\s+(\d+)\s*seconds/i); if (m) e.retryMs = parseInt(m[1], 10) * 1000; }   // « Please wait N seconds » → cooldown précis
+          throw e;
+        }
+        const j = await r.json();
+        const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+        if (!out || !String(out).trim()) throw new Error('réponse vide');
+        const u = j.usage; if (u) _noteUsage('github', model, u.prompt_tokens, u.completion_tokens);
+        return String(out).trim();
+      } catch (e) { lastErr = e; if (e.status) _ghCool(model, idx, e.status, e.retryMs); }   // échec → cooldown (modèle, token) + suivant
+      finally { clearTimeout(t); }
+    }
   }
-  throw lastErr || new Error('GitHub Models: tous les tokens ont échoué (ou en cooldown)');
+  throw lastErr || new Error('GitHub Models: tous les (modèle, token) ont échoué (ou en cooldown)');
 }
 
 // ── OpenRouter — cooldown PAR CLÉ (auth/crédit) ; rotation multi-clés ET multi-modèles ───────
@@ -488,7 +510,7 @@ function status() {
   return {
     geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
-    github: { tokens: GITHUB_TOKENS.length, model: GITHUB_MODEL, coolingNow: [..._ghCooldown.values()].filter(t => t > Date.now()).length },
+    github: { tokens: GITHUB_TOKENS.length, model: GITHUB_MODEL, models: GITHUB_MODELS, coolingNow: [..._ghCooldown.values()].filter(t => t > Date.now()).length },
     openrouter: { keys: OPENROUTER_KEYS.length, models: OPENROUTER_MODELS.length, coolingNow: [..._orCooldown.values()].filter(t => t > Date.now()).length },
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,
