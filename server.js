@@ -2255,6 +2255,40 @@ async function _scrapeILviaPuppeteer(url) {
   }
 }
 
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+//  RENDU HTML → PDF (Chrome partagé) — pour les rapports SANS PDF natif (MUFG, etc.)
+//  Rend la page (imprimable) de la banque en VRAI PDF, fidèle, SANS restructuration IA.
+//  Anti-OOM : 1 SEUL rendu à la fois (verrou) + cache disque (DATA_DIR) → Chrome non relancé à chaque ouverture.
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// Hôtes AUTORISÉS au rendu (anti-SSRF STRICT : Chrome ne doit JAMAIS rendre une URL arbitraire/interne).
+const PDF_RENDER_HOSTS = /(^|\.)(mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com)$/i;
+function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new URL(u).hostname) ? (printUrl || u) : ''; } catch { return ''; } }
+const _crypto = require('crypto');
+const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
+try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
+function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(String(url)).digest('hex') + '.pdf'); }
+let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
+function _renderPdf(url) {
+  const run = _renderChain.then(() => _renderPdfInner(url), () => _renderPdfInner(url));
+  _renderChain = run.then(() => {}, () => {});
+  return run;
+}
+async function _renderPdfInner(url) {
+  const browser = await _getIlBrowser();
+  const page = await browser.newPage();
+  try {
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1180, height: 1500 });
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 35000 });
+    await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
+    const out = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
+    return Buffer.from(out);
+  } finally {
+    await page.close().catch(() => {});
+    _ilArmIdleClose();
+  }
+}
+
 // Extraction RAPIDE du contenu InvestingLive via axios (JSON-LD articleBody) — sans navigateur
 async function _fetchILContentHttp(url) {
   const r = await axios.get(url, {
@@ -3890,7 +3924,7 @@ app.get('/api/bank-research-content', async (req, res) => {
   try {
     const _hot = _brSegCache.get(BR_SEG_VER + url);
     if (_hot && typeof _hot === 'object' && _hot.thin) return res.json({ html: '', source: 'thin', pdfUrl: _hot.pdfUrl || '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // page vitrine/teaser déjà détectée → on renvoie le vrai PDF (ou la carte), jamais un faux résumé
-    if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
+    if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', renderUrl: _brRenderUrlFor(url), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
   } catch {}
   let _origin = 'https://think.ing.com';
   try { _origin = new URL(url).origin; } catch {}
@@ -3907,12 +3941,16 @@ app.get('/api/bank-research-content', async (req, res) => {
 
     // Lien vers le VRAI PDF du rapport (ING Think « download-link », ou tout /downloads/pdf/ ou .pdf)
     // → affiché TEL QUEL côté client (proxifié), SANS aucune restructuration IA.
-    let _realPdf = '';
+    let _realPdf = '', _printUrl = '';
     try {
       const _dl = $('a[data-cy="download-link"]').attr('href')
                || $('a[href*="/downloads/pdf/"]').attr('href')
                || $('a[href$=".pdf"]').attr('href') || '';
       if (_dl) _realPdf = new URL(_dl, _origin).href;
+      // Page imprimable (MUFG « PrintPage », variantes printview) → meilleure cible de rendu PDF que l'article
+      const _pp = $('a[href*="/umbraco/surface/download/PrintPage/"]').attr('href')
+               || $('a[href*="printview"]').attr('href') || '';
+      if (_pp) _printUrl = new URL(_pp, _origin).href;
     } catch {}
 
     // Extract metadata
@@ -4065,7 +4103,7 @@ app.get('/api/bank-research-content', async (req, res) => {
       if (typeof seg === 'string' && seg.length > 80) { outHtml = seg; outSource = 'ai'; }
     } catch (e) { console.warn('[BR struct]', e.message); }
 
-    res.json({ html: _stripSource(outHtml), source: outSource, pdfUrl: _realPdf, subtitle, date: dateFormatted, section, country, articleType });
+    res.json({ html: _stripSource(outHtml), source: outSource, pdfUrl: _realPdf, renderUrl: _brRenderUrlFor(url, _printUrl), subtitle, date: dateFormatted, section, country, articleType });
   } catch (e) {
     res.json({ html: '', error: e.message });
   }
@@ -4098,6 +4136,30 @@ app.get('/api/pdf-proxy', async (req, res) => {
     res.setHeader('Cache-Control', 'public, max-age=86400');
     return res.send(Buffer.from(r.data));
   } catch (e) { return res.status(502).send('pdf fetch failed'); }
+});
+
+// ─── Rendu HTML→PDF à la volée (rapports SANS PDF natif : MUFG…), mis en cache disque, whitelist stricte ──
+app.get('/api/pdf-render', async (req, res) => {
+  const u = String(req.query.url || '');
+  let host = '';
+  try { const p = new URL(u); if (p.protocol !== 'https:') return res.status(400).send('https only'); host = p.hostname.toLowerCase(); }
+  catch { return res.status(400).send('bad url'); }
+  if (!PDF_RENDER_HOSTS.test(host)) return res.status(403).send('host not allowed');
+  const cacheFile = _renderCacheFile(u);
+  try {
+    const st = fs.statSync(cacheFile);
+    if (Date.now() - st.mtimeMs < 30 * 24 * 3600 * 1000) {   // cache 30 j → pas de re-rendu
+      res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'inline'); res.setHeader('Cache-Control', 'public, max-age=86400');
+      return res.sendFile(cacheFile);
+    }
+  } catch {}
+  try {
+    const buf = await _renderPdf(u);
+    if (!buf || buf.length < 1200 || buf.slice(0, 5).toString('latin1') !== '%PDF-') return res.status(502).send('render failed');
+    try { fs.writeFileSync(cacheFile, buf); } catch {}
+    res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'inline'); res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(buf);
+  } catch (e) { console.warn('[pdf-render]', e.message); return res.status(502).send('render failed'); }
 });
 
 // Trusted financial news domains allowed for article content fetch
