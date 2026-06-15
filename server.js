@@ -776,16 +776,37 @@ function _sendWelcomeChat(userId) {
   auth.chatInsert({ user_id: userId, sender: 'support', text: welcomeChat() }).catch(() => {});
 }
 
+// Envoi de bienvenue FIABLE + VISIBLE : on AWAIT, on LOGGE clairement le résultat, et on REMONTE
+// le statut à l'appelant (fini le `.catch(()=>{})` muet — un mail raté ne disparaît plus en silence).
+// La résilience d'envoi est déjà assurée par la cascade de fournisseurs côté mailer (OVH → Gmail API
+// → Gmail SMTP). Si TOUS échouent → log d'erreur + alerte admin (best-effort).
+async function _sendWelcomeReliable(d) {
+  if (!d || !d.to) return { sent: false, skipped: true };
+  try {
+    const provider = await mailer.sendWelcome(d);   // string (canal gagnant) si OK, false sinon
+    if (provider) { console.log(`[Welcome] ✅ envoyé via ${provider} → ${d.to}`); return { sent: true, provider }; }
+    console.error(`[Welcome] ❌ AUCUN fournisseur n'a envoyé l'email de bienvenue → ${d.to}`);
+  } catch (e) {
+    console.error(`[Welcome] ❌ erreur d'envoi → ${d.to}: ${e.message}`);
+  }
+  // Échec définitif : on ALERTE l'admin (par un autre canal le cas échéant) pour ne JAMAIS rater un mail en silence.
+  mailer.sendAdminAlert({ subject: `Email de bienvenue NON envoyé à ${d.to}`,
+    html: `<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">L'email de bienvenue n'a pas pu être envoyé à <b>${d.to}</b> (tous les fournisseurs ont échoué). Le compte est bien créé. Vérifie la santé Mail dans le panel admin (onglet IA &amp; Mail) et renvoie l'email depuis la fiche utilisateur.</p>` }).catch(() => {});
+  return { sent: false, error: 'aucun fournisseur disponible' };
+}
+
 app.post('/api/admin/users', requireAdmin, async (req, res) => {
   try {
     const body = { ...req.body, expiresAt: computeExpiry(req.body) };
     const newUser = await auth.createUser(body);
-    res.json({ ok: true });
-    // Email + message de bienvenue : uniquement pour les CLIENTS (pas le staff admin/support)
+    // Email + message de bienvenue : uniquement pour les CLIENTS (pas le staff admin/support).
+    // On AWAIT l'envoi pour RENVOYER son statut → l'admin voit immédiatement si le mail est parti.
+    let mail = { sent: false, skipped: true };
     if (body.email && (body.role || 'client') === 'client') {
-      mailer.sendWelcome({ to: body.email, name: body.name, password: body.password, expiresAt: body.expiresAt }).catch(() => {});
+      mail = await _sendWelcomeReliable({ to: body.email, name: body.name, password: body.password, expiresAt: body.expiresAt });
       _sendWelcomeChat(newUser && newUser.id);
     }
+    res.json({ ok: true, mail });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
@@ -2548,6 +2569,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       categoriesToday: _aiUsage.dayCounts || {}, claudeToday: _aiUsage.claudeCounts || {},
       trend: buckets.map(b => ({ hour: b.hour, gemini: b.gemini.calls, github: b.github.calls, openrouter: (b.openrouter && b.openrouter.calls) || 0, claude: b.claude.calls, e429: b.gemini.e429, fallback: b.fallback })),
       backoff: st.backoff || {}, healthDetail: intel.health || [],
+      mail: (() => { try { return mailer.getMailHealth(); } catch { return null; } })(),   // santé email (canal principal OVH, envoyés/échecs, dernier canal) → visible dans le panel
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

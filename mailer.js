@@ -108,10 +108,12 @@ async function verifyGmail() {
 // Santé email (pour l'admin) : API Gmail OK ?, SMTP ?, compteurs envoyés/échoués, par fournisseur.
 function getMailHealth() {
   return {
+    ovh:     { configured: !!(process.env.OVH_SMTP_USER && process.env.OVH_SMTP_PASS), host: process.env.OVH_SMTP_HOST || 'ssl0.ovh.net' },   // ← canal PRINCIPAL (était absent du health)
     gmailApi: { configured: _GMAIL_API_READY, verified: _mailStats.apiVerified, error: _mailStats.apiError },
     gmail:   { configured: !!(GMAIL_USER && GMAIL_APP_PASSWORD), verified: _mailStats.gmailVerified, error: _mailStats.gmailError, lastCheck: _mailStats.lastVerifyAt },
     mailjet: !!(MAILJET_API_KEY && MAILJET_SECRET_KEY),
     sent: _mailStats.sent, failed: _mailStats.failed, byProvider: _mailStats.byProvider,
+    lastProvider: _mailStats.lastProvider || null, lastError: _mailStats.lastError || null,   // dernier canal gagnant / dernière erreur (visibilité)
   };
 }
 
@@ -280,7 +282,7 @@ async function _send(to, subject, html) {
   }
   const errors = [];
   for (const [nom, fn] of chain) {
-    try { if (await fn(to, subject, html)) { _mailStats.sent++; _mailStats.byProvider[nom] = (_mailStats.byProvider[nom] || 0) + 1; _mailStats.lastProvider = nom; return nom; } }   // succès → renvoie le canal gagnant
+    try { if (await fn(to, subject, html)) { _mailStats.sent++; _mailStats.byProvider[nom] = (_mailStats.byProvider[nom] || 0) + 1; _mailStats.lastProvider = nom; console.log(`[Mailer] ✅ ${nom} → ${to} : "${subject}"`); return nom; } }   // succès → log + renvoie le canal gagnant (visibilité)
     catch (e) { console.error(`[Mailer] ${nom} erreur:`, e.message); errors.push(`${nom}: ${e.message}`); }   // échec → fournisseur suivant
   }
   _mailStats.failed++;
