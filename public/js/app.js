@@ -2004,6 +2004,17 @@ function buildNewsItem(item) {
       if (item._marketUpdate && item.fullContent) {
         return `<div class="market-update-body">${item.fullContent}</div>`;
       }
+      // ── DTP EUROPEAN MARKET WRAP : news VISIBLE (non-primer) façon PMT → rubriques en MAJUSCULES
+      //    rendues en titres orange (rpt-section-head), 1re ligne = lead en gras, reste = puces. ──
+      if (item._marketWrap) {
+        const bullets = parsePrimerBullets(item.description);
+        const html = bullets.map((line, idx) => {
+          if (_isSectionHead(line)) return `<li class="rpt-section-head">${line}</li>`;
+          if (idx === 0)            return `<li class="primer-bullet primer-bullet--header">${_dtpTitle(line)}</li>`;
+          return `<li class="primer-bullet">${_reportLead(line)}</li>`;
+        }).join('');
+        return `<ul class="primer-bullets">${html}</ul>`;
+      }
       // ── PRIMER: structured bullet display ──
       if (isPrimer) {
         const bullets = parsePrimerBullets(item.description);
