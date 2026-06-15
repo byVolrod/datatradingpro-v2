@@ -4534,6 +4534,20 @@ function _brShowNativePdf(item, pdfUrl) {
     `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le PDF ne s'affiche pas ? <a href="${rawAttr}" target="_blank" rel="noopener" style="color:#ff7a00">Ouvrez-le dans un nouvel onglet ↗</a></div>`;
 }
 
+// Rapport SANS PDF natif (MUFG…) : on REND sa page en PDF côté serveur (/api/pdf-render) et on l'affiche
+// BRUT, plein cadre — zéro restructuration IA. 1er affichage = génération (~2-5 s) puis mis en cache. Insights conservés.
+function _brShowRenderedPdf(item, renderUrl) {
+  const content = document.getElementById('br-rcontent');
+  if (!content) return;
+  content.classList.add('br-rcontent--pdf');
+  const src = '/api/pdf-render?url=' + encodeURIComponent(renderUrl);
+  const rawAttr = (item.url || '').replace(/"/g, '%22');
+  const ttl = (item.title || 'PDF').replace(/"/g, '');
+  content.innerHTML =
+    `<iframe class="br-pdf-frame" src="${src}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>` +
+    `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Génération du PDF… s'il ne s'affiche pas, <a href="${rawAttr}" target="_blank" rel="noopener" style="color:#ff7a00">ouvrir l'original ↗</a></div>`;
+}
+
 function renderBrReader(item) {
   // Masquer la liste, afficher le reader en pleine largeur
   document.getElementById('br-list-view')?.classList.add('hidden');
@@ -4604,6 +4618,10 @@ function renderBrReader(item) {
         // VRAI PDF détecté côté serveur (ING « download-link », teaser à PDF intégré…) → affichage BRUT
         // proxifié. Le carrousel Insights (déjà chargé au-dessus) est CONSERVÉ (pas de suppression).
         return _brShowNativePdf(item, data.pdfUrl);
+      }
+      if (data && data.renderUrl) {
+        // Pas de PDF natif (MUFG, Amundi…) → on REND la page en vrai PDF côté serveur. Insights conservés.
+        return _brShowRenderedPdf(item, data.renderUrl);
       }
       const _inst = _instBadge(item);
       const isIngDoc = _inst === 'ING';
