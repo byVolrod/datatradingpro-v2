@@ -3180,8 +3180,10 @@ async function _fetchSebInto(merged, cutoff, UA) {
         const body = _cleanSebText(rep.heading, rep.text);
         if (body.replace(/<[^>]*>/g, '').trim().length < 60) continue;
         const desc = String(rep.ingress || rep.text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+        // PDF natif SEB : l'API expose rep.attachment.fileName (PDF public) → affiché BRUT comme les autres.
+        const _sebPdf = (rep.attachment && rep.attachment.fileExtension === 'pdf' && typeof rep.attachment.fileName === 'string' && /^https?:\/\//.test(rep.attachment.fileName)) ? rep.attachment.fileName : '';
         merged.set(id, {
-          id, title, url: link, timestamp: ts,
+          id, title, url: link, timestamp: ts, _pdfUrl: _sebPdf,
           // displayTags de SEB = OBJETS → on extrait la chaîne (sinon « [object Object] » en tag).
           categories: (() => {
             const dt = Array.isArray(rep.displayTags) ? rep.displayTags.map(t => typeof t === 'string' ? t : (t && (t.name || t.tag || t.label || t.value || t.text || t.title)) || '').filter(Boolean) : [];
@@ -4113,7 +4115,7 @@ app.get('/api/bank-research-content', async (req, res) => {
 // Indispensable car certains PDF (ING Think…) renvoient X-Frame-Options: SAMEORIGIN et refusent
 // d'être embarqués cross-origin. On affiche donc le PDF via ce proxy → iframe même-origine = OK.
 // Whitelist STRICTE des hôtes (anti-SSRF / anti-open-proxy) + HTTPS only + vérif content-type=pdf.
-const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com)$/i;
+const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com)$/i;
 app.get('/api/pdf-proxy', async (req, res) => {
   const u = String(req.query.url || '');
   let host = '';
