@@ -842,7 +842,17 @@
       + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '—'}</b></div>`
       + `<div class="aim-fc-row"><span>Phase 2 — pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
       + `<div class="aim-fc-row"><span>Backoff global</span><b>${(d.backoff && d.backoff.active) ? 'ACTIF' : 'non'}</b></div>`
-      + '<div style="margin:11px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Demande attendue (apprise)</div>' + nh;
+      + '<div style="margin:11px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Demande attendue (apprise)</div>' + nh
+      + (() => {   // ── Santé EMAIL (envoi des mails : bienvenue, reset…) — visible + maj 30s ──
+          const M = d.mail; if (!M) return '';
+          const ovhOk = !!(M.ovh && M.ovh.configured);
+          return '<div style="margin:13px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Email (envoi)</div>'
+            + `<div class="aim-fc-row"><span>Canal principal</span><b style="color:${ovhOk ? '#22c55e' : '#ef4444'}">${ovhOk ? 'OVH SMTP ✅' : 'non configuré'}</b></div>`
+            + `<div class="aim-fc-row"><span>Dernier canal utilisé</span><b>${M.lastProvider || '—'}</b></div>`
+            + `<div class="aim-fc-row"><span>Envoyés / échecs (live)</span><b>${(M.sent || 0)} / ${(M.failed || 0)}</b></div>`
+            + (M.gmailApi && M.gmailApi.configured && M.gmailApi.verified === false ? `<div class="aim-fc-row"><span>Gmail API (secours)</span><b style="color:#ffb300">token expiré</b></div>` : '')
+            + (M.lastError ? `<div class="aim-fc-row"><span>Dernière erreur</span><b style="color:#ef4444;font-size:11px">${_esc2(String(M.lastError).slice(0, 70))}</b></div>` : '');
+        })();
   }
 
   // ── Dashboard financier (NET réel uniquement — aucune prévision) ─────────────
@@ -1222,7 +1232,9 @@
     const d = await r.json();
     if (d.ok) {
       e.target.reset();
-      okEl.textContent = `Utilisateur ${body.email} créé avec succès.`;
+      const ms = d.mail || {};
+      const mailMsg = ms.skipped ? '' : ms.sent ? ` — email de bienvenue envoyé via ${ms.provider}.` : ' — ⚠️ compte créé mais EMAIL DE BIENVENUE NON ENVOYÉ (voir santé Mail dans l\'onglet IA & Mail).';
+      okEl.textContent = `Utilisateur ${body.email} créé avec succès.${mailMsg}`;
       okEl.classList.add('visible');
       loadUsers();
     } else {
