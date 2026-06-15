@@ -160,11 +160,17 @@ try {
 let _pendingWrites = [];   // [{ id, fields, ts, attempts }]
 try { _pendingWrites = JSON.parse(fs.readFileSync(USERS_PENDING_FILE, 'utf8')) || []; } catch {}
 function _pendingSave() { try { fs.writeFileSync(USERS_PENDING_FILE, JSON.stringify(_pendingWrites)); } catch {} }
-function _pendingQueue(id, fields) {
+function _pendingQueue(id, payload, op = 'update') {
   const k = String(id);
-  const existing = _pendingWrites.find(p => String(p.id) === k);
-  if (existing) { Object.assign(existing.fields, fields); existing.attempts = 0; }
-  else _pendingWrites.push({ id: k, fields, ts: Date.now(), attempts: 0 });
+  const ex = _pendingWrites.find(p => String(p.id) === k);
+  if (ex) {
+    if (op === 'upsert' || op === 'delete') { ex.op = op; ex.row = payload || undefined; delete ex.fields; }
+    else if (ex.op === 'upsert' && ex.row) { Object.assign(ex.row, payload); }   // maj de champs sur une création encore en attente
+    else { ex.op = 'update'; ex.fields = Object.assign(ex.fields || {}, payload); }
+    ex.attempts = 0;
+  } else {
+    _pendingWrites.push(op === 'update' ? { id: k, op: 'update', fields: payload, ts: Date.now(), attempts: 0 } : { id: k, op, row: payload || undefined, ts: Date.now(), attempts: 0 });
+  }
   _pendingSave();
 }
 let _pendingFlushing = false;
@@ -175,8 +181,10 @@ async function _pendingFlush() {
     const still = [];
     for (const p of _pendingWrites) {
       try {
-        const { error } = await supabase.from(TABLE).update(p.fields).eq('id', p.id);
-        if (!error) continue;                                   // ✅ rejoué → on retire de la file
+        const { error } = p.op === 'delete' ? await supabase.from(TABLE).delete().eq('id', p.id)
+          : (p.op === 'upsert' && p.row) ? await supabase.from(TABLE).upsert([p.row], { onConflict: 'id' })
+          : await supabase.from(TABLE).update(p.fields || {}).eq('id', p.id);
+        if (!error) continue;                                   // ✅ rejoué (insert/maj/suppression) → on retire de la file
         if (_supaDown(error) && (p.attempts = (p.attempts || 0) + 1) < 200) still.push(p);   // toujours muet → on garde (cap anti-boucle)
         else console.warn('[Auth] écriture hors-ligne abandonnée id=' + p.id + ' :', error.message);   // vraie erreur SQL ou trop d'essais → drop
       } catch { p.attempts = (p.attempts || 0) + 1; if (p.attempts < 200) still.push(p); }    // réseau → on garde
@@ -322,18 +330,29 @@ async function getUserById(id) {
 async function createUser({ email, password, name = '', role = 'client', plan = 'professionnel', expiresAt = null }) {
   if (!email || !password) throw new Error('Email et mot de passe requis');
   const hash = await bcrypt.hash(password, SALT_ROUNDS);
-
-  const row = { email: email.toLowerCase().trim(), password_hash: hash, name, role, plan, active: true, expires_at: expiresAt || null };
+  const em = email.toLowerCase().trim();
+  if (_mirrorGet(em)) throw new Error('Cet email est déjà utilisé par un autre compte.');   // anti-doublon rapide (et seul rempart si la base principale est muette)
+  const id = require('crypto').randomUUID();   // id généré côté serveur → cohérent miroir + rejeu vers la base
+  const row = { id, email: em, password_hash: hash, name, role, plan, active: true, expires_at: expiresAt || null };
   let { data, error } = await supabase.from(TABLE).insert([row]).select().single();
 
   // Tolérance : si la colonne expires_at n'existe pas encore, on crée sans (abonnement non enregistré)
-  if (error && /expires_at/.test(error.message)) {
-    delete row.expires_at;
-    ({ data, error } = await supabase.from(TABLE).insert([row]).select().single());
+  if (error && /expires_at/.test(error.message || '')) {
+    const r2 = { ...row }; delete r2.expires_at;
+    ({ data, error } = await supabase.from(TABLE).insert([r2]).select().single());
   }
   if (error) {
-    if (/duplicate|already exists|users_email_key|unique/i.test(error.message)) {
+    if (/duplicate|already exists|users_email_key|unique/i.test(error.message || '')) {
       throw new Error('Cet email est déjà utilisé par un autre compte.');
+    }
+    // Base principale indisponible (blackout egress) → on crée dans le MIROIR + rejeu différé : le compte
+    // fonctionne TOUT DE SUITE (login via miroir) et est inséré dans la base dès son retour. Fini « primary cooling down ».
+    if (_supaDown(error)) {
+      const full = { ...row, created_at: new Date().toISOString() };
+      _mirrorPut(full); _mirrorSaveFile();
+      _pendingQueue(id, full, 'upsert');
+      console.warn('[Auth] createUser via MIROIR (base principale indisponible) → rejeu différé :', em);
+      return _pubUser(_mirrorGet(em));
     }
     throw new Error(error.message);
   }
@@ -386,7 +405,17 @@ async function updateUser(id, fields = {}) {
 
 async function deleteUser(id) {
   const { error } = await supabase.from(TABLE).delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  // Purge le miroir + annule toute écriture en attente pour cet id : un compte supprimé ne doit JAMAIS
+  // réapparaître ni se reconnecter via le repli (corrige aussi le trou « deleted user via miroir »).
+  const row = _mirrorGetById(id);
+  if (row) { _usersMirror.delete(String(row.email).toLowerCase().trim()); _usersMirrorById.delete(String(id)); _mirrorSaveFile(); }
+  _pendingWrites = _pendingWrites.filter(p => String(p.id) !== String(id));
+  if (error) {
+    if (_supaDown(error)) { _pendingWrites.push({ id: String(id), op: 'delete', ts: Date.now(), attempts: 0 }); _pendingSave(); return; }   // base muette → suppression rejouée à son retour (miroir déjà purgé)
+    _pendingSave();
+    throw new Error(error.message);
+  }
+  _pendingSave();
 }
 
 // ═══════════════════ CHAT SUPPORT (persistant) ═══════════════════
