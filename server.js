@@ -5904,7 +5904,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v13b-cal';   // v13b : régén au boot CONDITIONNÉE au calendrier chargé (Fundamental/Monetary avec données) + prompt directionnel v13 ; bump = régén matrice + narratifs au boot
+const BIAS_VER = 'v13c-twcal';   // v13c : Fundamental/Monetary alimentés par le calendrier TradingView de la SEMAINE ÉCOULÉE (actuals réels, via _buildTVCalendar) au lieu du FF prospectif ; + v13b (sonde calendrier au boot) + v13 (prompt directionnel) ; bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -6172,12 +6172,21 @@ async function generateSmartBias(force = false, weekly = false) {
     const rows = (Array.isArray(out) ? out : []).filter(s => MAJ.test(s.symbol)).map(s => `${s.symbol}: ${s.longPct}%L/${s.shortPct}%S (retail ${s.trend})`);
     if (rows.length) retailLine = rows.join('; ');
   } catch (e) { console.warn('[SmartBias] retail indispo:', e.message); }
-  // fundamental/monetary ← CALENDRIER réel : events High/Medium avec actual vs forecast (= surprises de données + décisions CB).
+  // fundamental/monetary ← CALENDRIER de la SEMAINE ÉCOULÉE (N-1) : events High/Medium PUBLIÉS (actual vs
+  // forecast = surprises de données + décisions CB). SOURCE = _buildTVCalendar() (TradingView, fenêtre 21 j
+  // PASSÉS → 10 j futurs, avec actuals natifs ; live + caché 4 min, indépendant de Supabase) ; repli allCalendar.
+  // ⚠️ allCalendar seul = calendrier ForexFactory PROSPECTIF (semaine en cours, sans actual un lundi) → il
+  //    ne portait JAMAIS de surprises pour le bias (Fundamental/Monetary restaient Neutral). On lit donc le TV.
   let calLine = '';
   try {
-    const evs = (allCalendar || [])
-      .filter(e => e && (e.impact === 'High' || e.impact === 'Medium') && e.actual && e.forecast && SB_CURRENCIES.includes(e.currency))
-      .slice(0, 32)
+    let calSrc = [];
+    try { calSrc = await _buildTVCalendar(); } catch {}
+    if (!calSrc || !calSrc.length) calSrc = allCalendar || [];          // repli si TV indisponible
+    const _calCut = Date.now() - 8 * 86400000;                          // ~8 derniers jours = la semaine écoulée (+ marge)
+    const evs = calSrc
+      .filter(e => e && (e.impact === 'High' || e.impact === 'Medium') && e.actual && e.forecast && SB_CURRENCIES.includes(e.currency) && (e.timestamp || 0) >= _calCut)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, 40)
       .map(e => `${e.currency} ${e.title}: actual ${e.actual} vs exp ${e.forecast}`);
     if (evs.length) calLine = evs.join('; ');
   } catch (e) { console.warn('[SmartBias] calendrier indispo:', e.message); }
@@ -6787,7 +6796,9 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
   // On sonde toutes les 20 s (plafond ~5 min) ; au-delà on génère quand même (mieux vaut frais que rien).
   function _biasBootRegen(tries) {
     if (!(_biasMissedWeekly() || _sbBiasStale())) return;          // rien à régénérer
-    const calReady = (allCalendar || []).some(e => e && (e.impact === 'High' || e.impact === 'Medium') && e.actual && e.forecast);
+    // Le bias lit le calendrier TradingView (_buildTVCalendar → _tvCalCache, fenêtre 21 j passés avec actuals).
+    // On attend donc que CE cache porte des publications récentes (8 derniers j) — pas allCalendar (FF prospectif).
+    const calReady = (_tvCalCache.items || []).some(e => e && (e.impact === 'High' || e.impact === 'Medium') && e.actual && e.forecast && (Date.now() - (e.timestamp || 0) < 8 * 86400000));
     if (calReady || tries >= 12) {
       const missed = _biasMissedWeekly();
       const verChanged = !_smartBias || _smartBias.v !== BIAS_VER;   // version bumpée / prompt changé → régénère AUSSI les narratifs
