@@ -1339,10 +1339,7 @@ function getSmartTags(item) {
       /\b(?:rises?|falls?|drops?|gains?|rallies?|surges?|tumbles?|slumps?|rebounds?|extends?)\b/.test(t))
     tags.push('Equities');
 
-  // ── BONDS: named yield with a directional context ─────────────────────────
-  if (/\b(?:treasury|bond|gilt|bund)\s+yields?\b/.test(t) &&
-      /\b(?:rises?|falls?|hits?|above|below|surges?|drops?|climbs?|ticks?|inverts?|steepens?)\b/.test(t))
-    tags.push('Bonds');
+  // ── BONDS: tag retiré sur demande utilisateur (plus de tag « Bonds » sur les news). ───────────
 
   // ── INFLATION: CPI/PCE/PPI/HICP/Inflation Rate data releases ────────────
   // Covers "CPI YoY", "German Inflation Rate YoY Prel", "Italy Consumer Price Index" etc.
@@ -1633,8 +1630,8 @@ function primerBadgeLabel(item) {
   if (['ing-think', 'actionforex', 'fxstreet', 'bank-research'].includes(src) || /institution|bank research/i.test(cat)) return 'INSTITUTION';
   // Résultat d'événement économique qui vient de sortir (calendrier)
   if (/\bData$/.test(cat) || /Actual:/i.test(item.description || '') || (item.id || '').startsWith('ff-cal') || (item.id || '').startsWith('ffcal')) return 'CALENDRIER';
-  // Par défaut : rapport d'analyste / briefing
-  return 'ANALYST';
+  // Par défaut : rapport d'analyste / briefing → PAS de badge (retiré sur demande ; INSTITUTION/CALENDRIER restent).
+  return '';
 }
 
 function parsePrimerBullets(description) {
@@ -1928,10 +1925,11 @@ function buildNewsItem(item) {
     // Rapports DTP (briefings) → présentés comme des news, SANS badge PRIMER/ANALYST.
     // Les autres primers (institution/calendrier) gardent leur badge.
     const isReport = item._briefing || item.source === 'DTP';
-    if (!isReport) {
+    const _blab = isReport ? '' : primerBadgeLabel(item);
+    if (_blab) {   // badge seulement s'il y a un label (INSTITUTION/CALENDRIER) — plus de badge « ANALYST »
       const badge = document.createElement('span');
       badge.className = 'primer-badge';
-      badge.textContent = primerBadgeLabel(item);
+      badge.textContent = _blab;
       headline.appendChild(badge);
     }
     const titleSpan = document.createElement('span');
@@ -4432,7 +4430,7 @@ function renderBrList() {
     list.appendChild(card);
   }
 
-  if (footer) footer.textContent = `Showing ${items.length} of ${all.length} research papers`;
+  if (footer) footer.textContent = '';   // footer « Showing N of N » retiré (demande utilisateur)
 }
 
 // Badge institution = la VRAIE banque du rapport. ING→"ING", MUFG→"MUFG", autres banques
