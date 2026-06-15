@@ -48,16 +48,34 @@ function _applyOps(client, table, ops) { let qb = client.from(table); for (const
 let _rr = 0;
 async function _runMulti(table, ops, kind) {
   const now = Date.now();
-  if (!_MULTI_TABLES.has(table)) {
-    // Tables sensibles (users/chat) → base PRINCIPALE seulement ; le repli miroir/fichier est géré par l'appelant.
-    const p = _dbNodes[0];
-    if (!p) return { data: null, error: { message: 'no DB node', code: 'NODB' } };
-    if (p.downUntil > now) return { data: null, error: { message: 'primary cooling down', code: 'COOLDOWN' } };   // base cappée → on ne la martèle pas, repli direct
-    try { const res = await _applyOps(p.client, table, ops); if (res && res.error && _supaDown(res.error)) _markDown(p, res.error); return res; }
-    catch (e) { _markDown(p, e); return { data: null, error: e }; }
-  }
   const healthy = _dbNodes.filter(n => n.downUntil <= now);
   if (!healthy.length) return { data: null, error: { message: 'all DB nodes down', code: 'NODESDOWN' } };
+  if (!_MULTI_TABLES.has(table)) {
+    // users / chat_messages : ids AUTO → pas de dual-write (ids divergents entre bases). On bascule sur le
+    // PREMIER nœud SAIN (primary si dispo, sinon db2/db3/db4) : quand la primaire est bloquée (egress), les
+    // NOUVEAUX comptes/chat vont sur un secondaire sain. LECTURE = premier nœud sain au résultat NON vide.
+    // L'appelant (verifyLogin/getUserById/getAllUsers) COMPLÈTE avec le MIROIR local (comptes existants
+    // restés sur la primaire bloquée → les secondaires ne les ont pas).
+    if (kind === 'write') {
+      let werr = null;
+      for (const node of healthy) {
+        try { const res = await _applyOps(node.client, table, ops); if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); werr = res.error; continue; } return res; } return res; }
+        catch (e) { _markDown(node, e); werr = e; continue; }
+      }
+      return { data: null, error: werr || { message: 'write failed on all nodes' } };
+    }
+    let emptyS = null, errS = null;
+    for (const node of healthy) {
+      try {
+        const res = await _applyOps(node.client, table, ops);
+        if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); errS = res.error; continue; } return res; }
+        const empty = !res || res.data == null || (Array.isArray(res.data) && res.data.length === 0);
+        if (empty) { emptyS = res; continue; }
+        return res;
+      } catch (e) { _markDown(node, e); errS = e; continue; }
+    }
+    return emptyS || { data: null, error: errS || { message: 'read failed on all nodes' } };
+  }
   if (kind === 'write') {
     const settled = await Promise.allSettled(healthy.map(n => _applyOps(n.client, table, ops)));
     let ok = null, err = null;
@@ -245,11 +263,14 @@ async function verifyLogin(email, password) {
   if (data) {
     _mirrorPut(data); _mirrorSaveFile();                            // garde le miroir frais (hash courant inclus)
     if (_pendingWrites.length) _pendingFlush().catch(() => {});     // Supabase répond → on rejoue les écritures en attente
-  } else if (down) {
-    data = _mirrorGet(em);                                          // Supabase muet → repli sur le miroir local
-    if (data) console.warn('[Auth] login via MIROIR local (Supabase indisponible) →', em);
+  } else {
+    // Pas trouvé en base : soit Supabase muet (down), soit le compte EXISTE mais vit sur la primaire BLOQUÉE
+    // (les secondaires ne l'ont pas → ils renvoient « 0 ligne »). Dans les deux cas → repli sur le miroir local.
+    data = _mirrorGet(em);
+    if (data) console.warn('[Auth] login via MIROIR local →', em);
   }
   if (!data) return null;
+  void down;
 
   const ok = await bcrypt.compare(password, data.password_hash || '');
   if (!ok) return null;   // mauvais mdp → message générique (on ne révèle pas l'état du compte)
@@ -295,10 +316,17 @@ async function getAllUsers(opts = {}) {
         .order('created_at', { ascending: false }));
     }
     if (error) throw new Error(error.message);
-    _allUsersCache = { ts: Date.now(), data: data || [] };
     _mirrorPutMany(data || []);                                    // rafraîchit le miroir (métadonnées) à chaque scan réussi
     if (_pendingWrites.length) _pendingFlush().catch(() => {});
-    return _allUsersCache.data;
+    // UNION base + miroir : les comptes EXISTANTS vivent sur la primaire BLOQUÉE (absents des secondaires) →
+    // la base ne renvoie que les NOUVEAUX comptes (créés sur db2…). On fusionne avec le miroir (existants),
+    // dédup par id, la base primant sur le miroir (données fraîches). Quand la primaire revient, l'union est inoffensive.
+    const _byId = new Map();
+    for (const u of [..._usersMirror.values()].map(_pubUser)) if (u && u.id != null) _byId.set(String(u.id), u);
+    for (const u of (data || [])) if (u && u.id != null) _byId.set(String(u.id), u);   // la base PRIME sur le miroir
+    const merged = [..._byId.values()].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    _allUsersCache = { ts: Date.now(), data: merged };
+    return merged;
   } catch (e) {
     // Supabase muet (quota egress dépassé, panne) → repli sur le miroir local : forgot-password,
     // liste admin et jobs de fond continuent de tourner au lieu de jeter.
@@ -320,8 +348,10 @@ async function getUserById(id) {
       ({ data, error } = await supabase.from(TABLE).select('id, email, name, role, plan, active').eq('id', id).single());
     }
     if (data) { _mirrorPut(data); _mirrorSaveFile(); return data; }
-    if (_supaDown(error)) return _pubUser(_mirrorGetById(id));   // Supabase muet → repli (la session NE doit PAS sauter)
-    return null;                                                  // 0 ligne autoritaire → compte réellement absent
+    // Pas en base : Supabase muet OU compte existant resté sur la primaire bloquée (absent des secondaires) → miroir.
+    const m = _pubUser(_mirrorGetById(id));
+    if (m) return m;
+    return null;                                                  // ni en base ni au miroir → compte réellement absent
   } catch {
     return _pubUser(_mirrorGetById(id));
   }
