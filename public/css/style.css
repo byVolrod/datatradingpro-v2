@@ -9041,7 +9041,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jr-act:hover { color: var(--text); background: var(--bg3); }
 .jr-act--del:hover { color: #ff4d2e; }
 .jr-act--confirm { color: #ff4d2e; border-color: rgba(255,61,0,0.45); background: rgba(255,61,0,0.10); font-size: 10.5px; font-weight: 700; }
-.jr-empty { text-align: center; padding: 28px 10px !important; color: var(--text3); }
+.jr-empty { text-align: center; vertical-align: middle; height: 240px; padding: 28px 16px !important; color: var(--text3); }
 @media (max-width: 768px) {
   .jr-form input, .jr-form select { height: 32px; }
   .jr-btn { height: 32px; }
