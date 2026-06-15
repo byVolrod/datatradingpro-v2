@@ -3208,8 +3208,13 @@ async function _fetchSebInto(merged, cutoff, UA) {
         if (ts < cutoff) continue;
         const link = `https://research.sebgroup.com/macro-ficc/reports/${rep.articleId}`;
         const id = 'br-' + Buffer.from('seb-' + rep.articleId).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
-        // PDF natif SEB : l'API expose rep.attachment.fileName (PDF public) → affiché BRUT comme les autres.
-        const _sebPdf = (rep.attachment && rep.attachment.fileExtension === 'pdf' && typeof rep.attachment.fileName === 'string' && /^https?:\/\//.test(rep.attachment.fileName)) ? rep.attachment.fileName : '';
+        // PDF natif SEB : l'API expose PARFOIS rep.attachment.fileName (PDF public). Sinon, l'endpoint
+        // « Open as PDF » de SEB (api/puppeteer/mficc/{id}) renvoie le VRAI PDF du rapport pour TOUS les
+        // articles (vérifié : Content-Type application/pdf) → on l'utilise en repli pour que CHAQUE rapport
+        // SEB s'affiche en PDF brut (et non en texte structuré). Proxifié via /api/pdf-proxy (sebgroup.com whitelisté).
+        const _sebPdf = (rep.attachment && rep.attachment.fileExtension === 'pdf' && typeof rep.attachment.fileName === 'string' && /^https?:\/\//.test(rep.attachment.fileName))
+          ? rep.attachment.fileName
+          : `https://research.sebgroup.com/api/puppeteer/mficc/${rep.articleId}`;
         if (merged.has(id)) {   // déjà présent (autre asset class OU cache persistant) → on met juste _pdfUrl à jour
           const _ex = merged.get(id); if (_ex && _sebPdf && _ex._pdfUrl !== _sebPdf) _ex._pdfUrl = _sebPdf;
           continue;
