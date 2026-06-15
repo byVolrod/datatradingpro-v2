@@ -20,9 +20,81 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
   process.exit(1);
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
-  auth: { persistSession: false },   // server-side — pas de session Supabase côté client
-});
+// ════════════════ REDONDANCE MULTI-BASES (anti-blocage egress Supabase) ════════════════
+// Plusieurs projets Supabase (principal + secondaires via env SUPABASE_URL_2/3/4 + KEY_2/3/4).
+// Pour les tables KV DURABLES à clé (ai_cache, weekly_reports, email_log) — qui portent l'egress lourd :
+//   • ÉCRITURE → TOUTES les bases saines (données identiques, clé fournie → cohérence triviale) ;
+//   • LECTURE → ROUND-ROBIN sur les bases saines (l'egress se répartit → ~Nx de marge avant un cap)
+//              + repli automatique sur la base suivante si l'une est restreinte/muette.
+// Les tables SENSIBLES (users, chat_messages) restent sur la base PRINCIPALE uniquement (ids auto-générés
+// → un dual-write donnerait des ids divergents) : leur redondance est déjà assurée par le miroir local +
+// fichier (login/sessions survivent au blackout). Zéro risque côté auth.
+function _mkClient(url, key) { return createClient(url, key, { auth: { persistSession: false } }); }
+const _dbNodes = [];
+function _addNode(name, url, key) { if (url && key) _dbNodes.push({ name, url, client: _mkClient(url, key), downUntil: 0 }); }
+_addNode('primary', SUPABASE_URL, SUPABASE_KEY);
+_addNode('db2', process.env.SUPABASE_URL_2, process.env.SUPABASE_KEY_2);
+_addNode('db3', process.env.SUPABASE_URL_3, process.env.SUPABASE_KEY_3);
+_addNode('db4', process.env.SUPABASE_URL_4, process.env.SUPABASE_KEY_4);
+console.log(`[Auth] ✅ Supabase : ${_dbNodes.length} base(s) [${_dbNodes.map(n => n.name).join(', ')}] — redondance ${_dbNodes.length > 1 ? 'ACTIVE' : 'inactive (1 seule base)'}`);
+
+const _MULTI_TABLES = new Set(['ai_cache', 'weekly_reports', 'email_log']);   // KV à clé → dual-write + round-robin
+const _WRITE_OPS = new Set(['insert', 'update', 'upsert', 'delete']);
+function _markDown(node, err) {
+  if (node.downUntil <= Date.now()) console.warn(`[DB] ${node.name} indisponible 10 min (egress/réseau) :`, err && err.message);
+  node.downUntil = Date.now() + 10 * 60 * 1000;
+}
+function _applyOps(client, table, ops) { let qb = client.from(table); for (const [m, a] of ops) qb = qb[m](...a); return qb; }
+let _rr = 0;
+async function _runMulti(table, ops, kind) {
+  const now = Date.now();
+  if (!_MULTI_TABLES.has(table)) {
+    // Tables sensibles (users/chat) → base PRINCIPALE seulement ; le repli miroir/fichier est géré par l'appelant.
+    const p = _dbNodes[0];
+    if (!p) return { data: null, error: { message: 'no DB node', code: 'NODB' } };
+    if (p.downUntil > now) return { data: null, error: { message: 'primary cooling down', code: 'COOLDOWN' } };   // base cappée → on ne la martèle pas, repli direct
+    try { const res = await _applyOps(p.client, table, ops); if (res && res.error && _supaDown(res.error)) _markDown(p, res.error); return res; }
+    catch (e) { _markDown(p, e); return { data: null, error: e }; }
+  }
+  const healthy = _dbNodes.filter(n => n.downUntil <= now);
+  if (!healthy.length) return { data: null, error: { message: 'all DB nodes down', code: 'NODESDOWN' } };
+  if (kind === 'write') {
+    const settled = await Promise.allSettled(healthy.map(n => _applyOps(n.client, table, ops)));
+    let ok = null, err = null;
+    settled.forEach((s, i) => {
+      const node = healthy[i];
+      if (s.status === 'fulfilled') { if (s.value && s.value.error) { if (_supaDown(s.value.error)) _markDown(node, s.value.error); err = err || s.value.error; } else if (!ok) ok = s.value; }
+      else { _markDown(node, s.reason); err = err || s.reason; }
+    });
+    return ok || { data: null, error: err || { message: 'write failed on all nodes' } };
+  }
+  // LECTURE : round-robin sur les bases saines, repli sur la suivante si l'une est down
+  let order = healthy;
+  if (healthy.length > 1) { const i = (_rr++) % healthy.length; order = healthy.slice(i).concat(healthy.slice(0, i)); }
+  let lastErr = null;
+  for (const node of order) {
+    try {
+      const res = await _applyOps(node.client, table, ops);
+      if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); lastErr = res.error; continue; } return res; }   // erreur autoritaire (0 ligne) → on renvoie ; down → base suivante
+      return res;
+    } catch (e) { _markDown(node, e); lastErr = e; continue; }
+  }
+  return { data: null, error: lastErr || { message: 'read failed on all nodes' } };
+}
+// Façade compatible Supabase : supabase.from(table)…  (proxy enregistre la chaîne, _runMulti la rejoue sur les bases)
+function _multiFrom(table) {
+  const ops = []; let kind = null;
+  const make = () => new Proxy(function () {}, {
+    get(_t, prop) {
+      if (prop === 'then')    return (res, rej) => _runMulti(table, ops, kind).then(res, rej);
+      if (prop === 'catch')   return (rej) => _runMulti(table, ops, kind).catch(rej);
+      if (prop === 'finally') return (cb) => _runMulti(table, ops, kind).finally(cb);
+      return (...args) => { if (kind === null) kind = _WRITE_OPS.has(prop) ? 'write' : 'read'; ops.push([prop, args]); return make(); };
+    },
+  });
+  return make();
+}
+const supabase = { from: _multiFrom };
 
 console.log('[Auth] ✅ Supabase connecté →', SUPABASE_URL);
 
