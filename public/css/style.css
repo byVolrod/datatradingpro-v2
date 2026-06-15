@@ -4119,10 +4119,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .br-card--read .br-card-date  { color: #444; }
 .br-card--read:hover { background: rgba(255,255,255,0.03); }
 .br-card--read:hover .br-card-title { color: #888; }
-/* MUFG (FX Weekly, Asia FX Weekly) → accent ROUGE marque MUFG (#e60012), UNIQUEMENT ces cartes */
-.br-card--mufg { border-left: 3px solid #e60012; padding-left: 11px; background: rgba(230,0,18,0.06); }
-.br-card--mufg:hover { background: rgba(230,0,18,0.12); }
-.br-card--mufg .br-card-icon { color: #e60012; }
+/* MUFG FX Weekly / Asia FX Weekly → look « news importante » (bordeaux), MÊME survol — PAS de trait rouge */
+.br-card--mufg { background: #241414; border-bottom: 1px solid rgba(127,29,29,0.22); }
+.br-card--mufg:hover { background: #2a1618; }
 
 /* Institution badge */
 .br-inst-logo { display: inline-flex; align-items: center; justify-content: center; padding: 2px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; }
