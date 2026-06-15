@@ -14,6 +14,11 @@ node_modules/
 cache_*.json
 news_history.json
 
+# ── Miroir local des comptes (repli auth si Supabase bloqué) — CONTIENT DES HASH bcrypt ─────────
+# Ne JAMAIS committer. En prod il vit dans DATA_DIR (volume Docker), ici on couvre aussi la racine (dev).
+users_mirror.json
+users_pending.json
+
 # ── Logs ────────────────────────────────────────────────────────────────────────
 *.log
 server_out.txt
