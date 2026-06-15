@@ -2287,7 +2287,7 @@ function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new U
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-const _RENDER_VER = 'r2';   // bump → invalide TOUS les PDF rendus en cache (ex. logique anti-cookies changée)
+const _RENDER_VER = 'r3';   // bump → invalide TOUS les PDF rendus en cache (r3 : masque le chrome du site → rapport seul)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
@@ -2329,6 +2329,18 @@ async function _renderPdfInner(url) {
         document.documentElement.style.overflow = 'visible';
         if (document.body) { document.body.className = String(document.body.className || '').replace(/\b(modal-open|no-scroll|overflow-hidden|cookie\S*)\b/gi, ''); document.body.style.overflow = 'visible'; document.body.style.position = 'static'; }
       } catch {}
+    } catch {} }).catch(() => {});
+    // Masque le « CHROME » du site (en-tête de marque, nav, « Log On »/« Research Center », recherche, pied) →
+    // on ne garde QUE le rapport, pas la page du site. Corrige « ça affiche le site au lieu du rapport » (Amundi, HSBC…).
+    await page.evaluate(() => { try {
+      ['header', 'nav', 'footer', '[role="banner"]', '[role="navigation"]', '[role="contentinfo"]',
+       '[class*="site-header"]', '[class*="siteHeader"]', '[class*="navbar"]', '[class*="nav-bar"]', '[class*="masthead"]',
+       '[class*="topbar"]', '[class*="top-bar"]', '[class*="mega-menu"]', '[class*="megamenu"]', '[class*="breadcrumb"]',
+       '[class*="global-nav"]', '[class*="utility-nav"]', '[class*="site-footer"]', '[id*="masthead"]', '[id*="globalnav"]']
+        .forEach(s => { try { document.querySelectorAll(s).forEach(e => e.style.setProperty('display', 'none', 'important')); } catch {} });
+      // Boutons/liens isolés Log On / Sign in / Subscribe / Search / Countries / My account…
+      const RXC = /^(log ?on|log ?in|login|sign ?in|sign ?up|subscribe|s'identifier|se connecter|connexion|rechercher|search|register|my account|countries|menu)$/i;
+      document.querySelectorAll('a,button,[role="button"]').forEach(b => { const t = (b.innerText || b.textContent || '').replace(/\s+/g, ' ').trim(); if (t && t.length <= 18 && RXC.test(t)) { try { b.style.setProperty('display', 'none', 'important'); } catch {} } });
     } catch {} }).catch(() => {});
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
