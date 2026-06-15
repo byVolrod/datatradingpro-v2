@@ -7162,12 +7162,13 @@ Rules: For EQUITIES/FX/FIXED/COMMODITIES, lead with the real levels above (name 
   } catch (e) {
     console.error('[EUWrap] IA KO → repli déterministe:', e.message);
   }
-  // Garantir les rubriques marché depuis les niveaux réels (même si l'IA les a omises/ratées).
+  // Backfill : TOUTE rubrique vide (IA partielle OU totalement KO/cooldown) est complétée depuis
+  // le repli déterministe (niveaux réels marché + top headlines). Garantit un wrap riche même
+  // sans IA — fini le « 4 rubriques » quand toutes les clés Claude/Gemini sont en cooldown.
   const fb = _euWrapFallback(levels, s);
-  for (const h of ['EQUITIES','FX','FIXED','COMMODITIES']) {
-    if ((!buckets[h] || !buckets[h].length) && fb[h]) buckets[h] = fb[h];
+  for (const h of EU_WRAP_SECTIONS) {
+    if ((!buckets[h] || !buckets[h].length) && fb[h] && fb[h].length) buckets[h] = fb[h];
   }
-  if (!Object.keys(buckets).some(k => (buckets[k] || []).length)) buckets = fb;   // IA totalement vide → repli complet
 
   const description = _euWrapBuild(buckets, _euWrapLead(levels));
   const sectionCount = EU_WRAP_SECTIONS.filter(h => (buckets[h] || []).length).length;
