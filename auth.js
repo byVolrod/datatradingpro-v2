@@ -31,7 +31,7 @@ if (!SUPABASE_URL || !SUPABASE_KEY) {
 // fichier (login/sessions survivent au blackout). Zéro risque côté auth.
 function _mkClient(url, key) { return createClient(url, key, { auth: { persistSession: false } }); }
 const _dbNodes = [];
-function _addNode(name, url, key) { if (url && key) _dbNodes.push({ name, url, client: _mkClient(url, key), downUntil: 0 }); }
+function _addNode(name, url, key) { if (!url || !key) return; try { _dbNodes.push({ name, url, client: _mkClient(url, key), downUntil: 0 }); } catch (e) { console.error(`[Auth] base ${name} IGNORÉE (URL/clé invalide → ne crashe pas le boot) :`, e.message); } }
 _addNode('primary', SUPABASE_URL, SUPABASE_KEY);
 _addNode('db2', process.env.SUPABASE_URL_2, process.env.SUPABASE_KEY_2);
 _addNode('db3', process.env.SUPABASE_URL_3, process.env.SUPABASE_KEY_3);
@@ -68,27 +68,33 @@ async function _runMulti(table, ops, kind) {
     });
     return ok || { data: null, error: err || { message: 'write failed on all nodes' } };
   }
-  // LECTURE : round-robin sur les bases saines, repli sur la suivante si l'une est down
+  // LECTURE : round-robin sur les bases saines ; repli sur la suivante si l'une est DOWN, ET aussi si elle
+  // renvoie un résultat VIDE — une base qui a manqué une écriture pendant son cooldown pourrait être périmée,
+  // donc on ne conclut « vide » qu'après avoir interrogé TOUTES les bases saines. Évite : faux « non loggé »
+  // (email_log → mail en double), recap fraîchement sauvé absent (weekly_reports), null masquant (ai_cache).
   let order = healthy;
   if (healthy.length > 1) { const i = (_rr++) % healthy.length; order = healthy.slice(i).concat(healthy.slice(0, i)); }
-  let lastErr = null;
+  let lastEmpty = null, lastErr = null;
   for (const node of order) {
     try {
       const res = await _applyOps(node.client, table, ops);
-      if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); lastErr = res.error; continue; } return res; }   // erreur autoritaire (0 ligne) → on renvoie ; down → base suivante
-      return res;
+      if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); lastErr = res.error; continue; } return res; }   // erreur autoritaire → on renvoie ; down → base suivante
+      const empty = !res || res.data == null || (Array.isArray(res.data) && res.data.length === 0);
+      if (empty) { lastEmpty = res; continue; }   // base potentiellement périmée → on tente les autres pour un résultat non vide
+      return res;                                  // résultat NON vide → on renvoie
     } catch (e) { _markDown(node, e); lastErr = e; continue; }
   }
-  return { data: null, error: lastErr || { message: 'read failed on all nodes' } };
+  return lastEmpty || { data: null, error: lastErr || { message: 'read failed on all nodes' } };   // toutes vides → vide ; toutes down → erreur
 }
 // Façade compatible Supabase : supabase.from(table)…  (proxy enregistre la chaîne, _runMulti la rejoue sur les bases)
 function _multiFrom(table) {
-  const ops = []; let kind = null;
+  const ops = []; let kind = null, _exec = null;
+  const run = () => (_exec = _exec || _runMulti(table, ops, kind));   // exécute UNE seule fois même si la chaîne est await plusieurs fois (idempotence façon PostgrestBuilder)
   const make = () => new Proxy(function () {}, {
     get(_t, prop) {
-      if (prop === 'then')    return (res, rej) => _runMulti(table, ops, kind).then(res, rej);
-      if (prop === 'catch')   return (rej) => _runMulti(table, ops, kind).catch(rej);
-      if (prop === 'finally') return (cb) => _runMulti(table, ops, kind).finally(cb);
+      if (prop === 'then')    return (res, rej) => run().then(res, rej);
+      if (prop === 'catch')   return (rej) => run().catch(rej);
+      if (prop === 'finally') return (cb) => run().finally(cb);
       return (...args) => { if (kind === null) kind = _WRITE_OPS.has(prop) ? 'write' : 'read'; ops.push([prop, args]); return make(); };
     },
   });
