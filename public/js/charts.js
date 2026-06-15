@@ -663,6 +663,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   const seriesArr = [];
   const seriesMap = {};
   const labelMap  = {};   // ccy → { range } pour mise à jour en place
+  const _hiddenCcy = new Set();   // devises masquées via la légende → badge + ligne cachés, et le RESTENT (update/declutter ne les ré-affichent pas)
 
   // Échelle INSTITUTIONNELLE (façon DTP) : force ×100 → 0.11 devient 11,86. Compression UNIQUEMENT si extrême.
   function computeScale(d) {
@@ -727,8 +728,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
     labelMap[ccy]  = { range, value: lastV, hexStr, hexColor };
 
     // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit)
-    series.events.on('hidden', () => { try { range.get('label')?.set('forceHidden', true);  range.get('grid')?.set('forceHidden', true);  } catch {} });
-    series.events.on('shown',  () => { try { range.get('label')?.set('forceHidden', false); range.get('grid')?.set('forceHidden', false); } catch {} });
+    series.events.on('hidden', () => { _hiddenCcy.add(ccy); try { range.get('label')?.setAll({ forceHidden: true, visible: false });  range.get('grid')?.set('forceHidden', true);  } catch {} });
+    series.events.on('shown',  () => { _hiddenCcy.delete(ccy); try { range.get('label')?.setAll({ forceHidden: false, visible: true }); range.get('grid')?.set('forceHidden', false); } catch {} });
 
     // Mode « paire » : on masque d'emblée les devises hors-paire (courbe + badge). La légende les
     // conserve (grisées, re-cliquables), exactement la référence pro.
@@ -788,7 +789,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       if (min == null || max == null || !h || max === min) return;
       const GAP = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas
-      const arr = Object.entries(labelMap).map(([ccy, o]) => {
+      const arr = Object.entries(labelMap).filter(([ccy]) => !_hiddenCcy.has(ccy)).map(([ccy, o]) => {
         const v = o.value != null ? o.value : 0;
         const px = (max - v) / (max - min) * h;
         return { ccy, o, basePx: px, px };
@@ -828,6 +829,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
         lbl.value = lv;
         try { lbl.range.set('value', lv); } catch {}
         try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','))); } catch {}
+        // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update
+        if (_hiddenCcy.has(ccy)) { try { lbl.range.get('label')?.setAll({ forceHidden: true, visible: false }); lbl.range.get('grid')?.set('forceHidden', true); } catch {} }
       }
     }
     setTimeout(declutter, 60);   // recalibrer l'anti-collision après mise à jour
