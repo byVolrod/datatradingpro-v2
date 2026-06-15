@@ -5926,7 +5926,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v14-recap';   // v14 : nouvel indicateur « Weekly Recap » (synthèse DTP de la semaine écoulée : Weekly Market Recap + Global Economic Weekly, pairs BUY/SELL + analyse par devise) + v13d (bande 0.25) + v13c (calendrier TV) + v13 (prompt directionnel) ; bump = régén au boot
+const BIAS_VER = 'v14b-weighted';   // v14b : Overall PONDÉRÉ (Weekly Recap 2.5 + Fundamental 2 + Monetary 1.5 priment sur le positionnement) + v14 (indicateur Weekly Recap) + v13d (bande 0.25) + v13c (calendrier TV) + v13 (prompt directionnel) ; bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -6307,12 +6307,17 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   // On les AFFICHE comme lignes (épuré) mais on NE les inclut PAS dans le Overall, sinon le
   // Overall dériverait en continu et contredirait le narratif (généré périodiquement). Le Overall
   // reste donc calé sur les indicateurs STABLES (hebdo/mensuels) → cohérence narratif ↔ matrice garantie.
+  // PONDÉRATION (demande utilisateur) : NOTRE analyse prime sur le positionnement spéculatif →
+  // Weekly Recap 2.5 (synthèse DTP), Fundamental 2 (données macro publiées), Monetary 1.5 (politique CB),
+  // le reste 1 (Bank Overview, Hedge Fund/COT, Retail, Trend, Seasonality). Overall = moyenne pondérée.
+  const SB_W = { weeklyRecap: 2.5, fundamental: 2, monetary: 1.5, bankOverview: 1, hedgeFund: 1, retail: 1 };
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
-    const vals = SB_GEM_ROWS.map(r => (gem[r.key] ? gem[r.key][c] : null));
-    vals.push(trend[c]);
-    vals.push(seasonality[c]);
-    conclusion[c] = concludeBias(vals);
+    const vals = [], wts = [];
+    SB_GEM_ROWS.forEach(r => { vals.push(gem[r.key] ? gem[r.key][c] : null); wts.push(SB_W[r.key] != null ? SB_W[r.key] : 1); });
+    vals.push(trend[c]); wts.push(1);
+    vals.push(seasonality[c]); wts.push(1);
+    conclusion[c] = concludeBias(vals, wts);
   });
 
   // Ordre d'affichage (aligné pro) : Fundamental, Bank Overview, Technical, Sentiment,
