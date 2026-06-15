@@ -5926,7 +5926,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v15-audit';   // v15 : AUDIT IA (2e passe « contrôleur » vérifie chaque biais vs la semaine écoulée + corrige les contradictions) + v14b (Overall pondéré) + v14 (indicateur Weekly Recap) + v13d (bande 0.25) + v13c (calendrier TV) + v13 (prompt directionnel) ; bump = régén au boot
+const BIAS_VER = 'v15b-audit';   // v15b : AUDIT IA garde-fou (respecte la méthodo pondérée, COT secondaire, plafond 2 corrections sinon advisory — fini le re-jugement 8/8) + v14b (Overall pondéré) + v14 (indicateur Weekly Recap) + v13d (bande 0.25) + v13c (calendrier TV) + v13 (prompt directionnel) ; bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -6165,21 +6165,27 @@ function _sbFillNarrative(bias) {
   return Object.assign({}, bias, { narrative });   // COPIE → ne mute pas bias.narrative (qui reste IA-seul)
 }
 
-// ── AUDIT IA du Smart Bias : seconde passe « contrôleur » qui vérifie que chaque biais Overall est
-//    JUSTIFIÉ par les vraies données de la semaine écoulée, et CORRIGE les contradictions flagrantes.
-//    Conservateur (ne change que les contradictions nettes) → mute `conclusion` en place + renvoie le
-//    détail par devise { ok | from/to, reason }. Indépendant du calcul déterministe (c'est un garde-fou).
+// ── AUDIT IA du Smart Bias : garde-fou (PAS un re-calcul). Il VÉRIFIE que chaque biais Overall est
+//    cohérent avec ce qui s'est RÉELLEMENT passé la semaine écoulée et ne corrige QUE les contradictions
+//    flagrantes. Il DOIT respecter la méthodologie pondérée (notre Weekly Recap + macro publiée priment ;
+//    le COT = positionnement, souvent CONTRARIAN, signal SECONDAIRE → ne jamais flipper un biais juste
+//    parce que le COT diverge). Plafond ANTI-RE-JUGEMENT : s'il veut changer >2 devises, c'est qu'il
+//    re-juge au lieu d'auditer → on n'applique RIEN (biais pondérés conservés) et ses avis = ADVISORY.
 const _SB_VALID_BIAS = ['Very Bullish', 'Bullish', 'Weak Bullish', 'Neutral', 'Weak Bearish', 'Bearish', 'Very Bearish'];
+const _SB_AUDIT_MAX_CORR = 2;
 async function _sbVerifyBias(conclusion, ctxLines) {
   const dataBlock = (ctxLines || []).filter(Boolean).join('\n').slice(0, 3500);
   if (!dataBlock) return null;
   const cur = SB_CURRENCIES.map(c => `${c}=${conclusion[c] || 'Neutral'}`).join(', ');
-  const prompt = `You are an FX bias AUDITOR. A weekly "Smart Bias" (Overall per currency, for the WEEK AHEAD, derived from the ELAPSED week's data) was computed below. Verify each currency's bias is JUSTIFIED by that data, and CORRECT only the clear contradictions (e.g. labeled Bullish while the elapsed-week data is clearly bearish, or the reverse).
-Be CONSERVATIVE: if the bias is defensible OR the data is genuinely mixed, CONFIRM it (ok:true, keep the same value). Only flag a real contradiction. Allowed values: ${_SB_VALID_BIAS.map(v => '"' + v + '"').join(', ')}.
+  const prompt = `You are an FX bias AUDITOR (a guard-rail, NOT a re-calculator). Below is a computed weekly "Smart Bias" and the elapsed-week data it was built from.
+
+METHODOLOGY you MUST respect (do NOT re-weight): this bias DELIBERATELY prioritises what ACTUALLY HAPPENED last week — DTP's own Weekly Recap (price action) + the published macro data (calendar actual-vs-forecast) — OVER raw speculative positioning. COT is POSITIONING, often CONTRARIAN, a SECONDARY signal. NEVER flip a bias merely because COT disagrees.
+
+Your job: CONFIRM each currency's bias (ok:true) UNLESS it clearly CONTRADICTS what actually happened (e.g. labeled Bullish while the currency clearly WEAKENED last week per the recap/price action and the macro misses). Default strongly to ok:true. Flag at most the 1-2 MOST egregious contradictions; everything else MUST be ok:true. Allowed values: ${_SB_VALID_BIAS.map(v => '"' + v + '"').join(', ')}.
 
 COMPUTED BIAS: ${cur}
 
-ELAPSED-WEEK REAL DATA (COT positioning · bank research · calendar actual-vs-forecast · retail crowd · risk regime · DTP weekly recaps):
+ELAPSED-WEEK DATA (DTP weekly recaps = price action · calendar actual-vs-forecast · bank research · risk regime · COT positioning [secondary] · retail crowd):
 ${dataBlock}
 
 Return ONLY JSON, one entry per currency: {"USD":{"ok":true,"corrected":"<same or fixed bias>","reason":"<≤12 mots EN FRANÇAIS>"}, ...all 8...}.`;
@@ -6191,20 +6197,23 @@ Return ONLY JSON, one entry per currency: {"USD":{"ok":true,"corrected":"<same o
     if (m) v = JSON.parse(m[0]);
   } catch (e) { console.warn('[SmartBias] audit IA (appel) échec:', e.message); return null; }
   if (!v || typeof v !== 'object') return null;
-  const out = {}; let nCorr = 0;
+  const out = {}, corrections = [];
   for (const c of SB_CURRENCIES) {
     const r = v[c]; if (!r || typeof r !== 'object') continue;
     const corrected = _SB_VALID_BIAS.includes(r.corrected) ? r.corrected : null;
     const reason = String(r.reason || '').replace(/\s+/g, ' ').trim().slice(0, 110);
-    if (r.ok === false && corrected && corrected !== conclusion[c]) {
-      out[c] = { from: conclusion[c], to: corrected, reason };
-      conclusion[c] = corrected;   // ← l'audit IA corrige la conclusion (garde-fou anti-aberration)
-      nCorr++;
-    } else {
-      out[c] = { ok: true, reason };
-    }
+    if (r.ok === false && corrected && corrected !== conclusion[c]) corrections.push({ c, from: conclusion[c], to: corrected, reason });
+    else out[c] = { ok: true, reason };
   }
-  console.log(`[SmartBias] audit IA : ${nCorr} correction(s)/8 — ${SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' ')}`);
+  // PLAFOND anti-re-jugement : un audit sain corrige ≤2 aberrations. Au-delà, l'IA re-juge (souvent
+  // sur le COT) → on respecte les biais pondérés et on note ses suggestions en ADVISORY (non appliquées).
+  if (corrections.length > _SB_AUDIT_MAX_CORR) {
+    console.warn(`[SmartBias] audit IA NON appliqué (${corrections.length}/8 = re-jugement, pas un audit) → biais pondérés conservés ; suggestions notées en advisory`);
+    for (const k of corrections) out[k.c] = { ok: false, advisory: true, suggested: k.to, reason: k.reason };
+    return out;
+  }
+  for (const k of corrections) { conclusion[k.c] = k.to; out[k.c] = { from: k.from, to: k.to, reason: k.reason }; }   // ≤2 → on applique les vraies corrections
+  console.log(`[SmartBias] audit IA : ${corrections.length} correction(s) appliquée(s) — ${SB_CURRENCIES.map(c => c + '=' + conclusion[c]).join(' ')}`);
   return out;
 }
 
