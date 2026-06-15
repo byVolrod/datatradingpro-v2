@@ -4506,27 +4506,37 @@ function _brFixImages(root) {
   });
 }
 
-// PDF natif (BlackRock weekly commentary…) : on affiche le VRAI PDF distant dans un iframe
-// (barre Ouvrir/Télécharger + repli lien). Aucune extraction serveur, aucun AI Insights (le
-// serveur ne peut pas lire le PDF — BlackRock est derrière Akamai ; c'est le navigateur de
-// l'utilisateur qui charge le PDF directement depuis blackrock.com).
-function _brShowNativePdf(item) {
+// URL du PDF servi par DTP (proxy même-origine) → contourne X-Frame-Options des PDF distants
+// (ex. ING Think renvoie SAMEORIGIN). On affiche TOUJOURS le PDF via ce proxy.
+function _brPdfProxy(u) { return '/api/pdf-proxy?url=' + encodeURIComponent(u || ''); }
+// PDF ING Think dérivé de l'URL d'article : /articles/<slug>/ → /downloads/pdf/article/<slug>
+function _ingPdfUrl(u) {
+  try {
+    const m = String(u || '').match(/think\.ing\.com\/(articles|snaps|opinions|bundles)\/([^/?#]+)/i);
+    if (!m) return '';
+    const t = { articles: 'article', snaps: 'snap', opinions: 'opinion', bundles: 'bundle' }[m[1].toLowerCase()] || 'article';
+    return 'https://think.ing.com/downloads/pdf/' + t + '/' + m[2];
+  } catch { return ''; }
+}
+// Affiche le VRAI PDF de la banque TEL QUEL (proxifié, embarqué) — ZÉRO restructuration IA.
+// Le carrousel AI Insights reste géré par renderBrReader (au-dessus, conservé) façon PMT.
+function _brShowNativePdf(item, pdfUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return;
   content.classList.add('br-rcontent--pdf');
-  const brIns = document.getElementById('br-ai-insights'); if (brIns) brIns.innerHTML = '';
-  const brBtn = document.getElementById('br-insights-btn'); if (brBtn) brBtn.style.display = 'none';
   const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
   const inst = _instBadge(item);
-  const safe = (item.url || '').replace(/"/g, '%22');
+  const raw     = pdfUrl || item.url || '';
+  const rawAttr = raw.replace(/"/g, '%22');
+  const proxied = _brPdfProxy(raw);
   const ttl  = (item.title || 'PDF').replace(/"/g, '');
   content.innerHTML =
     `<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">📄 ${inst}${dateStr ? ' · ' + dateStr : ''}</span>` +
     `<span class="br-pdf-bar-actions">` +
-    `<a class="br-pdf-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir ↗</a>` +
-    `<a class="br-pdf-btn" href="${safe}" download>⬇ Télécharger</a></span></div>` +
-    `<iframe class="br-pdf-frame" src="${safe}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>` +
-    `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le PDF ne s'affiche pas ? <a href="${safe}" target="_blank" rel="noopener" style="color:#ff7a00">Ouvrez-le dans un nouvel onglet ↗</a></div>`;
+    `<a class="br-pdf-btn" href="${rawAttr}" target="_blank" rel="noopener">Ouvrir ↗</a>` +
+    `<a class="br-pdf-btn" href="${proxied}" download>⬇ Télécharger</a></span></div>` +
+    `<iframe class="br-pdf-frame" src="${proxied}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>` +
+    `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le PDF ne s'affiche pas ? <a href="${rawAttr}" target="_blank" rel="noopener" style="color:#ff7a00">Ouvrez-le dans un nouvel onglet ↗</a></div>`;
 }
 
 function renderBrReader(item) {
@@ -4542,21 +4552,31 @@ function renderBrReader(item) {
   if (titleEl) titleEl.textContent = _mdStrip(item.title);
   if (badge)   badge.textContent   = _instBadge(item);
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
-  // ── PDF natif (BlackRock weekly commentary…) : embarque le VRAI PDF, pas d'extraction HTML/IA ──
-  if (item && (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || ''))) return _brShowNativePdf(item);
-  if (content) { content.classList.remove('br-rcontent--pdf'); content.innerHTML = dtpLoader('Chargement de l’article…'); }
+  if (content) content.classList.remove('br-rcontent--pdf');
 
-  // ── AI Insights (comme l'onglet Analyst) ──
+  // ── AI Insights (carrousel au-dessus, TOUJOURS — y compris au-dessus d'un PDF, façon PMT) ──
   let brIns = document.getElementById('br-ai-insights');
   if (!brIns && content) {
     brIns = document.createElement('div');
     brIns.id = 'br-ai-insights';
     content.parentNode.insertBefore(brIns, content);
   }
-  if (brIns) { brIns.innerHTML = ''; _loadAIInsights(item, brIns); }
-  // Bouton Afficher/Masquer Insights
   const brBtn = document.getElementById('br-insights-btn');
   if (brBtn) { brBtn.style.display = ''; brBtn.innerHTML = `${_EYE_OFF} Masquer Insights`; brBtn.onclick = () => aiInsToggle(brBtn, 'br-ai-insights'); }
+
+  // ── VRAI PDF de la banque, affiché BRUT (proxifié) — ZÉRO restructuration IA : rapport déjà en .pdf
+  //    (BlackRock, Danske…) OU article ING Think (PDF dérivé de l'URL). Insights conservés au-dessus.
+  let _realPdf = '';
+  if (item && (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || ''))) _realPdf = item.url;
+  else if (item && item._source === 'ing-think') _realPdf = _ingPdfUrl(item.url);
+  if (_realPdf) {
+    _brShowNativePdf(item, _realPdf);
+    if (brIns) { brIns.innerHTML = ''; _loadAIInsights({ id: item.id, headline: item.title, description: item.description || '' }, brIns); }
+    return;
+  }
+
+  if (content) content.innerHTML = dtpLoader('Chargement de l’article…');
+  if (brIns) { brIns.innerHTML = ''; _loadAIInsights(item, brIns); }
 
   const dateStr = item.timestamp
     ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -4586,8 +4606,9 @@ function renderBrReader(item) {
       // Page "vitrine"/teaser détectée côté serveur : le vrai rapport est un PDF intégré → on affiche
       // le VRAI PDF natif (jamais un faux résumé IA généré depuis un texte promotionnel). Cf. QCAM.
       if (data && data.pdfUrl) {
-        if (brIns && brIns.parentNode) brIns.remove();   // pas d'AI Insights génériques pour un vrai PDF
-        return _brShowNativePdf({ ...item, url: data.pdfUrl, _pdf: true });
+        // VRAI PDF détecté côté serveur (ING « download-link », teaser à PDF intégré…) → affichage BRUT
+        // proxifié. Le carrousel Insights (déjà chargé au-dessus) est CONSERVÉ (pas de suppression).
+        return _brShowNativePdf(item, data.pdfUrl);
       }
       const _inst = _instBadge(item);
       const isIngDoc = _inst === 'ING';
@@ -4857,7 +4878,7 @@ function _brFinalizeReader(item, brIns, noContent) {
     return;
   }
   if (brIns && _full.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _full }, brIns);
-  _brRenderAsPdf(item);
+  // Plus de génération jsPDF : un rapport SANS vrai PDF s'affiche en HTML propre (jamais un faux PDF reconstruit).
 }
 
 function arlibShowList() {
