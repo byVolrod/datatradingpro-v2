@@ -2280,7 +2280,28 @@ async function _renderPdfInner(url) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1180, height: 1500 });
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 35000 });
+    // Cookies/consent + overlays : cliquer un bouton d'acceptation courant, puis retirer les bannières
+    // et masquer les overlays fixes (sinon le PDF capture le popup cookies au lieu du rapport — cf. Nordea/HSBC).
+    await page.evaluate(() => { try {
+      const RX = /^(accept all|accept|tout accepter|accepter|j'accepte|agree|i agree|ok|got it|continue|reject all|necessary only)$/i;
+      for (const b of document.querySelectorAll('button,a[role="button"]')) { const t = (b.innerText || b.textContent || '').trim(); if (RX.test(t)) { try { b.click(); } catch {} break; } }
+    } catch {} }).catch(() => {});
+    await new Promise(r => setTimeout(r, 350));
+    await page.evaluate(() => { try {
+      const KILL = ['cookie', 'consent', 'onetrust', 'cookiebot', 'gdpr', 'cc-window', 'truste'];
+      document.querySelectorAll('div,section,aside,dialog,iframe').forEach(el => {
+        const id = String(el.id || '').toLowerCase();
+        const cn = el.className; const cls = String(cn && cn.baseVal !== undefined ? cn.baseVal : (cn || '')).toLowerCase();
+        const hay = id + ' ' + cls;
+        if (KILL.some(k => hay.includes(k))) { try { el.remove(); } catch {} return; }
+        const st = getComputedStyle(el);
+        if ((st.position === 'fixed' || st.position === 'sticky') && (parseInt(st.zIndex) || 0) >= 1000) el.style.display = 'none';
+      });
+      const de = document.documentElement; if (de) de.style.overflow = 'visible';
+      if (document.body) document.body.style.overflow = 'visible';
+    } catch {} }).catch(() => {});
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
+    await new Promise(r => setTimeout(r, 250));
     const out = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
     return Buffer.from(out);
   } finally {
@@ -3946,8 +3967,7 @@ app.get('/api/bank-research-content', async (req, res) => {
     let _realPdf = '', _printUrl = '';
     try {
       const _dl = $('a[data-cy="download-link"]').attr('href')
-               || $('a[href*="/downloads/pdf/"]').attr('href')
-               || $('a[href$=".pdf"]').attr('href') || '';
+               || $('a[href*="/downloads/pdf/"]').attr('href') || '';
       if (_dl) _realPdf = new URL(_dl, _origin).href;
       // Page imprimable (MUFG « PrintPage », variantes printview) → meilleure cible de rendu PDF que l'article
       const _pp = $('a[href*="/umbraco/surface/download/PrintPage/"]').attr('href')
