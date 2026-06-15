@@ -3197,12 +3197,15 @@ async function _fetchSebInto(merged, cutoff, UA) {
         if (ts < cutoff) continue;
         const link = `https://research.sebgroup.com/macro-ficc/reports/${rep.articleId}`;
         const id = 'br-' + Buffer.from('seb-' + rep.articleId).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
-        if (merged.has(id)) continue;   // dédoublonnage (un article peut être dans plusieurs asset classes)
+        // PDF natif SEB : l'API expose rep.attachment.fileName (PDF public) → affiché BRUT comme les autres.
+        const _sebPdf = (rep.attachment && rep.attachment.fileExtension === 'pdf' && typeof rep.attachment.fileName === 'string' && /^https?:\/\//.test(rep.attachment.fileName)) ? rep.attachment.fileName : '';
+        if (merged.has(id)) {   // déjà présent (autre asset class OU cache persistant) → on met juste _pdfUrl à jour
+          const _ex = merged.get(id); if (_ex && _sebPdf && _ex._pdfUrl !== _sebPdf) _ex._pdfUrl = _sebPdf;
+          continue;
+        }
         const body = _cleanSebText(rep.heading, rep.text);
         if (body.replace(/<[^>]*>/g, '').trim().length < 60) continue;
         const desc = String(rep.ingress || rep.text || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
-        // PDF natif SEB : l'API expose rep.attachment.fileName (PDF public) → affiché BRUT comme les autres.
-        const _sebPdf = (rep.attachment && rep.attachment.fileExtension === 'pdf' && typeof rep.attachment.fileName === 'string' && /^https?:\/\//.test(rep.attachment.fileName)) ? rep.attachment.fileName : '';
         merged.set(id, {
           id, title, url: link, timestamp: ts, _pdfUrl: _sebPdf,
           // displayTags de SEB = OBJETS → on extrait la chaîne (sinon « [object Object] » en tag).
