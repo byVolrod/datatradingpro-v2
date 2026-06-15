@@ -4499,6 +4499,7 @@ const _BANK_LOCAL_LOGO = {
   Nordea:    '/assets/images/banks/Nordea.png',      // icône bleue Nordea (fond blanc keyé)
   'Lloyds Bank': '/assets/images/banks/Lloyds.png',  // cheval blanc Lloyds Bank (recoloré)
   KBC:       '/assets/images/banks/KBC.svg',         // logo KBC (cercle bleu + KBC blanc) — SVG
+  StanChart: '/assets/images/banks/StanChart.png',   // logo Standard Chartered (téléchargé en local)
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
