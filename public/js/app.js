@@ -4372,7 +4372,7 @@ function renderBrList() {
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
 
     const card = document.createElement('div');
-    card.className = 'br-card' + (isBrRead(item.id) ? ' br-card--read' : '');
+    card.className = 'br-card' + (isBrRead(item.id) ? ' br-card--read' : '') + (_instBadge(item) === 'MUFG' ? ' br-card--mufg' : '');
     card.dataset.id = item.id;
     card.innerHTML = `
       <div class="br-card-icon">
