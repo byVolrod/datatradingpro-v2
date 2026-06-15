@@ -739,6 +739,9 @@ app.get('/api/admin/mail-test', requireAdmin, async (req, res) => {
 // Calcule la date d'expiration à partir d'une durée choisie par l'admin
 function computeExpiry({ duration, expiresAt, startDate }) {
   if (duration === 'unlimited') return null;                 // abonnement illimité
+  // « Marquer comme expiré » : échéance ~36 h dans le passé → AU-DELÀ des 24 h de grâce (auth.js)
+  // → l'accès est immédiatement bloqué à la connexion ET le badge admin passe « Expiré ».
+  if (duration === 'expired')   return new Date(Date.now() - 36 * 60 * 60 * 1000).toISOString();
   if (duration === 'custom')    return expiresAt ? new Date(expiresAt).toISOString() : null;
   // Offres en SEMAINES (ex. essai gratuit) : "1week", "2week"…
   const wk = /^(\d+)\s*(?:week|weeks|sem|semaine|semaines)$/i.exec(duration);

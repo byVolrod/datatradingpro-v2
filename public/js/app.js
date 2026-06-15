@@ -7471,8 +7471,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const host = document.getElementById('jr-toolbar'); if (!host) return;
     host.innerHTML =
       '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (CSV) / Excel — remplace le gabarit DTP par TON journal">&#8593; Importer (Excel / Notion)</button>'
-      + '<input type="file" id="jr-import-file" accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values" style="display:none">'
+      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) / Excel — remplace le gabarit DTP par TON journal">&#8593; Importer (Excel / Notion)</button>'
+      + '<input type="file" id="jr-import-file" accept=".zip,.csv,.tsv,.txt,application/zip,application/x-zip-compressed,text/csv,text/tab-separated-values" style="display:none">'
       + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">&#9881; Propriétés</button>'
       + '<span class="jr-tb-spacer"></span>'
       + '<span class="jr-tb-mode ' + (_jrCustom ? 'jr-tb-mode--perso' : '') + '">' + (_jrCustom ? '● Journal perso' : '○ Gabarit DTP') + '</span>';
@@ -7493,7 +7493,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const cols = _jrColsVisible();
     const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
     const head = '<thead><tr>' + cols.map(c => '<th class="jr-th" draggable="true" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
-    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + (cols.length + 1) + '">Aucun trade — clique « + Nouveau » ou importe ton journal Notion (CSV).</td></tr></tbody>'; return; }
+    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + (cols.length + 1) + '">Aucun trade — clique « + Nouveau » ou importe ton export Notion (.zip ou CSV).</td></tr></tbody>'; return; }
     tbl.innerHTML = head + '<tbody>' + L.map(e =>
       '<tr data-id="' + _esc(e.id) + '">'
       + cols.map(c => '<td class="jr-c jr-c--' + c.type + '" data-k="' + c.k + '">' + _jrCell(e, c) + '</td>').join('')
@@ -7910,44 +7910,109 @@ document.addEventListener('DOMContentLoaded', ()=>{
     idx.pl = dol >= 0 ? dol : norm.findIndex(h => ['pl', 'pnl', 'profit', 'gain', 'profitloss', 'net', 'netpl', 'pleur', 'gainperte'].includes(h));
     return idx;
   }
+  // Ingestion d'un texte CSV/TSV (export Notion ou Excel) → trades du journal. Renvoie le nb ajouté.
+  function _jrIngestCsvText(text) {
+    const rows = _jrCsvRows(text);
+    if (rows.length < 2) { _jrStatus('Fichier vide ou illisible'); return 0; }
+    const idx = _jrMapHeader(rows[0]);
+    if (idx.pair < 0) { _jrStatus('Colonne « paire » introuvable (attendu : pair / paire / symbol…)'); return 0; }
+    let added = 0;
+    for (let r = 1; r < rows.length; r++) {
+      const row = rows[r], get = k => idx[k] >= 0 ? String(row[idx[k]] || '').trim() : '';
+      const pair = get('pair').toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12);
+      if (pair.length < 2) continue;
+      const dir = /sell|short|vente|sld|sale/.test(_jrNorm(get('dir'))) ? 'SELL' : 'BUY';
+      let ts = _jrParseDate(get('date')); if (ts == null) ts = Date.now();   // dates FR Notion (« 6 janvier 2026 ») + ISO
+      const tag = k => idx[k] >= 0 ? String(row[idx[k]] || '').split(/[,;|]+/).map(s => s.trim()).filter(Boolean).slice(0, 12) : [];
+      _jrList.unshift({
+        id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + r,
+        ts, pair, dir,
+        lots: _jrParseNum(get('lots')), entry: _jrParseNum(get('entry')), exit: _jrParseNum(get('exit')),
+        pl: _jrParseNum(get('pl')), note: get('note').slice(0, 300),
+        // champs riches du journal Notion → sélecteurs simples (result/session/grade/account) + multi-tags (conf/entryT/err/setup/tf/sl)
+        result: get('result').slice(0, 12), session: get('session').slice(0, 24),
+        grade: get('grade').slice(0, 8), account: get('account').slice(0, 32),
+        fonda: _jrParseNum(get('fonda')), rr: _jrParseNum(get('rr')), risk: _jrParseNum(get('risk')),
+        r: _jrParseNum(get('r')), pnlPct: _jrParseNum(get('pnlPct')), equity: _jrParseNum(get('equity')),
+        conf: tag('conf'), entryT: tag('entryT'), err: tag('err'), setup: tag('setup'), tf: tag('tf'), sl: tag('sl'),
+      });
+      added++;
+    }
+    if (_jrList.length > 500) _jrList = _jrList.slice(0, 500);
+    if (added) _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
+    _jrEdit = null; _jrRender();
+    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓ — journal personnalisé'); }
+    else _jrStatus('Aucune ligne valide trouvée');
+    return added;
+  }
+
+  // Dézippe un export Notion (.zip) côté client, 0 dépendance : parse le central directory ZIP et
+  // inflate les entrées DEFLATE via DecompressionStream natif (Electron/Chrome). Renvoie le texte du
+  // meilleur CSV (priorité au « _all.csv » de Notion qui contient TOUTES les lignes, sinon le plus gros).
+  async function _jrUnzipBestCsv(buf) {
+    const dv = new DataView(buf), u8 = new Uint8Array(buf), n = buf.byteLength;
+    // 1) End Of Central Directory (signature 0x06054b50), recherché depuis la fin.
+    let eocd = -1;
+    for (let i = n - 22; i >= 0 && i >= n - 22 - 65536; i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
+    if (eocd < 0) throw new Error('ZIP invalide (EOCD introuvable)');
+    const cdCount = dv.getUint16(eocd + 10, true);
+    let off = dv.getUint32(eocd + 16, true);   // début du central directory
+    const entries = [];
+    for (let k = 0; k < cdCount && off + 46 <= n; k++) {
+      if (dv.getUint32(off, true) !== 0x02014b50) break;
+      const method  = dv.getUint16(off + 10, true);
+      const cSize   = dv.getUint32(off + 20, true);
+      const uSize   = dv.getUint32(off + 24, true);
+      const nameLen = dv.getUint16(off + 28, true);
+      const extLen  = dv.getUint16(off + 30, true);
+      const cmtLen  = dv.getUint16(off + 32, true);
+      const lhOff   = dv.getUint32(off + 42, true);
+      const name    = new TextDecoder('utf-8').decode(u8.subarray(off + 46, off + 46 + nameLen));
+      entries.push({ name, method, cSize, uSize, lhOff });
+      off += 46 + nameLen + extLen + cmtLen;
+    }
+    const csvs = entries.filter(e => /\.csv$/i.test(e.name));
+    if (!csvs.length) throw new Error('aucun .csv dans le .zip');
+    // Notion : « <Base> <id>_all.csv » contient toutes les lignes (sous-pages incluses) → priorité.
+    csvs.sort((a, b) => (/_all\.csv$/i.test(b.name) - /_all\.csv$/i.test(a.name)) || (b.uSize - a.uSize));
+    const e = csvs[0];
+    // Local file header : recalculer le décalage des données (nameLen/extraLen du LOCAL header).
+    if (dv.getUint32(e.lhOff, true) !== 0x04034b50) throw new Error('en-tête local ZIP invalide');
+    const lNameLen = dv.getUint16(e.lhOff + 26, true), lExtLen = dv.getUint16(e.lhOff + 28, true);
+    const dataStart = e.lhOff + 30 + lNameLen + lExtLen;
+    const comp = u8.subarray(dataStart, dataStart + e.cSize);
+    let out;
+    if (e.method === 0) { out = comp; }                                   // STORED (non compressé)
+    else if (e.method === 8) {                                            // DEFLATE
+      if (typeof DecompressionStream === 'undefined') throw new Error('décompression non supportée par ce navigateur');
+      const stream = new Blob([comp]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+      out = new Uint8Array(await new Response(stream).arrayBuffer());
+    } else throw new Error('compression ZIP non supportée (méthode ' + e.method + ')');
+    return new TextDecoder('utf-8').decode(out).replace(/^﻿/, '');   // strip BOM
+  }
+
   function _jrImportFile(ev) {
     const file = ev.target.files && ev.target.files[0]; if (!file) return;
     if (!_jrList) _jrList = [];
+    const isZip = /\.zip$/i.test(file.name) || /zip/i.test(file.type || '');
+    if (isZip) {
+      _jrStatus('Lecture de l\'export Notion (.zip)…');
+      const reader = new FileReader();
+      reader.onload = async function (e) {
+        try {
+          const text = await _jrUnzipBestCsv(e.target.result);
+          _jrIngestCsvText(text);
+        } catch (err) { _jrStatus('Échec import .zip (' + (err && err.message || err) + ')'); }
+      };
+      reader.onerror = function () { _jrStatus('Lecture du fichier impossible'); };
+      reader.readAsArrayBuffer(file);
+      ev.target.value = '';
+      return;
+    }
     const reader = new FileReader();
     reader.onload = function (e) {
-      try {
-        const rows = _jrCsvRows(e.target.result);
-        if (rows.length < 2) { _jrStatus('Fichier vide ou illisible'); return; }
-        const idx = _jrMapHeader(rows[0]);
-        if (idx.pair < 0) { _jrStatus('Colonne « paire » introuvable (attendu : pair / paire / symbol…)'); return; }
-        let added = 0;
-        for (let r = 1; r < rows.length; r++) {
-          const row = rows[r], get = k => idx[k] >= 0 ? String(row[idx[k]] || '').trim() : '';
-          const pair = get('pair').toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12);
-          if (pair.length < 2) continue;
-          const dir = /sell|short|vente|sld|sale/.test(_jrNorm(get('dir'))) ? 'SELL' : 'BUY';
-          let ts = _jrParseDate(get('date')); if (ts == null) ts = Date.now();   // dates FR Notion (« 6 janvier 2026 ») + ISO
-          const tag = k => idx[k] >= 0 ? String(row[idx[k]] || '').split(/[,;|]+/).map(s => s.trim()).filter(Boolean).slice(0, 12) : [];
-          _jrList.unshift({
-            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + r,
-            ts, pair, dir,
-            lots: _jrParseNum(get('lots')), entry: _jrParseNum(get('entry')), exit: _jrParseNum(get('exit')),
-            pl: _jrParseNum(get('pl')), note: get('note').slice(0, 300),
-            // champs riches du journal Notion → sélecteurs simples (result/session/grade/account) + multi-tags (conf/entryT/err/setup/tf/sl)
-            result: get('result').slice(0, 12), session: get('session').slice(0, 24),
-            grade: get('grade').slice(0, 8), account: get('account').slice(0, 32),
-            fonda: _jrParseNum(get('fonda')), rr: _jrParseNum(get('rr')), risk: _jrParseNum(get('risk')),
-            r: _jrParseNum(get('r')), pnlPct: _jrParseNum(get('pnlPct')), equity: _jrParseNum(get('equity')),
-            conf: tag('conf'), entryT: tag('entryT'), err: tag('err'), setup: tag('setup'), tf: tag('tf'), sl: tag('sl'),
-          });
-          added++;
-        }
-        if (_jrList.length > 500) _jrList = _jrList.slice(0, 500);
-        if (added) _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
-        _jrEdit = null; _jrRender();
-        if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓ — journal personnalisé'); }
-        else _jrStatus('Aucune ligne valide trouvée');
-      } catch (err) { _jrStatus('Échec de l\'import (' + (err && err.message || err) + ')'); }
+      try { _jrIngestCsvText(e.target.result); }
+      catch (err) { _jrStatus('Échec de l\'import (' + (err && err.message || err) + ')'); }
     };
     reader.readAsText(file);
     ev.target.value = '';
@@ -8067,7 +8132,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
-    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucun trade — importe ton journal Notion (CSV) ou ajoute des trades pour voir les statistiques.</div>'; return; }
+    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucun trade — importe ton export Notion (.zip ou CSV) ou ajoute des trades pour voir les statistiques.</div>'; return; }
     const sum = a => a.reduce((x, y) => x + y, 0);
     const rs = L.map(_jrRof).filter(r => r != null), wins = rs.filter(r => r > 0), losses = rs.filter(r => r < 0);
     const totR = sum(rs), totD = sum(L.map(e => _jrN(e.pl) || 0));
