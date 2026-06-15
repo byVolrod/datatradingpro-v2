@@ -1657,7 +1657,6 @@ function buildSessionMap() {
       panY:         'none',
       wheelY:       'none',
       wheelX:       'none',
-      maxPanOut:    0,
       minZoomLevel: 1, maxZoomLevel: 1,                // verrou : on cadre une BANDE de latitude (zoomToGeoBounds) → la carte remplit la hauteur, fini le noir en bas
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
