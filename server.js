@@ -6934,6 +6934,289 @@ app.get('/api/market-snapshot', async (_req, res) => {
   } catch (e) { res.json({ groups: [], updatedAt: Date.now() }); }
 });
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// DTP EUROPEAN MARKET WRAP — news QUOTIDIENNE façon PMT « European Market Wrap » (16:00 Paris).
+// Rubriques PMT : EQUITIES · FX · FIXED · COMMODITIES (niveaux RÉELS Yahoo, % du jour) +
+// EUROPEAN DATA · NOTABLE HEADLINES · TRADE/TARIFFS · CENTRAL BANKS · GEOPOLITICS ·
+// NORTH AMERICAN DATA (synthèse IA des news du jour). Publiée dans le flux (catégorie
+// « Global News », région « Europe », pastille Info). Rendu via le chemin PRIMER (rubriques
+// en MAJUSCULES → titres orange). Idempotente par jour ; repli déterministe si l'IA échoue
+// (jamais de rapport vide). 1 appel IA/jour (éco quota).
+// ═══════════════════════════════════════════════════════════════════════════════
+const EU_WRAP_SYMS = {
+  equities: [
+    { sym: '^STOXX',     label: 'Stoxx 600' },
+    { sym: '^STOXX50E',  label: 'Euro Stoxx 50' },
+    { sym: '^GDAXI',     label: 'DAX' },
+    { sym: '^FCHI',      label: 'CAC 40' },
+    { sym: '^FTSE',      label: 'FTSE 100' },
+    { sym: 'FTSEMIB.MI', label: 'FTSE MIB' },
+    { sym: '^IBEX',      label: 'IBEX 35' },
+    { sym: '^GSPC',      label: 'S&P 500' },
+    { sym: '^IXIC',      label: 'Nasdaq' },
+    { sym: '^DJI',       label: 'Dow Jones' },
+  ],
+  fx: [
+    { sym: 'EURUSD=X', label: 'EUR/USD' },
+    { sym: 'GBPUSD=X', label: 'GBP/USD' },
+    { sym: 'USDJPY=X', label: 'USD/JPY' },
+    { sym: 'EURGBP=X', label: 'EUR/GBP' },
+    { sym: 'DX-Y.NYB', label: 'DXY' },
+  ],
+  fixed: [
+    { sym: '^TNX', label: 'US 10y', yield: true },
+    { sym: '^TYX', label: 'US 30y', yield: true },
+  ],
+  commodities: [
+    { sym: 'BZ=F', label: 'Brent' },
+    { sym: 'CL=F', label: 'WTI' },
+    { sym: 'GC=F', label: 'Gold' },
+    { sym: 'SI=F', label: 'Silver' },
+    { sym: 'HG=F', label: 'Copper' },
+    { sym: 'NG=F', label: 'Nat Gas' },
+  ],
+};
+function _wrapFmtPrice(p, label) {
+  if (p == null || !isFinite(p)) return '—';
+  if (/JPY/.test(label)) return p.toFixed(2);
+  if (Math.abs(p) >= 1000) return p.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (Math.abs(p) >= 10)   return p.toFixed(2);
+  return p.toFixed(4);
+}
+// Niveaux réels du jour (Yahoo) groupés EQUITIES/FX/FIXED/COMMODITIES. Tout symbole qui échoue
+// est simplement omis (jamais de crash) → le wrap reste robuste même si Yahoo est partiel.
+async function _wrapLevels() {
+  try { await getYFSession(); } catch {}
+  const grp = async (arr) => {
+    const out = await Promise.all((arr || []).map(async a => {
+      try {
+        const raw   = await yfFetch(a.sym, '5m', '1d');
+        const meta  = raw?.chart?.result?.[0]?.meta;
+        const price = meta?.regularMarketPrice, prev = meta?.chartPreviousClose;
+        if (price == null || prev == null) return null;
+        if (a.yield) {
+          const bp = (price - prev) * 100;
+          return `- ${a.label}: ${price.toFixed(2)}% (${bp >= 0 ? '+' : ''}${bp.toFixed(1)}bp)`;
+        }
+        const pct = (price / prev - 1) * 100;
+        return `- ${a.label}: ${_wrapFmtPrice(price, a.label)} (${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%)`;
+      } catch { return null; }
+    }));
+    return out.filter(Boolean);
+  };
+  const [eq, fx, fixed, cmd] = await Promise.all([
+    grp(EU_WRAP_SYMS.equities), grp(EU_WRAP_SYMS.fx), grp(EU_WRAP_SYMS.fixed), grp(EU_WRAP_SYMS.commodities),
+  ]);
+  return { eq, fx, fixed, cmd };
+}
+
+const EU_WRAP_SECTIONS = ['EQUITIES','FX','FIXED','COMMODITIES','EUROPEAN DATA','NOTABLE HEADLINES','TRADE/TARIFFS','CENTRAL BANKS','GEOPOLITICS','NORTH AMERICAN DATA'];
+
+// Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
+// sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
+// sont ignorées. Robuste aux markdown/numérotations/puces parasites.
+function _euWrapParse(aiText) {
+  const norm = s => String(s || '').replace(/[^a-z]/gi, '').toLowerCase();
+  const headMap = new Map(EU_WRAP_SECTIONS.map(h => [norm(h), h]));
+  const buckets = {};
+  let cur = null;
+  String(aiText || '').split(/\r?\n/).forEach(raw => {
+    let line = raw.replace(/<[^>]+>/g, '').replace(/\*+/g, '').trim();
+    if (!line) return;
+    line = line.replace(/^[-•*·]\s*/, '').replace(/^\d+[.)]\s*/, '').trim();
+    const m = line.match(/^([A-Za-z][A-Za-z /&-]{1,26}?)\s*:\s*(.*)$/);   // « HEADER » ou « HEADER: contenu »
+    const headKey = m ? norm(m[1]) : norm(line);
+    if (headMap.has(headKey) && (!m || (m[2] || '').length < 200)) {
+      cur = headMap.get(headKey);
+      buckets[cur] = buckets[cur] || [];
+      if (m && m[2]) buckets[cur].push(m[2].trim());
+      return;
+    }
+    if (cur) buckets[cur].push(line);
+  });
+  return buckets;
+}
+
+// Lead façon PMT (1re ligne, rendue en gras) construit depuis les VRAIS niveaux : « European close — Stoxx 600 …; EUR/USD …; Brent … ».
+function _euWrapLead(levels) {
+  const pick = (arr, lbl) => { const l = (arr || []).find(x => x.includes(lbl)); return l ? l.replace(/^- /, '') : null; };
+  const parts = [
+    pick(levels.eq, 'Stoxx 600') || pick(levels.eq, 'Euro Stoxx 50') || pick(levels.eq, 'DAX'),
+    pick(levels.eq, 'S&P 500'),
+    pick(levels.fx, 'EUR/USD'),
+    pick(levels.cmd, 'Brent') || pick(levels.cmd, 'Gold'),
+    pick(levels.fixed, 'US 10y'),
+  ].filter(Boolean);
+  return parts.length ? `European close — ${parts.join('; ')}.` : null;
+}
+
+function _euWrapBuild(buckets, lead) {
+  const out = [];
+  if (lead) out.push(lead);   // bullet[0] → rendu comme lead (gras) par le chemin PRIMER
+  for (const h of EU_WRAP_SECTIONS) {
+    const items = (buckets[h] || []).map(s => s.replace(/^[-•*·]\s*/, '').trim()).filter(s => s.length > 1);
+    if (!items.length) continue;
+    out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
+    items.slice(0, 6).forEach(it => out.push('- ' + it));
+  }
+  return out.join('\n');
+}
+
+// Repli déterministe (IA indisponible / vide) : rubriques marché depuis les niveaux réels + top headlines.
+function _euWrapFallback(levels, s) {
+  const b = {};
+  const strip = arr => (arr || []).map(l => l.replace(/^- /, ''));
+  if (levels.eq.length)    b['EQUITIES']    = strip(levels.eq);
+  if (levels.fx.length)    b['FX']          = strip(levels.fx);
+  if (levels.fixed.length) b['FIXED']       = strip(levels.fixed);
+  if (levels.cmd.length)   b['COMMODITIES'] = strip(levels.cmd);
+  const top = (arr, n) => (arr || []).slice(0, n).map(i => i.headline).filter(Boolean);
+  if (s.hdata.length || s.data.length) b['EUROPEAN DATA']     = top(s.hdata.length ? s.hdata : s.data, 4);
+  if (s.all.length)                    b['NOTABLE HEADLINES'] = top(s.all, 5);
+  if (s.trade.length)                  b['TRADE/TARIFFS']     = top(s.trade, 3);
+  if (s.cb.length)                     b['CENTRAL BANKS']     = top(s.cb, 4);
+  if (s.geo.length)                    b['GEOPOLITICS']       = top(s.geo, 4);
+  return b;
+}
+
+async function generateEuropeanMarketWrap(force = false) {
+  const idPrefix = 'dtp-eu-wrap-';
+  const dateKey  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).toISOString().slice(0, 10);
+  const prefix   = idPrefix + dateKey;
+  if (!force && allNews.some(i => (i.id || '').startsWith(prefix))) {
+    return allNews.find(i => (i.id || '').startsWith(prefix)) || null;
+  }
+  if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(prefix));
+
+  // Date façon PMT : « 15th June 2026 » (heure de Paris).
+  const _ord = n => { const x = ['th','st','nd','rd'], v = n % 100; return n + (x[(v - 20) % 10] || x[v] || x[0]); };
+  const pNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+  const dateStr = `${_ord(pNow.getDate())} ${_MONTHS[pNow.getMonth()]} ${pNow.getFullYear()}`;
+  const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+
+  // News du jour (≈13h glissantes), hors briefings, catégorisées comme les autres rapports DTP.
+  const now = Date.now(), cutoff = now - 13 * 60 * 60 * 1000;
+  const recent = allNews.filter(i => i.timestamp > cutoff && i.timestamp <= now && !i._briefing);
+  const CB_CATS   = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
+  const DATA_CATS = new Set(['Economic Commentary','EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data','New Zealand Data']);
+  const s = {
+    cb:    recent.filter(i => CB_CATS.has(i.category)),
+    data:  recent.filter(i => DATA_CATS.has(i.category)),
+    hdata: recent.filter(i => DATA_CATS.has(i.category) && (i.priority === 'high' || i.priority === 'urgent')),
+    geo:   recent.filter(i => i.category === 'Geopolitical'),
+    trade: recent.filter(i => i.category === 'Trade'),
+    all:   recent,
+  };
+
+  let levels = { eq: [], fx: [], fixed: [], cmd: [] };
+  try { levels = await _wrapLevels(); } catch (e) { console.error('[EUWrap] niveaux KO:', e.message); }
+
+  const summarise = (arr, n = 5) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
+  const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
+  const prompt = `You are a senior markets reporter at a prime brokerage writing the daily EUROPEAN MARKET WRAP at 16:00 (European cash close), in the concise, factual style of Newsquawk / Prime Market Terminal. Date: ${dateStr}.
+
+REAL MARKET LEVELS TODAY (use these EXACT numbers; moves are vs previous close):
+EQUITIES:\n${lv(levels.eq)}
+FX:\n${lv(levels.fx)}
+FIXED (govt bond yields, bp change):\n${lv(levels.fixed)}
+COMMODITIES:\n${lv(levels.cmd)}
+
+TODAY'S NEWSFLOW (for the narrative sections):
+CENTRAL BANKS:\n${summarise(s.cb)}
+DATA:\n${summarise(s.hdata.length ? s.hdata : s.data)}
+GEOPOLITICAL:\n${summarise(s.geo)}
+TRADE / TARIFFS:\n${summarise(s.trade)}
+OTHER HEADLINES:\n${summarise(s.all, 8)}
+
+Write the wrap with EXACTLY these section headers, each on its OWN line in ALL CAPS, with NO colon, in THIS order. Under each header put 1–4 short factual lines (one fact per line), each starting with "- ". Skip a section ONLY if there is genuinely nothing to say.
+
+EQUITIES
+FX
+FIXED
+COMMODITIES
+EUROPEAN DATA
+NOTABLE HEADLINES
+TRADE/TARIFFS
+CENTRAL BANKS
+GEOPOLITICS
+NORTH AMERICAN DATA
+
+Rules: For EQUITIES/FX/FIXED/COMMODITIES, lead with the real levels above (name the index/pair, the level and the % or bp move). For the narrative sections, summarise the newsflow factually — name banks, data prints (actual vs expected/previous), tickers, levels. Be terse and specific. No preamble, no markdown, no bold, no closing remarks. Output ONLY the section headers and their bullet lines.`;
+
+  let buckets = {};
+  try {
+    const text = (await ai.generateText(prompt, 1600)).trim();
+    buckets = _euWrapParse(text);
+  } catch (e) {
+    console.error('[EUWrap] IA KO → repli déterministe:', e.message);
+  }
+  // Garantir les rubriques marché depuis les niveaux réels (même si l'IA les a omises/ratées).
+  const fb = _euWrapFallback(levels, s);
+  for (const h of ['EQUITIES','FX','FIXED','COMMODITIES']) {
+    if ((!buckets[h] || !buckets[h].length) && fb[h]) buckets[h] = fb[h];
+  }
+  if (!Object.keys(buckets).some(k => (buckets[k] || []).length)) buckets = fb;   // IA totalement vide → repli complet
+
+  const description = _euWrapBuild(buckets, _euWrapLead(levels));
+  const sectionCount = EU_WRAP_SECTIONS.filter(h => (buckets[h] || []).length).length;
+  if (!description || sectionCount < 2) {   // ne JAMAIS publier un rapport vide (cold start sans données) → retry plus tard
+    console.warn(`[EUWrap] contenu insuffisant (${sectionCount} rubrique(s)) → non publié, retry ultérieur.`);
+    return null;
+  }
+
+  const item = {
+    id:          prefix + '-' + now,
+    headline:    `PRIMER — DTP European Market Wrap - ${dateStr}`,
+    description,
+    category:    'Global News',
+    source:      'DTP',
+    region:      'Europe',
+    time:        timeStr,
+    timestamp:   now,
+    priority:    'normal',
+    tags:        ['Europe', 'Market Wrap', 'Equities', 'FX'],
+    _briefing:   true,
+    _reportType: 'European Market Wrap',
+  };
+  allNews = [item, ...allNews].slice(0, 2000);
+  saveHistory();
+  broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
+  console.log(`[EUWrap] Publié « ${item.headline} » — ${sectionCount} rubriques (${recent.length} news, ${levels.eq.length} niveaux actions)`);
+  return item;
+}
+
+// Auto à 16:00 Paris chaque jour + rattrapage au démarrage (Render dort/redémarre) si on a déjà
+// dépassé 16:00 sans rapport du jour.
+(function scheduleEuropeanMarketWrap() {
+  function msToNext1600Paris() {
+    const now    = new Date();
+    const paris  = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const target = new Date(paris);
+    target.setHours(16, 0, 0, 0);
+    if (paris >= target) target.setDate(target.getDate() + 1);
+    return target.getTime() - paris.getTime();
+  }
+  const delay = msToNext1600Paris();
+  console.log(`[EUWrap] Auto-génération programmée dans ${Math.round(delay / 60000)} min (16:00 Paris)`);
+  setTimeout(function run() {
+    generateEuropeanMarketWrap().catch(e => console.error('[EUWrap] auto KO:', e.message));
+    setInterval(() => generateEuropeanMarketWrap().catch(e => console.error('[EUWrap] auto KO:', e.message)), 24 * 60 * 60 * 1000);
+  }, delay);
+  setTimeout(() => {   // rattrapage démarrage : ≥16:00 Paris et pas de rapport du jour → générer
+    try {
+      const paris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+      if (paris.getHours() >= 16) generateEuropeanMarketWrap().catch(() => {});
+    } catch {}
+  }, 90 * 1000);
+})();
+
+// Déclencheur manuel (admin/debug)
+app.get('/api/eu-wrap/generate', async (_req, res) => {
+  try { const it = await generateEuropeanMarketWrap(true); res.json({ ok: !!it, headline: it && it.headline }); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── Ticker public (landing datatradingpro.com) — prix réels Yahoo, CORS ouvert ───
 const TICKER_SYMS = [
   { sym: 'EURUSD=X', label: 'EUR/USD', dec: 4 },
