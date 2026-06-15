@@ -84,8 +84,26 @@ let _ghCursor = 0;
 const GITHUB_MODEL = process.env.GITHUB_MODEL || 'gpt-4o';
 const GITHUB_BASE  = process.env.GITHUB_MODELS_URL || 'https://models.inference.ai.azure.com';
 
+// ── OpenRouter (openrouter.ai) — modèles GRATUITS (:free), API OpenAI-compatible. Repli APRÈS
+//    GitHub Models, AVANT Claude → capacité gratuite SUPPLÉMENTAIRE par-dessus Gemini/GitHub.
+//    Multi-clés (OPENROUTER_API_KEY + _2.._20). Les :free sont parfois saturés EN AMONT (429/500)
+//    → on tourne sur PLUSIEURS modèles gratuits jusqu'à en trouver un qui répond. Surchargeable
+//    via OPENROUTER_MODELS (CSV). ⚠️ free-tier : limite/min + plafond/jour (≈50/j sans crédits,
+//    ≈1000/j avec ≥10 crédits achetés sur le compte) — c'est un REPLI, pas une source illimitée.
+const OPENROUTER_KEYS = (() => {
+  const out = [];
+  if (process.env.OPENROUTER_API_KEY) out.push(process.env.OPENROUTER_API_KEY);
+  for (let i = 2; i <= 20; i++) { const v = process.env['OPENROUTER_API_KEY' + i]; if (v) out.push(v); }
+  return out.map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+})();
+let _orCursor = 0;
+const OPENROUTER_BASE   = process.env.OPENROUTER_URL || 'https://openrouter.ai/api/v1';
+const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
+  'openai/gpt-oss-120b:free,openai/gpt-oss-20b:free,qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,nousresearch/hermes-3-llama-3.1-405b:free')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
 // Visibilité au démarrage : combien de ressources IA sont chargées (jamais les valeurs).
-console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODEL + ')' : ''} · Claude: ${ANTHROPIC_KEYS.length} clés`);
+console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODEL + ')' : ''} · OpenRouter: ${OPENROUTER_KEYS.length} clé(s)${OPENROUTER_KEYS.length ? ' (' + OPENROUTER_MODELS.length + ' modèles :free)' : ''} · Claude: ${ANTHROPIC_KEYS.length} clés`);
 
 // ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
 // Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
@@ -253,12 +271,12 @@ function _gemCool(model, idx, status, retryDelayMs) {
 }
 function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
 // Suivi quotidien (visibilité "combien d'appels / 429 par jour").
-let _aiDay = '', _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, claude: 0, claudeFail: 0, fallback: 0 };
+let _aiDay = '', _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, claude: 0, claudeFail: 0, fallback: 0 };
 function _aiStat(f) {
   const d = new Date().toISOString().slice(0, 10);
   if (d !== _aiDay) {
     _aiDay = d;
-    _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, claude: 0, claudeFail: 0, fallback: 0 };
+    _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, claude: 0, claudeFail: 0, fallback: 0 };
     _aiTok = { geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, claudeIn: 0, claudeOut: 0 };
   }
   if (f !== '_touch') _aiStats[f] = (_aiStats[f] || 0) + 1;
@@ -336,6 +354,48 @@ async function _githubModels(prompt, maxTokens) {
   throw lastErr || new Error('GitHub Models: tous les tokens ont échoué (ou en cooldown)');
 }
 
+// ── OpenRouter — cooldown PAR CLÉ (auth/crédit) ; rotation multi-clés ET multi-modèles ───────
+// Spécificité free-tier : un modèle :free peut renvoyer 429/500 « saturé en amont » alors que la
+// clé est saine → on bascule de MODÈLE (même clé) sans geler la clé. On ne gèle la clé que sur
+// 401/403 (clé morte) ou 429 « rate-limited » côté compte.
+const _orCooldown = new Map();   // idx → fin de cooldown
+function _orCool(idx, status) { _orCooldown.set(idx, Date.now() + ((status === 401 || status === 403) ? 6 * 3600 * 1000 : status === 429 ? 5 * 60 * 1000 : 60000)); }
+function _orIsCool(idx) { const t = _orCooldown.get(idx); return !!t && t > Date.now(); }
+async function _openrouter(prompt, maxTokens) {
+  const n = OPENROUTER_KEYS.length; _orCursor = (_orCursor + 1) % n;
+  let lastErr;
+  for (let i = 0; i < n; i++) {
+    const idx = (_orCursor + i) % n;
+    if (_orIsCool(idx)) continue;   // clé gelée (auth/crédit) → clé suivante
+    const key = OPENROUTER_KEYS[idx];
+    // Les modèles :free sont flaky → on en tente plusieurs jusqu'à une vraie réponse.
+    for (const model of OPENROUTER_MODELS) {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+      try {
+        const r = await fetch(OPENROUTER_BASE + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json', 'X-Title': 'DataTradingPro' },
+          body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4 }),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) { const e = new Error('OpenRouter ' + r.status + ': ' + (await r.text().catch(() => '')).slice(0, 120)); e.status = r.status; throw e; }
+        const j = await r.json();
+        // OpenRouter peut emballer une erreur provider dans un HTTP 200 (free saturé) → on la traite comme transitoire.
+        if (j && j.error) { const e = new Error('OpenRouter provider: ' + String(j.error.message || '').slice(0, 100)); e.status = (j.error.code === 429 || j.error.code === 503) ? j.error.code : 429; throw e; }
+        const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+        if (!out || !String(out).trim()) throw new Error('réponse vide');
+        const u = j.usage; if (u) _noteUsage('openrouter', model, u.prompt_tokens, u.completion_tokens);
+        return String(out).trim();
+      } catch (e) {
+        lastErr = e;
+        if (e.status === 401 || e.status === 403) { _orCool(idx, e.status); break; }   // clé morte → gèle la clé, modèles inutiles
+        // 429/5xx/timeout = CE modèle saturé → modèle suivant (même clé), sans geler la clé
+      } finally { clearTimeout(t); }
+    }
+  }
+  throw lastErr || new Error('OpenRouter: toutes les clés/modèles ont échoué (ou en cooldown)');
+}
+
 // opts.noClaude : n'utilise JAMAIS Claude (même en repli in-cascade après échec Gemini+GitHub).
 // → le fond / les flux « claudeOverBudget:false » ne dépensent PLUS de crédits payants, in-budget compris.
 async function generateText(prompt, maxTokens = 1500, opts = {}) {
@@ -381,13 +441,19 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
         }
       }
     }
-    if (!GITHUB_TOKENS.length && claudeOff) throw lastErr || new Error('Gemini indisponible');
+    if (!GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && claudeOff) throw lastErr || new Error('Gemini indisponible');
   }
 
   // ── Option B : GitHub Models (gpt-4o, quota gratuit Microsoft) — repli AVANT Claude ──
   if (GITHUB_TOKENS.length) {
     try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
-    catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('githubFail'); }
+    catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
+  }
+
+  // ── Option B-bis : OpenRouter (modèles :free) — capacité gratuite SUPPLÉMENTAIRE, AVANT Claude ──
+  if (OPENROUTER_KEYS.length) {
+    try { const out = await _openrouter(prompt, maxTokens); _aiStat('openrouter'); return out; }
+    catch (e) { console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('openrouterFail'); }
   }
 
   // ── Option C : Anthropic Claude (multi-clés, rotation + cooldown par clé) ────
@@ -423,6 +489,7 @@ function status() {
     geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
     github: { tokens: GITHUB_TOKENS.length, model: GITHUB_MODEL, coolingNow: [..._ghCooldown.values()].filter(t => t > Date.now()).length },
+    openrouter: { keys: OPENROUTER_KEYS.length, models: OPENROUTER_MODELS.length, coolingNow: [..._orCooldown.values()].filter(t => t > Date.now()).length },
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,
     claudeDailyMax: CLAUDE_DAILY_MAX,
