@@ -2261,7 +2261,7 @@ async function _scrapeILviaPuppeteer(url) {
 //  Anti-OOM : 1 SEUL rendu à la fois (verrou) + cache disque (DATA_DIR) → Chrome non relancé à chaque ouverture.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // Hôtes AUTORISÉS au rendu (anti-SSRF STRICT : Chrome ne doit JAMAIS rendre une URL arbitraire/interne).
-const PDF_RENDER_HOSTS = /(^|\.)(mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com)$/i;
+const PDF_RENDER_HOSTS = /(^|\.)(mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|goldmansachs\.com)$/i;
 function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new URL(u).hostname) ? (printUrl || u) : ''; } catch { return ''; } }
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
