@@ -1643,7 +1643,7 @@ function parsePrimerBullets(description) {
   return clean.split(/\n+/)
     .map(l => l.trim())
     .map(l => l.replace(/^[-•·]\s+/, ''))   // strip leading dash/bullet
-    .filter(l => l.length > 4);
+    .filter(l => l.length > 4 || _isSectionHead(l));   // garde les rubriques COURTES en MAJUSCULES (ex. « FX ») comme titres
 }
 
 // ── Rapports DTP : détection des rubriques (titres en MAJUSCULES) ──
