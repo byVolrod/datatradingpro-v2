@@ -688,7 +688,7 @@ app.get('/api/admin/ai-test', requireAdmin, async (_req, res) => {
   const ms = Date.now() - t0;
   const st = (() => { try { return ai.status(); } catch { return {}; } })();
   const u1 = st.usageToday || {}; const diff = k => (u1[k] || 0) - (u0[k] || 0);
-  const provider = diff('gemini') > 0 ? 'Gemini' : diff('github') > 0 ? ('GitHub Models (' + ((st.github && st.github.model) || 'gpt-4o') + ')') : (diff('fallback') > 0 || diff('claude') > 0) ? 'Claude' : '—';
+  const provider = diff('gemini') > 0 ? 'Gemini' : diff('github') > 0 ? ('GitHub Models (' + ((st.github && st.github.model) || 'gpt-4o') + ')') : diff('openrouter') > 0 ? 'OpenRouter (:free)' : (diff('fallback') > 0 || diff('claude') > 0) ? 'Claude' : '—';
   const intel = st.intel || {}; const color = ok ? '#22c55e' : '#ef4444';
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test IA DTP</title>
   <style>body{background:#0c0c0e;color:#e5e7eb;font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
@@ -2452,24 +2452,26 @@ function _aiDemandPrePeak() {
 let _telPrev = null, _telLiveStatus = null, _telDirty = false;
 const _telBuckets = new Map();                                                   // hourKey → seau (flush périodique vers KV)
 function _telHourKey(t) { return new Date(t || Date.now()).toISOString().slice(0, 13); }   // "2026-06-12T14"
-function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0 }; }
+function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, openrouter: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0 }; }
 function _telBucket(hk) { let b = _telBuckets.get(hk); if (!b) { b = _telEmpty(hk); _telBuckets.set(hk, b); } return b; }
 function _telSample() {
   let st; try { st = ai.status(); } catch { return; }
   _telLiveStatus = st;
   const u = st.usageToday || {}, tk = st.tokensToday || {};
   const cur = { day: st.today, gemini: u.gemini || 0, gemini429: u.gemini429 || 0, github: u.github || 0, githubFail: u.githubFail || 0,
+    openrouter: u.openrouter || 0, openrouterFail: u.openrouterFail || 0,
     claude: u.claude || 0, claudeFail: u.claudeFail || 0, fallback: u.fallback || 0,
-    gtIn: tk.geminiIn || 0, gtOut: tk.geminiOut || 0, ghIn: tk.githubIn || 0, ghOut: tk.githubOut || 0, clIn: tk.claudeIn || 0, clOut: tk.claudeOut || 0 };
+    gtIn: tk.geminiIn || 0, gtOut: tk.geminiOut || 0, ghIn: tk.githubIn || 0, ghOut: tk.githubOut || 0, orIn: tk.openrouterIn || 0, orOut: tk.openrouterOut || 0, clIn: tk.claudeIn || 0, clOut: tk.claudeOut || 0 };
   if (_telPrev) {
     const same = _telPrev.day === cur.day;                                      // jour changé → compteurs IA remis à 0 → cur EST le delta
     const dl = k => same ? Math.max(0, (cur[k] || 0) - (_telPrev[k] || 0)) : (cur[k] || 0);
     const b = _telBucket(_telHourKey());
     b.gemini.calls += dl('gemini'); b.gemini.e429 += dl('gemini429'); b.gemini.tokIn += dl('gtIn'); b.gemini.tokOut += dl('gtOut');
     b.github.calls += dl('github'); b.github.fail += dl('githubFail'); b.github.tokIn += dl('ghIn'); b.github.tokOut += dl('ghOut');
+    if (b.openrouter) { b.openrouter.calls += dl('openrouter'); b.openrouter.fail += dl('openrouterFail'); b.openrouter.tokIn += dl('orIn'); b.openrouter.tokOut += dl('orOut'); }   // bucket récent (anciens en cache sans openrouter → ignorés)
     b.claude.calls += dl('claude'); b.claude.fail += dl('claudeFail'); b.claude.tokIn += dl('clIn'); b.claude.tokOut += dl('clOut');
     b.fallback += dl('fallback');
-    if (dl('gemini') + dl('github') + dl('claude') + dl('gemini429') + dl('fallback') > 0) _telDirty = true;
+    if (dl('gemini') + dl('github') + dl('openrouter') + dl('claude') + dl('gemini429') + dl('fallback') > 0) _telDirty = true;
   }
   _telPrev = cur;
 }
@@ -2529,12 +2531,14 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       gemini: { keys: st.geminiKeys || 0, coolingKeys: st.geminiCoolingNow || 0, breakersOpen: intel.breakersOpen || 0,
         pressure: intel.pressure || 0, effRpm: intel.effRpm || 0, rpmTarget: intel.rpmTarget || 0,
         callsToday: u.gemini || 0, err429Today: u.gemini429 || 0, callsWindow: sum('gemini', 'calls'), err429Window: sum('gemini', 'e429'), tokInWindow: sum('gemini', 'tokIn'), tokOutWindow: sum('gemini', 'tokOut') },
-      github: { tokens: (st.github || {}).tokens || 0, coolingKeys: (st.github || {}).coolingNow || 0, callsToday: u.github || 0, failWindow: sum('github', 'fail'), callsWindow: sum('github', 'calls') },
+      github: { tokens: (st.github || {}).tokens || 0, models: ((st.github || {}).models || []).length || 1, coolingKeys: (st.github || {}).coolingNow || 0, callsToday: u.github || 0, failToday: u.githubFail || 0, failWindow: sum('github', 'fail'), callsWindow: sum('github', 'calls') },
+      openrouter: { keys: (st.openrouter || {}).keys || 0, models: (st.openrouter || {}).models || 0, coolingKeys: (st.openrouter || {}).coolingNow || 0, callsToday: u.openrouter || 0, failToday: u.openrouterFail || 0 },
       claude: { keys: st.anthropicKeys || 0, usable: !!st.claudeUsable, usedToday: st.claudeUsedToday || 0, dailyMax: st.claudeDailyMax || 0, cooling: st.claudeCooling || [], callsToday: u.claude || 0, callsWindow: sum('claude', 'calls') },
     };
     const health = {
       gemini: _telHealthScore(providers.gemini.keys, providers.gemini.coolingKeys, providers.gemini.breakersOpen, providers.gemini.callsToday, providers.gemini.err429Today),
       github: providers.github.tokens ? _telHealthScore(providers.github.tokens, providers.github.coolingKeys, 0, providers.github.callsWindow, providers.github.failWindow) : null,
+      openrouter: providers.openrouter.keys ? _telHealthScore(providers.openrouter.keys, providers.openrouter.coolingKeys, 0, providers.openrouter.callsToday, providers.openrouter.failToday) : null,
       claude: providers.claude.keys ? (providers.claude.usable ? Math.max(20, 100 - Math.round(providers.claude.usedToday / Math.max(1, providers.claude.dailyMax) * 100)) : 5) : null,
     };
     res.json({
@@ -2542,7 +2546,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       budget: Object.assign({ monthly: GEMINI_MONTHLY_BUDGET, monthUsed: _aiUsage.total || 0 }, _telForecast(buckets)),
       providers, health,
       categoriesToday: _aiUsage.dayCounts || {}, claudeToday: _aiUsage.claudeCounts || {},
-      trend: buckets.map(b => ({ hour: b.hour, gemini: b.gemini.calls, github: b.github.calls, claude: b.claude.calls, e429: b.gemini.e429, fallback: b.fallback })),
+      trend: buckets.map(b => ({ hour: b.hour, gemini: b.gemini.calls, github: b.github.calls, openrouter: (b.openrouter && b.openrouter.calls) || 0, claude: b.claude.calls, e429: b.gemini.e429, fallback: b.fallback })),
       backoff: st.backoff || {}, healthDetail: intel.health || [],
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
