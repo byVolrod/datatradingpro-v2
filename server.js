@@ -5626,10 +5626,10 @@ async function generateWeeklyMarketRecap(force = false) {
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
-  // Rapports HEBDOMADAIRES — SAMEDI 02:00 UTC (tous les marchés mondiaux fermés pour la semaine)
+  // Rapports HEBDOMADAIRES — SAMEDI 02h00 PARIS (tous les marchés mondiaux fermés pour la semaine ; même créneau que le groupe Bias/Week Ahead)
   const weekly = [
-    { fn: () => generateGlobalEconomicWeekly(false),  hUTC: 2, mUTC: 0,  name: 'Global Economic Weekly' },
-    { fn: () => generateWeeklyMarketRecap(false),     hUTC: 2, mUTC: 5,  name: 'Weekly Market Recap'    },
+    { fn: () => generateGlobalEconomicWeekly(false),  h: 2, m: 0,  name: 'Global Economic Weekly' },
+    { fn: () => generateWeeklyMarketRecap(false),     h: 2, m: 5,  name: 'Weekly Market Recap'    },
   ];
 
   function msToNextParis(h, m) {
@@ -5640,15 +5640,15 @@ async function generateWeeklyMarketRecap(force = false) {
     if (paris >= target) target.setDate(target.getDate() + 1);
     return target.getTime() - paris.getTime();
   }
-  // Prochain SAMEDI à hUTC:mUTC (heure UTC) — pour les rapports hebdo (marchés fermés)
-  function msToNextSaturdayUTC(hUTC, mUTC) {
+  // Prochain SAMEDI à h:m HEURE DE PARIS — pour les rapports hebdo (marchés fermés ; même créneau que le groupe Bias/Week Ahead)
+  function msToNextSaturdayParis(h, m) {
     const now    = new Date();
-    const target = new Date(now);
-    const daysToSat = (6 - now.getUTCDay() + 7) % 7;   // 6 = samedi
-    target.setUTCDate(now.getUTCDate() + daysToSat);
-    target.setUTCHours(hUTC, mUTC, 0, 0);
-    if (target.getTime() <= now.getTime()) target.setUTCDate(target.getUTCDate() + 7);
-    return target.getTime() - now.getTime();
+    const paris  = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+    const target = new Date(paris);
+    target.setDate(paris.getDate() + ((6 - paris.getDay() + 7) % 7));   // 6 = samedi
+    target.setHours(h, m, 0, 0);
+    if (target <= paris) target.setDate(target.getDate() + 7);
+    return target.getTime() - paris.getTime();
   }
 
   for (const { fn, h, m, name } of daily) {
@@ -5659,9 +5659,9 @@ async function generateWeeklyMarketRecap(force = false) {
       setInterval(() => fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message)), 24 * 60 * 60 * 1000);
     }, delay);
   }
-  for (const { fn, hUTC, mUTC, name } of weekly) {
-    const delay = msToNextSaturdayUTC(hUTC, mUTC);
-    console.log(`[DTP] ${name} (samedi ${hUTC}:${String(mUTC).padStart(2,'0')} UTC) dans ${Math.round(delay / 60000)} min`);
+  for (const { fn, h, m, name } of weekly) {
+    const delay = msToNextSaturdayParis(h, m);
+    console.log(`[DTP] ${name} (samedi ${h}h${String(m).padStart(2,'0')} Paris) dans ${Math.round(delay / 60000)} min`);
     setTimeout(function run() {
       fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message));
       setInterval(() => fn().catch(e => console.error(`[DTP] ${name} failed:`, e.message)), 7 * 24 * 60 * 60 * 1000);
@@ -5677,7 +5677,7 @@ async function generateWeeklyMarketRecap(force = false) {
     daily.forEach(({ fn, name }) => fn().catch(e => console.error(`[DTP] startup ${name} failed:`, e.message)));
 
     // RATTRAPAGE HEBDO : si Render dormait/​a redémarré le week-end, les rapports hebdo
-    // (samedi 02:00 UTC) n'ont pas été générés. La dédup par semaine ISO + le rechargement
+    // (samedi 02h Paris) n'ont pas été générés. La dédup par semaine ISO + le rechargement
     // persistant ci-dessus évitent tout doublon ET toute régénération inutile.
     // Garde-fou : uniquement samedi/dimanche (UTC), pas en milieu de semaine.
     const uDay = new Date().getUTCDay();   // 0=dim, 6=sam
@@ -5987,7 +5987,7 @@ function _sbFillNarrative(bias) {
   return Object.assign({}, bias, { narrative });   // COPIE → ne mute pas bias.narrative (qui reste IA-seul)
 }
 async function generateSmartBias(force = false, weekly = false) {
-  // weekly=true : run HEBDO planifié (samedi 00h30) → réécrit AUSSI les 8 narratifs IA.
+  // weekly=true : run HEBDO planifié (samedi 02h00) → réécrit AUSSI les 8 narratifs IA.
   // weekly=false (régén en semaine : redéploiement, version, self-heal) → narratifs du samedi CONSERVÉS.
   const WEEK = 7 * 24 * 60 * 60 * 1000;
   if (!force && _smartBias && Date.now() - (_smartBias.generatedAt || 0) < WEEK) return _smartBias;
@@ -6577,19 +6577,19 @@ app.get('/api/week-ahead', async (req, res) => {
   res.json(_weekAhead || { week: '', days: [], generating: true });   // sert l'existant (upgradé en fond si périmé) ; generating:true → front re-poll
 });
 
-// Planification : tous les dimanches à 18h00 (Paris) + génération au démarrage si vide
+// Planification : tous les samedis à 02h00 (Paris) + génération au démarrage si vide
 // ── Robustesse génération hebdo : RATTRAPAGE des samedis manqués ──────────────────────────────
-// Le run hebdo est un setTimeout(samedi 00h30) ré-armé à CHAQUE redémarrage. Or le conteneur
-// redémarre à chaque déploiement → si un redémarrage tombe APRÈS le samedi 00h30, la génération de
+// Le run hebdo est un setTimeout(samedi 02h00) ré-armé à CHAQUE redémarrage. Or le conteneur
+// redémarre à chaque déploiement → si un redémarrage tombe APRÈS le samedi 02h00, la génération de
 // la semaine est SAUTÉE (cause du trou 1-7/06). _sbBiasStale ne le voit pas (<7j). On détecte donc
-// la dernière échéance samedi 00h30 révolue : si le bias est antérieur, on rattrape (weekly=true).
+// la dernière échéance samedi 02h00 révolue : si le bias est antérieur, on rattrape (weekly=true).
 function _biasLastSatGenMs() {
   const now = new Date();
   const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   const t = new Date(paris);
   t.setDate(paris.getDate() - ((paris.getDay() - 6 + 7) % 7));   // recule jusqu'au samedi
-  t.setHours(0, 30, 0, 0);
-  if (t > paris) t.setDate(t.getDate() - 7);                     // samedi 00h30 pas encore atteint cette semaine → samedi précédent
+  t.setHours(2, 0, 0, 0);
+  if (t > paris) t.setDate(t.getDate() - 7);                     // samedi 02h00 pas encore atteint cette semaine → samedi précédent
   return now.getTime() - (paris.getTime() - t.getTime());        // delta wall-clock → epoch réelle
 }
 function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a pas eu lieu (semaine manquée)
@@ -6606,9 +6606,9 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
     if (target <= paris) target.setDate(target.getDate() + 7);
     return target.getTime() - paris.getTime();
   }
-  const delay = msToNextWeekday(6, 0, 30);   // SAMEDI 00h30 Paris (≈ « samedi minuit », après la clôture de vendredi)
-  console.log(`[Bias] Génération hebdo (samedi 00h30 Paris) dans ${Math.round(delay / 60000)} min`);
-  // Groupe hebdo généré ENSEMBLE le samedi 00h30, dans un ordre logique : les 2 biais (Smart puis
+  const delay = msToNextWeekday(6, 2, 0);   // SAMEDI 02h00 Paris — même créneau que GEW + Weekly Recap (tout le contenu hebdo à jour ensemble samedi 02h)
+  console.log(`[Bias] Génération hebdo (samedi 02h00 Paris) dans ${Math.round(delay / 60000)} min`);
+  // Groupe hebdo généré ENSEMBLE le samedi 02h00, dans un ordre logique : les 2 biais (Smart puis
   // Weekly), puis Week Ahead, puis Rates. (Les appels partent en parallèle et sont lissés par le
   // limiteur RPM Gemini ; l'ordre = priorité de mise en file.)
   const runAll = () => {
