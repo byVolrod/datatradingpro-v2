@@ -3232,11 +3232,14 @@ function _cleanSebText(heading, text) {
   return ((heading ? `<h3>${heading}</h3>` : '') + h).replace(/\s{3,}/g, '\n').trim();
 }
 async function _fetchSebInto(merged, cutoff, UA) {
-  for (const ac of SEB_ASSET_CLASSES) {
+  // UNE requête SANS filtre assetclass → couvre TOUTES les classes (FX, Macro, Central Banks, Fixed Income,
+  // Commodities…) ET les rapports SANS classe (DGB auctions, alertes Iran) que la boucle 3-classes ratait
+  // (DTP avait 53 SEB vs ~100 sur PMT). language=English garde les titres anglais ; le filtre nordique écarte le résiduel suédois.
+  {
     try {
-      const url = `https://research.sebgroup.com/mapi/v2/reports?nbrows=25&language=English&assetclass=${encodeURIComponent(ac)}&ingress=2000`;
-      const r = await axios.get(url, { timeout: 12000, headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Referer': 'https://research.sebgroup.com/macro-ficc' }, validateStatus: s => s < 500 });
-      if (r.status !== 200 || !r.data || !Array.isArray(r.data.reports)) continue;
+      const url = `https://research.sebgroup.com/mapi/v2/reports?nbrows=80&language=English&ingress=2000`;
+      const r = await axios.get(url, { timeout: 14000, headers: { 'User-Agent': UA, 'Accept': 'application/json', 'Referer': 'https://research.sebgroup.com/macro-ficc' }, validateStatus: s => s < 500 });
+      if (r.status !== 200 || !r.data || !Array.isArray(r.data.reports)) return;
       for (const rep of r.data.reports) {
         const title = String(rep.title || '').trim();
         if (!title || !/[a-z]/i.test(title)) continue;
