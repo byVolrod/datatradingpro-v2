@@ -98,7 +98,7 @@ async function verifyLogin(email, password) {
 let _allUsersCache = { ts: 0, data: null };
 function _bustUsersCache() { _allUsersCache = { ts: 0, data: null }; }
 async function getAllUsers(opts = {}) {
-  if (!opts.fresh && _allUsersCache.data && Date.now() - _allUsersCache.ts < 10000) return _allUsersCache.data;
+  if (!opts.fresh && _allUsersCache.data && Date.now() - _allUsersCache.ts < 60000) return _allUsersCache.data;   // 60 s (cache invalidé à chaque écriture) → coupe le SELECT full-table du poll admin /4 s (anti-egress)
   const { data, error } = await supabase
     .from(TABLE)
     .select('id, email, name, role, plan, active, created_at, last_login, expires_at')
@@ -290,11 +290,17 @@ async function chatList(userId) {
 
 // Marque comme lus les messages reçus par `recipient` ('user' lit le support, 'support' lit l'user)
 async function chatMarkRead(userId, recipientReadsFrom) {
+  // ANTI-EGRESS (cause de l'incident 15,6 Go puis 18 Go) : un GET /api/chat est POLLÉ toutes les 4 s
+  // pendant que le drawer est ouvert et appelait chatMarkRead → _chatDirty → CACHE RAM INVALIDÉ → le
+  // tick suivant refaisait un select('*') de toute la conversation (images base64 incluses) = la fuite.
+  // Désormais : s'il n'y a AUCUN non-lu de cet expéditeur, on ne touche À RIEN (ni cache, ni UPDATE) →
+  // le poll de lecture reste 100 % en RAM (0 egress). chatUnread est RAM-caché → ce contrôle ne coûte rien.
+  if (!(await chatUnread(userId, recipientReadsFrom))) return;
   _chatDirty(userId);
   await _chatEnsureDb();
   if (_chatDb) {
     const { error } = await supabase.from(CHAT_TABLE).update({ read: true }).eq('user_id', String(userId)).eq('sender', recipientReadsFrom).eq('read', false);
-    if (!error) return;
+    if (!error) { _chatUnreadMem.set(String(userId) + '|' + recipientReadsFrom, { n: 0, ts: Date.now() }); return; }   // non-lu → 0 en RAM (les prochains polls retombent dans le court-circuit ci-dessus)
     if (_chatTableMissing(error)) _chatDb = false; else return;
   }
   _chatFile.forEach(m => { if (m.user_id === String(userId) && m.sender === recipientReadsFrom) m.read = true; });
@@ -504,11 +510,14 @@ async function weeklyReportSave(weekKey, report) {
 async function weeklyReportList() {
   await _weeklyEnsureDb();
   if (_weeklyDb) {
-    const { data, error } = await supabase.from(WEEKLY_TABLE).select('*').order('created_at', { ascending: false });
+    // ANTI-EGRESS : ne lire QUE les 12 rapports récents + SEULEMENT les colonnes utiles (jamais select('*') :
+    // chaque ligne porte un gros JSON _weekly + snapshot Currency-Strength → 15-25 Ko/ligne). Le fenêtrage
+    // (40 j) reste géré côté serveur. Cap 12 = largement assez (1 recap + 1 GEW / semaine).
+    const { data, error } = await supabase.from(WEEKLY_TABLE).select('report,created_at').order('created_at', { ascending: false }).limit(12);
     if (!error) return (data || []).map(r => r.report).filter(Boolean);
     if (_weeklyTableMissing(error)) _weeklyDb = false; else throw new Error(error.message);
   }
-  return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).map(r => r.report).filter(Boolean);
+  return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 12).map(r => r.report).filter(Boolean);
 }
 
 // ═══════════════════ JOURNAL D'EMAILS (anti-doublon durable) ═══════════════════
