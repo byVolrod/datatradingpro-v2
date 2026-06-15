@@ -4576,7 +4576,8 @@ function renderBrReader(item) {
   // ── VRAI PDF de la banque, affiché BRUT (proxifié) — ZÉRO restructuration IA : rapport déjà en .pdf
   //    (BlackRock, Danske…) OU article ING Think (PDF dérivé de l'URL). Insights conservés au-dessus.
   let _realPdf = '';
-  if (item && (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || ''))) _realPdf = item.url;
+  if (item && item._pdfUrl) _realPdf = item._pdfUrl;                                   // PDF natif fourni par la source (ex. SEB : attachment.fileName)
+  else if (item && (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || ''))) _realPdf = item.url;
   else if (item && item._source === 'ing-think') _realPdf = _ingPdfUrl(item.url);
   if (_realPdf) {
     _brShowNativePdf(item, _realPdf);
