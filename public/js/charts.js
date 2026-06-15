@@ -1654,8 +1654,7 @@ function buildSessionMap() {
       panY:         'none',
       wheelY:       'none',
       wheelX:       'none',
-      homeZoomLevel: 1.3,                              // + de zoom → la carte remplit la hauteur (fini le gros vide noir en bas)
-      homeGeoPoint: { longitude: 20, latitude: 20 },   // centré pour garder NY (−74°) … Sydney (151°) à l'écran
+      minZoomLevel: 1, maxZoomLevel: 1,                // verrou : on cadre une BANDE de latitude (zoomToGeoBounds) → la carte remplit la hauteur, fini le noir en bas
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
   );
@@ -1873,7 +1872,9 @@ function buildSessionMap() {
   refreshUTCLine(new Date());
   setTimeout(() => updateCityTimes(new Date()), 200);
 
-  polygonSeries.events.on('datavalidated', () => chart.goHome(800));
+  // Cadre une bande de latitude (60°N → −55°S) sur toute la longitude : la LATITUDE devient la dimension
+  // contraignante → la carte remplit la HAUTEUR du conteneur (plus de noir en bas). NY/Londres/Tokyo/Sydney restent dedans.
+  polygonSeries.events.on('datavalidated', () => { try { chart.zoomToGeoBounds({ left: -180, right: 180, top: 60, bottom: -55 }, 0); } catch (e) {} });
 
   return root;
 }

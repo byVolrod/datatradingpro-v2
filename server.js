@@ -2261,12 +2261,13 @@ async function _scrapeILviaPuppeteer(url) {
 //  Anti-OOM : 1 SEUL rendu à la fois (verrou) + cache disque (DATA_DIR) → Chrome non relancé à chaque ouverture.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // Hôtes AUTORISÉS au rendu (anti-SSRF STRICT : Chrome ne doit JAMAIS rendre une URL arbitraire/interne).
-const PDF_RENDER_HOSTS = /(^|\.)(mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|goldmansachs\.com)$/i;
+const PDF_RENDER_HOSTS = /(^|\.)(mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|goldmansachs\.com|gspublishing\.com)$/i;
 function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new URL(u).hostname) ? (printUrl || u) : ''; } catch { return ''; } }
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(String(url)).digest('hex') + '.pdf'); }
+const _RENDER_VER = 'r2';   // bump → invalide TOUS les PDF rendus en cache (ex. logique anti-cookies changée)
+function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
   const run = _renderChain.then(() => _renderPdfInner(url), () => _renderPdfInner(url));
@@ -2280,15 +2281,20 @@ async function _renderPdfInner(url) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1180, height: 1500 });
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 35000 });
-    // Cookies/consent + overlays : cliquer un bouton d'acceptation courant, puis retirer les bannières
-    // et masquer les overlays fixes (sinon le PDF capture le popup cookies au lieu du rapport — cf. Nordea/HSBC).
+    // Cookies/consent + overlays : (1) cliquer TOUS les boutons d'acceptation courants (multi-étapes),
+    // (2) retirer les dialogues connus (Cookiebot/OneTrust/Usercentrics/TrustArc) + overlays fixes,
+    // (3) lever le scroll-lock — sinon le PDF capture le popup cookies au lieu du rapport.
     await page.evaluate(() => { try {
-      const RX = /^(accept all|accept|tout accepter|accepter|j'accepte|agree|i agree|ok|got it|continue|reject all|necessary only)$/i;
-      for (const b of document.querySelectorAll('button,a[role="button"]')) { const t = (b.innerText || b.textContent || '').trim(); if (RX.test(t)) { try { b.click(); } catch {} break; } }
+      const RX = /^(accept all|accept all cookies|accept|tout accepter|accepter|j'accepte|i accept|autoriser tout|allow all|allow selection|use necessary cookies only|necessary only|necessary cookies only|reject non-essential cookies|reject all|agree|i agree|ok|got it|continue)$/i;
+      const SUB = /(accept all cookies|accept all|allow all|use necessary cookies only|allow selection|reject non-essential|tout accepter|autoriser tout)/i;
+      for (const b of document.querySelectorAll('button,a[role="button"],a[href="#"],input[type="submit"],input[type="button"]')) { const t = (b.innerText || b.textContent || b.value || '').trim(); if (t.length <= 40 && (RX.test(t) || SUB.test(t))) { try { b.click(); } catch {} } }
     } catch {} }).catch(() => {});
-    await new Promise(r => setTimeout(r, 350));
+    await new Promise(r => setTimeout(r, 400));
     await page.evaluate(() => { try {
-      const KILL = ['cookie', 'consent', 'onetrust', 'cookiebot', 'gdpr', 'cc-window', 'truste'];
+      const SEL = ['#CybotCookiebotDialog', '#CybotCookiebotDialogBodyUnderlay', '#onetrust-consent-sdk', '#onetrust-banner-sdk', '#usercentrics-root', '#usercentrics-cmp-ui', '[id*="truste"]', '[id*="cookie"]', '[class*="cookie-consent"]', '.cookieconsent', '#cookie-law-info-bar'];
+      SEL.forEach(s => { try { document.querySelectorAll(s).forEach(e => e.remove()); } catch {} });
+      try { document.querySelectorAll('[aria-modal="true"][role="dialog"], [role="alertdialog"]').forEach(d => { const txt = (d.innerText || '').toLowerCase(); if (/cookie|consent|gdpr|privacy/.test(txt)) d.remove(); }); } catch {}
+      const KILL = ['cookie', 'consent', 'onetrust', 'cookiebot', 'cybotcookiebot', 'usercentrics', 'gdpr', 'cc-window', 'truste', 'privacy-banner'];
       document.querySelectorAll('div,section,aside,dialog,iframe').forEach(el => {
         const id = String(el.id || '').toLowerCase();
         const cn = el.className; const cls = String(cn && cn.baseVal !== undefined ? cn.baseVal : (cn || '')).toLowerCase();
@@ -2297,8 +2303,11 @@ async function _renderPdfInner(url) {
         const st = getComputedStyle(el);
         if ((st.position === 'fixed' || st.position === 'sticky') && (parseInt(st.zIndex) || 0) >= 1000) el.style.display = 'none';
       });
-      const de = document.documentElement; if (de) de.style.overflow = 'visible';
-      if (document.body) document.body.style.overflow = 'visible';
+      try {
+        document.documentElement.className = String(document.documentElement.className || '').replace(/\b(cookie\S*|consent\S*|cc-\S*|modal-open|no-scroll|overflow-hidden)\b/gi, '');
+        document.documentElement.style.overflow = 'visible';
+        if (document.body) { document.body.className = String(document.body.className || '').replace(/\b(modal-open|no-scroll|overflow-hidden|cookie\S*)\b/gi, ''); document.body.style.overflow = 'visible'; document.body.style.position = 'static'; }
+      } catch {}
     } catch {} }).catch(() => {});
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
@@ -2762,6 +2771,8 @@ const SW_SEG_VER  = 'v4:';   // bump → régénère (v4 : en-têtes courts + CA
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
 const _brSegCache = _loadJsonMap(BR_SEG_FILE);
+const BR_PRINT_FILE = path.join(_CACHE_DIR, 'cache_br_print.json');
+const _brPrintMap = _loadJsonMap(BR_PRINT_FILE);   // url -> URL imprimable absolue (PrintPage MUFG / rapport gspublishing Goldman) — GUID non dérivable → à persister
 const BR_SEG_VER  = 'v3:';   // bump → régénère (v3 : purge les faux résumés fabriqués depuis des pages "vitrine"/teaser — garde anti-teaser ajoutée)
 const SEG_FAIL_RETRY_MS = 6 * 3600 * 1000;   // un échec de segmentation est retenté après 6 h (répare les rapports figés en brut par une panne)
 // État d'une entrée de cache de segmentation : 'ok' (HTML utilisable) · 'cooling' (échec récent <6h, ne pas régénérer)
@@ -3950,7 +3961,7 @@ app.get('/api/bank-research-content', async (req, res) => {
   try {
     const _hot = _brSegCache.get(BR_SEG_VER + url);
     if (_hot && typeof _hot === 'object' && _hot.thin) return res.json({ html: '', source: 'thin', pdfUrl: _hot.pdfUrl || '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // page vitrine/teaser déjà détectée → on renvoie le vrai PDF (ou la carte), jamais un faux résumé
-    if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', renderUrl: _brRenderUrlFor(url), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
+    if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', renderUrl: _brRenderUrlFor(url, _brPrintMap.get(url)), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
   } catch {}
   let _origin = 'https://think.ing.com';
   try { _origin = new URL(url).origin; } catch {}
@@ -3976,6 +3987,15 @@ app.get('/api/bank-research-content', async (req, res) => {
       const _pp = $('a[href*="/umbraco/surface/download/PrintPage/"]').attr('href')
                || $('a[href*="printview"]').attr('href') || '';
       if (_pp) _printUrl = new URL(_pp, _origin).href;
+      // Goldman Sachs : la page /insights est une vitrine (mur cookie + bouton « Read the Report »).
+      // Le VRAI rapport est sur gspublishing.com (public, propre) → on le rend LUI.
+      if (/(^|\.)goldmansachs\.com$/i.test(new URL(url).hostname)) {
+        const _gs = $('a[href*="gspublishing.com/content/research/"]').attr('href')
+                 || $('a[data-addressable-id="read-the-report"]').attr('href') || '';
+        if (_gs) _printUrl = new URL(_gs, _origin).href;
+      }
+      if (_printUrl) { try { _brPrintMap.set(url, _printUrl); _saveJsonMap(BR_PRINT_FILE, _brPrintMap); } catch {} }   // persiste (GUID/URL non dérivable)
+      else { const _saved = _brPrintMap.get(url); if (typeof _saved === 'string' && _saved) _printUrl = _saved; }       // repli : URL imprimable déjà connue
     } catch {}
 
     // Extract metadata
