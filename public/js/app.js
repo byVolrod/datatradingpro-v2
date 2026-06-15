@@ -5199,7 +5199,7 @@ function renderArlibList() {
     const badge = badgeLabel ? `<img class="arlib-ptbadge-logo" src="/favicon.svg" alt="DTP" width="20" height="20" loading="lazy">` : '';
 
     const card = document.createElement('div');
-    const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
+    const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly' || /\bfx daily\b/i.test(title);
     card.className = 'arlib-card' + (isRead(_reportReadKey(item)) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
     card.dataset.id = item.id;
     card.innerHTML = `

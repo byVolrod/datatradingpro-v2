@@ -4632,7 +4632,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   border-radius: 8px;
   margin-bottom: 8px;
 }
-.arlib-card.arlib-card--weekly:hover { background: #271517; border-color: rgba(255,122,0,0.75); }
+.arlib-card.arlib-card--weekly:hover { background: #2a1618; border-color: rgba(127,29,29,0.55); }
 .arlib-card.arlib-card--weekly .arlib-card-title { color: #fff; font-weight: 600; }
 /* LU : le Weekly s'affiche comme un rapport déjà lu (grisé, encadré atténué), pas comme un nouveau */
 .arlib-card.arlib-card--weekly.arlib-card--read { background: #160f10; border-color: rgba(255,122,0,0.20); }
