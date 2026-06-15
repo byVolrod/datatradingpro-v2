@@ -5904,7 +5904,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v13c-twcal';   // v13c : Fundamental/Monetary alimentés par le calendrier TradingView de la SEMAINE ÉCOULÉE (actuals réels, via _buildTVCalendar) au lieu du FF prospectif ; + v13b (sonde calendrier au boot) + v13 (prompt directionnel) ; bump = régén au boot
+const BIAS_VER = 'v13d-band';   // v13d : bande Neutral resserrée 0.4→0.25 (penchants nets mais faibles ressortent, ex. COT very-short dilué) + v13c (calendrier TV semaine écoulée) + v13b (sonde calendrier) + v13 (prompt directionnel) ; bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
