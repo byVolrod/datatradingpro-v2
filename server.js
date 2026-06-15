@@ -84,11 +84,17 @@ app.use(cors({
 
 const PORT = process.env.PORT || 3000;
 const REFRESH_INTERVAL = 60000;
-const HISTORY_FILE = path.join(__dirname, 'news_history.json');
+// Répertoire des caches DURABLES : volume Docker (DATA_DIR) → survit aux rebuilds du conteneur
+// (disque éphémère). CRUCIAL quand Supabase est bloqué (quota egress) : la sauvegarde durable
+// habituelle (ai_cache/hist:*) est inaccessible, donc le fichier local DOIT persister, sinon
+// chaque redéploiement EFFACE les news/rapports/biais scrappés et la liste « régresse ».
+const _CACHE_DIR = process.env.DATA_DIR || __dirname;
+try { if (_CACHE_DIR !== __dirname) fs.mkdirSync(_CACHE_DIR, { recursive: true }); } catch {}
+const HISTORY_FILE = path.join(_CACHE_DIR, 'news_history.json');
 const HISTORY_TTL  = 10 * 24 * 60 * 60 * 1000; // 10 jours (le recap hebdo a besoin de la semaine écoulée même généré en début de semaine suivante)
-const SW_CACHE_FILE = path.join(__dirname, 'cache_session_wraps.json');
+const SW_CACHE_FILE = path.join(_CACHE_DIR, 'cache_session_wraps.json');
 const SW_MAX_AGE    = 30 * 24 * 60 * 60 * 1000; // 30 days
-const BR_CACHE_FILE = path.join(__dirname, 'cache_bank_research.json');
+const BR_CACHE_FILE = path.join(_CACHE_DIR, 'cache_bank_research.json');
 const BR_MAX_AGE    = 45 * 24 * 60 * 60 * 1000;   // 45 j (était 30) : plus de rapports des sources fréquentes (SEB/MUFG/ING…) remontent dans Institution
 
 let allNews = [];
@@ -2336,7 +2342,7 @@ const GEMINI_MONTHLY_BUDGET = parseInt(process.env.GEMINI_MONTHLY_BUDGET, 10) ||
 const GEMINI_DAILY_MIN = parseInt(process.env.GEMINI_DAILY_MIN, 10) || 120;
 const GEMINI_DAILY_MAX = parseInt(process.env.GEMINI_DAILY_MAX, 10) || 280;   // plafond DUR/jour → marge sous le free-tier
 const AI_BURST         = parseInt(process.env.GEMINI_BURST, 10) || 18;   // tolérance de pic instantané (pacing)
-const AI_USAGE_FILE = path.join(__dirname, 'cache_ai_usage.json');
+const AI_USAGE_FILE = path.join(_CACHE_DIR, 'cache_ai_usage.json');
 let _aiUsage = { month: '', day: '', total: 0, dayCounts: {} };
 try { _aiUsage = Object.assign(_aiUsage, JSON.parse(fs.readFileSync(AI_USAGE_FILE, 'utf8'))); } catch {}
 function _aiParis()     { return new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })); }
@@ -2346,7 +2352,7 @@ function _aiIsWeekend() { const d = new Date().toLocaleDateString('en-US', { wee
 function _aiDaysLeftInMonth() { const p = _aiParis(); const last = new Date(p.getFullYear(), p.getMonth() + 1, 0).getDate(); return Math.max(1, last - p.getDate() + 1); }
 function _aiSave() { try { fs.writeFileSync(AI_USAGE_FILE, JSON.stringify(_aiUsage)); } catch {} }
 // ── USAGE LEARNER (Phase 1) : profil de demande par (jour-semaine × heure × catégorie) → apprend les patterns ──
-const AI_DEMAND_FILE = path.join(__dirname, 'cache_ai_demand.json');
+const AI_DEMAND_FILE = path.join(_CACHE_DIR, 'cache_ai_demand.json');
 let _aiDemand = {};   // "wd-hh" → { _t: total, <category>: count }
 try { _aiDemand = JSON.parse(fs.readFileSync(AI_DEMAND_FILE, 'utf8')) || {}; } catch {}
 auth.aiCacheGet('aidemand:v1').then(d => { if (d && typeof d === 'object') _aiDemand = Object.assign({}, d, _aiDemand); }).catch(() => {});   // hydrate durable (survit aux redéploys)
@@ -2694,12 +2700,12 @@ function _aiInflight(key, fn) {
 }
 
 // Cache des segmentations IA (url → HTML sectionné) — persistant
-const SW_SEG_FILE = path.join(__dirname, 'cache_sw_seg.json');
+const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
 const SW_SEG_VER  = 'v4:';   // bump → régénère (v4 : en-têtes courts + CATÉGORISATION des listes plates "HEADLINES" en rubriques par thème)
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
-const BR_SEG_FILE = path.join(__dirname, 'cache_br_seg.json');
+const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
 const _brSegCache = _loadJsonMap(BR_SEG_FILE);
 const BR_SEG_VER  = 'v3:';   // bump → régénère (v3 : purge les faux résumés fabriqués depuis des pages "vitrine"/teaser — garde anti-teaser ajoutée)
 const SEG_FAIL_RETRY_MS = 6 * 3600 * 1000;   // un échec de segmentation est retenté après 6 h (répare les rapports figés en brut par une panne)
@@ -4096,7 +4102,7 @@ app.get('/api/status', (_req, res) => res.json({
 }));
 
 // ─── AI Insights : 4-6 résumés clés d'un rapport (cartes en haut du rapport) ──
-const INSIGHTS_FILE = path.join(__dirname, 'cache_insights.json');
+const INSIGHTS_FILE = path.join(_CACHE_DIR, 'cache_insights.json');
 const _insightsCache = _loadJsonMap(INSIGHTS_FILE);   // persistant → pas de réappel Gemini à la réouverture
 // Secours SANS IA : extrait des phrases clés du rapport → les cartes s'affichent toujours,
 // même quand le quota Gemini est épuisé.
@@ -4244,7 +4250,7 @@ ${clean.slice(0, 4500)}`;
 
 // ─── AI Analysis endpoint ─────────────────────────────────────────────────────
 // Cache persistant (survit aux redémarrages Render) → on ne re-paie jamais Gemini pour la même news
-const ANALYSE_CACHE_FILE = path.join(__dirname, 'cache_analyse.json');
+const ANALYSE_CACHE_FILE = path.join(_CACHE_DIR, 'cache_analyse.json');
 const _analyseCache = _loadJsonMap(ANALYSE_CACHE_FILE);
 app.post('/api/analyse', async (req, res) => {
   const { headline, category, description } = req.body || {};
@@ -4296,7 +4302,7 @@ Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rule
 });
 
 // ─── Info "tag" : résumé Gemini clair & synthétique (style rapport DTP), cache persistant ──
-const INFO_CACHE_FILE = path.join(__dirname, 'cache_news_info.json');
+const INFO_CACHE_FILE = path.join(_CACHE_DIR, 'cache_news_info.json');
 const _infoCache = _loadJsonMap(INFO_CACHE_FILE);
 app.post('/api/news-info', async (req, res) => {
   const { id, headline, category, description } = req.body || {};
@@ -4352,7 +4358,7 @@ Content: ${rawDesc.substring(0, 1100)}`, 650, { important: _newsImportant, prior
 });
 
 // ─── Réaction : explication Gemini du mouvement de marché (cache persistant) ───
-const REACT_CACHE_FILE = path.join(__dirname, 'cache_reaction.json');
+const REACT_CACHE_FILE = path.join(_CACHE_DIR, 'cache_reaction.json');
 const _reactCache = _loadJsonMap(REACT_CACHE_FILE);
 app.post('/api/reaction-explain', async (req, res) => {
   const { id, headline, moves } = req.body || {};
@@ -5683,7 +5689,7 @@ async function generateWeeklyMarketRecap(force = false) {
 
 // ═══════════════════ ONGLET BIAS — biais directionnel hebdomadaire (Gemini) ═══════════════════
 // Généré automatiquement chaque dimanche, mis en cache (persistant) → l'onglet l'affiche tel quel.
-const BIAS_FILE = path.join(__dirname, 'cache_bias.json');
+const BIAS_FILE = path.join(_CACHE_DIR, 'cache_bias.json');
 let _biasCache = null;
 try { _biasCache = JSON.parse(fs.readFileSync(BIAS_FILE, 'utf8')); } catch {}
 
@@ -5742,7 +5748,7 @@ app.get('/api/bias', async (req, res) => {
 });
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
-const SMART_BIAS_FILE = path.join(__dirname, 'cache_smart_bias.json');
+const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
 const BIAS_VER = 'v12-retro';   // v12 : biais RÉTROSPECTIFS (semaine écoulée) + régénération des valeurs (reflètent la semaine passée, fini les valeurs figées) ; bump = régén matrice au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
@@ -5770,7 +5776,7 @@ if (!_smartBias || !Array.isArray(_smartBias.rows) || !_smartBias.rows.length) _
 // Recharge le bias DURABLE (Supabase) s'il est plus frais que le disque/seed (le disque Render est éphémère).
 try { auth.aiCacheGet('smartbias:matrix').then(b => { if (b && Array.isArray(b.rows) && b.rows.length && b.generatedAt && (!_smartBias.generatedAt || b.generatedAt > _smartBias.generatedAt)) _smartBias = b; }).catch(() => {}); } catch {}
 // ── Versioning Smart Bias : historique des semaines (max 5), durable (fichier + Supabase) ──
-const SMART_BIAS_HIST_FILE = path.join(__dirname, 'cache_smart_bias_history.json');
+const SMART_BIAS_HIST_FILE = path.join(_CACHE_DIR, 'cache_smart_bias_history.json');
 // Clé de semaine du bias = la semaine À TRADER (N). Généré le samedi (Paris) à partir de la semaine
 // écoulée (N-1) → libellé de la semaine SUIVANTE (week-end → lundi suivant). Aligné sur _sbWeekLabel (front).
 function _sbWeekKey(ts) { const d = new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Paris' })); const dow = d.getDay() || 7; const m = new Date(d); m.setDate(d.getDate() - dow + 1); m.setHours(0, 0, 0, 0); if (dow >= 6) m.setDate(m.getDate() + 7); return m.getFullYear() + '-' + (m.getMonth() + 1) + '-' + m.getDate(); }
@@ -6326,7 +6332,7 @@ app.get('/api/smart-bias', async (req, res) => {
 });
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
-const WEEK_AHEAD_FILE = path.join(__dirname, 'cache_week_ahead.json');
+const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
 const WA_VER = 'v15-percur-robuste';   // v15 : éditorial jour-par-jour + anti cache-partiel-bloqué + repli déterministe enrichi → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
@@ -6650,7 +6656,7 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
 // ═══════════════════ ONGLET BANK — positions de trading des banques ═══════════════════
 // Seed (issu des captures DTP) + éditions admin + extraction Gemini des flux recherche.
 // Le statut (Active / TP touché / SL touché) et le prix se mettent à jour en TEMPS RÉEL (Yahoo).
-const BANK_FILE = path.join(__dirname, 'cache_bank_positions.json');
+const BANK_FILE = path.join(_CACHE_DIR, 'cache_bank_positions.json');
 const BANK_SEED = [
   { id:'seed-1',  bank:'SEB Research',             orderType:'Sell Limit',       pair:'USD/JPY', date:'2026-05-27', entry:160.50, tp:155.00,  sl:162.50, source:'seed' },
   { id:'seed-2',  bank:'Refinitiv',                orderType:'Market Execution', pair:'USD/JPY', date:'2026-05-28', entry:159.25, tp:157.75,  sl:159.80, source:'seed' },
@@ -6887,7 +6893,7 @@ function _rateScenario(b, idx) {
 // ─── Moteur d'ACTUALISATION des taux ───────────────────────────────────────────
 // État persistant : taux courant + dernière réunion traitée, par banque. Le taux ÉVOLUE
 // automatiquement à chaque réunion PASSÉE (selon le base case maison), borné par floor/ceil.
-const RATES_STATE_FILE = path.join(__dirname, 'cache_rates_state.json');
+const RATES_STATE_FILE = path.join(_CACHE_DIR, 'cache_rates_state.json');
 const RATES_VER = 'v2-2026-06-verified';   // bump → RÉ-ANCRE tous les taux sur la config vérifiée (efface toute dérive persistée Supabase/disque)
 let _ratesState = null;
 function _initRatesState() {
@@ -7229,7 +7235,7 @@ app.post('/api/bank-positions', requireAdmin, (req, res) => {
 });
 
 // ─── Extraction Gemini des positions depuis les notes de banques (ActionForex…) ───
-const BANK_EXTRACT_FILE = path.join(__dirname, 'cache_bank_extract.json');
+const BANK_EXTRACT_FILE = path.join(_CACHE_DIR, 'cache_bank_extract.json');
 const _bankExtracted = _loadJsonMap(BANK_EXTRACT_FILE);   // articleId → true (déjà traité)
 const _BANK_FX_TITLE = /\bfx\b|forex|currenc|dollar|euro\b|sterling|\byen\b|aussie|kiwi|loonie|usd|eur|gbp|jpy|aud|nzd|cad|chf|\bg10\b/i;
 async function _extractBankPositionsAI(cap = 8) {
