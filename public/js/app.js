@@ -3617,6 +3617,7 @@ function _sbOpenSummary(curr) {
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
     line('Bank Overview', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
+    line('Weekly Recap', val('weeklyRecap')),
     line('Technical', val('technical')),
     line('Sentiment', val('sentiment')),
     line('Hedge Fund Positioning', val('hedgeFund')),
@@ -3635,6 +3636,9 @@ function _sbOpenSummary(curr) {
   // Narratif IA hebdo si dispo (généré côté serveur), sinon synthèse data-driven (0 token).
   const aiNarr = (d.narrative && typeof d.narrative[curr] === 'string' && d.narrative[curr].trim()) ? d.narrative[curr].trim() : null;
   const narrative = aiNarr ? esc(aiNarr) : _sbFallbackNarrative(curr, val, overall, bulls, bears, esc);
+  // Audit IA : badge cohérence/correction du biais vs la semaine écoulée (d.verify[curr], rempli côté serveur).
+  const _vf = (d.verify && d.verify[curr]) || null;
+  const auditHtml = _vf ? `<div style="margin-top:12px;padding:8px 11px;border-radius:6px;font-size:11.5px;line-height:1.5;background:${_vf.to ? 'rgba(255,122,0,0.10)' : 'rgba(34,197,94,0.08)'};border:1px solid ${_vf.to ? 'rgba(255,122,0,0.35)' : 'rgba(34,197,94,0.30)'};color:${_vf.to ? '#f3c89a' : '#9fd6b0'}">🔍 <b>Audit IA</b> — ${_vf.to ? 'biais corrigé ' + esc(_vf.from) + ' → ' + esc(_vf.to) : '✓ cohérent avec la semaine écoulée'}${_vf.reason ? ' · ' + esc(_vf.reason) : ''}</div>` : '';
 
   wrap.innerHTML = `
     <div class="sbs-panel">
@@ -3644,6 +3648,7 @@ function _sbOpenSummary(curr) {
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} — Performance de la semaine dernière :</div>
           <div class="sbs-narr">${narrative}</div>
+          ${auditHtml}
         </div>
       </div>
     </div>`;
