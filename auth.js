@@ -7,6 +7,8 @@
 
 const { createClient } = require('@supabase/supabase-js');
 const bcrypt = require('bcrypt');
+const fs = require('fs');
+const path = require('path');
 
 const SUPABASE_URL  = process.env.SUPABASE_URL;
 const SUPABASE_KEY  = process.env.SUPABASE_KEY;
@@ -23,6 +25,91 @@ const supabase = createClient(SUPABASE_URL, SUPABASE_KEY, {
 });
 
 console.log('[Auth] ✅ Supabase connecté →', SUPABASE_URL);
+
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+//  MIROIR LOCAL DES COMPTES — repli si Supabase est indisponible (quota egress dépassé, panne réseau)
+// ════════════════════════════════════════════════════════════════════════════════════════════════
+// Supabase free-tier DROPPE TOUTES les requêtes quand l'egress dépasse le quota (« Services restricted »)
+// → sans repli, verifyLogin/getUserById échouent et PLUS PERSONNE ne peut se connecter (l'auth = lecture
+// de la table users dans Supabase). On maintient donc un miroir local des comptes (password_hash inclus) :
+//   • rafraîchi automatiquement à CHAQUE lecture Supabase réussie (login, /me, liste admin) ;
+//   • utilisé en repli quand Supabase ne répond pas (login, session, reset, jobs de fond) ;
+//   • stocké dans DATA_DIR (volume Docker ./data/app → survit aux rebuilds, le disque conteneur est éphémère) ;
+//   • les écritures faites HORS-LIGNE (changement de MDP, maj abonnement) sont rejouées vers Supabase à son retour.
+const _DATA_DIR = process.env.DATA_DIR || __dirname;
+try { if (_DATA_DIR !== __dirname) fs.mkdirSync(_DATA_DIR, { recursive: true }); } catch {}
+const USERS_MIRROR_FILE  = path.join(_DATA_DIR, 'users_mirror.json');
+const USERS_PENDING_FILE = path.join(_DATA_DIR, 'users_pending.json');
+const _usersMirror     = new Map();   // email(minuscule) -> ligne complète (avec password_hash)
+const _usersMirrorById = new Map();   // id(string)       -> même ligne (référence partagée)
+function _mirrorIndex(row) {
+  if (!row || !row.email) return;
+  _usersMirror.set(String(row.email).toLowerCase().trim(), row);
+  if (row.id != null) _usersMirrorById.set(String(row.id), row);
+}
+function _mirrorSaveFile() {
+  try { fs.writeFileSync(USERS_MIRROR_FILE, JSON.stringify([..._usersMirror.values()])); }
+  catch (e) { console.warn('[Auth] miroir : sauvegarde échouée —', e.message); }
+}
+function _mirrorGet(email)  { return _usersMirror.get(String(email || '').toLowerCase().trim()) || null; }
+function _mirrorGetById(id) { return _usersMirrorById.get(String(id)) || null; }
+// Vue « publique » d'une ligne (sans le hash) — pour les chemins qui renvoient l'objet au front.
+function _pubUser(r) { if (!r) return null; const { password_hash, ...rest } = r; return rest; }
+// Rafraîchit une entrée depuis une lecture Supabase réussie. Fusionne pour ne JAMAIS perdre le
+// password_hash quand la lecture est une projection sans hash (getUserById / getAllUsers).
+function _mirrorPut(row) {
+  if (!row || !row.email) return;
+  const em = String(row.email).toLowerCase().trim();
+  const prev = _usersMirror.get(em);
+  if (prev) row = (!row.password_hash && prev.password_hash) ? { ...prev, ...row, password_hash: prev.password_hash } : { ...prev, ...row };
+  _mirrorIndex(row);
+}
+function _mirrorPutMany(rows) {   // bulk (liste admin) → une seule écriture fichier
+  let changed = false;
+  for (const r of (rows || [])) { if (r && r.email) { _mirrorPut(r); changed = true; } }
+  if (changed) _mirrorSaveFile();
+}
+// « 0 ligne » (l'email n'existe vraiment pas, Supabase répond) vs toute autre erreur = Supabase muet → repli.
+function _isNoRows(err) { return !!err && (err.code === 'PGRST116' || /0 rows|contain 0|no rows/i.test(err.message || '')); }
+function _supaDown(err) { return !!err && !_isNoRows(err); }
+// Chargement initial du miroir (synchrone, au boot)
+try {
+  const _arr = JSON.parse(fs.readFileSync(USERS_MIRROR_FILE, 'utf8'));
+  if (Array.isArray(_arr)) { _arr.forEach(_mirrorIndex); console.log(`[Auth] miroir local : ${_arr.length} compte(s) chargé(s) (repli si Supabase bloqué)`); }
+} catch {}
+
+// ─── File d'attente des écritures hors-ligne (rejouées vers Supabase dès son retour) ───
+let _pendingWrites = [];   // [{ id, fields, ts, attempts }]
+try { _pendingWrites = JSON.parse(fs.readFileSync(USERS_PENDING_FILE, 'utf8')) || []; } catch {}
+function _pendingSave() { try { fs.writeFileSync(USERS_PENDING_FILE, JSON.stringify(_pendingWrites)); } catch {} }
+function _pendingQueue(id, fields) {
+  const k = String(id);
+  const existing = _pendingWrites.find(p => String(p.id) === k);
+  if (existing) { Object.assign(existing.fields, fields); existing.attempts = 0; }
+  else _pendingWrites.push({ id: k, fields, ts: Date.now(), attempts: 0 });
+  _pendingSave();
+}
+let _pendingFlushing = false;
+async function _pendingFlush() {
+  if (_pendingFlushing || !_pendingWrites.length) return;
+  _pendingFlushing = true;
+  try {
+    const still = [];
+    for (const p of _pendingWrites) {
+      try {
+        const { error } = await supabase.from(TABLE).update(p.fields).eq('id', p.id);
+        if (!error) continue;                                   // ✅ rejoué → on retire de la file
+        if (_supaDown(error) && (p.attempts = (p.attempts || 0) + 1) < 200) still.push(p);   // toujours muet → on garde (cap anti-boucle)
+        else console.warn('[Auth] écriture hors-ligne abandonnée id=' + p.id + ' :', error.message);   // vraie erreur SQL ou trop d'essais → drop
+      } catch { p.attempts = (p.attempts || 0) + 1; if (p.attempts < 200) still.push(p); }    // réseau → on garde
+    }
+    if (still.length !== _pendingWrites.length) {
+      console.log(`[Auth] écritures hors-ligne : ${_pendingWrites.length - still.length} rejouée(s) vers Supabase, ${still.length} en attente`);
+      _pendingWrites = still; _pendingSave();
+    }
+  } finally { _pendingFlushing = false; }
+}
+setInterval(() => { _pendingFlush().catch(() => {}); }, 5 * 60 * 1000);   // re-tentative périodique (dès que Supabase revient)
 
 // ─── Seed admin (premier lancement) ──────────────────────────────────────────
 async function seedAdmin() {
@@ -61,15 +148,24 @@ async function seedAdmin() {
 const isStaff = r => r === 'admin' || r === 'support';
 
 async function verifyLogin(email, password) {
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('*')
-    .eq('email', (email || '').toLowerCase().trim())
-    .single();
+  const em = (email || '').toLowerCase().trim();
+  let data = null, down = false;
+  try {
+    const r = await supabase.from(TABLE).select('*').eq('email', em).single();
+    if (r.error) { if (_supaDown(r.error)) down = true; }   // 402/réseau → repli ; 0 ligne → email inexistant
+    else data = r.data;
+  } catch { down = true; }
 
-  if (error || !data) return null;
+  if (data) {
+    _mirrorPut(data); _mirrorSaveFile();                            // garde le miroir frais (hash courant inclus)
+    if (_pendingWrites.length) _pendingFlush().catch(() => {});     // Supabase répond → on rejoue les écritures en attente
+  } else if (down) {
+    data = _mirrorGet(em);                                          // Supabase muet → repli sur le miroir local
+    if (data) console.warn('[Auth] login via MIROIR local (Supabase indisponible) →', em);
+  }
+  if (!data) return null;
 
-  const ok = await bcrypt.compare(password, data.password_hash);
+  const ok = await bcrypt.compare(password, data.password_hash || '');
   if (!ok) return null;   // mauvais mdp → message générique (on ne révèle pas l'état du compte)
 
   // Compte suspendu (abonnement non actif) — distinct d'un mauvais mot de passe
@@ -86,8 +182,8 @@ async function verifyLogin(email, password) {
     return { expired: true, expiresAt: data.expires_at };
   }
 
-  // Mettre à jour last_login en background
-  supabase.from(TABLE).update({ last_login: new Date().toISOString() }).eq('id', data.id).then(() => {});
+  // Mettre à jour last_login en background (best-effort, jamais bloquant si Supabase est muet)
+  try { supabase.from(TABLE).update({ last_login: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {}); } catch {}
 
   return { id: data.id, email: data.email, name: data.name, role: data.role, plan: data.plan, active: !!data.active, expiresAt: data.expires_at || null };
 }
@@ -99,37 +195,50 @@ let _allUsersCache = { ts: 0, data: null };
 function _bustUsersCache() { _allUsersCache = { ts: 0, data: null }; }
 async function getAllUsers(opts = {}) {
   if (!opts.fresh && _allUsersCache.data && Date.now() - _allUsersCache.ts < 60000) return _allUsersCache.data;   // 60 s (cache invalidé à chaque écriture) → coupe le SELECT full-table du poll admin /4 s (anti-egress)
-  const { data, error } = await supabase
-    .from(TABLE)
-    .select('id, email, name, role, plan, active, created_at, last_login, expires_at')
-    .order('created_at', { ascending: false });
-
-  // Tolérance : si la colonne expires_at n'a pas encore été ajoutée, on réessaie sans
-  if (error && /expires_at/.test(error.message)) {
-    const fallback = await supabase
+  try {
+    let { data, error } = await supabase
       .from(TABLE)
-      .select('id, email, name, role, plan, active, created_at, last_login')
+      .select('id, email, name, role, plan, active, created_at, last_login, expires_at')
       .order('created_at', { ascending: false });
-    if (fallback.error) throw new Error(fallback.error.message);
-    _allUsersCache = { ts: Date.now(), data: fallback.data || [] };
+
+    // Tolérance : si la colonne expires_at n'a pas encore été ajoutée, on réessaie sans
+    if (error && /expires_at/.test(error.message)) {
+      ({ data, error } = await supabase
+        .from(TABLE)
+        .select('id, email, name, role, plan, active, created_at, last_login')
+        .order('created_at', { ascending: false }));
+    }
+    if (error) throw new Error(error.message);
+    _allUsersCache = { ts: Date.now(), data: data || [] };
+    _mirrorPutMany(data || []);                                    // rafraîchit le miroir (métadonnées) à chaque scan réussi
+    if (_pendingWrites.length) _pendingFlush().catch(() => {});
     return _allUsersCache.data;
+  } catch (e) {
+    // Supabase muet (quota egress dépassé, panne) → repli sur le miroir local : forgot-password,
+    // liste admin et jobs de fond continuent de tourner au lieu de jeter.
+    const arr = [..._usersMirror.values()].map(_pubUser);
+    if (arr.length) { _allUsersCache = { ts: Date.now(), data: arr }; console.warn('[Auth] getAllUsers via MIROIR local (Supabase indisponible) →', arr.length, 'compte(s)'); return arr; }
+    throw e;
   }
-  if (error) throw new Error(error.message);
-  _allUsersCache = { ts: Date.now(), data: data || [] };
-  return _allUsersCache.data;
 }
 
 async function getUserById(id) {
-  let { data, error } = await supabase
-    .from(TABLE)
-    .select('id, email, name, role, plan, active, created_at, expires_at')
-    .eq('id', id)
-    .single();
-  // Tolérance si les colonnes created_at/expires_at n'existent pas encore
-  if (error && /(expires_at|created_at)/.test(error.message || '')) {
-    ({ data } = await supabase.from(TABLE).select('id, email, name, role, plan, active').eq('id', id).single());
+  try {
+    let { data, error } = await supabase
+      .from(TABLE)
+      .select('id, email, name, role, plan, active, created_at, expires_at')
+      .eq('id', id)
+      .single();
+    // Tolérance si les colonnes created_at/expires_at n'existent pas encore
+    if (error && /(expires_at|created_at)/.test(error.message || '')) {
+      ({ data, error } = await supabase.from(TABLE).select('id, email, name, role, plan, active').eq('id', id).single());
+    }
+    if (data) { _mirrorPut(data); _mirrorSaveFile(); return data; }
+    if (_supaDown(error)) return _pubUser(_mirrorGetById(id));   // Supabase muet → repli (la session NE doit PAS sauter)
+    return null;                                                  // 0 ligne autoritaire → compte réellement absent
+  } catch {
+    return _pubUser(_mirrorGetById(id));
   }
-  return data || null;
 }
 
 async function createUser({ email, password, name = '', role = 'client', plan = 'professionnel', expiresAt = null }) {
@@ -150,14 +259,23 @@ async function createUser({ email, password, name = '', role = 'client', plan = 
     }
     throw new Error(error.message);
   }
+  if (data) { _mirrorPut(data); _mirrorSaveFile(); }   // nouveau compte → entre tout de suite dans le miroir (hash inclus)
   return data;
 }
 
 async function changePassword(id, newPassword) {
   if (!newPassword || newPassword.length < 6) throw new Error('Mot de passe trop court (min 6 caractères)');
   const hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
-  const { error } = await supabase.from(TABLE).update({ password_hash: hash }).eq('id', id);
-  if (error) throw new Error(error.message);
+  let supaOk = false;
+  try { const { error } = await supabase.from(TABLE).update({ password_hash: hash }).eq('id', id); if (!error) supaOk = true; }
+  catch {}
+  // Reflète TOUJOURS dans le miroir → la connexion avec le nouveau MDP marche immédiatement, même Supabase bloqué.
+  const row = _mirrorGetById(id);
+  if (row) { row.password_hash = hash; _mirrorIndex(row); _mirrorSaveFile(); }
+  if (!supaOk) {
+    _pendingQueue(id, { password_hash: hash });   // rejoué vers Supabase à son retour (sinon le MDP « reviendrait » à l'ancien)
+    if (!row) throw new Error('Supabase indisponible et compte absent du miroir local');
+  }
 }
 
 async function updateUser(id, fields = {}) {
@@ -168,14 +286,24 @@ async function updateUser(id, fields = {}) {
   if ('active' in fields) upd.active = fields.active === 1 || fields.active === true || fields.active === '1';
   if ('expiresAt' in fields) upd.expires_at = fields.expiresAt || null;
   if (Object.keys(upd).length === 0) return;
-  let { error } = await supabase.from(TABLE).update(upd).eq('id', id);
-  // Tolérance : colonne expires_at absente → on réessaie sans
-  if (error && /expires_at/.test(error.message)) {
-    delete upd.expires_at;
-    if (Object.keys(upd).length === 0) return;
-    ({ error } = await supabase.from(TABLE).update(upd).eq('id', id));
+  let supaOk = false, lastErr = null;
+  try {
+    let { error } = await supabase.from(TABLE).update(upd).eq('id', id);
+    // Tolérance : colonne expires_at absente → on réessaie sans
+    if (error && /expires_at/.test(error.message)) {
+      const upd2 = { ...upd }; delete upd2.expires_at;
+      if (Object.keys(upd2).length) ({ error } = await supabase.from(TABLE).update(upd2).eq('id', id));
+      else error = null;
+    }
+    if (error) lastErr = error; else supaOk = true;
+  } catch (e) { lastErr = e; }
+  // Reflète dans le miroir (les changements admin restent visibles même Supabase muet)
+  const row = _mirrorGetById(id);
+  if (row) { Object.assign(row, upd); _mirrorIndex(row); _mirrorSaveFile(); }
+  if (!supaOk) {
+    if (_supaDown(lastErr)) _pendingQueue(id, upd);                              // muet → rejeu différé
+    else throw new Error(lastErr ? (lastErr.message || String(lastErr)) : 'updateUser échoué');   // vraie erreur SQL → remonter
   }
-  if (error) throw new Error(error.message);
 }
 
 async function deleteUser(id) {
@@ -185,8 +313,7 @@ async function deleteUser(id) {
 
 // ═══════════════════ CHAT SUPPORT (persistant) ═══════════════════
 // Table Supabase `chat_messages` ; fallback fichier local si la table n'existe pas encore.
-const fs = require('fs');
-const path = require('path');
+// (fs/path requis en tête de fichier — réutilisés par le miroir des comptes.)
 const CHAT_TABLE = 'chat_messages';
 const CHAT_FILE  = path.join(__dirname, 'cache_chat.json');
 let _chatDb = true;            // bascule sur fichier si la table manque
@@ -527,8 +654,7 @@ async function weeklyReportList() {
 const EMAILLOG_TABLE = 'email_log';
 // Fichier de repli de l'anti-doublon : DOIT survivre aux redémarrages du conteneur Docker, sinon
 // chaque restart ré-arme l'envoi (→ spam). En Docker, DATA_DIR pointe vers un volume persistant.
-const _DATA_DIR = process.env.DATA_DIR || __dirname;
-try { if (_DATA_DIR !== __dirname) fs.mkdirSync(_DATA_DIR, { recursive: true }); } catch {}
+// (_DATA_DIR déjà déclaré en tête — partagé avec le miroir des comptes.)
 const EMAILLOG_FILE  = path.join(_DATA_DIR, 'cache_email_log.json');
 let _emailDb = true;
 let _emailFile = {};   // { key: sent_at_iso }
