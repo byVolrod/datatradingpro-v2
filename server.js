@@ -7103,7 +7103,7 @@ async function generateEuropeanMarketWrap(force = false) {
 
   // News du jour (≈13h glissantes), hors briefings, catégorisées comme les autres rapports DTP.
   const now = Date.now(), cutoff = now - 13 * 60 * 60 * 1000;
-  const recent = allNews.filter(i => i.timestamp > cutoff && i.timestamp <= now && !i._briefing);
+  const recent = allNews.filter(i => i.timestamp > cutoff && i.timestamp <= now && !i._briefing && !i._marketWrap);
   const CB_CATS   = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
   const DATA_CATS = new Set(['Economic Commentary','EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data','New Zealand Data']);
   const s = {
@@ -7171,18 +7171,22 @@ Rules: For EQUITIES/FX/FIXED/COMMODITIES, lead with the real levels above (name 
     return null;
   }
 
+  // ITEM VISIBLE dans le flux news (≠ briefing PRIMER, masqué lui par demande utilisateur) :
+  // pas de _briefing, pas de préfixe « PRIMER », source ≠ « DTP » exact → _isPrimerNews=false →
+  // diffusé en temps réel + non purgé. Le rendu structuré (rubriques orange) passe par le flag
+  // dédié _marketWrap côté client (et non par le chemin PRIMER, réservé à l'onglet Analyst).
   const item = {
     id:          prefix + '-' + now,
-    headline:    `PRIMER — DTP European Market Wrap - ${dateStr}`,
+    headline:    `DTP European Market Wrap - ${dateStr}`,
     description,
     category:    'Global News',
-    source:      'DTP',
+    source:      'DTP Markets',
     region:      'Europe',
     time:        timeStr,
     timestamp:   now,
     priority:    'normal',
     tags:        ['Europe', 'Market Wrap', 'Equities', 'FX'],
-    _briefing:   true,
+    _marketWrap: true,
     _reportType: 'European Market Wrap',
   };
   allNews = [item, ...allNews].slice(0, 2000);
@@ -8008,7 +8012,7 @@ function upgradeItemPriority(item) {
 
 // Purge noise from history on every server start
 allNews = allNews.filter(i => {
-  if (i._briefing || i.source === 'DTP') return true;          // garder les rapports internes
+  if (i._briefing || i.source === 'DTP' || i._marketWrap) return true;          // garder les rapports internes (+ Market Wrap visible)
   if (isNoise(i.headline)) return false;
   if (isGlobalNewsNoise(i.headline)) return false;
   // Global News générique sans pertinence financière → purge
