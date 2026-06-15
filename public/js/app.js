@@ -4535,13 +4535,11 @@ function _brShowNativePdf(item, pdfUrl) {
   if (!content) return;
   content.classList.add('br-rcontent--pdf');
   const raw     = pdfUrl || item.url || '';
-  const rawAttr = raw.replace(/"/g, '%22');
   const proxied = _brPdfProxy(raw);
   const ttl  = (item.title || 'PDF').replace(/"/g, '');
-  // PDF brut PLEIN CADRE, sans bandeau DTP (la barre d'outils native du PDF gère zoom/impression/téléchargement).
+  // PDF brut PLEIN CADRE, sans aucun bandeau DTP (la barre d'outils native du PDF gère zoom/impression/téléchargement).
   content.innerHTML =
-    `<iframe class="br-pdf-frame" src="${proxied}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>` +
-    `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Le PDF ne s'affiche pas ? <a href="${rawAttr}" target="_blank" rel="noopener" style="color:#ff7a00">Ouvrez-le dans un nouvel onglet ↗</a></div>`;
+    `<iframe class="br-pdf-frame" src="${proxied}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>`;
 }
 
 // Rapport SANS PDF natif (MUFG…) : on REND sa page en PDF côté serveur (/api/pdf-render) et on l'affiche
@@ -4551,11 +4549,10 @@ function _brShowRenderedPdf(item, renderUrl) {
   if (!content) return;
   content.classList.add('br-rcontent--pdf');
   const src = '/api/pdf-render?url=' + encodeURIComponent(renderUrl);
-  const rawAttr = (item.url || '').replace(/"/g, '%22');
   const ttl = (item.title || 'PDF').replace(/"/g, '');
+  // PDF rendu côté serveur, affiché BRUT plein cadre — sans bandeau « Génération du PDF… » (demande utilisateur).
   content.innerHTML =
-    `<iframe class="br-pdf-frame" src="${src}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>` +
-    `<div class="br-pdf-fallback" style="padding:9px 14px;font-size:11px;color:#8a8a93">Génération du PDF… s'il ne s'affiche pas, <a href="${rawAttr}" target="_blank" rel="noopener" style="color:#ff7a00">ouvrir l'original ↗</a></div>`;
+    `<iframe class="br-pdf-frame" src="${src}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>`;
 }
 
 function renderBrReader(item) {

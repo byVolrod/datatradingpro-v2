@@ -1653,10 +1653,11 @@ function buildSessionMap() {
   const chart = root.container.children.push(
     am5map.MapChart.new(root, {
       projection:   am5map.geoMercator(),
-      panX:         'rotateX',
+      panX:         'none',          // carte FIXE — aucune rotation ni déplacement (demande : « la map doit être fix »)
       panY:         'none',
       wheelY:       'none',
       wheelX:       'none',
+      maxPanOut:    0,
       minZoomLevel: 1, maxZoomLevel: 1,                // verrou : on cadre une BANDE de latitude (zoomToGeoBounds) → la carte remplit la hauteur, fini le noir en bas
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
@@ -1730,14 +1731,8 @@ function buildSessionMap() {
   function refreshUTCLine(now) {
     const h = now.getUTCHours() + now.getUTCMinutes() / 60;
     const lon = (h - 12) * 15;
-    // Petit timer orange = COUNTDOWN jusqu'au prochain événement de session (ouverture/fermeture), comme DTP
-    const utcH = h + now.getUTCSeconds() / 3600;
-    let best = Infinity;
-    SESSION_BLOCKS.forEach(s => {
-      [s.utcOpen, s.utcClose].forEach(b => { let d = b - utcH; if (d <= 0) d += 24; if (d < best) best = d; });
-    });
-    const totalMin = Math.max(0, Math.round(best * 60));
-    const cd = String(Math.floor(totalMin / 60)).padStart(2, '0') + ':' + String(totalMin % 60).padStart(2, '0');
+    // Étiquette du trait « now » = HEURE LOCALE courante HH:MM (comme PMT : « 22:14 »), pas un countdown.
+    const cd = now.toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit' });
     if (_utcLabel) _utcLabel.set('text', cd);
     if (_lastUTCLineLon === null || Math.abs(lon - _lastUTCLineLon) >= 0.25) {
       _lastUTCLineLon = lon;
