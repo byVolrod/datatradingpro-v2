@@ -3358,6 +3358,16 @@ async function _fetchBlackRockInto(merged) {
 // Natixis (Morning Line FX) + Danske (recherche) — sites SPA, Puppeteer best-effort (scrapers/research-spa.js).
 // Heuristique STRICTE → aucune pollution si bloqué/gated. Items = lien vers l'original (ouvert sur le site banque).
 const RESEARCH_SPA_SITES = [
+  // Standard Chartered — Private Banking « Latest Market Views » (page 100 % JS) → rapports = PDF directs
+  // sur sc.com/en/uploads/sites/<n>/content/docs/<slug>-<JJ-mois-AAAA>.pdf. Scrape Puppeteer + repli HTTP
+  // captent ces liens .pdf ; le seed garantit le dernier rapport connu. Affiché en PDF natif (sc.com proxifié).
+  { name: 'Standard Chartered', institution: 'Standard Chartered', source: 'stanchart', host: 'sc.com',
+    url: 'https://www.sc.com/en/wealth-retail-banking/private-banking/latest-market-views/?files_type=1340',
+    hrefRe: /sc\.com\/en\/uploads\/sites\/\d+\/content\/docs\/[^"'\s]+\.pdf/i,
+    seed: [
+      { title: 'Weekly Market View — Investor froth scaled back, but not eliminated', url: 'https://www.sc.com/en/uploads/sites/66/content/docs/wm-weekly-market-view-investor-froth-scaled-back-but-not-eliminated-12-june-2026.pdf', date: '2026-06-12', pdf: true },
+    ],
+  },
   { name: 'Natixis', institution: 'Natixis', source: 'natixis', host: 'natixis.com',
     url: 'https://www.research.natixis.com/Site/en/forex/latest-publications?type=MORNING_LINE',
     hrefRe: /natixis\.com\/(?:Site\/[a-z]{2}\/(?:latest-publications\/publication|publication|forex|fixed-income|economy|cross-asset)\/.+|articles\/.+)/i,
@@ -4207,7 +4217,7 @@ app.get('/api/bank-research-content', async (req, res) => {
 // Indispensable car certains PDF (ING Think…) renvoient X-Frame-Options: SAMEORIGIN et refusent
 // d'être embarqués cross-origin. On affiche donc le PDF via ce proxy → iframe même-origine = OK.
 // Whitelist STRICTE des hôtes (anti-SSRF / anti-open-proxy) + HTTPS only + vérif content-type=pdf.
-const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com)$/i;
+const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com|sc\.com)$/i;
 app.get('/api/pdf-proxy', async (req, res) => {
   const u = String(req.query.url || '');
   let host = '';
