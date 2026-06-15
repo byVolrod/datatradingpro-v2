@@ -3384,15 +3384,6 @@ const RESEARCH_SPA_SITES = [
     seed: [
       { title: '2026: Entering a New Market Regime', url: 'https://home.cib.natixis.com/articles/2026-entering-a-new-market-regime', date: '2026-01-15' },
     ] },
-  { name: 'Danske', institution: 'Danske', source: 'danske', host: 'danskebank.com',
-    url: 'https://research.danskebank.com/research/',
-    hrefRe: /danskebank\.com\/.*(?:\/link\/[a-z0-9]+\/\$file\/.+\.pdf|research\/article|\/article\/|articlekey|researchkey|insights\/\d{4}\/\d+|\/[0-9a-f]{8,})/i,
-    seed: [
-      { title: 'FX Forecast Update', url: 'https://research.danskebank.com/link/FXForecastUpdate170426/$file/FX%20ForecastUpdate_170426.pdf', date: '2026-04-17', pdf: true },
-      { title: 'Weekly Focus', url: 'https://research.danskebank.com/link/WeeklyFocus060326/$file/Weekly%20Focus_060326.pdf', date: '2026-03-06', pdf: true },
-      { title: 'Nordic Outlook (March 2026)', url: 'https://research.danskebank.com/link/NordicOutlook,March26/$file/Nordic%20Outlook,%20March%2026.pdf', date: '2026-03-04', pdf: true },
-      { title: 'FX Forecast Update — USD to weather AI valuation woes', url: 'https://research.danskebank.com/link/FXForecastUpdate181125/$file/FX%20Forecast%20Update_181125.pdf', date: '2025-11-18', pdf: true },
-    ] },
   { name: 'UniCredit', institution: 'UniCredit', source: 'unicredit', host: 'unicreditgroup.eu',
     url: 'https://www.unicreditgroup.eu/en/business/our-investment-insights.html',
     hrefRe: /unicreditgroup\.eu\/content\/dam\/unicreditgroup-eu\/documents\/en\/business\/OurInvestmentInsights\/[^"'\s]+\.pdf/i,
@@ -3449,15 +3440,6 @@ const RESEARCH_SPA_SITES = [
       { title: 'Economic Perspectives April 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-april-2026.html', date: '2026-04-21' },
       { title: 'Economic Perspectives March 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-march-2026.html', date: '2026-03-23' },
       { title: 'Economic Perspectives February 2026', url: 'https://www.kbc.com/en/economics/publications/economic-perspectives-february-2026.html', date: '2026-02-16' },
-    ] },
-  { name: 'Amundi', institution: 'Amundi', source: 'amundi', host: 'research-center.amundi.com',
-    url: 'https://research-center.amundi.com/',
-    hrefRe: /research-center\.amundi\.com\/article\/[^"'\s]+/i,
-    seed: [
-      { title: 'Global Investment Views — June 2026', url: 'https://research-center.amundi.com/article/global-investment-views-june-2026', date: '2026-06-04' },
-      { title: 'Global Investment Views — May 2026', url: 'https://research-center.amundi.com/article/global-investment-views-may-2026', date: '2026-05-06' },
-      { title: 'Cross Asset Investment Strategy — May 2026', url: 'https://research-center.amundi.com/article/cross-asset-investment-strategy-may-2026', date: '2026-05-05' },
-      { title: 'Rethinking global diversification', url: 'https://research-center.amundi.com/article/rethinking-global-diversification', date: '2026-05-22' },
     ] },
   { name: 'Westpac', institution: 'Westpac', source: 'westpac', host: 'westpaciq.com.au',
     url: 'https://www.westpaciq.com.au/economics',
@@ -3533,6 +3515,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
       const pubs = await scrapeResearchSpa(cfg);
       for (const p of (pubs || [])) {
         if (!p || !p.url || (p.ts && p.ts < cutoff)) continue;
+        if (cfg.source === 'stanchart' && !/weekly-market-view/i.test(p.url)) continue;   // SC : ignorer les liens parasites (le scrape Puppeteer ne filtre pas par hrefRe)
         const id = 'br-' + Buffer.from(p.url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
         if (merged.has(id)) continue;
         merged.set(id, { id, title: p.title, url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
