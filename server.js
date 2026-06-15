@@ -3905,6 +3905,16 @@ app.get('/api/bank-research-content', async (req, res) => {
     } catch (e) { r = { data: '' }; }   // fetch direct KO (timeout/DNS/reset) → on N'ABANDONNE PAS : extraction vide puis repli jina
     const $ = cheerio.load(r.data || '');
 
+    // Lien vers le VRAI PDF du rapport (ING Think « download-link », ou tout /downloads/pdf/ ou .pdf)
+    // → affiché TEL QUEL côté client (proxifié), SANS aucune restructuration IA.
+    let _realPdf = '';
+    try {
+      const _dl = $('a[data-cy="download-link"]').attr('href')
+               || $('a[href*="/downloads/pdf/"]').attr('href')
+               || $('a[href$=".pdf"]').attr('href') || '';
+      if (_dl) _realPdf = new URL(_dl, _origin).href;
+    } catch {}
+
     // Extract metadata
     const subtitle = $('meta[property="og:description"]').attr('content')
                   || $('meta[name="description"]').attr('content')
@@ -4055,10 +4065,39 @@ app.get('/api/bank-research-content', async (req, res) => {
       if (typeof seg === 'string' && seg.length > 80) { outHtml = seg; outSource = 'ai'; }
     } catch (e) { console.warn('[BR struct]', e.message); }
 
-    res.json({ html: _stripSource(outHtml), source: outSource, subtitle, date: dateFormatted, section, country, articleType });
+    res.json({ html: _stripSource(outHtml), source: outSource, pdfUrl: _realPdf, subtitle, date: dateFormatted, section, country, articleType });
   } catch (e) {
     res.json({ html: '', error: e.message });
   }
+});
+
+// ─── Proxy PDF : ressert un PDF de banque distant DEPUIS le domaine DTP (même origine) ──────────
+// Indispensable car certains PDF (ING Think…) renvoient X-Frame-Options: SAMEORIGIN et refusent
+// d'être embarqués cross-origin. On affiche donc le PDF via ce proxy → iframe même-origine = OK.
+// Whitelist STRICTE des hôtes (anti-SSRF / anti-open-proxy) + HTTPS only + vérif content-type=pdf.
+const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com)$/i;
+app.get('/api/pdf-proxy', async (req, res) => {
+  const u = String(req.query.url || '');
+  let host = '';
+  try { const p = new URL(u); if (p.protocol !== 'https:') return res.status(400).send('https only'); host = p.hostname.toLowerCase(); }
+  catch { return res.status(400).send('bad url'); }
+  if (!PDF_PROXY_HOSTS.test(host)) return res.status(403).send('host not allowed');
+  try {
+    const r = await axios.get(u, {
+      responseType: 'arraybuffer',
+      timeout: 25000,
+      maxContentLength: 30 * 1024 * 1024,
+      maxRedirects: 3,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/pdf,*/*' },
+      validateStatus: s => s >= 200 && s < 400,
+    });
+    const ct = String(r.headers['content-type'] || '');
+    if (!/pdf/i.test(ct)) return res.status(415).send('not a pdf');
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', 'inline');
+    res.setHeader('Cache-Control', 'public, max-age=86400');
+    return res.send(Buffer.from(r.data));
+  } catch (e) { return res.status(502).send('pdf fetch failed'); }
 });
 
 // Trusted financial news domains allowed for article content fetch
