@@ -3615,7 +3615,6 @@ function _sbOpenSummary(curr) {
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
     line('Bank Overview', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
-    line('Weekly Recap', val('weeklyRecap')),
     line('Technical', val('technical')),
     line('Sentiment', val('sentiment')),
     line('Hedge Fund Positioning', val('hedgeFund')),
@@ -3634,17 +3633,6 @@ function _sbOpenSummary(curr) {
   // Narratif IA hebdo si dispo (généré côté serveur), sinon synthèse data-driven (0 token).
   const aiNarr = (d.narrative && typeof d.narrative[curr] === 'string' && d.narrative[curr].trim()) ? d.narrative[curr].trim() : null;
   const narrative = aiNarr ? esc(aiNarr) : _sbFallbackNarrative(curr, val, overall, bulls, bears, esc);
-  // Audit IA : badge cohérence/correction/avis du biais vs la semaine écoulée (d.verify[curr], rempli côté serveur).
-  const _vf = (d.verify && d.verify[curr]) || null;
-  const _vfType = _vf ? (_vf.to ? 'corr' : _vf.advisory ? 'adv' : 'ok') : null;
-  const _vfSty = { corr: ['rgba(255,122,0,0.10)', 'rgba(255,122,0,0.35)', '#f3c89a'], adv: ['rgba(96,165,250,0.10)', 'rgba(96,165,250,0.32)', '#bcd6f5'], ok: ['rgba(34,197,94,0.08)', 'rgba(34,197,94,0.30)', '#9fd6b0'] };
-  const auditHtml = _vf ? (() => {
-    const s = _vfSty[_vfType];
-    const txt = _vfType === 'corr' ? 'biais corrigé ' + esc(_vf.from) + ' → ' + esc(_vf.to)
-      : _vfType === 'adv' ? 'écart noté (suggère ' + esc(_vf.suggested) + ') — biais pondéré conservé'
-      : '✓ cohérent avec la semaine écoulée';
-    return `<div style="margin-top:12px;padding:8px 11px;border-radius:6px;font-size:11.5px;line-height:1.5;background:${s[0]};border:1px solid ${s[1]};color:${s[2]}">🔍 <b>Audit IA</b> — ${txt}${_vf.reason ? ' · ' + esc(_vf.reason) : ''}</div>`;
-  })() : '';
 
   wrap.innerHTML = `
     <div class="sbs-panel">
@@ -3654,7 +3642,6 @@ function _sbOpenSummary(curr) {
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} — Performance de la semaine dernière :</div>
           <div class="sbs-narr">${narrative}</div>
-          ${auditHtml}
         </div>
       </div>
     </div>`;
