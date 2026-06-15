@@ -3885,7 +3885,10 @@ async function _loadPersistedHistories() {
   } catch (e) { console.warn('[History] reload research:', e.message); }
 }
 
+// Sources de banque RETIRÉES (demande utilisateur) → filtrées de l'affichage ET de la persistance.
+const _BR_REMOVED = new Set(['amundi', 'danske']);
 app.get('/api/bank-research', (_req, res) => {
+  _brCache = _brCache.filter(i => i && !_BR_REMOVED.has(i._source));   // purge définitive (existants + persistés)
   _brCache.forEach(_cleanItemMd);   // titres sans markdown brut, même pour un JS en cache
   res.json(_brCache);
   // Résilience : si le cache est VIDE (ex. cold-start avant le 1er scrape) → on déclenche tout de
