@@ -5954,7 +5954,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v15b-audit';   // v15b : AUDIT IA garde-fou (respecte la méthodo pondérée, COT secondaire, plafond 2 corrections sinon advisory — fini le re-jugement 8/8) + v14b (Overall pondéré) + v14 (indicateur Weekly Recap) + v13d (bande 0.25) + v13c (calendrier TV) + v13 (prompt directionnel) ; bump = régén au boot
+const BIAS_VER = 'v16-holistic';   // v16 : Overall = jugement HOLISTIQUE IA (pèse TOUTES les données du terminal → conclut direct), matrice = détail ; repli déterministe si overall IA manquant ; indicateur Weekly Recap + audit séparé RETIRÉS (l'IA holistique les remplace) ; + v13c (calendrier TV) + v13 (prompt directionnel) ; bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -5991,7 +5991,6 @@ try { auth.aiCacheGet('smartbias:history').then(h => { if (Array.isArray(h) && h
 const SB_GEM_ROWS = [
   { key: 'fundamental', label: 'Fundamental Data' },
   { key: 'bankOverview', label: 'Bank Overview' },
-  { key: 'weeklyRecap', label: 'Weekly Recap' },   // synthèse DTP de la semaine écoulée (Weekly Market Recap + Global Economic Weekly)
   { key: 'hedgeFund', label: 'Hedge Fund Positioning' },
   { key: 'retail', label: 'Retail Positioning' },
   { key: 'monetary', label: 'Monetary Policy' },
@@ -6334,7 +6333,6 @@ Map each indicator to its SOURCE (use ONLY that source):
 - hedgeFund: large-speculator positioning → from the COT DATA below ONLY (net long → Bullish, net short → Bearish; bigger net = stronger conviction). Currency absent from COT → Neutral.
 - retail: retail crowd positioning (CONTRARIAN) → from the RETAIL SENTIMENT below. Retail heavily LONG a currency (via its pairs) → bias it Bearish; heavily SHORT → Bullish. No retail data for a currency → Neutral.
 - monetary: central-bank policy stance → from CALENDAR central-bank events (rate decisions) + headlines mentioning central banks / officials.
-- weeklyRecap: DTP's OWN weekly stance per currency → from the DTP WEEKLY RECAPS below ONLY (per-pair BUY/SELL bias + per-currency analysis). Translate pairs into per-currency direction (EUR/USD BUY → EUR Bullish, USD slightly Bearish; USD/JPY SELL → USD Bearish, JPY Bullish), corroborated by the per-currency analysis text. No DTP coverage for a currency → Neutral.
 
 == COT DATA (CFTC non-commercial / large specs — the ONLY source for hedgeFund) ==
 ${cotLine || 'n/a'}
@@ -6348,19 +6346,23 @@ ${retailLine || 'n/a'}
 ${calLine || 'n/a'}
 == PAST-WEEK HEADLINES ==
 ${heads || 'n/a'}
-== DTP WEEKLY RECAPS — our OWN synthesis of the elapsed week (the ONLY source for weeklyRecap) ==
+== DTP WEEKLY RECAPS — our OWN synthesis of the elapsed week (price action + per-currency analysis) ==
 ${recapLine || 'n/a'}
 
-Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"weeklyRecap":{...},"hedgeFund":{...},"retail":{...},"monetary":{...}}}`;
+Then give an "overall" HOLISTIC weekly bias for EACH currency: your single best directional call for the WEEK AHEAD, weighing ALL of the above TOGETHER (DTP weekly recaps / price action + macro data + central banks + positioning + risk regime + headlines). When sources conflict, prioritise what ACTUALLY HAPPENED (recaps/price action) and the macro/policy backdrop OVER raw speculative positioning (COT/retail are secondary). Be decisive — "Neutral" only when genuinely balanced.
 
-  let gem = {};
+Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"hedgeFund":{...},"retail":{...},"monetary":{...}},"overall":{"USD":"...","EUR":"...", ...all 8 ...}}`;
+
+  let gem = {}, gemOverall = {};
   let aiOk = false;
   try {
     aiNote('bias');
     const t = await ai.generateText(prompt, 2400);
     const m = t.match(/\{[\s\S]*\}/);
     if (!m) throw new Error('No JSON');
-    gem = JSON.parse(m[0]).rows || {};
+    const _p = JSON.parse(m[0]);
+    gem = _p.rows || {};
+    gemOverall = (_p.overall && typeof _p.overall === 'object') ? _p.overall : {};   // conclusion HOLISTIQUE IA (toutes données)
     aiOk = Object.keys(gem).length > 0;
   } catch (e) {
     console.error('[SmartBias]', e.message);
@@ -6372,44 +6374,33 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   if (!aiOk) {
     console.warn('[SmartBias] IA indispo → on conserve les lignes IA précédentes et on rafraîchit Trend/Seasonality/date');
     const prevRows = (_smartBias && Array.isArray(_smartBias.rows)) ? _smartBias.rows : [];
-    ['fundamental', 'bankOverview', 'weeklyRecap', 'hedgeFund', 'retail', 'monetary'].forEach(k => {
+    ['fundamental', 'bankOverview', 'hedgeFund', 'retail', 'monetary'].forEach(k => {
       const r = prevRows.find(x => x.key === k);
       gem[k] = (r && r.values) ? r.values : {};
     });
+    // conserve aussi le dernier Overall holistique connu (sinon on retombe sur le déterministe)
+    if (_smartBias && _smartBias.conclusion) gemOverall = { ..._smartBias.conclusion };
   }
 
   const trend = await _sbTrendRow();
   const seasonality = await _sbSeasonalityRow();   // RÉELLE (saisonnalité 5 ans, cf. _sbSeasonalityRow) — plus de devinette IA
   const technical = await _sbTechnicalRow();       // force devise 1 jour (court terme)
   const sentiment = _sbSentimentRow();             // régime de risque mappé par devise
-  // Conclusion = calcul DÉTERMINISTE pur (lib/bias-calc.js) → testable, zéro dérive, seuils alignés DTP.
-  // Elle agrège TOUTES les lignes (dont Technical + Sentiment) → le Overall reflète exactement la matrice.
-  // IMPORTANT : Technical (force 1j) et Sentiment (régime de risque) sont VOLATILS (intra-journée).
-  // On les AFFICHE comme lignes (épuré) mais on NE les inclut PAS dans le Overall, sinon le
-  // Overall dériverait en continu et contredirait le narratif (généré périodiquement). Le Overall
-  // reste donc calé sur les indicateurs STABLES (hebdo/mensuels) → cohérence narratif ↔ matrice garantie.
-  // PONDÉRATION (demande utilisateur) : NOTRE analyse prime sur le positionnement spéculatif →
-  // Weekly Recap 2.5 (synthèse DTP), Fundamental 2 (données macro publiées), Monetary 1.5 (politique CB),
-  // le reste 1 (Bank Overview, Hedge Fund/COT, Retail, Trend, Seasonality). Overall = moyenne pondérée.
-  const SB_W = { weeklyRecap: 2.5, fundamental: 2, monetary: 1.5, bankOverview: 1, hedgeFund: 1, retail: 1 };
+  // Overall = jugement HOLISTIQUE de l'IA : elle pèse TOUTES les données du terminal (recaps/prix, macro
+  // publiée, banques centrales, positionnement COT/retail, régime de risque, news) et conclut DIRECTEMENT
+  // le biais de chaque devise (demande utilisateur). La matrice d'indicateurs reste affichée pour le DÉTAIL.
+  // Repli DÉTERMINISTE pondéré (lib/bias-calc.js) UNIQUEMENT si l'IA n'a pas renvoyé d'overall valide pour
+  // une devise (IA muette / JSON incomplet). Technical + Sentiment (volatils) restent hors du repli.
+  const SB_W = { fundamental: 2.5, monetary: 1.5, bankOverview: 1, hedgeFund: 1, retail: 1 };
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
+    if (_SB_VALID_BIAS.includes(gemOverall[c])) { conclusion[c] = gemOverall[c]; return; }   // ← jugement IA holistique (prioritaire)
     const vals = [], wts = [];
     SB_GEM_ROWS.forEach(r => { vals.push(gem[r.key] ? gem[r.key][c] : null); wts.push(SB_W[r.key] != null ? SB_W[r.key] : 1); });
     vals.push(trend[c]); wts.push(1);
     vals.push(seasonality[c]); wts.push(1);
-    conclusion[c] = concludeBias(vals, wts);
+    conclusion[c] = concludeBias(vals, wts);   // repli si pas d'overall IA
   });
-
-  // ── AUDIT IA — vérifie que chaque biais Overall est JUSTIFIÉ par la semaine ÉCOULÉE et corrige les
-  //    contradictions flagrantes (ex. Bullish alors que la donnée est clairement bearish). Conservateur :
-  //    ne touche QUE les contradictions nettes, sinon confirme. Corrige `conclusion` en place + renvoie
-  //    le détail (stocké dans _smartBias.verify → transparence/affichage). N'est lancé que si l'IA a servi.
-  let verify = null;
-  if (aiOk) {
-    try { verify = await _sbVerifyBias(conclusion, [cotLine, bankLine, calLine, retailLine, riskLine, recapLine]); }
-    catch (e) { console.warn('[SmartBias] audit IA échec:', e.message); }
-  }
 
   // Ordre d'affichage (aligné pro) : Fundamental, Bank Overview, Technical, Sentiment,
   // Hedge Fund, Retail, Monetary, Trend, Seasonality.
@@ -6417,7 +6408,6 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
   const _pushGem = k => { const def = SB_GEM_ROWS.find(r => r.key === k); rows.push({ key: k, label: def.label, values: gem[k] || {} }); };
   _pushGem('fundamental');
   _pushGem('bankOverview');
-  _pushGem('weeklyRecap');   // synthèse DTP de la semaine écoulée (Weekly Market Recap + Global Economic Weekly)
   rows.push({ key: 'technical', label: 'Technical', values: technical });
   rows.push({ key: 'sentiment', label: 'Sentiment', values: sentiment });
   _pushGem('hedgeFund');
@@ -6466,7 +6456,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
       auth.aiCacheSet('smartbias:history', _smartBiasHistory).catch(() => {});
     }
   } catch {}
-  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, narrativeBias, bankStances, verify: verify || (_smartBias && _smartBias.verify) || null, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
+  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, narrativeBias, bankStances, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
   // Régénération complète → les overrides admin (correctifs ponctuels d'aberrations IA) expirent :
   // la nouvelle matrice repart sur les données fraîches, l'admin ne corrige que si besoin à nouveau.
   try { if (Object.keys(_sbOverrides || {}).length) { _sbOverrides = {}; auth.aiCacheSet('sb:overrides', {}).catch(() => {}); } } catch {}
