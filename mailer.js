@@ -141,16 +141,31 @@ async function _gmailAccessToken() {
     return _gmApiToken.value;
   } finally { clearTimeout(t); }
 }
-// Construit un message MIME RFC822 et l'encode en base64url (format attendu par l'API Gmail).
+// Version TEXTE BRUT d'un HTML — un email multipart (texte + HTML) score BIEN mieux en
+// délivrabilité qu'un HTML seul (un mail HTML-only est un signal de spam classique).
+function _htmlToText(html) {
+  return String(html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<head[\s\S]*?<\/head>/gi, ' ')
+    .replace(/<\/(p|div|tr|h[1-6]|li|table)>/gi, '\n').replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ').replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"')
+    .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
+}
+// Construit un message MIME RFC822 (multipart/alternative texte+HTML) encodé en base64url (API Gmail).
 function _buildRaw(to, subject, html) {
   const fromHeader = `DataTradingPro <${GMAIL_USER || SUPPORT_EMAIL}>`;
-  // Sujet en UTF-8 encodé (RFC 2047) pour les accents/emojis.
-  const subjEnc = '=?UTF-8?B?' + Buffer.from(subject, 'utf8').toString('base64') + '?=';
+  const subjEnc = '=?UTF-8?B?' + Buffer.from(subject, 'utf8').toString('base64') + '?=';   // sujet UTF-8 (accents/emojis)
+  const text = _htmlToText(html);
+  const boundary = 'dtp_' + Date.now().toString(36) + Math.floor(Date.now() % 1e6).toString(36);
   const lines = [
     `From: ${fromHeader}`, `To: ${to}`, `Reply-To: ${SUPPORT_EMAIL}`,
     `Subject: ${subjEnc}`, 'MIME-Version: 1.0',
-    'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
-    Buffer.from(html, 'utf8').toString('base64'),
+    `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
+    `--${boundary}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
+    Buffer.from(text, 'utf8').toString('base64'), '',
+    `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
+    Buffer.from(html, 'utf8').toString('base64'), '',
+    `--${boundary}--`,
   ];
   return Buffer.from(lines.join('\r\n'), 'utf8')
     .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -181,7 +196,7 @@ async function _sendGmailApi(to, subject, html) {
 async function _sendGmail(to, subject, html) {
   const from = _parseFrom();
   const fromHeader = `${from.name || 'DataTradingPro'} <${GMAIL_USER}>`;   // expéditeur = compte authentifié (alignement garanti)
-  await _getGmailTransport().sendMail({ from: fromHeader, replyTo: SUPPORT_EMAIL, to, subject, html });
+  await _getGmailTransport().sendMail({ from: fromHeader, replyTo: SUPPORT_EMAIL, to, subject, html, text: _htmlToText(html) });
   console.log(`[Mailer] ✅ (Gmail) "${subject}" → ${to}`);
   return true;
 }
@@ -258,7 +273,7 @@ function _getOvhTransport() {
 async function _sendOvhSmtp(to, subject, html) {
   if (!process.env.OVH_SMTP_USER || !process.env.OVH_SMTP_PASS) return false;
   const from = process.env.EMAIL_FROM || process.env.OVH_SMTP_USER;   // ex. "DataTradingPro <contact@datatradingpro.com>"
-  await _getOvhTransport().sendMail({ from, to, subject, html,
+  await _getOvhTransport().sendMail({ from, replyTo: SUPPORT_EMAIL, to, subject, html, text: _htmlToText(html),   // texte+HTML (multipart) = meilleure délivrabilité
     headers: { 'List-Unsubscribe': '<mailto:' + SUPPORT_EMAIL + '?subject=Unsubscribe>' } });   // mail-tester / bonnes pratiques
   return true;
 }
