@@ -5900,7 +5900,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v13-directional';   // v13 : prompt DIRECTIONNEL (fini le mur de Neutral — on s'engage dès qu'une donnée penche, Neutral seulement si absent/conflit) ; bump = régén matrice + narratifs au boot
+const BIAS_VER = 'v13b-cal';   // v13b : régén au boot CONDITIONNÉE au calendrier chargé (Fundamental/Monetary avec données) + prompt directionnel v13 ; bump = régén matrice + narratifs au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -6777,12 +6777,22 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
     setInterval(runAll, 7 * 24 * 60 * 60 * 1000);
   }, delay);
   // Régénère au démarrage si vide / seed (non daté) / version périmée / >1 semaine → bias toujours frais + ancré.
-  // (45s pour laisser le calendrier + le cache Supabase se charger d'abord.) Persisté ensuite sur Supabase → pas de régén à chaque déploiement.
-  setTimeout(() => {
-    const missed = _biasMissedWeekly();   // samedi sauté par un redémarrage → rattrapage AVEC narratifs (weekly)
-    const verChanged = !_smartBias || _smartBias.v !== BIAS_VER;   // nouveau BIAS_VER (prompt/logique changé) → régénère AUSSI les narratifs pour rester cohérent avec les nouvelles valeurs
-    if (missed || _sbBiasStale()) generateSmartBias(true, missed || verChanged).catch(() => {});
-  }, 75 * 1000);   // 75s : après le burst du préchauffage des rapports → moins de contention RPM Gemini
+  // IMPORTANT : on ATTEND que le calendrier éco soit chargé (events High/Medium avec actual vs forecast =
+  // la source de Fundamental/Monetary) avant de générer — sinon ces lignes partent sans données et la
+  // matrice retombe en Neutral (bug vécu : EUR/GBP nets short au COT mais Neutral faute de calendrier).
+  // On sonde toutes les 20 s (plafond ~5 min) ; au-delà on génère quand même (mieux vaut frais que rien).
+  function _biasBootRegen(tries) {
+    if (!(_biasMissedWeekly() || _sbBiasStale())) return;          // rien à régénérer
+    const calReady = (allCalendar || []).some(e => e && (e.impact === 'High' || e.impact === 'Medium') && e.actual && e.forecast);
+    if (calReady || tries >= 12) {
+      const missed = _biasMissedWeekly();
+      const verChanged = !_smartBias || _smartBias.v !== BIAS_VER;   // version bumpée / prompt changé → régénère AUSSI les narratifs
+      generateSmartBias(true, missed || verChanged).catch(() => {});
+    } else {
+      setTimeout(() => _biasBootRegen(tries + 1), 20 * 1000);      // calendrier pas encore prêt → re-sonde
+    }
+  }
+  setTimeout(() => _biasBootRegen(0), 75 * 1000);   // 75s initial (après le préchauffage des rapports → moins de contention RPM), puis on attend le calendrier
   // Week Ahead : régénère au démarrage si vide / version périmée / >1 semaine (décalé après le bias).
   setTimeout(() => {
     const stale = !_weekAhead || _weekAhead.v !== WA_VER || !_weekAhead.generatedAt || (Date.now() - _weekAhead.generatedAt > 7 * 24 * 60 * 60 * 1000) || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length;
