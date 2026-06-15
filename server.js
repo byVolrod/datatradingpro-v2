@@ -3119,11 +3119,17 @@ app.get('/api/session-wrap-content', async (req, res) => {
 });
 
 // ── ING Think Bank Research ───────────────────────────────────────────────────
+// Filtres d'affichage des rapports de banque — appliqués au CHARGEMENT, à la DIFFUSION et à la PERSISTANCE.
+const _BR_REMOVED = new Set(['amundi', 'danske']);   // banques retirées (demande utilisateur)
+// Standard Chartered : on ne publie QUE les « Weekly Market View » (URL wm-weekly-market-view-…),
+// jamais les liens parasites de la même page (Modern slavery statement, Code of Conduct, Download the report…).
+const _brAllowed = i => !!i && !_BR_REMOVED.has(i._source) &&
+  (i._source !== 'stanchart' || /weekly-market-view/i.test(i.url || ''));
 function _brLoadFile() {
   try {
     const data = JSON.parse(fs.readFileSync(BR_CACHE_FILE, 'utf8'));
     if (Array.isArray(data)) {
-      _brCache = data.filter(i => i.timestamp > Date.now() - BR_MAX_AGE);
+      _brCache = data.filter(i => i && i.timestamp > Date.now() - BR_MAX_AGE && _brAllowed(i));
       console.log(`[BankResearch] Loaded ${_brCache.length} articles from file`);
     }
   } catch {}
@@ -3362,11 +3368,12 @@ async function _fetchBlackRockInto(merged) {
 // Heuristique STRICTE → aucune pollution si bloqué/gated. Items = lien vers l'original (ouvert sur le site banque).
 const RESEARCH_SPA_SITES = [
   // Standard Chartered — Private Banking « Latest Market Views » (page 100 % JS) → rapports = PDF directs
-  // sur sc.com/en/uploads/sites/<n>/content/docs/<slug>-<JJ-mois-AAAA>.pdf. Scrape Puppeteer + repli HTTP
-  // captent ces liens .pdf ; le seed garantit le dernier rapport connu. Affiché en PDF natif (sc.com proxifié).
+  // sur sc.com/en/uploads/sites/<n>/content/docs/wm-weekly-market-view-<slug>-<JJ-mois-AAAA>.pdf.
+  // hrefRe EXIGE « weekly-market-view » dans l'URL : on ne capte QUE les Weekly Market View, jamais les
+  // liens parasites de la page (Modern slavery statement, Code of Conduct, Download the report…).
   { name: 'Standard Chartered', institution: 'Standard Chartered', source: 'stanchart', host: 'sc.com',
     url: 'https://www.sc.com/en/wealth-retail-banking/private-banking/latest-market-views/?files_type=1340',
-    hrefRe: /sc\.com\/en\/uploads\/sites\/\d+\/content\/docs\/[^"'\s]+\.pdf/i,
+    hrefRe: /sc\.com\/en\/uploads\/sites\/\d+\/content\/docs\/[^"'\s]*weekly-market-view[^"'\s]*\.pdf/i,
     seed: [
       { title: 'Weekly Market View — Investor froth scaled back, but not eliminated', url: 'https://www.sc.com/en/uploads/sites/66/content/docs/wm-weekly-market-view-investor-froth-scaled-back-but-not-eliminated-12-june-2026.pdf', date: '2026-06-12', pdf: true },
     ],
@@ -3770,7 +3777,7 @@ async function _fetchBankResearch(full = false) {
   const _all  = [...merged.values()]
     .filter(i => i && !_brIsNoise(i.title))   // filtre de pertinence (vision macro/FX du terminal)
     .map(i => (i.timestamp > _nowTs) ? { ...i, timestamp: _nowTs } : i);   // jamais de rapport « daté dans le futur » (mauvais parsing d'URL)
-  const _keepAll = i => ['blackrock', 'danske', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc', 'amundi', 'westpac', 'qcam', 'goldman'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge
+  const _keepAll = i => ['blackrock', 'stanchart', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'lloyds', 'kbc', 'westpac', 'qcam', 'goldman'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge (Amundi/Danske retirés ; Standard Chartered conservé)
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
@@ -3898,10 +3905,8 @@ async function _loadPersistedHistories() {
   } catch (e) { console.warn('[History] reload research:', e.message); }
 }
 
-// Sources de banque RETIRÉES (demande utilisateur) → filtrées de l'affichage ET de la persistance.
-const _BR_REMOVED = new Set(['amundi', 'danske']);
 app.get('/api/bank-research', (_req, res) => {
-  _brCache = _brCache.filter(i => i && !_BR_REMOVED.has(i._source));   // purge définitive (existants + persistés)
+  _brCache = _brCache.filter(_brAllowed);   // purge définitive : Amundi/Danske retirés + Standard Chartered limité aux « Weekly Market View »
   _brCache.forEach(_cleanItemMd);   // titres sans markdown brut, même pour un JS en cache
   res.json(_brCache);
   // Résilience : si le cache est VIDE (ex. cold-start avant le 1er scrape) → on déclenche tout de
@@ -5170,7 +5175,7 @@ function _stripMd(s) {
 // avec des ** (générés avant le nettoyage à la source). La mutation purge aussi la RAM partagée.
 function _cleanItemMd(it) {
   if (!it || typeof it !== 'object') return it;
-  if (typeof it.title === 'string')    it.title    = _stripMd(_dedupTitle(it.title));    // + dédup « PHRASE date PHRASE »
+  if (typeof it.title === 'string')    it.title    = _stripMd(_dedupTitle(it.title)).replace(/\s*\(opens in a new window\)\s*/gi, ' ').trim();    // + dédup « PHRASE date PHRASE » + retrait du « (Opens in a new window) » scrapé (ex. Standard Chartered)
   if (typeof it.headline === 'string') it.headline = _stripMd(_dedupTitle(it.headline));
   if (typeof it.aiTitle === 'string')  it.aiTitle  = _stripMd(it.aiTitle);   // titre IA des session wraps (sinon ** dans le titre de carte)
   if (it._weekly && typeof it._weekly.title === 'string') it._weekly.title = _stripMd(it._weekly.title);
