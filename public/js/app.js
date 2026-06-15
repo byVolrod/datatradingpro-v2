@@ -7868,7 +7868,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   const _JR_COLS = {
     date:  ['date', 'time', 'datetime', 'jour', 'opentime', 'opened', 'dateouverture', 'datedouverture', 'closetime', 'closedate'],
-    pair:  ['pair', 'pairs', 'paire', 'symbol', 'symbole', 'instrument', 'ticker', 'marche', 'market', 'actif', 'asset'],
+    pair:  ['pair', 'pairs', 'paire', 'paires', 'symbol', 'symbole', 'instrument', 'instruments', 'ticker', 'marche', 'market', 'actif', 'actifs', 'asset', 'assets', 'trade', 'trades', 'devise', 'devises', 'currency', 'currencypair', 'cross', 'produit', 'valeur', 'titre', 'underlying', 'contrat', 'contract'],
     dir:   ['dir', 'direction', 'sens', 'side', 'position', 'buysell', 'longshort', 'ordertype', 'action'],
     lots:  ['lots', 'lot', 'size', 'volume', 'taille', 'quantity', 'qty', 'quantite', 'units', 'lotsize'],
     entry: ['openprice', 'entryprice', 'prixentree', 'prixdentree', 'priceopen'],   // PRIX d'entrée (pas les tags Entry)
@@ -7907,12 +7907,30 @@ document.addEventListener('DOMContentLoaded', ()=>{
     idx.pl = dol >= 0 ? dol : norm.findIndex(h => ['pl', 'pnl', 'profit', 'gain', 'profitloss', 'net', 'netpl', 'pleur', 'gainperte'].includes(h));
     return idx;
   }
+  // Repli : devine la colonne « paire » d'après ses VALEURS (EURUSD, EUR/USD, XAUUSD, GBPJPY, US30…)
+  // → l'import marche même si la colonne porte un nom inattendu (« Trade », « Devise », « Setup A »…).
+  function _jrGuessPairCol(rows) {
+    const head = rows[0] || []; let best = -1, bestScore = 0;
+    const looksPair = v => /^[A-Za-z]{3}[\/\-_ ]?[A-Za-z]{3}$/.test(v) || /^(XAU|XAG|WTI|BRENT|US30|US100|US500|NAS100|NAS|SPX|GER40|UK100|GER|BTC|ETH|XRP|SOL|DXY)[\/\-]?[A-Za-z0-9]*$/i.test(v);
+    for (let c = 0; c < head.length; c++) {
+      let hit = 0, tot = 0;
+      for (let r = 1; r < rows.length; r++) {
+        const v = String((rows[r] || [])[c] || '').trim(); if (!v) continue;
+        tot++; if (looksPair(v)) hit++;
+      }
+      const score = tot ? hit / tot : 0;
+      if (tot >= 1 && score >= 0.5 && score > bestScore) { bestScore = score; best = c; }
+    }
+    return best;
+  }
   // Ingestion d'un texte CSV/TSV (export Notion ou Excel) → trades du journal. Renvoie le nb ajouté.
   function _jrIngestCsvText(text) {
     const rows = _jrCsvRows(text);
-    if (rows.length < 2) { _jrStatus('Fichier vide ou illisible'); return 0; }
+    if (rows.length < 2) { _jrStatus('Fichier vide ou illisible (' + rows.length + ' ligne lue)'); return 0; }
     const idx = _jrMapHeader(rows[0]);
-    if (idx.pair < 0) { _jrStatus('Colonne « paire » introuvable (attendu : pair / paire / symbol…)'); return 0; }
+    if (idx.pair < 0) idx.pair = _jrGuessPairCol(rows);   // repli heuristique sur les valeurs
+    console.log('[Journal import]', rows.length, 'lignes · colonnes :', rows[0], '· mapping :', idx);
+    if (idx.pair < 0) { _jrStatus('Colonne « paire / instrument » introuvable. Colonnes du fichier : ' + (rows[0] || []).filter(Boolean).join(' · ')); return 0; }
     let added = 0;
     for (let r = 1; r < rows.length; r++) {
       const row = rows[r], get = k => idx[k] >= 0 ? String(row[idx[k]] || '').trim() : '';
@@ -7939,7 +7957,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (added) _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
     _jrEdit = null; _jrRender();
     if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓ — journal personnalisé'); }
-    else _jrStatus('Aucune ligne valide trouvée');
+    else _jrStatus('Aucune ligne valide (colonne « paire » = « ' + ((rows[0] || [])[idx.pair] || '?') + ' » → ' + (rows.length - 1) + ' lignes sans paire reconnue)');
     return added;
   }
 
@@ -7968,11 +7986,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
       entries.push({ name, method, cSize, uSize, lhOff });
       off += 46 + nameLen + extLen + cmtLen;
     }
+    console.log('[Journal import] contenu du .zip :', entries.map(e => e.name + ' (' + e.uSize + 'o)'));
     const csvs = entries.filter(e => /\.csv$/i.test(e.name));
-    if (!csvs.length) throw new Error('aucun .csv dans le .zip');
+    if (!csvs.length) throw new Error('aucun .csv dans le .zip — exporte ton journal Notion en « Markdown & CSV ». Fichiers trouvés : ' + entries.map(e => e.name).join(', ').slice(0, 180));
     // Notion : « <Base> <id>_all.csv » contient toutes les lignes (sous-pages incluses) → priorité.
     csvs.sort((a, b) => (/_all\.csv$/i.test(b.name) - /_all\.csv$/i.test(a.name)) || (b.uSize - a.uSize));
     const e = csvs[0];
+    console.log('[Journal import] CSV retenu :', e.name, '(' + e.uSize + 'o, méthode ' + e.method + ')');
     // Local file header : recalculer le décalage des données (nameLen/extraLen du LOCAL header).
     if (dv.getUint32(e.lhOff, true) !== 0x04034b50) throw new Error('en-tête local ZIP invalide');
     const lNameLen = dv.getUint16(e.lhOff + 26, true), lExtLen = dv.getUint16(e.lhOff + 28, true);
