@@ -7336,7 +7336,7 @@ async function _wrapLevels() {
   return { eq, fx, fixed, cmd };
 }
 
-const EU_WRAP_SECTIONS = ['EQUITIES','FX','FIXED','COMMODITIES','EUROPEAN DATA','NOTABLE HEADLINES','TRADE/TARIFFS','CENTRAL BANKS','GEOPOLITICS','NORTH AMERICAN DATA'];
+const EU_WRAP_SECTIONS = ['LEAD','EQUITIES','FX','FIXED INCOME','COMMODITIES','NOTABLE EUROPEAN HEADLINES','NOTABLE EUROPEAN DATA RECAP','CENTRAL BANKS','GEOPOLITICS','CRYPTO','APAC TRADE','NOTABLE ASIA-PAC HEADLINES','NOTABLE APAC DATA RECAP'];
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -7376,32 +7376,38 @@ function _euWrapLead(levels) {
   return parts.length ? `European close — ${parts.join('; ')}.` : null;
 }
 
-function _euWrapBuild(buckets, lead) {
+function _euWrapBuild(buckets, fallbackLead) {
   const out = [];
-  if (lead) out.push(lead);   // bullet[0] → rendu comme lead (gras) par le chemin PRIMER
+  // LEAD = bloc de SYNTHÈSE en tête (puces, SANS en-tête), façon PMT. À défaut (IA KO) → lead déterministe (niveaux).
+  const leadItems = (buckets['LEAD'] || []).map(s => s.replace(/^[-•*·]\s*/, '').trim()).filter(s => s.length > 4);
+  if (leadItems.length) leadItems.slice(0, 6).forEach(it => out.push('- ' + it));
+  else if (fallbackLead) out.push('- ' + fallbackLead);
   for (const h of EU_WRAP_SECTIONS) {
+    if (h === 'LEAD') continue;                   // déjà rendu en tête (sans titre)
     const items = (buckets[h] || []).map(s => s.replace(/^[-•*·]\s*/, '').trim()).filter(s => s.length > 1);
     if (!items.length) continue;
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
-    items.slice(0, 6).forEach(it => out.push('- ' + it));
+    items.slice(0, 8).forEach(it => out.push('- ' + it));   // jusqu'à 8 lignes/rubrique (rubriques riches façon PMT)
   }
   return out.join('\n');
 }
 
-// Repli déterministe (IA indisponible / vide) : rubriques marché depuis les niveaux réels + top headlines.
+// Repli déterministe (IA indisponible / vide) : rubriques marché depuis les niveaux réels + top headlines,
+// alignées sur la structure PMT (LEAD géré à part par _euWrapLead).
 function _euWrapFallback(levels, s) {
   const b = {};
   const strip = arr => (arr || []).map(l => l.replace(/^- /, ''));
-  if (levels.eq.length)    b['EQUITIES']    = strip(levels.eq);
-  if (levels.fx.length)    b['FX']          = strip(levels.fx);
-  if (levels.fixed.length) b['FIXED']       = strip(levels.fixed);
-  if (levels.cmd.length)   b['COMMODITIES'] = strip(levels.cmd);
+  if (levels.eq.length)    b['EQUITIES']     = strip(levels.eq);
+  if (levels.fx.length)    b['FX']           = strip(levels.fx);
+  if (levels.fixed.length) b['FIXED INCOME'] = strip(levels.fixed);
+  if (levels.cmd.length)   b['COMMODITIES']  = strip(levels.cmd);
   const top = (arr, n) => (arr || []).slice(0, n).map(i => i.headline).filter(Boolean);
-  if (s.hdata.length || s.data.length) b['EUROPEAN DATA']     = top(s.hdata.length ? s.hdata : s.data, 4);
-  if (s.all.length)                    b['NOTABLE HEADLINES'] = top(s.all, 5);
-  if (s.trade.length)                  b['TRADE/TARIFFS']     = top(s.trade, 3);
-  if (s.cb.length)                     b['CENTRAL BANKS']     = top(s.cb, 4);
-  if (s.geo.length)                    b['GEOPOLITICS']       = top(s.geo, 4);
+  if (s.cb.length)                          b['CENTRAL BANKS']               = top(s.cb, 6);
+  if (s.euData.length || s.data.length)     b['NOTABLE EUROPEAN DATA RECAP']  = top(s.euData.length ? s.euData : s.data, 6);
+  if (s.geo.length)                         b['GEOPOLITICS']                  = top(s.geo, 6);
+  if (s.crypto.length)                      b['CRYPTO']                       = top(s.crypto, 2);
+  if (s.apacData.length)                    b['NOTABLE APAC DATA RECAP']      = top(s.apacData, 6);
+  if (s.all.length)                         b['NOTABLE EUROPEAN HEADLINES']   = top(s.all, 6);
   return b;
 }
 
@@ -7425,54 +7431,75 @@ async function generateEuropeanMarketWrap(force = false) {
   const now = Date.now(), cutoff = now - 13 * 60 * 60 * 1000;
   const recent = allNews.filter(i => i.timestamp > cutoff && i.timestamp <= now && !i._briefing && !i._marketWrap);
   const CB_CATS   = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
-  const DATA_CATS = new Set(['Economic Commentary','EU Data','US Data','UK Data','Swiss Data','Japanese Data','Canadian Data','Australian Data','Chinese Data','New Zealand Data']);
+  const EU_DATA   = new Set(['EU Data','UK Data','Swiss Data','Economic Commentary']);
+  const APAC_DATA = new Set(['Japanese Data','Chinese Data','Australian Data','New Zealand Data']);
+  const DATA_CATS = new Set([...EU_DATA, ...APAC_DATA, 'US Data', 'Canadian Data']);
+  const _isCrypto = i => i.category === 'Crypto' || /\bbitcoin\b|\bbtc\b|\bethereum\b|\beth\b|crypto|\bripple\b|\bsolana\b|stablecoin/i.test(i.headline || '');
   const s = {
-    cb:    recent.filter(i => CB_CATS.has(i.category)),
-    data:  recent.filter(i => DATA_CATS.has(i.category)),
-    hdata: recent.filter(i => DATA_CATS.has(i.category) && (i.priority === 'high' || i.priority === 'urgent')),
-    geo:   recent.filter(i => i.category === 'Geopolitical'),
-    trade: recent.filter(i => i.category === 'Trade'),
-    all:   recent,
+    cb:       recent.filter(i => CB_CATS.has(i.category)),
+    data:     recent.filter(i => DATA_CATS.has(i.category)),
+    hdata:    recent.filter(i => DATA_CATS.has(i.category) && (i.priority === 'high' || i.priority === 'urgent')),
+    euData:   recent.filter(i => EU_DATA.has(i.category)),
+    apacData: recent.filter(i => APAC_DATA.has(i.category)),
+    geo:      recent.filter(i => i.category === 'Geopolitical'),
+    trade:    recent.filter(i => i.category === 'Trade'),
+    crypto:   recent.filter(_isCrypto),
+    all:      recent,
   };
 
   let levels = { eq: [], fx: [], fixed: [], cmd: [] };
   try { levels = await _wrapLevels(); } catch (e) { console.error('[EUWrap] niveaux KO:', e.message); }
 
-  const summarise = (arr, n = 5) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
+  const summarise = (arr, n = 6) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
   const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
-  const prompt = `You are a senior markets reporter at a prime brokerage writing the daily EUROPEAN MARKET WRAP at 16:00 (European cash close), in the concise, factual style of Newsquawk / Prime Market Terminal. Date: ${dateStr}.
+  const prompt = `You are a senior markets reporter at a prime brokerage writing the daily MARKET WRAP at the European cash close (16:00 Paris), in the institutional, factual style of Newsquawk / Prime Market Terminal. Date: ${dateStr}.
 
-REAL MARKET LEVELS TODAY (use these EXACT numbers; moves are vs previous close):
+REAL MARKET LEVELS TODAY (use these EXACT numbers; moves are vs previous close — NEVER invent or alter a level):
 EQUITIES:\n${lv(levels.eq)}
 FX:\n${lv(levels.fx)}
-FIXED (govt bond yields, bp change):\n${lv(levels.fixed)}
+FIXED INCOME (govt bond yields, bp change):\n${lv(levels.fixed)}
 COMMODITIES:\n${lv(levels.cmd)}
 
-TODAY'S NEWSFLOW (for the narrative sections):
-CENTRAL BANKS:\n${summarise(s.cb)}
-DATA:\n${summarise(s.hdata.length ? s.hdata : s.data)}
-GEOPOLITICAL:\n${summarise(s.geo)}
-TRADE / TARIFFS:\n${summarise(s.trade)}
-OTHER HEADLINES:\n${summarise(s.all, 8)}
+TODAY'S NEWSFLOW — use ONLY this; ground EVERY statement in it. Invent NOTHING (no fake data, levels, %, quotes, names or events):
+CENTRAL BANKS:\n${summarise(s.cb, 8)}
+EUROPEAN DATA (actual vs exp./prev.):\n${summarise(s.euData.length ? s.euData : s.data, 8)}
+APAC DATA (actual vs exp./prev.):\n${summarise(s.apacData, 8)}
+GEOPOLITICAL:\n${summarise(s.geo, 8)}
+TRADE / TARIFFS:\n${summarise(s.trade, 4)}
+CRYPTO:\n${summarise(s.crypto, 3)}
+OTHER HEADLINES:\n${summarise(s.all, 14)}
 
-Write the wrap with EXACTLY these section headers, each on its OWN line in ALL CAPS, with NO colon, in THIS order. Under each header put 1–4 short factual lines (one fact per line), each starting with "- ". Skip a section ONLY if there is genuinely nothing to say.
+Write the wrap with EXACTLY these section headers, each ALONE on its own line in ALL CAPS, with NO colon, in THIS order. Skip a section ONLY if the newsflow/levels above have genuinely nothing for it.
 
+LEAD
 EQUITIES
 FX
-FIXED
+FIXED INCOME
 COMMODITIES
-EUROPEAN DATA
-NOTABLE HEADLINES
-TRADE/TARIFFS
+NOTABLE EUROPEAN HEADLINES
+NOTABLE EUROPEAN DATA RECAP
 CENTRAL BANKS
 GEOPOLITICS
-NORTH AMERICAN DATA
+CRYPTO
+APAC TRADE
+NOTABLE ASIA-PAC HEADLINES
+NOTABLE APAC DATA RECAP
 
-Rules: For EQUITIES/FX/FIXED/COMMODITIES, lead with the real levels above (name the index/pair, the level and the % or bp move). For the narrative sections, summarise the newsflow factually — name banks, data prints (actual vs expected/previous), tickers, levels. Be terse and specific. No preamble, no markdown, no bold, no closing remarks. Output ONLY the section headers and their bullet lines.`;
+Every content line starts with "- ". Format per section:
+- LEAD: 4 to 6 SYNTHESIS bullets giving the day's big picture — key index moves, the marquee central-bank decision(s)/speakers, FX direction (DXY then majors), fixed-income tone, commodities, and a final bullet "Looking ahead, highlights include …" listing the upcoming events/speakers found in the data above. NO sub-header — just the bullets.
+- EQUITIES / FX / FIXED INCOME / COMMODITIES: 2 to 5 ANALYTICAL lines (full sentences, desk-note depth). Lead each with the real level (name the index/pair/bond/commodity, its level and % or bp move), then the driver. FX: cover DXY then the major movers (EUR, JPY, GBP, AUD…). FIXED INCOME: cover the curve + any bond-auction results present. COMMODITIES: cover crude (Brent/WTI), gold, then any metals/energy news.
+- NOTABLE EUROPEAN HEADLINES / NOTABLE ASIA-PAC HEADLINES: terse one-line factual headlines from the newsflow, region-appropriate.
+- NOTABLE EUROPEAN DATA RECAP / NOTABLE APAC DATA RECAP: data prints written "Country Indicator actual vs. Exp. … (Prev. …)" exactly as the data provides.
+- CENTRAL BANKS: factual bullets per bank (decision, vote split, guidance) from the data.
+- GEOPOLITICS: factual bullets grouped by theme (Middle East, then Russia-Ukraine) within the section.
+- CRYPTO: bitcoin/crypto moves and ranges if present.
+- APAC TRADE: how Asian indices/markets traded overnight and the drivers, from the APAC data and overnight context.
+
+ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers, names, quotes, dates. Reformulate for clarity only. No preamble, no markdown, no bold, no closing remarks. Output ONLY the section headers and their "- " lines.`;
 
   let buckets = {};
   try {
-    const text = (await ai.generateText(prompt, 1600)).trim();
+    const text = (await ai.generateText(prompt, 4000)).trim();
     buckets = _euWrapParse(text);
   } catch (e) {
     console.error('[EUWrap] IA KO → repli déterministe:', e.message);
