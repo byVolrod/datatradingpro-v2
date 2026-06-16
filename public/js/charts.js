@@ -1595,6 +1595,59 @@ function buildDMXChart(forceRefresh = false) {
     });
 }
 
+// ═══════════════════ SEASONALITY — table de performance mensuelle (façon PMT) ═══════════════════
+// 28 paires FX (mêmes que Currency Strength). Défaut EUR/USD, sinon la dernière paire consultée (persistée
+// PAR COMPTE via /api/season-pair). Données = /api/seasonality (Yahoo : rendement mensuel × 5 ans + moyenne).
+const _SEASON_PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','NZDUSD','USDCAD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPCAD','GBPNZD','AUDJPY','NZDJPY','CADJPY','CHFJPY','AUDNZD','AUDCAD','AUDCHF','NZDCAD','NZDCHF','CADCHF'];
+let _seasonPair = null;   // paire courante (chargée 1×/session depuis le compte)
+function _seasonFmtPair(c){ return (c && c.length === 6) ? c.slice(0,3) + '/' + c.slice(3) : c; }
+// Heatmap : vert (positif) / rouge (négatif), intensité ∝ |valeur| (plafonnée ~4 %) — façon PMT.
+function _seasonCellBg(v){
+  if (v == null) return 'transparent';
+  const a = Math.max(0.12, Math.min(0.92, Math.abs(v) / 4));
+  return v >= 0 ? `rgba(0,200,120,${a.toFixed(3)})` : `rgba(255,60,70,${a.toFixed(3)})`;
+}
+function _seasonCell(v, isAvg){
+  const ac = isAvg ? ' season-td--avg' : '';
+  if (v == null) return `<td class="season-td${ac} season-td--na"></td>`;
+  return `<td class="season-td${ac}" style="background:${_seasonCellBg(v)}"><span class="season-arrow">${v >= 0 ? '↗' : '↘'}</span>${v >= 0 ? '+' : ''}${v.toFixed(2)}%</td>`;
+}
+function _seasonPick(code){
+  if (!code || code === _seasonPair) return;
+  _seasonPair = code;
+  try { fetch('/api/season-pair', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ pair: code }) }); } catch {}
+  buildSeasonalityChart();
+}
+function buildSeasonalityChart(){
+  const wrap = document.getElementById('seasonality-table-wrap');
+  if (!wrap) return;
+  const sel = document.getElementById('season-pair-select');
+  if (sel && !sel.options.length) sel.innerHTML = _SEASON_PAIRS.map(p => `<option value="${p}">${_seasonFmtPair(p)}</option>`).join('');
+  // 1re activation : récupère la dernière paire du compte (défaut EUR/USD), puis rend.
+  if (_seasonPair == null){
+    _seasonPair = 'EURUSD';
+    fetch('/api/season-pair').then(r=>r.json()).then(d=>{ if (d && d.pair) _seasonPair = d.pair; }).catch(()=>{}).finally(buildSeasonalityChart);
+    return;
+  }
+  if (sel) sel.value = _seasonPair;
+  const titleEl = document.getElementById('season-pair-title');
+  if (titleEl) titleEl.textContent = '[' + _seasonFmtPair(_seasonPair) + ']';
+  if (!wrap.querySelector('.season-table')) wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la saisonnalité…') : 'Chargement…');
+  const want = _seasonPair;
+  (window._dtpJSON ? window._dtpJSON('/api/seasonality?symbol=' + want) : fetch('/api/seasonality?symbol=' + want).then(r=>r.json()))
+    .then(data => {
+      if (want !== _seasonPair) return;   // réponse périmée (l'utilisateur a changé de paire) → ignorer
+      if (!data || !Array.isArray(data.rows)) { wrap.innerHTML = '<div class="dmx-loading">Aucune donnée</div>'; return; }
+      const yrs = data.years || [];
+      const head = `<tr><th class="season-th season-th--m"></th>${yrs.map(y => `<th class="season-th">'${String(y).slice(2)}</th>`).join('')}<th class="season-th season-th--avg">Moy.</th></tr>`;
+      const body = data.rows.map(row =>
+        `<tr><td class="season-month">${row.month}</td>${(row.vals||[]).map(v => _seasonCell(v,false)).join('')}${_seasonCell(row.avg,true)}</tr>`
+      ).join('');
+      wrap.innerHTML = `<table class="season-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+    })
+    .catch(() => { if (want === _seasonPair) wrap.innerHTML = '<div class="dmx-loading">Erreur de chargement<br><button onclick="buildSeasonalityChart()" style="margin-top:8px;background:#1c1c1f;border:1px solid #2a2f3a;color:#f7941d;padding:4px 12px;border-radius:6px;cursor:pointer">Réessayer</button></div>'; });
+}
+
 function initCOTTabs() {
   document.querySelectorAll('.cot-type-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -1951,6 +2004,7 @@ function initRightTab(tab) {
   // gaspillage réseau/serveur des onglets en arrière-plan.
   if (tab === 'dmx')      { buildDMXChart();      return; }
   if (tab === 'cot')      { buildCOTChart();      return; }
+  if (tab === 'seasonality') { buildSeasonalityChart(); return; }
   if (tab === 'meter')    { buildMeterChart();    return; }   // rebuild léger (briques HTML)
   if (tab === 'strength') { buildStrengthCharts(); return; }  // dispose + rebuild amCharts
   // Onglets statiques (carte, jauge risque) : construits une seule fois
