@@ -853,6 +853,16 @@
             + `<div class="aim-fc-row"><span>Envoyés / échecs (live)</span><b>${(M.sent || 0)} / ${(M.failed || 0)}</b></div>`
             + (M.gmailApi && M.gmailApi.configured && M.gmailApi.verified === false ? `<div class="aim-fc-row"><span>Gmail API (secours)</span><b style="color:#ffb300">token expiré</b></div>` : '')
             + (M.lastError ? `<div class="aim-fc-row"><span>Dernière erreur</span><b style="color:#ef4444;font-size:11px">${_esc2(String(M.lastError).slice(0, 70))}</b></div>` : '');
+        })()
+      + (() => {   // ── Garde-fou EGRESS Supabase (anti-fuite définitif des 18 To) — visible + maj 30s ──
+          const E = d.egress; if (!E) return '';
+          const mb = n => (Number(n || 0) / 1048576).toFixed(1) + ' Mo';
+          const pct = Math.min(100, Math.round((E.bytes24h || 0) / Math.max(1, E.cap24h || 1) * 100));
+          const col = E.tripped ? '#ef4444' : (pct >= 70 ? '#ffb300' : '#22c55e');
+          return '<div style="margin:13px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Egress Supabase (anti-fuite)</div>'
+            + `<div class="aim-fc-row"><span>État</span><b style="color:${col}">${E.tripped ? ('COUPURE ACTIVE 🛑 ' + (E.info || '')) : 'OK ✅'}</b></div>`
+            + `<div class="aim-fc-row"><span>Lu sur 1 h</span><b>${mb(E.bytes1h)} <span style="color:#6b7280">/ ${mb(E.cap1h)}</span></b></div>`
+            + `<div class="aim-fc-row"><span>Lu sur 24 h</span><b style="color:${col}">${mb(E.bytes24h)} <span style="color:#6b7280">/ ${mb(E.cap24h)} · ${pct}%</span></b></div>`;
         })();
   }
 
