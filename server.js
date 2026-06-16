@@ -2966,6 +2966,36 @@ ${points.map(p => '- ' + p).join('\n')}`;
   return null;
 }
 
+// VÉRIF/GARANTIE : (re)segmente TOUS les wraps DU JOUR en v5 et s'assure que chacun a sa section FX.
+// Idempotent (saute ceux déjà en v5, sauf force). Tourne ~95 s après le boot (log de contrôle) +
+// endpoint admin. Ne dépend pas du gate Gemini (génère via la cascade → OpenRouter).
+async function _resegmentTodayWraps(force = false) {
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+  const today = (_swCache || []).filter(w => w && w.url && w.url.startsWith('https://investinglive.com/') && (w.timestamp || 0) >= startToday.getTime());
+  const _hasFX = s => typeof s === 'string' && /<strong>[^<]*\bFX\b/i.test(s);
+  let withFX = 0, regen = 0;
+  for (const w of today) {
+    let seg = _swSegCache.get(SW_SEG_VER + w.url);
+    if (force || _segState(seg) !== 'ok') {
+      try {
+        let points = (w.content && w.content.length > 100) ? _extractWrapPoints(_cleanWrapHtml(w.content)) : null;
+        if (!points || points.length < 3) { const d = await _fetchILContentHttp(w.url); if (d && d.points) points = d.points; }
+        if (points && points.length >= 3) {
+          const s = await _segmentWrapAI(points);
+          if (s) { _swSegCache.set(SW_SEG_VER + w.url, s); _saveJsonMap(SW_SEG_FILE, _swSegCache); auth.aiCacheSet('swseg:' + SW_SEG_VER + w.url, s).catch(() => {}); seg = s; regen++; }
+        }
+      } catch (e) { console.warn('[Wraps today]', (w.url || '').slice(-40), e.message); }
+    }
+    if (_hasFX(seg)) withFX++;
+  }
+  console.log(`[Wraps today] ${today.length} wrap(s) du jour · ${withFX} avec section FX · ${regen} régénéré(s) v5`);
+  return { total: today.length, withFX, regen };
+}
+setTimeout(() => { _resegmentTodayWraps().catch(e => console.error('[Wraps today] boot:', e.message)); }, 95 * 1000);
+app.get('/api/admin/wraps-resegment-today', requireAdmin, async (req, res) => {
+  try { res.json(await _resegmentTodayWraps(req.query.force === '1')); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Structure un ARTICLE de recherche EN PROSE (ex: ING THINK "FX Daily") en rubriques claires
 // façon DataTradingPro/DTP. Réorganise + clarifie SANS JAMAIS inventer (mêmes garde-fous que les wraps).
 // Renvoie du HTML <strong>SECTION</strong><ul><li>…</li></ul> ou null (→ on garde le HTML brut).
