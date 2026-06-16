@@ -1133,9 +1133,9 @@
         <td>${subInfo(u)}</td>
         <td style="color:var(--text3);font-family:var(--font-mono);font-size:11px">${u.last_login ? new Date(u.last_login).toLocaleString('fr-FR') : '—'}</td>
         <td class="actions">
-          <button class="btn-sm" onclick="openEdit(${u.id},'${esc(u.name)}','${u.role}','${u.plan}',${u.active})">Modifier</button>
-          <button class="btn-sm" onclick="openPwd(${u.id})">MDP</button>
-          <button class="btn-sm btn-danger" onclick="deleteUser(${u.id})">Suppr.</button>
+          <button class="btn-sm" onclick="openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active})">Modifier</button>
+          <button class="btn-sm" onclick="openPwd('${esc(String(u.id))}')">MDP</button>
+          <button class="btn-sm btn-danger" onclick="deleteUser('${esc(String(u.id))}')">Suppr.</button>
         </td>
       </tr>`).join('');
 

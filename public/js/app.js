@@ -7925,9 +7925,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const rows = _jrCsvRows(text);
     if (rows.length < 2) { _jrStatus('Fichier vide ou illisible (' + rows.length + ' ligne lue)'); return 0; }
     const idx = _jrMapHeader(rows[0]);
-    if (idx.pair < 0) idx.pair = _jrGuessPairCol(rows);   // repli heuristique sur les valeurs
-    console.log('[Journal import]', rows.length, 'lignes · colonnes :', rows[0], '· mapping :', idx);
-    if (idx.pair < 0) { _jrStatus('Colonne « paire / instrument » introuvable. Colonnes du fichier : ' + (rows[0] || []).filter(Boolean).join(' · ')); return 0; }
+    if (idx.pair < 0) idx.pair = _jrGuessPairCol(rows);   // repli heuristique sur les valeurs (EURUSD, XAU/USD…)
+    let pairNote = '';
+    if (idx.pair < 0) {
+      // DERNIER REPLI : 1re colonne NON déjà mappée (en Notion = le TITRE de la page, qui contient presque
+      // toujours l'instrument). → l'import ne renvoie plus JAMAIS « rien » quand les titres sont descriptifs
+      // (« Trade #1 », « Long EU 12 jan »…) ; l'utilisateur voit ses trades et corrige la colonne « Pairs » ensuite.
+      const claimed = new Set(Object.keys(idx).filter(k => idx[k] >= 0).map(k => idx[k]));
+      const f = (rows[0] || []).findIndex((_, i) => !claimed.has(i));
+      idx.pair = f >= 0 ? f : 0;
+      pairNote = ' · paire lue depuis « ' + ((rows[0] || [])[idx.pair] || ('colonne ' + (idx.pair + 1))) + ' »';
+    }
+    console.log('[Journal import]', rows.length, 'lignes · colonnes :', rows[0], '· mapping :', idx, pairNote);
     let added = 0;
     for (let r = 1; r < rows.length; r++) {
       const row = rows[r], get = k => idx[k] >= 0 ? String(row[idx[k]] || '').trim() : '';
@@ -7953,8 +7962,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (_jrList.length > 500) _jrList = _jrList.slice(0, 500);
     if (added) _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
     _jrEdit = null; _jrRender();
-    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓ — journal personnalisé'); }
-    else _jrStatus('Aucune ligne valide (colonne « paire » = « ' + ((rows[0] || [])[idx.pair] || '?') + ' » → ' + (rows.length - 1) + ' lignes sans paire reconnue)');
+    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + pairNote + ' — journal personnalisé'); }
+    else _jrStatus('Aucune ligne valide : ' + (rows.length - 1) + ' ligne(s) lue(s) mais colonne « paire » vide (colonnes du fichier : ' + (rows[0] || []).filter(Boolean).join(' · ') + ')');
     return added;
   }
 
