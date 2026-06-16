@@ -1723,14 +1723,6 @@ function buildSessionMap() {
       centerX: am5.percent(50), centerY: am5.percent(50),
       oversizedBehavior: 'none',
     }));
-    // Pointe orange sous l'étiquette, dirigée vers le trait « now » (comme PMT)
-    try {
-      cont.children.push(am5.Triangle.new(r, {
-        width: 9, height: 6, rotation: 180,
-        fill: am5.color(0xf79400), fillOpacity: 1,
-        centerX: am5.percent(50), centerY: am5.percent(0), y: 11,
-      }));
-    } catch (e) {}
     return am5.Bullet.new(r, { sprite: cont });
   });
 
@@ -1879,11 +1871,7 @@ function buildSessionMap() {
 
   // Cadre une bande de latitude (60°N → −55°S) sur toute la longitude : la LATITUDE devient la dimension
   // contraignante → la carte remplit la HAUTEUR du conteneur (plus de noir en bas). NY/Londres/Tokyo/Sydney restent dedans.
-  const _frameMap = () => { try { chart.zoomToGeoBounds({ left: -180, right: 180, top: 60, bottom: -55 }, 0); } catch (e) {} };
-  polygonSeries.events.on('datavalidated', _frameMap);
-  // « La map doit être fix » : la rotation remplit la hauteur, mais on RE-CADRE après tout glisser → impossible
-  // de la laisser déplacée (elle revient toujours à sa position pleine). Robuste si l'event n'existe pas (try).
-  ['panended', 'pointerup', 'globalpointerup'].forEach(ev => { try { chart.events.on(ev, () => setTimeout(_frameMap, 30)); } catch (e) {} });
+  polygonSeries.events.on('datavalidated', () => { try { chart.zoomToGeoBounds({ left: -180, right: 180, top: 60, bottom: -55 }, 0); } catch (e) {} });
 
   return root;
 }
