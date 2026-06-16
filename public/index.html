@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260616D" />
+  <link rel="stylesheet" href="/css/style.css?v=20260616E" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -539,6 +539,7 @@
       <div class="right-tab" data-rtab="meter">› METER</div>
       <div class="right-tab" data-rtab="cot">› COT</div>
       <div class="right-tab" data-rtab="dmx">› DMX</div>
+      <div class="right-tab" data-rtab="seasonality">› SEASONALITY</div>
     </div>
 
     <div class="right-content">
@@ -616,6 +617,17 @@
           <span class="dmx-legend-text">Short</span>
         </div>
         <div id="dmx-table-wrap" class="dmx-table-wrap"></div>
+      </div>
+
+      <!-- SEASONALITY — table de performance mensuelle par année (façon PMT) -->
+      <div class="right-tab-panel" id="rtab-seasonality">
+        <div class="dmx-header-bar">
+          <span class="dmx-header-title">Seasonality</span>
+          <span class="season-pair-badge" id="season-pair-title">[EUR/USD]</span>
+          <span style="flex:1"></span>
+          <select class="dmx-sort-select" id="season-pair-select" onchange="_seasonPick(this.value)" title="Choisir la paire"></select>
+        </div>
+        <div id="seasonality-table-wrap" class="season-table-wrap"></div>
       </div>
 
     </div><!-- /.right-content -->
@@ -708,8 +720,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260616X"></script>
-<script src="/js/charts.js?v=20260616J"></script>
+<script src="/js/app.js?v=20260616Y"></script>
+<script src="/js/charts.js?v=20260616K"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>

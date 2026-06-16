@@ -9438,12 +9438,13 @@ async function _poolMap(items, limit, fn) {
   return out;
 }
 
-// Calcul LOURD (fetch Yahoo) — par lots de 5 (anti-throttle), range 3 ans (assez pour 12M + saisonnalité, + léger que 5y)
+// Calcul LOURD (fetch Yahoo) — par lots de 5 (anti-throttle), range 5 ans (12M + colonne « Seasonal » = MÊME
+// fenêtre 5 ans que l'onglet Seasonality → la courbe de la FX List est le cumul de la moyenne mensuelle de la table)
 async function _computeFxListFresh() {
   await getYFSession();
   const rows = await _poolMap(CS_PAIRS, 5, async p => {
     try {
-      const raw = await yfFetch(p.sym, '1d', '3y');
+      const raw = await yfFetch(p.sym, '1d', '5y');
       const res = raw?.chart?.result?.[0];
       if (!res) return null;
       const rawTs = res.timestamp || [];
@@ -9582,6 +9583,74 @@ app.get('/api/fxlist', async (req, res) => {
     if (_fxlCache) return res.json(_fxlCache);   // stale en dernier recours plutôt qu'une erreur
     res.status(500).json({ error: e.message });
   }
+});
+
+// ─── SEASONALITY — table de performance mensuelle par année (façon PMT) ─────────
+// Pour UNE paire : rendement de CHAQUE mois (dernier close du mois / dernier close du mois précédent − 1)
+// sur les 5 dernières années + moyenne par mois. MÊME source Yahoo que la FX List / Currency Strength →
+// cohérent avec la colonne « Seasonal » de la FX List (qui est le CUMUL de cette même moyenne mensuelle).
+const _seasonCache = new Map();                 // sym Yahoo -> { at, data }
+const SEASON_TTL = 6 * 60 * 60 * 1000;          // 6 h (la saisonnalité bouge lentement)
+const _SEASON_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+async function _computeSeasonality(pair) {
+  const cfg = CS_PAIRS.find(p => (p.b + p.q) === pair || p.sym === pair);
+  if (!cfg) return null;
+  const cached = _seasonCache.get(cfg.sym);
+  if (cached && Date.now() - cached.at < SEASON_TTL) return cached.data;
+  await getYFSession();
+  let raw; try { raw = await yfFetch(cfg.sym, '1d', '6y'); } catch { return cached ? cached.data : null; }
+  const r = raw?.chart?.result?.[0];
+  if (!r) return cached ? cached.data : null;
+  const ts = r.timestamp || [], cl = r.indicators?.quote?.[0]?.close || [];
+  const monthLast = new Map();                  // "Y-M" -> { y, m, c } : dernier close du mois
+  for (let i = 0; i < cl.length; i++) {
+    if (cl[i] == null || ts[i] == null) continue;
+    const d = new Date(ts[i] * 1000);
+    monthLast.set(`${d.getUTCFullYear()}-${d.getUTCMonth()}`, { y: d.getUTCFullYear(), m: d.getUTCMonth(), c: cl[i] });
+  }
+  const seq = [...monthLast.values()].sort((a, b) => a.y - b.y || a.m - b.m);
+  const ret = new Map();                         // "Y-M" -> rendement % du mois (vs mois précédent)
+  for (let i = 1; i < seq.length; i++) {
+    const v = (seq[i].c / seq[i - 1].c - 1) * 100;
+    if (Number.isFinite(v)) ret.set(`${seq[i].y}-${seq[i].m}`, +v.toFixed(2));
+  }
+  const nowY = new Date().getUTCFullYear();
+  const years = []; for (let y = nowY - 4; y <= nowY; y++) years.push(y);   // 5 ans glissants (ex. 2022→2026)
+  const rows = _SEASON_MONTHS.map((name, m) => {
+    const vals = years.map(y => { const v = ret.get(`${y}-${m}`); return v == null ? null : v; });
+    const present = vals.filter(v => v != null);
+    const avg = present.length ? +(present.reduce((a, b) => a + b, 0) / present.length).toFixed(2) : null;
+    return { month: name, vals, avg };
+  });
+  const data = { symbol: `${cfg.b}/${cfg.q}`, years, rows, updatedAt: new Date().toISOString() };
+  _seasonCache.set(cfg.sym, { at: Date.now(), data });
+  auth.aiCacheSet('season:' + cfg.sym, { at: Date.now(), data }).catch(() => {});   // persistance (survit au redéploiement)
+  return data;
+}
+app.get('/api/seasonality', async (req, res) => {
+  const pair = String(req.query.symbol || 'EURUSD').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6) || 'EURUSD';
+  try {
+    let data = await _computeSeasonality(pair);
+    if (!data) {                                 // Yahoo KO → repli cache persistant
+      const cfg = CS_PAIRS.find(p => (p.b + p.q) === pair);
+      if (cfg) { const c = await auth.aiCacheGet('season:' + cfg.sym).catch(() => null); if (c && c.data) data = c.data; }
+    }
+    if (!data) return res.status(404).json({ error: 'Paire indisponible' });
+    res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+// Dernière paire consultée dans l'onglet Seasonality — persistée PAR COMPTE (KV durable, modèle symrecent → suit la reconnexion).
+app.get('/api/season-pair', async (req, res) => {
+  if (!req.session?.userId) return res.json({ pair: 'EURUSD' });
+  try { const v = await auth.aiCacheGet('seasonpair:' + req.session.userId); res.json({ pair: (v && _SYM_RX.test(v.pair)) ? v.pair : 'EURUSD' }); }
+  catch { res.json({ pair: 'EURUSD' }); }
+});
+app.post('/api/season-pair', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  const pair = String(req.body?.pair || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
+  if (!_SYM_RX.test(pair)) return res.status(400).json({ ok: false });
+  try { await auth.aiCacheSet('seasonpair:' + req.session.userId, { pair }); res.json({ ok: true, pair }); }
+  catch { res.status(500).json({ ok: false }); }
 });
 
 // ─── Risk Sentiment ───────────────────────────────────────────────────────────
