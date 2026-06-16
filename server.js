@@ -505,6 +505,28 @@ app.post('/api/journal', async (req, res) => {
     res.json({ ok: true, count: entries.length });
   } catch { res.status(500).json({ ok: false }); }
 });
+// ─── Journal : images d'un trade (captures de graphiques) — clé KV SÉPARÉE par trade (jrimg:<user>:<id>),
+//     chargées À LA DEMANDE → la liste du journal reste légère (anti-egress). 2 emplacements, ≤600 Ko/image
+//     (déjà compressée côté client en JPEG ≤1280px). Admin-only comme le reste du journal (en dev).
+const _JR_IMG_MAX = 600 * 1024;
+app.get('/api/journal/img', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ images: [] });
+  if (req.session?.user?.role !== 'admin') return res.status(403).json({ images: [] });
+  const trade = String((req.query && req.query.trade) || '').slice(0, 32);
+  if (!trade) return res.json({ images: [] });
+  try { const v = await auth.aiCacheGet('jrimg:' + req.session.userId + ':' + trade, _JR_KV_TTL); res.json({ images: Array.isArray(v) ? v : [] }); }
+  catch { res.json({ images: [] }); }
+});
+app.post('/api/journal/img', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  if (req.session?.user?.role !== 'admin') return res.status(403).json({ ok: false });
+  const trade = String((req.body && req.body.trade) || '').slice(0, 32);
+  if (!trade) return res.status(400).json({ ok: false });
+  let imgs = Array.isArray(req.body && req.body.images) ? req.body.images.slice(0, 2) : [];
+  imgs = imgs.map(x => (typeof x === 'string' && /^data:image\//.test(x) && x.length <= _JR_IMG_MAX) ? x : null);
+  try { await auth.aiCacheSet('jrimg:' + req.session.userId + ':' + trade, imgs); res.json({ ok: true }); }
+  catch { res.status(500).json({ ok: false }); }
+});
 
 // ─── Admin routes (admin only) — tous async pour Supabase ────────────────────
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
