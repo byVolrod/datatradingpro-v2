@@ -897,13 +897,18 @@ app.post('/api/admin/users/:id/password', requireAdmin, async (req, res) => {
 app.get('/api/admin/welcome-backfill', requireAdmin, async (req, res) => {
   const send = req.query.send === '1';
   let users = []; try { users = await auth.getAllUsers(); } catch { return res.status(500).json({ error: 'users indisponibles' }); }
-  const out = { dryRun: !send, total: users.length, missing: 0, chatSent: 0, emailSent: 0, alreadyHad: 0, missingList: [] };
+  // ?all=1 → inclut aussi les comptes DÉJÀ connectés (déconseillé : « bienvenue » à un actif = mail confus).
+  const includeActive = req.query.all === '1';
+  const out = { dryRun: !send, includeActive, total: users.length, missing: 0, chatSent: 0, emailSent: 0, alreadyHad: 0, activeSkipped: 0, missingList: [] };
   for (const u of users) {
     if ((u.role || 'client') !== 'client') continue;                       // on n'accueille pas le staff (admin/support)
     const email = String(u.email || '').toLowerCase().trim(); if (!email) continue;
     let had = false;
     try { had = (await auth.emailLogHas('welcome:' + email)) || (await auth.emailLogHas('whop-welcome:' + email)); } catch {}
     if (had) { out.alreadyHad++; continue; }
+    // Cible SÛRE = comptes JAMAIS connectés (= jamais réellement onboardés). Un compte déjà actif a déjà reçu
+    // de quoi se connecter → on ne lui renvoie pas une « bienvenue » (sauf ?all=1 explicite).
+    if (u.last_login && !includeActive) { out.activeSkipped++; continue; }
     out.missing++; out.missingList.push({ email, name: u.name || '', loggedIn: !!u.last_login });
     if (!send) continue;
     try { _sendWelcomeChat(u.id); out.chatSent++; } catch {}
