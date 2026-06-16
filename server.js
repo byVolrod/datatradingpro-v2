@@ -2440,7 +2440,7 @@ function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new U
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-const _RENDER_VER = 'r3';   // bump → invalide TOUS les PDF rendus en cache (r3 : masque le chrome du site → rapport seul)
+const _RENDER_VER = 'r4';   // bump → invalide TOUS les PDF rendus en cache (r4 : masque AUSSI l'image hero/cover en tête → le PDF commence par le texte du rapport)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
@@ -2494,6 +2494,23 @@ async function _renderPdfInner(url) {
       // Boutons/liens isolés Log On / Sign in / Subscribe / Search / Countries / My account…
       const RXC = /^(log ?on|log ?in|login|sign ?in|sign ?up|subscribe|s'identifier|se connecter|connexion|rechercher|search|register|my account|countries|menu)$/i;
       document.querySelectorAll('a,button,[role="button"]').forEach(b => { const t = (b.innerText || b.textContent || '').replace(/\s+/g, ' ').trim(); if (t && t.length <= 18 && RXC.test(t)) { try { b.style.setProperty('display', 'none', 'important'); } catch {} } });
+    } catch {} }).catch(() => {});
+    // Masque l'IMAGE HERO / COVER / BANNIÈRE décorative en tête (blogs, teasers) → le PDF commence par le
+    // TEXTE du rapport, plus par une photo floue (corrige Syz « page 1 = photo calendrier », QCAM, SocGen, HSBC…).
+    // On NE touche PAS aux graphiques du corps (charts/figures/SVG/canvas = données du rapport).
+    await page.evaluate(() => { try {
+      const HERO = '[class*="hero" i],[class*="featured-image" i],[class*="featuredimage" i],[class*="hs-featured" i],[class*="cover-image" i],[class*="coverimage" i],[class*="banner" i],[class*="article-header" i],[class*="post-header" i],[class*="lead-image" i],[class*="masthead-image" i],[class*="page-header" i] img,figure[class*="header" i]';
+      document.querySelectorAll(HERO).forEach(e => { try { e.style.setProperty('display', 'none', 'important'); } catch {} });
+      // 1re grande image en TÊTE d'article (photo de couverture) → masquée, SAUF si c'est un graphique.
+      const art = document.querySelector('article, main, [class*="article" i], [class*="post-body" i], [class*="entry-content" i]') || document.body;
+      const imgs = art.querySelectorAll('img, picture, figure');
+      for (const im of imgs) {
+        const cn = (im.className && im.className.baseVal !== undefined ? im.className.baseVal : (im.className || '')) + '';
+        if (/chart|graph|figure|data|highchart|plot|viz/i.test(cn)) continue;          // garder les graphiques
+        if (im.querySelector && im.querySelector('svg, canvas')) continue;             // garder les data-viz
+        const r = im.getBoundingClientRect();
+        if (r.top < 640 && r.width > 360 && r.height > 160) { try { im.style.setProperty('display', 'none', 'important'); } catch {} break; }  // une seule (la hero)
+      }
     } catch {} }).catch(() => {});
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
