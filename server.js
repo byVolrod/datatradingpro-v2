@@ -3377,7 +3377,10 @@ const _BR_REMOVED = new Set(['amundi', 'danske']);   // banques retirées (deman
 // Standard Chartered : on ne publie QUE les « Weekly Market View » (URL wm-weekly-market-view-…),
 // jamais les liens parasites de la même page (Modern slavery statement, Code of Conduct, Download the report…).
 const _brAllowed = i => !!i && !_BR_REMOVED.has(i._source) &&
-  (i._source !== 'stanchart' || /weekly-market-view/i.test(i.url || ''));
+  (i._source !== 'stanchart' || /weekly-market-view/i.test(i.url || '')) &&
+  // Syz Group : on ne publie QUE les « Weekly Fixed Income » (le blog Fast Food for Thought mélange Weekly
+  // Equities, Global Markets Outlook, etc. → on les écarte). Purge aussi les anciens items hors-catégorie.
+  (i._source !== 'syz' || (Array.isArray(i.categories) && i.categories.some(c => /weekly\s*fixed\s*income/i.test(c))));
 function _brLoadFile() {
   try {
     const data = JSON.parse(fs.readFileSync(BR_CACHE_FILE, 'utf8'));
@@ -3391,7 +3394,7 @@ function _brLoadFile() {
 // Sources de recherche institutionnelle / analystes (flux RSS publics, sans navigateur)
 const BR_FEEDS = [
   { url: 'https://think.ing.com/rss/',          institution: 'ING',        source: 'ing-think',   paged: true  },
-  { url: 'https://blog.syzgroup.com/fast-food-for-thought/rss.xml', institution: 'Syz Group', source: 'syz', paged: false },   // Syz Group « Fast Food for Thought » (HubSpot RSS)
+  { url: 'https://blog.syzgroup.com/fast-food-for-thought/tag/weekly-fixed-income/rss.xml', institution: 'Syz Group', source: 'syz', paged: false },   // Syz Group : flux RSS du TAG « Weekly Fixed Income » (HubSpot) → UNIQUEMENT ces articles, auto-MAJ dès parution ; rendus en PDF (host dans PDF_RENDER_HOSTS, pas de PDF natif)
   // FXStreet et ActionForex retirés sur demande.
 ];
 
