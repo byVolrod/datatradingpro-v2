@@ -1262,8 +1262,8 @@
     cell.dataset.confirming = '1';
     cell.innerHTML = `<span class="del-confirm">
         <span class="del-confirm-txt">Supprimer&nbsp;?</span>
-        <button class="btn-sm btn-danger" onclick="confirmDeleteUser(${id})">Oui</button>
-        <button class="btn-sm" onclick="cancelDeleteUser(${id})">Non</button>
+        <button class="btn-sm btn-danger" onclick="confirmDeleteUser('${esc(String(id))}')">Oui</button>
+        <button class="btn-sm" onclick="cancelDeleteUser('${esc(String(id))}')">Non</button>
       </span>`;
   }
   function cancelDeleteUser(id) {
