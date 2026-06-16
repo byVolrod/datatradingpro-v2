@@ -5024,11 +5024,10 @@ function getArlibItems() {
     if (av !== bv) return bv - av;
     return b.timestamp - a.timestamp;
   })[0];
-  // …+ les rapports FX Daily (ING THINK).
-  const fx = (_fxDaily || []).filter(i => i.timestamp > cutoff);
+  // FX Daily (ING THINK) RETIRÉ de l'onglet Analyst (demande utilisateur) → on n'inclut plus _fxDaily.
   // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
   // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
-  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...fx, ...wraps])
+  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...wraps])
     .sort(_arlibReportSort);
 }
 
