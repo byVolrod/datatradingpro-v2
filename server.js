@@ -2455,6 +2455,12 @@ async function _renderPdfInner(url) {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1180, height: 1500 });
     await page.goto(url, { waitUntil: 'networkidle2', timeout: 35000 });
+    // SPA lente (ex. Natixis) : attendre que le CORPS du rapport soit réellement chargé (texte substantiel),
+    // pas seulement le squelette/nav. Retour immédiat si le contenu est déjà là ; sinon jusqu'à ~7 s.
+    await page.waitForFunction(
+      () => ((document.body && document.body.innerText) || '').replace(/\s+/g, ' ').trim().length > 1800,
+      { timeout: 7000 }
+    ).catch(() => {});
     // Cookies/consent + overlays : (1) cliquer TOUS les boutons d'acceptation courants (multi-étapes),
     // (2) retirer les dialogues connus (Cookiebot/OneTrust/Usercentrics/TrustArc) + overlays fixes,
     // (3) lever le scroll-lock — sinon le PDF capture le popup cookies au lieu du rapport.
