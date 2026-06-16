@@ -4297,7 +4297,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   flex-shrink: 0;
   padding: 7px 14px;
   border-top: 1px solid #1c1c20;
-  color: #ffffff;
+  color: #7d7d86;   /* gris (demande utilisateur) — pied « Affichage de N sur M rapports de recherche » */
   font-size: 11px;
   font-family: var(--font-ui);
   background: #0c0c0e;
@@ -5748,8 +5748,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* ── SEASONALITY — table de performance mensuelle par année (façon PMT) ── */
 .season-pair-badge { font-family: var(--font-mono); font-size: 11px; font-weight: 700; color: #f7941d; letter-spacing: .03em; margin-left: 6px; }
-.season-table-wrap { flex: 1; overflow: auto; }
-.season-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-family: var(--font-mono); }
+.season-table-wrap { flex: 1; overflow: auto; display: flex; }
+.season-table { width: 100%; height: 100%; border-collapse: collapse; table-layout: fixed; font-family: var(--font-mono); }   /* height:100% → la table REMPLIT tout le panneau (façon Session Map), rangées étirées, responsive */
 .season-th { font-size: 10px; font-weight: 700; color: #8a93a3; text-align: center; padding: 5px 2px; border-bottom: 1px solid #1c1c20; background: #0e0e11; position: sticky; top: 0; z-index: 1; }
 .season-th--m { width: 40px; }
 .season-th--avg { color: #cbd2dc; border-left: 1px solid #26262c; }
@@ -8803,7 +8803,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .taux-last.r { color: #ff3d00; }
 .taux-last.n { color: #9a9aa2; }
 .taux-bias { color: #a6a6ad; max-width: 380px; font-size: 12px; line-height: 1.45; }
-.taux-loading, .taux-empty { text-align: center; color: #6f6f78; padding: 44px 0; }
+.taux-loading, .taux-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; color: #6f6f78; }   /* spinner CENTRÉ dans le panneau (était collé en haut) */
 /* ── TAUX : grille 4 colonnes haute densité (cartes "Interest Rate Probability", estimation maison) ── */
 .taux-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, minmax(0,1fr)); gap: 8px; padding: 8px; overflow: hidden; align-content: stretch; flex: 1 1 auto; min-height: 0; }   /* MONOBLOC 4×2 : 8 banques sur un écran, sans scroll */
 @media (max-width: 1560px), (max-height: 860px) { .taux-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; grid-auto-rows: max-content; overflow-y: auto; align-content: start; } }   /* en dessous du monobloc OU écran peu haut (laptops 1600-1680×800-900) : cartes à hauteur réelle (sinon comprimées + tronquées) + scroll */

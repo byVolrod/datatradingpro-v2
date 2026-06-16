@@ -1997,19 +1997,24 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadTauxView() {
     const host = document.getElementById('taux-grid');
     if (!host) return;
+    const hasCards = () => host.children.length && !host.querySelector('.taux-loading') && !host.querySelector('.taux-empty');
     try {
-      const r = await fetch('/api/rates');
-      const d = await r.json();
+      const d = window._dtpJSON ? await window._dtpJSON('/api/rates') : await (await fetch('/api/rates')).json();   // fetch RÉSILIENT (retry sur 502/non-JSON transitoire)
       const banks = (d && d.banks) || [];
-      if (!banks.length) { host.innerHTML = '<div class="taux-empty">Aucune donnée.</div>'; return; }
+      if (!banks.length) { if (!hasCards()) host.innerHTML = '<div class="taux-empty">Aucune donnée.</div>'; return; }
       const sig = (d.rpAt || 0) + '|' + (d.updatedAt || 0) + '|' + banks.length;
-      if (sig === _tauxSig && host.children.length && !host.querySelector('.taux-loading') && !host.querySelector('.taux-empty')) return;   // données inchangées → pas de re-rendu (évite tout clignotement)
+      if (sig === _tauxSig && hasCards()) return;   // données inchangées → pas de re-rendu (évite tout clignotement)
       _tauxSig = sig;
       host.innerHTML = banks.map(_rtcCard).join('');
       const upd = document.getElementById('taux-update');
       if (upd) upd.innerHTML = '';   // aucune attribution de source affichée (demande utilisateur)
     } catch (e) {
-      host.innerHTML = '<div class="taux-empty">Erreur de chargement.</div>';
+      // Échec TRANSITOIRE (502 pendant un redéploiement…) : si pas encore de cartes → on GARDE le chargement
+      // et on retente vite (jamais bloqué sur le spinner) ; sinon on garde l'affichage existant (zéro clignotement).
+      if (!hasCards()) {
+        if (!host.querySelector('.taux-loading')) host.innerHTML = '<div class="taux-loading"><div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement des probabilités de taux…</div></div></div>';
+        setTimeout(loadTauxView, 4000);
+      }
     }
   }
 
