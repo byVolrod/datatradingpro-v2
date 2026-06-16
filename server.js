@@ -9336,12 +9336,14 @@ app.get('/api/currency-strength', async (req, res) => {
 });
 
 // ─── FX List Overview ─────────────────────────────────────────────────────────
-// Per-pair overview table (FX LIST view). Every column is derived from a single
-// Yahoo Finance 5-year daily series per pair (28 calls, same budget as
-// currency-strength) — last price, daily change, 1M/3M/12M returns, price/trend
-// sparklines, a 12-month seasonal curve, a recent micro-pattern, a DMX donut
-// (bullish-days ratio), an auto relative-strength score, and Fund./Research/Bias
-// signals derived from strength / 3M / 1M momentum respectively.
+// Per-pair overview table (FX LIST view). Price columns come from a single Yahoo
+// Finance 3-year daily series per pair (28 calls) — last price, daily change,
+// 1M/3M/12M returns, price/trend sparklines, a 12-month seasonal curve, a micro-pattern.
+// Les colonnes DMX / Bias / Strength sont ALIGNÉES sur les ONGLETS du terminal (mêmes
+// données, pas des proxys) : DMX = onglet DMX (Community Outlook, % long retail) ·
+// Bias = onglet Smart Bias (Overall par devise, projeté sur la paire) · Strength =
+// onglet Currency Strength (force reference-based, base−quote). Repli Yahoo si un onglet
+// est indisponible (la FX List ne casse jamais). Fund./Research = signaux momentum.
 let _fxlCache = null, _fxlTs = 0;
 const FXL_TTL = 10 * 60 * 1000; // 10 min
 
@@ -9469,12 +9471,45 @@ async function _computeFxListFresh() {
   const ccyStr = {};
   CS_CURRENCIES.forEach(c => { ccyStr[c] = cnt[c] ? score[c] / cnt[c] : 0; });
 
-  // Fund. ← strength | Research ← 3M momentum | Bias ← 1M momentum
+  // ── Colonnes ALIGNÉES sur les ONGLETS du terminal (cohérence : « DMX colonne = onglet DMX », Bias = onglet
+  //    Smart Bias, Strength = onglet Currency Strength). Chaque source est lue avec REPLI GRACIEUX : si un
+  //    onglet est indisponible, la colonne retombe sur le proxy Yahoo → la FX List ne casse JAMAIS.
+  let _csLatest = null, _retail = null;
+  const _biasConc = (_smartBias && _smartBias.conclusion) ? _smartBias.conclusion : null;   // onglet Smart Bias : Overall par devise
+  try {                                                                                       // onglet Currency Strength : dernière valeur par devise
+    const cs = await computeCurrencyStrength('today');
+    if (cs && cs.series) { _csLatest = {}; CS_CURRENCIES.forEach(c => { const a = cs.series[c]; _csLatest[c] = (a && a.length) ? a[a.length - 1].v : null; }); }
+  } catch (e) { console.warn('[FXL] onglet Strength indispo:', e.message); }
+  try {                                                                                       // onglet DMX = Myfxbook Community Outlook : % long retail par paire
+    const ro = await fetchCommunityOutlook('H1');
+    if (Array.isArray(ro)) _retail = new Map(ro.map(s => [String(s.symbol || '').toUpperCase().replace(/[^A-Z]/g, ''), s]));
+  } catch (e) { console.warn('[FXL] onglet DMX/retail indispo:', e.message); }
+
+  const _BIAS_SCORE = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2 };
+
   valid.forEach(r => {
-    r.strength = +((ccyStr[r.base] - ccyStr[r.quote])).toFixed(2);
+    // STRENGTH ← onglet Currency Strength (base − quote, force reference-based) | repli : force momentum 1M
+    if (_csLatest && _csLatest[r.base] != null && _csLatest[r.quote] != null) {
+      r.strength = +((_csLatest[r.base] - _csLatest[r.quote])).toFixed(2);
+    } else {
+      r.strength = +((ccyStr[r.base] - ccyStr[r.quote])).toFixed(2);
+    }
     r.fund     = _signal(r.strength, 1, -1);
     r.research = _signal(r.ret3M, 2, -2);
-    r.bias     = _signal(r.ret1M, 1, -1);
+
+    // BIAS ← onglet Smart Bias (conclusion Overall base vs quote, projetée sur la paire) | repli : momentum 1M
+    if (_biasConc && _biasConc[r.base] != null && _biasConc[r.quote] != null) {
+      const sc = (_BIAS_SCORE[_biasConc[r.base]] || 0) - (_BIAS_SCORE[_biasConc[r.quote]] || 0);
+      r.bias = sc >= 1 ? 'Bullish' : sc <= -1 ? 'Bearish' : 'Neutral';
+    } else {
+      r.bias = _signal(r.ret1M, 1, -1);
+    }
+
+    // DMX ← onglet DMX (Community Outlook : % long retail de la paire) | repli : ratio de jours haussiers (déjà dans r.dmx)
+    if (_retail) {
+      const ro = _retail.get(r.base + r.quote);
+      if (ro && ro.longPct != null) r.dmx = Math.round(ro.longPct);
+    }
   });
 
   return { pairs: valid, updatedAt: new Date().toISOString() };
