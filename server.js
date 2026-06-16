@@ -5614,7 +5614,7 @@ ${recentCtx.join('\n')}`;
   if (!insights.length) insights = marquee.slice(0, 6);
   if (title === 'Global Economic Weekly') {
     const cb = evClean.find(e => /\b(FOMC|Fed|Rate Decision|Announcement|Policy|Interest Rate|BoJ|BoE|ECB|SNB|RBA|BoC|RBNZ)\b/i.test(e.title));
-    title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} Headlines a Busy Week` : 'Key Data and Central Banks in the Week Ahead');
+    title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} en vedette cette semaine` : 'Données clés et banques centrales pour la semaine à venir');
   }
 
   // ── Commentaire d'analyse PAR ÉVÉNEMENT (style Econoday) — UN seul appel groupé, caché (1×/sem).
