@@ -5025,17 +5025,27 @@ function getArlibItems() {
     return b.timestamp - a.timestamp;
   })[0];
   // FX Daily (ING THINK) RETIRÉ de l'onglet Analyst (demande utilisateur) → on n'inclut plus _fxDaily.
+  // Les 2 rapports hebdo (Weekly Market Recap + Global Economic Weekly) doivent rester GROUPÉS dans
+  // la liste → on les ancre sur le timestamp du plus récent des deux (utilisé par _arlibReportSort).
+  _wkAnchorTs = Math.max((best && best.timestamp) || 0, (bestGew && bestGew.timestamp) || 0);
   // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
   // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
   return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...wraps])
     .sort(_arlibReportSort);
 }
 
-// Tri façon PMT (« comme sur l'image ») : STRICT anti-chronologique — le rapport le plus RÉCENT
-// en haut, tous types confondus. Le regroupement par jour se fait naturellement (timestamps proches)
-// et, dans une journée, l'ordre suit l'heure de publication (US Recap › London Recap › openings du
-// matin), exactement comme Prime Terminal. (Remplace l'ancien regroupement par session Asia→London→US.)
+// Tri façon PMT (« comme sur l'image ») : STRICT anti-chronologique — le rapport le plus RÉCENT en
+// haut, tous types confondus. EXCEPTION : les 2 rapports hebdo (Weekly Market Recap + Global Economic
+// Weekly) restent COLLÉS — ancrés sur le même timestamp (_wkAnchorTs, le + récent des deux) → jamais
+// séparés par les recaps de session, et ordonnés Weekly Recap puis Global Economic Weekly.
+let _wkAnchorTs = 0;   // défini par getArlibItems juste avant le tri
+function _isWeeklyReport(i) { return !!(i && (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly')); }
 function _arlibReportSort(a, b) {
+  const wa = _isWeeklyReport(a), wb = _isWeeklyReport(b);
+  const ka = wa ? _wkAnchorTs : (a.timestamp || 0);
+  const kb = wb ? _wkAnchorTs : (b.timestamp || 0);
+  if (ka !== kb) return kb - ka;                              // anti-chrono (ancre commune pour les 2 hebdo)
+  if (wa && wb) return (a._reportType === 'Weekly Market Recap' ? 0 : 1) - (b._reportType === 'Weekly Market Recap' ? 0 : 1);
   return (b.timestamp || 0) - (a.timestamp || 0);
 }
 
@@ -5736,7 +5746,6 @@ function renderArlibReader(item) {
     // Nomenclature VILLE (London / New York / Asia-Pac) — identique au titre (standardizeReportTitle)
     // → label, titre et sous-titre cohérents (fini "London" vs "European").
     const SESSION_LABEL = { 'Americas': 'New York Session Recap', 'European': 'London Session Recap', 'Asia-Pacific': 'Asia-Pac Session Recap' }[item.session] || 'Session Recap';
-    const SUBTITLE = { 'Americas': 'Wrap-up of the New York trading session', 'European': 'Wrap-up of the London trading session', 'Asia-Pacific': 'Wrap-up of the Asia-Pacific trading session' }[item.session] || 'Daily market session wrap-up';
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
     // En-tête INTELLIGENT : le TITRE = thème IA du recap (aiTitle, dérivé du contenu réel de la
     // session — change à chaque rapport) ; type de session + sous-titre + date l'encadrent.
@@ -5745,7 +5754,7 @@ function renderArlibReader(item) {
     const _header = '<div class="arlib-rhead">'
       + '<div class="arlib-rtype">' + SESSION_LABEL + '</div>'
       + (_theme ? '<div class="arlib-rtitle">' + _esc5(_theme) + '</div>' : '')
-      + '<div class="arlib-rsub">' + SUBTITLE + ' — ' + dateStr + '</div>'
+      + '<div class="arlib-rsub">' + dateStr + '</div>'
       + '</div>';
     content.innerHTML = dtpLoader('Chargement du résumé de session…');
 
