@@ -2002,13 +2002,12 @@ function buildNewsItem(item) {
       if (item._marketUpdate && item.fullContent) {
         return `<div class="market-update-body">${item.fullContent}</div>`;
       }
-      // ── DTP EUROPEAN MARKET WRAP : news VISIBLE (non-primer) façon PMT → rubriques en MAJUSCULES
-      //    rendues en titres orange (rpt-section-head), 1re ligne = lead en gras, reste = puces. ──
+      // ── DTP MARKET WRAP : news VISIBLE (non-primer) façon PMT → bloc LEAD de synthèse en tête
+      //    (puces simples, avant le 1er titre), rubriques EN MAJUSCULES → titres orange, reste = puces. ──
       if (item._marketWrap) {
         const bullets = parsePrimerBullets(item.description);
-        const html = bullets.map((line, idx) => {
+        const html = bullets.map((line) => {
           if (_isSectionHead(line)) return `<li class="rpt-section-head">${line}</li>`;
-          if (idx === 0)            return `<li class="primer-bullet primer-bullet--header">${_dtpTitle(line)}</li>`;
           return `<li class="primer-bullet">${_reportLead(line)}</li>`;
         }).join('');
         return `<ul class="primer-bullets">${html}</ul>`;
