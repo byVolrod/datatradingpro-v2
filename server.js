@@ -3050,7 +3050,7 @@ async function _resegmentTodayWraps(force = false) {
     }
     if (_hasFX(seg)) withFX++;
   }
-  console.log(`[Wraps today] ${today.length} wrap(s) du jour · ${withFX} avec section FX · ${regen} régénéré(s) v5`);
+  console.log(`[Wraps today] ${today.length} wrap(s) du jour · ${withFX} avec section FX · ${regen} régénéré(s) ${SW_SEG_VER}`);
   return { total: today.length, withFX, regen };
 }
 setTimeout(() => { _resegmentTodayWraps().catch(e => console.error('[Wraps today] boot:', e.message)); }, 95 * 1000);
