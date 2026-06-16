@@ -2440,7 +2440,7 @@ function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new U
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-const _RENDER_VER = 'r4';   // bump → invalide TOUS les PDF rendus en cache (r4 : masque AUSSI l'image hero/cover en tête → le PDF commence par le texte du rapport)
+const _RENDER_VER = 'r5';   // bump → invalide TOUS les PDF rendus en cache (r5 : strip hero robuste — gère aussi les DIV à background-image type Syz « banner-slides », + cache busté)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
@@ -2524,19 +2524,31 @@ async function _renderPdfInner(url) {
     // TEXTE du rapport, plus par une photo floue (corrige Syz « page 1 = photo calendrier », QCAM, SocGen, HSBC…).
     // On NE touche PAS aux graphiques du corps (charts/figures/SVG/canvas = données du rapport).
     await page.evaluate(() => { try {
-      const HERO = '[class*="hero" i],[class*="featured-image" i],[class*="featuredimage" i],[class*="hs-featured" i],[class*="cover-image" i],[class*="coverimage" i],[class*="banner" i],[class*="article-header" i],[class*="post-header" i],[class*="lead-image" i],[class*="masthead-image" i],[class*="page-header" i] img,figure[class*="header" i]';
-      document.querySelectorAll(HERO).forEach(e => { try { e.style.setProperty('display', 'none', 'important'); } catch {} });
-      // 1re grande image en TÊTE d'article (photo de couverture) → masquée, SAUF si c'est un graphique.
-      const art = document.querySelector('article, main, [class*="article" i], [class*="post-body" i], [class*="entry-content" i]') || document.body;
-      const imgs = art.querySelectorAll('img, picture, figure');
-      for (const im of imgs) {
-        const cn = (im.className && im.className.baseVal !== undefined ? im.className.baseVal : (im.className || '')) + '';
-        if (/chart|graph|figure|data|highchart|plot|viz/i.test(cn)) continue;          // garder les graphiques
-        if (im.querySelector && im.querySelector('svg, canvas')) continue;             // garder les data-viz
-        const r = im.getBoundingClientRect();
-        if (r.top < 640 && r.width > 360 && r.height > 160) { try { im.style.setProperty('display', 'none', 'important'); } catch {} break; }  // une seule (la hero)
-      }
-    } catch {} }).catch(() => {});
+      const hide = el => { try { el.style.setProperty('display', 'none', 'important'); } catch (e) {} };
+      // 1) Hero/cover/banner par CLASSE — chaque sélecteur ISOLÉ (un sélecteur invalide ne casse pas le reste).
+      ['[class*="hero" i]', '[class*="featured-image" i]', '[class*="hs-featured" i]', '[class*="cover-image" i]', '[class*="banner" i]', '[class*="article-header" i]', '[class*="post-header" i]', '[class*="lead-image" i]', '[class*="masthead" i]']
+        .forEach(sel => { try { document.querySelectorAll(sel).forEach(hide); } catch (e) {} });
+      // 2) DIV à BACKGROUND-IMAGE décorative en tête (Syz HubSpot = « banner-slides-inner », photo de couverture
+      //    en CSS background, pas en <img> → c'est ÇA que l'ancien strip ratait) → masquée.
+      try {
+        document.querySelectorAll('div,section,figure,header,a').forEach(e => {
+          const st = getComputedStyle(e); if (!st.backgroundImage || !/url\(/.test(st.backgroundImage)) return;
+          const r = e.getBoundingClientRect(); if (r.top < 700 && r.width > 300 && r.height > 140) hide(e);
+        });
+      } catch (e) {}
+      // 3) 1re grande <img> en tête d'article (photo de couverture), SAUF graphiques (charts/svg/canvas).
+      try {
+        const art = document.querySelector('article, main, [class*="article" i], [class*="post-body" i], [class*="entry-content" i]') || document.body;
+        const imgs = art.querySelectorAll('img, picture, figure');
+        for (const im of imgs) {
+          const cn = (im.className && im.className.baseVal !== undefined ? im.className.baseVal : (im.className || '')) + '';
+          if (/chart|graph|figure|data|highchart|plot|viz/i.test(cn)) continue;
+          if (im.querySelector && im.querySelector('svg, canvas')) continue;
+          const r = im.getBoundingClientRect();
+          if (r.top < 660 && r.width > 360 && r.height > 160) { hide(im); break; }
+        }
+      } catch (e) {}
+    } catch (e) {} }).catch(() => {});
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
     const out = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
