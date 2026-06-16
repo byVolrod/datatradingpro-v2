@@ -4279,6 +4279,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arlib-cards {
   flex: 1;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;                /* écart ENTRE les rapports (façon PMT) */
+  padding: 12px;            /* écart sur les CÔTÉS + en haut */
+}
+/* Pied : compteur en bas, texte BLANC, français (façon PMT) */
+.arlib-foot {
+  flex-shrink: 0;
+  padding: 7px 14px;
+  border-top: 1px solid #1c1c20;
+  color: #ffffff;
+  font-size: 11px;
+  font-family: var(--font-ui);
+  background: #0c0c0e;
 }
 .arlib-empty {
   padding: 48px 24px;
@@ -4295,9 +4309,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   align-items: flex-start;
   gap: 14px;
   padding: 16px 20px;
-  border: 1px solid transparent;        /* bordure invisible au repos → pas de saut de pixel au survol */
-  border-bottom: 1px solid #1a1a1e;
-  border-radius: 10px;
+  border: 1px solid #1f1f24;            /* carte DISTINCTE, bordure fine (façon PMT) — plus de séparateur en liste */
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s ease-in-out;     /* transition globale douce */
   background: #121214;                  /* anthracite profond */

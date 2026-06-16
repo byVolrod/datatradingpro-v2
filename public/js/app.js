@@ -5216,11 +5216,16 @@ function renderArlibList() {
   if (!list) return;
 
   let items = getArlibItems();
+  const _total = items.length;
   if (_arlibType   !== 'all') items = items.filter(i => arlibItemType(i) === _arlibType);
   if (_arlibCat    !== 'all') items = items.filter(i => i.category === _arlibCat);
   if (_arlibSearch)           items = items.filter(i =>
     (i.headline || '').toLowerCase().includes(_arlibSearch) ||
     (i.description || '').toLowerCase().includes(_arlibSearch));
+
+  // Pied (français, texte blanc, façon PMT) : « Affichage de N sur M rapports de recherche »
+  const _foot = document.getElementById('arlib-foot');
+  if (_foot) _foot.textContent = 'Affichage de ' + items.length + ' sur ' + _total + ' rapport' + (_total > 1 ? 's' : '') + ' de recherche';
 
   if (items.length === 0) {
     list.innerHTML = '<div class="arlib-empty">No reports found.<br>Generate briefings or wait for the next scheduled run.</div>';
