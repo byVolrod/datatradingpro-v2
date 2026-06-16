@@ -1909,30 +1909,31 @@ function buildSessionMap() {
       if (!cvs) return;
       const ctx = cvs.getContext('2d'); if (!ctx) return;
       const cw = cvs.width, ch = cvs.height; if (!cw || !ch) return;
-      for (let k = 0; k < 3; k++) {
-        const d = ctx.getImageData(0, 0, cw, ch).data;
-        let left = cw, right = 0, top = ch, bot = 0, found = false;
-        for (let y = 0; y < ch; y += 2) for (let x = 0; x < cw; x += 2) {
-          const i = (y * cw + x) * 4;
-          if (d[i + 1] > 50 && d[i] < 150 && d[i + 2] < 130) {   // pixel "terre verte" (land 0x3d8f43, même assombri la nuit)
-            found = true;
-            if (x < left) left = x; if (x > right) right = x;
-            if (y < top) top = y;  if (y > bot) bot = y;
-          }
+      const d = ctx.getImageData(0, 0, cw, ch).data;
+      let left = cw, right = 0, found = false;
+      for (let y = 0; y < ch; y += 3) for (let x = 0; x < cw; x += 3) {
+        const i = (y * cw + x) * 4;
+        if (d[i + 1] > 50 && d[i] < 150 && d[i + 2] < 130) {   // pixel "terre verte" (land 0x3d8f43, même assombri la nuit)
+          found = true;
+          if (x < left) left = x;
+          if (x > right) right = x;
         }
-        if (!found) return;
-        const mapW = right - left, mapH = bot - top;
-        if (mapW < 10 || mapH < 10) return;
-        const cover = Math.max(cw / mapW, ch / mapH);            // combien zoomer pour mordre les 2 bords
-        if (cover <= 1.03 || cover >= 5) break;                  // déjà couvert (ou mesure aberrante) → stop
+      }
+      if (!found) return;
+      const mapW = right - left;
+      if (mapW < 10) return;
+      // Les bandes noires sont sur les CÔTÉS → on remplit la LARGEUR uniquement. (PAS la hauteur : l'océan
+      // en haut/bas n'est pas vert, donc viser un remplissage vertical ferait SUR-ZOOMER jusqu'au plafond —
+      // bug vécu.) Plafond bas (2.0) → zoom MODÉRÉ et responsive, jamais « gros zoom ».
+      const coverW = cw / mapW;
+      if (coverW > 1.04) {
         const cur = chart.get('zoomLevel') || 1;
-        chart.zoomToGeoPoint({ longitude: 35, latitude: 6 }, Math.min(cur * cover, 2.8), false, 0);  // centre 35°/6° → garde NY→Sydney à l'écran
+        chart.zoomToGeoPoint({ longitude: 35, latitude: 8 }, Math.min(cur * coverW, 2.0), false, 0);
       }
     } catch (e) {}
   }
-  setTimeout(_coverFill, 600);
-  setTimeout(_coverFill, 1500);
-  setTimeout(_coverFill, 2900);
+  setTimeout(_coverFill, 700);
+  setTimeout(_coverFill, 1800);
 
   return root;
 }
