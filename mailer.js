@@ -431,6 +431,23 @@ function buildRenewalFailed({ name }) {
 }
 async function sendRenewalFailed(d) { const m = buildRenewalFailed(d); return _send(d.to, m.subject, m.html); }
 
+// ── 2a-bis) Email « abonnement expiré » (l'admin a marqué le compte expiré) ───
+function buildExpired({ name, expiresAt }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher client');
+  const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre abonnement a expiré</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Votre période d'abonnement à <strong style="color:#fff;">DataTradingPro</strong>${end ? ` est arrivée à échéance le <strong style="color:#fff;">${end}</strong>` : ' a expiré'}. Votre accès au terminal est désormais <strong style="color:#e25563;">suspendu</strong>.</p>
+    <p style="margin:0 0 14px;">Pour reprendre le suivi des marchés en temps réel (news, calendrier économique, force des devises, analyses institutionnelles), renouvelez votre abonnement en un clic :</p>
+    ${_button('Renouveler mon abonnement', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'DataTradingPro — votre abonnement a expiré', html: _layout('Abonnement expiré', body) };
+}
+async function sendExpired(d) { const m = buildExpired(d); return _send(d.to, m.subject, m.html); }
+
 // ── 2b) Email de réactivation (compte remis en actif) ────────────────────────
 function buildReactivated({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
@@ -770,7 +787,7 @@ async function sendAdminAlert({ subject, html, to } = {}) {
 
 module.exports = {
   // envoi (API publique inchangée)
-  sendWelcome, sendRenewalFailed, sendReactivated, sendRenewed, sendPasswordReset,
+  sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
   // build (rendu sans envoi) — pour la preview
