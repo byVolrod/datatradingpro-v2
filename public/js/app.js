@@ -4528,31 +4528,70 @@ function _ingPdfUrl(u) {
     return 'https://think.ing.com/downloads/pdf/' + t + '/' + m[2];
   } catch { return ''; }
 }
-// Affiche le VRAI PDF de la banque TEL QUEL (proxifié, embarqué) — ZÉRO restructuration IA.
-// Le carrousel AI Insights reste géré par renderBrReader (au-dessus, conservé) façon PMT.
-function _brShowNativePdf(item, pdfUrl) {
+// Embarque un PDF (proxy OU rendu) APRÈS avoir vérifié via une sonde HEAD qu'il est réellement servi en
+// application/pdf → on n'affiche JAMAIS l'erreur brute (« pdf fetch failed »/« render failed ») dans le cadre.
+// Renvoie true si le PDF est embarqué, false sinon (→ l'appelant tente le repli suivant).
+async function _brEmbedPdf(item, endpointUrl) {
+  const content = document.getElementById('br-rcontent');
+  if (!content) return false;
+  try {
+    const ctrl = new AbortController();
+    const to = setTimeout(() => ctrl.abort(), 30000);   // le rendu Puppeteer peut prendre quelques secondes
+    const r = await fetch(endpointUrl, { method: 'HEAD', signal: ctrl.signal });
+    clearTimeout(to);
+    if (!r.ok || !((r.headers.get('content-type') || '').toLowerCase().includes('pdf'))) return false;
+  } catch { return false; }
+  if (!document.getElementById('br-rcontent')) return true;   // l'utilisateur a quitté le reader entre-temps
+  content.classList.add('br-rcontent--pdf');
+  const ttl = (item.title || 'PDF').replace(/"/g, '');
+  content.innerHTML = `<iframe class="br-pdf-frame" src="${endpointUrl}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>`;
+  return true;
+}
+// Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
+// (jamais un cadre vide ni un message technique). Les AI Insights restent affichés au-dessus, façon PMT.
+function _brShowExternalCard(item) {
+  const content = document.getElementById('br-rcontent'); if (!content) return;
+  content.classList.remove('br-rcontent--pdf');
+  const _inst = _instBadge(item);
+  const tagline = _inst === 'ING' ? 'THINK economic and financial analysis' : (_inst === 'DTP' ? 'Institutional research' : _inst + ' Research');
+  const headerHtml = `<div class="br-ing-header">${_instLogoHtml(_inst)}<div class="br-ing-tagline">${tagline}</div></div><div class="br-ing-divider"></div>`;
+  const dateStr = item.timestamp ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' }) : '';
+  const preview = (item.description || '').trim();
+  const safe = (item.url || '').replace(/"/g, '&quot;');
+  const typeLbl = _inst === 'DTP' ? 'Research' : _inst;
+  content.innerHTML = `<div class="br-document">${headerHtml}
+      <div class="br-ing-meta"><span class="br-ing-type">${typeLbl}</span>${dateStr ? `<span class="br-ing-sep">|</span><span class="br-ing-date">${dateStr}</span>` : ''}</div>
+      <div class="br-doc-title">${item.title}</div>
+      ${preview ? `<div class="br-ing-lead">${preview}</div>` : ''}
+      <div class="br-ext-card">
+        <div class="br-ext-card-ic">📄</div>
+        <div class="br-ext-card-txt">Ce rapport n'a pas pu être affiché en PDF ici. Ouvrez-le sur le site de <strong>${typeLbl}</strong> pour le consulter en entier.</div>
+        <a class="br-ext-card-btn" href="${safe}" target="_blank" rel="noopener">Ouvrir le rapport original ↗</a>
+      </div></div>`;
+}
+// VRAI PDF de la banque, BRUT plein cadre. Chaîne ROBUSTE (anticipe toute source qui casse) : (1) PDF natif
+// proxifié → (2) repli rendu serveur de la page d'origine (Puppeteer) → (3) carte « ouvrir l'original ».
+async function _brShowNativePdf(item, pdfUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return;
-  content.classList.add('br-rcontent--pdf');
-  const raw     = pdfUrl || item.url || '';
-  const proxied = _brPdfProxy(raw);
-  const ttl  = (item.title || 'PDF').replace(/"/g, '');
-  // PDF brut PLEIN CADRE, sans aucun bandeau DTP (la barre d'outils native du PDF gère zoom/impression/téléchargement).
-  content.innerHTML =
-    `<iframe class="br-pdf-frame" src="${proxied}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>`;
+  content.classList.remove('br-rcontent--pdf');
+  content.innerHTML = dtpLoader('Chargement du PDF…');
+  const raw = pdfUrl || item.url || '';
+  if (raw && await _brEmbedPdf(item, _brPdfProxy(raw))) return;                                       // 1) PDF natif
+  const orig = item.url || '';
+  if (orig && await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(orig))) return;     // 2) rendu serveur
+  _brShowExternalCard(item);                                                                          // 3) repli propre
 }
 
-// Rapport SANS PDF natif (MUFG…) : on REND sa page en PDF côté serveur (/api/pdf-render) et on l'affiche
-// BRUT, plein cadre — zéro restructuration IA. 1er affichage = génération (~2-5 s) puis mis en cache. Insights conservés.
-function _brShowRenderedPdf(item, renderUrl) {
+// Rapport SANS PDF natif (MUFG, Lloyds, Natixis…) : rendu serveur (Puppeteer), BRUT plein cadre. 1er affichage =
+// génération (~2-5 s) puis mis en cache. Repli carte « ouvrir l'original » si le rendu échoue. Insights conservés.
+async function _brShowRenderedPdf(item, renderUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return;
-  content.classList.add('br-rcontent--pdf');
-  const src = '/api/pdf-render?url=' + encodeURIComponent(renderUrl);
-  const ttl = (item.title || 'PDF').replace(/"/g, '');
-  // PDF rendu côté serveur, affiché BRUT plein cadre — sans bandeau « Génération du PDF… » (demande utilisateur).
-  content.innerHTML =
-    `<iframe class="br-pdf-frame" src="${src}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>`;
+  content.classList.remove('br-rcontent--pdf');
+  content.innerHTML = dtpLoader('Préparation du PDF…');
+  if (renderUrl && await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(renderUrl))) return;
+  _brShowExternalCard(item);
 }
 
 function renderBrReader(item) {

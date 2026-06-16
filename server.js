@@ -2326,7 +2326,7 @@ async function _scrapeILviaPuppeteer(url) {
 //  Anti-OOM : 1 SEUL rendu à la fois (verrou) + cache disque (DATA_DIR) → Chrome non relancé à chaque ouverture.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // Hôtes AUTORISÉS au rendu (anti-SSRF STRICT : Chrome ne doit JAMAIS rendre une URL arbitraire/interne).
-const PDF_RENDER_HOSTS = /(^|\.)(mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|goldmansachs\.com|gspublishing\.com)$/i;
+const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|goldmansachs\.com|gspublishing\.com)$/i;
 function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new URL(u).hostname) ? (printUrl || u) : ''; } catch { return ''; } }
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
@@ -4285,26 +4285,31 @@ app.get('/api/bank-research-content', async (req, res) => {
 const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com|sc\.com)$/i;
 app.get('/api/pdf-proxy', async (req, res) => {
   const u = String(req.query.url || '');
+  const isHead = req.method === 'HEAD';   // sonde légère du client (vérifie « est-ce un vrai PDF ? » avant d'embarquer l'iframe)
   let host = '';
-  try { const p = new URL(u); if (p.protocol !== 'https:') return res.status(400).send('https only'); host = p.hostname.toLowerCase(); }
-  catch { return res.status(400).send('bad url'); }
-  if (!PDF_PROXY_HOSTS.test(host)) return res.status(403).send('host not allowed');
+  try { const p = new URL(u); if (p.protocol !== 'https:') return res.status(400).end('https only'); host = p.hostname.toLowerCase(); }
+  catch { return res.status(400).end('bad url'); }
+  if (!PDF_PROXY_HOSTS.test(host)) return res.status(403).end('host not allowed');
   try {
     const r = await axios.get(u, {
       responseType: 'arraybuffer',
       timeout: 25000,
       maxContentLength: 30 * 1024 * 1024,
       maxRedirects: 3,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/pdf,*/*' },
+      // En HEAD : Range 2 Ko → on télécharge juste de quoi vérifier le type/la signature (zéro gaspillage).
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/pdf,*/*', ...(isHead ? { Range: 'bytes=0-2047' } : {}) },
       validateStatus: s => s >= 200 && s < 400,
     });
     const ct = String(r.headers['content-type'] || '');
-    if (!/pdf/i.test(ct)) return res.status(415).send('not a pdf');
+    // Accepte si content-type PDF OU signature « %PDF- » (certains serveurs renvoient un type générique).
+    const looksPdf = /pdf/i.test(ct) || (r.data && Buffer.from(r.data).slice(0, 5).toString('latin1') === '%PDF-');
+    if (!looksPdf) return res.status(415).end(isHead ? undefined : 'not a pdf');
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Cache-Control', 'public, max-age=86400');
+    if (isHead) return res.end();          // sonde OK → en-têtes seuls (le client embarque ensuite l'iframe)
     return res.send(Buffer.from(r.data));
-  } catch (e) { return res.status(502).send('pdf fetch failed'); }
+  } catch (e) { return res.status(502).end(isHead ? undefined : 'pdf fetch failed'); }
 });
 
 // ─── Rendu HTML→PDF à la volée (rapports SANS PDF natif : MUFG…), mis en cache disque, whitelist stricte ──
