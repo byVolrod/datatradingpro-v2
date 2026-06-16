@@ -7376,16 +7376,21 @@ function _euWrapLead(levels) {
   return parts.length ? `European close — ${parts.join('; ')}.` : null;
 }
 
+// Lignes-placeholder « (None) / N/A / Aucun … » que l'IA glisse parfois sous une rubrique vide
+// au lieu de l'omettre → on les jette pour que la rubrique disparaisse proprement (façon PMT).
+const _EU_PLACEHOLDER = /^\(?\s*(none|n\/?a|nil|aucun(e)?|n[ée]ant|rien|empty|tba|tbd|—|-)\s*\)?\.?$/i;
 function _euWrapBuild(buckets, fallbackLead) {
   const out = [];
+  const clean = arr => (arr || []).map(s => s.replace(/^[-•*·]\s*/, '').trim())
+    .filter(s => s.length > 1 && !_EU_PLACEHOLDER.test(s));
   // LEAD = bloc de SYNTHÈSE en tête (puces, SANS en-tête), façon PMT. À défaut (IA KO) → lead déterministe (niveaux).
-  const leadItems = (buckets['LEAD'] || []).map(s => s.replace(/^[-•*·]\s*/, '').trim()).filter(s => s.length > 4);
+  const leadItems = clean(buckets['LEAD']).filter(s => s.length > 4);
   if (leadItems.length) leadItems.slice(0, 6).forEach(it => out.push('- ' + it));
   else if (fallbackLead) out.push('- ' + fallbackLead);
   for (const h of EU_WRAP_SECTIONS) {
     if (h === 'LEAD') continue;                   // déjà rendu en tête (sans titre)
-    const items = (buckets[h] || []).map(s => s.replace(/^[-•*·]\s*/, '').trim()).filter(s => s.length > 1);
-    if (!items.length) continue;
+    const items = clean(buckets[h]);
+    if (!items.length) continue;                  // rubrique vide (ou seulement « (None) ») → omise
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
     items.slice(0, 8).forEach(it => out.push('- ' + it));   // jusqu'à 8 lignes/rubrique (rubriques riches façon PMT)
   }
