@@ -8386,11 +8386,23 @@ function _dtpToast(msg, kind) {
   setInterval(check, 90 * 1000);   // puis toutes les 90 s
 })();
 
-// Calculatrice = PUBLIQUE (tous les comptes). Journal = encore réservé aux admins (en développement ;
-// le serveur garde aussi /api/journal côté admin).
+// Journal de trading + Calculatrice = PUBLICS (tous les comptes connectés).
 window._dtpGateTool = function (view) {
-  if (view === 'calculator' || window._pdIsAdmin) { if (window.activateView) window.activateView(view); return; }
-  _dtpToast('Le journal de trading est en cours de développement — réservé aux administrateurs pour le moment. Disponible bientôt pour tous.', 'dev');
+  if (view === 'journal') _dtpJournalBadgeSeen();        // 1er clic sur le journal → le badge NEW disparaît (persistant par compte)
+  if (window.activateView) window.activateView(view);    // Journal + Calculatrice ouverts à TOUS les utilisateurs connectés
+};
+// Badge « NEW » du journal : annonce affichée une seule fois par compte, retirée dès le 1er clic (flag KV durable).
+function _dtpJournalBadgeSeen() {
+  const b = document.getElementById('journal-new-badge'); if (b) b.style.display = 'none';
+  try { fetch('/api/journal-new-seen', { method: 'POST' }); } catch {}
+}
+window._dtpJournalBadgeInit = function () {
+  try {
+    fetch('/api/journal-new-seen').then(r => r.json()).then(d => {
+      const b = document.getElementById('journal-new-badge');
+      if (b && d && d.seen === false) b.style.display = '';
+    }).catch(() => {});
+  } catch {}
 };
 
 // ═══════════════════ CALCULATRICE DE TAILLE DE POSITION (façon Myfxbook) ═══════════════════

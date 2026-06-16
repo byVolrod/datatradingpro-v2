@@ -393,6 +393,19 @@ app.post('/api/sym-recent', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+// ── Badge « NEW » du journal de trading — annonce vue UNE SEULE FOIS par compte (KV durable, modèle
+//    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV = survit au blackout egress).
+app.get('/api/journal-new-seen', async (req, res) => {
+  if (!req.session?.userId) return res.json({ seen: true });          // non connecté → pas de badge
+  try { const v = await auth.aiCacheGet('journalnewseen:' + req.session.userId, 8640000000000); res.json({ seen: !!v }); }
+  catch { res.json({ seen: false }); }                                // KV indispo → badge montré (re-tentable plus tard)
+});
+app.post('/api/journal-new-seen', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try { await auth.aiCacheSet('journalnewseen:' + req.session.userId, { seen: true, at: Date.now() }); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // ── PHOTO DE PROFIL (avatar) — persistante PAR COMPTE (KV Supabase avatar:<userId>, modèle symrecent).
 // Stockée comme data URL (déjà compressée/recadrée côté client à ~256px → ~20-60 Ko). Suit la
 // reconnexion → modifier sa photo sur un appareil la met à jour sur TOUS les autres. Préfixe hors purge 31j. ──
