@@ -3224,15 +3224,20 @@ const SB_CLOCKS = [
   { city: 'Paris',    code: 'PAR',  tz: 'Europe/Paris' },
 ];
 
+let _biasRetry = 0;
 function loadBiasView() {
   const host = document.getElementById('bias-content');
   if (!host) return;
   if (_biasData) { renderBiasView(_biasView || _biasData); return; }
   host.innerHTML = dtpLoader('Chargement du Smart Bias Tracker…');
-  fetch('/api/smart-bias')
-    .then(r => r.json())
-    .then(d => { _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; renderBiasView(d); })
-    .catch(() => { host.innerHTML = '<div class="bias-loading">Smart Bias indisponible pour le moment.</div>'; });
+  // Fetch RÉSILIENT (anticipation) : tolère un hoquet serveur (502/HTML pendant un redéploiement) → réessaie
+  // ~80 s au lieu de rester bloqué sur « indisponible ». Jamais d'« Unexpected token '<' ».
+  (window._dtpJSON ? window._dtpJSON('/api/smart-bias') : fetch('/api/smart-bias').then(r => r.json()))
+    .then(d => { if (!d || !d.currencies) throw new Error('no data'); _biasRetry = 0; _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; renderBiasView(d); })
+    .catch(() => {
+      if (_biasRetry++ < 20) { host.innerHTML = dtpLoader('Chargement du Smart Bias Tracker…'); setTimeout(loadBiasView, 4000); }
+      else host.innerHTML = '<div class="bias-loading">Smart Bias momentanément indisponible — réessaie dans un instant.</div>';
+    });
 }
 window.loadBiasView = loadBiasView;
 

@@ -942,6 +942,26 @@ function buildStrengthSnapshot(containerId, data) {
 // Vue double "Force de la devise" : panneau gauche (TD) + panneau droit (TW), 50/50
 let _strengthTimers = [];
 
+// Fetch JSON RÉSILIENT (anticipation) : tolère les hoquets transitoires — 502/HTML pendant un redéploiement,
+// coupure réseau, réponse non-JSON. Réessaie sur 5xx / non-JSON / erreur réseau. Renvoie le JSON, ou lève
+// après N essais. Évite définitivement le « Unexpected token '<' » (parse d'une page d'erreur HTML).
+async function _dtpJSON(url, opts = {}) {
+  const tries = opts.tries || 3, delay = opts.delay || 1200;
+  let lastErr;
+  for (let i = 0; i < tries; i++) {
+    try {
+      const r = await fetch(url, opts.init);
+      const ct = r.headers.get('content-type') || '';
+      if (r.ok && /json/i.test(ct)) return await r.json();
+      if (r.status === 401 || r.status === 403) return await r.json().catch(() => ({ error: 'unauthorized' }));   // vraie réponse d'auth → pas un hoquet
+      lastErr = new Error('HTTP ' + r.status + (/html|<!/i.test(ct) ? ' (HTML)' : ''));
+    } catch (e) { lastErr = e; }
+    if (i < tries - 1) await new Promise(s => setTimeout(s, delay));
+  }
+  throw lastErr || new Error('fetch failed');
+}
+if (typeof window !== 'undefined') window._dtpJSON = _dtpJSON;
+
 async function buildStrengthCharts() {
   const wrap = document.getElementById('strength-charts-row');
   if (!wrap) return;
@@ -982,7 +1002,7 @@ async function buildStrengthCharts() {
       }
       try {
         const url  = `/api/currency-strength?period=${period}${force ? '&force=1' : ''}`;
-        const data = await fetch(url).then(r => r.json());
+        const data = await _dtpJSON(url);
         if (!data.currencies) throw new Error(data.error || 'No data');
         if (chartCtl && chartCtl.update && !periodChanged) {
           chartCtl.update(data);            // ← prolonge la courbe sans clignoter
@@ -993,8 +1013,12 @@ async function buildStrengthCharts() {
       } catch (e) {
         console.error('[Strength]', side, e.message);
         if (!chartCtl) {
+          // JAMAIS d'erreur brute (« Unexpected token '<' ») : on montre « Chargement… » et on RÉESSAIE tant
+          // qu'on est sur l'onglet STRENGTH → la carte se rétablit toute seule après un hoquet serveur (déploiement).
           const el2 = document.getElementById(containerId);
-          if (el2) el2.innerHTML = `<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--red);font-size:10px;font-family:var(--font-mono)">${e.message}</div>`;
+          if (el2) el2.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la force des devises…') : 'Chargement…');
+          const tab = document.getElementById('rtab-strength');
+          if (tab && tab.classList.contains('active')) setTimeout(() => { try { load(activePeriod, { silent: true }); } catch (e2) {} }, 4000);
         }
       }
     }
