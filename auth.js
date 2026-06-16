@@ -93,7 +93,7 @@ async function _runMulti(table, ops, kind) {
     if (kind === 'write') {
       let werr = null;
       for (const node of healthy) {
-        try { const res = await _applyOps(node.client, table, ops); if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); werr = res.error; continue; } return res; } return res; }
+        try { const res = await _applyOps(node.client, table, ops); if (res && res.error) { if (_supaDown(res.error)) { if (!_isSchemaErr(res.error)) _markDown(node, res.error); werr = res.error; continue; } return res; } return res; }
         catch (e) { _markDown(node, e); werr = e; continue; }
       }
       return { data: null, error: werr || { message: 'write failed on all nodes' } };
@@ -102,7 +102,7 @@ async function _runMulti(table, ops, kind) {
     for (const node of healthy) {
       try {
         const res = await _applyOps(node.client, table, ops);
-        if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); errS = res.error; continue; } return res; }
+        if (res && res.error) { if (_supaDown(res.error)) { if (!_isSchemaErr(res.error)) _markDown(node, res.error); errS = res.error; continue; } return res; }
         const empty = !res || res.data == null || (Array.isArray(res.data) && res.data.length === 0);
         if (empty) { emptyS = res; continue; }
         _egNote(_resBytes(res)); return res;
@@ -130,7 +130,7 @@ async function _runMulti(table, ops, kind) {
   for (const node of order) {
     try {
       const res = await _applyOps(node.client, table, ops);
-      if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); lastErr = res.error; continue; } return res; }   // erreur autoritaire → on renvoie ; down → base suivante
+      if (res && res.error) { if (_supaDown(res.error)) { if (!_isSchemaErr(res.error)) _markDown(node, res.error); lastErr = res.error; continue; } return res; }   // erreur autoritaire → on renvoie ; down → base suivante ; mismatch schéma → suivant sans pénaliser le nœud
       const empty = !res || res.data == null || (Array.isArray(res.data) && res.data.length === 0);
       if (empty) { lastEmpty = res; continue; }   // base potentiellement périmée → on tente les autres pour un résultat non vide
       _egNote(_resBytes(res)); return res;         // résultat NON vide → on renvoie (+ mesure egress)
@@ -202,6 +202,14 @@ function _mirrorPutMany(rows) {   // bulk (liste admin) → une seule écriture 
 // « 0 ligne » (l'email n'existe vraiment pas, Supabase répond) vs toute autre erreur = Supabase muet → repli.
 function _isNoRows(err) { return !!err && (err.code === 'PGRST116' || /0 rows|contain 0|no rows/i.test(err.message || '')); }
 function _supaDown(err) { return !!err && !_isNoRows(err); }
+// Erreur de SCHÉMA propre à un nœud (ex. secondaire dont users.id est en uuid alors que la requête passe un id
+// texte/entier comme « 1 ») : le nœud n'est PAS en panne — il sert parfaitement ai_cache/weekly. On saute juste
+// CE nœud pour CETTE requête, SANS le marquer indisponible 10 min (sinon on priverait le round-robin d'un
+// secondaire sain → surcharge de la primaire). Le repli miroir (verifyLogin/getUserById) reste, lui, déclenché.
+function _isSchemaErr(err) {
+  const m = ((err && (err.message || '')) + ' ' + ((err && err.code) || '')).toLowerCase();
+  return /invalid input syntax|type uuid|does not exist|undefined column|schema cache|cannot cast|out of range|22p02|42703|42p01/.test(m);
+}
 // Chargement initial du miroir (synchrone, au boot)
 try {
   const _arr = JSON.parse(fs.readFileSync(USERS_MIRROR_FILE, 'utf8'));
