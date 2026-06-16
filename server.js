@@ -830,6 +830,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
     if (body.email && (body.role || 'client') === 'client') {
       mail = await _sendWelcomeReliable({ to: body.email, name: body.name, password: body.password, expiresAt: body.expiresAt });
       _sendWelcomeChat(newUser && newUser.id);
+      try { await auth.emailLogAdd('welcome:' + String(body.email).toLowerCase().trim()); } catch {}   // marqueur → la régularisation de bienvenue ne renverra pas
     }
     res.json({ ok: true, mail });
   } catch (e) { res.status(400).json({ error: e.message }); }
@@ -837,7 +838,7 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
 
 app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
   try {
-    const id = +req.params.id;
+    const id = String(req.params.id);   // id TEXTE/uuid depuis la migration users.id → +id donnait NaN (édition cassée pour les comptes uuid)
     const before = await auth.getUserById(id).catch(() => null);   // état AVANT modif
     const fields = { ...req.body };
     // Ne recalcule l'échéance que si l'admin a choisi une durée (sinon on garde l'actuelle)
@@ -873,19 +874,45 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
 });
 
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
-  try { await auth.deleteUser(+req.params.id); res.json({ ok: true }); }
+  try { await auth.deleteUser(String(req.params.id)); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 app.post('/api/admin/users/:id/password', requireAdmin, async (req, res) => {
   try {
-    await auth.changePassword(+req.params.id, req.body.password);
+    const id = String(req.params.id);   // id TEXTE/uuid (cf. migration) → +id = NaN cassait reset MDP pour les comptes uuid
+    await auth.changePassword(id, req.body.password);
     res.json({ ok: true });
     // Email de réinitialisation (non bloquant) avec le nouveau mot de passe
-    auth.getUserById(+req.params.id)
+    auth.getUserById(id)
       .then(u => { if (u?.email) mailer.sendPasswordReset({ to: u.email, name: u.name, password: req.body.password }); })
       .catch(() => {});
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// ─── Régularisation BIENVENUE : message chat + email de bienvenue (SANS mot de passe → NON destructif, on ne
+//     réinitialise rien) aux comptes CLIENTS qui ne l'ont jamais reçu. DRY-RUN par défaut (liste + nombre) ;
+//     ?send=1 = envoi réel. Anti-doublon via email_log (welcome:<email> / whop-welcome:<email>). Aussi auto
+//     pour chaque nouvel arrivant (création admin + Whop écrivent déjà le marqueur).
+app.get('/api/admin/welcome-backfill', requireAdmin, async (req, res) => {
+  const send = req.query.send === '1';
+  let users = []; try { users = await auth.getAllUsers(); } catch { return res.status(500).json({ error: 'users indisponibles' }); }
+  const out = { dryRun: !send, total: users.length, missing: 0, chatSent: 0, emailSent: 0, alreadyHad: 0, missingList: [] };
+  for (const u of users) {
+    if ((u.role || 'client') !== 'client') continue;                       // on n'accueille pas le staff (admin/support)
+    const email = String(u.email || '').toLowerCase().trim(); if (!email) continue;
+    let had = false;
+    try { had = (await auth.emailLogHas('welcome:' + email)) || (await auth.emailLogHas('whop-welcome:' + email)); } catch {}
+    if (had) { out.alreadyHad++; continue; }
+    out.missing++; out.missingList.push({ email, name: u.name || '', loggedIn: !!u.last_login });
+    if (!send) continue;
+    try { _sendWelcomeChat(u.id); out.chatSent++; } catch {}
+    try { const r = await _sendWelcomeReliable({ to: email, name: u.name || '', password: '', expiresAt: u.expires_at || null }); if (r && r.sent) out.emailSent++; } catch {}
+    try { await auth.emailLogAdd('welcome:' + email); } catch {}                // marqueur → pas de renvoi
+  }
+  out.missingList = out.missingList.slice(0, 60);
+  console.log(`[Welcome backfill] ${send ? 'ENVOI' : 'DRY-RUN'} — ${out.missing} compte(s) sans bienvenue` + (send ? ` · ${out.chatSent} chat · ${out.emailSent} mail` : ''));
+  res.json(out);
 });
 
 // ─── User self-service password change ────────────────────────────────────────
