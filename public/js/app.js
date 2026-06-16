@@ -3266,31 +3266,36 @@ function _renderWeekAhead(d) {
   const host = document.getElementById('wa-content');
   if (!host) return;
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Jours/mois en FRANÇAIS (le serveur envoie l'anglais « Monday » / « JAN » ; traduction à l'affichage).
+  const _DOW_FR = { mon: 'LUN', tue: 'MAR', wed: 'MER', thu: 'JEU', fri: 'VEN', sat: 'SAM', sun: 'DIM' };
+  const _MON_FR = { jan: 'JANV', feb: 'FÉVR', mar: 'MARS', apr: 'AVR', may: 'MAI', jun: 'JUIN', jul: 'JUIL', aug: 'AOÛT', sep: 'SEPT', oct: 'OCT', nov: 'NOV', dec: 'DÉC' };
+  const _dowFr = s => _DOW_FR[String(s || '').slice(0, 3).toLowerCase()] || String(s || '').slice(0, 3).toUpperCase();
+  const _monFr = s => _MON_FR[String(s || '').slice(0, 3).toLowerCase()] || String(s || '').slice(0, 3).toUpperCase();
   const todayD = String(new Date().getDate());
   const rows = (d.days || []).map(day => {
     const isToday = String(day.date) === todayD;
     const hi = /high/i.test(day.impact);
     return `<div class="wa-day${isToday ? ' wa-day--today' : ''}">
       <div class="wa-node">
-        <span class="wa-dow">${esc((day.dow || '').slice(0, 3).toUpperCase())}</span>
+        <span class="wa-dow">${esc(_dowFr(day.dow))}</span>
         <span class="wa-date">${esc(day.date || '')}</span>
-        <span class="wa-month">${esc((day.month || '').slice(0, 3).toUpperCase())}</span>
+        <span class="wa-month">${esc(_monFr(day.month))}</span>
       </div>
       <div class="wa-card ${hi ? 'wa-card--high' : 'wa-card--med'}">
         <div class="wa-card-head">
           <div class="wa-card-headl">
             <span class="wa-card-title">${esc(day.headline || day.title)}</span>
           </div>
-          <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>${hi ? 'HIGH IMPACT' : 'MEDIUM IMPACT'}</span>
+          <span class="wa-impact wa-impact--${hi ? 'high' : 'medium'}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>${hi ? 'IMPACT ÉLEVÉ' : 'IMPACT MOYEN'}</span>
         </div>
         <div class="wa-card-desc">${esc(day.summary || day.description || '')}</div>
-        <button class="wa-more" type="button" onclick="_waToggle(this)">Read More <span class="wa-more-chev">∨</span></button>
+        <button class="wa-more" type="button" onclick="_waToggle(this)">Lire la suite <span class="wa-more-chev">∨</span></button>
       </div>
     </div>`;
   }).join('');
   host.innerHTML = `<div class="wa-wrap">
     <div class="wa-head"><span class="wa-title">Week Ahead</span>${d.week ? `<span class="wa-week">${esc(d.week)}</span>` : ''}</div>
-    <div class="wa-chartbox"><div class="wa-chart-label">WEEKLY RISK PROFILE</div><div class="wa-chart" id="wa-risk-chart"></div></div>
+    <div class="wa-chartbox"><div class="wa-chart-label">PROFIL DE RISQUE HEBDO</div><div class="wa-chart" id="wa-risk-chart"></div></div>
     <div class="wa-timeline">${rows}</div>
   </div>`;
   requestAnimationFrame(() => {
@@ -3305,7 +3310,7 @@ function _renderWeekAhead(d) {
 function _waToggle(btn) {
   const card = btn.closest('.wa-card'); if (!card) return;
   const open = card.classList.toggle('wa-card--open');
-  btn.innerHTML = open ? 'Show Less <span class="wa-more-chev">∧</span>' : 'Read More <span class="wa-more-chev">∨</span>';
+  btn.innerHTML = open ? 'Voir moins <span class="wa-more-chev">∧</span>' : 'Lire la suite <span class="wa-more-chev">∨</span>';
 }
 window._waToggle = _waToggle;
 

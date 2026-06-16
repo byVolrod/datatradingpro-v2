@@ -6730,7 +6730,7 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v15-percur-robuste';   // v15 : éditorial jour-par-jour + anti cache-partiel-bloqué + repli déterministe enrichi → force la régén
+const WA_VER = 'v16-fr';   // v16 : tout en FRANÇAIS (repli déterministe + éditorial IA + libellés/dates côté client) → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
@@ -6776,29 +6776,30 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     const ccys = [...new Set([...hiEvs, ...evs].map(e => e.currency).filter(Boolean))].slice(0, 4);
     const themes = [...new Set(evs.map(e => _theme(e.title || '')).filter(Boolean))].slice(0, 2);
     const dowEn = d.toLocaleDateString('en-US', { weekday: 'long' });
-    // Repli déterministe RICHE en ANGLAIS (façon note de desk) — affiché tant que l'éditorial IA n'a pas généré. L'IA, quand dispo, l'écrase via day.headline/day.summary.
-    const THEME_EN_H = { 'Inflation': 'Inflation', 'Labour Market': 'Labour Data', 'Growth': 'Growth Data', 'Activity (PMI)': 'PMI Surveys', 'Central Banks': 'Central Banks', 'Consumer': 'Consumer Data', 'Trade': 'Trade Data' };
-    const enThemes = themes.map(t => THEME_EN_H[t]).filter(Boolean);
+    const dowFr = DAY_FR[dowEn] || dowEn;   // lundi, mardi…
+    // Repli déterministe RICHE en FRANÇAIS (façon note de desk) — affiché tant que l'éditorial IA n'a pas généré. L'IA, quand dispo, l'écrase via day.headline/day.summary.
+    const THEME_FR_H = { 'Inflation': 'Inflation', 'Labour Market': "Données d'emploi", 'Growth': 'Croissance', 'Activity (PMI)': 'Enquêtes PMI', 'Central Banks': 'Banques centrales', 'Consumer': 'Consommation', 'Trade': 'Commerce extérieur' };
+    const frThemes = themes.map(t => THEME_FR_H[t]).filter(Boolean);
     let title;
-    if (enThemes.length >= 2)       title = `${enThemes[0]} and ${enThemes[1]} Drive ${dowEn}'s Trading`;
-    else if (enThemes.length === 1) title = `${enThemes[0]} Takes Center Stage on ${dowEn}`;
-    else                            title = hiEvs.length ? `Key Risk Events on ${dowEn}` : `A Quieter ${dowEn} Session`;
+    if (frThemes.length >= 2)       title = `${frThemes[0]} et ${frThemes[1].toLowerCase()} animent la séance de ${dowFr}`;
+    else if (frThemes.length === 1) title = `${frThemes[0]} au cœur de la séance de ${dowFr}`;
+    else                            title = hiEvs.length ? `Événements à risque majeurs ${dowFr}` : `Séance plus calme ${dowFr}`;
     const base = (hiEvs.length ? hiEvs : evs).slice(0, 10);
-    const _top = base.slice(0, 4).map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (fcst ${e.forecast})` : ''}`.trim()).filter(Boolean);
+    const _top = base.slice(0, 4).map(e => `${e.currency || ''} ${e.title}${e.forecast ? ` (prév. ${e.forecast})` : ''}`.trim()).filter(Boolean);
     const _cb = base.find(e => /rate decision|interest rate|monetary policy|rate statement|deposit facility|refinancing/i.test(e.title || ''));
-    const _ccysEn = [...new Set(base.map(e => e.currency).filter(Boolean))].slice(0, 5);
-    const _themeTxt = enThemes.length ? enThemes.join(' and ').toLowerCase() : (hiEvs.length ? 'high-impact data' : 'a lighter macro slate');
+    const _ccysFr = [...new Set(base.map(e => e.currency).filter(Boolean))].slice(0, 5);
+    const _themeTxt = frThemes.length ? frThemes.join(' et ').toLowerCase() : (hiEvs.length ? 'des données à fort impact' : 'un calendrier allégé');
     const _dp = [];
     _dp.push(hiEvs.length
-      ? `${dowEn} delivers a data-heavy session built around ${_themeTxt}, with several market-moving prints capable of resetting near-term direction.`
-      : `${dowEn} brings a calmer calendar, leaving ${_ccysEn[0] || 'major FX'} more driven by broader macro themes, central-bank expectations and risk sentiment than by scheduled data.`);
-    if (_top.length) _dp.push(`The docket features ${_top.join(', ')}${base.length > 4 ? ', alongside other second-tier releases' : ''} — each a read on ${(enThemes[0] || 'the macro pulse').toLowerCase()} that can shift rate-path expectations.`);
-    if (_cb) _dp.push(`The ${_cb.currency} ${String(_cb.title).replace(/\s*\(.*?\)\s*/g, '').trim()} is the focal point: the decision and accompanying guidance will steer ${_cb.currency} and front-end yields, with any surprise rippling across rates and equities.`);
-    if (_ccysEn.length) _dp.push(`${_ccysEn.join(', ')} sit in the crosshairs — watch the knee-jerk in FX, sovereign yields and risk assets as the actuals land versus consensus.`);
+      ? `${_cap(dowFr)} s'annonce dense, articulé autour de ${_themeTxt}, avec plusieurs publications susceptibles de redéfinir la tendance à court terme.`
+      : `${_cap(dowFr)} offre un calendrier plus calme : ${_ccysFr[0] || 'le FX majeur'} sera davantage guidé par les thèmes macro de fond, les anticipations de banques centrales et l'appétit pour le risque que par les données programmées.`);
+    if (_top.length) _dp.push(`Au programme : ${_top.join(', ')}${base.length > 4 ? ", parmi d'autres publications de second rang" : ''} — autant de lectures de ${(frThemes[0] || 'la dynamique macro').toLowerCase()} susceptibles de déplacer les anticipations de taux.`);
+    if (_cb) _dp.push(`La décision de taux ${_cb.currency} (${String(_cb.title).replace(/\s*\(.*?\)\s*/g, '').trim()}) est le point d'orgue : la décision et le discours d'accompagnement orienteront le ${_cb.currency} et les taux courts, tout écart se propageant aux taux et aux actions.`);
+    if (_ccysFr.length) _dp.push(`${_ccysFr.join(', ')} sont en première ligne — surveillez la réaction immédiate sur le FX, les rendements souverains et les actifs risqués à la publication des chiffres face au consensus.`);
     _dp.push(hiEvs.length
-      ? `Beats or misses on the high-impact prints are the clearest catalysts for a directional move into the close.`
-      : `With little on the tape, positioning, central-bank speakers and headline risk are likely to set the tone.`);
-    const description = _dp.join(' ') || 'Economic data on the day.';
+      ? `Les surprises, à la hausse comme à la baisse, sur les publications à fort impact seront les catalyseurs les plus nets d'un mouvement directionnel d'ici la clôture.`
+      : `Faute de catalyseurs au calendrier, le positionnement, les interventions des banquiers centraux et le risque de gros titres devraient donner le ton.`);
+    const description = _dp.join(' ') || 'Données économiques du jour.';
     // Liste DÉTAILLÉE d'événements (façon DTP) : triée par heure → heure Paris · devise · intitulé · prév./préc. · impact.
     const events = base.slice().sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0)).map(e => ({
       time: e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '',
@@ -6815,7 +6816,7 @@ async function generateWeekAhead(force = false, genEditorial = false) {
   const weekKey = keys[0];                       // lundi de la semaine = clé éditorial (1 génération IA / semaine, cachée)
   try { await _waApplyEditorial(days, weekKey, genEditorial); } catch {}   // genEditorial=false → applique le cache (0 IA) ; true → génère (planifié)
   const first = new Date(keys[0] + 'T12:00:00Z'), last = new Date(keys[keys.length - 1] + 'T12:00:00Z');
-  const week = `${first.getUTCDate()}-${last.getUTCDate()} ${last.toLocaleDateString('en-US', { month: 'long' })}`;
+  const week = `${first.getUTCDate()}-${last.getUTCDate()} ${last.toLocaleDateString('fr-FR', { month: 'long' })}`;
   _weekAhead = { generatedAt: Date.now(), v: WA_VER, week, days, editorialAI: days.filter(d => d.headline && d.summary).length };   // editorialAI = nb de jours rédigés par l'IA (diagnostic)
   try { fs.writeFileSync(WEEK_AHEAD_FILE, JSON.stringify(_weekAhead)); } catch {}
   auth.aiCacheSet('weekahead:data', _weekAhead).catch(() => {});
@@ -6919,7 +6920,7 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
   const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
   // 1) Charge l'éditorial déjà connu pour CETTE semaine (mémoire puis cache durable) et l'applique aussitôt.
   let cachedItems = (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items)) ? _waEditorial.items : null;
-  if (!cachedItems) { try { const c = await auth.aiCacheGet('weekahead:editorial6').catch(() => null); if (c && c.weekKey === weekKey && Array.isArray(c.items)) { _waEditorial = c; cachedItems = c.items; } } catch {} }
+  if (!cachedItems) { try { const c = await auth.aiCacheGet('weekahead:editorial7fr').catch(() => null); if (c && c.weekKey === weekKey && Array.isArray(c.items)) { _waEditorial = c; cachedItems = c.items; } } catch {} }
   if (cachedItems) apply(cachedItems);
   const _complete = cachedItems && cachedItems.length >= days.length && days.every((_, i) => cachedItems[i] && cachedItems[i].summary);
   if (_complete || !gen) return;   // déjà complet → fini ; sinon, hors génération planifiée → repli déterministe pour les jours manquants
@@ -6931,18 +6932,18 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
     if (cachedItems && cachedItems[i] && cachedItems[i].summary) { items.push(cachedItems[i]); continue; }   // jour déjà rédigé → on garde (anti cache-partiel-bloqué)
     const d = days[i];
     const evs = (d.events || []).slice(0, 9).map(e => `${e.ccy || ''} ${e.title || ''}${e.forecast ? ' (fcst ' + e.forecast + ')' : ''}${e.previous ? ' (prev ' + e.previous + ')' : ''}`.trim()).filter(Boolean).join(' ; ');
-    const prompt = `You are a senior macro strategist writing the "week ahead" preview for an institutional trading terminal. Write, in ENGLISH, the preview for ONE trading day: ${d.dow} ${d.date} ${d.month}.
+    const prompt = `Tu es un stratège macro senior qui rédige l'aperçu « semaine à venir » pour un terminal de trading institutionnel. Rédige, EN FRANÇAIS (français soigné et professionnel), l'aperçu d'UNE seule séance : ${d.dow} ${d.date} ${d.month}. Garde tels quels les tickers/codes/acronymes de banques centrales (USD/JPY, Fed, BCE, BoJ…).
 
-Scheduled releases / events that day (currency, title, forecast, previous):
-${evs || 'No major scheduled data — a quieter session.'}
+Publications / événements programmés ce jour-là (devise, intitulé, prévision, précédent) :
+${evs || 'Aucune donnée majeure programmée — séance plus calme.'}
 
-Currencies in focus across the week: ${focusWk || 'major FX'}.
+Devises au centre de l'attention sur la semaine : ${focusWk || 'principales devises'}.
 
-Produce:
-(1) HEADLINE — a catchy news-style headline, 6 to 12 words, no quotes, no trailing period.
-(2) SUMMARY — a DETAILED, EXPLICIT 4 to 6 sentence desk note. OPEN by framing the day's overarching theme; then explain the KEY releases and central-bank events WITH their stakes and the expected direction/magnitude where relevant; spell out the CROSS-ASSET implications (FX, rates, equities, commodities) and WHY they matter; close with exactly what investors will watch most closely for direction. Concrete and analytical — NEVER a flat list. Write entirely in your own words; never copy any source.
+Produis :
+(1) HEADLINE — un titre accrocheur façon dépêche, 6 à 12 mots, sans guillemets, sans point final.
+(2) SUMMARY — une note de desk DÉTAILLÉE et EXPLICITE de 4 à 6 phrases. OUVRE en cadrant le thème dominant du jour ; explique ensuite les publications CLÉS et les événements de banques centrales AVEC leurs enjeux et la direction/ampleur attendue le cas échéant ; détaille les implications CROSS-ASSET (FX, taux, actions, matières premières) et POURQUOI elles comptent ; conclus par ce que les investisseurs surveilleront de plus près pour la direction. Concret et analytique — JAMAIS une simple liste. Rédige entièrement avec tes propres mots ; ne recopie aucune source.
 
-Reply ONLY as compact JSON: {"headline":"...","summary":"..."} — nothing else.`;
+Réponds UNIQUEMENT en JSON compact : {"headline":"...","summary":"..."} — rien d'autre.`;
     let txt = null;
     try { txt = await aiSmart('weekahead', prompt, 750, { scheduled: true }); }
     catch (e) { items.push(null); continue; }
@@ -6957,7 +6958,7 @@ Reply ONLY as compact JSON: {"headline":"...","summary":"..."} — nothing else.
   if (items.some(it => it && (it.headline || it.summary))) {
     const merged = days.map((_, i) => items[i] || (cachedItems && cachedItems[i]) || null);
     _waEditorial = { weekKey, items: merged, at: Date.now() };
-    await auth.aiCacheSet('weekahead:editorial6', _waEditorial).catch(() => {});
+    await auth.aiCacheSet('weekahead:editorial7fr', _waEditorial).catch(() => {});
     apply(merged);
     console.log('[WeekAhead IA] éditorial jour-par-jour (' + merged.filter(it => it && it.summary).length + '/' + days.length + ' jours) → cache hebdo');
   }
