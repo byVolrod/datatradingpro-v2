@@ -7531,7 +7531,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
       '<tr data-id="' + _esc(e.id) + '">'
       + cols.map(c => '<td class="jr-c jr-c--' + c.type + '" data-k="' + c.k + '">' + _jrCell(e, c) + '</td>').join('')
       + '<td class="jr-c-act">' + (_jrDelPending === e.id ? '<button class="jr-rowdel jr-rowdel--c" data-act="del">Suppr. ?</button>' : '<button class="jr-rowdel" data-act="del" title="Supprimer">&#10005;</button>') + '</td>'
-      + '</tr>').join('') + '</tbody>';
+      + '</tr>').join('')
+      // Ligne « + Nouveau trade » sous la dernière ligne (façon Notion) → crée un trade et ouvre l'édition de la paire.
+      + '<tr class="jr-addrow"><td class="jr-addrow-cell" colspan="' + (cols.length + 1) + '"><span class="jr-addrow-ic">+</span> Nouveau trade</td></tr>'
+      + '</tbody>';
   }
 
   // ── Éditeurs de cellule (popover façon Notion) ──
@@ -7774,6 +7777,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<textarea class="jrd-sect-ta" data-sk="' + s.k + '" placeholder="Ajoute ton analyse…" rows="2">' + _esc(val) + '</textarea></div>';
     }
     h += '</div>';
+    // 2 blocs images (captures de graphiques) sous les sections — chargés à la demande (clé KV séparée, anti-egress).
+    h += '<div class="jrd-imgs"><div class="jrd-imgs-h">Captures / images</div><div class="jrd-imgrow">'
+      + '<div class="jrd-imgblock" data-slot="0"></div><div class="jrd-imgblock" data-slot="1"></div>'
+      + '</div></div>';
     body.innerHTML = h;
     body.scrollTop = 0;
     const tEl = body.querySelector('#jrd-title'); if (tEl) tEl.onclick = () => _jrEditDetailTitle(tEl, e);
@@ -7799,6 +7806,73 @@ document.addEventListener('DOMContentLoaded', ()=>{
         _jrSave();
       });
     });
+    body.querySelectorAll('.jrd-imgblock').forEach(blk => {
+      blk.onclick = ev => {
+        const slot = +blk.dataset.slot;
+        if (ev.target.closest('.jrd-img-del')) { ev.stopPropagation(); _jrSetImage(e.id, slot, null); return; }
+        const cur = _jrImgs[e.id] && _jrImgs[e.id][slot];
+        if (cur) { _jrImgLightbox(cur); return; }   // image présente → agrandir (✕ pour la retirer)
+        _jrPickImage(e.id, slot);
+      };
+    });
+    _jrLoadImages(e.id);
+  }
+
+  // ── Images du trade (captures de graphiques) : compressées côté client, stockées dans une clé KV SÉPARÉE
+  //    par trade (jrimg:<user>:<id>), chargées À LA DEMANDE à l'ouverture du détail → n'alourdit JAMAIS la
+  //    lecture de la liste du journal (anti-egress, cf. l'incident base64 du chat). 2 emplacements / trade.
+  const _jrImgs = {};   // tradeId -> [dataUrl|null, dataUrl|null] (cache mémoire)
+  function _jrRenderImgBlock(slot, dataUrl) {
+    const blk = document.querySelector('#jrd-body .jrd-imgblock[data-slot="' + slot + '"]'); if (!blk) return;
+    blk.classList.toggle('jrd-imgblock--filled', !!dataUrl);
+    blk.innerHTML = dataUrl
+      ? '<img class="jrd-img" src="' + dataUrl + '" alt="capture"><button type="button" class="jrd-img-del" data-slot="' + slot + '" title="Retirer">✕</button>'
+      : '<div class="jrd-img-add"><span class="jrd-img-ic">+</span><span class="jrd-img-lbl">Ajouter une image</span></div>';
+  }
+  async function _jrLoadImages(id) {
+    let imgs = _jrImgs[id];
+    if (!imgs) {
+      try { const d = await fetch('/api/journal/img?trade=' + encodeURIComponent(id)).then(r => r.json()); imgs = (d && Array.isArray(d.images)) ? d.images : []; }
+      catch { imgs = []; }
+      _jrImgs[id] = imgs;
+    }
+    if (_jrDetailId !== id) return;   // l'utilisateur a quitté le détail entre-temps
+    _jrRenderImgBlock(0, imgs[0] || null); _jrRenderImgBlock(1, imgs[1] || null);
+  }
+  function _jrImgLightbox(src) {
+    const ov = document.createElement('div'); ov.className = 'jrd-lightbox';
+    const img = document.createElement('img'); img.src = src; ov.appendChild(img);
+    ov.onclick = () => ov.remove();
+    document.addEventListener('keydown', function esc(k) { if (k.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', esc, true); } }, true);
+    document.body.appendChild(ov);
+  }
+  function _jrPickImage(id, slot) {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => { const f = inp.files && inp.files[0]; if (f) _jrCompressImage(f, durl => { if (durl) _jrSetImage(id, slot, durl); }); };
+    inp.click();
+  }
+  function _jrSetImage(id, slot, dataUrl) {
+    const imgs = _jrImgs[id] = _jrImgs[id] || [];
+    imgs[slot] = dataUrl || null;
+    if (_jrDetailId === id) _jrRenderImgBlock(slot, dataUrl || null);
+    fetch('/api/journal/img', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trade: id, images: [imgs[0] || null, imgs[1] || null] }) }).catch(() => {});
+  }
+  // Compression client (canvas → JPEG ≤1280px, q0.72) → ~50-250 Ko/image : léger pour le KV + l'affichage.
+  function _jrCompressImage(file, cb) {
+    if (!file || !/^image\//.test(file.type)) { cb(null); return; }
+    const rd = new FileReader();
+    rd.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const MAX = 1280; let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+        if (!w || !h) { cb(null); return; }
+        if (w > MAX || h > MAX) { const s = MAX / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+        try { const cv = document.createElement('canvas'); cv.width = w; cv.height = h; cv.getContext('2d').drawImage(img, 0, 0, w, h); cb(cv.toDataURL('image/jpeg', 0.72)); }
+        catch { cb(null); }
+      };
+      img.onerror = () => cb(null); img.src = rd.result;
+    };
+    rd.onerror = () => cb(null); rd.readAsDataURL(file);
   }
 
   function _jrRender() { _jrRenderStats(); _jrRenderToolbar(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
@@ -7807,6 +7881,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
   document.addEventListener('click', ev => {
     const op = ev.target.closest && ev.target.closest('.jrd-open');
     if (op) { ev.stopPropagation(); _jrOpenDetail(op.dataset.open); return; }   // ⤢ OUVRIR → volet détail (façon page Notion)
+    const arow = ev.target.closest && ev.target.closest('.jr-addrow');
+    if (arow) { ev.stopPropagation(); _jrAddRow(); return; }                    // ligne « + Nouveau trade » sous la grille
     const del = ev.target.closest && ev.target.closest('.jr-rowdel');
     if (del) {
       const tr = del.closest('tr'), id = tr && tr.dataset.id; if (!id || !_jrList) return;
