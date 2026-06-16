@@ -2451,6 +2451,21 @@ function _renderPdf(url) {
 async function _renderPdfInner(url) {
   const browser = await _getIlBrowser();
   const page = await browser.newPage();
+  // Natixis : la recherche s'affiche via un viewer PDF.js + blob → la PAGE ne contient PAS le texte (canvas).
+  // On CAPTURE le vrai PDF servi par l'API File/<id> que le viewer charge (le navigateur a le token guest ;
+  // axios direct = 418 anti-bot). Si capturé → on renvoie CE PDF (le vrai rapport), pas le rendu de la page.
+  let _capturedPdf = null, _isNatixis = false;
+  try { _isNatixis = /(^|\.)research\.natixis\.com$/i.test(new URL(url).hostname); } catch {}
+  if (_isNatixis) {
+    page.on('response', async (resp) => {
+      try {
+        if (_capturedPdf) return;
+        if (!/\/File\/\d+/i.test(resp.url()) && !/application\/pdf/i.test(resp.headers()['content-type'] || '')) return;
+        const buf = await resp.buffer().catch(() => null);
+        if (buf && buf.length > 3000 && buf.slice(0, 5).toString('latin1') === '%PDF-') _capturedPdf = buf;
+      } catch {}
+    });
+  }
   try {
     await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
     await page.setViewport({ width: 1180, height: 1500 });
@@ -2461,6 +2476,10 @@ async function _renderPdfInner(url) {
       () => ((document.body && document.body.innerText) || '').replace(/\s+/g, ' ').trim().length > 1800,
       { timeout: 7000 }
     ).catch(() => {});
+    if (_isNatixis) {
+      for (let i = 0; i < 20 && !_capturedPdf; i++) await new Promise(r => setTimeout(r, 400));   // laisse le viewer charger le PDF (api/File/<id>)
+      if (_capturedPdf) return _capturedPdf;                                                       // → le VRAI rapport Natixis
+    }
     // Cookies/consent + overlays : (1) cliquer TOUS les boutons d'acceptation courants (multi-étapes),
     // (2) retirer les dialogues connus (Cookiebot/OneTrust/Usercentrics/TrustArc) + overlays fixes,
     // (3) lever le scroll-lock — sinon le PDF capture le popup cookies au lieu du rapport.
@@ -4251,6 +4270,12 @@ app.get('/api/bank-research-content', async (req, res) => {
                  || $('a[data-addressable-id="read-the-report"]').attr('href') || '';
         if (_gs) _printUrl = new URL(_gs, _origin).href;
       }
+      // QCAM (& sites WordPress) : le VRAI rapport est un PDF lié dans la page (wp-content/uploads/…pdf)
+      // → on l'affiche en PDF natif direct, au lieu de rendre la page « teaser » (accroche + bouton Subscribe).
+      if (!_realPdf) {
+        const _wp = $('a[href*="/wp-content/uploads/"][href$=".pdf"]').attr('href') || '';
+        if (_wp) _realPdf = new URL(_wp, _origin).href;
+      }
       if (_printUrl) { try { _brPrintMap.set(url, _printUrl); _saveJsonMap(BR_PRINT_FILE, _brPrintMap); } catch {} }   // persiste (GUID/URL non dérivable)
       else { const _saved = _brPrintMap.get(url); if (typeof _saved === 'string' && _saved) _printUrl = _saved; }       // repli : URL imprimable déjà connue
     } catch {}
@@ -4415,7 +4440,7 @@ app.get('/api/bank-research-content', async (req, res) => {
 // Indispensable car certains PDF (ING Think…) renvoient X-Frame-Options: SAMEORIGIN et refusent
 // d'être embarqués cross-origin. On affiche donc le PDF via ce proxy → iframe même-origine = OK.
 // Whitelist STRICTE des hôtes (anti-SSRF / anti-open-proxy) + HTTPS only + vérif content-type=pdf.
-const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com|sc\.com)$/i;
+const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com|sc\.com|q-cam\.com)$/i;
 app.get('/api/pdf-proxy', async (req, res) => {
   const u = String(req.query.url || '');
   const isHead = req.method === 'HEAD';   // sonde légère du client (vérifie « est-ce un vrai PDF ? » avant d'embarquer l'iframe)
