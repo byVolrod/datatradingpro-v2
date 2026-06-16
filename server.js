@@ -9508,9 +9508,19 @@ async function _computeFxListFresh() {
     // DMX ← onglet DMX (Community Outlook : % long retail de la paire) | repli : ratio de jours haussiers (déjà dans r.dmx)
     if (_retail) {
       const ro = _retail.get(r.base + r.quote);
-      if (ro && ro.longPct != null) r.dmx = Math.round(ro.longPct);
+      if (ro && ro.longPct != null) { r.dmx = Math.round(ro.longPct); r._dmxTab = 1; }
     }
   });
+
+  // Observabilité : combien de colonnes lisent réellement l'onglet (vs repli Yahoo) à ce refresh.
+  const _prov = { dmx: 0, bias: 0, str: 0 };
+  valid.forEach(r => {
+    if (r._dmxTab) _prov.dmx++;
+    if (_biasConc && _biasConc[r.base] != null && _biasConc[r.quote] != null) _prov.bias++;
+    if (_csLatest && _csLatest[r.base] != null && _csLatest[r.quote] != null) _prov.str++;
+    delete r._dmxTab;
+  });
+  console.log(`[FXL] colonnes onglet : DMX←retail ${_prov.dmx}/${valid.length} · Bias←SmartBias ${_prov.bias}/${valid.length} · Strength←CS ${_prov.str}/${valid.length}`);
 
   return { pairs: valid, updatedAt: new Date().toISOString() };
 }
