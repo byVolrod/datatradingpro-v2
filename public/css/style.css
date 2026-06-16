@@ -5174,6 +5174,70 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arlib-sw-link:hover { text-decoration: underline; }
 .arlib-sw-spinner { margin-top: 8px; font-size: 12px; color: var(--text3); }
 
+/* ═══════════ FX DAILY RECAP — rapport analyste du jour (structure Prime Terminal) ═══════════ */
+.fxdr { display: flex; flex-direction: column; }
+.fxdr-section {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 700; color: #f7941d;
+  letter-spacing: .05em; text-transform: uppercase;
+  margin: 28px 0 13px; padding-bottom: 7px; border-bottom: 1px solid #232328;
+}
+.fxdr-section::before { content: ''; width: 3px; height: 13px; background: #f7941d; border-radius: 2px; flex: 0 0 auto; }
+.fxdr-section:first-child { margin-top: 4px; }
+.fxdr-exec {
+  border-left: 2px solid rgba(247,148,29,.55); background: rgba(247,148,29,.06);
+  border-radius: 0 8px 8px 0; padding: 13px 16px;
+}
+.fxdr-exec .wr-p { font-size: 13px; color: #e3e3e6; line-height: 1.7; margin: 0 0 9px; }
+.fxdr-exec .wr-p:last-child { margin: 0; }
+.fxdr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 12px; }
+.fxdr-card {
+  background: #101014; border: 1px solid #1f1f24; border-left: 3px solid rgba(247,148,29,.6);
+  border-radius: 8px; padding: 14px 16px;
+}
+.fxdr-card-title { font-size: 13px; font-weight: 600; color: #f3f3f5; margin-bottom: 6px; line-height: 1.4; }
+.fxdr-card-text { font-size: 12.5px; color: #b6b6bd; line-height: 1.65; }
+.fxdr-card-text + .fxdr-grp-title { margin-top: 14px; }
+/* Regional Analysis — cartes pays + sous-sections groupées */
+.fxdr-region-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.fxdr-region-name { font-size: 14px; font-weight: 700; color: #f3f3f5; }
+.fxdr-ccy {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; color: #a2a2aa;
+  background: #1a1a1f; border: 1px solid #26262c; border-radius: 4px; padding: 1.5px 6px;
+}
+.fxdr-grp-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
+  color: #7d7d86; margin: 13px 0 7px;
+}
+.fxdr-sub { border-left: 2px solid rgba(247,148,29,.6); padding: 1px 0 1px 11px; margin-bottom: 9px; }
+.fxdr-sub-h { font-size: 12.5px; font-weight: 600; color: #dcdce0; margin-bottom: 2px; }
+.fxdr-sub-t { font-size: 12px; color: #a6a6ad; line-height: 1.6; }
+/* Central Bank Focus / Analyst Comments / Corporate News — variantes de carte */
+.fxdr-cb { background: rgba(245,158,11,.06); border-left-color: #f59e0b; }
+.fxdr-comment { border-left-color: #3a6df0; }
+.fxdr-corp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.fxdr-corp-head .fxdr-card-title { margin-bottom: 0; }
+.fxdr-ticker {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 600; color: #f7941d;
+  background: rgba(247,148,29,.12); border: 1px solid rgba(247,148,29,.3); border-radius: 4px; padding: 1.5px 6px;
+}
+/* Tables (Key Economic Data + Looking Ahead) */
+.fxdr-tablewrap { overflow-x: auto; border: 1px solid #1f1f24; border-radius: 8px; }
+.fxdr-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.fxdr-table thead th {
+  position: sticky; top: 0; background: #0b0b0d; color: #8a8a90;
+  font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em;
+  text-align: left; padding: 8px 11px; border-bottom: 1px solid #1f1f24; white-space: nowrap;
+}
+.fxdr-table th.num, .fxdr-table td.num { text-align: right; }
+.fxdr-table td { padding: 7px 11px; color: #dcdce0; border-bottom: 1px solid #161619; vertical-align: top; }
+.fxdr-table tbody tr:hover { background: rgba(247,148,29,.04); }
+.fxdr-table td.fxdr-rel { font-weight: 600; color: #f3f3f5; }
+.fxdr-table td.fxdr-per, .fxdr-table td.dim { color: #85858c; }
+.fxdr-table td.fxdr-cat { font-weight: 600; color: #cfcfd4; white-space: nowrap; }
+.fxdr-table .bias-badge { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+@media (max-width: 720px) { .fxdr-grid { grid-template-columns: 1fr; } }
+
 /* ── Full post (news Info panel) ── */
 .fpost-wrap { padding: 2px 0; }
 .fpost-label {

@@ -4966,6 +4966,7 @@ function arlibShowReader() {
 const ARLIB_TYPE_ORDER = {
   'Global Economic Weekly':    0,
   'Weekly Market Recap':       1,
+  'FX Daily Recap':            2,
   'FX Daily':                  2,
   'Asia Opening Preparation':  3,
   'London Opening Preparation':4,
@@ -4980,6 +4981,7 @@ const ARLIB_TYPE_ORDER = {
 const REPORT_PREFIX = {
   'Global Economic Weekly':     'Global Economic Weekly',
   'Weekly Market Recap':        'Weekly Market Recap',
+  'FX Daily Recap':             'FX Daily Recap',
   'FX Daily':                   'FX Daily',
   // Sessions — nomenclature demandée
   'Asia Opening Preparation':   'Daily Asia-Pac Opening News',
@@ -5072,13 +5074,17 @@ function getArlibItems() {
     if (av !== bv) return bv - av;
     return b.timestamp - a.timestamp;
   })[0];
+  // …+ UN SEUL FX Daily Recap (le plus récent) — rapport analyste QUOTIDIEN façon PMT, servi par /api/weekly-reports.
+  const bestFxr = (_weeklyReports || [])
+    .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff)
+    .sort((a, b) => b.timestamp - a.timestamp)[0];
   // FX Daily (ING THINK) RETIRÉ de l'onglet Analyst (demande utilisateur) → on n'inclut plus _fxDaily.
   // Les 2 rapports hebdo (Weekly Market Recap + Global Economic Weekly) doivent rester GROUPÉS dans
   // la liste → on les ancre sur le timestamp du plus récent des deux (utilisé par _arlibReportSort).
   _wkAnchorTs = Math.max((best && best.timestamp) || 0, (bestGew && bestGew.timestamp) || 0);
   // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
   // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
-  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...wraps])
+  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...(bestFxr ? [bestFxr] : []), ...wraps])
     .sort(_arlibReportSort);
 }
 
@@ -5099,6 +5105,7 @@ function _arlibReportSort(a, b) {
 
 function arlibItemType(item) {
   if (item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly') return 'weekly';
+  if (item._reportType === 'FX Daily Recap') return 'fxdaily';   // rapport analyste du jour (façon PMT)
   if (item._source === 'ing-think') return 'fxdaily';     // ING Think = FX Daily
   if (item._source === 'investinglive') return 'recap';
   if (item._reportType === 'London Session Recap' || item._reportType === 'US Session Recap') return 'recap';
@@ -5567,6 +5574,141 @@ function _renderWeeklyRecap(item) {
   }
 }
 
+// ═══════════ FX DAILY RECAP — rendu riche (structure Prime Terminal exacte) ═══════════
+// Executive Summary → Top Headlines → Regional Analysis (cartes pays + sous-sections) → Central Bank
+// Focus → Key Economic Data (table rowspan) → Analyst Comments → Corporate News → Looking Ahead (table).
+function _renderFXDailyRecap(item) {
+  const w = item._fxr || {};
+  const titleEl    = document.getElementById('arlib-rnav-title');
+  const tagsScroll = document.getElementById('arlib-rtags-scroll');
+  const content    = document.getElementById('arlib-rcontent');
+  const navRight   = document.querySelector('#arlib-reader-view .arlib-rnav-right');
+  if (!content) return;
+  document.getElementById('arlib-ai-insights')?.remove();
+
+  if (titleEl) titleEl.textContent = _mdStrip(w.title || 'FX Daily Recap');
+  if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
+  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
+  const _rdateEl = document.getElementById('arlib-rdate');
+  if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
+
+  // AI Insights (réutilise le composant Institution) : cartes thématiques + paires avec badge de biais.
+  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
+  const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrInline(typeof t === 'string' ? t : (t.text || ''))}</div>`);
+  const pairCards = (w.pairs || []).map(p => {
+    const b = String(p.bias || 'NEUTRAL').toUpperCase();
+    const cls = b === 'BUY' ? 'buy' : b === 'SELL' ? 'sell' : 'neutral';
+    return `<div class="ai-insights-card ai-ins-pair">
+      <div class="ai-ins-pair-head"><span class="ai-ins-pair-name">${_wrEsc(p.pair)}</span><span class="ai-ins-bias ai-ins-bias--${cls}">${_wrEsc(b)}</span></div>
+      <div class="ai-ins-pair-text">${_wrInline(p.text || '')}</div>
+    </div>`;
+  });
+  const allCards = [...textCards, ...pairCards];
+  const insightsHtml = allCards.length ? `
+    <div id="arlib-ai-insights">
+      <div class="ai-insights-head">
+        <span class="ai-insights-title">${chip} AI Insights</span>
+        <span class="ai-insights-nav">
+          <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
+          <span class="ai-insights-count">${allCards.length} insights</span>
+          <button type="button" onclick="aiInsScroll(this,1)">›</button>
+        </span>
+      </div>
+      <div class="ai-insights-cards">${allCards.join('')}</div>
+    </div>` : '';
+
+  const _sec = t => `<div class="fxdr-section">${_wrEsc(t)}</div>`;
+  let body = '';
+
+  // ── Executive Summary ──
+  if (w.summary) body += _sec('Executive Summary') + `<div class="fxdr-exec">${_wrParas(w.summary)}</div>`;
+
+  // ── Top Headlines ──
+  if ((w.headlines || []).length) {
+    body += _sec('Top Headlines') + '<div class="fxdr-grid">';
+    w.headlines.forEach(h => {
+      body += `<div class="fxdr-card"><div class="fxdr-card-title">${_wrInline(h.title || '')}</div>${h.text ? `<div class="fxdr-card-text">${_wrInline(h.text)}</div>` : ''}</div>`;
+    });
+    body += '</div>';
+  }
+
+  // ── Regional Analysis (cartes pays + sous-sections groupées) ──
+  if ((w.regions || []).length) {
+    body += _sec('Regional Analysis') + '<div class="fxdr-grid">';
+    w.regions.forEach(r => {
+      body += `<div class="fxdr-card fxdr-region">`;
+      body += `<div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(r.name || '')}</span>${r.code ? `<span class="fxdr-ccy">${_wrEsc(r.code)}</span>` : ''}</div>`;
+      if (r.summary) body += `<div class="fxdr-card-text">${_wrInline(r.summary)}</div>`;
+      (r.groups || []).forEach(g => {
+        body += `<div class="fxdr-grp-title">${_wrEsc(g.title || '')}</div>`;
+        (g.items || []).forEach(it => {
+          body += `<div class="fxdr-sub"><div class="fxdr-sub-h">${_wrInline(it.heading || '')}</div>${it.text ? `<div class="fxdr-sub-t">${_wrInline(it.text)}</div>` : ''}</div>`;
+        });
+      });
+      body += `</div>`;
+    });
+    body += '</div>';
+  }
+
+  // ── Central Bank Focus ──
+  if ((w.centralBanks || []).length) {
+    body += _sec('Central Bank Focus') + '<div class="fxdr-grid">';
+    w.centralBanks.forEach(c => {
+      body += `<div class="fxdr-card fxdr-cb"><div class="fxdr-card-title">${_wrEsc(c.name || '')}</div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
+    });
+    body += '</div>';
+  }
+
+  // ── Key Economic Data (table avec regroupement rowspan par publication) ──
+  if ((w.econData || []).length) {
+    body += _sec('Key Economic Data') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
+      + '<th>Release</th><th>Period</th><th>Metric</th><th class="num">Actual</th><th class="num">Expected</th><th class="num">Previous</th>'
+      + '</tr></thead><tbody>';
+    w.econData.forEach(r => {
+      const ms = (r.metrics && r.metrics.length) ? r.metrics : [{ metric: '', actual: '', expected: '', previous: '' }];
+      ms.forEach((m, idx) => {
+        body += '<tr>';
+        if (idx === 0) body += `<td rowspan="${ms.length}" class="fxdr-rel">${_wrEsc(r.release || '')}</td><td rowspan="${ms.length}" class="fxdr-per">${_wrEsc(r.period || '')}</td>`;
+        body += `<td>${_wrEsc(m.metric || '')}</td><td class="num">${_wrEsc(m.actual || '')}</td><td class="num dim">${_wrEsc(m.expected || '')}</td><td class="num dim">${_wrEsc(m.previous || '')}</td></tr>`;
+      });
+    });
+    body += '</tbody></table></div>';
+  }
+
+  // ── Analyst Comments ──
+  if ((w.comments || []).length) {
+    body += _sec('Analyst Comments') + '<div class="fxdr-grid">';
+    w.comments.forEach(c => {
+      body += `<div class="fxdr-card fxdr-comment"><div class="fxdr-card-title">${_wrEsc(c.author || '')}</div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
+    });
+    body += '</div>';
+  }
+
+  // ── Corporate News (badge ticker) ──
+  if ((w.corporate || []).length) {
+    body += _sec('Corporate News') + '<div class="fxdr-grid">';
+    w.corporate.forEach(c => {
+      body += `<div class="fxdr-card fxdr-corp"><div class="fxdr-corp-head">${c.ticker ? `<span class="fxdr-ticker">${_wrEsc(c.ticker)}</span>` : ''}<span class="fxdr-card-title">${_wrEsc(c.name || '')}</span></div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
+    });
+    body += '</div>';
+  }
+
+  // ── Looking Ahead (table + badge d'importance) ──
+  if ((w.lookahead || []).length) {
+    body += _sec('Looking Ahead') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
+      + '<th>Category</th><th>Event</th><th class="num">Importance</th></tr></thead><tbody>';
+    w.lookahead.forEach(e => {
+      const imp = String(e.importance || '').toLowerCase();
+      const cls = /high/.test(imp) ? 'bias-bear' : /med/.test(imp) ? 'bias-neutral' : 'bias-bull';
+      body += `<tr><td class="fxdr-cat">${_wrEsc(e.category || '')}</td><td>${_wrEsc(e.event || '')}</td><td class="num"><span class="bias-badge ${cls}">${_wrEsc(e.importance || '')}</span></td></tr>`;
+    });
+    body += '</tbody></table></div>';
+  }
+
+  content.innerHTML = `<div class="fxdr">${insightsHtml}<div class="fxdr-body">${body}</div></div>`;
+  content.scrollTop = 0;
+}
+
 // Construit la vue d'ensemble Currency Strength (toutes devises) figée dans #wr-cs-all.
 function _wrBuildCsAll(data) {
   const host = document.getElementById('wr-cs-all'); if (!host) return;
@@ -5595,6 +5737,7 @@ function _wrLazyCharts(content) {
 
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
+  if (item && item._fxr)    { _renderFXDailyRecap(item); return; }  // ← rendu riche FX Daily Recap (façon PMT)
   if (item && item._weekly) { _renderWeeklyRecap(item); return; }   // ← rendu riche Weekly Recap
   document.getElementById('arlib-insights-panel')?.remove(); // reset any previous insights
   const titleEl    = document.getElementById('arlib-rnav-title');
