@@ -1752,30 +1752,14 @@ function buildSessionMap() {
   });
   polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x4aa052) });
 
-  // ── Terminateur JOUR/NUIT : voile sombre plus DOUX/transparent (projection de session ~18%) ──
-  const nightSeries = chart.series.push(am5map.MapPolygonSeries.new(root, {}));
-  nightSeries.mapPolygons.template.setAll({ fill: am5.color(0x05070a), fillOpacity: 0.4, strokeOpacity: 0, interactive: false });
-  function _nightPolygon(now) {
-    const rad = Math.PI / 180, deg = 180 / Math.PI;
-    const yStart = Date.UTC(now.getUTCFullYear(), 0, 0);
-    const doy = Math.floor((Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()) - yStart) / 86400000);
-    const decl = -23.44 * Math.cos(rad * (360 / 365) * (doy + 10)) * rad;        // déclinaison solaire (rad)
-    const utcH = now.getUTCHours() + now.getUTCMinutes() / 60 + now.getUTCSeconds() / 3600;
-    const lonSun = -15 * (utcH - 12);                                            // longitude subsolaire
-    const tanDecl = Math.tan(decl) || 1e-9;
-    const coords = [];
-    for (let lon = -180; lon <= 180; lon += 2) {
-      const lat = Math.atan(-Math.cos((lon - lonSun) * rad) / tanDecl) * deg;     // latitude du terminateur
-      coords.push([lon, Math.max(-85, Math.min(85, lat))]);   // clampé à ±85 (limite Mercator) : ±89.9 gonflait l'axe vertical → la carte rétrécissait (bandes latérales)
-    }
-    const darkPole = decl > 0 ? -85 : 85;                                        // pôle en nuit (clampé = limite Mercator)
-    coords.push([180, darkPole], [-180, darkPole], [coords[0][0], coords[0][1]]);
-    return coords;
-  }
-  function refreshNight(now) {
-    try { nightSeries.data.setAll([{ geometry: { type: 'Polygon', coordinates: [_nightPolygon(now)] } }]); } catch {}
-  }
-  refreshNight(new Date());
+  // ── Terminateur JOUR/NUIT RETIRÉ (cause des bandes / du rognage du haut) ───────────────────────
+  // Le voile de nuit était UN polygone couvrant TOUTES les longitudes → d3-geo l'interprétait comme
+  // « enroulant un pôle » et gonflait les bornes du chart en CARRÉ → la carte rétrécissait (bandes
+  // latérales) ou, avec le zoom de couverture, rognait le haut. SANS lui, la carte épouse l'étendue des
+  // TERRES (ratio large ~1.65) et REMPLIT la largeur en montrant le monde ENTIER (haut compris), bien
+  // centré, SANS zoom de couverture. Validé headless : fillW=100 %, terres de 3 % à 97 % de la hauteur
+  // (haut + bas visibles, centré). (Le jour/nuit pourra revenir un jour en overlay CSS hors-amCharts.)
+  function refreshNight() {}   // no-op conservé pour ne pas casser les appels du timer
 
   // ── Orange UTC vertical line ──────────────────
   const utcLineSeries = chart.series.push(am5map.MapLineSeries.new(root, {}));
@@ -1819,8 +1803,8 @@ function buildSessionMap() {
     if (_utcLabel) _utcLabel.set('text', cd);
     if (_lastUTCLineLon === null || Math.abs(lon - _lastUTCLineLon) >= 0.25) {
       _lastUTCLineLon = lon;
-      utcLineSeries.data.setAll([{ geometry: { type: 'LineString', coordinates: [[lon, 85], [lon, -85]] } }]);
-      utcLabelSeries.data.setAll([{ geometry: { type: 'Point', coordinates: [lon, 76] } }]);   // étiquette calée en HAUT du trait (façon PMT)
+      utcLineSeries.data.setAll([{ geometry: { type: 'LineString', coordinates: [[lon, 84], [lon, -58]] } }]);   // dans l'étendue des terres → n'élargit PAS les bornes (le trait fin est OK, contrairement au voile de nuit)
+      utcLabelSeries.data.setAll([{ geometry: { type: 'Point', coordinates: [lon, 80] } }]);   // badge heure calé tout en HAUT du trait (façon PMT)
     }
   }
 
@@ -1938,55 +1922,20 @@ function buildSessionMap() {
     if (labEl) { labEl.textContent = 'Live'; labEl.style.color = '#22c55e'; }
   }
 
-  let _nightTick = 0;
   mapClockTimer = setInterval(() => {
     const now = new Date();
     updateHeader(now);
     refreshUTCLine(now);
     updateCityTimes(now);
-    if ((_nightTick++ % 60) === 0) refreshNight(now);   // terminateur jour/nuit : maj 1×/min
   }, 1000);
 
   updateHeader(new Date());
   refreshUTCLine(new Date());
   setTimeout(() => updateCityTimes(new Date()), 200);
 
-  // REMPLISSAGE PLEIN CADRE — MESURE l'étendue réelle de la carte (pixels verts du canvas) puis zoome pour
-  // qu'elle morde les bords gauche/droite (+ haut/bas). Robuste à TOUT ratio de panneau ET à la déformation
-  // des bornes due au terminateur jour/nuit (qui gonflait l'axe vertical → bandes latérales). UN seul passage
-  // différé (×3 internes pour converger) — surtout PAS sur datavalidated ni ResizeObserver (ça bouclait →
-  // chart blanc). Validé headless : fillW=100 % sur panneau user/étroit/large, 4 villes visibles, 0 erreur.
-  function _coverFill() {
-    try {
-      const cvs = root.dom && root.dom.querySelector('canvas');
-      if (!cvs) return;
-      const ctx = cvs.getContext('2d'); if (!ctx) return;
-      const cw = cvs.width, ch = cvs.height; if (!cw || !ch) return;
-      const d = ctx.getImageData(0, 0, cw, ch).data;
-      let left = cw, right = 0, found = false;
-      for (let y = 0; y < ch; y += 3) for (let x = 0; x < cw; x += 3) {
-        const i = (y * cw + x) * 4;
-        if (d[i + 1] > 50 && d[i] < 150 && d[i + 2] < 130) {   // pixel "terre verte" (land 0x3d8f43, même assombri la nuit)
-          found = true;
-          if (x < left) left = x;
-          if (x > right) right = x;
-        }
-      }
-      if (!found) return;
-      const mapW = right - left;
-      if (mapW < 10) return;
-      // Les bandes noires sont sur les CÔTÉS → on remplit la LARGEUR uniquement. (PAS la hauteur : l'océan
-      // en haut/bas n'est pas vert, donc viser un remplissage vertical ferait SUR-ZOOMER jusqu'au plafond —
-      // bug vécu.) Plafond bas (2.0) → zoom MODÉRÉ et responsive, jamais « gros zoom ».
-      const coverW = cw / mapW;
-      if (coverW > 1.04) {
-        const cur = chart.get('zoomLevel') || 1;
-        chart.zoomToGeoPoint({ longitude: 35, latitude: 8 }, Math.min(cur * coverW, 2.0), false, 0);
-      }
-    } catch (e) {}
-  }
-  setTimeout(_coverFill, 700);
-  setTimeout(_coverFill, 1800);
+  // PLUS DE ZOOM DE COUVERTURE : sans le voile de nuit, la carte épouse l'étendue des TERRES (ratio large
+  // ~1.65) et REMPLIT la largeur en montrant le monde ENTIER (haut + bas), bien centré, dès le zoom 1 →
+  // rien à forcer, et c'est responsive nativement (amCharts ajuste les bornes à la taille du panneau).
 
   return root;
 }
