@@ -3778,7 +3778,13 @@ function _proxyAxiosOpts() {
 function _brCleanTitle(title, source) {
   let t = String(title || '').replace(/\s+/g, ' ').trim();
   if (source === 'goldman') {
-    t = t.replace(/^\s*(?:Goldman Sachs Research|Outlooks|Briefings?|Podcasts?|Articles?)\s*[:–\-]?\s*/i, '');
+    // Libellé de section (Outlooks/Markets/Macroeconomics/Goldman Sachs Research…) COLLÉ au titre :
+    // on ne le retire QUE s'il est immédiatement suivi d'une MAJUSCULE sans espace (signature de la
+    // concaténation). Sensible à la casse → un VRAI titre « Markets Outlook 2026… » (avec espace) est
+    // préservé. (?=[A-Z]) ne consomme pas la 1re lettre du vrai titre.
+    t = t.replace(/^(?:Goldman Sachs Research|Macroeconomics|Outlooks?|Markets?|Briefings?|Podcasts?|Articles?|Technology|Sustainability|Investing|Banking|Asset Management|Wealth Management|Insights?)(?=[A-Z])/, '');
+    // Date scrappée collée en fin (« …EmploymentJan 12, 2026 », « …Highs May 21, 2026 », ISO) — une année
+    // INTERNE au titre (« Outlook 2026 ») est préservée car la regex exige un nom de mois avant l'année.
     t = t.replace(/\s*(?:\d{4}-\d{2}-\d{2}|(?:\d{1,2}\s+)?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s*\d{0,2},?\s*\d{4})\s*$/i, '');
   }
   return t.replace(/\s+/g, ' ').trim();
