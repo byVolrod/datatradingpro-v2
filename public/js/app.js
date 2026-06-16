@@ -6653,7 +6653,7 @@ function chatOpen(){
   document.getElementById('chat-btn')?.classList.add('topbar-icon--active');
   _chatSig = '';
   if (_chatIsSupport()) { _chatInbox(); }              // côté support : boîte de réception des conversations
-  else { _chatClientHead(); _chatLoad(); }             // côté client : en-tête support + sa conversation
+  else { _chatClientHead(); _chatLoad(); _chatMarkWelcomeSeen(); }   // côté client : en-tête support + conversation ; 1re ouverture → vide le plancher du badge bienvenue
   _chatStartLive();                     // mise à jour en direct tant que le panneau reste ouvert
 }
 function chatClose(){
@@ -7154,6 +7154,15 @@ function _chatSetBadge(n){
 // Le badge reflète EN PERMANENCE les messages non lus et ne se vide QUE lorsque la
 // conversation est ouverte (côté support) / lue (côté client). On ne le coupe donc PAS
 // quand le panneau est ouvert : tant que la conversation n'est pas ouverte, la notif reste.
+let _chatSeen = true;          // plancher badge « bienvenue » : true par défaut → pas de badge tant qu'on ne sait pas
+let _chatSeenFetched = false;
+// 1re ouverture du chat (client) → on retient « vu » (KV durable) et on retire le plancher du badge.
+function _chatMarkWelcomeSeen(){
+  if (_chatSeen) return;
+  _chatSeen = true;
+  try { fetch('/api/chat-seen', { method:'POST' }); } catch {}
+  _chatPollUnread();
+}
 function _chatPollUnread(){
   if (_chatIsSupport()){
     // côté support : nombre de PERSONNES qui ont écrit (threads avec au moins 1 message non lu)
@@ -7162,7 +7171,15 @@ function _chatPollUnread(){
       .catch(()=>{});
     return;
   }
-  fetch('/api/chat/unread').then(r=>r.json()).then(d=>_chatSetBadge(d.unread||0)).catch(()=>{});
+  // Plancher durable (KV) : message de bienvenue reçu mais chat JAMAIS ouvert → la notif s'affiche même si le
+  // compteur DB chatUnread est indisponible (blackout egress). Le compteur DB prime quand il est dispo.
+  if (!_chatSeenFetched){
+    _chatSeenFetched = true;
+    fetch('/api/chat-seen').then(r=>r.json()).then(d=>{ _chatSeen = !!d.seen; _chatPollUnread(); }).catch(()=>{});
+  }
+  fetch('/api/chat/unread').then(r=>r.json())
+    .then(d=>_chatSetBadge((d.unread||0) || (_chatSeen ? 0 : 1)))
+    .catch(()=>_chatSetBadge(_chatSeen ? 0 : 1));   // fetch KO (blackout) → on garde au moins le plancher
 }
 
 // Entrée = envoyer, Maj+Entrée = nouvelle ligne ; auto-grow ; poll des réponses

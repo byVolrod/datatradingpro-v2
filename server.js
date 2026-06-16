@@ -406,6 +406,21 @@ app.post('/api/journal-new-seen', async (req, res) => {
   catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// ── Badge non-lu de l'icône MESSAGE : « a déjà ouvert le chat support au moins une fois ». Sert de PLANCHER
+//    durable au badge (modèle journalnewseen) : le message de bienvenue reçu mais jamais ouvert affiche la
+//    notif MÊME pendant le blackout egress, où le compteur DB chatUnread peut être indisponible. KV dual-write
+//    → survit au blackout + suit la reconnexion / le changement d'appareil. Vidé à la 1re ouverture du chat.
+app.get('/api/chat-seen', async (req, res) => {
+  if (!req.session?.userId) return res.json({ seen: true });          // non connecté → pas de badge
+  try { const v = await auth.aiCacheGet('chatseen:' + req.session.userId, 8640000000000); res.json({ seen: !!v }); }
+  catch { res.json({ seen: false }); }                                // KV indispo → on montre (re-tentable)
+});
+app.post('/api/chat-seen', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try { await auth.aiCacheSet('chatseen:' + req.session.userId, { seen: true, at: Date.now() }); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // ── PHOTO DE PROFIL (avatar) — persistante PAR COMPTE (KV Supabase avatar:<userId>, modèle symrecent).
 // Stockée comme data URL (déjà compressée/recadrée côté client à ~256px → ~20-60 Ko). Suit la
 // reconnexion → modifier sa photo sur un appareil la met à jour sur TOUS les autres. Préfixe hors purge 31j. ──

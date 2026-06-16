@@ -648,7 +648,11 @@ async function chatUnread(userId, fromSender) {
   if (_chatDb) {
     const { count, error } = await supabase.from(CHAT_TABLE).select('id', { count: 'exact', head: true }).eq('user_id', String(userId)).eq('sender', fromSender).eq('read', false);
     if (!error) n = count || 0;
-    else if (_chatTableMissing(error)) _chatDb = false; else return 0;
+    else if (_chatTableMissing(error)) _chatDb = false;
+    // Erreur TRANSITOIRE (blackout egress / réseau) : NE JAMAIS renvoyer 0 — ça masquerait le badge non-lu
+    // (ex. message de bienvenue) tant que dure la coupure. Repli sur la dernière valeur RAM, sinon le compte
+    // fichier — exactement comme chatList. (Aucun egress ajouté : RAM/fichier uniquement.)
+    else return mem ? mem.n : _chatFile.filter(m => m.user_id === String(userId) && m.sender === fromSender && !m.read).length;
   }
   if (n == null) n = _chatFile.filter(m => m.user_id === String(userId) && m.sender === fromSender && !m.read).length;
   _chatUnreadMem.set(memKey, { n, ts: Date.now() });
