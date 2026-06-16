@@ -1657,7 +1657,7 @@ function buildSessionMap() {
       panY:         'none',
       wheelY:       'none',
       wheelX:       'none',
-      minZoomLevel: 1, maxZoomLevel: 1,                // zoom verrouillé ; le remplissage hauteur vient de la projection rotateX + zoomToGeoBounds
+      minZoomLevel: 1, maxZoomLevel: 6,                // autorise le zoom de COUVERTURE (remplir tout le cadre, mordre E/O) calculé d'après le ratio réel du conteneur
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
   );
@@ -1869,9 +1869,24 @@ function buildSessionMap() {
   refreshUTCLine(new Date());
   setTimeout(() => updateCityTimes(new Date()), 200);
 
-  // Cadre une bande de latitude (60°N → −55°S) sur toute la longitude : la LATITUDE devient la dimension
-  // contraignante → la carte remplit la HAUTEUR du conteneur (plus de noir en bas). NY/Londres/Tokyo/Sydney restent dedans.
-  polygonSeries.events.on('datavalidated', () => { try { chart.zoomToGeoBounds({ left: -180, right: 180, top: 60, bottom: -55 }, 0); } catch (e) {} });
+  // COUVERTURE plein cadre (« slice ») : on calcule le zoom qui REMPLIT le conteneur (mordre les bords E/O)
+  // d'après son ratio RÉEL, au lieu d'un « fit » qui laisse des bandes noires. Recalculé à chaque
+  // redimensionnement. Validé empiriquement : remplit la hauteur ET garde NY→Londres→Tokyo→Sydney visibles.
+  const _MAP_AR = 1.55;   // ratio largeur:hauteur du planisphère rendu (mesuré)
+  function _coverFill() {
+    try {
+      const W = (root.dom && root.dom.offsetWidth) || 0, H = (root.dom && root.dom.offsetHeight) || 0;
+      if (!W || !H) return;
+      const cA = W / H;
+      let z = Math.max(cA / _MAP_AR, _MAP_AR / cA) * 1.04;   // zoomer pour couvrir la dimension manquante (+4% marge)
+      z = Math.max(1, Math.min(z, 1.3));                     // plafond : conserve Tokyo/Sydney à l'écran
+      chart.set('homeGeoPoint', { longitude: 12, latitude: 12 });
+      chart.set('homeZoomLevel', z);
+      chart.zoomToGeoPoint({ longitude: 12, latitude: 12 }, z, false, 0);
+    } catch (e) {}
+  }
+  polygonSeries.events.on('datavalidated', _coverFill);
+  try { const _ro = new ResizeObserver(() => _coverFill()); _ro.observe(root.dom); } catch (e) {}
 
   return root;
 }
