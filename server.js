@@ -2333,7 +2333,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
 
   const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
   const items = allNews.filter(i =>
-    (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly') &&
+    (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly' || i._reportType === 'FX Daily Recap') &&
     i.timestamp > cutoff
   ).sort((a, b) => b.timestamp - a.timestamp);
 
@@ -2362,7 +2362,18 @@ app.get('/api/weekly-reports', async (_req, res) => {
       generateGlobalEconomicWeekly(true).catch(e => console.error('[GEW] auto-gen échec:', e.message));
     }
   }
-  items.forEach(_cleanItemMd);   // recap/GEW : titres sans markdown brut, même pour un JS en cache
+  // FX DAILY RECAP : rapport analyste du jour COUVERT (today après 22h Paris, sinon hier) — auto-génère
+  // s'il manque (le repli déterministe garantit toujours un rapport, donc 1 seule tentative en pratique).
+  const _fxrDay = _fxrTargetDayKey();
+  const fxrCurrent = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === _fxrDay);
+  if (!fxrCurrent) {
+    generating = true;
+    if (Date.now() - _fxrGenLock > 15 * 60 * 1000) {
+      _fxrGenLock = Date.now();
+      generateFXDailyRecap(true).catch(e => console.error('[FX Recap] auto-gen échec:', e.message));
+    }
+  }
+  items.forEach(_cleanItemMd);   // recap/GEW/FX : titres sans markdown brut, même pour un JS en cache
   res.json({ items, generating });
 });
 
@@ -6104,6 +6115,255 @@ async function generateWeeklyMarketRecap(force = false) {
   } catch (e) { console.warn('[Weekly Recap] génération échouée:', e.message); return null; }
 }
 
+// ═══════════════════ FX DAILY RECAP — rapport analyste QUOTIDIEN (façon PMT) ═══════════════════
+// Rapport phare structuré (Executive Summary · Top Headlines · Regional Analysis · Central Bank Focus
+// · Key Economic Data · Analyst Comments · Corporate News · Looking Ahead) — généré chaque soir après
+// la clôture US (22h30 Paris) à partir des news/calendrier/force des devises du JOUR. Caché + persisté.
+// Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste Prime Terminal (les images de référence
+// sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
+// format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
+const FXR_VER = 1;
+let _fxrGenLock = 0;
+let _fxrGenBusy = false;
+const _fxrCcyCtry = { USD:'United States', EUR:'Eurozone', GBP:'United Kingdom', JPY:'Japan', CHF:'Switzerland', CAD:'Canada', AUD:'Australia', NZD:'New Zealand', CNY:'China' };
+
+// Bornes (epoch ms) d'un jour CALENDAIRE Paris "YYYY-MM-DD" (cohérent avec le reste du code Paris du serveur).
+function _parisDayRange(dayKey) {
+  const [Y, M, D] = String(dayKey).split('-').map(Number);
+  const utcMid  = Date.UTC(Y, (M || 1) - 1, D || 1, 0, 0, 0);
+  const parisMs = new Date(new Date(utcMid).toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getTime();
+  const offset  = parisMs - utcMid;            // ms d'avance de Paris sur UTC à cette date (DST inclus)
+  const startMs = utcMid - offset;             // minuit Paris en epoch ms
+  return [startMs, startMs + 24 * 3600 * 1000];
+}
+// Jour COUVERT par le recap : la journée n'est « complète » qu'après la clôture US (~22h Paris).
+// → avant 22h Paris on (re)génère la journée d'HIER (complète) ; à partir de 22h, celle d'AUJOURD'HUI.
+function _fxrTargetDayKey() {
+  const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  if (p.getHours() < 22) p.setDate(p.getDate() - 1);
+  return `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, '0')}-${String(p.getDate()).padStart(2, '0')}`;
+}
+function _fxrDateLabel(dayKey) {
+  const [Y, M, D] = String(dayKey).split('-').map(Number);
+  return new Date(Date.UTC(Y, (M || 1) - 1, D || 1)).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+function _fxrTxt(s, n) { return _stripMd(String(s == null ? '' : s)).slice(0, n || 1200); }
+function _fxrA(a) { return Array.isArray(a) ? a : []; }
+// econData de repli à partir des lignes réelles du calendrier (1 métrique / publication)
+function _fxrEconFromRows(rows) {
+  return (rows || []).slice(0, 14).map(e => ({
+    release: _fxrTxt(`${e.currency ? e.currency + ' ' : ''}${e.title || ''}`, 120),
+    period: '',
+    metrics: [{ metric: '', actual: _fxrTxt(e.actual, 24), expected: _fxrTxt(e.forecast, 24), previous: _fxrTxt(e.previous, 24) }],
+  })).filter(x => x.release);
+}
+function _fxrLookFromRows(rows) {
+  return (rows || []).slice(0, 16).map(e => {
+    const cb = /\brate\b|decision|fomc|ecb|boe|boj|rba|snb|riksbank|central bank|monetary policy/i.test(e.title || '');
+    return { category: cb ? 'Central Bank Event' : 'Economic Data', event: _fxrTxt(`${e.currency ? e.currency + ' ' : ''}${e.title || ''}`, 160), importance: /high/i.test(e.impact) ? 'High' : 'Medium' };
+  }).filter(x => x.event);
+}
+function _fxrAutoTags(items) {
+  const blob = (items || []).slice(0, 50).map(i => (i.headline || i.title || '')).join(' ').toLowerCase();
+  const checks = [[/iran|israel|hormuz|ceasefire|geopolit|gaza|ukraine|russia/, 'Geopolitics'],[/oil|crude|brent|opec|\bwti\b/, 'Oil Prices'],[/\bfed\b|fomc|powell|warsh/, 'Federal Reserve'],[/\becb\b|lagarde/, 'ECB'],[/\bboj\b|ueda|\byen\b/, 'Bank of Japan'],[/treasury|yield|\bbond\b|bund|gilt/, 'Treasury Yields'],[/\bcpi\b|inflation|\bppi\b|\bpce\b/, 'Inflation'],[/equit|stocks?\b|nasdaq|s&p|stoxx|dax/, 'Global Equities'],[/gold|copper|silver|metal/, 'Commodities'],[/dollar|\bdxy\b|\busd\b/, 'US Dollar'],[/nvidia|nvda/, 'Nvidia'],[/spacex/, 'SpaceX'],[/china|pboc|yuan/, 'China'],[/tariff|trade deal/, 'Trade']];
+  const out = []; for (const [re, t] of checks) if (re.test(blob)) out.push(t);
+  return out.slice(0, 10);
+}
+// Normalise la sortie IA → objet _fxr robuste (markdown nettoyé à la source, tailles bornées).
+function _fxrSanitize(p, dayKey, dateLabel) {
+  let title = _fxrTxt(p.title, 170) || 'Daily market wrap';
+  if (!/^fx daily recap/i.test(title)) title = 'FX Daily Recap: ' + title.replace(/^fx daily recap:?\s*/i, '');
+  const bias = b => { b = String(b || 'NEUTRAL').toUpperCase().replace(/[^A-Z]/g, ''); return ['BUY','SELL','NEUTRAL'].includes(b) ? b : 'NEUTRAL'; };
+  const imp  = x => /high/i.test(x) ? 'High' : /med/i.test(x) ? 'Medium' : 'Low';
+  return {
+    v: FXR_VER, day: dayKey, _ai: true, title, dateLabel,
+    summary:  _fxrTxt(p.summary, 1500),
+    tags:     _fxrA(p.tags).map(t => _fxrTxt(t, 40)).filter(Boolean).slice(0, 10),
+    insights: _fxrA(p.insights).map(t => _fxrTxt(typeof t === 'string' ? t : (t && t.text), 400)).filter(Boolean).slice(0, 6),
+    pairs:    _fxrA(p.pairs).filter(x => x && x.pair).map(x => ({ pair: _fxrTxt(x.pair, 16), bias: bias(x.bias), text: _fxrTxt(x.text, 400) })).slice(0, 8),
+    headlines: _fxrA(p.headlines).filter(x => x && (x.title || x.text)).map(x => ({ title: _fxrTxt(x.title, 200), text: _fxrTxt(x.text, 700) })).slice(0, 8),
+    regions:  _fxrA(p.regions).filter(x => x && x.name).map(x => ({
+      name: _fxrTxt(x.name, 60), code: _fxrTxt(x.code, 28), summary: _fxrTxt(x.summary, 1300),
+      groups: _fxrA(x.groups).filter(g => g && g.title).map(g => ({
+        title: _fxrTxt(g.title, 60),
+        items: _fxrA(g.items).filter(it => it && (it.heading || it.text)).map(it => ({ heading: _fxrTxt(it.heading, 130), text: _fxrTxt(it.text, 650) })).slice(0, 8),
+      })).filter(g => g.items.length).slice(0, 7),
+    })).slice(0, 6),
+    centralBanks: _fxrA(p.centralBanks).filter(x => x && x.name).map(x => ({ name: _fxrTxt(x.name, 60), text: _fxrTxt(x.text, 800) })).slice(0, 9),
+    econData: _fxrA(p.econData).filter(x => x && x.release).map(x => ({
+      release: _fxrTxt(x.release, 120), period: _fxrTxt(x.period, 40),
+      metrics: _fxrA(x.metrics).filter(Boolean).map(mm => ({ metric: _fxrTxt(mm.metric, 90), actual: _fxrTxt(mm.actual, 24), expected: _fxrTxt(mm.expected, 24), previous: _fxrTxt(mm.previous, 24) })).slice(0, 14),
+    })).filter(x => x.metrics.length).slice(0, 14),
+    comments: _fxrA(p.comments).filter(x => x && (x.author || x.text)).map(x => ({ author: _fxrTxt(x.author, 60), text: _fxrTxt(x.text, 1500) })).slice(0, 8),
+    corporate: _fxrA(p.corporate).filter(x => x && (x.name || x.ticker || x.text)).map(x => ({ ticker: _fxrTxt(x.ticker, 10).toUpperCase(), name: _fxrTxt(x.name, 60), text: _fxrTxt(x.text, 900) })).slice(0, 20),
+    lookahead: _fxrA(p.lookahead).filter(x => x && x.event).map(x => ({ category: _fxrTxt(x.category, 40), event: _fxrTxt(x.event, 170), importance: imp(x.importance) })).slice(0, 16),
+  };
+}
+function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine }) {
+  const top = (newsItems || []).slice(0, 6);
+  const titleSub = top.length ? _fxrTxt(top[0].headline || top[0].title, 95) : 'Daily market wrap';
+  const summary = [
+    top.length ? 'Key drivers today: ' + top.slice(0, 3).map(i => _fxrTxt(i.headline || i.title, 120)).join('; ') + '.' : 'A relatively quiet session with limited fresh catalysts across G10 FX.',
+    csLine ? `Currency strength (intraday): ${csLine}.` : '',
+    dataRows.length ? `${dataRows.length} economic release(s) were published today; attention now turns to the upcoming risk events.` : 'Focus shifts to the upcoming economic and central-bank calendar.',
+  ].filter(Boolean).join(' ');
+  return {
+    v: FXR_VER, day: dayKey, _ai: false, title: 'FX Daily Recap: ' + titleSub, dateLabel,
+    summary, tags: _fxrAutoTags(newsItems),
+    insights: top.slice(0, 6).map(i => _fxrTxt(i.headline || i.title, 220)).filter(Boolean),
+    pairs: [],
+    headlines: top.slice(0, 4).map(i => ({ title: _fxrTxt(i.headline || i.title, 170), text: _fxrTxt(i.description, 400) })),
+    regions: [], centralBanks: [], comments: [], corporate: [],
+    econData: _fxrEconFromRows(dataRows), lookahead: _fxrLookFromRows(laRows),
+  };
+}
+
+async function generateFXDailyRecap(force = false) {
+  const dayKey   = _fxrTargetDayKey();
+  const idPrefix = 'dtp-fx-recap-' + dayKey;
+  const _isCur   = i => i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dayKey;
+  if (!force && allNews.some(_isCur)) { console.log(`[FX Recap] déjà généré (v${FXR_VER}) pour ${dayKey}, skip.`); return allNews.find(_isCur) || null; }
+  if (_fxrGenBusy) return null;
+  _fxrGenBusy = true;
+  try {
+    const now = Date.now();
+    const [winStart, winEnd] = _parisDayRange(dayKey);
+    const inWin = t => t >= winStart && t < winEnd + 2 * 3600 * 1000;   // + marge pour les wraps de clôture US
+    const dateLabel = _fxrDateLabel(dayKey);
+
+    // 1) HEADLINES du jour (flux réel, hors rapports DTP / briefings / wrap)
+    const newsItems = allNews.filter(i => i && i.timestamp && inWin(i.timestamp)
+      && !i._briefing && !i._marketWrap && !i._fxr && !i._weekly && !_isPrimerNews(i))
+      .sort((a, b) => b.timestamp - a.timestamp);
+    const newsLines = newsItems.slice(0, 70).map(i => {
+      const tag = i.country || i.currency || i.category || '';
+      const h = String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
+      return h.length > 6 ? `- ${tag ? '[' + tag + '] ' : ''}${h.slice(0, 220)}` : '';
+    }).filter(Boolean);
+
+    // 2) DONNÉES ÉCO publiées du jour — calendrier TradingView (actuals natifs) ; repli sur le dernier snapshot
+    let calItems = [];
+    try { calItems = await _buildTVCalendar(); } catch {}
+    if (!Array.isArray(calItems) || !calItems.length) calItems = (_tvCalCache.items || []);
+    const dataRows = (calItems || []).filter(e => e && e.actual && e.actual !== '' && inWin(e.timestamp || 0))
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const dataLines = dataRows.slice(0, 45).map(e => {
+      const c = _fxrCcyCtry[e.currency] || e.currency || '';
+      return `- [${c}] ${String(e.title || '').slice(0, 90)}: actual ${e.actual}${e.forecast ? ` (exp ${e.forecast})` : ''}${e.previous ? ` (prev ${e.previous})` : ''}`;
+    });
+
+    // 3) ÉVÉNEMENTS À VENIR (high/medium, 4 prochains jours) → section Looking Ahead
+    const laRows = (calItems || []).filter(e => e && (e.timestamp || 0) > now && (e.timestamp || 0) < now + 4 * 86400000
+      && /high|medium/i.test(e.impact || '') && !/speaks|speech|holiday|member|birthday/i.test(e.title || ''))
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const laLines = laRows.slice(0, 28).map(e => {
+      const dl = new Date(e.timestamp).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short', timeZone: 'Europe/Paris' });
+      return `- ${dl} [${e.currency || ''}] ${String(e.title || '').slice(0, 90)} (${e.impact})`;
+    });
+
+    // 4) Force des devises intraday (contexte, best-effort — n'échoue jamais le rapport)
+    let csLine = '';
+    try {
+      const cs = await computeCurrencyStrength('today');
+      if (cs && cs.series) {
+        const parts = [];
+        for (const c of ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD']) {
+          const s = cs.series[c];
+          if (Array.isArray(s) && s.length) {
+            const last = s[s.length - 1];
+            const v = (last && typeof last === 'object') ? (last.v != null ? last.v : last.value) : last;
+            if (typeof v === 'number' && isFinite(v)) parts.push(`${c} ${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
+          }
+        }
+        if (parts.length) csLine = parts.join(', ');
+      }
+    } catch {}
+
+    // ── Génération IA (structure complète façon PMT, EN ANGLAIS) ──
+    let fxr = null;
+    if (!(ai.backoffActive && ai.backoffActive())) {
+      const prompt = `You are the senior FX & macro strategist for "DataTradingPro", writing the flagship end-of-day analyst report "FX Daily Recap" — same depth, tone and structure as a Prime Terminal analyst report. The report covers the full trading day of ${dateLabel}.
+
+Write a COMPLETE, professional recap of what happened across global markets today, with a clear FX focus, based STRICTLY on the data provided below. Be specific and analytical: tie price action to the actual data releases, central-bank signals, commodities and geopolitical headlines (explain the WHY, not just the WHAT). Write in fluent professional English. Do NOT invent numbers — only use figures that appear in the data below. If a section has no supporting data, return an empty array for it.
+
+Return ONLY valid JSON (no preamble, no markdown fences, no ** characters) with EXACTLY this shape:
+{
+  "title": "<punchy one-line headline summarising the day, e.g. 'Dollar slips as oil slumps on US-Iran deal optimism'>",
+  "summary": "<EXECUTIVE SUMMARY: 3 to 5 sentences — the big picture of the session: overall risk tone, the US dollar, rates/Treasuries, commodities, and what attention turns to next>",
+  "tags": ["<5 to 10 short topic chips, e.g. 'US-Iran Peace Deal','Oil Prices','Federal Reserve','Treasury Yields','Nvidia'>"],
+  "insights": ["<4 to 6 forward-looking, standalone one-sentence AI-Insight cards>"],
+  "pairs": [ { "pair": "EUR/USD", "bias": "BUY|SELL|NEUTRAL", "text": "<one concise sentence rationale>" } ],
+  "headlines": [ { "title": "<Top Headline, punchy>", "text": "<2 to 3 sentence summary of that story and its market impact>" } ],
+  "regions": [
+    { "name": "United States", "code": "USD", "summary": "<one paragraph on the US session: equities, rates, USD, key data>", "groups": [ { "title": "Markets", "items": [ { "heading": "Equities Rally", "text": "<1 to 2 sentences>" } ] } ] },
+    { "name": "Europe", "code": "EUR", "summary": "...", "groups": [ ... ] },
+    { "name": "Asia-Pacific", "code": "Mixed (JPY, CNY, AUD)", "summary": "...", "groups": [ ... ] },
+    { "name": "Canada", "code": "CAD", "summary": "...", "groups": [ ... ] }
+  ],
+  "centralBanks": [ { "name": "Federal Reserve", "text": "<2 to 3 sentences: stance, market pricing, what to watch>" } ],
+  "econData": [ { "release": "US NY Fed Empire State Manufacturing Index", "period": "June 2026", "metrics": [ { "metric": "General Business Conditions Index", "actual": "5.7", "expected": "13.2", "previous": "19.6" } ] } ],
+  "comments": [ { "author": "Pantheon Macroeconomics", "text": "<analyst take, if any appears in the headlines>" } ],
+  "corporate": [ { "ticker": "NVDA", "name": "Nvidia", "text": "<company-specific news>" } ],
+  "lookahead": [ { "category": "Central Bank Event", "event": "FOMC Policy Decision", "importance": "High" } ]
+}
+
+Rules:
+- Region group titles must be chosen from: "Geopolitics","Markets","Commodities & Trade","Economic Data","Central Banks","Corporate Activity","Political & Regulatory". Only include groups that have real content. Cover United States, Europe, Asia-Pacific and Canada when there is material for them.
+- "econData": ONLY use the published figures provided in the ECONOMIC DATA block (with their actual / expected / previous). Group sub-metrics under their parent release when natural. Do NOT fabricate releases.
+- "lookahead": ONLY use the events provided in the UPCOMING EVENTS block. importance must be "High", "Medium" or "Low".
+- "corporate" and "comments": only include items that genuinely appear in the headlines.
+
+=== TODAY'S HEADLINES & FLOW (${newsLines.length}) ===
+${newsLines.join('\n').slice(0, 9000) || '(limited flow captured)'}
+
+=== TODAY'S PUBLISHED ECONOMIC DATA (actual / expected / previous) ===
+${dataLines.join('\n').slice(0, 4200) || '(none captured)'}
+
+=== CURRENCY STRENGTH (intraday) ===
+${csLine || '(n/a)'}
+
+=== UPCOMING HIGH/MEDIUM-IMPACT EVENTS (next days) ===
+${laLines.join('\n').slice(0, 3000) || '(none captured)'}`;
+      try {
+        _aiReset();
+        const text = await ai.generateText(prompt, 7000);
+        aiNote('fxrecap');
+        const m = text.match(/\{[\s\S]*\}/);
+        const parsed = m ? JSON.parse(m[0]) : null;
+        if (parsed && (parsed.summary || parsed.title)) fxr = _fxrSanitize(parsed, dayKey, dateLabel);
+      } catch (e) { console.warn('[FX Recap] IA échec → repli déterministe:', e.message); }
+    }
+
+    // ── Repli déterministe : TOUJOURS un rapport exploitable (sans Gemini) ──
+    if (!fxr) fxr = _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine });
+
+    // Filets : econData / lookahead / tags TOUJOURS issus des données RÉELLES si l'IA ne les a pas remplis.
+    if (!fxr.econData  || !fxr.econData.length)  fxr.econData  = _fxrEconFromRows(dataRows);
+    if (!fxr.lookahead || !fxr.lookahead.length) fxr.lookahead = _fxrLookFromRows(laRows);
+    if (!fxr.tags      || !fxr.tags.length)      fxr.tags      = _fxrAutoTags(newsItems);
+
+    const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    const item = {
+      id: idPrefix + '-' + now,
+      headline: fxr.title,
+      description: fxr.summary,
+      category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
+      priority: 'normal', tags: (fxr.tags || []).slice(0, 8),
+      _briefing: true, _reportType: 'FX Daily Recap', _fxr: fxr,
+    };
+    // Un seul FX Daily Recap COURANT en mémoire (l'historique reste persisté côté store).
+    allNews = [item, ...allNews.filter(i => i._reportType !== 'FX Daily Recap')].slice(0, 2000);
+    saveHistory();
+    auth.weeklyReportSave('fxr-' + dayKey, item).catch(e => console.warn('[FX Recap] persist échec:', e.message));
+    try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
+    console.log(`[FX Recap] ${fxr._ai ? 'IA' : 'fallback'} ${dayKey} — ${(fxr.headlines||[]).length} headlines, ${(fxr.regions||[]).length} régions, ${(fxr.econData||[]).length} data, ${(fxr.lookahead||[]).length} look-ahead`);
+    return item;
+  } catch (e) {
+    console.error('[FX Recap] génération échouée:', e.message);
+    return null;
+  } finally { _fxrGenBusy = false; }
+}
+
 // ─── Schedule all briefings ───────────────────────────────────────────────────
 (function scheduleAllBriefings() {
   // Rapports QUOTIDIENS (heure Paris)
@@ -6113,6 +6373,7 @@ async function generateWeeklyMarketRecap(force = false) {
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
+    { fn: () => generateFXDailyRecap(false),          h: 22, m: 30, name: 'FX Daily Recap'        }, // rapport analyste du jour (façon PMT)
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
   // Rapports HEBDOMADAIRES — SAMEDI 02h00 PARIS (tous les marchés mondiaux fermés pour la semaine ; même créneau que le groupe Bias/Week Ahead)
