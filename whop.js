@@ -122,4 +122,24 @@ async function getStats(priceMonthly) {
   } catch { return _statsCache.data; }
 }
 
-module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, configured: () => !!WHOP_API_KEY };
+// Liste TOUS les memberships VALIDES du produit DTP (paginé, normalisés) → pour la réconciliation
+// Whop→DTP (filet de sécurité si un webhook de renouvellement est raté/échoué).
+async function listValidMemberships() {
+  if (!WHOP_API_KEY) return [];
+  const out = []; let page = 1, totalPages = 1;
+  do {
+    let r; try { r = await fetch(`${BASE}/memberships?valid=true&per=50&page=${page}&product_id=${DTP_PRODUCT}`, { headers: _auth() }); } catch { break; }
+    if (!r.ok) break;
+    const j = await r.json();
+    const data = Array.isArray(j) ? j : (j.data || []);
+    for (const m of data) {
+      if (m.product && m.product !== DTP_PRODUCT) continue;
+      const n = _normalize(m);
+      if (n && n.email && n.valid) out.push(n);
+    }
+    const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
+  } while (page <= totalPages && page <= 10);   // cap 10 pages (500) — anti-RAM/temps
+  return out;
+}
+
+module.exports = { getMembership, getMembershipByEmail, getAffiliateInfo, getAffiliateUsername, getStats, listValidMemberships, configured: () => !!WHOP_API_KEY };
