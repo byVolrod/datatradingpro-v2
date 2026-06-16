@@ -925,6 +925,42 @@ app.get('/api/admin/welcome-backfill', requireAdmin, async (req, res) => {
   res.json(out);
 });
 
+// ─── Backfill CHAT de bienvenue — IDEMPOTENT, redondance-aware, RATTRAPAGE au boot ───────────────────
+// Envoie le message de bienvenue (CHAT seul, SANS email) à TOUS les clients qui ne l'ont pas déjà dans
+// leur conversation. Idempotent : saute ceux qui l'ont déjà → re-exécutable sans risque de doublon visible.
+// S'appuie sur la redondance : lecture (chatList) + écriture (chatInsert) basculent automatiquement sur une
+// base SAINE pendant un blackout egress de la primaire (zéro perte). Comme c'est rejoué à CHAQUE démarrage,
+// dès que la primaire revient un boot ré-applique le message aux comptes qui ne l'avaient que sur une base
+// de secours → RATTRAPAGE sans perte. (Lecture via chatList = cache RAM, pas de SELECT par tick.)
+let _welcomeBackfillRunning = false;
+async function _welcomeChatBackfill(reason) {
+  if (_welcomeBackfillRunning) return { skipped: 'en cours' };
+  _welcomeBackfillRunning = true;
+  const out = { clients: 0, alreadyHad: 0, sent: 0, errors: 0 };
+  try {
+    let users = [];
+    try { users = await auth.getAllUsers(); } catch { return { error: 'users indisponibles' }; }
+    for (const u of users) {
+      if (!u || (u.role || 'client') !== 'client') continue;          // on n'accueille pas le staff
+      out.clients++;
+      let rows = [];
+      try { rows = await auth.chatList(u.id); } catch { out.errors++; continue; }
+      const hasWelcome = (rows || []).some(m => m && m.sender === 'support' && /bienvenue sur DataTradingPro/i.test(m.text || ''));
+      if (hasWelcome) { out.alreadyHad++; continue; }
+      try { await auth.chatInsert({ user_id: u.id, sender: 'support', text: welcomeChat() }); out.sent++; }
+      catch { out.errors++; }
+    }
+  } finally { _welcomeBackfillRunning = false; }
+  console.log(`[WelcomeChatBackfill${reason ? ' ' + reason : ''}] clients=${out.clients} déjà=${out.alreadyHad} envoyés=${out.sent} erreurs=${out.errors}`);
+  return out;
+}
+// Rattrapage idempotent au démarrage (~80 s après le boot : laisse la DB/redondance se stabiliser).
+setTimeout(() => { _welcomeChatBackfill('boot').catch(e => console.error('[WelcomeChatBackfill] boot KO:', e.message)); }, 80 * 1000);
+// Déclencheur manuel (admin) — renvoie le décompte (clients / déjà reçu / envoyés / erreurs).
+app.post('/api/admin/welcome-chat-backfill', requireAdmin, async (_req, res) => {
+  try { res.json(await _welcomeChatBackfill('manuel')); } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ─── User self-service password change ────────────────────────────────────────
 app.put('/api/auth/me/password', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
