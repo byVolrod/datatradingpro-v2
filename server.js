@@ -4236,7 +4236,7 @@ app.get('/api/bank-research-content', async (req, res) => {
   // (le front retombe sur item.description / dateStr pour le sous-titre et la date).
   try {
     const _hot = _brSegCache.get(BR_SEG_VER + url);
-    if (_hot && typeof _hot === 'object' && _hot.thin) return res.json({ html: '', source: 'thin', pdfUrl: _hot.pdfUrl || '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // page vitrine/teaser déjà détectée → on renvoie le vrai PDF (ou la carte), jamais un faux résumé
+    if (_hot && typeof _hot === 'object' && _hot.thin) return res.json({ html: '', source: 'thin', pdfUrl: _hot.pdfUrl || '', renderUrl: (_hot.pdfUrl ? '' : _brRenderUrlFor(url, _brPrintMap.get(url))), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // teaser sans PDF intégré mais host rendable (Natixis SPA) → on REND (capture PDF serveur), sinon vrai PDF
     if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', renderUrl: _brRenderUrlFor(url, _brPrintMap.get(url)), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
   } catch {}
   let _origin = 'https://think.ing.com';
@@ -4397,8 +4397,9 @@ app.get('/api/bank-research-content', async (req, res) => {
     const _plainTxt  = clean.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
     const _teaserSig = /subscribe\s+(now|to)\b|receive it (each|at the start)|delivered to you|sign\s*up\b|provided for free|download (the )?(full |complete )?(report|pdf|publication)/i.test(_plainTxt);
     if (_plainTxt.length < 350 || (_embeddedPdf && _plainTxt.length < 2000 && _teaserSig)) {
+      const _thinRender = _embeddedPdf ? '' : _brRenderUrlFor(url, _printUrl);   // pas de PDF intégré mais host rendable (Natixis SPA) → on REND la page (capture PDF côté serveur)
       try { _brSegCache.set(BR_SEG_VER + url, { f: Date.now(), thin: true, pdfUrl: _embeddedPdf }); } catch {}   // marqueur : ne pas re-générer ; précache 'cooling'
-      return res.json({ html: '', source: 'thin', pdfUrl: _embeddedPdf, subtitle, date: dateFormatted, section, country, articleType });
+      return res.json({ html: '', source: 'thin', pdfUrl: _embeddedPdf, renderUrl: _thinRender, subtitle, date: dateFormatted, section, country, articleType });
     }
 
     // ── Structuration IA en rubriques claires façon DTP (DailyFX/recherche en prose) ──
