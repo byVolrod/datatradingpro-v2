@@ -7554,8 +7554,8 @@ async function generateEuropeanMarketWrap(force = false) {
   const prefix   = idPrefix + dateKey;
   const _cached = allNews.find(i => (i.id || '').startsWith(prefix) && i._wrapVer === WRAP_VER);
   if (!force && _cached) return _cached;
-  // version périmée (nouvelle structure PMT) OU force → on retire l'ancien item du jour avant de régénérer
-  allNews = allNews.filter(i => !(i.id || '').startsWith(prefix));
+  // Version périmée (nouvelle structure PMT) OU force : on NE retire PAS l'ancien ICI — il est remplacé
+  // seulement APRÈS une régén réussie (sinon une régén ratée au boot, sans news, perdrait le wrap du jour).
 
   // Date façon PMT : « 15th June 2026 » (heure de Paris).
   const _ord = n => { const x = ['th','st','nd','rd'], v = n % 100; return n + (x[(v - 20) % 10] || x[v] || x[0]); };
@@ -7681,7 +7681,7 @@ ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers,
     _reportType: 'European Market Wrap',
     _wrapVer:    WRAP_VER,
   };
-  allNews = [item, ...allNews].slice(0, 2000);
+  allNews = [item, ...allNews.filter(i => !(i.id || '').startsWith(prefix))].slice(0, 2000);   // remplace l'ancien wrap du jour (toute version) par le neuf, MAINTENANT que la régén a réussi
   saveHistory();
   broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length });
   console.log(`[EUWrap] Publié « ${item.headline} » — ${sectionCount} rubriques (${recent.length} news, ${levels.eq.length} niveaux actions)`);
