@@ -853,7 +853,12 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     // Prolongation manuelle : l'admin a choisi une durée → nouvelle échéance dans le futur.
     const _newExp = fields.expiresAt || null;
     const _extended = !!req.body.duration && _newExp && new Date(_newExp).getTime() > Date.now();
-    if (activeReq === false) {
+    if (req.body.duration === 'expired') {
+      // Admin a marqué le compte EXPIRÉ → email « votre abonnement a expiré » (client uniquement)
+      auth.getUserById(id)
+        .then(u => { if (u?.email && u.role === 'client') mailer.sendExpired({ to: u.email, name: u.name, expiresAt: u.expires_at }); })
+        .catch(() => {});
+    } else if (activeReq === false) {
       // Suspendu → renouvellement échoué
       auth.getUserById(id)
         .then(u => { if (u?.email && u.role === 'client') mailer.sendRenewalFailed({ to: u.email, name: u.name }); })

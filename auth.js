@@ -216,6 +216,15 @@ try {
   if (Array.isArray(_arr)) { _arr.forEach(_mirrorIndex); console.log(`[Auth] miroir local : ${_arr.length} compte(s) chargé(s) (repli si Supabase bloqué)`); }
 } catch {}
 
+// ─── Pierres tombales : ids de comptes SUPPRIMÉS. Garantit qu'un compte effacé ne RÉAPPARAÎT jamais (ni dans la
+//     liste, ni au login), même si la primaire — en blackout au moment du delete — le renvoie à son retour (le
+//     delete non-multi a pu ne toucher qu'un secondaire). uuid uniques → un futur compte n'est jamais filtré à tort.
+const USERS_DELETED_FILE = path.join(_DATA_DIR, 'users_deleted.json');
+const _deletedIds = new Set();
+try { const _d = JSON.parse(fs.readFileSync(USERS_DELETED_FILE, 'utf8')); if (Array.isArray(_d)) _d.forEach(x => _deletedIds.add(String(x))); } catch {}
+function _isTombstoned(id) { return id != null && _deletedIds.has(String(id)); }
+function _tombstone(id) { if (id == null) return; _deletedIds.add(String(id)); try { fs.writeFileSync(USERS_DELETED_FILE, JSON.stringify([..._deletedIds])); } catch {} }
+
 // ─── File d'attente des écritures hors-ligne (rejouées vers Supabase dès son retour) ───
 let _pendingWrites = [];   // [{ id, fields, ts, attempts }]
 try { _pendingWrites = JSON.parse(fs.readFileSync(USERS_PENDING_FILE, 'utf8')) || []; } catch {}
@@ -312,6 +321,7 @@ async function verifyLogin(email, password) {
     if (data) console.warn('[Auth] login via MIROIR local →', em);
   }
   if (!data) return null;
+  if (_isTombstoned(data.id)) return null;   // compte supprimé → jamais de reconnexion (même si la primaire le renvoie au retour)
   void down;
 
   const ok = await bcrypt.compare(password, data.password_hash || '');
@@ -366,19 +376,20 @@ async function getAllUsers(opts = {}) {
     const _byId = new Map();
     for (const u of [..._usersMirror.values()].map(_pubUser)) if (u && u.id != null) _byId.set(String(u.id), u);
     for (const u of (data || [])) if (u && u.id != null) _byId.set(String(u.id), u);   // la base PRIME sur le miroir
-    const merged = [..._byId.values()].sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+    const merged = [..._byId.values()].filter(u => !_isTombstoned(u.id)).sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
     _allUsersCache = { ts: Date.now(), data: merged };
     return merged;
   } catch (e) {
     // Supabase muet (quota egress dépassé, panne) → repli sur le miroir local : forgot-password,
     // liste admin et jobs de fond continuent de tourner au lieu de jeter.
-    const arr = [..._usersMirror.values()].map(_pubUser);
+    const arr = [..._usersMirror.values()].map(_pubUser).filter(u => u && !_isTombstoned(u.id));
     if (arr.length) { _allUsersCache = { ts: Date.now(), data: arr }; console.warn('[Auth] getAllUsers via MIROIR local (Supabase indisponible) →', arr.length, 'compte(s)'); return arr; }
     throw e;
   }
 }
 
 async function getUserById(id) {
+  if (_isTombstoned(id)) return null;   // compte supprimé → introuvable, même si la primaire le renvoie à son retour
   try {
     let { data, error } = await supabase
       .from(TABLE)
@@ -424,11 +435,13 @@ async function createUser({ email, password, name = '', role = 'client', plan = 
       _mirrorPut(full); _mirrorSaveFile();
       _pendingQueue(id, full, 'upsert');
       console.warn('[Auth] createUser via MIROIR (base principale indisponible) → rejeu différé :', em);
+      _bustUsersCache();
       return _pubUser(_mirrorGet(em));
     }
     throw new Error(error.message);
   }
   if (data) { _mirrorPut(data); _mirrorSaveFile(); }   // nouveau compte → entre tout de suite dans le miroir (hash inclus)
+  _bustUsersCache();
   return data;
 }
 
@@ -469,6 +482,7 @@ async function updateUser(id, fields = {}) {
   // Reflète dans le miroir (les changements admin restent visibles même Supabase muet)
   const row = _mirrorGetById(id);
   if (row) { Object.assign(row, upd); _mirrorIndex(row); _mirrorSaveFile(); }
+  _bustUsersCache();   // ← la liste admin reflète le changement IMMÉDIATEMENT (sinon cache 60 s → « ça n'a pas changé »)
   if (!supaOk) {
     if (_supaDown(lastErr)) _pendingQueue(id, upd);                              // muet → rejeu différé
     else throw new Error(lastErr ? (lastErr.message || String(lastErr)) : 'updateUser échoué');   // vraie erreur SQL → remonter
@@ -481,6 +495,8 @@ async function deleteUser(id) {
   // réapparaître ni se reconnecter via le repli (corrige aussi le trou « deleted user via miroir »).
   const row = _mirrorGetById(id);
   if (row) { _usersMirror.delete(String(row.email).toLowerCase().trim()); _usersMirrorById.delete(String(id)); _mirrorSaveFile(); }
+  _tombstone(id);      // ← ne RÉAPPARAÎTRA jamais, même au retour de la primaire (delete en blackout = secondaire seul)
+  _bustUsersCache();   // ← suppression visible IMMÉDIATEMENT dans la liste admin (plus de « il y est toujours »)
   _pendingWrites = _pendingWrites.filter(p => String(p.id) !== String(id));
   if (error) {
     if (_supaDown(error)) { _pendingWrites.push({ id: String(id), op: 'delete', ts: Date.now(), attempts: 0 }); _pendingSave(); return; }   // base muette → suppression rejouée à son retour (miroir déjà purgé)
