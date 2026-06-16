@@ -395,12 +395,19 @@ function _spamNote() {
 function buildWelcome({ to, name, password, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
   const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : 'Illimité';
+  // Avec mot de passe (création) → on affiche les identifiants. SANS mot de passe (accueil d'un compte EXISTANT :
+  // on ne stocke pas le mdp en clair et on ne réinitialise pas celui d'un compte actif) → on invite à se connecter
+  // avec « Mot de passe oublié » au besoin. Email NON destructif.
+  const creds = password
+    ? `${_credBox([['Email', to], ['Mot de passe', password], ['Abonnement', `valide jusqu'au ${end}`]])}
+    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Par sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.</p>`
+    : `${_credBox([['Email', to], ['Abonnement', `valide jusqu'au ${end}`]])}
+    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Connectez-vous avec l'email ci-dessus. Si vous n'avez pas (ou plus) votre mot de passe, cliquez sur « Mot de passe oublié » sur la page de connexion — ou répondez simplement à ce message, on vous aide.</p>`;
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue, ${prenom} 👋</p>
     <p style="margin:0 0 14px;">Votre accès à <strong style="color:#fff;">DataTradingPro</strong> a été activé. Vous disposez désormais du flux de news en temps réel, du calendrier économique et des analyses institutionnelles.</p>
     <p style="margin:0 0 6px;color:#94a3b8;font-size:13px;">Vos identifiants de connexion :</p>
-    ${_credBox([['Email', to], ['Mot de passe', password || '—'], ['Abonnement', `valide jusqu'au ${end}`]])}
-    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Par sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.</p>
+    ${creds}
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Excellents trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
