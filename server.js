@@ -972,6 +972,47 @@ app.post('/api/whop/webhook', async (req, res) => {
   } catch (e) { console.error('[Whop] webhook:', e.message); }
 });
 
+// ─── Whop : RÉCONCILIATION périodique (FILET DE SÉCURITÉ si un webhook est raté/échoué) ───────
+// Cause racine du bug « Axel payé mais expiré » : DTP ne syncait les renouvellements QUE via webhook.
+// Un webhook manqué (perdu, ou base principale en blackout egress au moment de l'event) = renouvellement
+// JAMAIS appliqué → le client reste expiré alors qu'il a payé. Ici on reconcilie : source de vérité =
+// Whop. On EXTEND/réactive un compte DTP en retard sur Whop (JAMAIS raccourcir/suspendre → sûr).
+// Réutilise _whopRenewOrCreate (dédup email incluse → aucun spam). Auto-guérit ; survit aux blackouts
+// (updateUser bascule sur le miroir + file d'attente, rejoué quand la primaire revient).
+let _whopReconLast = { ts: 0, checked: 0, fixed: 0, created: 0, error: null };
+async function _whopReconcile() {
+  if (!whop.configured()) return { ok: false, reason: 'whop non configuré' };
+  let members;
+  try { members = await whop.listValidMemberships(); }
+  catch (e) { _whopReconLast = { ts: Date.now(), checked: 0, fixed: 0, created: 0, error: e.message }; return { ok: false, reason: e.message }; }
+  let users = []; try { users = await auth.getAllUsers(); } catch {}
+  const byEmail = new Map((users || []).map(u => [(u.email || '').toLowerCase(), u]));
+  let fixed = 0, created = 0;
+  for (const mem of members) {
+    if (!mem || !mem.email || !mem.valid) continue;
+    const u = byEmail.get(String(mem.email).toLowerCase());
+    const whopExp = mem.expiresAt ? new Date(mem.expiresAt).getTime() : Number.MAX_SAFE_INTEGER;   // pas d'échéance = illimité
+    try {
+      if (!u) { await _whopRenewOrCreate(mem); created++; }                                          // compte manquant (création ratée) → créé
+      else if (u.role !== 'admin') {
+        const dtpExp = u.expires_at ? new Date(u.expires_at).getTime() : 0;
+        if (!u.active || dtpExp < whopExp - 60000) { await _whopRenewOrCreate(mem); fixed++; }        // en retard sur Whop → EXTEND/réactive (marge 1 min)
+      }
+    } catch (e) { console.error('[Whop reconcile]', mem.email, ':', e.message); }
+  }
+  _whopReconLast = { ts: Date.now(), checked: members.length, fixed, created, error: null };
+  console.log(`[Whop reconcile] ${members.length} membre(s) valide(s) · ${fixed} prolongé(s) · ${created} créé(s)`);
+  return { ok: true, checked: members.length, fixed, created };
+}
+// Planif : ~60 s après le boot (rattrape les events manqués pendant un downtime) puis toutes les 6 h.
+setTimeout(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] boot:', e.message)); }, 60 * 1000);
+setInterval(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] cycle:', e.message)); }, 6 * 60 * 60 * 1000);
+// Déclencheur manuel (admin) + état de la dernière réconciliation
+app.get('/api/admin/whop-reconcile', requireAdmin, async (_req, res) => {
+  try { const r = await _whopReconcile(); res.json(Object.assign({ last: _whopReconLast }, r)); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // Mise à jour du profil (nom) par l'utilisateur — persiste en BDD + session
 app.put('/api/auth/me/profile', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
