@@ -7967,50 +7967,65 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return added;
   }
 
-  // Dézippe un export Notion (.zip) côté client, 0 dépendance : parse le central directory ZIP et
-  // inflate les entrées DEFLATE via DecompressionStream natif (Electron/Chrome). Renvoie le texte du
-  // meilleur CSV (priorité au « _all.csv » de Notion qui contient TOUTES les lignes, sinon le plus gros).
-  async function _jrUnzipBestCsv(buf) {
-    const dv = new DataView(buf), u8 = new Uint8Array(buf), n = buf.byteLength;
-    // 1) End Of Central Directory (signature 0x06054b50), recherché depuis la fin.
+  // Parse le central directory d'un ZIP (Uint8Array) → { dv, entries }.  (0 dépendance.)
+  function _jrZipParse(u8) {
+    const dv = new DataView(u8.buffer, u8.byteOffset, u8.byteLength), n = u8.byteLength;
     let eocd = -1;
     for (let i = n - 22; i >= 0 && i >= n - 22 - 65536; i--) { if (dv.getUint32(i, true) === 0x06054b50) { eocd = i; break; } }
     if (eocd < 0) throw new Error('ZIP invalide (EOCD introuvable)');
     const cdCount = dv.getUint16(eocd + 10, true);
-    let off = dv.getUint32(eocd + 16, true);   // début du central directory
+    let off = dv.getUint32(eocd + 16, true);
     const entries = [];
     for (let k = 0; k < cdCount && off + 46 <= n; k++) {
       if (dv.getUint32(off, true) !== 0x02014b50) break;
-      const method  = dv.getUint16(off + 10, true);
-      const cSize   = dv.getUint32(off + 20, true);
-      const uSize   = dv.getUint32(off + 24, true);
-      const nameLen = dv.getUint16(off + 28, true);
-      const extLen  = dv.getUint16(off + 30, true);
-      const cmtLen  = dv.getUint16(off + 32, true);
-      const lhOff   = dv.getUint32(off + 42, true);
-      const name    = new TextDecoder('utf-8').decode(u8.subarray(off + 46, off + 46 + nameLen));
+      const method = dv.getUint16(off + 10, true), cSize = dv.getUint32(off + 20, true), uSize = dv.getUint32(off + 24, true);
+      const nameLen = dv.getUint16(off + 28, true), extLen = dv.getUint16(off + 30, true), cmtLen = dv.getUint16(off + 32, true), lhOff = dv.getUint32(off + 42, true);
+      const name = new TextDecoder('utf-8').decode(u8.subarray(off + 46, off + 46 + nameLen));
       entries.push({ name, method, cSize, uSize, lhOff });
       off += 46 + nameLen + extLen + cmtLen;
     }
-    console.log('[Journal import] contenu du .zip :', entries.map(e => e.name + ' (' + e.uSize + 'o)'));
-    const csvs = entries.filter(e => /\.csv$/i.test(e.name));
-    if (!csvs.length) throw new Error('aucun .csv dans le .zip — exporte ton journal Notion en « Markdown & CSV ». Fichiers trouvés : ' + entries.map(e => e.name).join(', ').slice(0, 180));
-    // Notion : « <Base> <id>_all.csv » contient toutes les lignes (sous-pages incluses) → priorité.
-    csvs.sort((a, b) => (/_all\.csv$/i.test(b.name) - /_all\.csv$/i.test(a.name)) || (b.uSize - a.uSize));
-    const e = csvs[0];
-    console.log('[Journal import] CSV retenu :', e.name, '(' + e.uSize + 'o, méthode ' + e.method + ')');
-    // Local file header : recalculer le décalage des données (nameLen/extraLen du LOCAL header).
+    return { dv, entries };
+  }
+  // Extrait UNE entrée (STORED ou DEFLATE brut) → Uint8Array à buffer PROPRE (réutilisable en récursion).
+  async function _jrZipExtract(u8, dv, e) {
     if (dv.getUint32(e.lhOff, true) !== 0x04034b50) throw new Error('en-tête local ZIP invalide');
     const lNameLen = dv.getUint16(e.lhOff + 26, true), lExtLen = dv.getUint16(e.lhOff + 28, true);
     const dataStart = e.lhOff + 30 + lNameLen + lExtLen;
     const comp = u8.subarray(dataStart, dataStart + e.cSize);
-    let out;
-    if (e.method === 0) { out = comp; }                                   // STORED (non compressé)
-    else if (e.method === 8) {                                            // DEFLATE
+    if (e.method === 0) return comp.slice();                              // STORED (copie → buffer isolé)
+    if (e.method === 8) {                                                 // DEFLATE
       if (typeof DecompressionStream === 'undefined') throw new Error('décompression non supportée par ce navigateur');
       const stream = new Blob([comp]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
-      out = new Uint8Array(await new Response(stream).arrayBuffer());
-    } else throw new Error('compression ZIP non supportée (méthode ' + e.method + ')');
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    throw new Error('compression ZIP non supportée (méthode ' + e.method + ')');
+  }
+  // Collecte TOUS les CSV d'un ZIP en DESCENDANT dans les sous-zips « ExportBlock-…-Part-N.zip » : un export
+  // Notion volumineux est MULTI-PARTIES → le .zip racine ne contient QUE des sous-zips, les CSV sont dedans.
+  async function _jrZipCollectCsvs(u8, depth, out) {
+    let parsed; try { parsed = _jrZipParse(u8); } catch (err) { console.warn('[Journal import] zip illisible (prof. ' + depth + ') :', err && err.message); return out; }
+    const { dv, entries } = parsed;
+    if (depth === 0) console.log('[Journal import] contenu du .zip :', entries.map(e => e.name + ' (' + e.uSize + 'o)'));
+    for (const e of entries) if (/\.csv$/i.test(e.name)) out.push({ u8, dv, e });
+    if (depth < 4) {
+      const zips = entries.filter(e => /\.zip$/i.test(e.name))
+        .sort((a, b) => (((a.name.match(/part-?(\d+)/i) || [])[1]) | 0) - (((b.name.match(/part-?(\d+)/i) || [])[1]) | 0));
+      for (const z of zips) {
+        try { const inner = await _jrZipExtract(u8, dv, z); await _jrZipCollectCsvs(inner, depth + 1, out); }
+        catch (err) { console.warn('[Journal import] sous-zip', z.name, 'ignoré :', err && err.message); }
+      }
+    }
+    return out;
+  }
+  // Dézippe un export Notion (.zip), 0 dépendance, sous-zips compris. Renvoie le texte du MEILLEUR CSV (priorité
+  // au « _all.csv » de Notion qui contient TOUTES les lignes, sinon le plus gros — tous niveaux confondus).
+  async function _jrUnzipBestCsv(buf) {
+    const cands = await _jrZipCollectCsvs(new Uint8Array(buf), 0, []);
+    if (!cands.length) throw new Error('aucun .csv trouvé (ni dans les sous-zips Notion) — exporte ton journal en « Markdown & CSV ».');
+    cands.sort((a, b) => (/_all\.csv$/i.test(b.e.name) - /_all\.csv$/i.test(a.e.name)) || (b.e.uSize - a.e.uSize));
+    const best = cands[0];
+    console.log('[Journal import] CSV retenu :', best.e.name, '(' + best.e.uSize + 'o, méthode ' + best.e.method + ') · ' + cands.length + ' CSV trouvé(s)');
+    const out = await _jrZipExtract(best.u8, best.dv, best.e);
     return new TextDecoder('utf-8').decode(out).replace(/^﻿/, '');   // strip BOM
   }
 
