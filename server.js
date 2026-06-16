@@ -2260,11 +2260,12 @@ async function _maybeBackfillRecapCs() {
   finally { _wrCsBackfillBusy = false; }
 }
 // Filet proactif au boot : recharge les rapports persistés puis backfill (≈50 s après le démarrage).
-setTimeout(() => { _loadPersistedWeekly(true).then(() => _maybeBackfillRecapCs()).catch(() => {}); }, 50000);
+setTimeout(() => { _loadPersistedWeekly(true).then(() => { _gewRedateCurrent(); return _maybeBackfillRecapCs(); }).catch(() => {}); }, 50000);
 app.get('/api/weekly-reports', async (_req, res) => {
   // Recharge d'abord les rapports persistés (Supabase/fichier) → évite toute régénération inutile
   // et fait apparaître un rapport fraîchement injecté dans le store (throttle interne 30s).
   await _loadPersistedWeekly();
+  _gewRedateCurrent();   // GEW daté au week-end de publication (corrige l'existant sans le régénérer)
 
   const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
   const items = allNews.filter(i =>
@@ -5642,12 +5643,16 @@ ${list}`;
   // Description texte (recherche/affichage simple)
   const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : ''];
   days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / prev ' + e.previous : '') : ''}`)); });
-  const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  // PUBLICATION = le WEEK-END qui PRÉCÈDE la semaine couverte (dimanche ~18h Paris) → on DATE le GEW à ce
+  // moment, PAS à l'instant de génération (sinon il « saute » à la date du jour à chaque régén et se classe mal).
+  const pub = new Date(monday); pub.setUTCDate(monday.getUTCDate() - 1); pub.setUTCHours(16, 0, 0, 0);   // dimanche avant le lundi couvert (~18h Paris)
+  const pubTs = pub.getTime();
+  const timeStr = new Date(pubTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const item = {
-    id: weekPrefix + '-' + now,
+    id: weekPrefix + '-' + pubTs,
     headline: `${title} — ${weekRange}`,
     description: descParts.filter(Boolean).join('\n'),
-    category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
+    category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: pubTs,
     priority: 'normal', tags: ['Week Ahead', 'Global Economy', 'Macro'],
     _briefing: true, _reportType: 'Global Economic Weekly', _weekly: weekly,
   };
@@ -5657,6 +5662,23 @@ ${list}`;
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
   console.log(`[GEW] ${weekly.highlights ? 'IA' : 'repli'} ${weekKey} (${weekRange}) — ${days.length} jours, ${nEv} events, ${pairs.length} paires`);
   return item;
+}
+// Re-date le GEW COURANT au WEEK-END de publication (dimanche précédant la semaine couverte, ~18h Paris) →
+// corrige un GEW daté à l'instant de génération SANS le régénérer (préserve le riche contenu IA). Idempotent.
+function _gewRedateCurrent() {
+  const g = allNews.find(i => i._reportType === 'Global Economic Weekly' && i._weekly);
+  if (!g) return;
+  const _n = new Date(), dw = _n.getUTCDay(), mo = new Date(_n);
+  if (dw === 0) mo.setUTCDate(_n.getUTCDate() + 1); else if (dw >= 5) mo.setUTCDate(_n.getUTCDate() + (8 - dw)); else mo.setUTCDate(_n.getUTCDate() - (dw - 1));
+  mo.setUTCHours(0, 0, 0, 0);
+  const pub = new Date(mo); pub.setUTCDate(mo.getUTCDate() - 1); pub.setUTCHours(16, 0, 0, 0);   // dimanche avant le lundi couvert
+  const pubTs = pub.getTime();
+  if (Math.abs((g.timestamp || 0) - pubTs) <= 12 * 3600 * 1000) return;   // déjà daté au week-end → rien à faire
+  g.timestamp = pubTs;
+  g.time = new Date(pubTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  const weekKey = (g.id || '').replace(/^dtp-econ-weekly-/, '').replace(/-\d+$/, '');
+  if (weekKey) auth.weeklyReportSave(weekKey, g).catch(() => {});
+  console.log('[GEW] re-daté au week-end de publication →', new Date(pubTs).toISOString().slice(0, 10));
 }
 // Vendredi le plus récent (≤ maintenant) — utilisé pour la mention "Week Ending: dd.mm.yyyy"
 function _mostRecentFriday() {
