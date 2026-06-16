@@ -1874,16 +1874,19 @@ function buildSessionMap() {
   // headless : rend + remplit 100 % sur panneau large, sans blocage. Panneau étroit → remplit moins (géométrie).
   function _coverFill() {
     try {
-      const W = (root.dom && root.dom.offsetWidth) || 0, H = (root.dom && root.dom.offsetHeight) || 0;
+      const W = (root.dom && root.dom.offsetWidth) || (chart.width && chart.width()) || 0;
+      const H = (root.dom && root.dom.offsetHeight) || (chart.height && chart.height()) || 0;
       if (!W || !H) return;
       const cA = W / H, _AR = 1.55;                        // ratio largeur:hauteur du planisphère rendu
-      let z = Math.max(cA / _AR, _AR / cA) * 1.04;         // zoomer pour couvrir la dimension manquante (+4 %)
-      z = Math.max(1, Math.min(z, 1.3));                   // plafond : conserve NY→Sydney à l'écran
-      chart.zoomToGeoPoint({ longitude: 12, latitude: 12 }, z, false, 0);
+      let z = Math.max(cA / _AR, _AR / cA) * 1.04;         // zoomer pour COUVRIR la dimension manquante (+4 %)
+      z = Math.max(1, Math.min(z, 2.4));                   // plafond relevé → remplit aussi les panneaux LARGES (fini les bandes sur les côtés)
+      const lon = z > 1.4 ? 32 : 12;                       // panneau large → recentre (lon 32) pour garder NY→Sydney à l'écran ; sinon Europe (lon 12)
+      chart.zoomToGeoPoint({ longitude: lon, latitude: 8 }, z, false, 0);
     } catch (e) {}
   }
-  setTimeout(_coverFill, 600);
-  setTimeout(_coverFill, 1600);
+  setTimeout(_coverFill, 500);
+  setTimeout(_coverFill, 1400);
+  setTimeout(_coverFill, 2800);
 
   return root;
 }
