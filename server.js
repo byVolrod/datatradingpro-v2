@@ -3373,7 +3373,7 @@ app.get('/api/session-wrap-content', async (req, res) => {
 
 // ── ING Think Bank Research ───────────────────────────────────────────────────
 // Filtres d'affichage des rapports de banque — appliqués au CHARGEMENT, à la DIFFUSION et à la PERSISTANCE.
-const _BR_REMOVED = new Set(['amundi', 'danske']);   // banques retirées (demande utilisateur)
+const _BR_REMOVED = new Set(['amundi', 'danske', 'lloyds']);   // banques retirées (demande utilisateur ; Lloyds = microsite Turtl, pas de PDF/contenu exploitable)
 // Standard Chartered : on ne publie QUE les « Weekly Market View » (URL wm-weekly-market-view-…),
 // jamais les liens parasites de la même page (Modern slavery statement, Code of Conduct, Download the report…).
 const _brAllowed = i => !!i && !_BR_REMOVED.has(i._source) &&
@@ -7464,7 +7464,10 @@ async function _wrapLevels() {
   return { eq, fx, fixed, cmd };
 }
 
-const EU_WRAP_SECTIONS = ['LEAD','EQUITIES','FX','FIXED INCOME','COMMODITIES','NOTABLE EUROPEAN HEADLINES','NOTABLE EUROPEAN DATA RECAP','CENTRAL BANKS','GEOPOLITICS','CRYPTO','APAC TRADE','NOTABLE ASIA-PAC HEADLINES','NOTABLE APAC DATA RECAP'];
+// Structure CALQUÉE sur PMT (image de référence) : LEAD + rubriques marché + EUROPEAN DATA + NOTABLE
+// HEADLINES + TRADE/TARIFFS + CENTRAL BANKS + GEOPOLITICS + bloc NORD-AMÉRICAIN (NEWS + DATA).
+const EU_WRAP_SECTIONS = ['LEAD','EQUITIES','FX','FIXED','COMMODITIES','EUROPEAN DATA','NOTABLE HEADLINES','TRADE/TARIFFS','CENTRAL BANKS','GEOPOLITICS','NOTABLE NORTH AMERICAN NEWS','NORTH AMERICAN DATA'];
+const WRAP_VER = 'pmt-na-1';   // bump → régénère le wrap du jour (nouvelle structure PMT) au prochain run/boot
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -7530,17 +7533,18 @@ function _euWrapBuild(buckets, fallbackLead) {
 function _euWrapFallback(levels, s) {
   const b = {};
   const strip = arr => (arr || []).map(l => l.replace(/^- /, ''));
-  if (levels.eq.length)    b['EQUITIES']     = strip(levels.eq);
-  if (levels.fx.length)    b['FX']           = strip(levels.fx);
-  if (levels.fixed.length) b['FIXED INCOME'] = strip(levels.fixed);
-  if (levels.cmd.length)   b['COMMODITIES']  = strip(levels.cmd);
+  if (levels.eq.length)    b['EQUITIES']    = strip(levels.eq);
+  if (levels.fx.length)    b['FX']          = strip(levels.fx);
+  if (levels.fixed.length) b['FIXED']       = strip(levels.fixed);
+  if (levels.cmd.length)   b['COMMODITIES'] = strip(levels.cmd);
   const top = (arr, n) => (arr || []).slice(0, n).map(i => i.headline).filter(Boolean);
+  if (s.euData.length || s.data.length)     b['EUROPEAN DATA']               = top(s.euData.length ? s.euData : s.data, 8);
+  if (s.all.length)                         b['NOTABLE HEADLINES']           = top(s.all, 8);
+  if (s.trade.length)                       b['TRADE/TARIFFS']               = top(s.trade, 4);
   if (s.cb.length)                          b['CENTRAL BANKS']               = top(s.cb, 6);
-  if (s.euData.length || s.data.length)     b['NOTABLE EUROPEAN DATA RECAP']  = top(s.euData.length ? s.euData : s.data, 6);
-  if (s.geo.length)                         b['GEOPOLITICS']                  = top(s.geo, 6);
-  if (s.crypto.length)                      b['CRYPTO']                       = top(s.crypto, 2);
-  if (s.apacData.length)                    b['NOTABLE APAC DATA RECAP']      = top(s.apacData, 6);
-  if (s.all.length)                         b['NOTABLE EUROPEAN HEADLINES']   = top(s.all, 6);
+  if (s.geo.length)                         b['GEOPOLITICS']                 = top(s.geo, 8);
+  if (s.naNews.length)                      b['NOTABLE NORTH AMERICAN NEWS'] = top(s.naNews, 8);
+  if (s.naData.length)                      b['NORTH AMERICAN DATA']         = top(s.naData, 8);
   return b;
 }
 
@@ -7548,10 +7552,10 @@ async function generateEuropeanMarketWrap(force = false) {
   const idPrefix = 'dtp-eu-wrap-';
   const dateKey  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).toISOString().slice(0, 10);
   const prefix   = idPrefix + dateKey;
-  if (!force && allNews.some(i => (i.id || '').startsWith(prefix))) {
-    return allNews.find(i => (i.id || '').startsWith(prefix)) || null;
-  }
-  if (force) allNews = allNews.filter(i => !(i.id || '').startsWith(prefix));
+  const _cached = allNews.find(i => (i.id || '').startsWith(prefix) && i._wrapVer === WRAP_VER);
+  if (!force && _cached) return _cached;
+  // version périmée (nouvelle structure PMT) OU force → on retire l'ancien item du jour avant de régénérer
+  allNews = allNews.filter(i => !(i.id || '').startsWith(prefix));
 
   // Date façon PMT : « 15th June 2026 » (heure de Paris).
   const _ord = n => { const x = ['th','st','nd','rd'], v = n % 100; return n + (x[(v - 20) % 10] || x[v] || x[0]); };
@@ -7566,14 +7570,21 @@ async function generateEuropeanMarketWrap(force = false) {
   const CB_CATS   = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','PBOC']);
   const EU_DATA   = new Set(['EU Data','UK Data','Swiss Data','Economic Commentary']);
   const APAC_DATA = new Set(['Japanese Data','Chinese Data','Australian Data','New Zealand Data']);
-  const DATA_CATS = new Set([...EU_DATA, ...APAC_DATA, 'US Data', 'Canadian Data']);
+  const NA_DATA   = new Set(['US Data','Canadian Data']);
+  const DATA_CATS = new Set([...EU_DATA, ...APAC_DATA, ...NA_DATA]);
   const _isCrypto = i => i.category === 'Crypto' || /\bbitcoin\b|\bbtc\b|\bethereum\b|\beth\b|crypto|\bripple\b|\bsolana\b|stablecoin/i.test(i.headline || '');
+  // NORTH AMERICAN NEWS (façon PMT « NOTABLE NORTH AMERICAN NEWS ») : actu US/Canada hors banques centrales,
+  // hors data, hors géopolitique/commerce — détection par mots-clés (US, Fed≠CB-event, Trésor, Trump, Congrès…).
+  const _isNANews = i => !CB_CATS.has(i.category) && !DATA_CATS.has(i.category) && i.category !== 'Geopolitical' && i.category !== 'Trade'
+    && /\b(u\.?s\.?|united states|treasury|trump|washington|white house|congress|senate|schumer|wall st(?:reet)?|canada|canadian|ottawa)\b/i.test(i.headline || '');
   const s = {
     cb:       recent.filter(i => CB_CATS.has(i.category)),
     data:     recent.filter(i => DATA_CATS.has(i.category)),
     hdata:    recent.filter(i => DATA_CATS.has(i.category) && (i.priority === 'high' || i.priority === 'urgent')),
     euData:   recent.filter(i => EU_DATA.has(i.category)),
     apacData: recent.filter(i => APAC_DATA.has(i.category)),
+    naData:   recent.filter(i => NA_DATA.has(i.category)),
+    naNews:   recent.filter(_isNANews),
     geo:      recent.filter(i => i.category === 'Geopolitical'),
     trade:    recent.filter(i => i.category === 'Trade'),
     crypto:   recent.filter(_isCrypto),
@@ -7596,10 +7607,10 @@ COMMODITIES:\n${lv(levels.cmd)}
 TODAY'S NEWSFLOW — use ONLY this; ground EVERY statement in it. Invent NOTHING (no fake data, levels, %, quotes, names or events):
 CENTRAL BANKS:\n${summarise(s.cb, 8)}
 EUROPEAN DATA (actual vs exp./prev.):\n${summarise(s.euData.length ? s.euData : s.data, 8)}
-APAC DATA (actual vs exp./prev.):\n${summarise(s.apacData, 8)}
+NORTH AMERICAN DATA (actual vs exp./prev.):\n${summarise(s.naData, 8)}
 GEOPOLITICAL:\n${summarise(s.geo, 8)}
 TRADE / TARIFFS:\n${summarise(s.trade, 4)}
-CRYPTO:\n${summarise(s.crypto, 3)}
+NORTH AMERICAN HEADLINES (US/Canada politics, fiscal, corporate):\n${summarise(s.naNews, 8)}
 OTHER HEADLINES:\n${summarise(s.all, 14)}
 
 Write the wrap with EXACTLY these section headers, each ALONE on its own line in ALL CAPS, with NO colon, in THIS order. Skip a section ONLY if the newsflow/levels above have genuinely nothing for it.
@@ -7607,26 +7618,25 @@ Write the wrap with EXACTLY these section headers, each ALONE on its own line in
 LEAD
 EQUITIES
 FX
-FIXED INCOME
+FIXED
 COMMODITIES
-NOTABLE EUROPEAN HEADLINES
-NOTABLE EUROPEAN DATA RECAP
+EUROPEAN DATA
+NOTABLE HEADLINES
+TRADE/TARIFFS
 CENTRAL BANKS
 GEOPOLITICS
-CRYPTO
-APAC TRADE
-NOTABLE ASIA-PAC HEADLINES
-NOTABLE APAC DATA RECAP
+NOTABLE NORTH AMERICAN NEWS
+NORTH AMERICAN DATA
 
 Every content line starts with "- ". Format per section:
 - LEAD: 4 to 6 SYNTHESIS bullets giving the day's big picture — key index moves, the marquee central-bank decision(s)/speakers, FX direction (DXY then majors), fixed-income tone, commodities, and a final bullet "Looking ahead, highlights include …" listing the upcoming events/speakers found in the data above. NO sub-header — just the bullets.
-- EQUITIES / FX / FIXED INCOME / COMMODITIES: 2 to 5 ANALYTICAL lines (full sentences, desk-note depth). Lead each with the real level (name the index/pair/bond/commodity, its level and % or bp move), then the driver. FX: cover DXY then the major movers (EUR, JPY, GBP, AUD…). FIXED INCOME: cover the curve + any bond-auction results present. COMMODITIES: cover crude (Brent/WTI), gold, then any metals/energy news.
-- NOTABLE EUROPEAN HEADLINES / NOTABLE ASIA-PAC HEADLINES: terse one-line factual headlines from the newsflow, region-appropriate.
-- NOTABLE EUROPEAN DATA RECAP / NOTABLE APAC DATA RECAP: data prints written "Country Indicator actual vs. Exp. … (Prev. …)" exactly as the data provides.
+- EQUITIES / FX / FIXED / COMMODITIES: 2 to 5 ANALYTICAL lines (full sentences, desk-note depth). Lead each with the real level (name the index/pair/bond/commodity, its level and % or bp move), then the driver. FX: cover DXY then the major movers (EUR, JPY, GBP, AUD…). FIXED: cover the curve + any bond-auction results present. COMMODITIES: cover crude (Brent/WTI), gold, then any metals/energy news.
+- EUROPEAN DATA / NORTH AMERICAN DATA: data prints written "Country Indicator actual vs. Exp. … (Prev. …)" exactly as the data provides.
+- NOTABLE HEADLINES: terse one-line factual European/global headlines from the newsflow.
+- TRADE/TARIFFS: terse factual bullets on trade deals and tariffs from the newsflow.
 - CENTRAL BANKS: factual bullets per bank (decision, vote split, guidance) from the data.
-- GEOPOLITICS: factual bullets grouped by theme (Middle East, then Russia-Ukraine) within the section.
-- CRYPTO: bitcoin/crypto moves and ranges if present.
-- APAC TRADE: how Asian indices/markets traded overnight and the drivers, from the APAC data and overnight context.
+- GEOPOLITICS: factual bullets grouped by theme (Russia-Ukraine, then Middle East) within the section.
+- NOTABLE NORTH AMERICAN NEWS: terse one-line US/Canada political, fiscal and corporate headlines from the newsflow.
 
 ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers, names, quotes, dates. Reformulate for clarity only. No preamble, no markdown, no bold, no closing remarks. Output ONLY the section headers and their "- " lines.`;
 
@@ -7669,6 +7679,7 @@ ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers,
     tags:        ['Europe', 'Market Wrap', 'Equities', 'FX'],
     _marketWrap: true,
     _reportType: 'European Market Wrap',
+    _wrapVer:    WRAP_VER,
   };
   allNews = [item, ...allNews].slice(0, 2000);
   saveHistory();
