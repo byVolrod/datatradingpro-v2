@@ -45,9 +45,43 @@ function _markDown(node, err) {
   node.downUntil = Date.now() + 10 * 60 * 1000;
 }
 function _applyOps(client, table, ops) { let qb = client.from(table); for (const [m, a] of ops) qb = qb[m](...a); return qb; }
+
+// ════════════ GARDE-FOU EGRESS (anti-fuite DÉFINITIF — cf. incident des 18 To via le poll chat base64) ════════════
+// On mesure approximativement les octets LUS depuis Supabase (= egress facturé/plafonné) sur des fenêtres
+// glissantes. En usage normal tout est servi depuis la RAM (caches 5 min / 6 h) → egress quasi nul → jamais
+// déclenché. Si un bug futur relit de gros volumes en boucle, le compteur dépasse un plafond TRÈS au-dessus de
+// l'usage réel : on COUPE alors les LECTURES Supabase (les écritures passent — c'est de l'ingress) pendant un
+// cooldown, et les appelants basculent sur leurs replis habituels (RAM périmée / miroir local / fichier),
+// EXACTEMENT comme lors d'une panne. Garantie : aucune fuite ne peut plus jamais vider le quota gratuit
+// (5 Go/mois) → plus de blackout possible, quoi qu'il arrive dans le code.
+const _EG_CAP_1H  = 120 * 1024 * 1024;   // 120 Mo / heure  (un boot ≈ quelques Mo → impossible à atteindre normalement)
+const _EG_CAP_24H = 150 * 1024 * 1024;   // 150 Mo / 24 h    (< 5 Go/mois, ~3× la marge de l'usage réel mesuré)
+let _egBuckets = [];                      // [{ m: minuteEpoch, b: bytes }] sur 24 h glissantes
+let _egTripUntil = 0, _egTripInfo = '';
+function _resBytes(res) { try { return res && res.data != null ? JSON.stringify(res.data).length : 0; } catch { return 0; } }
+function _egNote(bytes) {
+  bytes = Number(bytes) || 0; if (bytes <= 0) return;
+  const m = Math.floor(Date.now() / 60000), last = _egBuckets[_egBuckets.length - 1];
+  if (last && last.m === m) last.b += bytes; else _egBuckets.push({ m, b: bytes });
+  if (_egBuckets.length > 2000) { const cut = m - 1440; _egBuckets = _egBuckets.filter(x => x.m >= cut); }
+}
+function _egSum(min) { const from = Math.floor(Date.now() / 60000) - min; let s = 0; for (const x of _egBuckets) if (x.m >= from) s += x.b; return s; }
+function _egTripped() {
+  const now = Date.now();
+  if (now < _egTripUntil) return true;
+  const h1 = _egSum(60);
+  if (h1 > _EG_CAP_1H)  { _egTripUntil = now + 15 * 60 * 1000; _egTripInfo = '1h≈' + Math.round(h1 / 1048576) + 'Mo'; console.error('[EGRESS] 🛑 garde-fou 1h (' + _egTripInfo + ') → lectures Supabase coupées 15 min (repli RAM/miroir).'); return true; }
+  const d1 = _egSum(1440);
+  if (d1 > _EG_CAP_24H) { _egTripUntil = now + 60 * 60 * 1000; _egTripInfo = '24h≈' + Math.round(d1 / 1048576) + 'Mo'; console.error('[EGRESS] 🛑 garde-fou 24h (' + _egTripInfo + ') → lectures Supabase coupées 60 min (repli RAM/miroir).'); return true; }
+  return false;
+}
+function getEgressStats() { return { bytes1h: _egSum(60), bytes24h: _egSum(1440), cap1h: _EG_CAP_1H, cap24h: _EG_CAP_24H, tripped: Date.now() < _egTripUntil, trippedUntil: _egTripUntil || 0, info: _egTripInfo }; }
 let _rr = 0;
 async function _runMulti(table, ops, kind) {
   const now = Date.now();
+  // GARDE-FOU EGRESS : en LECTURE, si le plafond glissant est dépassé, on renvoie « toutes bases muettes »
+  // (code NODESDOWN, déjà géré partout) → les appelants basculent sur RAM/miroir/fichier. Écritures épargnées.
+  if (kind !== 'write' && _egTripped()) return { data: null, error: { message: 'egress guard (anti-fuite) actif', code: 'NODESDOWN' } };
   const healthy = _dbNodes.filter(n => n.downUntil <= now);
   if (!healthy.length) return { data: null, error: { message: 'all DB nodes down', code: 'NODESDOWN' } };
   if (!_MULTI_TABLES.has(table)) {
@@ -71,7 +105,7 @@ async function _runMulti(table, ops, kind) {
         if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); errS = res.error; continue; } return res; }
         const empty = !res || res.data == null || (Array.isArray(res.data) && res.data.length === 0);
         if (empty) { emptyS = res; continue; }
-        return res;
+        _egNote(_resBytes(res)); return res;
       } catch (e) { _markDown(node, e); errS = e; continue; }
     }
     return emptyS || { data: null, error: errS || { message: 'read failed on all nodes' } };
@@ -99,7 +133,7 @@ async function _runMulti(table, ops, kind) {
       if (res && res.error) { if (_supaDown(res.error)) { _markDown(node, res.error); lastErr = res.error; continue; } return res; }   // erreur autoritaire → on renvoie ; down → base suivante
       const empty = !res || res.data == null || (Array.isArray(res.data) && res.data.length === 0);
       if (empty) { lastEmpty = res; continue; }   // base potentiellement périmée → on tente les autres pour un résultat non vide
-      return res;                                  // résultat NON vide → on renvoie
+      _egNote(_resBytes(res)); return res;         // résultat NON vide → on renvoie (+ mesure egress)
     } catch (e) { _markDown(node, e); lastErr = e; continue; }
   }
   return lastEmpty || { data: null, error: lastErr || { message: 'read failed on all nodes' } };   // toutes vides → vide ; toutes down → erreur
@@ -544,7 +578,16 @@ async function chatList(userId) {
   if (_chatDb) {
     const { data, error } = await supabase.from(CHAT_TABLE).select('*').eq('user_id', uid).order('created_at', { ascending: true });
     if (!error) rows = data || [];
-    else if (_chatTableMissing(error)) _chatDb = false; else throw new Error(error.message);
+    else if (_chatTableMissing(error)) _chatDb = false;
+    else {
+      // Erreur transitoire (réseau / blackout egress / garde-fou anti-fuite) : NE JAMAIS jeter — sinon 500 sur
+      // le poll 4 s du drawer. Repli RAM périmé puis fichier, SANS re-cacher (la coupure est temporaire).
+      const stale = _chatListMem.get(uid);
+      if (stale) { stale.rows.forEach(m => { const r = _reactStore[String(m.id)]; if (r) m.reactions = r; }); return stale.rows; }
+      rows = _chatFile.filter(m => m.user_id === uid).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+      rows.forEach(m => { const r = _reactStore[String(m.id)]; if (r) m.reactions = r; });
+      return rows;
+    }
   }
   if (rows == null) rows = _chatFile.filter(m => m.user_id === uid).sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
   rows.forEach(m => { const r = _reactStore[String(m.id)]; if (r) m.reactions = r; });   // overlay réactions
@@ -726,6 +769,7 @@ module.exports = {
   aiCacheGet,
   aiCacheSet,
   aiCachePrune,
+  getEgressStats,
 };
 
 // ═══════════════════ PERSISTANCE RAPPORTS HEBDO (Weekly Recap) ═══════════════════
@@ -878,7 +922,7 @@ function _aiMemSet(k, v) {
 // Circuit-breaker : si Supabase renvoie une erreur (quota / restriction « fair use » / réseau),
 // on cesse de le solliciter pendant un cooldown → l'app sert RAM+fichier et NE CASSE JAMAIS.
 let _aiCacheCooldownUntil = 0;
-function _aiSupabaseDown() { return Date.now() < _aiCacheCooldownUntil; }
+function _aiSupabaseDown() { return Date.now() < _aiCacheCooldownUntil || _egTripped(); }
 function _aiTripBreaker(err) {
   if (!_aiSupabaseDown()) console.warn('[AICache] Supabase indisponible/quota → repli mémoire+fichier 10 min :', err && err.message);
   _aiCacheCooldownUntil = Date.now() + 10 * 60 * 1000;
