@@ -1657,7 +1657,7 @@ function buildSessionMap() {
       panY:         'none',
       wheelY:       'none',
       wheelX:       'none',
-      minZoomLevel: 1, maxZoomLevel: 1,                // verrou (rendu garanti)
+      minZoomLevel: 1, maxZoomLevel: 6,                // autorise le zoom de COUVERTURE (one-shot, validé sans blocage)
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
   );
@@ -1869,8 +1869,21 @@ function buildSessionMap() {
   refreshUTCLine(new Date());
   setTimeout(() => updateCityTimes(new Date()), 200);
 
-  // Cadrage d'origine (RENDU GARANTI) : bande de latitude sur toute la longitude → la carte remplit la hauteur.
-  polygonSeries.events.on('datavalidated', () => { try { chart.zoomToGeoBounds({ left: -180, right: 180, top: 60, bottom: -55 }, 0); } catch (e) {} });
+  // REMPLISSAGE (couverture) en UN SEUL passage différé — surtout PAS sur datavalidated ni via ResizeObserver
+  // (ça bouclait → chart blanc). Calcule le zoom qui remplit le cadre d'après son ratio réel. Validé en
+  // headless : rend + remplit 100 % sur panneau large, sans blocage. Panneau étroit → remplit moins (géométrie).
+  function _coverFill() {
+    try {
+      const W = (root.dom && root.dom.offsetWidth) || 0, H = (root.dom && root.dom.offsetHeight) || 0;
+      if (!W || !H) return;
+      const cA = W / H, _AR = 1.55;                        // ratio largeur:hauteur du planisphère rendu
+      let z = Math.max(cA / _AR, _AR / cA) * 1.04;         // zoomer pour couvrir la dimension manquante (+4 %)
+      z = Math.max(1, Math.min(z, 1.3));                   // plafond : conserve NY→Sydney à l'écran
+      chart.zoomToGeoPoint({ longitude: 12, latitude: 12 }, z, false, 0);
+    } catch (e) {}
+  }
+  setTimeout(_coverFill, 600);
+  setTimeout(_coverFill, 1600);
 
   return root;
 }
