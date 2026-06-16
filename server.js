@@ -2450,7 +2450,11 @@ async function _scrapeILviaPuppeteer(url) {
 //  Anti-OOM : 1 SEUL rendu à la fois (verrou) + cache disque (DATA_DIR) → Chrome non relancé à chaque ouverture.
 // ════════════════════════════════════════════════════════════════════════════════════════════════
 // Hôtes AUTORISÉS au rendu (anti-SSRF STRICT : Chrome ne doit JAMAIS rendre une URL arbitraire/interne).
-const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|goldmansachs\.com|gspublishing\.com)$/i;
+// goldmansachs.com RETIRÉ du rendu Puppeteer : les pages /insights sont GATÉES (corps vide au rendu navigateur,
+// body=0) → le rendu PDF échouait → bandeau « ouvrir l'original ». Le CONTENU est extractible via le lecteur
+// texte (jina : ~9 ko de texte propre). Donc les ARTICLES Goldman passent désormais par le lecteur texte ;
+// leurs .pdf (ex. gspublishing / /pdfs/) restent servis en PDF natif via PDF_PROXY_HOSTS.
+const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|gspublishing\.com)$/i;
 function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new URL(u).hostname) ? (printUrl || u) : ''; } catch { return ''; } }
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
