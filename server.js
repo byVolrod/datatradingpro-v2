@@ -3770,6 +3770,20 @@ function _proxyAxiosOpts() {
   return { proxy };
 }
 
+// Titre des cartes de recherche — Goldman /insights colle [Libellé de section][Titre][Date] : cheerio
+// .text() (et textContent) concatène les éléments enfants SANS espace → ex. « OutlooksUK GDP…EmploymentJan
+// 12, 2026 ». On retire le libellé de section en tête (Outlooks/Articles/Goldman Sachs Research…) et la
+// date scrappée en fin (mois anglais + jour + année, ou ISO), en préservant une année interne au titre
+// (« Macro Outlook 2026 »). NO-OP pour les autres sources (leurs titres sont déjà propres).
+function _brCleanTitle(title, source) {
+  let t = String(title || '').replace(/\s+/g, ' ').trim();
+  if (source === 'goldman') {
+    t = t.replace(/^\s*(?:Goldman Sachs Research|Outlooks|Briefings?|Podcasts?|Articles?)\s*[:–\-]?\s*/i, '');
+    t = t.replace(/\s*(?:\d{4}-\d{2}-\d{2}|(?:\d{1,2}\s+)?(?:Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\.?\s*\d{0,2},?\s*\d{4})\s*$/i, '');
+  }
+  return t.replace(/\s+/g, ' ').trim();
+}
+
 async function _fetchResearchSpaInto(merged, cutoff) {
   for (const cfg of RESEARCH_SPA_SITES) {
     // Seeds = rapports réels connus (garantis, 0 fetch) → remplissent l'onglet même si le scrape est bloqué.
@@ -3789,7 +3803,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
         if (cfg.source === 'stanchart' && !/weekly-market-view/i.test(p.url)) continue;   // SC : ignorer les liens parasites (le scrape Puppeteer ne filtre pas par hrefRe)
         const id = 'br-' + Buffer.from(p.url).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
         if (merged.has(id)) continue;
-        merged.set(id, { id, title: p.title, url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
+        merged.set(id, { id, title: _brCleanTitle(p.title, cfg.source), url: p.url, timestamp: Math.min(p.ts || Date.now(), Date.now()), categories: ['Macro'], description: '', institution: cfg.institution, _source: cfg.source });
       }
     } catch (e) { console.warn(`[ResearchSPA ${cfg.source}] échec:`, e.message); }
 
@@ -3807,7 +3821,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
           if (href.indexOf(cfg.host) < 0 || !cfg.hrefRe.test(href)) return;
           const key = href.split('#')[0];
           if (_seen.has(key)) return; _seen.add(key);
-          const title = ($(a).text() || '').replace(/\s+/g, ' ').trim();
+          const title = _brCleanTitle(($(a).text() || '').replace(/\s+/g, ' ').trim(), cfg.source);
           if (title.length < 14 || title.length > 200 || title.split(/\s+/).length < 3) return;
           const id = 'br-' + Buffer.from(key).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
           if (merged.has(id)) return;
@@ -3870,7 +3884,7 @@ async function _fetchResearchSpaInto(merged, cutoff) {
           const md = jr.data; const _seen = new Set(); let _added = 0;
           const reMd = /\[([^\]]{14,200})\]\((https?:[^)\s]+)\)/g; let mm;
           while ((mm = reMd.exec(md))) {
-            const title = mm[1].replace(/\s+/g, ' ').trim();
+            const title = _brCleanTitle(mm[1].replace(/\s+/g, ' ').trim(), cfg.source);
             const href  = mm[2];
             if (href.indexOf(cfg.host) < 0 || !cfg.hrefRe.test(href)) continue;
             const key = href.split('#')[0];
@@ -4162,6 +4176,9 @@ async function _loadPersistedHistories() {
 app.get('/api/bank-research', (_req, res) => {
   _brCache = _brCache.filter(_brAllowed);   // purge définitive : Amundi/Danske retirés + Standard Chartered limité aux « Weekly Market View »
   _brCache.forEach(_cleanItemMd);   // titres sans markdown brut, même pour un JS en cache
+  // Goldman : nettoie les titres déjà en cache (libellé de section + date collés par le scrape) →
+  // immédiat, sans attendre le prochain refresh. Idempotent (un titre propre reste inchangé).
+  _brCache.forEach(i => { if (i && i._source === 'goldman' && i.title) i.title = _brCleanTitle(i.title, 'goldman'); });
   res.json(_brCache);
   // Résilience : si le cache est VIDE (ex. cold-start avant le 1er scrape) → on déclenche tout de
   // suite une récupération (et on recharge aussi depuis le stockage durable). Sinon refresh normal.
