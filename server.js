@@ -7985,9 +7985,19 @@ function _rpTransform(code, j, now) {
     prob: Math.max(m0.hold, m0.hike, m0.cut), expBps: m0.impliedBps,
     scenario: { hold: m0.hold, hike: m0.hike, cut: m0.cut }, meetings, source: 'market' };
 }
+// TTL ADAPTATIF : si une réunion d'une banque est imminente (≤2 j = fenêtre de décision, ex. FOMC demain),
+// on rafraîchit toutes les 5 min au lieu de 15 — c'est là que les probabilités bougent le plus vite, donc
+// là qu'il faut coller au temps réel de rateprobability. Hors fenêtre : 15 min (la donnée bouge ~horaire).
+function _rpEffectiveTTL() {
+  for (const b of Object.values(_rpCache.banks || {})) {
+    const m0 = b && b.meetings && b.meetings[0];
+    if (m0 && typeof m0.days === 'number' && m0.days <= 2) return 5 * 60 * 1000;
+  }
+  return RP_TTL;
+}
 async function _refreshRateProb(force = false) {
   if (_rpRefreshing) return;
-  if (!force && Date.now() - _rpCache.at < RP_TTL && Object.keys(_rpCache.banks).length) return;
+  if (!force && Date.now() - _rpCache.at < _rpEffectiveTTL() && Object.keys(_rpCache.banks).length) return;
   _rpRefreshing = true;
   try {
     const now = Date.now(), codes = Object.keys(RP_MAP);
@@ -7997,7 +8007,7 @@ async function _refreshRateProb(force = false) {
     if (Object.keys(banks).length) { _rpCache = { at: now, banks }; auth.aiCacheSet('rates:rateprob', _rpCache).catch(() => {}); }
   } catch {} finally { _rpRefreshing = false; }
 }
-setInterval(() => { _refreshRateProb().catch(() => {}); }, RP_TTL);   // entretien périodique
+setInterval(() => { _refreshRateProb().catch(() => {}); }, 5 * 60 * 1000);   // tick 5 min ; le refetch RÉEL respecte le TTL adaptatif (15 min normal, 5 min si réunion ≤2 j)
 setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
 
 app.get('/api/rates', (_req, res) => {
