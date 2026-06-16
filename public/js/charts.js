@@ -1747,6 +1747,13 @@ function buildSessionMap() {
       centerX: am5.percent(50), centerY: am5.percent(50),
       oversizedBehavior: 'none',
     }));
+    // Petite flèche orange sous l'étiquette, pointant vers le bas (vers le trait) — façon PMT.
+    // Caractère « ▼ » (Label) plutôt qu'am5.Triangle (qui faisait planter le rendu).
+    cont.children.push(am5.Label.new(r, {
+      text: '▼', fill: am5.color(0xf79400),
+      fontSize: 9, fontWeight: '700',
+      centerX: am5.percent(50), centerY: am5.percent(0), y: 11,
+    }));
     return am5.Bullet.new(r, { sprite: cont });
   });
 
@@ -1765,11 +1772,11 @@ function buildSessionMap() {
   }
 
   // ── 4 key trading cities ──────────────────────
-  const SESSION_CITIES = [
-    { id: 'london',  name: 'London',   tz: 'Europe/London',    lon: -0.12,  lat: 51.5,  open: 8, close: 17, labelLeft: true,  color: 0xf79400 },
-    { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0,  lat: 40.7,  open: 9, close: 17, labelLeft: true,  color: 0xa855f7 },
-    { id: 'tokyo',   name: 'Tokyo',    tz: 'Asia/Tokyo',       lon: 139.7,  lat: 35.7,  open: 9, close: 15, labelLeft: false, color: 0x22d3ee },
-    { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2,  lat: -33.9, open: 9, close: 17, labelLeft: false, color: 0x34d399 },
+  const SESSION_CITIES = [   // couleurs + côté du badge calqués sur l'image de référence (NY violet/droite ; Londres jaune ; Tokyo/Sydney bleu/gauche pour ne pas sortir du cadre est)
+    { id: 'london',  name: 'London',   tz: 'Europe/London',    lon: -0.12,  lat: 51.5,  open: 8, close: 17, labelLeft: true,  color: 0xfacc15 },
+    { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0,  lat: 40.7,  open: 9, close: 17, labelLeft: false, color: 0xa855f7 },
+    { id: 'tokyo',   name: 'Tokyo',    tz: 'Asia/Tokyo',       lon: 139.7,  lat: 35.7,  open: 9, close: 15, labelLeft: true,  color: 0x60a5fa },
+    { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2,  lat: -33.9, open: 9, close: 17, labelLeft: true,  color: 0x60a5fa },
   ];
 
   function isCityOpen4(city, now) {
@@ -1804,41 +1811,39 @@ function buildSessionMap() {
     const accent = data.color || 0xf79400;        // couleur propre à la session (London=orange, NY=violet…)
     const cont   = am5.Container.new(root, {});
 
-    // City clock label box
-    const boxX = data.labelLeft ? -94 : 8;
-
+    // Badge COMPACT sur UNE SEULE LIGNE — « 15:02:50  New York » : heure colorée + ville blanche, côte à côte,
+    // fond sombre + fine bordure de la couleur de la ville, collé à côté du point (gauche/droite selon le bord).
     const box = cont.children.push(am5.Container.new(root, {
-      x: boxX - 4, y: -38,
-      width: 78,
-      paddingTop: 4, paddingBottom: 4, paddingLeft: 7, paddingRight: 7,
-      layout: root.verticalLayout,
+      paddingTop: 3, paddingBottom: 3, paddingLeft: 7, paddingRight: 7,
+      layout: root.horizontalLayout,
+      centerY: am5.percent(50), y: -11,
+      x: data.labelLeft ? -12 : 12,
+      centerX: data.labelLeft ? am5.percent(100) : am5.percent(0),
     }));
 
     box.set('background', am5.RoundedRectangle.new(root, {
-      fill:          am5.color(0x0a0f1e),       // rgba(10,15,30,.85) — bleu nuit DTP
-      fillOpacity:   0.85,
-      stroke:        isOpen ? am5.color(accent) : am5.color(0x5078ff),
-      strokeOpacity: isOpen ? 0.9 : 0.25,        // bordure bleue discrète (rgba(80,120,255,.25))
-      strokeWidth:   isOpen ? 1.4 : 1,
+      fill:          am5.color(0x0b1020),
+      fillOpacity:   0.9,
+      stroke:        am5.color(accent),
+      strokeOpacity: isOpen ? 0.95 : 0.6,
+      strokeWidth:   1.2,
       cornerRadiusTL: 5, cornerRadiusTR: 5, cornerRadiusBL: 5, cornerRadiusBR: 5,
-      shadowColor: isOpen ? am5.color(accent) : undefined,
-      shadowBlur:  isOpen ? 9 : 0, shadowOpacity: isOpen ? 0.3 : 0,
     }));
 
     const timeLabel = box.children.push(am5.Label.new(root, {
       text:       '--:--:--',
-      fill:       am5.color(isOpen ? accent : 0xc8d2e0),   // texte plus lumineux
-      fontSize:   11.5, fontWeight: '700',
+      fill:       am5.color(accent),
+      fontSize:   11, fontWeight: '700',
       fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
-      width: am5.percent(100),
+      centerY:    am5.percent(50), paddingRight: 5,
     }));
 
     box.children.push(am5.Label.new(root, {
       text:       data.name,
-      fill:       am5.color(isOpen ? 0xf4f6f9 : 0x8b97ab),
-      fontSize:   9.5, fontWeight: '600',
+      fill:       am5.color(0xf4f6f9),
+      fontSize:   11, fontWeight: '600',
       fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif',
-      width: am5.percent(100),
+      centerY:    am5.percent(50),
     }));
 
     _cityTimeLabelRefs[data.id] = timeLabel;
