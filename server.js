@@ -2909,7 +2909,7 @@ function _aiInflight(key, fn) {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v5:';   // bump → régénère (v5 : rubrique FX GARANTIE + ordre canonique PMT EQUITIES/FX/FIXED/COMMODITIES)
+const SW_SEG_VER  = 'v6:';   // bump → régénère (v6 : rubrique LEAD/intro en tête + FX GARANTIE + ordre canonique PMT EQUITIES/FX/FIXED/COMMODITIES)
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -3001,16 +3001,17 @@ async function _prewarmBrSegs() {
 async function _segmentWrapAI(points, _opts = {}) {
   const prompt = `Voici, DANS L'ORDRE, les éléments BRUTS d'un récap de session de marché : des EN-TÊTES de section (lignes courtes en MAJUSCULES) et des puces de contenu.
 Produis un rapport PROPRE et PROFESSIONNEL façon DataTradingPro (ton d'analyste institutionnel) :
+- 🧭 RUBRIQUE « LEAD » EN TÊTE (obligatoire) : commence TOUJOURS le rapport par une rubrique \`LEAD\` = 3 à 4 puces de SYNTHÈSE de la séance (les mouvements clés, décisions/commentaires de banques centrales, données majeures, et « à surveiller » à venir), rédigées UNIQUEMENT à partir des points ci-dessous (ne JAMAIS inventer de fait, ni de chiffre). C'est l'intro narrative qui résume la séance AVANT les rubriques détaillées (EQUITIES, FX, …) — comme l'accroche d'une note de desk.
 - Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", etc.) et garde-les EXACTEMENT tels quels (ne traduis pas, ne renomme pas).
 - ⚠️ Si le rapport est surtout une LISTE PLATE de titres sous un en-tête générique ("HEADLINES", "NEWS"…), NE laisse PAS tout sous "HEADLINES" : RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, ENERGY, TRADE/TARIFFS, CRYPTO…). Regroupe les puces par thème, dans un ordre logique. C'est la règle CLÉ : un récap doit toujours être catégorisé, jamais un simple tas de titres.
 - 💱 RUBRIQUE « FX » GARANTIE (obligatoire) : produis TOUJOURS une rubrique \`FX\` regroupant TOUT ce qui touche aux DEVISES — dollar/DXY, EUR/USD, GBP, JPY, CHF, AUD/NZD, CAD, CNY, paires, interventions/verbal, flux de change, et le commentaire des banques centrales VU SOUS L'ANGLE FX. Même si la source n'a AUCUN en-tête "FX", CRÉE la rubrique à partir des puces concernées (ne les laisse pas dispersées sous "HEADLINES"). Si vraiment aucune info FX sur la séance, mets UNE seule puce « Activité FX limitée sur la séance ».
-- Privilégie les RUBRIQUES CANONIQUES façon Prime Terminal et, quand elles existent, place-les dans CET ordre en tête : EQUITIES, FX, FIXED INCOME, COMMODITIES — puis CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, et le reste (CRYPTO, TRADE/TARIFFS, headlines divers…) ensuite.
+- Privilégie les RUBRIQUES CANONIQUES façon Prime Terminal et place-les dans CET ordre : LEAD (l'intro/synthèse) D'ABORD, puis EQUITIES, FX, FIXED INCOME, COMMODITIES — puis CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, et le reste (CRYPTO, TRADE/TARIFFS, headlines divers…) ensuite.
 - Sous chaque en-tête, PEAUFINE/REFORMULE les puces en phrases claires, concises et professionnelles : corrige la grammaire, supprime les fragments, répétitions et le cruft, fais des phrases complètes qui se lisent comme un vrai récap d'analyste (pas un copier-coller brut).
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, pourcentages, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN. Tu améliores UNIQUEMENT la formulation et la clarté, jamais le contenu factuel.
 - Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel/hors-sujet ("...at investingLive.com", etc.).
 - EN-TÊTES COURTS type catégorie (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, CRYPTO…). Un sous-rapport au titre LONG en minuscules (ex: "New Zealand Manufacturing Returns to Contraction…") → NE le garde PAS comme en-tête : range son contenu sous une catégorie COURTE adaptée.
 - Chaque puce = UNE idée concise (≤30 mots), jamais un pavé multi-phrases (découpe les longs paragraphes en plusieurs puces courtes).
-Réponds UNIQUEMENT en JSON valide : [{"section":"TITRE D'ORIGINE","items":["phrase reformulée 1","phrase 2"]}]
+Réponds UNIQUEMENT en JSON valide, la rubrique LEAD EN PREMIER : [{"section":"LEAD","items":["synthèse 1","synthèse 2","synthèse 3"]},{"section":"FX","items":["phrase reformulée 1","phrase 2"]}]
 Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
   const text = await ai.generateText(prompt, 2500, _opts);   // _opts.noClaude=true depuis le préchauffage (pas de crédits payants en fond)

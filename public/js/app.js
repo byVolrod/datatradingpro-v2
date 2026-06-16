@@ -5761,6 +5761,7 @@ function renderArlibReader(item) {
       } else if ((tag === 'strong' || tag === 'b') && !el.closest('p, li')) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré
+        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon PMT) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les AI Insights
         if (t.length > 3) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
         else Array.from(el.childNodes).forEach(walk);
       } else {
