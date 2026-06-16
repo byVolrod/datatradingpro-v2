@@ -829,7 +829,7 @@
     document.getElementById('aim-providers').innerHTML =
       card('Gemini (gratuit)', h.gemini, [g.keys + ' clés · ' + g.coolingKeys + ' gelées', g.callsToday + ' appels · ' + g.err429Today + ' × 429', 'RPM ' + g.effRpm + '/' + g.rpmTarget + ' · pression ' + Math.round((g.pressure || 0) * 100) + '%'])
       + card('GitHub Models (gratuit)', h.github, gh.tokens ? [gh.tokens + ' token(s) × ' + (gh.models || 1) + ' modèles', gh.callsToday + ' appels (jour) · ' + (gh.failToday || 0) + ' échecs', gh.coolingKeys + ' (modèle,token) gelés'] : ['non configuré'])
-      + card('OpenRouter (gratuit)', h.openrouter, or.keys ? [or.keys + ' clé(s) · ' + or.models + ' modèles :free', or.callsToday + ' appels (jour) · ' + (or.failToday || 0) + ' échecs', or.coolingKeys + ' clé(s) en cooldown'] : ['non configuré'])
+      + card('OpenRouter (gratuit)', h.openrouter, or.keys ? [or.keys + ' clés · ~' + (or.keys * 50) + ' req/j gratuites (~50/clé)', or.callsToday + ' appels (jour) · ' + (or.failToday || 0) + ' échecs', or.models + ' modèles :free · ' + or.coolingKeys + ' en cooldown'] : ['non configuré'])
       + card('Claude (payant)', h.claude, cl.keys ? [cl.keys + ' clés · ' + (cl.usable ? 'disponible' : 'indisponible'), cl.usedToday + '/' + cl.dailyMax + ' appels (jour)', (cl.cooling && cl.cooling.length ? cl.cooling.length + ' clé(s) en cooldown' : 'aucune en cooldown')] : ['non configuré']);
     const CATCOL = { analyst: 0xf7941d, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444 };
     const cats = Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 }));

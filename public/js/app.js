@@ -5031,23 +5031,12 @@ function getArlibItems() {
     .sort(_arlibReportSort);
 }
 
-// Rang de session d'un rapport (flux naturel de la journée de trading) : Asia → London → US.
-function _sessionRank(item) {
-  const s = ((item.session || '') + ' ' + (item._reportType || '') + ' ' + (item.headline || '')).toLowerCase();
-  if (/asia|apac|asia-pacific|tokyo/.test(s))            return 0;   // Asia ouvre en 1er
-  if (/london|europe|european|euro session/.test(s))     return 1;   // puis London/Europe
-  if (/\bus\b|americas|america|new york|u\.s\./.test(s)) return 2;   // puis US/Americas
-  return 3;   // FX Daily / Weekly / autres → après les session wraps du jour
-}
-// Tri LOGIQUE des rapports : jour le plus récent d'abord, et DANS un même jour, ordre des sessions
-// Asia → London → US (au lieu du tri brut par timestamp qui donnait US → London → Asia).
+// Tri façon PMT (« comme sur l'image ») : STRICT anti-chronologique — le rapport le plus RÉCENT
+// en haut, tous types confondus. Le regroupement par jour se fait naturellement (timestamps proches)
+// et, dans une journée, l'ordre suit l'heure de publication (US Recap › London Recap › openings du
+// matin), exactement comme Prime Terminal. (Remplace l'ancien regroupement par session Asia→London→US.)
 function _arlibReportSort(a, b) {
-  const dk = ts => new Date(ts || 0).toISOString().slice(0, 10);
-  const da = dk(a.timestamp), db = dk(b.timestamp);
-  if (da !== db) return db.localeCompare(da);       // jour le plus récent en haut
-  const ra = _sessionRank(a), rb = _sessionRank(b);
-  if (ra !== rb) return ra - rb;                    // même jour : Asia → London → US → reste
-  return (b.timestamp || 0) - (a.timestamp || 0);   // sinon, le plus récent d'abord
+  return (b.timestamp || 0) - (a.timestamp || 0);
 }
 
 function arlibItemType(item) {
