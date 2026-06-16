@@ -5761,7 +5761,9 @@ function renderArlibReader(item) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré
         if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon PMT) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les AI Insights
-        if (t.length > 3) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
+        // ≥2 (et non >3) : « FX », « US », « UK », « EU », « USD »… sont des EN-TÊTES légitimes de 2-3 car.
+        // Le seuil >3 faisait DISPARAÎTRE le titre « FX » (2 car) → ses puces se collaient à la rubrique précédente.
+        if (t.length >= 2) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
         else Array.from(el.childNodes).forEach(walk);
       } else {
         Array.from(el.childNodes).forEach(walk);
@@ -5790,21 +5792,11 @@ function renderArlibReader(item) {
 
   // ── InvestingLive session wraps ────────────────────────────────────────────────
   if (item._source === 'investinglive') {
-    // Structure DTP UNIFIÉE pour TOUS les session wraps : type (orange) → titre (orange)
-    // → sous-titre (orange) → date → corps. Identique quel que soit le contenu disponible.
-    // Nomenclature VILLE (London / New York / Asia-Pac) — identique au titre (standardizeReportTitle)
-    // → label, titre et sous-titre cohérents (fini "London" vs "European").
-    const SESSION_LABEL = { 'Americas': 'New York Session Recap', 'European': 'London Session Recap', 'Asia-Pacific': 'Asia-Pac Session Recap' }[item.session] || 'Session Recap';
-    const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
-    // En-tête INTELLIGENT : le TITRE = thème IA du recap (aiTitle, dérivé du contenu réel de la
-    // session — change à chaque rapport) ; type de session + sous-titre + date l'encadrent.
-    const _esc5 = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    const _theme = (item.aiTitle && String(item.aiTitle).trim().length >= 8) ? String(item.aiTitle).trim() : '';
-    const _header = '<div class="arlib-rhead">'
-      + '<div class="arlib-rtype">' + SESSION_LABEL + '</div>'
-      + (_theme ? '<div class="arlib-rtitle">' + _esc5(_theme) + '</div>' : '')
-      + '<div class="arlib-rsub">' + dateStr + '</div>'
-      + '</div>';
+    // Bloc de TITRE retiré du corps (demande utilisateur) : le titre du rapport est déjà affiché dans
+    // la barre de navigation du lecteur (arlib-rnav-title = standardizeReportTitle « London Session
+    // Recap: … ») et la date dans la barre de tags → ce bloc arlib-rhead faisait DOUBLON. Le corps
+    // démarre directement sur les puces LEAD (synthèse) façon PMT.
+    const _header = '';
     content.innerHTML = dtpLoader('Chargement du résumé de session…');
 
     fetch('/api/session-wrap-content?url=' + encodeURIComponent(item.url))
