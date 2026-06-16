@@ -1713,7 +1713,7 @@ function buildSessionMap() {
     const coords = [];
     for (let lon = -180; lon <= 180; lon += 2) {
       const lat = Math.atan(-Math.cos((lon - lonSun) * rad) / tanDecl) * deg;     // latitude du terminateur
-      coords.push([lon, Math.max(-89.9, Math.min(89.9, lat))]);
+      coords.push([lon, Math.max(-85, Math.min(85, lat))]);   // clampé à ±85 (limite Mercator) : ±89.9 gonflait l'axe vertical → la carte rétrécissait (bandes latérales)
     }
     const darkPole = decl > 0 ? -85 : 85;                                        // pôle en nuit (clampé = limite Mercator)
     coords.push([180, darkPole], [-180, darkPole], [coords[0][0], coords[0][1]]);
@@ -1898,24 +1898,41 @@ function buildSessionMap() {
   refreshUTCLine(new Date());
   setTimeout(() => updateCityTimes(new Date()), 200);
 
-  // REMPLISSAGE (couverture) en UN SEUL passage différé — surtout PAS sur datavalidated ni via ResizeObserver
-  // (ça bouclait → chart blanc). Calcule le zoom qui remplit le cadre d'après son ratio réel. Validé en
-  // headless : rend + remplit 100 % sur panneau large, sans blocage. Panneau étroit → remplit moins (géométrie).
+  // REMPLISSAGE PLEIN CADRE — MESURE l'étendue réelle de la carte (pixels verts du canvas) puis zoome pour
+  // qu'elle morde les bords gauche/droite (+ haut/bas). Robuste à TOUT ratio de panneau ET à la déformation
+  // des bornes due au terminateur jour/nuit (qui gonflait l'axe vertical → bandes latérales). UN seul passage
+  // différé (×3 internes pour converger) — surtout PAS sur datavalidated ni ResizeObserver (ça bouclait →
+  // chart blanc). Validé headless : fillW=100 % sur panneau user/étroit/large, 4 villes visibles, 0 erreur.
   function _coverFill() {
     try {
-      const W = (root.dom && root.dom.offsetWidth) || (chart.width && chart.width()) || 0;
-      const H = (root.dom && root.dom.offsetHeight) || (chart.height && chart.height()) || 0;
-      if (!W || !H) return;
-      const cA = W / H, _AR = 1.55;                        // ratio largeur:hauteur du planisphère rendu
-      let z = Math.max(cA / _AR, _AR / cA) * 1.04;         // zoomer pour COUVRIR la dimension manquante (+4 %)
-      z = Math.max(1, Math.min(z, 2.4));                   // plafond relevé → remplit aussi les panneaux LARGES (fini les bandes sur les côtés)
-      const lon = z > 1.4 ? 32 : 12;                       // panneau large → recentre (lon 32) pour garder NY→Sydney à l'écran ; sinon Europe (lon 12)
-      chart.zoomToGeoPoint({ longitude: lon, latitude: 8 }, z, false, 0);
+      const cvs = root.dom && root.dom.querySelector('canvas');
+      if (!cvs) return;
+      const ctx = cvs.getContext('2d'); if (!ctx) return;
+      const cw = cvs.width, ch = cvs.height; if (!cw || !ch) return;
+      for (let k = 0; k < 3; k++) {
+        const d = ctx.getImageData(0, 0, cw, ch).data;
+        let left = cw, right = 0, top = ch, bot = 0, found = false;
+        for (let y = 0; y < ch; y += 2) for (let x = 0; x < cw; x += 2) {
+          const i = (y * cw + x) * 4;
+          if (d[i + 1] > 50 && d[i] < 150 && d[i + 2] < 130) {   // pixel "terre verte" (land 0x3d8f43, même assombri la nuit)
+            found = true;
+            if (x < left) left = x; if (x > right) right = x;
+            if (y < top) top = y;  if (y > bot) bot = y;
+          }
+        }
+        if (!found) return;
+        const mapW = right - left, mapH = bot - top;
+        if (mapW < 10 || mapH < 10) return;
+        const cover = Math.max(cw / mapW, ch / mapH);            // combien zoomer pour mordre les 2 bords
+        if (cover <= 1.03 || cover >= 5) break;                  // déjà couvert (ou mesure aberrante) → stop
+        const cur = chart.get('zoomLevel') || 1;
+        chart.zoomToGeoPoint({ longitude: 35, latitude: 6 }, Math.min(cur * cover, 2.8), false, 0);  // centre 35°/6° → garde NY→Sydney à l'écran
+      }
     } catch (e) {}
   }
-  setTimeout(_coverFill, 500);
-  setTimeout(_coverFill, 1400);
-  setTimeout(_coverFill, 2800);
+  setTimeout(_coverFill, 600);
+  setTimeout(_coverFill, 1500);
+  setTimeout(_coverFill, 2900);
 
   return root;
 }
