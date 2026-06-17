@@ -306,13 +306,25 @@ function _decodeEntities(s) {
     .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"').replace(/&#0?39;|&apos;/g, "'").replace(/&nbsp;/g, ' ');
 }
+// Puce-déchet = jeton ISOLÉ sans valeur marché : chemin/handle/URL/domaine bruts laissés par le scrape
+// (« /federalreserve », « @FederalReserve », « #fed », « federalreserve.gov », « www.x.com », « https://… »).
+// Pas d'espace → ce n'est jamais une vraie phrase d'info → on l'écarte du panneau Info.
+function _isJunkBullet(s) {
+  const t = String(s == null ? '' : s).trim();
+  if (!t || /\s/.test(t)) return false;                                                   // contient un espace = vraie puce
+  if (/^[\/@#][\w.\-\/]+$/.test(t)) return true;                                           // /chemin · @handle · #tag
+  if (/^(?:https?:\/\/|www\.)/i.test(t)) return true;                                      // URL nue
+  if (/^[\w.\-]+\.(?:com|org|net|io|co|gov|edu|news|tv|us|uk|eu|fr)\/?[\w.\-\/]*$/i.test(t)) return true; // domaine nu
+  return false;
+}
 function _renderInfoBullets(bullets) {
   const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // coupe toute attribution de source ("via NYT", "- Reuters", "(Mehr News)") en fin de puce
   const stripSrc = t => t.replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim();
   const items = (bullets || [])
     .map(b => _decodeEntities(b).replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
+    .filter(Boolean)
+    .filter(s => !_isJunkBullet(s));   // écarte les jetons parasites (/federalreserve, @handle, url nue…)
   const html = items.map(it => {
     const noMd = it.replace(/\*\*/g, '').trim();
     // sous-titre : ligne courte finissant par ":" (ex. « Four points: ») → libellé, pas une puce
@@ -1760,6 +1772,7 @@ function _toBullets(raw, maxItems = 4) {
     .filter(s => !/^(?:authored by|written by|by\s+[A-Z]|via\s+|source\s*:|courtesy of|published by|republished)/i.test(s))
     .filter(s => !/(?:this article was written by|\bwritten by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com|follow .* on (?:twitter|x)\b)/i.test(s))
     .filter(s => !/^[\w .'-]+\bvia\b\s+the\b/i.test(s))
+    .filter(s => !_isJunkBullet(s))            // jeton parasite scrappé (/federalreserve, @handle, domaine/url nu…)
     .slice(0, maxItems);
 
   // ── Fin PROPRE : chaque puce se termine sur une phrase complète, jamais sur "..." ──
