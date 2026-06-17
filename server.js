@@ -6160,7 +6160,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste Prime Terminal (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 1;
+const FXR_VER = 2;   // v2 : rapport + AI Insights rédigés en FRANÇAIS (prompt + repli + libellés)
 let _fxrGenLock = 0;
 let _fxrGenBusy = false;
 const _fxrCcyCtry = { USD:'United States', EUR:'Eurozone', GBP:'United Kingdom', JPY:'Japan', CHF:'Switzerland', CAD:'Canada', AUD:'Australia', NZD:'New Zealand', CNY:'China' };
@@ -6183,7 +6183,7 @@ function _fxrTargetDayKey() {
 }
 function _fxrDateLabel(dayKey) {
   const [Y, M, D] = String(dayKey).split('-').map(Number);
-  return new Date(Date.UTC(Y, (M || 1) - 1, D || 1)).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return new Date(Date.UTC(Y, (M || 1) - 1, D || 1)).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
 function _fxrTxt(s, n) { return _stripMd(String(s == null ? '' : s)).slice(0, n || 1200); }
 function _fxrA(a) { return Array.isArray(a) ? a : []; }
@@ -6198,7 +6198,7 @@ function _fxrEconFromRows(rows) {
 function _fxrLookFromRows(rows) {
   return (rows || []).slice(0, 16).map(e => {
     const cb = /\brate\b|decision|fomc|ecb|boe|boj|rba|snb|riksbank|central bank|monetary policy/i.test(e.title || '');
-    return { category: cb ? 'Central Bank Event' : 'Economic Data', event: _fxrTxt(`${e.currency ? e.currency + ' ' : ''}${e.title || ''}`, 160), importance: /high/i.test(e.impact) ? 'High' : 'Medium' };
+    return { category: cb ? 'Événement banque centrale' : 'Données économiques', event: _fxrTxt(`${e.currency ? e.currency + ' ' : ''}${e.title || ''}`, 160), importance: /high/i.test(e.impact) ? 'High' : 'Medium' };
   }).filter(x => x.event);
 }
 function _fxrAutoTags(items) {
@@ -6239,11 +6239,11 @@ function _fxrSanitize(p, dayKey, dateLabel) {
 }
 function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine }) {
   const top = (newsItems || []).slice(0, 6);
-  const titleSub = top.length ? _fxrTxt(top[0].headline || top[0].title, 95) : 'Daily market wrap';
+  const titleSub = top.length ? _fxrTxt(top[0].headline || top[0].title, 95) : 'Récap marché du jour';
   const summary = [
-    top.length ? 'Key drivers today: ' + top.slice(0, 3).map(i => _fxrTxt(i.headline || i.title, 120)).join('; ') + '.' : 'A relatively quiet session with limited fresh catalysts across G10 FX.',
-    csLine ? `Currency strength (intraday): ${csLine}.` : '',
-    dataRows.length ? `${dataRows.length} economic release(s) were published today; attention now turns to the upcoming risk events.` : 'Focus shifts to the upcoming economic and central-bank calendar.',
+    top.length ? 'Moteurs clés du jour : ' + top.slice(0, 3).map(i => _fxrTxt(i.headline || i.title, 120)).join(' ; ') + '.' : 'Séance relativement calme, peu de nouveaux catalyseurs sur le G10.',
+    csLine ? `Force des devises (intraday) : ${csLine}.` : '',
+    dataRows.length ? `${dataRows.length} publication(s) économique(s) aujourd'hui ; l'attention se porte désormais sur les prochains événements à risque.` : `L'attention se porte sur le calendrier économique et des banques centrales à venir.`,
   ].filter(Boolean).join(' ');
   return {
     v: FXR_VER, day: dayKey, _ai: false, title: 'FX Daily Recap: ' + titleSub, dateLabel,
@@ -6320,48 +6320,48 @@ async function generateFXDailyRecap(force = false) {
     // ── Génération IA (structure complète façon PMT, EN ANGLAIS) ──
     let fxr = null;
     if (!(ai.backoffActive && ai.backoffActive())) {
-      const prompt = `You are the senior FX & macro strategist for "DataTradingPro", writing the flagship end-of-day analyst report "FX Daily Recap" — same depth, tone and structure as a Prime Terminal analyst report. The report covers the full trading day of ${dateLabel}.
+      const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » — même profondeur, ton et structure qu'un rapport analyste Prime Terminal. Le rapport couvre toute la journée de trading du ${dateLabel}.
 
-Write a COMPLETE, professional recap of what happened across global markets today, with a clear FX focus, based STRICTLY on the data provided below. Be specific and analytical: tie price action to the actual data releases, central-bank signals, commodities and geopolitical headlines (explain the WHY, not just the WHAT). Write in fluent professional English. Do NOT invent numbers — only use figures that appear in the data below. If a section has no supporting data, return an empty array for it.
+Rédige un récap COMPLET et professionnel de ce qui s'est passé sur les marchés mondiaux aujourd'hui, avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. Sois précis et analytique : relie les mouvements de prix aux publications de données, aux signaux des banques centrales, aux matières premières et aux titres géopolitiques (explique le POURQUOI, pas seulement le QUOI). Rédige dans un FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre — n'utilise que les chiffres présents dans les données ci-dessous. Si une section n'a pas de données la justifiant, renvoie un tableau vide pour elle.
 
-Return ONLY valid JSON (no preamble, no markdown fences, no ** characters) with EXACTLY this shape:
+Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, aucun caractère **). Garde les CLÉS en anglais et rédige toutes les VALEURS en français. Forme EXACTE attendue :
 {
-  "title": "<punchy one-line headline summarising the day, e.g. 'Dollar slips as oil slumps on US-Iran deal optimism'>",
-  "summary": "<EXECUTIVE SUMMARY: 3 to 5 sentences — the big picture of the session: overall risk tone, the US dollar, rates/Treasuries, commodities, and what attention turns to next>",
-  "tags": ["<5 to 10 short topic chips, e.g. 'US-Iran Peace Deal','Oil Prices','Federal Reserve','Treasury Yields','Nvidia'>"],
-  "insights": ["<4 to 6 forward-looking, standalone one-sentence AI-Insight cards>"],
-  "pairs": [ { "pair": "EUR/USD", "bias": "BUY|SELL|NEUTRAL", "text": "<one concise sentence rationale>" } ],
-  "headlines": [ { "title": "<Top Headline, punchy>", "text": "<2 to 3 sentence summary of that story and its market impact>" } ],
+  "title": "<titre d'une ligne percutant résumant la journée, ex. 'Le dollar recule, le pétrole chute sur l'optimisme d'un accord US-Iran'>",
+  "summary": "<SYNTHÈSE : 3 à 5 phrases — la vue d'ensemble de la séance : tonalité de risque globale, le dollar US, les taux/Treasuries, les matières premières, et ce vers quoi l'attention se tourne ensuite>",
+  "tags": ["<5 à 10 puces de thèmes courtes, ex. 'Accord US-Iran','Prix du pétrole','Réserve fédérale','Rendements obligataires','Nvidia'>"],
+  "insights": ["<4 à 6 cartes AI-Insight d'une phrase, prospectives et autonomes>"],
+  "pairs": [ { "pair": "EUR/USD", "bias": "BUY|SELL|NEUTRAL", "text": "<une phrase concise de justification>" } ],
+  "headlines": [ { "title": "<Titre principal, percutant>", "text": "<résumé de 2 à 3 phrases de l'info et de son impact sur le marché>" } ],
   "regions": [
-    { "name": "United States", "code": "USD", "summary": "<one paragraph on the US session: equities, rates, USD, key data>", "groups": [ { "title": "Markets", "items": [ { "heading": "Equities Rally", "text": "<1 to 2 sentences>" } ] } ] },
+    { "name": "États-Unis", "code": "USD", "summary": "<un paragraphe sur la séance US : actions, taux, USD, données clés>", "groups": [ { "title": "Marchés", "items": [ { "heading": "Rebond des actions", "text": "<1 à 2 phrases>" } ] } ] },
     { "name": "Europe", "code": "EUR", "summary": "...", "groups": [ ... ] },
-    { "name": "Asia-Pacific", "code": "Mixed (JPY, CNY, AUD)", "summary": "...", "groups": [ ... ] },
+    { "name": "Asie-Pacifique", "code": "Mixte (JPY, CNY, AUD)", "summary": "...", "groups": [ ... ] },
     { "name": "Canada", "code": "CAD", "summary": "...", "groups": [ ... ] }
   ],
-  "centralBanks": [ { "name": "Federal Reserve", "text": "<2 to 3 sentences: stance, market pricing, what to watch>" } ],
-  "econData": [ { "release": "US NY Fed Empire State Manufacturing Index", "period": "June 2026", "metrics": [ { "metric": "General Business Conditions Index", "actual": "5.7", "expected": "13.2", "previous": "19.6" } ] } ],
-  "comments": [ { "author": "Pantheon Macroeconomics", "text": "<analyst take, if any appears in the headlines>" } ],
-  "corporate": [ { "ticker": "NVDA", "name": "Nvidia", "text": "<company-specific news>" } ],
-  "lookahead": [ { "category": "Central Bank Event", "event": "FOMC Policy Decision", "importance": "High" } ]
+  "centralBanks": [ { "name": "Réserve fédérale", "text": "<2 à 3 phrases : posture, pricing du marché, ce qu'il faut surveiller>" } ],
+  "econData": [ { "release": "US NY Fed Empire State Manufacturing Index", "period": "Juin 2026", "metrics": [ { "metric": "General Business Conditions Index", "actual": "5.7", "expected": "13.2", "previous": "19.6" } ] } ],
+  "comments": [ { "author": "Pantheon Macroeconomics", "text": "<avis d'analyste, s'il en apparaît dans les titres>" } ],
+  "corporate": [ { "ticker": "NVDA", "name": "Nvidia", "text": "<actualité propre à l'entreprise>" } ],
+  "lookahead": [ { "category": "Événement banque centrale", "event": "Décision de politique du FOMC", "importance": "High" } ]
 }
 
-Rules:
-- Region group titles must be chosen from: "Geopolitics","Markets","Commodities & Trade","Economic Data","Central Banks","Corporate Activity","Political & Regulatory". Only include groups that have real content. Cover United States, Europe, Asia-Pacific and Canada when there is material for them.
-- "econData": ONLY use the published figures provided in the ECONOMIC DATA block (with their actual / expected / previous). Group sub-metrics under their parent release when natural. Do NOT fabricate releases.
-- "lookahead": ONLY use the events provided in the UPCOMING EVENTS block. importance must be "High", "Medium" or "Low".
-- "corporate" and "comments": only include items that genuinely appear in the headlines.
+Règles :
+- Les titres de groupes régionaux doivent être choisis parmi : "Géopolitique","Marchés","Matières premières & Commerce","Données économiques","Banques centrales","Activité des entreprises","Politique & Réglementaire". N'inclus que les groupes ayant un contenu réel. Couvre États-Unis, Europe, Asie-Pacifique et Canada dès qu'il y a matière.
+- "econData" : utilise UNIQUEMENT les chiffres publiés fournis dans le bloc DONNÉES ÉCONOMIQUES (avec leurs actual / expected / previous). Garde les noms de publications/indicateurs tels quels (ne traduis pas les intitulés officiels). Ne fabrique aucune publication.
+- "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais — l'affichage est traduit).
+- "corporate" et "comments" : n'inclus que des éléments qui apparaissent réellement dans les titres.
 
-=== TODAY'S HEADLINES & FLOW (${newsLines.length}) ===
-${newsLines.join('\n').slice(0, 9000) || '(limited flow captured)'}
+=== TITRES & FLUX DU JOUR (${newsLines.length}) ===
+${newsLines.join('\n').slice(0, 9000) || '(flux limité capturé)'}
 
-=== TODAY'S PUBLISHED ECONOMIC DATA (actual / expected / previous) ===
-${dataLines.join('\n').slice(0, 4200) || '(none captured)'}
+=== DONNÉES ÉCONOMIQUES PUBLIÉES AUJOURD'HUI (réel / attendu / précédent) ===
+${dataLines.join('\n').slice(0, 4200) || '(aucune capturée)'}
 
-=== CURRENCY STRENGTH (intraday) ===
-${csLine || '(n/a)'}
+=== FORCE DES DEVISES (intraday) ===
+${csLine || '(n/d)'}
 
-=== UPCOMING HIGH/MEDIUM-IMPACT EVENTS (next days) ===
-${laLines.join('\n').slice(0, 3000) || '(none captured)'}`;
+=== ÉVÉNEMENTS À VENIR À FORT/MOYEN IMPACT (jours suivants) ===
+${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
       try {
         _aiReset();
         const text = await ai.generateText(prompt, 7000);
