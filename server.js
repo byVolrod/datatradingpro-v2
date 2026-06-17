@@ -4857,7 +4857,10 @@ app.post('/api/news-info', async (req, res) => {
   const _srvImportant = /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|boc|rba|rbnz|cpi|inflation|nfp|payrolls?|gdp|pib|rate (decision|cut|hike)|interest rate|emergency|intervention|war|missile|strike|ceasefire|sanctions?|default|bailout|opec)\b/i
     .test(String(headline || '') + ' ' + String(category || ''));
   const _newsImportant = !!req.body.important && _srvImportant;
-  if (!aiAllowed('news', { important: _newsImportant, priority: 'user' })) return res.json({ bullets: [] });   // pré-check rapide (évite de bâtir le prompt si budget épuisé)
+  // Pré-check budget : on retombe sur la dépêche brute SI budget épuisé… SAUF pour la macro importante
+  // (_srvImportant : Fed/FOMC/CPI/inflation/BCE/NFP/guerre…) qui DOIT toujours être résumée EN FRANÇAIS →
+  // on laisse passer pour autoriser le repli Claude ci-dessous (sinon ces news restaient en anglais sous quota Gemini).
+  if (!_srvImportant && !aiAllowed('news', { important: _newsImportant, priority: 'user' })) return res.json({ bullets: [] });
 
   try {
     const text = await aiSmart('news', `Tu es l'éditeur d'un terminal de news financières professionnel (style salle de marché). RÉPONDS EN FRANÇAIS.
@@ -4874,7 +4877,7 @@ RÈGLES :
 
 Titre : ${headline}
 Catégorie : ${category || '—'}
-Contenu : ${rawDesc.substring(0, 1100)}`, 650, { important: _newsImportant, priority: 'user', claudeOverBudget: false });   // compté APRÈS succès + zéro crédit Claude pour ce flux (fallback local = bullets vides)
+Contenu : ${rawDesc.substring(0, 1100)}`, 650, { important: _newsImportant, priority: 'user', claudeOverBudget: _srvImportant });   // macro importante → repli Claude autorisé (toujours en FR, même quota Gemini épuisé) ; reste = Gemini seul (fallback local = bullets vides)
 
     const bullets = [];
     text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
