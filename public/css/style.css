@@ -9193,6 +9193,22 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .jr-ring { display: inline-flex; align-items: center; justify-content: center; position: relative; width: 26px; height: 26px; }
 .jr-ring svg { width: 26px; height: 26px; }
 .jr-ring b { position: absolute; font-family: var(--font-mono); font-size: 9.5px; font-weight: 700; color: var(--text); }
+/* ── Sélection multiple façon Notion : colonne de cases à gauche + barre flottante ── */
+.jr-th-sel, .jr-c-sel { width: 30px; min-width: 30px; padding: 0; text-align: center; vertical-align: middle; }
+.jr-rowsel, .jr-selall { display: inline-block; width: 15px; height: 15px; border: 1.5px solid #3a3a42; border-radius: 4px; cursor: pointer; vertical-align: middle; transition: border-color .12s, background .12s; position: relative; }
+.jr-c-sel .jr-rowsel { opacity: 0; }                                  /* visible au survol de la ligne (façon Notion) */
+.jr-grid tbody tr:hover .jr-rowsel, .jr-rowsel--on { opacity: 1 !important; }
+.jr-rowsel:hover, .jr-selall:hover { border-color: var(--orange); }
+.jr-rowsel--on { background: var(--orange); border-color: var(--orange); }
+.jr-rowsel--on::after { content: '✓'; position: absolute; inset: 0; color: #0c0c0e; font-size: 11px; font-weight: 800; line-height: 12px; text-align: center; }
+.jr-grid tbody tr.jr-row--sel { background: rgba(255,122,0,0.07); }
+#jr-selbar { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); z-index: 4000; display: flex; align-items: center; gap: 12px; background: #16161a; border: 1px solid #2a2a31; border-radius: 8px; padding: 8px 10px 8px 14px; box-shadow: 0 8px 26px rgba(0,0,0,0.5); font-size: 12.5px; }
+.jr-selbar-n { color: var(--text); font-weight: 600; white-space: nowrap; }
+.jr-selbar-del { background: rgba(255,61,0,0.12); border: 1px solid rgba(255,61,0,0.4); color: #ff5a36; border-radius: 6px; padding: 5px 12px; font-size: 12px; font-weight: 700; cursor: pointer; transition: .12s; white-space: nowrap; }
+.jr-selbar-del:hover { background: rgba(255,61,0,0.22); }
+.jr-selbar-del--c { background: #ff3d00; border-color: #ff3d00; color: #fff; }
+.jr-selbar-x { background: none; border: none; color: var(--text4); font-size: 13px; cursor: pointer; padding: 4px 6px; border-radius: 5px; }
+.jr-selbar-x:hover { color: var(--text); background: rgba(255,255,255,0.06); }
 .jr-c-act { padding: 4px; text-align: center; white-space: nowrap; }
 .jr-rowdel { background: none; border: 1px solid transparent; border-radius: 4px; color: #45454d; font-size: 11px; cursor: pointer; padding: 3px 7px; opacity: 0; transition: .12s; }
 .jr-grid tbody tr:hover .jr-rowdel { opacity: 1; }
