@@ -5264,9 +5264,9 @@ function renderArlibList() {
     const badge = badgeLabel ? `<img class="arlib-ptbadge-logo" src="/favicon.svg" alt="DTP" width="20" height="20" loading="lazy">` : '';
 
     const card = document.createElement('div');
+    // FX Daily Recap = carte NORMALE (anthracite + survol orange) — pas de fond bordeaux/rouge des hebdo.
     const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
-    const _isFxr    = /\bfx daily\b/i.test(title);   // FX Daily Recap : même encadré premium mais hover orange (pas rouge)
-    card.className = 'arlib-card' + (isRead(_reportReadKey(item)) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : (_isFxr ? ' arlib-card--fxdaily' : ''));
+    card.className = 'arlib-card' + (isRead(_reportReadKey(item)) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
     card.dataset.id = item.id;
     card.innerHTML = `
       <div class="arlib-card-icon">

@@ -4655,10 +4655,6 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 }
 .arlib-card.arlib-card--weekly:hover { background: #2a1618; border-color: rgba(127,29,29,0.55); }
 .arlib-card.arlib-card--weekly .arlib-card-title { color: #fff; font-weight: 600; }
-/* Carte FX Daily Recap : même encadré premium que les hebdo, mais hover ORANGE (pas rouge) */
-.arlib-card.arlib-card--fxdaily { background: #241415; border: 1px solid rgba(255,122,0,0.45); border-radius: 8px; margin-bottom: 8px; }
-.arlib-card.arlib-card--fxdaily:hover { background: #2a1a12; border-color: rgba(255,122,0,0.75); }
-.arlib-card.arlib-card--fxdaily .arlib-card-title { color: #fff; font-weight: 600; }
 /* LU : le Weekly s'affiche comme un rapport déjà lu (grisé, encadré atténué), pas comme un nouveau */
 .arlib-card.arlib-card--weekly.arlib-card--read { background: #160f10; border-color: rgba(255,122,0,0.20); }
 .arlib-card.arlib-card--weekly.arlib-card--read .arlib-card-title { color: #8a8a90; font-weight: 400; }
