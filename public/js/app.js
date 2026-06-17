@@ -7503,6 +7503,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let _jrCustom = false;     // false = gabarit DTP (options par défaut) ; true = journal PERSO importé (options de l'utilisateur uniquement, jamais mélangées au DTP)
   let _jrEdit = null;        // id en cours d'édition (null = mode ajout)
   let _jrDelPending = null;  // id en attente de confirmation de suppression
+  const _jrSel = new Set();  // ids des lignes cochées (sélection multiple façon Notion → suppression groupée)
   let _jrSaveT = null;       // debounce de sauvegarde serveur
   const JR_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'USD/CAD', 'AUD/USD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'XAU/USD', 'BTC/USD', 'US500', 'WTI'];
   const _esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -7692,16 +7693,54 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const tbl = document.getElementById('jr-grid'); if (!tbl) return;
     const cols = _jrColsVisible();
     const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
-    const head = '<thead><tr>' + cols.map(c => '<th class="jr-th" draggable="true" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
-    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + (cols.length + 1) + '">Aucun trade — clique « + Nouveau » ou importe ton export Notion (.zip ou CSV).</td></tr></tbody>'; return; }
+    const allOn = L.length && L.every(e => _jrSel.has(e.id));
+    const span = cols.length + 2;   // colonne de sélection (gauche) + colonnes + colonne actions (droite)
+    const head = '<thead><tr>'
+      + '<th class="jr-th-sel"><span class="jr-selall' + (allOn ? ' jr-rowsel--on' : '') + '" title="Tout sélectionner"></span></th>'
+      + cols.map(c => '<th class="jr-th" draggable="true" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
+    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + span + '">Aucun trade — clique « + Nouveau » ou importe ton export Notion (.zip ou CSV).</td></tr></tbody>'; _jrUpdateSelBar(); return; }
     tbl.innerHTML = head + '<tbody>' + L.map(e =>
-      '<tr data-id="' + _esc(e.id) + '">'
+      '<tr data-id="' + _esc(e.id) + '"' + (_jrSel.has(e.id) ? ' class="jr-row--sel"' : '') + '>'
+      + '<td class="jr-c-sel"><span class="jr-rowsel' + (_jrSel.has(e.id) ? ' jr-rowsel--on' : '') + '" data-id="' + _esc(e.id) + '" title="Sélectionner"></span></td>'
       + cols.map(c => '<td class="jr-c jr-c--' + c.type + '" data-k="' + c.k + '">' + _jrCell(e, c) + '</td>').join('')
       + '<td class="jr-c-act">' + (_jrDelPending === e.id ? '<button class="jr-rowdel jr-rowdel--c" data-act="del">Suppr. ?</button>' : '<button class="jr-rowdel" data-act="del" title="Supprimer">&#10005;</button>') + '</td>'
       + '</tr>').join('')
       // Ligne « + Nouveau trade » sous la dernière ligne (façon Notion) → crée un trade et ouvre l'édition de la paire.
-      + '<tr class="jr-addrow"><td class="jr-addrow-cell" colspan="' + (cols.length + 1) + '"><span class="jr-addrow-ic">+</span> Nouveau trade</td></tr>'
+      + '<tr class="jr-addrow"><td class="jr-addrow-cell" colspan="' + span + '"><span class="jr-addrow-ic">+</span> Nouveau trade</td></tr>'
       + '</tbody>';
+    _jrUpdateSelBar();
+  }
+
+  // ── Sélection multiple façon Notion : cases à gauche → barre flottante « N sélectionné(s) · Supprimer » ──
+  function _jrToggleSel(id) { if (!id) return; if (_jrSel.has(id)) _jrSel.delete(id); else _jrSel.add(id); _jrSyncSel(); }
+  function _jrToggleSelAll() {
+    const ids = (_jrList || []).map(x => x.id);
+    const allOn = ids.length && ids.every(i => _jrSel.has(i));
+    _jrSel.clear(); if (!allOn) ids.forEach(i => _jrSel.add(i));
+    _jrSyncSel();
+  }
+  function _jrSyncSel() {   // reflète l'état des cases + lignes + barre SANS re-render complet (snappy)
+    const live = new Set((_jrList || []).map(x => x.id));
+    [..._jrSel].forEach(id => { if (!live.has(id)) _jrSel.delete(id); });   // purge les ids supprimés
+    document.querySelectorAll('#jr-grid .jr-rowsel').forEach(s => s.classList.toggle('jr-rowsel--on', _jrSel.has(s.dataset.id)));
+    document.querySelectorAll('#jr-grid tr[data-id]').forEach(tr => tr.classList.toggle('jr-row--sel', _jrSel.has(tr.dataset.id)));
+    const ids = (_jrList || []).map(x => x.id), allOn = ids.length && ids.every(i => _jrSel.has(i));
+    const sa = document.querySelector('#jr-grid .jr-selall'); if (sa) sa.classList.toggle('jr-rowsel--on', !!allOn);
+    _jrUpdateSelBar();
+  }
+  function _jrUpdateSelBar() {
+    let bar = document.getElementById('jr-selbar');
+    const n = _jrSel.size;
+    if (!n) { if (bar) bar.remove(); return; }
+    if (!bar) { bar = document.createElement('div'); bar.id = 'jr-selbar'; document.body.appendChild(bar); }
+    bar.innerHTML = '<span class="jr-selbar-n">' + n + ' ligne' + (n > 1 ? 's' : '') + ' sélectionnée' + (n > 1 ? 's' : '') + '</span>'
+      + '<button class="jr-selbar-del" data-act="seldel">Supprimer</button>'
+      + '<button class="jr-selbar-x" data-act="selclear" title="Désélectionner">✕</button>';
+  }
+  function _jrDelSelected() {
+    if (!_jrSel.size || !_jrList) return;
+    _jrList = _jrList.filter(x => !_jrSel.has(x.id));
+    _jrSel.clear(); _jrRender(); _jrSave();
   }
 
   // ── Éditeurs de cellule (popover façon Notion) ──
@@ -8046,6 +8085,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
   document.addEventListener('click', ev => {
+    // ── Sélection multiple (cases à gauche + barre flottante) — AVANT l'ouverture/édition de ligne ──
+    const selall = ev.target.closest && ev.target.closest('#jr-grid .jr-selall');
+    if (selall) { ev.stopPropagation(); _jrToggleSelAll(); return; }
+    const rowsel = ev.target.closest && ev.target.closest('#jr-grid .jr-rowsel');
+    if (rowsel) { ev.stopPropagation(); _jrToggleSel(rowsel.dataset.id); return; }
+    const selDel = ev.target.closest && ev.target.closest('#jr-selbar [data-act="seldel"]');
+    if (selDel) {   // confirmation INLINE (pas de dialog natif) : 1er clic arme, 2e clic supprime
+      ev.stopPropagation();
+      if (selDel.classList.contains('jr-selbar-del--c')) { _jrDelSelected(); }
+      else { selDel.classList.add('jr-selbar-del--c'); selDel.textContent = 'Confirmer la suppression ?'; setTimeout(() => { if (selDel.isConnected) { selDel.classList.remove('jr-selbar-del--c'); selDel.textContent = 'Supprimer'; } }, 3500); }
+      return;
+    }
+    const selClear = ev.target.closest && ev.target.closest('#jr-selbar [data-act="selclear"]');
+    if (selClear) { ev.stopPropagation(); _jrSel.clear(); _jrSyncSel(); return; }
     const op = ev.target.closest && ev.target.closest('.jrd-open');
     if (op) { ev.stopPropagation(); _jrOpenDetail(op.dataset.open); return; }   // ⤢ OUVRIR → volet détail (façon page Notion)
     const arow = ev.target.closest && ev.target.closest('.jr-addrow');
