@@ -6427,8 +6427,8 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
   } finally { _fxrGenBusy = false; }
 }
 
-// ═══════════════ ANALYSE D'ÉVÉNEMENT — FOMC & NFP (~30 min après, façon PMT) ═══════════════
-// ~30 min après une décision FOMC ou un rapport NFP, on publie une ANALYSE APPROFONDIE structurée
+// ═══════════════ ANALYSE D'ÉVÉNEMENT — événements macro MAJEURS (~1 h après, façon PMT) ═══════════════
+// ~1 h après un événement macro MAJEUR (FOMC, BCE, BoE, NFP, CPI, PCE, PIB, ISM), on publie UNE ANALYSE structurée
 // (sections en MAJUSCULES → titres orange, façon primer DTP) DANS LE FLUX NEWS : ce qui a été décidé,
 // ce qui a changé vs le communiqué précédent, dot plots/projections, salaires/révisions, « À SUIVRE ».
 // Rédigé EN FRANÇAIS, UNIQUEMENT à partir des dépêches reçues + du résultat calendrier (zéro invention).
@@ -6436,57 +6436,100 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
 // (rendue en primer structuré côté front via isPrimerItem, jamais re-résumée). Dédup par événement/jour
 // (l'historique persiste l'item → pas de doublon après redéploiement). Budget IA négligeable (FOMC ~8×/an,
 // NFP ~1×/mois). [[markdown-strip-rule]]
-const EVA_VER = 1;
+const EVA_VER = 2;   // v2 = 1 h après (au lieu de 30 min) + réaction de marché + anticipations de taux + étendu aux données majeures
 const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l'item est persisté dans l'historique)
 let _evaBusy = false;
+// Dépêches de RÉACTION de prix à joindre (en plus des dépêches de l'événement) pour la section « RÉACTION DE MARCHÉ »
+const _EVA_MKT_RE = /\b(s&p|spx|nasdaq|dow\b|\bes\b|treasur|yields?|10-?year|2-?year|\bbund\b|\bgilt\b|\bjgb\b|gold|\bxau\b|silver|copper|dollar|\bdxy\b|eur\/usd|usd\/jpy|gbp\/usd|usd\/cad|crude|brent|\bwti\b|stocks?|equit|bonds?|futures)\b/i;
+const _EVA_CB_SECTIONS   = '["DECISION & TAUX","COMMUNIQUE (FORWARD GUIDANCE)","CE QUI A SURPRIS","INFLATION","ACTIVITE & EMPLOI","PROJECTIONS / DOT PLOTS","REACTION DE MARCHE","ANTICIPATIONS DE TAUX","A SUIVRE"]';
+const _EVA_DATA_SECTIONS = '["CHIFFRE CLE (vs ATTENDU)","DETAILS","CE QUI A SURPRIS","REACTION DE MARCHE","IMPLICATIONS BANQUE CENTRALE","A SUIVRE"]';
+// Événements MAJEURS uniquement (flux sélectif, premium) — une SEULE analyse riche par événement/jour.
 const EVA_CFG = {
-  fomc: { label: 'FED', report: 'FOMC Analysis', category: 'Fed', tags: ['Fed', 'Inflation', 'Rates'], ccy: 'USD',
+  fomc: { label: 'FED',    report: 'FOMC Analysis', category: 'Fed',                 tags: ['Fed', 'Rates', 'Inflation'], ccy: 'USD', cb: true,
     calRe:  /\b(fed funds|federal funds|fomc|interest rate decision)\b/i,
     newsRe: /\b(fed|fomc|powell|warsh|federal reserve|dot[\s-]?plot|forward guidance|rate decision|federal funds|projections?|\bsep\b)\b/i,
-    sections: '["DECISION & TAUX","COMMUNIQUE (FORWARD GUIDANCE)","INFLATION","EMPLOI","ACTIVITE ECONOMIQUE","DOT PLOTS / PROJECTIONS","A SUIVRE"]',
-    intro: 'La décision de politique monétaire du FOMC (Réserve fédérale)' },
-  nfp:  { label: 'NFP', report: 'NFP Analysis', category: 'Economic Commentary', tags: ['Jobs', 'NFP', 'USD'], ccy: 'USD',
+    sections: _EVA_CB_SECTIONS, intro: 'La décision de politique monétaire du FOMC (Réserve fédérale)' },
+  ecb:  { label: 'BCE',    report: 'ECB Analysis',  category: 'ECB',                 tags: ['ECB', 'Rates', 'Inflation'], ccy: 'EUR', cb: true,
+    calRe:  /\b(ecb (?:interest )?rate|deposit facility|main refinancing)\b/i,
+    newsRe: /\b(ecb|bce|lagarde|deposit facility|refinancing|governing council|rate decision)\b/i,
+    sections: _EVA_CB_SECTIONS, intro: 'La décision de politique monétaire de la BCE (Banque centrale européenne)' },
+  boe:  { label: 'BOE',    report: 'BoE Analysis',  category: 'BoE',                 tags: ['BoE', 'Rates', 'Inflation'], ccy: 'GBP', cb: true,
+    calRe:  /\b(boe (?:interest )?rate|bank of england|bank rate|\bmpc\b)\b/i,
+    newsRe: /\b(boe|bank of england|bailey|bank rate|\bmpc\b|rate decision)\b/i,
+    sections: _EVA_CB_SECTIONS, intro: "La décision de politique monétaire de la Banque d'Angleterre (BoE)" },
+  nfp:  { label: 'NFP',    report: 'NFP Analysis',  category: 'Economic Commentary', tags: ['Jobs', 'NFP', 'USD'],        ccy: 'USD', cb: false,
     calRe:  /\b(non.?farm payrolls?|nonfarm payrolls?)\b/i,
     newsRe: /\b(payrolls?|non.?farm|nfp|unemployment|jobless|wages?|average hourly|participation|\bbls\b|jobs report|labou?r market)\b/i,
-    sections: '["CHIFFRE CLE (vs ATTENDU)","REVISIONS","TAUX DE CHOMAGE","SALAIRES (AHE)","DETAILS","REACTION DE MARCHE","IMPLICATIONS FED"]',
-    intro: "Le rapport sur l'emploi américain (Non-Farm Payrolls)" },
+    sections: _EVA_DATA_SECTIONS, intro: "Le rapport sur l'emploi américain (Non-Farm Payrolls)" },
+  cpi:  { label: 'CPI US', report: 'CPI Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'CPI', 'USD'],   ccy: 'USD', cb: false,
+    calRe:  /\b(inflation rate|consumer price|core inflation|\bcpi\b)\b/i,
+    newsRe: /\b(\bcpi\b|inflation|consumer price|\bcore\b|shelter|services|goods|disinflation|supercore)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: "L'inflation américaine (CPI — indice des prix à la consommation)" },
+  pce:  { label: 'PCE US', report: 'PCE Analysis',  category: 'Economic Commentary', tags: ['Inflation', 'PCE', 'USD'],   ccy: 'USD', cb: false,
+    calRe:  /\b(\bpce\b|personal consumption|core pce)\b/i,
+    newsRe: /\b(\bpce\b|personal consumption|\bcore\b|inflation|deflator|personal income|personal spending)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: "L'inflation PCE américaine (mesure d'inflation préférée de la Fed)" },
+  gdp:  { label: 'PIB US', report: 'GDP Analysis',  category: 'Economic Commentary', tags: ['GDP', 'Growth', 'USD'],      ccy: 'USD', cb: false,
+    calRe:  /\b(gdp growth|gross domestic product|\bgdp\b)\b/i,
+    newsRe: /\b(\bgdp\b|gross domestic product|growth rate|consumption|investment|inventories|net exports)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: 'La croissance américaine (PIB / GDP)' },
+  ism:  { label: 'ISM US', report: 'ISM Analysis',  category: 'Economic Commentary', tags: ['ISM', 'PMI', 'USD'],         ccy: 'USD', cb: false,
+    calRe:  /\bism\b/i,
+    newsRe: /\b(\bism\b|\bpmi\b|manufacturing|services|new orders|prices paid|employment index)\b/i,
+    sections: _EVA_DATA_SECTIONS, intro: "L'activité américaine (ISM — PMI manufacturier / services)" },
 };
 // Titre de section → MAJUSCULES SANS ACCENT (le rendu « titre orange » n'accepte que l'ASCII majuscule).
 function _evaHead(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toUpperCase().replace(/[^A-Z0-9 &/'\-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
 }
+// Anticipations de taux du marché pour la devise (depuis rateprobability, cache _rpCache) → contexte « ANTICIPATIONS DE TAUX ».
+function _evaPricingCtx(ccy) {
+  const b = (_rpCache && _rpCache.banks) ? _rpCache.banks[ccy] : null;
+  if (!b || !Array.isArray(b.meetings) || !b.meetings.length) return '';
+  return b.meetings.slice(0, 6).map(m => {
+    const p = Math.max(m.hold || 0, m.hike || 0, m.cut || 0);
+    return `${m.date} : ${m.baseCase} ${p.toFixed(0)}% (taux implicite ${m.impliedBps >= 0 ? '+' : ''}${m.impliedBps} pb)`;
+  }).join(' ; ');
+}
 async function generateEventAnalysis(kind, ev, evKey, idPrefix) {
   const cfg = EVA_CFG[kind]; if (!cfg) return null;
   const now = Date.now(), evTs = ev.timestamp || now;
-  // Dépêches pertinentes autour de l'événement (20 min avant → maintenant) = matière de l'analyse
-  const ctxRaw = allNews.filter(i => i && i.timestamp >= evTs - 20 * 60 * 1000 && i.timestamp <= now + 60000
-      && !i._briefing && !i._eventAnalysis && !i._marketWrap
-      && cfg.newsRe.test((i.headline || '') + ' ' + (i.category || '')))
-    .sort((a, b) => a.timestamp - b.timestamp);
-  const ctx = ctxRaw.map(i => '- ' + String(i.headline || '').replace(/\s+/g, ' ').trim().slice(0, 240)).filter(l => l.length > 8).slice(0, 70);
+  // Dépêches sur la fenêtre [20 min avant → maintenant] : ÉVÉNEMENT (cfg.newsRe) + RÉACTION DE MARCHÉ (prix)
+  const inWin = i => i && i.timestamp >= evTs - 20 * 60 * 1000 && i.timestamp <= now + 60000 && !i._briefing && !i._eventAnalysis && !i._marketWrap;
+  const fmt = i => '- ' + String(i.headline || '').replace(/\s+/g, ' ').trim().slice(0, 240);
+  const evCtx  = allNews.filter(i => inWin(i) && cfg.newsRe.test((i.headline || '') + ' ' + (i.category || '')))
+    .sort((a, b) => a.timestamp - b.timestamp).map(fmt).filter(l => l.length > 8).slice(0, 60);
+  const mktCtx = allNews.filter(i => inWin(i) && _EVA_MKT_RE.test(i.headline || '') && !cfg.newsRe.test(i.headline || ''))
+    .sort((a, b) => a.timestamp - b.timestamp).map(fmt).filter(l => l.length > 8).slice(0, 25);
+  // QUALITÉ > QUANTITÉ : pas assez de matière nouvelle → on s'abstient (pas de brève redondante).
+  if (evCtx.length < 4) { console.log(`[EVA ${kind}] trop peu de matière (${evCtx.length} dépêches) → skip`); return null; }
   const actualLine = `${ev.title} : actuel ${ev.actual}${ev.forecast ? ` (attendu ${ev.forecast})` : ''}${ev.previous ? ` (précédent ${ev.previous})` : ''}`;
+  const pricing = cfg.cb ? _evaPricingCtx(cfg.ccy) : '';
   if (ai.backoffActive && ai.backoffActive()) return null;   // IA indispo (panne totale) → on s'abstient (pas de rapport creux)
   let parsed = null;
   try {
     _aiReset();
-    const prompt = `Tu es l'économiste en chef de "DataTradingPro". ${cfg.intro} VIENT DE TOMBER. Rédige une ANALYSE APPROFONDIE et professionnelle, façon desk macro, EN FRANÇAIS, UNIQUEMENT à partir du RÉSULTAT et des DÉPÊCHES ci-dessous. N'INVENTE AUCUN chiffre ni détail : si une information n'est pas fournie, ne l'évoque pas. Compare au précédent quand l'info est disponible. Ton neutre et factuel, aucun conseil d'investissement.
+    const prompt = `Tu es l'économiste en chef de "DataTradingPro". ${cfg.intro} EST TOMBÉ il y a environ 1 heure. Rédige UNE analyse APPROFONDIE mais SYNTHÉTIQUE, façon desk macro premium, EN FRANÇAIS, UNIQUEMENT à partir du RÉSULTAT et des DÉPÊCHES ci-dessous. N'INVENTE AUCUN chiffre ni détail : si une info n'est pas fournie, ne l'évoque pas. Mets l'accent sur CE QUI A SURPRIS (vs consensus), CE QUI A CHANGÉ, et la RÉACTION du marché (taux, dollar, actions, obligations) + l'évolution des ANTICIPATIONS. Compare au précédent/attendu. Ton neutre et factuel, aucun conseil.
 
 Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 {
-  "headline": "<titre court résumant la décision/le chiffre, ex. « Taux maintenus, dot plot plus hawkish » ou « NFP au-dessus du consensus, chômage stable »>",
-  "lead": "<2 à 3 phrases de synthèse : le résultat, le ton d'ensemble (hawkish/dovish/conforme) et la réaction principale>",
-  "sections": [ { "title": "<TITRE DE SECTION EN MAJUSCULES SANS ACCENT>", "points": ["<une phrase factuelle>", "..."] } ]
+  "headline": "<titre court et précis, ex. « Taux maintenus, dot plot plus hawkish » ou « CPI au-dessus du consensus, cœur tenace »>",
+  "lead": "<2 à 4 phrases de synthèse : le résultat, la SURPRISE éventuelle vs consensus, le ton, la réaction principale>",
+  "sections": [ { "title": "<TITRE EN MAJUSCULES SANS ACCENT>", "points": ["<une phrase factuelle concrète>", "..."] } ]
 }
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
-Chaque section : 1 à 3 puces, une phrase courte et concrète par puce (chiffres exacts, comparaison au précédent, mécanisme). Les TITRES de section en MAJUSCULES SANS ACCENT (ex. INFLATION, DOT PLOTS, A SUIVRE).
+Pour REACTION DE MARCHE : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour ANTICIPATIONS DE TAUX : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour IMPLICATIONS BANQUE CENTRALE : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Les TITRES de section en MAJUSCULES SANS ACCENT.
 
 === RÉSULTAT (calendrier) ===
 ${actualLine}
+${pricing ? `\n=== ANTICIPATIONS DE TAUX (marché ${cfg.ccy}, via rateprobability) ===\n${pricing}\n` : ''}
+=== DÉPÊCHES — ÉVÉNEMENT (${evCtx.length}) ===
+${evCtx.join('\n').slice(0, 6500)}
 
-=== DÉPÊCHES REÇUES (${ctx.length}) ===
-${ctx.join('\n').slice(0, 7000) || '(peu de détails captés — appuie-toi sur le résultat ci-dessus)'}`;
-    const text = await ai.generateText(prompt, 2600);
+=== DÉPÊCHES — RÉACTION DE MARCHÉ (${mktCtx.length}) ===
+${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
+    const text = await ai.generateText(prompt, 2800);
     aiNote('news');
     const m = text.match(/\{[\s\S]*\}/);
     parsed = m ? JSON.parse(m[0]) : null;
@@ -6534,10 +6577,10 @@ async function _checkEventAnalyses() {
     const now = Date.now();
     for (const kind of Object.keys(EVA_CFG)) {
       const cfg = EVA_CFG[kind];
-      // Événement publié il y a 25 min → 4 h, AVEC un actual (la décision/le chiffre est tombé)
+      // Événement publié il y a 1 h → 5 h, AVEC un actual (la décision/le chiffre est tombé) → analyse ~1 h après
       const ev = (cal || []).filter(e => e && e.currency === cfg.ccy && cfg.calRe.test(e.title || '')
           && e.actual != null && e.actual !== ''
-          && (now - (e.timestamp || 0)) >= 25 * 60 * 1000 && (now - (e.timestamp || 0)) <= 4 * 3600 * 1000)
+          && (now - (e.timestamp || 0)) >= 60 * 60 * 1000 && (now - (e.timestamp || 0)) <= 5 * 3600 * 1000)
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
       if (!ev) continue;
       const dayKey = new Date(ev.timestamp).toISOString().slice(0, 10);
@@ -6550,7 +6593,7 @@ async function _checkEventAnalyses() {
   } catch (e) { console.warn('[EVA] check échec:', e.message); }
   finally { _evaBusy = false; }
 }
-setInterval(() => { _checkEventAnalyses().catch(() => {}); }, 5 * 60 * 1000);   // toutes les 5 min : publie ~30 min après l'événement (fenêtre 25 min–4 h)
+setInterval(() => { _checkEventAnalyses().catch(() => {}); }, 5 * 60 * 1000);   // toutes les 5 min : publie ~1 h après l'événement (fenêtre 1 h–5 h)
 setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        // rattrapage au démarrage (si un FOMC/NFP est tombé pendant un redéploiement)
 
 // ─── Schedule all briefings ───────────────────────────────────────────────────
@@ -8434,7 +8477,7 @@ async function _rpFetchBank(slug) {
 function _rpTransform(code, j, now) {
   const map = RP_MAP[code]; if (!map) return null;
   let rate = +map.rate(j.today); if (!isFinite(rate)) return null; rate = +rate.toFixed(2);
-  const rows = (j.today.rows || []).filter(x => x && x.meeting_iso && Date.parse(x.meeting_iso + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 10);   // 10 réunions (le front scrolle, ~3 visibles)
+  const rows = (j.today.rows || []).filter(x => x && x.meeting_iso && Date.parse(x.meeting_iso + 'T00:00:00Z') >= now - 20 * 3600 * 1000).slice(0, 10);   // 10 réunions ; -20 h = une réunion DÉJÀ TENUE ne reste plus affichée comme « prochaine » (rateprobability la retire de toute façon)
   if (!rows.length) return null;
   let prev = rate;
   const meetings = rows.map(x => {
@@ -8500,7 +8543,7 @@ app.get('/api/rates', (_req, res) => {
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
     const rb = _cbResolved(b);
     const bb = { ...rb, bias: _effBias(rb, st.rate) };             // biais (IA si dispo) + arrêt au taux terminal
-    const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 2 * 86400000).slice(0, 8);   // 8 réunions maison (le front scrolle)
+    const sched = (CB_MEETINGS[b.code] || []).filter(d => Date.parse(d + 'T00:00:00Z') >= now - 20 * 3600 * 1000).slice(0, 8);   // 8 réunions maison ; -20 h = pas de réunion déjà tenue affichée comme « prochaine »
     const meetings = sched.map((d, i) => {
       const sc = _rateScenario(bb, i);
       const days = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - now) / 86400000));
