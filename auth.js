@@ -183,6 +183,17 @@ function _mirrorSaveFile() {
 }
 function _mirrorGet(email)  { return _usersMirror.get(String(email || '').toLowerCase().trim()) || null; }
 function _mirrorGetById(id) { return _usersMirrorById.get(String(id)) || null; }
+// CLÉ d'écriture Supabase pour un compte. L'id LOCAL hérité peut être un ENTIER ("6","29"…) qui n'est
+// PAS un uuid → `.eq('id','6')` échoue « invalid input syntax for type uuid » et n'atteint jamais la base.
+// L'EMAIL est la clé métier UNIQUE et stable (contrainte users_email_key), et c'est aussi celle que lit
+// verifyLogin → on écrit par email pour les comptes à id non-uuid (sinon on garde l'id uuid, inchangé).
+const _UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+function _supaWhere(id, emailHint) {
+  const sid = String(id == null ? '' : id);
+  if (_UUID_RE.test(sid)) return { col: 'id', val: sid };                 // id uuid normal → inchangé
+  const email = (emailHint || _mirrorGetById(id)?.email || '').toLowerCase().trim();
+  return email ? { col: 'email', val: email } : { col: 'id', val: sid };  // id hérité → clé EMAIL (sinon dernier recours)
+}
 // Vue « publique » d'une ligne (sans le hash) — pour les chemins qui renvoient l'objet au front.
 function _pubUser(r) { if (!r) return null; const { password_hash, ...rest } = r; return rest; }
 // Rafraîchit une entrée depuis une lecture Supabase réussie. Fusionne pour ne JAMAIS perdre le
@@ -231,14 +242,16 @@ try { _pendingWrites = JSON.parse(fs.readFileSync(USERS_PENDING_FILE, 'utf8')) |
 function _pendingSave() { try { fs.writeFileSync(USERS_PENDING_FILE, JSON.stringify(_pendingWrites)); } catch {} }
 function _pendingQueue(id, payload, op = 'update') {
   const k = String(id);
+  const email = (_mirrorGetById(id)?.email || '').toLowerCase().trim() || null;   // clé stable pour le rejeu (id hérité ≠ uuid)
   const ex = _pendingWrites.find(p => String(p.id) === k);
   if (ex) {
+    if (email && !ex.email) ex.email = email;
     if (op === 'upsert' || op === 'delete') { ex.op = op; ex.row = payload || undefined; delete ex.fields; }
     else if (ex.op === 'upsert' && ex.row) { Object.assign(ex.row, payload); }   // maj de champs sur une création encore en attente
     else { ex.op = 'update'; ex.fields = Object.assign(ex.fields || {}, payload); }
     ex.attempts = 0;
   } else {
-    _pendingWrites.push(op === 'update' ? { id: k, op: 'update', fields: payload, ts: Date.now(), attempts: 0 } : { id: k, op, row: payload || undefined, ts: Date.now(), attempts: 0 });
+    _pendingWrites.push(op === 'update' ? { id: k, email, op: 'update', fields: payload, ts: Date.now(), attempts: 0 } : { id: k, email, op, row: payload || undefined, ts: Date.now(), attempts: 0 });
   }
   _pendingSave();
 }
@@ -250,10 +263,26 @@ async function _pendingFlush() {
     const still = [];
     for (const p of _pendingWrites) {
       try {
-        const { error } = p.op === 'delete' ? await supabase.from(TABLE).delete().eq('id', p.id)
-          : (p.op === 'upsert' && p.row) ? await supabase.from(TABLE).upsert([p.row], { onConflict: 'id' })
-          : await supabase.from(TABLE).update(p.fields || {}).eq('id', p.id);
-        if (!error) continue;                                   // ✅ rejoué (insert/maj/suppression) → on retire de la file
+        const w = _supaWhere(p.id, p.email);                    // rejeu par EMAIL si l'id est hérité (entier ≠ uuid)
+        let error, data;
+        if (p.op === 'delete') {
+          ({ error } = await supabase.from(TABLE).delete().eq(w.col, w.val));
+        } else if (p.op === 'upsert' && p.row) {
+          // upsert : id non-uuid (compte hérité) → on n'inscrit PAS l'id (colonne uuid) et on dédoublonne par email
+          const byEmail = !_UUID_RE.test(String(p.row.id || ''));
+          const row = byEmail ? (() => { const { id, ...r } = p.row; return r; })() : p.row;
+          ({ error } = await supabase.from(TABLE).upsert([row], { onConflict: byEmail ? 'email' : 'id' }));
+        } else {
+          ({ data, error } = await supabase.from(TABLE).update(p.fields || {}).eq(w.col, w.val).select('id'));
+        }
+        if (!error) {
+          // update qui ne touche AUCUNE ligne (mauvais nœud / primaire pas encore revenue) → on GARDE en attente
+          if (p.op === 'update' && Array.isArray(data) && data.length === 0) {
+            if ((p.attempts = (p.attempts || 0) + 1) < 200) still.push(p);
+            continue;
+          }
+          continue;                                             // ✅ rejoué (insert/maj/suppression effective) → on retire de la file
+        }
         if (_supaDown(error) && (p.attempts = (p.attempts || 0) + 1) < 200) still.push(p);   // toujours muet → on garde (cap anti-boucle)
         else console.warn('[Auth] écriture hors-ligne abandonnée id=' + p.id + ' :', error.message);   // vraie erreur SQL ou trop d'essais → drop
       } catch { p.attempts = (p.attempts || 0) + 1; if (p.attempts < 200) still.push(p); }    // réseau → on garde
@@ -342,7 +371,7 @@ async function verifyLogin(email, password) {
   }
 
   // Mettre à jour last_login en background (best-effort, jamais bloquant si Supabase est muet)
-  try { supabase.from(TABLE).update({ last_login: new Date().toISOString() }).eq('id', data.id).then(() => {}, () => {}); } catch {}
+  try { const lw = _supaWhere(data.id, data.email); supabase.from(TABLE).update({ last_login: new Date().toISOString() }).eq(lw.col, lw.val).then(() => {}, () => {}); } catch {}
 
   return { id: data.id, email: data.email, name: data.name, role: data.role, plan: data.plan, active: !!data.active, expiresAt: data.expires_at || null };
 }
@@ -448,14 +477,18 @@ async function createUser({ email, password, name = '', role = 'client', plan = 
 async function changePassword(id, newPassword) {
   if (!newPassword || newPassword.length < 6) throw new Error('Mot de passe trop court (min 6 caractères)');
   const hash = await bcrypt.hash(newPassword, SALT_ROUNDS);
+  const w = _supaWhere(id);
   let supaOk = false;
-  try { const { error } = await supabase.from(TABLE).update({ password_hash: hash }).eq('id', id); if (!error) supaOk = true; }
+  // .select('id') = confirme qu'une ligne a VRAIMENT été modifiée. Sinon une écriture envoyée à un nœud
+  // secondaire (primaire bloquée) « réussit » sur 0 ligne → on croirait à tort que c'est persisté, et le
+  // MDP reviendrait à l'ancien au retour de la primaire. 0 ligne touchée ⇒ on met en file de rejeu.
+  try { const { data, error } = await supabase.from(TABLE).update({ password_hash: hash }).eq(w.col, w.val).select('id'); if (!error && Array.isArray(data) && data.length) supaOk = true; }
   catch {}
   // Reflète TOUJOURS dans le miroir → la connexion avec le nouveau MDP marche immédiatement, même Supabase bloqué.
   const row = _mirrorGetById(id);
   if (row) { row.password_hash = hash; _mirrorIndex(row); _mirrorSaveFile(); }
   if (!supaOk) {
-    _pendingQueue(id, { password_hash: hash });   // rejoué vers Supabase à son retour (sinon le MDP « reviendrait » à l'ancien)
+    _pendingQueue(id, { password_hash: hash });   // rejoué (par email) vers Supabase à son retour (sinon le MDP « reviendrait » à l'ancien)
     if (!row) throw new Error('Supabase indisponible et compte absent du miroir local');
   }
 }
@@ -468,29 +501,33 @@ async function updateUser(id, fields = {}) {
   if ('active' in fields) upd.active = fields.active === 1 || fields.active === true || fields.active === '1';
   if ('expiresAt' in fields) upd.expires_at = fields.expiresAt || null;
   if (Object.keys(upd).length === 0) return;
+  const w = _supaWhere(id);
   let supaOk = false, lastErr = null;
   try {
-    let { error } = await supabase.from(TABLE).update(upd).eq('id', id);
+    let { data, error } = await supabase.from(TABLE).update(upd).eq(w.col, w.val).select('id');
     // Tolérance : colonne expires_at absente → on réessaie sans
-    if (error && /expires_at/.test(error.message)) {
+    if (error && /expires_at/.test(error.message || '')) {
       const upd2 = { ...upd }; delete upd2.expires_at;
-      if (Object.keys(upd2).length) ({ error } = await supabase.from(TABLE).update(upd2).eq('id', id));
-      else error = null;
+      if (Object.keys(upd2).length) ({ data, error } = await supabase.from(TABLE).update(upd2).eq(w.col, w.val).select('id'));
+      else { error = null; data = [1]; }   // plus rien à écrire → no-op assumé OK
     }
-    if (error) lastErr = error; else supaOk = true;
+    if (error) lastErr = error;
+    else if (Array.isArray(data) && data.length) supaOk = true;   // ligne RÉELLEMENT modifiée (≠ 0 ligne sur un nœud secondaire)
   } catch (e) { lastErr = e; }
   // Reflète dans le miroir (les changements admin restent visibles même Supabase muet)
   const row = _mirrorGetById(id);
   if (row) { Object.assign(row, upd); _mirrorIndex(row); _mirrorSaveFile(); }
   _bustUsersCache();   // ← la liste admin reflète le changement IMMÉDIATEMENT (sinon cache 60 s → « ça n'a pas changé »)
   if (!supaOk) {
-    if (_supaDown(lastErr)) _pendingQueue(id, upd);                              // muet → rejeu différé
-    else throw new Error(lastErr ? (lastErr.message || String(lastErr)) : 'updateUser échoué');   // vraie erreur SQL → remonter
+    if (lastErr && !_supaDown(lastErr)) throw new Error(lastErr.message || String(lastErr));   // vraie erreur SQL → remonter
+    _pendingQueue(id, upd);                                                                     // muet OU 0 ligne (mauvais nœud) → rejeu différé (par email)
   }
 }
 
 async function deleteUser(id) {
-  const { error } = await supabase.from(TABLE).delete().eq('id', id);
+  const w = _supaWhere(id);                                          // clé (email si id hérité ≠ uuid) résolue AVANT de purger le miroir
+  const email = (_mirrorGetById(id)?.email || '').toLowerCase().trim() || null;
+  const { error } = await supabase.from(TABLE).delete().eq(w.col, w.val);
   // Purge le miroir + annule toute écriture en attente pour cet id : un compte supprimé ne doit JAMAIS
   // réapparaître ni se reconnecter via le repli (corrige aussi le trou « deleted user via miroir »).
   const row = _mirrorGetById(id);
@@ -499,7 +536,7 @@ async function deleteUser(id) {
   _bustUsersCache();   // ← suppression visible IMMÉDIATEMENT dans la liste admin (plus de « il y est toujours »)
   _pendingWrites = _pendingWrites.filter(p => String(p.id) !== String(id));
   if (error) {
-    if (_supaDown(error)) { _pendingWrites.push({ id: String(id), op: 'delete', ts: Date.now(), attempts: 0 }); _pendingSave(); return; }   // base muette → suppression rejouée à son retour (miroir déjà purgé)
+    if (_supaDown(error)) { _pendingWrites.push({ id: String(id), email, op: 'delete', ts: Date.now(), attempts: 0 }); _pendingSave(); return; }   // base muette → suppression rejouée (par email) à son retour (miroir déjà purgé)
     _pendingSave();
     throw new Error(error.message);
   }
