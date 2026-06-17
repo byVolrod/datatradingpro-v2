@@ -2136,10 +2136,12 @@ function buildNewsItem(item) {
 
             // Explication Gemini du mouvement (mise en cache → 0 requête à la réouverture)
             const movesStr = data.moves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
-            const _applyExplain = txt => {
-              if (!txt) return;
+            // Explication = LISTE À PUCES (1 phrase courte par puce, en français) — façon PMT.
+            const _applyExplain = val => {
+              const arr = Array.isArray(val) ? val : (val ? [String(val)] : []);
+              if (!arr.length) return;
               const el = document.getElementById(`rx-explain-${item.id}`);
-              if (el && activeTab === 'reaction') el.textContent = _decodeEntities(txt);
+              if (el && activeTab === 'reaction') el.innerHTML = _renderInfoBullets(arr);
             };
             if (_reactCache.has(item.id)) {
               _applyExplain(_reactCache.get(item.id));
@@ -2150,7 +2152,10 @@ function buildNewsItem(item) {
                 body: JSON.stringify({ id: item.id, headline: item.headline, moves: movesStr }),
               })
                 .then(r => r.json())
-                .then(d => { const t = (d && d.text) || ''; _reactCache.set(item.id, t); _applyExplain(t); })
+                .then(d => {
+                  const b = (d && Array.isArray(d.bullets) && d.bullets.length) ? d.bullets : ((d && d.text) ? [d.text] : []);
+                  _reactCache.set(item.id, b); _applyExplain(b);
+                })
                 .catch(() => {});
             }
           }

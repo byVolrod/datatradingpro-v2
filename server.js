@@ -4794,7 +4794,7 @@ app.post('/api/analyse', async (req, res) => {
   const { headline, category, description } = req.body || {};
   if (!headline) return res.status(400).json({ error: 'headline required' });
 
-  const cacheKey = headline.substring(0, 100);
+  const cacheKey = 'fr1:' + headline.substring(0, 100);   // fr1 = sortie FRANÇAISE (bump à chaque changement de langue/format)
   if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
 
   // Sans IA : l'Analyse ne ferait que RÉPÉTER la description (déjà montrée dans Info) → on renvoie
@@ -4810,19 +4810,19 @@ app.post('/api/analyse', async (req, res) => {
     const ctx = description
       ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
       : '';
-    const text = await ai.generateText(`You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+    const text = await ai.generateText(`Tu es un analyste financier professionnel et concis. Analyse cette news pour un trader forex/macro. RÉPONDS EN FRANÇAIS.
 
-Headline: ${headline}
-Category: ${category}${ctx}
+Titre : ${headline}
+Catégorie : ${category}${ctx}
 
-Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
-- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
-- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
-- Explain the concrete causal mechanism for THIS story, not generic phrasing.
-- Max 22 words per bullet. Vary the angle per news; do not reuse the same wording across news.
-- NEVER include source/author attribution.
-- NO bold, NO markdown, NO asterisks. Plain text only.
-- Start each bullet with • . Reply ONLY with the bullets, no preamble.`, 320);
+Rédige 2 à 3 puces COURTES spécifiques à CETTE news (jamais un modèle générique). Règles :
+- Apporte une VALEUR ANALYTIQUE : moteurs, implications, niveaux, ce que ça signifie pour le trade — ne répète PAS le titre ni les chiffres bruts.
+- Ne cite que les instruments réellement pertinents ici (ex. EUR/USD, Brent, XAU/USD, US10Y) — aucun si rien.
+- Explique le mécanisme causal CONCRET de cette histoire, pas une formule générique.
+- Maximum 22 mots par puce. Varie l'angle selon la news ; ne réutilise pas les mêmes tournures.
+- N'inclus JAMAIS la source/l'auteur.
+- AUCUN gras, AUCUN markdown, AUCUN astérisque. Texte brut uniquement.
+- Commence chaque puce par • . Réponds UNIQUEMENT avec les puces, sans préambule.`, 320);
     const bullets = text.split('\n')
       .map(l => l.trim())
       .filter(l => /^[•\-\*]/.test(l))
@@ -4847,8 +4847,8 @@ app.post('/api/news-info', async (req, res) => {
   const rawDesc = String(description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (!headline || rawDesc.length < 30) return res.json({ bullets: [] });
 
-  // Clé de cache : id de la news si fourni, sinon empreinte du titre
-  const cacheKey = id || headline.substring(0, 120);
+  // Clé de cache : id de la news si fourni, sinon empreinte du titre (préfixe fr1 = sortie FRANÇAISE)
+  const cacheKey = 'fr1:' + (id || headline.substring(0, 120));
   if (_infoCache.has(cacheKey)) return res.json(_infoCache.get(cacheKey));
 
   // Budget Gemini : semaine = news IMPORTANTES uniquement. L'importance est décidée CÔTÉ SERVEUR
@@ -4860,21 +4860,21 @@ app.post('/api/news-info', async (req, res) => {
   if (!aiAllowed('news', { important: _newsImportant, priority: 'user' })) return res.json({ bullets: [] });   // pré-check rapide (évite de bâtir le prompt si budget épuisé)
 
   try {
-    const text = await aiSmart('news', `You are an editor for a professional financial news terminal (trading-desk style).
-Summarise the story below into clear bullets capturing the KEY FACTS of THIS specific news (never a template).
-RULES:
-- 3 to 6 bullets depending on the real substance (more concrete facts = more bullets; never padding).
-- Keep the exact key figures and specifics (percentages, levels, dates, places, programs, names).
-- Put **bold** (markdown double asterisks) on the single most important phrase or number — sparingly (0 to 2 times total in the whole answer).
-- If the story enumerates a list (e.g. four demands/points/conditions), you MAY add ONE short header line ending with a colon (e.g. "Four points:") then that list as bullets right after.
-- One clear idea per bullet, neutral factual tone, no investment advice.
-- NEVER mention the news outlet or source: drop any "via X", "Reuters reports", "according to <agency/newspaper>", and all outlet names.
-- Same language as the source (usually English → answer in English).
-- Reply ONLY with the lines: bullets start with •, the optional single header line ends with ":". No preamble, no conclusion.
+    const text = await aiSmart('news', `Tu es l'éditeur d'un terminal de news financières professionnel (style salle de marché). RÉPONDS EN FRANÇAIS.
+Résume l'info ci-dessous en puces claires reprenant les FAITS CLÉS de CETTE news précise (jamais un modèle générique).
+RÈGLES :
+- 3 à 6 puces selon la matière réelle (plus de faits concrets = plus de puces ; jamais de remplissage).
+- Conserve EXACTEMENT les chiffres et précisions (pourcentages, niveaux, dates, lieux, programmes, noms).
+- Mets en **gras** (double astérisque markdown) la SEULE phrase ou le seul chiffre le plus important — avec parcimonie (0 à 2 fois en tout).
+- Si l'info énumère une liste (ex. quatre demandes/points/conditions), tu PEUX ajouter UNE courte ligne d'en-tête finissant par deux-points (ex. « Quatre points : ») puis cette liste en puces juste après.
+- Une idée claire par puce, ton factuel neutre, aucun conseil d'investissement.
+- Ne cite JAMAIS le média ou la source : supprime tout « via X », « Reuters rapporte », « selon <agence/journal> » et tous les noms de médias.
+- Traduis en français même si la source est en anglais (les noms propres/tickers restent tels quels).
+- Réponds UNIQUEMENT avec les lignes : les puces commencent par •, l'éventuelle ligne d'en-tête finit par « : ». Aucun préambule, aucune conclusion.
 
-Headline: ${headline}
-Category: ${category || '—'}
-Content: ${rawDesc.substring(0, 1100)}`, 650, { important: _newsImportant, priority: 'user', claudeOverBudget: false });   // compté APRÈS succès + zéro crédit Claude pour ce flux (fallback local = bullets vides)
+Titre : ${headline}
+Catégorie : ${category || '—'}
+Contenu : ${rawDesc.substring(0, 1100)}`, 650, { important: _newsImportant, priority: 'user', claudeOverBudget: false });   // compté APRÈS succès + zéro crédit Claude pour ce flux (fallback local = bullets vides)
 
     const bullets = [];
     text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
@@ -4902,22 +4902,26 @@ app.post('/api/reaction-explain', async (req, res) => {
   const { id, headline, moves } = req.body || {};
   if (!headline || !moves) return res.json({ text: '' });
 
-  const cacheKey = id || headline.substring(0, 120);
+  const cacheKey = 'fr1:' + (id || headline.substring(0, 120));   // fr1 = sortie FRANÇAISE en puces (bump à chaque changement)
   if (_reactCache.has(cacheKey)) return res.json(_reactCache.get(cacheKey));
 
   // Budget Gemini : la réaction concerne une news qui a bougé le marché → importante
-  if (!aiAllowed('news', { important: true })) return res.json({ text: '' });
+  if (!aiAllowed('news', { important: true })) return res.json({ bullets: [], text: '' });
 
   try {
     aiNote('news');
-    const text = await ai.generateText(`You are a markets reporter on a trading desk. In 1 to 2 short sentences (max 40 words total), explain the market reaction to the news below: link the price moves to the headline (the causal mechanism). Neutral tone, no advice. Same language as the headline (usually English). Reply with the sentence(s) only, no preamble.
+    const text = await ai.generateText(`Tu es reporter marché sur une salle de trading. RÉPONDS EN FRANÇAIS.
+Explique la réaction du marché à la news ci-dessous sous forme de 1 à 2 PUCES, UNE phrase courte par puce (max 22 mots) : relie le mouvement de prix au titre (le mécanisme causal, le « pourquoi »). Ton neutre, factuel, aucun conseil. Les tickers/instruments restent tels quels (Brent, EUR/USD…).
+Commence chaque puce par • . Réponds UNIQUEMENT avec la ou les puces, sans préambule.
 
-Headline: ${headline}
-Observed moves: ${String(moves).slice(0, 300)}`, 160);
+Titre : ${headline}
+Mouvements observés : ${String(moves).slice(0, 300)}`, 220);
 
-    const clean = text.replace(/^[•\-\*\s]+/, '').trim();
-    const result = { text: clean };
-    if (clean) {
+    let bullets = String(text || '').split('\n').map(l => l.trim())
+      .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean).slice(0, 3);
+    if (!bullets.length) { const c = String(text || '').replace(/^[•\-\*\s]+/, '').trim(); if (c) bullets = [c]; }
+    const result = { bullets, text: bullets.join(' ') };   // text conservé pour rétro-compat
+    if (bullets.length) {
       _reactCache.set(cacheKey, result);
       if (_reactCache.size > 2000) _reactCache.delete(_reactCache.keys().next().value);
       _saveJsonMap(REACT_CACHE_FILE, _reactCache);
@@ -4925,7 +4929,7 @@ Observed moves: ${String(moves).slice(0, 300)}`, 160);
     res.json(result);
   } catch (e) {
     console.error('[Reaction API]', e.message);
-    res.json({ text: '' });
+    res.json({ bullets: [], text: '' });
   }
 });
 
@@ -8340,9 +8344,14 @@ async function _refreshRateProb(force = false) {
   try {
     const now = Date.now(), codes = Object.keys(RP_MAP);
     const results = await Promise.allSettled(codes.map(c => _rpFetchBank(RP_MAP[c].slug).then(j => j && _rpTransform(c, j, now))));
-    const banks = {};
-    results.forEach((res, i) => { if (res.status === 'fulfilled' && res.value) banks[codes[i]] = res.value; });
-    if (Object.keys(banks).length) { _rpCache = { at: now, banks }; auth.aiCacheSet('rates:rateprob', _rpCache).catch(() => {}); }
+    // FIABILITÉ : on FUSIONNE par banque, on ne REMPLACE jamais tout le cache. Un échec transitoire d'UNE
+    // banque (timeout/429) conserve sa DERNIÈRE valeur marché connue au lieu de la faire chuter sur le repli
+    // maison. Horodatage PAR banque → /api/rates juge la fraîcheur banque par banque (12 h de tolérance).
+    const banks = { ..._rpCache.banks };
+    const bankAt = { ...(_rpCache.bankAt || {}) };
+    let okCount = 0;
+    results.forEach((res, i) => { if (res.status === 'fulfilled' && res.value) { banks[codes[i]] = res.value; bankAt[codes[i]] = now; okCount++; } });
+    if (okCount) { _rpCache = { at: now, banks, bankAt }; auth.aiCacheSet('rates:rateprob', _rpCache).catch(() => {}); }
   } catch {} finally { _rpRefreshing = false; }
 }
 setInterval(() => { _refreshRateProb().catch(() => {}); }, 5 * 60 * 1000);   // tick 5 min ; le refetch RÉEL respecte le TTL adaptatif (15 min normal, 5 min si réunion ≤2 j)
@@ -8352,10 +8361,13 @@ app.get('/api/rates', (_req, res) => {
   try { _refreshRates(); } catch {}
   try { _refreshRateProb().catch(() => {}); } catch {}   // rafraîchit en tâche de fond si périmé (NON bloquant)
   const now = Date.now();
-  const rpFresh = (_rpCache.at && (now - _rpCache.at) < 12 * 3600 * 1000) ? _rpCache.banks : {};   // tolère 12 h (résilience si l'API tombe)
+  // Fraîcheur PAR banque : on garde la valeur marché de rateprobability tant qu'elle a < 12 h (résilience
+  // si l'API tombe), banque par banque → une banque momentanément en échec n'entraîne pas les autres.
+  const _rpBanks = _rpCache.banks || {}, _rpBankAt = _rpCache.bankAt || {};
   const banks = CB.map(b => {
-    const rp = rpFresh[b.code];
-    if (rp) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
+    const rp = _rpBanks[b.code];
+    const _rpAge = now - (_rpBankAt[b.code] || _rpCache.at || 0);
+    if (rp && _rpAge < 12 * 3600 * 1000) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
       next: rp.next, nextDays: rp.nextDays, move: rp.move, prob: rp.prob, expBps: rp.expBps,
       scenario: rp.scenario, meetings: rp.meetings, source: 'market',
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null };
@@ -9005,7 +9017,7 @@ async function _enrichAnalyses() {
     for (const item of allNews) {
       if (!item || (Array.isArray(item.analyse) && item.analyse.length)) continue; // déjà analysée
       if (!_meritsAnalysis(item)) continue;
-      const ck = 'ana:' + item.id;
+      const ck = 'ana2fr:' + item.id;   // ana2fr = analyse FRANÇAISE (bump → régénère ; les vieux 'ana:' anglais sont ignorés)
       // 1) cache mémoire chaud
       if (_analyseCache.has(ck)) {
         const b = _analyseCache.get(ck);
@@ -9025,19 +9037,19 @@ async function _enrichAnalyses() {
       try {
         const desc = String(item.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 600);
         const out = await aiSmart('news',
-`You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+`Tu es un analyste financier professionnel et concis. Analyse cette news pour un trader forex/macro. RÉPONDS EN FRANÇAIS.
 
-Headline: ${item.headline}
-Category: ${item.category || '—'}
-Context: ${desc}
+Titre : ${item.headline}
+Catégorie : ${item.category || '—'}
+Contexte : ${desc}
 
-Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
-- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
-- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
-- Explain the concrete causal mechanism for THIS story, not generic phrasing.
-- Max 22 words per bullet. NEVER include source/author attribution.
-- NO bold, NO markdown, NO asterisks. Plain text only.
-- Start each bullet with • . Reply ONLY with the bullets, no preamble.`,
+Rédige 2 à 3 puces COURTES spécifiques à CETTE news (jamais un modèle générique). Règles :
+- Apporte une VALEUR ANALYTIQUE : moteurs, implications, niveaux, ce que ça signifie pour le trade — ne répète PAS le titre ni les chiffres bruts.
+- Ne cite que les instruments réellement pertinents ici (ex. EUR/USD, Brent, XAU/USD, US10Y) — aucun si rien.
+- Explique le mécanisme causal CONCRET de cette histoire, pas une formule générique.
+- Maximum 22 mots par puce. N'inclus JAMAIS la source/l'auteur.
+- AUCUN gras, AUCUN markdown, AUCUN astérisque. Texte brut uniquement.
+- Commence chaque puce par • . Réponds UNIQUEMENT avec les puces, sans préambule.`,
           320, { important: true, claudeOverBudget: false });
         const bullets = _parseAnalyseBullets(out);
         _analyseCache.set(ck, bullets);                                          // cache même vide → on ne réessaie pas
