@@ -6427,6 +6427,132 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
   } finally { _fxrGenBusy = false; }
 }
 
+// ═══════════════ ANALYSE D'ÉVÉNEMENT — FOMC & NFP (~30 min après, façon PMT) ═══════════════
+// ~30 min après une décision FOMC ou un rapport NFP, on publie une ANALYSE APPROFONDIE structurée
+// (sections en MAJUSCULES → titres orange, façon primer DTP) DANS LE FLUX NEWS : ce qui a été décidé,
+// ce qui a changé vs le communiqué précédent, dot plots/projections, salaires/révisions, « À SUIVRE ».
+// Rédigé EN FRANÇAIS, UNIQUEMENT à partir des dépêches reçues + du résultat calendrier (zéro invention).
+// L'item n'est PAS _briefing (sinon masqué du flux + hors /api/news) : c'est une vraie news `_eventAnalysis`
+// (rendue en primer structuré côté front via isPrimerItem, jamais re-résumée). Dédup par événement/jour
+// (l'historique persiste l'item → pas de doublon après redéploiement). Budget IA négligeable (FOMC ~8×/an,
+// NFP ~1×/mois). [[markdown-strip-rule]]
+const EVA_VER = 1;
+const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l'item est persisté dans l'historique)
+let _evaBusy = false;
+const EVA_CFG = {
+  fomc: { label: 'FED', report: 'FOMC Analysis', category: 'Fed', tags: ['Fed', 'Inflation', 'Rates'], ccy: 'USD',
+    calRe:  /\b(fed funds|federal funds|fomc|interest rate decision)\b/i,
+    newsRe: /\b(fed|fomc|powell|warsh|federal reserve|dot[\s-]?plot|forward guidance|rate decision|federal funds|projections?|\bsep\b)\b/i,
+    sections: '["DECISION & TAUX","COMMUNIQUE (FORWARD GUIDANCE)","INFLATION","EMPLOI","ACTIVITE ECONOMIQUE","DOT PLOTS / PROJECTIONS","A SUIVRE"]',
+    intro: 'La décision de politique monétaire du FOMC (Réserve fédérale)' },
+  nfp:  { label: 'NFP', report: 'NFP Analysis', category: 'Economic Commentary', tags: ['Jobs', 'NFP', 'USD'], ccy: 'USD',
+    calRe:  /\b(non.?farm payrolls?|nonfarm payrolls?)\b/i,
+    newsRe: /\b(payrolls?|non.?farm|nfp|unemployment|jobless|wages?|average hourly|participation|\bbls\b|jobs report|labou?r market)\b/i,
+    sections: '["CHIFFRE CLE (vs ATTENDU)","REVISIONS","TAUX DE CHOMAGE","SALAIRES (AHE)","DETAILS","REACTION DE MARCHE","IMPLICATIONS FED"]',
+    intro: "Le rapport sur l'emploi américain (Non-Farm Payrolls)" },
+};
+// Titre de section → MAJUSCULES SANS ACCENT (le rendu « titre orange » n'accepte que l'ASCII majuscule).
+function _evaHead(s) {
+  return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .toUpperCase().replace(/[^A-Z0-9 &/'\-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+}
+async function generateEventAnalysis(kind, ev, evKey, idPrefix) {
+  const cfg = EVA_CFG[kind]; if (!cfg) return null;
+  const now = Date.now(), evTs = ev.timestamp || now;
+  // Dépêches pertinentes autour de l'événement (20 min avant → maintenant) = matière de l'analyse
+  const ctxRaw = allNews.filter(i => i && i.timestamp >= evTs - 20 * 60 * 1000 && i.timestamp <= now + 60000
+      && !i._briefing && !i._eventAnalysis && !i._marketWrap
+      && cfg.newsRe.test((i.headline || '') + ' ' + (i.category || '')))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  const ctx = ctxRaw.map(i => '- ' + String(i.headline || '').replace(/\s+/g, ' ').trim().slice(0, 240)).filter(l => l.length > 8).slice(0, 70);
+  const actualLine = `${ev.title} : actuel ${ev.actual}${ev.forecast ? ` (attendu ${ev.forecast})` : ''}${ev.previous ? ` (précédent ${ev.previous})` : ''}`;
+  if (ai.backoffActive && ai.backoffActive()) return null;   // IA indispo (panne totale) → on s'abstient (pas de rapport creux)
+  let parsed = null;
+  try {
+    _aiReset();
+    const prompt = `Tu es l'économiste en chef de "DataTradingPro". ${cfg.intro} VIENT DE TOMBER. Rédige une ANALYSE APPROFONDIE et professionnelle, façon desk macro, EN FRANÇAIS, UNIQUEMENT à partir du RÉSULTAT et des DÉPÊCHES ci-dessous. N'INVENTE AUCUN chiffre ni détail : si une information n'est pas fournie, ne l'évoque pas. Compare au précédent quand l'info est disponible. Ton neutre et factuel, aucun conseil d'investissement.
+
+Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
+{
+  "headline": "<titre court résumant la décision/le chiffre, ex. « Taux maintenus, dot plot plus hawkish » ou « NFP au-dessus du consensus, chômage stable »>",
+  "lead": "<2 à 3 phrases de synthèse : le résultat, le ton d'ensemble (hawkish/dovish/conforme) et la réaction principale>",
+  "sections": [ { "title": "<TITRE DE SECTION EN MAJUSCULES SANS ACCENT>", "points": ["<une phrase factuelle>", "..."] } ]
+}
+Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
+Chaque section : 1 à 3 puces, une phrase courte et concrète par puce (chiffres exacts, comparaison au précédent, mécanisme). Les TITRES de section en MAJUSCULES SANS ACCENT (ex. INFLATION, DOT PLOTS, A SUIVRE).
+
+=== RÉSULTAT (calendrier) ===
+${actualLine}
+
+=== DÉPÊCHES REÇUES (${ctx.length}) ===
+${ctx.join('\n').slice(0, 7000) || '(peu de détails captés — appuie-toi sur le résultat ci-dessus)'}`;
+    const text = await ai.generateText(prompt, 2600);
+    aiNote('news');
+    const m = text.match(/\{[\s\S]*\}/);
+    parsed = m ? JSON.parse(m[0]) : null;
+  } catch (e) { console.warn(`[EVA ${kind}] IA échec:`, e.message); }
+  if (!parsed || !Array.isArray(parsed.sections) || !parsed.sections.length) return null;
+
+  const lead = _stripMd(String(parsed.lead || '')).slice(0, 500);
+  const lines = [];
+  if (lead) lines.push(lead);
+  for (const sec of parsed.sections.slice(0, 9)) {
+    if (!sec) continue;
+    const title = _evaHead(sec.title);
+    const pts = (Array.isArray(sec.points) ? sec.points : []).map(p => _stripMd(String(p)).trim().replace(/^[-•*]\s*/, '')).filter(p => p.length > 3).slice(0, 4);
+    if (!title || !pts.length) continue;
+    lines.push(title);
+    pts.forEach(p => lines.push('- ' + p));
+  }
+  const description = lines.join('\n');
+  if (description.replace(/\n/g, ' ').trim().length < 80) return null;   // trop maigre → on s'abstient
+
+  const subj = _stripMd(String(parsed.headline || lead)).replace(/\s+/g, ' ').trim().slice(0, 130);
+  const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  const item = {
+    id: idPrefix + '-' + now,
+    headline: `ANALYSE ${cfg.label} : ${subj}`,
+    description,
+    category: cfg.category, source: 'DTP Markets', time: timeStr, timestamp: now,
+    priority: 'high', tags: cfg.tags.slice(),
+    _eventAnalysis: true, _reportType: cfg.report, _evaVer: EVA_VER,
+  };
+  allNews = [item, ...allNews].slice(0, 2000);
+  _evaState[evKey] = true;
+  saveHistory();
+  try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
+  console.log(`[EVA ${kind}] publié ${evKey} — ${parsed.sections.length} sections (${ctx.length} dépêches)`);
+  return item;
+}
+async function _checkEventAnalyses() {
+  if (_evaBusy) return;
+  _evaBusy = true;
+  try {
+    let cal = [];
+    try { cal = await _buildTVCalendar(); } catch {}
+    if (!Array.isArray(cal) || !cal.length) cal = (_tvCalCache.items || []);
+    const now = Date.now();
+    for (const kind of Object.keys(EVA_CFG)) {
+      const cfg = EVA_CFG[kind];
+      // Événement publié il y a 25 min → 4 h, AVEC un actual (la décision/le chiffre est tombé)
+      const ev = (cal || []).filter(e => e && e.currency === cfg.ccy && cfg.calRe.test(e.title || '')
+          && e.actual != null && e.actual !== ''
+          && (now - (e.timestamp || 0)) >= 25 * 60 * 1000 && (now - (e.timestamp || 0)) <= 4 * 3600 * 1000)
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+      if (!ev) continue;
+      const dayKey = new Date(ev.timestamp).toISOString().slice(0, 10);
+      const evKey = kind + ':' + dayKey;
+      if (_evaState[evKey]) continue;
+      const idPrefix = 'dtp-eva-' + kind + '-' + dayKey;
+      if (allNews.some(i => (i.id || '').startsWith(idPrefix))) { _evaState[evKey] = true; continue; }   // déjà publié (historique)
+      await generateEventAnalysis(kind, ev, evKey, idPrefix);
+    }
+  } catch (e) { console.warn('[EVA] check échec:', e.message); }
+  finally { _evaBusy = false; }
+}
+setInterval(() => { _checkEventAnalyses().catch(() => {}); }, 5 * 60 * 1000);   // toutes les 5 min : publie ~30 min après l'événement (fenêtre 25 min–4 h)
+setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        // rattrapage au démarrage (si un FOMC/NFP est tombé pendant un redéploiement)
+
 // ─── Schedule all briefings ───────────────────────────────────────────────────
 (function scheduleAllBriefings() {
   // Rapports QUOTIDIENS (heure Paris)

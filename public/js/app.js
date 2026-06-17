@@ -1629,6 +1629,7 @@ function stripSpeakerPrefix(headline) {
 
 // Detect PRIMER / PREVIEW briefing items (Newsquawk-style aggregated reports)
 function isPrimerItem(item) {
+  if (item._eventAnalysis) return true;   // analyse FOMC/NFP (~30 min après) → rendu structuré sectionné, jamais re-résumé
   if (item._briefing || item.source === 'DTP') return true;   // rapports DTP (rendu structuré conservé)
   const h = item.headline || '';
   return /^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]/i.test(h);
