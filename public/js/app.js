@@ -3056,14 +3056,39 @@ const _readIds = new Set(
 );
 function markRead(id) {
   if (id == null) return;
+  _ensureReadLoaded();                 // fusionne d'abord l'état serveur (cross-device) avant tout push
   const sid = String(id);
   if (!sid || _readIds.has(sid)) return;
   _readIds.add(sid);
   try { localStorage.setItem('dtp_read_ids', JSON.stringify([..._readIds].slice(-500))); } catch {}
+  _syncReadReports();                  // persiste PAR COMPTE (KV durable) → carte grisée sur TOUS les appareils
 }
 function isRead(id) {
   if (id == null) return false;
   return _readIds.has(String(id));
+}
+// ── Persistance PAR COMPTE de l'état « lu » (cartes Analyst grisées) — modèle symrecent (KV durable
+//    Supabase, dual-write → survit au blackout egress) : suit la reconnexion / le changement d'appareil.
+//    localStorage = cache instantané ; le KV serveur fait foi (fusion à l'ouverture). [[datatradingpro-feed-visibility]]
+let _readLoaded = false, _readSyncT = null;
+function _ensureReadLoaded() { if (_readLoaded) return; _readLoaded = true; _loadReadReports(); }
+async function _loadReadReports() {
+  try {
+    const d = await (await fetch('/api/read-reports')).json();
+    if (!d || !Array.isArray(d.ids) || !d.ids.length) return;
+    let added = false;
+    d.ids.forEach(x => { const s = String(x); if (s && !_readIds.has(s)) { _readIds.add(s); added = true; } });
+    if (added) {
+      try { localStorage.setItem('dtp_read_ids', JSON.stringify([..._readIds].slice(-500))); } catch {}
+      if (typeof renderArlibList === 'function') renderArlibList();   // re-grise les cartes déjà lues sur un autre appareil
+    }
+  } catch {}
+}
+function _syncReadReports() {
+  clearTimeout(_readSyncT);
+  _readSyncT = setTimeout(() => {
+    fetch('/api/read-reports', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [..._readIds].slice(-500) }) }).catch(() => {});
+  }, 1200);
 }
 // Clé de lecture STABLE pour les rapports. Le Weekly a un id serveur qui change à chaque
 // régénération (…-<timestamp>) → on ne s'y fie pas : on clé par SEMAINE (stable), pour que
@@ -3075,6 +3100,10 @@ function _reportReadKey(item) {
       ? item._weekly.weekEnding
       : new Date(item.timestamp || Date.now()).toISOString().slice(0, 10);
     return 'wk:' + item._reportType + ':' + wk;
+  }
+  if (item._reportType === 'FX Daily Recap') {   // l'id serveur change à CHAQUE régénération → clé par JOUR couvert (stable)
+    const day = (item._fxr && item._fxr.day) ? item._fxr.day : new Date(item.timestamp || Date.now()).toISOString().slice(0, 10);
+    return 'fxr:' + day;
   }
   return String(item.id);
 }
@@ -5225,6 +5254,7 @@ function arlibCleanTitle(headline) {
 function renderArlibList() {
   const list = document.getElementById('arlib-list');
   if (!list) return;
+  _ensureReadLoaded();   // 1re fois : fusionne l'état « lu » PAR COMPTE (cross-device) puis re-rend
 
   let items = getArlibItems();
   const _total = items.length;

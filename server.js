@@ -408,6 +408,27 @@ app.post('/api/sym-recent', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+// ── Rapports Analyst « LUS » (cartes grisées), PERSISTANT PAR COMPTE (KV durable Supabase, modèle
+//    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV survit au blackout egress).
+//    Valeur = { ids: [<clés de lecture stables = _reportReadKey côté client : id stable, wk:…, fxr:…>] }.
+app.get('/api/read-reports', async (req, res) => {
+  if (!req.session?.userId) return res.json({ ids: [] });
+  try {
+    const v = await auth.aiCacheGet('readreports:' + req.session.userId);
+    const ids = (v && Array.isArray(v.ids)) ? v.ids.filter(x => typeof x === 'string' && x.length <= 160).slice(-500) : [];
+    res.json({ ids });
+  } catch { res.json({ ids: [] }); }
+});
+app.post('/api/read-reports', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const arr = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    const ids = [...new Set(arr.filter(x => typeof x === 'string' && x && x.length <= 160))].slice(-500);
+    await auth.aiCacheSet('readreports:' + req.session.userId, { ids });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
 // ── Badge « NEW » du journal de trading — annonce vue UNE SEULE FOIS par compte (KV durable, modèle
 //    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV = survit au blackout egress).
 app.get('/api/journal-new-seen', async (req, res) => {
