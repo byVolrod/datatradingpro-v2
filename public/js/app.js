@@ -733,6 +733,9 @@ function getFilteredItems() {
     if (/^RT @/i.test(_h))         return false;
     if (/^@[A-Za-z]/i.test(_h))   return false;
     if (_h.replace(/[^a-z0-9]/gi, '').length < 14) return false;   // titres trop courts / sans valeur
+    // Titres récurrents SANS contenu exploitable (n'expliquent rien) → on ne spamme pas le flux.
+    //   ex. « Thursday FX Option Expiries » : juste un en-tête, aucune analyse/description.
+    if (/option\s+expir/i.test(_h) && (item.description || '').replace(/<[^>]*>/g, '').trim().length < 40) return false;
     if (_NEWS_NOISE.test(_h)) return false;                        // promo / faible valeur
     if (_NEWS_BLOCK.test(_h)) return false;                        // spam explicitement bloqué (Banque de Russie, taux de change…)
 
@@ -2275,6 +2278,12 @@ function buildNewsItem(item) {
         const b = _infoCache.get(item.id);
         if (b && b.length) expandEl.innerHTML = _renderInfoBullets(b);
       } else {
+        // Résumé EN FRANÇAIS : on évite d'exposer la dépêche brute (anglaise) → loader FR puis puces FR.
+        // Repli sur la dépêche brute uniquement si l'IA ne renvoie rien (budget épuisé) ou tarde trop.
+        expandEl.innerHTML = dtpLoader('Résumé en français…', { small: true });
+        const _fb = setTimeout(() => {
+          if (activeTab === 'info' && expandEl.querySelector('.dtp-loader')) expandEl.innerHTML = infoBody;
+        }, 7000);
         fetch('/api/news-info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2282,13 +2291,14 @@ function buildNewsItem(item) {
         })
           .then(r => r.json())
           .then(data => {
+            clearTimeout(_fb);
             const b = data.bullets || [];
             _infoCache.set(item.id, b);   // on mémorise même un résultat vide (évite de redemander)
-            if (b.length && activeTab === 'info' && expandEl.classList.contains('visible')) {
-              expandEl.innerHTML = _renderInfoBullets(b);
+            if (activeTab === 'info' && expandEl.classList.contains('visible')) {
+              expandEl.innerHTML = b.length ? _renderInfoBullets(b) : infoBody;
             }
           })
-          .catch(() => {});
+          .catch(() => { clearTimeout(_fb); if (activeTab === 'info' && expandEl.querySelector('.dtp-loader')) expandEl.innerHTML = infoBody; });
       }
     }
   }

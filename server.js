@@ -9181,6 +9181,9 @@ function _parseAnalyseBullets(text) {
 }
 async function _enrichAnalyses() {
   if (_aiAnaBusy) return;
+  // Purge des analyses ANGLAISES héritées (attachées avant le passage au FR, sans marqueur _anaFrV2)
+  // → l'onglet « Analyse » disparaît brièvement puis est régénéré EN FRANÇAIS ci-dessous (cache ana2fr / IA).
+  try { for (const it of allNews) { if (it && Array.isArray(it.analyse) && it.analyse.length && !it._anaFrV2) delete it.analyse; } } catch {}
   const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
   if (!hasAI) return;
   _aiAnaBusy = true;
@@ -9195,14 +9198,14 @@ async function _enrichAnalyses() {
       // 1) cache mémoire chaud
       if (_analyseCache.has(ck)) {
         const b = _analyseCache.get(ck);
-        if (Array.isArray(b) && b.length) { item.analyse = b; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (Array.isArray(b) && b.length) { item.analyse = b; item._anaFrV2 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
         continue;
       }
       // 2) cache durable (Supabase) — aucune requête IA
       let cached = null; try { cached = await auth.aiCacheGet(ck); } catch {}
       if (Array.isArray(cached)) {
         _analyseCache.set(ck, cached);
-        if (cached.length) { item.analyse = cached; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (cached.length) { item.analyse = cached; item._anaFrV2 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
         continue;
       }
       // 3) génération IA (bornée par cap journalier + 1/cycle)
@@ -9230,7 +9233,7 @@ Rédige 2 à 3 puces COURTES spécifiques à CETTE news (jamais un modèle gén�
         if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
         _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
         auth.aiCacheSet(ck, bullets).catch(() => {});
-        if (bullets.length) { item.analyse = bullets; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (bullets.length) { item.analyse = bullets; item._anaFrV2 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
       } catch { /* budget épuisé / pas de clé → la news reste en Info seul */ }
     }
   } finally { _aiAnaBusy = false; }
