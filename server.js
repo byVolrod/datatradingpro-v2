@@ -328,12 +328,25 @@ app.post('/api/auth/logout', (req, res) => {
 
 // Mot de passe oublié : génère un MDP temporaire et l'envoie par email.
 // Réponse toujours { ok:true } (ne révèle pas si l'email existe).
+const _recentForgot = new Map();            // email → ts du dernier reset RÉELLEMENT émis
+const FORGOT_COOLDOWN_MS = 2 * 60 * 1000;   // 2 min : un 2e « mot de passe oublié » trop rapproché ne régénère PAS
 app.post('/api/auth/forgot-password', (req, res) => {
   const email = (req.body?.email || '').toLowerCase().trim();
   res.json({ ok: true });   // réponse IMMÉDIATE (UX instantanée + anti-énumération)
   // Anti-abus : max 5 demandes / 10 min / IP (au-delà, on ignore silencieusement)
   if (_rateLimited('forgot:' + _clientIp(req), 5, 10 * 60 * 1000)) return;
   if (!email) return;
+  // VERROU PAR EMAIL (posé SYNCHRONEMENT, avant tout await) : un double-clic générait DEUX MDP
+  // temporaires différents — le 2e changePassword écrasait le MDP stocké — tandis que l'anti-doublon
+  // <12s du mailer SUPPRIMAIT le 2e email. Résultat : l'utilisateur recevait le MDP n°1 mais la base
+  // contenait le n°2 → « identifiants incorrects ». On ne régénère donc qu'UNE fois par fenêtre :
+  // l'email déjà envoyé reste valide. (Node mono-thread : set avant le 1er await => atomique.)
+  if (Date.now() - (_recentForgot.get(email) || 0) < FORGOT_COOLDOWN_MS) {
+    console.log(`[Auth] forgot ignoré (reset déjà émis <2 min) → ${email}`);
+    return;
+  }
+  _recentForgot.set(email, Date.now());
+  if (_recentForgot.size > 5000) _recentForgot.clear();   // garde-fou mémoire
   // Le travail (lookup + hash bcrypt + update DB + email) se fait en arrière-plan, après la réponse.
   (async () => {
     try {
@@ -344,8 +357,10 @@ app.post('/api/auth/forgot-password', (req, res) => {
         await auth.changePassword(u.id, temp);
         mailer.sendPasswordReset({ to: u.email, name: u.name, password: temp }).catch(() => {});
         console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email}`);
+      } else {
+        _recentForgot.delete(email);   // email inexistant → on libère le verrou (aucun reset effectué)
       }
-    } catch (e) { console.error('[Auth] forgot-password error:', e.message); }
+    } catch (e) { _recentForgot.delete(email); console.error('[Auth] forgot-password error:', e.message); }
   })();
 });
 
