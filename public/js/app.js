@@ -2170,7 +2170,7 @@ function buildNewsItem(item) {
 
             // Explication Gemini du mouvement (mise en cache → 0 requête à la réouverture)
             const movesStr = data.moves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
-            // Explication = LISTE À PUCES (1 phrase courte par puce, en français) — façon PMT.
+            // Explication = LISTE À PUCES (1 phrase courte par puce, en langue source) — façon PMT.
             const _applyExplain = val => {
               const arr = Array.isArray(val) ? val : (val ? [String(val)] : []);
               if (!arr.length) return;
@@ -2278,12 +2278,8 @@ function buildNewsItem(item) {
         const b = _infoCache.get(item.id);
         if (b && b.length) expandEl.innerHTML = _renderInfoBullets(b);
       } else {
-        // Résumé EN FRANÇAIS : on évite d'exposer la dépêche brute (anglaise) → loader FR puis puces FR.
-        // Repli sur la dépêche brute uniquement si l'IA ne renvoie rien (budget épuisé) ou tarde trop.
-        expandEl.innerHTML = dtpLoader('Résumé en français…', { small: true });
-        const _fb = setTimeout(() => {
-          if (activeTab === 'info' && expandEl.querySelector('.dtp-loader')) expandEl.innerHTML = infoBody;
-        }, 7000);
+        // La dépêche brute (langue source) est déjà affichée immédiatement (infoBody) ; on la remplace
+        // par le résumé en puces dès qu'il arrive. Pas de traduction : on garde la langue de la source.
         fetch('/api/news-info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2291,14 +2287,13 @@ function buildNewsItem(item) {
         })
           .then(r => r.json())
           .then(data => {
-            clearTimeout(_fb);
             const b = data.bullets || [];
             _infoCache.set(item.id, b);   // on mémorise même un résultat vide (évite de redemander)
-            if (activeTab === 'info' && expandEl.classList.contains('visible')) {
-              expandEl.innerHTML = b.length ? _renderInfoBullets(b) : infoBody;
+            if (b.length && activeTab === 'info' && expandEl.classList.contains('visible')) {
+              expandEl.innerHTML = _renderInfoBullets(b);
             }
           })
-          .catch(() => { clearTimeout(_fb); if (activeTab === 'info' && expandEl.querySelector('.dtp-loader')) expandEl.innerHTML = infoBody; });
+          .catch(() => {});
       }
     }
   }
