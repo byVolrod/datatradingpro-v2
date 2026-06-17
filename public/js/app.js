@@ -2043,6 +2043,19 @@ function buildNewsItem(item) {
         }).join('');
         return `<ul class="primer-bullets">${html}</ul>`;
       }
+      // ── ANALYSE D'ÉVÉNEMENT (FOMC/BCE/NFP/CPI…) : MÊME format que les autres news → puces +
+      //    sous-titres en GRAS (pas de titres orange/encadrés). Gère le nouveau format « Titre : »
+      //    ET l'ancien format MAJUSCULES (analyses déjà publiées).
+      if (item._eventAnalysis) {
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const lines = String(item.description || '').split(/\n+/).map(l => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean);
+        const html = lines.map(t => {
+          const isHead = _isSectionHead(t) || (t.length <= 46 && /:$/.test(t) && !/[.!?]/.test(t.slice(0, -1)));
+          if (isHead) return `<li class="ip-head">${esc(t.replace(/\s*:\s*$/, ''))}</li>`;
+          return `<li>${esc(t).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')}</li>`;
+        }).join('');
+        return `<ul class="article-points article-points--clean">${html}</ul>`;
+      }
       // ── PRIMER: structured bullet display ──
       if (isPrimer) {
         const bullets = parsePrimerBullets(item.description);

@@ -6441,8 +6441,8 @@ const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l
 let _evaBusy = false;
 // Dépêches de RÉACTION de prix à joindre (en plus des dépêches de l'événement) pour la section « RÉACTION DE MARCHÉ »
 const _EVA_MKT_RE = /\b(s&p|spx|nasdaq|dow\b|\bes\b|treasur|yields?|10-?year|2-?year|\bbund\b|\bgilt\b|\bjgb\b|gold|\bxau\b|silver|copper|dollar|\bdxy\b|eur\/usd|usd\/jpy|gbp\/usd|usd\/cad|crude|brent|\bwti\b|stocks?|equit|bonds?|futures)\b/i;
-const _EVA_CB_SECTIONS   = '["DECISION & TAUX","COMMUNIQUE (FORWARD GUIDANCE)","CE QUI A SURPRIS","INFLATION","ACTIVITE & EMPLOI","PROJECTIONS / DOT PLOTS","REACTION DE MARCHE","ANTICIPATIONS DE TAUX","A SUIVRE"]';
-const _EVA_DATA_SECTIONS = '["CHIFFRE CLE (vs ATTENDU)","DETAILS","CE QUI A SURPRIS","REACTION DE MARCHE","IMPLICATIONS BANQUE CENTRALE","A SUIVRE"]';
+const _EVA_CB_SECTIONS   = '["Décision & taux","Communiqué (forward guidance)","Ce qui a surpris","Inflation","Activité & emploi","Projections / dot plots","Réaction de marché","Anticipations de taux","À suivre"]';
+const _EVA_DATA_SECTIONS = '["Chiffre clé (vs attendu)","Détails","Ce qui a surpris","Réaction de marché","Implications banque centrale","À suivre"]';
 // Événements MAJEURS uniquement (flux sélectif, premium) — une SEULE analyse riche par événement/jour.
 const EVA_CFG = {
   fomc: { label: 'FED',    report: 'FOMC Analysis', category: 'Fed',                 tags: ['Fed', 'Rates', 'Inflation'], ccy: 'USD', cb: true,
@@ -6483,6 +6483,11 @@ function _evaHead(s) {
   return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '')
     .toUpperCase().replace(/[^A-Z0-9 &/'\-]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
 }
+// Sous-titre de section (rendu en GRAS façon Info standard, comme les autres news) : casse normale, finit par " :".
+function _evaSubHead(s) {
+  let t = _stripMd(String(s || '')).replace(/\s*:\s*$/, '').replace(/\s+/g, ' ').replace(/[.!?]+$/, '').trim();
+  return t ? t.slice(0, 42).trim() + ' :' : '';
+}
 // Anticipations de taux du marché pour la devise (depuis rateprobability, cache _rpCache) → contexte « ANTICIPATIONS DE TAUX ».
 function _evaPricingCtx(ccy) {
   const b = (_rpCache && _rpCache.banks) ? _rpCache.banks[ccy] : null;
@@ -6516,10 +6521,10 @@ Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 {
   "headline": "<titre court et précis, ex. « Taux maintenus, dot plot plus hawkish » ou « CPI au-dessus du consensus, cœur tenace »>",
   "lead": "<2 à 4 phrases de synthèse : le résultat, la SURPRISE éventuelle vs consensus, le ton, la réaction principale>",
-  "sections": [ { "title": "<TITRE EN MAJUSCULES SANS ACCENT>", "points": ["<une phrase factuelle concrète>", "..."] } ]
+  "sections": [ { "title": "<libellé COURT de section (≤ 40 caractères), en français, casse normale>", "points": ["<une phrase factuelle concrète>", "..."] } ]
 }
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
-Pour REACTION DE MARCHE : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour ANTICIPATIONS DE TAUX : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour IMPLICATIONS BANQUE CENTRALE : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Les TITRES de section en MAJUSCULES SANS ACCENT.
+Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).
 
 === RÉSULTAT (calendrier) ===
 ${actualLine}
@@ -6541,7 +6546,7 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
   if (lead) lines.push(lead);
   for (const sec of parsed.sections.slice(0, 9)) {
     if (!sec) continue;
-    const title = _evaHead(sec.title);
+    const title = _evaSubHead(sec.title);
     const pts = (Array.isArray(sec.points) ? sec.points : []).map(p => _stripMd(String(p)).trim().replace(/^[-•*]\s*/, '')).filter(p => p.length > 3).slice(0, 4);
     if (!title || !pts.length) continue;
     lines.push(title);
