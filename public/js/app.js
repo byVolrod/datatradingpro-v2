@@ -5264,8 +5264,9 @@ function renderArlibList() {
     const badge = badgeLabel ? `<img class="arlib-ptbadge-logo" src="/favicon.svg" alt="DTP" width="20" height="20" loading="lazy">` : '';
 
     const card = document.createElement('div');
-    const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly' || /\bfx daily\b/i.test(title);
-    card.className = 'arlib-card' + (isRead(_reportReadKey(item)) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
+    const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
+    const _isFxr    = /\bfx daily\b/i.test(title);   // FX Daily Recap : même encadré premium mais hover orange (pas rouge)
+    card.className = 'arlib-card' + (isRead(_reportReadKey(item)) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : (_isFxr ? ' arlib-card--fxdaily' : ''));
     card.dataset.id = item.id;
     card.innerHTML = `
       <div class="arlib-card-icon">
@@ -5621,11 +5622,11 @@ function _renderFXDailyRecap(item) {
   let body = '';
 
   // ── Executive Summary ──
-  if (w.summary) body += _sec('Executive Summary') + `<div class="fxdr-exec">${_wrParas(w.summary)}</div>`;
+  if (w.summary) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(w.summary)}</div>`;
 
   // ── Top Headlines ──
   if ((w.headlines || []).length) {
-    body += _sec('Top Headlines') + '<div class="fxdr-grid">';
+    body += _sec('Titres principaux') + '<div class="fxdr-grid">';
     w.headlines.forEach(h => {
       body += `<div class="fxdr-card"><div class="fxdr-card-title">${_wrInline(h.title || '')}</div>${h.text ? `<div class="fxdr-card-text">${_wrInline(h.text)}</div>` : ''}</div>`;
     });
@@ -5634,7 +5635,7 @@ function _renderFXDailyRecap(item) {
 
   // ── Regional Analysis (cartes pays + sous-sections groupées) ──
   if ((w.regions || []).length) {
-    body += _sec('Regional Analysis') + '<div class="fxdr-grid">';
+    body += _sec('Analyse régionale') + '<div class="fxdr-grid">';
     w.regions.forEach(r => {
       body += `<div class="fxdr-card fxdr-region">`;
       body += `<div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(r.name || '')}</span>${r.code ? `<span class="fxdr-ccy">${_wrEsc(r.code)}</span>` : ''}</div>`;
@@ -5652,7 +5653,7 @@ function _renderFXDailyRecap(item) {
 
   // ── Central Bank Focus ──
   if ((w.centralBanks || []).length) {
-    body += _sec('Central Bank Focus') + '<div class="fxdr-grid">';
+    body += _sec('Focus banques centrales') + '<div class="fxdr-grid">';
     w.centralBanks.forEach(c => {
       body += `<div class="fxdr-card fxdr-cb"><div class="fxdr-card-title">${_wrEsc(c.name || '')}</div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
     });
@@ -5661,8 +5662,8 @@ function _renderFXDailyRecap(item) {
 
   // ── Key Economic Data (table avec regroupement rowspan par publication) ──
   if ((w.econData || []).length) {
-    body += _sec('Key Economic Data') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
-      + '<th>Release</th><th>Period</th><th>Metric</th><th class="num">Actual</th><th class="num">Expected</th><th class="num">Previous</th>'
+    body += _sec('Données économiques clés') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
+      + '<th>Publication</th><th>Période</th><th>Indicateur</th><th class="num">Réel</th><th class="num">Attendu</th><th class="num">Précédent</th>'
       + '</tr></thead><tbody>';
     w.econData.forEach(r => {
       const ms = (r.metrics && r.metrics.length) ? r.metrics : [{ metric: '', actual: '', expected: '', previous: '' }];
@@ -5677,7 +5678,7 @@ function _renderFXDailyRecap(item) {
 
   // ── Analyst Comments ──
   if ((w.comments || []).length) {
-    body += _sec('Analyst Comments') + '<div class="fxdr-grid">';
+    body += _sec("Commentaires d'analystes") + '<div class="fxdr-grid">';
     w.comments.forEach(c => {
       body += `<div class="fxdr-card fxdr-comment"><div class="fxdr-card-title">${_wrEsc(c.author || '')}</div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
     });
@@ -5686,7 +5687,7 @@ function _renderFXDailyRecap(item) {
 
   // ── Corporate News (badge ticker) ──
   if ((w.corporate || []).length) {
-    body += _sec('Corporate News') + '<div class="fxdr-grid">';
+    body += _sec('Actualité des entreprises') + '<div class="fxdr-grid">';
     w.corporate.forEach(c => {
       body += `<div class="fxdr-card fxdr-corp"><div class="fxdr-corp-head">${c.ticker ? `<span class="fxdr-ticker">${_wrEsc(c.ticker)}</span>` : ''}<span class="fxdr-card-title">${_wrEsc(c.name || '')}</span></div><div class="fxdr-card-text">${_wrInline(c.text || '')}</div></div>`;
     });
@@ -5695,12 +5696,13 @@ function _renderFXDailyRecap(item) {
 
   // ── Looking Ahead (table + badge d'importance) ──
   if ((w.lookahead || []).length) {
-    body += _sec('Looking Ahead') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
-      + '<th>Category</th><th>Event</th><th class="num">Importance</th></tr></thead><tbody>';
+    body += _sec('À surveiller') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
+      + '<th>Catégorie</th><th>Événement</th><th class="num">Importance</th></tr></thead><tbody>';
     w.lookahead.forEach(e => {
       const imp = String(e.importance || '').toLowerCase();
       const cls = /high/.test(imp) ? 'bias-bear' : /med/.test(imp) ? 'bias-neutral' : 'bias-bull';
-      body += `<tr><td class="fxdr-cat">${_wrEsc(e.category || '')}</td><td>${_wrEsc(e.event || '')}</td><td class="num"><span class="bias-badge ${cls}">${_wrEsc(e.importance || '')}</span></td></tr>`;
+      const impFr = /high/.test(imp) ? 'Élevé' : /med/.test(imp) ? 'Moyen' : 'Faible';
+      body += `<tr><td class="fxdr-cat">${_wrEsc(e.category || '')}</td><td>${_wrEsc(e.event || '')}</td><td class="num"><span class="bias-badge ${cls}">${_wrEsc(impFr)}</span></td></tr>`;
     });
     body += '</tbody></table></div>';
   }
