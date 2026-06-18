@@ -8985,6 +8985,12 @@ function isNoise(headline) {
   if (/^RT @/i.test(h))          return true;   // "RT @realDonaldTrump..."
   if (/^@[A-Za-z]/i.test(h))    return true;   // bare @handle tweets
   if (isCorporateDebtNoise(h))   return true;   // émissions de dette corporate
+  // Étiquettes d'INDICATEUR sans valeur (pointeurs vers un outil/page, aucune explication ni donnée) :
+  // « FX Implied Volatility », « Top S&P 500 … Implied Volatility », « Fed/BoE/BoC Interest Rate
+  // Probabilities », « Currency Strength Chart: Strongest … Weakest … » (redondant avec notre propre outil).
+  if (/\bimplied volatility\s*$/i.test(h))           return true;
+  if (/\binterest rate probabilities\s*$/i.test(h))  return true;
+  if (/^\s*currency strength chart\b/i.test(h))      return true;
   return REGIONAL_NOISE.test(h) || EDITORIAL_NOISE.test(h) || isDataStub(h);
 }
 
