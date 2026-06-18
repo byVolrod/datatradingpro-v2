@@ -2183,7 +2183,7 @@ function buildNewsItem(item) {
               fetch('/api/reaction-explain', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ id: item.id, headline: item.headline, moves: movesStr }),
+                body: JSON.stringify({ id: item.id, headline: item.headline, moves: movesStr, important: !!(item.priority === 'high' || item.urgent) }),
               })
                 .then(r => r.json())
                 .then(d => {
