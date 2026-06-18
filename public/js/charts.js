@@ -2517,9 +2517,9 @@ function calActualCell(actual, forecast) {
 
 function calFormatTime(ts) {
   if (!ts) return '—';
+  // PAS de timeZone fixe → heure LOCALE du navigateur de l'utilisateur (sa vraie heure locale).
   return new Date(ts).toLocaleTimeString('en-GB', {
     hour: '2-digit', minute: '2-digit', hour12: false,
-    timeZone: 'UTC',
   });
 }
 
@@ -2553,13 +2553,15 @@ function renderCalTable() {
 
   evs.forEach((ev, i) => {
     // ── Day separator row ──
+    // Regroupement par JOUR LOCAL du navigateur (cohérent avec l'heure locale affichée → un événement
+    // tardif tombe sous le bon en-tête de jour pour l'utilisateur, pas sous le jour UTC).
     const dayKey = ev.timestamp
-      ? new Date(ev.timestamp).toLocaleDateString('en-GB', { timeZone: 'UTC' })
+      ? new Date(ev.timestamp).toLocaleDateString('en-GB')
       : (ev.time || '').substring(0, 10);
     if (dayKey && dayKey !== lastDayKey) {
       const d       = ev.timestamp ? new Date(ev.timestamp) : new Date(dayKey);
-      const weekday = d.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' });
-      const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+      const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' });
+      const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
       tbody += `<tr class="cal-day-sep"><td colspan="10">${weekday}, ${dateStr}</td></tr>`;
       lastDayKey = dayKey;
     }
@@ -2826,7 +2828,7 @@ async function buildCalendar() {
   const dateRangeEl = document.getElementById('cal-daterange');
   if (dateRangeEl && _calEvents.length) {
     const dates = _calEvents.map(e => e.timestamp).filter(Boolean);
-    const fmt   = ts => new Date(ts).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', timeZone: 'UTC' });
+    const fmt   = ts => new Date(ts).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
     dateRangeEl.textContent = `${fmt(Math.min(...dates))} – ${fmt(Math.max(...dates))}`;
   }
 

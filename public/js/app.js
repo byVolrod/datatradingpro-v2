@@ -4301,7 +4301,10 @@ function _brItemType(item) {
 function _brTags(item) {
   // categories peut contenir des OBJETS (ex. displayTags de SEB) → on extrait la chaîne, sinon on
   // obtient « [object Object] ». Coercition robuste (name/tag/label/value/text/title), vides filtrés.
-  const tags = (item.categories || []).map(c => typeof c === 'string' ? c : (c && (c.name || c.tag || c.label || c.value || c.text || c.title)) || '').filter(Boolean);
+  const tags = (item.categories || [])
+    .map(c => typeof c === 'string' ? c : (c && (c.name || c.tag || c.label || c.value || c.text || c.title)) || '')
+    .flatMap(s => String(s).split(/\s*[,;]\s*/))   // une « catégorie » peut être une LISTE collée « A, B, C » → 1 tag par élément
+    .map(s => s.trim()).filter(Boolean);
   const h = ((item.title || '') + ' ' + (item.description || '')).toLowerCase();
   const checks = [
     [/\bfed\b|fomc|federal reserve/i,   'Fed'],
