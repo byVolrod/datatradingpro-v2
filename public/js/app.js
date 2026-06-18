@@ -2079,11 +2079,18 @@ function buildNewsItem(item) {
           if (secMatch) return `<li class="primer-bullet primer-bullet--section"><span class="primer-section-lbl">${secMatch[1]}</span><span class="primer-section-val">${highlight(_reportLead(secMatch[2]))}</span></li>`;
           return `<li class="primer-bullet">${highlight(_reportLead(clean))}</li>`;
         }).join('');
+        // Conclusion directionnelle (analyses d'événement) : phrase EN GRAS color-codée (vert haussier /
+        // rouge baissier / ambre neutre) — le trader voit le biais net pour la devise suite à l'annonce.
+        const _v = item._evaVerdict;
+        const verdictHtml = (_v && _v.text)
+          ? `<div class="eva-verdict eva-verdict--${/hauss/i.test(_v.bias || '') ? 'up' : /baiss/i.test(_v.bias || '') ? 'down' : 'neutral'}">${esc(_v.text)}</div>`
+          : '';
         return `<div class="expand-ts primer-ts">
           <span class="primer-ts-label">DTP</span>
           <span>Source: ${item.source || 'N/A'}</span>
         </div>
         <ul class="primer-bullets">${bulletsHtml}</ul>
+        ${verdictHtml}
         <div class="report-snapshot" id="rsnap-${item.id}"></div>`;
       }
 
