@@ -1899,7 +1899,7 @@ function buildNewsItem(item) {
   // State Highlight : une news urgente (urgent/isUrgent) OU rouge → fond bordeaux ultra-sombre + icône "!"
   const isAlert         = isRed || isUrgent;
   const baseClass       = isRed ? ' news-item--breaking' : '';
-  el.className = `news-item${baseClass}${isUrgent ? ' news-item--urgent' : ''}${isPrimer ? ' news-item--primer' : ''}${(isSpeaker || hasGrouped) ? ' news-item--speaker' : ''}${item._new ? ' news-item--new' : ''}${isRead(item.id) ? ' news-item--read' : ''}`;
+  el.className = `news-item${baseClass}${item._eventAnalysis ? ' news-item--eva' : ''}${isUrgent ? ' news-item--urgent' : ''}${isPrimer ? ' news-item--primer' : ''}${(isSpeaker || hasGrouped) ? ' news-item--speaker' : ''}${item._new ? ' news-item--new' : ''}${isRead(item.id) ? ' news-item--read' : ''}`;
   el.dataset.id = item.id;
 
   // ── Icon col ──
@@ -4752,18 +4752,22 @@ function renderBrReader(item) {
 
   fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
     .then(r => r.json())
-    .then(data => {
+    .then(async data => {
       if (!content) return;
-      // Page "vitrine"/teaser détectée côté serveur : le vrai rapport est un PDF intégré → on affiche
-      // le VRAI PDF natif (jamais un faux résumé IA généré depuis un texte promotionnel). Cf. QCAM.
-      if (data && data.pdfUrl) {
-        // VRAI PDF détecté côté serveur (ING « download-link », teaser à PDF intégré…) → affichage BRUT
-        // proxifié. Le carrousel Insights (déjà chargé au-dessus) est CONSERVÉ (pas de suppression).
-        return _brShowNativePdf(item, data.pdfUrl);
+      data = data || {};
+      // PDF natif (proxifié) puis, à défaut, page rendable → rendu PDF serveur (Puppeteer). NOUVEAU : si
+      // AUCUN n'aboutit, on NE tombe PLUS direct sur la carte « ouvrir l'original » → on POURSUIT vers le
+      // rendu HTML de l'article ci-dessous (ex. Nordea : render Puppeteer KO mais le TEXTE est dispo →
+      // on affiche l'article au lieu d'une carte vide). Carte externe = dernier recours seulement.
+      if (data.pdfUrl) {
+        content.innerHTML = dtpLoader('Chargement du PDF…');
+        if (await _brEmbedPdf(item, _brPdfProxy(data.pdfUrl))) return;
+        if (item.url && await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(item.url))) return;
       }
-      if (data && data.renderUrl) {
-        // Pas de PDF natif (MUFG, Amundi…) → on REND la page en vrai PDF côté serveur. Insights conservés.
-        return _brShowRenderedPdf(item, data.renderUrl);
+      if (data.renderUrl) {
+        content.innerHTML = dtpLoader('Préparation du PDF…');
+        if (await _brEmbedPdf(item, '/api/pdf-render?url=' + encodeURIComponent(data.renderUrl))) return;
+        // render serveur KO → bascule sur le rendu HTML de l'article (ne pas court-circuiter vers la carte)
       }
       const _inst = _instBadge(item);
       const isIngDoc = _inst === 'ING';
