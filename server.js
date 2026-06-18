@@ -9710,7 +9710,7 @@ const _csCache = {};
 // clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
-  today: { interval: '15m', range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },
+  today: { interval: '5m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },   // 5 m = ~3× plus de points → courbe NERVEUSE façon PMT (repli 30 m si l'intraday fin est bloqué)
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
   week:  { interval: '1h',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
