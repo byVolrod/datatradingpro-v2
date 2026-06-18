@@ -5250,9 +5250,13 @@ function _tagsFromText(text, cap = 12) {
 function arlibItemTags(item) {
   const tags = _tagsFromText(item.headline + ' ' + (item.description || ''));
   const catCanon = _canonTag(item.category || '').toLowerCase();
-  for (const t of (item.tags || [])) {
-    if (['High','Medium','FinancialJuice','DTP'].includes(t) || _canonTag(t).toLowerCase() === catCanon) continue;
-    if (tags.length < 12) tags.push(t);
+  for (const raw of (item.tags || [])) {
+    // Un « tag » peut être une LISTE collée « A, B, C » (catégories ING/recherche) → on l'éclate en
+    // plusieurs tags distincts (split virgule/point-virgule ; on PRÉSERVE les « / » : EUR/USD, Trade/Tariffs).
+    for (const t of String(raw).split(/\s*[,;]\s*/).map(s => s.trim()).filter(Boolean)) {
+      if (['High','Medium','FinancialJuice','DTP'].includes(t) || _canonTag(t).toLowerCase() === catCanon) continue;
+      if (tags.length < 12) tags.push(t);
+    }
   }
   return _dedupeTags(tags).slice(0, 12);
 }
@@ -5673,7 +5677,7 @@ function _renderFXDailyRecap(item) {
 
   if (titleEl) titleEl.textContent = _mdStrip(w.title || 'FX Daily Recap');
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
-  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
+  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
   if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
 
