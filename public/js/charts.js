@@ -1624,6 +1624,7 @@ function _seasonPick(code){
 function buildSeasonalityChart(){
   const wrap = document.getElementById('seasonality-table-wrap');
   if (!wrap) return;
+  _seasonLoadCatalog();   // libellés multi-classes (Forex/Stocks/Commodities/Indices) pour le badge + la fenêtre Settings
   const sel = document.getElementById('season-pair-select');
   if (sel && !sel.options.length) sel.innerHTML = _SEASON_PAIRS.slice().sort((a, b) => _seasonFmtPair(a).localeCompare(_seasonFmtPair(b))).map(p => `<option value="${p}">${_seasonFmtPair(p)}</option>`).join('');   // tri ALPHABÉTIQUE des paires
   // 1re activation : récupère la dernière paire du compte (défaut EUR/USD), puis rend.
@@ -1634,13 +1635,14 @@ function buildSeasonalityChart(){
   }
   if (sel) sel.value = _seasonPair;
   const titleEl = document.getElementById('season-pair-title');
-  if (titleEl) titleEl.textContent = '[' + _seasonFmtPair(_seasonPair) + ']';
+  if (titleEl) titleEl.textContent = '[' + _seasonLabel(_seasonPair) + ']';
   if (!wrap.querySelector('.season-table')) wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la saisonnalité…') : 'Chargement…');
   const want = _seasonPair;
   (window._dtpJSON ? window._dtpJSON('/api/seasonality?symbol=' + want) : fetch('/api/seasonality?symbol=' + want).then(r=>r.json()))
     .then(data => {
       if (want !== _seasonPair) return;   // réponse périmée (l'utilisateur a changé de paire) → ignorer
       if (!data || !Array.isArray(data.rows)) { wrap.innerHTML = '<div class="dmx-loading">Aucune donnée</div>'; return; }
+      if (titleEl && data.symbol) titleEl.textContent = '[' + data.symbol + ']';   // libellé exact (ex. « Gold », « S&P 500 »)
       const yrs = data.years || [];
       const head = `<tr><th class="season-th season-th--m"></th>${yrs.map(y => `<th class="season-th">'${String(y).slice(2)}</th>`).join('')}<th class="season-th season-th--avg">Moy.</th></tr>`;
       const body = data.rows.map(row =>
@@ -1649,6 +1651,65 @@ function buildSeasonalityChart(){
       wrap.innerHTML = `<table class="season-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
     })
     .catch(() => { if (want === _seasonPair) wrap.innerHTML = '<div class="dmx-loading">Erreur de chargement<br><button onclick="buildSeasonalityChart()" style="margin-top:8px;background:#1c1c1f;border:1px solid #2a2f3a;color:#f7941d;padding:4px 12px;border-radius:6px;cursor:pointer">Réessayer</button></div>'; });
+}
+
+// ═══ Seasonality Performance Table Settings — fenêtre multi-classes (façon PMT) ═══
+// Engrenage (tooltip « Settings ») → fenêtre : Asset Class (Forex/Stocks/Commodities/Indices) + grille
+// de symboles cliquable (drapeaux pour le forex). Le choix appelle _seasonPick (persiste par compte).
+let _seasonCatalog = null, _seasonLabelById = {}, _seasonCfgClass = 'forex';
+function _seasonLabel(id){ return _seasonLabelById[id] || _seasonFmtPair(id); }
+function _seasonCcyIso(ccy){ const m = (typeof METER_META !== 'undefined') ? METER_META[ccy] : null; return (m && m.iso) ? m.iso : null; }
+function _seasonFlags(it){
+  if (it.b && it.q){ const a = _seasonCcyIso(it.b), b = _seasonCcyIso(it.q);
+    if (a && b) return `<img class="sea-flag" src="https://flagcdn.com/w20/${a}.png" alt=""><img class="sea-flag sea-flag--2" src="https://flagcdn.com/w20/${b}.png" alt="">`; }
+  return '';
+}
+async function _seasonLoadCatalog(){
+  if (_seasonCatalog) return _seasonCatalog;
+  try { const d = await (await fetch('/api/season-catalog')).json(); _seasonCatalog = d.catalog || {}; }
+  catch { _seasonCatalog = {}; }
+  _seasonLabelById = {};
+  for (const arr of Object.values(_seasonCatalog)) for (const it of (arr || [])) _seasonLabelById[it.id] = it.label;
+  return _seasonCatalog;
+}
+function _seasonClassOf(id){ for (const [cls, arr] of Object.entries(_seasonCatalog || {})) if ((arr || []).some(it => it.id === id)) return cls; return 'forex'; }
+const _SEA_CLASSES = [['forex','Forex'],['stocks','Stocks'],['commodities','Commodities'],['indices','Indices']];
+async function _seasonOpenSettings(){
+  await _seasonLoadCatalog();
+  let ov = document.getElementById('season-cfg-overlay');
+  if (!ov){ ov = document.createElement('div'); ov.id = 'season-cfg-overlay'; ov.className = 'sea-cfg-overlay'; document.body.appendChild(ov);
+    ov.addEventListener('click', e => { if (e.target === ov) ov.remove(); });
+    document.addEventListener('keydown', function esc(e){ if (e.key === 'Escape'){ const o = document.getElementById('season-cfg-overlay'); if (o) o.remove(); document.removeEventListener('keydown', esc); } }); }
+  _seasonCfgClass = _seasonClassOf(_seasonPair);
+  _seasonRenderCfg(ov);
+}
+function _seasonRenderCfg(ov){
+  const cls = (_seasonCatalog[_seasonCfgClass] || []).length ? _seasonCfgClass : 'forex';
+  const items = _seasonCatalog[cls] || [];
+  const tabs = _SEA_CLASSES.filter(([k]) => (_seasonCatalog[k] || []).length)
+    .map(([k, lbl]) => `<button class="sea-cfg-tab${k === cls ? ' sea-cfg-tab--on' : ''}" data-cls="${k}">${lbl}</button>`).join('');
+  const grid = items.map(it => {
+    const on = it.id === _seasonPair;
+    return `<button class="sea-cfg-sym${on ? ' sea-cfg-sym--on' : ''}" data-id="${it.id}">`
+      + (cls === 'forex' ? _seasonFlags(it) : '')
+      + `<span class="sea-cfg-sym-lbl">${it.label}</span>${on ? '<span class="sea-cfg-chk">✓</span>' : ''}</button>`;
+  }).join('');
+  ov.innerHTML = `<div class="sea-cfg-modal" role="dialog" aria-label="Seasonality Performance Table Settings">
+    <div class="sea-cfg-head">
+      <span class="sea-cfg-ttl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Seasonality Performance Table Settings</span>
+      <button class="sea-cfg-x" data-x="1" aria-label="Fermer">✕</button>
+    </div>
+    <div class="sea-cfg-body">
+      <div class="sea-cfg-lbl">Asset Class</div>
+      <div class="sea-cfg-tabs">${tabs}</div>
+      <div class="sea-cfg-lbl">Symbol</div>
+      <div class="sea-cfg-grid">${grid}</div>
+    </div>
+    <div class="sea-cfg-foot"><button class="sea-cfg-cancel" data-x="1">Cancel</button></div>
+  </div>`;
+  ov.querySelectorAll('[data-x]').forEach(b => b.onclick = () => ov.remove());
+  ov.querySelectorAll('.sea-cfg-tab').forEach(b => b.onclick = () => { _seasonCfgClass = b.dataset.cls; _seasonRenderCfg(ov); });
+  ov.querySelectorAll('.sea-cfg-sym').forEach(b => b.onclick = () => { _seasonPick(b.dataset.id); ov.remove(); });
 }
 
 function initCOTTabs() {
