@@ -1252,6 +1252,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .news-item--breaking .news-time { color: #cbd5e1; }
 .news-item--breaking .news-category-text { color: #cbd5e1; }
 .news-item--breaking:hover { background: #271517; }      /* survol : bordeaux quasi imperceptible (juste un soupçon au-dessus du fond #241415) */
+/* Analyses d'événement (ANALYSE FED/BCE/BoE…) : hover ROUGE net + liseré rouge à gauche (demande
+   utilisateur — ce type de news doit ressortir au survol). Double classe = bat .news-item--breaking:hover. */
+.news-item--eva:hover,
+.news-item--breaking.news-item--eva:hover { background: #34161a; box-shadow: inset 3px 0 0 #ff3d00; }
 /* La description et ses enfants restent transparents → le hover bordeaux les traverse aussi */
 .news-item--breaking:hover .article-points--clean,
 .news-item--breaking:hover .news-content { background: transparent !important; }

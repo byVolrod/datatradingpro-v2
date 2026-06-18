@@ -2510,7 +2510,16 @@ const _RENDER_VER = 'r5';   // bump → invalide TOUS les PDF rendus en cache (r
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
-  const run = _renderChain.then(() => _renderPdfInner(url), () => _renderPdfInner(url));
+  // 1 RE-TENTATIVE sur échec : le rendu (navigateur PARTAGÉ avec les scrapers) échoue parfois de façon
+  // TRANSITOIRE (timeout réseau, navigateur momentanément occupé) alors que la page EST rendable — vérifié
+  // sur Nordea (SPA : 137 Ko de PDF valide en isolé). Une 2e passe rattrape ces échecs → fini la carte
+  // « n'a pas pu être affiché » sur un rapport pourtant rendable. [[datatradingpro-institution-pdf]]
+  const attempt = async () => {
+    const buf = await _renderPdfInner(url);
+    if (buf && buf.length >= 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') return buf;
+    throw new Error('render produced no valid PDF');   // → déclenche la re-tentative
+  };
+  const run = _renderChain.then(() => attempt().catch(() => attempt()), () => attempt().catch(() => attempt()));
   _renderChain = run.then(() => {}, () => {});
   return run;
 }
