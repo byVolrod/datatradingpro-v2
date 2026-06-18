@@ -774,10 +774,9 @@ function buildStrengthChart(containerId, data, opts = {}) {
     }
   });
 
-  // ── Pan façon PMT : main « grab » + fenêtre initiale sur la FIN de série → on glisse vers la
-  // gauche pour remonter le temps (comme la vidéo de référence). Appliqué UNE seule fois : les
-  // rafraîchissements périodiques ne réinitialisent jamais la vue de l'utilisateur.
-  chart.plotContainer.set('cursorOverStyle', 'grab');
+  // ── Fenêtre initiale sur la FIN de série → on glisse vers la gauche pour remonter le temps.
+  // Curseur NORMAL (défaut) et non « main/grab » (demande utilisateur) ; le pan au glisser reste actif.
+  chart.plotContainer.set('cursorOverStyle', 'default');
   if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.35, 1); } catch (e) {} });
 
   // Apparition animée — SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
