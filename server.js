@@ -6448,7 +6448,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
 // (rendue en primer structuré côté front via isPrimerItem, jamais re-résumée). Dédup par événement/jour
 // (l'historique persiste l'item → pas de doublon après redéploiement). Budget IA négligeable (FOMC ~8×/an,
 // NFP ~1×/mois). [[markdown-strip-rule]]
-const EVA_VER = 3;   // v3 = conclusion directionnelle (biais haussier/baissier pour la devise) en fin d'analyse · v2 = 1 h après + réaction marché + anticipations
+const EVA_VER = 4;   // v4 = rigueur analyste (priced-in ≠ surprise, validation des faits) + retrait de la conclusion directionnelle (déjà dans le tag Analyse)
 const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l'item est persisté dans l'historique)
 let _evaBusy = false;
 // Dépêches de RÉACTION de prix à joindre (en plus des dépêches de l'événement) pour la section « RÉACTION DE MARCHÉ »
@@ -6532,13 +6532,11 @@ async function generateEventAnalysis(kind, ev, evKey, idPrefix) {
 Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 {
   "headline": "<titre court et précis, ex. « Taux maintenus, dot plot plus hawkish » ou « CPI au-dessus du consensus, cœur tenace »>",
-  "lead": "<2 à 4 phrases de synthèse : le résultat, la SURPRISE éventuelle vs consensus, le ton, la réaction principale>",
-  "sections": [ { "title": "<libellé COURT de section (≤ 40 caractères), en français, casse normale>", "points": ["<une phrase factuelle concrète>", "..."] } ],
-  "bias": "<EXACTEMENT l'un de : Haussier | Légèrement haussier | Neutre | Légèrement baissier | Baissier — le biais directionnel NET pour ${cfg.ccy} À LA SUITE de cette annonce, déduit UNIQUEMENT des faits (surprise vs consensus, ton du communiqué, réaction observée des prix/taux, évolution des anticipations)>",
-  "verdict": "<UNE phrase de CONCLUSION pour le trader, qui REPREND le biais et l'explique en une ligne pour ${cfg.ccy}. Ex. « Légèrement baissier pour le GBP : maintien des taux et inflation revue à la baisse pèsent, malgré deux voix pour une hausse. »>"
+  "lead": "<2 à 4 phrases de synthèse : le résultat, la SURPRISE éventuelle (RÉELLE, vs consensus/pricing), le ton, la réaction principale>",
+  "sections": [ { "title": "<libellé COURT de section (≤ 40 caractères), en français, casse normale>", "points": ["<une phrase factuelle concrète>", "..."] } ]
 }
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
-RÈGLE « bias »/« verdict » (OBLIGATOIRE, à la FIN) : conclus par le biais directionnel net pour ${cfg.ccy}, COHÉRENT avec les faits ci-dessus — surprise hawkish/résultat fort pour la devise → haussier ; dovish/résultat faible → baissier ; signaux mitigés → neutre ou « légèrement ». Aucune invention.
+🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) — VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
 Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).
 
 === RÉSULTAT (calendrier) ===
@@ -6570,18 +6568,6 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
   const description = lines.join('\n');
   if (description.replace(/\n/g, ' ').trim().length < 80) return null;   // trop maigre → on s'abstient
 
-  // CONCLUSION directionnelle (phrase en gras, color-codée) : biais net pour la devise suite à l'annonce.
-  const _EVA_BIAS = ['Haussier', 'Légèrement haussier', 'Neutre', 'Légèrement baissier', 'Baissier'];
-  let evaVerdict = null;
-  {
-    const bRaw = _stripMd(String(parsed.bias || '')).trim();
-    const bias = _EVA_BIAS.find(b => b.toLowerCase() === bRaw.toLowerCase())
-      || (/l[ée]g.*hauss/i.test(bRaw) ? 'Légèrement haussier' : /l[ée]g.*baiss/i.test(bRaw) ? 'Légèrement baissier'
-          : /hauss/i.test(bRaw) ? 'Haussier' : /baiss/i.test(bRaw) ? 'Baissier' : /neutr/i.test(bRaw) ? 'Neutre' : '');
-    const vtext = _stripMd(String(parsed.verdict || '')).replace(/\s+/g, ' ').trim().slice(0, 260);
-    if (bias && vtext) evaVerdict = { bias, text: vtext, ccy: cfg.ccy };
-  }
-
   const subj = _stripMd(String(parsed.headline || lead)).replace(/\s+/g, ' ').trim().slice(0, 130);
   const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const item = {
@@ -6591,7 +6577,6 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
     category: cfg.category, source: 'DTP Markets', time: timeStr, timestamp: now,
     priority: 'high', tags: cfg.tags.slice(),
     _eventAnalysis: true, _reportType: cfg.report, _evaVer: EVA_VER,
-    _evaVerdict: evaVerdict || undefined,
   };
   allNews = [item, ...allNews.filter(i => !(i.id || '').startsWith(idPrefix))].slice(0, 2000);   // remplace toute version antérieure du même événement
   _evaState[evKey] = true;

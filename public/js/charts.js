@@ -1625,7 +1625,7 @@ function buildSeasonalityChart(){
   const wrap = document.getElementById('seasonality-table-wrap');
   if (!wrap) return;
   const sel = document.getElementById('season-pair-select');
-  if (sel && !sel.options.length) sel.innerHTML = _SEASON_PAIRS.map(p => `<option value="${p}">${_seasonFmtPair(p)}</option>`).join('');
+  if (sel && !sel.options.length) sel.innerHTML = _SEASON_PAIRS.slice().sort((a, b) => _seasonFmtPair(a).localeCompare(_seasonFmtPair(b))).map(p => `<option value="${p}">${_seasonFmtPair(p)}</option>`).join('');   // tri ALPHABÉTIQUE des paires
   // 1re activation : récupère la dernière paire du compte (défaut EUR/USD), puis rend.
   if (_seasonPair == null){
     _seasonPair = 'EURUSD';
