@@ -9092,7 +9092,11 @@ function broadcast(data) {
   // Ne JAMAIS diffuser les briefings PRIMER au site (masqués sur demande utilisateur) : on les retire
   // des mises à jour news poussées en temps réel ; si l'envoi ne contenait que ça, on l'abandonne.
   if (data && data.type === 'news_update' && Array.isArray(data.items)) {
-    const items = data.items.filter(n => !_isPrimerNews(n));
+    // Filtre au POINT DE DIFFUSION : PRIMER + bruit (isNoise/isGlobalNewsNoise). Indispensable car les
+    // poll-handlers FJ/FF diffusent `items.slice(0, count)` (tableau BRUT, pas la sortie filtrée de
+    // mergeItems) → sans ça, une étiquette « … Interest Rate Probabilities » filtrée du stockage passait
+    // quand même en direct aux clients. Les rapports internes (_briefing) sont déjà exclus par _isPrimerNews.
+    const items = data.items.filter(n => !_isPrimerNews(n) && !isNoise(n.headline) && !isGlobalNewsNoise(n.headline));
     if (!items.length) return;
     data = { ...data, items };
   }
