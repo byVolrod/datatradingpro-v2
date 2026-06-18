@@ -4790,11 +4790,21 @@ ${clean.slice(0, 4500)}`;
 // Cache persistant (survit aux redémarrages Render) → on ne re-paie jamais Gemini pour la même news
 const ANALYSE_CACHE_FILE = path.join(_CACHE_DIR, 'cache_analyse.json');
 const _analyseCache = _loadJsonMap(ANALYSE_CACHE_FILE);
+// News IMPORTANTE (macro fort-impact OU priorité haute/urgente) → les 3 volets dépliables
+// (Info / Analyse / Réaction) sont rédigés en FRANÇAIS (repli Claude autorisé, borné par
+// CLAUDE_DAILY_MAX). Les news non importantes restent en LANGUE SOURCE (économe, Gemini seul).
+// [[datatradingpro-ai-quota]]
+const _IMPORTANT_RX = /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|boc|rba|rbnz|cpi|inflation|nfp|payrolls?|gdp|pib|rate (decision|cut|hike)|interest rate|emergency|intervention|war|missile|strike|ceasefire|sanctions?|default|bailout|opec)\b/i;
+function _isImportantNews(headline, category, priority) {
+  return /high|urgent/i.test(String(priority || '')) || _IMPORTANT_RX.test(String(headline || '') + ' ' + String(category || ''));
+}
+
 app.post('/api/analyse', async (req, res) => {
   const { headline, category, description } = req.body || {};
   if (!headline) return res.status(400).json({ error: 'headline required' });
+  const _fr = _isImportantNews(headline, category, '') || !!req.body.important;   // important → analyse en FRANÇAIS
 
-  const cacheKey = 'src1:' + headline.substring(0, 100);   // src1 = sortie LANGUE SOURCE (bump à chaque changement de langue/format)
+  const cacheKey = (_fr ? 'fr2:' : 'src1:') + headline.substring(0, 100);   // fr2 = FRANÇAIS (important) · src1 = LANGUE SOURCE
   if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
 
   // Sans IA : l'Analyse ne ferait que RÉPÉTER la description (déjà montrée dans Info) → on renvoie
@@ -4802,15 +4812,16 @@ app.post('/api/analyse', async (req, res) => {
   // une vraie analyse distincte. (L'IA est la SEULE source d'une analyse de valeur.)
   const _analyseFallback = () => [];
 
-  // Budget Gemini : on traite l'analyse à la demande comme une news importante
-  if (!aiAllowed('news', { important: true })) return res.json({ bullets: _analyseFallback(), fallback: true });
+  // Important → on NE court-circuite PAS quand Gemini est à sec (aiSmart bascule sur Claude → FR garanti).
+  // Non important → pré-check budget économe (repli local = analyse masquée).
+  if (!_fr && !aiAllowed('news', { important: true })) return res.json({ bullets: _analyseFallback(), fallback: true });
 
   try {
-    aiNote('news');
     const ctx = description
       ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
       : '';
-    const text = await ai.generateText(`You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+    const _langRule = _fr ? '- Rédige en FRANÇAIS.' : '- Same language as the source (usually English).';
+    const text = await aiSmart('news', `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
 
 Headline: ${headline}
 Category: ${category}${ctx}
@@ -4822,7 +4833,8 @@ Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rule
 - Max 22 words per bullet. Vary the angle per news; do not reuse the same wording across news.
 - NEVER include source/author attribution.
 - NO bold, NO markdown, NO asterisks. Plain text only.
-- Start each bullet with • . Reply ONLY with the bullets, no preamble.`, 320);
+${_langRule}
+- Start each bullet with • . Reply ONLY with the bullets, no preamble.`, 320, { important: true, priority: 'user', claudeOverBudget: _fr });
     const bullets = text.split('\n')
       .map(l => l.trim())
       .filter(l => /^[•\-\*]/.test(l))
@@ -4847,17 +4859,15 @@ app.post('/api/news-info', async (req, res) => {
   const rawDesc = String(description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (!headline || rawDesc.length < 30) return res.json({ bullets: [] });
 
-  // Clé de cache : id de la news si fourni, sinon empreinte du titre (préfixe src1 = sortie LANGUE SOURCE)
-  const cacheKey = 'src1:' + (id || headline.substring(0, 120));
+  // Important (macro fort-impact OU priorité haute) → résumé Info en FRANÇAIS (clé fr2) ; sinon LANGUE SOURCE (src1).
+  const _fr = _isImportantNews(headline, category, '') || !!req.body.important;
+  const cacheKey = (_fr ? 'fr2:' : 'src1:') + (id || headline.substring(0, 120));
   if (_infoCache.has(cacheKey)) return res.json(_infoCache.get(cacheKey));
 
-  // Budget Gemini : semaine = news IMPORTANTES uniquement. L'importance est décidée CÔTÉ SERVEUR
-  // (regex fort-impact sur le titre/catégorie) — le flag client n'est plus qu'un simple indice,
-  // il ne peut plus consommer la part 'news' (45% du cap) sur des news quelconques.
-  const _srvImportant = /\b(fed|fomc|powell|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|boc|rba|rbnz|cpi|inflation|nfp|payrolls?|gdp|pib|rate (decision|cut|hike)|interest rate|emergency|intervention|war|missile|strike|ceasefire|sanctions?|default|bailout|opec)\b/i
-    .test(String(headline || '') + ' ' + String(category || ''));
-  const _newsImportant = !!req.body.important && _srvImportant;
-  if (!aiAllowed('news', { important: _newsImportant, priority: 'user' })) return res.json({ bullets: [] });   // pré-check rapide (évite de bâtir le prompt si budget épuisé)
+  // Important → on NE court-circuite PAS quand le budget Gemini est à sec : aiSmart bascule sur Claude
+  // (borné par CLAUDE_DAILY_MAX) → la macro importante est TOUJOURS résumée en français. Non important →
+  // pré-check économe (repli = dépêche brute côté front).
+  if (!_fr && !aiAllowed('news', { important: false, priority: 'user' })) return res.json({ bullets: [] });
 
   try {
     const text = await aiSmart('news', `You are an editor for a professional financial news terminal (trading-desk style).
@@ -4869,12 +4879,12 @@ RULES:
 - If the story enumerates a list (e.g. four demands/points/conditions), you MAY add ONE short header line ending with a colon (e.g. "Four points:") then that list as bullets right after.
 - One clear idea per bullet, neutral factual tone, no investment advice.
 - NEVER mention the news outlet or source: drop any "via X", "Reuters reports", "according to <agency/newspaper>", and all outlet names.
-- Same language as the source (usually English → answer in English).
+${_fr ? '- Réponds en FRANÇAIS (traduis si la source est dans une autre langue).' : '- Same language as the source (usually English → answer in English).'}
 - Reply ONLY with the lines: bullets start with •, the optional single header line ends with ":". No preamble, no conclusion.
 
 Headline: ${headline}
 Category: ${category || '—'}
-Content: ${rawDesc.substring(0, 1100)}`, 650, { important: _newsImportant, priority: 'user', claudeOverBudget: false });   // compté APRÈS succès + zéro crédit Claude pour ce flux (fallback local = bullets vides)
+Content: ${rawDesc.substring(0, 1100)}`, 650, { important: true, priority: 'user', claudeOverBudget: _fr });   // important → FR via Claude si Gemini à sec ; sinon source, Gemini seul
 
     const bullets = [];
     text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
@@ -4902,20 +4912,22 @@ app.post('/api/reaction-explain', async (req, res) => {
   const { id, headline, moves } = req.body || {};
   if (!headline || !moves) return res.json({ text: '' });
 
-  const cacheKey = 'src1:' + (id || headline.substring(0, 120));   // src1 = sortie en LANGUE SOURCE, en puces (bump à chaque changement de langue/format)
+  // Important (macro fort-impact OU priorité haute) → explication en FRANÇAIS (clé fr2) ; sinon LANGUE SOURCE (src1).
+  const _fr = _isImportantNews(headline, '', '') || !!req.body.important;
+  const cacheKey = (_fr ? 'fr2:' : 'src1:') + (id || headline.substring(0, 120));
   if (_reactCache.has(cacheKey)) return res.json(_reactCache.get(cacheKey));
 
-  // Budget Gemini : la réaction concerne une news qui a bougé le marché → importante
-  if (!aiAllowed('news', { important: true })) return res.json({ bullets: [], text: '' });
+  // Important → pas de court-circuit (aiSmart bascule Claude → FR garanti). Non important → pré-check économe.
+  if (!_fr && !aiAllowed('news', { important: true })) return res.json({ bullets: [], text: '' });
 
   try {
-    aiNote('news');
-    const text = await ai.generateText(`You are a markets reporter on a trading desk.
-Explain the market reaction to the news below as 1 to 2 BULLETS, ONE short sentence per bullet (max 22 words): link the price move to the headline (the causal mechanism, the "why"). Neutral, factual tone, no advice. Keep tickers/instruments as-is (Brent, EUR/USD…). Same language as the headline (usually English).
+    const _langRule = _fr ? 'Réponds en FRANÇAIS.' : 'Same language as the headline (usually English).';
+    const text = await aiSmart('news', `You are a markets reporter on a trading desk.
+Explain the market reaction to the news below as 1 to 2 BULLETS, ONE short sentence per bullet (max 22 words): link the price move to the headline (the causal mechanism, the "why"). Neutral, factual tone, no advice. Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
 Start each bullet with • . Reply ONLY with the bullet(s), no preamble.
 
 Headline: ${headline}
-Observed moves: ${String(moves).slice(0, 300)}`, 220);
+Observed moves: ${String(moves).slice(0, 300)}`, 220, { important: true, priority: 'user', claudeOverBudget: _fr });
 
     let bullets = String(text || '').split('\n').map(l => l.trim())
       .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean).slice(0, 3);
@@ -9181,9 +9193,9 @@ function _parseAnalyseBullets(text) {
 }
 async function _enrichAnalyses() {
   if (_aiAnaBusy) return;
-  // Purge des analyses qui ne sont PAS en langue source (les anciennes FR `_anaFrV2`, ou pré-marqueur)
-  // → l'onglet « Analyse » est régénéré dans la LANGUE SOURCE ci-dessous (cache anasrc1 / IA).
-  try { for (const it of allNews) { if (it && Array.isArray(it.analyse) && it.analyse.length && !it._anaSrc1) delete it.analyse; } } catch {}
+  // Purge des analyses au schéma périmé (≠ v4) → régénérées ci-dessous : FRANÇAIS pour la macro IMPORTANTE
+  // (cache anafr2), LANGUE SOURCE pour le reste (cache anasrc1). Marqueur courant = `_anaV4`.
+  try { for (const it of allNews) { if (it && Array.isArray(it.analyse) && it.analyse.length && !it._anaV4) delete it.analyse; } } catch {}
   const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
   if (!hasAI) return;
   _aiAnaBusy = true;
@@ -9194,18 +9206,19 @@ async function _enrichAnalyses() {
     for (const item of allNews) {
       if (!item || (Array.isArray(item.analyse) && item.analyse.length)) continue; // déjà analysée
       if (!_meritsAnalysis(item)) continue;
-      const ck = 'anasrc1:' + item.id;   // anasrc1 = analyse en LANGUE SOURCE (bump → régénère ; les 'ana2fr' français sont ignorés)
+      const _fr = _isImportantNews(item.headline, item.category, item.priority);   // important → analyse en FRANÇAIS
+      const ck = (_fr ? 'anafr2:' : 'anasrc1:') + item.id;   // anafr2 = FRANÇAIS (macro importante) · anasrc1 = LANGUE SOURCE
       // 1) cache mémoire chaud
       if (_analyseCache.has(ck)) {
         const b = _analyseCache.get(ck);
-        if (Array.isArray(b) && b.length) { item.analyse = b; item._anaSrc1 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (Array.isArray(b) && b.length) { item.analyse = b; item._anaV4 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
         continue;
       }
       // 2) cache durable (Supabase) — aucune requête IA
       let cached = null; try { cached = await auth.aiCacheGet(ck); } catch {}
       if (Array.isArray(cached)) {
         _analyseCache.set(ck, cached);
-        if (cached.length) { item.analyse = cached; item._anaSrc1 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (cached.length) { item.analyse = cached; item._anaV4 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
         continue;
       }
       // 3) génération IA (bornée par cap journalier + 1/cycle)
@@ -9226,14 +9239,15 @@ Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rule
 - Explain the concrete causal mechanism for THIS story, not generic phrasing.
 - Max 22 words per bullet. NEVER include source/author attribution.
 - NO bold, NO markdown, NO asterisks. Plain text only.
+${_fr ? '- Rédige en FRANÇAIS.' : '- Same language as the source (usually English).'}
 - Start each bullet with • . Reply ONLY with the bullets, no preamble.`,
-          320, { important: true, claudeOverBudget: false });
+          320, { important: true, claudeOverBudget: _fr });   // macro importante → FR (Claude autorisé, borné par les caps) ; sinon source, Gemini seul
         const bullets = _parseAnalyseBullets(out);
         _analyseCache.set(ck, bullets);                                          // cache même vide → on ne réessaie pas
         if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
         _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
         auth.aiCacheSet(ck, bullets).catch(() => {});
-        if (bullets.length) { item.analyse = bullets; item._anaSrc1 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (bullets.length) { item.analyse = bullets; item._anaV4 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
       } catch { /* budget épuisé / pas de clé → la news reste en Info seul */ }
     }
   } finally { _aiAnaBusy = false; }
