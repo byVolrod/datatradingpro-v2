@@ -701,8 +701,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: dim ? 1.1 : 1.8, strokeOpacity: dim ? 0 : 1 });   // isolé : autres devises DÉSACTIVÉES (masquées)
-    const cleanPts = _smoothCS(pts);
+    series.strokes.template.setAll({ strokeWidth: dim ? 1.0 : 1.4, strokeOpacity: dim ? 0 : 1 });   // traits FINS (façon PMT) → micro-mouvements visibles ; isolé : autres devises masquées
+    // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) → courbe nerveuse/dentelée
+    // façon PMT au lieu d'arrondie. La densité vient des bougies 5 m côté serveur (_computeStrengthFresh).
+    const cleanPts = pts;
     series.data.setAll(cleanPts);
 
     // Étiquette flottante sur l'axe Y à la dernière valeur
