@@ -10153,13 +10153,46 @@ app.get('/api/fxlist', async (req, res) => {
 const _seasonCache = new Map();                 // sym Yahoo -> { at, data }
 const SEASON_TTL = 6 * 60 * 60 * 1000;          // 6 h (la saisonnalité bouge lentement)
 const _SEASON_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-async function _computeSeasonality(pair) {
-  const cfg = CS_PAIRS.find(p => (p.b + p.q) === pair || p.sym === pair);
-  if (!cfg) return null;
-  const cached = _seasonCache.get(cfg.sym);
+// Catalogue multi-classes (façon PMT « Seasonality Performance Table Settings ») : id stable → ticker
+// Yahoo + libellé. Forex = les 28 paires CS_PAIRS (avec drapeaux côté client via b/q). La saisonnalité
+// se calcule à l'identique pour TOUT ticker Yahoo daily (vérifié : indices/commodities/actions OK).
+const SEASON_CATALOG = {
+  forex: CS_PAIRS.map(p => ({ id: p.b + p.q, sym: p.sym, label: p.b + '/' + p.q, b: p.b, q: p.q })),
+  indices: [
+    { id: 'SPX', sym: '^GSPC', label: 'S&P 500' }, { id: 'NDX', sym: '^IXIC', label: 'Nasdaq' },
+    { id: 'DJI', sym: '^DJI', label: 'Dow Jones' }, { id: 'RUT', sym: '^RUT', label: 'Russell 2000' },
+    { id: 'DAX', sym: '^GDAXI', label: 'DAX 40' }, { id: 'FTSE', sym: '^FTSE', label: 'FTSE 100' },
+    { id: 'CAC', sym: '^FCHI', label: 'CAC 40' }, { id: 'ESTX', sym: '^STOXX50E', label: 'Euro Stoxx 50' },
+    { id: 'NIKKEI', sym: '^N225', label: 'Nikkei 225' }, { id: 'HSI', sym: '^HSI', label: 'Hang Seng' },
+    { id: 'ASX', sym: '^AXJO', label: 'ASX 200' },
+  ],
+  commodities: [
+    { id: 'GOLD', sym: 'GC=F', label: 'Gold' }, { id: 'SILVER', sym: 'SI=F', label: 'Silver' },
+    { id: 'WTI', sym: 'CL=F', label: 'WTI Crude' }, { id: 'BRENT', sym: 'BZ=F', label: 'Brent Crude' },
+    { id: 'NATGAS', sym: 'NG=F', label: 'Natural Gas' }, { id: 'COPPER', sym: 'HG=F', label: 'Copper' },
+    { id: 'PLAT', sym: 'PL=F', label: 'Platinum' }, { id: 'PALL', sym: 'PA=F', label: 'Palladium' },
+  ],
+  stocks: [
+    { id: 'AAPL', sym: 'AAPL', label: 'Apple' }, { id: 'MSFT', sym: 'MSFT', label: 'Microsoft' },
+    { id: 'NVDA', sym: 'NVDA', label: 'Nvidia' }, { id: 'AMZN', sym: 'AMZN', label: 'Amazon' },
+    { id: 'GOOGL', sym: 'GOOGL', label: 'Alphabet' }, { id: 'META', sym: 'META', label: 'Meta' },
+    { id: 'TSLA', sym: 'TSLA', label: 'Tesla' }, { id: 'JPM', sym: 'JPM', label: 'JPMorgan' },
+  ],
+};
+const _seasonById = new Map();
+for (const [cls, arr] of Object.entries(SEASON_CATALOG)) for (const it of arr) _seasonById.set(it.id, { ...it, cls });
+function _seasonMeta(id) {
+  if (_seasonById.has(id)) return _seasonById.get(id);
+  const c = CS_PAIRS.find(p => (p.b + p.q) === id || p.sym === id);   // repli paires forex (compat)
+  return c ? { id: c.b + c.q, sym: c.sym, label: c.b + '/' + c.q, cls: 'forex' } : null;
+}
+async function _computeSeasonality(id) {
+  const meta = _seasonMeta(id);
+  if (!meta) return null;
+  const cached = _seasonCache.get(meta.sym);
   if (cached && Date.now() - cached.at < SEASON_TTL) return cached.data;
   await getYFSession();
-  let raw; try { raw = await yfFetch(cfg.sym, '1d', '6y'); } catch { return cached ? cached.data : null; }
+  let raw; try { raw = await yfFetch(meta.sym, '1d', '6y'); } catch { return cached ? cached.data : null; }
   const r = raw?.chart?.result?.[0];
   if (!r) return cached ? cached.data : null;
   const ts = r.timestamp || [], cl = r.indicators?.quote?.[0]?.close || [];
@@ -10183,33 +10216,36 @@ async function _computeSeasonality(pair) {
     const avg = present.length ? +(present.reduce((a, b) => a + b, 0) / present.length).toFixed(2) : null;
     return { month: name, vals, avg };
   });
-  const data = { symbol: `${cfg.b}/${cfg.q}`, years, rows, updatedAt: new Date().toISOString() };
-  _seasonCache.set(cfg.sym, { at: Date.now(), data });
-  auth.aiCacheSet('season:' + cfg.sym, { at: Date.now(), data }).catch(() => {});   // persistance (survit au redéploiement)
+  const data = { symbol: meta.label, id: meta.id, cls: meta.cls || 'forex', years, rows, updatedAt: new Date().toISOString() };
+  _seasonCache.set(meta.sym, { at: Date.now(), data });
+  auth.aiCacheSet('season:' + meta.sym, { at: Date.now(), data }).catch(() => {});   // persistance (survit au redéploiement)
   return data;
 }
+const _SEASON_ID_RX = /^[A-Z0-9]{2,12}$/;
 app.get('/api/seasonality', async (req, res) => {
-  const pair = String(req.query.symbol || 'EURUSD').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6) || 'EURUSD';
+  const id = String(req.query.symbol || 'EURUSD').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12) || 'EURUSD';
   try {
-    let data = await _computeSeasonality(pair);
+    let data = await _computeSeasonality(id);
     if (!data) {                                 // Yahoo KO → repli cache persistant
-      const cfg = CS_PAIRS.find(p => (p.b + p.q) === pair);
-      if (cfg) { const c = await auth.aiCacheGet('season:' + cfg.sym).catch(() => null); if (c && c.data) data = c.data; }
+      const meta = _seasonMeta(id);
+      if (meta) { const c = await auth.aiCacheGet('season:' + meta.sym).catch(() => null); if (c && c.data) data = c.data; }
     }
-    if (!data) return res.status(404).json({ error: 'Paire indisponible' });
+    if (!data) return res.status(404).json({ error: 'Symbole indisponible' });
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
-// Dernière paire consultée dans l'onglet Seasonality — persistée PAR COMPTE (KV durable, modèle symrecent → suit la reconnexion).
+// Catalogue multi-classes (Forex / Indices / Commodities / Actions) pour la fenêtre de réglages Seasonality.
+app.get('/api/season-catalog', (_req, res) => { res.json({ catalog: SEASON_CATALOG }); });
+// Dernier symbole consulté dans l'onglet Seasonality — persisté PAR COMPTE (KV durable, modèle symrecent → suit la reconnexion).
 app.get('/api/season-pair', async (req, res) => {
   if (!req.session?.userId) return res.json({ pair: 'EURUSD' });
-  try { const v = await auth.aiCacheGet('seasonpair:' + req.session.userId); res.json({ pair: (v && _SYM_RX.test(v.pair)) ? v.pair : 'EURUSD' }); }
+  try { const v = await auth.aiCacheGet('seasonpair:' + req.session.userId); res.json({ pair: (v && _SEASON_ID_RX.test(v.pair) && _seasonMeta(v.pair)) ? v.pair : 'EURUSD' }); }
   catch { res.json({ pair: 'EURUSD' }); }
 });
 app.post('/api/season-pair', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
-  const pair = String(req.body?.pair || '').toUpperCase().replace(/[^A-Z]/g, '').slice(0, 6);
-  if (!_SYM_RX.test(pair)) return res.status(400).json({ ok: false });
+  const pair = String(req.body?.pair || '').toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12);
+  if (!_SEASON_ID_RX.test(pair) || !_seasonMeta(pair)) return res.status(400).json({ ok: false });
   try { await auth.aiCacheSet('seasonpair:' + req.session.userId, { pair }); res.json({ ok: true, pair }); }
   catch { res.status(500).json({ ok: false }); }
 });
