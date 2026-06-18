@@ -9710,7 +9710,7 @@ const _csCache = {};
 // clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
-  today: { interval: '5m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },   // 5 m = ~3× plus de points → courbe NERVEUSE façon PMT (repli 30 m si l'intraday fin est bloqué)
+  today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },   // 1 m (~500 pts/jour, vérifié servi par Yahoo) → courbe NERVEUSE façon PMT (repli gradué 1m→5m→30m)
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
   week:  { interval: '1h',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
@@ -9793,10 +9793,16 @@ async function _computeStrengthFresh(period) {
   // REPLI D'INTERVALLE : l'intraday FIN (5m/15m) est parfois rejeté pour la session serveur (restriction
   // intraday FX) alors que le 30m passe TOUJOURS (cf. périodes 1d/week à 28/28). Si trop peu de paires
   // chargent, on retente en 30m sur une fenêtre large → la courbe ne tombe PLUS JAMAIS en « Data unavailable ».
-  if (pairData.length < 7 && interval !== '30m' && interval !== '1h' && interval !== '1d') {
-    console.warn(`[CS/${period}] intervalle ${interval} insuffisant (${pairData.length}/28) → repli 30m`);
-    usedInterval = '30m';
-    pairData = (await loadPairs('30m', '5d')).filter(Boolean);
+  if (pairData.length < 7 && !['30m', '1h', '1d'].includes(interval)) {
+    // Repli GRADUÉ : on descend d'abord vers 5m (intraday connu-fonctionnel, dense), puis 30m (toujours
+    // dispo). Ainsi 'today' en 1m ne retombe JAMAIS directement en 30m si le 1m est ponctuellement bridé.
+    for (const fb of ['5m', '30m']) {
+      if (fb === usedInterval) continue;
+      console.warn(`[CS/${period}] intervalle ${usedInterval} insuffisant (${pairData.length}/28) → repli ${fb}`);
+      usedInterval = fb;
+      pairData = (await loadPairs(fb, '5d')).filter(Boolean);
+      if (pairData.length >= 7) break;
+    }
   }
   const failCount = CS_PAIRS.length - pairData.length;
   if (failCount > 0) console.warn(`[CS/${period}] ${failCount}/${CS_PAIRS.length} pairs failed to load`);
