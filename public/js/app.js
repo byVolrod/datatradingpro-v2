@@ -116,18 +116,22 @@ function _aiAutoScroll() {
   const box = document.getElementById('ai-messages'); if (!box) return;
   if (box.scrollHeight - box.scrollTop - box.clientHeight < 90) box.scrollTop = box.scrollHeight;
 }
-// Effet typewriter : révèle le texte par petits chunks (coupe au milieu d'un mot, façon flux SSE)
+// Effet typewriter ADAPTATIF : révèle le texte façon flux SSE, mais à vitesse VARIABLE → toute réponse
+// se termine en ~0,7 s quelle que soit sa longueur (avant : 3 car./14 ms ≈ 4 s figés sur les longues
+// réponses, et même délai sur les hits de cache pourtant instantanés). Rapide + fluide.
 function _aiStream(msg) {
   const full = msg.full || '';
   msg.text = ''; msg.streaming = true;
+  const total = full.length;
+  const STEP = Math.max(4, Math.ceil(total / 70));   // ≤ ~70 ticks → durée ~constante quelle que soit la longueur
   let i = 0;
   const tick = () => {
-    i = Math.min(full.length, i + 3);
+    i = Math.min(total, i + STEP);
     msg.text = full.slice(0, i);
     const el = document.querySelector('#ai-messages .ai-row--ai:last-of-type .ai-ai-text');
     if (el) el.innerHTML = _aiMdStream(msg.text);
     _aiAutoScroll();
-    if (i < full.length) { _aiTyper = setTimeout(tick, 14); }
+    if (i < total) { _aiTyper = setTimeout(tick, 10); }
     else { msg.streaming = false; msg.text = full; _aiTyper = null; _aiBusy = false; aiRender(); }
   };
   tick();
