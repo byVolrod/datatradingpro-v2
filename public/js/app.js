@@ -5350,10 +5350,12 @@ function renderArlibList() {
     const read    = isRead(_reportReadKey(item));
     const dateStr = new Date(item.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
     const title   = standardizeReportTitle(item);
+    // Recaps hebdo (Weekly Market Recap + Global Economic Weekly) → ligne ROUGE (façon news importantes).
+    const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
     // Logo institut : rapports DTP + session wraps + FX Daily (ING Think) → favicon DTP ; sinon rien.
     const hasLogo = item.source === 'DTP' || item._briefing || isPrimerItem(item) || item._source === 'ing-think' || item._source === 'investinglive';
     const inst    = hasLogo ? '<img class="arl-inst-logo" src="/favicon.svg" alt="DTP" loading="lazy">' : '';
-    _rows += `<tr class="arl-row${read ? ' arl-row--read' : ''}" data-id="${_e(item.id)}">`
+    _rows += `<tr class="arl-row${_isWeekly ? ' arl-row--weekly' : ''}${read ? ' arl-row--read' : ''}" data-id="${_e(item.id)}">`
       + `<td class="arl-c-bm"><span class="arl-bm">${_BM}</span></td>`
       + `<td class="arl-c-date">${_e(dateStr)}</td>`
       + `<td class="arl-c-title"><div class="arl-tw"><span class="arl-ico">${_GLOBE}</span><span class="arl-ttl" title="${_e(title).replace(/"/g, '&quot;')}">${_e(title)}</span></div></td>`

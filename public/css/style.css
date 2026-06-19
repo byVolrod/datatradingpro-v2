@@ -4381,6 +4381,17 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arl-row--read .arl-ico    { opacity: 0.4; }
 .arl-row--read .arl-c-date { color: #696970; }
 .arl-row--read:hover .arl-ttl { color: #b6b6bc; }
+/* Recaps HEBDO → ligne ROUGE façon news importantes (fond teinté + liseré rouge à gauche) */
+.arl-row--weekly { background: #1d0d0f; box-shadow: inset 3px 0 0 #ff3d00; }
+.arl-row--weekly:hover { background: #2a1316; }
+.arl-row--weekly .arl-ttl { color: #ffece8; }
+.arl-row--weekly:hover .arl-ttl { color: #ffffff; }
+.arl-row--weekly .arl-ico { background: rgba(255,61,0,0.13); border-color: rgba(255,61,0,0.22); color: #ff7a5c; }
+.arl-row--weekly .arl-c-date { color: #e0b8b2; }
+/* Hebdo déjà lu → reste rouge mais estompé */
+.arl-row--weekly.arl-row--read { background: #160a0b; }
+.arl-row--weekly.arl-row--read .arl-ttl { color: #9a7d79; }
+.arl-row--weekly.arl-row--read .arl-ico { opacity: 0.45; }
 /* Pied : compteur en bas, texte BLANC, français (façon PMT) */
 .arlib-foot {
   flex-shrink: 0;
