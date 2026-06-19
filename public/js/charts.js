@@ -1772,6 +1772,8 @@ let mapRoot = null;
 let mapCityPointSeries = null;
 let mapTimelineTimer = null;
 let mapClockTimer = null;
+let mapNightTimer = null;   // redraw du terminateur jour/nuit
+let mapNightRO = null;      // ResizeObserver de l'overlay nuit
 
 function isCityOpen(city, now) {
   const local = new Date(now.toLocaleString('en-US', { timeZone: city.tz }));
@@ -1794,6 +1796,9 @@ function buildSessionMap() {
   disposeRoot('am5-map');
   if (mapTimelineTimer) { clearInterval(mapTimelineTimer); mapTimelineTimer = null; }
   if (mapClockTimer)    { clearInterval(mapClockTimer);    mapClockTimer = null; }
+  if (mapNightTimer)    { clearInterval(mapNightTimer);    mapNightTimer = null; }
+  if (mapNightRO)       { try { mapNightRO.disconnect(); } catch (e) {} mapNightRO = null; }
+  document.getElementById('map-night-canvas')?.remove();
 
   const root = am5.Root.new('am5-map');
   mapRoot = root;
@@ -1826,14 +1831,85 @@ function buildSessionMap() {
   });
   polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x4aa052) });
 
-  // ── Terminateur JOUR/NUIT RETIRÉ (cause des bandes / du rognage du haut) ───────────────────────
-  // Le voile de nuit était UN polygone couvrant TOUTES les longitudes → d3-geo l'interprétait comme
-  // « enroulant un pôle » et gonflait les bornes du chart en CARRÉ → la carte rétrécissait (bandes
-  // latérales) ou, avec le zoom de couverture, rognait le haut. SANS lui, la carte épouse l'étendue des
-  // TERRES (ratio large ~1.65) et REMPLIT la largeur en montrant le monde ENTIER (haut compris), bien
-  // centré, SANS zoom de couverture. Validé headless : fillW=100 %, terres de 3 % à 97 % de la hauteur
-  // (haut + bas visibles, centré). (Le jour/nuit pourra revenir un jour en overlay CSS hors-amCharts.)
-  function refreshNight() {}   // no-op conservé pour ne pas casser les appels du timer
+  // ── Terminateur JOUR/NUIT — overlay CANVAS hors-amCharts ──────────────────────────────────────
+  // On dessine le VRAI terminateur solaire (point subsolaire + déclinaison, calculés depuis l'UTC) sur
+  // un canvas posé PAR-DESSUS la carte. Hors amCharts → ne touche JAMAIS aux bornes/au cadrage (l'ancien
+  // polygone plein-globe cassait d3-geo). Aligné via la projection RÉELLE d'amCharts (chart.convert →
+  // calibration mercator), dégradé crépusculaire continu (smoothstep sur l'altitude solaire jusqu'à −18°),
+  // recalé à chaque tick → suit l'heure/la saison/le DST automatiquement.
+  const _mapDiv = document.getElementById('am5-map');
+  let _nightCanvas = document.getElementById('map-night-canvas');
+  if (_nightCanvas) _nightCanvas.remove();
+  _nightCanvas = document.createElement('canvas');
+  _nightCanvas.id = 'map-night-canvas';
+  _nightCanvas.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:4;';
+  if (_mapDiv) { _mapDiv.style.position = 'relative'; _mapDiv.appendChild(_nightCanvas); }
+  const _nightOff = document.createElement('canvas');   // grille basse résolution → lissée au scale (dégradé doux + perf)
+
+  function _subsolar(date) {
+    const rad = Math.PI / 180, n = date.getTime() / 86400000 + 2440587.5 - 2451545.0;
+    let L = (280.460 + 0.9856474 * n) % 360; if (L < 0) L += 360;
+    const g = ((357.528 + 0.9856003 * n) % 360) * rad;
+    const lam = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * rad;
+    const eps = 23.439 * rad;
+    const decl = Math.asin(Math.sin(eps) * Math.sin(lam));               // déclinaison solaire (saison)
+    const ra   = Math.atan2(Math.cos(eps) * Math.sin(lam), Math.cos(lam));
+    let gmst = (280.46061837 + 360.98564736629 * n) % 360; if (gmst < 0) gmst += 360;
+    let lon = ra / rad - gmst; lon = ((lon + 180) % 360 + 360) % 360 - 180;   // longitude subsolaire (équation du temps incluse)
+    return { decl, subLon: lon * rad };
+  }
+
+  function refreshNight() {
+    try {
+      if (!_nightCanvas || !_mapDiv) return;
+      const W = _mapDiv.clientWidth, H = _mapDiv.clientHeight;
+      if (!W || !H) return;
+      if (_nightCanvas.width  !== W) _nightCanvas.width  = W;
+      if (_nightCanvas.height !== H) _nightCanvas.height = H;
+      // Calibration mercator via la VRAIE projection amCharts (3 points) → robuste au resize/offset.
+      const c00 = chart.convert({ longitude: 0,  latitude: 0  });
+      const cLo = chart.convert({ longitude: 90, latitude: 0  });
+      const cLa = chart.convert({ longitude: 0,  latitude: 60 });
+      if (!c00 || !cLo || !cLa || !isFinite(c00.x) || !isFinite(cLo.x) || !isFinite(cLa.y)) return;
+      const mY = lat => Math.log(Math.tan(Math.PI / 4 + (lat * Math.PI / 180) / 2));
+      const dXdLon = (cLo.x - c00.x) / 90;
+      const dYdMY  = (cLa.y - c00.y) / (mY(60) - mY(0));
+      if (!dXdLon || !dYdMY) return;
+      const lonAt = x => (x - c00.x) / dXdLon;
+      const latAt = y => (2 * Math.atan(Math.exp((y - c00.y) / dYdMY + mY(0))) - Math.PI / 2) * 180 / Math.PI;
+
+      const COLS = Math.max(80, Math.min(240, Math.round(W / 4)));
+      const ROWS = Math.max(60, Math.min(170, Math.round(H / 4)));
+      const ss = _subsolar(new Date());
+      const sinD = Math.sin(ss.decl), cosD = Math.cos(ss.decl), rad = Math.PI / 180;
+      const cosH = new Float64Array(COLS);
+      for (let i = 0; i < COLS; i++) cosH[i] = Math.cos(lonAt((i + 0.5) * W / COLS) * rad - ss.subLon);
+      const sinLat = new Float64Array(ROWS), cosLat = new Float64Array(ROWS);
+      for (let j = 0; j < ROWS; j++) {
+        const phi = Math.max(-89, Math.min(89, latAt((j + 0.5) * H / ROWS))) * rad;
+        sinLat[j] = Math.sin(phi); cosLat[j] = Math.cos(phi);
+      }
+      _nightOff.width = COLS; _nightOff.height = ROWS;
+      const octx = _nightOff.getContext('2d');
+      const img = octx.createImageData(COLS, ROWS), d = img.data;
+      const SIN18 = Math.sin(18 * rad), MAXA = 150;   // alpha max ~0.59 (nuit profonde)
+      for (let j = 0; j < ROWS; j++) {
+        const a1 = sinLat[j] * sinD, b1 = cosLat[j] * cosD, row = j * COLS;
+        for (let i = 0; i < COLS; i++) {
+          const sinAlt = a1 + b1 * cosH[i];           // sin(altitude solaire)
+          let a = 0;
+          if (sinAlt < 0) { const t = Math.min(1, -sinAlt / SIN18); a = (t * t * (3 - 2 * t)) * MAXA; }   // smoothstep → crépuscule doux
+          const k = (row + i) * 4;
+          d[k] = 3; d[k + 1] = 6; d[k + 2] = 22; d[k + 3] = a;
+        }
+      }
+      octx.putImageData(img, 0, 0);
+      const mctx = _nightCanvas.getContext('2d');
+      mctx.clearRect(0, 0, W, H);
+      mctx.imageSmoothingEnabled = true;
+      mctx.drawImage(_nightOff, 0, 0, COLS, ROWS, 0, 0, W, H);   // upscale lissé → dégradé continu sans coupure
+    } catch (e) { /* overlay best-effort : ne casse jamais la carte */ }
+  }
 
   // ── Orange UTC vertical line ──────────────────
   const utcLineSeries = chart.series.push(am5map.MapLineSeries.new(root, {}));
@@ -1890,25 +1966,33 @@ function buildSessionMap() {
     { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2,  lat: -33.9, open: 9, close: 17, labelLeft: true,  color: 0x60a5fa },
   ];
 
-  function isCityOpen4(city, now) {
+  // Statut dynamique (DST géré par Intl/timeZone) : 'open' | 'closing' (<30 min) | 'opening' (<30 min) | 'closed'.
+  function cityStatus4(city, now) {
     const local = new Date(now.toLocaleString('en-US', { timeZone: city.tz }));
-    const h = local.getHours() + local.getMinutes() / 60;
     const dow = local.getDay();
-    return dow !== 0 && dow !== 6 && h >= city.open && h < city.close;
+    if (dow === 0 || dow === 6) return 'closed';            // week-end : FX fermé
+    const h = local.getHours() + local.getMinutes() / 60;
+    if (h >= city.open && h < city.close) return (city.close - h <= 0.5) ? 'closing' : 'open';   // clôture imminente
+    if (city.open - h > 0 && city.open - h <= 0.5) return 'opening';                              // ouverture imminente
+    return 'closed';
   }
 
   const pointSeries = chart.series.push(am5map.MapPointSeries.new(root, {}));
   mapCityPointSeries = pointSeries;
 
   function buildCityData4(now) {
-    return SESSION_CITIES.map(c => ({
-      geometry:  { type: 'Point', coordinates: [c.lon, c.lat] },
-      id:        c.id,
-      name:      c.name,
-      isOpen:    isCityOpen4(c, now),
-      labelLeft: c.labelLeft,
-      color:     c.color,
-    }));
+    return SESSION_CITIES.map(c => {
+      const status = cityStatus4(c, now);
+      return {
+        geometry:  { type: 'Point', coordinates: [c.lon, c.lat] },
+        id:        c.id,
+        name:      c.name,
+        status,
+        isOpen:    status === 'open' || status === 'closing',
+        labelLeft: c.labelLeft,
+        color:     c.color,
+      };
+    });
   }
 
   pointSeries.data.setAll(buildCityData4(new Date()));
@@ -1917,10 +2001,15 @@ function buildSessionMap() {
 
   pointSeries.bullets.clear();
   pointSeries.bullets.push((root, series, dataItem) => {
-    const data   = dataItem.dataContext;
-    const isOpen = data.isOpen;
-    const accent = data.color || 0xf79400;        // couleur propre à la session (London=orange, NY=violet…)
-    const cont   = am5.Container.new(root, {});
+    const data     = dataItem.dataContext;
+    const status   = data.status || (data.isOpen ? 'open' : 'closed');
+    const isOpen   = status === 'open' || status === 'closing';
+    const imminent = status === 'opening' || status === 'closing';   // ouverture/clôture < 30 min
+    const lit      = isOpen || imminent;
+    const accent   = data.color || 0xf79400;        // couleur propre à la session (London=jaune, NY=violet…)
+    const AMBER    = 0xfbbf24;                       // cue « imminent »
+    const ringCol  = (status === 'open') ? accent : AMBER;
+    const cont     = am5.Container.new(root, {});
 
     // Badge COMPACT sur UNE SEULE LIGNE — « 15:02:50  New York » : heure colorée + ville blanche, côte à côte,
     // fond sombre + fine bordure de la couleur de la ville, collé à côté du point (gauche/droite selon le bord).
@@ -1935,8 +2024,8 @@ function buildSessionMap() {
     box.set('background', am5.RoundedRectangle.new(root, {
       fill:          am5.color(0x0b1020),
       fillOpacity:   0.9,
-      stroke:        am5.color(accent),
-      strokeOpacity: isOpen ? 0.95 : 0.6,
+      stroke:        am5.color(lit ? (status === 'open' ? accent : AMBER) : accent),
+      strokeOpacity: lit ? 0.95 : 0.5,
       strokeWidth:   1.2,
       cornerRadiusTL: 5, cornerRadiusTR: 5, cornerRadiusBL: 5, cornerRadiusBR: 5,
     }));
@@ -1959,21 +2048,22 @@ function buildSessionMap() {
 
     _cityTimeLabelRefs[data.id] = timeLabel;
 
-    // Pulse ring for open sessions (couleur de la session)
-    if (isOpen) {
+    // Halo pulsant : sessions OUVERTES (couleur session) + ouverture/clôture IMMINENTE (ambre).
+    if (lit) {
+      const startOp = isOpen ? 0.75 : 0.5;
       const ring = cont.children.push(
-        am5.Circle.new(root, { radius: 7, fillOpacity: 0, stroke: am5.color(accent), strokeOpacity: 0.75, strokeWidth: 1.5 })
+        am5.Circle.new(root, { radius: 7, fillOpacity: 0, stroke: am5.color(ringCol), strokeOpacity: startOp, strokeWidth: 1.5 })
       );
-      ring.animate({ key: 'radius',        from: 5,   to: 22, duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
-      ring.animate({ key: 'strokeOpacity', from: 0.75, to: 0, duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
+      ring.animate({ key: 'radius',        from: 5,       to: 22, duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
+      ring.animate({ key: 'strokeOpacity', from: startOp, to: 0,  duration: 2000, loops: Infinity, easing: am5.ease.out(am5.ease.cubic) });
     }
 
-    // City dot (couleur de la session si ouverte)
+    // Point ville : vif si ouverte, ambre si imminente, discret si fermée.
     cont.children.push(am5.Circle.new(root, {
-      radius:      isOpen ? 5 : 3,
-      fill:        isOpen ? am5.color(accent) : am5.color(0x555570),
-      stroke:      isOpen ? am5.color(0xffffff) : am5.color(0x333350),
-      strokeWidth: isOpen ? 1.4 : 0.8,
+      radius:      isOpen ? 5 : (imminent ? 4 : 3),
+      fill:        isOpen ? am5.color(accent) : (imminent ? am5.color(AMBER) : am5.color(0x555570)),
+      stroke:      lit ? am5.color(0xffffff) : am5.color(0x333350),
+      strokeWidth: lit ? 1.4 : 0.8,
     }));
 
     return am5.Bullet.new(root, { sprite: cont });
@@ -1996,16 +2086,23 @@ function buildSessionMap() {
     if (labEl) { labEl.textContent = 'Live'; labEl.style.color = '#22c55e'; }
   }
 
+  let _statusTick = 0;
   mapClockTimer = setInterval(() => {
     const now = new Date();
     updateHeader(now);
     refreshUTCLine(now);
     updateCityTimes(now);
+    if (++_statusTick % 60 === 0) pointSeries.data.setAll(buildCityData4(now));   // ré-évalue ouvert/fermé/imminent chaque minute
   }, 1000);
 
   updateHeader(new Date());
   refreshUTCLine(new Date());
   setTimeout(() => updateCityTimes(new Date()), 200);
+
+  // Terminateur jour/nuit : 1er rendu après le layout, puis redraw périodique (l'ombre avance ~0,25°/min) + au resize.
+  setTimeout(refreshNight, 700);
+  mapNightTimer = setInterval(refreshNight, 15000);
+  if (window.ResizeObserver && _mapDiv) { mapNightRO = new ResizeObserver(() => refreshNight()); mapNightRO.observe(_mapDiv); }
 
   // PLUS DE ZOOM DE COUVERTURE : sans le voile de nuit, la carte épouse l'étendue des TERRES (ratio large
   // ~1.65) et REMPLIT la largeur en montrant le monde ENTIER (haut + bas), bien centré, dès le zoom 1 →
