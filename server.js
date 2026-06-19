@@ -3137,18 +3137,25 @@ function _brResolvePdf(pageUrl, $) {
            || $('a[href*="/downloads/pdf/"]').attr('href')
            || $('a[href*="/wp-content/uploads/"][href$=".pdf"]').attr('href') || '';   // QCAM / WordPress
   if (_dl) return absu(_dl);
-  // (C) Générique : meilleur <a …pdf> (HSBC /content/dam, Scotia, KBC multimediafiles, Syz hubfs…)
+  // (C) Générique : <a …pdf> de la page (HSBC /content/dam, Scotia, KBC multimediafiles, Syz hubfs…).
+  //     Sélection PRUDENTE : un .pdf qui recoupe le SLUG de l'article = le rapport ; à défaut on n'accepte
+  //     QUE s'il n'y a qu'UN seul candidat plausible (page à PDF unique). Sinon '' → repli rendu serveur
+  //     (jamais embarquer un PDF ANNEXE au hasard). BAD élargi ; http(s) only ; dédup par chemin.
   const slug = (pageUrl.split('?')[0].split('#')[0].replace(/\/+$/, '').split('/').pop() || '').toLowerCase();
   const toks = slug.split(/[^a-z0-9]+/).filter(w => w.length >= 4);
-  const BAD = /disclaim|recommendation|cookie|privacy|terms|\/kid|kiid|legal|\/logo|favicon|sitemap|subscription|brochure|\/tariff|appendix/i;
-  let best = '', bestScore = -1;
+  const badRx = /disclaim|recommendation|cookie|privacy|terms|\/kid|kiid|legal|\/logo|favicon|sitemap|subscription|brochure|\/tariff|appendix|media-?kit|fact-?sheet|presentation|methodology|glossary|prospectus|annual-report/i;
+  const seen = new Set(), cands = [];
   $('a[href]').each((_, a) => {
     const h = $(a).attr('href') || ''; if (!/\.pdf(\?|#|$)/i.test(h)) return;
-    const u = absu(h); if (!u || BAD.test(u.toLowerCase())) return;
-    const score = toks.reduce((s, t) => u.toLowerCase().includes(t) ? s + 1 : s, 0);
-    if (score > bestScore) { bestScore = score; best = u; }
+    const u = absu(h); if (!u || !/^https?:/i.test(u) || badRx.test(u.toLowerCase())) return;
+    const key = u.split('?')[0].split('#')[0]; if (seen.has(key)) return; seen.add(key);
+    cands.push({ u, score: toks.reduce((s, t) => u.toLowerCase().includes(t) ? s + 1 : s, 0) });
   });
-  return best;
+  if (!cands.length) return '';
+  cands.sort((a, b) => b.score - a.score);
+  if (cands[0].score > 0) return cands[0].u;       // recoupe le slug → c'est le rapport
+  if (cands.length === 1) return cands[0].u;        // PDF unique sur la page → c'est lui
+  return '';                                        // plusieurs PDF, aucun ne recoupe le slug → ambigu → repli rendu
 }
 // Backfill LÉGER (1 fetch HTML, AUCUNE IA) du lien PDF natif quand l'article est déjà en cache de segmentation
 // mais que son PDF n'a jamais été enregistré (rapports antérieurs au correctif). Cache aussi les NÉGATIFS ('')
@@ -4456,12 +4463,7 @@ app.get('/api/bank-research-content', async (req, res) => {
                  || $('a[data-addressable-id="read-the-report"]').attr('href') || '';
         if (_gs) _printUrl = new URL(_gs, _origin).href;
       }
-      // QCAM (& sites WordPress) : le VRAI rapport est un PDF lié dans la page (wp-content/uploads/…pdf)
-      // → on l'affiche en PDF natif direct, au lieu de rendre la page « teaser » (accroche + bouton Subscribe).
-      if (!_realPdf) {
-        const _wp = $('a[href*="/wp-content/uploads/"][href$=".pdf"]').attr('href') || '';
-        if (_wp) _realPdf = new URL(_wp, _origin).href;
-      }
+      // (QCAM / wp-content/uploads .pdf est désormais géré par _brResolvePdf — plus de bloc séparé.)
       if (_printUrl) { try { _brPrintMap.set(url, _printUrl); _saveJsonMap(BR_PRINT_FILE, _brPrintMap); } catch {} }   // persiste (GUID/URL non dérivable)
       if (_realPdf) { try { _brPdfMap.set(url, _realPdf); _saveJsonMap(BR_PDF_FILE, _brPdfMap); } catch {} }   // persiste le VRAI PDF → la réouverture (cache chaud) sert le PDF, pas le rendu
       else { const _saved = _brPrintMap.get(url); if (typeof _saved === 'string' && _saved) _printUrl = _saved; }       // repli : URL imprimable déjà connue
