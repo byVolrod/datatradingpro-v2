@@ -5896,10 +5896,13 @@ ${list}`;
 function _gewRedateCurrent() {
   const g = allNews.find(i => i._reportType === 'Global Economic Weekly' && i._weekly);
   if (!g) return;
-  const _n = new Date(), dw = _n.getUTCDay(), mo = new Date(_n);
-  if (dw === 0) mo.setUTCDate(_n.getUTCDate() + 1); else if (dw >= 5) mo.setUTCDate(_n.getUTCDate() + (8 - dw)); else mo.setUTCDate(_n.getUTCDate() - (dw - 1));
-  mo.setUTCHours(0, 0, 0, 0);
-  const pub = new Date(mo); pub.setUTCDate(mo.getUTCDate() - 1); pub.setUTCHours(16, 0, 0, 0);   // dimanche avant le lundi couvert
+  // Date = dimanche le plus récent ≤ aujourd'hui (week-end de publication), JAMAIS dans le futur. L'ancien
+  // calcul visait le lundi de la semaine SUIVANTE le ven/sam → datait le GEW au dimanche À VENIR (futur) →
+  // « weekly en pleine semaine ». Aligne aussi avec la génération (dimanche précédant la semaine couverte).
+  const _n = new Date();
+  const pub = new Date(_n);
+  pub.setUTCDate(_n.getUTCDate() - _n.getUTCDay());   // dimanche courant/le plus récent
+  pub.setUTCHours(16, 0, 0, 0);
   const pubTs = pub.getTime();
   if (Math.abs((g.timestamp || 0) - pubTs) <= 12 * 3600 * 1000) return;   // déjà daté au week-end → rien à faire
   g.timestamp = pubTs;
