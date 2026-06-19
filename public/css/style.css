@@ -4291,11 +4291,96 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arlib-cards {
   flex: 1;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;                /* écart ENTRE les rapports — respiration premium */
-  padding: 16px 16px 20px;  /* respiration sur les côtés + bas */
+  display: block;
+  padding: 0;               /* le tableau gère son propre espacement (listing pleine largeur) */
 }
+.arlib-cards::-webkit-scrollbar { width: 10px; }
+.arlib-cards::-webkit-scrollbar-track { background: transparent; }
+.arlib-cards::-webkit-scrollbar-thumb { background: #232329; border-radius: 6px; border: 3px solid #0c0c0e; }
+.arlib-cards::-webkit-scrollbar-thumb:hover { background: #30303a; }
+
+/* ── TABLEAU institutionnel (Date | Titre | Institut) — façon terminal de recherche pro ── */
+.arlib-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: var(--font-ui);
+}
+.arl-col-bm   { width: 42px; }
+.arl-col-date { width: 104px; }
+.arl-col-inst { width: 150px; }
+/* Header : fond distinct, séparation nette, sticky au scroll */
+.arlib-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: #131317;
+  color: #7f7f88;
+  font-size: 11px;
+  font-weight: 600;
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid #26262c;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  user-select: none;
+}
+.arlib-table thead th.arl-th-c { text-align: center; }
+/* Lignes : hauteur homogène, séparateur fin mais visible, survol discret */
+.arl-row {
+  cursor: pointer;
+  border-bottom: 1px solid #161619;
+  transition: background 0.13s ease;
+}
+.arl-row:last-child { border-bottom: none; }
+.arl-row:hover { background: #131318; }
+.arl-row > td { padding: 0 14px; height: 46px; vertical-align: middle; }
+.arl-c-bm { text-align: center; }
+.arl-bm { display: inline-flex; color: #46464e; transition: color 0.13s ease; }
+.arl-row:hover .arl-bm { color: #6a6a72; }
+.arl-c-date {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 500;
+  color: #c8c8ce;
+  white-space: nowrap;
+}
+.arl-c-title { overflow: hidden; }
+.arl-tw { display: flex; align-items: center; gap: 11px; min-width: 0; }
+.arl-ico {
+  flex-shrink: 0;
+  width: 24px; height: 24px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(74,143,255,0.12);          /* fond bleu subtil (façon capture) */
+  border: 1px solid rgba(74,143,255,0.16);
+  border-radius: 6px;
+  color: #5b9dff;
+}
+.arl-ttl {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;                        /* titres longs gérés proprement (ellipse) */
+  font-size: 13px;
+  font-weight: 500;
+  color: #e6e6ea;
+  transition: color 0.13s ease;
+}
+.arl-row:hover .arl-ttl { color: #ffffff; }
+.arl-c-inst { text-align: center; }
+.arl-inst-logo {
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  display: inline-block; vertical-align: middle;
+  opacity: 0.82;
+  transition: opacity 0.13s ease;
+}
+.arl-row:hover .arl-inst-logo { opacity: 1; }
+/* Lu → ligne estompée (discret) */
+.arl-row--read .arl-ttl    { color: #7a7a82; font-weight: 400; }
+.arl-row--read .arl-ico    { opacity: 0.4; }
+.arl-row--read .arl-c-date { color: #696970; }
+.arl-row--read:hover .arl-ttl { color: #b6b6bc; }
 /* Pied : compteur en bas, texte BLANC, français (façon PMT) */
 .arlib-foot {
   flex-shrink: 0;
