@@ -150,7 +150,7 @@ async function aiSend() {
 // Streaming SSE : le texte apparaît au fil des tokens. Renvoie true si la réponse a été affichée
 // (même partielle) → pas de repli ; false si RIEN n'a été reçu → l'appelant lance le repli bufferisé.
 async function _aiSendStream(q) {
-  let msg = null, started = false, sources = [];
+  let msg = null, started = false, sources = [], gotEvent = false;
   const ensureMsg = () => {
     if (msg) return;
     if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();   // coupe « L'IA écrit… » au 1er token
@@ -177,15 +177,22 @@ async function _aiSendStream(q) {
         block.split('\n').forEach(l => { if (l.startsWith('event:')) ev = l.slice(6).trim(); else if (l.startsWith('data:')) data += l.slice(5).trim(); });
         if (!data) continue;
         let p; try { p = JSON.parse(data); } catch { continue; }
-        if (ev === 'chunk' && p.t) { ensureMsg(); started = true; msg.text += p.t; renderLive(); }
-        else if (ev === 'done') sources = p.sources || [];
-        // ev === 'error' : on ne fait rien → si rien n'a été affiché, repli bufferisé ci-dessous
+        if (ev === 'chunk' && p.t) { gotEvent = true; ensureMsg(); started = true; msg.text += p.t; renderLive(); }
+        else if (ev === 'done') { gotEvent = true; sources = p.sources || []; }
+        else if (ev === 'error') gotEvent = true;   // l'endpoint a tourné mais son repli interne a échoué
       }
     }
   } catch (e) { /* coupure réseau → on finalise ce qu'on a (si déjà affiché), sinon repli */ }
   if (started) { msg.streaming = false; msg.sources = sources; msg.time = _aiTime(); _aiBusy = false; aiRender(); return true; }
-  if (msg) { const i = _aiMsgs.indexOf(msg); if (i >= 0) _aiMsgs.splice(i, 1); }   // msg vide créé par erreur → on le retire
-  return false;
+  if (gotEvent) {
+    // L'endpoint a répondu SANS texte (son repli bufferisé interne a échoué) → inutile de rappeler
+    // /api/ai/chat (même chaîne → même échec + 2e décompte burst). On affiche le message dédié.
+    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();
+    _aiMsgs.push({ role: 'ai', text: "🛠️ This feature is currently under development and will be available very soon. Thank you for your patience!", time: _aiTime() });
+    _aiBusy = false; aiRender();
+    return true;
+  }
+  return false;   // aucun événement reçu (transport KO) → repli bufferisé /api/ai/chat
 }
 // Repli : ancien chemin bufferisé (réponse complète d'un coup) + typewriter adaptatif.
 async function _aiSendBuffered(q) {

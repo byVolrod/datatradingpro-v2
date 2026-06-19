@@ -437,7 +437,7 @@ async function _openrouterStream(prompt, maxTokens, onChunk) {
     const key = OPENROUTER_KEYS[idx];
     for (const model of OPENROUTER_MODELS) {
       const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
-      let full = '', opened = false;
+      let full = '';
       try {
         const r = await fetch(OPENROUTER_BASE + '/chat/completions', {
           method: 'POST',
@@ -446,7 +446,6 @@ async function _openrouterStream(prompt, maxTokens, onChunk) {
           signal: ctrl.signal,
         });
         if (!r.ok) { const e = new Error('OpenRouter ' + r.status); e.status = r.status; throw e; }
-        opened = true;
         const reader = r.body.getReader(); const dec = new TextDecoder();
         let buf = '';
         while (true) {
@@ -458,7 +457,9 @@ async function _openrouterStream(prompt, maxTokens, onChunk) {
             if (!line.startsWith('data:')) continue;
             const data = line.slice(5).trim();
             if (!data || data === '[DONE]') continue;
-            try { const j = JSON.parse(data); const d = j && j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content; if (d) { full += d; try { onChunk(d); } catch {} } } catch {}
+            // OpenRouter emballe parfois une erreur provider (free saturé) dans un HTTP 200 + ligne SSE → on
+            // la fait remonter (tant que RIEN n'a été émis) pour basculer de modèle/clé avec la vraie raison.
+            try { const j = JSON.parse(data); if (j && j.error && !full) { const e = new Error('OpenRouter provider: ' + String(j.error.message || '').slice(0, 100)); e.status = (j.error.code === 429 || j.error.code === 503) ? j.error.code : 429; throw e; } const d = j && j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content; if (d) { full += d; try { onChunk(d); } catch {} } } catch (pe) { if (pe && pe.status) throw pe; }
           }
         }
         if (full.trim()) { _aiStat('openrouter'); return full.trim(); }
@@ -485,7 +486,8 @@ async function _anthropicStream(prompt, maxTokens, onChunk) {
       const stream = client.messages.stream({ model: CLAUDE_MODEL, max_tokens: maxTokens, temperature: 0.4, system: _buildSystem(), messages: [{ role: 'user', content: prompt }] });
       stream.on('text', (txt) => { full += txt; try { onChunk(txt); } catch {} });
       const msg = await stream.finalMessage();
-      const text = (msg.content?.[0]?.text || full || '').trim();
+      // `full` = exactement le flux reçu par le client (jamais tronqué) ; repli = concat de TOUS les blocs texte.
+      const text = (full || (msg.content || []).filter(b => b && b.type === 'text').map(b => b.text || '').join('') || '').trim();
       if (!text) throw new Error('Claude: flux vide');
       _claudeCount++; _aiStat('claude');
       const u = msg.usage; if (u) _noteUsage('claude', CLAUDE_MODEL, u.input_tokens, u.output_tokens);

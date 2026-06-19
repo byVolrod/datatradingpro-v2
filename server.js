@@ -1576,10 +1576,11 @@ app.post('/api/ai/chat/stream', async (req, res) => {
     }
   }
   const prompt = _aiChatPrompt(q, newsCtx);
-  let full = '';
+  let full = '', _emitted = false;
   try {
-    full = await ai.generateTextStream(prompt, 380, { priority: 'user' }, (delta) => send('chunk', { t: delta }));   // streaming réel (token-par-token)
+    full = await ai.generateTextStream(prompt, 380, { priority: 'user' }, (delta) => { _emitted = true; send('chunk', { t: delta }); });   // streaming réel (token-par-token)
   } catch (e) {
+    if (_emitted) { send('done', { sources }); return res.end(); }   // déjà streamé du texte → on garde, JAMAIS de re-stream (zéro doublon)
     full = '';
     try { const buf = await aiSmart('chat', prompt, 380, { priority: 'user' }); if (buf && buf.trim()) { full = buf.trim(); streamChunks(full); } } catch {}   // repli bufferisé → streamé en morceaux
   }
