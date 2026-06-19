@@ -4293,8 +4293,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 12px;                /* écart ENTRE les rapports (façon PMT) */
-  padding: 12px;            /* écart sur les CÔTÉS + en haut */
+  gap: 14px;                /* écart ENTRE les rapports — respiration premium */
+  padding: 16px 16px 20px;  /* respiration sur les côtés + bas */
 }
 /* Pied : compteur en bas, texte BLANC, français (façon PMT) */
 .arlib-foot {
@@ -4315,55 +4315,60 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   line-height: 1.7;
 }
 
-/* Card row — palette DataTradingPro */
+/* ── RESEARCH FEED premium — carte de rapport (terminal institutionnel) ── */
 .arlib-card {
   display: flex;
   align-items: flex-start;
   gap: 14px;
-  padding: 16px 20px;
-  border: 1px solid #1f1f24;            /* carte DISTINCTE, bordure fine (façon PMT) — plus de séparateur en liste */
-  border-radius: 12px;
+  padding: 18px 20px;                   /* padding interne généreux */
+  border: 1px solid #1b1b20;            /* bordure très subtile */
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.2s ease-in-out;     /* transition globale douce */
-  background: #121214;                  /* anthracite profond */
+  background: #101013;                  /* fond légèrement distinct du fond principal #0c0c0e */
+  transition: background .18s ease, border-color .18s ease, box-shadow .2s ease, transform .18s ease;
 }
-/* Survol style DataTradingPro : bordure orange cuivrée + fond légèrement éclairci + titre blanc pur */
+/* Survol premium : élévation discrète + accent orange SOBRE + ombre douce (pas d'effet flashy) */
 .arlib-card:hover {
-  background: #1b1b1e;
-  border-color: rgba(255,122,0,0.7);
+  background: #16161b;
+  border-color: rgba(255,122,0,0.42);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 22px -12px rgba(0,0,0,.75), 0 0 0 1px rgba(255,122,0,0.05);
 }
-.arlib-card:hover .arlib-card-title { color: #ffffff; }
+.arlib-card:hover .arlib-card-title { color: #ffffff; transform: scale(1.012); }
+.arlib-card:active { transform: translateY(-1px); }
 
-/* Non lu → titre BLANC */
-.arlib-card:not(.arlib-card--read) .arlib-card-title { color: #ffffff; }
+/* Non lu → titre clair */
+.arlib-card:not(.arlib-card--read) .arlib-card-title { color: #f4f4f6; }
 
-/* Lu → légèrement grisé (gris neutre, pas bleuté) */
-.arlib-card--read { background: #0e0e10; }
-.arlib-card--read .arlib-card-title { color: #8a8a90; font-weight: 400; }
-.arlib-card--read .arlib-card-icon  { opacity: 0.35; }
-.arlib-card--read .arlib-card-date  { color: #6a6a6f; }
-.arlib-card--read:hover { background: #16161a; }
-.arlib-card--read:hover .arlib-card-title { color: #c4c4c8; }
+/* Lu → grisé discret */
+.arlib-card--read { background: #0d0d10; border-color: #161619; }
+.arlib-card--read .arlib-card-title { color: #82828a; font-weight: 500; }
+.arlib-card--read .arlib-card-icon  { opacity: 0.4; }
+.arlib-card--read .arlib-card-date  { color: #5a5a61; }
+.arlib-card--read:hover { background: #141418; }
+.arlib-card--read:hover .arlib-card-title { color: #c0c0c6; }
 
 .arlib-card-icon {
   flex-shrink: 0;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #0e0e0e;
-  border: 1px solid #1e1e1e;
-  border-radius: 50%;
-  color: #4a8fff;
-  margin-top: 2px;
+  background: #15151a;
+  border: 1px solid #232329;
+  border-radius: 8px;                   /* carré arrondi → plus moderne que le cercle */
+  color: #5b9dff;
+  margin-top: 1px;
+  transition: background .18s ease, border-color .18s ease;
 }
+.arlib-card:hover .arlib-card-icon { background: #1a1a20; border-color: #2e2e36; }
 .arlib-card-body {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 11px;
 }
 /* Ligne du haut : titre (gauche) + signet (droite) */
 .arlib-card-top {
@@ -4373,18 +4378,18 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   gap: 12px;
 }
 .arlib-card-title {
-  font-size: 12.5px;
+  font-size: 14px;                      /* plus grand → hiérarchie visuelle forte */
   font-weight: 600;
-  color: #ffffff;
-  line-height: 1.45;
+  color: #f4f4f6;
+  line-height: 1.42;
+  letter-spacing: -0.005em;
   font-family: var(--font-ui);
   flex: 1;
   min-width: 0;
   display: inline-block;
   transform-origin: left center;
-  transition: transform .14s ease, color .14s ease;   /* le titre « ressort » légèrement au survol (façon PMT) */
+  transition: transform .16s ease, color .16s ease;   /* le titre « ressort » discrètement au survol */
 }
-.arlib-card:hover .arlib-card-title { transform: scale(1.025); }
 /* Ligne du bas : tags (gauche) ←→ badge + date (droite) */
 .arlib-card-meta {
   display: flex;
@@ -4401,21 +4406,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arlib-card-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px;
+  gap: 6px;
   align-items: center;
   min-width: 0;
 }
 .arlib-tag {
-  font-size: 10.5px;
-  color: #b6b6bb;
-  background: #1a1a1e;
-  border: 1px solid #26262c;
-  border-radius: 3px;
-  padding: 2px 9px;
+  font-size: 10px;
+  font-weight: 500;
+  color: #9a9aa2;
+  background: rgba(255,255,255,0.035);   /* pill translucide, moderne, cohérente thème sombre */
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 5px;
+  padding: 2.5px 8px;
   font-family: var(--font-ui);
   white-space: nowrap;
+  letter-spacing: 0.01em;
+  transition: color .15s ease, border-color .15s ease;
 }
-.arlib-tag-extra { font-size: 10.5px; color: #555; font-family: var(--font-ui); }
+.arlib-card:hover .arlib-tag { color: #b8b8c0; border-color: rgba(255,255,255,0.1); }
+.arlib-tag-extra { font-size: 10px; color: #56565d; font-family: var(--font-ui); }
 
 .arlib-card-right {
   flex-shrink: 0;
@@ -4426,31 +4435,33 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   padding-top: 1px;
 }
 .arlib-bookmark {
-  color: #888;        /* visible */
+  color: #56565d;        /* discret */
   cursor: pointer;
-  transition: color 0.12s;
+  transition: color .14s ease, transform .14s ease;
   flex-shrink: 0;
 }
-.arlib-bookmark:hover { color: #f7941d; }
+.arlib-bookmark:hover { color: #f7941d; transform: scale(1.15); }   /* feedback signet */
 .arlib-ptbadge-small {
   font-size: 9px;
   font-family: var(--font-mono);
   font-weight: 700;
   color: #c4ccd8;
-  background: #24242a;
-  border: 1px solid #3a3a42;
-  border-radius: 3px;
+  background: #1d1d22;
+  border: 1px solid #2e2e36;
+  border-radius: 4px;
   padding: 2px 6px;
   letter-spacing: 0.06em;
 }
 /* Logo DTP (favicon) en lieu et place du badge texte région/source */
 .arlib-ptbadge-logo {
-  width: 20px; height: 20px; border-radius: 4px;
+  width: 19px; height: 19px; border-radius: 4px;
   display: inline-block; vertical-align: middle; flex-shrink: 0;
+  opacity: .82; transition: opacity .18s ease;
 }
+.arlib-card:hover .arlib-ptbadge-logo { opacity: 1; }
 .arlib-card-date {
   font-size: 10.5px;
-  color: #e8eaed;        /* blanc cassé (lisible) */
+  color: #6c6c74;        /* date DISCRÈTE — métadonnée secondaire */
   font-family: var(--font-ui);
   white-space: nowrap;
 }
@@ -4656,10 +4667,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 
 /* Cartes hebdo (Weekly Recap + Global Economic Weekly) : encadré orange + fond bordeaux + hover rouge */
 .arlib-card.arlib-card--weekly {
-  background: #241415;
-  border: 1px solid rgba(255,122,0,0.45);
-  border-radius: 8px;
-  margin-bottom: 8px;
+  background: #1a1012;
+  border: 1px solid rgba(255,122,0,0.35);
+  border-radius: 10px;
 }
 .arlib-card.arlib-card--weekly:hover { background: #2a1618; border-color: rgba(127,29,29,0.55); }
 .arlib-card.arlib-card--weekly .arlib-card-title { color: #fff; font-weight: 600; }
