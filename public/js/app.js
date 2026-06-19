@@ -2784,81 +2784,9 @@ function _renderRiskGauge(data) {
   gaugeWrap.className = `rp-gauge-wrap rp-gauge-wrap--${cls}`;
 }
 
-// ── Dropdowns personnalisés (façon PMT) : remplacent le menu natif des <select> filtres ──
-// Le <select> reste la source de vérité (valeurs + listeners 'change' inchangés) ; on le masque et on
-// pose par-dessus un déclencheur + un menu stylé (panneau sombre, item sélectionné orange + coche, scroll).
-// Le menu est rebâti à CHAQUE ouverture depuis les <option> courantes → gère les listes dynamiques (br-inst).
-function _enhanceFilterSelects() {
-  document.querySelectorAll('select.arlib-filter, select.br-filter').forEach(sel => {
-    if (sel._ceqDone) return;
-    sel._ceqDone = true;
-    sel.style.display = 'none';
-
-    const wrap = document.createElement('div');
-    wrap.className = 'ceq-select';
-    wrap.dataset.for = sel.id;
-    const trigger = document.createElement('button');
-    trigger.type = 'button';
-    trigger.className = 'ceq-trigger';
-    trigger.innerHTML = '<span class="ceq-val"></span>'
-      + '<svg class="ceq-chev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>';
-    const menu = document.createElement('div');
-    menu.className = 'ceq-menu';
-    document.body.appendChild(menu);   // dans <body> → position:fixed jamais rognée par un conteneur
-    wrap.appendChild(trigger);
-    sel.parentNode.insertBefore(wrap, sel);
-
-    const valSpan = trigger.querySelector('.ceq-val');
-    function syncLabel() { const o = sel.options[sel.selectedIndex]; valSpan.textContent = o ? o.textContent : ''; }
-    sel._ceqSync = syncLabel;
-
-    function buildMenu() {
-      menu.innerHTML = '';
-      Array.from(sel.options).forEach(opt => {
-        const it = document.createElement('div');
-        it.className = 'ceq-opt' + (opt.value === sel.value ? ' selected' : '');
-        const txt = document.createElement('span');
-        txt.className = 'ceq-opt-txt';
-        txt.textContent = opt.textContent;
-        it.appendChild(txt);
-        it.insertAdjacentHTML('beforeend', '<svg class="ceq-check" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>');
-        it.addEventListener('click', ev => {
-          ev.stopPropagation();
-          if (sel.value !== opt.value) { sel.value = opt.value; sel.dispatchEvent(new Event('change', { bubbles: true })); }
-          syncLabel(); close();
-        });
-        menu.appendChild(it);
-      });
-    }
-    function position() {
-      const r = trigger.getBoundingClientRect();
-      menu.style.left = r.left + 'px';
-      menu.style.top = (r.bottom + 4) + 'px';
-      menu.style.minWidth = r.width + 'px';
-    }
-    function open() {
-      document.querySelectorAll('.ceq-select.open, .ceq-menu.open').forEach(o => { if (o !== wrap && o !== menu) o.classList.remove('open'); });
-      buildMenu(); position();
-      wrap.classList.add('open'); menu.classList.add('open');
-    }
-    function close() { wrap.classList.remove('open'); menu.classList.remove('open'); }
-
-    trigger.addEventListener('click', ev => { ev.stopPropagation(); menu.classList.contains('open') ? close() : open(); });
-    menu.addEventListener('click', ev => ev.stopPropagation());
-    sel.addEventListener('change', syncLabel);
-    syncLabel();
-  });
-
-  if (!window._ceqGlobal) {
-    window._ceqGlobal = true;
-    const closeAll = () => document.querySelectorAll('.ceq-select.open, .ceq-menu.open').forEach(o => o.classList.remove('open'));
-    document.addEventListener('click', closeAll);
-    window.addEventListener('resize', closeAll);
-    window.addEventListener('scroll', closeAll, true);
-  }
-}
-// NB : système ceq RETIRÉ — tous les <select> (filtres Analyst/Institution compris) sont désormais
-// stylés par le système GLOBAL unique `dtpsel` (enhanceAllSelects + MutationObserver) → un seul design partout.
+// Dropdowns : système ceq RETIRÉ (il faisait DOUBLON avec le système global `dtpsel`). Désormais TOUS les
+// <select> — filtres Analyst/Institution compris — sont stylés par l'UNIQUE système global `dtpsel`
+// (enhanceAllSelects + MutationObserver, plus bas dans ce fichier) → un seul et même design partout.
 
 function _applyRiskTopbar(data) {
   const cls   = _sentClass(data.label);
