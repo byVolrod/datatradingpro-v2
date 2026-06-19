@@ -3117,23 +3117,52 @@ const BR_PRINT_FILE = path.join(_CACHE_DIR, 'cache_br_print.json');
 const _brPrintMap = _loadJsonMap(BR_PRINT_FILE);   // url -> URL imprimable absolue (PrintPage MUFG / rapport gspublishing Goldman) — GUID non dérivable → à persister
 const BR_PDF_FILE = path.join(_CACHE_DIR, 'cache_br_pdf.json');
 const _brPdfMap = _loadJsonMap(BR_PDF_FILE);   // url -> VRAI PDF natif (MUFG /media…, ING downloads…) → DOIT survivre au cache chaud, sinon la réouverture sert le rendu HTML au lieu du vrai PDF
+// RÉSOLVEUR UNIVERSEL du PDF natif d'un rapport (toutes banques). Renvoie l'URL du VRAI PDF ou ''.
+//  (A) Dérivations par HÔTE (lien généré en JS / par API, absent du HTML statique) ;
+//  (B) liens « download » explicites ; (C) générique : un <a …pdf> de la page, hors annexes
+//      (disclaimer/legal/KID…), priorité au .pdf dont l'URL recoupe le SLUG de l'article.
+function _brResolvePdf(pageUrl, $) {
+  let host = ''; try { host = new URL(pageUrl).hostname.toLowerCase(); } catch { return ''; }
+  const absu = h => { try { return new URL(h, pageUrl).href; } catch { return ''; } };
+  // (A) Dérivations par hôte
+  let m;
+  if (/(^|\.)corporate\.nordea\.com$/.test(host) && (m = pageUrl.match(/\/article\/(\d+)/)))
+    return 'https://corporate.nordea.com/api/research/item/' + m[1] + '.pdf';   // Nordea : PDF via API (ID dans l'URL)
+  if (/(^|\.)think\.ing\.com$/.test(host) && (m = pageUrl.match(/think\.ing\.com\/(articles|snaps|opinions|bundles)\/([^/?#]+)/i)))
+    return 'https://think.ing.com/downloads/pdf/' + ({ articles: 'article', snaps: 'snap', opinions: 'opinion', bundles: 'bundle' }[m[1].toLowerCase()] || 'article') + '/' + m[2];
+  if (!$) return '';
+  // (B) Liens de téléchargement explicites
+  const _dl = $('a[data-cy="download-link"]').attr('href')
+           || $('a[data-download-url]').attr('data-download-url')   // MUFG
+           || $('a[href*="/downloads/pdf/"]').attr('href')
+           || $('a[href*="/wp-content/uploads/"][href$=".pdf"]').attr('href') || '';   // QCAM / WordPress
+  if (_dl) return absu(_dl);
+  // (C) Générique : meilleur <a …pdf> (HSBC /content/dam, Scotia, KBC multimediafiles, Syz hubfs…)
+  const slug = (pageUrl.split('?')[0].split('#')[0].replace(/\/+$/, '').split('/').pop() || '').toLowerCase();
+  const toks = slug.split(/[^a-z0-9]+/).filter(w => w.length >= 4);
+  const BAD = /disclaim|recommendation|cookie|privacy|terms|\/kid|kiid|legal|\/logo|favicon|sitemap|subscription|brochure|\/tariff|appendix/i;
+  let best = '', bestScore = -1;
+  $('a[href]').each((_, a) => {
+    const h = $(a).attr('href') || ''; if (!/\.pdf(\?|#|$)/i.test(h)) return;
+    const u = absu(h); if (!u || BAD.test(u.toLowerCase())) return;
+    const score = toks.reduce((s, t) => u.toLowerCase().includes(t) ? s + 1 : s, 0);
+    if (score > bestScore) { bestScore = score; best = u; }
+  });
+  return best;
+}
 // Backfill LÉGER (1 fetch HTML, AUCUNE IA) du lien PDF natif quand l'article est déjà en cache de segmentation
 // mais que son PDF n'a jamais été enregistré (rapports antérieurs au correctif). Cache aussi les NÉGATIFS ('')
-// → 1 seule tentative par URL. (Sans ça, la réouverture d'un vieux rapport MUFG retomberait sur le rendu HTML.)
+// → 1 seule tentative par URL. (Sans ça, la réouverture d'un vieux rapport retomberait sur le rendu HTML.)
 async function _brBackfillPdf(url) {
   try {
-    const r = await axios.get(url, { timeout: 9000, maxContentLength: 5 * 1024 * 1024, validateStatus: s => s < 500,
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124', 'Accept': 'text/html' } });
-    let pdf = '';
-    if (r.status === 200) {
-      const $ = cheerio.load(r.data);
-      const _dl = $('a[data-cy="download-link"]').attr('href')
-               || $('a[data-download-url]').attr('data-download-url')
-               || $('a[href*="/downloads/pdf/"]').attr('href') || '';
-      if (_dl) { try { pdf = new URL(_dl, new URL(url).origin).href; } catch {} }
+    let pdf = _brResolvePdf(url, null);   // dérivation par URL seule (Nordea/ING) → souvent suffisant sans fetch
+    if (!pdf) {
+      const r = await axios.get(url, { timeout: 9000, maxContentLength: 5 * 1024 * 1024, validateStatus: s => s < 500,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124', 'Accept': 'text/html' } });
+      if (r.status === 200) pdf = _brResolvePdf(url, cheerio.load(r.data));
     }
-    _brPdfMap.set(url, pdf); try { _saveJsonMap(BR_PDF_FILE, _brPdfMap); } catch {}
-    return pdf;
+    _brPdfMap.set(url, pdf || ''); try { _saveJsonMap(BR_PDF_FILE, _brPdfMap); } catch {}
+    return pdf || '';
   } catch { return _brPdfMap.get(url) || ''; }
 }
 const BR_SEG_VER  = 'v3:';   // bump → régénère (v3 : purge les faux résumés fabriqués depuis des pages "vitrine"/teaser — garde anti-teaser ajoutée)
@@ -4415,10 +4444,7 @@ app.get('/api/bank-research-content', async (req, res) => {
     // → affiché TEL QUEL côté client (proxifié), SANS aucune restructuration IA.
     let _realPdf = '', _printUrl = '';
     try {
-      const _dl = $('a[data-cy="download-link"]').attr('href')
-               || $('a[data-download-url]').attr('data-download-url')   // MUFG : bouton « Download PDF » → VRAI rapport complet (/media/…pdf)
-               || $('a[href*="/downloads/pdf/"]').attr('href') || '';
-      if (_dl) _realPdf = new URL(_dl, _origin).href;
+      _realPdf = _brResolvePdf(url, $);   // résolveur UNIVERSEL : Nordea/ING (dérivés) + MUFG/HSBC/Scotia/KBC/Syz/QCAM + générique slug
       // Page imprimable (MUFG « PrintPage », variantes printview) → meilleure cible de rendu PDF que l'article
       const _pp = $('a[href*="/umbraco/surface/download/PrintPage/"]').attr('href')
                || $('a[href*="printview"]').attr('href') || '';
@@ -4602,7 +4628,7 @@ app.get('/api/bank-research-content', async (req, res) => {
 // Indispensable car certains PDF (ING Think…) renvoient X-Frame-Options: SAMEORIGIN et refusent
 // d'être embarqués cross-origin. On affiche donc le PDF via ce proxy → iframe même-origine = OK.
 // Whitelist STRICTE des hôtes (anti-SSRF / anti-open-proxy) + HTTPS only + vérif content-type=pdf.
-const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com|sc\.com|q-cam\.com|mufgresearch\.com)$/i;
+const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|gspublishing\.com|sebgroup\.com|sc\.com|q-cam\.com|mufgresearch\.com|mufgemea\.com|corporate\.nordea\.com|hsbc\.com\.sg|scotiabank\.com|kbcgroup\.eu|kbc\.com|syzgroup\.com|lloydsbank\.com|westpaciq\.com\.au|bluematrix\.com|research\.natixis\.com|amundi\.com|research-center\.amundi\.com)$/i;
 app.get('/api/pdf-proxy', async (req, res) => {
   const u = String(req.query.url || '');
   const isHead = req.method === 'HEAD';   // sonde légère du client (vérifie « est-ce un vrai PDF ? » avant d'embarquer l'iframe)
