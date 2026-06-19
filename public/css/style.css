@@ -4323,7 +4323,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   cursor: pointer; border-radius: 5px; white-space: nowrap; transition: background .1s ease, color .1s ease;
 }
 .ceq-opt:hover { background: rgba(255,255,255,0.06); color: #fff; }
-.ceq-opt.selected { background: rgba(255,122,0,0.15); color: #fff; }            /* item sélectionné → orange (façon PMT) */
+.ceq-opt.selected { background: rgba(255,122,0,0.14); color: #ff8a1e; }         /* item sélectionné → TEXTE orange + fond orangé (façon PMT) */
 .ceq-opt-txt { flex: 1; }
 .ceq-check { opacity: 0; color: #ff7a00; flex-shrink: 0; }
 .ceq-opt.selected .ceq-check { opacity: 1; }                                    /* coche orange à droite */
