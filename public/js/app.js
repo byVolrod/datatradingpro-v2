@@ -2775,7 +2775,10 @@ function _renderRiskGauge(data) {
   const gaugePctEl = document.getElementById('rp-gauge-pct');
   const gaugeLblEl = document.getElementById('rp-gauge-lbl');
 
-  if (needleEl)   needleEl.setAttribute('transform', `rotate(${angle}, 100, 106)`);
+  // Aiguille teintée selon l'état (cohérent avec la jauge amCharts de l'onglet RISK)
+  const NEEDLE_COLOR = { 'risk-on': '#2dc653', 'risk-off': '#d62828', 'neutral': '#fcbf49' };
+  const ncol = NEEDLE_COLOR[cls] || '#fcbf49';
+  if (needleEl) { needleEl.setAttribute('transform', `rotate(${angle}, 100, 106)`); needleEl.setAttribute('stroke', ncol); }
   if (gaugePctEl) gaugePctEl.textContent = `${pctSign}${pctAbs}%`;
   if (gaugeLblEl) { gaugeLblEl.textContent = frLabel; gaugeLblEl.className = `rp-gauge-lbl rp-gauge-lbl--${cls}`; }
   gaugeWrap.className = `rp-gauge-wrap rp-gauge-wrap--${cls}`;
