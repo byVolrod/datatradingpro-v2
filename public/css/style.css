@@ -267,8 +267,8 @@ html, body {
 /* News ciblée depuis la barre LIVE : surbrillance orange brève */
 .news-item--flash { animation: newsFlash 2.2s ease-out; }
 @keyframes newsFlash {
-  0%, 30% { background: rgba(247,148,29,0.18); box-shadow: inset 3px 0 0 #f7941d; }
-  100%    { background: transparent; box-shadow: inset 3px 0 0 transparent; }
+  0%, 30% { background: rgba(247,148,29,0.18); }   /* surbrillance brève SANS le trait orange à gauche (demande utilisateur) */
+  100%    { background: transparent; }
 }
 
 .bnf-icon {
