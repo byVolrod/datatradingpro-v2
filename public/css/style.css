@@ -4368,9 +4368,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   font-size: 13px;
   font-weight: 500;
   color: #e6e6ea;
-  transition: color 0.13s ease;
+  transform-origin: left center;
+  transition: color 0.13s ease, transform 0.15s ease;   /* le titre « ressort » au survol (Analyst + Institution) */
 }
-.arl-row:hover .arl-ttl { color: #ffffff; }
+.arl-row:hover .arl-ttl { color: #ffffff; transform: scale(1.02); }
 .arl-c-inst { text-align: center; }
 .arl-inst-logo {
   width: 18px; height: 18px;
@@ -4385,8 +4386,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arl-row--read .arl-ico    { opacity: 0.4; }
 .arl-row--read .arl-c-date { color: #696970; }
 .arl-row--read:hover .arl-ttl { color: #b6b6bc; }
-/* Recaps HEBDO → ligne ROUGE façon news importantes (fond teinté + liseré rouge à gauche) */
-.arl-row--weekly { background: #1d0d0f; box-shadow: inset 3px 0 0 #ff3d00; }
+/* Recaps HEBDO → ligne ROUGE façon news importantes (fond teinté, sans liseré) */
+.arl-row--weekly { background: #1d0d0f; }
 .arl-row--weekly:hover { background: #2a1316; }
 .arl-row--weekly .arl-ttl { color: #ffece8; }
 .arl-row--weekly:hover .arl-ttl { color: #ffffff; }
