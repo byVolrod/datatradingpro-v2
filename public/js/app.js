@@ -144,13 +144,58 @@ async function aiSend() {
   _aiMsgs.push({ role: 'user', text: q, time: _aiTime() });
   _aiMsgs.push({ role: 'ai', thinking: true });
   _aiBusy = true; aiRender();
+  const handled = await _aiSendStream(q);   // 1) vrai streaming token-par-token (SSE)
+  if (!handled) await _aiSendBuffered(q);   // 2) repli : génération bufferisée + typewriter (l'ancien chemin)
+}
+// Streaming SSE : le texte apparaît au fil des tokens. Renvoie true si la réponse a été affichée
+// (même partielle) → pas de repli ; false si RIEN n'a été reçu → l'appelant lance le repli bufferisé.
+async function _aiSendStream(q) {
+  let msg = null, started = false, sources = [];
+  const ensureMsg = () => {
+    if (msg) return;
+    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();   // coupe « L'IA écrit… » au 1er token
+    msg = { role: 'ai', text: '', streaming: true, sources: [], time: _aiTime() };
+    _aiMsgs.push(msg); aiRender();
+  };
+  const renderLive = () => {
+    const el = document.querySelector('#ai-messages .ai-row--ai:last-of-type .ai-ai-text');
+    if (el) el.innerHTML = _aiMdStream(msg.text);
+    _aiAutoScroll();
+  };
+  try {
+    const r = await fetch('/api/ai/chat/stream', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: q }) });
+    if (!r.ok || !r.body || !r.body.getReader) return false;
+    const reader = r.body.getReader(); const dec = new TextDecoder();
+    let buf = '';
+    while (true) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true });
+      let sep;
+      while ((sep = buf.indexOf('\n\n')) >= 0) {
+        const block = buf.slice(0, sep); buf = buf.slice(sep + 2);
+        let ev = 'message', data = '';
+        block.split('\n').forEach(l => { if (l.startsWith('event:')) ev = l.slice(6).trim(); else if (l.startsWith('data:')) data += l.slice(5).trim(); });
+        if (!data) continue;
+        let p; try { p = JSON.parse(data); } catch { continue; }
+        if (ev === 'chunk' && p.t) { ensureMsg(); started = true; msg.text += p.t; renderLive(); }
+        else if (ev === 'done') sources = p.sources || [];
+        // ev === 'error' : on ne fait rien → si rien n'a été affiché, repli bufferisé ci-dessous
+      }
+    }
+  } catch (e) { /* coupure réseau → on finalise ce qu'on a (si déjà affiché), sinon repli */ }
+  if (started) { msg.streaming = false; msg.sources = sources; msg.time = _aiTime(); _aiBusy = false; aiRender(); return true; }
+  if (msg) { const i = _aiMsgs.indexOf(msg); if (i >= 0) _aiMsgs.splice(i, 1); }   // msg vide créé par erreur → on le retire
+  return false;
+}
+// Repli : ancien chemin bufferisé (réponse complète d'un coup) + typewriter adaptatif.
+async function _aiSendBuffered(q) {
   try {
     const r = await fetch('/api/ai/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ message: q }) });
     const d = await r.json().catch(() => ({}));
-    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();   // coupe « thinking » dès réception
+    if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();
     if (r.ok && d.answer) {
       const msg = { role: 'ai', full: d.answer, text: '', sources: d.sources || [], streaming: true, time: _aiTime() };
-      _aiMsgs.push(msg); aiRender(); _aiStream(msg);   // démarre le typewriter (les sources sortiront à la fin)
+      _aiMsgs.push(msg); aiRender(); _aiStream(msg);
     } else {
       _aiMsgs.push({ role: 'ai', text: "🛠️ This feature is currently under development and will be available very soon. Thank you for your patience!", time: _aiTime() });
       _aiBusy = false; aiRender();
