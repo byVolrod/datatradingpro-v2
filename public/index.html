@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260617O" />
+  <link rel="stylesheet" href="/css/style.css?v=20260617P" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -406,26 +406,28 @@
           <span class="br-list-title">Bank Research</span>
         </div>
         <div class="br-toolbar">
+          <div class="br-filters">
+            <select class="br-filter" id="br-type">
+              <option value="all">Tous les fichiers</option>
+              <option value="article">Articles</option>
+              <option value="opinion">Opinions</option>
+            </select>
+            <select class="br-filter" id="br-source">
+              <option value="all">Recherche bancaire</option>
+            </select>
+            <select class="br-filter" id="br-inst">
+              <option value="all">Tous les instituts</option>
+              <option value="ING">ING Think</option>
+              <option value="MUFG">MUFG</option>
+            </select>
+          </div>
           <div class="br-search-wrap">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="color:#444;flex-shrink:0">
               <circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" stroke-width="1.3"/>
               <line x1="9" y1="9" x2="12" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
             </svg>
-            <input type="text" class="br-search" id="br-search" placeholder="Search…">
+            <input type="text" class="br-search" id="br-search" placeholder="Rechercher…">
           </div>
-          <select class="br-filter" id="br-type">
-            <option value="all">All Files</option>
-            <option value="article">Articles</option>
-            <option value="opinion">Opinions</option>
-          </select>
-          <select class="br-filter" id="br-source">
-            <option value="all">Bank Research</option>
-          </select>
-          <select class="br-filter" id="br-inst">
-            <option value="all">All Institutes</option>
-            <option value="ING">ING Think</option>
-            <option value="MUFG">MUFG</option>
-          </select>
         </div>
         <div class="br-cards" id="br-list"></div>
         <div class="br-footer" id="br-footer"></div>
@@ -462,26 +464,28 @@
         </div>
         <!-- Toolbar -->
         <div class="arlib-toolbar">
+          <div class="arlib-filters">
+            <select class="arlib-filter" id="arlib-type">
+              <option value="all">Tous les fichiers</option>
+              <option value="fxdaily">FX Daily Recap</option>
+              <option value="recap">Récap de session</option>
+              <option value="weekly">Récap hebdomadaire</option>
+              <option value="briefing">Briefing quotidien</option>
+            </select>
+            <select class="arlib-filter" id="arlib-cat">
+              <option value="all">Rapports d'analystes</option>
+              <option value="Market Analysis">Analyse de marché</option>
+              <option value="Fed">Fed</option>
+              <option value="ECB">BCE</option>
+            </select>
+          </div>
           <div class="arlib-search-wrap">
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" style="color:#444;flex-shrink:0">
               <circle cx="5.5" cy="5.5" r="4.5" stroke="currentColor" stroke-width="1.3"/>
               <line x1="9" y1="9" x2="12" y2="12" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
             </svg>
-            <input type="text" class="arlib-search" id="arlib-search" placeholder="Search…">
+            <input type="text" class="arlib-search" id="arlib-search" placeholder="Rechercher…">
           </div>
-          <select class="arlib-filter" id="arlib-type">
-            <option value="all">All Files</option>
-            <option value="fxdaily">FX Daily Recap</option>
-            <option value="recap">Session Recap</option>
-            <option value="weekly">Weekly Recap</option>
-            <option value="briefing">Daily Briefing</option>
-          </select>
-          <select class="arlib-filter" id="arlib-cat">
-            <option value="all">Analyst Reports</option>
-            <option value="Market Analysis">Market Analysis</option>
-            <option value="Fed">Fed</option>
-            <option value="ECB">ECB</option>
-          </select>
         </div>
         <!-- Cards -->
         <div class="arlib-cards" id="arlib-list">

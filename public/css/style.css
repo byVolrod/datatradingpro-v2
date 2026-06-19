@@ -4291,6 +4291,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arlib-filter:hover { border-color: #252525; color: #bbb; }
 .arlib-filter option { background: #111; }
 
+/* Barre d'outils façon PMT : filtres compacts (largeurs fixes) à GAUCHE + recherche qui occupe le RESTE à droite, sur une ligne */
+.arlib-filters, .br-filters { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+.arlib-filter, .br-filter { flex-shrink: 0; border-radius: 6px; }
+.arlib-search-wrap, .br-search-wrap { border-radius: 6px; flex: 1; min-width: 0; }
+#arlib-type { width: 160px; }  #arlib-cat   { width: 192px; }
+#br-type    { width: 160px; }  #br-source   { width: 192px; }  #br-inst { width: 256px; }
+@media (max-width: 1024px) { .arlib-filters, .br-filters { flex-wrap: wrap; } }
+
 /* Cards scroll */
 .arlib-cards {
   flex: 1;
