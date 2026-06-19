@@ -4380,7 +4380,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   font-family: var(--font-ui);
   flex: 1;
   min-width: 0;
+  display: inline-block;
+  transform-origin: left center;
+  transition: transform .14s ease, color .14s ease;   /* le titre « ressort » légèrement au survol (façon PMT) */
 }
+.arlib-card:hover .arlib-card-title { transform: scale(1.025); }
 /* Ligne du bas : tags (gauche) ←→ badge + date (droite) */
 .arlib-card-meta {
   display: flex;
