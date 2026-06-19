@@ -4329,12 +4329,24 @@ function _brTags(item) {
     [/china|pboc/i,                      'China'],
     [/yield|treasury|bond/i,             'Bonds'],
     [/trade|tariff/i,                    'Trade'],
-    [/iran|russia|ukraine|geopolit/i,    'Geopolitical'],
+    [/iran|russia|ukraine|israel|hormuz|geopolit|conflict|war\b/i, 'Geopolitical'],
+    [/middle east|gulf|saudi|uae|qatar|opec/i, 'Middle East'],
+    [/energy|natural gas|\blng\b|petrol/i, 'Energy'],
+    [/equit|stock|nasdaq|s&p|index|shares/i, 'Equities'],
+    [/\brate(s)?\b|hike|cut|monetary policy|hawkish|dovish/i, 'Rates'],
+    [/\bfx\b|forex|currency|exchange rate/i, 'FX'],
+    [/bitcoin|crypto|ethereum|\bbtc\b/i, 'Crypto'],
+    [/recession|slowdown|contraction/i,  'Recession'],
+    [/jobs|employment|payroll|labou?r|unemployment/i, 'Jobs'],
+    [/housing|home sales|mortgage|real estate/i, 'Housing'],
+    [/central bank|\bfed\b|\becb\b|\bboe\b|\bboj\b|\bpboc\b|\bsnb\b/i, 'Central Banks'],
+    [/commodit|copper|metal|silver/i,    'Commodities'],
+    [/aud|nzd|cad|kiwi|aussie|loonie/i,  'Commodity FX'],
   ];
   for (const [rx, label] of checks) {
-    if (rx.test(h) && !tags.includes(label) && tags.length < 12) tags.push(label);
+    if (rx.test(h) && !tags.includes(label) && tags.length < 14) tags.push(label);
   }
-  return _dedupeTags(tags).slice(0, 12);
+  return _dedupeTags(tags).slice(0, 14);
 }
 
 // ── Read tracking pour Bank Research (localStorage) ──────────────────────────
@@ -4637,7 +4649,7 @@ async function _brEmbedPdf(item, endpointUrl) {
   if (!document.getElementById('br-rcontent')) return true;   // l'utilisateur a quitté le reader entre-temps
   content.classList.add('br-rcontent--pdf');
   const ttl = (item.title || 'PDF').replace(/"/g, '');
-  content.innerHTML = `<iframe class="br-pdf-frame" src="${endpointUrl}#toolbar=1&navpanes=0&view=FitH" title="${ttl}"></iframe>`;
+  content.innerHTML = `<iframe class="br-pdf-frame" src="${endpointUrl}#toolbar=1&navpanes=0&zoom=100" title="${ttl}"></iframe>`;
   return true;
 }
 // Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
@@ -4753,6 +4765,11 @@ function renderBrReader(item) {
     .then(async data => {
       if (!content) return;
       data = data || {};
+      // AI Insights + tags depuis le CONTENU COMPLET du rapport (le corps vit dans le PDF/HTML ; item.description
+      // est souvent vide pour MUFG) → carrousel Insights rempli + tags pertinents MÊME en mode PDF brut.
+      const _ctext = (data.html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+      if (brIns && _ctext.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _ctext }, brIns);
+      if (tagsEl && _ctext.length > 200) tagsEl.innerHTML = _brTags({ ...item, description: _ctext.slice(0, 4000) }).map(t => `<span class="br-rtag">${t}</span>`).join('');
       // PDF natif (proxifié) puis, à défaut, page rendable → rendu PDF serveur (Puppeteer). NOUVEAU : si
       // AUCUN n'aboutit, on NE tombe PLUS direct sur la carte « ouvrir l'original » → on POURSUIT vers le
       // rendu HTML de l'article ci-dessous (ex. Nordea : render Puppeteer KO mais le TEXTE est dispo →
@@ -4977,7 +4994,7 @@ function _brPdfShow(mode) {
     _brFixImages(content);
   } else {
     content.innerHTML = bar('Afficher en texte', 'text') +
-      `<iframe class="br-pdf-frame" src="${_brPdfState.url}#toolbar=1&navpanes=0&view=FitH" title="Rapport PDF"></iframe>`;
+      `<iframe class="br-pdf-frame" src="${_brPdfState.url}#toolbar=1&navpanes=0&zoom=100" title="Rapport PDF"></iframe>`;
   }
   content.scrollTop = 0;
 }
@@ -5480,6 +5497,9 @@ const _EYE     = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" st
 // Afficher / masquer la grille de cartes AI Insights (cible paramétrable : Analyst ou Institution)
 function aiInsToggle(btn, hostId) {
   const host = document.getElementById(hostId || 'arlib-ai-insights');
+  // Cible la rangée de cartes ; NO-OP tant qu'elle n'existe pas (pendant le chargement) → ne hide JAMAIS
+  // tout le panneau (sinon les insights, alimentés en async, ne réapparaîtraient plus). Les cartes existent
+  // dès que _loadAIInsights a fini (insights nourris par le contenu complet du rapport) → le bouton fonctionne.
   const c = host ? host.querySelector('.ai-insights-cards') : document.getElementById('ai-insights-cards');
   if (!c) return;
   const willHide = c.style.display !== 'none';

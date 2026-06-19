@@ -2517,6 +2517,13 @@ const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
 const _RENDER_VER = 'r7';   // bump → invalide TOUS les PDF rendus en cache (r7 : MUFG rend l'ARTICLE complet, plus la PrintPage teaser ; garde anti-teaser retirée)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
+// PDF natifs téléchargés (MUFG /media, ING downloads…) STOCKÉS sur disque → re-servis directement dans DTP,
+// sans re-télécharger à chaque ouverture (robuste si la source rate-limite). TTL : retirés après 30 j (boot).
+const _PDF_CACHE_DIR = path.join(_CACHE_DIR, 'pdf_cache');
+try { fs.mkdirSync(_PDF_CACHE_DIR, { recursive: true }); } catch {}
+const _PDF_CACHE_VER = 'p1';   // bump → invalide TOUS les PDF natifs stockés (règle cache-busting projet, comme _RENDER_VER)
+function _pdfCacheFile(u) { return path.join(_PDF_CACHE_DIR, _crypto.createHash('sha1').update(_PDF_CACHE_VER + '|' + String(u)).digest('hex') + '.pdf'); }
+try { const _now = Date.now(); for (const f of fs.readdirSync(_PDF_CACHE_DIR)) { try { const p = path.join(_PDF_CACHE_DIR, f); if (_now - fs.statSync(p).mtimeMs > 30 * 864e5) fs.unlinkSync(p); } catch {} } } catch {}
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
   // 1 RE-TENTATIVE sur échec : le rendu (navigateur PARTAGÉ avec les scrapers) échoue parfois de façon
@@ -2598,7 +2605,12 @@ async function _renderPdfInner(url) {
       ['header', 'nav', 'footer', '[role="banner"]', '[role="navigation"]', '[role="contentinfo"]',
        '[class*="site-header"]', '[class*="siteHeader"]', '[class*="navbar"]', '[class*="nav-bar"]', '[class*="masthead"]',
        '[class*="topbar"]', '[class*="top-bar"]', '[class*="mega-menu"]', '[class*="megamenu"]', '[class*="breadcrumb"]',
-       '[class*="global-nav"]', '[class*="utility-nav"]', '[class*="site-footer"]', '[id*="masthead"]', '[id*="globalnav"]']
+       '[class*="global-nav"]', '[class*="utility-nav"]', '[class*="site-footer"]', '[id*="masthead"]', '[id*="globalnav"]',
+       // BANDE de couverture grise/sombre en tête + boutons « Download PDF / Printable » → retirés des rapports
+       // rendus (demande « enlève cette bande »). Sélecteurs ANCRÉS (pas le bare « cover » qui matchait
+       // coverage/recovery/discover et pouvait masquer du CORPS) + boutons ciblés précisément (pas .btn générique).
+       '[class*="page-cover" i]', '[class*="report-cover" i]', '[class*="cover-banner" i]', '[class*="cover-header" i]', '[class*="page-hero" i]', '[class*="page-banner" i]',
+       '[class*="article-actions" i]', '[class*="download-buttons" i]', 'a[data-download-url]', 'a[href*="/umbraco/surface/download/PrintPage/"]']
         .forEach(s => { try { document.querySelectorAll(s).forEach(e => e.style.setProperty('display', 'none', 'important')); } catch {} });
       // Boutons/liens isolés Log On / Sign in / Subscribe / Search / Countries / My account…
       const RXC = /^(log ?on|log ?in|login|sign ?in|sign ?up|subscribe|s'identifier|se connecter|connexion|rechercher|search|register|my account|countries|menu)$/i;
@@ -3103,6 +3115,27 @@ const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
 const _brSegCache = _loadJsonMap(BR_SEG_FILE);
 const BR_PRINT_FILE = path.join(_CACHE_DIR, 'cache_br_print.json');
 const _brPrintMap = _loadJsonMap(BR_PRINT_FILE);   // url -> URL imprimable absolue (PrintPage MUFG / rapport gspublishing Goldman) — GUID non dérivable → à persister
+const BR_PDF_FILE = path.join(_CACHE_DIR, 'cache_br_pdf.json');
+const _brPdfMap = _loadJsonMap(BR_PDF_FILE);   // url -> VRAI PDF natif (MUFG /media…, ING downloads…) → DOIT survivre au cache chaud, sinon la réouverture sert le rendu HTML au lieu du vrai PDF
+// Backfill LÉGER (1 fetch HTML, AUCUNE IA) du lien PDF natif quand l'article est déjà en cache de segmentation
+// mais que son PDF n'a jamais été enregistré (rapports antérieurs au correctif). Cache aussi les NÉGATIFS ('')
+// → 1 seule tentative par URL. (Sans ça, la réouverture d'un vieux rapport MUFG retomberait sur le rendu HTML.)
+async function _brBackfillPdf(url) {
+  try {
+    const r = await axios.get(url, { timeout: 9000, maxContentLength: 5 * 1024 * 1024, validateStatus: s => s < 500,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124', 'Accept': 'text/html' } });
+    let pdf = '';
+    if (r.status === 200) {
+      const $ = cheerio.load(r.data);
+      const _dl = $('a[data-cy="download-link"]').attr('href')
+               || $('a[data-download-url]').attr('data-download-url')
+               || $('a[href*="/downloads/pdf/"]').attr('href') || '';
+      if (_dl) { try { pdf = new URL(_dl, new URL(url).origin).href; } catch {} }
+    }
+    _brPdfMap.set(url, pdf); try { _saveJsonMap(BR_PDF_FILE, _brPdfMap); } catch {}
+    return pdf;
+  } catch { return _brPdfMap.get(url) || ''; }
+}
 const BR_SEG_VER  = 'v3:';   // bump → régénère (v3 : purge les faux résumés fabriqués depuis des pages "vitrine"/teaser — garde anti-teaser ajoutée)
 const SEG_FAIL_RETRY_MS = 6 * 3600 * 1000;   // un échec de segmentation est retenté après 6 h (répare les rapports figés en brut par une panne)
 // État d'une entrée de cache de segmentation : 'ok' (HTML utilisable) · 'cooling' (échec récent <6h, ne pas régénérer)
@@ -4359,7 +4392,11 @@ app.get('/api/bank-research-content', async (req, res) => {
   try {
     const _hot = _brSegCache.get(BR_SEG_VER + url);
     if (_hot && typeof _hot === 'object' && _hot.thin) return res.json({ html: '', source: 'thin', pdfUrl: _hot.pdfUrl || '', renderUrl: (_hot.pdfUrl ? '' : _brRenderUrlFor(url, _brPrintMap.get(url))), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // teaser sans PDF intégré mais host rendable (Natixis SPA) → on REND (capture PDF serveur), sinon vrai PDF
-    if (typeof _hot === 'string' && _hot.length > 80) return res.json({ html: _stripSource(_hot), source: 'ai', renderUrl: _brRenderUrlFor(url, _brPrintMap.get(url)), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
+    if (typeof _hot === 'string' && _hot.length > 80) {
+      // pdfUrl PRÉSERVÉ au cache chaud → réouverture = vrai PDF (backfill 1 fetch si jamais enregistré).
+      const _pdf = _brPdfMap.has(url) ? (_brPdfMap.get(url) || '') : await _brBackfillPdf(url);
+      return res.json({ html: _stripSource(_hot), source: 'ai', pdfUrl: _pdf, renderUrl: _brRenderUrlFor(url, _brPrintMap.get(url)), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
+    }
   } catch {}
   let _origin = 'https://think.ing.com';
   try { _origin = new URL(url).origin; } catch {}
@@ -4379,6 +4416,7 @@ app.get('/api/bank-research-content', async (req, res) => {
     let _realPdf = '', _printUrl = '';
     try {
       const _dl = $('a[data-cy="download-link"]').attr('href')
+               || $('a[data-download-url]').attr('data-download-url')   // MUFG : bouton « Download PDF » → VRAI rapport complet (/media/…pdf)
                || $('a[href*="/downloads/pdf/"]').attr('href') || '';
       if (_dl) _realPdf = new URL(_dl, _origin).href;
       // Page imprimable (MUFG « PrintPage », variantes printview) → meilleure cible de rendu PDF que l'article
@@ -4399,6 +4437,7 @@ app.get('/api/bank-research-content', async (req, res) => {
         if (_wp) _realPdf = new URL(_wp, _origin).href;
       }
       if (_printUrl) { try { _brPrintMap.set(url, _printUrl); _saveJsonMap(BR_PRINT_FILE, _brPrintMap); } catch {} }   // persiste (GUID/URL non dérivable)
+      if (_realPdf) { try { _brPdfMap.set(url, _realPdf); _saveJsonMap(BR_PDF_FILE, _brPdfMap); } catch {} }   // persiste le VRAI PDF → la réouverture (cache chaud) sert le PDF, pas le rendu
       else { const _saved = _brPrintMap.get(url); if (typeof _saved === 'string' && _saved) _printUrl = _saved; }       // repli : URL imprimable déjà connue
     } catch {}
 
@@ -4563,7 +4602,7 @@ app.get('/api/bank-research-content', async (req, res) => {
 // Indispensable car certains PDF (ING Think…) renvoient X-Frame-Options: SAMEORIGIN et refusent
 // d'être embarqués cross-origin. On affiche donc le PDF via ce proxy → iframe même-origine = OK.
 // Whitelist STRICTE des hôtes (anti-SSRF / anti-open-proxy) + HTTPS only + vérif content-type=pdf.
-const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com|sc\.com|q-cam\.com)$/i;
+const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|sebgroup\.com|sc\.com|q-cam\.com|mufgresearch\.com)$/i;
 app.get('/api/pdf-proxy', async (req, res) => {
   const u = String(req.query.url || '');
   const isHead = req.method === 'HEAD';   // sonde légère du client (vérifie « est-ce un vrai PDF ? » avant d'embarquer l'iframe)
@@ -4571,6 +4610,25 @@ app.get('/api/pdf-proxy', async (req, res) => {
   try { const p = new URL(u); if (p.protocol !== 'https:') return res.status(400).end('https only'); host = p.hostname.toLowerCase(); }
   catch { return res.status(400).end('bad url'); }
   if (!PDF_PROXY_HOSTS.test(host)) return res.status(403).end('host not allowed');
+  // 1) Déjà TÉLÉCHARGÉ + STOCKÉ → on le sert DIRECTEMENT depuis le disque (le rapport « vit » dans DTP).
+  //    On RE-VALIDE la signature %PDF- (un fichier corrompu est purgé → re-téléchargé), et on garde un
+  //    handler d'erreur sur le flux (pas de réponse pendue si lecture disque KO).
+  const _cf = _pdfCacheFile(u);
+  try {
+    const st = fs.statSync(_cf);
+    if (st && st.size > 1200) {
+      let _ok = false;
+      try { const fd = fs.openSync(_cf, 'r'); const hdr = Buffer.alloc(5); fs.readSync(fd, hdr, 0, 5, 0); fs.closeSync(fd); _ok = hdr.toString('latin1') === '%PDF-'; } catch {}
+      if (_ok) {
+        res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', 'inline'); res.setHeader('Cache-Control', 'public, max-age=86400'); res.setHeader('Content-Length', st.size);
+        if (isHead) return res.end();
+        const s = fs.createReadStream(_cf);
+        s.on('error', () => { if (!res.headersSent) res.status(502).end('pdf read failed'); else res.destroy(); });
+        return s.pipe(res);
+      }
+      try { fs.unlinkSync(_cf); } catch {}   // fichier corrompu → purge + re-télécharge ci-dessous
+    }
+  } catch {}
   try {
     const r = await axios.get(u, {
       responseType: 'arraybuffer',
@@ -4582,14 +4640,17 @@ app.get('/api/pdf-proxy', async (req, res) => {
       validateStatus: s => s >= 200 && s < 400,
     });
     const ct = String(r.headers['content-type'] || '');
+    const buf = r.data ? Buffer.from(r.data) : null;
     // Accepte si content-type PDF OU signature « %PDF- » (certains serveurs renvoient un type générique).
-    const looksPdf = /pdf/i.test(ct) || (r.data && Buffer.from(r.data).slice(0, 5).toString('latin1') === '%PDF-');
+    const looksPdf = /pdf/i.test(ct) || (buf && buf.slice(0, 5).toString('latin1') === '%PDF-');
     if (!looksPdf) return res.status(415).end(isHead ? undefined : 'not a pdf');
+    // 2) GET complet → on STOCKE le PDF sur disque (pas la sonde HEAD partielle) pour les prochaines ouvertures.
+    if (!isHead && buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, buf); } catch {} }
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader('Content-Disposition', 'inline');
     res.setHeader('Cache-Control', 'public, max-age=86400');
     if (isHead) return res.end();          // sonde OK → en-têtes seuls (le client embarque ensuite l'iframe)
-    return res.send(Buffer.from(r.data));
+    return res.send(buf);
   } catch (e) { return res.status(502).end(isHead ? undefined : 'pdf fetch failed'); }
 });
 
