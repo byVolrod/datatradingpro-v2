@@ -1532,7 +1532,7 @@ function _aiChatPrompt(q, newsCtx) {
     if (parts.length) ratesLine = 'Central bank policy rates (market-implied next-meeting odds where available): ' + parts.join(', ') + '.';
   } catch {}
   const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
-  return `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. Answer the user's question in ONE concise, data-driven paragraph (max ~140 words), institutional tone, no preamble, no disclaimer. Wrap key market terms in **double asterisks** to bold them (e.g. **weak bearish**, **EUR/USD**, central banks, **risk-off**).
+  return `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. RÉPONDS EXCLUSIVEMENT EN FRANÇAIS, en UN SEUL paragraphe concis et chiffré (max ~140 mots), ton institutionnel, sans préambule ni avertissement. Mets en **double astérisque** les termes de marché clés pour les afficher en gras (ex. **biais baissier**, **EUR/USD**, banques centrales, **risk-off**). Si la question n'est pas en français, réponds quand même en français.
 ${biasLine}
 ${ratesLine}
 ${calLine}
@@ -1560,7 +1560,7 @@ app.post('/api/ai/chat/stream', async (req, res) => {
   if (!q) { send('error', { error: 'Message vide' }); return res.end(); }
   if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) { send('error', { error: 'Trop de messages — réessayez dans une minute.' }); return res.end(); }
   const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
-  const sources = newsCtx.map(n => ({ name: n.source || n.category || 'Market Wire', date: _fmtDMY(n.timestamp) }));
+  const sources = newsCtx.map(n => ({ name: 'DTP', date: _fmtDMY(n.timestamp) }));   // toutes les sources affichées comme DTP (demande utilisateur)
 
   const key = _aiChatKey(q);
   let answer = _aiChatMem[key];
@@ -1600,7 +1600,7 @@ app.post('/api/ai/chat', async (req, res) => {
   if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) return res.status(429).json({ error: 'Trop de messages — réessayez dans une minute.' });
   // Sources RÉELLES = news récentes effectivement fournies en contexte à l'IA (pas de mock)
   const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
-  const sources = newsCtx.map(n => ({ name: n.source || n.category || 'Market Wire', date: _fmtDMY(n.timestamp) }));
+  const sources = newsCtx.map(n => ({ name: 'DTP', date: _fmtDMY(n.timestamp) }));   // toutes les sources affichées comme DTP (demande utilisateur)
   const key = _aiChatKey(q);
   let answer = _aiChatMem[key];
   if (!answer) { try { const c = await auth.aiCacheGet(key); if (c && typeof c === 'string') answer = c; } catch {} }
