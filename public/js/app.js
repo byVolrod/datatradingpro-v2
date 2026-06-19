@@ -2857,7 +2857,8 @@ function _enhanceFilterSelects() {
     window.addEventListener('scroll', closeAll, true);
   }
 }
-document.addEventListener('DOMContentLoaded', () => { _enhanceFilterSelects(); setTimeout(_enhanceFilterSelects, 1500); });
+// NB : système ceq RETIRÉ — tous les <select> (filtres Analyst/Institution compris) sont désormais
+// stylés par le système GLOBAL unique `dtpsel` (enhanceAllSelects + MutationObserver) → un seul design partout.
 
 function _applyRiskTopbar(data) {
   const cls   = _sentClass(data.label);
@@ -4436,9 +4437,7 @@ function _populateBrInstFilter() {
   const TLAB = { article: 'Articles', opinion: 'Opinions' };
   _selSync('br-type', '<option value="all">Tous les fichiers</option>' +
     types.map(t => `<option value="${t}">${TLAB[t] || t}</option>`).join(''));
-  // Re-synchronise le libellé des dropdowns personnalisés (options reconstruites ci-dessus)
-  document.getElementById('br-inst')?._ceqSync?.();
-  document.getElementById('br-type')?._ceqSync?.();
+  // (Le dropdown global dtpsel observe le <select> et se re-rend tout seul quand les options changent.)
 }
 
 // ── PERTINENCE « vision du terminal » : score haut = macro / banques centrales / FX / taux /
