@@ -1507,6 +1507,91 @@ async function _aiChatDailyIncr(uid, day) {
   rec.count += 1;
   try { await auth.aiCacheSet('aichatcap:' + uid + ':' + day, rec.count); } catch {}
 }
+// Construit le prompt « Macro AI » (contexte LIVE : Smart Bias + taux + calendrier + news). Partagé
+// par le chat bufferisé (/api/ai/chat) ET le chat en streaming (/api/ai/chat/stream) → zéro divergence.
+function _aiChatPrompt(q, newsCtx) {
+  let biasLine = '';
+  try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current DTP Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
+  let calLine = '';
+  try {
+    const now = Date.now();
+    const next = (Array.isArray(allCalendar) ? allCalendar : [])
+      .filter(e => e && (e.timestamp || 0) > now && /high|medium/i.test(e.impact || ''))
+      .sort((a, b) => a.timestamp - b.timestamp).slice(0, 5)
+      .map(e => `${new Date(e.timestamp).toISOString().slice(5, 16).replace('T', ' ')}Z ${e.currency || ''} ${e.title || ''} (${e.impact})`);
+    if (next.length) calLine = 'Upcoming economic calendar (high/medium impact):\n' + next.map(s => '- ' + s).join('\n');
+  } catch {}
+  let ratesLine = '';
+  try {
+    const parts = CB.map(b => {
+      const rp = _rpCache && _rpCache.banks && _rpCache.banks[b.code];
+      if (rp && rp.meetings && rp.meetings[0]) { const m = rp.meetings[0]; return `${b.bank} ${rp.rate}% (next ${m.date}: ${m.baseCase} ${Math.max(m.hold, m.hike, m.cut)}%)`; }
+      const st = _ratesState && _ratesState.banks && _ratesState.banks[b.code];
+      return st ? `${b.bank} ${st.rate}%` : null;
+    }).filter(Boolean);
+    if (parts.length) ratesLine = 'Central bank policy rates (market-implied next-meeting odds where available): ' + parts.join(', ') + '.';
+  } catch {}
+  const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
+  return `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. Answer the user's question in ONE concise, data-driven paragraph (max ~140 words), institutional tone, no preamble, no disclaimer. Wrap key market terms in **double asterisks** to bold them (e.g. **weak bearish**, **EUR/USD**, central banks, **risk-off**).
+${biasLine}
+${ratesLine}
+${calLine}
+Recent market headlines (context):
+${heads}
+
+User question: ${q}`;
+}
+
+// ── Chat en STREAMING (SSE token-par-token) : le texte apparaît dès les 1ers mots (TTFT minimal).
+//    Repli intégré : si le streaming échoue, on génère en bufferisé (aiSmart, chaîne complète) et on
+//    « streame » le résultat en morceaux → l'utilisateur a TOUJOURS une réponse. Même cache/limites que /chat.
+app.post('/api/ai/chat/stream', async (req, res) => {
+  const q = String((req.body && req.body.message) || '').trim().slice(0, 600);
+  const _uid = req.session?.userId, _role = req.session?.user?.role;
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');   // pas de buffering proxy → flux immédiat
+  try { res.flushHeaders(); } catch {}
+  let _closed = false; req.on('close', () => { _closed = true; });
+  const send = (event, data) => { if (_closed) return false; try { res.write('event: ' + event + '\ndata: ' + JSON.stringify(data) + '\n\n'); return true; } catch { return false; } };
+  const streamChunks = (txt) => { for (let i = 0; i < txt.length && !_closed; i += 24) send('chunk', { t: txt.slice(i, i + 24) }); };
+
+  if (!q) { send('error', { error: 'Message vide' }); return res.end(); }
+  if (_rateLimited('aichat-burst:' + (_uid || req.ip || 'anon'), 8, 60 * 1000)) { send('error', { error: 'Trop de messages — réessayez dans une minute.' }); return res.end(); }
+  const newsCtx = (Array.isArray(allNews) ? allNews : []).slice(0, 12);
+  const sources = newsCtx.map(n => ({ name: n.source || n.category || 'Market Wire', date: _fmtDMY(n.timestamp) }));
+
+  const key = _aiChatKey(q);
+  let answer = _aiChatMem[key];
+  if (!answer) { try { const c = await auth.aiCacheGet(key); if (c && typeof c === 'string') answer = c; } catch {} }
+  if (answer) { streamChunks(answer); send('done', { sources }); return res.end(); }   // cache hit → flux rapide
+
+  let _limDay = null;
+  if (_uid && _role !== 'admin' && _role !== 'support') {
+    _limDay = _aiChatToday();
+    if (await _aiChatDailyCount(_uid, _limDay) >= AI_CHAT_DAILY_LIMIT) {
+      streamChunks(`Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain — merci de votre compréhension.`);
+      send('done', { sources: [] }); return res.end();
+    }
+  }
+  const prompt = _aiChatPrompt(q, newsCtx);
+  let full = '';
+  try {
+    full = await ai.generateTextStream(prompt, 380, { priority: 'user' }, (delta) => send('chunk', { t: delta }));   // streaming réel (token-par-token)
+  } catch (e) {
+    full = '';
+    try { const buf = await aiSmart('chat', prompt, 380, { priority: 'user' }); if (buf && buf.trim()) { full = buf.trim(); streamChunks(full); } } catch {}   // repli bufferisé → streamé en morceaux
+  }
+  if (full && full.trim()) {
+    full = full.trim();
+    if (_limDay) { try { await _aiChatDailyIncr(_uid, _limDay); } catch {} }
+    if (Object.keys(_aiChatMem).length > 500) for (const k of Object.keys(_aiChatMem)) delete _aiChatMem[k];
+    _aiChatMem[key] = full; auth.aiCacheSet(key, full).catch(() => {});
+    send('done', { sources });
+  } else { send('error', { error: 'AI temporairement indisponible' }); }
+  res.end();
+});
 app.post('/api/ai/chat', async (req, res) => {
   const q = String((req.body && req.body.message) || '').trim().slice(0, 600);
   if (!q) return res.status(400).json({ error: 'Message vide' });
@@ -1528,39 +1613,7 @@ app.post('/api/ai/chat', async (req, res) => {
       if (await _aiChatDailyCount(_uid, _limDay) >= AI_CHAT_DAILY_LIMIT)
         return res.json({ answer: `Vous avez atteint la limite journalière de **${AI_CHAT_DAILY_LIMIT} requêtes** de l'Assistant IA Macro. Le compteur se réinitialise demain — merci de votre compréhension.`, sources: [] });
     }
-    let biasLine = '';
-    try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current DTP Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
-    // Contexte « AI Macro » complet (philosophie PMT : data éco + banques centrales + news + risk) :
-    // on injecte AUSSI les prochaines échéances du calendrier et les taux directeurs + probas de
-    // réunion (données TAUX réelles déjà en cache — zéro fetch, zéro coût supplémentaire).
-    let calLine = '';
-    try {
-      const now = Date.now();
-      const next = (Array.isArray(allCalendar) ? allCalendar : [])
-        .filter(e => e && (e.timestamp || 0) > now && /high|medium/i.test(e.impact || ''))
-        .sort((a, b) => a.timestamp - b.timestamp).slice(0, 5)
-        .map(e => `${new Date(e.timestamp).toISOString().slice(5, 16).replace('T', ' ')}Z ${e.currency || ''} ${e.title || ''} (${e.impact})`);
-      if (next.length) calLine = 'Upcoming economic calendar (high/medium impact):\n' + next.map(s => '- ' + s).join('\n');
-    } catch {}
-    let ratesLine = '';
-    try {
-      const parts = CB.map(b => {
-        const rp = _rpCache && _rpCache.banks && _rpCache.banks[b.code];
-        if (rp && rp.meetings && rp.meetings[0]) { const m = rp.meetings[0]; return `${b.bank} ${rp.rate}% (next ${m.date}: ${m.baseCase} ${Math.max(m.hold, m.hike, m.cut)}%)`; }
-        const st = _ratesState && _ratesState.banks && _ratesState.banks[b.code];
-        return st ? `${b.bank} ${st.rate}%` : null;
-      }).filter(Boolean);
-      if (parts.length) ratesLine = 'Central bank policy rates (market-implied next-meeting odds where available): ' + parts.join(', ') + '.';
-    } catch {}
-    const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
-    const prompt = `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. Answer the user's question in ONE concise, data-driven paragraph (max ~140 words), institutional tone, no preamble, no disclaimer. Wrap key market terms in **double asterisks** to bold them (e.g. **weak bearish**, **EUR/USD**, central banks, **risk-off**).
-${biasLine}
-${ratesLine}
-${calLine}
-Recent market headlines (context):
-${heads}
-
-User question: ${q}`;
+    const prompt = _aiChatPrompt(q, newsCtx);
     try { answer = await aiSmart('chat', prompt, 380, { priority: 'user' }); } catch (e) { answer = null; }   // DANS le budget (part 'chat'), tier user
     if (answer && answer.trim()) {
       answer = answer.trim();

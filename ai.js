@@ -420,6 +420,92 @@ async function _openrouter(prompt, maxTokens) {
 
 // opts.noClaude : n'utilise JAMAIS Claude (même en repli in-cascade après échec Gemini+GitHub).
 // → le fond / les flux « claudeOverBudget:false » ne dépensent PLUS de crédits payants, in-budget compris.
+// ════════════════ STREAMING (token-par-token) pour le chat interactif ════════════════
+// generateTextStream : émet le texte au fil de l'eau via onChunk(delta) ET renvoie le texte complet.
+// Chaîne SIMPLE et SÛRE : OpenRouter (:free, workhorse, SSE OpenAI-compatible) → Claude (SDK .stream(),
+// seulement si utilisable + autorisé). Si AUCUN provider ne démarre → throw → l'appelant retombe sur la
+// génération BUFFERISÉE (generateText/aiSmart, chaîne complète Gemini→GitHub→OpenRouter→Claude).
+// RÈGLE anti-charabia : dès qu'un (modèle,clé) a ÉMIS du texte via onChunk, on s'engage dessus —
+// on ne réessaie un autre modèle/clé QUE si RIEN n'a encore été émis (sinon le client verrait 2 textes).
+async function _openrouterStream(prompt, maxTokens, onChunk) {
+  const n = OPENROUTER_KEYS.length; if (!n) throw new Error('OpenRouter: aucune clé');
+  _orCursor = (_orCursor + 1) % n;
+  let lastErr;
+  for (let i = 0; i < n; i++) {
+    const idx = (_orCursor + i) % n;
+    if (_orIsCool(idx)) continue;
+    const key = OPENROUTER_KEYS[idx];
+    for (const model of OPENROUTER_MODELS) {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+      let full = '', opened = false;
+      try {
+        const r = await fetch(OPENROUTER_BASE + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json', 'X-Title': 'DataTradingPro' },
+          body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4, stream: true }),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) { const e = new Error('OpenRouter ' + r.status); e.status = r.status; throw e; }
+        opened = true;
+        const reader = r.body.getReader(); const dec = new TextDecoder();
+        let buf = '';
+        while (true) {
+          const { done, value } = await reader.read(); if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+            if (!line.startsWith('data:')) continue;
+            const data = line.slice(5).trim();
+            if (!data || data === '[DONE]') continue;
+            try { const j = JSON.parse(data); const d = j && j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content; if (d) { full += d; try { onChunk(d); } catch {} } } catch {}
+          }
+        }
+        if (full.trim()) { _aiStat('openrouter'); return full.trim(); }
+        // flux vide → on peut tenter le modèle suivant (rien émis)
+      } catch (e) {
+        lastErr = e;
+        if (full.trim()) return full.trim();                       // partiel déjà émis → on garde, pas d'autre modèle
+        if (e.status === 401 || e.status === 403) { _orCool(idx, e.status); break; }   // clé morte → clé suivante
+        // sinon (open KO / vide) → modèle suivant
+      } finally { clearTimeout(t); }
+    }
+  }
+  throw lastErr || new Error('OpenRouter stream: échec');
+}
+async function _anthropicStream(prompt, maxTokens, onChunk) {
+  if (!ANTHROPIC_KEYS.length || !_claudeBudgetOk()) throw new Error('Claude indisponible (plafond/keys)');
+  const n = ANTHROPIC_KEYS.length; const start = _anthropicCursor % n; _anthropicCursor = (_anthropicCursor + 1) % n;
+  let lastErr;
+  for (let i = 0; i < n; i++) {
+    const idx = (start + i) % n; if (_anthIsCool(idx)) continue;
+    let full = '';
+    try {
+      const client = _getAnthropicClient(ANTHROPIC_KEYS[idx]);
+      const stream = client.messages.stream({ model: CLAUDE_MODEL, max_tokens: maxTokens, temperature: 0.4, system: _buildSystem(), messages: [{ role: 'user', content: prompt }] });
+      stream.on('text', (txt) => { full += txt; try { onChunk(txt); } catch {} });
+      const msg = await stream.finalMessage();
+      const text = (msg.content?.[0]?.text || full || '').trim();
+      if (!text) throw new Error('Claude: flux vide');
+      _claudeCount++; _aiStat('claude');
+      const u = msg.usage; if (u) _noteUsage('claude', CLAUDE_MODEL, u.input_tokens, u.output_tokens);
+      return text;
+    } catch (e) { lastErr = e; _aiStat('claudeFail'); _anthCool(idx, e); if (full.trim()) return full.trim(); }   // partiel émis → on garde
+  }
+  throw lastErr || new Error('Claude stream: échec');
+}
+async function generateTextStream(prompt, maxTokens = 380, opts = {}, onChunk = () => {}) {
+  if (OPENROUTER_KEYS.length) {
+    try { const out = await _openrouterStream(prompt, maxTokens, onChunk); _noteTotalOk(); return out; }
+    catch (e) { console.warn('[AI stream] OpenRouter: ' + String(e.message).slice(0, 90)); _aiStat('openrouterFail'); }
+  }
+  if (!opts.noClaude && claudeUsable()) {
+    try { const out = await _anthropicStream(prompt, maxTokens, onChunk); _noteTotalOk(); return out; }
+    catch (e) { console.warn('[AI stream] Claude: ' + String(e.message).slice(0, 90)); }
+  }
+  throw new Error('streaming indisponible (repli bufferisé)');
+}
+
 async function generateText(prompt, maxTokens = 1500, opts = {}) {
   try {
     const out = await _generateTextInner(prompt, maxTokens, opts);
@@ -537,6 +623,7 @@ function status() {
 
 module.exports = {
   generateText,
+  generateTextStream,
   generateTextClaudeOnly,
   setQuotaPressure,
   setLiveContext,
