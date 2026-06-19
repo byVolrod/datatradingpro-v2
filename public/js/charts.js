@@ -1056,6 +1056,7 @@ let _riskRefreshTimer = null;
 let _riskGaugeOnUpdate = null;   // listener du snapshot risque partagé (source unique)
 let _riskGaugeRoot    = null;
 let _riskHandDI       = null;
+let _riskHand         = null;   // sprite ClockHand (pour recolorer l'aiguille selon l'état au refresh)
 let _riskScoreLabel   = null;
 let _riskBadgeLabel   = null;
 
@@ -1101,7 +1102,7 @@ function buildRiskGauge() {
 
   clearInterval(_riskRefreshTimer);
   if (_riskGaugeRoot) { _riskGaugeRoot.dispose(); _riskGaugeRoot = null; }
-  _riskHandDI = _riskScoreLabel = _riskBadgeLabel = null;
+  _riskHandDI = _riskHand = _riskScoreLabel = _riskBadgeLabel = null;
 
   wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la jauge de risque…') : 'Chargement…');
 
@@ -1200,18 +1201,23 @@ function buildRiskGauge() {
         _arc.get('tick')?.setAll({ visible: false });
         _arc.get('label')?.setAll({ visible: false });
 
-        // Aiguille moderne et épurée : fine, effilée, teinte neutre claire. PAS de gros rond
-        // au pivot → juste un petit point net de la même couleur (look jauge pro).
+        // Aiguille pro : fine et effilée (pointe nette), ANCRÉE au centre par un moyeu type
+        // « roulement d'instrument » (rond sombre + anneau coloré), TEINTÉE selon l'état
+        // (vert risk-on / rouge risk-off / ambre neutre) + ombre douce pour le relief.
         _riskHandDI = axis.makeDataItem({ value: 0 });
         const hand = am5radar.ClockHand.new(root, {
-          pinRadius: am5.percent(3),                 // petit point discret (plus de gros hub sombre)
-          radius: am5.percent(60),
+          pinRadius: 9,                              // moyeu net (roulement)
+          radius: am5.percent(62),
           innerRadius: am5.percent(0),
-          bottomWidth: 6,                            // aiguille fine
+          bottomWidth: 9,                            // base fine → pointe (effilée)
           topWidth: 0,
         });
-        hand.pin.setAll({ fill: am5.color(0xe9ebee), fillOpacity: 1, strokeOpacity: 0 });   // point net, même teinte
-        hand.hand.setAll({ fill: am5.color(0xe9ebee), strokeOpacity: 0 });
+        hand.pin.setAll({ fill: am5.color(0x101015), stroke: am5.color(sentColor), strokeWidth: 2.5, strokeOpacity: 1, fillOpacity: 1 });
+        hand.hand.setAll({
+          fill: am5.color(sentColor), strokeOpacity: 0,
+          shadowColor: am5.color(0x000000), shadowBlur: 7, shadowOffsetX: 0, shadowOffsetY: 2, shadowOpacity: 0.5,
+        });
+        _riskHand = hand;
 
         _riskHandDI.set('bullet', am5xy.AxisBullet.new(root, { sprite: hand }));
         axis.createAxisRange(_riskHandDI);
@@ -1228,12 +1234,16 @@ function buildRiskGauge() {
         });
 
       } else {
-        // Refresh: animate needle + update labels
+        // Refresh: animate needle + recolore l'aiguille selon l'état + update labels
         if (_riskHandDI) {
           _riskHandDI.animate({
             key: 'value', to: gaugeVal,
             duration: 800, easing: am5.ease.out(am5.ease.cubic),
           });
+        }
+        if (_riskHand) {
+          _riskHand.hand.set('fill', am5.color(sentColor));
+          _riskHand.pin.set('stroke', am5.color(sentColor));
         }
         const scoreEl = document.getElementById('risk-score-val');
         if (scoreEl) scoreEl.textContent = display;
