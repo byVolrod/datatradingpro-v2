@@ -2501,7 +2501,7 @@ async function _scrapeILviaPuppeteer(url) {
 // body=0) → le rendu PDF échouait → bandeau « ouvrir l'original ». Le CONTENU est extractible via le lecteur
 // texte (jina : ~9 ko de texte propre). Donc les ARTICLES Goldman passent désormais par le lecteur texte ;
 // leurs .pdf (ex. gspublishing / /pdfs/) restent servis en PDF natif via PDF_PROXY_HOSTS.
-const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|gspublishing\.com)$/i;
+const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|gspublishing\.com|goldmansachs\.com)$/i;
 function _brRenderUrlFor(u, printUrl) {
   try {
     const h = new URL(u).hostname;
@@ -2647,7 +2647,16 @@ async function _renderPdfInner(url) {
     } catch (e) {} }).catch(() => {});
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
-    const out = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
+    const _pdfOpts = { format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } };
+    let out;
+    try {
+      out = await page.pdf(_pdfOpts);
+    } catch (e) {
+      // Certaines pages (ex. Goldman Sachs) ont un CSS @media print qui fait ÉCHOUER printToPDF
+      // (« Printing failed ») → on bascule en média ÉCRAN et on réessaie (rendu valide vérifié).
+      try { await page.emulateMediaType('screen'); } catch {}
+      out = await page.pdf(_pdfOpts);
+    }
     return Buffer.from(out);
   } finally {
     await page.close().catch(() => {});
