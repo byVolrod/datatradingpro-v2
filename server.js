@@ -5743,11 +5743,13 @@ function _gewTimes(ts /* , ccy (ignoré) */) {
 }
 async function generateGlobalEconomicWeekly(force = false) {
   const idPrefix = 'dtp-econ-weekly-', now = Date.now();
-  // Semaine À VENIR (lundi→vendredi UTC) : week-end/vendredi → semaine prochaine ; lun-jeu → semaine en cours.
+  // Semaine couverte : le WEEK-END (sam/dim) → semaine PROCHAINE (week-ahead publié le week-end) ;
+  // lundi→VENDREDI → semaine EN COURS. (Le vendredi ne déclenche plus le week-ahead → fini le GEM daté
+  // au dimanche À VENIR (futur) vu « en pleine semaine ».)
   const _now = new Date(), dow = _now.getUTCDay();
   const monday = new Date(_now);
   if (dow === 0) monday.setUTCDate(_now.getUTCDate() + 1);
-  else if (dow >= 5) monday.setUTCDate(_now.getUTCDate() + (8 - dow));
+  else if (dow === 6) monday.setUTCDate(_now.getUTCDate() + 2);
   else monday.setUTCDate(_now.getUTCDate() - (dow - 1));
   monday.setUTCHours(0, 0, 0, 0);
   const friday = new Date(monday); friday.setUTCDate(monday.getUTCDate() + 4); friday.setUTCHours(23, 59, 59, 999);
@@ -5873,7 +5875,7 @@ ${list}`;
   days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / prev ' + e.previous : '') : ''}`)); });
   // PUBLICATION = le WEEK-END qui PRÉCÈDE la semaine couverte (dimanche ~18h Paris) → on DATE le GEW à ce
   // moment, PAS à l'instant de génération (sinon il « saute » à la date du jour à chaque régén et se classe mal).
-  const pub = new Date(monday); pub.setUTCDate(monday.getUTCDate() - 1); pub.setUTCHours(16, 0, 0, 0);   // dimanche avant le lundi couvert (~18h Paris)
+  const pub = new Date(_now); pub.setUTCDate(_now.getUTCDate() - ((_now.getUTCDay() + 1) % 7)); pub.setUTCHours(16, 0, 0, 0);   // SAMEDI le plus récent ≤ maintenant (week-end de publication, JAMAIS dans le futur)
   const pubTs = pub.getTime();
   const timeStr = new Date(pubTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const item = {
@@ -5894,22 +5896,25 @@ ${list}`;
 // Re-date le GEW COURANT au WEEK-END de publication (dimanche précédant la semaine couverte, ~18h Paris) →
 // corrige un GEW daté à l'instant de génération SANS le régénérer (préserve le riche contenu IA). Idempotent.
 function _gewRedateCurrent() {
+  const now = Date.now();
+  // 1) Retire tout GEW daté dans le FUTUR (week-ahead généré prématurément en semaine → « weekly en pleine semaine »).
+  const n0 = allNews.length;
+  allNews = allNews.filter(i => !(i._reportType === 'Global Economic Weekly' && i._weekly && (i.timestamp || 0) > now + 12 * 3600 * 1000));
+  if (allNews.length !== n0) { try { saveHistory(); } catch {} console.log('[GEW] ' + (n0 - allNews.length) + ' GEW daté dans le futur retiré(s)'); }
+  // 2) GEW courant daté en SEMAINE (≠ week-end) → le re-dater au SAMEDI le plus récent ≤ maintenant.
   const g = allNews.find(i => i._reportType === 'Global Economic Weekly' && i._weekly);
   if (!g) return;
-  // Date = dimanche le plus récent ≤ aujourd'hui (week-end de publication), JAMAIS dans le futur. L'ancien
-  // calcul visait le lundi de la semaine SUIVANTE le ven/sam → datait le GEW au dimanche À VENIR (futur) →
-  // « weekly en pleine semaine ». Aligne aussi avec la génération (dimanche précédant la semaine couverte).
-  const _n = new Date();
-  const pub = new Date(_n);
-  pub.setUTCDate(_n.getUTCDate() - _n.getUTCDay());   // dimanche courant/le plus récent
+  const gd = new Date(g.timestamp || now).getUTCDay();
+  if (gd === 6 || gd === 0) return;   // déjà un week-end (sam/dim) → rien à faire
+  const pub = new Date(now);
+  pub.setUTCDate(pub.getUTCDate() - ((pub.getUTCDay() + 1) % 7));   // samedi le plus récent ≤ maintenant
   pub.setUTCHours(16, 0, 0, 0);
-  const pubTs = pub.getTime();
-  if (Math.abs((g.timestamp || 0) - pubTs) <= 12 * 3600 * 1000) return;   // déjà daté au week-end → rien à faire
-  g.timestamp = pubTs;
-  g.time = new Date(pubTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+  g.timestamp = pub.getTime();
+  g.time = new Date(g.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const weekKey = (g.id || '').replace(/^dtp-econ-weekly-/, '').replace(/-\d+$/, '');
   if (weekKey) auth.weeklyReportSave(weekKey, g).catch(() => {});
-  console.log('[GEW] re-daté au week-end de publication →', new Date(pubTs).toISOString().slice(0, 10));
+  try { saveHistory(); } catch {}
+  console.log('[GEW] re-daté au week-end (samedi) →', new Date(g.timestamp).toISOString().slice(0, 10));
 }
 // Vendredi le plus récent (≤ maintenant) — utilisé pour la mention "Week Ending: dd.mm.yyyy"
 function _mostRecentFriday() {
