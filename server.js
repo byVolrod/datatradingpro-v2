@@ -2506,7 +2506,7 @@ function _brRenderUrlFor(u, printUrl) { try { return PDF_RENDER_HOSTS.test(new U
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-const _RENDER_VER = 'r5';   // bump → invalide TOUS les PDF rendus en cache (r5 : strip hero robuste — gère aussi les DIV à background-image type Syz « banner-slides », + cache busté)
+const _RENDER_VER = 'r6';   // bump → invalide TOUS les PDF rendus en cache (r6 : garde anti-teaser « to read the full report » → on ne rend plus les aperçus gated)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
@@ -2626,6 +2626,15 @@ async function _renderPdfInner(url) {
     } catch (e) {} }).catch(() => {});
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
+    // GARDE anti-TEASER : si la page n'est qu'un APERÇU « gated » (MUFG & co affichent « To read the full
+    // report … » quand le corps n'est pas accessible), on REFUSE ce rendu. L'échec fait basculer le client
+    // vers la page imprimable COMPLÈTE, puis à défaut vers le rendu HTML inline + AI Insights — au lieu d'un
+    // PDF « stub » qui n'invite qu'à télécharger. (Marqueur SPÉCIFIQUE au teaser : « to read the full report » —
+    // PAS « download the PDF », présent en pied des rapports COMPLETS MUFG/Natixis.)
+    const _gated = await page.evaluate(() =>
+      /to read the full report|pour lire (le|l.)\s*rapport complet|veuillez télécharger le rapport complet/i
+        .test(((document.body && document.body.innerText) || ''))).catch(() => false);
+    if (_gated) throw new Error('aperçu gated (« to read the full report ») — rendu refusé');
     const out = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } });
     return Buffer.from(out);
   } finally {
