@@ -5316,6 +5316,7 @@ function arlibCleanTitle(headline) {
 
 // ── Render card list ──────────────────────────────────────────────────────────
 
+let _arlibRows = {};   // id -> item : clic délégué sur les lignes du tableau (rendu via innerHTML)
 function renderArlibList() {
   const list = document.getElementById('arlib-list');
   if (!list) return;
@@ -5338,69 +5339,43 @@ function renderArlibList() {
     return;
   }
 
-  list.innerHTML = '';
+  // ── Rendu en TABLEAU institutionnel (Date | Titre | Institut), façon terminal pro ──
+  _arlibRows = {};
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const _GLOBE = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>';
+  const _BM = '<svg width="12" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
+  let _rows = '';
   for (const item of items) {
-    const tags    = arlibItemTags(item);
-    const shown   = tags.slice(0, 6);
-    const extra   = tags.length - shown.length;
+    _arlibRows[item.id] = item;
+    const read    = isRead(_reportReadKey(item));
     const dateStr = new Date(item.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
     const title   = standardizeReportTitle(item);
-
-    // Source badge
-    const isPMT  = item.source === 'DTP' || item._briefing || isPrimerItem(item);
-    const isSW   = item._source === 'investinglive';
-    const isING  = item._source === 'ing-think';
-    const badgeLabel = isPMT ? 'DTP'
-      : isSW  ? (item.session || 'SW').slice(0,3).toUpperCase()
-      : isING ? 'DTP'          // FX Daily (ING Think) → logo DTP aussi
-      : '';
-    // Logo DTP à la place du code texte (DTP / ASI / EUR / AME) → branding terminal uniforme
-    // sur les rapports badgés (rapports DTP + session wraps).
-    const badge = badgeLabel ? `<img class="arlib-ptbadge-logo" src="/favicon.svg" alt="DTP" width="20" height="20" loading="lazy">` : '';
-
-    const card = document.createElement('div');
-    // FX Daily Recap = carte NORMALE (anthracite + survol orange) — pas de fond bordeaux/rouge des hebdo.
-    const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
-    card.className = 'arlib-card' + (isRead(_reportReadKey(item)) ? ' arlib-card--read' : '') + (_isWeekly ? ' arlib-card--weekly' : '');
-    card.dataset.id = item.id;
-    card.innerHTML = `
-      <div class="arlib-card-icon">
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-          <circle cx="7" cy="7" r="6" stroke="currentColor" stroke-width="1.2"/>
-          <path d="M7 1C7 1 4.5 3.5 4.5 7s2.5 6 2.5 6" stroke="currentColor" stroke-width="1"/>
-          <path d="M7 1C7 1 9.5 3.5 9.5 7s-2.5 6-2.5 6" stroke="currentColor" stroke-width="1"/>
-          <line x1="1.5" y1="5.5" x2="12.5" y2="5.5" stroke="currentColor" stroke-width="1"/>
-          <line x1="1.5" y1="8.5" x2="12.5" y2="8.5" stroke="currentColor" stroke-width="1"/>
-        </svg>
-      </div>
-      <div class="arlib-card-body">
-        <div class="arlib-card-top">
-          <div class="arlib-card-title">${title}</div>
-          <svg class="arlib-bookmark" width="12" height="14" viewBox="0 0 12 14" fill="none">
-            <path d="M1 1h10v12l-5-3-5 3V1z" stroke="currentColor" stroke-width="1.2"/>
-          </svg>
-        </div>
-        <div class="arlib-card-meta">
-          <div class="arlib-card-tags">
-            ${shown.map(t => `<span class="arlib-tag">${t}</span>`).join('')}
-            ${extra > 0 ? `<span class="arlib-tag-extra">+${extra}</span>` : ''}
-          </div>
-          <div class="arlib-card-meta-right">
-            ${badge}
-            <span class="arlib-card-date">${dateStr}</span>
-          </div>
-        </div>
-      </div>`;
-
-    card.addEventListener('click', () => {
-      markRead(_reportReadKey(item));
-      card.classList.add('arlib-card--read');
-      renderArlibReader(item);
-      arlibShowReader();
-    });
-    list.appendChild(card);
+    // Logo institut : rapports DTP + session wraps + FX Daily (ING Think) → favicon DTP ; sinon rien.
+    const hasLogo = item.source === 'DTP' || item._briefing || isPrimerItem(item) || item._source === 'ing-think' || item._source === 'investinglive';
+    const inst    = hasLogo ? '<img class="arl-inst-logo" src="/favicon.svg" alt="DTP" loading="lazy">' : '';
+    _rows += `<tr class="arl-row${read ? ' arl-row--read' : ''}" data-id="${_e(item.id)}">`
+      + `<td class="arl-c-bm"><span class="arl-bm">${_BM}</span></td>`
+      + `<td class="arl-c-date">${_e(dateStr)}</td>`
+      + `<td class="arl-c-title"><div class="arl-tw"><span class="arl-ico">${_GLOBE}</span><span class="arl-ttl" title="${_e(title).replace(/"/g, '&quot;')}">${_e(title)}</span></div></td>`
+      + `<td class="arl-c-inst">${inst}</td></tr>`;
   }
+  list.innerHTML = '<table class="arlib-table"><colgroup>'
+    + '<col class="arl-col-bm"><col class="arl-col-date"><col class="arl-col-title"><col class="arl-col-inst"></colgroup>'
+    + '<thead><tr><th class="arl-th"></th><th class="arl-th">Date</th><th class="arl-th">Titre</th><th class="arl-th arl-th-c">Institut</th></tr></thead>'
+    + '<tbody>' + _rows + '</tbody></table>';
 }
+
+// Clic délégué sur une ligne du tableau Analyst → ouvre le rapport (rendu via innerHTML)
+document.addEventListener('click', (ev) => {
+  const row = ev.target.closest && ev.target.closest('#arlib-list .arl-row');
+  if (!row) return;
+  const item = _arlibRows[row.dataset.id];
+  if (!item) return;
+  markRead(_reportReadKey(item));
+  row.classList.add('arl-row--read');
+  renderArlibReader(item);
+  arlibShowReader();
+});
 
 // ── Reader ────────────────────────────────────────────────────────────────────
 
