@@ -4699,6 +4699,26 @@ async function _brShowRenderedPdf(item, renderUrl) {
   _brShowExternalCard(item);
 }
 
+// Garantit les AI Insights (+ tags) à CHAQUE ouverture de rapport Institution, quel que soit le mode
+// d'affichage (PDF natif / proxy / rendu / HTML). item.description est souvent VIDE (PDF natifs SEB/ING/
+// BlackRock, MUFG…) → on alimente depuis le MEILLEUR contenu dispo : fullContent → HTML déjà fetché →
+// corps de l'article récupéré → description. Le 1er ayant > 80 caractères gagne.
+function _brEnsureInsights(item, brIns, tagsEl, preHtml) {
+  if (!brIns) return;
+  const render = src => {
+    const t = String(src || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+    if (t.length <= 80) return false;
+    _loadAIInsights({ id: item.id, headline: item.title, description: t }, brIns);
+    if (tagsEl) tagsEl.innerHTML = _brTags({ ...item, description: t.slice(0, 4000) }).map(x => `<span class="br-rtag">${x}</span>`).join('');
+    return true;
+  };
+  if (render(item.fullContent) || render(preHtml)) return;   // contenu déjà en main
+  // PDF natif sans contenu → on récupère le corps de l'article UNIQUEMENT pour les insights/tags.
+  fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
+    .then(r => r.json()).then(d => { if (!render(d && d.html)) render(item.description); })
+    .catch(() => render(item.description));
+}
+
 function renderBrReader(item) {
   // Masquer la liste, afficher le reader en pleine largeur
   document.getElementById('br-list-view')?.classList.add('hidden');
@@ -4732,12 +4752,15 @@ function renderBrReader(item) {
   else if (item && item._source === 'ing-think') _realPdf = _ingPdfUrl(item.url);
   if (_realPdf) {
     _brShowNativePdf(item, _realPdf);
-    if (brIns) { brIns.innerHTML = ''; _loadAIInsights({ id: item.id, headline: item.title, description: item.description || '' }, brIns); }
+    if (brIns) { brIns.innerHTML = ''; _brEnsureInsights(item, brIns, tagsEl); }   // insights TOUJOURS présents (PDF natif → fetch du corps)
     return;
   }
 
   if (content) content.innerHTML = dtpLoader('Chargement de l’article…');
-  if (brIns) { brIns.innerHTML = ''; _loadAIInsights(item, brIns); }
+  // On NE pré-charge PAS les insights depuis item (description souvent vide → cacherait un résultat
+  // pauvre sous ck=item.id et bloquerait la version riche). _brEnsureInsights (plus bas, sur le contenu
+  // récupéré) ou _brFinalizeReader s'en chargent → insights TOUJOURS basés sur le vrai contenu.
+  if (brIns) brIns.innerHTML = '';
 
   const dateStr = item.timestamp
     ? new Date(item.timestamp).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -4765,11 +4788,9 @@ function renderBrReader(item) {
     .then(async data => {
       if (!content) return;
       data = data || {};
-      // AI Insights + tags depuis le CONTENU COMPLET du rapport (le corps vit dans le PDF/HTML ; item.description
-      // est souvent vide pour MUFG) → carrousel Insights rempli + tags pertinents MÊME en mode PDF brut.
-      const _ctext = (data.html || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-      if (brIns && _ctext.length > 200) _loadAIInsights({ id: item.id, headline: item.title, description: _ctext }, brIns);
-      if (tagsEl && _ctext.length > 200) tagsEl.innerHTML = _brTags({ ...item, description: _ctext.slice(0, 4000) }).map(t => `<span class="br-rtag">${t}</span>`).join('');
+      // AI Insights + tags GARANTIS depuis le CONTENU du rapport (le corps vit dans le PDF/HTML ;
+      // item.description est souvent vide) → carrousel rempli + tags pertinents MÊME en mode PDF brut.
+      if (brIns) _brEnsureInsights(item, brIns, tagsEl, data.html);
       // PDF natif (proxifié) puis, à défaut, page rendable → rendu PDF serveur (Puppeteer). NOUVEAU : si
       // AUCUN n'aboutit, on NE tombe PLUS direct sur la carte « ouvrir l'original » → on POURSUIT vers le
       // rendu HTML de l'article ci-dessous (ex. Nordea : render Puppeteer KO mais le TEXTE est dispo →
