@@ -4096,7 +4096,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .br-search::placeholder { color: var(--text3); }
 .br-filter { background: var(--bg3); border: 1px solid var(--border2); border-radius: 4px; padding: 5px 26px 5px 10px; font-size: 11px; color: var(--text2); font-family: var(--font-ui); outline: none; cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%23666' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 8px center; white-space: nowrap; }
 
-.br-cards { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 12px; }   /* pas de slider horizontal parasite */
+.br-cards { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 0; }   /* tableau institutionnel pleine largeur */
+.br-cards::-webkit-scrollbar { width: 10px; }
+.br-cards::-webkit-scrollbar-track { background: transparent; }
+.br-cards::-webkit-scrollbar-thumb { background: #232329; border-radius: 6px; border: 3px solid #0c0c0e; }
+.br-cards::-webkit-scrollbar-thumb:hover { background: #30303a; }
 .br-footer { padding: 6px 20px; font-size: 11px; color: var(--text3); border-top: 1px solid var(--border2); flex-shrink: 0; }
 .br-empty { padding: 40px 20px; text-align: center; color: var(--text3); font-size: 12px; line-height: 1.8; }
 
@@ -4392,6 +4396,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .arl-row--weekly.arl-row--read { background: #160a0b; }
 .arl-row--weekly.arl-row--read .arl-ttl { color: #9a7d79; }
 .arl-row--weekly.arl-row--read .arl-ico { opacity: 0.45; }
+/* Onglet INSTITUTION : icône document ROUGE (façon capture) + colonne institut plus large pour les logos */
+.arl-col-inst-br { width: 158px; }
+.br-doc-ico { background: rgba(255,61,0,0.11); border-color: rgba(255,61,0,0.20); color: #ff5c3c; }
+.arl-row:hover .br-doc-ico { background: rgba(255,61,0,0.16); border-color: rgba(255,61,0,0.30); }
+.arl-row--read .br-doc-ico { color: #8a5048; }
+.arl-c-inst .br-inst-logo-card { justify-content: center; }
 /* Pied : compteur en bas, texte BLANC, français (façon PMT) */
 .arlib-foot {
   flex-shrink: 0;

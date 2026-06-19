@@ -4435,6 +4435,7 @@ function _brBalanceByDay(arr) {
   return out;
 }
 
+let _brRows = {};   // id -> item : clic délégué sur les lignes du tableau Institution
 function renderBrList() {
   const list   = document.getElementById('br-list');
   const footer = document.getElementById('br-footer');
@@ -4468,52 +4469,41 @@ function renderBrList() {
     return;
   }
 
-  list.innerHTML = '';
+  // ── Rendu en TABLEAU institutionnel (Date | Titre | Institut) — identique à l'onglet Analyst ──
+  if (footer) footer.textContent = 'Affichage de ' + items.length + ' sur ' + all.length + ' document' + (all.length > 1 ? 's' : '') + ' de recherche';
+  _brRows = {};
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const _DOC = '<svg width="13" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>';
+  const _BM = '<svg width="12" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
+  let _rows = '';
   for (const item of items) {
-    const tags    = _brTags(item);
-    const shown   = tags.slice(0, 6);
-    const extra   = tags.length - shown.length;
+    _brRows[item.id] = item;
+    const read    = isBrRead(item.id);
     const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
-
-    const card = document.createElement('div');
-    card.className = 'br-card' + (isBrRead(item.id) ? ' br-card--read' : '') + ((_instBadge(item) === 'MUFG' && /^(asia\s+)?fx\s+weekly\b/i.test(item.title || '')) ? ' br-card--mufg' : '');
-    card.dataset.id = item.id;
-    card.innerHTML = `
-      <div class="br-card-icon">
-        <svg width="14" height="16" viewBox="0 0 14 16" fill="none">
-          <rect x="1" y="1" width="10" height="14" rx="1" stroke="currentColor" stroke-width="1.2"/>
-          <line x1="3.5" y1="5" x2="8.5" y2="5" stroke="currentColor" stroke-width="1"/>
-          <line x1="3.5" y1="8" x2="8.5" y2="8" stroke="currentColor" stroke-width="1"/>
-          <line x1="3.5" y1="11" x2="6.5" y2="11" stroke="currentColor" stroke-width="1"/>
-          <path d="M9 1v3h3" stroke="currentColor" stroke-width="1"/>
-        </svg>
-      </div>
-      <div class="br-card-body">
-        <div class="br-card-title">${item.title}</div>
-        <div class="br-card-tags">
-          ${shown.map(t => `<span class="br-tag">${t}</span>`).join('')}
-          ${extra > 0 ? `<span class="br-tag-extra">+${extra}</span>` : ''}
-        </div>
-      </div>
-      <div class="br-card-right">
-        <span class="br-inst-logo-card">${_instLogoHtml(_instBadge(item))}</span>
-        <span class="br-card-date">${dateStr}</span>
-        <svg class="br-bookmark" width="12" height="14" viewBox="0 0 12 14" fill="none">
-          <path d="M1 1h10v12l-5-3-5 3V1z" stroke="currentColor" stroke-width="1.2"/>
-        </svg>
-      </div>`;
-
-    // Appliquer le read-state au clic
-    card.addEventListener('click', () => {
-      markBrRead(item.id);
-      card.classList.add('br-card--read');
-      renderBrReader(item);
-    });
-    list.appendChild(card);
+    const title   = item.title || '';
+    const inst    = _instLogoHtml(_instBadge(item)) || '';
+    _rows += `<tr class="arl-row${read ? ' arl-row--read' : ''}" data-id="${_e(item.id)}">`
+      + `<td class="arl-c-bm"><span class="arl-bm">${_BM}</span></td>`
+      + `<td class="arl-c-date">${_e(dateStr)}</td>`
+      + `<td class="arl-c-title"><div class="arl-tw"><span class="arl-ico br-doc-ico">${_DOC}</span><span class="arl-ttl" title="${_e(title).replace(/"/g, '&quot;')}">${_e(title)}</span></div></td>`
+      + `<td class="arl-c-inst"><span class="br-inst-logo-card">${inst}</span></td></tr>`;
   }
-
-  if (footer) footer.textContent = '';   // footer « Showing N of N » retiré (demande utilisateur)
+  list.innerHTML = '<table class="arlib-table"><colgroup>'
+    + '<col class="arl-col-bm"><col class="arl-col-date"><col class="arl-col-title"><col class="arl-col-inst-br"></colgroup>'
+    + '<thead><tr><th class="arl-th"></th><th class="arl-th">Date</th><th class="arl-th">Titre</th><th class="arl-th arl-th-c">Institut</th></tr></thead>'
+    + '<tbody>' + _rows + '</tbody></table>';
 }
+
+// Clic délégué sur une ligne du tableau Institution → ouvre le lecteur de rapport bancaire
+document.addEventListener('click', (ev) => {
+  const row = ev.target.closest && ev.target.closest('#br-list .arl-row');
+  if (!row) return;
+  const item = _brRows[row.dataset.id];
+  if (!item) return;
+  markBrRead(item.id);
+  row.classList.add('arl-row--read');
+  renderBrReader(item);
+});
 
 // Badge institution = la VRAIE banque du rapport. ING→"ING", MUFG→"MUFG", autres banques
 // reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
