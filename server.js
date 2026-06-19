@@ -5897,10 +5897,13 @@ ${list}`;
 // corrige un GEW daté à l'instant de génération SANS le régénérer (préserve le riche contenu IA). Idempotent.
 function _gewRedateCurrent() {
   const now = Date.now();
-  // 1) Retire tout GEW daté dans le FUTUR (week-ahead généré prématurément en semaine → « weekly en pleine semaine »).
+  // 1) Retire tout rapport HEBDO (GEW + Weekly Market Recap) daté sur un JOUR FUTUR → fini les weeklies
+  //    « en pleine semaine » datés du week-end À VENIR (ex. recap daté samedi 20 vu le vendredi 19).
+  const _n = new Date();
+  const _todayEnd = Date.UTC(_n.getUTCFullYear(), _n.getUTCMonth(), _n.getUTCDate()) + 86400000 - 1;   // fin du jour UTC courant
   const n0 = allNews.length;
-  allNews = allNews.filter(i => !(i._reportType === 'Global Economic Weekly' && i._weekly && (i.timestamp || 0) > now + 12 * 3600 * 1000));
-  if (allNews.length !== n0) { try { saveHistory(); } catch {} console.log('[GEW] ' + (n0 - allNews.length) + ' GEW daté dans le futur retiré(s)'); }
+  allNews = allNews.filter(i => !((i._reportType === 'Global Economic Weekly' || i._reportType === 'Weekly Market Recap') && i._weekly && (i.timestamp || 0) > _todayEnd));
+  if (allNews.length !== n0) { try { saveHistory(); } catch {} console.log('[Weekly] ' + (n0 - allNews.length) + ' rapport(s) hebdo daté(s) dans le futur retiré(s)'); }
   // 2) GEW courant daté en SEMAINE (≠ week-end) → le re-dater au SAMEDI le plus récent ≤ maintenant.
   const g = allNews.find(i => i._reportType === 'Global Economic Weekly' && i._weekly);
   if (!g) return;
@@ -5933,16 +5936,20 @@ async function generateWeeklyRecapAI(force = false) {
   // On clé le recap sur la SEMAINE COUVERTE (celle se terminant le vendredi écoulé),
   // pas sur le jour de génération → une génération en milieu de semaine (pour voir la semaine
   // dernière) n'empêche pas la génération du samedi pour la semaine en cours.
-  const fri  = _mostRecentFriday();
+  // Publié et DATÉ au SAMEDI du week-end le PLUS RÉCENT (≤ maintenant) → JAMAIS dans le futur, même
+  // généré un vendredi. (L'ancien calcul prenait le vendredi du JOUR → samedi À VENIR = recap futur « en
+  // pleine semaine ».) La semaine COUVERTE se termine le vendredi PRÉCÉDANT ce samedi de publication.
+  const _nowD = new Date();
+  const sat = new Date(_nowD);
+  sat.setUTCDate(_nowD.getUTCDate() - ((_nowD.getUTCDay() + 1) % 7));   // samedi le plus récent ≤ maintenant
+  sat.setUTCHours(6, 0, 0, 0);
+  const satTs = sat.getTime();
+  const fri = new Date(sat); fri.setUTCDate(sat.getUTCDate() - 1);      // vendredi couvert (veille du samedi de publication)
   const jan1 = new Date(fri.getUTCFullYear(), 0, 1);
   const wk   = Math.ceil(((fri - jan1) / 86400000 + jan1.getDay() + 1) / 7);
   const weekKey    = `${fri.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
   const weekPrefix = idPrefix + weekKey;
   const weekEnding = `${String(fri.getUTCDate()).padStart(2,'0')}.${String(fri.getUTCMonth()+1).padStart(2,'0')}.${fri.getUTCFullYear()}`;
-  // Le Weekly Recap est PUBLIÉ le SAMEDI (lendemain du vendredi couvert) → on le DATE au samedi
-  // (peu importe le jour réel de génération : une régénération en milieu de semaine reste datée du samedi).
-  const sat = new Date(fri); sat.setUTCDate(fri.getUTCDate() + 1); sat.setUTCHours(6, 0, 0, 0);
-  const satTs = sat.getTime();
   // Plage de la semaine en français : "Semaine du 25 au 29 mai 2026" (lundi → vendredi)
   const _MOIS_FR = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
   const mon = new Date(fri); mon.setUTCDate(fri.getUTCDate() - 4);   // lundi de la semaine couverte
