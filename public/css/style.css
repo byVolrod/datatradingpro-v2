@@ -4299,6 +4299,40 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 #br-type    { width: 160px; }  #br-source   { width: 192px; }  #br-inst { width: 256px; }
 @media (max-width: 1024px) { .arlib-filters, .br-filters { flex-wrap: wrap; } }
 
+/* ── Dropdown personnalisé façon PMT (remplace le menu natif des <select> filtres) ── */
+.ceq-select { position: relative; display: inline-block; flex-shrink: 0; }
+.ceq-trigger {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: #0f0f0f; border: 1px solid #1c1c1c; border-radius: 6px; color: #cfcfd4;
+  font-size: 12px; font-family: var(--font-ui); padding: 7px 10px; cursor: pointer; outline: none;
+  overflow: hidden; transition: border-color .14s ease, background .14s ease;
+}
+.ceq-trigger:hover { border-color: #2a2a2a; background: #131313; }
+.ceq-select.open .ceq-trigger { border-color: #ff7a00; background: #131313; }
+.ceq-val { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ceq-chev { color: #6a6a72; flex-shrink: 0; transition: transform .15s ease; }
+.ceq-select.open .ceq-chev { transform: rotate(180deg); }
+.ceq-menu {
+  position: fixed; z-index: 9999; display: none; width: max-content; max-width: 340px;
+  background: #121216; border: 1px solid #2a2a30; border-radius: 8px; padding: 5px;
+  max-height: 340px; overflow-y: auto; box-shadow: 0 14px 36px -10px rgba(0,0,0,.75); font-family: var(--font-ui);
+}
+.ceq-menu.open { display: block; }
+.ceq-opt {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; font-size: 12px; color: #c4c4ca;
+  cursor: pointer; border-radius: 5px; white-space: nowrap; transition: background .1s ease, color .1s ease;
+}
+.ceq-opt:hover { background: rgba(255,255,255,0.06); color: #fff; }
+.ceq-opt.selected { background: rgba(255,122,0,0.15); color: #fff; }            /* item sélectionné → orange (façon PMT) */
+.ceq-opt-txt { flex: 1; }
+.ceq-check { opacity: 0; color: #ff7a00; flex-shrink: 0; }
+.ceq-opt.selected .ceq-check { opacity: 1; }                                    /* coche orange à droite */
+.ceq-menu::-webkit-scrollbar { width: 9px; }
+.ceq-menu::-webkit-scrollbar-track { background: transparent; }
+.ceq-menu::-webkit-scrollbar-thumb { background: #2a2a30; border-radius: 5px; border: 2px solid #121216; }
+.ceq-select[data-for="arlib-type"] { width: 160px; } .ceq-select[data-for="arlib-cat"]  { width: 192px; }
+.ceq-select[data-for="br-type"]    { width: 160px; } .ceq-select[data-for="br-source"]  { width: 192px; } .ceq-select[data-for="br-inst"] { width: 256px; }
+
 /* Cards scroll */
 .arlib-cards {
   flex: 1;
