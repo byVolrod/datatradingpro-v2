@@ -2519,13 +2519,13 @@ function _fxlFlag(ccy) {
   return `<img src="https://flagcdn.com/w40/${iso}.png" alt="${ccy}" class="fxl-flag" loading="lazy">`;
 }
 
-// DMX — donut radial bicolore segmenté : part turquoise = flux haussiers, reste fuchsia
+// DMX — donut radial bicolore segmenté : part verte = flux haussiers, reste rouge (couleurs PMT exactes)
 function _fxlDonut(pct) {
   const v = Math.max(0, Math.min(100, pct ?? 50));
   const r = 7, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
   return `<svg class="fxl-dmx" width="20" height="20" viewBox="0 0 20 20">`
-    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="#ff0055" stroke-width="4"/>`
-    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="#00cc99" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 10 10)"/>`
+    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="rgb(255, 0, 0)" stroke-width="4"/>`
+    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="rgb(0, 218, 80)" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 10 10)"/>`
     + `</svg>`;
 }
 

@@ -6117,10 +6117,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   background: rgba(255,255,255,0.05);
 }
 
-/* Long segment — vibrant green (matches screenshot) */
+/* Long segment — vert PMT exact (couleurs récupérées de Prime Terminal) */
 .dmx2-bar-long {
   height: 100%;
-  background: #1ec898;
+  background: rgb(0, 218, 80);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6130,10 +6130,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   min-width: 0;
 }
 
-/* Short segment — vibrant coral-pink (matches screenshot) */
+/* Short segment — rouge PMT exact (couleurs récupérées de Prime Terminal) */
 .dmx2-bar-short {
   height: 100%;
-  background: #ff4d6e;
+  background: rgb(255, 0, 0);
   display: flex;
   align-items: center;
   justify-content: center;
