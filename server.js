@@ -2388,6 +2388,29 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
 const RECAP_VER = 4;
+// SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
+// DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
+// si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
+function _expectedRecapSatTs() {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 1) % 7));   // samedi le plus récent ≤ maintenant
+  d.setUTCHours(6, 0, 0, 0);
+  return d.getTime();
+}
+// Anti-doublon WEEK-AWARE : on ne garde QU'UN Weekly Market Recap dans allNews — celui de la semaine
+// couverte la PLUS RÉCENTE (timestamp = samedi de publication), et à semaine égale la version la plus
+// riche. (Avant : purge par VERSION → un vieux recap riche v4 masquait le recap de la semaine COURANTE
+// quand celle-ci n'avait pu sortir qu'en fallback v1 sous quota IA → date figée à la semaine d'avant.)
+// Idempotent.
+function _dedupRecaps() {
+  const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap');
+  if (recaps.length <= 1) return;
+  const best = recaps.reduce((a, b) => {
+    if ((b.timestamp || 0) !== (a.timestamp || 0)) return (b.timestamp || 0) > (a.timestamp || 0) ? b : a;
+    return ((b._weekly && b._weekly.v) || 0) > ((a._weekly && a._weekly.v) || 0) ? b : a;
+  });
+  allNews = allNews.filter(i => i._reportType !== 'Weekly Market Recap' || i === best);
+}
 // Backfill (sans Gemini) du snapshot CS sur le recap COURANT généré avant cette fonctionnalité —
 // tant qu'on est ENCORE dans sa semaine couverte (les données 'week' correspondent alors), puis persiste.
 // Appelé à la fois sur /api/weekly-reports ET proactivement au boot (filet : si l'utilisateur n'ouvre
@@ -2427,9 +2450,10 @@ app.get('/api/weekly-reports', async (_req, res) => {
     i.timestamp > cutoff
   ).sort((a, b) => b.timestamp - a.timestamp);
 
-  // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe. Sinon (absent OU ancien
-  // format), on régénère automatiquement vers le format riche (force) — 1 appel Gemini, budget-gé.
-  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_VER);
+  // "Disponible" SEULEMENT si un recap au format RICHE (v2) existe POUR LA SEMAINE COURANTE (timestamp =
+  // samedi le plus récent). Sinon (absent, ancien format, OU recap d'une semaine RÉVOLUE) → régénération
+  // automatique du recap de la semaine qui vient de se clore. Empêche un vieux recap riche de figer la date.
+  const current = items.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_VER && (i.timestamp || 0) >= _expectedRecapSatTs());
 
   _maybeBackfillRecapCs();   // fige le recap courant (snapshot CS) s'il n'en a pas encore — async, sans Gemini
 
@@ -6355,14 +6379,15 @@ async function _loadPersistedWeekly(force = false) {
   _weeklyLoadTs = Date.now();
   try {
     const reports = await auth.weeklyReportList();
-    let added = 0, hasV2 = false;
+    let added = 0;
     for (const r of reports) {
       if (!r || !r.id) continue;
-      if (r._reportType === 'Weekly Market Recap' && r._weekly && r._weekly.v >= RECAP_VER) hasV2 = true;
       if (!allNews.some(i => i.id === r.id)) { allNews.unshift(r); added++; }
     }
-    // Si un recap au format riche (v2) est présent, on purge les anciens recaps obsolètes (anti-doublon)
-    if (hasV2) allNews = allNews.filter(i => !(i._reportType === 'Weekly Market Recap' && !(i._weekly && i._weekly.v >= RECAP_VER)));
+    // Anti-doublon WEEK-AWARE : on garde le recap de la semaine la PLUS RÉCENTE (pas la version la plus
+    // haute) → le store peut contenir un vieux recap riche v4 ET le recap courant en fallback v1, on
+    // affiche le courant. (Le store conserve toutes les semaines pour l'historique ; seul l'affiché est dédupliqué.)
+    _dedupRecaps();
     if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
   } catch (e) { console.warn('[Weekly Recap] rechargement persistant échec:', e.message); }
 }
