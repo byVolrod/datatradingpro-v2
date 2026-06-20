@@ -6327,11 +6327,24 @@ ${corpus}`;
         .replace(/\s+/g, ' ').trim();
       if (t.length > 3) fbTitle = _stripMd('Weekly Market Recap: ' + t.charAt(0).toUpperCase() + t.slice(1));
     }
+    // INTRO narrative façon PMT — construite à partir des VRAIS faits de la semaine (même sans IA) :
+    // thème de clôture du vendredi + temps forts (banques centrales, données, géopolitique, FX/matières).
+    const _fbClose = (closing && closing.w && closing.w.title)
+      ? _stripMd(String(closing.w.title)).replace(/^\s*\[[^\]]*\]\s*/, '').replace(/.*\bwrap[:\s-]+/i, '').replace(/\s+/g, ' ').trim()
+      : '';
+    const _fbThemes = macro.flatMap(s => (s.bullets || []).slice(0, 2))
+      .map(b => _stripMd(String(b)).replace(/\s+/g, ' ').trim()).filter(b => b.length > 8).slice(0, 4);
+    const _fbSummary = [
+      `Retour sur la ${weekRange.toLowerCase()}.`,
+      _fbClose ? `En clôture de semaine : ${_fbClose}.` : '',
+      _fbThemes.length ? `Temps forts : ${_fbThemes.join(' ; ')}.` : '',
+      `${wrapsRaw.length} session(s) de marché et ${cal.length} publication(s) économique(s) majeure(s) suivies.`,
+    ].filter(Boolean).join(' ');
     weekly = {
       v: 1,
       title: fbTitle,
       weekEnding, weekRange,
-      summary: `Synthèse de la ${weekRange.toLowerCase()} : ${wrapsRaw.length} session(s) de marché et ${cal.length} résultat(s) économique(s) majeur(s) suivis.`,
+      summary: _fbSummary,
       insights: wrapsRaw.slice(0, 6).map(i => _stripMd((i.title || '').replace(/\s+/g, ' '))).filter(Boolean),
       pairs: [],
       macro,

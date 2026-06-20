@@ -36,13 +36,24 @@ _addNode('primary', SUPABASE_URL, SUPABASE_KEY);
 _addNode('db2', process.env.SUPABASE_URL_2, process.env.SUPABASE_KEY_2);
 _addNode('db3', process.env.SUPABASE_URL_3, process.env.SUPABASE_KEY_3);
 _addNode('db4', process.env.SUPABASE_URL_4, process.env.SUPABASE_KEY_4);
+_addNode('db5', process.env.SUPABASE_URL_5, process.env.SUPABASE_KEY_5);   // 5e base : s'active dès que SUPABASE_URL_5 + SUPABASE_KEY_5 sont définis (env VPS, non committé)
 console.log(`[Auth] ✅ Supabase : ${_dbNodes.length} base(s) [${_dbNodes.map(n => n.name).join(', ')}] — redondance ${_dbNodes.length > 1 ? 'ACTIVE' : 'inactive (1 seule base)'}`);
 
 const _MULTI_TABLES = new Set(['ai_cache', 'weekly_reports', 'email_log']);   // KV à clé → dual-write + round-robin
 const _WRITE_OPS = new Set(['insert', 'update', 'upsert', 'delete']);
+// Quota egress MENSUEL Supabase atteint (« exceed_egress_quota » / projet restreint) = panne DURE (ne se
+// répare pas en 10 min → seulement au rollover du mois ou upgrade du plan). On marque alors le nœud
+// indisponible 2 h au lieu de 10 min → on cesse de le marteler et les lectures filent direct sur les bases
+// saines (db2…db5). Une erreur transitoire (réseau/429) garde le cooldown court de 10 min.
+function _isEgressCapped(err) {
+  const m = ((err && (err.message || '')) + '').toLowerCase();
+  return /exceed_egress_quota|egress quota|restricted due to|spend cap|violations/.test(m);
+}
 function _markDown(node, err) {
-  if (node.downUntil <= Date.now()) console.warn(`[DB] ${node.name} indisponible 10 min (egress/réseau) :`, err && err.message);
-  node.downUntil = Date.now() + 10 * 60 * 1000;
+  const capped = _isEgressCapped(err);
+  const cooldown = capped ? 2 * 60 * 60 * 1000 : 10 * 60 * 1000;
+  if (node.downUntil <= Date.now()) console.warn(`[DB] ${node.name} indisponible ${capped ? '2 h (quota egress mensuel — bascule sur bases saines)' : '10 min (egress/réseau)'} :`, err && err.message);
+  node.downUntil = Date.now() + cooldown;
 }
 function _applyOps(client, table, ops) { let qb = client.from(table); for (const [m, a] of ops) qb = qb[m](...a); return qb; }
 
