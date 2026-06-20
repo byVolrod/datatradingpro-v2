@@ -2387,7 +2387,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 5;   // v5 = analyse PAR DEVISE approfondie (multi-appel : narration + drivers à bullets façon PMT) + macro 6-8 thèmes
+const RECAP_VER = 6;   // v6 = puces à LEAD GRAS conservé (**sous-thème :**) façon PMT (drivers + macro) ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6343,7 +6343,7 @@ ${corpus}`;
                     .map(p => ({ pair: String(p.pair).trim(), bias: String(p.bias || 'NEUTRAL').toUpperCase().replace(/[^A-Z]/g,''), text: _stripMd(String(p.text || '')) }))
                     .map(p => ({ ...p, bias: ['BUY','SELL','NEUTRAL'].includes(p.bias) ? p.bias : 'NEUTRAL' }))
                     .slice(0, 8) : [],
-      macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).map(s => ({ heading: _stripMd(String(s.heading)), bullets: Array.isArray(s.bullets) ? s.bullets.map(b => _stripMd(String(b))) : [], detail: s.detail != null ? _stripMd(String(s.detail)) : undefined })).slice(0, 8) : [],
+      macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).map(s => ({ heading: _stripMd(String(s.heading)), bullets: Array.isArray(s.bullets) ? s.bullets.map(b => String(b == null ? '' : b).replace(/\s+/g, ' ').trim()).filter(Boolean) : [], detail: s.detail != null ? _stripMd(String(s.detail)) : undefined })).slice(0, 8) : [],
       currencies: {},
     };
     for (const c of CCY) {
@@ -6354,7 +6354,10 @@ ${corpus}`;
         analysis: _stripMd(String(v.analysis || '')),
         drivers: Array.isArray(v.drivers)
           ? v.drivers.filter(x => x && x.heading).map(x => {
-              const bullets = Array.isArray(x.bullets) ? x.bullets.map(b => _stripMd(String(b))).filter(Boolean).slice(0, 6) : [];
+              // On GARDE le **gras** de tête (sous-thème) → rendu en <strong> par _wrInline côté front
+              // (jamais d'astérisque brute : _wrInline convertit ** et retire les * résiduels). Le champ
+              // description, lui, retire les ** séparément (recherche/repli). Façon PMT (puces à lead gras).
+              const bullets = Array.isArray(x.bullets) ? x.bullets.map(b => String(b == null ? '' : b).replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 6) : [];
               const out = { heading: _stripMd(String(x.heading)), bullets };
               if (!bullets.length && x.detail) out.detail = _stripMd(String(x.detail));   // rétro-compat ancien format {heading,detail}
               return out;
