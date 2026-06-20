@@ -4869,6 +4869,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .gew-cons b { font-family:var(--font-mono); font-size:12.5px; color:#e5e9ef; font-weight:700; }
 .gew-ev-cmt { margin:7px 0 0 74px; font-size:12.5px; line-height:1.55; color:#aab2bd; }   /* analyse Econoday-style sous l'événement */
 @media (max-width:760px){ .gew-ev-cons{ margin-left:0; gap:18px; } .gew-ev-cmt{ margin-left:0; } }
+/* GEW « À surveiller cette semaine » : cartes scannables des événements à FORT impact (en tête de rapport) */
+.gew-key-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(244px, 1fr)); gap:10px; margin:8px 0 6px; }
+.gew-key { background:#121214; border:1px solid #232329; border-left:3px solid #ff3d00; border-radius:6px; padding:10px 12px; }
+.gew-key-h { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:5px; }
+.gew-key-day { color:#ff7a00; font-size:11px; font-weight:800; letter-spacing:.03em; }
+.gew-key-ttl { color:#fff; font-size:13px; font-weight:600; line-height:1.35; }
+.gew-key-ttl b { color:#cfd6df; font-weight:700; }
+.gew-key-nums { margin-top:6px; font-size:11.5px; color:#8a93a0; }
+.gew-key-nums b { font-family:var(--font-mono); color:#e5e9ef; font-weight:700; }
+.gew-key-cmt { margin-top:7px; font-size:12px; line-height:1.5; color:#aab2bd; }
+/* Hiérarchie d'impact dans le calendrier : FAIBLE estompé, FORT accentué */
+.gew-imp--low { color:#7a8493; background:rgba(122,132,147,.10); border:1px solid rgba(122,132,147,.30); }
+.gew-ev--low { opacity:.66; }
+.gew-ev--high .gew-ev-ttl { color:#fff; font-weight:600; }
 /* Graphique de force isolé */
 .wr-chart { height:380px; margin:8px 0 4px; background:#0d0d0d; border:1px solid #1c1c20; border-radius:8px; overflow:hidden; }
 .wr-chart-loading { display:flex; align-items:center; justify-content:center; height:100%; color:#6b7280; font-size:12px; }

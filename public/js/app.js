@@ -5596,6 +5596,11 @@ function _wrParas(t){
 
 const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 const _WR_COLOR = { USD:'#ff7a00', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
+// GEW : noms de jour/mois EN→FR (le serveur date en anglais « Monday 22 June ») → plus clair pour le public FR.
+const _GEW_DOW_FR = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
+const _GEW_MON_FR = { January:'janvier', February:'février', March:'mars', April:'avril', May:'mai', June:'juin', July:'juillet', August:'août', September:'septembre', October:'octobre', November:'novembre', December:'décembre' };
+function _gewDayFr(s){ return String(s||'').replace(/\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\b/g, m=>_GEW_DOW_FR[m]||m).replace(/\b(January|February|March|April|May|June|July|August|September|October|November|December)\b/g, m=>_GEW_MON_FR[m]||m); }
+function _gewWeekFr(s){ return _gewDayFr(String(s||'')).replace(/^\s*Week of\b/i, 'Semaine du').replace(/^\s*Week ahead\b/i, 'Semaine à venir'); }
 let _wrStrengthData = null;     // données de force (TW) chargées 1 seule fois pour tout le rapport
 let _wrChartObserver = null;
 
@@ -5621,7 +5626,7 @@ function _renderWeeklyRecap(item) {
   // La période (semaine) va dans le créneau date en haut-droite, comme tous les autres rapports →
   // on peut retirer le gros bloc titre du corps sans perdre l'info de période.
   const _rdateEl = document.getElementById('arlib-rdate');
-  if (_rdateEl) _rdateEl.textContent = w.gew ? (w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range);
+  if (_rdateEl) _rdateEl.textContent = w.gew ? _gewWeekFr(w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range);
 
   // AI Insights (composant Institution, alimenté par les insights Gemini du recap)
   const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
@@ -5655,25 +5660,47 @@ function _renderWeeklyRecap(item) {
   // Bloc titre RETIRÉ du corps : le titre reste dans la barre de nav (en haut) et la période dans le
   // créneau date (haut-droite) → le rapport s'ouvre directement sur son contenu, sans titre répété.
   if (isGew) {
-    // ── GLOBAL ECONOMIC WEEKLY : Highlights (narratif IA) + Consensus Forecasts JOUR PAR JOUR ──
+    // ── GLOBAL ECONOMIC WEEKLY (Week Ahead) — rendu CLARIFIÉ : ce qu'il faut surveiller d'abord,
+    //    puis la synthèse, puis le calendrier complet. Libellés + dates en français.
+    const _IMP_LBL = { HIGH: 'FORT', MED: 'MOYEN', MEDIUM: 'MOYEN', LOW: 'FAIBLE' };
+    const _impCls = i => { const u = String(i || '').toUpperCase(); return u === 'HIGH' ? 'high' : (u === 'MED' || u === 'MEDIUM') ? 'med' : 'low'; };
+    const _impLbl = i => _IMP_LBL[String(i || '').toUpperCase()] || (i ? String(i).toUpperCase() : '');
+    // 0) À SURVEILLER CETTE SEMAINE : uniquement les événements à FORT impact, en cartes scannables.
+    const _keyEvents = [];
+    (w.days || []).forEach(d => (d.events || []).forEach(e => { if (String(e.impact || '').toUpperCase() === 'HIGH') _keyEvents.push({ e, day: d.day }); }));
+    if (_keyEvents.length) {
+      body += `<div class="wr-section-title">À surveiller cette semaine</div>`;
+      body += `<div class="gew-key-grid">`;
+      _keyEvents.slice(0, 6).forEach(({ e, day }) => {
+        body += `<div class="gew-key">`
+          + `<div class="gew-key-h"><span class="gew-key-day">${_wrEsc(_gewDayFr(day))}</span><span class="gew-imp gew-imp--high">FORT</span></div>`
+          + `<div class="gew-key-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</div>`
+          + ((e.forecast || e.previous) ? `<div class="gew-key-nums">${e.forecast ? `Consensus <b>${_wrEsc(e.forecast)}</b>` : ''}${(e.forecast && e.previous) ? ' · ' : ''}${e.previous ? `Précédent <b>${_wrEsc(e.previous)}</b>` : ''}</div>` : '')
+          + (e.comment ? `<div class="gew-key-cmt">${_wrEsc(e.comment)}</div>` : '')
+          + `</div>`;
+      });
+      body += `</div>`;
+    }
+    // 1) SYNTHÈSE (narratif IA)
     if (w.highlights) {
-      body += `<div class="wr-section-title">The Week Ahead — Highlights</div>`;
+      body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
     }
+    // 2) CALENDRIER ÉCONOMIQUE complet, jour par jour (FORT mis en avant, FAIBLE estompé)
     if (Array.isArray(w.days) && w.days.length) {
-      body += `<div class="wr-section-title">The Week Ahead — Consensus Forecasts</div>`;
+      body += `<div class="wr-section-title">Calendrier économique</div>`;
       w.days.forEach(d => {
-        body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(d.day)}${d.date ? `<span class="gew-day-date">${_wrEsc(d.date)}</span>` : ''}</div>`;
+        body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(_gewDayFr(d.day))}${d.date ? `<span class="gew-day-date">${_wrEsc(_gewDayFr(d.date))}</span>` : ''}</div>`;
         (d.events || []).forEach(e => {
-          body += `<div class="gew-ev"><div class="gew-ev-top">`
+          body += `<div class="gew-ev gew-ev--${_impCls(e.impact)}"><div class="gew-ev-top">`
             + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
             + `<span class="gew-ev-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</span>`
-            + (e.impact ? `<span class="gew-imp gew-imp--${String(e.impact).toLowerCase()}">${_wrEsc(e.impact)}</span>` : '')
+            + (e.impact ? `<span class="gew-imp gew-imp--${_impCls(e.impact)}">${_wrEsc(_impLbl(e.impact))}</span>` : '')
             + `</div>`;
           if (e.forecast || e.previous) {
             body += `<div class="gew-ev-cons">`
               + (e.forecast ? `<span class="gew-cons"><i>Consensus</i><b>${_wrEsc(e.forecast)}</b></span>` : '')
-              + (e.previous ? `<span class="gew-cons"><i>Previous</i><b>${_wrEsc(e.previous)}</b></span>` : '')
+              + (e.previous ? `<span class="gew-cons"><i>Précédent</i><b>${_wrEsc(e.previous)}</b></span>` : '')
               + `</div>`;
           }
           if (e.comment) body += `<div class="gew-ev-cmt">${_wrEsc(e.comment)}</div>`;   // analyse Econoday-style
