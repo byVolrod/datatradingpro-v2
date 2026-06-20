@@ -5681,10 +5681,15 @@ function _renderWeeklyRecap(item) {
       });
       body += `</div>`;
     }
-    // 1) SYNTHÈSE (narratif IA)
+    // 1) SYNTHÈSE (narratif IA — vue d'ensemble globale/régionale)
     if (w.highlights) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
+    }
+    // 1b) APERÇU ÉTATS-UNIS (US Preview façon PMT — deep-dive sur les données US de la semaine)
+    if (w.usPreview) {
+      body += `<div class="wr-section-title">Aperçu États-Unis</div>`;
+      body += `<div class="wr-text">${_wrParas(w.usPreview)}</div>`;
     }
     // 2) CALENDRIER ÉCONOMIQUE complet, jour par jour (FORT mis en avant, FAIBLE estompé)
     if (Array.isArray(w.days) && w.days.length) {

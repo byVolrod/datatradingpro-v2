@@ -5917,7 +5917,7 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon PMT (distinct du Weekly Recap rétrospectif) :
 // AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
 // JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
-const GEW_VER = 4;   // v4 = horaire CLAIR pour un public FR (heure de Paris + GMT) au lieu du multi-fuseau confus CST/GMT/EDT ; français — bump = régén auto
+const GEW_VER = 5;   // v5 = + section « Aperçu États-Unis » (US Preview, deep-dive données US façon PMT) ; v4 = horaire clair Paris+GMT — bump = régén auto
 // Heure d'un événement, LISIBLE pour un utilisateur français : heure de PARIS (sa référence) + GMT.
 // 100% calculé depuis le timestamp (zéro IA). Ex. « mar. 03:00 (Paris) · 02:00 GMT ».
 function _gewTimes(ts /* , ccy (ignoré) */) {
@@ -5990,16 +5990,20 @@ async function generateGlobalEconomicWeekly(force = false) {
   // Événements PHARES (High) pour le titre + le narratif Highlights
   const marquee = evClean.filter(e => e.impact === 'High')
     .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${e.forecast ? ` (consensus ${e.forecast}, prev ${e.previous || '—'})` : ''}`);
+  // Données US de la semaine (High+Med) → grounding de la section « US Preview » (façon PMT).
+  const usEvents = evClean.filter(e => e.currency === 'USD')
+    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${e.title}${e.forecast ? ` (consensus ${e.forecast}, prev ${e.previous || '—'})` : ''}`);
   const recentCtx = _recapClean(allNews.filter(i => i.timestamp > now - 7 * 86400000 && !i._briefing))
     .slice(0, 40).map(i => `[${i.category || ''}] ${i.headline}`);
 
   // ── IA : titre + Highlights (narratif) + insights + paires (prospectif). Repli déterministe si IA KO. ──
-  let title = 'Global Economic Weekly', highlights = '', insights = [], pairs = [];
+  let title = 'Global Economic Weekly', highlights = '', usPreview = '', insights = [], pairs = [];
   if (nEv > 0) {
     const prompt = `You are a senior macro strategist writing the WEEK AHEAD preview ("Global Economic Weekly") for a professional FX & markets desk (depth comparable to a top-tier bank's week-ahead note). The COMING trading week (Monday–Friday) is defined by the scheduled HIGH-IMPACT events below. Write ALL output text IN FRENCH (français soigné), polished, specific and FORWARD-LOOKING — keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
 {
   "title": "Global Economic Weekly: <titre accrocheur EN FRANÇAIS nommant les 2-3 thèmes phares, ex. 'Fed, inflation et banques centrales : une semaine à hauts risques pour les marchés'>",
-  "highlights": "<a RICH, COMPLETE editorial of 5 to 7 substantial paragraphs (~500-750 words total), in the style of an Econoday/Prime-Terminal 'Week Ahead: Highlights' note. Lead with the single biggest event of the week (usually the marquee central-bank decision): what consensus expects and the exact level/move, the policy dilemma and dual-mandate tension, named officials and their leanings, the dissent/vote picture, the data backdrop (inflation, labour, growth, geopolitics), the schedule (statement/press-conference times), and the concrete market implications across FX, rates and equities. Then cover the other marquee events. Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
+  "highlights": "<a RICH editorial of 4 to 5 substantial paragraphs (~400-600 words), in the style of a Prime-Terminal 'Week Ahead: Highlights' note — the GLOBAL & REGIONAL overview (Asia-Pacific, China, Europe, central banks OUTSIDE the US). Lead with the single biggest market-moving event of the week (often a central-bank decision): what consensus expects and the exact level/move, the policy dilemma, named officials and their leanings, the data backdrop, the schedule, and the implications across FX, rates and equities. Then cover the other regional marquee events. Weave in the RELEVANT outcomes of the PAST week as context that sets up the week ahead (e.g. 'après le statu quo de la RBA cette semaine…'). Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
+  "usPreview": "<a dedicated 'US Preview' deep-dive of 3 to 4 substantial paragraphs, focused EXCLUSIVELY on the week's key US ECONOMIC RELEASES (PCE deflator, personal income & spending, GDP, jobless claims, durable goods, flash PMIs, consumer sentiment…). Identify the standout US report of the week, explain what consensus expects versus the previous reading and the underlying story (revenus vs dépenses, tendance de l'inflation sous-jacente/core, dynamique de croissance), give the schedule, and spell out the implications for the US dollar, Treasury yields and US equities. Full finished paragraphs separated by \\n\\n. If there are NO US releases this week, write a single short paragraph stating the US calendar is light.>",
   "insights": ["<forward-looking standalone insight, 1 sentence>", "... 5 to 6 cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: directional view for the WEEK AHEAD given the scheduled events>" } ]
 }
@@ -6008,11 +6012,14 @@ Rules: 5 to 7 key pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/USD, XAU/USD
 UPCOMING WEEK — KEY SCHEDULED EVENTS (consensus vs previous):
 ${marquee.join('\n') || '(no high-impact events scheduled)'}
 
-RECENT MACRO CONTEXT (past week, for tone only):
+UPCOMING WEEK — US ECONOMIC RELEASES (for the "usPreview" section):
+${usEvents.join('\n') || '(no US releases scheduled)'}
+
+RECENT MACRO CONTEXT (past week — weave the relevant bits into the week-ahead narrative):
 ${recentCtx.join('\n')}`;
     try {
       _aiReset();
-      const text = await ai.generateText(prompt, 6000);   // marge généreuse → highlights complet, jamais tronqué
+      const text = await ai.generateText(prompt, 7000);   // marge généreuse → highlights + US Preview complets, jamais tronqués
       aiNote('weekly');
       const m = text.match(/\{[\s\S]*\}/);
       const parsed = m ? JSON.parse(m[0]) : null;
@@ -6020,6 +6027,7 @@ ${recentCtx.join('\n')}`;
         title = _stripMd(String(parsed.title || title));   // jamais de markdown brut dans le titre
         if (!/global economic weekly/i.test(title)) title = 'Global Economic Weekly: ' + title.replace(/^global economic weekly:?\s*/i, '');
         highlights = _stripMd(String(parsed.highlights || ''));
+        usPreview = _stripMd(String(parsed.usPreview || ''));   // deep-dive données US (US Preview façon PMT)
         insights = Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => _stripMd(String(s))).slice(0, 6) : [];
         pairs = Array.isArray(parsed.pairs) ? parsed.pairs.filter(p => p && p.pair).map(p => ({ pair: String(p.pair).trim(), bias: (['BUY', 'SELL', 'NEUTRAL'].includes(String(p.bias || '').toUpperCase()) ? String(p.bias).toUpperCase() : 'NEUTRAL'), text: _stripMd(String(p.text || '')) })).slice(0, 8) : [];
       }
@@ -6054,9 +6062,9 @@ ${list}`;
     } catch (e) { console.warn('[GEW] commentaires par event indispo:', e.message); }
   }
 
-  const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, insights, pairs, days };
+  const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, usPreview, insights, pairs, days };
   // Description texte (recherche/affichage simple)
-  const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : ''];
+  const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : '', usPreview ? usPreview.replace(/\n+/g, ' ').slice(0, 300) : ''];
   days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / prev ' + e.previous : '') : ''}`)); });
   // PUBLICATION = le WEEK-END qui PRÉCÈDE la semaine couverte (dimanche ~18h Paris) → on DATE le GEW à ce
   // moment, PAS à l'instant de génération (sinon il « saute » à la date du jour à chaque régén et se classe mal).
