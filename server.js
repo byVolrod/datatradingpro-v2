@@ -6150,9 +6150,11 @@ async function generateWeeklyRecapAI(force = false) {
     console.log(`[Weekly Recap] déjà généré (v2) pour ${weekKey}, skip.`);
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isV2(i)) || null;
   }
-  // Anti-doublon STRICT : on génère un recap unique → on retire TOUS les Weekly Market Recap
-  // précédents d'allNews (les anciennes semaines restent conservées dans le store weekly_reports).
-  allNews = allNews.filter(i => i._reportType !== 'Weekly Market Recap');
+  // Anti-doublon : BUILD-THEN-SWAP. On NE retire PAS l'ancien recap ici — sinon, si la génération
+  // échoue ensuite (IA en cooldown, Supabase egress, fetch wraps qui throw…), le recap DISPARAÎT
+  // (vu le 20/06 : recap absent pendant la régén). On retire les anciens UNIQUEMENT au moment d'insérer
+  // le nouveau (échange atomique, plus bas). Les anciennes semaines restent dans le store weekly_reports.
+  // (Le gathering ci-dessous ignore déjà les recaps : ils sont _briefing:true → exclus de weekItemsRaw.)
 
   // Fenêtre = LA SEMAINE COUVERTE (lundi 00:00 → vendredi 23:59 UTC), pas un simple "7 derniers jours".
   // → le recap reflète EXACTEMENT ce qui s'est passé sur les sessions de cette semaine-là.
@@ -6362,7 +6364,9 @@ ${corpus}`;
     priority: 'normal', tags: ['Weekly Recap', 'Markets', 'FX'],
     _briefing: true, _reportType: 'Weekly Market Recap', _weekly: weekly,
   };
-  allNews = [item, ...allNews].slice(0, 2000);
+  // ÉCHANGE ATOMIQUE (build-then-swap) : on insère le nouveau recap ET on retire tous les anciens
+  // dans la MÊME opération → le recap n'est jamais absent, même si la génération avait tardé/échoué.
+  allNews = [item, ...allNews.filter(i => i._reportType !== 'Weekly Market Recap')].slice(0, 2000);
   saveHistory();
   // Persistance DURABLE (Supabase) → après un redémarrage Render on RECHARGE au lieu de régénérer (économie Gemini)
   auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[Weekly Recap] sauvegarde persistante échec:', e.message));
