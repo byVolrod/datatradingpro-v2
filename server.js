@@ -2387,7 +2387,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 4;
+const RECAP_VER = 5;   // v5 = analyse PAR DEVISE approfondie (multi-appel : narration + drivers à bullets façon PMT) + macro 6-8 thèmes
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6112,6 +6112,50 @@ function _mostRecentFriday() {
   return d;
 }
 
+// ── Analyse PAR DEVISE façon Prime Terminal (multi-appel) ────────────────────────────────────────
+// Chaque devise est générée par SON PROPRE appel IA (narration profonde multi-paragraphes + sous-sections
+// de drivers à bullets) → profondeur d'un desk note de banque, SANS risque de troncature JSON (un seul gros
+// appel pour 8 devises se faisait couper). Contexte filtré par devise (mots-clés) pour ancrer l'IA.
+const _RECAP_CCY_NAME = {
+  USD: 'dollar américain (USD)', EUR: 'euro (EUR)', JPY: 'yen japonais (JPY)', GBP: 'livre sterling (GBP)',
+  CHF: 'franc suisse (CHF)', AUD: 'dollar australien (AUD)', CAD: 'dollar canadien (CAD)', NZD: 'dollar néo-zélandais (NZD)',
+};
+const _RECAP_CCY_KW = {
+  USD: /\b(USD|dollar|greenback|DXY|Fed|FOMC|Powell|Warsh|Treasur|UST|United States|U\.?S\.?|américain)/i,
+  EUR: /\b(EUR|euro|ECB|BCE|Lagarde|Lane|Nagel|Kazaks|Kazimir|Wunsch|Sleijpen|Bund|euro\s?area|zone euro|German|Allemagne|France|Espagne|Italie)/i,
+  JPY: /\b(JPY|yen|BoJ|BOJ|Ueda|Uchida|Asada|intervention|MoF|Japan|Japon|JGB)/i,
+  GBP: /\b(GBP|sterling|pound|livre|BoE|BOE|Bailey|Pill|Greene|Mann|gilt|UK|United Kingdom|Royaume-Uni|Britain|britannique)/i,
+  CHF: /\b(CHF|franc suisse|\bfranc\b|SNB|BNS|Schlegel|Swiss|Suisse|KOF|SECO)/i,
+  AUD: /\b(AUD|Aussie|RBA|Bullock|Australia|Australie|australien)/i,
+  CAD: /\b(CAD|loonie|BoC|BOC|Macklem|Canada|canadian|canadien|WTI|crude|\boil\b|pétrole|brut|Brent)/i,
+  NZD: /\b(NZD|kiwi|RBNZ|New Zealand|Nouvelle-Zélande|néo-zélandais)/i,
+};
+// Liste canonique (FR) des sous-sections de drivers — calquée sur les rubriques récurrentes de Prime Terminal.
+const _RECAP_DRIVER_SECTIONS = '"Politique de banque centrale", "Données économiques", "Taux & obligations", "Géopolitique & énergie", "Sentiment de marché & risque", "Positionnement & flux", "Politique commerciale", "Politique intérieure"';
+function _recapCcyPrompt(ccy, ccyCtx, gSummary) {
+  const name = _RECAP_CCY_NAME[ccy] || ccy;
+  return `You are a senior FX strategist writing the ${name} section of an institutional WEEKLY FX recap, IN FRENCH (français soigné, précis, professionnel). Depth comparable to a top-tier bank desk note.
+
+Write about the ${name} over the trading week that just closed, grounded ONLY in the data below (session wraps + calendar results + headlines mentioning this currency). Multi-paragraph, day-by-day where relevant, explaining the WHY behind the moves (central-bank decisions and officials, data prints with actual vs forecast, geopolitics, oil/yields/risk sentiment, flows). NEVER invent numbers, levels or events not present in the data.
+
+Return ONLY valid JSON (no preamble, no markdown fences):
+{
+  "analysis": "<2 to 4 PARAGRAPH narrative of the currency's week — detailed, specific, professional, no filler. Separate paragraphs with \\n\\n.>",
+  "drivers": [
+    { "heading": "<section heading>", "bullets": ["**Sous-thème :** une à deux phrases factuelles concrètes (chiffres quand disponibles)", "..."] }
+  ]
+}
+Rules:
+- 4 to 7 driver sections. Use the EXACT French wording from this canonical list, keeping ONLY those genuinely RELEVANT to ${ccy} this week: ${_RECAP_DRIVER_SECTIONS}.
+- Each driver section: 2 to 4 bullets (chaque bullet commence par **sous-thème en gras :** puis le détail).
+- Keep tickers/codes/central-bank acronyms as-is. No source attributions, no URLs. Tout EN FRANÇAIS.
+
+GLOBAL WEEK CONTEXT (cross-currency framing): ${gSummary || '(n/a)'}
+
+${ccy}-SPECIFIC DATA (session wraps + calendar + headlines mentioning ${ccy}):
+${ccyCtx}`;
+}
+
 // ── Weekly Market Recap RICHE (Gemini → JSON structuré) ──
 // Copie de la logique DataTradingPro : résumé global, cartes d'insights, Key Macro Highlights,
 // et analyse détaillée par devise (USD…NZD). Renvoie null si l'IA échoue (→ fallback par règles).
@@ -6229,35 +6273,21 @@ async function generateWeeklyRecapAI(force = false) {
 
   const prompt = `You are a senior macro strategist writing the institutional WEEKLY MARKET RECAP for a professional FX & markets desk (style and depth comparable to a top-tier bank's weekly review). The trading week (Monday–Friday) just closed. Write ALL output text IN FRENCH (français soigné, précis, professionnel) — smart, analytical and specific. Keep tickers/codes/central-bank acronyms as-is (USD/JPY, Fed, BoJ, BoE…).
 
-Quality bar: cite concrete drivers (central bank names and officials, specific data prints with actual vs forecast where available, geopolitical events, oil/equity/yield moves). Each currency narrative must read like a real desk note — multi-paragraph, day-by-day where relevant, explaining the "why" behind moves, not generic filler.
+Quality bar: cite concrete drivers (central bank names and officials, specific data prints with actual vs forecast where available, geopolitical events, oil/equity/yield moves). No generic filler, NEVER invent numbers or events.
 
-Base the recap PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS below (these are the authoritative week-in-review sources), using the other headlines only as supporting context. Produce the recap and return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
+This call produces the GLOBAL part of the recap (the per-currency sections are written separately). Base it PRIMARILY on the SESSION WRAPS and the ECONOMIC CALENDAR RESULTS below. Return ONLY valid JSON (no preamble, no markdown fences) with EXACTLY this shape:
 {
   "title": "Weekly Market Recap: <titre accrocheur EN FRANÇAIS — DÉRIVÉ du MESSAGE DE CLÔTURE DE LA SEMAINE (sa 1re phrase clé), ex. 'Les marchés terminent en hausse alors que ...'>",
-  "summary": "<2 to 4 sentence global overview of how markets traded this week>",
-  "insights": ["<concise standalone insight, 1 sentence>", "... 4 to 6 thematic insight cards"],
-  "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<one concise sentence: why this directional bias for the week>" } ],
+  "summary": "<3 to 5 sentence global overview of how markets traded this week (géopolitique, banques centrales, cross-asset)>",
+  "insights": ["<concise standalone insight, 1 sentence>", "... 5 to 6 thematic insight cards"],
+  "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<one concise sentence: directional bias for the COMING week>" } ],
   "macro": [
-    { "heading": "<macro theme, e.g. Middle East Geopolitics>", "bullets": ["**Sub-topic:** one or two detailed sentences", "..."] }
-  ],
-  "currencies": {
-    "USD": {
-      "analysis": "<concise but COMPLETE narrative of the US dollar's week, grounded in the session wraps: how it traded day by day, the concrete drivers (central banks, data, geopolitics, flows) and the resulting bias. Clear and well-explained, no filler.>",
-      "drivers": [ { "heading": "<driver theme, e.g. Fed Policy Expectations>", "detail": "<1 to 2 sentences explaining how this drove the currency this week>" } ]
-    },
-    "EUR": { "analysis": "...", "drivers": [ ... ] },
-    "JPY": { "analysis": "...", "drivers": [ ... ] },
-    "GBP": { "analysis": "...", "drivers": [ ... ] },
-    "CHF": { "analysis": "...", "drivers": [ ... ] },
-    "AUD": { "analysis": "...", "drivers": [ ... ] },
-    "CAD": { "analysis": "...", "drivers": [ ... ] },
-    "NZD": { "analysis": "...", "drivers": [ ... ] }
-  }
+    { "heading": "<macro theme, ex. Désescalade au Moyen-Orient>", "bullets": ["**Sous-thème :** two or three detailed factual sentences", "..."] }
+  ]
 }
 Rules:
-- 4 to 6 macro themes; 4 to 6 thematic insight cards.
-- "pairs": 5 to 7 KEY pairs/instruments (e.g. USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold) with a directional bias for the COMING week — "bias" is exactly "BUY", "SELL" or "NEUTRAL".
-- EVERY currency in [${CCY.join(', ')}] must be present, each with a substantive, CONCISE-but-COMPLETE "analysis" (explain what happened to that currency this week, based on the session wraps) AND 4 to 8 "drivers" (heading + detail).
+- "macro" = Key Macro Highlights: 6 to 8 themes (géopolitique ; performance cross-asset actions/obligations/FX/matières ; banques centrales ; données de croissance & inflation ; commerce/tarifs ; développements politiques ; technologie/corporate ; autre thème majeur de la semaine), each with 3 to 5 detailed bullets — chaque bullet = **sous-thème en gras :** puis 2 à 3 phrases concrètes (chiffres/noms/dates quand disponibles).
+- "insights": 5 to 6 thematic cards (1 phrase). "pairs": 5 to 7 KEY pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold…) with a directional bias for the COMING week — "bias" exactly "BUY", "SELL" or "NEUTRAL".
 - No source attributions, no URLs.
 
 Week's data (session wraps + economic calendar results + headlines):
@@ -6270,12 +6300,34 @@ ${corpus}`;
   _aiReset();
   let parsed = null;
   try {
-    const text = await ai.generateText(prompt, 8192);   // gros JSON (8 devises × analyse + drivers)
+    const text = await ai.generateText(prompt, 8192);   // partie GLOBALE : résumé + insights + pairs + macro
     aiNote('weekly');                                    // 1 requête Gemini consommée → comptée dans le budget
     const m = text.match(/\{[\s\S]*\}/);
     if (m) parsed = JSON.parse(m[0]);
-  } catch (e) { console.warn('[Weekly Recap] IA échec:', e.message); parsed = null; }
-  const aiOk = !!(parsed && parsed.currencies && typeof parsed.currencies === 'object');
+  } catch (e) { console.warn('[Weekly Recap] IA (global) échec:', e.message); parsed = null; }
+  const aiOk = !!(parsed && (parsed.summary || (Array.isArray(parsed.macro) && parsed.macro.length)));
+
+  // ── ANALYSE PAR DEVISE (multi-appel, profondeur PMT) : 1 appel IA dédié par devise, ancré sur le
+  //    contexte FILTRÉ de la devise → narration profonde + drivers à bullets, sans troncature JSON.
+  //    Échec/contexte vide d'une devise = devise simplement omise (le front l'ignore — dégradation douce).
+  const _ccyResults = {};
+  if (aiOk) {
+    const _allLines = [...wraps, ...cal, ...news];
+    const _gSummary = _stripMd(String(parsed.summary || ''));
+    for (const ccy of CCY) {
+      try {
+        const kw = _RECAP_CCY_KW[ccy];
+        const ccyLines = _allLines.filter(l => kw && kw.test(l)).slice(0, 70);
+        if (ccyLines.length < 2) continue;   // pas assez de matière → on saute la devise
+        const ctxBlock = ccyLines.join('\n').slice(0, 9000);
+        const ctext = await ai.generateText(_recapCcyPrompt(ccy, ctxBlock, _gSummary), 4096);
+        aiNote('weekly');
+        const cm = ctext.match(/\{[\s\S]*\}/);
+        if (cm) { const cp = JSON.parse(cm[0]); if (cp && (cp.analysis || Array.isArray(cp.drivers))) _ccyResults[ccy] = cp; }
+      } catch (e) { console.warn('[Weekly Recap] IA devise ' + ccy + ' échec:', e.message); }
+    }
+    console.log('[Weekly Recap] devises générées : ' + Object.keys(_ccyResults).join(',') + ' (' + Object.keys(_ccyResults).length + '/' + CCY.length + ')');
+  }
 
   let weekly;
   if (aiOk) {
@@ -6291,17 +6343,22 @@ ${corpus}`;
                     .map(p => ({ pair: String(p.pair).trim(), bias: String(p.bias || 'NEUTRAL').toUpperCase().replace(/[^A-Z]/g,''), text: _stripMd(String(p.text || '')) }))
                     .map(p => ({ ...p, bias: ['BUY','SELL','NEUTRAL'].includes(p.bias) ? p.bias : 'NEUTRAL' }))
                     .slice(0, 8) : [],
-      macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).map(s => ({ ...s, heading: _stripMd(String(s.heading)), bullets: Array.isArray(s.bullets) ? s.bullets.map(b => _stripMd(String(b))) : s.bullets, detail: s.detail != null ? _stripMd(String(s.detail)) : s.detail })).slice(0, 6) : [],
+      macro:      Array.isArray(parsed.macro) ? parsed.macro.filter(s => s && s.heading).map(s => ({ heading: _stripMd(String(s.heading)), bullets: Array.isArray(s.bullets) ? s.bullets.map(b => _stripMd(String(b))) : [], detail: s.detail != null ? _stripMd(String(s.detail)) : undefined })).slice(0, 8) : [],
       currencies: {},
     };
     for (const c of CCY) {
-      const v = parsed.currencies[c];
+      const v = _ccyResults[c];
       if (!v) continue;
-      if (typeof v === 'string') weekly.currencies[c] = { analysis: _stripMd(v), drivers: [] };
-      else weekly.currencies[c] = {
+      if (typeof v === 'string') { weekly.currencies[c] = { analysis: _stripMd(v), drivers: [] }; continue; }
+      weekly.currencies[c] = {
         analysis: _stripMd(String(v.analysis || '')),
         drivers: Array.isArray(v.drivers)
-          ? v.drivers.filter(x => x && x.heading).map(x => ({ heading: _stripMd(String(x.heading)), detail: _stripMd(String(x.detail || '')) })).slice(0, 9)
+          ? v.drivers.filter(x => x && x.heading).map(x => {
+              const bullets = Array.isArray(x.bullets) ? x.bullets.map(b => _stripMd(String(b))).filter(Boolean).slice(0, 6) : [];
+              const out = { heading: _stripMd(String(x.heading)), bullets };
+              if (!bullets.length && x.detail) out.detail = _stripMd(String(x.detail));   // rétro-compat ancien format {heading,detail}
+              return out;
+            }).slice(0, 9)
           : [],
       };
     }
