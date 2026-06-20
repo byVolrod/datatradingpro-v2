@@ -5711,7 +5711,9 @@ function _renderWeeklyRecap(item) {
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
         drivers.forEach(d => {
           body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
-          if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
+          // v5 : drivers à BULLETS (façon PMT — plusieurs puces par sous-section) ; rétro-compat ancien {detail}.
+          if (Array.isArray(d.bullets) && d.bullets.length) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+          else if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
         });
         body += `</div>`;
       });
