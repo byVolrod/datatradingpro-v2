@@ -1624,11 +1624,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   cursor: default;
 }
 
-.tag--default   { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
-.tag--neutral   { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
-.tag--orange    { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
-.tag--blue      { background: #26262c; border: 1px solid transparent; color: #e8e8ea; }
-.tag--default:hover, .tag--neutral:hover, .tag--orange:hover, .tag--blue:hover { background: #2f2f37; }
+/* Tags NEUTRES (non colorés) = STYLE UNIQUE façon « Geopolitical » : pastille sombre var(--bg5),
+   fine bordure var(--border2), texte blanc. Évite que certains (Risk, Tariffs…) paraissent « blancs »
+   (#26262c plus clair, sans bordure) à côté de Geopolitical/EU. Les tags COLORÉS (Fed=bleu, Energy=orange,
+   Metals=or…) gardent leur couleur via leurs règles [data-cat] plus spécifiques. */
+.tag--default   { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
+.tag--neutral   { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
+.tag--orange    { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
+.tag--blue      { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
+.tag--default:hover, .tag--neutral:hover, .tag--orange:hover, .tag--blue:hover { background: #26262c; }
 .tag--green     { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.4); color: #ffffff; }
 .tag--red                    { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff; }
 .tag[data-cat="Sanctions"]   { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff !important; }

@@ -2362,7 +2362,7 @@ function buildNewsItem(item) {
   const _hl = (item.headline || '').toLowerCase();
   const _ratesGuard = /\b(rate decision|rate hike|rate cut|interest rate|policy rate|overnight rate|benchmark rate|basis point|bps|inflation rate|cpi|pce|ppi|hicp)\b/i;
   const shownTags = new Set();
-  const _HIDDEN_TAGS = new Set(['China', 'Japan']);   // tags supprimés à l'affichage
+  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs)
   for (const tag of (item.tags || [])) {
     if (tag === 'High' || tag === 'Medium' || tag === item.category) continue;
     if (_HIDDEN_TAGS.has(tag)) continue;
@@ -5312,7 +5312,7 @@ const _ARLIB_TAG_CHECKS = [
   [/\bcpi\b|inflation|pce|hicp|ppi/,               'Inflation'],
   [/\bpmi\b|manufacturing|services|ism/,           'PMI'],
   [/payroll|\bnfp\b|jobless|unemployment|labou?r market/, 'Jobs'],
-  [/trade|tariff/,                                 'Trade'],
+  [/tariff|trade war|trade deal|import dut/,       'Tariffs'],   // « Trade » générique retiré → « Tariffs » (cohérent avec le feed)
   [/oil|crude|brent|opec|\bwti\b|energy|natural gas/, 'Oil'],
   [/gold|\bxau\b|silver|copper|metal/,             'Gold'],
   [/iran|russia|ukraine|israel|ceasefire|geopolit|war\b|missile|conflict/, 'Geopolitical'],
