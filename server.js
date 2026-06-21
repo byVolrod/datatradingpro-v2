@@ -4223,8 +4223,12 @@ function _brIsNoise(t) { t = String(t || '').trim(); return !t || _BR_NOISE.test
 async function _fetchDanskeInto(merged, cutoff) {
   try {
     const arts = await fetchDanskeResearch();
+    if (!arts || !arts.length) return;   // scrape KO → on CONSERVE l'existant (pas de purge à vide)
+    // REMPLACE tout l'ensemble Danske par la liste FRAÎCHE (anglais only) → purge les anciens items
+    // (non-EN / périmés) qui traînaient dans le cache fichier rechargé au boot.
+    for (const [k, v] of merged) { if (v && v._source === 'danske') merged.delete(k); }
     let added = 0;
-    for (const a of (arts || [])) {
+    for (const a of arts) {
       if (!a || !a.pdfUrl || (a.ts && a.ts < cutoff)) continue;
       const id = 'br-' + Buffer.from(a.pdfUrl).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
       if (merged.has(id)) continue;
