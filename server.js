@@ -15,6 +15,7 @@ const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalenda
 const { scrapeBlackRock } = require('./scrapers/blackrock');   // BlackRock Investment Institute — Weekly Commentary (PDF hebdo, Puppeteer best-effort)
 const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/research-spa');   // Natixis — recherche sur sites SPA (Puppeteer best-effort) + extracteur de date d'URL
 const { fetchDanskeResearch } = require('./scrapers/danske-research');   // Danske — API publique interceptée (Puppeteer), PDF natifs (published_url)
+const { fetchTEAll } = require('./scrapers/tradingeconomics');   // TradingEconomics — fondamentaux réels par pays (Smart Bias « Fundamental Data » fiable)
 const { fetchTVCalendar, fetchTVCalendarFull } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
@@ -7111,7 +7112,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v18-panel-tech-seas';   // v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Lignes Technical/Sentiment RETIRÉES (absentes chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v19-fundamental-te';   // v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Lignes Technical/Sentiment RETIRÉES (absentes chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -7352,13 +7353,21 @@ function _sbFundStanceServer(actual, forecast) {
   return a > f + thr ? 'Bullish' : a < f - thr ? 'Bearish' : 'Neutral';   // beat = surprise haussière de donnée
 }
 async function _sbFundamentalRows() {
+  // SOURCE FIABLE : TradingEconomics (valeur réelle ACTUELLE + précédente de chaque indicateur → tendance,
+  // toutes catégories renseignées). Bien plus robuste que le calendrier épars (NZD était noté sur 1 seule
+  // publication). REPLI : surprise du CALENDRIER (actual vs forecast) par devise/catégorie si TE n'a pas
+  // l'indicateur. Parent = agrégat des 8 enfants AFFICHÉS (cohérent). 0 IA — TE + règles déterministes.
+  let te = {};
+  try { te = await fetchTEAll(SB_CURRENCIES); } catch (e) { console.warn('[SmartBias] TE indispo:', e.message); }
   let cal = [];
   try { cal = await _buildTVCalendar(); } catch {}
   try { cal = _calHistMerge(cal && cal.length ? cal : (allCalendar || [])); } catch { if (!cal || !cal.length) cal = allCalendar || []; }
   const subs = _SB_FUND_SUBS.map(sub => {
     const values = {};
     SB_CURRENCIES.forEach(c => {
-      const ev = (cal || [])
+      const teSub = te[c] && te[c].subs && te[c].subs.find(s => s.label === sub.label);
+      if (teSub && teSub.name) { values[c] = teSub.value || 'Neutral'; return; }   // TE possède l'indicateur → valeur fiable (tendance/PMI réel)
+      const ev = (cal || [])                                                       // repli : surprise calendrier
         .filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && sub.re.test(e.title || ''))
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
       values[c] = ev ? (_sbFundStanceServer(ev.actual, ev.forecast) || 'Neutral') : 'Neutral';
@@ -7366,7 +7375,9 @@ async function _sbFundamentalRows() {
     return { label: sub.label, values };
   });
   const parent = {};
-  SB_CURRENCIES.forEach(c => { parent[c] = _sbAvgToBias(subs.map(s => s.values[c])); });   // parent = agrégat des 8 enfants
+  SB_CURRENCIES.forEach(c => { parent[c] = _sbAvgToBias(subs.map(s => s.values[c])); });   // parent = agrégat des 8 enfants affichés
+  const teOk = Object.keys(te).length;
+  if (teOk) console.log(`[SmartBias] Fundamental via TradingEconomics (${teOk}/8 devises) — NZD parent=${parent.NZD}`);
   return { parent, subs };
 }
 
