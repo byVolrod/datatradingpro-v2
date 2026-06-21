@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Lire le Rapport COT / CFTC sur les Devises | DataTradingPro</title>
+<meta name="description" content="Guide FR : comment lire le rapport COT de la CFTC sur les devises — positions des spéculateurs vs commerciaux, extrêmes, lecture contrarian, et limites.">
+<link rel="canonical" href="https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html">
+<link rel="alternate" hreflang="fr" href="https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html">
+<link rel="alternate" hreflang="fr-FR" href="https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html">
+<link rel="alternate" hreflang="x-default" href="https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html">
+<meta http-equiv="content-language" content="fr">
+<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1,max-video-preview:-1">
+<meta name="theme-color" content="#08080a">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Lire le Rapport COT / CFTC sur les Devises | DataTradingPro">
+<meta property="og:description" content="Guide FR : comment lire le rapport COT de la CFTC sur les devises — positions des spéculateurs vs commerciaux, extrêmes, lecture contrarian, et limites.">
+<meta property="og:url" content="https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html">
+<meta property="og:image" content="https://datatradingpro.com/og-cover.jpg">
+<meta property="og:site_name" content="DataTradingPro">
+<meta property="og:locale" content="fr_FR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Lire le Rapport COT / CFTC sur les Devises | DataTradingPro">
+<meta name="twitter:description" content="Guide FR : comment lire le rapport COT de la CFTC sur les devises — positions des spéculateurs vs commerciaux, extrêmes, lecture contrarian, et limites.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600;700;800&display=swap"></noscript>
+<link rel="stylesheet" href="/documentation/doc.css">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Comment lire le rapport COT / CFTC sur les devises","description":"Guide FR : comment lire le rapport COT de la CFTC sur les devises — positions des spéculateurs vs commerciaux, extrêmes, lecture contrarian, et limites.","inLanguage":"fr-FR","author":{"@type":"Organization","name":"DataTradingPro"},"publisher":{"@type":"Organization","name":"DataTradingPro","logo":{"@type":"ImageObject","url":"https://datatradingpro.com/assets/logo.png"}},"mainEntityOfPage":"https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Quand le rapport COT est-il publié ?","acceptedAnswer":{"@type":"Answer","text":"La CFTC publie le rapport COT chaque semaine, en général le vendredi en fin de journée. Il reflète les positions arrêtées le mardi précédent : il y a donc un décalage de trois jours entre la photo des positions et sa publication."}},{"@type":"Question","name":"Le COT est-il un signal d'achat ou de vente ?","acceptedAnswer":{"@type":"Answer","text":"Non. Le COT est une donnée de positionnement, pas un signal d'entrée. Il décrit qui détient quoi à une date passée. Il sert à contextualiser un biais, à repérer un extrême ou une divergence, mais il ne déclenche pas un ordre à lui seul. Le trading comporte un risque de perte."}},{"@type":"Question","name":"Qui sont les spéculateurs dans le COT ?","acceptedAnswer":{"@type":"Answer","text":"Les non-commerciaux (large speculators) regroupent les hedge funds et capitaux spéculatifs qui prennent position sur la direction du marché. On les suit pour lire le momentum, à la différence des commerciaux (hedgers) qui couvrent une exposition réelle et sont souvent à contre-courant."}},{"@type":"Question","name":"Qu'est-ce qu'un positionnement extrême ?","acceptedAnswer":{"@type":"Answer","text":"Un positionnement extrême est un net spéculatif (long ou short) très éloigné de sa moyenne historique. Lorsque presque tous les spéculateurs sont du même côté, le carburant pour prolonger le mouvement s'épuise, ce qui alerte sur un risque de retournement — c'est la base de la lecture contrarian."}}]}</script>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@type":"BreadcrumbList","@id":"https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html#breadcrumb","itemListElement":[{"@type":"ListItem","position":1,"name":"Accueil","item":"https://datatradingpro.com/"},{"@type":"ListItem","position":2,"name":"Documentation","item":"https://datatradingpro.com/documentation/"},{"@type":"ListItem","position":3,"name":"Comprendre le COT/CFTC","item":"https://datatradingpro.com/documentation/comprendre-le-cot-cftc.html"}]}
+</script>
+</head><body>
+<a href="#doc-main" class="skip-link">Aller au contenu</a>
+<header class="doc-top"><div class="doc-top-in">
+  <button class="doc-back" type="button" onclick="if(history.length>1){history.back()}else{location.href='/'}" aria-label="Revenir à la page précédente">&lsaquo; Retour</button>
+  <a class="doc-logo" href="/">Data<b>TradingPro</b></a>
+  <a class="doc-cta" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal</a>
+</div></header>
+<main class="doc-main" id="doc-main">
+  <nav class="doc-bc"><a href="/">Accueil</a> <span>/</span> <a href="/documentation/">Documentation</a> <span>/</span> <em>Comprendre le COT/CFTC</em></nav>
+  <div class="doc-cat">Guides</div>
+  <h1>Comment lire le rapport COT / CFTC sur les devises</h1>
+  <div class="doc-meta">6 min de lecture</div>
+  <div class="doc-mock" role="img" aria-label="Aperçu du positionnement COT par catégorie"><div class="dm"><div class="dm-bar"><span class="dm-d"></span><span class="dm-d"></span><span class="dm-d"></span><span class="dm-ttl">COT · CFTC · Hebdo</span><span class="dm-live"><i></i>LIVE</span></div><div class="dm-body"><div class="dm-row"><span class="dm-t" style="color:#cfcfd4">Spéculateurs JPY</span><span class="dm-x">Net short</span><span class="dm-b h">EXTRÊME</span></div><div class="dm-row"><span class="dm-t" style="color:#cfcfd4">Spéculateurs EUR</span><span class="dm-x">Net long</span><span class="dm-b m">MED</span></div><div class="dm-row"><span class="dm-t" style="color:#cfcfd4">Commerciaux EUR</span><span class="dm-x">Net short</span><span class="dm-b l">COUVERTURE</span></div></div></div></div>
+  <article class="doc-body">
+<p>Le rapport <strong>COT</strong> (Commitments of Traders) est l'une des rares fenêtres publiques sur le positionnement réel derrière les prix du marché des changes. Apprendre à <strong>lire le COT CFTC</strong> vous aide à savoir qui est acheteur, qui est vendeur et avec quelle conviction. Ce guide explique ce qu'est le rapport, comment décoder le <strong>positionnement COT des devises</strong>, comment <strong>interpréter le COT forex</strong> de façon contrarian, et où sont ses limites. DataTradingPro est un terminal de données : il vous montre le positionnement, à vous de décider et d'exécuter chez votre courtier.</p>
+
+<h2>Qu'est-ce que le rapport COT ?</h2>
+<p>Le COT est publié par la <strong>CFTC</strong> (Commodity Futures Trading Commission), le régulateur américain des marchés à terme. Chaque semaine, il décompose les positions ouvertes sur les contrats <strong>futures</strong> — y compris les futures de devises (euro, yen, livre, dollar australien…) cotés à Chicago — par grande catégorie d'opérateurs. Là où le prix ne dit que « où » est le marché, le COT raconte « qui » est positionné et « comment » ce positionnement évolue.</p>
+<p>Sur le calendrier, retenez deux dates : les positions sont <strong>arrêtées le mardi</strong>, puis le rapport est <strong>publié le vendredi</strong> en fin de journée. Cette <strong>fréquence hebdomadaire</strong> et ce décalage de trois jours sont au cœur de la bonne — et de la mauvaise — utilisation du COT, comme on le verra plus bas. Cette <strong>explication du rapport COT</strong> tient en une idée : c'est une photographie de positionnement, pas un flux temps réel.</p>
+
+<h2>Les catégories d'acteurs</h2>
+<p>Pour interpréter le rapport, il faut savoir qui se cache derrière chaque ligne. Trois familles structurent la lecture sur les devises :</p>
+<ul>
+<li><strong>Commerciaux (commercials / hedgers)</strong> — entreprises et institutions qui couvrent une exposition réelle (importateurs, exportateurs, trésoreries). Ils ne cherchent pas à parier sur la direction : ils protègent un flux. Résultat, ils sont souvent <strong>à contre-courant</strong> de la tendance.</li>
+<li><strong>Non-commerciaux (large speculators)</strong> — hedge funds et capitaux spéculatifs qui prennent position sur la <strong>direction</strong> du marché. C'est la catégorie la plus suivie pour lire le momentum : leur net long ou net short traduit la conviction directionnelle des gros spéculateurs.</li>
+<li><strong>Non déclarants (non-reportables)</strong> — petits opérateurs sous le seuil de déclaration, souvent assimilés au côté <strong>retail</strong>. Leur positionnement est généralement lu comme un indicateur contrarian de second plan.</li>
+</ul>
+<p>Pour chaque catégorie, on regarde les positions <strong>longues</strong> et <strong>courtes</strong>, leur <strong>solde net</strong> (longs moins courts) et, surtout, sa <strong>variation d'une semaine sur l'autre</strong>.</p>
+
+<h2>Comment interpréter le positionnement</h2>
+<p>L'erreur classique consiste à ne lire que le niveau absolu du net. Ce qui raconte l'histoire, c'est d'abord le <strong>sens</strong> du net spéculatif, puis sa <strong>dynamique</strong> :</p>
+<ul>
+<li><strong>Sens</strong> — les non-commerciaux sont-ils net long (pari haussier) ou net short (pari baissier) sur la devise ?</li>
+<li><strong>Dynamique</strong> — un net qui se renforce semaine après semaine traduit une conviction qui monte ; un net qui s'aplatit ou se retourne signale un essoufflement, souvent avant que le prix ne le confirme.</li>
+<li><strong>Confrontation</strong> — comparez spéculateurs et commerciaux. Quand les deux camps s'opposent franchement (spéculateurs très long, commerciaux très short), le marché est tendu sur cette devise.</li>
+</ul>
+<h3>La lecture contrarian et les extrêmes</h3>
+<p>Un <strong>positionnement extrême</strong> est un net spéculatif très éloigné de sa moyenne historique. La logique contrarian est mécanique : si presque tous les spéculateurs sont déjà du même côté, il reste peu d'acheteurs (ou de vendeurs) supplémentaires pour prolonger le mouvement. Le carburant directionnel s'épuise, et le risque d'un retournement augmente. Un extrême n'est pas un signal d'inversion immédiat — un marché peut rester suracheté longtemps — mais c'est une alerte de prudence à croiser avec le reste de votre analyse.</p>
+
+<h2>Exemple concret</h2>
+<p>Supposons que, semaine après semaine, les non-commerciaux accumulent un <strong>net short record sur le yen (JPY)</strong> : les spéculateurs parient massivement sur sa baisse. Tant que la dynamique se renforce, le positionnement accompagne la tendance baissière du yen. Mais lorsque ce net short atteint un niveau extrême et commence à <strong>se réduire</strong> — les shorts qui se débouclent — c'est le signe que la conviction s'épuise. Un trader attentif ne lit pas cela comme un ordre d'achat du yen, mais comme un avertissement : la paire est mûre pour un rebond, et un catalyseur pourrait précipiter un retournement violent par couverture de positions. Le COT ne donne pas le « quand » ; il signale le « risque ».</p>
+
+<h2>Les limites du COT</h2>
+<p>Bien utiliser le COT, c'est d'abord connaître ce qu'il ne fait pas :</p>
+<ul>
+<li><strong>Décalage de publication</strong> — les données sont arrêtées le mardi et publiées le vendredi. Vous lisez toujours une <strong>photo passée</strong>, jamais le positionnement en temps réel.</li>
+<li><strong>Ce n'est pas un signal d'entrée</strong> — le COT décrit, il ne déclenche pas. Aucun niveau de net ne constitue à lui seul un ordre d'achat ou de vente.</li>
+<li><strong>Périmètre futures</strong> — le rapport ne couvre que les contrats à terme américains, pas l'intégralité du marché des changes au comptant. C'est une excellente approximation du positionnement institutionnel, pas une mesure exhaustive.</li>
+<li><strong>Pas de timing</strong> — un extrême peut le rester des semaines. Le COT éclaire le contexte, il ne donne pas le moment précis du retournement.</li>
+</ul>
+
+<h2>Le COT dans DataTradingPro</h2>
+<p>Le terminal intègre les données COT pour vous éviter de retraiter les fichiers bruts de la CFTC. Vous les retrouvez à deux endroits complémentaires :</p>
+<ul>
+<li>Dans le module <a href="positions-banques.html">positions des banques &amp; COT par devise</a>, où le COT est affiché par catégorie d'acteurs, avec les soldes nets et leur variation hebdomadaire, aux côtés du consensus des grandes banques.</li>
+<li>Dans le <a href="smart-bias.html">Smart Bias Tracker</a>, où le positionnement COT entre comme l'un des indicateurs croisés (avec les fondamentaux, les taux et les vues des banques) qui construisent le biais hebdomadaire de chaque devise.</li>
+</ul>
+<p>Cette double intégration vous permet de passer du positionnement brut à une lecture synthétique : voir le net spéculatif, puis vérifier comment il pèse — ou contredit — le biais global de la devise. Pour aller plus loin, parcourez l'ensemble de la <a href="../">documentation et le terminal</a>.</p>
+
+<h2>Note de risque</h2>
+<p><strong>Important :</strong> le COT n'est pas un signal d'achat ou de vente. C'est une donnée de positionnement, passée, à recouper avec votre propre analyse. DataTradingPro est un terminal de données et de news : il n'exécute aucun ordre et ne fournit aucun conseil en investissement personnalisé. Le trading sur le marché des changes comporte un <strong>risque de perte</strong> ; la décision et l'exécution restent entièrement chez vous, sur votre courtier.</p>
+
+<h2>FAQ</h2>
+<h3>Quand le rapport COT est-il publié ?</h3>
+<p>La CFTC publie le COT chaque semaine, en général le vendredi en fin de journée. Il reflète les positions arrêtées le mardi précédent : il y a donc un décalage de trois jours entre la photo des positions et sa publication.</p>
+<h3>Le COT est-il un signal d'achat ou de vente ?</h3>
+<p>Non. Le COT est une donnée de positionnement, pas un signal d'entrée. Il décrit qui détient quoi à une date passée. Il sert à contextualiser un biais, à repérer un extrême ou une divergence, mais il ne déclenche pas un ordre à lui seul. Le trading comporte un risque de perte.</p>
+<h3>Qui sont les spéculateurs dans le COT ?</h3>
+<p>Les non-commerciaux (large speculators) regroupent les hedge funds et capitaux spéculatifs qui prennent position sur la direction du marché. On les suit pour lire le momentum, à la différence des commerciaux (hedgers) qui couvrent une exposition réelle et sont souvent à contre-courant.</p>
+<h3>Qu'est-ce qu'un positionnement extrême ?</h3>
+<p>Un positionnement extrême est un net spéculatif (long ou short) très éloigné de sa moyenne historique. Lorsque presque tous les spéculateurs sont du même côté, le carburant pour prolonger le mouvement s'épuise, ce qui alerte sur un risque de retournement — c'est la base de la lecture contrarian.</p>
+  </article>
+  <div class="doc-nav"><a class="doc-prevnext prev" href="/documentation/positions-banques.html">&lsaquo; Positions des banques</a><a class="doc-prevnext next" href="/documentation/smart-bias.html">Smart Bias Tracker &rsaquo;</a></div>
+  <div class="doc-cta-card">
+    <h3>Passez à la pratique</h3>
+    <p>Retrouvez le positionnement COT en données réelles dans le terminal.</p>
+    <a class="btn-primary" href="https://whop.com/joined/justonetrader/products/jot-dtp/">Accéder au terminal — 24,99 €/mois</a>
+    <a class="doc-back-site" href="/">&larr; Revenir au site</a>
+  </div>
+</main>
+<footer class="doc-foot">
+  <span>&copy; DataTradingPro — Terminal de données macro &amp; forex. Aucun conseil en investissement.</span>
+  <a href="/documentation/">Toute la documentation &rsaquo;</a>
+</footer>
+</body></html>
