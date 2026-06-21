@@ -4862,7 +4862,7 @@ function _fallbackInsights(text, title, lines) {
   // 1) Lignes structurées fournies (puces réelles du rapport) → 1 carte par puce = plusieurs petites cases.
   if (Array.isArray(lines) && lines.length) {
     const cards = _clean(lines, 18);
-    if (cards.length >= 2) return cards.map(_insCard);
+    if (cards.length >= 1) return cards.map(_insCard);   // ≥1 (était ≥2) → le panneau ne reste pas vide pour un rapport à 1 puce
   }
   // 2) Sinon : découpage par phrases.
   const parts = _clean(String(text).split(/(?<=[.!?])\s+|\n+/), 28);
@@ -4973,7 +4973,9 @@ ${clean.slice(0, 4500)}`;
       auth.aiCacheSet('ins:' + key, finalized).catch(() => {});   // + durable (Supabase) anti-régénération
       return res.json({ insights: finalized });
     }
-    res.json({ insights: _finalizeInsights(_fallbackInsights(clean, title, _lines)), fallback: true });   // Gemini vide → secours extractif
+    const _fb = _finalizeInsights(_fallbackInsights(clean, title, _lines));   // Gemini vide → secours extractif
+    if (!_fb.length) console.warn(`[Insights] secours VIDE id=${id || '?'} len=${clean.length} lines=${_lines ? _lines.length : 0} → le filet CLIENT prend le relais`);
+    res.json({ insights: _fb, fallback: true });
   } catch (e) {
     console.error('[Insights]', e.message);
     res.json({ insights: _finalizeInsights(_fallbackInsights(clean, title, _lines)), fallback: true });   // quota/erreur → secours extractif
