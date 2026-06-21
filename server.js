@@ -8503,6 +8503,16 @@ async function generateEuropeanMarketWrap(force = false) {
   const idPrefix = 'dtp-eu-wrap-';
   const dateKey  = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).toISOString().slice(0, 10);
   const prefix   = idPrefix + dateKey;
+  // SEMAINE UNIQUEMENT — JAMAIS le WEEK-END (marchés européens fermés samedi/dimanche). On ne génère pas
+  // et on PURGE tout wrap daté un week-end (ex. un wrap du dimanche resté affiché). Les wraps en semaine restent.
+  const _wDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay();
+  if (_wDow === 0 || _wDow === 6) {
+    const _isWe = ts => { try { const d = new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay(); return d === 0 || d === 6; } catch { return false; } };
+    const before = allNews.length;
+    allNews = allNews.filter(i => !(i && i._marketWrap && _isWe(i.timestamp)));
+    if (allNews.length !== before) { try { saveHistory(); } catch {} try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch {} console.log('[EUWrap] week-end → wrap retiré, pas de génération'); }
+    return null;
+  }
   const _cached = allNews.find(i => (i.id || '').startsWith(prefix) && i._wrapVer === WRAP_VER);
   if (!force && _cached) return _cached;
   // Version périmée (nouvelle structure de référence) OU force : on NE retire PAS l'ancien ICI — il est remplacé
@@ -8656,10 +8666,10 @@ ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers,
     generateEuropeanMarketWrap().catch(e => console.error('[EUWrap] auto KO:', e.message));
     setInterval(() => generateEuropeanMarketWrap().catch(e => console.error('[EUWrap] auto KO:', e.message)), 24 * 60 * 60 * 1000);
   }, delay);
-  setTimeout(() => {   // rattrapage démarrage : ≥16:00 Paris et pas de rapport du jour → générer
+  setTimeout(() => {   // rattrapage démarrage : ≥16:00 Paris (génère) OU week-end (purge un wrap week-end résiduel)
     try {
       const paris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-      if (paris.getHours() >= 16) generateEuropeanMarketWrap().catch(() => {});
+      if (paris.getHours() >= 16 || paris.getDay() === 0 || paris.getDay() === 6) generateEuropeanMarketWrap().catch(() => {});
     } catch {}
   }, 90 * 1000);
 })();
