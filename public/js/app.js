@@ -1767,7 +1767,7 @@ function _mdStrip(s) {
     .replace(/\s{2,}/g, ' ')
     .trim();
 }
-function _dtpTitle(s) { return _mdStrip(String(s || '').replace(/\bPMT\b/g, 'DTP').replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim()); }
+function _dtpTitle(s) { return _mdStrip(String(s || '').replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim()); }
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)
 function _renderSnapshot(data) {
