@@ -5512,7 +5512,25 @@ async function _loadAIInsights(item, el) {
     } catch { el.innerHTML = ''; return; }
   }
   {
-    if (!d || !d.insights || !d.insights.length) { el.innerHTML = ''; return; }
+    if (!d || !d.insights || !d.insights.length) {
+      // FILET CLIENT : le serveur n'a renvoyé AUCUN insight (IA vide + secours serveur vide) → on NE VIDE
+      // PAS le panneau. On fabrique des cartes extractives à partir des PUCES du rapport (item.lines) ou, à
+      // défaut, du TEXTE rendu. Ainsi les « AI Insights » ne disparaissent JAMAIS quand il y a du contenu
+      // (corrige les rapports Analyst au panneau vide, quel que soit le format/le quota IA).
+      const _ttl  = String(item.headline || item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+      const _cand = (Array.isArray(item.lines) && item.lines.length) ? item.lines : String(text || '').split(/(?<=[.!?])\s+|\n+/);
+      const _seen = new Set(), _fb = [];
+      for (let s of _cand) {
+        s = String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().replace(/\s*(?:…|\.{2,})\s*$/, '').trim();
+        if (s.length < 26 || !/[a-z]/i.test(s)) continue;
+        const n = s.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+        if (_ttl.length > 10 && n.startsWith(_ttl.slice(0, 40))) continue;   // jamais le titre en 1re carte
+        if (_seen.has(n)) continue; _seen.add(n);
+        _fb.push(s); if (_fb.length >= 8) break;
+      }
+      if (!_fb.length) { el.innerHTML = ''; return; }   // vraiment aucun contenu → on laisse vide
+      d = { insights: _fb.map(t => ({ asset: null, signal: null, text: t })) };
+    }
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     const mdb = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, '');   // échappe PUIS rend **gras** + retire tout astérisque résiduel → jamais d'astérisques brutes
     // Cartes : en-tête optionnel (actif + badge signal BUY/SELL/NEUTRAL), comme DataTradingPro.
