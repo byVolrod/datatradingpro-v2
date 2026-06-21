@@ -7111,7 +7111,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v17-pmt-confluence';   // v17 : MODÈLE PMT — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Lignes Technical/Sentiment RETIRÉES (absentes chez PMT). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v18-panel-tech-seas';   // v17 : MODÈLE PMT — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Lignes Technical/Sentiment RETIRÉES (absentes chez PMT). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -7578,6 +7578,10 @@ async function generateSmartBias(force = false, weekly = false) {
   const retail         = await _sbRetailRow();              // position AFFICHÉE de la foule ; contrarian appliqué dans la CONCLUSION
   const trend          = await _sbTrendRow();
   const seasonality    = await _sbSeasonalityRow();
+  // Technical (force devise 1 j) + Sentiment (régime de risque) : HORS matrice/conclusion (façon PMT, qui
+  // ne les met pas dans la grille) mais AFFICHÉS dans le panneau « Bias Summary » → stockés à part.
+  const technical      = await _sbTechnicalRow();
+  const sentiment      = _sbSentimentRow();
 
   // Bank Overview : biais PAR BANQUE (IA, recherche Institution réelle) → parent = AGRÉGAT des banques.
   let bankStances = {};
@@ -7663,7 +7667,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
       auth.aiCacheSet('smartbias:history', _smartBiasHistory).catch(() => {});
     }
   } catch {}
-  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, narrative, narrativeBias, bankStances, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
+  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
   // Régénération complète → les overrides admin (correctifs ponctuels d'aberrations IA) expirent :
   // la nouvelle matrice repart sur les données fraîches, l'admin ne corrige que si besoin à nouveau.
   try { if (Object.keys(_sbOverrides || {}).length) { _sbOverrides = {}; auth.aiCacheSet('sb:overrides', {}).catch(() => {}); } } catch {}

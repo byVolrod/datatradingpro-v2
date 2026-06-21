@@ -3051,7 +3051,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Sous-titre "Bias Summary" (en haut du volet gauche, façon DTP) */
 .sbs-left-title { font-size: 12px; font-weight: 600; color: #cbd5e1; padding: 4px 14px 9px; }
 /* Ligne Overall (conclusion) — encadrée orange façon DTP, détachée en bas de la liste */
-.sbs-row--overall { margin-top: 12px; padding: 7px 14px; background: rgba(247,148,29,.08); border: 1px solid rgba(247,148,29,.30); border-bottom: 1px solid rgba(247,148,29,.30); border-radius: 3px; }
+.sbs-row--overall { margin: 14px 12px 6px; padding: 9px 11px; background: rgba(247,148,29,.10); border: 2px solid rgba(247,148,29,.32); border-radius: 3px; }   /* « Overall » encadré façon PMT */
 .sbs-row--overall .sbs-row-lbl { color: #fff; font-weight: 600; }
 .sbs-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 8px 12px; scrollbar-width: thin; scrollbar-color: #404040 transparent; }
 .sbs-right::-webkit-scrollbar { width: 7px; }
@@ -3061,22 +3061,28 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbs-split { flex: 0 0 1px; width: 1px; background: #1c1c20; cursor: col-resize; position: relative; }
 .sbs-split::after { content: ''; position: absolute; top: 0; bottom: 0; left: -6px; right: -6px; cursor: col-resize; }   /* zone grabbable */
 .sbs-split:hover, body.is-resizing .sbs-split { background: rgba(255,122,0,0.72); }
-.sbs-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 14px; border-bottom: 1px solid rgba(20,20,22,.6); }   /* compact (py-1) */
+/* Lignes du résumé = PASTILLES encadrées façon PMT (bordure + fond tertiaire + espacement) */
+.sbs-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 11px; margin: 0 12px 6px; border: 1px solid #1c1c20; background: #121214; border-radius: 3px; }
+.sbs-row--child { margin: 0; padding: 4px 14px 4px 30px; border: none; background: transparent; border-radius: 0; }   /* sous-indicateurs : plats + indentés DANS l'accordéon */
 .sbs-row-lbl { font-size: 12px; color: #ffffff; }   /* libellés Bias en BLANC (sous-indicateurs + banques) — demande utilisateur */
 .sbs-acc { cursor: pointer; }
 .sbs-acc:hover { background: #111113; }
 .sbs-acc-arrow { display: inline-block; color: #6b7280; transition: transform .15s; }
 .sbs-acc--open .sbs-acc-arrow { transform: rotate(90deg); }
-.sbs-badge { flex: 0 0 64px; width: 64px; text-align: center; padding: 3px 0; font-size: 10px; font-weight: 700; color: #fff; border-radius: 2px; }
+.sbs-badge { display: inline-block; padding: 3px 10px; text-align: center; font-size: 11px; font-weight: 600; color: #fff; border-radius: 3px; white-space: nowrap; }   /* badge auto-width façon PMT */
 .sbs-badge--na { background: #2a2a30; color: #6b7280; }   /* pas de donnée récente → tiret discret (jamais inventé) */
 .sbs-children { background: #060608; }
 .sbs-child-note { padding: 8px 14px 8px 38px; font-size: 11px; color: #71717a; font-style: italic; }
 .sbs-narr-title { font-size: 14px; font-weight: 600; color: rgb(226, 139, 65); margin-bottom: 12px; display: block; }   /* orange-gold institutionnel (DTP) */
 .sbs-narr { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap; }
 .sbs-narr b { color: #fff; }
-.sbs-risk-title { font-size: 11px; font-weight: 700; color: #f7941d; text-transform: uppercase; letter-spacing: .03em; margin-bottom: 8px; }
-.sbs-risk-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; background: rgba(18,18,20,.4); border: 1px solid rgba(20,20,22,.6); padding: 7px 9px; border-radius: 3px; margin-bottom: 5px; }
-.sbs-risk-day { font-size: 11px; color: #cbd5e1; }
+/* « Key Risk Events for the Week Ahead » façon PMT : titre souligné + jour (largeur fixe) + événements */
+.sbs-risk { margin-top: 22px; }
+.sbs-risk-title { font-size: 13px; font-weight: 500; color: #e5e7eb; padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid #1c1c20; }
+.sbs-risk-list { display: flex; flex-direction: column; gap: 8px; }
+.sbs-risk-row { display: flex; align-items: flex-start; gap: 12px; background: #0c0c0e; border: 1px solid #1c1c20; padding: 10px 12px; }
+.sbs-risk-day { flex: 0 0 80px; font-size: 12px; color: #8a8f98; }
+.sbs-risk-ev { flex: 1 1 auto; min-width: 0; font-size: 12px; color: #e5e7eb; }
 .sbs-risk-imp { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 2px; }
 .sbs-imp--high { background: #991b1b; color: #fff; }
 .sbs-imp--med { background: #b45309; color: #fff; }
