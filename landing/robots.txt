@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
 
+# Pas de blocage : toutes les pages publiques sont indexables.
+
 Sitemap: https://datatradingpro.com/sitemap.xml
