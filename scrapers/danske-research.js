@@ -56,20 +56,25 @@ async function fetchDanskeResearch() {
     });
     const page = await browser.newPage();
     await page.setUserAgent(UA);
-    let best = null;   // on garde la PLUS GROSSE réponse de liste interceptée (research/.../highlights = 50 articles)
+    // La SPA émet PLUSIEURS appels de liste (highlights, latest-research, top-articles, par sous-catégorie) :
+    // on AGRÈGE TOUS les articles interceptés (dédup par articleid) → couverture maximale des derniers rapports.
+    const byId = new Map();
     page.on('response', async (res) => {
       try {
         if (res.url().indexOf('api5.danskebank.com') < 0) return;
         const txt = await res.text();
         const j = JSON.parse(txt);
         const arr = Array.isArray(j) ? j : (j.articles || j.data || []);
-        if (arr.length && arr[0] && arr[0].published_url !== undefined && (!best || arr.length > best.length)) best = arr;
+        if (arr.length && arr[0] && arr[0].published_url !== undefined) {
+          for (const a of arr) { const k = (a && (a.articleid || a.published_url)); if (k && !byId.has(k)) byId.set(k, a); }
+        }
       } catch {}
     });
     await page.goto('https://research.danskebank.com/research/', { waitUntil: 'networkidle2', timeout: 45_000 }).catch(() => {});
-    await new Promise(r => setTimeout(r, 5000));
+    await new Promise(r => setTimeout(r, 6000));
     try { await page.close(); } catch {}
-    if (!best || !best.length) { console.warn('[Danske] aucune liste interceptée (SPA bloquée ?)'); return _cache || []; }
+    const best = [...byId.values()];
+    if (!best.length) { console.warn('[Danske] aucune liste interceptée (SPA bloquée ?)'); return _cache || []; }
 
     const items = [], seen = new Set();
     for (const a of best) {
