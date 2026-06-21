@@ -2998,7 +2998,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-ind-acc:hover { background: #141418; }
 .sbm-acc-arrow { display: inline-block; color: #6b7280; margin-right: 5px; transition: transform .15s; }
 .sbm-acc-arrow.open { transform: rotate(90deg); }
-.sbm-grid td.sbm-ind.sbm-sub { padding-left: 26px; color: #94a3b8; font-weight: 500; background: #08080a; font-size: 10px; }
+.sbm-grid td.sbm-ind.sbm-sub { padding-left: 26px; color: #e5e7eb; font-weight: 500; background: #08080a; font-size: 10px; }   /* sous-indicateurs grille en blanc cassé */
 .sbm-sub-row .sbm-cell { font-size: 10px; }
 
 /* ── Bias Summary Panel (inférieur, redimensionnable) ── */
@@ -3061,7 +3061,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbs-split::after { content: ''; position: absolute; top: 0; bottom: 0; left: -6px; right: -6px; cursor: col-resize; }   /* zone grabbable */
 .sbs-split:hover, body.is-resizing .sbs-split { background: rgba(255,122,0,0.72); }
 .sbs-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 14px; border-bottom: 1px solid rgba(20,20,22,.6); }   /* compact (py-1) */
-.sbs-row-lbl { font-size: 12px; color: #cbd5e1; }
+.sbs-row-lbl { font-size: 12px; color: #ffffff; }   /* libellés Bias en BLANC (sous-indicateurs + banques) — demande utilisateur */
 .sbs-acc { cursor: pointer; }
 .sbs-acc:hover { background: #111113; }
 .sbs-acc-arrow { display: inline-block; color: #6b7280; transition: transform .15s; }
