@@ -3754,6 +3754,8 @@ function _sbOpenSummary(curr) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const rows = d.rows || [];
   const val = key => { const r = rows.find(x => x.key === key || x.label === key); return r ? (r.values[curr] || 'N/A') : null; };
+  // Technical + Sentiment : hors matrice (façon PMT) mais AFFICHÉS dans le panneau (champs serveur séparés).
+  const tval = key => { const o = d[key]; return (o && o[curr]) ? o[curr] : null; };
   const overall = (d.conclusion || {})[curr] || 'N/A';
 
   // Lignes d'indicateurs (volet gauche) — chaque ligne = libellé + badge 64px coloré.
@@ -3770,6 +3772,8 @@ function _sbOpenSummary(curr) {
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
     line('Bank Overview', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
+    line('Technical', tval('technical')),
+    line('Sentiment', tval('sentiment')),
     line('Hedge Fund Positioning', val('hedgeFund')),
     line('Retail Positioning', val('retail')),
     line('Monetary Policy', val('monetary')),
@@ -3795,18 +3799,50 @@ function _sbOpenSummary(curr) {
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} — Performance de la semaine dernière :</div>
           <div class="sbs-narr">${narrative}</div>
+          <div class="sbs-risk" id="sbs-riskevents"></div>
         </div>
       </div>
     </div>`;
   _sbInitSplitter();
   _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
   _sbLoadCal();       // précharge le calendrier → accordéon Fundamental instantané
+  _sbRenderRiskEvents(curr);   // « Key Risk Events for the Week Ahead » (calendrier high/med à venir, façon PMT)
   _sbRenderHeadDd(curr);   // synchronise le dropdown "Scanner" de l'en-tête sur la devise active
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
 window._sbOpenSummary = _sbOpenSummary;
 function _sbCloseSummary() { const w = document.getElementById('sbm-summary'); if (w) w.innerHTML = ''; _sbActiveCur = null; }
 window._sbCloseSummary = _sbCloseSummary;
+
+// « Key Risk Events for the Week Ahead » (façon PMT) — événements calendrier HIGH/MEDIUM À VENIR pour la
+// devise, groupés par jour. Source = /api/calendar-events (déjà chargé par _sbLoadCal). 0 IA, 0 invention.
+function _sbRenderRiskEvents(curr) {
+  const host = document.getElementById('sbs-riskevents');
+  if (!host) return;
+  const DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  _sbLoadCal().then(() => {
+    if (_sbActiveCur !== curr) return;   // l'utilisateur a changé de devise entre-temps
+    const now = Date.now();
+    const evs = (_sbCalEv || [])
+      .filter(e => e && e.currency === curr && (e.impact === 'High' || e.impact === 'Medium')
+        && e.timestamp >= now - 12 * 3600000 && e.timestamp <= now + 8 * 86400000
+        && !/holiday|bank holiday/i.test(e.title || ''))
+      .sort((a, b) => a.timestamp - b.timestamp);
+    if (!evs.length) { host.innerHTML = ''; return; }
+    const byDay = new Map();
+    evs.forEach(e => {
+      const dt = new Date(e.timestamp), k = dt.toISOString().slice(0, 10);
+      if (!byDay.has(k)) byDay.set(k, { day: DAYS[dt.getDay()], titles: [] });
+      const g = byDay.get(k), t = String(e.title || '').replace(/\s+/g, ' ').trim();
+      if (t && g.titles.length < 4 && !g.titles.includes(t)) g.titles.push(t);
+    });
+    const rows = [...byDay.values()].slice(0, 7).map(g =>
+      `<div class="sbs-risk-row"><span class="sbs-risk-day">${esc(g.day)}</span><span class="sbs-risk-ev">${esc(g.titles.join(', '))}</span></div>`).join('');
+    host.innerHTML = `<div class="sbs-risk-title">Key Risk Events for the Week Ahead</div><div class="sbs-risk-list">${rows}</div>`;
+  }).catch(() => { host.innerHTML = ''; });
+}
+window._sbRenderRiskEvents = _sbRenderRiskEvents;
 
 // ── Accordéons : Bank Overview branché sur les VRAIES positions de banques (terminal Institution) ──
 // Le biais de chaque banque sur la devise est DÉRIVÉ de sa position réelle (0 invention, 0 IA) :
