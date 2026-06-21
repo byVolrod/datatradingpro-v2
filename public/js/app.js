@@ -3770,8 +3770,6 @@ function _sbOpenSummary(curr) {
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
     line('Bank Overview', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
-    line('Technical', val('technical')),
-    line('Sentiment', val('sentiment')),
     line('Hedge Fund Positioning', val('hedgeFund')),
     line('Retail Positioning', val('retail')),
     line('Monetary Policy', val('monetary')),
@@ -3886,6 +3884,16 @@ function _sbFundStance(actual, forecast) {
 }
 function _sbRenderFundChildren(box, cur) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  // Source PRIORITAIRE : les 8 sous-indicateurs calculés par le SERVEUR (parent = enfants garanti, même
+  // méthodo PMT). Repli sur le calcul local depuis le calendrier si le serveur ne les fournit pas.
+  const _fr = ((_biasView || _biasData) && (((_biasView || _biasData).rows) || []).find(r => r.key === 'fundamental'));
+  if (_fr && Array.isArray(_fr.subs) && _fr.subs.length) {
+    box.innerHTML = _fr.subs.map(sub => {
+      const st = (sub.values && sub.values[cur]) || 'Neutral';
+      return `<div class="sbs-row sbs-row--child" title="${esc(sub.label)} (${esc(cur)})"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(st)}">${esc(st)}</span></div>`;
+    }).join('');
+    return;
+  }
   const evs = (_sbCalEv || []).filter(e => e && e.currency === cur && e.actual != null && e.actual !== '');
   box.innerHTML = SB_FUND_SUBS.map(sub => {
     const ev = evs.filter(e => sub.re.test(e.title || '')).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
@@ -3918,6 +3926,9 @@ window._sbToggleAcc = _sbToggleAcc;
 // pour Fundamental, positions de banques pour Bank Overview). 0 invention, 0 IA. ──
 function _sbMatEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _sbFundMatrixRows(cur) {
+  // Source PRIORITAIRE : sous-indicateurs du SERVEUR (parent = enfants garanti) ; repli = calcul local calendrier.
+  const _fr = ((_biasView || _biasData) && (((_biasView || _biasData).rows) || []).find(r => r.key === 'fundamental'));
+  if (_fr && Array.isArray(_fr.subs) && _fr.subs.length) return _fr.subs;
   return SB_FUND_SUBS.map(sub => {
     const values = {};
     cur.forEach(c => {
