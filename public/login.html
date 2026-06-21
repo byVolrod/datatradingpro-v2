@@ -58,7 +58,7 @@
       inset: 0;
       overflow: hidden;
       display: flex;
-      gap: 3px;          /* grille DENSE bord à bord (façon PMT) — fini les larges espaces */
+      gap: 3px;          /* grille DENSE bord à bord (façon pro) — fini les larges espaces */
       padding: 0;
       background: #070d14;
     }
@@ -71,7 +71,7 @@
       flex-shrink: 0;
       width: 195px;
       height: 130px;
-      margin-bottom: 3px;   /* serré verticalement (façon PMT) */
+      margin-bottom: 3px;   /* serré verticalement (façon pro) */
     }
 
     .lp-tile-inner {
@@ -87,7 +87,7 @@
       width: 100%;
       height: 100%;
       object-fit: cover;
-      filter: blur(1px);   /* léger flou seulement → images bien visibles, façon PMT */
+      filter: blur(1px);   /* léger flou seulement → images bien visibles, façon pro */
     }
 
     .lp-tile-overlay {
@@ -165,7 +165,7 @@
       display: flex;
       flex-direction: column;
       justify-content: center;
-      align-items: center;            /* formulaire CENTRÉ horizontalement (façon PMT) */
+      align-items: center;            /* formulaire CENTRÉ horizontalement (façon pro) */
       padding: 48px 40px;
       overflow-y: auto;
       border-left: 1px solid #1a1a1a;
@@ -333,7 +333,7 @@
     .lp-btn:disabled { opacity: 0.4; cursor: default; }
 
     /* Contact link */
-    /* Boutons de téléchargement de l'app bureau (clone PMT : icône + Download for / OS) */
+    /* Boutons de téléchargement de l'app bureau (clone pro : icône + Download for / OS) */
     .lp-dl-row { display: flex; gap: 12px; margin-top: 18px; }
     .lp-dl-btn {
       flex: 1; display: flex; align-items: center; justify-content: center; gap: 11px;
@@ -380,7 +380,7 @@
       flex-shrink: 0;
     }
     .lp-lang-select { display: none; }   /* natif masqué, remplacé par le dropdown custom DTP */
-    /* Le dropdown de langue occupe toute la largeur restante (façon PMT) */
+    /* Le dropdown de langue occupe toute la largeur restante (façon pro) */
     .lp-lang-row .dtpsel { flex: 1 1 auto; }
     .lp-lang-row .dtpsel-btn { width: 100%; }
     /* ── Dropdown custom DTP (réutilisable : panneau sombre arrondi, ✓ orange sur l'item sélectionné) ── */
@@ -513,7 +513,7 @@
       </select>
     </div>
 
-    <!-- Application bureau (clone PMT) : 2 boutons de téléchargement Windows / macOS -->
+    <!-- Application bureau (clone pro) : 2 boutons de téléchargement Windows / macOS -->
     <div class="lp-dl-row">
       <a class="lp-dl-btn" href="/downloads/DataTradingPro-Setup.exe" download>
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
@@ -577,7 +577,7 @@
       return col;
     }
 
-    // Grille DENSE façon PMT : on génère TOUJOURS assez de colonnes (largeur + 2 de marge) ET assez
+    // Grille DENSE façon pro : on génère TOUJOURS assez de colonnes (largeur + 2 de marge) ET assez
     // de tuiles par colonne (hauteur + 2 de marge) pour remplir tout le panneau gauche → jamais de vide.
     // Re-généré au redimensionnement : si la fenêtre s'élargit, on re-comble immédiatement.
     const POOL = COL_IMGS.flat();

@@ -2092,7 +2092,7 @@ function buildNewsItem(item) {
       if (item._marketUpdate && item.fullContent) {
         return `<div class="market-update-body">${item.fullContent}</div>`;
       }
-      // ── DTP MARKET WRAP : news VISIBLE (non-primer) façon PMT → bloc LEAD de synthèse en tête
+      // ── DTP MARKET WRAP : news VISIBLE (non-primer) façon pro → bloc LEAD de synthèse en tête
       //    (puces simples, avant le 1er titre), rubriques EN MAJUSCULES → titres orange, reste = puces. ──
       if (item._marketWrap) {
         const bullets = parsePrimerBullets(item.description);
@@ -2226,7 +2226,7 @@ function buildNewsItem(item) {
 
             // Explication Gemini du mouvement (mise en cache → 0 requête à la réouverture)
             const movesStr = data.moves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
-            // Explication = LISTE À PUCES (1 phrase courte par puce, en langue source) — façon PMT.
+            // Explication = LISTE À PUCES (1 phrase courte par puce, en langue source) — façon pro.
             const _applyExplain = val => {
               const arr = Array.isArray(val) ? val : (val ? [String(val)] : []);
               if (!arr.length) return;
@@ -3754,7 +3754,7 @@ function _sbOpenSummary(curr) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const rows = d.rows || [];
   const val = key => { const r = rows.find(x => x.key === key || x.label === key); return r ? (r.values[curr] || 'N/A') : null; };
-  // Technical + Sentiment : hors matrice (façon PMT) mais AFFICHÉS dans le panneau (champs serveur séparés).
+  // Technical + Sentiment : hors matrice (façon pro) mais AFFICHÉS dans le panneau (champs serveur séparés).
   const tval = key => { const o = d[key]; return (o && o[curr]) ? o[curr] : null; };
   const overall = (d.conclusion || {})[curr] || 'N/A';
 
@@ -3806,7 +3806,7 @@ function _sbOpenSummary(curr) {
   _sbInitSplitter();
   _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
   _sbLoadCal();       // précharge le calendrier → accordéon Fundamental instantané
-  _sbRenderRiskEvents(curr);   // « Key Risk Events for the Week Ahead » (calendrier high/med à venir, façon PMT)
+  _sbRenderRiskEvents(curr);   // « Key Risk Events for the Week Ahead » (calendrier high/med à venir, façon pro)
   _sbRenderHeadDd(curr);   // synchronise le dropdown "Scanner" de l'en-tête sur la devise active
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
@@ -3814,7 +3814,7 @@ window._sbOpenSummary = _sbOpenSummary;
 function _sbCloseSummary() { const w = document.getElementById('sbm-summary'); if (w) w.innerHTML = ''; _sbActiveCur = null; }
 window._sbCloseSummary = _sbCloseSummary;
 
-// « Key Risk Events for the Week Ahead » (façon PMT) — événements calendrier HIGH/MEDIUM À VENIR pour la
+// « Key Risk Events for the Week Ahead » (façon pro) — événements calendrier HIGH/MEDIUM À VENIR pour la
 // devise, groupés par jour. Source = /api/calendar-events (déjà chargé par _sbLoadCal). 0 IA, 0 invention.
 function _sbRenderRiskEvents(curr) {
   const host = document.getElementById('sbs-riskevents');
@@ -3827,6 +3827,7 @@ function _sbRenderRiskEvents(curr) {
     const evs = (_sbCalEv || [])
       .filter(e => e && e.currency === curr && (e.impact === 'High' || e.impact === 'Medium')
         && e.timestamp >= now - 12 * 3600000 && e.timestamp <= now + 8 * 86400000
+        && ![0, 6].includes(new Date(e.timestamp).getDay())   // SEMAINE uniquement — pas de samedi/dimanche (marché fermé)
         && !/holiday|bank holiday/i.test(e.title || ''))
       .sort((a, b) => a.timestamp - b.timestamp);
     if (!evs.length) { host.innerHTML = ''; return; }
@@ -3921,7 +3922,7 @@ function _sbFundStance(actual, forecast) {
 function _sbRenderFundChildren(box, cur) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // Source PRIORITAIRE : les 8 sous-indicateurs calculés par le SERVEUR (parent = enfants garanti, même
-  // méthodo PMT). Repli sur le calcul local depuis le calendrier si le serveur ne les fournit pas.
+  // méthodo pro). Repli sur le calcul local depuis le calendrier si le serveur ne les fournit pas.
   const _fr = ((_biasView || _biasData) && (((_biasView || _biasData).rows) || []).find(r => r.key === 'fundamental'));
   if (_fr && Array.isArray(_fr.subs) && _fr.subs.length) {
     box.innerHTML = _fr.subs.map(sub => {
@@ -4223,7 +4224,7 @@ function _updateBankChartPrice(p) {
   }
 }
 
-// Double drapeau rond de la paire (façon PMT) dans l'en-tête du chart
+// Double drapeau rond de la paire (façon pro) dans l'en-tête du chart
 const _BANK_ISO = { USD:'us', EUR:'eu', GBP:'gb', JPY:'jp', CHF:'ch', CAD:'ca', AUD:'au', NZD:'nz', SEK:'se', NOK:'no', DKK:'dk', PLN:'pl', MXN:'mx', ZAR:'za', SGD:'sg', HKD:'hk', TRY:'tr', CNY:'cn', CNH:'cn' };
 function _bankFlagsHtml(pair) {
   const f = c => _BANK_ISO[c] ? `<img class="bank-flag" src="https://flagcdn.com/w20/${_BANK_ISO[c]}.png" srcset="https://flagcdn.com/w40/${_BANK_ISO[c]}.png 2x" alt="" loading="lazy">` : '';
@@ -4324,7 +4325,7 @@ function buildBankChart(p) {
       cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
       cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
 
-      // ── Lignes Entry / Take Profit / Stop Loss + prix LIVE — clone PMT : pilule de NOM collée au
+      // ── Lignes Entry / Take Profit / Stop Loss + prix LIVE — clone pro : pilule de NOM collée au
       // bord droit DU GRAPHE + pilule de VALEUR sur l'axe de prix (façon TradingView). La ligne du
       // prix live (verte, pointillée) bouge ensuite à chaque refresh sans recharger le chart. ──
       const fmtFr = v => v.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -4356,7 +4357,7 @@ function buildBankChart(p) {
       if (p.tp)    mkGuide(p.tp,    'Take Profit', 0x26a69a, [4, 3]);
       if (p.sl)    mkGuide(p.sl,    'Stop Loss',   0xef5350, [4, 3]);
       if (p.currentPrice) {
-        const di = mkGuide(p.currentPrice, '', 0x26a69a, [1, 2]);   // prix live = vert pointillé (PMT)
+        const di = mkGuide(p.currentPrice, '', 0x26a69a, [1, 2]);   // prix live = vert pointillé (la référence)
         _bankLiveGuide = { di, pair: p.pair, dec };
       }
 
@@ -4756,7 +4757,7 @@ async function _brEmbedPdf(item, endpointUrl) {
   return true;
 }
 // Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
-// (jamais un cadre vide ni un message technique). Les AI Insights restent affichés au-dessus, façon PMT.
+// (jamais un cadre vide ni un message technique). Les AI Insights restent affichés au-dessus, façon pro.
 function _brShowExternalCard(item) {
   const content = document.getElementById('br-rcontent'); if (!content) return;
   content.classList.remove('br-rcontent--pdf');
@@ -4837,7 +4838,7 @@ function renderBrReader(item) {
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   if (content) content.classList.remove('br-rcontent--pdf');
 
-  // ── AI Insights (carrousel au-dessus, TOUJOURS — y compris au-dessus d'un PDF, façon PMT) ──
+  // ── AI Insights (carrousel au-dessus, TOUJOURS — y compris au-dessus d'un PDF, façon pro) ──
   let brIns = document.getElementById('br-ai-insights');
   if (!brIns && content) {
     brIns = document.createElement('div');
@@ -5303,7 +5304,7 @@ function getArlibItems() {
     if (av !== bv) return bv - av;
     return b.timestamp - a.timestamp;
   })[0];
-  // …+ UN SEUL FX Daily Recap (le plus récent) — rapport analyste QUOTIDIEN façon PMT, servi par /api/weekly-reports.
+  // …+ UN SEUL FX Daily Recap (le plus récent) — rapport analyste QUOTIDIEN façon pro, servi par /api/weekly-reports.
   const bestFxr = (_weeklyReports || [])
     .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
@@ -5317,7 +5318,7 @@ function getArlibItems() {
     .sort(_arlibReportSort);
 }
 
-// Tri façon PMT (« comme sur l'image ») : STRICT anti-chronologique — le rapport le plus RÉCENT en
+// Tri façon pro (« comme sur l'image ») : STRICT anti-chronologique — le rapport le plus RÉCENT en
 // haut, tous types confondus. EXCEPTION : les 2 rapports hebdo (Weekly Market Recap + Global Economic
 // Weekly) restent COLLÉS — ancrés sur le même timestamp (_wkAnchorTs, le + récent des deux) → jamais
 // séparés par les recaps de session, et ordonnés Weekly Recap puis Global Economic Weekly.
@@ -5334,7 +5335,7 @@ function _arlibReportSort(a, b) {
 
 function arlibItemType(item) {
   if (item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly') return 'weekly';
-  if (item._reportType === 'FX Daily Recap') return 'fxdaily';   // rapport analyste du jour (façon PMT)
+  if (item._reportType === 'FX Daily Recap') return 'fxdaily';   // rapport analyste du jour (façon pro)
   if (item._source === 'ing-think') return 'fxdaily';     // ING Think = FX Daily
   if (item._source === 'investinglive') return 'recap';
   if (item._reportType === 'London Session Recap' || item._reportType === 'US Session Recap') return 'recap';
@@ -5469,7 +5470,7 @@ function renderArlibList() {
     (i.headline || '').toLowerCase().includes(_arlibSearch) ||
     (i.description || '').toLowerCase().includes(_arlibSearch));
 
-  // Pied (français, texte blanc, façon PMT) : « Affichage de N sur M rapports de recherche »
+  // Pied (français, texte blanc, façon pro) : « Affichage de N sur M rapports de recherche »
   const _foot = document.getElementById('arlib-foot');
   if (_foot) _foot.textContent = 'Affichage de ' + items.length + ' sur ' + _total + ' rapport' + (_total > 1 ? 's' : '') + ' de recherche';
 
@@ -5721,7 +5722,7 @@ function _renderWeeklyRecap(item) {
     </div>` : '';
 
   let body = '';
-  const isGew = !!w.gew;   // Global Economic Weekly = « Week Ahead » prospectif (façon PMT)
+  const isGew = !!w.gew;   // Global Economic Weekly = « Week Ahead » prospectif (façon pro)
   // Bloc titre RETIRÉ du corps : le titre reste dans la barre de nav (en haut) et la période dans le
   // créneau date (haut-droite) → le rapport s'ouvre directement sur son contenu, sans titre répété.
   if (isGew) {
@@ -5751,7 +5752,7 @@ function _renderWeeklyRecap(item) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
     }
-    // 1b) APERÇU ÉTATS-UNIS (US Preview façon PMT — deep-dive sur les données US de la semaine)
+    // 1b) APERÇU ÉTATS-UNIS (US Preview façon pro — deep-dive sur les données US de la semaine)
     if (w.usPreview) {
       body += `<div class="wr-section-title">Aperçu États-Unis</div>`;
       body += `<div class="wr-text">${_wrParas(w.usPreview)}</div>`;
@@ -5808,7 +5809,7 @@ function _renderWeeklyRecap(item) {
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
         drivers.forEach(d => {
           body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
-          // v5 : drivers à BULLETS (façon PMT — plusieurs puces par sous-section) ; rétro-compat ancien {detail}.
+          // v5 : drivers à BULLETS (façon pro — plusieurs puces par sous-section) ; rétro-compat ancien {detail}.
           if (Array.isArray(d.bullets) && d.bullets.length) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
           else if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
         });
@@ -5841,7 +5842,7 @@ function _renderWeeklyRecap(item) {
   }
 }
 
-// ═══════════ FX DAILY RECAP — rendu riche (structure Prime Terminal exacte) ═══════════
+// ═══════════ FX DAILY RECAP — rendu riche (structure la référence exacte) ═══════════
 // Executive Summary → Top Headlines → Regional Analysis (cartes pays + sous-sections) → Central Bank
 // Focus → Key Economic Data (table rowspan) → Analyst Comments → Corporate News → Looking Ahead (table).
 function _renderFXDailyRecap(item) {
@@ -6005,7 +6006,7 @@ function _wrLazyCharts(content) {
 
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
-  if (item && item._fxr)    { _renderFXDailyRecap(item); return; }  // ← rendu riche FX Daily Recap (façon PMT)
+  if (item && item._fxr)    { _renderFXDailyRecap(item); return; }  // ← rendu riche FX Daily Recap (façon pro)
   if (item && item._weekly) { _renderWeeklyRecap(item); return; }   // ← rendu riche Weekly Recap
   document.getElementById('arlib-insights-panel')?.remove(); // reset any previous insights
   const titleEl    = document.getElementById('arlib-rnav-title');
@@ -6104,7 +6105,7 @@ function renderArlibReader(item) {
       return prot.split(/(?<=[.!?])\s+(?=[A-Z"'(])/).map(x => x.replace(new RegExp(P, 'g'), '.').trim()).filter(Boolean);
     };
     // Puces : un paragraphe LONG (multi-phrases) est découpé en 1 puce par phrase → « tout en
-    // puces » façon recap PMT (fini les pavés). Les courts gardent leur HTML riche (liens/gras).
+    // puces » façon recap la référence (fini les pavés). Les courts gardent leur HTML riche (liens/gras).
     const _emitBullets = (richHtml, plainText) => {
       const txt = (plainText || '').replace(/\s+/g, ' ').trim();
       const parts = (txt.length > 230) ? _splitSentences(txt) : [txt];
@@ -6176,7 +6177,7 @@ function renderArlibReader(item) {
       } else if ((tag === 'strong' || tag === 'b') && !el.closest('p, li')) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré
-        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon PMT) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les AI Insights
+        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon pro) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les AI Insights
         // ≥2 (et non >3) : « FX », « US », « UK », « EU », « USD »… sont des EN-TÊTES légitimes de 2-3 car.
         // Le seuil >3 faisait DISPARAÎTRE le titre « FX » (2 car) → ses puces se collaient à la rubrique précédente.
         if (t.length >= 2) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
@@ -6211,7 +6212,7 @@ function renderArlibReader(item) {
     // Bloc de TITRE retiré du corps (demande utilisateur) : le titre du rapport est déjà affiché dans
     // la barre de navigation du lecteur (arlib-rnav-title = standardizeReportTitle « London Session
     // Recap: … ») et la date dans la barre de tags → ce bloc arlib-rhead faisait DOUBLON. Le corps
-    // démarre directement sur les puces LEAD (synthèse) façon PMT.
+    // démarre directement sur les puces LEAD (synthèse) façon pro.
     const _header = '';
     content.innerHTML = dtpLoader('Chargement du résumé de session…');
 
@@ -7764,7 +7765,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 //  dégradait l'UX — la vraie protection du code repose sur l'architecture serveur, cf. audit sécurité.)
 
 // ═══════════════════ JOURNAL DE TRADING — privé, persistant PAR COMPTE (KV Supabase) ═══════════════════
-// Bouton topbar (à gauche de la recherche, façon PMT) → vue plein écran. Saisie INLINE (jamais de
+// Bouton topbar (à gauche de la recherche, façon pro) → vue plein écran. Saisie INLINE (jamais de
 // dialog natif), suppression avec confirmation inline, stats calculées sur les données réelles.
 (function () {
   let _jrList = null;        // entrées chargées (null = pas encore fetché)
