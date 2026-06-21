@@ -6590,6 +6590,12 @@ function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine }
 
 async function generateFXDailyRecap(force = false) {
   const dayKey   = _fxrTargetDayKey();
+  // Pas de FX Daily le WEEK-END : la séance forex est fermée le samedi/dimanche → on ne génère AUCUN
+  // rapport pour un jour cible week-end (le dernier, celui du vendredi, reste affiché). La séance qui
+  // ouvre le dimanche soir (Sydney) est de toute façon couverte par le FX Daily du LUNDI. Ce verrou
+  // couvre TOUS les déclencheurs : planif 22:30, auto-génération à l'ouverture de l'onglet, régénération.
+  const _fxDow = (() => { const [y, m, d] = dayKey.split('-').map(Number); return new Date(y, m - 1, d).getDay(); })();
+  if (_fxDow === 0 || _fxDow === 6) { console.log(`[FX Recap] ${dayKey} = week-end → pas de génération`); return null; }
   const idPrefix = 'dtp-fx-recap-' + dayKey;
   const _isCur   = i => i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dayKey;
   if (!force && allNews.some(_isCur)) { console.log(`[FX Recap] déjà généré (v${FXR_VER}) pour ${dayKey}, skip.`); return allNews.find(_isCur) || null; }
