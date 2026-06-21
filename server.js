@@ -6516,6 +6516,9 @@ function _parisDayRange(dayKey) {
 function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   if (p.getHours() < 22) p.setDate(p.getDate() - 1);
+  // Marché forex fermé le WEEK-END → on cible le dernier jour OUVRÉ (vendredi). Évite un « génération en
+  // cours » perpétuel le samedi/dimanche et affiche le dernier recap pertinent (celui du vendredi).
+  while (p.getDay() === 0 || p.getDay() === 6) p.setDate(p.getDate() - 1);
   return `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, '0')}-${String(p.getDate()).padStart(2, '0')}`;
 }
 // Le jour cible ("YYYY-MM-DD" Paris) tombe-t-il un WEEK-END (samedi/dimanche) ?
@@ -6610,12 +6613,13 @@ function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine }
 
 async function generateFXDailyRecap(force = false) {
   const dayKey   = _fxrTargetDayKey();
-  // Pas de FX Daily le WEEK-END : la séance forex est fermée le samedi/dimanche → on ne génère AUCUN
-  // rapport pour un jour cible week-end (le dernier, celui du vendredi, reste affiché). La séance qui
-  // ouvre le dimanche soir (Sydney) est de toute façon couverte par le FX Daily du LUNDI. Ce verrou
-  // couvre TOUS les déclencheurs : planif 22:30, auto-génération à l'ouverture de l'onglet, régénération.
-  const _fxDow = (() => { const [y, m, d] = dayKey.split('-').map(Number); return new Date(y, m - 1, d).getDay(); })();
-  if (_fxDow === 0 || _fxDow === 6) { console.log(`[FX Recap] ${dayKey} = week-end → pas de génération`); return null; }
+  // Pas de (RE)génération les nuits de WEEK-END : la séance forex est fermée le samedi/dimanche, le contexte
+  // news est vide → on garderait le recap du VENDREDI (déjà ciblé par _fxrTargetDayKey, qui recule au dernier
+  // jour ouvré). Ce verrou (basé sur le jour RÉEL, pas le jour cible) empêche le planificateur 22:30 de
+  // régénérer/dégrader vendredi le week-end. La séance qui ouvre dimanche soir (Sydney) est couverte par le
+  // FX Daily du LUNDI. Couvre TOUS les déclencheurs : planif 22:30, auto-génération à l'ouverture, régénération.
+  const _nowDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay();
+  if (_nowDow === 0 || _nowDow === 6) { console.log('[FX Recap] week-end (jour réel) → pas de génération, on garde vendredi'); return null; }
   const idPrefix = 'dtp-fx-recap-' + dayKey;
   const _isCur   = i => i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dayKey;
   if (!force && allNews.some(_isCur)) { console.log(`[FX Recap] déjà généré (v${FXR_VER}) pour ${dayKey}, skip.`); return allNews.find(_isCur) || null; }
