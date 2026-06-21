@@ -7077,7 +7077,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v16-holistic';   // v16 : Overall = jugement HOLISTIQUE IA (pèse TOUTES les données du terminal → conclut direct), matrice = détail ; repli déterministe si overall IA manquant ; indicateur Weekly Recap + audit séparé RETIRÉS (l'IA holistique les remplace) ; + v13c (calendrier TV) + v13 (prompt directionnel) ; bump = régén au boot
+const BIAS_VER = 'v17-pmt-confluence';   // v17 : MODÈLE PMT — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Lignes Technical/Sentiment RETIRÉES (absentes chez PMT). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -7239,6 +7239,101 @@ async function _sbSeasonalityRow() {
     });
   } catch { SB_CURRENCIES.forEach(c => out[c] = 'Neutral'); }
   return out;
+}
+
+// ════════ MODÈLE DE CONFLUENCE PMT (déterministe) ════════
+// Chaque ligne de la matrice est notée depuis sa SOURCE RÉELLE ; la Conclusion = moyenne pondérée des
+// lignes AFFICHÉES (façon PMT) → elle découle TOUJOURS de la matrice (zéro divergence opaque). L'IA ne
+// note QUE Monetary Policy (jugement banque centrale) + les biais par banque (_sbBankStances).
+const _SB_BIAS5 = ['Very Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bearish'];   // échelle des LIGNES (sans « Weak »)
+// Inversion contrarian (Retail) : foule longue → pression baissière dans la conclusion.
+const _SB_FLIP = { 'Very Bullish': 'Very Bearish', 'Bullish': 'Bearish', 'Weak Bullish': 'Weak Bearish', 'Neutral': 'Neutral', 'Range': 'Neutral', 'Weak Bearish': 'Weak Bullish', 'Bearish': 'Bullish', 'Very Bearish': 'Very Bullish' };
+// Agrégat d'une liste de biais → 1 valeur 5 niveaux (parent = enfants). Sert à Fundamental (8 sous-indic.)
+// et Bank Overview (N banques). Seuils alignés sur la charte (très/normal/neutre).
+const _SB_AGG_SC = { 'Very Bullish': 2, 'Bullish': 1, 'Weak Bullish': 0.5, 'Uptrend': 1, 'Neutral': 0, 'Range': 0, 'Weak Bearish': -0.5, 'Bearish': -1, 'Downtrend': -1, 'Very Bearish': -2 };
+function _sbAvgToBias(vals) {
+  let s = 0, n = 0;
+  (vals || []).forEach(v => { if (v != null && _SB_AGG_SC[v] != null) { s += _SB_AGG_SC[v]; n++; } });
+  const a = n ? s / n : 0;
+  return a >= 1.4 ? 'Very Bullish' : a >= 0.35 ? 'Bullish' : a <= -1.4 ? 'Very Bearish' : a <= -0.35 ? 'Bearish' : 'Neutral';
+}
+
+// Hedge Fund Positioning RÉEL = COT CFTC non-commercial (grandes spéculatives). % long des spéculateurs → 5 niveaux. 0 IA.
+async function _sbHedgeRow() {
+  const out = {}; SB_CURRENCIES.forEach(c => out[c] = 'Neutral');
+  try {
+    const cot = await fetchCOTData('noncomm');
+    (Array.isArray(cot) ? cot : []).forEach(r => {
+      if (!r || !SB_CURRENCIES.includes(r.key)) return;
+      const lp = Number(r.longPct);
+      if (!Number.isFinite(lp)) return;
+      out[r.key] = lp >= 62 ? 'Very Bullish' : lp >= 54 ? 'Bullish' : lp <= 38 ? 'Very Bearish' : lp <= 46 ? 'Bearish' : 'Neutral';
+    });
+  } catch (e) { console.warn('[SmartBias] COT (hedge) indispo:', e.message); }
+  return out;
+}
+
+// Retail Positioning RÉEL = position de la FOULE (myfxbook), agrégée par devise via les paires majeures.
+// AFFICHÉE telle quelle (foule longue → "Bullish") ; le caractère CONTRARIAN est appliqué dans la CONCLUSION. 0 IA.
+async function _sbRetailRow() {
+  const out = {}; SB_CURRENCIES.forEach(c => out[c] = 'Neutral');
+  try {
+    const data = await fetchCommunityOutlook('H1');
+    const score = {}, cnt = {}; SB_CURRENCIES.forEach(c => { score[c] = 0; cnt[c] = 0; });
+    (Array.isArray(data) ? data : []).forEach(s => {
+      const sym = String(s.symbol || '').toUpperCase().replace(/[^A-Z]/g, '');
+      if (sym.length !== 6) return;
+      const base = sym.slice(0, 3), quote = sym.slice(3, 6);
+      const lp = Number(s.longPct);
+      if (!Number.isFinite(lp)) return;
+      const lean = lp - 50;   // >0 : foule LONGUE la paire
+      if (SB_CURRENCIES.includes(base))  { score[base]  += lean; cnt[base]++; }
+      if (SB_CURRENCIES.includes(quote)) { score[quote] -= lean; cnt[quote]++; }
+    });
+    SB_CURRENCIES.forEach(c => {
+      const a = cnt[c] ? score[c] / cnt[c] : 0;   // lean net de la foule (points de %)
+      out[c] = a >= 18 ? 'Very Bullish' : a >= 6 ? 'Bullish' : a <= -18 ? 'Very Bearish' : a <= -6 ? 'Bearish' : 'Neutral';
+    });
+  } catch (e) { console.warn('[SmartBias] retail (crowd) indispo:', e.message); }
+  return out;
+}
+
+// Fundamental Data RÉEL = 8 sous-indicateurs PMT dérivés du CALENDRIER (actual vs forecast, beat = haussier).
+// MÊME source + MÊME logique que l'accordéon client. Renvoie {parent, subs} → parent = agrégat des 8 (cohérent). 0 IA.
+const _SB_FUND_SUBS = [
+  { label: 'Economic Growth',     re: /\bGDP\b|gross domestic|economic growth/i },
+  { label: 'Rising Prices',       re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price|pce price|core pce/i },
+  { label: 'Consumer Confidence', re: /consumer confidence|consumer sentiment|michigan|gfk|westpac consumer|anz.*confidence/i },
+  { label: 'Factory Activity',    re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur|tankan|ivey|manufacturing production/i },
+  { label: 'Service Activity',    re: /services? pmi|ism (services|non-manufactur)|tertiary industry/i },
+  { label: 'New Homes Started',   re: /housing starts|new home/i },
+  { label: 'Building Permits',    re: /building permits|building approvals|building consents/i },
+  { label: 'Retail Sales',        re: /retail sales|retail trade/i },
+];
+function _sbFundStanceServer(actual, forecast) {
+  const num = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(x) ? null : x; };
+  const a = num(actual), f = num(forecast);
+  if (a == null || f == null) return null;
+  const thr = Math.abs(f) * 0.001 + 0.0001;
+  return a > f + thr ? 'Bullish' : a < f - thr ? 'Bearish' : 'Neutral';   // beat = surprise haussière de donnée
+}
+async function _sbFundamentalRows() {
+  let cal = [];
+  try { cal = await _buildTVCalendar(); } catch {}
+  try { cal = _calHistMerge(cal && cal.length ? cal : (allCalendar || [])); } catch { if (!cal || !cal.length) cal = allCalendar || []; }
+  const subs = _SB_FUND_SUBS.map(sub => {
+    const values = {};
+    SB_CURRENCIES.forEach(c => {
+      const ev = (cal || [])
+        .filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && sub.re.test(e.title || ''))
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
+      values[c] = ev ? (_sbFundStanceServer(ev.actual, ev.forecast) || 'Neutral') : 'Neutral';
+    });
+    return { label: sub.label, values };
+  });
+  const parent = {};
+  SB_CURRENCIES.forEach(c => { parent[c] = _sbAvgToBias(subs.map(s => s.values[c])); });   // parent = agrégat des 8 enfants
+  return { parent, subs };
 }
 
 // ── Narratif Smart Bias data-driven (réplique du repli client) FIGÉ dans le snapshot → ne change plus en cours de semaine ──
@@ -7441,103 +7536,63 @@ async function generateSmartBias(force = false, weekly = false) {
     recapLine = parts.join('\n').slice(0, 2400);
   } catch (e) { console.warn('[SmartBias] weekly recap indispo:', e.message); }
 
-  const prompt = `You are a senior FX strategist building a "Smart Bias" matrix for the 8 major currencies: ${SB_CURRENCIES.join(', ')}.
-For EACH currency, rate each indicator using EXACTLY one of: "Very Bullish", "Bullish", "Neutral", "Bearish", "Very Bearish".
+  // ── RATING DÉTERMINISTE (data réelle, 0 IA) : Fundamental (calendrier, 8 sous-indicateurs PMT),
+  //    Hedge (COT), Retail (foule myfxbook), Trend (force devise), Seasonality (5 ans). cf. helpers _sb*Row. ──
+  const fundamentalRes = await _sbFundamentalRows();        // {parent, subs} — parent = agrégat des 8 sous-indicateurs
+  const fundamental    = fundamentalRes.parent;
+  const hedgeFund      = await _sbHedgeRow();
+  const retail         = await _sbRetailRow();              // position AFFICHÉE de la foule ; contrarian appliqué dans la CONCLUSION
+  const trend          = await _sbTrendRow();
+  const seasonality    = await _sbSeasonalityRow();
 
-RATING RULE — be DECISIVE and DIRECTIONAL, grounded ONLY in the data below (never fabricate a signal a source does not support):
-- When the data for a currency/indicator carries ANY clear lean — even moderate — COMMIT to "Bullish" or "Bearish". Do NOT default to "Neutral" for a mild but real signal.
-- Use "Very Bullish"/"Very Bearish" when the data is strong or one-sided (large COT net, clear data beats/misses, aligned bank stance, extreme retail crowding).
-- Use "Neutral" ONLY when the data for that currency/indicator is genuinely ABSENT from the sources, or gives DIRECTLY CONFLICTING signals of similar weight.
-This bias must be USEFUL and directional for the week ahead — a wall of "Neutral" is a failure. But rating a direction with NO supporting data in the sources below is also a failure: read the data, then commit.
-
-Map each indicator to its SOURCE (use ONLY that source):
-- fundamental: macro/data momentum → from the CALENDAR DATA below (actual vs forecast: beats → Bullish, misses → Bearish) + the PAST-WEEK HEADLINES.
-- bankOverview: aggregate sell-side bank stance → from the BANK RESEARCH headlines below ONLY (no bank coverage for a currency → Neutral).
-- hedgeFund: large-speculator positioning → from the COT DATA below ONLY (net long → Bullish, net short → Bearish; bigger net = stronger conviction). Currency absent from COT → Neutral.
-- retail: retail crowd positioning (CONTRARIAN) → from the RETAIL SENTIMENT below. Retail heavily LONG a currency (via its pairs) → bias it Bearish; heavily SHORT → Bullish. No retail data for a currency → Neutral.
-- monetary: central-bank policy stance → from CALENDAR central-bank events (rate decisions) + headlines mentioning central banks / officials.
-
-== COT DATA (CFTC non-commercial / large specs — the ONLY source for hedgeFund) ==
-${cotLine || 'n/a'}
-== RECENT BANK RESEARCH headlines (the ONLY source for bankOverview) ==
-${bankLine || 'n/a'}
-== GLOBAL RISK REGIME (context) ==
-${riskLine || 'n/a'}
-== RETAIL SENTIMENT (myfxbook crowd — CONTRARIAN, the ONLY source for retail) ==
-${retailLine || 'n/a'}
-== CALENDAR — high/medium-impact releases, actual vs forecast (source for fundamental & monetary) ==
-${calLine || 'n/a'}
-== PAST-WEEK HEADLINES ==
-${heads || 'n/a'}
-== DTP WEEKLY RECAPS — our OWN synthesis of the elapsed week (price action + per-currency analysis) ==
-${recapLine || 'n/a'}
-
-Then give an "overall" HOLISTIC weekly bias for EACH currency: your single best directional call for the WEEK AHEAD, weighing ALL of the above TOGETHER (DTP weekly recaps / price action + macro data + central banks + positioning + risk regime + headlines). When sources conflict, prioritise what ACTUALLY HAPPENED (recaps/price action) and the macro/policy backdrop OVER raw speculative positioning (COT/retail are secondary). Be decisive — "Neutral" only when genuinely balanced.
-
-Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...all 8...},"bankOverview":{...},"hedgeFund":{...},"retail":{...},"monetary":{...}},"overall":{"USD":"...","EUR":"...", ...all 8 ...}}`;
-
-  let gem = {}, gemOverall = {};
-  let aiOk = false;
-  try {
-    aiNote('bias');
-    const t = await ai.generateText(prompt, 2400);
-    const m = t.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error('No JSON');
-    const _p = JSON.parse(m[0]);
-    gem = _p.rows || {};
-    gemOverall = (_p.overall && typeof _p.overall === 'object') ? _p.overall : {};   // conclusion HOLISTIQUE IA (toutes données)
-    aiOk = Object.keys(gem).length > 0;
-  } catch (e) {
-    console.error('[SmartBias]', e.message);
-  }
-  // IA indisponible (quota / JSON KO) → on NE bloque PLUS la mise à jour (sinon le seed périmé
-  // reste servi avec une vieille date et SANS narratif). On réutilise les dernières valeurs IA
-  // connues (matrice précédente ou seed) pour les 5 lignes IA, MAIS on rafraîchit quand même
-  // Trend + Seasonality (réels) + generatedAt → la date reste à jour et la saisonnalité exacte.
-  if (!aiOk) {
-    console.warn('[SmartBias] IA indispo → on conserve les lignes IA précédentes et on rafraîchit Trend/Seasonality/date');
-    const prevRows = (_smartBias && Array.isArray(_smartBias.rows)) ? _smartBias.rows : [];
-    ['fundamental', 'bankOverview', 'hedgeFund', 'retail', 'monetary'].forEach(k => {
-      const r = prevRows.find(x => x.key === k);
-      gem[k] = (r && r.values) ? r.values : {};
-    });
-    // conserve aussi le dernier Overall holistique connu (sinon on retombe sur le déterministe)
-    if (_smartBias && _smartBias.conclusion) gemOverall = { ..._smartBias.conclusion };
-  }
-
-  const trend = await _sbTrendRow();
-  const seasonality = await _sbSeasonalityRow();   // RÉELLE (saisonnalité 5 ans, cf. _sbSeasonalityRow) — plus de devinette IA
-  const technical = await _sbTechnicalRow();       // force devise 1 jour (court terme)
-  const sentiment = _sbSentimentRow();             // régime de risque mappé par devise
-  // Overall = jugement HOLISTIQUE de l'IA : elle pèse TOUTES les données du terminal (recaps/prix, macro
-  // publiée, banques centrales, positionnement COT/retail, régime de risque, news) et conclut DIRECTEMENT
-  // le biais de chaque devise (demande utilisateur). La matrice d'indicateurs reste affichée pour le DÉTAIL.
-  // Repli DÉTERMINISTE pondéré (lib/bias-calc.js) UNIQUEMENT si l'IA n'a pas renvoyé d'overall valide pour
-  // une devise (IA muette / JSON incomplet). Technical + Sentiment (volatils) restent hors du repli.
-  const SB_W = { fundamental: 2.5, monetary: 1.5, bankOverview: 1, hedgeFund: 1, retail: 1 };
-  const conclusion = {};
+  // Bank Overview : biais PAR BANQUE (IA, recherche Institution réelle) → parent = AGRÉGAT des banques.
+  let bankStances = {};
+  try { bankStances = await _sbBankStances(); } catch {}
+  if (!Object.keys(bankStances).length && _smartBias && _smartBias.bankStances) bankStances = _smartBias.bankStances;
+  const bankOverview = {};
   SB_CURRENCIES.forEach(c => {
-    if (_SB_VALID_BIAS.includes(gemOverall[c])) { conclusion[c] = gemOverall[c]; return; }   // ← jugement IA holistique (prioritaire)
-    const vals = [], wts = [];
-    SB_GEM_ROWS.forEach(r => { vals.push(gem[r.key] ? gem[r.key][c] : null); wts.push(SB_W[r.key] != null ? SB_W[r.key] : 1); });
-    vals.push(trend[c]); wts.push(1);
-    vals.push(seasonality[c]); wts.push(1);
-    conclusion[c] = concludeBias(vals, wts);   // repli si pas d'overall IA
+    const vals = Object.values(bankStances).map(st => (st || {})[c]).filter(v => v && v !== '—');
+    bankOverview[c] = vals.length ? _sbAvgToBias(vals) : 'Neutral';
   });
 
-  // Ordre d'affichage (aligné pro) : Fundamental, Bank Overview, Technical, Sentiment,
-  // Hedge Fund, Retail, Monetary, Trend, Seasonality.
-  const rows = [];
-  const _pushGem = k => { const def = SB_GEM_ROWS.find(r => r.key === k); rows.push({ key: k, label: def.label, values: gem[k] || {} }); };
-  _pushGem('fundamental');
-  _pushGem('bankOverview');
-  rows.push({ key: 'technical', label: 'Technical', values: technical });
-  rows.push({ key: 'sentiment', label: 'Sentiment', values: sentiment });
-  _pushGem('hedgeFund');
-  _pushGem('retail');
-  _pushGem('monetary');
-  rows.push({ key: 'trend', label: 'Trend', values: trend });
-  rows.push({ key: 'seasonality', label: 'Seasonality', values: seasonality });
+  // Monetary Policy : SEUL rating IA (posture banque centrale = jugement). Repli : dernier connu, sinon Neutral.
+  let monetaryAI = {}, aiOk = false;
+  try {
+    aiNote('bias');
+    const mp = `You are an FX strategist. For EACH of the 8 majors (${SB_CURRENCIES.join(', ')}), rate the CURRENT central-bank MONETARY POLICY stance for that currency as EXACTLY one of "Very Bullish","Bullish","Neutral","Bearish","Very Bearish" (hawkish / tightening / hold-with-hawkish-guidance → Bullish ; dovish / cutting / easing-guidance → Bearish). Use ONLY the central-bank events + headlines below ; if a currency's central bank is not clearly covered → "Neutral". Be decisive when there is a clear lean.
+== CALENDAR — central-bank & rate events (actual vs forecast) ==
+${calLine || 'n/a'}
+== PAST-WEEK HEADLINES (central banks / officials) ==
+${heads || 'n/a'}
+Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
+    const t = await ai.generateText(mp, 600);
+    const m = t.match(/\{[\s\S]*\}/);
+    if (m) { const o = JSON.parse(m[0]); SB_CURRENCIES.forEach(c => { if (_SB_BIAS5.includes(o[c])) monetaryAI[c] = o[c]; }); aiOk = Object.keys(monetaryAI).length > 0; }
+  } catch (e) { console.error('[SmartBias monetary]', e.message); }
+  const _prevMon = _smartBias && (_smartBias.rows || []).find(r => r.key === 'monetary');
+  const monetary = {};
+  SB_CURRENCIES.forEach(c => monetary[c] = monetaryAI[c] || (_prevMon && _prevMon.values && _prevMon.values[c]) || 'Neutral');
+
+  // ── CONCLUSION = CONFLUENCE pondérée des lignes AFFICHÉES (façon PMT) → elle DÉCOULE TOUJOURS de la
+  //    matrice (jamais de divergence opaque). Retail = CONTRARIAN (signe inversé via _SB_FLIP). Poids :
+  //    Fundamental prime (1.5), Saisonnalité secondaire (0.5), le reste (Bank, Hedge, Retail, Monetary, Trend) = 1. ──
+  const conclusion = {};
+  SB_CURRENCIES.forEach(c => {
+    const vals = [ fundamental[c], bankOverview[c], hedgeFund[c], (_SB_FLIP[retail[c]] || 'Neutral'), monetary[c], trend[c], seasonality[c] ];
+    const wts  = [ 1.5,            1,               1,            1,                                   1,           1,        0.5            ];
+    conclusion[c] = concludeBias(vals, wts);
+  });
+
+  // Ordre PMT EXACT (sans Technical / Sentiment) : Fundamental, Bank Overview, Hedge Fund, Retail, Monetary, Trend, Seasonality.
+  const rows = [
+    { key: 'fundamental',  label: 'Fundamental Data',       values: fundamental, subs: fundamentalRes.subs },
+    { key: 'bankOverview', label: 'Bank Overview',          values: bankOverview },
+    { key: 'hedgeFund',    label: 'Hedge Fund Positioning', values: hedgeFund },
+    { key: 'retail',       label: 'Retail Positioning',     values: retail },
+    { key: 'monetary',     label: 'Monetary Policy',        values: monetary },
+    { key: 'trend',        label: 'Trend',                  values: trend },
+    { key: 'seasonality',  label: 'Seasonality',            values: seasonality },
+  ];
 
   // Narratif IA hebdo par devise — RÈGLE UTILISATEUR : le texte généré le SAMEDI reste FIXE
   // jusqu'au samedi suivant. On GARDE donc TOUS les narratifs IA réels existants (même si le
@@ -7563,12 +7618,7 @@ Return ONLY valid JSON: {"rows":{"fundamental":{"USD":"Bullish","EUR":"...", ...
       }
     } catch {}
   }
-  // Biais par BANQUE (toutes les banques d'Institution) — recalculé si l'IA est dispo, sinon on
-  // conserve le précédent (le front retombe sur les positions si rien). 0 invention.
-  // On liste TOUJOURS toutes les banques d'Institution (même IA coupée → Neutral, biais réels à la reprise).
-  let bankStances = {};
-  try { bankStances = await _sbBankStances(); } catch {}
-  if (!Object.keys(bankStances).length && _smartBias && _smartBias.bankStances) bankStances = _smartBias.bankStances;
+  // (bankStances déjà calculé plus haut — sert au parent Bank Overview ET à l'accordéon par banque.)
   // Versioning : on archive la semaine sortante (max 5 semaines distinctes) quand on bascule sur une NOUVELLE semaine.
   try {
     if (_smartBias && _smartBias.generatedAt && Array.isArray(_smartBias.rows) && _smartBias.rows.length
