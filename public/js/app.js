@@ -2095,12 +2095,17 @@ function buildNewsItem(item) {
       // ── DTP MARKET WRAP : news VISIBLE (non-primer) façon pro → bloc LEAD de synthèse en tête
       //    (puces simples, avant le 1er titre), rubriques EN MAJUSCULES → titres orange, reste = puces. ──
       if (item._marketWrap) {
-        const bullets = parsePrimerBullets(item.description);
-        const html = bullets.map((line) => {
-          if (_isSectionHead(line)) return `<li class="rpt-section-head">${line}</li>`;
-          return `<li class="primer-bullet">${_reportLead(line)}</li>`;
+        // MÊME format que les autres descriptions (analyse d'événement) : liste à PUCES + titres/sous-titres
+        // en GRAS (.ip-head), PAS de titres orange. Sections (EQUITIES, FX…) = sous-titres gras ; chaque ligne
+        // = puce avec son lead en gras (_reportLead).
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const lines = String(item.description || '').split(/\n+/).map(l => l.replace(/^[-•·]\s*/, '').trim()).filter(Boolean);
+        const html = lines.map(t => {
+          const isHead = _isSectionHead(t) || (t.length <= 46 && /:$/.test(t) && !/[.!?]/.test(t.slice(0, -1)));
+          if (isHead) return `<li class="ip-head">${esc(t.replace(/\s*:\s*$/, ''))}</li>`;
+          return `<li>${_reportLead(t)}</li>`;
         }).join('');
-        return `<ul class="primer-bullets">${html}</ul>`;
+        return `<ul class="article-points article-points--clean">${html}</ul>`;
       }
       // ── ANALYSE D'ÉVÉNEMENT (FOMC/BCE/NFP/CPI…) : MÊME format que les autres news → puces +
       //    sous-titres en GRAS (pas de titres orange/encadrés). Gère le nouveau format « Titre : »
