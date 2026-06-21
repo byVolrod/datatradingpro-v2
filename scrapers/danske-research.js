@@ -79,11 +79,11 @@ async function fetchDanskeResearch() {
     const items = [], seen = new Set();
     for (const a of best) {
       if (!a || !a.published_url || !/\.pdf(\?|$)/i.test(a.published_url)) continue;   // ignore webinaires/sans PDF
-      if (a.language && String(a.language).toUpperCase() !== 'EN') continue;            // ANGLAIS uniquement (façon PMT ; pas de DA/SV/FI/NO)
+      if (a.language && String(a.language).toUpperCase() !== 'EN') continue;            // ANGLAIS uniquement (façon pro ; pas de DA/SV/FI/NO)
       const pdf = String(a.published_url).replace(/ /g, '%20');                         // espaces → %20 (proxy OK)
       if (seen.has(pdf)) continue; seen.add(pdf);
       const cat   = (a.categoryInfo && a.categoryInfo[0]) || {};
-      const title = String(a.title || '').replace(/\s+-\s+/, ' | ').replace(/\s+/g, ' ').trim();   // « X - Y » → « X | Y » (façon PMT)
+      const title = String(a.title || '').replace(/\s+-\s+/, ' | ').replace(/\s+/g, ' ').trim();   // « X - Y » → « X | Y » (façon pro)
       if (!title) continue;
       items.push({
         articleid: a.articleid || '', title, pdfUrl: pdf, ts: _date(a),

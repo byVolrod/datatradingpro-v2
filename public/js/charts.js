@@ -593,7 +593,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     am5xy.XYChart.new(root, {
       paddingLeft: 0, paddingRight: 2, paddingTop: 4, paddingBottom: 3,
       layout: root.verticalLayout,
-      // Façon PMT : on GLISSE le graphe (drag) pour remonter l'historique. wheelY 'none' →
+      // Façon la référence : on GLISSE le graphe (drag) pour remonter l'historique. wheelY 'none' →
       // la molette continue de scroller la page ; pinch zoom au doigt sur mobile.
       panX: true, panY: false, wheelX: 'panX', wheelY: 'none', pinchZoomX: true,
     })
@@ -703,9 +703,9 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: dim ? 1.0 : 1.4, strokeOpacity: dim ? 0 : 1 });   // traits FINS (façon PMT) → micro-mouvements visibles ; isolé : autres devises masquées
+    series.strokes.template.setAll({ strokeWidth: dim ? 1.0 : 1.4, strokeOpacity: dim ? 0 : 1 });   // traits FINS (façon pro) → micro-mouvements visibles ; isolé : autres devises masquées
     // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) → courbe nerveuse/dentelée
-    // façon PMT au lieu d'arrondie. La densité vient des bougies 5 m côté serveur (_computeStrengthFresh).
+    // façon pro au lieu d'arrondie. La densité vient des bougies 5 m côté serveur (_computeStrengthFresh).
     const cleanPts = pts;
     series.data.setAll(cleanPts);
 
@@ -839,13 +839,13 @@ function buildStrengthChart(containerId, data, opts = {}) {
     setTimeout(declutter, 60);   // recalibrer l'anti-collision après mise à jour
   }
 
-  // Étirement vertical de l'axe Y au glisser (façon TradingView/PMT) sur la gouttière droite
+  // Étirement vertical de l'axe Y au glisser (façon TradingView/la référence) sur la gouttière droite
   _attachYAxisDragZoom(container, yAxis, 70);
 
   return { root, seriesMap, update };
 }
 
-// ── Étirement vertical de l'axe Y au DRAG (façon TradingView / PMT) ───────────
+// ── Étirement vertical de l'axe Y au DRAG (façon TradingView / la référence) ───────────
 // On superpose une fine bande transparente sur la gouttière de l'axe Y (à DROITE,
 // car renderer opposite:true). Un glisser vertical y zoome l'axe des valeurs :
 //   HAUT  → on étire (zoom in) → les courbes montent/descendent davantage,
@@ -1608,13 +1608,13 @@ function buildDMXChart(forceRefresh = false) {
     });
 }
 
-// ═══════════════════ SEASONALITY — table de performance mensuelle (façon PMT) ═══════════════════
+// ═══════════════════ SEASONALITY — table de performance mensuelle (façon pro) ═══════════════════
 // 28 paires FX (mêmes que Currency Strength). Défaut EUR/USD, sinon la dernière paire consultée (persistée
 // PAR COMPTE via /api/season-pair). Données = /api/seasonality (Yahoo : rendement mensuel × 5 ans + moyenne).
 const _SEASON_PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','NZDUSD','USDCAD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPCAD','GBPNZD','AUDJPY','NZDJPY','CADJPY','CHFJPY','AUDNZD','AUDCAD','AUDCHF','NZDCAD','NZDCHF','CADCHF'];
 let _seasonPair = null;   // paire courante (chargée 1×/session depuis le compte)
 function _seasonFmtPair(c){ return (c && c.length === 6) ? c.slice(0,3) + '/' + c.slice(3) : c; }
-// Heatmap : vert (positif) / rouge (négatif), intensité ∝ |valeur| (plafonnée ~4 %) — façon PMT.
+// Heatmap : vert (positif) / rouge (négatif), intensité ∝ |valeur| (plafonnée ~4 %) — façon pro.
 function _seasonCellBg(v){
   if (v == null) return 'transparent';
   const a = Math.max(0.12, Math.min(0.92, Math.abs(v) / 4));
@@ -1663,7 +1663,7 @@ function buildSeasonalityChart(){
     .catch(() => { if (want === _seasonPair) wrap.innerHTML = '<div class="dmx-loading">Erreur de chargement<br><button onclick="buildSeasonalityChart()" style="margin-top:8px;background:#1c1c1f;border:1px solid #2a2f3a;color:#f7941d;padding:4px 12px;border-radius:6px;cursor:pointer">Réessayer</button></div>'; });
 }
 
-// ═══ Seasonality Performance Table Settings — fenêtre multi-classes (façon PMT) ═══
+// ═══ Seasonality Performance Table Settings — fenêtre multi-classes (façon pro) ═══
 // Engrenage (tooltip « Settings ») → fenêtre : Asset Class (Forex/Stocks/Commodities/Indices) + grille
 // de symboles cliquable (drapeaux pour le forex). Le choix appelle _seasonPick (persiste par compte).
 let _seasonCatalog = null, _seasonLabelById = {}, _seasonCfgClass = 'forex';
@@ -1934,7 +1934,7 @@ function buildSessionMap() {
       centerX: am5.percent(50), centerY: am5.percent(50),
       oversizedBehavior: 'none',
     }));
-    // Petite flèche orange sous l'étiquette, pointant vers le bas (vers le trait) — façon PMT.
+    // Petite flèche orange sous l'étiquette, pointant vers le bas (vers le trait) — façon pro.
     // Caractère « ▼ » (Label) plutôt qu'am5.Triangle (qui faisait planter le rendu).
     cont.children.push(am5.Label.new(r, {
       text: '▼', fill: am5.color(0xf79400),
@@ -1948,13 +1948,13 @@ function buildSessionMap() {
   function refreshUTCLine(now) {
     const h = now.getUTCHours() + now.getUTCMinutes() / 60;
     const lon = (h - 12) * 15;
-    // Étiquette du trait « now » = HEURE LOCALE courante HH:MM (comme PMT : « 22:14 »), pas un countdown.
+    // Étiquette du trait « now » = HEURE LOCALE courante HH:MM (comme la référence : « 22:14 »), pas un countdown.
     const cd = now.toLocaleTimeString('en-GB', { hour12: false, hour: '2-digit', minute: '2-digit' });
     if (_utcLabel) _utcLabel.set('text', cd);
     if (_lastUTCLineLon === null || Math.abs(lon - _lastUTCLineLon) >= 0.25) {
       _lastUTCLineLon = lon;
       utcLineSeries.data.setAll([{ geometry: { type: 'LineString', coordinates: [[lon, 84], [lon, -58]] } }]);   // dans l'étendue des terres → n'élargit PAS les bornes (le trait fin est OK, contrairement au voile de nuit)
-      utcLabelSeries.data.setAll([{ geometry: { type: 'Point', coordinates: [lon, 80] } }]);   // badge heure calé tout en HAUT du trait (façon PMT)
+      utcLabelSeries.data.setAll([{ geometry: { type: 'Point', coordinates: [lon, 80] } }]);   // badge heure calé tout en HAUT du trait (façon pro)
     }
   }
 
@@ -2189,7 +2189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ── Carte « Interest Rate Probability » — CLONE PMT, partagée entre l'onglet TAUX et la vue paire ──
+  // ── Carte « Interest Rate Probability » — clone fidèle, partagée entre l'onglet TAUX et la vue paire ──
   // Terminologie financière EN d'origine (Next Move/Probability/Expected Δ/Current Rate/Meeting Date,
   // Scenario Distribution, Cut/Hold/Hike, Implied Δ (BPS), Base Case). Sparklines data-driven en fond.
   const _RTC_EN = { USD: 'Federal Reserve (OIS)', EUR: 'European Central Bank', GBP: 'Bank of England', JPY: 'Bank of Japan', CHF: 'Swiss National Bank', CAD: 'Bank of Canada', AUD: 'Reserve Bank of Australia', NZD: 'Reserve Bank of New Zealand' };
@@ -2199,7 +2199,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const num = (v, dec) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
     const pct = v => num(v, 2) + '%';
     const bps = v => (v > 0 ? '+' : '') + num(v, 2) + ' bps';
-    // Mini-courbes décoratives PMT, une PAR cellule, calées bas-droite derrière le texte.
+    // Mini-courbes décoratives la référence, une PAR cellule, calées bas-droite derrière le texte.
     // Tracés en COURBES DE BÉZIER lissées (fini les dents de scie anguleuses) + dégradé sous la
     // ligne qui s'estompe vers le bas : ondulée grise (neutre/Hold), montante verte (Hike/Δ+),
     // descendante rouge (Cut/Δ−).
@@ -2222,7 +2222,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const mvSpk  = b.move === 'HIKE' ? 'up' : (b.move === 'CUT' ? 'down' : 'wavy');
     const expSpk = b.expBps > 0 ? 'up' : (b.expBps < 0 ? 'down' : 'wavy');
     const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
-    // Scenario Distribution : uniquement les scénarios > 0, triés décroissant (PMT n'affiche pas les lignes vides)
+    // Scenario Distribution : uniquement les scénarios > 0, triés décroissant (la référence n'affiche pas les lignes vides)
     const scen = [['Hold', sc.hold, 'n'], ['Hike', sc.hike, 'g'], ['Cut', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
     const scRows = (scen.length ? scen : [['Hold', 0, 'n']]).map(s =>
       '<div class="rtc-bar"><span class="rtc-bl">' + s[0] + '</span><span class="rtc-track"><i class="' + s[2] + '" style="width:' + Math.max(0.6, s[1]) + '%"></i></span><span class="rtc-bp">' + pct(s[1]) + '</span></div>').join('');
@@ -2519,7 +2519,7 @@ function _fxlFlag(ccy) {
   return `<img src="https://flagcdn.com/w40/${iso}.png" alt="${ccy}" class="fxl-flag" loading="lazy">`;
 }
 
-// DMX — donut radial bicolore segmenté : part verte = flux haussiers, reste rouge (couleurs PMT exactes)
+// DMX — donut radial bicolore segmenté : part verte = flux haussiers, reste rouge (couleurs la référence exactes)
 function _fxlDonut(pct) {
   const v = Math.max(0, Math.min(100, pct ?? 50));
   const r = 7, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
@@ -3501,7 +3501,7 @@ window._retryCalendar = function() {
   function renderCb(pair, ccys) {
     const hostEl = document.getElementById('sym-sub-cb'); if (!hostEl) return;
     hostEl.innerHTML = '<div class="sym-load">Chargement du pricing banques centrales…</div>';
-    const card = _rtcCard;   // même carte « Interest Rate Probability » que l'onglet TAUX (clone PMT, une seule source de vérité)
+    const card = _rtcCard;   // même carte « Interest Rate Probability » que l'onglet TAUX (clone pro, une seule source de vérité)
     const go = d => {
       const banks = (d && d.banks) || [];
       const sel = ccys.map(c => banks.find(b => b.code === c)).filter(Boolean);

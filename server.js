@@ -2388,7 +2388,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 6;   // v6 = puces à LEAD GRAS conservé (**sous-thème :**) façon PMT (drivers + macro) ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 6;   // v6 = puces à LEAD GRAS conservé (**sous-thème :**) façon pro (drivers + macro) ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -2466,7 +2466,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
       generateWeeklyMarketRecap(true).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
     }
   }
-  // Global Economic Weekly RICHE (Week Ahead façon PMT) : même logique d'auto-génération si absent.
+  // Global Economic Weekly RICHE (Week Ahead façon pro) : même logique d'auto-génération si absent.
   // v>=GEW_VER exigé → un GEW d'ANCIEN format (sans horaires multi-fuseaux ni commentaires) est
   // considéré périmé et régénéré automatiquement au format courant.
   const gewCurrent = items.find(i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && (i._weekly.v || 0) >= GEW_VER && Array.isArray(i._weekly.days) && i._weekly.days.length);
@@ -3197,7 +3197,7 @@ function _aiInflight(key, fn) {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v7:';   // bump → régénère (v7 : section FX DÉTAILLÉE façon PMT — phrases analytiques par devise + driver éco/macro)
+const SW_SEG_VER  = 'v7:';   // bump → régénère (v7 : section FX DÉTAILLÉE façon pro — phrases analytiques par devise + driver éco/macro)
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -3349,8 +3349,8 @@ Produis un rapport PROPRE et PROFESSIONNEL façon DataTradingPro (ton d'analyste
 - 🧭 RUBRIQUE « LEAD » EN TÊTE (obligatoire) : commence TOUJOURS le rapport par une rubrique \`LEAD\` = 3 à 4 puces de SYNTHÈSE de la séance (les mouvements clés, décisions/commentaires de banques centrales, données majeures, et « à surveiller » à venir), rédigées UNIQUEMENT à partir des points ci-dessous (ne JAMAIS inventer de fait, ni de chiffre). C'est l'intro narrative qui résume la séance AVANT les rubriques détaillées (EQUITIES, FX, …) — comme l'accroche d'une note de desk.
 - Détecte les en-têtes RÉELLEMENT présents (ex: "IRAN CONFLICT", "EUROPEAN TRADE: EQUITIES", "FX", "FIXED INCOME", "COMMODITIES", "TRADE/TARIFFS", "CENTRAL BANKS", "NOTABLE US HEADLINES", "GEOPOLITICS: RUSSIA-UKRAINE", "CRYPTO", "APAC TRADE", "NOTABLE ASIA-PAC HEADLINES", etc.) et garde-les EXACTEMENT tels quels (ne traduis pas, ne renomme pas).
 - ⚠️ Si le rapport est surtout une LISTE PLATE de titres sous un en-tête générique ("HEADLINES", "NEWS"…), NE laisse PAS tout sous "HEADLINES" : RÉPARTIS chaque puce sous la rubrique adaptée à SON sujet (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, ENERGY, TRADE/TARIFFS, CRYPTO…). Regroupe les puces par thème, dans un ordre logique. C'est la règle CLÉ : un récap doit toujours être catégorisé, jamais un simple tas de titres.
-- 💱 RUBRIQUE « FX » GARANTIE & DÉTAILLÉE (obligatoire, façon Prime Terminal) : produis TOUJOURS une rubrique \`FX\` regroupant TOUT ce qui touche aux DEVISES (dollar/DXY, EUR, JPY, GBP, AUD/NZD, CAD, CHF, CNY, paires, interventions/verbal, flux, et le commentaire des banques centrales SOUS L'ANGLE FX). Rédige-la en phrases ANALYTIQUES de note de desk : couvre DXY EN PREMIER, puis CHAQUE devise majeure qui a bougé (EUR, JPY, GBP, AUD…), en EXPLIQUANT le mouvement ET SON DRIVER tel qu'indiqué dans la source — à quelle ANNONCE ÉCONOMIQUE / décision de banque centrale / actualité MACRO la réaction est liée. ⚠️ EXCEPTION à la règle des puces courtes : ICI des phrases plus longues et explicatives (2 à 4 par devise, comme PMT) sont ATTENDUES — JAMAIS des puces génériques type « L'EUR a surperformé sur la séance ». (Sans rien inventer : si la source ne donne pas le driver d'un mouvement, énonce le mouvement sans inventer de cause.) Si vraiment aucune info FX, mets UNE seule puce « Activité FX limitée sur la séance ».
-- Privilégie les RUBRIQUES CANONIQUES façon Prime Terminal et place-les dans CET ordre : LEAD (l'intro/synthèse) D'ABORD, puis EQUITIES, FX, FIXED INCOME, COMMODITIES — puis CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, et le reste (CRYPTO, TRADE/TARIFFS, headlines divers…) ensuite.
+- 💱 RUBRIQUE « FX » GARANTIE & DÉTAILLÉE (obligatoire, façon la référence) : produis TOUJOURS une rubrique \`FX\` regroupant TOUT ce qui touche aux DEVISES (dollar/DXY, EUR, JPY, GBP, AUD/NZD, CAD, CHF, CNY, paires, interventions/verbal, flux, et le commentaire des banques centrales SOUS L'ANGLE FX). Rédige-la en phrases ANALYTIQUES de note de desk : couvre DXY EN PREMIER, puis CHAQUE devise majeure qui a bougé (EUR, JPY, GBP, AUD…), en EXPLIQUANT le mouvement ET SON DRIVER tel qu'indiqué dans la source — à quelle ANNONCE ÉCONOMIQUE / décision de banque centrale / actualité MACRO la réaction est liée. ⚠️ EXCEPTION à la règle des puces courtes : ICI des phrases plus longues et explicatives (2 à 4 par devise, comme la référence) sont ATTENDUES — JAMAIS des puces génériques type « L'EUR a surperformé sur la séance ». (Sans rien inventer : si la source ne donne pas le driver d'un mouvement, énonce le mouvement sans inventer de cause.) Si vraiment aucune info FX, mets UNE seule puce « Activité FX limitée sur la séance ».
+- Privilégie les RUBRIQUES CANONIQUES façon la référence et place-les dans CET ordre : LEAD (l'intro/synthèse) D'ABORD, puis EQUITIES, FX, FIXED INCOME, COMMODITIES — puis CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, et le reste (CRYPTO, TRADE/TARIFFS, headlines divers…) ensuite.
 - Sous chaque en-tête, PEAUFINE/REFORMULE les puces en phrases claires, concises et professionnelles : corrige la grammaire, supprime les fragments, répétitions et le cruft, fais des phrases complètes qui se lisent comme un vrai récap d'analyste (pas un copier-coller brut).
 RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres, niveaux/prix, pourcentages, paires/tickers, noms, citations, dates, événements. N'INVENTE RIEN. Tu améliores UNIQUEMENT la formulation et la clarté, jamais le contenu factuel.
 - Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel/hors-sujet ("...at investingLive.com", etc.).
@@ -3726,7 +3726,7 @@ function _cleanSebText(heading, text) {
 async function _fetchSebInto(merged, cutoff, UA) {
   // UNE requête SANS filtre assetclass → couvre TOUTES les classes (FX, Macro, Central Banks, Fixed Income,
   // Commodities…) ET les rapports SANS classe (DGB auctions, alertes Iran) que la boucle 3-classes ratait
-  // (DTP avait 53 SEB vs ~100 sur PMT). language=English garde les titres anglais ; le filtre nordique écarte le résiduel suédois.
+  // (DTP avait 53 SEB vs ~100 sur la référence). language=English garde les titres anglais ; le filtre nordique écarte le résiduel suédois.
   {
     try {
       const url = `https://research.sebgroup.com/mapi/v2/reports?nbrows=80&language=English&ingress=2000`;
@@ -4904,7 +4904,7 @@ function _fallbackInsights(text, title, lines) {
   return parts.map(_insCard);
 }
 // ── Détection ACTIF + DIRECTION d'une phrase (0 token) — badges BUY/SELL/NEUTRAL même sans IA ──
-// Clone PMT : chaque carte qui cite un actif (paire FX, devise, indice, or, pétrole…) reçoit son
+// clone fidèle : chaque carte qui cite un actif (paire FX, devise, indice, or, pétrole…) reçoit son
 // badge selon la direction décrite par le rapport ; sinon carte narrative sans badge.
 const _INS_ASSET_RES = [
   [/\b([A-Z]{3}\/[A-Z]{3})\b/, m => m[1].toUpperCase()],
@@ -4927,8 +4927,8 @@ function _insCard(s) {
   const signal = up && !dn ? 'BUY' : (dn && !up ? 'SELL' : 'NEUTRAL');
   return { asset, signal, text: s };
 }
-// ── Cartes COURTES + sans doublon (façon PMT) ────────────────────────────────
-// PMT = 1 phrase concise par carte, 1 carte par actif. On applique à TOUTES les
+// ── Cartes COURTES + sans doublon (façon pro) ────────────────────────────────
+// la référence = 1 phrase concise par carte, 1 carte par actif. On applique à TOUTES les
 // sources (IA, secours extractif, cache) → fini les pavés et les doublons d'actif.
 function _shortInsight(s) {
   s = String(s || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
@@ -4948,11 +4948,11 @@ function _finalizeInsights(arr) {
     const tk = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 48);
     if (tk && seenText.has(tk)) continue;                      // texte (quasi) identique → doublon
     const a = String(o.asset || '').toUpperCase();
-    if (a && seenAsset.has(a)) continue;                       // un SEUL insight par actif (façon PMT)
+    if (a && seenAsset.has(a)) continue;                       // un SEUL insight par actif (façon pro)
     if (a) seenAsset.add(a);
     if (tk) seenText.add(tk);
     out.push({ asset: o.asset || null, signal: o.signal || null, text });
-    if (out.length >= 10) break;                               // PMT en montre ~10
+    if (out.length >= 10) break;                               // la référence en montre ~10
   }
   return out;
 }
@@ -5951,10 +5951,10 @@ async function generateLondonOpeningBriefing(force = false, dateOffset = 0) {
 async function generateDailyMarketRecap(force = false, dateOffset = 0) {
   return generateDailyBriefing({ idPrefix: 'dtp-daily-recap-', reportType: 'Daily Market Recap', cutoffHours: 24, force, buildFn: buildDailyMarketRecap, dateOffset });
 }
-// ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon PMT (distinct du Weekly Recap rétrospectif) :
+// ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon pro (distinct du Weekly Recap rétrospectif) :
 // AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
 // JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
-const GEW_VER = 5;   // v5 = + section « Aperçu États-Unis » (US Preview, deep-dive données US façon PMT) ; v4 = horaire clair Paris+GMT — bump = régén auto
+const GEW_VER = 5;   // v5 = + section « Aperçu États-Unis » (US Preview, deep-dive données US façon pro) ; v4 = horaire clair Paris+GMT — bump = régén auto
 // Heure d'un événement, LISIBLE pour un utilisateur français : heure de PARIS (sa référence) + GMT.
 // 100% calculé depuis le timestamp (zéro IA). Ex. « mar. 03:00 (Paris) · 02:00 GMT ».
 function _gewTimes(ts /* , ccy (ignoré) */) {
@@ -6027,7 +6027,7 @@ async function generateGlobalEconomicWeekly(force = false) {
   // Événements PHARES (High) pour le titre + le narratif Highlights
   const marquee = evClean.filter(e => e.impact === 'High')
     .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${e.forecast ? ` (consensus ${e.forecast}, prev ${e.previous || '—'})` : ''}`);
-  // Données US de la semaine (High+Med) → grounding de la section « US Preview » (façon PMT).
+  // Données US de la semaine (High+Med) → grounding de la section « US Preview » (façon pro).
   const usEvents = evClean.filter(e => e.currency === 'USD')
     .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${e.title}${e.forecast ? ` (consensus ${e.forecast}, prev ${e.previous || '—'})` : ''}`);
   const recentCtx = _recapClean(allNews.filter(i => i.timestamp > now - 7 * 86400000 && !i._briefing))
@@ -6039,7 +6039,7 @@ async function generateGlobalEconomicWeekly(force = false) {
     const prompt = `You are a senior macro strategist writing the WEEK AHEAD preview ("Global Economic Weekly") for a professional FX & markets desk (depth comparable to a top-tier bank's week-ahead note). The COMING trading week (Monday–Friday) is defined by the scheduled HIGH-IMPACT events below. Write ALL output text IN FRENCH (français soigné), polished, specific and FORWARD-LOOKING — keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
 {
   "title": "Global Economic Weekly: <titre accrocheur EN FRANÇAIS nommant les 2-3 thèmes phares, ex. 'Fed, inflation et banques centrales : une semaine à hauts risques pour les marchés'>",
-  "highlights": "<a RICH editorial of 4 to 5 substantial paragraphs (~400-600 words), in the style of a Prime-Terminal 'Week Ahead: Highlights' note — the GLOBAL & REGIONAL overview (Asia-Pacific, China, Europe, central banks OUTSIDE the US). Lead with the single biggest market-moving event of the week (often a central-bank decision): what consensus expects and the exact level/move, the policy dilemma, named officials and their leanings, the data backdrop, the schedule, and the implications across FX, rates and equities. Then cover the other regional marquee events. Weave in the RELEVANT outcomes of the PAST week as context that sets up the week ahead (e.g. 'après le statu quo de la RBA cette semaine…'). Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
+  "highlights": "<a RICH editorial of 4 to 5 substantial paragraphs (~400-600 words), in the style of a institutionnel 'Week Ahead: Highlights' note — the GLOBAL & REGIONAL overview (Asia-Pacific, China, Europe, central banks OUTSIDE the US). Lead with the single biggest market-moving event of the week (often a central-bank decision): what consensus expects and the exact level/move, the policy dilemma, named officials and their leanings, the data backdrop, the schedule, and the implications across FX, rates and equities. Then cover the other regional marquee events. Weave in the RELEVANT outcomes of the PAST week as context that sets up the week ahead (e.g. 'après le statu quo de la RBA cette semaine…'). Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
   "usPreview": "<a dedicated 'US Preview' deep-dive of 3 to 4 substantial paragraphs, focused EXCLUSIVELY on the week's key US ECONOMIC RELEASES (PCE deflator, personal income & spending, GDP, jobless claims, durable goods, flash PMIs, consumer sentiment…). Identify the standout US report of the week, explain what consensus expects versus the previous reading and the underlying story (revenus vs dépenses, tendance de l'inflation sous-jacente/core, dynamique de croissance), give the schedule, and spell out the implications for the US dollar, Treasury yields and US equities. Full finished paragraphs separated by \\n\\n. If there are NO US releases this week, write a single short paragraph stating the US calendar is light.>",
   "insights": ["<forward-looking standalone insight, 1 sentence>", "... 5 to 6 cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: directional view for the WEEK AHEAD given the scheduled events>" } ]
@@ -6064,7 +6064,7 @@ ${recentCtx.join('\n')}`;
         title = _stripMd(String(parsed.title || title));   // jamais de markdown brut dans le titre
         if (!/global economic weekly/i.test(title)) title = 'Global Economic Weekly: ' + title.replace(/^global economic weekly:?\s*/i, '');
         highlights = _stripMd(String(parsed.highlights || ''));
-        usPreview = _stripMd(String(parsed.usPreview || ''));   // deep-dive données US (US Preview façon PMT)
+        usPreview = _stripMd(String(parsed.usPreview || ''));   // deep-dive données US (US Preview façon pro)
         insights = Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => _stripMd(String(s))).slice(0, 6) : [];
         pairs = Array.isArray(parsed.pairs) ? parsed.pairs.filter(p => p && p.pair).map(p => ({ pair: String(p.pair).trim(), bias: (['BUY', 'SELL', 'NEUTRAL'].includes(String(p.bias || '').toUpperCase()) ? String(p.bias).toUpperCase() : 'NEUTRAL'), text: _stripMd(String(p.text || '')) })).slice(0, 8) : [];
       }
@@ -6157,7 +6157,7 @@ function _mostRecentFriday() {
   return d;
 }
 
-// ── Analyse PAR DEVISE façon Prime Terminal (multi-appel) ────────────────────────────────────────
+// ── Analyse PAR DEVISE façon la référence (multi-appel) ────────────────────────────────────────
 // Chaque devise est générée par SON PROPRE appel IA (narration profonde multi-paragraphes + sous-sections
 // de drivers à bullets) → profondeur d'un desk note de banque, SANS risque de troncature JSON (un seul gros
 // appel pour 8 devises se faisait couper). Contexte filtré par devise (mots-clés) pour ancrer l'IA.
@@ -6175,7 +6175,7 @@ const _RECAP_CCY_KW = {
   CAD: /\b(CAD|loonie|BoC|BOC|Macklem|Canada|canadian|canadien|WTI|crude|\boil\b|pétrole|brut|Brent)/i,
   NZD: /\b(NZD|kiwi|RBNZ|New Zealand|Nouvelle-Zélande|néo-zélandais)/i,
 };
-// Liste canonique (FR) des sous-sections de drivers — calquée sur les rubriques récurrentes de Prime Terminal.
+// Liste canonique (FR) des sous-sections de drivers — calquée sur les rubriques récurrentes de la référence.
 const _RECAP_DRIVER_SECTIONS = '"Politique de banque centrale", "Données économiques", "Taux & obligations", "Géopolitique & énergie", "Sentiment de marché & risque", "Positionnement & flux", "Politique commerciale", "Politique intérieure"';
 function _recapCcyPrompt(ccy, ccyCtx, gSummary) {
   const name = _RECAP_CCY_NAME[ccy] || ccy;
@@ -6352,7 +6352,7 @@ ${corpus}`;
   } catch (e) { console.warn('[Weekly Recap] IA (global) échec:', e.message); parsed = null; }
   const aiOk = !!(parsed && (parsed.summary || (Array.isArray(parsed.macro) && parsed.macro.length)));
 
-  // ── ANALYSE PAR DEVISE (multi-appel, profondeur PMT) : 1 appel IA dédié par devise, ancré sur le
+  // ── ANALYSE PAR DEVISE (multi-appel, profondeur la référence) : 1 appel IA dédié par devise, ancré sur le
   //    contexte FILTRÉ de la devise → narration profonde + drivers à bullets, sans troncature JSON.
   //    Échec/contexte vide d'une devise = devise simplement omise (le front l'ignore — dégradation douce).
   const _ccyResults = {};
@@ -6401,7 +6401,7 @@ ${corpus}`;
           ? v.drivers.filter(x => x && x.heading).map(x => {
               // On GARDE le **gras** de tête (sous-thème) → rendu en <strong> par _wrInline côté front
               // (jamais d'astérisque brute : _wrInline convertit ** et retire les * résiduels). Le champ
-              // description, lui, retire les ** séparément (recherche/repli). Façon PMT (puces à lead gras).
+              // description, lui, retire les ** séparément (recherche/repli). Façon la référence (puces à lead gras).
               const bullets = Array.isArray(x.bullets) ? x.bullets.map(b => String(b == null ? '' : b).replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 6) : [];
               const out = { heading: _stripMd(String(x.heading)), bullets };
               if (!bullets.length && x.detail) out.detail = _stripMd(String(x.detail));   // rétro-compat ancien format {heading,detail}
@@ -6432,7 +6432,7 @@ ${corpus}`;
         .replace(/\s+/g, ' ').trim();
       if (t.length > 3) fbTitle = _stripMd('Weekly Market Recap: ' + t.charAt(0).toUpperCase() + t.slice(1));
     }
-    // INTRO narrative façon PMT — construite à partir des VRAIS faits de la semaine (même sans IA) :
+    // INTRO narrative façon pro — construite à partir des VRAIS faits de la semaine (même sans IA) :
     // thème de clôture du vendredi + temps forts (banques centrales, données, géopolitique, FX/matières).
     const _fbClose = (closing && closing.w && closing.w.title)
       ? _stripMd(String(closing.w.title)).replace(/^\s*\[[^\]]*\]\s*/, '').replace(/.*\bwrap[:\s-]+/i, '').replace(/\s+/g, ' ').trim()
@@ -6524,11 +6524,11 @@ async function generateWeeklyMarketRecap(force = false) {
   } catch (e) { console.warn('[Weekly Recap] génération échouée:', e.message); return null; }
 }
 
-// ═══════════════════ FX DAILY RECAP — rapport analyste QUOTIDIEN (façon PMT) ═══════════════════
+// ═══════════════════ FX DAILY RECAP — rapport analyste QUOTIDIEN (façon pro) ═══════════════════
 // Rapport phare structuré (Executive Summary · Top Headlines · Regional Analysis · Central Bank Focus
 // · Key Economic Data · Analyst Comments · Corporate News · Looking Ahead) — généré chaque soir après
 // la clôture US (22h30 Paris) à partir des news/calendrier/force des devises du JOUR. Caché + persisté.
-// Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste Prime Terminal (les images de référence
+// Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
 const FXR_VER = 2;   // v2 : rapport + AI Insights rédigés en FRANÇAIS (prompt + repli + libellés)
@@ -6713,10 +6713,10 @@ async function generateFXDailyRecap(force = false) {
       }
     } catch {}
 
-    // ── Génération IA (structure complète façon PMT, EN ANGLAIS) ──
+    // ── Génération IA (structure complète façon pro, EN ANGLAIS) ──
     let fxr = null;
     if (!(ai.backoffActive && ai.backoffActive())) {
-      const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » — même profondeur, ton et structure qu'un rapport analyste Prime Terminal. Le rapport couvre toute la journée de trading du ${dateLabel}.
+      const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » — même profondeur, ton et structure qu'un rapport analyste la référence. Le rapport couvre toute la journée de trading du ${dateLabel}.
 
 Rédige un récap COMPLET et professionnel de ce qui s'est passé sur les marchés mondiaux aujourd'hui, avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. Sois précis et analytique : relie les mouvements de prix aux publications de données, aux signaux des banques centrales, aux matières premières et aux titres géopolitiques (explique le POURQUOI, pas seulement le QUOI). Rédige dans un FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre — n'utilise que les chiffres présents dans les données ci-dessous. Si une section n'a pas de données la justifiant, renvoie un tableau vide pour elle.
 
@@ -6798,7 +6798,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
   } finally { _fxrGenBusy = false; }
 }
 
-// ═══════════════ ANALYSE D'ÉVÉNEMENT — événements macro MAJEURS (~1 h après, façon PMT) ═══════════════
+// ═══════════════ ANALYSE D'ÉVÉNEMENT — événements macro MAJEURS (~1 h après, façon pro) ═══════════════
 // ~1 h après un événement macro MAJEUR (FOMC, BCE, BoE, NFP, CPI, PCE, PIB, ISM), on publie UNE ANALYSE structurée
 // (sections en MAJUSCULES → titres orange, façon primer DTP) DANS LE FLUX NEWS : ce qui a été décidé,
 // ce qui a changé vs le communiqué précédent, dot plots/projections, salaires/révisions, « À SUIVRE ».
@@ -6985,7 +6985,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
-    { fn: () => generateFXDailyRecap(false),          h: 22, m: 30, name: 'FX Daily Recap'        }, // rapport analyste du jour (façon PMT)
+    { fn: () => generateFXDailyRecap(false),          h: 22, m: 30, name: 'FX Daily Recap'        }, // rapport analyste du jour (façon pro)
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
   // Rapports HEBDOMADAIRES — SAMEDI 02h00 PARIS (tous les marchés mondiaux fermés pour la semaine ; même créneau que le groupe Bias/Week Ahead)
@@ -7111,7 +7111,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v18-panel-tech-seas';   // v17 : MODÈLE PMT — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Lignes Technical/Sentiment RETIRÉES (absentes chez PMT). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v18-panel-tech-seas';   // v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Lignes Technical/Sentiment RETIRÉES (absentes chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -7275,9 +7275,9 @@ async function _sbSeasonalityRow() {
   return out;
 }
 
-// ════════ MODÈLE DE CONFLUENCE PMT (déterministe) ════════
+// ════════ MODÈLE DE CONFLUENCE (déterministe) ════════
 // Chaque ligne de la matrice est notée depuis sa SOURCE RÉELLE ; la Conclusion = moyenne pondérée des
-// lignes AFFICHÉES (façon PMT) → elle découle TOUJOURS de la matrice (zéro divergence opaque). L'IA ne
+// lignes AFFICHÉES (façon pro) → elle découle TOUJOURS de la matrice (zéro divergence opaque). L'IA ne
 // note QUE Monetary Policy (jugement banque centrale) + les biais par banque (_sbBankStances).
 const _SB_BIAS5 = ['Very Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bearish'];   // échelle des LIGNES (sans « Weak »)
 // Inversion contrarian (Retail) : foule longue → pression baissière dans la conclusion.
@@ -7332,7 +7332,7 @@ async function _sbRetailRow() {
   return out;
 }
 
-// Fundamental Data RÉEL = 8 sous-indicateurs PMT dérivés du CALENDRIER (actual vs forecast, beat = haussier).
+// Fundamental Data RÉEL = 8 sous-indicateurs la référence dérivés du CALENDRIER (actual vs forecast, beat = haussier).
 // MÊME source + MÊME logique que l'accordéon client. Renvoie {parent, subs} → parent = agrégat des 8 (cohérent). 0 IA.
 const _SB_FUND_SUBS = [
   { label: 'Economic Growth',     re: /\bGDP\b|gross domestic|economic growth/i },
@@ -7570,7 +7570,7 @@ async function generateSmartBias(force = false, weekly = false) {
     recapLine = parts.join('\n').slice(0, 2400);
   } catch (e) { console.warn('[SmartBias] weekly recap indispo:', e.message); }
 
-  // ── RATING DÉTERMINISTE (data réelle, 0 IA) : Fundamental (calendrier, 8 sous-indicateurs PMT),
+  // ── RATING DÉTERMINISTE (data réelle, 0 IA) : Fundamental (calendrier, 8 sous-indicateurs la référence),
   //    Hedge (COT), Retail (foule myfxbook), Trend (force devise), Seasonality (5 ans). cf. helpers _sb*Row. ──
   const fundamentalRes = await _sbFundamentalRows();        // {parent, subs} — parent = agrégat des 8 sous-indicateurs
   const fundamental    = fundamentalRes.parent;
@@ -7578,7 +7578,7 @@ async function generateSmartBias(force = false, weekly = false) {
   const retail         = await _sbRetailRow();              // position AFFICHÉE de la foule ; contrarian appliqué dans la CONCLUSION
   const trend          = await _sbTrendRow();
   const seasonality    = await _sbSeasonalityRow();
-  // Technical (force devise 1 j) + Sentiment (régime de risque) : HORS matrice/conclusion (façon PMT, qui
+  // Technical (force devise 1 j) + Sentiment (régime de risque) : HORS matrice/conclusion (façon pro, qui
   // ne les met pas dans la grille) mais AFFICHÉS dans le panneau « Bias Summary » → stockés à part.
   const technical      = await _sbTechnicalRow();
   const sentiment      = _sbSentimentRow();
@@ -7611,7 +7611,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   const monetary = {};
   SB_CURRENCIES.forEach(c => monetary[c] = monetaryAI[c] || (_prevMon && _prevMon.values && _prevMon.values[c]) || 'Neutral');
 
-  // ── CONCLUSION = CONFLUENCE pondérée des lignes AFFICHÉES (façon PMT) → elle DÉCOULE TOUJOURS de la
+  // ── CONCLUSION = CONFLUENCE pondérée des lignes AFFICHÉES (façon pro) → elle DÉCOULE TOUJOURS de la
   //    matrice (jamais de divergence opaque). Retail = CONTRARIAN (signe inversé via _SB_FLIP). Poids :
   //    Fundamental prime (1.5), Saisonnalité secondaire (0.5), le reste (Bank, Hedge, Retail, Monetary, Trend) = 1. ──
   const conclusion = {};
@@ -7621,7 +7621,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
     conclusion[c] = concludeBias(vals, wts);
   });
 
-  // Ordre PMT EXACT (sans Technical / Sentiment) : Fundamental, Bank Overview, Hedge Fund, Retail, Monetary, Trend, Seasonality.
+  // Ordre la référence EXACT (sans Technical / Sentiment) : Fundamental, Bank Overview, Hedge Fund, Retail, Monetary, Trend, Seasonality.
   const rows = [
     { key: 'fundamental',  label: 'Fundamental Data',       values: fundamental, subs: fundamentalRes.subs },
     { key: 'bankOverview', label: 'Bank Overview',          values: bankOverview },
@@ -7790,7 +7790,7 @@ async function _sbEnsureFresh() {
   await _sbEnsureNarrative();                    // 2) matrice fraîche mais narratif manquant → retry ciblé
 }
 
-// ── OVERRIDE ADMIN du Smart Bias (filet humain, façon « research team » PMT) ──────────────
+// ── OVERRIDE ADMIN du Smart Bias (filet humain, façon « research team » la référence) ──────────────
 // Si l'IA sort une aberration, l'admin corrige une cellule (ligne × devise) ou l'Overall sans
 // attendre la régénération. Durable (KV Supabase), appliqué à la VOLÉE à l'affichage (la matrice
 // IA sous-jacente n'est pas mutée), et AUTO-EXPIRÉ à la prochaine régénération complète.
@@ -7849,11 +7849,20 @@ app.get('/api/smart-bias', async (req, res) => {
 
 // ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (1×/semaine, même logique batch que le bias) ═══════════════════
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
-const WA_VER = 'v16-fr';   // v16 : tout en FRANÇAIS (repli déterministe + éditorial IA + libellés/dates côté client) → force la régén
+const WA_VER = 'v17-fr-full';   // v17 : descriptions COMPLÈTES (trim à la dernière phrase, plus de coupe en plein mot) → force la régén
 let _weekAhead = null;
 try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
 try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
 
+// Coupe un texte à `max` SANS jamais couper en plein mot/phrase : on remonte à la dernière ponctuation
+// de fin de phrase (. ! ? … » ”). Évite les descriptions Week Ahead tronquées (« …obligations souveraines c »).
+function _waTrim(s, max) {
+  s = String(s || '').replace(/\s+/g, ' ').trim();
+  if (s.length <= max) return s;
+  const cut = s.slice(0, max);
+  const m = cut.match(/^[\s\S]*[.!?…»”"]/);
+  return (m ? m[0] : cut).trim();
+}
 async function generateWeekAhead(force = false, genEditorial = false) {
   const FRESH = 40 * 60 * 1000;   // contenu rafraîchi ~40 min → prévisions/actuals quasi temps réel (la semaine affichée reste la semaine en cours)
   if (!force && _weekAhead && _weekAhead.v === WA_VER && Date.now() - (_weekAhead.generatedAt || 0) < FRESH) return _weekAhead;
@@ -7928,7 +7937,7 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     }));
     return {
       dow: dowEn, date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
-      title: title.slice(0, 170), description: description.slice(0, 920), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+      title: title.slice(0, 170), description: _waTrim(description, 1200), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
     };
   });
   if (!days.length) return _weekAhead;
@@ -7944,12 +7953,12 @@ async function generateWeekAhead(force = false, genEditorial = false) {
   return _weekAhead;
 }
 // ── NEWS « Week Ahead » : publiée dans le feed dès que le Week Ahead se met à jour (1×/semaine,
-//    re-mise à jour si l'éditorial s'étoffe). Façon PMT : titre « Week in Focus … : Highlights … »
+//    re-mise à jour si l'éditorial s'étoffe). Façon la référence : titre « Week in Focus … : Highlights … »
 //    + calendrier par jour + éditorial. Clé par semaine → jamais de doublon (les MAJ 40 min n'en créent pas).
 let _waNewsKey = null, _waNewsEdAI = -1;
 const _WA_ABBR = { Monday: 'MON', Tuesday: 'TUE', Wednesday: 'WED', Thursday: 'THU', Friday: 'FRI', Saturday: 'SAT', Sunday: 'SUN' };
 const _WA_CCY_ADJ = { USD: 'US', EUR: 'EZ', GBP: 'UK', JPY: 'Japan', AUD: 'Australia', NZD: 'NZ', CAD: 'Canada', CHF: 'Swiss', CNY: 'China', CNH: 'China' };
-// Réduit un titre d'événement à un THÈME court (façon PMT) → [libellé, estBanqueCentrale]. null = pas un thème clé.
+// Réduit un titre d'événement à un THÈME court (façon pro) → [libellé, estBanqueCentrale]. null = pas un thème clé.
 function _waTheme(title) {
   const t = ' ' + String(title || '').toLowerCase() + ' ';
   if (/\bfed\b|fomc|federal funds|federal reserve/.test(t)) return ['Fed', true];
@@ -7978,7 +7987,7 @@ function _waPublishNews(weekKey) {
   const nbEv = days.reduce((n, d) => n + (d.events || []).length, 0);
   if (!existing && nbEv < 3) return;                                           // pas assez de calendrier pour une news utile
   if (existing && _waNewsKey === weekKey && edAI <= _waNewsEdAI) return;       // déjà publié cette semaine ; on ne republie QUE si l'éditorial IA s'étoffe
-  // Highlights = THÈMES distincts des événements HIGH (façon PMT) : banques centrales d'abord
+  // Highlights = THÈMES distincts des événements HIGH (façon pro) : banques centrales d'abord
   // (Fed, BoJ…), puis données géo-qualifiées (US Inflation, UK Jobs…). Repli : titres HIGH nettoyés.
   const banks = [], data = [], hiAny = [], seen = new Set();
   for (const d of days) for (const e of (d.events || [])) {
@@ -7999,7 +8008,7 @@ function _waPublishNews(weekKey) {
   const year = weekKey.slice(0, 4);
   const headline = `DTP Week Ahead — Week in Focus ${_weekAhead.week || ''} ${year}: Highlights include ${highlights}`.replace(/\s+/g, ' ').slice(0, 230);
   // Description = calendrier par jour + section WEEK AHEAD (éditorial par jour).
-  // Format « JOUR: contenu » → le client style l'étiquette du jour (puce « section ») façon PMT.
+  // Format « JOUR: contenu » → le client style l'étiquette du jour (puce « section ») façon pro.
   const cal = days.map(d => {
     const ab = _WA_ABBR[d.dow] || String(d.dow || '').slice(0, 3).toUpperCase();
     const evs = (d.events || []).slice(0, 14).map(e => e.title).filter(Boolean).join(' · ');
@@ -8039,7 +8048,7 @@ async function _waApplyEditorial(days, weekKey, gen = false) {
   const apply = items => { if (!Array.isArray(items)) return; days.forEach((d, i) => { const e = items[i]; if (e) { if (e.headline) d.headline = e.headline; if (e.summary) d.summary = e.summary; } }); };
   // 1) Charge l'éditorial déjà connu pour CETTE semaine (mémoire puis cache durable) et l'applique aussitôt.
   let cachedItems = (_waEditorial.weekKey === weekKey && Array.isArray(_waEditorial.items)) ? _waEditorial.items : null;
-  if (!cachedItems) { try { const c = await auth.aiCacheGet('weekahead:editorial7fr').catch(() => null); if (c && c.weekKey === weekKey && Array.isArray(c.items)) { _waEditorial = c; cachedItems = c.items; } } catch {} }
+  if (!cachedItems) { try { const c = await auth.aiCacheGet('weekahead:editorial8fr').catch(() => null); if (c && c.weekKey === weekKey && Array.isArray(c.items)) { _waEditorial = c; cachedItems = c.items; } } catch {} }
   if (cachedItems) apply(cachedItems);
   const _complete = cachedItems && cachedItems.length >= days.length && days.every((_, i) => cachedItems[i] && cachedItems[i].summary);
   if (_complete || !gen) return;   // déjà complet → fini ; sinon, hors génération planifiée → repli déterministe pour les jours manquants
@@ -8069,15 +8078,15 @@ Réponds UNIQUEMENT en JSON compact : {"headline":"...","summary":"..."} — rie
     let obj = null;
     try { const m = String(txt).match(/\{[\s\S]*\}/); if (m) obj = JSON.parse(m[0]); } catch {}
     if (obj && (obj.headline || obj.summary)) {
-      items.push({ headline: String(obj.headline || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: String(obj.summary || '').slice(0, 950) });
+      items.push({ headline: String(obj.headline || '').replace(/^["']|["']$/g, '').slice(0, 120), summary: _waTrim(obj.summary, 1500) });
     } else if (txt && String(txt).replace(/\s+/g, ' ').trim().length > 60) {
-      items.push({ headline: '', summary: String(txt).replace(/```[a-z]*|```/gi, '').trim().slice(0, 950) });
+      items.push({ headline: '', summary: _waTrim(String(txt).replace(/```[a-z]*|```/gi, ''), 1500) });
     } else { items.push(null); }
   }
   if (items.some(it => it && (it.headline || it.summary))) {
     const merged = days.map((_, i) => items[i] || (cachedItems && cachedItems[i]) || null);
     _waEditorial = { weekKey, items: merged, at: Date.now() };
-    await auth.aiCacheSet('weekahead:editorial7fr', _waEditorial).catch(() => {});
+    await auth.aiCacheSet('weekahead:editorial8fr', _waEditorial).catch(() => {});
     apply(merged);
     console.log('[WeekAhead IA] éditorial jour-par-jour (' + merged.filter(it => it && it.summary).length + '/' + days.length + ' jours) → cache hebdo');
   }
@@ -8320,8 +8329,8 @@ app.get('/api/market-snapshot', async (_req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════
-// DTP EUROPEAN MARKET WRAP — news QUOTIDIENNE façon PMT « European Market Wrap » (16:00 Paris).
-// Rubriques PMT : EQUITIES · FX · FIXED · COMMODITIES (niveaux RÉELS Yahoo, % du jour) +
+// DTP EUROPEAN MARKET WRAP — news QUOTIDIENNE façon pro « European Market Wrap » (16:00 Paris).
+// Rubriques institutionnelles : EQUITIES · FX · FIXED · COMMODITIES (niveaux RÉELS Yahoo, % du jour) +
 // EUROPEAN DATA · NOTABLE HEADLINES · TRADE/TARIFFS · CENTRAL BANKS · GEOPOLITICS ·
 // NORTH AMERICAN DATA (synthèse IA des news du jour). Publiée dans le flux (catégorie
 // « Global News », région « Europe », pastille Info). Rendu via le chemin PRIMER (rubriques
@@ -8395,10 +8404,10 @@ async function _wrapLevels() {
   return { eq, fx, fixed, cmd };
 }
 
-// Structure CALQUÉE sur PMT (image de référence) : LEAD + rubriques marché + EUROPEAN DATA + NOTABLE
+// Structure CALQUÉE sur la référence (image de référence) : LEAD + rubriques marché + EUROPEAN DATA + NOTABLE
 // HEADLINES + TRADE/TARIFFS + CENTRAL BANKS + GEOPOLITICS + bloc NORD-AMÉRICAIN (NEWS + DATA).
 const EU_WRAP_SECTIONS = ['LEAD','EQUITIES','FX','FIXED','COMMODITIES','EUROPEAN DATA','NOTABLE HEADLINES','TRADE/TARIFFS','CENTRAL BANKS','GEOPOLITICS','NOTABLE NORTH AMERICAN NEWS','NORTH AMERICAN DATA'];
-const WRAP_VER = 'pmt-na-1';   // bump → régénère le wrap du jour (nouvelle structure PMT) au prochain run/boot
+const WRAP_VER = 'wrap-na-1';   // bump → régénère le wrap du jour (nouvelle structure de référence) au prochain run/boot
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -8425,7 +8434,7 @@ function _euWrapParse(aiText) {
   return buckets;
 }
 
-// Lead façon PMT (1re ligne, rendue en gras) construit depuis les VRAIS niveaux : « European close — Stoxx 600 …; EUR/USD …; Brent … ».
+// Lead façon pro (1re ligne, rendue en gras) construit depuis les VRAIS niveaux : « European close — Stoxx 600 …; EUR/USD …; Brent … ».
 function _euWrapLead(levels) {
   const pick = (arr, lbl) => { const l = (arr || []).find(x => x.includes(lbl)); return l ? l.replace(/^- /, '') : null; };
   const parts = [
@@ -8439,13 +8448,13 @@ function _euWrapLead(levels) {
 }
 
 // Lignes-placeholder « (None) / N/A / Aucun … » que l'IA glisse parfois sous une rubrique vide
-// au lieu de l'omettre → on les jette pour que la rubrique disparaisse proprement (façon PMT).
+// au lieu de l'omettre → on les jette pour que la rubrique disparaisse proprement (façon pro).
 const _EU_PLACEHOLDER = /^\(?\s*(none|n\/?a|nil|aucun(e)?|n[ée]ant|rien|empty|tba|tbd|—|-)\s*\)?\.?$/i;
 function _euWrapBuild(buckets, fallbackLead) {
   const out = [];
   const clean = arr => (arr || []).map(s => s.replace(/^[-•*·]\s*/, '').trim())
     .filter(s => s.length > 1 && !_EU_PLACEHOLDER.test(s));
-  // LEAD = bloc de SYNTHÈSE en tête (puces, SANS en-tête), façon PMT. À défaut (IA KO) → lead déterministe (niveaux).
+  // LEAD = bloc de SYNTHÈSE en tête (puces, SANS en-tête), façon pro. À défaut (IA KO) → lead déterministe (niveaux).
   const leadItems = clean(buckets['LEAD']).filter(s => s.length > 4);
   if (leadItems.length) leadItems.slice(0, 6).forEach(it => out.push('- ' + it));
   else if (fallbackLead) out.push('- ' + fallbackLead);
@@ -8454,13 +8463,13 @@ function _euWrapBuild(buckets, fallbackLead) {
     const items = clean(buckets[h]);
     if (!items.length) continue;                  // rubrique vide (ou seulement « (None) ») → omise
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
-    items.slice(0, 8).forEach(it => out.push('- ' + it));   // jusqu'à 8 lignes/rubrique (rubriques riches façon PMT)
+    items.slice(0, 8).forEach(it => out.push('- ' + it));   // jusqu'à 8 lignes/rubrique (rubriques riches façon pro)
   }
   return out.join('\n');
 }
 
 // Repli déterministe (IA indisponible / vide) : rubriques marché depuis les niveaux réels + top headlines,
-// alignées sur la structure PMT (LEAD géré à part par _euWrapLead).
+// alignées sur la structure de référence (LEAD géré à part par _euWrapLead).
 function _euWrapFallback(levels, s) {
   const b = {};
   const strip = arr => (arr || []).map(l => l.replace(/^- /, ''));
@@ -8485,10 +8494,10 @@ async function generateEuropeanMarketWrap(force = false) {
   const prefix   = idPrefix + dateKey;
   const _cached = allNews.find(i => (i.id || '').startsWith(prefix) && i._wrapVer === WRAP_VER);
   if (!force && _cached) return _cached;
-  // Version périmée (nouvelle structure PMT) OU force : on NE retire PAS l'ancien ICI — il est remplacé
+  // Version périmée (nouvelle structure de référence) OU force : on NE retire PAS l'ancien ICI — il est remplacé
   // seulement APRÈS une régén réussie (sinon une régén ratée au boot, sans news, perdrait le wrap du jour).
 
-  // Date façon PMT : « 15th June 2026 » (heure de Paris).
+  // Date façon pro : « 15th June 2026 » (heure de Paris).
   const _ord = n => { const x = ['th','st','nd','rd'], v = n % 100; return n + (x[(v - 20) % 10] || x[v] || x[0]); };
   const pNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   const _MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -8504,7 +8513,7 @@ async function generateEuropeanMarketWrap(force = false) {
   const NA_DATA   = new Set(['US Data','Canadian Data']);
   const DATA_CATS = new Set([...EU_DATA, ...APAC_DATA, ...NA_DATA]);
   const _isCrypto = i => i.category === 'Crypto' || /\bbitcoin\b|\bbtc\b|\bethereum\b|\beth\b|crypto|\bripple\b|\bsolana\b|stablecoin/i.test(i.headline || '');
-  // NORTH AMERICAN NEWS (façon PMT « NOTABLE NORTH AMERICAN NEWS ») : actu US/Canada hors banques centrales,
+  // NORTH AMERICAN NEWS (façon pro « NOTABLE NORTH AMERICAN NEWS ») : actu US/Canada hors banques centrales,
   // hors data, hors géopolitique/commerce — détection par mots-clés (US, Fed≠CB-event, Trésor, Trump, Congrès…).
   const _isNANews = i => !CB_CATS.has(i.category) && !DATA_CATS.has(i.category) && i.category !== 'Geopolitical' && i.category !== 'Trade'
     && /\b(u\.?s\.?|united states|treasury|trump|washington|white house|congress|senate|schumer|wall st(?:reet)?|canada|canadian|ottawa)\b/i.test(i.headline || '');
@@ -8527,7 +8536,7 @@ async function generateEuropeanMarketWrap(force = false) {
 
   const summarise = (arr, n = 6) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
   const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
-  const prompt = `You are a senior markets reporter at a prime brokerage writing the daily MARKET WRAP at the European cash close (16:00 Paris), in the institutional, factual style of Newsquawk / Prime Market Terminal. Date: ${dateStr}.
+  const prompt = `You are a senior markets reporter at a prime brokerage writing the daily MARKET WRAP at the European cash close (16:00 Paris), in the institutional, factual style of Newsquawk / la référence. Date: ${dateStr}.
 
 REAL MARKET LEVELS TODAY (use these EXACT numbers; moves are vs previous close — NEVER invent or alter a level):
 EQUITIES:\n${lv(levels.eq)}
@@ -8915,7 +8924,7 @@ function _rpTransform(code, j, now) {
   if (!rows.length) return null;
   let prev = rate;
   const meetings = rows.map(x => {
-    const move = Math.max(0, Math.min(100, +(+x.prob_move_pct || 0).toFixed(2)));   // 2 décimales réelles (clone PMT : 79,76 %)
+    const move = Math.max(0, Math.min(100, +(+x.prob_move_pct || 0).toFixed(2)));   // 2 décimales réelles (clone pro : 79,76 %)
     const isCut = !!x.prob_is_cut;
     const hold = +Math.max(0, 100 - move).toFixed(2), cut = isCut ? move : 0, hike = isCut ? 0 : move;
     const impl = +x.implied_rate_post_meeting;
@@ -10137,7 +10146,7 @@ const _csCache = {};
 // clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
-  today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },   // 1 m (~500 pts/jour, vérifié servi par Yahoo) → courbe NERVEUSE façon PMT (repli gradué 1m→5m→30m)
+  today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },   // 1 m (~500 pts/jour, vérifié servi par Yahoo) → courbe NERVEUSE façon pro (repli gradué 1m→5m→30m)
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
   week:  { interval: '1h',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
@@ -10559,14 +10568,14 @@ app.get('/api/fxlist', async (req, res) => {
   }
 });
 
-// ─── SEASONALITY — table de performance mensuelle par année (façon PMT) ─────────
+// ─── SEASONALITY — table de performance mensuelle par année (façon pro) ─────────
 // Pour UNE paire : rendement de CHAQUE mois (dernier close du mois / dernier close du mois précédent − 1)
 // sur les 5 dernières années + moyenne par mois. MÊME source Yahoo que la FX List / Currency Strength →
 // cohérent avec la colonne « Seasonal » de la FX List (qui est le CUMUL de cette même moyenne mensuelle).
 const _seasonCache = new Map();                 // sym Yahoo -> { at, data }
 const SEASON_TTL = 6 * 60 * 60 * 1000;          // 6 h (la saisonnalité bouge lentement)
 const _SEASON_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-// Catalogue multi-classes (façon PMT « Seasonality Performance Table Settings ») : id stable → ticker
+// Catalogue multi-classes (façon pro « Seasonality Performance Table Settings ») : id stable → ticker
 // Yahoo + libellé. Forex = les 28 paires CS_PAIRS (avec drapeaux côté client via b/q). La saisonnalité
 // se calcule à l'identique pour TOUT ticker Yahoo daily (vérifié : indices/commodities/actions OK).
 const SEASON_CATALOG = {
