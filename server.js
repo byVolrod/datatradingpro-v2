@@ -13,7 +13,8 @@ const { scrapeFinancialJuice, initFinancialJuice, setOnPushCallback, backfillHis
 const { scrapeForexFactory, getCalendarRaw } = require('./scrapers/forexfactory');
 const { scrapeForexFactoryNews, getArticleContent, startFFNewsPoll, fetchCalendarActuals, fetchEventDetail } = require('./scrapers/forexfactory-news');
 const { scrapeBlackRock } = require('./scrapers/blackrock');   // BlackRock Investment Institute — Weekly Commentary (PDF hebdo, Puppeteer best-effort)
-const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/research-spa');   // Natixis / Danske — recherche sur sites SPA (Puppeteer best-effort) + extracteur de date d'URL
+const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/research-spa');   // Natixis — recherche sur sites SPA (Puppeteer best-effort) + extracteur de date d'URL
+const { fetchDanskeResearch } = require('./scrapers/danske-research');   // Danske — API publique interceptée (Puppeteer), PDF natifs (published_url)
 const { fetchTVCalendar, fetchTVCalendarFull } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare)
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
@@ -3599,7 +3600,7 @@ app.get('/api/session-wrap-content', async (req, res) => {
 
 // ── ING Think Bank Research ───────────────────────────────────────────────────
 // Filtres d'affichage des rapports de banque — appliqués au CHARGEMENT, à la DIFFUSION et à la PERSISTANCE.
-const _BR_REMOVED = new Set(['amundi', 'danske', 'lloyds']);   // banques retirées (demande utilisateur ; Lloyds = microsite Turtl, pas de PDF/contenu exploitable)
+const _BR_REMOVED = new Set(['amundi', 'lloyds']);   // banques retirées (Lloyds = lloydsbank.com BLOQUÉ depuis l'IP serveur → « Internet Banking - Error » ; Danske RÉACTIVÉ via PDF natifs)
 // Standard Chartered : on ne publie QUE les « Weekly Market View » (URL wm-weekly-market-view-…),
 // jamais les liens parasites de la même page (Modern slavery statement, Code of Conduct, Download the report…).
 const _brAllowed = i => !!i && !_BR_REMOVED.has(i._source) &&
@@ -4217,6 +4218,27 @@ const _BR_NOISE = new RegExp([
 const _BR_STALE_YEAR = /\b(20[01][0-9]|202[0-4])\s*$/;   // titre finissant par une année ≤ 2024 = archive
 function _brIsNoise(t) { t = String(t || '').trim(); return !t || _BR_NOISE.test(t) || _BR_STALE_YEAR.test(t); }
 
+// Danske Bank — items prêts (PDF natif + contenu) depuis l'API interceptée. 0 fetch supplémentaire par item :
+// la liste porte déjà published_url (PDF) + mobile_text (contenu) → /api/bank-research-content répond direct.
+async function _fetchDanskeInto(merged, cutoff) {
+  try {
+    const arts = await fetchDanskeResearch();
+    let added = 0;
+    for (const a of (arts || [])) {
+      if (!a || !a.pdfUrl || (a.ts && a.ts < cutoff)) continue;
+      const id = 'br-' + Buffer.from(a.pdfUrl).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+      if (merged.has(id)) continue;
+      merged.set(id, {
+        id, title: a.title, url: a.pdfUrl, timestamp: Math.min(a.ts || Date.now(), Date.now()),
+        categories: ['Macro'], description: a.summary || '', institution: 'Danske Bank', _source: 'danske',
+        _pdf: true, _pdfUrl: a.pdfUrl, fullContent: a.content || '', _articleId: a.articleid || '',
+      });
+      added++;
+    }
+    if (added) console.log(`[Danske] ${added} rapport(s) ajouté(s) au cache institution`);
+  } catch (e) { console.warn('[Danske] fetch échec:', e.message); }
+}
+
 async function _fetchBankResearch(full = false) {
   _brFetchedAt = Date.now();
   const cutoff   = Date.now() - BR_MAX_AGE;
@@ -4248,8 +4270,10 @@ async function _fetchBankResearch(full = false) {
   await _fetchScotiaInto(merged, cutoff, UA);
   // BlackRock Investment Institute (PDF hebdo) — seed 2026 garanti + découverte Puppeteer best-effort
   await _fetchBlackRockInto(merged);
-  // Natixis (Morning Line) + Danske + UniCredit — recherche sur sites SPA, Puppeteer best-effort (échec silencieux)
+  // Natixis (Morning Line) + UniCredit… — recherche sur sites SPA, Puppeteer best-effort (échec silencieux)
   await _fetchResearchSpaInto(merged, cutoff);
+  // Danske Bank — API publique interceptée (Puppeteer), PDF NATIFS (published_url) + contenu complet
+  await _fetchDanskeInto(merged, cutoff);
   // Wells Fargo — CIB Economics (HTML serveur, scrape direct + rapports phares seedés)
   await _fetchWellsInto(merged, UA);
   // HSBC — Wealth Insights (HTML serveur, scrape direct + derniers articles seedés)
@@ -4262,7 +4286,7 @@ async function _fetchBankResearch(full = false) {
   const _all  = [...merged.values()]
     .filter(i => i && !_brIsNoise(i.title))   // filtre de pertinence (vision macro/FX du terminal)
     .map(i => (i.timestamp > _nowTs) ? { ...i, timestamp: _nowTs } : i);   // jamais de rapport « daté dans le futur » (mauvais parsing d'URL)
-  const _keepAll = i => ['blackrock', 'stanchart', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'kbc', 'westpac', 'qcam', 'goldman'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge (Amundi/Danske/Lloyds retirés ; Standard Chartered conservé)
+  const _keepAll = i => ['blackrock', 'stanchart', 'natixis', 'unicredit', 'wells', 'socgen', 'hsbc', 'cibc', 'nordea', 'kbc', 'westpac', 'qcam', 'goldman', 'danske'].includes(i._source);   // sources manuelles/SPA : on garde TOUT (seeds + live), hors plafond d'âge (Danske = PDF natifs interceptés ; Amundi/Lloyds retirés ; Standard Chartered conservé)
   const _bron = _all.filter(_keepAll);
   const _rest = _all.filter(i => !_keepAll(i))
     .filter(i => i.timestamp > cutoff || i._source === 'scotia')
@@ -4511,6 +4535,12 @@ function _brContentAllowed(url) {
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   if (!_brContentAllowed(url)) return res.json({ html: '' });
+  // Danske : le PDF natif (= l'URL elle-même) ET le contenu (mobile_text) sont déjà connus, interceptés
+  // depuis l'API de liste → réponse DIRECTE (aucun fetch, aucune IA). Le PDF s'affiche via /api/pdf-proxy.
+  if (/\/link\//.test(url) && /(^|\.)danskebank\.com$/i.test((() => { try { return new URL(url).hostname; } catch { return ''; } })())) {
+    const _it = (_brCache || []).find(i => i && i.url === url);
+    return res.json({ html: _stripSource((_it && _it.fullContent) || ''), source: 'danske', pdfUrl: url, renderUrl: '', subtitle: (_it && _it.description) || '', date: '', section: 'Research', country: '', articleType: 'Article' });
+  }
   // Déjà structuré (cache chaud) → réponse instantanée : on évite le re-fetch + le lecteur jina
   // (le front retombe sur item.description / dateStr pour le sous-titre et la date).
   try {
