@@ -2478,6 +2478,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
   }
   // FX DAILY RECAP : rapport analyste du jour COUVERT (today après 22h Paris, sinon hier) — auto-génère
   // s'il manque (le repli déterministe garantit toujours un rapport, donc 1 seule tentative en pratique).
+  _fxrPurgeWeekend();   // retire un éventuel FX Daily daté un week-end (le verrou empêche d'en régénérer)
   const _fxrDay = _fxrTargetDayKey();
   const fxrCurrent = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === _fxrDay);
   if (!fxrCurrent) {
@@ -6469,12 +6470,14 @@ async function _loadPersistedWeekly(force = false) {
     let added = 0;
     for (const r of reports) {
       if (!r || !r.id) continue;
+      if (r._reportType === 'FX Daily Recap' && r._fxr && _isFxWeekend(r._fxr.day)) continue;   // jamais de FX Daily week-end (même si persisté)
       if (!allNews.some(i => i.id === r.id)) { allNews.unshift(r); added++; }
     }
     // Anti-doublon WEEK-AWARE : on garde le recap de la semaine la PLUS RÉCENTE (pas la version la plus
     // haute) → le store peut contenir un vieux recap riche v4 ET le recap courant en fallback v1, on
     // affiche le courant. (Le store conserve toutes les semaines pour l'historique ; seul l'affiché est dédupliqué.)
     _dedupRecaps();
+    _fxrPurgeWeekend();   // retire aussi l'existant (déjà en allNews via news_history) daté un week-end
     if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
   } catch (e) { console.warn('[Weekly Recap] rechargement persistant échec:', e.message); }
 }
@@ -6514,6 +6517,21 @@ function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   if (p.getHours() < 22) p.setDate(p.getDate() - 1);
   return `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, '0')}-${String(p.getDate()).padStart(2, '0')}`;
+}
+// Le jour cible ("YYYY-MM-DD" Paris) tombe-t-il un WEEK-END (samedi/dimanche) ?
+function _isFxWeekend(dayKey) {
+  if (!dayKey) return false;
+  const [y, m, d] = String(dayKey).split('-').map(Number);
+  if (!y || !m || !d) return false;
+  const dow = new Date(y, m - 1, d).getDay();
+  return dow === 0 || dow === 6;
+}
+// Retire de allNews TOUT FX Daily Recap daté un week-end (+ persiste). Idempotent → couvre l'existant
+// généré AVANT le verrou anti-week-end (ex. le FX Daily du dimanche). Appelé au boot et à l'ouverture.
+function _fxrPurgeWeekend() {
+  const n0 = allNews.length;
+  allNews = allNews.filter(i => !(i && i._reportType === 'FX Daily Recap' && i._fxr && _isFxWeekend(i._fxr.day)));
+  if (allNews.length !== n0) { try { saveHistory(); } catch {} console.log(`[FX Recap] ${n0 - allNews.length} FX Daily week-end retiré(s) de allNews`); }
 }
 function _fxrDateLabel(dayKey) {
   const [Y, M, D] = String(dayKey).split('-').map(Number);
