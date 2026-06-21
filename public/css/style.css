@@ -2981,17 +2981,18 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .sbm-arr { font-weight: 800; margin-right: 3px; }
 /* Ligne conclusion : texte COMPLET (Weak Bearish/Bullish lisible, sur 2 lignes si besoin, jamais "…") */
 .sbm-concl { white-space: normal; font-size: 9.5px; line-height: 1.12; text-overflow: clip; padding: 4px 3px; }
-.sbm-concl.sbm-vbull { background: linear-gradient(180deg, #047857, #065f46); }
-.sbm-concl.sbm-bull  { background: linear-gradient(180deg, #059669, #047857); }
-.sbm-concl.sbm-neut  { background: linear-gradient(180deg, #6b7280, #4b5563); }
-.sbm-concl.sbm-bear  { background: linear-gradient(180deg, #dc2626, #991b1b); }
-.sbm-concl.sbm-vbear { background: linear-gradient(180deg, #991b1b, #7f1d1d); }
-/* Couleurs sémantiques FIXES (hex exacts DTP) — fond + texte blanc */
-.sbm-vbull { background: #047857; color: #fff; }
-.sbm-bull  { background: #059669; color: #fff; }
-.sbm-neut  { background: #6b7280; color: #fff; }
-.sbm-bear  { background: #dc2626; color: #fff; }
-.sbm-vbear { background: #991b1b; color: #fff; }
+/* Conclusion globale = couleurs PLATES façon PMT (vert #007b43 / rouge #ad0000 / gris #667085) */
+.sbm-concl.sbm-vbull { background: #007b43; }
+.sbm-concl.sbm-bull  { background: #007b43; }
+.sbm-concl.sbm-neut  { background: #667085; }
+.sbm-concl.sbm-bear  { background: #ad0000; }
+.sbm-concl.sbm-vbear { background: #ad0000; }
+/* Couleurs sémantiques FIXES — RGB EXACTS de PMT (clone fidèle) — fond + texte blanc */
+.sbm-vbull { background: #025232; color: #fff; }   /* Très haussier  rgb(2,82,50)    */
+.sbm-bull  { background: #006941; color: #fff; }   /* Haussier       rgb(0,105,65)   */
+.sbm-neut  { background: #667085; color: #fff; }   /* Neutre         rgb(102,112,133)*/
+.sbm-bear  { background: #780000; color: #fff; }   /* Baissier       rgb(120,0,0)    */
+.sbm-vbear { background: #540000; color: #fff; }   /* Très baissier  rgb(84,0,0)     */
 .sbm-na { background: #1a1a1f; color: #5b5b64; }   /* N/A : donnée non chargée (gris atténué distinct) */
 /* Accordéon de la matrice : Fundamental Data / Bank Overview dépliables → sous-indicateurs par devise */
 .sbm-ind-acc { cursor: pointer; user-select: none; }
