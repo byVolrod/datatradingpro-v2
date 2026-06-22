@@ -772,6 +772,9 @@ function _newsKey(h) {
 const _NEWS_NOISE = /(is\s+\w+\s+a\s+buy|should you buy|analysis today at|read more at|click here|sign up|subscribe|webinar|giveaway|promo|sponsored|advertisement|\bad\b|top \d+ (stocks|picks)|motley fool|zacks)/i;
 // Blocklist EXPLICITE des news inutiles/spam (ex: taux de change quotidiens Banque de Russie). Extensible.
 const _NEWS_BLOCK = /bank of russia|центральн|official exchange rates on selected date|set the official|reference exchange rate/i;
+// Teaser de recherche de banque : "… – MUFG/Nomura/TD Securities…" = attribution sans contenu,
+// pas une news → masqué du flux (les vrais rapports sont dans l'onglet Institution).
+const _BANK_TEASER_RE = /\s[–—-]\s*(?:MUFG|Nomura|TD\s*Securities|TDS|Goldman(?:\s*Sachs)?|Morgan\s*Stanley|J\.?P\.?\s*Morgan|JPMorgan|JPM|Bank\s*of\s*America|BofA(?:\s*Securities)?|Citi(?:group|bank|\s*Research)?|Barclays|UBS|Deutsche\s*Bank|HSBC|BNP\s*Paribas|BNPP|Soci[ée]t[ée]\s*G[ée]n[ée]rale|SocGen|ING|Commerzbank|Rabobank|Danske(?:\s*Bank)?|Nordea|SEB|Scotia(?:bank)?|RBC|CIBC|BMO|National\s*Bank|Westpac|ANZ|CBA|NAB|Standard\s*Chartered|StanChart|Cr[ée]dit\s*Agricole|CACIB|Wells\s*Fargo|Mizuho|Macquarie|Jefferies|Lloyds(?:\s*Bank)?|NatWest|Capital\s*Economics|Oxford\s*Economics|Pantheon|BBVA|UniCredit|Intesa|Saxo(?:\s*Bank)?|Pepperstone|Convera|Natixis|KBC|Syz|OCBC|UOB|DBS|BBH|Wells)\s*$/i;
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
@@ -794,6 +797,7 @@ function getFilteredItems() {
     if (/option\s+expir/i.test(_h) && (item.description || '').replace(/<[^>]*>/g, '').trim().length < 40) return false;
     if (_NEWS_NOISE.test(_h)) return false;                        // promo / faible valeur
     if (_NEWS_BLOCK.test(_h)) return false;                        // spam explicitement bloqué (Banque de Russie, taux de change…)
+    if (_BANK_TEASER_RE.test(_h)) return false;                    // teaser de recherche de banque ("… – MUFG/Nomura/TD…") : pas une news, explique rien
 
     // ── Filtre intelligent : on masque les reposts au titre quasi-identique ──
     const key = _newsKey(_h);
