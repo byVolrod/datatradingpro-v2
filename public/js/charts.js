@@ -1265,12 +1265,19 @@ function buildRiskGauge() {
         }
       }
 
-      // Badge teinté par la couleur de l'arc sous le marqueur (olive en weak-on, vert vif en
-      // strong-on, rouge en risk-off) — façon PMT, appliqué dans les 2 chemins (build + refresh).
+      // Couleur d'arc COURANTE (sous le marqueur) → teinte le badge ET la ligne d'état (ticker),
+      // en SYNCHRO avec la jauge (même _riskArcColor que l'aiguille). Recalculé à CHAQUE refresh =
+      // la ligne d'état change de couleur en temps réel, simultanément avec la jauge.
+      const _arcHex = '#' + _riskArcColor(gaugeVal).toString(16).padStart(6, '0');
       const _badgeTint = document.getElementById('risk-badge-val');
-      if (_badgeTint) {
-        const bc = '#' + _riskArcColor(gaugeVal).toString(16).padStart(6, '0');
-        _badgeTint.style.color = bc; _badgeTint.style.borderColor = bc;
+      if (_badgeTint) { _badgeTint.style.color = _arcHex; _badgeTint.style.borderColor = _arcHex; }
+      const _tickerEl = document.getElementById('risk-ticker');
+      if (_tickerEl) {
+        _tickerEl.style.color = `color-mix(in oklab, ${_arcHex} 52%, #c7cacc)`;        // texte description teinté
+        _tickerEl.style.background = `color-mix(in oklab, ${_arcHex} 13%, #0c0e13)`;     // fond sombre teinté
+        _tickerEl.style.borderColor = `color-mix(in oklab, ${_arcHex} 30%, transparent)`;
+        const _d = _tickerEl.querySelector('.risk-ticker-dot'); if (_d) _d.style.background = _arcHex;   // le point
+        const _s = _tickerEl.querySelector('strong');           if (_s) _s.style.color = _arcHex;        // le label "WEAK RISK-OFF"
       }
 
       const updEl = document.getElementById('risk-updated');
