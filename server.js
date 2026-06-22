@@ -949,6 +949,33 @@ app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {
   catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// Purge des « comptes bug » : ceux dont le nom est UNIQUEMENT numérique/symbolique (« 1 », « 20 », « 1-2 »…)
+// = comptes de test. SÉCURISÉ : DRY-RUN par défaut (liste seulement) ; suppression réelle UNIQUEMENT avec
+// ?confirm=1 explicite. Même regex que le garde-fou de auth.createUser → cohérent.
+app.get('/api/admin/purge-test-accounts', requireAdmin, async (req, res) => {
+  try {
+    const confirm = req.query.confirm === '1';
+    const NUM_NAME = /^[\d\s.\-_/\\]+$/;
+    const users = await auth.getAllUsers();
+    const targets = (Array.isArray(users) ? users : []).filter(u => {
+      const nm = String(u && u.name != null ? u.name : '').trim();
+      return nm && NUM_NAME.test(nm);                 // nom NON vide ET purement numérique/symbolique
+    });
+    const preview = targets.map(u => ({ id: u.id, name: u.name, email: u.email, created_at: u.created_at || null }));
+    if (!confirm) {
+      return res.json({ dryRun: true, count: targets.length, accounts: preview,
+        hint: 'Aperçu uniquement. Ajoute ?confirm=1 à l’URL pour SUPPRIMER définitivement ces comptes.' });
+    }
+    let deleted = 0; const errors = [];
+    for (const u of targets) {
+      try { await auth.deleteUser(String(u.id)); deleted++; }
+      catch (e) { errors.push({ id: u.id, email: u.email, error: e.message }); }
+    }
+    console.log(`[Purge] comptes au nom numérique : ${deleted}/${targets.length} supprimé(s)` + (errors.length ? ` · ${errors.length} échec(s)` : ''));
+    res.json({ dryRun: false, requested: targets.length, deleted, errors, accounts: preview });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 app.post('/api/admin/users/:id/password', requireAdmin, async (req, res) => {
   try {
     const id = String(req.params.id);   // id TEXTE/uuid (cf. migration) → +id = NaN cassait reset MDP pour les comptes uuid

@@ -531,11 +531,17 @@ async function getUserById(id) {
 
 async function createUser({ email, password, name = '', role = 'client', plan = 'professionnel', expiresAt = null }) {
   if (!email || !password) throw new Error('Email et mot de passe requis');
+  // GARDE-FOU anti « comptes bug » : un nom NON VIDE mais UNIQUEMENT numérique/symbolique (« 1 », « 20 »,
+  // « 1-2 »…) = compte de test/script → REFUSÉ. (Le nom VIDE reste autorisé : la réconciliation Whop le crée vide.)
+  const nm = String(name == null ? '' : name).trim();
+  if (nm && /^[\d\s.\-_/\\]+$/.test(nm)) {
+    throw new Error('Nom invalide : un nom ne peut pas être composé uniquement de chiffres ou de symboles.');
+  }
   const hash = await bcrypt.hash(password, SALT_ROUNDS);
   const em = email.toLowerCase().trim();
   if (_mirrorGet(em)) throw new Error('Cet email est déjà utilisé par un autre compte.');   // anti-doublon rapide (et seul rempart si la base principale est muette)
   const id = require('crypto').randomUUID();   // id généré côté serveur → cohérent miroir + rejeu vers la base
-  const row = { id, email: em, password_hash: hash, name, role, plan, active: true, expires_at: expiresAt || null };
+  const row = { id, email: em, password_hash: hash, name: nm, role, plan, active: true, expires_at: expiresAt || null };
   let { data, error } = await supabase.from(TABLE).insert([row]).select().single();
 
   // Tolérance : si la colonne expires_at n'existe pas encore, on crée sans (abonnement non enregistré)
