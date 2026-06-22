@@ -1117,6 +1117,19 @@ function _wireRiskViewToggle() {
   hBtn.addEventListener('click', () => focus('hist'));
 }
 
+// Couleur du dégradé d'arc à une position v∈[-100,100] (interp linéaire des 7 stops de l'arc).
+// → le marqueur triangle prend la teinte de l'arc sous lui (olive en weak-on, vert vif en strong-on,
+// rouge en risk-off…), exactement comme la jauge épurée de desk.prime-terminal.
+function _riskArcColor(v) {
+  const stops = [0xc63430, 0xdb5a2c, 0xe88a28, 0xddb23a, 0xa9c64a, 0x5cb060, 0x2a9e60];
+  const t = Math.max(0, Math.min(1, (v + 100) / 200));
+  const x = t * (stops.length - 1);
+  const i = Math.min(stops.length - 2, Math.floor(x));
+  const f = x - i, a = stops[i], b = stops[i + 1];
+  const ch = (sh) => Math.round(((a >> sh) & 0xff) + (((b >> sh) & 0xff) - ((a >> sh) & 0xff)) * f);
+  return (ch(16) << 16) | (ch(8) << 8) | ch(0);
+}
+
 function buildRiskGauge() {
   const wrap = document.getElementById('risk-widget');
   if (!wrap) return;
@@ -1222,41 +1235,21 @@ function buildRiskGauge() {
         _arc.get('tick')?.setAll({ visible: false });
         _arc.get('label')?.setAll({ visible: false });
 
-        // Étiquettes de ZONES autour de l'arc (façon PMT) : Strong Risk-Off · Weak Risk-Off ·
-        // Neutral · Weak Risk-On · Strong Risk-On, placées aux 5 points -100/-50/0/+50/+100.
-        // try/catch = best-effort : ne JAMAIS blanchir la jauge si l'API amCharts change.
-        try {
-          [
-            { value: -100, text: 'Strong Risk-Off' },
-            { value:  -50, text: 'Weak Risk-Off' },
-            { value:    0, text: 'Neutral' },
-            { value:   50, text: 'Weak Risk-On' },
-            { value:  100, text: 'Strong Risk-On' },
-          ].forEach(z => {
-            const zr = axis.createAxisRange(axis.makeDataItem({ value: z.value }));
-            zr.get('axisFill')?.setAll({ visible: false });
-            zr.get('grid')?.setAll({ visible: false });
-            zr.get('tick')?.setAll({ visible: false });
-            const zl = zr.get('label');
-            if (zl) zl.setAll({ visible: true, text: z.text, inside: false, radius: 9, fontSize: 8.5, fill: am5.color(0x9a9aa2) });
-          });
-        } catch (e) { /* labels de zone best-effort */ }
+        // Jauge ÉPURÉE façon desk.prime-terminal : PAS de labels autour de l'arc.
 
-        // Aiguille fine et effilée (pointe nette), ANCRÉE au centre par un moyeu type « roulement
-        // d'instrument ». BLANCHE comme PMT (l'état reste signalé par le badge + le ticker colorés).
+        // Marqueur TRIANGLE façon PMT : petit triangle DÉTACHÉ du centre (ni aiguille depuis le
+        // centre, ni moyeu), teinté par la couleur de l'arc sous lui (olive en weak-on, vert vif
+        // en strong-on, rouge en risk-off).
         _riskHandDI = axis.makeDataItem({ value: 0 });
         const hand = am5radar.ClockHand.new(root, {
-          pinRadius: 9,                              // moyeu net (roulement)
-          radius: am5.percent(62),
-          innerRadius: am5.percent(0),
-          bottomWidth: 9,                            // base fine → pointe (effilée)
+          pinRadius: 0,                              // pas de moyeu central
+          radius: am5.percent(64),
+          innerRadius: am5.percent(43),              // détaché du centre → petit triangle "flottant"
+          bottomWidth: 26,                           // base large (côté centre) → pointe vers l'arc
           topWidth: 0,
         });
-        hand.pin.setAll({ fill: am5.color(0x101015), stroke: am5.color(0xeeeef2), strokeWidth: 2.5, strokeOpacity: 1, fillOpacity: 1 });
-        hand.hand.setAll({
-          fill: am5.color(0xeeeef2), strokeOpacity: 0,
-          shadowColor: am5.color(0x000000), shadowBlur: 7, shadowOffsetX: 0, shadowOffsetY: 2, shadowOpacity: 0.5,
-        });
+        hand.pin.setAll({ forceHidden: true });
+        hand.hand.setAll({ fill: am5.color(_riskArcColor(gaugeVal)), fillOpacity: 0.95, strokeOpacity: 0 });
         _riskHand = hand;
 
         _riskHandDI.set('bullet', am5xy.AxisBullet.new(root, { sprite: hand }));
@@ -1282,8 +1275,7 @@ function buildRiskGauge() {
           });
         }
         if (_riskHand) {
-          _riskHand.hand.set('fill', am5.color(0xeeeef2));
-          _riskHand.pin.set('stroke', am5.color(0xeeeef2));
+          _riskHand.hand.set('fill', am5.color(_riskArcColor(gaugeVal)));   // triangle = couleur de l'arc sous lui
         }
         const badgeEl = document.getElementById('risk-badge-val');
         if (badgeEl) { badgeEl.textContent = data.label; badgeEl.className = `risk-readout-badge ${cls}`; }
@@ -1292,6 +1284,14 @@ function buildRiskGauge() {
           ticker.className = `risk-ticker ${cls}`;
           ticker.innerHTML = _riskBandInner(data);
         }
+      }
+
+      // Badge teinté par la couleur de l'arc sous le marqueur (olive en weak-on, vert vif en
+      // strong-on, rouge en risk-off) — façon PMT, appliqué dans les 2 chemins (build + refresh).
+      const _badgeTint = document.getElementById('risk-badge-val');
+      if (_badgeTint) {
+        const bc = '#' + _riskArcColor(gaugeVal).toString(16).padStart(6, '0');
+        _badgeTint.style.color = bc; _badgeTint.style.borderColor = bc;
       }
 
       const updEl = document.getElementById('risk-updated');
