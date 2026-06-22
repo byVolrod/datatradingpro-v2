@@ -675,7 +675,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       .sort((a, b) => a - b);
     const ref    = abs.length > 10 ? abs[Math.floor(abs.length * 0.99)] : (abs[abs.length - 1] || 0.01);
     const refMax = ref * BASE;
-    const CAP    = 45;   // DTP culmine à ~±28 → cap large pour ne jamais déborder
+    const CAP    = 70;   // PMT montre GBP ~±48 → cap large : compression SEULEMENT sur extrêmes rares, amplitude réelle préservée (l'axe Y auto-scale + extraMin/Max 0.07 absorbent)
     return refMax > CAP ? (BASE * CAP / refMax) : BASE;
   }
   let scaleFactor = computeScale(data);
@@ -780,7 +780,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // ── Fenêtre initiale sur la FIN de série → on glisse vers la gauche pour remonter le temps.
   // Curseur NORMAL (défaut) et non « main/grab » (demande utilisateur) ; le pan au glisser reste actif.
   chart.plotContainer.set('cursorOverStyle', 'default');
-  if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.35, 1); } catch (e) {} });
+  if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.08, 1); } catch (e) {} });   // on montre ~92 % de la session (vs 65 %) → bien plus de points/pixel = texture dense visible d'emblée façon PMT (pan toujours dispo, donnée inchangée)
 
   // Apparition animée — SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
   chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
