@@ -1193,7 +1193,7 @@ function buildRiskGauge() {
             startAngle: -180, endAngle: 0,
             radius: am5.percent(80),
             innerRadius: am5.percent(73),               // arc plus FIN (épuré)
-            paddingTop: 14, paddingBottom: 64,           // + d'espace sous l'arc → dégage le pivot du texte
+            paddingTop: 16, paddingBottom: 34,           // arc abaissé & CENTRÉ dans la zone (jauge épurée : plus de texte-score sous l'arc)
             paddingLeft: 44, paddingRight: 44,
           })
         );
@@ -1372,7 +1372,7 @@ function buildRiskHistoryChart(containerId, data) {
   series.columns.template.setAll({ width: am5.percent(72), strokeOpacity: 0, cornerRadiusTL: 1, cornerRadiusTR: 1 });
   series.columns.template.adapters.add('fill', (_f, t) => {
     const di = t.dataItem; if (!di) return am5.color(0x444444);
-    return (di.get('valueY') >= 0) ? am5.color(RH_GREEN) : am5.color(RH_RED);
+    return am5.color(_riskArcColor(di.get('valueY')));   // barre teintée par le DÉGRADÉ DE L'ARC (même échelle -100..100 que la jauge)
   });
 
   const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', snapToSeries: [series] }));
