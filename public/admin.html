@@ -863,6 +863,14 @@
             + `<div class="aim-fc-row"><span>État</span><b style="color:${col}">${E.tripped ? ('COUPURE ACTIVE 🛑 ' + (E.info || '')) : 'OK ✅'}</b></div>`
             + `<div class="aim-fc-row"><span>Lu sur 1 h</span><b>${mb(E.bytes1h)} <span style="color:#6b7280">/ ${mb(E.cap1h)}</span></b></div>`
             + `<div class="aim-fc-row"><span>Lu sur 24 h</span><b style="color:${col}">${mb(E.bytes24h)} <span style="color:#6b7280">/ ${mb(E.cap24h)} · ${pct}%</span></b></div>`;
+        })()
+      + (() => {   // ── État RÉEL des projets Supabase (joignable / restreint 402 / erreur) — maj ~60s ──
+          const DB = d.db; if (!DB || !DB.nodes || !DB.nodes.length) return '';
+          const col = s => s === 'ok' ? '#22c55e' : s === 'restreint' ? '#ef4444' : '#ffb300';
+          const lbl = s => s === 'ok' ? 'OK ✅' : s === 'restreint' ? 'RESTREINT 🛑' : 'erreur ⚠️';
+          const rows = DB.nodes.map(n => `<div class="aim-fc-row"><span>${_esc2(n.name)} <span style="color:#6b7280">${_esc2(n.host)}</span></span><b style="color:${col(n.state)}">${lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.status || '—'} · ${n.ms}ms</span></b></div>`).join('');
+          return '<div style="margin:13px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Bases Supabase (' + DB.okCount + '/' + DB.count + ' OK)</div>' + rows
+            + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:11px;color:#ef4444;margin-top:5px;line-height:1.5">⚠ Base restreinte = quota/égress du mois dépassé → vérifier le dashboard Supabase (le keep-alive ne lève pas un 402).</div>' : '');
         })();
   }
 

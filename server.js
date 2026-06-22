@@ -2976,6 +2976,7 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       backoff: st.backoff || {}, healthDetail: intel.health || [],
       mail: (() => { try { return mailer.getMailHealth(); } catch { return null; } })(),   // santé email (canal principal OVH, envoyés/échecs, dernier canal) → visible dans le panel
       egress: (() => { try { return auth.getEgressStats(); } catch { return null; } })(),   // garde-fou anti-fuite Supabase (octets lus 1h/24h, plafonds, coupure active ?) → visible dans le panel
+      db: await auth.dbHealth().catch(() => null),   // état RÉEL de chaque projet Supabase (joignable / restreint 402 / erreur, latence) → bloc « Bases Supabase » du panel
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

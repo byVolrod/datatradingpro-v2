@@ -820,6 +820,32 @@ async function chatReact(id, emoji, who) {
   return _reactStore[key] || {};
 }
 
+// ── Santé des projets Supabase (panel admin) ─────────────────────────────────────────────────
+// Ping LÉGER (HEAD sur ai_cache) de CHAQUE base configurée (principal + db2…db5) → statut
+// OK / restreint (402 = quota/égress dépassé) / erreur, + latence. Caché 60 s (≈ mini keep-alive).
+let _dbHealthCache = { at: 0, data: null };
+async function dbHealth(maxAgeMs = 60000) {
+  if (_dbHealthCache.data && Date.now() - _dbHealthCache.at < maxAgeMs) return _dbHealthCache.data;
+  const _to = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
+  const nodes = await Promise.all(_dbNodes.map(async (n) => {
+    let host; try { host = new URL(n.url).host; } catch { host = n.url; }
+    const t0 = Date.now();
+    let status = 0, state = 'erreur', err = '';
+    try {
+      const r = await _to(n.client.from('ai_cache').select('*', { head: true }), 8000);
+      status = r.status || 0;
+      if (status === 402) state = 'restreint';
+      else if (status >= 200 && status < 300) state = 'ok';
+      else if (status === 404 || status === 416) state = 'ok';     // projet vivant, table vide/absente
+      else if (r.error) err = String(r.error.message || r.error).slice(0, 90);
+    } catch (e) { err = (e && e.message ? e.message : String(e)).slice(0, 90); }
+    return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, err };
+  }));
+  const data = { count: nodes.length, okCount: nodes.filter(n => n.state === 'ok').length, nodes };
+  _dbHealthCache = { at: Date.now(), data };
+  return data;
+}
+
 module.exports = {
   isStaff,
   seedAdmin,
@@ -846,6 +872,7 @@ module.exports = {
   aiCacheSet,
   aiCachePrune,
   getEgressStats,
+  dbHealth,
 };
 
 // ═══════════════════ PERSISTANCE RAPPORTS HEBDO (Weekly Recap) ═══════════════════
