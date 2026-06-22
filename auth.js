@@ -306,6 +306,42 @@ async function _pendingFlush() {
 }
 setInterval(() => { _pendingFlush().catch(() => {}); }, 5 * 60 * 1000);   // re-tentative périodique (dès que Supabase revient)
 
+// ─── CONVERGENCE des comptes entre TOUTES les bases saines ──────────────────────────────────────
+// Le failover (cf. _runMulti) écrit un nouveau compte sur le 1er nœud SAIN : quand la primaire est en 402,
+// les comptes vont sur db2 → db3/db4 et la primaire (au retour) ne les ont PAS (constaté : db2=6, db3/db4=0).
+// On PROPAGE donc le MIROIR LOCAL (superset de TOUS les comptes, password_hash inclus) vers chaque base saine
+// par UPSERT (clé id uuid ; email pour les comptes hérités à id entier). C'est de l'INGRESS (gratuit, NON
+// compté dans l'égress) et le miroir est LOCAL → ZÉRO égress Supabase. Idempotent (sans .select() → aucune
+// ligne renvoyée). Résultat : chaque base saine finit avec TOUS les comptes → failover robuste (n'importe
+// quelle base sert n'importe quel login) + primaire recomplétée dès son retour.
+let _convBusy = false, _convLast = 0, _convTimer = null;
+async function _usersConverge(reason = '') {
+  if (_convBusy || _dbNodes.length < 2 || !_usersMirror.size) return;
+  const now = Date.now();
+  const healthy = _dbNodes.filter(n => n.downUntil <= now);
+  if (!healthy.length) return;
+  _convBusy = true;
+  try {
+    const rows = [..._usersMirror.values()].filter(r => r && r.email && !_isTombstoned(r.id));   // jamais re-pousser un compte supprimé (pierre tombale)
+    const uuidRows   = rows.filter(r => _UUID_RE.test(String(r.id || '')));
+    const legacyRows = rows.filter(r => !_UUID_RE.test(String(r.id || ''))).map(r => { const { id, ...rest } = r; return rest; });   // id entier → base secondaire en uuid : upsert PAR EMAIL, sans id
+    let okNodes = 0;
+    for (const node of healthy) {
+      try {
+        if (uuidRows.length)   { const { error } = await node.client.from(TABLE).upsert(uuidRows,   { onConflict: 'id' });    if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); continue; } }
+        if (legacyRows.length) { const { error } = await node.client.from(TABLE).upsert(legacyRows, { onConflict: 'email' }); if (error && _supaDown(error) && !_isSchemaErr(error)) { _markDown(node, error); continue; } }
+        okNodes++;
+      } catch (e) { _markDown(node, e); }
+    }
+    _convLast = now;
+    if (okNodes) console.log(`[Auth] convergence users${reason ? ' (' + reason + ')' : ''} : ${rows.length} compte(s) propagé(s) vers ${okNodes}/${healthy.length} base(s) saine(s)`);
+  } finally { _convBusy = false; }
+}
+// Déclenchement DÉBOUNCÉ après une écriture (coalesce les rafales) → un nouveau compte se propage en ~8 s.
+function _convSoon(reason) { if (_convTimer) return; _convTimer = setTimeout(() => { _convTimer = null; _usersConverge(reason).catch(() => {}); }, 8000); }
+setTimeout(() => _usersConverge('boot').catch(() => {}), 30 * 1000);                       // amorçage : recomplète db3/db4 (vides) + db2 au démarrage
+setInterval(() => _usersConverge('périodique').catch(() => {}), 20 * 60 * 1000);           // toutes les 20 min : recomplète une base revenue (ex. primaire au rollover égress)
+
 // ─── Seed admin (premier lancement) ──────────────────────────────────────────
 async function seedAdmin() {
   const { data, error } = await supabase.from(TABLE).select('id').limit(1);
@@ -476,12 +512,14 @@ async function createUser({ email, password, name = '', role = 'client', plan = 
       _pendingQueue(id, full, 'upsert');
       console.warn('[Auth] createUser via MIROIR (base principale indisponible) → rejeu différé :', em);
       _bustUsersCache();
+      _convSoon('compte créé (offline)');   // propage vers les bases SAINES (db2/3/4) même si la primaire est muette
       return _pubUser(_mirrorGet(em));
     }
     throw new Error(error.message);
   }
   if (data) { _mirrorPut(data); _mirrorSaveFile(); }   // nouveau compte → entre tout de suite dans le miroir (hash inclus)
   _bustUsersCache();
+  _convSoon('compte créé');   // propage le nouveau compte vers TOUTES les bases saines (db3/db4 vides, primaire au retour)
   return data;
 }
 
@@ -502,6 +540,7 @@ async function changePassword(id, newPassword) {
     _pendingQueue(id, { password_hash: hash });   // rejoué (par email) vers Supabase à son retour (sinon le MDP « reviendrait » à l'ancien)
     if (!row) throw new Error('Supabase indisponible et compte absent du miroir local');
   }
+  _convSoon('mdp');   // propage le NOUVEAU hash vers toutes les bases saines (sinon une base garde l'ancien)
 }
 
 async function updateUser(id, fields = {}) {
@@ -533,6 +572,7 @@ async function updateUser(id, fields = {}) {
     if (lastErr && !_supaDown(lastErr)) throw new Error(lastErr.message || String(lastErr));   // vraie erreur SQL → remonter
     _pendingQueue(id, upd);                                                                     // muet OU 0 ligne (mauvais nœud) → rejeu différé (par email)
   }
+  _convSoon('maj compte');   // propage la maj (plan/role/active/expire) vers toutes les bases saines
 }
 
 async function deleteUser(id) {
