@@ -8,7 +8,8 @@
   },
   "scripts": {
     "start": "node --max-old-space-size=320 server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "keepalive": "node -r dotenv/config scripts/supabase-keepalive.js"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.100.1",
