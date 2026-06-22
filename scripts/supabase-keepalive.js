@@ -3,9 +3,12 @@
 /**
  * Supabase keep-alive — empêche la mise en pause des projets free-tier (inactivité ≈ 7 jours).
  *
- * Envoie une requête TRÈS légère (HEAD `…/rest/v1/<table>?limit=1`) à CHAQUE projet Supabase
- * configuré → une vraie requête SQL côté Postgres (donc « activité » comptée par Supabase),
- * SANS corps de réponse (égress quasi nul — cf. notre historique d'égress).
+ * Envoie un WRITE léger (upsert d'1 ligne `ai_cache?on_conflict=key`, `Prefer: return=minimal`) à CHAQUE
+ * projet → activité Postgres INCONTESTABLE. On écrit (INGRESS, non plafonné par l'egress) au lieu de LIRE :
+ * un HEAD/READ est REJETÉ par un projet en 402 (egress) et ne compte PAS comme activité → pause quand même.
+ * `return=minimal` → aucun corps renvoyé (égress nul — cf. notre historique d'égress).
+ * NB : le VPS (toujours allumé) fait DÉJÀ ce keep-alive en interne (auth.js `_keepAlive`, /12 h) ; ce script
+ * CI est une ceinture-bretelles redondante (utile si le VPS est arrêté).
  *
  * Zéro dépendance : `fetch`/`AbortController` natifs de Node ≥ 20.
  * Lancé par GitHub Actions (cron quotidien) ou à la main (`npm run keepalive`).
@@ -57,19 +60,25 @@ function collectProjects(vars) {
 function host(u) { try { return new URL(u).host; } catch { return String(u); } }
 
 async function ping(project, table) {
-  const headers = { apikey: project.key, Authorization: 'Bearer ' + project.key };
+  const stamp = new Date().toISOString();
+  const headers = {
+    apikey: project.key, Authorization: 'Bearer ' + project.key,
+    'Content-Type': 'application/json',
+    Prefer: 'resolution=merge-duplicates,return=minimal',   // upsert (par `key`) + AUCUN corps renvoyé → égress nul
+  };
+  const body = JSON.stringify({ key: 'keepalive:heartbeat', value: { ts: Date.now(), at: stamp, src: 'ci' }, created_at: stamp });
   const t0 = Date.now();
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
-    // 1) HEAD sur la table (requête SQL réelle, AUCUN corps renvoyé → égress ~nul)
-    let res = await fetch(`${project.url}/rest/v1/${encodeURIComponent(table)}?limit=1`,
-      { method: 'HEAD', headers, signal: ctrl.signal });
-    // table absente / non exposée sur cette base → repli sur la racine REST (compte aussi comme activité)
+    // 1) WRITE réel sur la table (INGRESS, non plafonné par l'egress) = activité Postgres incontestable
+    let res = await fetch(`${project.url}/rest/v1/${encodeURIComponent(table)}?on_conflict=key`,
+      { method: 'POST', headers, body, signal: ctrl.signal });
+    // table absente / non exposée sur cette base → repli GET racine REST (compte au moins comme requête)
     if (res.status === 404 || res.status === 400) {
-      res = await fetch(`${project.url}/rest/v1/`, { method: 'GET', headers, signal: ctrl.signal });
+      res = await fetch(`${project.url}/rest/v1/`, { method: 'GET', headers: { apikey: project.key, Authorization: 'Bearer ' + project.key }, signal: ctrl.signal });
     }
-    try { if (res.body) await res.arrayBuffer(); } catch (_) { /* HEAD / corps vide */ }
+    try { if (res.body) await res.arrayBuffer(); } catch (_) { /* return=minimal → corps vide */ }
     clearTimeout(timer);
     return { ok: res.status >= 200 && res.status < 400, status: res.status, ms: Date.now() - t0 };
   } catch (e) {
