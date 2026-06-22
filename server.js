@@ -10174,10 +10174,10 @@ const CS_PERIOD_CFG = {
   today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },   // 1 m (~500 pts/jour, vérifié servi par Yahoo) → courbe NERVEUSE façon PMT (repli gradué 1m→5m→30m)
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
-  // DENSITÉ façon PMT : 15 m (~480 pts/semaine) au lieu d'1 h → courbe nerveuse ; plancher de repli = 30 m (toujours plus dense que l'ancien 1 h).
-  week:  { interval: '15m', range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
-  '8h':  { interval: '5m',  range: '5d',  cutoffMs:  8 * 3600000,                    clip:  3  },   // 5 m (intraday connu-fonctionnel) → ~96 pts sur 8 h, façon PMT
-  '1d':  { interval: '5m',  range: '5d',  cutoffMs: 24 * 3600000,                    clip:  5  },   // 5 m (~288 pts/jour) au lieu de 30 m → haute fréquence ; plancher de repli = 30 m (= ancien)
+  // DENSITÉ façon PMT : 5 m (~1440 pts/semaine) au lieu d'1 h → courbe nerveuse ; plancher de repli = 30 m.
+  week:  { interval: '5m',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
+  '8h':  { interval: '1m',  range: '5d',  cutoffMs:  8 * 3600000,                    clip:  3  },   // 1 m (~480 pts sur 8 h) → haute fréquence MAXIMALE façon PMT (repli gradué 1m→5m→30m)
+  '1d':  { interval: '1m',  range: '5d',  cutoffMs: 24 * 3600000,                    clip:  5  },   // 1 m (~1440 pts/jour) → texture bruitée façon PMT (repli gradué 1m→5m→30m)
   '5d':  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
   '7d':  { interval: '1d',  range: '1mo', cutoffMs:  7 * 86400000,                   clip: 15  },
   '1m':  { interval: '1d',  range: '1mo', cutoffMs: null,                             clip: 20  },
