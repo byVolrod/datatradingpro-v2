@@ -5623,7 +5623,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rsh-status.risk-off .rsh-dot { background: #ef4444; }  .rsh-status.risk-off .rsh-label { color: #ef4444; }
 .rsh-status.neutral  { background: #1f1a12; border-color: rgba(249,115,22,0.25); }
 .rsh-status.neutral  .rsh-dot { background: #f97316; }  .rsh-status.neutral  .rsh-label { color: #f97316; }
-.rsh-chart { flex: 1 1 auto; min-height: 165px; width: 100%; }
+.rsh-chart { flex: 1 1 auto; min-height: 165px; width: 100%; border-top: 1px solid var(--hud-line, #1c1c20); margin-top: 6px; }
 
 /* Jauge Risk — lecture (score + badge) CENTRÉE sous l'arc */
 .risk-gauge-stage { position: relative; flex: 1; min-height: 0; width: 100%; }
