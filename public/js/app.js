@@ -1670,6 +1670,10 @@ function buildEconGroup(group) {
 
 const CB_SPEAKER_RX = /\b(?:fed(?:eral reserve)?|fomc|ecb|boe|boj|boc|rba|snb|rbnz|riksbank|norges\s+bank|bank\s+of\s+(?:england|japan|canada|australia)|swiss\s+national|reserve\s+bank|powell|lagarde|bailey|ueda|macklem|bullock|jordan|mann|dhingra|pill|haskel|breeden|taylor|ramsden|waller|jefferson|cook|kugler|bowman|schmid|daly|kashkari|williams|bostic|barkin|collins|logan|hammack|goolsbee|musalem|harker|villeroy|de\s?guindos|nagel|schnabel|lane|rehn|knot|centeno|simkus|panetta|vasle|kazaks|vujcic|holzmann|stournaras|elderson|cipollone)\b/i;
 
+// Figures POLITIQUES/gouvernementales à fort débit (Trump, Vance, Bessent, Rubio…) : leurs citations
+// en rafale spamment le flux → MÊME regroupement que les banquiers centraux (1 carte + le reste en Info).
+const POL_SPEAKER_RX = /\b(trump|vance|bessent|rubio|lutnick|hassett|greer|navarro|miran|waltz|witkoff|leavitt|yellen|musk|reeves|lammy|kato|ishiba|takaichi|zelenskyy?|putin|lavrov|netanyahu|macron|merz|starmer|meloni|von\s+der\s+leyen|sefcovic|dombrovskis)\b/i;
+
 // "BoE's Mann Speaks" / "Fed's Powell Speaking" / "ECB Lagarde Testimony"
 function isSpeakerOpener(item) {
   const h = (item.headline || '').trim();
@@ -1680,7 +1684,7 @@ function isSpeakerOpener(item) {
 // "BoE's Mann: Inflation sticky" / "Fed's Powell - Data dependent" / "Powell Says..."
 function isSpeakerQuote(item) {
   const h = item.headline || '';
-  if (!CB_SPEAKER_RX.test(h)) return false;
+  if (!CB_SPEAKER_RX.test(h) && !POL_SPEAKER_RX.test(h)) return false;   // banquiers centraux OU figures politiques
   // Must have separator or "says/notes" after name (not end with "Speaks")
   return /^.{4,60}\s*(?:[-:—]|says?\s|notes?\s|adds?\s|warns?\s|signals?\s|reiterates?\s|expects?\s|sees?\s|stresses?\s|confirms?\s)\s*\S/i.test(h) &&
     !/\b(?:speaks?|speaking|testimony|press\s+(?:conference|briefing))\s*$/i.test(h);
@@ -1692,7 +1696,9 @@ function getSpeakerKey(headline) {
   const m1 = h.match(/(?:fed(?:eral\s+reserve)?|fomc|ecb|boe|boj|boc|rba|snb|rbnz|bank\s+of\s+\w+|riksbank)'?s?\s+([A-Z][a-zé\-]+)/i);
   if (m1) return m1[1].toLowerCase();
   const m2 = h.match(/\b(powell|lagarde|bailey|ueda|macklem|bullock|jordan|mann|dhingra|pill|haskel|breeden|taylor|ramsden|waller|jefferson|cook|kugler|bowman|schmid|daly|kashkari|williams|bostic|barkin|collins|logan|hammack|goolsbee|musalem|harker|villeroy|nagel|schnabel|lane|rehn|knot|centeno|simkus|panetta|vasle|kazaks|vujcic|holzmann|stournaras|elderson|cipollone)\b/i);
-  return m2 ? m2[1].toLowerCase() : null;
+  if (m2) return m2[1].toLowerCase();
+  const m3 = h.match(POL_SPEAKER_RX);   // figure politique (Trump/Vance/Bessent…) → même clé pour toutes les variantes
+  return m3 ? m3[1].toLowerCase() : null;
 }
 
 // Collect all quote items from same speaker within ±90 min of the opener
