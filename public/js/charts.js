@@ -1097,26 +1097,6 @@ function _riskBandInner(data) {
   return `<span class="risk-ticker-dot"></span><span class="risk-ticker-txt"><strong>${data.label}:</strong> ${phrase}</span>`;
 }
 
-// Bascule de vue façon PMT (icônes barres/ligne dans l'en-tête « Risk Sentiment »). NON-DESTRUCTIF :
-// la jauge ET l'historique restent empilés (choix utilisateur « les deux visibles ») — l'icône défile
-// + illumine juste la section ciblée (barres = jauge, ligne = historique).
-function _wireRiskViewToggle() {
-  const gBtn = document.getElementById('rvt-gauge');
-  const hBtn = document.getElementById('rvt-hist');
-  if (!gBtn || !hBtn || gBtn._wired) return;
-  gBtn._wired = true;
-  const focus = (which) => {
-    gBtn.classList.toggle('active', which === 'gauge');
-    hBtn.classList.toggle('active', which === 'hist');
-    const tgt = which === 'gauge'
-      ? document.getElementById('risk-widget')
-      : (document.querySelector('#rtab-risk .rsh-header') || document.getElementById('risk-history-chart'));
-    try { tgt?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); } catch {}
-  };
-  gBtn.addEventListener('click', () => focus('gauge'));
-  hBtn.addEventListener('click', () => focus('hist'));
-}
-
 // Couleur du dégradé d'arc à une position v∈[-100,100] (interp linéaire des 7 stops de l'arc).
 // → le marqueur triangle prend la teinte de l'arc sous lui (olive en weak-on, vert vif en strong-on,
 // rouge en risk-off…), exactement comme la jauge épurée de desk.prime-terminal.
@@ -1133,7 +1113,6 @@ function _riskArcColor(v) {
 function buildRiskGauge() {
   const wrap = document.getElementById('risk-widget');
   if (!wrap) return;
-  _wireRiskViewToggle();
 
   clearInterval(_riskRefreshTimer);
   if (_riskGaugeRoot) { _riskGaugeRoot.dispose(); _riskGaugeRoot = null; }
@@ -1372,7 +1351,7 @@ function buildRiskHistoryChart(containerId, data) {
   series.columns.template.setAll({ width: am5.percent(72), strokeOpacity: 0, cornerRadiusTL: 1, cornerRadiusTR: 1 });
   series.columns.template.adapters.add('fill', (_f, t) => {
     const di = t.dataItem; if (!di) return am5.color(0x444444);
-    return am5.color(_riskArcColor(di.get('valueY')));   // barre teintée par le DÉGRADÉ DE L'ARC (même échelle -100..100 que la jauge)
+    return am5.color(_riskArcColor(di.get('valueY') * 3));   // barre teintée DÉGRADÉ DE L'ARC, ÉTIRÉ ×3 → couleurs VIVES comme l'arc (risk-off rouge, risk-on vert)
   });
 
   const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', snapToSeries: [series] }));
