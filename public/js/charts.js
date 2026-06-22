@@ -534,16 +534,16 @@ function rebuildStockChart(symbol) {
 //  STRENGTH — Real Currency Strength (Single Chart + TF Selector)
 // ═══════════════════════════════════════════════
 
-// Palette exacte (référence DataTradingPro)
+// Palette SATURÉE (façon PMT) : couleurs plus vives/denses pour RESSORTIR sur le fond noir #0d0d0d.
 const CS_COLORS = {
-  USD: 0xff7a00,  // orange vif
-  EUR: 0xdc2626,  // rouge
-  JPY: 0x06b6d4,  // cyan
-  GBP: 0x22c55e,  // vert flashy
-  AUD: 0x2563eb,  // bleu roi
-  CHF: 0xeab308,  // jaune
-  CAD: 0xa855f7,  // violet
-  NZD: 0xec4899,  // rose magenta
+  USD: 0xff9500,  // orange vif (+ lumineux)
+  EUR: 0xff3b30,  // rouge vif (était #dc2626, trop mat)
+  JPY: 0x22d3ee,  // cyan clair vif
+  GBP: 0x2bee6b,  // vert flashy dense
+  AUD: 0x3b82f6,  // bleu roi + lumineux (était #2563eb, sombre sur fond noir)
+  CHF: 0xffd60a,  // jaune doré vif
+  CAD: 0xbe8bff,  // violet vif
+  NZD: 0xff5cae,  // rose magenta vif
 };
 
 const STF_ORDER  = ['today', 'week', '8h', '1d', '7d', '1m'];   // 5D retiré
@@ -703,7 +703,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: 1.5, strokeOpacity: dim ? 0 : 1 });   // 1.5 px (façon PMT) : assez fin pour garder toute la haute fréquence/nervosité, mais plus visible qu'1 px pur. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur — corrigé.)
+    series.strokes.template.setAll({ strokeWidth: 1.8, strokeOpacity: dim ? 0 : 1 });   // 1.8 px (façon PMT) : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur — corrigé.)
     // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) + LineSeries amCharts = segments
     // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles, façon PMT. La densité
     // vient des bougies fines côté serveur (today=1 m, week=15 m, 1d=5 m dans CS_PERIOD_CFG / _computeStrengthFresh).
