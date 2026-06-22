@@ -823,7 +823,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const pts = (newData.series[ccy] || [])
         .filter(d => d.v != null && d.t != null)
         .map(d => ({ ...d, v: d.v * scaleFactor }));
-      const cleanPts = _smoothCS(pts);
+      const cleanPts = pts;   // ⚠️ PAS de _smoothCS : la mise à jour live RÉÉCRIVAIT les points avec une moyenne mobile 3 pts → la courbe brute (nerveuse) du 1er rendu devenait molle en quelques secondes. Points BRUTS = nervosité façon PMT conservée.
       s.data.setAll(cleanPts);                      // animation fluide intégrée amCharts
       // Repositionner + retexter le badge flottant
       const lp = cleanPts[cleanPts.length - 1];
