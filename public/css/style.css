@@ -5592,6 +5592,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .risk-ticker.neutral  { background: #1f1a12; border: 1px solid rgba(249,115,22,0.20); color: #dd9a64; }
 .risk-ticker.neutral strong { color: #f97316; }  .risk-ticker.neutral .risk-ticker-dot { background: #f97316; }
 
+/* ── Risk Sentiment History (barres quotidiennes risk-on/off, façon PMT) ── */
+#rtab-risk #risk-widget { flex: 0 0 218px; }   /* jauge en haut (hauteur fixe), historique flex en dessous */
+.rsh-header { margin-top: 4px; }
+.rsh-status {
+  display: flex; align-items: center; gap: 8px; padding: 7px 11px; margin: 5px 10px 4px;
+  border: 1px solid var(--hud-line, #1c1c20); border-radius: 5px; background: #101013;
+  font-size: 11px; line-height: 1.35; flex-shrink: 0;
+}
+.rsh-status .rsh-dot { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 3px rgba(255,255,255,0.03); }
+.rsh-status .rsh-label { font-weight: 700; letter-spacing: 0.3px; white-space: nowrap; }
+.rsh-status .rsh-desc { color: #9ca3af; font-size: 10.5px; flex: 1; min-width: 0; }
+.rsh-status.risk-on  { background: #131d17; border-color: rgba(34,197,94,0.25); }
+.rsh-status.risk-on  .rsh-dot { background: #22c55e; }  .rsh-status.risk-on  .rsh-label { color: #22c55e; }
+.rsh-status.risk-off { background: #1f1416; border-color: rgba(239,68,68,0.25); }
+.rsh-status.risk-off .rsh-dot { background: #ef4444; }  .rsh-status.risk-off .rsh-label { color: #ef4444; }
+.rsh-status.neutral  { background: #1f1a12; border-color: rgba(249,115,22,0.25); }
+.rsh-status.neutral  .rsh-dot { background: #f97316; }  .rsh-status.neutral  .rsh-label { color: #f97316; }
+.rsh-chart { flex: 1 1 auto; min-height: 165px; width: 100%; }
+
 /* Jauge Risk — lecture (score + badge) CENTRÉE sous l'arc */
 .risk-gauge-stage { position: relative; flex: 1; min-height: 0; width: 100%; }
 #risk-gauge-div { position: absolute; inset: 0; }

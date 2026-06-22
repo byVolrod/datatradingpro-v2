@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260621bold" />
+  <link rel="stylesheet" href="/css/style.css?v=20260622risk" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -560,12 +560,25 @@
         <div id="am5-map" style="flex:1;min-height:0;width:100%;"></div>
       </div>
 
-      <!-- RISK — Sentiment Widget -->
+      <!-- RISK — Sentiment Widget + History -->
       <div class="right-tab-panel" id="rtab-risk">
         <div class="chart-header">
           <span class="chart-header-title">Risk Sentiment</span>
         </div>
         <div id="risk-widget" class="risk-widget-container"></div>
+
+        <!-- Risk Sentiment History (barres quotidiennes risk-on/off) -->
+        <div class="chart-header rsh-header">
+          <span class="chart-header-title">Risk Sentiment History</span>
+          <span class="live-dot live-dot--small"></span>
+          <span class="live-label">Live</span>
+        </div>
+        <div id="risk-history-status" class="rsh-status neutral">
+          <span class="rsh-dot"></span>
+          <span class="rsh-label">—</span>
+          <span class="rsh-desc"></span>
+        </div>
+        <div class="amchart-container rsh-chart" id="risk-history-chart"></div>
       </div>
 
       <!-- STRENGTH — Real Currency Strength -->
@@ -729,7 +742,7 @@
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
 <script src="/js/app.js?v=20260621wrap"></script>
-<script src="/js/charts.js?v=20260622tex2"></script>
+<script src="/js/charts.js?v=20260622risk"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
