@@ -1278,9 +1278,9 @@ function buildRiskGauge() {
 //  Source UNIQUE : /api/risk-history (échantillonné depuis fetchRiskSentiment serveur). On ne recalcule rien.
 // ═══════════════════════════════════════════════
 let _riskHistCtl = null;
-const RH_GREEN = 0x22c55e;   // pct ≥ 0 → risk-on (vert RISK DTP, = ticker/jauge risque)
-const RH_RED   = 0xef4444;   // pct < 0 → risk-off (rouge RISK DTP, = ticker/jauge risque)
-const RH_ZERO  = 0xff7a00;   // ligne zéro = orange signature DTP
+const RH_GREEN = 0x01b298;   // pct ≥ 0 → risk-on (vert PMT à l'identique, cf. image)
+const RH_RED   = 0xfd2e64;   // pct < 0 → risk-off (rouge PMT à l'identique, cf. image)
+const RH_ZERO  = 0xff9800;   // ligne zéro = orange PMT à l'identique
 
 function buildRiskHistoryChart(containerId, data) {
   const el = document.getElementById(containerId);
@@ -1305,8 +1305,8 @@ function buildRiskHistoryChart(containerId, data) {
   const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
     baseInterval: { timeUnit: 'day', count: 1 }, extraMin: 0.01, extraMax: 0.01, maxDeviation: 0.05, renderer: xRenderer,
   }));
-  xAxis.set('dateFormats', { day: 'dd/MM', week: 'dd/MM', month: 'MMM' });
-  xAxis.set('periodChangeDateFormats', { day: 'dd/MM', week: 'dd/MM', month: 'MMM' });
+  xAxis.set('dateFormats', { day: 'MM-dd', week: 'MM-dd', month: 'MMM' });                  // format PMT : 06-19
+  xAxis.set('periodChangeDateFormats', { day: 'MM-dd', week: 'MM-dd', month: 'MM-dd' });
 
   // Axe Y : Sentiment (%) de -100 à +100
   const yRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: 40 });
