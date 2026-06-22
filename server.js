@@ -10171,13 +10171,13 @@ const _csCache = {};
 // clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
-  today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  5  },   // 1 m (~500 pts/jour, vérifié servi par Yahoo) → courbe NERVEUSE façon PMT (repli gradué 1m→5m→30m)
+  today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  8  },   // clip 8 % : ne rogne que les ticks aberrants Yahoo, laisse passer les vrais swings intraday (Fed/ECB) → amplitude réelle façon PMT ; 1 m (~500 pts/jour, repli gradué 1m→5m→30m)
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
   // DENSITÉ façon PMT : 5 m (~1440 pts/semaine) au lieu d'1 h → courbe nerveuse ; plancher de repli = 30 m.
   week:  { interval: '5m',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
-  '8h':  { interval: '1m',  range: '5d',  cutoffMs:  8 * 3600000,                    clip:  3  },   // 1 m (~480 pts sur 8 h) → haute fréquence MAXIMALE façon PMT (repli gradué 1m→5m→30m)
-  '1d':  { interval: '1m',  range: '5d',  cutoffMs: 24 * 3600000,                    clip:  5  },   // 1 m (~1440 pts/jour) → texture bruitée façon PMT (repli gradué 1m→5m→30m)
+  '8h':  { interval: '1m',  range: '5d',  cutoffMs:  8 * 3600000,                    clip:  5  },   // clip 5 % (était 3 % = le + agressif, écrêtait des swings intraday légitimes 4-5 %) → amplitude réelle ; 1 m (~480 pts sur 8 h, repli gradué 1m→5m→30m)
+  '1d':  { interval: '1m',  range: '5d',  cutoffMs: 24 * 3600000,                    clip:  8  },   // clip 8 % (aligné sur today) : laisse passer les vrais swings sur 24 h → amplitude réelle ; 1 m (~1440 pts/jour, repli gradué 1m→5m→30m)
   '5d':  { interval: '1h',  range: '5d',  cutoffMs: null,                             clip: 10  },
   '7d':  { interval: '1d',  range: '1mo', cutoffMs:  7 * 86400000,                   clip: 15  },
   '1m':  { interval: '1d',  range: '1mo', cutoffMs: null,                             clip: 20  },
@@ -10295,7 +10295,7 @@ async function _computeStrengthFresh(period) {
   // Each point = avg % change of the currency vs ALL its pairs since the first
   // candle of the period.  This is the professional standard: values are actual
   // percentage moves, no accumulation drift, no open-gap spikes.
-  const MIN_PAIRS = 4;
+  const MIN_PAIRS = 2;   // 4 → 2 : à 1 m, ~2.5 paires/devise/bin → le seuil 4 forçait un carry-forward MASSIF (segments PLATS qui écrasaient le jitter minute-à-minute). 2 (≥1 base + 1 quote) calcule une VRAIE moyenne sur bien plus de bins → haute fréquence réelle exposée (plancher 2 = robustesse, jamais sur 1 seule paire ; le clip borne les ticks aberrants)
   const series    = Object.fromEntries(CS_CURRENCIES.map(c => [c, []]));
 
   // Reference price for each pair = first valid close in the period window
