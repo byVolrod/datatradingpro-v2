@@ -1817,6 +1817,25 @@ function _drainReactionQ() {
   }
 }
 
+// Pertinence d'un mouvement à une news : on n'affiche dans la RÉACTION que les instruments dont la
+// devise/commodité est CITÉE dans le titre/tags (ex. USD/JPY pour une news Yen) — jamais un actif sans
+// rapport (ex. Brent pour une intervention JPY). Instrument hors map → conservé (pas de sur-filtrage).
+const _MOVE_KEYS = {
+  'brent crude':   /\b(oil|crude|brent|wti|opec|petroleum|barrel|energy|refinery|saudi|iran|hormuz|supply|gas)\b/i,
+  'or (xau/usd)':  /\b(gold|xau|bullion|precious|safe.?haven|geopolit|war|conflict|risk.?off)\b/i,
+  'dxy':           /\b(dxy|dollar|\busd\b|\bfed\b|fomc|powell|greenback)\b/i,
+  'eur/usd':       /\b(eur\b|euro|ecb|lagarde|eurozone|german|france|italy|\busd\b|dollar|\bfed\b|powell)\b/i,
+  'nasdaq (qqq)':  /\b(nasdaq|tech|equit|stocks?|shares|wall street|qqq)\b/i,
+  's&p 500 (spy)': /\b(s&p|sp ?500|spy|equit|stocks?|shares|wall street|\bdow\b)\b/i,
+  'usd/jpy':       /\b(jpy|yen|boj|bank of japan|japan|japanese|ueda|intervention|\busd\b|dollar|\bfed\b)\b/i,
+  'gbp/usd':       /\b(gbp|pound|sterling|\bboe\b|bailey|\buk\b|britain|british|\busd\b|dollar)\b/i,
+  'aud/usd':       /\b(aud|aussie|\brba\b|australia|australian|\busd\b|dollar)\b/i,
+};
+function _moveRelevant(label, hay) {
+  const re = _MOVE_KEYS[String(label || '').toLowerCase().trim()];
+  return re ? re.test(hay) : true;   // instrument hors map → conservé
+}
+
 // ── Transforme une description (array ou gros bloc texte) en puces synthétiques ──
 function _toBullets(raw, maxItems = 4) {
   // 1) Si déjà un tableau → nettoyer chaque entrée
@@ -2208,7 +2227,11 @@ function buildNewsItem(item) {
         .then(r => r.json())
         .then(data => {
           if (activeTab !== 'reaction') return;
-          if (!data.moves || data.moves.length === 0) {
+          // Ne garder QUE les mouvements PERTINENTS à la news (devise/commodité citée dans le titre/tags)
+          // → plus jamais un actif sans rapport (ex. Brent pour une news Yen).
+          const _hay = ((item.headline || '') + ' ' + (item.tags || []).join(' ') + ' ' + (item.category || '')).toLowerCase();
+          const _rxMoves = (data.moves || []).filter(m => _moveRelevant(m.label, _hay));
+          if (!_rxMoves.length) {
             // No real moves — remove the Réaction tag entirely and fall back to Info
             if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
             activeTab = null;
@@ -2221,7 +2244,7 @@ function buildNewsItem(item) {
             return;
           } else {
             // Réaction façon flux marché : une PUCE par actif, prix AVANT → APRÈS + variation (style "X passé de A à B").
-            const movesHtml = data.moves.map(m => {
+            const movesHtml = _rxMoves.map(m => {
               const cls = m.dir === 'up' ? 'rx-up' : 'rx-dn';
               const u   = m.unit ? ' ' + m.unit : '';
               return `<li class="rx-li ${cls}">`
@@ -2238,7 +2261,7 @@ function buildNewsItem(item) {
               + `</div>`;
 
             // Explication Gemini du mouvement (mise en cache → 0 requête à la réouverture)
-            const movesStr = data.moves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
+            const movesStr = _rxMoves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
             // Explication = LISTE À PUCES (1 phrase courte par puce, en langue source) — façon pro.
             const _applyExplain = val => {
               const arr = Array.isArray(val) ? val : (val ? [String(val)] : []);

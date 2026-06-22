@@ -10912,6 +10912,9 @@ const MOVE_ASSETS = [
   { sym: 'GC=F',      label: 'Or (XAU/USD)',  unit: '$/oz',  decimals: 1, threshold: 12.0,   minPct: 0.80  },
   { sym: 'DX-Y.NYB', label: 'DXY',            unit: 'pts',   decimals: 3, threshold: 0.45,   minPct: 0.45  },
   { sym: 'EURUSD=X', label: 'EUR/USD',         unit: '',      decimals: 5, threshold: 0.0042, minPct: 0.40  },
+  { sym: 'USDJPY=X', label: 'USD/JPY',         unit: '',      decimals: 3, threshold: 0.55,   minPct: 0.35  },
+  { sym: 'GBPUSD=X', label: 'GBP/USD',         unit: '',      decimals: 5, threshold: 0.0052, minPct: 0.40  },
+  { sym: 'AUDUSD=X', label: 'AUD/USD',         unit: '',      decimals: 5, threshold: 0.0035, minPct: 0.40  },
   { sym: 'QQQ',       label: 'Nasdaq (QQQ)',   unit: 'USD',   decimals: 2, threshold: 2.60,   minPct: 0.70  },
   { sym: 'SPY',       label: 'S&P 500 (SPY)',  unit: 'USD',   decimals: 2, threshold: 2.40,   minPct: 0.50  },
 ];
