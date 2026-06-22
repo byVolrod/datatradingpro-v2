@@ -352,6 +352,39 @@ function _convSoon(reason) { if (_convTimer) return; _convTimer = setTimeout(() 
 setTimeout(() => _usersConverge('boot').catch(() => {}), 30 * 1000);                       // amorçage : recomplète db3/db4 (vides) + db2 au démarrage
 setInterval(() => _usersConverge('périodique').catch(() => {}), 20 * 60 * 1000);           // toutes les 20 min : recomplète une base revenue (ex. primaire au rollover égress)
 
+// ════════════ KEEP-ALIVE (anti-PAUSE free-tier : 7 j sans activité BASE → projet mis en pause) ════════════
+// Supabase met en pause un projet free sans « activité base de données » durant 7 j. Or un READ HEAD rejeté
+// par un projet en 402 NE COMPTE PAS (ni un appel servi par cache). On envoie donc un WRITE réel (upsert d'1
+// ligne `ai_cache`) = activité Postgres INCONTESTABLE, et — étant de l'INGRESS — NON plafonné par l'egress.
+// Tourne sur le VPS (toujours allumé) → indépendant des secrets GitHub Actions (qui, eux, faisaient un READ
+// inopérant). DOUBLE RÔLE = sonde de RETOUR : un write qui repasse sur un nœud en cooldown (ex. primaire au
+// rollover egress, ou un projet dé-pausé à la main) le réintègre AUSSITÔT + déclenche la convergence.
+let _kaBusy = false, _kaLast = 0, _kaOk = 0;
+async function _keepAlive(reason = '') {
+  if (_kaBusy || !_dbNodes.length) return;
+  _kaBusy = true;
+  try {
+    const stamp = new Date().toISOString();
+    const row = [{ key: 'keepalive:heartbeat', value: { ts: Date.now(), at: stamp }, created_at: stamp }];   // 1 ligne, écrasée à chaque fois
+    let ok = 0, revived = 0;
+    for (const node of _dbNodes) {   // TOUS les nœuds (même en cooldown) → le keep-alive sert aussi de sonde de retour
+      try {
+        const { error } = await node.client.from('ai_cache').upsert(row, { onConflict: 'key' });   // INGRESS pur (aucun .select() → rien lu)
+        if (!error) {
+          ok++;
+          if (node.downUntil > Date.now()) { node.downUntil = 0; revived++; console.log(`[Auth] keep-alive : ${node.name} REVENUE (write accepté) → réintégrée au pool`); }
+        }
+      } catch { /* nœud injoignable → ignoré (réessai au prochain cycle) */ }
+    }
+    _kaLast = Date.now(); _kaOk = ok;
+    console.log(`[Auth] keep-alive${reason ? ' (' + reason + ')' : ''} : ${ok}/${_dbNodes.length} base(s) maintenue(s) ACTIVE(s) par WRITE${revived ? ` · ${revived} revenue(s)` : ''}`);
+    if (revived) _convSoon('nœud revenu');   // une base revient (write OK) → on lui propage TOUS les comptes
+  } finally { _kaBusy = false; }
+}
+function getKeepAliveStatus() { return { last: _kaLast, ok: _kaOk, nodes: _dbNodes.length }; }
+setTimeout(() => _keepAlive('boot').catch(() => {}), 60 * 1000);                  // au boot (+60 s)
+setInterval(() => _keepAlive('périodique').catch(() => {}), 12 * 60 * 60 * 1000); // toutes les 12 h (2 pings / fenêtre de 7 j = marge large même si un cycle échoue)
+
 // ─── Seed admin (premier lancement) ──────────────────────────────────────────
 async function seedAdmin() {
   const { data, error } = await supabase.from(TABLE).select('id').limit(1);
@@ -891,7 +924,7 @@ async function dbHealth(maxAgeMs = 60000) {
     } catch (e) { err = (e && e.message ? e.message : String(e)).slice(0, 90); }
     return { name: n.name, host, state, status, ms: Date.now() - t0, downUntil: n.downUntil > Date.now() ? n.downUntil : 0, err };
   }));
-  const data = { count: nodes.length, okCount: nodes.filter(n => n.state === 'ok').length, nodes };
+  const data = { count: nodes.length, okCount: nodes.filter(n => n.state === 'ok').length, nodes, keepalive: { last: _kaLast, ok: _kaOk } };
   _dbHealthCache = { at: Date.now(), data };
   return data;
 }
@@ -923,6 +956,8 @@ module.exports = {
   aiCachePrune,
   getEgressStats,
   dbHealth,
+  getKeepAliveStatus,
+  _keepAlive,   // exposé pour un déclenchement manuel (admin) si besoin
 };
 
 // ═══════════════════ PERSISTANCE RAPPORTS HEBDO (Weekly Recap) ═══════════════════
