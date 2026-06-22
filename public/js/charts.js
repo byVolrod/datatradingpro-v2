@@ -703,7 +703,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: 1, strokeOpacity: dim ? 0 : 1 });   // 1 px EXACT (façon PMT/TradingView) : une ligne d'1 seul pixel retranscrit toute la haute fréquence ; à 1.4+ les micro-dents fusionnent et la courbe paraît « molle »
+    series.strokes.template.setAll({ strokeWidth: 1.5, strokeOpacity: dim ? 0 : 1 });   // 1.5 px (façon PMT) : assez fin pour garder toute la haute fréquence/nervosité, mais plus visible qu'1 px pur. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur — corrigé.)
     // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) + LineSeries amCharts = segments
     // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles, façon PMT. La densité
     // vient des bougies fines côté serveur (today=1 m, week=15 m, 1d=5 m dans CS_PERIOD_CFG / _computeStrengthFresh).
