@@ -5593,7 +5593,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .risk-ticker.neutral strong { color: #f97316; }  .risk-ticker.neutral .risk-ticker-dot { background: #f97316; }
 
 /* ── Risk Sentiment History (barres quotidiennes risk-on/off, façon PMT) ── */
-#rtab-risk #risk-widget { flex: 0 0 218px; }   /* jauge en haut (hauteur fixe), historique flex en dessous */
+#rtab-risk #risk-widget { flex: 0 0 236px; }   /* jauge en haut (hauteur fixe), historique flex en dessous */
 .rsh-header { margin-top: 4px; }
 
 /* ── Bascule de vue Risk Sentiment (icônes façon PMT : barres = jauge, ligne = historique) ──
