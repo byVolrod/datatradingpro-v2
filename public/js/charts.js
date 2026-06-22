@@ -1191,10 +1191,10 @@ function buildRiskGauge() {
           am5radar.RadarChart.new(root, {
             panX: false, panY: false,
             startAngle: -180, endAngle: 0,
-            radius: am5.percent(80),
-            innerRadius: am5.percent(73),               // arc plus FIN (épuré)
-            paddingTop: 16, paddingBottom: 34,           // arc abaissé & CENTRÉ dans la zone (jauge épurée : plus de texte-score sous l'arc)
-            paddingLeft: 44, paddingRight: 44,
+            radius: am5.percent(86),
+            innerRadius: am5.percent(78),               // arc plus FIN (épuré)
+            paddingTop: 12, paddingBottom: 26,           // jauge AGRANDIE (plus grande que la bande historique)
+            paddingLeft: 28, paddingRight: 28,
           })
         );
 
