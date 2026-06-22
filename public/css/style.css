@@ -5593,7 +5593,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .risk-ticker.neutral strong { color: #f97316; }  .risk-ticker.neutral .risk-ticker-dot { background: #f97316; }
 
 /* ── Risk Sentiment History (barres quotidiennes risk-on/off, façon PMT) ── */
-#rtab-risk #risk-widget { flex: 0 0 236px; }   /* jauge en haut (hauteur fixe), historique flex en dessous */
+#rtab-risk #risk-widget { flex: 1 1 auto; min-height: 280px; }   /* jauge AGRANDIE : grandit pour remplir → plus grande que la bande */
 .rsh-header { margin-top: 4px; }
 
 /* ── Bascule de vue Risk Sentiment (icônes façon PMT : barres = jauge, ligne = historique) ──
@@ -5623,7 +5623,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .rsh-status.risk-off .rsh-dot { background: #ef4444; }  .rsh-status.risk-off .rsh-label { color: #ef4444; }
 .rsh-status.neutral  { background: #1f1a12; border-color: rgba(249,115,22,0.25); }
 .rsh-status.neutral  .rsh-dot { background: #f97316; }  .rsh-status.neutral  .rsh-label { color: #f97316; }
-.rsh-chart { flex: 1 1 auto; min-height: 165px; width: 100%; border-top: 1px solid var(--hud-line, #1c1c20); margin-top: 6px; }
+.rsh-chart { flex: 0 1 210px; min-height: 160px; width: 100%; border-top: 1px solid var(--hud-line, #1c1c20); margin-top: 8px; }   /* bande RÉDUITE (hauteur modérée) → la jauge reste plus grande */
 
 /* Jauge Risk — lecture (score + badge) CENTRÉE sous l'arc */
 .risk-gauge-stage { position: relative; flex: 1; min-height: 0; width: 100%; }
