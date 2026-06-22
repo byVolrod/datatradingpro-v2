@@ -10748,8 +10748,8 @@ setInterval(() => {
   if (_riskHistDirty) { _riskHistDirty = false; auth.aiCacheSet('riskhist:daily', [..._riskHist.values()]).catch(() => {}); }
 }, 5 * 60 * 1000);
 const RISK_LABELS = ['STRONG RISK-OFF', 'RISK-OFF', 'WEAK RISK-OFF', 'NEUTRAL', 'WEAK RISK-ON', 'RISK-ON', 'STRONG RISK-ON'];
-const RISK_BOUNDS = [-0.80, -0.30, -0.07, 0.07, 0.30, 0.55];   // 6 frontières entre les 7 bandes
-const RISK_HYST   = 0.06;                                       // marge d'hystérésis (ne switch pas pour du bruit)
+const RISK_BOUNDS = [-0.80, -0.30, -0.04, 0.04, 0.30, 0.55];   // 6 frontières entre les 7 bandes (bande NEUTRAL resserrée ±0.07->±0.04 → DTP lit WEAK RISK-ON/OFF comme PMT au lieu de coller sur NEUTRAL)
+const RISK_HYST   = 0.035;                                      // marge d'hystérésis (0.06->0.035 : sort plus vite de NEUTRAL = réactivité façon PMT, sans clignoter pour du bruit)
 function _riskBand(score, prevIdx) {
   let idx = 0;
   for (let i = 0; i < RISK_BOUNDS.length; i++) if (score > RISK_BOUNDS[i]) idx = i + 1;
