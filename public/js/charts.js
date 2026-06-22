@@ -703,9 +703,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: dim ? 1.0 : 1.4, strokeOpacity: dim ? 0 : 1 });   // traits FINS (façon pro) → micro-mouvements visibles ; isolé : autres devises masquées
-    // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) → courbe nerveuse/dentelée
-    // façon pro au lieu d'arrondie. La densité vient des bougies 5 m côté serveur (_computeStrengthFresh).
+    series.strokes.template.setAll({ strokeWidth: 1, strokeOpacity: dim ? 0 : 1 });   // 1 px EXACT (façon PMT/TradingView) : une ligne d'1 seul pixel retranscrit toute la haute fréquence ; à 1.4+ les micro-dents fusionnent et la courbe paraît « molle »
+    // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) + LineSeries amCharts = segments
+    // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles, façon PMT. La densité
+    // vient des bougies fines côté serveur (today=1 m, week=15 m, 1d=5 m dans CS_PERIOD_CFG / _computeStrengthFresh).
     const cleanPts = pts;
     series.data.setAll(cleanPts);
 
