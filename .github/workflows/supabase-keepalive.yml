@@ -1,0 +1,41 @@
+name: Supabase keep-alive
+
+# Empêche la mise en pause des projets Supabase free-tier (seuil ≈ 7 jours d'inactivité).
+# Tourne sur GitHub Actions = TOTALEMENT découplé de l'app : fonctionne même si Render dort
+# ou si le VPS redémarre. Repo privé = 2000 min/mois gratuits ; ce job ≈ 30 s/jour (~15 min/mois).
+
+on:
+  schedule:
+    - cron: '23 7 * * *'      # tous les jours à 07:23 UTC (off top-of-hour → moins de retard de planif)
+  workflow_dispatch: {}        # bouton « Run workflow » pour tester à la demande
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-keepalive
+  cancel-in-progress: false
+
+jobs:
+  keepalive:
+    # N'exécute QUE sur le dépôt d'origine ; le miroir « backup » ne doit pas pinger en double.
+    if: ${{ github.repository == 'byVolrod/datatradingpro-v2' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Ping all Supabase projects
+        # SECRETS_JSON = TOUTES les secrets du dépôt → le script détecte automatiquement
+        # SUPABASE_URL[_n] / SUPABASE_KEY[_n]. Ajouter une base = ajouter un secret, AUCUNE modif ici.
+        # (Les valeurs des secrets sont masquées dans les logs par GitHub.)
+        env:
+          SECRETS_JSON: ${{ toJSON(secrets) }}
+          SUPABASE_KEEPALIVE_TABLE: ${{ vars.SUPABASE_KEEPALIVE_TABLE }}
+        run: node scripts/supabase-keepalive.js
