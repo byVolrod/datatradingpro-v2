@@ -1311,7 +1311,7 @@ function buildRiskHistoryChart(containerId, data) {
 
   const chart = root.container.children.push(am5xy.XYChart.new(root, {
     panX: false, panY: false, wheelX: 'none', wheelY: 'none',
-    paddingLeft: 0, paddingRight: 6, paddingTop: 6, paddingBottom: 2,
+    paddingLeft: 4, paddingRight: 6, paddingTop: 6, paddingBottom: 2,
     layout: root.verticalLayout,
   }));
   chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
@@ -1328,7 +1328,7 @@ function buildRiskHistoryChart(containerId, data) {
   xAxis.set('periodChangeDateFormats', { day: 'MM-dd', week: 'MM-dd', month: 'MM-dd' });
 
   // Axe Y : Sentiment (%) de -100 à +100
-  const yRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: 40 });
+  const yRenderer = am5xy.AxisRendererY.new(root, { opposite: false, inside: false, minWidth: 40 });   // axe Y (Sentiment %) à GAUCHE
   yRenderer.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9, paddingLeft: 4 });
   yRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.18, strokeDasharray: [2, 4] });
   const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
