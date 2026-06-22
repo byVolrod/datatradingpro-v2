@@ -322,19 +322,29 @@ async function _usersConverge(reason = '') {
   if (!healthy.length) return;
   _convBusy = true;
   try {
-    const rows = [..._usersMirror.values()].filter(r => r && r.email && !_isTombstoned(r.id));   // jamais re-pousser un compte supprimé (pierre tombale)
-    const uuidRows   = rows.filter(r => _UUID_RE.test(String(r.id || '')));
-    const legacyRows = rows.filter(r => !_UUID_RE.test(String(r.id || ''))).map(r => { const { id, ...rest } = r; return rest; });   // id entier → base secondaire en uuid : upsert PAR EMAIL, sans id
+    // COMPLETS uniquement : on ne propage QUE les comptes dont le password_hash est connu (présent au miroir).
+    // → jamais nuller un hash (NOT NULL en base) ni écraser un bon hash par un vide. Les comptes dont le hash
+    //   vit encore sur la PRIMAIRE bloquée (jamais lus depuis le 402) seront propagés dès qu'ils transitent
+    //   (login/lecture → le miroir gagne le hash) ou au retour de la primaire.
+    const pick = r => ({ id: r.id, email: r.email, password_hash: r.password_hash, name: r.name || '', role: r.role || 'client', plan: r.plan || 'professionnel', active: r.active !== false, expires_at: r.expires_at || null });
+    const all = [..._usersMirror.values()].filter(r => r && r.email && r.password_hash && !_isTombstoned(r.id));
+    const uuidRows   = all.filter(r => _UUID_RE.test(String(r.id || ''))).map(pick);
+    const legacyRows = all.filter(r => !_UUID_RE.test(String(r.id || ''))).map(r => { const { id, ...rest } = pick(r); return rest; });   // id entier → base secondaire en uuid : upsert PAR EMAIL, sans id
+    if (!uuidRows.length && !legacyRows.length) return;
+    const _up = async (node, rows, conflict) => {
+      if (!rows.length) return true;
+      let { error } = await node.client.from(TABLE).upsert(rows, { onConflict: conflict });
+      if (error && /expires_at/.test(error.message || '')) { ({ error } = await node.client.from(TABLE).upsert(rows.map(({ expires_at, ...x }) => x), { onConflict: conflict })); }   // colonne absente sur ce nœud → sans expires_at
+      if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); return false; }
+      return true;
+    };
     let okNodes = 0;
     for (const node of healthy) {
-      try {
-        if (uuidRows.length)   { const { error } = await node.client.from(TABLE).upsert(uuidRows,   { onConflict: 'id' });    if (error) { if (_supaDown(error) && !_isSchemaErr(error)) _markDown(node, error); continue; } }
-        if (legacyRows.length) { const { error } = await node.client.from(TABLE).upsert(legacyRows, { onConflict: 'email' }); if (error && _supaDown(error) && !_isSchemaErr(error)) { _markDown(node, error); continue; } }
-        okNodes++;
-      } catch (e) { _markDown(node, e); }
+      try { const a = await _up(node, uuidRows, 'id'); const b = await _up(node, legacyRows, 'email'); if (a && b) okNodes++; }
+      catch (e) { _markDown(node, e); }
     }
     _convLast = now;
-    if (okNodes) console.log(`[Auth] convergence users${reason ? ' (' + reason + ')' : ''} : ${rows.length} compte(s) propagé(s) vers ${okNodes}/${healthy.length} base(s) saine(s)`);
+    if (okNodes) console.log(`[Auth] convergence users${reason ? ' (' + reason + ')' : ''} : ${all.length} compte(s) complet(s) → ${okNodes}/${healthy.length} base(s)`);
   } finally { _convBusy = false; }
 }
 // Déclenchement DÉBOUNCÉ après une écriture (coalesce les rafales) → un nouveau compte se propage en ~8 s.
