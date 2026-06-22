@@ -869,8 +869,12 @@
           const col = s => s === 'ok' ? '#22c55e' : s === 'restreint' ? '#ef4444' : '#ffb300';
           const lbl = s => s === 'ok' ? 'OK ✅' : s === 'restreint' ? 'RESTREINT 🛑' : 'erreur ⚠️';
           const rows = DB.nodes.map(n => `<div class="aim-fc-row"><span>${_esc2(n.name)} <span style="color:#6b7280">${_esc2(n.host)}</span></span><b style="color:${col(n.state)}">${lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.status || '—'} · ${n.ms}ms</span></b></div>`).join('');
-          return '<div style="margin:13px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Bases Supabase (' + DB.okCount + '/' + DB.count + ' OK)</div>' + rows
-            + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:11px;color:#ef4444;margin-top:5px;line-height:1.5">⚠ Base restreinte = quota/égress du mois dépassé → vérifier le dashboard Supabase (le keep-alive ne lève pas un 402).</div>' : '');
+          const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402 ; READ ne compterait pas)
+          const kaLine = (KA && KA.last)
+            ? `<div class="aim-fc-row"><span>Keep-alive (anti-pause)</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} par WRITE <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>`
+            : '';
+          return '<div style="margin:13px 0 3px;font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#6b7280;">Bases Supabase (' + DB.okCount + '/' + DB.count + ' OK)</div>' + rows + kaLine
+            + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:11px;color:#ef4444;margin-top:5px;line-height:1.5">⚠ Base restreinte = quota/égress du mois dépassé → revient seule au rollover mensuel (ou dé-pause via le dashboard Supabase). Le keep-alive ne lève pas un 402.</div>' : '');
         })();
   }
 
