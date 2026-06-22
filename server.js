@@ -10747,7 +10747,7 @@ function _riskHistSample(d) {
 setInterval(() => {
   if (_riskHistDirty) { _riskHistDirty = false; auth.aiCacheSet('riskhist:daily', [..._riskHist.values()]).catch(() => {}); }
 }, 5 * 60 * 1000);
-const RISK_LABELS = ['RISK-OFF', 'WEAK RISK-OFF', 'NEUTRAL', 'WEAK RISK-ON', 'RISK-ON'];   // 5 crans façon PMT (STRONG RISK-ON/OFF retirés ; RISK-OFF/ON couvrent désormais les extrêmes)
+const RISK_LABELS = ['STRONG RISK-OFF', 'WEAK RISK-OFF', 'NEUTRAL', 'WEAK RISK-ON', 'STRONG RISK-ON'];   // 5 zones EXACTEMENT comme PMT (Strong/Weak/Neutral/Weak/Strong — PMT n'a pas de "RISK-ON/OFF" simple)
 const RISK_BOUNDS = [-0.30, -0.04, 0.04, 0.30];   // 4 frontières entre les 5 bandes (façon PMT) ; NEUTRAL resserré ±0.04 → réactif comme PMT
 const RISK_HYST   = 0.035;                                      // marge d'hystérésis (sort plus vite de NEUTRAL = réactivité façon PMT, sans clignoter pour du bruit)
 function _riskBand(score, prevIdx) {
