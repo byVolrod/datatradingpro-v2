@@ -1222,9 +1222,28 @@ function buildRiskGauge() {
         _arc.get('tick')?.setAll({ visible: false });
         _arc.get('label')?.setAll({ visible: false });
 
-        // Aiguille pro : fine et effilée (pointe nette), ANCRÉE au centre par un moyeu type
-        // « roulement d'instrument » (rond sombre + anneau coloré), TEINTÉE selon l'état
-        // (vert risk-on / rouge risk-off / ambre neutre) + ombre douce pour le relief.
+        // Étiquettes de ZONES autour de l'arc (façon PMT) : Strong Risk-Off · Weak Risk-Off ·
+        // Neutral · Weak Risk-On · Strong Risk-On, placées aux 5 points -100/-50/0/+50/+100.
+        // try/catch = best-effort : ne JAMAIS blanchir la jauge si l'API amCharts change.
+        try {
+          [
+            { value: -100, text: 'Strong Risk-Off' },
+            { value:  -50, text: 'Weak Risk-Off' },
+            { value:    0, text: 'Neutral' },
+            { value:   50, text: 'Weak Risk-On' },
+            { value:  100, text: 'Strong Risk-On' },
+          ].forEach(z => {
+            const zr = axis.createAxisRange(axis.makeDataItem({ value: z.value }));
+            zr.get('axisFill')?.setAll({ visible: false });
+            zr.get('grid')?.setAll({ visible: false });
+            zr.get('tick')?.setAll({ visible: false });
+            const zl = zr.get('label');
+            if (zl) zl.setAll({ visible: true, text: z.text, inside: false, radius: 9, fontSize: 8.5, fill: am5.color(0x9a9aa2) });
+          });
+        } catch (e) { /* labels de zone best-effort */ }
+
+        // Aiguille fine et effilée (pointe nette), ANCRÉE au centre par un moyeu type « roulement
+        // d'instrument ». BLANCHE comme PMT (l'état reste signalé par le badge + le ticker colorés).
         _riskHandDI = axis.makeDataItem({ value: 0 });
         const hand = am5radar.ClockHand.new(root, {
           pinRadius: 9,                              // moyeu net (roulement)
@@ -1233,9 +1252,9 @@ function buildRiskGauge() {
           bottomWidth: 9,                            // base fine → pointe (effilée)
           topWidth: 0,
         });
-        hand.pin.setAll({ fill: am5.color(0x101015), stroke: am5.color(sentColor), strokeWidth: 2.5, strokeOpacity: 1, fillOpacity: 1 });
+        hand.pin.setAll({ fill: am5.color(0x101015), stroke: am5.color(0xeeeef2), strokeWidth: 2.5, strokeOpacity: 1, fillOpacity: 1 });
         hand.hand.setAll({
-          fill: am5.color(sentColor), strokeOpacity: 0,
+          fill: am5.color(0xeeeef2), strokeOpacity: 0,
           shadowColor: am5.color(0x000000), shadowBlur: 7, shadowOffsetX: 0, shadowOffsetY: 2, shadowOpacity: 0.5,
         });
         _riskHand = hand;
@@ -1263,8 +1282,8 @@ function buildRiskGauge() {
           });
         }
         if (_riskHand) {
-          _riskHand.hand.set('fill', am5.color(sentColor));
-          _riskHand.pin.set('stroke', am5.color(sentColor));
+          _riskHand.hand.set('fill', am5.color(0xeeeef2));
+          _riskHand.pin.set('stroke', am5.color(0xeeeef2));
         }
         const badgeEl = document.getElementById('risk-badge-val');
         if (badgeEl) { badgeEl.textContent = data.label; badgeEl.className = `risk-readout-badge ${cls}`; }
