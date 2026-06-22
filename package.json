@@ -24,6 +24,8 @@
     "express": "^4.18.2",
     "express-session": "^1.19.0",
     "helmet": "^8.2.0",
+    "imapflow": "^1.4.2",
+    "mailparser": "^3.9.11",
     "nodemailer": "^8.0.10",
     "puppeteer-core": "^25.1.0",
     "puppeteer-extra": "^3.3.6",

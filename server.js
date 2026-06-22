@@ -4283,6 +4283,9 @@ async function _fetchBankResearch(full = false) {
   await _fetchWellsInto(merged, UA);
   // HSBC — Wealth Insights (HTML serveur, scrape direct + derniers articles seedés)
   await _fetchHsbcInto(merged, UA);
+  // KBC « Sunrise » + « Weekly Overview » — newsletters reçues PAR E-MAIL (markets@newsletter.kbc.be),
+  // lues en IMAP read-only. DORMANT tant que KBC_MAIL_USER/PASS absents (App Password Gmail en env, VPS).
+  try { await require('./scrapers/kbc-newsletter').fetchInto(merged); } catch (e) { console.warn('[KBC-mail]', e && e.message); }
 
   const before = _brCache.length;
   // BlackRock = on garde TOUT (backfill 2026 complet ; items légers, sans fullContent).
