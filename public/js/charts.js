@@ -1277,6 +1277,117 @@ function buildRiskGauge() {
 }
 
 // ═══════════════════════════════════════════════
+//  RISK SENTIMENT HISTORY — barres quotidiennes risk-on/off (façon PMT, en amCharts)
+//  Source UNIQUE : /api/risk-history (échantillonné depuis fetchRiskSentiment serveur). On ne recalcule rien.
+// ═══════════════════════════════════════════════
+let _riskHistCtl = null;
+const RH_GREEN = 0x22c55e;   // pct ≥ 0 → risk-on (vert RISK DTP, = ticker/jauge risque)
+const RH_RED   = 0xef4444;   // pct < 0 → risk-off (rouge RISK DTP, = ticker/jauge risque)
+const RH_ZERO  = 0xff7a00;   // ligne zéro = orange signature DTP
+
+function buildRiskHistoryChart(containerId, data) {
+  const el = document.getElementById(containerId);
+  if (!el) return null;
+  try { disposeRoot(containerId); } catch {}
+  const root = am5.Root.new(containerId);
+  root._logo?.set('forceHidden', true);
+  root.setThemes([am5themes_Animated.new(root), applyTerminalTheme(root)]);
+
+  const chart = root.container.children.push(am5xy.XYChart.new(root, {
+    panX: false, panY: false, wheelX: 'none', wheelY: 'none',
+    paddingLeft: 0, paddingRight: 6, paddingTop: 6, paddingBottom: 2,
+    layout: root.verticalLayout,
+  }));
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  chart.zoomOutButton.set('forceHidden', true);
+
+  // Axe X : DateAxis quotidien
+  const xRenderer = am5xy.AxisRendererX.new(root, { minGridDistance: 50 });
+  xRenderer.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9 });
+  xRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.18, strokeDasharray: [2, 4] });
+  const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
+    baseInterval: { timeUnit: 'day', count: 1 }, extraMin: 0.01, extraMax: 0.01, maxDeviation: 0.05, renderer: xRenderer,
+  }));
+  xAxis.set('dateFormats', { day: 'dd/MM', week: 'dd/MM', month: 'MMM' });
+  xAxis.set('periodChangeDateFormats', { day: 'dd/MM', week: 'dd/MM', month: 'MMM' });
+
+  // Axe Y : Sentiment (%) de -100 à +100
+  const yRenderer = am5xy.AxisRendererY.new(root, { opposite: true, inside: false, minWidth: 40 });
+  yRenderer.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9, paddingLeft: 4 });
+  yRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.18, strokeDasharray: [2, 4] });
+  const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
+    min: -100, max: 100, strictMinMax: true, numberFormat: "#'%'", renderer: yRenderer,
+  }));
+  yAxis.children.unshift(am5.Label.new(root, {
+    text: 'Sentiment (%)', rotation: -90, y: am5.p50, centerX: am5.p50, fill: am5.color(0x9ca3af), fontSize: 10, fontWeight: '600',
+  }));
+
+  // Ligne ZÉRO orange (signature DTP)
+  const zero = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
+  zero.get('grid').setAll({ stroke: am5.color(RH_ZERO), strokeWidth: 1.5, strokeOpacity: 0.9 });
+  zero.get('label')?.set('visible', false);
+
+  // Barres : 1/jour, vert (≥0 = risk-on) / rouge (<0 = risk-off)
+  const series = chart.series.push(am5xy.ColumnSeries.new(root, {
+    name: 'Risk', clustered: false, xAxis, yAxis, valueXField: 'ts', valueYField: 'pct',
+    tooltip: am5.Tooltip.new(root, { labelText: '{valueY.formatNumber("#0.0")}% — {label}', pointerOrientation: 'vertical' }),
+  }));
+  series.columns.template.setAll({ width: am5.percent(72), strokeOpacity: 0, cornerRadiusTL: 1, cornerRadiusTR: 1 });
+  series.columns.template.adapters.add('fill', (_f, t) => {
+    const di = t.dataItem; if (!di) return am5.color(0x444444);
+    return (di.get('valueY') >= 0) ? am5.color(RH_GREEN) : am5.color(RH_RED);
+  });
+
+  const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', snapToSeries: [series] }));
+  cursor.lineY.set('visible', false);
+  cursor.lineX.setAll({ stroke: am5.color(0x475569), strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.8 });
+
+  function setData(arr) {
+    const rows = (arr || []).map(e => ({ ts: new Date(e.date + 'T00:00:00Z').getTime(), pct: e.pct, label: e.label || '' }));
+    series.data.setAll(rows);
+  }
+  setData((data && data.series) || data || []);
+  series.appear(500, 0); chart.appear(400, 0);
+  return { root, series, update(d) { setData((d && d.series) || d || []); } };
+}
+
+// Bandeau d'état (label FR + pastille + description) — depuis la SOURCE UNIQUE (jamais recalculé).
+function _renderRiskHistStatus(cur) {
+  const box = document.getElementById('risk-history-status'); if (!box || !cur) return;
+  const isOn = /risk-on/i.test(cur.label || ''), isOff = /risk-off/i.test(cur.label || '');
+  box.className = 'rsh-status ' + (isOn ? 'risk-on' : isOff ? 'risk-off' : 'neutral');
+  const lbl = box.querySelector('.rsh-label'), desc = box.querySelector('.rsh-desc');
+  if (lbl) lbl.textContent = cur.label || '—';
+  if (desc) desc.textContent = cur.description || '';
+}
+
+async function loadRiskHistory(opts) {
+  const silent = opts && opts.silent;
+  const host = document.getElementById('risk-history-chart');
+  if (!host) return;
+  if (!silent && !_riskHistCtl) host.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de l\'historique…') : 'Chargement…');
+  try {
+    const data = (typeof _dtpJSON === 'function')
+      ? await _dtpJSON('/api/risk-history?days=60', { tries: 3, delay: 1200 })
+      : await fetch('/api/risk-history?days=60').then(r => r.json());
+    window._dtpRiskHistory = data;
+    if (_riskHistCtl && _riskHistCtl.update) _riskHistCtl.update(data);
+    else { try { disposeRoot('risk-history-chart'); } catch {} host.innerHTML = ''; _riskHistCtl = buildRiskHistoryChart('risk-history-chart', data); }
+    _renderRiskHistStatus((data && data.current) || window._dtpRisk);
+  } catch (e) {
+    if (!_riskHistCtl) host.innerHTML = `<div style="padding:14px;color:var(--red);font-size:11px">Error: ${e.message}</div>`;
+  }
+}
+
+// Live sync (source unique) : l'event 'dtp-risk' (diffusé par app.js toutes les 3 min) met à jour le bandeau
+// SANS re-fetch, et rafraîchit la barre du jour seulement si l'onglet RISK est visible.
+window.addEventListener('dtp-risk', e => {
+  try { _renderRiskHistStatus(e.detail); } catch {}
+  const panel = document.getElementById('rtab-risk');
+  if (panel && panel.classList.contains('active')) loadRiskHistory({ silent: true });
+});
+
+// ═══════════════════════════════════════════════
 //  METER — Sentiment Gauge
 // ═══════════════════════════════════════════════
 
@@ -2128,12 +2239,14 @@ function initRightTab(tab) {
   if (tab === 'seasonality') { buildSeasonalityChart(); return; }
   if (tab === 'meter')    { buildMeterChart();    return; }   // rebuild léger (briques HTML)
   if (tab === 'strength') { buildStrengthCharts(); return; }  // dispose + rebuild amCharts
-  // Onglets statiques (carte, jauge risque) : construits une seule fois
+  // RISK : jauge construite UNE fois (idempotente), mais l'HISTORIQUE se rafraîchit à chaque activation
+  // (barre du jour à jour) — uniquement quand l'onglet est visible (anti-egress).
+  if (tab === 'risk') { if (!chartInited.risk) { chartInited.risk = true; buildRiskGauge(); } loadRiskHistory(); return; }
+  // Onglets statiques (carte) : construits une seule fois
   if (chartInited[tab]) return;
   chartInited[tab] = true;
   switch (tab) {
     case 'world':    buildSessionMap();     break;
-    case 'risk':     buildRiskGauge();      break;
   }
 }
 

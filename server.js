@@ -10716,6 +10716,37 @@ const RISK_ASSETS = [
 let _riskData = null, _riskTs = 0;
 // État pour un sentiment de risque STABLE (anti flip-flop) : score lissé (EMA) + hystérésis de bande.
 let _riskScoreEMA = null, _riskPrevIdx = null;
+
+// ── HISTORIQUE QUOTIDIEN du sentiment de risque (« Risk Sentiment History ») ──
+// Source UNIQUE = fetchRiskSentiment(). On ne RECALCULE RIEN : _riskHistSample() ne fait que LIRE le pct/label
+// déjà calculés (règle « risk single source »). 1 point par jour calendaire UTC. Persistance KV Supabase
+// 'riskhist:daily' (1 seul blob, flush /5 min si dirty — calqué sur calhist:events), repli fichier. ZÉRO fetch
+// réseau supplémentaire : alimenté par les appels existants (warm boot + polling front 3 min).
+let _riskHist = new Map();   // 'YYYY-MM-DD' → { date, pct, label, score }
+let _riskHistDirty = false;
+try {
+  auth.aiCacheGet('riskhist:daily', 366 * 86400000).then(v => {
+    if (Array.isArray(v)) v.forEach(e => { if (e && e.date) _riskHist.set(e.date, e); });
+  }).catch(() => {});
+} catch {}
+function _riskHistSample(d) {
+  if (!d || typeof d.pct !== 'number') return;
+  const date = new Date(d.updatedAt || Date.now()).toISOString().slice(0, 10);   // jour UTC
+  const prev = _riskHist.get(date);
+  if (!prev || prev.pct !== d.pct || prev.label !== d.label) {   // intra-day → on garde la valeur la + récente du jour
+    _riskHist.set(date, { date, pct: d.pct, label: d.label, score: d.score });
+    _riskHistDirty = true;
+  }
+  const cutDate = new Date(Date.now() - 366 * 86400000).toISOString().slice(0, 10);
+  for (const k of _riskHist.keys()) if (k < cutDate) { _riskHist.delete(k); _riskHistDirty = true; }
+  if (_riskHist.size > 400) {
+    const keep = [..._riskHist.keys()].sort().slice(-400);
+    const m = new Map(); keep.forEach(k => m.set(k, _riskHist.get(k))); _riskHist = m; _riskHistDirty = true;
+  }
+}
+setInterval(() => {
+  if (_riskHistDirty) { _riskHistDirty = false; auth.aiCacheSet('riskhist:daily', [..._riskHist.values()]).catch(() => {}); }
+}, 5 * 60 * 1000);
 const RISK_LABELS = ['STRONG RISK-OFF', 'RISK-OFF', 'WEAK RISK-OFF', 'NEUTRAL', 'WEAK RISK-ON', 'RISK-ON', 'STRONG RISK-ON'];
 const RISK_BOUNDS = [-0.80, -0.30, -0.07, 0.07, 0.30, 0.55];   // 6 frontières entre les 7 bandes
 const RISK_HYST   = 0.06;                                       // marge d'hystérésis (ne switch pas pour du bruit)
@@ -10728,6 +10759,58 @@ function _riskBand(score, prevIdx) {
   if (idx < prevIdx && score > RISK_BOUNDS[prevIdx - 1] - RISK_HYST) return prevIdx;       // veut descendre
   return idx;
 }
+// Formule de score UNIQUE (réutilisée par le LIVE et par le BACKFILL → jamais deux implémentations qui divergent).
+// changes = [{ chg(%), dir, norm, wt }]. Contribution = clip(chg/norm, -1, +1) * dir * wt, moyenne pondérée.
+function _riskScoreFromChanges(changes) {
+  const totalWt = changes.reduce((s, c) => s + c.wt, 0) || 1;
+  return changes.reduce((s, c) => s + Math.max(-1, Math.min(1, c.chg / c.norm)) * c.dir * c.wt, 0) / totalWt;
+}
+// pct/label/idx d'un score lissé donné — RÉUTILISE _riskBand + RISK_BOUNDS + RISK_LABELS (même calage que le live).
+function _riskPctLabel(emaScore, prevIdx) {
+  const idx = _riskBand(emaScore, prevIdx);
+  const lo = idx > 0 ? RISK_BOUNDS[idx - 1] : -1;
+  const hi = idx < RISK_BOUNDS.length ? RISK_BOUNDS[idx] : 1;
+  const shown = Math.max(lo, Math.min(hi, emaScore));
+  return { idx, label: RISK_LABELS[idx], pct: Math.max(-100, Math.min(100, +(shown * 50).toFixed(1))), score: +shown.toFixed(2) };
+}
+// BACKFILL historique RÉEL : ~3 mois de clôtures quotidiennes des MÊMES actifs (RISK_ASSETS), MÊME formule rejouée
+// jour par jour (EMA 0.6/0.4 + hystérésis) → série historique réelle, ZÉRO donnée inventée. Ne remplit que les
+// jours ABSENTS (le live possède aujourd'hui). Gated : ne tourne que si l'historique est encore court (<45 j).
+async function _riskBackfill() {
+  if (_riskHist.size >= 45) return;
+  try {
+    await getYFSession();
+    const per = (await Promise.all(RISK_ASSETS.map(async a => {
+      try {
+        const r = await axios.get(yfUrl(a.sym, '1d', '3mo'), { headers: yfHeaders(), timeout: 9000, validateStatus: () => true });
+        if (r.status !== 200) return null;
+        const res = r.data?.chart?.result?.[0];
+        const ts = res?.timestamp || [], cl = res?.indicators?.quote?.[0]?.close || [];
+        const byDate = new Map();
+        ts.forEach((t, i) => { if (t && cl[i] != null) byDate.set(new Date(t * 1000).toISOString().slice(0, 10), cl[i]); });
+        return { a, byDate };
+      } catch { return null; }
+    }))).filter(Boolean);
+    if (per.length < 3) return;
+    const dates = [...new Set(per.flatMap(o => [...o.byDate.keys()]))].sort();
+    let ema = null, prevIdx = null, added = 0;
+    for (let i = 1; i < dates.length; i++) {
+      const d = dates[i], pd = dates[i - 1];
+      const changes = [];
+      for (const o of per) {
+        const c = o.byDate.get(d), p = o.byDate.get(pd);
+        if (c != null && p != null && p !== 0) changes.push({ chg: (c - p) / p * 100, dir: o.a.dir, norm: o.a.norm, wt: o.a.wt });
+      }
+      if (changes.length < 3) continue;
+      const score = _riskScoreFromChanges(changes);
+      ema = (ema == null) ? score : +(ema * 0.6 + score * 0.4).toFixed(4);
+      const r = _riskPctLabel(ema, prevIdx); prevIdx = r.idx;
+      if (!_riskHist.has(d)) { _riskHist.set(d, { date: d, pct: r.pct, label: r.label, score: r.score }); added++; }
+    }
+    if (added) { _riskHistDirty = true; console.log(`[Risk] backfill : ${added} jour(s) reconstruits (données réelles, même formule)`); }
+  } catch (e) { console.warn('[Risk] backfill échoué :', e.message); }
+}
+setTimeout(() => _riskBackfill().catch(() => {}), 20 * 1000);   // +20 s : reconstruit l'historique réel une fois (après le warm risk +13 s qui pose aujourd'hui)
 
 async function fetchRiskSentiment() {
   if (_riskData && Date.now() - _riskTs < 3 * 60 * 1000) return _riskData;
@@ -10750,23 +10833,17 @@ async function fetchRiskSentiment() {
 
   if (!results.length) return null;
 
-  // Weighted, volatility-normalized score
-  // Each asset's contribution = clip(chg / norm, -1, +1) * dir * weight
-  // This prevents high-vol assets (VIX) from dominating low-vol ones (SPY/FX)
-  const totalWt = results.reduce((s, r) => s + r.wt, 0);
-  const score = results.reduce((s, r) => {
-    const normalized = Math.max(-1, Math.min(1, r.chg / r.norm));
-    return s + normalized * r.dir * r.wt;
-  }, 0) / totalWt;
+  // Score pondéré, normalisé en volatilité — helper PARTAGÉ (même formule pour le live ET le backfill).
+  const score = _riskScoreFromChanges(results);
 
   // ── Sentiment STABLE (anti flip-flop) ───────────────────────────────────────
   // 1) On LISSE le score (EMA) → on absorbe le bruit minute par minute.
   // 2) Hystérésis de bande → on ne bascule risk-on/off que sur un VRAI franchissement,
   //    pas pour une oscillation autour d'une frontière. Résultat : un vrai switch fiable.
   _riskScoreEMA = (_riskScoreEMA == null) ? score : +(_riskScoreEMA * 0.6 + score * 0.4).toFixed(4);
-  const idx = _riskBand(_riskScoreEMA, _riskPrevIdx);
-  _riskPrevIdx = idx;
-  const label = RISK_LABELS[idx];
+  const _rr = _riskPctLabel(_riskScoreEMA, _riskPrevIdx);   // band + pct via les MÊMES primitives (single-source)
+  _riskPrevIdx = _rr.idx;
+  const label = _rr.label;
 
   const DESCS = {
     'STRONG RISK-ON':  'Fort appétit pour le risque sur l\'ensemble des marchés. Actions, devises risquées et actifs à haut rendement tous achetés. VIX bas.',
@@ -10778,16 +10855,13 @@ async function fetchRiskSentiment() {
     'STRONG RISK-OFF': 'Forte aversion au risque. Fuite significative vers la sécurité — obligations, or, JPY et CHF demandés.',
   };
 
-  // Le % d'affichage est CALÉ sur la bande du label (cohérence label ↔ nombre ↔ aiguille) :
-  // grâce à l'hystérésis le label peut rester "collé" (ex. NEUTRAL) alors que le score brut a
-  // glissé ; sans ce calage on afficherait un NEUTRAL à -9.4% (zone risk-off). On borne donc le
-  // score affiché à la plage de SA bande → un NEUTRAL ne montre jamais plus de ±3,5%.
-  const _bandLo = idx > 0 ? RISK_BOUNDS[idx - 1] : -1;
-  const _bandHi = idx < RISK_BOUNDS.length ? RISK_BOUNDS[idx] : 1;
-  const _emaShown = Math.max(_bandLo, Math.min(_bandHi, _riskScoreEMA));
-  const pct = Math.max(-100, Math.min(100, +(_emaShown * 50).toFixed(1)));   // une fois pour TOUTES les vues
-  _riskData = { label, score: +(_emaShown).toFixed(2), rawScore: +score.toFixed(2), pct, description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
+  // Le % d'affichage est CALÉ sur la bande du label (cohérence label ↔ nombre ↔ aiguille) via _riskPctLabel :
+  // grâce à l'hystérésis le label peut rester "collé" (ex. NEUTRAL) alors que le score brut a glissé ; le calage
+  // borne le score affiché à la plage de SA bande → un NEUTRAL ne montre jamais plus de ±3,5%.
+  const pct = _rr.pct;   // une fois pour TOUTES les vues
+  _riskData = { label, score: _rr.score, rawScore: +score.toFixed(2), pct, description: DESCS[label], assets: results, updatedAt: new Date().toISOString() };
   _riskTs = Date.now();
+  try { _riskHistSample(_riskData); } catch {}   // échantillon quotidien depuis la SEULE source (zéro recalcul)
   return _riskData;
 }
 
@@ -10796,6 +10870,22 @@ app.get('/api/risk-sentiment', async (req, res) => {
     const data = await fetchRiskSentiment();
     if (!data) return res.status(503).json({ error: 'Data unavailable' });
     res.json(data);
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Historique quotidien risk-on/off (« Risk Sentiment History »). Sert l'historique échantillonné (source unique)
+// + le sentiment COURANT (même _riskData) pour le bandeau d'état → un seul appel, zéro divergence.
+app.get('/api/risk-history', async (req, res) => {
+  try {
+    const days = Math.max(7, Math.min(366, parseInt(req.query.days, 10) || 60));
+    const cutDate = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10);
+    const series = [..._riskHist.values()].filter(e => e.date >= cutDate).sort((a, b) => (a.date < b.date ? -1 : 1));
+    let current = _riskData;
+    if (!current) { try { current = await fetchRiskSentiment(); } catch {} }
+    res.json({
+      series,
+      current: current ? { label: current.label, pct: current.pct, description: current.description, updatedAt: current.updatedAt } : null,
+    });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
