@@ -1351,7 +1351,7 @@ function buildRiskHistoryChart(containerId, data) {
   series.columns.template.setAll({ width: am5.percent(72), strokeOpacity: 0, cornerRadiusTL: 1, cornerRadiusTR: 1 });
   series.columns.template.adapters.add('fill', (_f, t) => {
     const di = t.dataItem; if (!di) return am5.color(0x444444);
-    return am5.color(_riskArcColor(di.get('valueY') * 3));   // barre teintée DÉGRADÉ DE L'ARC, ÉTIRÉ ×3 → couleurs VIVES comme l'arc (risk-off rouge, risk-on vert)
+    return am5.color(_riskArcColor(di.get('valueY')));   // barre = MÊME couleur que l'AIGUILLE (même mapping _riskArcColor, NON étiré) → une barre matche le marqueur à valeur égale
   });
 
   const cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', snapToSeries: [series] }));
