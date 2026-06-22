@@ -580,7 +580,12 @@ html, body {
   align-items: center;
   padding: 0 4px;
   flex-shrink: 0;
+  overflow-x: auto; overflow-y: hidden;            /* DÉFILEMENT horizontal propre des onglets (mobile : swipe) — plus de drag/déplacement */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;                            /* masque la barre de défilement (Firefox) */
 }
+.tabs-bar::-webkit-scrollbar { display: none; }    /* masque la barre de défilement (Chrome/Safari) */
 
 /* Tabs */
 .tabs {
@@ -588,11 +593,13 @@ html, body {
   align-items: center;
   height: 100%;
   padding: 0 4px;
+  flex-shrink: 0;            /* ne se compresse pas → déborde et laisse .tabs-bar défiler */
 }
 
 .tab {
   display: flex;
   align-items: center;
+  flex-shrink: 0;           /* chaque onglet garde sa largeur (sinon ils s'écrasent au lieu de défiler) */
   gap: 5px;
   padding: 0 10px;
   height: 100%;
@@ -4412,6 +4419,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* Lu → ligne estompée (discret) */
 .arl-row--read .arl-ttl    { color: #7a7a82; font-weight: 400; }
 .arl-row--read .arl-ico    { opacity: 0.4; }
+/* Mobile : on libère de la place au TITRE (sinon « Lond… » / « Asia-… ») en réduisant paddings + icône */
+@media (max-width: 560px) {
+  .arl-row > td        { padding: 0 8px; height: 44px; }
+  .arl-c-date          { font-size: 11px; }
+  .arl-tw              { gap: 7px; }
+  .arl-ico             { width: 20px; height: 20px; }
+  .arl-ttl             { font-size: 12.5px; }
+}
 .arl-row--read .arl-c-date { color: #696970; }
 .arl-row--read:hover .arl-ttl { color: #b6b6bc; }
 /* Recaps HEBDO → ligne ROUGE façon news importantes (fond teinté, sans liseré) */
