@@ -5595,6 +5595,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 /* ── Risk Sentiment History (barres quotidiennes risk-on/off, façon PMT) ── */
 #rtab-risk #risk-widget { flex: 0 0 218px; }   /* jauge en haut (hauteur fixe), historique flex en dessous */
 .rsh-header { margin-top: 4px; }
+
+/* ── Bascule de vue Risk Sentiment (icônes façon PMT : barres = jauge, ligne = historique) ──
+   NON-destructif : les 2 sections restent empilées, l'icône défile/illumine la section ciblée. */
+.risk-view-toggle { display: flex; align-items: center; gap: 2px; }
+.rvt-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 19px; padding: 0;
+  background: transparent; border: none; border-radius: 3px;
+  color: var(--text3); cursor: pointer;
+  transition: color .12s ease, background .12s ease;
+}
+.rvt-btn:hover { color: var(--text); background: rgba(255,255,255,0.05); }
+.rvt-btn.active { color: #ff7a00; background: rgba(255,122,0,0.12); }
+.rvt-btn svg { width: 13px; height: 13px; display: block; }
 .rsh-status {
   display: flex; align-items: center; gap: 8px; padding: 7px 11px; margin: 5px 10px 4px;
   border: 1px solid var(--hud-line, #1c1c20); border-radius: 5px; background: #101013;

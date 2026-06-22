@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260622risk" />
+  <link rel="stylesheet" href="/css/style.css?v=20260622risk4" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -564,6 +564,14 @@
       <div class="right-tab-panel" id="rtab-risk">
         <div class="chart-header">
           <span class="chart-header-title">Risk Sentiment</span>
+          <div class="risk-view-toggle" role="group" aria-label="Vue Risk Sentiment">
+            <button type="button" class="rvt-btn active" id="rvt-gauge" title="Jauge" aria-label="Jauge">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="8" width="3" height="6" rx="0.5" fill="currentColor"/><rect x="6.5" y="4" width="3" height="10" rx="0.5" fill="currentColor"/><rect x="11" y="6" width="3" height="8" rx="0.5" fill="currentColor"/></svg>
+            </button>
+            <button type="button" class="rvt-btn" id="rvt-hist" title="Historique" aria-label="Historique">
+              <svg viewBox="0 0 16 16" aria-hidden="true"><polyline points="2,10.5 6,6.5 9,9 14,3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+          </div>
         </div>
         <div id="risk-widget" class="risk-widget-container"></div>
 
@@ -741,8 +749,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260621wrap"></script>
-<script src="/js/charts.js?v=20260622risk3"></script>
+<script src="/js/app.js?v=20260622risk4"></script>
+<script src="/js/charts.js?v=20260622risk4"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
