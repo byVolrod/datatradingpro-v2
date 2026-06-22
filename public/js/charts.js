@@ -1144,7 +1144,6 @@ function buildRiskGauge() {
           <div class="risk-gauge-stage">
             <div id="risk-gauge-div"></div>
             <div class="risk-readout">
-              <div class="risk-readout-score" id="risk-score-val">${display}</div>
               <div class="risk-readout-badge ${cls}" id="risk-badge-val">${data.label}</div>
             </div>
           </div>`;
@@ -1246,8 +1245,6 @@ function buildRiskGauge() {
           _riskHand.hand.set('fill', am5.color(sentColor));
           _riskHand.pin.set('stroke', am5.color(sentColor));
         }
-        const scoreEl = document.getElementById('risk-score-val');
-        if (scoreEl) scoreEl.textContent = display;
         const badgeEl = document.getElementById('risk-badge-val');
         if (badgeEl) { badgeEl.textContent = data.label; badgeEl.className = `risk-readout-badge ${cls}`; }
         const ticker = document.getElementById('risk-ticker');
