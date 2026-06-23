@@ -7,6 +7,7 @@ name: Supabase keep-alive
 on:
   schedule:
     - cron: '23 7 * * *'      # tous les jours à 07:23 UTC (off top-of-hour → moins de retard de planif)
+    - cron: '23 19 * * *'     # + 2e passage à 19:23 UTC → 2 pings/jour, marge énorme vs seuil de 7 j (résiste à un run raté/retardé)
   workflow_dispatch: {}        # bouton « Run workflow » pour tester à la demande
 
 permissions:
