@@ -154,6 +154,7 @@
   .btn-cta:hover{transform:translateY(-1px);box-shadow:0 12px 38px -10px rgba(230,189,77,.75)}
   .btn-lg{padding:15px 28px;font-size:15.5px;border-radius:11px}
   .nav-burger{display:none;font-size:20px;color:var(--text);background:none;border:none;cursor:pointer}
+  .nav-mob-extra{display:none}
 
   /* ── Hero ── */
   .hero{position:relative;padding:74px 0 64px}
@@ -390,13 +391,21 @@
     .term{order:2} .bento{grid-template-columns:repeat(2,1fr)} .bcard.lg,.bcard.md,.bcard.sm{grid-column:span 2}
     .proc{grid-template-columns:1fr} .step .ar{display:none}
     .frband .in{grid-template-columns:1fr;gap:32px;padding:60px 0} .vals{grid-template-columns:repeat(2,1fr)}
-    .foot-grid{grid-template-columns:1fr 1fr} .nav-links,.nav-login{display:none} .nav-burger{display:block}
-    .nav-links.open{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg2);border-bottom:1px solid var(--line);padding:16px 26px;gap:16px;z-index:49}
+    .foot-grid{grid-template-columns:1fr 1fr} .nav-links,.nav-login,.nav-r .btn-cta{display:none} .nav-burger{display:block}
+    .wrap,.nav-in{padding-left:18px;padding-right:18px}
+    .nav-links.open{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 20px 44px -22px rgba(20,20,40,.28);padding:18px;gap:14px;z-index:49}
+    .nav-links.open .nav-mob-extra{display:flex} .nav-links.open .nav-mob-login{color:var(--text2)} .nav-links.open .btn-cta{width:100%;justify-content:center;margin-top:4px}
   }
   @media (max-width:560px){
     .plans{grid-template-columns:1fr} .vals{grid-template-columns:1fr} .term-body{grid-template-columns:1fr}
-    .tp-r{display:none} .strip-in{gap:18px} .foot-grid{grid-template-columns:1fr 1fr}
-    h1{font-size:40px} section.blk{padding:68px 0}
+    .bento{grid-template-columns:1fr} .bcard.lg,.bcard.md,.bcard.sm{grid-column:span 1}
+    .tp-r{display:none} .strip-in{gap:14px} .foot-grid{grid-template-columns:1fr 1fr}
+    h1{font-size:40px} section.blk{padding:64px 0} .sec-t{font-size:30px} .sec-s{font-size:15.5px}
+  }
+  @media (max-width:400px){
+    .wrap,.nav-in{padding-left:14px;padding-right:14px}
+    h1{font-size:35px} .hero p.sub{font-size:16px} .foot-grid{grid-template-columns:1fr}
+    .btn-lg{padding:14px 20px;font-size:14.5px} .hero-cta{gap:10px} .eyebrow{font-size:10px}
   }
 
   /* === Répliques fidèles des composants du desk === */
@@ -687,7 +696,10 @@
   .mods2-r > .bcard:nth-child(4) .dk-analyst-card{flex:0 0 auto}
 
   /* ===== THÈME CLAIR (fond blanc, cartes claires ; les écrans produit restent sombres). ===== */
-  .ticker, .term { --bg:#070708;--bg2:#0b0b0d;--panel:#101013;--panel2:#15151a;--line:#1d1d23;--line2:#2a2a32;--text:#f4f4f6;--text2:#9ea4ae;--text3:#62656e;--orange:#e6bd4d;--orange2:#f2d486;--green:#00e676;--red:#ff4d4d;--amber:#ffb300 }                 /* re-sombre : ticker + mockup terminal gardent texte clair */
+  .term { --bg:#070708;--bg2:#0b0b0d;--panel:#101013;--panel2:#15151a;--line:#1d1d23;--line2:#2a2a32;--text:#f4f4f6;--text2:#9ea4ae;--text3:#62656e;--orange:#e6bd4d;--orange2:#f2d486;--green:#00e676;--red:#ff4d4d;--amber:#ffb300 }   /* re-sombre : le mockup terminal garde un texte clair */
+  /* ticker live en BLANC, comme le reste du site (avant il était sombre) */
+  .ticker{background:#fafbfc;border-bottom:1px solid var(--line)}
+  .ticker .live{background:#f1f3f6;border-right:1px solid var(--line)}
   nav{ background:rgba(255,255,255,.82); border-bottom:1px solid #e9e9f0; }
   .strip{ background:var(--bg2); }
   .strip-in{ color:var(--text2); }
@@ -724,6 +736,8 @@
       <a href="#method">Méthode</a>
       <a href="#tarifs">Tarifs</a>
       <a href="#faq">Ressources</a>
+      <a href="https://desk.datatradingpro.com/" class="nav-mob-extra nav-mob-login">Se connecter</a>
+      <a href="https://whop.com/joined/justonetrader/products/jot-dtp/" class="btn btn-cta nav-mob-extra">Accéder au terminal</a>
     </div>
     <div class="nav-r">
       <a href="https://desk.datatradingpro.com/" class="nav-login">Se connecter</a>
