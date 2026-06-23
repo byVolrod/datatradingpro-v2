@@ -3,26 +3,26 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DTP - Login</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E" />
+  <title>DataTradingPro — Connexion</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b8860b'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23140d02'%3ED%3C/text%3E%3C/svg%3E" />
   <link rel="apple-touch-icon" href="/favicon.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Inter:wght@300;400;500;600;700;800&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg:        #0a0a0a;
-      --bg2:       #111111;
-      --bg3:       #191919;
-      --border2:   #2a2a2a;
-      --text:      #e8e8e8;
-      --text2:     #aaaaaa;
-      --text3:     #666666;
-      --orange:    #f7941d;
-      --font-stack:  -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
-      --font-ui:   var(--font-stack);
-      --font-mono: var(--font-stack);
+      --bg:#ffffff; --bg2:#f5f6f9; --panel:#ffffff;
+      --line:#e9e9f0; --line2:#dcdce5;
+      --text:#16161d; --text2:#55555f; --text3:#8a8a97;
+      --gold:#b8860b; --gold-bright:#e6bd4d; --gold2:#cfa233;
+      --grad-cta:linear-gradient(100deg,#e6c45c 0%,#c79a2e 100%);
+      --grad-mk:linear-gradient(102deg,#cfa233 0%,#b8860b 55%,#967216 100%);
+      --serif:"Fraunces",Georgia,serif;
+      --tight:"Inter Tight",-apple-system,sans-serif;
+      --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI","Roboto",sans-serif;
+      --mono:"JetBrains Mono",ui-monospace,Menlo,monospace;
     }
 
     html, body {
@@ -30,406 +30,213 @@
       overflow: hidden;
       background: var(--bg);
       color: var(--text);
-      font-family: var(--font-ui);
+      font-family: var(--font);
       font-variant-numeric: tabular-nums;
+      -webkit-font-smoothing: antialiased;
     }
 
     /* ════════════════════════════════
-       TWO-PANEL LAYOUT
+       LAYOUT — formulaire GAUCHE / mosaïque DROITE (inversé)
     ════════════════════════════════ */
-    .lp-layout {
-      display: flex;
-      height: 100vh;
-      overflow: hidden;
-    }
+    .lp-layout { display: flex; height: 100vh; overflow: hidden; }
 
-    /* ── LEFT panel: 65% ── */
-    .lp-left {
-      flex: 0 0 65%;
-      position: relative;
-      overflow: hidden;
-      background: #070d14;
-      border-right: 1px solid rgba(247,148,29,0.32);
-    }
-
-    /* Scrolling columns mosaic */
-    .lp-mosaic {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-      display: flex;
-      gap: 3px;          /* grille DENSE bord à bord (façon pro) — fini les larges espaces */
-      padding: 0;
-      background: #070d14;
-    }
-
-    .lp-col { flex-shrink: 0; width: 195px; min-width: 195px; overflow: hidden; }
-
-    .lp-col-inner { display: flex; flex-direction: column; }
-
-    .lp-tile {
-      flex-shrink: 0;
-      width: 195px;
-      height: 130px;
-      margin-bottom: 3px;   /* serré verticalement (façon pro) */
-    }
-
-    .lp-tile-inner {
-      width: 100%;
-      height: 100%;
-      position: relative;
-      overflow: hidden;
-      border-radius: 2px;
-    }
-
-    .lp-tile img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      filter: blur(1px);   /* léger flou seulement → images bien visibles, façon pro */
-    }
-
-    .lp-tile-overlay {
-      position: absolute;
-      inset: 0;
-      background: #000;
-      opacity: 0.5;        /* voile plus léger → on distingue clairement les visuels */
-    }
-
-    /* Top / bottom gradient fades */
-    .lp-fade-top {
-      position: absolute;
-      top: 0; left: 0; right: 0;
-      height: 120px;
-      background: linear-gradient(to bottom, #0a0a0a, rgba(10,10,10,0.95) 60%, transparent);
-      z-index: 3;
-      pointer-events: none;
-    }
-    .lp-fade-bottom {
-      position: absolute;
-      bottom: 0; left: 0; right: 0;
-      height: 120px;
-      background: linear-gradient(to top, #0a0a0a, rgba(10,10,10,0.95) 60%, transparent);
-      z-index: 3;
-      pointer-events: none;
-    }
-    /* Fondu sur les bords gauche & droit → la mosaïque se fond en douceur dans le décor (pas de coupe nette) */
-    .lp-fade-left, .lp-fade-right {
-      position: absolute; top: 0; bottom: 0; z-index: 3; pointer-events: none;
-    }
-    .lp-fade-left  { left: 0;  width: 72px;  background: linear-gradient(to right, rgba(8,11,16,0.82), transparent); }
-    /* Bord droit : fondu plus large vers le NOIR du panneau de connexion → transition douce mosaïque → formulaire */
-    .lp-fade-right { right: 0; width: 170px; background: linear-gradient(to left,  #0a0a0a 8%, rgba(10,10,12,0.55) 55%, transparent); }
-
-    @keyframes scroll-up {
-      from { transform: translateY(0); }
-      to   { transform: translateY(-50%); }
-    }
-
-    /* Centered card in left panel */
-    .lp-left-card {
-      position: absolute;
-      z-index: 10;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      background: rgba(8,10,14,0.80);
-      backdrop-filter: blur(5px);
-      border: 1px solid rgba(255,255,255,0.10);
-      box-shadow: 0 10px 34px rgba(0,0,0,0.55);
-      border-radius: 10px;
-      padding: 24px 32px;
-      max-width: 520px;
-      width: calc(100% - 48px);
-      text-align: center;
-    }
-    .lp-tagline-1 {
-      font-size: 26px;
-      font-weight: 700;
-      line-height: 1.3;
-      margin-bottom: 8px;
-    }
-    .lp-tagline-1 strong { color: var(--orange); font-weight: 700; }
-    .lp-tagline-2 {
-      font-size: 19px;
-      color: rgba(255,255,255,0.9);
-      line-height: 1.45;
-      font-weight: 500;
-    }
-
-    /* ── RIGHT panel: 35% ── */
+    /* ── FORM panel (gauche, clair) ── */
     .lp-right {
-      flex: 0 0 35%;
-      background: #0a0a0a;
-      display: flex;
-      flex-direction: column;
-      justify-content: center;
-      align-items: center;            /* formulaire CENTRÉ horizontalement (façon pro) */
-      padding: 48px 40px;
-      overflow-y: auto;
-      border-left: 1px solid #1a1a1a;
+      flex: 0 0 43%;
+      background: var(--bg);
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      padding: 48px 46px; overflow-y: auto; position: relative;
     }
-    /* Colonne de connexion en largeur FIXE → les champs/boutons ne s'étirent plus sur tout le panneau */
-    .lp-right > * { width: 100%; max-width: 360px; }
+    /* halo or doux en haut à gauche (comme le hero de la landing) */
+    .lp-right::before {
+      content: ""; position: absolute; top: -150px; left: -130px;
+      width: 440px; height: 440px; border-radius: 50%;
+      background: radial-gradient(circle, rgba(212,162,51,0.15), transparent 62%);
+      pointer-events: none; z-index: 0;
+    }
+    .lp-card { width: 100%; max-width: 384px; position: relative; z-index: 1; }
+
+    .lp-brand {
+      display: inline-flex; align-items: center; gap: 10px;
+      font-family: var(--tight); font-weight: 800; font-size: 18px;
+      letter-spacing: -0.02em; color: var(--text); text-decoration: none; margin-bottom: 36px;
+    }
+    .lp-mk {
+      width: 28px; height: 28px; border-radius: 8px; background: var(--grad-mk);
+      display: grid; place-items: center; color: #170f02; font-weight: 900; font-size: 12.5px;
+      box-shadow: 0 4px 16px -4px rgba(184,134,11,0.5);
+    }
 
     .lp-title {
-      font-size: clamp(30px, 3.2vw, 40px);   /* plafonné pour tenir dans la colonne fixe de 360px */
-      font-weight: 700;
-      color: #ffffff;
-      font-family: var(--font-ui);
-      line-height: 1.05;
-      margin-bottom: 36px;
-      letter-spacing: -0.02em;
+      font-family: var(--serif); font-weight: 500; font-size: 39px; line-height: 1.04;
+      letter-spacing: -0.015em; color: var(--text); margin-bottom: 10px;
     }
+    .lp-title .em { font-style: italic; color: var(--gold); }
+    .lp-subtitle { font-size: 15px; color: var(--text2); line-height: 1.5; margin-bottom: 30px; }
 
     /* ── Form ── */
-    .lp-form-group {
-      margin-bottom: 14px;
-    }
-    .lp-label {
-      display: block;
-      font-size: 11px;
-      color: var(--text2);
-      margin-bottom: 5px;
-      font-weight: 500;
-    }
+    .lp-form-group { margin-bottom: 15px; }
+    .lp-label { display: block; font-size: 12px; color: var(--text2); margin-bottom: 6px; font-weight: 600; }
 
-    /* Input wrapper for icon */
-    .lp-input-wrap {
-      position: relative;
-    }
+    .lp-input-wrap { position: relative; }
     .lp-input-icon {
-      position: absolute;
-      right: 10px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 13px;
-      color: rgba(247,148,29,0.5);
-      pointer-events: none;
-      line-height: 1;
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      font-size: 14px; color: var(--text3); pointer-events: none; line-height: 1;
     }
-    /* Eye icon is clickable */
-    .lp-input-icon--eye {
-      pointer-events: auto;
-      cursor: pointer;
-      color: var(--text3);
-      right: 10px;
-      font-size: 14px;
-      user-select: none;
-    }
+    .lp-input-icon--eye { pointer-events: auto; cursor: pointer; user-select: none; }
     .lp-input-icon--eye:hover { color: var(--text2); }
-    /* Both eye + key: key shifts left */
-    .lp-input-icon--key-pw {
-      right: 34px;
-    }
 
     .lp-input {
-      width: 100%;
-      background: var(--bg3);
-      border: 1px solid var(--border2);
-      border-radius: 5px;
-      padding: 11px 36px 11px 12px;
-      font-family: var(--font-mono);
-      font-size: 13px;
-      color: var(--text);
-      outline: none;
-      transition: border-color 0.15s;
+      width: 100%; background: #ffffff; border: 1px solid var(--line2); border-radius: 10px;
+      padding: 12px 40px 12px 14px; font-family: var(--font); font-size: 14px; color: var(--text);
+      outline: none; transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .lp-input:focus { border-color: var(--orange); }
+    .lp-input:focus { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,134,11,0.12); }
     .lp-input::placeholder { color: var(--text3); }
 
-    /* Checkbox + forgot row */
     .lp-row-remember {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 18px;
-      margin-top: 4px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 22px; margin-top: 6px;
     }
-    .lp-checkbox-label {
-      display: flex;
-      align-items: center;
-      gap: 7px;
-      font-size: 11px;
-      color: var(--text2);
-      cursor: pointer;
-    }
-    .lp-checkbox-label input[type="checkbox"] {
-      accent-color: var(--orange);
-      width: 14px;
-      height: 14px;
-      cursor: pointer;
-    }
-    .lp-forgot {
-      font-size: 11px;
-      color: var(--orange);
-      text-decoration: none;
-    }
+    .lp-checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text2); cursor: pointer; }
+    .lp-checkbox-label input[type="checkbox"] { accent-color: var(--gold); width: 15px; height: 15px; cursor: pointer; }
+    .lp-forgot { font-size: 12.5px; color: var(--gold); text-decoration: none; font-weight: 500; }
     .lp-forgot:hover { text-decoration: underline; }
 
-    /* Error */
+    /* Error / info / renew */
     .lp-error {
-      background: rgba(231,76,60,0.1);
-      border: 1px solid rgba(231,76,60,0.3);
-      border-radius: 4px;
-      padding: 9px 12px;
-      font-size: 12px;
-      color: #ef4444;
-      margin-bottom: 14px;
-      display: none;
+      background: rgba(226,59,59,0.08); border: 1px solid rgba(226,59,59,0.28);
+      border-radius: 9px; padding: 10px 13px; font-size: 12.5px; color: #c42b2b;
+      margin-bottom: 15px; display: none; line-height: 1.5;
     }
     .lp-error.visible { display: block; }
-    /* Bandeau d'information permanent (au-dessus du login) */
-    .lp-info {
-      display: flex; align-items: flex-start; gap: 8px;
-      background: rgba(56,139,253,0.08); border: 1px solid rgba(56,139,253,0.25);
-      border-radius: 6px; padding: 9px 12px; margin-bottom: 14px;
-      font-size: 12px; line-height: 1.5; color: #9fb6d6;
-    }
-    .lp-info-ic { color: #58a6ff; font-weight: 700; flex-shrink: 0; }
-    .lp-info a { color: #58a6ff; text-decoration: none; font-weight: 600; }
-    .lp-info a:hover { text-decoration: underline; }
-    /* Carte « abonnement expiré/inactif » — alerte structurée PRO : titre (icône) + message + action */
-    .lp-error--renew { padding: 14px 15px; border-radius: 6px; }
+    .lp-error--renew { padding: 14px 15px; }
     .lp-renew-card { display: flex; flex-direction: column; }
-    .lp-renew-title {
-      display: flex; align-items: center; gap: 7px;
-      font-size: 12.5px; font-weight: 700; color: #f1f1f3; letter-spacing: .01em;
-    }
-    .lp-renew-title svg { width: 15px; height: 15px; color: #ef4444; flex: 0 0 auto; }
-    .lp-renew-msg { margin-top: 6px; font-size: 12px; line-height: 1.55; color: #d9a9a4; }
+    .lp-renew-title { display: flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; color: #16161d; }
+    .lp-renew-title svg { width: 15px; height: 15px; color: #c42b2b; flex: 0 0 auto; }
+    .lp-renew-msg { margin-top: 6px; font-size: 12.5px; line-height: 1.55; color: #9a5a55; }
     .lp-renew-btn {
-      display: block; width: 100%; text-align: center; margin-top: 12px; padding: 10px 16px;
-      background: var(--orange, #f7941d); color: #0a0a0c; font-weight: 700;
-      font-size: 12.5px; border-radius: 6px; text-decoration: none; transition: filter .15s;
+      display: block; width: 100%; text-align: center; margin-top: 12px; padding: 11px 16px;
+      background: var(--grad-cta); color: #1c1205; font-weight: 700; font-size: 13px;
+      border-radius: 9px; text-decoration: none; transition: filter .15s;
     }
-    .lp-renew-btn:hover { filter: brightness(1.08); }
-    /* Message de succès (mot de passe oublié) — vert, distinct de l'erreur rouge */
-    .lp-error.lp-msg-success {
-      color: #22c55e;
-      background: rgba(34,197,94,0.10);
-      border-color: rgba(34,197,94,0.30);
-    }
+    .lp-renew-btn:hover { filter: brightness(1.05); }
+    .lp-error.lp-msg-success { color: #15803d; background: rgba(34,197,94,0.10); border-color: rgba(34,197,94,0.30); }
 
-    /* Submit button */
+    /* Submit — bouton OR plein (CTA façon landing) */
     .lp-btn {
-      width: 100%;
-      height: 46px;
-      background: transparent;
-      color: var(--orange);
-      border: 1.5px solid var(--orange);
-      border-radius: 5px;
-      font-family: var(--font-ui);
-      font-size: 14px;
-      font-weight: 700;
-      cursor: pointer;
-      letter-spacing: 0.03em;
-      transition: background 0.15s, color 0.15s, transform 0.1s;
-      margin-bottom: 14px;
+      width: 100%; height: 48px; background: var(--grad-cta); color: #1c1205;
+      border: none; border-radius: 11px; font-family: var(--font); font-size: 14.5px;
+      font-weight: 700; cursor: pointer; letter-spacing: 0.01em;
+      box-shadow: 0 10px 26px -10px rgba(184,134,11,0.55);
+      transition: transform 0.12s, box-shadow 0.15s, filter 0.15s; margin-bottom: 16px;
     }
-    .lp-btn:hover  { background: rgba(247,148,29,0.08); }
-    .lp-btn:active { transform: scale(0.985); }
-    .lp-btn:disabled { opacity: 0.4; cursor: default; }
+    .lp-btn:hover { transform: translateY(-1px); box-shadow: 0 14px 34px -10px rgba(184,134,11,0.68); }
+    .lp-btn:active { transform: scale(0.99); }
+    .lp-btn:disabled { opacity: 0.55; cursor: default; transform: none; }
 
-    /* Contact link */
-    /* Boutons de téléchargement de l'app bureau (clone pro : icône + Download for / OS) */
-    .lp-dl-row { display: flex; gap: 12px; margin-top: 18px; }
-    .lp-dl-btn {
-      flex: 1; display: flex; align-items: center; justify-content: center; gap: 11px;
-      padding: 12px 16px; background: var(--bg2); border: 1px solid #26262c; border-radius: 8px;
-      text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s;
-    }
-    .lp-dl-btn:hover { border-color: rgba(247,148,29,0.5); background: #16161a; }
-    .lp-dl-btn svg { width: 17px; height: 17px; color: #b9bcc4; flex: 0 0 auto; }
-    .lp-dl-k { display: block; font-size: 10.5px; color: #8a8a93; line-height: 1.25; }
-    .lp-dl-v { display: block; font-size: 13px; color: #e8e8ea; font-weight: 600; line-height: 1.25; }
-    .lp-dl-intel { margin-top: 8px; text-align: center; font-size: 11px; color: #8a8a93; }
-    .lp-dl-intel a { color: var(--orange); text-decoration: none; font-weight: 600; }
-    .lp-dl-intel a:hover { text-decoration: underline; }
-
-    .lp-contact {
-      font-size: 11px;
-      color: var(--text3);
-      text-align: center;
-      margin-bottom: 24px;
-    }
-    .lp-contact a {
-      color: var(--orange);
-      text-decoration: none;
-    }
+    .lp-contact { font-size: 12px; color: var(--text3); text-align: center; margin-bottom: 22px; }
+    .lp-contact a { color: var(--gold); text-decoration: none; font-weight: 500; }
     .lp-contact a:hover { text-decoration: underline; }
 
-    /* Divider */
-    .lp-divider {
-      height: 1px;
-      background: #1e1e1e;
-      margin-bottom: 20px;
-    }
+    .lp-divider { height: 1px; background: var(--line); margin-bottom: 20px; }
 
-    /* Language selector */
-    .lp-lang-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 16px;
-    }
-    .lp-lang-label {
-      font-size: 11px;
-      color: var(--text2);
-      flex-shrink: 0;
-    }
-    .lp-lang-select { display: none; }   /* natif masqué, remplacé par le dropdown custom DTP */
-    /* Le dropdown de langue occupe toute la largeur restante (façon pro) */
+    /* Language */
+    .lp-lang-row { display: flex; align-items: center; gap: 9px; margin-bottom: 16px; }
+    .lp-lang-label { font-size: 12px; color: var(--text2); flex-shrink: 0; }
+    .lp-lang-select { display: none; }
     .lp-lang-row .dtpsel { flex: 1 1 auto; }
     .lp-lang-row .dtpsel-btn { width: 100%; }
-    /* ── Dropdown custom DTP (réutilisable : panneau sombre arrondi, ✓ orange sur l'item sélectionné) ── */
-    .dtpsel { position: relative; display: inline-block; font-family: var(--font-ui); }
-    .dtpsel-btn { display: flex; align-items: center; gap: 8px; background: #18181c; border: 1px solid #2a2a31; border-radius: 8px; padding: 7px 32px 7px 11px; font-size: 12.5px; color: #e6e8ec; cursor: pointer; outline: none; position: relative; min-width: 128px; transition: border-color .15s; }
-    .dtpsel-btn:hover { border-color: #3a3a44; }
-    .dtpsel.open .dtpsel-btn { border-color: var(--orange); }
+    .dtpsel { position: relative; display: inline-block; font-family: var(--font); }
+    .dtpsel-btn { display: flex; align-items: center; gap: 8px; background: #fff; border: 1px solid var(--line2); border-radius: 9px; padding: 9px 32px 9px 12px; font-size: 13px; color: var(--text); cursor: pointer; outline: none; position: relative; min-width: 128px; transition: border-color .15s; }
+    .dtpsel-btn:hover { border-color: #c3c3cf; }
+    .dtpsel.open .dtpsel-btn { border-color: var(--gold); box-shadow: 0 0 0 3px rgba(184,134,11,0.1); }
     .dtpsel-lbl { display: inline-flex; align-items: center; gap: 8px; }
-    .dtpsel-caret { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); transition: transform .2s; color: #8a8a92; pointer-events: none; line-height: 0; }
+    .dtpsel-caret { position: absolute; right: 11px; top: 50%; transform: translateY(-50%); transition: transform .2s; color: var(--text3); pointer-events: none; line-height: 0; }
     .dtpsel.open .dtpsel-caret { transform: translateY(-50%) rotate(180deg); }
-    .dtpsel-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; background: #18181c; border: 1px solid #2a2a31; border-radius: 8px; padding: 5px; box-shadow: 0 18px 44px -14px rgba(0,0,0,.75); z-index: 1000; display: none; max-height: 280px; overflow-y: auto; }
+    .dtpsel-panel { position: absolute; top: calc(100% + 6px); left: 0; min-width: 100%; background: #fff; border: 1px solid var(--line2); border-radius: 10px; padding: 5px; box-shadow: 0 18px 44px -16px rgba(20,20,40,0.22); z-index: 1000; display: none; max-height: 280px; overflow-y: auto; }
     .dtpsel.open .dtpsel-panel { display: block; }
-    .dtpsel-item { display: flex; align-items: center; gap: 9px; padding: 8px 28px 8px 10px; border-radius: 6px; font-size: 12.5px; color: #c8cdd6; cursor: pointer; white-space: nowrap; position: relative; transition: background .12s; }
-    .dtpsel-item:hover { background: #26262c; color: #fff; }
-    .dtpsel-item.sel { background: rgba(247,148,29,.10); color: #fff; }
-    .dtpsel-item.sel::after { content: "✓"; position: absolute; right: 10px; color: var(--orange); font-weight: 700; font-size: 12px; }
-    .dtpsel-flag { width: 21px; height: 14px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(255,255,255,.14); flex-shrink: 0; display: inline-flex; }
+    .dtpsel-item { display: flex; align-items: center; gap: 9px; padding: 8px 28px 8px 10px; border-radius: 7px; font-size: 13px; color: var(--text2); cursor: pointer; white-space: nowrap; position: relative; transition: background .12s; }
+    .dtpsel-item:hover { background: var(--bg2); color: var(--text); }
+    .dtpsel-item.sel { background: rgba(184,134,11,0.09); color: var(--text); }
+    .dtpsel-item.sel::after { content: "✓"; position: absolute; right: 10px; color: var(--gold); font-weight: 700; font-size: 12px; }
+    .dtpsel-flag { width: 21px; height: 14px; border-radius: 2px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.10); flex-shrink: 0; display: inline-flex; }
     .dtpsel-flag svg { width: 100%; height: 100%; display: block; }
 
-    /* (styles des boutons de téléchargement : voir le bloc canonique .lp-dl-row plus haut) */
-
-    /* Loading spinner */
-    .lp-spinner {
-      display: inline-block;
-      width: 14px;
-      height: 14px;
-      border: 2px solid rgba(0,0,0,0.3);
-      border-top-color: #000;
-      border-radius: 50%;
-      animation: lp-spin 0.6s linear infinite;
-      vertical-align: middle;
-      margin-right: 6px;
+    /* Download buttons */
+    .lp-dl-row { display: flex; gap: 12px; margin-top: 4px; }
+    .lp-dl-btn {
+      flex: 1; display: flex; align-items: center; justify-content: center; gap: 11px;
+      padding: 12px 16px; background: var(--bg2); border: 1px solid var(--line2); border-radius: 10px;
+      text-decoration: none; cursor: pointer; transition: border-color .15s, background .15s;
     }
+    .lp-dl-btn:hover { border-color: rgba(184,134,11,0.5); background: #fff; }
+    .lp-dl-btn svg { width: 17px; height: 17px; color: var(--text2); flex: 0 0 auto; }
+    .lp-dl-k { display: block; font-size: 10.5px; color: var(--text3); line-height: 1.25; }
+    .lp-dl-v { display: block; font-size: 13px; color: var(--text); font-weight: 600; line-height: 1.25; }
+    .lp-dl-intel { margin-top: 9px; text-align: center; font-size: 11px; color: var(--text3); }
+    .lp-dl-intel a { color: var(--gold); text-decoration: none; font-weight: 600; }
+    .lp-dl-intel a:hover { text-decoration: underline; }
+
+    /* Spinner */
+    .lp-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(28,18,5,0.35); border-top-color: #1c1205; border-radius: 50%; animation: lp-spin 0.6s linear infinite; vertical-align: middle; margin-right: 7px; }
     @keyframes lp-spin { to { transform: rotate(360deg); } }
 
-    /* ── Responsive: stack on narrow screens ── */
+    /* ════ MOSAIC panel (droite, animation conservée) ════ */
+    .lp-left {
+      flex: 1 1 57%; position: relative; overflow: hidden;
+      background: #0a0a0c; border-left: 1px solid var(--line2);
+    }
+    .lp-mosaic { position: absolute; inset: 0; overflow: hidden; display: flex; gap: 3px; padding: 0; background: #0a0a0c; }
+    .lp-col { flex-shrink: 0; width: 195px; min-width: 195px; overflow: hidden; }
+    .lp-col-inner { display: flex; flex-direction: column; }
+    .lp-tile { flex-shrink: 0; width: 195px; height: 130px; margin-bottom: 3px; }
+    .lp-tile-inner { width: 100%; height: 100%; position: relative; overflow: hidden; border-radius: 3px; }
+    .lp-tile img { display: block; width: 100%; height: 100%; object-fit: cover; filter: blur(0.5px) saturate(0.92); }
+    /* voile DUOTONE OR (au lieu du noir) → relie la mosaïque à la marque */
+    .lp-tile-overlay { position: absolute; inset: 0; background: linear-gradient(135deg, rgba(12,9,4,0.60), rgba(184,134,11,0.22)); }
+
+    @keyframes scroll-up { from { transform: translateY(0); } to { transform: translateY(-50%); } }
+
+    /* fondus (vignette) vers le noir chaud */
+    .lp-fade-top, .lp-fade-bottom { position: absolute; left: 0; right: 0; height: 130px; z-index: 3; pointer-events: none; }
+    .lp-fade-top { top: 0; background: linear-gradient(to bottom, #0a0a0c, rgba(10,10,12,0.9) 55%, transparent); }
+    .lp-fade-bottom { bottom: 0; background: linear-gradient(to top, #0a0a0c, rgba(10,10,12,0.9) 55%, transparent); }
+    .lp-fade-left, .lp-fade-right { position: absolute; top: 0; bottom: 0; z-index: 3; pointer-events: none; }
+    .lp-fade-left  { left: 0;  width: 96px; background: linear-gradient(to right, rgba(10,10,12,0.55), transparent); }
+    .lp-fade-right { right: 0; width: 90px; background: linear-gradient(to left, rgba(10,10,12,0.45), transparent); }
+    /* lueur or globale */
+    .lp-left::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none;
+      background: radial-gradient(ellipse at 62% 38%, rgba(230,189,77,0.10), transparent 60%), radial-gradient(ellipse at 50% 100%, rgba(8,7,4,0.45), transparent 65%); }
+
+    /* carte tagline (verre, accent or, titre serif) — en bas */
+    .lp-left-card {
+      position: absolute; z-index: 10; left: 50%; bottom: 8%; transform: translateX(-50%);
+      background: rgba(14,12,8,0.55); backdrop-filter: blur(9px);
+      border: 1px solid rgba(230,189,77,0.30); border-radius: 16px;
+      box-shadow: 0 22px 56px -22px rgba(0,0,0,0.65);
+      padding: 22px 30px; max-width: 460px; width: calc(100% - 70px); text-align: center;
+    }
+    .lp-tagline-1 { font-family: var(--serif); font-size: 26px; font-weight: 500; line-height: 1.22; color: #fff; margin-bottom: 7px; }
+    .lp-tagline-1 strong { color: var(--gold-bright); font-weight: 600; font-style: italic; }
+    .lp-tagline-2 { font-size: 15px; color: rgba(255,255,255,0.84); line-height: 1.45; }
+
+    /* ── Responsive ── */
     @media (max-width: 900px) {
       html, body { overflow: auto; }
-      .lp-layout { flex-direction: column; height: auto; overflow: visible; }
-      .lp-left   { flex: none; height: 38vh; min-height: 220px; border-right: none; }
-      .lp-right  { flex: none; padding: 36px 28px; }
-      .lp-left-card { bottom: 8%; }
-      .lp-title  { font-size: 32px; margin-bottom: 24px; }
+      .lp-layout { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
+      .lp-left  { order: -1; flex: none; height: 30vh; min-height: 200px; border-left: none; border-bottom: 1px solid var(--line2); }
+      .lp-right { flex: none; padding: 38px 26px; }
+      .lp-left-card { bottom: 7%; padding: 16px 22px; }
+      .lp-tagline-1 { font-size: 21px; }
+      .lp-title { font-size: 32px; }
     }
     @media (max-width: 480px) {
-      .lp-left { height: 28vh; }
-      .lp-right { padding: 28px 20px; }
-      .lp-title { font-size: 26px; }
+      .lp-left { height: 24vh; min-height: 160px; }
+      .lp-right { padding: 30px 20px; }
+      .lp-title { font-size: 28px; }
       .lp-dl-row { flex-direction: column; }
+      .lp-left-card { display: none; }
     }
   </style>
   <script src="/js/noinspect.js?v=20260621"></script>
@@ -438,105 +245,97 @@
 
 <div class="lp-layout">
 
-  <!-- ════════ LEFT PANEL ════════ -->
+  <!-- ════════ FORM PANEL (gauche) ════════ -->
+  <div class="lp-right">
+    <div class="lp-card">
+
+      <a href="https://datatradingpro.com/" class="lp-brand"><span class="lp-mk">D</span>DataTradingPro</a>
+
+      <h1 class="lp-title">Bon retour.</h1>
+      <p class="lp-subtitle">Connectez-vous à votre terminal macro &amp; forex.</p>
+
+      <div class="lp-error" id="lp-error"></div>
+
+      <form id="lp-form" autocomplete="on">
+
+        <div class="lp-form-group">
+          <label class="lp-label" for="lp-email">Adresse e-mail</label>
+          <div class="lp-input-wrap">
+            <input class="lp-input" type="email" id="lp-email" name="email"
+                   placeholder="votre@email.com" autocomplete="email" required />
+          </div>
+        </div>
+
+        <div class="lp-form-group">
+          <label class="lp-label" for="lp-password">Mot de passe</label>
+          <div class="lp-input-wrap">
+            <input class="lp-input" type="password" id="lp-password" name="password"
+                   placeholder="••••••••" autocomplete="current-password" required />
+            <span class="lp-input-icon lp-input-icon--eye" id="lp-eye" onclick="lpTogglePw()" title="Afficher/masquer">👁</span>
+          </div>
+        </div>
+
+        <div class="lp-row-remember">
+          <label class="lp-checkbox-label">
+            <input type="checkbox" id="lp-remember" name="remember" />
+            Rester connecté
+          </label>
+          <a class="lp-forgot" href="#" onclick="lpForgot(event)">Mot de passe oublié ?</a>
+        </div>
+
+        <button type="submit" class="lp-btn" id="lp-btn">Se connecter</button>
+
+      </form>
+
+      <div class="lp-contact">
+        Questions ?&nbsp;<a href="mailto:contact@datatradingpro.com">Nous contacter</a>
+      </div>
+
+      <div class="lp-divider"></div>
+
+      <div class="lp-lang-row">
+        <span class="lp-lang-label">Langue :</span>
+        <select class="lp-lang-select" id="lp-lang">
+          <option value="fr" selected>Français</option>
+          <option value="en">English</option>
+        </select>
+      </div>
+
+      <div class="lp-dl-row">
+        <a class="lp-dl-btn" href="/downloads/DataTradingPro-Setup.exe" download>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
+          <span class="lp-dl-txt"><span class="lp-dl-k">Télécharger pour</span><span class="lp-dl-v">Windows</span></span>
+        </a>
+        <a class="lp-dl-btn" href="/downloads/DataTradingPro-macOS.zip" download>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
+          <span class="lp-dl-txt"><span class="lp-dl-k">Télécharger pour</span><span class="lp-dl-v">macOS</span></span>
+        </a>
+      </div>
+      <div class="lp-dl-intel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.zip" download>Télécharger la version Intel</a></div>
+
+    </div><!-- /.lp-card -->
+  </div><!-- /.lp-right -->
+
+  <!-- ════════ MOSAIC PANEL (droite) ════════ -->
   <div class="lp-left">
-    <!-- Scrolling columns — populated by JS -->
     <div class="lp-mosaic" id="lp-mosaic"></div>
     <div class="lp-fade-top"></div>
     <div class="lp-fade-bottom"></div>
     <div class="lp-fade-left"></div>
     <div class="lp-fade-right"></div>
-    <!-- Tagline card -->
     <div class="lp-left-card">
-      <div class="lp-tagline-1">
-        <strong>Boostez</strong> votre trading avec
-      </div>
-      <div class="lp-tagline-2">Des données qui bougent les graphiques !</div>
+      <div class="lp-tagline-1"><strong>Boostez</strong> votre trading avec</div>
+      <div class="lp-tagline-2">des données qui bougent les graphiques.</div>
     </div>
   </div>
-
-  <!-- ════════ RIGHT PANEL ════════ -->
-  <div class="lp-right">
-
-    <div class="lp-title">DataTradingPro</div>
-
-    <div class="lp-error" id="lp-error"></div>
-
-    <form id="lp-form" autocomplete="on">
-
-      <!-- Email -->
-      <div class="lp-form-group">
-        <label class="lp-label" for="lp-email">Adresse e-mail :</label>
-        <div class="lp-input-wrap">
-          <input class="lp-input" type="email" id="lp-email" name="email"
-                 placeholder="votre@email.com" autocomplete="email" required />
-        </div>
-      </div>
-
-      <!-- Password -->
-      <div class="lp-form-group">
-        <label class="lp-label" for="lp-password">Mot de passe :</label>
-        <div class="lp-input-wrap">
-          <input class="lp-input" type="password" id="lp-password" name="password"
-                 placeholder="••••••••" autocomplete="current-password" required />
-          <span class="lp-input-icon lp-input-icon--eye" id="lp-eye" onclick="lpTogglePw()" title="Afficher/masquer">👁</span>
-        </div>
-      </div>
-
-      <!-- Remember + forgot -->
-      <div class="lp-row-remember">
-        <label class="lp-checkbox-label">
-          <input type="checkbox" id="lp-remember" name="remember" />
-          Rester connecté
-        </label>
-        <a class="lp-forgot" href="#" onclick="lpForgot(event)">Mot de passe oublié ?</a>
-      </div>
-
-      <!-- Submit -->
-      <button type="submit" class="lp-btn" id="lp-btn">Se connecter</button>
-
-    </form>
-
-    <!-- Contact -->
-    <div class="lp-contact">
-      Questions ?&nbsp;<a href="mailto:contact@datatradingpro.com">Nous contacter</a>
-    </div>
-
-    <div class="lp-divider"></div>
-
-    <!-- Language -->
-    <div class="lp-lang-row">
-      <span class="lp-lang-label">Langue :</span>
-      <select class="lp-lang-select" id="lp-lang">
-        <option value="fr" selected>Français</option>
-        <option value="en">English</option>
-      </select>
-    </div>
-
-    <!-- Application bureau (clone pro) : 2 boutons de téléchargement Windows / macOS -->
-    <div class="lp-dl-row">
-      <a class="lp-dl-btn" href="/downloads/DataTradingPro-Setup.exe" download>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
-        <span class="lp-dl-txt"><span class="lp-dl-k">Télécharger pour</span><span class="lp-dl-v">Windows</span></span>
-      </a>
-      <a class="lp-dl-btn" href="/downloads/DataTradingPro-macOS.zip" download>
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
-        <span class="lp-dl-txt"><span class="lp-dl-k">Télécharger pour</span><span class="lp-dl-v">MacOS</span></span>
-      </a>
-    </div>
-    <div class="lp-dl-intel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.zip" download>Télécharger la version Intel</a></div>
-
-
-  </div><!-- /.lp-right -->
 
 </div><!-- /.lp-layout -->
 
 <script>
+
   /* ── Mosaic: scrolling columns ── */
   (function () {
     const mosaic = document.getElementById('lp-mosaic');
-    const B = '';   // plus aucune dependance externe : tuiles decoratives generees en CSS
-
     const COL_IMGS = [
       ['/css/login-images/col1/195x130-19.jpg','/css/login-images/col1/195x130-3.webp','/css/login-images/col1/195x130-35.jpg','/css/login-images/col1/195x130-38%20(2).webp','/css/login-images/col1/195x130-38.jpg','/css/login-images/col1/195x130-51.webp','/css/login-images/col1/195x130-53.jpg','/css/login-images/col1/195x130-6.webp','/css/login-images/col1/195x130-64.webp','/css/login-images/col1/195x130-69.webp','/css/login-images/col1/195x130-78%20(2).webp','/css/login-images/col1/195x130-85.webp','/css/login-images/col1/195x130-86%20(2).webp','/css/login-images/col1/195x130-9%20(2).webp','/css/login-images/col1/195x130-93.webp','/css/login-images/col1/195x130-98.webp'],
       ['/css/login-images/col2/195x130-20.jpg','/css/login-images/col2/195x130-28.jpg','/css/login-images/col2/195x130-30.jpg','/css/login-images/col2/195x130-39.webp','/css/login-images/col2/195x130-45.jpg','/css/login-images/col2/195x130-49.webp','/css/login-images/col2/195x130-54.webp','/css/login-images/col2/195x130-55%20(2).webp','/css/login-images/col2/195x130-65.webp','/css/login-images/col2/195x130-67.webp','/css/login-images/col2/195x130-69%20(2).webp','/css/login-images/col2/195x130-7.webp','/css/login-images/col2/195x130-71.webp','/css/login-images/col2/195x130-72.webp','/css/login-images/col2/195x130-88%20(2).webp','/css/login-images/col2/195x130-88.webp'],
@@ -544,69 +343,53 @@
       ['/css/login-images/col4/195x130-20%20(2).webp','/css/login-images/col4/195x130-23.jpg','/css/login-images/col4/195x130-25.webp','/css/login-images/col4/195x130-26%20(2).webp','/css/login-images/col4/195x130-27%20(2).webp','/css/login-images/col4/195x130-34.webp','/css/login-images/col4/195x130-47%20(2).webp','/css/login-images/col4/195x130-47.webp','/css/login-images/col4/195x130-5.jpg','/css/login-images/col4/195x130-53%20(2).webp','/css/login-images/col4/195x130-54%20(2).webp','/css/login-images/col4/195x130-63.webp','/css/login-images/col4/195x130-7.jpg','/css/login-images/col4/195x130-79.webp','/css/login-images/col4/195x130-80%20(2).webp','/css/login-images/col4/195x130-89%20(2).webp'],
       ['/css/login-images/col5/195x130-21%20(2).webp','/css/login-images/col5/195x130-24%20(2).webp','/css/login-images/col5/195x130-26.jpg','/css/login-images/col5/195x130-32.webp','/css/login-images/col5/195x130-38.webp','/css/login-images/col5/195x130-4.jpg','/css/login-images/col5/195x130-47.jpg','/css/login-images/col5/195x130-48.webp','/css/login-images/col5/195x130-50.webp','/css/login-images/col5/195x130-52.jpg','/css/login-images/col5/195x130-57%20(2).webp','/css/login-images/col5/195x130-82.webp','/css/login-images/col5/195x130-83%20(2).webp','/css/login-images/col5/195x130-87%20(2).webp','/css/login-images/col5/195x130-97.webp','/css/login-images/col5/195x130.jpg'],
     ];
-
     const COL_PARAMS = [
-      { dur: 121, delay: -22.8 },
-      { dur: 120, delay: -43.8 },
-      { dur: 189, delay: -36.8 },
-      { dur: 208, delay: -44.8 },
-      { dur: 227, delay: -27.4 }
+      { dur: 121, delay: -22.8 }, { dur: 120, delay: -43.8 }, { dur: 189, delay: -36.8 },
+      { dur: 208, delay: -44.8 }, { dur: 227, delay: -27.4 }
     ];
     function buildCol(ci, srcs) {
-      const col = document.createElement('div');
-      col.className = 'lp-col';
-      const inner = document.createElement('div');
-      inner.className = 'lp-col-inner';
+      const col = document.createElement('div'); col.className = 'lp-col';
+      const inner = document.createElement('div'); inner.className = 'lp-col-inner';
       const p = COL_PARAMS[ci % COL_PARAMS.length];
       inner.style.animation = `scroll-up ${p.dur}s linear ${p.delay}s infinite`;
       [...srcs, ...srcs].forEach((src) => {
-        const tile = document.createElement('div');
-        tile.className = 'lp-tile';
-        const ti = document.createElement('div');
-        ti.className = 'lp-tile-inner';
+        const tile = document.createElement('div'); tile.className = 'lp-tile';
+        const ti = document.createElement('div'); ti.className = 'lp-tile-inner';
         const img = document.createElement('img');
-        img.src = src;
+        img.src = (window.IMG_BASE || '') + src;
         img.alt = ''; img.loading = 'eager'; img.draggable = false;
         img.style.cssText = 'width:100%;height:100%;object-fit:cover;object-position:center;display:block';
-        const ov = document.createElement('div');
-        ov.className = 'lp-tile-overlay';
+        const ov = document.createElement('div'); ov.className = 'lp-tile-overlay';
         ti.appendChild(img); ti.appendChild(ov);
         tile.appendChild(ti); inner.appendChild(tile);
       });
-      col.appendChild(inner);
-      return col;
+      col.appendChild(inner); return col;
     }
-
-    // Grille DENSE façon pro : on génère TOUJOURS assez de colonnes (largeur + 2 de marge) ET assez
-    // de tuiles par colonne (hauteur + 2 de marge) pour remplir tout le panneau gauche → jamais de vide.
-    // Re-généré au redimensionnement : si la fenêtre s'élargit, on re-comble immédiatement.
     const POOL = COL_IMGS.flat();
     const TILE_W = 195, TILE_H = 130, GAP = 3;
     const leftEl = document.querySelector('.lp-left');
     function render() {
       const r = leftEl ? leftEl.getBoundingClientRect() : null;
-      const w = (r && r.width)  || Math.round(window.innerWidth * 0.65);
+      const w = (r && r.width)  || Math.round(window.innerWidth * 0.57);
       const h = (r && r.height) || window.innerHeight;
-      const cols  = Math.max(5, Math.min(18, Math.ceil(w / (TILE_W + GAP)) + 2));   // +2 colonnes de marge → zéro vide, même en limite
-      const tiles = Math.max(8, Math.min(26, Math.ceil(h / (TILE_H + GAP)) + 2));   // colonne assez haute pour une boucle fluide
+      const cols  = Math.max(5, Math.min(18, Math.ceil(w / (TILE_W + GAP)) + 2));
+      const tiles = Math.max(8, Math.min(26, Math.ceil(h / (TILE_H + GAP)) + 2));
       const frag = document.createDocumentFragment();
       for (let ci = 0; ci < cols; ci++) {
         const off = (ci * 11) % POOL.length;
         frag.appendChild(buildCol(ci, POOL.slice(off).concat(POOL.slice(0, off)).slice(0, tiles)));
       }
-      mosaic.innerHTML = '';
-      mosaic.appendChild(frag);
+      mosaic.innerHTML = ''; mosaic.appendChild(frag);
     }
     render();
     let _rt; window.addEventListener('resize', () => { clearTimeout(_rt); _rt = setTimeout(render, 220); });
   })();
 
   /* ── Login form ── */
-  const form   = document.getElementById('lp-form');
-  const errEl  = document.getElementById('lp-error');
-  const btn    = document.getElementById('lp-btn');
+  const form  = document.getElementById('lp-form');
+  const errEl = document.getElementById('lp-error');
+  const btn   = document.getElementById('lp-btn');
 
-  // Toggle password visibility
   function lpTogglePw() {
     const inp = document.getElementById('lp-password');
     inp.type = inp.type === 'password' ? 'text' : 'password';
@@ -614,27 +397,21 @@
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
-    errEl.classList.remove('visible');
-    errEl.classList.remove('lp-error--renew');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="lp-spinner"></span>Connexion…';
-
+    errEl.classList.remove('visible'); errEl.classList.remove('lp-error--renew');
+    btn.disabled = true; btn.innerHTML = '<span class="lp-spinner"></span>Connexion…';
     try {
       const r = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email:    document.getElementById('lp-email').value,
+          email: document.getElementById('lp-email').value,
           password: document.getElementById('lp-password').value,
         }),
       });
       const data = await r.json();
-      if (data.ok) {
-        window.location.href = '/';
-      } else {
+      if (data.ok) { window.location.href = '/'; }
+      else {
         errEl.classList.remove('lp-msg-success');
         const _msg = (data.error || 'Email ou mot de passe incorrect').replace(/</g, '&lt;');
-        // Abonnement suspendu/expiré → carte d'alerte structurée pro : titre + message + action
         errEl.classList.toggle('lp-error--renew', !!data.renewUrl);
         errEl.innerHTML = data.renewUrl
           ? `<div class="lp-renew-card">`
@@ -650,27 +427,21 @@
       errEl.textContent = 'Erreur de connexion — réessayez';
       errEl.classList.add('visible');
     } finally {
-      btn.disabled = false;
-      btn.textContent = 'Se connecter';
+      btn.disabled = false; btn.textContent = 'Se connecter';
     }
   });
 
-  // Mot de passe oublié → envoi d'un MDP temporaire par email
   async function lpForgot(e) {
     e.preventDefault();
     const emailEl = document.getElementById('lp-email');
-    const email   = (emailEl.value || '').trim();
-    const errEl   = document.getElementById('lp-error');
-    errEl.classList.remove('lp-error--renew');   // on quitte la mise en forme carte « renouvellement »
-    // Pas de fenêtre native : on reste sur la page, design pro.
+    const email = (emailEl.value || '').trim();
+    const errEl = document.getElementById('lp-error');
+    errEl.classList.remove('lp-error--renew');
     if (!email) {
       errEl.classList.remove('lp-msg-success');
       errEl.textContent = 'Entrez d’abord votre adresse e-mail ci-dessus, puis recliquez sur « Mot de passe oublié ».';
-      errEl.classList.add('visible');
-      emailEl.focus();
-      return;
+      errEl.classList.add('visible'); emailEl.focus(); return;
     }
-    // Confirmation IMMÉDIATE — on n'attend pas le serveur (l'envoi se fait en arrière-plan).
     errEl.classList.add('lp-msg-success');
     errEl.textContent = 'Si un compte existe pour cet email, un nouveau mot de passe vient d’être envoyé. Vérifiez votre boîte (et les spams).';
     errEl.classList.add('visible');
@@ -680,12 +451,10 @@
     }).catch(() => {});
   }
 
-  // Drapeaux SVG inline (s'affichent partout, contrairement aux emojis drapeaux sur Windows)
   const _FLAGS = {
     fr: '<svg viewBox="0 0 3 2"><rect width="3" height="2" fill="#fff"/><rect width="1" height="2" fill="#002654"/><rect x="2" width="1" height="2" fill="#ce1126"/></svg>',
     en: '<svg viewBox="0 0 60 30"><clipPath id="uk-t"><path d="M0,0 v30 h60 v-30 z"/></clipPath><clipPath id="uk-s"><path d="M30,15 h30 v15 z v15 h-30 z h-30 v-15 z v-15 h30 z"/></clipPath><g clip-path="url(#uk-t)"><rect width="60" height="30" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#uk-s)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></g></svg>',
   };
-  // Composant dropdown custom DTP, réutilisable : enrichit n'importe quel <select> en menu stylé.
   function enhanceSelect(sel, flags) {
     flags = flags || {};
     if (!sel || sel.dataset.enhanced) return; sel.dataset.enhanced = '1';
@@ -714,13 +483,10 @@
     document.addEventListener('click', e => { if (!dd.contains(e.target)) dd.classList.remove('open'); });
     dd.appendChild(btn); dd.appendChild(panel);
     sel.parentNode.insertBefore(dd, sel.nextSibling);
-    renderBtn();
-    return dd;
+    renderBtn(); return dd;
   }
-  const _langSelect = document.getElementById('lp-lang');
-  enhanceSelect(_langSelect, _FLAGS);
+  enhanceSelect(document.getElementById('lp-lang'), _FLAGS);
 
-  // Autofocus email
   document.getElementById('lp-email').focus();
 </script>
 </body>
