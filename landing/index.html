@@ -204,7 +204,7 @@
   /* gauge */
   .gauge-wrap{text-align:center}
   .gauge{width:100%;max-width:188px;margin:0 auto;display:block}
-  .needle{transform-box:fill-box;transform-origin:50% 100%;transition:transform 1.5s cubic-bezier(.34,1.4,.5,1)}
+  .needle{transform-box:view-box;transform-origin:100px 100px;transition:transform 1.5s cubic-bezier(.34,1.4,.5,1)}
   .g-lbl{display:inline-block;font-family:var(--tight);font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;padding:7px 15px;border-radius:9px;border:1px solid var(--line2);color:var(--text2);margin-top:4px;transition:color .6s,border-color .6s,background .6s}
   /* currency strength */
   .cs-h{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-family:var(--tight);margin-bottom:9px}
@@ -661,13 +661,14 @@
   .dk-cs2-tf{display:flex;gap:1px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:700}
   .dk-cs2-tf b{padding:2px 5px;color:#62656e;border-radius:3px}
   .dk-cs2-tf b.on{background:rgba(230,189,77,.16);color:#f2d486}
-  .dk-cs2-chart{flex:1;min-height:96px;margin:8px 0 6px}
-  .dk-cs2-chart svg{width:100%;height:100%;display:block}
+  .dk-cs2-chart{flex:1;min-height:150px;margin:8px 0 4px;display:flex;gap:6px;position:relative}
+  .dk-cs2-chart svg{flex:1;min-width:0;height:100%;display:block}
   .dk-cs2-ln{fill:none;stroke-width:1.7;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
-  .dk-cs2-badges{display:flex;flex-wrap:wrap;gap:4px;padding-top:8px;border-top:1px solid #131316}
+  .dk-cs2-ends{position:relative;flex:0 0 58px;width:58px;align-self:stretch}
+  .dk-cs2-ends .dk-cs2-b{position:absolute;right:0;transform:translateY(-50%)}
   .dk-cs2-b{display:inline-flex;border-radius:4px;overflow:hidden;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:800;line-height:1}
-  .dk-cs2-b b{padding:3px 5px;color:#1a1206}
-  .dk-cs2-b i{padding:3px 5px;color:#1a1206;font-style:normal;font-family:var(--mono,monospace);font-weight:700}
+  .dk-cs2-b b{padding:2px 4px;color:#1a1206}
+  .dk-cs2-b i{padding:2px 4px;color:#1a1206;font-style:normal;font-family:var(--mono,monospace);font-weight:700;font-size:7.5px}
   .dk-anl-more{margin-top:9px;border-top:1px solid #16161a;padding-top:6px;display:flex;flex-direction:column;gap:1px;flex:1}
   .dk-anl-more-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #131316;font-size:10px;color:#9aa0aa}
   .dk-anl-more-row:last-child{border-bottom:0}
@@ -742,14 +743,13 @@
             <svg class="gauge" viewBox="0 0 200 116">
               <defs>
                 <linearGradient id="garc" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#ff4d4d"/><stop offset=".5" stop-color="#ffb300"/><stop offset="1" stop-color="#00e676"/>
+                  <stop offset="0" stop-color="#c63430"/><stop offset=".17" stop-color="#db5a2c"/><stop offset=".33" stop-color="#e88a28"/><stop offset=".5" stop-color="#ddb23a"/><stop offset=".67" stop-color="#a9c64a"/><stop offset=".83" stop-color="#5cb060"/><stop offset="1" stop-color="#2a9e60"/>
                 </linearGradient>
               </defs>
               <path d="M22,100 A78,78 0 0 1 178,100" fill="none" stroke="#1d1d23" stroke-width="13" stroke-linecap="round"/>
               <path d="M22,100 A78,78 0 0 1 178,100" fill="none" stroke="url(#garc)" stroke-width="13" stroke-linecap="round" opacity=".92"/>
               <g class="needle" id="needle">
-                <path d="M100,100 L100,34" stroke="#f4f4f6" stroke-width="3.4" stroke-linecap="round"/>
-                <circle cx="100" cy="100" r="6" fill="#f4f4f6"/>
+                <polygon id="needleTri" points="87,47 113,47 100,71" fill="#c63430" stroke="#0a0a0c" stroke-width="1.4" stroke-linejoin="round"/>
               </g>
             </svg>
             <div class="g-lbl" id="gLbl">STRONG RISK-ON</div>
@@ -965,16 +965,16 @@
       <polyline class="dk-cs2-ln" stroke="#ff5cae" points="6,100 22,105.9 38,103.4 54,103.9 70,107.4 86,109.8 102,113.6 118,116.3 134,123.1 150,134.3 166,138.3 182,140.3 198,140.6 214,133.7 230,130.3 246,132.2 262,139.2 278,146.9 294,149"/>
       <polyline class="dk-cs2-ln" stroke="#22d3ee" points="6,100 22,99.7 38,105.4 54,112.3 70,119.3 86,131.4 102,140.3 118,141 134,133.8 150,129.8 166,134.3 182,146.1 198,158.2 214,161.7 230,166.7 246,168.8 262,170.8 278,167.8 294,176"/>
     </svg>
-  </div>
-  <div class="dk-cs2-badges">
-    <span class="dk-cs2-b"><b style="background:#ff9500">USD</b><i style="background:#ffca80">+1.42</i></span>
-    <span class="dk-cs2-b"><b style="background:#2bee6b">GBP</b><i style="background:#95f6b5">+0.91</i></span>
-    <span class="dk-cs2-b"><b style="background:#ff3b30">EUR</b><i style="background:#ff9d97">+0.48</i></span>
-    <span class="dk-cs2-b"><b style="background:#3b82f6">AUD</b><i style="background:#9dc0fb">+0.12</i></span>
-    <span class="dk-cs2-b"><b style="background:#ffd60a">CHF</b><i style="background:#ffea84">-0.05</i></span>
-    <span class="dk-cs2-b"><b style="background:#be8bff">CAD</b><i style="background:#dec5ff">-0.74</i></span>
-    <span class="dk-cs2-b"><b style="background:#ff5cae">NZD</b><i style="background:#ffaed6">-1.03</i></span>
-    <span class="dk-cs2-b"><b style="background:#22d3ee">JPY</b><i style="background:#90e9f6">-1.58</i></span>
+    <div class="dk-cs2-ends">
+      <span class="dk-cs2-b" style="top:15%"><b style="background:#ff9500">USD</b><i style="background:#ffca80">+1.42</i></span>
+      <span class="dk-cs2-b" style="top:27%"><b style="background:#2bee6b">GBP</b><i style="background:#95f6b5">+0.91</i></span>
+      <span class="dk-cs2-b" style="top:38%"><b style="background:#ff3b30">EUR</b><i style="background:#ff9d97">+0.48</i></span>
+      <span class="dk-cs2-b" style="top:46%"><b style="background:#3b82f6">AUD</b><i style="background:#9dc0fb">+0.12</i></span>
+      <span class="dk-cs2-b" style="top:54%"><b style="background:#ffd60a">CHF</b><i style="background:#ffea84">-0.05</i></span>
+      <span class="dk-cs2-b" style="top:67%"><b style="background:#be8bff">CAD</b><i style="background:#dec5ff">-0.74</i></span>
+      <span class="dk-cs2-b" style="top:75%"><b style="background:#ff5cae">NZD</b><i style="background:#ffaed6">-1.03</i></span>
+      <span class="dk-cs2-b" style="top:87%"><b style="background:#22d3ee">JPY</b><i style="background:#90e9f6">-1.58</i></span>
+    </div>
   </div>
 </div>
           </div>
@@ -1223,22 +1223,25 @@
   setInterval(function(){addRow(true);},2600);
 
   // ── Jauge Risk Sentiment ──
-  var needle=document.getElementById('needle'),gLbl=document.getElementById('gLbl');
-  var targets=[-55,42,68,-22,12,-78,35,58,-38,8];var gi=0;
-  function arcColor(v){ // -100..100 -> rouge..ambre..vert
-    var t=(v+100)/200;var stops=[[255,77,77],[255,179,0],[0,230,118]];
-    var seg=t<.5?0:1,lt=t<.5?t/.5:(t-.5)/.5;var a=stops[seg],b=stops[seg+1];
-    return 'rgb('+Math.round(a[0]+(b[0]-a[0])*lt)+','+Math.round(a[1]+(b[1]-a[1])*lt)+','+Math.round(a[2]+(b[2]-a[2])*lt)+')';
+  var needle=document.getElementById('needle'),needleTri=document.getElementById('needleTri'),gLbl=document.getElementById('gLbl');
+  var targets=[-90,18,-15,88,-3,22,-88,12,90,-20];var gi=0;
+  // Couleurs EXACTES du desk (_riskArcColor : dégradé 7 crans rouge -> vert)
+  function riskArcColor(v){
+    var t=(v+100)/200; if(t<0)t=0; if(t>1)t=1;
+    var s=[[198,52,48],[219,90,44],[232,138,40],[221,178,58],[169,198,74],[92,176,96],[42,158,96]];
+    var n=s.length-1,p=t*n,i=Math.floor(p),f=p-i; if(i>=n){i=n-1;f=1;}
+    var a=s[i],b=s[i+1];
+    return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';
   }
   function lbl(v){return v<=-30?'STRONG RISK-OFF':v<=-4?'WEAK RISK-OFF':v<4?'NEUTRAL':v<30?'WEAK RISK-ON':'STRONG RISK-ON';}
-  function zoneColor(v){return v<=-30?'rgb(255,61,0)':v<=-4?'rgb(255,110,40)':v<4?'rgb(255,179,0)':v<30?'rgb(120,200,70)':'rgb(0,230,118)';}
   function setGauge(v){
     needle.style.transform='rotate('+(v/100*90)+'deg)';
-    var c=zoneColor(v);
+    var c=riskArcColor(v);
+    if(needleTri) needleTri.setAttribute('fill',c);
     gLbl.textContent=lbl(v);
     gLbl.style.color=c;
-    gLbl.style.borderColor=c.replace('rgb(','rgba(').replace(')',',.55)');
-    gLbl.style.background=c.replace('rgb(','rgba(').replace(')',',.13)');
+    gLbl.style.borderColor=c.replace('rgb(','rgba(').replace(')',',.6)');
+    gLbl.style.background=c.replace('rgb(','rgba(').replace(')',',.14)');
   }
   setGauge(targets[0]);
   setInterval(function(){gi++;setGauge(targets[gi%targets.length]);},3000);
