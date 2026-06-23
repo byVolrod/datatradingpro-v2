@@ -658,13 +658,16 @@
   .dk-cs2{background:#0a0a0c;border:1px solid #161619;border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;height:100%;box-sizing:border-box}
   .dk-cs2-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:7px;border-bottom:1px solid #131316}
   .dk-cs2-title{font-family:var(--tight,'Inter Tight',sans-serif);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#cfd2d8}
-  .dk-cs2-per{font-family:var(--mono,monospace);font-size:8.5px;color:#62656e;background:#111114;border:1px solid #1c1c20;border-radius:3px;padding:2px 5px}
+  .dk-cs2-tf{display:flex;gap:1px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:700}
+  .dk-cs2-tf b{padding:2px 5px;color:#62656e;border-radius:3px}
+  .dk-cs2-tf b.on{background:rgba(255,122,0,.16);color:#ff9a3d}
   .dk-cs2-chart{flex:1;min-height:96px;margin:8px 0 6px}
   .dk-cs2-chart svg{width:100%;height:100%;display:block}
-  .dk-cs2-ln{fill:none;stroke-width:1.6;vector-effect:non-scaling-stroke}
-  .dk-cs2-leg{display:flex;flex-wrap:wrap;gap:5px 9px;padding-top:7px;border-top:1px solid #131316}
-  .dk-cs2-leg span{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono,monospace);font-size:8px;color:#9ea4ae}
-  .dk-cs2-leg i{width:9px;height:2.5px;border-radius:2px;display:inline-block}
+  .dk-cs2-ln{fill:none;stroke-width:1.7;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
+  .dk-cs2-badges{display:flex;flex-wrap:wrap;gap:4px;padding-top:8px;border-top:1px solid #131316}
+  .dk-cs2-b{display:inline-flex;border-radius:4px;overflow:hidden;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:800;line-height:1}
+  .dk-cs2-b b{padding:3px 5px;color:#1a1206}
+  .dk-cs2-b i{padding:3px 5px;color:#1a1206;font-style:normal;font-family:var(--mono,monospace);font-weight:700}
   .dk-anl-more{margin-top:9px;border-top:1px solid #16161a;padding-top:6px;display:flex;flex-direction:column;gap:1px;flex:1}
   .dk-anl-more-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #131316;font-size:10px;color:#9aa0aa}
   .dk-anl-more-row:last-child{border-bottom:0}
@@ -945,22 +948,31 @@
           <p class="one">Qui mène, qui décroche — en continu.</p>
           <div class="vis">
 <div class="dk-cs2">
-  <div class="dk-cs2-head"><span class="dk-cs2-title">Currency Strength</span><span class="dk-cs2-per">1D</span></div>
+  <div class="dk-cs2-head"><span class="dk-cs2-title">Currency Strength</span>
+    <span class="dk-cs2-tf"><b>TD</b><b>TW</b><b>8H</b><b class="on">1D</b><b>7D</b><b>1M</b></span>
+  </div>
   <div class="dk-cs2-chart">
     <svg viewBox="0 0 300 200" preserveAspectRatio="none">
       <line x1="0" y1="100" x2="300" y2="100" stroke="#1b1b22" stroke-width="1" stroke-dasharray="4 4"/>
-      <polyline class="dk-cs2-ln" stroke="#4d9fff" points="6,100 48,90 90,78 132,66 174,52 216,42 258,34 294,26"/>
-      <polyline class="dk-cs2-ln" stroke="#ffb300" points="6,100 48,95 90,89 132,83 174,76 216,70 258,64 294,58"/>
-      <polyline class="dk-cs2-ln" stroke="#b06bff" points="6,100 48,99 90,95 132,90 174,86 216,82 258,79 294,74"/>
-      <polyline class="dk-cs2-ln" stroke="#00e676" points="6,100 48,94 90,87 132,82 174,80 216,84 258,82 294,79"/>
-      <polyline class="dk-cs2-ln" stroke="#9aa0aa" points="6,100 48,101 90,103 132,105 174,107 216,108 258,109 294,107"/>
-      <polyline class="dk-cs2-ln" stroke="#ff8a3d" points="6,100 48,103 90,109 132,117 174,127 216,137 258,145 294,150"/>
-      <polyline class="dk-cs2-ln" stroke="#ff5ca8" points="6,100 48,107 90,115 132,125 174,135 216,143 258,151 294,160"/>
-      <polyline class="dk-cs2-ln" stroke="#ff4d4d" points="6,100 48,109 90,122 132,134 174,147 216,159 258,170 294,178"/>
+      <polyline class="dk-cs2-ln" stroke="#ff9500" points="6,100 48,90 90,78 132,66 174,52 216,42 258,34 294,26"/>
+      <polyline class="dk-cs2-ln" stroke="#2bee6b" points="6,100 48,94 90,86 132,80 174,76 216,80 258,76 294,72"/>
+      <polyline class="dk-cs2-ln" stroke="#ff3b30" points="6,100 48,96 90,90 132,84 174,77 216,71 258,65 294,59"/>
+      <polyline class="dk-cs2-ln" stroke="#3b82f6" points="6,100 48,99 90,96 132,91 174,88 216,85 258,83 294,80"/>
+      <polyline class="dk-cs2-ln" stroke="#ffd60a" points="6,100 48,101 90,103 132,105 174,106 216,108 258,108 294,106"/>
+      <polyline class="dk-cs2-ln" stroke="#be8bff" points="6,100 48,103 90,109 132,117 174,127 216,137 258,145 294,150"/>
+      <polyline class="dk-cs2-ln" stroke="#ff5cae" points="6,100 48,107 90,115 132,125 174,135 216,143 258,151 294,160"/>
+      <polyline class="dk-cs2-ln" stroke="#22d3ee" points="6,100 48,110 90,123 132,135 174,148 216,160 258,170 294,178"/>
     </svg>
   </div>
-  <div class="dk-cs2-leg">
-    <span><i style="background:#4d9fff"></i>USD</span><span><i style="background:#ffb300"></i>EUR</span><span><i style="background:#b06bff"></i>GBP</span><span><i style="background:#ff4d4d"></i>JPY</span><span><i style="background:#00e676"></i>AUD</span><span><i style="background:#ff8a3d"></i>CAD</span><span><i style="background:#9aa0aa"></i>CHF</span><span><i style="background:#ff5ca8"></i>NZD</span>
+  <div class="dk-cs2-badges">
+    <span class="dk-cs2-b"><b style="background:#ff9500">USD</b><i style="background:#ffca80">+1.42</i></span>
+    <span class="dk-cs2-b"><b style="background:#2bee6b">GBP</b><i style="background:#95f6b5">+0.91</i></span>
+    <span class="dk-cs2-b"><b style="background:#ff3b30">EUR</b><i style="background:#ff9d97">+0.48</i></span>
+    <span class="dk-cs2-b"><b style="background:#3b82f6">AUD</b><i style="background:#9dc0fb">+0.12</i></span>
+    <span class="dk-cs2-b"><b style="background:#ffd60a">CHF</b><i style="background:#ffea84">-0.05</i></span>
+    <span class="dk-cs2-b"><b style="background:#be8bff">CAD</b><i style="background:#dec5ff">-0.74</i></span>
+    <span class="dk-cs2-b"><b style="background:#ff5cae">NZD</b><i style="background:#ffaed6">-1.03</i></span>
+    <span class="dk-cs2-b"><b style="background:#22d3ee">JPY</b><i style="background:#90e9f6">-1.58</i></span>
   </div>
 </div>
           </div>
