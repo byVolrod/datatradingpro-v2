@@ -245,6 +245,46 @@
   .mini-cs{display:flex;align-items:flex-end;gap:4px;height:46px}
   .mini-cs i{flex:1;border-radius:2px 2px 0 0}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 9px;margin:3px 4px 0 0;font-family:var(--mono)}
+  /* === Modules : maquettes de preview (gauche Recherche/PDF MUFG, droite 2x2) === */
+  .mods2{display:grid;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:18px;margin-top:46px;align-items:start}
+  .mods2-r{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .lead{display:flex;align-items:center;gap:11px}
+  .lead .bic{margin-bottom:0;flex:0 0 auto;width:38px;height:38px;font-size:15px}
+  .lead h3{margin-bottom:0}
+  .bcard .one{color:var(--text2);font-size:13px;margin-top:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ri-card{display:flex;flex-direction:column}
+  .ri-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .ri-daily{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;font-family:var(--tight);color:var(--orange2);background:rgba(255,122,0,.1);border:1px solid rgba(255,122,0,.32);border-radius:7px;padding:4px 9px;white-space:nowrap}
+  .ri-banks{margin-top:13px}
+  .pdf{margin-top:14px;border-radius:11px;overflow:hidden;border:1px solid var(--line2);background:#0e0e11;box-shadow:0 26px 54px -26px rgba(0,0,0,.8)}
+  .pdf-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#141417;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--text3)}
+  .pdf-ico{color:#e60012}
+  .pdf-name{color:var(--text2)}
+  .pdf-pg{margin-left:auto}
+  .pdf-page{background:#f7f6f3;color:#1a1a1a;padding:19px 21px;font-family:Georgia,'Times New Roman',serif}
+  .pdf-mast{display:flex;align-items:baseline;gap:9px}
+  .pdf-mufg{font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:23px;letter-spacing:-1px;color:#e60012}
+  .pdf-gmr{font-family:Arial,Helvetica,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#5a5a5a}
+  .pdf-rule{height:2px;background:#e60012;margin:8px 0 13px}
+  .pdf-cat{font-family:Arial,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#e60012}
+  .pdf-title{font-size:19px;font-weight:700;line-height:1.12;margin:3px 0 4px}
+  .pdf-sub{font-family:Arial,sans-serif;font-size:11px;color:#444;margin-bottom:7px}
+  .pdf-by{font-family:Arial,sans-serif;font-size:10px;color:#777;border-bottom:1px solid #ddd;padding-bottom:10px;margin-bottom:11px}
+  .pdf-p{font-size:11.5px;line-height:1.5;color:#2a2a2a;margin-bottom:8px}
+  .pdf-p b{color:#111}
+  .pdf-tbl{width:100%;border-collapse:collapse;font-family:Arial,sans-serif;font-size:10px;margin:2px 0 11px}
+  .pdf-tbl th{text-align:left;color:#e60012;border-bottom:1.5px solid #e60012;padding:4px 6px;font-size:8.5px;text-transform:uppercase;letter-spacing:.04em}
+  .pdf-tbl td{padding:4px 6px;border-bottom:1px solid #e7e7e2;color:#222}
+  .pdf-tbl td:first-child{font-weight:700}
+  .pdf-foot{font-family:Arial,sans-serif;font-size:8.5px;color:#9a9a93;border-top:1px solid #e2e2dd;padding-top:8px}
+  .mini-anl{background:var(--bg);border:1px solid var(--line);border-radius:9px;padding:11px 12px}
+  .anl-h{display:flex;align-items:center;gap:7px;font-family:var(--tight);font-weight:700;color:var(--text);font-size:11.5px;margin-bottom:8px}
+  .anl-tag{font-size:8px;font-weight:800;color:#1c1205;background:var(--orange2);padding:2px 6px;border-radius:4px;letter-spacing:.04em}
+  .anl-sec{font-family:var(--tight);font-weight:800;font-size:8.5px;letter-spacing:.07em;color:var(--orange2);margin:9px 0 5px}
+  .anl-l{height:5px;border-radius:3px;background:var(--line2);margin:4px 0}
+  .anl-l.w1{width:100%}.anl-l.w2{width:86%}.anl-l.w3{width:68%}
+  @media (max-width:900px){ .mods2{grid-template-columns:1fr} }
+  @media (max-width:560px){ .mods2-r{grid-template-columns:1fr} }
 
   /* process */
   .proc{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px;position:relative}
@@ -441,55 +481,82 @@
   <div class="wrap">
     <div class="sec-eye">Le terminal</div>
     <h2 class="sec-t">Tout ce qu'il vous faut.<br>Rien de superflu.</h2>
-    <p class="sec-s">Chaque module répond à une question que se pose un trader macro. Réunis, ils forment un poste de commande complet.</p>
+    <p class="sec-s">Un aperçu direct de chaque module — exactement ce que vous voyez dans le terminal.</p>
 
-    <div class="bento">
-      <div class="bcard lg">
-        <div class="bic"><i class="fa-solid fa-bolt"></i></div>
-        <h3>News en temps réel</h3>
-        <p>Le flux filtré : seulement ce qui bouge les marchés, classé par impact, résumé et expliqué par l'IA en un clic. Le bruit reste dehors.</p>
-        <div class="vis mini-news">
-          <div class="l"><b>09:31</b> Fed — un responsable évoque une pause prolongée</div>
-          <div class="l"><b>09:24</b> Zone euro : l'inflation des services ralentit</div>
-          <div class="l"><b>09:18</b> Pétrole +1,9 % sur fond de tensions géopolitiques</div>
+    <div class="mods2">
+      <!-- GAUCHE : Recherche institutionnelle — 1 rapport MUFG par jour (preview PDF) -->
+      <div class="bcard ri-card">
+        <div class="ri-top">
+          <div class="lead"><div class="bic"><i class="fa-solid fa-building-columns"></i></div><h3>Recherche institutionnelle</h3></div>
+          <span class="ri-daily"><i class="fa-solid fa-file-pdf"></i> 1 rapport / jour</span>
         </div>
-      </div>
-      <div class="bcard sm">
-        <div class="bic"><i class="fa-solid fa-compass"></i></div>
-        <h3>Smart Bias Tracker</h3>
-        <p>Le biais directionnel des 8 grandes devises, recalculé chaque semaine sur les fondamentaux.</p>
-        <div class="vis mini-bias">
-          <span class="bb-vbull">USD</span><span class="bb-bull">EUR</span><span class="bb-bear">JPY</span><span class="bb-neu">GBP</span>
-          <span class="bb-bull">AUD</span><span class="bb-neu">CAD</span><span class="bb-bear">CHF</span><span class="bb-bull">NZD</span>
+        <p class="one">La recherche des grandes banques, lisible en PDF.</p>
+        <div class="pdf">
+          <div class="pdf-bar"><i class="fa-solid fa-file-pdf pdf-ico"></i><span class="pdf-name">MUFG_FX_Daily_23Jun2026.pdf</span><span class="pdf-pg">1 / 8</span></div>
+          <div class="pdf-page">
+            <div class="pdf-mast"><span class="pdf-mufg">MUFG</span><span class="pdf-gmr">Global Markets Research</span></div>
+            <div class="pdf-rule"></div>
+            <div class="pdf-cat">FX Daily</div>
+            <div class="pdf-title">Dollar softer as the Fed signals patience</div>
+            <div class="pdf-sub">23 June 2026 · G10 FX &amp; Rates Strategy</div>
+            <div class="pdf-by">Derek Halpenny — Head of Research, Global Markets EMEA</div>
+            <p class="pdf-p">The US dollar is trading softer after a Fed official flagged a more patient stance on cuts. <b>EUR/USD</b> has reclaimed 1.0850 while <b>USD/JPY</b> eased toward 157.50 as US yields drifted lower.</p>
+            <p class="pdf-p">We continue to favour fading dollar strength into quarter-end. The key risk today is the US PCE deflator — a softer print would reinforce the disinflation narrative.</p>
+            <table class="pdf-tbl">
+              <tr><th>Pair</th><th>Spot</th><th>3M</th><th>6M</th></tr>
+              <tr><td>EUR/USD</td><td>1.0850</td><td>1.10</td><td>1.12</td></tr>
+              <tr><td>USD/JPY</td><td>157.5</td><td>154</td><td>150</td></tr>
+              <tr><td>GBP/USD</td><td>1.2710</td><td>1.29</td><td>1.31</td></tr>
+            </table>
+            <div class="pdf-foot">Mitsubishi UFJ Financial Group · For information only — not investment advice.</div>
+          </div>
         </div>
+        <div class="ri-banks"><span class="pill">Goldman Sachs</span><span class="pill">ING</span><span class="pill">MUFG</span><span class="pill">Danske</span><span class="pill">+ 15 banques</span></div>
       </div>
-      <div class="bcard sm">
-        <div class="bic"><i class="fa-solid fa-chart-column"></i></div>
-        <h3>Force des devises</h3>
-        <p>Qui mène, qui décroche, d'un coup d'œil. Force relative en continu.</p>
-        <div class="vis mini-cs">
-          <i style="height:70%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
-          <i style="height:48%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
-          <i style="height:30%;background:linear-gradient(180deg,#ff7a00,#7a3a00)"></i>
-          <i style="height:62%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
-          <i style="height:22%;background:linear-gradient(180deg,#ff4d4d,#6e1414)"></i>
-          <i style="height:40%;background:linear-gradient(180deg,#ff7a00,#7a3a00)"></i>
+
+      <!-- DROITE : 4 maquettes de preview -->
+      <div class="mods2-r">
+        <div class="bcard">
+          <div class="lead"><div class="bic"><i class="fa-solid fa-bolt"></i></div><h3>News en temps réel</h3></div>
+          <p class="one">Le flux filtré : ce qui bouge les marchés.</p>
+          <div class="vis mini-news">
+            <div class="l"><b>09:31</b> Fed — un responsable évoque une pause</div>
+            <div class="l"><b>09:24</b> Zone euro : l'inflation des services ralentit</div>
+            <div class="l"><b>09:18</b> Pétrole +1,9 % sur tensions géopolitiques</div>
+          </div>
         </div>
-      </div>
-      <div class="bcard md">
-        <div class="bic"><i class="fa-solid fa-calendar-check"></i></div>
-        <h3>Macro Data Hub</h3>
-        <p>Le calendrier économique qui compte : consensus, précédent et résultat dès la publication — plus les taux des banques centrales et la saisonnalité.</p>
-        <div class="vis">
-          <span class="pill">Calendrier éco</span><span class="pill">Taux directeurs</span><span class="pill">COT / CFTC</span><span class="pill">Saisonnalité</span>
+        <div class="bcard">
+          <div class="lead"><div class="bic"><i class="fa-solid fa-compass"></i></div><h3>Smart Bias Tracker</h3></div>
+          <p class="one">Le biais des 8 devises, chaque semaine.</p>
+          <div class="vis mini-bias">
+            <span class="bb-vbull">USD</span><span class="bb-bull">EUR</span><span class="bb-bear">JPY</span><span class="bb-neu">GBP</span>
+            <span class="bb-bull">AUD</span><span class="bb-neu">CAD</span><span class="bb-bear">CHF</span><span class="bb-bull">NZD</span>
+          </div>
         </div>
-      </div>
-      <div class="bcard md">
-        <div class="bic"><i class="fa-solid fa-building-columns"></i></div>
-        <h3>Recherche institutionnelle</h3>
-        <p>La recherche des grandes banques réunie et lisible en PDF, avec les points clés extraits par l'IA. Plus un workspace modulaire que vous arrangez à votre main.</p>
-        <div class="vis">
-          <span class="pill">Goldman Sachs</span><span class="pill">ING</span><span class="pill">MUFG</span><span class="pill">Danske</span><span class="pill">+ 15 banques</span>
+        <div class="bcard">
+          <div class="lead"><div class="bic"><i class="fa-solid fa-chart-column"></i></div><h3>Force des devises</h3></div>
+          <p class="one">Qui mène, qui décroche — en continu.</p>
+          <div class="vis mini-cs">
+            <i style="height:70%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
+            <i style="height:48%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
+            <i style="height:30%;background:linear-gradient(180deg,#ff7a00,#7a3a00)"></i>
+            <i style="height:62%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
+            <i style="height:22%;background:linear-gradient(180deg,#ff4d4d,#6e1414)"></i>
+            <i style="height:40%;background:linear-gradient(180deg,#ff7a00,#7a3a00)"></i>
+            <i style="height:54%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
+            <i style="height:34%;background:linear-gradient(180deg,#ff4d4d,#6e1414)"></i>
+          </div>
+        </div>
+        <div class="bcard">
+          <div class="lead"><div class="bic"><i class="fa-solid fa-file-lines"></i></div><h3>Analyst</h3></div>
+          <p class="one">Le marché résumé pour vous, chaque jour.</p>
+          <div class="vis mini-anl">
+            <div class="anl-h"><span class="anl-tag">RAPPORT</span> FX Daily Recap · 23 juin</div>
+            <div class="anl-sec">EXECUTIVE SUMMARY</div>
+            <div class="anl-l w1"></div><div class="anl-l w2"></div>
+            <div class="anl-sec">CENTRAL BANKS</div>
+            <div class="anl-l w2"></div><div class="anl-l w3"></div>
+          </div>
         </div>
       </div>
     </div>
