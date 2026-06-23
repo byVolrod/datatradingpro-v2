@@ -104,12 +104,12 @@
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   :root{
-    --bg:#070708; --bg2:#0b0b0d; --panel:#101013; --panel2:#15151a; --line:#1d1d23; --line2:#2a2a32;
-    --text:#f4f4f6; --text2:#9ea4ae; --text3:#62656e;
-    --orange:#e6bd4d; --orange2:#f2d486; --peach:#f7e6ad; --amber:#ffb300;
-    --green:#00e676; --red:#ff4d4d;
-    --grad:linear-gradient(102deg,#e6bd4d 0%,#ecca6e 60%,#f7e6ad 100%);
-    --grad-cta:linear-gradient(100deg,#edc962 0%,#cfa636 100%);
+    --bg:#ffffff; --bg2:#f5f6f9; --panel:#ffffff; --panel2:#f2f3f7; --line:#e9e9f0; --line2:#dcdce5;
+    --text:#16161d; --text2:#55555f; --text3:#8a8a97;
+    --orange:#b8860b; --orange2:#a07514; --peach:#e8d294; --amber:#d99a00;
+    --green:#0a9d54; --red:#e23b3b;
+    --grad:linear-gradient(102deg,#cfa233 0%,#b8860b 55%,#967216 100%);
+    --grad-cta:linear-gradient(100deg,#e1b94f 0%,#bf922a 100%);
     --font:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
     --tight:"Inter Tight",-apple-system,sans-serif;
     --serif:"Fraunces",Georgia,serif;
@@ -678,6 +678,24 @@
   .mods2-r > .bcard:nth-child(3), .mods2-r > .bcard:nth-child(4){display:flex;flex-direction:column}
   .mods2-r > .bcard:nth-child(3) > .vis, .mods2-r > .bcard:nth-child(4) > .vis{flex:1;min-height:0;display:flex;flex-direction:column}
   .mods2-r > .bcard:nth-child(4) .dk-analyst-card{flex:0 0 auto}
+
+  /* ===== THÈME CLAIR (fond blanc, cartes claires ; les écrans produit restent sombres). ===== */
+  .ticker, .term { --bg:#070708;--bg2:#0b0b0d;--panel:#101013;--panel2:#15151a;--line:#1d1d23;--line2:#2a2a32;--text:#f4f4f6;--text2:#9ea4ae;--text3:#62656e;--orange:#e6bd4d;--orange2:#f2d486;--green:#00e676;--red:#ff4d4d;--amber:#ffb300 }                 /* re-sombre : ticker + mockup terminal gardent texte clair */
+  nav{ background:rgba(255,255,255,.82); border-bottom:1px solid #e9e9f0; }
+  .strip{ background:var(--bg2); }
+  .strip-in{ color:var(--text2); }
+  ::selection{ background:rgba(184,134,11,.22); color:#16161d; }
+  /* ombres douces sur les surfaces claires */
+  .bcard,.step,.vcard,.plan,.flag-card,.fcard,.quote,.tcard{ box-shadow:0 10px 30px -14px rgba(24,24,46,.16),0 1px 2px rgba(24,24,46,.05); }
+  .bcard:hover,.fcard:hover{ box-shadow:0 16px 40px -14px rgba(24,24,46,.22); }
+  .qa{ border-bottom:1px solid var(--line); }
+  /* boutons : contour or assombri pour le blanc */
+  .btn-ghost{ border-color:rgba(184,134,11,.45); color:var(--text); }
+  .btn-ghost:hover{ border-color:rgba(184,134,11,.85); background:rgba(184,134,11,.06); }
+  /* halos un peu plus visibles sur fond clair (touche chaleureuse) */
+  .hero::before{ background:radial-gradient(circle,rgba(212,162,51,.16) 0%,transparent 62%); }
+  .hero::after{ background:radial-gradient(circle,rgba(232,180,120,.12) 0%,transparent 62%); }
+  .final::before{ background:radial-gradient(ellipse,rgba(212,162,51,.12) 0%,transparent 65%); }
 </style>
 </head>
 <body>
