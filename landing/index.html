@@ -205,8 +205,7 @@
   .gauge-wrap{text-align:center}
   .gauge{width:100%;max-width:188px;margin:0 auto;display:block}
   .needle{transform-box:fill-box;transform-origin:50% 100%;transition:transform 1.5s cubic-bezier(.34,1.4,.5,1)}
-  .g-val{font-family:var(--tight);font-weight:800;font-size:21px;margin-top:-6px}
-  .g-lbl{font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);font-family:var(--tight);margin-top:2px}
+  .g-lbl{display:inline-block;font-family:var(--tight);font-weight:800;font-size:13px;letter-spacing:.05em;text-transform:uppercase;padding:7px 15px;border-radius:9px;border:1px solid var(--line2);color:var(--text2);margin-top:4px;transition:color .6s,border-color .6s,background .6s}
   /* currency strength */
   .cs-h{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.08em;font-weight:700;font-family:var(--tight);margin-bottom:9px}
   .cs{display:flex;align-items:flex-end;gap:5px;height:78px}
@@ -256,6 +255,16 @@
   .ri-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
   .ri-daily{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;font-family:var(--tight);color:var(--orange2);background:rgba(255,122,0,.1);border:1px solid rgba(255,122,0,.32);border-radius:7px;padding:4px 9px;white-space:nowrap}
   .ri-banks{margin-top:13px}
+  .ri-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+  .rt{font-size:10.5px;font-family:var(--tight);font-weight:600;color:var(--text2);background:var(--panel2);border:1px solid var(--line2);border-radius:999px;padding:3px 11px}
+  .ri-ai{background:var(--bg);border:1px solid var(--line);border-left:3px solid var(--orange);border-radius:9px;padding:11px 13px;margin-top:11px}
+  .ri-ai-h{display:flex;align-items:center;gap:7px;font-family:var(--tight);font-weight:800;font-size:10.5px;color:var(--orange2);text-transform:uppercase;letter-spacing:.07em;margin-bottom:7px}
+  .ri-ai-row{display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--text2);line-height:1.42}
+  .ri-ai-row b{color:var(--text);font-weight:600}
+  .sig{flex:0 0 auto;font-size:8.5px;font-weight:800;font-family:var(--tight);padding:2px 7px;border-radius:5px;letter-spacing:.04em;margin-top:1px}
+  .sig.buy{color:#00e676;background:rgba(0,230,118,.12);border:1px solid rgba(0,230,118,.4)}
+  .sig.sell{color:#ff5a5a;background:rgba(255,77,77,.12);border:1px solid rgba(255,77,77,.4)}
+  .sig.neu{color:#ffb300;background:rgba(255,179,0,.12);border:1px solid rgba(255,179,0,.4)}
   .pdf{margin-top:14px;border-radius:11px;overflow:hidden;border:1px solid var(--line2);background:#0e0e11;box-shadow:0 26px 54px -26px rgba(0,0,0,.8)}
   .pdf-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#141417;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--text3)}
   .pdf-ico{color:#e60012}
@@ -453,8 +462,7 @@
                 <circle cx="100" cy="100" r="6" fill="#f4f4f6"/>
               </g>
             </svg>
-            <div class="g-val accent" id="gVal">+38</div>
-            <div class="g-lbl" id="gLbl">Risk-On modéré</div>
+            <div class="g-lbl" id="gLbl">STRONG RISK-ON</div>
           </div>
           <div>
             <div class="cs-h">Force des devises</div>
@@ -491,6 +499,11 @@
           <span class="ri-daily"><i class="fa-solid fa-file-pdf"></i> 1 rapport / jour</span>
         </div>
         <p class="one">La recherche des grandes banques, lisible en PDF.</p>
+        <div class="ri-tags"><span class="rt">FX Daily</span><span class="rt">G10</span><span class="rt">Fed</span><span class="rt">USD</span><span class="rt">Rates</span></div>
+        <div class="ri-ai">
+          <div class="ri-ai-h"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Insight</div>
+          <div class="ri-ai-row"><span class="sig sell">SELL</span><span><b>USD</b> — On fade le rebond du dollar avant le PCE américain ; un chiffre mou prolongerait la baisse.</span></div>
+        </div>
         <div class="pdf">
           <div class="pdf-bar"><i class="fa-solid fa-file-pdf pdf-ico"></i><span class="pdf-name">MUFG_FX_Daily_23Jun2026.pdf</span><span class="pdf-pg">1 / 8</span></div>
           <div class="pdf-page">
@@ -763,20 +776,24 @@
   setInterval(function(){addRow(true);},2600);
 
   // ── Jauge Risk Sentiment ──
-  var needle=document.getElementById('needle'),gVal=document.getElementById('gVal'),gLbl=document.getElementById('gLbl');
-  var targets=[38,52,18,-12,-34,6,44,28,-22,60];var gi=0;
+  var needle=document.getElementById('needle'),gLbl=document.getElementById('gLbl');
+  var targets=[-55,42,68,-22,12,-78,35,58,-38,8];var gi=0;
   function arcColor(v){ // -100..100 -> rouge..ambre..vert
     var t=(v+100)/200;var stops=[[255,77,77],[255,179,0],[0,230,118]];
     var seg=t<.5?0:1,lt=t<.5?t/.5:(t-.5)/.5;var a=stops[seg],b=stops[seg+1];
     return 'rgb('+Math.round(a[0]+(b[0]-a[0])*lt)+','+Math.round(a[1]+(b[1]-a[1])*lt)+','+Math.round(a[2]+(b[2]-a[2])*lt)+')';
   }
-  function lbl(v){return v>45?'Risk-On franc':v>12?'Risk-On modéré':v>-12?'Neutre':v>-45?'Risk-Off modéré':'Risk-Off franc';}
+  function lbl(v){return v<=-30?'STRONG RISK-OFF':v<=-4?'WEAK RISK-OFF':v<4?'NEUTRAL':v<30?'WEAK RISK-ON':'STRONG RISK-ON';}
+  function zoneColor(v){return v<=-30?'rgb(255,61,0)':v<=-4?'rgb(255,110,40)':v<4?'rgb(255,179,0)':v<30?'rgb(120,200,70)':'rgb(0,230,118)';}
   function setGauge(v){
     needle.style.transform='rotate('+(v/100*90)+'deg)';
-    gVal.textContent=(v>=0?'+':'')+v;gVal.style.background='none';gVal.style.webkitTextFillColor=arcColor(v);
+    var c=zoneColor(v);
     gLbl.textContent=lbl(v);
+    gLbl.style.color=c;
+    gLbl.style.borderColor=c.replace('rgb(','rgba(').replace(')',',.55)');
+    gLbl.style.background=c.replace('rgb(','rgba(').replace(')',',.13)');
   }
-  setGauge(38);
+  setGauge(targets[0]);
   setInterval(function(){gi++;setGauge(targets[gi%targets.length]);},3000);
 
   // ── Force des devises ──
