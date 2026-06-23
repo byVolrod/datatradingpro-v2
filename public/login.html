@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DataTradingPro — Connexion</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23b8860b'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='15' letter-spacing='-1' fill='%23140d02'%3EDTP%3C/text%3E%3C/svg%3E" />
-  <link rel="apple-touch-icon" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f2d680'/%3E%3Cstop offset='.5' stop-color='%23cfa233'/%3E%3Cstop offset='1' stop-color='%23a87b16'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Ctext x='32' y='35' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='22' letter-spacing='-1' fill='%23231703'%3EDTP%3C/text%3E%3C/svg%3E" />
+  <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23f2d680'/%3E%3Cstop offset='.5' stop-color='%23cfa233'/%3E%3Cstop offset='1' stop-color='%23a87b16'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='15' fill='url(%23g)'/%3E%3Ctext x='32' y='35' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='22' letter-spacing='-1' fill='%23231703'%3EDTP%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400..600;1,9..144,400..600&family=Inter:wght@300;400;500;600;700;800&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
@@ -194,7 +194,7 @@
     /* voile DUOTONE OR + vignette (relie la marque, fond les bords, assoit la tagline) */
     .im-veil { position: absolute; inset: 0; z-index: 2; pointer-events: none;
       background: linear-gradient(135deg, rgba(12,9,4,0.52) 0%, rgba(184,134,11,0.16) 100%);
-      box-shadow: inset 0 0 170px 55px rgba(8,7,5,0.82), inset 0 -135px 100px -48px rgba(6,5,3,0.82); }
+      box-shadow: inset 0 0 135px 30px rgba(8,7,5,0.56), inset 0 -95px 80px -55px rgba(6,5,3,0.48); }
     .im-veil::after { content: ""; position: absolute; inset: 0;
       background: radial-gradient(ellipse at 60% 34%, rgba(230,189,77,0.10), transparent 60%); }
     /* balayage de lumière dorée */
@@ -207,13 +207,25 @@
     @keyframes imSheen { 0% { transform: translateX(0); } 100% { transform: translateX(360%); } }
     @media (prefers-reduced-motion: reduce) { .im-row-track, .im-sheen { animation: none !important; } }
 
+    /* tagline → BANDE horizontale au MILIEU (pleine largeur, centrée verticalement) */
+    .lp-left-card {
+      position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); z-index: 10;
+      width: 100%; text-align: center; padding: 30px 44px;
+      background: linear-gradient(90deg, transparent 0%, rgba(9,7,4,0.85) 16%, rgba(9,7,4,0.88) 50%, rgba(9,7,4,0.85) 84%, transparent 100%);
+      border-top: 1px solid rgba(230,189,77,0.28); border-bottom: 1px solid rgba(230,189,77,0.28);
+      -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
+    }
+    .lp-tagline-1 { font-family: var(--serif); font-size: 28px; font-weight: 500; line-height: 1.22; color: #fff; margin-bottom: 7px; }
+    .lp-tagline-1 strong { color: var(--gold-bright); font-weight: 600; font-style: italic; }
+    .lp-tagline-2 { font-size: 15.5px; color: rgba(255,255,255,0.86); line-height: 1.45; }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       html, body { overflow: auto; }
       .lp-layout { flex-direction: column; height: auto; min-height: 100vh; overflow: visible; }
       .lp-left  { order: -1; flex: none; height: 30vh; min-height: 200px; border-left: none; border-bottom: 1px solid var(--line2); }
       .lp-right { flex: none; padding: 38px 26px; }
-      .lp-left-card { bottom: 7%; padding: 16px 22px; }
+      .lp-left-card { padding: 14px 20px; }
       .lp-tagline-1 { font-size: 21px; }
       .lp-title { font-size: 32px; }
     }
@@ -235,7 +247,7 @@
   <div class="lp-right">
     <div class="lp-card">
 
-      <a href="https://datatradingpro.com/" class="lp-brand"><span class="lp-mk">DTP</span>DataTradingPro</a>
+      <a href="https://datatradingpro.com/" class="lp-brand">DataTradingPro</a>
 
       <h1 class="lp-title">Bon retour.</h1>
       <p class="lp-subtitle">Connectez-vous à votre terminal macro &amp; forex.</p>
