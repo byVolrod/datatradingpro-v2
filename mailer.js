@@ -565,6 +565,42 @@ function _buildReengagement(name, days) {
 function buildReengagement({ name, days }) { return _buildReengagement(name, days); }
 async function sendReengagement(d) { const m = _buildReengagement(d.name, d.days); return _send(d.to, m.subject, m.html); }
 
+// ── 5b) ANNONCE PRODUIT : DataTradingPro v2 officiellement finalisée (broadcast à tous les clients) ──
+//    Email marketing : annonce la finalisation de la v2 + pousse à l'adhésion (CTA → page Whop).
+//    Réutilise STRICTEMENT le gabarit commun (layout/bouton/note anti-spam) + la même chaîne d'envoi
+//    que la bienvenue. Lien d'inscription = WHOP_RENEW_URL (même page que renouvellement/essai).
+function buildAnnouncementV2({ name } = {}) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
+  const feats = [
+    ['📰', 'News priorisée', "le flux filtré : que l'important, classé par impact, résumé et expliqué par l'IA en un clic."],
+    ['🧭', 'Smart Bias', 'le biais directionnel des 8 grandes devises, recalculé chaque semaine sur les fondamentaux.'],
+    ['⚡', 'Force des devises en temps réel', "qui mène, qui décroche, d'un coup d'œil."],
+    ['📅', 'Calendrier macro', 'les publications qui bougent les marchés : consensus, précédent et résultat dès la sortie.'],
+    ['🤖', 'Assistant IA macro', "posez votre question en français, l'IA répond avec le contexte marché du moment."],
+    ['🏦', 'Rapports de banques', 'Goldman, ING, MUFG, Danske… la recherche institutionnelle réunie, lisible en PDF.'],
+  ].map(([ico, t, d]) =>
+    `<tr><td style="padding:7px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">${ico} <strong style="color:#fff;">${t}</strong> — ${d}</td></tr>`
+  ).join('');
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:20px;font-weight:800;">C'est officiel : la v2 est finalisée 🚀</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Ça y est. Après des mois de développement et d'écoute, <strong style="color:#fff;">la version 2 de DataTradingPro est officiellement finalisée.</strong></p>
+    <p style="margin:0 0 14px;">Ce n'est plus une promesse — c'est le terminal le plus abouti qu'on ait livré. Tout ce qu'un trader macro attend, réuni et <strong style="color:#fff;">connecté sur un seul écran</strong> :</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
+    <p style="margin:0 0 14px;color:#94a3b8;font-size:13px;">+ Live Squawk, jauge Risk Sentiment, saisonnalité, taux des banques centrales, journal de trading…</p>
+    <p style="margin:14px 0 4px;color:#fff;font-size:15px;font-weight:700;">Arrêtez de deviner les mouvements. Commencez à les comprendre.</p>
+    ${_button('Rejoindre DataTradingPro →', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(247,148,29,0.08);border:1px solid rgba(247,148,29,0.3);border-radius:10px;margin:6px 0 4px;">
+      <tr><td style="padding:12px 15px;color:#f3d9b0;font-size:13.5px;line-height:1.6;">⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins — <strong style="color:#fff;">rejoignez le lancement maintenant.</strong></td></tr>
+    </table>
+    ${_spamNote()}
+    <p style="margin:14px 0 0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>
+    <p style="margin:14px 0 0;font-size:11px;color:#6b7280;">Vous recevez cet email en tant que membre DataTradingPro. <a href="mailto:${SUPPORT_EMAIL}?subject=Desabonnement" style="color:#6b7280;text-decoration:underline;">Se désabonner</a>.</p>`;
+  return { subject: "C'est officiel : DataTradingPro v2 est finalisé 🚀", html: _layout('DataTradingPro v2', body) };
+}
+async function sendAnnouncementV2(d) { const m = buildAnnouncementV2(d || {}); return _send(d.to, m.subject, m.html); }
+
 // ── Rappel ADMIN : abonnements à renouveler (envoyé à datatradingpro.contact) ──
 function buildAdminExpiryReminder({ clients }) {
   const rows = (clients || []).map(c => {
@@ -650,6 +686,7 @@ function getEmailCatalog() {
     { key: 'reactivated',   audience: 'Client', label: 'Compte réactivé',                  trigger: 'Compte remis en actif (paiement ou admin)',   ...buildReactivated(s) },
     { key: 'renewed',       audience: 'Client', label: 'Abonnement renouvelé',             trigger: 'Paiement Whop renouvelé',                     ...buildRenewed(s) },
     { key: 'reengagement',  audience: 'Client', label: 'Réengagement (inactif ~7j)',       trigger: 'Utilisateur inactif depuis ~7 jours',         ..._buildReengagement(s.name, 7) },
+    { key: 'announcementV2', audience: 'Client', label: 'Annonce — v2 finalisée',           trigger: 'Broadcast manuel (admin) → tous les clients',  ...buildAnnouncementV2({ name: s.name }) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
     { key: 'adminRenewal',  audience: 'Admin',  label: 'Notif paiement / nouveau client',  trigger: 'Paiement Whop traité (→ toi)',                ...buildAdminRenewalNotice({ clientEmail: s.to, clientName: s.name, expiresAt: s.expiresAt, isNew: true }) },
     { key: 'referredWelcome',  audience: 'Client', label: 'Parrainage — bienvenue filleul',  trigger: 'Un filleul s\'inscrit via un parrain',          ...buildReferredWelcome({ name: s.name, referrerName: 'Alex' }) },
@@ -790,10 +827,12 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
+  sendAnnouncementV2,
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
+  buildAnnouncementV2,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification

@@ -1018,6 +1018,60 @@ app.get('/api/admin/welcome-backfill', requireAdmin, async (req, res) => {
   res.json(out);
 });
 
+// ─── BROADCAST « Annonce v2 finalisée » — email marketing à TOUS les clients via le MÊME mailer que la
+//     bienvenue (chaîne OVH → API Gmail, alignée SPF/DKIM). SÉCURISÉ : DRY-RUN par défaut (liste + nombre) ;
+//     ?send=1 = envoi réel (lancé en arrière-plan, séquentiel + throttle anti rate-limit SMTP). IDEMPOTENT
+//     via email_log (`announce-v2:<email>`) → re-exécutable sans doublon. Options : &audience=all|active|inactive
+//     (défaut all), &force=1 (ignore l'anti-doublon → renvoi), ?status=1 (progression du dernier envoi).
+//     L'envoi RÉEL est déclenché par l'admin lui-même depuis son navigateur — jamais automatique.
+let _broadcastV2 = { running: false, audience: null, eligible: 0, sent: 0, skipped: 0, failed: 0, startedAt: null, finishedAt: null };
+app.get('/api/admin/broadcast-v2', requireAdmin, async (req, res) => {
+  if (req.query.status === '1') return res.json(_broadcastV2);
+  const send = req.query.send === '1';
+  const force = req.query.force === '1';
+  const audience = String(req.query.audience || 'all').toLowerCase();
+  if (send && _broadcastV2.running) return res.status(409).json({ error: 'Un envoi est déjà en cours.', state: _broadcastV2 });
+  let users = []; try { users = await auth.getAllUsers(); } catch { return res.status(500).json({ error: 'users indisponibles' }); }
+  const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const now = Date.now();
+  const isActive = u => u.active !== false && (!u.expires_at || new Date(u.expires_at).getTime() > now);
+  const seen = new Set();
+  const targets = (Array.isArray(users) ? users : []).filter(u => {
+    if (!u || (u.role || 'client') !== 'client') return false;                 // clients uniquement (pas le staff)
+    const email = String(u.email || '').toLowerCase().trim();
+    if (!EMAIL_RE.test(email) || seen.has(email)) return false;                // email valide + dédoublonné
+    seen.add(email);
+    if (audience === 'active')   return isActive(u);
+    if (audience === 'inactive') return !isActive(u);
+    return true;                                                               // 'all' (défaut)
+  });
+  const out = { dryRun: !send, audience, force, totalUsers: users.length, eligible: targets.length,
+    sample: targets.slice(0, 25).map(u => ({ email: u.email, name: u.name || '', active: isActive(u) })) };
+  if (!send) {
+    out.hint = 'Aperçu uniquement — RIEN n\'a été envoyé. Ajoute ?send=1 pour ENVOYER. Options : &audience=active|inactive|all, &force=1 (ignore l\'anti-doublon). Suivi : ?status=1.';
+    return res.json(out);
+  }
+  // Envoi RÉEL → on répond tout de suite (la réponse ne peut pas attendre N×throttle) puis on envoie en fond.
+  _broadcastV2 = { running: true, audience, eligible: targets.length, sent: 0, skipped: 0, failed: 0, startedAt: now, finishedAt: null };
+  res.json({ ...out, started: true, note: 'Envoi lancé en arrière-plan. Suis la progression via ?status=1 (ou les logs serveur).' });
+  const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '600', 10));
+  (async () => {
+    for (const u of targets) {
+      const email = String(u.email).toLowerCase().trim();
+      const marker = 'announce-v2:' + email;
+      if (!force) { try { if (await auth.emailLogHas(marker)) { _broadcastV2.skipped++; continue; } } catch {} }
+      try {
+        const provider = await mailer.sendAnnouncementV2({ to: email, name: u.name || '' });
+        if (provider) { _broadcastV2.sent++; try { await auth.emailLogAdd(marker); } catch {} }
+        else _broadcastV2.failed++;
+      } catch { _broadcastV2.failed++; }
+      if (throttle) await new Promise(r => setTimeout(r, throttle));
+    }
+    _broadcastV2.running = false; _broadcastV2.finishedAt = Date.now();
+    console.log(`[Broadcast v2] audience=${audience} envoyés=${_broadcastV2.sent} déjà=${_broadcastV2.skipped} échecs=${_broadcastV2.failed} / ${targets.length} cible(s)`);
+  })().catch(e => { _broadcastV2.running = false; _broadcastV2.finishedAt = Date.now(); console.error('[Broadcast v2] erreur:', e.message); });
+});
+
 // ─── Backfill CHAT de bienvenue — IDEMPOTENT, redondance-aware, RATTRAPAGE au boot ───────────────────
 // Envoie le message de bienvenue (CHAT seul, SANS email) à TOUS les clients qui ne l'ont pas déjà dans
 // leur conversation. Idempotent : saute ceux qui l'ont déjà → re-exécutable sans risque de doublon visible.
