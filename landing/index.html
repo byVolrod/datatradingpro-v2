@@ -266,6 +266,13 @@
   .sig.sell{color:#ff5a5a;background:rgba(255,77,77,.12);border:1px solid rgba(255,77,77,.4)}
   .sig.neu{color:#ffb300;background:rgba(255,179,0,.12);border:1px solid rgba(255,179,0,.4)}
   .pdf{margin-top:14px;border-radius:11px;overflow:hidden;border:1px solid var(--line2);background:#0e0e11;box-shadow:0 26px 54px -26px rgba(0,0,0,.8)}
+  /* visualiseur « tout en un » (façon desk) : tags collés EN HAUT, puis AI Insights, puis PDF — un seul bloc sombre */
+  .ri-viewer{margin-top:13px;border-radius:12px;overflow:hidden;border:1px solid #1c1c22;background:#0a0a0c;box-shadow:0 24px 52px -26px rgba(0,0,0,.5)}
+  .ri-viewer .ri-tags{margin:0;padding:9px 12px 8px;background:#0e0e12;border-bottom:1px solid #1c1c22}
+  .ri-viewer .rt{color:#c6c9d1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1)}
+  .ri-viewer .ri-ai-wrap{margin-top:0}
+  .ri-viewer .dk-ai-screen{max-width:none;width:100%;border:0;border-radius:0;border-bottom:1px solid #1c1c22;box-shadow:none}
+  .ri-viewer .pdf{margin-top:0;border:0;border-radius:0;box-shadow:none}
   .pdf-bar{display:flex;align-items:center;gap:8px;padding:8px 12px;background:#141417;border-bottom:1px solid var(--line);font-family:var(--mono);font-size:10.5px;color:var(--text3)}
   .pdf-ico{color:#e60012}
   .pdf-name{color:var(--text2)}
@@ -805,8 +812,9 @@
       <div class="bcard ri-card">
         <div class="lead"><div class="bic"><i class="fa-solid fa-building-columns"></i></div><h3>Recherche institutionnelle</h3></div>
         <p class="one">La recherche des grandes banques, lisible en PDF.</p>
+        <div class="ri-viewer">
         <div class="ri-tags"><span class="rt">FX Daily</span><span class="rt">G10</span><span class="rt">Fed</span><span class="rt">USD</span><span class="rt">Rates</span></div>
-        <div class="ri-ai-wrap" style="margin-top:12px">
+        <div class="ri-ai-wrap">
 <div class="dk-ai-screen">
   <div class="dk-ai-head">
     <span class="dk-ai-titlewrap">
@@ -851,6 +859,7 @@
             <div class="pdf-foot">Goldman Sachs Global Investment Research · For information only — not investment advice.</div>
           </div>
         </div>
+        </div><!-- /.ri-viewer (tout en un) -->
         <div class="ri-banks"><span class="pill">Goldman Sachs</span><span class="pill">ING</span><span class="pill">MUFG</span><span class="pill">Danske</span><span class="pill">+ 15 banques</span></div>
       </div>
 
