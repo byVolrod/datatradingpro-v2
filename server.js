@@ -193,7 +193,7 @@ function _wsUserIdFromReq(req) {
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
-  '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news']);   // page Week Ahead PUBLIQUE
+  '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images']);   // page Week Ahead PUBLIQUE + mosaïque login (photos d'actu)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/'];
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
@@ -2175,9 +2175,13 @@ async function _refreshMosaicImages() {
 }
 
 app.get('/api/mosaic-images', (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');           // consommable par le login (et la landing) cross-origin
+  res.set('Cache-Control', 'public, max-age=300');
   res.json(_mosaicImages);
   if (Date.now() - _mosaicRefreshedAt > 15 * 60 * 1000) _refreshMosaicImages().catch(() => {});
 });
+// Préchauffage au boot : les photos d'actualité (og:images des news) sont prêtes pour le 1er visiteur du login
+setTimeout(() => { _refreshMosaicImages().catch(() => {}); }, 25 * 1000);
 
 // ── InvestingLive Session Wraps ───────────────────────────────────────────────
 // Load persisted wraps from file (called at startup)
