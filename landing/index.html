@@ -273,6 +273,10 @@
   .pdf-page{background:#f7f6f3;color:#1a1a1a;padding:19px 21px;font-family:Georgia,'Times New Roman',serif}
   .pdf-mast{display:flex;align-items:baseline;gap:9px}
   .pdf-mufg{font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:23px;letter-spacing:-1px;color:#e60012}
+  .pdf-gs{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:20px;letter-spacing:-.3px;color:#11203f}
+  .pdf-page.gs .pdf-rule{background:#11203f}
+  .pdf-page.gs .pdf-cat{color:#11203f}
+  .pdf-page.gs .pdf-tbl th{color:#11203f;border-bottom-color:#11203f}
   .pdf-gmr{font-family:Arial,Helvetica,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#5a5a5a}
   .pdf-rule{height:2px;background:#e60012;margin:8px 0 13px}
   .pdf-cat{font-family:Arial,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#e60012}
@@ -403,7 +407,7 @@
 .dk-news-text{font-size:10.5px;line-height:1.32;color:#e6e8ec;font-weight:500;}
 .dk-news-row--hi .dk-news-text{color:#fff;}
 .dk-news-meta{display:flex;align-items:center;gap:5px;}
-.dk-news-tag{font-family:var(--mono,monospace);font-size:8px;font-weight:700;letter-spacing:.05em;line-height:1;padding:2.5px 5px;border-radius:3px;}
+.dk-news-tag{font-family:var(--tight,'Inter Tight',sans-serif);font-size:8.5px;font-weight:600;letter-spacing:.02em;line-height:1;padding:3px 7px;border-radius:4px;background:#15151b;color:#cfd2d8;border:1px solid #26262e;}
 .dk-news-tag--high{background:#ff7a00;color:#1a0e00;}
 .dk-news-tag--med{background:rgba(255,179,0,.12);color:#ffb300;border:1px solid rgba(255,179,0,.4);}
 .dk-news-tag--low{background:#16161a;color:#797d86;border:1px solid #24242a;}
@@ -531,6 +535,13 @@
 .dk-bias-over .dk-bias-ind{background:#1a1a1f;color:#fff;font-weight:700;border-left:3px solid #ff7a00}
 .dk-bias-over .dk-bias-cell{font-size:8px;font-weight:700}
 .dk-bias-arr{margin-right:1px;font-weight:800}
+.dk-bias-sum{margin-top:9px;border-top:1px solid #1c1c20;padding-top:9px}
+.dk-bias-sum-h{display:flex;align-items:center;justify-content:space-between;font-family:var(--tight,'Inter Tight',sans-serif);font-weight:700;font-size:9.5px;text-transform:uppercase;letter-spacing:.06em;color:#cfd2d8;margin-bottom:6px}
+.dk-bias-sum-cur{display:inline-flex;align-items:center;gap:5px;font-size:9px;color:#9ea4ae;text-transform:none;letter-spacing:0;font-weight:600}
+.dk-bias-sum-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:3.5px 0;border-bottom:1px solid #121215;font-size:9.5px;color:#9aa0aa}
+.dk-bias-sum-over{font-weight:700;color:#f4f4f6;border-bottom:0;margin-top:2px}
+.dk-bias-sb{font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:700;color:#fff;padding:2px 7px;border-radius:3px;white-space:nowrap}
+.dk-bias-sum-narr{margin-top:8px;font-size:9.5px;line-height:1.5;color:#8a909a}
 .dk-ai-screen{background:#0a0a0c;border:1px solid #17171b;border-radius:9px;padding:0;overflow:hidden;font-family:var(--font,'Inter',sans-serif);width:100%;max-width:430px;box-sizing:border-box}
 .dk-ai-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px 10px;border-bottom:1px solid #16161a}
 .dk-ai-titlewrap{display:flex;align-items:center;gap:7px;min-width:0}
@@ -539,9 +550,14 @@
 .dk-ai-title{font-family:var(--tight,'Inter Tight',sans-serif);font-size:12px;font-weight:600;color:#f4f4f5;letter-spacing:.01em;white-space:nowrap}
 .dk-ai-sources{font-family:var(--mono,monospace);font-size:10px;font-weight:500;color:#62656e;white-space:nowrap;flex-shrink:0}
 .dk-ai-sources b{color:#9ea4ae;font-weight:600}
-.dk-ai-list{display:flex;flex-direction:column;gap:1px;background:#16161a}
-.dk-ai-card{background:#0c0c0e;padding:10px 13px 11px}
-.dk-ai-card+.dk-ai-card{border-top:1px solid #131316}
+.dk-ai-logo{width:18px;height:18px;border-radius:5px;flex-shrink:0;display:block;object-fit:cover}
+.dk-ai-nav{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.dk-ai-nav button{width:18px;height:18px;border-radius:5px;border:1px solid #26262e;background:#15151b;color:#9ea4ae;font-size:12px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0}
+.dk-ai-count{font-family:var(--mono,monospace);font-size:9.5px;color:#62656e;min-width:26px;text-align:center}
+.dk-ai-track{display:flex;gap:9px;overflow-x:auto;padding:11px 13px;scroll-snap-type:x mandatory;scrollbar-width:thin;scrollbar-color:#2a2a32 transparent}
+.dk-ai-track::-webkit-scrollbar{height:5px}
+.dk-ai-track::-webkit-scrollbar-thumb{background:#2a2a32;border-radius:3px}
+.dk-ai-card{flex:0 0 74%;box-sizing:border-box;scroll-snap-align:start;background:#0c0c0e;border:1px solid #1a1a1f;border-radius:7px;padding:10px 12px}
 .dk-ai-crow{display:flex;align-items:center;gap:8px;margin-bottom:5px}
 .dk-ai-asset{font-family:var(--mono,monospace);font-size:11.5px;font-weight:600;color:#e4e4e7;letter-spacing:.01em}
 .dk-ai-badge{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;line-height:1;padding:3px 6px;border-radius:3px;white-space:nowrap;border:1px solid;font-family:var(--tight,'Inter Tight',sans-serif)}
@@ -752,54 +768,45 @@
 <div class="dk-ai-screen">
   <div class="dk-ai-head">
     <span class="dk-ai-titlewrap">
-      <span class="dk-ai-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="#1a0f02" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.9 7l2.1 1.2M17 15.8l2.1 1.2M4.9 17l2.1-1.2M17 8.2l2.1-1.2"/><circle cx="12" cy="12" r="3.4" fill="#1a0f02" stroke="none"/></svg></span>
+      <img class="dk-ai-logo" src="/img/macro-ai-logo.png" width="18" height="18" alt="Macro AI">
       <span class="dk-ai-title">AI Insights</span>
     </span>
-    <span class="dk-ai-sources"><b>6</b> sources used</span>
+    <span class="dk-ai-nav"><button type="button">&lsaquo;</button><span class="dk-ai-count">1 / 3</span><button type="button">&rsaquo;</button></span>
   </div>
-  <div class="dk-ai-list">
+  <div class="dk-ai-track">
     <div class="dk-ai-card">
-      <div class="dk-ai-crow">
-        <span class="dk-ai-asset">EUR/USD</span>
-        <span class="dk-ai-badge dk-ai-badge--buy">Buy</span>
-      </div>
+      <div class="dk-ai-crow"><span class="dk-ai-asset">EUR/USD</span><span class="dk-ai-badge dk-ai-badge--buy">Buy</span></div>
       <div class="dk-ai-text">Hawkish ECB tone and softer US data keep the pair biased higher toward <b>1.0950</b>.</div>
     </div>
     <div class="dk-ai-card">
-      <div class="dk-ai-crow">
-        <span class="dk-ai-asset">USD/JPY</span>
-        <span class="dk-ai-badge dk-ai-badge--sell">Sell</span>
-      </div>
+      <div class="dk-ai-crow"><span class="dk-ai-asset">USD/JPY</span><span class="dk-ai-badge dk-ai-badge--sell">Sell</span></div>
       <div class="dk-ai-text">Intervention risk and narrowing yield gap cap upside; fade rallies above <b>157.50</b>.</div>
     </div>
     <div class="dk-ai-card">
-      <div class="dk-ai-crow">
-        <span class="dk-ai-asset">XAU/USD</span>
-        <span class="dk-ai-badge dk-ai-badge--neutral">Neutral</span>
-      </div>
+      <div class="dk-ai-crow"><span class="dk-ai-asset">XAU/USD</span><span class="dk-ai-badge dk-ai-badge--neutral">Neutral</span></div>
       <div class="dk-ai-text">Gold consolidates as real yields stall; range-bound pending the FOMC decision.</div>
     </div>
   </div>
 </div>
         </div>
         <div class="pdf">
-          <div class="pdf-bar"><i class="fa-solid fa-file-pdf pdf-ico"></i><span class="pdf-name">MUFG_FX_Daily_23Jun2026.pdf</span><span class="pdf-pg">1 / 8</span></div>
-          <div class="pdf-page">
-            <div class="pdf-mast"><span class="pdf-mufg">MUFG</span><span class="pdf-gmr">Global Markets Research</span></div>
+          <div class="pdf-bar"><i class="fa-solid fa-file-pdf pdf-ico"></i><span class="pdf-name">GS_FX_Views_23Jun2026.pdf</span><span class="pdf-pg">1 / 12</span></div>
+          <div class="pdf-page gs">
+            <div class="pdf-mast"><span class="pdf-gs">Goldman Sachs</span><span class="pdf-gmr">Global Investment Research</span></div>
             <div class="pdf-rule"></div>
-            <div class="pdf-cat">FX Daily</div>
-            <div class="pdf-title">Dollar softer as the Fed signals patience</div>
-            <div class="pdf-sub">23 June 2026 · G10 FX &amp; Rates Strategy</div>
-            <div class="pdf-by">Derek Halpenny — Head of Research, Global Markets EMEA</div>
-            <p class="pdf-p">The US dollar is trading softer after a Fed official flagged a more patient stance on cuts. <b>EUR/USD</b> has reclaimed 1.0850 while <b>USD/JPY</b> eased toward 157.50 as US yields drifted lower.</p>
-            <p class="pdf-p">We continue to favour fading dollar strength into quarter-end. The key risk today is the US PCE deflator — a softer print would reinforce the disinflation narrative.</p>
+            <div class="pdf-cat">Global Markets Daily · FX</div>
+            <div class="pdf-title">Staying short USD into the PCE print</div>
+            <div class="pdf-sub">23 June 2026 · Global FX Strategy</div>
+            <div class="pdf-by">Kamakshya Trivedi — Head of Global FX, Rates &amp; EM Strategy</div>
+            <p class="pdf-p">We keep our short-USD bias as the Fed's patient tone caps front-end yields. <b>EUR/USD</b> has cleared 1.0850 and we target 1.10 over 3m; <b>USD/JPY</b> stays heavy into intervention risk.</p>
+            <p class="pdf-p">A soft PCE print today would extend the dollar's pullback. Long EUR/USD and short USD/JPY remain our highest-conviction G10 expressions.</p>
             <table class="pdf-tbl">
-              <tr><th>Pair</th><th>Spot</th><th>3M</th><th>6M</th></tr>
-              <tr><td>EUR/USD</td><td>1.0850</td><td>1.10</td><td>1.12</td></tr>
-              <tr><td>USD/JPY</td><td>157.5</td><td>154</td><td>150</td></tr>
-              <tr><td>GBP/USD</td><td>1.2710</td><td>1.29</td><td>1.31</td></tr>
+              <tr><th>Pair</th><th>Spot</th><th>3M</th><th>12M</th></tr>
+              <tr><td>EUR/USD</td><td>1.0850</td><td>1.10</td><td>1.14</td></tr>
+              <tr><td>USD/JPY</td><td>157.5</td><td>152</td><td>146</td></tr>
+              <tr><td>GBP/USD</td><td>1.2710</td><td>1.30</td><td>1.33</td></tr>
             </table>
-            <div class="pdf-foot">Mitsubishi UFJ Financial Group · For information only — not investment advice.</div>
+            <div class="pdf-foot">Goldman Sachs Global Investment Research · For information only — not investment advice.</div>
           </div>
         </div>
         <div class="ri-banks"><span class="pill">Goldman Sachs</span><span class="pill">ING</span><span class="pill">MUFG</span><span class="pill">Danske</span><span class="pill">+ 15 banques</span></div>
@@ -816,32 +823,32 @@
     <span class="dk-news-title">Realtime Headlines</span>
     <span class="dk-news-live"><span class="dk-news-dot"></span>LIVE</span>
   </div>
-  <div class="dk-news-row dk-news-row--hi">
+  <div class="dk-news-row">
     <span class="dk-news-time">14:32</span>
     <div class="dk-news-body">
       <div class="dk-news-text">Fed holds rates, signals two cuts as inflation cools</div>
-      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--high">HIGH</span><span class="dk-news-cat">FX</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">Fed</span><span class="dk-news-tag">Rates</span><span class="dk-news-tag">USD</span></div>
     </div>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-time">14:18</span>
     <div class="dk-news-body">
       <div class="dk-news-text">ECB's Lagarde: disinflation on track, data-dependent</div>
-      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--med">MED</span><span class="dk-news-cat">FX</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">ECB</span><span class="dk-news-tag">Inflation</span></div>
     </div>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-time">13:57</span>
     <div class="dk-news-body">
       <div class="dk-news-text">Brent crude jumps 3% on Middle East supply fears</div>
-      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--high">HIGH</span><span class="dk-news-cat">GEO</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">Energy</span><span class="dk-news-tag">Geopolitical</span></div>
     </div>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-time">13:41</span>
     <div class="dk-news-body">
       <div class="dk-news-text">USD/JPY tops 158 as BoJ leaves policy unchanged</div>
-      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--low">LOW</span><span class="dk-news-cat">FX</span></div>
+      <div class="dk-news-meta"><span class="dk-news-tag">BoJ</span><span class="dk-news-tag">JPY</span></div>
     </div>
   </div>
 </div>
@@ -902,6 +909,14 @@
       </tr>
     </tbody>
   </table>
+  <div class="dk-bias-sum">
+    <div class="dk-bias-sum-h"><span>Bias Summary</span><span class="dk-bias-sum-cur"><span class="dk-bias-flag dk-bias-fl-us"></span>USD · semaine</span></div>
+    <div class="dk-bias-sum-row"><span>Fundamental Data</span><span class="dk-bias-sb dk-bias-vbull">V. Bullish</span></div>
+    <div class="dk-bias-sum-row"><span>Monetary Policy</span><span class="dk-bias-sb dk-bias-bull">Bullish</span></div>
+    <div class="dk-bias-sum-row"><span>Hedge Fund Positioning</span><span class="dk-bias-sb dk-bias-bull">Bullish</span></div>
+    <div class="dk-bias-sum-row dk-bias-sum-over"><span>Overall</span><span class="dk-bias-sb dk-bias-vbull">Very Bullish</span></div>
+    <div class="dk-bias-sum-narr">USD porté par une Fed patiente mais ferme et des données solides ; le positionnement spéculatif conforte le biais haussier.</div>
+  </div>
 </div>
           </div>
         </div>
