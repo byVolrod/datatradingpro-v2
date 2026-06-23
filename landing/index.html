@@ -386,6 +386,257 @@
     .tp-r{display:none} .strip-in{gap:18px} .foot-grid{grid-template-columns:1fr 1fr}
     h1{font-size:40px} section.blk{padding:68px 0}
   }
+
+  /* === Répliques fidèles des composants du desk === */
+
+.dk-news-feed{font-family:var(--font,'Inter',sans-serif);background:#0a0a0c;border:1px solid #16161a;border-radius:9px;overflow:hidden;width:100%;}
+.dk-news-head{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#0c0c0e;border-bottom:1px solid #1c1c20;}
+.dk-news-title{display:flex;align-items:center;gap:6px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#cfd2d8;}
+.dk-news-live{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono,monospace);font-size:8.5px;font-weight:700;letter-spacing:.08em;color:#ff3d00;}
+.dk-news-dot{width:5px;height:5px;border-radius:50%;background:#ff3d00;box-shadow:0 0 0 0 rgba(255,61,0,.6);animation:dk-news-pulse 1.8s ease-out infinite;}
+@keyframes dk-news-pulse{0%{box-shadow:0 0 0 0 rgba(255,61,0,.55);}70%{box-shadow:0 0 0 4px rgba(255,61,0,0);}100%{box-shadow:0 0 0 0 rgba(255,61,0,0);}}
+.dk-news-row{display:flex;align-items:flex-start;gap:7px;padding:8px 10px;border-bottom:1px solid #141417;background:#101013;}
+.dk-news-row:last-child{border-bottom:0;}
+.dk-news-row--hi{background:rgba(220,38,38,.09);}
+.dk-news-time{flex-shrink:0;font-family:var(--mono,monospace);font-size:10px;line-height:1.35;color:#797d86;padding-top:1px;letter-spacing:.02em;}
+.dk-news-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
+.dk-news-text{font-size:10.5px;line-height:1.32;color:#e6e8ec;font-weight:500;}
+.dk-news-row--hi .dk-news-text{color:#fff;}
+.dk-news-meta{display:flex;align-items:center;gap:5px;}
+.dk-news-tag{font-family:var(--mono,monospace);font-size:8px;font-weight:700;letter-spacing:.05em;line-height:1;padding:2.5px 5px;border-radius:3px;}
+.dk-news-tag--high{background:#ff7a00;color:#1a0e00;}
+.dk-news-tag--med{background:rgba(255,179,0,.12);color:#ffb300;border:1px solid rgba(255,179,0,.4);}
+.dk-news-tag--low{background:#16161a;color:#797d86;border:1px solid #24242a;}
+.dk-news-cat{font-family:var(--mono,monospace);font-size:8px;font-weight:600;letter-spacing:.05em;line-height:1;padding:2.5px 5px;border-radius:3px;background:#121216;color:#9ea4ae;border:1px solid #22222a;}
+.dk-cs-meter{
+  background:#0a0a0c;
+  border:1px solid #161619;
+  border-radius:8px;
+  padding:8px 9px 7px;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  overflow:hidden;
+}
+.dk-cs-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  padding-bottom:6px;
+  border-bottom:1px solid #131316;
+}
+.dk-cs-title{
+  font-family:var(--tight,"Inter Tight",sans-serif);
+  font-size:10px;
+  font-weight:700;
+  letter-spacing:.06em;
+  text-transform:uppercase;
+  color:#cfd2d8;
+}
+.dk-cs-period{
+  font-family:var(--mono,monospace);
+  font-size:8.5px;
+  font-weight:600;
+  letter-spacing:.04em;
+  color:#62656e;
+  background:#111114;
+  border:1px solid #1c1c20;
+  border-radius:3px;
+  padding:2px 5px;
+}
+.dk-cs-grid{
+  display:grid;
+  grid-template-columns:repeat(8,minmax(0,1fr));
+  gap:4px;
+  position:relative;
+}
+/* axe central zero */
+.dk-cs-grid::before{
+  content:"";
+  position:absolute;
+  left:0;right:0;
+  top:50%;
+  height:1px;
+  margin-top:-0.5px;
+  background:#26262c;
+  z-index:2;
+  pointer-events:none;
+}
+.dk-cs-col{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  min-width:0;
+}
+.dk-cs-half{
+  display:flex;
+  flex-direction:column;
+  gap:0;
+  height:46px;
+}
+.dk-cs-brick{
+  flex:1;
+  min-height:0;
+  border-bottom:1px solid #111113;
+  background:#15151a;                       /* trame eteinte toujours visible */
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.25);
+}
+.dk-cs-brick:last-child{ border-bottom:0; }
+/* segment vert (force positive, demi-axe haut) */
+.dk-cs-brick.dk-cs-pos{
+  background:rgba(0,218,80,0.867);
+  border:1px solid rgba(0,218,80,0.3);
+  border-radius:2px;
+  box-shadow:inset 0 -2px 4px -2px rgba(0,0,0,.55), inset 0 1px 0 0 rgba(255,255,255,.12);
+}
+/* segment rouge (force negative, demi-axe bas) */
+.dk-cs-brick.dk-cs-neg{
+  background:rgba(255,0,0,0.933);
+  border:1px solid rgba(255,0,0,0.3);
+  border-radius:2px;
+  box-shadow:inset 0 2px 4px -2px rgba(0,0,0,.6), inset 0 -1px 0 0 rgba(255,255,255,.10);
+}
+.dk-cs-tick{
+  margin-top:5px;
+  text-align:center;
+  font-family:var(--mono,monospace);
+  font-size:7.5px;
+  font-weight:700;
+  letter-spacing:.04em;
+  color:#9ea4ae;
+}
+.dk-bias-wrap{background:#0a0a0c;border:1px solid #1c1c20;border-radius:9px;padding:9px 9px 10px;font-family:var(--font,'Inter',sans-serif);width:100%;box-sizing:border-box}
+.dk-bias-head{display:flex;align-items:baseline;gap:7px;margin:0 1px 8px}
+.dk-bias-ttl{font-family:var(--tight,'Inter Tight',sans-serif);font-size:11.5px;font-weight:700;color:#f4f4f6;letter-spacing:.01em}
+.dk-bias-sub{font-size:8.5px;color:#62656e;font-family:var(--mono,monospace)}
+.dk-bias-tbl{width:100%;border-collapse:collapse;table-layout:fixed}
+.dk-bias-tbl th,.dk-bias-tbl td{border:1px solid #111113}
+.dk-bias-th-ind{width:34%;background:#101012;color:#8a93a3;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:600;text-align:left;padding:4px 6px;letter-spacing:.02em}
+.dk-bias-th-cur{background:#101012;padding:4px 2px}
+.dk-bias-cur-in{display:flex;align-items:center;gap:3px;justify-content:center}
+.dk-bias-cur-in span{font-family:var(--mono,monospace);font-size:8px;font-weight:700;color:#9ea4ae;letter-spacing:.01em}
+.dk-bias-flag{width:12px;height:12px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1px rgba(255,255,255,.08);overflow:hidden}
+.dk-bias-fl-us{background:linear-gradient(180deg,#b22234 0 33%,#fff 33% 66%,#3c3b6e 66%)}
+.dk-bias-fl-eu{background:radial-gradient(circle,#ffcc00 0 22%,#003399 22%)}
+.dk-bias-fl-gb{background:conic-gradient(from 45deg,#012169 0 25%,#c8102e 25% 50%,#012169 50% 75%,#c8102e 75%)}
+.dk-bias-fl-jp{background:radial-gradient(circle,#bc002d 0 34%,#fff 34%)}
+.dk-bias-fl-au{background:linear-gradient(135deg,#00247d 0 55%,#fff 55% 62%,#00247d 62%)}
+.dk-bias-ind{background:#0d0d0d;color:#cbd5e1;text-align:left;padding:3px 6px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dk-bias-cell{text-align:center;padding:3px 2px;font-size:7.5px;font-weight:600;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.01em}
+.dk-bias-vbull{background:#047857}
+.dk-bias-bull{background:#059669}
+.dk-bias-neut{background:#6b7280}
+.dk-bias-bear{background:#dc2626}
+.dk-bias-vbear{background:#991b1b}
+.dk-bias-over .dk-bias-ind{background:#1a1a1f;color:#fff;font-weight:700;border-left:3px solid #ff7a00}
+.dk-bias-over .dk-bias-cell{font-size:8px;font-weight:700}
+.dk-bias-arr{margin-right:1px;font-weight:800}
+.dk-ai-screen{background:#0a0a0c;border:1px solid #17171b;border-radius:9px;padding:0;overflow:hidden;font-family:var(--font,'Inter',sans-serif);width:100%;max-width:430px;box-sizing:border-box}
+.dk-ai-head{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:11px 13px 10px;border-bottom:1px solid #16161a}
+.dk-ai-titlewrap{display:flex;align-items:center;gap:7px;min-width:0}
+.dk-ai-avatar{width:17px;height:17px;border-radius:5px;flex-shrink:0;background:linear-gradient(145deg,#ff9a2e,#f7791d 55%,#e25f0c);display:flex;align-items:center;justify-content:center;box-shadow:inset 0 1px 0 rgba(255,255,255,.28)}
+.dk-ai-avatar svg{width:10px;height:10px;display:block}
+.dk-ai-title{font-family:var(--tight,'Inter Tight',sans-serif);font-size:12px;font-weight:600;color:#f4f4f5;letter-spacing:.01em;white-space:nowrap}
+.dk-ai-sources{font-family:var(--mono,monospace);font-size:10px;font-weight:500;color:#62656e;white-space:nowrap;flex-shrink:0}
+.dk-ai-sources b{color:#9ea4ae;font-weight:600}
+.dk-ai-list{display:flex;flex-direction:column;gap:1px;background:#16161a}
+.dk-ai-card{background:#0c0c0e;padding:10px 13px 11px}
+.dk-ai-card+.dk-ai-card{border-top:1px solid #131316}
+.dk-ai-crow{display:flex;align-items:center;gap:8px;margin-bottom:5px}
+.dk-ai-asset{font-family:var(--mono,monospace);font-size:11.5px;font-weight:600;color:#e4e4e7;letter-spacing:.01em}
+.dk-ai-badge{font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;line-height:1;padding:3px 6px;border-radius:3px;white-space:nowrap;border:1px solid;font-family:var(--tight,'Inter Tight',sans-serif)}
+.dk-ai-badge--buy{background:rgba(0,204,153,.10);border-color:rgba(0,204,153,.35);color:#00cc99}
+.dk-ai-badge--sell{background:rgba(255,61,0,.10);border-color:rgba(255,61,0,.35);color:#ff5a2c}
+.dk-ai-badge--neutral{background:rgba(255,179,0,.09);border-color:rgba(255,179,0,.32);color:#ffb300}
+.dk-ai-text{font-size:11px;line-height:1.5;color:#9ea4ae}
+.dk-ai-text b{color:#e4e4e7;font-weight:600}
+.dk-analyst-card{
+  background:#0a0a0c;
+  border:1px solid #1a1a1f;
+  border-radius:9px;
+  padding:11px 11px 10px;
+  display:flex;
+  gap:10px;
+  font-family:var(--font, "Inter", system-ui, sans-serif);
+}
+.dk-analyst-icon{
+  flex-shrink:0;
+  width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center;
+  background:#15151a;
+  border:1px solid #232329;
+  border-radius:8px;
+  color:#5b9dff;
+  margin-top:1px;
+}
+.dk-analyst-icon svg{display:block}
+.dk-analyst-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px}
+.dk-analyst-meta{
+  display:flex;align-items:center;gap:6px;
+  font-size:9.5px;line-height:1;
+}
+.dk-analyst-src{
+  font-family:var(--tight, "Inter Tight", sans-serif);
+  font-weight:600;
+  color:#9ea4ae;
+  letter-spacing:.02em;
+}
+.dk-analyst-dot{width:2px;height:2px;border-radius:50%;background:#3a3a42;flex-shrink:0}
+.dk-analyst-time{
+  font-family:var(--mono, ui-monospace, monospace);
+  color:#62656e;
+  letter-spacing:.02em;
+}
+.dk-analyst-title{
+  font-size:12px;
+  font-weight:600;
+  color:#f4f4f6;
+  line-height:1.32;
+  letter-spacing:-.005em;
+}
+.dk-analyst-excerpt{
+  font-size:10px;
+  line-height:1.42;
+  color:#9ea4ae;
+  display:-webkit-box;
+  -webkit-line-clamp:3;
+  -webkit-box-orient:vertical;
+  overflow:hidden;
+}
+.dk-analyst-foot{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:2px;
+}
+.dk-analyst-tags{display:flex;gap:5px;align-items:center;min-width:0}
+.dk-analyst-tag{
+  font-size:9px;font-weight:500;
+  color:#9a9aa2;
+  background:rgba(255,255,255,.035);
+  border:1px solid rgba(255,255,255,.07);
+  border-radius:5px;
+  padding:2px 7px;
+  font-family:var(--font, "Inter", sans-serif);
+  letter-spacing:.01em;
+  white-space:nowrap;
+}
+.dk-analyst-foot-right{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.dk-analyst-pt{
+  font-size:8px;
+  font-family:var(--mono, ui-monospace, monospace);
+  font-weight:700;
+  color:#c4ccd8;
+  background:#1d1d22;
+  border:1px solid #2e2e36;
+  border-radius:4px;
+  padding:2px 5px;
+  letter-spacing:.06em;
+}
+.dk-analyst-date{
+  font-size:9px;
+  color:#6c6c74;
+  font-family:var(--mono, ui-monospace, monospace);
+  white-space:nowrap;
+}
 </style>
 </head>
 <body>
@@ -494,15 +745,42 @@
     <div class="mods2">
       <!-- GAUCHE : Recherche institutionnelle — 1 rapport MUFG par jour (preview PDF) -->
       <div class="bcard ri-card">
-        <div class="ri-top">
-          <div class="lead"><div class="bic"><i class="fa-solid fa-building-columns"></i></div><h3>Recherche institutionnelle</h3></div>
-          <span class="ri-daily"><i class="fa-solid fa-file-pdf"></i> 1 rapport / jour</span>
-        </div>
+        <div class="lead"><div class="bic"><i class="fa-solid fa-building-columns"></i></div><h3>Recherche institutionnelle</h3></div>
         <p class="one">La recherche des grandes banques, lisible en PDF.</p>
         <div class="ri-tags"><span class="rt">FX Daily</span><span class="rt">G10</span><span class="rt">Fed</span><span class="rt">USD</span><span class="rt">Rates</span></div>
-        <div class="ri-ai">
-          <div class="ri-ai-h"><i class="fa-solid fa-wand-magic-sparkles"></i> AI Insight</div>
-          <div class="ri-ai-row"><span class="sig sell">SELL</span><span><b>USD</b> — On fade le rebond du dollar avant le PCE américain ; un chiffre mou prolongerait la baisse.</span></div>
+        <div class="ri-ai-wrap" style="margin-top:12px">
+<div class="dk-ai-screen">
+  <div class="dk-ai-head">
+    <span class="dk-ai-titlewrap">
+      <span class="dk-ai-avatar"><svg viewBox="0 0 24 24" fill="none" stroke="#1a0f02" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v3M12 18v3M4.9 7l2.1 1.2M17 15.8l2.1 1.2M4.9 17l2.1-1.2M17 8.2l2.1-1.2"/><circle cx="12" cy="12" r="3.4" fill="#1a0f02" stroke="none"/></svg></span>
+      <span class="dk-ai-title">AI Insights</span>
+    </span>
+    <span class="dk-ai-sources"><b>6</b> sources used</span>
+  </div>
+  <div class="dk-ai-list">
+    <div class="dk-ai-card">
+      <div class="dk-ai-crow">
+        <span class="dk-ai-asset">EUR/USD</span>
+        <span class="dk-ai-badge dk-ai-badge--buy">Buy</span>
+      </div>
+      <div class="dk-ai-text">Hawkish ECB tone and softer US data keep the pair biased higher toward <b>1.0950</b>.</div>
+    </div>
+    <div class="dk-ai-card">
+      <div class="dk-ai-crow">
+        <span class="dk-ai-asset">USD/JPY</span>
+        <span class="dk-ai-badge dk-ai-badge--sell">Sell</span>
+      </div>
+      <div class="dk-ai-text">Intervention risk and narrowing yield gap cap upside; fade rallies above <b>157.50</b>.</div>
+    </div>
+    <div class="dk-ai-card">
+      <div class="dk-ai-crow">
+        <span class="dk-ai-asset">XAU/USD</span>
+        <span class="dk-ai-badge dk-ai-badge--neutral">Neutral</span>
+      </div>
+      <div class="dk-ai-text">Gold consolidates as real yields stall; range-bound pending the FOMC decision.</div>
+    </div>
+  </div>
+</div>
         </div>
         <div class="pdf">
           <div class="pdf-bar"><i class="fa-solid fa-file-pdf pdf-ico"></i><span class="pdf-name">MUFG_FX_Daily_23Jun2026.pdf</span><span class="pdf-pg">1 / 8</span></div>
@@ -532,43 +810,316 @@
         <div class="bcard">
           <div class="lead"><div class="bic"><i class="fa-solid fa-bolt"></i></div><h3>News en temps réel</h3></div>
           <p class="one">Le flux filtré : ce qui bouge les marchés.</p>
-          <div class="vis mini-news">
-            <div class="l"><b>09:31</b> Fed — un responsable évoque une pause</div>
-            <div class="l"><b>09:24</b> Zone euro : l'inflation des services ralentit</div>
-            <div class="l"><b>09:18</b> Pétrole +1,9 % sur tensions géopolitiques</div>
+          <div class="vis">
+<div class="dk-news-feed">
+  <div class="dk-news-head">
+    <span class="dk-news-title">Realtime Headlines</span>
+    <span class="dk-news-live"><span class="dk-news-dot"></span>LIVE</span>
+  </div>
+  <div class="dk-news-row dk-news-row--hi">
+    <span class="dk-news-time">14:32</span>
+    <div class="dk-news-body">
+      <div class="dk-news-text">Fed holds rates, signals two cuts as inflation cools</div>
+      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--high">HIGH</span><span class="dk-news-cat">FX</span></div>
+    </div>
+  </div>
+  <div class="dk-news-row">
+    <span class="dk-news-time">14:18</span>
+    <div class="dk-news-body">
+      <div class="dk-news-text">ECB's Lagarde: disinflation on track, data-dependent</div>
+      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--med">MED</span><span class="dk-news-cat">FX</span></div>
+    </div>
+  </div>
+  <div class="dk-news-row">
+    <span class="dk-news-time">13:57</span>
+    <div class="dk-news-body">
+      <div class="dk-news-text">Brent crude jumps 3% on Middle East supply fears</div>
+      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--high">HIGH</span><span class="dk-news-cat">GEO</span></div>
+    </div>
+  </div>
+  <div class="dk-news-row">
+    <span class="dk-news-time">13:41</span>
+    <div class="dk-news-body">
+      <div class="dk-news-text">USD/JPY tops 158 as BoJ leaves policy unchanged</div>
+      <div class="dk-news-meta"><span class="dk-news-tag dk-news-tag--low">LOW</span><span class="dk-news-cat">FX</span></div>
+    </div>
+  </div>
+</div>
           </div>
         </div>
         <div class="bcard">
           <div class="lead"><div class="bic"><i class="fa-solid fa-compass"></i></div><h3>Smart Bias Tracker</h3></div>
           <p class="one">Le biais des 8 devises, chaque semaine.</p>
-          <div class="vis mini-bias">
-            <span class="bb-vbull">USD</span><span class="bb-bull">EUR</span><span class="bb-bear">JPY</span><span class="bb-neu">GBP</span>
-            <span class="bb-bull">AUD</span><span class="bb-neu">CAD</span><span class="bb-bear">CHF</span><span class="bb-bull">NZD</span>
+          <div class="vis">
+<div class="dk-bias-wrap">
+  <div class="dk-bias-head">
+    <span class="dk-bias-ttl">Smart Bias Tracker</span>
+    <span class="dk-bias-sub">15-21/06</span>
+  </div>
+  <table class="dk-bias-tbl">
+    <thead>
+      <tr>
+        <th class="dk-bias-th-ind">Indicators</th>
+        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-us"></span><span>USD</span></span></th>
+        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-eu"></span><span>EUR</span></span></th>
+        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-gb"></span><span>GBP</span></span></th>
+        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-jp"></span><span>JPY</span></span></th>
+        <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-au"></span><span>AUD</span></span></th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="dk-bias-ind">Fundamental</td>
+        <td class="dk-bias-cell dk-bias-vbull">V.Bull</td>
+        <td class="dk-bias-cell dk-bias-bear">Bear</td>
+        <td class="dk-bias-cell dk-bias-neut">Neut</td>
+        <td class="dk-bias-cell dk-bias-vbear">V.Bear</td>
+        <td class="dk-bias-cell dk-bias-bull">Bull</td>
+      </tr>
+      <tr>
+        <td class="dk-bias-ind">Monetary</td>
+        <td class="dk-bias-cell dk-bias-bull">Bull</td>
+        <td class="dk-bias-cell dk-bias-neut">Neut</td>
+        <td class="dk-bias-cell dk-bias-bear">Bear</td>
+        <td class="dk-bias-cell dk-bias-vbear">V.Bear</td>
+        <td class="dk-bias-cell dk-bias-bull">Bull</td>
+      </tr>
+      <tr>
+        <td class="dk-bias-ind">Sentiment</td>
+        <td class="dk-bias-cell dk-bias-bull">Bull</td>
+        <td class="dk-bias-cell dk-bias-bear">Bear</td>
+        <td class="dk-bias-cell dk-bias-neut">Neut</td>
+        <td class="dk-bias-cell dk-bias-bear">Bear</td>
+        <td class="dk-bias-cell dk-bias-vbull">V.Bull</td>
+      </tr>
+      <tr class="dk-bias-over">
+        <td class="dk-bias-ind">Overall</td>
+        <td class="dk-bias-cell dk-bias-vbull"><span class="dk-bias-arr">&#9650;</span>Bull</td>
+        <td class="dk-bias-cell dk-bias-bear"><span class="dk-bias-arr">&#9660;</span>Bear</td>
+        <td class="dk-bias-cell dk-bias-neut">Neut</td>
+        <td class="dk-bias-cell dk-bias-vbear"><span class="dk-bias-arr">&#9660;</span>Bear</td>
+        <td class="dk-bias-cell dk-bias-bull"><span class="dk-bias-arr">&#9650;</span>Bull</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
           </div>
         </div>
         <div class="bcard">
           <div class="lead"><div class="bic"><i class="fa-solid fa-chart-column"></i></div><h3>Force des devises</h3></div>
           <p class="one">Qui mène, qui décroche — en continu.</p>
-          <div class="vis mini-cs">
-            <i style="height:70%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
-            <i style="height:48%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
-            <i style="height:30%;background:linear-gradient(180deg,#ff7a00,#7a3a00)"></i>
-            <i style="height:62%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
-            <i style="height:22%;background:linear-gradient(180deg,#ff4d4d,#6e1414)"></i>
-            <i style="height:40%;background:linear-gradient(180deg,#ff7a00,#7a3a00)"></i>
-            <i style="height:54%;background:linear-gradient(180deg,#00e676,#0a6e44)"></i>
-            <i style="height:34%;background:linear-gradient(180deg,#ff4d4d,#6e1414)"></i>
+          <div class="vis">
+<div class="dk-cs-meter">
+  <div class="dk-cs-head">
+    <span class="dk-cs-title">Currency Strength</span>
+    <span class="dk-cs-period">1D</span>
+  </div>
+  <div class="dk-cs-grid">
+
+    <!-- USD : fort positif -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">USD</div>
+    </div>
+
+    <!-- EUR : positif moyen -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">EUR</div>
+    </div>
+
+    <!-- GBP : leger positif -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">GBP</div>
+    </div>
+
+    <!-- JPY : fort negatif -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">JPY</div>
+    </div>
+
+    <!-- AUD : leger positif -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">AUD</div>
+    </div>
+
+    <!-- CAD : negatif moyen -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">CAD</div>
+    </div>
+
+    <!-- CHF : leger positif -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+        <div class="dk-cs-brick dk-cs-pos"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">CHF</div>
+    </div>
+
+    <!-- NZD : negatif leger -->
+    <div class="dk-cs-col">
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-half">
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick dk-cs-neg"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+        <div class="dk-cs-brick"></div>
+      </div>
+      <div class="dk-cs-tick">NZD</div>
+    </div>
+
+  </div>
+</div>
           </div>
         </div>
         <div class="bcard">
           <div class="lead"><div class="bic"><i class="fa-solid fa-file-lines"></i></div><h3>Analyst</h3></div>
           <p class="one">Le marché résumé pour vous, chaque jour.</p>
-          <div class="vis mini-anl">
-            <div class="anl-h"><span class="anl-tag">RAPPORT</span> FX Daily Recap · 23 juin</div>
-            <div class="anl-sec">EXECUTIVE SUMMARY</div>
-            <div class="anl-l w1"></div><div class="anl-l w2"></div>
-            <div class="anl-sec">CENTRAL BANKS</div>
-            <div class="anl-l w2"></div><div class="anl-l w3"></div>
+          <div class="vis">
+<div class="dk-analyst-card">
+  <div class="dk-analyst-icon" aria-hidden="true">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="9"></circle>
+      <path d="M3 12h18"></path>
+      <path d="M12 3a14 14 0 0 1 0 18 14 14 0 0 1 0-18"></path>
+    </svg>
+  </div>
+  <div class="dk-analyst-body">
+    <div class="dk-analyst-meta">
+      <span class="dk-analyst-src">FX Daily Recap</span>
+      <span class="dk-analyst-dot"></span>
+      <span class="dk-analyst-time">23 JUIN · 08:42</span>
+    </div>
+    <div class="dk-analyst-title">Le dollar recule avant le PCE ; l'euro reprend 1,0850</div>
+    <div class="dk-analyst-excerpt">Le billet vert s'effrite alors que les marchés positionnent pour des données d'inflation plus douces. L'euro casse la résistance et vise 1,0900, soutenu par un PMI flash européen meilleur qu'attendu.</div>
+    <div class="dk-analyst-foot">
+      <div class="dk-analyst-tags">
+        <span class="dk-analyst-tag">FX</span>
+        <span class="dk-analyst-tag">Macro</span>
+      </div>
+      <div class="dk-analyst-foot-right">
+        <span class="dk-analyst-pt">PT</span>
+        <span class="dk-analyst-date">23/06</span>
+      </div>
+    </div>
+  </div>
+</div>
           </div>
         </div>
       </div>
