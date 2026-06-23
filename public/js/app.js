@@ -797,7 +797,7 @@ function getFilteredItems() {
     if (_h.replace(/[^a-z0-9]/gi, '').length < 14) return false;   // titres trop courts / sans valeur
     // Titres récurrents SANS contenu exploitable (n'expliquent rien) → on ne spamme pas le flux.
     //   ex. « Thursday FX Option Expiries » : juste un en-tête, aucune analyse/description.
-    if (/option\s+expir/i.test(_h) && (item.description || '').replace(/<[^>]*>/g, '').trim().length < 40) return false;
+    if (/options?\s+expir/i.test(_h) && (item.description || '').replace(/<[^>]*>/g, '').trim().length < 40) return false;
     if (_NEWS_NOISE.test(_h)) return false;                        // promo / faible valeur
     if (_NEWS_BLOCK.test(_h)) return false;                        // spam explicitement bloqué (Banque de Russie, taux de change…)
     if (_BANK_TEASER_RE.test(_h)) return false;                    // teaser de recherche de banque ("… – MUFG/Nomura/TD…") : pas une news, explique rien

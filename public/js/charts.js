@@ -1366,7 +1366,7 @@ function buildRiskHistoryChart(containerId, data) {
   cursor.lineX.setAll({ stroke: am5.color(0x475569), strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.8 });
 
   function setData(arr) {
-    const rows = (arr || []).map(e => ({ ts: new Date(e.date + 'T00:00:00Z').getTime(), pct: e.pct, label: e.label || '' }));
+    const rows = (Array.isArray(arr) ? arr : []).map(e => ({ ts: new Date(e.date + 'T00:00:00Z').getTime(), pct: e.pct, label: e.label || '' }));
     series.data.setAll(rows);
   }
   setData((data && data.series) || data || []);
