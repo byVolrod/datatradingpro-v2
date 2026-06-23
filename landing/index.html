@@ -698,6 +698,42 @@
   .mods2-r > .bcard:nth-child(3) > .vis, .mods2-r > .bcard:nth-child(4) > .vis{flex:1;min-height:0;display:flex;flex-direction:column}
   .mods2-r > .bcard:nth-child(4) .dk-analyst-card{flex:0 0 auto}
 
+  /* ── Maquette « vrai desk » : nav + 9 onglets + World Clock ── */
+  .dnav{display:flex;align-items:center;gap:9px;padding:9px 14px;background:#0e0e11;border-bottom:1px solid #1b1b20}
+  .dnav-logo{font-family:var(--tight);font-weight:800;font-size:13.5px;color:#f4f4f6;letter-spacing:-.02em;white-space:nowrap}
+  .dnav-ic{width:20px;height:20px;color:#7f8590;flex:0 0 auto}.dnav-ic svg{width:100%;height:100%}
+  .dnav-search{flex:0 1 230px;display:flex;align-items:center;gap:7px;background:#16161b;border:1px solid #26262e;border-radius:7px;padding:5px 10px;color:#6c6f78;font-size:10.5px}
+  .dnav-search svg{width:12px;height:12px;flex:0 0 auto}
+  .dnav-risk{display:flex;align-items:center;gap:6px;background:rgba(193,30,30,.16);border:1px solid rgba(239,68,68,.45);border-radius:7px;padding:5px 12px;color:#ff5a5a;font-family:var(--tight);font-weight:800;font-size:10.5px;letter-spacing:.04em}
+  .dnav-risk svg{width:11px;height:11px}.dnav-cv{width:8px!important;height:5px!important;opacity:.8}
+  .dnav-fill{flex:1 1 auto}
+  .dnav-pill{font-family:var(--tight);font-weight:800;font-size:9.5px;padding:4px 7px;border-radius:6px}
+  .dnav-pill.ai{background:rgba(0,200,110,.16);border:1px solid rgba(0,200,110,.4);color:#22d37a}
+  .dnav-wic{width:18px;height:18px;color:#8a8f99;flex:0 0 auto}.dnav-wic svg{width:100%;height:100%}
+  .dnav-av{width:21px;height:21px;border-radius:50%;flex:0 0 auto;background:linear-gradient(135deg,#3a3f4a,#22252c);border:1px solid #3a3f4a}
+  .dtabs{display:flex;gap:2px;padding:0 12px;background:#0c0c0e;border-bottom:1px solid #1b1b20;overflow:hidden}
+  .dtabs span{font-family:var(--tight);font-weight:600;font-size:10px;letter-spacing:.03em;color:#6c6f78;padding:8px 9px;white-space:nowrap;position:relative}
+  .dtabs span::before{content:"›";margin-right:3px;color:#4a4d55}
+  .dtabs span.on{color:#f4f4f6}.dtabs span.on::before{color:var(--orange2)}
+  .dtabs span.on::after{content:"";position:absolute;left:6px;right:6px;bottom:0;height:2px;background:var(--orange2);border-radius:2px}
+  .dnews-h{display:flex;align-items:center;justify-content:space-between;padding:1px 0 9px;font-size:11.5px;font-weight:700;color:#e4e6ea;font-family:var(--tight)}
+  .dnews-bar{display:flex;gap:7px;margin-bottom:8px}
+  .dnews-sel,.dnews-srch{display:flex;align-items:center;gap:6px;background:#121216;border:1px solid #23232a;border-radius:6px;padding:5px 9px;font-size:9.5px;color:#7f828c}
+  .dnews-sel{flex:0 0 auto}.dnews-sel svg{width:8px;height:5px}
+  .dnews-srch{flex:1 1 auto;color:#62656e}.dnews-srch svg{width:11px;height:11px;flex:0 0 auto}
+  .dnews-date{font-size:9.5px;color:#8a8f99;background:#141418;border-radius:5px;padding:5px 9px;margin-bottom:7px;font-family:var(--tight);font-weight:600}
+  .dwc-h{font-size:11.5px;font-weight:700;color:#e4e6ea;font-family:var(--tight);margin-bottom:9px}
+  .dwc{display:flex;gap:5px;margin-bottom:12px}
+  .dwc-c{flex:1;display:flex;flex-direction:column;gap:1px;background:#101013;border:1px solid #1c1c22;border-radius:6px;padding:7px 5px;text-align:center;min-width:0}
+  .dwc-city{font-size:7.5px;color:#8a8f99;font-family:var(--tight);font-weight:600;text-transform:uppercase;letter-spacing:.03em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dwc-c b{font-family:var(--mono);font-size:13px;color:#f4f4f6;font-weight:600;letter-spacing:-.01em}
+  .dwc-gmt{font-size:7px;color:#62656e;font-family:var(--mono)}
+  .dwc-w{font-size:8px;color:#9ea4ae}
+  .dsub{display:flex;gap:1px;margin-bottom:11px;border-bottom:1px solid #1a1a1f;overflow:hidden}
+  .dsub span{font-family:var(--tight);font-weight:600;font-size:8.5px;letter-spacing:.02em;color:#62656e;padding:5px 6px 7px;white-space:nowrap;position:relative}
+  .dsub span::before{content:"›";margin-right:2px;color:#3a3d45}
+  .dsub span.on{color:#e4e6ea}.dsub span.on::after{content:"";position:absolute;left:5px;right:5px;bottom:-1px;height:2px;background:var(--orange2)}
+
   /* ===== THÈME CLAIR (fond blanc, cartes claires ; les écrans produit restent sombres). ===== */
   .term { --bg:#070708;--bg2:#0b0b0d;--panel:#101013;--panel2:#15151a;--line:#1d1d23;--line2:#2a2a32;--text:#f4f4f6;--text2:#9ea4ae;--text3:#62656e;--orange:#e6bd4d;--orange2:#f2d486;--green:#00e676;--red:#ff4d4d;--amber:#ffb300 }   /* re-sombre : le mockup terminal garde un texte clair */
   /* ticker live en BLANC, comme le reste du site (avant il était sombre) */
@@ -769,17 +805,39 @@
 
     <!-- TERMINAL VIVANT -->
     <div class="term">
-      <div class="term-bar">
-        <span class="d" style="background:#ff5f57"></span><span class="d" style="background:#febc2e"></span><span class="d" style="background:#28c840"></span>
-        <div class="term-tabs"><span class="on">News</span><span>Smart Bias</span><span>Force des devises</span><span>Calendrier</span></div>
-        <div class="term-clock" id="clk">09:32:14 GMT</div>
+      <!-- NAV (façon desk) -->
+      <div class="dnav">
+        <span class="dnav-logo">DataTradingPro</span>
+        <span class="dnav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></svg></span>
+        <span class="dnav-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>
+        <div class="dnav-search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>Search Symbols...</div>
+        <div class="dnav-risk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m7 7 10 10M17 7 7 17"/></svg>RISK OFF<svg class="dnav-cv" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.4" fill="none"/></svg></div>
+        <span class="dnav-fill"></span>
+        <span class="dnav-pill ai">AI</span>
+        <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h2l2-6 4 12 3-9 2 3h3"/></svg></span>
+        <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+        <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8 9 9 0 0 1-4-1l-5 1 1-4.5a8.4 8.4 0 0 1-1-4A8.5 8.5 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg></span>
+        <span class="dnav-av"></span>
       </div>
+      <!-- 9 ONGLETS -->
+      <div class="dtabs"><span class="on">NEWS</span><span>CALENDAR</span><span>FX LIST</span><span>INSTITUTION</span><span>ANALYST</span><span>BIAS</span><span>WEEK AHEAD</span><span>TAUX</span><span>BANK</span></div>
       <div class="term-body">
         <div class="tp">
-          <div class="tp-h"><span>Flux temps réel</span><span class="badge"><i></i>LIVE</span></div>
+          <div class="dnews-h"><span>Realtime Headline Ticker</span><span class="badge"><i></i>LIVE</span></div>
+          <div class="dnews-bar"><span class="dnews-sel">Sections d'actualités <svg viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.3" fill="none"/></svg></span><span class="dnews-srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>Rechercher des événements...</span></div>
+          <div class="dnews-date">Tuesday, 23/06/2026</div>
           <div id="feed"></div>
         </div>
         <div class="tp tp-r">
+          <div class="dwc-h">World Clock</div>
+          <div class="dwc">
+            <div class="dwc-c"><span class="dwc-city">London</span><b>20:38</b><span class="dwc-gmt">GMT+1</span><span class="dwc-w">☾ 18°</span></div>
+            <div class="dwc-c"><span class="dwc-city">New York</span><b>15:38</b><span class="dwc-gmt">GMT−4</span><span class="dwc-w">☀ 21°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Tokyo</span><b>04:38</b><span class="dwc-gmt">GMT+9</span><span class="dwc-w">☾ 18°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Dubai</span><b>23:38</b><span class="dwc-gmt">GMT+4</span><span class="dwc-w">☾ 34°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Paris</span><b>21:38</b><span class="dwc-gmt">GMT+2</span><span class="dwc-w">☾ 34°</span></div>
+          </div>
+          <div class="dsub"><span>WORLD</span><span class="on">RISK</span><span>STRENGTH</span><span>METER</span><span>COT</span><span>DMX</span><span>SEAS.</span></div>
           <div class="gauge-wrap">
             <div class="cs-h" style="text-align:center;margin-bottom:6px">Risk Sentiment</div>
             <svg class="gauge" viewBox="0 0 200 116">
@@ -794,11 +852,7 @@
                 <polygon id="needleTri" points="87,47 113,47 100,71" fill="#c63430" stroke="#0a0a0c" stroke-width="1.4" stroke-linejoin="round"/>
               </g>
             </svg>
-            <div class="g-lbl" id="gLbl">STRONG RISK-ON</div>
-          </div>
-          <div>
-            <div class="cs-h">Force des devises</div>
-            <div class="cs" id="cs"></div>
+            <div class="g-lbl" id="gLbl">STRONG RISK-OFF</div>
           </div>
         </div>
       </div>
@@ -842,15 +896,15 @@
   <div class="dk-ai-track">
     <div class="dk-ai-card">
       <div class="dk-ai-crow"><span class="dk-ai-asset">EUR/USD</span><span class="dk-ai-badge dk-ai-badge--buy">Buy</span></div>
-      <div class="dk-ai-text">Hawkish ECB tone and softer US data keep the pair biased higher toward <b>1.0950</b>.</div>
+      <div class="dk-ai-text">Ton accommodant de la BCE et données US plus molles maintiennent la paire orientée à la hausse vers <b>1,0950</b>.</div>
     </div>
     <div class="dk-ai-card">
       <div class="dk-ai-crow"><span class="dk-ai-asset">USD/JPY</span><span class="dk-ai-badge dk-ai-badge--sell">Sell</span></div>
-      <div class="dk-ai-text">Intervention risk and narrowing yield gap cap upside; fade rallies above <b>157.50</b>.</div>
+      <div class="dk-ai-text">Le risque d'intervention et le resserrement de l'écart de taux plafonnent la hausse ; vendre les rebonds au-dessus de <b>157,50</b>.</div>
     </div>
     <div class="dk-ai-card">
       <div class="dk-ai-crow"><span class="dk-ai-asset">XAU/USD</span><span class="dk-ai-badge dk-ai-badge--neutral">Neutral</span></div>
-      <div class="dk-ai-text">Gold consolidates as real yields stall; range-bound pending the FOMC decision.</div>
+      <div class="dk-ai-text">L'or consolide alors que les taux réels stagnent ; sans tendance avant la décision du FOMC.</div>
     </div>
   </div>
 </div>
@@ -1236,7 +1290,7 @@
 
   // ── Horloge ──
   function pad(n){return (n<10?'0':'')+n;}
-  setInterval(function(){var d=new Date();document.getElementById('clk').textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+' GMT';},1000);
+  var _clkEl=document.getElementById('clk');if(_clkEl)setInterval(function(){var d=new Date();_clkEl.textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+' GMT';},1000);
 
   // ── Flux news animé ──
   var pool=[
@@ -1293,7 +1347,7 @@
 
   // ── Force des devises ──
   var ccy=['USD','EUR','GBP','JPY','AUD','CAD','CHF','NZD'];
-  var cs=document.getElementById('cs');
+  var cs=document.getElementById('cs')||{innerHTML:'',querySelectorAll:function(){return[];}};
   cs.innerHTML=ccy.map(function(c){return '<div class="col"><div class="bar"></div><div class="cl">'+c+'</div></div>';}).join('');
   var bars=cs.querySelectorAll('.bar');
   function rnd(a,b){return a+Math.floor(Math.random()*(b-a));}
