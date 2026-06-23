@@ -213,9 +213,6 @@
   .cs .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;height:100%;justify-content:flex-end}
   .cs .bar{width:100%;border-radius:3px 3px 0 0;transition:height 1.4s cubic-bezier(.34,1.2,.5,1),background 1.4s;min-height:3px}
   .cs .cl{font-size:8.5px;color:var(--text3);font-family:var(--mono)}
-  /* inner ticker */
-  .term-foot{border-top:1px solid var(--line);background:#0e0e11;height:28px;display:flex;align-items:center;overflow:hidden}
-  .tf-track{display:flex;gap:22px;white-space:nowrap;padding-left:14px;animation:tk 30s linear infinite;font-family:var(--mono);font-size:10px;color:var(--text2)}
 
   /* ── bandeau confiance ── */
   .strip{border-top:1px solid var(--line);border-bottom:1px solid var(--line);background:var(--bg2)}
@@ -425,7 +422,6 @@
           </div>
         </div>
       </div>
-      <div class="term-foot"><div class="tf-track" id="tfTrack"></div></div>
     </div>
   </div>
 </header>
@@ -665,7 +661,6 @@
     ['DXY','105.31','up','+0.15%'],['EUR/GBP','0.8533','dn','-0.06%'],['AUD/USD','0.6671','up','+0.33%']];
   function tkHtml(){return syms.map(function(s){return '<span class="tk"><b>'+s[0]+'</b> '+s[1]+' <span class="'+s[2]+'">'+s[3]+'</span></span>';}).join('');}
   document.getElementById('tkTrack').innerHTML=tkHtml()+tkHtml();
-  document.getElementById('tfTrack').innerHTML=tkHtml()+tkHtml();
 
   // ── Horloge ──
   function pad(n){return (n<10?'0':'')+n;}
