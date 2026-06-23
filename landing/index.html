@@ -245,8 +245,8 @@
   .mini-cs i{flex:1;border-radius:2px 2px 0 0}
   .pill{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--text2);background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:5px 9px;margin:3px 4px 0 0;font-family:var(--mono)}
   /* === Modules : maquettes de preview (gauche Recherche/PDF MUFG, droite 2x2) === */
-  .mods2{display:grid;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:18px;margin-top:46px;align-items:start}
-  .mods2-r{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+  .mods2{display:grid;grid-template-columns:minmax(0,.84fr) minmax(0,1.16fr);gap:18px;margin-top:46px;align-items:stretch}
+  .mods2-r{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:auto 1fr;gap:18px}
   .lead{display:flex;align-items:center;gap:11px}
   .lead .bic{margin-bottom:0;flex:0 0 auto;width:38px;height:38px;font-size:15px}
   .lead h3{margin-bottom:0}
@@ -653,6 +653,26 @@
   font-family:var(--mono, ui-monospace, monospace);
   white-space:nowrap;
 }
+
+  /* Force des devises : courbes + étirement bas */
+  .dk-cs2{background:#0a0a0c;border:1px solid #161619;border-radius:8px;padding:9px 10px;display:flex;flex-direction:column;height:100%;box-sizing:border-box}
+  .dk-cs2-head{display:flex;align-items:center;justify-content:space-between;padding-bottom:7px;border-bottom:1px solid #131316}
+  .dk-cs2-title{font-family:var(--tight,'Inter Tight',sans-serif);font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#cfd2d8}
+  .dk-cs2-per{font-family:var(--mono,monospace);font-size:8.5px;color:#62656e;background:#111114;border:1px solid #1c1c20;border-radius:3px;padding:2px 5px}
+  .dk-cs2-chart{flex:1;min-height:96px;margin:8px 0 6px}
+  .dk-cs2-chart svg{width:100%;height:100%;display:block}
+  .dk-cs2-ln{fill:none;stroke-width:1.6;vector-effect:non-scaling-stroke}
+  .dk-cs2-leg{display:flex;flex-wrap:wrap;gap:5px 9px;padding-top:7px;border-top:1px solid #131316}
+  .dk-cs2-leg span{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono,monospace);font-size:8px;color:#9ea4ae}
+  .dk-cs2-leg i{width:9px;height:2.5px;border-radius:2px;display:inline-block}
+  .dk-anl-more{margin-top:9px;border-top:1px solid #16161a;padding-top:6px;display:flex;flex-direction:column;gap:1px;flex:1}
+  .dk-anl-more-row{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px solid #131316;font-size:10px;color:#9aa0aa}
+  .dk-anl-more-row:last-child{border-bottom:0}
+  .dk-anl-more-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dk-anl-more-d{flex-shrink:0;font-family:var(--mono,monospace);font-size:8.5px;color:#62656e}
+  .mods2-r > .bcard:nth-child(3), .mods2-r > .bcard:nth-child(4){display:flex;flex-direction:column}
+  .mods2-r > .bcard:nth-child(3) > .vis, .mods2-r > .bcard:nth-child(4) > .vis{flex:1;min-height:0;display:flex;flex-direction:column}
+  .mods2-r > .bcard:nth-child(4) .dk-analyst-card{flex:0 0 auto}
 </style>
 </head>
 <body>
@@ -924,181 +944,23 @@
           <div class="lead"><div class="bic"><i class="fa-solid fa-chart-column"></i></div><h3>Force des devises</h3></div>
           <p class="one">Qui mène, qui décroche — en continu.</p>
           <div class="vis">
-<div class="dk-cs-meter">
-  <div class="dk-cs-head">
-    <span class="dk-cs-title">Currency Strength</span>
-    <span class="dk-cs-period">1D</span>
+<div class="dk-cs2">
+  <div class="dk-cs2-head"><span class="dk-cs2-title">Currency Strength</span><span class="dk-cs2-per">1D</span></div>
+  <div class="dk-cs2-chart">
+    <svg viewBox="0 0 300 200" preserveAspectRatio="none">
+      <line x1="0" y1="100" x2="300" y2="100" stroke="#1b1b22" stroke-width="1" stroke-dasharray="4 4"/>
+      <polyline class="dk-cs2-ln" stroke="#4d9fff" points="6,100 48,90 90,78 132,66 174,52 216,42 258,34 294,26"/>
+      <polyline class="dk-cs2-ln" stroke="#ffb300" points="6,100 48,95 90,89 132,83 174,76 216,70 258,64 294,58"/>
+      <polyline class="dk-cs2-ln" stroke="#b06bff" points="6,100 48,99 90,95 132,90 174,86 216,82 258,79 294,74"/>
+      <polyline class="dk-cs2-ln" stroke="#00e676" points="6,100 48,94 90,87 132,82 174,80 216,84 258,82 294,79"/>
+      <polyline class="dk-cs2-ln" stroke="#9aa0aa" points="6,100 48,101 90,103 132,105 174,107 216,108 258,109 294,107"/>
+      <polyline class="dk-cs2-ln" stroke="#ff8a3d" points="6,100 48,103 90,109 132,117 174,127 216,137 258,145 294,150"/>
+      <polyline class="dk-cs2-ln" stroke="#ff5ca8" points="6,100 48,107 90,115 132,125 174,135 216,143 258,151 294,160"/>
+      <polyline class="dk-cs2-ln" stroke="#ff4d4d" points="6,100 48,109 90,122 132,134 174,147 216,159 258,170 294,178"/>
+    </svg>
   </div>
-  <div class="dk-cs-grid">
-
-    <!-- USD : fort positif -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">USD</div>
-    </div>
-
-    <!-- EUR : positif moyen -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">EUR</div>
-    </div>
-
-    <!-- GBP : leger positif -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">GBP</div>
-    </div>
-
-    <!-- JPY : fort negatif -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">JPY</div>
-    </div>
-
-    <!-- AUD : leger positif -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">AUD</div>
-    </div>
-
-    <!-- CAD : negatif moyen -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">CAD</div>
-    </div>
-
-    <!-- CHF : leger positif -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-        <div class="dk-cs-brick dk-cs-pos"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">CHF</div>
-    </div>
-
-    <!-- NZD : negatif leger -->
-    <div class="dk-cs-col">
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-half">
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick dk-cs-neg"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-        <div class="dk-cs-brick"></div>
-      </div>
-      <div class="dk-cs-tick">NZD</div>
-    </div>
-
+  <div class="dk-cs2-leg">
+    <span><i style="background:#4d9fff"></i>USD</span><span><i style="background:#ffb300"></i>EUR</span><span><i style="background:#b06bff"></i>GBP</span><span><i style="background:#ff4d4d"></i>JPY</span><span><i style="background:#00e676"></i>AUD</span><span><i style="background:#ff8a3d"></i>CAD</span><span><i style="background:#9aa0aa"></i>CHF</span><span><i style="background:#ff5ca8"></i>NZD</span>
   </div>
 </div>
           </div>
@@ -1134,6 +996,11 @@
       </div>
     </div>
   </div>
+</div>
+<div class="dk-anl-more">
+  <div class="dk-anl-more-row"><span class="dk-anl-more-t">European Market Wrap — actions en hausse, l'euro tient</span><span class="dk-anl-more-d">07:30</span></div>
+  <div class="dk-anl-more-row"><span class="dk-anl-more-t">Weekly Market Recap — semaine du 16 juin</span><span class="dk-anl-more-d">sam.</span></div>
+  <div class="dk-anl-more-row"><span class="dk-anl-more-t">Global Economic Weekly — à surveiller cette semaine</span><span class="dk-anl-more-d">dim.</span></div>
 </div>
           </div>
         </div>
