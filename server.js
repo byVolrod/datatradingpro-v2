@@ -1548,7 +1548,7 @@ const _isPrimerNews = n => !!(n && (n._briefing || /^\s*\[?\s*primer\b/i.test(St
 app.get('/api/news', (_req, res) => {
   // Les rapports DTP (primers/briefings) sont masqués du flux — SAUF le « DTP Daily US Opening News »
   // qui doit apparaître dans l'onglet News (demande utilisateur), déroulé en rapport complet au clic.
-  const items = allNews.filter(n => !_isPrimerNews(n) || (n && n._reportType === 'DTP Daily')).slice(0, 200);
+  const items = allNews.filter(n => !/FJElite/i.test(n.headline || '') && (!_isPrimerNews(n) || (n && n._reportType === 'DTP Daily'))).slice(0, 200);
   items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
   res.json({ items, total: items.length });
 });
@@ -9708,6 +9708,7 @@ const GLOBAL_LIFESTYLE = /\b(football|soccer|nfl|nba|nhl|mlb|premier league|cham
 
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
+  if (/FJElite/i.test(h)) return true;   // teasers FinancialJuice Elite (« X on Y - FJElite ») : titre sans contenu, analyse derrière paywall → aucune valeur
   if (TABLOID_SOURCES.test(h))  return true;
   if (GLOBAL_GOSSIP.test(h))    return true;
   if (GLOBAL_LIFESTYLE.test(h)) return true;
