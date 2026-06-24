@@ -3590,6 +3590,59 @@ function _catHeadline(t) {
 }
 const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXED INCOME', 'COMMODITIES', 'EQUITIES', 'CRYPTO', 'TRADE/TARIFFS', 'HEADLINES'];
 
+// ── Section « Commentaires marquants » (notable comments) — partagée FX Daily Recap + session wraps ───────
+// ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
+// (Supabase). Renvoie le HTML des items (.nc-item). Repli (IA indispo) = titres bruts → la section ne
+// disparaît jamais s'il y a des news. ZÉRO invention (prompt + dépêches réelles du jour seulement).
+const NC_VER = 1;
+const _NC_RX = /\b(hormu?z|oil|crude|brent|wti|opep|opec|gold|s&p|nasdaq|dow|nikkei|stoxx|dax|\bcac\b|earnings?|micron|nvidia|fed|fomc|powell|ecb|bce|lagarde|boe|boj|snb|boc|rba|tariff|tarif|sanction|\bwar\b|guerre|missile|ceasefire|iran|israel|china|chine|russia|russie|treasur|yield|rendement|inflation|\bcpi\b|\bnfp\b|\bgdp\b|\bpib\b|recession|récession)\b/i;
+function _ncEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+async function _generateNotableComments(dayKey) {
+  if (!dayKey || !/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) return '';
+  try { const c = await auth.aiCacheGet('nc:' + NC_VER + ':' + dayKey); if (typeof c === 'string' && c) return c; } catch {}
+  const _dayOf = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
+  const pool = (Array.isArray(allNews) ? allNews : []).filter(i => i && i.timestamp && _dayOf(i.timestamp) === dayKey
+    && !i._briefing && !i._marketWrap && !i._fxr && !i._weekly && !i._dtpd
+    && (_isImportantNews(i.headline, i.category, i.priority) || _NC_RX.test(i.headline || ''))).sort((a, b) => b.timestamp - a.timestamp);
+  const seen = new Set(), uniq = [];
+  for (const n of pool) { const k = String(n.headline || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 38); if (!k || seen.has(k)) continue; seen.add(k); uniq.push(n); if (uniq.length >= 6) break; }
+  if (!uniq.length) return '';
+  let items = null;
+  try {
+    if (aiAllowed('analyst', { priority: 'user' })) {
+      _aiReset();
+      const ctx = uniq.map(n => '- ' + _stripMd(n.headline || '') + (n.description ? ' — ' + _stripMd(String(n.description)).replace(/\s+/g, ' ').slice(0, 340) : '')).join('\n');
+      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 14 mots) ET 2 à 3 paragraphes d'analyse (ce qui s'est passé, pourquoi ça compte, l'impact marché et les actifs concernés). Base-toi UNIQUEMENT sur les dépêches fournies + le contexte de marché évident ; n'invente AUCUN chiffre ni fait absent. Style sobre, factuel, façon note de marché.
+Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","paragraphs":["...","..."]}]}
+
+ACTUALITÉS DU JOUR :
+${ctx}`;
+      const text = await ai.generateText(prompt, 4200);
+      aiNote('analyst');
+      const m = text.match(/\{[\s\S]*\}/);
+      items = m ? (JSON.parse(m[0]).items || null) : null;
+    }
+  } catch (e) { console.warn('[Notable]', e && e.message); }
+  let html = '';
+  if (Array.isArray(items) && items.length) {
+    html = items.filter(it => it && it.headline).slice(0, 6).map(it => {
+      const h = _ncEsc(_stripMd(String(it.headline)).slice(0, 150));
+      const ps = (Array.isArray(it.paragraphs) ? it.paragraphs : [it.paragraphs])
+        .map(p => _stripMd(String(p == null ? '' : p)).trim()).filter(Boolean).slice(0, 4)
+        .map(p => '<p>' + _ncEsc(p) + '</p>').join('');
+      return '<div class="nc-item"><div class="nc-h">' + h + '</div>' + ps + '</div>';
+    }).join('');
+  }
+  if (!html) return uniq.slice(0, 5).map(n => '<div class="nc-item"><div class="nc-h">' + _ncEsc(_stripMd(n.headline || '').slice(0, 150)) + '</div></div>').join('');   // repli non caché
+  auth.aiCacheSet('nc:' + NC_VER + ':' + dayKey, html).catch(() => {});
+  return html;
+}
+app.get('/api/notable-comments', async (req, res) => {
+  const day = String(req.query.day || '').slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) return res.json({ html: '' });
+  try { res.json({ html: (await _generateNotableComments(day)) || '' }); } catch { res.json({ html: '' }); }
+});
+
 app.get('/api/session-wrap-content', async (req, res) => {
   const { url } = req.query;
   if (!url || !url.startsWith('https://investinglive.com/')) return res.json({ html: '' });
@@ -6685,7 +6738,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 2;   // v2 : rapport + AI Insights rédigés en FRANÇAIS (prompt + repli + libellés)
+const FXR_VER = 3;   // v3 : + section « Commentaires marquants » (notable comments) en bas du rapport
 let _fxrGenLock = 0;
 let _fxrGenBusy = false;
 const _fxrCcyCtry = { USD:'United States', EUR:'Eurozone', GBP:'United Kingdom', JPY:'Japan', CHF:'Switzerland', CAD:'Canada', AUD:'Australia', NZD:'New Zealand', CNY:'China' };
@@ -6929,6 +6982,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     if (!fxr.econData  || !fxr.econData.length)  fxr.econData  = _fxrEconFromRows(dataRows);
     if (!fxr.lookahead || !fxr.lookahead.length) fxr.lookahead = _fxrLookFromRows(laRows);
     if (!fxr.tags      || !fxr.tags.length)      fxr.tags      = _fxrAutoTags(newsItems);
+    try { fxr.notableCommentsHtml = await _generateNotableComments(dayKey); } catch {}   // section « Commentaires marquants »
 
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
     const item = {
