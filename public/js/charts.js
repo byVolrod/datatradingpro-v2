@@ -1830,7 +1830,8 @@ async function _seasonOpenSettings(){
 }
 function _seasonRenderCfg(ov){
   const cls = (_seasonCatalog[_seasonCfgClass] || []).length ? _seasonCfgClass : 'forex';
-  const items = _seasonCatalog[cls] || [];
+  // Tri ALPHABÉTIQUE (par libellé) pour retrouver un symbole facilement, en 2 colonnes.
+  const items = (_seasonCatalog[cls] || []).slice().sort((a, b) => String(a.label || a.id).localeCompare(String(b.label || b.id)));
   const tabs = _SEA_CLASSES.filter(([k]) => (_seasonCatalog[k] || []).length)
     .map(([k, lbl]) => `<button class="sea-cfg-tab${k === cls ? ' sea-cfg-tab--on' : ''}" data-cls="${k}">${lbl}</button>`).join('');
   const grid = items.map(it => {
