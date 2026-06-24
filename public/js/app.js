@@ -425,6 +425,7 @@ function _setNotifBadge(n) {
   if (!notifBadge) return;
   // Pastille rouge simple : visible s'il y a des notifs non lues, cachée sinon (pas de chiffre).
   notifBadge.style.display = n > 0 ? '' : 'none';
+  const _bell = notifBadge.parentElement; if (_bell) _bell.classList.toggle('tb-alert', n > 0);   // anime l'icône (sonnerie + glow) tant qu'il y a du non-lu
 }
 const liveDot     = document.getElementById('live-dot');
 const searchInput = document.getElementById('search-input');
@@ -7604,6 +7605,7 @@ function _chatSetBadge(n){
   if(!b) return;
   if(n>0){ b.textContent=n>9?'9+':n; b.style.display=''; }
   else   { b.style.display='none'; }
+  const _c=document.getElementById('chat-btn'); if(_c) _c.classList.toggle('tb-alert', n>0);   // anime l'icône messages tant qu'il y a du non-lu
 }
 // Le badge reflète EN PERMANENCE les messages non lus et ne se vide QUE lorsque la
 // conversation est ouverte (côté support) / lue (côté client). On ne le coupe donc PAS
