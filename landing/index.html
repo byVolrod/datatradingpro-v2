@@ -1305,77 +1305,7 @@
     ['USD/JPY','La paire teste 158, le marché guette le MoF','m','Forex'],
     ['BCE','Une responsable ouvre la porte à une baisse en septembre','h','Banques centrales'],
     ['Emploi US','Les inscriptions hebdomadaires au chômage reculent','h','Macro'],
-    ['Or','Nouveau record historique au-dessus de 2 400 
-  var feed=document.getElementById('feed'),fi=0;
-  function nowHM(){var d=new Date();return pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());}
-  function addRow(isNew){
-    var p=pool[fi%pool.length];fi++;
-    var row=document.createElement('div');row.className='nrow';
-    var tags='<span class="ntags"><span class="ntag">'+p[3]+'</span><span class="ninfo">&#9432; Info</span><span class="nreact">&#9825;</span></span>';
-    row.innerHTML='<span class="nt">'+nowHM()+'</span><span class="ntx"><b>'+p[0]+'</b> — '+p[1]+tags+'</span>'+
-      (isNew?'<span class="flash">● NEW</span>':'<span class="imp '+p[2]+'">'+(p[2]==='h'?'FORT':'MOY')+'</span>');
-    feed.insertBefore(row,feed.firstChild);
-    if(isNew)setTimeout(function(){var f=row.querySelector('.flash');if(f)f.outerHTML='<span class="imp '+p[2]+'">'+(p[2]==='h'?'FORT':'MOY')+'</span>';},1600);
-    while(feed.children.length>7)feed.removeChild(feed.lastChild);
-  }
-  for(var k=0;k<6;k++)addRow(false);
-  setInterval(function(){addRow(true);},2600);
-
-  // ── Jauge Risk Sentiment ──
-  var needle=document.getElementById('needle'),needleTri=document.getElementById('needleTri'),gLbl=document.getElementById('gLbl');
-  var targets=[-90,18,-15,88,-3,22,-88,12,90,-20];var gi=0;
-  // Couleurs EXACTES du desk (_riskArcColor : dégradé 7 crans rouge -> vert)
-  function riskArcColor(v){
-    var t=(v+100)/200; if(t<0)t=0; if(t>1)t=1;
-    var s=[[198,52,48],[219,90,44],[232,138,40],[221,178,58],[169,198,74],[92,176,96],[42,158,96]];
-    var n=s.length-1,p=t*n,i=Math.floor(p),f=p-i; if(i>=n){i=n-1;f=1;}
-    var a=s[i],b=s[i+1];
-    return 'rgb('+Math.round(a[0]+(b[0]-a[0])*f)+','+Math.round(a[1]+(b[1]-a[1])*f)+','+Math.round(a[2]+(b[2]-a[2])*f)+')';
-  }
-  function lbl(v){return v<=-30?'STRONG RISK-OFF':v<=-4?'WEAK RISK-OFF':v<4?'NEUTRAL':v<30?'WEAK RISK-ON':'STRONG RISK-ON';}
-  function setGauge(v){
-    needle.style.transform='rotate('+(v/100*90)+'deg)';
-    var c=riskArcColor(v);
-    if(needleTri) needleTri.setAttribute('fill',c);
-    gLbl.textContent=lbl(v);
-    gLbl.style.color=c;
-    gLbl.style.borderColor=c.replace('rgb(','rgba(').replace(')',',.6)');
-    gLbl.style.background=c.replace('rgb(','rgba(').replace(')',',.14)');
-  }
-  setGauge(targets[0]);
-  setInterval(function(){gi++;setGauge(targets[gi%targets.length]);},3000);
-
-  // ── Force des devises ──
-  var ccy=['USD','EUR','GBP','JPY','AUD','CAD','CHF','NZD'];
-  var cs=document.getElementById('cs')||{innerHTML:'',querySelectorAll:function(){return[];}};
-  cs.innerHTML=ccy.map(function(c){return '<div class="col"><div class="bar"></div><div class="cl">'+c+'</div></div>';}).join('');
-  var bars=cs.querySelectorAll('.bar');
-  function rnd(a,b){return a+Math.floor(Math.random()*(b-a));}
-  function setCS(){
-    bars.forEach(function(b){
-      var v=rnd(-80,80);var h=20+Math.abs(v)*.7;
-      b.style.height=h+'%';
-      b.style.background=v>=0?'linear-gradient(180deg,#00e676,#0a6e44)':'linear-gradient(180deg,#ff4d4d,#6e1414)';
-    });
-  }
-  setCS();setInterval(setCS,3000);
-
-  // ── Menu mobile (burger) ──
-  var bg=document.querySelector('.nav-burger'),nl=document.getElementById('navLinks');
-  if(bg&&nl){ bg.addEventListener('click',function(){nl.classList.toggle('open');});
-    nl.querySelectorAll('a').forEach(function(a){a.addEventListener('click',function(){nl.classList.remove('open');});}); }
-
-  // ── Pricing live (sync API, repli sur les valeurs affichées) ──
-  function eur(n){try{return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}catch(e){return n+' €';}}
-  fetch('https://desk.datatradingpro.com/api/pricing').then(function(r){return r.json();}).then(function(d){
-    if(d&&d.monthly){var m=document.getElementById('pp-m');if(m)m.innerHTML=eur(d.monthly)+'<small> /mois</small>';}
-    if(d&&d.annual){var a=document.getElementById('pp-a');if(a)a.innerHTML=eur(d.annual)+'<small> /an</small>';}
-  }).catch(function(){});
-})();
-</script>
-</body>
-</html>
-,'m','Métaux'],
+    ['Or','Nouveau record historique au-dessus de 2 400 $','m','Métaux'],
     ['Royaume-Uni','L\'IPC surprend à la hausse, la livre se renforce','h','Macro'],
     ['Chine','La PBoC laisse ses taux directeurs inchangés','m','Banques centrales'],
     ['Pétrole','Les stocks américains baissent davantage qu\'attendu','m','Énergie'],
@@ -1386,7 +1316,8 @@
   function addRow(isNew){
     var p=pool[fi%pool.length];fi++;
     var row=document.createElement('div');row.className='nrow';
-    row.innerHTML='<span class="nt">'+nowHM()+'</span><span class="ntx"><b>'+p[0]+'</b> — '+p[1]+'</span>'+
+    var tags='<span class="ntags"><span class="ntag">'+p[3]+'</span><span class="ninfo">&#9432; Info</span><span class="nreact">&#9825;</span></span>';
+    row.innerHTML='<span class="nt">'+nowHM()+'</span><span class="ntx"><b>'+p[0]+'</b> — '+p[1]+tags+'</span>'+
       (isNew?'<span class="flash">● NEW</span>':'<span class="imp '+p[2]+'">'+(p[2]==='h'?'FORT':'MOY')+'</span>');
     feed.insertBefore(row,feed.firstChild);
     if(isNew)setTimeout(function(){var f=row.querySelector('.flash');if(f)f.outerHTML='<span class="imp '+p[2]+'">'+(p[2]==='h'?'FORT':'MOY')+'</span>';},1600);
