@@ -207,6 +207,7 @@
   .nrow-dot.on{background:#ff3b30;box-shadow:0 0 0 3px rgba(255,59,48,.18)}
   .ninfo{display:inline-flex;align-items:center;gap:3px;font-family:var(--tight);font-size:8px;font-weight:600;color:#17c2c2;background:rgba(23,194,194,.07);border:1px solid rgba(23,194,194,.3);border-radius:4px;padding:2px 6px}
   .nanalyse{display:inline-flex;align-items:center;gap:3px;font-family:var(--tight);font-size:8px;font-weight:600;color:#6ea8ff;background:rgba(110,168,255,.06);border:1px solid rgba(110,168,255,.28);border-radius:4px;padding:2px 6px}
+  .nreaction{display:inline-flex;align-items:center;gap:3px;font-family:var(--tight);font-size:8px;font-weight:600;color:#9b8bd9;background:rgba(95,81,158,.12);border:1px solid rgba(95,81,158,.42);border-radius:4px;padding:2px 6px}
   .tp-r{display:flex;flex-direction:column;gap:14px}
   /* gauge */
   .gauge-center{text-align:center}
@@ -1372,7 +1373,7 @@
       var tags=(it.tags||[]).slice(0,3).map(function(t){return '<span class="ntag">'+t+'</span>';}).join('');
       var row=document.createElement('div');row.className='nrow'+(imp?' imp':'');
       row.innerHTML='<span class="nrow-dot'+(imp?' on':'')+'"></span><span class="nt">'+fmtHM(it.timestamp||Date.now())+'</span>'+
-        '<div class="ntx"><div class="nhead">'+(it.headline||'')+'</div><div class="ntags">'+tags+'<span class="ninfo">&#9432; Info</span><span class="nanalyse">&#9678; Analyse</span></div></div>';
+        '<div class="ntx"><div class="nhead">'+(it.headline||'')+'</div><div class="ntags">'+tags+'<span class="ninfo">&#9432; Info</span><span class="nanalyse">&#9678; Analyse</span>'+(imp?'<span class="nreaction">&#8599; R&eacute;action</span>':'')+'</div></div>';
       feed.appendChild(row);
     });
   }
