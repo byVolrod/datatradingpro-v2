@@ -9299,6 +9299,20 @@ async function _rpFetchBank(slug) {
     return j;
   } catch { return null; } finally { clearTimeout(to); }
 }
+// Biais DIRECTIONNEL d'en-tête (comme la page rateprobability) : signe de la TRAJECTOIRE de taux implicite
+// cumulée sur ~6,5 mois (réunions ≤ 200 j) vs taux courant — PAS la seule prochaine réunion. Seuil ±6 bps
+// (le seuil qui colle aux 6 banques du site). → le Fed sort HIKE même si la prochaine réunion n'a que 8,4 %
+// de proba de bouger (le cumul implicite atteint ~+31 bps). Réutilisé au serve (/api/rates) pour s'appliquer
+// AUSSI aux données en cache → effet immédiat sans attendre le refresh 15 min.
+function _rpDirMove(meetings, rate) {
+  if (!Array.isArray(meetings) || !isFinite(rate)) return 'HOLD';
+  const HOR = 200, BAND = 6;
+  const inWin = meetings.filter(m => m && m.impliedRate != null && m.days <= HOR);
+  const mh = inWin.length ? inWin[inWin.length - 1] : meetings.filter(m => m && m.impliedRate != null).slice(-1)[0];
+  if (!mh || mh.impliedRate == null) return 'HOLD';
+  const dirBps = +(((mh.impliedRate - rate) * 100).toFixed(1));
+  return dirBps >= BAND ? 'HIKE' : (dirBps <= -BAND ? 'CUT' : 'HOLD');
+}
 function _rpTransform(code, j, now) {
   const map = RP_MAP[code]; if (!map) return null;
   let rate = +map.rate(j.today); if (!isFinite(rate)) return null; rate = +rate.toFixed(2);
@@ -9317,7 +9331,7 @@ function _rpTransform(code, j, now) {
     return { date: x.meeting_iso, days, hold, hike, cut, impliedBps, baseCase, impliedRate: isFinite(impl) ? +impl.toFixed(3) : null };
   });
   const m0 = meetings[0];
-  return { code, rate, next: m0.date, nextDays: m0.days, move: m0.baseCase,
+  return { code, rate, next: m0.date, nextDays: m0.days, move: _rpDirMove(meetings, rate),
     prob: Math.max(m0.hold, m0.hike, m0.cut), expBps: m0.impliedBps,
     scenario: { hold: m0.hold, hike: m0.hike, cut: m0.cut }, meetings, source: 'market' };
 }
@@ -9362,7 +9376,7 @@ app.get('/api/rates', (_req, res) => {
     const rp = _rpBanks[b.code];
     const _rpAge = now - (_rpBankAt[b.code] || _rpCache.at || 0);
     if (rp && _rpAge < 12 * 3600 * 1000) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
-      next: rp.next, nextDays: rp.nextDays, move: rp.move, prob: rp.prob, expBps: rp.expBps,
+      next: rp.next, nextDays: rp.nextDays, move: _rpDirMove(rp.meetings, rp.rate), prob: rp.prob, expBps: rp.expBps,
       scenario: rp.scenario, meetings: rp.meetings, source: 'market',
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null };
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
@@ -9379,7 +9393,8 @@ app.get('/api/rates', (_req, res) => {
     return {
       code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: st.rate,
       next: n ? n.date : null, nextDays: n ? n.days : null,
-      move: sc0.baseCase, prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 10000) / 100, expBps: +sc0.impliedBps.toFixed(1),
+      move: ({ hike: 'HIKE', cut: 'CUT', hold: 'HOLD' }[bb.bias] || 'HOLD'),   // en-tête DIRECTIONNEL (cohérent avec les cartes marché ; le biais maison EST déjà une direction)
+      prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 10000) / 100, expBps: +sc0.impliedBps.toFixed(1),
       scenario: { hold: Math.round(sc0.hold * 10000) / 100, hike: Math.round(sc0.hike * 10000) / 100, cut: Math.round(sc0.cut * 10000) / 100 },
       meetings, source: 'maison',
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : cross-check proba marché (CME futures)
