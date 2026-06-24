@@ -2428,7 +2428,8 @@ function buildNewsItem(item) {
   const _ratesGuard = /\b(rate decision|rate hike|rate cut|interest rate|policy rate|overnight rate|benchmark rate|basis point|bps|inflation rate|cpi|pce|ppi|hicp)\b/i;
   const shownTags = new Set();
   const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs)
-  for (const tag of (item.tags || [])) {
+  // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
+  for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || tag === item.category) continue;
     if (_HIDDEN_TAGS.has(tag)) continue;
     if (tag === 'Rates' && !_ratesGuard.test(_hl)) continue;
@@ -2440,7 +2441,7 @@ function buildNewsItem(item) {
     t.textContent = tag;
     tagsEl.appendChild(t);
   }
-  for (const tag of smartTags) {
+  for (const tag of (item._dtpd ? [] : smartTags)) {
     if (shownTags.has(tag)) continue;
     shownTags.add(tag);
     const t = document.createElement('span');
