@@ -779,6 +779,46 @@ const _BANK_TEASER_RE = /\s[–—-]\s*(?:MUFG|Nomura|TD\s*Securities|TDS|Goldma
 // Spam politique : reposts d'endorsements (style Truth Social) "… America First Patriot/Champion…",
 // "MAGA Warrior…", "Complete and Total Endorsement…" — souvent mal catégorisés "Energy" → pas une news.
 const _POLITICAL_SPAM_RE = /\b(?:america first\s+(?:patriot|champion|warrior|fighter|polic\w*)|maga\s+(?:warrior|champion|patriot|king|queen|fighter)|complete\s+and\s+total\s+endorsement|make\s+america\s+great\s+again|(?:great|total)\s+honou?r\s+to\s+(?:fully\s+)?endorse|tremendous\s+(?:champion|advocate))\b/i;
+// ── Levier 1 : anti-bruit renforcé (réduction du flux News) ────────────────────
+// Actions d'UNE société (dividende, rachat d'actions, split, BPA) — sans portée macro/FX.
+const _SINGLE_STOCK_RE = /\b(?:dividend\s+(?:increase|hike|raise|boost)|(?:increase|hike|raise|boost|declare|announce)s?\s+(?:a\s+|its\s+|quarterly\s+|semi-?annual\s+|annual\s+|special\s+)*dividend|(?:share|stock|equity)\s+(?:repurchase|buyback)|(?:repurchase|buyback)\s+program|stock\s+split|reauthoriz\w*\b[^.]{0,40}\b(?:repurchase|buyback))/i;
+// Éditorial retail / clickbait — pas d'info marché actionnable.
+const _CLICKBAIT_RE = /(?:here'?s\s+(?:why|how|what|the\s+reason)|what\s+(?:it|this|that)\s+means\s+for\s+you|why\s+you\s+(?:should|shouldn'?t|might|need)|what\s+you\s+need\s+to\s+know|retail\s+(?:investors?|traders?)\s+(?:think|are\s|keep|love|hate|can'?t)|buying\s+(?:it\s+)?anyway|the\s+truth\s+about|you\s+won'?t\s+believe)/i;
+// Suffixe horodaté/méta accolé par certaines sources (« … – UOB 20:30 Jun », « … 20:42 Jun 24 Energy US Bonds ») :
+// casse les filtres ancrés en fin de titre. On le retire AVANT les tests « se termine par … ».
+function _stripTrailingMeta(h) {
+  return String(h || '').replace(/\s+\d{1,2}:\d{2}(?:\s+[A-Za-z0-9$]+){0,12}\s*$/i, '').trim();
+}
+
+// ── Levier 2 : mode « Essentiel » ──────────────────────────────────────────────
+// Ne garde que la macro/FX qui compte (banques centrales, géopolitique, énergie, commerce,
+// FX, obligataire, métaux) + tout ce qui est urgent/important/tier-1. Le mid-tier (Market
+// Analysis, commentaires, news régionales mineures) est masqué → bouton « Tout » pour le réafficher.
+const _ESSENTIAL_CATS = new Set(['Fed','ECB','BoJ','BoE','BoC','RBA','SNB','RBNZ','Geopolitical','Energy & Power','Trade','FX Flows','Fixed Income','Metals']);
+function _isEssentialItem(item) {
+  if (!item) return false;
+  if (_isImportantNews(item)) return true;                                                       // urgent / high / tier-1 data / résultat calendrier
+  if (item._marketWrap || item._reportType === 'DTP Daily' || item._eventAnalysis) return true;  // rapports DTP du flux
+  return _ESSENTIAL_CATS.has(item.category || '');
+}
+let newsEssentialMode = true;   // défaut : Essentiel (réduit l'inondation)
+try { if (localStorage.getItem('dtp_news_essential') === '0') newsEssentialMode = false; } catch {}
+function _syncNewsModeBtn() {
+  const btn = document.getElementById('news-mode-toggle');
+  if (!btn) return;
+  btn.textContent = newsEssentialMode ? 'Essentiel' : 'Tout';
+  btn.classList.toggle('news-mode-toggle--all', !newsEssentialMode);
+  btn.title = newsEssentialMode
+    ? 'Flux filtré sur l’essentiel (banques centrales, géopolitique, données macro, énergie, FX). Cliquer pour voir TOUT.'
+    : 'Flux complet (toutes les news). Cliquer pour ne garder que l’ESSENTIEL.';
+}
+window._toggleNewsMode = function () {
+  newsEssentialMode = !newsEssentialMode;
+  try { localStorage.setItem('dtp_news_essential', newsEssentialMode ? '1' : '0'); } catch {}
+  _syncNewsModeBtn();
+  renderNews();
+};
+
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
@@ -804,6 +844,14 @@ function getFilteredItems() {
     if (_NEWS_BLOCK.test(_h)) return false;                        // spam explicitement bloqué (Banque de Russie, taux de change…)
     if (_BANK_TEASER_RE.test(_h)) return false;                    // teaser de recherche de banque ("… – MUFG/Nomura/TD…") : pas une news, explique rien
     if (_POLITICAL_SPAM_RE.test(_h)) return false;                 // repost d'endorsement politique (America First/MAGA…) : pas une news
+
+    // ── Levier 1 : bruit supplémentaire (single-stock, clickbait, teaser cassé par l'horodatage) ──
+    if (_SINGLE_STOCK_RE.test(_h)) return false;                   // action d'une société (dividende/rachat) : pas macro/FX
+    if (_CLICKBAIT_RE.test(_h))    return false;                   // éditorial retail / clickbait
+    const _hs = _stripTrailingMeta(_h);
+    if (_hs !== _h && _BANK_TEASER_RE.test(_hs)) return false;     // teaser banque masqué par un suffixe horodaté (« … – UOB 20:30 Jun »)
+    // ── Levier 2 : mode Essentiel (hors recherche) — ne garder que la macro/FX qui compte ──
+    if (newsEssentialMode && !searchQuery && !_isEssentialItem(item)) return false;
 
     // ── Filtre intelligent : on masque les reposts au titre quasi-identique ──
     const key = _newsKey(_h);
@@ -875,6 +923,7 @@ function _groupSpeakerQuotes(items) {
 
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
+  _syncNewsModeBtn();
   itemCountEl.textContent = `${filtered.length} items`;
   if (allItems.length) lsSet('dtp_news', allItems.slice(0, 150));   // persiste pour un affichage instantané au revisite
 
