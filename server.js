@@ -4,6 +4,8 @@ const http      = require('http');
 const WebSocket = require('ws');
 const path      = require('path');
 const fs        = require('fs');
+const os        = require('os');
+const { execFile } = require('child_process');
 const axios     = require('axios');
 const session   = require('cookie-session');   // session stockée côté navigateur → survit aux redémarrages
 const helmet    = require('helmet');
@@ -4642,8 +4644,54 @@ function _brContentAllowed(url) {
   catch { return false; }
   return _BR_ALLOW_HOSTS.some(h => host === h || host.endsWith('.' + h));
 }
+// ── Texte d'un PDF de banque → AI Insights ──────────────────────────────────────────────────────
+// Un PDF natif (KBC Sunset, Goldman, Syz, BlackRock…) n'a PAS de texte HTML → le générateur d'insights n'a
+// rien à analyser (panneau vide). On extrait le texte via `pdftotext` (poppler-utils, installé dans le
+// Dockerfile) en SOUS-PROCESSUS → la mémoire de parsing reste HORS du heap Node (anti-OOM sur ce serveur
+// contraint : surtout pas de lib PDF en mémoire). Borné : 3 pages, PDF ≤ 6 Mo, timeout 8 s, ≤ 5000 car.
+// Caché durablement (Supabase) → 1 seule extraction par URL, jamais de re-spawn.
+const _pdfTextCache = new Map();
+let _pdfSeq = 0;
+async function _pdfText(url) {
+  if (!url || typeof url !== 'string') return '';
+  if (_pdfTextCache.has(url)) return _pdfTextCache.get(url);
+  try { const dur = await auth.aiCacheGet('pdftxt:' + url); if (typeof dur === 'string') { _pdfTextCache.set(url, dur); return dur; } } catch {}
+  let out = '', tmp = '';
+  try {
+    const resp = await axios.get(url, {
+      responseType: 'arraybuffer', timeout: 12000, maxContentLength: 6 * 1024 * 1024,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+      validateStatus: s => s >= 200 && s < 400,
+    });
+    tmp = path.join(os.tmpdir(), 'dtp-pdf-' + process.pid + '-' + Date.now() + '-' + (_pdfSeq++) + '.pdf');
+    fs.writeFileSync(tmp, Buffer.from(resp.data));
+    out = await new Promise(resolve => {
+      execFile('pdftotext', ['-layout', '-f', '1', '-l', '3', tmp, '-'],
+        { timeout: 8000, maxBuffer: 4 * 1024 * 1024 },
+        (err, stdout) => resolve(err ? '' : (stdout || '')));
+    });
+    out = String(out).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 5000);
+  } catch (e) { console.warn('[pdftext]', (e && e.message) || e); out = ''; }
+  finally { if (tmp) { try { fs.unlinkSync(tmp); } catch {} } }
+  if (out && out.length > 80) { _pdfTextCache.set(url, out); auth.aiCacheSet('pdftxt:' + url, out).catch(() => {}); }
+  return out;
+}
+
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
+  // PDF natif (KBC/Goldman/Syz/BlackRock…) : pas de texte HTML → on extrait le TEXTE du PDF pour les AI
+  // Insights (le PDF lui-même reste affiché via /api/pdf-proxy). Hôtes limités aux sources PDF (PDF_PROXY_HOSTS).
+  if (url && /\.pdf(?:[?#]|$)/i.test(url)) {
+    let _h = ''; try { _h = new URL(url).hostname; } catch {}
+    if (_h && PDF_PROXY_HOSTS.test(_h)) {
+      const _txt = await _pdfText(url);
+      if (_txt && _txt.length > 80) {
+        const _esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const _html = _txt.split(/\n{2,}/).map(p => '<p>' + _esc(p.trim()) + '</p>').join('');
+        return res.json({ html: _html, source: 'pdftext', pdfUrl: url, renderUrl: '', subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
+      }
+    }
+  }
   if (!_brContentAllowed(url)) return res.json({ html: '' });
   // Danske : le PDF natif (= l'URL elle-même) ET le contenu (mobile_text) sont déjà connus, interceptés
   // depuis l'API de liste → réponse DIRECTE (aucun fetch, aucune IA). Le PDF s'affiche via /api/pdf-proxy.

@@ -8,6 +8,7 @@ FROM node:22-slim
 # Chromium + dépendances système pour Puppeteer
 RUN apt-get update && apt-get install -y \
     chromium \
+    poppler-utils \
     python3 \
     make \
     g++ \
