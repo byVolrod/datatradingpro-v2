@@ -2160,11 +2160,11 @@ function buildNewsItem(item) {
         const w = item._dtpd;
         const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
         const bold = s => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        let h = '';
-        if (w.summary) h += `<ul class="article-points article-points--clean"><li class="ip-head">Synthèse</li><li>${bold(w.summary)}</li></ul>`;
+        let lis = '';
+        if (w.summary) lis += `<li class="ip-head">Synthèse</li><li>${bold(w.summary)}</li>`;
         (w.sections || []).forEach(s => {
           if (!s || !s.title) return;
-          let lis = `<li class="ip-head">${esc(s.title)}</li>`;
+          lis += `<li class="ip-head">${esc(s.title)}</li>`;
           if (s.kind === 'data' && (s.data || []).length) {
             s.data.forEach(r => { lis += `<li><strong>${esc(r.release)}</strong>${r.actual ? ' : ' + esc(r.actual) : ''}${r.expected ? ' (att. ' + esc(r.expected) + ')' : ''}${r.previous ? ' (préc. ' + esc(r.previous) + ')' : ''}</li>`; });
           } else if (s.kind === 'paras' && (s.paras || []).length) {
@@ -2172,9 +2172,9 @@ function buildNewsItem(item) {
           } else {
             (s.items || []).forEach(it => { lis += `<li>${bold(it)}</li>`; });
           }
-          h += `<ul class="article-points article-points--clean">${lis}</ul>`;
         });
-        return h || `<ul class="article-points article-points--clean"><li>Rapport en cours de génération…</li></ul>`;
+        // UNE seule liste « article-points--clean » → MÊME forme/alignement que les autres descriptions (analyses d'événement).
+        return `<ul class="article-points article-points--clean">${lis || '<li>Rapport en cours de génération…</li>'}</ul>`;
       }
       // ── PRIMER: structured bullet display ──
       if (isPrimer) {
@@ -2436,7 +2436,7 @@ function buildNewsItem(item) {
     if (shownTags.has(tag)) continue;
     shownTags.add(tag);
     const t = document.createElement('span');
-    t.className = 'tag ' + (TAG_CLASS[tag] || 'tag--default');
+    t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = tag;
     tagsEl.appendChild(t);
@@ -2445,7 +2445,7 @@ function buildNewsItem(item) {
     if (shownTags.has(tag)) continue;
     shownTags.add(tag);
     const t = document.createElement('span');
-    t.className = 'tag ' + (TAG_CLASS[tag] || 'tag--default');
+    t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
     t.textContent = tag;
     tagsEl.appendChild(t);
