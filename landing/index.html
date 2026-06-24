@@ -200,11 +200,10 @@
   .nrow .nhead{color:var(--text);font-weight:600;font-size:11.5px;line-height:1.35}
   .ntags{display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap}
   .ntag{font-family:var(--tight);font-size:8px;font-weight:600;color:#c6c9d1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 6px}
-  /* news IMPORTANTE (façon desk) : accent + hover ROUGE + icône d'alerte */
-  .nrow.imp{box-shadow:inset 2px 0 0 #ff4d4d;background:rgba(255,77,77,.05)}
-  .nrow.imp:hover{background:rgba(255,77,77,.11)}
-  .nrow.imp .nhead{color:#ff8c7d}
-  .nrow-al{display:inline-flex;vertical-align:-2px;color:#ff4d4d;margin-right:5px}
+  /* news IMPORTANTE = comme le desk : fond bordeaux, titre clair, icône — PAS de trait rouge */
+  .nrow.imp{background:#241415;border-bottom-color:rgba(127,29,29,.28)}
+  .nrow.imp:hover{background:#271517}
+  .nrow-al{display:inline-flex;vertical-align:-2px;color:#ff5a5a;margin-right:5px}
   .nrow-al svg{width:12px;height:12px;display:block}
   .tp-r{display:flex;flex-direction:column;gap:14px}
   /* gauge */
@@ -1322,13 +1321,32 @@
     {headline:"Brent crude jumps 3% on Middle East supply fears",timestamp:Date.now()-34*60000,tags:["Energy","Geopolitical"],priority:"normal"},
     {headline:"USD/JPY tops 158 as BoJ leaves policy unchanged",timestamp:Date.now()-52*60000,tags:["BoJ","JPY"],priority:"normal"}
   ];
-  function impScore(it){var p=(it.priority||"").toLowerCase(),sc=0;if(p&&p!=="normal"&&p!=="low")sc+=10;if(/\b(fed|fomc|ecb|bce|boj|boe|snb|inflation|cpi|ppi|rate|rates|taux|hike|war|iran|israel|nfp|payroll|jobs|gdp|pib|recession|tariff|powell|lagarde|crisis)\b/i.test(it.headline||""))sc+=5;return sc;}
+  function impScore(it){
+    var p=(it.priority||"").toLowerCase(), h=(it.headline||""), sc=0;
+    if(p==="high"||p==="urgent"||p==="breaking")sc+=20;            // importance FLAGUÉE par le desk = dominante
+    else if(p&&p!=="normal"&&p!=="low")sc+=10;
+    if(/\b(fed|fomc|ecb|bce|boj|boe|snb|rba|rbnz|boc|pboc|powell|lagarde)\b/i.test(h))sc+=7;          // banques centrales
+    if(/\b(inflation|cpi|ppi|pce|gdp|payrolls?|nfp|jobs|unemployment|hikes?|cuts?|recession|tariffs?|sanctions?)\b/i.test(h))sc+=6;  // macro data
+    if(/\b(war|strike|attack|killed|missile|invasion|iran|israel|russia|ukraine|opec|crude|oil)\b/i.test(h))sc+=6;  // géopolitique/énergie
+    if(/(price forecast|forecast:|technical|price analysis|levels to|to watch|outlook:|what to|things to|nears|dips|ticks|licks its wounds|eyes|chart)/i.test(h))sc-=22;  // prévisions/technique = JAMAIS "principal"
+    return sc;
+  }
   function renderNews(items){
-    items=(items||[]).slice(0,4); if(!items.length)return;
-    var best=-1,bi=0; items.forEach(function(it,i){var sc=impScore(it);if(sc>best){best=sc;bi=i;}});
+    items=(items||[]).filter(function(it){return it&&it.headline;});
+    if(!items.length)items=FALLBACK;
+    var scored=items.slice(0,40).map(function(it,i){return {it:it,sc:impScore(it),i:i};});
+    scored.sort(function(a,b){return b.sc-a.sc||a.i-b.i;});
+    var pick=[],seen={};
+    for(var j=0;j<scored.length&&pick.length<4;j++){
+      var key=(scored[j].it.headline||"").toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,28);
+      if(seen[key])continue; seen[key]=1; pick.push(scored[j].it);
+    }
+    if(!pick.length)return;
+    var impHead=pick[0].headline;
+    pick.sort(function(a,b){return (b.timestamp||0)-(a.timestamp||0);});
     feed.innerHTML="";
-    items.forEach(function(it,i){
-      var imp=(i===bi);
+    pick.forEach(function(it){
+      var imp=(it.headline===impHead);
       var tags=(it.tags||[]).slice(0,3).map(function(t){return '<span class="ntag">'+t+'</span>';}).join('');
       var row=document.createElement('div');row.className='nrow'+(imp?' imp':'');
       row.innerHTML='<span class="nt">'+fmtHM(it.timestamp||Date.now())+'</span>'+
