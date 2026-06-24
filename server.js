@@ -1546,7 +1546,9 @@ app.patch('/api/admin/chat/message/:id', requireSupport, async (req, res) => {
 // (demande utilisateur). Détection robuste : flag interne _briefing OU titre commençant par « PRIMER ».
 const _isPrimerNews = n => !!(n && (n._briefing || /^\s*\[?\s*primer\b/i.test(String(n.headline || ''))));
 app.get('/api/news', (_req, res) => {
-  const items = allNews.filter(n => !_isPrimerNews(n)).slice(0, 200);
+  // Les rapports DTP (primers/briefings) sont masqués du flux — SAUF le « DTP Daily US Opening News »
+  // qui doit apparaître dans l'onglet News (demande utilisateur), déroulé en rapport complet au clic.
+  const items = allNews.filter(n => !_isPrimerNews(n) || (n && n._reportType === 'DTP Daily')).slice(0, 200);
   items.forEach(_cleanItemMd);   // titres/headlines sans markdown brut, même pour un JS en cache
   res.json({ items, total: items.length });
 });
