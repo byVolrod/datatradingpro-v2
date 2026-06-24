@@ -6906,7 +6906,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
 // Rapport quotidien structuré (FR) couvrant la NUIT asiatique + la MATINÉE européenne jusqu'à l'ouverture US.
 // Modelé sur le FX Daily Recap mais en FORMAT SECTIONS (Aperçu, Séance européenne [Actions/FX/Obligations],
 // Matières premières, Commerce & Tarifs, Titres EU/US, Banques centrales, Géopolitique, Crypto, Asie-Pacifique, Données).
-const DTPD_VER = 1;
+const DTPD_VER = 2;
 let _dtpdGenBusy = false, _dtpdGenLock = 0;
 function _dtpdTodayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
