@@ -1104,6 +1104,27 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   display: none;
 }
 
+/* Bascule du flux News : « Essentiel » (filtré macro/FX, orange = filtre actif) / « Tout » (gris = filtre off) */
+.news-mode-toggle {
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 600; letter-spacing: 0.03em;
+  color: #ff7a00;
+  background: rgba(255,122,0,0.10);
+  border: 1px solid rgba(255,122,0,0.45);
+  border-radius: 4px;
+  padding: 3px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.news-mode-toggle:hover { background: rgba(255,122,0,0.18); border-color: rgba(255,122,0,0.7); }
+.news-mode-toggle--all {
+  color: var(--text3, #8a8f99);
+  background: transparent;
+  border-color: var(--border2, #2a2a32);
+}
+.news-mode-toggle--all:hover { color: #e9eaed; border-color: #3a3a44; background: rgba(255,255,255,0.03); }
+
 /* Section dropdown */
 .section-dropdown {
   position: absolute;

@@ -9867,6 +9867,12 @@ const _BANK_TEASER_RE = /\s[–—-]\s*(?:MUFG|Nomura|TD\s*Securities|TDS|Goldma
 // "MAGA Warrior…", "Complete and Total Endorsement…" — souvent mal catégorisés "Energy" → pas une news.
 const _POLITICAL_SPAM_RE = /\b(?:america first\s+(?:patriot|champion|warrior|fighter|polic\w*)|maga\s+(?:warrior|champion|patriot|king|queen|fighter)|complete\s+and\s+total\s+endorsement|make\s+america\s+great\s+again|(?:great|total)\s+honou?r\s+to\s+(?:fully\s+)?endorse|tremendous\s+(?:champion|advocate))\b/i;
 
+// Levier anti-bruit (mirror du front getFilteredItems) : actions single-stock (dividende/rachat)
+// + éditorial retail/clickbait + teaser de banque masqué par un suffixe horodaté accolé par la source.
+const _SINGLE_STOCK_RE = /\b(?:dividend\s+(?:increase|hike|raise|boost)|(?:increase|hike|raise|boost|declare|announce)s?\s+(?:a\s+|its\s+|quarterly\s+|semi-?annual\s+|annual\s+|special\s+)*dividend|(?:share|stock|equity)\s+(?:repurchase|buyback)|(?:repurchase|buyback)\s+program|stock\s+split|reauthoriz\w*\b[^.]{0,40}\b(?:repurchase|buyback))/i;
+const _CLICKBAIT_RE = /(?:here'?s\s+(?:why|how|what|the\s+reason)|what\s+(?:it|this|that)\s+means\s+for\s+you|why\s+you\s+(?:should|shouldn'?t|might|need)|what\s+you\s+need\s+to\s+know|retail\s+(?:investors?|traders?)\s+(?:think|are\s|keep|love|hate|can'?t)|buying\s+(?:it\s+)?anyway|the\s+truth\s+about|you\s+won'?t\s+believe)/i;
+function _stripTrailingMeta(h) { return String(h || '').replace(/\s+\d{1,2}:\d{2}(?:\s+[A-Za-z0-9$]+){0,12}\s*$/i, '').trim(); }
+
 function isNoise(headline) {
   const h = headline || '';
   // Social-media reposts and failed-scrape stubs — never market-moving
@@ -9882,6 +9888,10 @@ function isNoise(headline) {
   if (/^\s*currency strength chart\b/i.test(h))      return true;
   if (_BANK_TEASER_RE.test(h))                       return true;   // teaser de recherche de banque ("… – MUFG/Nomura/TD…") : pas une news
   if (_POLITICAL_SPAM_RE.test(h))                    return true;   // repost d'endorsement politique (America First/MAGA…) : pas une news
+  if (_SINGLE_STOCK_RE.test(h)) return true;                       // action d'une société (dividende/rachat) : pas macro/FX
+  if (_CLICKBAIT_RE.test(h))    return true;                       // éditorial retail / clickbait
+  const _hs = _stripTrailingMeta(h);
+  if (_hs !== h && _BANK_TEASER_RE.test(_hs)) return true;         // teaser banque masqué par un suffixe horodaté
   return REGIONAL_NOISE.test(h) || EDITORIAL_NOISE.test(h) || isDataStub(h);
 }
 
