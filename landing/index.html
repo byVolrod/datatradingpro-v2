@@ -779,6 +779,10 @@
   .hero::before{ background:radial-gradient(circle,rgba(212,162,51,.16) 0%,transparent 62%); }
   .hero::after{ background:radial-gradient(circle,rgba(232,180,120,.12) 0%,transparent 62%); }
   .final::before{ background:radial-gradient(ellipse,rgba(212,162,51,.12) 0%,transparent 65%); }
+  /* Reveal au scroll — légère dynamique sur les sections (cartes méthode / valeurs / pricing / drapeau) */
+  .reveal{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .6s cubic-bezier(.2,.7,.2,1);will-change:opacity,transform}
+  .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){.reveal{opacity:1!important;transform:none!important;transition:none!important}}
 </style>
 </head>
 <body>
@@ -1485,6 +1489,17 @@
     if(d&&d.monthly){var m=document.getElementById('pp-m');if(m)m.innerHTML=eur(d.monthly)+'<small> /mois</small>';}
     if(d&&d.annual){var a=document.getElementById('pp-a');if(a)a.innerHTML=eur(d.annual)+'<small> /an</small>';}
   }).catch(function(){});
+})();
+</script>
+<script>
+(function(){
+  if(!('IntersectionObserver' in window))return;
+  var els=[].slice.call(document.querySelectorAll('.proc .step, .vals .vcard, .plans .plan, .flag-card'));
+  if(!els.length)return;
+  els.forEach(function(e){e.classList.add('reveal');});
+  ['.proc','.vals','.plans'].forEach(function(gs){var g=document.querySelector(gs);if(!g)return;[].slice.call(g.querySelectorAll('.reveal')).forEach(function(c,i){c.style.transitionDelay=(Math.min(i,5)*80)+'ms';});});
+  var io=new IntersectionObserver(function(ents){ents.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});},{threshold:0.12,rootMargin:'0px 0px -6% 0px'});
+  els.forEach(function(e){io.observe(e);});
 })();
 </script>
 </body>
