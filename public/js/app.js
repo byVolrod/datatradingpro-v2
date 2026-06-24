@@ -2427,7 +2427,7 @@ function buildNewsItem(item) {
   const _hl = (item.headline || '').toLowerCase();
   const _ratesGuard = /\b(rate decision|rate hike|rate cut|interest rate|policy rate|overnight rate|benchmark rate|basis point|bps|inflation rate|cpi|pce|ppi|hicp)\b/i;
   const shownTags = new Set();
-  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs)
+  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport lui-même)
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || tag === item.category) continue;
