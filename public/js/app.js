@@ -6045,6 +6045,9 @@ function _renderFXDailyRecap(item) {
     body += '</tbody></table></div>';
   }
 
+  // ── Commentaires marquants (notable comments) — tout en bas du rapport ──
+  if (w.notableCommentsHtml) body += _sec('Commentaires marquants') + `<div class="fxdr-notable">${w.notableCommentsHtml}</div>`;
+
   content.innerHTML = `<div class="fxdr">${insightsHtml}<div class="fxdr-body">${body}</div></div>`;
   content.scrollTop = 0;
 }
@@ -6328,6 +6331,12 @@ function renderArlibReader(item) {
         if (!content) return;
         if (data.html && data.html.length > 80) {
           content.innerHTML = _parseHtmlToArlib(data.html, _header);
+          try {   // section « Commentaires marquants » du jour (notable comments), tout en bas du session wrap
+            const _ncDay = new Date(item.timestamp).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' });
+            fetch('/api/notable-comments?day=' + _ncDay).then(r => r.json()).then(nc => {
+              if (nc && nc.html && content && content.isConnected) content.innerHTML += `<div class="arlib-notable"><div class="arlib-notable-h">Commentaires marquants</div><div class="fxdr-notable">${nc.html}</div></div>`;
+            }).catch(() => {});
+          } catch {}
         } else {
           const desc = item.description || '';
           content.innerHTML = desc.length > 20
