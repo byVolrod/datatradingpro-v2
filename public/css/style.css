@@ -3429,7 +3429,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
      mobile la pilule restait PLANTÉE au milieu, SOUS les icônes de droite (chevauchement).
      On la repasse DANS LE FLUX flex : elle se place naturellement entre la gauche et la droite,
      se rétrécit si besoin (min-width 0 + overflow hidden) et ne peut plus être recouverte. */
-  .topbar-center { position: static; transform: none; flex: 1 1 auto; display: flex; align-items: center; padding: 0 6px; justify-content: flex-end; min-width: 0; overflow: hidden; }
+  /* flex-START : les icônes Journal + Calculatrice se calent juste après le logo et restent
+     TOUJOURS visibles ; si la place manque, c'est la pilule sentiment (dernière, à droite)
+     qui se rogne — plus jamais le Journal (qui se faisait clipper à gauche en flex-end). */
+  .topbar-center { position: static; transform: none; flex: 1 1 auto; display: flex; align-items: center; gap: 4px; padding: 0 6px; justify-content: flex-start; min-width: 0; overflow: hidden; }
   .topbar-right  { gap: 8px; padding-left: 10px; padding-right: 8px; flex: 0 0 auto; }
   .topbar-icon { width: 30px; height: 30px; flex: 0 0 auto; }
   .topbar-icon svg { width: 17px; height: 17px; }
@@ -3488,6 +3491,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   /* INSTITUTION / ANALYST : la barre recherche + filtres passe sur 2 lignes au lieu de déborder à droite */
   .br-toolbar, .arlib-toolbar { flex-wrap: wrap; }
   .br-search-wrap, .arlib-search-wrap { flex: 1 1 100%; }
+  /* …mais .br-filters était flex-shrink:0 + 3 selects à largeur FIXE (160+192+256 = 608px) → la
+     barre restait à 608px (plus large que l'écran) → le 3e filtre « Tous les instituts » était
+     coupé à droite (et inatteignable). On la met pleine largeur et les selects deviennent fluides
+     (2 par ligne, plus rien de rogné). */
+  .br-filters, .arlib-filters { flex: 1 1 100%; width: 100%; min-width: 0; }
+  .br-filters > *, .arlib-filters > * { flex: 1 1 calc(50% - 4px) !important; width: auto !important; min-width: 0 !important; }
 
   /* News item */
   .news-item { padding: 8px 10px; }
@@ -3504,6 +3513,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .topbar-right { gap: 4px; }
   .topbar-symbol-search { display: none; }
   #topbar-avatar { width: 28px; height: 28px; font-size: 11px; }
+  /* Sentiment réduit à sa pastille (label « NEUTRAL » masqué) → libère la place pour que les
+     icônes Journal + Calculatrice tiennent ; l'état reste lisible via la couleur du point. */
+  #sentiment-label-top { display: none; }
+  .topbar-sentiment { padding: 0 6px; }
   /* Cibles tactiles : garder les icônes topbar assez grandes au doigt */
   .topbar-icon { width: 34px; height: 34px; }
   /* Logo raccourci en "DTP" → libère ~110px pour que tout (dont le bouton AI) tienne */
