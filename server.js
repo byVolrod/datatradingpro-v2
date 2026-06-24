@@ -5115,7 +5115,7 @@ app.post('/api/report-insights', async (req, res) => {
   const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = 'v6fr:' + (id || clean.slice(0, 100));   // v6fr = bump : insights régénérés EN FRANÇAIS (les anciens, en anglais, sont ignorés)
+  const key = 'v7fr:' + (id || clean.slice(0, 100));   // v7fr = bump « zéro risque » : signal UNIQUEMENT si direction explicite dans le rapport (régénère les v6fr)
   if (_insightsCache.has(key)) return res.json({ insights: _finalizeInsights(_insightsCache.get(key)) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
@@ -5124,10 +5124,10 @@ app.post('/api/report-insights', async (req, res) => {
     if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: _finalizeInsights(stored) }); }
   } catch {}
   try {
-    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport (recherche de banque, note macro OU recap de session), génère 8 à 10 "insights" courts pour un carrousel "AI Insights", classés par importance.
-PRIORITÉ ABSOLUE — cartes par ACTIF avec SIGNAL : pour CHAQUE devise/paire réellement analysée ("USD/JPY","EUR/USD","GBP/USD","AUD/USD","USD/CAD","EUR/GBP","US Dollar","EUR","GBP","JPY","CHF","CAD","AUD","NZD"…) ET chaque actif clé ("Spot Gold","Brent Crude","S&P 500","US 10Y","Bitcoin"…), donne un signal dès que le rapport implique une direction : "BUY" (haussier), "SELL" (baissier) ou "NEUTRAL" (équilibré). C'est LE cœur de la valeur → vise le MAXIMUM de cartes signal, devises/paires EN PREMIER.
+    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport (recherche de banque, note macro OU recap de session), génère 4 à 10 "insights" courts pour un carrousel "AI Insights" (autant que le rapport justifie CLAIREMENT — ne remplis JAMAIS un quota), classés par importance.
+PRIORITÉ ABSOLUE — cartes par ACTIF avec SIGNAL : pour CHAQUE devise/paire réellement analysée ("USD/JPY","EUR/USD","GBP/USD","AUD/USD","USD/CAD","EUR/GBP","US Dollar","EUR","GBP","JPY","CHF","CAD","AUD","NZD"…) ET chaque actif clé ("Spot Gold","Brent Crude","S&P 500","US 10Y","Bitcoin"…), donne un signal UNIQUEMENT si le rapport énonce EXPLICITEMENT la direction (mot/verbe directionnel clair : « monte », « recule », « sous pression », « soutenu », « cap sur »…) : "BUY" (haussier), "SELL" (baissier) ou "NEUTRAL" (équilibré, explicitement sans biais). ⚠️ JUSTESSE AVANT QUANTITÉ : mieux vaut 4 cartes 100 % sûres que 10 incertaines. Devises/paires EN PREMIER.
 Ajoute 1 à 3 cartes NARRATIVES de contexte (géopolitique, tarifs, énergie, banques centrales, sentiment…) → asset=null ET signal=null.
-Si un actif est cité SANS direction nette → signal=null.
+Si un actif est cité SANS direction EXPLICITE, ou au MOINDRE doute → signal=null (ou n'inclus pas l'actif). N'EXTRAPOLE / ne DÉDUIS JAMAIS une direction qui n'est pas écrite noir sur blanc dans le rapport.
 Règles STRICTES :
 - JAMAIS d'actif générique vague ("FX","Markets","Macro","Forex","Currencies") → pour ceux-là, fais-en un insight narratif (asset=null).
 - "text": UNE SEULE phrase brève (max 20 mots), EN FRANÇAIS, orientée trader (le driver clé + l'impact). PAS de 2e phrase, pas de pavé. (Garde les tickers/codes tels quels : USD/JPY, S&P 500, Brent…)
