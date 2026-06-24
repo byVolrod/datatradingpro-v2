@@ -2533,7 +2533,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
 
   const cutoff = Date.now() - 40 * 24 * 60 * 60 * 1000;
   const items = allNews.filter(i =>
-    (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly' || i._reportType === 'FX Daily Recap') &&
+    (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly' || i._reportType === 'FX Daily Recap' || i._reportType === 'DTP Daily') &&
     i.timestamp > cutoff
   ).sort((a, b) => b.timestamp - a.timestamp);
 
@@ -2573,6 +2573,17 @@ app.get('/api/weekly-reports', async (_req, res) => {
     if (Date.now() - _fxrGenLock > 15 * 60 * 1000) {
       _fxrGenLock = Date.now();
       generateFXDailyRecap(true).catch(e => console.error('[FX Recap] auto-gen échec:', e.message));
+    }
+  }
+  // DTP DAILY « Point Marché · Ouverture US » : auto-génère s'il manque pour aujourd'hui (jour ouvré, après midi Paris).
+  const _dtpdDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay();
+  const _dtpdH   = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getHours();
+  if (_dtpdDow !== 0 && _dtpdDow !== 6 && _dtpdH >= 12) {
+    const _dtpdDay = _dtpdTodayKey();
+    const dtpdCurrent = items.find(i => i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === _dtpdDay);
+    if (!dtpdCurrent) {
+      generating = true;
+      if (Date.now() - _dtpdGenLock > 15 * 60 * 1000) { _dtpdGenLock = Date.now(); generateDTPDaily(true).catch(e => console.error('[DTP Daily] auto-gen échec:', e.message)); }
     }
   }
   items.forEach(_cleanItemMd);   // recap/GEW/FX : titres sans markdown brut, même pour un JS en cache
@@ -6891,6 +6902,203 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
   } finally { _fxrGenBusy = false; }
 }
 
+// ═══════════════ DTP DAILY — « Point Marché · Ouverture US » (chaque jour OUVRÉ ~12:00 Paris, façon pro) ═══════════════
+// Rapport quotidien structuré (FR) couvrant la NUIT asiatique + la MATINÉE européenne jusqu'à l'ouverture US.
+// Modelé sur le FX Daily Recap mais en FORMAT SECTIONS (Aperçu, Séance européenne [Actions/FX/Obligations],
+// Matières premières, Commerce & Tarifs, Titres EU/US, Banques centrales, Géopolitique, Crypto, Asie-Pacifique, Données).
+const DTPD_VER = 1;
+let _dtpdGenBusy = false, _dtpdGenLock = 0;
+function _dtpdTodayKey() {
+  const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  return p.getFullYear() + '-' + String(p.getMonth() + 1).padStart(2, '0') + '-' + String(p.getDate()).padStart(2, '0');
+}
+function _dtpdDateLabel(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+const _DTPD_KINDS = new Set(['bullets', 'paras', 'data']);
+function _dtpdSanitize(parsed, dayKey, dateLabel) {
+  const secs = [];
+  for (const s of (Array.isArray(parsed.sections) ? parsed.sections : [])) {
+    if (!s || !s.title) continue;
+    const kind = _DTPD_KINDS.has(s.kind) ? s.kind
+      : (Array.isArray(s.data) && s.data.length ? 'data' : (Array.isArray(s.paras) && s.paras.length ? 'paras' : 'bullets'));
+    const out = { title: _stripMd(String(s.title)).toUpperCase().slice(0, 60), kind };
+    if (kind === 'data') {
+      out.data = (Array.isArray(s.data) ? s.data : []).slice(0, 16).map(r => ({
+        release: _stripMd(String(r.release || r.metric || '')).slice(0, 96),
+        period: _stripMd(String(r.period || '')).slice(0, 24),
+        actual: _stripMd(String(r.actual != null ? r.actual : '')).slice(0, 24),
+        expected: _stripMd(String(r.expected != null ? r.expected : '')).slice(0, 24),
+        previous: _stripMd(String(r.previous != null ? r.previous : '')).slice(0, 24),
+      })).filter(r => r.release);
+      if (!out.data.length) continue;
+    } else if (kind === 'paras') {
+      out.paras = (Array.isArray(s.paras) ? s.paras : (s.text ? [s.text] : [])).map(p => _stripMd(String(p)).trim()).filter(p => p.length > 8).slice(0, 8);
+      if (!out.paras.length) continue;
+    } else {
+      out.items = (Array.isArray(s.items) ? s.items : []).map(p => _stripMd(String(p)).trim()).filter(p => p.length > 6).slice(0, 14);
+      if (!out.items.length) continue;
+    }
+    secs.push(out);
+  }
+  return {
+    v: DTPD_VER, day: dayKey, _ai: true, dateLabel,
+    title: _stripMd(String(parsed.title || 'Point Marché — Ouverture US')).slice(0, 160),
+    summary: _stripMd(String(parsed.summary || '')).slice(0, 700),
+    tags: (Array.isArray(parsed.tags) ? parsed.tags : []).map(t => _stripMd(String(t)).slice(0, 28)).filter(Boolean).slice(0, 10),
+    sections: secs.slice(0, 16),
+  };
+}
+function _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows }) {
+  const txt = i => String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
+  const pick = (re, n) => newsItems.filter(i => re.test(txt(i) + ' ' + (i.category || '') + ' ' + (i.country || ''))).slice(0, n).map(txt).filter(Boolean);
+  const secs = [];
+  const top = newsItems.slice(0, 6).map(txt).filter(Boolean);
+  if (top.length) secs.push({ title: 'APERÇU', kind: 'bullets', items: top });
+  const cb = pick(/\b(fed|fomc|ecb|bce|boj|boe|snb|rba|rbnz|boc|powell|lagarde|ueda|bailey|central bank|taux|rate)\b/i, 8);
+  if (cb.length) secs.push({ title: 'BANQUES CENTRALES', kind: 'bullets', items: cb });
+  const geo = pick(/\b(iran|israel|gaza|lebanon|ukraine|russia|war|guerre|hormuz|opec|sanction|missile|nuclear|trump|tariff)\b/i, 8);
+  if (geo.length) secs.push({ title: 'GÉOPOLITIQUE', kind: 'bullets', items: geo });
+  const com = pick(/\b(oil|crude|brent|wti|gold|or\b|gas|copper|opec|commodit|metal|lng)\b/i, 6);
+  if (com.length) secs.push({ title: 'MATIÈRES PREMIÈRES', kind: 'bullets', items: com });
+  if (dataRows && dataRows.length) {
+    secs.push({ title: 'DONNÉES ÉCONOMIQUES', kind: 'data', data: dataRows.slice(0, 14).map(e => ({
+      release: String(e.title || '').slice(0, 96), period: '', actual: String(e.actual || ''), expected: String(e.forecast || ''), previous: String(e.previous || '') })) });
+  }
+  return {
+    v: DTPD_VER, day: dayKey, _ai: false, dateLabel,
+    title: 'Point Marché — Ouverture US — ' + dateLabel,
+    summary: top.length ? ('À l\'ouverture US : ' + top.slice(0, 3).join(' · ')) : 'Synthèse des marchés à l\'ouverture US.',
+    tags: [], sections: secs,
+  };
+}
+
+async function generateDTPDaily(force = false) {
+  const dayKey = _dtpdTodayKey();
+  const _nowDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay();
+  if (_nowDow === 0 || _nowDow === 6) { console.log('[DTP Daily] week-end → pas de génération'); return null; }
+  if (!force) { const _h = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getHours(); if (_h < 12) return null; }   // publié à midi (Paris) — pas avant
+  const _isCur = i => i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dayKey;
+  if (!force && allNews.some(_isCur)) { console.log(`[DTP Daily] déjà généré (v${DTPD_VER}) pour ${dayKey}, skip.`); return allNews.find(_isCur) || null; }
+  if (_dtpdGenBusy) return null;
+  _dtpdGenBusy = true;
+  try {
+    const now = Date.now();
+    const winStart = now - 16 * 3600 * 1000;   // nuit Asie + matinée Europe jusqu'à l'ouverture US
+    const inWin = t => t >= winStart && t <= now + 5 * 60000;
+    const dateLabel = _dtpdDateLabel(dayKey);
+
+    const newsItems = allNews.filter(i => i && i.timestamp && inWin(i.timestamp)
+      && !i._briefing && !i._marketWrap && !i._fxr && !i._weekly && !i._dtpd && !_isPrimerNews(i))
+      .sort((a, b) => b.timestamp - a.timestamp);
+    const newsLines = newsItems.slice(0, 95).map(i => {
+      const tag = i.country || i.currency || i.category || '';
+      const h = String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
+      return h.length > 6 ? `- ${tag ? '[' + tag + '] ' : ''}${h.slice(0, 240)}` : '';
+    }).filter(Boolean);
+
+    let calItems = [];
+    try { calItems = await _buildTVCalendar(); } catch {}
+    if (!Array.isArray(calItems) || !calItems.length) calItems = (_tvCalCache.items || []);
+    const dataRows = (calItems || []).filter(e => e && e.actual && e.actual !== '' && inWin(e.timestamp || 0))
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+    const dataLines = dataRows.slice(0, 50).map(e => {
+      const c = _fxrCcyCtry[e.currency] || e.currency || '';
+      return `- [${c}] ${String(e.title || '').slice(0, 90)}: actual ${e.actual}${e.forecast ? ` (exp ${e.forecast})` : ''}${e.previous ? ` (prev ${e.previous})` : ''}`;
+    });
+
+    let csLine = '';
+    try {
+      const cs = await computeCurrencyStrength('today');
+      if (cs && cs.series) {
+        const parts = [];
+        for (const c of ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD']) {
+          const s = cs.series[c];
+          if (Array.isArray(s) && s.length) {
+            const last = s[s.length - 1];
+            const v = (last && typeof last === 'object') ? (last.v != null ? last.v : last.value) : last;
+            if (typeof v === 'number' && isFinite(v)) parts.push(`${c} ${v >= 0 ? '+' : ''}${v.toFixed(2)}%`);
+          }
+        }
+        if (parts.length) csLine = parts.join(', ');
+      }
+    } catch {}
+
+    let dtpd = null;
+    if (!(ai.backoffActive && ai.backoffActive())) {
+      const prompt = `Tu es le stratège macro & FX senior de « DataTradingPro ». Tu rédiges le rapport quotidien « Point Marché — Ouverture US », publié vers midi (Paris) : une synthèse PROFESSIONNELLE et structurée de la nuit asiatique et de la matinée européenne, jusqu'à l'ouverture des marchés américains, le ${dateLabel}.
+
+Rédige un rapport COMPLET et dense (même profondeur qu'un rapport analyste de référence). Appuie-toi STRICTEMENT sur les données fournies. Explique le POURQUOI des mouvements (relie prix ↔ données ↔ banques centrales ↔ matières premières ↔ géopolitique). FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre — n'utilise que ceux présents ci-dessous. N'inclus une section QUE si tu as de la matière réelle pour elle.
+
+Réponds UNIQUEMENT en JSON valide (aucun préambule, aucun markdown, aucun astérisque). Clés en anglais, VALEURS en français. Forme attendue :
+{
+  "title": "<titre d'une ligne résumant la séance, ex. 'Le dollar grimpe, le pétrole et l'or reculent avant l'ouverture US'>",
+  "summary": "<3 à 5 phrases : tonalité de risque, dollar, taux/obligations, matières premières, et ce que les marchés guettent>",
+  "tags": ["<5 à 10 thèmes courts>"],
+  "sections": [
+    { "title": "Aperçu", "kind": "bullets", "items": ["<puce de contexte d'ouverture>"] },
+    { "title": "Séance européenne — Actions", "kind": "paras", "paras": ["<paragraphe>"] },
+    { "title": "Séance européenne — Change (FX)", "kind": "paras", "paras": ["..."] },
+    { "title": "Séance européenne — Obligations", "kind": "paras", "paras": ["..."] },
+    { "title": "Matières premières", "kind": "paras", "paras": ["..."] },
+    { "title": "Commerce & Tarifs", "kind": "bullets", "items": ["..."] },
+    { "title": "Titres européens notables", "kind": "bullets", "items": ["..."] },
+    { "title": "Banques centrales", "kind": "bullets", "items": ["..."] },
+    { "title": "Titres US notables", "kind": "bullets", "items": ["..."] },
+    { "title": "Géopolitique", "kind": "bullets", "items": ["..."] },
+    { "title": "Crypto", "kind": "paras", "paras": ["..."] },
+    { "title": "Séance Asie-Pacifique", "kind": "paras", "paras": ["..."] },
+    { "title": "Titres Asie-Pacifique notables", "kind": "bullets", "items": ["..."] },
+    { "title": "Données économiques", "kind": "data", "data": [ { "release": "<intitulé officiel, NON traduit>", "period": "<ex. Mai 2026>", "actual": "...", "expected": "...", "previous": "..." } ] }
+  ]
+}
+
+Règles :
+- "kind" vaut "bullets" (liste à puces), "paras" (paragraphes) ou "data" (tableau de publications éco).
+- Section "Données économiques" (kind data) : UNIQUEMENT les chiffres du bloc DONNÉES ÉCONOMIQUES (actual/expected/previous) ; conserve les intitulés officiels tels quels.
+- Garde l'ordre des sections ci-dessus, mais OMETS toute section sans contenu réel. Vise 8 à 14 sections.
+- Aucun astérisque ni markdown dans le texte.
+
+=== TITRES & FLUX (nuit + matinée, ${newsLines.length}) ===
+${newsLines.join('\n').slice(0, 10000) || '(flux limité)'}
+
+=== DONNÉES ÉCONOMIQUES PUBLIÉES (réel / attendu / précédent) ===
+${dataLines.join('\n').slice(0, 4500) || '(aucune)'}
+
+=== FORCE DES DEVISES (intraday) ===
+${csLine || '(n/d)'}`;
+      try {
+        _aiReset();
+        const text = await ai.generateText(prompt, 7000);
+        aiNote('dtpdaily');
+        const m = text.match(/\{[\s\S]*\}/);
+        const parsed = m ? JSON.parse(m[0]) : null;
+        if (parsed && Array.isArray(parsed.sections) && parsed.sections.length) dtpd = _dtpdSanitize(parsed, dayKey, dateLabel);
+      } catch (e) { console.warn('[DTP Daily] IA échec → repli déterministe:', e.message); }
+    }
+    if (!dtpd || !dtpd.sections || !dtpd.sections.length) dtpd = _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows });
+
+    const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    const item = {
+      id: 'dtp-daily-' + dayKey + '-' + now,
+      headline: dtpd.title, description: dtpd.summary,
+      category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
+      priority: 'normal', tags: (dtpd.tags || []).slice(0, 8),
+      _briefing: true, _reportType: 'DTP Daily', _dtpd: dtpd,
+    };
+    allNews = [item, ...allNews.filter(i => i._reportType !== 'DTP Daily')].slice(0, 2000);
+    saveHistory();
+    auth.weeklyReportSave('dtpd-' + dayKey, item).catch(e => console.warn('[DTP Daily] persist échec:', e.message));
+    try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
+    console.log(`[DTP Daily] ${dtpd._ai ? 'IA' : 'fallback'} ${dayKey} — ${(dtpd.sections || []).length} sections`);
+    return item;
+  } catch (e) {
+    console.error('[DTP Daily] génération échouée:', e.message);
+    return null;
+  } finally { _dtpdGenBusy = false; }
+}
+
 // ═══════════════ ANALYSE D'ÉVÉNEMENT — événements macro MAJEURS (~1 h après, façon pro) ═══════════════
 // ~1 h après un événement macro MAJEUR (FOMC, BCE, BoE, NFP, CPI, PCE, PIB, ISM), on publie UNE ANALYSE structurée
 // (sections en MAJUSCULES → titres orange, façon primer DTP) DANS LE FLUX NEWS : ce qui a été décidé,
@@ -7078,6 +7286,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => _generateUSOpeningNew(false),          h: 14, m: 45, name: 'US Opening'            },
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
+    { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
     { fn: () => generateFXDailyRecap(false),          h: 22, m: 30, name: 'FX Daily Recap'        }, // rapport analyste du jour (façon pro)
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];

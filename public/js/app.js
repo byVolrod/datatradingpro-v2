@@ -5241,6 +5241,7 @@ const ARLIB_TYPE_ORDER = {
   'Weekly Market Recap':       1,
   'FX Daily Recap':            2,
   'FX Daily':                  2,
+  'DTP Daily':                 2,
   'Asia Opening Preparation':  3,
   'London Opening Preparation':4,
   'US Opening Preparation':    5,
@@ -5256,6 +5257,7 @@ const REPORT_PREFIX = {
   'Weekly Market Recap':        'Weekly Market Recap',
   'FX Daily Recap':             'FX Daily Recap',
   'FX Daily':                   'FX Daily',
+  'DTP Daily':                  'Point Marché · Ouverture US',
   // Sessions — nomenclature demandée
   'Asia Opening Preparation':   'Daily Asia-Pac Opening News',
   'London Opening Preparation': 'London Opening Preparation',
@@ -5351,13 +5353,17 @@ function getArlibItems() {
   const bestFxr = (_weeklyReports || [])
     .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
+  // …+ UN SEUL « DTP Daily » (Point Marché · Ouverture US), le plus récent — rapport analyste de midi (jours ouvrés).
+  const bestDtpd = (_weeklyReports || [])
+    .filter(i => i && i._reportType === 'DTP Daily' && i._dtpd && i.timestamp > cutoff)
+    .sort((a, b) => b.timestamp - a.timestamp)[0];
   // FX Daily (ING THINK) RETIRÉ de l'onglet Analyst (demande utilisateur) → on n'inclut plus _fxDaily.
   // Les 2 rapports hebdo (Weekly Market Recap + Global Economic Weekly) doivent rester GROUPÉS dans
   // la liste → on les ancre sur le timestamp du plus récent des deux (utilisé par _arlibReportSort).
   _wkAnchorTs = Math.max((best && best.timestamp) || 0, (bestGew && bestGew.timestamp) || 0);
   // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
   // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
-  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...(bestFxr ? [bestFxr] : []), ...wraps])
+  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...(bestDtpd ? [bestDtpd] : []), ...(bestFxr ? [bestFxr] : []), ...wraps])
     .sort(_arlibReportSort);
 }
 
@@ -6047,8 +6053,42 @@ function _wrLazyCharts(content) {
   charts.forEach(el => _wrChartObserver.observe(el));
 }
 
+// ── « Point Marché · Ouverture US » (DTP Daily) — rapport quotidien de midi, rendu en SECTIONS (puces / paragraphes / tableau de données) ──
+function _renderDTPDaily(item) {
+  const w = item._dtpd || {};
+  const titleEl    = document.getElementById('arlib-rnav-title');
+  const tagsScroll = document.getElementById('arlib-rtags-scroll');
+  const content    = document.getElementById('arlib-rcontent');
+  const navRight   = document.querySelector('#arlib-reader-view .arlib-rnav-right');
+  if (!content) return;
+  document.getElementById('arlib-ai-insights')?.remove();
+  if (titleEl) titleEl.textContent = _mdStrip(w.title || 'Point Marché — Ouverture US');
+  if (navRight) navRight.innerHTML = `<span class="arlib-dtp-badge">DTP</span>`;
+  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
+  const _rdateEl = document.getElementById('arlib-rdate');
+  if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
+
+  const _sec = t => `<div class="fxdr-section">${_wrEsc(t)}</div>`;
+  let body = '';
+  if (w.summary) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(w.summary)}</div>`;
+  (w.sections || []).forEach(s => {
+    if (!s || !s.title) return;
+    if (s.kind === 'data' && (s.data || []).length) {
+      body += _sec(s.title) + `<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr><th>Publication</th><th>Période</th><th class="num">Réel</th><th class="num">Att.</th><th class="num">Préc.</th></tr></thead><tbody>`;
+      s.data.forEach(r => { body += `<tr><td>${_wrEsc(r.release)}</td><td>${_wrEsc(r.period || '')}</td><td class="num">${_wrEsc(r.actual || '')}</td><td class="num">${_wrEsc(r.expected || '')}</td><td class="num">${_wrEsc(r.previous || '')}</td></tr>`; });
+      body += `</tbody></table></div>`;
+    } else if (s.kind === 'paras' && (s.paras || []).length) {
+      body += _sec(s.title) + `<div class="dtpd-paras">${s.paras.map(p => `<p>${_wrInline(p)}</p>`).join('')}</div>`;
+    } else if ((s.items || []).length) {
+      body += _sec(s.title) + `<ul class="dtpd-bullets">${s.items.map(it => `<li>${_wrInline(it)}</li>`).join('')}</ul>`;
+    }
+  });
+  content.innerHTML = body || '<div class="fxdr-exec">Rapport en cours de génération…</div>';
+}
+
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
+  if (item && item._dtpd)   { _renderDTPDaily(item); return; }      // ← « Point Marché · Ouverture US »
   if (item && item._fxr)    { _renderFXDailyRecap(item); return; }  // ← rendu riche FX Daily Recap (façon pro)
   if (item && item._weekly) { _renderWeeklyRecap(item); return; }   // ← rendu riche Weekly Recap
   document.getElementById('arlib-insights-panel')?.remove(); // reset any previous insights
