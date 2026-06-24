@@ -22,10 +22,17 @@
  */
 
 const SENDER = 'markets@newsletter.kbc.be';
-// Sujets ciblés : « KBC Sunrise » et « (KBC) Weekly Overview / Aperçu hebdomadaire (de KBC) ».
-const SUBJECT_RE = /kbc\s*sunrise|weekly\s*overview|aper[çc]u\s*hebdomadaire/i;
+// Sujets ciblés : « KBC Sunrise », « KBC Sunset » et « (KBC) Weekly Overview / Aperçu hebdomadaire ».
+const SUBJECT_RE = /kbc\s*sun(rise|set)|weekly\s*overview|aper[çc]u\s*hebdomadaire/i;
 
 function _enabled() { return !!(process.env.KBC_MAIL_USER && process.env.KBC_MAIL_PASS); }
+
+// Rapports KBC ajoutés à la main (PDF publics multimediafiles.kbcgroup.eu) — visibles MÊME sans IMAP
+// configuré. ⚠️ Le lien KBC « daily » sert la DERNIÈRE édition : rafraîchir/retirer à la main au besoin
+// (un seed peut doublonner un futur item IMAP du même rapport → le retirer une fois l'IMAP en place).
+const SEEDS = [
+  { title: 'KBC Sunset', url: 'https://multimediafiles.kbcgroup.eu/ng/published/KBC/PDF/MARKTENZAAL/KBCCORP_Reports_Daily_Sunset(2).pdf', date: Date.UTC(2026, 5, 24, 15, 46, 0) },
+];
 
 function _id(seed) {
   return 'kbcmail-' + Buffer.from(String(seed)).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-18);
@@ -96,29 +103,29 @@ async function getKbcMailReports() {
 
 /**
  * Branche les newsletters KBC dans la Map `merged` de _fetchBankResearch (server.js), au même format
- * d'item que les autres rapports Institution. No-op si désactivé. Ne jette jamais (capturé en amont aussi).
+ * d'item que les autres rapports Institution. Ajoute aussi les SEEDS manuels (même sans IMAP). Ne jette jamais.
  */
 async function fetchInto(merged) {
-  if (!_enabled() || !merged || typeof merged.set !== 'function') return;
-  const reports = await getKbcMailReports();
+  if (!merged || typeof merged.set !== 'function') return;
   let added = 0, skipped = 0;
-  for (const r of reports) {
-    if (!r.url) { skipped++; console.warn('[KBC-mail] lien « version PDF » introuvable pour :', r.title); continue; }
+  const _add = (r, extra) => {
+    if (!r.url) return;
     const id = _id(r.url);
-    if (merged.has(id)) continue;
-    merged.set(id, {
-      id,
-      title: r.title,
-      url: r.url,
-      timestamp: r.date,
-      categories: ['Macro'],
-      description: '',
-      institution: 'KBC',
-      _source: 'kbc',
-      _pdf: true,
-      _viaMail: true,
-    });
+    if (merged.has(id)) return;
+    merged.set(id, { id, title: r.title, url: r.url, timestamp: r.date, categories: ['Macro'], description: '', institution: 'KBC', _source: 'kbc', _pdf: true, ...extra });
     added++;
+  };
+
+  // 1) Seeds manuels — toujours ajoutés (même si l'IMAP n'est pas configuré)
+  for (const s of SEEDS) _add(s, { _seed: true });
+
+  // 2) Newsletters reçues par e-mail — uniquement si l'App Password est configuré (IMAP read-only)
+  if (_enabled()) {
+    const reports = await getKbcMailReports();
+    for (const r of reports) {
+      if (!r.url) { skipped++; console.warn('[KBC-mail] lien « version PDF » introuvable pour :', r.title); continue; }
+      _add(r, { _viaMail: true });
+    }
   }
   if (added || skipped) console.log(`[KBC-mail] +${added} item(s) KBC ajouté(s)${skipped ? `, ${skipped} sans lien PDF (à diagnostiquer)` : ''}`);
 }
