@@ -722,8 +722,8 @@
   .dnav-pill{font-family:var(--tight);font-weight:800;font-size:9.5px;padding:4px 7px;border-radius:6px}
   .dnav-pill.ai{background:rgba(0,200,110,.16);border:1px solid rgba(0,200,110,.4);color:#22d37a}
   .dnav-wic{width:18px;height:18px;color:#8a8f99;flex:0 0 auto}.dnav-wic svg{width:100%;height:100%}
-  .dnav-av{width:21px;height:21px;border-radius:50%;flex:0 0 auto;background:linear-gradient(135deg,#3a3f4a,#22252c);border:1px solid #3a3f4a;overflow:hidden}
-  .dnav-av img{width:100%;height:100%;object-fit:cover;display:block;filter:brightness(1.12) contrast(1.05)}
+  .dnav-av{width:21px;height:21px;border-radius:50%;flex:0 0 auto;background:#e9ebef;border:1px solid rgba(255,255,255,.4);overflow:hidden;box-shadow:0 0 0 1px rgba(0,0,0,.3)}
+  .dnav-av img,.dnav-av svg{width:100%;height:100%;object-fit:cover;display:block}
   .dnav-wic.bell{position:relative}
   .dnav-wic.bell > svg{transform-origin:50% 4px;animation:dwbell 3.4s ease .5s 3}
   .dwbadge{position:absolute;top:-4px;right:-4px;min-width:12px;height:12px;padding:0 2px;box-sizing:border-box;border-radius:7px;background:#ff3b30;border:1.5px solid #0e0e11;color:#fff;font-family:var(--tight);font-weight:800;font-size:7.5px;line-height:9px;text-align:center;animation:dwpop .5s cubic-bezier(.34,1.7,.5,1) .5s both,dwping 2.4s ease 1s 3}
@@ -731,6 +731,11 @@
   @keyframes dwpop{0%{transform:scale(0)}100%{transform:scale(1)}}
   @keyframes dwping{0%{box-shadow:0 0 0 0 rgba(255,59,48,.6)}70%{box-shadow:0 0 0 6px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
   @media (prefers-reduced-motion:reduce){.dnav-wic.bell > svg,.dwbadge{animation:none}}
+  @keyframes dwpop99{0%{transform:scale(.5)}55%{transform:scale(1.38)}100%{transform:scale(1)}}
+  @keyframes dwping99{0%{transform:scale(.6);opacity:.75}100%{transform:scale(2.4);opacity:0}}
+  .dwbadge.nc99{min-width:16px;animation:dwpop99 .5s cubic-bezier(.34,1.7,.5,1)}
+  .dnav-wic.bell.nc-alert > svg{animation:dwbell .8s ease 2 !important}
+  .dnav-wic.bell.nc-alert::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:1.5px solid #ff5b52;animation:dwping99 .9s ease-out}
   .dtabs{display:flex;gap:2px;padding:0 12px;background:#0c0c0e;border-bottom:1px solid #1b1b20;overflow:hidden}
   .dtabs span{font-family:var(--tight);font-weight:600;font-size:10px;letter-spacing:.03em;color:#6c6f78;padding:8px 9px;white-space:nowrap;position:relative}
   .dtabs span::before{content:"›";margin-right:3px;color:#4a4d55}
@@ -835,9 +840,9 @@
         <span class="dnav-fill"></span>
         <span class="dnav-pill ai">AI</span>
         <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h2l2-6 4 12 3-9 2 3h3"/></svg></span>
-        <span class="dnav-wic bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dwbadge">2</span></span>
+        <span class="dnav-wic bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dwbadge" id="dwbadge">1</span></span>
         <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8 9 9 0 0 1-4-1l-5 1 1-4.5a8.4 8.4 0 0 1-1-4A8.5 8.5 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg></span>
-        <span class="dnav-av"><img src="/img/avatar-trader.jpg" alt="" width="21" height="21"></span>
+        <span class="dnav-av"><svg viewBox="0 0 40 40" width="21" height="21"><defs><radialGradient id="avg" cx="50%" cy="34%" r="74%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#c9ccd3"/></radialGradient></defs><rect width="40" height="40" fill="url(#avg)"/><circle cx="20" cy="15" r="7.2" fill="#6b7280"/><path d="M6.5 37C6.5 27 12.5 23.5 20 23.5S33.5 27 33.5 37Z" fill="#6b7280"/></svg></span>
       </div>
       <!-- 9 ONGLETS -->
       <div class="dtabs"><span class="on">NEWS</span><span>CALENDAR</span><span>FX LIST</span><span>INSTITUTION</span><span>ANALYST</span><span>BIAS</span><span>WEEK AHEAD</span><span>TAUX</span><span>BANK</span></div>
@@ -1421,8 +1426,9 @@
   // ── Historique Risk Sentiment (mini-chart live, façon desk) ──
   (function(){
     var svg=document.getElementById('riskHist'); if(!svg)return;
-    var N=30,W=200,H=44,P=3,vals=[],v=-25,i;
-    for(i=0;i<N;i++){ v=Math.max(-92,Math.min(92,v+(Math.random()*38-19))); vals.push(v); }
+    var N=30,W=200,H=44,P=3,vals=[],i;
+    for(i=0;i<N;i++){ vals.push(Math.max(-92,Math.min(92, Math.round(Math.sin(i*0.55)*55 + (Math.random()*30-15)) ))); }
+    var v=vals[vals.length-1];   // cycles risk-on / risk-off
     function draw(){
       var z=Math.round((P+0.5*(H-2*P))*10)/10, bw=(W-2*P)/N, barW=Math.max(1,bw-Math.min(1.6,bw*0.24)), bars='';
       vals.forEach(function(x,k){
@@ -1433,7 +1439,17 @@
       svg.innerHTML='<line x1="'+P+'" y1="'+z+'" x2="'+(W-P)+'" y2="'+z+'" stroke="#2a2a32" stroke-width="1"/>'+bars;
     }
     draw();
-    setInterval(function(){ v=Math.max(-92,Math.min(92,v+(Math.random()*38-19))); vals.push(v); if(vals.length>N)vals.shift(); draw(); },3000);
+    setInterval(function(){ v=Math.max(-92,Math.min(92, v*0.8+(Math.random()*70-35) )); vals.push(Math.round(v)); if(vals.length>N)vals.shift(); draw(); },3000);
+  })();
+
+  // ── Notifs : compteur qui monte jusqu'à 99 au chargement puis « 99+ » + alerte cloche ──
+  (function(){
+    var b=document.getElementById('dwbadge'), bell=document.querySelector('.dnav-wic.bell'); if(!b)return;
+    var n=1; b.textContent=n;
+    var t=setInterval(function(){ n+=Math.max(1,Math.round((99-n)*0.14));
+      if(n>=99){ clearInterval(t); b.textContent='99+'; b.classList.add('nc99'); if(bell){ bell.classList.add('nc-alert'); setTimeout(function(){bell.classList.remove('nc-alert');},1600);} }
+      else b.textContent=n;
+    },26);
   })();
 
   // ── Rapport Goldman Sachs (Recherche institutionnelle) : 1 rapport/jour, date du jour ──
