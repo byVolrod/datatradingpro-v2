@@ -421,7 +421,9 @@
 
   /* === Répliques fidèles des composants du desk === */
 
-.dk-news-feed{font-family:var(--font,'Inter',sans-serif);background:#0a0a0c;border:1px solid #16161a;border-radius:9px;overflow:hidden;width:100%;}
+.dk-news-feed{font-family:var(--font,'Inter',sans-serif);background:#0a0a0c;border:1px solid #16161a;border-radius:9px;overflow:hidden;width:100%;flex:1;display:flex;flex-direction:column;}
+.dk-news-feed > .dk-news-head{flex:0 0 auto;}
+.dk-news-feed > .dk-news-row{flex:1 1 0;min-height:0;}
 .dk-news-head{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;background:#0c0c0e;border-bottom:1px solid #1c1c20;}
 .dk-news-title{display:flex;align-items:center;gap:6px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#cfd2d8;}
 .dk-news-live{display:inline-flex;align-items:center;gap:4px;font-family:var(--mono,monospace);font-size:8.5px;font-weight:700;letter-spacing:.08em;color:#ff3d00;}
@@ -702,8 +704,8 @@
   .dk-anl-more-row:last-child{border-bottom:0}
   .dk-anl-more-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .dk-anl-more-d{flex-shrink:0;font-family:var(--mono,monospace);font-size:8.5px;color:#62656e}
-  .mods2-r > .bcard:nth-child(3), .mods2-r > .bcard:nth-child(4){display:flex;flex-direction:column}
-  .mods2-r > .bcard:nth-child(3) > .vis, .mods2-r > .bcard:nth-child(4) > .vis{flex:1;min-height:0;display:flex;flex-direction:column}
+  .mods2-r > .bcard:nth-child(1), .mods2-r > .bcard:nth-child(3), .mods2-r > .bcard:nth-child(4){display:flex;flex-direction:column}
+  .mods2-r > .bcard:nth-child(1) > .vis, .mods2-r > .bcard:nth-child(3) > .vis, .mods2-r > .bcard:nth-child(4) > .vis{flex:1;min-height:0;display:flex;flex-direction:column}
   .mods2-r > .bcard:nth-child(4) .dk-analyst-card{flex:0 0 auto}
 
   /* ── Maquette « vrai desk » : nav + 9 onglets + World Clock ── */
@@ -989,6 +991,13 @@
     <div class="dk-news-body">
       <div class="dk-news-text">USD/JPY tops 158 as BoJ leaves policy unchanged</div>
       <div class="dk-news-meta"><span class="dk-news-tag">BoJ</span><span class="dk-news-tag">JPY</span></div>
+    </div>
+  </div>
+  <div class="dk-news-row">
+    <span class="dk-news-time">13:22</span>
+    <div class="dk-news-body">
+      <div class="dk-news-text">BoE holds Bank Rate, warns on sticky services inflation</div>
+      <div class="dk-news-meta"><span class="dk-news-tag">BoE</span><span class="dk-news-tag">Inflation</span></div>
     </div>
   </div>
 </div>
