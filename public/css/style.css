@@ -5425,6 +5425,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
 .dtpd-paras p { font-size: 13px; color: #cfcfd5; line-height: 1.7; margin: 0 0 10px; }
 .dtpd-paras p:last-child { margin: 0; }
 .dtpd-paras p strong { color: #f3f3f5; font-weight: 600; }
+.dtpd-lead { font-size: 14.5px; font-weight: 600; color: #e8e8ec; line-height: 1.5; margin: 2px 0 18px; padding-left: 11px; border-left: 2px solid rgba(247,148,29,.55); }
 .fxdr-table td.fxdr-cat { font-weight: 600; color: #cfcfd4; white-space: nowrap; }
 .fxdr-table .bias-badge { display: inline-block; padding: 1px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; }
 @media (max-width: 720px) { .fxdr-grid { grid-template-columns: 1fr; } }

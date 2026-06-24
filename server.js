@@ -7025,6 +7025,10 @@ async function generateDTPDaily(force = false) {
       }
     } catch {}
 
+    // Données DÉJÀ calculées sur le desk (Smart Bias hebdo) → ancrage SUPPLÉMENTAIRE pour l'IA (moins d'invention, 1 seul appel).
+    let biasLine = '';
+    try { if (_smartBias && _smartBias.conclusion) biasLine = Object.entries(_smartBias.conclusion).map(([c, v]) => c + '=' + v).join(', '); } catch {}
+
     let dtpd = null;
     if (!(ai.backoffActive && ai.backoffActive())) {
       const prompt = `Tu es le stratège macro & FX senior de « DataTradingPro ». Tu rédiges le rapport quotidien « Point Marché — Ouverture US », publié vers midi (Paris) : une synthèse PROFESSIONNELLE et structurée de la nuit asiatique et de la matinée européenne, jusqu'à l'ouverture des marchés américains, le ${dateLabel}.
@@ -7067,7 +7071,10 @@ ${newsLines.join('\n').slice(0, 10000) || '(flux limité)'}
 ${dataLines.join('\n').slice(0, 4500) || '(aucune)'}
 
 === FORCE DES DEVISES (intraday) ===
-${csLine || '(n/d)'}`;
+${csLine || '(n/d)'}
+
+=== SMART BIAS DTP — biais directionnel hebdo par devise (déjà calculé sur le desk, à utiliser comme contexte) ===
+${biasLine || '(n/d)'}`;
       try {
         _aiReset();
         const text = await ai.generateText(prompt, 7000);
@@ -7080,9 +7087,12 @@ ${csLine || '(n/d)'}`;
     if (!dtpd || !dtpd.sections || !dtpd.sections.length) dtpd = _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows });
 
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    const _frMon = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+    const _dp = dayKey.split('-').map(Number);
+    dtpd.reportName = 'DTP Daily US Opening News - ' + _dp[2] + ' ' + _frMon[_dp[1] - 1] + ' ' + _dp[0];   // titre façon PMT, DTP + FR
     const item = {
       id: 'dtp-daily-' + dayKey + '-' + now,
-      headline: dtpd.title, description: dtpd.summary,
+      headline: dtpd.reportName, description: dtpd.title || dtpd.summary,
       category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
       priority: 'normal', tags: (dtpd.tags || []).slice(0, 8),
       _briefing: true, _reportType: 'DTP Daily', _dtpd: dtpd,
