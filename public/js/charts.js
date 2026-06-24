@@ -1337,7 +1337,7 @@ function buildRiskHistoryChart(containerId, data) {
   // Axe Y : Sentiment (%) de -100 à +100
   const yRenderer = am5xy.AxisRendererY.new(root, { opposite: false, inside: false, minWidth: 40 });   // axe Y (Sentiment %) à GAUCHE
   yRenderer.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9, paddingLeft: 4 });
-  yRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.45, strokeWidth: 1, strokeDasharray: [] });   // ligne CONTINUE fine (au lieu de pointillée) — « 0% »
+  yRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeWidth: 1, strokeDasharray: [] });   // grille continue TRÈS discrète (le « 0% » = l'axe orange fin ci-dessous)
   const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
     min: -100, max: 100, strictMinMax: true, numberFormat: "#'%'", renderer: yRenderer,
   }));
@@ -1347,7 +1347,7 @@ function buildRiskHistoryChart(containerId, data) {
 
   // Ligne ZÉRO orange (signature DTP)
   const zero = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
-  zero.get('grid').setAll({ stroke: am5.color(RH_ZERO), strokeWidth: 1.5, strokeOpacity: 0.9 });
+  zero.get('grid').setAll({ stroke: am5.color(RH_ZERO), strokeWidth: 1, strokeOpacity: 0.8 });   // « 0% » : trait fin (affiné)
   zero.get('label')?.set('visible', false);
 
   // Barres : 1/jour, vert (≥0 = risk-on) / rouge (<0 = risk-off)
