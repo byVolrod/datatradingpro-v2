@@ -2155,6 +2155,27 @@ function buildNewsItem(item) {
         }).join('');
         return `<ul class="article-points article-points--clean">${html}</ul>`;
       }
+      // ── DTP DAILY US OPENING NEWS : rapport structuré COMPLET déroulé dans le flux (sections : puces / paragraphes / données) ──
+      if (item._dtpd) {
+        const w = item._dtpd;
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const bold = s => esc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        let h = '';
+        if (w.summary) h += `<ul class="article-points article-points--clean"><li class="ip-head">Synthèse</li><li>${bold(w.summary)}</li></ul>`;
+        (w.sections || []).forEach(s => {
+          if (!s || !s.title) return;
+          let lis = `<li class="ip-head">${esc(s.title)}</li>`;
+          if (s.kind === 'data' && (s.data || []).length) {
+            s.data.forEach(r => { lis += `<li><strong>${esc(r.release)}</strong>${r.actual ? ' : ' + esc(r.actual) : ''}${r.expected ? ' (att. ' + esc(r.expected) + ')' : ''}${r.previous ? ' (préc. ' + esc(r.previous) + ')' : ''}</li>`; });
+          } else if (s.kind === 'paras' && (s.paras || []).length) {
+            s.paras.forEach(p => { lis += `<li>${bold(p)}</li>`; });
+          } else {
+            (s.items || []).forEach(it => { lis += `<li>${bold(it)}</li>`; });
+          }
+          h += `<ul class="article-points article-points--clean">${lis}</ul>`;
+        });
+        return h || `<ul class="article-points article-points--clean"><li>Rapport en cours de génération…</li></ul>`;
+      }
       // ── PRIMER: structured bullet display ──
       if (isPrimer) {
         const bullets = parsePrimerBullets(item.description);
@@ -5354,17 +5375,15 @@ function getArlibItems() {
   const bestFxr = (_weeklyReports || [])
     .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
-  // …+ UN SEUL « DTP Daily » (Point Marché · Ouverture US), le plus récent — rapport analyste de midi (jours ouvrés).
-  const bestDtpd = (_weeklyReports || [])
-    .filter(i => i && i._reportType === 'DTP Daily' && i._dtpd && i.timestamp > cutoff)
-    .sort((a, b) => b.timestamp - a.timestamp)[0];
+  // « DTP Daily US Opening News » : volontairement ABSENT de l'onglet Analyst (demande utilisateur) →
+  // il vit UNIQUEMENT dans le flux News (Realtime Headline Ticker), déroulé en rapport complet au clic.
   // FX Daily (ING THINK) RETIRÉ de l'onglet Analyst (demande utilisateur) → on n'inclut plus _fxDaily.
   // Les 2 rapports hebdo (Weekly Market Recap + Global Economic Weekly) doivent rester GROUPÉS dans
   // la liste → on les ancre sur le timestamp du plus récent des deux (utilisé par _arlibReportSort).
   _wkAnchorTs = Math.max((best && best.timestamp) || 0, (bestGew && bestGew.timestamp) || 0);
   // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
   // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
-  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...(bestDtpd ? [bestDtpd] : []), ...(bestFxr ? [bestFxr] : []), ...wraps])
+  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...(bestFxr ? [bestFxr] : []), ...wraps])
     .sort(_arlibReportSort);
 }
 
