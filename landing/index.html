@@ -192,19 +192,20 @@
   .tp-h .badge i{width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:bl 1.6s infinite}
   /* news feed */
   #feed{display:flex;flex-direction:column;gap:0}
-  .nrow{padding:9px 0;border-bottom:1px solid #141418;font-size:11.5px;color:var(--text2);display:flex;gap:9px;align-items:flex-start;animation:slidein .5s ease}
+  .nrow{padding:9px 9px;border-bottom:1px solid #141418;font-size:11.5px;color:var(--text2);display:flex;gap:9px;align-items:flex-start;animation:slidein .5s ease;border-radius:6px;transition:background .15s}
   @keyframes slidein{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
-  .nrow .nt{color:var(--text3);flex:0 0 38px;font-family:var(--mono);font-size:10px;padding-top:1px}
-  .nrow .ntx{flex:1;line-height:1.4}
-  .nrow .ntx b{color:var(--text);font-weight:600}
-  .imp{font-size:8.5px;font-weight:800;padding:1px 6px;border-radius:4px;align-self:flex-start;letter-spacing:.04em;margin-top:1px;font-family:var(--tight)}
-  .imp.h{color:#1c1205;background:var(--orange2)}
-  .imp.m{color:var(--amber);border:1px solid rgba(255,179,0,.4)}
+  .nrow:hover{background:rgba(255,255,255,.03)}
+  .nrow .nt{color:var(--text3);flex:0 0 34px;font-family:var(--mono);font-size:10px;padding-top:1px}
+  .nrow .ntx{flex:1;min-width:0;line-height:1.4}
+  .nrow .nhead{color:var(--text);font-weight:600;font-size:11.5px;line-height:1.35}
   .ntags{display:flex;gap:5px;align-items:center;margin-top:6px;flex-wrap:wrap}
   .ntag{font-family:var(--tight);font-size:8px;font-weight:600;color:#c6c9d1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 6px}
-  .ninfo{display:inline-flex;align-items:center;gap:3px;font-family:var(--tight);font-size:8px;font-weight:600;color:#a9863a;border:1px solid rgba(184,134,11,.4);border-radius:4px;padding:2px 6px}
-  .nreact{font-size:9px;color:#62656e;margin-left:1px}
-  .flash{color:var(--green);font-size:8.5px;font-weight:800;font-family:var(--tight)}
+  /* news IMPORTANTE (façon desk) : accent + hover ROUGE + icône d'alerte */
+  .nrow.imp{box-shadow:inset 2px 0 0 #ff4d4d;background:rgba(255,77,77,.05)}
+  .nrow.imp:hover{background:rgba(255,77,77,.11)}
+  .nrow.imp .nhead{color:#ff8c7d}
+  .nrow-al{display:inline-flex;vertical-align:-2px;color:#ff4d4d;margin-right:5px}
+  .nrow-al svg{width:12px;height:12px;display:block}
   .tp-r{display:flex;flex-direction:column;gap:14px}
   /* gauge */
   .gauge-wrap{text-align:center}
@@ -714,7 +715,15 @@
   .dnav-pill{font-family:var(--tight);font-weight:800;font-size:9.5px;padding:4px 7px;border-radius:6px}
   .dnav-pill.ai{background:rgba(0,200,110,.16);border:1px solid rgba(0,200,110,.4);color:#22d37a}
   .dnav-wic{width:18px;height:18px;color:#8a8f99;flex:0 0 auto}.dnav-wic svg{width:100%;height:100%}
-  .dnav-av{width:21px;height:21px;border-radius:50%;flex:0 0 auto;background:linear-gradient(135deg,#3a3f4a,#22252c);border:1px solid #3a3f4a}
+  .dnav-av{width:21px;height:21px;border-radius:50%;flex:0 0 auto;background:linear-gradient(135deg,#3a3f4a,#22252c);border:1px solid #3a3f4a;overflow:hidden}
+  .dnav-av img{width:100%;height:100%;object-fit:cover;display:block}
+  .dnav-wic.bell{position:relative}
+  .dnav-wic.bell > svg{transform-origin:50% 4px;animation:dwbell 3.4s ease .5s 3}
+  .dwbadge{position:absolute;top:-4px;right:-4px;min-width:12px;height:12px;padding:0 2px;box-sizing:border-box;border-radius:7px;background:#ff3b30;border:1.5px solid #0e0e11;color:#fff;font-family:var(--tight);font-weight:800;font-size:7.5px;line-height:9px;text-align:center;animation:dwpop .5s cubic-bezier(.34,1.7,.5,1) .5s both,dwping 2.4s ease 1s 3}
+  @keyframes dwbell{0%,68%,100%{transform:rotate(0)}72%{transform:rotate(14deg)}76%{transform:rotate(-12deg)}80%{transform:rotate(9deg)}84%{transform:rotate(-6deg)}88%{transform:rotate(3deg)}}
+  @keyframes dwpop{0%{transform:scale(0)}100%{transform:scale(1)}}
+  @keyframes dwping{0%{box-shadow:0 0 0 0 rgba(255,59,48,.6)}70%{box-shadow:0 0 0 6px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
+  @media (prefers-reduced-motion:reduce){.dnav-wic.bell > svg,.dwbadge{animation:none}}
   .dtabs{display:flex;gap:2px;padding:0 12px;background:#0c0c0e;border-bottom:1px solid #1b1b20;overflow:hidden}
   .dtabs span{font-family:var(--tight);font-weight:600;font-size:10px;letter-spacing:.03em;color:#6c6f78;padding:8px 9px;white-space:nowrap;position:relative}
   .dtabs span::before{content:"›";margin-right:3px;color:#4a4d55}
@@ -819,9 +828,9 @@
         <span class="dnav-fill"></span>
         <span class="dnav-pill ai">AI</span>
         <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h2l2-6 4 12 3-9 2 3h3"/></svg></span>
-        <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+        <span class="dnav-wic bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dwbadge">2</span></span>
         <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8 9 9 0 0 1-4-1l-5 1 1-4.5a8.4 8.4 0 0 1-1-4A8.5 8.5 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg></span>
-        <span class="dnav-av"></span>
+        <span class="dnav-av"><img src="/img/testimonial-trader.jpg" alt="" width="21" height="21"></span>
       </div>
       <!-- 9 ONGLETS -->
       <div class="dtabs"><span class="on">NEWS</span><span>CALENDAR</span><span>FX LIST</span><span>INSTITUTION</span><span>ANALYST</span><span>BIAS</span><span>WEEK AHEAD</span><span>TAUX</span><span>BANK</span></div>
@@ -1296,35 +1305,58 @@
   function pad(n){return (n<10?'0':'')+n;}
   var _clkEl=document.getElementById('clk');if(_clkEl)setInterval(function(){var d=new Date();_clkEl.textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+' GMT';},1000);
 
-  // ── Flux news animé ──
-  var pool=[
-    ['Fed','Un responsable évoque une pause prolongée sur les taux','h','Banques centrales'],
-    ['Zone euro','L\'inflation des services ralentit plus que prévu','m','Macro'],
-    ['Pétrole','+1,9 % sur fond de tensions géopolitiques','h','Énergie'],
-    ['Allemagne','L\'indice ZEW dépasse nettement le consensus','m','Macro'],
-    ['USD/JPY','La paire teste 158, le marché guette le MoF','m','Forex'],
-    ['BCE','Une responsable ouvre la porte à une baisse en septembre','h','Banques centrales'],
-    ['Emploi US','Les inscriptions hebdomadaires au chômage reculent','h','Macro'],
-    ['Or','Nouveau record historique au-dessus de 2 400 $','m','Métaux'],
-    ['Royaume-Uni','L\'IPC surprend à la hausse, la livre se renforce','h','Macro'],
-    ['Chine','La PBoC laisse ses taux directeurs inchangés','m','Banques centrales'],
-    ['Pétrole','Les stocks américains baissent davantage qu\'attendu','m','Énergie'],
-    ['Powell','« La désinflation se poursuit mais reste inégale »','h','Banques centrales']
+  // ── Flux news : 4 DERNIÈRES news RÉELLES (API desk, repli statique) ──
+  var feed=document.getElementById('feed');
+  function fmtHM(ts){var d=new Date(ts);return pad(d.getHours())+':'+pad(d.getMinutes());}
+  var AL='<span class="nrow-al"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2zm-1 7h2v6h-2V9zm0 8h2v2h-2v-2z"/></svg></span>';
+  var FALLBACK=[
+    {headline:"Fed holds rates, signals two cuts as inflation cools",timestamp:Date.now()-3*60000,tags:["Fed","Rates","USD"],priority:"high"},
+    {headline:"ECB's Lagarde: disinflation on track, data-dependent",timestamp:Date.now()-16*60000,tags:["ECB","Inflation"],priority:"normal"},
+    {headline:"Brent crude jumps 3% on Middle East supply fears",timestamp:Date.now()-34*60000,tags:["Energy","Geopolitical"],priority:"normal"},
+    {headline:"USD/JPY tops 158 as BoJ leaves policy unchanged",timestamp:Date.now()-52*60000,tags:["BoJ","JPY"],priority:"normal"}
   ];
-  var feed=document.getElementById('feed'),fi=0;
-  function nowHM(){var d=new Date();return pad(d.getUTCHours())+':'+pad(d.getUTCMinutes());}
-  function addRow(isNew){
-    var p=pool[fi%pool.length];fi++;
-    var row=document.createElement('div');row.className='nrow';
-    var tags='<span class="ntags"><span class="ntag">'+p[3]+'</span><span class="ninfo">&#9432; Info</span><span class="nreact">&#9825;</span></span>';
-    row.innerHTML='<span class="nt">'+nowHM()+'</span><span class="ntx"><b>'+p[0]+'</b> — '+p[1]+tags+'</span>'+
-      (isNew?'<span class="flash">● NEW</span>':'<span class="imp '+p[2]+'">'+(p[2]==='h'?'FORT':'MOY')+'</span>');
-    feed.insertBefore(row,feed.firstChild);
-    if(isNew)setTimeout(function(){var f=row.querySelector('.flash');if(f)f.outerHTML='<span class="imp '+p[2]+'">'+(p[2]==='h'?'FORT':'MOY')+'</span>';},1600);
-    while(feed.children.length>7)feed.removeChild(feed.lastChild);
+  function impScore(it){var p=(it.priority||"").toLowerCase(),sc=0;if(p&&p!=="normal"&&p!=="low")sc+=10;if(/\b(fed|fomc|ecb|bce|boj|boe|snb|inflation|cpi|ppi|rate|rates|taux|hike|war|iran|israel|nfp|payroll|jobs|gdp|pib|recession|tariff|powell|lagarde|crisis)\b/i.test(it.headline||""))sc+=5;return sc;}
+  function renderNews(items){
+    items=(items||[]).slice(0,4); if(!items.length)return;
+    var best=-1,bi=0; items.forEach(function(it,i){var sc=impScore(it);if(sc>best){best=sc;bi=i;}});
+    feed.innerHTML="";
+    items.forEach(function(it,i){
+      var imp=(i===bi);
+      var tags=(it.tags||[]).slice(0,3).map(function(t){return '<span class="ntag">'+t+'</span>';}).join('');
+      var row=document.createElement('div');row.className='nrow'+(imp?' imp':'');
+      row.innerHTML='<span class="nt">'+fmtHM(it.timestamp||Date.now())+'</span>'+
+        '<div class="ntx"><div class="nhead">'+(imp?AL:'')+(it.headline||'')+'</div>'+(tags?'<div class="ntags">'+tags+'</div>':'')+'</div>';
+      feed.appendChild(row);
+    });
   }
-  for(var k=0;k<6;k++)addRow(false);
-  setInterval(function(){addRow(true);},2600);
+  function loadNews(){
+    fetch('https://desk.datatradingpro.com/api/week-ahead-news').then(function(r){return r.json();}).then(function(d){
+      var it=(d&&d.items)||[]; renderNews(it.length?it:FALLBACK);
+    }).catch(function(){ renderNews(FALLBACK); });
+  }
+  renderNews(FALLBACK); loadNews(); setInterval(loadNews,45000);
+
+  // ── World Clock : VRAIES heures par fuseau (DST géré) ──
+  var WC_TZ=['Europe/London','America/New_York','Asia/Tokyo','Asia/Dubai','Europe/Paris'];
+  var wcEls=document.querySelectorAll('.dwc-c');
+  function updWC(){
+    var now=new Date();
+    for(var i=0;i<wcEls.length;i++){ var tz=WC_TZ[i]; if(!tz)continue; var el=wcEls[i];
+      try{
+        var b=el.querySelector('b'); if(b)b.textContent=now.toLocaleTimeString('fr-FR',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false});
+        var pp=new Intl.DateTimeFormat('en-GB',{timeZone:tz,timeZoneName:'shortOffset'}).formatToParts(now);
+        var off=pp.find(function(x){return x.type==='timeZoneName';});
+        var g=el.querySelector('.dwc-gmt'); if(g&&off)g.textContent=off.value.replace('UTC','GMT').replace(/^GMT$/,'GMT+0');
+        var hr=parseInt(now.toLocaleString('en-GB',{timeZone:tz,hour:'2-digit',hour12:false}),10);
+        var w=el.querySelector('.dwc-w'); if(w){var tmp=w.textContent.replace(/[☀☾]/g,'').trim();w.textContent=(hr>=7&&hr<19?'☀':'☾')+' '+tmp;}
+      }catch(e){}
+    }
+  }
+  updWC(); setInterval(updWC,20000);
+
+  // ── Date du jour (en-tête du flux) ──
+  try{var _dd=document.querySelector('.dnews-date');if(_dd){var _n=new Date();_dd.textContent=_n.toLocaleDateString('en-GB',{weekday:'long'})+', '+pad(_n.getDate())+'/'+pad(_n.getMonth()+1)+'/'+_n.getFullYear();}}catch(e){}
+
 
   // ── Jauge Risk Sentiment ──
   var needle=document.getElementById('needle'),needleTri=document.getElementById('needleTri'),gLbl=document.getElementById('gLbl');
