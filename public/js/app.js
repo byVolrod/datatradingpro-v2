@@ -786,8 +786,9 @@ function getFilteredItems() {
     // dédup → on la retrouve TOUJOURS dans le flux. MAIS si une RECHERCHE est active, elle doit
     // respecter le filtre comme les autres (sinon "BoJ" laisse passer la news flashée hors-sujet).
     if (!searchQuery && item.id && item.id === _flashedNewsId) { const k = _newsKey(item.headline || ''); if (k) seen.add(k); return true; }
-    // Rapports DTP/DTP (briefings, recaps, opening news) : masqués du flux pour l'instant (à revoir plus tard).
-    if (item._briefing || item.source === 'DTP') return false;
+    // Rapports DTP (briefings, recaps) : masqués du flux — SAUF le « DTP Daily US Opening News » qui doit
+    // apparaître dans l'onglet News (demande utilisateur), comme un point macro d'ouverture.
+    if ((item._briefing || item.source === 'DTP') && item._reportType !== 'DTP Daily') return false;
     if (!isCategoryEnabled(item.category)) return false;
     // Social-media reposts and failed-scrape stubs — no market value
     const _h = item.headline || '';
@@ -5257,7 +5258,7 @@ const REPORT_PREFIX = {
   'Weekly Market Recap':        'Weekly Market Recap',
   'FX Daily Recap':             'FX Daily Recap',
   'FX Daily':                   'FX Daily',
-  'DTP Daily':                  'Point Marché · Ouverture US',
+  // 'DTP Daily' : PAS de préfixe → le headline « DTP Daily US Opening News - <date> » s'affiche tel quel
   // Sessions — nomenclature demandée
   'Asia Opening Preparation':   'Daily Asia-Pac Opening News',
   'London Opening Preparation': 'London Opening Preparation',
@@ -6062,7 +6063,7 @@ function _renderDTPDaily(item) {
   const navRight   = document.querySelector('#arlib-reader-view .arlib-rnav-right');
   if (!content) return;
   document.getElementById('arlib-ai-insights')?.remove();
-  if (titleEl) titleEl.textContent = _mdStrip(w.title || 'Point Marché — Ouverture US');
+  if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'DTP Daily US Opening News');
   if (navRight) navRight.innerHTML = `<span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
@@ -6070,6 +6071,7 @@ function _renderDTPDaily(item) {
 
   const _sec = t => `<div class="fxdr-section">${_wrEsc(t)}</div>`;
   let body = '';
+  if (w.title) body += `<div class="dtpd-lead">${_wrInline(w.title)}</div>`;
   if (w.summary) body += _sec('Synthèse') + `<div class="fxdr-exec">${_wrParas(w.summary)}</div>`;
   (w.sections || []).forEach(s => {
     if (!s || !s.title) return;
