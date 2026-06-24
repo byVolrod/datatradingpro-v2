@@ -2551,8 +2551,11 @@ function buildNewsItem(item) {
   // This avoids spamming the API with routine data or speaker items.
   // On ne CHERCHE une réaction que sur des news vraiment susceptibles de bouger le marché macro
   // (sinon on spamme l'API + on tague tout). Le vrai filtre reste le seuil de mouvement côté serveur.
-  const _REACTION_CATS = /^(Geopolitical|Energy & Power|Metals|Fed|ECB|BoJ|BoE|Fixed Income)$/;
-  const _REACTION_KW   = /\b(iran|opec\+?|ukraine|russia|israel|war|conflict|invasion|attack|strike|ceasefire|nuclear|emergency|rate (decision|hike|cut)|tariff|sanction)\b/i;
+  const _REACTION_CATS = /^(Geopolitical|Energy & Power|Metals|Fed|ECB|BoJ|BoE|BoC|RBA|SNB|RBNZ|Fixed Income|FX Flows)$/;
+  // Élargi : « rate hikeS » (pluriel), Hormuz/oil/crude, inflation/CPI/PCE/GDP/NFP, hawkish/dovish,
+  // intervention… → la Réaction se déclenche désormais sur ces news macro/FX (le pill n'apparaît que
+  // si /api/market-moves trouve un VRAI mouvement dans les ~8 min suivant la news — donnée réelle).
+  const _REACTION_KW   = /\b(iran|opec\+?|ukraine|russia|israel|war|conflict|invasion|attack|strike|ceasefire|nuclear|emergency|hormuz|oil|crude|wti|brent|gold|inflation|cpi|pce|gdp|nfp|payrolls?|jobs\s+report|hawkish|dovish|intervention|rate\s+(decision|hikes?|cuts?|rises?|increases?)|tariffs?|sanctions?)\b/i;
   const _isMarketMoving = item.priority === 'high' || item.urgent
     || (_REACTION_CATS.test(item.category) && _REACTION_KW.test(item.headline))
     || _REACTION_KW.test(item.headline);
