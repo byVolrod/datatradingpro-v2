@@ -7416,23 +7416,9 @@ const _REACT_ICONS = {
 };
 function _reactIcon(em){ return _REACT_ICONS[em] || em; }
 // Sélecteur de réaction : petite barre flottante au survol de la bulle (icônes LinkedIn).
-function _chatPickerHtml(mid){
-  return `<div class="chat-react-picker">`
-    + `<button type="button" title="J'aime" onclick="_chatReact('${mid}','👍')">${_reactIcon('👍')}</button>`
-    + `<button type="button" title="Cœur" onclick="_chatReact('${mid}','❤️')">${_reactIcon('❤️')}</button></div>`;
-}
+function _chatPickerHtml(mid){ return ''; }   // réactions retirées du chat (demande utilisateur)
 // Pastilles des réactions POSÉES (façon LinkedIn) — sous la bulle ; surlignées si J'AI réagi.
-function _chatReactionsHtml(m, myId, mid){
-  const r = (m && m.reactions && typeof m.reactions === 'object') ? m.reactions : {};
-  let pills = '';
-  ['👍','❤️'].forEach(em=>{
-    const arr = Array.isArray(r[em]) ? r[em] : [];
-    if (!arr.length) return;
-    const mine = arr.map(String).includes(myId);
-    pills += `<button class="chat-reaction-pill${mine?' mine':''}" type="button" onclick="_chatReact('${mid}','${em}')">${_reactIcon(em)}<span class="n">${arr.length}</span></button>`;
-  });
-  return `<div class="chat-reactions">${pills}</div>`;   // toujours présent (cible de MAJ chirurgicale)
-}
+function _chatReactionsHtml(m, myId, mid){ return ''; }   // réactions retirées du chat (demande utilisateur)
 
 // Clé de cache des messages selon le contexte (support→thread user, client→'client')
 function _chatCacheKey(){ return (_chatIsSupport() && _chatThreadUser) ? _chatThreadUser : 'client'; }
