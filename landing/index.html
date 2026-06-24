@@ -845,7 +845,7 @@
         <div class="tp">
           <div class="dnews-h"><span>Realtime Headline Ticker</span><span class="badge"><i></i>LIVE</span></div>
           <div class="dnews-bar"><span class="dnews-sel">Sections d'actualités <svg viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.3" fill="none"/></svg></span><span class="dnews-srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m20 20-3-3"/></svg>Rechercher des événements...</span></div>
-          <div class="dnews-date">Tuesday, 23/06/2026</div>
+          <div class="dnews-date">Mercredi 24/06/2026</div>
           <div id="feed"></div>
         </div>
         <div class="tp tp-r">
@@ -1391,7 +1391,7 @@
   updWC(); setInterval(updWC,20000);
 
   // ── Date du jour (en-tête du flux) ──
-  try{var _dd=document.querySelector('.dnews-date');if(_dd){var _n=new Date();_dd.textContent=_n.toLocaleDateString('en-GB',{weekday:'long'})+', '+pad(_n.getDate())+'/'+pad(_n.getMonth()+1)+'/'+_n.getFullYear();}}catch(e){}
+  try{var _dd=document.querySelector('.dnews-date');if(_dd){var _n=new Date();var _wd=_n.toLocaleDateString('fr-FR',{weekday:'long'});_dd.textContent=_wd.charAt(0).toUpperCase()+_wd.slice(1)+' '+pad(_n.getDate())+'/'+pad(_n.getMonth()+1)+'/'+_n.getFullYear();}}catch(e){}
 
 
   // ── Jauge Risk Sentiment ──

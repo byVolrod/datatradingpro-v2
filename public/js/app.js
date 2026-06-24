@@ -2540,9 +2540,10 @@ function buildNewsItem(item) {
 function formatDate(ts) {
   // timeZone Paris explicite : les en-têtes de jour collent à l'heure de Paris affichée
   // (item.time), même si le navigateur est dans un autre fuseau → plus de décalage de date.
-  return new Date(ts).toLocaleDateString('en-GB', {
+  const s = new Date(ts).toLocaleDateString('fr-FR', {
     weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris',
   });
+  return s.charAt(0).toUpperCase() + s.slice(1);   // « Mercredi 24/06/2026 » (FR, weekday capitalisé)
 }
 
 // ═══ World Clocks ═════════════════════════
