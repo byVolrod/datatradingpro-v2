@@ -8832,14 +8832,16 @@ async function _wrapLevels() {
 
 // Structure CALQUÉE sur la référence (image de référence) : LEAD + rubriques marché + EUROPEAN DATA + NOTABLE
 // HEADLINES + TRADE/TARIFFS + CENTRAL BANKS + GEOPOLITICS + bloc NORD-AMÉRICAIN (NEWS + DATA).
-const EU_WRAP_SECTIONS = ['LEAD','EQUITIES','FX','FIXED','COMMODITIES','EUROPEAN DATA','NOTABLE HEADLINES','TRADE/TARIFFS','CENTRAL BANKS','GEOPOLITICS','NOTABLE NORTH AMERICAN NEWS','NORTH AMERICAN DATA'];
-const WRAP_VER = 'wrap-na-1';   // bump → régénère le wrap du jour (nouvelle structure de référence) au prochain run/boot
+const EU_WRAP_SECTIONS = ['SYNTHESE','ACTIONS','DEVISES','OBLIGATAIRE','MATIERES PREMIERES','DONNEES EUROPEENNES','TITRES MARQUANTS','COMMERCE/DOUANES','BANQUES CENTRALES','GEOPOLITIQUE','ACTUALITES NORD-AMERICAINES','DONNEES NORD-AMERICAINES'];
+const WRAP_VER = 'wrap-fr-1';   // bump → régénère le wrap du jour (passage en FR) au prochain run/boot
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
 // sont ignorées. Robuste aux markdown/numérotations/puces parasites.
 function _euWrapParse(aiText) {
-  const norm = s => String(s || '').replace(/[^a-z]/gi, '').toLowerCase();
+  // Tolérant aux accents : si l'IA rend « SYNTHÈSE / DONNÉES » (accentué) au lieu du canon
+  // sans accent (SYNTHESE / DONNEES), on plie les accents avant comparaison → toujours reconnu.
+  const norm = s => String(s || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/gi, '').toLowerCase();
   const headMap = new Map(EU_WRAP_SECTIONS.map(h => [norm(h), h]));
   const buckets = {};
   let cur = null;
@@ -8870,7 +8872,7 @@ function _euWrapLead(levels) {
     pick(levels.cmd, 'Brent') || pick(levels.cmd, 'Gold'),
     pick(levels.fixed, 'US 10y'),
   ].filter(Boolean);
-  return parts.length ? `European close — ${parts.join('; ')}.` : null;
+  return parts.length ? `Clôture européenne — ${parts.join(' ; ')}.` : null;
 }
 
 // Lignes-placeholder « (None) / N/A / Aucun … » que l'IA glisse parfois sous une rubrique vide
@@ -8881,11 +8883,11 @@ function _euWrapBuild(buckets, fallbackLead) {
   const clean = arr => (arr || []).map(s => s.replace(/^[-•*·]\s*/, '').trim())
     .filter(s => s.length > 1 && !_EU_PLACEHOLDER.test(s));
   // LEAD = bloc de SYNTHÈSE en tête (puces, SANS en-tête), façon pro. À défaut (IA KO) → lead déterministe (niveaux).
-  const leadItems = clean(buckets['LEAD']).filter(s => s.length > 4);
+  const leadItems = clean(buckets['SYNTHESE']).filter(s => s.length > 4);
   if (leadItems.length) leadItems.slice(0, 6).forEach(it => out.push('- ' + it));
   else if (fallbackLead) out.push('- ' + fallbackLead);
   for (const h of EU_WRAP_SECTIONS) {
-    if (h === 'LEAD') continue;                   // déjà rendu en tête (sans titre)
+    if (h === 'SYNTHESE') continue;               // déjà rendu en tête (sans titre)
     const items = clean(buckets[h]);
     if (!items.length) continue;                  // rubrique vide (ou seulement « (None) ») → omise
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
@@ -8899,18 +8901,18 @@ function _euWrapBuild(buckets, fallbackLead) {
 function _euWrapFallback(levels, s) {
   const b = {};
   const strip = arr => (arr || []).map(l => l.replace(/^- /, ''));
-  if (levels.eq.length)    b['EQUITIES']    = strip(levels.eq);
-  if (levels.fx.length)    b['FX']          = strip(levels.fx);
-  if (levels.fixed.length) b['FIXED']       = strip(levels.fixed);
-  if (levels.cmd.length)   b['COMMODITIES'] = strip(levels.cmd);
+  if (levels.eq.length)    b['ACTIONS']            = strip(levels.eq);
+  if (levels.fx.length)    b['DEVISES']            = strip(levels.fx);
+  if (levels.fixed.length) b['OBLIGATAIRE']        = strip(levels.fixed);
+  if (levels.cmd.length)   b['MATIERES PREMIERES'] = strip(levels.cmd);
   const top = (arr, n) => (arr || []).slice(0, n).map(i => i.headline).filter(Boolean);
-  if (s.euData.length || s.data.length)     b['EUROPEAN DATA']               = top(s.euData.length ? s.euData : s.data, 8);
-  if (s.all.length)                         b['NOTABLE HEADLINES']           = top(s.all, 8);
-  if (s.trade.length)                       b['TRADE/TARIFFS']               = top(s.trade, 4);
-  if (s.cb.length)                          b['CENTRAL BANKS']               = top(s.cb, 6);
-  if (s.geo.length)                         b['GEOPOLITICS']                 = top(s.geo, 8);
-  if (s.naNews.length)                      b['NOTABLE NORTH AMERICAN NEWS'] = top(s.naNews, 8);
-  if (s.naData.length)                      b['NORTH AMERICAN DATA']         = top(s.naData, 8);
+  if (s.euData.length || s.data.length)     b['DONNEES EUROPEENNES']         = top(s.euData.length ? s.euData : s.data, 8);
+  if (s.all.length)                         b['TITRES MARQUANTS']            = top(s.all, 8);
+  if (s.trade.length)                       b['COMMERCE/DOUANES']            = top(s.trade, 4);
+  if (s.cb.length)                          b['BANQUES CENTRALES']           = top(s.cb, 6);
+  if (s.geo.length)                         b['GEOPOLITIQUE']                = top(s.geo, 8);
+  if (s.naNews.length)                      b['ACTUALITES NORD-AMERICAINES'] = top(s.naNews, 8);
+  if (s.naData.length)                      b['DONNEES NORD-AMERICAINES']    = top(s.naData, 8);
   return b;
 }
 
@@ -8972,49 +8974,49 @@ async function generateEuropeanMarketWrap(force = false) {
 
   const summarise = (arr, n = 6) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
   const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
-  const prompt = `You are a senior markets reporter at a prime brokerage writing the daily MARKET WRAP at the European cash close (16:00 Paris), in the institutional, factual style of Newsquawk / la référence. Date: ${dateStr}.
+  const prompt = `Tu es reporter marchés senior dans une banque de premier plan ; tu rédiges la SYNTHÈSE DE MARCHÉ quotidienne à la clôture cash européenne (16:00 Paris), dans le style institutionnel et factuel d'une référence type Newsquawk. Date : ${dateStr}.
 
-REAL MARKET LEVELS TODAY (use these EXACT numbers; moves are vs previous close — NEVER invent or alter a level):
-EQUITIES:\n${lv(levels.eq)}
-FX:\n${lv(levels.fx)}
-FIXED INCOME (govt bond yields, bp change):\n${lv(levels.fixed)}
-COMMODITIES:\n${lv(levels.cmd)}
+NIVEAUX DE MARCHÉ RÉELS DU JOUR (utilise ces chiffres EXACTS ; les variations sont vs clôture précédente — n'invente JAMAIS et ne modifie JAMAIS un niveau) :
+ACTIONS:\n${lv(levels.eq)}
+DEVISES:\n${lv(levels.fx)}
+OBLIGATAIRE (rendements souverains, variation en pb):\n${lv(levels.fixed)}
+MATIERES PREMIERES:\n${lv(levels.cmd)}
 
-TODAY'S NEWSFLOW — use ONLY this; ground EVERY statement in it. Invent NOTHING (no fake data, levels, %, quotes, names or events):
-CENTRAL BANKS:\n${summarise(s.cb, 8)}
-EUROPEAN DATA (actual vs exp./prev.):\n${summarise(s.euData.length ? s.euData : s.data, 8)}
-NORTH AMERICAN DATA (actual vs exp./prev.):\n${summarise(s.naData, 8)}
-GEOPOLITICAL:\n${summarise(s.geo, 8)}
-TRADE / TARIFFS:\n${summarise(s.trade, 4)}
-NORTH AMERICAN HEADLINES (US/Canada politics, fiscal, corporate):\n${summarise(s.naNews, 8)}
-OTHER HEADLINES:\n${summarise(s.all, 14)}
+FLUX DE NEWS DU JOUR — utilise UNIQUEMENT ceci ; ancre CHAQUE affirmation dedans. N'invente RIEN (aucune donnée, niveau, %, citation, nom ou événement fictif) :
+BANQUES CENTRALES:\n${summarise(s.cb, 8)}
+DONNEES EUROPEENNES (réel vs att./préc.):\n${summarise(s.euData.length ? s.euData : s.data, 8)}
+DONNEES NORD-AMERICAINES (réel vs att./préc.):\n${summarise(s.naData, 8)}
+GEOPOLITIQUE:\n${summarise(s.geo, 8)}
+COMMERCE / DROITS DE DOUANE:\n${summarise(s.trade, 4)}
+TITRES NORD-AMERICAINS (politique, budget, entreprises US/Canada):\n${summarise(s.naNews, 8)}
+AUTRES TITRES:\n${summarise(s.all, 14)}
 
-Write the wrap with EXACTLY these section headers, each ALONE on its own line in ALL CAPS, with NO colon, in THIS order. Skip a section ONLY if the newsflow/levels above have genuinely nothing for it.
+Rédige la synthèse avec EXACTEMENT ces en-têtes de rubrique, chacun SEUL sur sa ligne, en MAJUSCULES, SANS deux-points, dans CET ordre. N'omets une rubrique QUE si le flux/les niveaux ci-dessus n'ont vraiment rien pour elle.
 
-LEAD
-EQUITIES
-FX
-FIXED
-COMMODITIES
-EUROPEAN DATA
-NOTABLE HEADLINES
-TRADE/TARIFFS
-CENTRAL BANKS
-GEOPOLITICS
-NOTABLE NORTH AMERICAN NEWS
-NORTH AMERICAN DATA
+SYNTHESE
+ACTIONS
+DEVISES
+OBLIGATAIRE
+MATIERES PREMIERES
+DONNEES EUROPEENNES
+TITRES MARQUANTS
+COMMERCE/DOUANES
+BANQUES CENTRALES
+GEOPOLITIQUE
+ACTUALITES NORD-AMERICAINES
+DONNEES NORD-AMERICAINES
 
-Every content line starts with "- ". Format per section:
-- LEAD: 4 to 6 SYNTHESIS bullets giving the day's big picture — key index moves, the marquee central-bank decision(s)/speakers, FX direction (DXY then majors), fixed-income tone, commodities, and a final bullet "Looking ahead, highlights include …" listing the upcoming events/speakers found in the data above. NO sub-header — just the bullets.
-- EQUITIES / FX / FIXED / COMMODITIES: 2 to 5 ANALYTICAL lines (full sentences, desk-note depth). Lead each with the real level (name the index/pair/bond/commodity, its level and % or bp move), then the driver. FX: cover DXY then the major movers (EUR, JPY, GBP, AUD…). FIXED: cover the curve + any bond-auction results present. COMMODITIES: cover crude (Brent/WTI), gold, then any metals/energy news.
-- EUROPEAN DATA / NORTH AMERICAN DATA: data prints written "Country Indicator actual vs. Exp. … (Prev. …)" exactly as the data provides.
-- NOTABLE HEADLINES: terse one-line factual European/global headlines from the newsflow.
-- TRADE/TARIFFS: terse factual bullets on trade deals and tariffs from the newsflow.
-- CENTRAL BANKS: factual bullets per bank (decision, vote split, guidance) from the data.
-- GEOPOLITICS: factual bullets grouped by theme (Russia-Ukraine, then Middle East) within the section.
-- NOTABLE NORTH AMERICAN NEWS: terse one-line US/Canada political, fiscal and corporate headlines from the newsflow.
+Chaque ligne de contenu commence par « - ». Format par rubrique :
+- SYNTHESE : 4 à 6 puces de SYNTHÈSE donnant la vue d'ensemble du jour — principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières, et une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre — juste les puces.
+- ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 5 lignes ANALYTIQUES (phrases complètes, profondeur d'une note de desk). Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
+- DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : publications écrites « Pays Indicateur réel vs Att. … (Préc. …) » exactement comme les données les fournissent.
+- TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux.
+- COMMERCE/DOUANES : puces factuelles sur les accords commerciaux et droits de douane, issues du flux.
+- BANQUES CENTRALES : puces factuelles par banque (décision, répartition des votes, guidance), issues des données.
+- GEOPOLITIQUE : puces factuelles groupées par thème (Russie-Ukraine, puis Moyen-Orient) dans la rubrique.
+- ACTUALITES NORD-AMERICAINES : titres US/Canada (politique, budget, entreprises) en une ligne, issus du flux.
 
-ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers, names, quotes, dates. Reformulate for clarity only. No preamble, no markdown, no bold, no closing remarks. Output ONLY the section headers and their "- " lines.`;
+RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %, pb, tickers, noms, citations, dates. Reformule pour la clarté uniquement. Pas de préambule, pas de markdown, pas de gras, pas de remarque de conclusion. Produis UNIQUEMENT les en-têtes de rubrique et leurs lignes « - ».`;
 
   let buckets = {};
   try {
@@ -9044,7 +9046,7 @@ ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers,
   // dédié _marketWrap côté client (et non par le chemin PRIMER, réservé à l'onglet Analyst).
   const item = {
     id:          prefix + '-' + now,
-    headline:    `DTP European Market Wrap - ${dateStr}`,
+    headline:    `DTP Synthèse des Marchés — ${dateStr}`,
     description,
     category:    'Global News',
     source:      'DTP Markets',
@@ -9052,7 +9054,7 @@ ABSOLUTE RULE: never invent or alter a fact — numbers, levels, %, bp, tickers,
     time:        timeStr,
     timestamp:   now,
     priority:    'normal',
-    tags:        ['Europe', 'Market Wrap', 'Equities', 'FX'],
+    tags:        ['Europe', 'Synthèse', 'Actions', 'Devises'],
     _marketWrap: true,
     _reportType: 'European Market Wrap',
     _wrapVer:    WRAP_VER,
