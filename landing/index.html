@@ -754,6 +754,8 @@
   .dwc-c b{font-family:var(--mono);font-size:13px;color:#f4f4f6;font-weight:600;letter-spacing:-.01em}
   .dwc-gmt{font-size:7px;color:#62656e;font-family:var(--mono)}
   .dwc-w{font-size:8px;color:#9ea4ae}
+  .dwc-w .dwc-sun{color:#f7941d;font-variant-emoji:text}
+  .dwc-w .dwc-moon{color:#8ab4f8;font-variant-emoji:text}
   .dsub{display:flex;gap:1px;margin-bottom:11px;border-bottom:1px solid #1a1a1f;overflow:hidden}
   .dsub span{font-family:var(--tight);font-weight:600;font-size:8.5px;letter-spacing:.02em;color:#62656e;padding:5px 6px 7px;white-space:nowrap;position:relative}
   .dsub span::before{content:"›";margin-right:2px;color:#3a3d45}
@@ -860,11 +862,11 @@
         <div class="tp tp-r">
           <div class="dwc-h">World Clock</div>
           <div class="dwc">
-            <div class="dwc-c"><span class="dwc-city">London</span><b>20:38</b><span class="dwc-gmt">GMT+1</span><span class="dwc-w">☾ 18°</span></div>
-            <div class="dwc-c"><span class="dwc-city">New York</span><b>15:38</b><span class="dwc-gmt">GMT−4</span><span class="dwc-w">☀ 21°</span></div>
-            <div class="dwc-c"><span class="dwc-city">Tokyo</span><b>04:38</b><span class="dwc-gmt">GMT+9</span><span class="dwc-w">☾ 18°</span></div>
-            <div class="dwc-c"><span class="dwc-city">Dubai</span><b>23:38</b><span class="dwc-gmt">GMT+4</span><span class="dwc-w">☾ 34°</span></div>
-            <div class="dwc-c"><span class="dwc-city">Paris</span><b>21:38</b><span class="dwc-gmt">GMT+2</span><span class="dwc-w">☾ 34°</span></div>
+            <div class="dwc-c"><span class="dwc-city">London</span><b>20:38</b><span class="dwc-gmt">GMT+1</span><span class="dwc-w"><span class="dwc-moon">☾</span> 18°</span></div>
+            <div class="dwc-c"><span class="dwc-city">New York</span><b>15:38</b><span class="dwc-gmt">GMT−4</span><span class="dwc-w"><span class="dwc-sun">☀</span> 21°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Tokyo</span><b>04:38</b><span class="dwc-gmt">GMT+9</span><span class="dwc-w"><span class="dwc-moon">☾</span> 18°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Dubai</span><b>23:38</b><span class="dwc-gmt">GMT+4</span><span class="dwc-w"><span class="dwc-moon">☾</span> 34°</span></div>
+            <div class="dwc-c"><span class="dwc-city">Paris</span><b>21:38</b><span class="dwc-gmt">GMT+2</span><span class="dwc-w"><span class="dwc-moon">☾</span> 34°</span></div>
           </div>
           <div class="dsub"><span>WORLD</span><span class="on">RISK</span><span>STRENGTH</span><span>METER</span><span>COT</span><span>DMX</span><span>SEAS.</span></div>
           <div class="gauge-wrap">
@@ -1393,7 +1395,7 @@
         var off=pp.find(function(x){return x.type==='timeZoneName';});
         var g=el.querySelector('.dwc-gmt'); if(g&&off)g.textContent=off.value.replace('UTC','GMT').replace(/^GMT$/,'GMT+0');
         var hr=parseInt(now.toLocaleString('en-GB',{timeZone:tz,hour:'2-digit',hour12:false}),10);
-        var w=el.querySelector('.dwc-w'); if(w){var tmp=w.textContent.replace(/[☀☾]/g,'').trim();w.textContent=(hr>=7&&hr<19?'☀':'☾')+' '+tmp;}
+        var w=el.querySelector('.dwc-w'); if(w){var tmp=w.textContent.replace(/[☀☾]/g,'').trim();var day=hr>=7&&hr<19;w.innerHTML='<span class="'+(day?'dwc-sun':'dwc-moon')+'">'+(day?'☀':'☾')+'</span> '+tmp;}
       }catch(e){}
     }
   }
