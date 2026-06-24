@@ -30,9 +30,11 @@ function _enabled() { return !!(process.env.KBC_MAIL_USER && process.env.KBC_MAI
 // Rapports KBC ajoutés à la main (PDF publics multimediafiles.kbcgroup.eu) — visibles MÊME sans IMAP
 // configuré. ⚠️ Le lien KBC « daily » sert la DERNIÈRE édition : rafraîchir/retirer à la main au besoin
 // (un seed peut doublonner un futur item IMAP du même rapport → le retirer une fois l'IMAP en place).
-const SEEDS = [
-  { title: 'KBC Sunset', url: 'https://multimediafiles.kbcgroup.eu/ng/published/KBC/PDF/MARKTENZAAL/KBCCORP_Reports_Daily_Sunset(2).pdf', date: Date.UTC(2026, 5, 24, 15, 46, 0) },
-];
+// Source : kbc-seeds.json (date ISO → ms ; `fullContent` = texte du PDF → alimente les AI Insights du reader).
+const SEEDS = (() => {
+  try { return require('./kbc-seeds.json').map(s => ({ ...s, date: Date.parse(s.date) || Date.now() })); }
+  catch (e) { return []; }
+})();
 
 function _id(seed) {
   return 'kbcmail-' + Buffer.from(String(seed)).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-18);
@@ -116,8 +118,9 @@ async function fetchInto(merged) {
     added++;
   };
 
-  // 1) Seeds manuels — toujours ajoutés (même si l'IMAP n'est pas configuré)
-  for (const s of SEEDS) _add(s, { _seed: true });
+  // 1) Seeds manuels — toujours ajoutés (même si l'IMAP n'est pas configuré). `fullContent` (texte du
+  //    PDF) → le reader génère les AI Insights dessus (sinon panneau vide, le PDF n'a pas de texte HTML).
+  for (const s of SEEDS) _add(s, { _seed: true, fullContent: s.fullContent || '' });
 
   // 2) Newsletters reçues par e-mail — uniquement si l'App Password est configuré (IMAP read-only)
   if (_enabled()) {
