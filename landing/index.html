@@ -730,8 +730,12 @@
   .dwbadge{position:absolute;top:-4px;right:-4px;min-width:12px;height:12px;padding:0 2px;box-sizing:border-box;border-radius:7px;background:#ff3b30;border:1.5px solid #0e0e11;color:#fff;font-family:var(--tight);font-weight:800;font-size:7.5px;line-height:9px;text-align:center;animation:dwpop .5s cubic-bezier(.34,1.7,.5,1) .5s both,dwping 2.4s ease 1s 3}
   @keyframes dwbell{0%,68%,100%{transform:rotate(0)}72%{transform:rotate(14deg)}76%{transform:rotate(-12deg)}80%{transform:rotate(9deg)}84%{transform:rotate(-6deg)}88%{transform:rotate(3deg)}}
   @keyframes dwpop{0%{transform:scale(0)}100%{transform:scale(1)}}
+  /* Cloche : point rouge animé IDENTIQUE au desk (.notif-dot : entrée ressort + halo qui pulse à l'infini) */
+  .dwdot{position:absolute;top:-2px;right:-2px;width:7px;height:7px;background:#ef4444;border:1.5px solid #0e0e11;border-radius:50%;transform-origin:right top;animation:dwdotPop .42s cubic-bezier(.34,1.56,.64,1),dwdotPing 1.9s ease-out infinite}
+  @keyframes dwdotPop{0%{transform:scale(0)}55%{transform:scale(1.25)}100%{transform:scale(1)}}
+  @keyframes dwdotPing{0%{box-shadow:0 0 0 0 rgba(239,68,68,.55)}70%,100%{box-shadow:0 0 0 6px rgba(239,68,68,0)}}
   @keyframes dwping{0%{box-shadow:0 0 0 0 rgba(255,59,48,.6)}70%{box-shadow:0 0 0 6px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
-  @media (prefers-reduced-motion:reduce){.dnav-wic.bell > svg,.dwbadge{animation:none}}
+  @media (prefers-reduced-motion:reduce){.dnav-wic.bell > svg,.dwbadge,.dwdot{animation:none}}
   @keyframes dwpop99{0%{transform:scale(.5)}55%{transform:scale(1.38)}100%{transform:scale(1)}}
   @keyframes dwping99{0%{transform:scale(.6);opacity:.75}100%{transform:scale(2.4);opacity:0}}
   .dwbadge.nc99{min-width:16px;animation:dwpop99 .5s cubic-bezier(.34,1.7,.5,1)}
@@ -847,7 +851,7 @@
         <span class="dnav-fill"></span>
         <span class="dnav-pill ai">AI</span>
         <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M4 12h2l2-6 4 12 3-9 2 3h3"/></svg></span>
-        <span class="dnav-wic bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dwbadge" id="dwbadge">1</span></span>
+        <span class="dnav-wic bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg><span class="dwdot"></span></span>
         <span class="dnav-wic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 11.5a8.4 8.4 0 0 1-9 8 9 9 0 0 1-4-1l-5 1 1-4.5a8.4 8.4 0 0 1-1-4A8.5 8.5 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5z"/></svg></span>
         <span class="dnav-av"><svg viewBox="0 0 40 40" width="21" height="21"><defs><radialGradient id="avg" cx="50%" cy="34%" r="74%"><stop offset="0%" stop-color="#fff"/><stop offset="100%" stop-color="#c9ccd3"/></radialGradient></defs><rect width="40" height="40" fill="url(#avg)"/><circle cx="20" cy="15" r="7.2" fill="#6b7280"/><path d="M6.5 37C6.5 27 12.5 23.5 20 23.5S33.5 27 33.5 37Z" fill="#6b7280"/></svg></span>
       </div>
