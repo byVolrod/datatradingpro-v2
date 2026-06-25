@@ -3818,7 +3818,11 @@ function _sbWeekLabel(ts) {
   const mon = new Date(d); mon.setDate(d.getDate() - dow + 1);
   if (dow >= 6) mon.setDate(mon.getDate() + 7);   // généré le week-end → semaine À TRADER = la suivante
   const sun = new Date(mon); sun.setDate(mon.getDate() + 6);
-  return `${mon.getDate()}-${sun.getDate()}/${String(sun.getMonth() + 1).padStart(2, '0')}/${sun.getFullYear()}`;
+  const _MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  const _m1 = mon.getMonth(), _m2 = sun.getMonth();
+  return _m1 === _m2
+    ? `${mon.getDate()}–${sun.getDate()} ${_MOIS[_m2]} ${sun.getFullYear()}`
+    : `${mon.getDate()} ${_MOIS[_m1]} – ${sun.getDate()} ${_MOIS[_m2]} ${sun.getFullYear()}`;
 }
 
 // ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──

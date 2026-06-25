@@ -9793,3 +9793,22 @@ body{font-variant-numeric:tabular-nums;}
 .econ-group-row,.sym-bz-row,.wac-row,.prep-item,.prep-watchlist-row,.arl-row,.bank-row,.sbs-cdd-item,.news-item{transition:background .14s ease,box-shadow .14s ease;}
 .econ-group-row:hover,.sym-bz-row:hover,.wac-row:hover,.prep-item:hover,.prep-watchlist-row:hover,.arl-row:not(.arl-row--weekly):hover,.bank-row:not(.bank-row--active):hover,.sbs-cdd-item:hover{background:linear-gradient(90deg,rgba(227,178,58,.06),rgba(227,178,58,.02));box-shadow:inset 2px 0 0 rgba(227,178,58,.6);}
 .news-item:hover{box-shadow:inset 2px 0 0 rgba(227,178,58,.55);}
+
+/* === De-PMT etape 2 : jauge de force LISSE (plus de bricks segmentes PMT) + axe or === */
+.meter-brick{border-bottom:0;}
+.meter-brick--pos{background:rgba(0,230,118,.92);box-shadow:inset 0 0 7px rgba(0,230,118,.22);}
+.meter-brick--neg{background:rgba(255,61,0,.92);box-shadow:inset 0 0 7px rgba(255,61,0,.2);}
+.meter-half-top .meter-brick--pos[data-idx="0"]{box-shadow:inset 0 -2px 0 rgba(227,178,58,.95),inset 0 0 7px rgba(0,230,118,.22);}
+.meter-half-bot .meter-brick--neg[data-idx="0"]{box-shadow:inset 0 2px 0 rgba(227,178,58,.95),inset 0 0 7px rgba(255,61,0,.2);}
+/* === De-PMT etape 2 : matrice Smart Bias en TUILES de marque (plus de grille pleine collee PMT) === */
+.sbm-grid{border-collapse:separate;border-spacing:3px;}
+.sbm-grid th,.sbm-grid td{border:none;}
+.sbm-cell{border-radius:5px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
+.sbm-vbull{background:linear-gradient(180deg,#13a374,#0b7250);}
+.sbm-bull{background:linear-gradient(180deg,#17b083,#0e8a62);}
+.sbm-neut{background:linear-gradient(180deg,#454c5a,#363c47);}
+.sbm-bear{background:linear-gradient(180deg,#e0524a,#b23128);}
+.sbm-vbear{background:linear-gradient(180deg,#c23a30,#8f231c);}
+.sbm-concl.sbm-vbull,.sbm-concl.sbm-bull{background:linear-gradient(180deg,#15b083,#0c7a56);}
+.sbm-concl.sbm-bear,.sbm-concl.sbm-vbear{background:linear-gradient(180deg,#e0524a,#a82a22);}
+.sbm-concl.sbm-neut{background:linear-gradient(180deg,#454c5a,#363c47);}
