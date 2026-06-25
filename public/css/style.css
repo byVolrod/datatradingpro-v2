@@ -9759,3 +9759,10 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 .sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel{border-radius:10px;}
 .sym-subtab--active,.nav-item.active,.nav-item--active{color:var(--orange);}
 .sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{transform:translateY(-2px);border-color:rgba(227,178,58,0.4);}
+
+/* === Refonte Pass 3 - finition cartes + animation d entree (Minimal Epure) === */
+.sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel,.ai-insights-card,.bias-content,.arlib-list-view{border-radius:12px;}
+.sym-panel,.sym-bz-col,.ai-insights-card,.ai-ins-pair,.clocks-panel,.sbs-panel,.dmx-panel{transition:border-color .18s ease,transform .18s ease,box-shadow .2s ease;}
+.sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{transform:translateY(-1px);border-color:rgba(227,178,58,0.26);box-shadow:0 10px 26px -16px rgba(0,0,0,0.65);}
+@keyframes dtpFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.main-layout{animation:dtpFadeIn .5s ease both;}
