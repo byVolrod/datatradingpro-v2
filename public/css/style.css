@@ -9771,3 +9771,8 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 .arlib-list-title,.br-list-title,.inst-title,.settings-title,.settings-section-title,.np-filter-title,.sbm-title,.sbs-narr-title,.prep-section-title,.prep-watchlist-title,.prep-risks-title,.prep-topbar-title,.wip-title{font-family:var(--serif),Georgia,serif !important;letter-spacing:-.01em;}
 .sbs-narr-title{color:var(--orange,#e3b23a) !important;}
 .logo-text{background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
+
+/* === Dashboard Apercu - en-tetes de panneaux premium (Minimal Epure, structure inchangee) === */
+.sym-phead{height:34px;padding:0 13px;border-bottom:1px solid var(--border,#232429);background:linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0));}
+.sym-ptitle{font-size:11px;font-weight:600;letter-spacing:.085em;text-transform:uppercase;color:#d4d7dd;display:inline-flex;align-items:center;}
+.sym-ptitle::before{content:'';display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--orange,#e3b23a);margin-right:8px;opacity:.85;flex:0 0 auto;}
