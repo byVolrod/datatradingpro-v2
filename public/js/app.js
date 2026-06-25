@@ -666,7 +666,7 @@ function _flashBreakingNews(item) {
   // Titre COMPLET (pas d'ellipse) + reset du défilement
   textEl.style.transition = 'none';
   textEl.style.transform  = 'translateX(0)';
-  textEl.textContent = (item.headline || 'Market Update')
+  textEl.textContent = (item.headline || 'Actu Marché')
     .replace(/^\s*(?:PRIMER|PREVIEW|RESEARCH|INSIGHT|ANALYSIS|TALKING POINTS?)\s*[-:—]\s*/i, '');
 
   flash.classList.add('visible');
@@ -5287,7 +5287,7 @@ function _brFinalizeReader(item, brIns, noContent) {
   content.scrollTop = 0;
   const _full = (content.innerText || '').trim();
   // Rapport protégé (pas de vrai contenu) → pas d'insights bidon ni de PDF d'un avertissement :
-  // on remplace le « Loading summaries… » (qui resterait bloqué) par un message clair.
+  // on remplace le « Chargement des résumés… » (qui resterait bloqué) par un message clair.
   if (noContent) {
     if (brIns) brIns.innerHTML = '<div class="ai-ins-empty">Résumé indisponible : le contenu de ce rapport est protégé par la source. Ouvrez le rapport original pour le consulter.</div>';
     return;
@@ -5664,7 +5664,7 @@ async function _loadAIInsights(item, el) {
   const ck = item.id || (item.headline || '').slice(0, 60);
   let d = _aiInsightsCache[ck];
   if (!d) {
-    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Copilote Macro" width="16" height="16" decoding="sync"> Éclairages IA</span></div><div class="ai-insights-loading">Loading summaries…</div>`;
+    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Copilote Macro" width="16" height="16" decoding="sync"> Éclairages IA</span></div><div class="ai-insights-loading">Chargement des résumés…</div>`;
     try {
       // Déduplication : si une requête est déjà en vol pour CE rapport (ex. double appel
       // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
@@ -5790,7 +5790,7 @@ function _gewWeekFr(s){ return _gewDayFr(String(s||'')).replace(/^\s*Week of\b/i
 let _wrStrengthData = null;     // données de force (TW) chargées 1 seule fois pour tout le rapport
 let _wrChartObserver = null;
 
-// Rapport complet, lu de haut en bas (PAS de badges) : Éclairages IA → Résumé → Key Macro Highlights
+// Rapport complet, lu de haut en bas (PAS de badges) : Éclairages IA → Résumé → Points Macro Clés
 // → Currency Analysis (chaque devise à la suite : analyse + courbe ISOLÉE + drivers).
 function _renderWeeklyRecap(item) {
   const w = item._weekly || {};
@@ -5901,16 +5901,16 @@ function _renderWeeklyRecap(item) {
       });
     }
   } else {
-    // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Key Macro Highlights + analyse par devise (rétrospectif) ──
+    // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Points Macro Clés + analyse par devise (rétrospectif) ──
     if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
-    // Vue d'ensemble de la force des devises (les 8) — AVANT les Key Macro Highlights (demandé).
+    // Vue d'ensemble de la force des devises (les 8) — AVANT les Points Macro Clés (demandé).
     // FIGÉE sur la semaine du rapport (badge à droite) : un recap récapitule UNE semaine, donc le chart
     // ne dérive jamais (snapshot serveur). Rouvert plus tard → toujours les données de CETTE semaine-là.
     body += `<div class="wr-cs-head"><div class="wr-section-title">Force des Devises</div>`
       + (w.weekRange ? `<span class="wr-cs-week">${_wrEsc(w.weekRange)}</span>` : '') + `</div>`;
     body += `<div class="wr-chart wr-chart--all" id="wr-cs-all">${window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
     if (w.macro && w.macro.length) {
-      body += `<div class="wr-section-title">Key Macro Highlights</div>`;
+      body += `<div class="wr-section-title">Points Macro Clés</div>`;
       w.macro.forEach(s => {
         body += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
         (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260625dtp4" />
+  <link rel="stylesheet" href="/css/style.css?v=20260625dtp5" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -99,14 +99,14 @@
 <!-- ═══════════════════ NAV BAR (row 2) ═══════════════════ -->
 <div class="navbar" id="topbar-nav">
   <a href="#" class="nav-item nav-item--active" data-view="news">› NEWS</a>
-  <a href="#" class="nav-item" data-view="calendar">› CALENDAR</a>
-  <a href="#" class="nav-item" data-view="fxlist">› FX LIST</a>
-  <a href="#" class="nav-item" data-view="institution">› INSTITUTION</a>
-  <a href="#" class="nav-item" data-view="analyst">› ANALYST</a>
-  <a href="#" class="nav-item" data-view="bias">› BIAS</a>
+  <a href="#" class="nav-item" data-view="calendar">› CALENDRIER</a>
+  <a href="#" class="nav-item" data-view="fxlist">› LISTE FX</a>
+  <a href="#" class="nav-item" data-view="institution">› INSTITUTIONS</a>
+  <a href="#" class="nav-item" data-view="analyst">› ANALYSTES</a>
+  <a href="#" class="nav-item" data-view="bias">› BIAIS</a>
   <a href="#" class="nav-item" data-view="weekahead">› SEMAINE À VENIR</a>
   <a href="#" class="nav-item" data-view="taux">› TAUX</a>
-  <a href="#" class="nav-item" data-view="bank">› BANK</a>
+  <a href="#" class="nav-item" data-view="bank">› BANQUES</a>
   <a href="#" class="nav-item nav-item--mobile-only" data-view="markets">› MARCHÉS</a>
 </div>
 
@@ -120,13 +120,13 @@
     <div class="view-panel hidden" id="view-symbol">
       <div class="sym-subtabs" id="sym-subtabs">
         <span class="sym-bar-pair" id="sym-bar-pair">[—]</span>
-        <button class="sym-subtab sym-subtab--active" data-sub="overview" type="button">Overview</button>
+        <button class="sym-subtab sym-subtab--active" data-sub="overview" type="button">Aperçu</button>
         <button class="sym-subtab" data-sub="bias" type="button">Radar de Biais</button>
         <button class="sym-subtab" data-sub="cotbase" type="button">COT base</button>
         <button class="sym-subtab" data-sub="cotquote" type="button">COT quote</button>
-        <button class="sym-subtab" data-sub="seasonality" type="button">Seasonality</button>
-        <button class="sym-subtab" data-sub="retail" type="button">Retail Sentiment</button>
-        <button class="sym-subtab" data-sub="cb" type="button">Central Bank</button>
+        <button class="sym-subtab" data-sub="seasonality" type="button">Saisonnalité</button>
+        <button class="sym-subtab" data-sub="retail" type="button">Sentiment Particuliers</button>
+        <button class="sym-subtab" data-sub="cb" type="button">Banque Centrale</button>
       </div>
       <div class="sym-content" id="sym-content">
         <div class="sym-subview" id="sym-sub-overview">
@@ -165,7 +165,7 @@
       <div class="panel panel-news">
         <div class="panel-header">
           <div class="panel-header-left">
-            <span class="panel-title">Realtime Headline Ticker</span>
+            <span class="panel-title">Fil d’actualité en direct</span>
           </div>
           <div class="panel-header-controls">
             <span class="live-dot" id="live-dot" title="Flux en direct"></span>
@@ -439,7 +439,7 @@
           <button class="br-back-btn" id="br-back-btn">‹ Retour à la liste</button>
           <span class="br-rnav-title" id="br-rnav-title"></span>
           <div class="br-rnav-right">
-            <button class="br-insights-btn" id="br-insights-btn">👁 Show Insights</button>
+            <button class="br-insights-btn" id="br-insights-btn">👁 Voir les Éclairages</button>
             <span class="br-inst-badge" id="br-inst-badge">ING</span>
           </div>
         </div>
@@ -468,7 +468,7 @@
           <div class="arlib-filters">
             <select class="arlib-filter" id="arlib-type">
               <option value="all">Tous les fichiers</option>
-              <option value="fxdaily">FX Daily Recap</option>
+              <option value="fxdaily">Récap FX quotidien</option>
               <option value="recap">Récap de session</option>
               <option value="weekly">Récap hebdomadaire</option>
               <option value="briefing">Briefing quotidien</option>
@@ -530,7 +530,7 @@
 
     <div class="clocks-panel" id="clocks-panel">
       <div class="chart-header">
-        <span class="chart-header-title">World Clock</span>
+        <span class="chart-header-title">Horloge mondiale</span>
       </div>
       <div class="clocks-bar" id="clocks-bar"></div>
     </div>
@@ -553,7 +553,7 @@
       <!-- WORLD — Session Map -->
       <div class="right-tab-panel active" id="rtab-world">
         <div class="chart-header">
-          <span class="chart-header-title">Session Map</span>
+          <span class="chart-header-title">Carte des sessions</span>
           <span class="live-dot live-dot--small"></span>
           <span class="chart-header-sub" id="active-sessions-label"></span>
         </div>
@@ -563,7 +563,7 @@
       <!-- RISK — Sentiment Widget + History -->
       <div class="right-tab-panel" id="rtab-risk">
         <div class="chart-header">
-          <span class="chart-header-title">Risk Sentiment</span>
+          <span class="chart-header-title">Sentiment de risque</span>
         </div>
         <div id="risk-widget" class="risk-widget-container"></div>
 
@@ -632,7 +632,7 @@
       <!-- SEASONALITY — table de performance mensuelle par année (façon pro) -->
       <div class="right-tab-panel" id="rtab-seasonality">
         <div class="dmx-header-bar">
-          <span class="dmx-header-title">Seasonality</span>
+          <span class="dmx-header-title">Saisonnalité</span>
           <span class="season-pair-badge" id="season-pair-title">[EUR/USD]</span>
           <span style="flex:1"></span>
           <button class="season-cfg-btn" id="season-cfg-btn" onclick="_seasonOpenSettings()" data-tip="Settings" aria-label="Settings">
@@ -732,8 +732,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260625dtp3"></script>
-<script src="/js/charts.js?v=20260625dtp3"></script>
+<script src="/js/app.js?v=20260625dtp5"></script>
+<script src="/js/charts.js?v=20260625dtp5"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1592,7 +1592,7 @@
       <span class="ai-head-ic" aria-hidden="true">AI</span>
       <div class="ai-head-meta">
         <div class="ai-head-title">Copilote Macro</div>
-        <div class="ai-head-status"><span class="ai-status-dot"></span>Online</div>
+        <div class="ai-head-status"><span class="ai-status-dot"></span>En ligne</div>
       </div>
     </div>
     <div class="ai-header-right">
