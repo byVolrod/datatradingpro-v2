@@ -1444,6 +1444,15 @@ const TAG_CLASS = {
   'EU':          'tag--neutral',
 };
 
+// Libellés FR des smart-tags news — appliqués UNIQUEMENT au point de rendu (textContent).
+// La clé / data-cat / classe restent en anglais (valeur logique). Les sigles (Fed, ECB, BoJ,
+// BoE, BoC, RBA, SNB, RBNZ, NFP, CPI, PCE, GDP, ISM, PMI, US, UK, EU) restent tels quels → absents ici.
+const NEWS_TAG_FR = {
+  'Data': 'Données', 'Inflation': 'Inflation', 'Rates': 'Taux', 'Jobs': 'Emploi',
+  'Equities': 'Actions', 'Bonds': 'Obligations', 'Tariffs': 'Tarifs', 'Sanctions': 'Sanctions',
+  'Geopolitical': 'Géopolitique', 'Yuan': 'Yuan', 'Asia': 'Asie', 'Energy': 'Énergie',
+};
+
 function getSmartTags(item) {
   const hl  = item.headline || '';
   const t   = hl.toLowerCase();
@@ -2487,7 +2496,7 @@ function buildNewsItem(item) {
     const t = document.createElement('span');
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
-    t.textContent = tag;
+    t.textContent = NEWS_TAG_FR[tag] || tag;
     tagsEl.appendChild(t);
   }
   for (const tag of (item._dtpd ? [] : smartTags)) {
@@ -2496,7 +2505,7 @@ function buildNewsItem(item) {
     const t = document.createElement('span');
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
     t.dataset.cat = tag;
-    t.textContent = tag;
+    t.textContent = NEWS_TAG_FR[tag] || tag;
     tagsEl.appendChild(t);
   }
 
@@ -3240,9 +3249,9 @@ async function loadInstFlow() {
       const div      = retLong !== null ? cotLong - retLong : null;
       let sig = '—', sigCls = '';
       if (div !== null) {
-        if (div > 15)   { sig = '▲ BULLISH'; sigCls = 'inst-sig-bull'; }
-        else if (div < -15) { sig = '▼ BEARISH'; sigCls = 'inst-sig-bear'; }
-        else            { sig = '→ NEUTRAL';  sigCls = 'inst-sig-neut'; }
+        if (div > 15)   { sig = '▲ HAUSSIER'; sigCls = 'inst-sig-bull'; }
+        else if (div < -15) { sig = '▼ BAISSIER'; sigCls = 'inst-sig-bear'; }
+        else            { sig = '→ NEUTRE';  sigCls = 'inst-sig-neut'; }
       }
       const cotW  = Math.max(4, Math.min(96, cotLong));
       const retW  = retLong !== null ? Math.max(4, Math.min(96, retLong)) : null;
@@ -3681,6 +3690,18 @@ function _sbFlag(c) {
   const iso = SB_FLAG_ISO[c];
   return iso ? `<img class="sbm-flag" src="https://flagcdn.com/w20/${iso}.png" srcset="https://flagcdn.com/w40/${iso}.png 2x" alt="" loading="lazy">` : '';
 }
+// Libellés FR des valeurs de biais — appliqués UNIQUEMENT à l'affichage (badges/cellules du Radar
+// de Biais & Bias Summary). La valeur d'origine (v) reste la clé logique : classe (_sbColorCls),
+// score, comparaisons. → on n'enveloppe QUE le texte final affiché avec `BIAS_FR[v] || v`.
+const BIAS_FR = {
+  'Very Bullish': 'Très Haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement Haussier',
+  'Neutral': 'Neutre', 'Weak Bearish': 'Légèrement Baissier', 'Bearish': 'Baissier',
+  'Very Bearish': 'Très Baissier', 'Uptrend': 'Haussier', 'Downtrend': 'Baissier',
+  'Range': 'Range', 'N/A': 'N/D',
+};
+// Libellés FR des badges d'impact (calendrier / Key Risk Events) — affichage UNIQUEMENT.
+// La valeur d'origine (HIGH/MED/LOW) reste la clé logique : data-imp, comparaisons, dérivation de classe.
+const IMPACT_FR = { HIGH: 'ÉLEVÉ', MED: 'MOYEN', LOW: 'FAIBLE' };
 // Valeur de biais → classe couleur sémantique FIXE (5 états, hex exacts DTP : voir CSS .sbm-*).
 function _sbColorCls(v) {
   switch (v) {
@@ -3722,12 +3743,12 @@ function renderBiasView(d) {
       ? `<td class="sbm-ind sbm-ind-acc" onclick="_sbMatToggleAcc('${r.key}',event)" title="Déplier les sous-indicateurs"><span class="sbm-acc-arrow">›</span>${esc(r.label)}</td>`
       : `<td class="sbm-ind">${esc(r.label)}</td>`;
     return `<tr data-mrow="${esc(r.key || '')}">${indCell}${
-      cur.map(c => { const v = r.values[c] || 'N/A'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(v)}">${esc(v)}</td>`; }).join('')
+      cur.map(c => { const v = r.values[c] || 'N/A'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(BIAS_FR[v] || v)}">${esc(BIAS_FR[v] || v)}</td>`; }).join('')
     }</tr>`;
   }).join('');
   const arrow = v => /bull|uptrend/i.test(v) ? '<span class="sbm-arr">↗</span>' : /bear|downtrend/i.test(v) ? '<span class="sbm-arr">↘</span>' : '';
   const concl = `<tr class="sbm-overall"><td class="sbm-ind">Conclusion globale</td>${
-    cur.map(c => { const v = (d.conclusion || {})[c] || 'N/A'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(v)}</td>`; }).join('')
+    cur.map(c => { const v = (d.conclusion || {})[c] || 'N/A'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(BIAS_FR[v] || v)}</td>`; }).join('')
   }</tr>`;
 
   host.innerHTML = `
@@ -3837,7 +3858,7 @@ function _sbFallbackNarrative(curr, val, overall, bulls, bears, esc) {
   const fund = val('fundamental'), mon = val('monetary'), hf = val('hedgeFund'),
         ret = val('retail'), bank = val('bankOverview'), tr = val('trend'), seas = val('seasonality');
   const P = [];
-  P.push(`Le biais hebdomadaire global ressort <b>${esc(overall)}</b> sur ${esc(curr)}.`);
+  P.push(`Le biais hebdomadaire global ressort <b>${esc(BIAS_FR[overall] || overall)}</b> sur ${esc(curr)}.`);
   const macro = [];
   if (has(fund)) macro.push(`le contexte fondamental est ${q(fund)}`);
   if (has(mon))  macro.push(`la politique monétaire est ${q(mon)}`);
@@ -3880,7 +3901,7 @@ function _sbOpenSummary(curr) {
     const o = opts || {};
     return `<div class="sbs-row${o.child ? ' sbs-row--child' : ''}${o.acc ? ' sbs-acc' : ''}"${o.acc ? ` data-acc="${o.acc}" onclick="_sbToggleAcc('${o.acc}')"` : ''}>
       <span class="sbs-row-lbl">${o.acc ? '<span class="sbs-acc-arrow">›</span> ' : ''}${esc(label)}</span>
-      <span class="sbs-badge ${_sbColorCls(v)}">${esc(v)}</span></div>`;
+      <span class="sbs-badge ${_sbColorCls(v)}">${esc(BIAS_FR[v] || v)}</span></div>`;
   };
 
   const leftRows = [
@@ -3896,7 +3917,7 @@ function _sbOpenSummary(curr) {
     line('Tendance', val('trend')),
     line('Seasonality', val('seasonality')),
     // Ligne Overall (conclusion) — encadrée orange façon DTP, en bas de la liste.
-    `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${esc(overall)}</span></div>`,
+    `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${esc(BIAS_FR[overall] || overall)}</span></div>`,
   ].filter(Boolean).join('');
 
   // Narratif data-driven (sans IA) : synthèse à partir des indicateurs de la devise.
@@ -3988,7 +4009,7 @@ function _sbRenderBankChildren(box, cur) {
     const banks = Object.keys(bs).sort();
     box.innerHTML = banks.map(name => {
       const stance = (bs[name] || {})[cur] || 'Neutral';
-      return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(name)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(stance)}</span></div>`;
+      return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(name)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(BIAS_FR[stance] || stance)}</span></div>`;
     }).join('');
     return;
   }
@@ -4005,7 +4026,7 @@ function _sbRenderBankChildren(box, cur) {
   if (!banks.length) { box.innerHTML = `<div class="sbs-child-note">Aucune position de banque sur ${esc(cur)} dans le terminal actuellement.</div>`; return; }
   box.innerHTML = banks.map(b => {
     const stance = b.score > 0 ? 'Bullish' : b.score < 0 ? 'Bearish' : 'Neutral';
-    return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(b.name)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${stance}</span></div>`;
+    return `<div class="sbs-row sbs-row--child"><span class="sbs-row-lbl">${esc(b.name)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(BIAS_FR[stance] || stance)}</span></div>`;
   }).join('');
 }
 // ── Accordéon Fundamental : sous-indicateurs dérivés du CALENDRIER réel (actual vs forecast), 0 IA, 0 invention ──
@@ -4043,7 +4064,7 @@ function _sbRenderFundChildren(box, cur) {
   if (_fr && Array.isArray(_fr.subs) && _fr.subs.length) {
     box.innerHTML = _fr.subs.map(sub => {
       const st = (sub.values && sub.values[cur]) || 'Neutral';
-      return `<div class="sbs-row sbs-row--child" title="${esc(sub.label)} (${esc(cur)})"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(st)}">${esc(st)}</span></div>`;
+      return `<div class="sbs-row sbs-row--child" title="${esc(sub.label)} (${esc(cur)})"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(st)}">${esc(BIAS_FR[st] || st)}</span></div>`;
     }).join('');
     return;
   }
@@ -4052,8 +4073,8 @@ function _sbRenderFundChildren(box, cur) {
     const ev = evs.filter(e => sub.re.test(e.title || '')).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
     const stance = ev ? _sbFundStance(ev.actual, ev.forecast) : null;
     // Pas de publication récente → Neutral par défaut (convention du terminal : pas de donnée = Neutral, jamais de case vide)
-    if (!stance) return `<div class="sbs-row sbs-row--child" title="Pas de publication récente — Neutral par défaut"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls('Neutral')}">Neutral</span></div>`;
-    return `<div class="sbs-row sbs-row--child" title="${esc(ev.title)} : ${esc(ev.actual)} vs ${esc(ev.forecast)}"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${stance}</span></div>`;
+    if (!stance) return `<div class="sbs-row sbs-row--child" title="Pas de publication récente — Neutre par défaut"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls('Neutral')}">${BIAS_FR['Neutral']}</span></div>`;
+    return `<div class="sbs-row sbs-row--child" title="${esc(ev.title)} : ${esc(ev.actual)} vs ${esc(ev.forecast)}"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(BIAS_FR[stance] || stance)}</span></div>`;
   }).join('');
 }
 function _sbToggleAcc(key) {
@@ -4142,7 +4163,7 @@ function _sbMatToggleAcc(key, e) {
         const v = sr.values[c] || '—';
         return v === '—'
           ? `<td class="sbm-cell sbm-na">—</td>`
-          : `<td class="sbm-cell ${_sbColorCls(v)}" title="${_sbMatEsc(c)} · ${_sbMatEsc(sr.label)} : ${_sbMatEsc(v)}">${_sbMatEsc(v)}</td>`;
+          : `<td class="sbm-cell ${_sbColorCls(v)}" title="${_sbMatEsc(c)} · ${_sbMatEsc(sr.label)} : ${_sbMatEsc(BIAS_FR[v] || v)}">${_sbMatEsc(BIAS_FR[v] || v)}</td>`;
       }).join('');
       anchor.after(tr); anchor = tr;
     });
@@ -4180,7 +4201,7 @@ function _sbLoadRiskEvents() {
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     box.innerHTML = days.map(day => {
       const hi = /high/i.test(day.impact || ''); const imp = hi ? 'HIGH' : (/(medium|med)/i.test(day.impact || '') ? 'MED' : 'LOW');
-      return `<div class="sbs-risk-row"><span class="sbs-risk-day">${esc((day.dow || '').slice(0, 3))} — ${esc(day.title || '')}</span><span class="sbs-risk-imp sbs-imp--${imp.toLowerCase()}">${imp}</span></div>`;
+      return `<div class="sbs-risk-row"><span class="sbs-risk-day">${esc((day.dow || '').slice(0, 3))} — ${esc(day.title || '')}</span><span class="sbs-risk-imp sbs-imp--${imp.toLowerCase()}">${IMPACT_FR[imp] || imp}</span></div>`;
     }).join('');
   };
   if (_waData) { render(_waData); return; }
