@@ -9859,3 +9859,12 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .cot-header-label,.dmx-header-title{text-transform:uppercase;letter-spacing:.085em;font-weight:600;}
 .cot-header-label::before,.dmx-header-title::before{content:'';display:inline-block;width:3px;height:.8em;border-radius:2px;background:var(--orange,#e3b23a);margin-right:7px;vertical-align:-1px;opacity:.85;}
 .cot-type-btn,.dmx-tf-btn,.dmx-sort-select{border-radius:0 !important;}
+
+/* === Polish panneau reglages - identite desk (or + carre + etats soignes) === */
+.pd-section-icon-wrap{border-radius:2px !important;}
+.pd-badge{border-radius:2px !important;}
+.pd-section-trigger:hover .pd-section-icon-wrap,
+.pd-section-trigger.pd-open .pd-section-icon-wrap{border-color:rgba(227,178,58,.5) !important;color:#e3b23a !important;background:rgba(227,178,58,.09) !important;}
+.pd-section-trigger.pd-open{box-shadow:inset 3px 0 0 var(--orange,#e3b23a);background:rgba(227,178,58,.05) !important;}
+.pd-section-trigger:hover{background:rgba(227,178,58,.04) !important;}
+.pd-section-trigger.pd-open .pd-section-arrow{color:#e3b23a !important;}
