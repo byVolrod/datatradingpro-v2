@@ -249,39 +249,39 @@
 
       <a href="https://datatradingpro.com/" class="lp-brand">DataTradingPro</a>
 
-      <h1 class="lp-title">Bon retour.</h1>
-      <p class="lp-subtitle">Connectez-vous à votre terminal macro &amp; forex.</p>
+      <h1 class="lp-title" data-i18n="title">Bon retour.</h1>
+      <p class="lp-subtitle" data-i18n="subtitle">Connectez-vous à votre terminal macro &amp; forex.</p>
 
       <div class="lp-error" id="lp-error"></div>
 
       <form id="lp-form" autocomplete="on">
 
         <div class="lp-form-group">
-          <label class="lp-label" for="lp-email">Adresse e-mail</label>
+          <label class="lp-label" for="lp-email" data-i18n="email">Adresse e-mail</label>
           <div class="lp-input-wrap">
             <input class="lp-input" type="email" id="lp-email" name="email"
-                   placeholder="votre@email.com" autocomplete="email" required />
+                   placeholder="votre@email.com" data-i18n-ph="emailPh" autocomplete="email" required />
           </div>
         </div>
 
         <div class="lp-form-group">
-          <label class="lp-label" for="lp-password">Mot de passe</label>
+          <label class="lp-label" for="lp-password" data-i18n="password">Mot de passe</label>
           <div class="lp-input-wrap">
             <input class="lp-input" type="password" id="lp-password" name="password"
                    placeholder="••••••••" autocomplete="current-password" required />
-            <span class="lp-input-icon lp-input-icon--eye" id="lp-eye" onclick="lpTogglePw()" title="Afficher/masquer">👁</span>
+            <span class="lp-input-icon lp-input-icon--eye" id="lp-eye" onclick="lpTogglePw()" title="Afficher/masquer" data-i18n-title="pwToggle">👁</span>
           </div>
         </div>
 
         <div class="lp-row-remember">
           <label class="lp-checkbox-label">
             <input type="checkbox" id="lp-remember" name="remember" />
-            Rester connecté
+            <span data-i18n="remember">Rester connecté</span>
           </label>
-          <a class="lp-forgot" href="#" onclick="lpForgot(event)">Mot de passe oublié ?</a>
+          <a class="lp-forgot" href="#" onclick="lpForgot(event)" data-i18n="forgot">Mot de passe oublié ?</a>
         </div>
 
-        <button type="submit" class="lp-btn" id="lp-btn">Se connecter</button>
+        <button type="submit" class="lp-btn" id="lp-btn" data-i18n="signin">Se connecter</button>
 
       </form>
 
@@ -289,7 +289,7 @@
       <div class="lp-divider"></div>
 
       <div class="lp-lang-row">
-        <span class="lp-lang-label">Langue :</span>
+        <span class="lp-lang-label" data-i18n="langLabel">Langue :</span>
         <select class="lp-lang-select" id="lp-lang">
           <option value="fr" selected>Français</option>
           <option value="en">English</option>
@@ -299,14 +299,14 @@
       <div class="lp-dl-row">
         <a class="lp-dl-btn" href="/downloads/DataTradingPro-Setup.exe" download>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
-          <span class="lp-dl-txt"><span class="lp-dl-k">Télécharger pour</span><span class="lp-dl-v">Windows</span></span>
+          <span class="lp-dl-txt"><span class="lp-dl-k" data-i18n="dlFor">Télécharger pour</span><span class="lp-dl-v">Windows</span></span>
         </a>
         <a class="lp-dl-btn" href="/downloads/DataTradingPro-macOS.zip" download>
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3"></path><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><path d="m7 10 5 5 5-5"></path></svg>
-          <span class="lp-dl-txt"><span class="lp-dl-k">Télécharger pour</span><span class="lp-dl-v">macOS</span></span>
+          <span class="lp-dl-txt"><span class="lp-dl-k" data-i18n="dlFor">Télécharger pour</span><span class="lp-dl-v">macOS</span></span>
         </a>
       </div>
-      <div class="lp-dl-intel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.zip" download>Télécharger la version Intel</a></div>
+      <div class="lp-dl-intel" data-i18n-html="dlIntel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.zip" download>Télécharger la version Intel</a></div>
 
     </div><!-- /.lp-card -->
   </div><!-- /.lp-right -->
@@ -317,8 +317,8 @@
     <div class="im-veil"></div>
     <div class="im-sheen"></div>
     <div class="lp-left-card">
-      <div class="lp-tagline-1"><strong>Anticipez</strong> le marché.</div>
-      <div class="lp-tagline-2">Pas seulement le suivre.</div>
+      <div class="lp-tagline-1" data-i18n-html="tagline1"><strong>Anticipez</strong> le marché.</div>
+      <div class="lp-tagline-2" data-i18n="tagline2">Pas seulement le suivre.</div>
     </div>
   </div>
 
@@ -388,6 +388,46 @@
   })();
 
   /* ── Login form ── */
+  /* ── i18n FR/EN — bascule complète de la page (persiste dans localStorage) ── */
+  const I18N = {
+    fr: {
+      title:'Bon retour.', subtitle:'Connectez-vous à votre terminal macro & forex.',
+      email:'Adresse e-mail', emailPh:'votre@email.com', password:'Mot de passe',
+      pwToggle:'Afficher/masquer', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
+      signin:'Se connecter', signingIn:'Connexion…', langLabel:'Langue :', dlFor:'Télécharger pour',
+      dlIntel:'Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.zip" download>Télécharger la version Intel</a>',
+      tagline1:'<strong>Anticipez</strong> le marché.', tagline2:'Pas seulement le suivre.',
+      errCreds:'Email ou mot de passe incorrect', errConn:'Erreur de connexion — réessayez',
+      subExpired:'Abonnement expiré', renew:'Renouveler mon abonnement',
+      forgotNoEmail:'Entrez d’abord votre adresse e-mail ci-dessus, puis recliquez sur « Mot de passe oublié ».',
+      forgotSent:'Si un compte existe pour cet email, un nouveau mot de passe vient d’être envoyé. Vérifiez votre boîte (et les spams).'
+    },
+    en: {
+      title:'Welcome back.', subtitle:'Sign in to your macro & forex terminal.',
+      email:'Email address', emailPh:'you@email.com', password:'Password',
+      pwToggle:'Show / hide', remember:'Stay signed in', forgot:'Forgot password?',
+      signin:'Sign in', signingIn:'Signing in…', langLabel:'Language:', dlFor:'Download for',
+      dlIntel:'Mac Intel (before 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.zip" download>Download the Intel version</a>',
+      tagline1:'<strong>Anticipate</strong> the market.', tagline2:'Not just follow it.',
+      errCreds:'Incorrect email or password', errConn:'Connection error — please try again',
+      subExpired:'Subscription expired', renew:'Renew my subscription',
+      forgotNoEmail:'Enter your email address above first, then click “Forgot password” again.',
+      forgotSent:'If an account exists for this email, a new password has just been sent. Check your inbox (and spam).'
+    }
+  };
+  function lpDetect(){ try { return localStorage.getItem('dtp_lang') || (navigator.language || 'fr').slice(0,2); } catch(e){ return 'fr'; } }
+  let LANG = I18N[lpDetect()] ? lpDetect() : 'fr';
+  function t(k){ return (I18N[LANG] && I18N[LANG][k]) || I18N.fr[k] || k; }
+  function applyLang(lang){
+    LANG = I18N[lang] ? lang : 'fr';
+    try { localStorage.setItem('dtp_lang', LANG); } catch(e){}
+    document.documentElement.lang = LANG;
+    document.querySelectorAll('[data-i18n]').forEach(function(el){ el.textContent = t(el.getAttribute('data-i18n')); });
+    document.querySelectorAll('[data-i18n-html]').forEach(function(el){ el.innerHTML = t(el.getAttribute('data-i18n-html')); });
+    document.querySelectorAll('[data-i18n-ph]').forEach(function(el){ el.setAttribute('placeholder', t(el.getAttribute('data-i18n-ph'))); });
+    document.querySelectorAll('[data-i18n-title]').forEach(function(el){ el.setAttribute('title', t(el.getAttribute('data-i18n-title'))); });
+  }
+
   const form  = document.getElementById('lp-form');
   const errEl = document.getElementById('lp-error');
   const btn   = document.getElementById('lp-btn');
@@ -400,7 +440,7 @@
   form.addEventListener('submit', async e => {
     e.preventDefault();
     errEl.classList.remove('visible'); errEl.classList.remove('lp-error--renew');
-    btn.disabled = true; btn.innerHTML = '<span class="lp-spinner"></span>Connexion…';
+    btn.disabled = true; btn.innerHTML = '<span class="lp-spinner"></span>' + t('signingIn');
     try {
       const r = await fetch('/api/auth/login', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -413,23 +453,23 @@
       if (data.ok) { window.location.href = '/'; }
       else {
         errEl.classList.remove('lp-msg-success');
-        const _msg = (data.error || 'Email ou mot de passe incorrect').replace(/</g, '&lt;');
+        const _msg = (data.error || t('errCreds')).replace(/</g, '&lt;');
         errEl.classList.toggle('lp-error--renew', !!data.renewUrl);
         errEl.innerHTML = data.renewUrl
           ? `<div class="lp-renew-card">`
-            + `<div class="lp-renew-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${(data.renewTitle || 'Abonnement expiré').replace(/</g, '&lt;')}</div>`
+            + `<div class="lp-renew-title"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>${(data.renewTitle || t('subExpired')).replace(/</g, '&lt;')}</div>`
             + `<div class="lp-renew-msg">${_msg}</div>`
-            + `<a href="${data.renewUrl}" target="_blank" rel="noopener" class="lp-renew-btn">Renouveler mon abonnement</a>`
+            + `<a href="${data.renewUrl}" target="_blank" rel="noopener" class="lp-renew-btn">${t('renew')}</a>`
             + `</div>`
           : _msg;
         errEl.classList.add('visible');
       }
     } catch {
       errEl.classList.remove('lp-msg-success');
-      errEl.textContent = 'Erreur de connexion — réessayez';
+      errEl.textContent = t('errConn');
       errEl.classList.add('visible');
     } finally {
-      btn.disabled = false; btn.textContent = 'Se connecter';
+      btn.disabled = false; btn.textContent = t('signin');
     }
   });
 
@@ -441,11 +481,11 @@
     errEl.classList.remove('lp-error--renew');
     if (!email) {
       errEl.classList.remove('lp-msg-success');
-      errEl.textContent = 'Entrez d’abord votre adresse e-mail ci-dessus, puis recliquez sur « Mot de passe oublié ».';
+      errEl.textContent = t('forgotNoEmail');
       errEl.classList.add('visible'); emailEl.focus(); return;
     }
     errEl.classList.add('lp-msg-success');
-    errEl.textContent = 'Si un compte existe pour cet email, un nouveau mot de passe vient d’être envoyé. Vérifiez votre boîte (et les spams).';
+    errEl.textContent = t('forgotSent');
     errEl.classList.add('visible');
     fetch('/api/auth/forgot-password', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -487,7 +527,7 @@
     sel.parentNode.insertBefore(dd, sel.nextSibling);
     renderBtn(); return dd;
   }
-  enhanceSelect(document.getElementById('lp-lang'), _FLAGS);
+  document.getElementById('lp-lang').value = LANG; enhanceSelect(document.getElementById('lp-lang'), _FLAGS); document.getElementById('lp-lang').addEventListener('change', function(e){ applyLang(e.target.value); }); applyLang(LANG);
 
   document.getElementById('lp-email').focus();
 </script>
