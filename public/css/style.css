@@ -2178,15 +2178,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   transition: color 0.15s, background 0.15s;
   position: relative;
   user-select: none;
-  border-right: 1px solid var(--border);
 }
 
-.right-tab:hover { color: var(--text2); background: var(--bg2); }
+.right-tab:hover { color: var(--text); background: rgba(255,255,255,0.025); }
 
-/* Onglet actif : texte blanc + fond légèrement plus clair */
+/* Onglet actif : texte blanc + soulignement or (cohérent avec la nav principale) */
 .right-tab--active {
   color: var(--text) !important;
-  background: var(--bg3);
+  background: transparent;
+  box-shadow: inset 0 -2px 0 var(--orange, #e3b23a);
 }
 
 /* Flèche nav gauche */
@@ -9764,5 +9764,5 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 .sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel,.ai-insights-card,.bias-content,.arlib-list-view{border-radius:12px;}
 .sym-panel,.sym-bz-col,.ai-insights-card,.ai-ins-pair,.clocks-panel,.sbs-panel,.dmx-panel{transition:border-color .18s ease,transform .18s ease,box-shadow .2s ease;}
 .sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{transform:translateY(-1px);border-color:rgba(227,178,58,0.26);box-shadow:0 10px 26px -16px rgba(0,0,0,0.65);}
-@keyframes dtpFadeIn{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
-.main-layout{animation:dtpFadeIn .5s ease both;}
+@keyframes dtpEnter{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+.main-layout{animation:dtpEnter .5s ease both;}
