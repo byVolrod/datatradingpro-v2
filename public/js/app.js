@@ -55,7 +55,7 @@ let _aiBusy = false;
 let _aiTyper = null;
 const AI_AVATAR = '/assets/images/macro-ai-logo.png';            // logo officiel sauvegardé en local (autonome)
 try { const _aiAv = new Image(); _aiAv.src = AI_AVATAR; } catch {}   // PRÉCHARGÉ dès le boot → l'avatar s'affiche EN MÊME TEMPS que le message (plus jamais après)
-const AI_CHIP = `<img class="ai-chip-img" src="${AI_AVATAR}" alt="Macro AI" width="22" height="22" decoding="sync">`;
+const AI_CHIP = `<img class="ai-chip-img" src="${AI_AVATAR}" alt="Copilote Macro" width="22" height="22" decoding="sync">`;
 function _aiTime() { try { return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
 function _aiEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 function _aiMd(s) { return _aiEsc(s).replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n/g, '<br>'); }
@@ -222,7 +222,7 @@ function aiClearConfirm() { if (_aiTyper) { clearTimeout(_aiTyper); _aiTyper = n
 function aiToggle() { const p = document.getElementById('ai-panel'); if (p && p.classList.contains('open')) aiClose(); else aiOpen(); }
 window.aiOpen = aiOpen; window.aiClose = aiClose; window.aiToggle = aiToggle; window.aiSend = aiSend; window.aiInputKey = aiInputKey; window.aiInputGrow = aiInputGrow;
 window.aiToggleSources = aiToggleSources; window.aiClearAsk = aiClearAsk; window.aiClearCancel = aiClearCancel; window.aiClearConfirm = aiClearConfirm;
-// Le bouton AI de la topbar bascule le volet Macro AI Assistant
+// Le bouton AI de la topbar bascule le volet Copilote Macro
 (function () { var b = document.getElementById('ai-btn'); if (b) b.addEventListener('click', aiToggle); })();
 
 // ── Sélecteur de langue (dropdown custom à vraies images de drapeaux — les emoji-drapeaux ne s'affichent pas sur Windows) ──
@@ -598,7 +598,7 @@ function handleMessage(msg) {
       renderArlibList();
     }
   } else if (msg.type === 'smartbias_update' || msg.type === 'bias_update') {
-    // Nouvelle matrice Smart Bias générée → on met à jour l'onglet Bias
+    // Nouvelle matrice Radar de Biais générée → on met à jour l'onglet Bias
     if (msg.type === 'smartbias_update' && msg.bias) {
       _biasData = null; _biasView = null; _biasViewTs = null;   // force le re-fetch avec l'historique (versioning)
       const biasPanel = document.getElementById('view-bias');
@@ -3473,7 +3473,7 @@ function loadAnalystView() {
   }).finally(() => renderArlibList());
 }
 
-// ═══════════════════ ONGLET BIAS — Smart Bias Tracker (matrice) ═══════════════════
+// ═══════════════════ ONGLET BIAS — Radar de Biais (matrice) ═══════════════════
 let _biasData    = null;
 let _biasView    = null;   // snapshot actuellement AFFICHÉ (courant ou semaine archivée)
 let _biasViewTs  = null;   // generatedAt de la semaine affichée
@@ -3491,14 +3491,14 @@ function loadBiasView() {
   const host = document.getElementById('bias-content');
   if (!host) return;
   if (_biasData) { renderBiasView(_biasView || _biasData); return; }
-  host.innerHTML = dtpLoader('Chargement du Smart Bias Tracker…');
+  host.innerHTML = dtpLoader('Chargement du Radar de Biais…');
   // Fetch RÉSILIENT (anticipation) : tolère un hoquet serveur (502/HTML pendant un redéploiement) → réessaie
   // ~80 s au lieu de rester bloqué sur « indisponible ». Jamais d'« Unexpected token '<' ».
   (window._dtpJSON ? window._dtpJSON('/api/smart-bias') : fetch('/api/smart-bias').then(r => r.json()))
     .then(d => { if (!d || !d.currencies) throw new Error('no data'); _biasRetry = 0; _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; renderBiasView(d); })
     .catch(() => {
-      if (_biasRetry++ < 20) { host.innerHTML = dtpLoader('Chargement du Smart Bias Tracker…'); setTimeout(loadBiasView, 4000); }
-      else host.innerHTML = '<div class="bias-loading">Smart Bias momentanément indisponible — réessaie dans un instant.</div>';
+      if (_biasRetry++ < 20) { host.innerHTML = dtpLoader('Chargement du Radar de Biais…'); setTimeout(loadBiasView, 4000); }
+      else host.innerHTML = '<div class="bias-loading">Radar de Biais momentanément indisponible — réessaie dans un instant.</div>';
     });
 }
 window.loadBiasView = loadBiasView;
@@ -3706,7 +3706,7 @@ function renderBiasView(d) {
   if (badge) badge.textContent = '';   // badge « MAJ <date> » retiré (demande utilisateur)
 
   if (!rows.length) {
-    host.innerHTML = '<div class="bias-loading">La matrice Smart Bias sera générée dimanche (force : /api/smart-bias?force=1).</div>';
+    host.innerHTML = '<div class="bias-loading">La matrice Radar de Biais sera générée dimanche (force : /api/smart-bias?force=1).</div>';
     return;
   }
 
@@ -3792,7 +3792,7 @@ function _sbRenderHeadDd(active) {
   el.innerHTML = _sbCurDropdown(a, cur) + _sbDateDropdown(_biasViewTs != null ? _biasViewTs : (d.generatedAt || 0));
 }
 window._sbRenderHeadDd = _sbRenderHeadDd;
-// Dropdown HISTORIQUE de dates (versioning Smart Bias, 5 semaines max) — format DTP "1-7/06/2026".
+// Dropdown HISTORIQUE de dates (versioning Radar de Biais, 5 semaines max) — format DTP "1-7/06/2026".
 function _sbDateDropdown(activeTs) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hist = (_biasData && Array.isArray(_biasData.history) ? _biasData.history : []).slice(0, 5);
@@ -4873,7 +4873,7 @@ async function _brEmbedPdf(item, endpointUrl) {
   return true;
 }
 // Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
-// (jamais un cadre vide ni un message technique). Les AI Insights restent affichés au-dessus, façon pro.
+// (jamais un cadre vide ni un message technique). Les Éclairages IA restent affichés au-dessus, façon pro.
 function _brShowExternalCard(item) {
   const content = document.getElementById('br-rcontent'); if (!content) return;
   content.classList.remove('br-rcontent--pdf');
@@ -4919,7 +4919,7 @@ async function _brShowRenderedPdf(item, renderUrl) {
   _brShowExternalCard(item);
 }
 
-// Garantit les AI Insights (+ tags) à CHAQUE ouverture de rapport Institution, quel que soit le mode
+// Garantit les Éclairages IA (+ tags) à CHAQUE ouverture de rapport Institution, quel que soit le mode
 // d'affichage (PDF natif / proxy / rendu / HTML). item.description est souvent VIDE (PDF natifs SEB/ING/
 // BlackRock, MUFG…) → on alimente depuis le MEILLEUR contenu dispo : fullContent → HTML déjà fetché →
 // corps de l'article récupéré → description. Le 1er ayant > 80 caractères gagne.
@@ -4954,7 +4954,7 @@ function renderBrReader(item) {
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   if (content) content.classList.remove('br-rcontent--pdf');
 
-  // ── AI Insights (carrousel au-dessus, TOUJOURS — y compris au-dessus d'un PDF, façon pro) ──
+  // ── Éclairages IA (carrousel au-dessus, TOUJOURS — y compris au-dessus d'un PDF, façon pro) ──
   let brIns = document.getElementById('br-ai-insights');
   if (!brIns && content) {
     brIns = document.createElement('div');
@@ -5008,7 +5008,7 @@ function renderBrReader(item) {
     .then(async data => {
       if (!content) return;
       data = data || {};
-      // AI Insights + tags GARANTIS depuis le CONTENU du rapport (le corps vit dans le PDF/HTML ;
+      // Éclairages IA + tags GARANTIS depuis le CONTENU du rapport (le corps vit dans le PDF/HTML ;
       // item.description est souvent vide) → carrousel rempli + tags pertinents MÊME en mode PDF brut.
       if (brIns) _brEnsureInsights(item, brIns, tagsEl, data.html);
       // PDF natif (proxifié) puis, à défaut, page rendable → rendu PDF serveur (Puppeteer). NOUVEAU : si
@@ -5067,7 +5067,7 @@ function renderBrReader(item) {
         // Extraction impossible (site protégé / anti-bot / login). On N'EMBARQUE PAS l'URL d'origine
         // en iframe : ces sites envoient X-Frame-Options / frame-ancestors → l'iframe reste un CADRE
         // VIDE (« ça ne s'affiche pas »). On affiche une carte PROPRE : en-tête + titre + aperçu +
-        // bouton « Ouvrir le rapport original ». (Les AI Insights, panneau dédié, résument le rapport.)
+        // bouton « Ouvrir le rapport original ». (Les Éclairages IA, panneau dédié, résument le rapport.)
         _noEmbed = true;
         const preview = (item.description || '').trim();
         const safe = (item.url || '').replace(/"/g, '&quot;');
@@ -5641,7 +5641,7 @@ document.addEventListener('click', (ev) => {
 
 // ── Reader ────────────────────────────────────────────────────────────────────
 
-// Charge et affiche les AI Insights (cartes) d'un rapport via Gemini
+// Charge et affiche les Éclairages IA (cartes) d'un rapport via Gemini
 const _aiInsightsCache = {};      // cache navigateur : pas de requête à la réouverture d'un rapport
 const _aiInsightsInflight = {};   // requêtes en vol (ck → Promise) : déduplique les appels simultanés
 async function _loadAIInsights(item, el) {
@@ -5664,7 +5664,7 @@ async function _loadAIInsights(item, el) {
   const ck = item.id || (item.headline || '').slice(0, 60);
   let d = _aiInsightsCache[ck];
   if (!d) {
-    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16" decoding="sync"> AI Insights</span></div><div class="ai-insights-loading">Loading summaries…</div>`;
+    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Copilote Macro" width="16" height="16" decoding="sync"> Éclairages IA</span></div><div class="ai-insights-loading">Loading summaries…</div>`;
     try {
       // Déduplication : si une requête est déjà en vol pour CE rapport (ex. double appel
       // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
@@ -5683,7 +5683,7 @@ async function _loadAIInsights(item, el) {
     if (!d || !d.insights || !d.insights.length) {
       // FILET CLIENT : le serveur n'a renvoyé AUCUN insight (IA vide + secours serveur vide) → on NE VIDE
       // PAS le panneau. On fabrique des cartes extractives à partir des PUCES du rapport (item.lines) ou, à
-      // défaut, du TEXTE rendu. Ainsi les « AI Insights » ne disparaissent JAMAIS quand il y a du contenu
+      // défaut, du TEXTE rendu. Ainsi les « Éclairages IA » ne disparaissent JAMAIS quand il y a du contenu
       // (corrige les rapports Analyst au panneau vide, quel que soit le format/le quota IA).
       const _ttl  = String(item.headline || item.title || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
       const _cand = (Array.isArray(item.lines) && item.lines.length) ? item.lines : String(text || '').split(/(?<=[.!?])\s+|\n+/);
@@ -5713,10 +5713,10 @@ async function _loadAIInsights(item, el) {
         : '';
       return `<div class="ai-insights-card">${head}<div class="ai-card-text">${mdb(ins.text || '')}</div></div>`;
     }).join('');
-    const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
+    const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Copilote Macro" width="16" height="16">`;
     // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
     el.innerHTML = `<div class="ai-insights-head">
-        <span class="ai-insights-title">${chip} AI Insights</span>
+        <span class="ai-insights-title">${chip} Éclairages IA</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
           <span class="ai-insights-count"></span>
@@ -5747,7 +5747,7 @@ function _aiInsCount(cardsEl) {
   countEl.textContent = `${start}-${end} of ${total}`;
 }
 
-// Défilement des cartes AI Insights via les flèches (scopé au panneau cliqué)
+// Défilement des cartes Éclairages IA via les flèches (scopé au panneau cliqué)
 function aiInsScroll(btn, dir) {
   const c = btn?.closest('.ai-insights-head')?.nextElementSibling;
   if (c) c.scrollBy({ left: dir * 290, behavior: 'smooth' });
@@ -5757,7 +5757,7 @@ function aiInsScroll(btn, dir) {
 const _EYE_OFF = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.88 9.88a3 3 0 1 0 4.24 4.24"/><path d="M10.73 5.08A10.43 10.43 0 0 1 12 5c7 0 10 7 10 7a13.16 13.16 0 0 1-1.67 2.68"/><path d="M6.61 6.61A13.526 13.526 0 0 0 2 12s3 7 10 7a9.74 9.74 0 0 0 5.39-1.61"/><line x1="2" y1="2" x2="22" y2="22"/></svg>';
 const _EYE     = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>';
 
-// Afficher / masquer la grille de cartes AI Insights (cible paramétrable : Analyst ou Institution)
+// Afficher / masquer la grille de cartes Éclairages IA (cible paramétrable : Analyst ou Institution)
 function aiInsToggle(btn, hostId) {
   const host = document.getElementById(hostId || 'arlib-ai-insights');
   // Cible la rangée de cartes ; NO-OP tant qu'elle n'existe pas (pendant le chargement) → ne hide JAMAIS
@@ -5790,7 +5790,7 @@ function _gewWeekFr(s){ return _gewDayFr(String(s||'')).replace(/^\s*Week of\b/i
 let _wrStrengthData = null;     // données de force (TW) chargées 1 seule fois pour tout le rapport
 let _wrChartObserver = null;
 
-// Rapport complet, lu de haut en bas (PAS de badges) : AI Insights → Résumé → Key Macro Highlights
+// Rapport complet, lu de haut en bas (PAS de badges) : Éclairages IA → Résumé → Key Macro Highlights
 // → Currency Analysis (chaque devise à la suite : analyse + courbe ISOLÉE + drivers).
 function _renderWeeklyRecap(item) {
   const w = item._weekly || {};
@@ -5814,8 +5814,8 @@ function _renderWeeklyRecap(item) {
   const _rdateEl = document.getElementById('arlib-rdate');
   if (_rdateEl) _rdateEl.textContent = w.gew ? _gewWeekFr(w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range);
 
-  // AI Insights (composant Institution, alimenté par les insights Gemini du recap)
-  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
+  // Éclairages IA (composant Institution, alimenté par les insights Gemini du recap)
+  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Copilote Macro" width="16" height="16">`;
   // Cartes : insights thématiques (texte) PUIS paires/instruments avec badge de biais (SELL/BUY/NEUTRAL)
   // _wrInline (pas _wrEsc) → le markdown **gras** de l'IA est rendu en <strong>, jamais affiché brut.
   const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrInline(typeof t === 'string' ? t : (t.text || ''))}</div>`);
@@ -5831,7 +5831,7 @@ function _renderWeeklyRecap(item) {
   const insightsHtml = allCards.length ? `
     <div id="arlib-ai-insights">
       <div class="ai-insights-head">
-        <span class="ai-insights-title">${chip} AI Insights</span>
+        <span class="ai-insights-title">${chip} Éclairages IA</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
           <span class="ai-insights-count">${allCards.length} insights</span>
@@ -5901,12 +5901,12 @@ function _renderWeeklyRecap(item) {
       });
     }
   } else {
-    // ── WEEKLY MARKET RECAP : résumé + Currency Strength + Key Macro Highlights + analyse par devise (rétrospectif) ──
+    // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Key Macro Highlights + analyse par devise (rétrospectif) ──
     if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
     // Vue d'ensemble de la force des devises (les 8) — AVANT les Key Macro Highlights (demandé).
     // FIGÉE sur la semaine du rapport (badge à droite) : un recap récapitule UNE semaine, donc le chart
     // ne dérive jamais (snapshot serveur). Rouvert plus tard → toujours les données de CETTE semaine-là.
-    body += `<div class="wr-cs-head"><div class="wr-section-title">Currency Strength</div>`
+    body += `<div class="wr-cs-head"><div class="wr-section-title">Force des Devises</div>`
       + (w.weekRange ? `<span class="wr-cs-week">${_wrEsc(w.weekRange)}</span>` : '') + `</div>`;
     body += `<div class="wr-chart wr-chart--all" id="wr-cs-all">${window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
     if (w.macro && w.macro.length) {
@@ -5980,8 +5980,8 @@ function _renderFXDailyRecap(item) {
   const _rdateEl = document.getElementById('arlib-rdate');
   if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
 
-  // AI Insights (réutilise le composant Institution) : cartes thématiques + paires avec badge de biais.
-  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16">`;
+  // Éclairages IA (réutilise le composant Institution) : cartes thématiques + paires avec badge de biais.
+  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Copilote Macro" width="16" height="16">`;
   const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrInline(typeof t === 'string' ? t : (t.text || ''))}</div>`);
   const pairCards = (w.pairs || []).map(p => {
     const b = String(p.bias || 'NEUTRAL').toUpperCase();
@@ -5995,7 +5995,7 @@ function _renderFXDailyRecap(item) {
   const insightsHtml = allCards.length ? `
     <div id="arlib-ai-insights">
       <div class="ai-insights-head">
-        <span class="ai-insights-title">${chip} AI Insights</span>
+        <span class="ai-insights-title">${chip} Éclairages IA</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
           <span class="ai-insights-count">${allCards.length} insights</span>
@@ -6101,7 +6101,7 @@ function _renderFXDailyRecap(item) {
   content.scrollTop = 0;
 }
 
-// Construit la vue d'ensemble Currency Strength (toutes devises) figée dans #wr-cs-all.
+// Construit la vue d'ensemble Force des Devises (toutes devises) figée dans #wr-cs-all.
 function _wrBuildCsAll(data) {
   const host = document.getElementById('wr-cs-all'); if (!host) return;
   if (!data || !data.currencies || typeof buildStrengthChart !== 'function') { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; return; }
@@ -6172,7 +6172,7 @@ function renderArlibReader(item) {
   const content    = document.getElementById('arlib-rcontent');
   if (!content) return;
 
-  // ── AI Insights : cartes générées par IA, placées AU-DESSUS du contenu ──
+  // ── Éclairages IA : cartes générées par IA, placées AU-DESSUS du contenu ──
   let insightsEl = document.getElementById('arlib-ai-insights');
   if (!insightsEl) {
     insightsEl = document.createElement('div');
@@ -6182,11 +6182,11 @@ function renderArlibReader(item) {
   insightsEl.innerHTML = '';
   // Les sources à contenu ASYNCHRONE (session wraps InvestingLive, ING Think) rechargent les
   // insights APRÈS le chargement du contenu (avec le vrai texte complet). On NE les charge PAS
-  // ici — sinon double requête + le panneau se VIDE pendant le chargement = les AI Insights
+  // ici — sinon double requête + le panneau se VIDE pendant le chargement = les Éclairages IA
   // "disparaissent". On laisse un placeholder « analyse… » jusqu'à ce que le contenu soit prêt.
   const _asyncSrc = item && (item._source === 'investinglive' || item._source === 'ing-think');
   if (_asyncSrc) {
-    insightsEl.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Macro AI" width="16" height="16"> AI Insights</span> <span class="ai-insights-load">· analyse…</span></div>`;
+    insightsEl.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo.png" alt="Copilote Macro" width="16" height="16"> Éclairages IA</span> <span class="ai-insights-load">· analyse…</span></div>`;
   } else {
     _loadAIInsights(item, insightsEl);
   }
@@ -6207,7 +6207,7 @@ function renderArlibReader(item) {
   let html = '';
 
   // Récupère les PUCES réellement rendues du rapport (texte propre, sans la pastille) → servent
-  // de base aux AI Insights : 1 carte par puce = plusieurs petites cases, jamais un gros bloc.
+  // de base aux Éclairages IA : 1 carte par puce = plusieurs petites cases, jamais un gros bloc.
   function _collectReportLines(root) {
     if (!root) return [];
     const out = [];
@@ -6335,7 +6335,7 @@ function renderArlibReader(item) {
       } else if ((tag === 'strong' || tag === 'b') && !el.closest('p, li')) {
         const t = el.textContent.trim();
         if (_skipAuthor(t, true)) return;                    // en-tête "Authors" / nom d'auteur en gras → ignoré
-        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon pro) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les AI Insights
+        if (/^lead$/i.test(t)) return;                       // « LEAD » = bloc synthèse/intro (façon pro) → PAS de titre ni séparateur : les puces suivantes restent en tête, juste après les Éclairages IA
         // ≥2 (et non >3) : « FX », « US », « UK », « EU », « USD »… sont des EN-TÊTES légitimes de 2-3 car.
         // Le seuil >3 faisait DISPARAÎTRE le titre « FX » (2 car) → ses puces se collaient à la rubrique précédente.
         if (t.length >= 2) html += `<hr class="arlib-rdivider"><div class="arlib-rsection">${t.toUpperCase()}</div>`;
@@ -6624,10 +6624,10 @@ let   _npAudioCtx = null;
 
 // ── Filtres par catégorie (panneau "Filtre") ─────────────────
 const NP_CATS = [
-  { key: 'bias',     label: 'Smart Bias' },
+  { key: 'bias',     label: 'Radar de Biais' },
   { key: 'research', label: 'Fichiers de recherche' },
   { key: 'posts',    label: 'Posts' },
-  { key: 'analyst',  label: 'Analyst Report' },
+  { key: 'analyst',  label: 'Note d’Analyste' },
   { key: 'admin',    label: 'Admin' },
   { key: 'risk',     label: 'Risk Sentiment' },
   { key: 'ticker',   label: 'News Ticker' },

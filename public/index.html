@@ -8,8 +8,8 @@
   <link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23e3b23a'/%3E%3Ctext x='32' y='32' text-anchor='middle' dominant-baseline='central' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='23' fill='%23000000'%3EDTP%3C/text%3E%3C/svg%3E" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260625dtp1" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/css/style.css?v=20260625dtp2" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -71,7 +71,7 @@
   </div>
 
   <div class="topbar-right">
-    <div class="topbar-icon topbar-icon--ai" id="ai-btn" title="Macro AI Assistant">
+    <div class="topbar-icon topbar-icon--ai" id="ai-btn" title="Copilote Macro">
       <svg width="20" height="20" viewBox="0 0 17 17" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M0.00176811 3.09868C0.156673 1.47465 1.46488 0.149026 3.09032 0L13.9156 0.0102899C15.5259 0.179541 16.844 1.53993 16.9458 3.16716C17.1177 5.92272 16.8139 8.85782 16.9437 11.6322C16.8044 13.2463 15.4406 14.6212 13.8219 14.7326C12.8154 14.8018 11.7356 14.6716 10.7217 14.7387L8.76769 16.9215C8.55938 17.0362 8.30404 17.0291 8.11907 16.8747L6.22414 14.7387C5.20983 14.672 4.13009 14.8022 3.12392 14.7326C1.48999 14.6202 0.125906 13.2289 0 11.5985L0.00176811 3.09832V3.09868Z" fill="#0F3B21"/><path d="M3.12207 0.5C1.75339 0.632367 0.642869 1.75088 0.501953 3.12598L0.500977 11.5742C0.615277 12.9584 1.78383 14.1387 3.1582 14.2334C3.63244 14.2662 4.12929 14.253 4.65625 14.2373C5.17385 14.2219 5.72169 14.205 6.25684 14.2402L6.46191 14.2529L6.59863 14.4072L8.45117 16.4941C8.45503 16.4956 8.45897 16.4996 8.46484 16.5C8.46808 16.5002 8.47159 16.4984 8.47559 16.498L10.3496 14.4053L10.4854 14.2529L10.6885 14.2402L11.0918 14.2227C11.4958 14.2132 11.9009 14.2248 12.2891 14.2363C12.8161 14.252 13.3136 14.266 13.7881 14.2334H13.7871C15.1471 14.1398 16.3154 12.9754 16.4434 11.6084C16.3806 10.2139 16.4233 8.78278 16.4609 7.37891C16.4992 5.95157 16.5316 4.55042 16.4473 3.19824C16.3611 1.82296 15.2433 0.662627 13.8828 0.509766L3.12207 0.5Z" stroke="#00DA50" stroke-opacity="0.3"/><path d="M6.27815 4.25H7.6669L9.69505 10.1291H8.52722L8.10907 8.86654H5.83633L5.41005 10.1291H4.25L6.27815 4.25ZM7.80086 7.91927L6.97235 5.44151L6.14384 7.91927H7.80086Z" fill="#00DA50"/><path d="M10.3511 4.25H11.4242V10.1291H10.3511V4.25Z" fill="#00DA50"/></svg>
     </div>
     <div class="topbar-icon topbar-icon--sqwk" id="sqwk-btn" onclick="sqwkToggle()" title="Squawk FinancialJuice en direct">
@@ -116,12 +116,12 @@
   <!-- ══ VIEWS COLUMN — left, fills remaining space ══ -->
   <div class="views-col" id="views-col">
 
-    <!-- VIEW: SYMBOL (recherche → onglet pair : sous-onglets Overview / Smart Bias / COT / Seasonality / Retail / Central Bank) -->
+    <!-- VIEW: SYMBOL (recherche → onglet pair : sous-onglets Overview / Radar de Biais / COT / Seasonality / Retail / Central Bank) -->
     <div class="view-panel hidden" id="view-symbol">
       <div class="sym-subtabs" id="sym-subtabs">
         <span class="sym-bar-pair" id="sym-bar-pair">[—]</span>
         <button class="sym-subtab sym-subtab--active" data-sub="overview" type="button">Overview</button>
-        <button class="sym-subtab" data-sub="bias" type="button">Smart Bias</button>
+        <button class="sym-subtab" data-sub="bias" type="button">Radar de Biais</button>
         <button class="sym-subtab" data-sub="cotbase" type="button">COT base</button>
         <button class="sym-subtab" data-sub="cotquote" type="button">COT quote</button>
         <button class="sym-subtab" data-sub="seasonality" type="button">Seasonality</button>
@@ -136,7 +136,7 @@
               <div class="sym-body" id="sym-tv"></div>
             </div>
             <div class="sym-panel" style="grid-column:3;grid-row:1">
-              <div class="sym-phead"><span class="sym-ptitle">Currency Strength</span><span style="flex:1"></span><span class="sym-stf-bar" id="sym-strength-tf"></span></div>
+              <div class="sym-phead"><span class="sym-ptitle">Force des Devises</span><span style="flex:1"></span><span class="sym-stf-bar" id="sym-strength-tf"></span></div>
               <div class="sym-body" id="sym-strength"></div>
             </div>
             <div class="sym-panel" style="grid-column:1;grid-row:3">
@@ -199,7 +199,7 @@
     <div class="panel panel-bias">
       <div class="panel-header">
         <div class="panel-header-left">
-          <span class="panel-title">Smart Bias Tracker</span>
+          <span class="panel-title">Radar de Biais</span>
         </div>
         <div class="panel-header-controls">
           <span class="bias-head-dd" id="bias-head-dd"></span>
@@ -461,7 +461,7 @@
       <div class="arlib-list-view" id="arlib-list-view">
         <!-- Header -->
         <div class="arlib-list-hdr">
-          <span class="arlib-list-title">Analyst Reports</span>
+          <span class="arlib-list-title">Notes d’Analystes</span>
         </div>
         <!-- Toolbar -->
         <div class="arlib-toolbar">
@@ -572,7 +572,7 @@
         <div class="amchart-container rsh-chart" id="risk-history-chart"></div>
       </div>
 
-      <!-- STRENGTH — Real Currency Strength -->
+      <!-- STRENGTH — Real Force des Devises -->
       <div class="right-tab-panel" id="rtab-strength">
         <div id="strength-charts-row" class="strength-charts-row"></div>
       </div>
@@ -580,7 +580,7 @@
       <!-- METER — Sentiment Gauge -->
       <div class="right-tab-panel" id="rtab-meter">
         <div class="chart-header">
-          <span class="chart-header-title">Currency Strength Meter</span>
+          <span class="chart-header-title">Baromètre des Devises</span>
           <span class="live-dot live-dot--small"></span>
           <span class="live-label">Live</span>
         </div>
@@ -732,8 +732,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260625dtp1"></script>
-<script src="/js/charts.js?v=20260625dtp1"></script>
+<script src="/js/app.js?v=20260625dtp2"></script>
+<script src="/js/charts.js?v=20260625dtp2"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -1578,7 +1578,7 @@
 
 <!-- ══ CHAT SUPPORT PANEL ══ -->
 <div class="chat-overlay" id="chat-overlay" onclick="chatClose()"></div>
-<!-- ══ VOLET: Macro AI Assistant (chat IA — état volatil, reset au reload) ══ -->
+<!-- ══ VOLET: Copilote Macro (chat IA — état volatil, reset au reload) ══ -->
 <div class="ai-panel" id="ai-panel" aria-hidden="true">
   <div class="ai-clear-banner" id="ai-clear-banner">
     <span class="ai-clear-txt"><span class="ai-clear-check">✓</span> Really want to clear this chat?</span>
@@ -1591,7 +1591,7 @@
     <div class="ai-header-left">
       <span class="ai-head-ic" aria-hidden="true">AI</span>
       <div class="ai-head-meta">
-        <div class="ai-head-title">Macro AI Assistant</div>
+        <div class="ai-head-title">Copilote Macro</div>
         <div class="ai-head-status"><span class="ai-status-dot"></span>Online</div>
       </div>
     </div>

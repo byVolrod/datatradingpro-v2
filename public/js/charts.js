@@ -120,7 +120,7 @@ function tickPrices() {
 }
 
 // (tickPrices désactivé : il alimentait l'ancien sidebar de prix simulés, qui n'est plus
-//  construit — c'était un intervalle 3 s tournant à vide. Le Smart Bias réel le remplace.)
+//  construit — c'était un intervalle 3 s tournant à vide. Le Radar de Biais réel le remplace.)
 void tickPrices;
 
 // ═══════════════════════════════════════════════
@@ -531,7 +531,7 @@ function rebuildStockChart(symbol) {
 }
 
 // ═══════════════════════════════════════════════
-//  STRENGTH — Real Currency Strength (Single Chart + TF Selector)
+//  STRENGTH — Real Force des Devises (Single Chart + TF Selector)
 // ═══════════════════════════════════════════════
 
 // Palette SATURÉE (façon PMT) : couleurs plus vives/denses pour RESSORTIR sur le fond noir #0d0d0d.
@@ -978,7 +978,7 @@ async function buildStrengthCharts() {
   const paneHtml = (side, defPeriod) => `
     <div class="strength-pane" data-side="${side}">
       <div class="strength-tf-bar">
-        <span class="strength-chart-label">Currency Strength</span>
+        <span class="strength-chart-label">Force des Devises</span>
         <span style="flex:1"></span>
         ${STF_ORDER.map(p =>
           `<button class="stf-btn stf-tf-btn${p === defPeriod ? ' stf-btn--active' : ''}" data-period="${p}">${STF_LABELS[p]}</button>`
@@ -1744,7 +1744,7 @@ function buildDMXChart(forceRefresh = false) {
 }
 
 // ═══════════════════ SEASONALITY — table de performance mensuelle (façon pro) ═══════════════════
-// 28 paires FX (mêmes que Currency Strength). Défaut EUR/USD, sinon la dernière paire consultée (persistée
+// 28 paires FX (mêmes que Force des Devises). Défaut EUR/USD, sinon la dernière paire consultée (persistée
 // PAR COMPTE via /api/season-pair). Données = /api/seasonality (Yahoo : rendement mensuel × 5 ans + moyenne).
 const _SEASON_PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','NZDUSD','USDCAD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPCAD','GBPNZD','AUDJPY','NZDJPY','CADJPY','CHFJPY','AUDNZD','AUDCAD','AUDCHF','NZDCAD','NZDCHF','CADCHF'];
 let _seasonPair = null;   // paire courante (chargée 1×/session depuis le compte)
@@ -3240,7 +3240,7 @@ window._retryCalendar = function() {
   }).catch(() => {});
   // Caches volatils (réinitialisés au reload) → évitent de refetch à chaque changement de sous-onglet.
   let _cBias = null, _cCot = null, _cRates = null, _cFx = null, _cRetail = null;
-  let _symStrPeriod = 'today';   // période active du Currency Strength de la vue symbole (TD par défaut, comme l'accueil)
+  let _symStrPeriod = 'today';   // période active du Force des Devises de la vue symbole (TD par défaut, comme l'accueil)
   const pretty = p => p.slice(0,3) + '/' + p.slice(3);
   const tvSymbol = p => p === 'XAUUSD' ? 'OANDA:XAUUSD' : p === 'XAGUSD' ? 'OANDA:XAGUSD' : 'FX:' + p;
   const _esc = s => String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
@@ -3386,7 +3386,7 @@ window._retryCalendar = function() {
   }
   window.loadSymbolView = loadSymbolView;
 
-  // ── Currency Strength de la vue symbole : widget complet (sélecteur de période TD/TW/8H/1D/7D/1M)
+  // ── Force des Devises de la vue symbole : widget complet (sélecteur de période TD/TW/8H/1D/7D/1M)
   //    focalisé sur la paire (les 2 devises de la paire colorées, les autres masquées/re-cliquables) ──
   function _pairCcys() {
     const p = _active; if (!p) return [];
@@ -3425,7 +3425,7 @@ window._retryCalendar = function() {
     }).catch(() => { sEl.innerHTML = '<div class="sym-empty">Force des devises indisponible.</div>'; });
   }
 
-  // ── Overview : chart TradingView + Currency Strength (doublon du compteur par défaut) + calendrier + news filtrés ──
+  // ── Overview : chart TradingView + Force des Devises (doublon du compteur par défaut) + calendrier + news filtrés ──
   function renderOverview(pair, base, ccys) {
     // Chart TradingView (recréé seulement si la paire change)
     const host = document.getElementById('sym-tv');
@@ -3441,7 +3441,7 @@ window._retryCalendar = function() {
     // Les panneaux data ne se re-rendent que si la paire a changé (évite de refetch en revenant sur Overview).
     if (window._symOvPair === pair) return;
     window._symOvPair = pair;
-    // Currency Strength = doublon du widget de l'accueil (sélecteur de période TD/TW/8H/1D/7D/1M),
+    // Force des Devises = doublon du widget de l'accueil (sélecteur de période TD/TW/8H/1D/7D/1M),
     // mais focalisé sur la paire : seules les 2 devises de la paire restent colorées (les autres masquées).
     buildSymStrengthBar();
     loadSymStrength();
@@ -3514,14 +3514,14 @@ window._retryCalendar = function() {
     })();
   }
 
-  // ── Smart Bias : 2 colonnes (base / quote) tirées de /api/smart-bias ──
+  // ── Radar de Biais : 2 colonnes (base / quote) tirées de /api/smart-bias ──
   function renderBias(pair, c1, c2) {
     const hostEl = document.getElementById('sym-sub-bias'); if (!hostEl) return;
-    hostEl.innerHTML = '<div class="sym-load">Chargement du Smart Bias…</div>';
+    hostEl.innerHTML = '<div class="sym-load">Chargement du Radar de Biais…</div>';
     const go = d => {
       const cur = (d && d.currencies) || [], rows = (d && d.rows) || [];
       const cols = [c1, c2].filter(c => cur.includes(c));
-      if (!cols.length) { hostEl.innerHTML = '<div class="sym-empty">Smart Bias indisponible pour ' + pretty(pair) + '.</div>'; return; }
+      if (!cols.length) { hostEl.innerHTML = '<div class="sym-empty">Radar de Biais indisponible pour ' + pretty(pair) + '.</div>'; return; }
       const colHtml = cols.map(c => {
         const concl = (d.conclusion && d.conclusion[c]) || 'Neutral';
         const flag = FLAG[c] ? '<img class="sym-bz-flag" src="https://flagcdn.com/40x30/' + FLAG[c] + '.png" alt="">' : '';
@@ -3537,10 +3537,10 @@ window._retryCalendar = function() {
           + '</div>';
       }).join('');
       hostEl.innerHTML = '<div class="sym-bz-grid">' + colHtml + '</div>'
-        + '<div class="sym-src">Source : Smart Bias Tracker (matrice multi-indicateurs · COT, Myfxbook, calendrier, saisonnalité, rapports banques). Narratif IA figé chaque semaine.</div>';
+        + '<div class="sym-src">Source : Radar de Biais (matrice multi-indicateurs · COT, Myfxbook, calendrier, saisonnalité, rapports banques). Narratif IA figé chaque semaine.</div>';
     };
     if (_cBias) { go(_cBias); return; }
-    fetch('/api/smart-bias').then(r => r.json()).then(d => { if (d && d.currencies) _cBias = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Smart Bias indisponible.</div>'; });
+    fetch('/api/smart-bias').then(r => r.json()).then(d => { if (d && d.currencies) _cBias = d; go(d); }).catch(() => { hostEl.innerHTML = '<div class="sym-empty">Radar de Biais indisponible.</div>'; });
   }
 
   // ── COT (CFTC) : positionnement non-commercial de la devise (base ou quote) ──
