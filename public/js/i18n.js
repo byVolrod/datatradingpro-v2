@@ -31,11 +31,8 @@
     document.body.appendChild(box);
   }
 
-  /* FR = source : rien à traduire, on ajoute juste la bascule. */
-  if (LANG === 'fr' || !DICT || !Object.keys(DICT).length) {
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', injectSwitcher); else injectSwitcher();
-    return;
-  }
+  /* FR = source : rien à traduire (la langue se change depuis le profil). */
+  if (LANG === 'fr' || !DICT || !Object.keys(DICT).length) { return; }
 
   function tr(s) { if (s == null) return s; var str = '' + s, k = str.trim(); if (!k) return s; var t = DICT[k]; return (t === undefined || t === k) ? s : str.replace(k, t); }
 
@@ -70,7 +67,6 @@
   function boot() {
     document.documentElement.setAttribute('lang', 'en');
     translate(document.body);
-    injectSwitcher();
     var queue = [], pending = false;
     function flush() { pending = false; var q = queue; queue = []; for (var i = 0; i < q.length; i++) translate(q[i]); }
     var obs = new MutationObserver(function (muts) {
