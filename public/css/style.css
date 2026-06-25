@@ -9833,3 +9833,15 @@ body.theme-light{
   background-size:18px 18px;
 }
 body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-panel,body.theme-light .inst-panel,body.theme-light .dmx-panel,body.theme-light .clocks-panel{background:#ffffff !important;box-shadow:0 1px 0 rgba(184,134,11,.18),0 2px 8px -4px rgba(60,45,15,.08) !important;}
+
+/* === Carte sessions Leaflet (satellite) - marqueurs villes === */
+#am5-map .leaflet-container{background:#0b0c0f;font-family:var(--font-ui);outline:none;}
+#am5-map .leaflet-control-attribution{background:rgba(11,12,15,.6);color:#7e8189;font-size:9px;}
+#am5-map .leaflet-control-attribution a{color:#9aa0ac;}
+.lf-city-wrap{pointer-events:none;}
+.lf-city{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transform:translate(-50%,-50%);background:rgba(13,14,17,.82);border:1px solid #2a2e37;padding:3px 8px;font-family:var(--font-mono,monospace);font-size:11px;color:#e6e8ec;box-shadow:0 2px 10px rgba(0,0,0,.6);}
+.lf-city b{color:#e3b23a;font-weight:700;}
+.lf-city .lf-name{color:#aeb2bb;}
+.lf-city .lf-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
+.lf-open .lf-dot{background:#00e676;box-shadow:0 0 6px rgba(0,230,118,.7);}
+.lf-closed{opacity:.72;}.lf-closed .lf-dot{background:#6b7280;}
