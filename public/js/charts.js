@@ -2402,7 +2402,7 @@ document.addEventListener('DOMContentLoaded', () => {
       return;   // on ne touche pas aux view-panel
     }
     if (!VALID_VIEWS.includes(view)) view = 'news';
-    // WEEK AHEAD : désormais PUBLIC (plus de redirection des clients vers 'news').
+    // SEMAINE À VENIR : désormais PUBLIC (plus de redirection des clients vers 'news').
     _setDocTitle(view);
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
 
@@ -3445,7 +3445,7 @@ window._retryCalendar = function() {
     // mais focalisé sur la paire : seules les 2 devises de la paire restent colorées (les autres masquées).
     buildSymStrengthBar();
     loadSymStrength();
-    // Calendrier filtré sur la paire — MÊME rendu que Week Ahead (.cal-table : drapeaux ronds, points d'impact,
+    // Calendrier filtré sur la paire — MÊME rendu que Semaine à Venir (.cal-table : drapeaux ronds, points d'impact,
     // ACTUAL/FORECAST/PREVIOUS, séparateurs de jour) via les helpers globaux du calendrier.
     fetch('/api/calendar-events').then(r => r.json()).then(d => {
       const cal = document.getElementById('sym-cal'); if (!cal) return;

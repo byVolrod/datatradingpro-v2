@@ -981,7 +981,7 @@ function renderNews(hasNew = false) {
   } else {
     newsList.scrollTop = prevScrollTop;             // re-rendu (filtre, patch…) → on garde la position exacte
   }
-  // Miroir LIVE : si l'onglet Week Ahead est ouvert, son « Realtime Headline Ticker » = clone exact de l'onglet News (mis à jour à chaque dépêche WebSocket).
+  // Miroir LIVE : si l'onglet Semaine à Venir est ouvert, son « Realtime Headline Ticker » = clone exact de l'onglet News (mis à jour à chaque dépêche WebSocket).
   try { const _wav = document.getElementById('view-weekahead'); if (_wav && !_wav.classList.contains('hidden') && typeof _waSyncNews === 'function') _waSyncNews(); } catch {}
 }
 
@@ -3503,7 +3503,7 @@ function loadBiasView() {
 }
 window.loadBiasView = loadBiasView;
 
-// ═══════════════════ WEEK AHEAD — aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
+// ═══════════════════ SEMAINE À VENIR — aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
 let _waData = null, _waChartRoot = null, _waPollTimer = null, _waPollCount = 0;
 async function loadWeekAheadView() {
   const host = document.getElementById('wa-content');
@@ -3519,12 +3519,12 @@ async function loadWeekAheadView() {
     _waPollCount++;
     const visible = !document.getElementById('view-weekahead')?.classList.contains('hidden');
     if (_waPollCount <= 6 && visible) {
-      host.innerHTML = window.dtpLoader ? window.dtpLoader('Chargement du Week Ahead…') : '<div class="wa-empty">Chargement…</div>';   // loader STANDARD centré (comme les autres onglets)
+      host.innerHTML = window.dtpLoader ? window.dtpLoader('Chargement du Semaine à Venir…') : '<div class="wa-empty">Chargement…</div>';   // loader STANDARD centré (comme les autres onglets)
       _waPollTimer = setTimeout(loadWeekAheadView, 12000);   // re-poll dans 12s
     } else {
       host.innerHTML = `<div class="wa-empty">L'aperçu de la semaine se génère en arrière-plan — reviens dans quelques minutes, il s'affichera automatiquement.</div>`;
     }
-  } catch { if (!_waData) host.innerHTML = '<div class="wa-empty">Week Ahead indisponible pour le moment.</div>'; }
+  } catch { if (!_waData) host.innerHTML = '<div class="wa-empty">Semaine à Venir indisponible pour le moment.</div>'; }
 }
 window.loadWeekAheadView = loadWeekAheadView;
 
@@ -3560,7 +3560,7 @@ function _renderWeekAhead(d) {
     </div>`;
   }).join('');
   host.innerHTML = `<div class="wa-wrap">
-    <div class="wa-head"><span class="wa-title">Week Ahead</span>${d.week ? `<span class="wa-week">${esc(d.week)}</span>` : ''}</div>
+    <div class="wa-head"><span class="wa-title">Semaine à Venir</span>${d.week ? `<span class="wa-week">${esc(d.week)}</span>` : ''}</div>
     <div class="wa-chartbox"><div class="wa-chart-label">PROFIL DE RISQUE HEBDO</div><div class="wa-chart" id="wa-risk-chart"></div></div>
     <div class="wa-timeline">${rows}</div>
   </div>`;
@@ -3580,7 +3580,7 @@ function _waToggle(btn) {
 }
 window._waToggle = _waToggle;
 
-// ── Week Ahead (desk) : panneaux droite = VRAIS DOUBLONS (miroir live) des onglets News (#news-list) et Calendar (#cal-table-wrap) ──
+// ── Semaine à Venir (desk) : panneaux droite = VRAIS DOUBLONS (miroir live) des onglets News (#news-list) et Calendar (#cal-table-wrap) ──
 // On clone le HTML rendu des onglets réels → look + contenu STRICTEMENT identiques (classes CSS globales).
 function _waSyncNews(){ const src=document.getElementById('news-list'), dst=document.getElementById('wa-news-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.indexOf('empty-state')<0) dst.innerHTML=h; }
 function _waSyncCal(scroll){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.trim()) dst.innerHTML=h; const dr=document.getElementById('cal-daterange'), meta=document.getElementById('wa-cal-range'); if(dr&&meta) meta.textContent=(dr.textContent||'').trim();
@@ -3595,10 +3595,10 @@ function _waLoadPanels(scroll){
   setTimeout(()=>_waSyncCal(scroll), 60); setTimeout(()=>_waSyncCal(scroll), 700);   // clone après le rendu de la table calendrier
 }
 window._waLoadPanels=_waLoadPanels;
-// Tant que la vue Week Ahead est ouverte : on rafraîchit le doublon calendrier (le ticker News, lui, est déjà live).
+// Tant que la vue Semaine à Venir est ouverte : on rafraîchit le doublon calendrier (le ticker News, lui, est déjà live).
 setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v && !v.classList.contains('hidden')){ _waLoadPanels(); } }, 60000);
 
-// ── Week Ahead : glisser pour redimensionner — splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──
+// ── Semaine à Venir : glisser pour redimensionner — splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──
 (function initWaResize(){
   const wa3 = document.getElementById('wa3');
   const vsplit = document.getElementById('wa3-vsplit');
@@ -3922,7 +3922,7 @@ function _sbOpenSummary(curr) {
   _sbInitSplitter();
   _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
   _sbLoadCal();       // précharge le calendrier → accordéon Fundamental instantané
-  _sbRenderRiskEvents(curr);   // « Key Risk Events for the Week Ahead » (calendrier high/med à venir, façon pro)
+  _sbRenderRiskEvents(curr);   // « Risques clés de la semaine » (calendrier high/med à venir, façon pro)
   _sbRenderHeadDd(curr);   // synchronise le dropdown "Scanner" de l'en-tête sur la devise active
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
 }
@@ -3930,7 +3930,7 @@ window._sbOpenSummary = _sbOpenSummary;
 function _sbCloseSummary() { const w = document.getElementById('sbm-summary'); if (w) w.innerHTML = ''; _sbActiveCur = null; }
 window._sbCloseSummary = _sbCloseSummary;
 
-// « Key Risk Events for the Week Ahead » (façon pro) — événements calendrier HIGH/MEDIUM À VENIR pour la
+// « Risques clés de la semaine » (façon pro) — événements calendrier HIGH/MEDIUM À VENIR pour la
 // devise, groupés par jour. Source = /api/calendar-events (déjà chargé par _sbLoadCal). 0 IA, 0 invention.
 function _sbRenderRiskEvents(curr) {
   const host = document.getElementById('sbs-riskevents');
@@ -3956,7 +3956,7 @@ function _sbRenderRiskEvents(curr) {
     });
     const rows = [...byDay.values()].slice(0, 7).map(g =>
       `<div class="sbs-risk-row"><span class="sbs-risk-day">${esc(g.day)}</span><span class="sbs-risk-ev">${esc(g.titles.join(', '))}</span></div>`).join('');
-    host.innerHTML = `<div class="sbs-risk-title">Key Risk Events for the Week Ahead</div><div class="sbs-risk-list">${rows}</div>`;
+    host.innerHTML = `<div class="sbs-risk-title">Risques clés de la semaine</div><div class="sbs-risk-list">${rows}</div>`;
   }).catch(() => { host.innerHTML = ''; });
 }
 window._sbRenderRiskEvents = _sbRenderRiskEvents;
@@ -4170,7 +4170,7 @@ function _sbInitSplitter() {
   window.addEventListener('mouseup', () => { if (dragging) { dragging = false; document.body.style.cursor = ''; document.body.style.userSelect = ''; } });
 }
 
-// Key Risk Events : réutilise le Week Ahead (calendrier) → jours + impact.
+// Key Risk Events : réutilise le Semaine à Venir (calendrier) → jours + impact.
 function _sbLoadRiskEvents() {
   const box = document.getElementById('sbs-risk');
   if (!box) return;
@@ -5709,7 +5709,7 @@ async function _loadAIInsights(item, el) {
       if (sig === 'BULLISH') sig = 'BUY'; else if (sig === 'BEARISH') sig = 'SELL';
       if (!['BUY', 'SELL', 'NEUTRAL'].includes(sig)) sig = '';
       const head = asset
-        ? `<div class="ai-card-head"><span class="ai-card-asset">${esc(asset)}</span>${sig ? `<span class="ai-bias ai-bias--${sig.toLowerCase()}">${sig}</span>` : ''}</div>`
+        ? `<div class="ai-card-head"><span class="ai-card-asset">${esc(asset)}</span>${sig ? `<span class="ai-bias ai-bias--${sig.toLowerCase()}">${({BUY:'ACHAT',SELL:'VENTE',NEUTRAL:'NEUTRE'}[sig]||sig)}</span>` : ''}</div>`
         : '';
       return `<div class="ai-insights-card">${head}<div class="ai-card-text">${mdb(ins.text || '')}</div></div>`;
     }).join('');
@@ -5823,7 +5823,7 @@ function _renderWeeklyRecap(item) {
     const b = String(p.bias || 'NEUTRAL').toUpperCase();
     const cls = b === 'BUY' ? 'buy' : b === 'SELL' ? 'sell' : 'neutral';
     return `<div class="ai-insights-card ai-ins-pair">
-      <div class="ai-ins-pair-head"><span class="ai-ins-pair-name">${_wrEsc(p.pair)}</span><span class="ai-ins-bias ai-ins-bias--${cls}">${_wrEsc(b)}</span></div>
+      <div class="ai-ins-pair-head"><span class="ai-ins-pair-name">${_wrEsc(p.pair)}</span><span class="ai-ins-bias ai-ins-bias--${cls}">${_wrEsc({BUY:'ACHAT',SELL:'VENTE',NEUTRAL:'NEUTRE'}[b]||b)}</span></div>
       <div class="ai-ins-pair-text">${_wrInline(p.text || '')}</div>
     </div>`;
   });
@@ -5842,11 +5842,11 @@ function _renderWeeklyRecap(item) {
     </div>` : '';
 
   let body = '';
-  const isGew = !!w.gew;   // Global Economic Weekly = « Week Ahead » prospectif (façon pro)
+  const isGew = !!w.gew;   // Global Economic Weekly = « Semaine à Venir » prospectif (façon pro)
   // Bloc titre RETIRÉ du corps : le titre reste dans la barre de nav (en haut) et la période dans le
   // créneau date (haut-droite) → le rapport s'ouvre directement sur son contenu, sans titre répété.
   if (isGew) {
-    // ── GLOBAL ECONOMIC WEEKLY (Week Ahead) — rendu CLARIFIÉ : ce qu'il faut surveiller d'abord,
+    // ── GLOBAL ECONOMIC WEEKLY (Semaine à Venir) — rendu CLARIFIÉ : ce qu'il faut surveiller d'abord,
     //    puis la synthèse, puis le calendrier complet. Libellés + dates en français.
     const _IMP_LBL = { HIGH: 'FORT', MED: 'MOYEN', MEDIUM: 'MOYEN', LOW: 'FAIBLE' };
     const _impCls = i => { const u = String(i || '').toUpperCase(); return u === 'HIGH' ? 'high' : (u === 'MED' || u === 'MEDIUM') ? 'med' : 'low'; };
@@ -5987,7 +5987,7 @@ function _renderFXDailyRecap(item) {
     const b = String(p.bias || 'NEUTRAL').toUpperCase();
     const cls = b === 'BUY' ? 'buy' : b === 'SELL' ? 'sell' : 'neutral';
     return `<div class="ai-insights-card ai-ins-pair">
-      <div class="ai-ins-pair-head"><span class="ai-ins-pair-name">${_wrEsc(p.pair)}</span><span class="ai-ins-bias ai-ins-bias--${cls}">${_wrEsc(b)}</span></div>
+      <div class="ai-ins-pair-head"><span class="ai-ins-pair-name">${_wrEsc(p.pair)}</span><span class="ai-ins-bias ai-ins-bias--${cls}">${_wrEsc({BUY:'ACHAT',SELL:'VENTE',NEUTRAL:'NEUTRE'}[b]||b)}</span></div>
       <div class="ai-ins-pair-text">${_wrInline(p.text || '')}</div>
     </div>`;
   });
@@ -6646,11 +6646,11 @@ function _npItemCat(item) {
   return 'ticker';
 }
 
-// Origine d'une notif (badge) : Squawk / Calendrier / Analyse / News
+// Origine d'une notif (badge) : Flash Marché / Calendrier / Analyse / News
 function _npOrigin(item) {
   if (item._reportNotif === 'institution' || item._source === 'ing-think') return { label: 'Institution', cls: 'analyst' };
   if (item._reportNotif === 'analyst' || item._source === 'investinglive') return { label: 'Analyst', cls: 'analyst' };
-  if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return { label: 'Squawk', cls: 'squawk' };
+  if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return { label: 'Flash Marché', cls: 'squawk' };
   if (item._briefing || item.source === 'DTP') return { label: 'Analyse', cls: 'analyst' };
   const c = (item.category || '').toLowerCase();
   if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return { label: 'Calendrier', cls: 'cal' };
@@ -7022,7 +7022,7 @@ let   _sqwkAutoTimer  = null;       // tick toutes les 10s
 let   _sqwkStreamTimer = null;      // sous-intervalle mot-par-mot (150ms)
 
 const _sqwkProcessed = new Set();   // IDs de news déjà diffusées (anti-doublon)
-let   _sqwkLive       = false;       // Squawk LIVE = audio/voix (bouton play) — indépendant du texte auto
+let   _sqwkLive       = false;       // Flash Marché LIVE = audio/voix (bouton play) — indépendant du texte auto
 let   _sqwkStarted    = false;       // flux déjà amorcé (évite de re-marquer l'existant à chaque toggle)
 
 function _sqwkTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
@@ -7086,7 +7086,7 @@ function _sqwkPollReal() {
   const src = (typeof allItems !== 'undefined' ? allItems : []);
   const fresh = src.filter(it => _sqwkUsable(it) && !_sqwkProcessed.has(it.id));
   if (!fresh.length) return;
-  // Squawk FinancialJuice : on PRIORISE les flashes FJ ; à défaut, autre news réelle.
+  // Flash Marché FinancialJuice : on PRIORISE les flashes FJ ; à défaut, autre news réelle.
   const fjFresh = fresh.filter(_sqwkIsFJ);
   const item = (fjFresh.length ? fjFresh : fresh)[0];  // allItems trié récent → ancien
   fresh.forEach(it => _sqwkProcessed.add(it.id));      // on marque tout le batch (évite l'inondation)
@@ -7105,7 +7105,7 @@ function _sqwkRefresh() {
   const play = document.getElementById('sqwk-play');
   if (st) st.textContent = _sqwkAuto ? 'ON' : 'OFF';
   if (tg) tg.classList.toggle('on', _sqwkAuto);
-  // Bouton play = Squawk LIVE (audio) : carré rouge si live, triangle vert sinon
+  // Bouton play = Flash Marché LIVE (audio) : carré rouge si live, triangle vert sinon
   if (play) { play.textContent = _sqwkLive ? '■' : '▶'; play.classList.toggle('sqwk-play--live', _sqwkLive); play.title = _sqwkLive ? 'Couper le squawk audio' : 'Activer le squawk audio (voix)'; }
   if (status) status.innerHTML = active
     ? '<span class="sqwk-dot sqwk-dot--live"></span> Connected'
@@ -7130,7 +7130,7 @@ function _sqwkRefresh() {
 
 // Toggle "Connexion automatique" = flux TEXTE (sans audio)
 function sqwkToggleAuto() { _sqwkAuto = !_sqwkAuto; _sqwkRefresh(); }
-// Bouton play = Squawk LIVE = AUDIO/voix (indépendant du texte auto)
+// Bouton play = Flash Marché LIVE = AUDIO/voix (indépendant du texte auto)
 function sqwkToggleLive() {
   _sqwkLive = !_sqwkLive;
   if (!_sqwkLive && 'speechSynthesis' in window) window.speechSynthesis.cancel();
