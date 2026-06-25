@@ -1071,6 +1071,17 @@ const _RISK_BAND_EN = {
   'RISK-OFF':        'Aversion au risque à l’œuvre. Fuite vers la sécurité — obligations, or, JPY et CHF recherchés.',
   'STRONG RISK-OFF': 'Forte aversion au risque. Fuite marquée vers les valeurs refuges. Volatilité forte.',
 };
+// Libellé FR du badge/bande de risque — affichage UNIQUEMENT (la valeur logique data.label reste EN :
+// dérivation de classe `cls`, comparaisons /risk-on/i, couleurs). Couvre les 7 variantes.
+const GAUGE_LABEL_FR = {
+  'STRONG RISK-ON':  'FORT APPÉTIT POUR LE RISQUE',
+  'RISK-ON':         'APPÉTIT POUR LE RISQUE',
+  'WEAK RISK-ON':    'FAIBLE APPÉTIT AU RISQUE',
+  'NEUTRAL':         'NEUTRE',
+  'WEAK RISK-OFF':   'LÉGÈRE AVERSION AU RISQUE',
+  'RISK-OFF':        'AVERSION AU RISQUE',
+  'STRONG RISK-OFF': 'FORTE AVERSION AU RISQUE',
+};
 function _riskBandInner(data) {
   // Phrase façon DTP, construite à partir des VRAIES données (assets réels) → plus jamais
   // d'affirmation figée qui contredit le marché (ex. « VIX trending lower » alors qu'il monte).
@@ -1094,7 +1105,7 @@ function _riskBandInner(data) {
   const phrase = (data.assets && data.assets.length)
     ? `${LEAD[data.label] || ''} ${eqTxt}, ${havenTxt}. ${vixTxt}.`
     : (_RISK_BAND_EN[data.label] || data.description || '');
-  return `<span class="risk-ticker-dot"></span><span class="risk-ticker-txt"><strong>${data.label}:</strong> ${phrase}</span>`;
+  return `<span class="risk-ticker-dot"></span><span class="risk-ticker-txt"><strong>${GAUGE_LABEL_FR[data.label] || data.label}:</strong> ${phrase}</span>`;
 }
 
 // Couleur du dégradé d'arc à une position v∈[-100,100] (interp linéaire des 7 stops de l'arc).
@@ -1130,15 +1141,6 @@ function buildRiskGauge() {
       if (data.error) throw new Error(data.error);
       window._dtpRisk = data;
 
-      const GAUGE_LABEL_FR = {
-        'STRONG RISK-ON':  'FORT APPÉTIT POUR LE RISQUE',
-        'RISK-ON':         'APPÉTIT POUR LE RISQUE',
-        'WEAK RISK-ON':    'FAIBLE APPÉTIT AU RISQUE',
-        'NEUTRAL':         'NEUTRE',
-        'WEAK RISK-OFF':   'LÉGÈRE AVERSION AU RISQUE',
-        'RISK-OFF':        'AVERSION AU RISQUE',
-        'STRONG RISK-OFF': 'FORTE AVERSION AU RISQUE',
-      };
       const frLabel = GAUGE_LABEL_FR[data.label] || data.label;
       const isOn  = /risk-on/i.test(data.label);
       const isOff = /risk-off/i.test(data.label);
@@ -1157,7 +1159,7 @@ function buildRiskGauge() {
           <div class="risk-gauge-stage">
             <div id="risk-gauge-div"></div>
             <div class="risk-readout">
-              <div class="risk-readout-badge ${cls}" id="risk-badge-val">${data.label}</div>
+              <div class="risk-readout-badge ${cls}" id="risk-badge-val">${frLabel}</div>
             </div>
           </div>`;
 
@@ -1257,7 +1259,7 @@ function buildRiskGauge() {
           _riskHand.hand.set('fill', am5.color(_riskArcColor(gaugeVal)));   // triangle = couleur de l'arc sous lui
         }
         const badgeEl = document.getElementById('risk-badge-val');
-        if (badgeEl) { badgeEl.textContent = data.label; badgeEl.className = `risk-readout-badge ${cls}`; }
+        if (badgeEl) { badgeEl.textContent = frLabel; badgeEl.className = `risk-readout-badge ${cls}`; }
         const ticker = document.getElementById('risk-ticker');
         if (ticker) {
           ticker.className = `risk-ticker ${cls}`;
@@ -2332,7 +2334,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Scenario Distribution, Cut/Hold/Hike, Implied Δ (BPS), Base Case). Sparklines data-driven en fond.
   const _RTC_EN = { USD: 'Réserve fédérale (OIS)', EUR: 'Banque centrale européenne', GBP: 'Banque d’Angleterre', JPY: 'Banque du Japon', CHF: 'Banque nationale suisse', CAD: 'Banque du Canada', AUD: 'Banque de réserve d’Australie', NZD: 'Banque de réserve de Nouvelle-Zélande' };
   function _rtcCard(b) {
-    const MVC = { HOLD: { txt: 'Hold', cls: 'w' }, HIKE: { txt: 'Hike', cls: 'g' }, CUT: { txt: 'Cut', cls: 'r' } };
+    const MVC = { HOLD: { txt: 'Maintien', cls: 'w' }, HIKE: { txt: 'Hausse', cls: 'g' }, CUT: { txt: 'Baisse', cls: 'r' } };
     const fr  = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
     const num = (v, dec) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
     const pct = v => num(v, 2) + '%';
@@ -2361,8 +2363,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const expSpk = b.expBps > 0 ? 'up' : (b.expBps < 0 ? 'down' : 'wavy');
     const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
     // Scenario Distribution : uniquement les scénarios > 0, triés décroissant (la référence n'affiche pas les lignes vides)
-    const scen = [['Hold', sc.hold, 'n'], ['Hike', sc.hike, 'g'], ['Cut', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
-    const scRows = (scen.length ? scen : [['Hold', 0, 'n']]).map(s =>
+    const scen = [['Maintien', sc.hold, 'n'], ['Hausse', sc.hike, 'g'], ['Baisse', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
+    const scRows = (scen.length ? scen : [['Maintien', 0, 'n']]).map(s =>
       '<div class="rtc-bar"><span class="rtc-bl">' + s[0] + '</span><span class="rtc-track"><i class="' + s[2] + '" style="width:' + Math.max(0.6, s[1]) + '%"></i></span><span class="rtc-bp">' + pct(s[1]) + '</span></div>').join('');
     const rows = (b.meetings || []).map(m => {
       const ib = m.impliedBps > 0 ? 'g' : (m.impliedBps < 0 ? 'r' : 'n');
@@ -2667,9 +2669,11 @@ function _fxlDonut(pct) {
     + `</svg>`;
 }
 
+// Libellés FR du badge FX (affichage UNIQUEMENT — la comparaison `=== 'Bullish'` et la classe restent EN).
+const FXL_BADGE_FR = { Bullish: 'Haussier', Bearish: 'Baissier', Neutral: 'Neutre' };
 function _fxlBadge(label) {
   const cls = label === 'Bullish' ? 'bull' : label === 'Bearish' ? 'bear' : 'neut';
-  return `<span class="fxl-badge fxl-badge--${cls}">${label || 'Neutral'}</span>`;
+  return `<span class="fxl-badge fxl-badge--${cls}">${FXL_BADGE_FR[label] || label || 'Neutre'}</span>`;
 }
 
 function _fxlCell(col, p, maxAbsStr) {
@@ -3627,7 +3631,7 @@ window._retryCalendar = function() {
         + '<div class="sym-rt-head"><span class="sym-rt-ttl">Retail Sentiment</span><span class="sym-rt-sub">[' + pretty(pair) + ']</span></div>'
         + '<div class="sym-rt-bar"><i class="sym-rt-long" style="width:' + lp + '%"></i><i class="sym-rt-short" style="width:' + sp + '%"></i></div>'
         + '<div class="sym-rt-lbls"><span class="g">Long ' + lp + '%</span><span class="r">Short ' + sp + '%</span></div>'
-        + '<div class="sym-rt-note">La majorité des traders particuliers est positionnée <b>' + lean + '</b> → lecture contrarian : biais <b class="' + (contra === 'Bullish' ? 'g' : 'r') + '">' + contra + '</b>.</div>'
+        + '<div class="sym-rt-note">La majorité des traders particuliers est positionnée <b>' + lean + '</b> → lecture contrarian : biais <b class="' + (contra === 'Bullish' ? 'g' : 'r') + '">' + (contra === 'Bullish' ? 'Haussier' : 'Baissier') + '</b>.</div>'
         + '<div class="sym-src">Source : Myfxbook Community Outlook (positions réelles des comptes particuliers)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
         + '</div>';
     };
