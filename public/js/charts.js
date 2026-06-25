@@ -1308,7 +1308,7 @@ function buildRiskGauge() {
 let _riskHistCtl = null;
 const RH_GREEN = 0x01b298;   // pct ≥ 0 → risk-on (vert PMT à l'identique, cf. image)
 const RH_RED   = 0xfd2e64;   // pct < 0 → risk-off (rouge PMT à l'identique, cf. image)
-const RH_ZERO  = 0xff9800;   // ligne zéro = orange PMT à l'identique
+const RH_ZERO  = 0x6b7280;   // ligne zéro = orange PMT à l'identique
 
 function buildRiskHistoryChart(containerId, data) {
   const el = document.getElementById(containerId);
@@ -1955,7 +1955,7 @@ function buildSessionMap() {
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x000000), fillOpacity: 1 }));  // fond NOIR pur (comme DTP)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0b0c0f), fillOpacity: 1 }));  // fond charcoal desk (de-PMT)
 
   // Rendu ÉPURÉ : pas de grille (graticule) → carte propre comme la référence.
 
@@ -1964,10 +1964,10 @@ function buildSessionMap() {
     am5map.MapPolygonSeries.new(root, { geoJSON: am5geodata_worldLow, exclude: ['AQ'] })
   );
   polygonSeries.mapPolygons.template.setAll({
-    fill: am5.color(0x3d8f43), stroke: am5.color(0x4aa052),
+    fill: am5.color(0x262a34), stroke: am5.color(0x3a3f4b),
     strokeWidth: 0.4, fillOpacity: 1, interactive: true, tooltipText: '{name}',
   });
-  polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x4aa052) });
+  polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x33373f) });
 
   // ── Terminateur JOUR/NUIT — overlay CANVAS hors-amCharts ──────────────────────────────────────
   // On dessine le VRAI terminateur solaire (point subsolaire + déclinaison, calculés depuis l'UTC) sur
@@ -2052,7 +2052,7 @@ function buildSessionMap() {
   // ── Orange UTC vertical line ──────────────────
   const utcLineSeries = chart.series.push(am5map.MapLineSeries.new(root, {}));
   utcLineSeries.mapLines.template.setAll({
-    stroke: am5.color(0xf79400), strokeWidth: 1.4, strokeOpacity: 0.7,   // trait fin (DTP)
+    stroke: am5.color(0xe3b23a), strokeWidth: 1.4, strokeOpacity: 0.7,   // trait fin (DTP)
   });
 
   const utcLabelSeries = chart.series.push(am5map.MapPointSeries.new(root, {}));
@@ -2061,7 +2061,7 @@ function buildSessionMap() {
     const cont = am5.Container.new(r, {});
     cont.children.push(am5.RoundedRectangle.new(r, {
       width: 46, height: 19,
-      fill: am5.color(0xf79400), fillOpacity: 1,
+      fill: am5.color(0xe3b23a), fillOpacity: 1,
       cornerRadiusTL: 4, cornerRadiusTR: 4, cornerRadiusBL: 4, cornerRadiusBR: 4,
       centerX: am5.percent(50), centerY: am5.percent(50),
     }));
@@ -2075,7 +2075,7 @@ function buildSessionMap() {
     // Petite flèche orange sous l'étiquette, pointant vers le bas (vers le trait) — façon pro.
     // Caractère « ▼ » (Label) plutôt qu'am5.Triangle (qui faisait planter le rendu).
     cont.children.push(am5.Label.new(r, {
-      text: '▼', fill: am5.color(0xf79400),
+      text: '▼', fill: am5.color(0xe3b23a),
       fontSize: 9, fontWeight: '700',
       centerX: am5.percent(50), centerY: am5.percent(0), y: 11,
     }));
@@ -2098,10 +2098,10 @@ function buildSessionMap() {
 
   // ── 4 key trading cities ──────────────────────
   const SESSION_CITIES = [   // couleurs + côté du badge calqués sur l'image de référence (NY violet/droite ; Londres jaune ; Tokyo/Sydney bleu/gauche pour ne pas sortir du cadre est)
-    { id: 'london',  name: 'London',   tz: 'Europe/London',    lon: -0.12,  lat: 51.5,  open: 8, close: 17, labelLeft: true,  color: 0xfacc15 },
-    { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0,  lat: 40.7,  open: 9, close: 17, labelLeft: false, color: 0xa855f7 },
-    { id: 'tokyo',   name: 'Tokyo',    tz: 'Asia/Tokyo',       lon: 139.7,  lat: 35.7,  open: 9, close: 15, labelLeft: true,  color: 0x60a5fa },
-    { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2,  lat: -33.9, open: 9, close: 17, labelLeft: true,  color: 0x60a5fa },
+    { id: 'london',  name: 'London',   tz: 'Europe/London',    lon: -0.12,  lat: 51.5,  open: 8, close: 17, labelLeft: true,  color: 0xe3b23a },
+    { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0,  lat: 40.7,  open: 9, close: 17, labelLeft: false, color: 0xe3b23a },
+    { id: 'tokyo',   name: 'Tokyo',    tz: 'Asia/Tokyo',       lon: 139.7,  lat: 35.7,  open: 9, close: 15, labelLeft: true,  color: 0xe3b23a },
+    { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2,  lat: -33.9, open: 9, close: 17, labelLeft: true,  color: 0xe3b23a },
   ];
 
   // Statut dynamique (DST géré par Intl/timeZone) : 'open' | 'closing' (<30 min) | 'opening' (<30 min) | 'closed'.
@@ -2144,7 +2144,7 @@ function buildSessionMap() {
     const isOpen   = status === 'open' || status === 'closing';
     const imminent = status === 'opening' || status === 'closing';   // ouverture/clôture < 30 min
     const lit      = isOpen || imminent;
-    const accent   = data.color || 0xf79400;        // couleur propre à la session (London=jaune, NY=violet…)
+    const accent   = data.color || 0xe3b23a;        // couleur propre à la session (London=jaune, NY=violet…)
     const AMBER    = 0xfbbf24;                       // cue « imminent »
     const ringCol  = (status === 'open') ? accent : AMBER;
     const cont     = am5.Container.new(root, {});
