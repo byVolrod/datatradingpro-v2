@@ -9756,3 +9756,8 @@ body.jrd-resizing #jr-detail { transition: none; }
 .sym-panel,.sym-bz-col,.ai-insights-card,.ai-ins-pair{transition:border-color .18s ease,transform .18s ease;}
 .sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{transform:translateY(-1px);}
 input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(227,178,58,0.14);}
+
+/* Phase 4 passe 4 - cartes premium (radius 10px) + etats actifs or + hover renforce */
+.sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel{border-radius:10px;}
+.sym-subtab--active,.nav-item.active,.nav-item--active{color:var(--orange);}
+.sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{transform:translateY(-2px);border-color:rgba(227,178,58,0.4);}
