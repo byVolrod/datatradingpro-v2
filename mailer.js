@@ -478,6 +478,42 @@ function buildRenewed({ name, expiresAt }) {
 }
 async function sendRenewed(d) { const m = buildRenewed(d); return _send(d.to, m.subject, m.html); }
 
+// ── 2d) Geste commercial : +1 mois offert (maintenance) ───────────────────────
+function buildGestureMonth({ name, expiresAt }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher client');
+  const end = expiresAt ? new Date(expiresAt).toLocaleDateString('fr-FR') : null;
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">1 mois offert 🎁</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous vous offrons <strong style="color:#34d399;">1 mois supplémentaire</strong> sur votre abonnement DataTradingPro — c'est notre geste commercial.</p>
+    ${end ? `<p style="margin:0 0 14px;">Votre accès est désormais valable jusqu'au <strong style="color:#fff;">${end}</strong>.</p>` : ''}
+    ${_button('Accéder au terminal', APP_URL)}
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">Merci de votre confiance,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'DataTradingPro — 1 mois offert pour la maintenance 🎁', html: _layout('Geste commercial', body) };
+}
+async function sendGestureMonth(d) { const m = buildGestureMonth(d); return _send(d.to, m.subject, m.html); }
+
+// ── Annonce « de nouveau en ligne » (membres existants) ───────────────────────
+function buildLaunchLive({ name } = {}) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher trader');
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:20px;font-weight:800;">C'est de nouveau en ligne 🚀</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Bonne nouvelle : <strong style="color:#fff;">DataTradingPro est de nouveau en ligne</strong>, avec une <strong style="color:#fff;">interface entièrement repensée</strong>.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🎨 <strong style="color:#fff;">Nouvelle identité visuelle</strong> — design premium, plus lisible, pensé pour le trading.</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🇫🇷 <strong style="color:#fff;">100% en français</strong> — chaque widget, chaque libellé.</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">⚡ <strong style="color:#fff;">Terminal plus clair</strong> — Smart Bias, calendrier, news priorisée, force des devises, COT, Week Ahead, taux & Copilote Macro IA.</td></tr>
+    </table>
+    <p style="margin:0 0 14px;">Vos <strong style="color:#fff;">identifiants restent les mêmes</strong> — connectez-vous, tout se charge en temps réel.</p>
+    ${_button('Accéder à mon terminal →', APP_URL)}
+    ${_spamNote()}
+    <p style="margin:14px 0 0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'DataTradingPro est de nouveau en ligne — nouvelle interface 🚀', html: _layout('De nouveau en ligne', body) };
+}
+async function sendLaunchLive(d) { const m = buildLaunchLive(d || {}); return _send(d.to, m.subject, m.html); }
+
 // ── 3) Email de réinitialisation de mot de passe ──────────────────────────────
 function buildPasswordReset({ to, name, password }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
@@ -827,12 +863,12 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive,
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
