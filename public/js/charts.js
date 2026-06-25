@@ -10,7 +10,7 @@ function applyTerminalTheme(root) {
 
   theme.rule('ColorSet').setAll({
     colors: [
-      am5.color(0xf7941d), // orange
+      am5.color(0xe3b23a), // orange
       am5.color(0x2ecc71), // green
       am5.color(0xe74c3c), // red
       am5.color(0x3498db), // blue
@@ -289,7 +289,7 @@ function buildStockChart(symbol) {
 
   candleSeries.columns.template.adapters.add('fill', (_fill, target) => {
     const dataItem = target.dataItem;
-    if (!dataItem) return am5.color(0xf7941d);
+    if (!dataItem) return am5.color(0xe3b23a);
     return dataItem.get('valueY') >= dataItem.get('openValueY')
       ? am5.color(0x2ecc71)
       : am5.color(0xe74c3c);
@@ -303,7 +303,7 @@ function buildStockChart(symbol) {
       yAxis: valueAxis,
       valueXField: 'Date',
       valueYField: 'Close',
-      stroke: am5.color(0xf7941d),
+      stroke: am5.color(0xe3b23a),
       tooltip: am5.Tooltip.new(root, { labelText: 'EMA 20: {valueY}' }),
     })
   );
@@ -447,8 +447,8 @@ function buildStockChart(symbol) {
       valueYField: 'Close',
       xAxis: sbDateAxis,
       yAxis: sbValueAxis,
-      stroke: am5.color(0xf7941d),
-      fill: am5.color(0xf7941d),
+      stroke: am5.color(0xe3b23a),
+      fill: am5.color(0xe3b23a),
     })
   );
   sbSeries.fills.template.setAll({ fillOpacity: 0.08, visible: true });
@@ -1795,7 +1795,7 @@ function buildSeasonalityChart(){
       ).join('');
       wrap.innerHTML = `<table class="season-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
     })
-    .catch(() => { if (want === _seasonPair) wrap.innerHTML = '<div class="dmx-loading">Erreur de chargement<br><button onclick="buildSeasonalityChart()" style="margin-top:8px;background:#1c1c1f;border:1px solid #2a2f3a;color:#f7941d;padding:4px 12px;border-radius:6px;cursor:pointer">Réessayer</button></div>'; });
+    .catch(() => { if (want === _seasonPair) wrap.innerHTML = '<div class="dmx-loading">Erreur de chargement<br><button onclick="buildSeasonalityChart()" style="margin-top:8px;background:#1c1c1f;border:1px solid #2a2f3a;color:#e3b23a;padding:4px 12px;border-radius:6px;cursor:pointer">Réessayer</button></div>'; });
 }
 
 // ═══ Seasonality Performance Table Settings — fenêtre multi-classes (façon pro) ═══
@@ -1842,7 +1842,7 @@ function _seasonRenderCfg(ov){
   }).join('');
   ov.innerHTML = `<div class="sea-cfg-modal" role="dialog" aria-label="Seasonality Performance Table Settings">
     <div class="sea-cfg-head">
-      <span class="sea-cfg-ttl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#f7941d" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Seasonality Performance Table Settings</span>
+      <span class="sea-cfg-ttl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e3b23a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Seasonality Performance Table Settings</span>
       <button class="sea-cfg-x" data-x="1" aria-label="Fermer">✕</button>
     </div>
     <div class="sea-cfg-body">

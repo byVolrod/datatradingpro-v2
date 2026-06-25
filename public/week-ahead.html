@@ -38,7 +38,7 @@
   :root{
     --bg:#0a0a0c; --bg1:#0c0c0e; --bg2:#121216; --bg3:#17171c; --line:#1c1c20; --line2:#26262b;
     --text:#f0f0f2; --text2:#a6a6ad; --text3:#6f6f78;
-    --orange:#ff7a00; --orange2:#f7941d; --green:#00e676; --red:#ff3d00; --amber:#ffb300;
+    --orange:#e3b23a; --orange2:#e3b23a; --green:#00e676; --red:#ff3d00; --amber:#ffb300;
     --mono:"SF Mono",ui-monospace,Menlo,Consolas,monospace;
     --ui:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     --topbar-h:50px;
@@ -85,17 +85,17 @@
   .wa-chart-label{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.1em;color:var(--text3);margin-bottom:3px}
   .wa-spark{width:100%;height:46px;display:block}
   .wa-timeline{position:relative}
-  .wa-timeline::before{content:"";position:absolute;left:36px;top:32px;bottom:32px;width:1px;margin-left:-.5px;background:linear-gradient(to bottom,var(--line),rgba(255,122,0,.32),var(--line))}
+  .wa-timeline::before{content:"";position:absolute;left:36px;top:32px;bottom:32px;width:1px;margin-left:-.5px;background:linear-gradient(to bottom,var(--line),rgba(227,178,58,.32),var(--line))}
   .wa-day{display:flex;align-items:center;gap:16px;margin-bottom:16px;position:relative}
   .wa-node{flex:0 0 72px;width:72px;height:72px;border-radius:50%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--bg2);border:2px solid var(--line2);z-index:1;transition:.15s}
-  .wa-node:hover{border-color:rgba(255,122,0,.5)}
-  .wa-day--today .wa-node{background:rgba(255,122,0,.12);border-color:rgba(255,122,0,.55);box-shadow:0 0 18px rgba(255,122,0,.3)}
+  .wa-node:hover{border-color:rgba(227,178,58,.5)}
+  .wa-day--today .wa-node{background:rgba(227,178,58,.12);border-color:rgba(227,178,58,.55);box-shadow:0 0 18px rgba(227,178,58,.3)}
   .wa-dow{font-size:9.5px;font-weight:500;color:var(--text2);letter-spacing:.08em;text-transform:uppercase}
   .wa-date{font-size:21px;font-weight:700;color:var(--text);line-height:1.05;font-variant-numeric:tabular-nums;margin:1px 0}
   .wa-day--today .wa-dow,.wa-day--today .wa-month{color:var(--text)}
   .wa-month{font-size:9.5px;font-weight:500;color:var(--text2);letter-spacing:.08em;text-transform:uppercase}
   .wa-card{flex:1;min-width:0;background:var(--bg3);border:1px solid var(--line);border-left:2px solid #2a2a32;border-radius:0;padding:12px 14px;transition:.15s}
-  .wa-card:hover{border-color:rgba(255,122,0,.3)}
+  .wa-card:hover{border-color:rgba(227,178,58,.3)}
   .wa-card--high{border-left-color:rgba(255,61,0,.6)}.wa-card--med{border-left-color:rgba(255,179,0,.5)}
   .wa-card-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px}
   .wa-card-headl{display:flex;flex-direction:column;gap:6px;min-width:0}
@@ -245,8 +245,8 @@
     var pts=v.map(function(r,i){var x=n===1?W/2:(i/(n-1))*W;var y=H-4-(r/max)*(H-8);return [x,y];});
     var line=pts.map(function(p,i){return (i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
     var area=line+' L'+W+' '+H+' L0 '+H+' Z';
-    svg.innerHTML='<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a00" stop-opacity=".35"/><stop offset="1" stop-color="#0a0a0c" stop-opacity="0"/></linearGradient></defs>'
-      +'<path d="'+area+'" fill="url(#wg)"/><path d="'+line+'" fill="none" stroke="#ff7a00" stroke-width="2" stroke-linejoin="round"/>';
+    svg.innerHTML='<defs><linearGradient id="wg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e3b23a" stop-opacity=".35"/><stop offset="1" stop-color="#0a0a0c" stop-opacity="0"/></linearGradient></defs>'
+      +'<path d="'+area+'" fill="url(#wg)"/><path d="'+line+'" fill="none" stroke="#e3b23a" stroke-width="2" stroke-linejoin="round"/>';
   }
 
   /* ── News (droite haut) ── */

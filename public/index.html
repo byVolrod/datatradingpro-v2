@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260624dtp15" />
+  <link rel="stylesheet" href="/css/style.css?v=20260625dtp1" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -34,7 +34,7 @@
 <!-- ═══════════════════ TOP BAR (row 1) ═══════════════════ -->
 <div class="topbar">
   <div class="logo">
-    <span class="logo-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="34" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="26" letter-spacing="-1.5" fill="#ffffff">DT<tspan fill="#f7941d">P</tspan></text></svg></span>
+    <span class="logo-icon"><svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="34" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="26" letter-spacing="-1.5" fill="#ffffff">DT<tspan fill="#e3b23a">P</tspan></text></svg></span>
     <span class="logo-text">DataTradingPro</span>
   </div>
 
@@ -732,8 +732,8 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260624dtp16"></script>
-<script src="/js/charts.js?v=20260624dtp10"></script>
+<script src="/js/app.js?v=20260625dtp1"></script>
+<script src="/js/charts.js?v=20260625dtp1"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
@@ -982,7 +982,7 @@
       </button>
       <div class="pd-section-content">
         <div class="pd-section-inner" id="pd-ref-inner">
-          <h3 class="pd-ref-headline">Gagnez <span style="color:#22c55e">10% récurrent</span> sur chaque parrainage <span style="color:#f7941d">+ 1 mois offert tous les 3 inscrits</span>.</h3>
+          <h3 class="pd-ref-headline">Gagnez <span style="color:#22c55e">10% récurrent</span> sur chaque parrainage <span style="color:#e3b23a">+ 1 mois offert tous les 3 inscrits</span>.</h3>
           <p class="pd-ref-desc">Partagez votre lien&nbsp;: vous touchez <strong>10% à vie</strong> sur chaque abonné via Whop, et nous vous offrons <strong>1 mois d'accès</strong> dès 3 filleuls.</p>
           <label class="pd-label">Votre lien de parrainage</label>
           <div class="pd-ref-linkrow">
@@ -1119,10 +1119,10 @@
     if (hdrBadge) {
       hdrBadge.textContent = d.user.active ? 'Professionnel · Mensuel' : 'Suspendu';
       hdrBadge.style.background = d.user.active
-        ? 'rgba(247,148,29,0.08)' : 'rgba(231,76,60,0.10)';
-      hdrBadge.style.color  = d.user.active ? '#f7941d' : '#ef4444';
+        ? 'rgba(227,178,58,0.08)' : 'rgba(231,76,60,0.10)';
+      hdrBadge.style.color  = d.user.active ? '#e3b23a' : '#ef4444';
       hdrBadge.style.border = d.user.active
-        ? '1px solid rgba(247,148,29,0.55)' : '1px solid rgba(231,76,60,0.5)';
+        ? '1px solid rgba(227,178,58,0.55)' : '1px solid rgba(231,76,60,0.5)';
     }
 
     // Pre-fill profile fields
