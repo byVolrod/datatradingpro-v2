@@ -10,7 +10,7 @@
   'use strict';
   function getLang() { try { return (localStorage.getItem('dtp_lang') || 'fr').slice(0, 2).toLowerCase(); } catch (e) { return 'fr'; } }
   var LANG = getLang();
-  var DICT = (window.DTP_I18N_EN || {});
+  var DICT = (window.DTP_I18N && window.DTP_I18N[LANG]) || (LANG === 'en' ? (window.DTP_I18N_EN || {}) : {});
   var ATTRS = ['placeholder', 'title', 'aria-label', 'data-tip', 'alt'];
 
   /* Sélecteur de langue FR | EN (injecté, en bas à droite) */

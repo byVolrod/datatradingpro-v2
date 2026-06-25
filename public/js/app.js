@@ -233,7 +233,7 @@ function pdLangPick(val, name, iso) {
   const flag = document.getElementById('pd-lang-cur-flag'); if (flag) flag.src = `https://flagcdn.com/24x18/${iso}.png`;
   document.getElementById('pd-lang-menu')?.classList.remove('open');
   // Applique la langue choisie à TOUT le site (le moteur i18n traduit au reload). FR/EN supportés.
-  try { var lg = String(val || '').slice(0, 2).toLowerCase(); if ((lg === 'fr' || lg === 'en') && localStorage.getItem('dtp_lang') !== lg) { localStorage.setItem('dtp_lang', lg); location.reload(); } } catch (e) {}
+  try { var lg = String(val || '').slice(0, 2).toLowerCase(); if (['fr', 'en', 'de', 'es'].indexOf(lg) !== -1 && localStorage.getItem('dtp_lang') !== lg) { localStorage.setItem('dtp_lang', lg); location.reload(); } } catch (e) {}
 }
 // Au chargement : refléter la langue active (dtp_lang) dans le sélecteur du profil.
 (function () {
