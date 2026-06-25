@@ -4780,7 +4780,7 @@ const _BANK_BRAND = {
   BlackRock: '#ededf0', UniCredit: '#e2231a', 'Syz Group': '#ff9c0c', CIBC: '#b71e3f', 'Lloyds Bank': '#0a9d58', KBC: '#0097db',
   Amundi: '#0093d0', QCAM: '#e30613',
 };
-function _instBrandColor(label) { return _BANK_BRAND[label] || '#ff7a00'; }
+function _instBrandColor(label) { return _BANK_BRAND[label] || '#e3b23a'; }
 // Domaine officiel par banque → vrai logo via le service Clearbit (repli wordmark si indispo).
 const _BANK_DOMAIN = {
   ING: 'ing.com', MUFG: 'mufg.jp', Natixis: 'natixis.com', CACIB: 'ca-cib.com',
@@ -5781,7 +5781,7 @@ function _wrParas(t){
 }
 
 const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
-const _WR_COLOR = { USD:'#ff7a00', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
+const _WR_COLOR = { USD:'#e3b23a', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
 // GEW : noms de jour/mois EN→FR (le serveur date en anglais « Monday 22 June ») → plus clair pour le public FR.
 const _GEW_DOW_FR = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
 const _GEW_MON_FR = { January:'janvier', February:'février', March:'mars', April:'avril', May:'mai', June:'juin', July:'juillet', August:'août', September:'septembre', October:'octobre', November:'novembre', December:'décembre' };
@@ -6228,7 +6228,7 @@ function renderArlibReader(item) {
     let bulletCount = 0;
     const sources = []; // liens collectés → section SOURCES
 
-    const fixLinks = s => (s || '').replace(/<a /g, '<a target="_blank" rel="noopener" style="color:#f7941d;text-decoration:none;" ');
+    const fixLinks = s => (s || '').replace(/<a /g, '<a target="_blank" rel="noopener" style="color:#e3b23a;text-decoration:none;" ');
     // Lignes d'attribution de source à masquer ("This article was written by X at investinglive.com", etc.)
     const _isSrcLine = t => /this article was written by|written by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|think\.ing|fxstreet|actionforex|forexlive)\.com|follow .* on (?:twitter|x)\b|©\s*\d{4}/i.test(t || '');
 
@@ -6500,7 +6500,7 @@ const SECTION_COLORS = {
   apac:         '#a78bfa',
   fx:           '#2ecc71',
   fixedincome:  '#1abc9c',
-  commodities:  '#f7941d',
+  commodities:  '#e3b23a',
   data:         '#17c2c2',
   notable:      '#5fa8d3',
 };
@@ -8068,7 +8068,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrTsToInput(ts) { try { const d = new Date(ts), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); } catch (e) { return ''; } }
   function _jrFmtNum(v, signed) { if (v == null || v === '') return ''; const n = Number(v); if (!isFinite(n)) return _esc(String(v)); const s = (Math.round(n * 100) / 100).toString().replace('.', ','); return (signed && n > 0 ? '+' : '') + s; }
   function _jrRingHtml(val, max) {
-    const f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#ff7a00';
+    const f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#e3b23a';
     return '<span class="jr-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="#26262c" stroke-width="2.6"/><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" transform="rotate(-90 12 12)"/></svg><b>' + _jrFmtNum(val) + '</b></span>';
   }
   function _jrCell(e, col) {
@@ -8082,7 +8082,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       case 'multi': { const arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(x => _jrChipHtml(x, _jrChip(col.k, x))).join('') : '<i class="jr-ph">—</i>'; }
       case 'num': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _jrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
       case 'money': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + (col.signed && n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
-      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#ff7a00'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + ' %</span></div>'; }
+      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; const pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _jrFmtNum(v) + ' %</span></div>'; }
       case 'ring': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : _jrRingHtml(Number(v), col.max || 5);
     }
     return '';
@@ -8842,7 +8842,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const max = Math.max(1, ...rows.map(([, v]) => Math.abs(v)));
     const body = rows.map(([k, v]) => {
       const w = Math.round(Math.abs(v) / max * 100);
-      const c = (opt.colors && opt.colors[k]) || (v < 0 ? '#ff3d00' : opt.color || '#ff7a00');
+      const c = (opt.colors && opt.colors[k]) || (v < 0 ? '#ff3d00' : opt.color || '#e3b23a');
       const vt = opt.fmt ? opt.fmt(v) : (v >= 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ',');
       return '<div class="jrd-bar"><span class="jrd-bar-k" title="' + _esc(k) + '">' + _esc(k) + '</span><span class="jrd-bar-t"><i style="width:' + w + '%;background:' + c + '"></i></span><span class="jrd-bar-v">' + vt + '</span></div>';
     }).join('') || '<div class="jrd-empty">—</div>';
@@ -8888,17 +8888,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr, maxDeviation: 0.12 }));
     const z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 })); z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.3, strokeWidth: 1 }); if (z.get('label')) z.get('label').set('visible', false);
     // Tooltip clair (date • valeur cumulée • variation), libellés pré-formatés en français (zéro format amCharts cassé).
-    const _eqTip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{dateLbl}[/]\n[bold #ff7a00 fontSize:14px]{vLbl}[/]\n[#9aa0aa fontSize:10px]{varLbl}[/]' });
+    const _eqTip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:10px]{dateLbl}[/]\n[bold #e3b23a fontSize:14px]{vLbl}[/]\n[#9aa0aa fontSize:10px]{varLbl}[/]' });
     _eqTip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
     if (_eqTip.label) _eqTip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
-    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xff7a00), fill: am5.color(0xff7a00), tooltip: _eqTip }));
+    const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a), tooltip: _eqTip }));
     series.strokes.template.setAll({ strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' });   // ligne plus nette et lisse
-    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xff7a00), opacity: 0.42 }, { color: am5.color(0xff8c1a), opacity: 0.10 }, { color: am5.color(0xff7a00), opacity: 0 }] }) });
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xe3b23a), opacity: 0.42 }, { color: am5.color(0xff8c1a), opacity: 0.10 }, { color: am5.color(0xe3b23a), opacity: 0 }] }) });
     series.data.setAll(_jrEqData(L, _jrEqMode));
     // Curseur enrichi : trait orange pointillé qui suit la souris/le drag, accroché aux points (snapToSeries)
     // → le tooltip riche (date + valeur + Δ) s'affiche pile sur la donnée survolée.
     const _eqCursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis, snapToSeries: [series] }));
-    _eqCursor.lineX.setAll({ stroke: am5.color(0xff7a00), strokeOpacity: 0.5, strokeWidth: 1, strokeDasharray: [2, 3] });
+    _eqCursor.lineX.setAll({ stroke: am5.color(0xe3b23a), strokeOpacity: 0.5, strokeWidth: 1, strokeDasharray: [2, 3] });
     _eqCursor.lineY.set('visible', false);
     _jrEqSeriesRef = series; series.appear(650); chart.appear(650, 60);
   }
@@ -8945,7 +8945,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       '<div class="jrd-sec"><div class="jrd-sec-h">PILOT PERFORMANCE</div><div class="jrd-rings">'
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
-        + _jrRing(String(L.length), 'Trades', '#ff7a00')
+        + _jrRing(String(L.length), 'Trades', '#e3b23a')
         + _jrRing((rs.length ? Math.round(wins.length / rs.length * 100) : 0) + ' %', 'Winrate', '#00cc99')
       + '</div><div class="jrd-row jrd-row--charts">'
         + '<div class="jrd-card jrd-card--donut"><div class="jrd-card-h">Répartition des résultats</div><div id="jr-result-donut" class="jr-chart-am jr-chart-am--donut"></div>' + _jrResultLegend(resMap) + '</div>'

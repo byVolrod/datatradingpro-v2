@@ -19,7 +19,7 @@
       --bg:     #0a0a0a; --bg2: #111; --bg3: #191919; --bg4: #1e1e1e;
       --border: #1e1e1e; --border2: #2a2a2a;
       --text:  #f0f1f3; --text2: #b8bec8; --text3: #939aa4; --text4: #5c616b;
-      --orange: #f7941d; --orange-bg: rgba(247,148,29,0.1);
+      --orange: #e3b23a; --orange-bg: rgba(227,178,58,0.1);
       --red: #e74c3c;  --green: #2ecc71;
       --font-stack: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
       --font-ui: var(--font-stack); --font-mono: var(--font-stack);   /* police DTP partout (admin aligné) */
@@ -94,7 +94,7 @@
     }
     .users-table tr:last-child td { border-bottom: none; }
     .users-table tbody tr { transition: background 0.12s; }
-    .users-table tbody tr:hover td { background: rgba(247,148,29,0.05); }
+    .users-table tbody tr:hover td { background: rgba(227,178,58,0.05); }
     .users-table .email { color: var(--text); font-family: var(--font-mono); }
     .users-table .name  { color: var(--text2); }
     .users-table .actions { display: flex; gap: 6px; }
@@ -106,7 +106,7 @@
       display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 10px; font-weight: 600;
       font-family: var(--font-mono); letter-spacing: 0.04em;
     }
-    .badge-admin   { background: rgba(247,148,29,0.12); color: var(--orange); border: 1px solid rgba(247,148,29,0.3); }
+    .badge-admin   { background: rgba(227,178,58,0.12); color: var(--orange); border: 1px solid rgba(227,178,58,0.3); }
     .badge-client  { background: rgba(255,255,255,0.05); color: var(--text3); border: 1px solid var(--border2); }
     .badge-support { background: rgba(96,165,250,0.12); color: #60a5fa; border: 1px solid rgba(96,165,250,0.3); }
     .badge-active  { background: rgba(46,204,113,0.1); color: var(--green); border: 1px solid rgba(46,204,113,0.25); }
@@ -155,7 +155,7 @@
 
     /* ── Cartes stats cliquables (= filtres rapides) ── */
     .stat-card.clickable { cursor: pointer; }
-    .stat-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px rgba(247,148,29,0.45), 0 8px 22px rgba(0,0,0,0.3); }
+    .stat-card.active { border-color: var(--orange); box-shadow: 0 0 0 1px rgba(227,178,58,0.45), 0 8px 22px rgba(0,0,0,0.3); }
 
     /* ── Pagination ── */
     .pagination { display: flex; align-items: center; gap: 8px; padding: 16px 2px 2px; flex-wrap: wrap; }
@@ -215,7 +215,7 @@
     .stat-ic svg { width: 20px; height: 20px; }
     .stat-value { font-size: 28px; font-weight: 700; font-family: var(--font-mono); color: var(--text); line-height: 1; }
     .stat-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text3); margin-top: 7px; }
-    .stat-card.accent .stat-value{color:var(--orange);} .stat-card.accent .stat-ic{color:var(--orange);background:rgba(247,148,29,0.12);}
+    .stat-card.accent .stat-value{color:var(--orange);} .stat-card.accent .stat-ic{color:var(--orange);background:rgba(227,178,58,0.12);}
     .stat-card.ok     .stat-value{color:var(--green);}  .stat-card.ok     .stat-ic{color:var(--green); background:rgba(46,204,113,0.12);}
     .stat-card.warn   .stat-value{color:#f59e0b;}       .stat-card.warn   .stat-ic{color:#f59e0b; background:rgba(245,158,11,0.12);}
     .stat-card.danger .stat-value{color:#ef4444;}       .stat-card.danger .stat-ic{color:#ef4444; background:rgba(231,76,60,0.12);}
@@ -224,7 +224,7 @@
     /* ── Panneaux de section ── */
     .panel-card { background: linear-gradient(180deg,#141416,#0f0f11); border: 1px solid var(--border2); border-radius: 14px; padding: 0; margin-bottom: 26px; overflow: hidden; }
     .panel-head { display: flex; align-items: center; gap: 10px; padding: 15px 20px; border-bottom: 1px solid var(--border); }
-    .panel-head .ph-ic { width: 30px; height: 30px; border-radius: 8px; background: rgba(247,148,29,0.1); color: var(--orange); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .panel-head .ph-ic { width: 30px; height: 30px; border-radius: 8px; background: rgba(227,178,58,0.1); color: var(--orange); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .panel-head .ph-ic svg { width: 16px; height: 16px; }
     .panel-head h2 { font-size: 13px; font-weight: 700; color: var(--text); letter-spacing: 0.01em; }
     .panel-head .ph-count { font-size: 11px; color: var(--text3); font-family: var(--font-mono); margin-left: 2px; }
@@ -266,7 +266,7 @@
     .ad-msg-meta { font-size:10px; color:#9aa3b2; margin-top:3px; }
     .ad-chat-reply { display:flex; gap:8px; padding:10px 12px; border-top:1px solid #232328; }
     .ad-chat-reply input { flex:1; background:#161619; border:1px solid var(--border2,#2a2a30); border-radius:8px; padding:9px 12px; color:#e2e8f0; font-size:13px; outline:none; }
-    .ad-chat-reply button { background:#f7941d; color:#0a0a0c; border:none; border-radius:8px; padding:0 16px; font-weight:700; cursor:pointer; }
+    .ad-chat-reply button { background:#e3b23a; color:#0a0a0c; border:none; border-radius:8px; padding:0 16px; font-weight:700; cursor:pointer; }
 
     /* ── Dashboard financier ── */
     .fin-sub { font-size:10px; color:var(--text4); font-weight:500; text-transform:none; letter-spacing:0; }
@@ -345,7 +345,7 @@
     .panel-card { background: var(--panel); }
     .stat-card { transition: border-color 0.14s; }
     .stat-card:hover { transform: none; box-shadow: var(--panel-depth); border-color: var(--hud-line-strong); }
-    .stat-card.active { box-shadow: 0 0 0 1px rgba(247,148,29,0.4), var(--panel-depth); border-color: var(--orange); }
+    .stat-card.active { box-shadow: 0 0 0 1px rgba(227,178,58,0.4), var(--panel-depth); border-color: var(--orange); }
     .stat-ic, .panel-head .ph-ic { border-radius: 6px; }
     .panel-head { border-bottom: 1px solid var(--hud-line); }
 
@@ -490,7 +490,7 @@
     .aim-pill--low{background:rgba(34,197,94,.16);color:#22c55e} .aim-pill--medium{background:rgba(255,179,0,.16);color:#ffb300}
     .aim-pill--high,.aim-pill--exhausted{background:rgba(239,68,68,.16);color:#ef4444} .aim-pill--unknown{background:#26262c;color:#9aa0a6}
     .aim-test-btn { margin-left:auto; background:#18181c; border:1px solid #2a2a31; border-radius:6px; color:#cbd5e1; font-size:11.5px; padding:5px 10px; cursor:pointer; }
-    .aim-test-btn:hover:not(:disabled) { border-color:var(--orange,#f7941d); color:#fff; } .aim-test-btn:disabled { opacity:.6; cursor:default; }
+    .aim-test-btn:hover:not(:disabled) { border-color:var(--orange,#e3b23a); color:#fff; } .aim-test-btn:disabled { opacity:.6; cursor:default; }
   </style>
   <section class="tab-panel" id="tab-aimon">
     <div class="fin-kpis" id="aim-kpis"></div>
@@ -831,11 +831,11 @@
       + card('GitHub Models (gratuit)', h.github, gh.tokens ? [gh.tokens + ' token(s) × ' + (gh.models || 1) + ' modèles', gh.callsToday + ' appels (jour) · ' + (gh.failToday || 0) + ' échecs', gh.coolingKeys + ' (modèle,token) gelés'] : ['non configuré'])
       + card('OpenRouter (gratuit)', h.openrouter, or.keys ? [or.keys + ' clés · ~' + (or.keys * 50) + ' req/j gratuites (~50/clé)', or.callsToday + ' appels (jour) · ' + (or.failToday || 0) + ' échecs', or.models + ' modèles :free · ' + or.coolingKeys + ' en cooldown'] : ['non configuré'])
       + card('Claude (payant)', h.claude, cl.keys ? [cl.keys + ' clés · ' + (cl.usable ? 'disponible' : 'indisponible'), cl.usedToday + '/' + cl.dailyMax + ' appels (jour)', (cl.cooling && cl.cooling.length ? cl.cooling.length + ' clé(s) en cooldown' : 'aucune en cooldown')] : ['non configuré']);
-    const CATCOL = { analyst: 0xf7941d, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444 };
+    const CATCOL = { analyst: 0xe3b23a, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444 };
     const cats = Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 }));
     _amDonut('aim-cat-am', cats);
     const trend = (d.trend || []).map(t => ({ cat: t.hour.slice(11, 13) + 'h', val: (t.gemini || 0) + (t.github || 0) + (t.openrouter || 0) + (t.claude || 0) }));
-    _amArea('aim-trend-am', trend, 0xf7941d, '');
+    _amArea('aim-trend-am', trend, 0xe3b23a, '');
     const nh = (b.nextHours || []).map(x => `<div class="aim-fc-row"><span>${String(x.h).padStart(2, '0')}h (attendu)</span><b>${x.expected}</b></div>`).join('');
     document.getElementById('aim-forecast').innerHTML =
       `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
@@ -902,14 +902,14 @@
 
     // Revenu net mensuel — courbe (orange)
     const rev = d.revenueByMonth || {};
-    _amArea('fin-rev-am', Object.keys(rev).map(m => ({ cat: m.slice(2), val: rev[m] })), 0xf7941d, cur);
+    _amArea('fin-rev-am', Object.keys(rev).map(m => ({ cat: m.slice(2), val: rev[m] })), 0xe3b23a, cur);
     // Inscriptions 12 mois — courbe (bleu)
     const sm = d.signupsByMonth || {};
     _amArea('fin-chart-am', Object.keys(sm).map(m => ({ cat: m.slice(2), val: sm[m] })), 0x60a5fa, '');
     // Répartition des abonnés — donut
     const dist = d.distribution || {};
     _amDonut('fin-dist-am', [
-      { cat:'Mensuel',  val:dist.monthly   || 0, color:0xf7941d },
+      { cat:'Mensuel',  val:dist.monthly   || 0, color:0xe3b23a },
       { cat:'Annuel',   val:dist.annual    || 0, color:0x60a5fa },
       { cat:'Essai',    val:dist.trial     || 0, color:0xf59e0b },
       { cat:'Illimité', val:dist.unlimited || 0, color:0x2ecc71 },
@@ -1069,7 +1069,7 @@
   }
 
   // Avatar à initiales — couleur dérivée de l'email (stable, pas de random)
-  const _AVA_COLORS = ['#f7941d','#60a5fa','#2ecc71','#a78bfa','#f472b6','#22d3ee','#fb923c','#34d399','#e879f9','#facc15'];
+  const _AVA_COLORS = ['#e3b23a','#60a5fa','#2ecc71','#a78bfa','#f472b6','#22d3ee','#fb923c','#34d399','#e879f9','#facc15'];
   function _avatar(u) {
     const base = (u.name || u.email || '?').trim();
     const initials = base.split(/\s+/).slice(0,2).map(s => s[0]).join('').toUpperCase() || '?';
