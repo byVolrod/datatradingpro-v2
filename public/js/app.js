@@ -4936,17 +4936,23 @@ function _ingPdfUrl(u) {
 async function _brEmbedPdf(item, endpointUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return false;
+  let blobUrl = '';
   try {
     const ctrl = new AbortController();
     const to = setTimeout(() => ctrl.abort(), 30000);   // le rendu Puppeteer peut prendre quelques secondes
-    const r = await fetch(endpointUrl, { method: 'HEAD', signal: ctrl.signal });
+    const r = await fetch(endpointUrl, { signal: ctrl.signal });   // GET complet (pas HEAD) → on vérifie le CONTENU réel
     clearTimeout(to);
     if (!r.ok || !((r.headers.get('content-type') || '').toLowerCase().includes('pdf'))) return false;
+    const blob = await r.blob();
+    if (!blob || blob.size < 1000) return false;        // PDF vide / page d'erreur déguisée → on bascule sur le repli (jamais de cadre blanc)
+    blobUrl = URL.createObjectURL(blob);                // URL same-origin → contourne X-Frame-Options/CSP de la source (cause n°1 du cadre blanc)
   } catch { return false; }
-  if (!document.getElementById('br-rcontent')) return true;   // l'utilisateur a quitté le reader entre-temps
+  if (!document.getElementById('br-rcontent')) { try { URL.revokeObjectURL(blobUrl); } catch {} return true; }   // l'utilisateur a quitté le reader entre-temps
+  try { if (window._brBlobUrl) URL.revokeObjectURL(window._brBlobUrl); } catch {}   // libère le blob précédent (anti-fuite mémoire)
+  window._brBlobUrl = blobUrl;
   content.classList.add('br-rcontent--pdf');
   const ttl = (item.title || 'PDF').replace(/"/g, '');
-  content.innerHTML = `<iframe class="br-pdf-frame" src="${endpointUrl}#toolbar=0&navpanes=0&${window.innerWidth <= 768 ? 'view=FitH' : 'zoom=100'}" title="${ttl}"></iframe>`;
+  content.innerHTML = `<iframe class="br-pdf-frame" src="${blobUrl}#toolbar=0&navpanes=0&${window.innerWidth <= 768 ? 'view=FitH' : 'zoom=100'}" title="${ttl}"></iframe>`;
   return true;
 }
 // Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
