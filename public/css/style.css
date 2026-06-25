@@ -9813,3 +9813,12 @@ body{font-variant-numeric:tabular-nums;}
 .sbm-concl.sbm-vbull,.sbm-concl.sbm-bull{background:linear-gradient(180deg,#15b083,#0c7a56);}
 .sbm-concl.sbm-bear,.sbm-concl.sbm-vbear{background:linear-gradient(180deg,#e0524a,#a82a22);}
 .sbm-concl.sbm-neut{background:linear-gradient(180deg,#454c5a,#363c47);}
+
+/* === Terminal dense (clair + sombre) : widgets CARRES + COLLES === */
+.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel,.ai-insights-card,.ai-ins-pair,.bias-content,.arlib-list-view,.br-reader-view,.notes-panel,.np-filter-panel,.panel,.panel-news,.settings-panel{border-radius:0 !important;}
+.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{box-shadow:inset 0 1px 0 rgba(227,178,58,.14) !important;transform:none !important;}
+.sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{transform:none !important;}
+.sym-grid{padding:0 !important;grid-template-columns:var(--sym-col,1fr) 1px minmax(0,1fr) !important;grid-template-rows:var(--sym-row,1fr) 1px minmax(0,1fr) !important;}
+.sbm-grid{border-collapse:collapse !important;border-spacing:0 !important;}
+.sbm-grid th,.sbm-grid td{border:1px solid var(--border,#232429) !important;}
+.sbm-cell{border-radius:0 !important;box-shadow:none !important;}
