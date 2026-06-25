@@ -1063,13 +1063,13 @@ let _riskBadgeLabel   = null;
 
 // Bande sentiment (● LABEL: phrase EN) — partagée build + mise à jour du widget risque
 const _RISK_BAND_EN = {
-  'STRONG RISK-ON':  'Strong appetite for risk. Capital rotates into equities and high-beta. Safe havens sold.',
-  'RISK-ON':         'Risk appetite prevails. Equities and risk assets bid; defensive assets soft.',
-  'WEAK RISK-ON':    'Mild risk appetite. Constructive tone but limited conviction.',
-  'NEUTRAL':         'Balanced sentiment. Mixed signals across risk assets, no clear direction.',
-  'WEAK RISK-OFF':   'Cautious sentiment prevails. Mixed flows. Safe havens supported. Volatility elevated.',
-  'RISK-OFF':        'Risk aversion in play. Flight to safety — bonds, gold, JPY and CHF bid.',
-  'STRONG RISK-OFF': 'Strong risk aversion. Significant flight to safety across havens. Volatility high.',
+  'STRONG RISK-ON':  'Fort appétit pour le risque. Les capitaux affluent vers les actions et les actifs à fort bêta. Les valeurs refuges sont vendues.',
+  'RISK-ON':         'L’appétit pour le risque domine. Actions et actifs risqués recherchés ; actifs défensifs en retrait.',
+  'WEAK RISK-ON':    'Appétit pour le risque modéré. Ton constructif mais conviction limitée.',
+  'NEUTRAL':         'Sentiment équilibré. Signaux mitigés sur les actifs risqués, pas de direction claire.',
+  'WEAK RISK-OFF':   'La prudence domine. Flux mitigés. Valeurs refuges soutenues. Volatilité élevée.',
+  'RISK-OFF':        'Aversion au risque à l’œuvre. Fuite vers la sécurité — obligations, or, JPY et CHF recherchés.',
+  'STRONG RISK-OFF': 'Forte aversion au risque. Fuite marquée vers les valeurs refuges. Volatilité forte.',
 };
 function _riskBandInner(data) {
   // Phrase façon DTP, construite à partir des VRAIES données (assets réels) → plus jamais
@@ -1080,16 +1080,16 @@ function _riskBandInner(data) {
   const haven = ((A['Or (Sécurité)'] || 0) + (A['Obligations US'] || 0)) / 2;
   const vix   = A['VIX (Volatilité)'] || 0;
   const LEAD = {
-    'STRONG RISK-ON':  'Strong appetite for risk.',
-    'RISK-ON':         'Risk appetite firmly in play.',
-    'WEAK RISK-ON':    'Risk appetite improving gradually.',
-    'NEUTRAL':         'Balanced risk appetite. Markets consolidating.',
-    'WEAK RISK-OFF':   'Caution creeping in.',
-    'RISK-OFF':        'Risk aversion in play.',
-    'STRONG RISK-OFF': 'Strong risk aversion.',
+    'STRONG RISK-ON':  'Fort appétit pour le risque.',
+    'RISK-ON':         'Appétit pour le risque bien présent.',
+    'WEAK RISK-ON':    'Appétit pour le risque en amélioration progressive.',
+    'NEUTRAL':         'Appétit pour le risque équilibré. Marchés en consolidation.',
+    'WEAK RISK-OFF':   'La prudence s’installe.',
+    'RISK-OFF':        'Aversion au risque à l’œuvre.',
+    'STRONG RISK-OFF': 'Forte aversion au risque.',
   };
-  const eqTxt    = eq    > 0.1 ? 'Equities bid' : eq    < -0.1 ? 'Equities under pressure' : 'Equities steady';
-  const havenTxt = haven > 0.1 ? 'safe havens bid' : haven < -0.1 ? 'safe havens soften' : 'safe havens mixed';
+  const eqTxt    = eq    > 0.1 ? 'actions recherchées' : eq    < -0.1 ? 'actions sous pression' : 'actions stables';
+  const havenTxt = haven > 0.1 ? 'valeurs refuges recherchées' : haven < -0.1 ? 'valeurs refuges en repli' : 'valeurs refuges mitigées';
   const vixTxt   = `VIX ${vix >= 0 ? '+' : ''}${vix.toFixed(1)}%`;
   const phrase = (data.assets && data.assets.length)
     ? `${LEAD[data.label] || ''} ${eqTxt}, ${havenTxt}. ${vixTxt}.`
@@ -1287,7 +1287,7 @@ function buildRiskGauge() {
       }
 
     } catch (e) {
-      if (!isBuilt) wrap.innerHTML = `<div style="padding:16px;color:var(--red);font-size:11px">Error: ${e.message}</div>`;
+      if (!isBuilt) wrap.innerHTML = `<div style="padding:16px;color:var(--red);font-size:11px">Erreur : ${e.message}</div>`;
     }
   }
 
@@ -1398,7 +1398,7 @@ async function loadRiskHistory(opts) {
     else { try { disposeRoot('risk-history-chart'); } catch {} host.innerHTML = ''; _riskHistCtl = buildRiskHistoryChart('risk-history-chart', data); }
     _renderRiskHistStatus((data && data.current) || window._dtpRisk);
   } catch (e) {
-    if (!_riskHistCtl) host.innerHTML = `<div style="padding:14px;color:var(--red);font-size:11px">Error: ${e.message}</div>`;
+    if (!_riskHistCtl) host.innerHTML = `<div style="padding:14px;color:var(--red);font-size:11px">Erreur : ${e.message}</div>`;
   }
 }
 
@@ -1416,14 +1416,14 @@ window.addEventListener('dtp-risk', e => {
 
 // Métadonnées devises (code pays ISO pour flagcdn + nom complet)
 const METER_META = {
-  USD: { iso: 'us', name: 'US Dollar' },
+  USD: { iso: 'us', name: 'Dollar américain' },
   EUR: { iso: 'eu', name: 'Euro' },
-  JPY: { iso: 'jp', name: 'Japanese Yen' },
-  GBP: { iso: 'gb', name: 'British Pound' },
-  AUD: { iso: 'au', name: 'Australian Dollar' },
-  CHF: { iso: 'ch', name: 'Swiss Franc' },
-  CAD: { iso: 'ca', name: 'Canadian Dollar' },
-  NZD: { iso: 'nz', name: 'New Zealand Dollar' },
+  JPY: { iso: 'jp', name: 'Yen japonais' },
+  GBP: { iso: 'gb', name: 'Livre sterling' },
+  AUD: { iso: 'au', name: 'Dollar australien' },
+  CHF: { iso: 'ch', name: 'Franc suisse' },
+  CAD: { iso: 'ca', name: 'Dollar canadien' },
+  NZD: { iso: 'nz', name: 'Dollar néo-zélandais' },
 };
 // Drapeau image (flagcdn) — fonctionne sur tous les OS (contrairement aux emojis)
 function _flagImg(iso, size = 16) {
@@ -1561,14 +1561,14 @@ function buildCOTChart() {
     .then(r => r.json())
     .then(data => {
       if (!data.currencies || data.currencies.length === 0) {
-        grid.innerHTML = '<div style="padding:20px;color:#666;font-size:11px;">COT data unavailable</div>';
+        grid.innerHTML = '<div style="padding:20px;color:#666;font-size:11px;">Données COT indisponibles</div>';
         return;
       }
       grid.innerHTML = '';
 
       const TYPE_LABELS = {
-        noncomm: 'Non-Commercial', dealer: 'Courtier intermédiaire',
-        asset_mgr: 'Asset Manager', lev_money: 'Fonds à effet de levier',
+        noncomm: 'Non-commercial', dealer: 'Courtier intermédiaire',
+        asset_mgr: 'Gestionnaire d’actifs', lev_money: 'Fonds à effet de levier',
         other_rept: 'Autres reportables',
       };
       const typeLabel = TYPE_LABELS[cotType] || 'COT';
@@ -1634,7 +1634,7 @@ function buildCOTChart() {
       }
     })
     .catch(() => {
-      grid.innerHTML = '<div style="padding:20px;color:#666;font-size:11px;">Failed to load COT data</div>';
+      grid.innerHTML = '<div style="padding:20px;color:#666;font-size:11px;">Échec du chargement des données COT</div>';
     });
 }
 
@@ -1657,9 +1657,9 @@ let _dmxTimer = null;
 let _dmxServerTs = 0;   // timestamp serveur du dernier snapshot retail (pour l'âge affiché)
 // Libellé de fraîcheur (le sentiment retail Myfxbook = 1 snapshot live, MAJ ~15 min)
 function _dmxAgo(ts) {
-  if (!ts) return 'Live';
+  if (!ts) return 'Direct';
   const m = Math.max(0, Math.round((Date.now() - ts) / 60000));
-  return m < 1 ? 'Live · à l\'instant' : `Live · MAJ il y a ${m} min`;
+  return m < 1 ? 'Direct · à l\'instant' : `Direct · MAJ il y a ${m} min`;
 }
 
 function buildDMXChart(forceRefresh = false) {
@@ -1671,7 +1671,7 @@ function buildDMXChart(forceRefresh = false) {
 
   // En-tête : fraîcheur réelle du snapshot (Myfxbook = 1 jeu de données live partagé par les TF)
   const periodLbl = document.getElementById('dmx-period-label');
-  if (periodLbl && !periodLbl.textContent) periodLbl.textContent = 'Live';
+  if (periodLbl && !periodLbl.textContent) periodLbl.textContent = 'Direct';
 
   // On NE force PLUS automatiquement : le serveur sert son cache INSTANTANÉMENT et le tient
   // à jour en arrière-plan (refresh 5 min). On ne force (refresh fond) que via le bouton Retry.
@@ -1686,7 +1686,7 @@ function buildDMXChart(forceRefresh = false) {
       if (data.error) throw new Error(data.error);
       let symbols = (data.symbols || []).filter(row => _dmxAllowed(row.symbol));
       if (!symbols.length) {
-        wrap.innerHTML = '<div class="dmx-loading">No data — Myfxbook connection pending…</div>';
+        wrap.innerHTML = '<div class="dmx-loading">Aucune donnée — connexion Myfxbook en attente…</div>';
         return;
       }
 
@@ -1736,8 +1736,8 @@ function buildDMXChart(forceRefresh = false) {
     })
     .catch(() => {
       wrap.innerHTML = `<div class="dmx-loading">
-        Connection error — retrying…<br>
-        <button onclick="buildDMXChart(true)" style="margin-top:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:3px 10px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">Retry</button>
+        Erreur de connexion — nouvelle tentative…<br>
+        <button onclick="buildDMXChart(true)" style="margin-top:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:3px 10px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">Réessayer</button>
       </div>`;
       setTimeout(() => buildDMXChart(true), 15000);
     });
@@ -1840,18 +1840,18 @@ function _seasonRenderCfg(ov){
       + (cls === 'forex' ? _seasonFlags(it) : '')
       + `<span class="sea-cfg-sym-lbl">${it.label}</span>${on ? '<span class="sea-cfg-chk">✓</span>' : ''}</button>`;
   }).join('');
-  ov.innerHTML = `<div class="sea-cfg-modal" role="dialog" aria-label="Seasonality Performance Table Settings">
+  ov.innerHTML = `<div class="sea-cfg-modal" role="dialog" aria-label="Paramètres du tableau de saisonnalité">
     <div class="sea-cfg-head">
-      <span class="sea-cfg-ttl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e3b23a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Seasonality Performance Table Settings</span>
+      <span class="sea-cfg-ttl"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e3b23a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg> Paramètres du tableau de saisonnalité</span>
       <button class="sea-cfg-x" data-x="1" aria-label="Fermer">✕</button>
     </div>
     <div class="sea-cfg-body">
-      <div class="sea-cfg-lbl">Asset Class</div>
+      <div class="sea-cfg-lbl">Classe d’actifs</div>
       <div class="sea-cfg-tabs">${tabs}</div>
-      <div class="sea-cfg-lbl">Symbol</div>
+      <div class="sea-cfg-lbl">Symbole</div>
       <div class="sea-cfg-grid">${grid}</div>
     </div>
-    <div class="sea-cfg-foot"><button class="sea-cfg-cancel" data-x="1">Cancel</button></div>
+    <div class="sea-cfg-foot"><button class="sea-cfg-cancel" data-x="1">Annuler</button></div>
   </div>`;
   ov.querySelectorAll('[data-x]').forEach(b => b.onclick = () => ov.remove());
   ov.querySelectorAll('.sea-cfg-tab').forEach(b => b.onclick = () => { _seasonCfgClass = b.dataset.cls; _seasonRenderCfg(ov); });
@@ -1868,7 +1868,7 @@ function initCOTTabs() {
   });
 }
 
-const _DMX_TF_LABELS = { H1: 'Every Hour', H4: 'Every 4 Hours', D1: 'Every Day' };
+const _DMX_TF_LABELS = { H1: 'Chaque heure', H4: 'Toutes les 4 heures', D1: 'Chaque jour' };
 
 function initDMXTabs() {
   document.querySelectorAll('.dmx-tf-btn').forEach(btn => {
@@ -2219,7 +2219,7 @@ function buildSessionMap() {
   function updateHeader(now) {
     // DTP affiche simplement "Live" (vert) à côté du point — pas la liste des sessions
     const labEl = document.getElementById('active-sessions-label');
-    if (labEl) { labEl.textContent = 'Live'; labEl.style.color = '#22c55e'; }
+    if (labEl) { labEl.textContent = 'Direct'; labEl.style.color = '#22c55e'; }
   }
 
   let _statusTick = 0;
@@ -2330,7 +2330,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // ── Carte « Interest Rate Probability » — clone fidèle, partagée entre l'onglet TAUX et la vue paire ──
   // Terminologie financière EN d'origine (Next Move/Probability/Expected Δ/Current Rate/Meeting Date,
   // Scenario Distribution, Cut/Hold/Hike, Implied Δ (BPS), Base Case). Sparklines data-driven en fond.
-  const _RTC_EN = { USD: 'Federal Reserve (OIS)', EUR: 'European Central Bank', GBP: 'Bank of England', JPY: 'Bank of Japan', CHF: 'Swiss National Bank', CAD: 'Bank of Canada', AUD: 'Reserve Bank of Australia', NZD: 'Reserve Bank of New Zealand' };
+  const _RTC_EN = { USD: 'Réserve fédérale (OIS)', EUR: 'Banque centrale européenne', GBP: 'Banque d’Angleterre', JPY: 'Banque du Japon', CHF: 'Banque nationale suisse', CAD: 'Banque du Canada', AUD: 'Banque de réserve d’Australie', NZD: 'Banque de réserve de Nouvelle-Zélande' };
   function _rtcCard(b) {
     const MVC = { HOLD: { txt: 'Hold', cls: 'w' }, HIKE: { txt: 'Hike', cls: 'g' }, CUT: { txt: 'Cut', cls: 'r' } };
     const fr  = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
@@ -2376,16 +2376,16 @@ document.addEventListener('DOMContentLoaded', () => {
       + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
       + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span></div>'
       + '<div class="rtc-metrics">'
-      + '<div class="rtc-m"><span class="rtc-k">Next Move</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
-      + '<div class="rtc-m"><span class="rtc-k">Probability</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + mspk('wavy') + '</div>'
-      + '<div class="rtc-m"><span class="rtc-k">Expected &Delta;</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
-      + '<div class="rtc-m"><span class="rtc-k">Current Rate</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
-      + '<div class="rtc-m"><span class="rtc-k">Meeting Date</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Probabilité</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + mspk('wavy') + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Δ attendu</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Taux actuel</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
+      + '<div class="rtc-m"><span class="rtc-k">Date de réunion</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
       + '</div>'
-      + '<div class="rtc-dist"><div class="rtc-dist-h">Scenario Distribution</div>' + scRows
+      + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des scénarios</div>' + scRows
       + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>'
       // Tableau dans une zone SCROLLABLE (~3 lignes visibles, en-tête collant) → lisible ET complet
-      + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Meeting Date</th><th>Day</th><th>Cut (%)</th><th>Hold (%)</th><th>Hike (%)</th><th>Implied &Delta; (BPS)</th><th>Base Case</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      + '<div class="rtc-tblwrap custom-scrollbar"><table class="rtc-tbl"><thead><tr><th>Date de réunion</th><th>Jour</th><th>Baisse (%)</th><th>Maintien (%)</th><th>Hausse (%)</th><th>Δ implicite (BPS)</th><th>Scénario central</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
       + '</div>';
   }
 
@@ -2558,19 +2558,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ─── FX LIST — Overview table ─────────────────────────────────────────────────
 const FXL_COLS = [
-  { key: 'symbol',    label: 'Symbol',     sortable: true,  align: 'left',   type: 'sym'     },
-  { key: 'sparkLast', label: 'Last Price', sortable: false, align: 'center', type: 'price'   },
-  { key: 'changePct', label: 'Change %',   sortable: true,  align: 'right',  type: 'change'  },
+  { key: 'symbol',    label: 'Symbole',    sortable: true,  align: 'left',   type: 'sym'     },
+  { key: 'sparkLast', label: 'Dernier prix', sortable: false, align: 'center', type: 'price'   },
+  { key: 'changePct', label: 'Var. %',     sortable: true,  align: 'right',  type: 'change'  },
   { key: 'seasonal',  label: 'Seasonal',   sortable: false, align: 'center', type: 'season'  },
   { key: 'dmx',       label: 'DMX',        sortable: true,  align: 'center', type: 'donut'   },
   { key: 'fund',      label: 'Fund.',      sortable: true,  align: 'center', type: 'badge'   },
-  { key: 'research',  label: 'Research',   sortable: true,  align: 'center', type: 'badge'   },
-  { key: 'bias',      label: 'Bias',       sortable: true,  align: 'center', type: 'badge'   },
+  { key: 'research',  label: 'Recherche',  sortable: true,  align: 'center', type: 'badge'   },
+  { key: 'bias',      label: 'Biais',      sortable: true,  align: 'center', type: 'badge'   },
   { key: 'ret1M',     label: '1M %',       sortable: true,  align: 'right',  type: 'pct', heat: true },
   { key: 'ret3M',     label: '3M %',       sortable: true,  align: 'right',  type: 'pct', heat: true },
   { key: 'ret12M',    label: '12M %',      sortable: true,  align: 'right',  type: 'pct', heat: true },
-  { key: 'trend',     label: 'Trend',      sortable: false, align: 'center', type: 'trend'   },
-  { key: 'strength',  label: 'Strength',   sortable: true,  align: 'center', type: 'str'     },
+  { key: 'trend',     label: 'Tendance',   sortable: false, align: 'center', type: 'trend'   },
+  { key: 'strength',  label: 'Force',      sortable: true,  align: 'center', type: 'str'     },
 ];
 const _SIG_RANK = { Bullish: 1, Neutral: 0, Bearish: -1 };
 let _fxlData = null;
@@ -2845,7 +2845,7 @@ function renderCalTable() {
   });
 
   if (evs.length === 0) {
-    wrap.innerHTML = '<div class="cal-empty">No events match the filter.</div>';
+    wrap.innerHTML = '<div class="cal-empty">Aucun événement ne correspond au filtre.</div>';
     return;
   }
 
@@ -2916,16 +2916,16 @@ function renderCalTable() {
   wrap.innerHTML = `<table class="cal-table">
     <thead>
       <tr>
-        <th class="cth-time">Time</th>
+        <th class="cth-time">Heure</th>
         <th class="cth-flag">CNTRY</th>
         <th class="cth-curr">CURR.</th>
         <th class="cth-imp">IMPACT</th>
-        <th class="cth-event">EVENT</th>
-        <th class="cth-val">ACTUAL</th>
+        <th class="cth-event">ÉVÉNEMENT</th>
+        <th class="cth-val">RÉEL</th>
         <th class="cth-val">HIGH</th>
-        <th class="cth-val">FORECAST</th>
+        <th class="cth-val">PRÉVISION</th>
         <th class="cth-val">LOW</th>
-        <th class="cth-val">PREVIOUS</th>
+        <th class="cth-val">PRÉCÉDENT</th>
       </tr>
     </thead>
     <tbody>${tbody}</tbody>
@@ -2967,21 +2967,21 @@ function _calColorCell(actual, forecast) {
 function _calDetailHeadVals(ev) {
   return `
     <div class="cal-detail-vals">
-      <div class="cdv"><span class="cdv-lbl">Actual</span>${_calColorCell(ev.actual, ev.forecast, ev.previous)}</div>
-      <div class="cdv"><span class="cdv-lbl">Forecast</span><span class="cv-forecast">${ev.forecast ? _calEsc(ev.forecast) : '—'}</span></div>
-      <div class="cdv"><span class="cdv-lbl">Previous</span><span class="cv-prev">${ev.previous ? _calEsc(ev.previous) : '—'}</span></div>
+      <div class="cdv"><span class="cdv-lbl">Réel</span>${_calColorCell(ev.actual, ev.forecast, ev.previous)}</div>
+      <div class="cdv"><span class="cdv-lbl">Prévision</span><span class="cv-forecast">${ev.forecast ? _calEsc(ev.forecast) : '—'}</span></div>
+      <div class="cdv"><span class="cdv-lbl">Précédent</span><span class="cv-prev">${ev.previous ? _calEsc(ev.previous) : '—'}</span></div>
     </div>`;
 }
 // HTML Specs + History à partir des données détail (réutilisé par le déroulé inline)
 function _calDetailBodyHtml(d) {
   const specsHtml = (d && d.specs && d.specs.length)
-    ? `<div class="cal-detail-section">Specs</div>
+    ? `<div class="cal-detail-section">Détails</div>
        <table class="cal-specs-table">${d.specs.map(s => `<tr><td class="cal-spec-lbl">${_calEsc(s.label)}</td><td class="cal-spec-val">${_calEsc(s.value)}</td></tr>`).join('')}</table>`
     : '';
   const histHtml = (d && d.history && d.history.length)
-    ? `<div class="cal-detail-section">History</div>
+    ? `<div class="cal-detail-section">Historique</div>
        <table class="cal-hist-table">
-         <thead><tr><th>Date</th><th>Actual</th><th>Forecast</th><th>Previous</th></tr></thead>
+         <thead><tr><th>Date</th><th>Réel</th><th>Prévision</th><th>Précédent</th></tr></thead>
          <tbody>${d.history.map(h => `<tr>
            <td>${_calEsc(h.date || '')}</td>
            <td>${_calColorCell(h.actual, h.forecast, h.previous)}</td>
@@ -3095,7 +3095,7 @@ async function buildCalendar() {
         }
       } catch {
         if (attempt < 4) {
-          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Connexion…') : 'Connecting…');
+          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Connexion…') : 'Connexion…');
           await new Promise(r => setTimeout(r, 3000));
         }
       }
@@ -3103,7 +3103,7 @@ async function buildCalendar() {
 
     if (!loaded) {
       wrap.innerHTML = `<div class="cal-empty" style="padding:40px 20px;text-align:center;">
-        <div style="color:var(--text4);font-size:11px;margin-bottom:12px;">Calendar unavailable — server may still be starting up.</div>
+        <div style="color:var(--text4);font-size:11px;margin-bottom:12px;">Calendrier indisponible — le serveur démarre peut-être encore.</div>
         <button onclick="window._retryCalendar()"
           style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:4px 12px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">
           Retry
@@ -3480,7 +3480,7 @@ window._retryCalendar = function() {
           + '<td class="cth-val">' + fc + '</td>'
           + '<td class="cth-val">' + pv + '</td></tr>';
       });
-      cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Time</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">EVENT</th><th class="cth-val">ACTUAL</th><th class="cth-val">FORECAST</th><th class="cth-val">PREVIOUS</th></tr></thead><tbody>' + tb + '</tbody></table>';
+      cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">PRÉVISION</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tb + '</tbody></table>';
     }).catch(() => {});
     // News filtrées sur la paire — EXACTEMENT le « Realtime Headline Ticker » de l'onglet News :
     // on tire du tableau maître (allItems) et on rend chaque item via buildNewsItem (badges, icône

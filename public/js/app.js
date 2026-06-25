@@ -467,7 +467,7 @@ function init() {
   // Fallback: if nothing loaded in 12 seconds, clear the spinner
   setTimeout(() => {
     if (allItems.length === 0) {
-      newsList.innerHTML = '<div class="empty-state" style="color:var(--text4);padding:40px 20px;text-align:center;font-size:11px;">Waiting for live feed — items will appear automatically</div>';
+      newsList.innerHTML = '<div class="empty-state" style="color:var(--text4);padding:40px 20px;text-align:center;font-size:11px;">En attente du flux en direct — les éléments apparaîtront automatiquement</div>';
     }
   }, 12000);
 
@@ -486,7 +486,7 @@ function connectWS() {
   ws = new WebSocket(`${proto}://${location.host}`);
 
   ws.onopen = () => {
-    showStatus('Connected', 'ok');
+    showStatus('Connecté', 'ok');
     if (liveDot) { liveDot.style.background = 'var(--green)'; liveDot.style.boxShadow = '0 0 6px var(--green)'; }
   };
 
@@ -496,7 +496,7 @@ function connectWS() {
   };
 
   ws.onerror = () => {
-    showStatus('Connection error', 'err');
+    showStatus('Erreur de connexion', 'err');
     if (liveDot) { liveDot.style.background = 'var(--red)'; liveDot.style.boxShadow = 'none'; }
   };
 
@@ -929,7 +929,7 @@ function renderNews(hasNew = false) {
 
   if (filtered.length === 0) {
     if (!_wsInitReceived) return; // keep spinner until server acknowledges
-    newsList.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">No items — feed is live, updates appear automatically</div>';
+    newsList.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">Aucun élément — le flux est en direct, les mises à jour apparaissent automatiquement</div>';
     return;
   }
 
@@ -1663,7 +1663,7 @@ function buildEconGroup(group) {
 
   const badge = document.createElement('span');
   badge.className = 'econ-group-badge';
-  badge.textContent = `${count} Economic Releases`;
+  badge.textContent = `${count} Publications économiques`;
 
   const arrow = document.createElement('span');
   arrow.className = 'econ-group-arrow';
@@ -2995,8 +2995,8 @@ function _renderRiskPopup(data) {
     'STRONG RISK-OFF': 'FORTE AVERSION AU RISQUE',
   };
   // En-tête type "Market Sentiment: RISK OFF" (façon dropdown image)
-  if (lbl) { lbl.textContent = `Market Sentiment: ${data.label}`; lbl.className = 'rp-label ' + cls; }
-  if (ti) ti.textContent = `Market Sentiment: ${data.label}`;
+  if (lbl) { lbl.textContent = `Sentiment de marché : ${data.label}`; lbl.className = 'rp-label ' + cls; }
+  if (ti) ti.textContent = `Sentiment de marché : ${data.label}`;
   // Dropdown épuré : pas de jauge ni de bande dans ce popup (la jauge vit dans l'onglet RISK)
   const gw = el('rp-gauge-wrap'); if (gw) gw.style.display = 'none';
   const band = el('rp-band'); if (band) band.style.display = 'none';
@@ -3127,7 +3127,7 @@ async function loadInstCOT(force = false) {
 
     const updatedEl = document.getElementById('inst-updated');
     const rpt = data.currencies[0]?.reportDate;
-    if (updatedEl && rpt) updatedEl.textContent = `COT report: ${rpt}`;
+    if (updatedEl && rpt) updatedEl.textContent = `Rapport COT : ${rpt}`;
     if (info) info.textContent = rpt ? `Report date: ${rpt} · * = derived (inverse aggregate)` : '';
 
     grid.innerHTML = data.currencies.map(c => {
@@ -3712,7 +3712,7 @@ function renderBiasView(d) {
 
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   // En-têtes : micro-drapeau rond + code devise, cliquable → ouvre le Bias Summary inférieur.
-  const head = `<tr><th class="sbm-ind">Indicators</th>${cur.map(c =>
+  const head = `<tr><th class="sbm-ind">Indicateurs</th>${cur.map(c =>
     `<th class="sbm-cur" onclick="_sbOpenSummary('${c}')"><span class="sbm-cur-in">${_sbFlag(c)}<span>${esc(c)}</span></span></th>`).join('')}</tr>`;
   // Fundamental Data & Bank Overview = accordéons dans la matrice (clic → sous-indicateurs par devise).
   const _accKeys = { fundamental: 1, bankOverview: 1 };
@@ -3726,7 +3726,7 @@ function renderBiasView(d) {
     }</tr>`;
   }).join('');
   const arrow = v => /bull|uptrend/i.test(v) ? '<span class="sbm-arr">↗</span>' : /bear|downtrend/i.test(v) ? '<span class="sbm-arr">↘</span>' : '';
-  const concl = `<tr class="sbm-overall"><td class="sbm-ind">Overall Conclusion</td>${
+  const concl = `<tr class="sbm-overall"><td class="sbm-ind">Conclusion globale</td>${
     cur.map(c => { const v = (d.conclusion || {})[c] || 'N/A'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(v)}</td>`; }).join('')
   }</tr>`;
 
@@ -3884,16 +3884,16 @@ function _sbOpenSummary(curr) {
   };
 
   const leftRows = [
-    line('Fundamental Data', val('fundamental'), { acc: 'fundamental' }),
+    line('Données fondamentales', val('fundamental'), { acc: 'fundamental' }),
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
-    line('Bank Overview', val('bankOverview'), { acc: 'bankOverview' }),
+    line('Vue des banques', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
     line('Technical', tval('technical')),
     line('Sentiment', tval('sentiment')),
-    line('Hedge Fund Positioning', val('hedgeFund')),
-    line('Retail Positioning', val('retail')),
-    line('Monetary Policy', val('monetary')),
-    line('Trend', val('trend')),
+    line('Positionnement Hedge Funds', val('hedgeFund')),
+    line('Positionnement Particuliers', val('retail')),
+    line('Politique monétaire', val('monetary')),
+    line('Tendance', val('trend')),
     line('Seasonality', val('seasonality')),
     // Ligne Overall (conclusion) — encadrée orange façon DTP, en bas de la liste.
     `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${esc(overall)}</span></div>`,
@@ -3910,7 +3910,7 @@ function _sbOpenSummary(curr) {
   wrap.innerHTML = `
     <div class="sbs-panel">
       <div class="sbs-body" id="sbs-body">
-        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Bias Summary</div>${leftRows}</div>
+        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${leftRows}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} — Performance de la semaine dernière :</div>
@@ -4019,14 +4019,14 @@ function _sbLoadCal() {
 // Regex ÉLARGIES par pays (Tankan JP, Ivey CA, GfK UK/DE, Westpac AU, ANZ NZ, approvals/consents…)
 // → chaque devise matche sa propre publication nationale, plus de cases vides évitables.
 const SB_FUND_SUBS = [
-  { label: 'Economic Growth',     re: /\bGDP\b|gross domestic|economic growth/i },
-  { label: 'Rising Prices',       re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price|pce price|core pce/i },
-  { label: 'Consumer Confidence', re: /consumer confidence|consumer sentiment|michigan|gfk|westpac consumer|anz.*confidence/i },
-  { label: 'Factory Activity',    re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur|tankan|ivey|manufacturing production/i },
-  { label: 'Service Activity',    re: /services? pmi|ism (services|non-manufactur)|tertiary industry/i },
-  { label: 'New Homes Started',   re: /housing starts|new home/i },
-  { label: 'Building Permits',    re: /building permits|building approvals|building consents/i },
-  { label: 'Retail Sales',        re: /retail sales|retail trade/i },
+  { label: 'Croissance économique',     re: /\bGDP\b|gross domestic|economic growth/i },
+  { label: 'Hausse des prix',       re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price|pce price|core pce/i },
+  { label: 'Confiance des consommateurs', re: /consumer confidence|consumer sentiment|michigan|gfk|westpac consumer|anz.*confidence/i },
+  { label: 'Activité manufacturière',    re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur|tankan|ivey|manufacturing production/i },
+  { label: 'Activité des services',    re: /services? pmi|ism (services|non-manufactur)|tertiary industry/i },
+  { label: 'Mises en chantier',   re: /housing starts|new home/i },
+  { label: 'Permis de construire',    re: /building permits|building approvals|building consents/i },
+  { label: 'Ventes au détail',        re: /retail sales|retail trade/i },
 ];
 function _sbNum(v) { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(n) ? null : n; }
 function _sbFundStance(actual, forecast) {
@@ -6544,7 +6544,7 @@ function renderLondonPrep(report) {
   if (!body) return;
 
   if (sub) sub.textContent = report.generatedAt ? `Généré le ${report.generatedAt}` : '';
-  if (cnt && report.newsCount) cnt.textContent = `${report.newsCount} headlines analysed`;
+  if (cnt && report.newsCount) cnt.textContent = `${report.newsCount} titres analysés`;
 
   if (report.headline && hl && hlTxt) {
     hlTxt.textContent = report.headline;
@@ -6611,7 +6611,7 @@ async function loadLondonPrep(force = false) {
     if (data.error) throw new Error(data.error);
     renderLondonPrep(data);
   } catch (e) {
-    if (body) body.innerHTML = `<div class="prep-loading"><span>⚠ Could not load report: ${e.message}</span></div>`;
+    if (body) body.innerHTML = `<div class="prep-loading"><span>⚠ Impossible de charger le rapport : ${e.message}</span></div>`;
   }
 }
 
@@ -6654,12 +6654,12 @@ let   _npAudioCtx = null;
 const NP_CATS = [
   { key: 'bias',     label: 'Radar de Biais' },
   { key: 'research', label: 'Fichiers de recherche' },
-  { key: 'posts',    label: 'Posts' },
+  { key: 'posts',    label: 'Publications' },
   { key: 'analyst',  label: 'Note d’Analyste' },
   { key: 'admin',    label: 'Admin' },
   { key: 'risk',     label: 'Risk Sentiment' },
-  { key: 'ticker',   label: 'News Ticker' },
-  { key: 'calendar', label: 'Event Calendar' },
+  { key: 'ticker',   label: 'Fil d’actualité' },
+  { key: 'calendar', label: 'Calendrier des événements' },
 ];
 let _npCatFilters = {};
 try { _npCatFilters = JSON.parse(localStorage.getItem('np_cat_filters') || '{}'); } catch {}
@@ -7999,27 +7999,27 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // ═══ TRADE LOG — GRILLE ÉDITABLE FAÇON NOTION (colonnes/propriétés de l'utilisateur) ═══
   const _JR_DIR_DISP = { BUY: 'Long', SELL: 'Short' };
   const _JR_COLDEF = [
-    { k: 'pair',    label: 'Pairs',          type: 'title',    w: 94 },
+    { k: 'pair',    label: 'Paires',         type: 'title',    w: 94 },
     { k: 'ts',      label: 'Date',           type: 'date',     w: 120 },
-    { k: 'result',  label: 'Result',         type: 'select',   w: 86 },
-    { k: 'day',     label: 'Day',            type: 'day',      w: 100 },
+    { k: 'result',  label: 'Résultat',       type: 'select',   w: 86 },
+    { k: 'day',     label: 'Jour',           type: 'day',      w: 100 },
     { k: 'session', label: 'Session',        type: 'select',   w: 92 },
     { k: 'dir',     label: 'Direction',      type: 'select',   w: 92, disp: _JR_DIR_DISP },
-    { k: 'fonda',   label: 'Fonda Strength', type: 'progress', w: 128, max: 100 },
+    { k: 'fonda',   label: 'Force Fonda',    type: 'progress', w: 128, max: 100 },
     { k: 'conf',    label: 'Confluence',     type: 'multi',    w: 172 },
-    { k: 'tf',      label: 'Time Frame',     type: 'multi',    w: 128 },
+    { k: 'tf',      label: 'Unité de Temps', type: 'multi',    w: 128 },
     { k: 'setup',   label: 'Setup',          type: 'multi',    w: 172 },
-    { k: 'entryT',  label: 'Entry',          type: 'multi',    w: 144 },
+    { k: 'entryT',  label: 'Entrée',         type: 'multi',    w: 144 },
     { k: 'sl',      label: 'SL',             type: 'multi',    w: 124 },
-    { k: 'grade',   label: 'Grade',          type: 'ring',     w: 74, max: 5 },
-    { k: 'rr',      label: 'RR Target',      type: 'num',      w: 88 },
-    { k: 'risk',    label: 'Risk %',         type: 'num',      w: 80, suffix: ' %' },
+    { k: 'grade',   label: 'Note',           type: 'ring',     w: 74, max: 5 },
+    { k: 'rr',      label: 'Objectif RR',    type: 'num',      w: 88 },
+    { k: 'risk',    label: 'Risque %',       type: 'num',      w: 80, suffix: ' %' },
     { k: 'r',       label: 'R PNL',          type: 'num',      w: 80, signed: true },
     { k: 'pnlPct',  label: '% PNL',          type: 'num',      w: 82, suffix: ' %', signed: true },
     { k: 'pl',      label: '$PNL',           type: 'money',    w: 106, signed: true },
-    { k: 'equity',  label: '$ Equity',       type: 'money',    w: 124 },
+    { k: 'equity',  label: '$ Capital',      type: 'money',    w: 124 },
     { k: 'err',     label: 'ERREUR',         type: 'multi',    w: 132 },
-    { k: 'account', label: 'Account',        type: 'select',   w: 124 },
+    { k: 'account', label: 'Compte',         type: 'select',   w: 124 },
   ];
   // ── COLONNES PERSONNALISABLES (façon Notion), PAR COMPTE : ajout / suppr / renommer / masquer / réordonner ──
   const _JR_BUILTIN = {}; _JR_COLDEF.forEach(c => { _JR_BUILTIN[c.k] = c; });
@@ -8878,7 +8878,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   // ── amCharts 5 : courbe de performance (toggle % / $PNL / $Equity) + donut de répartition ──
   let _jrEqMode = 'pct', _jrEqSeriesRef = null;
-  const _JR_EQMODE_LBL = { pct: '% cumulé', pl: '$ PNL', equity: '$ Equity' };
+  const _JR_EQMODE_LBL = { pct: '% cumulé', pl: '$ PNL', equity: '$ Capital' };
   function _jrEqData(L, mode) {
     const ok = e => mode === 'equity' ? _jrN(e.equity) != null : mode === 'pl' ? _jrN(e.pl) != null : _jrN(e.pnlPct) != null;
     const arr = L.filter(ok).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
@@ -8980,7 +8980,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<div class="jrd-card jrd-card--eq"><div class="jrd-card-h">Courbe de performance<span class="jrd-eqtoggle">'
           + '<button data-m="pct" class="active" onclick="_jrEqSwitch(\'pct\')">% cumulé</button>'
           + '<button data-m="pl" onclick="_jrEqSwitch(\'pl\')">$ PNL</button>'
-          + '<button data-m="equity" onclick="_jrEqSwitch(\'equity\')">$ Equity</button>'
+          + '<button data-m="equity" onclick="_jrEqSwitch(\'equity\')">$ Capital</button>'
         + '</span></div><div id="jr-eq-chart" class="jr-chart-am jr-chart-am--eq"></div></div>'
       + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">CORE PERFORMANCE</div><div class="jrd-rings">'
