@@ -9853,8 +9853,8 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .rp-d-v{flex:1;font-size:12px;color:#aeb4bd;line-height:1.5;}
 
 /* === Carte sessions : leger effet 3D (inclinaison perspective) === */
-#am5-map{perspective:1600px;overflow:hidden;}
-#am5-map .leaflet-container{transform:rotateX(10deg) scale(1.12);transform-origin:center 50%;}
+#am5-map{overflow:hidden;transform:perspective(1300px) rotateX(6deg) scale(1.05);transform-origin:center 56%;}
+/* tilt 3D tres leger applique directement sur #am5-map ; clip assure par .right-tab-panel overflow:hidden */
 
 /* === Widgets droits (COT/DMX/Saisonnalite) : en-tetes alignes sur l'identite desk (tick or + capitales) + boutons carres === */
 .cot-header-label,.dmx-header-title{text-transform:uppercase;letter-spacing:.085em;font-weight:600;}
