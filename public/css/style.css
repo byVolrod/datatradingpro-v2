@@ -119,7 +119,7 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --font-mono:   var(--font-stack);
   --serif:       "Fraunces", Georgia, serif;
   --tight:       "Inter Tight", var(--font-stack);
-  --radius:      3px;
+  --radius:      6px;
   --topbar-h:    54px;
   --tabs-bar-h:  28px;
   --navbar-h:    28px;
