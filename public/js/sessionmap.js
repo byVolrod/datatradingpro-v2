@@ -35,7 +35,7 @@
     el.style.background = '#0b0c0f';
 
     var map = L.map(el, {
-      center: [22, 12], zoom: 2, minZoom: 1, maxZoom: 7,
+      center: [18, 6], zoom: 1.4, minZoom: 1, maxZoom: 7, zoomSnap: 0,
       zoomControl: false, attributionControl: true,
       worldCopyJump: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false
     });
@@ -85,7 +85,8 @@
       CITIES.forEach(function (city) { if (city._lfm) city._lfm.setIcon(mkIcon(city, now)); });
     }, 30000);
 
-    setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 250);
-    setTimeout(function () { try { map.invalidateSize(); } catch (e) {} }, 900);
+    function _dtpFit(){ try { map.invalidateSize(); map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); } catch (e) {} }
+    setTimeout(_dtpFit, 250);
+    setTimeout(_dtpFit, 900);
   };
 })();

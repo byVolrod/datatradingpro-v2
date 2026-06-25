@@ -15,7 +15,7 @@ body.theme-medium {           /* gris moyen — variante adoucie du sombre */
   --text:#e8eaed; --text2:#b4b8bf; --text3:#888d96; --text4:#5e636c;
 }
 body.theme-light {            /* clair — fonds clairs, texte sombre, orange conservé */
-  --bg:#f3f4f6; --bg1:#ffffff; --bg2:#f8f9fb; --bg3:#eef0f3; --bg4:#e7e9ee; --bg5:#dfe2e8;
+  --bg:#ffffff; --bg1:#ffffff; --bg2:#ffffff; --bg3:#f5f6f8; --bg4:#eef0f3; --bg5:#e6e9ee;
   --border:#e2e5ea; --border2:#d3d7dd; --border3:#c3c8d0;
   --text:#181b20; --text2:#565c64; --text3:#868c95; --text4:#aeb4bd;
 }
@@ -672,7 +672,7 @@ html, body {
 
 .nav-item--mobile-only { display: none; }   /* onglet MARCHÉS : visible uniquement sur mobile */
 .nav-item:hover { color: var(--text); background: rgba(255,255,255,0.025); }
-.nav-item--active { color: var(--text); background: transparent; box-shadow: inset 0 -2px 0 var(--orange, #e3b23a); }
+.nav-item--active { color: var(--text); background: transparent; }
 
 /* Topbar right */
 .topbar-right {
@@ -2183,11 +2183,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .right-tab:hover { color: var(--text); background: rgba(255,255,255,0.025); }
 
-/* Onglet actif : texte blanc + soulignement or (cohérent avec la nav principale) */
+/* Onglet actif : texte blanc (trait doré retiré à la demande) */
 .right-tab--active {
   color: var(--text) !important;
   background: transparent;
-  box-shadow: inset 0 -2px 0 var(--orange, #e3b23a);
 }
 
 /* Flèche nav gauche */
@@ -9853,7 +9852,7 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .rp-d-v{flex:1;font-size:12px;color:#aeb4bd;line-height:1.5;}
 
 /* === Carte sessions : leger effet 3D (inclinaison perspective) === */
-#am5-map{overflow:hidden;transform:perspective(1300px) rotateX(6deg) scale(1.05);transform-origin:center 56%;}
+#am5-map{overflow:hidden;transform:perspective(1500px) rotateX(5deg) scale(1.0);transform-origin:center 55%;}
 /* tilt 3D tres leger applique directement sur #am5-map ; clip assure par .right-tab-panel overflow:hidden */
 
 /* === Widgets droits (COT/DMX/Saisonnalite) : en-tetes alignes sur l'identite desk (tick or + capitales) + boutons carres === */
