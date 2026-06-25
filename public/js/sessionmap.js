@@ -50,7 +50,7 @@
       if (typeof am5geodata_worldLow !== 'undefined' && am5geodata_worldLow && am5geodata_worldLow.features) {
         var gj = L.geoJSON(am5geodata_worldLow, {
           interactive: false,
-          style: { fillColor: '#272c37', fillOpacity: 1, color: '#5a4f2e', weight: 0.5, opacity: 0.65 }
+          style: { fillColor: '#46aa6e', fillOpacity: 1, color: '#2d7049', weight: 0.5, opacity: 0.7 }
         });
         if (gj.getLayers().length > 5) { gj.addTo(map); hasVector = true; }
       }
@@ -63,7 +63,7 @@
     // Terminateur jour/nuit (si le plugin a chargé)
     if (typeof L.terminator === 'function') {
       try {
-        var term = L.terminator({ fillColor: '#000814', fillOpacity: 0.48, color: '#0a1020', weight: 0, interactive: false });
+        var term = L.terminator({ fillColor: '#03130b', fillOpacity: 0.64, color: '#03130b', weight: 0, interactive: false });
         term.addTo(map);
         window._dtpLfNight = setInterval(function () { try { term.setTime(new Date()); } catch (e) {} }, 60000);
       } catch (e) {}
