@@ -9746,3 +9746,8 @@ body.jrd-resizing #jr-detail { transition: none; }
 
 /* Identite typo landing : titres Inter Tight */
 .panel-title,.chart-header-title,.np-title,.sqwk-title,.ai-head-title,.sym-ptitle,.arlib-list-title,.wa-title,.sbs-risk-title,.wr-section-title,.ai-insights-title,.nav-item{font-family:var(--tight);}
+
+/* Phase 4 polish subtil (additif facon landing) */
+.sym-panel,.sym-bz-col,.ai-insights-card,.ai-ins-pair{transition:border-color .18s ease;}
+.sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{border-color:rgba(227,178,58,0.30);}
+.arlib-list-title{font-family:var(--serif);letter-spacing:-0.01em;}
