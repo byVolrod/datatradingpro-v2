@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260625bbg2" />
+  <link rel="stylesheet" href="/css/style.css?v=20260625bbg3" />
 
   <!-- amCharts 5 CDN -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -40,11 +40,11 @@
 
   <div class="topbar-center">
     <div class="topbar-icon topbar-icon--journal" id="journal-btn" title="Journal de Trading" onclick="_dtpGateTool('journal')">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/><path d="M4 7h3M4 12h3M4 17h3M10 7h7M10 11h7M10 15h4"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4.5A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5z"/><path d="M8 7h8M8 11h8M8 15h5"/></svg>
       <span class="topbar-new-badge" id="journal-new-badge" style="display:none">NOUVEAU</span>
     </div>
     <div class="topbar-icon topbar-icon--calc" id="calc-btn" title="Calculatrice de position" onclick="_dtpGateTool('calculator')">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2"/><path d="M8 6h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h4"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2.5"/><path d="M8 6h8"/><path d="M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h.01M12 19h4"/></svg>
     </div>
     <div class="topbar-symbol-search">
       <span class="search-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7.5"/><path d="m21 21-4.35-4.35"/></svg></span>
@@ -82,11 +82,11 @@
       </svg>
     </div>
     <div class="topbar-icon topbar-icon--notif" id="np-bell-btn" onclick="npToggle()" title="Alertes">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10.27 21a2 2 0 0 0 3.46 0"/><path d="M3.26 15.33A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.67C19.41 13.96 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.41 5.96-2.74 7.33Z"/></svg>
       <span class="notif-dot" id="notif-badge" style="display:none"></span>
     </div>
     <div class="topbar-icon" id="chat-btn" onclick="chatToggle()" title="Support DataTradingPro">
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9a2 2 0 0 1-2 2H7l-3 3V5a2 2 0 0 1 2-2h6a2 2 0 0 1 2 2z"/><path d="M18 9h1a2 2 0 0 1 2 2v9l-3-3h-5a2 2 0 0 1-2-2v-1"/></svg>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
       <span class="notif-badge" id="chat-badge" style="display:none">0</span>
     </div>
     <div id="topbar-avatar" onclick="pdToggle()" title="Mon profil">
@@ -732,10 +732,10 @@
 </div>
 
 <script src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script src="/js/app.js?v=20260625bbg2"></script>
-<script src="/js/charts.js?v=20260625bbg2"></script>
-<script src="/js/i18n-dicts.js?v=20260625bbg2"></script>
-<script src="/js/i18n.js?v=20260625bbg2"></script>
+<script src="/js/app.js?v=20260625bbg3"></script>
+<script src="/js/charts.js?v=20260625bbg3"></script>
+<script src="/js/i18n-dicts.js?v=20260625bbg3"></script>
+<script src="/js/i18n.js?v=20260625bbg3"></script>
 
 <!-- ═══════════════════ PROFILE DRAWER ═══════════════════ -->
 <div class="pd-overlay" id="pd-overlay" onclick="pdClose()"></div>
