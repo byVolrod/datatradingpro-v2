@@ -88,12 +88,12 @@ function aiClose() {
 function _aiSourcesHtml(sources, idx) {
   const items = (sources || []).map(s =>
     `<div class="ai-source"><span class="ai-source-dot"></span><div><div class="ai-source-name">${_aiEsc(s.name)}</div><div class="ai-source-date">${_aiEsc(s.date)}</div></div></div>`).join('');
-  return `<div class="ai-sources" id="ai-src-${idx}"><span class="ai-sources-head" onclick="aiToggleSources(${idx})"><span class="ai-sources-arrow">›</span> ${(sources || []).length} sources used</span><div class="ai-sources-list">${items}</div></div>`;
+  return `<div class="ai-sources" id="ai-src-${idx}"><span class="ai-sources-head" onclick="aiToggleSources(${idx})"><span class="ai-sources-arrow">›</span> ${(sources || []).length} sources utilisées</span><div class="ai-sources-list">${items}</div></div>`;
 }
 function aiToggleSources(idx) { const el = document.getElementById('ai-src-' + idx); if (el) el.classList.toggle('open'); }
 function aiRender() {
   const box = document.getElementById('ai-messages'); if (!box) return;
-  let html = '<div class="ai-day-sep"><span>Today</span></div>';
+  let html = '<div class="ai-day-sep"><span>Aujourd’hui</span></div>';
   _aiMsgs.forEach((m, i) => {
     if (m.role === 'user') {
       html += `<div class="ai-row ai-row--user"><div class="ai-bubble-user">${_aiEsc(m.text)}</div><div class="ai-time">${m.time}</div></div>`;
@@ -350,6 +350,34 @@ const SETTINGS_PANEL = {
     { label: 'Chinese Data',    cat: 'Chinese Data'    },
   ],
 };
+
+// Libellés FR des catégories de news — AFFICHAGE UNIQUEMENT. La valeur brute (item.category)
+// reste la clé logique (data-cat, comparaisons, enabledCategories, SETTINGS_PANEL.cat). On ne
+// traduit que le texte rendu via CAT_FR[cat] || cat. Sigles (Fed/ECB/BoJ…) inchangés (fallback).
+const CAT_FR = {
+  'Economic Commentary': 'Commentaire économique',
+  'Market Analysis':     'Analyse de marché',
+  'Global News':         'Actualités mondiales',
+  'Asian News':          'Actualités asiatiques',
+  'Energy & Power':      'Énergie',
+  'Fixed Income':        'Obligataire',
+  'Metals':              'Métaux',
+  'Crypto':              'Crypto',
+  'Trade':               'Commerce',
+  'FX Flows':            'Flux FX',
+  'Geopolitical':        'Géopolitique',
+  'DTP Update':          'Mise à jour DTP',
+  'Ags & Softs':         'Agricoles',
+  'EU Data':             'Données EU',
+  'US Data':             'Données US',
+  'UK Data':             'Données UK',
+  'Swiss Data':          'Données Suisse',
+  'Japanese Data':       'Données Japon',
+  'Canadian Data':       'Données Canada',
+  'Australian Data':     'Données Australie',
+  'Chinese Data':        'Données Chine',
+};
+function catFr(cat) { return CAT_FR[cat] || cat || ''; }
 
 // ═══ State ════════════════════════════════
 let allItems          = [];
@@ -1677,7 +1705,7 @@ function buildEconGroup(group) {
 
   const catText = document.createElement('div');
   catText.className = 'news-category-text';
-  catText.textContent = 'Economic Commentary';
+  catText.textContent = catFr('Economic Commentary');
   el.appendChild(catText);
 
   const content = document.createElement('div');
@@ -2087,7 +2115,7 @@ function buildNewsItem(item) {
   // ── Category col ──
   const catText = document.createElement('div');
   catText.className = 'news-category-text';
-  catText.textContent = item.category;
+  catText.textContent = catFr(item.category);
   el.appendChild(catText);
 
   // ── Content col ──
@@ -2661,13 +2689,13 @@ function renderClocks() {
     const localNow = new Date(now.toLocaleString('en-US', { timeZone: c.tz }));
     const month    = String(localNow.getMonth() + 1).padStart(2, '0');
     const day      = String(localNow.getDate()).padStart(2, '0');
-    const wday     = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][localNow.getDay()];
+    const wday     = ['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'][localNow.getDay()];
     const hr       = localNow.getHours();
     const isDay    = hr >= 6 && hr < 20;
     const wx       = _weatherCache[c.city] || { temp: '--', wind: '--', windDir: 0, icon: '☁' };
     const arrow    = wx.wind !== '--' ? windArrow(wx.windDir) : '';
     const dayNightIcon = isDay ? '<span class="clock-sun">☀︎</span>' : '<span class="clock-moon">☾</span>';
-    const label    = c._local ? 'My Timezone' : `${c.city} (${c.code})`;
+    const label    = c._local ? 'Mon fuseau' : `${c.city} (${c.code})`;
     const tempStr = wx.temp !== '--' ? `${wx.temp}°C` : '--';
     const windStr = wx.wind !== '--' ? `${wx.wind} km/h ${arrow}` : '--';
     return `
@@ -2686,7 +2714,7 @@ function renderClocks() {
           <span class="clock-wx-row">${wx.icon} ${tempStr}</span>
         </div>
         <div class="clock-sub-row">
-          <span class="clock-daynight-lbl">${dayNightIcon} ${isDay ? 'Day' : 'Night'}</span>
+          <span class="clock-daynight-lbl">${dayNightIcon} ${isDay ? 'Jour' : 'Nuit'}</span>
           <span class="clock-wind-row">${wx.wind !== '--' ? CLOCK_WIND_ICON + ' ' : ''}${windStr}</span>
         </div>
       </div>`;
@@ -2798,7 +2826,7 @@ function buildSettingsPanel() {
 
       const lbl = document.createElement('div');
       lbl.className = 'settings-row-label';
-      lbl.textContent = label;
+      lbl.textContent = catFr(cat);
 
       const toggle = document.createElement('div');
       toggle.className = 'toggle-switch';
@@ -2873,7 +2901,7 @@ function buildSectionDropdown() {
   if (!container) return;
   container.innerHTML = INTERNAL_CATS.map(cat => `
     <div class="dropdown-item${enabledCategories.has(cat) ? ' active' : ''}" data-cat="${cat}" onclick="toggleDropdownItem(this)">
-      <span class="dropdown-item-label">${cat}</span>
+      <span class="dropdown-item-label">${catFr(cat)}</span>
       <span class="dropdown-check">✓</span>
     </div>`).join('');
 }
@@ -3027,13 +3055,13 @@ function _renderRiskPopup(data) {
   const band = el('rp-band'); if (band) band.style.display = 'none';
   // Description longue (anglais) selon le niveau de risque — exactement comme l'image
   const POPUP_DESC_EN = {
-    'STRONG RISK-ON':  'Strong risk appetite dominates. Capital is rotating aggressively into equities and high-beta assets as investors chase returns, with safe havens broadly sold.',
-    'RISK-ON':         'Risk appetite is firmly in control. Equities and cyclical assets are bid while defensive positioning unwinds, reflecting confidence in the growth outlook.',
-    'WEAK RISK-ON':    'A mild risk-on tone prevails. Constructive sentiment supports risk assets, but conviction is limited and positioning stays cautious.',
-    'NEUTRAL':         'Market sentiment is balanced. Signals across asset classes are mixed, with no clear directional bias as participants await fresh catalysts.',
-    'WEAK RISK-OFF':   'Caution is creeping in. Flows are mixed, safe havens are quietly supported and volatility is elevated as participants trim risk exposure.',
-    'RISK-OFF':        'Market participants are seeking safety amid uncertainty. Defensive positioning is evident across asset classes as investors prioritize capital preservation over returns due to geopolitical tensions, economic concerns, or monetary tightening.',
-    'STRONG RISK-OFF': 'Risk aversion dominates. A pronounced flight to safety is underway across havens — bonds, gold, JPY and CHF — as participants slash exposure and volatility spikes.',
+    'STRONG RISK-ON':  'Fort appétit pour le risque. Les capitaux affluent agressivement vers les actions et les actifs à fort bêta, les investisseurs cherchant du rendement, tandis que les valeurs refuges sont largement vendues.',
+    'RISK-ON':         'L’appétit pour le risque domine clairement. Les actions et les actifs cycliques sont recherchés tandis que le positionnement défensif se dénoue, reflétant la confiance dans les perspectives de croissance.',
+    'WEAK RISK-ON':    'Un léger ton d’appétit pour le risque prévaut. Un sentiment constructif soutient les actifs risqués, mais la conviction reste limitée et le positionnement prudent.',
+    'NEUTRAL':         'Le sentiment de marché est équilibré. Les signaux sont mitigés sur l’ensemble des classes d’actifs, sans biais directionnel clair, les intervenants attendant de nouveaux catalyseurs.',
+    'WEAK RISK-OFF':   'La prudence s’installe peu à peu. Les flux sont mitigés, les valeurs refuges discrètement soutenues et la volatilité élevée, les intervenants réduisant leur exposition au risque.',
+    'RISK-OFF':        'Les intervenants recherchent la sécurité face à l’incertitude. Un positionnement défensif est manifeste sur l’ensemble des classes d’actifs, les investisseurs privilégiant la préservation du capital au rendement, sur fond de tensions géopolitiques, de craintes économiques ou de resserrement monétaire.',
+    'STRONG RISK-OFF': 'L’aversion au risque domine. Une fuite marquée vers les valeurs refuges est en cours — obligations, or, JPY et CHF — les intervenants réduisant fortement leur exposition tandis que la volatilité s’envole.',
   };
   const de = el('rp-desc');
   if (de) { de.style.display = ''; de.textContent = POPUP_DESC_EN[data.label] || data.description || ''; }
@@ -3447,12 +3475,12 @@ function initAnalystTab() {
           <div class="arlib-insights-header">
             <span class="arlib-insights-pair">${pair}</span>
             <span class="arlib-insights-bias" style="color:${biasColor}">${(data.bias || '').toUpperCase()}</span>
-            <span class="arlib-insights-conf">${data.confidence || '—'}% confidence</span>
+            <span class="arlib-insights-conf">${data.confidence || '—'}% de confiance</span>
             <span class="arlib-insights-close" id="arlib-insights-close">×</span>
           </div>
           <div class="arlib-insights-summary">${data.summary || ''}</div>
           ${bulletsHtml}
-          ${levelsHtml ? `<div class="arlib-rsection">Key Levels</div>${levelsHtml}` : ''}
+          ${levelsHtml ? `<div class="arlib-rsection">Niveaux clés</div>${levelsHtml}` : ''}
         `;
         document.getElementById('arlib-insights-close')?.addEventListener('click', () => {
           insightsWrap.remove();
@@ -5809,7 +5837,7 @@ function _aiInsCount(cardsEl) {
   const per = Math.max(1, Math.round(cardsEl.clientWidth / step));
   const start = Math.min(total, Math.round(cardsEl.scrollLeft / step) + 1);
   const end = Math.min(total, start + per - 1);
-  countEl.textContent = `${start}-${end} of ${total}`;
+  countEl.textContent = `${start}-${end} sur ${total}`;
 }
 
 // Défilement des cartes Éclairages IA via les flèches (scopé au panneau cliqué)
@@ -5899,7 +5927,7 @@ function _renderWeeklyRecap(item) {
         <span class="ai-insights-title">${chip} Éclairages IA</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
-          <span class="ai-insights-count">${allCards.length} insights</span>
+          <span class="ai-insights-count">${allCards.length} éclairages</span>
           <button type="button" onclick="aiInsScroll(this,1)">›</button>
         </span>
       </div>
@@ -5983,7 +6011,7 @@ function _renderWeeklyRecap(item) {
     }
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
-      body += `<div class="wr-section-title">Currency Analysis</div>`;
+      body += `<div class="wr-section-title">Analyse par devise</div>`;
       ccys.forEach(c => {
         const cd = w.currencies[c];
         const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
@@ -6063,7 +6091,7 @@ function _renderFXDailyRecap(item) {
         <span class="ai-insights-title">${chip} Éclairages IA</span>
         <span class="ai-insights-nav">
           <button type="button" onclick="aiInsScroll(this,-1)">‹</button>
-          <span class="ai-insights-count">${allCards.length} insights</span>
+          <span class="ai-insights-count">${allCards.length} éclairages</span>
           <button type="button" onclick="aiInsScroll(this,1)">›</button>
         </span>
       </div>
@@ -6514,7 +6542,7 @@ function renderArlibReader(item) {
   if (item._briefing || item.source === 'DTP') {
     const bullets = parsePrimerBullets(item.description);
     if (!bullets.length) {
-      html = `<div class="arlib-rno-content">No content — regenerate via /api/briefings/generate-all?force=1</div>`;
+      html = `<div class="arlib-rno-content">Aucun contenu — régénérez le rapport.</div>`;
     } else {
       const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
       // Premier bullet = ligne méta (date/heure du rapport)
@@ -7001,10 +7029,10 @@ function _npRenderList() {
 function _npTimeAgo(ts) {
   if (!ts) return '';
   const diff = Math.floor((Date.now() - ts) / 1000);
-  if (diff < 60)  return diff + 's ago';
-  if (diff < 3600) return Math.floor(diff / 60) + 'm ago';
-  if (diff < 86400) return Math.floor(diff / 3600) + 'h ago';
-  return Math.floor(diff / 86400) + 'd ago';
+  if (diff < 60)  return 'il y a ' + diff + 's';
+  if (diff < 3600) return 'il y a ' + Math.floor(diff / 60) + 'min';
+  if (diff < 86400) return 'il y a ' + Math.floor(diff / 3600) + 'h';
+  return 'il y a ' + Math.floor(diff / 86400) + 'j';
 }
 
 // ── Sync UI state ─────────────────────────────────────────────
@@ -8127,7 +8155,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return Array.from(set.values());
   }
   const _JR_MONTHS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  const _JR_DAYS_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+  const _JR_DAYS_EN = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
   function _jrFmtDateFr(ts) { try { const d = new Date(ts); return d.getDate() + ' ' + _JR_MONTHS_FR[d.getMonth()] + ' ' + d.getFullYear(); } catch (e) { return '—'; } }
   function _jrDayEn(ts) { try { return _JR_DAYS_EN[new Date(ts).getDay()]; } catch (e) { return ''; } }
   function _jrTsToInput(ts) { try { const d = new Date(ts), p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()); } catch (e) { return ''; } }
@@ -9007,7 +9035,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     // Montant COMPACT et insécable (k$/M$) → tient dans l'anneau sans passer à la ligne (le « $ » ne saute plus)
     const _jrMoneyShort = v => { const n = Math.round(v), a = Math.abs(n), s = n > 0 ? '+' : n < 0 ? '-' : ''; if (a >= 1e6) return s + (a / 1e6).toFixed(1).replace('.', ',') + ' M$'; if (a >= 1000) return s + (a / 1000).toFixed(1).replace('.', ',') + ' k$'; return s + a + ' $'; };
     host.innerHTML =
-      '<div class="jrd-sec"><div class="jrd-sec-h">PILOT PERFORMANCE</div><div class="jrd-rings">'
+      '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE PILOTE</div><div class="jrd-rings">'
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#e3b23a')
@@ -9020,16 +9048,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
           + '<button data-m="equity" onclick="_jrEqSwitch(\'equity\')">$ Capital</button>'
         + '</span></div><div id="jr-eq-chart" class="jr-chart-am jr-chart-am--eq"></div></div>'
       + '</div></div>'
-      + '<div class="jrd-sec"><div class="jrd-sec-h">CORE PERFORMANCE</div><div class="jrd-rings">'
-        + _jrRing(fR(avgW), 'Avg R Win', '#00e676') + _jrRing(fR(avgL), 'Avg R Loss', '#ff3d00')
+      + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE CLÉ</div><div class="jrd-rings">'
+        + _jrRing(fR(avgW), 'R moy. gagnant', '#00e676') + _jrRing(fR(avgL), 'R moy. perdant', '#ff3d00')
         + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
         + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'Avg RR cible', '#a78bfa')
       + '</div></div>'
-      + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION HEDGE</div><div class="jrd-grid">'
-        + _jrBars('Setup', setupM) + _jrBars('Confluence', confM) + _jrBars('Entry', entryM) + _jrBars('SL', slM)
+      + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION</div><div class="jrd-grid">'
+        + _jrBars('Setup', setupM) + _jrBars('Confluence', confM) + _jrBars('Entrée', entryM) + _jrBars('SL', slM)
         + _jrBars('Grade', gradeM) + _jrBars('Fonda', fondaM) + _jrBars('Erreur', errM)
       + '</div></div>'
-      + '<div class="jrd-sec"><div class="jrd-sec-h">PATTERN RECOGNITION</div><div class="jrd-grid">'
+      + '<div class="jrd-sec"><div class="jrd-sec-h">RECONNAISSANCE DE SCHÉMAS</div><div class="jrd-grid">'
         + _jrBars('Jour', dayM, { order: _JRD }) + _jrBars('Session', sessM) + _jrBars('Paires', pairM, { max: 14 })
       + '</div></div>';
     setTimeout(() => { try { _jrBuildResultDonut(resMap); _jrBuildEquityChart(L); } catch (e) {} }, 12);   // amCharts après insertion DOM
