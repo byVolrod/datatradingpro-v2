@@ -3505,6 +3505,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(255,122,0,0.8); outli
   .br-document { padding: 24px 20px; font-size: 14px; }
   .br-doc-title { font-size: 22px; }
   .br-ing-tagline { font-size: 11px; }
+  /* Reader rapport : le HTML « email » des banques (tables/divs à largeur FIXE + bannières larges)
+     débordait à droite sur mobile — l'img était bornée à son PARENT fixe, pas à l'écran. On borne
+     TOUT le contenu à la largeur de l'écran et on coupe le débordement horizontal résiduel. */
+  .br-rcontent { overflow-x: hidden; }
+  .br-doc-body, .br-doc-body * { max-width: 100% !important; box-sizing: border-box; }
+  .br-doc-body img { width: auto !important; height: auto !important; }
+  /* Tables « email-layout » : on les fait REFLOWER (cellules empilées, pleine largeur) au lieu de
+     scroller/déborder → le contenu tient dans l'écran au lieu d'être coupé à droite. */
+  .br-doc-body table, .br-doc-body thead, .br-doc-body tbody, .br-doc-body tr, .br-doc-body td, .br-doc-body th { display: block !important; width: 100% !important; }
+  .br-doc-body td, .br-doc-body th { border-width: 0 0 1px 0 !important; }
 
   /* Analyst reader */
   .arlib-rcontent { padding: 12px; }
