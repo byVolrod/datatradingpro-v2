@@ -53,7 +53,7 @@ window.dtpToast = dtpToast; window.aiComingSoon = aiComingSoon;
 let _aiMsgs = [];
 let _aiBusy = false;
 let _aiTyper = null;
-const AI_AVATAR = '/assets/images/macro-ai-logo-gold.svg';            // logo officiel sauvegardé en local (autonome)
+const AI_AVATAR = '/assets/images/macro-ai-chip.svg';            // logo officiel sauvegardé en local (autonome)
 try { const _aiAv = new Image(); _aiAv.src = AI_AVATAR; } catch {}   // PRÉCHARGÉ dès le boot → l'avatar s'affiche EN MÊME TEMPS que le message (plus jamais après)
 const AI_CHIP = `<img class="ai-chip-img" src="${AI_AVATAR}" alt="Copilote Macro" width="22" height="22" decoding="sync">`;
 function _aiTime() { try { return new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }); } catch { return ''; } }
@@ -5769,7 +5769,7 @@ async function _loadAIInsights(item, el) {
   const ck = item.id || (item.headline || '').slice(0, 60);
   let d = _aiInsightsCache[ck];
   if (!d) {
-    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo-gold.svg" alt="Copilote Macro" width="16" height="16" decoding="sync"> Éclairages IA</span></div><div class="ai-insights-loading">Chargement des résumés…</div>`;
+    el.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-chip.svg" alt="Copilote Macro" width="16" height="16" decoding="sync"> Éclairages IA</span></div><div class="ai-insights-loading">Chargement des résumés…</div>`;
     try {
       // Déduplication : si une requête est déjà en vol pour CE rapport (ex. double appel
       // renderArlibReader + branche ING/wrap), on réutilise la même promesse → 1 seule requête.
@@ -5818,7 +5818,7 @@ async function _loadAIInsights(item, el) {
         : '';
       return `<div class="ai-insights-card">${head}<div class="ai-card-text">${mdb(ins.text || '')}</div></div>`;
     }).join('');
-    const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo-gold.svg" alt="Copilote Macro" width="16" height="16">`;
+    const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-chip.svg" alt="Copilote Macro" width="16" height="16">`;
     // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
     el.innerHTML = `<div class="ai-insights-head">
         <span class="ai-insights-title">${chip} Éclairages IA</span>
@@ -5920,7 +5920,7 @@ function _renderWeeklyRecap(item) {
   if (_rdateEl) _rdateEl.textContent = w.gew ? _gewWeekFr(w.weekRange || '') : (w.weekEnding ? ('Week Ending: ' + w.weekEnding) : _range);
 
   // Éclairages IA (composant Institution, alimenté par les insights Gemini du recap)
-  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo-gold.svg" alt="Copilote Macro" width="16" height="16">`;
+  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-chip.svg" alt="Copilote Macro" width="16" height="16">`;
   // Cartes : insights thématiques (texte) PUIS paires/instruments avec badge de biais (SELL/BUY/NEUTRAL)
   // _wrInline (pas _wrEsc) → le markdown **gras** de l'IA est rendu en <strong>, jamais affiché brut.
   const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrInline(typeof t === 'string' ? t : (t.text || ''))}</div>`);
@@ -6086,7 +6086,7 @@ function _renderFXDailyRecap(item) {
   if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
 
   // Éclairages IA (réutilise le composant Institution) : cartes thématiques + paires avec badge de biais.
-  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-logo-gold.svg" alt="Copilote Macro" width="16" height="16">`;
+  const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-chip.svg" alt="Copilote Macro" width="16" height="16">`;
   const textCards = (w.insights || []).map(t => `<div class="ai-insights-card">${_wrInline(typeof t === 'string' ? t : (t.text || ''))}</div>`);
   const pairCards = (w.pairs || []).map(p => {
     const b = String(p.bias || 'NEUTRAL').toUpperCase();
@@ -6291,7 +6291,7 @@ function renderArlibReader(item) {
   // "disparaissent". On laisse un placeholder « analyse… » jusqu'à ce que le contenu soit prêt.
   const _asyncSrc = item && (item._source === 'investinglive' || item._source === 'ing-think');
   if (_asyncSrc) {
-    insightsEl.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-logo-gold.svg" alt="Copilote Macro" width="16" height="16"> Éclairages IA</span> <span class="ai-insights-load">· analyse…</span></div>`;
+    insightsEl.innerHTML = `<div class="ai-insights-head"><span class="ai-insights-title"><img class="ai-insights-logo" src="/assets/images/macro-ai-chip.svg" alt="Copilote Macro" width="16" height="16"> Éclairages IA</span> <span class="ai-insights-load">· analyse…</span></div>`;
   } else {
     _loadAIInsights(item, insightsEl);
   }
