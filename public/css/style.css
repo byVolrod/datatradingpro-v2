@@ -9788,3 +9788,8 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 .sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title{text-transform:uppercase;letter-spacing:.085em;font-weight:600;}
 .panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before{content:'';display:inline-block;width:3px;height:.82em;border-radius:2px;background:var(--orange,#e3b23a);margin-right:7px;vertical-align:-1px;opacity:.85;}
 body{font-variant-numeric:tabular-nums;}
+
+/* === Habillage institutionnel - lignes de listes (look 'releve bancaire') === */
+.econ-group-row,.sym-bz-row,.wac-row,.prep-item,.prep-watchlist-row,.arl-row,.bank-row,.sbs-cdd-item,.news-item{transition:background .14s ease,box-shadow .14s ease;}
+.econ-group-row:hover,.sym-bz-row:hover,.wac-row:hover,.prep-item:hover,.prep-watchlist-row:hover,.arl-row:not(.arl-row--weekly):hover,.bank-row:not(.bank-row--active):hover,.sbs-cdd-item:hover{background:linear-gradient(90deg,rgba(227,178,58,.06),rgba(227,178,58,.02));box-shadow:inset 2px 0 0 rgba(227,178,58,.6);}
+.news-item:hover{box-shadow:inset 2px 0 0 rgba(227,178,58,.55);}
