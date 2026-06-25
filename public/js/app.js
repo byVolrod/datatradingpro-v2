@@ -188,7 +188,7 @@ async function _aiSendStream(q) {
     // L'endpoint a répondu SANS texte (son repli bufferisé interne a échoué) → inutile de rappeler
     // /api/ai/chat (même chaîne → même échec + 2e décompte burst). On affiche le message dédié.
     if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();
-    _aiMsgs.push({ role: 'ai', text: "🛠️ This feature is currently under development and will be available very soon. Thank you for your patience!", time: _aiTime() });
+    _aiMsgs.push({ role: 'ai', text: "🛠️ Cette fonctionnalité est en cours de développement et sera bientôt disponible. Merci de votre patience !", time: _aiTime() });
     _aiBusy = false; aiRender();
     return true;
   }
@@ -204,12 +204,12 @@ async function _aiSendBuffered(q) {
       const msg = { role: 'ai', full: d.answer, text: '', sources: d.sources || [], streaming: true, time: _aiTime() };
       _aiMsgs.push(msg); aiRender(); _aiStream(msg);
     } else {
-      _aiMsgs.push({ role: 'ai', text: "🛠️ This feature is currently under development and will be available very soon. Thank you for your patience!", time: _aiTime() });
+      _aiMsgs.push({ role: 'ai', text: "🛠️ Cette fonctionnalité est en cours de développement et sera bientôt disponible. Merci de votre patience !", time: _aiTime() });
       _aiBusy = false; aiRender();
     }
   } catch (e) {
     if (_aiMsgs.length && _aiMsgs[_aiMsgs.length - 1].thinking) _aiMsgs.pop();
-    _aiMsgs.push({ role: 'ai', text: "🛠️ This feature is currently under development and will be available very soon. Thank you for your patience!", time: _aiTime() });
+    _aiMsgs.push({ role: 'ai', text: "🛠️ Cette fonctionnalité est en cours de développement et sera bientôt disponible. Merci de votre patience !", time: _aiTime() });
     _aiBusy = false; aiRender();
   }
 }
@@ -3027,7 +3027,7 @@ function _renderRiskPopup(data) {
   const up = el('rp-updated');
   if (up && data.updatedAt) {
     const d = new Date(data.updatedAt);
-    up.textContent = `Updated: ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+    up.textContent = `Mis à jour : ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
   }
 }
 
@@ -3123,7 +3123,7 @@ async function loadInstCOT(force = false) {
   grid.innerHTML = dtpLoader('Chargement des données COT…');
   try {
     const data = await fetch(`/api/cot?type=${_instCotType}`).then(r => r.json());
-    if (!data.currencies?.length) { grid.innerHTML = '<div class="inst-empty">No COT data available</div>'; return; }
+    if (!data.currencies?.length) { grid.innerHTML = '<div class="inst-empty">Aucune donnée COT disponible</div>'; return; }
 
     const updatedEl = document.getElementById('inst-updated');
     const rpt = data.currencies[0]?.reportDate;
@@ -3150,7 +3150,7 @@ async function loadInstCOT(force = false) {
       </div>`;
     }).join('');
   } catch {
-    grid.innerHTML = '<div class="inst-empty">COT data unavailable</div>';
+    grid.innerHTML = '<div class="inst-empty">Données COT indisponibles</div>';
   }
 }
 
@@ -3162,7 +3162,7 @@ async function loadInstRetail(force = false) {
     const url = `/api/community-outlook?period=H1${force ? '&force=1' : ''}`;
     const resp = await fetch(url).then(r => r.json());
     const raw  = resp.symbols || resp; // Support both wrapped {symbols:[]} and direct array
-    if (!raw?.length) { grid.innerHTML = '<div class="inst-empty">No data available</div>'; return; }
+    if (!raw?.length) { grid.innerHTML = '<div class="inst-empty">Aucune donnée disponible</div>'; return; }
 
     // Filter to forex major pairs only
     const MAJORS = new Set(['EUR','GBP','USD','JPY','CAD','AUD','CHF','NZD']);
@@ -3191,7 +3191,7 @@ async function loadInstRetail(force = false) {
       </div>`;
     }).join('');
   } catch {
-    grid.innerHTML = '<div class="inst-empty">Sentiment data unavailable</div>';
+    grid.innerHTML = '<div class="inst-empty">Données de sentiment indisponibles</div>';
   }
 }
 
@@ -3210,7 +3210,7 @@ async function loadInstFlow() {
     const retailRaw = retailData.symbols || retailData;
     const retail = Array.isArray(retailRaw) ? retailRaw : [];
 
-    if (!cot.length) { grid.innerHTML = '<div class="inst-empty">Insufficient data for flow analysis</div>'; return; }
+    if (!cot.length) { grid.innerHTML = '<div class="inst-empty">Données insuffisantes pour l’analyse des flux</div>'; return; }
 
     // Build retail map: currency → average long% (from pair data)
     const retailMap = {};
@@ -3260,7 +3260,7 @@ async function loadInstFlow() {
       </div>`;
     }).filter(Boolean).join('');
   } catch {
-    grid.innerHTML = '<div class="inst-empty">Flow data unavailable</div>';
+    grid.innerHTML = '<div class="inst-empty">Données de flux indisponibles</div>';
   }
 }
 
@@ -5623,7 +5623,7 @@ function renderArlibList() {
   if (_foot) _foot.textContent = 'Affichage de ' + items.length + ' sur ' + _total + ' rapport' + (_total > 1 ? 's' : '') + ' de recherche';
 
   if (items.length === 0) {
-    list.innerHTML = '<div class="arlib-empty">No reports found.<br>Generate briefings or wait for the next scheduled run.</div>';
+    list.innerHTML = '<div class="arlib-empty">Aucun rapport trouvé.<br>Générez des briefings ou attendez la prochaine génération programmée.</div>';
     return;
   }
 
@@ -6512,7 +6512,7 @@ function renderArlibReader(item) {
     if (lines.length) {
       lines.forEach(l => { html += `<div class="arlib-rbullet"><span class="arlib-rbullet-dot"></span><span>${l}</span></div>`; });
     } else {
-      html = `<div class="arlib-rno-content">No extended content available.</div>`;
+      html = `<div class="arlib-rno-content">Aucun contenu détaillé disponible.</div>`;
     }
   }
 
@@ -6543,7 +6543,7 @@ function renderLondonPrep(report) {
   const body  = document.getElementById('prep-body');
   if (!body) return;
 
-  if (sub) sub.textContent = report.generatedAt ? `Generated at ${report.generatedAt}` : '';
+  if (sub) sub.textContent = report.generatedAt ? `Généré le ${report.generatedAt}` : '';
   if (cnt && report.newsCount) cnt.textContent = `${report.newsCount} headlines analysed`;
 
   if (report.headline && hl && hlTxt) {
@@ -6604,7 +6604,7 @@ function renderLondonPrep(report) {
 
 async function loadLondonPrep(force = false) {
   const body = document.getElementById('prep-body');
-  if (body) body.innerHTML = dtpLoader('Generating London Open report…');
+  if (body) body.innerHTML = dtpLoader('Génération du rapport Ouverture Londres…');
   try {
     const url = '/api/london-prep' + (force ? '?force=1' : '');
     const data = await fetch(url).then(r => r.json());
