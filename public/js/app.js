@@ -5373,7 +5373,35 @@ function _reportPrefixFor(item) {
 // le préfixe d'origine "… markets wrap :" pour ne garder que le sujet.
 // Wrapper : le titre renvoyé est TOUJOURS sans markdown brut, quel que soit le chemin de retour
 // (y compris le raccourci `aiTitle` des wraps InvestingLive qui contournait arlibCleanTitle).
-function standardizeReportTitle(item) { return _mdStrip(_stdReportTitleRaw(item)); }
+// Traduction FR — appliquée UNIQUEMENT à l'affichage final du titre (les clés/détection restent EN).
+const REPORT_PREFIX_FR = {
+  'Global Economic Weekly': 'Hebdo Économique Mondial',
+  'Weekly Market Recap': 'Récap Hebdo des Marchés',
+  'FX Daily Recap': 'Récap FX Quotidien',
+  'FX Daily': 'FX Quotidien',
+  'Daily Asia-Pac Opening News': 'Ouverture Asie-Pacifique',
+  'London Opening Preparation': 'Préparation Ouverture Londres',
+  'New York Opening Preparation': 'Préparation Ouverture New York',
+  'Asia-Pac Session Recap': 'Récap Séance Asie-Pacifique',
+  'Asia-Pacific Session Recap': 'Récap Séance Asie-Pacifique',
+  'Asia Session Recap': 'Récap Séance Asie',
+  'London Session Recap': 'Récap Séance Londres',
+  'New York Session Recap': 'Récap Séance New York',
+  'US Session Recap': 'Récap Séance US',
+  'Americas Session Recap': 'Récap Séance Amériques',
+  'Daily Event Review': 'Revue Quotidienne des Événements',
+  'Daily Market Recap': 'Récap Quotidien des Marchés',
+};
+const _REPORT_PREFIX_FR_KEYS = Object.keys(REPORT_PREFIX_FR).sort((a, b) => b.length - a.length);
+function _reportTitleToFR(title) {
+  if (!title) return title;
+  for (const en of _REPORT_PREFIX_FR_KEYS) {
+    if (title === en) return REPORT_PREFIX_FR[en];
+    if (title.startsWith(en + ':') || title.startsWith(en + ' ')) return REPORT_PREFIX_FR[en] + title.slice(en.length);
+  }
+  return title;
+}
+function standardizeReportTitle(item) { return _reportTitleToFR(_mdStrip(_stdReportTitleRaw(item))); }
 function _stdReportTitleRaw(item) {
   let raw = arlibCleanTitle(item.headline || item.title || '')
     .replace(/\s*[—–-]?\s*Week Ending:\s*[\d.\/-]+\s*$/i, '')   // "Week Ending: …" → ligne dédiée uniquement
@@ -5803,7 +5831,7 @@ function _renderWeeklyRecap(item) {
 
   const _range = w.weekRange || (w.weekEnding ? `Week Ending: ${w.weekEnding}` : '');
   // strip markdown (**gras**, *, `, _) du titre → jamais d'astérisques brutes affichées
-  const _wrTitle = _mdStrip(w.gew ? String(w.title || 'Global Economic Weekly') : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title }));
+  const _wrTitle = _mdStrip(w.gew ? _reportTitleToFR(String(w.title || 'Global Economic Weekly')) : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title }));
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
   // via .wr-doc-week — l'afficher aussi ici cassait la mise en page).
   if (titleEl) titleEl.textContent = _wrTitle;
