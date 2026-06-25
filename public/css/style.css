@@ -9776,3 +9776,8 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 .sym-phead{height:34px;padding:0 13px;border-bottom:1px solid var(--border,#232429);background:linear-gradient(180deg,rgba(255,255,255,0.022),rgba(255,255,255,0));}
 .sym-ptitle{font-size:11px;font-weight:600;letter-spacing:.085em;text-transform:uppercase;color:#d4d7dd;display:inline-flex;align-items:center;}
 .sym-ptitle::before{content:'';display:inline-block;width:3px;height:11px;border-radius:2px;background:var(--orange,#e3b23a);margin-right:8px;opacity:.85;flex:0 0 auto;}
+
+/* === Polish apparence #2 : finition globale + profondeur des panneaux === */
+::selection{background:rgba(227,178,58,0.26);color:#ffffff;}
+::-webkit-scrollbar-thumb:hover{background:var(--orange-dim,#b8860b);}
+.sym-panel{background:linear-gradient(180deg,#131419,#0e0f12);box-shadow:0 6px 18px -12px rgba(0,0,0,0.55);}
