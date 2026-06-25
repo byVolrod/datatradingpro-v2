@@ -9855,3 +9855,8 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 /* === Carte sessions : leger effet 3D (inclinaison perspective) === */
 #am5-map{perspective:1600px;overflow:hidden;}
 #am5-map .leaflet-container{transform:rotateX(10deg) scale(1.12);transform-origin:center 50%;}
+
+/* === Widgets droits (COT/DMX/Saisonnalite) : en-tetes alignes sur l'identite desk (tick or + capitales) + boutons carres === */
+.cot-header-label,.dmx-header-title{text-transform:uppercase;letter-spacing:.085em;font-weight:600;}
+.cot-header-label::before,.dmx-header-title::before{content:'';display:inline-block;width:3px;height:.8em;border-radius:2px;background:var(--orange,#e3b23a);margin-right:7px;vertical-align:-1px;opacity:.85;}
+.cot-type-btn,.dmx-tf-btn,.dmx-sort-select{border-radius:0 !important;}
