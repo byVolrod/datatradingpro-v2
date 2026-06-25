@@ -9822,3 +9822,14 @@ body{font-variant-numeric:tabular-nums;}
 .sbm-grid{border-collapse:collapse !important;border-spacing:0 !important;}
 .sbm-grid th,.sbm-grid td{border:1px solid var(--border,#232429) !important;}
 .sbm-cell{border-radius:0 !important;box-shadow:none !important;}
+
+/* === Mode clair 'Solar' : cream chaud + texture pointillee + accent or chaud === */
+body.theme-light{
+  --bg:#f4f1ea; --bg1:#ffffff; --bg2:#faf8f2; --bg3:#efeae0; --bg4:#e8e2d4; --bg5:#ddd6c6;
+  --border:#e7e1d3; --border2:#dad3c0; --border3:#cabfa8;
+  --text:#241f17; --text2:#5c5347; --text3:#8a8170; --text4:#b3aa97;
+  --orange:#b8860b; --orange-dim:#946c08;
+  background-image:radial-gradient(rgba(110,90,50,.06) 1px, transparent 1px);
+  background-size:18px 18px;
+}
+body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-panel,body.theme-light .inst-panel,body.theme-light .dmx-panel,body.theme-light .clocks-panel{background:#ffffff !important;box-shadow:0 1px 0 rgba(184,134,11,.18),0 2px 8px -4px rgba(60,45,15,.08) !important;}
