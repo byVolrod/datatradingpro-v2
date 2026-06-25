@@ -5168,7 +5168,7 @@ app.post('/api/report-insights', async (req, res) => {
   const _lines = Array.isArray(lines) ? lines.slice(0, 40) : null;   // puces réelles du rapport (fallback propre)
   const clean = String(text || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
   if (clean.length < 60) return res.json({ insights: [] });
-  const key = 'v7fr:' + (id || clean.slice(0, 100));   // v7fr = bump « zéro risque » : signal UNIQUEMENT si direction explicite dans le rapport (régénère les v6fr)
+  const key = 'v8fr:' + (id || clean.slice(0, 100));   // v8fr = tags TRADEABLES + déduction intelligente (asset = instrument, JAMAIS une donnée type Core CPI/PCE) — régénère les v7fr
   if (_insightsCache.has(key)) return res.json({ insights: _finalizeInsights(_insightsCache.get(key)) });
   // Cache DURABLE (Supabase ai_cache) : survit aux redémarrages Render → pas de requête
   // IA en double quand un utilisateur rouvre un rapport après un redéploiement.
@@ -5177,22 +5177,22 @@ app.post('/api/report-insights', async (req, res) => {
     if (stored && Array.isArray(stored) && stored.length) { _insightsCache.set(key, stored); return res.json({ insights: _finalizeInsights(stored) }); }
   } catch {}
   try {
-    const prompt = `Tu es analyste FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport (recherche de banque, note macro OU recap de session), génère 4 à 10 "insights" courts pour un carrousel "AI Insights" (autant que le rapport justifie CLAIREMENT — ne remplis JAMAIS un quota), classés par importance.
-PRIORITÉ ABSOLUE — cartes par ACTIF avec SIGNAL : pour CHAQUE devise/paire réellement analysée ("USD/JPY","EUR/USD","GBP/USD","AUD/USD","USD/CAD","EUR/GBP","US Dollar","EUR","GBP","JPY","CHF","CAD","AUD","NZD"…) ET chaque actif clé ("Spot Gold","Brent Crude","S&P 500","US 10Y","Bitcoin"…), donne un signal UNIQUEMENT si le rapport énonce EXPLICITEMENT la direction (mot/verbe directionnel clair : « monte », « recule », « sous pression », « soutenu », « cap sur »…) : "BUY" (haussier), "SELL" (baissier) ou "NEUTRAL" (équilibré, explicitement sans biais). ⚠️ JUSTESSE AVANT QUANTITÉ : mieux vaut 4 cartes 100 % sûres que 10 incertaines. Devises/paires EN PREMIER.
-Ajoute 1 à 3 cartes NARRATIVES de contexte (géopolitique, tarifs, énergie, banques centrales, sentiment…) → asset=null ET signal=null.
-Si un actif est cité SANS direction EXPLICITE, ou au MOINDRE doute → signal=null (ou n'inclus pas l'actif). N'EXTRAPOLE / ne DÉDUIS JAMAIS une direction qui n'est pas écrite noir sur blanc dans le rapport.
-Règles STRICTES :
-- JAMAIS d'actif générique vague ("FX","Markets","Macro","Forex","Currencies") → pour ceux-là, fais-en un insight narratif (asset=null).
-- "text": UNE SEULE phrase brève (max 20 mots), EN FRANÇAIS, orientée trader (le driver clé + l'impact). PAS de 2e phrase, pas de pavé. (Garde les tickers/codes tels quels : USD/JPY, S&P 500, Brent…)
-- N'invente rien : base-toi uniquement sur le rapport.
-Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"USD/JPY"|null,"signal":"BUY"|"SELL"|"NEUTRAL"|null,"text":"..."}]}
+    const prompt = `Tu es stratège FX & marchés pour un terminal pro (style DataTradingPro). À partir de ce rapport (recherche de banque, note macro OU recap de session), génère 4 à 8 "insights" courts pour un carrousel "AI Insights", classés par importance.
+OBJECTIF : des tags TRADEABLES et INTELLIGENTS — pour CHAQUE instrument que le rapport éclaire, un SIGNAL directionnel DÉDUIT des données/de l'analyse.
+- "asset" = TOUJOURS un INSTRUMENT TRADEABLE : paire FX ("EUR/USD","USD/JPY","GBP/USD","AUD/USD","USD/CAD","EUR/GBP","NZD/USD"…), devise ("US Dollar","EUR","GBP","JPY","CHF","CAD","AUD","NZD"), matière première ("Spot Gold","Brent Crude","WTI","Silver"), indice ("S&P 500","Nasdaq","DAX","Euro Stoxx 50") ou taux/obligataire ("US 10Y","Bund 10Y").
+- JAMAIS une DONNÉE / un INDICATEUR comme "asset" (PAS de "Core CPI","Core PCE","CPI","PCE","Inflation","GDP","PIB","NFP","Unemployment","Retail Sales","Sentiment"…) — ce ne sont pas des actifs tradeables. Si le rapport parle d'une donnée, DÉDUIS-EN l'instrument impacté (ex. inflation US plus forte → Fed plus hawkish → "US Dollar" BUY / "USD/JPY" BUY ; rendements en baisse → "US 10Y" BUY).
+- "signal" = "BUY" (haussier) / "SELL" (baissier) / "NEUTRAL". RAISONNE en stratège pour DÉDUIRE la direction depuis l'analyse : ex. « le GBP est sous pression » → asset "GBP/USD" signal "SELL" ; « le dollar reste soutenu par une croissance US robuste » → "US Dollar" BUY. Préfère la PAIRE quand 2 devises s'opposent.
+- ANCRE chaque signal au rapport : un vrai élément directionnel (donnée, biais de banque centrale, momentum, niveau technique, flux). Élément faible/absent → "NEUTRAL" ou n'inclus pas l'actif. N'invente AUCUN chiffre.
+Ajoute 1 à 2 cartes NARRATIVES de contexte (géopolitique, tarifs, énergie, sentiment…) sans actif tradeable clair → asset=null ET signal=null.
+Règles : paires/devises EN PREMIER, puis matières premières/indices/taux, puis narratif. "text" = UNE phrase brève (max 20 mots), EN FRANÇAIS, orientée trader (driver clé + impact), tickers tels quels (USD/JPY, S&P 500, Brent…). N'invente rien.
+Réponds UNIQUEMENT en JSON : {"insights":[{"asset":"GBP/USD"|null,"signal":"BUY"|"SELL"|"NEUTRAL"|null,"text":"..."}]}
 Rapport :
 ${clean.slice(0, 4500)}`;
     // Insights de rapport = catégorie "analyst", TIER USER (clic direct : jamais freiné par les heures
     // calmes, bascule Claude autorisée) + COALESCING (2 clics simultanés sur le même rapport = 1 appel).
     const out = await _aiInflight('ins:' + key, () => aiSmart('analyst', prompt, 1100, { priority: 'user' }));
     const m = out.match(/\{[\s\S]*\}/);
-    const _GENERIC = /^(fx|forex|markets?|macro|currenc(?:y|ies)|the market|general|n\/?a)$/i;
+    const _GENERIC = /^(fx|forex|markets?|macro|currenc(?:y|ies)|the market|general|n\/?a|economy|data|sentiment|(?:core\s+|headline\s+)?(?:cpi|pce|ppi|inflation|deflation|gdp|pib|nfp|payrolls?|unemployment|jobless|retail sales)|rates?|yields?|bonds?|treasur(?:y|ies)|equities|stocks?|shares|indices|commodit(?:y|ies))$/i;
     const insights = m
       ? (JSON.parse(m[0]).insights || [])
           .filter(o => o && typeof o.text === 'string' && o.text.length > 8)
