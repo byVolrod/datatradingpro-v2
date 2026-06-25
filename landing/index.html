@@ -844,6 +844,105 @@
     </div>
 
     <!-- TERMINAL VIVANT -->
+    <style>
+.term{display:none !important;}
+.hfm{font-family:var(--font,'Inter',system-ui,sans-serif);background:#0b0c0f;border:1px solid #23262e;overflow:hidden;color:#e6e8ec;position:relative;z-index:1;box-shadow:0 30px 70px -30px rgba(0,0,0,.8);}
+.hfm *{box-sizing:border-box;}
+.hfm-top{display:flex;align-items:center;gap:9px;height:40px;padding:0 12px;background:linear-gradient(180deg,#141519,#0e0f13);border-bottom:1px solid #20232b;}
+.hfm-logo{font-size:14px;font-weight:800;letter-spacing:-.02em;background:linear-gradient(100deg,#f0d27a,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;white-space:nowrap;}
+.hfm-ic{width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;color:#9aa0ac;flex:0 0 auto;}
+.hfm-ic svg{width:17px;height:17px;}
+.hfm-ic.ai{color:#16c684;} .hfm-ic.sq{color:#e0594f;}
+.hfm-search{flex:1;max-width:240px;height:26px;background:#0b0c0f;border:1px solid #2a2e37;display:flex;align-items:center;gap:7px;padding:0 9px;color:#6a6e77;font-size:11px;}
+.hfm-risk{height:24px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;color:#e0594f;background:rgba(224,89,79,.1);border:1px solid rgba(224,89,79,.32);letter-spacing:.03em;}
+.hfm-risk .d{width:6px;height:6px;border-radius:50%;background:#e0594f;}
+.hfm-sp{flex:1;}
+.hfm-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#2a2d36,#16181d);border:1px solid #33373f;flex:0 0 auto;}
+.hfm-divx{width:1px;height:18px;background:#2a2e37;}
+.hfm-nav{display:flex;align-items:center;height:28px;background:#0f1014;border-bottom:1px solid #20232b;padding:0 6px;gap:2px;overflow:hidden;}
+.hfm-nav span{font-size:10px;font-weight:600;letter-spacing:.05em;color:#71757e;padding:0 9px;line-height:28px;white-space:nowrap;}
+.hfm-nav span.on{color:#eceef2;box-shadow:inset 0 -2px 0 #e3b23a;}
+.hfm-grid{display:grid;grid-template-columns:1.05fr 1fr;height:330px;}
+.hfm-col{display:flex;flex-direction:column;min-height:0;}
+.hfm-col.r{border-left:1px solid #20232b;}
+.hfm-ph{display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-bottom:1px solid #20232b;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);flex:0 0 auto;}
+.hfm-ph .tk{width:3px;height:11px;background:#e3b23a;}
+.hfm-ph .t{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#cbced4;}
+.hfm-ph .live{margin-left:auto;width:6px;height:6px;border-radius:50%;background:#16c684;box-shadow:0 0 5px #16c684;}
+.hfm-ph .meta{margin-left:auto;font-family:ui-monospace,monospace;font-size:9px;color:#16c684;}
+.hfm-news{flex:1;overflow:hidden;}
+.hfm-dsep{font-size:9.5px;color:#9a9da6;background:#16171b;padding:4px 11px;font-weight:600;}
+.hfm-nrow{display:flex;gap:10px;padding:8px 11px;border-bottom:1px solid #181b21;align-items:flex-start;}
+.hfm-nt{font-family:ui-monospace,monospace;font-size:10px;color:#8a8d96;flex:0 0 34px;padding-top:1px;}
+.hfm-nc{font-size:10px;color:#9a9da6;flex:0 0 78px;}
+.hfm-nh{flex:1;font-size:11px;color:#d6d9df;line-height:1.35;}
+.hfm-tag{display:inline-block;font-size:8px;font-weight:600;color:#c6c9d1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:1px 5px;margin:4px 4px 0 0;}
+.hfm-ndot{width:6px;height:6px;border-radius:50%;background:#e0594f;flex:0 0 6px;margin-top:3px;}
+.hfm-wc{display:flex;gap:4px;padding:8px 10px;}
+.hfm-wcc{flex:1;background:#101216;border:1px solid #20232b;padding:5px 4px;text-align:center;min-width:0;}
+.hfm-wcc .c{font-size:7px;color:#8a8d96;font-weight:600;text-transform:uppercase;letter-spacing:.03em;}
+.hfm-wcc .h{font-family:ui-monospace,monospace;font-size:12px;color:#eceef2;font-weight:600;}
+.hfm-wcc .g{font-size:6.5px;color:#62656e;font-family:ui-monospace,monospace;}
+.hfm-st{display:flex;gap:1px;padding:0 10px;border-bottom:1px solid #1a1a1f;overflow:hidden;}
+.hfm-st span{font-size:8.5px;font-weight:600;color:#62656e;padding:5px 6px;white-space:nowrap;}
+.hfm-st span.on{color:#e4e6ea;box-shadow:inset 0 -2px 0 #e3b23a;}
+.hfm-map{flex:1;position:relative;background:radial-gradient(120% 90% at 60% 30%,#1c2b3a 0%,#0e1620 45%,#070b10 100%);overflow:hidden;min-height:0;}
+.hfm-map svg{position:absolute;inset:0;width:100%;height:100%;}
+.hfm-night{position:absolute;inset:0;background:linear-gradient(105deg,transparent 38%,rgba(2,5,11,.62) 58%);}
+.hfm-badge{position:absolute;display:inline-flex;align-items:center;gap:5px;background:rgba(13,14,17,.8);border:1px solid #2a2e37;padding:2px 6px;font-family:ui-monospace,monospace;font-size:9px;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.6);}
+.hfm-badge b{color:#e3b23a;font-weight:700;} .hfm-badge .nm{color:#aeb2bb;}
+.hfm-badge .dot{width:5px;height:5px;border-radius:50%;background:#16c684;}
+</style>
+<div class="hfm">
+  <div class="hfm-top">
+    <span class="hfm-logo">DataTradingPro</span>
+    <span class="hfm-ic"><svg viewBox="0 0 24 24"><path fill="currentColor" opacity=".2" d="M6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M4 4.5A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5zM8 7h8M8 11h8M8 15h5"/></svg></span>
+    <span class="hfm-ic"><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01"/></svg></span>
+    <div class="hfm-search"><svg width="13" height="13" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20.5 20.5 16.5 16.5"/></svg>Rechercher des symboles…</div>
+    <div class="hfm-risk"><span class="d"></span>RISK OFF ▾</div>
+    <span class="hfm-sp"></span>
+    <span class="hfm-ic ai"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M5 2h14a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3h-5l-1.6 2.7a.5.5 0 0 1-.8 0L9 19H5a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3Zm3.4 6L6 14h1.6l.5-1.3h2.8l.5 1.3H13L10.6 8H8.4Zm1.1 1.6.8 2.1H8.7l.8-2.1ZM14.2 8h1.5v6h-1.5z"/></svg></span>
+    <span class="hfm-ic sq"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" fill="currentColor" opacity=".16"/><circle cx="12" cy="12" r="2.3" fill="currentColor"/><path fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" d="M8.8 8.8a4.5 4.5 0 0 0 0 6.4M15.2 8.8a4.5 4.5 0 0 1 0 6.4"/></svg></span>
+    <span class="hfm-ic"><svg viewBox="0 0 24 24"><path fill="currentColor" opacity=".2" d="M6 8a6 6 0 0 1 12 0c0 4.5 1.4 6 2.7 7.3A1 1 0 0 1 20 17H4a1 1 0 0 1-.7-1.7C4.6 14 6 12.5 6 8Z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M10.3 21a2 2 0 0 0 3.4 0M3.3 15.3A1 1 0 0 0 4 17h16a1 1 0 0 0 .7-1.67C19.4 14 18 12.5 18 8A6 6 0 0 0 6 8c0 4.5-1.4 5.96-2.7 7.33Z"/></svg></span>
+    <span class="hfm-ic"><svg viewBox="0 0 24 24"><path fill="currentColor" opacity=".2" d="M5 3h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H8l-4 4V5a2 2 0 0 1 2-2Z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>
+    <span class="hfm-divx"></span>
+    <span class="hfm-av"></span>
+  </div>
+  <div class="hfm-nav"><span class="on">› ACTUS</span><span>› CALENDRIER</span><span>› LISTE FX</span><span>› INSTITUTIONS</span><span>› ANALYSTES</span><span>› BIAIS</span><span>› SEMAINE À VENIR</span><span>› TAUX</span><span>› BANQUES</span></div>
+  <div class="hfm-grid">
+    <div class="hfm-col">
+      <div class="hfm-ph"><span class="tk"></span><span class="t">Fil d'actualité en direct</span><span class="live"></span></div>
+      <div class="hfm-news">
+        <div class="hfm-dsep">Jeudi 25/06/2026</div>
+        <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">23:14</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">North Korea's Kim inspects tests of multiple rocket launcher<div><span class="hfm-tag">Géopolitique</span></div></span></div>
+        <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">23:05</span><span class="hfm-nc">Flux FX</span><span class="hfm-nh">USD/JPY Forecast: Yen remains under pressure after US PCE<div><span class="hfm-tag">US</span><span class="hfm-tag">Inflation</span><span class="hfm-tag">Taux</span></div></span></div>
+        <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">22:47</span><span class="hfm-nc">Analyse</span><span class="hfm-nh">House Republicans should unify and stop voting down rules</span></div>
+        <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">22:45</span><span class="hfm-nc">Métaux</span><span class="hfm-nh">Silver catches a bid, not a bottom</span></div>
+      </div>
+    </div>
+    <div class="hfm-col r">
+      <div class="hfm-ph"><span class="tk"></span><span class="t">Horloge mondiale</span></div>
+      <div class="hfm-wc">
+        <div class="hfm-wcc"><div class="c">London</div><div class="h">23:41</div><div class="g">GMT+1</div></div>
+        <div class="hfm-wcc"><div class="c">New York</div><div class="h">18:41</div><div class="g">GMT-4</div></div>
+        <div class="hfm-wcc"><div class="c">Tokyo</div><div class="h">07:41</div><div class="g">GMT+9</div></div>
+        <div class="hfm-wcc"><div class="c">Dubai</div><div class="h">02:41</div><div class="g">GMT+4</div></div>
+        <div class="hfm-wcc"><div class="c">Paris</div><div class="h">00:41</div><div class="g">GMT+2</div></div>
+      </div>
+      <div class="hfm-st"><span class="on">› MONDE</span><span>› RISQUE</span><span>› FORCE</span><span>› BAROMÈTRE</span><span>› COT</span><span>› DMX</span></div>
+      <div class="hfm-ph"><span class="tk"></span><span class="t">Carte des sessions</span><span class="meta">● Direct</span></div>
+      <div class="hfm-map">
+        <svg viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><g fill="#2c3a2e" stroke="#3a4a3c" stroke-width="0.4" opacity=".9"><path d="M40 55 L95 48 L120 62 L100 95 L60 100 L42 80 Z"/><path d="M70 110 L100 105 L92 160 L70 150 Z"/><path d="M175 50 L240 46 L255 78 L210 92 L180 80 Z"/><path d="M180 95 L250 90 L240 145 L195 150 L185 120 Z"/><path d="M250 55 L330 52 L345 95 L280 92 Z"/><path d="M300 150 L345 148 L335 178 Z"/></g></svg>
+        <div class="hfm-night"></div>
+        <div class="hfm-badge" style="left:40%;top:30%"><span class="dot"></span><b>23:41</b><span class="nm">London</span></div>
+        <div class="hfm-badge" style="left:14%;top:42%"><span class="dot"></span><b>18:41</b><span class="nm">New York</span></div>
+        <div class="hfm-badge" style="left:78%;top:40%"><span class="dot" style="background:#6b7280"></span><b>07:41</b><span class="nm">Tokyo</span></div>
+        <div class="hfm-badge" style="left:55%;top:55%"><span class="dot" style="background:#6b7280"></span><b>02:41</b><span class="nm">Dubai</span></div>
+      </div>
+    </div>
+  </div>
+</div>
+
     <div class="term">
       <!-- NAV (façon desk) -->
       <div class="dnav">
