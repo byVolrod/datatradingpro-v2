@@ -42,15 +42,19 @@
     window._dtpLfMap = map;
     try { map.attributionControl.setPrefix(''); } catch (e) {}
 
-    // Carte SOMBRE on-brand (CARTO Dark Matter — sans clé ; charcoal + labels discrets)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      maxZoom: 19, subdomains: 'abcd', attribution: '&copy; OpenStreetMap, &copy; CARTO'
+    // Tuiles SATELLITE réalistes (Esri World Imagery — couleurs réelles terre/mer)
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18, attribution: 'Tuiles &copy; Esri'
+    }).addTo(map);
+    // Étiquettes discrètes (frontières / villes) par-dessus le satellite
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+      maxZoom: 18, opacity: 0.5
     }).addTo(map);
 
     // Terminateur jour/nuit (si le plugin a chargé)
     if (typeof L.terminator === 'function') {
       try {
-        var term = L.terminator({ fillColor: '#000308', fillOpacity: 0.38, color: '#0a1020', weight: 0, interactive: false });
+        var term = L.terminator({ fillColor: '#000814', fillOpacity: 0.48, color: '#0a1020', weight: 0, interactive: false });
         term.addTo(map);
         window._dtpLfNight = setInterval(function () { try { term.setTime(new Date()); } catch (e) {} }, 60000);
       } catch (e) {}
