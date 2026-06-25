@@ -117,6 +117,8 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --font-stack:    -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   --font-ui:     var(--font-stack);
   --font-mono:   var(--font-stack);
+  --serif:       "Fraunces", Georgia, serif;
+  --tight:       "Inter Tight", var(--font-stack);
   --radius:      3px;
   --topbar-h:    54px;
   --tabs-bar-h:  28px;
@@ -9741,3 +9743,6 @@ body.jrd-resizing #jr-detail { transition: none; }
 .topbar-icon.tb-alert svg, .topbar-icon.tb-alert i { animation: tbBell 5s ease-in-out infinite, tbGlow 5s ease-in-out infinite; transform-origin: 50% 12%; }
 #notif-badge, #chat-badge { animation: tbPop .45s cubic-bezier(.34,1.6,.5,1), tbPing 2.2s ease-out .6s infinite; }
 @media (prefers-reduced-motion: reduce){ .topbar-icon.tb-alert svg, .topbar-icon.tb-alert i, #notif-badge, #chat-badge { animation: none !important; } }
+
+/* Identite typo landing : titres Inter Tight */
+.panel-title,.chart-header-title,.np-title,.sqwk-title,.ai-head-title,.sym-ptitle,.arlib-list-title,.wa-title,.sbs-risk-title,.wr-section-title,.ai-insights-title,.nav-item{font-family:var(--tight);}
