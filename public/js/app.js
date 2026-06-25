@@ -8990,7 +8990,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (_eqTip.label) _eqTip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 5, paddingBottom: 5, paddingLeft: 9, paddingRight: 9 });
     const series = chart.series.push(am5xy.LineSeries.new(root, { xAxis, yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a), tooltip: _eqTip }));
     series.strokes.template.setAll({ strokeWidth: 2.5, strokeLinecap: 'round', strokeLinejoin: 'round' });   // ligne plus nette et lisse
-    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xe3b23a), opacity: 0.42 }, { color: am5.color(0xff8c1a), opacity: 0.10 }, { color: am5.color(0xe3b23a), opacity: 0 }] }) });
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xe3b23a), opacity: 0.42 }, { color: am5.color(0xcfa233), opacity: 0.10 }, { color: am5.color(0xe3b23a), opacity: 0 }] }) });
     series.data.setAll(_jrEqData(L, _jrEqMode));
     // Curseur enrichi : trait orange pointillé qui suit la souris/le drag, accroché aux points (snapToSeries)
     // → le tooltip riche (date + valeur + Δ) s'affiche pile sur la donnée survolée.
