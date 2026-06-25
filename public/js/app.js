@@ -3054,17 +3054,25 @@ function _renderRiskPopup(data) {
   const gw = el('rp-gauge-wrap'); if (gw) gw.style.display = 'none';
   const band = el('rp-band'); if (band) band.style.display = 'none';
   // Description longue (anglais) selon le niveau de risque — exactement comme l'image
-  const POPUP_DESC_EN = {
-    'STRONG RISK-ON':  'Fort appétit pour le risque. Les capitaux affluent agressivement vers les actions et les actifs à fort bêta, les investisseurs cherchant du rendement, tandis que les valeurs refuges sont largement vendues.',
-    'RISK-ON':         'L’appétit pour le risque domine clairement. Les actions et les actifs cycliques sont recherchés tandis que le positionnement défensif se dénoue, reflétant la confiance dans les perspectives de croissance.',
-    'WEAK RISK-ON':    'Un léger ton d’appétit pour le risque prévaut. Un sentiment constructif soutient les actifs risqués, mais la conviction reste limitée et le positionnement prudent.',
-    'NEUTRAL':         'Le sentiment de marché est équilibré. Les signaux sont mitigés sur l’ensemble des classes d’actifs, sans biais directionnel clair, les intervenants attendant de nouveaux catalyseurs.',
-    'WEAK RISK-OFF':   'La prudence s’installe peu à peu. Les flux sont mitigés, les valeurs refuges discrètement soutenues et la volatilité élevée, les intervenants réduisant leur exposition au risque.',
-    'RISK-OFF':        'Les intervenants recherchent la sécurité face à l’incertitude. Un positionnement défensif est manifeste sur l’ensemble des classes d’actifs, les investisseurs privilégiant la préservation du capital au rendement, sur fond de tensions géopolitiques, de craintes économiques ou de resserrement monétaire.',
-    'STRONG RISK-OFF': 'L’aversion au risque domine. Une fuite marquée vers les valeurs refuges est en cours — obligations, or, JPY et CHF — les intervenants réduisant fortement leur exposition tandis que la volatilité s’envole.',
+  const POPUP_DESC2 = {
+    'STRONG RISK-ON':  { lead: 'Fort appétit pour le risque.', detail: 'Capitaux vers les actions et les actifs à fort bêta ; refuges largement vendus.', trade: 'Vent porteur pour AUD/NZD et les indices ; prudence sur JPY, CHF et l’or.' },
+    'RISK-ON':         { lead: 'L’appétit pour le risque domine.', detail: 'Actions et cycliques recherchés, le positionnement défensif se dénoue.', trade: 'Biais favorable aux paires risquées et aux indices.' },
+    'WEAK RISK-ON':    { lead: 'Léger penchant pour le risque.', detail: 'Ton constructif mais conviction limitée, positionnement prudent.', trade: 'Biais haussier modéré — réduire la taille des positions.' },
+    'NEUTRAL':         { lead: 'Marché sans direction claire.', detail: 'Signaux mitigés sur l’ensemble des classes d’actifs, aucun biais dominant.', trade: 'Privilégier les ranges et la patience — attendre un catalyseur.' },
+    'WEAK RISK-OFF':   { lead: 'La prudence s’installe.', detail: 'Refuges discrètement soutenus, volatilité en hausse.', trade: 'Alléger le risque ; surveiller le JPY et l’or.' },
+    'RISK-OFF':        { lead: 'Recherche de sécurité.', detail: 'Positionnement défensif net ; préservation du capital prioritaire.', trade: 'Favorable JPY, CHF, or et obligations ; éviter les actifs risqués.' },
+    'STRONG RISK-OFF': { lead: 'Aversion au risque marquée.', detail: 'Fuite vers les refuges (obligations, or, JPY, CHF), volatilité qui s’envole.', trade: 'Fortement favorable aux refuges ; couper ou couvrir le risque.' },
   };
   const de = el('rp-desc');
-  if (de) { de.style.display = ''; de.textContent = POPUP_DESC_EN[data.label] || data.description || ''; }
+  if (de) {
+    de.style.display = '';
+    const d2 = POPUP_DESC2[data.label];
+    if (d2) {
+      de.innerHTML = '<div class="rp-d-lead">' + d2.lead + '</div>'
+        + '<div class="rp-d-row"><span class="rp-d-k">Lecture</span><span class="rp-d-v">' + d2.detail + '</span></div>'
+        + '<div class="rp-d-row"><span class="rp-d-k">Pour trader</span><span class="rp-d-v">' + d2.trade + '</span></div>';
+    } else { de.textContent = data.description || ''; }
+  }
   const as = el('rp-assets');
   if (as) {
     as.innerHTML = (data.assets || []).map(a => {
