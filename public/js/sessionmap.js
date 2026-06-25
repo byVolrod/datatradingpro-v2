@@ -42,14 +42,23 @@
     window._dtpLfMap = map;
     try { map.attributionControl.setPrefix(''); } catch (e) {}
 
-    // Tuiles SATELLITE réalistes (Esri World Imagery — couleurs réelles terre/mer)
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 18, attribution: 'Tuiles &copy; Esri'
-    }).addTo(map);
-    // Étiquettes discrètes (frontières / villes) par-dessus le satellite
-    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
-      maxZoom: 18, opacity: 0.5
-    }).addTo(map);
+    // Carte VECTORIELLE on-brand (PAS de tuiles) : continents slate + bordures dorées sur fond charcoal en dégradé.
+    // Réutilise le geodata amCharts worldLow déjà chargé (window.am5geodata_worldLow) comme couche GeoJSON Leaflet.
+    el.style.background = 'radial-gradient(125% 105% at 55% 32%, #16181f 0%, #0b0c10 52%, #07080a 100%)';
+    var hasVector = false;
+    try {
+      if (typeof am5geodata_worldLow !== 'undefined' && am5geodata_worldLow && am5geodata_worldLow.features) {
+        var gj = L.geoJSON(am5geodata_worldLow, {
+          interactive: false,
+          style: { fillColor: '#272c37', fillOpacity: 1, color: '#5a4f2e', weight: 0.5, opacity: 0.65 }
+        });
+        if (gj.getLayers().length > 5) { gj.addTo(map); hasVector = true; }
+      }
+    } catch (e) {}
+    if (!hasVector) {
+      // Filet de sécurité : si le geodata vectoriel manque, tuiles sombres CARTO (jamais de carte vide)
+      try { L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19, attribution: '&copy; OpenStreetMap, &copy; CARTO' }).addTo(map); } catch (e) {}
+    }
 
     // Terminateur jour/nuit (si le plugin a chargé)
     if (typeof L.terminator === 'function') {
