@@ -232,7 +232,23 @@ function pdLangPick(val, name, iso) {
   const cur = document.getElementById('pd-lang-current'); if (cur) cur.textContent = name;
   const flag = document.getElementById('pd-lang-cur-flag'); if (flag) flag.src = `https://flagcdn.com/24x18/${iso}.png`;
   document.getElementById('pd-lang-menu')?.classList.remove('open');
+  // Applique la langue choisie à TOUT le site (le moteur i18n traduit au reload). FR/EN supportés.
+  try { var lg = String(val || '').slice(0, 2).toLowerCase(); if ((lg === 'fr' || lg === 'en') && localStorage.getItem('dtp_lang') !== lg) { localStorage.setItem('dtp_lang', lg); location.reload(); } } catch (e) {}
 }
+// Au chargement : refléter la langue active (dtp_lang) dans le sélecteur du profil.
+(function () {
+  function _pdLangSync() {
+    try {
+      var lg = (localStorage.getItem('dtp_lang') || 'fr').slice(0, 2).toLowerCase();
+      var M = { fr: ['Français', 'fr'], en: ['English', 'gb'], de: ['Deutsch', 'de'], es: ['Español', 'es'] };
+      var m = M[lg]; if (!m) return;
+      var inp = document.getElementById('pd-lang'); if (inp) inp.value = lg;
+      var cur = document.getElementById('pd-lang-current'); if (cur) cur.textContent = m[0];
+      var flag = document.getElementById('pd-lang-cur-flag'); if (flag) flag.src = 'https://flagcdn.com/24x18/' + m[1] + '.png';
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', _pdLangSync); else _pdLangSync();
+})();
 window.pdLangToggle = pdLangToggle; window.pdLangPick = pdLangPick;
 document.addEventListener('click', e => { const dd = document.getElementById('pd-lang-dd'); if (dd && !dd.contains(e.target)) document.getElementById('pd-lang-menu')?.classList.remove('open'); });
 
