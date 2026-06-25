@@ -790,6 +790,10 @@
   .reveal{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .6s cubic-bezier(.2,.7,.2,1);will-change:opacity,transform}
   .reveal.in{opacity:1;transform:none}
   @media (prefers-reduced-motion:reduce){.reveal{opacity:1!important;transform:none!important;transition:none!important}}
+
+  /* === Maquettes desk : alignement sur le desk ACTUEL (carre/colle, plus d'arrondi) === */
+  .term,.term-tabs span,.nrow,.ntag,.ninfo,.nanalyse,.nreaction,.g-lbl,.ri-daily,.rt,.ri-ai,.sig,.pdf,.ri-viewer,.mini-anl,.anl-tag,.anl-l,.mini-bias span,.mini-cs i,.cs .bar,.dnav-search,.dnav-risk,.dnav-pill,.dnews-sel,.dnews-srch,.dnews-date,.dwc-c,.dsub{border-radius:0 !important}
+  .dtabs span.on::after,.dsub span.on::after{border-radius:0 !important}
 </style>
 </head>
 <body>
