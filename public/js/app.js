@@ -4869,7 +4869,7 @@ async function _brEmbedPdf(item, endpointUrl) {
   if (!document.getElementById('br-rcontent')) return true;   // l'utilisateur a quitté le reader entre-temps
   content.classList.add('br-rcontent--pdf');
   const ttl = (item.title || 'PDF').replace(/"/g, '');
-  content.innerHTML = `<iframe class="br-pdf-frame" src="${endpointUrl}#toolbar=0&navpanes=0&zoom=100" title="${ttl}"></iframe>`;
+  content.innerHTML = `<iframe class="br-pdf-frame" src="${endpointUrl}#toolbar=0&navpanes=0&${window.innerWidth <= 768 ? 'view=FitH' : 'zoom=100'}" title="${ttl}"></iframe>`;
   return true;
 }
 // Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
@@ -5235,7 +5235,7 @@ function _brPdfShow(mode) {
     _brFixImages(content);
   } else {
     content.innerHTML = bar('Afficher en texte', 'text') +
-      `<iframe class="br-pdf-frame" src="${_brPdfState.url}#toolbar=0&navpanes=0&zoom=100" title="Rapport PDF"></iframe>`;
+      `<iframe class="br-pdf-frame" src="${_brPdfState.url}#toolbar=0&navpanes=0&${window.innerWidth <= 768 ? 'view=FitH' : 'zoom=100'}" title="Rapport PDF"></iframe>`;
   }
   content.scrollTop = 0;
 }
