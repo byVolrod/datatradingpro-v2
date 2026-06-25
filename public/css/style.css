@@ -544,7 +544,8 @@ html, body {
   border-radius: var(--radius);
   padding: 0 12px;
   height: 34px;
-  width: 230px;            /* même largeur que la barre de recherche, légèrement allongé */
+  width: auto;             /* compact : épouse le contenu (« ↘ RISK OFF ⌄ ») — raccourci */
+  min-width: 0;
   box-sizing: border-box;
   flex-shrink: 0;
   font-size: 10px;
@@ -569,7 +570,7 @@ html, body {
 }
 .sentiment-dir.risk-on  { color: rgb(34,197,94); }
 .sentiment-dir.risk-off { color: rgb(239,68,68); }
-.sentiment-dir.neutral  { color: rgb(249,115,22); }
+.sentiment-dir.neutral  { color: rgb(255,179,0); }
 
 .sentiment-arrow { color: var(--text3); font-size: 9px; }
 
@@ -1073,7 +1074,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   height: 100%;
 }
 
-.search-icon { color: var(--text4); font-size: 13px; }
+.search-icon { color: var(--text4); font-size: 13px; display: inline-flex; align-items: center; }
 
 .toolbar-search input {
   flex: 1;
@@ -5649,7 +5650,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Couleurs exactes DataTradingPro : bg 12% · bordure 35% · texte plein */
 .topbar-sentiment.risk-on  { color: rgb(34,197,94);  border-color: rgba(34,197,94,0.35);  background: rgba(34,197,94,0.12); }
 .topbar-sentiment.risk-off { color: rgb(239,68,68);  border-color: rgba(239,68,68,0.35);  background: rgba(239,68,68,0.12); }
-.topbar-sentiment.neutral  { color: rgb(249,115,22); border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.12); }
+.topbar-sentiment.neutral  { color: rgb(255,179,0); border-color: rgba(249,115,22,0.35); background: rgba(249,115,22,0.12); }
 
 /* ═══════════════ RISK GAUGE (in RISK tab) ═══════════════ */
 .risk-widget-container {
