@@ -9851,3 +9851,7 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .rp-d-row{display:flex;gap:10px;align-items:baseline;margin:0 0 7px;}
 .rp-d-k{flex:0 0 66px;font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:#e3b23a;}
 .rp-d-v{flex:1;font-size:12px;color:#aeb4bd;line-height:1.5;}
+
+/* === Carte sessions : leger effet 3D (inclinaison perspective) === */
+#am5-map{perspective:1600px;overflow:hidden;}
+#am5-map .leaflet-container{transform:rotateX(10deg) scale(1.12);transform-origin:center 50%;}

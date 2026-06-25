@@ -37,7 +37,7 @@
     var map = L.map(el, {
       center: [22, 12], zoom: 2, minZoom: 1, maxZoom: 7,
       zoomControl: false, attributionControl: true,
-      worldCopyJump: true, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false
+      worldCopyJump: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false
     });
     window._dtpLfMap = map;
     try { map.attributionControl.setPrefix(''); } catch (e) {}
