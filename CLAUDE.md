@@ -1,13 +1,13 @@
 # DataTradingPro — Cahier des charges (CLAUDE.md)
 
-> Clone fidèle de **Prime Terminal (PMT)**. Quand l'utilisateur dit « comme PMT » / « comme sur l'image » → recopier PMT **à l'identique** (couleur, position, comportement). La référence ultime, c'est PMT.
+> ⚠️ **NE PAS cloner Prime Terminal (PMT).** L'identité visuelle est désormais **unique**, calée sur la landing **datatradingpro.com** : **or** (`#e3b23a` vif / `#b8860b` sombre — plus jamais l'orange PMT), titres **Fraunces** (serif) + **Inter Tight**, cartes à coins doux + bordures fines + hover doré. PMT peut servir de référence pour la **structure / le comportement** d'un composant, **jamais pour l'apparence** (couleurs, typo, style) → on s'en démarque volontairement (originalité / IP). Tous les widgets portent des **noms français originaux** : Éclairages IA, Radar de Biais, Baromètre / Force des Devises, Copilote Macro, Notes d'Analystes, Flash Marché, Alertes, Semaine à Venir… ; badges **ACHAT / VENTE / NEUTRE**.
 
 ## Stack & contraintes (NE PAS proposer autre chose)
 - **Vanilla JS + CSS pur + Express** servi statiquement. **PAS de React/Tailwind/build.** L'utilisateur demande souvent « React + Tailwind » → toujours livrer **l'équivalent vanilla** (classes Tailwind traduites en CSS, SVG inline). Ne jamais introduire de framework.
-- **amCharts 5** pour les graphiques (dark + orange).
+- **amCharts 5** pour les graphiques (dark + **or**, plus d'orange).
 - **Render free tier** : 512 Mo RAM, disque **éphémère**, veille ~15 min → anti-OOM/502 obligatoire (timeouts fetch, caps mémoire, verrous, **persistance Supabase `ai_cache`** pas disque).
 - **Gemini free-tier** (quota dur) + repli **Claude multi-clés** (`ai.generateText`). Tout l'IA doit **cacher** (clé = hash) et idéalement **préchauffer en tâche de fond** (jamais générer quand l'utilisateur ouvre).
-- UI **100 % en français** (les libellés produit PMT en anglais restent en anglais : « AI Insights », « Online », etc.).
+- UI **100 % en français** — y compris les anciens libellés PMT, désormais **traduits** (« Éclairages IA », « En ligne », onglets « Calendrier / Analystes / Biais / Banques », titres de rapports…). **Ne plus laisser de texte produit en anglais** (sauf valeurs logiques internes : `_reportType`, `BUY/SELL`, `data-view` → traduire uniquement à l'**affichage**).
 
 ## SÉCURITÉ (verbatim, ne jamais enfreindre)
 - Une clé Anthropic « sk-ant-api03-o1yqU_… » a été COMPROMISE → à roter. **Ne jamais stocker/committer de clés.** Les clés vivent UNIQUEMENT dans les env vars Render. `.env.render` est gitignored → **JAMAIS committer**.
@@ -19,7 +19,7 @@
 - Toujours `node -c` les fichiers JS + vérifier l'équilibre des accolades CSS avant commit.
 
 ## Design : High-Density Fintech HUD
-- Fond noir pur **`#0c0c0e`** / `#0a0a0c`, compact, **sans ombres portées**, angles carrés ou micro-arrondis (`3px`→`6px` max). Max de données par pixel (cockpit / salle de marché).
+- Fond sombre **`#0c0c0e`** / `#0a0a0c`, dense (cockpit / salle de marché), mais **habillage landing** : **accents or**, titres **Fraunces** (serif) / **Inter Tight**, cartes à **coins doux** (`--radius` = `6px`) + bordures fines + **hover doré** sur les cartes. Garder la **densité HUD**, mais pas le look PMT.
 - Lignes de séparation fines : `border-b` très sombre (≈ `neutral-900/60`, token `--hud-line`).
 - **Pas de dialogs natifs** (confirm/prompt/alert) → confirmations/édition **inline**.
 - **Volatilité** : historique de chat, position du splitter orange, etc. = **purement volatils**, reset au reload (**pas de localStorage**). **Exception validée par l'utilisateur** : l'historique « Recent Searches » de la recherche symbole (desk) **PERSISTE PAR COMPTE** → source de vérité = KV Supabase `symrecent:<userId>` (endpoints `GET/POST /api/sym-recent`), récupéré au chargement (suit la reconnexion, même sur un autre appareil) ; `localStorage` (clé `dtp_sym_recent`) = simple cache instantané. Ne PAS le re-rendre volatil.
@@ -28,11 +28,11 @@
 - **BUY / UPTREND / BULLISH** → vert émeraude vif `#00e676` (ou `#00cc99` turquoise selon contexte).
 - **SELL / DOWNTREND / BEARISH** → rouge vif d'alerte `#ff3d00`.
 - **NEUTRAL** → jaune-orange doré `#ffb300` (ou gris anthracite mat selon le composant).
-- Orange signature terminal : **`#ff7a00`**. Risk-off rouge : `#ef4444`. Risk-on vert : `#22c55e`.
+- **Or signature : `#e3b23a` (vif) / `#b8860b` (sombre)** — l'orange PMT (`#f7941d` / `#ff7a00`) a été **supprimé partout**. Risk-off rouge : `#ef4444`. Risk-on vert : `#22c55e`.
 - Currency Strength Meter (DOM exact PMT) : vert `rgba(0,218,80,0.867)` / rouge `rgba(255,0,0,0.933)`, bordure même teinte `0.3`, `rounded-sm`, `shadow-inner`.
 
 ## Composants clés
-- **Splitter orange synchrone** : layout parent en **CSS Grid** `grid-template-columns: minmax(0,1fr) 1px var(--sidebar-w)` (le `1fr` recalcule à la même frame que la souris → zéro décalage). Barre orange isolée des scrollbars. `pointer-events:none` sur les enfants pendant le drag. Reset au reload.
+- **Splitter or synchrone** : layout parent en **CSS Grid** `grid-template-columns: minmax(0,1fr) 1px var(--sidebar-w)` (le `1fr` recalcule à la même frame que la souris → zéro décalage). Barre orange isolée des scrollbars. `pointer-events:none` sur les enfants pendant le drag. Reset au reload.
 - **Currency Strength Meter** : égaliseur segmenté bidirectionnel, axe central (zéro), vert vers le haut / rouge vers le bas. Trame éteinte toujours visible (jamais « vide »). (Under-glow ambre retiré : l'utilisateur n'en voulait pas.)
 - **Macro AI Assistant** (volet droit) : avatar = **`/assets/images/macro-ai-logo.png`** (logo officiel téléchargé en local). État **« L'IA écrit… »** (avatar + 3 points gris qui rebondissent) avant le texte. **Streaming typewriter** caractère par caractère (markdown tolérant aux `**` non fermés). Accordéon **`> N sources used`** orange + heure → **uniquement à la fin** du streaming. Input : icônes pièce jointe + textarea + envoi orange plein, **Entrée = envoi / Shift+Entrée = nouvelle ligne**. Backend `/api/ai/chat` (Gemini→Claude + contexte Smart Bias/news + cache). Volatil.
 - **Analyst Report Viewer** : envoie le texte de `sessionwrap` au backend, attend un JSON **dynamique** : `aiInsights` = tableau d'objets `{ asset, signal, text }` (badges BUY vert / SELL rouge / NEUTRAL ambre, pas de badge si `signal` null) ; `sessionContent` = objet à **clés dynamiques** (titres détectés : `IRAN CONFLICT`, `EQUITIES`, `FX`…) parcouru en `.map()` → titres en **MAJUSCULES orange `#ff7a00`**. Markdown léger : gras auto sur chiffres/%/tickers. **Préchauffé** (segmentation IA en cache) → ouverture instantanée.
