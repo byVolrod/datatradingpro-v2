@@ -4239,7 +4239,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .br-rcontent { flex: 1; overflow-y: auto; padding: 20px 24px; }
 /* ── Rapport Institution affiché en PDF embarqué (vrai .pdf généré côté client, façon DTP) ── */
-.br-rcontent--pdf { padding: 0 !important; display: flex; flex-direction: column; overflow: hidden; }
+#br-rcontent.br-rcontent--pdf { padding: 0 !important; display: flex; flex-direction: column; overflow: hidden; }
 .br-pdf-bar { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 7px 14px; background: #101012; border-bottom: 1px solid var(--hud-line); }
 .br-pdf-bar-lbl { font-size: 11px; color: #8a93a3; font-weight: 600; letter-spacing: .02em; }
 .br-pdf-bar-actions { display: flex; gap: 8px; }
