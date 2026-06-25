@@ -1224,7 +1224,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: flex;
   align-items: flex-start;
   padding: 12px var(--c-pad);
-  border-bottom: 1px solid var(--border);
+  border-bottom: none;             /* trait des news retiré à la demande */
   border-radius: 0;                /* lignes strictes type table haute densité, jamais d'arrondi */
   cursor: pointer;
   transition: background 0.1s;
@@ -1233,7 +1233,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .news-item .news-headline { color: #e2e8f0; }   /* texte principal */
 
-.news-item:hover { background: #16171b; }        /* survol légèrement éclairci */
+.news-item:hover { background: #1d1e24; }        /* survol légèrement éclairci (sépare les lignes sans trait) */
 .news-item:hover .news-headline { color: #fff; }
 
 /* Read state */
@@ -9868,3 +9868,7 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .pd-section-trigger.pd-open{box-shadow:inset 3px 0 0 var(--orange,#e3b23a);background:rgba(227,178,58,.05) !important;}
 .pd-section-trigger:hover{background:rgba(227,178,58,.04) !important;}
 .pd-section-trigger.pd-open .pd-section-arrow{color:#e3b23a !important;}
+
+/* Bouton AI topbar : icone + label IA (FR) / AI (EN via i18n) */
+.topbar-icon--ai{width:auto !important;gap:5px;padding:0 9px;}
+.ai-spark-txt{font-size:12px;font-weight:700;color:#00DA50;letter-spacing:.02em;line-height:1;}
