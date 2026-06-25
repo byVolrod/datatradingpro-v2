@@ -499,7 +499,7 @@ html, body {
 .sym-cot-metrics > div { background: #0d0e11; display: flex; flex-direction: column; gap: 4px; padding: 11px; }
 .sym-cot-k { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: #7a7a83; }
 .sym-cot-v { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 14px; color: #e9eaed; }
-.sym-cot-v.g { color: #00da50; } .sym-cot-v.r { color: #ff4d2e; }
+.sym-cot-v.g { color: #00e676; } .sym-cot-v.r { color: #ff4d2e; }
 
 /* — Seasonality — */
 .sym-seas { padding: 16px; }
@@ -518,9 +518,9 @@ html, body {
 .sym-rt-bar { display: flex; height: 38px; border-radius: 6px; overflow: hidden; border: 1px solid #232429; }
 .sym-rt-long { background: #059669; } .sym-rt-short { background: #dc2626; }
 .sym-rt-lbls { display: flex; justify-content: space-between; margin-top: 7px; font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12px; }
-.sym-rt-lbls .g { color: #00da50; } .sym-rt-lbls .r { color: #ff4d2e; }
+.sym-rt-lbls .g { color: #00e676; } .sym-rt-lbls .r { color: #ff4d2e; }
 .sym-rt-note { margin-top: 16px; font-size: 12px; line-height: 1.5; color: #b5b7be; }
-.sym-rt-note .g { color: #00da50; } .sym-rt-note .r { color: #ff4d2e; }
+.sym-rt-note .g { color: #00e676; } .sym-rt-note .r { color: #ff4d2e; }
 
 /* — Central Bank pricing (réutilise .rtc) — */
 .sym-cb-note { padding: 10px 13px; font-size: 11px; color: #9a9aa3; border-bottom: 1px solid #18181c; background: #0d0d10; line-height: 1.45; }
@@ -708,7 +708,7 @@ html, body {
 .topbar-icon svg { width: 18px; height: 18px; transition: filter .2s ease-out; }   /* + grandes → plus lisibles */
 .topbar-icon--ai svg { width: 21px; height: 21px; }
 .topbar-icon--ai:hover { transform: scale(1.02); }                                 /* AI : effet subtil et net */
-.topbar-icon--ai:hover svg { filter: drop-shadow(0 0 1px rgba(0,218,80,0.18)); }
+.topbar-icon--ai:hover svg { filter: drop-shadow(0 0 1px rgba(0,230,118,0.18)); }
 .topbar-icon--sqwk:hover svg { filter: drop-shadow(0 0 2px rgba(239,68,68,0.3)); }
 /* Badge « NEW » — pastille orange en haut-droite de l'icône journal, annonce vue une seule fois par compte */
 .topbar-new-badge {
@@ -6251,7 +6251,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Long segment — vert la référence exact (couleurs récupérées de la référence) */
 .dmx2-bar-long {
   height: 100%;
-  background: rgb(0, 218, 80);
+  background: rgb(0, 230, 118);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -6264,7 +6264,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Short segment — rouge la référence exact (couleurs récupérées de la référence) */
 .dmx2-bar-short {
   height: 100%;
-  background: rgb(255, 0, 0);
+  background: rgb(255, 61, 0);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -7020,7 +7020,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Voile de survol : léger dégradé vert du haut (group-hover/column de DataTradingPro) */
 .meter-col::after {
   content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none;
-  background: linear-gradient(rgba(0,218,80,0.05), transparent 55%, transparent);
+  background: linear-gradient(rgba(0,230,118,0.05), transparent 55%, transparent);
   opacity: 0; transition: opacity 0.3s ease;
 }
 .meter-col:hover::after { opacity: 1; }
@@ -7062,8 +7062,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .meter-brick--off { background: rgba(18,18,20,0.4); box-shadow: none; }
 /* Aplats PURS aux couleurs EXACTES de DataTradingPro (DOM) */
-.meter-brick--pos { background: rgba(0,218,80,0.867); border-bottom-color: #050505; }   /* +  vert */
-.meter-brick--neg { background: rgba(255,0,0,0.933);  border-bottom-color: #050505; }   /* −  rouge */
+.meter-brick--pos { background: rgba(0,230,118,0.867); border-bottom-color: #050505; }   /* +  vert */
+.meter-brick--neg { background: rgba(255,61,0,0.933);  border-bottom-color: #050505; }   /* −  rouge */
 /* Under-Glow : fine lueur cuivrée incandescente à l'axe zéro (où démarrent les blocs) */
 .meter-half-top .meter-brick--pos[data-idx="0"] { box-shadow: inset 0 -3px 6px -3px rgba(217,119,6,0.55); }
 .meter-half-bot .meter-brick--neg[data-idx="0"] { box-shadow: inset 0  3px 6px -3px rgba(217,119,6,0.55); }
@@ -9136,7 +9136,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .taux-legend { display: inline-flex; align-items: center; gap: 13px; margin-left: 14px; font-size: 10.5px; color: #9a9aa2; white-space: nowrap; }
 .taux-legend .tlg { display: inline-flex; align-items: center; gap: 5px; }
 .taux-legend .tlg i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
-.taux-legend .tlg i.g { background: #00da50; }
+.taux-legend .tlg i.g { background: #00e676; }
 .taux-legend .tlg i.n { background: #abb4c3; }
 .taux-legend .tlg i.r { background: #ff4d2e; }
 .taux-legend .tlg-note { color: #6a6a73; font-style: italic; padding-left: 11px; border-left: 1px solid #232429; }
@@ -9184,7 +9184,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .rtc-m:last-child { border-right: 0; }
 .rtc-k { position: relative; z-index: 1; font-size: 9.5px; letter-spacing: .02em; color: #8a8a93; line-height: 1.2; }
 .rtc-v { position: relative; z-index: 1; font-size: 11.5px; font-weight: 700; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
-.rtc-v.g { color: #00da50; } .rtc-v.r { color: #ff4d2e; } .rtc-v.n { color: #abb4c3; } .rtc-v.w { color: #ffffff; }
+.rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff4d2e; } .rtc-v.n { color: #abb4c3; } .rtc-v.w { color: #ffffff; }
 .rtc-prob { color: #e3b23a; }   /* Probability = ambre/orange (clone pro text-primary) */
 /* La courbe COMBLE le bas de la cellule : étirée sur toute la largeur (preserveAspectRatio none), ~45% de hauteur */
 .rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 1px; width: auto; height: 45%; max-height: 24px; z-index: 0; opacity: .9; pointer-events: none; }
@@ -9196,7 +9196,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .rtc-bl { width: 32px; color: #8a8a93; flex: 0 0 auto; }
 .rtc-track { flex: 1; height: 20px; background: rgba(255,255,255,0.03); border-radius: 2px; }
 .rtc-track i { display: block; height: 100%; border-radius: 2px; transition: width .4s; min-width: 2px; }
-.rtc-track i.n { background: #abb4c3; } .rtc-track i.g { background: rgba(0,218,80,.85); } .rtc-track i.r { background: rgba(255,61,0,.82); }
+.rtc-track i.n { background: #abb4c3; } .rtc-track i.g { background: rgba(0,230,118,.85); } .rtc-track i.r { background: rgba(255,61,0,.82); }
 .rtc-bp { width: 52px; text-align: left; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); font-weight: 600; font-size: 11px; flex: 0 0 auto; }
 .rtc-axis { display: flex; justify-content: space-between; padding: 2px 59px 0 39px; }
 .rtc-axis span { font-size: 8px; color: #4a4a52; font-family: var(--mono, ui-monospace, monospace); }
@@ -9213,13 +9213,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Pilules Implied Δ (fond plein vert/rouge foncé, texte centré) + badge Base Case (gris sombre / vert sombre) */
 .rtc-pill { display: inline-block; font-size: 10px; font-weight: 600; padding: 2px 7px; border-radius: 3px; border: 1px solid; white-space: nowrap; min-width: 66px; text-align: center; font-family: var(--mono, ui-monospace, monospace); }
 .rtc-base { display: inline-block; font-size: 9.5px; font-weight: 700; padding: 2px 8px; border-radius: 3px; border: 1px solid; min-width: 40px; text-align: center; }
-.rtc-pill.g, .rtc-base.g { background: rgba(0,218,80,.15);  color: #00da50; border-color: rgba(0,218,80,.5); }
-.rtc-pill.r, .rtc-base.r { background: rgba(255,0,0,.15);   color: #ff4d2e; border-color: rgba(255,0,0,.5); }
+.rtc-pill.g, .rtc-base.g { background: rgba(0,230,118,.15);  color: #00e676; border-color: rgba(0,230,118,.5); }
+.rtc-pill.r, .rtc-base.r { background: rgba(255,61,0,.15);   color: #ff4d2e; border-color: rgba(255,61,0,.5); }
 .rtc-pill.n             { background: rgba(171,180,195,.13); color: #abb4c3; border-color: rgba(171,180,195,.4); }
 .rtc-base.n             { background: #23262c; color: #abb4c3; border-color: #34383f; }
 /* .rtc-move : conservé pour le badge sentiment du panneau COT (sym-cot-sent), plus utilisé par les cartes TAUX */
 .rtc-move { margin-left: auto; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 4px; white-space: nowrap; border: 1px solid; }
-.rtc-move.g { background: rgba(0,218,80,.14); color: #00da50; border-color: rgba(0,218,80,.5); }
+.rtc-move.g { background: rgba(0,230,118,.14); color: #00e676; border-color: rgba(0,230,118,.5); }
 .rtc-move.r { background: rgba(255,61,0,.14); color: #ff4d2e; border-color: rgba(255,61,0,.5); }
 .rtc-move.n { background: rgba(171,180,195,.12); color: #abb4c3; border-color: rgba(171,180,195,.4); }
 /* ── Onglets : réorganisation par glisser (appui maintenu) ── */

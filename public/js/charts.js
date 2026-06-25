@@ -1477,7 +1477,7 @@ function buildMeterChart() {
         const v   = _meterValues[ccy];
         if (v == null) return;
         const m = METER_META[ccy] || { iso: '', name: ccy };
-        const col2 = v >= 0 ? '#00da50' : '#ff3b3b';   // couleurs Meter DTP
+        const col2 = v >= 0 ? '#00e676' : '#ff3b3b';   // couleurs Meter DTP
         tip.innerHTML = `<div class="meter-tip-name">${_flagImg(m.iso, 14)} ${m.name}</div>`
           + `<div class="meter-tip-val" style="color:${col2}">${(v >= 0 ? '+' : '') + v.toFixed(2)}</div>`;
         tip.style.display = 'block';
@@ -1515,7 +1515,7 @@ function buildMeterChart() {
       const valEl = col.querySelector('.meter-col-val');
       if (valEl) {
         valEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
-        valEl.style.color = v > 0 ? '#00da50' : v < 0 ? '#ff3b3b' : '#64748b';   // couleurs Meter DTP
+        valEl.style.color = v > 0 ? '#00e676' : v < 0 ? '#ff3b3b' : '#64748b';   // couleurs Meter DTP
       }
     });
   }
@@ -2348,7 +2348,7 @@ document.addEventListener('DOMContentLoaded', () => {
       up:   'M0 26 C5 24, 7 25, 10 23 C14 20, 16 23, 20 21 C25 18, 27 21, 31 17 C35 13, 37 16, 41 12 C45 8, 47 11, 51 7 C55 3, 58 4, 62 2',
       down: 'M0 2 C5 4, 7 3, 10 5 C14 8, 16 5, 20 7 C25 10, 27 7, 31 11 C35 15, 37 12, 41 16 C45 20, 47 17, 51 21 C55 25, 58 24, 62 26',
     };
-    const SPK_COL = { wavy: '#7c879b', up: '#00da50', down: '#ff4d2e' };
+    const SPK_COL = { wavy: '#7c879b', up: '#00e676', down: '#ff4d2e' };
     const mspk = kind => {
       const p = SPK_PATH[kind], c = SPK_COL[kind], gid = 'rtcg-' + kind;
       return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="none">'
@@ -2664,8 +2664,8 @@ function _fxlDonut(pct) {
   const v = Math.max(0, Math.min(100, pct ?? 50));
   const r = 7, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
   return `<svg class="fxl-dmx" width="20" height="20" viewBox="0 0 20 20">`
-    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="rgb(255, 0, 0)" stroke-width="4"/>`
-    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="rgb(0, 218, 80)" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 10 10)"/>`
+    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="rgb(255, 61, 0)" stroke-width="4"/>`
+    + `<circle cx="10" cy="10" r="${r}" fill="none" stroke="rgb(0, 230, 118)" stroke-width="4" stroke-dasharray="${bull} ${c.toFixed(2)}" transform="rotate(-90 10 10)"/>`
     + `</svg>`;
 }
 
