@@ -9915,3 +9915,7 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 .sym-dd,.dtpsel-panel,.sbs-cdd-menu,.dtp-toast,.np-filter-menu{backdrop-filter:blur(9px) saturate(1.04);-webkit-backdrop-filter:blur(9px) saturate(1.04);}
 /* Mode clair : filet sombre discret (au lieu du blanc) pour garder la délimitation */
 body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-panel,body.theme-light .sbs-panel,body.theme-light .inst-panel,body.theme-light .dmx-panel,body.theme-light .clocks-panel,body.theme-light .view-panel{box-shadow:inset 0 1px 0 rgba(0,0,0,.04) !important;}
+
+/* === Vert/rouge IDENTIQUES sur Barometre / COT / DMX -> standard de marque #00e676 / #ff3d00 === */
+.cot-dot--l,.dmx-bar-l,.dmx-legend-long-dot{background:#00e676 !important;}
+.cot-dot--s,.dmx-bar-s,.dmx-legend-short-dot{background:#ff3d00 !important;}
