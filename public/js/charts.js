@@ -1332,7 +1332,8 @@ function buildRiskHistoryChart(containerId, data) {
     paddingLeft: 4, paddingRight: 6, paddingTop: 6, paddingBottom: 2,
     layout: root.verticalLayout,
   }));
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
+  // Fond identique au panneau "Sentiment de risque" (#0d0e11), pas le _deskChartBg() un poil plus clair.
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0e11), fillOpacity: 1 }));
   chart.zoomOutButton.set('forceHidden', true);
 
   // Axe X : DateAxis quotidien

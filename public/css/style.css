@@ -1411,13 +1411,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .news-description.visible {
   display: block;
-  background: #19191c;                                       /* fond description (couleur DTP exacte) */
+  background: #16171b;                                       /* fond distinct (demarcation nette titre/description au deroule) */
   margin-top: 10px;
   margin-bottom: -12px;                                      /* le fond descend JUSQU'AU séparateur (comble le padding-bas 12px = fini le noir avant la ligne) */
   margin-left: calc(var(--news-desc-bleed) * -1);           /* fond étendu jusqu'au bord GAUCHE de la ligne */
   margin-right: calc(var(--c-pad) * -1);                     /* … et jusqu'au bord DROIT (suit le padding de la card → toujours pile au bord) */
   padding: 11px 14px 11px var(--news-desc-bleed);           /* texte ré-aligné sous le titre */
-  border-radius: 0;
+  border-radius: 6px;
   border: none;
 }
 /* News urgente/breaking dépliée : la boîte grise couvre proprement toute la zone sous
@@ -1665,7 +1665,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag--green     { background: rgba(46,204,113,0.15); border: 1px solid rgba(46,204,113,0.4); color: #ffffff; }
 .tag--red                    { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff; }
 .tag[data-cat="Sanctions"]   { background: rgba(231,76,60,0.15); border: 1px solid rgba(231,76,60,0.4); color: #ffffff !important; }
-.tag[data-cat="UK"]          { background: #16171b; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef !important; }   /* UK = meme style que US (neutre) */
+.tag[data-cat="UK"]          { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff !important; }   /* UK = MEME style que US */
 .tag--purple    { background: rgba(155,89,182,0.1); border: 1px solid rgba(155,89,182,0.2); color: #9b59b6; }
 .tag--gray      { background: var(--bg4); border: 1px solid var(--border3); color: var(--text4); }
 /* Badge Rumour — info non confirmée (ambre) */
@@ -3366,7 +3366,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="EU"],
 .tag[data-cat="Asia"],
 .tag[data-cat="Energy"]              { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }
-.tag[data-cat="UK"]                  { background: #16171b; border: 1px solid rgba(255,255,255,0.07); color: #e6e9ef; }   /* UK = meme style que US (neutre, plus de bleu) */
+.tag[data-cat="UK"]                  { background: var(--bg5); border: 1px solid var(--border2); color: #ffffff; }   /* UK = MEME style que US */
 
 /* ═══════════════════════════════════════════════
    AMCHARTS OVERRIDES — match terminal theme
@@ -3640,7 +3640,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="Global News"]    { background: var(--bg5); border-color: var(--border2); color: var(--text3); }
 .tag[data-cat="Asian News"]     { background: rgba(231,76,60,0.1); border-color: rgba(231,76,60,0.2); color: #e74c3c; }
 .tag[data-cat="Trade"]          { background: rgba(52,73,94,0.4); border-color: rgba(52,73,94,0.6); color: #95a5a6; }
-.tag[data-cat="UK"]             { background: #16171b; border-color: rgba(255,255,255,0.07); color: #e6e9ef; }   /* UK = meme style que US (neutre, plus de bleu) */
+.tag[data-cat="UK"]             { background: var(--bg5); border-color: var(--border2); color: #ffffff; }   /* UK = MEME style que US (neutre plein sombre) */
 .tag[data-cat="Data"]           { background: var(--bg5); border-color: var(--border2); color: #ffffff; }
 .tag[data-cat="Inflation"]      { background: var(--bg5); border-color: var(--border2); color: #ffffff; }
 .tag[data-cat="Rates"],
@@ -9840,7 +9840,7 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 #am5-map .leaflet-control-attribution{background:rgba(11,12,15,.6);color:#7e8189;font-size:9px;}
 #am5-map .leaflet-control-attribution a{color:#9aa0ac;}
 .lf-city-wrap{pointer-events:none;}
-.lf-city{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transform:translate(-50%,-50%);background:rgba(13,14,17,.82);border:1px solid #2a2e37;padding:3px 8px;font-family:var(--font-mono,monospace);font-size:11px;color:#e6e8ec;box-shadow:0 2px 10px rgba(0,0,0,.6);}
+.lf-city{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;transform:translate(-50%,-50%);background:rgba(13,14,17,.86);border:1px solid #2a2e37;border-radius:999px;padding:4px 10px;font-family:var(--font-mono,monospace);font-size:11px;color:#e6e8ec;box-shadow:0 2px 10px rgba(0,0,0,.6);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);}
 .lf-city b{color:#e3b23a;font-weight:700;}
 .lf-city .lf-name{color:#aeb2bb;}
 .lf-city .lf-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
@@ -9875,9 +9875,10 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .topbar-icon--ai{width:auto !important;gap:5px;padding:0 9px;}
 .ai-spark-txt{font-size:12px;font-weight:700;color:#00DA50;letter-spacing:.02em;line-height:1;}
 
-/* Onglets nav actifs : AUCUN trait dore (pareil que les onglets droits, demande 'enleve le trait') */
-.nav-item--active:not(.nav-item--symbol),.nav-item.active:not(.nav-item--symbol){box-shadow:none !important;border-bottom-color:transparent !important;}
-.nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{content:none !important;border:0 !important;background:none !important;}
+/* Onglet nav actif : trait dore RESTAURE (demande utilisateur — souligne l'onglet actif facon CALENDRIER) */
+.nav-item{position:relative;}
+.nav-item--active:not(.nav-item--symbol),.nav-item.active:not(.nav-item--symbol){box-shadow:none !important;}
+.nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{content:'' !important;position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a) !important;border:0 !important;border-radius:2px 2px 0 0;}
 
 /* === Mode clair FULL WHITE — panneau droit (horloge, onglets, conteneurs graphiques) === */
 body.theme-light .right-tab-panel,
