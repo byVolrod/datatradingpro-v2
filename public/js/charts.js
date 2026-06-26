@@ -2277,12 +2277,19 @@ function initRightTab(tab) {
   // RISK : jauge construite UNE fois (idempotente), mais l'HISTORIQUE se rafraîchit à chaque activation
   // (barre du jour à jour) — uniquement quand l'onglet est visible (anti-egress).
   if (tab === 'risk') { if (!chartInited.risk) { chartInited.risk = true; buildRiskGauge(); } loadRiskHistory(); return; }
-  // Onglets statiques (carte) : construits une seule fois
+  // CARTE (Leaflet) : bâtie UNE fois, mais à CHAQUE retour sur l'onglet il faut invalidateSize()
+  // — sinon la carte construite pendant que le panneau MONDE était caché reste mal dimensionnée
+  // (Leaflet ignore qu'on l'a ré-affichée → écran vide). Refit pour recadrer le planisphère.
+  if (tab === 'world') {
+    if (!chartInited.world) { chartInited.world = true; buildSessionMap(); }
+    else if (window._dtpLfMap) {
+      try { window._dtpLfMap.invalidateSize(); window._dtpLfMap.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); } catch (e) {}
+    }
+    return;
+  }
+  // Autres onglets statiques éventuels : construits une seule fois
   if (chartInited[tab]) return;
   chartInited[tab] = true;
-  switch (tab) {
-    case 'world':    buildSessionMap();     break;
-  }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
