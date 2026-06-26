@@ -9852,7 +9852,7 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 .rp-d-v{flex:1;font-size:12px;color:#aeb4bd;line-height:1.5;}
 
 /* === Carte sessions : leger effet 3D (inclinaison perspective) === */
-#am5-map{overflow:hidden;transform:perspective(1500px) rotateX(5deg) scale(1.0);transform-origin:center 55%;}
+#am5-map{overflow:hidden;}   /* carte à PLAT : le transform 3D (perspective/rotateX) créait un artefact (trait noir) sur le rendu SVG Leaflet */
 /* tilt 3D tres leger applique directement sur #am5-map ; clip assure par .right-tab-panel overflow:hidden */
 
 /* === Widgets droits (COT/DMX/Saisonnalite) : en-tetes alignes sur l'identite desk (tick or + capitales) + boutons carres === */
