@@ -385,7 +385,7 @@ let allItems          = [];
 // getter (et non window.allItems figé) car allItems est réassigné par renderNews/WS.
 window.getNewsMaster = () => allItems;
 try { window.buildNewsItem = buildNewsItem; } catch {}   // rendu d'une ligne .news-item complète (badges/icône/chevron)
-let enabledCategories = new Set(INTERNAL_CATS); // all on by default
+let enabledCategories = new Set(INTERNAL_CATS.filter(c => c !== 'Economic Commentary')); // tout activé SAUF "Commentaire économique" (désactivé par défaut, demande)
 let searchQuery       = '';
 let ws                = null;
 let reconnectTimer    = null;
@@ -2900,10 +2900,17 @@ function loadSettings() {
       if (!regionalCats.some(c => parsedSet.has(c))) {
         regionalCats.forEach(c => valid.push(c));
       }
-      enabledCategories = valid.length > 0 ? new Set(valid) : new Set(INTERNAL_CATS);
+      // Migration one-shot : "Commentaire économique" désactivé par défaut (demande). On le retire UNE
+      // fois des préférences sauvegardées (flag pt_ec_off_v1), puis on respecte le choix si l'utilisateur le réactive.
+      if (!localStorage.getItem('pt_ec_off_v1')) {
+        const _eci = valid.indexOf('Economic Commentary');
+        if (_eci >= 0) valid.splice(_eci, 1);
+        try { localStorage.setItem('pt_ec_off_v1', '1'); } catch {}
+      }
+      enabledCategories = valid.length > 0 ? new Set(valid) : new Set(INTERNAL_CATS.filter(c => c !== 'Economic Commentary'));
     }
   } catch {
-    enabledCategories = new Set(INTERNAL_CATS);
+    enabledCategories = new Set(INTERNAL_CATS.filter(c => c !== 'Economic Commentary'));
   }
 }
 
