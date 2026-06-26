@@ -10049,6 +10049,7 @@ allNews = allNews.filter(i => {
   if (isGlobalNewsNoise(i.headline)) return false;
   // Global News générique sans pertinence financière → purge
   if (i.category === 'Global News' && !isFinanciallyRelevant(i.headline + ' ' + (i.description || ''))) return false;
+  if (i.category === 'Economic Commentary' && (!isFinanciallyRelevant(i.headline + ' ' + (i.description || '')) || isDataStub(i.headline))) return false;   // réduit le spam "Commentaire économique"
   return true;
 }).map(upgradeItemPriority);
 
@@ -10128,6 +10129,11 @@ function mergeItems(incoming) {
     // "Global News" générique : n'est gardé QUE s'il est fondamentalement pertinent
     // (filtre les news vagues sans impact marché, même chez FinancialJuice)
     if (item.category === 'Global News' && !isFinanciallyRelevant(fullText)) return false;
+
+    // "Commentaire économique" trop spammy (demande) : on retire les HORS-SUJET (non pertinents
+    // financièrement, ex. "ambition penalty: speaking up at work") ET les STUBS sans valeur (titre de
+    // donnée sans chiffre) → réduit nettement le volume, garde les vraies données chiffrées + l'analyse.
+    if (item.category === 'Economic Commentary' && (!isFinanciallyRelevant(fullText) || isDataStub(item.headline))) return false;
 
     const curated = ['FinancialJuice','S&P Global','ISM','BLS','BEA','IFO Institute','ZEW',
                      'Destatis','Eurostat','ONS','ABS','Statistics Canada','Statistics Japan',
