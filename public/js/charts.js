@@ -4,6 +4,11 @@
 ═══════════════════════════════════════════════ */
 'use strict';
 
+// ── Thème clair/sombre des graphiques (mode clair "full white") : fond + texte selon body.theme-light ──
+function _deskLight(){ try { return !!(document.body && document.body.classList.contains('theme-light')); } catch(e){ return false; } }
+function _deskChartBg(){ return _deskLight() ? 0xffffff : 0x0d0d0d; }
+function _deskChartTxt(){ return _deskLight() ? 0x334155 : 0xcbd5e1; }
+
 // ── amCharts theme matching DataTradingPro ────────────────────────────────────
 function applyTerminalTheme(root) {
   const theme = am5.Theme.new(root);
@@ -237,7 +242,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  mainPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  mainPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
 
   const valueAxis = mainPanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -332,7 +337,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  volumePanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  volumePanel.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
 
   const volumeValueAxis = volumePanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -384,7 +389,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  rsiPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  rsiPanel.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
 
   const rsiValueAxis = rsiPanel.yAxes.push(
     am5xy.ValueAxis.new(root, {
@@ -428,7 +433,7 @@ function buildStockChart(symbol) {
     })
   );
 
-  scrollbar.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  scrollbar.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
 
   const sbDateAxis = scrollbar.chart.xAxes.push(
     am5xy.GaplessDateAxis.new(root, {
@@ -598,7 +603,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       panX: true, panY: false, wheelX: 'panX', wheelY: 'none', pinchZoomX: true,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));  // anthracite doux (un peu moins noir)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));  // anthracite doux (un peu moins noir)
   chart.zoomOutButton.set('forceHidden', true);
   // Clip : SEULES les courbes sont clippées (pas les axes ni les badges → l'axe X et les étiquettes droites restent visibles)
   chart.plotContainer.set('maskContent', true);
@@ -747,7 +752,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       centerX: am5.percent(0), x: am5.percent(0),
       marginTop: 0, marginBottom: 6, paddingLeft: 0, paddingTop: 0,
     }));
-    legend.labels.template.setAll({ fill: am5.color(0xcbd5e1), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 3, paddingRight: 0 });
+    legend.labels.template.setAll({ fill: am5.color(_deskChartTxt()), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 3, paddingRight: 0 });
     legend.valueLabels.template.set('forceHidden', true);                       // pas de valeur dans la légende (juste le nom)
     legend.markers.template.setAll({ width: 11, height: 11 });
     legend.markerRectangles.template.setAll({ cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 });
@@ -1323,7 +1328,7 @@ function buildRiskHistoryChart(containerId, data) {
     paddingLeft: 4, paddingRight: 6, paddingTop: 6, paddingBottom: 2,
     layout: root.verticalLayout,
   }));
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0d0d0d), fillOpacity: 1 }));
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));
   chart.zoomOutButton.set('forceHidden', true);
 
   // Axe X : DateAxis quotidien
@@ -1955,7 +1960,7 @@ function buildSessionMap() {
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(0x0b0c0f), fillOpacity: 1 }));  // fond charcoal desk (de-PMT)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));  // fond charcoal desk (de-PMT)
 
   // Rendu ÉPURÉ : pas de grille (graticule) → carte propre comme la référence.
 
