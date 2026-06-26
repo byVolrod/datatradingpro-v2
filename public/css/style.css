@@ -1413,7 +1413,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .news-description.visible {
   display: block;
-  background: #16171b;                                       /* fond distinct (demarcation nette titre/description au deroule) */
+  background: transparent;                                   /* transparent : c'est le fond de la CARTE (item ouvert) qui traverse → titre + detail = un seul bloc */
   margin-top: 10px;
   margin-bottom: -12px;                                      /* le fond descend JUSQU'AU séparateur (comble le padding-bas 12px = fini le noir avant la ligne) */
   margin-left: calc(var(--news-desc-bleed) * -1);           /* fond étendu jusqu'au bord GAUCHE de la ligne */
@@ -1434,6 +1434,19 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .news-item--breaking:has(.news-description.visible) {
   border-bottom-color: rgba(255,255,255,0.05);              /* plus de liseré rougeâtre sous une news dépliée */
 }
+
+/* ── Accordeon "carte qui ressort" (demande) : item DEPLIE = UN seul bloc visuel ──────────
+   Fond gris-nuit tres leger (contraste doux), bordures fines + tres sombres en HAUT et BAS
+   UNIQUEMENT, AUCUNE ombre / effet 3D. Le detail herite du fond de la carte → titre + detail
+   fusionnent. Contenu interieur : gris plus doux + legerement indente (sous-detail). */
+.news-item:has(.news-description.visible) {
+  background: #15161b !important;                           /* gris-nuit tres leger, plus clair que le fond #121317 (sans contraste violent) */
+  border-top: 1px solid rgba(0,0,0,0.42);                  /* delimitation fine + tres sombre, en HAUT */
+  border-bottom: 1px solid rgba(0,0,0,0.42) !important;    /* … et en BAS (bat le separateur de base) */
+  box-shadow: none !important;                             /* zero ombre / effet 3D */
+}
+.news-description.visible { color: #8b8b95; }              /* sous-detail : texte gris plus doux que le titre */
+.news-description.visible .article-points { padding-left: 22px; }  /* contenu legerement decale a droite vs le titre (indentation) */
 .news-headline--clickable { cursor: pointer; }
 .news-headline--clickable:hover { text-decoration: none; }   /* pas de soulignement au survol */
 
@@ -9935,8 +9948,8 @@ body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-
 .news-item .news-headline { font-weight: 450 !important; }                                  /* texte medium/standard, plus de gras massif */
 .news-item { border-bottom: 1px solid rgba(255,255,255,0.028) !important; background: #121317 !important; }  /* separateur a peine perceptible + fond froid neutre */
 .news-item:hover { background: #16171c !important; }
-.news-item--urgent, .news-item--breaking { background: rgba(255,61,0,0.045) !important; border-bottom: 1px solid rgba(255,61,0,0.07) !important; }  /* alerte rouge tres legere/transparente, se fond */
-.news-item--urgent:hover, .news-item--breaking:hover { background: rgba(255,61,0,0.085) !important; }
+.news-item--urgent, .news-item--breaking { background: rgba(255,61,0,0.085) !important; border-bottom: 1px solid rgba(255,61,0,0.10) !important; }  /* fond de BASE = ancienne teinte de survol (rouge deja bien visible au repos) */
+.news-item--urgent:hover, .news-item--breaking:hover { background: rgba(255,61,0,0.13) !important; }  /* survol : rouge un cran + accentue par-dessus la base */
 
 /* === Vert/rouge IDENTIQUES (complet COT/DMX -> standard de marque #00e676 / #ff3d00) === */
 .cot-dot--l, .dmx-bar-l, .dmx-legend-long-dot { background: #00e676 !important; }
