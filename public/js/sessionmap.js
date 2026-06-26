@@ -37,7 +37,10 @@
     var map = L.map(el, {
       center: [18, 6], zoom: 1.4, minZoom: 1, maxZoom: 7, zoomSnap: 0,
       zoomControl: false, attributionControl: true,
-      worldCopyJump: true, dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false
+      // worldCopyJump retiré + maxBounds : un SEUL monde affiché → fini la réplication latérale
+      // qui étirait le terminateur jour/nuit en bandes horizontales vertes parasites.
+      worldCopyJump: false, maxBounds: [[-74, -180], [84, 180]], maxBoundsViscosity: 1.0,
+      dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false
     });
     window._dtpLfMap = map;
     try { map.attributionControl.setPrefix(''); } catch (e) {}
