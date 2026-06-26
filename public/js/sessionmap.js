@@ -35,6 +35,7 @@
     el.style.background = '#0b0c0f';
 
     var map = L.map(el, {
+      preferCanvas: true,   // vecteurs rendus sur CANVAS (pas SVG) → supprime les bandes horizontales parasites (smear d'antimeridien sur les polygones qui croisent +/-180deg)
       center: [18, 6], zoom: 1.4, minZoom: 1, maxZoom: 7, zoomSnap: 0,
       zoomControl: false, attributionControl: true,
       // worldCopyJump retiré + maxBounds : un SEUL monde affiché → fini la réplication latérale
