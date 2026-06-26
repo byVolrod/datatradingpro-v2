@@ -624,6 +624,23 @@ async function updateUser(id, fields = {}) {
   _convSoon('maj compte');   // propage la maj (plan/role/active/expire) vers toutes les bases saines
 }
 
+// Purge TOTALE des données rattachées à un compte supprimé (anti-orphelins : chat/bienvenue affichant
+// l'UUID, journal + images de trades, avatar, préférences « vu », parrainage/affiliation Whop). Best-effort
+// & idempotent — les helpers sont local-first (RAM + fichier + Supabase). Hoisting OK (chatDeleteByUser /
+// aiCacheDel / aiCacheDelPrefix sont des déclarations de fonction, définies plus bas dans le fichier).
+async function _purgeUserData(id) {
+  const sid = String(id);
+  try { await chatDeleteByUser(sid); } catch {}                                  // messages chat + bienvenue + réactions
+  // Index inverse affiliation Whop (clé par username) → résolu via whopaffinfo AVANT de le purger
+  try { const aff = await aiCacheGet('whopaffinfo:' + sid, 366 * 86400000); const u = aff && (aff.username || aff.user || aff.affiliate); if (u) await aiCacheDel('whopaff:' + String(u).toLowerCase().trim()); } catch {}
+  const dels = ['journal:' + sid, 'avatar:' + sid, 'symrecent:' + sid, 'readreports:' + sid,
+    'journalnewseen:' + sid, 'chatseen:' + sid, 'seasonpair:' + sid,
+    'referral:' + sid, 'referredby:' + sid, 'refbonus:' + sid, 'whopaffinfo:' + sid];
+  for (const k of dels) { try { await aiCacheDel(k); } catch {} }
+  try { await aiCacheDelPrefix('jrimg:' + sid + ':'); } catch {}                 // images de trades (multi-clés)
+  try { await aiCacheDelPrefix('aichatcap:' + sid + ':'); } catch {}            // quota chat IA par jour (multi-clés)
+}
+
 async function deleteUser(id) {
   const w = _supaWhere(id);                                          // clé (email si id hérité ≠ uuid) résolue AVANT de purger le miroir
   const email = (_mirrorGetById(id)?.email || '').toLowerCase().trim() || null;
@@ -635,6 +652,7 @@ async function deleteUser(id) {
   _tombstone(id);      // ← ne RÉAPPARAÎTRA jamais, même au retour de la primaire (delete en blackout = secondaire seul)
   _bustUsersCache();   // ← suppression visible IMMÉDIATEMENT dans la liste admin (plus de « il y est toujours »)
   _pendingWrites = _pendingWrites.filter(p => String(p.id) !== String(id));
+  await _purgeUserData(id);   // ← retire TOUT le reste du compte (chat/bienvenue, journal, avatar, prefs, parrainage)
   if (error) {
     if (_supaDown(error)) { _pendingWrites.push({ id: String(id), email, op: 'delete', ts: Date.now(), attempts: 0 }); _pendingSave(); return; }   // base muette → suppression rejouée (par email) à son retour (miroir déjà purgé)
     _pendingSave();
@@ -862,6 +880,48 @@ async function chatDelete(id) {
   return false;
 }
 
+// ── Suppression de TOUS les messages d'un compte (à la suppression du compte) ──
+// Purge BDD + fichier + réactions des messages concernés + caches RAM. Best-effort.
+async function chatDeleteByUser(userId) {
+  const uid = String(userId);
+  const ids = new Set(_chatFile.filter(m => String(m.user_id) === uid).map(m => String(m.id)));
+  await _chatEnsureDb();
+  if (_chatDb) {
+    try { const { data } = await supabase.from(CHAT_TABLE).select('id').eq('user_id', uid); (data || []).forEach(r => ids.add(String(r.id))); } catch {}
+  }
+  let reactChanged = false;
+  ids.forEach(id => { if (_reactStore[id]) { delete _reactStore[id]; reactChanged = true; } });   // réactions des messages purgés
+  if (reactChanged) _reactSave();
+  if (_chatDb) { try { await supabase.from(CHAT_TABLE).delete().eq('user_id', uid); } catch {} }
+  _chatFile = _chatFile.filter(m => String(m.user_id) !== uid);
+  _chatSaveFile();
+  _chatDirty(uid);   // invalide les caches RAM (liste/threads/unread)
+}
+
+// Nettoyage ONE-SHOT des messages de comptes DÉJÀ supprimés AVANT l'ajout de la purge complète
+// (corrige le symptôme « UUID brut affiché » = message de bienvenue orphelin). Garde-fous : (1) flag KV
+// → ne tourne qu'UNE fois ; (2) ensemble « valides » = union getAllUsers + miroir local, et on n'agit
+// QUE s'il est sainement peuplé → ne JAMAIS supprimer le chat d'un vrai compte si la liste est incomplète.
+async function chatPurgeOrphans() {
+  try {
+    if (await aiCacheGet('chatorphans:sweptv1', 366 * 86400000)) return;
+    const valid = new Set();
+    try { (await getAllUsers()).forEach(u => valid.add(String(u.id))); } catch {}
+    for (const id of _usersMirrorById.keys()) valid.add(String(id));
+    if (valid.size < 10) return;   // liste incomplète (Supabase muet ?) → on ne purge RIEN (sécurité)
+    await _chatEnsureDb();
+    const chatUids = new Set();
+    if (_chatDb) { try { const { data } = await supabase.from(CHAT_TABLE).select('user_id'); (data || []).forEach(r => chatUids.add(String(r.user_id))); } catch {} }
+    _chatFile.forEach(m => chatUids.add(String(m.user_id)));
+    let purged = 0;
+    for (const uid of chatUids) { if (uid && uid !== 'null' && uid !== 'undefined' && !valid.has(uid)) { await chatDeleteByUser(uid); purged++; } }
+    await aiCacheSet('chatorphans:sweptv1', Date.now());
+    if (purged) console.log(`[Chat] purge orphelins (one-shot) : ${purged} compte(s) supprime(s) nettoye(s)`);
+  } catch (e) { console.warn('[Chat] purge orphelins:', e && e.message); }
+}
+const _orphanSweepT = setTimeout(() => { chatPurgeOrphans(); }, 15000);   // différé : laisse Supabase + miroir se charger
+if (_orphanSweepT.unref) _orphanSweepT.unref();
+
 // ── Édition du texte d'un message (admin) ──────────────────────
 async function chatUpdate(id, text) {
   _chatDirty(null);   // userId inconnu ici → on invalide tout (rare : action admin)
@@ -951,6 +1011,8 @@ module.exports = {
   chatUnread,
   chatThreads,
   chatDelete,
+  chatDeleteByUser,
+  chatPurgeOrphans,
   chatUpdate,
   chatReact,
   weeklyReportSave,
@@ -959,6 +1021,8 @@ module.exports = {
   emailLogAdd,
   aiCacheGet,
   aiCacheSet,
+  aiCacheDel,
+  aiCacheDelPrefix,
   aiCachePrune,
   getEgressStats,
   dbHealth,
@@ -1174,6 +1238,26 @@ async function aiCacheSet(key, value) {
   }
   _aiCacheFile[k] = value;
   _aiCacheSaveFile();
+}
+// Suppression d'UNE clé KV exacte (RAM + fichier + Supabase). Best-effort.
+async function aiCacheDel(key) {
+  const k = String(key);
+  _aiMem.delete(k);
+  if (Object.prototype.hasOwnProperty.call(_aiCacheFile, k)) { delete _aiCacheFile[k]; _aiCacheSaveFile(); }
+  if (_aiSupabaseDown()) return;
+  await _aiCacheEnsureDb();
+  if (_aiCacheDb) { try { await supabase.from(AICACHE_TABLE).delete().eq('key', k); } catch {} }
+}
+// Suppression de TOUTES les clés KV commençant par `prefix` (RAM + fichier + Supabase). Best-effort.
+async function aiCacheDelPrefix(prefix) {
+  const p = String(prefix);
+  for (const k of [..._aiMem.keys()]) if (k.startsWith(p)) _aiMem.delete(k);
+  let fileChanged = false;
+  for (const k of Object.keys(_aiCacheFile)) if (k.startsWith(p)) { delete _aiCacheFile[k]; fileChanged = true; }
+  if (fileChanged) _aiCacheSaveFile();
+  if (_aiSupabaseDown()) return;
+  await _aiCacheEnsureDb();
+  if (_aiCacheDb) { try { await supabase.from(AICACHE_TABLE).delete().like('key', p + '%'); } catch {} }
 }
 // Purge des entrées plus vieilles que maxAgeMs (rétention "max 1 mois").
 // ⚠️ FILTRÉE PAR PRÉFIXE : la table est devenue un KV générique — à côté des caches IA
