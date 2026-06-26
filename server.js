@@ -2074,11 +2074,70 @@ function _calHistMerge(items) {
   const seen = new Set((items || []).filter(e => e && e.currency && e.title).map(_calHistKey));
   return (items || []).concat([..._calHist.values()].filter(e => !seen.has(e._k)));
 }
+
+// ── IA : fourchette LOW/HIGH estimée par événement (cachée DURABLEMENT + préchauffée, JAMAIS à l'ouverture). ──
+// Le frontend rend déjà ev.high / ev.low (sinon « — »). On les remplit à partir du consensus de prévision + de la
+// dispersion typique de l'indicateur (mix prévision/marché). Clé = devise|titre|prévision (re-estime si la prévision change).
+const _calRangeCache = new Map();   // key → { low, high }
+try { auth.aiCacheGet('calrange1:all').then(o => { if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) if (v && v.high && v.low) _calRangeCache.set(k, v); }).catch(() => {}); } catch {}
+let _calRangeDirty = false;
+function _calRangeKey(ev) { return String(ev.currency || '').toUpperCase() + '|' + String(ev.title || '').toLowerCase().replace(/\s+/g, ' ').trim() + '|' + String(ev.forecast || '').trim(); }
+function _calApplyRanges(items) {
+  for (const ev of items || []) {
+    if (!ev || (ev.high && ev.low)) continue;
+    if (!String(ev.forecast || '').trim()) continue;
+    const r = _calRangeCache.get(_calRangeKey(ev));
+    if (r && r.low && r.high) { ev.low = r.low; ev.high = r.high; }
+  }
+  return items;
+}
+let _calRangeBusy = false;
+async function _calEnsureRanges() {
+  if (_calRangeBusy) return; _calRangeBusy = true;
+  let budget = 4;
+  try {
+    let items = [];
+    try { items = await _buildTVCalendar(); } catch {}
+    const now = Date.now();
+    for (const ev of items || []) {
+      if (!ev) continue;
+      const fc = String(ev.forecast || '').trim();
+      if (!fc) continue;                                          // pas de prévision → pas de fourchette fiable
+      if ((ev.timestamp || 0) < now - 2 * 86400000) continue;     // publié il y a > 2 j → inutile
+      const key = _calRangeKey(ev);
+      if (_calRangeCache.has(key)) continue;                      // déjà estimé (durable)
+      if (budget <= 0) continue;
+      if (typeof aiAllowed === 'function' && !aiAllowed('analyst', { priority: 'background' })) { budget = 0; continue; }
+      budget--;
+      try {
+        const out = await ai.generateText(
+          `Événement économique : "${ev.title}" (${ev.currency || ''}). Consensus de prévision : ${fc}. ` +
+          `Précédent : ${ev.previous || 'n/d'}. Donne une fourchette PLAUSIBLE pour la valeur réelle à venir : un BAS ` +
+          `et un HAUT réalistes (la dispersion typique des analystes autour du consensus pour CE type d'indicateur). ` +
+          `Garde EXACTEMENT le même format/unité que la prévision (%, M, B, K, points…) et assure bas <= consensus <= haut. ` +
+          `Réponds UNIQUEMENT en JSON compact, rien d'autre : {"low":"...","high":"..."}.`, 60);
+        const m = String(out || '').match(/\{[\s\S]*?\}/);
+        if (m) {
+          const j = JSON.parse(m[0]);
+          if (j && j.low != null && j.high != null) {
+            _calRangeCache.set(key, { low: String(j.low).slice(0, 14), high: String(j.high).slice(0, 14) });
+            _calRangeDirty = true;
+            if (typeof aiNote === 'function') aiNote('analyst');
+          }
+        }
+      } catch {}
+    }
+  } finally { _calRangeBusy = false; }
+}
+setInterval(() => _calEnsureRanges().catch(() => {}), 16 * 60 * 1000);   // préchauffe (éco quota ; durable une fois caché)
+setInterval(() => { if (_calRangeDirty) { _calRangeDirty = false; const o = {}; for (const [k, v] of _calRangeCache) o[k] = v; auth.aiCacheSet('calrange1:all', o).catch(() => {}); } }, 5 * 60 * 1000);
+setTimeout(() => _calEnsureRanges().catch(() => {}), 25000);   // 1er passage peu après le démarrage
+
 app.get('/api/calendar-events', async (_req, res) => {
   // SOURCE PRINCIPALE : TradingView (actuals natifs, aucun matching) → exact + temps réel + anciennes données.
   let items = [];
   try { items = await _buildTVCalendar(); } catch {}
-  if (items && items.length) { _calHistAbsorb(items); return res.json({ items: _calHistMerge(items) }); }
+  if (items && items.length) { _calHistAbsorb(items); return res.json({ items: _calApplyRanges(_calHistMerge(items)) }); }
 
   // REPLI (si TradingView est indisponible) : ancienne logique faireconomy + overlay des actuals.
   if (!getCalendarRaw().length) await _ensureCalendar();
@@ -2086,7 +2145,7 @@ app.get('/api/calendar-events', async (_req, res) => {
   try { _backfillActualsFromNews(); } catch {}
   const its = _overlayActuals(getCalendarRaw());
   _calHistAbsorb(its);
-  res.json({ items: _calHistMerge(its) });
+  res.json({ items: _calApplyRanges(_calHistMerge(its)) });
 });
 
 // Détail d'un événement (Specs + History) lu sur la page FF — SANS Related Stories.
