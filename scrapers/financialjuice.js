@@ -66,6 +66,7 @@ let _authDone     = false;      // true once first authenticate() completed
 let _seenHttp     = new Set();  // deduplicate HTTP-polled items
 let _rawLogCount  = 0;          // log raw field names for first few items
 let _dbgRedCount  = 0;          // DEBUG temporaire : capture la donnee brute des items NON-urgents (trouver le flag rouge FJ manque)
+let _dbgEvCount   = 0;          // DEBUG temporaire : trace le type d'evenement FJ (sendUpdates vs sendHeadlineUpdated) AVANT dedup
 let _wsRetryCount = 0;          // consecutive WS failures — drives exponential backoff
 let _pagePollingTimer = null;   // setInterval handle for in-page news polling
 
@@ -559,11 +560,11 @@ function ingestRawData(rawData, label) {
   if (rawData.ev && typeof rawData.msg === 'string') {
     try {
       const parsed = JSON.parse(rawData.msg);
-      if (Array.isArray(parsed)) {
-        for (const d of parsed) ingestRawData(d, label);
-      } else if (parsed && typeof parsed === 'object') {
-        ingestRawData(parsed, label);
-      }
+      const _arr = Array.isArray(parsed) ? parsed : (parsed && typeof parsed === 'object' ? [parsed] : []);
+      // DEBUG temporaire : tracer le TYPE d'evenement + champs d'importance AVANT toute dedup
+      // → revele si le "rouge" FJ arrive via une MISE A JOUR (sendHeadlineUpdated) que DTP jette comme doublon.
+      for (const d of _arr) { if (_dbgEvCount < 250) { _dbgEvCount++; try { console.log('[FJev] ' + rawData.ev + ' B=' + d.Breaking + ' Lv=' + JSON.stringify(d.Level) + ' T=' + d.TypeID + ' Upd=' + JSON.stringify(d.Upd) + ' ch=' + label + ' | ' + String(d.Title || d.Text || '').slice(0, 55)); } catch (e) {} } }
+      for (const d of _arr) ingestRawData(d, label);
     } catch (e) {
       console.error('[FJ ingest] msg parse error:', e.message, rawData.msg.substring(0, 80));
     }
