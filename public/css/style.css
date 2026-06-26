@@ -9940,3 +9940,21 @@ body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-
 .pd-section-trigger.pd-open,
 .econ-group-row:hover,.sym-bz-row:hover,.wac-row:hover,.prep-item:hover,.prep-watchlist-row:hover,.arl-row:not(.arl-row--weekly):hover,.bank-row:not(.bank-row--active):hover,.sbs-cdd-item:hover,
 .news-item:hover { box-shadow: none !important; }
+
+/* === Mode clair : panneau reglages (profil / Apparence / Abonnement…) FULL WHITE === */
+body.theme-light .pd-drawer,
+body.theme-light .pd-body,
+body.theme-light .pd-section,
+body.theme-light .pd-section-trigger,
+body.theme-light .pd-section-inner { background: #ffffff !important; }
+body.theme-light .pd-section-content { background: #f7f8fa !important; }
+body.theme-light .pd-input,
+body.theme-light .pd-pw-wrap { background: #ffffff !important; border-color: #e2e5ea !important; }
+body.theme-light .pd-section-icon-wrap { background: #f0f1f4 !important; border-color: #e2e5ea !important; color: #565c64 !important; }
+body.theme-light .pd-section-trigger,
+body.theme-light .pd-section-label,
+body.theme-light .pd-label,
+body.theme-light .pd-input { color: #181b20 !important; }
+body.theme-light .pd-section { border-bottom-color: #e8eaef !important; }
+body.theme-light .pd-section-trigger:hover,
+body.theme-light .pd-section-trigger.pd-open { background: #f5f6f8 !important; }
