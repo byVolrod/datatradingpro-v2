@@ -5,19 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>DTP | Maintenance</title>
 <meta name="theme-color" content="#0b0c0f">
+<link rel="icon" type="image/png" href="/favicon.png">
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   html,body{height:100%}
   body{
-    background:#0b0c0f;color:#e3b23a;
-    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',Roboto,Arial,sans-serif;
+    background:#0b0c0f;color:#e9eaed;
+    font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',Roboto,Helvetica,Arial,sans-serif;
     display:flex;align-items:center;justify-content:center;min-height:100dvh;padding:24px;text-align:center;
     -webkit-font-smoothing:antialiased;
   }
-  h1{font-size:22px;font-weight:500;line-height:1.4;letter-spacing:.01em}
+  .wrap{max-width:480px;width:100%}
+  .logo{font-size:27px;font-weight:800;letter-spacing:-.6px;margin-bottom:30px}
+  .logo b{background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-family:ui-monospace,'SF Mono',Menlo,monospace;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#e3b23a;background:rgba(227,178,58,.08);border:1px solid rgba(227,178,58,.28);border-radius:999px;padding:6px 14px;margin-bottom:22px}
+  .dot{width:7px;height:7px;border-radius:50%;background:#e3b23a;animation:pulse 1.8s ease-in-out infinite}
+  h1{font-size:23px;font-weight:700;line-height:1.25;margin-bottom:14px}
+  p{font-size:14.5px;line-height:1.65;color:#8b919c}
+  .foot{margin-top:34px;font-size:12px;color:#54585f}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 </style>
 </head>
 <body>
-  <h1>site en maintenance</h1>
+  <div class="wrap">
+    <div class="logo">Data<b>TradingPro</b></div>
+    <div class="badge"><span class="dot"></span>Maintenance</div>
+    <h1>Le site est temporairement hors ligne</h1>
+    <p>Nous effectuons une mise à jour. Le site sera de retour très bientôt.<br>Merci de votre patience.</p>
+    <div class="foot">DataTradingPro — Terminal de données macro &amp; forex</div>
+  </div>
 </body>
 </html>

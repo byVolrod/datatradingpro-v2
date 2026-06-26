@@ -9919,3 +9919,19 @@ body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-
 /* === Vert/rouge IDENTIQUES sur Barometre / COT / DMX -> standard de marque #00e676 / #ff3d00 === */
 .cot-dot--l,.dmx-bar-l,.dmx-legend-long-dot{background:#00e676 !important;}
 .cot-dot--s,.dmx-bar-s,.dmx-legend-short-dot{background:#ff3d00 !important;}
+
+/* === News : refonte "flat" epuree (terminal pro) — texte medium, separateurs tres discrets, fond froid, alerte rouge legere === */
+.news-item .news-headline { font-weight: 450 !important; }                                  /* texte medium/standard, plus de gras massif */
+.news-item { border-bottom: 1px solid rgba(255,255,255,0.028) !important; background: #121317 !important; }  /* separateur a peine perceptible + fond froid neutre */
+.news-item:hover { background: #16171c !important; }
+.news-item--urgent, .news-item--breaking { background: rgba(255,61,0,0.045) !important; border-bottom: 1px solid rgba(255,61,0,0.07) !important; }  /* alerte rouge tres legere/transparente, se fond */
+.news-item--urgent:hover, .news-item--breaking:hover { background: rgba(255,61,0,0.085) !important; }
+
+/* === Vert/rouge IDENTIQUES (complet COT/DMX -> standard de marque #00e676 / #ff3d00) === */
+.cot-dot--l, .dmx-bar-l, .dmx-legend-long-dot { background: #00e676 !important; }
+.cot-dot--s, .dmx-bar-s, .dmx-legend-short-dot { background: #ff3d00 !important; }
+.cot-float--long, .cot-green { color: #00e676 !important; }
+.cot-float--short, .cot-red { color: #ff3d00 !important; }
+
+/* === Dates calendrier en FR : majuscule initiale du jour (jeudi -> Jeudi) === */
+.cal-day-sep, .cal-day-sep td, .date-header, .wac-day { text-transform: capitalize !important; }
