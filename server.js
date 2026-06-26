@@ -10000,7 +10000,7 @@ const CB_ACTION_RE = /\b(cuts?\s+rates?|hikes?\s+rates?|raises?\s+rates?|lowers?
 
 // ── Géopolitique tier-1 : action militaire / attaque / guerre → IMPORTANT (rouge).
 //    Les simples propos diplomatiques ("we prefer diplomacy") NE matchent PAS ici.
-const GEO_TIER1_RE = /\b(attacks?|assault|invasions?|invade[sd]?|air\s?strikes?|missiles?|drone\s+strikes?|sho(?:t|oting)\s+down|shoots?\s+down|warheads?|nuclear\s+(?:strike|attack|test|weapon)|declares?\s+war|act\s+of\s+war|retaliat\w*|military\s+(?:response|action|strike|operation|retaliation)|respond\s+militarily|escalat\w*|strait\s+of\s+hormuz|oil\s+embargo|emergency\s+(?:meeting|session|summit))\b/i;
+const GEO_TIER1_RE = /\b(attacks?|assault|invasions?|invade[sd]?|air\s?strikes?|missiles?|drone\s+strikes?|sho(?:t|oting)\s+down|shoots?\s+down|warheads?|nuclear\s+(?:strike|attack|test|weapon)|declares?\s+war|act\s+of\s+war|retaliat\w*|military\s+(?:response|action|strike|operation|retaliation)|respond\s+militarily|escalat\w*|(?:strait\s+of\s+)?hormuz|blockade|oil\s+embargo|framework\s+agreement|trilateral\s+(?:agreement|framework)|emergency\s+(?:meeting|session|summit))\b/i;
 // Move de marché FX / matières : actif (EUR/USD/Gold/Oil…) + verbe de mouvement ADJACENT (≤34 car. :
 // picks up / surges / slides / breaks above…) → flag IMPORTANT (pastille rouge + tri en tête). L'adjacence
 // évite le sur-flag du type "billion dollar deal … revenue rises" (verbe trop loin de l'actif).
