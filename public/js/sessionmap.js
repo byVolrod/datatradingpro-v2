@@ -75,7 +75,7 @@
       if (typeof am5geodata_worldLow !== 'undefined' && am5geodata_worldLow && am5geodata_worldLow.features) {
         var gj = L.geoJSON(_clipDateline(am5geodata_worldLow), {
           interactive: false,
-          style: { fillColor: '#46aa6e', fillOpacity: 1, color: '#2d7049', weight: 0.5, opacity: 0.7 }
+          style: { fillColor: '#237a42', fillOpacity: 1, color: '#164d2b', weight: 0.5, opacity: 0.7 }
         });
         if (gj.getLayers().length > 5) { gj.addTo(map); hasVector = true; }
       }
