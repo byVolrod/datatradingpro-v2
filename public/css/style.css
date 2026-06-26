@@ -1321,6 +1321,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: flex;
   align-items: center;           /* pastille rouge CENTRÉE verticalement dans la ligne (demande) */
   justify-content: flex-start;   /* icône rouge à l'EXTRÊME GAUCHE (comme DTP) */
+  min-height: 18.75px;           /* même hauteur que la 1re ligne du titre -> icône alignée au centre */
 }
 .news-alert-icon {
   width: 16px;
@@ -1340,7 +1341,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   color: #bbb;
   width: var(--c-time);
   flex-shrink: 0;
-  padding-top: 2px;
+  line-height: 18.75px;            /* = hauteur 1re ligne du titre (12.5px*1.5) -> texte centré verticalement, plus de decalage haut */
   letter-spacing: 0.02em;
 }
 .news-item--urgent .news-time  { color: #ddd; }
@@ -1353,7 +1354,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   width: var(--c-cat);
   flex-shrink: 0;
   padding-right: 10px;
-  padding-top: 2px;
+  line-height: 18.75px;            /* aligné sur la 1re ligne du titre (centré) */
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1364,13 +1365,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .news-arrow-col {
   width: var(--c-arrow);
   flex-shrink: 0;
-  padding-top: 1px;
+  display: flex;
+  align-items: center;             /* chevron centré verticalement sur la 1re ligne du titre */
+  justify-content: center;
+  min-height: 18.75px;
   font-size: 10px;
   color: rgba(255,255,255,0.28);
   cursor: pointer;
   user-select: none;
   line-height: 1.45;
-  text-align: center;
   transition: color 0.15s;
 }
 .news-arrow-col:hover { color: rgba(255,255,255,0.65); }
