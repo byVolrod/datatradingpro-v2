@@ -8,6 +8,8 @@
 function _deskLight(){ try { return !!(document.body && document.body.classList.contains('theme-light')); } catch(e){ return false; } }
 function _deskChartBg(){ return _deskLight() ? 0xffffff : 0x101319; }   /* sombre = anthracite eye-comfort (moins de noir pur) */
 function _deskChartTxt(){ return _deskLight() ? 0x334155 : 0xcbd5e1; }
+function _deskChartGrid(){ return _deskLight() ? 0xd0d4da : 0x2b2e36; }
+function _deskChartAxisTxt(){ return _deskLight() ? 0x596270 : 0x8a909a; }
 
 // ── amCharts theme matching DataTradingPro ────────────────────────────────────
 function applyTerminalTheme(root) {
@@ -27,20 +29,22 @@ function applyTerminalTheme(root) {
     reuse: true,
   });
 
-  theme.rule('Grid').setAll({ stroke: am5.color(0x1e1e1e), strokeOpacity: 1, strokeWidth: 1 });
-  theme.rule('AxisRendererX').setAll({ stroke: am5.color(0x1e1e1e), strokeOpacity: 1 });
-  theme.rule('AxisRendererY').setAll({ stroke: am5.color(0x1e1e1e), strokeOpacity: 1 });
-  theme.rule('Label').setAll({ fill: am5.color(0x666666), fontSize: 10, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif' });
+  // Grille/axes : TRÈS discrets (rendu institutionnel propre, jamais de "trait plein"), theme-aware
+  theme.rule('Grid').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: _deskLight() ? 0.6 : 0.3, strokeWidth: 1, strokeDasharray: [2, 4] });
+  theme.rule('AxisRendererX').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: 0.5 });
+  theme.rule('AxisRendererY').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: 0.5 });
+  theme.rule('Label').setAll({ fill: am5.color(_deskChartAxisTxt()), fontSize: 10, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif' });
+  // Infobulles CARRÉES (cohérent avec l'identité desk) + contraste net
   theme.rule('Tooltip').setAll({
     background: am5.Rectangle.new(root, {
-      fill: am5.color(0x141414),
-      stroke: am5.color(0x252525),
+      fill: am5.color(0x12141a),
+      stroke: am5.color(0x2b2e36),
       strokeWidth: 1,
-      cornerRadiusTL: 3, cornerRadiusTR: 3, cornerRadiusBL: 3, cornerRadiusBR: 3,
+      cornerRadiusTL: 0, cornerRadiusTR: 0, cornerRadiusBL: 0, cornerRadiusBR: 0,
     }),
-    paddingTop: 6, paddingBottom: 6, paddingLeft: 10, paddingRight: 10,
+    paddingTop: 7, paddingBottom: 7, paddingLeft: 11, paddingRight: 11,
   });
-  theme.rule('Label', ['tooltip']).setAll({ fill: am5.color(0xd8d8d8), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif' });
+  theme.rule('Label', ['tooltip']).setAll({ fill: am5.color(0xe2e5ea), fontSize: 11, fontWeight: '500', fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif' });
 
   return theme;
 }
