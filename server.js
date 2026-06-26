@@ -10068,26 +10068,28 @@ function _normHl(s) {
 function _hlTokens(s) { return new Set(_normHl(s).split(' ').filter(w => w.length > 3)); }
 // Doublon = titre identique, OU identique après nettoyage préfixe/source, OU ≥80% de tokens
 // communs avec une news des 45 dernières minutes (même histoire reformulée par une autre source).
-function isDuplicate(item, list) {
+function findDuplicate(item, list) {
   const n  = norm(item.headline);
   const hn = _normHl(item.headline);
   const tk = _hlTokens(item.headline);
   const ts = item.timestamp || Date.now();
   for (const e of list) {
-    if (norm(e.headline) === n) return true;                       // exact
+    if (norm(e.headline) === n) return e;                          // exact
     if (Math.abs((e.timestamp || 0) - ts) > 180 * 60 * 1000) continue;   // quasi-dup : fenêtre 3 h (attrape les reprises tardives)
-    if (_normHl(e.headline) === hn) return true;                   // identique après nettoyage
+    if (_normHl(e.headline) === hn) return e;                      // identique après nettoyage
     if (tk.size >= 4) {
       const et = _hlTokens(e.headline);
       if (et.size >= 4) {
         let inter = 0; for (const t of tk) if (et.has(t)) inter++;
         const uni = tk.size + et.size - inter;
-        if (uni > 0 && inter / uni >= 0.72) return true;          // ~même news reformulée (seuil assoupli)
+        if (uni > 0 && inter / uni >= 0.72) return e;             // ~même news reformulée (seuil assoupli)
       }
     }
   }
-  return false;
+  return null;
 }
+// Doublon = présence d'une jumelle. (findDuplicate renvoie l'élément trouvé ; isDuplicate un booléen.)
+function isDuplicate(item, list) { return findDuplicate(item, list) !== null; }
 
 // ─── Broadcast ───────────────────────────────────────────────────────────────
 
@@ -10144,10 +10146,25 @@ function mergeItems(incoming) {
   });
   // Enrich tags and upgrade priority for all incoming items.
   // Tag PRÉCIS sur titre + description (plus de signal → moins d'erreurs d'affectation).
-  const newItems = relevant
-    .map(item => item._briefing ? item : { ...item, tags: extractTags(item.category, (item.headline || '') + ' ' + (item.description || '')) })
-    .map(upgradeItemPriority)
-    .filter(item => !isDuplicate(item, allNews));
+  // Dedup FLAG-PRESERVING : au lieu de jeter aveuglément un doublon, on PROMEUT la copie déjà
+  // stockée si l'entrant est « meilleur » (urgent / high / FinancialJuice / description plus riche).
+  // Sinon une jumelle RSS antérieure SANS le flag rouge masquerait la version FJ urgente (2e vecteur
+  // de perte du flag rouge identifié). On garde prev (éventuellement promu) et on jette l'entrant.
+  const newItems = [];
+  for (const item of relevant
+      .map(it => it._briefing ? it : { ...it, tags: extractTags(it.category, (it.headline || '') + ' ' + (it.description || '')) })
+      .map(upgradeItemPriority)) {
+    const prev = findDuplicate(item, allNews);
+    if (prev) {
+      if (item.urgent && !prev.urgent) prev.urgent = true;
+      if (item.priority === 'high' && prev.priority !== 'high') prev.priority = 'high';
+      if (item._highImpact && !prev._highImpact) prev._highImpact = true;
+      if (item.source === 'FinancialJuice' && prev.source !== 'FinancialJuice') prev.source = 'FinancialJuice';
+      if ((item.description?.length || 0) > (prev.description?.length || 0) + 30) prev.description = item.description;
+      continue;   // doublon : prev conservé (promu si besoin), entrant jeté → plus de masquage du flag rouge
+    }
+    newItems.push(item);
+  }
   if (newItems.length === 0) return 0;
 
   // Spam cap: max 8 data items per batch across all data categories

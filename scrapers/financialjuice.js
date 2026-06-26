@@ -578,8 +578,9 @@ function ingestRawData(rawData, label) {
   console.log(`[FJ ${label}] ${item.headline.substring(0, 70)}`);
   // DEBUG temporaire : pour les items NON-urgents, dump du canal + donnee brute complete
   // → permet d'identifier QUEL champ/canal FJ utilise pour marquer une news en rouge (que le scraper rate).
-  if (!item.urgent && _dbgRedCount < 90) { _dbgRedCount++; try { console.log('[FJdbg] ch=' + label + ' ' + JSON.stringify(rawData).slice(0, 520)); } catch (e) {} }
-  if (label === 'LIVE' && _pushCallback) try { _pushCallback(item); } catch {}
+  if (!item.urgent && _dbgRedCount < 160) { _dbgRedCount++; try { console.log('[FJdbg] ch=' + label + ' keys=' + Object.keys(rawData).join(',') + ' ' + JSON.stringify(rawData).slice(0, 1200)); } catch (e) {} }
+  // label vaut maintenant le vrai canal (feed:all / feed:lite / feed:lite_rid:N) pour les pushes live → on doit accepter feed:* en plus de 'LIVE' sinon le push callback s'arrete (regression).
+  if (_pushCallback && (label === 'LIVE' || (label && label.startsWith('feed:')))) try { _pushCallback(item); } catch {}
 }
 
 function handleCentrifugoMsg(msg) {
@@ -628,7 +629,7 @@ function handleCentrifugoMsg(msg) {
     const rawData = msg.push?.pub?.data || msg.push?.data;
     if (rawData) {
       console.log(`[FJ push] ch=${ch} data=${JSON.stringify(rawData).substring(0, 120)}`);
-      ingestRawData(rawData, 'LIVE');
+      ingestRawData(rawData, ch);   // propage le VRAI canal (avant: 'LIVE' en dur → canal jete, hypothese canal intestable)
     } else {
       console.log('[FJ push] no data path:', JSON.stringify(msg.push).substring(0, 200));
     }
@@ -711,8 +712,8 @@ async function connectCentrifugoViaBrowser() {
   _fjWsPage = await browser.newPage();
 
   // Expose relay callbacks to the page
-  await _fjWsPage.exposeFunction('_fjRelay', (rawData) => {
-    if (rawData) ingestRawData(rawData, 'LIVE');
+  await _fjWsPage.exposeFunction('_fjRelay', (rawData, channel) => {
+    if (rawData) ingestRawData(rawData, channel || 'LIVE');
   });
   await _fjWsPage.exposeFunction('_fjHistRelay', (pubs) => {
     if (Array.isArray(pubs) && pubs.length > 0) {
@@ -787,8 +788,9 @@ async function connectCentrifugoViaBrowser() {
               }
               const rawData = msg.push?.pub?.data || msg.push?.data;
               if (rawData) {
+                const ch = msg.push?.channel || '?';
                 console.log('[FJ-intercept] push data:', JSON.stringify(rawData).substring(0, 100));
-                window._fjRelay(rawData);
+                window._fjRelay(rawData, ch);
               }
             } catch {}
           }
