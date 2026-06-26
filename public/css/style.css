@@ -671,7 +671,7 @@ html, body {
 }
 
 .nav-item--mobile-only { display: none; }   /* onglet MARCHÉS : visible uniquement sur mobile */
-.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.025); }
+.nav-item:hover { color: var(--text); background: rgba(255,255,255,0.035); }
 .nav-item--active { color: var(--text); background: transparent; }
 
 /* Topbar right */
@@ -700,14 +700,14 @@ html, body {
   border: 1px solid transparent;
   cursor: pointer;
   border-radius: var(--radius);
-  transition: color .2s ease-out, background .2s ease-out, transform .2s ease-out;
+  transition: color .16s ease-out, background .16s ease-out, transform .16s ease-out;
   position: relative;
 }
-/* Hover discret & NET : légère mise en lumière + micro-grossissement, sans saut ni gros halo */
-.topbar-icon:hover { color: var(--orange, #e3b23a); background: rgba(255,255,255,0.045); border-color: var(--border); }
+/* Hover discret & NET : légère mise en lumière, opacité unifiée avec nav/right-tab (0.035) */
+.topbar-icon:hover { color: var(--orange, #e3b23a); background: rgba(255,255,255,0.035); border-color: var(--border); }
 .topbar-icon:hover svg { filter: drop-shadow(0 0 2px rgba(255,255,255,0.28)); }
-.topbar-icon svg { width: 18px; height: 18px; transition: filter .2s ease-out; }   /* + grandes → plus lisibles */
-.topbar-icon--ai svg { width: 21px; height: 21px; }
+.topbar-icon svg { width: 18px; height: 18px; transition: filter .16s ease-out; }   /* taille de glyphe topbar UNIFORME */
+.topbar-icon--ai svg { width: 18px; height: 18px; }
 .topbar-icon--ai:hover { transform: scale(1.02); }                                 /* AI : effet subtil et net */
 .topbar-icon--ai:hover svg { filter: drop-shadow(0 0 1px rgba(0,230,118,0.18)); }
 .topbar-icon--sqwk:hover svg { filter: drop-shadow(0 0 2px rgba(239,68,68,0.3)); }
@@ -2158,7 +2158,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Right panel tabs — même design que la navbar */
 .right-panel-tabs {
   height: 30px;
-  background: rgb(26, 26, 26);
+  background: var(--bg2);          /* surface unifiee #16171b (etait #1a1a1a hors-charte) */
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: stretch;
@@ -5755,9 +5755,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; border-radius: 4px; transition: color .15s, background-color .15s, border-color .15s;
 }
-.stf-btn:hover { color: #ff5e00; background: rgba(255, 94, 0, 0.10); }   /* hover DTP : texte + fond orange 10% */
-.stf-btn--active {   /* DTP exact : fond orange 10% + texte orange + bordure orange 30% (PAS plein/blanc) */
-  background: rgba(255, 94, 0, 0.10); border-color: rgba(255, 94, 0, 0.30); color: #ff5e00;
+.stf-btn:hover { color: var(--orange); background: var(--orange-bg); }   /* or DTP (etait #ff5e00 = orange PMT banni) */
+.stf-btn--active {   /* or DTP : fond + texte + bordure or (charte) */
+  background: var(--orange-bg); border-color: rgba(227,178,58,0.30); color: var(--orange);
 }
 .strength-chart-label {
   font-size: 11px; font-weight: 600; color: var(--text);
@@ -6555,15 +6555,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   position: sticky;
   top: 0;
   z-index: 1;
-  background: #080808;
-  color: #ffffff;
-  font-size: 10px;
-  font-weight: 700;
+  background: #101012;             /* en-tete sticky unifie avec les autres tables (etait #080808 noir/gras/blanc) */
+  color: #8a93a3;
+  font-size: 11px;
+  font-weight: 600;
   font-family: var(--font-ui);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 8px 6px 7px;
-  border-bottom: 1px solid #111;
+  border-bottom: 1px solid var(--border);
   text-align: left;
   white-space: nowrap;
 }
@@ -6622,10 +6622,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-row {
   border-bottom: 1px solid var(--hud-line);   /* séparateur horizontal harmonisé (grille de lecture) */
   border-radius: 0;
-  transition: background 0.12s;
+  transition: background 0.15s;
   cursor: default;
 }
-.cal-row:hover { background: #0e0e0e; }
+.cal-row:hover { background: rgba(227,178,58,0.06); }   /* hover or unifie avec les autres tables (etait #0e0e0e gris) */
 
 .cal-row td {
   padding: 6px 6px;
@@ -9053,7 +9053,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .fxl-th {
   position: sticky; top: 0; z-index: 2; background: #0d0e11;
-  color: #737880; font-weight: 500; font-size: 11px; letter-spacing: .4px; text-transform: uppercase;
+  color: #8a93a3; font-weight: 600; font-size: 11px; letter-spacing: .4px; text-transform: uppercase;
   padding: 9px 12px; border-bottom: 1px solid var(--hud-line); border-right: 1px solid var(--hud-line); white-space: nowrap;
 }
 .fxl-th:last-child, .fxl-td:last-child { border-right: none; }
@@ -9149,8 +9149,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .taux-wrap { overflow-x: auto; }
 .taux-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
 .taux-table thead th { position: sticky; top: 0; background: #0d0d10; color: #8a8a93; font-weight: 600; text-align: left; padding: 9px 14px; border-bottom: 1px solid #232429; font-size: 10.5px; text-transform: uppercase; letter-spacing: .05em; white-space: nowrap; z-index: 1; }
-.taux-table tbody td { padding: 11px 14px; border-bottom: 1px solid #16171b; vertical-align: middle; }
-.taux-table tbody tr:hover { background: #16171b; }
+.taux-table tbody td { padding: 9px 14px; border-bottom: 1px solid var(--hud-line); vertical-align: middle; }
+.taux-table tbody tr:hover { background: rgba(227,178,58,0.06); }   /* hover or unifie + ligne fine --hud-line + densite */
 .taux-bank { display: flex; align-items: center; gap: 10px; min-width: 190px; }
 .taux-flag { width: 26px; height: 20px; object-fit: cover; border-radius: 3px; flex: 0 0 auto; border: 1px solid #232429; }
 .taux-bank span { display: flex; flex-direction: column; line-height: 1.25; }
