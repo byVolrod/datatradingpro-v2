@@ -9905,3 +9905,13 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 /* === (3) Premium "leger" — Eye Comfort / Command Center : glow accent discret + transitions fluides (150-200ms) === */
 .right-tab--active,.nav-item--active,.nav-item.active{text-shadow:0 0 10px rgba(227,178,58,.28);}
 .nav-item,.right-tab,.news-item,.topbar-icon,.cot-type-btn,.dmx-tf-btn,button{transition:color .16s ease,background-color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}
+
+/* === Premium "léger" dosé — Eye Comfort / Command Center (densité & flush conservés) === */
+/* Profondeur douce + délimitation des cartes : fin filet clair en haut (pas de gaps entre panneaux collés) */
+.panel,.right-tab-panel,.sym-panel,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel,.view-panel,.np-panel,.ai-panel,.sqwk-panel,.chat-panel{box-shadow:inset 0 1px 0 rgba(255,255,255,.04);}
+/* Sheen "verre" très subtil sur les en-têtes de panneaux */
+.panel-header,.chart-header,.sym-pheader,.sbs-head,.cot-header-bar,.dmx-header-bar,.ai-head{background-image:linear-gradient(180deg,rgba(255,255,255,.03),transparent 72%);}
+/* Verre (flou léger) sur les surfaces FLOTTANTES uniquement : menus, dropdowns, toasts */
+.sym-dd,.dtpsel-panel,.sbs-cdd-menu,.dtp-toast,.np-filter-menu{backdrop-filter:blur(9px) saturate(1.04);-webkit-backdrop-filter:blur(9px) saturate(1.04);}
+/* Mode clair : filet sombre discret (au lieu du blanc) pour garder la délimitation */
+body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-panel,body.theme-light .sbs-panel,body.theme-light .inst-panel,body.theme-light .dmx-panel,body.theme-light .clocks-panel,body.theme-light .view-panel{box-shadow:inset 0 1px 0 rgba(0,0,0,.04) !important;}

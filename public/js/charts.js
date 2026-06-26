@@ -6,7 +6,7 @@
 
 // ── Thème clair/sombre des graphiques (mode clair "full white") : fond + texte selon body.theme-light ──
 function _deskLight(){ try { return !!(document.body && document.body.classList.contains('theme-light')); } catch(e){ return false; } }
-function _deskChartBg(){ return _deskLight() ? 0xffffff : 0x0d0d0d; }
+function _deskChartBg(){ return _deskLight() ? 0xffffff : 0x101319; }   /* sombre = anthracite eye-comfort (moins de noir pur) */
 function _deskChartTxt(){ return _deskLight() ? 0x334155 : 0xcbd5e1; }
 
 // ── amCharts theme matching DataTradingPro ────────────────────────────────────
