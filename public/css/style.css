@@ -9839,6 +9839,8 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 
 /* === Carte sessions Leaflet (satellite) - marqueurs villes === */
 #am5-map .leaflet-container{background:#0b0c0f;font-family:var(--font-ui);outline:none;}
+/* Terminateur jour/nuit : bord FLOUTÉ -> ombre crépusculaire douce/réaliste (au lieu d'un bord net) */
+.lf-terminator{filter:blur(6px);}
 #am5-map .leaflet-control-attribution{background:rgba(11,12,15,.6);color:#7e8189;font-size:9px;}
 #am5-map .leaflet-control-attribution a{color:#9aa0ac;}
 .lf-city-wrap{pointer-events:none;}
