@@ -35,7 +35,6 @@
     el.style.background = '#0b0c0f';
 
     var map = L.map(el, {
-      preferCanvas: true,   // vecteurs rendus sur CANVAS (pas SVG) → supprime les bandes horizontales parasites (smear d'antimeridien sur les polygones qui croisent +/-180deg)
       center: [18, 6], zoom: 1.4, minZoom: 1, maxZoom: 7, zoomSnap: 0,
       zoomControl: false, attributionControl: true,
       // worldCopyJump retiré + maxBounds : un SEUL monde affiché → fini la réplication latérale
@@ -49,10 +48,32 @@
     // Carte VECTORIELLE on-brand (PAS de tuiles) : continents slate + bordures dorées sur fond charcoal en dégradé.
     // Réutilise le geodata amCharts worldLow déjà chargé (window.am5geodata_worldLow) comme couche GeoJSON Leaflet.
     el.style.background = 'radial-gradient(125% 105% at 55% 32%, #16181f 0%, #0b0c10 52%, #07080a 100%)';
+    // Retire les anneaux de polygones qui CROISENT l'antiméridien (±180°) → fin du "smear"
+    // (bande verte horizontale tracée en travers, ex. pointe est de la Russie rejoignant -180°).
+    function _clipDateline(geo) {
+      function crosses(ring) {
+        var e = false, w = false;
+        for (var i = 0; i < ring.length; i++) { if (ring[i][0] > 150) e = true; else if (ring[i][0] < -150) w = true; }
+        return e && w;
+      }
+      var feats = [];
+      (geo.features || []).forEach(function (f) {
+        if (!f.geometry) return;
+        var g = f.geometry, coords;
+        if (g.type === 'Polygon') {
+          coords = g.coordinates.filter(function (r) { return !crosses(r); });
+        } else if (g.type === 'MultiPolygon') {
+          coords = g.coordinates.map(function (poly) { return poly.filter(function (r) { return !crosses(r); }); })
+                                .filter(function (poly) { return poly.length; });
+        } else { feats.push(f); return; }
+        if (coords.length) feats.push({ type: f.type || 'Feature', properties: f.properties, geometry: { type: g.type, coordinates: coords } });
+      });
+      return { type: geo.type || 'FeatureCollection', features: feats };
+    }
     var hasVector = false;
     try {
       if (typeof am5geodata_worldLow !== 'undefined' && am5geodata_worldLow && am5geodata_worldLow.features) {
-        var gj = L.geoJSON(am5geodata_worldLow, {
+        var gj = L.geoJSON(_clipDateline(am5geodata_worldLow), {
           interactive: false,
           style: { fillColor: '#46aa6e', fillOpacity: 1, color: '#2d7049', weight: 0.5, opacity: 0.7 }
         });
@@ -67,7 +88,7 @@
     // Terminateur jour/nuit (si le plugin a chargé)
     if (typeof L.terminator === 'function') {
       try {
-        var term = L.terminator({ fillColor: '#03130b', fillOpacity: 0.64, color: '#03130b', weight: 0, interactive: false });
+        var term = L.terminator({ fillColor: '#070b14', fillOpacity: 0.5, color: '#070b14', weight: 0, interactive: false, className: 'lf-terminator' });
         term.addTo(map);
         window._dtpLfNight = setInterval(function () { try { term.setTime(new Date()); } catch (e) {} }, 60000);
       } catch (e) {}
