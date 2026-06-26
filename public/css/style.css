@@ -9894,3 +9894,14 @@ body.theme-light .clock-meta,
 body.theme-light .clock-tz,
 body.theme-light .chart-header-title { color: var(--text) !important; }
 body.theme-light .clock-gmt { color: var(--text2) !important; }
+
+/* === (1) Onglet droit actif -> DORE (coherent avec la nav principale) === */
+.right-tab--active{color:var(--orange,#e3b23a) !important;}
+
+/* === (2) Noms de widgets UNIFORMES (meme taille/police, MAJUSCULES) SANS tick dore a gauche === */
+.sym-ptitle::before,.panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before,.cot-header-label::before,.dmx-header-title::before{display:none !important;}
+.sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title,.cot-header-label,.dmx-header-title{font-size:11.5px !important;font-weight:600 !important;letter-spacing:.08em !important;text-transform:uppercase !important;}
+
+/* === (3) Premium "leger" — Eye Comfort / Command Center : glow accent discret + transitions fluides (150-200ms) === */
+.right-tab--active,.nav-item--active,.nav-item.active{text-shadow:0 0 10px rgba(227,178,58,.28);}
+.nav-item,.right-tab,.news-item,.topbar-icon,.cot-type-btn,.dmx-tf-btn,button{transition:color .16s ease,background-color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}
