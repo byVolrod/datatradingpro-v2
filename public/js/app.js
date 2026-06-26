@@ -965,6 +965,18 @@ function _groupSpeakerQuotes(items) {
     });
 }
 
+// FJ-urgent RÉCENT (≤30 min) → flotte en tête du flux (demande : "annonces importantes rouge de FJ en tête").
+// Au-delà de 30 min, retombe en ordre chronologique pour ne pas épingler une vieille alerte indéfiniment.
+function _isFreshFJUrgent(it) {
+  if (!it || it.urgent !== true) return false;
+  const isFJ = it.source === 'FinancialJuice' || String(it.id || '').startsWith('fj-');
+  return isFJ && (Date.now() - (it.timestamp || 0) < 30 * 60 * 1000);
+}
+function _newsCmp(a, b) {
+  const fa = _isFreshFJUrgent(a) ? 1 : 0, fb = _isFreshFJUrgent(b) ? 1 : 0;
+  if (fa !== fb) return fb - fa;                       // FJ-urgent récent d'abord
+  return (b.timestamp || 0) - (a.timestamp || 0);      // sinon, le plus récent d'abord
+}
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
   _syncNewsModeBtn();
@@ -991,7 +1003,7 @@ function renderNews(hasNew = false) {
 
   const fragment = document.createDocumentFragment();
   for (const [date, { items }] of sortedGroups) {
-    items.sort((a, b) => b.timestamp - a.timestamp);
+    items.sort(_newsCmp);   // FJ-urgent récent en tête, sinon chronologique
     const header = document.createElement('div');
     header.className = 'date-header';
     header.textContent = date;
