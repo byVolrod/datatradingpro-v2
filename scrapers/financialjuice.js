@@ -65,6 +65,7 @@ let _wsUp         = false;      // true when WS is open & confirmed
 let _authDone     = false;      // true once first authenticate() completed
 let _seenHttp     = new Set();  // deduplicate HTTP-polled items
 let _rawLogCount  = 0;          // log raw field names for first few items
+let _dbgRedCount  = 0;          // DEBUG temporaire : capture la donnee brute des items NON-urgents (trouver le flag rouge FJ manque)
 let _wsRetryCount = 0;          // consecutive WS failures — drives exponential backoff
 let _pagePollingTimer = null;   // setInterval handle for in-page news polling
 
@@ -575,6 +576,9 @@ function ingestRawData(rawData, label) {
   _seenHttp.add(item.id);
   _buffer.push(item);
   console.log(`[FJ ${label}] ${item.headline.substring(0, 70)}`);
+  // DEBUG temporaire : pour les items NON-urgents, dump du canal + donnee brute complete
+  // → permet d'identifier QUEL champ/canal FJ utilise pour marquer une news en rouge (que le scraper rate).
+  if (!item.urgent && _dbgRedCount < 90) { _dbgRedCount++; try { console.log('[FJdbg] ch=' + label + ' ' + JSON.stringify(rawData).slice(0, 520)); } catch (e) {} }
   if (label === 'LIVE' && _pushCallback) try { _pushCallback(item); } catch {}
 }
 
