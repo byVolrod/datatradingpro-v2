@@ -6,7 +6,7 @@
 
 // ── Thème clair/sombre des graphiques (mode clair "full white") : fond + texte selon body.theme-light ──
 function _deskLight(){ try { return !!(document.body && document.body.classList.contains('theme-light')); } catch(e){ return false; } }
-function _deskChartBg(){ return _deskLight() ? 0xffffff : 0x101319; }   /* sombre = anthracite eye-comfort (moins de noir pur) */
+function _deskChartBg(){ return _deskLight() ? 0xffffff : 0x0d0e11; }   /* sombre = #0d0e11 = fond panneau/cartes -> fonds graphiques homogenes */
 function _deskChartTxt(){ return _deskLight() ? 0x334155 : 0xcbd5e1; }
 function _deskChartGrid(){ return _deskLight() ? 0xd0d4da : 0x2b2e36; }
 function _deskChartAxisTxt(){ return _deskLight() ? 0x596270 : 0x8a909a; }
@@ -31,8 +31,8 @@ function applyTerminalTheme(root) {
 
   // Grille/axes : TRÈS discrets (rendu institutionnel propre, jamais de "trait plein"), theme-aware
   theme.rule('Grid').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: _deskLight() ? 0.6 : 0.3, strokeWidth: 1, strokeDasharray: [2, 4] });
-  theme.rule('AxisRendererX').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: 0.5 });
-  theme.rule('AxisRendererY').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: 0.5 });
+  theme.rule('AxisRendererX').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: 0.2 });
+  theme.rule('AxisRendererY').setAll({ stroke: am5.color(_deskChartGrid()), strokeOpacity: 0.2 });
   theme.rule('Label').setAll({ fill: am5.color(_deskChartAxisTxt()), fontSize: 10, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif' });
   // Infobulles CARRÉES (cohérent avec l'identité desk) + contraste net
   theme.rule('Tooltip').setAll({
@@ -1173,7 +1173,7 @@ function buildRiskGauge() {
           </div>`;
 
         const root = am5.Root.new('risk-gauge-div');
-        root.setThemes([am5themes_Dark.new(root)]);
+        root.setThemes([am5themes_Animated.new(root), applyTerminalTheme(root)]);   /* thème terminal (était am5themes_Dark générique) */
         root._logo?.set('forceHidden', true);
         _riskGaugeRoot = root;
 
