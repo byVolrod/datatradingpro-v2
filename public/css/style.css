@@ -3127,10 +3127,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* ═══════════════════════════════════════════════
    RAPPORTS DTP (opening news) — rubriques + snapshot
 ═══════════════════════════════════════════════ */
-/* Conteneur du rapport déplié : fond anthracite mat continu + retrait gauche */
+/* Conteneur du rapport déplié : fond anthracite mat continu, TEXTE aligné sous le titre
+   (padding-left = --news-desc-bleed) comme toutes les autres descriptions du tag Info
+   — le fond garde son bleed plein-largeur via le margin-left négatif de .news-description.visible. */
 .news-item--primer .news-description {
   background: #16171b;
-  padding: 4px 16px 14px 12px;
+  padding: 4px 16px 14px var(--news-desc-bleed);
   border-radius: 6px;
   margin-top: 6px;
 }
