@@ -10348,11 +10348,15 @@ async function refreshNews() {
   _refreshTVActuals().catch(() => {});
   try { _backfillActualsFromNews(); } catch {}
 
-  // Also inject HIGH-impact past calendar events (with actual values) into the news feed
+  // Inject released calendar events WITH actual values into the news feed.
+  // Gap qualité #1 : inclure aussi les données MEDIUM-impact chiffrées (ex. Michigan Consumer Sentiment
+  // Final 50.7 vs Exp 49.3 — le coeur d'un feed institutionnel), pas seulement High. La valeur Actual|Exp|Prev
+  // est déjà formatée ; le plafond DATA_CATS_CAP (8/2min hors tier-1) borne le volume Medium. _highImpact
+  // reste réservé au High (via upgradeItemPriority), donc Medium passe en priorité normale (pas de pastille rouge).
   const calReleased = ffCalItems.filter(i =>
     i.description && i.description.includes('Actual:') &&
     i.timestamp < Date.now() &&
-    i.priority === 'high'
+    (i.priority === 'high' || i.impact === 'Medium')
   );
 
   // News feed: FJ + FF-News + high-impact released calendar events + RSS multi-sources
