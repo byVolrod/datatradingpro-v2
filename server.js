@@ -9912,6 +9912,10 @@ const GLOBAL_GOSSIP = /\b(communications? between|will be published|leaked? (doc
 // Sports, entertainment, lifestyle — never market-moving
 const GLOBAL_LIFESTYLE = /\b(football|soccer|nfl|nba|nhl|mlb|premier league|champions league|world cup|olympics?|tennis|formula.?1\b|f1 race|grand prix.*winner|celebrity|actor|actress|singer|musician|film|movie|box office|award|grammy|oscar|bafta|royal family gossip|prince|princess|kardashian|taylor swift|beyonc|royal baby|died aged|passes away|funeral|wedding of|divorce of|married to|dating|romance)\b/i;
 
+// Hors-sujet (sport + faits divers sociaux) — jamais market-moving. Couvre les trous de GLOBAL_LIFESTYLE
+// (futsal, championship, ligues…) + le drame social (fusillades scolaires, crimes). Garde-fou
+// isFinanciallyRelevant → si la news contient quand même du vocabulaire marché, on la GARDE (anti-faux-positif).
+const OFFTOPIC_NOISE = /\b(futsal|cricket|rugby|marathon|athletics|basketball|baseball|handball|volleyball|ufc|mma|fifa|uefa|cafa|la\s+liga|serie\s+a|bundesliga|ligue\s+1|wimbledon|grand\s+slam|playoffs?|e-?sports?|championship|tournament|school\s+shooting|mass\s+shooting|campus\s+shooting|serial\s+killer|murder\s+(?:trial|case|suspect|charge)|kidnapping|abduction|missing\s+(?:person|teen|girl|boy|child)|child\s+abuse|sexual\s+assault|domestic\s+violence|drunk\s+driving)\b/i;
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (/FJElite/i.test(h)) return true;   // teasers FinancialJuice Elite (« X on Y - FJElite ») : titre sans contenu, analyse derrière paywall → aucune valeur
@@ -9919,6 +9923,7 @@ function isGlobalNewsNoise(headline) {
   if (TABLOID_SOURCES.test(h))  return true;
   if (GLOBAL_GOSSIP.test(h))    return true;
   if (GLOBAL_LIFESTYLE.test(h)) return true;
+  if (OFFTOPIC_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // sport + faits divers sociaux (hors-sujet desk)
   return false;
 }
 
