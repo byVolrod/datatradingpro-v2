@@ -2082,12 +2082,40 @@ const _calRangeCache = new Map();   // key → { low, high }
 try { auth.aiCacheGet('calrange1:all').then(o => { if (o && typeof o === 'object') for (const [k, v] of Object.entries(o)) if (v && v.high && v.low) _calRangeCache.set(k, v); }).catch(() => {}); } catch {}
 let _calRangeDirty = false;
 function _calRangeKey(ev) { return String(ev.currency || '').toUpperCase() + '|' + String(ev.title || '').toLowerCase().replace(/\s+/g, ' ').trim() + '|' + String(ev.forecast || '').trim(); }
+// Repli HEURISTIQUE (toujours fiable, sans IA ni quota) : fourchette autour du consensus, basée sur l'écart au
+// précédent (ou un % du consensus). Garde EXACTEMENT le format/unité de la prévision (%, M, B, K, T, points, négatif).
+function _calParseNum(s) {
+  const m = String(s == null ? '' : s).trim().match(/^(-)?\s*([\d.,]+)\s*([%KMBT])?/i);
+  if (!m) return null;
+  let v = parseFloat(m[2].replace(/,/g, ''));
+  if (!isFinite(v)) return null;
+  if (m[1]) v = -v;
+  return { v, unit: m[3] || '' };
+}
+function _calFmtNum(v, ref) {
+  const dec = ((String(ref).split('.')[1] || '').match(/\d/g) || []).length;
+  const unit = (String(ref).match(/[%KMBT]/i) || [''])[0];
+  return v.toFixed(dec) + unit;
+}
+function _calHeuristicRange(forecast, previous) {
+  const f = _calParseNum(forecast);
+  if (!f) return null;
+  const p = _calParseNum(previous);
+  let spread = (p && p.unit === f.unit && isFinite(p.v)) ? Math.abs(f.v - p.v) * 0.7 : Math.abs(f.v) * 0.18;
+  const floor = Math.abs(f.v) * 0.1;
+  if (spread < floor) spread = floor;
+  if (spread < 1e-9) spread = Math.abs(f.v) > 1e-9 ? Math.abs(f.v) * 0.15 : 0.1;
+  return { low: _calFmtNum(f.v - spread, forecast), high: _calFmtNum(f.v + spread, forecast) };
+}
 function _calApplyRanges(items) {
   for (const ev of items || []) {
     if (!ev || (ev.high && ev.low)) continue;
-    if (!String(ev.forecast || '').trim()) continue;
-    const r = _calRangeCache.get(_calRangeKey(ev));
-    if (r && r.low && r.high) { ev.low = r.low; ev.high = r.high; }
+    const fc = String(ev.forecast || '').trim();
+    if (!fc) continue;
+    const r = _calRangeCache.get(_calRangeKey(ev));          // IA (cachée) en PRIORITÉ
+    if (r && r.low && r.high) { ev.low = r.low; ev.high = r.high; continue; }
+    const h = _calHeuristicRange(fc, ev.previous);           // sinon repli heuristique (toujours fiable, zéro quota)
+    if (h && h.low && h.high) { ev.low = h.low; ev.high = h.high; }
   }
   return items;
 }
