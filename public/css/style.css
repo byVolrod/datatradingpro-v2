@@ -9768,7 +9768,7 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 .main-layout{animation:dtpEnter .5s ease both;}
 
 /* === Recal landing (Editorial Luxe) : titres serif Fraunces + wordmark or === */
-.arlib-list-title,.br-list-title,.inst-title,.settings-title,.settings-section-title,.np-filter-title,.sbm-title,.sbs-narr-title,.prep-section-title,.prep-watchlist-title,.prep-risks-title,.prep-topbar-title,.wip-title{font-family:var(--serif),Georgia,serif !important;letter-spacing:-.01em;}
+.arlib-list-title,.br-list-title,.inst-title,.settings-title,.settings-section-title,.np-filter-title,.sbm-title,.sbs-narr-title,.prep-section-title,.prep-watchlist-title,.prep-risks-title,.prep-topbar-title,.wip-title{font-family:var(--tight),sans-serif !important;letter-spacing:-.005em;}
 .sbs-narr-title{color:var(--orange,#e3b23a) !important;}
 .logo-text{background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 
