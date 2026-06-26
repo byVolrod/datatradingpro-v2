@@ -10001,6 +10001,10 @@ const CB_ACTION_RE = /\b(cuts?\s+rates?|hikes?\s+rates?|raises?\s+rates?|lowers?
 // ── Géopolitique tier-1 : action militaire / attaque / guerre → IMPORTANT (rouge).
 //    Les simples propos diplomatiques ("we prefer diplomacy") NE matchent PAS ici.
 const GEO_TIER1_RE = /\b(attacks?|assault|invasions?|invade[sd]?|air\s?strikes?|missiles?|drone\s+strikes?|sho(?:t|oting)\s+down|shoots?\s+down|warheads?|nuclear\s+(?:strike|attack|test|weapon)|declares?\s+war|act\s+of\s+war|retaliat\w*|military\s+(?:response|action|strike|operation|retaliation)|respond\s+militarily|escalat\w*|strait\s+of\s+hormuz|oil\s+embargo|emergency\s+(?:meeting|session|summit))\b/i;
+// Move de marché FX / matières : actif (EUR/USD/Gold/Oil…) + verbe de mouvement ADJACENT (≤34 car. :
+// picks up / surges / slides / breaks above…) → flag IMPORTANT (pastille rouge + tri en tête). L'adjacence
+// évite le sur-flag du type "billion dollar deal … revenue rises" (verbe trop loin de l'actif).
+const _FX_MOVE_RE = /\b(eur|usd|gbp|jpy|chf|aud|nzd|cad|euro|euros|dollar|greenback|sterling|pound|yen|franc|aussie|kiwi|loonie|gold|silver|oil|crude|brent|wti|copper|dxy|bitcoin|eur\/?usd|gbp\/?usd|usd\/?jpy|usd\/?chf|aud\/?usd|nzd\/?usd|usd\/?cad)\b[^.!?]{0,34}\b(rall(?:y|ies|ied)|surge[sd]?|jump(?:s|ed)?|soar(?:s|ed)?|spike[sd]?|climb(?:s|ed)?|gain(?:s|ed)?|firm(?:s|ed)?|strengthen(?:s|ed)?|ris(?:e|es|en)|rose|rebound(?:s|ed)?|drop(?:s|ped)?|fall(?:s|en)?|fell|slid(?:e|es)?|slump(?:s|ed)?|plunge[sd]?|tumble[sd]?|sink(?:s|ing)?|sank|weaken(?:s|ed)?|soften(?:s|ed)?|dip(?:s|ped)?|eas(?:e|es|ed)|pick(?:s|ed)?\s+up|breaks?\s+(?:above|below|out)|extends?|tops?|hits?\s+\d|above|below)\b/i;
 function upgradeItemPriority(item) {
   const h = item.headline || '';
 
@@ -10028,6 +10032,11 @@ function upgradeItemPriority(item) {
   // ── Upgrade: donnée macro tier-1 RÉELLE, OU géopolitique tier-1 (militaire/attaque/guerre) ──
   if (isHighImpactData || GEO_TIER1_RE.test(h)) {
     return { ...item, priority: 'high', _highImpact: true };
+  }
+
+  // ── Move de marché FX / matières (Euro picks up, Gold surges, Dollar slides…) → important (pastille rouge) ──
+  if (_FX_MOVE_RE.test(h)) {
+    return { ...item, priority: 'high', _fxMove: true };
   }
 
   return item;
