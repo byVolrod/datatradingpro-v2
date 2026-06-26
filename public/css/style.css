@@ -9876,3 +9876,21 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 /* Onglets nav actifs : AUCUN trait dore (pareil que les onglets droits, demande 'enleve le trait') */
 .nav-item--active:not(.nav-item--symbol),.nav-item.active:not(.nav-item--symbol){box-shadow:none !important;border-bottom-color:transparent !important;}
 .nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{content:none !important;border:0 !important;background:none !important;}
+
+/* === Mode clair FULL WHITE — panneau droit (horloge, onglets, conteneurs graphiques) === */
+body.theme-light .right-tab-panel,
+body.theme-light .clocks-bar,
+body.theme-light .amchart-container,
+body.theme-light .strength-charts-row,
+body.theme-light .right-panel-tabs,
+body.theme-light .right-content,
+body.theme-light .chart-header { background: var(--bg1) !important; }
+body.theme-light .clock-item { background: #ffffff !important; }
+body.theme-light .clock-time,
+body.theme-light .clock-date,
+body.theme-light .clock-city,
+body.theme-light .clock-country,
+body.theme-light .clock-meta,
+body.theme-light .clock-tz,
+body.theme-light .chart-header-title { color: var(--text) !important; }
+body.theme-light .clock-gmt { color: var(--text2) !important; }
