@@ -9872,3 +9872,7 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 /* Bouton AI topbar : icone + label IA (FR) / AI (EN via i18n) */
 .topbar-icon--ai{width:auto !important;gap:5px;padding:0 9px;}
 .ai-spark-txt{font-size:12px;font-weight:700;color:#00DA50;letter-spacing:.02em;line-height:1;}
+
+/* Onglets nav actifs : AUCUN trait dore (pareil que les onglets droits, demande 'enleve le trait') */
+.nav-item--active:not(.nav-item--symbol),.nav-item.active:not(.nav-item--symbol){box-shadow:none !important;border-bottom-color:transparent !important;}
+.nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{content:none !important;border:0 !important;background:none !important;}
