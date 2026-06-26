@@ -1615,9 +1615,9 @@ function buildCOTChart() {
             <svg class="cot-donut" width="96" height="96" viewBox="0 0 80 80">
               <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="8"/>
               <g transform="rotate(-90 ${cx} ${cy})">
-                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#f43f5e" stroke-width="8"
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#ff3d00" stroke-width="8"
                   stroke-dasharray="${sArc} ${sGap}" stroke-linecap="round"/>
-                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#10b981" stroke-width="8"
+                <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="#00e676" stroke-width="8"
                   stroke-dasharray="${lArc} ${lGap}" stroke-dashoffset="${lArc}" stroke-linecap="round"/>
               </g>
               <text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="13" font-weight="700"

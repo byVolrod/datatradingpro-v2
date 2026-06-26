@@ -9935,3 +9935,8 @@ body.theme-light .panel,body.theme-light .right-tab-panel,body.theme-light .sym-
 
 /* === Dates calendrier en FR : majuscule initiale du jour (jeudi -> Jeudi) === */
 .cal-day-sep, .cal-day-sep td, .date-header, .wac-day { text-transform: capitalize !important; }
+
+/* === Aucun trait or a gauche (barre hover/actif) — demande utilisateur === */
+.pd-section-trigger.pd-open,
+.econ-group-row:hover,.sym-bz-row:hover,.wac-row:hover,.prep-item:hover,.prep-watchlist-row:hover,.arl-row:not(.arl-row--weekly):hover,.bank-row:not(.bank-row--active):hover,.sbs-cdd-item:hover,
+.news-item:hover { box-shadow: none !important; }
