@@ -1566,7 +1566,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* ── Info tag (description available) ── */
 .tag--infodata {
   background: rgba(52,152,219,0.07);
-  border: 1.5px solid rgba(52,152,219,0.40);
+  border: 1px solid rgba(52,152,219,0.40);
   color: #5dade2;
   transition: background 0.15s, border-color 0.15s;
 }
@@ -1647,7 +1647,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   align-items: center;
   gap: 4px;
   padding: 2px 8px;
-  border-radius: 4px;               /* badge arrondi (façon référence) */
+  border-radius: 3px;               /* badge quasi carre, coherent avec les autres badges */
   font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.01em;
@@ -7143,8 +7143,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  background: #1e1e1e;
-  border: 1.5px solid #2a2a2a;
+  background: var(--bg3);
+  border: 1px solid var(--border);
   color: #e8e8e8;
   font-size: 18px;
   font-weight: 700;
@@ -7420,8 +7420,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   width: 64px;
   height: 64px;
   border-radius: 50%;
-  background: #1e1e1e;
-  border: 1.5px solid #2a2a2a;
+  background: var(--bg3);
+  border: 1px solid var(--border);
   color: #e8e8e8;
   font-size: 24px;
   font-weight: 700;
@@ -7846,8 +7846,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   width: 34px;
   height: 34px;
   border-radius: 50%;
-  background: #1e1e1e;
-  border: 1.5px solid #2a2a2a;
+  background: var(--bg3);
+  border: 1px solid var(--border);
   color: #e8e8e8;
   font-size: 13px;
   font-weight: 700;
@@ -9787,8 +9787,9 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 .sym-panel{background:linear-gradient(180deg,#131419,#0e0f12);box-shadow:0 6px 18px -12px rgba(0,0,0,0.55);}
 
 /* === Habillage institutionnel 'Verre brosse + filet or' (signature A) - panneaux widgets === */
-.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{background:linear-gradient(180deg,#15171c,#0e0f13);border:1px solid #24262c;border-radius:10px;box-shadow:inset 0 1px 0 rgba(227,178,58,.16),0 10px 26px -18px rgba(0,0,0,.72);transition:border-color .18s ease,box-shadow .2s ease,transform .18s ease;}
-.sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{border-color:#2d2f37;box-shadow:inset 0 1px 0 rgba(227,178,58,.72),0 16px 32px -16px rgba(0,0,0,.82);transform:none;}
+/* Panneaux widgets PLATS institutionnels : fond #16171b, bordure fine #232429, coins 4px (demande : data en avant, design s'efface) */
+.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{background:var(--bg2);border:1px solid var(--border);border-radius:4px;box-shadow:none;transition:border-color .16s ease;}
+.sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{border-color:var(--border2);box-shadow:none;transform:none;}
 .sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title{text-transform:uppercase;letter-spacing:.085em;font-weight:600;}
 .panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before{content:'';display:inline-block;width:3px;height:.82em;border-radius:2px;background:var(--orange,#e3b23a);margin-right:7px;vertical-align:-1px;opacity:.85;}
 body{font-variant-numeric:tabular-nums;}
@@ -9818,8 +9819,8 @@ body{font-variant-numeric:tabular-nums;}
 .sbm-concl.sbm-neut{background:linear-gradient(180deg,#454c5a,#363c47);}
 
 /* === Terminal dense (clair + sombre) : widgets CARRES + COLLES === */
-.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel,.ai-insights-card,.ai-ins-pair,.bias-content,.arlib-list-view,.br-reader-view,.notes-panel,.np-filter-panel,.panel,.panel-news,.settings-panel{border-radius:0 !important;}
-.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{box-shadow:inset 0 1px 0 rgba(227,178,58,.14) !important;transform:none !important;}
+.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel,.ai-insights-card,.ai-ins-pair,.bias-content,.arlib-list-view,.br-reader-view,.notes-panel,.np-filter-panel,.panel,.panel-news,.settings-panel{border-radius:4px !important;}
+.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{box-shadow:none !important;transform:none !important;}
 .sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{transform:none !important;}
 .sym-grid{padding:0 !important;grid-template-columns:var(--sym-col,1fr) 1px minmax(0,1fr) !important;grid-template-rows:var(--sym-row,1fr) 1px minmax(0,1fr) !important;}
 .sbm-grid{border-collapse:collapse !important;border-spacing:0 !important;}
