@@ -2880,7 +2880,7 @@ function renderCalTable() {
       : (ev.time || '').substring(0, 10);
     if (dayKey && dayKey !== lastDayKey) {
       const d       = ev.timestamp ? new Date(ev.timestamp) : new Date(dayKey);
-      const weekday = d.toLocaleDateString('en-GB', { weekday: 'long' });
+      const weekday = d.toLocaleDateString('fr-FR', { weekday: 'long' });
       const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
       tbody += `<tr class="cal-day-sep"><td colspan="10">${weekday}, ${dateStr}</td></tr>`;
       lastDayKey = dayKey;
@@ -3023,7 +3023,7 @@ async function toggleCalDetailRow(tr, ev) {
   tr.classList.add('cal-row--expanded');
 
   const dateStr = ev.timestamp
-    ? new Date(ev.timestamp).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })
+    ? new Date(ev.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })
     : '';
   const timeStr = calFormatTime(ev.timestamp) || ev.time || '';
   const detailRow = document.createElement('tr');
@@ -3475,7 +3475,7 @@ window._retryCalendar = function() {
           if (dk !== lastDay) {
             lastDay = dk; const dt = new Date(ts);
             tb += '<tr class="cal-day-sep"><td colspan="8">'
-              + dt.toLocaleDateString('en-GB', { weekday: 'long', timeZone: 'UTC' }) + ', '
+              + dt.toLocaleDateString('fr-FR', { weekday: 'long', timeZone: 'UTC' }) + ', '
               + dt.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' }) + '</td></tr>';
           }
         }
