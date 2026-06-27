@@ -125,7 +125,7 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --font-mono:   var(--font-stack);
   --serif:       "Fraunces", Georgia, serif;
   --tight:       "Inter Tight", var(--font-stack);
-  --radius:      3px;   /* coins quasi carrés -> aspect terminal institutionnel (Bloomberg/Reuters) */
+  --radius:      4px;   /* coins quasi carrés -> aspect terminal institutionnel ; aligne sur la majorite des cartes desk (4px) */
   --topbar-h:    54px;
   --tabs-bar-h:  28px;
   --navbar-h:    28px;
@@ -1587,7 +1587,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag--infodata {
   background: rgba(52,152,219,0.07);
   border: 1px solid rgba(52,152,219,0.40);
-  color: #5dade2;
+  color: var(--text2);   /* etait bleu #5dade2 hors-charte -> gris neutre de marque */
   transition: background 0.15s, border-color 0.15s;
 }
 .tag--infodata:hover {
@@ -1839,7 +1839,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .econ-group-badge {
   font-size: 12px;
   font-weight: 700;
-  color: #5dade2;
+  color: var(--text2);   /* etait bleu #5dade2 hors-charte -> gris neutre de marque */
   letter-spacing: 0.01em;
 }
 
@@ -3182,7 +3182,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   padding: 12px 14px;
   max-width: 760px;
 }
-.rsnap-title { color: #7dd3fc; font-size: 12px; font-weight: 800; letter-spacing: 0.1em; margin-bottom: 6px; }
+.rsnap-title { color: #e3b23a; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; margin-bottom: 6px; }   /* accent OR (etait bleu hors-charte) + graisse/tracking normalises */
 .rsnap-head {
   background: #0284c7;
   color: #ffffff;
@@ -9945,7 +9945,7 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 .ai-insights-title::before,.wa-title::before,.arlib-list-title::before,.sqwk-title::before,.ai-head-title::before,.np-title::before{display:none !important;}
 
 /* === (3) Premium "leger" — Eye Comfort / Command Center : glow accent discret + transitions fluides (150-200ms) === */
-.right-tab--active,.nav-item--active,.nav-item.active{text-shadow:0 0 10px rgba(227,178,58,.28);}
+/* glow (halo) des onglets actifs RETIRE — plus net/institutionnel (couleur or + soulignement suffisent) */
 .nav-item,.right-tab,.news-item,.topbar-icon,.cot-type-btn,.dmx-tf-btn,button{transition:color .16s ease,background-color .16s ease,box-shadow .16s ease,border-color .16s ease,transform .16s ease;}
 
 /* === Premium "léger" dosé — Eye Comfort / Command Center (densité & flush conservés) === */
