@@ -6461,7 +6461,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   text-transform: uppercase;             /* meme design que les autres titres d'onglet (chart-header-title) */
   letter-spacing: 0.08em;
 }
-.cal-title::before { content:''; display:inline-block; width:3px; height:.82em; border-radius:2px; background:var(--orange,#e3b23a); margin-right:7px; vertical-align:-1px; opacity:.85; }   /* puce or coherente avec les autres titres */
+/* (puce or du titre calendrier retiree a la demande — meme traitement applique au titre Liste FX) */
 .cal-title-sep { color: #333; font-size: 11px; margin: 0 4px; }
 .cal-title-bracket { color: var(--orange); font-size: 11px; font-family: var(--font-mono); }
 .cal-daterange {
@@ -9057,7 +9057,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   padding: 0 12px; height: var(--toolbar-h);
   border-bottom: 1px solid var(--border); flex: 0 0 auto;
 }
-.fxl-title { font-family: var(--font-mono); font-size: 12.5px; font-weight: 700; color: #e9eaed; letter-spacing: 0.04em; }
+.fxl-title { font-family: var(--tight); font-size: 11.5px; font-weight: 600; color: var(--text); letter-spacing: 0.08em; text-transform: uppercase; }   /* meme design que le titre calendrier (pas de trait orange) */
 .fxl-title-sep, .fxl-title-tag { color: #e3b23a; font-weight: 700; }   /* séparateur | et [Forex] en orange vif */
 .fxl-toolbar-right { display: flex; align-items: center; gap: 10px; }
 .fxl-updated { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
@@ -9814,7 +9814,7 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 
 /* === Habillage institutionnel 'Verre brosse + filet or' (signature A) - panneaux widgets === */
 /* Panneaux widgets PLATS institutionnels : fond #16171b, bordure fine #232429, coins 4px (demande : data en avant, design s'efface) */
-.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{background:var(--bg2);border:1px solid var(--border);border-radius:4px;box-shadow:none;transition:border-color .16s ease;}
+.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{background:#0d0e11;border:1px solid var(--border);border-radius:4px;box-shadow:none;transition:border-color .16s ease;}   /* fond = celui du calendrier/panneau droit (#0d0e11) — demande : meme noir partout */
 .sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{border-color:var(--border2);box-shadow:none;transform:none;}
 .sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title{text-transform:uppercase;letter-spacing:.085em;font-weight:600;}
 .panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before{content:'';display:inline-block;width:3px;height:.82em;border-radius:2px;background:var(--orange,#e3b23a);margin-right:7px;vertical-align:-1px;opacity:.85;}
@@ -10041,3 +10041,6 @@ body.theme-light .bank-detail-row td{background:#f7efe6 !important;}
 body.theme-light .arlib-card--read{background:#efeae0 !important;border-color:#e7e1d3;}
 body.theme-light .arlib-card--read:hover{background:#e8e2d4 !important;}
 body.theme-light .arlib-back-btn:hover{background:#efeae0;color:#241f17;}
+
+/* ═══ Indicateurs "live"/"Direct" MASQUES (a refaire plus tard, demande) ═══ */
+.live-dot, .live-label, .cal-live-badge, .wa3-live, .sqwk-live-note { display: none !important; }

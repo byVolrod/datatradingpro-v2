@@ -2655,7 +2655,7 @@ function formatDate(ts) {
   // timeZone Paris explicite : les en-têtes de jour collent à l'heure de Paris affichée
   // (item.time), même si le navigateur est dans un autre fuseau → plus de décalage de date.
   const s = new Date(ts).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris',
+    weekday: 'long', day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Paris',
   });
   return s.charAt(0).toUpperCase() + s.slice(1);   // « Mercredi 24/06/2026 » (FR, weekday capitalisé)
 }
@@ -4815,7 +4815,7 @@ function renderBrList() {
   for (const item of items) {
     _brRows[item.id] = item;
     const read    = isBrRead(item.id);
-    const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const title   = item.title || '';
     const inst    = _instLogoHtml(_instBadge(item)) || '';
     _rows += `<tr class="arl-row${read ? ' arl-row--read' : ''}" data-id="${_e(item.id)}">`
@@ -5738,7 +5738,7 @@ function renderArlibList() {
   for (const item of items) {
     _arlibRows[item.id] = item;
     const read    = isRead(_reportReadKey(item));
-    const dateStr = new Date(item.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
+    const dateStr = new Date(item.timestamp).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'2-digit' });
     const title   = standardizeReportTitle(item);
     // Recaps hebdo (Weekly Market Recap + Global Economic Weekly) → ligne ROUGE (façon news importantes).
     const _isWeekly = item._reportType === 'Weekly Market Recap' || item._reportType === 'Global Economic Weekly';
