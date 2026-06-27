@@ -2040,6 +2040,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   flex-direction: column;
   flex-shrink: 0;
   border-bottom: 1px solid var(--border);
+  padding-bottom: var(--sp-15);    /* leger espace sous la meteo, avant le separateur + les sous-onglets (demande) */
   max-height: 42%;                 /* plafond → laisse de la place au widget du bas (jauge…) */
   overflow: hidden;
 }
@@ -2146,7 +2147,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 /* Ville en orange (accent terminal) ; session active = orange vif, fermée = orange atténué */
 .clock-city-label--open   { color: var(--orange); }
-.clock-city-label--closed { color: var(--text3); }
+.clock-city-label--closed { color: var(--orange-dim); }   /* or DTP attenue (etait gris) -> toutes les villes en or */
 
 /* Lignes pays|météo et jour|vent : 2 colonnes (gauche ↔ droite) */
 .clock-sub-row {
