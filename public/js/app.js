@@ -2107,16 +2107,18 @@ function buildNewsItem(item) {
   el.className = `news-item${baseClass}${item._eventAnalysis ? ' news-item--eva' : ''}${isUrgent ? ' news-item--urgent' : ''}${isPrimer ? ' news-item--primer' : ''}${(isSpeaker || hasGrouped) ? ' news-item--speaker' : ''}${item._new ? ' news-item--new' : ''}${isRead(item.id) ? ' news-item--read' : ''}`;
   el.dataset.id = item.id;
 
-  // ── Icon col ──
+  // ── Icon col (réservée à l'alignement ; l'icône d'alerte est désormais collée à GAUCHE DU TITRE) ──
   const iconCol = document.createElement('div');
   iconCol.className = 'news-icon-col';
-  if (isAlert) {
-    const badge = document.createElement('div');
-    badge.className = 'news-alert-icon';
-    badge.innerHTML = '<svg width="12" height="12" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 3.5V5.5M5.5 7.5H5.505M10.5 5.5C10.5 8.26142 8.26142 10.5 5.5 10.5C2.73858 10.5 0.5 8.26142 0.5 5.5C0.5 2.73858 2.73858 0.5 5.5 0.5C8.26142 0.5 10.5 2.73858 10.5 5.5Z" stroke="#FB0000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    iconCol.appendChild(badge);
-  }
   el.appendChild(iconCol);
+
+  // Icône d'alerte rouge : construite ici puis insérée plus bas JUSTE À GAUCHE du titre (et non dans la colonne gauche).
+  let alertBadge = null;
+  if (isAlert) {
+    alertBadge = document.createElement('span');
+    alertBadge.className = 'news-alert-icon';
+    alertBadge.innerHTML = '<svg width="12" height="12" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 3.5V5.5M5.5 7.5H5.505M10.5 5.5C10.5 8.26142 8.26142 10.5 5.5 10.5C2.73858 10.5 0.5 8.26142 0.5 5.5C0.5 2.73858 2.73858 0.5 5.5 0.5C8.26142 0.5 10.5 2.73858 10.5 5.5Z" stroke="#FB0000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  }
 
   // ── Time col ──
   const timeEl = document.createElement('div');
@@ -2177,6 +2179,8 @@ function buildNewsItem(item) {
   } else {
     headline.textContent = _dtpTitle(item.headline);
   }
+  // Icône d'alerte rouge collée à GAUCHE du titre (insérée AVANT le texte / le badge primer)
+  if (alertBadge) headline.insertBefore(alertBadge, headline.firstChild);
   content.appendChild(headline);
 
   el.appendChild(content);
