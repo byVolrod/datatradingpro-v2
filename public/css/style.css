@@ -1344,7 +1344,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .news-time {
   font-family: var(--font-mono);
   font-size: 11px;
-  color: #bbb;
+  color: #cccccc;            /* heure : un poil + blanche (demande) */
   width: var(--c-time);
   flex-shrink: 0;
   line-height: 18.75px;            /* = hauteur 1re ligne du titre (12.5px*1.5) -> texte centré verticalement, plus de decalage haut */
@@ -1356,7 +1356,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* ── Category col ── */
 .news-category-text {
   font-size: 11px;
-  color: #bbb;
+  color: #cccccc;            /* categorie : un poil + blanche (demande) */
   width: var(--c-cat);
   flex-shrink: 0;
   padding-right: 10px;
