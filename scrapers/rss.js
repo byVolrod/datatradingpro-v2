@@ -26,6 +26,10 @@ const HEADERS = {
   'Accept-Language': 'en-US,en;q=0.9',
 };
 
+// Diplomatie / resolution de conflit (ceasefire, accord-cadre, retrait de troupes...) -> prime sur Energy
+// (sinon un titre d'accord citant "oil/energy/gas" tombe en "Energy & Power"). Lookbehind (?<!trade ) :
+// un "trade framework agreement" reste commercial (pas Geopolitical).
+const GEO_DIPLO = /\b(cease[\s-]?fire|truce|armistice|peace\s+(?:deal|talks?|accord|agreement|plan|process|summit|treaty)|(?<!trade\s)(?:framework|trilateral|bilateral)\s+(?:agreement|framework|deal|accord|pact|understanding)|normaliz\w+\s+(?:deal|agreement|accord|of\s+(?:ties|relations))|hostage\s+(?:deal|release|exchange|swap)|prisoner\s+(?:swap|exchange|release)|de[\s-]?escalat\w+|diplomatic\s+(?:breakthrough|agreement|resolution|push)|withdraw\w*\s+(?:its\s+|their\s+)?troops|troop\s+withdrawal|sign\w*\s+(?:a\s+|an\s+|the\s+|initial\s+|framework\s+|landmark\s+|historic\s+)?(?:peace|ceasefire|cease-fire|security|framework|trilateral|bilateral)\s+(?:agreement|accord|pact|deal|treaty|framework))\b/i;
 function detectCategory(text) {
   const t = (text || '').toLowerCase();
   if (/\bfed\b|federal reserve|fomc|powell|jerome|yellen/.test(t)) return 'Fed';
@@ -36,6 +40,7 @@ function detectCategory(text) {
   if (/\brba\b|reserve bank of australia|bullock/.test(t)) return 'RBA';
   if (/\bsnb\b|swiss national bank|jordan/.test(t)) return 'SNB';
   if (/\brbnz\b|reserve bank of new zealand/.test(t)) return 'RBNZ';
+  if (GEO_DIPLO.test(t)) return 'Geopolitical';   // accord/ceasefire/retrait diplomatique -> Geopolitical AVANT Energy
   if (/oil\b|crude|brent|wti|opec|adnoc|energy|gas price|natural gas|petroleum|refin|hormuz/.test(t)) return 'Energy & Power';
   if (/\bgold\b|silver|copper|nickel|zinc|aluminum|iron ore|metal|platinum|palladium/.test(t)) return 'Metals';
   if (/bitcoin|crypto|ethereum|\bbtc\b|\beth\b|blockchain|defi|nft|altcoin|stablecoin/.test(t)) return 'Crypto';
