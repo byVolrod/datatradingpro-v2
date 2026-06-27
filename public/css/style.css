@@ -1389,13 +1389,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   justify-content: center;
   min-height: 18.75px;
   font-size: 10px;
-  color: rgba(255,255,255,0.28);
+  color: rgba(255,255,255,0.55);   /* chevron « description deroulante » bien visible (indicateur clair) */
   cursor: pointer;
   user-select: none;
   line-height: 1.45;
   transition: color 0.15s;
 }
-.news-arrow-col:hover { color: rgba(255,255,255,0.65); }
+/* Accent OR : au survol de TOUTE la ligne (pas seulement la colonne chevron) + quand la description est ouverte (etat actif) */
+.news-item:hover .news-arrow-col,
+.news-arrow-col:hover,
+.news-arrow-col--open { color: #e3b23a; }
 /* Chevron UNIQUE (même icône pour toutes les news, importantes ou non) qui pivote à l'ouverture
    — fini le mélange ∨ (arrondi) / ^ (pointu). Couleur via currentColor → identique partout. */
 .news-arrow-col svg { display: block; margin: 0 auto; transition: transform .16s ease; }
