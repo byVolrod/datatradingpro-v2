@@ -1383,10 +1383,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   width: var(--c-cat);
   flex-shrink: 0;
   padding-right: 10px;
-  line-height: 18.75px;            /* aligné sur la 1re ligne du titre (centré) */
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;                /* compact : autorise 2 lignes pour les categories longues sans grandir la ligne (titre+tags dominent la hauteur) */
+  white-space: normal;             /* plus de troncature : le mot COMPLET est visible (« Commentaire économique » sur 2 lignes si besoin) */
+  overflow-wrap: break-word;
   font-family: var(--font-ui);
 }
 
