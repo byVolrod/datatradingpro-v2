@@ -315,8 +315,7 @@
   .anl-sec{font-family:var(--tight);font-weight:800;font-size:8.5px;letter-spacing:.07em;color:var(--orange2);margin:9px 0 5px}
   .anl-l{height:5px;border-radius:3px;background:var(--line2);margin:4px 0}
   .anl-l.w1{width:100%}.anl-l.w2{width:86%}.anl-l.w3{width:68%}
-  @media (max-width:900px){ .mods2{grid-template-columns:1fr} }
-  @media (max-width:560px){ .mods2-r{grid-template-columns:1fr} }
+  @media (max-width:900px){ .mods2{grid-template-columns:1fr} .mods2-r{grid-template-columns:1fr} }
 
   /* process */
   .proc{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:56px;position:relative}
@@ -411,6 +410,8 @@
     .nav-links.open .nav-mob-extra{display:flex} .nav-links.open .nav-mob-login{color:var(--text2)} .nav-links.open .btn-cta{width:100%;justify-content:center;margin-top:4px}
   }
   @media (max-width:560px){
+    /* Mockup hero : empiler les 2 colonnes internes + liberer la hauteur fixe (sinon ecrase sur mobile) */
+    .hfm-grid{grid-template-columns:1fr;height:auto} .hfm-col.r{border-left:0;border-top:1px solid #232429} .hfm-map{min-height:150px} .hfm-news{max-height:230px}
     .plans{grid-template-columns:1fr} .vals{grid-template-columns:1fr} .term-body{grid-template-columns:1fr}
     .bento{grid-template-columns:1fr} .bcard.lg,.bcard.md,.bcard.sm{grid-column:span 1}
     .tp-r{display:none} .strip-in{gap:14px} .foot-grid{grid-template-columns:1fr 1fr}
@@ -872,13 +873,14 @@
 .hfm-sp{flex:1;}
 .hfm-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#2a2d36,#16181d);border:1px solid #33373f;flex:0 0 auto;}
 .hfm-divx{width:1px;height:18px;background:#2a2e37;}
-.hfm-nav{display:flex;align-items:center;height:28px;background:#0f1014;border-bottom:1px solid #20232b;padding:0 6px;gap:2px;overflow:hidden;}
+.hfm-nav{display:flex;align-items:center;height:28px;background:#0f1014;border-bottom:1px solid #20232b;padding:0 6px;gap:2px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+.hfm-nav::-webkit-scrollbar{display:none;}
 .hfm-nav span{font-size:10px;font-weight:600;letter-spacing:.05em;color:#71757e;padding:0 9px;line-height:28px;white-space:nowrap;}
 .hfm-nav span.on{color:#eceef2;box-shadow:inset 0 -2px 0 #e3b23a;}
 .hfm-grid{display:grid;grid-template-columns:1.05fr 1fr;height:330px;}
 .hfm-col{display:flex;flex-direction:column;min-height:0;}
-.hfm-col.r{border-left:1px solid #20232b;}
-.hfm-ph{display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-bottom:1px solid #20232b;background:linear-gradient(180deg,rgba(255,255,255,.02),transparent);flex:0 0 auto;}
+.hfm-col.r{border-left:1px solid #232429;}
+.hfm-ph{display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-bottom:1px solid #232429;background:#16171b;flex:0 0 auto;}
 .hfm-ph .tk{width:3px;height:11px;background:#e3b23a;}
 .hfm-ph .t{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#cbced4;}
 .hfm-ph .live{margin-left:auto;width:6px;height:6px;border-radius:50%;background:#16c684;box-shadow:0 0 6px #16c684;animation:hfmPulse 1.8s ease-in-out infinite;}
@@ -887,18 +889,20 @@
 .hfm-news{flex:1;overflow:hidden;position:relative;}
 .hfm-track{animation:hfmFeed 17s linear infinite;}
 .hfm-dsep{font-size:9.5px;color:#9a9da6;background:#16171b;padding:4px 11px;font-weight:600;}
-.hfm-nrow{display:flex;gap:10px;padding:8px 11px;border-bottom:1px solid #181b21;align-items:flex-start;}
-.hfm-nt{font-family:ui-monospace,monospace;font-size:10px;color:#8a8d96;flex:0 0 34px;padding-top:1px;}
-.hfm-nc{font-size:10px;color:#9a9da6;flex:0 0 82px;}
+.hfm-nrow{display:flex;gap:10px;padding:9px 11px;border-bottom:1px solid rgba(255,255,255,.028);align-items:center;}
+.hfm-nrow:hover{background:#16171c;}
+.hfm-nt{font-family:ui-monospace,monospace;font-size:10px;color:#ccc;flex:0 0 34px;}
+.hfm-nc{font-size:10px;color:#ccc;flex:0 0 82px;}
 .hfm-nh{flex:1;font-size:11px;color:#d6d9df;line-height:1.35;}
 .hfm-tag{display:inline-block;font-size:8px;font-weight:600;color:#c6c9d1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:1px 5px;margin:4px 4px 0 0;}
 .hfm-ndot{width:6px;height:6px;border-radius:50%;background:#e0594f;flex:0 0 6px;margin-top:3px;}
 .hfm-wc{display:flex;gap:4px;padding:8px 10px;}
-.hfm-wcc{flex:1;background:#101216;border:1px solid #20232b;padding:5px 4px;text-align:center;min-width:0;}
+.hfm-wcc{flex:1;background:#16171b;border:1px solid #232429;padding:5px 4px;text-align:center;min-width:0;}
 .hfm-wcc .c{font-size:7px;color:#8a8d96;font-weight:600;text-transform:uppercase;}
 .hfm-wcc .h{font-family:ui-monospace,monospace;font-size:12px;color:#eceef2;font-weight:600;}
 .hfm-wcc .g{font-size:6.5px;color:#62656e;font-family:ui-monospace,monospace;}
-.hfm-st{display:flex;gap:1px;padding:0 10px;border-bottom:1px solid #1a1a1f;overflow:hidden;}
+.hfm-st{display:flex;gap:1px;padding:0 10px;border-bottom:1px solid #1a1a1f;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
+.hfm-st::-webkit-scrollbar{display:none;}
 .hfm-st span{font-size:8.5px;font-weight:600;color:#62656e;padding:5px 6px;white-space:nowrap;}
 .hfm-st span.on{color:#e4e6ea;box-shadow:inset 0 -2px 0 #e3b23a;}
 .hfm-map{flex:1;position:relative;background:radial-gradient(125% 105% at 55% 32%,#16181f 0%,#0b0c10 52%,#07080a 100%);overflow:hidden;min-height:0;}
@@ -954,7 +958,7 @@
       <div class="hfm-st"><span class="on">› MONDE</span><span>› RISQUE</span><span>› FORCE</span><span>› BAROMÈTRE</span><span>› COT</span><span>› DMX</span></div>
       <div class="hfm-ph"><span class="tk"></span><span class="t">Carte des sessions</span><span class="meta"><i></i>Direct</span></div>
       <div class="hfm-map">
-        <svg class="land" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><g fill="#46aa6e" stroke="#2d7049" stroke-width="0.5" opacity=".92"><path d="M30 47 L40 40 L52 41 L58 37 L76 39 L92 44 L86 52 L94 56 L85 60 L83 70 L76 66 L72 80 L65 69 L61 83 L56 67 L47 62 L39 65 L34 55 Z"/><path d="M152 22 L168 19 L174 30 L166 41 L154 38 L150 28 Z"/><path d="M126 108 L140 105 L143 116 L137 128 L132 145 L126 162 L120 150 L123 132 L116 120 L120 112 Z"/><path d="M198 41 L210 39 L218 42 L226 41 L224 49 L214 52 L208 50 L202 54 L196 47 Z"/><path d="M206 68 L226 65 L240 70 L244 82 L237 96 L232 110 L224 124 L216 116 L213 98 L207 88 L202 76 Z"/><path d="M230 50 L240 44 L262 40 L290 37 L318 40 L342 46 L348 56 L330 60 L312 56 L300 62 L288 57 L276 63 L262 56 L248 58 L236 54 Z"/><path d="M270 62 L286 62 L282 74 L276 82 L271 72 Z"/><path d="M300 82 L326 80 L338 88 L320 94 L306 92 L300 88 Z"/><path d="M334 120 L356 116 L370 124 L368 136 L352 144 L338 140 L330 130 Z"/><path d="M353 49 L360 47 L363 55 L356 59 L352 54 Z"/></g></svg>
+        <svg class="land" viewBox="0 0 400 200" preserveAspectRatio="xMidYMid slice"><g fill="#237a42" stroke="#164d2b" stroke-width="0.5" opacity=".92"><path d="M30 47 L40 40 L52 41 L58 37 L76 39 L92 44 L86 52 L94 56 L85 60 L83 70 L76 66 L72 80 L65 69 L61 83 L56 67 L47 62 L39 65 L34 55 Z"/><path d="M152 22 L168 19 L174 30 L166 41 L154 38 L150 28 Z"/><path d="M126 108 L140 105 L143 116 L137 128 L132 145 L126 162 L120 150 L123 132 L116 120 L120 112 Z"/><path d="M198 41 L210 39 L218 42 L226 41 L224 49 L214 52 L208 50 L202 54 L196 47 Z"/><path d="M206 68 L226 65 L240 70 L244 82 L237 96 L232 110 L224 124 L216 116 L213 98 L207 88 L202 76 Z"/><path d="M230 50 L240 44 L262 40 L290 37 L318 40 L342 46 L348 56 L330 60 L312 56 L300 62 L288 57 L276 63 L262 56 L248 58 L236 54 Z"/><path d="M270 62 L286 62 L282 74 L276 82 L271 72 Z"/><path d="M300 82 L326 80 L338 88 L320 94 L306 92 L300 88 Z"/><path d="M334 120 L356 116 L370 124 L368 136 L352 144 L338 140 L330 130 Z"/><path d="M353 49 L360 47 L363 55 L356 59 L352 54 Z"/></g></svg>
         <div class="hfm-night"></div>
         <div class="hfm-badge" style="left:40%;top:30%"><span class="dot"></span><b>23:41</b><span class="nm">London</span></div>
         <div class="hfm-badge" style="left:13%;top:42%"><span class="dot"></span><b>18:41</b><span class="nm">New York</span></div>
