@@ -9984,7 +9984,7 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 .sym-ptitle::before,.panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before,.cot-header-label::before,.dmx-header-title::before{display:none !important;}
 .sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title,.cot-header-label,.dmx-header-title{font-size:11.5px !important;font-weight:600 !important;letter-spacing:.08em !important;text-transform:uppercase !important;}
 /* Alignement COMPLET des titres restants (widgets + volets + bibliotheque serif) sur "Fil d'actualite en direct" */
-.ai-insights-title,.wa-title,.arlib-list-title,.sqwk-title,.ai-head-title,.np-title{font-family:var(--tight) !important;font-size:11.5px !important;font-weight:600 !important;letter-spacing:.08em !important;text-transform:uppercase !important;}
+.ai-insights-title,.wa-title,.arlib-list-title,.sqwk-title,.ai-head-title,.np-title,.wa3-ptitle{font-family:var(--tight) !important;font-size:11.5px !important;font-weight:600 !important;letter-spacing:.08em !important;text-transform:uppercase !important;}
 .ai-insights-title::before,.wa-title::before,.arlib-list-title::before,.sqwk-title::before,.ai-head-title::before,.np-title::before{display:none !important;}
 
 /* === (3) Premium "leger" — Eye Comfort / Command Center : glow accent discret + transitions fluides (150-200ms) === */
