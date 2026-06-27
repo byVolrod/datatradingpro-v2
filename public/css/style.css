@@ -9985,6 +9985,18 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 .right-tab--active{color:var(--orange,#e3b23a) !important;background:transparent !important;}
 .right-tab--active::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a);border-radius:2px 2px 0 0;}   /* meme soulignement or que la nav principale */
 
+/* ═══════════════════ ONGLETS — MODELE UNIFIE (coherence absolue, terminal institutionnel) ═══════════
+   UN seul design pour TOUTES les barres d'onglets : nav principale (.nav-item), sous-onglets de widgets
+   (.right-tab), micro-onglets de periodes (.stf-btn/.cot-type-btn/.dmx-tf-btn), sous-onglets symbole
+   (.sym-subtab). MAJUSCULES + petit + letter-spacing. Inactif = gris discret, sans bordure. Hover = texte
+   plus clair + tres leger fond translucide. Actif = BLANC PUR + gras + soulignement OR (l'or n'est PLUS
+   sur le texte ni le fond d'un onglet, uniquement le marqueur inferieur). */
+.nav-item, .right-tab, .stf-btn, .cot-type-btn, .dmx-tf-btn, .sym-subtab { text-transform: uppercase; letter-spacing: .06em; }
+.stf-btn, .cot-type-btn, .dmx-tf-btn { position: relative; background: transparent !important; border: 0 !important; border-radius: 0 !important; color: var(--text3) !important; font-weight: var(--fw-semibold) !important; }
+.stf-btn:not(.stf-btn--active):hover, .cot-type-btn:not(.cot-type-btn--active):hover, .dmx-tf-btn:not(.dmx-tf-btn--active):hover { color: var(--text2) !important; background: rgba(255,255,255,.045) !important; }
+.right-tab--active, .stf-btn--active, .cot-type-btn--active, .dmx-tf-btn--active, .nav-item--active:not(.nav-item--symbol), .nav-item.active:not(.nav-item--symbol), .sym-subtab--active { color: #fff !important; font-weight: var(--fw-bold) !important; background: transparent !important; }
+.stf-btn--active::after, .cot-type-btn--active::after, .dmx-tf-btn--active::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--orange); border-radius: 2px 2px 0 0; }
+
 /* === (2) Noms de widgets UNIFORMES (meme taille/police, MAJUSCULES) SANS tick dore a gauche === */
 .sym-ptitle::before,.panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before,.cot-header-label::before,.dmx-header-title::before{display:none !important;}
 .sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title,.cot-header-label,.dmx-header-title{font-size:var(--fs-title) !important;font-weight:var(--fw-semibold) !important;letter-spacing:var(--ls-caps) !important;text-transform:uppercase !important;}
