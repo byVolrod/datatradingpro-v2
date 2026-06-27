@@ -10044,6 +10044,13 @@ function upgradeItemPriority(item) {
     return { ...item, priority: 'high', _fxMove: true };
   }
 
+  // DEMOTION : un item 'high' HERITE (du flux/source) mais SANS aucun signal d'importance par CONTENU
+  // (ni data tier-1, ni geo MILITAIRE via GEO_TIER1_RE, ni move FX, ni urgent FJ) repasse NORMAL.
+  // -> corrige le sur-flaggage du stock geopolitique (protestations/declarations marquees rouges a tort).
+  // On EXEMPTE les banques centrales (Fed/ECB/BoJ/BoE) qui justifient l'importance.
+  if (item.priority === 'high' && !['Fed', 'ECB', 'BoJ', 'BoE'].includes(item.category)) {
+    return { ...item, priority: 'normal' };
+  }
   return item;
 }
 
