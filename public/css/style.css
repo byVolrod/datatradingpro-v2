@@ -1353,17 +1353,6 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .news-alert-icon svg { width: 12px; height: 12px; display: block; }
 
-/* Icône d'alerte rouge désormais COLLÉE à gauche du titre (inline, dans le headline) */
-.news-headline .news-alert-icon {
-  display: inline-flex;
-  width: 14px;
-  height: 14px;
-  margin-right: 6px;
-  vertical-align: middle;
-  position: relative;
-  top: -1.5px;
-}
-
 /* ── Time col ── */
 .news-time {
   font-family: var(--font-mono);
