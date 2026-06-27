@@ -126,6 +126,19 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --serif:       "Fraunces", Georgia, serif;
   --tight:       "Inter Tight", var(--font-stack);
   --radius:      4px;   /* coins quasi carrés -> aspect terminal institutionnel ; aligne sur la majorite des cartes desk (4px) */
+  /* ── Echelle PREMIUM (passe globale) : tokens typo + radius + transition + focus ─────────── */
+  --fs-title: 11.5px;   /* titre de widget/panneau (uppercase Inter Tight) */
+  --fs-h2:    13px;     /* titre de section (rapports, narratifs) */
+  --fs-body:  12px;     /* corps de texte UI */
+  --fs-label: 11px;     /* label */
+  --fs-value: 12px;     /* valeur chiffree */
+  --fs-meta:  10px;     /* meta */
+  --fs-micro: 9px;      /* micro */
+  --r-1:      4px;      /* radius cartes/panneaux */
+  --r-2:      4px;      /* radius boutons/badges/inputs */
+  --pill:     999px;    /* pastilles */
+  --t-fast:   0.16s;    /* transition standard premium */
+  --focus-ring: 0 0 0 2px rgba(227,178,58,0.45);   /* anneau focus on-brand (or) */
   --topbar-h:    54px;
   --tabs-bar-h:  28px;
   --navbar-h:    28px;
@@ -3007,7 +3020,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* ═══ SMART BIAS TRACKER — matrice haute densité + panneau inférieur (clone DTP) ═══ */
 .sbm-title-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
-.sbm-title { font-size: 14px; font-weight: 700; color: #fff; }
+.sbm-title { font-size: var(--fs-title); font-weight: 600; color: var(--text); font-family: var(--tight); letter-spacing: 0.08em; text-transform: uppercase; }
 .sbm-hint { font-size: 10px; color: #6b7280; }
 .sbm-grid-wrap { overflow-x: auto; }
 /* La table TIENT TOUJOURS dans le conteneur (min-width 0) → la colonne CHF est ENTIÈREMENT visible
@@ -3099,7 +3112,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-body { display: flex; align-items: stretch; position: relative; flex: 1 1 auto; min-height: 0; }   /* remplit l'espace restant (descend jusqu'en bas, comble le vide) */
 .sbs-left { flex-grow: 0; flex-shrink: 0; flex-basis: 46%; overflow-y: auto; padding: 6px 0; }
 /* Sous-titre "Bias Summary" (en haut du volet gauche, façon DTP) */
-.sbs-left-title { font-size: 12px; font-weight: 600; color: #cbd5e1; padding: 4px 14px 9px; }
+.sbs-left-title { font-size: var(--fs-title); font-weight: 600; color: var(--text); font-family: var(--tight); letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 14px 9px; }
 /* Ligne Overall (conclusion) — encadrée orange façon DTP, détachée en bas de la liste */
 .sbs-row--overall { margin: 14px 12px 6px; padding: 9px 11px; background: rgba(227,178,58,.10); border: 2px solid rgba(227,178,58,.32); border-radius: 3px; }   /* « Overall » encadré façon pro */
 .sbs-row--overall .sbs-row-lbl { color: #fff; font-weight: 600; }
@@ -3123,12 +3136,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-badge--na { background: #232429; color: #6b7280; }   /* pas de donnée récente → tiret discret (jamais inventé) */
 .sbs-children { background: #060608; }
 .sbs-child-note { padding: 8px 14px 8px 38px; font-size: 11px; color: #71717a; font-style: italic; }
-.sbs-narr-title { font-size: 14px; font-weight: 600; color: #e3b23a; margin-bottom: 12px; display: block; }   /* orange-gold institutionnel (DTP) */
+.sbs-narr-title { font-size: var(--fs-h2); font-weight: 600; color: #e3b23a; font-family: var(--tight); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px; display: block; }   /* titre de section OR institutionnel */
 .sbs-narr { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap; }
 .sbs-narr b { color: #fff; }
 /* « Key Risk Events for the Week Ahead » façon pro : titre souligné + jour (largeur fixe) + événements */
 .sbs-risk { margin-top: 22px; }
-.sbs-risk-title { font-size: 13px; font-weight: 500; color: #e5e7eb; padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid #232429; }
+.sbs-risk-title { font-size: var(--fs-h2); font-weight: 600; color: var(--text); font-family: var(--tight); letter-spacing: 0.06em; text-transform: uppercase; padding-bottom: 8px; margin-bottom: 10px; border-bottom: 1px solid var(--border); }
 .sbs-risk-list { display: flex; flex-direction: column; gap: 8px; }
 .sbs-risk-row { display: flex; align-items: flex-start; gap: 12px; background: #0d0e11; border: 1px solid #232429; padding: 10px 12px; }
 .sbs-risk-day { flex: 0 0 80px; font-size: 12px; color: #8a8f98; }
@@ -3209,7 +3222,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Panneau de filtres des notifications */
 .np-filter-panel { padding: 16px 18px; overflow-y: auto; }
 .np-filter-panel.hidden { display: none; }
-.np-filter-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 16px; }
+.np-filter-title { font-size: var(--fs-title); font-weight: 600; color: var(--text); font-family: var(--tight); letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 16px; }
 .np-filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
 .np-filter-row {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
@@ -4946,7 +4959,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .ai-ins-bias--sell    { color:#ef4444; background:rgba(239,68,68,.14);  border:1px solid rgba(239,68,68,.4); }
 .ai-ins-bias--neutral { color:#eab308; background:rgba(234,179,8,.14);  border:1px solid rgba(234,179,8,.4); }
 .ai-ins-pair-text { color:#c9d1d9; font-size:12.5px; line-height:1.5; }
-.wr-macro-heading { color:#e5e9ef; font-size:13.5px; font-weight:600; margin:16px 0 8px; }
+.wr-macro-heading { color: var(--text); font-size: var(--fs-h2); font-weight: 600; font-family: var(--tight); letter-spacing: 0.06em; text-transform: uppercase; margin: 16px 0 8px; }
 .wr-bullet { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0 0 10px; padding-left:14px; position:relative; }
 .wr-bullet::before { content:"•"; color:#e3b23a; position:absolute; left:0; }
 .wr-bullet strong { color:#fff; font-weight:600; }
