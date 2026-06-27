@@ -1225,7 +1225,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   /* Colonnes pilotées par variables → le décalage du fond de description (--news-desc-bleed)
      est AUTO-CALCULÉ : padding-gauche + icône + heure + catégorie + flèche. Plus jamais de
      bug de décalage (changer une largeur recalcule le bleed). Spacing aéré façon DTP. */
-  --c-pad: 18px; --c-icon: 32px; --c-time: 58px; --c-cat: 150px; --c-arrow: 28px;
+  --c-pad: 18px; --c-icon: 32px; --c-time: 58px; --c-cat: 112px; --c-arrow: 28px;
   --news-desc-bleed: calc(var(--c-pad) + var(--c-icon) + var(--c-time) + var(--c-cat) + var(--c-arrow));
   display: flex;
   align-items: center;             /* date + type + titre + tags : tout centre verticalement dans la ligne (demande) */
@@ -7072,10 +7072,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .meter-stack {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
-  gap: 0;                             /* AUCUN écart : blocs collés, séparés par une seule ligne 1px */
+  gap: 3px;                           /* respiration autour de l'axe zero (look pro) */
 }
-.meter-half { flex: 1; display: flex; flex-direction: column; gap: 0; }
-.meter-zero { display: none; }
+.meter-half { flex: 1; display: flex; flex-direction: column; gap: 0; background: rgba(255,255,255,0.05); overflow: hidden; }   /* track de fond toujours visible (trame) + clip pour coins arrondis */
+.meter-half-top { border-radius: 4px 4px 0 0; }   /* coin superieur arrondi (pointe haute de la barre) */
+.meter-half-bot { border-radius: 0 0 4px 4px; }   /* coin inferieur arrondi (pointe basse) */
+.meter-zero { display: block; flex: 0 0 2px; height: 2px; border-radius: 2px; background: linear-gradient(90deg, transparent, rgba(227,178,58,0.55), transparent); }   /* axe zero net (or, fondu aux bords) */
 /* Brique compacte rectiligne : blocs serrés séparés par une UNIQUE bordure inférieure 1px très sombre */
 .meter-brick {
   flex: 1; min-height: 5px;
@@ -7083,9 +7085,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   border-bottom: 1px solid #16171b;                    /* séparateur millimétrique (collé) */
   background: rgba(18,18,20,0.4);                       /* trame éteinte (toujours visible) */
   overflow: hidden;
-  transition: background 0.35s ease, box-shadow 0.35s ease;   /* MAJ fluide "live" */
+  transition: background 0.35s ease, box-shadow 0.35s ease, opacity 0.35s ease;   /* MAJ fluide "live" */
 }
-.meter-brick--off { background: rgba(18,18,20,0.4); box-shadow: none; }
+.meter-brick--off { background: transparent; box-shadow: none; }   /* eteint = transparent → le track de fond (.meter-half) reste visible */
 /* Aplats PURS aux couleurs EXACTES de DataTradingPro (DOM) */
 .meter-brick--pos { background: rgba(0,230,118,0.867); border-bottom-color: #050505; }   /* +  vert */
 .meter-brick--neg { background: rgba(255,61,0,0.933);  border-bottom-color: #050505; }   /* −  rouge */
@@ -9824,8 +9826,8 @@ body{font-variant-numeric:tabular-nums;}
 .meter-brick{border-bottom:0;}
 .meter-brick--pos{background:rgba(0,230,118,.92);box-shadow:inset 0 0 7px rgba(0,230,118,.22);}
 .meter-brick--neg{background:rgba(255,61,0,.92);box-shadow:inset 0 0 7px rgba(255,61,0,.2);}
-.meter-half-top .meter-brick--pos[data-idx="0"]{box-shadow:inset 0 -2px 0 rgba(227,178,58,.95),inset 0 0 7px rgba(0,230,118,.22);}
-.meter-half-bot .meter-brick--neg[data-idx="0"]{box-shadow:inset 0 2px 0 rgba(227,178,58,.95),inset 0 0 7px rgba(255,61,0,.2);}
+.meter-half-top .meter-brick--pos[data-idx="0"]{box-shadow:inset 0 0 7px rgba(0,230,118,.22);}
+.meter-half-bot .meter-brick--neg[data-idx="0"]{box-shadow:inset 0 0 7px rgba(255,61,0,.2);}
 /* === De-PMT etape 2 : matrice Smart Bias en TUILES de marque (plus de grille pleine collee PMT) === */
 .sbm-grid{border-collapse:separate;border-spacing:3px;}
 .sbm-grid th,.sbm-grid td{border:none;}
