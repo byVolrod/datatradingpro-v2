@@ -9920,6 +9920,26 @@ const OFFTOPIC_NOISE = /\b(futsal|cricket|rugby|marathon|athletics|basketball|ba
 // ex. un match Iran-Egypte categorise a tort "Geopolitical"). Termes specifiques pour eviter les faux positifs
 // (pas de "VAR" seul = Value at Risk, pas de "goal"/"match"/"striker" nus).
 const SPORTS_NOISE = /\b(world\s*cup|coupe\s+du\s+monde|\bfifa\b|\buefa\b|champions\s+league|premier\s+league|la\s+liga|serie\s+a|bundesliga|ligue\s+1|football|soccer|var\s+(?:heartbreak|review|decision|call|disallow\w*|rul\w*)|goal\s+(?:disallowed|voided|ruled\s+out)|penalty\s+(?:kick|shoot-?out)|free\s*kick|midfielder|goalkeeper|offside|stoppage\s+time|matchday|knockout\s+(?:stage|round))\b/i;
+
+// ── Cadrage human-interest / meteo-societe : JAMAIS market-moving en soi ──────
+// On cible le CADRAGE (hopitaux combles, sommeil, corps humain, misere, touristes),
+// PAS le mot meteo nu : une vraie news meteo-marche cite un vecteur (oil/gas/power/
+// wheat/grid/demand/futures) et passe via isFinanciallyRelevant (guard cote appelant).
+// Architecture a DEUX bras pour zero faux positif (batterie 49/49 verifiee) :
+//  - STRONG : tournures human-interest qui n'apparaissent jamais dans un titre marche
+//    -> drop sur simple match.
+//  - WEAK : mots ambigus (hopital/patient/tourisme/commuters) qui existent dans de
+//    vraies news actions/FX ('Hospital operator shares jump', 'tourism revenue, baht
+//    firms', 'commuters... pound dips', 'Patient capital flows') -> on ne drop QUE
+//    s'ils co-occurrent avec un contexte meteo (HUMAN_INTEREST_WEATHER_CTX).
+const HUMAN_INTEREST_STRONG = /\b(?:heatstroke|heat\s+exhaustion|sunstroke|sleepless|struggle\s+to\s+sleep|can'?t\s+sleep|sweltering|swelter\w*|holidaymakers?|sunbathers?|beachgoers?|city\s+dwellers?|human\s+body|death\s+toll|heat[\s-]?related\s+(?:deaths?|illness|hospital\w*)|packs?\s+(?:hotels?|beaches)|overwhelmed\s+by\s+(?:the\s+)?heat|heat(?:wave)?\s+misery|misery\s+to\s+come)\b/i;
+const HUMAN_INTEREST_WEATHER_CTX = /\b(?:heatwaves?|heat\s*wave|humid|humidity|temperatures?|scorching|sizzling|searing|baking|sweltering|swelter\w*|cooler\s+resorts?|escape\s+the\s+heat|record\s+heat|extreme\s+heat|monsoon|wildfire\w*)\b/i;
+const HUMAN_INTEREST_WEAK = /\b(?:hospitals?|hospitalis\w*|hospitaliz\w*|emergency\s+room|patients?|dehydrat\w*|tourists?|tourism|city\s+dwellers?|commuters?|the\s+elderly|vulnerable\s+people|holidaymakers?|sunbathers?|beachgoers?)\b/i;
+function isHumanInterestNoise(h) {
+  if (HUMAN_INTEREST_STRONG.test(h)) return true;
+  if (HUMAN_INTEREST_WEAK.test(h) && HUMAN_INTEREST_WEATHER_CTX.test(h)) return true;
+  return false;
+}
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
@@ -9929,6 +9949,7 @@ function isGlobalNewsNoise(headline) {
   if (GLOBAL_GOSSIP.test(h))    return true;
   if (GLOBAL_LIFESTYLE.test(h)) return true;
   if (OFFTOPIC_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // sport + faits divers sociaux (hors-sujet desk)
+  if (isHumanInterestNoise(h) && !isFinanciallyRelevant(h)) return true;   // meteo/canicule racontee comme fait de societe (hopitaux/hotels/sommeil/corps humain/misere) -> hors-sujet desk ; sauve si vocabulaire marche present (oil/gas/power/wheat/demand...)
   return false;
 }
 
@@ -10005,7 +10026,24 @@ const CB_ACTION_RE = /\b(cuts?\s+rates?|hikes?\s+rates?|raises?\s+rates?|lowers?
 
 // ── Géopolitique tier-1 : action militaire / attaque / guerre → IMPORTANT (rouge).
 //    Les simples propos diplomatiques ("we prefer diplomacy") NE matchent PAS ici.
-const GEO_TIER1_RE = /\b(attacks?|assault|invasions?|invade[sd]?|air\s?strikes?|missiles?|drone\s+strikes?|sho(?:t|oting)\s+down|shoots?\s+down|warheads?|nuclear\s+(?:strike|attack|test|weapon)|declares?\s+war|act\s+of\s+war|retaliat\w*|military\s+(?:response|action|strike|operation|retaliation)|respond\s+militarily|escalat\w*|(?:strait\s+of\s+)?hormuz|blockade|oil\s+embargo|framework\s+agreement|trilateral\s+(?:agreement|framework)|emergency\s+(?:meeting|session|summit))\b/i;
+const GEO_TIER1_RE = /\b(attacks?|assault|invasions?|invade[sd]?|air\s?strikes?|missiles?|drone\s+strikes?|sho(?:t|oting)\s+down|shoots?\s+down|warheads?|nuclear\s+(?:strike|attack|test|weapon)|declares?\s+war|act\s+of\s+war|retaliat\w*|military\s+(?:response|action|strike|operation|retaliation)|respond\s+militarily|escalat\w*|(?:strait\s+of\s+)?hormuz|blockade|oil\s+embargo|emergency\s+(?:meeting|session|summit))\b/i;
+
+// ── Accord diplomatique MAJEUR (ceasefire, accord-cadre, retrait de troupes, echange de prisonniers...)
+//    -> IMPORTANT (rouge). "framework agreement"/"trilateral" etaient dans GEO_TIER1_RE SANS garde-fou ->
+//    ils rougissaient a tort des accords COMMERCIAUX ("Companies reach framework agreement on pricing").
+//    Retires de GEO_TIER1_RE ci-dessus, repris ici AVEC contexte geopolitique requis (batterie >20 titres : 0 FP) :
+//      - GEO_DEAL_HARD_RE  : intrinsequement geopolitique (ceasefire/truce/prisoner swap) -> rouge direct.
+//      - GEO_DEAL_PHRASE_RE: tournures AMBIGUES (framework/trilateral/"sign X agreement") -> rouge UNIQUEMENT
+//        si un acteur/contexte geopolitique co-apparait (GEO_DEAL_CONTEXT_RE).
+const GEO_DEAL_HARD_RE = /\b(ceasefire|cease-fire|truce|peace\s+(?:treaty|accord)|peace\s+talks?|hostage\s+(?:deal|release)|prisoner\s+swap)\b/i;
+const GEO_DEAL_PHRASE_RE = /\b(?:framework\s+(?:deal|agreement|accord)|trilateral\s+(?:deal|agreement|framework|accord)|peace\s+deal\b|sign(?:s|ed)?\s+(?:a\s+|an\s+|the\s+|initial\s+)?(?:framework|military|defen[cs]e|security|peace)\s+(?:deal|agreement|accord|pact|treaty)|sign(?:s|ed)?\s+(?:trilateral|bilateral|initial)\s+agreement)\b/i;
+const GEO_DEAL_CONTEXT_RE = /\b(israel|lebanon|hamas|hezbollah|iran|gaza|palestin\w+|syria|ukrain\w+|russia|moscow|kyiv|kremlin|nato|putin|netanyahu|west\s+bank|houthi|yemen|taliban|afghanistan|north\s+korea|pyongyang|sudan|armenia|azerbaijan|hostage|prisoner\s+swap|de-?escalat\w+|withdraw\s+troops?|troop\s+withdrawal|military|diplomat\w+|mediat\w+|brokered|belligerent|war|conflict|nuclear)\b/i;
+function isGeoDeal(h) {
+  const s = h || '';
+  if (GEO_DEAL_HARD_RE.test(s)) return true;
+  if (GEO_DEAL_PHRASE_RE.test(s) && GEO_DEAL_CONTEXT_RE.test(s)) return true;
+  return false;
+}
 // Move de marché FX / matières : actif (EUR/USD/Gold/Oil…) + verbe de mouvement ADJACENT (≤34 car. :
 // picks up / surges / slides / breaks above…) → flag IMPORTANT (pastille rouge + tri en tête). L'adjacence
 // évite le sur-flag du type "billion dollar deal … revenue rises" (verbe trop loin de l'actif).
@@ -10021,7 +10059,7 @@ function upgradeItemPriority(item) {
   const isHighImpactData = HIGH_IMPACT_RE.test(h) || hasHighImpactField;
 
   // Never touch urgent/breaking — those are source-confirmed (déjà rouges)
-  if (item.urgent) return (isHighImpactData || GEO_TIER1_RE.test(h)) ? { ...item, _highImpact: true } : item;
+  if (item.urgent) return (isHighImpactData || GEO_TIER1_RE.test(h) || isGeoDeal(h)) ? { ...item, _highImpact: true } : item;
 
   // ── Smart demote: opinion/support/approval statements → not high priority ──
   if (item.priority === 'high' && OPINION_DEMOTE_RE.test(h)) {
@@ -10034,8 +10072,8 @@ function upgradeItemPriority(item) {
     return { ...item, priority: 'normal', _highImpact: isHighImpactData };
   }
 
-  // ── Upgrade: donnée macro tier-1 RÉELLE, OU géopolitique tier-1 (militaire/attaque/guerre) ──
-  if (isHighImpactData || GEO_TIER1_RE.test(h)) {
+  // ── Upgrade: donnée macro tier-1 RÉELLE, géopolitique tier-1 (militaire), OU accord diplomatique majeur ──
+  if (isHighImpactData || GEO_TIER1_RE.test(h) || isGeoDeal(h)) {
     return { ...item, priority: 'high', _highImpact: true };
   }
 
