@@ -10,7 +10,7 @@
     "icons": "node icons.js",
     "start": "electron .",
     "build:win": "electron-builder --win nsis --x64",
-    "build:mac": "electron-packager . DataTradingPro --platform=darwin --arch=arm64 --icon=build/icon.icns --out=release --overwrite --app-bundle-id=com.datatradingpro.desk"
+    "build:mac": "electron-builder --mac --arm64 --x64"
   },
   "devDependencies": {
     "@electron/packager": "^18.3.6",
@@ -28,10 +28,17 @@
       "icon": "build/icon.ico",
       "target": [{ "target": "nsis", "arch": ["x64"] }]
     },
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.finance",
+      "identity": null,
+      "target": [{ "target": "zip", "arch": ["arm64", "x64"] }],
+      "artifactName": "DataTradingPro-mac-${arch}.zip"
+    },
     "nsis": {
       "oneClick": true,
       "perMachine": false,
-      "artifactName": "DataTradingPro-Setup-${version}.exe",
+      "artifactName": "DataTradingPro-Setup.exe",
       "deleteAppDataOnUninstall": false
     }
   }
