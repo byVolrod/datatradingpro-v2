@@ -3994,7 +3994,7 @@ function _sbOpenSummary(curr) {
     line('Tendance', val('trend')),
     line('Seasonality', val('seasonality')),
     // Ligne Overall (conclusion) — encadrée orange façon DTP, en bas de la liste.
-    `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${esc(BIAS_FR[overall] || overall)}</span></div>`,
+    `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${/bull|uptrend/i.test(overall) ? '↗ ' : /bear|downtrend/i.test(overall) ? '↘ ' : ''}${esc(BIAS_FR[overall] || overall)}</span></div>`,
   ].filter(Boolean).join('');
 
   // Narratif data-driven (sans IA) : synthèse à partir des indicateurs de la devise.

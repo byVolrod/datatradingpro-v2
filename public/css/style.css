@@ -3128,7 +3128,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Sous-titre "Bias Summary" (en haut du volet gauche, façon DTP) */
 .sbs-left-title { font-size: var(--fs-title); font-weight: var(--fw-semibold); color: var(--text); font-family: var(--tight); letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 14px 9px; }
 /* Ligne Overall (conclusion) — encadrée orange façon DTP, détachée en bas de la liste */
-.sbs-row--overall { margin: 14px 12px 6px; padding: 9px 11px; background: rgba(227,178,58,.10); border: 2px solid rgba(227,178,58,.32); border-radius: 3px; }   /* « Overall » encadré façon pro */
+.sbs-row--overall { margin: 14px 12px 6px; padding: 9px 11px; background: rgba(227,178,58,.10); border: 2px solid rgba(227,178,58,.32); border-radius: 3px; transition: background var(--t-fast) ease, border-color var(--t-fast) ease; }   /* « Overall » encadré façon pro */
+.sbs-row--overall:hover { background: rgba(227,178,58,.18); border-color: rgba(227,178,58,.55); }   /* hover OR (demande) — ligne de conclusion mise en avant */
 .sbs-row--overall .sbs-row-lbl { color: #fff; font-weight: var(--fw-semibold); }
 .sbs-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 8px 12px; scrollbar-width: thin; scrollbar-color: #404040 transparent; }
 .sbs-right::-webkit-scrollbar { width: 7px; }
