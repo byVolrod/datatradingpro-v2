@@ -3136,7 +3136,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-badge--na { background: #232429; color: #6b7280; }   /* pas de donnée récente → tiret discret (jamais inventé) */
 .sbs-children { background: #060608; }
 .sbs-child-note { padding: 8px 14px 8px 38px; font-size: 11px; color: #71717a; font-style: italic; }
-.sbs-narr-title { font-size: var(--fs-h2); font-weight: 600; color: #e3b23a; font-family: var(--tight); letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 12px; display: block; }   /* titre de section OR institutionnel */
+.sbs-narr-title { font-size: var(--fs-h2); font-weight: 700; color: var(--text); font-family: var(--tight); letter-spacing: 0; margin-bottom: 12px; display: block; }   /* titre narratif BLANC, casse naturelle (demande) */
 .sbs-narr { font-size: 12px; color: #d4d4d8; line-height: 1.6; margin-bottom: 16px; white-space: pre-wrap; }
 .sbs-narr b { color: #fff; }
 /* « Key Risk Events for the Week Ahead » façon pro : titre souligné + jour (largeur fixe) + événements */
@@ -9818,7 +9818,7 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 
 /* === Recal landing (Editorial Luxe) : titres serif Fraunces + wordmark or === */
 .arlib-list-title,.br-list-title,.inst-title,.settings-title,.settings-section-title,.np-filter-title,.sbm-title,.sbs-narr-title,.prep-section-title,.prep-watchlist-title,.prep-risks-title,.prep-topbar-title,.wip-title{font-family:var(--tight),sans-serif !important;letter-spacing:-.005em;}
-.sbs-narr-title{color:var(--orange,#e3b23a) !important;}
+.sbs-narr-title{color:var(--text) !important;}   /* titre narratif en BLANC (demande) — fini l'or */
 .logo-text{background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;}
 
 /* === Dashboard Apercu - en-tetes de panneaux premium (Minimal Epure, structure inchangee) === */
