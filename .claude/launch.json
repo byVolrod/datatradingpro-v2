@@ -13,6 +13,12 @@
       "runtimeExecutable": "node",
       "runtimeArgs": ["preview-server.js"],
       "port": 5099
+    },
+    {
+      "name": "landing",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["scripts/landing-preview.js"],
+      "port": 4178
     }
   ]
 }
