@@ -1384,8 +1384,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .news-arrow-col {
   width: var(--c-arrow);
   flex-shrink: 0;
+  align-self: flex-start;          /* chevron aligne sur la 1re LIGNE du titre (et non centre sur l'item titre+tags qui le faisait tomber dessous) */
   display: flex;
-  align-items: center;             /* chevron centré verticalement sur la 1re ligne du titre */
+  align-items: center;             /* chevron centré verticalement dans sa propre hauteur (= 1re ligne) */
   justify-content: center;
   min-height: 18.75px;
   font-size: 10px;
