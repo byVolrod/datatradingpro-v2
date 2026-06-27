@@ -696,7 +696,10 @@
   .dk-cs2-tf{display:flex;gap:1px;font-family:var(--tight,'Inter Tight',sans-serif);font-size:8px;font-weight:700}
   .dk-cs2-tf b{padding:2px 5px;color:#6f6f79;border-radius:0}
   .dk-cs2-tf b.on{background:transparent;color:#fff;box-shadow:inset 0 -2px 0 #e3b23a}
-  .dk-cs2-chart{flex:1;min-height:150px;margin:8px 0 4px;display:flex;gap:6px;position:relative}
+  /* Deux graphes empiles : TD (au-dessus) + TW (en-dessous) — aligne horizontalement, comme le vrai desk */
+  .dk-cs2-unit{flex:1;display:flex;flex-direction:column;min-height:0}
+  .dk-cs2-unit + .dk-cs2-unit{margin-top:5px;padding-top:6px;border-top:1px solid #232429}
+  .dk-cs2-chart{flex:1;min-height:56px;margin:5px 0 2px;display:flex;gap:6px;position:relative}
   .dk-cs2-chart svg{flex:1;min-width:0;height:100%;display:block}
   .dk-cs2-ln{fill:none;stroke-width:1.7;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round}
   .dk-cs2-ends{position:relative;flex:0 0 58px;width:58px;align-self:stretch}
@@ -1228,8 +1231,10 @@
           <p class="one">Qui mène, qui décroche — en continu.</p>
           <div class="vis">
 <div class="dk-cs2">
+  <!-- Graphe TD (au-dessus) -->
+  <div class="dk-cs2-unit">
   <div class="dk-cs2-head"><span class="dk-cs2-title">Currency Strength</span>
-    <span class="dk-cs2-tf"><b>TD</b><b>TW</b><b>8H</b><b class="on">1D</b><b>7D</b><b>1M</b></span>
+    <span class="dk-cs2-tf"><b class="on">TD</b><b>TW</b><b>8H</b><b>1D</b><b>7D</b><b>1M</b></span>
   </div>
   <div class="dk-cs2-chart">
     <svg viewBox="0 0 300 200" preserveAspectRatio="none">
@@ -1255,6 +1260,38 @@
       <span class="dk-cs2-b" style="top:75%"><b style="background:#ff5cae">NZD</b><i style="background:#ffaed6">-1.03</i></span>
       <span class="dk-cs2-b" style="top:87%"><b style="background:#22d3ee">JPY</b><i style="background:#90e9f6">-1.58</i></span>
     </div>
+  </div>
+  </div>
+  <!-- Graphe TW (en-dessous, aligne sur le TD) -->
+  <div class="dk-cs2-unit">
+  <div class="dk-cs2-head"><span class="dk-cs2-title">Currency Strength</span>
+    <span class="dk-cs2-tf"><b>TD</b><b class="on">TW</b><b>8H</b><b>1D</b><b>7D</b><b>1M</b></span>
+  </div>
+  <div class="dk-cs2-chart">
+    <svg viewBox="0 0 300 200" preserveAspectRatio="none">
+      <line x1="0" y1="60" x2="300" y2="60" stroke="#141419" stroke-width="1" stroke-dasharray="3 4"/>
+      <line x1="0" y1="100" x2="300" y2="100" stroke="#1f1f27" stroke-width="1" stroke-dasharray="4 4"/>
+      <line x1="0" y1="140" x2="300" y2="140" stroke="#141419" stroke-width="1" stroke-dasharray="3 4"/>
+      <polyline class="dk-cs2-ln" stroke="#ff9500" points="6,100 22,98 38,95 54,90 70,86 86,80 102,74 118,68 134,62 150,57 166,52 182,48 198,44 214,40 230,37 246,34 262,31 278,29 294,26"/>
+      <polyline class="dk-cs2-ln" stroke="#be8bff" points="6,100 22,99 38,96 54,93 70,89 86,85 102,82 118,78 134,75 150,72 166,69 182,66 198,63 214,60 230,57 246,55 262,53 278,51 294,49"/>
+      <polyline class="dk-cs2-ln" stroke="#2bee6b" points="6,100 22,100 38,98 54,96 70,94 86,92 102,90 118,88 134,86 150,84 166,82 182,80 198,78 214,77 230,76 246,75 262,74 278,73 294,72"/>
+      <polyline class="dk-cs2-ln" stroke="#ffd60a" points="6,100 22,101 38,100 54,99 70,99 86,98 102,98 118,97 134,97 150,96 166,96 182,95 198,95 214,94 230,94 246,93 262,93 278,92 294,92"/>
+      <polyline class="dk-cs2-ln" stroke="#3b82f6" points="6,100 22,101 38,102 54,103 70,103 86,104 102,104 118,105 134,105 150,106 166,106 182,107 198,107 214,108 230,108 246,109 262,109 278,110 294,110"/>
+      <polyline class="dk-cs2-ln" stroke="#ff3b30" points="6,100 22,100 38,101 54,102 70,103 86,104 102,105 118,106 134,107 150,108 166,109 182,110 198,111 214,112 230,113 246,114 262,115 278,116 294,118"/>
+      <polyline class="dk-cs2-ln" stroke="#22d3ee" points="6,100 22,102 38,104 54,107 70,110 86,113 102,116 118,119 134,122 150,125 166,128 182,131 198,134 214,137 230,140 246,143 262,146 278,149 294,152"/>
+      <polyline class="dk-cs2-ln" stroke="#ff5cae" points="6,100 22,103 38,106 54,110 70,114 86,118 102,122 118,126 134,130 150,134 166,138 182,142 198,146 214,150 230,154 246,158 262,162 278,166 294,170"/>
+    </svg>
+    <div class="dk-cs2-ends">
+      <span class="dk-cs2-b" style="top:12%"><b style="background:#ff9500">USD</b><i style="background:#ffca80">+5.50</i></span>
+      <span class="dk-cs2-b" style="top:25%"><b style="background:#be8bff">CAD</b><i style="background:#dec5ff">+3.28</i></span>
+      <span class="dk-cs2-b" style="top:37%"><b style="background:#2bee6b">GBP</b><i style="background:#95f6b5">+1.80</i></span>
+      <span class="dk-cs2-b" style="top:47%"><b style="background:#ffd60a">CHF</b><i style="background:#ffea84">+0.40</i></span>
+      <span class="dk-cs2-b" style="top:56%"><b style="background:#3b82f6">AUD</b><i style="background:#9dc0fb">-0.60</i></span>
+      <span class="dk-cs2-b" style="top:64%"><b style="background:#ff3b30">EUR</b><i style="background:#ff9d97">-0.80</i></span>
+      <span class="dk-cs2-b" style="top:77%"><b style="background:#22d3ee">JPY</b><i style="background:#90e9f6">-4.10</i></span>
+      <span class="dk-cs2-b" style="top:87%"><b style="background:#ff5cae">NZD</b><i style="background:#ffaed6">-7.13</i></span>
+    </div>
+  </div>
   </div>
 </div>
           </div>
