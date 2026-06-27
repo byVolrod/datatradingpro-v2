@@ -3081,7 +3081,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbm-sub-row .sbm-cell { font-size: 10px; }
 
 /* ── Bias Summary Panel (inférieur, redimensionnable) ── */
-.sbm-summary-host { margin-top: 0; flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column; }
+.sbm-summary-host { margin-top: 0; flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column; container-type: inline-size; container-name: biassum; }   /* conteneur de requete : le split synthese/narratif s'adapte a la LARGEUR REELLE du panneau (pas du viewport) */
 .sbm-summary-host:empty { display: none; }
 .sbs-panel { border: 1px solid var(--hud-line); border-radius: 4px; background: #0d0e11; overflow: hidden; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 .sbs-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--hud-line); background: #101012; }
@@ -3167,8 +3167,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-imp--med { background: #b45309; color: #fff; }
 .sbs-imp--low { background: #374151; color: #cbd5e1; }
 .sbs-risk-load { font-size: 11px; color: #6b7280; padding: 6px 0; }
-/* Responsive : sur écran étroit le panneau Bias Summary S'EMPILE (résumé au-dessus, narratif/risques dessous) */
-@media (max-width: 820px) {
+/* Responsive : quand le PANNEAU (pas le viewport) est trop etroit, le Bias Summary S'EMPILE
+   (synthese au-dessus pleine largeur, narratif/risques dessous). Container query → s'adapte au
+   split reel : tablette, telephone, ET splitter retreci cote synthese. Au-dela de 620px de panneau
+   on repasse en 2 colonnes (synthese 46% + narratif). */
+@container biassum (max-width: 620px) {
   .sbs-body { flex-direction: column; }
   .sbs-left { flex-basis: auto; width: 100%; max-height: 46vh; border-right: none; border-bottom: 1px solid #232429; }
   .sbs-split { display: none; }
