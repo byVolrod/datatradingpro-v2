@@ -137,8 +137,12 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --r-1:      4px;      /* radius cartes/panneaux */
   --r-2:      4px;      /* radius boutons/badges/inputs */
   --pill:     999px;    /* pastilles */
-  --t-fast:   0.16s;    /* transition standard premium */
+  --t-fast:   0.16s;    /* transition standard premium (micro-interactions) */
+  --t-med:    0.22s;    /* transition un peu plus ample (panneaux/etats composes) — borne haute 150-250ms */
   --focus-ring: 0 0 0 2px rgba(227,178,58,0.45);   /* anneau focus on-brand (or) */
+  --neutral:  #ffb300;  /* etat NEUTRE / impact moyen (jaune-or charte) — remplace l'ambre hors-charte var(--neutral) */
+  /* Echelle d'espacement HOMOGENE (base 4px) — grille commune institutionnelle */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px;
   --topbar-h:    54px;
   --tabs-bar-h:  28px;
   --navbar-h:    28px;
@@ -1708,7 +1712,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag--purple    { background: rgba(155,89,182,0.1); border: 1px solid rgba(155,89,182,0.2); color: #9b59b6; }
 .tag--gray      { background: var(--bg4); border: 1px solid var(--border3); color: var(--text4); }
 /* Badge Rumour — info non confirmée (ambre) */
-.tag--rumour    { background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.45); color: #f59e0b; font-weight: 600; }
+.tag--rumour    { background: rgba(255,179,0,0.12); border: 1px solid rgba(255,179,0,0.45); color: var(--neutral); font-weight: 600; }
 /* ── Sous-onglets news (Info / Analyse / Réaction) ──
    Inactif : bordure grise + texte gris, fond transparent.
    Actif   : fond couleur opaque + texte blanc (Info=cyan, Analyse=bleu, Réaction=violet). */
@@ -2962,7 +2966,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .bias-card--bull    { border-left-color: #22c55e; }
 .bias-card--bear    { border-left-color: #ef4444; }
-.bias-card--neutral { border-left-color: #f59e0b; }
+.bias-card--neutral { border-left-color: var(--neutral); }
 .bias-card-head {
   display: flex;
   align-items: center;
@@ -2987,7 +2991,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .bias-badge.bias-bull    { color: #22c55e; background: rgba(34,197,94,0.10);  border: 1px solid rgba(34,197,94,0.30); }
 .bias-badge.bias-bear    { color: #ef4444; background: rgba(239,68,68,0.10);  border: 1px solid rgba(239,68,68,0.30); }
-.bias-badge.bias-neutral { color: #f59e0b; background: rgba(245,158,11,0.10); border: 1px solid rgba(245,158,11,0.30); }
+.bias-badge.bias-neutral { color: var(--neutral); background: rgba(255,179,0,0.10); border: 1px solid rgba(255,179,0,0.30); }
 .bias-meta {
   font-size: 9px;
   font-weight: 700;
@@ -5480,7 +5484,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .fxdr-sub-h { font-size: 12.5px; font-weight: 600; color: #dcdce0; margin-bottom: 2px; }
 .fxdr-sub-t { font-size: 12px; color: #a6a6ad; line-height: 1.6; }
 /* Central Bank Focus / Analyst Comments / Corporate News — variantes de carte */
-.fxdr-cb { background: rgba(245,158,11,.06); border-left-color: #f59e0b; }
+.fxdr-cb { background: rgba(255,179,0,.06); border-left-color: var(--neutral); }
 .fxdr-comment { border-left-color: #3a6df0; }
 .fxdr-corp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .fxdr-corp-head .fxdr-card-title { margin-bottom: 0; }
@@ -5632,7 +5636,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .rp-gauge-lbl--risk-on  { color: #2ee06a; border-color: rgba(34,197,94,0.6);  background: rgba(34,197,94,0.14);  box-shadow: 0 0 14px rgba(34,197,94,0.18);  }
 .rp-gauge-lbl--risk-off { color: #ff5a66; border-color: rgba(239,68,68,0.6);  background: rgba(239,68,68,0.14);  box-shadow: 0 0 14px rgba(239,68,68,0.18);  }
-.rp-gauge-lbl--neutral  { color: #ffb02e; border-color: rgba(245,158,11,0.6); background: rgba(245,158,11,0.14); box-shadow: 0 0 14px rgba(245,158,11,0.16); }
+.rp-gauge-lbl--neutral  { color: #ffb02e; border-color: rgba(255,179,0,0.6); background: rgba(255,179,0,0.14); box-shadow: 0 0 14px rgba(255,179,0,0.16); }
 
 /* Bande sentiment (● LABEL : phrase) — pleine largeur, colorée selon le risque */
 .rp-band { display: flex; align-items: flex-start; gap: 8px; padding: 10px 16px; font-size: 12.5px; line-height: 1.45; }
@@ -6750,7 +6754,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-row td.cth-imp { text-align: center; white-space: nowrap; }
 .ci-high, .ci-med, .ci-low { font-size: 10px; letter-spacing: 2.5px; }
 .ci-high    { color: #ef4444; }   /* High  → ●●● pleins */
-.ci-med     { color: #f59e0b; }   /* Med   → ●● pleins + 1 estompé */
+.ci-med     { color: var(--neutral); }   /* Med   → ●● pleins + 1 estompé */
 .ci-low     { color: #4ade80; }   /* Low   → ● plein + 2 estompés */
 .ci-dot-off { opacity: 0.2; }     /* points inactifs de la matrice */
 
@@ -9809,12 +9813,12 @@ body.jrd-resizing #jr-detail { transition: none; }
 input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(227,178,58,0.14);}
 
 /* Phase 4 passe 4 - cartes premium (radius 10px) + etats actifs or + hover renforce */
-.sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel{border-radius:10px;}
+.sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel{border-radius:var(--r-1);}
 .sym-subtab--active,.nav-item.active,.nav-item--active{color:var(--orange);}
 .sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{transform:translateY(-2px);border-color:rgba(227,178,58,0.4);}
 
 /* === Refonte Pass 3 - finition cartes + animation d entree (Minimal Epure) === */
-.sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel,.ai-insights-card,.bias-content,.arlib-list-view{border-radius:12px;}
+.sym-panel,.sym-bz-col,.clocks-panel,.sbs-panel,.dmx-panel,.ai-insights-card,.bias-content,.arlib-list-view{border-radius:var(--r-1);}
 .sym-panel,.sym-bz-col,.ai-insights-card,.ai-ins-pair,.clocks-panel,.sbs-panel,.dmx-panel{transition:border-color .18s ease,transform .18s ease,box-shadow .2s ease;}
 .sym-panel:hover,.sym-bz-col:hover,.ai-insights-card:hover,.ai-ins-pair:hover{transform:translateY(-1px);border-color:rgba(227,178,58,0.26);box-shadow:0 10px 26px -16px rgba(0,0,0,0.65);}
 @keyframes dtpEnter{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
