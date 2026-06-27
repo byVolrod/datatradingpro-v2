@@ -196,7 +196,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images']);   // page Week Ahead PUBLIQUE + mosaïque login (photos d'actu)
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/'];
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
