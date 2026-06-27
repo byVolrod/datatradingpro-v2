@@ -1348,7 +1348,7 @@ function buildRiskHistoryChart(containerId, data) {
 
   // Axe Y : Sentiment (%) de -100 à +100
   const yRenderer = am5xy.AxisRendererY.new(root, { opposite: false, inside: false, minWidth: 40 });   // axe Y (Sentiment %) à GAUCHE
-  yRenderer.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9, paddingLeft: 4 });
+  yRenderer.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 9, paddingLeft: 4, paddingRight: 8 });   /* espace le "100%" de la ligne d'axe (look pro) */
   yRenderer.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.2, strokeWidth: 1, strokeDasharray: [] });   // grille continue TRÈS discrète (le « 0% » = l'axe orange fin ci-dessous)
   const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, {
     min: -100, max: 100, strictMinMax: true, numberFormat: "#'%'", renderer: yRenderer,
