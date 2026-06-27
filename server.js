@@ -10147,10 +10147,10 @@ function broadcast(data) {
   // Ne JAMAIS diffuser les briefings PRIMER au site (masqués sur demande utilisateur) : on les retire
   // des mises à jour news poussées en temps réel ; si l'envoi ne contenait que ça, on l'abandonne.
   if (data && data.type === 'news_update' && Array.isArray(data.items)) {
-    // Filtre au POINT DE DIFFUSION : PRIMER + bruit (isNoise/isGlobalNewsNoise). Indispensable car les
-    // poll-handlers FJ/FF diffusent `items.slice(0, count)` (tableau BRUT, pas la sortie filtrée de
-    // mergeItems) → sans ça, une étiquette « … Interest Rate Probabilities » filtrée du stockage passait
-    // quand même en direct aux clients. Les rapports internes (_briefing) sont déjà exclus par _isPrimerNews.
+    // Filtre DEFENSIF au POINT DE DIFFUSION : PRIMER + bruit (isNoise/isGlobalNewsNoise). Les poll-handlers
+    // FJ/FF diffusent désormais la sortie FILTRÉE + UPGRADÉE de mergeItems (`added`), mais d'AUTRES chemins
+    // poussent encore des items bruts ([{ ...item, _new }], analyses) → ce filet garantit qu'aucun PRIMER/bruit
+    // ne passe en direct aux clients. Les rapports internes (_briefing) sont déjà exclus par _isPrimerNews.
     const items = data.items.filter(n => !_isPrimerNews(n) && !isNoise(n.headline) && !isGlobalNewsNoise(n.headline));
     if (!items.length) return;
     data = { ...data, items };
@@ -10215,7 +10215,7 @@ function mergeItems(incoming) {
     }
     newItems.push(item);
   }
-  if (newItems.length === 0) return 0;
+  if (newItems.length === 0) return [];
 
   // Spam cap: max 8 data items per batch across all data categories
   const DATA_CATS_CAP = new Set(['Economic Commentary', 'EU Data', 'US Data', 'UK Data',
@@ -10236,14 +10236,14 @@ function mergeItems(incoming) {
     if (dataAllowed > 0) { dataAllowed--; return true; }
     return false;
   });
-  if (capped.length === 0) return 0;
+  if (capped.length === 0) return [];
   const cutoff = Date.now() - HISTORY_TTL;
   allNews = [...capped, ...allNews]
     .filter(i => i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp)
     .slice(0, 1000);   // cap mémoire (512 Mo) : 1000 items suffisent largement pour le terminal
   saveHistory();
-  return capped.length;
+  return capped;   // renvoie les objets STOCKES (deja upgrades) -> les appelants diffusent la version rouge en LIVE (plus de deflaggage avant reload)
 }
 
 // ─── Tags IA pour les news IMPORTANTES (intelligent, borné, caché) ───────────
@@ -10410,7 +10410,8 @@ async function refreshNews() {
   );
 
   // News feed: FJ + FF-News + high-impact released calendar events + RSS multi-sources
-  const count = mergeItems([...fjItems, ...ffNewsItems, ...calReleased, ...rssItems]);
+  const added = mergeItems([...fjItems, ...ffNewsItems, ...calReleased, ...rssItems]);
+  const count = added.length;
   console.log(`  [FJ:${fjItems.length} FF-Cal:${ffCalItems.length}→cal FF-News:${ffNewsItems.length} RSS:${rssItems.length}] +${count} new (total: ${allNews.length})`);
 
   if (count > 0 || isFirstLoad) {
@@ -10418,7 +10419,7 @@ async function refreshNews() {
       isFirstLoad = false;
       broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
     } else {
-      broadcast({ type: 'news_update', items: allNews.slice(0, count), total: allNews.length });
+      broadcast({ type: 'news_update', items: added, total: allNews.length });
     }
   }
 
@@ -10494,9 +10495,9 @@ setInterval(async () => {
 // FinancialJuice — persistent WS connection (non-blocking)
 // Push callback: broadcast instantly when a FJ item arrives (< 1s latency)
 setOnPushCallback(item => {
-  const count = mergeItems([item]);
-  if (count > 0) {
-    broadcast({ type: 'news_update', items: [item], total: allNews.length });
+  const added = mergeItems([item]);
+  if (added.length > 0) {
+    broadcast({ type: 'news_update', items: added, total: allNews.length });   // 'added' = version STOCKEE upgradee -> rouge en LIVE (avant: [item] brut = gris jusqu'au reload)
     console.log(`[FJ LIVE →] ${item.headline.substring(0, 65)}`);
   }
 });
@@ -10681,9 +10682,9 @@ setInterval(async () => {
 
 // ForexFactory News — fast poll every 20s, broadcasts instantly on new items
 startFFNewsPoll(freshItems => {
-  const count = mergeItems(freshItems);
-  if (count > 0) {
-    broadcast({ type: 'news_update', items: freshItems.slice(0, count), total: allNews.length });
+  const added = mergeItems(freshItems);
+  if (added.length > 0) {
+    broadcast({ type: 'news_update', items: added, total: allNews.length });
   }
 });
 
@@ -10694,10 +10695,10 @@ setInterval(async () => {
   try {
     const fjItems = await scrapeFinancialJuice();
     if (fjItems.length === 0) return;
-    const count = mergeItems(fjItems);
-    if (count > 0) {
-      broadcast({ type: 'news_update', items: fjItems.slice(0, count), total: allNews.length });
-      console.log(`[FJ fast-poll] +${count} news diffusées`);
+    const added = mergeItems(fjItems);
+    if (added.length > 0) {
+      broadcast({ type: 'news_update', items: added, total: allNews.length });
+      console.log(`[FJ fast-poll] +${added.length} news diffusées`);
     }
   } catch {}
 }, 20_000);
@@ -10707,7 +10708,7 @@ setTimeout(async () => {
   try {
     const items = await backfillHistoricalNews(7);
     if (items.length === 0) return;
-    const count = mergeItems(items);
+    const count = mergeItems(items).length;
     console.log(`[Backfill] +${count} historical items merged (total: ${allNews.length})`);
     if (count > 0) {
       broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
