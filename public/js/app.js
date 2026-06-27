@@ -3808,13 +3808,17 @@ function renderBiasView(d) {
     `<th class="sbm-cur" onclick="_sbOpenSummary('${c}')"><span class="sbm-cur-in">${_sbFlag(c)}<span>${esc(c)}</span></span></th>`).join('')}</tr>`;
   // Fundamental Data & Bank Overview = accordéons dans la matrice (clic → sous-indicateurs par devise).
   const _accKeys = { fundamental: 1, bankOverview: 1 };
+  // Libelles FR de la matrice — IDENTIQUES a ceux de la synthese (volet gauche) pour que radar et
+  // synthese listent exactement les memes indicateurs (demande : coherence logique + charte FR).
+  const _sbRowFr = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
   const body = rows.map(r => {
     const isAcc = _accKeys[r.key];
+    const rlabel = _sbRowFr[r.key] || r.label;
     const indCell = isAcc
-      ? `<td class="sbm-ind sbm-ind-acc" onclick="_sbMatToggleAcc('${r.key}',event)" title="Déplier les sous-indicateurs"><span class="sbm-acc-arrow">›</span>${esc(r.label)}</td>`
-      : `<td class="sbm-ind">${esc(r.label)}</td>`;
+      ? `<td class="sbm-ind sbm-ind-acc" onclick="_sbMatToggleAcc('${r.key}',event)" title="Déplier les sous-indicateurs"><span class="sbm-acc-arrow">›</span>${esc(rlabel)}</td>`
+      : `<td class="sbm-ind">${esc(rlabel)}</td>`;
     return `<tr data-mrow="${esc(r.key || '')}">${indCell}${
-      cur.map(c => { const v = r.values[c] || 'N/A'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(r.label)} : ${esc(BIAS_FR[v] || v)}">${esc(BIAS_FR[v] || v)}</td>`; }).join('')
+      cur.map(c => { const v = r.values[c] || 'N/A'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(rlabel)} : ${esc(BIAS_FR[v] || v)}">${esc(BIAS_FR[v] || v)}</td>`; }).join('')
     }</tr>`;
   }).join('');
   const arrow = v => /bull|uptrend/i.test(v) ? '<span class="sbm-arr">↗</span>' : /bear|downtrend/i.test(v) ? '<span class="sbm-arr">↘</span>' : '';
@@ -3984,8 +3988,6 @@ function _sbOpenSummary(curr) {
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
     line('Vue des banques', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
-    line('Technical', tval('technical')),
-    line('Sentiment', tval('sentiment')),
     line('Positionnement Hedge Funds', val('hedgeFund')),
     line('Positionnement Particuliers', val('retail')),
     line('Politique monétaire', val('monetary')),

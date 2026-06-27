@@ -6642,6 +6642,21 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .cal-table th:nth-child(7), .cal-table td:nth-child(7),
   .cal-table th:nth-child(9), .cal-table td:nth-child(9) { display: none; }
 }
+/* Telephone : table calendrier ETROITE (tient dans ~390px). On garde Heure/Pays/Devise/Impact/
+   Evenement/Reel et on masque PREVISION (col 8) + PRECEDENT (col 10) -> dispos dans le detail au tap
+   (comme HIGH/LOW). Colonnes + paddings compactes pour laisser de la place au nom de l'evenement. */
+@media (max-width: 480px) {
+  .cal-table th:nth-child(8), .cal-table td:nth-child(8),
+  .cal-table th:nth-child(10), .cal-table td:nth-child(10) { display: none; }
+  .cth-time { width: 46px !important; }
+  .cth-flag { width: 26px !important; }
+  .cth-curr { width: 38px !important; }
+  .cth-imp  { width: 44px !important; }
+  .cth-val  { width: 54px !important; }
+  .cth-event { min-width: 92px !important; }
+  .cal-table thead th, .cal-row td { padding-left: 6px !important; padding-right: 6px !important; }
+  .cal-row td.cth-event { font-size: 11px; line-height: 1.32; }
+}
 
 /* Day separator */
 .cal-day-sep {
