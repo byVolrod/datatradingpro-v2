@@ -10063,3 +10063,13 @@ body.theme-light .arlib-back-btn:hover{background:#efeae0;color:#241f17;}
 
 /* ═══ Indicateurs "live"/"Direct" MASQUES (a refaire plus tard, demande) ═══ */
 .live-dot, .live-label, .cal-live-badge, .wa3-live, .sqwk-live-note { display: none !important; }
+
+/* ═══ Premium LOT 6 : focus CLAVIER accessible on-brand (anneau or net, sans outline natif) ═══
+   N'apparait QU'au focus clavier (:focus-visible) — la souris n'affiche aucun anneau. */
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible,
+summary:focus-visible, [tabindex]:focus-visible, .nav-item:focus-visible, .right-tab:focus-visible,
+.news-item:focus-visible, .cal-row:focus-visible, .stf-btn:focus-visible, .tag:focus-visible,
+.cot-type-btn:focus-visible, .dtpsel-btn:focus-visible {
+  outline: none !important;
+  box-shadow: var(--focus-ring) !important;
+}
