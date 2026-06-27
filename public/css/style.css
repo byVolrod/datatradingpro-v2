@@ -9865,7 +9865,7 @@ body{font-variant-numeric:tabular-nums;}
 
 /* === Terminal dense (clair + sombre) : widgets CARRES + COLLES === */
 .sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel,.ai-insights-card,.ai-ins-pair,.bias-content,.arlib-list-view,.br-reader-view,.notes-panel,.np-filter-panel,.panel,.panel-news,.settings-panel{border-radius:4px !important;}
-.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{box-shadow:none !important;transform:none !important;}
+.sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{box-shadow:var(--panel-depth) !important;transform:none !important;}   /* LOT 8 : profondeur TRES legere (ombre douce + lisere haut) — a valider */
 .sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{transform:none !important;}
 .sym-grid{padding:0 !important;grid-template-columns:var(--sym-col,1fr) 1px minmax(0,1fr) !important;grid-template-rows:var(--sym-row,1fr) 1px minmax(0,1fr) !important;}
 .sbm-grid{border-collapse:collapse !important;border-spacing:0 !important;}
