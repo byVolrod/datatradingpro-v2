@@ -9997,6 +9997,14 @@ body.theme-light .clock-gmt { color: var(--text2) !important; }
 .right-tab--active, .stf-btn--active, .cot-type-btn--active, .dmx-tf-btn--active, .nav-item--active:not(.nav-item--symbol), .nav-item.active:not(.nav-item--symbol), .sym-subtab--active { color: #fff !important; font-weight: var(--fw-bold) !important; background: transparent !important; }
 .stf-btn--active::after, .cot-type-btn--active::after, .dmx-tf-btn--active::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--orange); border-radius: 2px 2px 0 0; }
 
+/* EXTENSION — memes regles pour TOUS les autres onglets/sous-onglets/periodes du desk (Institutions,
+   Journal, sections news, timeframes/types/indicateurs de graphiques). Les filtres semantiques
+   (.cal-imp-btn = impact) et toggles (.sea-cfg-tab--on) sont volontairement exclus. */
+.inst-tab, .jr-tab, .np-tab, .expand-tab, .tf-btn, .ct-btn, .cot-tf-btn, .ind-btn { text-transform: uppercase; letter-spacing: .06em; position: relative; background: transparent !important; border: 0 !important; border-radius: 0 !important; color: var(--text3) !important; font-weight: var(--fw-semibold) !important; }
+.inst-tab:not(.inst-tab--active):hover, .jr-tab:not(.jr-tab--active):hover, .np-tab:not(.np-tab--active):hover, .expand-tab:not(.expand-tab--active):hover, .tf-btn:not(.tf-btn--active):hover, .ct-btn:not(.ct-btn--active):hover, .cot-tf-btn:not(.cot-tf-btn--active):hover, .ind-btn:not(.ind-btn--active):hover { color: var(--text2) !important; background: rgba(255,255,255,.045) !important; }
+.inst-tab--active, .jr-tab--active, .np-tab--active, .expand-tab.expand-tab--active, .tf-btn--active, .ct-btn--active, .cot-tf-btn--active, .ind-btn--active { color: #fff !important; font-weight: var(--fw-bold) !important; background: transparent !important; }
+.inst-tab--active::after, .jr-tab--active::after, .np-tab--active::after, .expand-tab.expand-tab--active::after, .tf-btn--active::after, .ct-btn--active::after, .cot-tf-btn--active::after, .ind-btn--active::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--orange); border-radius: 2px 2px 0 0; }
+
 /* === (2) Noms de widgets UNIFORMES (meme taille/police, MAJUSCULES) SANS tick dore a gauche === */
 .sym-ptitle::before,.panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before,.cot-header-label::before,.dmx-header-title::before{display:none !important;}
 .sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title,.cot-header-label,.dmx-header-title{font-size:var(--fs-title) !important;font-weight:var(--fw-semibold) !important;letter-spacing:var(--ls-caps) !important;text-transform:uppercase !important;}
