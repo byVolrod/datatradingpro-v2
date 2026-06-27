@@ -17,7 +17,7 @@ const FEEDS = [
   { url: 'https://news.google.com/rss/search?q=Fed+ECB+BOJ+monetary+policy&hl=en-US&gl=US&ceid=US:en',                   source: 'Google News',   priority: 'high'   },
   { url: 'https://news.google.com/rss/search?q=geopolitical+risk+trade+war+sanctions&hl=en-US&gl=US&ceid=US:en',         source: 'Google News',   priority: 'high'   },
   // Mehr News (Iran) — TOP 10 marqués IMPORTANTS (géopolitique Moyen-Orient), sans doublon
-  { url: 'https://en.mehrnews.com/rss',                                                                                   source: 'Mehr News',     priority: 'high', important: true, limit: 10 },
+  { url: 'https://en.mehrnews.com/rss',                                                                                   source: 'Mehr News',     limit: 10 },
 ];
 
 const HEADERS = {
@@ -135,8 +135,10 @@ async function fetchFeed(feed) {
       const ts = parseRSSDate(pubDate);
 
       // "important" : flux marqué important (ex. Mehr News top 10) OU high-priority sur catégorie sensible
-      const isImportant = !!feed.important
-        || (feed.priority === 'high' && ['Geopolitical','Fed','ECB','Energy & Power','BoJ','BoE'].includes(category));
+      // Importance = CONTENU (decidee par upgradeItemPriority cote server.js), PAS le flux : on ne flagge
+      // plus en masse la geopolitique (sinon, en periode de conflit, 30% du feed passe rouge a tort).
+      // Seules les vraies CB restent (rares + justifiees) ; le reste est upgrade au cas par cas si le contenu le merite.
+      const isImportant = (feed.priority === 'high' && ['Fed','ECB','BoJ','BoE'].includes(category));
 
       items.push({
         id: `rss-${feed.source.replace(/\s/g,'').toLowerCase()}-${Buffer.from(link || title).toString('base64').substring(0,10)}-${ts}`,
