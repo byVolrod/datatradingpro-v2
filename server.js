@@ -9916,8 +9916,13 @@ const GLOBAL_LIFESTYLE = /\b(football|soccer|nfl|nba|nhl|mlb|premier league|cham
 // (futsal, championship, ligues…) + le drame social (fusillades scolaires, crimes). Garde-fou
 // isFinanciallyRelevant → si la news contient quand même du vocabulaire marché, on la GARDE (anti-faux-positif).
 const OFFTOPIC_NOISE = /\b(futsal|cricket|rugby|marathon|athletics|basketball|baseball|handball|volleyball|ufc|mma|fifa|uefa|cafa|la\s+liga|serie\s+a|bundesliga|ligue\s+1|wimbledon|grand\s+slam|playoffs?|e-?sports?|championship|tournament|school\s+shooting|mass\s+shooting|campus\s+shooting|serial\s+killer|murder\s+(?:trial|case|suspect|charge)|kidnapping|abduction|missing\s+(?:person|teen|girl|boy|child)|child\s+abuse|sexual\s+assault|domestic\s+violence|drunk\s+driving)\b/i;
+// Sport = JAMAIS pertinent pour un terminal de trading -> filtre INCONDITIONNEL (meme si l'item cite un pays :
+// ex. un match Iran-Egypte categorise a tort "Geopolitical"). Termes specifiques pour eviter les faux positifs
+// (pas de "VAR" seul = Value at Risk, pas de "goal"/"match"/"striker" nus).
+const SPORTS_NOISE = /\b(world\s*cup|coupe\s+du\s+monde|\bfifa\b|\buefa\b|champions\s+league|premier\s+league|la\s+liga|serie\s+a|bundesliga|ligue\s+1|football|soccer|var\s+(?:heartbreak|review|decision|call|disallow\w*|rul\w*)|goal\s+(?:disallowed|voided|ruled\s+out)|penalty\s+(?:kick|shoot-?out)|free\s*kick|midfielder|goalkeeper|offside|stoppage\s+time|matchday|knockout\s+(?:stage|round))\b/i;
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
+  if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
   if (/FJElite/i.test(h)) return true;   // teasers FinancialJuice Elite (« X on Y - FJElite ») : titre sans contenu, analyse derrière paywall → aucune valeur
   if (/\b(quarterly|monthly|economic|annual|weekly)\s+bulletin\b[\s\d/.\-]*$/i.test(h)) return true;   // annonce de publication brute (« SNB Quarterly Bulletin 2/2026 ») : titre sans explication → on garde celles AVEC du contenu (texte après « Bulletin »)
   if (TABLOID_SOURCES.test(h))  return true;
