@@ -9940,6 +9940,17 @@ function isHumanInterestNoise(h) {
   if (HUMAN_INTEREST_WEAK.test(h) && HUMAN_INTEREST_WEATHER_CTX.test(h)) return true;
   return false;
 }
+
+// ── Divertissement / pop-culture / science-trivia / palmares : faits de societe (souvent South China
+//    Morning Post & co) JAMAIS market-moving. Termes a tres faible risque de faux positif ; le palmares
+//    universitaire passe par co-occurrence "universit..." + "ranking" (le guard !isFinanciallyRelevant
+//    cote appelant epargne une vraie news qui citerait un de ces mots dans un contexte marche).
+const SOFT_NEWS_NOISE = /\b(?:k-?pop|k-?drama|boy\s+band|girl\s+group|music\s+video|goes?\s+viral|viral\s+video|red\s+carpet|reality\s+(?:tv\s+)?show|beauty\s+pageant|fossils?|dinosaurs?|prehistoric|pala?eontolog\w*|archa?eolog\w*|new\s+species|ancient\s+(?:tomb|ruins?|skeleton|civili[sz]ation))\b/i;
+function isSoftNewsNoise(h) {
+  if (SOFT_NEWS_NOISE.test(h)) return true;
+  if (/\buniversit\w+\b/i.test(h) && /\brankings?\b/i.test(h)) return true;   // "universities ... gaining ground in global rankings"
+  return false;
+}
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
@@ -9950,6 +9961,7 @@ function isGlobalNewsNoise(headline) {
   if (GLOBAL_LIFESTYLE.test(h)) return true;
   if (OFFTOPIC_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // sport + faits divers sociaux (hors-sujet desk)
   if (isHumanInterestNoise(h) && !isFinanciallyRelevant(h)) return true;   // meteo/canicule racontee comme fait de societe (hopitaux/hotels/sommeil/corps humain/misere) -> hors-sujet desk ; sauve si vocabulaire marche present (oil/gas/power/wheat/demand...)
+  if (isSoftNewsNoise(h) && !isFinanciallyRelevant(h)) return true;   // divertissement/pop-culture/science-trivia/palmares (K-pop, fossiles, classements d'universites...) -> hors-sujet desk
   return false;
 }
 
