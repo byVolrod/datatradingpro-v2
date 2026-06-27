@@ -1526,8 +1526,10 @@ function buildMeterChart() {
       // Valeur chiffrée sous la colonne (précision)
       const valEl = col.querySelector('.meter-col-val');
       if (valEl) {
-        valEl.textContent = (v >= 0 ? '+' : '') + v.toFixed(2);
-        valEl.style.color = v > 0 ? '#00e676' : v < 0 ? '#ff3b3b' : '#64748b';   // couleurs Meter DTP
+        // Valeur en ETIQUETTE semantique (fond colore + texte blanc, facon cellules Radar de Biais)
+        valEl.innerHTML = '<span class="v">' + (v >= 0 ? '+' : '') + v.toFixed(2) + '</span>';
+        valEl.className = 'meter-col-val ' + (v > 0 ? 'meter-col-val--pos' : v < 0 ? 'meter-col-val--neg' : 'meter-col-val--neut');
+        valEl.style.color = '';
       }
     });
   }

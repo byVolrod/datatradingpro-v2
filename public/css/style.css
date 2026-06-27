@@ -7080,11 +7080,17 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 /* Valeur chiffrée sous chaque colonne */
 .meter-col-val {
-  text-align: center; padding-top: 8px;
-  font-size: 10.5px; font-weight: 700;
+  text-align: center; margin-top: 9px;
+  font-size: 10px; font-weight: 600;
   font-family: var(--font-mono);
   letter-spacing: 0.02em;
+  display: block;
 }
+/* Etiquette semantique de la valeur (facon cellules Radar de Biais) : fond colore + texte blanc, coins arrondis */
+.meter-col-val .v { display: inline-block; padding: 2px 7px; border-radius: 4px; color: #fff; min-width: 42px; box-sizing: border-box; line-height: 1.5; }
+.meter-col-val--pos  .v { background: #0e8a62; }   /* positif -> vert (= Bullish) */
+.meter-col-val--neg  .v { background: #b23128; }   /* negatif -> rouge (= Bearish) */
+.meter-col-val--neut .v { background: #4b5563; color: #d1d5db; }   /* zero/neutre -> gris (= Neutral) */
 .meter-stack {
   flex: 1; min-height: 0;
   display: flex; flex-direction: column;
