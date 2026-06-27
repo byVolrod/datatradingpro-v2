@@ -2415,7 +2415,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // MARCHÉS (mobile uniquement) : on bascule sur la colonne de droite (horloges, RISK, STRENGTH, COT…)
     if (view === 'markets') {
       document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === 'markets'));
-      document.getElementById('main-layout')?.classList.add('show-right-mobile');
+      // Retirer les etats plein-largeur herites d'un onglet precedent (TAUX/BANQUES/SEMAINE/journal...)
+      // sinon .hide-right-panel/#panel-right (display:none !important) annule le reveal -> ecran VIDE.
+      const _ml = document.getElementById('main-layout');
+      _ml?.classList.remove('hide-right-panel', 'is-fxlist');
+      _ml?.classList.add('show-right-mobile');
       _setDocTitle('markets');
       // Les graphiques (amCharts) ont pu être initialisés masqués → on force un recalcul à l'affichage
       setTimeout(() => { try { window.dispatchEvent(new Event('resize')); } catch {} }, 120);

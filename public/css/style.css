@@ -3457,8 +3457,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
      …mais accessible via l'onglet MARCHÉS (affichage plein écran). */
   .panel-right { display: none !important; }
   .nav-item--mobile-only { display: flex !important; }
-  .main-layout.show-right-mobile .views-col { display: none; }
-  .main-layout.show-right-mobile .panel-right {
+  .main-layout.show-right-mobile .views-col { display: none !important; }
+  .main-layout.show-right-mobile #panel-right {   /* #panel-right (1,2,0) bat le hide global .hide-right-panel #panel-right (1,1,0) */
     display: flex !important;
     width: 100%;
     min-width: 0;
