@@ -913,6 +913,12 @@
 .hfm-badge b{color:#e3b23a;font-weight:700;} .hfm-badge .nm{color:#aeb2bb;}
 .hfm-badge .dot{width:5px;height:5px;border-radius:50%;background:#16c684;animation:hfmPulse 2s ease-in-out infinite;}
 .hfm-badge .dot.off{background:#6b7280;animation:none;}
+/* Mobile : la maquette hero montre le fil d'actu PLEINE LARGEUR — exactement comme le vrai desk qui masque
+   le volet droit sur telephone — au lieu de clipper la colonne horloge/sessions (grille 518px dans ~360px). */
+@media (max-width:560px){
+  .hfm-grid{grid-template-columns:1fr;height:300px}
+  .hfm-col.r{display:none}
+}
 </style>
 <div class="hfm">
   <div class="hfm-top">
