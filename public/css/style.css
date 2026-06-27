@@ -676,7 +676,7 @@ html, body {
 /* ─── Navbar (row 3) ──────────────────────────────── */
 .navbar {
   height: var(--navbar-h);
-  background: #0f1014;
+  background: var(--head-bg);   /* meme fond que les sous-onglets + en-tetes -> chrome coherent */
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: center;
@@ -2204,7 +2204,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Right panel tabs — même design que la navbar */
 .right-panel-tabs {
   height: 30px;
-  background: var(--bg2);          /* surface unifiee #16171b (etait #1a1a1a hors-charte) */
+  background: var(--head-bg);      /* meme fond que la nav principale (#101012) -> barres d'onglets coherentes */
   border-bottom: 1px solid var(--border);
   display: flex;
   align-items: stretch;
