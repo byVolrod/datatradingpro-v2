@@ -2188,7 +2188,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .right-tab {
   height: 100%;
-  padding: 0 13px;
+  padding: 0 14px;          /* aligne sur .nav-item (rythme identique entre les 2 barres) */
   display: flex;
   align-items: center;
   font-size: 11px;
@@ -2203,11 +2203,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   user-select: none;
 }
 
-.right-tab:hover { color: var(--text); background: rgba(255,255,255,0.025); }
+.right-tab:hover { color: var(--text); background: rgba(255,255,255,0.035); }   /* hover unifie avec .nav-item */
 
-/* Onglet actif : texte blanc (trait doré retiré à la demande) */
+/* Onglet actif : texte OR + soulignement or 2px (coherent avec la nav principale) */
 .right-tab--active {
-  color: var(--text) !important;
+  color: var(--orange, #e3b23a) !important;
   background: transparent;
 }
 
@@ -9773,7 +9773,7 @@ body.jrd-resizing #jr-detail { transition: none; }
 @media (prefers-reduced-motion: reduce){ .topbar-icon.tb-alert svg, .topbar-icon.tb-alert i, #notif-badge, #chat-badge { animation: none !important; } }
 
 /* Identite typo landing : titres Inter Tight */
-.panel-title,.chart-header-title,.np-title,.sqwk-title,.ai-head-title,.sym-ptitle,.arlib-list-title,.wa-title,.sbs-risk-title,.wr-section-title,.ai-insights-title,.nav-item{font-family:var(--tight);}
+.panel-title,.chart-header-title,.np-title,.sqwk-title,.ai-head-title,.sym-ptitle,.arlib-list-title,.wa-title,.sbs-risk-title,.wr-section-title,.ai-insights-title,.nav-item,.right-tab{font-family:var(--tight);}
 
 /* Phase 4 polish subtil (additif facon landing) */
 .sym-panel,.sym-bz-col,.ai-insights-card,.ai-ins-pair{transition:border-color .18s ease;}
@@ -9859,6 +9859,10 @@ body.theme-light{
   --border:#e7e1d3; --border2:#dad3c0; --border3:#cabfa8;
   --text:#241f17; --text2:#5c5347; --text3:#8a8170; --text4:#b3aa97;
   --orange:#b8860b; --orange-dim:#946c08;
+  /* Remap des tokens de la refonte design en CLAIR (corrige filets/hover/cartes de lignes partout d'un coup) */
+  --hud-line:rgba(0,0,0,0.10); --grid-line-v:rgba(0,0,0,0.06);
+  --row-sep:1px solid rgba(0,0,0,0.07); --row-hover:#efeae0; --row-card-bg:#faf8f2; --row-card-bd:1px solid rgba(0,0,0,0.10); --row-detail-fg:#5c5347;
+  --panel-depth:0 1px 2px rgba(60,45,15,0.07), inset 0 1px 0 rgba(255,255,255,0.6);
   background-image:radial-gradient(rgba(110,90,50,.06) 1px, transparent 1px);
   background-size:18px 18px;
 }
@@ -9930,7 +9934,8 @@ body.theme-light .chart-header-title { color: var(--text) !important; }
 body.theme-light .clock-gmt { color: var(--text2) !important; }
 
 /* === (1) Onglet droit actif -> DORE (coherent avec la nav principale) === */
-.right-tab--active{color:var(--orange,#e3b23a) !important;}
+.right-tab--active{color:var(--orange,#e3b23a) !important;background:transparent !important;}
+.right-tab--active::after{content:'';position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a);border-radius:2px 2px 0 0;}   /* meme soulignement or que la nav principale */
 
 /* === (2) Noms de widgets UNIFORMES (meme taille/police, MAJUSCULES) SANS tick dore a gauche === */
 .sym-ptitle::before,.panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before,.cot-header-label::before,.dmx-header-title::before{display:none !important;}
@@ -9995,3 +10000,44 @@ body.theme-light .pd-input { color: #181b20 !important; }
 body.theme-light .pd-section { border-bottom-color: #e8eaef !important; }
 body.theme-light .pd-section-trigger:hover,
 body.theme-light .pd-section-trigger.pd-open { background: #f5f6f8 !important; }
+
+/* ═══════════ MODE CLAIR — surcharges du NOUVEAU design (refonte) : surfaces sombres en dur ═══════════
+   Les semantiques marche (BUY #00e676 / SELL #ff3d00 / NEUTRAL #ffb300, heatmap Smart Bias coloree,
+   carte Leaflet sombre voulue) restent INCHANGEES. On ne corrige que les fonds/filets/textes NEUTRES. */
+/* — Fil d'actualite (surface la + visible ; les regles dark sont en !important -> on re-surcharge en !important) — */
+body.theme-light .news-item{background:#ffffff !important;border-bottom:1px solid rgba(0,0,0,0.07) !important;}
+body.theme-light .news-item:hover{background:#f4f1ea !important;}
+body.theme-light .news-item:has(.news-description.visible){background:#faf8f2 !important;border-top-color:rgba(0,0,0,0.10) !important;border-bottom-color:rgba(0,0,0,0.10) !important;}
+body.theme-light .news-description.visible{color:#5c5347;}
+body.theme-light .news-item .news-headline{color:#241f17;}
+body.theme-light .news-item:hover .news-headline{color:#000;}
+body.theme-light .news-time,body.theme-light .news-category-text{color:#8a8170 !important;}
+body.theme-light .news-item--high .news-time,body.theme-light .news-item--high .news-category-text{color:#5c5347 !important;}
+body.theme-light .news-item--urgent,body.theme-light .news-item--breaking{background:rgba(255,61,0,0.07) !important;}
+body.theme-light .news-item--high{background:rgba(220,38,38,0.07) !important;}
+/* Tags neutres : texte sombre (le #c2c6cd du mode sombre serait clair-sur-clair) */
+body.theme-light .tag--default,body.theme-light .tag--neutral,body.theme-light .tag--orange,body.theme-light .tag--blue,body.theme-light .tag[data-cat="UK"]{color:#3a3428 !important;}
+/* — Smart Bias : sous-indicateurs / N/A en quasi-noir (cellules semantiques colorees conservees) — */
+body.theme-light .sbm-grid td.sbm-ind.sbm-sub{background:#f4f1ea;color:#241f17;}
+body.theme-light .sbm-na{background:#efeae0;color:#8a8170;}
+body.theme-light .sbm-overall .sbm-ind{background:#f4f1ea;color:#241f17;}
+body.theme-light .sbm-ind-acc:hover{background:#efeae0;}
+/* — Barometre / Currency Strength : track + filets de briques (vert/rouge actifs conserves) — */
+body.theme-light .meter-half{background:rgba(0,0,0,0.06);}
+body.theme-light .meter-brick{border-bottom-color:rgba(0,0,0,0.10);}
+body.theme-light .meter-brick--off{background:rgba(0,0,0,0.05);}
+body.theme-light .meter-tooltip{background:#ffffff;border-color:#dad3c0;box-shadow:0 4px 16px rgba(60,45,15,0.18);}
+body.theme-light .meter-tip-name{color:#241f17;}
+/* — Volet Biais (sbs) : en-tete + dropdowns sombres — */
+body.theme-light .sbs-head{background:#f4f1ea !important;}
+body.theme-light .sbs-head-title{color:#241f17;}
+body.theme-light .sbs-dd,body.theme-light .sbs-cdd{background:#ffffff !important;color:#241f17;border-color:#dad3c0;}
+body.theme-light .sbs-cdd-caret,body.theme-light .sbs-close{color:#8a8170;}
+/* — Cartes/inputs sombres en dur eparses — */
+body.theme-light .season-th,body.theme-light .season-month,body.theme-light .gew-key,body.theme-light .cdv,body.theme-light .br-ext-card,body.theme-light .chat-input,body.theme-light #chat-search-input{background:#faf8f2 !important;color:#241f17 !important;}
+body.theme-light .rtc-tbl th{background:#f4f1ea;color:#241f17;}
+body.theme-light .bank-detail-row td{background:#f7efe6 !important;}
+/* — Bibliotheque Analyst : cartes lues + bordures sombres — */
+body.theme-light .arlib-card--read{background:#efeae0 !important;border-color:#e7e1d3;}
+body.theme-light .arlib-card--read:hover{background:#e8e2d4 !important;}
+body.theme-light .arlib-back-btn:hover{background:#efeae0;color:#241f17;}
