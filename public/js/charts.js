@@ -1520,6 +1520,8 @@ function buildMeterChart() {
         b.classList.toggle('meter-brick--pos', on && half === 'pos');
         b.classList.toggle('meter-brick--neg', on && half === 'neg');
         b.classList.toggle('meter-brick--off', !on);
+        // Degrade pro : vif pres de l'axe zero, fondu vers la pointe de la barre
+        b.style.opacity = on ? (1 - 0.42 * (idx / Math.max(lit - 1, 1))).toFixed(3) : '';
       });
       // Valeur chiffrée sous la colonne (précision)
       const valEl = col.querySelector('.meter-col-val');
