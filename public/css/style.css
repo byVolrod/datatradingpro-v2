@@ -416,7 +416,7 @@ html, body {
 .sym-dd.hidden { display: none; }
 .sym-dd-head { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #6a6a73; padding: 7px 9px 5px; }
 .sym-dd-row { display: flex; align-items: center; gap: 9px; padding: 8px 24px 8px 9px; border-radius: 4px; cursor: pointer; position: relative; }
-.sym-dd-row:hover { background: linear-gradient(90deg, rgba(227,178,58,0.06), rgba(227,178,58,0.16)); }
+.sym-dd-row:hover { background: var(--row-hover); }
 .sym-dd-row::after { content: '→'; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #e3b23a; font-size: 14px; opacity: 0; transition: opacity .12s; pointer-events: none; }
 .sym-dd-row:hover::after { opacity: 1; }
 .sym-dd-sym { font-family: var(--font-mono, monospace); font-weight: 700; font-size: 12.5px; color: #eceef2; min-width: 66px; }
@@ -1141,7 +1141,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   white-space: nowrap;
   transition: background .12s, border-color .12s, color .12s;
 }
-.news-mode-toggle:hover { background: rgba(227,178,58,0.18); border-color: rgba(227,178,58,0.7); }
+.news-mode-toggle:hover { background: var(--row-hover); border-color: var(--border2); }
 .news-mode-toggle--all {
   color: var(--text3, #8a8f99);
   background: transparent;
@@ -5128,7 +5128,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   background: var(--bg2); border: 2px solid var(--border); z-index: 1; transition: border-color .15s, box-shadow .15s, background .15s;
 }
-.wa-node:hover { border-color: rgba(227,178,58,0.5); }
+.wa-node:hover { border-color: var(--border2); }
 .wa-dow   { font-size: 9.5px; font-weight: 500; color: var(--text2); letter-spacing: 0.08em; text-transform: uppercase; }
 .wa-date  { font-size: 21px;  font-weight: 700; color: var(--text); line-height: 1.05; font-variant-numeric: tabular-nums; margin: 1px 0; }
 .wa-month { font-size: 9.5px; font-weight: 500; color: var(--text2); letter-spacing: 0.08em; text-transform: uppercase; }
@@ -5137,7 +5137,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wa-day--today .wa-dow, .wa-day--today .wa-month, .wa-day--today .wa-date { color: var(--text); }
 /* Carte du jour — bordure gauche colorée selon l'impact (façon design) */
 .wa-card { flex: 1; min-width: 0; background: var(--bg3); border: 1px solid var(--border); border-left: 2px solid #2a2a32; border-radius: 0; padding: 12px 14px; transition: border-color .15s, background .15s; }
-.wa-card:hover { border-color: rgba(227,178,58,0.3); }
+.wa-card:hover { border-color: var(--border2); }
 .wa-card--high { border-left-color: rgba(255,61,0,0.6); }
 .wa-card--med  { border-left-color: rgba(255,179,0,0.5); }
 .wa-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
@@ -5502,7 +5502,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .fxdr-table th.num, .fxdr-table td.num { text-align: right; }
 .fxdr-table td { padding: 7px 11px; color: #dcdce0; border-bottom: 1px solid #16171b; vertical-align: top; }
-.fxdr-table tbody tr:hover { background: rgba(227,178,58,.04); }
+.fxdr-table tbody tr:hover { background: var(--row-hover); }
 .fxdr-table td.fxdr-rel { font-weight: 600; color: #f3f3f5; }
 .fxdr-table td.fxdr-per, .fxdr-table td.dim { color: #85858c; }
 /* « Point Marché · Ouverture US » (DTP Daily) — listes à puces + paragraphes (réutilise .fxdr-section / .fxdr-exec / .fxdr-table) */
@@ -6146,7 +6146,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sea-cfg-tab--on { background: rgba(227,178,58,.12); border-color: rgba(227,178,58,.6); color: #fff; font-weight: 600; }
 .sea-cfg-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .sea-cfg-sym { display: flex; align-items: center; gap: 7px; padding: 9px 11px; background: #16171b; border: 1px solid #1f1f24; border-radius: 4px; color: var(--text); font-size: 12.5px; cursor: pointer; transition: .12s; text-align: left; }
-.sea-cfg-sym:hover { border-color: rgba(227,178,58,.45); background: #16161a; }
+.sea-cfg-sym:hover { border-color: var(--border2); background: var(--row-hover); }
 .sea-cfg-sym--on { border-color: #e3b23a; background: rgba(227,178,58,.12); }
 .sea-cfg-sym-lbl { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .sea-cfg-chk { color: #e3b23a; font-weight: 800; }
@@ -6549,7 +6549,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* ── Lignes calendrier cliquables ── */
 .cal-row--click { cursor: pointer; }
-.cal-row--click:hover { background: rgba(227,178,58,0.06); }
+.cal-row--click:hover { background: var(--row-hover); }
 
 /* ── Panneau détail événement (Specs + History) ── */
 .cal-detail-overlay {
@@ -6786,7 +6786,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .cal-row--next td { border-top: 1px solid rgba(227,178,58,0.5); border-bottom: 1px solid rgba(227,178,58,0.5); }
 .cal-row--next td.cth-time { color: var(--orange) !important; font-weight: 700; }
-.cal-row--next:hover { background: rgba(227,178,58,0.09); }
+.cal-row--next:hover { background: var(--row-hover); }
 .cal-row--past td.cth-time { color: #cfcfd3; }
 /* Devise TOUJOURS blanche (look pro) — l'impact est déjà indiqué par les points colorés de la colonne IMP. */
 .cal-row--high td.cth-curr { color: #ffffff; font-weight: 700; }
@@ -7579,7 +7579,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .pd-lang-menu.open { display: block; }
 .pd-lang-opt { display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; font-size: 12px; color: #d4d8de; transition: background .1s; }
-.pd-lang-opt:hover { background: rgba(227,178,58,0.12); color: #fff; }
+.pd-lang-opt:hover { background: var(--row-hover); color: var(--text); }
 .pd-lang-opt img { width: 20px; height: 15px; object-fit: cover; border-radius: 2px; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
 
 /* Clock display */
@@ -9538,7 +9538,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .jr-grid tbody tr:hover td { background: rgba(255,255,255,0.022); }
 .jr-c { padding: 5px 9px; font-size: 11.5px; color: var(--text2); line-height: 1.35; cursor: pointer; max-width: 250px; }
 .jr-c--multi, .jr-c--select { white-space: normal; }
-.jr-c:hover { box-shadow: inset 0 0 0 1px rgba(227,178,58,0.28); }
+.jr-c:hover { background: var(--row-hover); }
 .jr-grid td.jr-c--title { position: sticky; left: 0; z-index: 2; background: #0d0e11; }
 .jr-grid tbody tr:hover td.jr-c--title { background: #16171b; }
 .jr-cv-title { font-weight: 700; color: var(--text); font-family: var(--font-mono); white-space: nowrap; }
@@ -9842,7 +9842,7 @@ input:focus,select:focus,textarea:focus{outline:none;box-shadow:0 0 0 3px rgba(2
 /* === Habillage institutionnel 'Verre brosse + filet or' (signature A) - panneaux widgets === */
 /* Panneaux widgets PLATS institutionnels : fond #16171b, bordure fine #232429, coins 4px (demande : data en avant, design s'efface) */
 .sym-panel,.sym-bz-col,.sbs-panel,.inst-panel,.dmx-panel,.clocks-panel{background:#0d0e11;border:1px solid var(--border);border-radius:4px;box-shadow:none;transition:border-color .16s ease;}   /* fond = celui du calendrier/panneau droit (#0d0e11) — demande : meme noir partout */
-.sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{border-color:var(--border2);box-shadow:none;transform:none;}
+.sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover,.ai-insights-card:hover,.ai-ins-pair:hover{border-color:var(--border2);box-shadow:none;transform:none;}
 .sym-ptitle,.panel-title,.chart-header-title,.sbs-head-title,.np-filter-title,.sbm-title,.inst-title{text-transform:uppercase;letter-spacing:.085em;font-weight:600;}
 .panel-title::before,.chart-header-title::before,.sbs-head-title::before,.np-filter-title::before,.sbm-title::before,.inst-title::before{content:'';display:inline-block;width:3px;height:.82em;border-radius:2px;background:var(--orange,#e3b23a);margin-right:7px;vertical-align:-1px;opacity:.85;}
 body{font-variant-numeric:tabular-nums;}
