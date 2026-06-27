@@ -3129,8 +3129,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Sous-titre "Bias Summary" (en haut du volet gauche, façon DTP) */
 .sbs-left-title { font-size: var(--fs-title); font-weight: var(--fw-semibold); color: var(--text); font-family: var(--tight); letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 14px 9px; }
 /* Ligne Overall (conclusion) — encadrée orange façon DTP, détachée en bas de la liste */
-.sbs-row--overall { margin: 14px 12px 6px; padding: 9px 11px; background: rgba(227,178,58,.10); border: 2px solid rgba(227,178,58,.32); border-radius: 3px; transition: background var(--t-fast) ease, border-color var(--t-fast) ease; }   /* « Overall » encadré façon pro */
-.sbs-row--overall:hover { background: rgba(227,178,58,.18); border-color: rgba(227,178,58,.55); }   /* hover OR (demande) — ligne de conclusion mise en avant */
+.sbs-row--overall { margin: 14px 12px 6px; padding: 9px 11px; background: rgba(227,178,58,.10) !important; border: 1px solid rgba(227,178,58,.30) !important; border-left: 3px solid var(--orange) !important; border-radius: 3px; transition: background var(--t-fast) ease, border-color var(--t-fast) ease; }   /* « Overall » : MEME effet que la conclusion du radar (accent OR a gauche) ; !important bat la cascade de .sbs-row */
+.sbs-row--overall:hover { background: rgba(227,178,58,.18) !important; border-color: rgba(227,178,58,.55) !important; border-left-color: var(--orange) !important; }   /* hover OR (demande) — ligne de conclusion mise en avant */
 .sbs-row--overall .sbs-row-lbl { color: #fff; font-weight: var(--fw-semibold); }
 .sbs-right { flex: 1 1 auto; min-width: 0; overflow-y: auto; padding: 8px 12px; scrollbar-width: thin; scrollbar-color: #404040 transparent; }
 .sbs-right::-webkit-scrollbar { width: 7px; }
@@ -3148,7 +3148,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-acc:hover { background: #16171b; }
 .sbs-acc-arrow { display: inline-block; color: #6b7280; transition: transform .15s; }
 .sbs-acc--open .sbs-acc-arrow { transform: rotate(90deg); }
-.sbs-badge { display: inline-block; padding: 3px 10px; text-align: center; font-size: 11px; font-weight: var(--fw-semibold); color: #fff; border-radius: 3px; white-space: nowrap; }   /* badge auto-width façon pro */
+.sbs-badge { display: inline-block; padding: 3px 10px; text-align: center; font-size: 11px; font-weight: var(--fw-semibold); color: #fff; border-radius: 0; white-space: nowrap; min-width: 80px; }   /* MEME forme que les cellules de la matrice (carre + bloc) au lieu d'une pastille arrondie */
 .sbs-badge--na { background: #232429; color: #6b7280; }   /* pas de donnée récente → tiret discret (jamais inventé) */
 .sbs-children { background: #060608; }
 .sbs-child-note { padding: 8px 14px 8px 38px; font-size: 11px; color: #71717a; font-style: italic; }
@@ -9902,6 +9902,8 @@ body{font-variant-numeric:tabular-nums;}
 .sbm-grid{border-collapse:collapse !important;border-spacing:0 !important;}
 .sbm-grid th,.sbm-grid td{border:1px solid var(--border,#232429) !important;}
 .sbm-cell{border-radius:0 !important;box-shadow:none !important;}
+/* Accent OR de la ligne de conclusion (radar) — re-impose le bord gauche dore que la grille 1px ecrasait */
+.sbm-overall .sbm-ind{border-left:3px solid var(--orange) !important;background:#1a1a1f !important;}
 
 /* === Mode clair 'Solar' : cream chaud + texture pointillee + accent or chaud === */
 body.theme-light{
