@@ -9956,6 +9956,11 @@ function isSoftNewsNoise(h) {
   if (/\buniversit\w+\b/i.test(h) && /\brankings?\b/i.test(h)) return true;   // "universities ... gaining ground in global rankings"
   return false;
 }
+
+// Faits divers LOCAUX : morts/blessures par cause MUNDAINE (insolation, noyade, incendie domestique,
+// accident de la route, electrocution, chute mortelle...) JAMAIS market-moving (SCMP & co). Distinct des
+// victimes GEOPOLITIQUES/militaires (frappe/attaque/guerre) qui restent KEEP. Guard !isFinanciallyRelevant.
+const LOCAL_INCIDENT_NOISE = /\b(heatstroke|heat\s+stroke|drowned|drowning|drowns?\s+(?:at|in|off|while|after|near)|electrocut\w+|carbon\s+monoxide|hit\s+by\s+(?:a\s+)?(?:car|truck|train|bus|lorry|minibus|taxi|tram|vehicle)|road\s+(?:accident|crash|death)|car\s+crash|traffic\s+(?:accident|collision)|house\s+fire|flat\s+fire|residential\s+fire|fire\s+at\s+[\w\s,'-]{0,28}(?:flat|home|apartment|residence|building|estate|village)|(?:fell|falls?)\s+to\s+(?:his|her|their)\s+death|stabbed\s+to\s+death|hospitali[sz]ed\s+after|rushed\s+to\s+hospital)\b/i;
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
@@ -9967,6 +9972,7 @@ function isGlobalNewsNoise(headline) {
   if (OFFTOPIC_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // sport + faits divers sociaux (hors-sujet desk)
   if (isHumanInterestNoise(h) && !isFinanciallyRelevant(h)) return true;   // meteo/canicule racontee comme fait de societe (hopitaux/hotels/sommeil/corps humain/misere) -> hors-sujet desk ; sauve si vocabulaire marche present (oil/gas/power/wheat/demand...)
   if (isSoftNewsNoise(h) && !isFinanciallyRelevant(h)) return true;   // divertissement/pop-culture/science-trivia/palmares (K-pop, fossiles, classements d'universites...) -> hors-sujet desk
+  if (LOCAL_INCIDENT_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // faits divers locaux (insolation/noyade/incendie domestique/accident route) -> hors-sujet desk
   return false;
 }
 
