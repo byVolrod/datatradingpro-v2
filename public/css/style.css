@@ -2581,6 +2581,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   height: 100%;
   overflow: hidden;
   background: #0d0e11;        /* anthracite cohérent (identité visuelle commune à tous les onglets) */
+  padding-top: var(--sp-15);  /* respiration sous le sous-nav, AVANT le widget (homogene avec l'espace sous la meteo de l'horloge) — applique a TOUS les onglets du panneau droit */
 }
 
 .right-tab-panel.active { display: flex; }
