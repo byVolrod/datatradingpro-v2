@@ -42,10 +42,10 @@
 
     /* ── FORM panel (gauche, clair) ── */
     .lp-right {
-      flex: 0 0 43%;
+      flex: 0 1 480px; min-width: 0;
       background: var(--bg);
       display: flex; flex-direction: column; justify-content: center; align-items: center;
-      padding: 48px 46px; overflow-y: auto; position: relative;
+      padding: 48px clamp(22px, 4vw, 46px); overflow-y: auto; position: relative;
     }
     /* halo or doux en haut à gauche (comme le hero de la landing) */
     .lp-right::before {
@@ -183,7 +183,7 @@
 
     /* ════ PANNEAU IMAGES — rangées horizontales ALTERNÉES (≠ colonnes verticales) ════ */
     .lp-left {
-      flex: 1 1 57%; position: relative; overflow: hidden;
+      flex: 1 1 0; min-width: 0; position: relative; overflow: hidden;
       background: #0a0a0c; border-left: 1px solid var(--line2);
     }
     .im-rows { position: absolute; inset: -2%; z-index: 1; display: flex; flex-direction: column; gap: 8px; }
@@ -348,6 +348,7 @@
     function fallback() { return B + BUNDLED[Math.floor(Math.random() * BUNDLED.length)]; }
     function build() {
       if (!rowsEl) return;
+      var _imgN = 0;   // perf : compteur de tuiles → seule la 1re est prioritaire, le reste en lazy
       var rect = document.querySelector('.lp-left').getBoundingClientRect();
       var w = rect.width || window.innerWidth * 0.57, ht = rect.height || window.innerHeight;
       var nRows = Math.max(4, Math.min(9, Math.round(ht / (ROW_H + GAP)) + 1));
@@ -365,7 +366,11 @@
         if (dir === 'imRowR') track.style.transform = 'translateX(-50%)';
         set.concat(set).forEach(function (src) {
           var t = document.createElement('div'); t.className = 'im-tile';
-          var im = document.createElement('img'); im.alt = ''; im.loading = 'eager'; im.draggable = false; im.referrerPolicy = 'no-referrer';
+          var im = document.createElement('img'); im.alt = ''; im.decoding = 'async'; im.draggable = false; im.referrerPolicy = 'no-referrer';
+          // Perf : seule la 1re tuile est prioritaire (peinture immédiate du héros) ; tout le reste est
+          // paresseux → le navigateur n'ouvre pas 100+ requêtes d'un coup au chargement de la page.
+          if (_imgN === 0) { im.loading = 'eager'; im.fetchPriority = 'high'; } else { im.loading = 'lazy'; im.fetchPriority = 'low'; }
+          _imgN++;
           im.onerror = function () { this.onerror = null; this.src = fallback(); };
           im.src = resolve(src);
           t.appendChild(im); track.appendChild(t);

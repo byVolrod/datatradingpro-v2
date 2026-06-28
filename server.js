@@ -243,9 +243,14 @@ app.use(requireAuth);
 // extensions: ['html'] → /login sert login.html, /admin sert admin.html automatiquement
 app.use(express.static(path.join(__dirname, 'public'), {
   extensions: ['html'],
+  // CSS/JS/images : cache navigateur 30 j (gros gain de perf — plus de re-téléchargement de chaque
+  // image/feuille à chaque visite). Les CSS/JS sont déjà bustés par ?v=YYYYMMDDx (nouveau déploiement =
+  // nouvelle URL = fetch frais) ; pour une image remplacée en place, un Ctrl+F5 (ou l'expiration) la
+  // rafraîchit. Pas d'immutable -> le rechargement forcé reste toujours possible.
+  maxAge: '30d',
   // Le HTML ne doit JAMAIS être mis en cache : sinon le navigateur garde un index.html avec un
   // ?v= périmé et ne charge jamais le nouveau CSS/JS (cause des « pas à jour » récurrents).
-  // Les assets CSS/JS restent cacheables (ils sont déjà bustés par ?v=YYYYMMDDx).
+  // On RÉ-ÉCRASE donc l'en-tête posé par maxAge ci-dessus uniquement pour le HTML.
   setHeaders: (res, fp) => { if (/\.html$/i.test(fp)) res.setHeader('Cache-Control', 'no-cache, must-revalidate'); },
 }));
 app.use(express.json({ limit: '2mb' }));   // 2 Mo : autorise les pièces jointes chat (data URL base64)
@@ -1574,7 +1579,8 @@ app.get('/api/week-ahead-news', (_req, res) => {
 // (3) clé de cache DATÉE (jour) — une question marché ne ressert plus une réponse périmée ;
 // (4) cache mémoire borné (anti-OOM).
 const _aiChatMem = {};   // cache process (clé = hash question + jour) ; aussi persisté dans ai_cache
-function _aiChatKey(q) { return 'aichat:' + _aiDay() + ':' + require('crypto').createHash('md5').update(q.toLowerCase().trim()).digest('hex').slice(0, 22); }
+// v2 : namespace bumpé le 28/06 — invalide les réponses tronquées mises en cache AVANT la garde anti-troncature.
+function _aiChatKey(q) { return 'aichat:v2:' + _aiDay() + ':' + require('crypto').createHash('md5').update(q.toLowerCase().trim()).digest('hex').slice(0, 22); }
 function _fmtDMY(ts) { const d = ts ? new Date(ts) : new Date(); const p = n => String(n).padStart(2, '0'); return `${p(d.getUTCDate())}/${p(d.getUTCMonth() + 1)}/${d.getUTCFullYear()}`; }
 // ── Quota Assistant IA Macro (admin + support exemptés). Durable via KV Supabase (survit aux
 // redémarrages), reset quotidien minuit Paris. La limite n'est décomptée QUE sur une génération
@@ -1599,7 +1605,22 @@ async function _aiChatDailyIncr(uid, day) {
 // par le chat bufferisé (/api/ai/chat) ET le chat en streaming (/api/ai/chat/stream) → zéro divergence.
 function _aiChatPrompt(q, newsCtx) {
   let biasLine = '';
-  try { if (_smartBias && _smartBias.conclusion) biasLine = 'Current DTP Smart Bias conclusion by currency: ' + Object.entries(_smartBias.conclusion).map(([c, v]) => `${c}=${v}`).join(', ') + '.'; } catch {}
+  try {
+    if (_smartBias && Array.isArray(_smartBias.rows) && _smartBias.rows.length) {
+      const _SB_ROW_FR = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
+      const _SB_VAL_FR = { 'Very Bullish': 'Très haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement haussier', 'Uptrend': 'Haussier', 'Neutral': 'Neutre', 'Range': 'Neutre', 'N/A': 'Neutre', 'Weak Bearish': 'Légèrement baissier', 'Bearish': 'Baissier', 'Downtrend': 'Baissier', 'Very Bearish': 'Très baissier' };
+      const _vfr = v => _SB_VAL_FR[v] || 'Neutre';
+      const conc = _smartBias.conclusion || {};
+      const ccys = (Array.isArray(_smartBias.currencies) && _smartBias.currencies.length) ? _smartBias.currencies : Object.keys(conc);
+      const lines = ccys.map(c => {
+        const pillars = _smartBias.rows.map(r => `${_SB_ROW_FR[r.key] || r.label || r.key}=${_vfr(r.values && r.values[c])}`);
+        pillars.push(`Conclusion globale=${_vfr(conc[c])}`);
+        return `${c}: ${pillars.join(', ')}`;
+      });
+      biasLine = 'DTP Smart Bias hebdo — biais directionnel détaillé PAR DEVISE (chaque pilier + conclusion globale ; SEULE source pour toute question de biais) :\n' + lines.join('\n')
+        + '\nPour une PAIRE (ex. EURGBP / EUR/GBP) : normalise au format AAA/BBB et déduis le biais de la paire en COMPARANT la conclusion globale de la 1re devise à celle de la 2e (1re haussière vs 2e baissière => paire haussière, etc.).';
+    }
+  } catch {}
   let calLine = '';
   try {
     const now = Date.now();
@@ -1620,7 +1641,7 @@ function _aiChatPrompt(q, newsCtx) {
     if (parts.length) ratesLine = 'Central bank policy rates (market-implied next-meeting odds where available): ' + parts.join(', ') + '.';
   } catch {}
   const heads = newsCtx.map(n => '- ' + (n.headline || '')).filter(Boolean).join('\n');
-  return `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. RÉPONDS EXCLUSIVEMENT EN FRANÇAIS, en UN SEUL paragraphe concis et chiffré (max ~140 mots), ton institutionnel, sans préambule ni avertissement. Mets en **double astérisque** les termes de marché clés pour les afficher en gras (ex. **biais baissier**, **EUR/USD**, banques centrales, **risk-off**). Si la question n'est pas en français, réponds quand même en français.
+  return `You are DTP's "Macro AI Assistant", an institutional macro/forex analyst on a professional trading terminal. RÉPONDS EXCLUSIVEMENT EN FRANÇAIS, en UN SEUL paragraphe concis et chiffré (max ~140 mots), ton institutionnel, sans préambule ni avertissement. Mets en **double astérisque** les termes de marché clés pour les afficher en gras (ex. **biais baissier**, **EUR/USD**, banques centrales, **risk-off**). Si la question n'est pas en français, réponds quand même en français. Si l'utilisateur demande le BIAIS d'une devise ou d'une paire, donne TOUJOURS une réponse COMPLÈTE : nomme explicitement la paire/devise au format **AAA/BBB**, énonce le verdict (**haussier** / **baissier** / **neutre**) puis justifie-le avec les piliers du Smart Bias ci-dessous (Données fondamentales, Vue des banques, Positionnement Hedge Funds, Positionnement Particuliers, Politique monétaire, Tendance, Seasonality) ; ne laisse JAMAIS une phrase inachevée.
 ${biasLine}
 ${ratesLine}
 ${calLine}
@@ -1672,6 +1693,20 @@ app.post('/api/ai/chat/stream', async (req, res) => {
     full = '';
     try { const buf = await aiSmart('chat', prompt, 380, { priority: 'user' }); if (buf && buf.trim()) { full = buf.trim(); streamChunks(full); } } catch {}   // repli bufferisé → streamé en morceaux
   }
+  // Garde anti-troncature : un modèle :free qui coupe le flux après quelques mots renvoie un partiel
+  // (ai.js: return full.trim()) qui SINON serait mis en cache et resservi tel quel toute la journée.
+  // Si le texte streamé semble tronqué (ni ponctuation finale, ni longueur suffisante), on le jette et
+  // on régénère en bufferisé (chaîne complète) — et on NE met JAMAIS le partiel en cache.
+  const _looksComplete = (t) => { t = (t == null ? '' : String(t)).trim(); return t.length >= 40 && /[.!?…»"”)]$/.test(t); };
+  if (full && full.trim() && !_looksComplete(full)) {
+    if (!_emitted) {   // rien streamé au client → on peut tenter le bufferisé proprement
+      try { const buf = await aiSmart('chat', prompt, 380, { priority: 'user' }); if (buf && buf.trim() && _looksComplete(buf.trim())) { full = buf.trim(); streamChunks(full); } } catch {}
+    }
+    if (!_looksComplete(full)) {   // toujours tronqué → on N'enregistre PAS le partiel et on signale l'indispo
+      send('error', { error: 'AI temporairement indisponible' });
+      return res.end();
+    }
+  }
   if (full && full.trim()) {
     full = full.trim();
     if (_limDay) { try { await _aiChatDailyIncr(_uid, _limDay); } catch {} }
@@ -1704,6 +1739,8 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     const prompt = _aiChatPrompt(q, newsCtx);
     try { answer = await aiSmart('chat', prompt, 380, { priority: 'user' }); } catch (e) { answer = null; }   // DANS le budget (part 'chat'), tier user
+    // Rejette un texte tronqué (modèle :free coupé) : sinon il serait mis en cache et resservi tronqué.
+    if (answer && answer.trim() && !(answer.trim().length >= 40 && /[.!?…»"”)]$/.test(answer.trim()))) answer = null;
     if (answer && answer.trim()) {
       answer = answer.trim();
       if (_limDay) { try { await _aiChatDailyIncr(_uid, _limDay); } catch {} }   // ne décompte la limite/jour QUE sur une génération réussie (panne/échec = non facturé)
