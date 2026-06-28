@@ -880,7 +880,7 @@
 .hfm-risk{height:24px;display:inline-flex;align-items:center;gap:6px;padding:0 10px;font-family:ui-monospace,monospace;font-size:10.5px;font-weight:700;color:#e0594f;background:rgba(224,89,79,.1);border:1px solid rgba(224,89,79,.32);}
 .hfm-risk .d{width:6px;height:6px;border-radius:50%;background:#e0594f;animation:hfmPulse 2s ease-in-out infinite;}
 .hfm-sp{flex:1;}
-.hfm-av{width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,#2a2d36,#16181d);border:1px solid #33373f;flex:0 0 auto;}
+.hfm-av{width:26px;height:26px;border-radius:50%;background:#16181d url(/img/testimonial-trader.jpg) 92% 20%/760% no-repeat;border:1px solid #33373f;flex:0 0 auto;}
 .hfm-divx{width:1px;height:18px;background:#232429;}
 .hfm-nav{display:flex;align-items:center;height:28px;background:#101012;border-bottom:1px solid #232429;padding:0 6px;gap:2px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
 .hfm-nav::-webkit-scrollbar{display:none;}
@@ -890,7 +890,7 @@
 .hfm-col{display:flex;flex-direction:column;min-height:0;}
 .hfm-col.r{border-left:1px solid #232429;}
 .hfm-ph{display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-bottom:1px solid #232429;background:#16171b;flex:0 0 auto;}
-.hfm-ph .tk{width:3px;height:14px;background:#e3b23a;border-radius:1px;flex:0 0 auto;}
+.hfm-ph .tk{display:none;}
 .hfm-ph .t{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#cbced4;}
 .hfm-ph .live{margin-left:auto;width:6px;height:6px;border-radius:50%;background:#16c684;box-shadow:0 0 6px #16c684;animation:hfmPulse 1.8s ease-in-out infinite;}
 .hfm-ph .meta{margin-left:auto;font-family:ui-monospace,monospace;font-size:9px;color:#16c684;display:flex;align-items:center;gap:5px;}
@@ -899,7 +899,8 @@
 .hfm-track{animation:hfmFeed 17s linear infinite;}
 .hfm-dsep{font-size:9.5px;color:#9a9da6;background:#16171b;padding:4px 11px;font-weight:600;}
 .hfm-nrow{display:flex;gap:10px;padding:9px 11px;border-bottom:1px solid rgba(255,255,255,.028);align-items:center;}
-.hfm-nrow:hover{background:#16171c;}
+.hfm-nrow:hover{background:rgba(224,89,79,.13);}
+.hfm-news:hover .hfm-track{animation-play-state:paused;}
 .hfm-nt{font-family:ui-monospace,monospace;font-size:10px;color:#ccc;flex:0 0 34px;}
 .hfm-nc{font-size:10px;color:#ccc;flex:0 0 82px;}
 .hfm-nh{flex:1;font-size:11px;color:#d6d9df;line-height:1.35;}
@@ -929,7 +930,7 @@
 /* Ligne de news facon desk : chevron d'expansion a droite + ligne cliquable (survol or) */
 .hfm-nrow{cursor:pointer;}
 .hfm-nrow::after{content:'';flex:0 0 auto;width:5px;height:5px;border-right:1.5px solid #5a5d66;border-bottom:1.5px solid #5a5d66;transform:rotate(45deg);margin:-2px 1px 0 2px;opacity:.75;transition:border-color .15s ease;}
-.hfm-nrow:hover::after{border-color:#e3b23a;}
+.hfm-nrow:hover::after{border-color:#e0594f;}
 /* Badge NOUVEAU sur l'icone Journal (topbar), facon desk */
 .hfm-ic.doc{position:relative;}
 .hfm-newbadge{position:absolute;top:-7px;left:50%;transform:translateX(-44%);background:#e3b23a;color:#0c0c0e;font-family:var(--tight,'Inter Tight',sans-serif);font-weight:800;font-size:5.5px;letter-spacing:.03em;line-height:1;padding:2px 3px;border-radius:2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5);}
@@ -947,9 +948,8 @@
 </style>
 <div class="hfm">
   <div class="hfm-top">
-    <span class="hfm-logo-ic"><svg viewBox="0 0 64 64"><rect width="64" height="64" rx="14" fill="#101014"/><text x="32" y="34" dominant-baseline="central" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-weight="900" font-size="26" letter-spacing="-1.5" fill="#ffffff">DT<tspan fill="#e3b23a">P</tspan></text></svg></span>
     <span class="hfm-logo">DataTradingPro</span>
-    <span class="hfm-ic doc"><svg viewBox="0 0 24 24"><path fill="currentColor" opacity=".2" d="M6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M4 4.5A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5zM8 7h8M8 11h8M8 15h5"/></svg><span class="hfm-newbadge">NOUVEAU</span></span>
+    <span class="hfm-ic doc"><svg viewBox="0 0 24 24"><path fill="currentColor" opacity=".2" d="M6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" d="M4 4.5A2.5 2.5 0 0 1 6.5 2H19a1 1 0 0 1 1 1v18a1 1 0 0 1-1 1H6.5A2.5 2.5 0 0 1 4 19.5zM8 7h8M8 11h8M8 15h5"/></svg></span>
     <span class="hfm-ic"><svg viewBox="0 0 24 24"><rect x="4" y="2" width="16" height="20" rx="2.5" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" d="M4 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2zM8 6h8M8 11h.01M12 11h.01M16 11h.01M8 15h.01M12 15h.01M16 15h.01M8 19h4"/></svg></span>
     <div class="hfm-search"><svg width="13" height="13" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="currentColor" opacity=".2"/><path fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" d="M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14ZM20.5 20.5 16.5 16.5"/></svg>Rechercher des symboles…<span class="car"></span></div>
     <div class="hfm-risk"><span class="d"></span>RISK OFF ▾</div>
