@@ -4575,6 +4575,16 @@ function buildBankChart(p) {
         _bankLiveGuide = { di, pair: p.pair, dec };
       }
 
+      // FIX : l'axe Y auto-calé sur les BOUGIES → toute ligne Entry/TP/SL/prix HORS de cette plage était
+      // CLIPPÉE (ex. SL 162,50 au-dessus du plus haut 162 = invisible). On étend min/max pour TOUJOURS
+      // afficher l'intégralité du trade (entrée + objectif + stop + prix live), avec une marge de respiration.
+      {
+        let lo = Infinity, hi = -Infinity;
+        candles.forEach(c => { if (c.Low < lo) lo = c.Low; if (c.High > hi) hi = c.High; });
+        [p.entry, p.tp, p.sl, p.currentPrice].forEach(v => { const n = +v; if (n) { if (n < lo) lo = n; if (n > hi) hi = n; } });
+        if (isFinite(lo) && isFinite(hi) && hi > lo) { const pad = (hi - lo) * 0.06; yAxis.set('min', lo - pad); yAxis.set('max', hi + pad); }
+      }
+
       series.appear(500);
       chart.appear(500, 60);
     })
