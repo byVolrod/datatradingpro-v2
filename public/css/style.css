@@ -3273,7 +3273,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 #view-bank { display: flex; width: 100%; }
 .bank-update { font-size: 10px; font-family: var(--font-mono); color: var(--text4); }
 .bank-layout { display: flex; flex: 1; min-height: 0; }
-.bank-table-wrap { flex: 1; min-width: 0; overflow: auto; }
+.bank-table-wrap { flex: 1; min-width: 0; overflow: auto; position: relative; }   /* position: relative → ancre l'overlay « Chargement des positions » */
 .bank-chart-col {
   width: 42%;
   min-width: 360px;
@@ -3301,9 +3301,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: flex; align-items: center; justify-content: center;
   height: 100%; padding: 24px; color: var(--text4); font-size: 13px;
 }
-/* .bank-loading est une CELLULE <td colspan=10> : surtout PAS display:flex (sinon le colspan saute
-   et la cellule se rétrécit à gauche). On garde le comportement table-cell + on centre le loader interne. */
-.bank-loading { text-align: center; vertical-align: middle; padding: 70px 0; color: var(--text4); font-size: 13px; }
+/* .bank-loading reste une CELLULE <td colspan=10> (positionner un <td> en absolu est peu fiable) ; on
+   rend son loader INTERNE (.dtp-loader = un <div>) en overlay absolu DANS le panneau → centré vertical +
+   horizontal, au lieu d'être collé en haut par un padding. Overlay transparent : en-têtes visibles. */
+.bank-loading { padding: 0; color: var(--text4); font-size: 13px; }
+.bank-loading .dtp-loader { position: absolute; inset: 0; }
 
 .bank-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bank-table thead th {
