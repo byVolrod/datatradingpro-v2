@@ -1716,8 +1716,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="UK"]          { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd !important; }   /* UK = MEME style que US */
 .tag--purple    { background: rgba(155,89,182,0.1); border: 1px solid rgba(155,89,182,0.2); color: #9b59b6; }
 .tag--gray      { background: var(--bg4); border: 1px solid var(--border3); color: var(--text4); }
-/* Badge Rumour — info non confirmée (ambre) */
-.tag--rumour    { background: rgba(255,179,0,0.12); border: 1px solid rgba(255,179,0,0.45); color: var(--neutral); font-weight: var(--fw-semibold); }
+/* Badge Rumour — meme look que les autres tags (neutre/blanc), plus d'ambre */
+.tag--rumour    { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; font-weight: var(--fw-semibold); }
 /* ── Sous-onglets news (Info / Analyse / Réaction) ──
    Inactif : bordure grise + texte gris, fond transparent.
    Actif   : fond couleur opaque + texte blanc (Info=cyan, Analyse=bleu, Réaction=violet). */
