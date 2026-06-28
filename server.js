@@ -5073,29 +5073,36 @@ app.get('/api/pdf-proxy', async (req, res) => {
       try { fs.unlinkSync(_cf); } catch {}   // fichier corrompu → purge + re-télécharge ci-dessous
     }
   } catch {}
-  try {
-    const r = await axios.get(u, {
-      responseType: 'arraybuffer',
-      timeout: 25000,
-      maxContentLength: 30 * 1024 * 1024,
-      maxRedirects: 3,
-      // En HEAD : Range 2 Ko → on télécharge juste de quoi vérifier le type/la signature (zéro gaspillage).
-      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/pdf,*/*', ...(isHead ? { Range: 'bytes=0-2047' } : {}) },
-      validateStatus: s => s >= 200 && s < 400,
-    });
-    const ct = String(r.headers['content-type'] || '');
-    const buf = r.data ? Buffer.from(r.data) : null;
-    // Accepte si content-type PDF OU signature « %PDF- » (certains serveurs renvoient un type générique).
-    const looksPdf = /pdf/i.test(ct) || (buf && buf.slice(0, 5).toString('latin1') === '%PDF-');
-    if (!looksPdf) return res.status(415).end(isHead ? undefined : 'not a pdf');
-    // 2) GET complet → on STOCKE le PDF sur disque (pas la sonde HEAD partielle) pour les prochaines ouvertures.
-    if (!isHead && buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, buf); } catch {} }
-    res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'inline');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    if (isHead) return res.end();          // sonde OK → en-têtes seuls (le client embarque ensuite l'iframe)
-    return res.send(buf);
-  } catch (e) { return res.status(502).end(isHead ? undefined : 'pdf fetch failed'); }
+  // RÉSILIENCE : la source répond presque toujours, mais l'egress du VPS peut avoir un hoquet transitoire
+  // (timeout/reset). Un SEUL échec ne doit PAS faire tomber le rapport sur la carte « ouvrir l'original ».
+  // On retente 3x (backoff court) AVANT d'abandonner → le PDF brut s'affiche de façon fiable, comme MUFG.
+  let r = null, lastErr = null;
+  for (let attempt = 0; attempt < 3 && !r; attempt++) {
+    try {
+      r = await axios.get(u, {
+        responseType: 'arraybuffer',
+        timeout: 25000,
+        maxContentLength: 30 * 1024 * 1024,
+        maxRedirects: 3,
+        // En HEAD : Range 2 Ko → on télécharge juste de quoi vérifier le type/la signature (zéro gaspillage).
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/pdf,*/*', ...(isHead ? { Range: 'bytes=0-2047' } : {}) },
+        validateStatus: s => s >= 200 && s < 400,
+      });
+    } catch (e) { lastErr = e; if (attempt < 2) await new Promise(s => setTimeout(s, 900)); }   // hoquet egress → on retente
+  }
+  if (!r) return res.status(502).end(isHead ? undefined : 'pdf fetch failed');
+  const ct = String(r.headers['content-type'] || '');
+  const buf = r.data ? Buffer.from(r.data) : null;
+  // Accepte si content-type PDF OU signature « %PDF- » (certains serveurs renvoient un type générique).
+  const looksPdf = /pdf/i.test(ct) || (buf && buf.slice(0, 5).toString('latin1') === '%PDF-');
+  if (!looksPdf) return res.status(415).end(isHead ? undefined : 'not a pdf');
+  // 2) GET complet → on STOCKE le PDF sur disque (pas la sonde HEAD partielle) pour les prochaines ouvertures.
+  if (!isHead && buf && buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, buf); } catch {} }
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'inline');
+  res.setHeader('Cache-Control', 'public, max-age=86400');
+  if (isHead) return res.end();          // sonde OK → en-têtes seuls (le client embarque ensuite l'iframe)
+  return res.send(buf);
 });
 
 // ─── Rendu HTML→PDF à la volée (rapports SANS PDF natif : MUFG…), mis en cache disque, whitelist stricte ──
