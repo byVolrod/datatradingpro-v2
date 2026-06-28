@@ -11028,6 +11028,29 @@ app.get('/api/currency-strength', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
+// ─── Endpoint INTERNE (token) — alimente le cron de rafraichissement des maquettes landing ───
+// Renvoie la VRAIE force des devises (semaine) + le dernier Weekly Market Recap. Gate par un token
+// secret (env LANDING_SNAPSHOT_TOKEN) → inaccessible sans le token, meme via nginx. JAMAIS de donnees user.
+app.get('/internal/landing-snapshot', async (req, res) => {
+  const tok = process.env.LANDING_SNAPSHOT_TOKEN;
+  if (!tok || req.get('x-snapshot-token') !== tok) return res.status(403).json({ error: 'forbidden' });
+  try {
+    const strength = await computeCurrencyStrength('week');
+    let recap = null;
+    try {
+      const list = (typeof allNews !== 'undefined' && Array.isArray(allNews)) ? allNews : [];
+      const recaps = list.filter(i => i && i._reportType === 'Weekly Market Recap')
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+      const r = recaps[0];
+      if (r) recap = { title: r.title || '', timestamp: r.timestamp || 0, description: String(r.description || '').slice(0, 600) };
+    } catch {}
+    res.json({
+      strength: strength ? { currencies: strength.currencies, series: strength.series, updatedAt: strength.updatedAt } : null,
+      weeklyRecap: recap,
+    });
+  } catch (e) { res.status(500).json({ error: String((e && e.message) || e).slice(0, 120) }); }
+});
+
 // ─── FX List Overview ─────────────────────────────────────────────────────────
 // Per-pair overview table (FX LIST view). Price columns come from a single Yahoo
 // Finance 3-year daily series per pair (28 calls) — last price, daily change,
