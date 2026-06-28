@@ -902,14 +902,16 @@
 .hfm-nh{flex:1;font-size:11px;color:#d6d9df;line-height:1.35;}
 .hfm-tag{display:inline-block;font-size:8px;font-weight:600;color:#c6c9d1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:1px 5px;margin:4px 4px 0 0;}
 .hfm-ndot{width:6px;height:6px;border-radius:50%;background:#e0594f;flex:0 0 6px;margin-top:3px;}
-.hfm-wc{display:flex;gap:4px;padding:8px 10px;}
-.hfm-wcc{flex:1;background:#16171b;border:1px solid #232429;padding:5px 4px;text-align:center;min-width:0;}
-.hfm-wcc .c{font-size:7px;color:#b8860b;font-weight:600;text-transform:uppercase;}
-.hfm-wcc .h{font-family:ui-monospace,monospace;font-size:12px;color:#eceef2;font-weight:600;}
-.hfm-wcc .g{font-size:6.5px;color:#62656e;font-family:ui-monospace,monospace;}
-.hfm-wcc .w{font-size:7px;margin-top:2px;color:#9ea4ae;white-space:nowrap;}
-.hfm-wcc .w .sun{color:#e3b23a;}
-.hfm-wcc .w .moon{color:#8ab4f8;}
+.hfm-wc{display:flex;gap:4px;padding:7px 9px;}
+.hfm-wcc{flex:1;background:#16171b;border:1px solid #232429;padding:4px 3px;text-align:center;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;}
+.hfm-wcc .wc-hd{display:flex;justify-content:space-between;width:100%;font-size:6px;color:#62656e;font-family:ui-monospace,monospace;letter-spacing:-.2px;}
+.hfm-wcc .c{font-size:7px;color:#b8860b;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.02em;}
+.hfm-wcc .h{font-family:ui-monospace,monospace;font-size:10px;color:#eceef2;font-weight:600;letter-spacing:-.5px;}
+.hfm-wcc .g{font-size:6px;color:#7a7d86;font-family:ui-monospace,monospace;white-space:nowrap;}
+.hfm-wcc .w{font-size:6px;color:#9ea4ae;font-family:ui-monospace,monospace;white-space:nowrap;}
+.hfm-wcc .dn{font-size:6px;color:#9ea4ae;white-space:nowrap;}
+.hfm-wcc .dn .sun,.hfm-wcc .w .sun{color:#e3b23a;}
+.hfm-wcc .dn .moon,.hfm-wcc .w .moon{color:#8ab4f8;}
 .hfm-st{display:flex;gap:1px;padding:0 10px;border-bottom:1px solid #232429;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;}
 .hfm-st::-webkit-scrollbar{display:none;}
 .hfm-st span{font-size:8.5px;font-weight:600;color:#6f6f79;padding:5px 6px;white-space:nowrap;}
@@ -980,11 +982,11 @@
     <div class="hfm-col r">
       <div class="hfm-ph"><span class="tk"></span><span class="t">Horloge mondiale</span></div>
       <div class="hfm-wc">
-        <div class="hfm-wcc"><div class="c">London</div><div class="h">18:42</div><div class="g">GMT+1</div><div class="w"><span class="sun">☀</span> 24°</div></div>
-        <div class="hfm-wcc"><div class="c">New York</div><div class="h">13:42</div><div class="g">GMT-4</div><div class="w"><span class="sun">☀</span> 28°</div></div>
-        <div class="hfm-wcc"><div class="c">Tokyo</div><div class="h">02:42</div><div class="g">GMT+9</div><div class="w"><span class="moon">☾</span> 20°</div></div>
-        <div class="hfm-wcc"><div class="c">Dubai</div><div class="h">21:42</div><div class="g">GMT+4</div><div class="w"><span class="moon">☾</span> 33°</div></div>
-        <div class="hfm-wcc"><div class="c">Paris</div><div class="h">19:42</div><div class="g">GMT+2</div><div class="w"><span class="sun">☀</span> 27°</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">London</div><div class="h">18:42:14</div><div class="g">GMT+1 · UK</div><div class="w">☁ 24° · 17 km/h ←</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">New York</div><div class="h">13:42:14</div><div class="g">GMT-4 · US</div><div class="w">☁ 28° · 8 km/h ↓</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Lun</span><span class="dt">06/29</span></div><div class="c">Tokyo</div><div class="h">02:42:14</div><div class="g">GMT+9 · JP</div><div class="w">☁ 20° · 3 km/h ↑</div><div class="dn"><span class="moon">☾</span> Nuit</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">Dubai</div><div class="h">21:42:14</div><div class="g">GMT+4 · UAE</div><div class="w">☀ 33° · 7 km/h ↖</div><div class="dn"><span class="moon">☾</span> Nuit</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">Paris</div><div class="h">19:42:14</div><div class="g">GMT+2 · FR</div><div class="w">☁ 27° · 15 km/h ↖</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
       </div>
       <div class="hfm-st"><span class="on">› MONDE</span><span>› RISQUE</span><span>› FORCE</span><span>› BAROMÈTRE</span><span>› COT</span><span>› DMX</span><span>› SAISONNALITÉ</span></div>
       <div class="hfm-ph"><span class="tk"></span><span class="t">Carte des sessions</span><span class="meta"><i></i>Direct</span></div>
@@ -995,6 +997,8 @@
         <div class="hfm-badge" style="left:13%;top:42%"><span class="dot"></span><b>13:42</b><span class="nm">New York</span></div>
         <div class="hfm-badge" style="left:77%;top:40%"><span class="dot off"></span><b>02:42</b><span class="nm">Tokyo</span></div>
         <div class="hfm-badge" style="left:55%;top:56%"><span class="dot off"></span><b>21:42</b><span class="nm">Dubai</span></div>
+        <div class="hfm-badge" style="left:87%;top:82%"><span class="dot off"></span><b>03:42</b><span class="nm">Sydney</span></div>
+        <div class="hfm-badge" style="left:70%;top:53%"><span class="dot off"></span><b>01:42</b><span class="nm">HK</span></div>
       </div>
     </div>
   </div>
@@ -1675,16 +1679,19 @@
 (function(){
   try{
     var WC=['Europe/London','America/New_York','Asia/Tokyo','Asia/Dubai','Europe/Paris'];
-    var BADGE=['Europe/London','America/New_York','Asia/Tokyo','Asia/Dubai'];
+    var BADGE=['Europe/London','America/New_York','Asia/Tokyo','Asia/Dubai','Australia/Sydney','Asia/Hong_Kong'];
     function hm(tz){return new Date().toLocaleTimeString('fr-FR',{timeZone:tz,hour:'2-digit',minute:'2-digit',hour12:false});}
     function hr(tz){return parseInt(new Date().toLocaleString('en-GB',{timeZone:tz,hour:'2-digit',hour12:false}),10);}
     function day(h){return h>=6&&h<20;}
     function tick(){
+      var WD=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
       var c=document.querySelectorAll('.hfm-wc .hfm-wcc');
       for(var i=0;i<c.length&&i<WC.length;i++){
-        var h=c[i].querySelector('.h'); if(h)h.textContent=hm(WC[i]);
-        var d=day(hr(WC[i])), w=c[i].querySelector('.w span');
-        if(w){w.textContent=d?'☀':'☾'; w.className=d?'sun':'moon';}
+        var loc=new Date(new Date().toLocaleString('en-US',{timeZone:WC[i]}));
+        var wd=c[i].querySelector('.wd'); if(wd)wd.textContent=WD[loc.getDay()];
+        var dt=c[i].querySelector('.dt'); if(dt)dt.textContent=('0'+(loc.getMonth()+1)).slice(-2)+'/'+('0'+loc.getDate()).slice(-2);
+        var tEl=c[i].querySelector('.h'); if(tEl)tEl.textContent=new Date().toLocaleTimeString('en-GB',{timeZone:WC[i],hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+        var dnEl=c[i].querySelector('.dn'); if(dnEl)dnEl.innerHTML=day(loc.getHours())?'<span class="sun">☀</span> Jour':'<span class="moon">☾</span> Nuit';
       }
       var b=document.querySelectorAll('.hfm-map .hfm-badge');
       for(var j=0;j<b.length&&j<BADGE.length;j++){
@@ -1695,7 +1702,7 @@
       var nt=document.querySelectorAll('.hfm-news .hfm-nt');
       for(var k=0;k<nt.length;k++){var t=new Date(nowP.getTime()-off[k%off.length]*60000);nt[k].textContent=('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);}
     }
-    tick(); setInterval(tick,15000);
+    tick(); setInterval(tick,1000);
   }catch(e){}
 })();
 </script>
