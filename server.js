@@ -11099,7 +11099,8 @@ app.get('/internal/landing-snapshot', async (req, res) => {
 // onglet Currency Strength (force reference-based, base−quote). Repli Yahoo si un onglet
 // est indisponible (la FX List ne casse jamais). Fund./Research = signaux momentum.
 let _fxlCache = null, _fxlTs = 0;
-const FXL_TTL = 10 * 60 * 1000; // 10 min
+const FXL_TTL = 4 * 60 * 60 * 1000; // 4 h — l'onglet LISTE FX se met à jour toutes les 4 h, SAUF le week-end (marché forex fermé → on garde la donnée du vendredi)
+function _fxlWeekendNow() { const wd = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay(); return wd === 0 || wd === 6; }
 
 function _pctChange(now, then) {
   if (now == null || then == null || then === 0) return null;
@@ -11282,7 +11283,7 @@ async function _computeFxListFresh() {
 
 // Cache + stale-while-error + persistance. NE renvoie JAMAIS vide si on a déjà eu des données un jour.
 async function computeFxList() {
-  if (_fxlCache && Date.now() - _fxlTs < FXL_TTL) return _fxlCache;   // frais → direct
+  if (_fxlCache && (Date.now() - _fxlTs < FXL_TTL || _fxlWeekendNow())) return _fxlCache;   // frais (<4 h) OU week-end (marché fermé → on conserve la donnée du vendredi)
   if (_fxlBusy) return _fxlCache;                                     // déjà en calcul → on sert l'actuel (peut être stale)
   _fxlBusy = true;
   try {
@@ -11764,7 +11765,7 @@ server.listen(PORT, async () => {
   // FX LIST : restaure le dernier snapshot persistant (affiché instantanément au boot, même si Yahoo throttle)
   // puis recalcule en arrière-plan ; refresh régulier ensuite → la table n'est JAMAIS vide.
   setTimeout(async () => { try { await _fxlLoadPersisted(); await computeFxList(); } catch {} }, 12000);
-  setInterval(() => { _fxlTs = 0; computeFxList().catch(() => {}); }, FXL_TTL);
+  setInterval(() => { if (_fxlWeekendNow()) return; _fxlTs = 0; computeFxList().catch(() => {}); }, FXL_TTL);   // refresh toutes les 4 h, sauf le week-end
   // VÉRIFICATION EMAIL : auto-test Gmail au démarrage + toutes les 30 min → on sait TOUJOURS si l'envoi marche (log + /api/admin/ai-status).
   setTimeout(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 8000);
   setInterval(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 30 * 60 * 1000);

@@ -401,7 +401,7 @@
 
   /* responsive */
   @media (max-width:900px){
-    .hero-grid{grid-template-columns:1fr;gap:38px} .hero{padding:50px 0 48px}
+    .hero-grid{grid-template-columns:1fr;gap:38px} .hero{padding:50px 0 48px} .hfm{max-width:560px;justify-self:center;margin-left:auto;margin-right:auto}
     .term{order:2} .bento{grid-template-columns:repeat(2,1fr)} .bcard.lg,.bcard.md,.bcard.sm{grid-column:span 2}
     .proc{grid-template-columns:1fr} .step .ar{display:none}
     .frband .in{grid-template-columns:1fr;gap:32px;padding-top:60px;padding-bottom:60px} .vals{grid-template-columns:repeat(2,1fr)}
@@ -883,7 +883,7 @@
 .hfm-nav::-webkit-scrollbar{display:none;}
 .hfm-nav span{font-size:10px;font-weight:600;letter-spacing:.05em;color:#6f6f79;padding:0 9px;line-height:28px;white-space:nowrap;}
 .hfm-nav span.on{color:#eceef2;box-shadow:inset 0 -2px 0 #e3b23a;}
-.hfm-grid{display:grid;grid-template-columns:1.05fr 1fr;height:330px;}
+.hfm-grid{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);height:330px;}
 .hfm-col{display:flex;flex-direction:column;min-height:0;}
 .hfm-col.r{border-left:1px solid #232429;}
 .hfm-ph{display:flex;align-items:center;gap:7px;height:26px;padding:0 11px;border-bottom:1px solid #232429;background:#16171b;flex:0 0 auto;}
@@ -903,10 +903,10 @@
 .hfm-tag{display:inline-block;font-size:8px;font-weight:600;color:#c6c9d1;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);padding:1px 5px;margin:4px 4px 0 0;}
 .hfm-ndot{width:6px;height:6px;border-radius:50%;background:#e0594f;flex:0 0 6px;margin-top:3px;}
 .hfm-wc{display:flex;gap:4px;padding:7px 9px;}
-.hfm-wcc{flex:1;background:#16171b;border:1px solid #232429;padding:4px 3px;text-align:center;min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px;}
+.hfm-wcc{flex:1;background:#16171b;border:1px solid #232429;padding:4px 2px;text-align:center;min-width:0;overflow:hidden;display:flex;flex-direction:column;align-items:center;gap:1px;}
 .hfm-wcc .wc-hd{display:flex;justify-content:space-between;width:100%;font-size:6px;color:#62656e;font-family:ui-monospace,monospace;letter-spacing:-.2px;}
 .hfm-wcc .c{font-size:7px;color:#b8860b;font-weight:700;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;letter-spacing:.02em;}
-.hfm-wcc .h{font-family:ui-monospace,monospace;font-size:10px;color:#eceef2;font-weight:600;letter-spacing:-.5px;}
+.hfm-wcc .h{font-family:ui-monospace,monospace;font-size:9px;color:#eceef2;font-weight:600;letter-spacing:-.6px;}
 .hfm-wcc .g{font-size:6px;color:#7a7d86;font-family:ui-monospace,monospace;white-space:nowrap;}
 .hfm-wcc .w{font-size:6px;color:#9ea4ae;font-family:ui-monospace,monospace;white-space:nowrap;}
 .hfm-wcc .dn{font-size:6px;color:#9ea4ae;white-space:nowrap;}
@@ -982,11 +982,11 @@
     <div class="hfm-col r">
       <div class="hfm-ph"><span class="tk"></span><span class="t">Horloge mondiale</span></div>
       <div class="hfm-wc">
-        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">London</div><div class="h">18:42:14</div><div class="g">GMT+1 · UK</div><div class="w">☁ 24° · 17 km/h ←</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
-        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">New York</div><div class="h">13:42:14</div><div class="g">GMT-4 · US</div><div class="w">☁ 28° · 8 km/h ↓</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
-        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Lun</span><span class="dt">06/29</span></div><div class="c">Tokyo</div><div class="h">02:42:14</div><div class="g">GMT+9 · JP</div><div class="w">☁ 20° · 3 km/h ↑</div><div class="dn"><span class="moon">☾</span> Nuit</div></div>
-        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">Dubai</div><div class="h">21:42:14</div><div class="g">GMT+4 · UAE</div><div class="w">☀ 33° · 7 km/h ↖</div><div class="dn"><span class="moon">☾</span> Nuit</div></div>
-        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">Paris</div><div class="h">19:42:14</div><div class="g">GMT+2 · FR</div><div class="w">☁ 27° · 15 km/h ↖</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">London</div><div class="h">18:42:14</div><div class="g">GMT+1 · UK</div><div class="w">☁ 24°</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">New York</div><div class="h">13:42:14</div><div class="g">GMT-4 · US</div><div class="w">☁ 28°</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Lun</span><span class="dt">06/29</span></div><div class="c">Tokyo</div><div class="h">02:42:14</div><div class="g">GMT+9 · JP</div><div class="w">☁ 20°</div><div class="dn"><span class="moon">☾</span> Nuit</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">Dubai</div><div class="h">21:42:14</div><div class="g">GMT+4 · UAE</div><div class="w">☀ 33°</div><div class="dn"><span class="moon">☾</span> Nuit</div></div>
+        <div class="hfm-wcc"><div class="wc-hd"><span class="wd">Dim</span><span class="dt">06/28</span></div><div class="c">Paris</div><div class="h">19:42:14</div><div class="g">GMT+2 · FR</div><div class="w">☁ 27°</div><div class="dn"><span class="sun">☀</span> Jour</div></div>
       </div>
       <div class="hfm-st"><span class="on">› MONDE</span><span>› RISQUE</span><span>› FORCE</span><span>› BAROMÈTRE</span><span>› COT</span><span>› DMX</span><span>› SAISONNALITÉ</span></div>
       <div class="hfm-ph"><span class="tk"></span><span class="t">Carte des sessions</span><span class="meta"><i></i>Direct</span></div>
