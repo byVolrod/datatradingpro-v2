@@ -195,7 +195,8 @@ function _wsUserIdFromReq(req) {
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
-  '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images']);   // page Week Ahead PUBLIQUE + mosaïque login (photos d'actu)
+  '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
+  '/internal/landing-snapshot']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (protege par SON PROPRE token, pas la session)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
