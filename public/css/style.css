@@ -3402,8 +3402,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="RBA"],
 .tag[data-cat="SNB"],
 .tag[data-cat="RBNZ"]                { background: rgba(52,152,219,0.12); border: 1px solid rgba(52,152,219,0.3); color: #5fa8d3; }
-.tag[data-cat="Energy & Power"],
-.tag[data-cat="Crypto"]              { background: rgba(227,178,58,0.12); border: 1px solid rgba(227,178,58,0.3); color: var(--orange); }
+.tag[data-cat="Energy & Power"]      { background: rgba(227,178,58,0.12); border: 1px solid rgba(227,178,58,0.3); color: var(--orange); }
+.tag[data-cat="Crypto"]              { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag[data-cat="Data"]                { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag[data-cat="Inflation"]           { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag[data-cat="Metals"]              { background: rgba(255,215,0,0.08);  border: 1px solid rgba(255,215,0,0.2);  color: #d4aa00; }
@@ -3686,7 +3686,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="SNB"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
 .tag[data-cat="Energy & Power"] { background: rgba(227,178,58,0.12); border-color: rgba(227,178,58,0.3); color: var(--orange); }
 .tag[data-cat="Metals"]         { display: none !important; }   /* badge "Metals" retiré (demande) — categorie + filtres conserves */
-.tag[data-cat="Crypto"]         { background: rgba(227,178,58,0.1);  border-color: rgba(227,178,58,0.25); color: var(--orange); }
+.tag[data-cat="Crypto"]         { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag[data-cat="FX Flows"]       { background: rgba(46,204,113,0.1);  border-color: rgba(46,204,113,0.2);  color: #2ecc71; }
 .tag[data-cat="Market Analysis"]{ background: rgba(46,204,113,0.1);  border-color: rgba(46,204,113,0.2);  color: #2ecc71; }
 .tag[data-cat="Economic Commentary"] { background: rgba(26,188,156,0.1); border-color: rgba(26,188,156,0.25); color: #1abc9c; }
