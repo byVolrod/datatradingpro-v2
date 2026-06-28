@@ -8719,18 +8719,18 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
 // Le statut (Active / TP touché / SL touché) et le prix se mettent à jour en TEMPS RÉEL (Yahoo).
 const BANK_FILE = path.join(_CACHE_DIR, 'cache_bank_positions.json');
 const BANK_SEED = [
-  { id:'seed-1',  bank:'SEB Research',             orderType:'Sell Limit',       pair:'USD/JPY', date:'2026-05-27', entry:160.50, tp:155.00,  sl:162.50, source:'seed' },
-  { id:'seed-2',  bank:'Refinitiv',                orderType:'Market Execution', pair:'USD/JPY', date:'2026-05-28', entry:159.25, tp:157.75,  sl:159.80, source:'seed' },
-  { id:'seed-3',  bank:'Refinitiv',                orderType:'Market Execution', pair:'USD/CAD', date:'2026-05-25', entry:1.3820, tp:1.3630,  sl:1.3880, source:'seed' },
-  { id:'seed-4',  bank:'Refinitiv',                orderType:'Market Execution', pair:'GBP/USD', date:'2026-05-27', entry:1.3445, tp:1.3645,  sl:1.3345, source:'seed' },
-  { id:'seed-5',  bank:'MUFG Research',            orderType:'Market Execution', pair:'GBP/CHF', date:'2026-03-30', entry:1.0560, tp:1.0200,  sl:1.0800, source:'seed' },
-  { id:'seed-6',  bank:'SEB Research',             orderType:'Buy Limit',        pair:'EUR/USD', date:'2026-05-19', entry:1.1500, tp:1.1900,  sl:1.1400, source:'seed' },
-  { id:'seed-7',  bank:'Credit Agricole Research', orderType:'Market Execution', pair:'EUR/JPY', date:'2026-06-01', entry:185.75, tp:189.71,  sl:183.00, source:'seed' },
-  { id:'seed-8',  bank:'Nomura Research',          orderType:'Market Execution', pair:'EUR/GBP', date:'2026-02-19', entry:0.8672, tp:0.8950,  sl:0.8550, source:'seed' },
-  { id:'seed-9',  bank:'Danske Research',          orderType:'Market Execution', pair:'EUR/GBP', date:'2026-01-16', entry:0.8664, tp:0.9000,  sl:0.8490, source:'seed' },
-  { id:'seed-10', bank:'Morgan Stanley Research',  orderType:'Market Execution', pair:'EUR/CHF', date:'2026-02-16', entry:0.9123, tp:0.8700,  sl:0.9400, source:'seed' },
-  { id:'seed-11', bank:'Nomura Research',          orderType:'Market Execution', pair:'AUD/NZD', date:'2026-05-08', entry:1.2155, tp:1.1800,  sl:1.2300, source:'seed' },
-  { id:'seed-12', bank:'Credit Agricole Research', orderType:'Market Execution', pair:'AUD/NZD', date:'2026-05-21', entry:1.2170, tp:1.1600,  sl:1.2470, source:'seed' },
+  { id:'seed-1',  bank:'SEB Research',             orderType:'Sell Limit',       pair:'USD/JPY', date:'2026-06-26', entry:162.50, tp:158.50,  sl:163.80, source:'seed' },
+  { id:'seed-2',  bank:'Refinitiv',                orderType:'Market Execution', pair:'EUR/USD', date:'2026-06-25', entry:1.1390, tp:1.1600,  sl:1.1280, source:'seed' },
+  { id:'seed-3',  bank:'MUFG Research',            orderType:'Market Execution', pair:'GBP/USD', date:'2026-06-24', entry:1.3198, tp:1.3450,  sl:1.3080, source:'seed' },
+  { id:'seed-4',  bank:'Nomura Research',          orderType:'Market Execution', pair:'USD/CAD', date:'2026-06-26', entry:1.4190, tp:1.4450,  sl:1.4060, source:'seed' },
+  { id:'seed-5',  bank:'Danske Research',          orderType:'Market Execution', pair:'USD/CHF', date:'2026-06-23', entry:0.8095, tp:0.8300,  sl:0.7990, source:'seed' },
+  { id:'seed-6',  bank:'Credit Agricole Research', orderType:'Sell Limit',       pair:'AUD/USD', date:'2026-06-25', entry:0.7000, tp:0.6750,  sl:0.7080, source:'seed' },
+  { id:'seed-7',  bank:'SEB Research',             orderType:'Buy Limit',        pair:'EUR/JPY', date:'2026-06-22', entry:183.50, tp:187.50,  sl:181.80, source:'seed' },
+  { id:'seed-8',  bank:'Morgan Stanley Research',  orderType:'Market Execution', pair:'GBP/JPY', date:'2026-06-24', entry:213.53, tp:217.00,  sl:211.50, source:'seed' },
+  { id:'seed-9',  bank:'Refinitiv',                orderType:'Market Execution', pair:'EUR/GBP', date:'2026-06-26', entry:0.8625, tp:0.8480,  sl:0.8700, source:'seed' },
+  { id:'seed-10', bank:'Nomura Research',          orderType:'Market Execution', pair:'AUD/NZD', date:'2026-06-23', entry:1.2228, tp:1.2500,  sl:1.2090, source:'seed' },
+  { id:'seed-11', bank:'Danske Research',          orderType:'Market Execution', pair:'EUR/CHF', date:'2026-06-25', entry:0.9217, tp:0.9400,  sl:0.9120, source:'seed' },
+  { id:'seed-12', bank:'Credit Agricole Research', orderType:'Buy Limit',        pair:'NZD/USD', date:'2026-06-26', entry:0.5600, tp:0.5800,  sl:0.5520, source:'seed' },
 ];
 let _bankPositions = null;
 let _bankFromFile  = false;
