@@ -1538,18 +1538,23 @@ function buildMeterChart() {
   container.querySelectorAll('.meter-brick').forEach(b => b.classList.add('meter-brick--off'));
 
   async function loadAndRender() {
-    try {
-      const resp = await fetch('/api/currency-strength?period=1d');
-      const data = await resp.json();
-      if (!data.currencies || !data.series) throw new Error(data.error || 'No data');
-      const values = {};
-      data.currencies.forEach(ccy => {
-        const pts = (data.series[ccy] || []).filter(d => d.v != null);
-        values[ccy] = pts.length ? +pts[pts.length - 1].v.toFixed(2) : 0;
-      });
-      applyValues(values);
-    } catch (e) {
-      console.error('[Meter]', e.message);
+    // 'today' (force intraday du jour) d'abord ; repli 'week' si indispo → le baromètre n'est JAMAIS vide.
+    // (l'ancien param '1d' renvoyait "Data unavailable" → 8 colonnes vides, façon bug.)
+    for (const period of ['today', 'week']) {
+      try {
+        const resp = await fetch('/api/currency-strength?period=' + period);
+        const data = await resp.json();
+        if (!data.currencies || !data.series) throw new Error(data.error || 'No data');
+        const values = {};
+        data.currencies.forEach(ccy => {
+          const pts = (data.series[ccy] || []).filter(d => d.v != null);
+          values[ccy] = pts.length ? +pts[pts.length - 1].v.toFixed(2) : 0;
+        });
+        applyValues(values);
+        return;
+      } catch (e) {
+        console.error('[Meter]', period, e.message);
+      }
     }
   }
 

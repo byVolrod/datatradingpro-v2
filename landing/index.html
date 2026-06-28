@@ -409,6 +409,9 @@
     .wrap,.nav-in{padding-left:18px;padding-right:18px}
     .nav-links.open{display:flex;position:absolute;top:64px;left:0;right:0;flex-direction:column;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 20px 44px -22px rgba(20,20,40,.28);padding:18px;gap:14px;z-index:49}
     .nav-links.open .nav-mob-extra{display:flex} .nav-links.open .nav-mob-login{color:var(--text2)} .nav-links.open .btn-cta{width:100%;justify-content:center;margin-top:4px}
+    /* Mobile empile : les maquettes #modules prennent leur hauteur naturelle. Sinon flex:1 (vis) + flex:1 1 0 (lignes) ecrasent le fil news -> chaque ligne ~17px, titres tronques + tags coupes. */
+    .mods2-r > .bcard > .vis{flex:0 0 auto !important}
+    .dk-news-feed > .dk-news-row{flex:0 0 auto !important}
   }
   @media (max-width:560px){
     /* Mockup hero : empiler les 2 colonnes internes + liberer la hauteur fixe (sinon ecrase sur mobile) */
@@ -1091,22 +1094,22 @@
 <div class="dk-ai-screen">
   <div class="dk-ai-head">
     <span class="dk-ai-titlewrap">
-      <img class="dk-ai-logo" src="/img/macro-ai-logo.png" width="18" height="18" alt="Macro AI">
-      <span class="dk-ai-title">AI Insights</span>
+      <svg class="dk-ai-logo" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-label="IA"><path d="M12 2.2 L13.7 9 L20.5 11 L13.7 13 L12 19.8 L10.3 13 L3.5 11 L10.3 9 Z" fill="#00DA50"/><path d="M18.5 3 L19.2 5.1 L21.3 5.8 L19.2 6.5 L18.5 8.6 L17.8 6.5 L15.7 5.8 L17.8 5.1 Z" fill="#00DA50" opacity="0.65"/></svg>
+      <span class="dk-ai-title">Éclairages IA</span>
     </span>
     <span class="dk-ai-nav"><button type="button">&lsaquo;</button><span class="dk-ai-count">1 / 3</span><button type="button">&rsaquo;</button></span>
   </div>
   <div class="dk-ai-track">
     <div class="dk-ai-card">
-      <div class="dk-ai-crow"><span class="dk-ai-asset">EUR/USD</span><span class="dk-ai-badge dk-ai-badge--buy">Buy</span></div>
+      <div class="dk-ai-crow"><span class="dk-ai-asset">EUR/USD</span><span class="dk-ai-badge dk-ai-badge--buy">ACHAT</span></div>
       <div class="dk-ai-text">Ton accommodant de la BCE et données US plus molles maintiennent la paire orientée à la hausse vers <b>1,0950</b>.</div>
     </div>
     <div class="dk-ai-card">
-      <div class="dk-ai-crow"><span class="dk-ai-asset">USD/JPY</span><span class="dk-ai-badge dk-ai-badge--sell">Sell</span></div>
+      <div class="dk-ai-crow"><span class="dk-ai-asset">USD/JPY</span><span class="dk-ai-badge dk-ai-badge--sell">VENTE</span></div>
       <div class="dk-ai-text">Le risque d'intervention et le resserrement de l'écart de taux plafonnent la hausse ; vendre les rebonds au-dessus de <b>157,50</b>.</div>
     </div>
     <div class="dk-ai-card">
-      <div class="dk-ai-crow"><span class="dk-ai-asset">XAU/USD</span><span class="dk-ai-badge dk-ai-badge--neutral">Neutral</span></div>
+      <div class="dk-ai-crow"><span class="dk-ai-asset">XAU/USD</span><span class="dk-ai-badge dk-ai-badge--neutral">NEUTRE</span></div>
       <div class="dk-ai-text">L'or consolide alors que les taux réels stagnent ; sans tendance avant la décision du FOMC.</div>
     </div>
   </div>
@@ -1139,13 +1142,13 @@
       <!-- DROITE : 4 maquettes de preview -->
       <div class="mods2-r">
         <div class="bcard">
-          <div class="lead"><div class="bic"><i class="fa-solid fa-bolt"></i></div><h3>News en temps réel</h3></div>
+          <div class="lead"><div class="bic"><i class="fa-solid fa-bolt"></i></div><h3>Actus en temps réel</h3></div>
           <p class="one">Le flux filtré : ce qui bouge les marchés.</p>
           <div class="vis">
 <div class="dk-news-feed">
   <div class="dk-news-head">
-    <span class="dk-news-title">Realtime Headlines</span>
-    <span class="dk-news-live"><span class="dk-news-dot"></span>LIVE</span>
+    <span class="dk-news-title">Titres en temps réel</span>
+    <span class="dk-news-live"><span class="dk-news-dot"></span>En direct</span>
   </div>
   <div class="dk-news-row">
     <span class="dk-news-time">14:32</span>
@@ -1186,18 +1189,18 @@
           </div>
         </div>
         <div class="bcard">
-          <div class="lead"><div class="bic"><i class="fa-solid fa-compass"></i></div><h3>Smart Bias Tracker</h3></div>
+          <div class="lead"><div class="bic"><i class="fa-solid fa-compass"></i></div><h3>Radar de Biais</h3></div>
           <p class="one">Le biais des 8 devises, chaque semaine.</p>
           <div class="vis">
 <div class="dk-bias-wrap">
   <div class="dk-bias-head">
-    <span class="dk-bias-ttl">Smart Bias Tracker</span>
+    <span class="dk-bias-ttl">Radar de Biais</span>
     <span class="dk-bias-sub">15-21/06</span>
   </div>
   <table class="dk-bias-tbl">
     <thead>
       <tr>
-        <th class="dk-bias-th-ind">Indicators</th>
+        <th class="dk-bias-th-ind">Indicateurs</th>
         <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-us"></span><span>USD</span></span></th>
         <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-eu"></span><span>EUR</span></span></th>
         <th class="dk-bias-th-cur"><span class="dk-bias-cur-in"><span class="dk-bias-flag dk-bias-fl-gb"></span><span>GBP</span></span></th>
@@ -1207,45 +1210,45 @@
     </thead>
     <tbody>
       <tr>
-        <td class="dk-bias-ind">Fundamental</td>
-        <td class="dk-bias-cell dk-bias-vbull">V.Bull</td>
-        <td class="dk-bias-cell dk-bias-bear">Bear</td>
+        <td class="dk-bias-ind">Fondamental</td>
+        <td class="dk-bias-cell dk-bias-vbull">T.Hauss</td>
+        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
         <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-vbear">V.Bear</td>
-        <td class="dk-bias-cell dk-bias-bull">Bull</td>
+        <td class="dk-bias-cell dk-bias-vbear">T.Baiss</td>
+        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
       </tr>
       <tr>
-        <td class="dk-bias-ind">Monetary</td>
-        <td class="dk-bias-cell dk-bias-bull">Bull</td>
+        <td class="dk-bias-ind">Monétaire</td>
+        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
         <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-bear">Bear</td>
-        <td class="dk-bias-cell dk-bias-vbear">V.Bear</td>
-        <td class="dk-bias-cell dk-bias-bull">Bull</td>
+        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
+        <td class="dk-bias-cell dk-bias-vbear">T.Baiss</td>
+        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
       </tr>
       <tr>
         <td class="dk-bias-ind">Sentiment</td>
-        <td class="dk-bias-cell dk-bias-bull">Bull</td>
-        <td class="dk-bias-cell dk-bias-bear">Bear</td>
+        <td class="dk-bias-cell dk-bias-bull">Hauss</td>
+        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
         <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-bear">Bear</td>
-        <td class="dk-bias-cell dk-bias-vbull">V.Bull</td>
+        <td class="dk-bias-cell dk-bias-bear">Baiss</td>
+        <td class="dk-bias-cell dk-bias-vbull">T.Hauss</td>
       </tr>
       <tr class="dk-bias-over">
-        <td class="dk-bias-ind">Overall</td>
-        <td class="dk-bias-cell dk-bias-vbull"><span class="dk-bias-arr">&#9650;</span>Bull</td>
-        <td class="dk-bias-cell dk-bias-bear"><span class="dk-bias-arr">&#9660;</span>Bear</td>
+        <td class="dk-bias-ind">Conclusion</td>
+        <td class="dk-bias-cell dk-bias-vbull"><span class="dk-bias-arr">&#9650;</span>Hauss</td>
+        <td class="dk-bias-cell dk-bias-bear"><span class="dk-bias-arr">&#9660;</span>Baiss</td>
         <td class="dk-bias-cell dk-bias-neut">Neut</td>
-        <td class="dk-bias-cell dk-bias-vbear"><span class="dk-bias-arr">&#9660;</span>Bear</td>
-        <td class="dk-bias-cell dk-bias-bull"><span class="dk-bias-arr">&#9650;</span>Bull</td>
+        <td class="dk-bias-cell dk-bias-vbear"><span class="dk-bias-arr">&#9660;</span>Baiss</td>
+        <td class="dk-bias-cell dk-bias-bull"><span class="dk-bias-arr">&#9650;</span>Hauss</td>
       </tr>
     </tbody>
   </table>
   <div class="dk-bias-sum">
-    <div class="dk-bias-sum-h"><span>Bias Summary</span><span class="dk-bias-sum-cur"><span class="dk-bias-flag dk-bias-fl-us"></span>USD · semaine</span></div>
-    <div class="dk-bias-sum-row"><span>Fundamental Data</span><span class="dk-bias-sb dk-bias-vbull">V. Bullish</span></div>
-    <div class="dk-bias-sum-row"><span>Monetary Policy</span><span class="dk-bias-sb dk-bias-bull">Bullish</span></div>
-    <div class="dk-bias-sum-row"><span>Hedge Fund Positioning</span><span class="dk-bias-sb dk-bias-bull">Bullish</span></div>
-    <div class="dk-bias-sum-row dk-bias-sum-over"><span>Overall</span><span class="dk-bias-sb dk-bias-vbull">Very Bullish</span></div>
+    <div class="dk-bias-sum-h"><span>Synthèse de Biais</span><span class="dk-bias-sum-cur"><span class="dk-bias-flag dk-bias-fl-us"></span>USD · semaine</span></div>
+    <div class="dk-bias-sum-row"><span>Données fondamentales</span><span class="dk-bias-sb dk-bias-vbull">Très Haussier</span></div>
+    <div class="dk-bias-sum-row"><span>Politique monétaire</span><span class="dk-bias-sb dk-bias-bull">Haussier</span></div>
+    <div class="dk-bias-sum-row"><span>Positionnement Hedge Funds</span><span class="dk-bias-sb dk-bias-bull">Haussier</span></div>
+    <div class="dk-bias-sum-row dk-bias-sum-over"><span>Conclusion globale</span><span class="dk-bias-sb dk-bias-vbull">Très Haussier</span></div>
     <div class="dk-bias-sum-narr">USD porté par une Fed patiente mais ferme et des données solides ; le positionnement spéculatif conforte le biais haussier.</div>
   </div>
 </div>
@@ -1288,7 +1291,7 @@
           </div>
         </div>
         <div class="bcard">
-          <div class="lead"><div class="bic"><i class="fa-solid fa-file-lines"></i></div><h3>Analyst</h3></div>
+          <div class="lead"><div class="bic"><i class="fa-solid fa-file-lines"></i></div><h3>Analystes</h3></div>
           <p class="one">Le marché résumé pour vous, chaque jour.</p>
           <div class="vis">
 <div class="dk-analyst-card">
