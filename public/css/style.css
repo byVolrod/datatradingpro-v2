@@ -5771,21 +5771,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* ═══════════════ STRENGTH CHARTS — double panneau 50/50 ═══════════════ */
 .strength-charts-row {
-  flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden;
+  flex: 1; min-height: 0; display: flex; flex-direction: row; overflow: hidden;
   background: #0d0e11;
 }
-/* TD (jour en cours) AU-DESSUS de TW (semaine en cours) — TOUJOURS empiles l'un sur l'autre,
-   chacun PLEINE LARGEUR du panneau (cote a cote = courbes trop etroites + illisibles, meme en grand
-   ecran ; demande utilisateur : alignement horizontal des deux blocs empiles). Chaque pane = 50% hauteur. */
+/* Chaque panneau (gauche TD / droite TW) = 50% */
 .strength-pane {
   flex: 1 1 50%;
   min-width: 0;
-  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
 }
-.strength-pane + .strength-pane { border-top: 1px solid #232429; }
+.strength-pane + .strength-pane { border-left: 1px solid #232429; }
+/* Sur écran étroit/laptop → empilement vertical : panel-right = 50% du viewport par défaut,
+   donc côte à côte chaque courbe ne fait que ~287-345px de large sous 1380px (8 lignes devises
+   amCharts illisibles, notamment 1366×768). Empilés, chacun prend toute la largeur du panneau. */
+@media (max-width: 1380px) {
+  .strength-charts-row { flex-direction: column; }
+  .strength-pane + .strength-pane { border-left: none; border-top: 1px solid #232429; }
+}
 .strength-chart-col {
   flex: 1; min-width: 0; display: flex; flex-direction: column;
   background: #0d0e11; border: 1px solid var(--border); border-radius: 3px;
