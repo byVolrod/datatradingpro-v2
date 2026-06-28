@@ -3084,7 +3084,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbm-summary-host { margin-top: 0; flex: 1 1 auto; min-height: 160px; display: flex; flex-direction: column; container-type: inline-size; container-name: biassum; }   /* conteneur de requete : le split synthese/narratif s'adapte a la LARGEUR REELLE du panneau (pas du viewport) */
 .sbm-summary-host:empty { display: none; }
 .sbs-panel { border: 1px solid var(--hud-line); border-radius: 4px; background: #0d0e11; overflow: hidden; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
-.sbs-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--hud-line); background: #101012; }
+.sbs-head { display: flex; align-items: center; justify-content: space-between; height: 32px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--head-bg); }
 .sbs-head-title { font-size: 12px; font-weight: var(--fw-bold); color: #fff; }
 .sbs-head-cur { color: #e3b23a; display: inline-flex; align-items: center; gap: 5px; }
 .sbs-head-cur .sbm-flag { width: 15px; height: 15px; }
@@ -5205,7 +5205,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wa3.wa-dragging .wa3-vsplit, .wa3.wa-dragging .wa3-hsplit { pointer-events: auto; }
 .wa3-right { display: grid; grid-template-rows: var(--wa-top, 1fr) 6px minmax(0,1fr); min-width: 0; min-height: 0; overflow: hidden; }
 .wa3-panel { background: #0d0e11; display: flex; flex-direction: column; min-height: 0; }
-.wa3-phead { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--bg3); flex: 0 0 auto; }   /* aligné sur .panel-header (cohérence inter-onglets) */
+.wa3-phead { display: flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border-bottom: 1px solid var(--border); background: var(--head-bg); flex: 0 0 auto; }   /* aligné sur .panel-header (cohérence inter-onglets) — meme fond --head-bg */
 .wa3-ptitle { font-family: var(--font-mono); font-size: 12px; font-weight: var(--fw-bold); color: #e9eaed; letter-spacing: 0.04em; }   /* = .fxl-title (Overview List) — identité homogène */
 .wa3-pmeta { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; color: #e3b23a; letter-spacing: .04em; }
 .wa3-live { margin-left: auto; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 10px; letter-spacing: .1em; color: #00e676; display: inline-flex; align-items: center; gap: 5px; }
@@ -6375,8 +6375,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-title-row {
   display: flex;
   align-items: center;
-  padding: 8px 14px 6px;
-  border-bottom: 1px solid #16171b;
+  justify-content: space-between;
+  height: 32px;                 /* = .panel-header (barre d'en-tete homogene partout) */
+  padding: 0 10px;
+  background: var(--head-bg);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
 .cal-title-block { flex: 1; }
 .cal-title-icons {
