@@ -1713,6 +1713,26 @@
       for(var k=0;k<nt.length;k++){var t=new Date(nowP.getTime()-off[k%off.length]*60000);nt[k].textContent=('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);}
     }
     tick(); setInterval(tick,1000);
+    // Fil hero LIVE : on remplace les lignes statiques par les VRAIES news du desk (un doublon du desk,
+    // toujours a jour). Repli silencieux sur les lignes statiques si le desk est injoignable -> jamais casse.
+    (function(){
+      var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+      fetch('https://desk.datatradingpro.com/api/hero-news').then(function(r){return r.ok?r.json():null;}).then(function(news){
+        if(!Array.isArray(news)||news.length<3)return;
+        var track=document.querySelector('.hfm-track'); if(!track)return;
+        var rows=news.slice(0,6).map(function(n){
+          var dot=n.dot?'<span class="hfm-ndot"></span>':'';
+          var nm=n.dot?'':' style="margin-left:16px"';
+          var tg='';
+          if(n.tag)tg+='<span class="hfm-tag">'+esc(n.tag)+'</span>';
+          if(n.info)tg+='<span class="hfm-tag hfm-tag--exp">Info</span>';
+          if(n.analyse)tg+='<span class="hfm-tag hfm-tag--exp">Analyse</span>';
+          return '<div class="hfm-nrow">'+dot+'<span class="hfm-nt"'+nm+'></span><span class="hfm-nc">'+esc(n.cat)+'</span><span class="hfm-nh">'+esc(n.h)+(tg?'<div>'+tg+'</div>':'')+'</span></div>';
+        });
+        track.innerHTML=rows.concat(rows).join('');   // x2 pour la boucle de defilement
+        tick();                                        // re-remplit les horodatages (off=[0,14,32,56,99,171] min)
+      }).catch(function(){});
+    })();
   }catch(e){}
 })();
 </script>
