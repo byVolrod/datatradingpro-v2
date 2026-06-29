@@ -3061,7 +3061,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* (survol de la matrice retiré à la demande — pas de highlight au passage du curseur) */
 .sbm-cur-in { display: flex; align-items: center; gap: 6px; justify-content: center; }
 .sbm-flag { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,.08); }
-.sbm-ind { background: #0d0e11; color: #cbd5e1; text-align: left; padding: 4px 12px; white-space: nowrap; font-weight: var(--fw-medium); }
+.sbm-ind { background: #0d0e11; color: #cbd5e1; text-align: left; padding: 4px 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: var(--fw-medium); }
 .sbm-grid th.sbm-ind { text-align: left; color: var(--text2); }
 .sbm-cell { text-align: center; padding: 3px 3px; font-weight: var(--fw-semibold); font-size: 10px; color: #fff; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; border-radius: 0; cursor: pointer; }
 .sbm-overall .sbm-ind { background: #1a1a1f; color: #fff; font-weight: var(--fw-bold); border-left: 3px solid #e3b23a; }
