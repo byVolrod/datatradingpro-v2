@@ -11137,6 +11137,9 @@ const _HERO_CAT_FR = {
 };
 const _HERO_CAT_TAG = { ECB:'EUR', BoE:'GBP', Fed:'USD', BOC:'CAD', RBA:'AUD', RBNZ:'NZD', BoJ:'JPY', SNB:'CHF', 'Energy & Power':'Oil', Metals:'Or', Crypto:'BTC' };
 const _HERO_BREAKING_RX = /\b(?:attack|airstrike|missile|invasion|explosion|blast|killed|breaking|urgent|ceasefire)\b/i;
+// Bruit indigne d'une maquette hero (en + de isGlobalNewsNoise) : notations de crédit d'instruments,
+// tourisme / pubs institutionnelles, opérations de liquidité de routine d'une banque centrale.
+const _HERO_NOISE_RX = /\bCLO\b|\btranche\b|\btouris[mt]|tourist board|science park|invention to impact|^(?:S&P|Moody|Fitch|DBRS)\s*:|borrowed.*(?:overnight|marginal)|placed.*in deposit|marginal lending facility/i;
 let _heroNewsCache = null, _heroNewsTs = 0;
 const _HERO_TTL = 3 * 60 * 1000;
 
@@ -11154,6 +11157,7 @@ function _buildHeroNews() {
     if (i.category === 'Economic Commentary') continue;
     const h = String(i.headline).replace(/\s+/g, ' ').trim();
     if (h.length < 12) continue;
+    if (isGlobalNewsNoise(h) || _HERO_NOISE_RX.test(h)) continue;   // mêmes filtres que le feed (prévisions/AT/sport) + bruit hero
     const key = h.toLowerCase().slice(0, 40);
     if (seen.has(key)) continue;
     seen.add(key);
