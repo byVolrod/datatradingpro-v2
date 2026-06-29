@@ -6669,6 +6669,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 @media (max-width: 768px) {
   .cal-table th:nth-child(7), .cal-table td:nth-child(7),
   .cal-table th:nth-child(9), .cal-table td:nth-child(9) { display: none; }
+  /* « Semaine à Venir » : le calendrier doublé (#wa-cal-body) force min-width:760px (scroll horizontal
+     dans le panneau étroit du DESKTOP) → sur MOBILE ça déborde l'écran (colonne ÉVÉNEMENT coupée +
+     scroll horizontal page). On retire le min-width sur mobile : le calendrier doublé suit alors le
+     MÊME responsive que le calendrier principal (colonnes masquées + largeurs compactes) et tient dans la largeur. */
+  #wa-cal-body .cal-table { min-width: 0 !important; }
 }
 /* Telephone : table calendrier ETROITE (tient dans ~390px). On garde Heure/Pays/Devise/Impact/
    Evenement/Reel et on masque PREVISION (col 8) + PRECEDENT (col 10) -> dispos dans le detail au tap
