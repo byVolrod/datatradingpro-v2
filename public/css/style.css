@@ -401,6 +401,11 @@ html, body {
   font-size: 12px;
   font-family: var(--font-ui);
   width: 100%;
+  min-width: 0;                 /* le champ peut retrecir dans le flex -> jamais de retour a la ligne */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;      /* placeholder/texte sur 1 SEULE ligne (tronque en … si trop etroit) */
+  caret-color: transparent;     /* plus de curseur clignotant dans la case */
 }
 .topbar-symbol-search input:focus,
 .topbar-symbol-search input:focus-visible { outline: none; box-shadow: none; border: none; }
@@ -1198,7 +1203,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 .dropdown-item:hover { background: var(--bg4); }
 
-.dropdown-item-label { font-size: 11px; color: var(--text2); }
+.dropdown-item-label { font-size: 11px; color: var(--text2); white-space: nowrap; }
 
 .dropdown-check {
   width: 14px;
