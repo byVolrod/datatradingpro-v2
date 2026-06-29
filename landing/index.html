@@ -930,11 +930,14 @@
 .hfm-badge b{color:#e3b23a;font-weight:700;} .hfm-badge .nm{color:#aeb2bb;}
 .hfm-badge .dot{width:5px;height:5px;border-radius:50%;background:#16c684;animation:hfmPulse 2s ease-in-out infinite;}
 .hfm-badge .dot.off{background:#6b7280;animation:none;}
-/* Ligne de news facon desk : chevron d'expansion a droite + ligne cliquable (survol or) */
-.hfm-nrow{cursor:pointer;}
-.hfm-nrow::after{content:'';flex:0 0 auto;width:5px;height:5px;border-right:1.5px solid #5a5d66;border-bottom:1.5px solid #5a5d66;transform:rotate(45deg);margin:-2px 1px 0 2px;opacity:.75;transition:border-color .15s ease;}
-.hfm-nrow:hover::after{border-color:#e3b23a;}
+/* Ligne de news facon desk : chevron d'expansion UNIQUEMENT sur les lignes a contenu depliable, c.-a-d.
+   celles qui portent un tag analyse/reaction/info (.hfm-tag--exp) — exactement comme le desk. */
+.hfm-nrow:has(.hfm-tag--exp){cursor:pointer;}
+.hfm-nrow:has(.hfm-tag--exp)::after{content:'';flex:0 0 auto;width:5px;height:5px;border-right:1.5px solid #5a5d66;border-bottom:1.5px solid #5a5d66;transform:rotate(45deg);margin:-2px 1px 0 2px;opacity:.75;transition:border-color .15s ease;}
+.hfm-nrow:has(.hfm-tag--exp):hover::after{border-color:#e3b23a;}
 .hfm-nrow:has(.hfm-ndot)::after{border-color:#e0594f;}
+/* Tag « Info » / « Analyse » / « Reaction » (contenu depliable) — accent vert facon desk, distinct des tags d'actif */
+.hfm-tag--exp{color:#7ecf9d;background:rgba(126,207,157,.1);border-color:rgba(126,207,157,.32);}
 /* Badge NOUVEAU sur l'icone Journal (topbar), facon desk */
 .hfm-ic.doc{position:relative;}
 .hfm-newbadge{position:absolute;top:-7px;left:50%;transform:translateX(-44%);background:#e3b23a;color:#0c0c0e;font-family:var(--tight,'Inter Tight',sans-serif);font-weight:800;font-size:5.5px;letter-spacing:.03em;line-height:1;padding:2px 3px;border-radius:2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5);}
@@ -971,18 +974,18 @@
       <div class="hfm-ph"><span class="tk"></span><span class="t">Fil d'actualité en direct</span><span class="live"></span></div>
       <div class="hfm-news">
         <div class="hfm-track">
-          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">13:19</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Iran and US step up attacks and threaten to escalate<div><span class="hfm-tag">US</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">13:02</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Brent dips toward $74 as Hormuz transit hopes build<div><span class="hfm-tag">Oil</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">12:47</span><span class="hfm-nc">Flux FX</span><span class="hfm-nh">Dollar firmly bid — USD tops G10 strength into US PCE<div><span class="hfm-tag">USD</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">12:23</span><span class="hfm-nc">Banques centrales</span><span class="hfm-nh">Fed seen patient on rate path after sticky US data</span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">11:40</span><span class="hfm-nc">Métaux</span><span class="hfm-nh">Gold holds near record on safe-haven demand<div><span class="hfm-tag">Or</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:28</span><span class="hfm-nc">Actualités asiatiques</span><span class="hfm-nh">Japan government calls for appropriate monetary policy<div><span class="hfm-tag">JPY</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">13:19</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Iran and US step up attacks and threaten to escalate<div><span class="hfm-tag">US</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">13:02</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Brent dips toward $74 as Hormuz transit hopes build<div><span class="hfm-tag">Oil</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">12:47</span><span class="hfm-nc">Flux FX</span><span class="hfm-nh">Dollar firmly bid — USD tops G10 strength into US PCE<div><span class="hfm-tag">USD</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">12:23</span><span class="hfm-nc">Banques centrales</span><span class="hfm-nh">Fed seen patient on rate path after sticky US data</span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">11:40</span><span class="hfm-nc">Métaux</span><span class="hfm-nh">Gold holds near record on safe-haven demand<div><span class="hfm-tag">Or</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:28</span><span class="hfm-nc">Actualités asiatiques</span><span class="hfm-nh">Japan government calls for appropriate monetary policy<div><span class="hfm-tag">JPY</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:53</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Iran and Oman open first joint committee on the Strait of Hormuz<div><span class="hfm-tag">Oil</span><span class="hfm-tag hfm-tag--exp">Info</span><span class="hfm-tag hfm-tag--exp">Analyse</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:46</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Macron and MBS discuss the US-Iran escalation by phone<div><span class="hfm-tag">US</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:38</span><span class="hfm-nc">ECB</span><span class="hfm-nh">ECB's Kazaks: negative scenarios now look less likely<div><span class="hfm-tag">EUR</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:29</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Oil steadies as the US and Iran agree to halt attacks<div><span class="hfm-tag">Oil</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:21</span><span class="hfm-nc">BoE</span><span class="hfm-nh">BoE consumer credit £1.66B, under the £1.8B forecast<div><span class="hfm-tag">GBP</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:14</span><span class="hfm-nc">Actions</span><span class="hfm-nh">Dow Jones futures rise on easing Middle East tensions<div><span class="hfm-tag">US</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:53</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Iran and Oman open first joint committee on the Strait of Hormuz<div><span class="hfm-tag">Oil</span><span class="hfm-tag hfm-tag--exp">Info</span><span class="hfm-tag hfm-tag--exp">Analyse</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:46</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Macron and MBS discuss the US-Iran escalation by phone<div><span class="hfm-tag">US</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:38</span><span class="hfm-nc">ECB</span><span class="hfm-nh">ECB's Kazaks: negative scenarios now look less likely<div><span class="hfm-tag">EUR</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:29</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Oil steadies as the US and Iran agree to halt attacks<div><span class="hfm-tag">Oil</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:21</span><span class="hfm-nc">BoE</span><span class="hfm-nh">BoE consumer credit £1.66B, under the £1.8B forecast<div><span class="hfm-tag">GBP</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:14</span><span class="hfm-nc">Actions</span><span class="hfm-nh">Dow Jones futures rise on easing Middle East tensions<div><span class="hfm-tag">US</span></div></span></div>
         </div>
       </div>
     </div>
