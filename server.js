@@ -10017,6 +10017,13 @@ const _LOW_VALUE_ANALYSIS_RE = new RegExp([
   /\bforecast:\s*(?:why|how|what|will|can|could|these|top|key)\b/,
   /\b(?:remains?|stays?|turns?)\s+(?:bullish|bearish)\b/,
   /\bhow\s+[\w-]+\s+(?:navigated|weathered|survived|handled|coped|is\s+navigating)\b/,
+  // Analyse technique (jamais une vraie news de marché) — assure aussi « FXStreet = breaking + macro uniquement »
+  /\b(?:technical|price)\s+(?:analysis|outlook|prediction|target|view|setup|picture)\b/,
+  /\belliott\s*wave\b/, /\bfibonacci\b/, /\b(?:rsi|macd)\b/, /\bcandlestick\b/, /\bchart\s+pattern\b/, /\bmoving\s+average(?:s)?\b/, /\bhead\s+(?:and|&)\s+shoulders\b/,
+  // Genre commentaire / outlook (préfixe spécifique = commentaire/opinion, pas un fait de marché)
+  /\b(?:weekly|daily|monthly|quarterly|market|fx|currency|gold|oil|crypto)\s+(?:outlook|preview)\b/,
+  /\b(?:trade|trading)\s+(?:idea|setup|opportunity|plan)\b/,
+  /\bwhat'?s\s+next\s+for\b/,
 ].map(r => r.source).join('|'), 'i');
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
@@ -10287,13 +10294,21 @@ function mergeItems(incoming) {
       .map(upgradeItemPriority)) {
     const prev = findDuplicate(item, allNews);
     if (prev) {
+      // ── REGROUPEMENT DES SOURCES : 1 seule news qui liste toutes les VRAIES sources l'ayant couverte
+      //    (« via FinancialJuice · ForexLive · Reuters »). Google News = SECOURS → jamais créditée ni affichée.
+      if (!Array.isArray(prev.sources)) prev.sources = (prev.source && prev.source !== 'Google News') ? [prev.source] : [];
+      if (item.source && item.source !== 'Google News' && !prev.sources.includes(item.source)) prev.sources.push(item.source);
+      // Google News = SECOURS : si la copie stockée vient de Google et qu'une VRAIE source couvre l'event,
+      // la vraie source DEVIENT la principale (Google n'est qu'un filet quand rien d'autre ne couvre).
+      if (prev.source === 'Google News' && item.source && item.source !== 'Google News') prev.source = item.source;
       if (item.urgent && !prev.urgent) prev.urgent = true;
       if (item.priority === 'high' && prev.priority !== 'high') prev.priority = 'high';
       if (item._highImpact && !prev._highImpact) prev._highImpact = true;
       if (item.source === 'FinancialJuice' && prev.source !== 'FinancialJuice') prev.source = 'FinancialJuice';
       if ((item.description?.length || 0) > (prev.description?.length || 0) + 30) prev.description = item.description;
-      continue;   // doublon : prev conservé (promu si besoin), entrant jeté → plus de masquage du flag rouge
+      continue;   // doublon : prev conservé (promu + sources fusionnées), entrant jeté → plus de masquage du flag rouge
     }
+    if (!Array.isArray(item.sources)) item.sources = (item.source && item.source !== 'Google News') ? [item.source] : [];
     newItems.push(item);
   }
   if (newItems.length === 0) return [];

@@ -1692,6 +1692,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   margin-top: 9px;              /* plus d'air entre le titre et les tags (façon DTP) */
   margin-bottom: 0;
 }
+.news-sources {                 /* « via FinancialJuice · ForexLive · Reuters » — sourcing multi-sources, discret */
+  margin-top: 5px;
+  font-size: 10px;
+  color: var(--text4);
+  letter-spacing: 0.02em;
+}
 
 .tag {
   display: inline-flex;
