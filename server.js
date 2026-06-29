@@ -2807,7 +2807,7 @@ async function _scrapeILviaPuppeteer(url) {
 // body=0) → le rendu PDF échouait → bandeau « ouvrir l'original ». Le CONTENU est extractible via le lecteur
 // texte (jina : ~9 ko de texte propre). Donc les ARTICLES Goldman passent désormais par le lecteur texte ;
 // leurs .pdf (ex. gspublishing / /pdfs/) restent servis en PDF natif via PDF_PROXY_HOSTS.
-const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|gspublishing\.com|goldmansachs\.com)$/i;
+const PDF_RENDER_HOSTS = /(^|\.)(think\.ing\.com|mufgresearch\.com|mufgemea\.com|research-center\.amundi\.com|corporate\.nordea\.com|kbc\.com|newsletter\.kbc\.be|scotiabank\.com|westpaciq\.com\.au|q-cam\.com|syzgroup\.com|lloydsbank\.com|research\.natixis\.com|hsbc\.com\.sg|wellsfargo\.bluematrix\.com|gspublishing\.com|goldmansachs\.com)$/i;
 function _brRenderUrlFor(u, printUrl) {
   try {
     const h = new URL(u).hostname;
@@ -5085,7 +5085,7 @@ app.get('/api/bank-research-content', async (req, res) => {
 // Indispensable car certains PDF (ING Think…) renvoient X-Frame-Options: SAMEORIGIN et refusent
 // d'être embarqués cross-origin. On affiche donc le PDF via ce proxy → iframe même-origine = OK.
 // Whitelist STRICTE des hôtes (anti-SSRF / anti-open-proxy) + HTTPS only + vérif content-type=pdf.
-const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|gspublishing\.com|sebgroup\.com|sc\.com|q-cam\.com|mufgresearch\.com|mufgemea\.com|corporate\.nordea\.com|hsbc\.com\.sg|scotiabank\.com|kbcgroup\.eu|kbc\.com|syzgroup\.com|lloydsbank\.com|westpaciq\.com\.au|bluematrix\.com|research\.natixis\.com|amundi\.com|research-center\.amundi\.com)$/i;
+const PDF_PROXY_HOSTS = /(^|\.)(think\.ing\.com|blackrock\.com|danskebank\.com|unicreditgroup\.eu|societegenerale\.com|cibccm\.com|goldmansachs\.com|gspublishing\.com|sebgroup\.com|sc\.com|q-cam\.com|mufgresearch\.com|mufgemea\.com|corporate\.nordea\.com|hsbc\.com\.sg|scotiabank\.com|kbcgroup\.eu|kbc\.com|newsletter\.kbc\.be|syzgroup\.com|lloydsbank\.com|westpaciq\.com\.au|bluematrix\.com|research\.natixis\.com|amundi\.com|research-center\.amundi\.com)$/i;
 app.get('/api/pdf-proxy', async (req, res) => {
   const u = String(req.query.url || '');
   const isHead = req.method === 'HEAD';   // sonde légère du client (vérifie « est-ce un vrai PDF ? » avant d'embarquer l'iframe)

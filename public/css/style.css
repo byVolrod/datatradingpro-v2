@@ -1330,6 +1330,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .news-item:hover .news-description.visible,
 .news-item--urgent:hover .news-description.visible,
 .news-item--breaking:hover .news-description.visible { background: #19191c; }
+/* News IMPORTANTE (rouge) DÉPLIÉE : au survol, la description GARDE le rouge de la ligne (fond transparent
+   → la teinte rouge la traverse) au lieu de virer au gris #19191c → le surlignage rouge « reste fixe » sur
+   TOUT le bloc déplié (titre + puces), pas seulement l'en-tête (demande utilisateur). */
+.news-item--breaking:hover .news-description.visible,
+.news-item--urgent:hover .news-description.visible { background: transparent !important; }
 .news-item--breaking:hover .article-points--clean li,
 .news-item--urgent:hover .article-points--clean li,
 .news-item--breaking:hover .article-points li,
