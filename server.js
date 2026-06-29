@@ -10180,9 +10180,13 @@ function upgradeItemPriority(item) {
   return item;
 }
 
+// Sources RETIRÉES (qualité jugée insuffisante, 2026-06-29) : déjà retirées de scrapers/rss.js (plus de
+// nouveaux items) ; ici on PURGE les anciens items au boot + on bloque tout résidu au merge/broadcast.
+const _DROPPED_SOURCES = new Set(['Yahoo Finance', 'MarketWatch', 'ZeroHedge', 'Investing.com', 'WSJ Markets']);
 // Purge noise from history on every server start
 allNews = allNews.filter(i => {
   if (i._briefing || i.source === 'DTP' || i._marketWrap) return true;          // garder les rapports internes (+ Market Wrap visible)
+  if (_DROPPED_SOURCES.has(i.source)) return false;                             // sources retirées : purge immédiate des anciens items
   if (isNoise(i.headline)) return false;
   if (isGlobalNewsNoise(i.headline)) return false;
   // Global News générique sans pertinence financière → purge
@@ -10254,6 +10258,7 @@ function mergeItems(incoming) {
   const relevant = incoming.filter(item => {
     // Internal briefings always pass through
     if (item._briefing || item.source === 'DTP') return true;
+    if (_DROPPED_SOURCES.has(item.source)) return false;   // sources retirées (Yahoo/MarketWatch/ZeroHedge/Investing.com/WSJ)
 
     const fullText = item.headline + ' ' + (item.description || '');
 
