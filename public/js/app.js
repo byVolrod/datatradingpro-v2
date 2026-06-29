@@ -5984,26 +5984,26 @@ function _renderWeeklyRecap(item) {
     </div>` : '';
 
   let body = '';
-  const isGew = !!w.gew;   // Global Economic Weekly = « Semaine à Venir » prospectif (façon pro)
+  const isGew = !!w.gew;   // Global Economic Weekly = « Bilan de la semaine écoulée » rétrospectif (façon pro)
   // Bloc titre RETIRÉ du corps : le titre reste dans la barre de nav (en haut) et la période dans le
   // créneau date (haut-droite) → le rapport s'ouvre directement sur son contenu, sans titre répété.
   if (isGew) {
-    // ── GLOBAL ECONOMIC WEEKLY (Semaine à Venir) — rendu CLARIFIÉ : ce qu'il faut surveiller d'abord,
-    //    puis la synthèse, puis le calendrier complet. Libellés + dates en français.
+    // ── GLOBAL ECONOMIC WEEKLY (Bilan de la semaine écoulée) — rendu CLARIFIÉ : les temps forts d'abord,
+    //    puis la synthèse, puis le calendrier complet avec résultats. Libellés + dates en français.
     const _IMP_LBL = { HIGH: 'FORT', MED: 'MOYEN', MEDIUM: 'MOYEN', LOW: 'FAIBLE' };
     const _impCls = i => { const u = String(i || '').toUpperCase(); return u === 'HIGH' ? 'high' : (u === 'MED' || u === 'MEDIUM') ? 'med' : 'low'; };
     const _impLbl = i => _IMP_LBL[String(i || '').toUpperCase()] || (i ? String(i).toUpperCase() : '');
-    // 0) À SURVEILLER CETTE SEMAINE : uniquement les événements à FORT impact, en cartes scannables.
+    // 0) TEMPS FORTS DE LA SEMAINE : uniquement les événements à FORT impact, en cartes scannables.
     const _keyEvents = [];
     (w.days || []).forEach(d => (d.events || []).forEach(e => { if (String(e.impact || '').toUpperCase() === 'HIGH') _keyEvents.push({ e, day: d.day }); }));
     if (_keyEvents.length) {
-      body += `<div class="wr-section-title">À surveiller cette semaine</div>`;
+      body += `<div class="wr-section-title">Temps forts de la semaine écoulée</div>`;
       body += `<div class="gew-key-grid">`;
       _keyEvents.slice(0, 6).forEach(({ e, day }) => {
         body += `<div class="gew-key">`
           + `<div class="gew-key-h"><span class="gew-key-day">${_wrEsc(_gewDayFr(day))}</span><span class="gew-imp gew-imp--high">FORT</span></div>`
           + `<div class="gew-key-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</div>`
-          + ((e.forecast || e.previous) ? `<div class="gew-key-nums">${e.forecast ? `Consensus <b>${_wrEsc(e.forecast)}</b>` : ''}${(e.forecast && e.previous) ? ' · ' : ''}${e.previous ? `Précédent <b>${_wrEsc(e.previous)}</b>` : ''}</div>` : '')
+          + ((e.actual || e.forecast || e.previous) ? `<div class="gew-key-nums">${e.actual ? `Réel <b>${_wrEsc(e.actual)}</b>` : ''}${(e.actual && (e.forecast || e.previous)) ? ' · ' : ''}${e.forecast ? `Consensus <b>${_wrEsc(e.forecast)}</b>` : ''}${(e.forecast && e.previous) ? ' · ' : ''}${e.previous ? `Précédent <b>${_wrEsc(e.previous)}</b>` : ''}</div>` : '')
           + (e.comment ? `<div class="gew-key-cmt">${_wrEsc(e.comment)}</div>` : '')
           + `</div>`;
       });
@@ -6014,9 +6014,9 @@ function _renderWeeklyRecap(item) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
     }
-    // 1b) APERÇU ÉTATS-UNIS (US Preview façon pro — deep-dive sur les données US de la semaine)
+    // 1b) BILAN ÉTATS-UNIS (US Review façon pro — deep-dive sur les données US de la semaine écoulée)
     if (w.usPreview) {
-      body += `<div class="wr-section-title">Aperçu États-Unis</div>`;
+      body += `<div class="wr-section-title">Bilan États-Unis</div>`;
       body += `<div class="wr-text">${_wrParas(w.usPreview)}</div>`;
     }
     // 2) CALENDRIER ÉCONOMIQUE complet, jour par jour (FORT mis en avant, FAIBLE estompé)
@@ -6030,8 +6030,9 @@ function _renderWeeklyRecap(item) {
             + `<span class="gew-ev-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</span>`
             + (e.impact ? `<span class="gew-imp gew-imp--${_impCls(e.impact)}">${_wrEsc(_impLbl(e.impact))}</span>` : '')
             + `</div>`;
-          if (e.forecast || e.previous) {
+          if (e.actual || e.forecast || e.previous) {
             body += `<div class="gew-ev-cons">`
+              + (e.actual ? `<span class="gew-cons gew-cons--actual"><i>Réel</i><b>${_wrEsc(e.actual)}</b></span>` : '')
               + (e.forecast ? `<span class="gew-cons"><i>Consensus</i><b>${_wrEsc(e.forecast)}</b></span>` : '')
               + (e.previous ? `<span class="gew-cons"><i>Précédent</i><b>${_wrEsc(e.previous)}</b></span>` : '')
               + `</div>`;

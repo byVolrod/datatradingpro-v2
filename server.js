@@ -2681,7 +2681,7 @@ app.get('/api/weekly-reports', async (_req, res) => {
       generateWeeklyMarketRecap(true).catch(e => console.error('[Weekly Recap] auto-gen échec:', e.message));
     }
   }
-  // Global Economic Weekly RICHE (Week Ahead façon pro) : même logique d'auto-génération si absent.
+  // Global Economic Weekly RICHE (rétrospectif, semaine écoulée) : même logique d'auto-génération si absent.
   // v>=GEW_VER exigé → un GEW d'ANCIEN format (sans horaires multi-fuseaux ni commentaires) est
   // considéré périmé et régénéré automatiquement au format courant.
   const gewCurrent = items.find(i => i._reportType === 'Global Economic Weekly' && i._weekly && i._weekly.gew && (i._weekly.v || 0) >= GEW_VER && Array.isArray(i._weekly.days) && i._weekly.days.length);
@@ -6290,10 +6290,11 @@ async function generateLondonOpeningBriefing(force = false, dateOffset = 0) {
 async function generateDailyMarketRecap(force = false, dateOffset = 0) {
   return generateDailyBriefing({ idPrefix: 'dtp-daily-recap-', reportType: 'Daily Market Recap', cutoffHours: 24, force, buildFn: buildDailyMarketRecap, dateOffset });
 }
-// ── GLOBAL ECONOMIC WEEKLY — « Week Ahead » PROSPECTIF façon pro (distinct du Weekly Recap rétrospectif) :
-// AI Insights (cartes + paires) + « The Week Ahead: Highlights » (narratif IA) + « Consensus Forecasts »
-// JOUR PAR JOUR (lundi→vendredi) depuis le calendrier (forecast/previous par événement). 1 appel IA/semaine.
-const GEW_VER = 5;   // v5 = + section « Aperçu États-Unis » (US Preview, deep-dive données US façon pro) ; v4 = horaire clair Paris+GMT — bump = régén auto
+// ── GLOBAL ECONOMIC WEEKLY — RÉTROSPECTIF « semaine écoulée » façon pro (revue macro de la semaine qui vient de se clôturer) :
+// AI Insights (cartes + paires) + « Temps forts de la semaine » (narratif IA) + résultats JOUR PAR JOUR (lundi→vendredi)
+// depuis le calendrier avec ACTUAL vs consensus par événement. Centré décisions de banques centrales + données publiées
+// (réel vs attendu) — distinct du Weekly Market Recap (centré prix/FX). 1 appel IA/semaine.
+const GEW_VER = 6;   // v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
 // Heure d'un événement, LISIBLE pour un utilisateur français : heure de PARIS (sa référence) + GMT.
 // 100% calculé depuis le timestamp (zéro IA). Ex. « mar. 03:00 (Paris) · 02:00 GMT ».
 function _gewTimes(ts /* , ccy (ignoré) */) {
@@ -6304,16 +6305,13 @@ function _gewTimes(ts /* , ccy (ignoré) */) {
 }
 async function generateGlobalEconomicWeekly(force = false) {
   const idPrefix = 'dtp-econ-weekly-', now = Date.now();
-  // Semaine couverte : le WEEK-END (sam/dim) → semaine PROCHAINE (week-ahead publié le week-end) ;
-  // lundi→VENDREDI → semaine EN COURS. (Le vendredi ne déclenche plus le week-ahead → fini le GEM daté
-  // au dimanche À VENIR (futur) vu « en pleine semaine ».)
-  const _now = new Date(), dow = _now.getUTCDay();
-  const monday = new Date(_now);
-  if (dow === 0) monday.setUTCDate(_now.getUTCDate() + 1);
-  else if (dow === 6) monday.setUTCDate(_now.getUTCDate() + 2);
-  else monday.setUTCDate(_now.getUTCDate() - (dow - 1));
-  monday.setUTCHours(0, 0, 0, 0);
-  const friday = new Date(monday); friday.setUTCDate(monday.getUTCDate() + 4); friday.setUTCHours(23, 59, 59, 999);
+  // Semaine couverte : la DERNIÈRE semaine COMPLÈTE (lundi→vendredi déjà CLÔTURÉE). Rapport RÉTROSPECTIF →
+  // on part toujours du dernier VENDREDI déjà passé, puis de son lundi. (Samedi 02h00 → la semaine close la
+  // veille au soir ; lu en pleine semaine → la semaine précédente, jamais celle en cours.)
+  const _now = new Date(), dow = _now.getUTCDay();   // 0=dim..6=sam
+  const backToFri = dow === 6 ? 1 : (dow === 0 ? 2 : dow + 2);   // jours à reculer jusqu'au dernier VENDREDI clôturé
+  const friday = new Date(_now); friday.setUTCDate(_now.getUTCDate() - backToFri); friday.setUTCHours(23, 59, 59, 999);
+  const monday = new Date(friday); monday.setUTCDate(friday.getUTCDate() - 4); monday.setUTCHours(0, 0, 0, 0);
   const weekStart = monday.getTime(), weekEnd = friday.getTime();
   const _MOIS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
   const weekRange = `Week of ${monday.getUTCDate()}–${friday.getUTCDate()} ${_MOIS[monday.getUTCMonth()]} ${monday.getUTCFullYear()}`;
@@ -6329,9 +6327,9 @@ async function generateGlobalEconomicWeekly(force = false) {
     return allNews.find(i => (i.id || '').startsWith(weekPrefix) && _isRich(i)) || null;
   }
 
-  // ── Événements programmés de la semaine à venir (High/Med), groupés par jour ──
-  // SOURCE : calendrier TradingView (primaire, couvre la semaine à venir + forecast/previous), comme
-  // /api/calendar-events. Repli sur allCalendar (ForexFactory) si TradingView indisponible.
+  // ── Événements de la semaine ÉCOULÉE (High/Med), groupés par jour, avec leur RÉSULTAT publié (actual) ──
+  // SOURCE : calendrier TradingView (primaire, fenêtre 21 j passés → actual/forecast/previous natifs), comme
+  // /api/calendar-events. Repli sur allCalendar (ForexFactory) si TradingView indisponible (sans actuals fiables).
   let _gewCal = [];
   try { _gewCal = await _buildTVCalendar(); } catch {}
   if (!_gewCal || !_gewCal.length) _gewCal = allCalendar || [];
@@ -6351,6 +6349,7 @@ async function generateGlobalEconomicWeekly(force = false) {
       time: _gewTimes(e.timestamp, e.currency), country: CCY_CTRY[e.currency] || e.currency || '', currency: e.currency || '',
       title: String(e.title).slice(0, 90), impact: e.impact === 'High' ? 'HIGH' : 'MED',
       forecast: String(e.forecast || '').slice(0, 20), previous: String(e.previous || '').slice(0, 20),
+      actual: String(e.actual || '').slice(0, 20),   // RÉTRO : résultat publié (réel) — vide si pas de chiffre (discours, etc.)
     });
   }
   const days = ORDER.filter(dn => daysMap[dn]).map(dn => {
@@ -6358,40 +6357,40 @@ async function generateGlobalEconomicWeekly(force = false) {
     return { day: dn, date: `${dt.getUTCDate()} ${_MOIS[dt.getUTCMonth()]}`, events: daysMap[dn].slice(0, 14) };
   });
   const nEv = days.reduce((n, d) => n + d.events.length, 0);
-  // Pas d'événements (calendrier de la semaine à venir pas encore chargé / week-end de boot) → on NE
+  // Pas d'événements (calendrier de la semaine écoulée pas encore chargé / week-end de boot) → on NE
   // génère PAS un rapport vide et on NE touche PAS à un GEW existant (auto-réessai au prochain accès).
   if (nEv === 0) { console.warn(`[GEW] aucun événement programmé pour ${weekKey} → pas de génération (réessai ultérieur)`); return null; }
   allNews = allNews.filter(i => i._reportType !== 'Global Economic Weekly');   // un seul GEW à la fois (remplacé seulement si on a de vrais events)
 
-  // Événements PHARES (High) pour le titre + le narratif Highlights
+  // Événements PHARES (High) pour le titre + le narratif Highlights — avec le RÉSULTAT publié (actual)
   const marquee = evClean.filter(e => e.impact === 'High')
-    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${e.forecast ? ` (consensus ${e.forecast}, prev ${e.previous || '—'})` : ''}`);
-  // Données US de la semaine (High+Med) → grounding de la section « US Preview » (façon pro).
+    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || '—'}, préc. ${e.previous || '—'})` : ''}`);
+  // Données US de la semaine (High+Med) → grounding de la section « Bilan États-Unis » (réel vs consensus).
   const usEvents = evClean.filter(e => e.currency === 'USD')
-    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${e.title}${e.forecast ? ` (consensus ${e.forecast}, prev ${e.previous || '—'})` : ''}`);
+    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || '—'}, préc. ${e.previous || '—'})` : ''}`);
   const recentCtx = _recapClean(allNews.filter(i => i.timestamp > now - 7 * 86400000 && !i._briefing))
     .slice(0, 40).map(i => `[${i.category || ''}] ${i.headline}`);
 
-  // ── IA : titre + Highlights (narratif) + insights + paires (prospectif). Repli déterministe si IA KO. ──
+  // ── IA : titre + Highlights (narratif) + insights + paires (RÉTROSPECTIF). Repli déterministe si IA KO. ──
   let title = 'Global Economic Weekly', highlights = '', usPreview = '', insights = [], pairs = [];
   if (nEv > 0) {
-    const prompt = `You are a senior macro strategist writing the WEEK AHEAD preview ("Global Economic Weekly") for a professional FX & markets desk (depth comparable to a top-tier bank's week-ahead note). The COMING trading week (Monday–Friday) is defined by the scheduled HIGH-IMPACT events below. Write ALL output text IN FRENCH (français soigné), polished, specific and FORWARD-LOOKING — keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
+    const prompt = `You are a senior macro strategist writing the WEEK IN REVIEW ("Global Economic Weekly"), a RETROSPECTIVE macro recap of the trading week that JUST ENDED (Monday–Friday), for a professional FX & markets desk (depth comparable to a top-tier bank's week-in-review note). The week is defined by the HIGH-IMPACT events below, each shown with its ACTUAL result versus consensus. Write ALL output text IN FRENCH (français soigné), polished, specific and RETROSPECTIVE / PAST TENSE — describe what the central banks DECIDED and how the data CAME OUT versus expectations (réel vs attendu). Keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
 {
-  "title": "Global Economic Weekly: <titre accrocheur EN FRANÇAIS nommant les 2-3 thèmes phares, ex. 'Fed, inflation et banques centrales : une semaine à hauts risques pour les marchés'>",
-  "highlights": "<a RICH editorial of 4 to 5 substantial paragraphs (~400-600 words), in the style of a institutionnel 'Week Ahead: Highlights' note — the GLOBAL & REGIONAL overview (Asia-Pacific, China, Europe, central banks OUTSIDE the US). Lead with the single biggest market-moving event of the week (often a central-bank decision): what consensus expects and the exact level/move, the policy dilemma, named officials and their leanings, the data backdrop, the schedule, and the implications across FX, rates and equities. Then cover the other regional marquee events. Weave in the RELEVANT outcomes of the PAST week as context that sets up the week ahead (e.g. 'après le statu quo de la RBA cette semaine…'). Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
-  "usPreview": "<a dedicated 'US Preview' deep-dive of 3 to 4 substantial paragraphs, focused EXCLUSIVELY on the week's key US ECONOMIC RELEASES (PCE deflator, personal income & spending, GDP, jobless claims, durable goods, flash PMIs, consumer sentiment…). Identify the standout US report of the week, explain what consensus expects versus the previous reading and the underlying story (revenus vs dépenses, tendance de l'inflation sous-jacente/core, dynamique de croissance), give the schedule, and spell out the implications for the US dollar, Treasury yields and US equities. Full finished paragraphs separated by \\n\\n. If there are NO US releases this week, write a single short paragraph stating the US calendar is light.>",
-  "insights": ["<forward-looking standalone insight, 1 sentence>", "... 5 to 6 cards"],
-  "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: directional view for the WEEK AHEAD given the scheduled events>" } ]
+  "title": "Global Economic Weekly: <titre accrocheur EN FRANÇAIS, RÉTROSPECTIF, nommant 2-3 faits marquants de la semaine écoulée, ex. 'Fed prudente et inflation en repli : ce qu'il faut retenir de la semaine'>",
+  "highlights": "<a RICH editorial of 4 to 5 substantial paragraphs (~400-600 words), in the style of an institutionnel 'Week in Review: Highlights' note — the GLOBAL & REGIONAL recap (Asia-Pacific, China, Europe, central banks OUTSIDE the US). Lead with the single biggest market-moving event of the week (often a central-bank decision): WHAT WAS DECIDED, the exact level/move, the surprise versus consensus, the tone of the statement/press conference, named officials, and the REALIZED implications across FX, rates and equities over the week. Then cover the other regional marquee events and how their data printed (réel vs attendu). Write full, finished paragraphs — NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
+  "usPreview": "<a dedicated 'US Review' deep-dive of 3 to 4 substantial paragraphs, focused EXCLUSIVELY on the week's key US ECONOMIC RELEASES (PCE deflator, personal income & spending, GDP, jobless claims, durable goods, flash PMIs, consumer sentiment…). Identify the standout US report of the week, explain how it CAME IN (actual) versus consensus and the previous reading and the underlying story (revenus vs dépenses, tendance de l'inflation sous-jacente/core, dynamique de croissance), and spell out the REALIZED implications for the US dollar, Treasury yields and US equities. Full finished paragraphs separated by \\n\\n. If there were NO US releases this week, write a single short paragraph stating the US calendar was light.>",
+  "insights": ["<retrospective takeaway from the week just ended, 1 past-tense sentence (what happened / what surprised)>", "... 5 to 6 cards"],
+  "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: how the pair MOVED over the week and which event/outcome drove it (bias = net direction over the week: BUY=up/stronger, SELL=down, NEUTRAL=flat)>" } ]
 }
-Rules: 5 to 7 key pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/USD, XAU/USD, USD/CAD…); "bias" is exactly "BUY", "SELL" or "NEUTRAL". Ground EVERYTHING in the scheduled events — no invented data. No URLs, no source attributions.
+Rules: 5 to 7 key pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/USD, XAU/USD, USD/CAD…); "bias" is exactly "BUY", "SELL" or "NEUTRAL". Ground EVERYTHING in the events and results below — no invented data. No URLs, no source attributions.
 
-UPCOMING WEEK — KEY SCHEDULED EVENTS (consensus vs previous):
-${marquee.join('\n') || '(no high-impact events scheduled)'}
+WEEK JUST ENDED — KEY EVENTS (actual vs consensus, vs previous):
+${marquee.join('\n') || '(no high-impact events)'}
 
-UPCOMING WEEK — US ECONOMIC RELEASES (for the "usPreview" section):
-${usEvents.join('\n') || '(no US releases scheduled)'}
+WEEK JUST ENDED — US ECONOMIC RELEASES (for the "usPreview" section):
+${usEvents.join('\n') || '(no US releases)'}
 
-RECENT MACRO CONTEXT (past week — weave the relevant bits into the week-ahead narrative):
+MARKET CONTEXT (news from the week just ended — weave the relevant bits into the recap):
 ${recentCtx.join('\n')}`;
     try {
       _aiReset();
@@ -6413,7 +6412,7 @@ ${recentCtx.join('\n')}`;
   if (!insights.length) insights = marquee.slice(0, 6);
   if (title === 'Global Economic Weekly') {
     const cb = evClean.find(e => /\b(FOMC|Fed|Rate Decision|Announcement|Policy|Interest Rate|BoJ|BoE|ECB|SNB|RBA|BoC|RBNZ)\b/i.test(e.title));
-    title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} en vedette cette semaine` : 'Données clés et banques centrales pour la semaine à venir');
+    title = 'Global Economic Weekly: ' + (cb ? `${CCY_CTRY[cb.currency] || cb.currency} ${cb.title} — la décision de la semaine écoulée` : 'Banques centrales et données clés : la semaine écoulée');
   }
 
   // ── Commentaire d'analyse PAR ÉVÉNEMENT (style Econoday) — UN seul appel groupé, caché (1×/sem).
@@ -6423,8 +6422,8 @@ ${recentCtx.join('\n')}`;
     try {
       const flat = []; days.forEach(d => (d.events || []).forEach(e => flat.push(e)));
       if (flat.length) {
-        const list = flat.map((e, i) => `${i + 1}. ${e.country} ${e.title}${e.forecast ? ` — consensus ${e.forecast}${e.previous ? `, previous ${e.previous}` : ''}` : (e.previous ? ` — previous ${e.previous}` : '')}`).join('\n');
-        const cprompt = `You are an Econoday-style economist. For EACH scheduled event below, write ONE concise, specific analyst sentence EN FRANÇAIS: what the consensus implies versus the previous reading and why it matters for markets. Keep tickers/codes/acronyms as-is. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. Return ONLY valid JSON mapping each event number to its French sentence, e.g. {"1":"Le consensus table sur ...","2":"..."}.
+        const list = flat.map((e, i) => `${i + 1}. ${e.country} ${e.title}${e.actual ? ` — actual ${e.actual} vs consensus ${e.forecast || '—'}${e.previous ? `, previous ${e.previous}` : ''}` : (e.forecast ? ` — consensus ${e.forecast}${e.previous ? `, previous ${e.previous}` : ''}` : (e.previous ? ` — previous ${e.previous}` : ''))}`).join('\n');
+        const cprompt = `You are an Econoday-style economist. For EACH event from the week that just ended below, write ONE concise, specific analyst sentence EN FRANÇAIS, PAST TENSE: how the ACTUAL came in versus consensus (surprise à la hausse / à la baisse, ou conforme) and why it mattered for markets. Keep tickers/codes/acronyms as-is. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. Return ONLY valid JSON mapping each event number to its French sentence, e.g. {"1":"Le chiffre est ressorti à ... contre ... attendu, ...","2":"..."}.
 
 EVENTS:
 ${list}`;
@@ -6441,10 +6440,10 @@ ${list}`;
   const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, usPreview, insights, pairs, days };
   // Description texte (recherche/affichage simple)
   const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : '', usPreview ? usPreview.replace(/\n+/g, ' ').slice(0, 300) : ''];
-  days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / prev ' + e.previous : '') : ''}`)); });
-  // PUBLICATION = le WEEK-END qui PRÉCÈDE la semaine couverte (dimanche ~18h Paris) → on DATE le GEW à ce
-  // moment, PAS à l'instant de génération (sinon il « saute » à la date du jour à chaque régén et se classe mal).
-  const pub = new Date(_now); pub.setUTCDate(_now.getUTCDate() - ((_now.getUTCDay() + 1) % 7)); pub.setUTCHours(16, 0, 0, 0);   // SAMEDI le plus récent ≤ maintenant (week-end de publication, JAMAIS dans le futur)
+  days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.actual ? ' — réel ' + e.actual + ' vs cons. ' + (e.forecast || '—') : (e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / préc. ' + e.previous : '') : '')}`)); });
+  // PUBLICATION = le SAMEDI qui CLÔTURE la semaine couverte (lendemain du vendredi de clôture, ~16h Paris) →
+  // on DATE le GEW à ce week-end, PAS à l'instant de génération (sinon il « saute » à la date du jour à chaque régén).
+  const pub = new Date(friday); pub.setUTCDate(friday.getUTCDate() + 1); pub.setUTCHours(16, 0, 0, 0);   // samedi clôturant la semaine couverte (week-end de publication)
   const pubTs = pub.getTime();
   const timeStr = new Date(pubTs).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const item = {
@@ -6452,7 +6451,7 @@ ${list}`;
     headline: `${title} — ${weekRange}`,
     description: descParts.filter(Boolean).join('\n'),
     category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: pubTs,
-    priority: 'normal', tags: ['Week Ahead', 'Global Economy', 'Macro'],
+    priority: 'normal', tags: ['Bilan Hebdo', 'Global Economy', 'Macro'],
     _briefing: true, _reportType: 'Global Economic Weekly', _weekly: weekly,
   };
   allNews = [item, ...allNews].slice(0, 2000);
@@ -6462,7 +6461,7 @@ ${list}`;
   console.log(`[GEW] ${weekly.highlights ? 'IA' : 'repli'} ${weekKey} (${weekRange}) — ${days.length} jours, ${nEv} events, ${pairs.length} paires`);
   return item;
 }
-// Re-date le GEW COURANT au WEEK-END de publication (dimanche précédant la semaine couverte, ~18h Paris) →
+// Re-date le GEW COURANT au WEEK-END de publication (samedi clôturant la semaine couverte, ~16h Paris) →
 // corrige un GEW daté à l'instant de génération SANS le régénérer (préserve le riche contenu IA). Idempotent.
 function _gewRedateCurrent() {
   const now = Date.now();
@@ -10006,10 +10005,23 @@ function isSoftNewsNoise(h) {
 // accident de la route, electrocution, chute mortelle...) JAMAIS market-moving (SCMP & co). Distinct des
 // victimes GEOPOLITIQUES/militaires (frappe/attaque/guerre) qui restent KEEP. Guard !isFinanciallyRelevant.
 const LOCAL_INCIDENT_NOISE = /\b(heatstroke|heat\s+stroke|drowned|drowning|drowns?\s+(?:at|in|off|while|after|near)|electrocut\w+|carbon\s+monoxide|hit\s+by\s+(?:a\s+)?(?:car|truck|train|bus|lorry|minibus|taxi|tram|vehicle)|road\s+(?:accident|crash|death)|car\s+crash|traffic\s+(?:accident|collision)|house\s+fire|flat\s+fire|residential\s+fire|fire\s+at\s+[\w\s,'-]{0,28}(?:flat|home|apartment|residence|building|estate|village)|(?:fell|falls?)\s+to\s+(?:his|her|their)\s+death|stabbed\s+to\s+death|hospitali[sz]ed\s+after|rushed\s+to\s+hospital)\b/i;
+// Éditorial à FAIBLE valeur : prévisions/roundups/analyses techniques (FXStreet/Investing « Pairs in Focus »,
+// « Exchange Rate / Price Forecast », vues de banques « remains bullish/bearish », explainers « How X navigated »).
+// Du contenu financier mais SANS news (opinion/prévision, pas un fait de marché) → filtre INCONDITIONNEL. Testé
+// adversarial : épargne les vraies data (GDP/inflation/growth/demand forecast, « remains resilient/cautious »,
+// « X in focus » hors « Pairs in Focus », « Forecast: 2.8% »).
+const _LOW_VALUE_ANALYSIS_RE = new RegExp([
+  /\bpairs?\s+in\s+focus\b/,
+  /\b(?:exchange[\s-]?rate|currency|fx|price|technical|institutional|weekly|monthly|quarterly|year[\s-]?ahead|near[\s-]?term|mid[\s-]?term|long[\s-]?term)\s+forecasts?\b/,
+  /\bforecast:\s*(?:why|how|what|will|can|could|these|top|key)\b/,
+  /\b(?:remains?|stays?|turns?)\s+(?:bullish|bearish)\b/,
+  /\bhow\s+[\w-]+\s+(?:navigated|weathered|survived|handled|coped|is\s+navigating)\b/,
+].map(r => r.source).join('|'), 'i');
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
   if (/FJElite/i.test(h)) return true;   // teasers FinancialJuice Elite (« X on Y - FJElite ») : titre sans contenu, analyse derrière paywall → aucune valeur
+  if (_LOW_VALUE_ANALYSIS_RE.test(h)) return true;   // prévisions/roundups/analyses sans news (Pairs in Focus, forecasts, « remains bullish »…)
   if (/\b(quarterly|monthly|economic|annual|weekly)\s+bulletin\b[\s\d/.\-]*$/i.test(h)) return true;   // annonce de publication brute (« SNB Quarterly Bulletin 2/2026 ») : titre sans explication → on garde celles AVEC du contenu (texte après « Bulletin »)
   if (TABLOID_SOURCES.test(h))  return true;
   if (GLOBAL_GOSSIP.test(h))    return true;
