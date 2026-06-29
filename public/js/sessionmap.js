@@ -11,6 +11,14 @@
     if (typeof L === 'undefined') { setTimeout(window.buildSessionMap, 600); return; }
     var el = document.getElementById('am5-map');
     if (!el) return;
+    // Carte VECTORIELLE (geodata LOCAL, sans CDN) = la plus fiable. Si le geodata amCharts n'est pas
+    // ENCORE chargé au moment de bâtir, on RÉESSAIE (retry borné ~6 s) AU LIEU de basculer tout de suite
+    // sur les tuiles CARTO (CDN qui peut échouer → carte VIDE, le bug signalé). Au pire on tombe sur les
+    // tuiles après l'attente. → "la carte des sessions ne doit plus jamais être vide".
+    if (typeof am5geodata_worldLow === 'undefined' || !am5geodata_worldLow || !am5geodata_worldLow.features) {
+      window._dtpMapWait = (window._dtpMapWait || 0) + 1;
+      if (window._dtpMapWait <= 12) { setTimeout(window.buildSessionMap, 500); return; }
+    }
 
     var CITIES = (typeof MAP_CITIES !== 'undefined') ? MAP_CITIES : [
       { id: 'london', name: 'London', tz: 'Europe/London', lon: -0.12, lat: 51.5, open: 8, close: 17 },
