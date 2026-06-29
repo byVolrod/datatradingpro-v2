@@ -2179,6 +2179,15 @@ function buildNewsItem(item) {
   }
   content.appendChild(headline);
 
+  // ── Sources regroupées : « via FinancialJuice · ForexLive · Reuters » (déduplication multi-sources : affiché
+  //    dès qu'au moins 2 vraies sources ont couvert le même événement ; Google News = secours, jamais listée).
+  if (Array.isArray(item.sources) && item.sources.length >= 2) {
+    const srcEl = document.createElement('div');
+    srcEl.className = 'news-sources';
+    srcEl.textContent = 'via ' + item.sources.join(' · ');
+    content.appendChild(srcEl);
+  }
+
   el.appendChild(content);
 
   // Shared expand panel

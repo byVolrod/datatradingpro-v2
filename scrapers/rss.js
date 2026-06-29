@@ -5,13 +5,11 @@ const FEEDS = [
   // Core FX / Forex news
   { url: 'https://www.forexlive.com/feed/news',                                                                           source: 'ForexLive',     priority: 'high'   },
   { url: 'https://www.fxstreet.com/rss/news',                                                                             source: 'FXStreet',      priority: 'high'   },
-  // Macro / markets
-  { url: 'https://feeds.a.dj.com/rss/RSSMarketsMain.xml',                                                                source: 'WSJ Markets',   priority: 'normal' },
-  { url: 'http://feeds.marketwatch.com/marketwatch/topstories/',                                                          source: 'MarketWatch',   priority: 'normal' },
-  { url: 'https://finance.yahoo.com/rss/topfinstories',                                                                   source: 'Yahoo Finance', priority: 'normal' },
-  { url: 'https://www.investing.com/rss/news.rss',                                                                        source: 'Investing.com', priority: 'normal' },
-  { url: 'https://feeds.feedburner.com/zerohedge/feed',                                                                   source: 'ZeroHedge',     priority: 'normal' },
-  // Google News RSS — aggregates many sources per topic
+  // WSJ Markets, MarketWatch, Yahoo Finance, Investing.com et ZeroHedge RETIRES (2026-06-29) : moins de
+  // sources, uniquement de la tres haute qualite. Investing.com = principale source du bruit
+  // « Price Prediction »/prevision/analyse technique que l'utilisateur veut eliminer.
+  // Google News RSS — SECOURS UNIQUEMENT : un item Google n'apparait que si l'evenement n'est pas deja
+  // couvert par une source gardee (FJ/ForexLive/FXStreet/ForexFactory) — filtre dans server.js mergeItems.
   { url: 'https://news.google.com/rss/search?q=forex+currency+central+bank&hl=en-US&gl=US&ceid=US:en',                   source: 'Google News',   priority: 'high'   },
   { url: 'https://news.google.com/rss/search?q=oil+gold+inflation+interest+rate&hl=en-US&gl=US&ceid=US:en',              source: 'Google News',   priority: 'high'   },
   { url: 'https://news.google.com/rss/search?q=Fed+ECB+BOJ+monetary+policy&hl=en-US&gl=US&ceid=US:en',                   source: 'Google News',   priority: 'high'   },
@@ -145,13 +143,22 @@ async function fetchFeed(feed) {
       // Seules les vraies CB restent (rares + justifiees) ; le reste est upgrade au cas par cas si le contenu le merite.
       const isImportant = (feed.priority === 'high' && ['Fed','ECB','BoJ','BoE'].includes(category));
 
+      // Google News : le titre se termine par « - Source » (Reuters, Bloomberg, AP, FT…). On EXTRAIT la VRAIE
+      // source (créditée dans le regroupement multi-sources, ex. « via FinancialJuice · Reuters ») et on
+      // NETTOIE le titre. La source générique « Google News » (sans suffixe) reste un simple SECOURS.
+      let srcName = feed.source, cleanTitle = title;
+      if (feed.source === 'Google News') {
+        const m = title.match(/\s[-–—|]\s*([\w.&'’\/ ]{2,30})\s*$/);
+        if (m && m[1].trim().length >= 2) { srcName = m[1].trim(); cleanTitle = title.slice(0, m.index).trim(); }
+      }
+
       items.push({
         id: `rss-${feed.source.replace(/\s/g,'').toLowerCase()}-${Buffer.from(link || title).toString('base64').substring(0,10)}-${ts}`,
         time: toParisTimeStr(ts),
         timestamp: ts,
         category,
-        source: feed.source,
-        headline: title.replace(/\s+/g, ' ').substring(0, 260),
+        source: srcName,
+        headline: cleanTitle.replace(/\s+/g, ' ').substring(0, 260),
         description: desc.substring(0, 500),
         url: link,
         tags: extractTags(category, combined),
