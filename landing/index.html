@@ -900,8 +900,9 @@
 .hfm-dsep{font-size:9.5px;color:#9a9da6;background:#16171b;padding:4px 11px;font-weight:600;}
 .hfm-nrow{display:flex;gap:10px;padding:9px 11px;border-bottom:1px solid rgba(255,255,255,.028);align-items:center;}
 .hfm-nrow:hover{background:#16171c;}
-/* hover ROUGE uniquement sur les annonces importantes (celles avec la pastille .hfm-ndot) */
-.hfm-nrow:has(.hfm-ndot):hover{background:rgba(224,89,79,.13);}
+/* Annonces importantes (pastille .hfm-ndot) : surlignage rouge PERMANENT dans la maquette — visible sans survol — accentue au survol */
+.hfm-nrow:has(.hfm-ndot){background:rgba(224,89,79,.13);}
+.hfm-nrow:has(.hfm-ndot):hover{background:rgba(224,89,79,.2);}
 .hfm-news:hover .hfm-track{animation-play-state:paused;}
 .hfm-nt{font-family:ui-monospace,monospace;font-size:10px;color:#ccc;flex:0 0 34px;}
 .hfm-nc{font-size:10px;color:#ccc;flex:0 0 82px;}
@@ -933,7 +934,7 @@
 .hfm-nrow{cursor:pointer;}
 .hfm-nrow::after{content:'';flex:0 0 auto;width:5px;height:5px;border-right:1.5px solid #5a5d66;border-bottom:1.5px solid #5a5d66;transform:rotate(45deg);margin:-2px 1px 0 2px;opacity:.75;transition:border-color .15s ease;}
 .hfm-nrow:hover::after{border-color:#e3b23a;}
-.hfm-nrow:has(.hfm-ndot):hover::after{border-color:#e0594f;}
+.hfm-nrow:has(.hfm-ndot)::after{border-color:#e0594f;}
 /* Badge NOUVEAU sur l'icone Journal (topbar), facon desk */
 .hfm-ic.doc{position:relative;}
 .hfm-newbadge{position:absolute;top:-7px;left:50%;transform:translateX(-44%);background:#e3b23a;color:#0c0c0e;font-family:var(--tight,'Inter Tight',sans-serif);font-weight:800;font-size:5.5px;letter-spacing:.03em;line-height:1;padding:2px 3px;border-radius:2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5);}
