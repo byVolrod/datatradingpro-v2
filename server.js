@@ -196,7 +196,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (protege par SON PROPRE token, pas la session)
+  '/internal/landing-snapshot', '/api/hero-news']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE de la landing (public + CORS)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
@@ -11120,6 +11120,67 @@ app.get('/internal/landing-snapshot', async (req, res) => {
       weeklyRecap: recap,
     });
   } catch (e) { res.status(500).json({ error: String((e && e.message) || e).slice(0, 120) }); }
+});
+
+// ─── Fil hero LIVE de la landing ────────────────────────────────────────────────
+// Alimente la maquette hero de datatradingpro.com avec les VRAIES news du desk (« un doublon
+// du desk »). PUBLIC + CORS : la landing (nginx, autre origine) le fetch côté client à chaque
+// chargement → toujours à jour, zéro cron, repli sur les lignes statiques si le desk est injoignable.
+// On n'expose QUE l'affichage (titre / catégorie / tag / drapeaux Info-Analyse-important) : aucune
+// analyse IA, aucun corps — la valeur produit (feed complet + analyses + outils) reste derrière le login.
+const _HERO_CAT_FR = {
+  'Economic Commentary':'Commentaire économique','Market Analysis':'Analyse de marché','Global News':'Actualités mondiales',
+  'Asian News':'Actualités asiatiques','Energy & Power':'Énergie','Fixed Income':'Obligataire','Metals':'Métaux','Crypto':'Crypto',
+  'Trade':'Commerce','FX Flows':'Flux FX','Geopolitical':'Géopolitique','DTP Update':'Mise à jour DTP','Ags & Softs':'Agricoles',
+  'EU Data':'Données EU','US Data':'Données US','UK Data':'Données UK','Swiss Data':'Données Suisse','Japanese Data':'Données Japon',
+  'Canadian Data':'Données Canada','Australian Data':'Données Australie','Chinese Data':'Données Chine',
+};
+const _HERO_CAT_TAG = { ECB:'EUR', BoE:'GBP', Fed:'USD', BOC:'CAD', RBA:'AUD', RBNZ:'NZD', BoJ:'JPY', SNB:'CHF', 'Energy & Power':'Oil', Metals:'Or', Crypto:'BTC' };
+const _HERO_BREAKING_RX = /\b(?:attack|airstrike|missile|invasion|explosion|blast|killed|breaking|urgent|ceasefire)\b/i;
+let _heroNewsCache = null, _heroNewsTs = 0;
+const _HERO_TTL = 3 * 60 * 1000;
+
+function _heroPickTag(item) {
+  const tags = Array.isArray(item.tags) ? item.tags : [];
+  const geo = tags.find(t => t && t !== item.category && String(t).length <= 5);
+  return geo || _HERO_CAT_TAG[item.category] || '';
+}
+function _buildHeroNews() {
+  const list = (typeof allNews !== 'undefined' && Array.isArray(allNews)) ? allNews : [];
+  const sorted = list.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const out = [], seen = new Set();
+  for (const i of sorted) {
+    if (!i || i._briefing || i._reportType || i.isPrimer || !i.headline) continue;
+    if (i.category === 'Economic Commentary') continue;
+    const h = String(i.headline).replace(/\s+/g, ' ').trim();
+    if (h.length < 12) continue;
+    const key = h.toLowerCase().slice(0, 40);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const desc = String(i.description || '').replace(/<[^>]*>/g, '').trim();
+    out.push({
+      h: h.slice(0, 96),
+      cat: _HERO_CAT_FR[i.category] || i.category || '',
+      tag: _heroPickTag(i),
+      info: desc.length > 30,
+      analyse: !i._marketUpdate && Array.isArray(i.analyse) && i.analyse.length > 0,
+      dot: i.priority === 'high' || i.urgent === true || _HERO_BREAKING_RX.test(h),
+    });
+    if (out.length >= 8) break;
+  }
+  let dots = 0;                                  // au plus 2 pastilles rouges (les 2 plus récentes importantes) — maquette propre
+  for (const n of out) { if (n.dot) { if (dots < 2) dots++; else n.dot = false; } }
+  return out;
+}
+
+app.get('/api/hero-news', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=120');
+  try {
+    const now = Date.now();
+    if (!_heroNewsCache || now - _heroNewsTs > _HERO_TTL) { _heroNewsCache = _buildHeroNews(); _heroNewsTs = now; }
+    res.json(_heroNewsCache);
+  } catch { res.json([]); }
 });
 
 // ─── FX List Overview ─────────────────────────────────────────────────────────
