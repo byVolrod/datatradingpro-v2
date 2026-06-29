@@ -3424,7 +3424,7 @@ function _aiInflight(key, fn) {
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
-const SW_SEG_VER  = 'v7:';   // bump → régénère (v7 : section FX DÉTAILLÉE façon pro — phrases analytiques par devise + driver éco/macro)
+const SW_SEG_VER  = 'v8:';   // bump → régénère (v8 : écarte les puces sans valeur — titre/annonce sans fait/chiffre, ex. « Analyse du Bitcoin au cours du week-end ») ; v7 : section FX détaillée par devise
 
 // Cache des structurations IA des rapports de recherche (DailyFX ING…) — persistant, même logique que les wraps
 const BR_SEG_FILE = path.join(_CACHE_DIR, 'cache_br_seg.json');
@@ -3583,6 +3583,7 @@ RÈGLE ABSOLUE (prioritaire sur tout) : ne change JAMAIS les FAITS — chiffres,
 - Une ligne courte tout en MAJUSCULES = un EN-TÊTE (jamais une puce). Ignore le promotionnel/hors-sujet ("...at investingLive.com", etc.).
 - EN-TÊTES COURTS type catégorie (FX, COMMODITIES, EQUITIES, FIXED INCOME, CENTRAL BANKS, ECONOMIC DATA, GEOPOLITICS, CRYPTO…). Un sous-rapport au titre LONG en minuscules (ex: "New Zealand Manufacturing Returns to Contraction…") → NE le garde PAS comme en-tête : range son contenu sous une catégorie COURTE adaptée.
 - Chaque puce = UNE idée concise (≤30 mots), jamais un pavé multi-phrases (découpe les longs paragraphes en plusieurs puces courtes).
+- ⚠️ ÉCARTE les puces SANS VALEUR : un simple titre/annonce de sujet — sans aucun fait, chiffre, niveau, citation ni analyse concrète (ex. « Analyse du Bitcoin au cours du week-end », « Le point sur les cryptos », « Tour d'horizon des marchés ») — n'apporte RIEN au lecteur → NE le garde PAS. Toute puce doit porter une information concrète. Si, après ce tri, une rubrique n'a plus aucune puce de valeur, OMETS la rubrique entière (jamais de section réduite à un titre creux).
 Réponds UNIQUEMENT en JSON valide, la rubrique LEAD EN PREMIER : [{"section":"LEAD","items":["synthèse 1","synthèse 2","synthèse 3"]},{"section":"FX","items":["phrase reformulée 1","phrase 2"]}]
 Éléments :
 ${points.map(p => '- ' + p).join('\n')}`;
