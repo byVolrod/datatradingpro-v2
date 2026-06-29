@@ -936,8 +936,11 @@
 .hfm-nrow:has(.hfm-tag--exp)::after{content:'';flex:0 0 auto;width:5px;height:5px;border-right:1.5px solid #5a5d66;border-bottom:1.5px solid #5a5d66;transform:rotate(45deg);margin:-2px 1px 0 2px;opacity:.75;transition:border-color .15s ease;}
 .hfm-nrow:has(.hfm-tag--exp):hover::after{border-color:#e3b23a;}
 .hfm-nrow:has(.hfm-ndot)::after{border-color:#e0594f;}
-/* Tag « Info » / « Analyse » / « Reaction » (contenu depliable) — accent vert facon desk, distinct des tags d'actif */
-.hfm-tag--exp{color:#7ecf9d;background:rgba(126,207,157,.1);border-color:rgba(126,207,157,.32);}
+/* Tags « Info » / « Analyse » / « Reaction » (contenu depliable) — MEMES couleurs que le desk
+   (.hfm-tag--exp reste le marqueur du chevron ; la couleur vient des classes par type ci-dessous). */
+.hfm-tag--info{background:transparent;border-color:rgba(63,146,128,.3);color:#3f9280;}
+.hfm-tag--ana {background:transparent;border-color:rgba(0,122,163,.3);color:#007aa3;}
+.hfm-tag--rea {background:rgba(95,81,158,.12);border-color:#5f519e;color:#8e7fce;border-radius:4px;}
 /* Badge NOUVEAU sur l'icone Journal (topbar), facon desk */
 .hfm-ic.doc{position:relative;}
 .hfm-newbadge{position:absolute;top:-7px;left:50%;transform:translateX(-44%);background:#e3b23a;color:#0c0c0e;font-family:var(--tight,'Inter Tight',sans-serif);font-weight:800;font-size:5.5px;letter-spacing:.03em;line-height:1;padding:2px 3px;border-radius:2px;white-space:nowrap;box-shadow:0 1px 3px rgba(0,0,0,.5);}
@@ -974,15 +977,15 @@
       <div class="hfm-ph"><span class="tk"></span><span class="t">Fil d'actualité en direct</span><span class="live"></span></div>
       <div class="hfm-news">
         <div class="hfm-track">
-          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:53</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Iran and Oman open first joint committee on the Strait of Hormuz<div><span class="hfm-tag">Oil</span><span class="hfm-tag hfm-tag--exp">Info</span><span class="hfm-tag hfm-tag--exp">Analyse</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:46</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Macron and MBS discuss the US-Iran escalation by phone<div><span class="hfm-tag">US</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:38</span><span class="hfm-nc">ECB</span><span class="hfm-nh">ECB's Kazaks: negative scenarios now look less likely<div><span class="hfm-tag">EUR</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:53</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Iran and Oman open first joint committee on the Strait of Hormuz<div><span class="hfm-tag">Oil</span><span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span><span class="hfm-tag hfm-tag--exp hfm-tag--ana">Analyse</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:46</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Macron and MBS discuss the US-Iran escalation by phone<div><span class="hfm-tag">US</span><span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:38</span><span class="hfm-nc">ECB</span><span class="hfm-nh">ECB's Kazaks: negative scenarios now look less likely<div><span class="hfm-tag">EUR</span><span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span></div></span></div>
           <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:29</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Oil steadies as the US and Iran agree to halt attacks<div><span class="hfm-tag">Oil</span></div></span></div>
           <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:21</span><span class="hfm-nc">BoE</span><span class="hfm-nh">BoE consumer credit £1.66B, under the £1.8B forecast<div><span class="hfm-tag">GBP</span></div></span></div>
           <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:14</span><span class="hfm-nc">Actions</span><span class="hfm-nh">Dow Jones futures rise on easing Middle East tensions<div><span class="hfm-tag">US</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:53</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Iran and Oman open first joint committee on the Strait of Hormuz<div><span class="hfm-tag">Oil</span><span class="hfm-tag hfm-tag--exp">Info</span><span class="hfm-tag hfm-tag--exp">Analyse</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:46</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Macron and MBS discuss the US-Iran escalation by phone<div><span class="hfm-tag">US</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
-          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:38</span><span class="hfm-nc">ECB</span><span class="hfm-nh">ECB's Kazaks: negative scenarios now look less likely<div><span class="hfm-tag">EUR</span><span class="hfm-tag hfm-tag--exp">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:53</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Iran and Oman open first joint committee on the Strait of Hormuz<div><span class="hfm-tag">Oil</span><span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span><span class="hfm-tag hfm-tag--exp hfm-tag--ana">Analyse</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-ndot"></span><span class="hfm-nt">10:46</span><span class="hfm-nc">Géopolitique</span><span class="hfm-nh">Macron and MBS discuss the US-Iran escalation by phone<div><span class="hfm-tag">US</span><span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span></div></span></div>
+          <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:38</span><span class="hfm-nc">ECB</span><span class="hfm-nh">ECB's Kazaks: negative scenarios now look less likely<div><span class="hfm-tag">EUR</span><span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span></div></span></div>
           <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:29</span><span class="hfm-nc">Énergie</span><span class="hfm-nh">Oil steadies as the US and Iran agree to halt attacks<div><span class="hfm-tag">Oil</span></div></span></div>
           <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:21</span><span class="hfm-nc">BoE</span><span class="hfm-nh">BoE consumer credit £1.66B, under the £1.8B forecast<div><span class="hfm-tag">GBP</span></div></span></div>
           <div class="hfm-nrow"><span class="hfm-nt" style="margin-left:16px">10:14</span><span class="hfm-nc">Actions</span><span class="hfm-nh">Dow Jones futures rise on easing Middle East tensions<div><span class="hfm-tag">US</span></div></span></div>
@@ -1725,8 +1728,8 @@
           var nm=n.dot?'':' style="margin-left:16px"';
           var tg='';
           if(n.tag)tg+='<span class="hfm-tag">'+esc(n.tag)+'</span>';
-          if(n.info)tg+='<span class="hfm-tag hfm-tag--exp">Info</span>';
-          if(n.analyse)tg+='<span class="hfm-tag hfm-tag--exp">Analyse</span>';
+          if(n.info)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span>';
+          if(n.analyse)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--ana">Analyse</span>';
           return '<div class="hfm-nrow">'+dot+'<span class="hfm-nt"'+nm+'></span><span class="hfm-nc">'+esc(n.cat)+'</span><span class="hfm-nh">'+esc(n.h)+(tg?'<div>'+tg+'</div>':'')+'</span></div>';
         });
         track.innerHTML=rows.concat(rows).join('');   // x2 pour la boucle de defilement
