@@ -2499,7 +2499,8 @@ function buildNewsItem(item) {
                 .then(r => r.json())
                 .then(d => {
                   const b = (d && Array.isArray(d.bullets) && d.bullets.length) ? d.bullets : ((d && d.text) ? [d.text] : []);
-                  _reactCache.set(item.id, b); _applyExplain(b);
+                  if (b.length) _reactCache.set(item.id, b);   // succès uniquement (un échec réessaie à la prochaine ouverture)
+                  _applyExplain(b);
                 })
                 .catch(() => {});
             }
@@ -2589,8 +2590,8 @@ function buildNewsItem(item) {
         const b = _infoCache.get(item.id);
         if (b && b.length) expandEl.innerHTML = _renderInfoBullets(b);
       } else {
-        // La dépêche brute (langue source) est déjà affichée immédiatement (infoBody) ; on la remplace
-        // par le résumé en puces dès qu'il arrive. Pas de traduction : on garde la langue de la source.
+        // La dépêche brute (langue source) est affichée immédiatement (infoBody) ; on la remplace par le
+        // résumé FR dès qu'il arrive (le serveur répond désormais en FRANÇAIS pour toutes les news).
         fetch('/api/news-info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2599,7 +2600,7 @@ function buildNewsItem(item) {
           .then(r => r.json())
           .then(data => {
             const b = data.bullets || [];
-            _infoCache.set(item.id, b);   // on mémorise même un résultat vide (évite de redemander)
+            if (b.length) _infoCache.set(item.id, b);   // on ne mémorise QUE le succès : un échec (IA en panne) réessaie à la prochaine ouverture au lieu de figer l'anglais pour la session
             if (b.length && activeTab === 'info' && expandEl.classList.contains('visible')) {
               expandEl.innerHTML = _renderInfoBullets(b);
             }
