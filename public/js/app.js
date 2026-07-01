@@ -3627,17 +3627,31 @@ const SB_CLOCKS = [
 ];
 
 let _biasRetry = 0;
+// Skeleton de la matrice Radar de Biais — epouse la grille reelle (en-tetes devises + lignes indicateurs)
+// pour zero reflow. Ecrit dans #bias-content, que renderBiasView reecrit ensuite -> auto-efface.
+function _biasSkeleton() {
+  const COLS = 7, ROWS = 9;
+  const th = '<th class="sbm-cur"><span class="sbm-cur-in"><span class="dtp-skel sbm-skel-cur"></span></span></th>';
+  const head = '<tr><th class="sbm-ind"><span class="dtp-skel"></span></th>' + th.repeat(COLS) + '</tr>';
+  const cell = '<td class="sbm-cell sbm-skel-cell"><span class="dtp-skel"></span></td>';
+  const bodyRow = '<tr><td class="sbm-ind"><span class="dtp-skel"></span></td>' + cell.repeat(COLS) + '</tr>';
+  const body = Array.from({ length: ROWS }).map(() => bodyRow).join('') +
+    '<tr class="sbm-overall"><td class="sbm-ind"><span class="dtp-skel"></span></td>' + cell.repeat(COLS) + '</tr>';
+  return '<div class="sbm-matrix-zone" aria-hidden="true">' +
+           '<div class="sbm-grid-wrap"><table class="sbm-grid"><thead>' + head + '</thead><tbody>' + body + '</tbody></table></div>' +
+         '</div>';
+}
 function loadBiasView() {
   const host = document.getElementById('bias-content');
   if (!host) return;
   if (_biasData) { renderBiasView(_biasView || _biasData); return; }
-  host.innerHTML = dtpLoader('Chargement du Radar de Biais…');
+  host.innerHTML = _biasSkeleton();
   // Fetch RÉSILIENT (anticipation) : tolère un hoquet serveur (502/HTML pendant un redéploiement) → réessaie
   // ~80 s au lieu de rester bloqué sur « indisponible ». Jamais d'« Unexpected token '<' ».
   (window._dtpJSON ? window._dtpJSON('/api/smart-bias') : fetch('/api/smart-bias').then(r => r.json()))
     .then(d => { if (!d || !d.currencies) throw new Error('no data'); _biasRetry = 0; _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; renderBiasView(d); })
     .catch(() => {
-      if (_biasRetry++ < 20) { host.innerHTML = dtpLoader('Chargement du Radar de Biais…'); setTimeout(loadBiasView, 4000); }
+      if (_biasRetry++ < 20) { host.innerHTML = _biasSkeleton(); setTimeout(loadBiasView, 4000); }
       else host.innerHTML = '<div class="bias-loading">Radar de Biais momentanément indisponible — réessaie dans un instant.</div>';
     });
 }
@@ -3659,7 +3673,7 @@ async function loadWeekAheadView() {
     _waPollCount++;
     const visible = !document.getElementById('view-weekahead')?.classList.contains('hidden');
     if (_waPollCount <= 6 && visible) {
-      host.innerHTML = window.dtpLoader ? window.dtpLoader('Chargement du Semaine à Venir…') : '<div class="wa-empty">Chargement…</div>';   // loader STANDARD centré (comme les autres onglets)
+      host.innerHTML = _waSkel();   // skeleton (epouse .wa-wrap : placeholder graphe + cartes jour) au lieu du loader texte — zero pop-in
       _waPollTimer = setTimeout(loadWeekAheadView, 12000);   // re-poll dans 12s
     } else {
       host.innerHTML = `<div class="wa-empty">L'aperçu de la semaine se génère en arrière-plan — reviens dans quelques minutes, il s'affichera automatiquement.</div>`;
@@ -3667,6 +3681,25 @@ async function loadWeekAheadView() {
   } catch { if (!_waData) host.innerHTML = '<div class="wa-empty">Semaine à Venir indisponible pour le moment.</div>'; }
 }
 window.loadWeekAheadView = loadWeekAheadView;
+
+// Skeleton Semaine a Venir — epouse .wa-wrap (placeholder graphe + N cartes jour) ; injecte dans #wa-content
+// PENDANT le polling -> auto-efface par _renderWeekAhead() qui reecrit #wa-content (et cree alors #wa-risk-chart).
+function _waSkel() {
+  let days = '';
+  for (let i = 0; i < 4; i++) {
+    days += '<div class="wa-day wa-skel-day" aria-hidden="true">'
+      + '<div class="wa-node"><span class="dtp-skel wa-skel-dow"></span><span class="dtp-skel wa-skel-date"></span><span class="dtp-skel wa-skel-mon"></span></div>'
+      + '<div class="wa-card wa-card--med">'
+      + '<div class="wa-card-head"><div class="wa-card-headl"><span class="dtp-skel wa-skel-title"></span></div><span class="dtp-skel wa-skel-imp"></span></div>'
+      + '<div class="wa-card-desc"><span class="dtp-skel wa-skel-line"></span><span class="dtp-skel wa-skel-line wa-skel-line--short"></span></div>'
+      + '</div></div>';
+  }
+  return '<div class="wa-wrap wa-skel-wrap" aria-hidden="true">'
+    + '<div class="wa-head"><span class="dtp-skel wa-skel-head"></span></div>'
+    + '<div class="wa-chartbox"><div class="wa-chart-label">PROFIL DE RISQUE HEBDO</div><div class="wa-chart wa-skel-chart"><span class="dtp-skel"></span></div></div>'
+    + '<div class="wa-timeline">' + days + '</div>'
+    + '</div>';
+}
 
 function _renderWeekAhead(d) {
   const host = document.getElementById('wa-content');
@@ -4386,7 +4419,22 @@ function loadBankView() {
 }
 window.loadBankView = loadBankView;
 
+const _BANK_SKEL_ROW = '<tr class="bank-row bank-skel-row" aria-hidden="true">' +
+  '<td class="bank-exp"><span class="dtp-skel"></span></td>' +
+  '<td class="bank-name"><span class="dtp-skel"></span></td>' +
+  '<td><span class="dtp-skel"></span></td>' +
+  '<td><span class="dtp-skel"></span></td>' +
+  '<td class="bank-date"><span class="dtp-skel"></span></td>' +
+  '<td class="bank-num"><span class="dtp-skel"></span></td>' +
+  '<td class="bank-num"><span class="dtp-skel"></span></td>' +
+  '<td class="bank-num"><span class="dtp-skel"></span></td>' +
+  '<td><span class="dtp-skel"></span></td>' +
+  '<td class="bank-chart-cell"><span class="dtp-skel"></span></td></tr>';
 function _fetchBankPositions(silent) {
+  if (!silent && !_bankPositions.length) {              // 1er chargement / re-fetch a froid -> skeleton (jamais sur un refresh 60s silencieux)
+    const tb = document.getElementById('bank-tbody');
+    if (tb) tb.innerHTML = Array.from({ length: 6 }).map(() => _BANK_SKEL_ROW).join('');
+  }
   fetch('/api/bank-positions')
     .then(r => r.json())
     .then(d => {
@@ -4847,6 +4895,22 @@ function _brBalanceByDay(arr) {
 
 let _brRows = {};   // id -> item : clic délégué sur les lignes du tableau Institution
 let _brWarmTimer = null;   // débounce du préchauffage PDF proactif (après filtre/recherche stabilisé)
+// Skeleton catalogue Institution — memes colonnes que la table Analyste (colgroup arl-col-inst-br), ~10 lignes.
+// Injecte dans #br-list tant que _brArticles est vide -> auto-efface par le renderBrList() plein.
+function _brSkel() {
+  let rows = '';
+  for (let i = 0; i < 10; i++) {
+    rows += '<tr class="arl-row arl-skel-row" aria-hidden="true">'
+      + '<td class="arl-c-bm"><span class="dtp-skel arl-skel-bm"></span></td>'
+      + '<td class="arl-c-date"><span class="dtp-skel"></span></td>'
+      + '<td class="arl-c-title"><div class="arl-tw"><span class="dtp-skel arl-skel-ico"></span><span class="dtp-skel arl-skel-ttl"></span></div></td>'
+      + '<td class="arl-c-inst"><span class="dtp-skel arl-skel-inst"></span></td></tr>';
+  }
+  return '<table class="arlib-table"><colgroup>'
+    + '<col class="arl-col-bm"><col class="arl-col-date"><col class="arl-col-title"><col class="arl-col-inst-br"></colgroup>'
+    + '<thead><tr><th class="arl-th"></th><th class="arl-th">Date</th><th class="arl-th">Titre</th><th class="arl-th arl-th-c">Institut</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table>';
+}
 function renderBrList() {
   const list   = document.getElementById('br-list');
   const footer = document.getElementById('br-footer');
@@ -4872,7 +4936,7 @@ function renderBrList() {
     // Si aucun article du tout (pas un filtre trop strict) → on est en chargement : on montre le loader.
     const noneAtAll = _brArticles.length === 0;
     if (noneAtAll) {
-      list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des rapports institution…') : '<div class="br-empty">Chargement…</div>');
+      list.innerHTML = _brSkel();   // skeleton (epouse .arlib-table) au lieu du loader texte
     } else {
       list.innerHTML = '<div class="br-empty">Aucun rapport ne correspond à ces filtres.</div>';
     }
@@ -5901,6 +5965,22 @@ function arlibCleanTitle(headline) {
 // ── Render card list ──────────────────────────────────────────────────────────
 
 let _arlibRows = {};   // id -> item : clic délégué sur les lignes du tableau (rendu via innerHTML)
+// Skeleton catalogue Analyste — memes colonnes (bookmark/date/titre/institut) que .arlib-table, ~10 lignes.
+// Injecte dans #arlib-list tant qu'aucune source n'est chargee -> auto-efface par le renderArlibList() plein.
+function _arlibSkel() {
+  let rows = '';
+  for (let i = 0; i < 10; i++) {
+    rows += '<tr class="arl-row arl-skel-row" aria-hidden="true">'
+      + '<td class="arl-c-bm"><span class="dtp-skel arl-skel-bm"></span></td>'
+      + '<td class="arl-c-date"><span class="dtp-skel"></span></td>'
+      + '<td class="arl-c-title"><div class="arl-tw"><span class="dtp-skel arl-skel-ico"></span><span class="dtp-skel arl-skel-ttl"></span></div></td>'
+      + '<td class="arl-c-inst"><span class="dtp-skel arl-skel-inst"></span></td></tr>';
+  }
+  return '<table class="arlib-table"><colgroup>'
+    + '<col class="arl-col-bm"><col class="arl-col-date"><col class="arl-col-title"><col class="arl-col-inst"></colgroup>'
+    + '<thead><tr><th class="arl-th"></th><th class="arl-th">Date</th><th class="arl-th">Titre</th><th class="arl-th arl-th-c">Institut</th></tr></thead>'
+    + '<tbody>' + rows + '</tbody></table>';
+}
 function renderArlibList() {
   const list = document.getElementById('arlib-list');
   if (!list) return;
@@ -5919,7 +5999,10 @@ function renderArlibList() {
   if (_foot) _foot.textContent = 'Affichage de ' + items.length + ' sur ' + _total + ' rapport' + (_total > 1 ? 's' : '') + ' de recherche';
 
   if (items.length === 0) {
-    list.innerHTML = '<div class="arlib-empty">Aucun rapport trouvé.<br>Générez des briefings ou attendez la prochaine génération programmée.</div>';
+    // Aucune source encore chargee (fetch session-wraps + weekly-reports en cours) -> SKELETON ;
+    // sinon (sources chargees mais liste vide/filtree) -> etat vide existant.
+    const _loadingArl = !(_sessionWraps && _sessionWraps.length) && !(_weeklyReports && _weeklyReports.length);
+    list.innerHTML = _loadingArl ? _arlibSkel() : '<div class="arlib-empty">Aucun rapport trouvé.<br>Générez des briefings ou attendez la prochaine génération programmée.</div>';
     return;
   }
 
