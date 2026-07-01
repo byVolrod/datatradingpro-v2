@@ -1490,6 +1490,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   box-shadow: none !important;                             /* zero ombre / effet 3D */
   align-items: flex-start;                                 /* carte depliee : date/type en HAUT (sinon ils flotteraient au milieu d'une carte haute) */
 }
+/* News IMPORTANTE (urgent / breaking) DEPLIEE : GARDE son fond ROUGE — le surlignage rouge reste FIXE au depliage
+   (regle placee APRES la generique #15161b, meme specificite -> gagne ; sinon la news rouge virait au gris) (demande) */
+.news-item--urgent:has(.news-description.visible)   { background: #241414 !important; }
+.news-item--breaking:has(.news-description.visible) { background: #241415 !important; }
 .news-description.visible { color: #8b8b95; }              /* sous-detail : texte gris plus doux que le titre */
 .news-description.visible .article-points { padding-left: 22px; }  /* contenu legerement decale a droite vs le titre (indentation) */
 .news-headline--clickable { cursor: pointer; }
