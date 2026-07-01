@@ -3299,7 +3299,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   border-left: 1px solid var(--border);
   display: flex;
   flex-direction: column;
-  background: #0d0e11;
+  background: var(--bg);
 }
 .bank-chart-head {
   display: flex;
@@ -3309,11 +3309,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   border-bottom: 1px solid var(--border);
   font-size: 13px;
 }
-.bank-chart-pair { font-weight: var(--fw-bold); color: #fff; }
-.bank-chart-price { color: #9a9aa3; font-family: var(--font-mono); font-size: 12px; }   /* prix GRIS à côté de la paire (clone pro) */
+.bank-chart-pair { font-weight: var(--fw-bold); color: var(--text); }
+.bank-chart-price { color: var(--text2); font-family: var(--font-mono); font-size: 12px; }   /* prix GRIS à côté de la paire (clone pro) */
 /* Double drapeau rond de la paire (clone pro) */
 .bank-chart-flags { display: inline-flex; align-items: center; margin-right: 2px; }
-.bank-flag { width: 17px; height: 17px; border-radius: 50%; object-fit: cover; border: 1px solid #16171b; box-shadow: 0 0 0 1px #232429; }
+.bank-flag { width: 17px; height: 17px; border-radius: 50%; object-fit: cover; border: 1px solid var(--bg2); box-shadow: 0 0 0 1px var(--border); }
 .bank-flag--2 { margin-left: -6px; }
 .bank-chart { flex: 1; min-height: 0; }
 .bank-chart-loading {
@@ -3329,10 +3329,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .bank-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .bank-table thead th {
   position: sticky; top: 0; z-index: 2;
-  background: #101012;
+  background: var(--head-bg);
   text-align: left;
   padding: 11px 14px;
-  font-size: 11px;
+  font-size: var(--fs-title);
   font-weight: var(--fw-semibold);
   color: var(--text2);
   border-bottom: 1px solid var(--border);
@@ -3340,39 +3340,42 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .bank-table th.bank-num, .bank-table td.bank-num { text-align: right; font-family: var(--font-mono); }
 .bank-th-exp { width: 26px; padding: 0 !important; }
-.bank-row { border-bottom: var(--row-sep); cursor: pointer; transition: background 0.16s; }
+.bank-row { border-bottom: var(--row-sep); cursor: pointer; transition: background var(--t-fast); }
 .bank-row:hover { background: var(--row-hover); }
-.bank-row--active { background: #241415; }
-.bank-row--active:hover { background: #2e181a; }
-.bank-row td { padding: 9px 14px; color: #cbd5e1; white-space: nowrap; vertical-align: middle; }
-.bank-name { color: #fff !important; font-weight: var(--fw-semibold); }
-.bank-pair { font-family: var(--font-mono); color: #e2e8f0 !important; }
+.bank-row--active { background: rgba(227,178,58,0.10); }
+.bank-row--active td:first-child { box-shadow: inset 2px 0 0 var(--orange); }   /* liseré or a gauche (box-shadow fiable sur td, pas sur tr en border-collapse) */
+.bank-row--active:hover { background: rgba(227,178,58,0.14); }
+.bank-row td { padding: 9px 14px; color: var(--text2); white-space: nowrap; vertical-align: middle; }
+.bank-name { color: var(--text) !important; font-weight: var(--fw-semibold); }
+.bank-pair { font-family: var(--font-mono); color: var(--text) !important; }
 .bank-date { color: var(--text2) !important; font-family: var(--font-mono); }
-.bank-exp { width: 26px; text-align: center; color: #6b7280; }
+.bank-exp { width: 26px; text-align: center; color: var(--text3); }
 .bank-chev { display: inline-block; transition: transform 0.15s; }
-.bank-chev--open { transform: rotate(90deg); color: #e3b23a; }
+.bank-chev--open { transform: rotate(90deg); color: var(--orange); }
 .bank-status { font-weight: var(--fw-semibold); }
-.bank-st-active { color: #22c55e; }
-.bank-st-tp { color: #22c55e; }
-.bank-st-sl { color: #ef4444; }
-.bank-chart-cell { color: #6b7280; }
-.bank-chart-cell:hover { color: #e3b23a; }
+.bank-st-active { color: var(--neutral); }   /* position ouverte = NEUTRE (ni gain ni perte) */
+.bank-st-tp { color: #00e676; }               /* TP atteint = BUY */
+.bank-st-sl { color: #ff3d00; }               /* SL touché = SELL */
+.bank-chart-cell { color: var(--text3); transition: color var(--t-fast); }
+.bank-chart-cell:hover { color: var(--orange); }
+.bank-chart-cell svg { transition: transform var(--t-fast); }
+.bank-chart-cell:hover svg { transform: scale(1.12); }
 .bank-chart-col-h { white-space: nowrap; }
 
 /* Ligne de détail (dépliée) */
 .bank-detail-row.hidden { display: none; }
-.bank-detail-row td { padding: 0; background: #241415; border-bottom: 1px solid #16171b; }
+.bank-detail-row td { padding: 0; background: rgba(227,178,58,0.06); border-bottom: 1px solid var(--border); }
 .bank-detail {
   display: grid;
   grid-template-columns: 1fr 1.4fr 1.4fr;
   gap: 28px;
   padding: 14px 18px 18px 40px;
 }
-.bank-detail-line { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-size: 12px; color: #94a3b8; }
-.bank-detail-line b { color: #fff; font-family: var(--font-mono); }
-.bank-detail-h { font-size: 12px; color: #cbd5e1; margin-bottom: 8px; }
-.bank-detail-txt { font-size: 12px; line-height: 1.6; color: #cbd5e1; }
-.bank-detail-muted { color: #6b7280; font-style: italic; }
+.bank-detail-line { display: flex; justify-content: space-between; gap: 16px; padding: 4px 0; font-size: 12px; color: var(--text2); }
+.bank-detail-line b { color: var(--text); font-family: var(--font-mono); }
+.bank-detail-h { font-size: 12px; color: var(--text); margin-bottom: 8px; }
+.bank-detail-txt { font-size: 12px; line-height: 1.6; color: var(--text2); }
+.bank-detail-muted { color: var(--text3); font-style: italic; }
 
 @media (max-width: 1100px) {
   .bank-layout { flex-direction: column; }
@@ -9138,16 +9141,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 @media (max-width:480px){ .chat-panel { width:100%; max-width:100%; } }
 
 /* ═══ FX LIST — Overview table ═══════════════════════════════════ */
-.fxl-wrap { display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; width: 100%; min-width: 0; background: #0d0e11; position: relative; border-radius: 0; }
+.fxl-wrap { display: flex; flex-direction: column; flex: 1 1 auto; height: 100%; width: 100%; min-width: 0; background: var(--bg1); position: relative; border-radius: 0; box-shadow: var(--panel-depth); }
 /* Loader centré dans la zone VISIBLE (overlay, pas dans la table large 1240px) */
-.fxl-loader { position: absolute; inset: var(--toolbar-h) 0 0 0; display: flex; align-items: center; justify-content: center; background: #0d0e11; z-index: 5; }
+.fxl-loader { position: absolute; inset: var(--toolbar-h) 0 0 0; display: flex; align-items: center; justify-content: center; background: var(--bg1); z-index: 5; }
 .fxl-toolbar {
   display: flex; align-items: center; justify-content: space-between;
   padding: 0 12px; height: var(--toolbar-h);
   border-bottom: 1px solid var(--border); flex: 0 0 auto;
 }
 .fxl-title { font-family: var(--tight); font-size: 11.5px; font-weight: var(--fw-semibold); color: var(--text); letter-spacing: 0.08em; text-transform: uppercase; }   /* meme design que le titre calendrier (pas de trait orange) */
-.fxl-title-sep, .fxl-title-tag { color: #e3b23a; font-weight: var(--fw-bold); }   /* séparateur | et [Forex] en orange vif */
+.fxl-title-sep, .fxl-title-tag { color: var(--orange); font-weight: var(--fw-bold); }   /* séparateur | et [Forex] en or vif */
 .fxl-toolbar-right { display: flex; align-items: center; gap: 10px; }
 .fxl-updated { font-size: 10px; color: var(--text3); font-family: var(--font-mono); }
 .fxl-refresh {
@@ -9167,22 +9170,22 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .fxl-table { width: 100%; min-width: 1240px; border-collapse: collapse; font-family: var(--font-mono); font-size: 11px; }
 
 .fxl-th {
-  position: sticky; top: 0; z-index: 2; background: #0d0e11;
-  color: #ffffff; font-weight: var(--fw-semibold); font-size: 11px; letter-spacing: .4px; text-transform: uppercase;
+  position: sticky; top: 0; z-index: 2; background: var(--head-bg);
+  color: var(--text); font-weight: var(--fw-semibold); font-size: 11px; letter-spacing: var(--ls-caps); text-transform: uppercase;
   padding: 9px 12px; border-bottom: 1px solid var(--hud-line); border-right: none; white-space: nowrap;
 }
 .fxl-th:last-child, .fxl-td:last-child { border-right: none; }
 /* Freeze the Symbol column while scrolling horizontally */
-.fxl-th--left { left: 0; z-index: 3; text-align: left; background: #0d0e11; }
-.fxl-td--left { position: sticky; left: 0; z-index: 1; background: #0d0e11; }
+.fxl-th--left { left: 0; z-index: 3; text-align: left; background: var(--head-bg); }
+.fxl-td--left { position: sticky; left: 0; z-index: 1; background: var(--bg1); }
 .fxl-th--right { text-align: right; }
 .fxl-th--center { text-align: center; }
 .fxl-th--sortable { cursor: pointer; user-select: none; }
 .fxl-th--sortable:hover { color: var(--orange, #e3b23a); }
 .fxl-sort { color: #565b63; margin-left: 4px; font-size: 9px; }
-.fxl-sort.active { color: #e3b23a; }
+.fxl-sort.active { color: var(--orange); }
 
-.fxl-row { border-bottom: var(--row-sep); }   /* filet subtil unifie sur la ligne de news */
+.fxl-row { border-bottom: var(--row-sep); transition: background var(--t-fast) ease; }   /* filet subtil unifie ; transition douce pour la surbrillance active */
 .fxl-row.active { background: rgba(227,178,58,0.06); }    /* pas de hover:bg → scan stable ; surbrillance SEULEMENT si actif */
 .fxl-td { padding: 9px 12px; white-space: nowrap; vertical-align: middle; color: var(--text); border-right: none; border-radius: 0; }
 .fxl-td--right { text-align: right; }
@@ -9192,44 +9195,44 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .fxl-sym { display: flex; align-items: center; gap: 8px; }
 .fxl-flag { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }   /* drapeau rond w-4 h-4 */
 .fxl-flag--ph { background: var(--bg4); display: inline-block; }
-.fxl-sym-txt { font-weight: var(--fw-semibold); color: #e4e6ea; font-size: 12px; letter-spacing: .02em; }   /* paire en capitales, blanc cassé */
+.fxl-sym-txt { font-weight: var(--fw-semibold); color: var(--text); font-size: 12px; letter-spacing: .02em; }   /* paire en capitales, blanc cassé */
 
 .fxl-last { display: flex; align-items: center; justify-content: center; }
 .fxl-spark { display: block; }
 
 /* CHANGE % — texte simple, sans fond (N/A gris foncé si absent) */
-.fxl-na  { color: #4a4d54; font-weight: var(--fw-medium); }
+.fxl-na  { color: var(--text4); font-weight: var(--fw-medium); }
 .fxl-chg { font-size: 11px; font-weight: var(--fw-semibold); }
-.fxl-chg--pos { color: #2dd4bf; }
-.fxl-chg--neg { color: #ff5c5c; }
+.fxl-chg--pos { color: #00cc99; }
+.fxl-chg--neg { color: #ff3d00; }
 
 /* Heatmap Cell (1M/3M/12M) : bloc plein edge-to-edge, sans arrondi (fond rgba inline ∝ |%|) */
 .fxl-pct { display: block; box-sizing: border-box; text-align: right; padding: 8px 12px; border-radius: 0; font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-bold); }
-.fxl-pct--pos { color: #34e2b0; }   /* vert turquoise sur fond vert sombre */
-.fxl-pct--neg { color: #ff5c5c; }   /* rouge vif sur fond rouge sombre */
+.fxl-pct--pos { color: #00e676; }   /* vert charte sur fond vert sombre */
+.fxl-pct--neg { color: #ff3d00; }   /* rouge charte sur fond rouge sombre */
 
 /* PATTERN — micro-matrice de carrés (allumés blanc / éteints gris très sombre) */
 .fxl-pat { display: inline-flex; gap: 3px; align-items: center; justify-content: center; }
-.fxl-pat-sq { width: 5px; height: 5px; border-radius: 1px; background: #16171b; box-shadow: inset 0 0 0 1px #16171b; }
+.fxl-pat-sq { width: 5px; height: 5px; border-radius: 1px; background: var(--bg2); box-shadow: inset 0 0 0 1px var(--bg2); }
 .fxl-pat-sq.on { background: #eef0f3; box-shadow: 0 0 3px rgba(255,255,255,0.45); }
 
 /* STRENGTH — vumètre horizontal ultra-fin (2px), remplissage depuis la gauche, turquoise / fuchsia */
 .fxl-str { display: flex; justify-content: flex-start; align-items: center; padding: 0 4px; }
-.fxl-str-track { position: relative; width: 100%; max-width: 130px; height: 2px; background: #1b1c20; border-radius: 0; overflow: hidden; }
+.fxl-str-track { position: relative; width: 100%; max-width: 130px; height: 2px; background: var(--bg2); border-radius: 0; overflow: hidden; }
 .fxl-str-bar { position: absolute; top: 0; left: 0; height: 100%; border-radius: 0; }
 .fxl-str-bar--pos { background: #00cc99; }
-.fxl-str-bar--neg { background: #ff0055; }
+.fxl-str-bar--neg { background: #ff3d00; }
 
 .fxl-dmx { display: block; margin: 0 auto; }
 
 /* Micro-badges FUND./RESEARCH/BIAS — bords à peine adoucis (3px), codes couleurs sémantiques discrets */
 .fxl-badge {
-  display: inline-block; min-width: 64px; padding: 4px 10px; border-radius: 3px;
+  display: inline-block; min-width: 64px; padding: 4px 10px; border-radius: var(--r-2);
   font-size: 11px; font-weight: var(--fw-semibold); text-align: center; letter-spacing: .01em;
 }
-.fxl-badge--bull { color: #34d399; background: #0d2a1d; }   /* vert sur vert foncé mat */
-.fxl-badge--neut { color: #d9a441; background: #221d12; }   /* jaune/orange éteint sur anthracite brun */
-.fxl-badge--bear { color: #f0786a; background: #2a1512; }   /* rouge sur marron brique */
+.fxl-badge--bull { color: #00e676; background: #0d2a1d; }   /* BUY sur vert foncé mat */
+.fxl-badge--neut { color: #ffb300; background: #221d12; }   /* NEUTRE (charte) sur anthracite brun */
+.fxl-badge--bear { color: #ff3d00; background: #2a1512; }   /* SELL sur marron brique */
 
 .fxl-msg { text-align: center; color: var(--text3); padding: 30px; }
 
@@ -9250,15 +9253,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* ── TAUX — taux directeurs des banques centrales (admin) ──────────────── */
 .panel-taux { padding: 0; display: flex; flex-direction: column; width: 100%; height: 100%; flex: 1 1 auto; min-width: 0; }
 .panel-taux .panel-header { flex: 0 0 auto; }
-.panel-taux .taux-sub { font-size: 11px; color: #ffb300; margin-left: 10px; letter-spacing: .02em; font-weight: var(--fw-medium); }
 /* Légende du code couleur (Hausse / Maintien / Baisse) + rappel « estimation maison » */
-.taux-legend { display: inline-flex; align-items: center; gap: 13px; margin-left: 14px; font-size: 10px; color: #9a9aa2; white-space: nowrap; }
+.taux-legend { display: inline-flex; align-items: center; gap: 13px; margin-left: 14px; font-size: 10px; color: var(--text2); white-space: nowrap; }
 .taux-legend .tlg { display: inline-flex; align-items: center; gap: 5px; }
 .taux-legend .tlg i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
 .taux-legend .tlg i.g { background: #00e676; }
 .taux-legend .tlg i.n { background: #abb4c3; }
-.taux-legend .tlg i.r { background: #ff4d2e; }
-.taux-legend .tlg-note { color: #6a6a73; font-style: italic; padding-left: 11px; border-left: 1px solid #232429; }
+.taux-legend .tlg i.r { background: #ff3d00; }
+.taux-legend .tlg-note { color: var(--text3); font-style: italic; padding-left: 11px; border-left: 1px solid var(--border); }
 @media (max-width: 1240px) { .taux-legend .tlg-note { display: none; } }
 @media (max-width: 980px)  { .taux-legend { display: none; } }
 .taux-wrap { overflow-x: auto; }
@@ -9283,63 +9285,66 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .taux-last.r { color: #ff3d00; }
 .taux-last.n { color: #9a9aa2; }
 .taux-bias { color: #a6a6ad; max-width: 380px; font-size: 12px; line-height: 1.45; }
-.taux-loading, .taux-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; color: #6f6f78; }   /* spinner CENTRÉ dans le panneau (était collé en haut) */
+.taux-loading, .taux-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; color: var(--text3); }   /* spinner CENTRÉ dans le panneau (était collé en haut) */
 /* ── TAUX : grille 4 colonnes haute densité (cartes "Interest Rate Probability", estimation maison) ── */
 .taux-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, minmax(0,1fr)); gap: 8px; padding: 8px; overflow: hidden; align-content: stretch; flex: 1 1 auto; min-height: 0; }   /* MONOBLOC 4×2 : 8 banques sur un écran, sans scroll */
 @media (max-width: 1560px), (max-height: 860px) { .taux-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; grid-auto-rows: max-content; overflow-y: auto; align-content: start; } }   /* en dessous du monobloc OU écran peu haut (laptops 1600-1680×800-900) : cartes à hauteur réelle (sinon comprimées + tronquées) + scroll */
 @media (max-width: 1180px) { .taux-grid { grid-template-columns: repeat(2, 1fr); } }
 @media (max-width: 720px)  { .taux-grid { grid-template-columns: 1fr; } }
 /* ── Carte « Interest Rate Probability » — clone fidèle haute densité (angles carrés, terminologie EN) ── */
-.rtc { background: #0d0e11; border: 1px solid #232429; border-radius: 0; display: flex; flex-direction: column; overflow: hidden; min-height: 0; }
-.rtc-head { display: flex; align-items: center; gap: 7px; min-height: 27px; padding: 0 9px; border-bottom: 1px solid var(--border); flex: 0 0 auto; }
-.rtc-flag { width: 16px; height: 16px; object-fit: cover; border-radius: 50%; border: 1px solid #232429; flex: 0 0 auto; }
-.rtc-bank { font-size: 11px; font-weight: var(--fw-semibold); color: #d6d8de; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rtc { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--panel-depth); display: flex; flex-direction: column; overflow: hidden; min-height: 0; transition: border-color var(--t-fast) ease; }
+.rtc:hover { border-color: rgba(227,178,58,0.20); }
+.rtc-head { display: flex; align-items: center; gap: 7px; min-height: 27px; padding: 0 9px; background: var(--head-bg); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.rtc-flag { width: 16px; height: 16px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
+.rtc-bank { font-size: 11px; font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)
       avec sparkline ultra-fine EN FOND bas-droite de cellule (clone pro) ── */
 /* Bandeau 5 métriques (clone pro) : chaque cellule bordée porte SA mini-courbe décorative
    calée bas-droite DERRIÈRE le texte (z-0), libellé pouvant passer sur 2 lignes. */
-.rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid #16171b; flex: 0 0 auto; }
-.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 7px; border-right: 1px solid #16171b; min-width: 0; min-height: 56px; justify-content: flex-start; }
+.rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--bg2); flex: 0 0 auto; }
+.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 7px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 56px; justify-content: flex-start; }
 .rtc-m:last-child { border-right: 0; }
 .rtc-k { position: relative; z-index: 1; font-size: 9px; letter-spacing: .02em; color: var(--text2); line-height: 1.2; }
-.rtc-v { position: relative; z-index: 1; font-size: 11.5px; font-weight: var(--fw-bold); color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
-.rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff4d2e; } .rtc-v.n { color: #abb4c3; } .rtc-v.w { color: #ffffff; }
-.rtc-prob { color: #e3b23a; }   /* Probability = ambre/orange (clone pro text-primary) */
+.rtc-v { position: relative; z-index: 1; font-size: 11.5px; font-weight: var(--fw-bold); color: var(--text); font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
+.rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff3d00; } .rtc-v.n { color: var(--text2); } .rtc-v.w { color: var(--text); }
+.rtc-prob { color: var(--orange); }   /* Probability = or (clone pro text-primary) */
 /* La courbe COMBLE le bas de la cellule : étirée sur toute la largeur (preserveAspectRatio none), ~45% de hauteur */
 .rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 1px; width: auto; height: 45%; max-height: 24px; z-index: 0; opacity: .9; pointer-events: none; }
 /* ── Scenario Distribution : OCCUPE l'espace libre entre métriques et tableau (plus de vide noir),
       contenu centré verticalement, barres épaisses rounded-sm, % à droite de la barre ── */
 .rtc-dist { display: flex; flex-direction: column; gap: 7px; padding: 8px 9px 6px; flex: 1 1 auto; min-height: 0; justify-content: center; }
-.rtc-dist-h { font-size: 10px; letter-spacing: .02em; color: #c9cbd1; margin-bottom: 2px; font-weight: var(--fw-semibold); }
+.rtc-dist-h { font-size: 10px; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text2); margin-bottom: 2px; font-weight: var(--fw-semibold); }
 .rtc-bar { display: flex; align-items: center; gap: 7px; font-size: 11px; }
 .rtc-bl { width: 32px; color: var(--text2); flex: 0 0 auto; }
 .rtc-track { flex: 1; height: 20px; background: rgba(255,255,255,0.03); border-radius: 2px; }
 .rtc-track i { display: block; height: 100%; border-radius: 2px; transition: width .4s; min-width: 2px; }
 .rtc-track i.n { background: #abb4c3; } .rtc-track i.g { background: rgba(0,230,118,.85); } .rtc-track i.r { background: rgba(255,61,0,.82); }
-.rtc-bp { width: 52px; text-align: left; color: #e8e8ea; font-family: var(--mono, ui-monospace, monospace); font-weight: var(--fw-semibold); font-size: 11px; flex: 0 0 auto; }
+.rtc-bp { width: 52px; text-align: left; color: var(--text); font-family: var(--mono, ui-monospace, monospace); font-weight: var(--fw-semibold); font-size: 11px; flex: 0 0 auto; }
 .rtc-axis { display: flex; justify-content: space-between; padding: 2px 59px 0 39px; }
-.rtc-axis span { font-size: 8px; color: #4a4a52; font-family: var(--mono, ui-monospace, monospace); }
+.rtc-axis span { font-size: 8px; color: var(--text3); font-family: var(--mono, ui-monospace, monospace); }
 /* ── Tableau des réunions : AGRANDI + zone SCROLLABLE (~3 lignes visibles, en-tête collant 2 lignes,
       colonnes date/jours bien séparées — clone pro) ── */
 .rtc-tblwrap { margin-top: auto; flex: 1 1 auto; min-height: 0; max-height: 132px; overflow-y: auto; border-top: 1px solid var(--border); }
 .rtc-tbl { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono, ui-monospace, monospace); }
 .rtc-tbl th { position: sticky; top: 0; z-index: 2; background: var(--head-bg); color: var(--text2); font-weight: var(--fw-semibold); text-align: center; padding: 4px 6px; border-bottom: 1px solid var(--border); font-size: 10px; line-height: 1.2; }
 .rtc-tbl th:first-child { text-align: left; padding-left: 9px; }
-.rtc-tbl td { padding: 5px 6px; border-bottom: 1px solid #16171b; text-align: center; color: #d8dade; white-space: nowrap; }
+.rtc-tbl td { padding: 5px 6px; border-bottom: var(--row-sep); text-align: center; color: var(--text); white-space: nowrap; }
 .rtc-tbl tr:last-child td { border-bottom: 0; }
-.rtc-tbl td:first-child { text-align: left; color: #eceef2; padding-left: 9px; padding-right: 10px; }
+.rtc-tbl td:first-child { text-align: left; color: var(--text); padding-left: 9px; padding-right: 10px; }
+.rtc-tbl tbody tr { transition: background var(--t-fast) ease; }
+.rtc-tbl tbody tr:hover { background: var(--row-hover); }
 .rtc-day { color: var(--text2); }
 /* Pilules Implied Δ (fond plein vert/rouge foncé, texte centré) + badge Base Case (gris sombre / vert sombre) */
 .rtc-pill { display: inline-block; font-size: 10px; font-weight: var(--fw-semibold); padding: 2px 7px; border-radius: 3px; border: 1px solid; white-space: nowrap; min-width: 66px; text-align: center; font-family: var(--mono, ui-monospace, monospace); }
 .rtc-base { display: inline-block; font-size: 9px; font-weight: var(--fw-bold); padding: 2px 8px; border-radius: 3px; border: 1px solid; min-width: 40px; text-align: center; }
 .rtc-pill.g, .rtc-base.g { background: rgba(0,230,118,.15);  color: #00e676; border-color: rgba(0,230,118,.5); }
-.rtc-pill.r, .rtc-base.r { background: rgba(255,61,0,.15);   color: #ff4d2e; border-color: rgba(255,61,0,.5); }
+.rtc-pill.r, .rtc-base.r { background: rgba(255,61,0,.15);   color: #ff3d00; border-color: rgba(255,61,0,.5); }
 .rtc-pill.n             { background: rgba(171,180,195,.13); color: #abb4c3; border-color: rgba(171,180,195,.4); }
-.rtc-base.n             { background: #23262c; color: #abb4c3; border-color: #34383f; }
+.rtc-base.n             { background: var(--bg5); color: #abb4c3; border-color: #34383f; }
 /* .rtc-move : conservé pour le badge sentiment du panneau COT (sym-cot-sent), plus utilisé par les cartes TAUX */
 .rtc-move { margin-left: auto; font-size: 10px; font-weight: var(--fw-bold); padding: 2px 8px; border-radius: 4px; white-space: nowrap; border: 1px solid; }
 .rtc-move.g { background: rgba(0,230,118,.14); color: #00e676; border-color: rgba(0,230,118,.5); }
-.rtc-move.r { background: rgba(255,61,0,.14); color: #ff4d2e; border-color: rgba(255,61,0,.5); }
+.rtc-move.r { background: rgba(255,61,0,.14); color: #ff3d00; border-color: rgba(255,61,0,.5); }
 .rtc-move.n { background: rgba(171,180,195,.12); color: #abb4c3; border-color: rgba(171,180,195,.4); }
 /* ── Onglets : réorganisation par glisser (appui maintenu) ── */
 .nav-reordering { cursor: grabbing !important; user-select: none; }
@@ -10004,7 +10009,9 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 /* Onglet nav actif : trait dore RESTAURE (demande utilisateur — souligne l'onglet actif facon CALENDRIER) */
 .nav-item{position:relative;}
 .nav-item--active:not(.nav-item--symbol),.nav-item.active:not(.nav-item--symbol){box-shadow:none !important;}
-.nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{content:'' !important;position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a) !important;border:0 !important;border-radius:2px 2px 0 0;}
+.nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{content:'' !important;position:absolute;left:0;right:0;bottom:0;height:2px;background:var(--orange,#e3b23a) !important;border:0 !important;border-radius:2px 2px 0 0;transform-origin:center;animation:navUnderlineIn var(--t-med) var(--ease-out) both;}
+@keyframes navUnderlineIn{from{transform:scaleX(0);opacity:.35;}to{transform:scaleX(1);opacity:1;}}
+@media (prefers-reduced-motion: reduce){.nav-item--active:not(.nav-item--symbol)::after,.nav-item.active:not(.nav-item--symbol)::after{animation:none;}}
 
 /* === Mode clair FULL WHITE — panneau droit (horloge, onglets, conteneurs graphiques) === */
 body.theme-light .right-tab-panel,
@@ -10222,6 +10229,11 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
 .bank-skel-row .bank-date .dtp-skel{width:56%;}
 .bank-skel-row .bank-exp .dtp-skel,
 .bank-skel-row .bank-chart-cell .dtp-skel{width:14px;margin:0 auto;}
+/* Cartes TAUX : squelette cale sur .rtc (head + 5 metriques + 3 barres) */
+.rtc-skel .rtc-head .dtp-skel{height:11px;}
+.rtc-skel .rtc-m{gap:4px;}
+.rtc-skel .rtc-dist{gap:8px;}
+.rtc-skel .dtp-skel{opacity:.85;}
 /* Matrice Radar de Biais : squelette cale sur la grille (en-tetes devises + cellules) */
 .sbm-grid .sbm-ind .dtp-skel{width:70%;height:8px;}
 .sbm-skel-cur{width:34px;height:8px;margin:0 auto;}
