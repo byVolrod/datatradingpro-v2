@@ -11159,6 +11159,8 @@ const _HERO_CAT_FR = {
   'Canadian Data':'Données Canada','Australian Data':'Données Australie','Chinese Data':'Données Chine',
 };
 const _HERO_CAT_TAG = { ECB:'EUR', BoE:'GBP', Fed:'USD', BOC:'CAD', RBA:'AUD', RBNZ:'NZD', BoJ:'JPY', SNB:'CHF', 'Energy & Power':'Oil', Metals:'Or', Crypto:'BTC' };
+// Couleur du tag CATEGORIE = MEME scheme que le desk (.tag[data-cat]) : Energie=or, FX/Analyse=vert, Obligataire/Comm.eco=turquoise, Asie=rouge, Commerce=ardoise, reste=neutre.
+const _HERO_CAT_CLS = { 'Energy & Power':'gold', 'FX Flows':'green', 'Market Analysis':'green', 'Fixed Income':'teal', 'Economic Commentary':'teal', 'Asian News':'red', 'Trade':'slate' };
 const _HERO_BREAKING_RX = /\b(?:attack|airstrike|missile|invasion|explosion|blast|killed|breaking|urgent|ceasefire)\b/i;
 // Bruit indigne d'une maquette hero (en + de isGlobalNewsNoise) : notations de crédit d'instruments,
 // tourisme / pubs institutionnelles, opérations de liquidité de routine d'une banque centrale.
@@ -11188,6 +11190,7 @@ function _buildHeroNews() {
     out.push({
       h: h.slice(0, 96),
       cat: _HERO_CAT_FR[i.category] || i.category || '',
+      catCls: _HERO_CAT_CLS[i.category] || '',   // couleur du tag categorie facon desk (.tag[data-cat])
       tag: _heroPickTag(i),
       t: i.timestamp ? new Date(i.timestamp).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false }) : '',   // heure REELLE du desk → fil hero = vrai doublon
       info: desc.length > 30,
