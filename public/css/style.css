@@ -10206,6 +10206,43 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
 .chart-skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(227,178,58,.045) 42%,rgba(255,255,255,.03) 50%,transparent 78%);background-size:300% 100%;animation:dtpSkelShimmer 1.5s ease-in-out infinite;}
 .chart-skel--hide{opacity:0;}
 
+/* ═══════════════ Skeletons des tableaux/listes (epousent la structure reelle -> zero reflow) ═══════════════ */
+/* Table Banques : lignes squelette calees sur les 10 colonnes reelles */
+.bank-skel-row td{border-bottom:var(--row-sep);}
+.bank-skel-row .dtp-skel{width:62%;}
+.bank-skel-row .bank-name .dtp-skel{width:82%;}
+.bank-skel-row .bank-num .dtp-skel{width:70%;margin-left:auto;}
+.bank-skel-row .bank-date .dtp-skel{width:56%;}
+.bank-skel-row .bank-exp .dtp-skel,
+.bank-skel-row .bank-chart-cell .dtp-skel{width:14px;margin:0 auto;}
+/* Matrice Radar de Biais : squelette cale sur la grille (en-tetes devises + cellules) */
+.sbm-grid .sbm-ind .dtp-skel{width:70%;height:8px;}
+.sbm-skel-cur{width:34px;height:8px;margin:0 auto;}
+.sbm-skel-cell .dtp-skel{width:64%;height:8px;margin:0 auto;}
+.sbm-skel-cell{background:transparent !important;}
+/* Calendrier : lignes squelette calees sur les 10 colonnes .cal-table */
+.cal-skel-row td{border-bottom:var(--row-sep,1px solid #111113);}
+.cal-skel-row .dtp-skel{width:62%;margin:0 auto;}
+.cal-skel-row .cth-event .dtp-skel{width:88%;margin-left:0;}
+.cal-skel-row .cth-time  .dtp-skel{width:70%;margin-left:0;}
+.cal-skel-row .cth-curr  .dtp-skel{width:60%;}
+.cal-skel-sep .dtp-skel{width:180px;height:8px;}
+/* Semaine a Venir : placeholders cales sur .wa-wrap */
+.wa-skel-wrap .wa-skel-head{width:190px;height:14px;}
+.wa-skel-chart{position:relative;min-height:60px;}
+.wa-skel-chart .dtp-skel{position:absolute;inset:6px;height:auto;border-radius:4px;}
+.wa-skel-day .wa-node{display:flex;flex-direction:column;gap:4px;}
+.wa-skel-dow{width:26px;height:8px;} .wa-skel-date{width:20px;height:11px;} .wa-skel-mon{width:26px;height:8px;}
+.wa-skel-title{width:60%;height:11px;} .wa-skel-imp{width:74px;height:14px;border-radius:3px;}
+.wa-skel-line{width:100%;height:8px;margin-top:6px;} .wa-skel-line--short{width:65%;}
+/* Catalogues Analyste & Institution : lignes squelette calees sur .arlib-table */
+.arl-skel-row td{border-bottom:var(--row-sep,1px solid #111113);}
+.arl-skel-bm{width:12px;height:13px;border-radius:2px;margin:0 auto;}
+.arl-skel-row .arl-c-date .dtp-skel{width:56px;height:9px;}
+.arl-skel-ico{width:13px;height:13px;border-radius:2px;flex:0 0 auto;}
+.arl-skel-ttl{width:min(78%,420px);height:10px;}
+.arl-skel-inst{width:20px;height:20px;border-radius:50%;margin-left:auto;}
+
 /* ═══════════════ Responsive mobile — reader Institutions (PDF) + widget Force des Devises ═══════════════ */
 @media (max-width: 768px){
   /* (A) Vue MARCHES / « Force des Devises » : le TITRE du widget doit rester visible — il etait ecrase

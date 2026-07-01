@@ -3111,6 +3111,28 @@ async function _refreshCalendarData(silent = false) {
   return false;
 }
 
+// Skeleton du calendrier — epouse la structure reelle (.cal-table, 10 colonnes, separateurs de jour).
+// Injecte dans #cal-table-wrap PENDANT le fetch -> auto-efface par le renderCalTable() qui reecrit ce conteneur.
+function _calSkel() {
+  const cols = ['cth-time','cth-flag','cth-curr','cth-imp','cth-event','cth-val','cth-val','cth-val','cth-val','cth-val'];
+  let rows = '';
+  for (let g = 0; g < 2; g++) {
+    rows += '<tr class="cal-day-sep cal-skel-sep" aria-hidden="true"><td colspan="10"><span class="dtp-skel"></span></td></tr>';
+    for (let i = 0; i < 6; i++) {
+      rows += '<tr class="cal-row cal-skel-row" aria-hidden="true">'
+        + cols.map(c => '<td class="' + c + '"><span class="dtp-skel"></span></td>').join('')
+        + '</tr>';
+    }
+  }
+  return '<table class="cal-table">'
+    + '<thead><tr>'
+    + '<th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th>'
+    + '<th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th>'
+    + '<th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th><th class="cth-val">PRÉCÉDENT</th>'
+    + '</tr></thead>'
+    + '<tbody>' + rows + '</tbody></table>';
+}
+
 async function buildCalendar() {
   // Mark that next renderCalTable call should auto-scroll to current event
   _calNeedsScroll = true;
@@ -3119,7 +3141,7 @@ async function buildCalendar() {
   if (!wrap) return;
 
   if (_calEvents.length === 0) {
-    wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement du calendrier économique…') : 'Chargement…');
+    wrap.innerHTML = _calSkel();   // skeleton (epouse .cal-table) au lieu du loader texte
 
     let loaded = false;
     for (let attempt = 1; attempt <= 4; attempt++) {
@@ -3135,12 +3157,12 @@ async function buildCalendar() {
         }
         // Empty response — server may still be fetching; wait and retry
         if (attempt < 4) {
-          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement du calendrier économique…') : 'Chargement…');
+          wrap.innerHTML = _calSkel();   // skeleton (epouse .cal-table) au lieu du loader texte
           await new Promise(r => setTimeout(r, 3000));
         }
       } catch {
         if (attempt < 4) {
-          wrap.innerHTML = (window.dtpLoader ? window.dtpLoader('Connexion…') : 'Connexion…');
+          wrap.innerHTML = _calSkel();   // skeleton (au lieu de "Connexion…")
           await new Promise(r => setTimeout(r, 3000));
         }
       }
