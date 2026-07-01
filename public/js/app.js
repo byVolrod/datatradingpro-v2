@@ -4884,8 +4884,20 @@ document.addEventListener('click', (ev) => {
   renderBrReader(item);
 });
 
+// Cache ArrayBuffer EN MEMOIRE JS (survit a l'eviction du cache HTTP mobile) : id -> {ab, size, endpoint}.
+// Le clic reutilise les octets stockes = ZERO fetch = ouverture INSTANTANEE, et alimente PDF.js directement.
+// Borne (8 max) + eviction du plus ancien -> pas d'OOM sur le tier 512 Mo (8 PDF x ~4 Mo ~ 32 Mo).
+const _brBlobCache = new Map();
+const _BR_BLOB_CAP = 8;
+function _brBlobStore(id, endpoint, ab) {
+  if (!id || !ab || ab.byteLength < 1000) return;
+  if (_brBlobCache.has(id)) _brBlobCache.delete(id);
+  while (_brBlobCache.size >= _BR_BLOB_CAP) { _brBlobCache.delete(_brBlobCache.keys().next().value); }
+  _brBlobCache.set(id, { ab, size: ab.byteLength, endpoint });
+}
+
 // Préchauffage PDF : au survol soutenu (desktop) / au 1er contact (mobile) d'une ligne, on réchauffe le
-// cache serveur (contenu + PDF proxifié) AVANT le clic → l'ouverture du rapport devient quasi instantanée.
+// cache serveur ET on STOCKE les octets du PDF (cache blob JS) AVANT le clic → ouverture instantanée.
 // Garde 1 fetch/rapport (Set) + intention de survol 180ms → pas de sur-préchauffage en passant la souris.
 const _brPrefetched = new Set();
 let _brHoverTimer = null;
@@ -4897,7 +4909,7 @@ function _brPrefetch(item) {
     if (item._pdfUrl) pdf = item._pdfUrl;
     else if (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || '')) pdf = item.url;
     else if (item._source === 'ing-think') { try { pdf = _ingPdfUrl(item.url); } catch (e) {} }
-    if (pdf) fetch(_brPdfProxy(pdf)).then(r => r.ok && r.blob()).catch(() => {});                  // réchauffe cache disque serveur + cache navigateur du PDF natif (blob consommé = téléchargé)
+    if (pdf) { const ep = _brPdfProxy(pdf), id = item.id; fetch(ep).then(r => r.ok ? r.arrayBuffer() : null).then(ab => ab && _brBlobStore(id, ep, ab)).catch(() => {}); }   // STOCKE les octets (cache blob JS) → clic instantané, alimente PDF.js
     if (item.url) fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url)).catch(() => {});  // réchauffe contenu + segmentation IA + résolution pdfUrl/renderUrl
   } catch (e) {}
 }
@@ -4929,7 +4941,7 @@ function _brWarmTopPdfs(items) {
     else if (it._source === 'ing-think') { try { pdf = _ingPdfUrl(it.url); } catch (e) {} }
     if (!pdf) continue;
     _brPrefetched.add(it.id);
-    ((u, k) => setTimeout(() => { try { fetch(_brPdfProxy(u)).then(r => r.ok && r.blob()).catch(() => {}); } catch (e) {} }, k * 350))(pdf, n);
+    ((u, k, id) => setTimeout(() => { try { const ep = _brPdfProxy(u); fetch(ep).then(r => r.ok ? r.arrayBuffer() : null).then(ab => ab && _brBlobStore(id, ep, ab)).catch(() => {}); } catch (e) {} }, k * 350))(pdf, n, it.id);
     n++;
   }
 }
@@ -5042,29 +5054,81 @@ function _ingPdfUrl(u) {
     return 'https://think.ing.com/downloads/pdf/' + t + '/' + m[2];
   } catch { return ''; }
 }
-// Embarque un PDF (proxy OU rendu) APRÈS avoir vérifié via une sonde HEAD qu'il est réellement servi en
-// application/pdf → on n'affiche JAMAIS l'erreur brute (« pdf fetch failed »/« render failed ») dans le cadre.
-// Renvoie true si le PDF est embarqué, false sinon (→ l'appelant tente le repli suivant).
+// Rend un PDF via PDF.js sur des <canvas> (FIABLE sur mobile/iOS, contrairement a l'iframe PDF qui reste un
+// cadre gris sur WebKit) : page 1 tout de suite, pages suivantes a la volee (IntersectionObserver). Canvas =
+// largeur conteneur x devicePixelRatio (cap 2) -> responsive + net. Cap 40 pages (memoire device bornee).
+async function _brRenderPdfCanvas(content, data, ttl) {
+  if (!window.pdfjsLib) return false;
+  if (!pdfjsLib.GlobalWorkerOptions.workerSrc)
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const pdf = await pdfjsLib.getDocument({ data }).promise;
+  const nPages = Math.min(pdf.numPages, 40);
+  if (window._brPdfDoc) { try { window._brPdfDoc.destroy(); } catch (e) {} }
+  window._brPdfDoc = pdf;
+  const safeTtl = String(ttl).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  content.classList.add('br-rcontent--pdf');
+  content.innerHTML =
+    '<div class="br-pdf-bar"><span class="br-pdf-bar-lbl">' + safeTtl + '</span>' +
+    '<span class="br-pdf-bar-lbl" style="color:#b8860b">' + pdf.numPages + ' page' + (pdf.numPages > 1 ? 's' : '') + '</span></div>' +
+    '<div class="br-pdf-canvaswrap" id="br-pdf-canvaswrap"></div>';
+  const wrap = content.querySelector('#br-pdf-canvaswrap');
+  const renderPage = async (num, cvs) => {
+    if (cvs.dataset.done) return;
+    cvs.dataset.done = '1';
+    const page = await pdf.getPage(num);
+    const cssW = wrap.clientWidth || window.innerWidth || 360;
+    const vp1 = page.getViewport({ scale: 1 });
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const scale = (cssW / vp1.width) * dpr;
+    const vp = page.getViewport({ scale });
+    cvs.width = Math.floor(vp.width); cvs.height = Math.floor(vp.height);
+    await page.render({ canvasContext: cvs.getContext('2d', { alpha: false }), viewport: vp }).promise;
+  };
+  const io = new IntersectionObserver((ents) => {
+    ents.forEach(e => { if (e.isIntersecting) { renderPage(+e.target.dataset.page, e.target).catch(() => {}); io.unobserve(e.target); } });
+  }, { root: content, rootMargin: '600px 0px' });
+  for (let i = 1; i <= nPages; i++) {
+    const cvs = document.createElement('canvas');
+    cvs.className = 'br-pdf-canvas'; cvs.dataset.page = i;
+    wrap.appendChild(cvs);
+    if (i === 1) await renderPage(1, cvs);
+    else io.observe(cvs);
+  }
+  return true;
+}
+// Embarque un PDF (proxy OU rendu). Renvoie true si affiche, false sinon (→ l'appelant tente le repli suivant).
+// MOBILE : rendu PDF.js sur canvas (l'iframe PDF ne s'affiche PAS inline sur iOS/WebKit = cadre gris). DESKTOP : iframe.
+// FAST PATH : si les octets ont ete prechauffes (cache blob JS) → reutilisation directe, ZERO fetch = instantane.
 async function _brEmbedPdf(item, endpointUrl) {
   const content = document.getElementById('br-rcontent');
   if (!content) return false;
-  let blobUrl = '';
-  try {
-    const ctrl = new AbortController();
-    const to = setTimeout(() => ctrl.abort(), 30000);   // le rendu Puppeteer peut prendre quelques secondes
-    const r = await fetch(endpointUrl, { signal: ctrl.signal });   // GET complet (pas HEAD) → on vérifie le CONTENU réel
-    clearTimeout(to);
-    if (!r.ok || !((r.headers.get('content-type') || '').toLowerCase().includes('pdf'))) return false;
-    const blob = await r.blob();
-    if (!blob || blob.size < 1000) return false;        // PDF vide / page d'erreur déguisée → on bascule sur le repli (jamais de cadre blanc)
-    blobUrl = URL.createObjectURL(blob);                // URL same-origin → contourne X-Frame-Options/CSP de la source (cause n°1 du cadre blanc)
-  } catch { return false; }
-  if (!document.getElementById('br-rcontent')) { try { URL.revokeObjectURL(blobUrl); } catch {} return true; }   // l'utilisateur a quitté le reader entre-temps
-  try { if (window._brBlobUrl) URL.revokeObjectURL(window._brBlobUrl); } catch {}   // libère le blob précédent (anti-fuite mémoire)
+  let buf = null;
+  const hit = item && item.id && _brBlobCache.get(item.id);
+  if (hit && hit.endpoint === endpointUrl) {
+    buf = hit.ab;                                       // octets deja en main (prechauffage) → aucun reseau
+  } else {
+    try {
+      const ctrl = new AbortController();
+      const to = setTimeout(() => ctrl.abort(), 30000);   // le rendu Puppeteer peut prendre quelques secondes
+      const r = await fetch(endpointUrl, { signal: ctrl.signal });
+      clearTimeout(to);
+      if (!r.ok || !((r.headers.get('content-type') || '').toLowerCase().includes('pdf'))) return false;
+      buf = await r.arrayBuffer();
+      if (!buf || buf.byteLength < 1000) return false;   // PDF vide / page d'erreur → repli (jamais de cadre blanc)
+      if (item && item.id) _brBlobStore(item.id, endpointUrl, buf);
+    } catch { return false; }
+  }
+  if (!document.getElementById('br-rcontent')) return true;   // l'utilisateur a quitté le reader entre-temps
+  const ttl = (item.title || 'PDF').replace(/"/g, '');
+  if (window.innerWidth <= 768) {                        // MOBILE → PDF.js obligatoire (iframe = cadre gris sur WebKit)
+    if (window.pdfjsLib) { try { if (await _brRenderPdfCanvas(content, buf.slice(0), ttl)) return true; } catch (e) {} }
+    return false;                                        // PDF.js indispo/echec → l'appelant tombe sur la carte « ouvrir l'original »
+  }
+  try { if (window._brBlobUrl) URL.revokeObjectURL(window._brBlobUrl); } catch {}   // DESKTOP → iframe blob same-origin
+  const blobUrl = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
   window._brBlobUrl = blobUrl;
   content.classList.add('br-rcontent--pdf');
-  const ttl = (item.title || 'PDF').replace(/"/g, '');
-  content.innerHTML = `<iframe class="br-pdf-frame" src="${blobUrl}#toolbar=0&navpanes=0&${window.innerWidth <= 768 ? 'view=FitH' : 'zoom=100'}" title="${ttl}"></iframe>`;
+  content.innerHTML = `<iframe class="br-pdf-frame" src="${blobUrl}#toolbar=0&navpanes=0&zoom=100" title="${ttl}"></iframe>`;
   return true;
 }
 // Repli PROPRE quand AUCUN PDF n'est affichable : en-tête + titre + aperçu + « Ouvrir le rapport original ↗ »
