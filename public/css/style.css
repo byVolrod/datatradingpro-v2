@@ -4442,7 +4442,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   background-color: #0f0f0f;
   min-width: 110px;
 }
-.arlib-filter:hover { border-color: #252525; color: #bbb; }
+.arlib-filter:hover { border-color: var(--border2); color: var(--text2); }
 .arlib-filter option { background: #111; }
 
 /* Barre d'outils façon pro : filtres compacts (largeurs fixes) à GAUCHE + recherche qui occupe le RESTE à droite, sur une ligne */
@@ -8224,7 +8224,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   margin-left: 4px;
   transition: color 0.12s;
 }
-.np-filter-btn:hover { color: #aaa; }
+.np-filter-btn:hover { color: var(--text2); }
 
 /* Items list */
 .np-list {
@@ -9133,9 +9133,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .chat-lightbox img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 14px 54px rgba(0,0,0,.65); cursor:default; }
 
 .chat-input-bar { display:flex; align-items:flex-end; gap: var(--sp-2); padding: var(--sp-2) var(--sp-3) var(--sp-1); border-top:1px solid #232429; flex-shrink:0; }
-.chat-input { flex:1; resize:none; background:#16171b; border:1px solid var(--border2); border-radius:4px; padding:9px 12px; color:#e2e8f0; font-size:13px; font-family:var(--font-ui); outline:none; max-height:90px; }
+.chat-input { flex:1; resize:none; background:var(--bg2); border:1px solid var(--border); border-radius:var(--r-2); padding:9px 12px; color:var(--text); font-size:13px; font-family:var(--font-ui); outline:none; max-height:90px; }
 .chat-input::placeholder { color:#6b7280; }
-.chat-input:focus { border-color:#3a3a42; }
+.chat-input:focus { border-color:var(--orange); box-shadow:0 0 0 2px rgba(227,178,58,0.16); }
 .chat-send { width:38px; height:38px; flex-shrink:0; border:none; border-radius:4px; background:#e3b23a; color:#0d0e11; cursor:pointer; display:flex; align-items:center; justify-content:center; }
 .chat-send:hover { filter:brightness(1.08); }
 .chat-hint { padding:2px 14px 10px; font-size:10px; color:#5b6471; flex-shrink:0; }
@@ -9502,15 +9502,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* ── Dropdown custom DTP (remplace les <select> natifs : panneau sombre arrondi, ✓ orange — fini le surlignage bleu de l'OS) ── */
 .dtpsel-native{display:none!important}
 .dtpsel{position:relative;display:inline-flex;vertical-align:middle}
-.dtpsel-btn{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid #2a2a31;border-radius:7px;padding:6px 28px 6px 10px;font-size:12px;color:#e6e8ec;cursor:pointer;outline:none;position:relative;white-space:nowrap;transition:border-color .15s;line-height:1.3}
-.dtpsel-btn:hover{border-color:#3a3a44}
+.dtpsel-btn{display:flex;align-items:center;gap:7px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-2);padding:6px 28px 6px 10px;font-size:12px;color:var(--text);cursor:pointer;outline:none;position:relative;white-space:nowrap;transition:border-color .15s;line-height:1.3}
+.dtpsel-btn:hover{border-color:var(--border2)}
 .dtpsel.open .dtpsel-btn{border-color:var(--orange,#e3b23a)}
 .dtpsel-lbl{display:inline-flex;align-items:center;gap:7px}
 .dtpsel-caret{position:absolute;right:9px;top:50%;transform:translateY(-50%);transition:transform .2s;color:#8a8a92;pointer-events:none;line-height:0}
 .dtpsel.open .dtpsel-caret{transform:translateY(-50%) rotate(180deg)}
-.dtpsel-panel{background:var(--bg2);border:1px solid #2a2a31;border-radius:4px;padding:5px;box-shadow:0 18px 44px -14px rgba(0,0,0,.85);z-index:99999;max-height:300px;overflow-y:auto}
-.dtpsel-item{display:flex;align-items:center;gap:8px;padding:7px 26px 7px 10px;border-radius:4px;font-size:12px;color:#c8cdd6;cursor:pointer;white-space:nowrap;position:relative;transition:background .12s}
-.dtpsel-item:hover{background:#232429;color:#fff}
+.dtpsel-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r-2);padding:5px;box-shadow:0 18px 44px -14px rgba(0,0,0,.85);z-index:99999;max-height:300px;overflow-y:auto}
+.dtpsel-item{display:flex;align-items:center;gap:8px;padding:7px 26px 7px 10px;border-radius:var(--r-2);font-size:12px;color:var(--text2);cursor:pointer;white-space:nowrap;position:relative;transition:background .12s}
+.dtpsel-item:hover{background:var(--row-hover);color:var(--text)}
 .dtpsel-item.sel{background:rgba(227,178,58,.13);color:#e3b23a}            /* item sélectionné → TEXTE orange + coche orange (uniforme partout) */
 /* Filtres Analyst/Institution : largeurs la référence portées sur le dropdown dtpsel + bouton pleine largeur */
 .arlib-filters .dtpsel, .br-filters .dtpsel { display:flex; }
