@@ -10306,3 +10306,16 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
 /* Press subtil (feedback d'appui) sur les surfaces cliquables qui n'en avaient pas — coherent avec la Phase 1 */
 .sym-dd-row:active, .sbs-cdd-item:active, .pd-lang-opt:active, .sea-cfg-sym:active,
 .bank-row:active, .cal-row--click:active, .arl-row:active { transform: translateY(.5px); }
+
+/* ═══════════════ UX Phase 2B — micro-anim MAJ de donnees (additif, reduced-motion safe) ═══════════════
+   Fondu d'arrivee UNIFORME des tableaux (aligne sur le reveal des graphes .chart-skel) au 1er remplacement
+   du skeleton par les vraies donnees ; + flash DISCRET (halo de fond bref, aucune couleur de TEXTE touchee)
+   sur une valeur qui se met a jour en place. Classes posees/retirees en JS. Figees en reduced-motion. */
+@keyframes dtpDataIn { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+.dtp-fade-in { animation: dtpDataIn var(--t-med) var(--ease-out) both; }
+@keyframes dtpFlash   { 0% { background-color: rgba(227,178,58,.16); } 100% { background-color: transparent; } }
+@keyframes dtpFlashUp { 0% { background-color: rgba(0,230,118,.16);  } 100% { background-color: transparent; } }
+@keyframes dtpFlashDn { 0% { background-color: rgba(255,61,0,.16);   } 100% { background-color: transparent; } }
+.dtp-flash    { animation: dtpFlash   .55s var(--ease) both; border-radius: 3px; }
+.dtp-flash-up { animation: dtpFlashUp .55s var(--ease) both; border-radius: 3px; }
+.dtp-flash-dn { animation: dtpFlashDn .55s var(--ease) both; border-radius: 3px; }

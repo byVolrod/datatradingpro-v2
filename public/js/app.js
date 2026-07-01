@@ -49,6 +49,24 @@ function _dtpChartPremium(host, revealMs) {
 }
 window._dtpChartPremium = _dtpChartPremium;
 
+// ═══ MAJ de données : fondu d'arrivée + flash discret (UX Phase 2B) ═══
+// _dtpDataIn : rejoue un léger fondu montant sur un conteneur quand les VRAIES données remplacent le skeleton.
+// _dtpFlash  : halo de fond très bref sur une valeur mise à jour en place (dir 'up'/'dn' = vert/rouge, sinon or neutre).
+const _dtpFadedKeys = new Set();
+function _dtpDataIn(el, key) {
+  if (!el) return;
+  if (key) { if (_dtpFadedKeys.has(key)) return; _dtpFadedKeys.add(key); }   // fondu SEULEMENT au 1er remplacement skeleton->donnees (jamais aux refresh silencieux)
+  el.classList.remove('dtp-fade-in'); void el.offsetWidth; el.classList.add('dtp-fade-in');   // reflow -> rejoue l'anim
+}
+function _dtpFlash(el, dir) {
+  if (!el) return;
+  const cls = dir === 'up' ? 'dtp-flash-up' : dir === 'dn' ? 'dtp-flash-dn' : 'dtp-flash';
+  el.classList.remove('dtp-flash', 'dtp-flash-up', 'dtp-flash-dn'); void el.offsetWidth;
+  el.classList.add(cls);
+  el.addEventListener('animationend', function () { el.classList.remove(cls); }, { once: true });
+}
+window._dtpDataIn = _dtpDataIn; window._dtpFlash = _dtpFlash;
+
 // ═══ Cache localStorage — affichage INSTANTANÉ au revisite / cold-start ═══
 // On stocke le dernier état connu (news, wraps, recherche…) côté navigateur, puis on
 // rafraîchit en fond. L'utilisateur voit immédiatement du contenu, même serveur endormi.
