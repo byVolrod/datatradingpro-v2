@@ -4809,6 +4809,7 @@ function _brBalanceByDay(arr) {
 }
 
 let _brRows = {};   // id -> item : clic délégué sur les lignes du tableau Institution
+let _brWarmTimer = null;   // débounce du préchauffage PDF proactif (après filtre/recherche stabilisé)
 function renderBrList() {
   const list   = document.getElementById('br-list');
   const footer = document.getElementById('br-footer');
@@ -4865,6 +4866,11 @@ function renderBrList() {
     + '<col class="arl-col-bm"><col class="arl-col-date"><col class="arl-col-title"><col class="arl-col-inst-br"></colgroup>'
     + '<thead><tr><th class="arl-th"></th><th class="arl-th">Date</th><th class="arl-th">Titre</th><th class="arl-th arl-th-c">Institut</th></tr></thead>'
     + '<tbody>' + _rows + '</tbody></table>';
+
+  // Préchauffage PROACTIF (débounce → après un filtre/recherche stabilisé) : le PDF des premiers rapports
+  // natifs est réchauffé dès l'affichage → le clic ouvre depuis le cache = quasi instantané.
+  clearTimeout(_brWarmTimer);
+  _brWarmTimer = setTimeout(() => { try { _brWarmTopPdfs(items); } catch (e) {} }, 500);
 }
 
 // Clic délégué sur une ligne du tableau Institution → ouvre le lecteur de rapport bancaire
@@ -4891,7 +4897,7 @@ function _brPrefetch(item) {
     if (item._pdfUrl) pdf = item._pdfUrl;
     else if (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || '')) pdf = item.url;
     else if (item._source === 'ing-think') { try { pdf = _ingPdfUrl(item.url); } catch (e) {} }
-    if (pdf) fetch(_brPdfProxy(pdf)).catch(() => {});                                              // réchauffe le cache disque du PDF natif
+    if (pdf) fetch(_brPdfProxy(pdf)).then(r => r.ok && r.blob()).catch(() => {});                  // réchauffe cache disque serveur + cache navigateur du PDF natif (blob consommé = téléchargé)
     if (item.url) fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url)).catch(() => {});  // réchauffe contenu + segmentation IA + résolution pdfUrl/renderUrl
   } catch (e) {}
 }
@@ -4908,6 +4914,25 @@ document.addEventListener('touchstart', (ev) => {
   const row = ev.target.closest && ev.target.closest('#br-list .arl-row');
   if (row) _brPrefetch(_brRows[row.dataset.id]);
 }, { passive: true });
+
+// PROACTIF : réchauffe le PDF des ~6 premiers rapports NATIFS dès l'affichage de la liste (proxy léger,
+// PAS de Puppeteer), étalé 350ms → au clic, le PDF sort du cache navigateur = ouverture quasi instantanée.
+// Natifs seulement + top 6 + Set anti-doublon → borné, zéro risque de rafale/OOM sur le tier 512 Mo.
+function _brWarmTopPdfs(items) {
+  let n = 0;
+  for (const it of items) {
+    if (n >= 6) break;
+    if (!it || _brPrefetched.has(it.id)) continue;
+    let pdf = '';
+    if (it._pdfUrl) pdf = it._pdfUrl;
+    else if (it._pdf || /\.pdf(?:[?#]|$)/i.test(it.url || '')) pdf = it.url;
+    else if (it._source === 'ing-think') { try { pdf = _ingPdfUrl(it.url); } catch (e) {} }
+    if (!pdf) continue;
+    _brPrefetched.add(it.id);
+    ((u, k) => setTimeout(() => { try { fetch(_brPdfProxy(u)).then(r => r.ok && r.blob()).catch(() => {}); } catch (e) {} }, k * 350))(pdf, n);
+    n++;
+  }
+}
 
 // Badge institution = la VRAIE banque du rapport. ING→"ING", MUFG→"MUFG", autres banques
 // reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
