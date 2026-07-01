@@ -1024,11 +1024,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .panel-header-left { display: flex; align-items: center; gap: var(--sp-2); }
 
 .panel-title {
-  font-family: var(--font-mono);
-  font-size: 12px;
-  font-weight: var(--fw-bold);
-  color: #e9eaed;
-  letter-spacing: 0.04em;
+  color: var(--text);   /* seule prop VIVANTE : font-family/size/weight/ls sont override par la regle canonique L.~9871/9914/10061 (cascade nettoyee, cause racine de l'echelle morte) */
 }
 
 .panel-header-controls { display: flex; align-items: center; gap: var(--sp-1); }
@@ -2619,11 +2615,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 
 .chart-header-title {
-  font-size: 11px;
-  font-weight: var(--fw-semibold);
-  color: var(--text);
-  font-family: var(--font-mono);
-  letter-spacing: 0.04em;
+  color: var(--text);   /* props VIVANTES : color + flex ; font-size/weight/family/ls override par la regle canonique L.~9871/9914/10061 */
   flex: 1;
 }
 
