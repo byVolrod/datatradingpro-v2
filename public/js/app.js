@@ -6061,7 +6061,14 @@ function aiInsToggle(btn, hostId) {
 function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 // **gras** → <strong> (jamais d'astérisques brutes), PUIS on retire tout astérisque résiduel
 // (marqueur non apparié d'un ancien rapport en cache) → plus aucun ** ne peut apparaître.
-function _wrInline(t){ return _wrEsc(t).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, ''); }
+function _wrInline(t){
+  var s = String(t == null ? '' : t)
+    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>')
+    .replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ');   // décode les entités pré-échappées → fini le « S&amp;P » brut affiché
+  s = s.replace(/^\s*\*\*\s*sous-th[eè]me\s*:?\s*\*\*\s*:?\s*/i, '')
+       .replace(/^\s*sous-th[eè]me\s*:\s*/i, '');   // retire le placeholder « Sous-thème : » laissé LITTÉRALEMENT par l'IA (bug) → puce nette
+  return _wrEsc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/\*+/g, '');
+}
 function _wrParas(t){
   return String(t||'').split(/\n{2,}|\n/).map(p=>p.trim()).filter(Boolean)
     .map(p=>`<p class="wr-p">${_wrInline(p)}</p>`).join('');
