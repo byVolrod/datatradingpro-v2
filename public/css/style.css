@@ -86,7 +86,7 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --orange-dim:  #b8860b;
   --orange-bg:   rgba(227,178,58,0.12);
   --orange-glow: rgba(227,178,58,0.25);
-  --green:       #2ecc71;
+  --green:       #00e676;   /* remplacé par couleur charte BUY #00e676 (de #2ecc71 off-charte) */
   --green-dim:   #1a7a44;
   --red:         #e74c3c;
   --blue:        #3498db;
@@ -430,6 +430,7 @@ html, body {
 .sym-dd.hidden { display: none; }
 .sym-dd-head { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #6a6a73; padding: 7px 9px 5px; }
 .sym-dd-row { display: flex; align-items: center; gap: 9px; padding: 8px 24px 8px 9px; border-radius: 4px; cursor: pointer; position: relative; transition: background var(--t-fast) var(--ease); }
+.sym-dd-row::after { content: '→'; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #e3b23a; font-size: 14px; opacity: 0; transition: opacity var(--t-fast); pointer-events: none; }
 .sym-dd-row:hover { background: var(--row-hover); }
 .sym-dd-row::after { content: '→'; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #e3b23a; font-size: 14px; opacity: 0; transition: opacity .12s; pointer-events: none; }
 .sym-dd-row:hover::after { opacity: 1; }
@@ -444,10 +445,10 @@ html, body {
 .sym-grid { display: grid; grid-template-columns: var(--sym-col, 1fr) 6px minmax(0, 1fr); grid-template-rows: var(--sym-row, 1fr) 6px minmax(0, 1fr); gap: 0; padding: 8px; height: 100%; min-height: 0; box-sizing: border-box; }
 /* Splitters orange draggables (vertical entre colonnes, horizontal entre lignes) — volatils (reset au reload) */
 .sym-vsplit { background: transparent; cursor: col-resize; position: relative; z-index: 30; }
-.sym-vsplit::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 2px; background: rgba(255,255,255,0.05); transition: background .12s; }
+.sym-vsplit::before { content: ''; position: absolute; top: 0; bottom: 0; left: 50%; transform: translateX(-50%); width: 2px; background: rgba(255,255,255,0.05); transition: background var(--t-fast); }
 .sym-vsplit:hover::before, .sym-vsplit.dragging::before { background: rgba(227,178,58,0.72); }
 .sym-hsplit { background: transparent; cursor: row-resize; position: relative; z-index: 30; }
-.sym-hsplit::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 2px; background: rgba(255,255,255,0.05); transition: background .12s; }
+.sym-hsplit::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; transform: translateY(-50%); height: 2px; background: rgba(255,255,255,0.05); transition: background var(--t-fast); }
 .sym-hsplit:hover::before, .sym-hsplit.dragging::before { background: rgba(227,178,58,0.72); }
 .sym-grid.sym-dragging * { pointer-events: none; user-select: none; }
 .sym-grid.sym-dragging .sym-vsplit, .sym-grid.sym-dragging .sym-hsplit { pointer-events: auto; }
@@ -3094,7 +3095,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Accordéon de la matrice : Fundamental Data / Bank Overview dépliables → sous-indicateurs par devise */
 .sbm-ind-acc { cursor: pointer; user-select: none; }
 .sbm-ind-acc:hover { background: #16171b; }
-.sbm-acc-arrow { display: inline-block; color: #6b7280; margin-right: 5px; transition: transform .15s; }
+.sbm-acc-arrow { display: inline-block; color: #6b7280; margin-right: 5px; transition: transform var(--t-fast); }
 .sbm-acc-arrow.open { transform: rotate(90deg); }
 .sbm-grid td.sbm-ind.sbm-sub { padding-left: 26px; color: #e5e7eb; font-weight: var(--fw-medium); background: #08080a; font-size: 10px; }   /* sous-indicateurs grille en blanc cassé */
 .sbm-sub-row .sbm-cell { font-size: 10px; }
@@ -3165,7 +3166,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-row-lbl { font-size: 12px; color: #ffffff; }   /* libellés Bias en BLANC (sous-indicateurs + banques) — demande utilisateur */
 .sbs-acc { cursor: pointer; }
 .sbs-acc:hover { background: #16171b; }
-.sbs-acc-arrow { display: inline-block; color: #6b7280; transition: transform .15s; }
+.sbs-acc-arrow { display: inline-block; color: #6b7280; transition: transform var(--t-fast); }
 .sbs-acc--open .sbs-acc-arrow { transform: rotate(90deg); }
 .sbs-badge { display: inline-block; padding: 3px 10px; text-align: center; font-size: 11px; font-weight: var(--fw-semibold); color: #fff; border-radius: 0; white-space: nowrap; min-width: 80px; }   /* MEME forme que les cellules de la matrice (carre + bloc) au lieu d'une pastille arrondie */
 .sbs-badge--na { background: #232429; color: #6b7280; }   /* pas de donnée récente → tiret discret (jamais inventé) */
@@ -3350,7 +3351,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .bank-pair { font-family: var(--font-mono); color: var(--text) !important; }
 .bank-date { color: var(--text2) !important; font-family: var(--font-mono); }
 .bank-exp { width: 26px; text-align: center; color: var(--text3); }
-.bank-chev { display: inline-block; transition: transform 0.15s; }
+.bank-chev { display: inline-block; transition: transform var(--t-fast); }
 .bank-chev--open { transform: rotate(90deg); color: var(--orange); }
 .bank-status { font-weight: var(--fw-semibold); }
 .bank-st-active { color: var(--neutral); }   /* position ouverte = NEUTRE (ni gain ni perte) */
@@ -4503,7 +4504,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .arl-row:hover { background: var(--row-hover); }
 .arl-row > td { padding: 0 14px; height: 46px; vertical-align: middle; }
 .arl-c-bm { text-align: center; }
-.arl-bm { display: inline-flex; color: #46464e; transition: color 0.13s ease; }
+.arl-bm { display: inline-flex; color: #46464e; transition: color var(--t-fast) var(--ease); }
 .arl-row:hover .arl-bm { color: #6a6a72; }
 .arl-c-date {
   font-family: var(--font-mono);

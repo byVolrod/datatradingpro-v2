@@ -545,7 +545,7 @@ function rebuildStockChart(symbol) {
 
 // Palette SATURÉE (façon PMT) : couleurs plus vives/denses pour RESSORTIR sur le fond noir #0d0d0d.
 const CS_COLORS = {
-  USD: 0xff9500,  // orange vif (+ lumineux)
+  USD: 0xe8eaed,  // blanc (orange PMT 0xff9500 banni ; blanc = distinct de CHF jaune-or, convention devise de base)
   EUR: 0xff3b30,  // rouge vif (était #dc2626, trop mat)
   JPY: 0x22d3ee,  // cyan clair vif
   GBP: 0x2bee6b,  // vert flashy dense
