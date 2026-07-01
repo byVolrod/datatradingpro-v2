@@ -304,6 +304,15 @@
   .pdf-page.gs .pdf-rule{background:#11203f}
   .pdf-page.gs .pdf-cat{color:#11203f}
   .pdf-page.gs .pdf-tbl th{color:#11203f;border-bottom-color:#11203f}
+  /* Skins par banque (rotation quotidienne "Recherche institutionnelle") — couleurs = marques bancaires (contexte logo, PAS l'UI DTP) ; aucune orange (ING ecartee) */
+  .pdf-socgen{font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:20px;letter-spacing:-.5px;color:#e60028}
+  .pdf-mufg2{font-family:Arial,Helvetica,sans-serif;font-weight:900;font-size:21px;letter-spacing:-1px;color:#d0021b}
+  .pdf-nordea{font-family:Georgia,'Times New Roman',serif;font-weight:700;font-size:20px;letter-spacing:-.3px;color:#0000a0}
+  .pdf-danske{font-family:Arial,Helvetica,sans-serif;font-weight:800;font-size:20px;letter-spacing:-.5px;color:#003755}
+  .pdf-page.socgen .pdf-rule{background:#e60028}.pdf-page.socgen .pdf-cat{color:#e60028}.pdf-page.socgen .pdf-tbl th{color:#e60028;border-bottom-color:#e60028}
+  .pdf-page.mufg .pdf-rule{background:#d0021b}.pdf-page.mufg .pdf-cat{color:#d0021b}.pdf-page.mufg .pdf-tbl th{color:#d0021b;border-bottom-color:#d0021b}
+  .pdf-page.nordea .pdf-rule{background:#0000a0}.pdf-page.nordea .pdf-cat{color:#0000a0}.pdf-page.nordea .pdf-tbl th{color:#0000a0;border-bottom-color:#0000a0}
+  .pdf-page.danske .pdf-rule{background:#003755}.pdf-page.danske .pdf-cat{color:#003755}.pdf-page.danske .pdf-tbl th{color:#003755;border-bottom-color:#003755}
   .pdf-gmr{font-family:Arial,Helvetica,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:#5a5a5a}
   .pdf-rule{height:2px;background:#e60012;margin:8px 0 13px}
   .pdf-cat{font-family:Arial,sans-serif;font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:#e60012}
@@ -1650,11 +1659,63 @@
     },26);
   })();
 
-  // ── Rapport Goldman Sachs (Recherche institutionnelle) : 1 rapport/jour, date du jour ──
+  // ── Recherche institutionnelle : 1 banque DIFFERENTE chaque jour (rotation deterministe = jour de l'annee) ──
   (function(){
-    var d=new Date(), mE=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'], mF=['January','February','March','April','May','June','July','August','September','October','November','December'];
-    var nm=document.querySelector('.pdf-name'); if(nm)nm.textContent='GS_FX_Views_'+d.getDate()+mE[d.getMonth()]+d.getFullYear()+'.pdf';
-    var sb=document.querySelector('.pdf-sub'); if(sb)sb.textContent=d.getDate()+' '+mF[d.getMonth()]+' '+d.getFullYear()+' · Global FX Strategy';
+    var mE=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+        mF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var BANKS=[
+      { mod:'gs', logoClass:'pdf-gs', mast:'Goldman Sachs', gmr:'Global Investment Research',
+        cat:'Global Markets Daily · FX', title:'Staying short USD into the PCE print', strat:'Global FX Strategy',
+        by:'Kamakshya Trivedi — Head of Global FX, Rates &amp; EM Strategy',
+        p:['We keep our short-USD bias as the Fed’s patient tone caps front-end yields. <b>EUR/USD</b> has cleared 1.0850 and we target 1.10 over 3m; <b>USD/JPY</b> stays heavy into intervention risk.',
+           'A soft PCE print would extend the dollar’s pullback. Long EUR/USD and short USD/JPY remain our highest-conviction G10 expressions.'],
+        rows:[['EUR/USD','1.0850','1.10','1.14'],['USD/JPY','157.5','152','146'],['GBP/USD','1.2710','1.30','1.33']], pfx:'GS_FX_Views' },
+      { mod:'socgen', logoClass:'pdf-socgen', mast:'Societe Generale', gmr:'Cross Asset Research — FX',
+        cat:'FX Weekly · G10', title:'Fading the dollar rally into softer US prints', strat:'Cross Asset FX',
+        by:'Kit Juckes — Chief FX Strategist',
+        p:['The dollar’s rate advantage is narrowing. We favour selling <b>USD</b> rallies against the euro and yen as the growth gap converges through the summer.',
+           'A break of 1.0900 opens the door to 1.12 in <b>EUR/USD</b>; we would use USD/JPY strength above 158 to add shorts.'],
+        rows:[['EUR/USD','1.0850','1.12','1.16'],['USD/JPY','157.5','151','145'],['GBP/USD','1.2710','1.30','1.34']], pfx:'SG_FX_Weekly' },
+      { mod:'mufg', logoClass:'pdf-mufg2', mast:'MUFG', gmr:'Global Markets Research',
+        cat:'FX Weekly · G10', title:'USD/JPY: the risk skews lower into year-end', strat:'Global FX Strategy',
+        by:'Derek Halpenny — Head of Research, Global Markets EMEA',
+        p:['We reiterate a bearish <b>USD/JPY</b> bias. Narrowing yield differentials and elevated intervention risk should cap upside and pull spot toward 150.',
+           'In <b>EUR/USD</b>, we look for a slow appreciation as US growth momentum fades relative to the euro area.'],
+        rows:[['USD/JPY','157.5','150','144'],['EUR/USD','1.0850','1.10','1.13'],['GBP/USD','1.2710','1.29','1.31']], pfx:'MUFG_FX_Weekly' },
+      { mod:'nordea', logoClass:'pdf-nordea', mast:'Nordea', gmr:'Markets — FX Research',
+        cat:'FX Weekly · G10', title:'EUR strength has further to run', strat:'FX Research',
+        by:'Niels Christensen — Chief Analyst, FX Strategy',
+        p:['We expect <b>EUR/USD</b> to grind toward 1.12 as the Fed edges closer to easing while the ECB stays on hold for longer.',
+           'Scandies should benefit from the softer-dollar backdrop; we stay short <b>USD/JPY</b> as a lower-beta expression of the same view.'],
+        rows:[['EUR/USD','1.0850','1.12','1.15'],['USD/JPY','157.5','152','146'],['GBP/USD','1.2710','1.30','1.33']], pfx:'Nordea_FX_Weekly' },
+      { mod:'danske', logoClass:'pdf-danske', mast:'Danske Bank', gmr:'Research — FX Strategy',
+        cat:'FX Forecast Update · G10', title:'Trimming our USD longs across G10', strat:'FX Forecast',
+        by:'Jens Nærvig Pedersen — Director, FX &amp; Rates Strategy',
+        p:['We cut our dollar exposure as the US data pulse cools. <b>EUR/USD</b> is set to test 1.11 on a 3m horizon with risks skewed higher.',
+           'We hold a short <b>USD/JPY</b> position and add to <b>GBP/USD</b> longs on any dip below 1.26.'],
+        rows:[['EUR/USD','1.0850','1.11','1.14'],['USD/JPY','157.5','153','148'],['GBP/USD','1.2710','1.31','1.34']], pfx:'Danske_FX_Forecast' },
+    ];
+    var d=new Date();
+    var doy=Math.floor((d-new Date(d.getFullYear(),0,0))/864e5);
+    var b=BANKS[doy % BANKS.length];
+    var page=document.querySelector('.pdf-page'); if(!page)return;
+    page.className='pdf-page '+b.mod;
+    var dateE=d.getDate()+mE[d.getMonth()]+d.getFullYear();
+    var dateF=d.getDate()+' '+mF[d.getMonth()]+' '+d.getFullYear();
+    var set=function(sel,html){var el=page.parentNode.querySelector(sel);if(el)el.innerHTML=html;};
+    set('.pdf-name', b.pfx+'_'+dateE+'.pdf');
+    var mast=page.querySelector('.pdf-mast');
+    if(mast)mast.innerHTML='<span class="'+b.logoClass+'">'+b.mast+'</span><span class="pdf-gmr">'+b.gmr+'</span>';
+    set('.pdf-cat', b.cat);
+    set('.pdf-title', b.title);
+    set('.pdf-sub', dateF+' · '+b.strat);
+    set('.pdf-by', b.by);
+    var ps=page.querySelectorAll('.pdf-p');
+    if(ps[0])ps[0].innerHTML=b.p[0];
+    if(ps[1])ps[1].innerHTML=b.p[1];
+    var tb=page.querySelector('.pdf-tbl');
+    if(tb)tb.innerHTML='<tr><th>Pair</th><th>Spot</th><th>3M</th><th>12M</th></tr>'+b.rows.map(function(r){return '<tr><td>'+r[0]+'</td><td>'+r[1]+'</td><td>'+r[2]+'</td><td>'+r[3]+'</td></tr>';}).join('');
+    set('.pdf-foot', b.mast+' '+(b.mast==='Goldman Sachs'?'Global Investment Research':'Research')+' · For information only — not investment advice.');
   })();
 
   // ── Force des devises ──
@@ -1790,6 +1851,59 @@
       }
       loadHeroNews();
       setInterval(loadHeroNews,45000);                  // POLL 45s -> le fil hero suit le desk en TEMPS REEL (vrai doublon, se met a jour tout seul)
+    })();
+
+    // ── Maquette "Analystes" LIVE : VRAIS recaps du desk (/api/hero-recaps public+CORS), rafraichis /15 min.
+    //    Repli silencieux sur la carte statique si le desk est injoignable. ──
+    (function(){
+      var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+      function loadRecaps(){
+        fetch('https://desk.datatradingpro.com/api/hero-recaps',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(rc){
+          if(!Array.isArray(rc)||rc.length<1)return;
+          var f=rc[0], card=document.querySelector('.dk-analyst-card'); if(!card)return;
+          var q=function(s){return card.querySelector(s);};
+          if(q('.dk-analyst-src'))q('.dk-analyst-src').textContent=f.src;
+          if(q('.dk-analyst-time'))q('.dk-analyst-time').textContent=f.time;
+          if(q('.dk-analyst-title'))q('.dk-analyst-title').textContent=f.title;
+          if(q('.dk-analyst-excerpt'))q('.dk-analyst-excerpt').textContent=f.excerpt;
+          if(q('.dk-analyst-date'))q('.dk-analyst-date').textContent=f.date;
+          var more=document.querySelector('.dk-anl-more');
+          if(more&&rc.length>1){
+            more.innerHTML=rc.slice(1,4).map(function(x){
+              return '<div class="dk-anl-more-row"><span class="dk-anl-more-t">'+esc(x.src)+' — '+esc(x.title)+'</span><span class="dk-anl-more-d">'+esc(x.day)+'</span></div>';
+            }).join('');
+          }
+        }).catch(function(){});
+      }
+      loadRecaps();
+      setInterval(loadRecaps, 15*60*1000);              // les recaps changent lentement -> 15 min suffit
+    })();
+
+    // ── Maquette modules "Actus en temps reel" LIVE : DOUBLON du fil desk (/api/hero-news public), poll 45s. ──
+    (function(){
+      var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
+      var lastSig='';
+      function loadModNews(){
+        fetch('https://desk.datatradingpro.com/api/hero-news',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(news){
+          if(!Array.isArray(news)||news.length<3)return;
+          var feed=document.querySelector('.dk-news-feed'); if(!feed)return;
+          var items=news.slice(0,5);
+          var sig=items.map(function(n){return n.h+'|'+(n.t||'');}).join('#');
+          if(sig===lastSig)return;                       // rien de neuf -> pas de re-render
+          lastSig=sig;
+          var head=feed.querySelector('.dk-news-head');
+          var rows=items.map(function(n){
+            var tags='';
+            if(n.tag)tags+='<span class="dk-news-tag">'+esc(n.tag)+'</span>';
+            if(n.cat)tags+='<span class="dk-news-tag">'+esc(n.cat)+'</span>';
+            if(n.dot)tags+='<span class="dk-news-tag dk-news-tag--high">Urgent</span>';
+            return '<div class="dk-news-row"><span class="dk-news-time">'+esc(n.t||'')+'</span><div class="dk-news-body"><div class="dk-news-text">'+esc(n.h)+'</div><div class="dk-news-meta">'+tags+'</div></div></div>';
+          }).join('');
+          feed.innerHTML=(head?head.outerHTML:'')+rows;
+        }).catch(function(){});
+      }
+      loadModNews();
+      setInterval(loadModNews,45000);                    // meme cadence 45s que le hero
     })();
   }catch(e){}
 })();

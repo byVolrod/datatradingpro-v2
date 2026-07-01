@@ -196,7 +196,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot', '/api/hero-news']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE de la landing (public + CORS)
+  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes de la landing (public + CORS)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
@@ -11203,6 +11203,50 @@ app.get('/api/hero-news', (req, res) => {
     const now = Date.now();
     if (!_heroNewsCache || now - _heroNewsTs > _HERO_TTL) { _heroNewsCache = _buildHeroNews(); _heroNewsTs = now; }
     res.json(_heroNewsCache);
+  } catch { res.json([]); }
+});
+
+// ── Recaps analystes pour la landing (public + CORS, MEME recette que /api/hero-news) : la maquette
+//    « Analystes » affiche les VRAIS recaps du desk (Hebdo/FX/Point Marche…) et tourne au fil des jours. ──
+let _heroRecapCache = null, _heroRecapTs = 0;
+const _HERO_RECAP_TTL = 10 * 60 * 1000;
+const _HR_TYPE_FR = {
+  'Weekly Market Recap':    'Récap Hebdo des Marchés',
+  'Global Economic Weekly': 'Hebdo Économique Mondial',
+  'FX Daily Recap':         'Récap FX Quotidien',
+  'DTP Daily':              'Point Marché',
+};
+function _buildHeroRecaps() {
+  const list = (typeof allNews !== 'undefined' && Array.isArray(allNews)) ? allNews : [];
+  const items = list
+    .filter(i => i && _HR_TYPE_FR[i._reportType] && i.headline && i.timestamp)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const out = [], seen = new Set();
+  for (const i of items) {
+    const key = String(i.headline).toLowerCase().slice(0, 40);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const d = new Date(i.timestamp);
+    const day = d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short' });
+    out.push({
+      src:     _HR_TYPE_FR[i._reportType],
+      title:   String(i.headline).replace(/\s+/g, ' ').trim().slice(0, 130),
+      excerpt: String(i.subtitle || i.description || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 230),
+      time:    d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'short' }).toUpperCase() + ' · ' + day,
+      date:    d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit' }),
+      day,
+    });
+    if (out.length >= 6) break;
+  }
+  return out;
+}
+app.get('/api/hero-recaps', (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=300');
+  try {
+    const now = Date.now();
+    if (!_heroRecapCache || now - _heroRecapTs > _HERO_RECAP_TTL) { _heroRecapCache = _buildHeroRecaps(); _heroRecapTs = now; }
+    res.json(_heroRecapCache);
   } catch { res.json([]); }
 });
 
