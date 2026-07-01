@@ -3414,7 +3414,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="BoC"],
 .tag[data-cat="RBA"],
 .tag[data-cat="SNB"],
-.tag[data-cat="RBNZ"]                { background: rgba(52,152,219,0.12); border: 1px solid rgba(52,152,219,0.3); color: #5fa8d3; }
+.tag[data-cat="RBNZ"]                { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }   /* banques centrales (Fed/ECB/BoJ…) = blanc/neutre comme Géopolitique & US (demande utilisateur) */
 .tag[data-cat="Energy & Power"]      { background: rgba(227,178,58,0.12); border: 1px solid rgba(227,178,58,0.3); color: var(--orange); }
 .tag[data-cat="Crypto"]              { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag[data-cat="Data"]                { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
