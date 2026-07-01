@@ -32,7 +32,13 @@
   }
 
   /* FR = source : rien à traduire (la langue se change depuis le profil). */
-  if (LANG === 'fr' || !DICT || !Object.keys(DICT).length) { return; }
+  var _noTr = (LANG === 'fr' || !DICT || !Object.keys(DICT).length);
+  // Exposé pour une traduction SYNCHRONE *avant le paint* du contenu dynamique (fil de news,
+  // descriptions de tags) → zéro flash de texte FR avant que le MutationObserver ne traduise
+  // (lui agit 1 frame trop tard). No-op en FR. tr/translate sont des déclarations hoisted.
+  window.DTP_TR = _noTr ? function (s) { return s; } : tr;
+  window.DTP_translate = _noTr ? function () {} : function (el) { try { if (el) translate(el); } catch (e) {} };
+  if (_noTr) { return; }
 
   function tr(s) { if (s == null) return s; var str = '' + s, k = str.trim(); if (!k) return s; var t = DICT[k]; return (t === undefined || t === k) ? s : str.replace(k, t); }
 

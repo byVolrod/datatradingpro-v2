@@ -1030,6 +1030,10 @@ function renderNews(hasNew = false) {
   const atTop = prevScrollTop <= 4;                 // l'utilisateur est (quasi) en haut du feed
   newsList.innerHTML = '';
   newsList.appendChild(fragment);
+  // Traduction SYNCHRONE avant paint (langue ≠ FR) : le fil + les libellés/descriptions de tags
+  // sortent DIRECTEMENT traduits, sans le flash de texte FR que produit le MutationObserver i18n
+  // (qui traduit 1 frame plus tard). No-op en FR (source). Idempotent.
+  if (window.DTP_translate) window.DTP_translate(newsList);
   if (hasNew) {
     // Une news vient d'ARRIVER : si l'utilisateur était en haut, on lui montre la nouvelle (haut du feed) ;
     // s'il lisait plus bas, on ANCRE sa position (pas de saut) en compensant la hauteur ajoutée au-dessus.
@@ -2362,7 +2366,7 @@ function buildNewsItem(item) {
     if (tab === 'reaction') {
       const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
       expandEl.innerHTML = dtpLoader('Chargement des données de marché…', { small: true });
-      expandEl.classList.add('visible');
+      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (reactionTagEl) reactionTagEl.classList.add('tag--active');
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
 
@@ -2447,7 +2451,7 @@ function buildNewsItem(item) {
     if (tab === 'analysis') {
       // Analyse PRÉ-CALCULÉE côté serveur, attachée à la news → affichage instantané, aucun fetch.
       expandEl.innerHTML = _renderInfoBullets(item.analyse || []);
-      expandEl.classList.add('visible');
+      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.add('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       return;
@@ -2456,7 +2460,7 @@ function buildNewsItem(item) {
     // Info tab — if no inline description but has a ForexFactory article URL, fetch real content
     if (tab === 'info' && rawDesc.length <= 30 && hasArticleUrl) {
       expandEl.innerHTML = dtpLoader('Chargement du résumé…', { small: true });
-      expandEl.classList.add('visible');
+      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
       if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
       if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
       fetch(`/api/article?url=${encodeURIComponent(item.url)}&headline=${encodeURIComponent(item.headline || '')}`)
@@ -2489,7 +2493,7 @@ function buildNewsItem(item) {
 
     // Affichage immédiat (description brute) — instantané
     expandEl.innerHTML = infoBody;
-    expandEl.classList.add('visible');
+    expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
     if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
     if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
 
