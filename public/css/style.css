@@ -137,8 +137,11 @@ body.theme-light .arlib-search input, body.theme-light .fxl-search input { backg
   --r-1:      4px;      /* radius cartes/panneaux */
   --r-2:      4px;      /* radius boutons/badges/inputs */
   --pill:     999px;    /* pastilles */
-  --t-fast:   0.16s;    /* transition standard premium (micro-interactions) */
-  --t-med:    0.22s;    /* transition un peu plus ample (panneaux/etats composes) — borne haute 150-250ms */
+  --t-fast:   0.15s;    /* micro-interactions (hover couleur/bordure) — valeur pivot UNIQUE */
+  --t-med:    0.22s;    /* panneaux / etats composes (transform, box-shadow) */
+  --t-slow:   0.30s;    /* apparitions douces / cross-fades de vue */
+  --ease:     cubic-bezier(.4,0,.2,1);      /* courbe premium canonique — UNE seule courbe pour toutes les micro-interactions */
+  --ease-out: cubic-bezier(.2,.8,.2,1);     /* sortie douce (deceleration) pour hovers/entrees de panneaux */
   --focus-ring: 0 0 0 2px rgba(227,178,58,0.45);   /* anneau focus on-brand (or) */
   --neutral:  #ffb300;  /* etat NEUTRE / impact moyen (jaune-or charte) — remplace l'ambre hors-charte var(--neutral) */
   /* Echelle d'espacement HOMOGENE (base 4px) — grille commune institutionnelle */
@@ -426,7 +429,7 @@ html, body {
 .sym-dd { position: fixed; width: 330px; max-width: 92vw; background: #16171b; border: 1px solid #232429; border-radius: 4px; box-shadow: 0 18px 50px -20px #000; padding: 5px; z-index: 9999; max-height: 62vh; overflow-y: auto; }
 .sym-dd.hidden { display: none; }
 .sym-dd-head { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #6a6a73; padding: 7px 9px 5px; }
-.sym-dd-row { display: flex; align-items: center; gap: 9px; padding: 8px 24px 8px 9px; border-radius: 4px; cursor: pointer; position: relative; }
+.sym-dd-row { display: flex; align-items: center; gap: 9px; padding: 8px 24px 8px 9px; border-radius: 4px; cursor: pointer; position: relative; transition: background var(--t-fast) var(--ease); }
 .sym-dd-row:hover { background: var(--row-hover); }
 .sym-dd-row::after { content: '→'; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #e3b23a; font-size: 14px; opacity: 0; transition: opacity .12s; pointer-events: none; }
 .sym-dd-row:hover::after { opacity: 1; }
@@ -2569,8 +2572,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* ── Micro-interactions subtiles (fondu au changement d'onglet) ── */
 @keyframes dtpViewIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @keyframes dtpFadeIn { from { opacity: 0; } to { opacity: 1; } }
-.view-panel:not(.hidden) { animation: dtpViewIn 0.2s ease both; }
-.right-tab-panel.active  { animation: dtpFadeIn 0.22s ease both; }
+.view-panel:not(.hidden) { animation: dtpViewIn var(--t-med) var(--ease-out) both; }
+.right-tab-panel.active  { animation: dtpFadeIn var(--t-med) var(--ease) both; }
 /* Pas de flash bleu au tap sur mobile + respect des préférences de réduction d'animation */
 * { -webkit-tap-highlight-color: transparent; }
 @media (prefers-reduced-motion: reduce) {
@@ -3131,7 +3134,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-cdd-caret { color: #8a8a90; font-size: 9px; margin-left: auto; }
 .sbs-cdd-menu { position: absolute; top: calc(100% + 5px); left: 0; min-width: 158px; background: #161618; border: 1px solid #232429; border-radius: 4px; box-shadow: 0 10px 28px rgba(0,0,0,.65); padding: 5px; z-index: 60; }
 .sbs-cdd-title { font-size: 10px; color: #6b7280; padding: 4px 9px 7px; }
-.sbs-cdd-item { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #d4d4d8; transition: background .1s, color .1s; }
+.sbs-cdd-item { display: flex; align-items: center; gap: 9px; padding: 6px 9px; border-radius: 4px; cursor: pointer; font-size: 12px; color: #d4d4d8; transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
 .sbs-cdd-item .sbm-flag { width: 18px; height: 18px; }
 .sbs-cdd-item:hover { background: var(--border); }
 .sbs-cdd-item.active { color: #e3b23a; font-weight: var(--fw-semibold); background: #211c14; }
@@ -7637,7 +7640,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   box-shadow: 0 10px 28px rgba(0,0,0,0.55);
 }
 .pd-lang-menu.open { display: block; }
-.pd-lang-opt { display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; font-size: 12px; color: #d4d8de; transition: background .1s; }
+.pd-lang-opt { display: flex; align-items: center; gap: 9px; padding: 8px 10px; cursor: pointer; font-size: 12px; color: #d4d8de; transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
 .pd-lang-opt:hover { background: var(--row-hover); color: var(--text); }
 .pd-lang-opt img { width: 20px; height: 15px; object-fit: cover; border-radius: 2px; flex: 0 0 auto; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
 
@@ -10276,3 +10279,30 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
   .br-pdf-canvaswrap{ width: 100%; max-width: 100vw; }
   .br-pdf-canvas{ width: 100% !important; height: auto !important; }
 }
+
+/* ═══════════════ UX Phase 2 — FINITION : timing & easing UNIFIES + micro-interactions (additif, reversible) ═══════════════
+   On re-declare la transition des elements interactifs COMMUNS avec la MEME courbe (--ease) et la MEME
+   cadence (--t-fast) + les proprietes EXACTES que leur survol change deja (jamais `all`, jamais le layout).
+   Les animation: (shimmers/spinners/pop badges) ne sont PAS touchees. reduced-motion (regle globale) fige le tout.
+   Zero couleur/position/taille modifiee — seule la MANIERE (fluidite/vitesse) du survol change. */
+
+/* Micro-onglets de periodes jumeaux : MEME cadence (etaient .15s/.12s/.12s disparates) */
+.stf-btn, .cot-type-btn, .dmx-tf-btn { transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease), border-color var(--t-fast) var(--ease); }
+
+/* Onglets nav : easing premium homogene */
+.nav-item { transition: color var(--t-fast) var(--ease), background-color var(--t-fast) var(--ease); }
+
+/* toolbar-select : le survol change AUSSI la couleur du texte (elle claquait) -> on l'anime + easing premium */
+.toolbar-select { transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease); }
+
+/* Lignes de tables/listes : survol (fond + ombre eventuelle) sur la MEME courbe partout */
+.news-item, .cal-row, .bank-row, .fxl-row, .arl-row { transition: background var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease); }
+
+/* .wa-card : survol aligne sur .arlib-card (micro-lift + accent or de MARQUE deja utilise + press), sans toucher la def d'origine */
+.wa-card { transition: border-color var(--t-med) var(--ease), background var(--t-fast) var(--ease), transform var(--t-med) var(--ease), box-shadow var(--t-med) var(--ease); }
+.wa-card:hover { transform: translateY(-1px); border-color: rgba(227,178,58,.26); box-shadow: 0 8px 20px -14px rgba(0,0,0,.7); }
+.wa-card:active { transform: translateY(0); }
+
+/* Press subtil (feedback d'appui) sur les surfaces cliquables qui n'en avaient pas — coherent avec la Phase 1 */
+.sym-dd-row:active, .sbs-cdd-item:active, .pd-lang-opt:active, .sea-cfg-sym:active,
+.bank-row:active, .cal-row--click:active, .arl-row:active { transform: translateY(.5px); }
