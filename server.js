@@ -3150,6 +3150,22 @@ function _telHealthScore(keys, cooling, breakers, calls, errs) {
   return Math.max(0, Math.min(100, s));
 }
 // PRÉDICTION : épuisement du quota du jour, burn rate, demande à venir (learner Phase 1).
+// APPRENTISSAGE v1 (ordre de repli) : depuis les 24 derniers seaux horaires, classe github vs openrouter par
+// FIABILITE (succes/(succes+echecs), min 8 appels pour compter) et pousse l'ordre le plus sain a ai.setFallbackOrder.
+// BORNE + SUR : ne touche QUE ces 2 replis GRATUITS ; donnees insuffisantes -> ordre par defaut (null = actuel).
+async function _aiLearnFallbackOrder() {
+  try {
+    const b = await _telLoadRange(24);
+    const rate = p => {
+      const c = b.reduce((s, x) => s + ((x[p] && x[p].calls) || 0), 0);
+      const f = b.reduce((s, x) => s + ((x[p] && x[p].fail) || 0), 0);
+      return (c + f) >= 8 ? c / (c + f) : null;
+    };
+    const rg = rate('github'), ro = rate('openrouter');
+    if (rg == null || ro == null) { ai.setFallbackOrder(null); return; }     // pas assez de recul → défaut
+    ai.setFallbackOrder(rg >= ro ? ['github', 'openrouter'] : ['openrouter', 'github']);
+  } catch { try { ai.setFallbackOrder(null); } catch {} }
+}
 function _telForecast(buckets) {
   const cap = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
@@ -3589,6 +3605,7 @@ async function _prewarmWrapSeg(item) {
 function _prewarmGate() {
   if (_aiQuietHours()) return false;                                                  // nuit → aucun préchauffage
   if (typeof ai.backoffActive === 'function' && ai.backoffActive()) return false;     // IA en rade → on n'insiste pas
+  if (typeof ai.shouldThrottle === 'function' && ai.shouldThrottle()) return false;   // PRESSION IA montante (santé/quota) → on SUSPEND tout le préchauffage AVANT la panne (reprend seul quand ça se calme)
   const cap = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
   if (cap && dayTotal >= Math.floor(cap * 0.45)) return false;                        // budget déjà bien entamé → on réserve le reste aux users
@@ -12038,6 +12055,9 @@ server.listen(PORT, async () => {
   setInterval(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 30 * 60 * 1000);
   // Rapports Analyst/Institution : pré-segmente en arrière-plan → ouverture instantanée (cache persistant)
   setTimeout(() => { _prewarmWrapSegs().catch(() => {}); }, 25000);
+  // Apprentissage v1 : ordre de repli (github/openrouter) appris depuis l'historique de fiabilite (amorce boot + /15min)
+  setTimeout(() => { _aiLearnFallbackOrder().catch(() => {}); }, 40000);
+  setInterval(() => { _aiLearnFallbackOrder().catch(() => {}); }, 15 * 60 * 1000);
   setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 35 * 60 * 1000);   // 35 min (eco quota — prechauffage = polissage opportuniste, contenu servi via cache + generation user)
   // DailyFX (ING) : structure EN AVANCE les rapports du jour (décalé pour ne pas chevaucher les wraps)
   setTimeout(() => { _prewarmBrSegs().catch(() => {}); }, 45000);
