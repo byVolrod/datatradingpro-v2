@@ -11166,6 +11166,7 @@ function _buildHeroNews() {
       h: h.slice(0, 96),
       cat: _HERO_CAT_FR[i.category] || i.category || '',
       tag: _heroPickTag(i),
+      t: i.timestamp ? new Date(i.timestamp).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false }) : '',   // heure REELLE du desk → fil hero = vrai doublon
       info: desc.length > 30,
       analyse: !i._marketUpdate && Array.isArray(i.analyse) && i.analyse.length > 0,
       dot: i.priority === 'high' || i.urgent === true || _HERO_BREAKING_RX.test(h),
