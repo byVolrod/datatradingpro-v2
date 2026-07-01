@@ -1603,6 +1603,17 @@ async function _aiChatDailyIncr(uid, day) {
 }
 // Construit le prompt « Macro AI » (contexte LIVE : Smart Bias + taux + calendrier + news). Partagé
 // par le chat bufferisé (/api/ai/chat) ET le chat en streaming (/api/ai/chat/stream) → zéro divergence.
+// Repli 0-token du chat Macro : aucune génération IA dispo (panne totale) + pas de cache pour cette question.
+// Message pro + mini-résumé factuel des news RÉELLES déjà en mémoire (zéro quota, JAMAIS mis en cache).
+function _aiChatFallback(newsCtx) {
+  const items = (Array.isArray(newsCtx) ? newsCtx : []).slice(0, 4)
+    .map(n => '• ' + _stripMd(String(n.headline || n.title || '').slice(0, 140))).filter(l => l.length > 3);
+  let out = "L'Assistant IA Macro est momentanément saturé (forte demande sur les modèles). ";
+  if (items.length) out += "En attendant, voici les derniers points de marché du desk :\n\n" + items.join('\n')
+    + "\n\nRéessayez dans une minute pour une analyse détaillée.";
+  else out += "Réessayez dans une minute — le service reprend automatiquement.";
+  return out;
+}
 function _aiChatPrompt(q, newsCtx) {
   let biasLine = '';
   try {
@@ -1702,9 +1713,9 @@ app.post('/api/ai/chat/stream', async (req, res) => {
     if (!_emitted) {   // rien streamé au client → on peut tenter le bufferisé proprement
       try { const buf = await aiSmart('chat', prompt, 380, { priority: 'user' }); if (buf && buf.trim() && _looksComplete(buf.trim())) { full = buf.trim(); streamChunks(full); } } catch {}
     }
-    if (!_looksComplete(full)) {   // toujours tronqué → on N'enregistre PAS le partiel et on signale l'indispo
-      send('error', { error: 'AI temporairement indisponible' });
-      return res.end();
+    if (!_looksComplete(full)) {   // toujours tronqué → on N'enregistre PAS le partiel ; repli 0-token gracieux (pas d'échec dur)
+      if (!_emitted) { const fb = _aiChatFallback(newsCtx); streamChunks(fb); }   // rien streamé → on sert le repli ; sinon on garde le partiel
+      send('done', { sources }); return res.end();
     }
   }
   if (full && full.trim()) {
@@ -1713,7 +1724,7 @@ app.post('/api/ai/chat/stream', async (req, res) => {
     if (Object.keys(_aiChatMem).length > 500) for (const k of Object.keys(_aiChatMem)) delete _aiChatMem[k];
     _aiChatMem[key] = full; auth.aiCacheSet(key, full).catch(() => {});
     send('done', { sources });
-  } else { send('error', { error: 'AI temporairement indisponible' }); }
+  } else { const fb = _aiChatFallback(newsCtx); streamChunks(fb); send('done', { sources }); }   // repli 0-token streamé (jamais d'échec dur, non mis en cache)
   res.end();
 });
 app.post('/api/ai/chat', async (req, res) => {
@@ -1749,7 +1760,7 @@ app.post('/api/ai/chat', async (req, res) => {
     }
     else answer = null;
   }
-  if (!answer) return res.status(503).json({ error: 'AI temporairement indisponible' });
+  if (!answer) return res.json({ answer: _aiChatFallback(newsCtx), sources, fallback: true });   // repli 0-token gracieux (panne totale + pas de cache) au lieu d'un 503 dur — NON mis en cache
   res.json({ answer, sources });
 });
 app.get('/api/news/history', (req, res) => {
