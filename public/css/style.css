@@ -10211,6 +10211,7 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
     max-width: 100% !important; min-width: 0 !important; width: auto !important;
     float: none !important; position: static !important;
     margin-left: 0 !important; margin-right: 0 !important;
+    white-space: normal !important;               /* nowrap → wrap : LE point qui manquait (titre/cellules Nordea restaient sur 1 ligne = debordement coupe a droite) */
     overflow-wrap: anywhere; word-break: break-word; box-sizing: border-box;
   }
   #br-rcontent .br-doc-body img{ height: auto !important; }

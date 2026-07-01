@@ -4976,6 +4976,24 @@ app.get('/api/bank-research-content', async (req, res) => {
       if (!finalSrc || /^data:|blank|placeholder|spacer/i.test(finalSrc)) $i.remove();   // aucune image valide → on retire (pas de cassé)
     });
 
+    // ── Neutralise les LARGEURS FIXES + white-space:nowrap du HTML « email/newsletter » des banques
+    //    (Nordea/HSBC…) : width=/height= attrs + width/min-width/max-width/nowrap/flex-basis inline.
+    //    CAUSE RACINE du debordement mobile : un titre/cellule en `white-space:nowrap` reste sur 1 ligne
+    //    a sa largeur intrinseque (>viewport) → coupe a droite ; overflow-wrap/word-break n'y peuvent RIEN
+    //    tant que nowrap. On rend le HTML fluide A LA SOURCE → aucun !important inline ne bat plus le reset.
+    $('[width]').removeAttr('width');
+    $('[height]').each((_, el) => { if (!$(el).is('img')) $(el).removeAttr('height'); });
+    $('col[width], colgroup col').removeAttr('width');
+    $('[style]').each((_, el) => {
+      const raw = String($(el).attr('style') || '');
+      const cleaned = raw
+        .replace(/(?:^|;)\s*(?:min-|max-)?width\s*:[^;]*/gi, '')
+        .replace(/(?:^|;)\s*white-space\s*:\s*nowrap[^;]*/gi, '')
+        .replace(/(?:^|;)\s*flex-basis\s*:[^;]*/gi, '')
+        .replace(/^\s*;+|;+\s*$/g, '').trim();
+      if (cleaned) $(el).attr('style', cleaned); else $(el).removeAttr('style');
+    });
+
     // Extract body HTML (avec images) — inclut .blog-content (MUFG)
     // Scotiabank : le corps est réparti sur plusieurs composants cmp-text/c--body → on les concatène.
     let body = '';
