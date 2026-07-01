@@ -2737,10 +2737,18 @@ function renderFxList() {
 
   const _loader = document.getElementById('fxl-loader');
   if (!_fxlData) {
-    body.innerHTML = '';
-    if (_loader) {   // loader CENTRÉ dans la zone visible (overlay), pas dans la table large
-      if (_fxlLoading) { _loader.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement de la FX List…') : 'Chargement…'); _loader.style.display = 'flex'; }
-      else { _loader.innerHTML = '<div class="fxl-msg">Aucune donnée</div>'; _loader.style.display = 'flex'; }
+    if (_fxlLoading) {
+      // Squelette shimmer qui epouse les 14 colonnes -> perception de vitesse (remplace le spinner centre).
+      // Auto-efface : le rendu des donnees plus bas reecrit body.innerHTML ; echec -> branche "Aucune donnee".
+      if (_loader) _loader.style.display = 'none';
+      body.innerHTML = Array.from({ length: 12 }).map(() =>
+        '<tr class="fxl-row fxl-skel-row" aria-hidden="true">' +
+        FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}"><span class="dtp-skel"></span></td>`).join('') +
+        '</tr>'
+      ).join('');
+    } else {
+      body.innerHTML = '';
+      if (_loader) { _loader.innerHTML = '<div class="fxl-msg">Aucune donnée</div>'; _loader.style.display = 'flex'; }
     }
     return;
   }

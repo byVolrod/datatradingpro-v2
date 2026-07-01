@@ -10181,3 +10181,13 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
 }
+
+/* ═══════════════ Skeleton loaders — shimmer sombre PARTAGE (perception de vitesse) ═══════════════
+   Base reutilisable .dtp-skel + templates par widget. Le shimmer se fige en reduced-motion (regle globale ci-dessus). */
+@keyframes dtpSkelShimmer{from{background-position:200% 0;}to{background-position:-200% 0;}}
+.dtp-skel{display:block;height:9px;border-radius:3px;background:linear-gradient(90deg,#141416 25%,#1e1e22 37%,#141416 63%);background-size:400% 100%;animation:dtpSkelShimmer 1.4s ease-in-out infinite;}
+/* FX List : lignes squelette calees sur les colonnes (barre plus large a gauche = colonne SYMBOL) */
+.fxl-skel-row .fxl-td{border-bottom:var(--row-sep);}
+.fxl-skel-row .dtp-skel{width:58%;margin:0 auto;}
+.fxl-skel-row .fxl-td--left .dtp-skel{margin-left:0;width:74%;}
+.fxl-skel-row .fxl-td--right .dtp-skel{margin-left:auto;margin-right:0;}
