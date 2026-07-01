@@ -3112,6 +3112,7 @@ function _aiDemandPrePeak() {
 // DELTAS dans des seaux HORAIRES persistés (ai_cache `aitel:<YYYY-MM-DDTHH>`, durables Supabase →
 // survivent aux redéploys). Aucune modification du routage : couche d'OBSERVATION pure, additive.
 let _telPrev = null, _telLiveStatus = null, _telDirty = false;
+const _telDirtyKeys = new Set();   // seaux réellement modifiés depuis le dernier flush (évite de réécrire TOUT le Map en KV)
 const _telBuckets = new Map();                                                   // hourKey → seau (flush périodique vers KV)
 function _telHourKey(t) { return new Date(t || Date.now()).toISOString().slice(0, 13); }   // "2026-06-12T14"
 function _telEmpty(hk) { return { hour: hk, gemini: { calls: 0, e429: 0, tokIn: 0, tokOut: 0 }, github: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, openrouter: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, claude: { calls: 0, fail: 0, tokIn: 0, tokOut: 0 }, fallback: 0 }; }
@@ -3133,24 +3134,35 @@ function _telSample() {
     if (b.openrouter) { b.openrouter.calls += dl('openrouter'); b.openrouter.fail += dl('openrouterFail'); b.openrouter.tokIn += dl('orIn'); b.openrouter.tokOut += dl('orOut'); }   // bucket récent (anciens en cache sans openrouter → ignorés)
     b.claude.calls += dl('claude'); b.claude.fail += dl('claudeFail'); b.claude.tokIn += dl('clIn'); b.claude.tokOut += dl('clOut');
     b.fallback += dl('fallback');
-    if (dl('gemini') + dl('github') + dl('openrouter') + dl('claude') + dl('gemini429') + dl('fallback') > 0) _telDirty = true;
+    if (dl('gemini') + dl('github') + dl('openrouter') + dl('claude') + dl('gemini429') + dl('fallback') > 0) { _telDirty = true; _telDirtyKeys.add(b.hour); }
   }
   _telPrev = cur;
 }
 async function _telFlush() {
-  if (_telDirty) { _telDirty = false; for (const [hk, b] of _telBuckets) { try { await auth.aiCacheSet('aitel:' + hk, b); } catch {} } }
+  // N'écrit en KV QUE les seaux réellement modifiés (le Map contient aussi les seaux HISTORIQUES
+  // mémoïsés par _telLoadRange → les réécrire tous à chaque flush serait 100+ writes inutiles).
+  if (_telDirty) {
+    _telDirty = false;
+    const keys = [..._telDirtyKeys]; _telDirtyKeys.clear();
+    for (const hk of keys) { const b = _telBuckets.get(hk); if (b) { try { await auth.aiCacheSet('aitel:' + hk, b); } catch {} } }
+  }
   const cut = _telHourKey(Date.now() - 8 * 24 * 3600 * 1000);                    // ne garde que ~8 jours en mémoire
   for (const hk of [..._telBuckets.keys()]) if (hk < cut) _telBuckets.delete(hk);
 }
 async function _telLoadRange(hours) {
-  const out = [];
-  for (let i = hours - 1; i >= 0; i--) {
-    const hk = _telHourKey(Date.now() - i * 3600 * 1000);
-    let b = _telBuckets.get(hk);
-    if (!b) { try { b = await auth.aiCacheGet('aitel:' + hk); } catch {} }
-    out.push(b || _telEmpty(hk));
+  // PERF (IA Monitor lent) : avant, chaque seau absent du Map = 1 aller-retour KV SÉQUENTIEL, refait à
+  // CHAQUE appel (le résultat n'était jamais mémoïsé) → 24 requêtes Supabase en série au moindre refresh
+  // après un rebuild. Désormais : fetch des manquants en PARALLÈLE + mémoïsation dans _telBuckets →
+  // 1 salve unique après boot, puis 100 % mémoire. Bonus : mémoïser le seau de l'HEURE COURANTE fait
+  // repartir _telBucket() du compteur KV pré-reboot au lieu de l'écraser par un seau vide (perte évitée).
+  const keys = [];
+  for (let i = hours - 1; i >= 0; i--) keys.push(_telHourKey(Date.now() - i * 3600 * 1000));
+  const missing = keys.filter(hk => !_telBuckets.has(hk));
+  if (missing.length) {
+    const got = await Promise.all(missing.map(hk => auth.aiCacheGet('aitel:' + hk).catch(() => null)));
+    missing.forEach((hk, i) => { _telBuckets.set(hk, (got[i] && typeof got[i] === 'object') ? got[i] : _telEmpty(hk)); });
   }
-  return out;
+  return keys.map(hk => _telBuckets.get(hk) || _telEmpty(hk));
 }
 function _telHealthScore(keys, cooling, breakers, calls, errs) {
   if (!keys) return null;

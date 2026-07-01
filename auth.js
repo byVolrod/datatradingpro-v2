@@ -973,15 +973,15 @@ async function chatReact(id, emoji, who) {
 // Ping LÉGER (HEAD sur ai_cache) de CHAQUE base configurée (principal + db2…db5) → statut
 // OK / restreint (402 = quota/égress dépassé) / erreur, + latence. Caché 60 s (≈ mini keep-alive).
 let _dbHealthCache = { at: 0, data: null };
-async function dbHealth(maxAgeMs = 60000) {
-  if (_dbHealthCache.data && Date.now() - _dbHealthCache.at < maxAgeMs) return _dbHealthCache.data;
+let _dbHealthBusy = false;
+async function _dbHealthProbe() {
   const _to = (p, ms) => Promise.race([p, new Promise((_, r) => setTimeout(() => r(new Error('timeout')), ms))]);
   const nodes = await Promise.all(_dbNodes.map(async (n) => {
     let host; try { host = new URL(n.url).host; } catch { host = n.url; }
     const t0 = Date.now();
     let status = 0, state = 'erreur', err = '';
     try {
-      const r = await _to(n.client.from('ai_cache').select('*', { head: true }), 8000);
+      const r = await _to(n.client.from('ai_cache').select('*', { head: true }), 2500);   // 8s → 2.5s : un projet mort (NXDOMAIN) ne doit pas retenir le panel
       status = r.status || 0;
       if (status === 402) state = 'restreint';
       else if (status >= 200 && status < 300) state = 'ok';
@@ -994,6 +994,19 @@ async function dbHealth(maxAgeMs = 60000) {
   _dbHealthCache = { at: Date.now(), data };
   return data;
 }
+async function dbHealth(maxAgeMs = 60000) {
+  // STALE-WHILE-REVALIDATE (perf IA Monitor) : cache frais → direct ; cache périmé → on le sert
+  // IMMÉDIATEMENT et on re-sonde en arrière-plan (single-flight) ; le panel n'attend plus les sondes.
+  if (_dbHealthCache.data && Date.now() - _dbHealthCache.at < maxAgeMs) return _dbHealthCache.data;
+  if (_dbHealthCache.data) {
+    if (!_dbHealthBusy) { _dbHealthBusy = true; _dbHealthProbe().catch(() => {}).finally(() => { _dbHealthBusy = false; }); }
+    return _dbHealthCache.data;
+  }
+  if (_dbHealthBusy) return { count: _dbNodes.length, okCount: 0, nodes: [], keepalive: { last: _kaLast, ok: _kaOk }, pending: true };
+  _dbHealthBusy = true;
+  try { return await _dbHealthProbe(); } finally { _dbHealthBusy = false; }
+}
+setTimeout(() => { dbHealth().catch(() => {}); }, 15000);   // préchauffe au boot → même la 1re ouverture du panel est instantanée
 
 module.exports = {
   isStaff,
