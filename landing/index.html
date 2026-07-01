@@ -117,7 +117,7 @@
     /* === Systeme premium unifie : radius / ombres / bordures / motion / espacement === */
     --r-card:12px; --r-btn:10px; --r-chip:4px; --r-pill:999px;
     --sh-card:0 10px 30px -14px rgba(24,24,46,.16),0 1px 2px rgba(24,24,46,.05);
-    --sh-card-hover:0 18px 44px -16px rgba(24,24,46,.24);
+    --sh-card-hover:0 26px 56px -18px rgba(24,24,46,.28),0 4px 12px -4px rgba(24,24,46,.10),0 0 0 1px rgba(227,178,58,.22);
     --gold-accent:#e3b23a; --gold-border:rgba(227,178,58,.42);
     --t-fast:.16s ease; --t-med:.28s cubic-bezier(.2,.7,.2,1);
     --s-1:4px; --s-2:8px; --s-3:12px; --s-4:16px; --s-5:24px; --s-6:32px; --s-8:48px; --s-10:64px; --s-14:96px;
@@ -248,7 +248,7 @@
   /* bento */
   .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:16px;margin-top:54px}
   .bcard{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;transition:transform .22s,border-color .22s,background .22s;position:relative;overflow:hidden}
-  .bcard:hover{transform:translateY(-4px);border-color:rgba(230,189,77,.32);background:var(--panel2)}
+  .bcard:hover{transform:translateY(-5px);border-color:var(--gold-border)}
   .bcard.lg{grid-column:span 4} .bcard.sm{grid-column:span 2} .bcard.md{grid-column:span 3}
   .bic{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;font-size:17px;
     background:linear-gradient(135deg,rgba(230,189,77,.18),rgba(255,179,122,.1));color:var(--orange2);margin-bottom:16px}
@@ -367,7 +367,7 @@
   .plan.feat{border-color:rgba(230,189,77,.45);box-shadow:0 0 60px -24px rgba(230,189,77,.5)}
   .plan .tag{position:absolute;top:-12px;right:24px;font-size:11px;font-weight:700;background:var(--grad-cta);color:#1c1205;padding:5px 13px;border-radius:99px;font-family:var(--tight)}
   .plan .pn{font-family:var(--tight);font-weight:700;font-size:16px;color:var(--text2);letter-spacing:.02em}
-  .plan .pp{font-family:var(--serif);font-weight:600;font-size:46px;margin:14px 0 2px;letter-spacing:-.02em}
+  .plan .pp{font-family:var(--serif);font-weight:600;font-size:46px;margin:14px 0 2px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
   .plan .pp small{font-family:var(--font);font-size:15px;font-weight:500;color:var(--text3)}
   .plan .pm{font-size:13px;color:var(--text3);min-height:18px}
   .plan ul{list-style:none;margin:22px 0 26px;display:flex;flex-direction:column;gap:11px}
@@ -789,7 +789,7 @@
   ::selection{ background:rgba(184,134,11,.22); color:#16161d; }
   /* ombres douces sur les surfaces claires */
   .bcard,.step,.vcard,.plan,.flag-card,.fcard,.quote,.tcard{ box-shadow:var(--sh-card); border-radius:var(--r-card); transition:transform var(--t-med),box-shadow var(--t-med),border-color var(--t-med); }
-  .bcard:hover,.step:hover,.vcard:hover,.plan:hover,.flag-card:hover,.fcard:hover{ transform:translateY(-4px); box-shadow:var(--sh-card-hover); border-color:var(--gold-border); transition:transform var(--t-med),box-shadow var(--t-med),border-color var(--t-med); }
+  .bcard:hover,.step:hover,.vcard:hover,.plan:hover,.flag-card:hover,.fcard:hover{ transform:translateY(-5px); box-shadow:var(--sh-card-hover); border-color:var(--gold-border); transition:transform var(--t-med),box-shadow var(--t-med),border-color var(--t-med); }
   .plan.feat:hover{ box-shadow:var(--sh-card-hover),0 0 56px -22px rgba(227,178,58,.5); }
   .qa summary:hover{ background:rgba(184,134,11,.035); }
   .qa{ border-bottom:1px solid var(--line); }
@@ -1694,6 +1694,40 @@
   ['.proc','.vals','.plans','.bento','.mods2','.faq'].forEach(function(gs){var g=document.querySelector(gs);if(!g)return;[].slice.call(g.querySelectorAll('.reveal')).forEach(function(c,i){c.style.transitionDelay=(Math.min(i,5)*80)+'ms';});});
   var io=new IntersectionObserver(function(ents){ents.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});},{threshold:0.12,rootMargin:'0px 0px -6% 0px'});
   els.forEach(function(e){io.observe(e);});
+})();
+</script>
+<script>
+/* Tarifs : compteur anime des prix (count-up) au reveal de la section. Respecte prefers-reduced-motion.
+   Cible la valeur AFFICHEE au moment du reveal (donc la valeur live de /api/pricing si deja arrivee). */
+(function(){
+  var mq=window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)');
+  if(mq&&mq.matches)return;
+  if(!('IntersectionObserver' in window))return;
+  var sec=document.getElementById('tarifs')||document.querySelector('.plans');
+  if(!sec)return;
+  function fmt(n){try{return n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2})+' €';}catch(e){return n.toFixed(2)+' €';}}
+  function run(el){
+    if(!el||el._counted)return;
+    var small=el.querySelector('small'), suffix=small?small.outerHTML:'';
+    var mtch=(el.textContent||'').match(/[\d][\d\s.,]*/);
+    if(!mtch)return;
+    var target=parseFloat(mtch[0].replace(/\s/g,'').replace(',','.'));
+    if(!(target>0))return;
+    el._counted=true;
+    var dur=1150, start=null;
+    function step(ts){
+      if(start===null)start=ts;
+      var p=(ts-start)/dur; if(p>1)p=1;
+      var e=1-Math.pow(1-p,3);
+      el.innerHTML=fmt(target*e)+suffix;
+      if(p<1)requestAnimationFrame(step); else el.innerHTML=fmt(target)+suffix;
+    }
+    requestAnimationFrame(step);
+  }
+  var io=new IntersectionObserver(function(ents){
+    for(var i=0;i<ents.length;i++){ if(ents[i].isIntersecting){ run(document.getElementById('pp-m')); run(document.getElementById('pp-a')); io.disconnect(); break; } }
+  },{threshold:0.35});
+  io.observe(sec);
 })();
 </script>
 <script>
