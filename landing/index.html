@@ -1940,7 +1940,7 @@
           var rows=items.map(function(n){
             var tags='';
             if(n.tag)tags+='<span class="dk-news-tag">'+esc(n.tag)+'</span>';
-            if(n.cat)tags+='<span class="dk-news-tag'+(n.catCls?' dk-news-tag--'+n.catCls:'')+'">'+esc(n.cat)+'</span>';
+            if(n.cat)tags+='<span class="dk-news-tag">'+esc(n.cat)+'</span>';   /* categorie = NEUTRE/blanc comme le desk (l'affichage categorie n'est pas colore sur le desk) */
             if(n.dot)tags+='<span class="dk-news-tag dk-news-tag--high">Urgent</span>';
             return '<div class="dk-news-row"><span class="dk-news-time">'+esc(n.t||'')+'</span><div class="dk-news-body"><div class="dk-news-text">'+esc(n.h)+'</div><div class="dk-news-meta">'+tags+'</div></div></div>';
           }).join('');
