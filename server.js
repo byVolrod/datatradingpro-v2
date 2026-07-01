@@ -2603,7 +2603,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 6;   // v6 = puces à LEAD GRAS conservé (**sous-thème :**) façon pro (drivers + macro) ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 7;   // v7 = puces à VRAI libellé gras (l'IA ne recopie plus le placeholder "**Sous-thème :**" litteralement) + FR STRICT (traduit expected/forecast/prior, plus d'anglais residuel) ; v6 = puces à LEAD GRAS (**sous-thème :**) ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6544,13 +6544,13 @@ Return ONLY valid JSON (no preamble, no markdown fences):
 {
   "analysis": "<2 to 4 PARAGRAPH narrative of the currency's week — detailed, specific, professional, no filler. Separate paragraphs with \\n\\n.>",
   "drivers": [
-    { "heading": "<section heading>", "bullets": ["**Sous-thème :** une à deux phrases factuelles concrètes (chiffres quand disponibles)", "..."] }
+    { "heading": "<section heading>", "bullets": ["**<libellé court du sujet, 2-4 mots> :** une à deux phrases factuelles concrètes (chiffres quand disponibles)", "..."] }
   ]
 }
 Rules:
 - 4 to 7 driver sections. Use the EXACT French wording from this canonical list, keeping ONLY those genuinely RELEVANT to ${ccy} this week: ${_RECAP_DRIVER_SECTIONS}.
-- Each driver section: 2 to 4 bullets (chaque bullet commence par **sous-thème en gras :** puis le détail).
-- Keep tickers/codes/central-bank acronyms as-is. No source attributions, no URLs. Tout EN FRANÇAIS.
+- Each driver section: 2 to 4 bullets. Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant SON sujet (2-4 mots, ex. **Ventes au détail :**, **Inflation :**, **Pétrole :**) suivi du détail. N'écris JAMAIS le mot « sous-thème » ni le gabarit « <libellé...> » : mets le VRAI sujet de la puce.
+- Keep tickers/codes/central-bank acronyms as-is. No source attributions, no URLs. TOUT EN FRANÇAIS : traduis toute expression/donnée anglaise (expected→attendu, forecast→prévu, prior/previous→précédent, actual→publié). Aucun mot anglais hormis tickers/codes/acronymes.
 
 GLOBAL WEEK CONTEXT (cross-currency framing): ${gSummary || '(n/a)'}
 
@@ -6684,11 +6684,11 @@ This call produces the GLOBAL part of the recap (the per-currency sections are w
   "insights": ["<concise standalone insight, 1 sentence>", "... 5 to 6 thematic insight cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "SELL", "text": "<one concise sentence: directional bias for the COMING week>" } ],
   "macro": [
-    { "heading": "<macro theme, ex. Désescalade au Moyen-Orient>", "bullets": ["**Sous-thème :** two or three detailed factual sentences", "..."] }
+    { "heading": "<macro theme, ex. Désescalade au Moyen-Orient>", "bullets": ["**<libellé court du sujet, 2-4 mots> :** deux ou trois phrases factuelles détaillées EN FRANÇAIS", "..."] }
   ]
 }
 Rules:
-- "macro" = Key Macro Highlights: 6 to 8 themes (géopolitique ; performance cross-asset actions/obligations/FX/matières ; banques centrales ; données de croissance & inflation ; commerce/tarifs ; développements politiques ; technologie/corporate ; autre thème majeur de la semaine), each with 3 to 5 detailed bullets — chaque bullet = **sous-thème en gras :** puis 2 à 3 phrases concrètes (chiffres/noms/dates quand disponibles).
+- "macro" = Key Macro Highlights: 6 to 8 themes (géopolitique ; performance cross-asset actions/obligations/FX/matières ; banques centrales ; données de croissance & inflation ; commerce/tarifs ; développements politiques ; technologie/corporate ; autre thème majeur de la semaine), each with 3 to 5 detailed bullets. Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant son sujet (2-4 mots, ex. **Actions US :**, **Rendements :**) suivi de 2 à 3 phrases concrètes EN FRANÇAIS. N'écris JAMAIS le mot « sous-thème » : mets le VRAI sujet. TRADUIS toute donnée anglaise (expected→attendu, etc.).
 - "insights": 5 to 6 thematic cards (1 phrase). "pairs": 5 to 7 KEY pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold…) with a directional bias for the COMING week — "bias" exactly "BUY", "SELL" or "NEUTRAL".
 - No source attributions, no URLs.
 
@@ -11230,8 +11230,8 @@ function _buildHeroRecaps() {
     const day = d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', weekday: 'short' });
     out.push({
       src:     _HR_TYPE_FR[i._reportType],
-      title:   String(i.headline).replace(/\s+/g, ' ').trim().slice(0, 130),
-      excerpt: String(i.subtitle || i.description || '').replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().slice(0, 230),
+      title:   String(i.headline).replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, ' ').trim().slice(0, 130),
+      excerpt: String(i.subtitle || i.description || '').replace(/<[^>]*>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#0?39;|&apos;/g, "'").replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/\*\*/g, '').replace(/^\s*sous-th[eè]me\s*:\s*/i, '').replace(/\s+/g, ' ').trim().slice(0, 230),
       time:    d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'short' }).toUpperCase() + ' · ' + day,
       date:    d.toLocaleDateString('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: '2-digit' }),
       day,
