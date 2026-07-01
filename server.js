@@ -5539,10 +5539,10 @@ app.post('/api/news-info', async (req, res) => {
   const cacheKey = 'fr2:' + (id || headline.substring(0, 120));   // les anciennes entrées src1 EN deviennent orphelines → régénérées FR au clic
   if (_infoCache.has(cacheKey)) return res.json(_infoCache.get(cacheKey));
 
-  // Important → on NE court-circuite PAS quand le budget Gemini est à sec : aiSmart bascule sur Claude
-  // (borné par CLAUDE_DAILY_MAX) → la macro importante est TOUJOURS résumée en français. Non important →
-  // pré-check économe (repli = dépêche brute côté front).
-  if (!_imp && !aiAllowed('news', { important: false, priority: 'user' })) return res.json({ bullets: [] });
+  // PLUS de pré-check budget ici (2026-07-01) : ce refus renvoyait bullets:[] → le front restait sur la
+  // dépêche brute ANGLAISE (cf. screenshot user) et mémorisait le vide pour la session. Un clic utilisateur
+  // est la requête la plus précieuse : on tente TOUJOURS la chaîne (providers gratuits inclus, bornée par
+  // cooldowns + pression santé) ; Claude reste réservé à la macro importante via claudeOverBudget:_imp.
 
   try {
     const text = await aiSmart('news', `You are an editor for a professional financial news terminal (trading-desk style).
@@ -5592,8 +5592,8 @@ app.post('/api/reaction-explain', async (req, res) => {
   const cacheKey = 'fr2:' + (id || headline.substring(0, 120));   // les anciennes entrées src1 EN deviennent orphelines → régénérées FR au clic
   if (_reactCache.has(cacheKey)) return res.json(_reactCache.get(cacheKey));
 
-  // Important → pas de court-circuit (aiSmart bascule Claude → FR garanti). Non important → pré-check économe.
-  if (!_imp && !aiAllowed('news', { important: true })) return res.json({ bullets: [], text: '' });
+  // PLUS de pré-check budget (2026-07-01) : le refus laissait la réaction sans explication (ou en anglais côté
+  // repli). Clic utilisateur → on tente toujours la chaîne ; Claude réservé à l'important via claudeOverBudget.
 
   try {
     const _langRule = 'Réponds en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
