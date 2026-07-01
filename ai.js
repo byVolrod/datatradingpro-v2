@@ -314,9 +314,42 @@ function backoffActive() {
 const _GEM_RPM = parseInt(process.env.GEMINI_RPM, 10) || 12;   // RPM de base (sous le free-tier)
 // THROTTLING PRÉDICTIF : on ralentit PROGRESSIVEMENT le débit AVANT la saturation, selon la pression
 // quota (fraction du budget du jour déjà consommée, poussée par server.js). 100%→85%→70%→50%→30%.
-let _quotaPressure = 0;
+let _quotaPressure = 0;                                           // pression BUDGET (poussée par server.js)
 function setQuotaPressure(f) { _quotaPressure = Math.max(0, Math.min(1, Number(f) || 0)); }
-function _effRpm() { const p = _quotaPressure; const k = p < 0.5 ? 1 : p < 0.7 ? 0.85 : p < 0.85 ? 0.7 : p < 0.95 ? 0.5 : 0.3; return Math.max(2, _GEM_RPM * k); }
+// ── SIGNES PRÉCURSEURS : pression SANTÉ 0..1 (lecture pure des états déjà suivis, aucun I/O) ──
+// Agrège : part des couples (modèle,clé) Gemini gelés (indispo partielle), latence EWMA moyenne des couples
+// vivants (montée = fatigue), et 429-streaks en cours (RPD qui se vide). Monte AVANT la panne totale.
+function _gemAvailFraction() {
+  const n = GEMINI_KEYS.length; if (!n) return 0;
+  let live = 0, tot = 0;
+  for (const m of GEMINI_MODELS) for (let i = 0; i < n; i++) { tot++; if (!_gemIsCool(m, i) && !_hBroken(m, i)) live++; }
+  return tot ? live / tot : 0;
+}
+function _healthPressure() {
+  const unavail = 1 - _gemAvailFraction();                       // 0 = tout dispo, 1 = tout gelé
+  let sum = 0, k = 0;
+  for (const [, h] of _gemHealth) { if (h.breakerUntil <= Date.now()) { sum += h.ewmaMs; k++; } }
+  const lat = k ? Math.max(0, Math.min(1, (sum / k - 1500) / 6500)) : 0;   // 1.5s sain→0 ; 8s→1
+  let streaks = 0, tot = 0; const n = GEMINI_KEYS.length;
+  for (const m of GEMINI_MODELS) for (let i = 0; i < n; i++) { tot++; if ((_gem429Streak.get(m + '|' + i) || 0) >= 1) streaks++; }
+  const r429 = tot ? streaks / tot : 0;
+  return Math.max(0, Math.min(1, unavail * 0.55 + lat * 0.20 + r429 * 0.25));   // l'indispo domine ; latence & 429 anticipent
+}
+// Pression EFFECTIVE = max(budget, santé) → le token-bucket ET les boucles de fond réagissent au 1er des deux
+// qui monte (quota qui se vide OU providers qui fatiguent). Bornée [0,1], jamais de blocage (RPM ≥ 2).
+function pressure() { return Math.max(_quotaPressure, _healthPressure()); }
+function shouldThrottle() { return pressure() >= 0.75; }          // fond NON-essentiel : suspendre AVANT la panne
+function underPressure()  { return pressure() >= 0.55; }          // fond : espacer / élargir les TTL
+function _effRpm() { const p = pressure(); const k = p < 0.5 ? 1 : p < 0.7 ? 0.85 : p < 0.85 ? 0.7 : p < 0.95 ? 0.5 : 0.3; return Math.max(2, _GEM_RPM * k); }
+// ── APPRENTISSAGE : ordre de repli APPRIS (poussé par server.js depuis l'historique de fiabilité) ──
+// SÛR par construction : ne contient QUE 'github'/'openrouter' (jamais Gemini en 1er = capacité principale
+// intacte, jamais Claude avancé = crédits payants protégés). null = ordre par défaut (comportement actuel).
+let _fallbackOrder = null;
+function setFallbackOrder(arr) {
+  if (!Array.isArray(arr)) { _fallbackOrder = null; return; }
+  const ok = arr.filter(x => x === 'github' || x === 'openrouter');
+  _fallbackOrder = ok.length ? [...new Set(ok)] : null;
+}
 let _gemBucket = _GEM_RPM, _gemBucketTs = Date.now();
 function _gemBucketRefill() { const now = Date.now(); _gemBucket = Math.min(_GEM_RPM, _gemBucket + ((now - _gemBucketTs) / 1000) * (_effRpm() / 60)); _gemBucketTs = now; }
 function _gemBucketTake() { _gemBucketRefill(); if (_gemBucket >= 1) { _gemBucket -= 1; return true; } return false; }
@@ -599,16 +632,18 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
     if (!GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && claudeOff) throw lastErr || new Error('Gemini indisponible');
   }
 
-  // ── Option B : GitHub Models (gpt-4o, quota gratuit Microsoft) — repli AVANT Claude ──
-  if (GITHUB_TOKENS.length) {
-    try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
-    catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
-  }
-
-  // ── Option B-bis : OpenRouter (modèles :free) — capacité gratuite SUPPLÉMENTAIRE, AVANT Claude ──
-  if (OPENROUTER_KEYS.length) {
-    try { const out = await _openrouter(prompt, maxTokens); _aiStat('openrouter'); return out; }
-    catch (e) { console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('openrouterFail'); }
+  // ── Repli gratuit AVANT Claude : ORDRE APPRIS (github/openrouter), borné et sûr ──
+  // Défaut = comportement actuel (GitHub puis OpenRouter). L'apprentissage (server.js, depuis l'historique de
+  // fiabilité) peut INVERSER ces 2 replis GRATUITS ; chaque provider garde SA fonction/logs. Jamais Gemini/Claude.
+  const _order = _fallbackOrder || ['github', 'openrouter'];
+  for (const prov of _order) {
+    if (prov === 'github' && GITHUB_TOKENS.length) {
+      try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
+      catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
+    } else if (prov === 'openrouter' && OPENROUTER_KEYS.length) {
+      try { const out = await _openrouter(prompt, maxTokens); _aiStat('openrouter'); return out; }
+      catch (e) { console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('openrouterFail'); }
+    }
   }
 
   // ── Option C : Anthropic Claude (multi-clés, rotation + cooldown par clé) ────
@@ -660,7 +695,9 @@ function status() {
     intel: {
       rpmTarget: _GEM_RPM,
       rpmBucket: Math.round((() => { _gemBucketRefill(); return _gemBucket; })() * 10) / 10,   // jetons dispo (proche de RPM = pas de rafale)
-      effRpm: Math.round(_effRpm() * 10) / 10, pressure: Math.round(_quotaPressure * 100) / 100,   // throttling prédictif
+      effRpm: Math.round(_effRpm() * 10) / 10, pressure: Math.round(_quotaPressure * 100) / 100,   // throttling prédictif (budget)
+      healthPressure: Math.round(_healthPressure() * 100) / 100, effPressure: Math.round(pressure() * 100) / 100, throttle: shouldThrottle(),   // pression SANTÉ + effective (max des 2) + suspension fond → visible IA Monitor
+      fallbackOrder: _fallbackOrder || null,   // ordre de repli appris (github/openrouter) — null = défaut
       breakersOpen: [..._gemHealth.values()].filter(h => h.breakerUntil > Date.now()).length,
       health: [..._gemHealth.entries()].map(([k, h]) => ({ k, ok: h.ok, fail: h.fail, f429: h.f429, ewmaMs: Math.round(h.ewmaMs), broken: h.breakerUntil > Date.now() }))
         .sort((a, b) => (b.ok + b.fail) - (a.ok + a.fail)).slice(0, 12),
@@ -673,6 +710,10 @@ module.exports = {
   generateTextStream,
   generateTextClaudeOnly,
   setQuotaPressure,
+  pressure,
+  shouldThrottle,
+  underPressure,
+  setFallbackOrder,
   setLiveContext,
   hasAnthropic,
   claudeUsable,
