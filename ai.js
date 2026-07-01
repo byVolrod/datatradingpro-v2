@@ -206,6 +206,9 @@ function _anthCool(idx, e) {
   else if (status === 400 && /credit|billing|balance/i.test(msg)) { ms = 6 * 3600 * 1000; reason = 'crédit épuisé'; }
   else if (status === 429) { ms = 2 * 60 * 1000; reason = '429'; }
   else if (status === 529) { ms = 90 * 1000; reason = 'surcharge'; }
+  // ETAT CONNU (pas une panne transitoire) : credit epuise ou cle morte (auth) → on le marque pour que le
+  // backoff GLOBAL ne s'arme PAS dessus (Claude = filet payant volontairement gele, PAS une panne reseau).
+  if (reason === 'crédit épuisé' || reason === 'auth') { try { e._knownState = true; } catch (_) {} }
   _anthCooldown.set(idx, { until: Date.now() + ms, reason });
   return reason;
 }
@@ -340,16 +343,21 @@ function _ghIsCool(model, idx) { const t = _ghCooldown.get(model + '|' + idx); r
 // Provider GitHub Models (OpenAI-compatible) — rotation MULTI-MODÈLES × multi-tokens. Le plafond
 // gratuit est par (modèle, token) → on cumule les quotas (ex. gpt-4o ≈50/j + gpt-4o-mini ≈150/j,
 // × chaque token). Tâches courtes → mini d'abord (quota + élevé) ; longues → qualité d'abord.
+// Timeout GitHub adaptatif : gpt-4o depasse souvent 30s sous charge → « aborted ». On alloue plus large
+// pour les taches longues (JSON/rapports), un peu moins pour les courtes. Surchargeable via env.
+const GITHUB_TIMEOUT_MS = parseInt(process.env.GITHUB_TIMEOUT_MS, 10) || 45000;
+function _ghTimeoutFor(maxTokens) { return maxTokens <= LITE_MAXTOK ? Math.min(GITHUB_TIMEOUT_MS, 30000) : GITHUB_TIMEOUT_MS; }
 async function _githubModels(prompt, maxTokens) {
   const n = GITHUB_TOKENS.length; _ghCursor = (_ghCursor + 1) % n;
   const models = maxTokens <= LITE_MAXTOK ? GITHUB_MODELS_MINI_FIRST : GITHUB_MODELS;
-  let lastErr;
+  const _tmo = _ghTimeoutFor(maxTokens);
+  let lastErr, _timedOut = false;   // _timedOut : au moins un abort → on tolere 1 retry doux global
   for (const model of models) {
     for (let i = 0; i < n; i++) {
       const idx = (_ghCursor + i) % n;
       if (_ghIsCool(model, idx)) continue;   // (modèle, token) gelé (plafond/j ou auth) → pas de re-test inutile
       const tok = GITHUB_TOKENS[idx];
-      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), _tmo);
       try {
         const r = await fetch(GITHUB_BASE + '/chat/completions', {
           method: 'POST',
@@ -369,8 +377,41 @@ async function _githubModels(prompt, maxTokens) {
         if (!out || !String(out).trim()) throw new Error('réponse vide');
         const u = j.usage; if (u) _noteUsage('github', model, u.prompt_tokens, u.completion_tokens);
         return String(out).trim();
-      } catch (e) { lastErr = e; if (e.status) _ghCool(model, idx, e.status, e.retryMs); }   // échec → cooldown (modèle, token) + suivant
+      } catch (e) {
+        lastErr = e;
+        // AbortError (timeout) ou 'fetch failed' (micro-coupure egress) : PAS une panne du token → on NE gele PAS
+        // (sinon un pic de latence gelerait le token 60min a tort). On note juste qu'un retry doux est permis.
+        const _abort = e && (e.name === 'AbortError' || /aborted|fetch failed/i.test(String(e.message || '')));
+        if (_abort) _timedOut = true;
+        else if (e.status) _ghCool(model, idx, e.status, e.retryMs);   // vraie erreur HTTP → cooldown (modèle, token)
+      }
       finally { clearTimeout(t); }
+    }
+  }
+  // 1 RETRY DOUX : si le seul motif d'echec etait un/des timeout(s) (aucun token gele a tort), on retente UNE fois
+  // le meilleur couple encore libre — beaucoup de « aborted » sont des pics ponctuels qui repassent au 2e essai.
+  if (_timedOut) {
+    for (const model of models) {
+      for (let i = 0; i < n; i++) {
+        const idx = (_ghCursor + i) % n;
+        if (_ghIsCool(model, idx)) continue;
+        const tok = GITHUB_TOKENS[idx];
+        const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), _tmo);
+        try {
+          const r = await fetch(GITHUB_BASE + '/chat/completions', {
+            method: 'POST',
+            headers: { 'Authorization': 'Bearer ' + tok, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4 }),
+            signal: ctrl.signal,
+          });
+          if (!r.ok) { const body = (await r.text().catch(() => '')).slice(0, 200); const e = new Error('GitHub Models ' + model + ' ' + r.status); e.status = r.status; if (r.status === 429) { const m = body.match(/wait\s+(\d+)\s*seconds/i); if (m) e.retryMs = parseInt(m[1], 10) * 1000; } if (e.status) _ghCool(model, idx, e.status, e.retryMs); lastErr = e; continue; }
+          const j = await r.json();
+          const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+          if (out && String(out).trim()) { const u = j.usage; if (u) _noteUsage('github', model, u.prompt_tokens, u.completion_tokens); return String(out).trim(); }
+        } catch (e) { lastErr = e; }   // 2e timeout → on abandonne GitHub, la chaine passe a OpenRouter
+        finally { clearTimeout(t); }
+        break;   // 1 seul couple retente par modele
+      }
     }
   }
   throw lastErr || new Error('GitHub Models: tous les (modèle, token) ont échoué (ou en cooldown)');
@@ -514,7 +555,11 @@ async function generateText(prompt, maxTokens = 1500, opts = {}) {
     _noteTotalOk();
     return out;
   } catch (e) {
-    _noteTotalFail();   // échec TOTAL (tous providers) → alimente le backoff global des self-heals
+    // Le backoff GLOBAL ne doit s'armer que sur une panne TRANSITOIRE (reseau/5xx/429 en serie). Un etat
+    // CONNU et attendu (Claude sans credit / cle auth morte = filet payant volontairement gele) ne doit PAS
+    // pousser au backoff ni declencher l'alerte « panne totale » → sinon flood d'alertes non critiques.
+    const known = e && (e._knownState || (e.claudeTried && /credit|billing|balance/i.test(String(e.message || ''))));
+    if (!known) _noteTotalFail();
     throw e;
   }
 }

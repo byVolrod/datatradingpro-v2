@@ -3202,35 +3202,93 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
       mail: (() => { try { return mailer.getMailHealth(); } catch { return null; } })(),   // santé email (canal principal OVH, envoyés/échecs, dernier canal) → visible dans le panel
       egress: (() => { try { return auth.getEgressStats(); } catch { return null; } })(),   // garde-fou anti-fuite Supabase (octets lus 1h/24h, plafonds, coupure active ?) → visible dans le panel
       db: await auth.dbHealth().catch(() => null),   // état RÉEL de chaque projet Supabase (joignable / restreint 402 / erreur, latence) → bloc « Bases Supabase » du panel
+      alerts: { log: _aiAlertLog.slice(0, 40), incidents: _aiAlertSent },   // journal INFO/incidents (le monitoring voit TOUT ; l'email est calibré sur l'impact réel)
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
 // ── ALERTES E-MAIL ADMIN (monitoring IA) : provider en rouge / quota proche épuisement / panne totale ──
 // Anti-spam : cooldown PAR TYPE d'alerte (mémoire). Vérifié toutes les 5 min. force=true → ignore le cooldown (test).
-const _aiAlertSent = {};
-function _aiAlertDue(type, cooldownMs, force) { if (force) return true; const last = _aiAlertSent[type] || 0; if (Date.now() - last < cooldownMs) return false; _aiAlertSent[type] = Date.now(); return true; }
+// État d'alerte PERSISTÉ (Supabase KV) → survit aux rebuilds Docker (sinon chaque deploy renvoie tout).
+// Modèle INCIDENT (pas par-état) : par type { since, lastSent, active } → 1 mail à l'ouverture, rappel espacé
+// tant que ça dure, 1 mail « résolu » à la fermeture. Rien n'est masqué au panel (cf. _aiAlertLog exposé).
+let _aiAlertSent = {};
+let _aiAlertHydrated = false;
+async function _aiAlertHydrate() {
+  if (_aiAlertHydrated) return;
+  try { const s = await auth.aiCacheGet('aialert:state'); if (s && typeof s === 'object') _aiAlertSent = s; } catch {}
+  _aiAlertHydrated = true;
+}
+function _aiAlertPersist() { try { auth.aiCacheSet('aialert:state', _aiAlertSent).catch(() => {}); } catch {} }
+// Décide s'il faut ENVOYER pour `type` (incident actif). cooldownMs = espacement des RAPPELS tant que ça dure.
+function _aiAlertDue(type, cooldownMs, force) {
+  const st = _aiAlertSent[type] || (_aiAlertSent[type] = { since: 0, lastSent: 0, active: false });
+  if (force) { st.since = st.since || Date.now(); st.active = true; st.lastSent = Date.now(); _aiAlertPersist(); return true; }
+  const now = Date.now();
+  if (!st.active) { st.active = true; st.since = now; st.lastSent = now; _aiAlertPersist(); return true; }   // OUVERTURE d'incident → 1 mail
+  if (now - (st.lastSent || 0) < cooldownMs) return false;                                                    // rappel pas encore dû
+  st.lastSent = now; _aiAlertPersist(); return true;                                                          // rappel espacé
+}
+// Marque un incident RÉSOLU → renvoie true UNE fois (pour le mail « résolu ») puis se tait.
+function _aiAlertClear(type) {
+  const st = _aiAlertSent[type];
+  if (st && st.active) { st.active = false; st.resolvedAt = Date.now(); _aiAlertPersist(); return true; }
+  return false;
+}
+// Journal INFO (anneau mémoire, exposé au panel — NE MASQUE RIEN, sert juste à ne pas spammer l'email).
+const _aiAlertLog = [];
+function _aiAlertNote(level, code, msg) {
+  _aiAlertLog.unshift({ t: Date.now(), level, code, msg });
+  if (_aiAlertLog.length > 120) _aiAlertLog.length = 120;
+}
+// Filet de secours OK ? → l'utilisateur n'est IMPACTÉ que si le repli 0-token/cache est lui-même KO.
+// Conditions réelles « on ne peut plus rien servir » : feed news cassé OU cache durable (KV) injoignable.
+// (La matrice Bias a un seed permanent, l'analyse/insights ont un repli extractif → jamais « vides ».)
+async function _aiNetHealth() {
+  const feedOk = Array.isArray(allNews);
+  let kvOk = true; try { await auth.aiCacheGet('aialert:state'); } catch { kvOk = false; }
+  const ok = feedOk && kvOk;
+  const reason = ok ? '' : [!feedOk ? 'feed news indisponible' : null, !kvOk ? 'cache KV injoignable' : null].filter(Boolean).join(', ');
+  return { ok, reason, feedOk, kvOk };
+}
 async function _aiAlertCheck(force) {
+  await _aiAlertHydrate();
   let st; try { st = _telLiveStatus || ai.status(); } catch { return 0; }
   if (!st || !st.usageToday) return 0;
   let fc; try { fc = _telForecast(await _telLoadRange(3)); } catch { fc = null; }
   const out = [];
-  if (fc && (fc.risk === 'exhausted' || fc.risk === 'high' || fc.pctUsed >= 90) && _aiAlertDue('quota', 4 * 3600 * 1000, force)) {
-    out.push({ subject: 'Quota IA du jour à ' + fc.pctUsed + '%', html:
-      '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Le quota Gemini du jour est à <b>' + fc.pctUsed + '%</b> (' + fc.dayTotal + '/' + fc.dailyCap + ').'
-      + (fc.hoursToExhaust != null ? ' Épuisement estimé dans ~<b>' + fc.hoursToExhaust + ' h</b>.' : '') + ' Risque : <b>' + fc.risk + '</b>.</p>'
-      + '<p style="color:#cbd5e1;font-size:14px;">Le service continue (repli 0-token + GitHub/Claude) ; pense à ajouter une clé Gemini si ça revient souvent.</p>' });
-  }
+
+  // ── INFO (panel + logs), JAMAIS d'email : quota du jour proche/épuisé = ATTENDU, service continu ──
+  if (fc && (fc.risk === 'exhausted' || fc.risk === 'high' || fc.pctUsed >= 90)) {
+    _aiAlertNote('info', 'quota', 'Quota IA du jour à ' + fc.pctUsed + '% (' + fc.dayTotal + '/' + fc.dailyCap + '), risque ' + fc.risk + ' — service continu (repli 0-token + GitHub/Claude/OpenRouter).');
+  } else { _aiAlertClear('quota'); }
   const gemH = _telHealthScore(st.geminiKeys || 0, st.geminiCoolingNow || 0, (st.intel || {}).breakersOpen || 0, (st.usageToday || {}).gemini || 0, (st.usageToday || {}).gemini429 || 0);
-  if (gemH != null && gemH < 25 && _aiAlertDue('gemini_red', 4 * 3600 * 1000, force)) {
-    out.push({ subject: 'Gemini en rouge (santé ' + gemH + '/100)', html:
-      '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Le provider <b>Gemini</b> est dégradé : santé <b>' + gemH + '/100</b>, ' + (st.geminiCoolingNow || 0) + ' couple(s) (modèle, clé) en cooldown 429 — probable quota journalier épuisé.</p>'
-      + '<p style="color:#cbd5e1;font-size:14px;">Le terminal bascule sur GitHub Models / Claude + repli déterministe. Ajoute une clé Gemini (GEMINI_API_KEY6…) si ça persiste.</p>' });
+  if (gemH != null && gemH < 25) {
+    _aiAlertNote('info', 'gemini_red', 'Gemini santé ' + gemH + '/100 (' + (st.geminiCoolingNow || 0) + ' cooldown 429 — probable quota journalier). Bascule GitHub/Claude/OpenRouter + repli déterministe.');
+  } else { _aiAlertClear('gemini_red'); }
+
+  // ── CRITIQUE (email) : backoff global actif ET filet 0-token/cache indisponible pour du contenu VISIBLE ──
+  const backoff = !!(st.backoff && st.backoff.active);
+  let netDown = false, netReason = '';
+  if (backoff) { try { const h = await _aiNetHealth(); netDown = !h.ok; netReason = h.reason || ''; } catch { netDown = false; } }
+  if (backoff && netDown) {
+    if (_aiAlertDue('critical', 60 * 60 * 1000, force)) {   // 1 mail à l'ouverture puis rappel /1 h tant que ça dure
+      _aiAlertNote('critical', 'critical', 'PANNE IMPACTANTE : backoff global + filet 0-token/cache KO (' + netReason + ').');
+      out.push({ subject: 'Panne IA IMPACTANTE (backoff + repli KO)', html:
+        '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Backoff global actif (' + (st.backoff.totalFails || 0) + ' échecs) <b>ET</b> le filet de secours (cache + repli 0-token) est indisponible : <b>' + netReason + '</b>. Du contenu visible peut manquer à l\'utilisateur.</p>'
+        + '<p style="color:#cbd5e1;font-size:14px;">Reprise automatique dès qu\'un fournisseur repasse ou que le quota se réinitialise. Un mail « résolu » suivra.</p>' });
+    }
+  } else {
+    // Incident clos → 1 seul mail « résolu » (si un critique avait été envoyé).
+    if (_aiAlertClear('critical')) {
+      _aiAlertNote('info', 'resolved', 'Panne IA impactante résolue — service nominal.');
+      out.push({ subject: 'RÉSOLU — service IA rétabli', html:
+        '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">La panne IA impactante est terminée : la génération et/ou le filet de secours sont de nouveau opérationnels. Aucune action requise.</p>' });
+    }
+    // Backoff SANS impact (filet OK) = INFO seulement, pas d'email (c'est le cas nominal du repli).
+    if (backoff) _aiAlertNote('warn', 'backoff', 'Backoff global actif mais filet 0-token/cache OK → utilisateur non impacté (INFO, pas d\'email).');
   }
-  if (st.backoff && st.backoff.active && _aiAlertDue('backoff', 2 * 3600 * 1000, force)) {
-    out.push({ subject: 'Panne IA totale (backoff actif)', html:
-      '<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Tous les fournisseurs IA ont échoué en série (' + (st.backoff.totalFails || 0) + ' échecs) → <b>backoff global actif</b>. Le contenu reste servi via le cache + le repli 0-token, mais aucune nouvelle génération IA ne passe pour l\'instant.</p>' });
-  }
+
   for (const a of out) { try { const r = await mailer.sendAdminAlert(a); console.log('[AI Alert] →', a.subject, r ? '(' + r + ')' : '(non envoyé)'); } catch (e) { console.warn('[AI Alert] échec:', e.message); } }
   return out.length;
 }
