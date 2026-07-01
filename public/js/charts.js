@@ -1296,7 +1296,9 @@ function buildRiskGauge() {
       const updEl = document.getElementById('risk-updated');
       if (updEl && data.updatedAt) {
         const d = new Date(data.updatedAt);
-        updEl.textContent = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const _t = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        if (updEl.textContent && updEl.textContent !== _t && window._dtpFlash) window._dtpFlash(updEl);   // flash discret : heure de MAJ change vraiment
+        updEl.textContent = _t;
       }
 
     } catch (e) {
@@ -2337,7 +2339,17 @@ document.addEventListener('DOMContentLoaded', () => {
   async function loadTauxView() {
     const host = document.getElementById('taux-grid');
     if (!host) return;
-    const hasCards = () => host.children.length && !host.querySelector('.taux-loading') && !host.querySelector('.taux-empty');
+    const hasCards = () => host.children.length && !host.querySelector('.taux-loading') && !host.querySelector('.taux-empty') && !host.querySelector('.rtc-skel');
+    // Skeleton shimmer (8 cartes) AVANT le 1er fetch -> perception de vitesse ; auto-efface au render.
+    if (!hasCards() && !host.querySelector('.rtc-skel')) {
+      host.innerHTML = Array.from({ length: 8 }).map(() =>
+        '<div class="rtc rtc-skel" aria-hidden="true">' +
+          '<div class="rtc-head"><span class="dtp-skel" style="width:16px;height:16px;border-radius:50%"></span><span class="dtp-skel" style="width:58%"></span></div>' +
+          '<div class="rtc-metrics">' + Array.from({ length: 5 }).map(() => '<div class="rtc-m"><span class="dtp-skel" style="width:72%"></span><span class="dtp-skel" style="width:52%;height:12px;margin-top:4px"></span></div>').join('') + '</div>' +
+          '<div class="rtc-dist">' + Array.from({ length: 3 }).map(() => '<div class="rtc-bar"><span class="dtp-skel" style="width:100%;height:14px"></span></div>').join('') + '</div>' +
+        '</div>'
+      ).join('');
+    }
     try {
       const d = window._dtpJSON ? await window._dtpJSON('/api/rates') : await (await fetch('/api/rates')).json();   // fetch RÉSILIENT (retry sur 502/non-JSON transitoire)
       const banks = (d && d.banks) || [];
@@ -2346,6 +2358,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (sig === _tauxSig && hasCards()) return;   // données inchangées → pas de re-rendu (évite tout clignotement)
       _tauxSig = sig;
       host.innerHTML = banks.map(_rtcCard).join('');
+      if (window._dtpDataIn) window._dtpDataIn(host, 'taux');   // fondu d'arrivee (1re fois : skeleton -> cartes)
       const upd = document.getElementById('taux-update');
       if (upd) upd.innerHTML = '';   // aucune attribution de source affichée (demande utilisateur)
     } catch (e) {
@@ -2377,7 +2390,7 @@ document.addEventListener('DOMContentLoaded', () => {
       up:   'M0 26 C5 24, 7 25, 10 23 C14 20, 16 23, 20 21 C25 18, 27 21, 31 17 C35 13, 37 16, 41 12 C45 8, 47 11, 51 7 C55 3, 58 4, 62 2',
       down: 'M0 2 C5 4, 7 3, 10 5 C14 8, 16 5, 20 7 C25 10, 27 7, 31 11 C35 15, 37 12, 41 16 C45 20, 47 17, 51 21 C55 25, 58 24, 62 26',
     };
-    const SPK_COL = { wavy: '#7c879b', up: '#00e676', down: '#ff4d2e' };
+    const SPK_COL = { wavy: '#7c879b', up: '#00e676', down: '#ff3d00' };
     const mspk = kind => {
       const p = SPK_PATH[kind], c = SPK_COL[kind], gid = 'rtcg-' + kind;
       return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="none">'
@@ -2639,7 +2652,7 @@ function _fxlSeasonSpark(arr, w = 78, h = 14) {
   let segs = '';
   for (let i = 1; i < pts.length; i++) {
     const up = vals[i] >= vals[i - 1];
-    segs += `<line x1="${pts[i-1][0]}" y1="${pts[i-1][1]}" x2="${pts[i][0]}" y2="${pts[i][1]}" stroke="${up ? '#2dd4bf' : '#ff3b5c'}" stroke-width="1"/>`;
+    segs += `<line x1="${pts[i-1][0]}" y1="${pts[i-1][1]}" x2="${pts[i][0]}" y2="${pts[i][1]}" stroke="${up ? '#00cc99' : '#ff3d00'}" stroke-width="1"/>`;
   }
   return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${segs}</svg>`;
 }
@@ -2650,7 +2663,7 @@ function _fxlTrendSpark(arr, w = 78, h = 14) {
   if (vals.length < 2) return '';
   const pts = _fxlSparkPts(vals, w, h);
   const up = vals[vals.length - 1] >= vals[0];
-  return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${up ? '#00cc99' : '#ff3b5c'}" stroke-width="1"/></svg>`;
+  return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${up ? '#00cc99' : '#ff3d00'}" stroke-width="1"/></svg>`;
 }
 
 // PATTERN — micro-matrice de 5 carrés : allumés (blanc) selon les hausses récentes, sinon éteints
@@ -2674,7 +2687,7 @@ function _fxlChangeCell(v) {
 function _fxlPctCell(v) {
   if (v == null) return '<span class="fxl-pct fxl-na">N/A</span>';
   const cls = v >= 0 ? 'pos' : 'neg';
-  const rgb = v >= 0 ? '16,185,129' : '225,29,46';
+  const rgb = v >= 0 ? '0,230,118' : '255,61,0';
   const a = Math.max(0.12, Math.min(0.52, Math.abs(v) / 12 * 0.5 + 0.12));
   return `<span class="fxl-pct fxl-pct--${cls}" style="background:rgba(${rgb},${a.toFixed(3)})">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
 }
@@ -2976,6 +2989,7 @@ function renderCalTable() {
     </thead>
     <tbody>${tbody}</tbody>
   </table>`;
+  if (window._dtpDataIn) window._dtpDataIn(wrap, 'cal');   // fondu d'arrivee (1re fois : skeleton -> donnees)
 
   // Clic sur une ligne → DÉROULÉ INLINE (Specs + History) sous la ligne — PAS de fenêtre modale
   wrap.querySelectorAll('tr.cal-row--click').forEach(tr => {

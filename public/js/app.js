@@ -3946,6 +3946,7 @@ function renderBiasView(d) {
     </div>
     <div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>
     <div id="sbm-summary" class="sbm-summary-host"></div>`;
+  if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> matrice)
   // Dropdowns "Scanner" + historique de semaines dans l'en-tête du haut.
   _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
   // Bias Summary affiché DIRECTEMENT (plus de clic requis) : on garde la devise active, sinon la 1ère.
@@ -4458,7 +4459,11 @@ function _fetchBankPositions(silent) {
     .then(d => {
       _bankPositions = d.positions || [];
       const u = document.getElementById('bank-update');
-      if (u && d.updatedAt) u.textContent = 'MAJ ' + new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+      if (u && d.updatedAt) {
+        const _t = 'MAJ ' + new Date(d.updatedAt).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        if (u.textContent && u.textContent !== _t && window._dtpFlash) window._dtpFlash(u);   // flash discret : heure de MAJ change vraiment
+        u.textContent = _t;
+      }
       renderBankTable();
       if (_bankPositions.length) {
         const cur = _bankActiveId && _bankPositions.find(p => p.id === _bankActiveId);
@@ -4531,6 +4536,7 @@ function renderBankTable() {
       </td>
     </tr>`;
   }).join('');
+  if (window._dtpDataIn) window._dtpDataIn(tb, 'bank');   // fondu d'arrivee (1re fois : skeleton -> lignes)
 
   // Délégation des clics
   tb.querySelectorAll('.bank-row').forEach(row => {
