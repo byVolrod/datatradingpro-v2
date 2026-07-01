@@ -1483,8 +1483,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    fusionnent. Contenu interieur : gris plus doux + legerement indente (sous-detail). */
 .news-item:has(.news-description.visible) {
   background: #15161b !important;                           /* gris-nuit tres leger, plus clair que le fond #121317 (sans contraste violent) */
-  margin-top: -1px;                                         /* la carte remonte de 1px : sa bordure-haute sombre RECOUVRE le separateur blanc (--row-sep, blanc 2.8%) de la ligne du dessus -> fini la « ligne blanche » qui ressortait au depliage */
-  border-top: 1px solid rgba(0,0,0,0.42);                  /* delimitation fine + tres sombre, en HAUT */
+  position: relative; z-index: 1;                          /* passe AU-DESSUS de la ligne du dessus (ordre de peinture fiable) */
+  margin-top: -1px;                                        /* remonte 1px : recouvre le separateur blanc (--row-sep) de la ligne du dessus */
+  border-top: 1px solid #0d0e11;                           /* OPAQUE (au lieu de rgba(0,0,0,.42) semi-transparent qui laissait le filet blanc transparaitre) -> recouvre A COUP SUR la ligne blanche au depliage */
   border-bottom: 1px solid rgba(0,0,0,0.42) !important;    /* … et en BAS (bat le separateur de base) */
   box-shadow: none !important;                             /* zero ombre / effet 3D */
   align-items: flex-start;                                 /* carte depliee : date/type en HAUT (sinon ils flotteraient au milieu d'une carte haute) */
@@ -3690,13 +3691,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 
 /* Tag color map */
 .tag[data-cat="Geopolitical"]   { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
-.tag[data-cat="Fed"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
-.tag[data-cat="ECB"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
-.tag[data-cat="BoJ"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
-.tag[data-cat="BoE"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
-.tag[data-cat="BoC"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
-.tag[data-cat="RBA"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
-.tag[data-cat="SNB"]            { background: rgba(52,152,219,0.12); border-color: rgba(52,152,219,0.3); color: #5fa8d3; }
+/* Banques centrales = blanc/neutre comme Géopolitique & US (ces regles individuelles ecrasaient le fix groupe) */
+.tag[data-cat="Fed"]            { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
+.tag[data-cat="ECB"]            { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
+.tag[data-cat="BoJ"]            { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
+.tag[data-cat="BoE"]            { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
+.tag[data-cat="BoC"]            { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
+.tag[data-cat="RBA"]            { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
+.tag[data-cat="SNB"]            { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
 .tag[data-cat="Energy & Power"] { background: rgba(227,178,58,0.12); border-color: rgba(227,178,58,0.3); color: var(--orange); }
 .tag[data-cat="Metals"]         { display: none !important; }   /* badge "Metals" retiré (demande) — categorie + filtres conserves */
 .tag[data-cat="Crypto"]         { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
