@@ -461,10 +461,16 @@
 .dk-news-text{font-size:10.5px;line-height:1.32;color:#eceef2;font-weight:500;}
 .dk-news-row--hi .dk-news-text{color:#fff;}
 .dk-news-meta{display:flex;align-items:center;gap:5px;}
-.dk-news-tag{font-family:var(--tight,'Inter Tight',sans-serif);font-size:8.5px;font-weight:600;letter-spacing:.02em;line-height:1;padding:3px 7px;border-radius:0;background:#16171b;color:#9a9aa4;border:1px solid #232429;}
+.dk-news-tag{font-family:var(--tight,'Inter Tight',sans-serif);font-size:8.5px;font-weight:600;letter-spacing:.02em;line-height:1;padding:3px 7px;border-radius:0;background:#232429;color:#c2c6cd;border:1px solid #232429;}
 .dk-news-tag--high{background:#e3b23a;color:#1a0e00;}
 .dk-news-tag--med{background:rgba(255,179,0,.12);color:#ffb300;border:1px solid rgba(255,179,0,.4);}
 .dk-news-tag--low{background:#16171b;color:#6f6f79;border:1px solid #232429;}
+/* Couleurs des tags CATEGORIE = MEME scheme que le desk (.tag[data-cat]) : Energie=or, FX/Analyse=vert, Obligataire=turquoise, Asie=rouge, Commerce=ardoise */
+.dk-news-tag--gold {background:rgba(227,178,58,.12);border-color:rgba(227,178,58,.3);color:#e3b23a;}
+.dk-news-tag--green{background:rgba(46,204,113,.1);border-color:rgba(46,204,113,.2);color:#2ecc71;}
+.dk-news-tag--teal {background:rgba(26,188,156,.1);border-color:rgba(26,188,156,.25);color:#1abc9c;}
+.dk-news-tag--red  {background:rgba(231,76,60,.1);border-color:rgba(231,76,60,.2);color:#e74c3c;}
+.dk-news-tag--slate{background:rgba(52,73,94,.4);border-color:rgba(52,73,94,.6);color:#95a5a6;}
 .dk-news-cat{font-family:var(--mono,monospace);font-size:8px;font-weight:600;letter-spacing:.05em;line-height:1;padding:2.5px 5px;border-radius:0;background:#101012;color:#9a9aa4;border:1px solid #232429;}
 .dk-cs-meter{
   background:#0a0a0c;
@@ -1934,7 +1940,7 @@
           var rows=items.map(function(n){
             var tags='';
             if(n.tag)tags+='<span class="dk-news-tag">'+esc(n.tag)+'</span>';
-            if(n.cat)tags+='<span class="dk-news-tag">'+esc(n.cat)+'</span>';
+            if(n.cat)tags+='<span class="dk-news-tag'+(n.catCls?' dk-news-tag--'+n.catCls:'')+'">'+esc(n.cat)+'</span>';
             if(n.dot)tags+='<span class="dk-news-tag dk-news-tag--high">Urgent</span>';
             return '<div class="dk-news-row"><span class="dk-news-time">'+esc(n.t||'')+'</span><div class="dk-news-body"><div class="dk-news-text">'+esc(n.h)+'</div><div class="dk-news-meta">'+tags+'</div></div></div>';
           }).join('');
