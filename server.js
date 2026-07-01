@@ -10131,6 +10131,12 @@ const _LOW_VALUE_ANALYSIS_RE = new RegExp([
   /\b(?:trade|trading)\s+(?:idea|setup|opportunity|plan)\b/,
   /\bwhat'?s\s+next\s+for\b/,
 ].map(r => r.source).join('|'), 'i');
+// ── Cascades / canulars / faits insolites (banderoles sur monuments, streakers, records Guinness, base
+//    jump, exploits viraux) : spectacle SANS portee marche, souvent SCMP mal classe "Geopolitique".
+//    "banner" exige un verbe d'accrochage OU un connecteur + structure (epargne "banner year" / "under the
+//    banner of") ; guard !isFinanciallyRelevant cote appelant (une vraie news marche reste KEEP).
+//    Batterie adversariale 17/17 (target DROP + "banner year"/"stocks climb"/protest-ECB KEEP).
+const HUMAN_STUNT_NOISE = /\b(?:publicity\s+stunt|prank(?:s|ed|ster)?|streaker|streaking\s+(?:naked|across|onto|at)|flash\s+mob|guinness\s+world\s+record|base[\s-]?jump\w*|daredevil|(?:unfurl\w+|hoist\w*|hung|hang(?:s|ing)?|drap\w+|dangl\w+)\s+[\w\s'’"“”-]{0,30}?\bbanner\b|banner\s+(?:on|atop|on\s+top\s+of|across|over|from)\s+(?:the\s+|a\s+)?[\w\s'’-]{0,26}?(?:building|tower|bridge|skyscraper|stadium|rooftop|monument|statue|billboard))\b/i;
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
@@ -10148,6 +10154,7 @@ function isGlobalNewsNoise(headline) {
   if (isHumanInterestNoise(h) && !isFinanciallyRelevant(h)) return true;   // meteo/canicule racontee comme fait de societe (hopitaux/hotels/sommeil/corps humain/misere) -> hors-sujet desk ; sauve si vocabulaire marche present (oil/gas/power/wheat/demand...)
   if (isSoftNewsNoise(h) && !isFinanciallyRelevant(h)) return true;   // divertissement/pop-culture/science-trivia/palmares (K-pop, fossiles, classements d'universites...) -> hors-sujet desk
   if (LOCAL_INCIDENT_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // faits divers locaux (insolation/noyade/incendie domestique/accident route) -> hors-sujet desk
+  if (HUMAN_STUNT_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // cascades/canulars/records/banderoles-sur-monuments -> hors-sujet desk (ex. « banner on top of Empire State Building »)
   return false;
 }
 
