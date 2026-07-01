@@ -16,6 +16,42 @@ function dtpLoader(label, opts) {
 }
 window.dtpLoader = dtpLoader;
 
+// ═══ Graphes : révélation « premium » — JAMAIS de dessin progressif visible ═══
+// Problème : amCharts trace les courbes/barres progressivement (.appear()) → l'utilisateur
+// voit le graphe « se construire ». Solution : un overlay OPAQUE (shimmer) couvre la zone du
+// graphe pendant le chargement ET le tracé (la div est aussi mise en opacity:0 via .am-hold,
+// ceinture+bretelles), puis une fois .appear() terminé on retire .am-hold et l'overlay
+// disparaît en fondu → le graphe apparaît DÉJÀ FINI. Failsafe garanti : aucun graphe ne reste caché.
+//   Usage : const sk = _amSkel('chart-stock'); …build + series.appear(dur,delay)…; _amReveal('chart-stock', sk, dur+delay+150);
+function _amSkel(containerId) {
+  const el = document.getElementById(containerId);
+  if (!el) return null;
+  el.classList.add('am-hold');
+  const p = el.parentNode;
+  if (!p) return null;
+  try { if (getComputedStyle(p).position === 'static') p.style.position = 'relative'; } catch (e) {}
+  const ex = p.querySelector(':scope > .chart-skel');
+  if (ex) { ex.classList.remove('chart-skel--hide'); return ex; }       // pas de doublon
+  const s = document.createElement('div');
+  s.className = 'chart-skel';
+  s.setAttribute('aria-hidden', 'true');
+  p.appendChild(s);
+  return s;
+}
+function _amReveal(containerId, skelEl, afterMs) {
+  const reveal = function () {
+    const el = document.getElementById(containerId);
+    if (el) el.classList.remove('am-hold');                             // graphe redevient visible (SOUS l'overlay encore opaque)
+    if (skelEl) {
+      skelEl.classList.add('chart-skel--hide');                        // overlay s'efface en fondu → révèle le graphe fini
+      setTimeout(function () { if (skelEl && skelEl.parentNode) skelEl.parentNode.removeChild(skelEl); }, 540);
+    }
+  };
+  setTimeout(reveal, Math.max(0, afterMs == null ? 750 : afterMs));
+  setTimeout(reveal, 2000);                                            // FAILSAFE idempotent : jamais bloqué caché
+}
+window._amSkel = _amSkel; window._amReveal = _amReveal;
+
 // ═══ Cache localStorage — affichage INSTANTANÉ au revisite / cold-start ═══
 // On stocke le dernier état connu (news, wraps, recherche…) côté navigateur, puis on
 // rafraîchit en fond. L'utilisateur voit immédiatement du contenu, même serveur endormi.
@@ -2223,7 +2259,9 @@ function buildNewsItem(item) {
   arrowEl.className = 'news-arrow-col';
   if (expandEl) {
     arrowEl.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-    const _togglePanel = e => { e.stopPropagation(); openPanel(hasInfo ? 'info' : hasNotes ? 'analysis' : 'reaction'); };
+    // Défaut au dépliage : on PRÉFÈRE l'analyse FR pré-calculée (instantanée, aucun fetch) au résumé « Info »
+    // (souvent la description SOURCE en anglais) → la description s'affiche instantanément EN FRANÇAIS.
+    const _togglePanel = e => { e.stopPropagation(); openPanel(hasNotes ? 'analysis' : hasInfo ? 'info' : 'reaction'); };
     arrowEl.onclick = _togglePanel;
     // Clic sur le TITRE de la news → déroule aussi (description / analyse / réaction)
     headline.classList.add('news-headline--clickable');
@@ -2255,8 +2293,8 @@ function buildNewsItem(item) {
     const nowTime = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
 
     const tabsHtml = [
-      hasInfo   && `<button class="expand-tab${tab === 'info'     ? ' expand-tab--active' : ''}" data-tab="info"><span class="tag-icon">ⓘ</span> Info</button>`,
       hasNotes  && `<button class="expand-tab${tab === 'analysis' ? ' expand-tab--active' : ''}" data-tab="analysis"><span class="tag-icon">⊙</span> Analyse</button>`,
+      hasInfo   && `<button class="expand-tab${tab === 'info'     ? ' expand-tab--active' : ''}" data-tab="info"><span class="tag-icon">ⓘ</span> Info</button>`,
     ].filter(Boolean).join('');
 
     const infoBody = (() => {

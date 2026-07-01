@@ -10197,6 +10197,14 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
 .fxl-skel-row .fxl-td--left .dtp-skel{margin-left:0;width:74%;}
 .fxl-skel-row .fxl-td--right .dtp-skel{margin-left:auto;margin-right:0;}
 
+/* ═══════════════ Graphes amCharts : reveal "premium" (jamais de courbes qui se construisent) ═══════════════
+   .am-hold = la div amCharts se dessine en opacity:0 (cachee). .chart-skel = overlay OPAQUE shimmer par-dessus
+   la zone (parent en position:relative) qui couvre le trace, puis disparait en fondu -> le graphe apparait fini. */
+.am-hold{opacity:0 !important;}
+.chart-skel{position:absolute;inset:0;z-index:5;background:#0d0e11;overflow:hidden;opacity:1;transition:opacity .5s ease;pointer-events:none;border-radius:inherit;}
+.chart-skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(227,178,58,.045) 42%,rgba(255,255,255,.03) 50%,transparent 78%);background-size:300% 100%;animation:dtpSkelShimmer 1.5s ease-in-out infinite;}
+.chart-skel--hide{opacity:0;}
+
 /* ═══════════════ Responsive mobile — reader Institutions (PDF) + widget Force des Devises ═══════════════ */
 @media (max-width: 768px){
   /* (A) Vue MARCHES / « Force des Devises » : le TITRE du widget doit rester visible — il etait ecrase
