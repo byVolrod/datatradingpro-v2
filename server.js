@@ -2567,7 +2567,7 @@ async function _swEnsureAiTitles(internal = false) {
   return changed;
 }
 // Relance périodique (couvre les nouveaux wraps + le backfill échelonné)
-setInterval(() => _swEnsureAiTitles().catch(() => {}), 15 * 60 * 1000);   // 15 min (éco quota ; titre heuristique immédiat en attendant)
+setInterval(() => _swEnsureAiTitles().catch(() => {}), 30 * 60 * 1000);   // 30 min (eco quota — titre heuristique immediat en attendant ; gros consommateur diffus reduit)
 
 app.get('/api/session-wraps', (_req, res) => {
   _swCache.forEach(_cleanItemMd);   // titre/aiTitle sans markdown brut, même pour un JS en cache
@@ -6775,6 +6775,7 @@ ${corpus}`;
     const _allLines = [...wraps, ...cal, ...news];
     const _gSummary = _stripMd(String(parsed.summary || ''));
     for (const ccy of CCY) {
+      if (ai.backoffActive && ai.backoffActive()) break;   // panne IA en cours → on s'arrete (repli data-driven), on ne martele pas des providers morts
       try {
         const kw = _RECAP_CCY_KW[ccy];
         const ccyLines = _allLines.filter(l => kw && kw.test(l)).slice(0, 70);
@@ -6785,6 +6786,7 @@ ${corpus}`;
         const cm = ctext.match(/\{[\s\S]*\}/);
         if (cm) { const cp = JSON.parse(cm[0]); if (cp && (cp.analysis || Array.isArray(cp.drivers))) _ccyResults[ccy] = cp; }
       } catch (e) { console.warn('[Weekly Recap] IA devise ' + ccy + ' échec:', e.message); }
+      await new Promise(r => setTimeout(r, 2500));   // anti-rafale entre devises (lisse le RPM → casse le burst de 429 en cascade)
     }
     console.log('[Weekly Recap] devises générées : ' + Object.keys(_ccyResults).join(',') + ' (' + Object.keys(_ccyResults).length + '/' + CCY.length + ')');
   }
@@ -10605,10 +10607,14 @@ async function refreshNews() {
     }
   }
 
-  // Affinage IA des tags pour les news importantes (arrière-plan, borné, caché).
-  _smartTagNews().catch(() => {});
-  // Analyse IA PRÉ-CALCULÉE des news importantes (arrière-plan, bornée) → tag « Analyse » prêt dans le feed.
-  _enrichAnalyses().catch(() => {});
+  // Affinage IA des tags + analyse PRE-CALCULEE (arriere-plan, borne, cache). Le FEED reste a 60s, mais l'IA
+  // n'a pas besoin d'etre sondee chaque minute -> throttle 1 cycle sur 3 (~3 min) : moins de rafales RPM (cause
+  // des 429) ; les caps journaliers (AI_TAG/ANALYSE_DAILY_MAX) restent la borne dure ; tag heuristique deja affiche.
+  globalThis._newsAiTick = (globalThis._newsAiTick || 0) + 1;
+  if (globalThis._newsAiTick % 3 === 0) {
+    _smartTagNews().catch(() => {});
+    _enrichAnalyses().catch(() => {});
+  }
   // ANTICIPATION calendrier : dès qu'une news de résultat arrive, on remplit l'actual de l'événement
   // correspondant (sans attendre l'ouverture de l'onglet calendrier) → on récupère tout au fil de l'eau.
   try { _backfillActualsFromNews(); } catch {}
@@ -12032,10 +12038,10 @@ server.listen(PORT, async () => {
   setInterval(() => { try { mailer.verifyGmail().catch(() => {}); } catch {} }, 30 * 60 * 1000);
   // Rapports Analyst/Institution : pré-segmente en arrière-plan → ouverture instantanée (cache persistant)
   setTimeout(() => { _prewarmWrapSegs().catch(() => {}); }, 25000);
-  setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 20 * 60 * 1000);   // 20 min (éco quota — préchauffage = polissage opportuniste)
+  setInterval(() => { _prewarmWrapSegs().catch(() => {}); }, 35 * 60 * 1000);   // 35 min (eco quota — prechauffage = polissage opportuniste, contenu servi via cache + generation user)
   // DailyFX (ING) : structure EN AVANCE les rapports du jour (décalé pour ne pas chevaucher les wraps)
   setTimeout(() => { _prewarmBrSegs().catch(() => {}); }, 45000);
-  setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 25 * 60 * 1000);   // 25 min (éco quota — préchauffage = polissage opportuniste)
+  setInterval(() => { _prewarmBrSegs().catch(() => {}); }, 45 * 60 * 1000);   // 45 min (eco quota — prechauffage = polissage opportuniste, contenu servi via cache + generation user)
   // AI Telemetry : échantillonne la santé IA → seaux horaires persistés (dashboard admin + prévision)
   setTimeout(() => { try { _telSample(); } catch {} }, 6000);
   setInterval(() => { try { _telSample(); } catch {} }, 30 * 1000);            // échantillon /30s
