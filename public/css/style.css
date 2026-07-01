@@ -9515,7 +9515,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 #topbar-symbol-input:focus,#topbar-symbol-input:focus-visible{border:none;outline:none;box-shadow:none}
 #topbar-symbol-input::placeholder{color:#7a7a82}
 .topbar-symbol-search{transition:border-color .15s,box-shadow .15s}
-.topbar-symbol-search:focus-within{border-color:#e3b23a;box-shadow:0 0 0 1.5px rgba(227,178,58,.35)}
+.topbar-symbol-search:focus-within{border-color:#e3b23a;box-shadow:0 2px 12px -4px rgba(227,178,58,.32)}   /* UN seul rectangle (bordure or) + halo doux flou (plus de double anneau) */
 
 /* ═══════════ JOURNAL DE TRADING (vue plein écran + bouton topbar façon pro) ═══════════ */
 .topbar-icon--journal { margin-right: 10px; flex-shrink: 0; }
