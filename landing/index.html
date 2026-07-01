@@ -455,7 +455,9 @@
 @keyframes dk-news-pulse{0%{box-shadow:0 0 0 0 rgba(255,61,0,.55);}70%{box-shadow:0 0 0 4px rgba(255,61,0,0);}100%{box-shadow:0 0 0 0 rgba(255,61,0,0);}}
 .dk-news-row{display:flex;align-items:flex-start;gap:7px;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.028);background:#16171b;}
 .dk-news-row:last-child{border-bottom:0;}
-.dk-news-row--hi{background:rgba(220,38,38,.09);}
+.dk-news-row--hi{background:#241415;}   /* news urgente = fond bordeaux comme le desk (.news-item--breaking) */
+.dk-news-ico{flex:0 0 12px;display:flex;align-items:flex-start;justify-content:center;padding-top:2px;min-height:12px;}
+.dk-news-ico svg{width:11px;height:11px;display:block;}
 .dk-news-time{flex-shrink:0;font-family:var(--mono,monospace);font-size:10px;line-height:1.35;color:#6f6f79;padding-top:1px;letter-spacing:.02em;}
 .dk-news-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;}
 .dk-news-text{font-size:10.5px;line-height:1.32;color:#eceef2;font-weight:500;}
@@ -1186,35 +1188,35 @@
     <span class="dk-news-live"><span class="dk-news-dot"></span>En direct</span>
   </div>
   <div class="dk-news-row">
-    <span class="dk-news-time">14:32</span>
+    <span class="dk-news-ico"></span><span class="dk-news-time">14:32</span>
     <div class="dk-news-body">
       <div class="dk-news-text">Fed holds rates, signals two cuts as inflation cools</div>
       <div class="dk-news-meta"><span class="dk-news-tag">Fed</span><span class="dk-news-tag">Rates</span><span class="dk-news-tag">USD</span></div>
     </div>
   </div>
   <div class="dk-news-row">
-    <span class="dk-news-time">14:18</span>
+    <span class="dk-news-ico"></span><span class="dk-news-time">14:18</span>
     <div class="dk-news-body">
       <div class="dk-news-text">ECB's Lagarde: disinflation on track, data-dependent</div>
       <div class="dk-news-meta"><span class="dk-news-tag">ECB</span><span class="dk-news-tag">Inflation</span></div>
     </div>
   </div>
   <div class="dk-news-row">
-    <span class="dk-news-time">13:57</span>
+    <span class="dk-news-ico"></span><span class="dk-news-time">13:57</span>
     <div class="dk-news-body">
       <div class="dk-news-text">Brent crude jumps 3% on Middle East supply fears</div>
       <div class="dk-news-meta"><span class="dk-news-tag">Energy</span><span class="dk-news-tag">Geopolitical</span></div>
     </div>
   </div>
   <div class="dk-news-row">
-    <span class="dk-news-time">13:41</span>
+    <span class="dk-news-ico"></span><span class="dk-news-time">13:41</span>
     <div class="dk-news-body">
       <div class="dk-news-text">USD/JPY tops 158 as BoJ leaves policy unchanged</div>
       <div class="dk-news-meta"><span class="dk-news-tag">BoJ</span><span class="dk-news-tag">JPY</span></div>
     </div>
   </div>
   <div class="dk-news-row">
-    <span class="dk-news-time">13:22</span>
+    <span class="dk-news-ico"></span><span class="dk-news-time">13:22</span>
     <div class="dk-news-body">
       <div class="dk-news-text">BoE holds Bank Rate, warns on sticky services inflation</div>
       <div class="dk-news-meta"><span class="dk-news-tag">BoE</span><span class="dk-news-tag">Inflation</span></div>
@@ -1941,8 +1943,9 @@
             var tags='';
             if(n.tag)tags+='<span class="dk-news-tag">'+esc(n.tag)+'</span>';
             if(n.cat)tags+='<span class="dk-news-tag">'+esc(n.cat)+'</span>';   /* categorie = NEUTRE/blanc comme le desk (l'affichage categorie n'est pas colore sur le desk) */
-            if(n.dot)tags+='<span class="dk-news-tag dk-news-tag--high">Urgent</span>';
-            return '<div class="dk-news-row"><span class="dk-news-time">'+esc(n.t||'')+'</span><div class="dk-news-body"><div class="dk-news-text">'+esc(n.h)+'</div><div class="dk-news-meta">'+tags+'</div></div></div>';
+            /* Urgence = PAS de tag "Urgent" (ca n'existe pas sur le desk) mais fond bordeaux + icone cercle rouge #FB0000 a gauche, exactement comme le desk (.news-item--breaking + .news-alert-icon). */
+            var ico=n.dot?'<svg width="11" height="11" viewBox="0 0 11 11" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5.5 3.5V5.5M5.5 7.5H5.505M10.5 5.5C10.5 8.26142 8.26142 10.5 5.5 10.5C2.73858 10.5 0.5 8.26142 0.5 5.5C0.5 2.73858 2.73858 0.5 5.5 0.5C8.26142 0.5 10.5 2.73858 10.5 5.5Z" stroke="#FB0000" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>':'';
+            return '<div class="dk-news-row'+(n.dot?' dk-news-row--hi':'')+'"><span class="dk-news-ico">'+ico+'</span><span class="dk-news-time">'+esc(n.t||'')+'</span><div class="dk-news-body"><div class="dk-news-text">'+esc(n.h)+'</div><div class="dk-news-meta">'+tags+'</div></div></div>';
           }).join('');
           feed.innerHTML=(head?head.outerHTML:'')+rows;
         }).catch(function(){});
