@@ -4878,6 +4878,37 @@ document.addEventListener('click', (ev) => {
   renderBrReader(item);
 });
 
+// Préchauffage PDF : au survol soutenu (desktop) / au 1er contact (mobile) d'une ligne, on réchauffe le
+// cache serveur (contenu + PDF proxifié) AVANT le clic → l'ouverture du rapport devient quasi instantanée.
+// Garde 1 fetch/rapport (Set) + intention de survol 180ms → pas de sur-préchauffage en passant la souris.
+const _brPrefetched = new Set();
+let _brHoverTimer = null;
+function _brPrefetch(item) {
+  if (!item || _brPrefetched.has(item.id)) return;
+  _brPrefetched.add(item.id);
+  try {
+    let pdf = '';
+    if (item._pdfUrl) pdf = item._pdfUrl;
+    else if (item._pdf || /\.pdf(?:[?#]|$)/i.test(item.url || '')) pdf = item.url;
+    else if (item._source === 'ing-think') { try { pdf = _ingPdfUrl(item.url); } catch (e) {} }
+    if (pdf) fetch(_brPdfProxy(pdf)).catch(() => {});                                              // réchauffe le cache disque du PDF natif
+    if (item.url) fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url)).catch(() => {});  // réchauffe contenu + segmentation IA + résolution pdfUrl/renderUrl
+  } catch (e) {}
+}
+document.addEventListener('mouseover', (ev) => {
+  const row = ev.target.closest && ev.target.closest('#br-list .arl-row');
+  if (!row) return;
+  const item = _brRows[row.dataset.id];
+  if (!item || _brPrefetched.has(item.id)) return;
+  clearTimeout(_brHoverTimer);
+  _brHoverTimer = setTimeout(() => _brPrefetch(item), 180);
+});
+document.addEventListener('mouseout', () => { clearTimeout(_brHoverTimer); });
+document.addEventListener('touchstart', (ev) => {
+  const row = ev.target.closest && ev.target.closest('#br-list .arl-row');
+  if (row) _brPrefetch(_brRows[row.dataset.id]);
+}, { passive: true });
+
 // Badge institution = la VRAIE banque du rapport. ING→"ING", MUFG→"MUFG", autres banques
 // reconnues (notes agrégées ActionForex…) → leur sigle ; sinon (agrégateur sans banque
 // identifiable) → "DTP". On ne met JAMAIS "ING" par défaut.

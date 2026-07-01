@@ -10191,3 +10191,21 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
 .fxl-skel-row .dtp-skel{width:58%;margin:0 auto;}
 .fxl-skel-row .fxl-td--left .dtp-skel{margin-left:0;width:74%;}
 .fxl-skel-row .fxl-td--right .dtp-skel{margin-left:auto;margin-right:0;}
+
+/* ═══════════════ Responsive mobile — reader Institutions (PDF) + widget Force des Devises ═══════════════ */
+@media (max-width: 768px){
+  /* (A) Vue MARCHES / « Force des Devises » : le TITRE du widget doit rester visible — il etait ecrase
+     par la barre de periodes. Titre prioritaire (ne se comprime pas) + la barre se comprime/scrolle. */
+  .sym-phead{ min-height: 30px; gap: 6px; }
+  .sym-ptitle{ flex: 0 0 auto; white-space: nowrap; overflow: visible; }
+  #sym-strength-tf{ min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  #sym-strength-tf::-webkit-scrollbar{ display: none; }
+
+  /* (B) Reader Institutions : rapport bornE a l'ecran + centrE, PDF plein largeur, plus de coupe a droite. */
+  #br-rcontent, #arlib-rcontent, #br-reader-view{ max-width: 100vw; overflow-x: hidden; }
+  #br-rcontent .br-document{ max-width: 100% !important; margin-left: auto; margin-right: auto; }
+  #br-rcontent .br-doc-body, #br-rcontent .br-doc-body *{ max-width: 100% !important; overflow-wrap: anywhere; word-break: break-word; }
+  #br-rcontent .br-doc-body img, #br-rcontent .br-doc-body table{ height: auto !important; }
+  .br-rcontent--pdf{ width: 100%; }
+  .br-pdf-frame{ width: 100% !important; max-width: 100vw; }
+}
