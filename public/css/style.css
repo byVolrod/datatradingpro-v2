@@ -1483,6 +1483,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    fusionnent. Contenu interieur : gris plus doux + legerement indente (sous-detail). */
 .news-item:has(.news-description.visible) {
   background: #15161b !important;                           /* gris-nuit tres leger, plus clair que le fond #121317 (sans contraste violent) */
+  margin-top: -1px;                                         /* la carte remonte de 1px : sa bordure-haute sombre RECOUVRE le separateur blanc (--row-sep, blanc 2.8%) de la ligne du dessus -> fini la « ligne blanche » qui ressortait au depliage */
   border-top: 1px solid rgba(0,0,0,0.42);                  /* delimitation fine + tres sombre, en HAUT */
   border-bottom: 1px solid rgba(0,0,0,0.42) !important;    /* … et en BAS (bat le separateur de base) */
   box-shadow: none !important;                             /* zero ombre / effet 3D */
