@@ -480,8 +480,14 @@ function init() {
   buildSettingsPanel();
   buildSectionDropdown();
   startClocks();
-  drawWorldMap();
-  startSessionMarkers();
+  // La carte monde (amCharts, panneau droit — PAS le fil principal que l'utilisateur regarde) est
+  // LOURDE : on la dessine en temps IDLE pour ne pas retarder le 1er paint du fil. drawWorldMap /
+  // startSessionMarkers ne sont appelees QUE depuis init() -> aucun risque de double-rendu. Repli
+  // setTimeout si requestIdleCallback indispo (Safari ancien).
+  (window.requestIdleCallback || function (f) { return setTimeout(f, 150); })(function () {
+    try { drawWorldMap(); } catch (e) {}
+    try { startSessionMarkers(); } catch (e) {}
+  });
 
   // ── Hydratation INSTANTANÉE depuis le cache local (avant toute réponse serveur) ──
   // Affiche le dernier état connu tout de suite ; les données fraîches le remplacent ensuite.
@@ -8068,7 +8074,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   window.enhanceAllSelects=function(root){ (root||document).querySelectorAll('select:not([data-enhanced]):not([data-no-enhance])').forEach(function(s){ window.enhanceSelect(s); }); };
   function _init(){
     window.enhanceAllSelects(document);
-    try{ new MutationObserver(function(muts){ for(var i=0;i<muts.length;i++){ var a=muts[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType!==1) continue; if(n.tagName==='SELECT') window.enhanceSelect(n); else if(n.querySelectorAll) n.querySelectorAll('select:not([data-enhanced])').forEach(function(s){ window.enhanceSelect(s); }); } } }).observe(document.body,{childList:true,subtree:true}); }catch(_){}
+    try{ new MutationObserver(function(muts){ for(var i=0;i<muts.length;i++){ var a=muts[i].addedNodes; for(var j=0;j<a.length;j++){ var n=a[j]; if(n.nodeType!==1) continue; if(n.tagName==='SELECT'){ window.enhanceSelect(n); continue; } if(n.classList&&n.classList.contains('news-item')) continue; /* le fil (~200 .news-item par rendu/depeche) n'a AUCUN <select> -> on evite un querySelectorAll inutile par item */ if(n.querySelectorAll) n.querySelectorAll('select:not([data-enhanced])').forEach(function(s){ window.enhanceSelect(s); }); } } }).observe(document.body,{childList:true,subtree:true}); }catch(_){}
   }
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',_init); else _init();
 })();
