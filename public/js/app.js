@@ -17,40 +17,37 @@ function dtpLoader(label, opts) {
 window.dtpLoader = dtpLoader;
 
 // ═══ Graphes : révélation « premium » — JAMAIS de dessin progressif visible ═══
-// Problème : amCharts trace les courbes/barres progressivement (.appear()) → l'utilisateur
-// voit le graphe « se construire ». Solution : un overlay OPAQUE (shimmer) couvre la zone du
-// graphe pendant le chargement ET le tracé (la div est aussi mise en opacity:0 via .am-hold,
-// ceinture+bretelles), puis une fois .appear() terminé on retire .am-hold et l'overlay
-// disparaît en fondu → le graphe apparaît DÉJÀ FINI. Failsafe garanti : aucun graphe ne reste caché.
-//   Usage : const sk = _amSkel('chart-stock'); …build + series.appear(dur,delay)…; _amReveal('chart-stock', sk, dur+delay+150);
-function _amSkel(containerId) {
-  const el = document.getElementById(containerId);
-  if (!el) return null;
-  el.classList.add('am-hold');
-  const p = el.parentNode;
-  if (!p) return null;
-  try { if (getComputedStyle(p).position === 'static') p.style.position = 'relative'; } catch (e) {}
-  const ex = p.querySelector(':scope > .chart-skel');
-  if (ex) { ex.classList.remove('chart-skel--hide'); return ex; }       // pas de doublon
-  const s = document.createElement('div');
-  s.className = 'chart-skel';
-  s.setAttribute('aria-hidden', 'true');
-  p.appendChild(s);
-  return s;
+// Problème : amCharts trace les courbes/barres progressivement (.appear()) → l'utilisateur voit le
+// graphe « se construire ». Solution : un overlay OPAQUE shimmer (.chart-skel) est posé EN ENFANT du
+// conteneur amCharts lui-même (qui ne contient QUE le graphe — les titres/légendes sont des frères,
+// donc l'overlay couvre EXACTEMENT la zone du graphe, sans décalage à deviner). Le graphe se dessine
+// SOUS l'overlay opaque, puis après `revealMs` (≈ durée de .appear + marge) l'overlay s'efface en fondu
+// → le graphe apparaît DÉJÀ FINI. FAILSAFE 1800 ms : aucun graphe ne peut rester couvert.
+// N'agit qu'au BUILD (ne PAS rappeler sur une simple MAJ de données via data.setAll) → zéro clignotement.
+// Renvoie une fonction reveal() pour révéler immédiatement en sortie anticipée (pas de données / exception).
+//   Usage : const rv = _dtpChartPremium(el, dur+delay+120); …build + series.appear(dur,delay)… (rv() dans un catch).
+function _dtpChartPremium(host, revealMs) {
+  try {
+    const el = typeof host === 'string' ? document.getElementById(host) : host;
+    if (!el) return function () {};
+    try { if (getComputedStyle(el).position === 'static') el.style.position = 'relative'; } catch (e) {}
+    const old = el.querySelector(':scope > .chart-skel'); if (old) { try { old.remove(); } catch (e) {} }
+    const sk = document.createElement('div');
+    sk.className = 'chart-skel';
+    sk.setAttribute('aria-hidden', 'true');
+    el.appendChild(sk);
+    let done = false;
+    const reveal = function () {
+      if (done) return; done = true;
+      sk.classList.add('chart-skel--hide');
+      setTimeout(function () { try { sk.remove(); } catch (e) {} }, 380);
+    };
+    setTimeout(reveal, Math.max(0, revealMs || 0));   // reveal nominal ≈ fin de .appear
+    setTimeout(reveal, 1800);                          // FAILSAFE : jamais couvert indéfiniment
+    return reveal;
+  } catch (e) { return function () {}; }
 }
-function _amReveal(containerId, skelEl, afterMs) {
-  const reveal = function () {
-    const el = document.getElementById(containerId);
-    if (el) el.classList.remove('am-hold');                             // graphe redevient visible (SOUS l'overlay encore opaque)
-    if (skelEl) {
-      skelEl.classList.add('chart-skel--hide');                        // overlay s'efface en fondu → révèle le graphe fini
-      setTimeout(function () { if (skelEl && skelEl.parentNode) skelEl.parentNode.removeChild(skelEl); }, 540);
-    }
-  };
-  setTimeout(reveal, Math.max(0, afterMs == null ? 750 : afterMs));
-  setTimeout(reveal, 2000);                                            // FAILSAFE idempotent : jamais bloqué caché
-}
-window._amSkel = _amSkel; window._amReveal = _amReveal;
+window._dtpChartPremium = _dtpChartPremium;
 
 // ═══ Cache localStorage — affichage INSTANTANÉ au revisite / cold-start ═══
 // On stocke le dernier état connu (news, wraps, recherche…) côté navigateur, puis on
@@ -3786,6 +3783,7 @@ function _waBuildChart(days) {
     if (_waChartRoot) { try { _waChartRoot.dispose(); } catch {} _waChartRoot = null; }
     const root = am5.Root.new('wa-risk-chart');
     _waChartRoot = root;
+    _dtpChartPremium(el, 300);   // chargement premium : overlay shimmer -> reveal en fondu (build-only ; sparkline sans .appear -> reveal court)
     try { root._logo && root._logo.dispose(); } catch {}
     const chart = root.container.children.push(am5xy.XYChart.new(root, {
       panX: false, panY: false, wheelX: 'none', wheelY: 'none',
@@ -4540,6 +4538,7 @@ function buildBankChart(p) {
       const mono = "'SF Mono', ui-monospace, Menlo, Consolas, monospace";
       const root = am5.Root.new('bank-chart');
       _bankChartRoot = root;
+      _dtpChartPremium(el, 640);   // chargement premium : overlay shimmer pendant appear(500,60) -> reveal en fondu (re-build a chaque clic de ligne)
       // Suppression robuste du logo amCharts (le petit rond bleu) : forceHidden ne suffit pas
       if (root._logo) {
         root._logo.set('forceHidden', true);
@@ -9206,6 +9205,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const id = 'jr-eq-chart', el = document.getElementById(id); if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
     _jrDisposeRoot(id);
     const root = am5.Root.new(id); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    _dtpChartPremium(el, 790);   // chargement premium : overlay shimmer pendant appear(650,60) -> reveal en fondu (re-build au rendu dashboard)
     const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 10, paddingBottom: 2 }));
     const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 66 });
     xr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
@@ -9244,6 +9244,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const id = 'jr-result-donut', el = document.getElementById(id); if (!el || typeof am5percent === 'undefined') return;
     _jrDisposeRoot(id);
     const root = am5.Root.new(id); root.setThemes([am5themes_Animated.new(root)]); if (root._logo) root._logo.set('forceHidden', true);
+    _dtpChartPremium(el, 680);   // chargement premium : overlay shimmer pendant appear(600) -> reveal en fondu (re-build au rendu dashboard)
     const chart = root.container.children.push(am5percent.PieChart.new(root, { innerRadius: am5.percent(64), paddingTop: 2, paddingBottom: 2 }));
     const series = chart.series.push(am5percent.PieSeries.new(root, { valueField: 'v', categoryField: 'k', alignLabels: false }));
     series.labels.template.set('forceHidden', true); series.ticks.template.set('forceHidden', true);

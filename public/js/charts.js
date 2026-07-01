@@ -597,6 +597,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   root.setThemes([applyTerminalTheme(root)]);
   root._logo?.set('forceHidden', true);
   if (!_iso) _strengthRoot = root;   // l'onglet STRENGTH garde sa réf. ; le graphique du rapport est autonome
+  if (container) { try { window._dtpChartPremium && window._dtpChartPremium(container, 760); } catch (e) {} }   // chargement premium : overlay shimmer pendant appear(500,i*20) -> reveal fondu (build-only ; update() ne rebuild pas)
 
   const chart = root.container.children.push(
     am5xy.XYChart.new(root, {
@@ -1176,6 +1177,7 @@ function buildRiskGauge() {
         root.setThemes([am5themes_Animated.new(root), applyTerminalTheme(root)]);   /* thème terminal (était am5themes_Dark générique) */
         root._logo?.set('forceHidden', true);
         _riskGaugeRoot = root;
+        { const _gd = document.getElementById('risk-gauge-div'); const _gs = _gd && _gd.closest('.risk-gauge-stage'); try { window._dtpChartPremium && window._dtpChartPremium(_gs || _gd, 560); } catch (e) {} }   // chargement premium : overlay sur la scene (couvre jauge + readout) -> reveal fondu (build-once)
 
         const chart = root.container.children.push(
           am5radar.RadarChart.new(root, {
@@ -1326,6 +1328,7 @@ function buildRiskHistoryChart(containerId, data) {
   const root = am5.Root.new(containerId);
   root._logo?.set('forceHidden', true);
   root.setThemes([am5themes_Animated.new(root), applyTerminalTheme(root)]);
+  { try { window._dtpChartPremium && window._dtpChartPremium(el, 620); } catch (e) {} }   // chargement premium : overlay shimmer pendant appear(500) -> reveal fondu (build-once ; update()=data.setAll)
 
   const chart = root.container.children.push(am5xy.XYChart.new(root, {
     panX: false, panY: false, wheelX: 'none', wheelY: 'none',
