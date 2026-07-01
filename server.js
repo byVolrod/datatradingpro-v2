@@ -10462,7 +10462,7 @@ let _aiTagBusy = false;
 // la MÉRITENT (importantes + assez de matière), la cache (durable Supabase + disque) et
 // l'attache à l'objet news (item.analyse). Le front affiche le tag « Analyse » uniquement
 // si item.analyse existe → parfois Info+Analyse, parfois juste Info. Budget strict.
-const AI_ANALYSE_DAILY_MAX = parseInt(process.env.AI_ANALYSE_DAILY_MAX, 10) || 10;   // abaissé (éco quota)
+const AI_ANALYSE_DAILY_MAX = parseInt(process.env.AI_ANALYSE_DAILY_MAX, 10) || 90;   // la traduction FR (analyse pré-calculée) doit couvrir la JOURNÉE, pas seulement 10 news (sinon tout reste en anglais après les 10 premières). Overflow routé vers GitHub/OpenRouter gratuits quand Gemini est épuisé ; borné par les cooldowns providers + la pression santé (Phase 3)
 let _aiAnaDay = '', _aiAnaDayCount = 0, _aiAnaBusy = false;
 function _meritsAnalysis(item) {
   if (!item || item._briefing || item._marketUpdate) return false;
@@ -10487,7 +10487,7 @@ async function _enrichAnalyses() {
   try {
     const today = _aiDay();
     if (_aiAnaDay !== today) { _aiAnaDay = today; _aiAnaDayCount = 0; }           // reset journalier
-    let perCycle = 1;                                                             // 1 génération IA par passage
+    let perCycle = 3;                                                             // 3 traductions FR (analyses) par passage → rattrapage plus rapide (la traduction n'était pas lente, c'est le débit qui était bridé)
     for (const item of allNews) {
       if (!item || (Array.isArray(item.analyse) && item.analyse.length)) continue; // déjà analysée
       if (!_meritsAnalysis(item)) continue;
@@ -10624,14 +10624,12 @@ async function refreshNews() {
     }
   }
 
-  // Affinage IA des tags + analyse PRE-CALCULEE (arriere-plan, borne, cache). Le FEED reste a 60s, mais l'IA
-  // n'a pas besoin d'etre sondee chaque minute -> throttle 1 cycle sur 3 (~3 min) : moins de rafales RPM (cause
-  // des 429) ; les caps journaliers (AI_TAG/ANALYSE_DAILY_MAX) restent la borne dure ; tag heuristique deja affiche.
+  // Analyse IA PRE-CALCULEE = la TRADUCTION FR affichee au depliage -> lancee a CHAQUE cycle (60s) pour que le
+  // francais apparaisse VITE (bornee par AI_ANALYSE_DAILY_MAX + cooldowns providers + pression sante Phase 3).
+  _enrichAnalyses().catch(() => {});
+  // Affinage des TAGS (moins urgent) : reste throttle 1 cycle sur 3 pour lisser le RPM. Tag heuristique deja affiche.
   globalThis._newsAiTick = (globalThis._newsAiTick || 0) + 1;
-  if (globalThis._newsAiTick % 3 === 0) {
-    _smartTagNews().catch(() => {});
-    _enrichAnalyses().catch(() => {});
-  }
+  if (globalThis._newsAiTick % 3 === 0) _smartTagNews().catch(() => {});
   // ANTICIPATION calendrier : dès qu'une news de résultat arrive, on remplit l'actual de l'événement
   // correspondant (sans attendre l'ouverture de l'onglet calendrier) → on récupère tout au fil de l'eau.
   try { _backfillActualsFromNews(); } catch {}
