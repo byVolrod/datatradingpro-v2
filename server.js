@@ -2738,7 +2738,7 @@ function _ilArmIdleClose() {
   if (_ilIdleTimer) clearTimeout(_ilIdleTimer);
   _ilIdleTimer = setTimeout(async () => {
     if (_ilBrowser) { try { await _ilBrowser.close(); } catch {} _ilBrowser = null; console.log('[InvestingLive] navigateur fermé (inactif)'); }
-  }, 45_000);
+  }, 120_000);   // 2 min (etait 45s) : garde Chromium chaud pendant une session de lecture de rapports -> rendus PDF plus rapides (moins de cold-start Puppeteer). Borne par le watchdog memoire.
   if (_ilIdleTimer.unref) _ilIdleTimer.unref();
 }
 
