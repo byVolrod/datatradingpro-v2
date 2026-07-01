@@ -1758,11 +1758,15 @@
         g+='<polyline class="dk-cs2-ln" stroke="'+CCY_COL[c.code][0]+'" points="'+pts+'"/>';
       });
       svg.innerHTML=g;
-      var R=L.slice().sort(function(a,b){return b.value-a.value;}), N=R.length;
-      ends.innerHTML=R.map(function(c,i){
-        var top=(N>1?(10+i/(N-1)*78):50), col=CCY_COL[c.code];
-        return '<span class="dk-cs2-b" style="top:'+top.toFixed(0)+'%"><b style="background:'+col[0]+'">'+c.code+'</b><i style="background:'+col[1]+'">'+fmt(c.value)+'</i></span>';
-      }).join('');
+      // Badges ALIGNES sur la FIN de chaque courbe (y du dernier point = y(value), converti en % : viewBox h=200 -> top=y/2),
+      // puis anti-chevauchement : on trie par position et on impose un ecart mini (comme le declutter du desk).
+      var items=L.map(function(c){return {c:c, top:Math.max(3,Math.min(97, y(c.value)/2))};});
+      items.sort(function(a,b){return a.top-b.top;});
+      var GAP=6.5;   // ~= hauteur d'un badge (12px / ~217px = 5.5%) + marge : anti-chevauchement MINIMAL -> badges colles a la fin de leur courbe
+      for(var k=1;k<items.length;k++){ if(items[k].top-items[k-1].top<GAP) items[k].top=items[k-1].top+GAP; }
+      var ov=items.length?items[items.length-1].top-97:0;
+      if(ov>0){ for(var m=0;m<items.length;m++) items[m].top=Math.max(3,items[m].top-ov); }
+      ends.innerHTML=items.map(function(it){var col=CCY_COL[it.c.code];return '<span class="dk-cs2-b" style="top:'+it.top.toFixed(1)+'%"><b style="background:'+col[0]+'">'+it.c.code+'</b><i style="background:'+col[1]+'">'+fmt(it.c.value)+'</i></span>';}).join('');
     }
     function load(){fetch('https://desk.datatradingpro.com/api/hero-strength').then(function(r){return r.json();}).then(render).catch(function(){});}
     load(); setInterval(load,120000);
