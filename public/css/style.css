@@ -10201,7 +10201,8 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
    .am-hold = la div amCharts se dessine en opacity:0 (cachee). .chart-skel = overlay OPAQUE shimmer par-dessus
    la zone (parent en position:relative) qui couvre le trace, puis disparait en fondu -> le graphe apparait fini. */
 .am-hold{opacity:0 !important;}
-.chart-skel{position:absolute;inset:0;z-index:5;background:#0d0e11;overflow:hidden;opacity:1;transition:opacity .5s ease;pointer-events:none;border-radius:inherit;}
+/* overlay OPAQUE pose EN ENFANT du conteneur amCharts (couvre exactement le graphe) ; z-index 7 = au-dessus du grip de zoom (6) et du readout jauge (5) le temps du build */
+.chart-skel{position:absolute;inset:0;z-index:7;background:#0d0e11;overflow:hidden;opacity:1;transition:opacity .5s ease;pointer-events:none;border-radius:inherit;}
 .chart-skel::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,transparent 20%,rgba(227,178,58,.045) 42%,rgba(255,255,255,.03) 50%,transparent 78%);background-size:300% 100%;animation:dtpSkelShimmer 1.5s ease-in-out infinite;}
 .chart-skel--hide{opacity:0;}
 
