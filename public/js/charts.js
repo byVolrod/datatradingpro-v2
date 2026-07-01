@@ -2776,6 +2776,7 @@ function renderFxList() {
     FXL_COLS.map(c => `<td class="fxl-td fxl-td--${c.align}${c.heat ? ' fxl-td--heat' : ''}">${_fxlCell(c, p, maxAbsStr)}</td>`).join('') +
     `</tr>`
   ).join('');
+  if (window._dtpDataIn) window._dtpDataIn(body, 'fxl');   // fondu d'arrivee (1re fois seulement, jamais aux refresh silencieux)
 
   const upd = document.getElementById('fxl-updated');
   if (upd && _fxlData.updatedAt) {
