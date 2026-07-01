@@ -10410,8 +10410,9 @@ async function _enrichAnalyses() {
     for (const item of allNews) {
       if (!item || (Array.isArray(item.analyse) && item.analyse.length)) continue; // déjà analysée
       if (!_meritsAnalysis(item)) continue;
-      const _fr = _isImportantNews(item.headline, item.category, item.priority);   // important → analyse en FRANÇAIS
-      const ck = (_fr ? 'anafr2:' : 'anasrc1:') + item.id;   // anafr2 = FRANÇAIS (macro importante) · anasrc1 = LANGUE SOURCE
+      const _fr = true;   // TOUJOURS en FRANÇAIS (desk 100% FR) : l'analyse pré-calculée EST la description affichée au dépliage → instantanée + FR
+      const _important = _isImportantNews(item.headline, item.category, item.priority);   // pilote seulement le budget (Claude autorisé), plus la langue
+      const ck = 'anafr2:' + item.id;   // anafr2 = FRANÇAIS (toutes les analyses désormais)
       // 1) cache mémoire chaud
       if (_analyseCache.has(ck)) {
         const b = _analyseCache.get(ck);
@@ -10445,7 +10446,7 @@ Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rule
 - NO bold, NO markdown, NO asterisks. Plain text only.
 ${_fr ? '- Rédige en FRANÇAIS.' : '- Same language as the source (usually English).'}
 - Start each bullet with • . Reply ONLY with the bullets, no preamble.`,
-          320, { important: true, claudeOverBudget: _fr });   // macro importante → FR (Claude autorisé, borné par les caps) ; sinon source, Gemini seul
+          320, { important: true, claudeOverBudget: _important });   // FR toujours ; Claude-over-budget réservé à la macro importante (borne le coût), le reste passe par Gemini
         const bullets = _parseAnalyseBullets(out);
         _analyseCache.set(ck, bullets);                                          // cache même vide → on ne réessaie pas
         if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
