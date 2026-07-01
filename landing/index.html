@@ -1755,30 +1755,41 @@
         var bb=b[j].querySelector('b'); if(bb)bb.textContent=hm(BADGE[j]);
         var dot=b[j].querySelector('.dot'); if(dot)dot.className='dot'+(day(hr(BADGE[j]))?'':' off');
       }
-      var nowP=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Paris'})), off=[0,14,32,56,99,171];
-      var nt=document.querySelectorAll('.hfm-news .hfm-nt');
-      for(var k=0;k<nt.length;k++){var t=new Date(nowP.getTime()-off[k%off.length]*60000);nt[k].textContent=('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);}
+      if(!window._heroLive){                          // heures fabriquees UNIQUEMENT pour les lignes statiques de repli ; le fil LIVE porte les VRAIES heures du desk
+        var nowP=new Date(new Date().toLocaleString('en-US',{timeZone:'Europe/Paris'})), off=[0,14,32,56,99,171];
+        var nt=document.querySelectorAll('.hfm-news .hfm-nt');
+        for(var k=0;k<nt.length;k++){var t=new Date(nowP.getTime()-off[k%off.length]*60000);nt[k].textContent=('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);}
+      }
     }
     tick(); setInterval(tick,1000);
     // Fil hero LIVE : on remplace les lignes statiques par les VRAIES news du desk (un doublon du desk,
     // toujours a jour). Repli silencieux sur les lignes statiques si le desk est injoignable -> jamais casse.
     (function(){
       var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
-      fetch('https://desk.datatradingpro.com/api/hero-news').then(function(r){return r.ok?r.json():null;}).then(function(news){
-        if(!Array.isArray(news)||news.length<3)return;
-        var track=document.querySelector('.hfm-track'); if(!track)return;
-        var rows=news.slice(0,6).map(function(n){
-          var dot=n.dot?'<span class="hfm-ndot"></span>':'';
-          var nm=n.dot?'':' style="margin-left:16px"';
-          var tg='';
-          if(n.tag)tg+='<span class="hfm-tag">'+esc(n.tag)+'</span>';
-          if(n.info)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span>';
-          if(n.analyse)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--ana">Analyse</span>';
-          return '<div class="hfm-nrow">'+dot+'<span class="hfm-nt"'+nm+'></span><span class="hfm-nc">'+esc(n.cat)+'</span><span class="hfm-nh">'+esc(n.h)+(tg?'<div>'+tg+'</div>':'')+'</span></div>';
-        });
-        track.innerHTML=rows.concat(rows).join('');   // x2 pour la boucle de defilement
-        tick();                                        // re-remplit les horodatages (off=[0,14,32,56,99,171] min)
-      }).catch(function(){});
+      var lastSig='';
+      function loadHeroNews(){
+        fetch('https://desk.datatradingpro.com/api/hero-news',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(news){
+          if(!Array.isArray(news)||news.length<3)return;
+          var track=document.querySelector('.hfm-track'); if(!track)return;
+          var items=news.slice(0,8);
+          var sig=items.map(function(n){return n.h+'|'+(n.t||'');}).join('#');
+          if(sig===lastSig)return;                     // rien de neuf -> on ne casse pas le defilement en cours
+          lastSig=sig;
+          var rows=items.map(function(n){
+            var dot=n.dot?'<span class="hfm-ndot"></span>':'';
+            var nm=n.dot?'':' style="margin-left:16px"';
+            var tg='';
+            if(n.tag)tg+='<span class="hfm-tag">'+esc(n.tag)+'</span>';
+            if(n.info)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span>';
+            if(n.analyse)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--ana">Analyse</span>';
+            return '<div class="hfm-nrow">'+dot+'<span class="hfm-nt"'+nm+'>'+esc(n.t||'')+'</span><span class="hfm-nc">'+esc(n.cat)+'</span><span class="hfm-nh">'+esc(n.h)+(tg?'<div>'+tg+'</div>':'')+'</span></div>';
+          });
+          track.innerHTML=rows.concat(rows).join('');  // x2 pour la boucle de defilement
+          window._heroLive=true;                        // heures REELLES du desk affichees -> tick() ne les ecrase plus
+        }).catch(function(){});
+      }
+      loadHeroNews();
+      setInterval(loadHeroNews,45000);                  // POLL 45s -> le fil hero suit le desk en TEMPS REEL (vrai doublon, se met a jour tout seul)
     })();
   }catch(e){}
 })();
