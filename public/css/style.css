@@ -10153,3 +10153,31 @@ summary:focus-visible, [tabindex]:focus-visible, .nav-item:focus-visible, .right
   outline: none !important;
   box-shadow: var(--focus-ring) !important;
 }
+
+/* ═══════════════ UX — micro-interactions & etats (Phase 1, additif, HUD dense) ═══════════════
+   Feedback d'appui sur TOUS les boutons, boutons desactives assombris, focus clavier des controles
+   <div>, hover de panel ravive (--border2 pointait sur --border = invisible), reduced-motion global.
+   Zero impact layout — tout est additif. */
+
+/* Feedback d'APPUI : le controle s'enfonce de 1px (transition transform deja fournie l.10048). */
+.nav-item:active,.right-tab:active,.stf-btn:active,.cot-type-btn:active,.dmx-tf-btn:active,
+.inst-tab:active,.jr-tab:active,.np-tab:active,.tf-btn:active,.ct-btn:active,.ind-btn:active,
+.sym-subtab:active,.topbar-icon:active,.toolbar-select:active,.cal-imp-btn:active,.dtpsel-btn:active,
+.load-more-btn:active,.br-back-btn:active,.arlib-back-btn:active,.pd-btn:active,.jr-btn:active,
+.ai-send:active,.chat-send:active,button:active{transform:translateY(1px);}
+button:disabled:active,button[disabled]:active{transform:none;}
+
+/* Boutons DESACTIVES (JS pose disabled sur envoi/sauvegarde sans style aujourd'hui = manque visuel). */
+button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disabled,
+.chat-send:disabled,.load-more-btn:disabled,.dtpsel-btn:disabled{opacity:.45 !important;cursor:default !important;pointer-events:none;}
+
+/* Focus CLAVIER on-brand pour les controles <div>/<span> oublies par la regle globale (l.10149). */
+.topbar-icon:focus-visible,.toolbar-select:focus-visible,#section-filter-btn:focus-visible,.section-filter-btn:focus-visible{outline:none !important;box-shadow:var(--focus-ring) !important;}
+
+/* Hover de PANEL ravive : filet or tres discret (avant : --border2 == --border = invisible). Pas de lift. */
+.sym-panel:hover,.sym-bz-col:hover,.sbs-panel:hover,.inst-panel:hover,.dmx-panel:hover,.clocks-panel:hover{border-color:rgba(227,178,58,.20) !important;}
+
+/* prefers-reduced-motion : coupe les mouvements residuels partout (couverture globale). */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;transition-duration:.001ms !important;scroll-behavior:auto !important;}
+}
