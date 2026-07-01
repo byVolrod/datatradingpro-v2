@@ -863,6 +863,31 @@ window._toggleNewsMode = function () {
   renderNews();
 };
 
+// Checks anti-bruit BASÉS SUR LE TITRE (immuable) → MÉMOÏSÉS sur l'item (item._hlNoiseOk) : calculés
+// UNE fois, réutilisés à chaque rendu/frappe/dépêche WS (le titre ne change pas → ~12 regex évitées par
+// item et par rendu). Tous ces checks aboutissent à une EXCLUSION, donc l'ordre entre eux n'importe pas.
+// Le seul check dépendant de la DESCRIPTION (regroupable) reste EN DIRECT dans getFilteredItems.
+function _hlNoisePass(item, _h) {
+  if (item._hlNoiseOk !== undefined) return item._hlNoiseOk;
+  const _hs = _stripTrailingMeta(_h);
+  const ok = !(
+    /^\s*\[?\s*primer\b/i.test(_h) ||
+    /^\[No Title\]/i.test(_h) ||
+    /^RT @/i.test(_h) ||
+    /^@[A-Za-z]/i.test(_h) ||
+    _h.replace(/[^a-z0-9]/gi, '').length < 14 ||
+    _NEWS_NOISE.test(_h) ||
+    _NEWS_BLOCK.test(_h) ||
+    _BANK_TEASER_RE.test(_h) ||
+    _POLITICAL_SPAM_RE.test(_h) ||
+    _SINGLE_STOCK_RE.test(_h) ||
+    _CLICKBAIT_RE.test(_h) ||
+    (_hs !== _h && _BANK_TEASER_RE.test(_hs))
+  );
+  item._hlNoiseOk = ok;
+  return ok;
+}
+
 function getFilteredItems() {
   const seen = new Set();   // dédoublonnage intelligent des titres quasi-identiques
   return allItems.filter(item => {
@@ -874,26 +899,14 @@ function getFilteredItems() {
     // apparaître dans l'onglet News (demande utilisateur), comme un point macro d'ouverture.
     if ((item._briefing || item.source === 'DTP') && item._reportType !== 'DTP Daily') return false;
     if (!isCategoryEnabled(item.category)) return false;
-    // Social-media reposts and failed-scrape stubs — no market value
+    // Bruit/reposts sans valeur — checks BASÉS SUR LE TITRE (immuable) MÉMOÏSÉS (voir _hlNoisePass) :
+    // ~12 regex (primer, RT/@, longueur, _NEWS_NOISE/BLOCK, teasers banque, spam politique, single-stock,
+    // clickbait…) ne sont plus relancées par item à CHAQUE rendu/frappe/dépêche WS.
     const _h = item.headline || '';
-    if (/^\s*\[?\s*primer\b/i.test(_h)) return false;   // posts "PRIMER" (prep de séance) — retirés du flux
-    if (/^\[No Title\]/i.test(_h)) return false;
-    if (/^RT @/i.test(_h))         return false;
-    if (/^@[A-Za-z]/i.test(_h))   return false;
-    if (_h.replace(/[^a-z0-9]/gi, '').length < 14) return false;   // titres trop courts / sans valeur
-    // Titres récurrents SANS contenu exploitable (n'expliquent rien) → on ne spamme pas le flux.
-    //   ex. « Thursday FX Option Expiries » : juste un en-tête, aucune analyse/description.
+    if (!_hlNoisePass(item, _h)) return false;
+    // Seul check dépendant de la DESCRIPTION (regroupable → peut changer) → gardé EN DIRECT :
+    //   ex. « Thursday FX Option Expiries » : en-tête sans analyse/description.
     if (/options?\s+expir/i.test(_h) && (item.description || '').replace(/<[^>]*>/g, '').trim().length < 40) return false;
-    if (_NEWS_NOISE.test(_h)) return false;                        // promo / faible valeur
-    if (_NEWS_BLOCK.test(_h)) return false;                        // spam explicitement bloqué (Banque de Russie, taux de change…)
-    if (_BANK_TEASER_RE.test(_h)) return false;                    // teaser de recherche de banque ("… – MUFG/Nomura/TD…") : pas une news, explique rien
-    if (_POLITICAL_SPAM_RE.test(_h)) return false;                 // repost d'endorsement politique (America First/MAGA…) : pas une news
-
-    // ── Levier 1 : bruit supplémentaire (single-stock, clickbait, teaser cassé par l'horodatage) ──
-    if (_SINGLE_STOCK_RE.test(_h)) return false;                   // action d'une société (dividende/rachat) : pas macro/FX
-    if (_CLICKBAIT_RE.test(_h))    return false;                   // éditorial retail / clickbait
-    const _hs = _stripTrailingMeta(_h);
-    if (_hs !== _h && _BANK_TEASER_RE.test(_hs)) return false;     // teaser banque masqué par un suffixe horodaté (« … – UOB 20:30 Jun »)
     // ── Levier 2 : mode Essentiel (hors recherche) — ne garder que la macro/FX qui compte ──
     if (newsEssentialMode && !searchQuery && !_isEssentialItem(item)) return false;
 
@@ -2655,12 +2668,14 @@ function buildNewsItem(item) {
   return el;
 }
 
+// Formateur de date RÉUTILISÉ (au lieu d'en recréer un via toLocaleDateString à CHAQUE appel dans la
+// boucle de rendu = coûteux). Sortie identique. Instancié à la volée (au 1er appel) pour ne rien exécuter au boot.
+let _fmtDayParis = null;
 function formatDate(ts) {
   // timeZone Paris explicite : les en-têtes de jour collent à l'heure de Paris affichée
   // (item.time), même si le navigateur est dans un autre fuseau → plus de décalage de date.
-  const s = new Date(ts).toLocaleDateString('fr-FR', {
-    weekday: 'long', day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Paris',
-  });
+  if (!_fmtDayParis) _fmtDayParis = new Intl.DateTimeFormat('fr-FR', { weekday: 'long', day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Paris' });
+  const s = _fmtDayParis.format(new Date(ts));
   return s.charAt(0).toUpperCase() + s.slice(1);   // « Mercredi 24/06/2026 » (FR, weekday capitalisé)
 }
 
