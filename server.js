@@ -196,7 +196,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes de la landing (public + CORS)
+  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
@@ -10049,6 +10049,10 @@ function isGlobalNewsNoise(headline) {
   if (/FJElite/i.test(h)) return true;   // teasers FinancialJuice Elite (« X on Y - FJElite ») : titre sans contenu, analyse derrière paywall → aucune valeur
   if (_LOW_VALUE_ANALYSIS_RE.test(h)) return true;   // prévisions/roundups/analyses sans news (Pairs in Focus, forecasts, « remains bullish »…)
   if (/\b(quarterly|monthly|economic|annual|weekly)\s+bulletin\b[\s\d/.\-]*$/i.test(h)) return true;   // annonce de publication brute (« SNB Quarterly Bulletin 2/2026 ») : titre sans explication → on garde celles AVEC du contenu (texte après « Bulletin »)
+  // Titre de RAPPORT data brut, sans contenu (« US S&P MFG PMI June 2026 Report ») = doublon sans valeur du VRAI relevé
+  // (celui-ci porte Actual/Forecast/Previous + chiffres). On GARDE ceux qui ont des chiffres/une réaction, on drop la coquille.
+  if (/\b(?:pmi|cpi|ppi|gdp|ism|nfp|non-?farm|payrolls?|jobless|unemployment|retail sales|trade balance|industrial production|durable goods|factory orders|housing starts|building permits)\b.*\breport\.?\s*$/i.test(h)
+      && !/\b(?:actual|forecast|previous|consensus|beats?|miss(?:es|ed)?|rose|fell|jump\w*|drop\w*|rise\w*|climb\w*|surge\w*|slump\w*)\b|\d+\.\d/i.test(h)) return true;
   if (TABLOID_SOURCES.test(h))  return true;
   if (GLOBAL_GOSSIP.test(h))    return true;
   if (GLOBAL_LIFESTYLE.test(h)) return true;
@@ -11249,6 +11253,40 @@ app.get('/api/hero-recaps', (_req, res) => {
     if (!_heroRecapCache || now - _heroRecapTs > _HERO_RECAP_TTL) { _heroRecapCache = _buildHeroRecaps(); _heroRecapTs = now; }
     res.json(_heroRecapCache);
   } catch { res.json([]); }
+});
+
+// ── Force des devises pour la landing (public + CORS, MEME recette que /api/hero-news) : la maquette
+//    « Force des devises » (.dk-cs2) devient un DOUBLON LIVE du desk — VRAIES courbes de force (semaine)
+//    + classement reel. On n'expose QUE l'affichage (series de force + valeur), aucune donnee user. ──
+let _heroStrCache = null, _heroStrTs = 0;
+const _HERO_STR_TTL = 2 * 60 * 1000;
+const _HERO_STR_CCY = ['USD', 'EUR', 'GBP', 'JPY', 'AUD', 'CAD', 'CHF', 'NZD'];
+function _heroSub(arr, target) {   // sous-echantillonne a ~target points (courbe maquette lisible)
+  if (!Array.isArray(arr) || arr.length <= target) return arr || [];
+  const out = [], step = (arr.length - 1) / (target - 1);
+  for (let i = 0; i < target; i++) out.push(arr[Math.round(i * step)]);
+  return out;
+}
+async function _buildHeroStrength() {
+  const s = await computeCurrencyStrength('week');   // 'week' = timeframe TW de la maquette
+  if (!s || !s.series) return null;
+  const out = [];
+  for (const c of _HERO_STR_CCY) {
+    const arr = Array.isArray(s.series[c]) ? s.series[c] : [];
+    if (arr.length < 2) continue;
+    const pts = _heroSub(arr, 72).map(p => (p && typeof p.v === 'number') ? +p.v.toFixed(3) : 0);
+    out.push({ code: c, value: pts[pts.length - 1], points: pts });
+  }
+  return out.length ? { currencies: out, updatedAt: s.updatedAt || Date.now() } : null;
+}
+app.get('/api/hero-strength', async (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.set('Cache-Control', 'public, max-age=120');
+  try {
+    const now = Date.now();
+    if (!_heroStrCache || now - _heroStrTs > _HERO_STR_TTL) { const d = await _buildHeroStrength(); if (d) { _heroStrCache = d; _heroStrTs = now; } }
+    res.json(_heroStrCache || { currencies: [], updatedAt: 0 });
+  } catch { res.json({ currencies: [], updatedAt: 0 }); }
 });
 
 // ─── FX List Overview ─────────────────────────────────────────────────────────

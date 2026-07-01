@@ -1733,6 +1733,41 @@
   }
   setCS();setInterval(setCS,3000);
 
+  // ── Force des devises (.dk-cs2) : DOUBLON LIVE du desk — vraies courbes de force (semaine) + classement reel (poll 2 min, repli statique silencieux) ──
+  (function(){
+    var CCY_COL={USD:['#ff9500','#ffca80'],EUR:['#ff3b30','#ff9d97'],GBP:['#2bee6b','#95f6b5'],JPY:['#22d3ee','#90e9f6'],AUD:['#3b82f6','#9dc0fb'],CAD:['#be8bff','#dec5ff'],CHF:['#ffd60a','#ffea84'],NZD:['#ff5cae','#ffaed6']};
+    var box=document.querySelector('.dk-cs2'); if(!box)return;
+    var svg=box.querySelector('.dk-cs2-chart svg'), ends=box.querySelector('.dk-cs2-ends');
+    if(!svg||!ends)return;
+    function fmt(v){return (v>=0?'+':'')+v.toFixed(2);}
+    function render(d){
+      if(!d||!d.currencies||!d.currencies.length)return;
+      var L=d.currencies.filter(function(c){return CCY_COL[c.code]&&c.points&&c.points.length>1;});
+      if(!L.length)return;
+      var lo=Infinity,hi=-Infinity;
+      L.forEach(function(c){c.points.forEach(function(v){if(v<lo)lo=v;if(v>hi)hi=v;});});
+      if(!(hi>lo))hi=lo+1;
+      var pad=(hi-lo)*0.12; lo-=pad; hi+=pad;
+      function y(v){return 180-(v-lo)/(hi-lo)*160;}
+      var g='<line x1="0" y1="60" x2="300" y2="60" stroke="#141419" stroke-width="1" stroke-dasharray="3 4"/>'
+           +'<line x1="0" y1="100" x2="300" y2="100" stroke="#1f1f27" stroke-width="1" stroke-dasharray="4 4"/>'
+           +'<line x1="0" y1="140" x2="300" y2="140" stroke="#141419" stroke-width="1" stroke-dasharray="3 4"/>';
+      L.forEach(function(c){
+        var n=c.points.length;
+        var pts=c.points.map(function(v,i){return (6+i/(n-1)*288).toFixed(1)+','+y(v).toFixed(1);}).join(' ');
+        g+='<polyline class="dk-cs2-ln" stroke="'+CCY_COL[c.code][0]+'" points="'+pts+'"/>';
+      });
+      svg.innerHTML=g;
+      var R=L.slice().sort(function(a,b){return b.value-a.value;}), N=R.length;
+      ends.innerHTML=R.map(function(c,i){
+        var top=(N>1?(10+i/(N-1)*78):50), col=CCY_COL[c.code];
+        return '<span class="dk-cs2-b" style="top:'+top.toFixed(0)+'%"><b style="background:'+col[0]+'">'+c.code+'</b><i style="background:'+col[1]+'">'+fmt(c.value)+'</i></span>';
+      }).join('');
+    }
+    function load(){fetch('https://desk.datatradingpro.com/api/hero-strength').then(function(r){return r.json();}).then(render).catch(function(){});}
+    load(); setInterval(load,120000);
+  })();
+
   // ── Menu mobile (burger) ──
   var bg=document.querySelector('.nav-burger'),nl=document.getElementById('navLinks');
   if(bg&&nl){ bg.addEventListener('click',function(){nl.classList.toggle('open');});
