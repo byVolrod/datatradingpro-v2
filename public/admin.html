@@ -1072,7 +1072,7 @@
     root.setThemes([am5themes_Animated.new(root)]);
     const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 2, paddingRight: 8, paddingTop: 10, paddingBottom: 2 }));
     const wide = (trend || []).length > 60;   // portée 7 j → étiquette jour·heure (sinon 24 "14h" ambigus)
-    const data = (trend || []).map(t => ({ cat: (wide ? t.hour.slice(8, 10) + '·' : '') + t.hour.slice(11, 13) + 'h', gemini: t.gemini || 0, github: t.github || 0, openrouter: t.openrouter || 0, claude: t.claude || 0 }));
+    const data = (trend || []).map(t => ({ cat: (wide ? t.hour.slice(8, 10) + '·' : '') + t.hour.slice(11, 13) + 'h', gemini: t.gemini || 0, groq: t.groq || 0, github: t.github || 0, openrouter: t.openrouter || 0, cohere: t.cohere || 0, xai: t.xai || 0, claude: t.claude || 0 }));
     const xR = am5xy.AxisRendererX.new(root, { minGridDistance: 34 });
     xR.grid.template.setAll({ visible: false });
     xR.labels.template.setAll({ fill: am5.color(0x9aa0a6), fontSize: 10, fontFamily: 'Inter, -apple-system, sans-serif' });
