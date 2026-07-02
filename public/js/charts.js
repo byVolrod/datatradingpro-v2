@@ -2895,7 +2895,8 @@ window.deviationClass = deviationClass;
 
 // Cellule ACTUAL du calendrier : déviation vs FORECAST seul (blanc si forecast absent).
 // ÉCLAIR ⚡ (demande user) : le chiffre est sorti SOUS l'estimation BASSE (colonne LOW) →
-// surprise extrême marquée d'un éclair or à côté du réel (même parsing que deviationClass).
+// éclair À GAUCHE du réel, DANS le span coloré → il prend la COULEUR DU RÉSULTAT
+// (vert cv-pos / rouge cv-neg / blanc) via currentColor. Même parsing que deviationClass.
 function calActualCell(actual, forecast, low) {
   if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
   let bolt = '';
@@ -2906,7 +2907,7 @@ function calActualCell(actual, forecast, low) {
       bolt = '<span class="cv-bolt" title="Sorti sous l\'estimation basse (LOW)"><svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg></span>';
     }
   }
-  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${actual}</span>${bolt}`;
+  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${bolt}${actual}</span>`;
 }
 
 function calFormatTime(ts) {
