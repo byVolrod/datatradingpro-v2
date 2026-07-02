@@ -4,8 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>DTP | ADMIN</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2323232a'/%3E%3Ctext x='32' y='34' dominant-baseline='central' text-anchor='middle' font-family='Arial,Helvetica,sans-serif' font-weight='900' font-size='25' letter-spacing='-1.5' fill='%23ffffff'%3EDTP%3C/text%3E%3C/svg%3E" />
-  <link rel="apple-touch-icon" href="/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=dtp10" />
+  <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=dtp10" />
+  <link rel="apple-touch-icon" href="/favicon.png?v=dtp10" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <!-- amCharts 5 — mêmes graphiques que le reste du site (courbes, donut, hover) -->
@@ -16,11 +17,13 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg:     #0a0a0a; --bg2: #111; --bg3: #191919; --bg4: #1e1e1e;
-      --border: #1e1e1e; --border2: #2a2a2a;
-      --text:  #f0f1f3; --text2: #b8bec8; --text3: #939aa4; --text4: #5c616b;
+      /* Palette alignee sur l'IDENTITE DU DESK (fond #0c0c0e, panneaux #111114, or #e3b23a) — texte
+         legerement plus clair que le desk pour la LISIBILITE des donnees denses de l'admin. */
+      --bg:     #0c0c0e; --bg2: #111114; --bg3: #17181c; --bg4: #202127;
+      --border: #1f1f24; --border2: #2c2d33; --hud-line: rgba(255,255,255,0.06);
+      --text:  #eceef2; --text2: #acb1ba; --text3: #7e838d; --text4: #565b64;
       --orange: #e3b23a; --orange-bg: rgba(227,178,58,0.1);
-      --red: #e74c3c;  --green: #2ecc71;
+      --red: #ef4444;  --green: #00e676;
       --font-stack: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
       --font-ui: var(--font-stack); --font-mono: var(--font-stack);   /* police DTP partout (admin aligné) */
     }
@@ -34,13 +37,17 @@
     ::-webkit-scrollbar-thumb:hover { background: #45464f; background-clip: content-box; }
     ::-webkit-scrollbar-corner { background: transparent; }
 
-    /* ── Topbar ── */
+    /* ── Topbar (plate, façon terminal desk — plus de dégradé) ── */
     .topbar {
-      height: 56px; background: linear-gradient(180deg,#141416,#0d0d0f); border-bottom: 1px solid var(--border2);
+      height: 56px; background: #0c0c0e; border-bottom: 1px solid var(--hud-line);
       display: flex; align-items: center; gap: 14px; padding: 0 28px; flex-shrink: 0;
       position: sticky; top: 0; z-index: 50;
     }
-    .topbar-logo { font-family: var(--font-ui); font-size: 17px; font-weight: 800; color: #fff; letter-spacing: -0.02em; }
+    .topbar-logo { font-family: var(--font-ui); font-size: 17px; font-weight: 800; color: var(--orange); letter-spacing: -0.02em; }
+    /* Titres de panneaux : identité desk — emoji retiré, filet or à la place (le desk n'utilise pas d'emoji) */
+    .panel-head .ph-ic { display: none; }
+    .panel-head h2 { position: relative; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
+    .panel-head h2::before { content: ''; display: inline-block; width: 3px; height: 11px; border-radius: 2px; background: var(--orange); margin-right: 8px; vertical-align: -1px; opacity: .9; }
     .topbar-title { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.14em; border-left: 1px solid var(--border2); padding-left: 14px; }
     .topbar-spacer { flex: 1; }
     .topbar-user { font-size: 11px; color: var(--text2); font-family: var(--font-mono); }
