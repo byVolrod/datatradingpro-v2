@@ -2894,9 +2894,19 @@ function deviationClass(actual, ref) {
 window.deviationClass = deviationClass;
 
 // Cellule ACTUAL du calendrier : déviation vs FORECAST seul (blanc si forecast absent).
-function calActualCell(actual, forecast) {
+// ÉCLAIR ⚡ (demande user) : le chiffre est sorti SOUS l'estimation BASSE (colonne LOW) →
+// surprise extrême marquée d'un éclair or à côté du réel (même parsing que deviationClass).
+function calActualCell(actual, forecast, low) {
   if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
-  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${actual}</span>`;
+  let bolt = '';
+  if (low != null && low !== '') {
+    const a = parseFloat(String(actual).replace(',', '.'));
+    const l = parseFloat(String(low).replace(',', '.'));
+    if (!isNaN(a) && !isNaN(l) && a < l) {
+      bolt = '<span class="cv-bolt" title="Sorti sous l\'estimation basse (LOW)"><svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg></span>';
+    }
+  }
+  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${actual}</span>${bolt}`;
 }
 
 function calFormatTime(ts) {
@@ -2982,7 +2992,7 @@ function renderCalTable() {
       <td class="cth-curr">${ev.currency || ''}</td>
       <td class="cth-imp">${calImpDots(ev.impact)}</td>
       <td class="cth-event">${ev.title || ''}</td>
-      <td class="cth-val">${calActualCell(ev.actual, ev.forecast)}</td>
+      <td class="cth-val">${calActualCell(ev.actual, ev.forecast, ev.low)}</td>
       <td class="cth-val">${hi}</td>
       <td class="cth-val">${fcast}</td>
       <td class="cth-val">${lo}</td>
