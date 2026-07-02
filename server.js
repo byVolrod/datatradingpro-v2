@@ -10316,7 +10316,16 @@ function upgradeItemPriority(item) {
 // Sources RETIRÉES (qualité jugée insuffisante, 2026-06-29) : déjà retirées de scrapers/rss.js (plus de
 // nouveaux items) ; ici on PURGE les anciens items au boot + on bloque tout résidu au merge/broadcast.
 const _DROPPED_SOURCES = new Set(['Yahoo Finance', 'MarketWatch', 'ZeroHedge', 'Investing.com', 'WSJ Markets']);
-// Purge noise from history on every server start
+// ── Titre « sale » (repli scrape DOM FinancialJuice) : heure + source COLLÉES en fin de titre
+//    (« … group 8:01 Jul 02South China Morning Post »). Nettoyé CENTRALEMENT (boot + mergeItems) pour
+//    couvrir les items DÉJÀ STOCKÉS et toutes les sources ; le scraper FJ nettoie aussi en amont.
+//    Ne coupe QUE si le jour est suivi d'une majuscule collée (la source) ou de la fin → épargne
+//    « Powell speaks at 10:30 GMT ». Après nettoyage au boot, titre stocké == titre entrant propre →
+//    findDuplicate (match exact) évite les doublons malgré le changement d'id côté scraper.
+const _DIRTY_HL_RX = /\s*\d{1,2}:\d{2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}(?=$|[A-Z])[\s\S]*$/;
+function _cleanHeadline(h) { return String(h || '').replace(_DIRTY_HL_RX, '').replace(/\s+/g, ' ').trim(); }
+// Purge noise from history on every server start (+ nettoyage rétroactif des titres pollués)
+allNews.forEach(i => { if (i && i.headline) { const c = _cleanHeadline(i.headline); if (c.length >= 10 && c !== i.headline) i.headline = c; } });
 allNews = allNews.filter(i => {
   if (i._briefing || i.source === 'DTP' || i._marketWrap) return true;          // garder les rapports internes (+ Market Wrap visible)
   if (_DROPPED_SOURCES.has(i.source)) return false;                             // sources retirées : purge immédiate des anciens items
@@ -10387,6 +10396,9 @@ function broadcast(data) {
 // ─── Merge helpers ───────────────────────────────────────────────────────────
 
 function mergeItems(incoming) {
+  // Nettoyage CENTRAL des titres entrants (suffixe heure+source collé — filet pour TOUTES les sources,
+  // y compris un futur miroir FJ qui ne passerait pas par normalizeItem du scraper).
+  for (const it of incoming) if (it && it.headline) { const c = _cleanHeadline(it.headline); if (c.length >= 10 && c !== it.headline) it.headline = c; }
   // Curated sources bypass the keyword filter — they're already financial news
   const relevant = incoming.filter(item => {
     // Internal briefings always pass through
