@@ -6470,8 +6470,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-search-wrap {
   display: flex;
   align-items: center;
-  background: #111;
-  border: 1px solid #222;
+  background: var(--bg2);            /* #16171b — un cran plus clair que le fond (était #111, invisible) */
+  border: 1px solid #2c2d34;         /* bordure un cran plus lisible (était #222) */
   border-radius: 3px;
   padding: 4px 10px;
   gap: 6px;
@@ -6480,7 +6480,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .cal-search-icon {
   font-size: 13px;
-  color: #444;
+  color: var(--text3);               /* loupe lisible (était #444) */
   flex-shrink: 0;
   line-height: 1;
 }
@@ -6488,12 +6488,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   background: none;
   border: none;
   outline: none;
-  color: #ccc;
+  color: var(--text);
   font-size: 11px;
   font-family: var(--font-ui);
   width: 100%;
 }
-.cal-search-input::placeholder { color: #383838; }
+.cal-search-input::placeholder { color: var(--text3); }   /* « Rechercher des événements… » lisible (était #383838, quasi noir) */
 
 /* Title block */
 .cal-title-block {
