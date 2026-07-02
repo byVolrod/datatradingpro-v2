@@ -357,11 +357,23 @@
   .fr-list .li{display:flex;gap:12px;align-items:flex-start;font-size:14.5px;color:var(--text)}
   .fr-list .li i{color:var(--orange2);font-size:15px;margin-top:3px}
   .fr-list .li span{color:var(--text2)}
-  .flag-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:30px;text-align:center}
+  .flag-card{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:34px 30px;text-align:center}
   .flag-card .fl{margin-bottom:18px;display:flex;justify-content:center}
   .flag-card .fl svg{filter:drop-shadow(0 8px 16px rgba(0,0,0,.35))}
   .flag-card .big{font-family:var(--tight);font-weight:800;font-size:23px;letter-spacing:-.01em}
-  .flag-card .sm{color:var(--text2);font-size:14px;margin-top:9px}
+  .flag-card .sm{color:var(--text2);font-size:14px;margin-top:9px;line-height:1.6}
+  /* Pastilles de preuve : remplissent la carte avec du SENS (plus d'espace mort) */
+  .flag-card .fpills{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:18px}
+  .flag-card .fpill{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--text2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;background:rgba(184,134,11,.04)}
+  .flag-card .fpill i{color:var(--orange2);font-size:11px}
+  /* Carte PLEINE LARGEUR (bande FR en 1 colonne ≤900px) : layout HORIZONTAL équilibré
+     (drapeau à gauche, texte aligné à gauche) → zéro espace mort. */
+  @media (max-width:900px) and (min-width:561px){
+    .flag-card{display:grid;grid-template-columns:auto 1fr;gap:4px 28px;align-items:center;text-align:left;padding:26px 30px}
+    .flag-card .fl{grid-row:1/span 3;margin:0}
+    .flag-card .fpills{justify-content:flex-start;margin-top:14px}
+    .flag-card .sm{margin-top:7px}
+  }
 
   /* values */
   .vals{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-top:54px}
@@ -825,7 +837,7 @@
   .final::before{ background:radial-gradient(ellipse,rgba(212,162,51,.12) 0%,transparent 65%); }
   /* Reveal au scroll — légère dynamique sur les sections (cartes méthode / valeurs / pricing / drapeau) */
   .reveal{opacity:0;transform:translateY(16px);transition:opacity .55s ease,transform .6s cubic-bezier(.2,.7,.2,1);will-change:opacity,transform}
-  .reveal.in{opacity:1;transform:none}
+  .reveal.rv-in{opacity:1;transform:none}   /* état "révélé" renommé rv-in : l'ancien nom `in` ENTRAIT EN COLLISION avec la classe de LAYOUT .in (.frband .in = grille 2 colonnes + padding 96px) → toute carte révélée dans la bande FR devenait elle-même une grille cassée (bug drapeau/titre éclatés) */
   @media (prefers-reduced-motion:reduce){.reveal{opacity:1!important;transform:none!important;transition:none!important}}
 
   /* === Maquettes desk : alignement sur le desk ACTUEL (carre/colle, plus d'arrondi) === */
@@ -1419,6 +1431,11 @@
       <div class="fl"><svg width="104" height="73" viewBox="0 0 132 92" role="img" aria-label="Drapeau de la France"><defs><linearGradient id="flb" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1763bd"/><stop offset="1" stop-color="#093f86"/></linearGradient><linearGradient id="flw" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e9ebef"/></linearGradient><linearGradient id="flr" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f01525"/><stop offset="1" stop-color="#c70011"/></linearGradient><linearGradient id="flf" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#000" stop-opacity=".24"/><stop offset=".14" stop-color="#fff" stop-opacity=".17"/><stop offset=".32" stop-color="#000" stop-opacity=".13"/><stop offset=".5" stop-color="#fff" stop-opacity=".14"/><stop offset=".68" stop-color="#000" stop-opacity=".14"/><stop offset=".86" stop-color="#fff" stop-opacity=".15"/><stop offset="1" stop-color="#000" stop-opacity=".22"/></linearGradient><clipPath id="flc"><path d="M3,14 Q33,3 66,11 T129,14 L129,79 Q99,90 66,82 T3,79 Z"/></clipPath></defs><g clip-path="url(#flc)"><rect width="44" height="92" fill="url(#flb)"/><rect x="44" width="44" height="92" fill="url(#flw)"/><rect x="88" width="44" height="92" fill="url(#flr)"/><rect width="132" height="92" fill="url(#flf)"/></g></svg></div>
       <div class="big">Le contexte, sans la barrière de la langue</div>
       <div class="sm">Là où les autres terminaux supposent l'anglais, on a fait le choix du français, du flux jusqu'à l'IA.</div>
+      <div class="fpills">
+        <span class="fpill"><i class="fa-solid fa-check"></i>News traduites</span>
+        <span class="fpill"><i class="fa-solid fa-check"></i>Analyses en français</span>
+        <span class="fpill"><i class="fa-solid fa-check"></i>IA francophone</span>
+      </div>
     </div>
   </div>
 </div>
@@ -1806,7 +1823,7 @@
   if(!els.length)return;
   els.forEach(function(e){e.classList.add('reveal');});
   ['.proc','.vals','.plans','.bento','.mods2','.faq'].forEach(function(gs){var g=document.querySelector(gs);if(!g)return;[].slice.call(g.querySelectorAll('.reveal')).forEach(function(c,i){c.style.transitionDelay=(Math.min(i,5)*80)+'ms';});});
-  var io=new IntersectionObserver(function(ents){ents.forEach(function(en){if(en.isIntersecting){en.target.classList.add('in');io.unobserve(en.target);}});},{threshold:0.12,rootMargin:'0px 0px -6% 0px'});
+  var io=new IntersectionObserver(function(ents){ents.forEach(function(en){if(en.isIntersecting){en.target.classList.add('rv-in');io.unobserve(en.target);}});},{threshold:0.12,rootMargin:'0px 0px -6% 0px'});
   els.forEach(function(e){io.observe(e);});
 })();
 </script>
