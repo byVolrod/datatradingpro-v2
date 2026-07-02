@@ -10324,3 +10324,17 @@ button:disabled,button[disabled],.jr-btn:disabled,.pd-btn:disabled,.ai-send:disa
 .dtp-flash    { animation: dtpFlash   .55s var(--ease) both; border-radius: 3px; }
 .dtp-flash-up { animation: dtpFlashUp .55s var(--ease) both; border-radius: 3px; }
 .dtp-flash-dn { animation: dtpFlashDn .55s var(--ease) both; border-radius: 3px; }
+
+/* ═══ News rouges (urgent/breaking) : le ROUGE ne couvre que la LIGNE de titre — la DESCRIPTION dépliée
+   repasse sur le fond neutre standard (#15161b, comme les news normales dépliées). Placé en FIN de
+   fichier pour battre les règles hover « background:transparent !important » (l.~1336) qui laissaient
+   transparaître le rouge du parent sous les puces. Les variantes :hover sont indispensables (même
+   spécificité que les règles combattues → c'est l'ordre qui tranche). ═══ */
+.news-item--urgent .news-description.visible,
+.news-item--breaking .news-description.visible,
+.news-item--urgent:hover .news-description.visible,
+.news-item--breaking:hover .news-description.visible { background: #15161b !important; }
+body.theme-light .news-item--urgent .news-description.visible,
+body.theme-light .news-item--breaking .news-description.visible,
+body.theme-light .news-item--urgent:hover .news-description.visible,
+body.theme-light .news-item--breaking:hover .news-description.visible { background: #faf8f2 !important; }

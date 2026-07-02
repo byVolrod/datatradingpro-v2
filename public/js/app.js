@@ -9462,7 +9462,7 @@ function _dtpToast(msg, kind) {
       if (d && d.v && d.v !== myVer) banner();
     } catch {}
   }
-  setTimeout(check, 25000);        // 1er contrôle ~25 s après chargement
+  setTimeout(check, 5000);         // 1er contrôle ~5 s après le LANCEMENT (l'app installée voit la MAJ dès l'ouverture)
   setInterval(check, 90 * 1000);   // puis toutes les 90 s
 })();
 
