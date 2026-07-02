@@ -194,7 +194,7 @@ function _wsUserIdFromReq(req) {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
@@ -4864,6 +4864,10 @@ function _stripSource(html) {
     .replace(/<p[^>]*>\s*for other[\s\S]*?download the pdf[\s\S]*?<\/p>/gi, '')
     .replace(/for other (?:currenc(?:y|ies)|pages?|markets?)[^.<]*?(?:please )?download the pdf version[^.<]*\.?/gi, '')
     .replace(/(?:please )?download the (?:full )?pdf version[^.<]*(?:attached[^.<]*)?\.?/gi, '')
+    // ── KBC & co : « Please click here to read the PDF version » (avec « here » en lien) → rappel sans
+    //    valeur dans le corps (le PDF est déjà rendu par le viewer). Variante paragraphe entier + inline.
+    .replace(/<p[^>]*>\s*(?:please\s+)?click\s+(?:<a[^>]*>\s*)?here(?:\s*<\/a>)?\s+to\s+(?:read|view|download|open)[^<]*?pdf[^<]*<\/p>/gi, '')
+    .replace(/(?:please\s+)?click\s+(?:<a[^>]*>\s*)?here(?:\s*<\/a>)?\s+to\s+(?:read|view|download|open)\s+(?:the\s+)?pdf(?:\s+version)?\.?/gi, '')
     .replace(/<a[^>]*>\s*(?:disclaimer|terms\s*(?:and|&)\s*conditions|terms of use|privacy policy|cookie policy)\s*<\/a>/gi, '')
     .replace(/\bdisclaimer\s+terms\s+(?:and|&)\s+conditions\b\.?/gi, '')
     .replace(/(?:\s|>)(?:disclaimer|terms\s+(?:and|&)\s+conditions|terms of use)\s*(?=<|\s*$)/gi, ' ')
