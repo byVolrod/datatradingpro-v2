@@ -5724,6 +5724,52 @@ Observed moves: ${String(moves).slice(0, 300)}`, 220, { important: true, priorit
   }
 });
 
+// ─── Traduction FR universelle des contenus SOURCE (citations speaker, propos Fed/BCE agrégés,
+//     puces d'article scrapées…) qui échappaient aux résumés IA → « FR pour tout » (demande user).
+//     Batch + cache DURABLE par texte (chaque citation traduite 1 seule fois, réutilisée ensuite) +
+//     coalescing (2 users, même contenu → 1 appel). Repli = texte original (jamais cassé). Gratuit-first
+//     (claudeOverBudget:false → Groq/Gemini/GitHub/OpenRouter/Cohere, jamais de crédits payants pour une trad).
+const TRANSLATE_CACHE_FILE = path.join(_CACHE_DIR, 'cache_translate.json');
+const _trCache = _loadJsonMap(TRANSLATE_CACHE_FILE);
+const _trKey = t => 'tr:' + String(t).slice(0, 200);
+app.post('/api/translate', async (req, res) => {
+  const texts = Array.isArray(req.body && req.body.texts)
+    ? req.body.texts.map(t => String(t || '').replace(/\s+/g, ' ').trim()).filter(t => t.length >= 2).slice(0, 16)
+    : [];
+  if (!texts.length) return res.json({ translations: [] });
+  const result = texts.map(t => _trCache.has(_trKey(t)) ? _trCache.get(_trKey(t)) : null);
+  const missIdx = result.map((v, i) => (v == null ? i : -1)).filter(i => i >= 0);
+  if (!missIdx.length) return res.json({ translations: result });   // tout en cache → 0 appel IA
+
+  const toTr = missIdx.map(i => texts[i]);
+  const cacheKey = 'trb:' + toTr.join('').slice(0, 300);   // coalescing des batches identiques simultanés
+  if (_aiFailCooling(cacheKey)) { missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; }); return res.json({ translations: result, fallback: true }); }
+  try {
+    const out = await _aiInflight(cacheKey, async () => {
+      const numbered = toTr.map((t, i) => `[[${i + 1}]] ${t}`).join('\n');
+      const txt = await aiSmart('news', `Translate each numbered line into natural, professional FRENCH for a trading terminal.
+RULES:
+- Keep the [[n]] marker of each line EXACTLY, one line per marker, SAME order.
+- Preserve tickers, numbers, percentages, currency pairs and institution names (Fed, ECB, BoE, EUR/USD, Brent…) unchanged.
+- If a line is ALREADY in French, return it unchanged (with its marker).
+- Reply ONLY with the [[n]] lines translated — no preamble, no extra text.
+
+${numbered}`, Math.min(1200, 120 + toTr.join(' ').length), { priority: 'user', claudeOverBudget: false });   // gratuit-first : jamais de crédits payants pour une simple traduction
+      const map = {};
+      String(txt || '').split('\n').forEach(l => { const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (m) { const n = parseInt(m[1], 10) - 1; if (n >= 0 && n < toTr.length) map[n] = m[2].trim(); } });
+      return toTr.map((orig, i) => map[i] || orig);   // marqueur manquant → original (jamais cassé)
+    });
+    missIdx.forEach((origIdx, k) => { const fr = (out && out[k]) || texts[origIdx]; result[origIdx] = fr; _trCache.set(_trKey(texts[origIdx]), fr); });
+    while (_trCache.size > 8000) _trCache.delete(_trCache.keys().next().value);
+    _saveJsonMap(TRANSLATE_CACHE_FILE, _trCache);
+    res.json({ translations: result });
+  } catch (e) {
+    _aiFailMark(cacheKey);
+    missIdx.forEach(i => { if (result[i] == null) result[i] = texts[i]; });   // IA en panne → original
+    res.json({ translations: result, fallback: true });
+  }
+});
+
 // ─── Analyst Outlook endpoint ────────────────────────────────────────────────
 const _outlookCache = new Map();
 
