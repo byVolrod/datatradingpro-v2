@@ -109,8 +109,49 @@ const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
   'openai/gpt-oss-120b:free,openai/gpt-oss-20b:free,qwen/qwen3-next-80b-a3b-instruct:free,meta-llama/llama-3.3-70b-instruct:free,nousresearch/hermes-3-llama-3.1-405b:free')
   .split(',').map(s => s.trim()).filter(Boolean);
 
+// ── Groq (api.groq.com) — API OpenAI-compatible, free-tier TRÈS généreux + latence extrême (idéal chat).
+//    Placé EN TÊTE du repli gratuit (avant GitHub/OpenRouter) → capacité gratuite majeure par-dessus Gemini.
+//    Multi-clés (GROQ_API_KEY + _2.._20). Modèles surchargeables via GROQ_MODELS (CSV). Limites : RPM/RPD par clé.
+const GROQ_KEYS = (() => {
+  const out = [];
+  if (process.env.GROQ_API_KEY) out.push(process.env.GROQ_API_KEY);
+  for (let i = 2; i <= 20; i++) { const v = process.env['GROQ_API_KEY' + i]; if (v) out.push(v); }
+  return out.map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+})();
+const _groqCur = { v: 0 };
+const GROQ_BASE   = process.env.GROQ_URL || 'https://api.groq.com/openai/v1';
+const GROQ_MODELS = (process.env.GROQ_MODELS || 'llama-3.3-70b-versatile,llama-3.1-8b-instant')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+// ── Cohere (api.cohere.com) — API v2 (forme DIFFÉRENTE : message.content[].text). Free-tier « trial »
+//    limité (RPM bas + plafond mensuel/clé). Repli gratuit APRÈS OpenRouter. Multi-clés (COHERE_API_KEY + _2.._20).
+const COHERE_KEYS = (() => {
+  const out = [];
+  if (process.env.COHERE_API_KEY) out.push(process.env.COHERE_API_KEY);
+  for (let i = 2; i <= 20; i++) { const v = process.env['COHERE_API_KEY' + i]; if (v) out.push(v); }
+  return out.map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+})();
+const _cohereCur = { v: 0 };
+const COHERE_BASE   = process.env.COHERE_URL || 'https://api.cohere.com/v2';
+const COHERE_MODELS = (process.env.COHERE_MODELS || 'command-r-08-2024,command-r7b-12-2024')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
+// ── xAI / Grok (api.x.ai) — API OpenAI-compatible, mais PAYANT (crédits). Traité comme Claude : GATÉ par
+//    claudeOff → JAMAIS utilisé sur un flux de fond « noClaude » (protège le budget), seulement en dernier
+//    repli avant Claude sur les flux utilisateur. Modèle bon marché par défaut. Multi-clés (XAI_API_KEY + _2.._20).
+const XAI_KEYS = (() => {
+  const out = [];
+  if (process.env.XAI_API_KEY) out.push(process.env.XAI_API_KEY);
+  for (let i = 2; i <= 20; i++) { const v = process.env['XAI_API_KEY' + i]; if (v) out.push(v); }
+  return out.map(k => (k || '').trim()).filter(Boolean).filter((k, i, a) => a.indexOf(k) === i);
+})();
+const _xaiCur = { v: 0 };
+const XAI_BASE   = process.env.XAI_URL || 'https://api.x.ai/v1';
+const XAI_MODELS = (process.env.XAI_MODELS || 'grok-3-mini,grok-2-1212')
+  .split(',').map(s => s.trim()).filter(Boolean);
+
 // Visibilité au démarrage : combien de ressources IA sont chargées (jamais les valeurs).
-console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODELS.join('/') + ')' : ''} · OpenRouter: ${OPENROUTER_KEYS.length} clé(s)${OPENROUTER_KEYS.length ? ' (' + OPENROUTER_MODELS.length + ' modèles :free)' : ''} · Claude: ${ANTHROPIC_KEYS.length} clés`);
+console.log(`[AI] Ressources → Gemini: ${GEMINI_KEYS.length} clés · Groq: ${GROQ_KEYS.length} clé(s)${GROQ_KEYS.length ? ' (' + GROQ_MODELS.join('/') + ')' : ''} · GitHub Models: ${GITHUB_TOKENS.length} token(s)${GITHUB_TOKENS.length ? ' (' + GITHUB_MODELS.join('/') + ')' : ''} · OpenRouter: ${OPENROUTER_KEYS.length} clé(s)${OPENROUTER_KEYS.length ? ' (' + OPENROUTER_MODELS.length + ' :free)' : ''} · Cohere: ${COHERE_KEYS.length} clé(s) · xAI: ${XAI_KEYS.length} clé(s) (payant) · Claude: ${ANTHROPIC_KEYS.length} clés`);
 
 // ── CONTEXTE SYSTÈME PARTAGÉ ──────────────────────────────────────────────────
 // Injecté dans CHAQUE appel (Gemini ET Claude, toutes les clés) → même "vision" du site,
@@ -146,7 +187,7 @@ function _buildSystem() {
 // ── Lecture du champ usage (tokens réels) des 3 providers ────────────────────
 // Les 3 APIs renvoient la consommation exacte ; on l'agrège (reset quotidien avec _aiStats)
 // → coût réel visible dans status(), et hook onUsage pour la persistance (ai_events, Phase 1).
-let _aiTok = { geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, claudeIn: 0, claudeOut: 0 };
+let _aiTok = { geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 };
 let _onUsage = null;
 function onUsage(fn) { _onUsage = (typeof fn === 'function') ? fn : null; }
 function _noteUsage(provider, model, inTok, outTok) {
@@ -281,13 +322,15 @@ function _gemCool(model, idx, status, retryDelayMs) {
 }
 function _gemIsCool(model, idx) { const t = _gemCooldown.get(model + '|' + idx); return !!t && t > Date.now(); }
 // Suivi quotidien (visibilité "combien d'appels / 429 par jour").
-let _aiDay = '', _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, claude: 0, claudeFail: 0, fallback: 0 };
+const _AI_STATS_ZERO = () => ({ gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, groq: 0, groqFail: 0, cohere: 0, cohereFail: 0, xai: 0, xaiFail: 0, claude: 0, claudeFail: 0, fallback: 0 });
+const _AI_TOK_ZERO   = () => ({ geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, openrouterIn: 0, openrouterOut: 0, groqIn: 0, groqOut: 0, cohereIn: 0, cohereOut: 0, xaiIn: 0, xaiOut: 0, claudeIn: 0, claudeOut: 0 });
+let _aiDay = '', _aiStats = _AI_STATS_ZERO();
 function _aiStat(f) {
   const d = new Date().toISOString().slice(0, 10);
   if (d !== _aiDay) {
     _aiDay = d;
-    _aiStats = { gemini: 0, gemini429: 0, github: 0, githubFail: 0, openrouter: 0, openrouterFail: 0, claude: 0, claudeFail: 0, fallback: 0 };
-    _aiTok = { geminiIn: 0, geminiOut: 0, githubIn: 0, githubOut: 0, claudeIn: 0, claudeOut: 0 };
+    _aiStats = _AI_STATS_ZERO();
+    _aiTok = _AI_TOK_ZERO();
   }
   if (f !== '_touch') _aiStats[f] = (_aiStats[f] || 0) + 1;
 }
@@ -492,6 +535,143 @@ async function _openrouter(prompt, maxTokens) {
   throw lastErr || new Error('OpenRouter: toutes les clés/modèles ont échoué (ou en cooldown)');
 }
 
+// ── Cooldown générique PAR CLÉ (Groq/Cohere/xAI) : auth/crédit = long (6 h), 429 = court, réseau = 1 min ──
+function _mkCool() {
+  const m = new Map();
+  return {
+    map: m,
+    isCool: (idx) => { const t = m.get(idx); return !!t && t > Date.now(); },
+    cool: (idx, status, retryMs) => m.set(idx, Date.now() + ((status === 401 || status === 403 || status === 402) ? 6 * 3600 * 1000 : status === 429 ? (retryMs && retryMs > 0 ? Math.min(retryMs + 1000, 3600 * 1000) : 60000) : 45000)),
+    coolingNow: () => [...m.values()].filter(t => t > Date.now()).length,
+  };
+}
+const _groqCool = _mkCool(), _cohereCool = _mkCool(), _xaiCool = _mkCool();
+
+// ── Appelleur OpenAI-compatible GÉNÉRIQUE (Groq + xAI) — rotation clés × modèles, cooldown par clé.
+//    Même contrat que _openrouter : 401/403/402 gèle la clé (morte/sans crédit) ; 429 = clé rate-limited
+//    (cooldown court, on lit Retry-After) ; 5xx/timeout = modèle suivant (même clé). stat = label télémétrie.
+async function _oaiCompatible(cfg, prompt, maxTokens) {
+  const { name, base, keys, models, cool, cur, stat } = cfg;
+  const n = keys.length; if (!n) throw new Error(name + ': aucune clé');
+  cur.v = (cur.v + 1) % n;
+  let lastErr;
+  for (let i = 0; i < n; i++) {
+    const idx = (cur.v + i) % n;
+    if (cool.isCool(idx)) continue;   // clé gelée (auth/crédit/429) → clé suivante
+    const key = keys[idx];
+    for (const model of models) {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+      try {
+        const r = await fetch(base + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4 }),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) {
+          const body = (await r.text().catch(() => '')).slice(0, 200);
+          const e = new Error(name + ' ' + model + ' ' + r.status + ': ' + body.slice(0, 100)); e.status = r.status;
+          if (r.status === 429) { const ra = r.headers.get('retry-after'); if (ra && !isNaN(parseFloat(ra))) e.retryMs = parseFloat(ra) * 1000; }
+          throw e;
+        }
+        const j = await r.json();
+        const out = j && j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content;
+        if (!out || !String(out).trim()) throw new Error('réponse vide');
+        const u = j.usage; if (u) _noteUsage(stat, model, u.prompt_tokens, u.completion_tokens);
+        return String(out).trim();
+      } catch (e) {
+        lastErr = e;
+        if (e.status === 401 || e.status === 403 || e.status === 402) { cool.cool(idx, e.status); break; }   // clé morte/sans crédit → clé suivante
+        else if (e.status === 429) cool.cool(idx, 429, e.retryMs);   // rate-limited → cooldown court, modèle suivant
+        // sinon (5xx/timeout/vide) → modèle suivant, même clé
+      } finally { clearTimeout(t); }
+    }
+  }
+  throw lastErr || new Error(name + ': toutes les clés/modèles ont échoué (ou en cooldown)');
+}
+function _groq(prompt, maxTokens) { return _oaiCompatible({ name: 'Groq', base: GROQ_BASE, keys: GROQ_KEYS, models: GROQ_MODELS, cool: _groqCool, cur: _groqCur, stat: 'groq' }, prompt, maxTokens); }
+function _xai(prompt, maxTokens)  { return _oaiCompatible({ name: 'xAI',  base: XAI_BASE,  keys: XAI_KEYS,  models: XAI_MODELS,  cool: _xaiCool,  cur: _xaiCur,  stat: 'xai'  }, prompt, maxTokens); }
+
+// ── Cohere v2 (api.cohere.com/v2/chat) — forme DIFFÉRENTE : réponse message.content[].text, usage.tokens.
+async function _cohere(prompt, maxTokens) {
+  const n = COHERE_KEYS.length; if (!n) throw new Error('Cohere: aucune clé');
+  _cohereCur.v = (_cohereCur.v + 1) % n;
+  let lastErr;
+  for (let i = 0; i < n; i++) {
+    const idx = (_cohereCur.v + i) % n;
+    if (_cohereCool.isCool(idx)) continue;
+    const key = COHERE_KEYS[idx];
+    for (const model of COHERE_MODELS) {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+      try {
+        const r = await fetch(COHERE_BASE + '/chat', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4 }),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) { const body = (await r.text().catch(() => '')).slice(0, 200); const e = new Error('Cohere ' + model + ' ' + r.status + ': ' + body.slice(0, 100)); e.status = r.status; throw e; }
+        const j = await r.json();
+        const arr = j && j.message && Array.isArray(j.message.content) ? j.message.content : [];
+        const out = arr.filter(b => b && (b.type === 'text' || typeof b.text === 'string')).map(b => b.text || '').join('').trim();
+        if (!out) throw new Error('réponse vide');
+        const u = j.usage && j.usage.tokens; if (u) _noteUsage('cohere', model, u.input_tokens, u.output_tokens);
+        return out;
+      } catch (e) {
+        lastErr = e;
+        if (e.status === 401 || e.status === 403 || e.status === 402) { _cohereCool.cool(idx, e.status); break; }
+        else if (e.status === 429) _cohereCool.cool(idx, 429);
+      } finally { clearTimeout(t); }
+    }
+  }
+  throw lastErr || new Error('Cohere: toutes les clés/modèles ont échoué (ou en cooldown)');
+}
+
+// ── Groq STREAMING (chat) — SSE OpenAI-compatible, ultra-rapide → tenté EN PREMIER dans generateTextStream.
+async function _groqStream(prompt, maxTokens, onChunk) {
+  const n = GROQ_KEYS.length; if (!n) throw new Error('Groq: aucune clé');
+  _groqCur.v = (_groqCur.v + 1) % n;
+  let lastErr;
+  for (let i = 0; i < n; i++) {
+    const idx = (_groqCur.v + i) % n;
+    if (_groqCool.isCool(idx)) continue;
+    const key = GROQ_KEYS[idx];
+    for (const model of GROQ_MODELS) {
+      const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 30000);
+      let full = '';
+      try {
+        const r = await fetch(GROQ_BASE + '/chat/completions', {
+          method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model, messages: [{ role: 'system', content: _buildSystem() }, { role: 'user', content: prompt }], max_tokens: maxTokens, temperature: 0.4, stream: true }),
+          signal: ctrl.signal,
+        });
+        if (!r.ok) { const e = new Error('Groq ' + r.status); e.status = r.status; throw e; }
+        const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = '';
+        while (true) {
+          const { done, value } = await reader.read(); if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let nl;
+          while ((nl = buf.indexOf('\n')) >= 0) {
+            const line = buf.slice(0, nl).trim(); buf = buf.slice(nl + 1);
+            if (!line.startsWith('data:')) continue;
+            const data = line.slice(5).trim();
+            if (!data || data === '[DONE]') continue;
+            try { const j = JSON.parse(data); const d = j && j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content; if (d) { full += d; try { onChunk(d); } catch {} } } catch {}
+          }
+        }
+        if (full.trim()) { _aiStat('groq'); return full.trim(); }
+      } catch (e) {
+        lastErr = e;
+        if (full.trim()) return full.trim();   // partiel déjà émis → on garde (anti-charabia)
+        if (e.status === 401 || e.status === 403 || e.status === 402) { _groqCool.cool(idx, e.status); break; }
+        else if (e.status === 429) _groqCool.cool(idx, 429);
+      } finally { clearTimeout(t); }
+    }
+  }
+  throw lastErr || new Error('Groq stream: échec');
+}
+
 // opts.noClaude : n'utilise JAMAIS Claude (même en repli in-cascade après échec Gemini+GitHub).
 // → le fond / les flux « claudeOverBudget:false » ne dépensent PLUS de crédits payants, in-budget compris.
 // ════════════════ STREAMING (token-par-token) pour le chat interactif ════════════════
@@ -571,6 +751,10 @@ async function _anthropicStream(prompt, maxTokens, onChunk) {
   throw lastErr || new Error('Claude stream: échec');
 }
 async function generateTextStream(prompt, maxTokens = 380, opts = {}, onChunk = () => {}) {
+  if (GROQ_KEYS.length) {
+    try { const out = await _groqStream(prompt, maxTokens, onChunk); _noteTotalOk(); return out; }   // Groq = le + rapide → chat fluide
+    catch (e) { console.warn('[AI stream] Groq: ' + String(e.message).slice(0, 90)); _aiStat('groqFail'); }
+  }
   if (OPENROUTER_KEYS.length) {
     try { const out = await _openrouterStream(prompt, maxTokens, onChunk); _noteTotalOk(); return out; }
     catch (e) { console.warn('[AI stream] OpenRouter: ' + String(e.message).slice(0, 90)); _aiStat('openrouterFail'); }
@@ -629,20 +813,31 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
         }
       }
     }
-    if (!GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && claudeOff) throw lastErr || new Error('Gemini indisponible');
+    if (!GROQ_KEYS.length && !GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && !COHERE_KEYS.length && claudeOff) throw lastErr || new Error('Gemini indisponible');
   }
 
-  // ── Repli gratuit AVANT Claude : ORDRE APPRIS (github/openrouter), borné et sûr ──
-  // Défaut = comportement actuel (GitHub puis OpenRouter). L'apprentissage (server.js, depuis l'historique de
-  // fiabilité) peut INVERSER ces 2 replis GRATUITS ; chaque provider garde SA fonction/logs. Jamais Gemini/Claude.
-  const _order = _fallbackOrder || ['github', 'openrouter'];
+  // ── Repli gratuit AVANT Claude ──────────────────────────────────────────────
+  // Ordre : Groq (free le + généreux/rapide) → github/openrouter (ordre APPRIS, borné) → Cohere (free trial)
+  // → xAI (PAYANT, gaté par claudeOff = jamais en flux de fond). Chaque provider garde SA fonction/logs/cooldown.
+  // L'apprentissage (server.js) ne réordonne QUE github/openrouter ; Groq/Cohere/xAI restent en slots fixes.
+  const _mid = (_fallbackOrder && _fallbackOrder.length) ? _fallbackOrder : ['github', 'openrouter'];
+  const _order = ['groq', ..._mid, 'cohere', 'xai'];
   for (const prov of _order) {
-    if (prov === 'github' && GITHUB_TOKENS.length) {
+    if (prov === 'groq' && GROQ_KEYS.length) {
+      try { const out = await _groq(prompt, maxTokens); _aiStat('groq'); return out; }
+      catch (e) { console.warn(`[AI] Groq échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('groqFail'); }
+    } else if (prov === 'github' && GITHUB_TOKENS.length) {
       try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
       catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
     } else if (prov === 'openrouter' && OPENROUTER_KEYS.length) {
       try { const out = await _openrouter(prompt, maxTokens); _aiStat('openrouter'); return out; }
-      catch (e) { console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('openrouterFail'); }
+      catch (e) { console.warn(`[AI] OpenRouter échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('openrouterFail'); }
+    } else if (prov === 'cohere' && COHERE_KEYS.length) {
+      try { const out = await _cohere(prompt, maxTokens); _aiStat('cohere'); return out; }
+      catch (e) { console.warn(`[AI] Cohere échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('cohereFail'); }
+    } else if (prov === 'xai' && XAI_KEYS.length && !claudeOff) {   // xAI = PAYANT → JAMAIS sur un flux de fond « noClaude » (protège le budget)
+      try { const out = await _xai(prompt, maxTokens); _aiStat('xai'); return out; }
+      catch (e) { console.warn(`[AI] xAI échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)}${claudeOff ? '' : ' → Claude'}`); _aiStat('xaiFail'); }
     }
   }
 
@@ -678,8 +873,11 @@ function status() {
   return {
     geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
+    groq: { keys: GROQ_KEYS.length, models: GROQ_MODELS.length, coolingNow: _groqCool.coolingNow() },
     github: { tokens: GITHUB_TOKENS.length, model: GITHUB_MODEL, models: GITHUB_MODELS, coolingNow: [..._ghCooldown.values()].filter(t => t > Date.now()).length },
     openrouter: { keys: OPENROUTER_KEYS.length, models: OPENROUTER_MODELS.length, coolingNow: [..._orCooldown.values()].filter(t => t > Date.now()).length },
+    cohere: { keys: COHERE_KEYS.length, models: COHERE_MODELS.length, coolingNow: _cohereCool.coolingNow() },
+    xai: { keys: XAI_KEYS.length, models: XAI_MODELS.length, coolingNow: _xaiCool.coolingNow(), paid: true },
     anthropicKeys: ANTHROPIC_KEYS.length,
     claudeModel: CLAUDE_MODEL,
     claudeDailyMax: CLAUDE_DAILY_MAX,
