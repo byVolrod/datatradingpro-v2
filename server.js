@@ -2832,7 +2832,7 @@ function _brRenderUrlFor(u, printUrl) {
 const _crypto = require('crypto');
 const _RENDER_DIR = path.join(_CACHE_DIR, 'render_pdf');
 try { fs.mkdirSync(_RENDER_DIR, { recursive: true }); } catch {}
-const _RENDER_VER = 'r7';   // bump → invalide TOUS les PDF rendus en cache (r7 : MUFG rend l'ARTICLE complet, plus la PrintPage teaser ; garde anti-teaser retirée)
+const _RENDER_VER = 'r8';   // bump → invalide TOUS les PDF rendus en cache (r8 : fix « rendu minuscule » — images/tables larges bornées à la largeur de page ; r7 : MUFG rend l'ARTICLE complet, plus la PrintPage teaser)
 function _renderCacheFile(url) { return path.join(_RENDER_DIR, _crypto.createHash('sha1').update(_RENDER_VER + '|' + String(url)).digest('hex') + '.pdf'); }
 // PDF natifs téléchargés (MUFG /media, ING downloads…) STOCKÉS sur disque → re-servis directement dans DTP,
 // sans re-télécharger à chaque ouverture (robuste si la source rate-limite). TTL : retirés après 30 j (boot).
@@ -2962,6 +2962,12 @@ async function _renderPdfInner(url) {
         }
       } catch (e) {}
     } catch (e) {} }).catch(() => {});
+    // ── FIX « rendu minuscule » (MUFG « JPY Monthly » & co) : un TABLEAU de prévisions livré en IMAGE
+    //    large (1920px naturel → ~1764px affiché) DÉBORDE l'A4 (794px) 2,2× → écrasé/clippé = illisible.
+    //    On borne TOUT contenu large (images de tableaux, tables HTML, SVG/charts, iframes) à la largeur
+    //    de page → l'image tient plein cadre = lisible. Neutre pour le contenu qui tient déjà (≤100%).
+    //    Vérifié en prod : image 1764px → 794px, plus aucun débordement.
+    try { await page.addStyleTag({ content: 'html,body{max-width:100%!important;overflow-x:hidden!important} img,table,svg,canvas,figure,picture,iframe,video{max-width:100%!important;height:auto!important} table{table-layout:fixed!important;word-break:break-word!important}' }); } catch {}
     await page.evaluate(() => { try { window.scrollTo(0, document.body.scrollHeight); } catch {} }).catch(() => {});
     await new Promise(r => setTimeout(r, 250));
     const _pdfOpts = { format: 'A4', printBackground: true, margin: { top: '12mm', bottom: '12mm', left: '10mm', right: '10mm' } };
