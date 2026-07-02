@@ -6830,6 +6830,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cv-actual   { font-weight: var(--fw-bold); color: var(--st-flat); }   /* égal, ou pas de forecast → blanc */
 .cv-pos      { color: var(--st-pos) !important; }            /* Deviation > forecast : vert fluo */
 .cv-neg      { color: var(--st-neg) !important; }            /* Deviation < forecast : rouge écarlate */
+/* Éclair OR : le réel est sorti SOUS l'estimation basse (LOW) — surprise extrême (demande user) */
+.cv-bolt     { display: inline-block; margin-left: 5px; color: var(--orange); vertical-align: -2px; filter: drop-shadow(0 0 3px rgba(227,178,58,.45)); }
 
 /* Lightning bolt on actual values that beat/miss */
 .cv-bolt {
