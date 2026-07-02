@@ -222,7 +222,13 @@ async function _gemini(model, key, prompt, maxTokens) {
     const err = new Error(`Gemini ${model} ${r.status}: ${t.slice(0, 150)}`);
     err.status = r.status;
     // Google renvoie souvent le délai à respecter dans le corps du 429 ("retryDelay": "37s") → on le lit
-    if (r.status === 429) { const m = t.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/); if (m) err.retryDelayMs = Math.ceil(parseFloat(m[1]) * 1000); }
+    if (r.status === 429) {
+      const m = t.match(/"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/); if (m) err.retryDelayMs = Math.ceil(parseFloat(m[1]) * 1000);
+      // CLASSIFICATION du 429 (fix « cooldowns à répétition ») : quota JOURNALIER épuisé (PerDay) → inutile
+      // de re-sonder avant le reset (minuit Pacifique) ; sinon limite par minute → échelle courte habituelle.
+      const q = t.match(/"quotaId"\s*:\s*"([^"]+)"/);
+      if (q) { err.quotaId = q[1]; if (/PerDay/i.test(q[1])) err.quotaDaily = true; }
+    }
     throw err;
   }
   const data = await r.json();
@@ -308,15 +314,33 @@ async function _anthropic(prompt, maxTokens) {
 // 90 s → 6 min → 24 min → 2 h (plafond). Si Google fournit retryDelay, on respecte au moins ça.
 const _gemCooldown = new Map();   // "model|idx" → fin de cooldown (timestamp)
 const _gem429Streak = new Map();  // "model|idx" → nb de 429 consécutifs (remis à 0 au succès)
-function _gemCool(model, idx, status, retryDelayMs) {
+// Délai jusqu'au prochain RESET du quota journalier Gemini (minuit heure Pacifique + 5 min de marge).
+function _msToPacificReset() {
+  try {
+    const pt = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/Los_Angeles' }));
+    const next = new Date(pt); next.setHours(24, 5, 0, 0);
+    return Math.max(60 * 60 * 1000, next - pt);   // au moins 1 h (borne de sécurité)
+  } catch { return 12 * 3600 * 1000; }
+}
+function _gemCool(model, idx, status, retryDelayMs, quotaDaily) {
   const k = model + '|' + idx;
   let ms;
   if (status === 404) ms = 6 * 3600 * 1000;                                   // modèle invalide → mis de côté 6 h
   else if (status === 429) {
     const streak = (_gem429Streak.get(k) || 0) + 1;
     _gem429Streak.set(k, streak);
-    ms = Math.min(2 * 3600 * 1000, 90000 * Math.pow(4, streak - 1));          // 90 s → 6 min → 24 min → 96 min → cap 2 h
-    if (retryDelayMs && retryDelayMs > ms) ms = Math.min(2 * 3600 * 1000, retryDelayMs);   // Google sait mieux que nous
+    if (quotaDaily) {
+      // Quota JOURNALIER épuisé (quotaId *PerDay*) : re-sonder avant le reset = 100% perdu (latence + bruit
+      // de logs + rafales de 429 toute la journée). → silence jusqu'au reset (minuit Pacifique).
+      ms = _msToPacificReset();
+    } else {
+      // Limite par MINUTE : échelle courte (vrais hoquets RPM/TPM se résorbent vite). MAIS un couple qui
+      // échoue ENCORE après 4 cooldowns purgés (streak ≥ 5 = clé sans allocation free-tier, elle ne
+      // reviendra pas en insistant) → plafond porté à 6 h : 2-3 sondes/jour au lieu de 12.
+      const cap = streak >= 5 ? 6 * 3600 * 1000 : 2 * 3600 * 1000;
+      ms = Math.min(cap, 90000 * Math.pow(4, streak - 1));                    // 90 s → 6 min → 24 min → 96 min → cap
+      if (retryDelayMs && retryDelayMs > ms) ms = Math.min(cap, retryDelayMs);   // Google sait mieux que nous
+    }
   } else ms = 25000;                                                           // 5xx → 25 s
   _gemCooldown.set(k, Date.now() + ms);
 }
@@ -807,7 +831,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
         catch (e) {
           lastErr = e; const is429 = e.status === 429;
           _hFail(model, idx, is429);
-          if (is429) { _gemCool(model, idx, 429, e.retryDelayMs); _aiStat('gemini429'); }
+          if (is429) { _gemCool(model, idx, 429, e.retryDelayMs, e.quotaDaily); _aiStat('gemini429'); }
           else if (e.status === 404 || e.status === 503 || e.status === 500) _gemCool(model, idx, e.status);
           console.warn(`[AI] Gemini ${model} clé #${idx + 1}/${n} échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suivant`);
         }
