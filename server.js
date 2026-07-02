@@ -3233,8 +3233,9 @@ app.get('/api/admin/ai-monitor', requireAdmin, async (req, res) => {
     };
     res.json({
       now: Date.now(), range,
-      budget: Object.assign({ monthly: GEMINI_MONTHLY_BUDGET, monthUsed: _aiUsage.total || 0 }, _telForecast(buckets)),
+      budget: Object.assign({ monthly: GEMINI_MONTHLY_BUDGET, monthUsed: _aiUsage.total || 0, monthProjected: _aiMonthProjection(), daysLeftMonth: _aiDaysLeftInMonth() }, _telForecast(buckets)),
       providers, health,
+      cache: Object.assign({}, _aiCacheStats, { habits: _expandHabits, usersIdle: _aiUsersIdle() }),   // efficacité cache + requêtes économisées + habitudes apprises (IA Monitor)
       categoriesToday: _aiUsage.dayCounts || {}, claudeToday: _aiUsage.claudeCounts || {},
       trend: buckets.map(b => ({ hour: b.hour, gemini: b.gemini.calls, github: b.github.calls, openrouter: (b.openrouter && b.openrouter.calls) || 0, claude: b.claude.calls, e429: b.gemini.e429, fallback: b.fallback })),
       backoff: st.backoff || {}, healthDetail: intel.health || [],
@@ -3305,6 +3306,14 @@ async function _aiAlertCheck(force) {
   if (gemH != null && gemH < 25) {
     _aiAlertNote('info', 'gemini_red', 'Gemini santé ' + gemH + '/100 (' + (st.geminiCoolingNow || 0) + ' cooldown 429 — probable quota journalier). Bascule GitHub/Claude/OpenRouter + repli déterministe.');
   } else { _aiAlertClear('gemini_red'); }
+  // ── INFO : rythme MENSUEL — projection au-dessus de l'enveloppe → visible au panel (le pacing
+  //    _aiDailyCap resserre déjà automatiquement le plafond/jour, aucune action requise, JAMAIS d'email).
+  try {
+    const _proj = _aiMonthProjection();
+    if (_proj > GEMINI_MONTHLY_BUDGET * 1.05) {
+      _aiAlertNote('info', 'pacing', 'Rythme mensuel : projection ' + _proj + '/' + GEMINI_MONTHLY_BUDGET + ' appels — le plafond journalier se resserre automatiquement (pacing), service continu.');
+    } else { _aiAlertClear('pacing'); }
+  } catch {}
 
   // ── CRITIQUE (email) : backoff global actif ET filet 0-token/cache indisponible pour du contenu VISIBLE ──
   const backoff = !!(st.backoff && st.backoff.active);
@@ -3342,7 +3351,11 @@ app.post('/api/admin/ai-alert-test', requireAdmin, async (req, res) => {
 function _aiReset() {
   const mo = _aiMonth(), d = _aiDay();
   if (_aiUsage.month !== mo) { _aiUsage = { month: mo, day: d, total: 0, dayCounts: {}, claudeCounts: {} }; _aiSave(); }
-  else if (_aiUsage.day !== d) { _aiUsage.day = d; _aiUsage.dayCounts = {}; _aiUsage.claudeCounts = {}; _aiSave(); }   // claudeCounts est un compteur DU JOUR → vidé au changement de jour (sinon la métrique « crédits Claude du jour » cumulait tout le mois)
+  else if (_aiUsage.day !== d) {
+    _aiUsage.day = d; _aiUsage.dayCounts = {}; _aiUsage.claudeCounts = {}; _aiSave();   // claudeCounts est un compteur DU JOUR → vidé au changement de jour (sinon la métrique « crédits Claude du jour » cumulait tout le mois)
+    // Déclin des habitudes d'expansion (×0.95/jour) : les usages récents pèsent plus que les anciens.
+    try { for (const k in _expandHabits) _expandHabits[k] = Math.round(_expandHabits[k] * 0.95 * 100) / 100; auth.aiCacheSet('learn:expand1', _expandHabits).catch(() => {}); } catch {}
+  }
 }
 function _aiDailyCap() {
   const remaining = Math.max(0, GEMINI_MONTHLY_BUDGET - (_aiUsage.total || 0));
@@ -3518,6 +3531,43 @@ function _aiInflight(key, fn) {
   return p;
 }
 
+// ── OPTIMISATION REQUÊTES À LA DEMANDE (2026-07-02) : stats cache + cooldown d'échec + habitudes ──
+// 1) _aiCacheStats : hit/miss par endpoint + requêtes ÉCONOMISÉES (coalescées = partagées avec une
+//    génération déjà en vol ; coolskip = évitées pendant une panne) → exposé dans l'IA Monitor.
+const _aiCacheStats = { info: { hit: 0, miss: 0 }, analyse: { hit: 0, miss: 0 }, react: { hit: 0, miss: 0 }, coalesced: 0, coolskip: 0 };
+// 2) Cooldown d'échec PAR CLÉ : si la chaîne ENTIÈRE vient d'échouer pour cette clé (<90 s), un re-clic
+//    répond en repli immédiat au lieu de re-parcourir toute la cascade (timeouts inclus) → zéro
+//    martèlement pendant une panne, nouvel essai automatique après 90 s (qualité préservée).
+const _aiFailAt = new Map();
+const _AI_FAIL_COOL = 90 * 1000;
+function _aiFailCooling(key) { return Date.now() - (_aiFailAt.get(key) || 0) < _AI_FAIL_COOL; }
+function _aiFailMark(key) { _aiFailAt.set(key, Date.now()); if (_aiFailAt.size > 800) _aiFailAt.delete(_aiFailAt.keys().next().value); }
+// 3) APPRENTISSAGE DES HABITUDES : quelles CATÉGORIES l'utilisateur déplie réellement (signal = clic
+//    Info). L'enrichissement de fond priorise ces catégories (anticipation des besoins), déclin ×0.95
+//    au changement de jour (les habitudes récentes pèsent plus), persisté durable (KV learn:expand1).
+let _expandHabits = {};
+auth.aiCacheGet('learn:expand1').then(v => { if (v && typeof v === 'object') _expandHabits = v; }).catch(() => {});
+let _expandSaveT = null;
+function _expandNote(cat) {
+  if (!cat) return;
+  _expandHabits[cat] = Math.round(((_expandHabits[cat] || 0) + 1) * 100) / 100;
+  if (!_expandSaveT) _expandSaveT = setTimeout(() => { _expandSaveT = null; auth.aiCacheSet('learn:expand1', _expandHabits).catch(() => {}); }, 60000);
+}
+// 4) ACTIVITÉ RÉELLE : aucun client WebSocket connecté depuis 20 min → le travail de fond ralentit
+//    (préchauffage suspendu sauf pré-pic appris, enrichissement au ralenti). Les chemins 'user' et
+//    planifiés ne sont JAMAIS freinés par ce signal.
+let _lastClientAt = Date.now();
+setInterval(() => { try { for (const c of wss.clients) { if (c.readyState === WebSocket.OPEN) { _lastClientAt = Date.now(); break; } } } catch {} }, 60 * 1000);
+function _aiUsersIdle() { return Date.now() - _lastClientAt > 20 * 60 * 1000; }
+// 5) PROJECTION FIN DE MOIS : conso au rythme observé depuis le début du mois → l'admin voit si
+//    l'enveloppe mensuelle tiendra (le pacing _aiDailyCap resserre déjà automatiquement le plafond).
+function _aiMonthProjection() {
+  const p = _aiParis();
+  const lastDay = new Date(p.getFullYear(), p.getMonth() + 1, 0).getDate();
+  const elapsed = Math.max(0.5, p.getDate() - 1 + _aiDayFraction());
+  return Math.round((_aiUsage.total || 0) / elapsed * lastDay);
+}
+
 // Cache des segmentations IA (url → HTML sectionné) — persistant
 const SW_SEG_FILE = path.join(_CACHE_DIR, 'cache_sw_seg.json');
 const _swSegCache = _loadJsonMap(SW_SEG_FILE);
@@ -3629,6 +3679,7 @@ function _prewarmGate() {
   if (_aiQuietHours()) return false;                                                  // nuit → aucun préchauffage
   if (typeof ai.backoffActive === 'function' && ai.backoffActive()) return false;     // IA en rade → on n'insiste pas
   if (typeof ai.shouldThrottle === 'function' && ai.shouldThrottle()) return false;   // PRESSION IA montante (santé/quota) → on SUSPEND tout le préchauffage AVANT la panne (reprend seul quand ça se calme)
+  if (_aiUsersIdle() && _aiDemandPrePeak() !== true) return false;                    // PERSONNE de connecté depuis 20 min ET pas de pré-pic appris → on ne préchauffe pas dans le vide (reprend seul au retour d'un user ou juste avant la ruée apprise)
   const cap = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
   if (cap && dayTotal >= Math.floor(cap * 0.45)) return false;                        // budget déjà bien entamé → on réserve le reste aux users
@@ -5496,7 +5547,8 @@ app.post('/api/analyse', async (req, res) => {
   const _imp = _isImportantNews(headline, category, '') || !!req.body.important;   // ne pilote plus que le BUDGET (Claude autorisé) — la langue est FR pour TOUT (demande user 2026-07-01)
 
   const cacheKey = 'fr2:' + headline.substring(0, 100);   // fr2 = FRANÇAIS (toutes les descriptions du widget news ; les anciennes entrées src1 EN deviennent orphelines et se régénèrent en FR au clic)
-  if (_analyseCache.has(cacheKey)) return res.json(_analyseCache.get(cacheKey));
+  if (_analyseCache.has(cacheKey)) { _aiCacheStats.analyse.hit++; return res.json(_analyseCache.get(cacheKey)); }
+  _aiCacheStats.analyse.miss++;
 
   // Sans IA : l'Analyse ne ferait que RÉPÉTER la description (déjà montrée dans Info) → on renvoie
   // VIDE pour masquer le tag Analyse (pas de répétition). L'Analyse n'apparaît QUE si l'IA produit
@@ -5506,13 +5558,17 @@ app.post('/api/analyse', async (req, res) => {
   // Important → on NE court-circuite PAS quand Gemini est à sec (aiSmart bascule sur Claude → FR garanti).
   // Non important → pré-check budget économe (repli local = analyse masquée).
   if (!_imp && !aiAllowed('news', { important: true })) return res.json({ bullets: _analyseFallback(), fallback: true });
+  // Cooldown d'échec : la chaîne ENTIÈRE vient d'échouer pour cette clé (<90 s) → repli immédiat (retente après)
+  if (_aiFailCooling(cacheKey)) { _aiCacheStats.coolskip++; return res.json({ bullets: _analyseFallback(), fallback: true }); }
 
   try {
-    const ctx = description
-      ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
-      : '';
-    const _langRule = '- Rédige en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
-    const text = await aiSmart('news', `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+    if (_aiInflightMap.has(cacheKey)) _aiCacheStats.coalesced++;   // génération identique DÉJÀ en vol → on partage sa promesse (1 seule requête IA)
+    const result = await _aiInflight(cacheKey, async () => {
+      const ctx = description
+        ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
+        : '';
+      const _langRule = '- Rédige en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
+      const text = await aiSmart('news', `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
 
 Headline: ${headline}
 Category: ${category}${ctx}
@@ -5526,17 +5582,20 @@ Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rule
 - NO bold, NO markdown, NO asterisks. Plain text only.
 ${_langRule}
 - Start each bullet with • . Reply ONLY with the bullets, no preamble.`, 320, { important: true, priority: 'user', claudeOverBudget: _imp });
-    const bullets = text.split('\n')
-      .map(l => l.trim())
-      .filter(l => /^[•\-\*]/.test(l))
-      .map(l => l.replace(/^[•\-\*]\s*/, ''));
+      const bullets = text.split('\n')
+        .map(l => l.trim())
+        .filter(l => /^[•\-\*]/.test(l))
+        .map(l => l.replace(/^[•\-\*]\s*/, ''));
 
-    const result = { bullets: bullets.length ? bullets : [text.trim().substring(0, 200)] };
-    _analyseCache.set(cacheKey, result);
-    if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
-    _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
+      const r = { bullets: bullets.length ? bullets : [text.trim().substring(0, 200)] };
+      _analyseCache.set(cacheKey, r);
+      if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
+      _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
+      return r;
+    });
     res.json(result);
   } catch (e) {
+    _aiFailMark(cacheKey);   // panne totale sur cette clé → cooldown 90 s (les re-clics répondent en repli immédiat)
     console.error('[Analyse API]', e.message);
     res.json({ bullets: _analyseFallback(), fallback: true });   // quota/erreur → secours extractif
   }
@@ -5552,16 +5611,22 @@ app.post('/api/news-info', async (req, res) => {
 
   // Résumé Info en FRANÇAIS pour TOUTES les news (demande user 2026-07-01) — « important » ne pilote plus que le budget.
   const _imp = _isImportantNews(headline, category, '') || !!req.body.important;
+  _expandNote(category);   // signal d'HABITUDE : l'utilisateur déplie cette catégorie → l'enrichissement de fond la priorisera
   const cacheKey = 'fr2:' + (id || headline.substring(0, 120));   // les anciennes entrées src1 EN deviennent orphelines → régénérées FR au clic
-  if (_infoCache.has(cacheKey)) return res.json(_infoCache.get(cacheKey));
+  if (_infoCache.has(cacheKey)) { _aiCacheStats.info.hit++; return res.json(_infoCache.get(cacheKey)); }
+  _aiCacheStats.info.miss++;
 
   // PLUS de pré-check budget ici (2026-07-01) : ce refus renvoyait bullets:[] → le front restait sur la
   // dépêche brute ANGLAISE (cf. screenshot user) et mémorisait le vide pour la session. Un clic utilisateur
   // est la requête la plus précieuse : on tente TOUJOURS la chaîne (providers gratuits inclus, bornée par
   // cooldowns + pression santé) ; Claude reste réservé à la macro importante via claudeOverBudget:_imp.
+  // Cooldown d'échec : chaîne entière en échec pour cette clé il y a <90 s → repli immédiat (retente après).
+  if (_aiFailCooling(cacheKey)) { _aiCacheStats.coolskip++; return res.json({ bullets: [] }); }
 
   try {
-    const text = await aiSmart('news', `You are an editor for a professional financial news terminal (trading-desk style).
+    if (_aiInflightMap.has(cacheKey)) _aiCacheStats.coalesced++;   // génération identique DÉJÀ en vol → partage (1 seule requête IA)
+    const result = await _aiInflight(cacheKey, async () => {
+      const text = await aiSmart('news', `You are an editor for a professional financial news terminal (trading-desk style).
 Summarise the story below into clear bullets capturing the KEY FACTS of THIS specific news (never a template).
 RULES:
 - 3 to 6 bullets depending on the real substance (more concrete facts = more bullets; never padding).
@@ -5577,20 +5642,23 @@ Headline: ${headline}
 Category: ${category || '—'}
 Content: ${rawDesc.substring(0, 1100)}`, 650, { important: true, priority: 'user', claudeOverBudget: _imp });   // FR pour tout ; Claude-over-budget réservé à la macro importante (borne le coût)
 
-    const bullets = [];
-    text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
-      if (/^[•\-\*]/.test(l)) { const b = l.replace(/^[•\-\*]\s*/, '').trim(); if (b) bullets.push(b); }
-      else if (l.length <= 46 && /\S.{1,44}:$/.test(l) && !/[.!?]/.test(l.slice(0, -1))) bullets.push(l);   // ligne sous-titre
-    });
+      const bullets = [];
+      text.split('\n').map(l => l.trim()).filter(Boolean).forEach(l => {
+        if (/^[•\-\*]/.test(l)) { const b = l.replace(/^[•\-\*]\s*/, '').trim(); if (b) bullets.push(b); }
+        else if (l.length <= 46 && /\S.{1,44}:$/.test(l) && !/[.!?]/.test(l.slice(0, -1))) bullets.push(l);   // ligne sous-titre
+      });
 
-    const result = { bullets };
-    if (bullets.length) {
-      _infoCache.set(cacheKey, result);
-      if (_infoCache.size > 3000) _infoCache.delete(_infoCache.keys().next().value);
-      _saveJsonMap(INFO_CACHE_FILE, _infoCache);
-    }
+      const r = { bullets };
+      if (bullets.length) {
+        _infoCache.set(cacheKey, r);
+        if (_infoCache.size > 3000) _infoCache.delete(_infoCache.keys().next().value);
+        _saveJsonMap(INFO_CACHE_FILE, _infoCache);
+      }
+      return r;
+    });
     res.json(result);
   } catch (e) {
+    _aiFailMark(cacheKey);   // panne totale sur cette clé → cooldown 90 s
     console.error('[News-Info API]', e.message);
     res.json({ bullets: [] });   // l'UI retombe sur la description brute
   }
@@ -5606,31 +5674,39 @@ app.post('/api/reaction-explain', async (req, res) => {
   // Explication en FRANÇAIS pour TOUTES les news (demande user 2026-07-01) — « important » ne pilote plus que le budget.
   const _imp = _isImportantNews(headline, '', '') || !!req.body.important;
   const cacheKey = 'fr2:' + (id || headline.substring(0, 120));   // les anciennes entrées src1 EN deviennent orphelines → régénérées FR au clic
-  if (_reactCache.has(cacheKey)) return res.json(_reactCache.get(cacheKey));
+  if (_reactCache.has(cacheKey)) { _aiCacheStats.react.hit++; return res.json(_reactCache.get(cacheKey)); }
+  _aiCacheStats.react.miss++;
 
   // PLUS de pré-check budget (2026-07-01) : le refus laissait la réaction sans explication (ou en anglais côté
   // repli). Clic utilisateur → on tente toujours la chaîne ; Claude réservé à l'important via claudeOverBudget.
+  // Cooldown d'échec : chaîne entière en échec pour cette clé il y a <90 s → repli immédiat (retente après).
+  if (_aiFailCooling(cacheKey)) { _aiCacheStats.coolskip++; return res.json({ bullets: [], text: '' }); }
 
   try {
-    const _langRule = 'Réponds en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
-    const text = await aiSmart('news', `You are a markets reporter on a trading desk.
+    if (_aiInflightMap.has(cacheKey)) _aiCacheStats.coalesced++;   // génération identique DÉJÀ en vol → partage (1 seule requête IA)
+    const result = await _aiInflight(cacheKey, async () => {
+      const _langRule = 'Réponds en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
+      const text = await aiSmart('news', `You are a markets reporter on a trading desk.
 Explain the market reaction to the news below as 1 to 2 BULLETS, ONE short sentence per bullet (max 22 words): link the price move to the headline (the causal mechanism, the "why"). Neutral, factual tone, no advice. Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
 Start each bullet with • . Reply ONLY with the bullet(s), no preamble.
 
 Headline: ${headline}
 Observed moves: ${String(moves).slice(0, 300)}`, 220, { important: true, priority: 'user', claudeOverBudget: _imp });
 
-    let bullets = String(text || '').split('\n').map(l => l.trim())
-      .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean).slice(0, 3);
-    if (!bullets.length) { const c = String(text || '').replace(/^[•\-\*\s]+/, '').trim(); if (c) bullets = [c]; }
-    const result = { bullets, text: bullets.join(' ') };   // text conservé pour rétro-compat
-    if (bullets.length) {
-      _reactCache.set(cacheKey, result);
-      if (_reactCache.size > 2000) _reactCache.delete(_reactCache.keys().next().value);
-      _saveJsonMap(REACT_CACHE_FILE, _reactCache);
-    }
+      let bullets = String(text || '').split('\n').map(l => l.trim())
+        .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean).slice(0, 3);
+      if (!bullets.length) { const c = String(text || '').replace(/^[•\-\*\s]+/, '').trim(); if (c) bullets = [c]; }
+      const r = { bullets, text: bullets.join(' ') };   // text conservé pour rétro-compat
+      if (bullets.length) {
+        _reactCache.set(cacheKey, r);
+        if (_reactCache.size > 2000) _reactCache.delete(_reactCache.keys().next().value);
+        _saveJsonMap(REACT_CACHE_FILE, _reactCache);
+      }
+      return r;
+    });
     res.json(result);
   } catch (e) {
+    _aiFailMark(cacheKey);   // panne totale sur cette clé → cooldown 90 s
     console.error('[Reaction API]', e.message);
     res.json({ bullets: [], text: '' });
   }
@@ -10534,8 +10610,15 @@ async function _enrichAnalyses() {
   try {
     const today = _aiDay();
     if (_aiAnaDay !== today) { _aiAnaDay = today; _aiAnaDayCount = 0; }           // reset journalier
-    let perCycle = 3;                                                             // 3 traductions FR (analyses) par passage → rattrapage plus rapide (la traduction n'était pas lente, c'est le débit qui était bridé)
-    for (const item of allNews) {
+    // Débit ADAPTATIF : 3/passage en régime nominal (rattrapage rapide), 2 sous pression santé/quota
+    // montante, 1 si l'IA doit ralentir OU si personne n'est connecté depuis 20 min (on n'enrichit
+    // pas dans le vide — le backlog se rattrape au retour des utilisateurs).
+    let perCycle = 3;
+    try { if ((typeof ai.shouldThrottle === 'function' && ai.shouldThrottle()) || _aiUsersIdle()) perCycle = 1; else if (typeof ai.underPressure === 'function' && ai.underPressure()) perCycle = 2; } catch {}
+    // PRIORISATION APPRISE : les catégories que les utilisateurs DÉPLIENT réellement passent en premier
+    // (habitudes _expandHabits, signal = clics Info). Tri STABLE → à rang égal, l'ordre du feed (récence) est conservé.
+    const _byHabit = [...allNews].sort((a, b) => ((_expandHabits[(b || {}).category] || 0) - (_expandHabits[(a || {}).category] || 0)));
+    for (const item of _byHabit) {
       if (!item || (Array.isArray(item.analyse) && item.analyse.length)) continue; // déjà analysée
       if (!_meritsAnalysis(item)) continue;
       const _fr = true;   // TOUJOURS en FRANÇAIS (desk 100% FR) : l'analyse pré-calculée EST la description affichée au dépliage → instantanée + FR

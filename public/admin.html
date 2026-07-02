@@ -991,11 +991,25 @@
     const b = d.budget;
     const maxE = Math.max(1, ...(b.nextHours || []).map(x => x.expected || 0));
     const nh = (b.nextHours || []).map(x => `<div class="aim-dem"><span>${String(x.h).padStart(2, '0')}h</span><div class="aim-dem-track"><i style="width:${Math.round((x.expected || 0) / maxE * 100)}%"></i></div><b>${x.expected}</b></div>`).join('');
+    // Rythme MENSUEL : projection fin de mois au rythme observé (vert = enveloppe tenue, ambre/rouge = pacing va resserrer)
+    const projRow = (b.monthProjected != null && b.monthly) ? (() => {
+      const col = b.monthProjected > b.monthly * 1.1 ? '#ef4444' : b.monthProjected > b.monthly ? '#ffb300' : '#22c55e';
+      return `<div class="aim-fc-row"><span>Projection fin de mois</span><b style="color:${col}">${b.monthProjected} <span style="color:#6b7280">/ ${b.monthly} · ${b.daysLeftMonth || '—'} j restants</span></b></div>`;
+    })() : '';
+    // Efficacité du cache à la demande + requêtes économisées (coalescing / cooldown de panne)
+    const cacheRows = d.cache ? (() => {
+      const c = d.cache, pc = o => { const t = (o && ((o.hit || 0) + (o.miss || 0))) || 0; return t ? Math.round((o.hit || 0) / t * 100) + '%' : '—'; };
+      return `<div class="aim-fc-row"><span>Cache à la demande (hit)</span><b>info ${pc(c.info)} · analyse ${pc(c.analyse)} · réaction ${pc(c.react)}</b></div>`
+        + `<div class="aim-fc-row"><span>Requêtes économisées</span><b>${(c.coalesced || 0)} coalescées · ${(c.coolskip || 0)} évitées (panne)</b></div>`
+        + (c.usersIdle ? `<div class="aim-fc-row"><span>Activité</span><b style="color:#ffb300">personne connecté — fond au ralenti</b></div>` : '');
+    })() : '';
     document.getElementById('aim-forecast').innerHTML =
       `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
       + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + ' h') : '—'}</b></div>`
+      + projRow
       + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '—'}</b></div>`
       + `<div class="aim-fc-row"><span>Pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
+      + cacheRows
       + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh;
   }
   function aimRenderInfra(d) {
