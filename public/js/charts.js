@@ -742,9 +742,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
     seriesMap[ccy] = series;
     labelMap[ccy]  = { range, value: lastV, hexStr, hexColor };
 
-    // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit)
+    // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit).
+    // DOUBLE écoute (événements + propriété `visible`) : si un événement rate (update pendant
+    // l'animation de masquage), l'état est de toute façon ré-imposé par declutter()/update()
+    // qui lisent la visibilité RÉELLE de la série (cf. plus bas).
     series.events.on('hidden', () => { _hiddenCcy.add(ccy); try { range.get('label')?.setAll({ forceHidden: true, visible: false });  range.get('grid')?.set('forceHidden', true);  } catch {} });
     series.events.on('shown',  () => { _hiddenCcy.delete(ccy); try { range.get('label')?.setAll({ forceHidden: false, visible: true }); range.get('grid')?.set('forceHidden', false); } catch {} });
+    series.on('visible', (vis) => {
+      if (vis) _hiddenCcy.delete(ccy); else _hiddenCcy.add(ccy);
+      try { range.get('label')?.set('forceHidden', !vis); range.get('grid')?.set('forceHidden', !vis); } catch {}
+    });
 
     // Mode « paire » : on masque d'emblée les devises hors-paire (courbe + badge). La légende les
     // conserve (grisées, re-cliquables), exactement la référence pro.
@@ -802,8 +809,16 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
       const GAP = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
-      // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas
-      const arr = Object.entries(labelMap).filter(([ccy]) => !_hiddenCcy.has(ccy)).map(([ccy, o]) => {
+      // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas.
+      // ENFORCEMENT : l'inclusion se base sur la visibilité RÉELLE de la série (pas seulement _hiddenCcy,
+      // qui peut rater un événement) — et on RÉ-IMPOSE forceHidden aux badges des devises masquées à
+      // chaque passe (declutter tourne au build + après chaque update → l'état ne peut plus dériver).
+      const arr = Object.entries(labelMap).filter(([ccy, o]) => {
+        const s = seriesMap[ccy];
+        const hid = _hiddenCcy.has(ccy) || (s && s.get('visible') === false) || (s && typeof s.isHidden === 'function' && s.isHidden());
+        try { o.range.get('label')?.set('forceHidden', !!hid); o.range.get('grid')?.set('forceHidden', !!hid); } catch {}
+        return !hid;
+      }).map(([ccy, o]) => {
         const v = o.value != null ? o.value : 0;
         const px = (max - v) / (max - min) * h;
         return { ccy, o, basePx: px, px };
@@ -843,8 +858,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
         lbl.value = lv;
         try { lbl.range.set('value', lv); } catch {}
         try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','))); } catch {}
-        // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update
-        if (_hiddenCcy.has(ccy)) { try { lbl.range.get('label')?.setAll({ forceHidden: true, visible: false }); lbl.range.get('grid')?.set('forceHidden', true); } catch {} }
+        // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
+        // d'après la visibilité RÉELLE de la série (couvre le cas où l'événement hidden/shown a raté :
+        // ex. update() tombé PENDANT l'animation de masquage → _hiddenCcy pas encore rempli).
+        const _sHid = _hiddenCcy.has(ccy) || (s.get('visible') === false) || (typeof s.isHidden === 'function' && s.isHidden());
+        if (_sHid) { try { lbl.range.get('label')?.setAll({ forceHidden: true, visible: false }); lbl.range.get('grid')?.set('forceHidden', true); } catch {} }
       }
     }
     setTimeout(declutter, 60);   // recalibrer l'anti-collision après mise à jour
