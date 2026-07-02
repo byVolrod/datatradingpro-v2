@@ -145,17 +145,22 @@
   .up{color:var(--green)} .dn{color:var(--red)}
 
   /* ── Nav ── */
-  nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(16px);background:rgba(7,7,8,.8);border-bottom:1px solid rgba(255,255,255,.05)}
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:saturate(180%) blur(16px);background:rgba(7,7,8,.8);border-bottom:1px solid rgba(255,255,255,.05);transition:box-shadow var(--t-fast)}
+  nav.scrolled{box-shadow:0 8px 24px -12px rgba(0,0,0,.35)}
   .nav-in{display:flex;align-items:center;gap:28px;height:64px;max-width:1520px;margin:0 auto;padding:0 30px}
   .logo{display:flex;align-items:center;gap:10px;font-family:var(--tight);font-weight:800;font-size:19px;letter-spacing:-.02em}
   .logo .mk{width:27px;height:27px;border-radius:8px;background:var(--grad);display:grid;place-items:center;color:#1a1206;font-weight:900;font-size:8.5px;letter-spacing:-.3px;box-shadow:0 4px 16px -4px rgba(230,189,77,.6)}
   .nav-links{display:flex;gap:24px;margin-left:6px}
-  .nav-links a{color:var(--text2);font-size:14px;font-weight:500;transition:color .15s}
+  .nav-links a{color:var(--text2);font-size:14px;font-weight:500;transition:color .15s;position:relative}
+  .nav-links a::after{content:"";position:absolute;bottom:-4px;left:0;right:0;height:1px;background:var(--orange);transform:scaleX(0);transform-origin:right;transition:transform var(--t-fast)}
   .nav-links a:hover{color:var(--text)}
+  .nav-links a:hover::after{transform:scaleX(1);transform-origin:left}
   .nav-r{margin-left:auto;display:flex;align-items:center;gap:15px}
   .nav-login{color:var(--text);font-size:14px;font-weight:600;border:1px solid rgba(184,134,11,.45);border-radius:var(--r-btn);padding:8px 16px;transition:color var(--t-fast),border-color var(--t-fast),background var(--t-fast)}
   .nav-login:hover{border-color:rgba(184,134,11,.85);background:rgba(184,134,11,.06)}
   .btn{font-family:var(--font);font-weight:600;border:none;cursor:pointer;border-radius:var(--r-btn);transition:transform var(--t-fast),box-shadow var(--t-fast),background var(--t-fast),border-color var(--t-fast);display:inline-flex;align-items:center;gap:9px;justify-content:center}
+  .btn:active{transform:translateY(1px);transition-duration:.08s}
+  .btn:focus-visible{outline:2px solid rgba(227,178,58,.5);outline-offset:2px}
   .btn-ghost{background:transparent;color:var(--text);border:1px solid rgba(230,189,77,.5);padding:10px 19px;font-size:14px}
   .btn-ghost:hover{border-color:rgba(230,189,77,.9);background:rgba(230,189,77,.07)}
   .btn-cta{background:var(--grad-cta);color:#1c1205;padding:11px 21px;font-size:14px;box-shadow:0 8px 28px -10px rgba(230,189,77,.6)}
@@ -889,6 +894,7 @@
 @keyframes hfmFeed{0%{transform:translateY(0)}100%{transform:translateY(-50%)}}
 @keyframes hfmPulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.72)}}
 @keyframes hfmCaret{0%,48%{opacity:1}49%,100%{opacity:0}}
+@keyframes hfmRowFadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
 @keyframes hfmSweep{0%{transform:translateX(-7%)}100%{transform:translateX(7%)}}
 .hfm{font-family:var(--tight,'Inter',system-ui,sans-serif);background:#0d0e11;border:1px solid #232429;overflow:hidden;color:#e6e8ec;animation:hfmRise .6s ease both;box-shadow:0 30px 70px -30px rgba(0,0,0,.8);position:relative;z-index:1;}
 .hfm *{box-sizing:border-box;}
@@ -1875,6 +1881,7 @@
     (function(){
       var esc=function(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');};
       var lastSig='';
+      (function(){var _n=document.querySelector('nav');if(_n){var f=function(){_n.classList.toggle('scrolled',window.scrollY>40);};window.addEventListener('scroll',f,{passive:true});f();}})();
       function loadHeroNews(){
         fetch('https://desk.datatradingpro.com/api/hero-news',{cache:'no-store'}).then(function(r){return r.ok?r.json():null;}).then(function(news){
           if(!Array.isArray(news)||news.length<3)return;
@@ -1890,7 +1897,7 @@
             if(n.tag)tg+='<span class="hfm-tag">'+esc(n.tag)+'</span>';
             if(n.info)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--info">Info</span>';
             if(n.analyse)tg+='<span class="hfm-tag hfm-tag--exp hfm-tag--ana">Analyse</span>';
-            return '<div class="hfm-nrow">'+dot+'<span class="hfm-nt"'+nm+'>'+esc(n.t||'')+'</span><span class="hfm-nc">'+esc(n.cat)+'</span><span class="hfm-nh">'+esc(n.h)+(tg?'<div>'+tg+'</div>':'')+'</span></div>';
+            return '<div class="hfm-nrow" style="animation:hfmRowFadeIn .3s ease both">'+dot+'<span class="hfm-nt"'+nm+'>'+esc(n.t||'')+'</span><span class="hfm-nc">'+esc(n.cat)+'</span><span class="hfm-nh">'+esc(n.h)+(tg?'<div>'+tg+'</div>':'')+'</span></div>';
           });
           track.innerHTML=rows.concat(rows).join('');  // x2 pour la boucle de defilement
           window._heroLive=true;                        // heures REELLES du desk affichees -> tick() ne les ecrase plus
