@@ -475,45 +475,98 @@
 
   <!-- ═══ Onglet : IA Monitor ═══ -->
   <style>
-    .aim-prov-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; }
-    .aim-prov { background:var(--bg2,#111); border:1px solid var(--border2,#26262c); border-radius:8px; padding:13px 14px; }
-    .aim-prov-top { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:8px; }
-    .aim-prov-name { font-size:13px; font-weight:700; color:#e8e8ea; }
-    .aim-prov-score { font-family:var(--font-mono,monospace); font-size:22px; font-weight:800; }
-    .aim-prov-bar { height:4px; border-radius:3px; background:#26262c; overflow:hidden; margin-bottom:9px; }
-    .aim-prov-bar i { display:block; height:100%; border-radius:3px; transition:width .4s; }
-    .aim-prov-lines { display:flex; flex-direction:column; gap:3px; }
-    .aim-prov-lines span { font-size:11px; color:#9aa0a6; font-family:var(--font-mono,monospace); }
-    .aim-fc-row { display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid #1a1a1f; font-size:12.5px; color:#cbd5e1; }
-    .aim-fc-row:last-child { border-bottom:none; } .aim-fc-row b { font-family:var(--font-mono,monospace); color:#fff; }
-    .aim-pill { font-size:10px; font-weight:700; padding:2px 8px; border-radius:5px; letter-spacing:.03em; }
-    .aim-pill--low{background:rgba(34,197,94,.16);color:#22c55e} .aim-pill--medium{background:rgba(255,179,0,.16);color:#ffb300}
-    .aim-pill--high,.aim-pill--exhausted{background:rgba(239,68,68,.16);color:#ef4444} .aim-pill--unknown{background:#26262c;color:#9aa0a6}
-    .aim-test-btn { background:#18181c; border:1px solid #2a2a31; border-radius:6px; color:#cbd5e1; font-size:11.5px; padding:5px 10px; cursor:pointer; }
-    /* ── Barre de statut IA Monitor : MAJ visible + compte à rebours du prochain refresh ── */
-    .aim-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:var(--bg2,#111114); border:1px solid var(--border2,#26262c); border-radius:8px; padding:8px 13px; margin-bottom:14px; flex-wrap:wrap; }
-    .aim-bar-status { display:flex; align-items:center; gap:9px; font-size:12px; color:#cbd5e1; font-family:var(--font-mono,monospace); }
+    /* ═══ IA MONITOR — refonte pro (design valide en maquette, 1440/860/390 sans debord) ═══ */
+    #tab-aimon { --aim-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace; }
+    #tab-aimon .panel-head h2 { font-size:11px; font-weight:700; color:#d5d8de; text-transform:uppercase; letter-spacing:.07em; }
+    #tab-aimon .panel-head h2::before { content:''; display:inline-block; width:3px; height:10px; border-radius:2px; background:var(--orange,#e3b23a); margin-right:8px; opacity:.85; }
+    /* Barre de commande : MAJ + compte à rebours + portée + actions */
+    .aim-bar { display:flex; align-items:center; justify-content:space-between; gap:12px; background:#111114; border:1px solid #1f1f24; border-radius:6px; padding:9px 14px; margin-bottom:12px; flex-wrap:wrap; }
+    .aim-bar-status { display:flex; align-items:center; gap:9px; font-size:12px; color:#cbd5e1; font-family:var(--aim-mono); }
     .aim-live-dot { width:8px; height:8px; border-radius:50%; background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,.55); flex:0 0 auto; }
     .aim-live-dot--busy { background:#e3b23a; box-shadow:0 0 6px rgba(227,178,58,.6); animation:aimPulse .8s ease-in-out infinite; }
     @keyframes aimPulse { 50% { opacity:.35; } }
     .aim-next { color:#6b7280; }
-    .aim-bar-actions { display:flex; align-items:center; gap:8px; }
-    .aim-refresh-btn { background:#18181c; border:1px solid #2a2a31; border-radius:6px; color:#e3b23a; font-size:11.5px; padding:5px 11px; cursor:pointer; }
-    .aim-refresh-btn:hover, .aim-test-btn:hover { border-color:#3a3a44; }
-    .aim-refresh-btn:disabled { opacity:.5; cursor:default; }
-    .aim-sec-title { margin:13px 0 3px; font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#6b7280; }
-    .aim-infra-row { grid-template-columns:1fr 1fr 1fr; }
-    @media(max-width:1100px){ .aim-infra-row { grid-template-columns:1fr; } }
-    .aim-j-wrap { max-height:260px; overflow-y:auto; }
-    .aim-j-row { display:flex; align-items:baseline; gap:10px; padding:6px 0; border-bottom:1px solid #1a1a1f; font-size:12px; }
-    .aim-j-t { font-family:var(--font-mono,monospace); color:#6b7280; flex:0 0 auto; font-size:11px; }
-    .aim-j-lvl { font-weight:700; font-size:10px; letter-spacing:.04em; flex:0 0 56px; }
-    .aim-j-msg { color:#cbd5e1; line-height:1.45; }
+    .aim-bar-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .aim-range { display:inline-flex; background:#0c0c0e; border:1px solid #26262b; border-radius:5px; overflow:hidden; }
+    .aim-range button { background:none; border:0; color:#8b8f98; font-size:11px; font-weight:600; padding:5px 11px; cursor:pointer; font-family:inherit; border-right:1px solid #1f1f24; }
+    .aim-range button:last-child { border-right:0; }
+    .aim-range button.on { background:#1a1a1f; color:#e3b23a; }
+    .aim-refresh-btn, .aim-test-btn { background:#18181c; border:1px solid #2a2a31; border-radius:5px; color:#cbd5e1; font-size:11.5px; padding:5px 11px; cursor:pointer; font-family:inherit; }
+    .aim-refresh-btn { color:#e3b23a; }
+    .aim-refresh-btn:hover, .aim-test-btn:hover:not(:disabled) { border-color:#3a3a44; }
+    .aim-refresh-btn:disabled, .aim-test-btn:disabled { opacity:.5; cursor:default; }
+    /* Bandeau KPI (6 tuiles denses) */
+    .aim-kpis { display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-bottom:12px; }
+    @media(max-width:1250px){ .aim-kpis { grid-template-columns:repeat(3,1fr); } }
+    @media(max-width:640px){ .aim-kpis { grid-template-columns:repeat(2,1fr); } }
+    .aim-kpi { background:#111114; border:1px solid #1f1f24; border-radius:6px; padding:11px 13px 12px; min-width:0; }
+    .aim-kpi--accent { box-shadow:inset 3px 0 0 var(--orange,#e3b23a); }
+    .aim-kpi-l { font-size:9.5px; font-weight:600; text-transform:uppercase; letter-spacing:.07em; color:#7c8190; margin-bottom:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .aim-kpi-v { font-family:var(--aim-mono); font-size:19px; font-weight:700; color:#eceef2; line-height:1.15; white-space:nowrap; }
+    .aim-kpi-v small { font-size:11.5px; color:#6b7280; font-weight:600; }
+    .aim-kpi-s { font-size:10.5px; color:#6b7280; margin-top:5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .aim-track { height:4px; border-radius:2px; background:#1c1c21; overflow:hidden; margin-top:8px; }
+    .aim-track i { display:block; height:100%; border-radius:2px; background:var(--orange,#e3b23a); transition:width .4s ease; }
+    .aim-pill { display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px; border-radius:4px; letter-spacing:.03em; }
+    .aim-pill--low{background:rgba(34,197,94,.14);color:#22c55e} .aim-pill--medium{background:rgba(255,179,0,.14);color:#ffb300}
+    .aim-pill--high,.aim-pill--exhausted{background:rgba(239,68,68,.14);color:#ef4444} .aim-pill--unknown{background:#26262c;color:#9aa0a6}
+    /* Fournisseurs */
+    .aim-prov-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(215px,1fr)); gap:10px; }
+    .aim-prov { background:#0e0e11; border:1px solid #1f1f24; border-radius:6px; padding:12px 13px; min-width:0; }
+    .aim-prov-top { display:flex; align-items:center; gap:7px; margin-bottom:9px; }
+    .aim-prov-dot { width:7px; height:7px; border-radius:50%; flex:0 0 auto; }
+    .aim-prov-name { font-size:12px; font-weight:700; color:#e8e8ea; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .aim-prov-name small { color:#6b7280; font-weight:600; }
+    .aim-prov-score { margin-left:auto; font-family:var(--aim-mono); font-size:20px; font-weight:800; }
+    .aim-prov-bar { height:4px; border-radius:2px; background:#1c1c21; overflow:hidden; margin-bottom:10px; }
+    .aim-prov-bar i { display:block; height:100%; border-radius:2px; transition:width .4s; }
+    .aim-kv { display:flex; align-items:baseline; justify-content:space-between; gap:8px; padding:3.5px 0; font-size:11px; }
+    .aim-kv span { color:#8b8f98; white-space:nowrap; }
+    .aim-kv b { font-family:var(--aim-mono); font-weight:600; color:#d5d8de; font-size:11.5px; white-space:nowrap; }
+    .aim-chips { display:flex; gap:5px; flex-wrap:wrap; margin-top:8px; }
+    .aim-chip { font-size:9.5px; font-weight:700; letter-spacing:.03em; padding:2px 7px; border-radius:3px; background:rgba(255,179,0,.12); color:#ffb300; }
+    .aim-chip--ok { background:rgba(34,197,94,.10); color:#22c55e; }
+    .aim-chip--bad { background:rgba(239,68,68,.12); color:#ef4444; }
+    /* Rangées analytiques */
+    .aim-row { display:grid; grid-template-columns:2fr 1fr; gap:12px; margin-bottom:12px; }
+    .aim-row--infra { grid-template-columns:1fr 1fr 1fr 1fr; }
+    @media(max-width:1100px){ .aim-row { grid-template-columns:1fr; } .aim-row--infra { grid-template-columns:1fr 1fr; } }
+    @media(max-width:640px){ .aim-row--infra { grid-template-columns:1fr; } }
+    .aim-card { display:flex; flex-direction:column; min-width:0; }
+    .aim-card .panel-body { flex:1; }
+    #tab-aimon .am-chart { height:230px; }
+    #tab-aimon .am-chart--donut { height:150px; }
+    .aim-cat-legend { display:flex; flex-wrap:wrap; gap:4px 10px; margin-top:9px; }
+    .aim-cat-legend span { display:inline-flex; align-items:center; gap:5px; font-size:10px; color:#9aa0a6; font-weight:600; }
+    .aim-cat-legend i { width:7px; height:7px; border-radius:2px; display:inline-block; }
+    .aim-cat-legend b { font-family:var(--aim-mono); font-weight:600; color:#d5d8de; }
+    .aim-legend { display:flex; gap:14px; flex-wrap:wrap; margin-left:auto; }
+    .aim-legend span { display:inline-flex; align-items:center; gap:5px; font-size:10.5px; color:#9aa0a6; font-weight:600; }
+    .aim-legend i { width:8px; height:8px; border-radius:2px; display:inline-block; }
+    /* Prévision : lignes + micro-barres de demande apprise */
+    .aim-fc-row { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:6.5px 0; border-bottom:1px solid #1a1a1f; font-size:12px; color:#cbd5e1; }
+    .aim-fc-row:last-child { border-bottom:0; }
+    .aim-fc-row b { font-family:var(--aim-mono); font-weight:600; font-size:12px; color:#e8e8ea; text-align:right; }
+    .aim-sec-title { margin:12px 0 4px; font-size:9.5px; text-transform:uppercase; letter-spacing:.07em; color:#7c8190; font-weight:600; }
+    .aim-dem { display:flex; align-items:center; gap:8px; padding:3.5px 0; font-size:11px; }
+    .aim-dem span { color:#8b8f98; flex:0 0 34px; font-family:var(--aim-mono); }
+    .aim-dem .aim-dem-track { flex:1; height:5px; border-radius:2px; background:#1c1c21; overflow:hidden; }
+    .aim-dem .aim-dem-track i { display:block; height:100%; background:rgba(227,178,58,.65); border-radius:2px; }
+    .aim-dem b { font-family:var(--aim-mono); font-weight:600; color:#d5d8de; flex:0 0 30px; text-align:right; font-size:11px; }
+    /* Journal */
+    .aim-j-filters { display:flex; gap:6px; margin-left:auto; }
+    .aim-j-filters button { background:#0c0c0e; border:1px solid #26262b; border-radius:4px; color:#8b8f98; font-size:10px; font-weight:700; letter-spacing:.03em; padding:3px 9px; cursor:pointer; font-family:inherit; }
+    .aim-j-filters button.on { color:#e3b23a; border-color:rgba(227,178,58,.4); background:#1a1a1f; }
+    .aim-j-wrap { max-height:250px; overflow-y:auto; }
+    .aim-j-row { display:flex; align-items:baseline; gap:11px; padding:6.5px 2px; border-bottom:1px solid #1a1a1f; font-size:12px; }
+    .aim-j-row:hover { background:rgba(255,255,255,.018); }
+    .aim-j-t { font-family:var(--aim-mono); color:#6b7280; flex:0 0 auto; font-size:10.5px; }
+    .aim-j-lvl { font-weight:800; font-size:9.5px; letter-spacing:.05em; flex:0 0 58px; }
+    .aim-j-msg { color:#c3c7cf; line-height:1.5; }
     .aim-j-empty { color:#6b7280; font-size:12px; padding:8px 0; }
-    .aim-test-btn:hover:not(:disabled) { border-color:var(--orange,#e3b23a); color:#fff; } .aim-test-btn:disabled { opacity:.6; cursor:default; }
   </style>
   <section class="tab-panel" id="tab-aimon">
-    <!-- Barre de statut : quand ça a été rechargé + quand arrive le PROCHAIN refresh (compte à rebours) -->
+    <!-- Barre de commande : MAJ + compte à rebours du PROCHAIN refresh + portée + actions -->
     <div class="aim-bar">
       <div class="aim-bar-status">
         <span class="aim-live-dot" id="aim-dot"></span>
@@ -521,51 +574,58 @@
         <span class="aim-next" id="aim-next"></span>
       </div>
       <div class="aim-bar-actions">
+        <div class="aim-range" id="aim-range" title="Portée du graphe d'activité">
+          <button class="on" data-h="24">24 h</button><button data-h="48">48 h</button><button data-h="168">7 j</button>
+        </div>
         <button class="aim-refresh-btn" id="aim-refresh" onclick="loadAIMon()" title="Recharger maintenant">⟳ Actualiser</button>
         <button class="aim-test-btn" onclick="aimTestAlert(this)" title="Envoie un e-mail d'alerte de test à l'admin">✉️ Tester l'alerte</button>
       </div>
     </div>
-    <div class="fin-kpis" id="aim-kpis"></div>
-    <div class="fin-row">
-      <div class="panel-card fin-panel fin-panel--wide">
-        <div class="panel-head"><span class="ph-ic">🤖</span><h2>Santé des fournisseurs IA</h2></div>
-        <div class="panel-body"><div id="aim-providers" class="aim-prov-grid"></div></div>
-      </div>
-      <div class="panel-card fin-panel">
-        <div class="panel-head"><span class="ph-ic">🎯</span><h2>Conso par catégorie (jour)</h2></div>
-        <div class="panel-body"><div class="am-chart am-chart--donut" id="aim-cat-am"></div></div>
-      </div>
+    <!-- Bandeau KPI (6 tuiles denses) -->
+    <div class="aim-kpis" id="aim-kpis"></div>
+    <!-- Fournisseurs -->
+    <div class="panel-card aim-card" style="margin-bottom:12px">
+      <div class="panel-head"><h2>Santé des fournisseurs IA</h2><span class="fin-sub" id="aim-prov-sub" style="margin-left:auto"></span></div>
+      <div class="panel-body"><div id="aim-providers" class="aim-prov-grid"></div></div>
     </div>
-    <div class="fin-row">
-      <div class="panel-card fin-panel fin-panel--wide">
-        <div class="panel-head"><span class="ph-ic">📈</span><h2>Appels IA par heure</h2></div>
+    <!-- Activité empilée par fournisseur + Prévision -->
+    <div class="aim-row">
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Appels IA par heure</h2><div class="aim-legend" id="aim-legend"></div></div>
         <div class="panel-body"><div class="am-chart" id="aim-trend-am"></div></div>
       </div>
-      <div class="panel-card fin-panel">
-        <div class="panel-head"><span class="ph-ic">🔮</span><h2>Prévision &amp; quota</h2></div>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Prévision &amp; quota</h2></div>
         <div class="panel-body" id="aim-forecast"></div>
       </div>
     </div>
-    <!-- Infrastructure : chaque service dans SA carte (avant : tout empilé sous Prévision) -->
-    <div class="fin-row aim-infra-row">
-      <div class="panel-card fin-panel">
-        <div class="panel-head"><span class="ph-ic">✉️</span><h2>Email (envoi)</h2></div>
+    <!-- Conso par catégorie + Infrastructure (chaque service dans SA carte) -->
+    <div class="aim-row aim-row--infra">
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Conso par catégorie</h2></div>
+        <div class="panel-body"><div class="am-chart am-chart--donut" id="aim-cat-am"></div><div class="aim-cat-legend" id="aim-cat-legend"></div></div>
+      </div>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Email (envoi)</h2></div>
         <div class="panel-body" id="aim-mail"></div>
       </div>
-      <div class="panel-card fin-panel">
-        <div class="panel-head"><span class="ph-ic">🛡️</span><h2>Egress Supabase</h2></div>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Egress Supabase</h2></div>
         <div class="panel-body" id="aim-egress"></div>
       </div>
-      <div class="panel-card fin-panel">
-        <div class="panel-head"><span class="ph-ic">🗄️</span><h2>Bases Supabase</h2></div>
+      <div class="panel-card aim-card">
+        <div class="panel-head"><h2>Bases Supabase</h2></div>
         <div class="panel-body" id="aim-db"></div>
       </div>
     </div>
-    <div class="fin-row">
-      <div class="panel-card fin-panel" style="grid-column:1/-1">
-        <div class="panel-head"><span class="ph-ic">📋</span><h2>Journal des événements IA</h2><span class="fin-sub" id="aim-j-count" style="margin-left:auto"></span></div>
-        <div class="panel-body aim-j-wrap" id="aim-journal"></div>
+    <!-- Journal -->
+    <div class="panel-card aim-card">
+      <div class="panel-head"><h2>Journal des événements IA</h2><span class="fin-sub" id="aim-j-count" style="margin-left:auto"></span>
+        <div class="aim-j-filters" id="aim-j-filters">
+          <button class="on" data-lvl="">Tout</button><button data-lvl="critical">Critique</button><button data-lvl="info">Info</button>
+        </div>
       </div>
+      <div class="panel-body aim-j-wrap" id="aim-journal"></div>
     </div>
   </section>
 
@@ -869,96 +929,187 @@
     setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 4500);
   }
 
-  // ── IA Monitor : santé providers, quota, prévision (lazy au clic + refresh 30s) ──
+  // ── IA Monitor : refonte pro (validée en maquette) — barre de commande, KPIs denses, empilé par
+  //    fournisseur, prévision à micro-barres, infra en cartes, journal filtrable ──
   let _aimNextAt = 0, _aimBusy = false;   // source de vérité du compte à rebours (barre de statut)
+  let _aimHours = 24, _aimJFilter = '', _aimLastData = null;
+  const AIM_PCOL = { gemini: 0x60a5fa, github: 0xa78bfa, openrouter: 0x00cc99, claude: 0xe3b23a };
+  const AIM_PLBL = { gemini: 'Gemini', github: 'GitHub', openrouter: 'OpenRouter', claude: 'Claude' };
+  const _hcol = s => s == null ? '#6b7280' : s >= 75 ? '#22c55e' : s >= 40 ? '#ffb300' : '#ef4444';
+  function aimRenderKpis(d) {
+    const b = d.budget, g = (d.providers || {}).gemini || {};
+    const riskLbl = { low: 'Faible', medium: 'Modéré', high: 'Élevé', exhausted: 'Épuisé', unknown: '—' }[b.risk] || b.risk;
+    const press = Math.round((g.pressure || 0) * 100);
+    const pressCol = press >= 75 ? '#ef4444' : press >= 55 ? '#ffb300' : '#22c55e';
+    const bk = d.backoff && d.backoff.active;
+    const mPct = Math.min(100, Math.round((b.monthUsed || 0) / Math.max(1, b.monthly) * 100));
+    document.getElementById('aim-kpis').innerHTML =
+      `<div class="aim-kpi aim-kpi--accent"><div class="aim-kpi-l">Quota du jour</div><div class="aim-kpi-v">${b.dayTotal}<small> / ${b.dailyCap}</small></div><div class="aim-track"><i style="width:${Math.min(100, b.pctUsed)}%"></i></div><div class="aim-kpi-s">${b.pctUsed}% utilisé · reste ${b.remaining}</div></div>`
+      + `<div class="aim-kpi"><div class="aim-kpi-l">Risque épuisement</div><div class="aim-kpi-v"><span class="aim-pill aim-pill--${b.risk}">${riskLbl}</span></div><div class="aim-kpi-s">${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + ' h restantes') : 'conso négligeable'}</div></div>`
+      + `<div class="aim-kpi"><div class="aim-kpi-l">Débit récent</div><div class="aim-kpi-v">${b.ratePerHour}<small> /h</small></div><div class="aim-kpi-s">appels IA (3 dernières h)</div></div>`
+      + `<div class="aim-kpi"><div class="aim-kpi-l">Pression santé</div><div class="aim-kpi-v" style="color:${pressCol}">${press}<small> %</small></div><div class="aim-kpi-s">RPM effectif ${g.effRpm || 0}/${g.rpmTarget || 0}</div></div>`
+      + `<div class="aim-kpi"><div class="aim-kpi-l">Backoff global</div><div class="aim-kpi-v" style="color:${bk ? '#ef4444' : '#22c55e'}">${bk ? 'ACTIF' : 'non'}</div><div class="aim-kpi-s">${bk ? (d.backoff.totalFails || 0) + ' échecs cumulés' : 'chaîne nominale'}</div></div>`
+      + `<div class="aim-kpi"><div class="aim-kpi-l">Budget mensuel</div><div class="aim-kpi-v">${b.monthUsed}<small> / ${b.monthly}</small></div><div class="aim-track"><i style="width:${mPct}%"></i></div><div class="aim-kpi-s">${(b.weekend ? 'week-end · ' : '') + (b.quietHours ? 'heures calmes' : 'heures actives')}</div></div>`;
+  }
+  function aimRenderProviders(d) {
+    const h = d.health || {}, P = d.providers || {};
+    const g = P.gemini || {}, gh = P.github || {}, or = P.openrouter || {}, cl = P.claude || {};
+    const card = (label, tier, score, rows, chips) => {
+      const col = _hcol(score);
+      return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-dot" style="background:${col};box-shadow:0 0 5px ${col}66"></span><span class="aim-prov-name">${label} <small>${tier}</small></span><span class="aim-prov-score" style="color:${col}">${score == null ? '—' : score}</span></div>`
+        + `<div class="aim-prov-bar"><i style="width:${score == null ? 0 : score}%;background:${col}"></i></div>`
+        + rows.map(r => `<div class="aim-kv"><span>${r[0]}</span><b>${r[1]}</b></div>`).join('')
+        + (chips && chips.length ? `<div class="aim-chips">${chips.join('')}</div>` : '')
+        + `</div>`;
+    };
+    const chip = (txt, cls) => `<span class="aim-chip${cls ? ' ' + cls : ''}">${txt}</span>`;
+    document.getElementById('aim-providers').innerHTML =
+      card('Gemini', 'gratuit', h.gemini, [
+        ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelées)'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
+      ], [g.coolingKeys ? chip(g.coolingKeys + ' clé(s) en cooldown') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : ''].filter(Boolean))
+      + card('GitHub Models', 'gratuit', h.github, gh.tokens ? [
+        ['Tokens × modèles', gh.tokens + ' × ' + (gh.models || 1)], ['Appels aujourd’hui', gh.callsToday + ''], ['Échecs (jour)', (gh.failToday || 0) + ''],
+      ] : [['État', 'non configuré']], gh.tokens ? [gh.coolingKeys ? chip(gh.coolingKeys + ' (modèle,token) gelés') : chip('nominal', 'aim-chip--ok')] : [])
+      + card('OpenRouter', 'gratuit', h.openrouter, or.keys ? [
+        ['Clés (comptes)', or.keys + ' · ~' + (or.keys * 50) + ' req/j'], ['Appels aujourd’hui', or.callsToday + ''], ['Échecs (jour)', (or.failToday || 0) + ''], ['Modèles :free', or.models + ''],
+      ] : [['État', 'non configuré']], or.keys ? [or.coolingKeys ? chip(or.coolingKeys + ' en cooldown') : chip('nominal', 'aim-chip--ok')] : [])
+      + card('Claude', 'payant', h.claude, cl.keys ? [
+        ['Clés', cl.keys + ''], ['Utilisé (jour)', cl.usedToday + ' / ' + cl.dailyMax], ['Disponibilité', cl.usable ? 'disponible' : 'indisponible'],
+      ] : [['État', 'non configuré']], cl.keys ? [cl.usable ? chip('réservé macro importante', 'aim-chip--ok') : chip('crédit épuisé', 'aim-chip--bad'), (cl.cooling && cl.cooling.length) ? chip(cl.cooling.length + ' clé(s) en cooldown') : ''].filter(Boolean) : []);
+    const sub = document.getElementById('aim-prov-sub');
+    if (sub) { const scores = [h.gemini, h.github, h.openrouter, h.claude].filter(s => s != null); sub.textContent = scores.length ? ('santé moyenne ' + Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) + '/100') : ''; }
+  }
+  function aimRenderLegend(d) {
+    const P = d.providers || {};
+    const el = document.getElementById('aim-legend'); if (!el) return;
+    el.innerHTML = Object.keys(AIM_PCOL).map(k => {
+      const calls = (P[k] || {}).callsToday; const hex = '#' + AIM_PCOL[k].toString(16).padStart(6, '0');
+      return `<span><i style="background:${hex}"></i>${AIM_PLBL[k]}${calls != null ? ' · ' + calls : ''}</span>`;
+    }).join('');
+  }
+  function aimRenderForecast(d) {
+    const b = d.budget;
+    const maxE = Math.max(1, ...(b.nextHours || []).map(x => x.expected || 0));
+    const nh = (b.nextHours || []).map(x => `<div class="aim-dem"><span>${String(x.h).padStart(2, '0')}h</span><div class="aim-dem-track"><i style="width:${Math.round((x.expected || 0) / maxE * 100)}%"></i></div><b>${x.expected}</b></div>`).join('');
+    document.getElementById('aim-forecast').innerHTML =
+      `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
+      + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + ' h') : '—'}</b></div>`
+      + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '—'}</b></div>`
+      + `<div class="aim-fc-row"><span>Pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
+      + `<div class="aim-sec-title">Demande attendue (apprise)</div>` + nh;
+  }
+  function aimRenderInfra(d) {
+    document.getElementById('aim-mail').innerHTML = (() => {
+      const M = d.mail; if (!M) return '<div class="aim-j-empty">indisponible</div>';
+      const ovhOk = !!(M.ovh && M.ovh.configured);
+      return `<div class="aim-kv"><span>Canal principal</span><b style="color:${ovhOk ? '#22c55e' : '#ef4444'}">${ovhOk ? 'OVH SMTP ✓' : 'non configuré'}</b></div>`
+        + `<div class="aim-kv"><span>Dernier canal</span><b>${M.lastProvider || '—'}</b></div>`
+        + `<div class="aim-kv"><span>Envoyés / échecs</span><b>${(M.sent || 0)} / ${(M.failed || 0)}</b></div>`
+        + (M.gmailApi && M.gmailApi.configured && M.gmailApi.verified === false ? `<div class="aim-kv"><span>Gmail API (secours)</span><b style="color:#ffb300">token expiré</b></div>` : '')
+        + (M.lastError ? `<div class="aim-kv"><span>Dernière erreur</span><b style="color:#ef4444">${_esc2(String(M.lastError).slice(0, 52))}</b></div>` : '');
+    })();
+    document.getElementById('aim-egress').innerHTML = (() => {
+      const E = d.egress; if (!E) return '<div class="aim-j-empty">indisponible</div>';
+      const mb = n => (Number(n || 0) / 1048576).toFixed(1) + ' Mo';
+      const pct = Math.min(100, Math.round((E.bytes24h || 0) / Math.max(1, E.cap24h || 1) * 100));
+      const col = E.tripped ? '#ef4444' : (pct >= 70 ? '#ffb300' : '#22c55e');
+      return `<div class="aim-kv"><span>État</span><b style="color:${col}">${E.tripped ? ('COUPURE ACTIVE ' + _esc2(E.info || '')) : 'OK ✓'}</b></div>`
+        + `<div class="aim-kv"><span>Lu sur 1 h</span><b>${mb(E.bytes1h)} <span style="color:#6b7280">/ ${mb(E.cap1h)}</span></b></div>`
+        + `<div class="aim-kv"><span>Lu sur 24 h</span><b>${mb(E.bytes24h)} <span style="color:#6b7280">/ ${mb(E.cap24h)}</span></b></div>`
+        + `<div class="aim-track" style="margin-top:9px"><i style="width:${pct}%;background:${col}"></i></div>`
+        + `<div class="aim-kpi-s" style="margin-top:5px">${pct}% du plafond 24 h</div>`;
+    })();
+    document.getElementById('aim-db').innerHTML = (() => {
+      const DB = d.db; if (!DB || !DB.nodes || !DB.nodes.length) return '<div class="aim-j-empty">sondes en cours…</div>';
+      const col = s => s === 'ok' ? '#22c55e' : s === 'restreint' ? '#ef4444' : '#ffb300';
+      const lbl = s => s === 'ok' ? 'OK ✓' : s === 'restreint' ? 'RESTREINT' : 'erreur';
+      const rows = DB.nodes.map(n => `<div class="aim-kv"><span title="${_esc2(n.host)}">${_esc2(n.name)}</span><b style="color:${col(n.state)}">${lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.ms} ms</span></b></div>`).join('');
+      const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402)
+      const kaLine = (KA && KA.last) ? `<div class="aim-kv"><span>Keep-alive</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>` : '';
+      return `<div class="aim-kv"><span>Projets joignables</span><b style="color:${DB.okCount >= DB.count ? '#22c55e' : '#ffb300'}">${DB.okCount}/${DB.count}</b></div>` + rows + kaLine
+        + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:10.5px;color:#ef4444;margin-top:6px;line-height:1.5">⚠ Restreint = quota/égress mensuel dépassé → revient au rollover (le keep-alive ne lève pas un 402).</div>' : '');
+    })();
+  }
+  function aimRenderJournal(d) {
+    const all = (d.alerts && d.alerts.log) || [];
+    const J = all.filter(e => !_aimJFilter || e.level === _aimJFilter);
+    const jc = document.getElementById('aim-j-count'); if (jc) jc.textContent = all.length ? (all.length + ' événement(s)') : '';
+    const jEl = document.getElementById('aim-journal'); if (!jEl) return;
+    jEl.innerHTML = J.length ? J.slice(0, 40).map(e => {
+      const col = e.level === 'critical' ? '#ef4444' : e.level === 'warn' ? '#ffb300' : '#60a5fa';
+      return `<div class="aim-j-row"><span class="aim-j-t">${new Date(e.t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="aim-j-lvl" style="color:${col}">${String(e.level || 'info').toUpperCase()}</span><span class="aim-j-msg">${_esc2(e.msg || '')}</span></div>`;
+    }).join('') : '<div class="aim-j-empty">Aucun événement — tout roule ✓</div>';
+  }
+  // Graphe EMPILÉ par fournisseur (remplace la courbe totale : on VOIT qui porte la charge)
+  function _amStacked(id, trend) {
+    if (!_amReady() || !document.getElementById(id)) return;
+    _amDispose(id);
+    const root = am5.Root.new(id); _amRoots[id] = root;
+    root._logo && root._logo.dispose();
+    root.setThemes([am5themes_Animated.new(root)]);
+    const chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 2, paddingRight: 8, paddingTop: 10, paddingBottom: 2 }));
+    const wide = (trend || []).length > 60;   // portée 7 j → étiquette jour·heure (sinon 24 "14h" ambigus)
+    const data = (trend || []).map(t => ({ cat: (wide ? t.hour.slice(8, 10) + '·' : '') + t.hour.slice(11, 13) + 'h', gemini: t.gemini || 0, github: t.github || 0, openrouter: t.openrouter || 0, claude: t.claude || 0 }));
+    const xR = am5xy.AxisRendererX.new(root, { minGridDistance: 34 });
+    xR.grid.template.setAll({ visible: false });
+    xR.labels.template.setAll({ fill: am5.color(0x9aa0a6), fontSize: 10, fontFamily: 'Inter, -apple-system, sans-serif' });
+    const xAxis = chart.xAxes.push(am5xy.CategoryAxis.new(root, { categoryField: 'cat', renderer: xR }));
+    xAxis.data.setAll(data);
+    const yR = am5xy.AxisRendererY.new(root, {});
+    yR.grid.template.setAll({ stroke: am5.color(0x222227), strokeOpacity: 0.7 });
+    yR.labels.template.setAll({ fill: am5.color(0x9aa0a6), fontSize: 10, fontFamily: 'Inter, -apple-system, sans-serif' });
+    const yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { min: 0, renderer: yR }));
+    for (const k of Object.keys(AIM_PCOL)) {
+      const color = am5.color(AIM_PCOL[k]);
+      const s = chart.series.push(am5xy.SmoothedXLineSeries.new(root, { xAxis, yAxis, valueYField: k, categoryXField: 'cat', stacked: true, stroke: color, fill: color, tooltip: am5.Tooltip.new(root, { labelText: AIM_PLBL[k] + ' {valueY}' }) }));
+      s.strokes.template.setAll({ strokeWidth: 1.4 });
+      s.fills.template.setAll({ visible: true, fillOpacity: 0.30 });
+      s.data.setAll(data);
+    }
+    chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis, yAxis }));
+  }
+  // Donut compact : étiquettes am5 coupées (chevauchent en carte étroite) → légende HTML dédiée
+  function _amDonutCompact(id, data, legendId) {
+    if (!_amReady() || !document.getElementById(id)) return;
+    _amDispose(id);
+    const root = am5.Root.new(id); _amRoots[id] = root;
+    root._logo && root._logo.dispose();
+    root.setThemes([am5themes_Animated.new(root)]);
+    const chart = root.container.children.push(am5percent.PieChart.new(root, { innerRadius: am5.percent(62), paddingTop: 4, paddingBottom: 4 }));
+    const series = chart.series.push(am5percent.PieSeries.new(root, { categoryField: 'cat', valueField: 'val', alignLabels: false }));
+    series.set('colors', am5.ColorSet.new(root, { colors: data.map(x => am5.color(x.color)) }));
+    series.slices.template.setAll({ stroke: am5.color(0x0c0c0e), strokeWidth: 2, tooltipText: '{category} : {value}' });
+    series.labels.template.set('visible', false);
+    series.ticks.template.set('visible', false);
+    series.data.setAll(data);
+    const lg = document.getElementById(legendId);
+    if (lg) lg.innerHTML = data.map(x => `<span><i style="background:#${x.color.toString(16).padStart(6, '0')}"></i>${x.cat} <b>${x.val}</b></span>`).join('');
+  }
   async function loadAIMon() {
     if (_aimBusy) return;
     _aimBusy = true;
     const _dot = document.getElementById('aim-dot'), _btn = document.getElementById('aim-refresh'), _last = document.getElementById('aim-last');
     if (_dot) _dot.classList.add('aim-live-dot--busy');   // point or pulsant = rechargement EN COURS
     if (_btn) _btn.disabled = true;
-    let d; try { d = await fetch('/api/admin/ai-monitor').then(r => r.json()); } catch { d = null; }
+    let d; try { d = await fetch('/api/admin/ai-monitor?hours=' + _aimHours).then(r => r.json()); } catch { d = null; }
     _aimBusy = false; _aimNextAt = Date.now() + 30000;    // prochain refresh auto dans 30 s (affiché à la seconde)
     if (_dot) _dot.classList.remove('aim-live-dot--busy');
     if (_btn) _btn.disabled = false;
     if (!d || !d.budget) { if (_last) _last.textContent = 'erreur de chargement — nouvel essai dans 30 s'; return; }
+    _aimLastData = d;
     if (_last) _last.textContent = 'MAJ à ' + new Date(d.now).toLocaleTimeString('fr-FR');
-    const b = d.budget, h = d.health || {}, P = d.providers || {};
-    const riskLbl = { low: 'Faible', medium: 'Modéré', high: 'Élevé', exhausted: 'Épuisé', unknown: '—' }[b.risk] || b.risk;
-    const kpis = [
-      { l: 'Quota du jour', v: b.dayTotal + ' / ' + b.dailyCap, sub: b.pctUsed + '% utilisé', accent: true },
-      { l: 'Risque épuisement', v: '<span class="aim-pill aim-pill--' + b.risk + '">' + riskLbl + '</span>', sub: b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + 'h restantes') : 'conso négligeable' },
-      { l: 'Débit récent', v: b.ratePerHour + ' /h', sub: 'appels IA (3 dernières h)' },
-      { l: 'Budget mensuel', v: b.monthUsed + ' / ' + b.monthly, sub: (b.weekend ? 'week-end · ' : '') + (b.quietHours ? 'heures calmes' : 'heures actives') },
-    ];
-    document.getElementById('aim-kpis').innerHTML = kpis.map(c => `<div class="fin-kpi${c.accent ? ' fin-kpi--accent' : ''}"><div class="fin-kpi-label">${c.l}</div><div class="fin-kpi-val">${c.v}</div><div class="fin-kpi-sub">${c.sub}</div></div>`).join('');
-    const card = (label, score, lines) => {
-      const col = score == null ? '#6b7280' : score >= 75 ? '#22c55e' : score >= 40 ? '#ffb300' : '#ef4444';
-      return `<div class="aim-prov"><div class="aim-prov-top"><span class="aim-prov-name">${label}</span><span class="aim-prov-score" style="color:${col}">${score == null ? '—' : score}</span></div><div class="aim-prov-bar"><i style="width:${score == null ? 0 : score}%;background:${col}"></i></div><div class="aim-prov-lines">${lines.map(l => '<span>' + l + '</span>').join('')}</div></div>`;
-    };
-    const g = P.gemini || {}, gh = P.github || {}, cl = P.claude || {}, or = P.openrouter || {};
-    document.getElementById('aim-providers').innerHTML =
-      card('Gemini (gratuit)', h.gemini, [g.keys + ' clés · ' + g.coolingKeys + ' gelées', g.callsToday + ' appels · ' + g.err429Today + ' × 429', 'RPM ' + g.effRpm + '/' + g.rpmTarget + ' · pression ' + Math.round((g.pressure || 0) * 100) + '%'])
-      + card('GitHub Models (gratuit)', h.github, gh.tokens ? [gh.tokens + ' token(s) × ' + (gh.models || 1) + ' modèles', gh.callsToday + ' appels (jour) · ' + (gh.failToday || 0) + ' échecs', gh.coolingKeys + ' (modèle,token) gelés'] : ['non configuré'])
-      + card('OpenRouter (gratuit)', h.openrouter, or.keys ? [or.keys + ' clés · ~' + (or.keys * 50) + ' req/j gratuites (~50/clé)', or.callsToday + ' appels (jour) · ' + (or.failToday || 0) + ' échecs', or.models + ' modèles :free · ' + or.coolingKeys + ' en cooldown'] : ['non configuré'])
-      + card('Claude (payant)', h.claude, cl.keys ? [cl.keys + ' clés · ' + (cl.usable ? 'disponible' : 'indisponible'), cl.usedToday + '/' + cl.dailyMax + ' appels (jour)', (cl.cooling && cl.cooling.length ? cl.cooling.length + ' clé(s) en cooldown' : 'aucune en cooldown')] : ['non configuré']);
+    aimRenderKpis(d); aimRenderProviders(d); aimRenderLegend(d); aimRenderForecast(d); aimRenderInfra(d); aimRenderJournal(d);
+    _amStacked('aim-trend-am', d.trend);
     const CATCOL = { analyst: 0xe3b23a, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444 };
-    const cats = Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 }));
-    _amDonut('aim-cat-am', cats);
-    const trend = (d.trend || []).map(t => ({ cat: t.hour.slice(11, 13) + 'h', val: (t.gemini || 0) + (t.github || 0) + (t.openrouter || 0) + (t.claude || 0) }));
-    _amArea('aim-trend-am', trend, 0xe3b23a, '');
-    const nh = (b.nextHours || []).map(x => `<div class="aim-fc-row"><span>${String(x.h).padStart(2, '0')}h (attendu)</span><b>${x.expected}</b></div>`).join('');
-    // Prévision & quota : UNIQUEMENT la prévision (l'infra a désormais ses propres cartes dédiées).
-    document.getElementById('aim-forecast').innerHTML =
-      `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
-      + `<div class="aim-fc-row"><span>Épuisement estimé</span><b>${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + 'h') : '—'}</b></div>`
-      + `<div class="aim-fc-row"><span>Préchauffage de fond</span><b>${b.prewarmActive === false ? (b.quietHours ? 'PAUSE (nuit)' : (b.prePeak === false ? 'PAUSE (creux)' : 'PAUSE (budget)')) : b.prewarmActive ? 'actif' : '—'}</b></div>`
-      + `<div class="aim-fc-row"><span>Phase 2 — pré-pic appris</span><b>${b.prePeak === true ? 'OUI (on prépare)' : b.prePeak === false ? 'non (creux)' : 'apprentissage (' + (b.learnedSlots || 0) + '/24)'}</b></div>`
-      + `<div class="aim-fc-row"><span>Backoff global</span><b>${(d.backoff && d.backoff.active) ? 'ACTIF' : 'non'}</b></div>`
-      + '<div class="aim-sec-title">Demande attendue (apprise)</div>' + nh;
-    // ── Carte EMAIL (envoi des mails : bienvenue, reset…) ──
-    document.getElementById('aim-mail').innerHTML = (() => {
-      const M = d.mail; if (!M) return '<div class="aim-j-empty">indisponible</div>';
-      const ovhOk = !!(M.ovh && M.ovh.configured);
-      return `<div class="aim-fc-row"><span>Canal principal</span><b style="color:${ovhOk ? '#22c55e' : '#ef4444'}">${ovhOk ? 'OVH SMTP ✅' : 'non configuré'}</b></div>`
-        + `<div class="aim-fc-row"><span>Dernier canal utilisé</span><b>${M.lastProvider || '—'}</b></div>`
-        + `<div class="aim-fc-row"><span>Envoyés / échecs (live)</span><b>${(M.sent || 0)} / ${(M.failed || 0)}</b></div>`
-        + (M.gmailApi && M.gmailApi.configured && M.gmailApi.verified === false ? `<div class="aim-fc-row"><span>Gmail API (secours)</span><b style="color:#ffb300">token expiré</b></div>` : '')
-        + (M.lastError ? `<div class="aim-fc-row"><span>Dernière erreur</span><b style="color:#ef4444;font-size:11px">${_esc2(String(M.lastError).slice(0, 70))}</b></div>` : '');
-    })();
-    // ── Carte EGRESS Supabase (anti-fuite définitif des 18 To) ──
-    document.getElementById('aim-egress').innerHTML = (() => {
-      const E = d.egress; if (!E) return '<div class="aim-j-empty">indisponible</div>';
-      const mb = n => (Number(n || 0) / 1048576).toFixed(1) + ' Mo';
-      const pct = Math.min(100, Math.round((E.bytes24h || 0) / Math.max(1, E.cap24h || 1) * 100));
-      const col = E.tripped ? '#ef4444' : (pct >= 70 ? '#ffb300' : '#22c55e');
-      return `<div class="aim-fc-row"><span>État</span><b style="color:${col}">${E.tripped ? ('COUPURE ACTIVE 🛑 ' + (E.info || '')) : 'OK ✅'}</b></div>`
-        + `<div class="aim-fc-row"><span>Lu sur 1 h</span><b>${mb(E.bytes1h)} <span style="color:#6b7280">/ ${mb(E.cap1h)}</span></b></div>`
-        + `<div class="aim-fc-row"><span>Lu sur 24 h</span><b style="color:${col}">${mb(E.bytes24h)} <span style="color:#6b7280">/ ${mb(E.cap24h)} · ${pct}%</span></b></div>`;
-    })();
-    // ── Carte BASES Supabase (joignable / restreint 402 / erreur) ──
-    document.getElementById('aim-db').innerHTML = (() => {
-      const DB = d.db; if (!DB || !DB.nodes || !DB.nodes.length) return '<div class="aim-j-empty">sondes en cours…</div>';
-      const col = s => s === 'ok' ? '#22c55e' : s === 'restreint' ? '#ef4444' : '#ffb300';
-      const lbl = s => s === 'ok' ? 'OK ✅' : s === 'restreint' ? 'RESTREINT 🛑' : 'erreur ⚠️';
-      const head = `<div class="aim-fc-row"><span>Projets joignables</span><b style="color:${DB.okCount >= DB.count ? '#22c55e' : '#ffb300'}">${DB.okCount}/${DB.count}</b></div>`;
-      const rows = DB.nodes.map(n => `<div class="aim-fc-row"><span>${_esc2(n.name)} <span style="color:#6b7280">${_esc2(n.host)}</span></span><b style="color:${col(n.state)}">${lbl(n.state)} <span style="color:#6b7280;font-weight:400">${n.status || '—'} · ${n.ms}ms</span></b></div>`).join('');
-      const KA = DB.keepalive;   // anti-pause free-tier : WRITE sur chaque base /12 h (ingress → marche même en 402 ; READ ne compterait pas)
-      const kaLine = (KA && KA.last)
-        ? `<div class="aim-fc-row"><span>Keep-alive (anti-pause)</span><b style="color:${KA.ok >= DB.count ? '#22c55e' : '#ffb300'}">${KA.ok}/${DB.count} par WRITE <span style="color:#6b7280;font-weight:400">il y a ${(() => { const m = Math.round((Date.now() - KA.last) / 60000); return m < 1 ? '<1 min' : m < 60 ? m + ' min' : Math.round(m / 60) + ' h'; })()}</span></b></div>`
-        : '';
-      return head + rows + kaLine
-        + (DB.nodes.some(n => n.state === 'restreint') ? '<div style="font-size:11px;color:#ef4444;margin-top:5px;line-height:1.5">⚠ Base restreinte = quota/égress du mois dépassé → revient seule au rollover mensuel (ou dé-pause via le dashboard Supabase). Le keep-alive ne lève pas un 402.</div>' : '');
-    })();
-    // ── Journal des événements IA (INFO/incidents envoyés par l'API mais jamais affichés jusqu'ici) ──
-    const J = (d.alerts && d.alerts.log) || [];
-    const jc = document.getElementById('aim-j-count'); if (jc) jc.textContent = J.length ? (J.length + ' événement(s)') : '';
-    const jEl = document.getElementById('aim-journal');
-    if (jEl) jEl.innerHTML = J.length ? J.slice(0, 40).map(e => {
-      const col = e.level === 'critical' ? '#ef4444' : e.level === 'warn' ? '#ffb300' : '#60a5fa';
-      return `<div class="aim-j-row"><span class="aim-j-t">${new Date(e.t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="aim-j-lvl" style="color:${col}">${String(e.level || 'info').toUpperCase()}</span><span class="aim-j-msg">${_esc2(e.msg || '')}</span></div>`;
-    }).join('') : '<div class="aim-j-empty">Aucun événement récent — tout roule ✅</div>';
+    _amDonutCompact('aim-cat-am', Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 })), 'aim-cat-legend');
   }
+  // Câblage UNIQUE des contrôles statiques (portée du graphe + filtres du journal)
+  (function _aimWire() {
+    const rg = document.getElementById('aim-range');
+    if (rg) rg.addEventListener('click', e => { const bt = e.target.closest('button'); if (!bt) return; _aimHours = parseInt(bt.dataset.h, 10) || 24; rg.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === bt)); loadAIMon(); });
+    const jf = document.getElementById('aim-j-filters');
+    if (jf) jf.addEventListener('click', e => { const bt = e.target.closest('button'); if (!bt) return; _aimJFilter = bt.dataset.lvl || ''; jf.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === bt)); if (_aimLastData) aimRenderJournal(_aimLastData); });
+  })();
 
   // ── Dashboard financier (NET réel uniquement — aucune prévision) ─────────────
   async function loadFinance() {
