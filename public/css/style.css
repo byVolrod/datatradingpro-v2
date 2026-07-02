@@ -1781,27 +1781,15 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   margin-bottom: 8px;
   font-weight: 400;
 }
-/* Phrase d'explication IA de la réaction — note d'analyse pro : label ANALYSE + accent orange */
+/* Explication IA de la réaction — MÊME rendu que les descriptions des autres tags (puces standard) :
+   l'encadré doré + label « ANALYSE » spécifiques ont été retirés (demande user 2026-07-02). Les puces
+   héritent du style .article-points commun aux volets Info/Analyse. */
 .rx-explain {
-  margin-top: 10px;
-  padding: 7px 10px 7px 12px;
+  margin-top: 8px;
   font-size: 12px;
   line-height: 1.6;
-  color: #d4d6db;
+  color: #8b8b95;              /* même gris doux que .news-description.visible */
   font-family: var(--font-ui);
-  background: rgba(227,178,58,0.045);
-  border-left: 2px solid rgba(227,178,58,0.55);
-  border-radius: 0 3px 3px 0;
-}
-.rx-explain::before {
-  content: "ANALYSE";
-  display: block;
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: var(--fw-bold);
-  letter-spacing: 0.12em;
-  color: #e3b23a;
-  margin-bottom: 3px;
 }
 .rx-explain:empty { display: none; }
 /* Ligne de tickers — chips inline, scan rapide */
