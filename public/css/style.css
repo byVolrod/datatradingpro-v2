@@ -1760,18 +1760,21 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag--analyse.tag--active  { background: rgba(0,122,163,0.14);  border-color: rgba(0,122,163,0.6);  color: #1898c2; }
 .tag--reaction.tag--active { background: rgba(139,92,246,0.12); border-color: rgba(139,92,246,0.6); color: #a78bfa; }
 
-/* ═══════════════ RÉACTION — bloc ticker minimaliste (style DTP) ═══════════════ */
+/* ═══════════════ RÉACTION — MÊME rendu À PLAT que les autres tags (demande user 2026-07-02) ═══════════════
+   Avant : boîte sombre (fond rgba noir + liseré) et variante --alert en BORDEAUX #1a0f0f quand la news
+   parente était rouge → la description Réaction ressortait « encadrée rouge » alors qu'Info/Analyse sont
+   des puces à plat sur le fond neutre. Les deux habillages sont retirés ; --alert (encore posée par le JS)
+   est neutralisée. Le rouge ne vit QUE sur la ligne de titre. */
 .rx-block {
-  background: rgba(0,0,0,0.28);
-  border-radius: 4px;
-  border-left: 2px solid rgba(255,255,255,0.06);
-  padding: 8px 12px;
-  margin: 4px 0 2px;
+  background: transparent;
+  border-radius: 0;
+  border-left: none;
+  padding: 2px 0 0;
+  margin: 2px 0 0;
 }
-/* Si la news parente est une alerte rouge → fond bordeaux très foncé */
 .rx-block--alert {
-  background: #1a0f0f;
-  border-left: 2px solid rgba(239,68,68,0.35);
+  background: transparent;
+  border-left: none;
 }
 .rx-head {
   font-size: 0.7rem;
