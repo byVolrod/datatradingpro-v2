@@ -5261,7 +5261,7 @@ async function _brEmbedPdf(item, endpointUrl) {
   } else {
     try {
       const ctrl = new AbortController();
-      const to = setTimeout(() => ctrl.abort(), 30000);   // le rendu Puppeteer peut prendre quelques secondes
+      const to = setTimeout(() => ctrl.abort(), 55000);   // rendu Puppeteer OU 1er téléchargement d'un PDF natif dont la source est LENTE (MUFG /media ~20-55 s) : sans ça le client abandonne à 30 s AVANT que le serveur ait fini + mis en cache → repli sur le rendu HTML teaser (rapport « minuscule »). Le serveur cache le PDF → les opens suivants sont instantanés.
       const r = await fetch(endpointUrl, { signal: ctrl.signal });
       clearTimeout(to);
       if (!r.ok || !((r.headers.get('content-type') || '').toLowerCase().includes('pdf'))) return false;
@@ -5272,11 +5272,12 @@ async function _brEmbedPdf(item, endpointUrl) {
   }
   if (!document.getElementById('br-rcontent')) return true;   // l'utilisateur a quitté le reader entre-temps
   const ttl = (item.title || 'PDF').replace(/"/g, '');
-  if (window.innerWidth <= 768) {                        // MOBILE → PDF.js obligatoire (iframe = cadre gris sur WebKit)
-    if (window.pdfjsLib) { try { if (await _brRenderPdfCanvas(content, buf.slice(0), ttl)) return true; } catch (e) {} }
-    return false;                                        // PDF.js indispo/echec → l'appelant tombe sur la carte « ouvrir l'original »
-  }
-  try { if (window._brBlobUrl) URL.revokeObjectURL(window._brBlobUrl); } catch {}   // DESKTOP → iframe blob same-origin
+  // PDF.js CANVAS partout (desktop + mobile) : rendu fiable + scrollbar CUSTOM du desk (le canvas vit dans
+  // #br-rcontent, scrollbar 11px stylée), au lieu de la scrollbar NATIVE de la visionneuse iframe de Chrome
+  // (flèches, non stylable — « met le scroller comme le desk »). Repli iframe (desktop) si PDF.js indispo.
+  if (window.pdfjsLib) { try { if (await _brRenderPdfCanvas(content, buf.slice(0), ttl)) return true; } catch (e) {} }
+  if (window.innerWidth <= 768) return false;            // MOBILE : jamais d'iframe (cadre gris sur WebKit) → carte « ouvrir l'original »
+  try { if (window._brBlobUrl) URL.revokeObjectURL(window._brBlobUrl); } catch {}   // DESKTOP sans PDF.js → iframe blob same-origin
   const blobUrl = URL.createObjectURL(new Blob([buf], { type: 'application/pdf' }));
   window._brBlobUrl = blobUrl;
   content.classList.add('br-rcontent--pdf');

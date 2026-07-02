@@ -2841,6 +2841,28 @@ try { fs.mkdirSync(_PDF_CACHE_DIR, { recursive: true }); } catch {}
 const _PDF_CACHE_VER = 'p1';   // bump → invalide TOUS les PDF natifs stockés (règle cache-busting projet, comme _RENDER_VER)
 function _pdfCacheFile(u) { return path.join(_PDF_CACHE_DIR, _crypto.createHash('sha1').update(_PDF_CACHE_VER + '|' + String(u)).digest('hex') + '.pdf'); }
 try { const _now = Date.now(); for (const f of fs.readdirSync(_PDF_CACHE_DIR)) { try { const p = path.join(_PDF_CACHE_DIR, f); if (_now - fs.statSync(p).mtimeMs > 30 * 864e5) fs.unlinkSync(p); } catch {} } } catch {}
+// PRÉCHAUFFAGE PDF NATIF sur DISQUE (fond) : quand une source est LENTE (MUFG /media ~20-55 s), le 1er open
+// client peut expirer AVANT que pdf-proxy ait fini de télécharger → repli sur le rendu HTML teaser (rapport
+// « minuscule »). On télécharge donc le PDF natif EN AVANCE (dès que le contenu est demandé, hover inclus) →
+// quand l'utilisateur ouvre vraiment, il est déjà en cache = affichage instantané du VRAI rapport.
+const _pdfWarmInflight = new Set();
+async function _pdfWarmDisk(url) {
+  try {
+    if (!url || typeof url !== 'string') return;
+    let host = ''; try { host = new URL(url).hostname.toLowerCase(); } catch { return; }
+    if (!PDF_PROXY_HOSTS.test(host)) return;
+    const cf = _pdfCacheFile(url);
+    try { const st = fs.statSync(cf); if (st && st.size > 1200) return; } catch {}   // déjà en cache → rien à faire
+    if (_pdfWarmInflight.has(url)) return;
+    _pdfWarmInflight.add(url);
+    try {
+      const r = await axios.get(url, { responseType: 'arraybuffer', timeout: 60000, maxContentLength: 30 * 1024 * 1024, maxRedirects: 3,
+        headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept': 'application/pdf,*/*' }, validateStatus: s => s >= 200 && s < 400 });
+      const buf = Buffer.from(r.data);
+      if (buf.length > 1200 && buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(cf, buf); } catch {} }
+    } finally { _pdfWarmInflight.delete(url); }
+  } catch {}
+}
 let _renderChain = Promise.resolve();   // sérialise les rendus (1 page.pdf à la fois → RAM maîtrisée)
 function _renderPdf(url) {
   // 1 RE-TENTATIVE sur échec : le rendu (navigateur PARTAGÉ avec les scrapers) échoue parfois de façon
@@ -5057,6 +5079,7 @@ app.get('/api/bank-research-content', async (req, res) => {
     if (typeof _hot === 'string' && _hot.length > 80) {
       // pdfUrl PRÉSERVÉ au cache chaud → réouverture = vrai PDF (backfill 1 fetch si jamais enregistré).
       const _pdf = _brPdfMap.has(url) ? (_brPdfMap.get(url) || '') : await _brBackfillPdf(url);
+      if (_pdf) _pdfWarmDisk(_pdf);   // télécharge le PDF natif en fond (source lente) → open instantané, jamais de repli teaser
       return res.json({ html: _stripSource(_hot), source: 'ai', pdfUrl: _pdf, renderUrl: _brRenderUrlFor(url, _brPrintMap.get(url)), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });
     }
   } catch {}
@@ -5264,6 +5287,7 @@ app.get('/api/bank-research-content', async (req, res) => {
       if (typeof seg === 'string' && seg.length > 80) { outHtml = seg; outSource = 'ai'; }
     } catch (e) { console.warn('[BR struct]', e.message); }
 
+    if (_realPdf) _pdfWarmDisk(_realPdf);   // télécharge le PDF natif en fond (source lente) → open instantané, jamais de repli teaser
     res.json({ html: _stripSource(outHtml), source: outSource, pdfUrl: _realPdf, renderUrl: _brRenderUrlFor(url, _printUrl), subtitle, date: dateFormatted, section, country, articleType });
   } catch (e) {
     res.json({ html: '', error: e.message });
