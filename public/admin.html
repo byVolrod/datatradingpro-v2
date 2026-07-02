@@ -948,8 +948,9 @@
   //    fournisseur, prévision à micro-barres, infra en cartes, journal filtrable ──
   let _aimNextAt = 0, _aimBusy = false;   // source de vérité du compte à rebours (barre de statut)
   let _aimHours = 24, _aimJFilter = '', _aimLastData = null;
-  const AIM_PCOL = { gemini: 0x60a5fa, groq: 0xec4899, github: 0xa78bfa, openrouter: 0x00cc99, cohere: 0x38bdf8, xai: 0x94a3b8, claude: 0xe3b23a };
-  const AIM_PLBL = { gemini: 'Gemini', groq: 'Groq', github: 'GitHub', openrouter: 'OpenRouter', cohere: 'Cohere', xai: 'xAI', claude: 'Claude' };
+  // Groq en 1re clé = ordre de la cascade réelle (Groq principal depuis juil. 2026) → légende + empilement du graphe.
+  const AIM_PCOL = { groq: 0xec4899, gemini: 0x60a5fa, github: 0xa78bfa, openrouter: 0x00cc99, cohere: 0x38bdf8, xai: 0x94a3b8, claude: 0xe3b23a };
+  const AIM_PLBL = { groq: 'Groq', gemini: 'Gemini', github: 'GitHub', openrouter: 'OpenRouter', cohere: 'Cohere', xai: 'xAI', claude: 'Claude' };
   const _hcol = s => s == null ? '#6b7280' : s >= 75 ? '#22c55e' : s >= 40 ? '#ffb300' : '#ef4444';
   function aimRenderKpis(d) {
     const b = d.budget, g = (d.providers || {}).gemini || {};
@@ -962,7 +963,7 @@
       `<div class="aim-kpi aim-kpi--accent"><div class="aim-kpi-l">Quota du jour</div><div class="aim-kpi-v">${b.dayTotal}<small> / ${b.dailyCap}</small></div><div class="aim-track"><i style="width:${Math.min(100, b.pctUsed)}%"></i></div><div class="aim-kpi-s">${b.pctUsed}% utilisé · reste ${b.remaining}</div></div>`
       + `<div class="aim-kpi"><div class="aim-kpi-l">Risque épuisement</div><div class="aim-kpi-v"><span class="aim-pill aim-pill--${b.risk}">${riskLbl}</span></div><div class="aim-kpi-s">${b.hoursToExhaust != null ? ('~' + b.hoursToExhaust + ' h restantes') : 'conso négligeable'}</div></div>`
       + `<div class="aim-kpi"><div class="aim-kpi-l">Débit récent</div><div class="aim-kpi-v">${b.ratePerHour}<small> /h</small></div><div class="aim-kpi-s">appels IA (3 dernières h)</div></div>`
-      + `<div class="aim-kpi"><div class="aim-kpi-l">Pression santé</div><div class="aim-kpi-v" style="color:${pressCol}">${press}<small> %</small></div><div class="aim-kpi-s">RPM effectif ${g.effRpm || 0}/${g.rpmTarget || 0}</div></div>`
+      + `<div class="aim-kpi"><div class="aim-kpi-l">Pression santé</div><div class="aim-kpi-v" style="color:${pressCol}">${press}<small> %</small></div><div class="aim-kpi-s">RPM Gemini (repli) ${g.effRpm || 0}/${g.rpmTarget || 0}</div></div>`
       + `<div class="aim-kpi"><div class="aim-kpi-l">Backoff global</div><div class="aim-kpi-v" style="color:${bk ? '#ef4444' : '#22c55e'}">${bk ? 'ACTIF' : 'non'}</div><div class="aim-kpi-s">${bk ? (d.backoff.totalFails || 0) + ' échecs cumulés' : 'chaîne nominale'}</div></div>`
       + `<div class="aim-kpi"><div class="aim-kpi-l">Budget mensuel</div><div class="aim-kpi-v">${b.monthUsed}<small> / ${b.monthly}</small></div><div class="aim-track"><i style="width:${mPct}%"></i></div><div class="aim-kpi-s">${(b.weekend ? 'week-end · ' : '') + (b.quietHours ? 'heures calmes' : 'heures actives')}</div></div>`;
   }
@@ -979,12 +980,12 @@
     };
     const chip = (txt, cls) => `<span class="aim-chip${cls ? ' ' + cls : ''}">${txt}</span>`;
     document.getElementById('aim-providers').innerHTML =
-      card('Gemini', 'gratuit', h.gemini, [
-        ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelées)'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
-      ], [g.coolingKeys ? chip(g.coolingKeys + ' clé(s) en cooldown') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : ''].filter(Boolean))
-      + card('Groq', 'gratuit', h.groq, gr.keys ? [
+      card('Groq', 'gratuit', h.groq, gr.keys ? [
         ['Clés', gr.keys + ''], ['Appels aujourd’hui', gr.callsToday + ''], ['Échecs (jour)', (gr.failToday || 0) + ''], ['Modèles', gr.models + ''],
-      ] : [['État', 'non configuré']], gr.keys ? [gr.coolingKeys ? chip(gr.coolingKeys + ' clé(s) en cooldown') : chip('nominal · rapide', 'aim-chip--ok')] : [])
+      ] : [['État', 'non configuré']], gr.keys ? [chip('fournisseur principal', 'aim-chip--ok'), gr.coolingKeys ? chip(gr.coolingKeys + ' clé(s) en cooldown') : chip('nominal · rapide', 'aim-chip--ok')] : [])
+      + card('Gemini', 'gratuit', h.gemini, [
+        ['Clés', g.keys + ' (' + (g.coolingKeys || 0) + ' gelées)'], ['Appels aujourd’hui', g.callsToday + ''], ['Erreurs 429', g.err429Today + ''], ['RPM effectif', (g.effRpm || 0) + ' / ' + (g.rpmTarget || 0)],
+      ], [chip('repli n°1'), g.coolingKeys ? chip(g.coolingKeys + ' clé(s) en cooldown') : chip('clés OK', 'aim-chip--ok'), g.breakersOpen ? chip(g.breakersOpen + ' breaker ouvert') : ''].filter(Boolean))
       + card('GitHub Models', 'gratuit', h.github, gh.tokens ? [
         ['Tokens × modèles', gh.tokens + ' × ' + (gh.models || 1)], ['Appels aujourd’hui', gh.callsToday + ''], ['Échecs (jour)', (gh.failToday || 0) + ''],
       ] : [['État', 'non configuré']], gh.tokens ? [gh.coolingKeys ? chip(gh.coolingKeys + ' (modèle,token) gelés') : chip('nominal', 'aim-chip--ok')] : [])

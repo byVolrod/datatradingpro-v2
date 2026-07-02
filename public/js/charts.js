@@ -1288,7 +1288,11 @@ function buildRiskGauge() {
           _riskHand.hand.set('fill', am5.color(_riskArcColor(gaugeVal)));   // triangle = couleur de l'arc sous lui
         }
         const badgeEl = document.getElementById('risk-badge-val');
-        if (badgeEl) { badgeEl.textContent = frLabel; badgeEl.className = `risk-readout-badge ${cls}`; }
+        if (badgeEl) {
+          const _chg = badgeEl.textContent && badgeEl.textContent !== frLabel;   // garde : flash SEULEMENT si le régime bascule vraiment
+          badgeEl.textContent = frLabel; badgeEl.className = `risk-readout-badge ${cls}`;
+          if (_chg && window._dtpFlash) window._dtpFlash(badgeEl);   // posé APRÈS la réécriture de className (sinon la classe de flash serait écrasée)
+        }
         const ticker = document.getElementById('risk-ticker');
         if (ticker) {
           ticker.className = `risk-ticker ${cls}`;
@@ -1766,6 +1770,7 @@ function buildDMXChart(forceRefresh = false) {
       }).join('');
 
       wrap.innerHTML = `<div class="dmx2-list">${rows}</div>`;
+      if (window._dtpDataIn) window._dtpDataIn(wrap, 'dmx');   // fondu d'arrivee (1re fois : chargement -> lignes, jamais aux refresh 60 s)
 
       // Auto-refresh tant que l'onglet DMX est visible (sert le cache serveur, MAJ 15 min)
       if (!_dmxTimer) {
@@ -2812,7 +2817,9 @@ function renderFxList() {
   const upd = document.getElementById('fxl-updated');
   if (upd && _fxlData.updatedAt) {
     const d = new Date(_fxlData.updatedAt);
-    upd.textContent = 'MAJ ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    const _t = 'MAJ ' + d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+    if (upd.textContent && upd.textContent !== _t && window._dtpFlash) window._dtpFlash(upd);   // flash discret : heure de MAJ réellement plus fraîche
+    upd.textContent = _t;
   }
 }
 
