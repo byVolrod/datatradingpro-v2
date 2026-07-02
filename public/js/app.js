@@ -4588,7 +4588,12 @@ function _highlightBankRow(id) {
 }
 function _updateBankChartPrice(p) {
   const el = document.getElementById('bank-chart-price');
-  if (el) el.textContent = p.currentPrice != null ? _bankFmt(p.pair, p.currentPrice) : '';
+  if (el) {
+    const _oldP = el.textContent;
+    const _newP = p.currentPrice != null ? _bankFmt(p.pair, p.currentPrice) : '';
+    if (_oldP && _newP && _oldP !== _newP && window._dtpFlash) window._dtpFlash(el);   // flash discret SEULEMENT si le prix change vraiment (sensation temps réel)
+    el.textContent = _newP;
+  }
   // Temps réel : déplace la ligne de prix LIVE sur le chart (sans recharger les bougies)
   if (_bankLiveGuide && _bankLiveGuide.pair === p.pair && p.currentPrice != null) {
     try {
