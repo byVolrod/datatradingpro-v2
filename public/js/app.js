@@ -72,9 +72,9 @@ window._dtpDataIn = _dtpDataIn; window._dtpFlash = _dtpFlash;
 // INSTANTANÉ en source, puis remplacement par le FR dès qu'il arrive (cache serveur par texte +
 // cache client de session → jamais 2 fois la même requête ; repli silencieux = on garde la source). ═══
 const _trClient = new Map();   // texte source → FR (cache session)
-async function _dtpTranslateQuotes(container) {
+async function _dtpTranslateQuotes(container, sel) {
   if (!container) return;
-  const lis = [...container.querySelectorAll('.article-points li, .art-pt')];
+  const lis = [...container.querySelectorAll(sel || '.article-points li, .art-pt')];
   if (!lis.length) return;
   const applyCache = () => lis.forEach(li => { const t = li.textContent.trim(); if (_trClient.has(t)) li.textContent = _trClient.get(t); });
   applyCache();
@@ -1072,7 +1072,9 @@ function _newsCmp(a, b) {
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
   _syncNewsModeBtn();
-  itemCountEl.textContent = `${filtered.length} items`;
+  const _icTxt = `${filtered.length} items`;
+  if (itemCountEl.textContent && itemCountEl.textContent !== '— items' && itemCountEl.textContent !== _icTxt && window._dtpFlash) window._dtpFlash(itemCountEl);   // flash discret : le compteur change vraiment (jamais au 1er remplissage du placeholder)
+  itemCountEl.textContent = _icTxt;
   if (allItems.length) lsSet('dtp_news', allItems.slice(0, 150));   // persiste pour un affichage instantané au revisite
 
   if (filtered.length === 0) {
@@ -2590,9 +2592,10 @@ function buildNewsItem(item) {
     // Affichage immédiat (description brute) — instantané
     expandEl.innerHTML = infoBody;
     expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
-    // Citations speaker / propos agrégés (Fed's Daily…) = contenu SOURCE anglais qui échappe aux résumés IA
-    // → traduction FR en place (instantané en source puis remplacé). Couvre « FR pour tout » (demande user).
-    if ((isSpeaker || hasGrouped) && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
+    // Contenu SOURCE anglais qui échappe aux résumés IA (citations speaker, propos agrégés, puces de la
+    // description scrapée des news standard) → traduction FR en place (instantané en source puis remplacé).
+    // Les contenus DÉJÀ produits en FR (rapports DTP, market wrap, analyses d'événement) ne repassent pas par l'IA.
+    if (!isPrimer && !item._marketWrap && !item._eventAnalysis && !item._dtpd && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
     if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
     if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
 
@@ -3146,7 +3149,10 @@ function _applyRiskTopbar(data) {
   const btnEl = document.getElementById('sentiment-btn');
   // Look "↘ RISK OFF ⌄" : flèche fine colorée + libellé COURT (pas la forme longue)
   if (dotEl) { dotEl.textContent = arrow; dotEl.className = 'sentiment-dir ' + cls; }
-  if (lblEl) lblEl.textContent = short;
+  if (lblEl) {
+    if (lblEl.textContent && lblEl.textContent !== 'NEUTRE' && lblEl.textContent !== short && window._dtpFlash) window._dtpFlash(lblEl);   // flash discret : le sentiment topbar bascule vraiment (pas au 1er remplissage du placeholder)
+    lblEl.textContent = short;
+  }
   if (btnEl) btnEl.className = 'topbar-sentiment ' + cls;
 }
 
@@ -3212,7 +3218,9 @@ function _renderRiskPopup(data) {
   const up = el('rp-updated');
   if (up && data.updatedAt) {
     const d = new Date(data.updatedAt);
-    up.textContent = `Mis à jour : ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+    const _t = `Mis à jour : ${d.toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'})}`;
+    if (up.textContent && up.textContent !== _t && window._dtpFlash) window._dtpFlash(up);   // flash discret : horodatage rafraîchi pendant que le popup est ouvert
+    up.textContent = _t;
   }
 }
 
@@ -7373,9 +7381,16 @@ function _npRenderList() {
   if (empty) empty.style.display = 'none';
 
   const frag = document.createDocumentFragment();
+  // Fondu léger UNIQUEMENT sur les notifications apparues depuis le dernier rendu (même esprit que le fil
+  // de news) — jamais au changement de filtre ni sur ce qui a déjà été affiché. IDs marqués sur TOUT
+  // _npItems (insensible aux filtres) ; dtp-fade-in se termine à opacity 1 (fill both), donc sans risque.
+  const _npSeen = _npRenderList._seen || (_npRenderList._seen = new Set());
+  const _npFresh = _npSeen.size ? _npItems.filter(i => i.id && !_npSeen.has(i.id)).map(i => i.id) : [];
+  _npItems.forEach(i => { if (i.id) _npSeen.add(i.id); });
   filtered.slice(0, 80).forEach(item => {
     const el = document.createElement('div');
     el.className = 'np-item' + (item._new ? ' np-item--unread' : '');
+    if (_npFresh.includes(item.id)) el.classList.add('dtp-fade-in');   // nouvel item depuis le dernier rendu → fondu discret
 
     const iconClass = item.urgent ? 'np-icon--breaking' : item.priority === 'high' ? 'np-icon--high' : '';
     const iconSymbol = item.urgent ? '!' : 'i';
@@ -7403,6 +7418,9 @@ function _npRenderList() {
     frag.appendChild(el);
   });
   list.appendChild(frag);
+  // Descriptions (aperçus 140 car.) = source anglaise → FR en place, même mécanique que les puces
+  // d'article (cache serveur par texte + cache session → coût quasi nul aux réouvertures).
+  if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(list, '.np-item-desc');
 }
 
 function _npTimeAgo(ts) {
@@ -7830,7 +7848,12 @@ function _chatRenderInbox(){
   const users   = (_chatInboxData && _chatInboxData.users)   || [];
   // Compteur "en ligne" épuré à droite de la barre de recherche
   const onlineN = users.filter(u => u.online).length;
-  const ocEl = document.getElementById('chat-online-n'); if (ocEl) ocEl.textContent = onlineN;
+  const ocEl = document.getElementById('chat-online-n');
+  if (ocEl) {
+    const _onTxt = String(onlineN);
+    if (ocEl.textContent && ocEl.textContent !== _onTxt && window._dtpFlash) window._dtpFlash(ocEl);   // flash discret : le nombre d'utilisateurs en ligne change vraiment
+    ocEl.textContent = _onTxt;
+  }
   const ocWrap = document.getElementById('chat-online-count'); if (ocWrap) ocWrap.style.display = 'inline-flex';
   const userById = new Map(users.map(u => [String(u.id), u]));
   const threadIds = new Set(threads.map(t => String(t.user_id)));

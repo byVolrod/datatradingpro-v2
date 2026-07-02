@@ -110,7 +110,7 @@ const OPENROUTER_MODELS = (process.env.OPENROUTER_MODELS ||
   .split(',').map(s => s.trim()).filter(Boolean);
 
 // ── Groq (api.groq.com) — API OpenAI-compatible, free-tier TRÈS généreux + latence extrême (idéal chat).
-//    Placé EN TÊTE du repli gratuit (avant GitHub/OpenRouter) → capacité gratuite majeure par-dessus Gemini.
+//    FOURNISSEUR PRINCIPAL de la cascade bufferisée (tenté AVANT Gemini) et 1er maillon du streaming.
 //    Multi-clés (GROQ_API_KEY + _2.._20). Modèles surchargeables via GROQ_MODELS (CSV). Limites : RPM/RPD par clé.
 const GROQ_KEYS = (() => {
   const out = [];
@@ -409,7 +409,7 @@ function shouldThrottle() { return pressure() >= 0.75; }          // fond NON-es
 function underPressure()  { return pressure() >= 0.55; }          // fond : espacer / élargir les TTL
 function _effRpm() { const p = pressure(); const k = p < 0.5 ? 1 : p < 0.7 ? 0.85 : p < 0.85 ? 0.7 : p < 0.95 ? 0.5 : 0.3; return Math.max(2, _GEM_RPM * k); }
 // ── APPRENTISSAGE : ordre de repli APPRIS (poussé par server.js depuis l'historique de fiabilité) ──
-// SÛR par construction : ne contient QUE 'github'/'openrouter' (jamais Gemini en 1er = capacité principale
+// SÛR par construction : ne contient QUE 'github'/'openrouter' (la tête de cascade Groq→Gemini reste
 // intacte, jamais Claude avancé = crédits payants protégés). null = ordre par défaut (comportement actuel).
 let _fallbackOrder = null;
 function setFallbackOrder(arr) {
@@ -700,9 +700,9 @@ async function _groqStream(prompt, maxTokens, onChunk) {
 // → le fond / les flux « claudeOverBudget:false » ne dépensent PLUS de crédits payants, in-budget compris.
 // ════════════════ STREAMING (token-par-token) pour le chat interactif ════════════════
 // generateTextStream : émet le texte au fil de l'eau via onChunk(delta) ET renvoie le texte complet.
-// Chaîne SIMPLE et SÛRE : OpenRouter (:free, workhorse, SSE OpenAI-compatible) → Claude (SDK .stream(),
+// Chaîne SIMPLE et SÛRE : Groq (SSE, le + rapide) → OpenRouter (:free) → Claude (SDK .stream(),
 // seulement si utilisable + autorisé). Si AUCUN provider ne démarre → throw → l'appelant retombe sur la
-// génération BUFFERISÉE (generateText/aiSmart, chaîne complète Gemini→GitHub→OpenRouter→Claude).
+// génération BUFFERISÉE (generateText/aiSmart, chaîne complète Groq→Gemini→GitHub→OpenRouter→Cohere→Claude).
 // RÈGLE anti-charabia : dès qu'un (modèle,clé) a ÉMIS du texte via onChunk, on s'engage dessus —
 // on ne réessaie un autre modèle/clé QUE si RIEN n'a encore été émis (sinon le client verrait 2 textes).
 async function _openrouterStream(prompt, maxTokens, onChunk) {
@@ -807,7 +807,16 @@ async function generateText(prompt, maxTokens = 1500, opts = {}) {
 
 async function _generateTextInner(prompt, maxTokens, opts = {}) {
   const claudeOff = !!opts.noClaude || !ANTHROPIC_KEYS.length;
-  // ── Option A : Google Gemini (gratuit) — multi-clés + multi-modèles ──────────
+  // ── PRINCIPAL : Groq (gratuit, latence minimale) ─────────────────────────────
+  // Tenté AVANT Gemini : capacité free la plus fiable du moment, et on évite le gate anti-rafale
+  // Gemini (_gemBucketGate, jusqu'à 6 s d'attente) sur le chemin nominal. _groq gère en interne
+  // multi-clés + multi-modèles + cooldowns (_groqCool) — un échec ici bascule sur Gemini.
+  if (GROQ_KEYS.length) {
+    try { const out = await _groq(prompt, maxTokens); _aiStat('groq'); return out; }
+    catch (e) { console.warn(`[AI] Groq (principal) échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → Gemini`); _aiStat('groqFail'); }
+  }
+
+  // ── Repli n°1 : Google Gemini (gratuit) — multi-clés + multi-modèles ─────────
   // Pour CHAQUE modèle, on essaie TOUTES les clés (rotation round-robin). Tâches COURTES
   // (≤ LITE_MAXTOK tokens demandés) → cascade -lite d'abord (quota RPD ~4× supérieur) ;
   // tâches longues → cascade qualité (flash d'abord). Quotas cumulés, bascule auto sur 429.
@@ -837,20 +846,18 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
         }
       }
     }
-    if (!GROQ_KEYS.length && !GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && !COHERE_KEYS.length && claudeOff) throw lastErr || new Error('Gemini indisponible');
+    // Groq (principal) a déjà été tenté plus haut → il ne compte plus comme maillon restant ici.
+    if (!GITHUB_TOKENS.length && !OPENROUTER_KEYS.length && !COHERE_KEYS.length && claudeOff) throw lastErr || new Error('Groq/Gemini indisponibles');
   }
 
   // ── Repli gratuit AVANT Claude ──────────────────────────────────────────────
-  // Ordre : Groq (free le + généreux/rapide) → github/openrouter (ordre APPRIS, borné) → Cohere (free trial)
-  // → xAI (PAYANT, gaté par claudeOff = jamais en flux de fond). Chaque provider garde SA fonction/logs/cooldown.
-  // L'apprentissage (server.js) ne réordonne QUE github/openrouter ; Groq/Cohere/xAI restent en slots fixes.
+  // Ordre : github/openrouter (ordre APPRIS, borné) → Cohere (free trial) → xAI (PAYANT, gaté par
+  // claudeOff = jamais en flux de fond). Groq n'apparaît plus ici : il est PRINCIPAL (tenté en tête).
+  // Chaque provider garde SA fonction/logs/cooldown. L'apprentissage ne réordonne QUE github/openrouter.
   const _mid = (_fallbackOrder && _fallbackOrder.length) ? _fallbackOrder : ['github', 'openrouter'];
-  const _order = ['groq', ..._mid, 'cohere', 'xai'];
+  const _order = [..._mid, 'cohere', 'xai'];
   for (const prov of _order) {
-    if (prov === 'groq' && GROQ_KEYS.length) {
-      try { const out = await _groq(prompt, maxTokens); _aiStat('groq'); return out; }
-      catch (e) { console.warn(`[AI] Groq échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('groqFail'); }
-    } else if (prov === 'github' && GITHUB_TOKENS.length) {
+    if (prov === 'github' && GITHUB_TOKENS.length) {
       try { const out = await _githubModels(prompt, maxTokens); _aiStat('github'); return out; }
       catch (e) { console.warn(`[AI] GitHub Models échec${e.status ? ' (' + e.status + ')' : ''}: ${String(e.message).slice(0, 90)} → suite`); _aiStat('githubFail'); }
     } else if (prov === 'openrouter' && OPENROUTER_KEYS.length) {
@@ -874,7 +881,7 @@ async function _generateTextInner(prompt, maxTokens, opts = {}) {
     catch (e) { e.claudeTried = true; throw e; }   // l'appelant (aiSmart) sait : pas de 2e passe Claude
   }
 
-  throw new Error(opts.noClaude ? 'IA indisponible (Gemini/GitHub épuisés, Claude désactivé pour ce flux de fond)' : 'Aucune ressource IA configurée (GEMINI / GITHUB_TOKEN / ANTHROPIC)');
+  throw new Error(opts.noClaude ? 'IA indisponible (Groq/Gemini/GitHub épuisés, Claude désactivé pour ce flux de fond)' : 'Aucune ressource IA configurée (GROQ / GEMINI / GITHUB_TOKEN / ANTHROPIC)');
 }
 
 // Génère via Claude UNIQUEMENT (ignore Gemini). Utile quand le budget Gemini soft
@@ -895,6 +902,7 @@ function claudeUsable() {
 // Diagnostic (sans exposer les valeurs) : quelles ressources IA sont configurées.
 function status() {
   return {
+    primary: GROQ_KEYS.length ? 'groq' : 'gemini',   // tête de cascade réelle (miroir IA Monitor)
     geminiKeys: GEMINI_KEYS.length,
     geminiModels: GEMINI_MODELS,
     groq: { keys: GROQ_KEYS.length, models: GROQ_MODELS.length, coolingNow: _groqCool.coolingNow() },

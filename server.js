@@ -784,7 +784,7 @@ app.get('/api/admin/ai-test', requireAdmin, async (_req, res) => {
   const ms = Date.now() - t0;
   const st = (() => { try { return ai.status(); } catch { return {}; } })();
   const u1 = st.usageToday || {}; const diff = k => (u1[k] || 0) - (u0[k] || 0);
-  const provider = diff('gemini') > 0 ? 'Gemini' : diff('github') > 0 ? ('GitHub Models (' + ((st.github && st.github.model) || 'gpt-4o') + ')') : diff('openrouter') > 0 ? 'OpenRouter (:free)' : (diff('fallback') > 0 || diff('claude') > 0) ? 'Claude' : '—';
+  const provider = diff('groq') > 0 ? 'Groq (principal)' : diff('gemini') > 0 ? 'Gemini' : diff('github') > 0 ? ('GitHub Models (' + ((st.github && st.github.model) || 'gpt-4o') + ')') : diff('openrouter') > 0 ? 'OpenRouter (:free)' : diff('cohere') > 0 ? 'Cohere' : diff('xai') > 0 ? 'xAI' : (diff('fallback') > 0 || diff('claude') > 0) ? 'Claude' : '—';
   const intel = st.intel || {}; const color = ok ? '#22c55e' : '#ef4444';
   const html = `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Test IA DTP</title>
   <style>body{background:#0c0c0e;color:#e5e7eb;font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
@@ -3227,7 +3227,9 @@ function _telForecast(buckets) {
   const cap = _aiDailyCap();
   const dayTotal = Object.values(_aiUsage.dayCounts || {}).reduce((a, b) => a + b, 0);
   const last3 = buckets.slice(-3);
-  const calls3h = last3.reduce((s, b) => s + (b.gemini.calls || 0) + (b.github.calls || 0), 0);
+  // Débit récent = TOUS les fournisseurs (l'enveloppe aiNote compte chaque succès, quel que soit le
+  // provider gagnant — Groq est désormais principal, ne compter que gemini+github sous-estimerait tout).
+  const calls3h = last3.reduce((s, b) => s + (b.gemini.calls || 0) + ((b.groq && b.groq.calls) || 0) + (b.github.calls || 0) + ((b.openrouter && b.openrouter.calls) || 0) + ((b.cohere && b.cohere.calls) || 0) + ((b.xai && b.xai.calls) || 0) + (b.claude.calls || 0), 0);
   const ratePerHour = calls3h / Math.max(1, last3.length);
   const remaining = Math.max(0, cap - dayTotal);
   const hoursToExhaust = ratePerHour > 0.2 ? Math.round(remaining / ratePerHour * 10) / 10 : null;
@@ -3529,7 +3531,7 @@ try { if (ai && typeof ai.setLiveContext === 'function') ai.setLiveContext(_aiTe
 
 // ── Routeur IA unifié (pool Gemini gratuit + Claude multi-clés) ──────────────
 // Politique (durcie après l'incident d'épuisement des crédits Anthropic) :
-//   1) Budget Gemini OK → ai.generateText (Gemini→GitHub→Claude intégré). Le débit
+//   1) Budget OK → ai.generateText (Groq→Gemini→GitHub→OpenRouter→Cohere→Claude intégré). Le débit
 //      n'est compté (aiNote) qu'APRÈS succès → un 429 ne consomme plus de budget.
 //      Si l'échec a DÉJÀ traversé Claude (err.claudeTried), AUCUNE 2e passe.
 //   2) Budget refusé → bascule Claude UNIQUEMENT pour les chemins utilisateur
