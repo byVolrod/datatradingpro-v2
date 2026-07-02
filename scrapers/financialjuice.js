@@ -366,7 +366,12 @@ function parseRawTs(rawTs) {
 // ─── Item normalizer ──────────────────────────────────────────────────────────
 
 function normalizeItem(data) {
-  const text = data.Text || data.text || data.Title || data.title || data.headline || data.content || data.description || '';
+  const textRaw = data.Text || data.text || data.Title || data.title || data.headline || data.content || data.description || '';
+  // Repli scrape DOM : la ligne FJ embarque l'heure + la source COLLÉES au titre
+  // (« … rebel Catholic group 8:01 Jul 02South China Morning Post ») → on coupe à partir de
+  // l'horodatage, UNIQUEMENT si le jour est suivi d'une majuscule collée (la source) ou de la fin
+  // (un vrai titre « Powell speaks at 10:30 GMT » n'a pas ce motif heure+Mois+jour → épargné).
+  const text = String(textRaw).replace(/\s*\d{1,2}:\d{2}\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2}(?=$|[A-Z])[\s\S]*$/, '').trim();
   if (!text || text.length < 10) return null;
 
   const rawTs = data.DatePublished || data.Time || data.time || data.pubDate || data.timestamp || data.date || data.PublishDate || data.PublishedDate;
