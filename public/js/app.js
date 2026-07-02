@@ -67,6 +67,28 @@ function _dtpFlash(el, dir) {
 }
 window._dtpDataIn = _dtpDataIn; window._dtpFlash = _dtpFlash;
 
+// ═══ Traduction FR des contenus SOURCE affichés en puces (.article-points) : citations speaker,
+// propos Fed/BCE agrégés, puces d'article scrapées — ce qui échappait aux résumés IA. Affichage
+// INSTANTANÉ en source, puis remplacement par le FR dès qu'il arrive (cache serveur par texte +
+// cache client de session → jamais 2 fois la même requête ; repli silencieux = on garde la source). ═══
+const _trClient = new Map();   // texte source → FR (cache session)
+async function _dtpTranslateQuotes(container) {
+  if (!container) return;
+  const lis = [...container.querySelectorAll('.article-points li, .art-pt')];
+  if (!lis.length) return;
+  const applyCache = () => lis.forEach(li => { const t = li.textContent.trim(); if (_trClient.has(t)) li.textContent = _trClient.get(t); });
+  applyCache();
+  const pending = [...new Set(lis.map(li => li.textContent.trim()).filter(t => t.length >= 2 && !_trClient.has(t)))];
+  if (!pending.length) return;
+  try {
+    const r = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: pending }) });
+    const d = await r.json();
+    (d.translations || []).forEach((fr, i) => { if (fr && pending[i]) _trClient.set(pending[i], fr); });
+    applyCache();
+  } catch {}
+}
+window._dtpTranslateQuotes = _dtpTranslateQuotes;
+
 // ═══ Cache localStorage — affichage INSTANTANÉ au revisite / cold-start ═══
 // On stocke le dernier état connu (news, wraps, recherche…) côté navigateur, puis on
 // rafraîchit en fond. L'utilisateur voit immédiatement du contenu, même serveur endormi.
@@ -2546,6 +2568,7 @@ function buildNewsItem(item) {
               ? `<div class="article-img-wrap"><img class="article-img" src="${data.image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.article-img-wrap').remove()"></div>`
               : '';
             expandEl.innerHTML = `${_img}<ul class="article-points">${data.points.map(p => `<li>${p}</li>`).join('')}</ul>`;
+            if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);   // puces d'article scrapées (souvent EN) → FR
           } else {
             // API confirmed no content → remove Info tag entirely
             if (infoTagEl) { infoTagEl.remove(); infoTagEl = null; }
@@ -2567,6 +2590,9 @@ function buildNewsItem(item) {
     // Affichage immédiat (description brute) — instantané
     expandEl.innerHTML = infoBody;
     expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+    // Citations speaker / propos agrégés (Fed's Daily…) = contenu SOURCE anglais qui échappe aux résumés IA
+    // → traduction FR en place (instantané en source puis remplacé). Couvre « FR pour tout » (demande user).
+    if ((isSpeaker || hasGrouped) && window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);
     if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
     if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
 
