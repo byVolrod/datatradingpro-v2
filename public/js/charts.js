@@ -2383,7 +2383,10 @@ document.addEventListener('DOMContentLoaded', () => {
       host.innerHTML = banks.map(_rtcCard).join('');
       if (window._dtpDataIn) window._dtpDataIn(host, 'taux');   // fondu d'arrivee (1re fois : skeleton -> cartes)
       const upd = document.getElementById('taux-update');
-      if (upd) upd.innerHTML = '';   // aucune attribution de source affichée (demande utilisateur)
+      if (upd) {   // fraîcheur RÉELLE (heure du dernier rafraîchissement des cotations) — SANS nommer la source (demande utilisateur)
+        const ts = d.rpAt || d.updatedAt || 0;
+        upd.textContent = ts ? ('Cotations à jour · ' + new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
+      }
     } catch (e) {
       // Échec TRANSITOIRE (502 pendant un redéploiement…) : si pas encore de cartes → on GARDE le chargement
       // et on retente vite (jamais bloqué sur le spinner) ; sinon on garde l'affichage existant (zéro clignotement).
