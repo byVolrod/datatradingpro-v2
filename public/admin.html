@@ -1248,6 +1248,7 @@
         return `<div class="ad-msg ad-msg--${m.sender}"><div>${body}</div><div class="ad-msg-meta">${new Date(m.created_at).toLocaleString('fr-FR')}</div></div>`;
       }).join('') || '<div class="empty-state">Pas encore de message.</div>';
       box.scrollTop = box.scrollHeight;
+      if (!silent) loadAdChat();   // après le markRead serveur → le badge du thread + la pastille de l'onglet Support retombent à 0
     } catch {}
   }
   async function _adChatPost(text) {
