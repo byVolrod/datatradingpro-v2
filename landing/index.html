@@ -1581,6 +1581,11 @@
 
   // ── Horloge ──
   function pad(n){return (n<10?'0':'')+n;}
+  // Le vieux mockup .term est MASQUÉ (display:none, remplacé par .hfm) mais ses animations tournaient
+  // encore : jauge 3 s + sparkline 3 s + horloges 20 s + POLL RÉSEAU 45 s — 100 % invisible (perf).
+  // Gate unique : tout reprend automatiquement si .term est un jour ré-affiché.
+  var _termEl=document.querySelector('.term');
+  var TERM_LIVE=!!(_termEl && getComputedStyle(_termEl).display!=='none');
   var _clkEl=document.getElementById('clk');if(_clkEl)setInterval(function(){var d=new Date();_clkEl.textContent=pad(d.getUTCHours())+':'+pad(d.getUTCMinutes())+':'+pad(d.getUTCSeconds())+' GMT';},1000);
 
   // ── Flux news : 4 DERNIÈRES news RÉELLES (API desk, repli statique) ──
@@ -1631,7 +1636,7 @@
       var it=(d&&d.items)||[]; renderNews(it.length?it:FALLBACK);
     }).catch(function(){ renderNews(FALLBACK); });
   }
-  renderNews(FALLBACK); loadNews(); setInterval(loadNews,45000);
+  if(TERM_LIVE){ renderNews(FALLBACK); loadNews(); setInterval(loadNews,45000); }   // #feed n'existe que dans .term
 
   // ── World Clock : VRAIES heures par fuseau (DST géré) ──
   var WC_TZ=['Europe/London','America/New_York','Asia/Tokyo','Asia/Dubai','Europe/Paris'];
@@ -1649,7 +1654,7 @@
       }catch(e){}
     }
   }
-  updWC(); setInterval(updWC,20000);
+  if(TERM_LIVE){ updWC(); setInterval(updWC,20000); }   // les .dwc-c ne vivent que dans .term (le reste = CSS)
 
   // ── Date du jour (en-tête du flux) ──
   try{var _dd=document.querySelector('.dnews-date');if(_dd){var _n=new Date();var _wd=_n.toLocaleDateString('fr-FR',{weekday:'long'});_dd.textContent=_wd.charAt(0).toUpperCase()+_wd.slice(1)+' '+pad(_n.getDate())+'/'+pad(_n.getMonth()+1)+'/'+_n.getFullYear();}}catch(e){}
@@ -1676,12 +1681,11 @@
     gLbl.style.borderColor=c.replace('rgb(','rgba(').replace(')',',.6)');
     gLbl.style.background=c.replace('rgb(','rgba(').replace(')',',.14)');
   }
-  setGauge(targets[0]);
-  setInterval(function(){gi++;setGauge(targets[gi%targets.length]);},3000);
+  if(TERM_LIVE){ setGauge(targets[0]); setInterval(function(){gi++;setGauge(targets[gi%targets.length]);},3000); }   // #needle/#gLbl ne vivent que dans .term
 
   // ── Historique Risk Sentiment (mini-chart live, façon desk) ──
   (function(){
-    var svg=document.getElementById('riskHist'); if(!svg)return;
+    var svg=document.getElementById('riskHist'); if(!svg||!TERM_LIVE)return;   // #riskHist ne vit que dans .term
     var N=30,W=200,H=44,P=3,vals=[],i;
     for(i=0;i<N;i++){ vals.push(Math.max(-92,Math.min(92, Math.round(Math.sin(i*0.55)*55 + (Math.random()*30-15)) ))); }
     var v=vals[vals.length-1];   // cycles risk-on / risk-off
