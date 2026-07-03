@@ -2593,7 +2593,7 @@ let _gewGenLock = 0;
 // ── Snapshot Currency Strength FIGÉ dans le Weekly Recap : rouvert plus tard, le chart montre TOUJOURS
 //    la semaine du rapport (plus de fenêtre glissante qui dérive). Downsample ~64 pts/devise (léger, inline). ──
 function _csSnapshot(cs) {
-  const MAX = 64, series = {};
+  const MAX = 160, series = {};   // 64 → 160 pts/devise : texture proche du TW live (~8 devises × 160 pts × {t,v} ≈ 25 Ko/rapport, OK côté ligne Supabase)
   for (const c of (cs.currencies || [])) {
     const s = (cs.series && cs.series[c]) || [];
     if (s.length <= MAX) { series[c] = s.map(p => ({ t: p.t, v: p.v })); continue; }
@@ -2636,22 +2636,22 @@ function _dedupRecaps() {
   });
   allNews = allNews.filter(i => i._reportType !== 'Weekly Market Recap' || i === best);
 }
-// Backfill (sans Gemini) du snapshot CS sur le recap COURANT généré avant cette fonctionnalité —
-// tant qu'on est ENCORE dans sa semaine couverte (les données 'week' correspondent alors), puis persiste.
+// Backfill (sans Gemini) du snapshot CS sur TOUT recap qui n'en a pas — semaine COURANTE (données
+// 'week' live) OU semaine RÉVOLUE (recalcul figé _computeStrengthWeekOf, ex. recap régénéré après un
+// bump RECAP_VER : c'était LE trou qui laissait le graphe dériver sur la mauvaise semaine). Persiste.
 // Appelé à la fois sur /api/weekly-reports ET proactivement au boot (filet : si l'utilisateur n'ouvre
 // pas l'onglet aujourd'hui, le recap est quand même figé avant que la semaine ne change).
 async function _maybeBackfillRecapCs() {
   if (_wrCsBackfillBusy) return;
-  // Cible DIRECTE : le recap de la semaine EN COURS qui n'a pas encore de snapshot (et seulement lui →
-  // on ne fige jamais une mauvaise semaine, et on ignore les recaps archivés d'autres semaines).
   const monNow = _currentMondayUtc();
   const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_VER);
-  const cur = recaps.find(i => !i._weekly.cs && _recapCoveredMonday(i._weekly) === monNow);
+  const cur = recaps.find(i => !i._weekly.cs && _recapCoveredMonday(i._weekly) > 0);
   if (!_wrCsDiagDone) { _wrCsDiagDone = true; console.log('[Weekly Recap] CS backfill check — recaps=' + recaps.length + ' monNow=' + new Date(monNow).toISOString().slice(0, 10) + ' ' + recaps.map(r => r._weekly.weekEnding + (r._weekly.cs ? '(cs)' : '(no-cs)')).join(',') + ' → cible=' + (cur ? cur._weekly.weekEnding : 'aucune')); }
   if (!cur) return;
   _wrCsBackfillBusy = true;
   try {
-    const cs = await computeCurrencyStrength('week');
+    const covered = _recapCoveredMonday(cur._weekly);
+    const cs = covered === monNow ? await computeCurrencyStrength('week') : await _computeStrengthWeekOf(covered);
     if (cs && cs.currencies && cs.series) {
       cur._weekly.cs = _csSnapshot(cs);
       const wk = (cur.id || '').replace(/^dtp-mkt-recap-/, '').replace(/-\d+$/, '');
@@ -7092,15 +7092,15 @@ ${corpus}`;
     };
   }
 
-  // Snapshot Currency Strength de la SEMAINE COUVERTE → figé dans le rapport. Uniquement si on génère
-  // PENDANT cette semaine (ex. le samedi : 'week' = la semaine qui vient de se clore) ; sinon on s'abstient
-  // (mieux vaut le repli live que figer une mauvaise semaine).
+  // Snapshot Currency Strength de la SEMAINE COUVERTE → figé dans le rapport. Généré PENDANT la semaine
+  // → données 'week' courantes ; (re)généré APRÈS (bump RECAP_VER, rattrapage quota IA) → recalcul FIGÉ
+  // de LA semaine du rapport via _computeStrengthWeekOf (fini le repli live qui traçait la MAUVAISE semaine).
   weekly.weekKey = weekKey;
   try {
-    if (_currentMondayUtc() === weekStart) {
-      const _cs = await computeCurrencyStrength('week');
-      if (_cs && _cs.currencies && _cs.series) weekly.cs = _csSnapshot(_cs);
-    }
+    const _cs = (_currentMondayUtc() === weekStart)
+      ? await computeCurrencyStrength('week')
+      : await _computeStrengthWeekOf(weekStart);
+    if (_cs && _cs.currencies && _cs.series) weekly.cs = _csSnapshot(_cs);
   } catch (e) { console.warn('[Weekly Recap] snapshot CS échec:', e.message); }
 
   // Description texte (fallback/recherche/affichage simple)
@@ -11260,16 +11260,22 @@ async function yfFetch(sym, interval, range) {
 
 // Calcul LOURD (28 paires Yahoo) — écrit le cache _csCache[period] à la fin. Ne pas appeler
 // directement : passer par computeCurrencyStrength() (cache + stale-while-revalidate).
-async function _computeStrengthFresh(period) {
-  const cfg = CS_PERIOD_CFG[period] || CS_PERIOD_CFG.today;
+async function _computeStrengthFresh(period, weekOfMs = null) {
+  // weekOfMs (lundi 00:00 UTC) = mode « semaine PASSÉE » pour les rapports hebdo : fenêtre FIGÉE
+  // [lundi → samedi 00:00 UTC] de LA semaine demandée, re-téléchargée en 5m sur 1 mois
+  // (Yahoo garde l'intraday ~60 j). Ne touche pas au cache des périodes normales.
+  const cfg = weekOfMs ? { interval: '5m', range: '1mo', clip: 10 } : (CS_PERIOD_CFG[period] || CS_PERIOD_CFG.today);
 
   const { interval, range, cutoffMs, cutoffToday, cutoffWeek, clip } = cfg;
 
   // Le FX est FERMÉ le week-end : ancrer « today »/intraday sur le SAMEDI/DIMANCHE donnerait une
   // fenêtre VIDE → « Data unavailable ». On recule donc la référence au dernier jour de séance (vendredi).
   const _wkBack = (() => { const d = new Date().getUTCDay(); return d === 6 ? 1 : d === 0 ? 2 : 0; })();   // sam→ven, dim→ven
-  let cutoffSec = null;
-  if (cutoffToday) {
+  let cutoffSec = null, endSec = null;
+  if (weekOfMs) {
+    cutoffSec = Math.floor(weekOfMs / 1000);
+    endSec    = cutoffSec + 5 * 86400;   // lundi 00:00 → samedi 00:00 UTC : les 5 jours de séance de LA semaine demandée
+  } else if (cutoffToday) {
     // "today" = ouverture (00:00 UTC) du dernier jour de séance — le « jour FX » professionnel.
     const d = new Date(); d.setUTCDate(d.getUTCDate() - _wkBack); d.setUTCHours(0, 0, 0, 0);
     cutoffSec = Math.floor(d.getTime() / 1000);
@@ -11301,7 +11307,7 @@ async function _computeStrengthFresh(period) {
       let ts = [...(res.timestamp || [])];
       let cl = [...(res.indicators?.quote?.[0]?.close || [])];
       if (cutoffSec) {
-        const zipped = ts.map((t, i) => [t, cl[i]]).filter(([t]) => t != null && t >= cutoffSec);
+        const zipped = ts.map((t, i) => [t, cl[i]]).filter(([t]) => t != null && t >= cutoffSec && (!endSec || t < endSec));
         ts = zipped.map(([t]) => t);
         cl = zipped.map(([, c]) => c);
       }
@@ -11322,13 +11328,13 @@ async function _computeStrengthFresh(period) {
       if (fb === usedInterval) continue;
       console.warn(`[CS/${period}] intervalle ${usedInterval} insuffisant (${pairData.length}/28) → repli ${fb}`);
       usedInterval = fb;
-      pairData = (await loadPairs(fb, '5d')).filter(Boolean);
+      pairData = (await loadPairs(fb, weekOfMs ? '1mo' : '5d')).filter(Boolean);
       if (pairData.length >= 7) break;
     }
   }
   const failCount = CS_PAIRS.length - pairData.length;
   if (failCount > 0) console.warn(`[CS/${period}] ${failCount}/${CS_PAIRS.length} pairs failed to load`);
-  if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs — repli sur le cache existant`); return _csCache[period] ? _csCache[period].data : null; }
+  if (pairData.length < 7) { console.error(`[CS/${period}] only ${pairData.length} pairs — repli sur le cache existant`); return (!weekOfMs && _csCache[period]) ? _csCache[period].data : null; }   // mode semaine passée : jamais le cache de la semaine COURANTE en repli
   console.log(`[CS/${period}] ${pairData.length}/28 pairs loaded (iv=${usedInterval}) — cutoff=${cutoffSec ? new Date(cutoffSec*1000).toISOString() : 'none'} clip=±${clip}%`);
 
   // Round timestamps to candle interval — aligns all 28 pairs to the same bins
@@ -11392,7 +11398,7 @@ async function _computeStrengthFresh(period) {
   }
 
   const data = { currencies: CS_CURRENCIES, series, updatedAt: new Date().toISOString() };
-  _csCache[period] = { ts: Date.now(), data };
+  if (!weekOfMs) _csCache[period] = { ts: Date.now(), data };   // le mode « semaine passée » a son propre cache (clé weekof:, cf. _computeStrengthWeekOf)
   return data;
 }
 
@@ -11414,6 +11420,20 @@ async function computeCurrencyStrength(period) {
   if (c && Date.now() - c.ts < ttl) return c.data;          // 1) cache frais → instantané
   if (c && c.data) { _csRefresh(period); return c.data; }   // 2) périmé → on sert + recalcul en fond
   return await _csRefresh(period);                           // 3) aucun cache → on attend (1re fois)
+}
+
+// Force des devises d'une semaine RÉVOLUE (lundi 00:00 UTC donné) — pour FIGER les rapports hebdo
+// (re)générés APRÈS leur semaine couverte (bump RECAP_VER, rattrapage quota IA). Cache long : une
+// semaine close ne change plus. Limite = rétention intraday Yahoo (~60 j) → au-delà, null (le client
+// affiche alors un message, jamais la mauvaise semaine).
+async function _computeStrengthWeekOf(mondayMs) {
+  if (!mondayMs || mondayMs > Date.now() || Date.now() - mondayMs > 55 * 86400000) return null;
+  const key = 'weekof:' + new Date(mondayMs).toISOString().slice(0, 10);
+  const hit = _csCache[key];
+  if (hit && Date.now() - hit.ts < 6 * 3600000) return hit.data;
+  const data = await _computeStrengthFresh('week', mondayMs).catch(() => null);
+  if (data) _csCache[key] = { ts: Date.now(), data };
+  return data;
 }
 
 app.get('/api/currency-strength', async (req, res) => {
