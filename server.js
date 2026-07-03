@@ -196,8 +196,8 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + page SEO Actualités (proxy nginx datatradingpro.com/actualites)
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
+  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO par categorie
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
@@ -11628,16 +11628,47 @@ const _ACTU_DOC = [
   ['/documentation/comprendre-le-cot-cftc.html', 'Comprendre le COT / CFTC'],
   ['/documentation/glossaire-macro-forex.html', 'Glossaire macro & forex'],
 ];
-let _actuCache = null, _actuTs = 0;
+// Pages par CATÉGORIE (/actualites/<slug>) : plus d'URLs indexables + requêtes ciblées, chacune
+// alimentée par le même fil (filtré par catégories source). Listées dans /sitemap-actualites.xml.
+const _ACTU_CATS = {
+  'banques-centrales': {
+    title: 'Actualités banques centrales — Fed, BCE, BoE, BoJ…', h1: 'Actualités des banques centrales',
+    desc: 'Décisions de taux, discours et signaux des banques centrales (Fed, BCE, BoE, BoJ, SNB, BoC, RBA, RBNZ) — en direct, avec analyse en français.',
+    cats: new Set(['Fed', 'ECB', 'BoE', 'BoJ', 'SNB', 'BoC', 'BOC', 'RBA', 'RBNZ', 'PBoC', 'Central Banks']),
+  },
+  'geopolitique': {
+    title: 'Actualités géopolitiques & marchés', h1: 'Géopolitique et marchés',
+    desc: 'Conflits, sanctions, tensions commerciales : l’actualité géopolitique qui fait bouger le forex, l’énergie et les indices — en direct, en français.',
+    cats: new Set(['Geopolitical', 'Trade']),
+  },
+  'forex': {
+    title: 'Actualités forex en direct — flux et analyse FX', h1: 'Actualités forex',
+    desc: 'Flux FX, mouvements de devises et analyse des paires majeures (EUR/USD, GBP/USD, USD/JPY…) — le fil forex du jour, en français.',
+    cats: new Set(['FX Flows', 'Market Analysis']),
+  },
+  'energie-matieres-premieres': {
+    title: 'Actualités énergie & matières premières', h1: 'Énergie et matières premières',
+    desc: 'Pétrole, gaz, or, métaux et agricoles : l’actualité des matières premières qui pèse sur l’inflation et les devises — en direct, en français.',
+    cats: new Set(['Energy & Power', 'Metals', 'Ags & Softs']),
+  },
+  'donnees-economiques': {
+    title: 'Données économiques du jour — CPI, NFP, PMI…', h1: 'Données économiques',
+    desc: 'Inflation, emploi, PMI, PIB : les publications économiques du jour (US, zone euro, UK, Japon…) et leur lecture pour le forex — en français.',
+    cats: new Set(['US Data', 'EU Data', 'UK Data', 'Swiss Data', 'Japanese Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'Economic Commentary']),
+  },
+};
+const _actuCacheMap = new Map();   // slug ('' = page principale) → { ts, html }
 const _ACTU_TTL = 15 * 60 * 1000;
 function _actuEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function _buildActualitesHtml() {
+function _buildActualitesHtml(slug = '') {
+  const cat = slug ? _ACTU_CATS[slug] : null;
   const list = (typeof allNews !== 'undefined' && Array.isArray(allNews)) ? allNews : [];
   const sorted = list.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   const items = [], seen = new Set();
   for (const i of sorted) {
     if (!i || !i.headline || !i.timestamp) continue;
     if (i._briefing || i._reportType || i.isPrimer) continue;             // les rapports ont leur propre section
+    if (cat && !cat.cats.has(i.category)) continue;                       // page catégorie → filtre par catégories source
     const h = String(i.headline).replace(/\s+/g, ' ').trim();
     if (h.length < 14) continue;
     if (isGlobalNewsNoise(h) || _HERO_NOISE_RX.test(h)) continue;
@@ -11689,16 +11720,31 @@ function _buildActualitesHtml() {
   const links = _ACTU_DOC.map(([u, t]) => '<a href="' + u + '">' + _actuEsc(t) + '</a>').join('');
   const nowIso = new Date().toISOString();
   const nowFr = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
-  const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Actualités macro & forex — DataTradingPro', url: 'https://datatradingpro.com/actualites', inLanguage: 'fr-FR', dateModified: nowIso, isPartOf: { '@type': 'WebSite', name: 'DataTradingPro', url: 'https://datatradingpro.com/' }, description: 'Fil d’actualités macro et forex en direct : banques centrales, calendrier économique, géopolitique, matières premières — avec analyse.' };
+  // Méta/URL/H1 par page (principale ou catégorie)
+  const pageUrl  = 'https://datatradingpro.com/actualites' + (slug ? '/' + slug : '');
+  const pageTitle = cat ? cat.title + ' — DataTradingPro' : 'Actualités macro & forex en direct — DataTradingPro';
+  const pageDesc  = cat ? cat.desc : 'Fil d’actualités macro & forex en direct : décisions de banques centrales, données économiques, géopolitique, matières premières — avec analyse en français. Mis à jour en continu.';
+  const pageH1    = cat ? cat.h1 : 'Actualités macro & forex en direct';
+  const pageLead  = cat
+    ? cat.desc + ' Retrouvez le fil complet, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.'
+    : 'Le fil des marchés du jour : décisions de banques centrales, données économiques, géopolitique, énergie et matières premières — avec une analyse en français. Retrouvez le tout en temps réel, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.';
+  // Navigation entre les pages Actualités (chips) — maillage interne + découverte crawler
+  const chips = '<nav class="ac-nav"><a href="/actualites"' + (!slug ? ' class="on"' : '') + '>Toutes</a>'
+    + Object.entries(_ACTU_CATS).map(([s, c]) => '<a href="/actualites/' + s + '"' + (s === slug ? ' class="on"' : '') + '>' + _actuEsc(c.h1) + '</a>').join('') + '</nav>';
+  const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: pageTitle.replace(' — DataTradingPro', ''), url: pageUrl, inLanguage: 'fr-FR', dateModified: nowIso, isPartOf: { '@type': 'WebSite', name: 'DataTradingPro', url: 'https://datatradingpro.com/' }, description: pageDesc };
+  const ldBc = cat ? { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
+    { '@type': 'ListItem', position: 1, name: 'Actualités', item: 'https://datatradingpro.com/actualites' },
+    { '@type': 'ListItem', position: 2, name: cat.h1, item: pageUrl }] } : null;
   return '<!doctype html><html lang="fr"><head>'
     + '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
-    + '<title>Actualités macro &amp; forex en direct — DataTradingPro</title>'
-    + '<meta name="description" content="Fil d’actualités macro &amp; forex en direct : décisions de banques centrales, données économiques, géopolitique, matières premières — avec analyse en français. Mis à jour en continu.">'
-    + '<link rel="canonical" href="https://datatradingpro.com/actualites">'
+    + '<title>' + _actuEsc(pageTitle) + '</title>'
+    + '<meta name="description" content="' + _actuEsc(pageDesc) + '">'
+    + '<link rel="canonical" href="' + pageUrl + '">'
     + '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">'
-    + '<meta property="og:type" content="website"><meta property="og:title" content="Actualités macro &amp; forex en direct — DataTradingPro"><meta property="og:description" content="Le fil macro &amp; forex du jour, avec analyse en français."><meta property="og:url" content="https://datatradingpro.com/actualites"><meta property="og:locale" content="fr_FR"><meta property="og:image" content="https://datatradingpro.com/og-cover-v2.jpg">'
+    + '<meta property="og:type" content="website"><meta property="og:title" content="' + _actuEsc(pageTitle) + '"><meta property="og:description" content="' + _actuEsc(pageDesc) + '"><meta property="og:url" content="' + pageUrl + '"><meta property="og:locale" content="fr_FR"><meta property="og:image" content="https://datatradingpro.com/og-cover-v2.jpg">'
     + '<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">'
     + '<script type="application/ld+json">' + JSON.stringify(ld) + '</script>'
+    + (ldBc ? '<script type="application/ld+json">' + JSON.stringify(ldBc) + '</script>' : '')
     + '<style>'
     + ':root{--gold:#b8860b;--gold2:#e3b23a;--ink:#16161d;--ink2:#55555f;--ink3:#8a8a97;--line:#e9e9f0;--bg:#ffffff;--bg2:#f6f7f9}'
     + '*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}'
@@ -11718,25 +11764,42 @@ function _buildActualitesHtml() {
     + '.ac-recap{padding:13px 0;border-bottom:1px solid var(--line)}.ac-recap h3{font-size:16px;font-weight:600;margin:3px 0}.ac-recap p{color:var(--ink2);font-size:14px}'
     + '.ac-more{margin:40px 0 0;padding:22px;background:var(--bg2);border:1px solid var(--line);border-radius:12px}.ac-more div{display:flex;flex-wrap:wrap;gap:9px}.ac-more a{font-size:13px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;color:var(--ink)}.ac-more a:hover{border-color:var(--gold);text-decoration:none}'
     + '.ac-foot{max-width:820px;margin:40px auto 0;padding:22px;border-top:1px solid var(--line);color:var(--ink3);font-size:12.5px;text-align:center}.ac-foot a{color:var(--ink2)}'
+    + '.ac-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px}.ac-nav a{font-size:12.5px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:var(--ink2)}.ac-nav a:hover{border-color:var(--gold);text-decoration:none}.ac-nav a.on{background:rgba(184,134,11,.1);border-color:rgba(184,134,11,.4);color:var(--gold);font-weight:700}'
     + '</style></head><body>'
     + '<header class="ac-top"><a class="ac-logo" href="https://datatradingpro.com/"><span class="ac-mk">DT</span>DataTradingPro</a><a class="ac-cta" href="https://datatradingpro.com/#tarifs">Accéder au terminal</a></header>'
-    + '<main class="ac-wrap"><h1>Actualités macro &amp; forex en direct</h1>'
-    + '<p class="ac-lead">Le fil des marchés du jour : décisions de banques centrales, données économiques, géopolitique, énergie et matières premières — avec une analyse en français. Retrouvez le tout en temps réel, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.</p>'
+    + '<main class="ac-wrap"><h1>' + _actuEsc(pageH1) + '</h1>'
+    + '<p class="ac-lead">' + pageLead + '</p>'
     + '<p class="ac-upd">Mise à jour&nbsp;: ' + _actuEsc(nowFr) + ' (heure de Paris)</p>'
-    + (feed || '<p class="ac-desc">Fil en cours de chargement — revenez dans quelques minutes.</p>')
-    + recapHtml
+    + chips
+    + (feed || '<p class="ac-desc">Aucune actualité récente dans cette rubrique — consultez le <a href="/actualites">fil complet</a>.</p>')
+    + (slug ? '' : recapHtml)
     + '<section class="ac-more"><h2>Comprendre les marchés</h2><div>' + links + '</div></section>'
     + '</main>'
-    + '<footer class="ac-foot"><a href="https://datatradingpro.com/">Accueil</a> · <a href="https://datatradingpro.com/documentation/">Documentation</a> · <a href="https://datatradingpro.com/documentation/avertissement-risque.html">Avertissement risque</a><br>DataTradingPro — terminal d’analyse macro &amp; forex. Le trading comporte un risque de perte en capital.</footer>'
+    + '<footer class="ac-foot"><a href="https://datatradingpro.com/">Accueil</a> · <a href="/actualites">Actualités</a> · <a href="https://datatradingpro.com/documentation/">Documentation</a> · <a href="https://datatradingpro.com/documentation/avertissement-risque.html">Avertissement risque</a><br>DataTradingPro — terminal d’analyse macro &amp; forex. Le trading comporte un risque de perte en capital.</footer>'
     + '</body></html>';
 }
-app.get('/actualites', (_req, res) => {
+function _actuServe(slug, res) {
   res.set('Cache-Control', 'public, max-age=900');
   try {
     const now = Date.now();
-    if (!_actuCache || now - _actuTs > _ACTU_TTL) { _actuCache = _buildActualitesHtml(); _actuTs = now; }
-    res.type('html').send(_actuCache);
+    const c = _actuCacheMap.get(slug);
+    if (!c || now - c.ts > _ACTU_TTL) _actuCacheMap.set(slug, { ts: now, html: _buildActualitesHtml(slug) });
+    res.type('html').send(_actuCacheMap.get(slug).html);
   } catch (e) { res.status(500).type('html').send('<!doctype html><meta charset=utf-8><title>Actualités</title><p>Indisponible.</p>'); }
+}
+app.get('/actualites', (_req, res) => _actuServe('', res));
+app.get('/actualites/:cat', (req, res, next) => {
+  if (!_ACTU_CATS[req.params.cat]) return next();   // slug inconnu → 404 SPA normal (pas de duplicate content)
+  _actuServe(req.params.cat, res);
+});
+// Sitemap DYNAMIQUE des pages Actualités : lastmod = maintenant (le contenu change en continu) →
+// signal de fraîcheur permanent. Référencé par l'INDEX /sitemap.xml (landing) + proxifié par nginx.
+app.get('/sitemap-actualites.xml', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=3600');
+  const today = new Date().toISOString().slice(0, 10);
+  const urls = ['', ...Object.keys(_ACTU_CATS)].map(s =>
+    '  <url><loc>https://datatradingpro.com/actualites' + (s ? '/' + s : '') + '</loc><lastmod>' + today + '</lastmod><changefreq>hourly</changefreq><priority>' + (s ? '0.8' : '0.9') + '</priority></url>').join('\n');
+  res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + '\n</urlset>');
 });
 
 // ── Recaps analystes pour la landing (public + CORS, MEME recette que /api/hero-news) : la maquette
