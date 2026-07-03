@@ -11635,48 +11635,94 @@ const _ACTU_CATS = {
     title: 'Actualités banques centrales — Fed, BCE, BoE, BoJ…', h1: 'Actualités des banques centrales',
     desc: 'Décisions de taux, discours et signaux des banques centrales (Fed, BCE, BoE, BoJ, SNB, BoC, RBA, RBNZ) — en direct, avec analyse en français.',
     cats: new Set(['Fed', 'ECB', 'BoE', 'BoJ', 'SNB', 'BoC', 'BOC', 'RBA', 'RBNZ', 'PBoC', 'Central Banks']),
+    intro: 'Les banques centrales — Réserve fédérale américaine, BCE, Banque d’Angleterre, Banque du Japon — fixent le prix de l’argent et donnent le tempo de tout le marché des changes. Chaque décision de taux, chaque discours de Jerome Powell ou de Christine Lagarde peut faire bouger l’euro, le dollar ou le yen en quelques secondes. Cette page rassemble en continu les annonces, minutes et interventions officielles qui comptent, avec une lecture en français de ce qu’elles impliquent pour vos paires — votes internes et changements de ton (« hawkish » ou « dovish ») qui orientent les tendances de fond du forex.',
+    faq: [
+      { q: 'Quand la Réserve fédérale décide-t-elle de ses taux ?', a: 'La Fed se réunit huit fois par an lors du FOMC. La décision et le communiqué tombent à 20h00 (heure de Paris), suivis d’une conférence de presse du président à 20h30 — des créneaux parmi les plus volatils pour l’EUR/USD.' },
+      { q: 'Que veulent dire « hawkish » et « dovish » ?', a: 'Un ton « hawkish » (faucon) signale une banque centrale prête à monter les taux pour contrer l’inflation, généralement positif pour sa devise. « Dovish » (colombe) indique l’inverse : des taux bas pour soutenir l’économie, souvent négatif pour la devise.' },
+      { q: 'Pourquoi une hausse de taux fait-elle monter une devise ?', a: 'Des taux plus élevés rémunèrent mieux les capitaux placés dans la devise, ce qui attire les flux étrangers et tend à l’apprécier — à condition que la hausse ne soit pas déjà anticipée par le marché.' },
+    ],
   },
   'geopolitique': {
     title: 'Actualités géopolitiques & marchés', h1: 'Géopolitique et marchés',
     desc: 'Conflits, sanctions, tensions commerciales : l’actualité géopolitique qui fait bouger le forex, l’énergie et les indices — en direct, en français.',
     cats: new Set(['Geopolitical', 'Trade']),
+    intro: 'Guerres, sanctions, élections, tensions commerciales : la géopolitique est l’un des moteurs les plus brutaux des marchés. Un conflit au Moyen-Orient propulse le pétrole et l’or, une menace de droits de douane secoue le yuan et les indices, une escalade fait fuir les capitaux vers les valeurs refuges (dollar, franc suisse, yen). Cette page suit en direct les événements géopolitiques qui déplacent réellement le forex, l’énergie et le risque de marché, avec un décryptage en français — pour distinguer le bruit médiatique des vrais chocs et comprendre le passage rapide entre appétit pour le risque (« risk-on ») et fuite vers la sécurité (« risk-off »).',
+    faq: [
+      { q: 'Qu’est-ce qu’un mouvement « risk-off » ?', a: 'En « risk-off », les investisseurs fuient les actifs risqués (actions, devises émergentes) vers les valeurs refuges : dollar américain, franc suisse, yen japonais et or. Une escalade géopolitique déclenche typiquement ce réflexe.' },
+      { q: 'Quelles devises profitent des tensions géopolitiques ?', a: 'Les monnaies refuges — USD, CHF et JPY — ainsi que l’or tendent à s’apprécier quand l’incertitude monte. Les devises liées aux matières premières (CAD, AUD, NOK) réagissent surtout aux chocs sur le pétrole.' },
+      { q: 'Les droits de douane influencent-ils le forex ?', a: 'Oui. Des tarifs douaniers pèsent sur les devises des pays exportateurs visés (yuan, euro) et peuvent renforcer ou affaiblir le dollar selon qu’ils nourrissent l’inflation ou freinent la croissance mondiale.' },
+    ],
   },
   'forex': {
     title: 'Actualités forex en direct — flux et analyse FX', h1: 'Actualités forex',
     desc: 'Flux FX, mouvements de devises et analyse des paires majeures (EUR/USD, GBP/USD, USD/JPY…) — le fil forex du jour, en français.',
     cats: new Set(['FX Flows', 'Market Analysis']),
+    intro: 'Le marché des changes brasse plus de 7 000 milliards de dollars par jour, ce qui en fait le plus liquide de la planète. Les grandes paires — EUR/USD, GBP/USD, USD/JPY, USD/CHF — réagissent en temps réel aux données économiques, aux banques centrales et aux flux institutionnels. Cette page agrège le fil forex du jour : mouvements de devises, expirations d’options, analyses des principaux desks et niveaux techniques clés, avec une lecture en français. Que vous tradiez en intraday ou en swing sur plusieurs jours, l’idée est de voir d’un coup d’œil ce qui bouge sur le G10 et pourquoi, sans reconstituer l’information source par source.',
+    faq: [
+      { q: 'Quelles sont les paires de devises les plus tradées ?', a: 'Les « majeures » concentrent l’essentiel du volume : EUR/USD, USD/JPY, GBP/USD, USD/CHF, USD/CAD, AUD/USD et NZD/USD. L’EUR/USD représente à lui seul environ un quart des échanges mondiaux.' },
+      { q: 'Quels sont les horaires des séances forex ?', a: 'Le marché est ouvert 24h/24 du dimanche soir au vendredi soir, réparti sur les sessions de Sydney, Tokyo, Londres et New York. Le chevauchement Londres–New York (14h–17h, heure de Paris) est le plus liquide.' },
+      { q: 'Qu’est-ce qui fait bouger une paire de devises ?', a: 'Les écarts de taux d’intérêt entre les deux zones, les publications économiques (inflation, emploi), les décisions de banques centrales et les flux de capitaux. Le sentiment de risque global joue aussi fortement sur les monnaies refuges.' },
+    ],
   },
   'energie-matieres-premieres': {
     title: 'Actualités énergie & matières premières', h1: 'Énergie et matières premières',
     desc: 'Pétrole, gaz, or, métaux et agricoles : l’actualité des matières premières qui pèse sur l’inflation et les devises — en direct, en français.',
     cats: new Set(['Energy & Power', 'Metals', 'Ags & Softs']),
+    intro: 'Pétrole, gaz naturel, or, cuivre, blé : les matières premières sont au carrefour de l’inflation, de la géopolitique et des devises. Un baril de Brent qui s’envole nourrit l’inflation et pèse sur les banques centrales ; un or qui grimpe trahit la peur ou la baisse des taux réels ; le cuivre, lui, sert de baromètre à la croissance mondiale. Cette page suit en direct les cotations et l’actualité des grandes matières premières — énergie, métaux précieux et industriels, agricoles — avec une analyse en français de leurs répercussions sur le CAD, l’AUD, la NOK et l’ensemble du marché.',
+    faq: [
+      { q: 'Pourquoi le prix du pétrole influence-t-il le forex ?', a: 'Un pétrole cher avantage les devises des pays exportateurs (CAD, NOK) et pénalise les importateurs (JPY, EUR). Il alimente aussi l’inflation, ce qui pousse les banques centrales à durcir leur politique monétaire.' },
+      { q: 'Qu’est-ce que le Brent et le WTI ?', a: 'Ce sont les deux références mondiales du pétrole : le Brent (mer du Nord) pour l’Europe et l’Asie, le WTI (West Texas Intermediate) pour les États-Unis. Leur écart de prix reflète l’offre et la demande régionales.' },
+      { q: 'Pourquoi l’or monte-t-il quand les taux baissent ?', a: 'L’or ne verse aucun intérêt : quand les taux réels baissent, le coût d’opportunité de le détenir diminue, ce qui le rend plus attractif. Il joue aussi son rôle de valeur refuge en période d’incertitude.' },
+    ],
   },
   'donnees-economiques': {
     title: 'Données économiques du jour — CPI, NFP, PMI…', h1: 'Données économiques',
     desc: 'Inflation, emploi, PMI, PIB : les publications économiques du jour (US, zone euro, UK, Japon…) et leur lecture pour le forex — en français.',
     cats: new Set(['US Data', 'EU Data', 'UK Data', 'Swiss Data', 'Japanese Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'Economic Commentary']),
+    intro: 'Inflation (CPI), emploi américain (NFP), PIB, indices PMI, ventes au détail : les publications économiques rythment la volatilité du marché. Un chiffre au-dessus ou en dessous du consensus peut faire bondir une devise en une fraction de seconde, car il modifie les anticipations de taux des banques centrales. Cette page regroupe les données macro du jour — États-Unis, zone euro, Royaume-Uni, Japon, Chine — et leur lecture en français : ce que le marché attendait, ce qui est sorti, et ce que cela change pour le forex. L’essentiel n’est pas le chiffre brut mais l’écart à la prévision (la « surprise »), seul véritable moteur du mouvement de prix.',
+    faq: [
+      { q: 'Qu’est-ce que le NFP et pourquoi est-il si suivi ?', a: 'Le Non-Farm Payrolls mesure les créations d’emplois non agricoles aux États-Unis. Publié le premier vendredi du mois à 14h30 (heure de Paris), c’est l’un des chiffres les plus volatils pour le dollar et l’or.' },
+      { q: 'Pourquoi la « surprise » compte plus que le chiffre ?', a: 'Le marché intègre déjà le consensus dans les prix. Seul l’écart entre le chiffre publié et la prévision (la surprise) provoque le mouvement : une donnée conforme aux attentes, même élevée, bouge peu les cours.' },
+      { q: 'Qu’est-ce qu’un indice PMI ?', a: 'Le Purchasing Managers’ Index mesure l’activité des directeurs d’achats. Au-dessus de 50, le secteur se développe ; en dessous, il se contracte. C’est un indicateur avancé précieux de la santé économique.' },
+    ],
   },
   'taux-obligations': {
-    title: 'Actualités taux & obligations — rendements, Treasuries, Bund', h1: 'Taux et obligations',
-    desc: 'Rendements obligataires, dette souveraine et marchés de taux (US Treasuries, Bund, OAT, Gilts, JGB) — leur mouvement et leur impact sur le forex, en direct et en français.',
+    title: 'Taux & obligations : rendements et Treasuries en direct', h1: 'Taux et obligations',
+    desc: 'Rendements obligataires, dette souveraine et marchés de taux (US Treasuries, Bund, OAT, Gilts, JGB) et leur impact sur le forex — en direct, en français.',
     cats: new Set(['Fixed Income']),
     // titres en anglais (non traduits) → on capte aussi tout ce qui parle de taux/obligations, quelle que soit la catégorie source
     rx: /\b(yields?|bonds?|treasur(?:y|ies)|bund|gilts?|jgb|coupon|\d{1,2}\s?-?\s?year|\d{1,2}y\b|sovereign\s+debt|debt\s+auction|oat|btp|rendement|obligation|emprunt\s+d)/i,
+    intro: 'Le marché obligataire est le plus grand du monde, et ses rendements dictent le prix de l’argent partout ailleurs. Quand le rendement du Treasury américain à 10 ans grimpe, le dollar tend à se renforcer et les actions à souffrir ; l’écart de rendement entre deux pays (le « spread ») oriente directement leurs devises. Cette page suit en direct les taux souverains et l’actualité obligataire — US Treasuries, Bund allemand, OAT françaises, Gilts britanniques, JGB japonais — avec une lecture en français. Adjudications, courbe des taux, mouvements de spreads : autant de signaux qui précèdent souvent les grandes tendances du forex.',
+    faq: [
+      { q: 'Pourquoi le rendement du Treasury à 10 ans est-il si important ?', a: 'C’est la référence mondiale du « taux sans risque ». Il sert à valoriser quantité d’actifs et influence directement le dollar : un rendement en hausse attire les capitaux vers les États-Unis et soutient le billet vert.' },
+      { q: 'Qu’est-ce qu’une courbe des taux inversée ?', a: 'Quand les taux courts dépassent les taux longs, la courbe est « inversée ». Historiquement, c’est un signal avancé de récession, car le marché anticipe de futures baisses de taux des banques centrales.' },
+      { q: 'Qu’est-ce qu’un spread de taux ?', a: 'C’est l’écart de rendement entre deux obligations — par exemple le Treasury américain et le Bund allemand. Un spread qui s’élargit en faveur des États-Unis tend à renforcer le dollar face à l’euro.' },
+    ],
   },
   'indices-boursiers': {
-    title: 'Actualités indices boursiers — S&P 500, Nasdaq, CAC 40, DAX', h1: 'Indices boursiers',
-    desc: 'Wall Street, Europe et Asie : l’actualité des grands indices actions (S&P 500, Nasdaq, Dow Jones, CAC 40, DAX, FTSE, Nikkei) et leur lecture pour le risque de marché — en direct, en français.',
+    title: 'Indices boursiers en direct — S&P 500, Nasdaq, CAC 40', h1: 'Indices boursiers',
+    desc: 'Wall Street, Europe et Asie : l’actualité des grands indices actions (S&P 500, Nasdaq, CAC 40, DAX, FTSE, Nikkei) et sa lecture pour le risque de marché.',
     cats: new Set(['Equities', 'Equity News']),
     // matche les VRAIS noms d'indices + termes actions. IMPORTANT : « s&p 500 » seul (PAS « s&p »
     // tout court, sinon on capte « S&P Global » = societe de PMI/donnees, pas l'indice) ; et PAS le
     // suffixe generique « US Indexes » que FinancialJuice colle sur des news macro non-boursieres.
     rx: /\b(s&p ?500|nasdaq|dow jones|\bdow\b|\bdax\b|cac ?40|ftse ?100|\bftse\b|nikkei|hang seng|euro ?stoxx|\bstoxx\b|russell ?2000|\bibex\b|kospi|sensex|nifty ?50|wall street|stock market|stock index|equit(?:y|ies)|blue.?chip)\b/i,
+    intro: 'Le S&P 500, le Nasdaq, le CAC 40, le DAX, le Nikkei : les grands indices boursiers sont le thermomètre de l’appétit pour le risque, et ils dialoguent en permanence avec le forex. Quand Wall Street grimpe, les devises risquées (AUD, NZD) et le sentiment « risk-on » en profitent ; quand les actions plongent, les refuges (yen, franc suisse, dollar) reprennent la main. Cette page suit en direct l’actualité des indices actions d’Amérique, d’Europe et d’Asie, avec une lecture en français de ce qu’elle implique pour le marché des changes — records, corrections et rotations sectorielles donnent souvent le ton avant les devises.',
+    faq: [
+      { q: 'Qu’est-ce que le S&P 500 ?', a: 'C’est l’indice des 500 plus grandes entreprises cotées aux États-Unis, pondéré par capitalisation. Il sert de référence mondiale à la santé des actions américaines et au sentiment de risque global.' },
+      { q: 'Pourquoi les indices actions influencent-ils le forex ?', a: 'Ils reflètent l’appétit pour le risque : en « risk-on », les devises à haut rendement (AUD, NZD) montent et les refuges (JPY, CHF) baissent ; en « risk-off », c’est l’inverse. Le lien Nikkei–yen est particulièrement suivi.' },
+      { q: 'Quels sont les principaux indices européens ?', a: 'Le CAC 40 (Paris), le DAX (Francfort), le FTSE 100 (Londres) et l’Euro Stoxx 50 (zone euro). Ils cotent pendant la séance européenne et réagissent aux décisions de la BCE comme aux publications macro.' },
+    ],
   },
 };
 const _actuCacheMap = new Map();   // slug ('' = page principale) → { ts, html }
 const _ACTU_TTL = 15 * 60 * 1000;
 function _actuEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
-function _buildActualitesHtml(slug = '') {
+// Heuristique « ce texte est-il en francais ? » — pour ne PAS afficher de description ANGLAISE brute sur
+// une page qui promet une analyse en francais (le titre, lui, n'est jamais traduit : veto utilisateur).
+function _actuLooksFr(s) { s = String(s || ''); return /[àâçéèêëîïôùûüœ]/i.test(s) || (((s.match(/\b(le|la|les|des|une?|du|au|aux|est|sont|pour|avec|sur|dans|selon|après|hausse|baisse|marché|taux|semaine)\b/gi) || []).length) >= 2); }
+// Selection des items d'une rubrique — PARTAGEE entre le rendu de page, le sitemap et le calcul du lastmod.
+function _actuSelectItems(slug) {
   const cat = slug ? _ACTU_CATS[slug] : null;
   const list = (typeof allNews !== 'undefined' && Array.isArray(allNews)) ? allNews : [];
   const sorted = list.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
@@ -11692,6 +11738,14 @@ function _buildActualitesHtml(slug = '') {
     items.push(i);
     if (items.length >= 60) break;
   }
+  return items;
+}
+function _actuMaxTs(items) { return (items && items.length) ? items.reduce((m, i) => Math.max(m, i.timestamp || 0), 0) : 0; }
+function _buildActualitesHtml(slug = '', items = null, maxTs = null) {
+  const cat = slug ? _ACTU_CATS[slug] : null;
+  const list = (typeof allNews !== 'undefined' && Array.isArray(allNews)) ? allNews : [];
+  if (!items) items = _actuSelectItems(slug);
+  if (maxTs == null) maxTs = _actuMaxTs(items);
   // Groupage par JOUR (heure de Paris)
   const dayFmt = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const timeFmt = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false });
@@ -11702,21 +11756,26 @@ function _buildActualitesHtml(slug = '') {
     if (!groups.has(dk)) groups.set(dk, []);
     groups.get(dk).push(i);
   }
-  let feed = '';
+  let feed = '', gi = 0;
+  // H2 thématique porteur de mots-clés en tête de fil (les libellés de jour redeviennent de simples <div>)
+  const feedTitle = cat ? ('Le fil ' + cat.h1.replace(/^Actualités?\s+(des?\s+)?/i, '').toLowerCase() + ' en direct') : 'Le fil des marchés du jour';
+  if (items.length) feed += '<h2 class="ac-feedtitle">' + _actuEsc(feedTitle.charAt(0).toUpperCase() + feedTitle.slice(1)) + '</h2>';
   for (const [, arr] of groups) {
     const label = dayFmt.format(new Date(arr[0].timestamp));
-    feed += '<h2 class="ac-day">' + _actuEsc(label.charAt(0).toUpperCase() + label.slice(1)) + '</h2>';
+    feed += '<div class="ac-day">' + _actuEsc(label.charAt(0).toUpperCase() + label.slice(1)) + '</div>';
     for (const i of arr) {
-      const cat = _HERO_CAT_FR[i.category] || i.category || 'Marchés';
+      const catFr = _HERO_CAT_FR[i.category] || i.category || 'Marchés';
       const t = timeFmt.format(new Date(i.timestamp));
       let bullets = '';
       if (!i._marketUpdate && Array.isArray(i.analyse) && i.analyse.length) {
         bullets = '<ul class="ac-an">' + i.analyse.slice(0, 4).map(b => '<li>' + _actuEsc(String(b).replace(/\*\*/g, '')) + '</li>').join('') + '</ul>';
       } else {
         const d = String(i.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        if (d.length > 40) bullets = '<p class="ac-desc">' + _actuEsc(d.slice(0, 320)) + '</p>';
+        // corps affiché UNIQUEMENT s'il est en français (sinon titre + heure + source seuls : la page promet
+        // une analyse FR, pas des paragraphes anglais bruts). Le TITRE reste tel quel (jamais traduit, veto).
+        if (d.length > 40 && _actuLooksFr(d)) bullets = '<p class="ac-desc">' + _actuEsc(d.slice(0, 320)) + '</p>';
       }
-      feed += '<article class="ac-item"><div class="ac-meta"><span class="ac-cat">' + _actuEsc(cat) + '</span><time class="ac-time">' + _actuEsc(t) + '</time></div>'
+      feed += '<article class="ac-item" id="a' + (gi++) + '"><div class="ac-meta"><span class="ac-cat">' + _actuEsc(catFr) + '</span><time class="ac-time">' + _actuEsc(t) + '</time></div>'
         + '<h3 class="ac-h">' + _actuEsc(h_title(i)) + '</h3>' + bullets
         + (i.source ? '<span class="ac-src">via ' + _actuEsc(i.source) + '</span>' : '') + '</article>';
     }
@@ -11734,23 +11793,33 @@ function _buildActualitesHtml(slug = '') {
     }).join('') + '</section>';
   }
   const links = _ACTU_DOC.map(([u, t]) => '<a href="' + u + '">' + _actuEsc(t) + '</a>').join('');
-  const nowIso = new Date().toISOString();
-  const nowFr = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
+  const faqHtml = (cat && cat.faq && cat.faq.length)
+    ? '<section class="ac-faq"><h2>Questions fréquentes</h2>' + cat.faq.map(f => '<div class="ac-q"><h3>' + _actuEsc(f.q) + '</h3><p>' + _actuEsc(f.a) + '</p></div>').join('') + '</section>'
+    : '';
+  // Horodatage basé sur la VRAIE news la plus récente de la page (pas l'heure de rendu) → dateModified honnête
+  // + fin du faux signal de fraîcheur ré-émis à chaque rebuild de cache.
+  const stampMs = maxTs || Date.now();
+  const nowIso = new Date(stampMs).toISOString();
+  const nowFr = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(stampMs));
   // Méta/URL/H1 par page (principale ou catégorie)
   const pageUrl  = 'https://datatradingpro.com/actualites' + (slug ? '/' + slug : '');
   const pageTitle = cat ? cat.title + ' — DataTradingPro' : 'Actualités macro & forex en direct — DataTradingPro';
   const pageDesc  = cat ? cat.desc : 'Fil d’actualités macro & forex en direct : décisions de banques centrales, données économiques, géopolitique, matières premières — avec analyse en français. Mis à jour en continu.';
   const pageH1    = cat ? cat.h1 : 'Actualités macro & forex en direct';
   const pageLead  = cat
-    ? cat.desc + ' Retrouvez le fil complet, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.'
+    ? (cat.intro || cat.desc) + ' Retrouvez le fil complet, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.'
     : 'Le fil des marchés du jour : décisions de banques centrales, données économiques, géopolitique, énergie et matières premières — avec une analyse en français. Retrouvez le tout en temps réel, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.';
   // Navigation entre les pages Actualités (chips) — maillage interne + découverte crawler
   const chips = '<nav class="ac-nav"><a href="/actualites"' + (!slug ? ' class="on"' : '') + '>Toutes</a>'
     + Object.entries(_ACTU_CATS).map(([s, c]) => '<a href="/actualites/' + s + '"' + (s === slug ? ' class="on"' : '') + '>' + _actuEsc(c.h1) + '</a>').join('') + '</nav>';
-  const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: pageTitle.replace(' — DataTradingPro', ''), url: pageUrl, inLanguage: 'fr-FR', dateModified: nowIso, isPartOf: { '@type': 'WebSite', name: 'DataTradingPro', url: 'https://datatradingpro.com/' }, description: pageDesc };
-  const ldBc = cat ? { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: [
-    { '@type': 'ListItem', position: 1, name: 'Actualités', item: 'https://datatradingpro.com/actualites' },
-    { '@type': 'ListItem', position: 2, name: cat.h1, item: pageUrl }] } : null;
+  const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', '@id': pageUrl + '#collection', name: pageTitle.replace(' — DataTradingPro', ''), url: pageUrl, inLanguage: 'fr-FR', dateModified: nowIso, isPartOf: { '@id': 'https://datatradingpro.com/#site' }, publisher: { '@id': 'https://datatradingpro.com/#org' }, image: 'https://datatradingpro.com/og-cover-v2.jpg', description: pageDesc,
+    mainEntity: { '@type': 'ItemList', numberOfItems: items.length, itemListElement: items.slice(0, 30).map((i, ix) => ({ '@type': 'ListItem', position: ix + 1, name: h_title(i), url: pageUrl + '#a' + ix })) } };
+  // Fil d'Ariane TOUJOURS présent : Accueil › Actualités [› catégorie]
+  const bcNodes = [{ name: 'Accueil', item: 'https://datatradingpro.com/' }, { name: 'Actualités', item: 'https://datatradingpro.com/actualites' }];
+  if (cat) bcNodes.push({ name: cat.h1, item: pageUrl });
+  const ldBc = { '@context': 'https://schema.org', '@type': 'BreadcrumbList', itemListElement: bcNodes.map((b, ix) => ({ '@type': 'ListItem', position: ix + 1, name: b.name, item: b.item })) };
+  // FAQ evergreen (contenu unique + éligible FAQPage), sur les pages catégorie
+  const ldFaq = (cat && cat.faq && cat.faq.length) ? { '@context': 'https://schema.org', '@type': 'FAQPage', mainEntity: cat.faq.map(f => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })) } : null;
   return '<!doctype html><html lang="fr"><head>'
     + '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
     + '<title>' + _actuEsc(pageTitle) + '</title>'
@@ -11758,14 +11827,16 @@ function _buildActualitesHtml(slug = '') {
     + '<link rel="canonical" href="' + pageUrl + '">'
     + '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">'
     + '<meta property="og:type" content="website"><meta property="og:title" content="' + _actuEsc(pageTitle) + '"><meta property="og:description" content="' + _actuEsc(pageDesc) + '"><meta property="og:url" content="' + pageUrl + '"><meta property="og:locale" content="fr_FR"><meta property="og:image" content="https://datatradingpro.com/og-cover-v2.jpg">'
+    + '<meta name="twitter:card" content="summary_large_image"><meta name="twitter:title" content="' + _actuEsc(pageTitle) + '"><meta name="twitter:description" content="' + _actuEsc(pageDesc) + '"><meta name="twitter:image" content="https://datatradingpro.com/og-cover-v2.jpg">'
     + '<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">'
     + '<script type="application/ld+json">' + JSON.stringify(ld) + '</script>'
-    + (ldBc ? '<script type="application/ld+json">' + JSON.stringify(ldBc) + '</script>' : '')
+    + '<script type="application/ld+json">' + JSON.stringify(ldBc) + '</script>'
+    + (ldFaq ? '<script type="application/ld+json">' + JSON.stringify(ldFaq) + '</script>' : '')
     + '<style>'
     + ':root{--gold:#b8860b;--gold2:#e3b23a;--ink:#16161d;--ink2:#55555f;--ink3:#8a8a97;--line:#e9e9f0;--bg:#ffffff;--bg2:#f6f7f9}'
     + '*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}'
     + 'a{color:var(--gold);text-decoration:none}a:hover{text-decoration:underline}'
-    + '.ac-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);z-index:5}'
+    + '.ac-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:5}'
     + '.ac-logo{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:18px;letter-spacing:-.02em;color:var(--ink)}.ac-mk{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#e3b23a,#b8860b);display:grid;place-items:center;color:#170f02;font-weight:900;font-size:11px}'
     + '.ac-cta{background:linear-gradient(100deg,#e6c45c,#c79a2e);color:#1c1205;font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;white-space:nowrap}.ac-cta:hover{filter:brightness(1.05);text-decoration:none}'
     + '.ac-wrap{max-width:820px;margin:0 auto;padding:34px 22px 60px}'
@@ -11781,6 +11852,8 @@ function _buildActualitesHtml(slug = '') {
     + '.ac-more{margin:40px 0 0;padding:22px;background:var(--bg2);border:1px solid var(--line);border-radius:12px}.ac-more div{display:flex;flex-wrap:wrap;gap:9px}.ac-more a{font-size:13px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;color:var(--ink)}.ac-more a:hover{border-color:var(--gold);text-decoration:none}'
     + '.ac-foot{max-width:820px;margin:40px auto 0;padding:22px;border-top:1px solid var(--line);color:var(--ink3);font-size:12.5px;text-align:center}.ac-foot a{color:var(--ink2)}'
     + '.ac-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 24px}.ac-nav a{font-size:12.5px;background:var(--bg2);border:1px solid var(--line);border-radius:999px;padding:6px 13px;color:var(--ink2)}.ac-nav a:hover{border-color:var(--gold);text-decoration:none}.ac-nav a.on{background:rgba(184,134,11,.1);border-color:rgba(184,134,11,.4);color:var(--gold);font-weight:700}'
+    + '.ac-feedtitle{font-size:20px;letter-spacing:-.01em;margin:0 0 4px}'
+    + '.ac-faq{margin:44px 0 0}.ac-faq h2{font-size:20px;letter-spacing:-.01em;margin-bottom:14px}.ac-q{padding:12px 0;border-bottom:1px solid var(--line)}.ac-q h3{font-size:15.5px;font-weight:600;margin-bottom:4px}.ac-q p{color:var(--ink2);font-size:14px}'
     + '</style></head><body>'
     + '<header class="ac-top"><a class="ac-logo" href="https://datatradingpro.com/"><span class="ac-mk">DT</span>DataTradingPro</a><a class="ac-cta" href="https://datatradingpro.com/#tarifs">Accéder au terminal</a></header>'
     + '<main class="ac-wrap"><h1>' + _actuEsc(pageH1) + '</h1>'
@@ -11789,6 +11862,7 @@ function _buildActualitesHtml(slug = '') {
     + chips
     + (feed || '<p class="ac-desc">Aucune actualité récente dans cette rubrique — consultez le <a href="/actualites">fil complet</a>.</p>')
     + (slug ? '' : recapHtml)
+    + faqHtml
     + '<section class="ac-more"><h2>Comprendre les marchés</h2><div>' + links + '</div></section>'
     + '</main>'
     + '<footer class="ac-foot"><a href="https://datatradingpro.com/">Accueil</a> · <a href="/actualites">Actualités</a> · <a href="https://datatradingpro.com/documentation/">Documentation</a> · <a href="https://datatradingpro.com/documentation/avertissement-risque.html">Avertissement risque</a><br>DataTradingPro — terminal d’analyse macro &amp; forex. Le trading comporte un risque de perte en capital.</footer>'
@@ -11798,9 +11872,15 @@ function _actuServe(slug, res) {
   res.set('Cache-Control', 'public, max-age=900');
   try {
     const now = Date.now();
-    const c = _actuCacheMap.get(slug);
-    if (!c || now - c.ts > _ACTU_TTL) _actuCacheMap.set(slug, { ts: now, html: _buildActualitesHtml(slug) });
-    res.type('html').send(_actuCacheMap.get(slug).html);
+    let c = _actuCacheMap.get(slug);
+    if (!c || now - c.ts > _ACTU_TTL) {
+      const its = _actuSelectItems(slug);
+      const mts = _actuMaxTs(its) || now;
+      c = { ts: now, html: _buildActualitesHtml(slug, its, mts), maxTs: mts };
+      _actuCacheMap.set(slug, c);
+    }
+    if (c.maxTs) res.set('Last-Modified', new Date(c.maxTs).toUTCString());   // fraicheur réelle (news la plus récente), permet de vrais 304
+    res.type('html').send(c.html);
   } catch (e) { res.status(500).type('html').send('<!doctype html><meta charset=utf-8><title>Actualités</title><p>Indisponible.</p>'); }
 }
 app.get('/actualites', (_req, res) => _actuServe('', res));
@@ -11808,14 +11888,22 @@ app.get('/actualites/:cat', (req, res, next) => {
   if (!_ACTU_CATS[req.params.cat]) return next();   // slug inconnu → 404 SPA normal (pas de duplicate content)
   _actuServe(req.params.cat, res);
 });
-// Sitemap DYNAMIQUE des pages Actualités : lastmod = maintenant (le contenu change en continu) →
-// signal de fraîcheur permanent. Référencé par l'INDEX /sitemap.xml (landing) + proxifié par nginx.
+// Sitemap DYNAMIQUE des pages Actualités : lastmod = horodatage RÉEL de la news la plus récente de chaque
+// rubrique (pas la date du jour systématique → fini le « lastmod menteur » que Google finit par ignorer).
+// Référencé par l'INDEX /sitemap.xml (landing) + proxifié par nginx. Mémo 5 min pour éviter le recalcul.
+let _actuSmCache = null, _actuSmTs = 0;
 app.get('/sitemap-actualites.xml', (_req, res) => {
   res.set('Cache-Control', 'public, max-age=3600');
-  const today = new Date().toISOString().slice(0, 10);
-  const urls = ['', ...Object.keys(_ACTU_CATS)].map(s =>
-    '  <url><loc>https://datatradingpro.com/actualites' + (s ? '/' + s : '') + '</loc><lastmod>' + today + '</lastmod><changefreq>hourly</changefreq><priority>' + (s ? '0.8' : '0.9') + '</priority></url>').join('\n');
-  res.type('application/xml').send('<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + '\n</urlset>');
+  const now = Date.now();
+  if (!_actuSmCache || now - _actuSmTs > 5 * 60 * 1000) {
+    const urls = ['', ...Object.keys(_ACTU_CATS)].map(s => {
+      const mts = _actuMaxTs(_actuSelectItems(s)) || now;
+      return '  <url><loc>https://datatradingpro.com/actualites' + (s ? '/' + s : '') + '</loc><lastmod>' + new Date(mts).toISOString() + '</lastmod><changefreq>hourly</changefreq><priority>' + (s ? '0.8' : '0.9') + '</priority></url>';
+    }).join('\n');
+    _actuSmCache = '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' + urls + '\n</urlset>';
+    _actuSmTs = now;
+  }
+  res.type('application/xml').send(_actuSmCache);
 });
 
 // ── Recaps analystes pour la landing (public + CORS, MEME recette que /api/hero-news) : la maquette
