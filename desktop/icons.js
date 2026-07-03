@@ -1,6 +1,9 @@
 /**
- * Génère les icônes de l'app (build/icon.png + icon.ico + icon.icns) depuis le logo DTP
- * (même design que le favicon du site : carré arrondi anthracite + wordmark DTP + barre orange).
+ * Génère les icônes de l'app (build/icon.png + icon.ico + icon.icns) depuis le logo DTP.
+ * ⚠️ Le SVG ci-dessous DOIT rester le MIROIR EXACT de public/favicon.svg (design actuel :
+ * carré DORÉ en dégradé + biseau + wordmark « DT » NOIR). L'ancien design (carré noir + « DTP »
+ * blanc + barre orange PMT) a été abandonné — ne pas le réintroduire. Après toute refonte du
+ * favicon web : reporter le nouveau tracé ICI puis relancer `npm run icons` + `build:win`/`build:mac`.
  * 100 % offline : sharp rasterise le SVG, png-to-ico assemble l'ICO, et l'ICNS est écrit à la
  * main (format Apple simple : en-tête 'icns' + chunks PNG typés ic08/ic09/ic10).
  */
@@ -10,12 +13,17 @@ const path = require('path');
 const sharp = require('sharp');
 const pngToIco = require('png-to-ico');
 
+// Miroir 1024×1024 de public/favicon.svg (originellement viewBox 64 → ×16). Dégradé or #ffe08a→
+// #e0a81e, biseau blanc→noir, « DT » noir Arial 900. Dégradés en objectBoundingBox (invariants d'échelle).
 const SVG = Buffer.from(
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">` +
-  `<rect width="1024" height="1024" rx="224" fill="#16161a"/>` +
-  `<rect x="10" y="10" width="1004" height="1004" rx="218" fill="none" stroke="#2c2c33" stroke-width="8"/>` +
-  `<text x="512" y="488" dominant-baseline="central" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="360" letter-spacing="-20" fill="#ffffff">DTP</text>` +
-  `<rect x="252" y="700" width="520" height="52" rx="26" fill="#f7941d"/>` +
+  `<defs>` +
+  `<linearGradient id="dg" x1="0" y1="0" x2="0.4" y2="1"><stop offset="0" stop-color="#ffe08a"/><stop offset="0.5" stop-color="#f3c344"/><stop offset="1" stop-color="#e0a81e"/></linearGradient>` +
+  `<linearGradient id="bev" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/><stop offset="0.45" stop-color="#ffffff" stop-opacity="0"/><stop offset="1" stop-color="#000000" stop-opacity="0.32"/></linearGradient>` +
+  `</defs>` +
+  `<rect width="1024" height="1024" rx="208" fill="url(#dg)"/>` +
+  `<rect x="20" y="20" width="984" height="984" rx="190" fill="none" stroke="url(#bev)" stroke-width="40"/>` +
+  `<text x="510" y="512" dominant-baseline="central" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="496" letter-spacing="-16" fill="#000000">DT</text>` +
   `</svg>`
 );
 
