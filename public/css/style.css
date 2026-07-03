@@ -1038,7 +1038,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   border-radius: 50%;
   background: var(--green);
   box-shadow: 0 0 6px var(--green);
-  animation: pulse-green 2.6s ease-in-out infinite;
+  /* PAS d'animation : le point est FIXE (halo stable, comme .ai-status-dot « En ligne ») — le pulse
+     réactivé le 03/07 clignotait en permanence et gênait (« le curseur clignote », demande user).
+     L'état reste piloté par le JS WebSocket : vert connecté / rouge déconnecté. */
   flex-shrink: 0;
 }
 
