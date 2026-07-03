@@ -20,20 +20,36 @@
       if (window._dtpMapWait <= 12) { setTimeout(window.buildSessionMap, 500); return; }
     }
 
-    var CITIES = (typeof MAP_CITIES !== 'undefined') ? MAP_CITIES : [
-      { id: 'london', name: 'London', tz: 'Europe/London', lon: -0.12, lat: 51.5, open: 8, close: 17 },
-      { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0, lat: 40.7, open: 9, close: 17 },
-      { id: 'tokyo', name: 'Tokyo', tz: 'Asia/Tokyo', lon: 139.7, lat: 35.7, open: 9, close: 15 },
-      { id: 'sydney', name: 'Sydney', tz: 'Australia/Sydney', lon: 151.2, lat: -33.9, open: 9, close: 17 },
-      { id: 'dubai', name: 'Dubai', tz: 'Asia/Dubai', lon: 55.3, lat: 25.2, open: 8, close: 14 },
-      { id: 'hongkong', name: 'HK', tz: 'Asia/Hong_Kong', lon: 114.2, lat: 22.3, open: 9, close: 16 }
+    // 4 SESSIONS FX MAJEURES uniquement (demande user 03/07 : « je veux voir uniquement les sessions »
+    // — Dubaï/HK retirés, ce ne sont pas des sessions majeures). Noms FR, heures locales de place inchangées.
+    var CITIES = [
+      { id: 'sydney',  name: 'Sydney',   tz: 'Australia/Sydney', lon: 151.2, lat: -33.9, open: 9, close: 17 },
+      { id: 'tokyo',   name: 'Tokyo',    tz: 'Asia/Tokyo',       lon: 139.7, lat: 35.7,  open: 9, close: 15 },
+      { id: 'london',  name: 'Londres',  tz: 'Europe/London',    lon: -0.12, lat: 51.5,  open: 8, close: 17 },
+      { id: 'newyork', name: 'New York', tz: 'America/New_York', lon: -74.0, lat: 40.7,  open: 9, close: 17 }
     ];
-    function cityOpen(city, now) {
-      if (typeof isCityOpen === 'function') { try { return isCityOpen(city, now); } catch (e) {} }
+    // État complet d'une session : ouverte ? + minutes avant la clôture / la prochaine ouverture
+    // (week-end sauté). Calcul dans le référentiel LOCAL de la place (DST géré par Intl/timeZone).
+    function cityState(city, now) {
       var local = new Date(now.toLocaleString('en-US', { timeZone: city.tz }));
       var h = local.getHours() + local.getMinutes() / 60, dow = local.getDay();
-      if (dow === 0 || dow === 6) return false;
-      return h >= city.open && h < city.close;
+      if (dow >= 1 && dow <= 5 && h >= city.open && h < city.close) {
+        return { open: true, soon: false, mins: Math.max(1, Math.round((city.close - h) * 60)) };
+      }
+      for (var d = 0; d < 8; d++) {   // prochaine ouverture un jour OUVRÉ (lun-ven)
+        var cand = new Date(local); cand.setDate(local.getDate() + d); cand.setHours(city.open, 0, 0, 0);
+        if (cand > local && cand.getDay() >= 1 && cand.getDay() <= 5) {
+          var mins = Math.max(1, Math.round((cand - local) / 60000));
+          return { open: false, soon: mins <= 45, mins: mins };
+        }
+      }
+      return { open: false, soon: false, mins: 0 };
+    }
+    function frDur(mins) {
+      var h = Math.floor(mins / 60), m = mins % 60;
+      if (h <= 0) return m + ' min';
+      if (h >= 24) return Math.floor(h / 24) + ' j ' + (h % 24) + ' h';
+      return h + ' h' + (m ? ' ' + (m < 10 ? '0' + m : m) : '');
     }
 
     try { if (window._dtpLfMap) { window._dtpLfMap.remove(); window._dtpLfMap = null; } } catch (e) {}
@@ -102,21 +118,44 @@
       } catch (e) {}
     }
 
-    function cityHtml(city, now) {
-      var open = cityOpen(city, now);
-      var t = now.toLocaleTimeString('en-GB', { timeZone: city.tz, hour: '2-digit', minute: '2-digit' });
-      return '<div class="lf-city ' + (open ? 'lf-open' : 'lf-closed') + '"><span class="lf-dot"></span><b>' + t + '</b><span class="lf-name">' + city.name + '</span></div>';
+    // Badge 2 lignes : [dot] HH:MM Ville / « ferme dans 2 h 05 » (ouverte) ou « ouvre dans 11 h 20 » (fermée).
+    // Ouverte = badge allumé (bordure verte) ; imminente (<45 min) = dot ambre ; fermée = badge éteint.
+    function cityHtml(city, now, st) {
+      var t = now.toLocaleTimeString('fr-FR', { timeZone: city.tz, hour: '2-digit', minute: '2-digit' });
+      var cls = st.open ? 'lf-open' : (st.soon ? 'lf-closed lf-soon' : 'lf-closed');
+      var sub = st.open ? 'ferme dans ' + frDur(st.mins) : 'ouvre dans ' + frDur(st.mins);
+      return '<div class="lf-city ' + cls + '">'
+        + '<div class="lf-row"><span class="lf-dot"></span><b>' + t + '</b><span class="lf-name">' + city.name + '</span></div>'
+        + '<div class="lf-sub">' + sub + '</div>'
+        + '</div>';
     }
-    function mkIcon(city, now) {
-      return L.divIcon({ className: 'lf-city-wrap', html: cityHtml(city, now), iconSize: [0, 0], iconAnchor: [0, 0] });
+    function mkIcon(city, now, st) {
+      return L.divIcon({ className: 'lf-city-wrap', html: cityHtml(city, now, st), iconSize: [0, 0], iconAnchor: [0, 0] });
     }
     CITIES.forEach(function (city) {
-      city._lfm = L.marker([city.lat, city.lon], { icon: mkIcon(city, new Date()), interactive: false, keyboard: false }).addTo(map);
+      // Halo géographique STATIQUE (zone de session active) — jamais d'animation clignotante.
+      city._halo = L.circle([city.lat, city.lon], { radius: 2200000, stroke: false, fillColor: '#00e676', fillOpacity: 0, interactive: false }).addTo(map);
+      city._lfm = L.marker([city.lat, city.lon], { icon: mkIcon(city, new Date(), cityState(city, new Date())), interactive: false, keyboard: false }).addTo(map);
     });
-    window._dtpLfClock = setInterval(function () {
-      var now = new Date();
-      CITIES.forEach(function (city) { if (city._lfm) city._lfm.setIcon(mkIcon(city, now)); });
-    }, 30000);
+    // Rafraîchit badges + halos + résumé d'en-tête (« Londres · New York ouvertes »)
+    function refreshSessions(now) {
+      var openNames = [];
+      var nextUp = null;
+      CITIES.forEach(function (city) {
+        var st = cityState(city, now);
+        if (city._lfm) city._lfm.setIcon(mkIcon(city, now, st));
+        if (city._halo) { try { city._halo.setStyle({ fillOpacity: st.open ? 0.09 : 0 }); } catch (e) {} }
+        if (st.open) openNames.push(city.name);
+        else if (!nextUp || st.mins < nextUp.mins) nextUp = { name: city.name, mins: st.mins };
+      });
+      var lab = document.getElementById('active-sessions-label');
+      if (lab) {
+        if (openNames.length) { lab.textContent = openNames.join(' · ') + (openNames.length > 1 ? ' ouvertes' : ' ouverte'); lab.style.color = '#00e676'; }
+        else if (nextUp) { lab.textContent = 'Fermé · ' + nextUp.name + ' ouvre dans ' + frDur(nextUp.mins); lab.style.color = '#8a8f98'; }
+      }
+    }
+    refreshSessions(new Date());
+    window._dtpLfClock = setInterval(function () { refreshSessions(new Date()); }, 30000);
 
     function _dtpFit(){ try { map.invalidateSize(); map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); } catch (e) {} }
     setTimeout(_dtpFit, 250);
