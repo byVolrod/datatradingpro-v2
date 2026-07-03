@@ -7903,6 +7903,17 @@ function _chatRenderInbox(){
   list.innerHTML = html;
 }
 
+// Optimiste : marque un thread comme lu DANS LE CACHE LOCAL + recalcule le badge tout de suite.
+// (Le serveur est la source de vérité — via GET/POST — mais ceci évite que la pastille « traîne »
+//  le temps d'un aller-retour ou d'un cache serveur de 5 min. Fini « j'ai répondu mais la notif reste ».)
+function _chatMarkThreadRead(uid){
+  const ts = (_chatInboxData && _chatInboxData.threads) || [];
+  const t = ts.find(x => String(x.user_id) === String(uid));
+  if (t) t.unread = 0;
+  if (typeof _chatSetBadge === 'function') _chatSetBadge(ts.filter(x => (x.unread || 0) > 0).length);
+  _chatInboxCache = _chatInboxData;
+  try { _chatLSSet('inbox', _chatInboxData); } catch {}
+}
 function _chatOpenThread(userId, name){
   _chatThreadUser = userId; _chatThreadName = name;
   const sb = document.getElementById('chat-search-bar'); if (sb) sb.style.display = 'none';   // pas de recherche dans une conv
@@ -7917,6 +7928,7 @@ function _chatOpenThread(userId, name){
     _chatPersistMsgs();
     const sig = _sigMsgs(msgs);
     if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }   // côté support : 'support'=droite, 'user'=gauche
+    _chatMarkThreadRead(userId);   // lu → badge à jour TOUT DE SUITE (indépendant du cache serveur)
     _chatPollUnread();             // la conversation vient d'être lue → MAJ immédiate du badge
   }).catch(()=>{ /* échec transitoire : on garde le loader ; le live tick (4s) réessaie tout seul */ });
 }
@@ -8123,8 +8135,9 @@ function _chatLoad(){
 function _chatPost(text){
   if (!text) return;
   if (_chatIsSupport() && _chatThreadUser){
-    return fetch('/api/admin/chat/'+encodeURIComponent(_chatThreadUser),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
-      .then(r=>r.json()).then(()=>_chatOpenThread(_chatThreadUser,_chatThreadName)).catch(()=>{});
+    const _uid = _chatThreadUser;
+    return fetch('/api/admin/chat/'+encodeURIComponent(_uid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
+      .then(r=>r.json()).then(()=>{ _chatMarkThreadRead(_uid); _chatOpenThread(_uid,_chatThreadName); }).catch(()=>{});   // répondre = lu → efface le badge tout de suite
   }
   return fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
     .then(r=>r.json()).then(()=>_chatLoad()).catch(()=>{});

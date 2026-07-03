@@ -1589,6 +1589,10 @@ app.post('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   if (!/^data:/.test(text) && text.length > 4000) return res.status(400).json({ error: 'Message trop long (4000 caractères max)' });
   try {
     const msg = await auth.chatInsert({ user_id: req.params.userId, sender: 'support', text });
+    // RÉPONDRE = AVOIR LU : on marque les messages du client comme lus À COUP SÛR (force = ignore le
+    // court-circuit anti-egress). Sans ça, le badge « non-lu » du thread + la pastille restaient
+    // affichés même après réponse (« comme si je n'avais pas répondu »).
+    try { await auth.chatMarkRead(req.params.userId, 'user', { force: true }); } catch {}
     res.json({ ok: true, message: msg });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

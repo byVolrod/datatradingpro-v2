@@ -775,13 +775,16 @@ async function chatList(userId) {
 }
 
 // Marque comme lus les messages reçus par `recipient` ('user' lit le support, 'support' lit l'user)
-async function chatMarkRead(userId, recipientReadsFrom) {
+async function chatMarkRead(userId, recipientReadsFrom, opts) {
   // ANTI-EGRESS (cause de l'incident 15,6 Go puis 18 Go) : un GET /api/chat est POLLÉ toutes les 4 s
   // pendant que le drawer est ouvert et appelait chatMarkRead → _chatDirty → CACHE RAM INVALIDÉ → le
   // tick suivant refaisait un select('*') de toute la conversation (images base64 incluses) = la fuite.
   // Désormais : s'il n'y a AUCUN non-lu de cet expéditeur, on ne touche À RIEN (ni cache, ni UPDATE) →
   // le poll de lecture reste 100 % en RAM (0 egress). chatUnread est RAM-caché → ce contrôle ne coûte rien.
-  if (!(await chatUnread(userId, recipientReadsFrom))) return;
+  // opts.force : ignore ce court-circuit — réservé aux ACTIONS PONCTUELLES (ex. le support RÉPOND →
+  // il a forcément lu → on marque lu à coup sûr, sans dépendre d'un compteur RAM peut-être périmé).
+  // Sûr côté egress car ces actions ne sont PAS pollées (contrairement au GET de lecture toutes les 4 s).
+  if (!(opts && opts.force) && !(await chatUnread(userId, recipientReadsFrom))) return;
   _chatDirty(userId);
   await _chatEnsureDb();
   if (_chatDb) {
