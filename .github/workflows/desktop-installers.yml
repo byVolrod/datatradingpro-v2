@@ -1,0 +1,62 @@
+name: Build desktop installers
+
+# Construit les installeurs de l'app bureau (Windows + macOS) sur des runners GitHub — sans le
+# probleme de privilege « symbolic link » (winCodeSign) qui bloque un build Windows local hors
+# mode developpeur. Declenchement MANUEL depuis l'onglet « Actions ».
+#
+# Apres execution : telecharger les artefacts, les extraire dans desktop/dist/, puis publier avec
+#   bash scripts/publish-desktop.sh
+# (les artefacts contiennent Setup.exe + .blockmap + latest.yml pour l'auto-update Windows).
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Installer les dependances
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: Generer les icones
+        working-directory: desktop
+        run: npm run icons
+      - name: Builder l'installeur Windows (NSIS)
+        working-directory: desktop
+        run: npm run build:win
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            desktop/dist/DataTradingPro-Setup.exe
+            desktop/dist/DataTradingPro-Setup.exe.blockmap
+            desktop/dist/latest.yml
+          if-no-files-found: error
+
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Installer les dependances
+        working-directory: desktop
+        run: npm install --no-audit --no-fund
+      - name: Generer les icones
+        working-directory: desktop
+        run: npm run icons
+      - name: Builder les apps macOS (zip arm64 + x64, non signees)
+        working-directory: desktop
+        run: npm run build:mac
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macos-installers
+          path: |
+            desktop/dist/*.zip
+            desktop/dist/latest-mac.yml
+          if-no-files-found: error
