@@ -2644,7 +2644,12 @@ function _dedupRecaps() {
 async function _maybeBackfillRecapCs() {
   if (_wrCsBackfillBusy) return;
   const monNow = _currentMondayUtc();
-  const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap' && i._weekly && i._weekly.v >= RECAP_VER);
+  // v >= 2 = le MEME seuil que le client (getArlibItems) — le gel du graphe ne depend pas de la version
+  // du prompt (l'ancien filtre v >= RECAP_VER excluait le rapport AFFICHE quand la regeneration v7 n'etait
+  // pas encore passee → backfill « cible=aucune » alors que l'utilisateur voyait un graphe qui derive).
+  // Tri du plus recent d'abord = on fige en priorite celui que le client affiche.
+  const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap' && i._weekly && (i._weekly.v || 0) >= 2)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   const cur = recaps.find(i => !i._weekly.cs && _recapCoveredMonday(i._weekly) > 0);
   if (!_wrCsDiagDone) { _wrCsDiagDone = true; console.log('[Weekly Recap] CS backfill check — recaps=' + recaps.length + ' monNow=' + new Date(monNow).toISOString().slice(0, 10) + ' ' + recaps.map(r => r._weekly.weekEnding + (r._weekly.cs ? '(cs)' : '(no-cs)')).join(',') + ' → cible=' + (cur ? cur._weekly.weekEnding : 'aucune')); }
   if (!cur) return;
