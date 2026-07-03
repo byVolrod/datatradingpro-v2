@@ -1139,7 +1139,7 @@
     if (_last) _last.textContent = 'MAJ à ' + new Date(d.now).toLocaleTimeString('fr-FR');
     aimRenderKpis(d); aimRenderProviders(d); aimRenderLegend(d); aimRenderForecast(d); aimRenderInfra(d); aimRenderJournal(d);
     _amStacked('aim-trend-am', d.trend);
-    const CATCOL = { analyst: 0xe3b23a, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444 };
+    const CATCOL = { analyst: 0xe3b23a, bank: 0x60a5fa, news: 0x22c55e, bias: 0xa78bfa, ratesbias: 0x14b8a6, weekahead: 0xf472b6, chat: 0xfbbf24, outlook: 0xef4444, weekly: 0x0ea5e9, dtpdaily: 0xfb923c };
     _amDonutCompact('aim-cat-am', Object.entries(d.categoriesToday || {}).filter(([, v]) => v > 0).map(([k, v]) => ({ cat: k, val: v, color: CATCOL[k] || 0x6b7280 })), 'aim-cat-legend');
   }
   // Câblage UNIQUE des contrôles statiques (portée du graphe + filtres du journal)
