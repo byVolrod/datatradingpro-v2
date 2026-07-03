@@ -8,8 +8,36 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, shell } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
 const path = require('path');
+
+// ── MISE À JOUR AUTOMATIQUE (electron-updater) ────────────────────────────────────────────────
+// L'app vérifie au lancement (puis toutes les 6 h) le flux https://desk.datatradingpro.com/downloads/
+// (latest.yml). Si une version plus récente existe, elle est téléchargée EN FOND puis installée au
+// redémarrage → plus JAMAIS de réinstallation manuelle. Publier une MAJ = bumper la version dans
+// package.json, `npm run build:win`, uploader Setup.exe + Setup.exe.blockmap + latest.yml dans /downloads/.
+// Robuste : désactivé en dev (non empaqueté) ; toute erreur est non bloquante (l'app charge le site normalement).
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  let autoUpdater;
+  try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;                 // filet : installée au prochain quit même si l'user reporte
+  autoUpdater.on('update-downloaded', () => {
+    if (!win || win.isDestroyed()) return;
+    dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: ['Redémarrer maintenant', 'Plus tard'],
+      defaultId: 0, cancelId: 1,
+      title: 'Mise à jour disponible',
+      message: 'Une nouvelle version de DataTradingPro est prête.',
+      detail: 'Elle s’installera au redémarrage de l’application (nouveautés et nouvelle icône incluses).',
+    }).then(r => { if (r.response === 0) setImmediate(() => autoUpdater.quitAndInstall()); }).catch(() => {});
+  });
+  autoUpdater.on('error', (err) => { try { console.warn('[AutoUpdate]', (err && err.message) || err); } catch (_) {} });
+  autoUpdater.checkForUpdates().catch(() => {});
+  setInterval(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 6 * 60 * 60 * 1000);
+}
 
 // L'app charge la RACINE du desk : le serveur décide — pas de session → page de LOGIN ;
 // session valide (« Rester connecté ») → directement le terminal. Exactement le flux web.
@@ -98,7 +126,7 @@ app.on('second-instance', () => {
   if (win) { if (win.isMinimized()) win.restore(); win.focus(); }
 });
 
-app.whenReady().then(() => { buildMenu(); createWindow(); });
+app.whenReady().then(() => { buildMenu(); createWindow(); setupAutoUpdate(); });
 
 // macOS : l'app reste dans le Dock fenêtre fermée ; clic Dock → rouvre
 app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
