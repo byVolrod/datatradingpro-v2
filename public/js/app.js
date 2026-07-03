@@ -8460,7 +8460,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const cls = v => v > 0 ? 'jr-pos' : v < 0 ? 'jr-neg' : '';
     host.innerHTML =
       '<span class="jr-stat"><i>Trades</i><b>' + L.length + '</b></span>'
-      + '<span class="jr-stat"><i>Winrate</i><b>' + (wr == null ? '—' : wr + '%') + '</b></span>'
+      + '<span class="jr-stat"><i>Taux de réussite</i><b>' + (wr == null ? '—' : wr + '%') + '</b></span>'
       + '<span class="jr-stat"><i>Total R</i><b class="' + cls(totR) + '">' + (totR >= 0 ? '+' : '') + (Math.round(totR * 100) / 100).toString().replace('.', ',') + '</b></span>'
       + '<span class="jr-stat"><i>Total $</i><b class="' + cls(totD) + '">' + (totD >= 0 ? '+' : '') + Math.round(totD).toLocaleString('fr-FR') + ' $</b></span>';
   }
@@ -8615,7 +8615,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const head = '<thead><tr>'
       + '<th class="jr-th-sel"><span class="jr-selall' + (allOn ? ' jr-rowsel--on' : '') + '" title="Tout sélectionner"></span></th>'
       + cols.map(c => '<th class="jr-th" draggable="true" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
-    if (!L.length) { tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + span + '">Aucun trade — clique « + Nouveau » ou importe ton export Notion (.zip ou CSV).</td></tr></tbody>'; _jrUpdateSelBar(); return; }
+    if (!L.length) {
+      tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + span + '">'
+        + '<div class="jr-empty-wrap">'
+        + '<div class="jr-empty-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg></div>'
+        + '<div class="jr-empty-title">Ton journal est prêt</div>'
+        + '<div class="jr-empty-sub">Consigne ton premier trade ou importe ton journal existant — statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
+        + '<div class="jr-empty-actions">'
+        + '<button type="button" class="jr-tb-btn jr-tb-btn--add jr-addrow">+ Ajouter un trade</button>'
+        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un fichier Excel">&#8593; Importer depuis Notion / Excel</button>'
+        + '</div></div></td></tr></tbody>';
+      const ei = document.getElementById('jr-empty-import');
+      if (ei) ei.onclick = () => { const f = document.getElementById('jr-import-file'); if (f) f.click(); };
+      _jrUpdateSelBar(); return;
+    }
     tbl.innerHTML = head + '<tbody>' + L.map(e =>
       '<tr data-id="' + _esc(e.id) + '"' + (_jrSel.has(e.id) ? ' class="jr-row--sel"' : '') + '>'
       + '<td class="jr-c-sel"><span class="jr-rowsel' + (_jrSel.has(e.id) ? ' jr-rowsel--on' : '') + '" data-id="' + _esc(e.id) + '" title="Sélectionner"></span></td>'
@@ -8800,11 +8813,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // écrites (Fonda Bias, Technical, Entry, Management, Close, Erreur). Poignée gauche pour ÉLARGIR +
   // bouton plein-largeur. Volet, largeur et état « élargi » = VOLATILS (reset au reload, comme les splitters).
   const _JR_SECT_DEF = [
-    { k: 'fondaBias',  label: 'FONDAMENTALE BIAS' },
-    { k: 'technical',  label: 'TECHNICAL ANALYSIS' },
-    { k: 'entry',      label: 'ENTRY' },
-    { k: 'management', label: 'MANAGEMENT' },
-    { k: 'close',      label: 'CLOSE' },
+    { k: 'fondaBias',  label: 'BIAIS FONDAMENTAL' },
+    { k: 'technical',  label: 'ANALYSE TECHNIQUE' },
+    { k: 'entry',      label: 'ENTRÉE' },
+    { k: 'management', label: 'GESTION' },
+    { k: 'close',      label: 'CLÔTURE' },
     { k: 'erreur',     label: 'ERREUR' },
   ];
   const _JR_PROP_IC = { title: 'T', date: '◷', day: '◷', select: '◉', multi: '☰', num: '#', money: '$', progress: '▦', ring: '◍', text: 'T' };
@@ -9215,7 +9228,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     if (added) _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
     _jrEdit = null; _jrRender();
     if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + pairNote + ' — journal personnalisé'); }
-    else _jrStatus('Aucune ligne valide : ' + (rows.length - 1) + ' ligne(s) lue(s) mais colonne « paire » vide (colonnes du fichier : ' + (rows[0] || []).filter(Boolean).join(' · ') + ')');
+    else _jrStatus('Import impossible : aucune colonne « Paire » reconnue dans le fichier (' + (rows.length - 1) + ' ligne(s) lue(s)). Vérifie que ton export contient bien une colonne paire/symbole.');
     return added;
   }
 
@@ -9292,7 +9305,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         try {
           const text = await _jrUnzipBestCsv(e.target.result);
           _jrIngestCsvText(text);
-        } catch (err) { _jrStatus('Échec import .zip (' + (err && err.message || err) + ')'); }
+        } catch (err) { _jrStatus('Import impossible : le fichier .zip semble endommagé ou non standard — ré-exporte depuis Notion (Exporter → CSV) et réessaie.'); try { console.warn('[Journal] import zip:', err && err.message || err); } catch (_) {} }
       };
       reader.onerror = function () { _jrStatus('Lecture du fichier impossible'); };
       reader.readAsArrayBuffer(file);
@@ -9424,7 +9437,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
-    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucun trade — importe ton export Notion (.zip ou CSV) ou ajoute des trades pour voir les statistiques.</div>'; return; }
+    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment — ajoute ton premier trade ou importe ton journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
     const sum = a => a.reduce((x, y) => x + y, 0);
     const rs = L.map(_jrRof).filter(r => r != null), wins = rs.filter(r => r > 0), losses = rs.filter(r => r < 0);
     const totR = sum(rs), totD = sum(L.map(e => _jrN(e.pl) || 0));
@@ -9445,7 +9458,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#e3b23a')
-        + _jrRing((rs.length ? Math.round(wins.length / rs.length * 100) : 0) + ' %', 'Winrate', '#00cc99')
+        + _jrRing((rs.length ? Math.round(wins.length / rs.length * 100) : 0) + ' %', 'Taux de réussite', '#00cc99')
       + '</div><div class="jrd-row jrd-row--charts">'
         + '<div class="jrd-card jrd-card--donut"><div class="jrd-card-h">Répartition des résultats</div><div id="jr-result-donut" class="jr-chart-am jr-chart-am--donut"></div>' + _jrResultLegend(resMap) + '</div>'
         + '<div class="jrd-card jrd-card--eq"><div class="jrd-card-h">Courbe de performance<span class="jrd-eqtoggle">'
@@ -9457,11 +9470,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE CLÉ</div><div class="jrd-rings">'
         + _jrRing(fR(avgW), 'R moy. gagnant', '#00e676') + _jrRing(fR(avgL), 'R moy. perdant', '#ff3d00')
         + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
-        + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'Avg RR cible', '#a78bfa')
+        + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'RR cible moyen', '#a78bfa')
       + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION</div><div class="jrd-grid">'
         + _jrBars('Setup', setupM) + _jrBars('Confluence', confM) + _jrBars('Entrée', entryM) + _jrBars('SL', slM)
-        + _jrBars('Grade', gradeM) + _jrBars('Fonda', fondaM) + _jrBars('Erreur', errM)
+        + _jrBars('Note', gradeM) + _jrBars('Fonda', fondaM) + _jrBars('Erreur', errM)
       + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">RECONNAISSANCE DE SCHÉMAS</div><div class="jrd-grid">'
         + _jrBars('Jour', dayM, { order: _JRD }) + _jrBars('Session', sessM) + _jrBars('Paires', pairM, { max: 14 })
@@ -9566,7 +9579,7 @@ window._dtpJournalBadgeInit = function () {
     const sym = (document.getElementById('calc-pair') || {}).value || '';
     const res = document.getElementById('calc-results'); if (!res) return;
     if (!_rates) { res.innerHTML = '<div class="calc-empty">Cours indisponibles — réessayez.</div>'; return; }
-    if (balance == null || risk == null || sl == null || sl <= 0 || !sym) { res.innerHTML = '<div class="calc-empty">Renseignez solde, risque, stop-loss et paire.</div>'; return; }
+    if (balance == null || balance <= 0 || risk == null || risk <= 0 || sl == null || sl <= 0 || !sym) { res.innerHTML = '<div class="calc-empty">Renseignez un solde, un risque et un stop-loss supérieurs à zéro, puis choisissez une paire.</div>'; return; }
     const m = sym.split('/'); if (m.length !== 2) { res.innerHTML = '<div class="calc-empty">Paire invalide.</div>'; return; }
     const base = m[0], quote = m[1];
     const price = _rates[sym];
@@ -9583,11 +9596,13 @@ window._dtpJournalBadgeInit = function () {
     const notionalBase = units;                               // unités de la devise de base
     const fmt = (v, d) => (v == null || !isFinite(v)) ? '—' : v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
     const cur = acct === 'JPY' ? '¥' : acct === 'EUR' ? '€' : acct === 'GBP' ? '£' : (acct === 'USD' || acct === 'CAD' || acct === 'AUD' || acct === 'NZD') ? '$' : acct + ' ';
+    try { sessionStorage.setItem('dtp_calc_setup', JSON.stringify({ acct: acct, balance: balance, risk: risk, sl: sl, sym: sym, mode: _riskMode })); } catch (_) {}   // dernier réglage — SESSION uniquement (volatil, jamais localStorage)
     res.innerHTML =
       '<div class="calc-card calc-card--hero"><span class="calc-k">Taille de position</span><span class="calc-v">' + fmt(lots, 2) + ' <em>lots</em></span>'
-      + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités</span></div>'
+      + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités</span>'
+      + '<button type="button" class="calc-copy" data-copy="' + lots.toFixed(2) + '" title="Copier la taille en lots">Copier</button></div>'
       + '<div class="calc-grid">'
-      + '<div class="calc-card"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? risk + ' % du solde' : 'montant fixe') + '</span></div>'
+      + '<div class="calc-card"><span class="calc-k">Risque</span><span class="calc-v">' + cur + fmt(riskMoney, 2) + '</span><span class="calc-sub">' + (_riskMode === 'pct' ? String(risk).replace('.', ',') + ' % du solde' : 'montant fixe') + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Valeur du pip</span><span class="calc-v">' + cur + fmt(pipValAcct * lots, 2) + '</span><span class="calc-sub">' + cur + fmt(pipValAcct, 2) + ' / lot</span></div>'
       + '<div class="calc-card"><span class="calc-k">Stop-loss</span><span class="calc-v">' + fmt(sl, 0) + ' <em>pips</em></span><span class="calc-sub">perte max ≈ ' + cur + fmt(sl * pipValAcct * lots, 2) + '</span></div>'
       + '<div class="calc-card"><span class="calc-k">Notionnel</span><span class="calc-v">' + fmt(notionalBase, 0) + ' ' + base + '</span><span class="calc-sub">cours ' + sym + ' : ' + fmt(price, quote === 'JPY' ? 3 : 5) + '</span></div>'
@@ -9595,6 +9610,18 @@ window._dtpJournalBadgeInit = function () {
   }
   function _wire() {
     const go = document.getElementById('calc-go'); if (go) go.onclick = _calcCompute;
+    // Copier la taille calculée : délégation câblée UNE fois (le innerHTML de #calc-results est régénéré à chaque calcul)
+    const resHost = document.getElementById('calc-results');
+    if (resHost && !resHost.dataset.copyWired) {
+      resHost.dataset.copyWired = '1';
+      resHost.addEventListener('click', (e) => {
+        const b = e.target && e.target.closest ? e.target.closest('.calc-copy') : null; if (!b) return;
+        const txt = b.getAttribute('data-copy') || '';
+        const done = () => { b.classList.add('ok'); b.textContent = 'Copié ✓'; setTimeout(() => { b.classList.remove('ok'); b.textContent = 'Copier'; }, 1400); };
+        const fallback = () => { try { const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove(); done(); } catch (_) {} };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(txt).then(done).catch(fallback); else fallback();
+      });
+    }
     ['calc-acct', 'calc-balance', 'calc-risk', 'calc-sl', 'calc-pair'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('change', _calcCompute); });
     const bal = document.getElementById('calc-balance'); if (bal) bal.addEventListener('input', () => {});
     const mode = document.getElementById('calc-risk-mode');
@@ -9610,6 +9637,8 @@ window._dtpJournalBadgeInit = function () {
     _wire();
     if (_rates) { _calcCompute(); return; }
     _cStatus('Chargement des cours…');
+    const res0 = document.getElementById('calc-results');
+    if (res0) res0.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des cours en direct…') : '');
     fetch('/api/fxlist').then(r => r.json()).then(d => {
       _rates = {};
       (d && d.pairs || []).forEach(p => { if (p && p.symbol && isFinite(p.last)) _rates[p.symbol] = p.last; });
@@ -9618,7 +9647,22 @@ window._dtpJournalBadgeInit = function () {
         const syms = Object.keys(_rates).sort();
         sel.innerHTML = (syms.length ? syms : ['EUR/USD']).map(s => '<option' + (s === 'EUR/USD' ? ' selected' : '') + '>' + s + '</option>').join('');
       }
+      // Restauration du dernier réglage de la SESSION (sessionStorage volatil — jamais localStorage) :
+      // faite ICI, une fois les cours et les options de paires chargés (jamais pendant le fetch).
+      try {
+        const s = JSON.parse(sessionStorage.getItem('dtp_calc_setup') || 'null');
+        if (s) {
+          const set = (id, v) => { const el = document.getElementById(id); if (el && v != null && v !== '') el.value = v; };
+          set('calc-acct', s.acct);
+          if (s.mode === 'amount' && _riskMode === 'pct') { const mb = document.getElementById('calc-risk-mode'); if (mb && mb.onclick) mb.onclick(); }
+          set('calc-balance', s.balance); set('calc-risk', s.risk); set('calc-sl', s.sl);
+          if (sel && s.sym && _rates[s.sym]) sel.value = s.sym;
+          const ac = document.getElementById('calc-acct');
+          if (ac) ac.dispatchEvent(new Event('change', { bubbles: true }));   // resynchronise le libellé du dropdown custom (dtpsel)
+          if (sel) sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      } catch (_) {}
       _cStatus(''); _calcCompute();
-    }).catch(() => { _cStatus('Cours indisponibles'); const res = document.getElementById('calc-results'); if (res) res.innerHTML = '<div class="calc-empty">Impossible de charger les cours en direct.</div>'; });
+    }).catch(() => { _cStatus('Cours indisponibles'); const res = document.getElementById('calc-results'); if (res) res.innerHTML = '<div class="calc-empty">Impossible de charger les cours en direct.<button type="button" class="jr-btn" onclick="window.loadCalculatorView()">Réessayer</button></div>'; });
   };
 })();

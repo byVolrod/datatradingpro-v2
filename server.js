@@ -559,7 +559,7 @@ function _jrCleanEntries(arr) {
 }
 app.get('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ entries: [] });
-  if (req.session?.user?.role !== 'admin') return res.status(403).json({ entries: [], dev: true });   // fonctionnalité en développement → admins only
+  // OUVERT à tous les comptes connectés depuis le 03/07/2026 (fin de la phase « en développement »).
   try {
     const v = await auth.aiCacheGet('journal:' + req.session.userId, _JR_KV_TTL);
     // custom = false → gabarit DTP (options par défaut) ; true → journal PERSO importé (options de l'utilisateur uniquement)
@@ -569,7 +569,7 @@ app.get('/api/journal', async (req, res) => {
 });
 app.post('/api/journal', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
-  if (req.session?.user?.role !== 'admin') return res.status(403).json({ ok: false, dev: true });   // fonctionnalité en développement → admins only
+  // OUVERT à tous les comptes connectés depuis le 03/07/2026 (fin de la phase « en développement »).
   try {
     const entries = _jrCleanEntries(req.body && req.body.entries);
     const custom = !!(req.body && req.body.custom);   // mémorise si le compte a personnalisé son journal (import) → ne jamais re-proposer le gabarit DTP
@@ -585,7 +585,6 @@ app.post('/api/journal', async (req, res) => {
 const _JR_IMG_MAX = 600 * 1024;
 app.get('/api/journal/img', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ images: [] });
-  if (req.session?.user?.role !== 'admin') return res.status(403).json({ images: [] });
   const trade = String((req.query && req.query.trade) || '').slice(0, 32);
   if (!trade) return res.json({ images: [] });
   try { const v = await auth.aiCacheGet('jrimg:' + req.session.userId + ':' + trade, _JR_KV_TTL); res.json({ images: Array.isArray(v) ? v : [] }); }
@@ -593,7 +592,6 @@ app.get('/api/journal/img', async (req, res) => {
 });
 app.post('/api/journal/img', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
-  if (req.session?.user?.role !== 'admin') return res.status(403).json({ ok: false });
   const trade = String((req.body && req.body.trade) || '').slice(0, 32);
   if (!trade) return res.status(400).json({ ok: false });
   let imgs = Array.isArray(req.body && req.body.images) ? req.body.images.slice(0, 2) : [];
