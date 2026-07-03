@@ -3143,7 +3143,7 @@ function _renderRiskGauge(data) {
 function _applyRiskTopbar(data) {
   const cls   = _sentClass(data.label);
   const arrow = cls === 'risk-on' ? '↗' : cls === 'risk-off' ? '↘' : '→';
-  const short = cls === 'risk-on' ? 'RISK ON' : cls === 'risk-off' ? 'RISK OFF' : 'NEUTRAL';
+  const short = cls === 'risk-on' ? 'RISK ON' : cls === 'risk-off' ? 'RISK OFF' : 'NEUTRE';   // NEUTRE = cohérent avec le placeholder HTML (Risk on/off = jargon de marché assumé, cf. charte)
   const dotEl = document.getElementById('sentiment-dot-top');
   const lblEl = document.getElementById('sentiment-label-top');
   const btnEl = document.getElementById('sentiment-btn');
@@ -3177,9 +3177,11 @@ function _renderRiskPopup(data) {
     'RISK-OFF':        'AVERSION AU RISQUE',
     'STRONG RISK-OFF': 'FORTE AVERSION AU RISQUE',
   };
-  // En-tête type "Market Sentiment: RISK OFF" (façon dropdown image)
-  if (lbl) { lbl.textContent = `Sentiment de marché : ${data.label}`; lbl.className = 'rp-label ' + cls; }
-  if (ti) ti.textContent = `Sentiment de marché : ${data.label}`;
+  // En-tête type "Sentiment de marché : AVERSION AU RISQUE" — libellé TRADUIT (la carte LABEL_FR
+  // existait mais n'était pas branchée : l'en-tête affichait le label serveur anglais brut).
+  const frLbl = LABEL_FR[data.label] || data.label;
+  if (lbl) { lbl.textContent = `Sentiment de marché : ${frLbl}`; lbl.className = 'rp-label ' + cls; }
+  if (ti) ti.textContent = `Sentiment de marché : ${frLbl}`;
   // Dropdown épuré : pas de jauge ni de bande dans ce popup (la jauge vit dans l'onglet RISK)
   const gw = el('rp-gauge-wrap'); if (gw) gw.style.display = 'none';
   const band = el('rp-band'); if (band) band.style.display = 'none';
