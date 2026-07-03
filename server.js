@@ -11667,8 +11667,10 @@ const _ACTU_CATS = {
     title: 'Actualités indices boursiers — S&P 500, Nasdaq, CAC 40, DAX', h1: 'Indices boursiers',
     desc: 'Wall Street, Europe et Asie : l’actualité des grands indices actions (S&P 500, Nasdaq, Dow Jones, CAC 40, DAX, FTSE, Nikkei) et leur lecture pour le risque de marché — en direct, en français.',
     cats: new Set(['Equities', 'Equity News']),
-    // matche les VRAIS noms d'indices + termes actions (PAS le suffixe generique « US Indexes » que FinancialJuice colle sur des news macro non-boursieres)
-    rx: /\b(s&p ?500|s&p|nasdaq|dow jones|\bdow\b|\bdax\b|cac ?40|ftse ?100|\bftse\b|nikkei|hang seng|euro ?stoxx|\bstoxx\b|russell ?2000|\bibex\b|\bsmi\b|kospi|sensex|nifty|wall street|stock market|stock index|equit(?:y|ies)|blue.?chip)\b/i,
+    // matche les VRAIS noms d'indices + termes actions. IMPORTANT : « s&p 500 » seul (PAS « s&p »
+    // tout court, sinon on capte « S&P Global » = societe de PMI/donnees, pas l'indice) ; et PAS le
+    // suffixe generique « US Indexes » que FinancialJuice colle sur des news macro non-boursieres.
+    rx: /\b(s&p ?500|nasdaq|dow jones|\bdow\b|\bdax\b|cac ?40|ftse ?100|\bftse\b|nikkei|hang seng|euro ?stoxx|\bstoxx\b|russell ?2000|\bibex\b|kospi|sensex|nifty ?50|wall street|stock market|stock index|equit(?:y|ies)|blue.?chip)\b/i,
   },
 };
 const _actuCacheMap = new Map();   // slug ('' = page principale) → { ts, html }
