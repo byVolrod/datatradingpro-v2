@@ -196,7 +196,7 @@ function _wsUserIdFromReq(req) {
 // Public = static assets (CSS/JS), login page, auth endpoints
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
-  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS)
+  '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + page SEO Actualités (proxy nginx datatradingpro.com/actualites)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login (sinon redirige vers /login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
@@ -11613,6 +11613,130 @@ app.get('/api/hero-news', (req, res) => {
     if (!_heroNewsCache || now - _heroNewsTs > _HERO_TTL) { _heroNewsCache = _buildHeroNews(); _heroNewsTs = now; }
     res.json(_heroNewsCache);
   } catch { res.json([]); }
+});
+
+// ══ PAGE PUBLIQUE « ACTUALITÉS » (SEO) — servie sur datatradingpro.com/actualites via proxy nginx ══
+// Contenu RENDU CÔTÉ SERVEUR (dans le HTML, pas en JS) → indexable par Google. Fil macro/forex du jour
+// (vraies news + analyses FR pré-calculées) + récaps, régénéré en continu depuis allNews. Cache 15 min.
+const _ACTU_DOC = [
+  ['/documentation/terminal-de-trading.html', 'Qu’est-ce qu’un terminal de trading'],
+  ['/documentation/trader-les-news-forex.html', 'Trader les news forex'],
+  ['/documentation/trader-le-nfp.html', 'Trader le NFP'],
+  ['/documentation/calendrier.html', 'Calendrier économique'],
+  ['/documentation/smart-bias-forex.html', 'Smart Bias forex'],
+  ['/documentation/force-des-devises.html', 'Force des devises'],
+  ['/documentation/comprendre-le-cot-cftc.html', 'Comprendre le COT / CFTC'],
+  ['/documentation/glossaire-macro-forex.html', 'Glossaire macro & forex'],
+];
+let _actuCache = null, _actuTs = 0;
+const _ACTU_TTL = 15 * 60 * 1000;
+function _actuEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+function _buildActualitesHtml() {
+  const list = (typeof allNews !== 'undefined' && Array.isArray(allNews)) ? allNews : [];
+  const sorted = list.slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const items = [], seen = new Set();
+  for (const i of sorted) {
+    if (!i || !i.headline || !i.timestamp) continue;
+    if (i._briefing || i._reportType || i.isPrimer) continue;             // les rapports ont leur propre section
+    const h = String(i.headline).replace(/\s+/g, ' ').trim();
+    if (h.length < 14) continue;
+    if (isGlobalNewsNoise(h) || _HERO_NOISE_RX.test(h)) continue;
+    const key = h.toLowerCase().slice(0, 44); if (seen.has(key)) continue; seen.add(key);
+    items.push(i);
+    if (items.length >= 60) break;
+  }
+  // Groupage par JOUR (heure de Paris)
+  const dayFmt = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+  const timeFmt = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit', hour12: false });
+  const dayKeyFmt = new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' });
+  const groups = new Map();
+  for (const i of items) {
+    const dk = dayKeyFmt.format(new Date(i.timestamp));
+    if (!groups.has(dk)) groups.set(dk, []);
+    groups.get(dk).push(i);
+  }
+  let feed = '';
+  for (const [, arr] of groups) {
+    const label = dayFmt.format(new Date(arr[0].timestamp));
+    feed += '<h2 class="ac-day">' + _actuEsc(label.charAt(0).toUpperCase() + label.slice(1)) + '</h2>';
+    for (const i of arr) {
+      const cat = _HERO_CAT_FR[i.category] || i.category || 'Marchés';
+      const t = timeFmt.format(new Date(i.timestamp));
+      let bullets = '';
+      if (!i._marketUpdate && Array.isArray(i.analyse) && i.analyse.length) {
+        bullets = '<ul class="ac-an">' + i.analyse.slice(0, 4).map(b => '<li>' + _actuEsc(String(b).replace(/\*\*/g, '')) + '</li>').join('') + '</ul>';
+      } else {
+        const d = String(i.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        if (d.length > 40) bullets = '<p class="ac-desc">' + _actuEsc(d.slice(0, 320)) + '</p>';
+      }
+      feed += '<article class="ac-item"><div class="ac-meta"><span class="ac-cat">' + _actuEsc(cat) + '</span><time class="ac-time">' + _actuEsc(t) + '</time></div>'
+        + '<h3 class="ac-h">' + _actuEsc(h_title(i)) + '</h3>' + bullets
+        + (i.source ? '<span class="ac-src">via ' + _actuEsc(i.source) + '</span>' : '') + '</article>';
+    }
+  }
+  function h_title(i) { return String(i.headline).replace(/\s+/g, ' ').trim(); }
+  // Récaps (rapports analystes) récents
+  const recaps = list.filter(i => i && _HR_TYPE_FR && _HR_TYPE_FR[i._reportType] && i.headline && i.timestamp)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 5);
+  let recapHtml = '';
+  if (recaps.length) {
+    recapHtml = '<section class="ac-recaps"><h2>Analyses &amp; récaps</h2>' + recaps.map(r => {
+      const d = String(r.subtitle || r.description || '').replace(/<[^>]*>/g, ' ').replace(/\*\*/g, '').replace(/\s+/g, ' ').trim().slice(0, 220);
+      const dt = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long' }).format(new Date(r.timestamp));
+      return '<article class="ac-recap"><span class="ac-cat">' + _actuEsc(_HR_TYPE_FR[r._reportType]) + ' · ' + _actuEsc(dt) + '</span><h3>' + _actuEsc(String(r.headline).replace(/\s+/g, ' ').trim()) + '</h3>' + (d ? '<p>' + _actuEsc(d) + '</p>' : '') + '</article>';
+    }).join('') + '</section>';
+  }
+  const links = _ACTU_DOC.map(([u, t]) => '<a href="' + u + '">' + _actuEsc(t) + '</a>').join('');
+  const nowIso = new Date().toISOString();
+  const nowFr = new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date());
+  const ld = { '@context': 'https://schema.org', '@type': 'CollectionPage', name: 'Actualités macro & forex — DataTradingPro', url: 'https://datatradingpro.com/actualites', inLanguage: 'fr-FR', dateModified: nowIso, isPartOf: { '@type': 'WebSite', name: 'DataTradingPro', url: 'https://datatradingpro.com/' }, description: 'Fil d’actualités macro et forex en direct : banques centrales, calendrier économique, géopolitique, matières premières — avec analyse.' };
+  return '<!doctype html><html lang="fr"><head>'
+    + '<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+    + '<title>Actualités macro &amp; forex en direct — DataTradingPro</title>'
+    + '<meta name="description" content="Fil d’actualités macro &amp; forex en direct : décisions de banques centrales, données économiques, géopolitique, matières premières — avec analyse en français. Mis à jour en continu.">'
+    + '<link rel="canonical" href="https://datatradingpro.com/actualites">'
+    + '<meta name="robots" content="index,follow,max-image-preview:large,max-snippet:-1">'
+    + '<meta property="og:type" content="website"><meta property="og:title" content="Actualités macro &amp; forex en direct — DataTradingPro"><meta property="og:description" content="Le fil macro &amp; forex du jour, avec analyse en français."><meta property="og:url" content="https://datatradingpro.com/actualites"><meta property="og:locale" content="fr_FR"><meta property="og:image" content="https://datatradingpro.com/og-cover-v2.jpg">'
+    + '<link rel="icon" type="image/svg+xml" href="/favicon.svg"><link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">'
+    + '<script type="application/ld+json">' + JSON.stringify(ld) + '</script>'
+    + '<style>'
+    + ':root{--gold:#b8860b;--gold2:#e3b23a;--ink:#16161d;--ink2:#55555f;--ink3:#8a8a97;--line:#e9e9f0;--bg:#ffffff;--bg2:#f6f7f9}'
+    + '*{box-sizing:border-box;margin:0;padding:0}body{font-family:Inter,-apple-system,"Segoe UI",Roboto,sans-serif;color:var(--ink);background:var(--bg);line-height:1.55;-webkit-font-smoothing:antialiased}'
+    + 'a{color:var(--gold);text-decoration:none}a:hover{text-decoration:underline}'
+    + '.ac-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 22px;border-bottom:1px solid var(--line);position:sticky;top:0;background:rgba(255,255,255,.92);backdrop-filter:blur(6px);z-index:5}'
+    + '.ac-logo{display:inline-flex;align-items:center;gap:9px;font-weight:800;font-size:18px;letter-spacing:-.02em;color:var(--ink)}.ac-mk{width:26px;height:26px;border-radius:7px;background:linear-gradient(135deg,#e3b23a,#b8860b);display:grid;place-items:center;color:#170f02;font-weight:900;font-size:11px}'
+    + '.ac-cta{background:linear-gradient(100deg,#e6c45c,#c79a2e);color:#1c1205;font-weight:700;font-size:13px;padding:9px 16px;border-radius:9px;white-space:nowrap}.ac-cta:hover{filter:brightness(1.05);text-decoration:none}'
+    + '.ac-wrap{max-width:820px;margin:0 auto;padding:34px 22px 60px}'
+    + 'h1{font-size:clamp(26px,4.4vw,38px);letter-spacing:-.02em;line-height:1.1;margin-bottom:10px}'
+    + '.ac-lead{color:var(--ink2);font-size:15px;max-width:680px;margin-bottom:6px}.ac-upd{color:var(--ink3);font-size:12.5px;margin-bottom:26px}'
+    + '.ac-day{font-size:14px;text-transform:uppercase;letter-spacing:.08em;color:var(--gold);margin:30px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--line)}'
+    + '.ac-item{padding:15px 0;border-bottom:1px solid var(--line)}.ac-meta{display:flex;align-items:center;gap:10px;margin-bottom:5px}'
+    + '.ac-cat{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--gold);background:rgba(184,134,11,.08);border:1px solid rgba(184,134,11,.2);border-radius:5px;padding:2px 8px}'
+    + '.ac-time{font-size:12px;color:var(--ink3);font-variant-numeric:tabular-nums}'
+    + '.ac-h{font-size:17px;font-weight:600;line-height:1.35;margin:3px 0}.ac-an{margin:7px 0 4px;padding-left:18px;color:var(--ink2);font-size:14px}.ac-an li{margin:2px 0}.ac-desc{color:var(--ink2);font-size:14px;margin:6px 0 2px}.ac-src{font-size:11.5px;color:var(--ink3)}'
+    + '.ac-recaps{margin:44px 0 10px}.ac-recaps h2,.ac-more h2{font-size:20px;letter-spacing:-.01em;margin-bottom:14px}'
+    + '.ac-recap{padding:13px 0;border-bottom:1px solid var(--line)}.ac-recap h3{font-size:16px;font-weight:600;margin:3px 0}.ac-recap p{color:var(--ink2);font-size:14px}'
+    + '.ac-more{margin:40px 0 0;padding:22px;background:var(--bg2);border:1px solid var(--line);border-radius:12px}.ac-more div{display:flex;flex-wrap:wrap;gap:9px}.ac-more a{font-size:13px;background:#fff;border:1px solid var(--line);border-radius:999px;padding:7px 14px;color:var(--ink)}.ac-more a:hover{border-color:var(--gold);text-decoration:none}'
+    + '.ac-foot{max-width:820px;margin:40px auto 0;padding:22px;border-top:1px solid var(--line);color:var(--ink3);font-size:12.5px;text-align:center}.ac-foot a{color:var(--ink2)}'
+    + '</style></head><body>'
+    + '<header class="ac-top"><a class="ac-logo" href="https://datatradingpro.com/"><span class="ac-mk">DT</span>DataTradingPro</a><a class="ac-cta" href="https://datatradingpro.com/#tarifs">Accéder au terminal</a></header>'
+    + '<main class="ac-wrap"><h1>Actualités macro &amp; forex en direct</h1>'
+    + '<p class="ac-lead">Le fil des marchés du jour : décisions de banques centrales, données économiques, géopolitique, énergie et matières premières — avec une analyse en français. Retrouvez le tout en temps réel, priorisé et enrichi, dans le <a href="https://datatradingpro.com/">terminal DataTradingPro</a>.</p>'
+    + '<p class="ac-upd">Mise à jour&nbsp;: ' + _actuEsc(nowFr) + ' (heure de Paris)</p>'
+    + (feed || '<p class="ac-desc">Fil en cours de chargement — revenez dans quelques minutes.</p>')
+    + recapHtml
+    + '<section class="ac-more"><h2>Comprendre les marchés</h2><div>' + links + '</div></section>'
+    + '</main>'
+    + '<footer class="ac-foot"><a href="https://datatradingpro.com/">Accueil</a> · <a href="https://datatradingpro.com/documentation/">Documentation</a> · <a href="https://datatradingpro.com/documentation/avertissement-risque.html">Avertissement risque</a><br>DataTradingPro — terminal d’analyse macro &amp; forex. Le trading comporte un risque de perte en capital.</footer>'
+    + '</body></html>';
+}
+app.get('/actualites', (_req, res) => {
+  res.set('Cache-Control', 'public, max-age=900');
+  try {
+    const now = Date.now();
+    if (!_actuCache || now - _actuTs > _ACTU_TTL) { _actuCache = _buildActualitesHtml(); _actuTs = now; }
+    res.type('html').send(_actuCache);
+  } catch (e) { res.status(500).type('html').send('<!doctype html><meta charset=utf-8><title>Actualités</title><p>Indisponible.</p>'); }
 });
 
 // ── Recaps analystes pour la landing (public + CORS, MEME recette que /api/hero-news) : la maquette
