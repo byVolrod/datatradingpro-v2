@@ -57,6 +57,7 @@ jobs:
         with:
           name: macos-installers
           path: |
+            desktop/dist/*.dmg
             desktop/dist/*.zip
             desktop/dist/latest-mac.yml
           if-no-files-found: error
