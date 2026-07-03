@@ -5786,12 +5786,22 @@ RULES:
 - If a line is ALREADY in French, return it unchanged (with its marker).
 - Reply ONLY with the [[n]] lines translated — no preamble, no extra text.
 
-${numbered}`, Math.min(1200, 120 + toTr.join(' ').length), { priority: 'user', claudeOverBudget: false });   // gratuit-first : jamais de crédits payants pour une simple traduction
+${numbered}`, Math.min(1200, 120 + toTr.join(' ').length), { important: true, priority: 'user', claudeOverBudget: false });   // important:true OBLIGATOIRE : aiAllowed('news') exige opts.important (sans lui → 100 % des trads refusées par le budget, BUG corrigé 03/07) ; gratuit-first : jamais de crédits payants pour une simple traduction
       const map = {};
       String(txt || '').split('\n').forEach(l => { const m = l.match(/^\s*\[\[(\d+)\]\]\s*(.+?)\s*$/); if (m) { const n = parseInt(m[1], 10) - 1; if (n >= 0 && n < toTr.length) map[n] = m[2].trim(); } });
-      return toTr.map((orig, i) => map[i] || orig);   // marqueur manquant → original (jamais cassé)
+      return toTr.map((orig, i) => map[i] || null);   // marqueur manquant → null (l'appelant renverra la source SANS la cacher)
     });
-    missIdx.forEach((origIdx, k) => { const fr = (out && out[k]) || texts[origIdx]; result[origIdx] = fr; _trCache.set(_trKey(texts[origIdx]), fr); });
+    // ANTI-POISON : ne JAMAIS cacher la source anglaise comme « traduction ». Un raté du modèle
+    // (marqueur manquant / ligne renvoyée telle quelle) répondait l'original ET le figeait dans le
+    // cache durable → cette phrase restait en anglais pour toujours. Désormais : on ne met en cache
+    // qu'une vraie traduction, ou une identité si la source est DÉJÀ française (accents/mots outils).
+    const _looksFr = s => /[àâçéèêëîïôùûüœÀÂÇÉÈÊËÎÏÔÙÛ]/.test(s) || /\b(le|la|les|des|une?|du|au|aux|est|sont|pour|avec|sur|dans|plus|selon|après|avant)\b/i.test(s);
+    missIdx.forEach((origIdx, k) => {
+      const src = texts[origIdx];
+      const fr = out && out[k];
+      if (fr && (fr !== src || _looksFr(src))) { result[origIdx] = fr; _trCache.set(_trKey(src), fr); }
+      else result[origIdx] = src;   // échec sur cette ligne → source affichée, PAS cachée → retentera au prochain passage
+    });
     while (_trCache.size > 8000) _trCache.delete(_trCache.keys().next().value);
     _saveJsonMap(TRANSLATE_CACHE_FILE, _trCache);
     res.json({ translations: result });

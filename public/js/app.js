@@ -83,7 +83,7 @@ async function _dtpTranslateQuotes(container, sel) {
   try {
     const r = await fetch('/api/translate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ texts: pending }) });
     const d = await r.json();
-    (d.translations || []).forEach((fr, i) => { if (fr && pending[i]) _trClient.set(pending[i], fr); });
+    (d.translations || []).forEach((fr, i) => { if (fr && pending[i] && fr !== pending[i]) _trClient.set(pending[i], fr); });   // identité = repli serveur (échec) → ne pas figer l'anglais pour la session, on retentera
     applyCache();
   } catch {}
 }
