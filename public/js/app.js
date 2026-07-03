@@ -2824,7 +2824,7 @@ function renderClocks() {
           <span class="clock-wday">${wday}</span>
           <span class="clock-date">${month}/${day}</span>
         </div>
-        <div class="clock-time">${timeStr}</div>
+        <div class="clock-time"><span class="clock-code">${c._local ? 'ICI' : c.code}</span>${timeStr}<span class="clock-dn-mini">${dayNightIcon}</span></div>
         <div class="clock-mid-row">
           <span class="clock-gmt">GMT ${offset}</span>
           <span class="clock-city-label clock-city-label--${isOpen ? 'open' : 'closed'}">${label}</span>

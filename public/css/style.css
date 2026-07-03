@@ -2140,6 +2140,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   white-space: nowrap;
   margin-bottom: 1px;
 }
+/* Éléments du mode COMPACT mobile (code ville + jour/nuit inline) — invisibles sur desktop,
+   où la carte complète (date/GMT/ville/météo) reste la référence. */
+.clock-code, .clock-dn-mini { display: none; }
 
 /* GMT (petite ligne) PUIS ville (ligne dédiée pleine largeur) → ville TOUJOURS entière */
 .clock-mid-row {
@@ -3560,8 +3563,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .navbar    { overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
   .nav-item  { white-space: nowrap; flex-shrink: 0; font-size: 11px; padding: 0 10px; }
 
-  /* Horloges : 2×2 sur mobile */
-  .clocks-bar { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 0; }
+  /* Horloges COMPACTES sur mobile : une PUCE par ville (code or + heure + jour/nuit) au lieu des
+     cartes desktop 5 lignes qui mangeaient la moitié de l'écran ET clippaient la ligne GMT
+     (max-height 42% du panneau). Le détail complet (date/GMT/ville/météo/vent) reste sur desktop. */
+  .clocks-panel { max-height: none; }
+  .clocks-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 10px 2px; background: transparent; }
+  .clock-item, .clock-item--local { flex: 1 1 30%; flex-direction: row; align-items: center; justify-content: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg1); }
+  .clock-top-row, .clock-mid-row, .clock-sub-row { display: none; }
+  .clock-time { display: flex; align-items: center; gap: 6px; font-size: 13.5px; margin: 0; }
+  .clock-code { display: inline; font-size: 10px; font-weight: var(--fw-bold); color: var(--orange); letter-spacing: .06em; }
+  .clock-dn-mini { display: inline; font-size: 10px; line-height: 1; }
 
   /* Calendrier */
   .cal-toolbar-top { flex-wrap: wrap; gap: 4px; }
