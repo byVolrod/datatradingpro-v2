@@ -9872,8 +9872,18 @@ body.jrd-resizing #jr-detail { transition: none; }
 .dtp-update-banner { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%) translateY(16px); z-index: 5000; display: flex; align-items: center; gap: 11px; background: #16161a; border: 1px solid rgba(227,178,58,0.55); border-left: 3px solid var(--orange); border-radius: 4px; padding: 10px 12px 10px 15px; color: var(--text); font-size: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.6); opacity: 0; transition: opacity .25s, transform .25s; }
 .dtp-update-banner.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .dtp-update-banner .dub-ic { font-size: 14px; flex-shrink: 0; }
-.dtp-update-banner .dub-btn { background: var(--orange); color: #1a1205; border: none; border-radius: 4px; padding: 5px 13px; font-size: 12px; font-weight: var(--fw-bold); cursor: pointer; font-family: var(--font-ui); flex-shrink: 0; }
+.dtp-update-banner .dub-btn { background: var(--orange); color: #1a1205; border: none; border-radius: 4px; padding: 5px 13px; font-size: 12px; font-weight: var(--fw-bold); cursor: pointer; font-family: var(--font-ui); flex-shrink: 0; transition: filter var(--t-fast) var(--ease), transform var(--t-fast) var(--ease); }
 .dtp-update-banner .dub-btn:hover { filter: brightness(1.08); }
+.dtp-update-banner .dub-btn:active { transform: translateY(1px); }
+.dtp-update-banner .dub-x { background: transparent; border: none; color: var(--text3); font-size: 16px; line-height: 1; cursor: pointer; padding: 2px 4px; flex-shrink: 0; transition: color var(--t-fast) var(--ease); }
+.dtp-update-banner .dub-x:hover { color: var(--text); }
+/* Variante APP INSTALLÉE : message sur 2 lignes (titre + détail), un cran plus large et présent. */
+.dtp-update-banner--app { align-items: flex-start; max-width: min(92vw, 420px); padding: 13px 13px 13px 16px; }
+.dtp-update-banner--app .dub-ic { font-size: 16px; margin-top: 1px; }
+.dtp-update-banner--app .dub-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dtp-update-banner--app .dub-title { font-size: 12.5px; font-weight: var(--fw-bold); color: var(--text); letter-spacing: -.005em; }
+.dtp-update-banner--app .dub-txt { font-size: 11.5px; color: var(--text3); line-height: 1.5; }
+.dtp-update-banner--app .dub-btn { align-self: center; }
 
 
 /* ── Animation « nouvelle notif / message » (icônes topbar : sonnerie + glow + badge pop/ping) ── */
