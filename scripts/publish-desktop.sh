@@ -47,7 +47,9 @@ up "DataTradingPro-Setup.exe"
 up "DataTradingPro-Setup.exe.blockmap"
 up "latest.yml"
 
-echo "── macOS (téléchargement manuel — l'auto-update Mac nécessite une signature Apple) ──"
+echo "── macOS (.dmg = installation glisser-déposer, format recommandé ; .zip gardé pour compat des liens actuels) ──"
+up "DataTradingPro-mac-arm64.dmg" "DataTradingPro-macOS.dmg"
+up "DataTradingPro-mac-x64.dmg"   "DataTradingPro-macOS-Intel.dmg"
 up "DataTradingPro-mac-arm64.zip" "DataTradingPro-macOS.zip"
 up "DataTradingPro-mac-x64.zip"   "DataTradingPro-macOS-Intel.zip"
 
@@ -57,7 +59,7 @@ if [ "$uploaded" -eq 0 ]; then
 fi
 
 echo "── Vérification en production ──"
-for f in DataTradingPro-Setup.exe latest.yml DataTradingPro-macOS.zip DataTradingPro-macOS-Intel.zip; do
+for f in DataTradingPro-Setup.exe latest.yml DataTradingPro-macOS.dmg DataTradingPro-macOS-Intel.dmg; do
   code=$(curl -s -o /dev/null -w "%{http_code}" "https://desk.datatradingpro.com/downloads/$f" || echo "ERR")
   printf "  %-34s HTTP %s\n" "$f" "$code"
 done
