@@ -11656,6 +11656,13 @@ const _ACTU_CATS = {
     desc: 'Inflation, emploi, PMI, PIB : les publications économiques du jour (US, zone euro, UK, Japon…) et leur lecture pour le forex — en français.',
     cats: new Set(['US Data', 'EU Data', 'UK Data', 'Swiss Data', 'Japanese Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'Economic Commentary']),
   },
+  'taux-obligations': {
+    title: 'Actualités taux & obligations — rendements, Treasuries, Bund', h1: 'Taux et obligations',
+    desc: 'Rendements obligataires, dette souveraine et marchés de taux (US Treasuries, Bund, OAT, Gilts, JGB) — leur mouvement et leur impact sur le forex, en direct et en français.',
+    cats: new Set(['Fixed Income']),
+    // titres en anglais (non traduits) → on capte aussi tout ce qui parle de taux/obligations, quelle que soit la catégorie source
+    rx: /\b(yields?|bonds?|treasur(?:y|ies)|bund|gilts?|jgb|coupon|\d{1,2}\s?-?\s?year|\d{1,2}y\b|sovereign\s+debt|debt\s+auction|oat|btp|rendement|obligation|emprunt\s+d)/i,
+  },
 };
 const _actuCacheMap = new Map();   // slug ('' = page principale) → { ts, html }
 const _ACTU_TTL = 15 * 60 * 1000;
@@ -11668,7 +11675,7 @@ function _buildActualitesHtml(slug = '') {
   for (const i of sorted) {
     if (!i || !i.headline || !i.timestamp) continue;
     if (i._briefing || i._reportType || i.isPrimer) continue;             // les rapports ont leur propre section
-    if (cat && !cat.cats.has(i.category)) continue;                       // page catégorie → filtre par catégories source
+    if (cat && !(cat.cats.has(i.category) || (cat.rx && cat.rx.test(i.headline)))) continue;   // page catégorie : catégorie source OU (option) titre matchant un motif thématique
     const h = String(i.headline).replace(/\s+/g, ' ').trim();
     if (h.length < 14) continue;
     if (isGlobalNewsNoise(h) || _HERO_NOISE_RX.test(h)) continue;
