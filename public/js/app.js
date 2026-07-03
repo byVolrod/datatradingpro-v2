@@ -6433,14 +6433,25 @@ function _renderWeeklyRecap(item) {
     _wrBuildCsAll(_csFrozen);
     _wrLazyCharts(content);
   } else {
-    _wrStrengthData = null;
-    fetch('/api/currency-strength?period=week').then(r=>r.json()).then(d => {
-      _wrStrengthData = (d && d.currencies) ? d : null;
-      _wrBuildCsAll(_wrStrengthData);
-      _wrLazyCharts(content);
-    }).catch(() => {
-      content.querySelectorAll('[data-wr-chart], #wr-cs-all').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>');
-    });
+    // GARDE-FOU : le repli live (?period=week = semaine COURANTE) n'est légitime QUE si le rapport
+    // couvre la semaine en cours. Pour une semaine révolue sans snapshot, on n'affiche PLUS JAMAIS la
+    // mauvaise semaine : message d'attente — le backfill serveur (_maybeBackfillRecapCs) fournit w.cs
+    // au prochain chargement (recalcul figé de LA semaine du rapport).
+    const _covMon = (() => { try { const a = String(w.weekEnding || '').split('.').map(Number); if (a.length !== 3 || !a[0] || !a[1] || !a[2]) return 0; return Date.UTC(a[2], a[1] - 1, a[0]) - 4 * 86400000; } catch { return 0; } })();
+    const _monNow = (() => { const m = new Date(); const dw = m.getUTCDay(); m.setUTCDate(m.getUTCDate() - (dw === 0 ? 6 : dw - 1)); m.setUTCHours(0, 0, 0, 0); return m.getTime(); })();
+    if (_covMon && _covMon !== _monNow) {
+      _wrStrengthData = null;
+      content.querySelectorAll('[data-wr-chart], #wr-cs-all').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises de la semaine du rapport en cours de reconstruction — rouvre le rapport dans quelques minutes.</div>');
+    } else {
+      _wrStrengthData = null;
+      fetch('/api/currency-strength?period=week').then(r=>r.json()).then(d => {
+        _wrStrengthData = (d && d.currencies) ? d : null;
+        _wrBuildCsAll(_wrStrengthData);
+        _wrLazyCharts(content);
+      }).catch(() => {
+        content.querySelectorAll('[data-wr-chart], #wr-cs-all').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>');
+      });
+    }
   }
 }
 
@@ -8589,7 +8600,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const host = document.getElementById('jr-toolbar'); if (!host) return;
     host.innerHTML =
       '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) / Excel — remplace le gabarit DTP par TON journal">&#8593; Importer (Excel / Notion)</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel — tes colonnes deviennent TON journal">&#8593; Importer (Notion / CSV)</button>'
       + '<input type="file" id="jr-import-file" accept=".zip,.csv,.tsv,.txt,application/zip,application/x-zip-compressed,text/csv,text/tab-separated-values" style="display:none">'
       + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">&#9881; Propriétés</button>'
       + '<span class="jr-tb-spacer"></span>'
@@ -8623,7 +8634,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<div class="jr-empty-sub">Consigne ton premier trade ou importe ton journal existant — statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
         + '<div class="jr-empty-actions">'
         + '<button type="button" class="jr-tb-btn jr-tb-btn--add jr-addrow">+ Ajouter un trade</button>'
-        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un fichier Excel">&#8593; Importer depuis Notion / Excel</button>'
+        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel — tes colonnes deviennent ton journal">&#8593; Importer (Notion / CSV)</button>'
         + '</div></div></td></tr></tbody>';
       const ei = document.getElementById('jr-empty-import');
       if (ei) ei.onclick = () => { const f = document.getElementById('jr-import-file'); if (f) f.click(); };
@@ -9202,6 +9213,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
       pairNote = ' · paire lue depuis « ' + ((rows[0] || [])[idx.pair] || ('colonne ' + (idx.pair + 1))) + ' »';
     }
     console.log('[Journal import]', rows.length, 'lignes · colonnes :', rows[0], '· mapping :', idx, pairNote);
+    // ── JOURNAL À L'IMAGE DU FICHIER (demande user 03/07) : les colonnes NON reconnues ne sont PLUS
+    //    jetées — chacune devient une propriété personnalisée (type deviné : nombre / sélecteur /
+    //    multi-tags / texte) et ses valeurs sont importées. Chaque abonné retrouve SON journal,
+    //    pas le gabarit DTP. Cap 16 nouvelles colonnes (le serveur borne les props à 24/entrée). ──
+    const _claimed = new Set(Object.keys(idx).filter(k => idx[k] >= 0).map(k => idx[k]));
+    const _customCols = [];
+    if (!_jrCols) _jrCols = _jrDefaultCols();
+    (rows[0] || []).forEach((h, i) => {
+      if (_claimed.has(i) || _customCols.length >= 16) return;
+      const label = String(h || '').trim().slice(0, 40);
+      if (!label) return;
+      const vals = [];
+      for (let r = 1; r < rows.length && vals.length < 120; r++) { const v = String((rows[r] || [])[i] || '').trim(); if (v) vals.push(v); }
+      if (!vals.length) return;   // colonne entièrement vide → ignorée
+      // Type deviné sur les valeurs réelles du fichier
+      const numOk    = vals.filter(v => _jrParseNum(v) != null).length;
+      const distinct = new Set(vals.map(v => v.toLowerCase())).size;
+      const multiish = vals.filter(v => /[,;|]/.test(v)).length / vals.length > 0.3;
+      let type = 'text';
+      if (numOk / vals.length >= 0.8) type = 'num';
+      else if (multiish && distinct <= 60) type = 'multi';
+      else if (distinct <= 12 && vals.length >= 4 && vals.every(v => v.length <= 28)) type = 'select';
+      // Clé unique — même génération que l'ajout manuel de colonne
+      const base = _jrNorm(label).replace(/[^a-z0-9]/g, '').slice(0, 12) || 'col';
+      let k = 'c_' + base, n = 1; while (_jrCols.some(c => c.k === k)) k = 'c_' + base + (++n);
+      _jrCols.push({ k, label, type, builtin: false, hidden: false, w: 130 });
+      _customCols.push({ fileIdx: i, k, type });
+    });
     let added = 0;
     for (let r = 1; r < rows.length; r++) {
       const row = rows[r], get = k => idx[k] >= 0 ? String(row[idx[k]] || '').trim() : '';
@@ -9221,14 +9260,36 @@ document.addEventListener('DOMContentLoaded', ()=>{
         fonda: _jrParseNum(get('fonda')), rr: _jrParseNum(get('rr')), risk: _jrParseNum(get('risk')),
         r: _jrParseNum(get('r')), pnlPct: _jrParseNum(get('pnlPct')), equity: _jrParseNum(get('equity')),
         conf: tag('conf'), entryT: tag('entryT'), err: tag('err'), setup: tag('setup'), tf: tag('tf'), sl: tag('sl'),
+        // Valeurs des colonnes personnalisées créées depuis les en-têtes du fichier
+        props: (() => {
+          if (!_customCols.length) return undefined;
+          const p = {};
+          _customCols.forEach(cc => {
+            const raw = String(row[cc.fileIdx] || '').trim(); if (!raw) return;
+            if (cc.type === 'multi') { const a = raw.split(/[,;|]+/).map(s => s.trim()).filter(Boolean).slice(0, 12); if (a.length) p[cc.k] = a; }
+            else p[cc.k] = raw.slice(0, 200);
+          });
+          return Object.keys(p).length ? p : undefined;
+        })(),
       });
       added++;
     }
     if (_jrList.length > 500) _jrList = _jrList.slice(0, 500);
-    if (added) _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
+    if (added) {
+      _jrCustom = true;          // import = journal PERSO (remplace le gabarit DTP, sans jamais mélanger les options)
+      // Le gabarit s'efface devant le fichier : les colonnes builtin ABSENTES de l'import sont masquées
+      // (réactivables via ⚙ Propriétés). pair/date/day restent (essentielles / dérivées de la date).
+      const _keep = { pair: 1, date: 1, day: 1 };
+      _jrCols.forEach(c => { if (c.builtin && !_keep[c.k] && !(idx[c.k] >= 0)) c.hidden = true; });
+    }
     _jrEdit = null; _jrRender();
-    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + pairNote + ' — journal personnalisé'); }
-    else _jrStatus('Import impossible : aucune colonne « Paire » reconnue dans le fichier (' + (rows.length - 1) + ' ligne(s) lue(s)). Vérifie que ton export contient bien une colonne paire/symbole.');
+    const _ccNote = _customCols.length ? ' · ' + _customCols.length + ' propriété(s) créée(s) depuis tes colonnes' : '';
+    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + pairNote + _ccNote + ' — journal personnalisé'); }
+    else {
+      // Import raté → on retire les colonnes personnalisées créées en anticipation (aucune valeur importée)
+      _customCols.forEach(cc => { const ix = _jrCols.findIndex(c => c.k === cc.k); if (ix >= 0) _jrCols.splice(ix, 1); });
+      _jrStatus('Import impossible : aucune colonne « Paire » reconnue dans le fichier (' + (rows.length - 1) + ' ligne(s) lue(s)). Vérifie que ton export contient bien une colonne paire/symbole.');
+    }
     return added;
   }
 
