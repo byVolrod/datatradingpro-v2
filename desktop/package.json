@@ -1,7 +1,7 @@
 {
   "name": "datatradingpro-desktop",
   "productName": "DataTradingPro",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "DataTradingPro — terminal de trading (application bureau)",
   "main": "main.js",
   "author": "DataTradingPro",
@@ -11,6 +11,9 @@
     "start": "electron .",
     "build:win": "electron-builder --win nsis --x64",
     "build:mac": "electron-builder --mac --arm64 --x64"
+  },
+  "dependencies": {
+    "electron-updater": "^6.3.9"
   },
   "devDependencies": {
     "@electron/packager": "^18.3.6",
@@ -24,6 +27,9 @@
     "productName": "DataTradingPro",
     "directories": { "output": "dist" },
     "files": ["main.js", "offline.html", "build/icon.png"],
+    "publish": [
+      { "provider": "generic", "url": "https://desk.datatradingpro.com/downloads/", "channel": "latest" }
+    ],
     "win": {
       "icon": "build/icon.ico",
       "target": [{ "target": "nsis", "arch": ["x64"] }]
