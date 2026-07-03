@@ -1001,8 +1001,9 @@
           </div>
           <div class="pd-ref-stats">
             <div class="pd-ref-stat"><b id="pd-ref-count">0</b><span>Total filleuls</span></div>
-            <div class="pd-ref-stat pd-ref-stat--earn"><b id="pd-ref-earn">0,00 €</b><span>Gains</span></div>
+            <div class="pd-ref-stat pd-ref-stat--earn"><b id="pd-ref-earn">15%</b><span>Commission à vie</span></div>
           </div>
+          <p class="pd-ref-note" style="font-size:12px;color:var(--text3);margin:8px 0 0;line-height:1.5;">Vos commissions&nbsp;<strong style="color:#22c55e">15%</strong> sont suivies et versées directement par Whop&nbsp;— retrouvez vos gains dans votre espace <a href="https://whop.com/dashboard/" target="_blank" rel="noopener" style="color:var(--gold,#e3b23a)">Whop</a>.</p>
           <label class="pd-label">Historique des récompenses</label>
           <div id="pd-ref-history" class="pd-ref-history pd-ref-history--card">
             <div class="pd-ref-empty"><svg class="pd-ref-gift" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C9 3 12 5 12 8c0-3 3-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg><div class="pd-ref-empty-t">Aucun filleul pour le moment</div><div class="pd-ref-empty-s">Partagez votre lien pour commencer à gagner.</div></div>
@@ -1356,7 +1357,7 @@
       const $ = id => document.getElementById(id);
       if ($('pd-ref-link'))       $('pd-ref-link').value = d.link;
       if ($('pd-ref-count'))      $('pd-ref-count').textContent = d.count;
-      if ($('pd-ref-earn'))       $('pd-ref-earn').textContent = d.earnings || '0,00 €';
+      // pd-ref-earn reste « 15% » (commission fixe) : les gains reels sont suivis/verses par Whop, non synces ici.
       const h = $('pd-ref-history');
       if (h && d.history && d.history.length) {
         h.innerHTML = d.history.map(x => { const dt = x.at ? new Date(x.at).toLocaleDateString('fr-FR') : ''; const em = String(x.email || 'Filleul').replace(/[<>&]/g, ''); return '<div class="pd-ref-hrow"><span class="pd-ref-hmail">' + em + '</span><span class="pd-ref-hdate">' + dt + '</span></div>'; }).join('');
