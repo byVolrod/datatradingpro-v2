@@ -9572,15 +9572,44 @@ function _dtpToast(msg, kind) {
   const src = (document.querySelector('script[src*="/js/app.js"]') || {}).src || '';
   const myVer = (src.match(/[?&]v=([0-9A-Za-z]+)/) || [])[1] || '';
   if (!myVer) return;
+  // Application INSTALLÉE (PWA « Installer » ou app desktop .exe/.app qui embarque Chromium) : on affiche
+  // un message plus explicite (« nouvelle icône incluse ») + un rechargement FORCÉ (vide les caches).
+  const _isApp = (() => {
+    try {
+      return window.matchMedia('(display-mode: standalone)').matches
+        || window.navigator.standalone === true
+        || /Electron|DataTradingPro/i.test(navigator.userAgent || '')
+        || (window.location.search || '').indexOf('app=1') !== -1;
+    } catch { return false; }
+  })();
   let shown = false;
+  // Rechargement PROPRE : on vide d'abord tout Cache Storage (service worker / wrapper desktop) puis on
+  // recharge → l'app installée récupère VRAIMENT la dernière version (fini le « bloqué sur l'ancienne »).
+  async function _hardReload() {
+    try { if (window.caches && caches.keys) { const ks = await caches.keys(); await Promise.all(ks.map(k => caches.delete(k))); } } catch {}
+    try { location.reload(); } catch { location.href = location.pathname + '?u=' + Date.now(); }
+  }
   function banner() {
     if (shown || document.getElementById('dtp-update-banner')) return;
     shown = true;
     const b = document.createElement('div');
     b.id = 'dtp-update-banner';
-    b.className = 'dtp-update-banner';
-    b.innerHTML = '<span class="dub-ic">🔄</span><span class="dub-txt">Nouvelle version disponible</span><button type="button" class="dub-btn">Recharger</button>';
-    b.querySelector('.dub-btn').addEventListener('click', () => location.reload());
+    b.className = 'dtp-update-banner' + (_isApp ? ' dtp-update-banner--app' : '');
+    if (_isApp) {
+      b.innerHTML =
+        '<span class="dub-ic">✨</span>'
+        + '<span class="dub-body"><b class="dub-title">Mise à jour de DataTradingPro</b>'
+        + '<span class="dub-txt">Une nouvelle version est prête (nouvelle icône incluse). Mets à jour pour en profiter.</span></span>'
+        + '<button type="button" class="dub-btn">Mettre à jour</button>'
+        + '<button type="button" class="dub-x" title="Plus tard" aria-label="Plus tard">&times;</button>';
+    } else {
+      b.innerHTML =
+        '<span class="dub-ic">🔄</span><span class="dub-txt">Nouvelle version disponible</span>'
+        + '<button type="button" class="dub-btn">Recharger</button>'
+        + '<button type="button" class="dub-x" title="Plus tard" aria-label="Plus tard">&times;</button>';
+    }
+    b.querySelector('.dub-btn').addEventListener('click', _hardReload);
+    b.querySelector('.dub-x').addEventListener('click', () => { b.classList.remove('show'); setTimeout(() => b.remove(), 250); });
     document.body.appendChild(b);
     requestAnimationFrame(() => b.classList.add('show'));
   }
