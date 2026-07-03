@@ -1163,11 +1163,15 @@ async function _whopRenewOrCreate(mem) {
     if (await auth.emailLogHas(dedupKey)) { console.log(`[Whop] Bienvenue déjà envoyée (anti-doublon) → ${mem.email}`); return; }
     const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
     const wu = await auth.createUser({ email: mem.email, password: pwd, name: '', role: 'client', plan: 'professionnel', expiresAt: mem.expiresAt });
-    await auth.emailLogAdd(dedupKey);
-    mailer.sendWelcome({ to: mem.email, name: '', password: pwd, expiresAt: mem.expiresAt }).catch(() => {});
+    // ENVOI FIABLE D'ABORD (await + alerte admin si échec), marqueur SEULEMENT si l'email est VRAIMENT
+    // parti. AVANT (bug des 17 clients du 22/06) : le marqueur était posé AVANT un envoi fire-and-forget
+    // à erreur avalée → si OVH hoquetait, compte créé mais bienvenue jamais envoyée ET jamais retentée.
+    // Désormais : échec → pas de marqueur → le filet _welcomeAutoHeal ré-enverra au prochain cycle.
+    const _wr = await _sendWelcomeReliable({ to: mem.email, name: '', password: pwd, expiresAt: mem.expiresAt });
     _sendWelcomeChat(wu && wu.id);
+    if (_wr && _wr.sent) { await auth.emailLogAdd(dedupKey); try { await auth.emailLogAdd('welcomeok:' + mem.email); } catch {} }   // welcomeok: = envoi CONFIRMÉ (protège du re-envoi par le filet)
     mailer.sendAdminRenewalNotice({ clientEmail: mem.email, clientName: '', expiresAt: mem.expiresAt, isNew: true }).catch(() => {});
-    console.log(`[Whop] Compte créé: ${mem.email}`);
+    console.log(`[Whop] Compte créé: ${mem.email}` + (_wr && _wr.sent ? ` (bienvenue ✅ ${_wr.provider})` : ' (bienvenue ❌ — sera relancée par le filet)'));
     // Parrainage via lien d'affiliation Whop (?a=<username>) : l'adhésion porte l'username du
     // parrain → on crédite le filleul ICI, sans dépendre du cookie landing. Verrou referredby
     // = un filleul ne compte qu'une fois (même s'il repasse ensuite par la landing).
@@ -1255,6 +1259,63 @@ async function _whopReconcile() {
 // Planif : ~60 s après le boot (rattrape les events manqués pendant un downtime) puis toutes les 6 h.
 setTimeout(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] boot:', e.message)); }, 60 * 1000);
 setInterval(() => { _whopReconcile().catch(e => console.error('[Whop reconcile] cycle:', e.message)); }, 6 * 60 * 60 * 1000);
+
+// ══ FILET PERMANENT « ZÉRO CLIENT SANS ACCÈS » ═══════════════════════════════════════════════════
+// Rattrape TOUT client à abonnement VALIDE qui n'a JAMAIS pu se connecter et n'a pas de bienvenue
+// CONFIRMÉE (marqueur welcomeok: posé UNIQUEMENT après un envoi réussi). Génère un mot de passe frais
+// (le compte n'a jamais servi → reset 100 % sûr) et envoie la bienvenue AVEC ce MDP via l'envoi FIABLE
+// (await + alerte admin si échec). Garde-fous : (1) role=client ; (2) abonnement non expiré ; (3) jamais
+// connecté ; (4) compte de plus de 12 h (on ne court pas après une inscription en cours d'onboarding) ;
+// (5) on IGNORE les comptes créés à la main par l'admin (marqueur welcome:) → leurs identifiants ne sont
+// JAMAIS réinitialisés. Résultat : même si un envoi échoue à la création, le client reçoit son accès en
+// quelques heures, tout seul — plus jamais de création manuelle.
+let _welcomeHealBusy = false;
+async function _welcomeAutoHeal(send = true, cap = 20) {
+  if (_welcomeHealBusy) return { busy: true };
+  _welcomeHealBusy = true;
+  const out = { scanned: 0, healed: 0, failed: 0, skippedExpired: 0, capped: false, list: [] };
+  try {
+    let users = []; try { users = await auth.getAllUsers(); } catch { return out; }
+    const now = Date.now();
+    for (const u of users) {
+      if ((u.role || 'client') !== 'client') continue;
+      const email = String(u.email || '').toLowerCase().trim(); if (!email) continue;
+      if (u.last_login) continue;                                          // déjà connecté → a un accès
+      const created = u.created_at ? new Date(u.created_at).getTime() : 0;
+      if (created && now - created < 12 * 3600 * 1000) continue;           // trop récent → onboarding peut être en cours
+      const exp = u.expires_at ? new Date(u.expires_at).getTime() : Number.MAX_SAFE_INTEGER;
+      if (exp < now) { out.skippedExpired++; continue; }                   // abonnement expiré → pas de relance
+      let done = false;
+      try { done = (await auth.emailLogHas('welcomeok:' + email)) || (await auth.emailLogHas('welcome:' + email)); } catch {}
+      if (done) continue;                                                  // bienvenue confirmée OU compte admin → protégé
+      out.scanned++;
+      if (out.healed + out.failed >= cap) { out.capped = true; break; }
+      if (!send) { out.list.push(email); continue; }
+      const pwd = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
+      try { await auth.changePassword(u.id, pwd); } catch { out.failed++; continue; }
+      const r = await _sendWelcomeReliable({ to: email, name: u.name || '', password: pwd, expiresAt: u.expires_at || null });
+      if (r && r.sent) { try { await auth.emailLogAdd('welcomeok:' + email); } catch {} try { _sendWelcomeChat(u.id); } catch {} out.healed++; out.list.push(email); }
+      else out.failed++;
+    }
+  } finally { _welcomeHealBusy = false; }
+  if (send && (out.healed || out.failed)) {
+    console.log(`[Welcome auto-heal] ${out.healed} accueilli(s) · ${out.failed} échec(s) · ${out.skippedExpired} expiré(s) ignoré(s)` + (out.capped ? ' · CAP atteint (reste au prochain cycle)' : ''));
+    try {
+      mailer.sendAdminAlert({
+        subject: `Onboarding auto : ${out.healed} client(s) régularisé(s)${out.failed ? ` · ${out.failed} échec(s)` : ''}`,
+        html: `<p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Le filet d'onboarding a envoyé son accès à <b>${out.healed}</b> client(s) valide(s) jamais connecté(s)${out.failed ? ` — <b style="color:#ef4444">${out.failed} échec(s)</b> à surveiller (santé Mail)` : ''}.<br>Détail : ${out.list.map(e => e.replace(/(.).+(@.+)/, '$1***$2')).join(', ') || '—'}</p>`
+      }).catch(() => {});
+    } catch {}
+  }
+  return out;
+}
+// Planif : boot+120 s (après le 1er reconcile) puis toutes les 6 h. Déclencheur/inspection admin ci-dessous.
+setTimeout(() => { _welcomeAutoHeal(true).catch(e => console.error('[Welcome auto-heal] boot:', e.message)); }, 120 * 1000);
+setInterval(() => { _welcomeAutoHeal(true).catch(e => console.error('[Welcome auto-heal] cycle:', e.message)); }, 6 * 60 * 60 * 1000);
+app.get('/api/admin/welcome-heal', requireAdmin, async (req, res) => {
+  try { const r = await _welcomeAutoHeal(req.query.send === '1', parseInt(req.query.cap, 10) || 20); res.json(r); }
+  catch (e) { res.status(500).json({ error: e.message }); }
+});
 // Déclencheur manuel (admin) + état de la dernière réconciliation
 app.get('/api/admin/whop-reconcile', requireAdmin, async (_req, res) => {
   try { const r = await _whopReconcile(); res.json(Object.assign({ last: _whopReconLast }, r)); }
