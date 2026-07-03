@@ -1360,6 +1360,12 @@ const KV_FOREVER     = 8640000000000;   // lit la valeur quel que soit son âge
 // l'index inverse whopaff:<username> → userId pour créditer les filleuls via le webhook.
 // Repli : si le membre n'a pas de username Whop résolvable, on redonne le lien landing ?ref= (cookie).
 const REF_WHOP_BASE = process.env.REFERRAL_WHOP_BASE || 'https://whop.com/joined/justonetrader/products/jot-dtp/';
+// Lien d'affiliation du PROPRIÉTAIRE (compte admin/owner) : il n'a PAS de membership Whop (il possède
+// le produit) → getAffiliateInfo renvoie null → sans ça, son panneau Parrainages affichait le repli
+// interne ?ref= au lieu de SON lien d'affilié Whop. On utilise son handle Whop (slug de l'espace
+// « justonetrader »), surchargeable via WHOP_OWNER_AFFILIATE ; base courte = format des liens membres.
+const REF_OWNER_AFF     = (process.env.WHOP_OWNER_AFFILIATE || 'justonetrader').trim();
+const REF_WHOP_AFF_BASE = process.env.REFERRAL_WHOP_AFF_BASE || 'https://whop.com/jot-dtp/';
 async function _refWhopAffiliate(uid) {
   try { const c = await auth.aiCacheGet('whopaffinfo:' + uid, KV_FOREVER); if (c && (c.pageUrl || c.username)) return c; } catch {}
   let info = null;
@@ -1423,11 +1429,13 @@ app.get('/api/referrals', async (req, res) => {
     // Lien Whop d'affiliation en priorité (tracking + versement des 10 % par Whop) ; repli landing.
     // pageUrl = lien CANONIQUE renvoyé par Whop (affiliate_page_url) ; sinon on construit ?a=<username>.
     const aff = await _refWhopAffiliate(uid);
+    const isOwner = req.session?.user?.role === 'admin';   // le propriétaire n'a pas de membership → son lien d'affilié = handle de l'espace
     const link = (aff && aff.pageUrl) ? aff.pageUrl
       : (aff && aff.username) ? REF_WHOP_BASE + '?a=' + encodeURIComponent(aff.username)
+      : (isOwner && REF_OWNER_AFF) ? REF_WHOP_AFF_BASE + '?a=' + encodeURIComponent(REF_OWNER_AFF)
       : REF_BASE_URL + '/?ref=' + rec.code;
     res.json({
-      ok: true, code: rec.code, link, whopAffiliate: !!aff,
+      ok: true, code: rec.code, link, whopAffiliate: !!aff || (isOwner && !!REF_OWNER_AFF),
       count, target: REF_TARGET, progress: count % REF_TARGET,
       untilNext: (REF_TARGET - (count % REF_TARGET)) % REF_TARGET || REF_TARGET,
       rewards: rec.rewards || 0, bonusDays: rec.bonusDays || 0,
