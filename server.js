@@ -11648,11 +11648,11 @@ app.get('/internal/email-widget/week-ahead', async (req, res) => {
 app.get('/internal/email-widget/cot', async (req, res) => {
   let currencies = [];
   try { currencies = await fetchCOTData('lev_money'); } catch (e) {}
-  const data = { currencies: currencies || [], type: 'lev_money', updatedAt: new Date().toISOString() };
+  const data = { currencies: (currencies || []).slice(0, 4), type: 'lev_money', updatedAt: new Date().toISOString() };
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css">
-<style>html,body{margin:0;padding:0;background:#0c0e13}#cot-grid{width:600px;box-sizing:border-box;padding:10px 12px}</style>
+<style>html,body{margin:0;padding:0;background:#0c0e13}#cot-grid{width:640px;box-sizing:border-box;padding:10px 12px;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px;align-content:start}</style>
 <script>window.__COT=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var _of=window.fetch;function hit(u){return String(u).indexOf('/api/cot')===0;}window.fetch=function(u){if(hit(u))return Promise.resolve({ok:true,json:function(){return Promise.resolve(window.__COT);}});return _of.apply(this,arguments);};window._dtpJSON=function(u){if(hit(u))return Promise.resolve(window.__COT);return _of(u).then(function(r){return r.json();});};})();</script>
 <script src="/js/charts.js"></script>
 </head><body><div id="cot-grid"></div>
