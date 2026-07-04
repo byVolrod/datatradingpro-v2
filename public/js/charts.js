@@ -1103,13 +1103,13 @@ const _RISK_BAND_EN = {
 // Libellé FR du badge/bande de risque — affichage UNIQUEMENT (la valeur logique data.label reste EN :
 // dérivation de classe `cls`, comparaisons /risk-on/i, couleurs). Couvre les 7 variantes.
 const GAUGE_LABEL_FR = {
-  'STRONG RISK-ON':  'FORT APPÉTIT POUR LE RISQUE',
-  'RISK-ON':         'APPÉTIT POUR LE RISQUE',
-  'WEAK RISK-ON':    'FAIBLE APPÉTIT AU RISQUE',
+  'STRONG RISK-ON':  'FORT APPÉTIT',
+  'RISK-ON':         'APPÉTIT',
+  'WEAK RISK-ON':    'FAIBLE APPÉTIT',
   'NEUTRAL':         'NEUTRE',
-  'WEAK RISK-OFF':   'LÉGÈRE AVERSION AU RISQUE',
-  'RISK-OFF':        'AVERSION AU RISQUE',
-  'STRONG RISK-OFF': 'FORTE AVERSION AU RISQUE',
+  'WEAK RISK-OFF':   'LÉGÈRE AVERSION',
+  'RISK-OFF':        'AVERSION',
+  'STRONG RISK-OFF': 'FORTE AVERSION',
 };
 function _riskBandInner(data) {
   // Phrase façon DTP, construite à partir des VRAIES données (assets réels) → plus jamais
