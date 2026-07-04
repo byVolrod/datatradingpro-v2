@@ -7882,6 +7882,14 @@ function _chatRenderInbox(){
     id: String(u.id), name: u.name || u.email || u.id, email: u.email || '',
     role: u.role || 'user', last: '', lastAt: 0, unread: 0, online: !!u.online, hasThread: false,
   }); });
+  // TRI : les VRAIES conversations d'abord, la plus RÉCEMMENT active en tête (fini « la dernière
+  // discussion ne remonte pas quand je reviens dans l'inbox »). Puis les autres users : en ligne, puis A→Z.
+  const _tms = v => { const t = v ? new Date(v).getTime() : 0; return isNaN(t) ? 0 : t; };
+  entries.sort((a, b) => {
+    if (a.hasThread !== b.hasThread) return a.hasThread ? -1 : 1;
+    if (a.hasThread) return _tms(b.lastAt) - _tms(a.lastAt);
+    return ((b.online ? 1 : 0) - (a.online ? 1 : 0)) || String(a.name || '').localeCompare(String(b.name || ''));
+  });
   const q = _chatInboxQuery;
   const filtered = q ? entries.filter(e => (e.name + ' ' + e.email).toLowerCase().includes(q)) : entries;
   if (!filtered.length){ list.innerHTML = `<div class="chat-empty">${q ? 'Aucun utilisateur trouvé.' : 'Aucun client pour le moment.'}</div>`; return; }
@@ -7906,10 +7914,21 @@ function _chatRenderInbox(){
 // Optimiste : marque un thread comme lu DANS LE CACHE LOCAL + recalcule le badge tout de suite.
 // (Le serveur est la source de vérité — via GET/POST — mais ceci évite que la pastille « traîne »
 //  le temps d'un aller-retour ou d'un cache serveur de 5 min. Fini « j'ai répondu mais la notif reste ».)
-function _chatMarkThreadRead(uid){
+function _chatMarkThreadRead(uid, lastText){
   const ts = (_chatInboxData && _chatInboxData.threads) || [];
   const t = ts.find(x => String(x.user_id) === String(uid));
-  if (t) t.unread = 0;
+  if (t) {
+    t.unread = 0;
+    // lastText fourni (ex. je viens de répondre) → on met à jour l'aperçu + l'horodatage pour que
+    // la conversation REMONTE en tête de l'inbox tout de suite (le tri par récence fait le reste).
+    if (lastText != null) {
+      let p = String(lastText);
+      if (/^data:image\//.test(p)) p = '📷 Image';
+      else if (/^data:/.test(p))   p = '📎 Pièce jointe';
+      else p = p.slice(0, 120);
+      t.last = p; t.lastAt = new Date().toISOString();
+    }
+  }
   if (typeof _chatSetBadge === 'function') _chatSetBadge(ts.filter(x => (x.unread || 0) > 0).length);
   _chatInboxCache = _chatInboxData;
   try { _chatLSSet('inbox', _chatInboxData); } catch {}
@@ -8137,7 +8156,7 @@ function _chatPost(text){
   if (_chatIsSupport() && _chatThreadUser){
     const _uid = _chatThreadUser;
     return fetch('/api/admin/chat/'+encodeURIComponent(_uid),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
-      .then(r=>r.json()).then(()=>{ _chatMarkThreadRead(_uid); _chatOpenThread(_uid,_chatThreadName); }).catch(()=>{});   // répondre = lu → efface le badge tout de suite
+      .then(r=>r.json()).then(()=>{ _chatMarkThreadRead(_uid, text); _chatOpenThread(_uid,_chatThreadName); }).catch(()=>{});   // répondre = lu + remonte la conv en tête
   }
   return fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})})
     .then(r=>r.json()).then(()=>_chatLoad()).catch(()=>{});
