@@ -11627,7 +11627,10 @@ app.get('/internal/email-widget/bias', async (req, res) => {
 
 // Semaine a Venir (_renderWeekAhead, app.js) — TENTATIVE via app.js (fallback si l'init casse).
 app.get('/internal/email-widget/week-ahead', async (req, res) => {
-  const data = (typeof _weekAhead !== 'undefined' && _weekAhead) ? _weekAhead : { week: '', days: [] };
+  const src = (typeof _weekAhead !== 'undefined' && _weekAhead) ? _weekAhead : { week: '', days: [] };
+  // On ne garde que les jours AVEC un evenement (sinon des cartes vides gonflent la hauteur du widget).
+  const days = (src.days || []).filter(d => String((d && (d.headline || d.title || d.summary || d.description)) || '').trim());
+  const data = { week: src.week || '', days };
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css">
