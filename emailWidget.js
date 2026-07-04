@@ -34,6 +34,7 @@ const SPECS = {
   'week-ahead':        { path: '/internal/email-widget/week-ahead',        sel: '.wa-wrap',      w: 640, h: 900, clipLast: '.wa-card' },
   cot:                 { path: '/internal/email-widget/cot',              sel: '#cot-grid',     w: 640, h: 640, clipLast: '.cot-cell' },
   taux:                { path: '/internal/email-widget/taux',             sel: '#taux-grid',    w: 640, h: 760, clipLast: '.rtc' },
+  eclairages:          { path: '/internal/email-widget/eclairages',       sel: '#eci-wrap',     w: 600, h: 560, clipLast: '.eci' },
 };
 
 // ─── Navigateur partagé (lancé à la demande, refermé après inactivité pour ménager la RAM du VPS) ───
