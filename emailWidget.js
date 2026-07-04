@@ -31,7 +31,7 @@ const SPECS = {
   'strength-snapshot': { path: '/internal/email-widget/strength-snapshot', sel: '#box',          w: 600, h: 380 },
   'risk-history':      { path: '/internal/email-widget/risk-history',      sel: '#box',          w: 600, h: 210 },
   bias:                { path: '/internal/email-widget/bias',              sel: '#bias-content', w: 640, h: 470 },
-  'week-ahead':        { path: '/internal/email-widget/week-ahead',        sel: '.wa-wrap',      w: 640, h: 420 },
+  'week-ahead':        { path: '/internal/email-widget/week-ahead',        sel: '.wa-wrap',      w: 640, h: 420, clipLast: '.wa-card' },
 };
 
 // ─── Navigateur partagé (lancé à la demande, refermé après inactivité pour ménager la RAM du VPS) ───
@@ -83,7 +83,25 @@ async function renderWidgetPng(type, opts = {}) {
       await page.waitForFunction('window.__ready === true', { timeout: 20000 }).catch(() => {});   // chaque page de rendu pose __ready apres le rendu (+ delai d'animation)
       const el = await page.$(spec.sel);
       if (!el) throw new Error('element introuvable: ' + spec.sel);
-      const shot = await el.screenshot({ type: 'png' });
+      let shot;
+      if (spec.clipLast) {
+        // Certains conteneurs du desk gardent une hauteur "pleine fenetre" → on decoupe pile au bas du
+        // dernier element de contenu (fini l'espace vide en bas), au lieu de capturer toute la boite.
+        const clip = await page.evaluate((rootSel, lastSel) => {
+          const root = document.querySelector(rootSel);
+          if (!root) return null;
+          const r = root.getBoundingClientRect();
+          const items = document.querySelectorAll(lastSel);
+          const last = items[items.length - 1];
+          const bottom = last ? last.getBoundingClientRect().bottom : r.bottom;
+          return { x: Math.max(0, r.x), y: Math.max(0, r.y), width: Math.max(1, r.width), height: Math.max(40, bottom - r.y + 16) };
+        }, spec.sel, spec.clipLast);
+        shot = clip
+          ? await page.screenshot({ type: 'png', clip, captureBeyondViewport: true })
+          : await el.screenshot({ type: 'png' });
+      } else {
+        shot = await el.screenshot({ type: 'png' });
+      }
       const png = Buffer.from(shot);
       _cache.set(key, { png, ts: Date.now() });
       return png;
