@@ -9929,7 +9929,7 @@ async function _refreshRateProb(force = false) {
 setInterval(() => { _refreshRateProb().catch(() => {}); }, 5 * 60 * 1000);   // tick 5 min ; le refetch RÉEL respecte le TTL adaptatif (15 min normal, 5 min si réunion ≤2 j)
 setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
 
-app.get('/api/rates', (_req, res) => {
+function _buildRatesPayload() {
   try { _refreshRates(); } catch {}
   try { _refreshRateProb().catch(() => {}); } catch {}   // rafraîchit en tâche de fond si périmé (NON bloquant)
   const now = Date.now();
@@ -9964,8 +9964,9 @@ app.get('/api/rates', (_req, res) => {
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null,   // Fed : cross-check proba marché (CME futures)
     };
   });
-  res.json({ asOf: now, model: 'rateprobability+maison', provider: 'rateprobability.com', rpAt: _rpCache.at || null, updatedAt: _ratesState.updatedAt, banks });
-});
+  return { asOf: now, model: 'rateprobability+maison', provider: 'rateprobability.com', rpAt: _rpCache.at || null, updatedAt: _ratesState.updatedAt, banks };
+}
+app.get('/api/rates', (_req, res) => { res.json(_buildRatesPayload()); });
 
 // ── Actualisation IA (optionnelle) des biais TAUX : déclenchée AU CHANGEMENT RÉEL d'un taux (force=true) ou en filet hebdo. EN CACHE, jamais à l'ouverture. ──
 async function _aiRefreshRatesBias(force = false) {
@@ -11657,6 +11658,24 @@ app.get('/internal/email-widget/cot', async (req, res) => {
 <script src="/js/charts.js"></script>
 </head><body><div id="cot-grid"></div>
 <script>(function(){function go(){try{if(typeof buildCOTChart!=='function'){return setTimeout(go,120);}buildCOTChart();setTimeout(function(){window.__ready=true;},1400);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+</body></html>`);
+});
+
+// TAUX (probabilites banques centrales, loadTauxView) — le widget se fetch /api/rates ; on INTERCEPTE le
+// fetch pour lui servir les vraies donnees (_buildRatesPayload), limitees a 4 banques, sans exposer l'endpoint.
+app.get('/internal/email-widget/taux', (_req, res) => {
+  let p = null;
+  try { p = _buildRatesPayload(); } catch (e) {}
+  if (!p) p = { banks: [] };
+  const data = Object.assign({}, p, { banks: (p.banks || []).slice(0, 4) });
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<style>html,body{margin:0;padding:0;background:#0c0e13}#taux-grid{width:640px;box-sizing:border-box;padding:10px 12px;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px;align-content:start}</style>
+<script>window.__RATES=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var _of=window.fetch;function hit(u){return String(u).indexOf('/api/rates')===0;}window.fetch=function(u){if(hit(u))return Promise.resolve({ok:true,json:function(){return Promise.resolve(window.__RATES);}});return _of.apply(this,arguments);};window._dtpJSON=function(u){if(hit(u))return Promise.resolve(window.__RATES);return _of(u).then(function(r){return r.json();});};})();</script>
+<script src="/js/charts.js"></script>
+</head><body><div id="taux-grid"></div>
+<script>(function(){function go(){try{if(typeof loadTauxView!=='function'){return setTimeout(go,120);}Promise.resolve(loadTauxView()).catch(function(){});setTimeout(function(){window.__ready=true;},1700);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
 </body></html>`);
 });
 
