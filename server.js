@@ -11747,7 +11747,14 @@ app.get('/internal/email-widget/eclairages', async (_req, res) => {
     if (!_brCache.length) { try { await _loadPersistedHistories(); } catch (e) {} }
   }
   let items = [];
-  try { items = (_brCache || []).filter(i => { try { return _brAllowed(i) && !_brIsNoise(i.title); } catch (e) { return false; } }).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 6); } catch (e) {}
+  try {
+    const seen = new Set();   // 1 item par institution → un panel varié (pas 2x le meme MUFG « Japan Calendar »)
+    items = (_brCache || [])
+      .filter(i => { try { return _brAllowed(i) && !_brIsNoise(i.title); } catch (e) { return false; } })
+      .slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .filter(i => { const s = String(i._source || i.source || '?'); if (seen.has(s)) return false; seen.add(s); return true; })
+      .slice(0, 6);
+  } catch (e) {}
   const now = Date.now();
   const ago = ts => { const d = Math.max(0, Math.round((now - (ts || now)) / 86400000)); return d === 0 ? "aujourd'hui" : (d === 1 ? 'hier' : d + ' j'); };
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
