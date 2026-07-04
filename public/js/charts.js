@@ -1128,12 +1128,12 @@ function _riskBandInner(data) {
     'RISK-OFF':        'Aversion au risque à l’œuvre.',
     'STRONG RISK-OFF': 'Forte aversion au risque.',
   };
-  const eqTxt    = eq    > 0.1 ? 'actions recherchées' : eq    < -0.1 ? 'actions sous pression' : 'actions stables';
-  const havenTxt = haven > 0.1 ? 'valeurs refuges recherchées' : haven < -0.1 ? 'valeurs refuges en repli' : 'valeurs refuges mitigées';
   const vixTxt   = `VIX ${vix >= 0 ? '+' : ''}${vix.toFixed(1)}%`;
+  // Bande COURTE (demande user) : la conclusion + le VIX seulement (fini « actions…, valeurs refuges… »).
   const phrase = (data.assets && data.assets.length)
-    ? `${LEAD[data.label] || ''} ${eqTxt}, ${havenTxt}. ${vixTxt}.`
+    ? `${LEAD[data.label] || ''} ${vixTxt}.`
     : (_RISK_BAND_EN[data.label] || data.description || '');
+  void eq; void haven;   // (calcules mais plus affiches dans la bande courte)
   return `<span class="risk-ticker-dot"></span><span class="risk-ticker-txt"><strong>${GAUGE_LABEL_FR[data.label] || data.label}:</strong> ${phrase}</span>`;
 }
 
