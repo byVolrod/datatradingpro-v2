@@ -11571,6 +11571,75 @@ app.get('/internal/email-widget/regime', async (req, res) => {
 </body></html>`);
 });
 
+// Classement Force (buildStrengthSnapshot) — memes donnees que la Force des Devises, vue barres classees.
+app.get('/internal/email-widget/strength-snapshot', async (req, res) => {
+  const period = ['today', 'week', '8h', '1d', '5d', '7d', '1m'].includes(req.query.period) ? req.query.period : 'week';
+  let data = null; try { data = await computeCurrencyStrength(period); } catch (e) {}
+  if (!data) data = { currencies: [], series: {}, updatedAt: null };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="/js/charts.js"></script>
+<style>html,body{margin:0;padding:0;background:#0d0e11}#box{width:600px;height:380px;box-sizing:border-box}</style>
+</head><body><div id="box"></div>
+<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof buildStrengthSnapshot!=='function'){return setTimeout(go,120);}buildStrengthSnapshot('box',window.__DATA);setTimeout(function(){window.__ready=true;},800);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+</body></html>`);
+});
+
+// Historique du Risque (buildRiskHistoryChart) — barres quotidiennes risk-on / risk-off.
+app.get('/internal/email-widget/risk-history', async (req, res) => {
+  let series = [], current = null;
+  try {
+    const cutDate = new Date(Date.now() - 60 * 86400000).toISOString().slice(0, 10);
+    series = [..._riskHist.values()].filter(e => e.date >= cutDate).sort((a, b) => (a.date < b.date ? -1 : 1));
+    current = _riskData || await fetchRiskSentiment();
+  } catch (e) {}
+  const data = { series, current: current ? { label: current.label, pct: current.pct, description: current.description, updatedAt: current.updatedAt } : null };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="/js/charts.js"></script>
+<style>html,body{margin:0;padding:0;background:#0d0e11}#box{width:600px;height:200px;box-sizing:border-box}</style>
+</head><body><div id="box"></div>
+<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildRiskHistoryChart!=='function'){return setTimeout(go,120);}buildRiskHistoryChart('box',window.__DATA);setTimeout(function(){window.__ready=true;},1500);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+</body></html>`);
+});
+
+// Radar de Biais (renderBiasView, app.js) — TENTATIVE via app.js (fallback si l'init casse en page isolee).
+app.get('/internal/email-widget/bias', async (req, res) => {
+  let data = null;
+  try { data = _smartBias ? _sbApplyOverrides(_sbFillNarrative(_smartBias)) : null; } catch (e) {}
+  if (!data) data = { currencies: (typeof SB_CURRENCIES !== 'undefined' ? SB_CURRENCIES : []), rows: [], conclusion: {} };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/app.js" defer></script>
+<style>html,body{margin:0;padding:0;background:#0c0e13}#bias-content{width:640px;min-height:460px;padding:10px 12px;box-sizing:border-box}</style>
+</head><body><div id="bias-content"></div>
+<script>window._biasData=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var n=0;function go(){n++;try{if(typeof renderBiasView!=='function'){if(n<80)return setTimeout(go,150);window.__ready=true;return;}renderBiasView(window._biasData);setTimeout(function(){window.__ready=true;},1200);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}setTimeout(go,400);})();</script>
+</body></html>`);
+});
+
+// Semaine a Venir (_renderWeekAhead, app.js) — TENTATIVE via app.js (fallback si l'init casse).
+app.get('/internal/email-widget/week-ahead', async (req, res) => {
+  const data = (typeof _weekAhead !== 'undefined' && _weekAhead) ? _weekAhead : { week: '', days: [] };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="/js/app.js" defer></script>
+<style>html,body{margin:0;padding:0;background:#0c0e13}#wa-content{width:640px;min-height:400px;box-sizing:border-box}</style>
+</head><body><div id="wa-content"></div>
+<script>window._waData=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var n=0;function go(){n++;try{if(typeof _renderWeekAhead!=='function'){if(n<80)return setTimeout(go,150);window.__ready=true;return;}_renderWeekAhead(window._waData);setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}setTimeout(go,400);})();</script>
+</body></html>`);
+});
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
