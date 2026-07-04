@@ -37,7 +37,7 @@ const SPECS = {
 // ─── Navigateur partagé (lancé à la demande, refermé après inactivité pour ménager la RAM du VPS) ───
 let _browser = null, _launching = null, _idleTimer = null;
 async function _getBrowser() {
-  if (_browser && _browser.isConnected()) return _browser;
+  if (_browser && _browser.connected) return _browser;   // puppeteer v25 : propriete .connected (isConnected() supprime)
   if (_launching) return _launching;
   _launching = puppeteer.launch({
     executablePath: CHROME_PATH,
