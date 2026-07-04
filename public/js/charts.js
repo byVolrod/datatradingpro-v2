@@ -580,9 +580,10 @@ function _lighten(hexInt, amt) {
   const lr = Math.round(r + (255 - r) * amt), lg = Math.round(g + (255 - g) * amt), lb = Math.round(b + (255 - b) * amt);
   return '#' + ((lr << 16) | (lg << 8) | lb).toString(16).padStart(6, '0');
 }
-// Badge bi-couleur (façon DTP) : [code devise — couleur pleine] [valeur — teinte claire], texte noir.
+// Badge du bout de courbe : UNIQUEMENT le code devise sur sa couleur pleine (texte noir).
+// (La valeur chiffrée a été retirée à la demande — le badge ne porte plus que le code de la devise.)
 function _csBadgeHtml(ccy, fullHex, lightHex, valStr) {
-  return `<div class="cs-badge"><span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span><span class="cs-badge-val" style="background:${lightHex}">${valStr}</span></div>`;
+  return `<div class="cs-badge"><span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span></div>`;
 }
 function buildStrengthChart(containerId, data, opts = {}) {
   const _focus = opts.focusCurrency || null;   // (optionnel) 1 devise mise en avant, les autres grisées
