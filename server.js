@@ -11565,7 +11565,7 @@ app.get('/internal/email-widget/regime', async (req, res) => {
 <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
 <script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
 <script src="/js/charts.js"></script>
-<style>html,body{margin:0;padding:0;background:#0c0e13}#risk-widget{width:600px;padding:8px 10px}</style>
+<style>html,body{margin:0;padding:0;background:#0c0e13}#risk-widget{width:600px;height:320px;display:flex;flex-direction:column;padding:10px 12px;box-sizing:border-box;background:#0c0e13}</style>
 </head><body><div id="risk-widget"></div>
 <script>window._dtpRisk=${JSON.stringify(risk).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof am5radar==='undefined'||typeof buildRiskGauge!=='function'){return setTimeout(go,120);}buildRiskGauge();setTimeout(function(){window.__ready=true;},1800);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
 </body></html>`);
