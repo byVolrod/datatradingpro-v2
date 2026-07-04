@@ -11733,15 +11733,21 @@ app.get('/internal/email-widget/taux', (_req, res) => {
 // Goldman/ING/MUFG...), 100% informatif (aucun signal BUY/VENTE). Demande user : Eclairages IA <- rapports de banques.
 function _brSourceLabel(s) {
   const raw = String(s || '').toLowerCase();
-  const M = { goldman:'Goldman Sachs', ing:'ING', 'ing-think':'ING', mufg:'MUFG', nomura:'Nomura', standardchartered:'Standard Chartered', 'standard-chartered':'Standard Chartered', commerzbank:'Commerzbank', rabobank:'Rabobank', investinglive:'InvestingLive', deutschebank:'Deutsche Bank', db:'Deutsche Bank', bnp:'BNP Paribas', socgen:'Societe Generale', ubs:'UBS', barclays:'Barclays', citi:'Citi', jpmorgan:'J.P. Morgan', morganstanley:'Morgan Stanley', bofa:'Bank of America', hsbc:'HSBC', scotiabank:'Scotiabank', westpac:'Westpac', wellsfargo:'Wells Fargo' };
+  const M = { goldman:'Goldman Sachs', ing:'ING', 'ing-think':'ING', mufg:'MUFG', nomura:'Nomura', seb:'SEB', kbc:'KBC', danske:'Danske Bank', 'danske-bank':'Danske Bank', westpac:'Westpac', stanchart:'Standard Chartered', standardchartered:'Standard Chartered', 'standard-chartered':'Standard Chartered', syz:'Syz Group', convera:'Convera', commerzbank:'Commerzbank', rabobank:'Rabobank', investinglive:'InvestingLive', deutschebank:'Deutsche Bank', db:'Deutsche Bank', bnp:'BNP Paribas', socgen:'Societe Generale', ubs:'UBS', barclays:'Barclays', citi:'Citi', jpmorgan:'J.P. Morgan', morganstanley:'Morgan Stanley', bofa:'Bank of America', hsbc:'HSBC', scotiabank:'Scotiabank', wellsfargo:'Wells Fargo' };
   if (M[raw]) return M[raw];
   const k = raw.replace(/[^a-z]/g, '');
   if (M[k]) return M[k];
   return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Recherche';
 }
-app.get('/internal/email-widget/eclairages', (_req, res) => {
+app.get('/internal/email-widget/eclairages', async (_req, res) => {
+  // Cache mémoire vidé par un rebuild → on le réchauffe (disque volume = instantané ; puis Supabase si besoin)
+  // AVANT de rendre, pour que le widget ne soit jamais vide juste après un déploiement.
+  if (!Array.isArray(_brCache) || _brCache.length === 0) {
+    try { _brLoadFile(); } catch (e) {}
+    if (!_brCache.length) { try { await _loadPersistedHistories(); } catch (e) {} }
+  }
   let items = [];
-  try { items = (_brCache || []).filter(i => { try { return _brAllowed(i); } catch (e) { return true; } }).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 6); } catch (e) {}
+  try { items = (_brCache || []).filter(i => { try { return _brAllowed(i) && !_brIsNoise(i.title); } catch (e) { return false; } }).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 6); } catch (e) {}
   const now = Date.now();
   const ago = ts => { const d = Math.max(0, Math.round((now - (ts || now)) / 86400000)); return d === 0 ? "aujourd'hui" : (d === 1 ? 'hier' : d + ' j'); };
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
