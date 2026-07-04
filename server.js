@@ -27,6 +27,7 @@ const mailer = require('./mailer');   // emails (bienvenue, renouvellement, rese
 const ai = require('./ai');           // génération IA (Gemini gratuit, repli Claude)
 const { concludeBias } = require('./lib/bias-calc');   // calcul DÉTERMINISTE de l'Overall Conclusion (pur, testable)
 const whop = require('./whop');       // vérification des abonnements Whop (auto-renouvellement)
+const emailWidget = require('./emailWidget');   // rend les VRAIS widgets du desk en PNG (puppeteer) pour les e-mails
 const cheerio = require('cheerio');
 const puppeteer = require('puppeteer-extra');
 const StealthPlugin = require('puppeteer-extra-plugin-stealth');
@@ -197,7 +198,7 @@ function _wsUserIdFromReq(req) {
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO par categorie
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
@@ -11526,6 +11527,42 @@ app.get('/api/currency-strength', async (req, res) => {
     if (!data) return res.status(503).json({ error: 'Data unavailable' });
     res.json(data);
   } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// ─── VRAIS WIDGETS DU DESK EN IMAGE POUR LES E-MAILS (puppeteer screenshot) ──────────────────────
+// Un e-mail n'exécute pas amCharts/JS → on capture le VRAI widget (vraies données) en PNG. La page de
+// rendu interne charge le vrai public/js/charts.js + amCharts et reçoit les données injectées côté
+// serveur (aucune auth, aucun fetch client). Elle est capturée par emailWidget.renderWidgetPng().
+app.get('/internal/email-widget/strength', async (req, res) => {
+  const period = ['today', 'week', '8h', '1d', '5d', '7d', '1m'].includes(req.query.period) ? req.query.period : 'week';
+  let data = null;
+  try { data = await computeCurrencyStrength(period); } catch (e) {}
+  if (!data) data = { currencies: [], series: {}, updatedAt: null };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
+<script src="/js/charts.js"></script>
+<style>html,body{margin:0;padding:0;background:#0d0e11}#box{width:600px;height:300px}</style>
+</head><body><div id="box"></div>
+<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildStrengthChart!=='function'){return setTimeout(go,120);}buildStrengthChart('box',window.__DATA,{isolated:true});setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+</body></html>`);
+});
+
+// Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
+// <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
+app.get('/api/email-widget/:type.png', async (req, res) => {
+  try {
+    const png = await emailWidget.renderWidgetPng(req.params.type, { period: req.query.period });
+    res.set('Content-Type', 'image/png');
+    res.set('Cache-Control', 'public, max-age=600');
+    res.send(png);
+  } catch (e) {
+    console.error('[email-widget]', req.params.type, ':', e.message);
+    res.status(500).json({ error: 'render failed' });
+  }
 });
 
 // ─── Endpoint INTERNE (token) — alimente le cron de rafraichissement des maquettes landing ───
