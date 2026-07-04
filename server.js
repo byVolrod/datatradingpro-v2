@@ -11661,21 +11661,71 @@ app.get('/internal/email-widget/cot', async (req, res) => {
 </body></html>`);
 });
 
-// TAUX (probabilites banques centrales, loadTauxView) — le widget se fetch /api/rates ; on INTERCEPTE le
-// fetch pour lui servir les vraies donnees (_buildRatesPayload), limitees a 4 banques, sans exposer l'endpoint.
+// TAUX (probabilites banques centrales) — rendu SERVEUR des cartes (_rtcCardHtml = copie fidele du desk
+// _rtcCard, HTML pur), donnees _buildRatesPayload. Pas d'amCharts ni de charts.js : on injecte le HTML.
+const _RTC_BANK_FR = { USD: 'Réserve fédérale (OIS)', EUR: 'Banque centrale européenne', GBP: 'Banque d’Angleterre', JPY: 'Banque du Japon', CHF: 'Banque nationale suisse', CAD: 'Banque du Canada', AUD: 'Banque de réserve d’Australie', NZD: 'Banque de réserve de Nouvelle-Zélande' };
+function _rtcCardHtml(b) {
+  const MVC = { HOLD: { txt: 'Maintien', cls: 'w' }, HIKE: { txt: 'Hausse', cls: 'g' }, CUT: { txt: 'Baisse', cls: 'r' } };
+  const fr  = s => { try { const p = String(s).split('-'); return p[2] + '/' + p[1] + '/' + p[0]; } catch (e) { return s; } };
+  const num = (v, dec) => Number(v).toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  const pct = v => num(v, 2) + '%';
+  const bps = v => (v > 0 ? '+' : '') + num(v, 2) + ' bps';
+  const SPK_PATH = {
+    wavy: 'M0 17 C5 11, 9 11, 13 15 C17 19, 21 19, 25 14 C29 9, 33 9, 37 14 C41 19, 45 19, 49 14 C53 9, 57 10, 62 13',
+    up:   'M0 26 C5 24, 7 25, 10 23 C14 20, 16 23, 20 21 C25 18, 27 21, 31 17 C35 13, 37 16, 41 12 C45 8, 47 11, 51 7 C55 3, 58 4, 62 2',
+    down: 'M0 2 C5 4, 7 3, 10 5 C14 8, 16 5, 20 7 C25 10, 27 7, 31 11 C35 15, 37 12, 41 16 C45 20, 47 17, 51 21 C55 25, 58 24, 62 26',
+  };
+  const SPK_COL = { wavy: '#7c879b', up: '#00e676', down: '#ff3d00' };
+  const mspk = kind => {
+    const p = SPK_PATH[kind], c = SPK_COL[kind], gid = 'rtcg-' + kind;
+    return '<svg class="rtc-msp" viewBox="0 0 64 28" fill="none" preserveAspectRatio="none">'
+      + '<defs><linearGradient id="' + gid + '" x1="0" y1="0" x2="0" y2="1">'
+      + '<stop stop-color="' + c + '" stop-opacity="0.30"/><stop offset="1" stop-color="' + c + '" stop-opacity="0"/></linearGradient></defs>'
+      + '<path d="' + p + ' L62 28 L0 28 Z" fill="url(#' + gid + ')"/>'
+      + '<path d="' + p + '" stroke="' + c + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  };
+  const mv = MVC[b.move] || MVC.HOLD;
+  const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
+  const mvSpk  = b.move === 'HIKE' ? 'up' : (b.move === 'CUT' ? 'down' : 'wavy');
+  const expSpk = b.expBps > 0 ? 'up' : (b.expBps < 0 ? 'down' : 'wavy');
+  const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
+  const scen = [['Maintien', sc.hold, 'n'], ['Hausse', sc.hike, 'g'], ['Baisse', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
+  const scRows = (scen.length ? scen : [['Maintien', 0, 'n']]).map(s =>
+    '<div class="rtc-bar"><span class="rtc-bl">' + s[0] + '</span><span class="rtc-track"><i class="' + s[2] + '" style="width:' + Math.max(0.6, s[1]) + '%"></i></span><span class="rtc-bp">' + pct(s[1]) + '</span></div>').join('');
+  const rows = (b.meetings || []).map(m => {
+    const ib = m.impliedBps > 0 ? 'g' : (m.impliedBps < 0 ? 'r' : 'n');
+    const bc = m.baseCase === 'HIKE' ? 'g' : (m.baseCase === 'CUT' ? 'r' : 'n');
+    return '<tr><td>' + fr(m.date) + '</td><td class="rtc-day">' + m.days + 'd</td>'
+      + '<td>' + pct(m.cut) + '</td><td>' + pct(m.hold) + '</td><td>' + pct(m.hike) + '</td>'
+      + '<td><span class="rtc-pill ' + ib + '">' + bps(m.impliedBps) + '</span></td>'
+      + '<td><span class="rtc-base ' + bc + '">' + m.baseCase + '</span></td></tr>';
+  }).join('');
+  return '<div class="rtc">'
+    + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="">'
+    + '<span class="rtc-bank">' + (_RTC_BANK_FR[b.code] || b.bank) + '</span></div>'
+    + '<div class="rtc-metrics">'
+    + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
+    + '<div class="rtc-m"><span class="rtc-k">Probabilité</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + mspk('wavy') + '</div>'
+    + '<div class="rtc-m"><span class="rtc-k">Δ attendu</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
+    + '<div class="rtc-m"><span class="rtc-k">Taux actuel</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
+    + '<div class="rtc-m"><span class="rtc-k">Date de réunion</span><span class="rtc-v w">' + (b.next ? fr(b.next) : '&mdash;') + '</span></div>'
+    + '</div>'
+    + '<div class="rtc-dist"><div class="rtc-dist-h">Distribution des scénarios</div>' + scRows
+    + '<div class="rtc-axis"><span>0%</span><span>25%</span><span>50%</span><span>75%</span><span>100%</span></div></div>'
+    + '<div class="rtc-tblwrap"><table class="rtc-tbl"><thead><tr><th>Date de réunion</th><th>Jour</th><th>Baisse (%)</th><th>Maintien (%)</th><th>Hausse (%)</th><th>Δ implicite (BPS)</th><th>Scénario central</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+    + '</div>';
+}
 app.get('/internal/email-widget/taux', (_req, res) => {
   let p = null;
   try { p = _buildRatesPayload(); } catch (e) {}
-  if (!p) p = { banks: [] };
-  const data = Object.assign({}, p, { banks: (p.banks || []).slice(0, 4) });
+  const banks = ((p && p.banks) || []).slice(0, 4);
+  const cards = banks.map(_rtcCardHtml).join('');
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css">
-<style>html,body{margin:0;padding:0;background:#0c0e13}#taux-grid{width:640px;box-sizing:border-box;padding:10px 12px;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px;align-content:start}</style>
-<script>window.__RATES=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var _of=window.fetch;function hit(u){return String(u).indexOf('/api/rates')===0;}window.fetch=function(u){if(hit(u))return Promise.resolve({ok:true,json:function(){return Promise.resolve(window.__RATES);}});return _of.apply(this,arguments);};window._dtpJSON=function(u){if(hit(u))return Promise.resolve(window.__RATES);return _of(u).then(function(r){return r.json();});};})();</script>
-<script src="/js/charts.js"></script>
-</head><body><div id="taux-grid"></div>
-<script>(function(){function go(){try{if(typeof loadTauxView!=='function'){return setTimeout(go,120);}Promise.resolve(loadTauxView()).catch(function(){});setTimeout(function(){window.__ready=true;},1700);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+<style>html,body{margin:0;padding:0;background:#0c0e13}#taux-grid{width:640px;box-sizing:border-box;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}#taux-grid .rtc{height:auto;min-height:0}#taux-grid .rtc-tblwrap{max-height:none;overflow:visible}</style>
+</head><body><div id="taux-grid">${cards}</div>
+<script>setTimeout(function(){window.__ready=true;},400);</script>
 </body></html>`);
 });
 
