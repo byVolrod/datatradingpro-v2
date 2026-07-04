@@ -11639,7 +11639,7 @@ app.get('/internal/email-widget/week-ahead', async (req, res) => {
 <script src="/js/app.js" defer></script>
 <style>html,body{margin:0;padding:0;background:#0c0e13}#wa-content{width:640px;height:auto;box-sizing:border-box}.wa-chartbox{display:none!important}.wa-wrap{height:auto!important;min-height:0!important;padding-bottom:16px!important}.wa-timeline{height:auto!important;max-height:none!important;min-height:0!important;overflow:visible!important;flex:none!important}</style>
 </head><body><div id="wa-content"></div>
-<script>window._waData=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var n=0;function go(){n++;try{if(typeof _renderWeekAhead!=='function'){if(n<80)return setTimeout(go,150);window.__ready=true;return;}_renderWeekAhead(window._waData);setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}setTimeout(go,400);})();</script>
+<script>window._waData=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var n=0;function go(){n++;try{if(typeof _renderWeekAhead!=='function'){if(n<80)return setTimeout(go,150);window.__ready=true;return;}_renderWeekAhead(window._waData);setTimeout(function(){try{document.querySelectorAll('#wa-content .wa-card,#wa-content .wa-tl-item,#wa-content .wa-day').forEach(function(el){el.style.opacity='1';el.style.transform='none';el.style.transition='none';el.style.animation='none';});}catch(e){}window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}setTimeout(go,400);})();</script>
 </body></html>`);
 });
 
