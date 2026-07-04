@@ -11643,6 +11643,23 @@ app.get('/internal/email-widget/week-ahead', async (req, res) => {
 </body></html>`);
 });
 
+// COT (positionnement institutionnel, buildCOTChart) — le widget se fetch /api/cot ; on INTERCEPTE le
+// fetch pour lui servir les vraies donnees injectees cote serveur (fetchCOTData, sans exposer /api/cot public).
+app.get('/internal/email-widget/cot', async (req, res) => {
+  let currencies = [];
+  try { currencies = await fetchCOTData('lev_money'); } catch (e) {}
+  const data = { currencies: currencies || [], type: 'lev_money', updatedAt: new Date().toISOString() };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<style>html,body{margin:0;padding:0;background:#0c0e13}#cot-grid{width:600px;box-sizing:border-box;padding:10px 12px}</style>
+<script>window.__COT=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){var _of=window.fetch;function hit(u){return String(u).indexOf('/api/cot')===0;}window.fetch=function(u){if(hit(u))return Promise.resolve({ok:true,json:function(){return Promise.resolve(window.__COT);}});return _of.apply(this,arguments);};window._dtpJSON=function(u){if(hit(u))return Promise.resolve(window.__COT);return _of(u).then(function(r){return r.json();});};})();</script>
+<script src="/js/charts.js"></script>
+</head><body><div id="cot-grid"></div>
+<script>(function(){function go(){try{if(typeof buildCOTChart!=='function'){return setTimeout(go,120);}buildCOTChart();setTimeout(function(){window.__ready=true;},1400);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+</body></html>`);
+});
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
