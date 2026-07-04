@@ -31,7 +31,7 @@ const SPECS = {
   'strength-snapshot': { path: '/internal/email-widget/strength-snapshot', sel: '#box',          w: 600, h: 380 },
   'risk-history':      { path: '/internal/email-widget/risk-history',      sel: '#box',          w: 600, h: 210 },
   bias:                { path: '/internal/email-widget/bias',              sel: '#bias-content', w: 640, h: 470 },
-  'week-ahead':        { path: '/internal/email-widget/week-ahead',        sel: '.wa-wrap',      w: 640, h: 420, clipLast: '.wa-card' },
+  'week-ahead':        { path: '/internal/email-widget/week-ahead',        sel: '.wa-wrap',      w: 640, h: 900, clipLast: '.wa-card' },
 };
 
 // ─── Navigateur partagé (lancé à la demande, refermé après inactivité pour ménager la RAM du VPS) ───
