@@ -92,12 +92,10 @@ async function renderWidgetPng(type, opts = {}) {
           if (!root) return { _err: 'no root ' + rootSel };
           const r = root.getBoundingClientRect();
           const items = document.querySelectorAll(lastSel);
-          const cards = Array.from(items).map(el => { const b = el.getBoundingClientRect(); const s = getComputedStyle(el); return { t: Math.round(b.top), b: Math.round(b.bottom), op: s.opacity, vis: s.visibility, disp: s.display }; });
           const last = items[items.length - 1];
           const bottom = last ? last.getBoundingClientRect().bottom : r.bottom;
-          return { rootH: Math.round(r.height), n: items.length, cards, x: Math.max(0, r.x), y: Math.max(0, r.y), width: Math.max(1, r.width), height: Math.max(40, bottom - r.y + 16) };
+          return { x: Math.max(0, r.x), y: Math.max(0, r.y), width: Math.max(1, r.width), height: Math.max(40, bottom - r.y + 16) };
         }, spec.sel, spec.clipLast);
-        console.log('[ew-dbg]', type, JSON.stringify(clip));
         shot = clip
           ? await page.screenshot({ type: 'png', clip, captureBeyondViewport: true })
           : await el.screenshot({ type: 'png' });
