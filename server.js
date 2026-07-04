@@ -11729,6 +11729,39 @@ app.get('/internal/email-widget/taux', (_req, res) => {
 </body></html>`);
 });
 
+// Éclairages IA (rapports de banques) — rendu SERVEUR d'une liste des dernieres recherches banques (_brCache :
+// Goldman/ING/MUFG...), 100% informatif (aucun signal BUY/VENTE). Demande user : Eclairages IA <- rapports de banques.
+function _brSourceLabel(s) {
+  const raw = String(s || '').toLowerCase();
+  const M = { goldman:'Goldman Sachs', ing:'ING', 'ing-think':'ING', mufg:'MUFG', nomura:'Nomura', standardchartered:'Standard Chartered', 'standard-chartered':'Standard Chartered', commerzbank:'Commerzbank', rabobank:'Rabobank', investinglive:'InvestingLive', deutschebank:'Deutsche Bank', db:'Deutsche Bank', bnp:'BNP Paribas', socgen:'Societe Generale', ubs:'UBS', barclays:'Barclays', citi:'Citi', jpmorgan:'J.P. Morgan', morganstanley:'Morgan Stanley', bofa:'Bank of America', hsbc:'HSBC', scotiabank:'Scotiabank', westpac:'Westpac', wellsfargo:'Wells Fargo' };
+  if (M[raw]) return M[raw];
+  const k = raw.replace(/[^a-z]/g, '');
+  if (M[k]) return M[k];
+  return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Recherche';
+}
+app.get('/internal/email-widget/eclairages', (_req, res) => {
+  let items = [];
+  try { items = (_brCache || []).filter(i => { try { return _brAllowed(i); } catch (e) { return true; } }).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 6); } catch (e) {}
+  const now = Date.now();
+  const ago = ts => { const d = Math.max(0, Math.round((now - (ts || now)) / 86400000)); return d === 0 ? "aujourd'hui" : (d === 1 ? 'hier' : d + ' j'); };
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rows = items.length
+    ? items.map(i => `<div class="eci"><div class="eci-top"><span class="eci-src">${_e(_brSourceLabel(i._source || i.source))}</span><span class="eci-date">${ago(i.timestamp)}</span></div><div class="eci-title">${_e(i.title || i.headline || '')}</div></div>`).join('')
+    : '<div class="eci"><div class="eci-title" style="color:#8a8f98">Aucune recherche disponible pour le moment.</div></div>';
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<style>html,body{margin:0;padding:0;background:#0c0e13;font-family:-apple-system,"Inter","Segoe UI",sans-serif}
+#eci-wrap{width:600px;box-sizing:border-box;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.eci{background:#0f0f12;border:1px solid #17171c;border-left:2px solid #e3b23a;border-radius:8px;padding:11px 13px}
+.eci-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
+.eci-src{font-weight:800;font-size:12px;color:#e3b23a}
+.eci-date{font-family:ui-monospace,monospace;font-size:10px;color:#8a8f98;text-transform:uppercase}
+.eci-title{font-size:13px;color:#e8eaed;line-height:1.42}</style>
+</head><body><div id="eci-wrap">${rows}</div>
+<script>setTimeout(function(){window.__ready=true;},300);</script>
+</body></html>`);
+});
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
