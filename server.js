@@ -1133,6 +1133,7 @@ app.put('/api/auth/me/password', async (req, res) => {
 
 // ─── Whop : webhook d'auto-renouvellement / création de compte ───────────────
 async function _whopRenewOrCreate(mem) {
+  if (auth.isEmailBlacklisted(mem.email)) { console.log('[Whop] Email sur liste noire, ignoré →', mem.email); return; }
   const users = await auth.getAllUsers();
   const existing = users.find(u => (u.email || '').toLowerCase() === mem.email);
   if (existing) {

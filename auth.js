@@ -247,6 +247,20 @@ try { const _d = JSON.parse(fs.readFileSync(USERS_DELETED_FILE, 'utf8')); if (Ar
 function _isTombstoned(id) { return id != null && _deletedIds.has(String(id)); }
 function _tombstone(id) { if (id == null) return; _deletedIds.add(String(id)); try { fs.writeFileSync(USERS_DELETED_FILE, JSON.stringify([..._deletedIds])); } catch {} }
 
+// ─── Liste noire : e-mails BANNIS « partout » (login refusé + création refusée + réactivation Whop ignorée).
+//     Persiste en fichier (comme les pierres tombales) MAIS surtout SEEDÉE en dur → le blocage survit à un
+//     rebuild Docker même si le disque du conteneur est éphémère. Insensible à la casse et aux espaces.
+const USERS_BLACKLIST_FILE = path.join(_DATA_DIR, 'users_blacklist.json');
+const _blacklist = new Set();
+try { const _b = JSON.parse(fs.readFileSync(USERS_BLACKLIST_FILE, 'utf8')); if (Array.isArray(_b)) _b.forEach(x => _blacklist.add(String(x).toLowerCase().trim())); } catch {}
+function _blacklistSave() { try { fs.writeFileSync(USERS_BLACKLIST_FILE, JSON.stringify([..._blacklist])); } catch {} }
+function isEmailBlacklisted(email) { return !!email && _blacklist.has(String(email).toLowerCase().trim()); }
+function blacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); if (!em) return false; if (!_blacklist.has(em)) { _blacklist.add(em); _blacklistSave(); } return true; }
+function unblacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); const had = _blacklist.delete(em); if (had) _blacklistSave(); return had; }
+// Seed en dur : garantit le blocage dès le 1er boot, sans dépendre du fichier. Extensible via blacklistEmail().
+const _BLACKLIST_SEED = ['pmttraderoff@gmail.com'];
+_BLACKLIST_SEED.forEach(e => { const em = String(e).toLowerCase().trim(); if (em && !_blacklist.has(em)) { _blacklist.add(em); _blacklistSave(); } });
+
 // ─── File d'attente des écritures hors-ligne (rejouées vers Supabase dès son retour) ───
 let _pendingWrites = [];   // [{ id, fields, ts, attempts }]
 try { _pendingWrites = JSON.parse(fs.readFileSync(USERS_PENDING_FILE, 'utf8')) || []; } catch {}
@@ -423,6 +437,7 @@ const isStaff = r => r === 'admin' || r === 'support';
 
 async function verifyLogin(email, password) {
   const em = (email || '').toLowerCase().trim();
+  if (isEmailBlacklisted(em)) return null;   // liste noire → jamais de connexion (réponse générique, on ne révèle pas l'état)
   let data = null, down = false;
   try {
     const r = await supabase.from(TABLE).select('*').eq('email', em).single();
@@ -539,6 +554,7 @@ async function createUser({ email, password, name = '', role = 'client', plan = 
   }
   const hash = await bcrypt.hash(password, SALT_ROUNDS);
   const em = email.toLowerCase().trim();
+  if (isEmailBlacklisted(em)) throw new Error('Cet email n\'est pas autorisé.');   // liste noire → aucune création (bloque aussi le provisioning Whop)
   if (_mirrorGet(em)) throw new Error('Cet email est déjà utilisé par un autre compte.');   // anti-doublon rapide (et seul rempart si la base principale est muette)
   const id = require('crypto').randomUUID();   // id généré côté serveur → cohérent miroir + rejeu vers la base
   const row = { id, email: em, password_hash: hash, name: nm, role, plan, active: true, expires_at: expiresAt || null };
@@ -1018,6 +1034,9 @@ module.exports = {
   getAllUsers,
   getUserById,
   createUser,
+  isEmailBlacklisted,
+  blacklistEmail,
+  unblacklistEmail,
   changePassword,
   updateUser,
   deleteUser,
