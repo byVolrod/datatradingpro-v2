@@ -11551,6 +11551,26 @@ app.get('/internal/email-widget/strength', async (req, res) => {
 </body></html>`);
 });
 
+// Régime de Marché (jauge radar risk-on/risk-off) — vrai buildRiskGauge() du desk, données injectées.
+app.get('/internal/email-widget/regime', async (req, res) => {
+  let risk = null;
+  try { risk = await fetchRiskSentiment(); } catch (e) {}
+  if (!risk) risk = { label: 'NEUTRAL', score: 0, pct: 0, updatedAt: null };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<script src="https://cdn.amcharts.com/lib/5/index.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/radar.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
+<script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
+<script src="/js/charts.js"></script>
+<style>html,body{margin:0;padding:0;background:#0c0e13}#risk-widget{width:600px;padding:8px 10px}</style>
+</head><body><div id="risk-widget"></div>
+<script>window._dtpRisk=${JSON.stringify(risk).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof am5radar==='undefined'||typeof buildRiskGauge!=='function'){return setTimeout(go,120);}buildRiskGauge();setTimeout(function(){window.__ready=true;},1800);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+</body></html>`);
+});
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
