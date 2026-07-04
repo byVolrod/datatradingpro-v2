@@ -1,6 +1,61 @@
+# DataTradingPro — robots.txt
+# Terminal d'intelligence de marche macro & forex (francais).
+# Toutes les pages publiques sont indexables. Les assistants IA sont EXPLICITEMENT bienvenus.
+
 User-agent: *
 Allow: /
 
-# Pas de blocage : toutes les pages publiques sont indexables.
+# ── Assistants IA & moteurs generatifs : acces explicitement autorise ──
+User-agent: GPTBot
+Allow: /
+
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
+User-agent: Applebot-Extended
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: CCBot
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Meta-ExternalAgent
+Allow: /
+
+User-agent: DuckAssistBot
+Allow: /
+
+User-agent: YouBot
+Allow: /
 
 Sitemap: https://datatradingpro.com/sitemap.xml
+# Resume du site pour les LLM (convention llmstxt.org) : https://datatradingpro.com/llms.txt
