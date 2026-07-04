@@ -26,8 +26,12 @@ const BASE = `http://127.0.0.1:${PORT}`;
 
 // Catalogue des widgets rendus (chaque type = une route de rendu + un sélecteur + une taille logique).
 const SPECS = {
-  strength: { path: '/internal/email-widget/strength', sel: '#box',         w: 600, h: 300 },
-  regime:   { path: '/internal/email-widget/regime',   sel: '#risk-widget', w: 600, h: 360 },
+  strength:            { path: '/internal/email-widget/strength',          sel: '#box',          w: 600, h: 300 },
+  regime:              { path: '/internal/email-widget/regime',            sel: '#risk-widget',  w: 600, h: 360 },
+  'strength-snapshot': { path: '/internal/email-widget/strength-snapshot', sel: '#box',          w: 600, h: 380 },
+  'risk-history':      { path: '/internal/email-widget/risk-history',      sel: '#box',          w: 600, h: 210 },
+  bias:                { path: '/internal/email-widget/bias',              sel: '#bias-content', w: 640, h: 470 },
+  'week-ahead':        { path: '/internal/email-widget/week-ahead',        sel: '#wa-content',   w: 640, h: 420 },
 };
 
 // ─── Navigateur partagé (lancé à la demande, refermé après inactivité pour ménager la RAM du VPS) ───
@@ -76,9 +80,9 @@ async function renderWidgetPng(type, opts = {}) {
     try {
       await page.setViewport({ width: spec.w + 24, height: spec.h + 24, deviceScaleFactor: 2 });   // 2x = net en HD
       await page.goto(`${BASE}${spec.path}?period=${period}`, { waitUntil: 'domcontentloaded', timeout: 25000 });
-      await page.waitForSelector(`${spec.sel} canvas`, { timeout: 15000 });
-      await page.waitForFunction('window.__ready === true', { timeout: 12000 }).catch(() => {});   // laisse l'animation d'apparition se poser
+      await page.waitForFunction('window.__ready === true', { timeout: 20000 }).catch(() => {});   // chaque page de rendu pose __ready apres le rendu (+ delai d'animation)
       const el = await page.$(spec.sel);
+      if (!el) throw new Error('element introuvable: ' + spec.sel);
       const shot = await el.screenshot({ type: 'png' });
       const png = Buffer.from(shot);
       _cache.set(key, { png, ts: Date.now() });
