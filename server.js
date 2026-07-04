@@ -11723,7 +11723,7 @@ app.get('/internal/email-widget/taux', (_req, res) => {
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css">
-<style>html,body{margin:0;padding:0;background:#0c0e13}#taux-grid{width:640px;box-sizing:border-box;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}#taux-grid .rtc{height:auto;min-height:0}#taux-grid .rtc-tblwrap{max-height:none;overflow:visible}</style>
+<style>html,body{margin:0;padding:0;background:#0c0e13}#taux-grid{width:640px;box-sizing:border-box;padding:10px 12px;display:grid;grid-template-columns:1fr 1fr;gap:8px;align-content:start}#taux-grid .rtc{height:auto;min-height:0}#taux-grid .rtc-tblwrap{display:none!important}</style>
 </head><body><div id="taux-grid">${cards}</div>
 <script>setTimeout(function(){window.__ready=true;},400);</script>
 </body></html>`);
