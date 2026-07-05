@@ -6398,26 +6398,8 @@ function _renderWeeklyRecap(item) {
         (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
       });
     }
-    // ── Banques Centrales (demandé) — format research note : 1 bloc par banque = paragraphe fluide de synthèse
-    //    (sans étiquettes) + propos clés du banquier central en ITALIQUE, chacun suivi de son analyse. ──
-    if (Array.isArray(w.centralBanks) && w.centralBanks.length) {
-      body += `<div class="wr-section-title">Banques Centrales</div><div class="wr-cb-grid">`;
-      w.centralBanks.forEach(cb => {
-        const st = String(cb.stance || 'neutral').toLowerCase();
-        const stLbl = st === 'hawkish' ? 'HAWKISH' : st === 'dovish' ? 'DOVISH' : 'NEUTRE';
-        body += `<div class="wr-cb-card"><div class="wr-cb-head"><span class="wr-cb-name">${_wrEsc(cb.bank)}</span><span class="wr-cb-stance wr-cb-stance--${st}">${stLbl}</span></div>`;
-        if (cb.narrative) body += `<div class="wr-cb-narr">${_wrParas(cb.narrative)}</div>`;
-        (cb.quotes || []).forEach(q => {
-          if (!q || (!q.quote && !q.analysis)) return;
-          body += `<div class="wr-cb-quote">`;
-          if (q.quote)    body += `<blockquote class="wr-cb-q">${_wrInline(q.quote)}</blockquote>`;
-          if (q.analysis) body += `<div class="wr-cb-a">${_wrInline(q.analysis)}</div>`;
-          body += `</div>`;
-        });
-        body += `</div>`;
-      });
-      body += `</div>`;
-    }
+    // ── Banques Centrales : rendues DANS les Points Macro Clés (thème « Banques Centrales », 1 puce par banque),
+    //    injecté côté serveur dans w.macro (demande user). Plus de section séparée en cartes ici. ──
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
       body += `<div class="wr-section-title">Analyse par devise</div>`;
