@@ -11879,6 +11879,53 @@ app.get('/internal/email-widget/analystes', async (_req, res) => {
 </body></html>`);
 });
 
+// Illustrations editoriales des e-mails MINDSET (psychologie) — PAS de widget de marche, mais une image
+// dans l'IDENTITE DTP (sombre + or, monogramme DT) qui accompagne le texte. Demande user. Rendu SERVEUR (SVG).
+function _mindsetArtSvg(which) {
+  const W = 1200, H = 560;
+  let grid = '';
+  for (let x = 0; x <= W; x += 60) grid += `<line x1="${x}" y1="0" x2="${x}" y2="${H}"/>`;
+  for (let y = 0; y <= H; y += 60) grid += `<line x1="0" y1="${y}" x2="${W}" y2="${y}"/>`;
+  let scene = '';
+  if (which === 'ego') {
+    const wl = 296;   // ligne d'eau ; petit sommet visible (ego) au-dessus, masse immense (le cout) au-dessous
+    scene =
+      `<path d="M470,${wl} L730,${wl} L600,${wl + 232} Z" fill="#e3b23a" opacity="0.05"/>` +
+      `<path d="M470,${wl} L730,${wl} L600,${wl + 232} Z" fill="none" stroke="#b8860b" stroke-width="1.5" stroke-opacity="0.45" stroke-linejoin="round"/>` +
+      `<path d="M523,${wl + 46} L677,${wl + 46} L600,${wl + 150} Z" fill="none" stroke="#b8860b" stroke-width="1" stroke-opacity="0.25" stroke-linejoin="round"/>` +
+      `<line x1="70" y1="${wl}" x2="1130" y2="${wl}" stroke="url(#gold)" stroke-width="1.6" opacity="0.7"/>` +
+      `<line x1="70" y1="${wl + 9}" x2="1130" y2="${wl + 9}" stroke="#e3b23a" stroke-width="1" opacity="0.1"/>` +
+      `<path d="M572,${wl} L620,${wl - 84} L668,${wl} Z" fill="#e3b23a" opacity="0.16"/>` +
+      `<path d="M572,${wl} L620,${wl - 84} L668,${wl} Z" fill="none" stroke="url(#gold)" stroke-width="3" stroke-linejoin="round" filter="url(#glow)"/>`;
+  } else {
+    let noise = '';
+    for (let i = 0; i < 9; i++) { const y = 150 + i * 30; noise += `<path d="M70,${y} C 270,${y - 13} 370,${y + 15} 530,${y - 7} S 830,${y + 13} 1130,${y}"/>`; }
+    scene =
+      `<g fill="none" stroke="#3b3b45" stroke-width="1.4" opacity="0.5">${noise}</g>` +
+      `<path d="M70,300 C 310,300 390,182 560,172 S 900,140 1130,140" fill="none" stroke="url(#gold)" stroke-width="3.6" stroke-linecap="round" filter="url(#glow)"/>` +
+      `<circle cx="560" cy="172" r="4.5" fill="#e3b23a"/>` +
+      `<circle cx="1130" cy="140" r="7" fill="#f4d47a" filter="url(#glow)"/>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="40%" r="80%"><stop offset="0%" stop-color="#16161c"/><stop offset="62%" stop-color="#0c0c0f"/><stop offset="100%" stop-color="#08080a"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0.35"><stop offset="0%" stop-color="#8a6a1e"/><stop offset="46%" stop-color="#e3b23a"/><stop offset="100%" stop-color="#f4d47a"/></linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+  </defs>
+  <rect width="${W}" height="${H}" fill="url(#bg)"/>
+  <g stroke="#e3b23a" stroke-width="1" opacity="0.045">${grid}</g>
+  ${scene}
+  <g transform="translate(58,54)"><rect x="-26" y="-26" width="52" height="52" rx="13" fill="url(#gold)"/><text x="0" y="8" font-family="'Inter Tight',Arial,sans-serif" font-size="23" font-weight="800" fill="#1a1206" text-anchor="middle">DT</text></g>
+  <text x="100" y="60" font-family="'Inter Tight',Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="3.5" fill="#e3b23a" opacity="0.92">MINDSET</text>
+  <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" fill="none" stroke="#e3b23a" stroke-opacity="0.09"/>
+</svg>`;
+}
+function _mindsetArtPage(which) {
+  return `<!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:#08080a}#art{width:600px}#art svg{width:100%;display:block}</style></head><body><div id="art">${_mindsetArtSvg(which)}</div><script>setTimeout(function(){window.__ready=true;},250);</script></body></html>`;
+}
+app.get('/internal/email-widget/mindset-methode', (_req, res) => { res.set('Cache-Control', 'no-store'); res.type('html').send(_mindsetArtPage('methode')); });
+app.get('/internal/email-widget/mindset-ego',     (_req, res) => { res.set('Cache-Control', 'no-store'); res.type('html').send(_mindsetArtPage('ego')); });
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
