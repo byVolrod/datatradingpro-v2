@@ -5034,11 +5034,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-stance--hawkish { color:#0c0c0e; background:#e0863a; }
 .wr-cb-stance--dovish { color:#0c0c0e; background:#3aa0e0; }
 .wr-cb-stance--neutral { color:#cfd2d8; background:#2a2a30; }
-.wr-cb-row { font-size:12.5px; line-height:1.55; color:#c3c6cc; margin-top:6px; }
-.wr-cb-lab { font-family:var(--tight); font-weight:700; color:#e3b23a; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; }
-.wr-cb-row .wr-cb-val strong, .wr-cb-interp strong { color:#fff; font-weight:var(--fw-semibold); }
-.wr-cb-interp { margin-top:10px; padding:9px 11px; background:rgba(227,178,58,.06); border:1px solid rgba(227,178,58,.18); border-radius:6px; font-size:12.5px; line-height:1.55; color:#d6d8dd; }
-.wr-cb-interp-lab { display:block; font-family:var(--tight); font-weight:800; color:#e3b23a; font-size:10px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
+.wr-cb-narr { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0; }
+.wr-cb-narr p { margin:0 0 8px; } .wr-cb-narr p:last-child { margin-bottom:0; }
+.wr-cb-quote { margin:11px 0 0; padding-left:13px; border-left:2px solid rgba(227,178,58,.45); }
+.wr-cb-q { margin:0; font-style:italic; font-size:13px; line-height:1.55; color:#e6d9b8; }
+.wr-cb-q::before { content:"« "; } .wr-cb-q::after { content:" »"; }
+.wr-cb-a { margin:5px 0 0; font-size:12.5px; line-height:1.6; color:#c3c6cc; }
+.wr-cb-a::before { content:"→ "; color:#e3b23a; font-weight:700; }
+.wr-cb-narr strong, .wr-cb-a strong { color:#fff; font-weight:var(--fw-semibold); }
 /* Global Economic Weekly — Consensus Forecasts JOUR PAR JOUR (façon pro) */
 .gew-day { margin:20px 0 6px; }
 .gew-day-h { color:#e3b23a; font-size:13px; font-weight:var(--fw-bold); letter-spacing:.04em; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; align-items:baseline; gap:10px; }

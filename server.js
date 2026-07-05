@@ -2687,7 +2687,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 10;   // v10 = Banques Centrales : INTERDICTION chiffres de marche inventes dans l'interpretation (l'IA collait un meme rendement 4,48% a tous les pays) → reaction qualitative only ; v9 = ton evidence-based + anti-remplissage ; v8 = SECTION BANQUES CENTRALES (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 11;   // v11 = Banques Centrales FORMAT RESEARCH NOTE : par banque = paragraphe fluide (sans etiquettes) + citations en italique suivies de leur analyse ; theme CB retire des Points Macro (dedoublonnage) ; v10 = interdiction chiffres marche inventes ; v9 = ton evidence-based + anti-remplissage ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6933,31 +6933,33 @@ function _recapSanitizeCb(arr) {
   return (Array.isArray(arr) ? arr : []).filter(x => x && x.bank).map(x => ({
     bank: _stripMd(String(x.bank)).slice(0, 40),
     stance: OK.includes(String(x.stance || '').toLowerCase()) ? String(x.stance).toLowerCase() : 'neutral',
-    stanceChange: _stripMd(String(x.stanceChange || '')).slice(0, 420),
-    watching: _stripMd(String(x.watching || '')).slice(0, 420),
-    nextMeeting: _stripMd(String(x.nextMeeting || '')).slice(0, 420),
-    interpretation: _stripMd(String(x.interpretation || '')).slice(0, 520),
+    narrative: _stripMd(String(x.narrative || x.stanceChange || '')).slice(0, 1300),
+    quotes: (Array.isArray(x.quotes) ? x.quotes : []).filter(q => q && (q.quote || q.analysis)).map(q => ({
+      quote: _stripMd(String(q.quote || '')).replace(/^["«»\s]+|["«»\s]+$/g, '').slice(0, 340),
+      analysis: _stripMd(String(q.analysis || '')).slice(0, 640),
+    })).filter(q => q.quote && q.analysis).slice(0, 3),
   })).slice(0, 8);
 }
 function _recapCbPrompt(ratesCtx, cbNews, prevCtx) {
-  return `You are the chief central-bank strategist for an institutional FX & markets desk. Write a per-central-bank WEEKLY synthesis IN FRENCH (français soigné, précis, professionnel), desk-macro quality — beyond a mere summary, surfacing what actually matters to anticipate future decisions. Cover EXACTLY these 8 banks: Fed, BCE (ECB), BoE, BoJ, BoC, RBA, RBNZ, BNS (SNB).
+  return `You are the chief central-bank strategist for an institutional FX & markets desk. For each of these 8 banks — Fed, BCE (ECB), BoE, BoJ, BoC, RBA, RBNZ, BNS (SNB) — write a WEEKLY per-bank block IN FRENCH (français soigné, précis, professionnel). Style = research note d'une banque d'investissement : d'abord un paragraphe de synthèse, puis les PROPOS CLÉS des banquiers centraux suivis d'une interprétation claire de leur signification.
 
-Ground EVERYTHING ONLY in the data below (market rate probabilities + this week's central-bank headlines + last week's stance for comparison). NEVER invent numbers, quotes or events. Markets are extremely sensitive to language shifts: highlight even SUBTLE changes in tone/wording vs the previous week.
+Ground EVERYTHING ONLY in the data below (market rate probabilities + this week's central-bank headlines + last week's stance). NEVER invent numbers, quotes, officials or events. Markets react to language shifts: surface even SUBTLE tone/wording changes vs last week.
 
 Return ONLY valid JSON (no preamble, no code fences):
 { "centralBanks": [ {
   "bank": "Fed",
   "stance": "hawkish|dovish|neutral",
-  "stanceChange": "<évolution du ton vs semaine précédente : plus hawkish / plus dovish / inchangé — cite les nuances de wording. Si aucune communication cette semaine, dis-le et base-toi sur le pricing.>",
-  "watching": "<ce que la banque surveille avant d'agir (inflation, emploi, salaires, croissance, consommation, crédit, conditions financières...)>",
-  "nextMeeting": "<implications pour la prochaine réunion + évolution attendue du pricing de marché (utilise les probabilités fournies)>",
-  "interpretation": "<Market Interpretation, QUALITATIVE et étayée : comment le marché a réagi (devises, taux, actions, or...) et si cela RENFORCE / AFFAIBLIT / NE CHANGE PAS le scénario. Si aucune réaction notable, écris simplement : « Impact de marché limité, pas de catalyseur propre cette semaine. »>"
+  "narrative": "<UN paragraphe fluide et institutionnel regroupant TOUS les événements de la banque cette semaine : discours de gouverneurs / membres votants, données macro clés, décisions de politique monétaire, évolution des anticipations de marché, réactions. AUCUNE étiquette en gras, aucun « sous-thème : ». Prose continue et spécifique.>",
+  "quotes": [ {
+    "quote": "<propos CLÉ d'un responsable, FIDÈLE aux données (citation ou paraphrase fidèle ; jamais de mots ni chiffres inventés) — court>",
+    "analysis": "<interprétation : ton hawkish / dovish / attentiste ; ce qui a changé vs interventions précédentes ; ce que la banque surveille (inflation, emploi, salaires, croissance, consommation, crédit...) ; implications pour les prochaines réunions ; impact potentiel marché (devises, taux, actions, or...).>"
+  } ]
 } ] }
 Rules:
-- Cover the 8 banks, in this order. Omit a bank ONLY if there is truly zero usable info.
-- "stance" strictly one of: hawkish, dovish, neutral. Base it on EVIDENCE (this week's communication + the rate pricing provided), NOT on habit. Do NOT default to hawkish. If pricing shows a near-certain HOLD and there was no clearly hawkish/dovish communication this week, the stance is "neutral". "hawkish" only with a genuine tightening signal (hawkish remarks or a real hike probability) ; "dovish" only with an easing signal (dovish remarks or a real cut probability). Note: the BoJ is structurally the most accommodative major — never call it hawkish without an explicit tightening signal.
-- ANTI-REMPLISSAGE (crucial) : si une banque a peu ou pas communiqué cette semaine, DIS-LE clairement dans "stanceChange" (ex. « Communication limitée cette semaine, pricing quasi inchangé ») SANS y ajouter de vague « les données se sont améliorées » — n'affirme une amélioration/dégradation QUE si une publication précise le montre. N'écris JAMAIS de narratif générique (« l'économie se redresse ») pour meubler. Chaque phrase doit être SPÉCIFIQUE à CETTE banque (responsable, donnée précise, wording réel), jamais un gabarit réutilisable d'une banque à l'autre.
-- ⛔ CHIFFRES DE MARCHÉ INVENTÉS = INTERDITS : les données ci-dessous ne contiennent PAS de niveaux de marché. Donc dans "interpretation", ne cite AUCUN niveau de rendement, prix, ni % de mouvement chiffré (JAMAIS « le 10 ans à 4,48% », « l'or à 4113$ », « +6 bps » inventés). Décris la réaction QUALITATIVEMENT (« le dollar s'est un peu affaibli », « pas de réaction notable ») ou écris que l'impact a été limité. Deux banques ne doivent JAMAIS avoir la même phrase d'interprétation.
+- Cover the 8 banks, in this order. "stance" strictly hawkish/dovish/neutral, EVIDENCE-BASED (not by habit). Do NOT default to hawkish : near-certain HOLD pricing + no directional communication → neutral. hawkish only with a real tightening signal ; dovish only with a real easing signal. The BoJ is structurally the most accommodative major.
+- "quotes" : 0 à 3 propos par banque. N'utilise QUE des propos réellement présents dans les données (citation ou paraphrase FIDÈLE de ce que le responsable a dit) — JAMAIS de citation fabriquée, jamais de mots ou chiffres non présents. Si aucun responsable ne s'est exprimé cette semaine → "quotes": [] (le "narrative" suffit).
+- Le "narrative" doit être SPÉCIFIQUE à cette banque (responsables, données précises, wording réel), jamais un gabarit réutilisable. Si la banque a été calme, dis-le brièvement, sans remplissage générique (« l'économie se redresse » = INTERDIT).
+- CHIFFRES DE MARCHÉ INVENTÉS = INTERDITS : les données ne contiennent pas de niveaux de marché → décris les réactions QUALITATIVEMENT (« le dollar s'est un peu affaibli »), jamais de rendement / prix / % chiffré non fourni.
 - ALL text in FRENCH. Keep central-bank acronyms as-is (Fed, ECB, BoE, BoJ, BoC, RBA, RBNZ, SNB). Translate any English data (expected→attendu, forecast→prévu, prior→précédent, actual→publié). No source attributions, no URLs.
 
 === RATE PROBABILITIES (par banque, marché) ===
@@ -7100,7 +7102,7 @@ This call produces the GLOBAL part of the recap (the per-currency sections are w
   ]
 }
 Rules:
-- "macro" = Key Macro Highlights: 6 to 8 themes (géopolitique ; performance cross-asset actions/obligations/FX/matières ; banques centrales ; données de croissance & inflation ; commerce/tarifs ; développements politiques ; technologie/corporate ; autre thème majeur de la semaine), each with 3 to 5 detailed bullets. Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant son sujet (2-4 mots, ex. **Actions US :**, **Rendements :**) suivi de 2 à 3 phrases concrètes EN FRANÇAIS. N'écris JAMAIS le mot « sous-thème » : mets le VRAI sujet. TRADUIS toute donnée anglaise (expected→attendu, etc.).
+- "macro" = Key Macro Highlights: 5 to 7 themes (géopolitique ; performance cross-asset actions/obligations/FX/matières ; données de croissance & inflation ; commerce/tarifs ; développements politiques ; technologie/corporate ; autre thème majeur de la semaine), each with 3 to 5 detailed bullets. Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant son sujet (2-4 mots, ex. **Actions US :**, **Rendements :**) suivi de 2 à 3 phrases concrètes EN FRANÇAIS. N'écris JAMAIS le mot « sous-thème » : mets le VRAI sujet. TRADUIS toute donnée anglaise (expected→attendu, etc.). NE CRÉE PAS de thème « Politique monétaire / Banques centrales » dans macro : les banques centrales ont leur PROPRE section dédiée séparée (ne les évoque dans macro que si un fait cross-asset l'exige).
 - "insights": 5 to 6 thematic cards (1 phrase). "pairs": 5 to 7 KEY pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold…) with a directional bias for the COMING week — "bias" exactly "BUY", "SELL" or "NEUTRAL".
 - No source attributions, no URLs.
 
@@ -7242,7 +7244,7 @@ ${corpus}`;
     const cbNews = [...wraps, ...cal, ...news].filter(l => CB_RX.test(String(l))).slice(0, 45).join('\n').slice(0, 8000);
     const ratesCtx = _recapCbRatesCtx();
     const prevItem = allNews.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && Array.isArray(i._weekly.centralBanks) && i._weekly.centralBanks.length);
-    const prevCtx = prevItem ? prevItem._weekly.centralBanks.map(c => `${c.bank} : ${c.stance}${c.stanceChange ? ' — ' + c.stanceChange : ''}`).join('\n') : '';
+    const prevCtx = prevItem ? prevItem._weekly.centralBanks.map(c => { const t = c.narrative || c.stanceChange || ''; return `${c.bank} : ${c.stance}${t ? ' — ' + String(t).slice(0, 170) : ''}`; }).join('\n') : '';
     if ((ratesCtx || cbNews) && !(ai.backoffActive && ai.backoffActive())) {
       const cbTxt = await ai.generateText(_recapCbPrompt(ratesCtx, cbNews, prevCtx), 4096);
       aiNote('weekly');
@@ -7263,7 +7265,7 @@ ${corpus}`;
   const descParts = [weekly.summary];
   weekly.macro.forEach(s => { descParts.push('\n' + s.heading); (s.bullets||[]).forEach(b => descParts.push('- ' + String(b).replace(/\*\*/g,''))); });
   for (const c of CCY) if (weekly.currencies[c]) descParts.push('\n' + c + ': ' + weekly.currencies[c].analysis);
-  (weekly.centralBanks || []).forEach(c => descParts.push('\n' + c.bank + ' (' + c.stance + '): ' + [c.stanceChange, c.watching, c.nextMeeting, c.interpretation].filter(Boolean).join(' ')));
+  (weekly.centralBanks || []).forEach(c => { descParts.push('\n' + c.bank + ' (' + c.stance + '): ' + (c.narrative || '')); (c.quotes || []).forEach(q => descParts.push('« ' + q.quote + ' » ' + q.analysis)); });
   const timeStr = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
 
   const item = {
@@ -11911,6 +11913,32 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
 </body></html>`);
 });
 
+// Port SERVEUR de standardizeReportTitle du desk (public/js/app.js) → les titres du widget e-mail « Rapports
+// d'Analystes » sont IDENTIQUES au desk (prefixe de seance sur les wraps, traduction FR, sous-titre des hebdo).
+// Demande user (« pas les bonnes titres, doit ressembler au desk »).
+const _ARL_PREFIX = { 'Global Economic Weekly': 'Global Economic Weekly', 'Weekly Market Recap': 'Weekly Market Recap', 'FX Daily Recap': 'FX Daily Recap', 'FX Daily': 'FX Daily', 'Asia Opening Preparation': 'Daily Asia-Pac Opening News', 'London Opening Preparation': 'London Opening Preparation', 'US Opening Preparation': 'New York Opening Preparation', 'Asia Session Recap': 'Asia-Pac Session Recap', 'London Session Recap': 'London Session Recap', 'US Session Recap': 'New York Session Recap', 'Daily Event Review': 'Daily Event Review', 'Daily Market Recap': 'Daily Market Recap' };
+const _ARL_PREFIX_FR = { 'Global Economic Weekly': 'Hebdo Économique Mondial', 'Weekly Market Recap': 'Récap Hebdo des Marchés', 'FX Daily Recap': 'Récap FX Quotidien', 'FX Daily': 'FX Quotidien', 'Daily Asia-Pac Opening News': 'Ouverture Asie-Pacifique', 'London Opening Preparation': 'Préparation Ouverture Londres', 'New York Opening Preparation': 'Préparation Ouverture New York', 'Asia-Pac Session Recap': 'Récap Séance Asie-Pacifique', 'Asia-Pacific Session Recap': 'Récap Séance Asie-Pacifique', 'Asia Session Recap': 'Récap Séance Asie', 'London Session Recap': 'Récap Séance Londres', 'New York Session Recap': 'Récap Séance New York', 'US Session Recap': 'Récap Séance US', 'Americas Session Recap': 'Récap Séance Amériques', 'Daily Event Review': 'Revue Quotidienne des Événements', 'Daily Market Recap': 'Récap Quotidien des Marchés' };
+const _ARL_ALL_PREFIXES = [...new Set([...Object.values(_ARL_PREFIX), 'Asia-Pac Session Recap', 'Asia Session Recap', 'Asia-Pacific Session Recap', 'New York Session Recap', 'US Session Recap', 'Americas Session Recap', 'Daily Asia-Pac Opening News', 'Asia Opening Preparation', 'US Opening Preparation'])].sort((a, b) => b.length - a.length);
+const _ARL_PREFIX_FR_KEYS = Object.keys(_ARL_PREFIX_FR).sort((a, b) => b.length - a.length);
+function _arlTitleFR(title) { if (!title) return title; for (const en of _ARL_PREFIX_FR_KEYS) { if (title === en) return _ARL_PREFIX_FR[en]; if (title.startsWith(en + ':') || title.startsWith(en + ' ')) return _ARL_PREFIX_FR[en] + title.slice(en.length); } return title; }
+function _arlWrapSessionPrefix(item) { const s = `${item.session || ''} ${item.headline || item.title || ''}`; if (/asia|pacific|asie/i.test(s)) return 'Asia-Pac Session Recap'; if (/europe|london|londres/i.test(s)) return 'London Session Recap'; if (/americ|new york|north america|\bus\b|wall/i.test(s)) return 'New York Session Recap'; return 'Session Recap'; }
+function _arlPrefixFor(item) { if (item._reportType && _ARL_PREFIX[item._reportType]) return _ARL_PREFIX[item._reportType]; if (item._source === 'ing-think' && /^\s*FX Daily\b/i.test(item.title || item.headline || '')) return 'FX Daily'; if (item._source === 'investinglive') return _arlWrapSessionPrefix(item); return null; }
+function _arlCleanTitle(h) { return _stripMd(String(h || '').replace(/^\s*(?:PRIMER\s*[—–-]|PREVIEW\s*[—–-]|ANALYSIS\s*[—–-])\s*/i, '').replace(/^\s*investingLive\s*/i, '').trim()); }
+function _arlStdTitle(item) {
+  let raw = _arlCleanTitle(item.headline || item.title || '').replace(/\s*[—–-]?\s*Week Ending:\s*[\d.\/-]+\s*$/i, '').trim();
+  const prefix = _arlPrefixFor(item);
+  if (!prefix) return _arlTitleFR(_stripMd(raw));
+  if (item._source === 'investinglive') {
+    if (item.aiTitle && item.aiTitle.trim().length >= 8) return _arlTitleFR(_stripMd(`${prefix}: ${item.aiTitle.trim()}`));
+    const wrapRe = /^\s*[\w\s.,/&'-]*?\bwraps?\b\s*[:\-—–]?\s*/i;
+    if (wrapRe.test(raw)) raw = raw.replace(wrapRe, '').trim();
+  }
+  const escd = _ARL_ALL_PREFIXES.map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const m = raw.match(new RegExp('^\\s*(?:' + escd + ')\\s*[:\\-—–]?\\s*', 'i'));
+  const subject = (m ? raw.slice(m[0].length) : raw).trim();
+  return _arlTitleFR(_stripMd(subject ? `${prefix}: ${subject}` : prefix));
+}
+
 // Rapports d'Analystes = le repertoire « Analystes » du desk (onglet ANALYSTE), rendu SERVEUR FIDELE : meme
 // table (classes REELLES arlib-table/arl-row/arl-c-*/arl-tw via /css/style.css), memes icones (bookmark, globe),
 // logo DTP. Demande user (« met l'onglet ANALYSTE, le widget reel »). Titres = aiTitle FR des recaps de seance
@@ -11924,20 +11952,20 @@ app.get('/internal/email-widget/analystes', async (_req, res) => {
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const GLOBE = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>';
   const BM = '<svg width="12" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
-  const WK_FR = { 'Weekly Market Recap': 'Récap Hebdomadaire de Marché', 'Global Economic Weekly': 'Hebdo Économique Mondial', 'FX Daily Recap': 'Récap FX du Jour' };
+  const _WK_TYPES = new Set(['Weekly Market Recap', 'Global Economic Weekly', 'FX Daily Recap']);
   let weekly = [];
   try {
     const cutoff = Date.now() - 40 * 86400000, seenT = new Set();
-    weekly = (allNews || []).filter(i => i && WK_FR[i._reportType] && (i.timestamp || 0) > cutoff)
+    weekly = (allNews || []).filter(i => i && _WK_TYPES.has(i._reportType) && (i.timestamp || 0) > cutoff)
       .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
       .filter(i => { if (seenT.has(i._reportType)) return false; seenT.add(i._reportType); return true; })   // 1 par type, facon desk
       .slice(0, 2)
-      .map(i => ({ ts: i.timestamp, title: WK_FR[i._reportType], weekly: true }));
+      .map(i => ({ ts: i.timestamp, title: _arlStdTitle(i), weekly: true }));   // titre IDENTIQUE au desk
   } catch (e) {}
   const wraps = (_swCache || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
     .filter(i => i && (i.aiTitle || i.title))
     .slice(0, Math.max(3, 8 - weekly.length))
-    .map(i => ({ ts: i.timestamp, title: (i.aiTitle || i.title), weekly: false }));
+    .map(i => ({ ts: i.timestamp, title: _arlStdTitle(i), weekly: false }));   // prefixe de seance + FR, comme le desk
   const rows = [...weekly, ...wraps];
   const trs = rows.map(r => {
     const dateStr = new Date(r.ts).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Paris' });

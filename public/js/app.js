@@ -6398,18 +6398,22 @@ function _renderWeeklyRecap(item) {
         (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
       });
     }
-    // ── Banques Centrales (demandé) : synthèse par banque — ton, évolution du wording, ce qu'elles surveillent,
-    //    prochaine réunion & pricing, et un encadré « Interprétation de marché ». ──
+    // ── Banques Centrales (demandé) — format research note : 1 bloc par banque = paragraphe fluide de synthèse
+    //    (sans étiquettes) + propos clés du banquier central en ITALIQUE, chacun suivi de son analyse. ──
     if (Array.isArray(w.centralBanks) && w.centralBanks.length) {
       body += `<div class="wr-section-title">Banques Centrales</div><div class="wr-cb-grid">`;
       w.centralBanks.forEach(cb => {
         const st = String(cb.stance || 'neutral').toLowerCase();
         const stLbl = st === 'hawkish' ? 'HAWKISH' : st === 'dovish' ? 'DOVISH' : 'NEUTRE';
         body += `<div class="wr-cb-card"><div class="wr-cb-head"><span class="wr-cb-name">${_wrEsc(cb.bank)}</span><span class="wr-cb-stance wr-cb-stance--${st}">${stLbl}</span></div>`;
-        if (cb.stanceChange)   body += `<div class="wr-cb-row"><span class="wr-cb-lab">Évolution du ton</span> <span class="wr-cb-val">${_wrInline(cb.stanceChange)}</span></div>`;
-        if (cb.watching)       body += `<div class="wr-cb-row"><span class="wr-cb-lab">Sous surveillance</span> <span class="wr-cb-val">${_wrInline(cb.watching)}</span></div>`;
-        if (cb.nextMeeting)    body += `<div class="wr-cb-row"><span class="wr-cb-lab">Prochaine réunion &amp; pricing</span> <span class="wr-cb-val">${_wrInline(cb.nextMeeting)}</span></div>`;
-        if (cb.interpretation) body += `<div class="wr-cb-interp"><span class="wr-cb-interp-lab">Interprétation de marché</span>${_wrInline(cb.interpretation)}</div>`;
+        if (cb.narrative) body += `<div class="wr-cb-narr">${_wrParas(cb.narrative)}</div>`;
+        (cb.quotes || []).forEach(q => {
+          if (!q || (!q.quote && !q.analysis)) return;
+          body += `<div class="wr-cb-quote">`;
+          if (q.quote)    body += `<blockquote class="wr-cb-q">${_wrInline(q.quote)}</blockquote>`;
+          if (q.analysis) body += `<div class="wr-cb-a">${_wrInline(q.analysis)}</div>`;
+          body += `</div>`;
+        });
         body += `</div>`;
       });
       body += `</div>`;
