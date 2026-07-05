@@ -2687,7 +2687,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 14;   // v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 15;   // v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6949,7 +6949,7 @@ Return ONLY valid JSON (no preamble, no code fences):
 { "centralBanks": [ {
   "bank": "Fed",
   "stance": "hawkish|dovish|neutral",
-  "narrative": "<UN paragraphe fluide et institutionnel regroupant TOUS les événements de la banque cette semaine : discours de gouverneurs / membres votants, données macro clés, décisions de politique monétaire, évolution des anticipations de marché, réactions. AUCUNE étiquette en gras, aucun « sous-thème : ». Prose continue et spécifique.>",
+  "narrative": "<2 à 3 phrases fluides et institutionnelles résumant les événements CLÉS de la banque cette semaine (discours de gouverneurs / membres votants, données macro, décisions, évolution des anticipations, réaction) ET le ton. Concis et SPÉCIFIQUE, aucune étiquette en gras.>",
   "quotes": [ {
     "quote": "<propos CLÉ d'un responsable, FIDÈLE aux données (citation ou paraphrase fidèle ; jamais de mots ni chiffres inventés) — court>",
     "analysis": "<interprétation : ton hawkish / dovish / attentiste ; ce qui a changé vs interventions précédentes ; ce que la banque surveille (inflation, emploi, salaires, croissance, consommation, crédit...) ; implications pour les prochaines réunions ; impact potentiel marché (devises, taux, actions, or...).>"
@@ -7266,7 +7266,8 @@ ${corpus}`;
   if (Array.isArray(weekly.centralBanks) && weekly.centralBanks.length) {
     const cbBul = weekly.centralBanks.map(c => {
       const nm = _stripMd(String(c.bank || '')).replace(/\s*\(.*?\)\s*/, '').trim();
-      const tx = _stripMd(String(c.narrative || '')).replace(/\s+/g, ' ').trim().slice(0, 400);
+      let tx = _stripMd(String(c.narrative || '')).replace(/\s+/g, ' ').trim();
+      if (tx.length > 460) { const cut = tx.slice(0, 460); const p = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? ')); tx = p > 220 ? cut.slice(0, p + 1) : cut.replace(/\s+\S*$/, '') + '…'; }   // coupe PROPRE (fin de phrase)
       return (nm && tx) ? `**${nm} :** ${tx}` : '';
     }).filter(Boolean);
     if (cbBul.length) weekly.macro.unshift({ heading: 'Banques Centrales', bullets: cbBul });
