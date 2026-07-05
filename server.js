@@ -5719,7 +5719,7 @@ app.post('/api/news-info', async (req, res) => {
   // Résumé Info en FRANÇAIS pour TOUTES les news (demande user 2026-07-01) — « important » ne pilote plus que le budget.
   const _imp = _isImportantNews(headline, category, '') || !!req.body.important;
   _expandNote(category);   // signal d'HABITUDE : l'utilisateur déplie cette catégorie → l'enrichissement de fond la priorisera
-  const cacheKey = 'fr2:' + (id || headline.substring(0, 120));   // les anciennes entrées src1 EN deviennent orphelines → régénérées FR au clic
+  const cacheKey = (_CB_NEWS.has(category) ? 'frcb1:' : 'fr2:') + (id || headline.substring(0, 120));   // frcb1 = news banque centrale (ton précisé), régénérée indépendamment du fr2 généraliste
   if (_infoCache.has(cacheKey)) { _aiCacheStats.info.hit++; return res.json(_infoCache.get(cacheKey)); }
   _aiCacheStats.info.miss++;
 
@@ -5740,7 +5740,7 @@ RULES:
 - Keep the exact key figures and specifics (percentages, levels, dates, places, programs, names).
 - Put **bold** (markdown double asterisks) on the single most important phrase or number — sparingly (0 to 2 times total in the whole answer).
 - If the story enumerates a list (e.g. four demands/points/conditions), you MAY add ONE short header line ending with a colon (e.g. "Four points:") then that list as bullets right after.
-- One clear idea per bullet, neutral factual tone, no investment advice.
+- One clear idea per bullet, neutral factual tone, no investment advice.${_CB_NEWS.has(category) ? "\n- BANQUE CENTRALE (Fed/BCE/BoE/BoJ/BoC/RBA/RBNZ/SNB) : précise le TON de la communication — hawkish, dovish ou neutre (attentiste) — ET la ou les FORMULATIONS qui le justifient ; dis si c'est plus hawkish/dovish que d'habitude si c'est perceptible. Base-toi UNIQUEMENT sur le contenu, sans rien inventer." : ""}
 - NEVER mention the news outlet or source: drop any "via X", "Reuters reports", "according to <agency/newspaper>", and all outlet names.
 - Réponds en FRANÇAIS (traduis si la source est dans une autre langue).
 - Reply ONLY with the lines: bullets start with •, the optional single header line ends with ":". No preamble, no conclusion.
@@ -5780,7 +5780,9 @@ app.post('/api/reaction-explain', async (req, res) => {
 
   // Explication en FRANÇAIS pour TOUTES les news (demande user 2026-07-01) — « important » ne pilote plus que le budget.
   const _imp = _isImportantNews(headline, '', '') || !!req.body.important;
-  const cacheKey = 'fr2:' + (id || headline.substring(0, 120));   // les anciennes entrées src1 EN deviennent orphelines → régénérées FR au clic
+  // Banque centrale ? /api/reaction-explain ne reçoit pas la catégorie → on la retrouve via l'item (par id), sinon regex sur le titre.
+  const _rcb = _CB_NEWS.has((((allNews || []).find(i => i && i.id === id) || {}).category)) || /\b(fed|fomc|powell|warsh|ecb|bce|lagarde|boe|bailey|boj|ueda|snb|schlegel|boc|macklem|rba|bullock|rbnz)\b/i.test(headline);
+  const cacheKey = (_rcb ? 'frcb1:' : 'fr2:') + (id || headline.substring(0, 120));
   if (_reactCache.has(cacheKey)) { _aiCacheStats.react.hit++; return res.json(_reactCache.get(cacheKey)); }
   _aiCacheStats.react.miss++;
 
@@ -5794,11 +5796,11 @@ app.post('/api/reaction-explain', async (req, res) => {
     const result = await _aiInflight(cacheKey, async () => {
       const _langRule = 'Réponds en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
       const text = await aiSmart('news', `You are a markets reporter on a trading desk.
-Explain the market reaction to the news below as 1 to 2 BULLETS, ONE short sentence per bullet (max 22 words): link the price move to the headline (the causal mechanism, the "why"). Neutral, factual tone, no advice. Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
+Explain the market reaction to the news below as 1 to ${_rcb ? '3' : '2'} BULLETS, ONE short sentence per bullet (max 22 words): link the price move to the headline (the causal mechanism, the "why").${_rcb ? " Comme c'est une communication de BANQUE CENTRALE, relie le mouvement au TON du discours (hawkish / dovish / neutre) et précise l'impact sur les ANTICIPATIONS DE TAUX et les principales DEVISES." : ""} Neutral, factual tone, no advice. Keep tickers/instruments as-is (Brent, EUR/USD…). ${_langRule}
 Start each bullet with • . Reply ONLY with the bullet(s), no preamble.
 
 Headline: ${headline}
-Observed moves: ${String(moves).slice(0, 300)}`, 220, { important: true, priority: 'user', claudeOverBudget: _imp });
+Observed moves: ${String(moves).slice(0, 300)}`, _rcb ? 300 : 220, { important: true, priority: 'user', claudeOverBudget: _imp });
 
       let bullets = String(text || '').split('\n').map(l => l.trim())
         .filter(l => /^[•\-\*]/.test(l)).map(l => l.replace(/^[•\-\*]\s*/, '').trim()).filter(Boolean).slice(0, 3);
