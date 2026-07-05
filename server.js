@@ -11888,33 +11888,48 @@ function _mindsetArtSvg(which) {
   for (let y = 0; y <= H; y += 60) grid += `<line x1="0" y1="${y}" x2="${W}" y2="${y}"/>`;
   let scene = '';
   if (which === 'ego') {
-    const wl = 296;   // ligne d'eau ; petit sommet visible (ego) au-dessus, masse immense (le cout) au-dessous
+    const wl = 288;   // ligne d'eau. Petit sommet lumineux (ego visible) au-dessus ; masse immense (le cout cache) au-dessous.
     scene =
-      `<path d="M470,${wl} L730,${wl} L600,${wl + 232} Z" fill="#e3b23a" opacity="0.05"/>` +
-      `<path d="M470,${wl} L730,${wl} L600,${wl + 232} Z" fill="none" stroke="#b8860b" stroke-width="1.5" stroke-opacity="0.45" stroke-linejoin="round"/>` +
-      `<path d="M523,${wl + 46} L677,${wl + 46} L600,${wl + 150} Z" fill="none" stroke="#b8860b" stroke-width="1" stroke-opacity="0.25" stroke-linejoin="round"/>` +
-      `<line x1="70" y1="${wl}" x2="1130" y2="${wl}" stroke="url(#gold)" stroke-width="1.6" opacity="0.7"/>` +
-      `<line x1="70" y1="${wl + 9}" x2="1130" y2="${wl + 9}" stroke="#e3b23a" stroke-width="1" opacity="0.1"/>` +
-      `<path d="M572,${wl} L620,${wl - 84} L668,${wl} Z" fill="#e3b23a" opacity="0.16"/>` +
-      `<path d="M572,${wl} L620,${wl - 84} L668,${wl} Z" fill="none" stroke="url(#gold)" stroke-width="3" stroke-linejoin="round" filter="url(#glow)"/>`;
+      `<ellipse cx="620" cy="${wl - 46}" rx="250" ry="164" fill="url(#atmo)"/>` +
+      // masse immergee : grande, degradee, avec facettes (glace taillee)
+      `<path d="M448,${wl} L752,${wl} L708,${wl + 100} L636,${wl + 258} L582,${wl + 150} L506,${wl + 190} Z" fill="url(#icefill)"/>` +
+      `<path d="M448,${wl} L752,${wl} L708,${wl + 100} L636,${wl + 258} L582,${wl + 150} L506,${wl + 190} Z" fill="none" stroke="#c8983a" stroke-width="1.4" stroke-opacity="0.42" stroke-linejoin="round"/>` +
+      `<path d="M600,${wl} L600,${wl + 250}" stroke="#b8860b" stroke-width="1" stroke-opacity="0.16"/>` +
+      `<path d="M448,${wl} L604,${wl + 118} L752,${wl}" fill="none" stroke="#b8860b" stroke-width="1" stroke-opacity="0.14"/>` +
+      `<circle cx="694" cy="${wl + 82}" r="2.4" fill="#e3b23a" opacity="0.32"/><circle cx="524" cy="${wl + 132}" r="1.8" fill="#e3b23a" opacity="0.22"/><circle cx="648" cy="${wl + 176}" r="1.6" fill="#e3b23a" opacity="0.2"/>` +
+      // ligne d'eau + reflet
+      `<line x1="62" y1="${wl}" x2="1138" y2="${wl}" stroke="url(#gold)" stroke-width="1.9" opacity="0.8"/>` +
+      `<line x1="62" y1="${wl + 8}" x2="1138" y2="${wl + 8}" stroke="#e3b23a" stroke-width="1" opacity="0.12"/>` +
+      // sommet visible (ego) — lumineux
+      `<path d="M574,${wl} L620,${wl - 94} L666,${wl} Z" fill="#e3b23a" opacity="0.24"/>` +
+      `<path d="M574,${wl} L620,${wl - 94} L666,${wl} Z" fill="none" stroke="url(#gold)" stroke-width="3.2" stroke-linejoin="round" filter="url(#glow)"/>` +
+      `<circle cx="620" cy="${wl - 94}" r="3.2" fill="#f6d789" filter="url(#glow)"/>`;
   } else {
-    let noise = '';
-    for (let i = 0; i < 9; i++) { const y = 150 + i * 30; noise += `<path d="M70,${y} C 270,${y - 13} 370,${y + 15} 530,${y - 7} S 830,${y + 13} 1130,${y}"/>`; }
+    let noise = '';   // le bruit des « methodes » : lignes fines qui s'estompent
+    for (let i = 0; i < 13; i++) { const y = 138 + i * 26; noise += `<path d="M70,${y} C 280,${y - 12} 380,${y + 14} 540,${y - 6} S 840,${y + 12} 1130,${y}"/>`; }
     scene =
-      `<g fill="none" stroke="#3b3b45" stroke-width="1.4" opacity="0.5">${noise}</g>` +
-      `<path d="M70,300 C 310,300 390,182 560,172 S 900,140 1130,140" fill="none" stroke="url(#gold)" stroke-width="3.6" stroke-linecap="round" filter="url(#glow)"/>` +
-      `<circle cx="560" cy="172" r="4.5" fill="#e3b23a"/>` +
-      `<circle cx="1130" cy="140" r="7" fill="#f4d47a" filter="url(#glow)"/>`;
+      `<ellipse cx="980" cy="150" rx="380" ry="210" fill="url(#atmo)"/>` +
+      `<g fill="none" stroke="#43434f" stroke-width="1.2" opacity="0.55">${noise}</g>` +
+      // UNE voie qui s'eleve : halo doux puis trait net
+      `<path d="M70,300 C 320,300 400,184 560,174 S 900,140 1132,140" fill="none" stroke="url(#gold)" stroke-width="7" stroke-linecap="round" opacity="0.16" filter="url(#softglow)"/>` +
+      `<path d="M70,300 C 320,300 400,184 560,174 S 900,140 1132,140" fill="none" stroke="url(#gold)" stroke-width="3.4" stroke-linecap="round" filter="url(#glow)"/>` +
+      `<circle cx="560" cy="174" r="4" fill="#e3b23a"/>` +
+      `<circle cx="1132" cy="140" r="6.6" fill="#f6d789" filter="url(#glow)"/>`;
   }
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="40%" r="80%"><stop offset="0%" stop-color="#16161c"/><stop offset="62%" stop-color="#0c0c0f"/><stop offset="100%" stop-color="#08080a"/></radialGradient>
-    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0.35"><stop offset="0%" stop-color="#8a6a1e"/><stop offset="46%" stop-color="#e3b23a"/><stop offset="100%" stop-color="#f4d47a"/></linearGradient>
-    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <radialGradient id="bg" cx="50%" cy="38%" r="85%"><stop offset="0%" stop-color="#17171e"/><stop offset="58%" stop-color="#0c0c10"/><stop offset="100%" stop-color="#070709"/></radialGradient>
+    <radialGradient id="atmo"><stop offset="0%" stop-color="#e3b23a" stop-opacity="0.15"/><stop offset="55%" stop-color="#e3b23a" stop-opacity="0.04"/><stop offset="100%" stop-color="#e3b23a" stop-opacity="0"/></radialGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0.4"><stop offset="0%" stop-color="#7a5c18"/><stop offset="42%" stop-color="#e3b23a"/><stop offset="100%" stop-color="#f6d789"/></linearGradient>
+    <linearGradient id="icefill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e3b23a" stop-opacity="0.13"/><stop offset="100%" stop-color="#e3b23a" stop-opacity="0.01"/></linearGradient>
+    <radialGradient id="vign" cx="50%" cy="50%" r="72%"><stop offset="58%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.34"/></radialGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <filter id="softglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="10"/></filter>
   </defs>
   <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <g stroke="#e3b23a" stroke-width="1" opacity="0.045">${grid}</g>
+  <g stroke="#e3b23a" stroke-width="1" opacity="0.04">${grid}</g>
   ${scene}
+  <rect width="${W}" height="${H}" fill="url(#vign)"/>
   <g transform="translate(58,54)"><rect x="-26" y="-26" width="52" height="52" rx="13" fill="url(#gold)"/><text x="0" y="8" font-family="'Inter Tight',Arial,sans-serif" font-size="23" font-weight="800" fill="#1a1206" text-anchor="middle">DT</text></g>
   <text x="100" y="60" font-family="'Inter Tight',Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="3.5" fill="#e3b23a" opacity="0.92">MINDSET</text>
   <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" fill="none" stroke="#e3b23a" stroke-opacity="0.09"/>
