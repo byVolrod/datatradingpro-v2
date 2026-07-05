@@ -11880,8 +11880,18 @@ window.__ARL = ${payload};
 <script>
 (function(){
   function go(){
-    try { if (typeof loadAnalystView === 'function') loadAnalystView(); } catch (e) {}
-    setTimeout(function(){ try { if (typeof renderArlibList === 'function') renderArlibList(); } catch (e) {} window.__ready = true; }, 1600);
+    var L = document.getElementById('arlib-list'); var log = [];
+    log.push('laV=' + (typeof loadAnalystView)); log.push('rAL=' + (typeof renderArlibList)); log.push('gAI=' + (typeof getArlibItems)); log.push('stdT=' + (typeof standardizeReportTitle));
+    log.push('swInj=' + (window.__ARL && window.__ARL.sw ? window.__ARL.sw.length : '?'));
+    try { if (typeof loadAnalystView === 'function') loadAnalystView(); } catch (e) { log.push('laV_err=' + e.message); }
+    setTimeout(function(){
+      try { if (typeof renderArlibList === 'function') renderArlibList(); } catch (e) { log.push('rAL_err=' + e.message); }
+      log.push('rows=' + L.querySelectorAll('.arl-row').length);
+      log.push('html=' + String(L.innerHTML || '').replace(/</g, '{').slice(0, 260));
+      var d = document.createElement('div'); d.className = 'arl-row'; d.style.cssText = 'color:#fff;background:#111;padding:14px;font:12px monospace;white-space:pre-wrap;word-break:break-all';
+      d.textContent = log.join(' | '); L.appendChild(d);
+      window.__ready = true;
+    }, 1800);
   }
   if (document.readyState !== 'loading') setTimeout(go, 350);
   else window.addEventListener('DOMContentLoaded', function(){ setTimeout(go, 350); });
