@@ -6398,6 +6398,22 @@ function _renderWeeklyRecap(item) {
         (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
       });
     }
+    // ── Banques Centrales (demandé) : synthèse par banque — ton, évolution du wording, ce qu'elles surveillent,
+    //    prochaine réunion & pricing, et un encadré « Interprétation de marché ». ──
+    if (Array.isArray(w.centralBanks) && w.centralBanks.length) {
+      body += `<div class="wr-section-title">Banques Centrales</div><div class="wr-cb-grid">`;
+      w.centralBanks.forEach(cb => {
+        const st = String(cb.stance || 'neutral').toLowerCase();
+        const stLbl = st === 'hawkish' ? 'HAWKISH' : st === 'dovish' ? 'DOVISH' : 'NEUTRE';
+        body += `<div class="wr-cb-card"><div class="wr-cb-head"><span class="wr-cb-name">${_wrEsc(cb.bank)}</span><span class="wr-cb-stance wr-cb-stance--${st}">${stLbl}</span></div>`;
+        if (cb.stanceChange)   body += `<div class="wr-cb-row"><span class="wr-cb-lab">Évolution du ton</span> <span class="wr-cb-val">${_wrInline(cb.stanceChange)}</span></div>`;
+        if (cb.watching)       body += `<div class="wr-cb-row"><span class="wr-cb-lab">Sous surveillance</span> <span class="wr-cb-val">${_wrInline(cb.watching)}</span></div>`;
+        if (cb.nextMeeting)    body += `<div class="wr-cb-row"><span class="wr-cb-lab">Prochaine réunion &amp; pricing</span> <span class="wr-cb-val">${_wrInline(cb.nextMeeting)}</span></div>`;
+        if (cb.interpretation) body += `<div class="wr-cb-interp"><span class="wr-cb-interp-lab">Interprétation de marché</span>${_wrInline(cb.interpretation)}</div>`;
+        body += `</div>`;
+      });
+      body += `</div>`;
+    }
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
       body += `<div class="wr-section-title">Analyse par devise</div>`;

@@ -5025,6 +5025,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-bullet::before { content:"•"; color:#e3b23a; position:absolute; left:0; }
 .wr-bullet strong { color:#fff; font-weight:var(--fw-semibold); }
 .wr-hint { color:#7a8493; font-size:12px; font-style:italic; margin:4px 0 0; }
+/* Weekly Recap — Section BANQUES CENTRALES (synthèse par banque + Interprétation de marché) */
+.wr-cb-grid { display:flex; flex-direction:column; gap:10px; margin:8px 0 4px; }
+.wr-cb-card { background:#0f0f12; border:1px solid #17171c; border-left:2px solid #e3b23a; border-radius:8px; padding:12px 14px; }
+.wr-cb-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
+.wr-cb-name { font-family:var(--tight); font-weight:var(--fw-bold); font-size:14px; color:#e8eaed; letter-spacing:.01em; }
+.wr-cb-stance { font-family:var(--tight); font-weight:800; font-size:10px; letter-spacing:.05em; padding:2px 9px; border-radius:20px; text-transform:uppercase; white-space:nowrap; }
+.wr-cb-stance--hawkish { color:#0c0c0e; background:#e0863a; }
+.wr-cb-stance--dovish { color:#0c0c0e; background:#3aa0e0; }
+.wr-cb-stance--neutral { color:#cfd2d8; background:#2a2a30; }
+.wr-cb-row { font-size:12.5px; line-height:1.55; color:#c3c6cc; margin-top:6px; }
+.wr-cb-lab { font-family:var(--tight); font-weight:700; color:#e3b23a; font-size:10.5px; text-transform:uppercase; letter-spacing:.03em; }
+.wr-cb-row .wr-cb-val strong, .wr-cb-interp strong { color:#fff; font-weight:var(--fw-semibold); }
+.wr-cb-interp { margin-top:10px; padding:9px 11px; background:rgba(227,178,58,.06); border:1px solid rgba(227,178,58,.18); border-radius:6px; font-size:12.5px; line-height:1.55; color:#d6d8dd; }
+.wr-cb-interp-lab { display:block; font-family:var(--tight); font-weight:800; color:#e3b23a; font-size:10px; text-transform:uppercase; letter-spacing:.04em; margin-bottom:3px; }
 /* Global Economic Weekly — Consensus Forecasts JOUR PAR JOUR (façon pro) */
 .gew-day { margin:20px 0 6px; }
 .gew-day-h { color:#e3b23a; font-size:13px; font-weight:var(--fw-bold); letter-spacing:.04em; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; align-items:baseline; gap:10px; }
