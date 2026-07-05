@@ -11834,42 +11834,59 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
 </body></html>`);
 });
 
-// Rapports d'Analystes (recaps de seance du desk, onglet « Analystes ») — rendu SERVEUR d'une liste des
-// dernieres analyses (`_swCache`, titres IA FR). 100% informatif (aucun signal). Demande user (mail Reactivation).
-// Distinct des Eclairages IA (qui listent la recherche des BANQUES) : ici = les analyses de seance du desk.
+// Rapports d'Analystes = le VRAI widget de l'onglet « Analystes » du desk (repertoire renderArlibList).
+// Demande user (« met l'onglet ANALYSTE, le widget reel »). On charge le VRAI app.js + charts.js + style.css
+// et on appelle loadAnalystView() ; les endpoints qu'il fetch sont INTERCEPTES (donnees injectees en memoire,
+// aucun auth, AUCUNE generation IA) → rendu 100% fidele (memes classes arlib-table/arl-row, titres FR, logos DTP).
+// 100% informatif (le repertoire ne montre que des titres de rapports, aucun signal).
 app.get('/internal/email-widget/analystes', async (_req, res) => {
   if (!Array.isArray(_swCache) || _swCache.length === 0) {   // cache memoire vide par un rebuild → rechauffe avant de rendre
     try { _swLoadFile(); } catch (e) {}
     if (!_swCache.length) { try { await _loadPersistedHistories(); } catch (e) {} }
   }
-  let items = [];
+  const sw = (_swCache || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 7);   // ~7 recaps recents (→ ~8 lignes avec les hebdo)
+  const br = (_brCache || []).filter(i => { try { return _brAllowed(i); } catch (e) { return true; } }).slice(0, 20);
+  let wk = [];
   try {
-    const seen = new Set();
-    items = (_swCache || [])
-      .slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .filter(i => { const t = String((i && (i.aiTitle || i.title)) || '').trim(); if (!t || seen.has(t)) return false; seen.add(t); return true; })
-      .slice(0, 6);
-    items.forEach(_cleanItemMd);
+    const cutoff = Date.now() - 40 * 86400000;
+    wk = (allNews || []).filter(i => i && (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly' || i._reportType === 'FX Daily Recap') && (i.timestamp || 0) > cutoff).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 6);
   } catch (e) {}
-  const now = Date.now();
-  const ago = ts => { const d = Math.max(0, Math.round((now - (ts || now)) / 86400000)); return d === 0 ? "aujourd'hui" : (d === 1 ? 'hier' : 'il y a ' + d + ' j'); };
-  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const rows = items.length
-    ? items.map(i => `<div class="anr"><span class="anr-ic"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#e3b23a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 13h8M8 17h5"/></svg></span><div class="anr-main"><div class="anr-title">${_e(i.aiTitle || i.title || '')}</div><div class="anr-meta"><span class="anr-tag">Analyse de séance</span><span class="anr-date">${ago(i.timestamp)}</span></div></div></div>`).join('')
-    : '<div class="anr"><div class="anr-main"><div class="anr-title" style="color:#8a8f98">Aucun rapport disponible pour le moment.</div></div></div>';
+  const payload = JSON.stringify({ sw, br, wk }).replace(/</g, '\\u003c');
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
-<style>html,body{margin:0;padding:0;background:#0c0e13;font-family:-apple-system,"Inter","Segoe UI",sans-serif}
-#anr-wrap{width:600px;box-sizing:border-box;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-.anr{display:flex;gap:11px;align-items:flex-start;background:#0f0f12;border:1px solid #17171c;border-left:2px solid #e3b23a;border-radius:8px;padding:11px 13px}
-.anr-ic{flex:none;display:flex;align-items:center;padding-top:1px}
-.anr-main{flex:1;min-width:0}
-.anr-title{font-size:13.5px;color:#e8eaed;line-height:1.4;font-weight:600}
-.anr-meta{display:flex;align-items:center;gap:9px;margin-top:6px}
-.anr-tag{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#e3b23a;border:1px solid rgba(227,178,58,.32);border-radius:20px;padding:2px 8px}
-.anr-date{font-family:ui-monospace,monospace;font-size:10px;color:#8a8f98;text-transform:uppercase}</style>
-</head><body><div id="anr-wrap">${rows}</div>
-<script>setTimeout(function(){window.__ready=true;},300);</script>
+<link rel="stylesheet" href="/css/style.css">
+<style>html,body{margin:0;padding:0;background:#0c0e13}
+#arlib-list{width:680px;box-sizing:border-box;padding:6px 12px;max-height:none;overflow:visible;display:block}</style>
+<script>
+window.__ARL = ${payload};
+(function(){
+  var real = window.fetch ? window.fetch.bind(window) : null;
+  function J(o){ return Promise.resolve({ ok:true, status:200, headers:{ get:function(){ return 'application/json'; } }, json:function(){ return Promise.resolve(o); }, text:function(){ return Promise.resolve(JSON.stringify(o)); } }); }
+  window.fetch = function(u, opt){
+    var s = String((u && u.url) || u || '');
+    if (s.indexOf('/api/session-wraps') >= 0) return J(window.__ARL.sw);
+    if (s.indexOf('/api/bank-research')  >= 0) return J(window.__ARL.br);
+    if (s.indexOf('/api/weekly-reports') >= 0) return J({ items: window.__ARL.wk, generating: false });
+    if (s.indexOf('/api/fx-daily')       >= 0) return J([]);
+    if (s.indexOf('/api/')               >= 0) return J({});
+    return real ? real(u, opt) : J({});
+  };
+})();
+</script>
+</head><body>
+<div id="arlib-list"></div><div id="arlib-foot" style="display:none"></div>
+<script src="/js/charts.js"></script>
+<script src="/js/app.js"></script>
+<script>
+(function(){
+  function go(){
+    try { if (typeof loadAnalystView === 'function') loadAnalystView(); } catch (e) {}
+    setTimeout(function(){ try { if (typeof renderArlibList === 'function') renderArlibList(); } catch (e) {} window.__ready = true; }, 1600);
+  }
+  if (document.readyState !== 'loading') setTimeout(go, 350);
+  else window.addEventListener('DOMContentLoaded', function(){ setTimeout(go, 350); });
+})();
+</script>
 </body></html>`);
 });
 
