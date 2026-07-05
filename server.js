@@ -5668,7 +5668,7 @@ app.post('/api/analyse', async (req, res) => {
   if (!headline) return res.status(400).json({ error: 'headline required' });
   const _imp = _isImportantNews(headline, category, '') || !!req.body.important;   // ne pilote plus que le BUDGET (Claude autorisé) — la langue est FR pour TOUT (demande user 2026-07-01)
 
-  const cacheKey = 'fr2:' + headline.substring(0, 100);   // fr2 = FRANÇAIS (toutes les descriptions du widget news ; les anciennes entrées src1 EN deviennent orphelines et se régénèrent en FR au clic)
+  const cacheKey = (_CB_NEWS.has(category) ? 'frcb1:' : 'fr2:') + headline.substring(0, 100);   // fr2 = FR généraliste ; frcb1 = analyse banque centrale enrichie (ton/wording/interprétation)
   if (_analyseCache.has(cacheKey)) { _aiCacheStats.analyse.hit++; return res.json(_analyseCache.get(cacheKey)); }
   _aiCacheStats.analyse.miss++;
 
@@ -5686,24 +5686,9 @@ app.post('/api/analyse', async (req, res) => {
   try {
     if (_aiInflightMap.has(cacheKey)) _aiCacheStats.coalesced++;   // génération identique DÉJÀ en vol → on partage sa promesse (1 seule requête IA)
     const result = await _aiInflight(cacheKey, async () => {
-      const ctx = description
-        ? `\nContext: ${String(description).replace(/<[^>]*>/g, '').substring(0, 600)}`
-        : '';
-      const _langRule = '- Rédige en FRANÇAIS (traduis si la source est dans une autre langue).';   // desk 100% FR
-      const text = await aiSmart('news', `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
-
-Headline: ${headline}
-Category: ${category}${ctx}
-
-Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
-- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
-- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
-- Explain the concrete causal mechanism for THIS story, not generic phrasing.
-- Max 22 words per bullet. Vary the angle per news; do not reuse the same wording across news.
-- NEVER include source/author attribution.
-- NO bold, NO markdown, NO asterisks. Plain text only.
-${_langRule}
-- Start each bullet with • . Reply ONLY with the bullets, no preamble.`, 320, { important: true, priority: 'user', claudeOverBudget: _imp });
+      const _desc = description ? String(description).replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim().substring(0, 600) : '';
+      const _isCb = _CB_NEWS.has(category);   // banque centrale → prompt enrichi (ton/wording/surveillance/implications/interprétation)
+      const text = await aiSmart('news', _newsAnalysePrompt({ headline, category }, _desc, _isCb), _isCb ? 400 : 320, { important: true, priority: 'user', claudeOverBudget: _imp });
       const bullets = text.split('\n')
         .map(l => l.trim())
         .filter(l => /^[•\-\*]/.test(l))
@@ -7828,12 +7813,12 @@ ${biasLine || '(n/d)'}`;
 // (rendue en primer structuré côté front via isPrimerItem, jamais re-résumée). Dédup par événement/jour
 // (l'historique persiste l'item → pas de doublon après redéploiement). Budget IA négligeable (FOMC ~8×/an,
 // NFP ~1×/mois). [[markdown-strip-rule]]
-const EVA_VER = 4;   // v4 = rigueur analyste (priced-in ≠ surprise, validation des faits) + retrait de la conclusion directionnelle (déjà dans le tag Analyse)
+const EVA_VER = 5;   // v5 = enrichissement CB (section « Interprétation de marché » : renforce/affaiblit le scénario + classes d'actifs ; ton hawkish/dovish + changement de formulation vs communiqué précédent) ; v4 = rigueur analyste (priced-in ≠ surprise) + retrait conclusion directionnelle
 const _evaState = {};   // 'fomc:2026-06-17' → true (anti-doublon mémoire ; l'item est persisté dans l'historique)
 let _evaBusy = false;
 // Dépêches de RÉACTION de prix à joindre (en plus des dépêches de l'événement) pour la section « RÉACTION DE MARCHÉ »
 const _EVA_MKT_RE = /\b(s&p|spx|nasdaq|dow\b|\bes\b|treasur|yields?|10-?year|2-?year|\bbund\b|\bgilt\b|\bjgb\b|gold|\bxau\b|silver|copper|dollar|\bdxy\b|eur\/usd|usd\/jpy|gbp\/usd|usd\/cad|crude|brent|\bwti\b|stocks?|equit|bonds?|futures)\b/i;
-const _EVA_CB_SECTIONS   = '["Décision & taux","Communiqué (forward guidance)","Ce qui a surpris","Inflation","Activité & emploi","Projections / dot plots","Réaction de marché","Anticipations de taux","À suivre"]';
+const _EVA_CB_SECTIONS   = '["Décision & taux","Communiqué (forward guidance)","Ce qui a surpris","Inflation","Activité & emploi","Projections / dot plots","Réaction de marché","Anticipations de taux","Interprétation de marché","À suivre"]';
 const _EVA_DATA_SECTIONS = '["Chiffre clé (vs attendu)","Détails","Ce qui a surpris","Réaction de marché","Implications banque centrale","À suivre"]';
 // Événements MAJEURS uniquement (flux sélectif, premium) — une SEULE analyse riche par événement/jour.
 const EVA_CFG = {
@@ -7917,7 +7902,7 @@ Renvoie UNIQUEMENT du JSON valide (aucun préambule, aucune balise de code) :
 }
 Sections SUGGÉRÉES (n'inclus QUE celles réellement renseignées par les faits, dans cet ordre) : ${cfg.sections}.
 🎯 RIGUEUR D'ANALYSTE INSTITUTIONNEL (OBLIGATOIRE) — VALIDE chaque fait avant de l'écrire, comme un trader de desk : ne présente comme « surprise » QUE ce qui s'écarte VRAIMENT du consensus ou de ce qui était DÉJÀ INTÉGRÉ par le marché. Un résultat conforme aux attentes, ou une dissidence/un vote DÉJÀ ANTICIPÉ (ex. des membres connus pour voter une hausse, un split de vote déjà pricé), N'EST PAS une surprise → ne le mets PAS dans « Ce qui a surpris » ; place-le dans « Décision & taux » en précisant « conforme aux attentes / déjà intégré par le marché ». Recoupe SYSTÉMATIQUEMENT avec les ANTICIPATIONS DE TAUX fournies. Si rien n'a réellement surpris, écris-le (« Aucune surprise : décision et vote conformes aux attentes ») ou OMETS la section « Ce qui a surpris ». Jamais de sensationnalisme ni de surprise inventée.
-Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).
+Pour « Réaction de marché » : décris les VRAIS mouvements présents dans les dépêches (indices, rendements, or, dollar, paires) avec les niveaux quand ils sont donnés. ${cfg.cb ? "Pour « Anticipations de taux » : appuie-toi sur les anticipations de marché fournies (probabilités / taux implicites par réunion)." : "Pour « Implications banque centrale » : explique ce que ce chiffre change pour la trajectoire de taux."} 1 à 3 puces par section, une phrase courte par puce. Garde les libellés de section COURTS, en français, casse normale (ex. « Décision & taux », « Réaction de marché »).${cfg.cb ? "\nBANQUE CENTRALE — précisions attendues : dans « Communiqué (forward guidance) », qualifie EXPLICITEMENT le ton (hawkish / dovish / neutre) et signale tout CHANGEMENT DE FORMULATION vs le communiqué précédent (même subtil, les marchés y sont très sensibles). Dans « Interprétation de marché », dis si l'intervention RENFORCE, AFFAIBLIT ou NE CHANGE PAS le scénario de politique monétaire, et quelles classes d'actifs ont réagi (devises, taux, actions, or) — UNIQUEMENT d'après les dépêches fournies, sans aucun chiffre inventé." : ""}
 
 === RÉSULTAT (calendrier) ===
 ${actualLine}
@@ -7937,7 +7922,7 @@ ${mktCtx.join('\n').slice(0, 2500) || '(aucune dépêche de prix captée)'}`;
   const lead = _stripMd(String(parsed.lead || '')).slice(0, 500);
   const lines = [];
   if (lead) lines.push(lead);
-  for (const sec of parsed.sections.slice(0, 9)) {
+  for (const sec of parsed.sections.slice(0, 10)) {
     if (!sec) continue;
     const title = _evaSubHead(sec.title);
     const pts = (Array.isArray(sec.points) ? sec.points : []).map(p => _stripMd(String(p)).trim().replace(/^[-•*]\s*/, '')).filter(p => p.length > 3).slice(0, 4);
@@ -10863,6 +10848,39 @@ let _aiTagBusy = false;
 // si item.analyse existe → parfois Info+Analyse, parfois juste Info. Budget strict.
 const AI_ANALYSE_DAILY_MAX = parseInt(process.env.AI_ANALYSE_DAILY_MAX, 10) || 90;   // la traduction FR (analyse pré-calculée) doit couvrir la JOURNÉE, pas seulement 10 news (sinon tout reste en anglais après les 10 premières). Overflow routé vers GitHub/OpenRouter gratuits quand Gemini est épuisé ; borné par les cooldowns providers + la pression santé (Phase 3)
 let _aiAnaDay = '', _aiAnaDayCount = 0, _aiAnaBusy = false;
+// Catégories = banque centrale (posées par detectCategory) → analyse enrichie dédiée (discours Powell/Lagarde...).
+const _CB_NEWS = new Set(['Fed', 'ECB', 'BoJ', 'BoE', 'BoC', 'RBA', 'SNB', 'RBNZ', 'PBOC']);
+// Prompt d'analyse d'une news (puces FR). Variante BANQUE CENTRALE : ton hawkish/dovish + changement de
+// formulation + ce qu'elle surveille + implications + interprétation de marché (demande user). Sans invention.
+function _newsAnalysePrompt(item, desc, isCb) {
+  if (isCb) return `You are a senior central-bank strategist analysing a central-bank news item (speech, minutes, decision or official remarks) for a forex/macro trader, IN FRENCH. Base EVERYTHING ONLY on the content below — NEVER invent figures, quotes or events.
+
+Headline: ${item.headline}
+Category: ${item.category || '—'} (banque centrale)
+Context: ${desc}
+
+Rédige 3 à 5 puces analytiques COURTES, EN FRANÇAIS, propres à CE contenu. Couvre (SAUTE un point si le contenu ne le permet pas — ne force rien) :
+- Le TON : hawkish / dovish / neutre (attentiste), et ce qu'il signale.
+- Ce qui a CHANGÉ vs les communications précédentes (formulation, priorités) — seulement si perceptible.
+- Ce que la banque SURVEILLE (inflation, emploi, salaires, croissance, consommation, conditions financières...).
+- Les IMPLICATIONS pour les prochaines réunions / la trajectoire des taux.
+- L'INTERPRÉTATION DE MARCHÉ : impact probable ou observé (devises, taux, actions, or) — QUALITATIF, sans chiffre inventé.
+Règles : ~24 mots max par puce, jamais de source/auteur, aucun **gras**/markdown/astérisque. Commence chaque puce par • . Réponds UNIQUEMENT par les puces.`;
+  return `You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
+
+Headline: ${item.headline}
+Category: ${item.category || '—'}
+Context: ${desc}
+
+Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
+- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
+- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
+- Explain the concrete causal mechanism for THIS story, not generic phrasing.
+- Max 22 words per bullet. NEVER include source/author attribution.
+- NO bold, NO markdown, NO asterisks. Plain text only.
+- Rédige en FRANÇAIS.
+- Start each bullet with • . Reply ONLY with the bullets, no preamble.`;
+}
 function _meritsAnalysis(item) {
   if (!item || item._briefing || item._marketUpdate) return false;
   if (Date.now() - item.timestamp > 6 * 60 * 60 * 1000) return false;            // récentes uniquement
@@ -10880,7 +10898,7 @@ async function _enrichAnalyses() {
   // Purge des analyses au schéma périmé (≠ v5) → régénérées ci-dessous, TOUTES en FRANÇAIS (cache anafr2).
   // Bump v4→v5 (2026-07-01) : reconvertit les anciennes analyses EN générées sous la règle « langue source »
   // (elles portaient _anaV4 → jamais reconverties, cf. screenshot user). Borné par AI_ANALYSE_DAILY_MAX.
-  try { for (const it of allNews) { if (it && Array.isArray(it.analyse) && it.analyse.length && !it._anaV5) delete it.analyse; } } catch {}
+  try { for (const it of allNews) { if (it && Array.isArray(it.analyse) && it.analyse.length) { if (_CB_NEWS.has(it.category)) { if (!it._anaCbV1) delete it.analyse; } else if (!it._anaV5) delete it.analyse; } } } catch {}   // CB : versioning dédié _anaCbV1 → seules les news banque centrale se régénèrent avec le prompt enrichi
   const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
   if (!hasAI) return;
   _aiAnaBusy = true;
@@ -10900,18 +10918,19 @@ async function _enrichAnalyses() {
       if (!_meritsAnalysis(item)) continue;
       const _fr = true;   // TOUJOURS en FRANÇAIS (desk 100% FR) : l'analyse pré-calculée EST la description affichée au dépliage → instantanée + FR
       const _important = _isImportantNews(item.headline, item.category, item.priority);   // pilote seulement le budget (Claude autorisé), plus la langue
-      const ck = 'anafr2:' + item.id;   // anafr2 = FRANÇAIS (toutes les analyses désormais)
+      const isCb = _CB_NEWS.has(item.category);   // banque centrale → prompt enrichi + clé/versioning dédiés
+      const ck = (isCb ? 'anacbfr1:' : 'anafr2:') + item.id;   // anafr2 = généraliste FR ; anacbfr1 = analyse CB enrichie
       // 1) cache mémoire chaud
       if (_analyseCache.has(ck)) {
         const b = _analyseCache.get(ck);
-        if (Array.isArray(b) && b.length) { item.analyse = b; item._anaV5 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (Array.isArray(b) && b.length) { item.analyse = b; item[isCb ? '_anaCbV1' : '_anaV5'] = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
         continue;
       }
       // 2) cache durable (Supabase) — aucune requête IA
       let cached = null; try { cached = await auth.aiCacheGet(ck); } catch {}
       if (Array.isArray(cached)) {
         _analyseCache.set(ck, cached);
-        if (cached.length) { item.analyse = cached; item._anaV5 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (cached.length) { item.analyse = cached; item[isCb ? '_anaCbV1' : '_anaV5'] = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
         continue;
       }
       // 3) génération IA (bornée par cap journalier + 1/cycle)
@@ -10919,28 +10938,14 @@ async function _enrichAnalyses() {
       perCycle--; _aiAnaDayCount++;
       try {
         const desc = String(item.description || '').replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().substring(0, 600);
-        const out = await aiSmart('news',
-`You are a concise professional financial analyst. Analyse this news for a forex/macro trader.
-
-Headline: ${item.headline}
-Category: ${item.category || '—'}
-Context: ${desc}
-
-Write 2 to 3 SHORT bullets tailored to THIS specific news (not a template). Rules:
-- Add ANALYTICAL value: drivers, implications, levels, what it means for the trade — do NOT restate the headline or just repeat the figures.
-- Name only the instruments genuinely relevant here (e.g. EUR/USD, Brent, XAU/USD, US10Y) — skip if none.
-- Explain the concrete causal mechanism for THIS story, not generic phrasing.
-- Max 22 words per bullet. NEVER include source/author attribution.
-- NO bold, NO markdown, NO asterisks. Plain text only.
-${_fr ? '- Rédige en FRANÇAIS.' : '- Same language as the source (usually English).'}
-- Start each bullet with • . Reply ONLY with the bullets, no preamble.`,
-          320, { important: true, claudeOverBudget: _important });   // FR toujours ; Claude-over-budget réservé à la macro importante (borne le coût), le reste passe par Gemini
+        const out = await aiSmart('news', _newsAnalysePrompt(item, desc, isCb),
+          isCb ? 400 : 320, { important: true, claudeOverBudget: _important });   // CB = analyse enrichie (plus de tokens) ; Claude-over-budget réservé à la macro importante (borne le coût)
         const bullets = _parseAnalyseBullets(out);
         _analyseCache.set(ck, bullets);                                          // cache même vide → on ne réessaie pas
         if (_analyseCache.size > 2000) _analyseCache.delete(_analyseCache.keys().next().value);
         _saveJsonMap(ANALYSE_CACHE_FILE, _analyseCache);
         auth.aiCacheSet(ck, bullets).catch(() => {});
-        if (bullets.length) { item.analyse = bullets; item._anaV5 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        if (bullets.length) { item.analyse = bullets; item[isCb ? '_anaCbV1' : '_anaV5'] = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
       } catch { /* budget épuisé / pas de clé → la news reste en Info seul */ }
     }
   } finally { _aiAnaBusy = false; }
