@@ -11775,6 +11775,64 @@ app.get('/internal/email-widget/eclairages', async (_req, res) => {
 </body></html>`);
 });
 
+// Calendrier economique (onglet « Calendrier » du desk) — rendu SERVEUR d'un tableau compact des prochains
+// evenements macro. Source = _buildTVCalendar() (la MEME que /api/calendar-events). Reutilise les classes CSS
+// REELLES du desk (cal-table, cal-day-sep, cth-*, ci-*, cv-*) via /css/style.css → visuel identique au desk.
+// Pour le mail « CPI vs Core CPI » : les releases d'inflation (CPI/PCE/PPI...) sont mises en avant. 100% informatif.
+const _CAL_ISO = { USD:'us', EUR:'eu', GBP:'gb', JPY:'jp', CAD:'ca', AUD:'au', CHF:'ch', NZD:'nz', CNY:'cn', CNH:'cn', SGD:'sg', HKD:'hk', SEK:'se', NOK:'no', MXN:'mx', BRL:'br', INR:'in', KRW:'kr', ZAR:'za', TRY:'tr', PLN:'pl', HUF:'hu', CZK:'cz', DKK:'dk' };
+function _calMailFlag(cur) { const iso = _CAL_ISO[cur]; return iso ? `<span class="cal-flag-wrap"><img src="https://flagcdn.com/w40/${iso}.png" alt="${cur}" class="cal-flag-img"></span>` : ''; }
+function _calMailDots(impact) { const l = String(impact || '').toLowerCase(); if (l === 'high') return '<span class="ci-high">●●●</span>'; if (l === 'medium') return '<span class="ci-med">●●<span class="ci-dot-off">●</span></span>'; return '<span class="ci-low">●<span class="ci-dot-off">●●</span></span>'; }
+app.get('/internal/email-widget/calendar', async (_req, res) => {
+  let items = [];
+  try { items = await _buildTVCalendar(); } catch (e) {}
+  if (!Array.isArray(items) || !items.length) { try { items = (_tvCalCache && _tvCalCache.items) || []; } catch (e) {} }
+  const now = Date.now(), horizon = now + 12 * 86400000;
+  const RX_CPI = /\b(CPI|core cpi|inflation|inflation rate|PCE|PPI|HICP|consumer price|price index)\b/i;
+  const seen = new Set();
+  const up = (items || [])
+    .filter(e => e && (e.timestamp || 0) >= now && (e.timestamp || 0) <= horizon && e.title)
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + new Date(e.timestamp).toISOString().slice(0, 10); if (seen.has(k)) return false; seen.add(k); return true; });
+  const cpi   = up.filter(e => RX_CPI.test(e.title || ''));
+  const highs = up.filter(e => String(e.impact || '').toLowerCase() === 'high' && !RX_CPI.test(e.title || ''));
+  const meds  = up.filter(e => String(e.impact || '').toLowerCase() === 'medium' && !RX_CPI.test(e.title || ''));
+  const rows  = [...cpi, ...highs, ...meds].slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  let tbody = '', lastDay = '';
+  for (const ev of rows) {
+    const d = new Date(ev.timestamp);
+    const dayKey = d.toLocaleDateString('en-GB', { timeZone: 'Europe/Paris' });
+    if (dayKey !== lastDay) {
+      let weekday = d.toLocaleDateString('fr-FR', { weekday: 'long', timeZone: 'Europe/Paris' });
+      weekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
+      const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris' });
+      tbody += `<tr class="cal-day-sep"><td colspan="7">${_e(weekday)}, ${dateStr}</td></tr>`;
+      lastDay = dayKey;
+    }
+    const isCpi = RX_CPI.test(ev.title || '');
+    const imp = String(ev.impact || '').toLowerCase();
+    let cls = 'cal-row'; if (imp === 'high') cls += ' cal-row--high'; else if (imp === 'medium') cls += ' cal-row--med'; if (isCpi) cls += ' cal-row--cpi';
+    const fc = ev.forecast && ev.forecast !== '' ? `<span class="cv-forecast">${_e(ev.forecast)}</span>` : '<span class="cv-empty">—</span>';
+    const pv = ev.previous && ev.previous !== '' ? `<span class="cv-prev">${_e(ev.previous)}</span>` : '<span class="cv-empty">—</span>';
+    tbody += `<tr class="${cls}"><td class="cth-time">${_e(ev.time || '—')}</td><td class="cth-flag">${_calMailFlag(ev.currency)}</td><td class="cth-curr">${_e(ev.currency || '')}</td><td class="cth-imp">${_calMailDots(ev.impact)}</td><td class="cth-event">${_e(ev.title || '')}</td><td class="cth-val">${fc}</td><td class="cth-val">${pv}</td></tr>`;
+  }
+  const table = rows.length
+    ? `<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">Pays</th><th class="cth-curr">Devise</th><th class="cth-imp">Impact</th><th class="cth-event">Événement</th><th class="cth-val">Prévision</th><th class="cth-val">Précédent</th></tr></thead><tbody>${tbody}</tbody></table>`
+    : '<div style="padding:26px 14px;color:#8a8f98;font-size:13px">Aucun événement majeur à venir dans les prochains jours.</div>';
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<style>html,body{margin:0;padding:0;background:#0c0e13}
+#cal-mail{width:640px;box-sizing:border-box;padding:8px 12px}
+#cal-mail .cal-table{width:100%}
+#cal-mail .cal-table thead th{position:static}
+#cal-mail .cal-row--cpi td{background:rgba(227,178,58,.07)}
+#cal-mail .cal-row--cpi .cth-time{border-left:2px solid #e3b23a}
+</style></head><body><div id="cal-mail">${table}</div>
+<script>setTimeout(function(){window.__ready=true;},400);</script>
+</body></html>`);
+});
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
