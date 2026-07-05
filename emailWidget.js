@@ -36,6 +36,7 @@ const SPECS = {
   taux:                { path: '/internal/email-widget/taux',             sel: '#taux-grid',    w: 640, h: 760, clipLast: '.rtc' },
   eclairages:          { path: '/internal/email-widget/eclairages',       sel: '#eci-wrap',     w: 600, h: 560, clipLast: '.eci' },
   calendar:            { path: '/internal/email-widget/calendar',         sel: '#cal-mail',     w: 760, h: 900, clipLast: '.cal-row' },
+  analystes:           { path: '/internal/email-widget/analystes',        sel: '#anr-wrap',     w: 600, h: 560, clipLast: '.anr' },
 };
 
 // ─── Navigateur partagé (lancé à la demande, refermé après inactivité pour ménager la RAM du VPS) ───
