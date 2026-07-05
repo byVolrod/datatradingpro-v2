@@ -11823,9 +11823,10 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css">
 <style>html,body{margin:0;padding:0;background:#0c0e13}
-#cal-mail{width:640px;box-sizing:border-box;padding:8px 12px}
-#cal-mail .cal-table{width:100%}
+#cal-mail{display:inline-block;box-sizing:border-box;padding:8px 14px 8px 12px}
+#cal-mail .cal-table{width:auto}
 #cal-mail .cal-table thead th{position:static}
+#cal-mail .cal-table .cth-event{padding-right:36px}
 #cal-mail .cal-row--cpi td{background:rgba(227,178,58,.07)}
 #cal-mail .cal-row--cpi .cth-time{border-left:2px solid #e3b23a}
 </style></head><body><div id="cal-mail">${table}</div>
