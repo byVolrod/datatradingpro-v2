@@ -11834,6 +11834,45 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
 </body></html>`);
 });
 
+// Rapports d'Analystes (recaps de seance du desk, onglet « Analystes ») — rendu SERVEUR d'une liste des
+// dernieres analyses (`_swCache`, titres IA FR). 100% informatif (aucun signal). Demande user (mail Reactivation).
+// Distinct des Eclairages IA (qui listent la recherche des BANQUES) : ici = les analyses de seance du desk.
+app.get('/internal/email-widget/analystes', async (_req, res) => {
+  if (!Array.isArray(_swCache) || _swCache.length === 0) {   // cache memoire vide par un rebuild → rechauffe avant de rendre
+    try { _swLoadFile(); } catch (e) {}
+    if (!_swCache.length) { try { await _loadPersistedHistories(); } catch (e) {} }
+  }
+  let items = [];
+  try {
+    const seen = new Set();
+    items = (_swCache || [])
+      .slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .filter(i => { const t = String((i && (i.aiTitle || i.title)) || '').trim(); if (!t || seen.has(t)) return false; seen.add(t); return true; })
+      .slice(0, 6);
+    items.forEach(_cleanItemMd);
+  } catch (e) {}
+  const now = Date.now();
+  const ago = ts => { const d = Math.max(0, Math.round((now - (ts || now)) / 86400000)); return d === 0 ? "aujourd'hui" : (d === 1 ? 'hier' : 'il y a ' + d + ' j'); };
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const rows = items.length
+    ? items.map(i => `<div class="anr"><span class="anr-ic">▸</span><div class="anr-main"><div class="anr-title">${_e(i.aiTitle || i.title || '')}</div><div class="anr-meta"><span class="anr-tag">Analyse de séance</span><span class="anr-date">${ago(i.timestamp)}</span></div></div></div>`).join('')
+    : '<div class="anr"><div class="anr-main"><div class="anr-title" style="color:#8a8f98">Aucun rapport disponible pour le moment.</div></div></div>';
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<style>html,body{margin:0;padding:0;background:#0c0e13;font-family:-apple-system,"Inter","Segoe UI",sans-serif}
+#anr-wrap{width:600px;box-sizing:border-box;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.anr{display:flex;gap:11px;align-items:flex-start;background:#0f0f12;border:1px solid #17171c;border-left:2px solid #e3b23a;border-radius:8px;padding:11px 13px}
+.anr-ic{color:#e3b23a;font-size:14px;line-height:1.45;flex:none}
+.anr-main{flex:1;min-width:0}
+.anr-title{font-size:13.5px;color:#e8eaed;line-height:1.4;font-weight:600}
+.anr-meta{display:flex;align-items:center;gap:9px;margin-top:6px}
+.anr-tag{font-size:9px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:#e3b23a;border:1px solid rgba(227,178,58,.32);border-radius:20px;padding:2px 8px}
+.anr-date{font-family:ui-monospace,monospace;font-size:10px;color:#8a8f98;text-transform:uppercase}</style>
+</head><body><div id="anr-wrap">${rows}</div>
+<script>setTimeout(function(){window.__ready=true;},300);</script>
+</body></html>`);
+});
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
