@@ -2687,7 +2687,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 13;   // v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 14;   // v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -7259,6 +7259,18 @@ ${corpus}`;
       console.log('[Weekly Recap] banques centrales : ' + weekly.centralBanks.length + ' banque(s)');
     }
   } catch (e) { console.warn('[Weekly Recap] IA banques centrales échec:', e.message); }
+
+  // Injecte l'analyse par banque DANS les Points Macro Clés (demande user : « mets-le dans cette structure »
+  // = 1 puce par banque « **Fed :** … », comme les autres thèmes macro), au lieu d'une section séparée en cartes.
+  // Le filtre plus haut a retiré la version générique de l'IA → la nôtre (ancrée données) est la SEULE.
+  if (Array.isArray(weekly.centralBanks) && weekly.centralBanks.length) {
+    const cbBul = weekly.centralBanks.map(c => {
+      const nm = _stripMd(String(c.bank || '')).replace(/\s*\(.*?\)\s*/, '').trim();
+      const tx = _stripMd(String(c.narrative || '')).replace(/\s+/g, ' ').trim().slice(0, 400);
+      return (nm && tx) ? `**${nm} :** ${tx}` : '';
+    }).filter(Boolean);
+    if (cbBul.length) weekly.macro.unshift({ heading: 'Banques Centrales', bullets: cbBul });
+  }
 
   try {
     const _cs = (_currentMondayUtc() === weekStart)
