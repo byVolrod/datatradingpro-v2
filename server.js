@@ -2687,7 +2687,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 7;   // v7 = puces à VRAI libellé gras (l'IA ne recopie plus le placeholder "**Sous-thème :**" litteralement) + FR STRICT (traduit expected/forecast/prior, plus d'anglais residuel) ; v6 = puces à LEAD GRAS (**sous-thème :**) ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 8;   // v8 = SECTION BANQUES CENTRALES (synthèse par banque : ton hawkish/dovish/neutre, évolution du wording vs semaine précédente, ce qu'elles surveillent, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6914,6 +6914,60 @@ ${ccy}-SPECIFIC DATA (session wraps + calendar + headlines mentioning ${ccy}):
 ${ccyCtx}`;
 }
 
+// ── Section « Banques Centrales » du Weekly Recap (demande user) : synthèse par banque, ANCRÉE sur les vraies
+//    données (probas de taux _buildRatesPayload + news CB de la semaine) + le bloc de la semaine PRÉCÉDENTE pour
+//    juger le CHANGEMENT DE WORDING. 1 seul appel IA dédié (évite la troncature du gros JSON global). ──
+function _recapCbRatesCtx() {
+  try {
+    const p = _buildRatesPayload();
+    const NAME = { USD: 'Fed', EUR: 'BCE (ECB)', GBP: 'BoE', JPY: 'BoJ', CAD: 'BoC', AUD: 'RBA', CHF: 'BNS (SNB)', NZD: 'RBNZ' };
+    return (p && Array.isArray(p.banks) ? p.banks : []).map(b => {
+      const nm = NAME[b.code] || b.bank || b.code;
+      const sc = b.scenario ? `maintien ${b.scenario.hold}% / hausse ${b.scenario.hike}% / baisse ${b.scenario.cut}%` : '';
+      return `${nm} : taux directeur ${b.rate}% · penche ${b.move || '?'} · prochaine réunion ${b.next || '?'}${b.nextDays != null ? ' (' + b.nextDays + 'j)' : ''} · scénario marché ${sc}${b.expBps != null ? ' · variation implicite ' + b.expBps + ' bps' : ''}`;
+    }).join('\n');
+  } catch (e) { return ''; }
+}
+function _recapSanitizeCb(arr) {
+  const OK = ['hawkish', 'dovish', 'neutral'];
+  return (Array.isArray(arr) ? arr : []).filter(x => x && x.bank).map(x => ({
+    bank: _stripMd(String(x.bank)).slice(0, 40),
+    stance: OK.includes(String(x.stance || '').toLowerCase()) ? String(x.stance).toLowerCase() : 'neutral',
+    stanceChange: _stripMd(String(x.stanceChange || '')).slice(0, 420),
+    watching: _stripMd(String(x.watching || '')).slice(0, 420),
+    nextMeeting: _stripMd(String(x.nextMeeting || '')).slice(0, 420),
+    interpretation: _stripMd(String(x.interpretation || '')).slice(0, 520),
+  })).slice(0, 8);
+}
+function _recapCbPrompt(ratesCtx, cbNews, prevCtx) {
+  return `You are the chief central-bank strategist for an institutional FX & markets desk. Write a per-central-bank WEEKLY synthesis IN FRENCH (français soigné, précis, professionnel), desk-macro quality — beyond a mere summary, surfacing what actually matters to anticipate future decisions. Cover EXACTLY these 8 banks: Fed, BCE (ECB), BoE, BoJ, BoC, RBA, RBNZ, BNS (SNB).
+
+Ground EVERYTHING ONLY in the data below (market rate probabilities + this week's central-bank headlines + last week's stance for comparison). NEVER invent numbers, quotes or events. Markets are extremely sensitive to language shifts: highlight even SUBTLE changes in tone/wording vs the previous week.
+
+Return ONLY valid JSON (no preamble, no code fences):
+{ "centralBanks": [ {
+  "bank": "Fed",
+  "stance": "hawkish|dovish|neutral",
+  "stanceChange": "<évolution du ton vs semaine précédente : plus hawkish / plus dovish / inchangé — cite les nuances de wording. Si aucune communication cette semaine, dis-le et base-toi sur le pricing.>",
+  "watching": "<ce que la banque surveille avant d'agir (inflation, emploi, salaires, croissance, consommation, crédit, conditions financières...)>",
+  "nextMeeting": "<implications pour la prochaine réunion + évolution attendue du pricing de marché (utilise les probabilités fournies)>",
+  "interpretation": "<Market Interpretation : comment le marché a interprété la semaine, quelles classes d'actifs ont réagi (devises, taux, actions, or, pétrole), et si cela RENFORCE / AFFAIBLIT / NE CHANGE PAS le scénario de politique monétaire.>"
+} ] }
+Rules:
+- The 8 banks, in this order. Omit a bank ONLY if there is truly zero usable info.
+- "stance" strictly one of: hawkish, dovish, neutral.
+- ALL text in FRENCH. Keep central-bank acronyms as-is (Fed, ECB, BoE, BoJ, BoC, RBA, RBNZ, SNB). Translate any English data (expected→attendu, forecast→prévu, prior→précédent, actual→publié). No source attributions, no URLs.
+
+=== RATE PROBABILITIES (par banque, marché) ===
+${ratesCtx || '(non disponible)'}
+
+=== THIS WEEK'S CENTRAL-BANK HEADLINES ===
+${cbNews || '(peu de communication cette semaine)'}
+
+=== LAST WEEK'S STANCE (for wording-change comparison) ===
+${prevCtx || '(pas de rapport précédent)'}`;
+}
+
 // ── Weekly Market Recap RICHE (Gemini → JSON structuré) ──
 // Copie de la logique DataTradingPro : résumé global, cartes d'insights, Key Macro Highlights,
 // et analyse détaillée par devise (USD…NZD). Renvoie null si l'IA échoue (→ fallback par règles).
@@ -7176,6 +7230,26 @@ ${corpus}`;
   // → données 'week' courantes ; (re)généré APRÈS (bump RECAP_VER, rattrapage quota IA) → recalcul FIGÉ
   // de LA semaine du rapport via _computeStrengthWeekOf (fini le repli live qui traçait la MAUVAISE semaine).
   weekly.weekKey = weekKey;
+
+  // ── SECTION BANQUES CENTRALES (demande user) : 1 appel IA DÉDIÉ, ancré sur les VRAIES données (probas de
+  //    taux + news CB de la semaine) + le bloc de la semaine PRÉCÉDENTE (allNews encore intact avant l'échange
+  //    atomique) pour juger le changement de wording. Additif : si l'IA est indisponible → centralBanks = []. ──
+  weekly.centralBanks = [];
+  try {
+    const CB_RX = /\b(fed|fomc|powell|warsh|ecb|bce|lagarde|lane|nagel|kazaks|boe|bailey|pill|greene|mann|boj|ueda|uchida|snb|bns|schlegel|boc|macklem|rba|bullock|rbnz|orr|hawkish|dovish|colombe|faucon)\b/i;
+    const cbNews = [...wraps, ...cal, ...news].filter(l => CB_RX.test(String(l))).slice(0, 45).join('\n').slice(0, 8000);
+    const ratesCtx = _recapCbRatesCtx();
+    const prevItem = allNews.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && Array.isArray(i._weekly.centralBanks) && i._weekly.centralBanks.length);
+    const prevCtx = prevItem ? prevItem._weekly.centralBanks.map(c => `${c.bank} : ${c.stance}${c.stanceChange ? ' — ' + c.stanceChange : ''}`).join('\n') : '';
+    if ((ratesCtx || cbNews) && !(ai.backoffActive && ai.backoffActive())) {
+      const cbTxt = await ai.generateText(_recapCbPrompt(ratesCtx, cbNews, prevCtx), 4096);
+      aiNote('weekly');
+      const cm = String(cbTxt || '').match(/\{[\s\S]*\}/);
+      if (cm) { const cp = JSON.parse(cm[0]); if (cp && Array.isArray(cp.centralBanks)) weekly.centralBanks = _recapSanitizeCb(cp.centralBanks); }
+      console.log('[Weekly Recap] banques centrales : ' + weekly.centralBanks.length + ' banque(s)');
+    }
+  } catch (e) { console.warn('[Weekly Recap] IA banques centrales échec:', e.message); }
+
   try {
     const _cs = (_currentMondayUtc() === weekStart)
       ? await computeCurrencyStrength('week')
@@ -7187,6 +7261,7 @@ ${corpus}`;
   const descParts = [weekly.summary];
   weekly.macro.forEach(s => { descParts.push('\n' + s.heading); (s.bullets||[]).forEach(b => descParts.push('- ' + String(b).replace(/\*\*/g,''))); });
   for (const c of CCY) if (weekly.currencies[c]) descParts.push('\n' + c + ': ' + weekly.currencies[c].analysis);
+  (weekly.centralBanks || []).forEach(c => descParts.push('\n' + c.bank + ' (' + c.stance + '): ' + [c.stanceChange, c.watching, c.nextMeeting, c.interpretation].filter(Boolean).join(' ')));
   const timeStr = new Date().toLocaleTimeString('fr-FR', { hour:'2-digit', minute:'2-digit', timeZone:'Europe/Paris' });
 
   const item = {
