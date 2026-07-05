@@ -37,6 +37,8 @@ const SPECS = {
   eclairages:          { path: '/internal/email-widget/eclairages',       sel: '#eci-wrap',     w: 600, h: 560, clipLast: '.eci' },
   calendar:            { path: '/internal/email-widget/calendar',         sel: '#cal-mail',     w: 760, h: 900, clipLast: '.cal-row' },
   analystes:           { path: '/internal/email-widget/analystes',        sel: '#arlib-list',   w: 720, h: 900, clipLast: '.arl-row' },
+  'mindset-methode':   { path: '/internal/email-widget/mindset-methode',  sel: '#art',          w: 600, h: 300 },
+  'mindset-ego':       { path: '/internal/email-widget/mindset-ego',      sel: '#art',          w: 600, h: 300 },
 };
 
 // ─── Navigateur partagé (lancé à la demande, refermé après inactivité pour ménager la RAM du VPS) ───
