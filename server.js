@@ -12009,33 +12009,34 @@ function _mindsetArtSvg(which) {
   const W = 1200, H = 560, HY = 102;   // HY = bas de l'en-tete (habillage panneau DTP)
   let scene = '';
   if (which === 'ego') {
-    // Courbe d'equity facon desk : petite montee FIERE (or -> vert = l'ego, « avoir raison »), puis GROSSE chute
-    // ROUGE sous le niveau d'entree → le cout cache de l'ego depasse le gain. Couleurs semantiques DTP.
-    const base = 330, peakX = 512, peakY = 188, endX = 1088, endY = 486;
+    // Illustration : une COURONNE dorée (l'ego, la fierté d'avoir raison), petite et lumineuse, qui projette une
+    // OMBRE démesurée vers la droite (le coût caché, bien plus grand qu'on ne croit). Pas un graphe.
+    const crown = 'M -72,46 L 72,46 L 72,2 L 52,-58 L 34,-4 L 16,-72 L -1,-4 L -18,-72 L -35,-4 L -52,-58 L -72,2 Z';
     scene =
-      `<ellipse cx="${peakX}" cy="${peakY - 14}" rx="230" ry="150" fill="url(#atmo)"/>` +
-      `<path d="M${peakX},${peakY} C 660,252 780,442 ${endX},${endY} L ${endX},${base} L ${peakX},${base} Z" fill="#ff3d00" opacity="0.05"/>` +
-      `<line x1="120" y1="${base}" x2="${endX}" y2="${base}" stroke="#e3b23a" stroke-width="1" stroke-dasharray="3 7" opacity="0.32"/>` +
-      `<path d="M120,${base + 4} C 250,${base} 380,246 ${peakX},${peakY}" fill="none" stroke="url(#rally)" stroke-width="3.8" stroke-linecap="round" filter="url(#glow)"/>` +
-      `<circle cx="${peakX}" cy="${peakY}" r="6" fill="#7dffb0" filter="url(#glow)"/>` +
-      `<path d="M${peakX},${peakY} C 660,252 780,442 ${endX},${endY}" fill="none" stroke="url(#crash)" stroke-width="3.8" stroke-linecap="round" filter="url(#glow)"/>` +
-      `<circle cx="${endX}" cy="${endY}" r="5.5" fill="#ff3d00" filter="url(#glow)"/>`;
+      `<ellipse cx="620" cy="322" rx="340" ry="150" fill="url(#atmo)"/>` +
+      `<ellipse cx="734" cy="392" rx="330" ry="30" fill="#120f12"/>` +
+      `<ellipse cx="734" cy="392" rx="330" ry="30" fill="#ff3d00" opacity="0.05"/>` +
+      `<line x1="360" y1="384" x2="860" y2="384" stroke="#e3b23a" stroke-width="1" opacity="0.14"/>` +
+      `<g transform="translate(548,322)">` +
+        `<path d="${crown}" fill="url(#gold)" filter="url(#glow)"/>` +
+        `<circle cx="52" cy="-58" r="6.5" fill="#f6d789"/><circle cx="16" cy="-72" r="7.5" fill="#f6d789"/><circle cx="-18" cy="-72" r="7.5" fill="#f6d789"/><circle cx="-52" cy="-58" r="6.5" fill="#f6d789"/>` +
+        `<circle cx="-28" cy="26" r="4" fill="#0c0c0e"/><circle cx="0" cy="26" r="4" fill="#0c0c0e"/><circle cx="28" cy="26" r="4" fill="#0c0c0e"/>` +
+      `</g>`;
   } else {
-    // Surcharge d'indicateurs / strategies = spaghetti de lignes qui se croisent (le bruit) ; une ligne d'OR
-    // nette s'eleve AU-DESSUS (la clarte). Quelques lignes tres faiblement teintees vert/rouge = « indicateurs ».
-    let noise = '';
-    const cols = ['#34343e', '#34343e', '#3a3a44', '#2e3a34', '#3a2e2e', '#3d3626'];
-    for (let i = 0; i < 20; i++) {
-      const a = 152 + ((i * 61 + 30) % 296), b = 152 + ((i * 113 + 90) % 296), c = 152 + ((i * 83 + 150) % 296);
-      noise += `<path d="M120,${a} C 380,${b} 720,${c} 1086,${(a + c) >> 1}" fill="none" stroke="${cols[i % cols.length]}" stroke-width="1.1" opacity="0.42"/>`;
-    }
+    // Illustration : un LABYRINTHE (la quête sans fin de la méthode parfaite) traversé par UNE voie dorée qui
+    // rejoint le centre (la clarté). Pas un graphe.
+    const cx = 600, cy = 330;
+    let walls = '';
+    [340, 250, 162, 80].forEach((s, i) => { walls += `<rect x="${cx - s / 2}" y="${cy - s / 2}" width="${s}" height="${s}" rx="10" fill="none" stroke="#34343e" stroke-width="2.4" opacity="${0.52 - i * 0.06}"/>`; });
+    const P = [[452, 470], [748, 470], [748, 192], [468, 192], [468, 430], [700, 430], [700, 244], [532, 244], [532, 384], [648, 384], [648, 292], [588, 292], [588, 338], [600, 330]];
+    const poly = P.map(p => p.join(',')).join(' ');
     scene =
-      `<ellipse cx="960" cy="156" rx="360" ry="196" fill="url(#atmo)"/>` +
-      `<g>${noise}</g>` +
-      `<path d="M120,326 C 360,326 440,210 600,198 S 940,166 1086,166" fill="none" stroke="url(#gold)" stroke-width="7.5" stroke-linecap="round" opacity="0.15" filter="url(#softglow)"/>` +
-      `<path d="M120,326 C 360,326 440,210 600,198 S 940,166 1086,166" fill="none" stroke="url(#gold)" stroke-width="3.6" stroke-linecap="round" filter="url(#glow)"/>` +
-      `<circle cx="600" cy="198" r="4" fill="#e3b23a"/>` +
-      `<circle cx="1086" cy="166" r="6.5" fill="#f6d789" filter="url(#glow)"/>`;
+      `<ellipse cx="${cx}" cy="${cy - 8}" rx="330" ry="200" fill="url(#atmo)"/>` +
+      `<g>${walls}</g>` +
+      `<polyline points="${poly}" fill="none" stroke="url(#gold)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity="0.15" filter="url(#softglow)"/>` +
+      `<polyline points="${poly}" fill="none" stroke="url(#gold)" stroke-width="3.4" stroke-linejoin="round" stroke-linecap="round" filter="url(#glow)"/>` +
+      `<circle cx="452" cy="470" r="4.5" fill="#e3b23a"/>` +
+      `<circle cx="600" cy="330" r="7.5" fill="#f6d789" filter="url(#glow)"/>`;
   }
   const header =
     `<g transform="translate(56,53)"><rect x="-26" y="-26" width="52" height="52" rx="12" fill="url(#gold)"/><text x="0" y="8" font-family="'Inter Tight',Arial,sans-serif" font-size="23" font-weight="800" fill="#0c0c0e" text-anchor="middle">DT</text></g>` +
