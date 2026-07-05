@@ -11993,57 +11993,56 @@ app.get('/internal/email-widget/analystes', async (_req, res) => {
 // Illustrations editoriales des e-mails MINDSET (psychologie) — PAS de widget de marche, mais une image
 // dans l'IDENTITE DTP (sombre + or, monogramme DT) qui accompagne le texte. Demande user. Rendu SERVEUR (SVG).
 function _mindsetArtSvg(which) {
-  const W = 1200, H = 560;
-  let grid = '';
-  for (let x = 0; x <= W; x += 60) grid += `<line x1="${x}" y1="0" x2="${x}" y2="${H}"/>`;
-  for (let y = 0; y <= H; y += 60) grid += `<line x1="0" y1="${y}" x2="${W}" y2="${y}"/>`;
+  const W = 1200, H = 560, HY = 102;   // HY = bas de l'en-tete (habillage panneau DTP)
   let scene = '';
   if (which === 'ego') {
-    const wl = 288;   // ligne d'eau. Petit sommet lumineux (ego visible) au-dessus ; masse immense (le cout cache) au-dessous.
+    // Courbe d'equity facon desk : petite montee FIERE (or -> vert = l'ego, « avoir raison »), puis GROSSE chute
+    // ROUGE sous le niveau d'entree → le cout cache de l'ego depasse le gain. Couleurs semantiques DTP.
+    const base = 330, peakX = 512, peakY = 188, endX = 1088, endY = 486;
     scene =
-      `<ellipse cx="620" cy="${wl - 46}" rx="250" ry="164" fill="url(#atmo)"/>` +
-      // masse immergee : grande, degradee, avec facettes (glace taillee)
-      `<path d="M448,${wl} L752,${wl} L708,${wl + 100} L636,${wl + 258} L582,${wl + 150} L506,${wl + 190} Z" fill="url(#icefill)"/>` +
-      `<path d="M448,${wl} L752,${wl} L708,${wl + 100} L636,${wl + 258} L582,${wl + 150} L506,${wl + 190} Z" fill="none" stroke="#c8983a" stroke-width="1.4" stroke-opacity="0.42" stroke-linejoin="round"/>` +
-      `<path d="M600,${wl} L600,${wl + 250}" stroke="#b8860b" stroke-width="1" stroke-opacity="0.16"/>` +
-      `<path d="M448,${wl} L604,${wl + 118} L752,${wl}" fill="none" stroke="#b8860b" stroke-width="1" stroke-opacity="0.14"/>` +
-      `<circle cx="694" cy="${wl + 82}" r="2.4" fill="#e3b23a" opacity="0.32"/><circle cx="524" cy="${wl + 132}" r="1.8" fill="#e3b23a" opacity="0.22"/><circle cx="648" cy="${wl + 176}" r="1.6" fill="#e3b23a" opacity="0.2"/>` +
-      // ligne d'eau + reflet
-      `<line x1="62" y1="${wl}" x2="1138" y2="${wl}" stroke="url(#gold)" stroke-width="1.9" opacity="0.8"/>` +
-      `<line x1="62" y1="${wl + 8}" x2="1138" y2="${wl + 8}" stroke="#e3b23a" stroke-width="1" opacity="0.12"/>` +
-      // sommet visible (ego) — lumineux
-      `<path d="M574,${wl} L620,${wl - 94} L666,${wl} Z" fill="#e3b23a" opacity="0.24"/>` +
-      `<path d="M574,${wl} L620,${wl - 94} L666,${wl} Z" fill="none" stroke="url(#gold)" stroke-width="3.2" stroke-linejoin="round" filter="url(#glow)"/>` +
-      `<circle cx="620" cy="${wl - 94}" r="3.2" fill="#f6d789" filter="url(#glow)"/>`;
+      `<ellipse cx="${peakX}" cy="${peakY - 14}" rx="230" ry="150" fill="url(#atmo)"/>` +
+      `<path d="M${peakX},${peakY} C 660,252 780,442 ${endX},${endY} L ${endX},${base} L ${peakX},${base} Z" fill="#ff3d00" opacity="0.05"/>` +
+      `<line x1="120" y1="${base}" x2="${endX}" y2="${base}" stroke="#e3b23a" stroke-width="1" stroke-dasharray="3 7" opacity="0.32"/>` +
+      `<path d="M120,${base + 4} C 250,${base} 380,246 ${peakX},${peakY}" fill="none" stroke="url(#rally)" stroke-width="3.8" stroke-linecap="round" filter="url(#glow)"/>` +
+      `<circle cx="${peakX}" cy="${peakY}" r="6" fill="#7dffb0" filter="url(#glow)"/>` +
+      `<path d="M${peakX},${peakY} C 660,252 780,442 ${endX},${endY}" fill="none" stroke="url(#crash)" stroke-width="3.8" stroke-linecap="round" filter="url(#glow)"/>` +
+      `<circle cx="${endX}" cy="${endY}" r="5.5" fill="#ff3d00" filter="url(#glow)"/>`;
   } else {
-    let noise = '';   // le bruit des « methodes » : lignes fines qui s'estompent
-    for (let i = 0; i < 13; i++) { const y = 138 + i * 26; noise += `<path d="M70,${y} C 280,${y - 12} 380,${y + 14} 540,${y - 6} S 840,${y + 12} 1130,${y}"/>`; }
+    // Surcharge d'indicateurs / strategies = spaghetti de lignes qui se croisent (le bruit) ; une ligne d'OR
+    // nette s'eleve AU-DESSUS (la clarte). Quelques lignes tres faiblement teintees vert/rouge = « indicateurs ».
+    let noise = '';
+    const cols = ['#34343e', '#34343e', '#3a3a44', '#2e3a34', '#3a2e2e', '#3d3626'];
+    for (let i = 0; i < 20; i++) {
+      const a = 152 + ((i * 61 + 30) % 296), b = 152 + ((i * 113 + 90) % 296), c = 152 + ((i * 83 + 150) % 296);
+      noise += `<path d="M120,${a} C 380,${b} 720,${c} 1086,${(a + c) >> 1}" fill="none" stroke="${cols[i % cols.length]}" stroke-width="1.1" opacity="0.42"/>`;
+    }
     scene =
-      `<ellipse cx="980" cy="150" rx="380" ry="210" fill="url(#atmo)"/>` +
-      `<g fill="none" stroke="#43434f" stroke-width="1.2" opacity="0.55">${noise}</g>` +
-      // UNE voie qui s'eleve : halo doux puis trait net
-      `<path d="M70,300 C 320,300 400,184 560,174 S 900,140 1132,140" fill="none" stroke="url(#gold)" stroke-width="7" stroke-linecap="round" opacity="0.16" filter="url(#softglow)"/>` +
-      `<path d="M70,300 C 320,300 400,184 560,174 S 900,140 1132,140" fill="none" stroke="url(#gold)" stroke-width="3.4" stroke-linecap="round" filter="url(#glow)"/>` +
-      `<circle cx="560" cy="174" r="4" fill="#e3b23a"/>` +
-      `<circle cx="1132" cy="140" r="6.6" fill="#f6d789" filter="url(#glow)"/>`;
+      `<ellipse cx="960" cy="156" rx="360" ry="196" fill="url(#atmo)"/>` +
+      `<g>${noise}</g>` +
+      `<path d="M120,326 C 360,326 440,210 600,198 S 940,166 1086,166" fill="none" stroke="url(#gold)" stroke-width="7.5" stroke-linecap="round" opacity="0.15" filter="url(#softglow)"/>` +
+      `<path d="M120,326 C 360,326 440,210 600,198 S 940,166 1086,166" fill="none" stroke="url(#gold)" stroke-width="3.6" stroke-linecap="round" filter="url(#glow)"/>` +
+      `<circle cx="600" cy="198" r="4" fill="#e3b23a"/>` +
+      `<circle cx="1086" cy="166" r="6.5" fill="#f6d789" filter="url(#glow)"/>`;
   }
+  const header =
+    `<g transform="translate(56,53)"><rect x="-26" y="-26" width="52" height="52" rx="12" fill="url(#gold)"/><text x="0" y="8" font-family="'Inter Tight',Arial,sans-serif" font-size="23" font-weight="800" fill="#0c0c0e" text-anchor="middle">DT</text></g>` +
+    `<text x="98" y="59" font-family="'Inter Tight',Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="3.5" fill="#e3b23a">MINDSET</text>` +
+    `<circle cx="${W - 214}" cy="53" r="4" fill="#00e676"/><text x="${W - 54}" y="57" font-family="'Inter Tight',Arial,sans-serif" font-size="11" font-weight="600" letter-spacing="1.7" fill="#565b64" text-anchor="end">DATATRADINGPRO</text>` +
+    `<line x1="40" y1="${HY}" x2="${W - 40}" y2="${HY}" stroke="#1a1a1e" stroke-width="1"/>`;
   return `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <radialGradient id="bg" cx="50%" cy="38%" r="85%"><stop offset="0%" stop-color="#17171e"/><stop offset="58%" stop-color="#0c0c10"/><stop offset="100%" stop-color="#070709"/></radialGradient>
-    <radialGradient id="atmo"><stop offset="0%" stop-color="#e3b23a" stop-opacity="0.15"/><stop offset="55%" stop-color="#e3b23a" stop-opacity="0.04"/><stop offset="100%" stop-color="#e3b23a" stop-opacity="0"/></radialGradient>
+    <radialGradient id="atmo"><stop offset="0%" stop-color="#e3b23a" stop-opacity="0.13"/><stop offset="55%" stop-color="#e3b23a" stop-opacity="0.03"/><stop offset="100%" stop-color="#e3b23a" stop-opacity="0"/></radialGradient>
     <linearGradient id="gold" x1="0" y1="0" x2="1" y2="0.4"><stop offset="0%" stop-color="#7a5c18"/><stop offset="42%" stop-color="#e3b23a"/><stop offset="100%" stop-color="#f6d789"/></linearGradient>
-    <linearGradient id="icefill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#e3b23a" stop-opacity="0.13"/><stop offset="100%" stop-color="#e3b23a" stop-opacity="0.01"/></linearGradient>
-    <radialGradient id="vign" cx="50%" cy="50%" r="72%"><stop offset="58%" stop-color="#000" stop-opacity="0"/><stop offset="100%" stop-color="#000" stop-opacity="0.34"/></radialGradient>
+    <linearGradient id="rally" x1="0" y1="1" x2="1" y2="0"><stop offset="0%" stop-color="#b8860b"/><stop offset="55%" stop-color="#e3b23a"/><stop offset="100%" stop-color="#00e676"/></linearGradient>
+    <linearGradient id="crash" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#e3b23a"/><stop offset="40%" stop-color="#ff7a3d"/><stop offset="100%" stop-color="#ff3d00"/></linearGradient>
     <filter id="glow" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="4.5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
     <filter id="softglow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="10"/></filter>
   </defs>
-  <rect width="${W}" height="${H}" fill="url(#bg)"/>
-  <g stroke="#e3b23a" stroke-width="1" opacity="0.04">${grid}</g>
+  <rect width="${W}" height="${H}" fill="#0c0c0e"/>
+  <rect width="${W}" height="${H}" fill="url(#atmo)"/>
   ${scene}
-  <rect width="${W}" height="${H}" fill="url(#vign)"/>
-  <g transform="translate(58,54)"><rect x="-26" y="-26" width="52" height="52" rx="13" fill="url(#gold)"/><text x="0" y="8" font-family="'Inter Tight',Arial,sans-serif" font-size="23" font-weight="800" fill="#1a1206" text-anchor="middle">DT</text></g>
-  <text x="100" y="60" font-family="'Inter Tight',Arial,sans-serif" font-size="15" font-weight="700" letter-spacing="3.5" fill="#e3b23a" opacity="0.92">MINDSET</text>
-  <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" fill="none" stroke="#e3b23a" stroke-opacity="0.09"/>
+  ${header}
+  <rect x="0.75" y="0.75" width="${W - 1.5}" height="${H - 1.5}" fill="none" stroke="#1c1c20" stroke-width="1.5"/>
 </svg>`;
 }
 function _mindsetArtPage(which) {
