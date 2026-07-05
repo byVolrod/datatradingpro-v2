@@ -2687,7 +2687,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 8;   // v8 = SECTION BANQUES CENTRALES (synthèse par banque : ton hawkish/dovish/neutre, évolution du wording vs semaine précédente, ce qu'elles surveillent, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 9;   // v9 = section Banques Centrales DURCIE (ton evidence-based, plus de defaut hawkish ; anti-remplissage : plus de narratif generique quand une banque est calme) ; v8 = SECTION BANQUES CENTRALES (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6954,8 +6954,9 @@ Return ONLY valid JSON (no preamble, no code fences):
   "interpretation": "<Market Interpretation : comment le marché a interprété la semaine, quelles classes d'actifs ont réagi (devises, taux, actions, or, pétrole), et si cela RENFORCE / AFFAIBLIT / NE CHANGE PAS le scénario de politique monétaire.>"
 } ] }
 Rules:
-- The 8 banks, in this order. Omit a bank ONLY if there is truly zero usable info.
-- "stance" strictly one of: hawkish, dovish, neutral.
+- Cover the 8 banks, in this order. Omit a bank ONLY if there is truly zero usable info.
+- "stance" strictly one of: hawkish, dovish, neutral. Base it on EVIDENCE (this week's communication + the rate pricing provided), NOT on habit. Do NOT default to hawkish. If pricing shows a near-certain HOLD and there was no clearly hawkish/dovish communication this week, the stance is "neutral". "hawkish" only with a genuine tightening signal (hawkish remarks or a real hike probability) ; "dovish" only with an easing signal (dovish remarks or a real cut probability). Note: the BoJ is structurally the most accommodative major — never call it hawkish without an explicit tightening signal.
+- ANTI-REMPLISSAGE (crucial) : si une banque a peu ou pas communiqué cette semaine, DIS-LE clairement dans "stanceChange" (ex. « Communication limitée cette semaine, pricing quasi inchangé ») et n'invente AUCUNE réaction de marché dans "interpretation". Ne cite QUE des mouvements d'actifs réellement présents dans les données ; sinon, écris que l'impact de marché a été limité/absent. N'écris JAMAIS de narratif générique (« l'économie se redresse », « légère hausse des rendements ») pour meubler — c'est INTERDIT. Chaque phrase doit être SPÉCIFIQUE à CETTE banque (nom du responsable, donnée précise, wording réel), jamais un gabarit applicable à n'importe quelle banque.
 - ALL text in FRENCH. Keep central-bank acronyms as-is (Fed, ECB, BoE, BoJ, BoC, RBA, RBNZ, SNB). Translate any English data (expected→attendu, forecast→prévu, prior→précédent, actual→publié). No source attributions, no URLs.
 
 === RATE PROBABILITIES (par banque, marché) ===
