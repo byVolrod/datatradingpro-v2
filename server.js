@@ -11834,69 +11834,48 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
 </body></html>`);
 });
 
-// Rapports d'Analystes = le VRAI widget de l'onglet « Analystes » du desk (repertoire renderArlibList).
-// Demande user (« met l'onglet ANALYSTE, le widget reel »). On charge le VRAI app.js + charts.js + style.css
-// et on appelle loadAnalystView() ; les endpoints qu'il fetch sont INTERCEPTES (donnees injectees en memoire,
-// aucun auth, AUCUNE generation IA) → rendu 100% fidele (memes classes arlib-table/arl-row, titres FR, logos DTP).
-// 100% informatif (le repertoire ne montre que des titres de rapports, aucun signal).
+// Rapports d'Analystes = le repertoire « Analystes » du desk (onglet ANALYSTE), rendu SERVEUR FIDELE : meme
+// table (classes REELLES arlib-table/arl-row/arl-c-*/arl-tw via /css/style.css), memes icones (bookmark, globe),
+// logo DTP. Demande user (« met l'onglet ANALYSTE, le widget reel »). Titres = aiTitle FR des recaps de seance
+// (_swCache) + rapports hebdo (allNews). 100% informatif (que des titres de rapports, aucun signal).
+// NB : on NE recharge PAS app.js (son init plante en page isolee : « _readLoaded » en TDZ) → copie serveur.
 app.get('/internal/email-widget/analystes', async (_req, res) => {
   if (!Array.isArray(_swCache) || _swCache.length === 0) {   // cache memoire vide par un rebuild → rechauffe avant de rendre
     try { _swLoadFile(); } catch (e) {}
     if (!_swCache.length) { try { await _loadPersistedHistories(); } catch (e) {} }
   }
-  const sw = (_swCache || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 7);   // ~7 recaps recents (→ ~8 lignes avec les hebdo)
-  const br = (_brCache || []).filter(i => { try { return _brAllowed(i); } catch (e) { return true; } }).slice(0, 20);
-  let wk = [];
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const GLOBE = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><line x1="2" y1="12" x2="22" y2="12"/></svg>';
+  const BM = '<svg width="12" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z"/></svg>';
+  const WK_FR = { 'Weekly Market Recap': 'Récap Hebdomadaire de Marché', 'Global Economic Weekly': 'Hebdo Économique Mondial', 'FX Daily Recap': 'Récap FX du Jour' };
+  let weekly = [];
   try {
-    const cutoff = Date.now() - 40 * 86400000;
-    wk = (allNews || []).filter(i => i && (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly' || i._reportType === 'FX Daily Recap') && (i.timestamp || 0) > cutoff).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, 6);
+    const cutoff = Date.now() - 40 * 86400000, seenT = new Set();
+    weekly = (allNews || []).filter(i => i && WK_FR[i._reportType] && (i.timestamp || 0) > cutoff)
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .filter(i => { if (seenT.has(i._reportType)) return false; seenT.add(i._reportType); return true; })   // 1 par type, facon desk
+      .slice(0, 2)
+      .map(i => ({ ts: i.timestamp, title: WK_FR[i._reportType], weekly: true }));
   } catch (e) {}
-  const payload = JSON.stringify({ sw, br, wk }).replace(/</g, '\\u003c');
+  const wraps = (_swCache || []).slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .filter(i => i && (i.aiTitle || i.title))
+    .slice(0, Math.max(3, 8 - weekly.length))
+    .map(i => ({ ts: i.timestamp, title: (i.aiTitle || i.title), weekly: false }));
+  const rows = [...weekly, ...wraps];
+  const trs = rows.map(r => {
+    const dateStr = new Date(r.ts).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: '2-digit', timeZone: 'Europe/Paris' });
+    return `<tr class="arl-row${r.weekly ? ' arl-row--weekly' : ''}"><td class="arl-c-bm"><span class="arl-bm">${BM}</span></td><td class="arl-c-date">${_e(dateStr)}</td><td class="arl-c-title"><div class="arl-tw"><span class="arl-ico">${GLOBE}</span><span class="arl-ttl">${_e(r.title)}</span></div></td><td class="arl-c-inst"><img class="arl-inst-logo" src="/favicon.svg" alt="DTP"></td></tr>`;
+  }).join('');
+  const table = rows.length
+    ? `<table class="arlib-table"><colgroup><col class="arl-col-bm"><col class="arl-col-date"><col class="arl-col-title"><col class="arl-col-inst"></colgroup><thead><tr><th class="arl-th"></th><th class="arl-th">Date</th><th class="arl-th">Titre</th><th class="arl-th arl-th-c">Institut</th></tr></thead><tbody>${trs}</tbody></table>`
+    : '<div style="padding:26px 14px;color:#8a8f98;font-size:13px">Aucun rapport disponible pour le moment.</div>';
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link rel="stylesheet" href="/css/style.css">
 <style>html,body{margin:0;padding:0;background:#0c0e13}
 #arlib-list{width:680px;box-sizing:border-box;padding:6px 12px;max-height:none;overflow:visible;display:block}</style>
-<script>
-window.__ARL = ${payload};
-(function(){
-  var real = window.fetch ? window.fetch.bind(window) : null;
-  function J(o){ return Promise.resolve({ ok:true, status:200, headers:{ get:function(){ return 'application/json'; } }, json:function(){ return Promise.resolve(o); }, text:function(){ return Promise.resolve(JSON.stringify(o)); } }); }
-  window.fetch = function(u, opt){
-    var s = String((u && u.url) || u || '');
-    if (s.indexOf('/api/session-wraps') >= 0) return J(window.__ARL.sw);
-    if (s.indexOf('/api/bank-research')  >= 0) return J(window.__ARL.br);
-    if (s.indexOf('/api/weekly-reports') >= 0) return J({ items: window.__ARL.wk, generating: false });
-    if (s.indexOf('/api/fx-daily')       >= 0) return J([]);
-    if (s.indexOf('/api/')               >= 0) return J({});
-    return real ? real(u, opt) : J({});
-  };
-})();
-</script>
-</head><body>
-<div id="arlib-list"></div><div id="arlib-foot" style="display:none"></div>
-<script src="/js/charts.js"></script>
-<script src="/js/app.js"></script>
-<script>
-(function(){
-  function go(){
-    var L = document.getElementById('arlib-list'); var log = [];
-    log.push('laV=' + (typeof loadAnalystView)); log.push('rAL=' + (typeof renderArlibList)); log.push('gAI=' + (typeof getArlibItems)); log.push('stdT=' + (typeof standardizeReportTitle));
-    log.push('swInj=' + (window.__ARL && window.__ARL.sw ? window.__ARL.sw.length : '?'));
-    try { if (typeof loadAnalystView === 'function') loadAnalystView(); } catch (e) { log.push('laV_err=' + e.message); }
-    setTimeout(function(){
-      try { if (typeof renderArlibList === 'function') renderArlibList(); } catch (e) { log.push('rAL_err=' + e.message); }
-      log.push('rows=' + L.querySelectorAll('.arl-row').length);
-      log.push('html=' + String(L.innerHTML || '').replace(/</g, '{').slice(0, 260));
-      var d = document.createElement('div'); d.className = 'arl-row'; d.style.cssText = 'color:#fff;background:#111;padding:14px;font:12px monospace;white-space:pre-wrap;word-break:break-all';
-      d.textContent = log.join(' | '); L.appendChild(d);
-      window.__ready = true;
-    }, 1800);
-  }
-  if (document.readyState !== 'loading') setTimeout(go, 350);
-  else window.addEventListener('DOMContentLoaded', function(){ setTimeout(go, 350); });
-})();
-</script>
+</head><body><div id="arlib-list">${table}</div>
+<script>setTimeout(function(){window.__ready=true;},400);</script>
 </body></html>`);
 });
 
