@@ -2687,7 +2687,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 12;   // v12 = durcit : 0 chiffre de marche invente (ni narrative ni analyse), quotes=[] si personne n'a parle (plus de fausse citation « aucun responsable ne s'est exprime ») ; v11 = format research note (paragraphe + citations italiques -> analyse) + theme CB retire des Points Macro ; v10 = interdit chiffres marche ; v9 = ton evidence-based + anti-remplissage ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 13;   // v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -7234,6 +7234,12 @@ ${corpus}`;
   // → données 'week' courantes ; (re)généré APRÈS (bump RECAP_VER, rattrapage quota IA) → recalcul FIGÉ
   // de LA semaine du rapport via _computeStrengthWeekOf (fini le repli live qui traçait la MAUVAISE semaine).
   weekly.weekKey = weekKey;
+
+  // DEDUP (demande user « ne crée pas de partie Banques Centrales en double ») : l'IA recrée PARFOIS un thème
+  // « Banques centrales / Politique monétaire » dans les Points Macro malgré la consigne du prompt → on le retire
+  // DÉTERMINISTIQUEMENT du macro (fiable, contrairement à une consigne négative). La section dédiée ci-dessous
+  // (par banque, avec citations + analyse) reste la SEULE section banques centrales.
+  weekly.macro = (weekly.macro || []).filter(m => m && !/banque|central|mon[ée]taire|politique\s*mon/i.test(String(m.heading || '')));
 
   // ── SECTION BANQUES CENTRALES (demande user) : 1 appel IA DÉDIÉ, ancré sur les VRAIES données (probas de
   //    taux + news CB de la semaine) + le bloc de la semaine PRÉCÉDENTE (allNews encore intact avant l'échange
