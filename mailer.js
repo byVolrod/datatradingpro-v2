@@ -153,32 +153,58 @@ function _htmlToText(html) {
     .replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim();
 }
 // Construit un message MIME RFC822 (multipart/alternative texte+HTML) encodé en base64url (API Gmail).
-function _buildRaw(to, subject, html) {
+// Avec `att` (images inline cid:) → multipart/related englobant l'alternative + les images en base64.
+function _buildRaw(to, subject, html, att) {
   const fromHeader = `DataTradingPro <${GMAIL_USER || SUPPORT_EMAIL}>`;
   const subjEnc = '=?UTF-8?B?' + Buffer.from(subject, 'utf8').toString('base64') + '?=';   // sujet UTF-8 (accents/emojis)
   const text = _htmlToText(html);
   const boundary = 'dtp_' + Date.now().toString(36) + Math.floor(Date.now() % 1e6).toString(36);
-  const lines = [
-    `From: ${fromHeader}`, `To: ${to}`, `Reply-To: ${SUPPORT_EMAIL}`,
-    `Subject: ${subjEnc}`, 'MIME-Version: 1.0',
-    `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
+  const _b64wrap = buf => buf.toString('base64').match(/.{1,76}/g).join('\r\n');   // lignes MIME ≤ 76 chars
+  const alt = [
     `--${boundary}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
     Buffer.from(text, 'utf8').toString('base64'), '',
     `--${boundary}`, 'Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64', '',
     Buffer.from(html, 'utf8').toString('base64'), '',
     `--${boundary}--`,
   ];
+  let lines;
+  if (att && att.length) {
+    const rel = 'rel_' + boundary;
+    lines = [
+      `From: ${fromHeader}`, `To: ${to}`, `Reply-To: ${SUPPORT_EMAIL}`,
+      `Subject: ${subjEnc}`, 'MIME-Version: 1.0',
+      `Content-Type: multipart/related; boundary="${rel}"`, '',
+      `--${rel}`, `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
+      ...alt,
+    ];
+    for (const a of att) {
+      lines.push('', `--${rel}`,
+        `Content-Type: ${a.contentType || 'image/png'}; name="${a.filename || 'image.png'}"`,
+        'Content-Transfer-Encoding: base64',
+        `Content-ID: <${a.cid}>`,
+        `Content-Disposition: inline; filename="${a.filename || 'image.png'}"`, '',
+        _b64wrap(Buffer.isBuffer(a.content) ? a.content : Buffer.from(a.content)));
+    }
+    lines.push('', `--${rel}--`);
+  } else {
+    lines = [
+      `From: ${fromHeader}`, `To: ${to}`, `Reply-To: ${SUPPORT_EMAIL}`,
+      `Subject: ${subjEnc}`, 'MIME-Version: 1.0',
+      `Content-Type: multipart/alternative; boundary="${boundary}"`, '',
+      ...alt,
+    ];
+  }
   return Buffer.from(lines.join('\r\n'), 'utf8')
     .toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
-async function _sendGmailApi(to, subject, html) {
+async function _sendGmailApi(to, subject, html, att) {
   const token = await _gmailAccessToken();
   const ctrl = new AbortController(); const t = setTimeout(() => ctrl.abort(), 15000);
   try {
     const r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw: _buildRaw(to, subject, html) }), signal: ctrl.signal,
+      body: JSON.stringify({ raw: _buildRaw(to, subject, html, att) }), signal: ctrl.signal,
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => '');
@@ -194,10 +220,10 @@ async function _sendGmailApi(to, subject, html) {
 // SPF/DKIM alignés → délivrabilité FIABLE vers les boîtes Gmail. (Un From @gmail.com routé via un
 // ESP tiers comme Mailjet n'est PAS aligné → Gmail le jette avant même les spams : c'est ce qui
 // faisait que des clients ne recevaient « rien ».)
-async function _sendGmail(to, subject, html) {
+async function _sendGmail(to, subject, html, att) {
   const from = _parseFrom();
   const fromHeader = `${from.name || 'DataTradingPro'} <${GMAIL_USER}>`;   // expéditeur = compte authentifié (alignement garanti)
-  await _getGmailTransport().sendMail({ from: fromHeader, replyTo: SUPPORT_EMAIL, to, subject, html, text: _htmlToText(html) });
+  await _getGmailTransport().sendMail({ from: fromHeader, replyTo: SUPPORT_EMAIL, to, subject, html, text: _htmlToText(html), attachments: (att && att.length) ? att : undefined });
   console.log(`[Mailer] ✅ (Gmail) "${subject}" → ${to}`);
   return true;
 }
@@ -271,15 +297,16 @@ function _getOvhTransport() {
   });
   return _ovhTransport;
 }
-async function _sendOvhSmtp(to, subject, html) {
+async function _sendOvhSmtp(to, subject, html, att) {
   if (!process.env.OVH_SMTP_USER || !process.env.OVH_SMTP_PASS) return false;
   const from = process.env.EMAIL_FROM || process.env.OVH_SMTP_USER;   // ex. "DataTradingPro <contact@datatradingpro.com>"
   await _getOvhTransport().sendMail({ from, replyTo: SUPPORT_EMAIL, to, subject, html, text: _htmlToText(html),   // texte+HTML (multipart) = meilleure délivrabilité
+    attachments: (att && att.length) ? att : undefined,   // images INLINE (cid:) — affichage garanti Outlook (pas de fetch distant)
     headers: { 'List-Unsubscribe': '<mailto:' + SUPPORT_EMAIL + '?subject=Unsubscribe>' } });   // mail-tester / bonnes pratiques
   return true;
 }
 
-async function _send(to, subject, html) {
+async function _send(to, subject, html, attachments) {
   if (!_validEmail(to)) { console.warn('[Mailer] destinataire invalide — email ignoré:', to); return false; }
   if (_isDuplicate(to, subject)) { console.warn(`[Mailer] doublon ignoré (<12s) → ${to}: "${subject}"`); return false; }
   const chain = [];
@@ -298,7 +325,7 @@ async function _send(to, subject, html) {
   }
   const errors = [];
   for (const [nom, fn] of chain) {
-    try { if (await fn(to, subject, html)) { _mailStats.sent++; _mailStats.byProvider[nom] = (_mailStats.byProvider[nom] || 0) + 1; _mailStats.lastProvider = nom; console.log(`[Mailer] ✅ ${nom} → ${to} : "${subject}"`); return nom; } }   // succès → log + renvoie le canal gagnant (visibilité)
+    try { if (await fn(to, subject, html, attachments)) { _mailStats.sent++; _mailStats.byProvider[nom] = (_mailStats.byProvider[nom] || 0) + 1; _mailStats.lastProvider = nom; console.log(`[Mailer] ✅ ${nom} → ${to} : "${subject}"`); return nom; } }   // succès → log + renvoie le canal gagnant (visibilité)
     catch (e) { console.error(`[Mailer] ${nom} erreur:`, e.message); errors.push(`${nom}: ${e.message}`); }   // échec → fournisseur suivant
   }
   _mailStats.failed++;
@@ -750,7 +777,24 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
   `;
   return { subject: 'DataTradingPro : votre point macro & forex de la semaine', html: _campaignLayout('Bienvenue', body, unsub) };
 }
-async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
+// ENVOI : le widget Force des Devises est EMBARQUE dans le mail (piece jointe inline cid:) au lieu d'une
+// URL distante. Preuve par logs (08/07) : Outlook TELECHARGEAIT l'image (200, 46Ko) mais ne la RENDAIT pas
+// (proxy/regles internes) → seul l'inline garantit l'affichage partout. L'image est rendue FRAICHE a l'envoi
+// (renderWidgetPngSafe = derniere bonne image, pre-chauffee toutes les 9 min → a jour). Repli : URL distante.
+async function sendCampaignIntro(d) {
+  d = d || {};
+  const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign });
+  let html = m.html, att = null;
+  try {
+    const ew = require('./emailWidget');   // meme process que server.js → cache/prewarm partages
+    const png = await ew.renderWidgetPngSafe('meter', {});
+    if (png && png.length > 2000) {        // > placeholder 1x1 → vraie image
+      att = [{ filename: 'force-des-devises.png', content: png, cid: 'meter@datatradingpro', contentType: 'image/png' }];
+      html = html.replace(/https?:\/\/[^"]*\/api\/email-widget\/meter\.png[^"]*/g, 'cid:meter@datatradingpro');
+    }
+  } catch (e) { console.warn('[Mailer] widget inline indisponible → URL distante:', e.message); }
+  return _send(d.to, m.subject, html, att);
+}
 
 // Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
 // aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
