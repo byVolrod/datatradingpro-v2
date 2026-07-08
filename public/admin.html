@@ -938,6 +938,20 @@
     <!-- CAMPAGNES -->
     <div class="camp-sub" data-sub="campagnes">
       <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🚀</span><h2>Planification automatique</h2>
+          <span class="ph-spacer"></span><span class="fin-sub" id="camp-sched-badge"></span>
+        </div>
+        <div class="panel-body">
+          <div id="camp-sched-body" class="camp-block"><div class="skel" style="height:44px"></div></div>
+          <div class="camp-actions">
+            <button class="camp-btn camp-btn--send" id="camp-sched-toggle" onclick="campSchedToggle()">Activer la campagne</button>
+            <button class="camp-btn" onclick="campSchedTest()">✉️ Aperçu du digest → moi</button>
+            <span id="camp-sched-msg" class="camp-msg"></span>
+          </div>
+          <p class="camp-note">Envoi hebdomadaire AUTOMATIQUE du « Point de la semaine » (Récap Hebdo + Force des Devises, généré depuis les données live). Anti-doublon, nouveaux clients inclus automatiquement, désinscrits + blacklist exclus. Peut être mis en pause à tout moment.</p>
+        </div>
+      </div>
+      <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">🗓️</span><h2>Séquence hebdomadaire</h2>
           <span class="ph-spacer"></span><span class="fin-sub" id="camp-seq-sub"></span>
         </div>
@@ -1223,6 +1237,7 @@
       } else ael.textContent = 'Audience indisponible.';
     } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
     loadDashboard();
+    loadSchedule();
     loadCampStats();
     loadBlacklist();
     loadSequence();
@@ -1361,6 +1376,35 @@
         + '<span class="camp-chip camp-chip--' + chip + '">' + seg + '</span>'
         + '<span class="camp-recip-src">' + (r.src || '') + '</span></div>';
     }).join('');
+  }
+  // ── Planification automatique ──
+  let _campSched = null;
+  async function loadSchedule(){
+    try {
+      const d = await fetch('/api/admin/campaign-schedule').then(r => r.json());
+      _campSched = d;
+      const badge = document.getElementById('camp-sched-badge'), body = document.getElementById('camp-sched-body'), btn = document.getElementById('camp-sched-toggle');
+      if (!d || !d.ok) { if (body) body.textContent = 'Indisponible.'; return; }
+      if (badge) badge.innerHTML = d.active ? '<span style="color:#00e676;font-weight:700;">● LANCÉE</span>' : '<span style="color:#8b93a1;">○ En pause</span>';
+      const next = d.active
+        ? '<div style="font-size:16px;font-weight:800;color:#fff;">Prochain envoi&nbsp;: <span style="color:#e3b23a;">' + (d.nextLabel || '—') + '</span></div>'
+        : '<div style="font-size:15px;font-weight:700;color:#8b93a1;">Campagne en pause</div>';
+      body.innerHTML = next + '<div class="camp-aud-src" style="margin-top:8px;">Cadence&nbsp;: chaque <b style="color:#cbd5e1;">' + d.weekdayLabel + '</b> à <b style="color:#cbd5e1;">' + String(d.hour).padStart(2, '0') + 'h00</b> (Paris) · e-mail « Point de la semaine » (auto)' + (d.hasWeeklyData ? '' : ' · <span style="color:#ffb300;">⚠ Récap Hebdo pas encore prêt</span>') + '</div>';
+      if (btn) { btn.textContent = d.active ? '⏸ Mettre en pause' : '🚀 Activer la campagne'; btn.classList.toggle('camp-btn--send', !d.active); }
+    } catch {}
+  }
+  async function campSchedToggle(){
+    if (!_campSched) return;
+    const action = _campSched.active ? 'pause' : 'activate';
+    document.getElementById('camp-sched-msg').textContent = '…';
+    try { await fetch('/api/admin/campaign-schedule?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Campagne lancée — envoi hebdo automatique activé' : '⏸ Campagne mise en pause'); loadSchedule(); }
+    catch { document.getElementById('camp-sched-msg').textContent = '❌ erreur'; }
+  }
+  async function campSchedTest(){
+    document.getElementById('camp-sched-msg').textContent = 'Envoi de l’aperçu…';
+    try { const d = await fetch('/api/admin/campaign-schedule?action=test').then(r => r.json());
+      _campMsg(d.ok ? ('✅ Aperçu du digest envoyé à ' + d.to) : ('❌ ' + (d.error || 'échec'))); }
+    catch { document.getElementById('camp-sched-msg').textContent = '❌ erreur'; }
   }
   // ── Sequence / supervision hebdo ──
   async function loadSequence(){

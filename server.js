@@ -12565,6 +12565,76 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// ─── PLANIFICATEUR de campagne — envoi HEBDO AUTOMATIQUE (self-running) ─────────────────────────
+// Cadence : dimanche 18h (Europe/Paris) par defaut. IDEMPOTENT (marqueur email_log campaign:weekly-<isoWeek>
+// → jamais 2x/semaine, meme apres redemarrage), auto-enrolle les NOUVEAUX (audience recalculee a chaque run),
+// saute desinscrits + blacklist. Etat persiste (KV campaign:schedule). Contenu = digest AUTO du Recap Hebdo.
+const _WD_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+function _isoWeekKey(y, m, d) { const dt = new Date(Date.UTC(y, m - 1, d)); const dow = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - dow + 3); const ft = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4)); const wk = 1 + Math.round(((dt - ft) / 864e5 - 3 + ((ft.getUTCDay() + 6) % 7)) / 7); return dt.getUTCFullYear() + '-W' + String(wk).padStart(2, '0'); }
+function _parisParts(d) { d = d || new Date(); const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', weekday: 'short', hour: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }); const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value; const wd = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday]; return { weekday: wd, hour: parseInt(p.hour, 10) % 24, isoWeek: _isoWeekKey(+p.year, +p.month, +p.day) }; }
+function _nextWeeklyLabel(weekday, hour) { for (let i = 0; i < 8; i++) { const cand = new Date(Date.now() + i * 864e5); const pp = _parisParts(cand); if (pp.weekday === weekday && (i > 0 || pp.hour < hour)) return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(cand) + ' à ' + String(hour).padStart(2, '0') + 'h00'; } return '—'; }
+function _freshWeekly() { try { return ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; } catch { return null; } }
+
+let _campSchedule = { active: false, weekday: 0, hour: 18, lastSentWeek: null, launchedAt: null };
+(async () => { try { const s = await auth.aiCacheGet('campaign:schedule', 366 * 864e5); if (s && typeof s === 'object') _campSchedule = Object.assign(_campSchedule, s); } catch {} })();
+function _saveSchedule() { auth.aiCacheSet('campaign:schedule', _campSchedule).catch(() => {}); }
+
+let _weeklyRunning = false;
+async function _runWeeklyCampaign(isoWeek) {
+  if (_weeklyRunning) return; _weeklyRunning = true;
+  const CID = 'weekly-' + isoWeek;
+  try {
+    const weekly = _freshWeekly();
+    if (!weekly) { console.warn('[Campagne hebdo] aucun Recap Hebdo dispo → envoi ANNULE (pas de donnees, pas de mail)'); return; }
+    let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { console.error('[Campagne hebdo] audience:', e.message); return; }
+    const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
+    let sent = 0, skipped = 0, unsub = 0, failed = 0;
+    for (const r of audience.recipients) {
+      const email = r.email, marker = 'campaign:' + CID + ':' + email;
+      try { if (await auth.emailLogHas('unsub:' + email)) { unsub++; continue; } } catch {}
+      try { if (await auth.emailLogHas(marker)) { skipped++; continue; } } catch {}
+      let prov = null; try { prov = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign: CID, weekly }); } catch {}
+      if (prov) { sent++; _recordSent(CID, email); try { await auth.emailLogAdd(marker); } catch {} } else failed++;
+      if (throttle) await new Promise(x => setTimeout(x, throttle));
+    }
+    console.log(`[Campagne hebdo] ${CID} : envoyes=${sent} deja=${skipped} desab=${unsub} echecs=${failed}`);
+  } finally { _weeklyRunning = false; }
+}
+async function _schedulerTick() {
+  try {
+    if (!_campSchedule.active) return;
+    const pp = _parisParts();
+    if (pp.weekday === _campSchedule.weekday && pp.hour >= _campSchedule.hour && _campSchedule.lastSentWeek !== pp.isoWeek) {
+      _campSchedule.lastSentWeek = pp.isoWeek; _saveSchedule();   // marque AVANT le run (anti double-tick dans l'heure)
+      console.log('[Scheduler] campagne hebdo declenchee — semaine', pp.isoWeek);
+      await _runWeeklyCampaign(pp.isoWeek);
+    }
+  } catch (e) { console.error('[Scheduler]', e.message); }
+}
+setInterval(_schedulerTick, 20 * 60 * 1000);   // verifie toutes les 20 min
+setTimeout(_schedulerTick, 45 * 1000);         // 1er check apres le boot (rattrapage si l'heure vient de passer)
+
+// Etat + pilotage de la planification (admin). ?action=activate|pause|reset|config(&weekday=0-6&hour=0-23)
+app.get('/api/admin/campaign-schedule', requireAdmin, async (req, res) => {
+  const a = String(req.query.action || '');
+  if (a === 'test') {   // envoie le digest hebdo (donnees live) a l'admin pour previsualiser le contenu
+    const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
+    const weekly = _freshWeekly();
+    if (!weekly) return res.json({ ok: false, error: 'Aucun Recap Hebdo disponible pour l\'instant — le digest sera pret des la prochaine generation.' });
+    let prov = null, err = null; try { prov = await mailer.sendWeeklyDigest({ to, name: '', email: to, campaign: 'weekly-test', weekly }); } catch (e) { err = e.message; }
+    return res.json({ ok: !!prov, test: true, to, error: err, note: 'Digest hebdo de test envoye a l\'admin.' });
+  }
+  if (a === 'activate') { _campSchedule.active = true; if (!_campSchedule.launchedAt) _campSchedule.launchedAt = Date.now(); _saveSchedule(); }
+  else if (a === 'pause') { _campSchedule.active = false; _saveSchedule(); }
+  else if (a === 'reset') { _campSchedule.lastSentWeek = null; _saveSchedule(); }
+  else if (a === 'config') { const wd = parseInt(req.query.weekday, 10), h = parseInt(req.query.hour, 10); if (wd >= 0 && wd <= 6) _campSchedule.weekday = wd; if (h >= 0 && h <= 23) _campSchedule.hour = h; _saveSchedule(); }
+  res.json({ ok: true, active: _campSchedule.active, weekday: _campSchedule.weekday, hour: _campSchedule.hour,
+    weekdayLabel: _WD_FR[_campSchedule.weekday], cadence: 'hebdomadaire',
+    nextLabel: _campSchedule.active ? _nextWeeklyLabel(_campSchedule.weekday, _campSchedule.hour) : null,
+    lastSentWeek: _campSchedule.lastSentWeek, launchedAt: _campSchedule.launchedAt, running: _weeklyRunning,
+    hasWeeklyData: !!_freshWeekly() });
+});
+
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
 // L'envoi REEL est declenche par l'admin depuis son navigateur — JAMAIS automatique.
 //   (aucun param) → APERCU : compte + echantillon, RIEN envoye.
