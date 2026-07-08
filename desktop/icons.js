@@ -23,7 +23,10 @@ const SVG = Buffer.from(
   `</defs>` +
   `<rect width="1024" height="1024" rx="208" fill="url(#dg)"/>` +
   `<rect x="20" y="20" width="984" height="984" rx="190" fill="none" stroke="url(#bev)" stroke-width="40"/>` +
-  `<text x="510" y="512" dominant-baseline="central" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="496" letter-spacing="-16" fill="#000000">DT</text>` +
+  // ⚠️ baseline EXPLICITE (y=690) et PAS dominant-baseline="central" : librsvg (le rasteriseur de sharp)
+  // IGNORE dominant-baseline → le « DT » flottait trop haut/à gauche sur l'icône native (bug signalé 08/07).
+  // Le favicon web garde dominant-baseline (les navigateurs le respectent). y=690 = « DT » centré au rendu.
+  `<text x="510" y="690" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="496" letter-spacing="-16" fill="#000000">DT</text>` +
   `</svg>`
 );
 
