@@ -12033,7 +12033,7 @@ app.get('/internal/email-widget/eclairages', async (_req, res) => {
 .eci-count{font-family:ui-monospace,monospace;font-size:10px;color:#8a8f98;text-transform:uppercase;letter-spacing:.04em}
 .eci-cards{display:flex;flex-direction:column;gap:8px}
 .eci-card{background:#0f0f12;border:1px solid #17171c;border-radius:9px;padding:11px 13px}
-.eci-theme{border-left:2px solid #e3b23a}
+.eci-theme{}
 .eci-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
 .eci-pair{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:13px;color:#e8eaed}
 .eci-bias{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:10.5px;padding:2px 9px;border-radius:20px}
