@@ -11868,9 +11868,10 @@ app.get('/internal/email-widget/taux', (_req, res) => {
 </body></html>`);
 });
 
-// Banques Centrales — TON du discours (hawkish/dovish/neutre) : rendu SERVEUR du ton RÉEL calculé par le
-// desk (champ _weekly.centralBanks : {bank, stance, stanceChange, interpretation, watching, nextMeeting}).
-// Pour l'e-mail « Alerte banque centrale » : « récupère le ton de la banque dans les datas du desk » (user 08/07).
+// Banques Centrales — TON du discours + PROPOS qui le justifient : rendu SERVEUR du ton RÉEL du desk
+// (champ _weekly.centralBanks : {bank, stance, narrative, quotes:[{quote, analysis}]}). Pour l'e-mail « Alerte
+// banque centrale » : « sors les phrases des discours qui donnent le ton, comme preuve provenant du DTP » (user 08/07)
+// → par banque : le ton + le PROPOS CLÉ (citation «…» fidèle, ancrée sur les news CB du desk, jamais inventée) + son analyse.
 // 100% informatif. Couleurs de ton alignées sur le desk : hawkish=ambre, dovish=bleu, neutre=gris (jamais BUY/SELL).
 app.get('/internal/email-widget/cb-tone', async (_req, res) => {
   let cbs = [];
@@ -11888,15 +11889,26 @@ app.get('/internal/email-widget/cb-tone', async (_req, res) => {
     dovish:  ['Dovish', 'accommodant', '#3aa0e0', 'rgba(58,160,224,.14)'],
     neutral: ['Neutre', 'attentiste', '#9aa0aa', 'rgba(154,160,170,.12)'],
   };
-  const rows = (cbs || []).slice(0, 5).map(c => {
+  const _clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); if (s.length <= n) return s; const cut = s.slice(0, n); const p = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? ')); return (p > n * 0.5 ? cut.slice(0, p + 1) : cut.replace(/\s+\S*$/, '') + '…'); };
+  // Banques AVEC propos (preuve réelle) d'abord, puis les autres.
+  const ordered = (cbs || []).slice().sort((a, b) => ((Array.isArray(b.quotes) && b.quotes.length ? 1 : 0) - (Array.isArray(a.quotes) && a.quotes.length ? 1 : 0)));
+  const rows = ordered.slice(0, 5).map(c => {
     const st = String(c.stance || 'neutral').toLowerCase();
     const [lbl, sub, col, bg] = TONE[st] || TONE.neutral;
     const nm = _stripMd(String(c.bank || '')).replace(/\s*\(.*?\)\s*/, '').trim();
-    let line = _stripMd(String(c.stanceChange || c.interpretation || c.watching || '')).replace(/\s+/g, ' ').trim();
-    if (line.length > 155) { const cut = line.slice(0, 155); const p = cut.lastIndexOf('. '); line = p > 60 ? cut.slice(0, p + 1) : cut.replace(/\s+\S*$/, '') + '…'; }
-    return `<div class="cbt-row"><div class="cbt-top"><span class="cbt-bank">${_e(nm)}</span><span class="cbt-badge" style="color:${col};background:${bg}">${lbl} · ${sub}</span></div>${line ? `<div class="cbt-line">${_e(line)}</div>` : ''}</div>`;
+    const q = (Array.isArray(c.quotes) ? c.quotes : []).find(x => x && x.quote);
+    let evid = '';
+    if (q) {
+      const qt = _e(_clip(_stripMd(q.quote).replace(/^["«»\s]+|["«»\s]+$/g, ''), 190));
+      const an = q.analysis ? _e(_clip(_stripMd(q.analysis), 150)) : '';
+      evid = `<div class="cbt-quote">« ${qt} »</div>` + (an ? `<div class="cbt-an">${an}</div>` : '');
+    } else {
+      const nar = _e(_clip(_stripMd(c.narrative || ''), 165));
+      evid = nar ? `<div class="cbt-nar">${nar}</div>` : '';
+    }
+    return `<div class="cbt-row"><div class="cbt-top"><span class="cbt-bank">${_e(nm)}</span><span class="cbt-badge" style="color:${col};background:${bg}">${lbl} · ${sub}</span></div>${evid}</div>`;
   }).join('');
-  const body = rows || '<div class="cbt-row"><div class="cbt-line" style="color:#8a8f98">Le ton des banques centrales sera disponible après la prochaine génération du récap.</div></div>';
+  const body = rows || '<div class="cbt-row"><div class="cbt-nar" style="color:#8a8f98">Le ton des banques centrales sera disponible après la prochaine génération du récap.</div></div>';
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <style>html,body{margin:0;padding:0;background:#0c0e13;font-family:-apple-system,"Inter","Segoe UI",sans-serif}
@@ -11907,7 +11919,10 @@ app.get('/internal/email-widget/cb-tone', async (_req, res) => {
 .cbt-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .cbt-bank{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:13px;color:#e8eaed}
 .cbt-badge{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:10.5px;padding:2px 9px;border-radius:20px;white-space:nowrap}
-.cbt-line{font-size:12px;color:#a9adb5;line-height:1.5;margin-top:5px}</style>
+.cbt-quote{font-style:italic;color:#dfe2e7;font-size:12.5px;line-height:1.5;margin-top:7px}
+.cbt-an{color:#9aa0aa;font-size:11.5px;line-height:1.5;margin-top:5px;padding-left:13px;position:relative}
+.cbt-an::before{content:'→';position:absolute;left:0;color:#e3b23a}
+.cbt-nar{color:#a9adb5;font-size:12px;line-height:1.5;margin-top:6px}</style>
 </head><body><div id="cbt-wrap">
   <div class="cbt-hd">Banques Centrales · Ton du discours</div>
   <div class="cbt-cards">${body}</div>
