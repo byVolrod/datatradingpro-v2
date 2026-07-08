@@ -815,6 +815,11 @@
       .camp-table th{color:#8b93a1;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
       .camp-table td{color:#cbd5e1;}
       .camp-note{font-size:11.5px;color:#7b828f;margin:8px 0 0;}
+      .camp-bl-list{display:flex;flex-direction:column;gap:6px;margin:4px 0 8px;}
+      .camp-bl-row{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#0f0f12;border:1px solid #26262b;border-radius:8px;padding:8px 12px;font-size:13px;color:#e6e6ea;}
+      .camp-bl-em{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all;}
+      .camp-bl-x{flex:none;background:transparent;border:1px solid rgba(255,61,0,.33);color:#ff6a3d;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;}
+      .camp-bl-x:hover{background:rgba(255,61,0,.09);border-color:#ff3d00;}
     </style>
     <div class="panel-card">
       <div class="panel-head">
@@ -852,6 +857,17 @@
           </table>
         </div>
         <p class="camp-note">Le suivi d'ouverture repose sur un pixel invisible : certains clients (Apple Mail, proxy Gmail) préchargent les images, ce qui peut gonfler légèrement les ouvertures. Les clics sont fiables.</p>
+      </div>
+    </div>
+    <div class="panel-card">
+      <div class="panel-head"><span class="ph-ic">🚫</span><h2>Liste noire</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-bl-count"></span></div>
+      <div class="panel-body">
+        <div class="camp-extra">
+          <input id="camp-bl-input" placeholder="E-mail à blacklister…" onkeydown="if(event.key==='Enter')blAdd()"/>
+          <button class="camp-btn" onclick="blAdd()">Blacklister</button>
+        </div>
+        <div id="camp-bl-list" class="camp-bl-list"></div>
+        <p class="camp-note">Un e-mail blacklisté ne peut plus se connecter, créer de compte, ni recevoir la campagne — et sa session active est éjectée automatiquement. « Retirer » le réautorise.</p>
       </div>
     </div>
   </section>
@@ -984,6 +1000,7 @@
       } else ael.textContent = 'Audience indisponible.';
     } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
     loadCampStats();
+    loadBlacklist();
   }
   async function loadCampStats(){
     try {
@@ -1051,6 +1068,36 @@
       const d = await fetch('/api/admin/campaign-extra?action=add&emails=' + encodeURIComponent(v)).then(r => r.json());
       _campMsg(d.ok ? ('✅ ' + d.added + ' ajouté(s), ' + (d.dupesIgnored||0) + ' doublon(s) ignoré(s) — ' + d.total + ' au total') : '❌ échec');
       inp.value = ''; loadCampaign();
+    } catch { _campMsg('❌ Erreur réseau.'); }
+  }
+  // ── Liste noire ──
+  async function loadBlacklist(){
+    try {
+      const d = await fetch('/api/admin/blacklist').then(r => r.json());
+      const list = d.list || [];
+      const cnt = document.getElementById('camp-bl-count'); if (cnt) cnt.textContent = list.length + ' bloqué' + (list.length > 1 ? 's' : '');
+      const box = document.getElementById('camp-bl-list'); if (!box) return;
+      box.innerHTML = list.length
+        ? list.map(function(e){ return '<div class="camp-bl-row"><span class="camp-bl-em">' + e + '</span><button class="camp-bl-x" onclick="blRemove(\'' + encodeURIComponent(e) + '\')">retirer</button></div>'; }).join('')
+        : '<div class="empty-state">Aucun e-mail en liste noire.</div>';
+    } catch {}
+  }
+  async function blAdd(){
+    const inp = document.getElementById('camp-bl-input'); const v = (inp.value || '').trim(); if (!v) return;
+    _campMsg('Ajout à la liste noire…');
+    try {
+      const d = await fetch('/api/admin/blacklist?action=add&emails=' + encodeURIComponent(v)).then(r => r.json());
+      _campMsg(d.ok ? ('✅ ' + d.added + ' blacklisté(s) — ' + d.total + ' au total') : '❌ échec');
+      inp.value = ''; loadBlacklist(); loadCampaign();
+    } catch { _campMsg('❌ Erreur réseau.'); }
+  }
+  async function blRemove(encEmail){
+    const email = decodeURIComponent(encEmail);
+    _campMsg('Retrait de ' + email + '…');
+    try {
+      const d = await fetch('/api/admin/blacklist?action=remove&email=' + encodeURIComponent(email)).then(r => r.json());
+      _campMsg(d.ok ? ('✅ retiré — ' + d.total + ' restant(s)') : '❌ échec');
+      loadBlacklist(); loadCampaign();
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
 

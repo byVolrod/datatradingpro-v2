@@ -252,14 +252,17 @@ function _tombstone(id) { if (id == null) return; _deletedIds.add(String(id)); t
 //     rebuild Docker même si le disque du conteneur est éphémère. Insensible à la casse et aux espaces.
 const USERS_BLACKLIST_FILE = path.join(_DATA_DIR, 'users_blacklist.json');
 const _blacklist = new Set();
-try { const _b = JSON.parse(fs.readFileSync(USERS_BLACKLIST_FILE, 'utf8')); if (Array.isArray(_b)) _b.forEach(x => _blacklist.add(String(x).toLowerCase().trim())); } catch {}
+let _blacklistLoaded = false;
+try { const _b = JSON.parse(fs.readFileSync(USERS_BLACKLIST_FILE, 'utf8')); if (Array.isArray(_b)) { _b.forEach(x => _blacklist.add(String(x).toLowerCase().trim())); _blacklistLoaded = true; } } catch {}
 function _blacklistSave() { try { fs.writeFileSync(USERS_BLACKLIST_FILE, JSON.stringify([..._blacklist])); } catch {} }
 function isEmailBlacklisted(email) { return !!email && _blacklist.has(String(email).toLowerCase().trim()); }
 function blacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); if (!em) return false; if (!_blacklist.has(em)) { _blacklist.add(em); _blacklistSave(); } return true; }
 function unblacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); const had = _blacklist.delete(em); if (had) _blacklistSave(); return had; }
-// Seed en dur : garantit le blocage dès le 1er boot, sans dépendre du fichier. Extensible via blacklistEmail().
+function listBlacklist() { return [..._blacklist].sort(); }
+// Seed en dur : garantit le blocage au TOUT PREMIER boot (fichier absent). Une fois le fichier créé, on
+// RESPECTE son contenu → un retrait via l'admin PERSISTE (le seed ne réinjecte pas au boot suivant).
 const _BLACKLIST_SEED = ['pmttraderoff@gmail.com', 'ghais.bouguerra2101@gmail.com'];
-_BLACKLIST_SEED.forEach(e => { const em = String(e).toLowerCase().trim(); if (em && !_blacklist.has(em)) { _blacklist.add(em); _blacklistSave(); } });
+if (!_blacklistLoaded) { _BLACKLIST_SEED.forEach(e => { const em = String(e).toLowerCase().trim(); if (em) _blacklist.add(em); }); _blacklistSave(); }
 
 // ─── File d'attente des écritures hors-ligne (rejouées vers Supabase dès son retour) ───
 let _pendingWrites = [];   // [{ id, fields, ts, attempts }]
@@ -1037,6 +1040,7 @@ module.exports = {
   isEmailBlacklisted,
   blacklistEmail,
   unblacklistEmail,
+  listBlacklist,
   changePassword,
   updateUser,
   deleteUser,
