@@ -12269,7 +12269,7 @@ async function _campaignAudience() {
   };
   try { const users = await auth.getAllUsers(); for (const u of (users || [])) if (u && u.role === 'client') { dtpSeen++; _add(u.email, u.name, 'dtp'); } }
   catch (e) { console.error('[Campaign audience] DTP:', e.message); }
-  try { if (whop.configured()) { const mem = await whop.listValidMemberships(); for (const m of (mem || [])) { whopSeen++; _add(m.email, m.name, 'whop'); } } }
+  try { if (whop.configured()) { const mem = await whop.listAllMemberEmails(); for (const m of (mem || [])) { whopSeen++; _add(m.email, m.name, 'whop'); } } }
   catch (e) { console.error('[Campaign audience] Whop:', e.message); }
   const recipients = [...byEmail.values()].map(r => ({ email: r.email, name: r.name, sources: [...r.sources] }));
   return {
