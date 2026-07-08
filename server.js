@@ -12671,6 +12671,23 @@ async function _reconcileSent(campaigns) {
 }
 setTimeout(() => { _reconcileSent(['intro-v1']).catch(() => {}); }, 60000);   // 1 min apres le boot
 
+// Apercu HTML d'un e-mail de campagne (rendu dans une iframe de l'admin). ?type=intro|weekly
+app.get('/api/admin/campaign-preview', requireAdmin, (req, res) => {
+  try {
+    const type = String(req.query.type || 'intro');
+    const sample = { name: 'Muhammed', email: 'apercu@datatradingpro.com' };
+    let m = null;
+    if (type === 'weekly') {
+      const weekly = _freshWeekly();
+      m = weekly ? mailer.buildWeeklyDigest({ name: sample.name, email: sample.email, campaign: 'weekly-preview', weekly }) : null;
+      if (!m) return res.type('html').send('<div style="font-family:-apple-system,Segoe UI,sans-serif;padding:48px 24px;color:#8b93a1;background:#0a0a0c;text-align:center;">Le « Point de la semaine » s\'affichera ici dès la prochaine génération du Récap Hebdo.</div>');
+    } else {
+      m = mailer.buildCampaignIntro({ name: sample.name, email: sample.email, campaign: 'intro-preview' });
+    }
+    res.set('Content-Type', 'text/html; charset=utf-8').set('Cache-Control', 'no-store').send(m.html);
+  } catch (e) { res.status(500).type('html').send('Erreur: ' + e.message); }
+});
+
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
 // L'envoi REEL est declenche par l'admin depuis son navigateur — JAMAIS automatique.
 //   (aucun param) → APERCU : compte + echantillon, RIEN envoye.

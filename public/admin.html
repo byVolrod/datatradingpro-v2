@@ -899,6 +899,17 @@
       .camp-toast{background:#16161b;border:1px solid #2b2b31;border-left:3px solid #00e676;border-radius:10px;padding:12px 16px;color:#e6e6ea;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:camptoast .3s;max-width:340px;}
       .camp-toast--err{border-left-color:#ff3d00;}
       @keyframes camptoast{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
+      .cflow{display:flex;align-items:stretch;gap:8px;flex-wrap:wrap;}
+      .cflow-step{flex:1 1 150px;min-width:150px;background:#0f0f12;border:1px solid #26262b;border-radius:12px;padding:13px 15px;}
+      .cflow-step--done{border-color:rgba(0,230,118,.32);}
+      .cflow-step--next{border-color:rgba(227,178,58,.55);background:linear-gradient(180deg,rgba(227,178,58,.09),#0f0f12);box-shadow:0 0 0 1px rgba(227,178,58,.15);}
+      .cflow-step--todo{opacity:.72;}
+      .cflow-tag{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin:0 0 7px;}
+      .cflow-title{font-size:14px;font-weight:800;color:#fff;}
+      .cflow-sub{font-size:12px;color:#9aa3b2;margin-top:4px;line-height:1.4;}
+      .cflow-big{font-size:15px;font-weight:800;color:#e3b23a;margin-top:5px;}
+      .cflow-arrow{display:flex;align-items:center;justify-content:center;color:#4a4a52;font-size:18px;flex:0 0 auto;}
+      @media(max-width:720px){.cflow-arrow{transform:rotate(90deg);width:100%;height:12px;}}
     </style>
     <div class="camp-hub-head">
       <div class="camp-hub-title"><span class="dot"></span>Marketing e-mail</div>
@@ -938,6 +949,10 @@
     <!-- CAMPAGNES -->
     <div class="camp-sub" data-sub="campagnes">
       <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🔄</span><h2>La logique de la campagne</h2></div>
+        <div class="panel-body"><div id="camp-flow"><div class="skel" style="height:92px"></div></div></div>
+      </div>
+      <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">🚀</span><h2>Planification automatique</h2>
           <span class="ph-spacer"></span><span class="fin-sub" id="camp-sched-badge"></span>
         </div>
@@ -958,6 +973,19 @@
         <div class="panel-body">
           <div id="camp-seq-list" class="camp-seq-list"><div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div></div>
           <p class="camp-note"><span class="camp-badge camp-badge--sent">Envoyé</span> date + volume + stats · <span class="camp-badge camp-badge--ready">Prêt</span> codé, envoyable · <span class="camp-badge camp-badge--planned">À venir</span> à construire.</p>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">👁️</span><h2>Aperçu du mail</h2>
+          <span class="ph-spacer"></span>
+          <button class="camp-btn camp-btn--send" id="cprev-b-intro" onclick="campPreview('intro')">Intro (bienvenue)</button>
+          <button class="camp-btn" id="cprev-b-weekly" onclick="campPreview('weekly')">Point de la semaine</button>
+        </div>
+        <div class="panel-body">
+          <div style="background:#0a0a0c;border:1px solid #26262b;border-radius:10px;overflow:hidden;">
+            <iframe id="cprev-frame" src="/api/admin/campaign-preview?type=intro" title="Aperçu du mail" style="width:100%;height:640px;border:0;display:block;background:#0a0a0c;"></iframe>
+          </div>
+          <p class="camp-note">Rendu réel du mail tel qu'il part (widget Force des Devises inclus). « Point de la semaine » = le mail hebdo automatique généré depuis les données live.</p>
         </div>
       </div>
     </div>
@@ -1400,7 +1428,26 @@
       ];
       body.innerHTML = statusBig + '<table style="width:100%;margin-top:12px;font-size:13px;line-height:1.5;">' + rows.map(function(r){ return '<tr><td style="color:#8b93a1;padding:5px 14px 5px 0;white-space:nowrap;vertical-align:top;">' + r[0] + '</td><td style="color:#cbd5e1;padding:5px 0;">' + r[1] + '</td></tr>'; }).join('') + '</table>';
       if (btn) { btn.textContent = d.active ? '⏸ Mettre en pause' : '🚀 Activer la campagne'; btn.classList.toggle('camp-btn--send', !d.active); }
+      // ── Schéma « logique » (identité DTP) ──
+      const flowEl = document.getElementById('camp-flow');
+      if (flowEl) {
+        let iSent = '—', iOpen = '—';
+        try { const st = await fetch('/api/admin/campaign-stats?campaign=intro-v1').then(r => r.json()); if (st && st.summary) { iSent = st.summary.sent; iOpen = st.summary.uniqueOpens; } } catch {}
+        const nextTxt = d.active ? (d.nextLabel || '—') : 'en pause';
+        const step = function(cls, tagColor, tag, title, sub, big){ return '<div class="cflow-step cflow-step--' + cls + '"><div class="cflow-tag" style="color:' + tagColor + '">' + tag + '</div><div class="cflow-title">' + title + '</div>' + (big ? '<div class="cflow-big">' + big + '</div>' : '') + (sub ? '<div class="cflow-sub">' + sub + '</div>' : '') + '</div>'; };
+        const arr = '<div class="cflow-arrow">→</div>';
+        flowEl.innerHTML = '<div class="cflow">'
+          + step(d.active ? 'done' : 'todo', d.active ? '#00e676' : '#8b93a1', d.active ? '🟢 ACTIVE' : '⏸ EN PAUSE', 'La campagne', d.active ? 'tourne toute seule' : 'aucun envoi') + arr
+          + step('done', '#00e676', '✅ ENVOYÉ', 'Bienvenue', iSent + ' envoyés · ' + iOpen + ' ouvertures') + arr
+          + step('next', '#e3b23a', '🔁 PROCHAIN — AUTO', 'Point de la semaine', 'puis chaque semaine', nextTxt) + arr
+          + step('todo', '#8b93a1', '⏳ À VENIR', '5 e-mails', 'Point marché, Récap, Outlook…')
+          + '</div>';
+      }
     } catch {}
+  }
+  function campPreview(type){
+    const f = document.getElementById('cprev-frame'); if (f) f.src = '/api/admin/campaign-preview?type=' + type + '&_=' + Date.now();
+    ['intro', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
   }
   async function campSchedToggle(){
     if (!_campSched) return;
