@@ -145,24 +145,34 @@ async function listValidMemberships() {
 // Liste TOUS les e-mails clients Whop pour l'AUDIENCE MARKETING : tous produits, tous statuts
 // (completed/active/canceled/expired), dédupliqués par e-mail. Contrairement à listValidMemberships
 // (abonnés DTP ACTIFS uniquement, pour la réconciliation), ici on veut TOUTE la base clients.
-async function listAllMemberEmails() {
-  if (!WHOP_API_KEY) return [];
-  const byEmail = new Map(); let page = 1, totalPages = 1;
+// SOURCES UNIONNÉES : /memberships (abonnements — inclut résiliés/expirés) ET /members (personnes
+// rattachées à la société, y compris SANS abonnement actif → « même ceux sans memberships »). /members
+// est aujourd'hui un sous-ensemble de /memberships, mais on l'unionne pour capter tout futur membre
+// gratuit / contact sans ligne membership. Un CANCEL Whop N'EXCLUT PAS de la liste (churned = win-back) :
+// seule la désinscription e-mail réelle (marqueur unsub:) exclut, côté envoi.
+async function _pageEmailsInto(byEmail, subpath) {
+  let page = 1, totalPages = 1;
   do {
-    let r; try { r = await fetch(`${BASE}/memberships?per=50&page=${page}`, { headers: _auth() }); } catch { break; }
+    let r; try { r = await fetch(`${BASE}${subpath}?per=50&page=${page}`, { headers: _auth() }); } catch { break; }
     if (!r.ok) break;
     const j = await r.json();
     const data = Array.isArray(j) ? j : (j.data || []);
     for (const m of data) {
-      const em = String(m.email || '').toLowerCase().trim();
+      const em = String((m.email || (m.user && m.user.email) || '')).toLowerCase().trim();
       if (!em) continue;
       const cur = byEmail.get(em) || { email: em, name: '', statuses: new Set() };
-      if (m.status) cur.statuses.add(m.status);
-      if (!cur.name) { const nm = m.name || (m.user && (m.user.name || m.user.username)) || ''; if (nm) cur.name = String(nm).trim(); }
+      cur.statuses.add(m.status || 'member');   // /members sans statut d'abonnement → 'member'
+      if (!cur.name) { const nm = m.name || (m.user && (m.user.name || m.user.username)) || m.username || ''; if (nm) cur.name = String(nm).trim(); }
       byEmail.set(em, cur);
     }
     const pg = j && j.pagination; totalPages = (pg && (pg.total_page || pg.total_pages)) || 1; page++;
   } while (page <= totalPages && page <= 20);   // cap 20 pages (1000) — anti-RAM/temps
+}
+async function listAllMemberEmails() {
+  if (!WHOP_API_KEY) return [];
+  const byEmail = new Map();
+  await _pageEmailsInto(byEmail, '/memberships');   // abonnements (tous statuts)
+  await _pageEmailsInto(byEmail, '/members');       // personnes (incl. sans abonnement)
   return [...byEmail.values()].map(v => ({ email: v.email, name: v.name, statuses: [...v.statuses] }));
 }
 
