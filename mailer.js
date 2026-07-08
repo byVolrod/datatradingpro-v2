@@ -781,10 +781,10 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
 // URL distante. Preuve par logs (08/07) : Outlook TELECHARGEAIT l'image (200, 46Ko) mais ne la RENDAIT pas
 // (proxy/regles internes) → seul l'inline garantit l'affichage partout. L'image est rendue FRAICHE a l'envoi
 // (renderWidgetPngSafe = derniere bonne image, pre-chauffee toutes les 9 min → a jour). Repli : URL distante.
-async function sendCampaignIntro(d) {
-  d = d || {};
-  const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign });
-  let html = m.html, att = null;
+// Envoie un mail campagne en EMBARQUANT le widget meter en inline (cid:) — affichage garanti Outlook.
+// L'image est rendue FRAICHE (renderWidgetPngSafe, pre-chauffee) → a jour. Repli : URL distante.
+async function _sendWithInlineWidget(to, subject, html) {
+  let att = null;
   try {
     const ew = require('./emailWidget');   // meme process que server.js → cache/prewarm partages
     const png = await ew.renderWidgetPngSafe('meter', {});
@@ -793,8 +793,48 @@ async function sendCampaignIntro(d) {
       html = html.replace(/https?:\/\/[^"]*\/api\/email-widget\/meter\.png[^"]*/g, 'cid:meter@datatradingpro');
     }
   } catch (e) { console.warn('[Mailer] widget inline indisponible → URL distante:', e.message); }
-  return _send(d.to, m.subject, html, att);
+  return _send(to, subject, html, att);
 }
+async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _sendWithInlineWidget(d.to, m.subject, m.html); }
+
+// ── Digest HEBDO (récurrent, AUTO-GÉNÉRÉ) — construit à partir des vraies données du Récap Hebdo du desk.
+// `weekly` = objet _weekly {summary, insights, pairs:[{pair,bias,text}], centralBanks:[{bank,stance}]}.
+// Renvoie null si aucune donnée (règle « pas de données → pas de mail »). 100% informatif.
+function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
+  campaign = campaign || 'weekly';
+  const w = weekly || {};
+  const _md = s => String(s == null ? '' : s).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
+  const insights = (Array.isArray(w.insights) ? w.insights : []).map(t => _md(typeof t === 'string' ? t : (t && t.text))).filter(Boolean);
+  const pairs = (Array.isArray(w.pairs) ? w.pairs : []).filter(p => p && p.pair && p.text).slice(0, 3);
+  const cbs = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && c.bank).slice(0, 2);
+  const lead = _md(w.summary) || insights[0] || '';
+  if (!lead && !pairs.length && !insights.length) return null;
+  const prenomRaw = (name || '').split(' ')[0] || '';
+  const prenom = _esc(prenomRaw);
+  const hello = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+  const unsub = unsubUrl(email || '');
+  const BIAS = { BUY: ['ACHAT', '#00e676'], SELL: ['VENTE', '#ff3d00'], NEUTRAL: ['NEUTRE', '#e3b23a'] };
+  const pairsHtml = pairs.map(p => { const b = String(p.bias || 'NEUTRAL').toUpperCase(); const [lbl, col] = BIAS[b] || BIAS.NEUTRAL;
+    return `<div style="border:1px solid #26262b;border-radius:8px;padding:10px 12px;margin:0 0 8px;"><div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 4px;"><strong style="color:#fff;">${_esc(p.pair)}</strong><span style="color:${col};font-weight:700;font-size:12px;">${lbl}</span></div><div style="color:#9aa3b2;font-size:13px;line-height:1.5;">${_esc(_md(p.text)).slice(0, 240)}</div></div>`; }).join('');
+  const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' &mdash; <span style="color:#e3b23a;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 16px;">Voici votre <strong style="color:#e3b23a;">point macro &amp; forex</strong> de la semaine, en clair.</p>
+    ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 460)}</p>` : ''}
+    ${pairsHtml ? `<p style="margin:0 0 8px;font-size:13px;color:#9aa3b2;">Les paires suivies&nbsp;:</p>${pairsHtml}` : ''}
+    <p style="margin:14px 0 6px;font-size:13px;color:#9aa3b2;">La Force des Devises&nbsp;:</p>
+    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises — DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:6px 0 16px;">
+    ${cbHtml ? `<p style="margin:0 0 6px;font-size:13px;color:#9aa3b2;">Banques centrales&nbsp;:</p><ul style="margin:0 0 16px;padding-left:20px;color:#cbd5e1;">${cbHtml}</ul>` : ''}
+    <p style="margin:0 0 18px;">Le détail complet est sur le terminal&nbsp;: <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="color:#e3b23a;font-weight:700;text-decoration:none;">ouvrir DataTradingPro &rarr;</a></p>
+    <p style="margin:0 0 4px;">Bonne semaine,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver en Principale, ajoutez ${_esc(_parseFrom().email)} &agrave; vos contacts. Informatif &mdash; DataTradingPro n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'votre point macro & forex de la semaine';
+  return { subject, html: _campaignLayout('Point de la semaine', body, unsub) };
+}
+async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidget(d.to, m.subject, m.html); }
 
 // Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
 // aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
@@ -1044,7 +1084,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
@@ -1053,7 +1093,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
