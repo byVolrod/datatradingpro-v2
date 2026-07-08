@@ -210,6 +210,11 @@ try { BUILD_VERSION = (fs.readFileSync(path.join(__dirname, 'public', 'index.htm
 // « Déconnecter »). Consulté par requireAuth (appels API) + /api/auth/me (heartbeat du desk ~20 s) → le
 // compte est éjecté du desk quasi immédiatement. Un nouveau login légitime lève l'ordre (kick ponctuel).
 const _forceLogout = new Set();
+// Session UNIQUE par compte (anti-partage d'identifiants) : userId -> jeton de la DERNIÈRE connexion.
+// À chaque login CLIENT on génère un jeton neuf → toute session plus ancienne (jeton différent) est éjectée
+// (requireAuth + /me). Vidé au redémarrage = contrainte rétablie dès les prochains logins (jamais de
+// déconnexion de masse au boot). Staff (admin/support) NON concerné (plusieurs sessions autorisées).
+const _sessionEpoch = new Map();
 
 function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
@@ -223,8 +228,11 @@ function requireAuth(req, res, next) {
     return res.redirect('/login');
   }
 
-  // Éjection immédiate : compte blacklisté OU déconnexion forcée (suspension / bouton admin) → session tuée.
-  if (_forceLogout.has(String(req.session.userId)) || auth.isEmailBlacklisted(req.session.user?.email)) {
+  // Éjection immédiate : blacklisté / déconnexion forcée (admin) / session supplantée par une connexion
+  // plus récente (session unique par compte) → session tuée.
+  const _sid = String(req.session.userId);
+  const _ep = _sessionEpoch.get(_sid);
+  if (_forceLogout.has(_sid) || auth.isEmailBlacklisted(req.session.user?.email) || (_ep && _ep !== req.session.stoken)) {
     req.session = null;
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session terminée', loggedOut: true });
     return res.redirect('/login');
@@ -337,6 +345,12 @@ app.post('/api/auth/login', async (req, res) => {
     req.session.userId = user.id;
     req.session.user   = user;
     _forceLogout.delete(String(user.id));   // un login légitime lève un éventuel ordre de déconnexion (kick ponctuel)
+    // Session UNIQUE par compte (clients) : jeton neuf → invalide les sessions précédentes (anti-partage d'identifiants).
+    if (user.role !== 'admin' && user.role !== 'support') {
+      const _stok = require('crypto').randomUUID();
+      req.session.stoken = _stok;
+      _sessionEpoch.set(String(user.id), _stok);
+    }
     res.json({ ok: true, role: user.role });
   } catch (e) {
     console.error('[Auth] login error:', e.message);
@@ -404,10 +418,13 @@ app.get('/api/auth/me', async (req, res) => {
     // Toujours relire depuis la DB → les changements admin (active, plan…) sont immédiatement reflétés
     const fresh = await auth.getUserById(req.session.userId);
     if (!fresh) { req.session = null; return res.json({ loggedIn: false }); }
-    // Éjection : blacklisté, suspendu (client non-actif) ou déconnexion forcée par l'admin → logout immédiat.
+    // Éjection : blacklisté, suspendu (client non-actif), déconnexion admin, ou session supplantée par une
+    // connexion plus récente (session unique par compte) → logout immédiat.
+    const _mep = _sessionEpoch.get(String(req.session.userId));
+    const _superseded = !!(_mep && _mep !== req.session.stoken);
     if (_forceLogout.has(String(req.session.userId)) || auth.isEmailBlacklisted(fresh.email)
-        || (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.active === false)) {
-      req.session = null; return res.json({ loggedIn: false });
+        || (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.active === false) || _superseded) {
+      req.session = null; return res.json({ loggedIn: false, reason: _superseded ? 'elsewhere' : undefined });
     }
     // Essai gratuit : durée d'abonnement (création → expiration) ≤ ~1 semaine.
     let isTrial = false;

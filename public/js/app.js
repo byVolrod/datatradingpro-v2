@@ -3837,7 +3837,7 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
       const r = await fetch('/api/auth/me', { cache: 'no-store' });
       if (r.status === 401) { _dead = true; return location.replace('/login'); }
       const d = await r.json().catch(function(){ return null; });
-      if (d && d.loggedIn === false) { _dead = true; location.replace('/login'); }
+      if (d && d.loggedIn === false) { _dead = true; location.replace('/login' + (d.reason === 'elsewhere' ? '?ended=elsewhere' : '')); }
     } catch (e) {}
   }
   setInterval(_beat, 20000);
