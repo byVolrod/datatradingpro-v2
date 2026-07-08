@@ -43,7 +43,8 @@
       display: flex; align-items: center; gap: 14px; padding: 0 28px; flex-shrink: 0;
       position: sticky; top: 0; z-index: 50;
     }
-    .topbar-logo { font-family: var(--font-ui); font-size: 17px; font-weight: 800; color: var(--orange); letter-spacing: -0.02em; }
+    /* Wordmark IDENTIQUE au desk (.logo-text) : degrade or clippe au texte, meme fonte/graisse/interlettre. */
+    .topbar-logo { font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: #e3b23a; background: linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
     /* Titres de panneaux : identité desk — emoji retiré, filet or à la place (le desk n'utilise pas d'emoji) */
     .panel-head .ph-ic { display: none; }
     .panel-head h2 { position: relative; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
