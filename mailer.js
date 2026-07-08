@@ -713,28 +713,33 @@ function trackClickUrl(campaign, email, target) {
   return `${APP_URL}/api/track/click?c=${encodeURIComponent(campaign || '')}&e=${encodeURIComponent(e)}&t=${trackToken(campaign, e)}&u=${encodeURIComponent(target || '')}`;
 }
 
-// Gabarit CAMPAGNE — identite landing (or #e3b23a, pas l'orange transactionnel) + pied de desinscription.
+// Gabarit CAMPAGNE — IDENTITE FIDELE AU DESK : tokens reels du terminal (bg #0d0e11, panneau #16171b,
+// filet #232429, or signature #e3b23a, degrade or #f0d27a->#cfa233->#b8860b). Le degrade est applique en
+// TEXTE (wordmark) avec repli SOLIDE #e3b23a (Outlook ignore background-clip -> texte or plein, jamais
+// invisible) + en bandeau haut (bgcolor #e3b23a de repli). Rendu premium, hierarchie du desk.
 function _campaignLayout(title, bodyHtml, unsub) {
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">
 <title>${_esc(title)}</title></head>
-<body style="margin:0;padding:0;background:#0a0a0c;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0c;padding:32px 16px;">
+<body style="margin:0;padding:0;background:#0d0e11;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0d0e11;padding:30px 16px;">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111114;border:1px solid #26262b;border-radius:14px;overflow:hidden;">
-        <tr><td style="padding:26px 34px 18px;border-bottom:1px solid #1f1f24;">
-          <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">DataTradingPro</div>
-          <div style="font-size:12px;font-weight:600;color:#e3b23a;margin-top:5px;letter-spacing:.02em;">Terminal macro &amp; forex, en fran&ccedil;ais</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#16171b;border:1px solid #232429;border-radius:10px;overflow:hidden;">
+        <tr><td bgcolor="#e3b23a" height="3" style="height:3px;line-height:3px;font-size:0;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);mso-line-height-rule:exactly;">&nbsp;</td></tr>
+        <tr><td style="padding:24px 34px 16px;border-bottom:1px solid #232429;">
+          <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#e3b23a;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">DataTradingPro</div>
+          <div style="font-size:11px;font-weight:600;color:#9a9aa4;margin-top:6px;letter-spacing:.09em;text-transform:uppercase;">Terminal macro &amp; forex</div>
         </td></tr>
-        <tr><td style="padding:26px 34px;color:#cbd5e1;font-size:15px;line-height:1.66;">
+        <tr><td style="padding:26px 34px;color:#c8ccd4;font-size:15px;line-height:1.66;">
           ${bodyHtml}
         </td></tr>
-        <tr><td style="padding:18px 34px;border-top:1px solid #1f1f24;color:#6b7280;font-size:12px;line-height:1.6;">
+        <tr><td style="padding:18px 34px;border-top:1px solid #232429;color:#6f6f79;font-size:12px;line-height:1.6;">
           DataTradingPro &middot; terminal de news &amp; d'analyse de march&eacute;.<br>
           Une question&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#e3b23a;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
-      <div style="color:#4b5563;font-size:11px;margin-top:14px;line-height:1.7;max-width:600px;">
+      <div style="color:#565660;font-size:11px;margin-top:14px;line-height:1.7;max-width:600px;">
         Vous recevez cet email en tant que membre de l'&eacute;cosyst&egrave;me DataTradingPro (JustOneTrader).<br>
         <a href="${unsub}" style="color:#8b93a1;text-decoration:underline;">Se d&eacute;sabonner en un clic</a>
       </div>
@@ -743,10 +748,11 @@ function _campaignLayout(title, bodyHtml, unsub) {
 </body></html>`;
 }
 function _campaignBtn(label, url) {
-  // Bouton DORE bien visible. bgcolor (attribut) = rendu Outlook/Word ; box-shadow = relief sur clients modernes.
-  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0;"><tr>
-    <td align="center" bgcolor="#e3b23a" style="background:#e3b23a;border-radius:10px;box-shadow:0 4px 14px rgba(227,178,58,.35);">
-      <a href="${url}" style="display:inline-block;padding:15px 36px;color:#0a0a0c;font-weight:800;font-size:15px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
+  // CTA = OR PLEIN (comme les boutons du desk : solide #e3b23a, texte quasi-noir, coins ~desk, PAS de degrade).
+  // bgcolor (attribut) = rendu Outlook/Word garanti. Repli couleur pleine partout.
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr>
+    <td align="center" bgcolor="#e3b23a" style="background:#e3b23a;border-radius:6px;">
+      <a href="${url}" style="display:inline-block;padding:14px 34px;color:#0d0e11;font-weight:700;font-size:15px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
 

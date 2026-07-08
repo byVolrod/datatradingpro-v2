@@ -24,6 +24,7 @@ const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
 const auth = require('./auth');
 const mailer = require('./mailer');   // emails (bienvenue, renouvellement, reset)
+const campaignPreflight = require('./campaignPreflight');   // verifications avant chaque envoi (production-grade)
 const ai = require('./ai');           // génération IA (Gemini gratuit, repli Claude)
 const { concludeBias } = require('./lib/bias-calc');   // calcul DÉTERMINISTE de l'Overall Conclusion (pur, testable)
 const whop = require('./whop');       // vérification des abonnements Whop (auto-renouvellement)
@@ -12698,6 +12699,63 @@ async function _deskContext() {
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
 async function _decryptMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:decrypt-history', h.slice(-12)); } catch {} }
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+//  FIABILITE PRODUCTION — historique d'erreurs durable + pre-flight avant CHAQUE envoi + alerte admin.
+//  Une anomalie CRITIQUE => aucun envoi, workflow mis en pause, admin notifie (mail + journal IA Monitor
+//  + historique), reprise propre apres correction (anti-doublon email_log garanti).
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+let _campaignErrors = [];
+(async () => { try { const e = await auth.aiCacheGet('campaign:errors', 366 * 864e5); if (Array.isArray(e)) _campaignErrors = e; } catch {} })();
+// Enregistre une erreur/incident campagne : ring durable KV + journal IA Monitor + (critique) alerte e-mail admin.
+async function _campaignError(level, campaign, cause, extra) {
+  extra = extra || {};
+  const rec = { at: Date.now(), level: level || 'critical', campaign: campaign || '?', cause: String(cause || ''),
+    impacted: extra.impacted != null ? extra.impacted : null, logs: extra.logs || null, actions: extra.actions || null };
+  _campaignErrors.unshift(rec); _campaignErrors = _campaignErrors.slice(0, 40);
+  try { await auth.aiCacheSet('campaign:errors', _campaignErrors); } catch {}
+  try { _aiAlertNote(level === 'critical' ? 'critical' : 'warn', 'campagne', '[' + rec.campaign + '] ' + rec.cause); } catch {}
+  if (level === 'critical') {
+    const when = new Intl.DateTimeFormat('fr-FR', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Europe/Paris' }).format(new Date(rec.at));
+    const _e = s => String(s == null ? '' : s).replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+    const html = `<p style="font-size:15px;color:#e6e6ea;">La campagne <strong>${_e(rec.campaign)}</strong> a &eacute;t&eacute; <strong style="color:#ff6b57;">mise en pause</strong> par le pre-flight. Aucun e-mail fautif n'est parti.</p>
+      <table style="width:100%;font-size:13px;line-height:1.6;">
+        <tr><td style="color:#8b93a1;padding:4px 10px 4px 0;">Campagne</td><td style="color:#fff;">${_e(rec.campaign)}</td></tr>
+        <tr><td style="color:#8b93a1;padding:4px 10px 4px 0;">Date/heure</td><td style="color:#fff;">${_e(when)} (Paris)</td></tr>
+        <tr><td style="color:#8b93a1;padding:4px 10px 4px 0;">Cause</td><td style="color:#ff6b57;">${_e(rec.cause)}</td></tr>
+        <tr><td style="color:#8b93a1;padding:4px 10px 4px 0;">Utilisateurs impact&eacute;s</td><td style="color:#fff;">${rec.impacted != null ? _e(String(rec.impacted)) : 'aucun (envoi bloqu&eacute; avant)'}</td></tr>
+        ${rec.actions ? `<tr><td style="color:#8b93a1;padding:4px 10px 4px 0;">Actions</td><td style="color:#cbd5e1;">${_e(rec.actions)}</td></tr>` : ''}
+      </table>
+      ${rec.logs ? `<pre style="background:#0d0e11;border:1px solid #232429;border-radius:6px;padding:10px;color:#9aa3b2;font-size:12px;white-space:pre-wrap;">${_e(String(rec.logs).slice(0, 1400))}</pre>` : ''}
+      <p style="font-size:12px;color:#7b828f;">Reprise&nbsp;: corrigez la cause puis r&eacute;activez la s&eacute;quence dans l'admin (anti-doublon garanti, aucun renvoi).</p>`;
+    try { await mailer.sendAdminAlert({ subject: 'Campagne en pause : ' + rec.campaign, html }); } catch {}
+  }
+  console.error('[Campagne][' + rec.level + '] ' + rec.campaign + ' : ' + rec.cause);
+  return rec;
+}
+// Probe widget (non bloquant) : vraie image (> 2000 o) vs repli 1x1 (~68 o).
+async function _widgetOk(type) { try { const ew = require('./emailWidget'); const png = await ew.renderWidgetPngSafe(type, {}); return !!(png && png.length > 2000); } catch { return false; } }
+// Pre-flight complet : rassemble les signaux REELS (sante mail, backoff IA, widget) et delegue au module PUR.
+async function _runCampaignPreflight(opts) {
+  opts = opts || {};
+  let mailHealth = {}; try { mailHealth = mailer.getMailHealth(); } catch {}
+  let aiBackoff = false; try { aiBackoff = !!ai.backoffActive(); } catch {}
+  let widgetOk = false; if (opts.needsWidget) widgetOk = await _widgetOk(opts.widgetType || 'meter');
+  return campaignPreflight.preflight({
+    mailHealth, recipients: opts.recipients, sample: opts.sample,
+    needsData: opts.needsData, hasData: opts.hasData, needsWidget: opts.needsWidget, widgetOk, needsAI: opts.needsAI, aiBackoff,
+  });
+}
+// Construit (SANS envoyer) le mail d'une etape, pour que le pre-flight valide le rendu reel.
+function _dripBuildSample(stepDef, context) {
+  const email = 'apercu@datatradingpro.com';
+  try {
+    if (!stepDef || stepDef.tpl === 'intro') return mailer.buildCampaignIntro({ name: '', email, campaign: 'preflight' });
+    if (stepDef.tpl === 'decryptage') return mailer.buildCampaignDecryptage({ name: '', email, campaign: 'preflight', context, recentKeys: [], isMember: false });
+    if (stepDef.tpl === 'pointmarche') return mailer.buildCampaignPointMarche({ name: '', email, campaign: 'preflight', context, isMember: false });
+  } catch (e) { throw e; }
+  return null;
+}
+
 let _campSchedule = { active: false, weekday: 0, hour: 18, lastSentWeek: null, launchedAt: null };
 (async () => { try { const s = await auth.aiCacheGet('campaign:schedule', 366 * 864e5); if (s && typeof s === 'object') _campSchedule = Object.assign(_campSchedule, s); } catch {} })();
 function _saveSchedule() { auth.aiCacheSet('campaign:schedule', _campSchedule).catch(() => {}); }
@@ -12709,7 +12767,14 @@ async function _runWeeklyCampaign(isoWeek) {
   try {
     const weekly = _freshWeekly();
     if (!weekly) { console.warn('[Campagne hebdo] aucun Recap Hebdo dispo → envoi ANNULE (pas de donnees, pas de mail)'); return; }
-    let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { console.error('[Campagne hebdo] audience:', e.message); return; }
+    let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { await _campaignError('critical', CID, 'audience indisponible : ' + e.message, { actions: 'Verifier _campaignAudience.' }); return; }
+    // ── PRE-FLIGHT : fournisseur mail + audience + rendu du digest AVANT tout envoi ──
+    const pfW = await _runCampaignPreflight({
+      recipients: audience.recipients,
+      sample: () => mailer.buildWeeklyDigest({ name: '', email: 'apercu@datatradingpro.com', campaign: CID, weekly }),
+      needsData: true, hasData: !!weekly, needsWidget: true, widgetType: 'meter', needsAI: false,
+    });
+    if (!pfW.ok) { await _campaignError('critical', CID, pfW.summary, { impacted: 0, logs: pfW.critical.join('\n'), actions: 'Corriger puis relancer (le marqueur hebdo empeche tout doublon).' }); return; }
     const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
     let sent = 0, skipped = 0, unsub = 0, failed = 0;
     for (const r of audience.recipients) {
@@ -12785,8 +12850,24 @@ async function _dripTick() {
     if (pp.weekday === 0 || pp.weekday === 6) return;   // fenetre : jours ouvres uniquement
     if (pp.hour < 8 || pp.hour >= 19) return;            // fenetre : 8h-19h Paris (jamais la nuit)
     const isoWeek = pp.isoWeek;
-    let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { console.error('[Drip] audience:', e.message); return; }
+    let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { await _campaignError('critical', 'drip', 'audience indisponible/corrompue : ' + e.message, { actions: 'Verifier _campaignAudience (Whop/DTP/KV). Reactiver la sequence apres correction.' }); _dripState.active = false; _dripState.pausedReason = { at: Date.now(), summary: 'audience indisponible' }; _saveDrip(); return; }
     const now = Date.now(); let context = null, sent = 0;
+    // ── PRE-FLIGHT : valide fournisseur mail + audience + rendu du contenu de la semaine AVANT tout envoi ──
+    context = await _deskContext();
+    const stepWeek = _loopStepFor(context);
+    const pf = await _runCampaignPreflight({
+      recipients: audience.recipients,
+      sample: () => _dripBuildSample(stepWeek, context),
+      needsData: stepWeek.tpl === 'pointmarche',
+      hasData: !!(context && (context.daily || (Array.isArray(context.bias) && context.bias.length) || (Array.isArray(context.upcoming) && context.upcoming.length))),
+      needsWidget: stepWeek.tpl === 'pointmarche', widgetType: 'meter', needsAI: false,
+    });
+    if (!pf.ok) {
+      _dripState.active = false; _dripState.pausedReason = { at: Date.now(), summary: pf.summary, critical: pf.critical }; _saveDrip();
+      await _campaignError('critical', 'drip (' + stepWeek.id + ')', pf.summary, { impacted: 0, logs: pf.critical.join('\n'), actions: 'Corriger la cause puis reactiver la sequence (Admin > Sequence automatique).' });
+      return;   // AUCUN envoi tant que ce n'est pas resolu
+    }
+    if (pf.warnings.length) { try { _aiAlertNote('warn', 'campagne', '[drip] reserves : ' + pf.warnings.join(' ; ')); } catch {} }
     const CAP = Math.max(1, parseInt(process.env.DRIP_TICK_CAP || '40', 10));   // anti-rafale (Render/OOM)
     const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
     for (const r of audience.recipients) {
@@ -12822,7 +12903,7 @@ setTimeout(_dripTick, 90 * 1000);         // 1er check apres le boot
 // Etat + pilotage de la boucle (admin). ?action=status(defaut)|activate|pause
 app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
-  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _saveDrip(); _campSchedule.active = false; _saveSchedule(); }   // la boucle remplace le blast hebdo -> on met l'ancien en pause
+  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(); _campSchedule.active = false; _saveSchedule(); }   // la boucle remplace le blast hebdo -> on met l'ancien en pause ; reprise = purge la cause de pause
   else if (a === 'pause') { _dripState.active = false; _saveDrip(); }
   const pp = _parisParts();
   const contacts = _dripState.contacts || {};
@@ -12830,12 +12911,19 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   for (const email of Object.keys(contacts)) { total++; const st = _dripNormalize(contacts[email]); if (st.introduced) introduced++; if (st.loopWeek === pp.isoWeek) gotThisWeek++; }
   let thisWeekLabel = '—'; try { const ctx = await _deskContext(); thisWeekLabel = _loopStepFor(ctx).label + (ctx.themeLabel ? ' (' + ctx.themeLabel + ')' : ''); } catch {}
   const steps = [DRIP_INTRO, DRIP_DECRYPT, DRIP_POINT].map(s => { const cid = s.id === 'intro' ? 'intro-v1' : s.id; const stt = _campaignStats[cid]; return { id: s.id, label: s.label, sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
+  const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
     model: 'boucle synchronisee : tout le monde recoit le meme contenu chaque semaine ; un nouvel inscrit se branche au niveau actuel',
     thisWeek: { isoWeek: pp.isoWeek, content: thisWeekLabel },
     contactsTracked: total, introduced, gotThisWeek, steps,
-    note: _dripState.active ? 'Boucle ACTIVE : contenu synchronise chaque semaine pour tous ; les nouveaux se branchent au niveau actuel. Le blast hebdo est en pause (la boucle le remplace).' : 'Boucle EN PAUSE : rien ne part. Active pour lancer l\'auto-enrolement synchronise.' });
+    pausedReason: (!_dripState.active && pr) ? pr : null,
+    note: _dripState.active ? 'Boucle ACTIVE : contenu synchronise chaque semaine pour tous ; les nouveaux se branchent au niveau actuel. Le blast hebdo est en pause (la boucle le remplace).' : ((pr ? 'Boucle EN PAUSE (auto, pre-flight) : ' + pr.summary + '. ' : 'Boucle EN PAUSE : ') + 'Active pour (re)lancer.') });
+});
+
+// Historique des erreurs/incidents campagne (admin) : ring durable KV campaign:errors.
+app.get('/api/admin/campaign-errors', requireAdmin, (req, res) => {
+  res.json({ ok: true, errors: (_campaignErrors || []).slice(0, 40), dripPaused: !_dripState.active && !!_dripState.pausedReason, pausedReason: _dripState.pausedReason || null });
 });
 
 // Etat + pilotage de la planification (admin). ?action=activate|pause|reset|config(&weekday=0-6&hour=0-23)
@@ -12962,6 +13050,13 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
       hint: `Apercu — RIEN envoye. ?test=1 = test a l'admin. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
   }
   if (_campaignSend.running) return res.status(409).json({ error: 'Un envoi de campagne est deja en cours.', state: _campaignSend });
+
+  // ── PRE-FLIGHT avant broadcast reel : fournisseur mail + audience + rendu de l'intro. Bloque si critique. ──
+  const pfB = await _runCampaignPreflight({
+    recipients, sample: () => mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: CAMPAIGN_ID }),
+    needsData: false, needsWidget: true, widgetType: 'meter', needsAI: false,
+  });
+  if (!pfB.ok) { await _campaignError('critical', CAMPAIGN_ID, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE — aucun envoi.', preflight: pfB }); }
 
   // ── ENVOI REEL → reponse immediate (ne peut pas attendre N×throttle), puis envoi en fond ──
   _campaignSend = { running: true, campaign: CAMPAIGN_ID, eligible: recipients.length, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: Date.now(), finishedAt: null };
