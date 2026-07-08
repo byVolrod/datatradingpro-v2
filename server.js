@@ -12528,10 +12528,11 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
   // ── TEST : envoi immediat a l'admin SEUL (aucune audience, aucun marqueur → re-testable) ──
   if (test) {
     const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
+    const plain = req.query.plain === '1';   // version texte pure (max Principale, sans suivi)
     let provider = null, err = null;
-    try { provider = await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' }); } catch (e) { err = e.message; }
-    return res.json({ ok: !!provider, test: true, to, provider: provider || null, error: err,
-      note: 'Test envoye a l\'admin uniquement (campagne ' + CAMPAIGN_ID + '-test, stats separees). Aucun marqueur ecrit, aucun client touche.' });
+    try { provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' }); } catch (e) { err = e.message; }
+    return res.json({ ok: !!provider, test: true, plain, to, provider: provider || null, error: err,
+      note: 'Test envoye a l\'admin uniquement' + (plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)') + '. Aucun client touche.' });
   }
 
   let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }
