@@ -988,6 +988,7 @@
         </div>
         <div class="panel-body">
           <div class="camp-kpis" id="camp-kpis"></div>
+          <div class="camp-aud-seg" id="camp-stat-filters" style="margin:0 0 10px;"></div>
           <div class="camp-table-wrap">
             <table class="camp-table" id="camp-recipients">
               <thead><tr><th>E-mail</th><th>Envoyé</th><th>Ouvertures</th><th>Clics</th><th>Dernière ouverture</th></tr></thead>
@@ -1227,6 +1228,24 @@
     loadSequence();
     var _rp = document.getElementById('camp-recip-panel'); if (_rp && _rp.style.display !== 'none') renderRecipients();
   }
+  let _campStatRows = [], _campStatFilter = 'all';
+  function campStatFilter(f){ _campStatFilter = f; renderCampStatRows(); }
+  function renderCampStatRows(){
+    var rows = _campStatRows;
+    if (_campStatFilter === 'opened')    rows = rows.filter(function(r){ return (r.opens||0) > 0; });
+    if (_campStatFilter === 'notopened') rows = rows.filter(function(r){ return !(r.opens||0); });
+    if (_campStatFilter === 'clicked')   rows = rows.filter(function(r){ return (r.clicks||0) > 0; });
+    // chips de filtre avec compteurs (l'actif est dore)
+    var all = _campStatRows, nOpen = all.filter(function(r){ return (r.opens||0)>0; }).length;
+    var chips = [ ['all','Tous',all.length], ['opened','✓ Ont ouvert',nOpen], ['notopened','✗ N’ont pas ouvert',all.length-nOpen], ['clicked','↗ Ont cliqué',all.filter(function(r){return (r.clicks||0)>0;}).length] ];
+    document.getElementById('camp-stat-filters').innerHTML = chips.map(function(c){
+      var on = _campStatFilter === c[0];
+      return '<button class="camp-chip" onclick="campStatFilter(\'' + c[0] + '\')" style="cursor:pointer;background:' + (on ? 'rgba(227,178,58,.14)' : 'rgba(255,255,255,.03)') + ';color:' + (on ? '#e3b23a' : '#8b93a1') + ';border-color:' + (on ? 'rgba(227,178,58,.5)' : '#33333a') + ';">' + c[1] + ' (' + c[2] + ')</button>';
+    }).join('');
+    var tb = document.querySelector('#camp-recipients tbody');
+    tb.innerHTML = rows.length ? rows.map(function(r){ return '<tr><td>' + r.email + '</td><td>' + (r.sentAt ? _campFmt(r.sentAt) : '—') + '</td><td>' + (r.opens||0) + '</td><td>' + (r.clicks||0) + '</td><td>' + (r.lastOpen ? _campFmt(r.lastOpen) : '—') + '</td></tr>'; }).join('')
+      : '<tr><td colspan="5" class="empty-state">' + (_campStatRows.length ? 'Aucun destinataire dans ce filtre.' : 'Aucun envoi pour l’instant.') + '</td></tr>';
+  }
   async function loadCampStats(){
     try {
       const d = await fetch('/api/admin/campaign-stats?campaign=intro-v1').then(r => r.json());
@@ -1236,11 +1255,9 @@
         ['Ouvertures totales', s.totalOpens], ['Clics uniques', s.uniqueClicks + ' (' + s.clickRate + '%)'],
         ['Clics totaux', s.totalClicks], ['Désabonnés', s.unsub] ];
       document.getElementById('camp-kpis').innerHTML = kpis.map(function(kv){ return '<div class="camp-kpi"><div class="camp-kpi-v">' + kv[1] + '</div><div class="camp-kpi-k">' + kv[0] + '</div></div>'; }).join('');
-      const tb = document.querySelector('#camp-recipients tbody');
-      const rows = (d.recipients || []);
-      tb.innerHTML = rows.length ? rows.map(function(r){ return '<tr><td>' + r.email + '</td><td>' + (r.sentAt ? _campFmt(r.sentAt) : '—') + '</td><td>' + (r.opens||0) + '</td><td>' + (r.clicks||0) + '</td><td>' + (r.lastOpen ? _campFmt(r.lastOpen) : '—') + '</td></tr>'; }).join('')
-        : '<tr><td colspan="5" class="empty-state">Aucun envoi pour l’instant.</td></tr>';
-      document.getElementById('camp-stats-sub').textContent = s.sent + ' envoyé' + (s.sent > 1 ? 's' : '');
+      _campStatRows = (d.recipients || []);
+      renderCampStatRows();
+      document.getElementById('camp-stats-sub').textContent = s.sent + ' envoyé' + (s.sent > 1 ? 's' : '') + ' · ' + s.uniqueOpens + ' ouvert' + (s.uniqueOpens > 1 ? 's' : '');
     } catch {}
   }
   async function campTest(){
