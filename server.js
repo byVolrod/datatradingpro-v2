@@ -12462,7 +12462,15 @@ const _CLICK_ALLOW = /(^|\.)(datatradingpro\.com|whop\.com)$/i;                 
 app.get('/api/track/open', (req, res) => {
   try {
     const c = String(req.query.c || ''), e = String(req.query.e || '').toLowerCase().trim(), t = String(req.query.t || '');
-    if (c && e && t && t === mailer.trackToken(c, e)) _recordOpen(c, e);
+    // ANTI-FAUX-POSITIF : scanners de securite + pre-chargements pre-remplissent le pixel (fausse « ouverture »).
+    // On ignore : UA vide/trop court, scanners connus, et ouverture < 30s apres l'envoi REEL (impossible humain).
+    // Le proxy Gmail (UA long « GoogleImageProxy ») est CONSERVE : c'est ainsi que les vraies ouvertures Gmail
+    // se comptent, et il est indistinguable d'un pre-chargement Gmail (limite intrinseque du pixel).
+    const ua = String(req.headers['user-agent'] || '');
+    const isBot = !ua || ua.length < 15 || /proofpoint|mimecast|barracuda|symantec|forcepoint|cloudmark|trendmicro|fortinet|safelinks|\bbot\b|spider|crawler|scanner|monitor|validator|pingdom|prefetch|headless/i.test(ua);
+    const sentAt = (_campaignStats[c] && _campaignStats[c].sent && _campaignStats[c].sent[e]) || 0;
+    const prefetch = sentAt > 0 && (Date.now() - sentAt) < 30000;
+    if (c && e && t && t === mailer.trackToken(c, e) && !isBot && !prefetch) _recordOpen(c, e);
   } catch {}
   res.set('Content-Type', 'image/gif');
   res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
