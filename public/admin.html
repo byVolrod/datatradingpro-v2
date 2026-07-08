@@ -840,72 +840,195 @@
       .camp-seq-status--done{color:#00e676;}
       .camp-seq-status--ready{color:#e3b23a;}
       .camp-seq-status--planned{color:#7b828f;}
+      /* ===== Hub premium ===== */
+      .camp-hub-head{display:flex;align-items:center;gap:12px;margin:0 0 16px;flex-wrap:wrap;}
+      .camp-hub-title{font-size:20px;font-weight:800;color:#fff;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
+      .camp-hub-title .dot{width:8px;height:8px;border-radius:50%;background:#00e676;box-shadow:0 0 10px #00e676;}
+      .camp-hub-spacer{flex:1;}
+      .camp-nav{display:flex;gap:4px;background:#0d0d10;border:1px solid #26262b;border-radius:12px;padding:4px;margin:0 0 18px;flex-wrap:wrap;}
+      .camp-nav-btn{flex:1;min-width:120px;background:transparent;border:0;color:#8b93a1;font-size:13px;font-weight:600;padding:10px 14px;border-radius:9px;cursor:pointer;transition:.18s;}
+      .camp-nav-btn:hover{color:#e6e6ea;background:rgba(255,255,255,.03);}
+      .camp-nav-btn.active{background:linear-gradient(180deg,#1c1c22,#141418);color:#fff;box-shadow:inset 0 0 0 1px #33333a;}
+      .camp-sub{display:none;animation:campfade .25s ease;}
+      .camp-sub.active{display:block;}
+      @keyframes campfade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+      .kpi-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(188px,1fr));gap:12px;margin:0 0 18px;}
+      .kpi-card{position:relative;background:linear-gradient(180deg,#141418,#0f0f12);border:1px solid #26262b;border-radius:14px;padding:15px 16px;overflow:hidden;transition:.2s;}
+      .kpi-card:hover{transform:translateY(-2px);border-color:#3a3a42;box-shadow:0 8px 24px rgba(0,0,0,.35);}
+      .kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--kc,#e3b23a);opacity:.85;}
+      .kpi-top{display:flex;align-items:center;justify-content:flex-start;margin:0 0 12px;}
+      .kpi-ic{width:34px;height:34px;border-radius:9px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.05);background:color-mix(in srgb,var(--kc) 15%,transparent);color:var(--kc);}
+      .kpi-ic svg{width:18px;height:18px;}
+      .kpi-val{font-size:24px;font-weight:800;color:#fff;line-height:1;letter-spacing:-.02em;}
+      .kpi-lbl{font-size:11.5px;color:#8b93a1;margin-top:5px;font-weight:500;}
+      .deliv-wrap{display:flex;gap:22px;align-items:center;flex-wrap:wrap;}
+      .deliv-rows{display:flex;flex-direction:column;gap:9px;flex:1;min-width:200px;}
+      .deliv-row{display:flex;align-items:center;gap:10px;font-size:13px;}
+      .deliv-dot{width:9px;height:9px;border-radius:50%;flex:none;}
+      .deliv-dot--pass{background:#00e676;box-shadow:0 0 8px rgba(0,230,118,.6);}
+      .deliv-dot--info{background:#ffb300;}
+      .deliv-dot--fail{background:#ff3d00;}
+      .deliv-k{font-weight:600;color:#fff;width:74px;}
+      .deliv-v{color:#8b93a1;}
+      .deliv-ring{width:106px;height:106px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:conic-gradient(#00e676 calc(var(--p,90)*1%),#26262b 0);flex:none;}
+      .deliv-ring-in{width:84px;height:84px;border-radius:50%;background:#0f0f12;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+      .deliv-ring-v{font-size:24px;font-weight:800;color:#fff;}
+      .deliv-ring-l{font-size:9px;color:#8b93a1;text-transform:uppercase;letter-spacing:.05em;}
+      .skel{background:linear-gradient(90deg,#141418 25%,#1c1c22 37%,#141418 63%);background-size:400% 100%;animation:skelsh 1.3s ease infinite;border-radius:10px;}
+      @keyframes skelsh{0%{background-position:100% 0}100%{background-position:-100% 0}}
+      .camp-badge{font-size:10px;font-weight:700;padding:3px 9px;border-radius:999px;text-transform:uppercase;letter-spacing:.03em;}
+      .camp-badge--sent{color:#00e676;background:rgba(0,230,118,.12);}
+      .camp-badge--ready{color:#e3b23a;background:rgba(227,178,58,.12);}
+      .camp-badge--planned{color:#8b93a1;background:rgba(255,255,255,.05);}
+      .camp-modal-ov{position:fixed;inset:0;background:rgba(0,0,0,.62);backdrop-filter:blur(4px);display:none;align-items:center;justify-content:center;z-index:60;padding:20px;}
+      .camp-modal-ov.open{display:flex;animation:campfade .2s;}
+      .camp-modal{width:100%;max-width:620px;max-height:88vh;overflow-y:auto;background:#111114;border:1px solid #2b2b31;border-radius:16px;box-shadow:0 30px 80px rgba(0,0,0,.6);}
+      .camp-modal-h{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid #1f1f24;position:sticky;top:0;background:#111114;z-index:1;}
+      .camp-modal-h h3{font-size:16px;font-weight:800;color:#fff;margin:0;}
+      .camp-modal-x{background:transparent;border:0;color:#8b93a1;font-size:24px;cursor:pointer;line-height:1;}
+      .camp-modal-b{padding:20px 22px;}
+      .camp-fgroup{margin:0 0 18px;}
+      .camp-fgroup-t{font-size:11px;font-weight:700;color:#e3b23a;text-transform:uppercase;letter-spacing:.05em;margin:0 0 10px;}
+      .camp-field{margin:0 0 10px;}
+      .camp-field label{display:block;font-size:11.5px;color:#8b93a1;margin:0 0 4px;}
+      .camp-field input,.camp-field select{width:100%;box-sizing:border-box;background:#0f0f12;border:1px solid #33333a;color:#e6e6ea;border-radius:8px;padding:9px 12px;font-size:13px;}
+      .camp-field input:focus,.camp-field select:focus{outline:0;border-color:#e3b23a;}
+      .camp-field input:disabled{opacity:.6;}
+      .camp-modal-f{display:flex;gap:10px;justify-content:flex-end;padding:16px 22px;border-top:1px solid #1f1f24;position:sticky;bottom:0;background:#111114;}
+      .camp-toasts{position:fixed;right:20px;bottom:20px;display:flex;flex-direction:column;gap:10px;z-index:80;}
+      .camp-toast{background:#16161b;border:1px solid #2b2b31;border-left:3px solid #00e676;border-radius:10px;padding:12px 16px;color:#e6e6ea;font-size:13px;box-shadow:0 10px 30px rgba(0,0,0,.4);animation:camptoast .3s;max-width:340px;}
+      .camp-toast--err{border-left-color:#ff3d00;}
+      @keyframes camptoast{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:none}}
     </style>
-    <div class="panel-card">
-      <div class="panel-head">
-        <span class="ph-ic">📧</span><h2>Campagne e-mail marketing</h2>
-        <span class="ph-spacer"></span>
-        <button class="aim-refresh-btn" onclick="loadCampaign()">⟳ Actualiser</button>
+    <div class="camp-hub-head">
+      <div class="camp-hub-title"><span class="dot"></span>Marketing e-mail</div>
+      <div class="camp-hub-spacer"></div>
+      <button class="camp-btn" onclick="loadCampaign()">⟳ Actualiser</button>
+      <button class="camp-btn camp-btn--send" onclick="openCampModal()">＋ Nouvelle campagne</button>
+    </div>
+
+    <div class="camp-nav" id="camp-nav">
+      <button class="camp-nav-btn active" data-sub="dashboard" onclick="campSub('dashboard')">Tableau de bord</button>
+      <button class="camp-nav-btn" data-sub="campagnes" onclick="campSub('campagnes')">Campagnes</button>
+      <button class="camp-nav-btn" data-sub="audience" onclick="campSub('audience')">Audience</button>
+      <button class="camp-nav-btn" data-sub="stats" onclick="campSub('stats')">Statistiques</button>
+    </div>
+
+    <!-- TABLEAU DE BORD -->
+    <div class="camp-sub active" data-sub="dashboard">
+      <div id="camp-dash-kpis" class="kpi-grid"></div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🛡️</span><h2>Délivrabilité</h2></div>
+        <div class="panel-body"><div id="camp-deliv"><div class="skel" style="height:106px"></div></div></div>
       </div>
-      <div class="panel-body">
-        <div id="camp-audience" class="camp-block">Chargement de l'audience…</div>
-        <div style="margin:0 0 12px;">
-          <button class="camp-btn" id="camp-recip-toggle" onclick="toggleRecipients()">👥 Voir la liste des e-mails</button>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">⚡</span><h2>Actions rapides</h2></div>
+        <div class="panel-body">
+          <div class="camp-actions">
+            <button class="camp-btn" onclick="campTest()">✉️ Test → mon adresse</button>
+            <button class="camp-btn camp-btn--send" id="camp-send-btn" onclick="campSend()">🚀 Envoyer la campagne</button>
+            <span id="camp-msg" class="camp-msg"></span>
+          </div>
+          <div id="camp-progress" class="camp-block" style="display:none"></div>
+          <p class="camp-note">L'envoi part de ton navigateur, jamais automatiquement. Anti-doublon durable, désinscrits + blacklist exclus.</p>
         </div>
-        <div id="camp-recip-panel" style="display:none;margin:0 0 12px;">
-          <input id="camp-recip-search" placeholder="Filtrer par e-mail…" oninput="renderRecipients()" style="width:100%;box-sizing:border-box;background:#0f0f12;border:1px solid #33333a;color:#e6e6ea;border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 8px;"/>
-          <div id="camp-recip-list" class="camp-recip-list"></div>
-        </div>
-        <div class="camp-actions">
-          <button class="camp-btn" onclick="campTest()">✉️ Test → mon adresse</button>
-          <button class="camp-btn camp-btn--send" id="camp-send-btn" onclick="campSend()">🚀 Envoyer la campagne</button>
-          <span id="camp-msg" class="camp-msg"></span>
-        </div>
-        <div class="camp-extra">
-          <input id="camp-extra-input" placeholder="Ajouter des e-mails hors Whop (séparés par virgule)…" onkeydown="if(event.key==='Enter')campExtraAdd()"/>
-          <button class="camp-btn" onclick="campExtraAdd()">Ajouter à l'audience</button>
-        </div>
-        <div id="camp-progress" class="camp-block" style="display:none"></div>
-        <p class="camp-note">L'envoi part de ton navigateur, jamais automatiquement. Anti-doublon durable : personne ne reçoit 2× le même e-mail. Les désinscrits et la blacklist sont exclus automatiquement.</p>
       </div>
     </div>
-    <div class="panel-card">
-      <div class="panel-head"><span class="ph-ic">🗓️</span><h2>Séquence hebdomadaire — supervision</h2>
-        <span class="ph-spacer"></span><span class="fin-sub" id="camp-seq-sub"></span>
-      </div>
-      <div class="panel-body">
-        <div id="camp-seq-list" class="camp-seq-list"><div class="empty-state">Chargement…</div></div>
-        <p class="camp-note">Chaque ligne = un e-mail de la séquence. <b style="color:#e3b23a;">Prêt</b> = codé et envoyable · <b style="color:#7b828f;">À venir</b> = à construire · <b style="color:#00e676;">Envoyé</b> affiche date, volume, ouvertures et clics.</p>
-      </div>
-    </div>
-    <div class="panel-card">
-      <div class="panel-head">
-        <span class="ph-ic">📊</span><h2>Ouvertures &amp; clics</h2>
-        <span class="ph-spacer"></span>
-        <span class="fin-sub" id="camp-stats-sub"></span>
-      </div>
-      <div class="panel-body">
-        <div class="camp-kpis" id="camp-kpis"></div>
-        <div class="camp-table-wrap">
-          <table class="camp-table" id="camp-recipients">
-            <thead><tr><th>E-mail</th><th>Envoyé</th><th>Ouvertures</th><th>Clics</th><th>Dernière ouverture</th></tr></thead>
-            <tbody><tr><td colspan="5" class="empty-state">Aucun envoi pour l'instant.</td></tr></tbody>
-          </table>
+
+    <!-- CAMPAGNES -->
+    <div class="camp-sub" data-sub="campagnes">
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🗓️</span><h2>Séquence hebdomadaire</h2>
+          <span class="ph-spacer"></span><span class="fin-sub" id="camp-seq-sub"></span>
         </div>
-        <p class="camp-note">Le suivi d'ouverture repose sur un pixel invisible : certains clients (Apple Mail, proxy Gmail) préchargent les images, ce qui peut gonfler légèrement les ouvertures. Les clics sont fiables.</p>
-      </div>
-    </div>
-    <div class="panel-card">
-      <div class="panel-head"><span class="ph-ic">🚫</span><h2>Liste noire</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-bl-count"></span></div>
-      <div class="panel-body">
-        <div class="camp-extra">
-          <input id="camp-bl-input" placeholder="E-mail à blacklister…" onkeydown="if(event.key==='Enter')blAdd()"/>
-          <button class="camp-btn" onclick="blAdd()">Blacklister</button>
+        <div class="panel-body">
+          <div id="camp-seq-list" class="camp-seq-list"><div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div></div>
+          <p class="camp-note"><span class="camp-badge camp-badge--sent">Envoyé</span> date + volume + stats · <span class="camp-badge camp-badge--ready">Prêt</span> codé, envoyable · <span class="camp-badge camp-badge--planned">À venir</span> à construire.</p>
         </div>
-        <div id="camp-bl-list" class="camp-bl-list"></div>
-        <p class="camp-note">Un e-mail blacklisté ne peut plus se connecter, créer de compte, ni recevoir la campagne — et sa session active est éjectée automatiquement. « Retirer » le réautorise.</p>
       </div>
     </div>
+
+    <!-- AUDIENCE -->
+    <div class="camp-sub" data-sub="audience">
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">👥</span><h2>Audience</h2>
+          <span class="ph-spacer"></span>
+          <button class="camp-btn" id="camp-recip-toggle" onclick="toggleRecipients()">Voir les e-mails</button>
+        </div>
+        <div class="panel-body">
+          <div id="camp-audience" class="camp-block">Chargement de l'audience…</div>
+          <div id="camp-recip-panel" style="display:none;margin:0 0 12px;">
+            <input id="camp-recip-search" placeholder="Filtrer par e-mail…" oninput="renderRecipients()" style="width:100%;box-sizing:border-box;background:#0f0f12;border:1px solid #33333a;color:#e6e6ea;border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 8px;"/>
+            <div id="camp-recip-list" class="camp-recip-list"></div>
+          </div>
+          <div class="camp-extra">
+            <input id="camp-extra-input" placeholder="Ajouter des e-mails hors Whop (séparés par virgule)…" onkeydown="if(event.key==='Enter')campExtraAdd()"/>
+            <button class="camp-btn" onclick="campExtraAdd()">Ajouter</button>
+          </div>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🚫</span><h2>Liste noire</h2><span class="ph-spacer"></span><span class="fin-sub" id="camp-bl-count"></span></div>
+        <div class="panel-body">
+          <div class="camp-extra">
+            <input id="camp-bl-input" placeholder="E-mail à blacklister…" onkeydown="if(event.key==='Enter')blAdd()"/>
+            <button class="camp-btn" onclick="blAdd()">Blacklister</button>
+          </div>
+          <div id="camp-bl-list" class="camp-bl-list"></div>
+          <p class="camp-note">Bloqué partout (connexion, création, campagne) + session éjectée. « Retirer » réautorise.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATISTIQUES -->
+    <div class="camp-sub" data-sub="stats">
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">📊</span><h2>Ouvertures &amp; clics</h2>
+          <span class="ph-spacer"></span><span class="fin-sub" id="camp-stats-sub"></span>
+        </div>
+        <div class="panel-body">
+          <div class="camp-kpis" id="camp-kpis"></div>
+          <div class="camp-table-wrap">
+            <table class="camp-table" id="camp-recipients">
+              <thead><tr><th>E-mail</th><th>Envoyé</th><th>Ouvertures</th><th>Clics</th><th>Dernière ouverture</th></tr></thead>
+              <tbody><tr><td colspan="5" class="empty-state">Aucun envoi pour l'instant.</td></tr></tbody>
+            </table>
+          </div>
+          <p class="camp-note">Pixel d'ouverture (Apple Mail / proxy Gmail peuvent gonfler légèrement). Les clics sont fiables.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODALE Nouvelle campagne -->
+    <div class="camp-modal-ov" id="camp-modal">
+      <div class="camp-modal">
+        <div class="camp-modal-h"><h3>＋ Nouvelle campagne</h3><button class="camp-modal-x" onclick="closeCampModal()">×</button></div>
+        <div class="camp-modal-b">
+          <div class="camp-fgroup">
+            <div class="camp-fgroup-t">Informations générales</div>
+            <div class="camp-field"><label>Nom interne</label><input id="cm-name" value="Bienvenue — introduction"/></div>
+            <div class="camp-field"><label>Objet</label><input id="cm-subject" value="DataTradingPro : votre point macro & forex de la semaine"/></div>
+            <div class="camp-field"><label>Expéditeur</label><input value="DataTradingPro &lt;contact@datatradingpro.com&gt;" disabled/></div>
+          </div>
+          <div class="camp-fgroup">
+            <div class="camp-fgroup-t">Audience</div>
+            <div class="camp-field"><label>Cible</label><select id="cm-aud"><option value="all">Toute la base</option><option value="active">Actifs</option><option value="churned">Churned (win-back)</option><option value="lead">Leads</option></select></div>
+            <p class="camp-note" style="margin-top:2px">Le ciblage fin par segment arrive en Phase 2. Aujourd'hui l'envoi couvre toute la base dédupliquée.</p>
+          </div>
+          <div class="camp-fgroup">
+            <div class="camp-fgroup-t">Contenu</div>
+            <div class="camp-field"><label>Template</label><select id="cm-tpl"><option>Intro hebdo (riche + suivi)</option><option>Intro texte pur (max Principale)</option></select></div>
+            <p class="camp-note" style="margin-top:2px">L'éditeur personnalisé (HTML / Markdown, aperçu desktop &amp; mobile) arrive en Phase 2.</p>
+          </div>
+        </div>
+        <div class="camp-modal-f">
+          <button class="camp-btn" onclick="campTest()">✉️ Test → moi</button>
+          <button class="camp-btn camp-btn--send" onclick="closeCampModal();campSub('dashboard');">Continuer vers l'envoi →</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="camp-toasts" id="camp-toasts"></div>
   </section>
 
 </div>
@@ -1020,7 +1143,70 @@
   // ── Campagne e-mail marketing ──────────────────────────────────────────────
   let _campAud = null, _campArmed = false, _campArmTimer = null, _campPoll = null;
   function _campFmt(ts){ try { return new Date(ts).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return '—'; } }
-  function _campMsg(t){ const e = document.getElementById('camp-msg'); if (e) e.textContent = t || ''; }
+  function _campMsg(t){ const e = document.getElementById('camp-msg'); if (e) e.textContent = t || ''; if (t && /[✅❌]/.test(t)) campToast(t, /❌/.test(t)); }
+  function campToast(msg, isErr){
+    const box = document.getElementById('camp-toasts'); if (!box) return;
+    const t = document.createElement('div'); t.className = 'camp-toast' + (isErr ? ' camp-toast--err' : ''); t.textContent = msg;
+    box.appendChild(t); setTimeout(function(){ t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 320); }, 3600);
+  }
+  function campSub(name){
+    document.querySelectorAll('#camp-nav .camp-nav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.sub === name); });
+    document.querySelectorAll('#tab-campaign .camp-sub').forEach(function(s){ s.classList.toggle('active', s.dataset.sub === name); });
+  }
+  function openCampModal(){ const m = document.getElementById('camp-modal'); if (m) m.classList.add('open'); }
+  function closeCampModal(){ const m = document.getElementById('camp-modal'); if (m) m.classList.remove('open'); }
+  function _lucide(n){
+    const p = {
+      'users':'<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+      'user-check':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/>',
+      'crown':'<path d="M3 8l4 3 5-6 5 6 4-3-2 11H5z"/><line x1="5" y1="21" x2="19" y2="21"/>',
+      'user-plus':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="16" y1="11" x2="22" y2="11"/>',
+      'user-minus':'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="16" y1="11" x2="22" y2="11"/>',
+      'clock':'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 14"/>',
+      'bell-off':'<path d="M13.73 21a2 2 0 0 1-3.46 0"/><path d="M18.63 13A17.9 17.9 0 0 1 18 8"/><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"/><path d="M18 8a6 6 0 0 0-9.33-5"/><line x1="1" y1="1" x2="23" y2="23"/>',
+      'ban':'<circle cx="12" cy="12" r="9"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4"/>',
+      'mail-open':'<path d="M22 13V8a2 2 0 0 0-1-1.73L12 2 3 6.27A2 2 0 0 0 2 8v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2z"/><polyline points="2 8 12 14 22 8"/>',
+      'pointer':'<path d="M3 3l7 18 2.5-7.5L20 11z"/>',
+      'send':'<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+      'calendar':'<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + (p[n] || '') + '</svg>';
+  }
+  async function loadDashboard(){
+    const box = document.getElementById('camp-dash-kpis');
+    if (box && !box.children.length) box.innerHTML = new Array(12).fill('<div class="skel" style="height:96px"></div>').join('');
+    try {
+      const d = await fetch('/api/admin/campaign-dashboard').then(function(r){ return r.json(); });
+      if (!d || !d.kpis) return;
+      const k = d.kpis;
+      const last = k.lastCampaign, next = k.nextCampaign;
+      const cards = [
+        { ic:'users', c:'#e3b23a', v:k.total, l:'Destinataires uniques', t:'Total dédupliqué : DTP + Whop + manuel' },
+        { ic:'user-check', c:'#00e676', v:k.active, l:'Actifs', t:'Abonnement en cours' },
+        { ic:'crown', c:'#e3b23a', v:k.premium, l:'Clients Premium', t:'Abonnés actifs (payants)' },
+        { ic:'user-plus', c:'#8b93a1', v:k.lead, l:'Leads', t:'Contacts sans abonnement' },
+        { ic:'user-minus', c:'#ffb300', v:k.churn, l:'Churn', t:'Résiliés / expirés — cibles win-back' },
+        { ic:'clock', c:'#ffb300', v:k.expired, l:'Comptes expirés', t:'Abonnement terminé' },
+        { ic:'bell-off', c:'#ff3d00', v:k.unsub, l:'Désabonnés', t:'Opt-out e-mail (exclus)' },
+        { ic:'ban', c:'#ff3d00', v:k.blacklist, l:'Blacklist', t:'E-mails bloqués partout' },
+        { ic:'mail-open', c:'#3aa0e0', v:k.openRate + '%', l:'Taux d’ouverture', t:'Ouvertures uniques / envoyés' },
+        { ic:'pointer', c:'#3aa0e0', v:k.ctr + '%', l:'CTR', t:'Clics uniques / envoyés' },
+        { ic:'send', c:'#9aa3b2', v:last ? _campFmt(last.sentAt) : '—', l:'Dernière campagne', t:last ? (last.title + ' · ' + last.sent + ' envoyés') : 'Aucune campagne envoyée' },
+        { ic:'calendar', c:'#9aa3b2', v:next ? ('S' + next.week) : '—', l:'Prochaine campagne', t:next ? (next.title + ' — non programmée') : 'Séquence terminée' }
+      ];
+      box.innerHTML = cards.map(function(c){
+        return '<div class="kpi-card" style="--kc:' + c.c + '" title="' + String(c.t).replace(/"/g,'') + '"><div class="kpi-top"><div class="kpi-ic">' + _lucide(c.ic) + '</div></div><div class="kpi-val">' + c.v + '</div><div class="kpi-lbl">' + c.l + '</div></div>';
+      }).join('');
+      const dv = d.deliverability, ch = dv.checks;
+      const dlab = function(s){ return s === 'pass' ? 'Validé' : (s === 'info' ? 'À surveiller' : 'Échec'); };
+      const dcls = function(s){ return s === 'pass' ? 'pass' : (s === 'info' ? 'info' : 'fail'); };
+      const rows = [['SPF',ch.spf],['DKIM',ch.dkim],['DMARC',ch.dmarc],['SMTP',ch.smtp],['Blacklist',ch.blacklist]];
+      document.getElementById('camp-deliv').innerHTML =
+        '<div class="deliv-wrap"><div class="deliv-rows">' +
+        rows.map(function(x){ return '<div class="deliv-row"><span class="deliv-dot deliv-dot--' + dcls(x[1]) + '"></span><span class="deliv-k">' + x[0] + '</span><span class="deliv-v">' + dlab(x[1]) + '</span></div>'; }).join('') +
+        '</div><div class="deliv-ring" style="--p:' + dv.score + '"><div class="deliv-ring-in"><div class="deliv-ring-v">' + dv.score + '</div><div class="deliv-ring-l">Score</div></div></div></div>';
+    } catch {}
+  }
   async function loadCampaign(){
     const ael = document.getElementById('camp-audience'); if (ael) ael.textContent = 'Chargement de l’audience…';
     try {
@@ -1035,6 +1221,7 @@
           + '<div class="camp-aud-src">Sources : ' + r.dtpAccounts + ' comptes DTP · ' + r.whopContacts + ' Whop · ' + r.manualExtra + ' manuels · ' + r.inMultipleSources + ' en commun · exclus : ' + r.excludedBlacklist + ' blacklist, ' + r.excludedUnsub + ' désabonnés</div>';
       } else ael.textContent = 'Audience indisponible.';
     } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
+    loadDashboard();
     loadCampStats();
     loadBlacklist();
     loadSequence();
