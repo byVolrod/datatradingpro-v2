@@ -12628,11 +12628,28 @@ app.get('/api/admin/campaign-schedule', requireAdmin, async (req, res) => {
   else if (a === 'pause') { _campSchedule.active = false; _saveSchedule(); }
   else if (a === 'reset') { _campSchedule.lastSentWeek = null; _saveSchedule(); }
   else if (a === 'config') { const wd = parseInt(req.query.weekday, 10), h = parseInt(req.query.hour, 10); if (wd >= 0 && wd <= 6) _campSchedule.weekday = wd; if (h >= 0 && h <= 23) _campSchedule.hour = h; _saveSchedule(); }
+  // Dernier envoi REEL (toute campagne confondue) + etat de sante, pour la console de supervision admin.
+  let lastRun = null;
+  try {
+    for (const cid of Object.keys(_campaignStats)) {
+      if (cid === '_unsub') continue;
+      const s = _campaignStats[cid]; if (!s || !s.sent) continue;
+      const sends = Object.values(s.sent); if (!sends.length) continue;
+      const first = Math.min.apply(null, sends);
+      if (!lastRun || first > lastRun.at) lastRun = { campaign: cid, sent: Object.keys(s.sent).length, opens: Object.keys(s.opens || {}).length, at: first };
+    }
+  } catch {}
+  const _campLabel = c => c === 'intro-v1' ? 'Bienvenue — introduction' : (/^weekly-/.test(c) ? 'Point de la semaine (' + c.replace('weekly-', 'sem. ') + ')' : c);
+  if (lastRun) lastRun.label = _campLabel(lastRun.campaign);
+  const hasData = !!_freshWeekly();
+  const issues = [];
+  if (_campSchedule.active && !hasData) issues.push('Le Recap Hebdo n\'est pas encore genere — le prochain digest attendra cette donnee.');
+  if (!process.env.OVH_SMTP_USER && !process.env.GMAIL_USER && !process.env.GMAIL_OAUTH_REFRESH_TOKEN) issues.push('Aucun fournisseur e-mail configure.');
   res.json({ ok: true, active: _campSchedule.active, weekday: _campSchedule.weekday, hour: _campSchedule.hour,
     weekdayLabel: _WD_FR[_campSchedule.weekday], cadence: 'hebdomadaire',
     nextLabel: _campSchedule.active ? _nextWeeklyLabel(_campSchedule.weekday, _campSchedule.hour) : null,
     lastSentWeek: _campSchedule.lastSentWeek, launchedAt: _campSchedule.launchedAt, running: _weeklyRunning,
-    hasWeeklyData: !!_freshWeekly() });
+    hasWeeklyData: hasData, lastRun, health: { ok: issues.length === 0, issues } });
 });
 
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
