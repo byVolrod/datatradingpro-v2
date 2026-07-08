@@ -198,7 +198,7 @@ function _wsUserIdFromReq(req) {
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
@@ -12386,9 +12386,75 @@ app.get('/api/unsubscribe', async (req, res) => {
       'Ce lien de d&eacute;sinscription est invalide ou incomplet. &Eacute;crivez-nous &agrave; ' + (process.env.SUPPORT_EMAIL || 'contact@datatradingpro.com') + ' pour &ecirc;tre retir&eacute; de la liste.', false));
   }
   try { await auth.emailLogAdd('unsub:' + email); } catch (e) { console.error('[Unsub]', e.message); }
+  _recordUnsub(email);
   console.log('[Unsub] desinscription →', email);
   res.type('html').send(_unsubPage('Vous &ecirc;tes d&eacute;sabonn&eacute;',
     'L\'adresse <strong style="color:#fff;">' + email.replace(/[<>&"']/g, '') + '</strong> ne recevra plus nos emails de campagne. Vos emails de compte (acc&egrave;s, s&eacute;curit&eacute;) restent actifs. Un doute&nbsp;? &Eacute;crivez &agrave; ' + (process.env.SUPPORT_EMAIL || 'contact@datatradingpro.com') + '.', true));
+});
+
+// ─── Stats de campagne (ouvertures / clics / desabos) — DURABLES (KV campaign:stats) ────────────
+// En memoire + flush debounce (comme chat:reactions) → PAS un write KV par pixel. Structure :
+//   _campaignStats[<id>] = { sent:{email:ts}, opens:{email:{n,first,last}}, clicks:{email:{n,first,last}} }
+//   _campaignStats._unsub = { email:ts }  (desabos, global toutes campagnes)
+let _campaignStats = {};
+(async () => { try { const kv = await auth.aiCacheGet('campaign:stats', 366 * 86400000); if (kv && typeof kv === 'object') _campaignStats = kv; } catch {} })();
+let _statsTimer = null;
+function _statsFlush() {
+  clearTimeout(_statsTimer);
+  _statsTimer = setTimeout(() => { auth.aiCacheSet('campaign:stats', _campaignStats).catch(() => {}); }, 4000);
+  if (_statsTimer.unref) _statsTimer.unref();
+}
+function _statCampaign(c) { const id = String(c || 'intro-v1'); if (!_campaignStats[id]) _campaignStats[id] = { sent: {}, opens: {}, clicks: {} }; return _campaignStats[id]; }
+function _recordSent(c, email)  { const s = _statCampaign(c); if (!s.sent[email]) s.sent[email] = Date.now(); _statsFlush(); }
+function _recordOpen(c, email)  { const s = _statCampaign(c); const o = s.opens[email] || { n: 0, first: Date.now() }; o.n++; o.last = Date.now(); s.opens[email] = o; _statsFlush(); }
+function _recordClick(c, email) { const s = _statCampaign(c); const k = s.clicks[email] || { n: 0, first: Date.now() }; k.n++; k.last = Date.now(); s.clicks[email] = k; _statsFlush(); }
+function _recordUnsub(email)    { if (!_campaignStats._unsub) _campaignStats._unsub = {}; if (!_campaignStats._unsub[email]) _campaignStats._unsub[email] = Date.now(); _statsFlush(); }
+
+const _PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');   // GIF 1x1 transparent
+const _CLICK_ALLOW = /(^|\.)(datatradingpro\.com|whop\.com)$/i;                                             // anti open-redirect
+
+// Pixel d'OUVERTURE — PUBLIC. Verifie le jeton (anti-forge), enregistre l'ouverture, renvoie un GIF 1x1.
+app.get('/api/track/open', (req, res) => {
+  try {
+    const c = String(req.query.c || ''), e = String(req.query.e || '').toLowerCase().trim(), t = String(req.query.t || '');
+    if (c && e && t && t === mailer.trackToken(c, e)) _recordOpen(c, e);
+  } catch {}
+  res.set('Content-Type', 'image/gif');
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+  res.set('Pragma', 'no-cache');
+  res.end(_PIXEL_GIF);
+});
+
+// Tracker de CLIC — PUBLIC. Verifie le jeton, enregistre le clic, 302 vers l'URL cible (allowlist DTP/Whop).
+app.get('/api/track/click', (req, res) => {
+  const c = String(req.query.c || ''), e = String(req.query.e || '').toLowerCase().trim(), t = String(req.query.t || '');
+  let target = 'https://datatradingpro.com';
+  try { const u = new URL(String(req.query.u || '')); if ((u.protocol === 'https:' || u.protocol === 'http:') && _CLICK_ALLOW.test(u.hostname)) target = u.href; } catch {}
+  try { if (c && e && t && t === mailer.trackToken(c, e)) _recordClick(c, e); } catch {}
+  res.redirect(302, target);
+});
+
+// Stats de campagne (admin) : envoyes / ouvertures uniques + taux / clics + taux / desabos + detail destinataire.
+app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
+  try {
+    const c = String(req.query.campaign || 'intro-v1');
+    const s = _campaignStats[c] || { sent: {}, opens: {}, clicks: {} };
+    const sentEmails = Object.keys(s.sent), openEmails = Object.keys(s.opens), clickEmails = Object.keys(s.clicks);
+    const totalOpens = openEmails.reduce((a, e) => a + ((s.opens[e] && s.opens[e].n) || 0), 0);
+    const totalClicks = clickEmails.reduce((a, e) => a + ((s.clicks[e] && s.clicks[e].n) || 0), 0);
+    const sent = sentEmails.length;
+    const unsub = _campaignStats._unsub ? Object.keys(_campaignStats._unsub).length : 0;
+    const pct = (a, b) => b ? Math.round((a / b) * 1000) / 10 : 0;
+    const recipients = sentEmails.map(e => ({
+      email: e, sentAt: s.sent[e],
+      opens: (s.opens[e] && s.opens[e].n) || 0, lastOpen: (s.opens[e] && s.opens[e].last) || null,
+      clicks: (s.clicks[e] && s.clicks[e].n) || 0,
+    })).sort((a, b) => (b.opens - a.opens) || (b.clicks - a.clicks));
+    res.json({ ok: true, campaign: c,
+      summary: { sent, uniqueOpens: openEmails.length, openRate: pct(openEmails.length, sent), totalOpens,
+                 uniqueClicks: clickEmails.length, clickRate: pct(clickEmails.length, sent), totalClicks, unsub },
+      recipients });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
@@ -12410,9 +12476,9 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
   if (test) {
     const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
     let provider = null, err = null;
-    try { provider = await mailer.sendCampaignIntro({ to, name: '' }); } catch (e) { err = e.message; }
+    try { provider = await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' }); } catch (e) { err = e.message; }
     return res.json({ ok: !!provider, test: true, to, provider: provider || null, error: err,
-      note: 'Test envoye a l\'admin uniquement. Aucun marqueur ecrit, aucun client touche.' });
+      note: 'Test envoye a l\'admin uniquement (campagne ' + CAMPAIGN_ID + '-test, stats separees). Aucun marqueur ecrit, aucun client touche.' });
   }
 
   let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }
@@ -12435,8 +12501,8 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
       try { if (await auth.emailLogHas('unsub:' + email)) { _campaignSend.unsub++; continue; } } catch {}
       if (!force) { try { if (await auth.emailLogHas(marker)) { _campaignSend.skipped++; continue; } } catch {} }
       try {
-        const provider = await mailer.sendCampaignIntro({ to: email, name: r.name || '' });
-        if (provider) { _campaignSend.sent++; try { await auth.emailLogAdd(marker); } catch {} }
+        const provider = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: CAMPAIGN_ID });
+        if (provider) { _campaignSend.sent++; _recordSent(CAMPAIGN_ID, email); try { await auth.emailLogAdd(marker); } catch {} }
         else _campaignSend.failed++;
       } catch { _campaignSend.failed++; }
       if (throttle) await new Promise(rr => setTimeout(rr, throttle));

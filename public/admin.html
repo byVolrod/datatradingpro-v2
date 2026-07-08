@@ -461,6 +461,7 @@
     <button class="adm-tab" data-tab="users" onclick="admTab('users')">Utilisateurs</button>
     <button class="adm-tab" data-tab="support" onclick="admTab('support')">Support <span class="adm-tab-badge" id="adm-tab-chat" style="display:none">0</span></button>
     <button class="adm-tab" data-tab="aimon" onclick="admTab('aimon')">IA Monitor</button>
+    <button class="adm-tab" data-tab="campaign" onclick="admTab('campaign')">Campagne e-mail</button>
   </div>
 
   <!-- ═══ Onglet : Tableau de bord ═══ -->
@@ -782,6 +783,79 @@
   </div>
   </section>
 
+  <!-- Campagne e-mail marketing -->
+  <section class="tab-panel" id="tab-campaign">
+    <style>
+      .camp-block{background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:14px 16px;margin:0 0 14px;color:#cbd5e1;font-size:13px;line-height:1.6;}
+      .camp-aud-total{font-size:22px;font-weight:800;color:#fff;}
+      .camp-aud-total .camp-aud-sub{font-size:12px;font-weight:600;color:#22c55e;margin-left:8px;}
+      .camp-aud-seg{margin:10px 0 8px;display:flex;gap:8px;flex-wrap:wrap;}
+      .camp-chip{font-size:12px;font-weight:700;padding:4px 10px;border-radius:999px;border:1px solid;}
+      .camp-chip--active{color:#00e676;border-color:rgba(0,230,118,.4);background:rgba(0,230,118,.08);}
+      .camp-chip--churn{color:#ffb300;border-color:rgba(255,179,0,.4);background:rgba(255,179,0,.08);}
+      .camp-chip--lead{color:#8b93a1;border-color:#33333a;background:rgba(255,255,255,.03);}
+      .camp-aud-src{font-size:11.5px;color:#8b93a1;}
+      .camp-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 0 12px;}
+      .camp-btn{background:#1a1a1f;border:1px solid #33333a;color:#e6e6ea;font-size:13px;font-weight:600;padding:9px 14px;border-radius:8px;cursor:pointer;transition:.15s;}
+      .camp-btn:hover{border-color:#e3b23a;color:#fff;}
+      .camp-btn--send{background:#e3b23a;color:#0a0a0c;border-color:#e3b23a;font-weight:800;}
+      .camp-btn--send:hover{background:#f0c14b;}
+      .camp-btn--armed{background:#ff3d00 !important;color:#fff !important;border-color:#ff3d00 !important;animation:camppulse 1s infinite;}
+      @keyframes camppulse{0%,100%{opacity:1}50%{opacity:.72}}
+      .camp-msg{font-size:12.5px;color:#9aa3b2;}
+      .camp-extra{display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap;}
+      .camp-extra input{flex:1;min-width:220px;background:#0f0f12;border:1px solid #33333a;color:#e6e6ea;border-radius:8px;padding:8px 12px;font-size:13px;}
+      .camp-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:0 0 14px;}
+      .camp-kpi{background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:12px 14px;text-align:center;}
+      .camp-kpi-v{font-size:20px;font-weight:800;color:#e3b23a;}
+      .camp-kpi-k{font-size:11px;color:#8b93a1;margin-top:3px;text-transform:uppercase;letter-spacing:.03em;}
+      .camp-table-wrap{overflow-x:auto;}
+      .camp-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+      .camp-table th,.camp-table td{text-align:left;padding:7px 10px;border-bottom:1px solid #1c1c20;white-space:nowrap;}
+      .camp-table th{color:#8b93a1;font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.03em;}
+      .camp-table td{color:#cbd5e1;}
+      .camp-note{font-size:11.5px;color:#7b828f;margin:8px 0 0;}
+    </style>
+    <div class="panel-card">
+      <div class="panel-head">
+        <span class="ph-ic">📧</span><h2>Campagne e-mail marketing</h2>
+        <span class="ph-spacer"></span>
+        <button class="aim-refresh-btn" onclick="loadCampaign()">⟳ Actualiser</button>
+      </div>
+      <div class="panel-body">
+        <div id="camp-audience" class="camp-block">Chargement de l'audience…</div>
+        <div class="camp-actions">
+          <button class="camp-btn" onclick="campTest()">✉️ Test → mon adresse</button>
+          <button class="camp-btn camp-btn--send" id="camp-send-btn" onclick="campSend()">🚀 Envoyer la campagne</button>
+          <span id="camp-msg" class="camp-msg"></span>
+        </div>
+        <div class="camp-extra">
+          <input id="camp-extra-input" placeholder="Ajouter des e-mails hors Whop (séparés par virgule)…" onkeydown="if(event.key==='Enter')campExtraAdd()"/>
+          <button class="camp-btn" onclick="campExtraAdd()">Ajouter à l'audience</button>
+        </div>
+        <div id="camp-progress" class="camp-block" style="display:none"></div>
+        <p class="camp-note">L'envoi part de ton navigateur, jamais automatiquement. Anti-doublon durable : personne ne reçoit 2× le même e-mail. Les désinscrits et la blacklist sont exclus automatiquement.</p>
+      </div>
+    </div>
+    <div class="panel-card">
+      <div class="panel-head">
+        <span class="ph-ic">📊</span><h2>Ouvertures &amp; clics</h2>
+        <span class="ph-spacer"></span>
+        <span class="fin-sub" id="camp-stats-sub"></span>
+      </div>
+      <div class="panel-body">
+        <div class="camp-kpis" id="camp-kpis"></div>
+        <div class="camp-table-wrap">
+          <table class="camp-table" id="camp-recipients">
+            <thead><tr><th>E-mail</th><th>Envoyé</th><th>Ouvertures</th><th>Clics</th><th>Dernière ouverture</th></tr></thead>
+            <tbody><tr><td colspan="5" class="empty-state">Aucun envoi pour l'instant.</td></tr></tbody>
+          </table>
+        </div>
+        <p class="camp-note">Le suivi d'ouverture repose sur un pixel invisible : certains clients (Apple Mail, proxy Gmail) préchargent les images, ce qui peut gonfler légèrement les ouvertures. Les clics sont fiables.</p>
+      </div>
+    </div>
+  </section>
+
 </div>
 
 <!-- Edit modal -->
@@ -887,8 +961,98 @@
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('tab-panel--active', p.id === 'tab-' + name));
     if (name === 'dash') setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 40);
     if (name === 'aimon') { loadAIMon(); setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 60); }
+    if (name === 'campaign') loadCampaign();
   }
   function refreshAll() { loadUsers(); loadFinance(); loadAdChat(); }
+
+  // ── Campagne e-mail marketing ──────────────────────────────────────────────
+  let _campAud = null, _campArmed = false, _campArmTimer = null, _campPoll = null;
+  function _campFmt(ts){ try { return new Date(ts).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' }); } catch { return '—'; } }
+  function _campMsg(t){ const e = document.getElementById('camp-msg'); if (e) e.textContent = t || ''; }
+  async function loadCampaign(){
+    const ael = document.getElementById('camp-audience'); if (ael) ael.textContent = 'Chargement de l’audience…';
+    try {
+      const d = await fetch('/api/admin/campaign-audience').then(r => r.json());
+      _campAud = d;
+      if (d && d.report) {
+        const r = d.report, s = r.segments || {};
+        ael.innerHTML = '<div class="camp-aud-total">' + r.total + ' destinataires uniques <span class="camp-aud-sub">0 doublon</span></div>'
+          + '<div class="camp-aud-seg"><span class="camp-chip camp-chip--active">' + (s.active||0) + ' actifs</span>'
+          + '<span class="camp-chip camp-chip--churn">' + (s.churned||0) + ' churned</span>'
+          + '<span class="camp-chip camp-chip--lead">' + (s.lead||0) + ' leads</span></div>'
+          + '<div class="camp-aud-src">Sources : ' + r.dtpAccounts + ' comptes DTP · ' + r.whopContacts + ' Whop · ' + r.manualExtra + ' manuels · ' + r.inMultipleSources + ' en commun · exclus : ' + r.excludedBlacklist + ' blacklist, ' + r.excludedUnsub + ' désabonnés</div>';
+      } else ael.textContent = 'Audience indisponible.';
+    } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
+    loadCampStats();
+  }
+  async function loadCampStats(){
+    try {
+      const d = await fetch('/api/admin/campaign-stats?campaign=intro-v1').then(r => r.json());
+      if (!d || !d.summary) return;
+      const s = d.summary;
+      const kpis = [ ['Envoyés', s.sent], ['Ouvertures uniques', s.uniqueOpens + ' (' + s.openRate + '%)'],
+        ['Ouvertures totales', s.totalOpens], ['Clics uniques', s.uniqueClicks + ' (' + s.clickRate + '%)'],
+        ['Clics totaux', s.totalClicks], ['Désabonnés', s.unsub] ];
+      document.getElementById('camp-kpis').innerHTML = kpis.map(function(kv){ return '<div class="camp-kpi"><div class="camp-kpi-v">' + kv[1] + '</div><div class="camp-kpi-k">' + kv[0] + '</div></div>'; }).join('');
+      const tb = document.querySelector('#camp-recipients tbody');
+      const rows = (d.recipients || []);
+      tb.innerHTML = rows.length ? rows.map(function(r){ return '<tr><td>' + r.email + '</td><td>' + (r.sentAt ? _campFmt(r.sentAt) : '—') + '</td><td>' + (r.opens||0) + '</td><td>' + (r.clicks||0) + '</td><td>' + (r.lastOpen ? _campFmt(r.lastOpen) : '—') + '</td></tr>'; }).join('')
+        : '<tr><td colspan="5" class="empty-state">Aucun envoi pour l’instant.</td></tr>';
+      document.getElementById('camp-stats-sub').textContent = s.sent + ' envoyé' + (s.sent > 1 ? 's' : '');
+    } catch {}
+  }
+  async function campTest(){
+    _campMsg('Envoi du test…');
+    try {
+      const d = await fetch('/api/admin/campaign-send?test=1').then(r => r.json());
+      _campMsg(d.ok ? ('✅ Test envoyé à ' + d.to + ' via ' + d.provider) : ('❌ ' + (d.error || 'échec de l’envoi')));
+    } catch { _campMsg('❌ Erreur réseau.'); }
+  }
+  // Envoi RÉEL — confirmation INLINE en 2 clics (pas de dialog natif) : 1er clic = armement 6 s, 2e = envoi.
+  function campSend(){
+    const btn = document.getElementById('camp-send-btn');
+    const total = (_campAud && _campAud.report) ? _campAud.report.total : '?';
+    if (!_campArmed) {
+      _campArmed = true;
+      btn.textContent = '⚠️ Confirmer l’envoi RÉEL aux ' + total + ' ?';
+      btn.classList.add('camp-btn--armed');
+      clearTimeout(_campArmTimer);
+      _campArmTimer = setTimeout(function(){ _campArmed = false; btn.textContent = '🚀 Envoyer la campagne'; btn.classList.remove('camp-btn--armed'); }, 6000);
+      return;
+    }
+    _campArmed = false; clearTimeout(_campArmTimer);
+    btn.textContent = '🚀 Envoyer la campagne'; btn.classList.remove('camp-btn--armed');
+    _doCampSend();
+  }
+  async function _doCampSend(){
+    _campMsg('Lancement de l’envoi…');
+    try {
+      const d = await fetch('/api/admin/campaign-send?send=1').then(r => r.json());
+      if (d.started) { _campMsg('🚀 Envoi lancé (' + d.eligible + ' cibles). Suivi en cours…'); _campPollProgress(); }
+      else _campMsg('❌ ' + (d.error || JSON.stringify(d)));
+    } catch { _campMsg('❌ Erreur réseau.'); }
+  }
+  function _campPollProgress(){
+    const el = document.getElementById('camp-progress'); if (el) el.style.display = 'block';
+    clearInterval(_campPoll);
+    const tick = async function(){
+      try {
+        const s = await fetch('/api/admin/campaign-send?status=1').then(r => r.json());
+        el.innerHTML = 'Envoi ' + (s.running ? 'en cours' : 'terminé') + ' — envoyés <b>' + s.sent + '</b> · déjà ' + s.skipped + ' · désab ' + s.unsub + ' · échecs ' + s.failed + ' / ' + s.eligible + ' cibles';
+        if (!s.running) { clearInterval(_campPoll); loadCampStats(); }
+      } catch {}
+    };
+    tick(); _campPoll = setInterval(tick, 3000);
+  }
+  async function campExtraAdd(){
+    const inp = document.getElementById('camp-extra-input'); const v = (inp.value || '').trim(); if (!v) return;
+    _campMsg('Ajout…');
+    try {
+      const d = await fetch('/api/admin/campaign-extra?action=add&emails=' + encodeURIComponent(v)).then(r => r.json());
+      _campMsg(d.ok ? ('✅ ' + d.added + ' ajouté(s), ' + (d.dupesIgnored||0) + ' doublon(s) ignoré(s) — ' + d.total + ' au total') : '❌ échec');
+      inp.value = ''; loadCampaign();
+    } catch { _campMsg('❌ Erreur réseau.'); }
+  }
 
   // ── amCharts 5 : courbes (area lissée) + donut, style du site (dark + orange) ──
   const _amRoots = {};

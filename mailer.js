@@ -671,6 +671,21 @@ function unsubUrl(email) {
   return `${APP_URL}/api/unsubscribe?e=${encodeURIComponent(e)}&t=${unsubToken(e)}`;
 }
 
+// ── Tracking ouvertures / clics — jeton HMAC lié à (campagne, email) ───────────
+// Empêche de forger une ouverture/un clic pour un e-mail arbitraire (le serveur revérifie mailer.trackToken).
+function trackToken(campaign, email) {
+  return crypto.createHmac('sha256', _UNSUB_SECRET).update('trk:' + String(campaign || '') + ':' + String(email || '').toLowerCase().trim()).digest('hex').slice(0, 16);
+}
+function trackOpenUrl(campaign, email) {
+  const e = String(email || '').toLowerCase().trim();
+  return `${APP_URL}/api/track/open?c=${encodeURIComponent(campaign || '')}&e=${encodeURIComponent(e)}&t=${trackToken(campaign, e)}`;
+}
+// Enrobe une URL cible → passe par le tracker (302 vers la vraie URL après enregistrement du clic).
+function trackClickUrl(campaign, email, target) {
+  const e = String(email || '').toLowerCase().trim();
+  return `${APP_URL}/api/track/click?c=${encodeURIComponent(campaign || '')}&e=${encodeURIComponent(e)}&t=${trackToken(campaign, e)}&u=${encodeURIComponent(target || '')}`;
+}
+
 // Gabarit CAMPAGNE — identite landing (or #e3b23a, pas l'orange transactionnel) + pied de desinscription.
 function _campaignLayout(title, bodyHtml, unsub) {
   return `<!DOCTYPE html>
@@ -710,7 +725,8 @@ function _campaignBtn(label, url) {
 // Mail d'INTRODUCTION de la campagne hebdomadaire (1er de la sequence). Audience = clients DTP + clients
 // Whop (JustOneTrader). INFORMATIF : presente le terminal et ce qui sera recu chaque semaine, ne pousse
 // AUCUNE position. Widget Force des Devises en direct (PNG servi par le desk). Desinscription en pied.
-function buildCampaignIntro({ name, email } = {}) {
+function buildCampaignIntro({ name, email, campaign } = {}) {
+  campaign = campaign || 'intro-v1';
   const prenom = _esc((name || '').split(' ')[0] || '');
   const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
   const unsub  = unsubUrl(email || '');
@@ -728,16 +744,17 @@ function buildCampaignIntro({ name, email } = {}) {
     <p style="margin:0 0 6px;font-size:13px;color:#9aa3b2;">Un aper&ccedil;u de la Force des Devises, en direct du terminal&nbsp;:</p>
     <img src="${APP_URL}/api/email-widget/meter.png" width="532" alt="Force des Devises &mdash; DataTradingPro"
       style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #26262b;border-radius:10px;margin:6px 0 4px;">
-    ${_campaignBtn('Découvrir le terminal', LANDING_URL)}
+    ${_campaignBtn('Découvrir le terminal', trackClickUrl(campaign, email, LANDING_URL))}
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.07);border:1px solid rgba(227,178,58,0.30);border-radius:10px;margin:18px 0 4px;">
       <tr><td style="padding:13px 16px;color:#e7d4a8;font-size:12.5px;line-height:1.6;">
         <strong style="color:#e3b23a;">Pour ne plus rater nos emails&nbsp;:</strong> ajoutez <strong style="color:#fff;">${sender}</strong> &agrave; vos contacts. Si ce message est dans vos spams, ouvrez-le et cliquez sur «&nbsp;Non spam&nbsp;».
       </td></tr></table>
     <p style="margin:14px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">DataTradingPro est un terminal de <strong>donn&eacute;es et d'analyse</strong>&nbsp;: il &eacute;claire vos d&eacute;cisions, il ne passe aucun ordre et ne donne aucun conseil personnalis&eacute;. Le trading comporte un risque de perte en capital.</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   return { subject: 'DataTradingPro : votre rendez-vous macro & forex chaque semaine', html: _campaignLayout('Bienvenue', body, unsub) };
 }
-async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to }); return _send(d.to, m.subject, m.html); }
+async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
 
 // ── Rappel ADMIN : abonnements à renouveler (envoyé à datatradingpro.contact) ──
 function buildAdminExpiryReminder({ clients }) {
@@ -970,6 +987,8 @@ module.exports = {
   sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
+  // tracking ouvertures/clics — server.js vérifie mailer.trackToken
+  trackToken, trackOpenUrl, trackClickUrl,
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
