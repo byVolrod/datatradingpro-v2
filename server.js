@@ -12362,6 +12362,28 @@ app.get('/api/admin/campaign-extra', requireAdmin, async (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// Liste noire (e-mails BLOQUES : login + creation de compte + reconciliation Whop + campagne). Fichier durable
+// (volume /app/data). Ajouter = bloque immediatement (la session active est ejectee au prochain /api/auth/me,
+// requireAuth verifie la blacklist). Retirer = reautorise. ?action=add&emails=... | ?action=remove&email=... | (liste).
+app.get('/api/admin/blacklist', requireAdmin, (req, res) => {
+  const _norm = e => String(e || '').toLowerCase().trim();
+  const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  try {
+    const action = String(req.query.action || '');
+    if (action === 'add') {
+      const toAdd = String(req.query.emails || req.query.email || '').split(/[\s,;]+/).map(_norm).filter(_valid);
+      let added = 0; for (const e of toAdd) { if (!auth.isEmailBlacklisted(e)) { auth.blacklistEmail(e); added++; } }
+      return res.json({ ok: true, added, total: auth.listBlacklist().length, list: auth.listBlacklist() });
+    }
+    if (action === 'remove') {
+      const removed = auth.unblacklistEmail(_norm(req.query.email)) ? 1 : 0;
+      return res.json({ ok: true, removed, total: auth.listBlacklist().length, list: auth.listBlacklist() });
+    }
+    const list = auth.listBlacklist();
+    res.json({ ok: true, total: list.length, list, hint: '?action=add&emails=a@x.com | ?action=remove&email=a@x.com' });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // ─── Desinscription (opt-out) — PUBLIC (lien dans les mails de campagne) ────────
 // Jeton HMAC verifie (mailer.unsubToken) → on ne peut pas desabonner un tiers en devinant l'URL.
 // Marque unsub:<email> dans email_log (DURABLE Supabase + fichier) → la campagne saute cet email.
