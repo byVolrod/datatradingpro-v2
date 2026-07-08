@@ -448,6 +448,24 @@ function buildExpired({ name, expiresAt }) {
 }
 async function sendExpired(d) { const m = buildExpired(d); return _send(d.to, m.subject, m.html); }
 
+// ── « Mot de passe oublié » demandé par un compte SANS abonnement actif (suspendu/expiré) ─────
+//    SÉCURITÉ : on NE réinitialise PAS le mot de passe (réservé aux comptes actifs). On explique
+//    l'abonnement inactif + CTA de réactivation, façon pro. (Aucun mot de passe n'est régénéré.)
+function buildForgotNoSub({ name }) {
+  const prenom = _esc((name || '').split(' ')[0] || 'cher client');
+  const body = `
+    <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Réinitialisation impossible : abonnement inactif</p>
+    <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
+    <p style="margin:0 0 14px;">Vous venez de demander la réinitialisation de votre mot de passe DataTradingPro. Or votre <strong style="color:#fff;">abonnement n'est pas actif</strong> : votre accès au terminal est actuellement <strong style="color:#e25563;">suspendu</strong>.</p>
+    <p style="margin:0 0 14px;">Pour des raisons de sécurité, nous ne réinitialisons le mot de passe que pour les comptes disposant d'un <strong style="color:#fff;">abonnement actif</strong>. Dès que le vôtre sera réactivé, vous pourrez de nouveau vous connecter (et réinitialiser votre mot de passe si besoin).</p>
+    ${_button('Réactiver mon abonnement', WHOP_RENEW_URL)}
+    <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
+    ${_spamNote()}
+    <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
+  return { subject: 'DataTradingPro — réinitialisation impossible : abonnement inactif', html: _layout('Abonnement inactif', body) };
+}
+async function sendForgotNoSub(d) { const m = buildForgotNoSub(d); return _send(d.to, m.subject, m.html); }
+
 // ── 2b) Email de réactivation (compte remis en actif) ────────────────────────
 function buildReactivated({ name, expiresAt }) {
   const prenom = _esc((name || '').split(' ')[0] || 'cher client');
@@ -717,6 +735,7 @@ function getEmailCatalog() {
   return [
     { key: 'welcome',       audience: 'Client', label: 'Bienvenue',                       trigger: 'À la création du compte client',              ...buildWelcome(s) },
     { key: 'passwordReset', audience: 'Client', label: 'Réinitialisation du mot de passe', trigger: 'Reset MDP (admin ou « mot de passe oublié »)', ...buildPasswordReset(s) },
+    { key: 'forgotNoSub',   audience: 'Client', label: 'MDP oublié — abonnement inactif',   trigger: '« Mot de passe oublié » sur un compte sans abonnement actif', ...buildForgotNoSub(s) },
     { key: 'trialUpsell',   audience: 'Client', label: 'Fin d\'essai gratuit',             trigger: 'Le jour où l\'essai 7 jours expire',          ...buildTrialUpsell(s) },
     { key: 'renewalFailed', audience: 'Client', label: 'Échec de renouvellement',          trigger: 'Abonnement non renouvelé → accès suspendu',   ...buildRenewalFailed(s) },
     { key: 'reactivated',   audience: 'Client', label: 'Compte réactivé',                  trigger: 'Compte remis en actif (paiement ou admin)',   ...buildReactivated(s) },
@@ -860,12 +879,12 @@ async function sendAdminAlert({ subject, html, to } = {}) {
 
 module.exports = {
   // envoi (API publique inchangée)
-  sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset,
+  sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
   sendAnnouncementV2, sendGestureMonth, sendLaunchLive,
   // build (rendu sans envoi) — pour la preview
-  buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset,
+  buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
   buildAnnouncementV2, buildGestureMonth, buildLaunchLive,

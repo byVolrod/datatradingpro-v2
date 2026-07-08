@@ -406,7 +406,7 @@
       errCreds:'Email ou mot de passe incorrect', errConn:'Erreur de connexion — réessayez',
       subExpired:'Abonnement expiré', renew:'Renouveler mon abonnement',
       forgotNoEmail:'Entrez d’abord votre adresse e-mail ci-dessus, puis recliquez sur « Mot de passe oublié ».',
-      forgotSent:'Si un compte existe pour cet email, un nouveau mot de passe vient d’être envoyé. Vérifiez votre boîte (et les spams).'
+      forgotSent:'Demande envoyée. Si un compte actif existe pour cet e-mail, un nouveau mot de passe vient d’être envoyé. Si votre abonnement n’est plus actif, vous recevez à la place un e-mail expliquant comment le réactiver. (Pensez à vérifier vos spams.)'
     },
     en: {
       title:'Welcome back.', subtitle:'Sign in to your macro & forex terminal.',
@@ -418,7 +418,7 @@
       errCreds:'Incorrect email or password', errConn:'Connection error — please try again',
       subExpired:'Subscription expired', renew:'Renew my subscription',
       forgotNoEmail:'Enter your email address above first, then click “Forgot password” again.',
-      forgotSent:'If an account exists for this email, a new password has just been sent. Check your inbox (and spam).'
+      forgotSent:'Request sent. If an active account exists for this email, a new password has just been sent. If your subscription is no longer active, you’ll receive an email explaining how to reactivate it instead. (Check your spam folder too.)'
     }
   };
   function lpDetect(){ try { return localStorage.getItem('dtp_lang') || (navigator.language || 'fr').slice(0,2); } catch(e){ return 'fr'; } }
