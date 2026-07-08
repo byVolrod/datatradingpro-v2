@@ -723,7 +723,7 @@ function _campaignLayout(title, bodyHtml, unsub) {
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111114;border:1px solid #26262b;border-radius:14px;overflow:hidden;">
         <tr><td style="padding:26px 34px 18px;border-bottom:1px solid #1f1f24;">
-          <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">Data<span style="color:#e3b23a;">Trading</span>Pro</div>
+          <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">DataTradingPro</div>
           <div style="font-size:12px;font-weight:600;color:#e3b23a;margin-top:5px;letter-spacing:.02em;">Terminal macro &amp; forex, en fran&ccedil;ais</div>
         </td></tr>
         <tr><td style="padding:26px 34px;color:#cbd5e1;font-size:15px;line-height:1.66;">
@@ -743,9 +743,10 @@ function _campaignLayout(title, bodyHtml, unsub) {
 </body></html>`;
 }
 function _campaignBtn(label, url) {
+  // Bouton DORE bien visible. bgcolor (attribut) = rendu Outlook/Word ; box-shadow = relief sur clients modernes.
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0;"><tr>
-    <td style="background:#e3b23a;border-radius:10px;">
-      <a href="${url}" style="display:inline-block;padding:13px 30px;color:#0a0a0c;font-weight:700;font-size:14px;text-decoration:none;">${_esc(label)}</a>
+    <td align="center" bgcolor="#e3b23a" style="background:#e3b23a;border-radius:10px;box-shadow:0 4px 14px rgba(227,178,58,.35);">
+      <a href="${url}" style="display:inline-block;padding:15px 36px;color:#0a0a0c;font-weight:800;font-size:15px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
 
@@ -769,7 +770,8 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
       <li style="margin:5px 0;"><strong style="color:#fff;">Les banques centrales</strong>&nbsp;: le ton (hawkish / dovish) et ce qu'il implique.</li>
     </ul>
     <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises — DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:8px 0 16px;">
-    <p style="margin:0 0 18px;">Pour explorer le terminal quand vous voulez&nbsp;: <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="color:#e3b23a;font-weight:700;text-decoration:none;">ouvrir DataTradingPro &rarr;</a></p>
+    <p style="margin:0 0 6px;">Pour explorer le terminal quand vous voulez&nbsp;:</p>
+    ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver dans votre bo&icirc;te <strong style="color:#cbd5e1;">Principale</strong>, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts et glissez ce message vers l'onglet «&nbsp;Principale&nbsp;». DataTradingPro est un terminal de donn&eacute;es et d'analyse&nbsp;: il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
@@ -825,7 +827,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     <p style="margin:14px 0 6px;font-size:13px;color:#9aa3b2;">La Force des Devises&nbsp;:</p>
     <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises — DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:6px 0 16px;">
     ${cbHtml ? `<p style="margin:0 0 6px;font-size:13px;color:#9aa3b2;">Banques centrales&nbsp;:</p><ul style="margin:0 0 16px;padding-left:20px;color:#cbd5e1;">${cbHtml}</ul>` : ''}
-    <p style="margin:0 0 18px;">Le détail complet est sur le terminal&nbsp;: <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="color:#e3b23a;font-weight:700;text-decoration:none;">ouvrir DataTradingPro &rarr;</a></p>
+    <p style="margin:0 0 6px;">Le détail complet est sur le terminal&nbsp;:</p>
+    ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver en Principale, ajoutez ${_esc(_parseFrom().email)} &agrave; vos contacts. Informatif &mdash; DataTradingPro n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
