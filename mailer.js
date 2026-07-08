@@ -745,7 +745,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
     <p style="margin:0 0 18px;">Pour explorer le terminal quand vous voulez&nbsp;: <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="color:#e3b23a;font-weight:700;text-decoration:none;">ouvrir DataTradingPro &rarr;</a></p>
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour ne rien manquer, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts. DataTradingPro est un terminal de donn&eacute;es et d'analyse&nbsp;: il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver dans votre bo&icirc;te <strong style="color:#cbd5e1;">Principale</strong>, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts et glissez ce message vers l'onglet «&nbsp;Principale&nbsp;». DataTradingPro est un terminal de donn&eacute;es et d'analyse&nbsp;: il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   return { subject: 'DataTradingPro : votre point macro & forex de la semaine', html: _campaignLayout('Bienvenue', body, unsub) };
