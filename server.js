@@ -12652,6 +12652,25 @@ app.get('/api/admin/campaign-schedule', requireAdmin, async (req, res) => {
     hasWeeklyData: hasData, lastRun, health: { ok: issues.length === 0, issues } });
 });
 
+// AUTO-HEAL du compteur 'sent' : le KV campaign:stats (multi-noeuds, egress) peut perdre le champ `sent`
+// (ecrit 1x, jamais re-ecrit ≠ opens re-enregistre a chaque ouverture) → un noeud stale le remet a 0.
+// La VERITE durable = les marqueurs email_log (anti-doublon). On reconstruit `sent` depuis eux au boot.
+async function _reconcileSent(campaigns) {
+  try {
+    const aud = await _campaignAudience({ checkUnsub: false });
+    for (const cid of (campaigns || ['intro-v1'])) {
+      const s = _statCampaign(cid); let added = 0;
+      for (const r of aud.recipients) {
+        if (s.sent[r.email]) continue;
+        try { if (await auth.emailLogHas('campaign:' + cid + ':' + r.email)) { s.sent[r.email] = Date.now() - 3600000; added++; } } catch {}
+      }
+      if (added) console.log('[Stats] auto-heal ' + cid + ' : sent reconstruit = ' + Object.keys(s.sent).length + ' (+' + added + ')');
+    }
+    _statsFlush();
+  } catch (e) { console.error('[Stats reconcile]', e.message); }
+}
+setTimeout(() => { _reconcileSent(['intro-v1']).catch(() => {}); }, 60000);   // 1 min apres le boot
+
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
 // L'envoi REEL est declenche par l'admin depuis son navigateur — JAMAIS automatique.
 //   (aucun param) → APERCU : compte + echantillon, RIEN envoye.
