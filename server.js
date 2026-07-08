@@ -12713,6 +12713,105 @@ async function _schedulerTick() {
 setInterval(_schedulerTick, 20 * 60 * 1000);   // verifie toutes les 20 min
 setTimeout(_schedulerTick, 45 * 1000);         // 1er check apres le boot (rattrapage si l'heure vient de passer)
 
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+//  SEQUENCEUR DRIP PAR UTILISATEUR (newsletter intelligente) — machine a etats PAR e-mail. DESACTIVE par
+//  defaut : rien ne part tant que l'admin n'active pas. Auto-enrole les NOUVEAUX inscrits (audience
+//  recalculee), les fait AVANCER dans leur propre sequence (intro J+0 -> decryptage -> point marche ->
+//  puis RECURRENT hebdo alterne), au rythme de chacun. Contenu = moteur de contexte (_deskContext).
+//  NE TOUCHE PAS au welcome transactionnel (sendWelcome) qui reste 100% auto de son cote.
+//  Anti-doublon durable (email_log drip:<step>:<email>) + anti-redondance + skip unsub/blacklist.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+const DRIP_SEQUENCE = [
+  { id: 'intro',        label: 'Bienvenue — introduction', gapDays: 0, tpl: 'intro',       legacy: 'campaign:intro-v1' },
+  { id: 'decryptage',   label: 'Decryptage contextuel',    gapDays: 2, tpl: 'decryptage' },
+  { id: 'point-marche', label: 'Point marche',             gapDays: 3, tpl: 'pointmarche' },
+];
+// Apres l'onboarding : RECURRENT hebdo (alterne point marche / decryptage), 1x / semaine ISO.
+let _dripState = { active: false, launchedAt: null, contacts: {} };
+(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, contacts: {} }, s); } catch {} })();
+let _dripSaveT = null;
+function _saveDrip() { if (_dripSaveT) return; _dripSaveT = setTimeout(() => { _dripSaveT = null; auth.aiCacheSet('campaign:drip', _dripState).catch(() => {}); }, 3000); }
+// Initialise l'etat d'un contact depuis les marqueurs existants (les 163 deja intro-v1 -> demarrent a l'etape 2).
+async function _dripSeed(email) {
+  let step = 0, lastAt = 0;
+  for (let i = 0; i < DRIP_SEQUENCE.length; i++) {
+    const s = DRIP_SEQUENCE[i];
+    let has = false;
+    try { has = (await auth.emailLogHas('drip:' + s.id + ':' + email)) || (s.legacy ? await auth.emailLogHas(s.legacy + ':' + email) : false); } catch {}
+    if (has) { step = i + 1; lastAt = Date.now() - (s.gapDays + 1) * 864e5; }   // recu il y a assez longtemps -> la cadence ne bloque pas l'etape suivante
+  }
+  return { step, lastAt, enrolledAt: Date.now(), recurWeek: null, recurN: 0 };
+}
+// Envoi d'une etape (contenu data-driven, adapte membre/non-membre). Renvoie true si parti.
+async function _dripSend(stepDef, r, context, recurTag) {
+  const email = r.email, isMember = r.segment === 'active';
+  const campaign = (recurTag ? recurTag + '-' : '') + stepDef.id;
+  try {
+    if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { _recordSent('intro-v1', email); return true; } return false; }
+    if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { _recordSent('decryptage', email); return true; } return false; }
+    if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('point-marche', email); return true; } return false; }
+  } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
+  return false;
+}
+let _dripRunning = false;
+async function _dripTick() {
+  if (!_dripState.active || _dripRunning) return;
+  _dripRunning = true;
+  try {
+    const pp = _parisParts();
+    if (pp.weekday === 0 || pp.weekday === 6) return;   // fenetre : jours ouvres uniquement
+    if (pp.hour < 8 || pp.hour >= 19) return;            // fenetre : 8h-19h Paris (jamais la nuit)
+    let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { console.error('[Drip] audience:', e.message); return; }
+    const now = Date.now(); let context = null, sent = 0;
+    const CAP = Math.max(1, parseInt(process.env.DRIP_TICK_CAP || '40', 10));   // anti-rafale (Render/OOM)
+    const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
+    for (const r of audience.recipients) {
+      if (sent >= CAP) break;
+      const email = r.email;
+      try { if (await auth.emailLogHas('unsub:' + email)) continue; } catch {}
+      let st = _dripState.contacts[email];
+      if (!st) { st = await _dripSeed(email); _dripState.contacts[email] = st; }
+      const stepDef = DRIP_SEQUENCE[st.step];
+      if (stepDef) {
+        // ── ONBOARDING ──
+        if (st.lastAt && (now - st.lastAt) < stepDef.gapDays * 864e5) continue;   // cadence pas encore atteinte
+        const marker = 'drip:' + stepDef.id + ':' + email;
+        try { if ((await auth.emailLogHas(marker)) || (stepDef.legacy && await auth.emailLogHas(stepDef.legacy + ':' + email))) { st.step++; if (!st.lastAt) st.lastAt = now; _saveDrip(); continue; } } catch {}
+        if (!context) context = await _deskContext();
+        if (await _dripSend(stepDef, r, context)) { try { await auth.emailLogAdd(marker); } catch {} st.step++; st.lastAt = now; sent++; if (throttle) await new Promise(x => setTimeout(x, throttle)); }
+      } else {
+        // ── RECURRENT hebdo (alterne point marche / decryptage), idempotent par semaine ISO ──
+        if (st.recurWeek === pp.isoWeek) continue;
+        if (st.lastAt && (now - st.lastAt) < 6 * 864e5) continue;
+        const alt = ((st.recurN || 0) % 2 === 0) ? DRIP_SEQUENCE[2] : DRIP_SEQUENCE[1];   // point marche puis decryptage
+        if (!context) context = await _deskContext();
+        if (await _dripSend(alt, r, context, 'recur-' + pp.isoWeek)) { st.recurWeek = pp.isoWeek; st.recurN = (st.recurN || 0) + 1; st.lastAt = now; sent++; if (throttle) await new Promise(x => setTimeout(x, throttle)); }
+      }
+    }
+    if (sent) { _saveDrip(); console.log('[Drip] tick : ' + sent + ' mail(s) envoye(s)'); }
+  } catch (e) { console.error('[Drip]', e.message); }
+  finally { _dripRunning = false; }
+}
+setInterval(_dripTick, 30 * 60 * 1000);   // toutes les 30 min (la fenetre + cadence + CAP limitent le debit)
+setTimeout(_dripTick, 90 * 1000);         // 1er check apres le boot
+
+// Etat + pilotage du drip (admin). ?action=status(defaut)|activate|pause
+app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
+  const a = String(req.query.action || 'status');
+  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _saveDrip(); _campSchedule.active = false; _saveSchedule(); }   // le drip remplace le blast hebdo -> on met l'ancien en pause
+  else if (a === 'pause') { _dripState.active = false; _saveDrip(); }
+  // Progression par etape (depuis l'etat contacts)
+  const contacts = _dripState.contacts || {};
+  const byStep = {}; DRIP_SEQUENCE.forEach((s, i) => byStep[s.id] = 0); byStep['recurrent'] = 0;
+  let total = 0;
+  for (const email of Object.keys(contacts)) { total++; const st = contacts[email]; const s = DRIP_SEQUENCE[st.step]; if (s) byStep[s.id]++; else byStep['recurrent']++; }
+  const steps = DRIP_SEQUENCE.map((s, i) => { const cid = s.id === 'intro' ? 'intro-v1' : s.id; const stt = _campaignStats[cid]; return { id: s.id, label: s.label, gapDays: s.gapDays, waiting: byStep[s.id] || 0, sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
+  res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
+    window: 'jours ouvres 8h-19h (Europe/Paris)', cadence: 'intro J+0 -> decryptage J+2 -> point marche J+3 -> recurrent hebdo',
+    contactsTracked: total, byStep, recurrent: byStep['recurrent'], steps,
+    note: _dripState.active ? 'Sequence ACTIVE : les nouveaux inscrits recoivent l\'intro puis avancent seuls. Le blast hebdo est en pause (le drip le remplace).' : 'Sequence EN PAUSE : rien ne part. Active pour lancer l\'auto-enrolement.' });
+});
+
 // Etat + pilotage de la planification (admin). ?action=activate|pause|reset|config(&weekday=0-6&hour=0-23)
 app.get('/api/admin/campaign-schedule', requireAdmin, async (req, res) => {
   const a = String(req.query.action || '');

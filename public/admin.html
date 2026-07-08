@@ -963,7 +963,22 @@
             <button class="camp-btn" onclick="campSchedTest()">✉️ Aperçu du digest → moi</button>
             <span id="camp-sched-msg" class="camp-msg"></span>
           </div>
-          <p class="camp-note">Envoi hebdomadaire AUTOMATIQUE du « Point de la semaine » (Récap Hebdo + Force des Devises, généré depuis les données live). Anti-doublon, nouveaux clients inclus automatiquement, désinscrits + blacklist exclus. Peut être mis en pause à tout moment.</p>
+          <p class="camp-note">Envoi hebdomadaire AUTOMATIQUE du « Point de la semaine » (Récap Hebdo + Force des Devises, généré depuis les données live). Anti-doublon, nouveaux clients inclus automatiquement, désinscrits + blacklist exclus. Peut être mis en pause à tout moment. <strong style="color:#e3b23a;">Note :</strong> activer la « Séquence automatique » ci-dessous met ce blast hebdo en pause (le drip le remplace).</p>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🔁</span><h2>Séquence automatique (drip)</h2>
+          <span class="ph-spacer"></span><span class="fin-sub" id="camp-drip-badge"></span>
+        </div>
+        <div class="panel-body">
+          <div id="camp-drip-body" class="camp-block"><div class="skel" style="height:44px"></div></div>
+          <div class="camp-actions">
+            <button class="camp-btn camp-btn--send" id="camp-drip-toggle" onclick="campDripToggle()">Activer la séquence</button>
+            <button class="camp-btn" onclick="campDripTest('decryptage')">✉️ Test Décryptage → moi</button>
+            <button class="camp-btn" onclick="campDripTest('pointmarche')">✉️ Test Point marché → moi</button>
+            <span id="camp-drip-msg" class="camp-msg"></span>
+          </div>
+          <p class="camp-note">Auto-enrôlement : chaque nouvel inscrit reçoit l'intro (J+0) puis avance seul (Décryptage J+2 → Point marché J+3 → puis récurrent hebdo, alterné). Contenu généré du desk, adapté membre / non-membre. Fenêtre : jours ouvrés 8h-19h (Paris). Anti-doublon durable, désinscrits + blacklist exclus. Le welcome transactionnel (accès activé) reste indépendant et automatique.</p>
         </div>
       </div>
       <div class="panel-card">
@@ -1269,6 +1284,7 @@
     } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
     loadDashboard();
     loadSchedule();
+    loadDrip();
     loadCampStats();
     loadBlacklist();
     loadSequence();
@@ -1467,6 +1483,46 @@
     try { const d = await fetch('/api/admin/campaign-schedule?action=test').then(r => r.json());
       _campMsg(d.ok ? ('✅ Aperçu du digest envoyé à ' + d.to) : ('❌ ' + (d.error || 'échec'))); }
     catch { document.getElementById('camp-sched-msg').textContent = '❌ erreur'; }
+  }
+  // ── Séquence automatique (drip) ──
+  let _campDrip = null;
+  async function loadDrip(){
+    try {
+      const d = await fetch('/api/admin/campaign-drip').then(r => r.json());
+      _campDrip = d;
+      const badge = document.getElementById('camp-drip-badge'), body = document.getElementById('camp-drip-body'), btn = document.getElementById('camp-drip-toggle');
+      if (!d || !d.ok) { if (body) body.textContent = 'Indisponible.'; return; }
+      if (badge) badge.innerHTML = d.active ? '<span style="color:#00e676;font-weight:700;">● ACTIVE</span>' : '<span style="color:#8b93a1;">○ En pause</span>';
+      const statusBig = d.active
+        ? '<div style="display:flex;align-items:center;gap:10px;"><span style="width:11px;height:11px;border-radius:50%;background:#00e676;box-shadow:0 0 10px #00e676;"></span><span style="font-size:17px;font-weight:800;color:#00e676;">La séquence tourne</span></div>'
+        : '<div style="display:flex;align-items:center;gap:10px;"><span style="width:11px;height:11px;border-radius:50%;background:#8b93a1;"></span><span style="font-size:17px;font-weight:800;color:#8b93a1;">En pause</span></div>';
+      const stepRows = (d.steps || []).map(function(s){ return '<tr><td style="color:#cbd5e1;padding:5px 14px 5px 0;">' + s.label + '</td><td style="color:#8b93a1;padding:5px 0;font-size:12px;">J+' + s.gapDays + ' · <b style="color:#e3b23a;">' + s.sent + '</b> envoyés · ' + s.waiting + ' en attente</td></tr>'; }).join('');
+      const rows = [
+        ['Fenêtre d’envoi', d.window],
+        ['Cadence', d.cadence],
+        ['Contacts suivis', '<b style="color:#fff;">' + (d.contactsTracked || 0) + '</b>'],
+        ['En récurrent hebdo', '<b style="color:#fff;">' + (d.recurrent || 0) + '</b>'],
+        ['Envoi en cours', d.running ? '<span style="color:#e3b23a;">🔄 oui…</span>' : 'non'],
+      ];
+      body.innerHTML = statusBig
+        + '<table style="width:100%;margin-top:12px;font-size:13px;line-height:1.5;">' + rows.map(function(r){ return '<tr><td style="color:#8b93a1;padding:5px 14px 5px 0;white-space:nowrap;vertical-align:top;">' + r[0] + '</td><td style="color:#cbd5e1;padding:5px 0;">' + r[1] + '</td></tr>'; }).join('') + '</table>'
+        + '<div style="margin-top:12px;color:#8b93a1;font-size:12px;font-weight:600;letter-spacing:.02em;">ÉTAPES</div><table style="width:100%;margin-top:4px;">' + stepRows + '</table>';
+      if (btn) { btn.textContent = d.active ? '⏸ Mettre en pause' : '🚀 Activer la séquence'; btn.classList.toggle('camp-btn--send', !d.active); }
+    } catch {}
+  }
+  async function campDripToggle(){
+    if (!_campDrip) return;
+    const action = _campDrip.active ? 'pause' : 'activate';
+    if (action === 'activate' && !confirm('Activer la séquence automatique ? Les nouveaux inscrits recevront l’intro puis avanceront seuls, et le blast hebdo actuel sera mis en pause. (Envois réels vers les clients.)')) return;
+    document.getElementById('camp-drip-msg').textContent = '…';
+    try { await fetch('/api/admin/campaign-drip?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Séquence activée — auto-enrôlement en route' : '⏸ Séquence mise en pause'); loadDrip(); loadSchedule(); }
+    catch { document.getElementById('camp-drip-msg').textContent = '❌ erreur'; }
+  }
+  async function campDripTest(tpl){
+    document.getElementById('camp-drip-msg').textContent = 'Envoi du test…';
+    try { const d = await fetch('/api/admin/campaign-send?test=1&tpl=' + tpl).then(r => r.json());
+      _campMsg(d.ok ? ('✅ Test ' + tpl + ' envoyé à ' + d.to) : ('❌ ' + (d.error || d.note || 'échec'))); }
+    catch { document.getElementById('camp-drip-msg').textContent = '❌ erreur'; }
   }
   // ── Sequence / supervision hebdo ──
   async function loadSequence(){
