@@ -428,7 +428,7 @@ html, body {
 /* ═══ Recherche symbole : dropdown + onglet pair + vue 4 panneaux ═══ */
 .topbar-symbol-search { position: relative; }
 .breaking-news-flash:not(.visible) { pointer-events: none; }   /* l'overlay news ne bloque PAS la saisie quand il est masqué */
-.sym-dd { position: fixed; width: 330px; max-width: 92vw; background: #16171b; border: 1px solid #232429; border-radius: 4px; box-shadow: 0 18px 50px -20px rgba(0,0,0,0.55); padding: 5px; z-index: 9999; max-height: 62vh; overflow-y: auto; }
+.sym-dd { position: absolute; top: calc(100% + 4px); left: 0; width: 300px; min-width: 100%; max-width: 92vw; background: #16171b; border: 1px solid #232429; border-radius: 6px; box-shadow: 0 18px 50px -20px rgba(0,0,0,0.55); padding: 5px; z-index: 9999; max-height: 62vh; overflow-y: auto; }   /* COLLE sous la barre (position:absolute + top:100%, aligne a gauche) → associe visuellement, pas detache */
 .sym-dd.hidden { display: none; }
 .sym-dd-head { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #6a6a73; padding: 7px 9px 5px; }
 .sym-dd-row { display: flex; align-items: center; gap: 9px; padding: 8px 24px 8px 9px; border-radius: 4px; cursor: pointer; position: relative; transition: background var(--t-fast) var(--ease); }
