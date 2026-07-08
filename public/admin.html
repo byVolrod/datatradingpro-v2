@@ -1475,7 +1475,9 @@
         const metrics = s.done ? '<div class="camp-seq-metrics">Envoyé le ' + _campFmt(s.firstSentAt) + ' · ' + s.sent + ' envoyés · ' + s.openRate + '% ouvertures · ' + s.clickRate + '% clics</div>' : '';
         return '<div class="camp-seq-row camp-seq-row--' + cls + '"><div class="camp-seq-wk">' + wk + '</div>'
           + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span></div>'
-          + '<div class="camp-seq-desc">' + s.desc + '</div>' + metrics + '</div>'
+          + '<div class="camp-seq-desc">' + s.desc + '</div>'
+          + (s.when ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>' : '')
+          + metrics + '</div>'
           + '<div class="camp-seq-status camp-seq-status--' + cls + '">' + status + '</div></div>';
       }).join('');
     } catch {}

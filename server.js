@@ -12505,14 +12505,17 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // ─── Sequence hebdo (trame de supervision) : la roadmap des e-mails + ce qui a ete ENVOYE ────────
 // status : 'ready' = code et envoyable · 'planned' = a construire. Enrichi en direct avec _campaignStats
 // (envoyes, ouvertures, clics, 1re/derniere date). Seul 'intro-v1' est code aujourd'hui — les autres = trame.
+// ORDRE + creneaux CALES SUR LES DONNEES REELLES DU DESK (cron Paris) : Weekly Recap + GEW generes SAMEDI 02h ;
+// DTP Daily 12h, FX Daily Recap 22h30. Donc Recap/Outlook = week-end/debut de semaine (data prete samedi),
+// Point marche = milieu de semaine, Decryptage/Mindset = evergreen (jour libre), Alerte BC = evenementiel.
 const CAMPAIGN_SEQUENCE = [
-  { id: 'intro-v1',      week: 1,    title: 'Bienvenue — introduction',            pillar: 'Cycle de vie', status: 'ready',   desc: 'Presentation du terminal + ce qui sera recu chaque semaine.' },
-  { id: 'point-hebdo',   week: 2,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'planned', desc: 'Ce qui a bouge (macro/forex), priorise par impact.' },
-  { id: 'decryptage',    week: 3,    title: 'Decryptage : un concept explique',     pillar: 'Educatif',     status: 'planned', desc: 'Un mecanisme cle rendu simple (ex. CPI vs Core CPI).' },
-  { id: 'recap-hebdo',   week: 4,    title: 'Recap Hebdo',                          pillar: 'Recap',        status: 'planned', desc: 'La retrospective de la semaine, facon desk.' },
-  { id: 'outlook-hebdo', week: 5,    title: 'Outlook — la semaine a venir',         pillar: 'Outlook',      status: 'planned', desc: 'Les evenements a surveiller, sans pousser de position.' },
-  { id: 'mindset',       week: 6,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'planned', desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
-  { id: 'alerte-bc',     week: null, title: 'Alerte macro / banque centrale',       pillar: 'Evenementiel', status: 'planned', desc: 'Declenche par un evenement (decision de taux, choc macro).' },
+  { id: 'intro-v1',      week: 1,    title: 'Bienvenue — introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Presentation du terminal + ce qui sera recu chaque semaine.' },
+  { id: 'decryptage',    week: 2,    title: 'Decryptage : un concept explique',     pillar: 'Educatif',     status: 'planned', when: 'Mardi ~8h · évergreen (aucune dépendance données)',        desc: 'Un mecanisme cle rendu simple (ex. CPI vs Core CPI).' },
+  { id: 'point-hebdo',   week: 3,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'planned', when: 'Mercredi ~8h · données marché (DTP Daily 12h, FX 22h30)',  desc: 'Ce qui a bouge (macro/forex), priorise par impact.' },
+  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'planned', when: 'Samedi ~10h · évergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
+  { id: 'recap-hebdo',   week: 5,    title: 'Recap Hebdo',                          pillar: 'Recap',        status: 'planned', when: 'Dimanche 18h · Récap généré samedi 02h — CRÉNEAU AUTO ACTUEL', desc: 'La retrospective de la semaine, facon desk.' },
+  { id: 'outlook-hebdo', week: 6,    title: 'Outlook — la semaine a venir',         pillar: 'Outlook',      status: 'planned', when: 'Lundi ~8h · semaine à venir (avant Londres)',              desc: 'Les evenements a surveiller, sans pousser de position.' },
+  { id: 'alerte-bc',     week: null, title: 'Alerte macro / banque centrale',       pillar: 'Evenementiel', status: 'planned', when: "Déclenché · le jour d'une décision (FOMC/BCE/BoE)",       desc: 'Declenche par un evenement (decision de taux, choc macro).' },
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
   try {
@@ -12522,7 +12525,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
       const sends = st ? Object.values(st.sent || {}) : [];
       const opens = st ? Object.keys(st.opens || {}).length : 0;
       const clicks = st ? Object.keys(st.clicks || {}).length : 0;
-      return { id: s.id, week: s.week, title: s.title, pillar: s.pillar, status: s.status, desc: s.desc,
+      return { id: s.id, week: s.week, title: s.title, pillar: s.pillar, status: s.status, desc: s.desc, when: s.when,
         sent: sends.length, done: sends.length > 0,
         firstSentAt: sends.length ? Math.min.apply(null, sends) : null,
         lastSentAt: sends.length ? Math.max.apply(null, sends) : null,
