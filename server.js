@@ -198,7 +198,7 @@ function _wsUserIdFromReq(req) {
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail)
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
@@ -12222,6 +12222,15 @@ function _mindsetArtPage(which) {
 }
 app.get('/internal/email-widget/mindset-methode', (_req, res) => { res.set('Cache-Control', 'no-store'); res.type('html').send(_mindsetArtPage('methode')); });
 app.get('/internal/email-widget/mindset-ego',     (_req, res) => { res.set('Cache-Control', 'no-store'); res.type('html').send(_mindsetArtPage('ego')); });
+
+// Aperçu de la CAMPAGNE e-mail (12 templates) rendu SUR LE DESK avec les VRAIS widgets en direct
+// (<img src="/api/email-widget/*.png"> = même origine → aucune limite CSP/taille comme dans un artefact
+// claude.ai). Public (comme les widgets). Source : email-campaign-preview.html (racine du repo).
+app.get('/internal/email-campaign', (_req, res) => {
+  res.set('Cache-Control', 'no-store');
+  try { res.type('html').send(fs.readFileSync(path.join(__dirname, 'email-campaign-preview.html'), 'utf8')); }
+  catch (e) { res.status(500).send('Aperçu campagne indisponible: ' + e.message); }
+});
 
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
