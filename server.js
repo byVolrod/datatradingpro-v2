@@ -12821,7 +12821,12 @@ function _loopStepFor(context) { const t = context && context.theme; return (t =
 let _dripState = { active: false, launchedAt: null, contacts: {} };
 (async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, contacts: {} }, s); } catch {} })();
 let _dripSaveT = null;
-function _saveDrip() { if (_dripSaveT) return; _dripSaveT = setTimeout(() => { _dripSaveT = null; auth.aiCacheSet('campaign:drip', _dripState).catch(() => {}); }, 3000); }
+// immediate=true : ecrit TOUT DE SUITE (pause/activate = etat critique, doit persister sans fenetre de perte).
+// Sinon debounce 3s (maj frequentes des contacts pendant un tick).
+function _saveDrip(immediate) {
+  if (immediate) { if (_dripSaveT) { clearTimeout(_dripSaveT); _dripSaveT = null; } auth.aiCacheSet('campaign:drip', _dripState).catch(() => {}); return; }
+  if (_dripSaveT) return; _dripSaveT = setTimeout(() => { _dripSaveT = null; auth.aiCacheSet('campaign:drip', _dripState).catch(() => {}); }, 3000);
+}
 // Etat d'un contact : { introduced, loopWeek, lastAt, enrolledAt }. `introduced` = a deja recu l'intro
 // (les 163 deja intro-v1 le sont d'office -> pas de re-intro). Normalise aussi l'ancien format {step,recurWeek}.
 async function _dripSeed(email) {
@@ -12903,8 +12908,8 @@ setTimeout(_dripTick, 90 * 1000);         // 1er check apres le boot
 // Etat + pilotage de la boucle (admin). ?action=status(defaut)|activate|pause
 app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
-  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(); _campSchedule.active = false; _saveSchedule(); }   // la boucle remplace le blast hebdo -> on met l'ancien en pause ; reprise = purge la cause de pause
-  else if (a === 'pause') { _dripState.active = false; _saveDrip(); }
+  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // reprise : purge la cause de pause ; le blast hebdo est mis en pause (un seul moteur) ; ecriture IMMEDIATE
+  else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // PAUSE = ARRET TOTAL (drip + blast hebdo) + persistance immediate -> reste en pause meme apres redemarrage
   const pp = _parisParts();
   const contacts = _dripState.contacts || {};
   let total = 0, introduced = 0, gotThisWeek = 0;
@@ -12936,8 +12941,8 @@ app.get('/api/admin/campaign-schedule', requireAdmin, async (req, res) => {
     let prov = null, err = null; try { prov = await mailer.sendWeeklyDigest({ to, name: '', email: to, campaign: 'weekly-test', weekly }); } catch (e) { err = e.message; }
     return res.json({ ok: !!prov, test: true, to, error: err, note: 'Digest hebdo de test envoye a l\'admin.' });
   }
-  if (a === 'activate') { _campSchedule.active = true; if (!_campSchedule.launchedAt) _campSchedule.launchedAt = Date.now(); _saveSchedule(); }
-  else if (a === 'pause') { _campSchedule.active = false; _saveSchedule(); }
+  if (a === 'activate') { _campSchedule.active = true; if (!_campSchedule.launchedAt) _campSchedule.launchedAt = Date.now(); _saveSchedule(); _dripState.active = false; _saveDrip(true); }   // activer le blast hebdo pause le drip (un seul moteur)
+  else if (a === 'pause') { _campSchedule.active = false; _saveSchedule(); _dripState.active = false; _saveDrip(true); }   // PAUSE = ARRET TOTAL (blast hebdo + drip) -> reste en pause
   else if (a === 'reset') { _campSchedule.lastSentWeek = null; _saveSchedule(); }
   else if (a === 'config') { const wd = parseInt(req.query.weekday, 10), h = parseInt(req.query.hour, 10); if (wd >= 0 && wd <= 6) _campSchedule.weekday = wd; if (h >= 0 && h <= 23) _campSchedule.hour = h; _saveSchedule(); }
   // Dernier envoi REEL (toute campagne confondue) + etat de sante, pour la console de supervision admin.
