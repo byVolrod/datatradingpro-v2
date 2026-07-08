@@ -1424,6 +1424,8 @@
         <td class="actions">
           <button class="btn-sm" onclick="openEdit('${esc(String(u.id))}','${esc(u.name)}','${u.role}','${u.plan}',${u.active})">Modifier</button>
           <button class="btn-sm" onclick="openPwd('${esc(String(u.id))}')">MDP</button>
+          ${u.role !== 'admin' ? `<button class="btn-sm" onclick="toggleSuspend('${esc(String(u.id))}',${u.active})">${u.active ? 'Suspendre' : 'Réactiver'}</button>
+          <button class="btn-sm" onclick="forceDisconnect('${esc(String(u.id))}')">Déconnecter</button>` : ''}
           <button class="btn-sm btn-danger" onclick="deleteUser('${esc(String(u.id))}')">Suppr.</button>
         </td>
       </tr>`).join('');
@@ -1574,6 +1576,26 @@
       showToast('Erreur lors de la suppression — réessayez', 'err');
       loadUsers();
     }
+  }
+
+  // ── Suspendre / Réactiver (bascule active) + Déconnecter (kill session) ──────
+  async function toggleSuspend(id, isActive) {
+    const next = isActive ? 0 : 1;
+    try {
+      const r = await fetch(`/api/admin/users/${id}`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: next }),
+      });
+      const d = await r.json().catch(() => ({}));
+      if (r.ok && d.ok !== false) { showToast(next ? '✓ Compte réactivé' : '✓ Compte suspendu — déconnecté du desk'); loadUsers(); }
+      else showToast(d.error || 'Erreur lors de la mise à jour', 'err');
+    } catch { showToast('Erreur réseau — réessayez', 'err'); }
+  }
+  async function forceDisconnect(id) {
+    try {
+      const r = await fetch(`/api/admin/users/${id}/disconnect`, { method: 'POST' });
+      if (r.ok) showToast('✓ Utilisateur déconnecté du desk (éjecté sous ~20 s)');
+      else showToast('Erreur — réessayez', 'err');
+    } catch { showToast('Erreur réseau — réessayez', 'err'); }
   }
 
   // ── Edit modal ──────────────────────────────────────────────────────────────

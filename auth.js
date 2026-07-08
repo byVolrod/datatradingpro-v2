@@ -258,7 +258,7 @@ function isEmailBlacklisted(email) { return !!email && _blacklist.has(String(ema
 function blacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); if (!em) return false; if (!_blacklist.has(em)) { _blacklist.add(em); _blacklistSave(); } return true; }
 function unblacklistEmail(email) { const em = String(email || '').toLowerCase().trim(); const had = _blacklist.delete(em); if (had) _blacklistSave(); return had; }
 // Seed en dur : garantit le blocage dès le 1er boot, sans dépendre du fichier. Extensible via blacklistEmail().
-const _BLACKLIST_SEED = ['pmttraderoff@gmail.com'];
+const _BLACKLIST_SEED = ['pmttraderoff@gmail.com', 'ghais.bouguerra2101@gmail.com'];
 _BLACKLIST_SEED.forEach(e => { const em = String(e).toLowerCase().trim(); if (em && !_blacklist.has(em)) { _blacklist.add(em); _blacklistSave(); } });
 
 // ─── File d'attente des écritures hors-ligne (rejouées vers Supabase dès son retour) ───

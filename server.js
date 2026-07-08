@@ -206,6 +206,11 @@ const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloa
 let BUILD_VERSION = '';
 try { BUILD_VERSION = (fs.readFileSync(path.join(__dirname, 'public', 'index.html'), 'utf8').match(/app\.js\?v=([0-9A-Za-z]+)/) || [])[1] || ''; } catch {}
 
+// Éjection de session (in-memory) : ids d'utilisateurs à déconnecter de force (suspension / bouton admin
+// « Déconnecter »). Consulté par requireAuth (appels API) + /api/auth/me (heartbeat du desk ~20 s) → le
+// compte est éjecté du desk quasi immédiatement. Un nouveau login légitime lève l'ordre (kick ponctuel).
+const _forceLogout = new Set();
+
 function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
     _PUBLIC_PREFIXES.some(p => req.path.startsWith(p));
@@ -218,6 +223,12 @@ function requireAuth(req, res, next) {
     return res.redirect('/login');
   }
 
+  // Éjection immédiate : compte blacklisté OU déconnexion forcée (suspension / bouton admin) → session tuée.
+  if (_forceLogout.has(String(req.session.userId)) || auth.isEmailBlacklisted(req.session.user?.email)) {
+    req.session = null;
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session terminée', loggedOut: true });
+    return res.redirect('/login');
+  }
   req.user = req.session.user;
   next();
 }
@@ -325,6 +336,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
     req.session.userId = user.id;
     req.session.user   = user;
+    _forceLogout.delete(String(user.id));   // un login légitime lève un éventuel ordre de déconnexion (kick ponctuel)
     res.json({ ok: true, role: user.role });
   } catch (e) {
     console.error('[Auth] login error:', e.message);
@@ -381,6 +393,11 @@ app.get('/api/auth/me', async (req, res) => {
     // Toujours relire depuis la DB → les changements admin (active, plan…) sont immédiatement reflétés
     const fresh = await auth.getUserById(req.session.userId);
     if (!fresh) { req.session = null; return res.json({ loggedIn: false }); }
+    // Éjection : blacklisté, suspendu (client non-actif) ou déconnexion forcée par l'admin → logout immédiat.
+    if (_forceLogout.has(String(req.session.userId)) || auth.isEmailBlacklisted(fresh.email)
+        || (fresh.role !== 'admin' && fresh.role !== 'support' && fresh.active === false)) {
+      req.session = null; return res.json({ loggedIn: false });
+    }
     // Essai gratuit : durée d'abonnement (création → expiration) ≤ ~1 semaine.
     let isTrial = false;
     const expiresAt = fresh.expires_at || null;
@@ -923,6 +940,8 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
     const activeReq = 'active' in req.body
       ? (req.body.active === 1 || req.body.active === true || req.body.active === '1')
       : null;
+    if (activeReq === false) _forceLogout.add(id);          // suspendu → éjecté du desk immédiatement
+    else if (activeReq === true) _forceLogout.delete(id);   // réactivé → on lève l'éjection
     // Prolongation manuelle : l'admin a choisi une durée → nouvelle échéance dans le futur.
     const _newExp = fields.expiresAt || null;
     const _extended = !!req.body.duration && _newExp && new Date(_newExp).getTime() > Date.now();
@@ -949,6 +968,13 @@ app.put('/api/admin/users/:id', requireAdmin, async (req, res) => {
         .catch(() => {});
     }
   } catch (e) { res.status(400).json({ error: e.message }); }
+});
+
+// Déconnexion FORCÉE (admin) : tue la session active de l'utilisateur SANS le suspendre → éjecté du desk
+// au prochain heartbeat (~20 s) / appel API. Un nouveau login légitime lève l'ordre.
+app.post('/api/admin/users/:id/disconnect', requireAdmin, (req, res) => {
+  _forceLogout.add(String(req.params.id));
+  res.json({ ok: true });
 });
 
 app.delete('/api/admin/users/:id', requireAdmin, async (req, res) => {

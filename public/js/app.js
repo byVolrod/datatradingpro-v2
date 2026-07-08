@@ -3826,6 +3826,23 @@ window._waLoadPanels=_waLoadPanels;
 // Tant que la vue Semaine à Venir est ouverte : on rafraîchit le doublon calendrier (le ticker News, lui, est déjà live).
 setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v && !v.classList.contains('hidden')){ _waLoadPanels(); } }, 60000);
 
+// ── Éjection de session : si le compte est suspendu / déconnecté par l'admin (ou blacklisté), le desk
+//    redirige vers /login sous ~20 s (heartbeat léger : /api/auth/me = lecture 1 ligne → egress négligeable). ──
+(function _authHeartbeat(){
+  if (location.pathname === '/login') return;
+  let _dead = false;
+  async function _beat(){
+    if (_dead) return;
+    try {
+      const r = await fetch('/api/auth/me', { cache: 'no-store' });
+      if (r.status === 401) { _dead = true; return location.replace('/login'); }
+      const d = await r.json().catch(function(){ return null; });
+      if (d && d.loggedIn === false) { _dead = true; location.replace('/login'); }
+    } catch (e) {}
+  }
+  setInterval(_beat, 20000);
+})();
+
 // ── Semaine à Venir : glisser pour redimensionner — splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──
 (function initWaResize(){
   const wa3 = document.getElementById('wa3');
