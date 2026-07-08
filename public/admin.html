@@ -979,6 +979,7 @@
         <div class="panel-head"><span class="ph-ic">👁️</span><h2>Aperçu du mail</h2>
           <span class="ph-spacer"></span>
           <button class="camp-btn camp-btn--send" id="cprev-b-intro" onclick="campPreview('intro')">Intro (bienvenue)</button>
+          <button class="camp-btn" id="cprev-b-decryptage" onclick="campPreview('decryptage')">Décryptage</button>
           <button class="camp-btn" id="cprev-b-weekly" onclick="campPreview('weekly')">Point de la semaine</button>
         </div>
         <div class="panel-body">
@@ -1447,7 +1448,7 @@
   }
   function campPreview(type){
     const f = document.getElementById('cprev-frame'); if (f) f.src = '/api/admin/campaign-preview?type=' + type + '&_=' + Date.now();
-    ['intro', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
+    ['intro', 'decryptage', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
   }
   async function campSchedToggle(){
     if (!_campSched) return;

@@ -839,6 +839,73 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
 }
 async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidget(d.to, m.subject, m.html); }
 
+// ── DÉCRYPTAGE — e-mail ÉDUCATIF évergreen (S2 de la séquence). Décode les grandes annonces éco (macro US)
+// que les abonnés voient chaque semaine dans le calendrier : sigles (CPI, NFP, PCE, FOMC…) rendus lisibles,
+// regroupés par famille + « sert à anticiper ». Source : doc « Learning Economics News » fourni par l'admin.
+// 100 % INFORMATIF : explique, ne pousse aucune position. Aucune dépendance données → prêt en permanence.
+const _DECRYPT_FAMILIES = [
+  { name: 'INFLATION', accent: '#e3b23a', lead: "Le coût de la vie. C'est le carburant des décisions de la Fed.", items: [
+    { k: 'CPI', full: 'Consumer Price Index',        d: 'Le prix du panier de la ménagère.',                          a: 'Politique de la Fed, taux, dollar' },
+    { k: 'Core CPI', full: 'Core Consumer Price Index', d: 'Le même panier hors énergie et alimentation (plus stable).', a: 'Décisions de la Fed, PCE' },
+    { k: 'PCE', full: 'Personal Consumption Expenditures', d: 'Le prix réellement payé par les ménages.',              a: 'Orientation de la Fed' },
+    { k: 'Core PCE', full: 'Core PCE',               d: "La mesure d'inflation préférée de la Fed.",                   a: 'Orientation future des taux' },
+    { k: 'PPI', full: 'Producer Price Index',        d: 'Le coût de production des usines, en amont.',                 a: 'Le CPI à venir (pression sur les prix)' },
+  ] },
+  { name: 'EMPLOI', accent: '#e3b23a', lead: 'La santé du marché du travail. Un marché solide laisse la Fed rester ferme.', items: [
+    { k: 'NFP', full: 'Non-Farm Payrolls',           d: "Le nombre d'emplois créés hors agriculture.",                a: 'Chômage, salaires, Fed' },
+    { k: 'Taux de chômage', full: 'Unemployment Rate', d: 'La part de gens sans travail.',                             a: 'Consommation, croissance' },
+    { k: 'Salaire horaire', full: 'Average Hourly Earnings', d: 'La vitesse de hausse des salaires.',                  a: 'Inflation future (CPI/PCE)' },
+    { k: 'ADP', full: 'ADP Employment Change',       d: "L'estimation privée, quelques jours avant le NFP.",          a: 'Le NFP (de façon imparfaite)' },
+    { k: 'JOLTS', full: 'Job Openings and Labor Turnover', d: 'Le nombre de postes à pourvoir.',                       a: "Salaires, tensions sur l'emploi" },
+  ] },
+  { name: 'CROISSANCE', accent: '#e3b23a', lead: "L'activité réelle de l'économie. Trop chaud ou trop froid, tout se joue là.", items: [
+    { k: 'PIB', full: 'Gross Domestic Product (GDP)', d: 'La richesse totale produite par le pays.',                  a: 'Politique Fed, bénéfices des entreprises' },
+    { k: 'Ventes au détail', full: 'Retail Sales',   d: "L'argent dépensé par les consommateurs.",                     a: 'Salaires, inflation, croissance' },
+    { k: 'ISM Manufacturier', full: 'ISM Manufacturing PMI', d: "La santé des usines (industrie).",                    a: 'Croissance à venir' },
+    { k: 'ISM Services', full: 'ISM Services PMI',   d: 'La santé des entreprises de services.',                       a: 'Croissance, emploi' },
+  ] },
+  { name: 'POLITIQUE MONÉTAIRE', accent: '#e3b23a', lead: "La décision qui déplace tous les marchés d'un coup.", items: [
+    { k: 'Décision de taux (FOMC)', full: 'Federal Open Market Committee', d: "La Fed fixe le niveau des taux d'intérêt.", a: 'Absolument tous les marchés' },
+  ] },
+];
+function buildCampaignDecryptage({ name, email, campaign } = {}) {
+  campaign = campaign || 'decryptage';
+  const prenomRaw = (name || '').split(' ')[0] || '';
+  const prenom = _esc(prenomRaw);
+  const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+  const unsub  = unsubUrl(email || '');
+  const sender = _esc(_parseFrom().email);
+  const families = _DECRYPT_FAMILIES.map(fam => {
+    const rows = fam.items.map(it => `
+      <tr><td style="padding:11px 0 4px;border-top:1px solid #1f1f24;">
+        <span style="color:#ffffff;font-weight:700;font-size:14px;">${_esc(it.k)}</span>
+        <span style="color:#6b7280;font-size:12px;"> &middot; ${_esc(it.full)}</span>
+        <div style="color:#aab2c0;font-size:13px;line-height:1.5;margin:3px 0 2px;">${_esc(it.d)}</div>
+        <div style="color:#e3b23a;font-size:12px;font-weight:600;">&rarr; sert &agrave; anticiper&nbsp;: <span style="color:#c9a94e;font-weight:500;">${_esc(it.a)}</span></div>
+      </td></tr>`).join('');
+    return `
+      <div style="margin:22px 0 6px;">
+        <div style="display:inline-block;color:#0a0a0c;background:${fam.accent};font-weight:800;font-size:12px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(fam.name)}</div>
+        <div style="color:#9aa3b2;font-size:12.5px;line-height:1.5;margin:8px 0 2px;">${_esc(fam.lead)}</div>
+      </div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;">${rows}</table>`;
+  }).join('');
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 14px;">Chaque semaine, le calendrier &eacute;conomique se remplit de sigles&nbsp;: <strong style="color:#fff;">CPI</strong>, <strong style="color:#fff;">NFP</strong>, <strong style="color:#fff;">PCE</strong>, <strong style="color:#fff;">FOMC</strong>&hellip; Derri&egrave;re ce jargon, une poign&eacute;e d'annonces font bouger le dollar, l'or et les indices.</p>
+    <p style="margin:0 0 6px;">Voici votre <strong style="color:#e3b23a;">d&eacute;codeur</strong>, &agrave; garder sous la main. Rang&eacute; par famille, en clair.</p>
+    ${families}
+    <p style="margin:24px 0 6px;">Sur le terminal, chaque publication est reprise, expliqu&eacute;e et remise en contexte&nbsp;:</p>
+    ${_campaignBtn('Voir le calendrier économique', trackClickUrl(campaign, email, LANDING_URL))}
+    <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver en <strong style="color:#cbd5e1;">Principale</strong>, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts. Contenu p&eacute;dagogique&nbsp;: DataTradingPro est un terminal de donn&eacute;es et d'analyse, il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  return { subject: 'Décryptage : les grandes annonces éco, sans jargon', html: _campaignLayout('Décryptage', body, unsub) };
+}
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
+
 // Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
 // aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
 // ouvertures/clics : à réserver aux e-mails où le placement prime (ex. bienvenue). Garde la désinscription.
@@ -1087,7 +1154,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
@@ -1096,7 +1163,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
