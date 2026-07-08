@@ -11834,8 +11834,58 @@ app.get('/internal/email-widget/taux', (_req, res) => {
 </body></html>`);
 });
 
-// Éclairages IA (rapports de banques) — rendu SERVEUR d'une liste des dernieres recherches banques (_brCache :
-// Goldman/ING/MUFG...), 100% informatif (aucun signal BUY/VENTE). Demande user : Eclairages IA <- rapports de banques.
+// Banques Centrales — TON du discours (hawkish/dovish/neutre) : rendu SERVEUR du ton RÉEL calculé par le
+// desk (champ _weekly.centralBanks : {bank, stance, stanceChange, interpretation, watching, nextMeeting}).
+// Pour l'e-mail « Alerte banque centrale » : « récupère le ton de la banque dans les datas du desk » (user 08/07).
+// 100% informatif. Couleurs de ton alignées sur le desk : hawkish=ambre, dovish=bleu, neutre=gris (jamais BUY/SELL).
+app.get('/internal/email-widget/cb-tone', async (_req, res) => {
+  let cbs = [];
+  const _pick = () => {
+    const wi = (allNews || [])
+      .filter(i => i && i._weekly && Array.isArray(i._weekly.centralBanks) && i._weekly.centralBanks.length)
+      .sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0];
+    return (wi && wi._weekly.centralBanks) || [];
+  };
+  try { cbs = _pick(); } catch (e) {}
+  if (!cbs.length) { try { await _loadPersistedHistories(); } catch (e) {} try { cbs = _pick(); } catch (e) {} }
+  const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const TONE = {
+    hawkish: ['Hawkish', 'ferme', '#e0863a', 'rgba(224,134,58,.14)'],
+    dovish:  ['Dovish', 'accommodant', '#3aa0e0', 'rgba(58,160,224,.14)'],
+    neutral: ['Neutre', 'attentiste', '#9aa0aa', 'rgba(154,160,170,.12)'],
+  };
+  const rows = (cbs || []).slice(0, 5).map(c => {
+    const st = String(c.stance || 'neutral').toLowerCase();
+    const [lbl, sub, col, bg] = TONE[st] || TONE.neutral;
+    const nm = _stripMd(String(c.bank || '')).replace(/\s*\(.*?\)\s*/, '').trim();
+    let line = _stripMd(String(c.stanceChange || c.interpretation || c.watching || '')).replace(/\s+/g, ' ').trim();
+    if (line.length > 155) { const cut = line.slice(0, 155); const p = cut.lastIndexOf('. '); line = p > 60 ? cut.slice(0, p + 1) : cut.replace(/\s+\S*$/, '') + '…'; }
+    return `<div class="cbt-row"><div class="cbt-top"><span class="cbt-bank">${_e(nm)}</span><span class="cbt-badge" style="color:${col};background:${bg}">${lbl} · ${sub}</span></div>${line ? `<div class="cbt-line">${_e(line)}</div>` : ''}</div>`;
+  }).join('');
+  const body = rows || '<div class="cbt-row"><div class="cbt-line" style="color:#8a8f98">Le ton des banques centrales sera disponible après la prochaine génération du récap.</div></div>';
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<style>html,body{margin:0;padding:0;background:#0c0e13;font-family:-apple-system,"Inter","Segoe UI",sans-serif}
+#cbt-wrap{width:600px;box-sizing:border-box;padding:12px 14px}
+.cbt-hd{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:14px;color:#e8eaed;margin-bottom:10px}
+.cbt-cards{display:flex;flex-direction:column;gap:8px}
+.cbt-row{background:#0f0f12;border:1px solid #17171c;border-radius:9px;padding:11px 13px}
+.cbt-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.cbt-bank{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:13px;color:#e8eaed}
+.cbt-badge{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:10.5px;padding:2px 9px;border-radius:20px;white-space:nowrap}
+.cbt-line{font-size:12px;color:#a9adb5;line-height:1.5;margin-top:5px}</style>
+</head><body><div id="cbt-wrap">
+  <div class="cbt-hd">Banques Centrales · Ton du discours</div>
+  <div class="cbt-cards">${body}</div>
+</div>
+<script>setTimeout(function(){window.__ready=true;},300);</script>
+</body></html>`);
+});
+
+// Éclairages IA — rendu SERVEUR du VRAI panneau « Éclairages IA » du desk : cartes IA (instrument +
+// biais ACHAT/VENTE/NEUTRE + analyse FR) + éclairages thématiques, tirés du dernier Récap Hebdo / GEW
+// (champs _weekly.pairs / _weekly.insights). 100% en français, aligné sur public/js/app.js (_renderWeeklyRecap).
+// Demande user (08/07) : « met vraiment l'éclairage IA le vrai du desk, en français » (plus la liste de titres).
 function _brSourceLabel(s) {
   const raw = String(s || '').toLowerCase();
   const M = { goldman:'Goldman Sachs', ing:'ING', 'ing-think':'ING', mufg:'MUFG', nomura:'Nomura', seb:'SEB', kbc:'KBC', danske:'Danske Bank', 'danske-bank':'Danske Bank', westpac:'Westpac', stanchart:'Standard Chartered', standardchartered:'Standard Chartered', 'standard-chartered':'Standard Chartered', syz:'Syz Group', convera:'Convera', commerzbank:'Commerzbank', rabobank:'Rabobank', investinglive:'InvestingLive', deutschebank:'Deutsche Bank', db:'Deutsche Bank', bnp:'BNP Paribas', socgen:'Societe Generale', ubs:'UBS', barclays:'Barclays', citi:'Citi', jpmorgan:'J.P. Morgan', morganstanley:'Morgan Stanley', bofa:'Bank of America', hsbc:'HSBC', scotiabank:'Scotiabank', wellsfargo:'Wells Fargo' };
@@ -11845,37 +11895,52 @@ function _brSourceLabel(s) {
   return raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : 'Recherche';
 }
 app.get('/internal/email-widget/eclairages', async (_req, res) => {
-  // Cache mémoire vidé par un rebuild → on le réchauffe (disque volume = instantané ; puis Supabase si besoin)
-  // AVANT de rendre, pour que le widget ne soit jamais vide juste après un déploiement.
-  if (!Array.isArray(_brCache) || _brCache.length === 0) {
-    try { _brLoadFile(); } catch (e) {}
-    if (!_brCache.length) { try { await _loadPersistedHistories(); } catch (e) {} }
-  }
-  let items = [];
-  try {
-    const seen = new Set();   // 1 item par institution → un panel varié (pas 2x le meme MUFG « Japan Calendar »)
-    items = (_brCache || [])
-      .filter(i => { try { return _brAllowed(i) && !_brIsNoise(i.title); } catch (e) { return false; } })
-      .slice().sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
-      .filter(i => { const s = String(i._source || i.source || '?'); if (seen.has(s)) return false; seen.add(s); return true; })
-      .slice(0, 6);
-  } catch (e) {}
-  const now = Date.now();
-  const ago = ts => { const d = Math.max(0, Math.round((now - (ts || now)) / 86400000)); return d === 0 ? "aujourd'hui" : (d === 1 ? 'hier' : d + ' j'); };
+  // Source = dernier rapport à _weekly (Récap Hebdo prioritaire, sinon GEW) — champs pairs (biais IA) + insights (thèmes).
+  let wk = null;
+  const _pickWeekly = () => (allNews || [])
+    .filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length)))
+    .sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || null;
+  try { wk = _pickWeekly(); } catch (e) {}
+  if (!wk) { try { await _loadPersistedHistories(); } catch (e) {} try { wk = _pickWeekly(); } catch (e) {} }
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  const rows = items.length
-    ? items.map(i => `<div class="eci"><div class="eci-top"><span class="eci-src">${_e(_brSourceLabel(i._source || i.source))}</span><span class="eci-date">${ago(i.timestamp)}</span></div><div class="eci-title">${_e(i.title || i.headline || '')}</div></div>`).join('')
-    : '<div class="eci"><div class="eci-title" style="color:#8a8f98">Aucune recherche disponible pour le moment.</div></div>';
+  const w = (wk && wk._weekly) || {};
+  const insights = (Array.isArray(w.insights) ? w.insights : [])
+    .map(t => _stripMd(String((typeof t === 'string' ? t : (t && t.text)) || '')).trim()).filter(Boolean).slice(0, 2);
+  const BIAS = { BUY: ['ACHAT', 'buy'], SELL: ['VENTE', 'sell'], NEUTRAL: ['NEUTRE', 'neu'] };
+  const pairs = (Array.isArray(w.pairs) ? w.pairs : []).filter(p => p && p.pair && p.text).slice(0, 4);
+  const cards = [];
+  for (const t of insights) cards.push(`<div class="eci-card eci-theme"><div class="eci-text">${_e(t)}</div></div>`);
+  for (const p of pairs) {
+    const b = String(p.bias || 'NEUTRAL').toUpperCase();
+    const [lbl, cls] = BIAS[b] || BIAS.NEUTRAL;
+    cards.push(`<div class="eci-card"><div class="eci-head"><span class="eci-pair">${_e(p.pair)}</span><span class="eci-bias eci-bias--${cls}">${lbl}</span></div><div class="eci-text">${_e(_stripMd(String(p.text)))}</div></div>`);
+  }
+  const count = cards.length;
+  const body = count
+    ? cards.join('')
+    : '<div class="eci-card"><div class="eci-text" style="color:#8a8f98">Les Éclairages IA de la semaine seront disponibles après la prochaine génération.</div></div>';
+  const spark = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 2l1.9 6.1L20 10l-6.1 1.9L12 18l-1.9-6.1L4 10l6.1-1.9L12 2z" fill="#e3b23a"/></svg>';
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <style>html,body{margin:0;padding:0;background:#0c0e13;font-family:-apple-system,"Inter","Segoe UI",sans-serif}
-#eci-wrap{width:600px;box-sizing:border-box;padding:10px 12px;display:flex;flex-direction:column;gap:8px}
-.eci{background:#0f0f12;border:1px solid #17171c;border-left:2px solid #e3b23a;border-radius:8px;padding:11px 13px}
-.eci-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:5px}
-.eci-src{font-weight:800;font-size:12px;color:#e3b23a}
-.eci-date{font-family:ui-monospace,monospace;font-size:10px;color:#8a8f98;text-transform:uppercase}
-.eci-title{font-size:13px;color:#e8eaed;line-height:1.42}</style>
-</head><body><div id="eci-wrap">${rows}</div>
+#eci-wrap{width:600px;box-sizing:border-box;padding:12px 14px}
+.eci-hd{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.eci-title{display:flex;align-items:center;gap:7px;font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:14px;color:#e8eaed}
+.eci-count{font-family:ui-monospace,monospace;font-size:10px;color:#8a8f98;text-transform:uppercase;letter-spacing:.04em}
+.eci-cards{display:flex;flex-direction:column;gap:8px}
+.eci-card{background:#0f0f12;border:1px solid #17171c;border-radius:9px;padding:11px 13px}
+.eci-theme{border-left:2px solid #e3b23a}
+.eci-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.eci-pair{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:13px;color:#e8eaed}
+.eci-bias{font-family:"Inter Tight",-apple-system,sans-serif;font-weight:800;font-size:10.5px;padding:2px 9px;border-radius:20px}
+.eci-bias--buy{background:rgba(0,230,118,.14);color:#00e676}
+.eci-bias--sell{background:rgba(255,61,0,.14);color:#ff3d00}
+.eci-bias--neu{background:rgba(255,179,0,.14);color:#ffb300}
+.eci-text{font-size:12.5px;color:#cfd2d8;line-height:1.5}</style>
+</head><body><div id="eci-wrap">
+  <div class="eci-hd"><span class="eci-title">${spark} Éclairages IA</span><span class="eci-count">${count} éclairage${count > 1 ? 's' : ''}</span></div>
+  <div class="eci-cards">${body}</div>
+</div>
 <script>setTimeout(function(){window.__ready=true;},300);</script>
 </body></html>`);
 });
