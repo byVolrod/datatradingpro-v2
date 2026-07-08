@@ -727,32 +727,28 @@ function _campaignBtn(label, url) {
 // AUCUNE position. Widget Force des Devises en direct (PNG servi par le desk). Desinscription en pied.
 function buildCampaignIntro({ name, email, campaign } = {}) {
   campaign = campaign || 'intro-v1';
-  const prenom = _esc((name || '').split(' ')[0] || '');
+  const prenomRaw = (name || '').split(' ')[0] || '';
+  const prenom = _esc(prenomRaw);
   const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
   const unsub  = unsubUrl(email || '');
   const sender = _esc(_parseFrom().email);
   const body = `
-    <p style="margin:0 0 16px;font-size:16px;color:#ffffff;font-weight:600;">${hello}</p>
-    <p style="margin:0 0 16px;">Bienvenue dans les coulisses de <strong style="color:#e3b23a;">DataTradingPro</strong>, le terminal qui rend le march&eacute; <strong>macro &amp; forex</strong> lisible, en fran&ccedil;ais, dans une interface fa&ccedil;on salle de march&eacute;.</p>
-    <p style="margin:0 0 10px;">&Agrave; partir d'aujourd'hui, vous recevrez <strong>chaque semaine</strong> un email court et concret&nbsp;:</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 16px;">Merci de faire partie de l'aventure <strong style="color:#e3b23a;">DataTradingPro</strong>. &Agrave; partir de maintenant, je vous enverrai <strong>chaque semaine</strong> un e-mail court pour rendre le march&eacute; <strong>macro &amp; forex</strong> plus lisible, en fran&ccedil;ais. Au programme, sans jargon&nbsp;:</p>
     <ul style="margin:0 0 20px;padding-left:20px;color:#cbd5e1;">
       <li style="margin:5px 0;"><strong style="color:#fff;">Le R&eacute;cap Hebdo</strong>&nbsp;: ce qui a compt&eacute; sur les march&eacute;s, prioris&eacute; par impact.</li>
       <li style="margin:5px 0;"><strong style="color:#fff;">La Force des Devises</strong>&nbsp;: quelles monnaies dominent, lesquelles faiblissent.</li>
       <li style="margin:5px 0;"><strong style="color:#fff;">Les &Eacute;clairages IA</strong>&nbsp;: le contexte expliqu&eacute; simplement, sans jargon.</li>
       <li style="margin:5px 0;"><strong style="color:#fff;">Les banques centrales</strong>&nbsp;: le ton (hawkish / dovish) et ce qu'il implique.</li>
     </ul>
-    <p style="margin:0 0 6px;font-size:13px;color:#9aa3b2;">Un aper&ccedil;u de la Force des Devises, en direct du terminal&nbsp;:</p>
-    <img src="${APP_URL}/api/email-widget/meter.png" width="532" alt="Force des Devises &mdash; DataTradingPro"
-      style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #26262b;border-radius:10px;margin:6px 0 4px;">
-    ${_campaignBtn('Découvrir le terminal', trackClickUrl(campaign, email, LANDING_URL))}
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.07);border:1px solid rgba(227,178,58,0.30);border-radius:10px;margin:18px 0 4px;">
-      <tr><td style="padding:13px 16px;color:#e7d4a8;font-size:12.5px;line-height:1.6;">
-        <strong style="color:#e3b23a;">Pour ne plus rater nos emails&nbsp;:</strong> ajoutez <strong style="color:#fff;">${sender}</strong> &agrave; vos contacts. Si ce message est dans vos spams, ouvrez-le et cliquez sur «&nbsp;Non spam&nbsp;».
-      </td></tr></table>
-    <p style="margin:14px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">DataTradingPro est un terminal de <strong>donn&eacute;es et d'analyse</strong>&nbsp;: il &eacute;claire vos d&eacute;cisions, il ne passe aucun ordre et ne donne aucun conseil personnalis&eacute;. Le trading comporte un risque de perte en capital.</p>
+    <img src="${APP_URL}/api/email-widget/meter.png" width="380" alt="Force des Devises" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:8px 0 16px;">
+    <p style="margin:0 0 18px;">Pour explorer le terminal quand vous voulez&nbsp;: <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="color:#e3b23a;font-weight:700;text-decoration:none;">ouvrir DataTradingPro &rarr;</a></p>
+    <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour ne rien manquer, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts. DataTradingPro est un terminal de donn&eacute;es et d'analyse&nbsp;: il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: 'DataTradingPro : votre rendez-vous macro & forex chaque semaine', html: _campaignLayout('Bienvenue', body, unsub) };
+  return { subject: 'DataTradingPro : votre point macro & forex de la semaine', html: _campaignLayout('Bienvenue', body, unsub) };
 }
 async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
 
