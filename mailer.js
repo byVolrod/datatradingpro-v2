@@ -741,7 +741,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
       <li style="margin:5px 0;"><strong style="color:#fff;">Les &Eacute;clairages IA</strong>&nbsp;: le contexte expliqu&eacute; simplement, sans jargon.</li>
       <li style="margin:5px 0;"><strong style="color:#fff;">Les banques centrales</strong>&nbsp;: le ton (hawkish / dovish) et ce qu'il implique.</li>
     </ul>
-    <img src="${APP_URL}/api/email-widget/meter.png" width="380" height="261" alt="Force des Devises — DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:8px 0 16px;">
+    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises — DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:8px 0 16px;">
     <p style="margin:0 0 18px;">Pour explorer le terminal quand vous voulez&nbsp;: <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="color:#e3b23a;font-weight:700;text-decoration:none;">ouvrir DataTradingPro &rarr;</a></p>
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
