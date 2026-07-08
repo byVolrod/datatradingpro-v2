@@ -12253,32 +12253,74 @@ app.get('/internal/email-campaign', (_req, res) => {
 // ── Audience de la CAMPAGNE e-mail : UNION DÉDUPLIQUÉE (comptes DTP clients + memberships Whop valides),
 //    moins la blacklist et les adresses invalides. Chaque personne = 1 SEULE fois (dédup par e-mail).
 //    Sert à VÉRIFIER l'audience (zéro doublon) AVANT tout envoi — n'envoie RIEN. Fondation du moteur d'envoi.
-async function _campaignAudience() {
+// AUDIENCE de campagne — « système intelligent » : on RÉUNIT toute la base joignable (clients DTP + toute
+// la base Whop, y compris résiliés/expirés/sans-abonnement, + e-mails ajoutés à la main), dédupliquée par
+// e-mail. RÈGLE : un CANCEL Whop ne sort PERSONNE de la liste (on garde les « churned » pour le win-back).
+// SEULE la désinscription e-mail RÉELLE (marqueur unsub:) et la blacklist retirent quelqu'un. Chaque
+// destinataire est SEGMENTÉ (active / churned / lead) — pour cibler plus tard, sans jamais perdre un contact.
+// opts.checkUnsub (défaut true) : exclut les désinscrits (aperçu exact) ; l'envoi passe false (le loop skip
+// les unsub à chaud, freshness) pour éviter un double balayage.
+async function _campaignAudience(opts = {}) {
   const _norm = e => String(e || '').toLowerCase().trim();
   const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
   const byEmail = new Map();
-  let dtpSeen = 0, whopSeen = 0, blacklisted = 0, invalid = 0;
+  let dtpSeen = 0, whopSeen = 0, extraSeen = 0, blacklisted = 0, invalid = 0;
   const _add = (email, name, source) => {
     const em = _norm(email);
-    if (!em || !_valid(em)) { invalid++; return; }
-    if (auth.isEmailBlacklisted(em)) { blacklisted++; return; }
-    const cur = byEmail.get(em) || { email: em, name: '', sources: new Set() };
+    if (!em || !_valid(em)) { invalid++; return null; }
+    if (auth.isEmailBlacklisted(em)) { blacklisted++; return null; }
+    let cur = byEmail.get(em);
+    if (!cur) { cur = { email: em, name: '', sources: new Set(), whopStatuses: new Set(), dtpActive: false }; byEmail.set(em, cur); }
     cur.sources.add(source);
     if (!cur.name && name) cur.name = String(name).trim();
-    byEmail.set(em, cur);
+    return cur;
   };
-  try { const users = await auth.getAllUsers(); for (const u of (users || [])) if (u && u.role === 'client') { dtpSeen++; _add(u.email, u.name, 'dtp'); } }
-  catch (e) { console.error('[Campaign audience] DTP:', e.message); }
-  try { if (whop.configured()) { const mem = await whop.listAllMemberEmails(); for (const m of (mem || [])) { whopSeen++; _add(m.email, m.name, 'whop'); } } }
-  catch (e) { console.error('[Campaign audience] Whop:', e.message); }
-  const recipients = [...byEmail.values()].map(r => ({ email: r.email, name: r.name, sources: [...r.sources] }));
+  // 1) Clients DTP (comptes desk) — actif selon l'abonnement
+  try {
+    const users = await auth.getAllUsers(); const now = Date.now();
+    for (const u of (users || [])) if (u && u.role === 'client') {
+      dtpSeen++;
+      const c = _add(u.email, u.name, 'dtp');
+      if (c && u.active !== false && (!u.expires_at || new Date(u.expires_at).getTime() > now)) c.dtpActive = true;
+    }
+  } catch (e) { console.error('[Campaign audience] DTP:', e.message); }
+  // 2) Whop — TOUTE la base (memberships + members), tous statuts. Les résiliés/expirés RESTENT.
+  try {
+    if (whop.configured()) {
+      const mem = await whop.listAllMemberEmails();
+      for (const m of (mem || [])) { whopSeen++; const c = _add(m.email, m.name, 'whop'); if (c) for (const s of (m.statuses || [])) c.whopStatuses.add(String(s).toLowerCase()); }
+    }
+  } catch (e) { console.error('[Campaign audience] Whop:', e.message); }
+  // 3) E-mails ajoutés À LA MAIN (contacts hors API Whop : export « Contacts », ajouts admin) — durable KV
+  try {
+    const extra = await auth.aiCacheGet('campaign:extra-emails', 366 * 86400000);
+    if (Array.isArray(extra)) for (const x of extra) { extraSeen++; _add(typeof x === 'string' ? x : (x && x.email), (x && x.name) || '', 'manuel'); }
+  } catch (e) { console.error('[Campaign audience] extra:', e.message); }
+
+  // Segmentation (tous CONSERVÉS) : active = abo en cours ; churned = résilié/expiré ; lead = contact sans abo.
+  const ACT = new Set(['active', 'completed', 'trialing', 'valid']);
+  const CHU = new Set(['canceled', 'cancelled', 'expired', 'past_due', 'unresolved']);
+  const _seg = c => (c.dtpActive || [...c.whopStatuses].some(s => ACT.has(s))) ? 'active'
+                  : ([...c.whopStatuses].some(s => CHU.has(s)) ? 'churned' : 'lead');
+
+  let all = [...byEmail.values()];
+  // 4) Exclusion des DÉSINSCRITS RÉELS (opt-out e-mail). Un cancel Whop n'exclut PAS — seul unsub: exclut.
+  let excludedUnsub = 0;
+  if (opts.checkUnsub !== false) {
+    const flags = await Promise.all(all.map(c => auth.emailLogHas('unsub:' + c.email).catch(() => false)));
+    all = all.filter((c, i) => { if (flags[i]) { excludedUnsub++; return false; } return true; });
+  }
+  const recipients = all.map(c => ({ email: c.email, name: c.name, sources: [...c.sources], segment: _seg(c) }));
+  const segments = { active: 0, churned: 0, lead: 0 };
+  for (const r of recipients) segments[r.segment]++;
   return {
     recipients,
     report: {
       total: recipients.length,                                       // destinataires UNIQUES (après dédup)
-      dtpAccounts: dtpSeen, whopMemberships: whopSeen,
-      inBoth: recipients.filter(r => r.sources.length > 1).length,    // présents dans les 2 sources → comptés 1 fois
-      excludedBlacklist: blacklisted, excludedInvalid: invalid,
+      dtpAccounts: dtpSeen, whopContacts: whopSeen, manualExtra: extraSeen,
+      inMultipleSources: recipients.filter(r => r.sources.length > 1).length,
+      segments,                                                       // active / churned / lead — TOUS gardés (win-back)
+      excludedBlacklist: blacklisted, excludedInvalid: invalid, excludedUnsub,
     },
   };
 }
@@ -12287,7 +12329,36 @@ async function _campaignAudience() {
 app.get('/api/admin/campaign-audience', requireAdmin, async (_req, res) => {
   try {
     const a = await _campaignAudience();
-    res.json({ ok: true, report: a.report, recipients: a.recipients.map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })) });
+    res.json({ ok: true, report: a.report, recipients: a.recipients.map(r => ({ email: r.email, name: r.name, src: r.sources.join('+'), seg: r.segment })) });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// E-mails ajoutés À LA MAIN à l'audience (contacts hors API Whop : export « Contacts », leads, ajouts admin).
+// Stockés durablement (KV ai_cache `campaign:extra-emails`). ?action=add&emails=a@x.com,b@y.com (séparateurs
+// espace/virgule/point-virgule/retour ligne) · ?action=remove&email=a@x.com · sans action → liste. N'envoie RIEN.
+app.get('/api/admin/campaign-extra', requireAdmin, async (req, res) => {
+  const _norm = e => String(e || '').toLowerCase().trim();
+  const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  try {
+    let list = await auth.aiCacheGet('campaign:extra-emails', 366 * 86400000);
+    if (!Array.isArray(list)) list = [];
+    const emails = list.map(x => typeof x === 'string' ? x : (x && x.email)).filter(Boolean);
+    const action = String(req.query.action || '');
+    if (action === 'add') {
+      const toAdd = String(req.query.emails || req.query.email || '').split(/[\s,;]+/).map(_norm).filter(_valid);
+      const set = new Set(emails); let added = 0, dupes = 0;
+      for (const e of toAdd) { if (set.has(e)) { dupes++; continue; } set.add(e); added++; }
+      const next = [...set].map(e => ({ email: e }));
+      await auth.aiCacheSet('campaign:extra-emails', next);
+      return res.json({ ok: true, added, dupesIgnored: dupes, total: next.length, list: [...set] });
+    }
+    if (action === 'remove') {
+      const e = _norm(req.query.email);
+      const next = emails.filter(x => x !== e).map(x => ({ email: x }));
+      await auth.aiCacheSet('campaign:extra-emails', next);
+      return res.json({ ok: true, removed: emails.includes(e) ? 1 : 0, total: next.length, list: next.map(x => x.email) });
+    }
+    res.json({ ok: true, total: emails.length, list: emails, hint: '?action=add&emails=a@x.com,b@y.com | ?action=remove&email=a@x.com' });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
@@ -12344,7 +12415,7 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
       note: 'Test envoye a l\'admin uniquement. Aucun marqueur ecrit, aucun client touche.' });
   }
 
-  let audience; try { audience = await _campaignAudience(); } catch (e) { return res.status(500).json({ error: e.message }); }
+  let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }
   const recipients = audience.recipients;
   if (!send) {
     return res.json({ dryRun: true, campaign: CAMPAIGN_ID, report: audience.report,
