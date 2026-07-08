@@ -600,7 +600,33 @@ function init() {
     searchQuery = e.target.value.toLowerCase().trim();
     displayLimit = 100;
     renderNews();
+    _searchServer7d(searchQuery);   // etend la recherche aux 7 derniers jours (historique serveur)
   });
+}
+// Recherche NEWS 7 jours : la barre du flux couvre toute la fenetre serveur, pas seulement le lot charge.
+// Debounce → /api/news/search → fusionne les resultats dans allItems (dedup par id) → re-render.
+let _search7dT = null, _search7dSeq = 0;
+function _searchServer7d(q) {
+  if (_search7dT) clearTimeout(_search7dT);
+  if (!q || q.length < 2) return;
+  const seq = ++_search7dSeq;
+  _search7dT = setTimeout(() => {
+    fetch('/api/news/search?days=7&q=' + encodeURIComponent(q))
+      .then(r => r.json())
+      .then(d => {
+        if (seq !== _search7dSeq) return;                       // requete perimee (l'utilisateur a continue a taper)
+        if (searchQuery !== q) return;                          // la recherche a change entre-temps
+        if (!d || !Array.isArray(d.items) || !d.items.length) return;
+        const seen = new Set(allItems.map(i => i && i.id));
+        let added = 0;
+        for (const it of d.items) { if (it && it.id && !seen.has(it.id)) { allItems.push(it); seen.add(it.id); added++; } }
+        if (added) {
+          allItems.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));   // garde le flux du plus recent au plus ancien
+          renderNews();
+        }
+      })
+      .catch(() => {});
+  }, 320);
 }
 
 // ═══ WebSocket ════════════════════════════

@@ -1906,6 +1906,30 @@ app.get('/api/news/history', (req, res) => {
   items.forEach(_cleanItemMd);
   res.json({ items, total: allNews.length });
 });
+// Recherche NEWS sur toute la fenetre serveur (7 jours par defaut) : la barre de recherche du flux couvre
+// desormais les 7 derniers jours (avant : seulement le lot charge cote client). Memes filtres de visibilite
+// que /api/news (bruit + primers masques, sauf DTP Daily). Match sur titre/description/categorie/source/tags.
+app.get('/api/news/search', (req, res) => {
+  const q = String(req.query.q || '').toLowerCase().trim();
+  const days = Math.min(Math.max(parseInt(req.query.days, 10) || 7, 1), 10);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 300, 1), 500);
+  if (q.length < 2) return res.json({ items: [], total: 0, days });
+  const since = Date.now() - days * 864e5;
+  const vis = n => !isGlobalNewsNoise(n.headline) && (!_isPrimerNews(n) || (n && n._reportType === 'DTP Daily'));
+  const match = n => {
+    if ((n.headline || '').toLowerCase().includes(q)) return true;
+    if ((n.description || '').toLowerCase().includes(q)) return true;
+    if ((n.category || '').toLowerCase().includes(q)) return true;
+    if ((n.source || '').toLowerCase().includes(q)) return true;
+    return Array.isArray(n.tags) && n.tags.some(t => String(t).toLowerCase().includes(q));
+  };
+  const items = (Array.isArray(allNews) ? allNews : [])
+    .filter(n => n && (n.timestamp || 0) >= since && vis(n) && match(n))
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .slice(0, limit);
+  items.forEach(_cleanItemMd);
+  res.json({ items, total: items.length, days });
+});
 // Calendrier économique — endpoints AUTO-RÉPARANTS : si les données sont vides
 // (démarrage à froid Render, disque éphémère, ou échec du scrape planifié), on
 // déclenche un fetch à la demande (anti-tempête : un seul fetch concurrent).
