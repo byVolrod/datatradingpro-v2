@@ -820,6 +820,26 @@
       .camp-bl-em{font-family:ui-monospace,Menlo,Consolas,monospace;word-break:break-all;}
       .camp-bl-x{flex:none;background:transparent;border:1px solid rgba(255,61,0,.33);color:#ff6a3d;font-size:11px;font-weight:600;padding:4px 10px;border-radius:6px;cursor:pointer;}
       .camp-bl-x:hover{background:rgba(255,61,0,.09);border-color:#ff3d00;}
+      .camp-recip-list{max-height:340px;overflow-y:auto;border:1px solid #26262b;border-radius:8px;background:#0f0f12;}
+      .camp-recip-head{font-size:11px;color:#8b93a1;padding:8px 12px;border-bottom:1px solid #1c1c20;position:sticky;top:0;background:#0f0f12;}
+      .camp-recip-row{display:flex;align-items:center;gap:10px;padding:6px 12px;border-bottom:1px solid #161619;font-size:12.5px;}
+      .camp-recip-em{flex:1;font-family:ui-monospace,Menlo,Consolas,monospace;color:#e6e6ea;word-break:break-all;}
+      .camp-recip-src{flex:none;font-size:10.5px;color:#7b828f;text-transform:uppercase;letter-spacing:.03em;}
+      .camp-seq-list{display:flex;flex-direction:column;gap:8px;}
+      .camp-seq-row{display:flex;align-items:flex-start;gap:12px;background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:11px 14px;border-left-width:3px;}
+      .camp-seq-row--done{border-left-color:#00e676;}
+      .camp-seq-row--ready{border-left-color:#e3b23a;}
+      .camp-seq-row--planned{border-left-color:#33333a;}
+      .camp-seq-wk{flex:none;width:38px;text-align:center;font-weight:800;font-size:13px;color:#8b93a1;padding-top:2px;}
+      .camp-seq-main{flex:1;min-width:0;}
+      .camp-seq-title{font-size:14px;font-weight:700;color:#fff;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+      .camp-seq-pill{font-size:10px;font-weight:600;color:#9aa3b2;background:rgba(255,255,255,.05);border:1px solid #2b2b31;border-radius:999px;padding:2px 8px;text-transform:uppercase;letter-spacing:.03em;}
+      .camp-seq-desc{font-size:12px;color:#8b93a1;margin-top:3px;}
+      .camp-seq-metrics{font-size:12px;color:#cbd5e1;margin-top:6px;}
+      .camp-seq-status{flex:none;font-size:12px;font-weight:700;padding-top:2px;white-space:nowrap;}
+      .camp-seq-status--done{color:#00e676;}
+      .camp-seq-status--ready{color:#e3b23a;}
+      .camp-seq-status--planned{color:#7b828f;}
     </style>
     <div class="panel-card">
       <div class="panel-head">
@@ -829,6 +849,13 @@
       </div>
       <div class="panel-body">
         <div id="camp-audience" class="camp-block">Chargement de l'audience…</div>
+        <div style="margin:0 0 12px;">
+          <button class="camp-btn" id="camp-recip-toggle" onclick="toggleRecipients()">👥 Voir la liste des e-mails</button>
+        </div>
+        <div id="camp-recip-panel" style="display:none;margin:0 0 12px;">
+          <input id="camp-recip-search" placeholder="Filtrer par e-mail…" oninput="renderRecipients()" style="width:100%;box-sizing:border-box;background:#0f0f12;border:1px solid #33333a;color:#e6e6ea;border-radius:8px;padding:8px 12px;font-size:13px;margin:0 0 8px;"/>
+          <div id="camp-recip-list" class="camp-recip-list"></div>
+        </div>
         <div class="camp-actions">
           <button class="camp-btn" onclick="campTest()">✉️ Test → mon adresse</button>
           <button class="camp-btn camp-btn--send" id="camp-send-btn" onclick="campSend()">🚀 Envoyer la campagne</button>
@@ -840,6 +867,15 @@
         </div>
         <div id="camp-progress" class="camp-block" style="display:none"></div>
         <p class="camp-note">L'envoi part de ton navigateur, jamais automatiquement. Anti-doublon durable : personne ne reçoit 2× le même e-mail. Les désinscrits et la blacklist sont exclus automatiquement.</p>
+      </div>
+    </div>
+    <div class="panel-card">
+      <div class="panel-head"><span class="ph-ic">🗓️</span><h2>Séquence hebdomadaire — supervision</h2>
+        <span class="ph-spacer"></span><span class="fin-sub" id="camp-seq-sub"></span>
+      </div>
+      <div class="panel-body">
+        <div id="camp-seq-list" class="camp-seq-list"><div class="empty-state">Chargement…</div></div>
+        <p class="camp-note">Chaque ligne = un e-mail de la séquence. <b style="color:#e3b23a;">Prêt</b> = codé et envoyable · <b style="color:#7b828f;">À venir</b> = à construire · <b style="color:#00e676;">Envoyé</b> affiche date, volume, ouvertures et clics.</p>
       </div>
     </div>
     <div class="panel-card">
@@ -1001,6 +1037,8 @@
     } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
     loadCampStats();
     loadBlacklist();
+    loadSequence();
+    var _rp = document.getElementById('camp-recip-panel'); if (_rp && _rp.style.display !== 'none') renderRecipients();
   }
   async function loadCampStats(){
     try {
@@ -1099,6 +1137,44 @@
       _campMsg(d.ok ? ('✅ retiré — ' + d.total + ' restant(s)') : '❌ échec');
       loadBlacklist(); loadCampaign();
     } catch { _campMsg('❌ Erreur réseau.'); }
+  }
+  // ── Liste des destinataires (les 163) ──
+  function toggleRecipients(){
+    const p = document.getElementById('camp-recip-panel'); const shown = p.style.display !== 'none';
+    p.style.display = shown ? 'none' : 'block';
+    document.getElementById('camp-recip-toggle').textContent = shown ? '👥 Voir la liste des e-mails' : '✖ Masquer la liste';
+    if (!shown) renderRecipients();
+  }
+  function renderRecipients(){
+    const box = document.getElementById('camp-recip-list'); if (!box) return;
+    const recs = (_campAud && _campAud.recipients) || [];
+    const q = (document.getElementById('camp-recip-search').value || '').toLowerCase().trim();
+    const filtered = q ? recs.filter(function(r){ return (r.email || '').toLowerCase().indexOf(q) >= 0; }) : recs;
+    box.innerHTML = '<div class="camp-recip-head">' + filtered.length + ' e-mail(s)</div>' + filtered.map(function(r){
+      const seg = r.seg || 'lead';
+      const chip = seg === 'active' ? 'active' : (seg === 'churned' ? 'churn' : 'lead');
+      return '<div class="camp-recip-row"><span class="camp-recip-em">' + r.email + '</span>'
+        + '<span class="camp-chip camp-chip--' + chip + '">' + seg + '</span>'
+        + '<span class="camp-recip-src">' + (r.src || '') + '</span></div>';
+    }).join('');
+  }
+  // ── Sequence / supervision hebdo ──
+  async function loadSequence(){
+    try {
+      const d = await fetch('/api/admin/campaign-sequence').then(r => r.json());
+      if (!d || !d.steps) return;
+      const sub = document.getElementById('camp-seq-sub'); if (sub) sub.textContent = d.progress.doneSteps + '/' + d.progress.totalSteps + ' envoyés';
+      document.getElementById('camp-seq-list').innerHTML = d.steps.map(function(s){
+        const cls = s.done ? 'done' : (s.status === 'ready' ? 'ready' : 'planned');
+        const wk = s.week ? 'S' + s.week : 'Évt';
+        const status = s.done ? '✅ Envoyé' : (s.status === 'ready' ? '▶ Prêt' : '⏳ À venir');
+        const metrics = s.done ? '<div class="camp-seq-metrics">Envoyé le ' + _campFmt(s.firstSentAt) + ' · ' + s.sent + ' envoyés · ' + s.openRate + '% ouvertures · ' + s.clickRate + '% clics</div>' : '';
+        return '<div class="camp-seq-row camp-seq-row--' + cls + '"><div class="camp-seq-wk">' + wk + '</div>'
+          + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span></div>'
+          + '<div class="camp-seq-desc">' + s.desc + '</div>' + metrics + '</div>'
+          + '<div class="camp-seq-status camp-seq-status--' + cls + '">' + status + '</div></div>';
+      }).join('');
+    } catch {}
   }
 
   // ── amCharts 5 : courbes (area lissée) + donut, style du site (dark + orange) ──

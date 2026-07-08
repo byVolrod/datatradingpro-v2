@@ -12479,6 +12479,37 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// ─── Sequence hebdo (trame de supervision) : la roadmap des e-mails + ce qui a ete ENVOYE ────────
+// status : 'ready' = code et envoyable · 'planned' = a construire. Enrichi en direct avec _campaignStats
+// (envoyes, ouvertures, clics, 1re/derniere date). Seul 'intro-v1' est code aujourd'hui — les autres = trame.
+const CAMPAIGN_SEQUENCE = [
+  { id: 'intro-v1',      week: 1,    title: 'Bienvenue — introduction',            pillar: 'Cycle de vie', status: 'ready',   desc: 'Presentation du terminal + ce qui sera recu chaque semaine.' },
+  { id: 'point-hebdo',   week: 2,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'planned', desc: 'Ce qui a bouge (macro/forex), priorise par impact.' },
+  { id: 'decryptage',    week: 3,    title: 'Decryptage : un concept explique',     pillar: 'Educatif',     status: 'planned', desc: 'Un mecanisme cle rendu simple (ex. CPI vs Core CPI).' },
+  { id: 'recap-hebdo',   week: 4,    title: 'Recap Hebdo',                          pillar: 'Recap',        status: 'planned', desc: 'La retrospective de la semaine, facon desk.' },
+  { id: 'outlook-hebdo', week: 5,    title: 'Outlook — la semaine a venir',         pillar: 'Outlook',      status: 'planned', desc: 'Les evenements a surveiller, sans pousser de position.' },
+  { id: 'mindset',       week: 6,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'planned', desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
+  { id: 'alerte-bc',     week: null, title: 'Alerte macro / banque centrale',       pillar: 'Evenementiel', status: 'planned', desc: 'Declenche par un evenement (decision de taux, choc macro).' },
+];
+app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
+  try {
+    const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
+    const steps = CAMPAIGN_SEQUENCE.map(s => {
+      const st = _campaignStats[s.id];
+      const sends = st ? Object.values(st.sent || {}) : [];
+      const opens = st ? Object.keys(st.opens || {}).length : 0;
+      const clicks = st ? Object.keys(st.clicks || {}).length : 0;
+      return { id: s.id, week: s.week, title: s.title, pillar: s.pillar, status: s.status, desc: s.desc,
+        sent: sends.length, done: sends.length > 0,
+        firstSentAt: sends.length ? Math.min.apply(null, sends) : null,
+        lastSentAt: sends.length ? Math.max.apply(null, sends) : null,
+        uniqueOpens: opens, openRate: pct(opens, sends.length),
+        uniqueClicks: clicks, clickRate: pct(clicks, sends.length) };
+    });
+    res.json({ ok: true, steps, progress: { doneSteps: steps.filter(s => s.done).length, totalSteps: steps.length } });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
 // L'envoi REEL est declenche par l'admin depuis son navigateur — JAMAIS automatique.
 //   (aucun param) → APERCU : compte + echantillon, RIEN envoye.
