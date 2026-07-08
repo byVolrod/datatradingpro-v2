@@ -783,20 +783,29 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
 // URL distante. Preuve par logs (08/07) : Outlook TELECHARGEAIT l'image (200, 46Ko) mais ne la RENDAIT pas
 // (proxy/regles internes) → seul l'inline garantit l'affichage partout. L'image est rendue FRAICHE a l'envoi
 // (renderWidgetPngSafe = derniere bonne image, pre-chauffee toutes les 9 min → a jour). Repli : URL distante.
-// Envoie un mail campagne en EMBARQUANT le widget meter en inline (cid:) — affichage garanti Outlook.
-// L'image est rendue FRAICHE (renderWidgetPngSafe, pre-chauffee) → a jour. Repli : URL distante.
-async function _sendWithInlineWidget(to, subject, html) {
-  let att = null;
+// Envoie un mail campagne en EMBARQUANT un ou plusieurs widgets en inline (cid:) — affichage garanti Outlook.
+// Chaque type liste est rendu FRAIS (renderWidgetPngSafe, pre-chauffe) et son URL distante est remplacee par
+// son cid. Repli : si le rendu echoue, l'URL distante reste dans le HTML. types = ['meter','calendar',...].
+async function _sendWithInlineWidgets(to, subject, html, types) {
+  const att = [];
   try {
     const ew = require('./emailWidget');   // meme process que server.js → cache/prewarm partages
-    const png = await ew.renderWidgetPngSafe('meter', {});
-    if (png && png.length > 2000) {        // > placeholder 1x1 → vraie image
-      att = [{ filename: 'force-des-devises.png', content: png, cid: 'meter@datatradingpro', contentType: 'image/png' }];
-      html = html.replace(/https?:\/\/[^"]*\/api\/email-widget\/meter\.png[^"]*/g, 'cid:meter@datatradingpro');
+    for (const t of (Array.isArray(types) ? types : [])) {
+      try {
+        const png = await ew.renderWidgetPngSafe(t, {});
+        if (png && png.length > 2000) {    // > placeholder 1x1 → vraie image
+          const cid = t + '@datatradingpro';
+          att.push({ filename: t + '.png', content: png, cid, contentType: 'image/png' });
+          const re = new RegExp('https?:\\/\\/[^"]*\\/api\\/email-widget\\/' + t.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\.png[^"]*', 'g');
+          html = html.replace(re, 'cid:' + cid);
+        }
+      } catch (e) { console.warn('[Mailer] widget inline indisponible (' + t + ') → URL distante:', e.message); }
     }
-  } catch (e) { console.warn('[Mailer] widget inline indisponible → URL distante:', e.message); }
-  return _send(to, subject, html, att);
+  } catch (e) { console.warn('[Mailer] widgets inline indisponibles → URL distante:', e.message); }
+  return _send(to, subject, html, att.length ? att : null);
 }
+// Retro-compat : ancien helper mono-widget (meter).
+async function _sendWithInlineWidget(to, subject, html) { return _sendWithInlineWidgets(to, subject, html, ['meter']); }
 async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _sendWithInlineWidget(d.to, m.subject, m.html); }
 
 // ── Digest HEBDO (récurrent, AUTO-GÉNÉRÉ) — construit à partir des vraies données du Récap Hebdo du desk.
@@ -868,43 +877,234 @@ const _DECRYPT_FAMILIES = [
     { k: 'Décision de taux (FOMC)', full: 'Federal Open Market Committee', d: "La Fed fixe le niveau des taux d'intérêt.", a: 'Absolument tous les marchés' },
   ] },
 ];
-function buildCampaignDecryptage({ name, email, campaign } = {}) {
+// Glossaire indicateur -> phrase en clair (deduit de _DECRYPT_FAMILIES ci-dessus). Cle = libelle FR du desk.
+const _INDIC_GLOSS = (() => { const g = {}; const map = { CPI: 'CPI', 'Core CPI': 'Core CPI', PCE: 'PCE', 'Core PCE': 'Core PCE', PPI: 'PPI', NFP: 'NFP', 'Taux de chomage': 'Taux de chômage', 'Salaire horaire': 'Salaire horaire', ADP: 'ADP', JOLTS: 'JOLTS', PIB: 'PIB', 'Ventes au detail': 'Ventes au détail', 'ISM Manufacturier': 'ISM Manufacturier', 'ISM Services': 'ISM Services', 'Décision de taux': 'Décision de taux (FOMC)' }; for (const fam of _DECRYPT_FAMILIES) for (const it of fam.items) g[it.k] = it.d; g['Décision de taux'] = "La banque centrale fixe le niveau des taux d'intérêt."; return g; })();
+
+// ── BIBLIOTHEQUE DE CONCEPTS (Decryptage contextuel) — le moteur choisit le concept selon l'etat REEL du desk
+// (theme dominant de la semaine deduit du calendrier live) et evite la redondance (recentKeys). 100% educatif.
+const DECRYPT_CONCEPTS = [
+  { key: 'taux-mecanisme', theme: 'rates', eyebrow: 'POLITIQUE MONÉTAIRE', title: 'Une décision de taux, et tout le marché bouge', paras: [
+    "Quand une banque centrale change son taux directeur, elle change le prix de l'argent pour toute l'économie. Monter les taux freine le crédit et la consommation pour calmer l'inflation ; les baisser relance l'activité.",
+    "Pour le marché, ce n'est pas tant la décision qui compte que la SURPRISE par rapport à ce qui était déjà anticipé, et surtout le TON du communiqué. Une banque qui laisse la porte ouverte à d'autres hausses (hawkish) soutient sa devise ; une banque qui temporise (dovish) l'affaiblit.",
+    "C'est pour cela qu'un taux laissé inchangé peut quand même faire plonger ou bondir une devise : le marché lit entre les lignes, pas seulement le chiffre.",
+  ] },
+  { key: 'cpi-vs-core', theme: 'inflation', eyebrow: 'INFLATION', title: 'CPI et Core CPI : pourquoi la Fed regarde surtout le second', paras: [
+    "Le CPI mesure la hausse des prix du panier complet de la ménagère. Le Core CPI en retire l'énergie et l'alimentation, deux postes très volatils qui bougent souvent pour des raisons extérieures (météo, pétrole).",
+    "La Fed pilote sa politique sur la tendance de FOND de l'inflation, pas sur un pic d'essence passager. Le Core est donc sa vraie boussole, et le marché réagit parfois davantage au Core qu'au chiffre principal.",
+    "La règle de lecture : un chiffre au-dessus des attentes pousse les anticipations de taux vers le haut (dollar plus fort, or et actions sous pression) ; en-dessous, c'est l'inverse.",
+  ] },
+  { key: 'inflation-taux', theme: 'inflation', eyebrow: 'INFLATION', title: "Pourquoi l'inflation fait bouger les taux et le dollar", paras: [
+    "L'inflation, c'est la vitesse à laquelle les prix montent. Quand elle accélère, la banque centrale garde ou remonte ses taux pour la freiner ; quand elle ralentit, elle peut se permettre de les baisser.",
+    "Or des taux plus élevés rendent une devise plus attractive à détenir. C'est le fil qui relie une simple statistique de prix au cours du dollar, de l'or et des indices.",
+    "À retenir : sur une publication d'inflation, le marché compare le chiffre aux attentes, pas à zéro. Une inflation qui ralentit moins vite que prévu peut faire monter le dollar.",
+  ] },
+  { key: 'nfp-decode', theme: 'jobs', eyebrow: 'EMPLOI', title: 'NFP : le chiffre qui fait trembler le dollar', paras: [
+    "Les Non-Farm Payrolls comptent les emplois créés le mois passé hors agriculture. C'est le thermomètre le plus suivi du marché du travail américain.",
+    "Un marché de l'emploi solide donne à la Fed la liberté de garder des taux élevés pour combattre l'inflation. Un marché qui se fissure ouvre la voie à des baisses de taux, et pèse sur le dollar.",
+    "À lire ensemble : le taux de chômage et le salaire horaire, publiés en même temps. Des salaires qui accélèrent, c'est de l'inflation future en germe.",
+  ] },
+  { key: 'salaires', theme: 'jobs', eyebrow: 'EMPLOI', title: 'Les salaires : le carburant caché de l\'inflation', paras: [
+    "Le salaire horaire moyen mesure la vitesse à laquelle les rémunérations montent. C'est un indicateur d'emploi, mais c'est surtout un signal d'inflation à venir.",
+    "Quand les salaires grimpent vite, les ménages consomment plus et les entreprises répercutent leurs coûts sur les prix : l'inflation se nourrit d'elle-même. La banque centrale surveille cela de près.",
+    "C'est pourquoi un bon chiffre d'emploi accompagné de salaires trop chauds peut être mal reçu par le marché : il éloigne les baisses de taux.",
+  ] },
+  { key: 'pmi-pib', theme: 'growth', eyebrow: 'CROISSANCE', title: 'PMI et PIB : lire la vitesse réelle de l\'économie', paras: [
+    "Le PIB mesure toute la richesse produite par le pays, mais il arrive tard. Les PMI (indices des directeurs d'achat) sont des enquêtes mensuelles auprès des entreprises : ils donnent le pouls en temps quasi réel.",
+    "Au-dessus de 50, l'activité progresse ; en-dessous, elle se contracte. Les services pèsent le plus lourd dans l'économie américaine, d'où l'importance de l'ISM Services.",
+    "Une croissance trop faible fait craindre la récession ; trop forte, elle ravive l'inflation et retarde les baisses de taux. Le marché cherche le juste milieu.",
+  ] },
+  { key: 'ventes-detail', theme: 'growth', eyebrow: 'CROISSANCE', title: 'Ventes au détail : le pouls du consommateur', paras: [
+    "La consommation des ménages représente l'essentiel de l'économie américaine. Les ventes au détail mesurent, chaque mois, l'argent réellement dépensé dans les magasins et en ligne.",
+    "Des ventes robustes signalent une économie qui tient, ce qui soutient le dollar mais peut entretenir l'inflation. Des ventes en berne annoncent un ralentissement.",
+    "C'est un indicateur précoce : il éclaire la croissance avant même que le PIB ne soit publié.",
+  ] },
+  { key: 'gestion-risque', theme: 'risk', eyebrow: 'GESTION DU RISQUE', title: 'Semaine chargée : pourquoi la gestion du risque prime', paras: [
+    "Dans les semaines denses en annonces, les marchés bougent vite et dans les deux sens. La tentation est de multiplier les positions ; c'est souvent l'erreur.",
+    "Ceux qui durent ne cherchent pas à avoir raison à chaque coup : ils dimensionnent leurs positions pour survivre à une série de pertes. Le risque par position, pas la prévision, décide de qui reste en jeu.",
+    "Un repère simple : savoir AVANT d'entrer où l'on a tort et combien on perd si c'est le cas. Le reste n'est que discipline.",
+  ] },
+  { key: 'risk-on-off', theme: 'risk', eyebrow: 'SENTIMENT', title: 'Risk-on / risk-off : la boussole du marché', paras: [
+    "En risk-on, les investisseurs cherchent le rendement : les actions et les devises pro-cycliques (dollar australien, néo-zélandais, canadien) montent, les valeurs refuges reculent.",
+    "En risk-off, ils cherchent la sécurité : dollar américain, yen, franc suisse et or se renforcent, les actions souffrent.",
+    "Savoir dans quel régime on se trouve évite de se battre contre le courant dominant du marché. C'est l'une des premières lectures du desk chaque matin.",
+  ] },
+];
+// Selection PURE : choisit le concept selon le theme du contexte, en sautant les cles couvertes recemment.
+function pickDecryptConcept(context, recentKeys) {
+  recentKeys = Array.isArray(recentKeys) ? recentKeys : [];
+  const theme = (context && context.theme) || 'calm';
+  const byTheme = {}; for (const c of DECRYPT_CONCEPTS) (byTheme[c.theme] = byTheme[c.theme] || []).push(c);
+  const order = { rates: ['rates', 'inflation', 'jobs'], inflation: ['inflation', 'jobs', 'growth'], jobs: ['jobs', 'inflation', 'growth'], growth: ['growth', 'jobs', 'risk'], risk: ['risk', 'growth', 'inflation'], calm: ['inflation', 'growth', 'jobs', 'risk', 'rates'] }[theme] || ['inflation', 'growth'];
+  for (const th of order) { const cands = byTheme[th] || []; const fresh = cands.find(c => !recentKeys.includes(c.key)); if (fresh) return { concept: fresh, theme }; }
+  // tout couvert recemment -> reprend le 1er du theme (mieux vaut un rappel pertinent qu'un hors-sujet)
+  const cands = byTheme[theme] || byTheme.inflation || DECRYPT_CONCEPTS; return { concept: cands[0], theme };
+}
+
+// CTA + PS adaptes MEMBRE / NON-MEMBRE (validation user : tout le monde recoit, contenu adapte).
+function _campaignCta(isMember, campaign, email) {
+  const url = trackClickUrl(campaign, email, LANDING_URL);
+  const sender = _esc(_parseFrom().email);
+  if (isMember) return {
+    btn: _campaignBtn('Ouvrir mon Desk', url),
+    ps: `PS&nbsp;: pour nous retrouver en <strong style="color:#cbd5e1;">Principale</strong>, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts. DataTradingPro est un terminal de donn&eacute;es et d'analyse&nbsp;: il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.`,
+  };
+  return {
+    btn: _campaignBtn('Découvrir le Desk en direct', url),
+    ps: `PS&nbsp;: vous recevez ici un <strong style="color:#cbd5e1;">aper&ccedil;u gratuit</strong> du desk. L'analyse compl&egrave;te, les biais d&eacute;taill&eacute;s par devise et les alertes en temps r&eacute;el vivent dans le terminal. Contenu informatif&nbsp;: DataTradingPro n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.`,
+  };
+}
+// Petite liste "temps forts a surveiller" (donnees calendrier REELLES). ev = { dayLabel, time, ccy, title, forecast, previous, indicator }.
+function _watchRows(events) {
+  return (events || []).slice(0, 4).map(ev => {
+    const gloss = ev.indicator && _INDIC_GLOSS[ev.indicator] ? `<div style="color:#8b93a1;font-size:12px;line-height:1.45;margin-top:2px;">${_esc(_INDIC_GLOSS[ev.indicator])}</div>` : '';
+    const vals = [];
+    if (ev.forecast) vals.push(`prév. <strong style="color:#cbd5e1;">${_esc(ev.forecast)}</strong>`);
+    if (ev.previous) vals.push(`préc. ${_esc(ev.previous)}`);
+    const valLine = vals.length ? `<div style="color:#9aa3b2;font-size:12px;margin-top:2px;">${vals.join(' &middot; ')}</div>` : '';
+    return `<tr><td style="padding:9px 0;border-top:1px solid #1f1f24;">
+      <div>
+        <span style="color:#e3b23a;font-weight:700;font-size:12px;">${_esc(ev.dayLabel || '')}${ev.time ? ' ' + _esc(ev.time) : ''}</span>
+        <span style="color:#6b7280;font-size:12px;">&nbsp;&middot;&nbsp;${_esc(ev.ccy || '')}</span>
+        <span style="color:#ffffff;font-weight:600;font-size:13.5px;">&nbsp;&nbsp;${_esc(ev.title || '')}</span>
+      </div>${gloss}${valLine}
+    </td></tr>`;
+  }).join('');
+}
+
+// ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
+// l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
+// via recentKeys. Repli evergreen (decodeur 4 familles) si aucune donnee. Renvoie aussi conceptKey (marquage).
+function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, isMember } = {}) {
   campaign = campaign || 'decryptage';
   const prenomRaw = (name || '').split(' ')[0] || '';
-  const prenom = _esc(prenomRaw);
-  const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
-  const unsub  = unsubUrl(email || '');
-  const sender = _esc(_parseFrom().email);
-  const families = _DECRYPT_FAMILIES.map(fam => {
-    const rows = fam.items.map(it => `
-      <tr><td style="padding:11px 0 4px;border-top:1px solid #1f1f24;">
-        <span style="color:#ffffff;font-weight:700;font-size:14px;">${_esc(it.k)}</span>
-        <span style="color:#6b7280;font-size:12px;"> &middot; ${_esc(it.full)}</span>
-        <div style="color:#aab2c0;font-size:13px;line-height:1.5;margin:3px 0 2px;">${_esc(it.d)}</div>
-        <div style="color:#e3b23a;font-size:12px;font-weight:600;">&rarr; sert &agrave; anticiper&nbsp;: <span style="color:#c9a94e;font-weight:500;">${_esc(it.a)}</span></div>
-      </td></tr>`).join('');
-    return `
-      <div style="margin:22px 0 6px;">
-        <div style="display:inline-block;color:#0a0a0c;background:${fam.accent};font-weight:800;font-size:12px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(fam.name)}</div>
-        <div style="color:#9aa3b2;font-size:12.5px;line-height:1.5;margin:8px 0 2px;">${_esc(fam.lead)}</div>
-      </div>
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;">${rows}</table>`;
-  }).join('');
+  const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
+  const unsub = unsubUrl(email || '');
+  const cta = _campaignCta(isMember, campaign, email);
+  const upcoming = (context && Array.isArray(context.upcoming)) ? context.upcoming : [];
+  const majors = upcoming.filter(e => e.impact === 'High');
+  const pick = pickDecryptConcept(context, recentKeys);
+  const c = pick.concept;
+
+  // Accroche ancree sur la semaine reelle
+  let lead;
+  if (majors.length) {
+    const rateEv = majors.find(e => e.family === 'Politique monetaire');
+    const anchor = rateEv || majors[0];
+    const when = `${anchor.dayLabel || ''}${anchor.time ? ' à ' + anchor.time : ''}`.trim();
+    const qualif = rateEv ? 'Le rendez-vous clé' : 'À commencer par';
+    lead = `Cette semaine, le desk suit <strong style="color:#fff;">${majors.length} temps fort${majors.length > 1 ? 's' : ''}</strong> à fort impact. ${qualif}&nbsp;: <strong style="color:#e3b23a;">${_esc(anchor.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}.`;
+  } else if (upcoming.length) {
+    lead = `Le calendrier est plus calme cette semaine&nbsp;: l'occasion de revenir sur un fondamental qui revient sans cesse sur les marchés.`;
+  } else {
+    lead = `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
+  }
+
+  const conceptHtml = `
+    <div style="margin:20px 0 8px;">
+      <div style="display:inline-block;color:#0a0a0c;background:#e3b23a;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
+      <div style="color:#ffffff;font-weight:800;font-size:18px;line-height:1.3;margin:10px 0 2px;letter-spacing:-.01em;">${_esc(c.title)}</div>
+    </div>
+    ${c.paras.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}`;
+
+  const watch = _watchRows(upcoming.slice(0, 4));
+  const watchHtml = watch ? `
+    <div style="margin:22px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">LES TEMPS FORTS À SURVEILLER</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${watch}</table>
+    <p style="margin:12px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>` : '';
+
+  // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
+  const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
+    const rows = fam.items.slice(0, 3).map(it => `<tr><td style="padding:9px 0 3px;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(it.k)}</span><div style="color:#aab2c0;font-size:12.5px;line-height:1.45;margin-top:2px;">${_esc(it.d)}</div><div style="color:#e3b23a;font-size:11.5px;font-weight:600;margin-top:1px;">&rarr; ${_esc(it.a)}</div></td></tr>`).join('');
+    return `<div style="margin:18px 0 4px;"><span style="display:inline-block;color:#0a0a0c;background:#e3b23a;font-weight:800;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:6px;">${_esc(fam.name)}</span></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
+  }).join('') : '';
+
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 14px;">Chaque semaine, le calendrier &eacute;conomique se remplit de sigles&nbsp;: <strong style="color:#fff;">CPI</strong>, <strong style="color:#fff;">NFP</strong>, <strong style="color:#fff;">PCE</strong>, <strong style="color:#fff;">FOMC</strong>&hellip; Derri&egrave;re ce jargon, une poign&eacute;e d'annonces font bouger le dollar, l'or et les indices.</p>
-    <p style="margin:0 0 6px;">Voici votre <strong style="color:#e3b23a;">d&eacute;codeur</strong>, &agrave; garder sous la main. Rang&eacute; par famille, en clair.</p>
-    ${families}
-    <p style="margin:24px 0 6px;">Sur le terminal, chaque publication est reprise, expliqu&eacute;e et remise en contexte&nbsp;:</p>
-    ${_campaignBtn('Voir le calendrier économique', trackClickUrl(campaign, email, LANDING_URL))}
-    <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
-    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver en <strong style="color:#cbd5e1;">Principale</strong>, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts. Contenu p&eacute;dagogique&nbsp;: DataTradingPro est un terminal de donn&eacute;es et d'analyse, il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
+    <p style="margin:0 0 6px;">${lead}</p>
+    ${conceptHtml}
+    ${watchHtml}
+    ${evergreen}
+    <div style="margin:22px 0 6px;">${cta.btn}</div>
+    <p style="margin:0 0 4px;">À très vite,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: 'Décryptage : les grandes annonces éco, sans jargon', html: _campaignLayout('Décryptage', body, unsub) };
+  return { subject: 'Décryptage : ' + c.title, html: _campaignLayout('Décryptage', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
-async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+
+// ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
+// quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
+// Force des Devises. Règle « pas de données -> pas de mail » (renvoie null). 100% informatif, CTA adapté.
+function buildCampaignPointMarche({ name, email, campaign, context, isMember } = {}) {
+  campaign = campaign || 'point-hebdo';
+  const ctx = context || {};
+  const _md = s => String(s == null ? '' : s).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
+  const upcoming = Array.isArray(ctx.upcoming) ? ctx.upcoming : [];
+  const daily = ctx.daily || null;         // { summary, insights[] } depuis _dtpd/_fxr
+  const weekly = ctx.weekly || null;
+  const bias = Array.isArray(ctx.bias) ? ctx.bias : [];   // [{ ccy, label, signal }]
+  const cs = ctx.cs || null;               // { strong:[{ccy}], weak:[{ccy}] } ou { ranked:[ccy...] }
+  const risk = ctx.risk || null;           // { label, description }
+  const themeLabel = ctx.themeLabel || '';
+
+  const moves = _md((daily && (daily.summary || (daily.insights && daily.insights[0]))) || (weekly && weekly.summary) || '');
+  const hasData = !!(moves || bias.length || (cs && (cs.strong || cs.ranked)) || upcoming.length);
+  if (!hasData) return null;   // pas de donnees -> pas de mail
+
+  const prenomRaw = (name || '').split(' ')[0] || '';
+  const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
+  const unsub = unsubUrl(email || '');
+  const cta = _campaignCta(isMember, campaign, email);
+
+  const leadBits = [];
+  if (themeLabel) leadBits.push(`contexte dominant&nbsp;: <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>`);
+  if (risk && risk.label) leadBits.push(`régime de risque&nbsp;: <strong style="color:#fff;">${_esc(risk.label)}</strong>`);
+  const lead = leadBits.length ? `Voici le point marché du desk. ${leadBits.join(' &middot; ')}.` : 'Voici le point marché du desk, en clair.';
+
+  const movesHtml = moves ? `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">CE QUI BOUGE</div><p style="margin:0 0 14px;">${_esc(moves).slice(0, 480)}</p>` : '';
+
+  // Forces / faiblesses (Currency Strength)
+  let strengthHtml = '';
+  const strong = cs && (cs.strong || (cs.ranked ? cs.ranked.slice(0, 2).map(c => ({ ccy: c })) : []));
+  const weak = cs && (cs.weak || (cs.ranked ? cs.ranked.slice(-2).map(c => ({ ccy: c })) : []));
+  if ((strong && strong.length) || (weak && weak.length)) {
+    const chip = (list, col) => (list || []).map(x => `<span style="display:inline-block;color:${col};border:1px solid ${col};border-radius:5px;font-weight:700;font-size:12px;padding:2px 9px;margin:0 5px 5px 0;">${_esc(x.ccy || x)}</span>`).join('');
+    strengthHtml = `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">FORCES &amp; FAIBLESSES (24h)</div>
+      <div style="margin:0 0 12px;"><span style="color:#8b93a1;font-size:12px;">Les plus fortes&nbsp;:</span> ${chip(strong, '#00e676')}<br><span style="color:#8b93a1;font-size:12px;">Les plus faibles&nbsp;:</span> ${chip(weak, '#ff6b57')}</div>`;
+  }
+
+  // Biais du desk (2-3 devises)
+  const BIAS = { BUY: ['ACHAT', '#00e676'], SELL: ['VENTE', '#ff3d00'], NEUTRAL: ['NEUTRE', '#e3b23a'] };
+  const biasHtml = bias.length ? `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">LE BIAIS DU DESK</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${bias.slice(0, 4).map(b => { const s = String(b.signal || 'NEUTRAL').toUpperCase(); const [lbl, col] = BIAS[s] || BIAS.NEUTRAL; return `<tr><td style="padding:7px 0;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(b.ccy)}</span>${b.label ? `<span style="color:#8b93a1;font-size:12px;">&nbsp;&middot;&nbsp;${_esc(b.label)}</span>` : ''}<span style="float:right;color:${col};font-weight:700;font-size:12px;">${lbl}</span></td></tr>`; }).join('')}</table>` : '';
+
+  // Widget Force des Devises (inline cid a l'envoi)
+  const meterHtml = `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">LA FORCE DES DEVISES</div>
+    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:6px 0 14px;">`;
+
+  const watch = _watchRows(upcoming.slice(0, 3));
+  const watchHtml = watch ? `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">À SURVEILLER CETTE SEMAINE</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${watch}</table>` : '';
+
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 6px;">${lead}</p>
+    ${movesHtml}
+    ${strengthHtml}
+    ${meterHtml}
+    ${biasHtml}
+    ${watchHtml}
+    <div style="margin:22px 0 6px;">${cta.btn}</div>
+    <p style="margin:0 0 4px;">Bonne semaine,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'le point marché du desk' + (themeLabel ? ' (' + themeLabel + ')' : '');
+  return { subject, html: _campaignLayout('Point marché', body, unsub) };
+}
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['meter']); }
 
 // Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
 // aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
@@ -1154,7 +1354,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
@@ -1163,7 +1363,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification

@@ -12518,8 +12518,8 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // Point marche = milieu de semaine, Decryptage/Mindset = evergreen (jour libre), Alerte BC = evenementiel.
 const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue — introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Presentation du terminal + ce qui sera recu chaque semaine.' },
-  { id: 'decryptage',    week: 2,    title: 'Decryptage : lire les grandes annonces eco', pillar: 'Educatif', status: 'ready',   when: 'Mardi ~8h · évergreen (aucune dépendance données)',        desc: 'Le decodeur des annonces majeures (CPI, NFP, PCE, FOMC...) par famille + « sert a anticiper ».' },
-  { id: 'point-hebdo',   week: 3,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'planned', when: 'Mercredi ~8h · données marché (DTP Daily 12h, FX 22h30)',  desc: 'Ce qui a bouge (macro/forex), priorise par impact.' },
+  { id: 'decryptage',    week: 2,    title: 'Decryptage contextuel',               pillar: 'Educatif',     status: 'ready',   when: 'Mardi ~8h · concept choisi selon le calendrier de la semaine', desc: 'Concept-cle choisi selon le theme dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts a surveiller. Anti-redondance.' },
+  { id: 'point-hebdo',   week: 3,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'ready',   when: 'Mercredi ~8h · données marché live (DTP Daily 12h, FX 22h30)', desc: 'Genere du desk : contexte macro dominant + regime de risque + ce qui bouge + forces/faiblesses (Currency Strength) + biais + widget.' },
   { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'planned', when: 'Samedi ~10h · évergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
   { id: 'recap-hebdo',   week: 5,    title: 'Recap Hebdo',                          pillar: 'Recap',        status: 'planned', when: 'Dimanche 18h · Récap généré samedi 02h — CRÉNEAU AUTO ACTUEL', desc: 'La retrospective de la semaine, facon desk.' },
   { id: 'outlook-hebdo', week: 6,    title: 'Outlook — la semaine a venir',         pillar: 'Outlook',      status: 'planned', when: 'Lundi ~8h · semaine à venir (avant Londres)',              desc: 'Les evenements a surveiller, sans pousser de position.' },
@@ -12585,6 +12585,94 @@ function _isoWeekKey(y, m, d) { const dt = new Date(Date.UTC(y, m - 1, d)); cons
 function _parisParts(d) { d = d || new Date(); const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', weekday: 'short', hour: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }); const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value; const wd = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday]; return { weekday: wd, hour: parseInt(p.hour, 10) % 24, isoWeek: _isoWeekKey(+p.year, +p.month, +p.day) }; }
 function _nextWeeklyLabel(weekday, hour) { for (let i = 0; i < 8; i++) { const cand = new Date(Date.now() + i * 864e5); const pp = _parisParts(cand); if (pp.weekday === weekday && (i > 0 || pp.hour < hour)) return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(cand) + ' à ' + String(hour).padStart(2, '0') + 'h00'; } return '—'; }
 function _freshWeekly() { try { return ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; } catch { return null; } }
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+//  MOTEUR DE CONTEXTE NEWSLETTER — lit l'etat REEL du desk et le condense pour les mails intelligents.
+//  Aucune donnee inventee : agrege calendrier live (_buildTVCalendar) + Smart Bias + Risk Sentiment +
+//  Currency Strength + rapports (recap hebdo / quotidien). Consomme par les build*() de la campagne.
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+// Classe un titre d'evenement calendrier vers sa famille pedagogique (regex validees vs titres reels TV+FF).
+const _CAL_FAMILY = [
+  { re: /\bcore\s+pce\b/i, indicator: 'Core PCE', family: 'Inflation' },
+  { re: /^(?!.*\bcore\b)(?:\bpce\b|personal consumption expenditure)/i, indicator: 'PCE', family: 'Inflation' },
+  { re: /\bcore\s+(?:cpi\b|inflation rate\b|consumer price index\b)/i, indicator: 'Core CPI', family: 'Inflation' },
+  { re: /^(?!.*\bcore\b)(?:\bcpi\b|inflation rate\b|consumer price index\b)/i, indicator: 'CPI', family: 'Inflation' },
+  { re: /\bppi\b|producer price index/i, indicator: 'PPI', family: 'Inflation' },
+  { re: /\badp\b/i, indicator: 'ADP', family: 'Emploi' },
+  { re: /^(?!.*\badp\b)non.?farm\s+(?:payrolls?|employment change)/i, indicator: 'NFP', family: 'Emploi' },
+  { re: /\bunemployment rate\b/i, indicator: 'Taux de chomage', family: 'Emploi' },
+  { re: /average hourly earnings/i, indicator: 'Salaire horaire', family: 'Emploi' },
+  { re: /\bjolts?\b/i, indicator: 'JOLTS', family: 'Emploi' },
+  { re: /\bism\s+manufacturing\s+pmi\b/i, indicator: 'ISM Manufacturier', family: 'Croissance' },
+  { re: /\bism\s+(?:services|non-?manufacturing)\s+pmi\b/i, indicator: 'ISM Services', family: 'Croissance' },
+  { re: /\bgdp\b|gross domestic product/i, indicator: 'PIB', family: 'Croissance' },
+  { re: /retail sales/i, indicator: 'Ventes au detail', family: 'Croissance' },
+  { re: /fed interest rate decision|federal funds rate|\bfomc\s+(?:statement|economic projections|press conference|rate)\b|interest rate decision|rate decision\b/i, indicator: 'Décision de taux', family: 'Politique monetaire' },
+];
+function _calClassify(title) { const t = String(title || ''); for (const m of _CAL_FAMILY) { if (m.re.test(t)) return { indicator: m.indicator, family: m.family }; } return null; }
+// Theme dominant de la semaine (priorite banque centrale > inflation > emploi > croissance > risque > calme).
+function _deskTheme(upcoming, riskData) {
+  const highFams = new Set((upcoming || []).filter(e => e.impact === 'High').map(e => e.family).filter(Boolean));
+  const allFams = new Set((upcoming || []).map(e => e.family).filter(Boolean));
+  const has = f => highFams.has(f) || allFams.has(f);
+  if (has('Politique monetaire')) return 'rates';
+  if (has('Inflation')) return 'inflation';
+  if (has('Emploi')) return 'jobs';
+  if (has('Croissance')) return 'growth';
+  if (riskData && typeof riskData.pct === 'number' && Math.abs(riskData.pct) >= 40) return 'risk';
+  return 'calm';
+}
+// Biais du desk (Smart Bias) -> [{ccy,label,signal}] tries par conviction, non-neutres seulement.
+function _deskBias() {
+  try {
+    const conc = _smartBias && _smartBias.conclusion; if (!conc) return [];
+    const M = { 'Very Bullish': ['Très haussier', 'BUY', 2], 'Bullish': ['Haussier', 'BUY', 1], 'Weak Bullish': ['Légèrement haussier', 'BUY', 1], 'Uptrend': ['Haussier', 'BUY', 1], 'Very Bearish': ['Très baissier', 'SELL', 2], 'Bearish': ['Baissier', 'SELL', 1], 'Weak Bearish': ['Légèrement baissier', 'SELL', 1], 'Downtrend': ['Baissier', 'SELL', 1] };
+    return Object.entries(conc).map(([ccy, v]) => { const m = M[v]; return m ? { ccy, label: m[0], signal: m[1], conv: m[2] } : { ccy, label: 'Neutre', signal: 'NEUTRAL', conv: 0 }; })
+      .filter(x => x.conv > 0).sort((a, b) => b.conv - a.conv).slice(0, 4);
+  } catch { return []; }
+}
+// Rapport QUOTIDIEN le plus frais (DTP Daily « Point Marché » ou FX Daily Recap) -> {summary, insights}.
+function _freshDaily() {
+  try {
+    const items = (allNews || []).filter(i => i && (i._dtpd || i._fxr)).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+    for (const it of items) {
+      if (it._dtpd && it._dtpd.summary) return { kind: 'dtpd', summary: it._dtpd.summary, insights: [] };
+      if (it._fxr && (it._fxr.summary || (it._fxr.insights || []).length)) return { kind: 'fxr', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 2) : [] };
+    }
+  } catch {}
+  return null;
+}
+const _THEME_FR = { rates: 'Banques centrales', inflation: 'Inflation', jobs: 'Emploi', growth: 'Croissance', risk: 'Volatilité et risque', calm: 'Marché calme' };
+// Snapshot complet consomme par les mails. ASYNC (calendrier live). Ne jette jamais.
+async function _deskContext() {
+  const now = Date.now();
+  let cal = [];
+  try { cal = (await _buildTVCalendar()) || []; } catch {}
+  if (!cal.length) { try { cal = _overlayActuals(getCalendarRaw()) || []; } catch {} }
+  const weekEnd = now + 7 * 864e5;
+  const _dayLabel = ts => { try { return new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }).format(new Date(ts)).replace(/\./g, ''); } catch { return ''; } };
+  const upcoming = (cal || [])
+    .filter(e => e && (e.timestamp || 0) >= now && (e.timestamp || 0) <= weekEnd && (e.impact === 'High' || e.impact === 'Medium'))
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+    .map(e => { const f = _calClassify(e.title); return { ts: e.timestamp, time: e.time || '', dayLabel: _dayLabel(e.timestamp), ccy: e.currency || '', impact: e.impact, title: e.title || '', forecast: e.forecast || '', previous: e.previous || '', family: f && f.family, indicator: f && f.indicator }; });
+  const theme = _deskTheme(upcoming, _riskData);
+  // Currency Strength 24h : classement fort -> faible
+  let cs = null;
+  try {
+    const d = _csCache && _csCache['1d'] && _csCache['1d'].data;
+    if (d && d.series && Array.isArray(d.currencies)) {
+      const lastV = c => { const a = (d.series[c] || []).filter(x => x && x.v != null); return a.length ? a[a.length - 1].v : null; };
+      const ranked = d.currencies.map(c => [c, lastV(c)]).filter(x => x[1] != null).sort((a, b) => b[1] - a[1]);
+      if (ranked.length >= 3) cs = { ranked: ranked.map(r => r[0]), strong: ranked.slice(0, 2).map(r => ({ ccy: r[0] })), weak: ranked.slice(-2).reverse().map(r => ({ ccy: r[0] })) };
+    }
+  } catch {}
+  let risk = null;
+  if (_riskData && typeof _riskData.pct === 'number') { const p = _riskData.pct; risk = { pct: p, label: p >= 15 ? 'Risk-on (appétit pour le risque)' : p <= -15 ? 'Risk-off (aversion au risque)' : 'Neutre' }; }
+  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), weekAhead: _weekAhead };
+}
+// Anti-redondance Decryptage : historique durable des concepts couverts (KV campaign:decrypt-history).
+async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
+async function _decryptMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:decrypt-history', h.slice(-12)); } catch {} }
 
 let _campSchedule = { active: false, weekday: 0, hour: 18, lastSentWeek: null, launchedAt: null };
 (async () => { try { const s = await auth.aiCacheGet('campaign:schedule', 366 * 864e5); if (s && typeof s === 'object') _campSchedule = Object.assign(_campSchedule, s); } catch {} })();
@@ -12682,10 +12770,12 @@ async function _reconcileSent(campaigns) {
 }
 setTimeout(() => { _reconcileSent(['intro-v1']).catch(() => {}); }, 60000);   // 1 min apres le boot
 
-// Apercu HTML d'un e-mail de campagne (rendu dans une iframe de l'admin). ?type=intro|weekly
-app.get('/api/admin/campaign-preview', requireAdmin, (req, res) => {
+// Apercu HTML d'un e-mail de campagne (rendu dans une iframe de l'admin). ?type=intro|decryptage|pointmarche|weekly
+// &member=1 -> variante MEMBRE (CTA/PS adaptes). Decryptage + Point marche = data-driven (contexte desk live).
+app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
   try {
     const type = String(req.query.type || 'intro');
+    const isMember = req.query.member === '1';
     const sample = { name: 'Muhammed', email: 'apercu@datatradingpro.com' };
     let m = null;
     if (type === 'weekly') {
@@ -12693,7 +12783,13 @@ app.get('/api/admin/campaign-preview', requireAdmin, (req, res) => {
       m = weekly ? mailer.buildWeeklyDigest({ name: sample.name, email: sample.email, campaign: 'weekly-preview', weekly }) : null;
       if (!m) return res.type('html').send('<div style="font-family:-apple-system,Segoe UI,sans-serif;padding:48px 24px;color:#8b93a1;background:#0a0a0c;text-align:center;">Le « Point de la semaine » s\'affichera ici dès la prochaine génération du Récap Hebdo.</div>');
     } else if (type === 'decryptage') {
-      m = mailer.buildCampaignDecryptage({ name: sample.name, email: sample.email, campaign: 'decryptage-preview' });
+      const context = await _deskContext();
+      const recentKeys = await _decryptRecentKeys(4);
+      m = mailer.buildCampaignDecryptage({ name: sample.name, email: sample.email, campaign: 'decryptage-preview', context, recentKeys, isMember });
+    } else if (type === 'pointmarche') {
+      const context = await _deskContext();
+      m = mailer.buildCampaignPointMarche({ name: sample.name, email: sample.email, campaign: 'pointmarche-preview', context, isMember });
+      if (!m) return res.type('html').send('<div style="font-family:-apple-system,Segoe UI,sans-serif;padding:48px 24px;color:#8b93a1;background:#0a0a0c;text-align:center;">Le « Point marché » s\'affichera dès que le desk aura des données (rapport quotidien, biais ou calendrier).</div>');
     } else {
       m = mailer.buildCampaignIntro({ name: sample.name, email: sample.email, campaign: 'intro-preview' });
     }
@@ -12721,13 +12817,16 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
     const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
     const plain = req.query.plain === '1';   // version texte pure (max Principale, sans suivi)
     const tpl = String(req.query.tpl || 'intro');
+    const isMember = req.query.member === '1';   // teste la variante membre (CTA/PS adaptes)
     let provider = null, err = null;
     try {
-      if (tpl === 'decryptage') provider = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test' });
+      if (tpl === 'decryptage') { const context = await _deskContext(); const recentKeys = await _decryptRecentKeys(4); const r = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context, recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
+      else if (tpl === 'pointmarche') { const context = await _deskContext(); provider = await mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context, isMember }); }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }
-    return res.json({ ok: !!provider, test: true, tpl, plain, to, provider: provider || null, error: err,
-      note: 'Test envoye a l\'admin uniquement' + (tpl === 'decryptage' ? ' (Decryptage, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)') + '. Aucun client touche.' });
+    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
+    return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
+      note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' — AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }
 
   let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }
