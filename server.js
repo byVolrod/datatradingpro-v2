@@ -198,7 +198,7 @@ function _wsUserIdFromReq(req) {
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail)
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
 
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
@@ -12289,6 +12289,90 @@ app.get('/api/admin/campaign-audience', requireAdmin, async (_req, res) => {
     const a = await _campaignAudience();
     res.json({ ok: true, report: a.report, recipients: a.recipients.map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })) });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// ─── Desinscription (opt-out) — PUBLIC (lien dans les mails de campagne) ────────
+// Jeton HMAC verifie (mailer.unsubToken) → on ne peut pas desabonner un tiers en devinant l'URL.
+// Marque unsub:<email> dans email_log (DURABLE Supabase + fichier) → la campagne saute cet email.
+// N'affecte PAS les mails transactionnels (acces / securite / renouvellement) — seulement le marketing.
+// Idempotent. Repond en HTML (page de confirmation aux couleurs de la marque).
+function _unsubPage(title, msg, ok) {
+  return `<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${title} — DataTradingPro</title></head>
+  <body style="margin:0;background:#0a0a0c;font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:#cbd5e1;">
+    <div style="max-width:520px;margin:60px auto;padding:34px;background:#111114;border:1px solid #26262b;border-radius:14px;text-align:center;">
+      <div style="font-size:22px;font-weight:800;color:#fff;letter-spacing:-.02em;">Data<span style="color:#e3b23a;">Trading</span>Pro</div>
+      <div style="font-size:40px;margin:20px 0 10px;">${ok ? '&#9989;' : '&#9888;&#65039;'}</div>
+      <h1 style="font-size:18px;color:#fff;margin:0 0 10px;">${title}</h1>
+      <p style="font-size:14px;line-height:1.65;color:#9aa3b2;margin:0;">${msg}</p>
+      <a href="https://datatradingpro.com" style="display:inline-block;margin-top:24px;color:#e3b23a;text-decoration:none;font-size:13px;">Retour sur datatradingpro.com</a>
+    </div></body></html>`;
+}
+app.get('/api/unsubscribe', async (req, res) => {
+  const email = String(req.query.e || '').toLowerCase().trim();
+  const token = String(req.query.t || '');
+  if (!email || !token || token !== mailer.unsubToken(email)) {
+    return res.status(400).type('html').send(_unsubPage('Lien invalide',
+      'Ce lien de d&eacute;sinscription est invalide ou incomplet. &Eacute;crivez-nous &agrave; ' + (process.env.SUPPORT_EMAIL || 'contact@datatradingpro.com') + ' pour &ecirc;tre retir&eacute; de la liste.', false));
+  }
+  try { await auth.emailLogAdd('unsub:' + email); } catch (e) { console.error('[Unsub]', e.message); }
+  console.log('[Unsub] desinscription →', email);
+  res.type('html').send(_unsubPage('Vous &ecirc;tes d&eacute;sabonn&eacute;',
+    'L\'adresse <strong style="color:#fff;">' + email.replace(/[<>&"']/g, '') + '</strong> ne recevra plus nos emails de campagne. Vos emails de compte (acc&egrave;s, s&eacute;curit&eacute;) restent actifs. Un doute&nbsp;? &Eacute;crivez &agrave; ' + (process.env.SUPPORT_EMAIL || 'contact@datatradingpro.com') + '.', true));
+});
+
+// ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
+// L'envoi REEL est declenche par l'admin depuis son navigateur — JAMAIS automatique.
+//   (aucun param) → APERCU : compte + echantillon, RIEN envoye.
+//   ?test=1[&to=]  → envoie UNIQUEMENT a l'admin (volrod.dev par defaut) — valider le rendu. Aucun marqueur ecrit.
+//   ?send=1        → ENVOI REEL a toute l'audience (163) en arriere-plan, sequentiel + throttle.
+//                    Anti-doublon DURABLE via email_log (campaign:<id>:<email>) → re-executable sans doublon.
+//                    Saute : blacklist (deja hors audience) + desinscrits (unsub:<email>).
+//   ?force=1       → ignore l'anti-doublon (renvoi force).   ?status=1 → progression du dernier envoi.
+const CAMPAIGN_ID  = 'intro-v1';
+const _CAMP_TEST_TO = (process.env.CAMPAIGN_TEST_EMAIL || 'volrod.dev@gmail.com').toLowerCase();
+let _campaignSend = { running: false, campaign: CAMPAIGN_ID, eligible: 0, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: null, finishedAt: null };
+app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
+  if (req.query.status === '1') return res.json(_campaignSend);
+  const test = req.query.test === '1', send = req.query.send === '1', force = req.query.force === '1';
+
+  // ── TEST : envoi immediat a l'admin SEUL (aucune audience, aucun marqueur → re-testable) ──
+  if (test) {
+    const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
+    let provider = null, err = null;
+    try { provider = await mailer.sendCampaignIntro({ to, name: '' }); } catch (e) { err = e.message; }
+    return res.json({ ok: !!provider, test: true, to, provider: provider || null, error: err,
+      note: 'Test envoye a l\'admin uniquement. Aucun marqueur ecrit, aucun client touche.' });
+  }
+
+  let audience; try { audience = await _campaignAudience(); } catch (e) { return res.status(500).json({ error: e.message }); }
+  const recipients = audience.recipients;
+  if (!send) {
+    return res.json({ dryRun: true, campaign: CAMPAIGN_ID, report: audience.report,
+      sample: recipients.slice(0, 25).map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })),
+      hint: `Apercu — RIEN envoye. ?test=1 = test a l'admin. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
+  }
+  if (_campaignSend.running) return res.status(409).json({ error: 'Un envoi de campagne est deja en cours.', state: _campaignSend });
+
+  // ── ENVOI REEL → reponse immediate (ne peut pas attendre N×throttle), puis envoi en fond ──
+  _campaignSend = { running: true, campaign: CAMPAIGN_ID, eligible: recipients.length, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: Date.now(), finishedAt: null };
+  res.json({ started: true, campaign: CAMPAIGN_ID, eligible: recipients.length, note: 'Envoi lance en arriere-plan. Suivi : ?status=1.' });
+  const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
+  (async () => {
+    for (const r of recipients) {
+      const email = r.email;
+      const marker = 'campaign:' + CAMPAIGN_ID + ':' + email;
+      try { if (await auth.emailLogHas('unsub:' + email)) { _campaignSend.unsub++; continue; } } catch {}
+      if (!force) { try { if (await auth.emailLogHas(marker)) { _campaignSend.skipped++; continue; } } catch {} }
+      try {
+        const provider = await mailer.sendCampaignIntro({ to: email, name: r.name || '' });
+        if (provider) { _campaignSend.sent++; try { await auth.emailLogAdd(marker); } catch {} }
+        else _campaignSend.failed++;
+      } catch { _campaignSend.failed++; }
+      if (throttle) await new Promise(rr => setTimeout(rr, throttle));
+    }
+    _campaignSend.running = false; _campaignSend.finishedAt = Date.now();
+    console.log(`[Campagne ${CAMPAIGN_ID}] envoyes=${_campaignSend.sent} deja=${_campaignSend.skipped} desab=${_campaignSend.unsub} echecs=${_campaignSend.failed} / ${recipients.length} cible(s)`);
+  })().catch(e => { _campaignSend.running = false; _campaignSend.finishedAt = Date.now(); console.error('[Campagne] erreur:', e.message); });
 });
 
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
