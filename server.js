@@ -12423,7 +12423,24 @@ let _campaignStats = {};
 let _statsTimer = null;
 function _statsFlush() {
   clearTimeout(_statsTimer);
-  _statsTimer = setTimeout(() => { auth.aiCacheSet('campaign:stats', _campaignStats).catch(() => {}); }, 4000);
+  _statsTimer = setTimeout(async () => {
+    try {
+      // FUSION avant ecriture : un envoi lance dans un AUTRE process (ex. docker exec) ecrit sent{} dans le KV ;
+      // sans fusion, le flush d'une ouverture (memoire sans sent{}) ecraserait ces envois. On unionne remote→local.
+      const remote = await auth.aiCacheGet('campaign:stats', 366 * 86400000);
+      if (remote && typeof remote === 'object') {
+        for (const cid of Object.keys(remote)) {
+          if (cid === '_unsub') { _campaignStats._unsub = Object.assign({}, remote._unsub, _campaignStats._unsub || {}); continue; }
+          const r = remote[cid]; if (!r || typeof r !== 'object') continue;
+          const m = _campaignStats[cid] || (_campaignStats[cid] = { sent: {}, opens: {}, clicks: {} });
+          m.sent = Object.assign({}, r.sent, m.sent);
+          m.opens = Object.assign({}, r.opens, m.opens);
+          m.clicks = Object.assign({}, r.clicks, m.clicks);
+        }
+      }
+      await auth.aiCacheSet('campaign:stats', _campaignStats);
+    } catch {}
+  }, 4000);
   if (_statsTimer.unref) _statsTimer.unref();
 }
 function _statCampaign(c) { const id = String(c || 'intro-v1'); if (!_campaignStats[id]) _campaignStats[id] = { sent: {}, opens: {}, clicks: {} }; return _campaignStats[id]; }
