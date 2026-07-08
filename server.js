@@ -12428,7 +12428,7 @@ const _ACTU_CATS = {
     ],
   },
   'taux-obligations': {
-    title: 'Taux & obligations : rendements et Treasuries en direct', h1: 'Taux et obligations',
+    title: 'Taux & obligations : rendements et Treasuries', h1: 'Taux et obligations',
     desc: 'Rendements obligataires, dette souveraine et marchés de taux (US Treasuries, Bund, OAT, Gilts, JGB) et leur impact sur le forex — en direct, en français.',
     cats: new Set(['Fixed Income']),
     // titres en anglais (non traduits) → on capte aussi tout ce qui parle de taux/obligations, quelle que soit la catégorie source
