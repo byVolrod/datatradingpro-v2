@@ -375,11 +375,22 @@ app.post('/api/auth/forgot-password', (req, res) => {
     try {
       const users = await auth.getAllUsers();
       const u = users.find(x => (x.email || '').toLowerCase() === email);
-      if (u) {   // suffit que l'email existe en BDD (même si abonnement suspendu/expiré)
-        const temp = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
-        await auth.changePassword(u.id, temp);
-        mailer.sendPasswordReset({ to: u.email, name: u.name, password: temp }).catch(() => {});
-        console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email}`);
+      if (u) {
+        // SÉCURITÉ : réinitialisation RÉSERVÉE aux abonnements ACTIFS (staff toujours OK). Un compte
+        // suspendu/expiré reçoit un e-mail « abonnement inactif » (aucun mot de passe n'est régénéré).
+        const _staff = u.role === 'admin' || u.role === 'support';
+        const _expMs = u.expires_at ? new Date(u.expires_at).getTime() : null;
+        const _GRACE = 24 * 60 * 60 * 1000;   // même tolérance que la connexion (renouvellement en cours)
+        const _active = _staff || (u.active !== false && (!_expMs || _expMs + _GRACE >= Date.now()));
+        if (_active) {
+          const temp = require('crypto').randomBytes(9).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(0, 10) + 'A1';
+          await auth.changePassword(u.id, temp);
+          mailer.sendPasswordReset({ to: u.email, name: u.name, password: temp }).catch(() => {});
+          console.log(`[Auth] Mot de passe réinitialisé (forgot) → ${u.email}`);
+        } else {
+          mailer.sendForgotNoSub({ to: u.email, name: u.name }).catch(() => {});
+          console.log(`[Auth] forgot REFUSÉ (abonnement inactif) → ${u.email} — e-mail de réactivation envoyé`);
+        }
       } else {
         _recentForgot.delete(email);   // email inexistant → on libère le verrou (aucun reset effectué)
       }
