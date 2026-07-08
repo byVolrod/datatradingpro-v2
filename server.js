@@ -12250,6 +12250,47 @@ app.get('/internal/email-campaign', (_req, res) => {
   catch (e) { res.status(500).send('Aperçu campagne indisponible: ' + e.message); }
 });
 
+// ── Audience de la CAMPAGNE e-mail : UNION DÉDUPLIQUÉE (comptes DTP clients + memberships Whop valides),
+//    moins la blacklist et les adresses invalides. Chaque personne = 1 SEULE fois (dédup par e-mail).
+//    Sert à VÉRIFIER l'audience (zéro doublon) AVANT tout envoi — n'envoie RIEN. Fondation du moteur d'envoi.
+async function _campaignAudience() {
+  const _norm = e => String(e || '').toLowerCase().trim();
+  const _valid = e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+  const byEmail = new Map();
+  let dtpSeen = 0, whopSeen = 0, blacklisted = 0, invalid = 0;
+  const _add = (email, name, source) => {
+    const em = _norm(email);
+    if (!em || !_valid(em)) { invalid++; return; }
+    if (auth.isEmailBlacklisted(em)) { blacklisted++; return; }
+    const cur = byEmail.get(em) || { email: em, name: '', sources: new Set() };
+    cur.sources.add(source);
+    if (!cur.name && name) cur.name = String(name).trim();
+    byEmail.set(em, cur);
+  };
+  try { const users = await auth.getAllUsers(); for (const u of (users || [])) if (u && u.role === 'client') { dtpSeen++; _add(u.email, u.name, 'dtp'); } }
+  catch (e) { console.error('[Campaign audience] DTP:', e.message); }
+  try { if (whop.configured()) { const mem = await whop.listValidMemberships(); for (const m of (mem || [])) { whopSeen++; _add(m.email, m.name, 'whop'); } } }
+  catch (e) { console.error('[Campaign audience] Whop:', e.message); }
+  const recipients = [...byEmail.values()].map(r => ({ email: r.email, name: r.name, sources: [...r.sources] }));
+  return {
+    recipients,
+    report: {
+      total: recipients.length,                                       // destinataires UNIQUES (après dédup)
+      dtpAccounts: dtpSeen, whopMemberships: whopSeen,
+      inBoth: recipients.filter(r => r.sources.length > 1).length,    // présents dans les 2 sources → comptés 1 fois
+      excludedBlacklist: blacklisted, excludedInvalid: invalid,
+    },
+  };
+}
+
+// Aperçu de l'audience (admin) : vérifier qu'il n'y a AUCUN doublon avant d'envoyer. N'envoie RIEN.
+app.get('/api/admin/campaign-audience', requireAdmin, async (_req, res) => {
+  try {
+    const a = await _campaignAudience();
+    res.json({ ok: true, report: a.report, recipients: a.recipients.map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })) });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // Sert le PNG du widget (cache 10 min, régénéré depuis les vraies données). A embarquer dans un mail :
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
