@@ -752,6 +752,26 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
 }
 async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
 
+// Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
+// aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
+// ouvertures/clics : à réserver aux e-mails où le placement prime (ex. bienvenue). Garde la désinscription.
+function buildCampaignIntroPlain({ name, email } = {}) {
+  const prenomRaw = (name || '').split(' ')[0] || '';
+  const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
+  const unsub = unsubUrl(email || '');
+  const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222222;max-width:600px;">
+    <p style="margin:0 0 14px;">${hello}</p>
+    <p style="margin:0 0 14px;">Merci de faire partie de DataTradingPro. Chaque semaine, je vous enverrai un court e-mail pour rendre le marché macro et forex plus lisible, en français : le récap de la semaine, la force des devises et le ton des banques centrales, expliqués simplement — sans jamais vous pousser à prendre position.</p>
+    <p style="margin:0 0 14px;">Vous pouvez explorer le terminal quand vous voulez : <a href="https://datatradingpro.com" style="color:#1a56db;">datatradingpro.com</a></p>
+    <p style="margin:0 0 14px;">À très vite,<br>L'équipe DataTradingPro</p>
+    <p style="margin:18px 0 0;font-size:12px;color:#999999;">Pour ne plus rater nos e-mails, ajoutez contact@datatradingpro.com à vos contacts.<br>
+    <a href="${unsub}" style="color:#999999;">Se désabonner</a></p>
+  </div>`;
+  const subject = (prenomRaw ? prenomRaw + ', bienvenue chez DataTradingPro' : 'Bienvenue chez DataTradingPro');
+  return { subject, html };
+}
+async function sendCampaignIntroPlain(d) { d = d || {}; const m = buildCampaignIntroPlain({ name: d.name, email: d.email || d.to }); return _send(d.to, m.subject, m.html); }
+
 // ── Rappel ADMIN : abonnements à renouveler (envoyé à datatradingpro.contact) ──
 function buildAdminExpiryReminder({ clients }) {
   const rows = (clients || []).map(c => {
@@ -980,7 +1000,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
@@ -989,7 +1009,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
