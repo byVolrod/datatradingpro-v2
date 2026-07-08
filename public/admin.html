@@ -980,7 +980,9 @@
           <span class="ph-spacer"></span>
           <button class="camp-btn camp-btn--send" id="cprev-b-intro" onclick="campPreview('intro')">Intro (bienvenue)</button>
           <button class="camp-btn" id="cprev-b-decryptage" onclick="campPreview('decryptage')">Décryptage</button>
+          <button class="camp-btn" id="cprev-b-pointmarche" onclick="campPreview('pointmarche')">Point marché</button>
           <button class="camp-btn" id="cprev-b-weekly" onclick="campPreview('weekly')">Point de la semaine</button>
+          <label style="margin-left:10px;color:#9aa3b2;font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="cprev-member" onchange="campPreview(window._cprevType||'decryptage')" style="accent-color:#e3b23a;"> vue membre</label>
         </div>
         <div class="panel-body">
           <div style="background:#0a0a0c;border:1px solid #26262b;border-radius:10px;overflow:hidden;">
@@ -1447,8 +1449,11 @@
     } catch {}
   }
   function campPreview(type){
-    const f = document.getElementById('cprev-frame'); if (f) f.src = '/api/admin/campaign-preview?type=' + type + '&_=' + Date.now();
-    ['intro', 'decryptage', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
+    window._cprevType = type;
+    var mem = document.getElementById('cprev-member');
+    var m = (mem && mem.checked) ? '&member=1' : '';
+    const f = document.getElementById('cprev-frame'); if (f) f.src = '/api/admin/campaign-preview?type=' + type + m + '&_=' + Date.now();
+    ['intro', 'decryptage', 'pointmarche', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
   }
   async function campSchedToggle(){
     if (!_campSched) return;
