@@ -12619,13 +12619,16 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
 // <img src="https://desk.datatradingpro.com/api/email-widget/strength.png">
 app.get('/api/email-widget/:type.png', async (req, res) => {
   try {
-    const png = await emailWidget.renderWidgetPng(req.params.type, { period: req.query.period });
+    // renderWidgetPngSafe ne jette JAMAIS : cache frais → derniere bonne image (disque) → placeholder.
+    const png = await emailWidget.renderWidgetPngSafe(req.params.type, { period: req.query.period });
     res.set('Content-Type', 'image/png');
-    res.set('Cache-Control', 'public, max-age=600');
+    res.set('Cache-Control', 'public, max-age=600, stale-while-revalidate=86400');   // les proxys mail servent l'ancienne pendant le refresh
     res.send(png);
   } catch (e) {
+    // Filet ultime : JAMAIS de 500 (= image cassee en mail) → PNG 1x1 transparent en 200.
     console.error('[email-widget]', req.params.type, ':', e.message);
-    res.status(500).json({ error: 'render failed' });
+    res.set('Content-Type', 'image/png').set('Cache-Control', 'public, max-age=60');
+    res.send(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64'));
   }
 });
 
@@ -13750,6 +13753,10 @@ server.listen(PORT, async () => {
   console.log(`╚════════════════════════════════════════╝\n`);
   _swLoadFile();
   _brLoadFile();
+  // Widgets e-mail : pre-chauffe la Force des Devises (image TOUJOURS prete + a jour) au boot + toutes les 9 min
+  // (< TTL 10 min) → aucun rendu a froid quand un client mail charge l'image, jamais d'image cassee.
+  setTimeout(() => emailWidget.prewarm(['meter']).catch(() => {}), 12000);
+  setInterval(() => emailWidget.prewarm(['meter']).catch(() => {}), 9 * 60 * 1000);
   // Recharge l'historique persisté (Supabase, ~1 mois) AVANT de scraper → l'onglet Analyst
   // a déjà du contenu même à froid (disque Render éphémère), puis le scrape rafraîchit.
   await _loadPersistedHistories();

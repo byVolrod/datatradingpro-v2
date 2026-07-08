@@ -24,6 +24,20 @@ const CHROME_PATH = _resolveChromeExec();
 const PORT = process.env.PORT || 3000;
 const BASE = `http://127.0.0.1:${PORT}`;
 
+// ─── Filet ANTI-IMAGE-CASSEE : derniere bonne image par widget, persistee sur DISQUE (survit aux
+// redemarrages). Un mail ne doit JAMAIS afficher une image cassee — meme pendant un rendu lent/echoue
+// ou un redemarrage du conteneur. On sert toujours la derniere bonne image, et on rafraichit en fond.
+const _fs = require('fs');
+const _path = require('path');
+const _WCACHE_DIR = _path.join(process.env.DATA_DIR || __dirname, 'wcache');
+try { _fs.mkdirSync(_WCACHE_DIR, { recursive: true }); } catch {}
+const _lastGood = new Map();      // wk -> png Buffer (JAMAIS expire)
+function _wk(type, period) { return (String(type) + '_' + String(period)).replace(/[^a-z0-9]+/gi, '_'); }
+function _diskPath(wk) { return _path.join(_WCACHE_DIR, wk + '.png'); }
+try { for (const f of _fs.readdirSync(_WCACHE_DIR)) if (f.endsWith('.png')) { try { _lastGood.set(f.slice(0, -4), _fs.readFileSync(_path.join(_WCACHE_DIR, f))); } catch {} } } catch {}
+function _saveLastGood(wk, png) { _lastGood.set(wk, png); try { _fs.writeFile(_diskPath(wk), png, () => {}); } catch {} }
+const _FALLBACK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+
 // Catalogue des widgets rendus (chaque type = une route de rendu + un sélecteur + une taille logique).
 const SPECS = {
   strength:            { path: '/internal/email-widget/strength',          sel: '#box',          w: 600, h: 300 },
@@ -113,6 +127,7 @@ async function renderWidgetPng(type, opts = {}) {
       }
       const png = Buffer.from(shot);
       _cache.set(key, { png, ts: Date.now() });
+      _saveLastGood(_wk(type, period), png);   // memorise la derniere BONNE image (memoire + disque)
       return png;
     } finally {
       await page.close().catch(() => {});
@@ -123,4 +138,23 @@ async function renderWidgetPng(type, opts = {}) {
   return job;
 }
 
-module.exports = { renderWidgetPng, SPECS, CHROME_PATH };
+// Version ROBUSTE pour les e-mails : ne jette JAMAIS, ne bloque jamais le client mail.
+//  cache frais → direct · sinon derniere bonne image (memoire/disque) + rafraichit EN FOND ·
+//  aucune image encore → rendu synchrone · echec → placeholder 1x1 (jamais d'image cassee ni de 500).
+async function renderWidgetPngSafe(type, opts = {}) {
+  if (!SPECS[type]) return _FALLBACK_PNG;
+  const period = String((opts && opts.period) || 'week').replace(/[^a-z0-9]/gi, '') || 'week';
+  const key = type + ':' + period, wk = _wk(type, period);
+  const hit = _cache.get(key);
+  if (hit && Date.now() - hit.ts < TTL) return hit.png;
+  const lg = _lastGood.get(wk);
+  if (lg) { renderWidgetPng(type, opts).catch(() => {}); return lg; }   // sert le dernier bon + refresh fond
+  try { return await renderWidgetPng(type, opts); } catch { return _FALLBACK_PNG; }
+}
+// Pre-chauffe (boot + periodique) : garantit qu'une bonne image est TOUJOURS prete (zero rendu a froid en mail).
+async function prewarm(types) {
+  for (const t of (types && types.length ? types : ['meter'])) {
+    try { await renderWidgetPng(t, {}); } catch (e) { console.warn('[widget prewarm]', t, ':', e && e.message); }
+  }
+}
+module.exports = { renderWidgetPng, renderWidgetPngSafe, prewarm, SPECS, CHROME_PATH };
