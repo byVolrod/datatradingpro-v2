@@ -12518,7 +12518,7 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // Point marche = milieu de semaine, Decryptage/Mindset = evergreen (jour libre), Alerte BC = evenementiel.
 const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue — introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Presentation du terminal + ce qui sera recu chaque semaine.' },
-  { id: 'decryptage',    week: 2,    title: 'Decryptage : un concept explique',     pillar: 'Educatif',     status: 'planned', when: 'Mardi ~8h · évergreen (aucune dépendance données)',        desc: 'Un mecanisme cle rendu simple (ex. CPI vs Core CPI).' },
+  { id: 'decryptage',    week: 2,    title: 'Decryptage : lire les grandes annonces eco', pillar: 'Educatif', status: 'ready',   when: 'Mardi ~8h · évergreen (aucune dépendance données)',        desc: 'Le decodeur des annonces majeures (CPI, NFP, PCE, FOMC...) par famille + « sert a anticiper ».' },
   { id: 'point-hebdo',   week: 3,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'planned', when: 'Mercredi ~8h · données marché (DTP Daily 12h, FX 22h30)',  desc: 'Ce qui a bouge (macro/forex), priorise par impact.' },
   { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'planned', when: 'Samedi ~10h · évergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
   { id: 'recap-hebdo',   week: 5,    title: 'Recap Hebdo',                          pillar: 'Recap',        status: 'planned', when: 'Dimanche 18h · Récap généré samedi 02h — CRÉNEAU AUTO ACTUEL', desc: 'La retrospective de la semaine, facon desk.' },
@@ -12692,6 +12692,8 @@ app.get('/api/admin/campaign-preview', requireAdmin, (req, res) => {
       const weekly = _freshWeekly();
       m = weekly ? mailer.buildWeeklyDigest({ name: sample.name, email: sample.email, campaign: 'weekly-preview', weekly }) : null;
       if (!m) return res.type('html').send('<div style="font-family:-apple-system,Segoe UI,sans-serif;padding:48px 24px;color:#8b93a1;background:#0a0a0c;text-align:center;">Le « Point de la semaine » s\'affichera ici dès la prochaine génération du Récap Hebdo.</div>');
+    } else if (type === 'decryptage') {
+      m = mailer.buildCampaignDecryptage({ name: sample.name, email: sample.email, campaign: 'decryptage-preview' });
     } else {
       m = mailer.buildCampaignIntro({ name: sample.name, email: sample.email, campaign: 'intro-preview' });
     }
@@ -12718,10 +12720,14 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
   if (test) {
     const to = String(req.query.to || _CAMP_TEST_TO).toLowerCase().trim();
     const plain = req.query.plain === '1';   // version texte pure (max Principale, sans suivi)
+    const tpl = String(req.query.tpl || 'intro');
     let provider = null, err = null;
-    try { provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' }); } catch (e) { err = e.message; }
-    return res.json({ ok: !!provider, test: true, plain, to, provider: provider || null, error: err,
-      note: 'Test envoye a l\'admin uniquement' + (plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)') + '. Aucun client touche.' });
+    try {
+      if (tpl === 'decryptage') provider = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test' });
+      else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
+    } catch (e) { err = e.message; }
+    return res.json({ ok: !!provider, test: true, tpl, plain, to, provider: provider || null, error: err,
+      note: 'Test envoye a l\'admin uniquement' + (tpl === 'decryptage' ? ' (Decryptage, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)') + '. Aucun client touche.' });
   }
 
   let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }
