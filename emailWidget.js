@@ -27,6 +27,7 @@ const BASE = `http://127.0.0.1:${PORT}`;
 // Catalogue des widgets rendus (chaque type = une route de rendu + un sélecteur + une taille logique).
 const SPECS = {
   strength:            { path: '/internal/email-widget/strength',          sel: '#box',          w: 600, h: 300 },
+  meter:               { path: '/internal/email-widget/meter',             sel: '#meter-wrap',   w: 640, h: 440 },
   regime:              { path: '/internal/email-widget/regime',            sel: '#risk-widget',  w: 600, h: 360 },
   'strength-snapshot': { path: '/internal/email-widget/strength-snapshot', sel: '#box',          w: 600, h: 380 },
   'risk-history':      { path: '/internal/email-widget/risk-history',      sel: '#box',          w: 600, h: 210 },

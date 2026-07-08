@@ -11657,6 +11657,40 @@ app.get('/internal/email-widget/strength', async (req, res) => {
 </body></html>`);
 });
 
+// Baromètre des Devises (buildMeterChart, charts.js) = l'ÉGALISEUR segmenté bidirectionnel du desk (onglet
+// METER, #chart-meter), PAS le graphe multi-lignes (onglet FORCE). Demande user (08/07) : « le vrai Baromètre
+// des Devises est l'égaliseur ». Rendu du VRAI buildMeterChart avec données injectées + window.fetch interceptée
+// (le widget self-fetch /api/currency-strength) ; on FORCE le rendu desktop (les media queries mobiles réduisent
+// les briques / masquent les drapeaux à faible largeur de viewport).
+app.get('/internal/email-widget/meter', async (req, res) => {
+  let data = null;
+  try { data = await computeCurrencyStrength('today'); } catch (e) {}
+  if (!data || !Array.isArray(data.currencies) || !data.currencies.length) { try { data = await computeCurrencyStrength('week'); } catch (e) {} }
+  if (!data) data = { currencies: [], series: {}, updatedAt: null };
+  res.set('Cache-Control', 'no-store');
+  res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link rel="stylesheet" href="/css/style.css">
+<script src="/js/charts.js"></script>
+<style>html,body{margin:0;padding:0;background:#0d0e11}
+#meter-wrap{width:640px;height:440px;display:flex;flex-direction:column;box-sizing:border-box;background:#0d0e11}
+#chart-meter{flex:1;min-height:0}
+#chart-meter .meter-flag-img{display:block!important;height:14px!important;width:14px!important}
+#chart-meter .meter-brick{min-height:5px!important}
+#chart-meter .meter-col-head{font-size:11px!important;gap:6px!important;padding-bottom:10px!important}
+#chart-meter .meter-col-val{font-size:10px!important;padding-top:9px!important}
+#chart-meter.meter-grid{gap:6px!important;padding:10px 12px 14px!important}</style>
+</head><body><div id="meter-wrap"><div id="chart-meter"></div></div>
+<script>
+window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};
+(function(){
+  var _f=window.fetch;
+  window.fetch=function(u){ try{ if(String(u).indexOf('currency-strength')>=0){ return Promise.resolve({ok:true,json:function(){return Promise.resolve(window.__DATA);}}); } }catch(e){} return _f.apply(this,arguments); };
+  function go(){try{if(typeof buildMeterChart!=='function'){return setTimeout(go,120);}buildMeterChart();setTimeout(function(){window.__ready=true;},1000);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();
+})();
+</script>
+</body></html>`);
+});
+
 // Régime de Marché (jauge radar risk-on/risk-off) — vrai buildRiskGauge() du desk, données injectées.
 app.get('/internal/email-widget/regime', async (req, res) => {
   let risk = null;
