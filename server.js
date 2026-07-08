@@ -1274,9 +1274,15 @@ app.post('/api/whop/webhook', async (req, res) => {
     if (typeof memId === 'string' && memId.startsWith('mem_')) mem = await whop.getMembership(memId);
     if (!mem && data.email) mem = await whop.getMembershipByEmail(data.email);
     if (!mem || !mem.email) { console.warn('[Whop] webhook sans membership exploitable:', action); return; }
-    const invalidEvent = /invalid|cancel|expire|fail|refund|chargeback|terminat/.test(action);
+    const invalidEvent = /invalid|cancel|expire|fail|refund|chargeback|terminat|ban|block|dispute|fraud/.test(action);
+    // MAUVAIS ACTEUR (remboursement, chargeback, litige, ban, terminaison, fraude) → blacklist AUTO. Un simple
+    // cancel/expire = churn normal → seulement suspendu (GARDE pour le win-back, cf systeme churn/audience).
+    const banEvent = /refund|chargeback|terminat|ban|block|dispute|fraud/.test(action);
     if (mem.valid && !invalidEvent) await _whopRenewOrCreate(mem);
-    else                            await _whopSuspend(mem.email);
+    else {
+      await _whopSuspend(mem.email);
+      if (banEvent) { try { auth.blacklistEmail(mem.email); console.log('[Whop] AUTO-BLACKLIST (event "' + action + '") →', mem.email); } catch (e) { console.error('[Whop] blacklist auto:', e.message); } }
+    }
   } catch (e) { console.error('[Whop] webhook:', e.message); }
 });
 
