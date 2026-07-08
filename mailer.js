@@ -22,6 +22,7 @@ function _ipv4Lookup(host, opts, cb) {
   if (typeof opts === 'function') { cb = opts; opts = {}; }
   return dns.lookup(host, Object.assign({}, opts, { family: 4 }), cb);
 }
+const crypto = require('crypto');
 
 const RESEND_API_KEY     = process.env.RESEND_API_KEY || '';
 const MAILJET_API_KEY    = process.env.MAILJET_API_KEY || '';
@@ -655,6 +656,89 @@ function buildAnnouncementV2({ name } = {}) {
 }
 async function sendAnnouncementV2(d) { const m = buildAnnouncementV2(d || {}); return _send(d.to, m.subject, m.html); }
 
+// ══════════════════════════════════════════════════════════════════════════════
+//  CAMPAGNE HEBDO — mail d'introduction (1er de la sequence) + desinscription reelle
+// ══════════════════════════════════════════════════════════════════════════════
+const LANDING_URL   = process.env.LANDING_URL || 'https://datatradingpro.com';
+const _UNSUB_SECRET = process.env.UNSUB_SECRET || process.env.SESSION_SECRET || 'dtp-unsub-v1';
+// Jeton HMAC lie a l'email : empeche qu'un tiers desabonne quelqu'un d'autre en devinant l'URL.
+// server.js verifie le meme jeton (mailer.unsubToken) avant de supprimer.
+function unsubToken(email) {
+  return crypto.createHmac('sha256', _UNSUB_SECRET).update(String(email || '').toLowerCase().trim()).digest('hex').slice(0, 16);
+}
+function unsubUrl(email) {
+  const e = String(email || '').toLowerCase().trim();
+  return `${APP_URL}/api/unsubscribe?e=${encodeURIComponent(e)}&t=${unsubToken(e)}`;
+}
+
+// Gabarit CAMPAGNE — identite landing (or #e3b23a, pas l'orange transactionnel) + pied de desinscription.
+function _campaignLayout(title, bodyHtml, unsub) {
+  return `<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${_esc(title)}</title></head>
+<body style="margin:0;padding:0;background:#0a0a0c;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0a0a0c;padding:32px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#111114;border:1px solid #26262b;border-radius:14px;overflow:hidden;">
+        <tr><td style="padding:26px 34px 18px;border-bottom:1px solid #1f1f24;">
+          <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">Data<span style="color:#e3b23a;">Trading</span>Pro</div>
+          <div style="font-size:12px;font-weight:600;color:#e3b23a;margin-top:5px;letter-spacing:.02em;">Terminal macro &amp; forex, en fran&ccedil;ais</div>
+        </td></tr>
+        <tr><td style="padding:26px 34px;color:#cbd5e1;font-size:15px;line-height:1.66;">
+          ${bodyHtml}
+        </td></tr>
+        <tr><td style="padding:18px 34px;border-top:1px solid #1f1f24;color:#6b7280;font-size:12px;line-height:1.6;">
+          DataTradingPro &middot; terminal de news &amp; d'analyse de march&eacute;.<br>
+          Une question&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#e3b23a;text-decoration:none;">${SUPPORT_EMAIL}</a>
+        </td></tr>
+      </table>
+      <div style="color:#4b5563;font-size:11px;margin-top:14px;line-height:1.7;max-width:600px;">
+        Vous recevez cet email en tant que membre de l'&eacute;cosyst&egrave;me DataTradingPro (JustOneTrader).<br>
+        <a href="${unsub}" style="color:#8b93a1;text-decoration:underline;">Se d&eacute;sabonner en un clic</a>
+      </div>
+    </td></tr>
+  </table>
+</body></html>`;
+}
+function _campaignBtn(label, url) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:22px 0;"><tr>
+    <td style="background:#e3b23a;border-radius:10px;">
+      <a href="${url}" style="display:inline-block;padding:13px 30px;color:#0a0a0c;font-weight:700;font-size:14px;text-decoration:none;">${_esc(label)}</a>
+    </td></tr></table>`;
+}
+
+// Mail d'INTRODUCTION de la campagne hebdomadaire (1er de la sequence). Audience = clients DTP + clients
+// Whop (JustOneTrader). INFORMATIF : presente le terminal et ce qui sera recu chaque semaine, ne pousse
+// AUCUNE position. Widget Force des Devises en direct (PNG servi par le desk). Desinscription en pied.
+function buildCampaignIntro({ name, email } = {}) {
+  const prenom = _esc((name || '').split(' ')[0] || '');
+  const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+  const unsub  = unsubUrl(email || '');
+  const sender = _esc(_parseFrom().email);
+  const body = `
+    <p style="margin:0 0 16px;font-size:16px;color:#ffffff;font-weight:600;">${hello}</p>
+    <p style="margin:0 0 16px;">Bienvenue dans les coulisses de <strong style="color:#e3b23a;">DataTradingPro</strong>, le terminal qui rend le march&eacute; <strong>macro &amp; forex</strong> lisible, en fran&ccedil;ais, dans une interface fa&ccedil;on salle de march&eacute;.</p>
+    <p style="margin:0 0 10px;">&Agrave; partir d'aujourd'hui, vous recevrez <strong>chaque semaine</strong> un email court et concret&nbsp;:</p>
+    <ul style="margin:0 0 20px;padding-left:20px;color:#cbd5e1;">
+      <li style="margin:5px 0;"><strong style="color:#fff;">Le R&eacute;cap Hebdo</strong>&nbsp;: ce qui a compt&eacute; sur les march&eacute;s, prioris&eacute; par impact.</li>
+      <li style="margin:5px 0;"><strong style="color:#fff;">La Force des Devises</strong>&nbsp;: quelles monnaies dominent, lesquelles faiblissent.</li>
+      <li style="margin:5px 0;"><strong style="color:#fff;">Les &Eacute;clairages IA</strong>&nbsp;: le contexte expliqu&eacute; simplement, sans jargon.</li>
+      <li style="margin:5px 0;"><strong style="color:#fff;">Les banques centrales</strong>&nbsp;: le ton (hawkish / dovish) et ce qu'il implique.</li>
+    </ul>
+    <p style="margin:0 0 6px;font-size:13px;color:#9aa3b2;">Un aper&ccedil;u de la Force des Devises, en direct du terminal&nbsp;:</p>
+    <img src="${APP_URL}/api/email-widget/meter.png" width="532" alt="Force des Devises &mdash; DataTradingPro"
+      style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #26262b;border-radius:10px;margin:6px 0 4px;">
+    ${_campaignBtn('Découvrir le terminal', LANDING_URL)}
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.07);border:1px solid rgba(227,178,58,0.30);border-radius:10px;margin:18px 0 4px;">
+      <tr><td style="padding:13px 16px;color:#e7d4a8;font-size:12.5px;line-height:1.6;">
+        <strong style="color:#e3b23a;">Pour ne plus rater nos emails&nbsp;:</strong> ajoutez <strong style="color:#fff;">${sender}</strong> &agrave; vos contacts. Si ce message est dans vos spams, ouvrez-le et cliquez sur «&nbsp;Non spam&nbsp;».
+      </td></tr></table>
+    <p style="margin:14px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">DataTradingPro est un terminal de <strong>donn&eacute;es et d'analyse</strong>&nbsp;: il &eacute;claire vos d&eacute;cisions, il ne passe aucun ordre et ne donne aucun conseil personnalis&eacute;. Le trading comporte un risque de perte en capital.</p>
+  `;
+  return { subject: 'DataTradingPro : votre rendez-vous macro & forex chaque semaine', html: _campaignLayout('Bienvenue', body, unsub) };
+}
+async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to }); return _send(d.to, m.subject, m.html); }
+
 // ── Rappel ADMIN : abonnements à renouveler (envoyé à datatradingpro.contact) ──
 function buildAdminExpiryReminder({ clients }) {
   const rows = (clients || []).map(c => {
@@ -742,6 +826,7 @@ function getEmailCatalog() {
     { key: 'renewed',       audience: 'Client', label: 'Abonnement renouvelé',             trigger: 'Paiement Whop renouvelé',                     ...buildRenewed(s) },
     { key: 'reengagement',  audience: 'Client', label: 'Réengagement (inactif ~7j)',       trigger: 'Utilisateur inactif depuis ~7 jours',         ..._buildReengagement(s.name, 7) },
     { key: 'announcementV2', audience: 'Client', label: 'Annonce — v2 finalisée',           trigger: 'Broadcast manuel (admin) → tous les clients',  ...buildAnnouncementV2({ name: s.name }) },
+    { key: 'campaignIntro', audience: 'Client + Whop', label: 'Campagne — intro hebdo',       trigger: 'Broadcast campagne (admin) → clients DTP + Whop', ...buildCampaignIntro({ name: s.name, email: s.to }) },
     { key: 'adminExpiry',   audience: 'Admin',  label: 'Rappel abonnements à renouveler',  trigger: 'Rappel automatique (→ toi)',                  ...buildAdminExpiryReminder({ clients: sampleClients }) },
     { key: 'adminRenewal',  audience: 'Admin',  label: 'Notif paiement / nouveau client',  trigger: 'Paiement Whop traité (→ toi)',                ...buildAdminRenewalNotice({ clientEmail: s.to, clientName: s.name, expiresAt: s.expiresAt, isNew: true }) },
     { key: 'referredWelcome',  audience: 'Client', label: 'Parrainage — bienvenue filleul',  trigger: 'Un filleul s\'inscrit via un parrain',          ...buildReferredWelcome({ name: s.name, referrerName: 'Alex' }) },
@@ -882,12 +967,14 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro,
+  // désinscription campagne (opt-out) — server.js vérifie le même jeton
+  unsubToken, unsubUrl,
   // build (rendu sans envoi) — pour la preview
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
