@@ -536,6 +536,19 @@
   document.getElementById('lp-lang').value = LANG; enhanceSelect(document.getElementById('lp-lang'), _FLAGS); document.getElementById('lp-lang').addEventListener('change', function(e){ applyLang(e.target.value); }); applyLang(LANG);
 
   document.getElementById('lp-email').focus();
+
+  // Déconnecté car une connexion plus récente a eu lieu ailleurs (session unique par compte).
+  try {
+    if (new URLSearchParams(location.search).get('ended') === 'elsewhere') {
+      var _le = document.getElementById('lp-error');
+      if (_le) {
+        _le.textContent = (LANG === 'en'
+          ? 'You were signed out: your account signed in from another device.'
+          : 'Vous avez été déconnecté : votre compte s\'est connecté depuis un autre appareil.');
+        _le.classList.add('visible');
+      }
+    }
+  } catch (_) {}
 </script>
 </body>
 </html>
