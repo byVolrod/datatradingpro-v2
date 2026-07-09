@@ -12132,10 +12132,17 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
     .filter(e => e && (e.timestamp || 0) >= now && (e.timestamp || 0) <= horizon && e.title)
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
     .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + new Date(e.timestamp).toISOString().slice(0, 10); if (seen.has(k)) return false; seen.add(k); return true; });
-  const cpi   = up.filter(e => RX_CPI.test(e.title || ''));
-  const highs = up.filter(e => String(e.impact || '').toLowerCase() === 'high' && !RX_CPI.test(e.title || ''));
-  const meds  = up.filter(e => String(e.impact || '').toLowerCase() === 'medium' && !RX_CPI.test(e.title || ''));
-  const rows  = [...cpi, ...highs, ...meds].slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  const _withFc = e => e.forecast != null && String(e.forecast).trim() !== '';
+  // Evenement vedette = 1er CPI/inflation a venir (miroir de _calFeatured -> coherent avec l'accroche du mail).
+  // On n'en garde qu'UN SEUL : evite le paquet de 6 sous-indicateurs CPI du meme jour, tous sans prevision publiee,
+  // qui remplissait l'agenda de « — » et masquait les evenements plus proches (jobless claims, emploi...) qui, EUX,
+  // ont bien une prevision/HIGH/LOW.
+  const cpiHead = up.filter(e => RX_CPI.test(e.title || '')).slice(0, 1);
+  const rest    = up.filter(e => !RX_CPI.test(e.title || '') && ['high', 'medium'].includes(String(e.impact || '').toLowerCase()));
+  // Priorite : vedette CPI (coherence) -> evenements AVEC prevision publiee (colonnes REEL/HIGH/PREVISION/LOW
+  // remplies, comme le desk) -> le reste (discours sans chiffre, etc.).
+  const ordered = [...cpiHead, ...rest.filter(_withFc), ...rest.filter(e => !_withFc(e))];
+  const rows    = ordered.slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
   try { _calApplyRanges(rows); } catch (e) {}   // remplit HIGH/LOW (fourchette de prevision) comme le desk
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   let tbody = '', lastDay = '';
