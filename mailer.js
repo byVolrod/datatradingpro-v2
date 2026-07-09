@@ -1125,14 +1125,21 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
 
-  // Accroche editoriale : le contexte (theme dominant + regime de risque) est TISSE dans la phrase,
-  // sans badge ni titre (demande user : pas de « titres de template »).
-  let lead = `Voici le point marché du desk, en clair &mdash; l'essentiel de la semaine, sans le bruit.`;
-  if (themeLabel || (risk && risk.label)) {
-    const bits = [];
-    if (themeLabel) bits.push(`guidé par <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>`);
-    if (risk && risk.label) bits.push(`dans un régime de risque <strong style="color:#fff;">${_esc(risk.label)}</strong>`);
-    lead = `Voici le point marché du desk, en clair. Cette semaine, le marché reste ${bits.join(', ')} &mdash; l'essentiel, sans le bruit.`;
+  // Accroche editoriale : theme dominant + climat de risque tisses PROPREMENT (em-dashes -> grammaire OK pour tous
+  // les themes ; label de risque reformule court -> plus de « regime de risque Risk-on (appetit pour le risque) »).
+  const _riskClause = (() => {
+    const l = String((risk && risk.label) || '').toLowerCase();
+    if (/off|aversion/.test(l)) return 'où l\'<strong style="color:#fff;">aversion au risque</strong> reprend le dessus';
+    if (/on|appétit|appetit/.test(l)) return 'porté par l\'<strong style="color:#fff;">appétit pour le risque</strong>';
+    return 'sans biais de risque marqué';
+  })();
+  let lead = `Voici votre point marché de la semaine, en clair &mdash; droit à l'essentiel, sans le bruit.`;
+  if (themeLabel && risk && risk.label) {
+    lead = `Voici votre point marché de la semaine, en clair. Le desk garde le cap sur un thème dominant &mdash; <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong> &mdash; dans un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
+  } else if (themeLabel) {
+    lead = `Voici votre point marché de la semaine, en clair. Le desk garde le cap sur un thème dominant : <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>. Droit à l'essentiel, sans le bruit.`;
+  } else if (risk && risk.label) {
+    lead = `Voici votre point marché de la semaine, en clair &mdash; un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
   }
 
   // Resume du RECAP JOURNALIER du desk : daily.summary (synthese de seance, 3-5 phrases) + puces cles tirees des
