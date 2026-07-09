@@ -12544,10 +12544,12 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
     const sent = sentEmails.length;
     const unsub = _campaignStats._unsub ? Object.keys(_campaignStats._unsub).length : 0;
     const pct = (a, b) => b ? Math.round((a / b) * 1000) / 10 : 0;
+    const uns = _campaignStats._unsub || {};
     const recipients = sentEmails.map(e => ({
       email: e, sentAt: s.sent[e],
       opens: (s.opens[e] && s.opens[e].n) || 0, lastOpen: (s.opens[e] && s.opens[e].last) || null,
       clicks: (s.clicks[e] && s.clicks[e].n) || 0,
+      unsubAt: uns[e] || uns[String(e).toLowerCase().trim()] || null,   // desabonne (global) : horodatage ou null
     })).sort((a, b) => (b.opens - a.opens) || (b.clicks - a.clicks));
     res.json({ ok: true, campaign: c,
       summary: { sent, uniqueOpens: openEmails.length, openRate: pct(openEmails.length, sent), totalOpens,
