@@ -12709,8 +12709,19 @@ function _freshDaily() {
   try {
     const items = (allNews || []).filter(i => i && (i._dtpd || i._fxr)).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
     for (const it of items) {
-      if (it._dtpd && it._dtpd.summary) return { kind: 'dtpd', summary: it._dtpd.summary, insights: [] };
-      if (it._fxr && (it._fxr.summary || (it._fxr.insights || []).length)) return { kind: 'fxr', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 2) : [] };
+      if (it._dtpd && it._dtpd.summary) {
+        // Points cles = 1re puce de chacune des 1res sections (hors tableaux data) -> resume diversifie de la seance.
+        const pts = [];
+        for (const s of (Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [])) {
+          if (!s || s.kind === 'data') continue;
+          const arr = s.kind === 'paras' ? s.paras : s.items;
+          const first = Array.isArray(arr) && arr.find(x => x && String(x).trim().length > 12);
+          if (first) pts.push(String(first).trim());
+          if (pts.length >= 4) break;
+        }
+        return { kind: 'dtpd', summary: it._dtpd.summary, insights: pts };
+      }
+      if (it._fxr && (it._fxr.summary || (it._fxr.insights || []).length)) return { kind: 'fxr', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 4) : [] };
     }
   } catch {}
   return null;
