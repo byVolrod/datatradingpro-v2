@@ -12786,6 +12786,9 @@ async function _deskContext() {
 // Anti-redondance Decryptage : historique durable des concepts couverts (KV campaign:decrypt-history).
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
 async function _decryptMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:decrypt-history', h.slice(-12)); } catch {} }
+// Rotation anti-repetition de la track MINDSET (memes primitives que le decryptage).
+async function _mindsetRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 6)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
+async function _mindsetMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:mindset-history', h.slice(-16)); } catch {} }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 //  FIABILITE PRODUCTION — historique d'erreurs durable + pre-flight avant CHAQUE envoi + alerte admin.
@@ -12840,6 +12843,7 @@ function _dripBuildSample(stepDef, context) {
     if (!stepDef || stepDef.tpl === 'intro') return mailer.buildCampaignIntro({ name: '', email, campaign: 'preflight' });
     if (stepDef.tpl === 'decryptage') return mailer.buildCampaignDecryptage({ name: '', email, campaign: 'preflight', context, recentKeys: [], isMember: false });
     if (stepDef.tpl === 'pointmarche') return mailer.buildCampaignPointMarche({ name: '', email, campaign: 'preflight', context, isMember: false });
+    if (stepDef.tpl === 'mindset') return mailer.buildCampaignMindset({ name: '', email, campaign: 'preflight', recentKeys: [], isMember: false });
   } catch (e) { throw e; }
   return null;
 }
@@ -12931,6 +12935,7 @@ async function _dripSend(stepDef, r, context, tag) {
     if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { _recordSent('intro-v1', email); return true; } return false; }
     if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { _recordSent('decryptage', email); return true; } return false; }
     if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('point-marche', email); return true; } return false; }
+    if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(6); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { _recordSent('mindset', email); try { await _mindsetMarkCovered(rr.conceptKey); } catch {} return true; } return false; }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
   return false;
 }
@@ -13099,6 +13104,9 @@ app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
       const context = await _deskContext();
       m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context, isMember });
       if (!m) { m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
+    } else if (type === 'mindset') {
+      const recentKeys = await _mindsetRecentKeys(6);
+      m = mailer.buildCampaignMindset({ name: s.name, email: s.email, campaign: 'mindset-preview', recentKeys, isMember });
     } else {
       m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
     }
@@ -13133,9 +13141,10 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
     try {
       if (tpl === 'decryptage') { const context = await _deskContext(); const recentKeys = await _decryptRecentKeys(4); const r = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context, recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'pointmarche') { const context = await _deskContext(); provider = await mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context, isMember }); }
+      else if (tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(6); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }
-    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
+    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
     return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
       note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' — AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }
