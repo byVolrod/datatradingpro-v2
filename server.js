@@ -12772,7 +12772,7 @@ async function _runWeeklyCampaign(isoWeek) {
     const pfW = await _runCampaignPreflight({
       recipients: audience.recipients,
       sample: () => mailer.buildWeeklyDigest({ name: '', email: 'apercu@datatradingpro.com', campaign: CID, weekly }),
-      needsData: true, hasData: !!weekly, needsWidget: true, widgetType: 'meter', needsAI: false,
+      needsData: true, hasData: !!weekly, needsWidget: true, widgetType: 'strength', needsAI: false,
     });
     if (!pfW.ok) { await _campaignError('critical', CID, pfW.summary, { impacted: 0, logs: pfW.critical.join('\n'), actions: 'Corriger puis relancer (le marqueur hebdo empeche tout doublon).' }); return; }
     const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
@@ -12865,7 +12865,7 @@ async function _dripTick() {
       sample: () => _dripBuildSample(stepWeek, context),
       needsData: stepWeek.tpl === 'pointmarche',
       hasData: !!(context && (context.daily || (Array.isArray(context.bias) && context.bias.length) || (Array.isArray(context.upcoming) && context.upcoming.length))),
-      needsWidget: stepWeek.tpl === 'pointmarche', widgetType: 'meter', needsAI: false,
+      needsWidget: stepWeek.tpl === 'pointmarche', widgetType: 'strength', needsAI: false,
     });
     if (!pf.ok) {
       _dripState.active = false; _dripState.pausedReason = { at: Date.now(), summary: pf.summary, critical: pf.critical }; _saveDrip();
@@ -13059,7 +13059,7 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
   // ── PRE-FLIGHT avant broadcast reel : fournisseur mail + audience + rendu de l'intro. Bloque si critique. ──
   const pfB = await _runCampaignPreflight({
     recipients, sample: () => mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: CAMPAIGN_ID }),
-    needsData: false, needsWidget: true, widgetType: 'meter', needsAI: false,
+    needsData: false, needsWidget: true, widgetType: 'strength', needsAI: false,
   });
   if (!pfB.ok) { await _campaignError('critical', CAMPAIGN_ID, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE — aucun envoi.', preflight: pfB }); }
 

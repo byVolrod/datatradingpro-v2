@@ -755,6 +755,14 @@ function _campaignBtn(label, url) {
       <a href="${url}" style="display:inline-block;padding:14px 34px;color:#0d0e11;font-weight:700;font-size:15px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
+// Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
+// eyebrow = intitule majuscule facon desk ; cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook (width).
+function _widgetImg(type, eyebrow, maxW) {
+  maxW = maxW || 532;
+  const lbl = _esc(eyebrow || '');
+  return `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">${lbl}</div>
+    <img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}" width="${maxW}" alt="${lbl} DataTradingPro" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:6px 0 14px;">`;
+}
 
 // Mail d'INTRODUCTION de la campagne hebdomadaire (1er de la sequence). Audience = clients DTP + clients
 // Whop (JustOneTrader). INFORMATIF : presente le terminal et ce qui sera recu chaque semaine, ne pousse
@@ -775,7 +783,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
       <li style="margin:5px 0;"><strong style="color:#fff;">Les &Eacute;clairages IA</strong>&nbsp;: le contexte expliqu&eacute; simplement, sans jargon.</li>
       <li style="margin:5px 0;"><strong style="color:#fff;">Les banques centrales</strong>&nbsp;: le ton (hawkish / dovish) et ce qu'il implique.</li>
     </ul>
-    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #232429;border-radius:6px;margin:8px 0 16px;">
+    ${_widgetImg('strength', 'La force des devises')}
     <p style="margin:0 0 6px;">Pour explorer le terminal quand vous voulez&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
@@ -812,7 +820,7 @@ async function _sendWithInlineWidgets(to, subject, html, types) {
 }
 // Retro-compat : ancien helper mono-widget (meter).
 async function _sendWithInlineWidget(to, subject, html) { return _sendWithInlineWidgets(to, subject, html, ['meter']); }
-async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _sendWithInlineWidget(d.to, m.subject, m.html); }
+async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength']); }
 
 // ── Digest HEBDO (récurrent, AUTO-GÉNÉRÉ) — construit à partir des vraies données du Récap Hebdo du desk.
 // `weekly` = objet _weekly {summary, insights, pairs:[{pair,bias,text}], centralBanks:[{bank,stance}]}.
@@ -839,9 +847,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     <p style="margin:0 0 16px;">Voici votre <strong style="color:#e3b23a;">point macro &amp; forex</strong> de la semaine, en clair.</p>
     ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 460)}</p>` : ''}
     ${pairsHtml ? `<p style="margin:0 0 8px;font-size:13px;color:#9aa3b2;">Les paires suivies&nbsp;:</p>${pairsHtml}` : ''}
-    <p style="margin:14px 0 6px;font-size:13px;color:#9aa3b2;">La Force des Devises&nbsp;:</p>
-    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #232429;border-radius:6px;margin:6px 0 16px;">
-    ${cbHtml ? `<p style="margin:0 0 6px;font-size:13px;color:#9aa3b2;">Banques centrales&nbsp;:</p><ul style="margin:0 0 16px;padding-left:20px;color:#cbd5e1;">${cbHtml}</ul>` : ''}
+    ${_widgetImg('strength', 'La force des devises')}
+    ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
     <p style="margin:0 0 6px;">Le détail complet est sur le terminal&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
@@ -852,7 +859,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'votre point macro & forex de la semaine';
   return { subject, html: _campaignLayout('Point de la semaine', body, unsub) };
 }
-async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidget(d.to, m.subject, m.html); }
+async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'cb-tone']); }
 
 // ── DÉCRYPTAGE — e-mail ÉDUCATIF évergreen (S2 de la séquence). Décode les grandes annonces éco (macro US)
 // que les abonnés voient chaque semaine dans le calendrier : sigles (CPI, NFP, PCE, FOMC…) rendus lisibles,
@@ -1012,11 +1019,10 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     </div>
     ${c.paras.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}`;
 
-  const watch = _watchRows(upcoming.slice(0, 4));
-  const watchHtml = watch ? `
-    <div style="margin:22px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">LES TEMPS FORTS À SURVEILLER</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${watch}</table>
-    <p style="margin:12px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>` : '';
+  // Agenda de la semaine = VRAI widget calendrier du desk (inline cid a l'envoi) quand il y a des evenements.
+  const agendaHtml = upcoming.length
+    ? `${_widgetImg('calendar', "L'agenda de la semaine")}<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>`
+    : '';
 
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
   const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
@@ -1028,7 +1034,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
     ${conceptHtml}
-    ${watchHtml}
+    ${agendaHtml}
     ${evergreen}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
@@ -1038,7 +1044,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   `;
   return { subject: 'Comprendre le marché : ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
-async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
 // ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
 // quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
@@ -1071,35 +1077,19 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
 
   const movesHtml = moves ? `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">CE QUI BOUGE</div><p style="margin:0 0 14px;">${_esc(moves).slice(0, 480)}</p>` : '';
 
-  // Forces / faiblesses (Currency Strength)
-  let strengthHtml = '';
-  const strong = cs && (cs.strong || (cs.ranked ? cs.ranked.slice(0, 2).map(c => ({ ccy: c })) : []));
-  const weak = cs && (cs.weak || (cs.ranked ? cs.ranked.slice(-2).map(c => ({ ccy: c })) : []));
-  if ((strong && strong.length) || (weak && weak.length)) {
-    const chip = (list, col) => (list || []).map(x => `<span style="display:inline-block;color:${col};border:1px solid ${col};border-radius:5px;font-weight:700;font-size:12px;padding:2px 9px;margin:0 5px 5px 0;">${_esc(x.ccy || x)}</span>`).join('');
-    strengthHtml = `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">FORCES &amp; FAIBLESSES (24h)</div>
-      <div style="margin:0 0 12px;"><span style="color:#8b93a1;font-size:12px;">Les plus fortes&nbsp;:</span> ${chip(strong, '#00e676')}<br><span style="color:#8b93a1;font-size:12px;">Les plus faibles&nbsp;:</span> ${chip(weak, '#ff6b57')}</div>`;
-  }
-
-  // Biais du desk (2-3 devises)
-  const BIAS = { BUY: ['ACHAT', '#00e676'], SELL: ['VENTE', '#ff3d00'], NEUTRAL: ['NEUTRE', '#e3b23a'] };
-  const biasHtml = bias.length ? `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">LE BIAIS DU DESK</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${bias.slice(0, 4).map(b => { const s = String(b.signal || 'NEUTRAL').toUpperCase(); const [lbl, col] = BIAS[s] || BIAS.NEUTRAL; return `<tr><td style="padding:7px 0;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(b.ccy)}</span>${b.label ? `<span style="color:#8b93a1;font-size:12px;">&nbsp;&middot;&nbsp;${_esc(b.label)}</span>` : ''}<span style="float:right;color:${col};font-weight:700;font-size:12px;">${lbl}</span></td></tr>`; }).join('')}</table>` : '';
-
-  // Widget Force des Devises (inline cid a l'envoi)
-  const meterHtml = `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">LA FORCE DES DEVISES</div>
-    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #232429;border-radius:6px;margin:6px 0 14px;">`;
+  // WIDGETS REELS du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises + Smart Bias.
+  const strengthWidget = _widgetImg('strength', 'La force des devises (24h)');
+  const biasWidget = _widgetImg('bias', 'Le biais du desk');
 
   const watch = _watchRows(upcoming.slice(0, 3));
-  const watchHtml = watch ? `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">À SURVEILLER CETTE SEMAINE</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${watch}</table>` : '';
+  const watchHtml = watch ? `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">À surveiller cette semaine</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${watch}</table>` : '';
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
     ${movesHtml}
-    ${strengthHtml}
-    ${meterHtml}
-    ${biasHtml}
+    ${strengthWidget}
+    ${biasWidget}
     ${watchHtml}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
@@ -1110,7 +1100,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'le point marché du desk' + (themeLabel ? ' (' + themeLabel + ')' : '');
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['meter']); }
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'bias']); }
 
 // Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
 // aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
