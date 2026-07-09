@@ -775,7 +775,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
       <li style="margin:5px 0;"><strong style="color:#fff;">Les &Eacute;clairages IA</strong>&nbsp;: le contexte expliqu&eacute; simplement, sans jargon.</li>
       <li style="margin:5px 0;"><strong style="color:#fff;">Les banques centrales</strong>&nbsp;: le ton (hawkish / dovish) et ce qu'il implique.</li>
     </ul>
-    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises — DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:8px 0 16px;">
+    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #232429;border-radius:6px;margin:8px 0 16px;">
     <p style="margin:0 0 6px;">Pour explorer le terminal quand vous voulez&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
@@ -840,7 +840,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 460)}</p>` : ''}
     ${pairsHtml ? `<p style="margin:0 0 8px;font-size:13px;color:#9aa3b2;">Les paires suivies&nbsp;:</p>${pairsHtml}` : ''}
     <p style="margin:14px 0 6px;font-size:13px;color:#9aa3b2;">La Force des Devises&nbsp;:</p>
-    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises — DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:6px 0 16px;">
+    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #232429;border-radius:6px;margin:6px 0 16px;">
     ${cbHtml ? `<p style="margin:0 0 6px;font-size:13px;color:#9aa3b2;">Banques centrales&nbsp;:</p><ul style="margin:0 0 16px;padding-left:20px;color:#cbd5e1;">${cbHtml}</ul>` : ''}
     <p style="margin:0 0 6px;">Le détail complet est sur le terminal&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
@@ -1036,7 +1036,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: 'Décryptage : ' + c.title, html: _campaignLayout('Décryptage', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
+  return { subject: 'Comprendre le marché : ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
 async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
@@ -1088,7 +1088,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
 
   // Widget Force des Devises (inline cid a l'envoi)
   const meterHtml = `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">LA FORCE DES DEVISES</div>
-    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #26262b;border-radius:8px;margin:6px 0 14px;">`;
+    <img src="${APP_URL}/api/email-widget/meter.png?t=${Date.now()}" width="380" height="261" alt="Force des Devises DataTradingPro" style="display:block;width:100%;max-width:380px;height:auto;border:1px solid #232429;border-radius:6px;margin:6px 0 14px;">`;
 
   const watch = _watchRows(upcoming.slice(0, 3));
   const watchHtml = watch ? `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">À SURVEILLER CETTE SEMAINE</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${watch}</table>` : '';

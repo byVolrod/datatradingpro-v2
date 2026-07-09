@@ -975,7 +975,7 @@
           <div id="camp-drip-body" class="camp-block"><div class="skel" style="height:44px"></div></div>
           <div class="camp-actions">
             <button class="camp-btn camp-btn--send" id="camp-drip-toggle" onclick="campDripToggle()">Activer la séquence</button>
-            <button class="camp-btn" onclick="campDripTest('decryptage')">✉️ Test Décryptage → moi</button>
+            <button class="camp-btn" onclick="campDripTest('decryptage')">✉️ Test « Comprendre le marché » → moi</button>
             <button class="camp-btn" onclick="campDripTest('pointmarche')">✉️ Test Point marché → moi</button>
             <span id="camp-drip-msg" class="camp-msg"></span>
           </div>
@@ -1003,17 +1003,18 @@
       <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">👁️</span><h2>Aperçu du mail</h2>
           <span class="ph-spacer"></span>
-          <button class="camp-btn camp-btn--send" id="cprev-b-intro" onclick="campPreview('intro')">Intro (bienvenue)</button>
-          <button class="camp-btn" id="cprev-b-decryptage" onclick="campPreview('decryptage')">Décryptage</button>
+          <button class="camp-btn camp-btn--send" id="cprev-b-intro" onclick="campPreview('intro')">Bienvenue</button>
+          <button class="camp-btn" id="cprev-b-decryptage" onclick="campPreview('decryptage')">Comprendre le marché</button>
           <button class="camp-btn" id="cprev-b-pointmarche" onclick="campPreview('pointmarche')">Point marché</button>
-          <button class="camp-btn" id="cprev-b-weekly" onclick="campPreview('weekly')">Point de la semaine</button>
+          <button class="camp-btn" id="cprev-b-weekly" onclick="campPreview('weekly')">Récap hebdo</button>
+          <button class="camp-btn" onclick="campPreview(window._cprevType||'intro')" title="Recharger l'aperçu avec les données live du desk">↻ Actualiser</button>
           <label style="margin-left:10px;color:#9aa3b2;font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="cprev-member" onchange="campPreview(window._cprevType||'decryptage')" style="accent-color:#e3b23a;"> vue membre</label>
         </div>
         <div class="panel-body">
-          <div style="background:#0a0a0c;border:1px solid #26262b;border-radius:10px;overflow:hidden;">
-            <iframe id="cprev-frame" src="/api/admin/campaign-preview?type=intro" title="Aperçu du mail" style="width:100%;height:640px;border:0;display:block;background:#0a0a0c;"></iframe>
+          <div style="background:#0d0e11;border:1px solid #232429;border-radius:8px;overflow:hidden;">
+            <iframe id="cprev-frame" src="/api/admin/campaign-preview?type=intro" title="Aperçu du mail" style="width:100%;height:640px;border:0;display:block;background:#0d0e11;"></iframe>
           </div>
-          <p class="camp-note">Rendu réel du mail tel qu'il part (widget Force des Devises inclus). « Point de la semaine » = le mail hebdo automatique généré depuis les données live.</p>
+          <p class="camp-note"><span id="cprev-ts" style="color:#00e676;font-weight:600;"></span> Rendu réel du mail tel qu'il part, <strong>construit sur les données live du desk</strong> (widgets réels inclus) — se recharge automatiquement toutes les 45 s. « Récap hebdo » s'affiche dès la prochaine génération du récap.</p>
         </div>
       </div>
     </div>
@@ -1475,12 +1476,22 @@
       }
     } catch {}
   }
-  function campPreview(type){
-    window._cprevType = type;
+  function _cprevLoad(){
+    var type = window._cprevType || 'intro';
     var mem = document.getElementById('cprev-member');
     var m = (mem && mem.checked) ? '&member=1' : '';
-    const f = document.getElementById('cprev-frame'); if (f) f.src = '/api/admin/campaign-preview?type=' + type + m + '&_=' + Date.now();
+    var f = document.getElementById('cprev-frame');
+    if (!f) return;
+    f.onload = function(){ var ts = document.getElementById('cprev-ts'); if (ts) ts.textContent = '● En direct · MAJ ' + new Date().toLocaleTimeString('fr-FR') + ' —'; };
+    f.src = '/api/admin/campaign-preview?type=' + type + m + '&_=' + Date.now();
+  }
+  function campPreview(type){
+    window._cprevType = type;
+    _cprevLoad();
     ['intro', 'decryptage', 'pointmarche', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
+    // Temps reel : recharge l'apercu avec les donnees live toutes les 45 s (uniquement quand l'onglet est visible).
+    if (window._cprevTimer) clearInterval(window._cprevTimer);
+    window._cprevTimer = setInterval(function(){ if (document.visibilityState !== 'hidden') _cprevLoad(); }, 45000);
   }
   async function campSchedToggle(){
     if (!_campSched) return;

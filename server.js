@@ -12543,7 +12543,7 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // Point marche = milieu de semaine, Decryptage/Mindset = evergreen (jour libre), Alerte BC = evenementiel.
 const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue — introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Presentation du terminal + ce qui sera recu chaque semaine.' },
-  { id: 'decryptage',    week: 2,    title: 'Decryptage contextuel',               pillar: 'Educatif',     status: 'ready',   when: 'Mardi ~8h · concept choisi selon le calendrier de la semaine', desc: 'Concept-cle choisi selon le theme dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts a surveiller. Anti-redondance.' },
+  { id: 'decryptage',    week: 2,    title: 'Comprendre le marche',                pillar: 'Educatif',     status: 'ready',   when: 'Mardi ~8h · concept choisi selon le calendrier de la semaine', desc: 'Concept-cle choisi selon le theme dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts a surveiller. Anti-redondance.' },
   { id: 'point-hebdo',   week: 3,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'ready',   when: 'Mercredi ~8h · données marché live (DTP Daily 12h, FX 22h30)', desc: 'Genere du desk : contexte macro dominant + regime de risque + ce qui bouge + forces/faiblesses (Currency Strength) + biais + widget.' },
   { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'planned', when: 'Samedi ~10h · évergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
   { id: 'recap-hebdo',   week: 5,    title: 'Recap Hebdo',                          pillar: 'Recap',        status: 'planned', when: 'Dimanche 18h · Récap généré samedi 02h — CRÉNEAU AUTO ACTUEL', desc: 'La retrospective de la semaine, facon desk.' },
@@ -12813,7 +12813,7 @@ setTimeout(_schedulerTick, 45 * 1000);         // 1er check apres le boot (rattr
 //  Anti-doublon durable (email_log drip:intro:<email> / drip:loop:<isoWeek>:<email>) + skip unsub/blacklist.
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 const DRIP_INTRO   = { id: 'intro',        label: 'Bienvenue (one-time)', tpl: 'intro' };
-const DRIP_DECRYPT = { id: 'decryptage',   label: 'Decryptage contextuel', tpl: 'decryptage' };
+const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marche', tpl: 'decryptage' };
 const DRIP_POINT   = { id: 'point-marche', label: 'Point marche',          tpl: 'pointmarche' };
 // Contenu de LA semaine (identique pour TOUT LE MONDE) : semaine "data lourde" (banque centrale/inflation)
 // -> Decryptage (on explique l'enjeu) ; sinon -> Point marche (etat du marche). Le theme est global -> synchro.
