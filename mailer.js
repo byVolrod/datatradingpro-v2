@@ -1142,12 +1142,18 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     lead = `Voici votre point marché de la semaine, en clair &mdash; un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
   }
 
-  // Resume du RECAP JOURNALIER du desk : daily.summary (synthese de seance, 3-5 phrases) + puces cles tirees des
-  // sections du rapport quotidien (_freshDaily.insights). Pas de titre (demande user). Zero donnee inventee.
-  const dailyPts = (daily && Array.isArray(daily.insights) ? daily.insights : []).map(p => _md(p)).filter(Boolean).slice(0, 4);
-  const movesHtml = moves
-    ? `<p style="margin:18px 0 ${dailyPts.length ? '10' : '14'}px;">${_esc(moves).slice(0, 640)}</p>${dailyPts.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${dailyPts.map(p => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 200)}</td></tr>`).join('')}</table>` : ''}`
-    : '';
+  // Resume du RECAP JOURNALIER : la SYNTHESE de seance UNIQUEMENT (daily.summary), coupee PROPREMENT en fin de
+  // phrase. Plus de puces : elles reprenaient la synthese (repetitif) et se coupaient en plein mot. Zero invention.
+  const _cleanCut = (s, n) => {
+    s = String(s || '').trim();
+    if (s.length <= n) return s;
+    const t = s.slice(0, n);
+    const d = Math.max(t.lastIndexOf('. '), t.lastIndexOf('! '), t.lastIndexOf('? '));
+    if (d > n * 0.5) return t.slice(0, d + 1);                       // coupe a la fin d'une phrase
+    const sp = t.lastIndexOf(' ');
+    return (sp > 0 ? t.slice(0, sp) : t).replace(/[\s,;:]+$/, '') + '…';   // sinon fin de mot + points de suspension
+  };
+  const movesHtml = moves ? `<p style="margin:18px 0 14px;">${_esc(_cleanCut(moves, 680))}</p>` : '';
 
   // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises (semaine).
   const strengthWidget = _widgetImg('strength', 'La force des devises');
