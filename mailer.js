@@ -860,12 +860,25 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const pairsHtml = pairs.map(p => { const b = String(p.bias || 'NEUTRAL').toUpperCase(); const [lbl, col] = BIAS[b] || BIAS.NEUTRAL;
     return `<div style="border:1px solid #26262b;border-radius:8px;padding:10px 12px;margin:0 0 8px;"><div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 4px;"><strong style="color:#fff;">${_esc(p.pair)}</strong><span style="color:${col};font-weight:700;font-size:12px;">${lbl}</span></div><div style="color:#9aa3b2;font-size:13px;line-height:1.5;">${_esc(_md(p.text)).slice(0, 240)}</div></div>`; }).join('');
   const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' &mdash; <span style="color:#e3b23a;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
+  // « Ce qui s'est passe » : lecture FACTUELLE de la Force des Devises de la semaine (TW), derivee du snapshot
+  // cs du Recap Hebdo (devises les plus fortes / les plus faibles). Zero donnee inventee, informatif.
+  let csNote = '';
+  const _csS = w.cs;
+  if (_csS && Array.isArray(_csS.currencies) && _csS.series) {
+    const lastV = c => { const a = (_csS.series[c] || []).filter(d => d && d.v != null); return a.length ? a[a.length - 1].v : null; };
+    const ranked = _csS.currencies.map(c => [c, lastV(c)]).filter(x => x[1] != null).sort((a, b) => b[1] - a[1]);
+    if (ranked.length >= 4) {
+      const s = ranked.slice(0, 2).map(r => _esc(r[0])), f = ranked.slice(-2).map(r => _esc(r[0]));
+      csNote = `<p style="margin:12px 0 18px;">Sur la semaine, <strong style="color:#00e676;">${s[0]}</strong> et <strong style="color:#00e676;">${s[1]}</strong> mènent la cote de force ; <strong style="color:#ff3d00;">${f[0]}</strong> et <strong style="color:#ff3d00;">${f[1]}</strong> ferment la marche.</p>`;
+    }
+  }
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 16px;">Voici votre <strong style="color:#e3b23a;">point macro &amp; forex</strong> de la semaine, en clair.</p>
     ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 460)}</p>` : ''}
-    ${pairsHtml ? `<p style="margin:0 0 8px;font-size:13px;color:#9aa3b2;">Les paires suivies&nbsp;:</p>${pairsHtml}` : ''}
+    ${pairsHtml}
     ${_widgetImg('strength', 'La force des devises')}
+    ${csNote}
     ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
     <p style="margin:0 0 6px;">Le détail complet est sur le terminal&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
@@ -1086,19 +1099,21 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
 
-  // Accroche editoriale + bandeau de contexte (2 badges premium) : contexte dominant (or) + regime de risque
-  // (bordure coloree selon le regime). Remplace l'ancienne ligne inline plate facon debug.
-  const lead = `Voici le point marché du desk, en clair &mdash; l'essentiel de la semaine, sans le bruit.`;
-  const _riskCol = (() => { const l = String((risk && risk.label) || '').toLowerCase(); if (/off|aversion/.test(l)) return '#ef4444'; if (/appétit|appetit|risk-on|\bon\b/.test(l)) return '#22c55e'; return '#ffb300'; })();
-  const _chips = [];
-  if (themeLabel) _chips.push(`<td style="padding:0 8px 0 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:rgba(227,178,58,.10);border:1px solid rgba(227,178,58,.32);border-radius:8px;padding:8px 13px;"><div style="color:#8b93a1;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;">Contexte dominant</div><div style="color:#e3b23a;font-size:15px;font-weight:800;letter-spacing:-.01em;">${_esc(themeLabel)}</div></td></tr></table></td>`);
-  if (risk && risk.label) _chips.push(`<td style="padding:0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:rgba(255,255,255,.03);border:1px solid #26262b;border-left:3px solid ${_riskCol};border-radius:8px;padding:8px 13px;"><div style="color:#8b93a1;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;">Régime de risque</div><div style="color:#ffffff;font-size:15px;font-weight:800;letter-spacing:-.01em;">${_esc(risk.label)}</div></td></tr></table></td>`);
-  const ctxStrip = _chips.length ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0 2px;"><tr>${_chips.join('')}</tr></table>` : '';
+  // Accroche editoriale : le contexte (theme dominant + regime de risque) est TISSE dans la phrase,
+  // sans badge ni titre (demande user : pas de « titres de template »).
+  let lead = `Voici le point marché du desk, en clair &mdash; l'essentiel de la semaine, sans le bruit.`;
+  if (themeLabel || (risk && risk.label)) {
+    const bits = [];
+    if (themeLabel) bits.push(`guidé par <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>`);
+    if (risk && risk.label) bits.push(`dans un régime de risque <strong style="color:#fff;">${_esc(risk.label)}</strong>`);
+    lead = `Voici le point marché du desk, en clair. Cette semaine, le marché reste ${bits.join(', ')} &mdash; l'essentiel, sans le bruit.`;
+  }
 
-  const movesHtml = moves ? `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">CE QUI BOUGE</div><p style="margin:0 0 14px;">${_esc(moves).slice(0, 480)}</p>` : '';
+  // Pas de titre « CE QUI BOUGE » : le texte se suffit (demande user).
+  const movesHtml = moves ? `<p style="margin:18px 0 14px;">${_esc(moves).slice(0, 480)}</p>` : '';
 
-  // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises.
-  const strengthWidget = _widgetImg('strength', 'La force des devises (24h)');
+  // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises (semaine).
+  const strengthWidget = _widgetImg('strength', 'La force des devises');
 
   // « A surveiller cette semaine » = VRAI widget calendrier economique du desk (10 colonnes, previsions/HIGH/LOW
   // remplies) au lieu d'une liste texte. Memes donnees (context.upcoming) -> coherent avec le desk.
@@ -1109,7 +1124,6 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
-    ${ctxStrip}
     ${movesHtml}
     ${strengthWidget}
     ${watchHtml}
