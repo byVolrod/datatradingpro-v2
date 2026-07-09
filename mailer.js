@@ -763,6 +763,25 @@ function _widgetImg(type, eyebrow, maxW) {
   return `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">${lbl}</div>
     <img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}" width="${maxW}" alt="${lbl} DataTradingPro" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:6px 0 14px;">`;
 }
+// AGENDA en HTML (table facon calendrier du desk) construit a partir des MEMES evenements que le texte du mail
+// (context.upcoming) -> COHERENCE garantie : l'evenement annonce dans l'accroche figure toujours dans l'agenda.
+// Robuste (pas d'image -> jamais casse en apercu). ev = { time, ccy, impact, title, forecast, previous, dayLabel }.
+function _agendaTable(events) {
+  const rows = (events || []).slice(0, 8);
+  if (!rows.length) return '';
+  const dots = imp => { const on = imp === 'High' ? 3 : (imp === 'Medium' ? 2 : 1); const col = imp === 'High' ? '#ff3d00' : '#ffb300'; let s = ''; for (let i = 0; i < 3; i++) s += `<span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:${i < on ? col : '#3a3a42'};margin-right:2px;"></span>`; return s; };
+  let out = '', lastDay = null;
+  for (const e of rows) {
+    if (e.dayLabel && e.dayLabel !== lastDay) { lastDay = e.dayLabel; out += `<tr><td colspan="4" style="padding:8px 10px 4px;background:#101012;color:#9aa3b2;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${_esc(e.dayLabel)}</td></tr>`; }
+    const vals = []; if (e.forecast) vals.push('prév. <span style="color:#cbd5e1;">' + _esc(e.forecast) + '</span>'); if (e.previous) vals.push('préc. ' + _esc(e.previous));
+    out += `<tr>
+      <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#e3b23a;font-weight:700;font-size:12px;white-space:nowrap;vertical-align:top;">${_esc(e.time || '')}<div style="color:#8b93a1;font-weight:400;font-size:11px;margin-top:1px;">${_esc(e.ccy || '')}&nbsp;${dots(e.impact)}</div></td>
+      <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#ffffff;font-size:13px;vertical-align:top;">${_esc(e.title || '')}</td>
+      <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;vertical-align:top;">${vals.join('<br>')}</td>
+    </tr>`;
+  }
+  return `<div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:8px 0 14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">${out}</table></div>`;
+}
 
 // Mail d'INTRODUCTION de la campagne hebdomadaire (1er de la sequence). Audience = clients DTP + clients
 // Whop (JustOneTrader). INFORMATIF : presente le terminal et ce qui sera recu chaque semaine, ne pousse
@@ -1018,10 +1037,16 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     </div>
     ${c.paras.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}`;
 
-  // Agenda de la semaine = VRAI widget calendrier du desk (inline cid a l'envoi) quand il y a des evenements.
-  const agendaHtml = upcoming.length
-    ? `${_widgetImg('calendar', "L'agenda de la semaine")}<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>`
-    : '';
+  // Agenda de la semaine = table HTML construite depuis context.upcoming (MEMES donnees que l'accroche) -> COHERENT :
+  // l'evenement annonce (anchor) est prepende donc TOUJOURS present dans l'agenda. Pas d'image -> jamais casse.
+  let agendaHtml = '';
+  if (upcoming.length) {
+    const anchorEv = majors.find(e => e.family === 'Politique monetaire') || majors[0] || upcoming[0];
+    const ordered = (anchorEv ? [anchorEv].concat(upcoming.filter(e => e !== anchorEv)) : upcoming).slice(0, 8).sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    agendaHtml = `<div style="margin:22px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">L'agenda de la semaine</div>
+      ${_agendaTable(ordered)}
+      <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>`;
+  }
 
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
   const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
@@ -1043,7 +1068,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   `;
   return { subject: 'Comprendre le marché : ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
-async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
 // ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
 // quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
