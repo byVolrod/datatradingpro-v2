@@ -12727,7 +12727,7 @@ function _freshDaily() {
           if (first) pts.push(String(first).trim());
           if (pts.length >= 4) break;
         }
-        return { kind: 'dtpd', summary: it._dtpd.summary, insights: pts };
+        return { kind: 'dtpd', summary: it._dtpd.summary, insights: pts, sections: Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [], dateLabel: it._dtpd.dateLabel || '' };
       }
       if (it._fxr && (it._fxr.summary || (it._fxr.insights || []).length)) return { kind: 'fxr', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 4) : [] };
     }

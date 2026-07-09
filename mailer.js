@@ -1027,6 +1027,30 @@ function _bankNotesBlock(notes) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
     <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Les notes complètes (Goldman Sachs, ING, Scotiabank&hellip;) sont dans l'onglet <strong style="color:#9aa3b2;">Institution</strong> du Desk.</p>`;
 }
+// Brief DETAILLE de la seance (Point marche) : rend les sections du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst) —
+// titre de section (or) + puces / paras / mini-tableau de donnees. Cape a 4 sections x 4-5 lignes. Zero invention.
+function _dailyBriefBlock(sections, dateLabel) {
+  const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 4);
+  if (!secs.length) return '';
+  const intro = `<p style="margin:20px 0 2px;color:#9aa3b2;font-size:12.5px;">Le brief de la séance${dateLabel ? ' &mdash; ' + _esc(dateLabel) : ''}, par thème&nbsp;:</p>`;
+  const blocks = secs.map(s => {
+    const title = `<div style="margin:14px 0 4px;color:#e3b23a;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
+    if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
+      const rows = s.data.slice(0, 5).map(r => {
+        const vals = [];
+        if (r.actual) vals.push(`réel <strong style="color:#cbd5e1;">${_esc(r.actual)}</strong>`);
+        if (r.expected) vals.push(`att. ${_esc(r.expected)}`);
+        if (r.previous) vals.push(`préc. ${_esc(r.previous)}`);
+        return `<tr><td style="padding:5px 0;border-top:1px solid #1f1f24;"><span style="color:#e6e6ea;font-size:13px;">${_esc(r.release || '')}</span>${vals.length ? `<div style="color:#9aa3b2;font-size:12px;margin-top:1px;">${vals.join(' &middot; ')}</div>` : ''}</td></tr>`;
+      }).join('');
+      return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>` : '';
+    }
+    const arr = (s.kind === 'paras' ? s.paras : s.items) || [];
+    const items = arr.slice(0, 4).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
+    return items ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>` : '';
+  }).join('');
+  return blocks ? intro + blocks : '';
+}
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
 // via recentKeys. Repli evergreen (decodeur 4 familles) si aucune donnee. Renvoie aussi conceptKey (marquage).
@@ -1297,16 +1321,16 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
 
   // « A surveiller cette semaine » = VRAI widget calendrier economique du desk (10 colonnes, previsions/HIGH/LOW
   // remplies) au lieu d'une liste texte. Memes donnees (context.upcoming) -> coherent avec le desk.
-  const watchHtml = upcoming.length
-    ? `<div style="margin:22px 0 6px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">À surveiller cette semaine</div>${_widgetImg('calendar', 'À surveiller cette semaine')}<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Chaque publication est reprise, chiffrée et remise en contexte en direct sur le Desk.</p>`
-    : '';
+  // « Brief de la seance » : le detail par theme tire du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst), a la place
+  // du calendrier « A surveiller cette semaine » (demande user) -> on brief la journee.
+  const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel);
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
     ${movesHtml}
     ${strengthWidget}
-    ${watchHtml}
+    ${briefHtml}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
@@ -1316,7 +1340,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'le point marché du desk' + (themeLabel ? ' (' + themeLabel + ')' : '');
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'calendar']); }
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength']); }
 
 // ── OUTLOOK (« la semaine a venir ») — agenda PUR, tourne vers l'avenir, SANS pousser de position. Reutilise le
 // VRAI widget calendrier du desk. Regle « pas de donnees -> pas de mail » (renvoie null).
