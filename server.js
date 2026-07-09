@@ -12716,6 +12716,24 @@ function _freshDaily() {
   return null;
 }
 const _THEME_FR = { rates: 'Banques centrales', inflation: 'Inflation', jobs: 'Emploi', growth: 'Croissance', risk: 'Volatilité et risque', calm: 'Marché calme' };
+// Notes des grandes banques = feed Institution REEL du desk (_brCache) : 1 par institution, les plus recentes,
+// pour le bloc « ce que publient les grandes banques » des mails macro. Sources PUBLIQUES + attribuees, jamais
+// de reproduction du texte proprietaire (on n'affiche que la banque + le titre + la date).
+function _bankNotes(n) {
+  const now = Date.now(), seen = new Set(), out = [];
+  const items = (_brCache || [])
+    .filter(a => a && a.institution && a.title && (a.timestamp || 0) > now - 14 * 864e5)
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  for (const a of items) {
+    const inst = String(a.institution).replace(/\s+Research$/i, '').trim();
+    if (!inst || inst === 'DTP' || seen.has(inst)) continue;
+    seen.add(inst);
+    const days = Math.max(0, Math.round((now - (a.timestamp || now)) / 864e5));
+    out.push({ institution: inst, title: String(a.title).slice(0, 130), ago: days <= 0 ? "aujourd'hui" : days === 1 ? 'hier' : 'il y a ' + days + ' j' });
+    if (out.length >= (n || 4)) break;
+  }
+  return out;
+}
 // Snapshot complet consomme par les mails. ASYNC (calendrier live). Ne jette jamais.
 async function _deskContext() {
   const now = Date.now();
@@ -12741,7 +12759,7 @@ async function _deskContext() {
   } catch {}
   let risk = null;
   if (_riskData && typeof _riskData.pct === 'number') { const p = _riskData.pct; risk = { pct: p, label: p >= 15 ? 'Risk-on (appétit pour le risque)' : p <= -15 ? 'Risk-off (aversion au risque)' : 'Neutre' }; }
-  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), featured: _calFeatured(upcoming), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), weekAhead: _weekAhead };
+  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), featured: _calFeatured(upcoming), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), weekAhead: _weekAhead, bankNotes: _bankNotes(4) };
 }
 // Anti-redondance Decryptage : historique durable des concepts couverts (KV campaign:decrypt-history).
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }

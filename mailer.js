@@ -1015,6 +1015,18 @@ function _watchRows(events) {
   }).join('');
 }
 
+// Bloc « ce que publient les grandes banques » — feed Institution REEL du desk (context.bankNotes = _brCache).
+// Attribue (banque + titre + date UNIQUEMENT) : sources publiques, aucune reproduction du texte proprietaire.
+function _bankNotesBlock(notes) {
+  if (!Array.isArray(notes) || !notes.length) return '';
+  const rows = notes.slice(0, 4).map(n => `<tr><td style="padding:9px 0;border-top:1px solid #1f1f24;">
+      <span style="color:#e3b23a;font-weight:700;font-size:12.5px;">${_esc(n.institution)}</span>${n.ago ? `<span style="color:#6b7280;font-size:12px;">&nbsp;&middot;&nbsp;${_esc(n.ago)}</span>` : ''}
+      <div style="color:#e6e6ea;font-size:13.5px;line-height:1.5;margin-top:2px;">${_esc(n.title)}</div>
+    </td></tr>`).join('');
+  return `<p style="margin:20px 0 6px;">Ce que publient les grandes banques en ce moment&nbsp;:</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
+    <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Les notes complètes (Goldman Sachs, ING, Scotiabank&hellip;) sont dans l'onglet <strong style="color:#9aa3b2;">Institution</strong> du Desk.</p>`;
+}
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
 // via recentKeys. Repli evergreen (decodeur 4 familles) si aucune donnee. Renvoie aussi conceptKey (marquage).
@@ -1064,6 +1076,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     <p style="margin:0 0 6px;">${lead}</p>
     ${conceptHtml}
     ${agendaHtml}
+    ${_bankNotesBlock(context && context.bankNotes)}
     ${evergreen}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
