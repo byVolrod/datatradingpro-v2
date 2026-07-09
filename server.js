@@ -12108,6 +12108,19 @@ app.get('/internal/email-widget/eclairages', async (_req, res) => {
 const _CAL_ISO = { USD:'us', EUR:'eu', GBP:'gb', JPY:'jp', CAD:'ca', AUD:'au', CHF:'ch', NZD:'nz', CNY:'cn', CNH:'cn', SGD:'sg', HKD:'hk', SEK:'se', NOK:'no', MXN:'mx', BRL:'br', INR:'in', KRW:'kr', ZAR:'za', TRY:'tr', PLN:'pl', HUF:'hu', CZK:'cz', DKK:'dk' };
 function _calMailFlag(cur) { const iso = _CAL_ISO[cur]; return iso ? `<span class="cal-flag-wrap"><img src="https://flagcdn.com/w40/${iso}.png" alt="${cur}" class="cal-flag-img"></span>` : ''; }
 function _calMailDots(impact) { const l = String(impact || '').toLowerCase(); if (l === 'high') return '<span class="ci-high">●●●</span>'; if (l === 'medium') return '<span class="ci-med">●●<span class="ci-dot-off">●</span></span>'; return '<span class="ci-low">●<span class="ci-dot-off">●●</span></span>'; }
+// Cellule RÉEL du widget e-mail — miroir EXACT de calActualCell() du desk (deviation vs PREVISION,
+// eclair si sorti sous l'estimation basse LOW). Auto-echappement (hors portee du _e local de la route).
+function _calMailActual(actual, forecast, low) {
+  const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
+  const dev = (a, r) => { if (a == null || a === '' || r == null || r === '') return ''; const x = parseFloat(String(a).replace(',', '.')), y = parseFloat(String(r).replace(',', '.')); if (isNaN(x) || isNaN(y)) return ''; return x > y ? 'cv-pos' : x < y ? 'cv-neg' : ''; };
+  let bolt = '';
+  if (low != null && low !== '') {
+    const a = parseFloat(String(actual).replace(',', '.')), l = parseFloat(String(low).replace(',', '.'));
+    if (!isNaN(a) && !isNaN(l) && a < l) bolt = '<span class="cv-bolt"><svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg></span>';
+  }
+  return `<span class="cv-actual ${dev(actual, forecast)}">${bolt}${esc(actual)}</span>`;
+}
 app.get('/internal/email-widget/calendar', async (_req, res) => {
   let items = [];
   try { items = await _buildTVCalendar(); } catch (e) {}
@@ -12123,6 +12136,7 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
   const highs = up.filter(e => String(e.impact || '').toLowerCase() === 'high' && !RX_CPI.test(e.title || ''));
   const meds  = up.filter(e => String(e.impact || '').toLowerCase() === 'medium' && !RX_CPI.test(e.title || ''));
   const rows  = [...cpi, ...highs, ...meds].slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  try { _calApplyRanges(rows); } catch (e) {}   // remplit HIGH/LOW (fourchette de prevision) comme le desk
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   let tbody = '', lastDay = '';
   for (const ev of rows) {
@@ -12132,7 +12146,7 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
       let weekday = d.toLocaleDateString('fr-FR', { weekday: 'long', timeZone: 'Europe/Paris' });
       weekday = weekday.charAt(0).toUpperCase() + weekday.slice(1);
       const dateStr = d.toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris' });
-      tbody += `<tr class="cal-day-sep"><td colspan="7">${_e(weekday)}, ${dateStr}</td></tr>`;
+      tbody += `<tr class="cal-day-sep"><td colspan="10">${_e(weekday)}, ${dateStr}</td></tr>`;
       lastDay = dayKey;
     }
     const isCpi = RX_CPI.test(ev.title || '');
@@ -12140,10 +12154,12 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
     let cls = 'cal-row'; if (imp === 'high') cls += ' cal-row--high'; else if (imp === 'medium') cls += ' cal-row--med'; if (isCpi) cls += ' cal-row--cpi';
     const fc = ev.forecast && ev.forecast !== '' ? `<span class="cv-forecast">${_e(ev.forecast)}</span>` : '<span class="cv-empty">—</span>';
     const pv = ev.previous && ev.previous !== '' ? `<span class="cv-prev">${_e(ev.previous)}</span>` : '<span class="cv-empty">—</span>';
-    tbody += `<tr class="${cls}"><td class="cth-time">${_e(ev.time || '—')}</td><td class="cth-flag">${_calMailFlag(ev.currency)}</td><td class="cth-curr">${_e(ev.currency || '')}</td><td class="cth-imp">${_calMailDots(ev.impact)}</td><td class="cth-event">${_e(ev.title || '')}</td><td class="cth-val">${fc}</td><td class="cth-val">${pv}</td></tr>`;
+    const hi = ev.high && ev.high !== '' ? `<span class="cv-forecast">${_e(ev.high)}</span>` : '<span class="cv-empty">—</span>';
+    const lo = ev.low  && ev.low  !== '' ? `<span class="cv-prev">${_e(ev.low)}</span>`  : '<span class="cv-empty">—</span>';
+    tbody += `<tr class="${cls}"><td class="cth-time"><span class="cal-chv">›</span> ${_e(ev.time || '—')}</td><td class="cth-flag">${_calMailFlag(ev.currency)}</td><td class="cth-curr">${_e(ev.currency || '')}</td><td class="cth-imp">${_calMailDots(ev.impact)}</td><td class="cth-event">${_e(ev.title || '')}</td><td class="cth-val">${_calMailActual(ev.actual, ev.forecast, ev.low)}</td><td class="cth-val">${hi}</td><td class="cth-val">${fc}</td><td class="cth-val">${lo}</td><td class="cth-val">${pv}</td></tr>`;
   }
   const table = rows.length
-    ? `<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">Pays</th><th class="cth-curr">Devise</th><th class="cth-imp">Impact</th><th class="cth-event">Événement</th><th class="cth-val">Prévision</th><th class="cth-val">Précédent</th></tr></thead><tbody>${tbody}</tbody></table>`
+    ? `<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>${tbody}</tbody></table>`
     : '<div style="padding:26px 14px;color:#8a8f98;font-size:13px">Aucun événement majeur à venir dans les prochains jours.</div>';
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
