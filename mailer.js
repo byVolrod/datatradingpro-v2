@@ -1101,6 +1101,143 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
 }
 async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
+// ── MINDSET (track psychologie/discipline) — bibliotheque de mails ORIGINAUX DTP (voix or, informatif, ZERO
+// promesse de gains, aucun texte repris d'une newsletter existante). Structure : accroche -> croyance -> faille ->
+// recadrage (puces) -> question reflexive. Rotation anti-repetition par recentKeys (marques cote serveur, KV
+// campaign:mindset-history). Aucun widget -> envoi texte simple (_send).
+const MINDSET_CONCEPTS = [
+  { key: 'bruit-news', subject: "🔕 Tout suivre, ce n'est pas s'informer", paras: [
+    "Beaucoup de traders confondent une chose : être présent partout et être réellement informé. On croit qu'un bon trader suit tout, lit tout, réagit à tout. 📰",
+    "Pourtant, un titre qui claque n'est pas une information neuve. Le plus souvent, c'est une réaction déjà absorbée par le marché, déjà inscrite dans les prix.",
+    "À force de courir après chaque alerte, tu ne t'informes plus : tu t'épuises. Ton attention, ta ressource la plus rare, se disperse ligne après ligne.",
+    "L'avantage ne vient jamais du volume de nouvelles. Il vient de ta capacité à trier ce qui mérite ton regard. 🥇",
+    "- Un titre qui crie fort n'est pas un titre qui pèse lourd.",
+    "- Le calendrier économique désigne à l'avance ce qui mérite ton attention.",
+    "- Trier, c'est décider avant l'ouverture ce qui changerait vraiment ta lecture.",
+    "- Le silence entre deux nouvelles fait partie de l'analyse, pas du vide.",
+    "Un feed calme n'est pas un feed pauvre. C'est un feed déjà passé au tamis.",
+  ], closing: "La dernière nouvelle qui t'a fait réagir modifiait-elle vraiment ta lecture, ou comblait-elle seulement le silence ?" },
+  { key: 'process-vs-prediction', subject: "🎯 Deviner juste ne prouve rien", paras: [
+    "Il y a une envie difficile à taire chez le trader : deviner le prochain mouvement avant tout le monde, sentir le marché mieux que les autres. 🎯",
+    "Peu à peu, on confond la qualité d'une décision avec le simple fait d'avoir vu juste.",
+    "Mais le marché ne récompense pas les devins. Une prédiction juste posée sur une méthode fragile, c'est de la chance déguisée en talent — et la chance ne signe pas deux fois.",
+    "Le vrai levier est ailleurs : une méthode que tu peux dérouler cent fois de la même manière, sans rien improviser. 🧭",
+    "- Lire le contexte avant d'ouvrir un graphique, jamais l'inverse.",
+    "- Poser tes règles à froid : conditions d'invalidation, événements à surveiller, plan de sortie.",
+    "- Juger une décision sur la rigueur de sa méthode, pas sur son résultat isolé.",
+    "- Accepter qu'une bonne décision puisse déplaire, et une mauvaise réussir par hasard.",
+    "Une méthode solide te libère du besoin d'avoir raison : tu n'as plus à deviner, tu observes et tu exécutes. ✨",
+  ], closing: "Et si, cette semaine, tu évaluais tes décisions à la rigueur de ta méthode plutôt qu'à leur seul résultat ?" },
+  { key: 'serie-de-pertes', subject: "⚖️ Le marché ne te doit aucune revanche", paras: [
+    "Après deux, trois, quatre pertes qui s'enchaînent, une pulsion monte : tout récupérer, immédiatement. 🔴",
+    "Alors on force une entrée, on gonfle la taille, on réclame au marché une revanche.",
+    "Le piège tient en une phrase : le marché ignore ton solde. Il ne te doit aucun remboursement.",
+    "Vouloir effacer une perte, c'est laisser l'émotion choisir à la place de ton analyse.",
+    "Sépare le score du geste. Une série rouge est une donnée, jamais un verdict sur ta valeur.",
+    "- Une perte t'informe sur le marché, pas sur ce que tu vaux.",
+    "- Le sur-risque après un revers, c'est de l'émotion déguisée en stratégie.",
+    "- Une pause nette vaut mieux qu'une décision prise pour de mauvaises raisons.",
+    "- Revenir à ta méthode apaise l'envie de te rattraper.",
+    "Reprendre pied, c'est retrouver ta lecture avant de décider quoi que ce soit. 🪙",
+  ], closing: "Ta prochaine position, tu la prends pour lire le marché, ou pour effacer la précédente ?" },
+  { key: 'patience-vs-agitation', subject: "⏳ S'agiter n'est pas travailler", paras: [
+    "Une idée colle à la peau : plus tu passes d'heures devant les écrans, plus tu progresserais. 🕰️",
+    "Comme si l'agitation prouvait le sérieux, et le calme trahissait la paresse.",
+    "Le marché, lui, ne paie jamais ta présence. Il ne répond qu'à la justesse de tes décisions.",
+    "Multiplier les positions pour « ne rien manquer », c'est souvent manquer l'essentiel : le recul.",
+    "- Une séance sans position peut être ta meilleure séance.",
+    "- Attendre le bon scénario, c'est un travail, pas de l'inaction.",
+    "- Ta discipline se lit aussi dans les trades que tu refuses.",
+    "- La patience n'est pas de l'attente subie : c'est une décision, tenue. ⚙️",
+    "Ta progression ne se mesure pas au nombre d'onglets ouverts, mais à la netteté de tes choix. 🟡",
+  ], closing: "Et si tu jaugeais ta semaine non pas à tes heures d'écran, mais à la qualité de tes décisions ?" },
+  { key: 'ego-avoir-tort', subject: "🥇 Ton ego pèse plus lourd que ton stop", paras: [
+    "Une croyance s'accroche chez beaucoup de traders : couper une position, ce serait admettre qu'on s'est trompé. Alors on serre les dents et on espère. 🤔",
+    "Le marché, pourtant, ignore ta fierté. Il ne sait même pas que tu existes.",
+    "Espérer n'a jamais été un plan. C'est souvent l'ego qui refuse de rendre les clés.",
+    "Accepter d'avoir tort vite n'est pas une humiliation : c'est une compétence, l'une des plus rares.",
+    "- Une thèse invalidée est une information précieuse, pas une insulte.",
+    "- Reconnaître son erreur tôt libère l'esprit pour la prochaine lecture.",
+    "- Le contexte évolue ; ton scénario a le droit d'évoluer avec lui.",
+    "- La vraie question n'est pas « qui a raison », mais « qu'est-ce qui est encore vrai ».",
+    "Confronter ta thèse aux faits plutôt qu'à ton amour-propre : c'est là que se joue le sang-froid. 🥇",
+  ], closing: "Quand tu gardes une position, qu'est-ce qui tient encore vraiment : ton scénario, ou ton ego ?" },
+  { key: 'regularite', subject: "🪙 Ce que les captures ne montrent pas", paras: [
+    "Sur les réseaux, tu ne croises que des feux d'artifice : la capture parfaite, la position héroïque, l'exploit du jour. 🚀",
+    "Ton cerveau enregistre alors une équation trompeuse : réussir, ce serait signer le coup spectaculaire.",
+    "Ces images taisent tout le reste — les séances plates, les erreurs, les comptes vidés en silence.",
+    "Ce qui construit un trader, ce n'est pas l'éclair isolé, mais la répétition propre du même geste.",
+    "- Un geste que tu peux tenir cent fois vaut mieux qu'un éclair irremplaçable.",
+    "- La régularité protège ton capital mental : moins d'euphorie, moins de tilt.",
+    "- Le spectacle des réseaux se trie comme le reste : tu gardes le fond, tu laisses la mise en scène.",
+    "- Une routine lisible se répète ; un coup de génie, non.",
+    "L'or n'impressionne pas parce qu'il brille fort. Il compte parce qu'il dure. 🪙",
+  ], closing: "Ton dernier « bon trade », était-ce un geste reproductible à froid, ou une exception que tu t'es racontée ?" },
+  { key: 'preparation-contexte', subject: "🧭 L'avantage se gagne avant la première bougie", paras: [
+    "On croit souvent que l'avantage d'un trader se joue dans l'instant : le bon setup, le réflexe éclair, le clic au bon moment. 🕰️",
+    "C'est là que l'illusion s'installe. Réagir à un marché qu'on n'a pas préparé, c'est courir derrière un mouvement déjà lancé.",
+    "Le vrai avantage se façonne avant l'ouverture, dans le calme de la préparation.",
+    "Lire le contexte, c'est donner un sens au prix : un chiffre seul ne dit rien, c'est le cadre qui parle.",
+    "- Ouvre le calendrier économique avant la séance, pas au milieu d'une bougie.",
+    "- Repère à l'avance les événements capables de déplacer tes paires.",
+    "- Distingue le signal du décor, sans t'y perdre.",
+    "- Prépare des scénarios plutôt que de subir l'annonce.",
+    "Se préparer, ce n'est pas prédire. C'est arriver lucide, une carte en main, quand d'autres avancent à l'aveugle.",
+  ], closing: "Avant ta prochaine séance, sauras-tu dire ce que le calendrier réserve à tes paires, ou le découvriras-tu en pleine bougie ?" },
+  { key: 'journal-erreurs', subject: "📓 Une erreur non écrite revient toujours", paras: [
+    "Le réflexe le plus courant après une erreur ? La glisser dans un coin de la tête en se disant « leçon retenue ». 🧠",
+    "Sauf que la mémoire réécrit tout. Sans trace, la même erreur revient plus tard, déguisée mais identique.",
+    "Un journal n'est pas un carnet de regrets. C'est l'outil qui transforme une faute en information exploitable. ✍️",
+    "- Note le contexte, pas seulement l'issue : la macro du jour, les événements, ton état d'esprit.",
+    "- Distingue la décision de son résultat : une bonne méthode peut perdre, une mauvaise gagner par hasard.",
+    "- Cherche le schéma qui se répète, pas l'anecdote isolée.",
+    "- Relis-toi à froid, une fois par semaine, quand l'émotion est retombée.",
+    "Une erreur n'est un problème que tant qu'elle reste invisible. Écrite, elle devient une étape. 🪙",
+  ], closing: "Ta dernière erreur, l'as-tu vraiment analysée, ou seulement rangée ?" },
+];
+// Rend les paragraphes : les lignes « - … » consecutives deviennent une liste a puces or ; le reste = paragraphes.
+function _mindsetParas(paras) {
+  let html = '', bullets = [];
+  const flush = () => { if (bullets.length) { html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 14px;">${bullets.map(b => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(b)}</td></tr>`).join('')}</table>`; bullets = []; } };
+  for (const p of (paras || [])) {
+    const s = String(p == null ? '' : p).trim();
+    if (!s) continue;
+    if (s.slice(0, 2) === '- ') { bullets.push(s.slice(2).trim()); continue; }
+    flush();
+    html += `<p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;line-height:1.6;">${_esc(s)}</p>`;
+  }
+  flush();
+  return html;
+}
+// Choisit un concept en evitant les recentKeys (rotation). Repli : tout le catalogue.
+function pickMindsetConcept(recentKeys) {
+  recentKeys = Array.isArray(recentKeys) ? recentKeys : [];
+  const fresh = MINDSET_CONCEPTS.filter(c => !recentKeys.includes(c.key));
+  const pool = fresh.length ? fresh : MINDSET_CONCEPTS;
+  return pool[0] || null;
+}
+function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, conceptKey } = {}) {
+  campaign = campaign || 'mindset';
+  const pick = (conceptKey && MINDSET_CONCEPTS.find(c => c.key === conceptKey)) || pickMindsetConcept(recentKeys);
+  if (!pick) return null;
+  const prenomRaw = (name || '').split(' ')[0] || '';
+  const hello = prenomRaw ? `Salut ${_esc(prenomRaw)},` : 'Salut,';
+  const unsub = unsubUrl(email || '');
+  const cta = _campaignCta(isMember, campaign, email);
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    ${_mindsetParas(pick.paras)}
+    <p style="margin:16px 0 4px;font-size:15px;color:#ffffff;font-style:italic;">${_esc(pick.closing)}</p>
+    <div style="margin:22px 0 6px;">${cta.btn}</div>
+    <p style="margin:0 0 4px;">À très vite,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  return { subject: pick.subject, html: _campaignLayout('Mindset', body, unsub), conceptKey: pick.key, conceptTitle: pick.subject };
+}
+async function sendCampaignMindset(d) { d = d || {}; const m = buildCampaignMindset({ name: d.name, email: d.email || d.to, campaign: d.campaign, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey }); if (!m) return false; const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+
 // ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
 // quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
 // Force des Devises. Règle « pas de données -> pas de mail » (renvoie null). 100% informatif, CTA adapté.
@@ -1429,7 +1566,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
@@ -1438,7 +1575,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
