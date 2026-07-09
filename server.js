@@ -12719,10 +12719,13 @@ const _THEME_FR = { rates: 'Banques centrales', inflation: 'Inflation', jobs: 'E
 // Notes des grandes banques = feed Institution REEL du desk (_brCache) : 1 par institution, les plus recentes,
 // pour le bloc « ce que publient les grandes banques » des mails macro. Sources PUBLIQUES + attribuees, jamais
 // de reproduction du texte proprietaire (on n'affiche que la banque + le titre + la date).
+// Filtre PERTINENCE macro/marches : le feed brut contient aussi du contenu banque hors-sujet (retail, RH,
+// contrats locaux...). On ne garde que les notes dont le titre touche vraiment aux marches / a l'eco.
+const _BANK_MACRO_RE = /\b(inflation|cpi|pce|ppi|rate|rates|fed|fomc|ecb|bce|boe|boj|snb|rba|rbnz|central bank|monetary|hawkish|dovish|yield|bond|treasur|fx|forex|currenc|dollar|euro|sterling|yen|franc|growth|gdp|recession|payroll|employ|jobs|labour|labor|pmi|tariff|trade war|oil|commodit|gold|equit|market|outlook|week ahead|preview|macro|policy|hike|cut|easing|tightening|budget|fiscal|geopolit)\b/i;
 function _bankNotes(n) {
   const now = Date.now(), seen = new Set(), out = [];
   const items = (_brCache || [])
-    .filter(a => a && a.institution && a.title && (a.timestamp || 0) > now - 14 * 864e5)
+    .filter(a => a && a.institution && a.title && (a.timestamp || 0) > now - 14 * 864e5 && _BANK_MACRO_RE.test(a.title))
     .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   for (const a of items) {
     const inst = String(a.institution).replace(/\s+Research$/i, '').trim();
