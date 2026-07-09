@@ -756,12 +756,12 @@ function _campaignBtn(label, url) {
     </td></tr></table>`;
 }
 // Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
-// eyebrow = intitule majuscule facon desk ; cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook (width).
+// PAS d'intitule visible au-dessus (le contexte est deja donne par le texte du mail) ; l'`eyebrow` ne sert plus
+// que d'alt (accessibilite + repli si image bloquee). Cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook.
 function _widgetImg(type, eyebrow, maxW) {
   maxW = maxW || 532;
   const lbl = _esc(eyebrow || '');
-  return `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">${lbl}</div>
-    <img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}" width="${maxW}" alt="${lbl} DataTradingPro" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:6px 0 14px;">`;
+  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}" width="${maxW}" alt="${lbl} DataTradingPro" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
 }
 // AGENDA en HTML (table facon calendrier du desk) construit a partir des MEMES evenements que le texte du mail
 // (context.upcoming) -> COHERENCE garantie : l'evenement annonce dans l'accroche figure toujours dans l'agenda.
