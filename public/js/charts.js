@@ -743,8 +743,9 @@ function buildStrengthChart(containerId, data, opts = {}) {
     seriesArr.push(series);
     seriesMap[ccy] = series;
     labelMap[ccy]  = { range, value: lastV, hexStr, hexColor };
-    // (mail) valeur TD statique a DROITE de la devise dans la legende (pas de curseur -> valeur figee du jour).
-    if (_legendVal) series.set('legendValueText', '  ' + lastV.toFixed(1).replace('.', ','));
+    // (mail) valeur TD figee du jour A DROITE de la devise, directement dans le LABEL de legende (le nom) :
+    // fiable sans curseur (contrairement a legendValueText). Le tooltip/badge continuent d'utiliser `ccy`.
+    if (_legendVal) series.set('name', ccy + '   ' + lastV.toFixed(1).replace('.', ','));
 
     // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit).
     // DOUBLE écoute (événements + propriété `visible`) : si un événement rate (update pendant
@@ -769,11 +770,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       marginTop: 0, marginBottom: 6, paddingLeft: 0, paddingTop: 0,
     }));
     legend.labels.template.setAll({ fill: am5.color(_deskChartTxt()), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 3, paddingRight: 0 });
-    if (_legendVal) {   // (mail) montre la valeur TD a droite de chaque devise, comme sur le desk
-      legend.valueLabels.template.setAll({ forceHidden: false, fill: am5.color(_deskChartTxt()), fontSize: 11, fontWeight: '700', fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 0, paddingRight: 0 });
-    } else {
-      legend.valueLabels.template.set('forceHidden', true);                     // desk : pas de valeur dans la légende (juste le nom)
-    }
+    legend.valueLabels.template.set('forceHidden', true);                       // valeur non fiable sans curseur -> cote mail on la met dans le LABEL (nom, cf. loop)
     legend.markers.template.setAll({ width: 11, height: 11 });
     legend.markerRectangles.template.setAll({ cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 });
     legend.itemContainers.template.setAll({ paddingTop: 1, paddingBottom: 1, paddingLeft: 4, paddingRight: 4 });
