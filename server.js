@@ -12990,29 +12990,34 @@ setTimeout(() => { _reconcileSent(['intro-v1']).catch(() => {}); }, 60000);   //
 
 // Apercu HTML d'un e-mail de campagne (rendu dans une iframe de l'admin). ?type=intro|decryptage|pointmarche|weekly
 // &member=1 -> variante MEMBRE (CTA/PS adaptes). Decryptage + Point marche = data-driven (contexte desk live).
+// Donnees d'EXEMPLE pour l'apercu quand le desk n'a pas (encore) la vraie donnee -> l'admin voit TOUJOURS la mise en page.
+const _SAMPLE_WEEKLY = { summary: "Semaine dominée par les banques centrales : le dollar reste ferme avant les décisions de taux, l'or consolide.", insights: ['Le marché révise ses attentes de baisses de taux.', 'Les devises refuges gardent la main.'], pairs: [{ pair: 'EUR/USD', bias: 'SELL', text: 'Sous pression tant que la Fed reste ferme.' }, { pair: 'USD/JPY', bias: 'BUY', text: "Soutenu par l'écart de taux." }, { pair: 'XAU/USD', bias: 'NEUTRAL', text: 'Range avant les décisions.' }], centralBanks: [{ bank: 'Fed', stance: 'hawkish' }, { bank: 'BCE', stance: 'prudente' }] };
+const _SAMPLE_CTX = { upcoming: [], majors: [], theme: 'rates', themeLabel: 'Banques centrales', bias: [{ ccy: 'USD', label: 'Haussier', signal: 'BUY' }, { ccy: 'JPY', label: 'Baissier', signal: 'SELL' }], cs: { ranked: ['USD', 'CHF', 'GBP', 'EUR', 'CAD', 'AUD', 'NZD', 'JPY'], strong: [{ ccy: 'USD' }, { ccy: 'CHF' }], weak: [{ ccy: 'JPY' }, { ccy: 'NZD' }] }, risk: { pct: -15, label: 'Risk-off (aversion au risque)' }, daily: { summary: 'Le dollar domine avant les décisions de taux ; les indices consolident.' }, weekly: null };
 app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
   try {
     const type = String(req.query.type || 'intro');
     const isMember = req.query.member === '1';
-    const sample = { name: 'Muhammed', email: 'apercu@datatradingpro.com' };
-    let m = null;
+    const s = { name: 'Muhammed', email: 'apercu@datatradingpro.com' };
+    let m = null, note = '';
     if (type === 'weekly') {
-      const weekly = _freshWeekly();
-      m = weekly ? mailer.buildWeeklyDigest({ name: sample.name, email: sample.email, campaign: 'weekly-preview', weekly }) : null;
-      if (!m) return res.type('html').send('<div style="font-family:-apple-system,Segoe UI,sans-serif;padding:48px 24px;color:#8b93a1;background:#0a0a0c;text-align:center;">Le « Point de la semaine » s\'affichera ici dès la prochaine génération du Récap Hebdo.</div>');
+      let weekly = _freshWeekly();
+      if (!weekly) { weekly = _SAMPLE_WEEKLY; note = 'Aperçu de mise en page — le vrai Récap Hebdo est généré chaque samedi.'; }
+      m = mailer.buildWeeklyDigest({ name: s.name, email: s.email, campaign: 'weekly-preview', weekly });
     } else if (type === 'decryptage') {
       const context = await _deskContext();
       const recentKeys = await _decryptRecentKeys(4);
-      m = mailer.buildCampaignDecryptage({ name: sample.name, email: sample.email, campaign: 'decryptage-preview', context, recentKeys, isMember });
+      m = mailer.buildCampaignDecryptage({ name: s.name, email: s.email, campaign: 'decryptage-preview', context, recentKeys, isMember });
     } else if (type === 'pointmarche') {
       const context = await _deskContext();
-      m = mailer.buildCampaignPointMarche({ name: sample.name, email: sample.email, campaign: 'pointmarche-preview', context, isMember });
-      if (!m) return res.type('html').send('<div style="font-family:-apple-system,Segoe UI,sans-serif;padding:48px 24px;color:#8b93a1;background:#0a0a0c;text-align:center;">Le « Point marché » s\'affichera dès que le desk aura des données (rapport quotidien, biais ou calendrier).</div>');
+      m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context, isMember });
+      if (!m) { m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
     } else {
-      m = mailer.buildCampaignIntro({ name: sample.name, email: sample.email, campaign: 'intro-preview' });
+      m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
     }
-    res.set('Content-Type', 'text/html; charset=utf-8').set('Cache-Control', 'no-store').send(m.html);
-  } catch (e) { res.status(500).type('html').send('Erreur: ' + e.message); }
+    let html = (m && m.html) || '<div style="padding:40px;color:#8b93a1;background:#0d0e11;font-family:sans-serif;text-align:center;">Aperçu indisponible.</div>';
+    if (note) html = html.replace(/(<body[^>]*>)/i, '$1<div style="background:#e3b23a;color:#0d0e11;font:600 12px -apple-system,Segoe UI,sans-serif;padding:7px 14px;text-align:center;">' + note + '</div>');
+    res.set('Content-Type', 'text/html; charset=utf-8').set('Cache-Control', 'no-store').send(html);
+  } catch (e) { res.status(500).type('html').send('<div style="padding:40px;color:#ff6b57;background:#0d0e11;font-family:sans-serif;">Erreur aperçu : ' + String(e.message || e) + '</div>'); }
 });
 
 // ─── Campagne hebdo — ENVOI (admin) ────────────────────────────────────────────
