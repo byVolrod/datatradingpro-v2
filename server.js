@@ -13059,7 +13059,7 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
   // ── PRE-FLIGHT avant broadcast reel : fournisseur mail + audience + rendu de l'intro. Bloque si critique. ──
   const pfB = await _runCampaignPreflight({
     recipients, sample: () => mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: CAMPAIGN_ID }),
-    needsData: false, needsWidget: true, widgetType: 'strength', needsAI: false,
+    needsData: false, needsWidget: false, needsAI: false,   // le mail Bienvenue n'embarque plus de widget
   });
   if (!pfB.ok) { await _campaignError('critical', CAMPAIGN_ID, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE — aucun envoi.', preflight: pfB }); }
 
