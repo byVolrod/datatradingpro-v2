@@ -1,7 +1,7 @@
 {
   "name": "datatradingpro",
   "version": "1.0.0",
-  "description": "Prime Terminal - Real-time Trading News Platform",
+  "description": "DataTradingPro - Real-time Trading News Platform",
   "main": "server.js",
   "engines": {
     "node": ">=20.0.0"

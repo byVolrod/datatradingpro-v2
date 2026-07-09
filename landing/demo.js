@@ -19,7 +19,7 @@
   #dtp-demo *{box-sizing:border-box}
   .dd-win{position:relative;width:min(1220px,100%);max-width:100%;height:min(88vh,800px);display:flex;flex-direction:column;
     background:#0a0a0c;border:1px solid #26262e;border-radius:12px;overflow:hidden;
-    box-shadow:0 60px 160px -40px #000,0 0 0 1px rgba(247,148,29,.05);
+    box-shadow:0 60px 160px -40px #000,0 0 0 1px rgba(227,178,58,.05);
     transform:translateY(14px) scale(.99);transition:transform .28s cubic-bezier(.2,.8,.2,1)}
   #dtp-demo.on .dd-win{transform:none}
   .dd-mono{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
@@ -28,14 +28,14 @@
   .dd-top{display:flex;align-items:center;gap:11px;padding:9px 14px;background:#0d0d11;border-bottom:1px solid #1c1c22;flex-shrink:0}
   .dd-logo{display:flex;align-items:center;gap:8px;font-weight:800;font-size:14px;color:#ffffff;letter-spacing:-.01em}
   .dd-logo svg{width:20px;height:20px}
-  .dd-logo b{color:#f7941d}
-  .dd-sim{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.07em;color:#f7941d;background:rgba(247,148,29,.1);border:1px solid rgba(247,148,29,.32);padding:3px 9px;border-radius:100px}
-  .dd-sim .pd{width:6px;height:6px;border-radius:50%;background:#f7941d;animation:ddpulse 1.5s infinite}
+  .dd-logo b{color:#e3b23a}
+  .dd-sim{display:inline-flex;align-items:center;gap:6px;font-size:10px;font-weight:700;letter-spacing:.07em;color:#e3b23a;background:rgba(227,178,58,.1);border:1px solid rgba(227,178,58,.32);padding:3px 9px;border-radius:100px}
+  .dd-sim .pd{width:6px;height:6px;border-radius:50%;background:#e3b23a;animation:ddpulse 1.5s infinite}
   @keyframes ddpulse{0%,100%{opacity:1}50%{opacity:.25}}
   .dd-clock{margin-left:4px;font-size:11.5px;color:#7f7f88}
   .dd-top>.dd-cta{margin-left:auto}
-  .dd-cta{background:#f7941d;color:#0a0a0a;font-weight:700;font-size:12.5px;padding:8px 15px;border-radius:7px;border:0;cursor:pointer;text-decoration:none;transition:.15s;white-space:nowrap}
-  .dd-cta:hover{background:#ffae42;box-shadow:0 8px 22px -8px rgba(247,148,29,.6)}
+  .dd-cta{background:#e3b23a;color:#0a0a0a;font-weight:700;font-size:12.5px;padding:8px 15px;border-radius:7px;border:0;cursor:pointer;text-decoration:none;transition:.15s;white-space:nowrap}
+  .dd-cta:hover{background:#f0c95c;box-shadow:0 8px 22px -8px rgba(227,178,58,.6)}
   .dd-x{width:30px;height:30px;border-radius:7px;border:1px solid #2a2a32;background:transparent;color:#9a9aa3;cursor:pointer;font-size:17px;line-height:1;display:flex;align-items:center;justify-content:center}
   .dd-x:hover{color:#fff;border-color:#3a3a44}
   /* ticker */
@@ -58,7 +58,7 @@
   @keyframes ddin{from{opacity:0;transform:translateY(-7px)}to{opacity:1;transform:none}}
   .dd-bdg{font-size:8px;font-weight:800;letter-spacing:.03em;padding:2px 6px;border-radius:3px;height:fit-content;margin-top:2px}
   .b-high{background:rgba(255,61,0,.15);color:#ff6b3d;border:1px solid rgba(255,61,0,.35)}
-  .b-med{background:rgba(247,148,29,.13);color:#ffae42;border:1px solid rgba(247,148,29,.3)}
+  .b-med{background:rgba(227,178,58,.13);color:#f0c95c;border:1px solid rgba(227,178,58,.3)}
   .b-low{background:rgba(0,230,118,.1);color:#34d684;border:1px solid rgba(0,230,118,.3)}
   .dd-itx{font-size:12px;line-height:1.42;color:#d4d4d8}
   .dd-itm .meta{font-size:9.5px;color:#6a6a73;margin-top:3px}
@@ -82,8 +82,8 @@
   .dd-cup,.dd-cdn{display:flex;flex-direction:column;gap:2px;width:100%;align-items:center;flex:1}
   .dd-cup{justify-content:flex-end}.dd-cdn{justify-content:flex-start}
   .dd-seg{width:74%;height:5px;border-radius:1px;background:#1a1a20;transition:background .4s}
-  .dd-seg.g{background:rgba(0,218,80,.867)}
-  .dd-seg.r{background:rgba(255,0,0,.78)}
+  .dd-seg.g{background:rgba(0,230,118,.867)}
+  .dd-seg.r{background:rgba(255,61,0,.78)}
   .dd-cax{height:2px;width:100%;background:#2a2a32;margin:4px 0}
   .dd-clbl{font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace;font-size:9px;color:#8a8a93;margin-top:5px}
   /* calendar */
@@ -99,7 +99,7 @@
   .dd-foot .note{font-size:10.5px;color:#6a6a73}
   .dd-foot .grow{flex:1}
   .dd-foot .msg{font-size:12px;color:#cfcfd4}
-  .dd-foot .msg b{color:#f7941d}
+  .dd-foot .msg b{color:#e3b23a}
   @media(max-width:820px){
     .dd-grid{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
     .dd-news{grid-row:span 1;grid-column:span 2}

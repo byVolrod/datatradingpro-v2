@@ -21,12 +21,12 @@ const app = express();
 // ── Emails ────────────────────────────────────────────────────────────────────
 app.get('/', (_req, res) => {
   const cat = mailer.getEmailCatalog();
-  const links = cat.map(e => `<li><a href="/raw/${e.key}" style="color:#f7941d;">${e.audience} — ${e.label}</a></li>`).join('');
+  const links = cat.map(e => `<li><a href="/raw/${e.key}" style="color:#e3b23a;">${e.audience} — ${e.label}</a></li>`).join('');
   res.type('html').send(`<!doctype html><html><head><meta charset=utf-8><title>Preview DTP</title></head>
     <body style="background:#0c0c0e;color:#e6e9ef;font-family:sans-serif;padding:40px;">
-      <h1 style="color:#f7941d;">DataTradingPro — Preview</h1>
-      <p><a href="/analyst" style="color:#f7941d;font-size:18px;">→ Aperçu d'un rapport Analyst</a></p>
-      <p><a href="/gallery" style="color:#f7941d;">→ Galerie des emails</a></p>
+      <h1 style="color:#e3b23a;">DataTradingPro — Preview</h1>
+      <p><a href="/analyst" style="color:#e3b23a;font-size:18px;">→ Aperçu d'un rapport Analyst</a></p>
+      <p><a href="/gallery" style="color:#e3b23a;">→ Galerie des emails</a></p>
       <ul style="line-height:2;">${links}</ul>
     </body></html>`);
 });
@@ -87,7 +87,7 @@ function analystPreview() {
   body { margin:0; background:#0a0a0a; }
   .pv-panel { height:100vh; display:flex; flex-direction:column; background:#0c0c0e; }
   .pv-head { display:flex; align-items:center; justify-content:space-between; height:40px; padding:0 16px;
-             border-bottom:1px solid #1c1c20; font-family:var(--font-pmt,sans-serif); }
+             border-bottom:1px solid #1c1c20; font-family:var(--font-desk,sans-serif); }
   .pv-head .t { color:#e6e9ef; font-size:13px; font-weight:700; }
   .pv-head .x { color:#777; font-size:16px; }
   .arlib-reader-view { flex:1; min-height:0; }

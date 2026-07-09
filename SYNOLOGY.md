@@ -1,4 +1,4 @@
-# 🏠 Héberger Prime Terminal sur ton Synology NAS
+# 🏠 Héberger DataTradingPro sur ton Synology NAS
 
 > **C'est la meilleure option pour toi** : gratuit, allumé 24h/24, aucune mise
 > en veille, stockage persistant, et tu gardes le contrôle total. Le NAS fait
@@ -19,7 +19,7 @@
 ## Étape 1 — Copier le projet sur le NAS
 
 Via **File Station**, crée un dossier, par ex :
-`/docker/prime-terminal/`
+`/docker/datatradingpro/`
 
 Copie-y **tout le contenu du projet** (le dossier qui contient `server.js`,
 `Dockerfile`, `docker-compose.yml`, etc.). Tu peux glisser-déposer depuis ton PC.
@@ -31,7 +31,7 @@ Copie-y **tout le contenu du projet** (le dossier qui contient `server.js`,
 
 ## Étape 2 — Créer le fichier `.env` sur le NAS
 
-Dans `/docker/prime-terminal/`, crée un fichier nommé **`.env`** (via le
+Dans `/docker/datatradingpro/`, crée un fichier nommé **`.env`** (via le
 Text Editor de DSM, ou copie celui de ton PC) contenant :
 
 ```
@@ -39,14 +39,14 @@ NODE_ENV=production
 PORT=3000
 SESSION_SECRET=une-longue-chaine-aleatoire-de-ton-choix
 
-SUPABASE_URL=https://cbwutzqsanweuvodkljx.supabase.co
+SUPABASE_URL=https://<ton-projet>.supabase.co
 SUPABASE_KEY=ta-cle-service-role-supabase
 
-FJ_EMAIL=volrod.dev@gmail.com
-FJ_PASS=123123Pp
+FJ_EMAIL=<ton-email-financialjuice>
+FJ_PASS=<voir-gestionnaire-de-secrets>
 
-MFB_EMAIL=gostan.dev@gmail.com
-MFB_PASS=Turquie25#
+MFB_EMAIL=<ton-email-myfxbook>
+MFB_PASS=<voir-gestionnaire-de-secrets>
 
 ANTHROPIC_API_KEY=ta-cle-claude-si-tu-en-as-une
 
@@ -58,8 +58,8 @@ ALLOWED_ORIGINS=
 ## Étape 3 — Lancer via Container Manager
 
 1. Ouvre **Container Manager** → onglet **Projet** → **Créer**.
-2. **Nom du projet** : `prime-terminal`
-3. **Chemin** : sélectionne `/docker/prime-terminal/`
+2. **Nom du projet** : `datatradingpro`
+3. **Chemin** : sélectionne `/docker/datatradingpro/`
 4. **Source** : « Utiliser un fichier docker-compose.yml existant » → il détecte
    le `docker-compose.yml` du dossier.
 5. Clique **Suivant** → **Terminé**.
@@ -104,8 +104,8 @@ forwarding — section habituellement « NAT » ou « Serveurs virtuels »).
 
 ## Mettre à jour le site plus tard
 
-1. Remplace les fichiers modifiés dans `/docker/prime-terminal/` (File Station).
-2. Container Manager → projet `prime-terminal` → **Construire** (rebuild) →
+1. Remplace les fichiers modifiés dans `/docker/datatradingpro/` (File Station).
+2. Container Manager → projet `datatradingpro` → **Construire** (rebuild) →
    **Action → Redémarrer**.
 
 ---

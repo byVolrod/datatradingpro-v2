@@ -15,8 +15,8 @@ const FILE = path.join(ROOT, 'landing', 'index.html');
 const TOKEN = process.env.LANDING_SNAPSHOT_TOKEN || '';
 const PORT = process.env.SNAPSHOT_PORT || process.env.PORT || 3000;
 
-const COL = { USD:'#ff9500', GBP:'#2bee6b', EUR:'#ff3b30', AUD:'#3b82f6', CHF:'#ffd60a', CAD:'#be8bff', NZD:'#ff5cae', JPY:'#22d3ee' };
-const IBG = { USD:'#ffca80', GBP:'#95f6b5', EUR:'#ff9d97', AUD:'#9dc0fb', CHF:'#ffea84', CAD:'#dec5ff', NZD:'#ffaed6', JPY:'#90e9f6' };
+const COL = { USD:'#e8eaed', GBP:'#2bee6b', EUR:'#ff3b30', AUD:'#3b82f6', CHF:'#ffd60a', CAD:'#be8bff', NZD:'#ff5cae', JPY:'#22d3ee' };
+const IBG = { USD:'#cfd3d9', GBP:'#95f6b5', EUR:'#ff9d97', AUD:'#9dc0fb', CHF:'#ffea84', CAD:'#dec5ff', NZD:'#ffaed6', JPY:'#90e9f6' };
 const MONTHS = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
 
 function getSnapshot() {
