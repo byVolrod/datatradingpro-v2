@@ -1016,16 +1016,13 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   const pick = pickDecryptConcept(context, recentKeys);
   const c = pick.concept;
 
-  // Accroche ancree sur la semaine reelle
+  // Accroche ancree sur l'evenement VEDETTE du calendrier (context.featured = ce que le widget affiche en tete)
+  // -> le mail vedette le MEME evenement que le calendrier affiche -> jamais de contradiction texte/calendrier.
+  const featured = (context && context.featured) || majors[0] || upcoming[0] || null;
   let lead;
-  if (majors.length) {
-    const rateEv = majors.find(e => e.family === 'Politique monetaire');
-    const anchor = rateEv || majors[0];
-    const when = `${anchor.dayLabel || ''}${anchor.time ? ' à ' + anchor.time : ''}`.trim();
-    const qualif = rateEv ? 'Le rendez-vous clé' : 'À commencer par';
-    lead = `Cette semaine, le desk suit <strong style="color:#fff;">${majors.length} temps fort${majors.length > 1 ? 's' : ''}</strong> à fort impact. ${qualif}&nbsp;: <strong style="color:#e3b23a;">${_esc(anchor.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}.`;
-  } else if (upcoming.length) {
-    lead = `Le calendrier est plus calme cette semaine&nbsp;: l'occasion de revenir sur un fondamental qui revient sans cesse sur les marchés.`;
+  if (featured) {
+    const when = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
+    lead = `Cette semaine, le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier. Le rendez-vous clé&nbsp;: <strong style="color:#e3b23a;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}.`;
   } else {
     lead = `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
   }
@@ -1037,16 +1034,11 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     </div>
     ${c.paras.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}`;
 
-  // Agenda de la semaine = table HTML construite depuis context.upcoming (MEMES donnees que l'accroche) -> COHERENT :
-  // l'evenement annonce (anchor) est prepende donc TOUJOURS present dans l'agenda. Pas d'image -> jamais casse.
-  let agendaHtml = '';
-  if (upcoming.length) {
-    const anchorEv = majors.find(e => e.family === 'Politique monetaire') || majors[0] || upcoming[0];
-    const ordered = (anchorEv ? [anchorEv].concat(upcoming.filter(e => e !== anchorEv)) : upcoming).slice(0, 8).sort((a, b) => (a.ts || 0) - (b.ts || 0));
-    agendaHtml = `<div style="margin:22px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">L'agenda de la semaine</div>
-      ${_agendaTable(ordered)}
-      <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>`;
-  }
+  // Agenda de la semaine = VRAI widget calendrier economique du desk (inline cid a l'envoi). Meme ordre que
+  // l'accroche (evenement vedette en tete) -> coherent. Affiche seulement s'il y a des evenements a venir.
+  const agendaHtml = upcoming.length
+    ? `${_widgetImg('calendar', "L'agenda de la semaine")}<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>`
+    : '';
 
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
   const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
@@ -1068,7 +1060,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   `;
   return { subject: 'Comprendre le marché : ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
-async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
 // ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
 // quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget

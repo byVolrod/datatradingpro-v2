@@ -12656,15 +12656,17 @@ const _CAL_FAMILY = [
   { re: /fed interest rate decision|federal funds rate|\bfomc\s+(?:statement|economic projections|press conference|rate)\b|interest rate decision|rate decision\b/i, indicator: 'Décision de taux', family: 'Politique monetaire' },
 ];
 function _calClassify(title) { const t = String(title || ''); for (const m of _CAL_FAMILY) { if (m.re.test(t)) return { indicator: m.indicator, family: m.family }; } return null; }
-// Theme dominant de la semaine (priorite banque centrale > inflation > emploi > croissance > risque > calme).
+// Evenement VEDETTE = celui que le calendrier du desk (widget) affiche EN PREMIER : MEME ordre (inflation/CPI
+// d'abord, puis High, puis le plus proche) -> garantit que le texte du mail concorde avec le widget calendrier.
+function _calFeatured(upcoming) {
+  const up = Array.isArray(upcoming) ? upcoming : [];
+  return up.find(e => e.family === 'Inflation') || up.find(e => e.impact === 'High') || up[0] || null;
+}
+// Theme dominant = celui de l'evenement VEDETTE du calendrier (pas une priorite abstraite) -> le concept
+// educatif choisi correspond a ce que le lecteur voit en tete du calendrier. Coherence garantie.
 function _deskTheme(upcoming, riskData) {
-  const highFams = new Set((upcoming || []).filter(e => e.impact === 'High').map(e => e.family).filter(Boolean));
-  const allFams = new Set((upcoming || []).map(e => e.family).filter(Boolean));
-  const has = f => highFams.has(f) || allFams.has(f);
-  if (has('Politique monetaire')) return 'rates';
-  if (has('Inflation')) return 'inflation';
-  if (has('Emploi')) return 'jobs';
-  if (has('Croissance')) return 'growth';
+  const f = _calFeatured(upcoming);
+  if (f && f.family) return ({ 'Inflation': 'inflation', 'Politique monetaire': 'rates', 'Emploi': 'jobs', 'Croissance': 'growth' })[f.family] || 'calm';
   if (riskData && typeof riskData.pct === 'number' && Math.abs(riskData.pct) >= 40) return 'risk';
   return 'calm';
 }
@@ -12714,7 +12716,7 @@ async function _deskContext() {
   } catch {}
   let risk = null;
   if (_riskData && typeof _riskData.pct === 'number') { const p = _riskData.pct; risk = { pct: p, label: p >= 15 ? 'Risk-on (appétit pour le risque)' : p <= -15 ? 'Risk-off (aversion au risque)' : 'Neutre' }; }
-  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), weekAhead: _weekAhead };
+  return { generatedAt: now, upcoming, majors: upcoming.filter(e => e.impact === 'High'), featured: _calFeatured(upcoming), theme, themeLabel: _THEME_FR[theme] || '', bias: _deskBias(), cs, risk, weekly: _freshWeekly(), daily: _freshDaily(), weekAhead: _weekAhead };
 }
 // Anti-redondance Decryptage : historique durable des concepts couverts (KV campaign:decrypt-history).
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }

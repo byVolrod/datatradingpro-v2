@@ -28,7 +28,7 @@ const _day = ts => new Intl.DateTimeFormat('fr-FR', { weekday: 'short', day: 'nu
 function ev(offD, time, ccy, title, impact, f, p, family, indicator) { const ts = Date.now() + offD * 864e5; return { ts, time, dayLabel: _day(ts), ccy, title, impact, forecast: f, previous: p, family, indicator }; }
 const CTX_DATA = (() => {
   const up = [ev(1, '14:30', 'USD', 'Core CPI m/m', 'High', '0.3%', '0.2%', 'Inflation', 'Core CPI'), ev(2, '20:00', 'USD', 'Fed Interest Rate Decision', 'High', '5.50%', '5.50%', 'Politique monetaire', 'Décision de taux')];
-  return { generatedAt: Date.now(), upcoming: up, majors: up, theme: 'rates', themeLabel: 'Banques centrales',
+  return { generatedAt: Date.now(), upcoming: up, majors: up, featured: up.find(e => e.family === 'Politique monetaire') || up[0], theme: 'rates', themeLabel: 'Banques centrales',
     bias: [{ ccy: 'USD', label: 'Haussier', signal: 'BUY' }], cs: { ranked: ['USD', 'CHF', 'JPY'], strong: [{ ccy: 'USD' }], weak: [{ ccy: 'JPY' }] },
     risk: { pct: -20, label: 'Risk-off (aversion au risque)' }, daily: { summary: 'Le dollar domine avant la Fed.' }, weekly: null };
 })();
