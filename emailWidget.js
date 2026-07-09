@@ -40,7 +40,7 @@ const _FALLBACK_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCA
 
 // Catalogue des widgets rendus (chaque type = une route de rendu + un sélecteur + une taille logique).
 const SPECS = {
-  strength:            { path: '/internal/email-widget/strength',          sel: '#box',          w: 600, h: 300 },
+  strength:            { path: '/internal/email-widget/strength',          sel: '#stwrap',       w: 600, h: 336 },
   meter:               { path: '/internal/email-widget/meter',             sel: '#meter-wrap',   w: 640, h: 440 },
   regime:              { path: '/internal/email-widget/regime',            sel: '#risk-widget',  w: 600, h: 360 },
   'strength-snapshot': { path: '/internal/email-widget/strength-snapshot', sel: '#box',          w: 600, h: 380 },

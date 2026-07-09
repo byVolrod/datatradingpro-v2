@@ -11751,6 +11751,10 @@ app.get('/internal/email-widget/strength', async (req, res) => {
   let data = null;
   try { data = await computeCurrencyStrength(period); } catch (e) {}
   if (!data) data = { currencies: [], series: {}, updatedAt: null };
+  // Barre de timeframe facon desk (TD TW 8H 1D 7D 1M), periode active surlignee (blanc + soulignement or) -> le
+  // lecteur voit que le widget mail est bien la vue « semaine » (TW), comme sur le desk.
+  const _STF = [['today', 'TD'], ['week', 'TW'], ['8h', '8H'], ['1d', '1D'], ['7d', '7D'], ['1m', '1M']];
+  const stfBar = _STF.map(([p, l]) => `<span class="stf-p${p === period ? ' on' : ''}">${l}</span>`).join('');
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -11758,8 +11762,12 @@ app.get('/internal/email-widget/strength', async (req, res) => {
 <script src="https://cdn.amcharts.com/lib/5/themes/Animated.js"></script>
 <script src="https://cdn.amcharts.com/lib/5/themes/Dark.js"></script>
 <script src="/js/charts.js"></script>
-<style>html,body{margin:0;padding:0;background:#0d0e11}#box{width:600px;height:300px}</style>
-</head><body><div id="box"></div>
+<style>html,body{margin:0;padding:0;background:#0d0e11}#stwrap{width:600px}#box{width:600px;height:300px}
+.stf-bar{display:flex;align-items:flex-end;height:26px;padding:2px 6px 0;font-family:'Inter Tight',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+.stf-p{font-size:10px;font-weight:600;letter-spacing:.06em;color:#6b7280;padding:3px 8px 6px;position:relative}
+.stf-p.on{color:#fff;font-weight:800}
+.stf-p.on::after{content:'';position:absolute;left:8px;right:8px;bottom:0;height:2px;background:#e3b23a;border-radius:2px 2px 0 0}</style>
+</head><body><div id="stwrap"><div class="stf-bar">${stfBar}</div><div id="box"></div></div>
 <script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildStrengthChart!=='function'){return setTimeout(go,120);}buildStrengthChart('box',window.__DATA,{isolated:true});setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
 </body></html>`);
 });
