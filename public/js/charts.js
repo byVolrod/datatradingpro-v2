@@ -591,6 +591,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // (optionnel) n'afficher QUE ces devises (ex. les 2 de la paire EURAUD → EUR+AUD) : les autres
   // sont masquées d'emblée ET exclues de l'animation d'apparition (sinon `appear` les ré-affiche).
   const _only  = (Array.isArray(opts.onlyCurrencies) && opts.onlyCurrencies.length) ? new Set(opts.onlyCurrencies) : null;
+  const _legendVal = !!opts.legendValues;      // (mail) affiche la valeur TD a DROITE de chaque devise dans la legende
   disposeRoot(containerId);
   const container = document.getElementById(containerId);
   if (container) container.innerHTML = '';
@@ -742,6 +743,8 @@ function buildStrengthChart(containerId, data, opts = {}) {
     seriesArr.push(series);
     seriesMap[ccy] = series;
     labelMap[ccy]  = { range, value: lastV, hexStr, hexColor };
+    // (mail) valeur TD statique a DROITE de la devise dans la legende (pas de curseur -> valeur figee du jour).
+    if (_legendVal) series.set('legendValueText', '  ' + lastV.toFixed(1).replace('.', ','));
 
     // Légende cliquable : masquer une courbe masque AUSSI son badge flottant (et le rétablit).
     // DOUBLE écoute (événements + propriété `visible`) : si un événement rate (update pendant
@@ -766,7 +769,11 @@ function buildStrengthChart(containerId, data, opts = {}) {
       marginTop: 0, marginBottom: 6, paddingLeft: 0, paddingTop: 0,
     }));
     legend.labels.template.setAll({ fill: am5.color(_deskChartTxt()), fontSize: 11, fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 3, paddingRight: 0 });
-    legend.valueLabels.template.set('forceHidden', true);                       // pas de valeur dans la légende (juste le nom)
+    if (_legendVal) {   // (mail) montre la valeur TD a droite de chaque devise, comme sur le desk
+      legend.valueLabels.template.setAll({ forceHidden: false, fill: am5.color(_deskChartTxt()), fontSize: 11, fontWeight: '700', fontFamily: '-apple-system, "Inter", "Segoe UI", sans-serif', paddingLeft: 0, paddingRight: 0 });
+    } else {
+      legend.valueLabels.template.set('forceHidden', true);                     // desk : pas de valeur dans la légende (juste le nom)
+    }
     legend.markers.template.setAll({ width: 11, height: 11 });
     legend.markerRectangles.template.setAll({ cornerRadiusTL: 2, cornerRadiusTR: 2, cornerRadiusBL: 2, cornerRadiusBR: 2 });
     legend.itemContainers.template.setAll({ paddingTop: 1, paddingBottom: 1, paddingLeft: 4, paddingRight: 4 });

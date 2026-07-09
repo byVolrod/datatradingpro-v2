@@ -11760,7 +11760,7 @@ app.get('/internal/email-widget/strength', async (req, res) => {
 <script src="/js/charts.js"></script>
 <style>html,body{margin:0;padding:0;background:#0d0e11}#box{width:600px;height:300px}</style>
 </head><body><div id="box"></div>
-<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildStrengthChart!=='function'){return setTimeout(go,120);}buildStrengthChart('box',window.__DATA,{isolated:true});setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
+<script>window.__DATA=${JSON.stringify(data).replace(/</g, '\\u003c')};(function(){function go(){try{if(typeof am5==='undefined'||typeof buildStrengthChart!=='function'){return setTimeout(go,120);}buildStrengthChart('box',window.__DATA,{isolated:true,legendValues:true});setTimeout(function(){window.__ready=true;},1600);}catch(e){window.__err=String(e&&e.message||e);window.__ready=true;}}go();})();</script>
 </body></html>`);
 });
 
