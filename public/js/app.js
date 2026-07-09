@@ -675,6 +675,10 @@ function handleMessage(msg) {
         typeof buildCOTChart === 'function') {
       buildCOTChart();
     }
+  } else if (msg.type === 'chat_new') {
+    try { _chatOnPush(msg); } catch (e) {}                 // notif chat INSTANTANEE (push WS)
+  } else if (msg.type === 'chat_typing') {
+    try { _chatOnTypingPush(msg); } catch (e) {}
   } else if (msg.type === 'news_update') {
     const isFirstUpdate = allItems.length === 0;
     const incoming = (msg.items || []).map(item => isFirstUpdate ? item : { ...item, _new: true });
@@ -8328,6 +8332,36 @@ function _chatPollUnread(){
   fetch('/api/chat/unread').then(r=>r.json())
     .then(d=>_chatSetBadge((d.unread||0) || (_chatSeen ? 0 : 1)))
     .catch(()=>_chatSetBadge(_chatSeen ? 0 : 1));   // fetch KO (blackout) → on garde au moins le plancher
+}
+// ── Notif chat INSTANTANEE : le serveur pousse chat_new/chat_typing sur le WS deja ouvert (news) -> badge +
+//    conversation mis a jour TOUT DE SUITE, sans polling ni rafraichissement. Le poll 8s reste en filet. ──
+function _chatOnPush(msg){
+  var isSupport = (typeof _chatIsSupport === 'function') && _chatIsSupport();
+  var forMe = (isSupport && msg && msg.sender === 'user') || (!isSupport && msg && msg.sender === 'support');
+  if (!forMe) return;
+  try { _chatPollUnread(); } catch(e){}                                    // badge instantane
+  var panelOpen = !!(document.getElementById('chat-panel') && document.getElementById('chat-panel').classList.contains('open'));
+  if (panelOpen) { try { _chatLiveTick(); } catch(e){} }                   // conversation ouverte -> le message apparait tout de suite
+  if (!panelOpen || document.visibilityState === 'hidden') { try { _chatNotify(); } catch(e){} }   // sinon -> attirer l'attention
+}
+function _chatOnTypingPush(msg){
+  var isSupport = (typeof _chatIsSupport === 'function') && _chatIsSupport();
+  var forMe = (isSupport && msg && msg.sender === 'user') || (!isSupport && msg && msg.sender === 'support');
+  if (!forMe) return;
+  var panelOpen = !!(document.getElementById('chat-panel') && document.getElementById('chat-panel').classList.contains('open'));
+  if (panelOpen) { try { _chatLiveTick(); } catch(e){} }                   // « en train d'écrire » sans attendre le poll
+}
+var _chatTitleOrig = null, _chatTitleT = null;
+function _chatNotify(){
+  try { var AC = window.AudioContext || window.webkitAudioContext; if (AC){ var a = new AC(); var o = a.createOscillator(), g = a.createGain(); o.connect(g); g.connect(a.destination); o.type='sine'; o.frequency.value = 880; g.gain.setValueAtTime(0.0001, a.currentTime); g.gain.exponentialRampToValueAtTime(0.06, a.currentTime+0.02); g.gain.exponentialRampToValueAtTime(0.0001, a.currentTime+0.28); o.start(); o.stop(a.currentTime+0.3); } } catch(e){}
+  try {
+    if (document.visibilityState === 'visible') return;
+    if (_chatTitleOrig === null) _chatTitleOrig = document.title;
+    var on = false; clearInterval(_chatTitleT);
+    _chatTitleT = setInterval(function(){ document.title = on ? _chatTitleOrig : '💬 Nouveau message — DataTradingPro'; on = !on; }, 1100);
+    var stop = function(){ if (document.visibilityState === 'visible'){ clearInterval(_chatTitleT); if (_chatTitleOrig !== null){ document.title = _chatTitleOrig; } document.removeEventListener('visibilitychange', stop); } };
+    document.addEventListener('visibilitychange', stop);
+  } catch(e){}
 }
 
 // Entrée = envoyer, Maj+Entrée = nouvelle ligne ; auto-grow ; poll des réponses

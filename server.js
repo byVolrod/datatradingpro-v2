@@ -1597,13 +1597,16 @@ app.post('/api/chat', async (req, res) => {
   if (!/^data:/.test(text) && text.length > 4000) return res.status(400).json({ error: 'Message trop long (4000 caractères max)' });
   try {
     const msg = await auth.chatInsert({ user_id: uid, sender: 'user', text });
+    try { _wsSendToStaff({ type: 'chat_new', sender: 'user', userId: uid, at: Date.now() }); } catch {}   // notif INSTANTANEE au staff (push WS, zero polling)
     res.json({ ok: true, message: msg });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // L'utilisateur tape → on le signale au support
 app.post('/api/chat/typing', (req, res) => {
   if (!req.session?.userId) return res.json({ ok: false });
-  _markTyping(req.session.userId, 'user'); res.json({ ok: true });
+  _markTyping(req.session.userId, 'user');
+  try { _wsSendToStaff({ type: 'chat_typing', sender: 'user', userId: req.session.userId }); } catch {}
+  res.json({ ok: true });
 });
 // Badge : nombre de réponses du support non lues
 app.get('/api/chat/unread', async (req, res) => {
@@ -1644,7 +1647,9 @@ app.get('/api/admin/chat/:userId', requireSupport, async (req, res) => {
 });
 // Le support tape dans un thread → on le signale au client
 app.post('/api/admin/chat/:userId/typing', requireSupport, (req, res) => {
-  _markTyping(req.params.userId, 'support'); res.json({ ok: true });
+  _markTyping(req.params.userId, 'support');
+  try { _wsSendToUser(req.params.userId, { type: 'chat_typing', sender: 'support' }); } catch {}
+  res.json({ ok: true });
 });
 app.post('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   const text = (req.body?.text || '').trim();
@@ -1656,6 +1661,7 @@ app.post('/api/admin/chat/:userId', requireSupport, async (req, res) => {
     // court-circuit anti-egress). Sans ça, le badge « non-lu » du thread + la pastille restaient
     // affichés même après réponse (« comme si je n'avais pas répondu »).
     try { await auth.chatMarkRead(req.params.userId, 'user', { force: true }); } catch {}
+    try { _wsSendToUser(req.params.userId, { type: 'chat_new', sender: 'support', at: Date.now() }); } catch {}   // notif INSTANTANEE au client (push WS -> plus besoin de rafraichir)
     res.json({ ok: true, message: msg });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
@@ -10818,6 +10824,19 @@ function broadcast(data) {
   const payload = JSON.stringify(data);
   wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN) c.send(payload); });
 }
+// Envoi CIBLE sur le(s) WS d'UN utilisateur (notif chat instantanee, sans polling). Renvoie le nb de sockets touches.
+function _wsSendToUser(uid, data) {
+  const id = String(uid == null ? '' : uid); if (!id) return 0;
+  const payload = JSON.stringify(data); let n = 0;
+  wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN && c._uid === id) { try { c.send(payload); n++; } catch {} } });
+  return n;
+}
+// Envoi CIBLE sur les WS du STAFF (admin/support) — un client ecrit au support -> le staff est notifie en direct.
+function _wsSendToStaff(data) {
+  const payload = JSON.stringify(data); let n = 0;
+  wss.clients.forEach(c => { if (c.readyState === WebSocket.OPEN && (c._role === 'admin' || c._role === 'support')) { try { c.send(payload); n++; } catch {} } });
+  return n;
+}
 
 // ─── Merge helpers ───────────────────────────────────────────────────────────
 
@@ -11148,6 +11167,8 @@ wss.on('connection', (ws, req) => {
 
   // Présence : on associe ce WS à l'utilisateur (cookie de session) → statut "en ligne".
   const _uid = _wsUserIdFromReq(req);
+  const _role = (req.session && req.session.user && req.session.user.role) || null;
+  ws._uid = _uid; ws._role = _role;   // tag du socket → envoi CIBLE (notif chat instantanee, sans polling)
   if (_uid) _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1);
 
   ws.send(JSON.stringify({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length }));
