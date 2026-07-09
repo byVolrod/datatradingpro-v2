@@ -1065,6 +1065,19 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     ? `${_widgetImg('calendar', "L'agenda de la semaine")}<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Sur le Desk, chacune de ces publications est reprise, chiffrée et remise en contexte en direct.</p>`
     : '';
 
+  // « Cette semaine, concretement » : rattache le concept educatif a l'evenement VEDETTE avec ses VRAIS chiffres
+  // (prevision/precedent du calendrier) -> developpe le contenu, ancre dans le live, zero invention. Remplace
+  // l'ancien bloc « grandes banques » (juge sans valeur ici par l'utilisateur).
+  let appliedHtml = '';
+  if (featured && featured.title) {
+    const fwhen = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
+    const fnums = [];
+    if (featured.forecast) fnums.push(`prévision <strong style="color:#cbd5e1;">${_esc(featured.forecast)}</strong>`);
+    if (featured.previous) fnums.push(`précédent <strong style="color:#cbd5e1;">${_esc(featured.previous)}</strong>`);
+    const fnumLine = fnums.length ? ` Le marché attend ${fnums.join(', ')}.` : '';
+    appliedHtml = `<p style="margin:18px 0 12px;"><strong style="color:#e3b23a;">Cette semaine, concrètement&nbsp;:</strong> le rendez-vous à surveiller est <strong style="color:#fff;">${_esc(featured.title)}</strong>${fwhen ? ' (' + _esc(fwhen) + ')' : ''}.${fnumLine} C'est exactement la mécanique décrite plus haut, à lire en direct&nbsp;: le marché compare le chiffre aux attentes, pas au niveau brut, et c'est l'écart qui fait bouger le dollar, l'or et les indices.</p>`;
+  }
+
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
   const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
     const rows = fam.items.slice(0, 3).map(it => `<tr><td style="padding:9px 0 3px;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(it.k)}</span><div style="color:#aab2c0;font-size:12.5px;line-height:1.45;margin-top:2px;">${_esc(it.d)}</div><div style="color:#e3b23a;font-size:11.5px;font-weight:600;margin-top:1px;">&rarr; ${_esc(it.a)}</div></td></tr>`).join('');
@@ -1076,7 +1089,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     <p style="margin:0 0 6px;">${lead}</p>
     ${conceptHtml}
     ${agendaHtml}
-    ${_bankNotesBlock(context && context.bankNotes)}
+    ${appliedHtml}
     ${evergreen}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
@@ -1122,8 +1135,12 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     lead = `Voici le point marché du desk, en clair. Cette semaine, le marché reste ${bits.join(', ')} &mdash; l'essentiel, sans le bruit.`;
   }
 
-  // Pas de titre « CE QUI BOUGE » : le texte se suffit (demande user).
-  const movesHtml = moves ? `<p style="margin:18px 0 14px;">${_esc(moves).slice(0, 480)}</p>` : '';
+  // Resume du RECAP JOURNALIER du desk : daily.summary (synthese de seance, 3-5 phrases) + puces cles tirees des
+  // sections du rapport quotidien (_freshDaily.insights). Pas de titre (demande user). Zero donnee inventee.
+  const dailyPts = (daily && Array.isArray(daily.insights) ? daily.insights : []).map(p => _md(p)).filter(Boolean).slice(0, 4);
+  const movesHtml = moves
+    ? `<p style="margin:18px 0 ${dailyPts.length ? '10' : '14'}px;">${_esc(moves).slice(0, 640)}</p>${dailyPts.length ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${dailyPts.map(p => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 200)}</td></tr>`).join('')}</table>` : ''}`
+    : '';
 
   // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises (semaine).
   const strengthWidget = _widgetImg('strength', 'La force des devises');
