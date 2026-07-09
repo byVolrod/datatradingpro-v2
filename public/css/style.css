@@ -5792,7 +5792,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .risk-ticker.neutral  { background: var(--bg2); border: 1px solid rgba(255,179,0,0.20); color: var(--neutral); }
 .risk-ticker.neutral strong { color: var(--neutral); }  .risk-ticker.neutral .risk-ticker-dot { background: var(--neutral); }
 
-/* ── Risk Sentiment History (barres quotidiennes risk-on/off, façon PMT) ── */
+/* ── Risk Sentiment History (barres quotidiennes risk-on/off) ── */
 #rtab-risk #risk-widget { flex: 1 1 auto; min-height: 280px; }   /* jauge AGRANDIE : grandit pour remplir → plus grande que la bande */
 .rsh-header { margin-top: 4px; }
 
@@ -5872,7 +5872,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: inline-flex; align-items: center; justify-content: center;
   cursor: pointer; border-radius: 4px; transition: color .15s, background-color .15s, border-color .15s;
 }
-.stf-btn:hover { color: var(--orange); background: var(--orange-bg); }   /* or DTP (etait #ff5e00 = orange PMT banni) */
+.stf-btn:hover { color: var(--orange); background: var(--orange-bg); }   /* or DTP */
 .stf-btn--active {   /* or DTP : fond + texte + bordure or (charte) */
   background: var(--orange-bg); border-color: rgba(227,178,58,0.30); color: var(--orange);
 }
@@ -9969,13 +9969,13 @@ body{font-variant-numeric:tabular-nums;}
 .econ-group-row:hover,.sym-bz-row:hover,.wac-row:hover,.prep-item:hover,.prep-watchlist-row:hover,.arl-row:not(.arl-row--weekly):hover,.bank-row:not(.bank-row--active):hover,.sbs-cdd-item:hover{background:var(--row-hover);}  /* hover sobre neutre unifie sur la ligne de news (fini le degrade or) */
 .news-item:hover{box-shadow:inset 2px 0 0 rgba(227,178,58,.55);}
 
-/* === De-PMT etape 2 : jauge de force LISSE (plus de bricks segmentes PMT) + axe or === */
+/* === Jauge de force LISSE + axe or === */
 .meter-brick{border-bottom:0;}
 .meter-brick--pos{background:rgba(0,230,118,.92);box-shadow:inset 0 0 7px rgba(0,230,118,.22);}
 .meter-brick--neg{background:rgba(255,61,0,.92);box-shadow:inset 0 0 7px rgba(255,61,0,.2);}
 .meter-half-top .meter-brick--pos[data-idx="0"]{box-shadow:inset 0 0 7px rgba(0,230,118,.22);}
 .meter-half-bot .meter-brick--neg[data-idx="0"]{box-shadow:inset 0 0 7px rgba(255,61,0,.2);}
-/* === De-PMT etape 2 : matrice Smart Bias en TUILES de marque (plus de grille pleine collee PMT) === */
+/* === Matrice Smart Bias en TUILES de marque === */
 .sbm-grid{border-collapse:separate;border-spacing:3px;}
 .sbm-grid th,.sbm-grid td{border:none;}
 .sbm-cell{border-radius:5px;box-shadow:inset 0 1px 0 rgba(255,255,255,.06);}
@@ -10068,7 +10068,7 @@ body.theme-light .sym-panel,body.theme-light .sym-bz-col,body.theme-light .sbs-p
 
 /* Bouton AI topbar : icone + label IA (FR) / AI (EN via i18n) */
 .topbar-icon--ai{width:auto !important;gap:5px;padding:0 9px;}
-.ai-spark-txt{font-size:12px;font-weight:var(--fw-bold);color:#00DA50;letter-spacing:.02em;line-height:1;}
+.ai-spark-txt{font-size:12px;font-weight:var(--fw-bold);color:#00e676;letter-spacing:.02em;line-height:1;}
 
 /* Onglet nav actif : trait dore RESTAURE (demande utilisateur — souligne l'onglet actif facon CALENDRIER) */
 .nav-item{position:relative;}

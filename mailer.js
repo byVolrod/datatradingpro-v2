@@ -337,7 +337,7 @@ async function _send(to, subject, html, attachments) {
 // Envoi de test (bouton admin) : renvoie le canal utilisé pour preuve de bout en bout.
 async function sendTest(to) {
   const html = _layout('Test d\'envoi', `
-    <h2 style="color:#f7941d;margin:0 0 12px;">✅ Test d'envoi DataTradingPro</h2>
+    <h2 style="color:#e3b23a;margin:0 0 12px;">✅ Test d'envoi DataTradingPro</h2>
     <p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Si tu lis cet email <b>dans ta boîte de réception</b> (pas les spams),
     l'envoi fonctionne parfaitement. 🎉</p>
     <p style="color:#64748b;font-size:13px;">Email automatique de vérification — tu peux l'ignorer.</p>`);
@@ -357,7 +357,7 @@ function _layout(title, bodyHtml) {
         <!-- Header -->
         <tr><td style="padding:28px 32px 18px;border-bottom:1px solid #26262b;">
           <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">DataTradingPro</div>
-          <div style="font-size:12px;font-weight:600;color:#f7941d;margin-top:4px;">Terminal de news &amp; d'analyse de marché en temps réel</div>
+          <div style="font-size:12px;font-weight:600;color:#e3b23a;margin-top:4px;">Terminal de news &amp; d'analyse de marché en temps réel</div>
         </td></tr>
         <!-- Body -->
         <tr><td style="padding:28px 32px;color:#cbd5e1;font-size:15px;line-height:1.65;">
@@ -366,7 +366,7 @@ function _layout(title, bodyHtml) {
         <!-- Footer -->
         <tr><td style="padding:18px 32px;border-top:1px solid #26262b;color:#6b7280;font-size:12px;line-height:1.6;">
           DataTradingPro — Terminal de news & d'analyse en temps réel.<br>
-          Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f7941d;text-decoration:none;">${SUPPORT_EMAIL}</a>
+          Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#e3b23a;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
       <div style="color:#4b5563;font-size:11px;margin-top:16px;">Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.</div>
@@ -377,7 +377,7 @@ function _layout(title, bodyHtml) {
 
 function _button(label, url) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr>
-    <td style="background:#f7941d;border-radius:10px;">
+    <td style="background:#e3b23a;border-radius:10px;">
       <a href="${url}" style="display:inline-block;padding:13px 28px;color:#0a0a0c;font-weight:700;font-size:14px;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
@@ -404,9 +404,9 @@ function _credBox(rows) {
 function _spamNote() {
   const sender = _esc(_parseFrom().email);
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-    style="background:rgba(247,148,29,0.08);border:1px solid rgba(247,148,29,0.35);border-radius:10px;margin:20px 0;">
+    style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.35);border-radius:10px;margin:20px 0;">
     <tr><td style="padding:14px 16px;color:#f3d9b0;font-size:13px;line-height:1.6;">
-      <strong style="color:#f7941d;">📌 Note importante — pour ne plus rater nos emails</strong><br>
+      <strong style="color:#e3b23a;">📌 Note importante — pour ne plus rater nos emails</strong><br>
       Pour éviter que nos messages (accès, alertes, renouvellement) ne tombent dans vos <strong>spams</strong> :
       <ul style="margin:8px 0 0;padding-left:18px;color:#e2cba0;">
         <li>Ajoutez <strong style="color:#fff;">${sender}</strong> à vos <strong>contacts</strong>.</li>
@@ -585,7 +585,7 @@ function buildTrialUpsell({ name, expiresAt }) {
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre essai gratuit est terminé ⏳</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro vient de prendre fin${end ? ` (elle a expiré <strong style="color:#f7941d;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
+    <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro vient de prendre fin${end ? ` (elle a expiré <strong style="color:#e3b23a;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
     <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">retrouver votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, passez dès maintenant à l'<strong style="color:#fff;">abonnement mensuel</strong> — sans engagement et résiliable à tout moment :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, sans délai</td></tr>
@@ -610,9 +610,9 @@ function _buildReengagement(name, days) {
   // Encart "Pour démarrer en 5 minutes" (bordure orange, à notre sauce)
   const startBox = `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f7941d;border-radius:10px;margin:20px 0;">
+      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #e3b23a;border-radius:10px;margin:20px 0;">
       <tr><td style="padding:16px 18px;">
-        <div style="color:#f7941d;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
+        <div style="color:#e3b23a;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
         <div style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:10px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</div>
         <div style="color:#e2e8f0;font-size:14px;line-height:1.9;">
           → <strong style="color:#fff;">Live Squawk</strong> <span style="color:#94a3b8;">(les news qui bougent les marchés, en direct)</span><br>
@@ -673,7 +673,7 @@ function buildAnnouncementV2({ name } = {}) {
     <p style="margin:14px 0 4px;color:#fff;font-size:15px;font-weight:700;">Arrêtez de deviner les mouvements. Commencez à les comprendre.</p>
     ${_button('Rejoindre DataTradingPro →', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(247,148,29,0.08);border:1px solid rgba(247,148,29,0.3);border-radius:10px;margin:6px 0 4px;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.3);border-radius:10px;margin:6px 0 4px;">
       <tr><td style="padding:12px 15px;color:#f3d9b0;font-size:13.5px;line-height:1.6;">⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins — <strong style="color:#fff;">rejoignez le lancement maintenant.</strong></td></tr>
     </table>
     ${_spamNote()}
@@ -1243,7 +1243,7 @@ function renderEmailGallery(catalog, status) {
     background:${on ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.05)'};border:1px solid ${on ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.12)'};color:${on ? '#22c55e' : '#6b7280'};">
     <span style="width:7px;height:7px;border-radius:50%;background:${on ? '#22c55e' : '#52525b'};"></span>${_esc(label)}</span>`;
   const cards = cat.map(e => {
-    const audColor = e.audience === 'Admin' ? '#f7941d' : '#3f9280';
+    const audColor = e.audience === 'Admin' ? '#e3b23a' : '#3f9280';
     return `<section style="background:#141417;border:1px solid #26262b;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
       <div style="padding:14px 16px;border-bottom:1px solid #26262b;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
@@ -1263,7 +1263,7 @@ function renderEmailGallery(catalog, status) {
   body{margin:0;background:#0a0a0c;color:#e6e9ef;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;padding:28px;}
   .hd{max-width:1320px;margin:0 auto 22px;}
   .hd h1{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.02em;}
-  .hd h1 .o{color:#f7941d;}
+  .hd h1 .o{color:#e3b23a;}
   .hd .sub{color:#8a8a90;font-size:13px;margin-bottom:14px;}
   .panel{background:#141417;border:1px solid #26262b;border-radius:12px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;}
   .panel .lbl{font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
@@ -1295,7 +1295,7 @@ function buildReferralCredited({ name, count, untilNext }) {
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Nouveau filleul confirmé 🎉</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom}, un nouvel abonné vient de rejoindre <strong style="color:#fff;">DataTradingPro</strong> grâce à votre lien de parrainage. Merci !</p>
     ${_credBox([['Filleuls confirmés', String(count)], ['Avant 1 mois offert', restant]])}
-    <p style="margin:0 0 14px;">Plus que <strong style="color:#f7941d;">${restant}</strong> et nous créditons <strong style="color:#fff;">1 mois d'accès offert</strong> sur votre compte.</p>
+    <p style="margin:0 0 14px;">Plus que <strong style="color:#e3b23a;">${restant}</strong> et nous créditons <strong style="color:#fff;">1 mois d'accès offert</strong> sur votre compte.</p>
     ${_button('Voir mes parrainages', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -1309,7 +1309,7 @@ function buildReferralReward({ name, count, newExpiresAt }) {
   const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '—';
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">🎁 1 mois offert débloqué !</p>
-    <p style="margin:0 0 14px;">Bravo ${prenom} — vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#f7941d;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
+    <p style="margin:0 0 14px;">Bravo ${prenom} — vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#e3b23a;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
     ${_credBox([['Récompense', "1 mois d'accès offert"], ['Accès prolongé jusqu\'au', end]])}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès au terminal. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
     ${_button('Accéder au terminal', APP_URL)}
@@ -1338,13 +1338,13 @@ function buildReferredWelcome({ name, referrerName }) {
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue 🤝 — et à vous de jouer</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom}, vous avez rejoint <strong style="color:#fff;">DataTradingPro</strong> grâce à ${par}. Vous pouvez maintenant en profiter à votre tour avec notre programme de parrainage.</p>
-    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(247,148,29,0.10);border:1px solid rgba(247,148,29,0.4);border-radius:12px;margin:18px 0;">
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.10);border:1px solid rgba(227,178,58,0.4);border-radius:12px;margin:18px 0;">
       <tr><td style="padding:18px 20px;text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:#f7941d;letter-spacing:-.01em;">3 inscrits&nbsp;=&nbsp;1 mois offert</div>
+        <div style="font-size:22px;font-weight:800;color:#e3b23a;letter-spacing:-.01em;">3 inscrits&nbsp;=&nbsp;1 mois offert</div>
         <div style="font-size:13px;color:#f3d9b0;margin-top:6px;">Et ça se cumule : chaque palier de 3 filleuls ajoute un mois d'accès.</div>
       </td></tr>
     </table>
-    <p style="margin:0 0 14px;">Partagez votre lien personnel : à chaque <strong style="color:#fff;">3ᵉ</strong> abonné venu grâce à vous, nous créditons <strong style="color:#f7941d;">1 mois d'accès offert</strong> sur votre compte. Votre lien se trouve dans <strong style="color:#fff;">Profil&nbsp;▸&nbsp;Parrainages</strong>.</p>
+    <p style="margin:0 0 14px;">Partagez votre lien personnel : à chaque <strong style="color:#fff;">3ᵉ</strong> abonné venu grâce à vous, nous créditons <strong style="color:#e3b23a;">1 mois d'accès offert</strong> sur votre compte. Votre lien se trouve dans <strong style="color:#fff;">Profil&nbsp;▸&nbsp;Parrainages</strong>.</p>
     ${_button('Voir mon lien de parrainage', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bon trading,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -1356,8 +1356,8 @@ async function sendReferredWelcome(d) { const m = buildReferredWelcome(d); retur
 // est géré côté serveur ; ici on se contente d'envoyer via la chaîne habituelle (OVH→Gmail).
 async function sendAdminAlert({ subject, html, to } = {}) {
   const dest = to || process.env.ADMIN_EMAIL || SUPPORT_EMAIL;
-  const body = '<h2 style="color:#f7941d;margin:0 0 12px;">🚨 Alerte monitoring IA</h2>' + (html || '')
-    + '<p style="color:#6b7280;font-size:12px;margin-top:16px;">Détails en direct : <a href="https://desk.datatradingpro.com/admin" style="color:#f7941d;">dashboard IA Monitor</a>.</p>';
+  const body = '<h2 style="color:#e3b23a;margin:0 0 12px;">🚨 Alerte monitoring IA</h2>' + (html || '')
+    + '<p style="color:#6b7280;font-size:12px;margin-top:16px;">Détails en direct : <a href="https://desk.datatradingpro.com/admin" style="color:#e3b23a;">dashboard IA Monitor</a>.</p>';
   return _send(dest, '[DTP Alerte IA] ' + (subject || 'Alerte'), _layout('Alerte monitoring IA', body));
 }
 

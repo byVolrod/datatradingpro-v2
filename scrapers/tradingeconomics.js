@@ -4,7 +4,7 @@
  * Le Smart Bias « Fundamental Data » se basait sur le CALENDRIER (surprise vs prévision, 1 seul event
  * récent par catégorie) → ÉPARS et peu fiable (ex. NZD noté sur 1 publication). On lit désormais la page
  * /<pays>/indicators de TradingEconomics (HTML statique, sans Cloudflare) : elle porte la valeur ACTUELLE
- * et PRÉCÉDENTE de CHAQUE indicateur → notation fiable, toujours renseignée, pour les 8 catégories PMT.
+ * et PRÉCÉDENTE de CHAQUE indicateur → notation fiable, toujours renseignée, pour les 8 catégories fondamentales.
  *
  * Notation : PMI = NIVEAU vs 50 (expansion/contraction) ; autres = TENDANCE (dernier vs précédent), la
  * hausse étant haussière pour la devise (économie plus forte / banque centrale plus hawkish). Caché 8 h
@@ -17,7 +17,7 @@ const UA  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML
 const TTL = 8 * 60 * 60 * 1000;   // 8 h
 
 const COUNTRY = { USD: 'united-states', EUR: 'euro-area', GBP: 'united-kingdom', CAD: 'canada', AUD: 'australia', NZD: 'new-zealand', JPY: 'japan', CHF: 'switzerland' };
-// Catégories PMT (mêmes libellés que SB_FUND_SUBS) → indicateur(s) TradingEconomics + mode de notation.
+// Catégories fondamentales (mêmes libellés que SB_FUND_SUBS) → indicateur(s) TradingEconomics + mode de notation.
 const CATS = [
   { key: 'Economic Growth',     re: /^GDP Growth Rate$|^GDP Annual Growth Rate$/i,   mode: 'trend' },
   { key: 'Rising Prices',       re: /^Inflation Rate$/i,                             mode: 'trend' },   // inflation en hausse → hawkish → haussier devise

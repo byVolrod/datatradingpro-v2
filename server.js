@@ -836,7 +836,7 @@ app.get('/api/admin/ai-test', requireAdmin, async (_req, res) => {
   .box{background:#141416;border:1px solid #26262b;border-radius:12px;padding:30px 38px;max-width:600px;width:100%}
   .big{font-size:46px;text-align:center;line-height:1}h1{color:${color};font-size:22px;margin:8px 0 18px;text-align:center}
   table{width:100%;border-collapse:collapse;font-size:13px}td{padding:6px 4px;border-bottom:1px solid #1f1f24}td:first-child{color:#8a93a3;width:46%}
-  code{background:#0a0a0c;padding:2px 7px;border-radius:5px;color:#f7941d}a{color:#f7941d}.muted{color:#6b7280;font-size:12px;margin-top:16px;text-align:center}</style></head>
+  code{background:#0a0a0c;padding:2px 7px;border-radius:5px;color:#e3b23a}a{color:#e3b23a}.muted{color:#6b7280;font-size:12px;margin-top:16px;text-align:center}</style></head>
   <body><div class="box"><div class="big">${ok ? '✅' : '❌'}</div><h1>${ok ? 'IA opérationnelle' : 'Échec IA'}</h1>
   <table>
     <tr><td>Provider qui a répondu</td><td><code>${esc(provider)}</code></td></tr>
@@ -864,7 +864,7 @@ app.get('/api/admin/mail-test', requireAdmin, async (req, res) => {
   <style>body{background:#0c0c0e;color:#e5e7eb;font-family:-apple-system,Segoe UI,Roboto,sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
   .box{background:#141416;border:1px solid #26262b;border-radius:12px;padding:32px 40px;max-width:560px;text-align:center}
   .big{font-size:48px;line-height:1}h1{color:${color};font-size:22px;margin:10px 0}
-  code{background:#0a0a0c;padding:2px 8px;border-radius:5px;color:#f7941d;font-size:13px}a{color:#f7941d}</style></head>
+  code{background:#0a0a0c;padding:2px 8px;border-radius:5px;color:#e3b23a;font-size:13px}a{color:#e3b23a}</style></head>
   <body><div class="box"><div class="big">${r.ok ? '✅' : '❌'}</div>
   <h1>${r.ok ? 'Email envoyé !' : "Échec de l'envoi"}</h1>
   <p>Destinataire : <code>${esc(to)}</code></p>
@@ -2419,7 +2419,7 @@ app.get('/api/calendar-actuals-debug', async (_req, res) => {
     const row = (cells) => '<tr>' + cells.map(c => `<td style="padding:4px 9px;border-bottom:1px solid #222">${c}</td>`).join('') + '</tr>';
     const html = `<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <body style="background:#0d0d0d;color:#e8eaed;font-family:monospace;font-size:13px;padding:18px;line-height:1.5">
-<h2 style="color:#f7941d">Diagnostic — Actuals calendrier (source : TradingView)</h2>
+<h2 style="color:#e3b23a">Diagnostic — Actuals calendrier (source : TradingView)</h2>
 <div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:18px">
   <div><b>API TradingView</b><br>événements reçus: <b style="color:${tvCount ? '#2ecc71' : '#ef4444'}">${tvCount}</b>${tvErr ? `<br><span style="color:#ef4444">erreur: ${esc(tvErr)}</span>` : ''}<br>${tvCount ? '✅ accessible depuis Render' : '❌ NON accessible (bloqué/timeout)'}</div>
   <div><b>Remplissage</b><br>actuals stockés (map): <b>${_calActualsMap.size}</b><br>remplis ce run: <b>${filledTV}</b></div>
@@ -7878,7 +7878,7 @@ ${biasLine || '(n/d)'}`;
     const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
     const _frMon = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     const _dp = dayKey.split('-').map(Number);
-    dtpd.reportName = 'DTP Daily US Opening News - ' + _dp[2] + ' ' + _frMon[_dp[1] - 1] + ' ' + _dp[0];   // titre façon PMT, DTP + FR
+    dtpd.reportName = 'DTP Daily US Opening News - ' + _dp[2] + ' ' + _frMon[_dp[1] - 1] + ' ' + _dp[0];   // titre DTP, format FR
     const item = {
       id: 'dtp-daily-' + dayKey + '-' + now,
       headline: dtpd.reportName, description: dtpd.title || dtpd.summary,
@@ -11524,10 +11524,10 @@ const _csCache = {};
 // clip = max allowed % deviation from period open (filters bad Yahoo Finance ticks)
 // cutoffToday: true = reference price anchored at midnight UTC (real FX trading day start)
 const CS_PERIOD_CFG = {
-  today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  8  },   // clip 8 % : ne rogne que les ticks aberrants Yahoo, laisse passer les vrais swings intraday (Fed/ECB) → amplitude réelle façon PMT ; 1 m (~500 pts/jour, repli gradué 1m→5m→30m)
+  today: { interval: '1m',  range: '5d',  cutoffMs: null,          cutoffToday: true, clip:  8  },   // clip 8 % : ne rogne que les ticks aberrants Yahoo, laisse passer les vrais swings intraday (Fed/ECB) → amplitude réelle préservée ; 1 m (~500 pts/jour, repli gradué 1m→5m→30m)
   // TW = "cette semaine" → ancré au LUNDI 00:00 UTC de la semaine en cours (pas une fenêtre
   // glissante). La courbe démarre toujours lundi et grandit au fil de la semaine.
-  // DENSITÉ façon PMT : 5 m (~1440 pts/semaine) au lieu d'1 h → courbe nerveuse ; plancher de repli = 30 m.
+  // DENSITÉ élevée : 5 m (~1440 pts/semaine) au lieu d'1 h → courbe nerveuse ; plancher de repli = 30 m.
   week:  { interval: '5m',  range: '5d',  cutoffMs: null,          cutoffWeek: true,  clip: 10  },
   '8h':  { interval: '1m',  range: '5d',  cutoffMs:  8 * 3600000,                    clip:  5  },   // clip 5 % (était 3 % = le + agressif, écrêtait des swings intraday légitimes 4-5 %) → amplitude réelle ; 1 m (~480 pts sur 8 h, repli gradué 1m→5m→30m)
   '1d':  { interval: '1m',  range: '5d',  cutoffMs: 24 * 3600000,                    clip:  8  },   // clip 8 % (aligné sur today) : laisse passer les vrais swings sur 24 h → amplitude réelle ; 1 m (~1440 pts/jour, repli gradué 1m→5m→30m)
@@ -13972,9 +13972,9 @@ function _riskHistSample(d) {
 setInterval(() => {
   if (_riskHistDirty) { _riskHistDirty = false; auth.aiCacheSet('riskhist:daily', [..._riskHist.values()]).catch(() => {}); }
 }, 5 * 60 * 1000);
-const RISK_LABELS = ['STRONG RISK-OFF', 'WEAK RISK-OFF', 'NEUTRAL', 'WEAK RISK-ON', 'STRONG RISK-ON'];   // 5 zones EXACTEMENT comme PMT (Strong/Weak/Neutral/Weak/Strong — PMT n'a pas de "RISK-ON/OFF" simple)
-const RISK_BOUNDS = [-0.30, -0.04, 0.04, 0.30];   // 4 frontières entre les 5 bandes (façon PMT) ; NEUTRAL resserré ±0.04 → réactif comme PMT
-const RISK_HYST   = 0.035;                                      // marge d'hystérésis (sort plus vite de NEUTRAL = réactivité façon PMT, sans clignoter pour du bruit)
+const RISK_LABELS = ['STRONG RISK-OFF', 'WEAK RISK-OFF', 'NEUTRAL', 'WEAK RISK-ON', 'STRONG RISK-ON'];   // 5 zones (Strong/Weak/Neutral/Weak/Strong) plutot qu'un RISK-ON/OFF binaire
+const RISK_BOUNDS = [-0.30, -0.04, 0.04, 0.30];   // 4 frontières entre les 5 bandes ; NEUTRAL resserré ±0.04 → réactif
+const RISK_HYST   = 0.035;                                      // marge d'hystérésis (sort plus vite de NEUTRAL = réactivité accrue, sans clignoter pour du bruit)
 function _riskBand(score, prevIdx) {
   let idx = 0;
   for (let i = 0; i < RISK_BOUNDS.length; i++) if (score > RISK_BOUNDS[i]) idx = i + 1;

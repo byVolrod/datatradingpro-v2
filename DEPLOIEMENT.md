@@ -1,4 +1,4 @@
-# 🚀 Déployer Prime Terminal gratuitement (Render.com)
+# 🚀 Déployer DataTradingPro gratuitement (Render.com)
 
 > **Pourquoi pas Netlify / Vercel ?**
 > Ce site est un **serveur Node permanent** : il fait tourner un navigateur
@@ -18,14 +18,14 @@ Render déploie depuis un dépôt Git. Dans le dossier du projet :
 ```bash
 git init
 git add .
-git commit -m "Prime Terminal - prêt pour déploiement"
+git commit -m "DataTradingPro - prêt pour déploiement"
 ```
 
 Crée un dépôt **privé** sur https://github.com/new (nomme-le par ex.
-`prime-terminal`), puis :
+`datatradingpro`), puis :
 
 ```bash
-git remote add origin https://github.com/TON-COMPTE/prime-terminal.git
+git remote add origin https://github.com/TON-COMPTE/datatradingpro.git
 git branch -M main
 git push -u origin main
 ```
@@ -39,7 +39,7 @@ git push -u origin main
 
 1. Va sur https://render.com → inscris-toi (gratuit, avec ton compte GitHub).
 2. Clique **New +** → **Blueprint**.
-3. Sélectionne ton dépôt `prime-terminal`.
+3. Sélectionne ton dépôt `datatradingpro`.
 4. Render détecte automatiquement le fichier **`render.yaml`** → clique **Apply**.
 
 Render construit l'image Docker (installe Chromium) et lance le serveur.
@@ -54,19 +54,19 @@ Dans le dashboard du service → onglet **Environment**, ajoute les valeurs
 
 | Variable | Valeur |
 |---|---|
-| `SUPABASE_URL` | `https://cbwutzqsanweuvodkljx.supabase.co` |
+| `SUPABASE_URL` | *(ton URL Supabase)* |
 | `SUPABASE_KEY` | *(ta clé service_role Supabase)* |
 | `SESSION_SECRET` | *une longue chaîne aléatoire de ton choix* |
-| `FJ_EMAIL` | `volrod.dev@gmail.com` |
-| `FJ_PASS` | `123123Pp` |
-| `MFB_EMAIL` | `gostan.dev@gmail.com` |
-| `MFB_PASS` | `Turquie25#` |
+| `FJ_EMAIL` | *(ton email FinancialJuice)* |
+| `FJ_PASS` | *(voir gestionnaire de secrets)* |
+| `MFB_EMAIL` | *(ton email Myfxbook)* |
+| `MFB_PASS` | *(voir gestionnaire de secrets)* |
 | `ANTHROPIC_API_KEY` | *(ta clé Claude — pour activer les briefings IA)* |
-| `ALLOWED_ORIGINS` | `https://prime-terminal.onrender.com` *(ton URL Render)* |
+| `ALLOWED_ORIGINS` | `https://datatradingpro.onrender.com` *(ton URL Render)* |
 
 Clique **Save** → Render redéploie automatiquement.
 
-Ton site est en ligne sur : `https://prime-terminal.onrender.com`
+Ton site est en ligne sur : `https://datatradingpro.onrender.com`
 
 ---
 
@@ -78,7 +78,7 @@ Sur le plan **gratuit**, Render endort le service après **15 min sans visite**
 **Solution gratuite :** un service de ping qui visite ton site toutes les 10 min.
 
 1. Va sur https://uptimerobot.com (gratuit).
-2. Crée un monitor **HTTP(s)** vers : `https://prime-terminal.onrender.com/healthz`
+2. Crée un monitor **HTTP(s)** vers : `https://datatradingpro.onrender.com/healthz`
 3. Intervalle : **5 minutes**.
 
 → Le service reste éveillé en permanence (dans la limite des 750 h/mois

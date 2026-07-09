@@ -1,11 +1,11 @@
 # ─────────────────────────────────────────────────────────────────────
-#  Render Blueprint — DataTradingPro / Prime Terminal
+#  Render Blueprint — DataTradingPro
 #  Déploiement gratuit d'un serveur Node permanent (Puppeteer + WebSocket).
 #  Render détecte ce fichier automatiquement : New + → "Blueprint" → ton dépôt.
 # ─────────────────────────────────────────────────────────────────────
 services:
   - type: web
-    name: prime-terminal
+    name: datatradingpro
     runtime: docker          # utilise le Dockerfile (installe Chromium)
     plan: free               # 100% gratuit (se met en veille après 15 min d'inactivité)
     region: frankfurt        # serveur le plus proche de l'Europe

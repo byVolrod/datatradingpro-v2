@@ -543,9 +543,9 @@ function rebuildStockChart(symbol) {
 //  STRENGTH — Real Force des Devises (Single Chart + TF Selector)
 // ═══════════════════════════════════════════════
 
-// Palette SATURÉE (façon PMT) : couleurs plus vives/denses pour RESSORTIR sur le fond noir #0d0d0d.
+// Palette SATURÉE : couleurs plus vives/denses pour RESSORTIR sur le fond noir #0d0d0d.
 const CS_COLORS = {
-  USD: 0xe8eaed,  // blanc (orange PMT 0xff9500 banni ; blanc = distinct de CHF jaune-or, convention devise de base)
+  USD: 0xe8eaed,  // blanc (orange écarté ; blanc = distinct de CHF jaune-or, convention devise de base)
   EUR: 0xff3b30,  // rouge vif (était #dc2626, trop mat)
   JPY: 0x22d3ee,  // cyan clair vif
   GBP: 0x2bee6b,  // vert flashy dense
@@ -687,7 +687,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       .sort((a, b) => a - b);
     const ref    = abs.length > 10 ? abs[Math.floor(abs.length * 0.99)] : (abs[abs.length - 1] || 0.01);
     const refMax = ref * BASE;
-    const CAP    = 70;   // PMT montre GBP ~±48 → cap large : compression SEULEMENT sur extrêmes rares, amplitude réelle préservée (l'axe Y auto-scale + extraMin/Max 0.07 absorbent)
+    const CAP    = 70;   // GBP atteint ~±48 → cap large : compression SEULEMENT sur extrêmes rares, amplitude réelle préservée (l'axe Y auto-scale + extraMin/Max 0.07 absorbent)
     return refMax > CAP ? (BASE * CAP / refMax) : BASE;
   }
   let scaleFactor = computeScale(data);
@@ -715,9 +715,9 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: 1.8, strokeOpacity: dim ? 0 : 1 });   // 1.8 px (façon PMT) : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur — corrigé.)
+    series.strokes.template.setAll({ strokeWidth: 1.8, strokeOpacity: dim ? 0 : 1 });   // 1.8 px : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur — corrigé.)
     // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) + LineSeries amCharts = segments
-    // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles, façon PMT. La densité
+    // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles. La densité
     // vient des bougies fines côté serveur (today=1 m, week=15 m, 1d=5 m dans CS_PERIOD_CFG / _computeStrengthFresh).
     const cleanPts = pts;
     series.data.setAll(cleanPts);
@@ -802,7 +802,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // ── Fenêtre initiale sur la FIN de série → on glisse vers la gauche pour remonter le temps.
   // Curseur NORMAL (défaut) et non « main/grab » (demande utilisateur) ; le pan au glisser reste actif.
   chart.plotContainer.set('cursorOverStyle', 'default');
-  if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.08, 1); } catch (e) {} });   // on montre ~92 % de la session (vs 65 %) → bien plus de points/pixel = texture dense visible d'emblée façon PMT (pan toujours dispo, donnée inchangée)
+  if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.08, 1); } catch (e) {} });   // on montre ~92 % de la session (vs 65 %) → bien plus de points/pixel = texture dense visible d'emblée (pan toujours dispo, donnée inchangée)
 
   // Apparition animée — SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
   chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
@@ -853,7 +853,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const pts = (newData.series[ccy] || [])
         .filter(d => d.v != null && d.t != null)
         .map(d => ({ ...d, v: d.v * scaleFactor }));
-      const cleanPts = pts;   // ⚠️ PAS de _smoothCS : la mise à jour live RÉÉCRIVAIT les points avec une moyenne mobile 3 pts → la courbe brute (nerveuse) du 1er rendu devenait molle en quelques secondes. Points BRUTS = nervosité façon PMT conservée.
+      const cleanPts = pts;   // ⚠️ PAS de _smoothCS : la mise à jour live RÉÉCRIVAIT les points avec une moyenne mobile 3 pts → la courbe brute (nerveuse) du 1er rendu devenait molle en quelques secondes. Points BRUTS = nervosité conservée.
       s.data.setAll(cleanPts);                      // animation fluide intégrée amCharts
       // Repositionner + retexter le badge flottant
       const lp = cleanPts[cleanPts.length - 1];
@@ -1143,7 +1143,7 @@ function _riskBandInner(data) {
 
 // Couleur du dégradé d'arc à une position v∈[-100,100] (interp linéaire des 7 stops de l'arc).
 // → le marqueur triangle prend la teinte de l'arc sous lui (olive en weak-on, vert vif en strong-on,
-// rouge en risk-off…), exactement comme la jauge épurée de desk.prime-terminal.
+// rouge en risk-off…), pour une jauge épurée.
 function _riskArcColor(v) {
   const stops = [0xc63430, 0xdb5a2c, 0xe88a28, 0xddb23a, 0xa9c64a, 0x5cb060, 0x2a9e60];
   const t = Math.max(0, Math.min(1, (v + 100) / 200));
@@ -1250,9 +1250,9 @@ function buildRiskGauge() {
         _arc.get('tick')?.setAll({ visible: false });
         _arc.get('label')?.setAll({ visible: false });
 
-        // Jauge ÉPURÉE façon desk.prime-terminal : PAS de labels autour de l'arc.
+        // Jauge ÉPURÉE : PAS de labels autour de l'arc.
 
-        // Marqueur TRIANGLE façon PMT : petit triangle DÉTACHÉ du centre (ni aiguille depuis le
+        // Marqueur TRIANGLE : petit triangle DÉTACHÉ du centre (ni aiguille depuis le
         // centre, ni moyeu), teinté par la couleur de l'arc sous lui (olive en weak-on, vert vif
         // en strong-on, rouge en risk-off).
         _riskHandDI = axis.makeDataItem({ value: 0 });
@@ -1342,13 +1342,13 @@ function buildRiskGauge() {
 }
 
 // ═══════════════════════════════════════════════
-//  RISK SENTIMENT HISTORY — barres quotidiennes risk-on/off (façon PMT, en amCharts)
+//  RISK SENTIMENT HISTORY — barres quotidiennes risk-on/off (amCharts)
 //  Source UNIQUE : /api/risk-history (échantillonné depuis fetchRiskSentiment serveur). On ne recalcule rien.
 // ═══════════════════════════════════════════════
 let _riskHistCtl = null;
-const RH_GREEN = 0x01b298;   // pct ≥ 0 → risk-on (vert PMT à l'identique, cf. image)
-const RH_RED   = 0xfd2e64;   // pct < 0 → risk-off (rouge PMT à l'identique, cf. image)
-const RH_ZERO  = 0x6b7280;   // ligne zéro = orange PMT à l'identique
+const RH_GREEN = 0x22c55e;   // pct ≥ 0 → risk-on (vert de marque DTP)
+const RH_RED   = 0xef4444;   // pct < 0 → risk-off (rouge de marque DTP)
+const RH_ZERO  = 0x6b7280;   // ligne zéro = gris neutre
 
 function buildRiskHistoryChart(containerId, data) {
   const el = document.getElementById(containerId);
@@ -1375,7 +1375,7 @@ function buildRiskHistoryChart(containerId, data) {
   const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, {
     baseInterval: { timeUnit: 'day', count: 1 }, extraMin: 0.01, extraMax: 0.01, maxDeviation: 0.05, renderer: xRenderer,
   }));
-  xAxis.set('dateFormats', { day: 'MM-dd', week: 'MM-dd', month: 'MMM' });                  // format PMT : 06-19
+  xAxis.set('dateFormats', { day: 'MM-dd', week: 'MM-dd', month: 'MMM' });                  // format court : 06-19
   xAxis.set('periodChangeDateFormats', { day: 'MM-dd', week: 'MM-dd', month: 'MM-dd' });
 
   // Axe Y : Sentiment (%) de -100 à +100
@@ -2007,7 +2007,7 @@ function buildSessionMap() {
       paddingTop: 0, paddingBottom: 0, paddingLeft: 0, paddingRight: 0,
     })
   );
-  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));  // fond charcoal desk (de-PMT)
+  chart.set('background', am5.Rectangle.new(root, { fill: am5.color(_deskChartBg()), fillOpacity: 1 }));  // fond charcoal desk
 
   // Rendu ÉPURÉ : pas de grille (graticule) → carte propre comme la référence.
 
