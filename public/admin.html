@@ -1062,7 +1062,7 @@
           <div class="camp-aud-seg" id="camp-stat-filters" style="margin:0 0 10px;"></div>
           <div class="camp-table-wrap">
             <table class="camp-table" id="camp-recipients">
-              <thead><tr><th>E-mail</th><th>Envoyé</th><th>Ouvertures</th><th>Clics</th><th>Dernière ouverture</th></tr></thead>
+              <thead><tr><th>E-mail</th><th>Envoyé</th><th>Ouvertures</th><th>Clics</th><th>Dernière ouverture</th><th>Statut</th></tr></thead>
               <tbody><tr><td colspan="5" class="empty-state">Aucun envoi pour l'instant.</td></tr></tbody>
             </table>
           </div>
@@ -1309,16 +1309,25 @@
     if (_campStatFilter === 'opened')    rows = rows.filter(function(r){ return (r.opens||0) > 0; });
     if (_campStatFilter === 'notopened') rows = rows.filter(function(r){ return !(r.opens||0); });
     if (_campStatFilter === 'clicked')   rows = rows.filter(function(r){ return (r.clicks||0) > 0; });
+    if (_campStatFilter === 'unsub')     rows = rows.filter(function(r){ return !!r.unsubAt; });
     // chips de filtre avec compteurs (l'actif est dore)
     var all = _campStatRows, nOpen = all.filter(function(r){ return (r.opens||0)>0; }).length;
-    var chips = [ ['all','Tous',all.length], ['opened','✓ Ont ouvert',nOpen], ['notopened','✗ N’ont pas ouvert',all.length-nOpen], ['clicked','↗ Ont cliqué',all.filter(function(r){return (r.clicks||0)>0;}).length] ];
+    var nClick = all.filter(function(r){ return (r.clicks||0)>0; }).length;
+    var nUnsub = all.filter(function(r){ return !!r.unsubAt; }).length;
+    var chips = [ ['all','Tous',all.length], ['opened','✓ Ont ouvert',nOpen], ['notopened','✗ N’ont pas ouvert',all.length-nOpen], ['clicked','↗ Ont cliqué',nClick], ['unsub','⊘ Désabonnés',nUnsub] ];
     document.getElementById('camp-stat-filters').innerHTML = chips.map(function(c){
       var on = _campStatFilter === c[0];
       return '<button class="camp-chip" onclick="campStatFilter(\'' + c[0] + '\')" style="cursor:pointer;background:' + (on ? 'rgba(227,178,58,.14)' : 'rgba(255,255,255,.03)') + ';color:' + (on ? '#e3b23a' : '#8b93a1') + ';border-color:' + (on ? 'rgba(227,178,58,.5)' : '#33333a') + ';">' + c[1] + ' (' + c[2] + ')</button>';
     }).join('');
+    var _statut = function(r){
+      var b = [];
+      if ((r.clicks||0) > 0) b.push('<span style="display:inline-block;color:#00e676;border:1px solid rgba(0,230,118,.4);border-radius:4px;font-size:11px;font-weight:700;padding:1px 7px;margin:0 4px 2px 0;">✓ Cliqué</span>');
+      if (r.unsubAt) b.push('<span title="' + (r.unsubAt ? _campFmt(r.unsubAt) : '') + '" style="display:inline-block;color:#ff6b57;border:1px solid rgba(255,61,0,.4);border-radius:4px;font-size:11px;font-weight:700;padding:1px 7px;margin:0 4px 2px 0;">⊘ Désabonné</span>');
+      return b.length ? b.join('') : '<span style="color:#565660;">—</span>';
+    };
     var tb = document.querySelector('#camp-recipients tbody');
-    tb.innerHTML = rows.length ? rows.map(function(r){ return '<tr><td>' + r.email + '</td><td>' + (r.sentAt ? _campFmt(r.sentAt) : '—') + '</td><td>' + (r.opens||0) + '</td><td>' + (r.clicks||0) + '</td><td>' + (r.lastOpen ? _campFmt(r.lastOpen) : '—') + '</td></tr>'; }).join('')
-      : '<tr><td colspan="5" class="empty-state">' + (_campStatRows.length ? 'Aucun destinataire dans ce filtre.' : 'Aucun envoi pour l’instant.') + '</td></tr>';
+    tb.innerHTML = rows.length ? rows.map(function(r){ return '<tr' + (r.unsubAt ? ' style="opacity:.6;"' : '') + '><td>' + r.email + '</td><td>' + (r.sentAt ? _campFmt(r.sentAt) : '—') + '</td><td>' + (r.opens||0) + '</td><td>' + (r.clicks||0) + '</td><td>' + (r.lastOpen ? _campFmt(r.lastOpen) : '—') + '</td><td>' + _statut(r) + '</td></tr>'; }).join('')
+      : '<tr><td colspan="6" class="empty-state">' + (_campStatRows.length ? 'Aucun destinataire dans ce filtre.' : 'Aucun envoi pour l’instant.') + '</td></tr>';
   }
   async function loadCampStats(){
     try {
