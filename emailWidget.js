@@ -51,7 +51,7 @@ const SPECS = {
   taux:                { path: '/internal/email-widget/taux',             sel: '#taux-grid',    w: 640, h: 760, clipLast: '.rtc' },
   'cb-tone':           { path: '/internal/email-widget/cb-tone',          sel: '#cbt-wrap',     w: 600, h: 780, clipLast: '.cbt-row' },
   eclairages:          { path: '/internal/email-widget/eclairages',       sel: '#eci-wrap',     w: 600, h: 560, clipLast: '.eci-card' },
-  calendar:            { path: '/internal/email-widget/calendar',         sel: '#cal-mail',     w: 760, h: 900, clipLast: '.cal-row' },
+  calendar:            { path: '/internal/email-widget/calendar',         sel: '#cal-mail',     w: 900, h: 900, clipLast: '.cal-row' },
   analystes:           { path: '/internal/email-widget/analystes',        sel: '#arlib-list',   w: 720, h: 900, clipLast: '.arl-row' },
   'mindset-methode':   { path: '/internal/email-widget/mindset-methode',  sel: '#art',          w: 600, h: 300 },
   'mindset-ego':       { path: '/internal/email-widget/mindset-ego',      sel: '#art',          w: 600, h: 300 },
