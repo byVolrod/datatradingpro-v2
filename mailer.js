@@ -1086,26 +1086,32 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
 
-  const leadBits = [];
-  if (themeLabel) leadBits.push(`contexte dominant&nbsp;: <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>`);
-  if (risk && risk.label) leadBits.push(`régime de risque&nbsp;: <strong style="color:#fff;">${_esc(risk.label)}</strong>`);
-  const lead = leadBits.length ? `Voici le point marché du desk. ${leadBits.join(' &middot; ')}.` : 'Voici le point marché du desk, en clair.';
+  // Accroche editoriale + bandeau de contexte (2 badges premium) : contexte dominant (or) + regime de risque
+  // (bordure coloree selon le regime). Remplace l'ancienne ligne inline plate facon debug.
+  const lead = `Voici le point marché du desk, en clair &mdash; l'essentiel de la semaine, sans le bruit.`;
+  const _riskCol = (() => { const l = String((risk && risk.label) || '').toLowerCase(); if (/off|aversion/.test(l)) return '#ef4444'; if (/appétit|appetit|risk-on|\bon\b/.test(l)) return '#22c55e'; return '#ffb300'; })();
+  const _chips = [];
+  if (themeLabel) _chips.push(`<td style="padding:0 8px 0 0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:rgba(227,178,58,.10);border:1px solid rgba(227,178,58,.32);border-radius:8px;padding:8px 13px;"><div style="color:#8b93a1;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;">Contexte dominant</div><div style="color:#e3b23a;font-size:15px;font-weight:800;letter-spacing:-.01em;">${_esc(themeLabel)}</div></td></tr></table></td>`);
+  if (risk && risk.label) _chips.push(`<td style="padding:0;"><table role="presentation" cellpadding="0" cellspacing="0"><tr><td style="background:rgba(255,255,255,.03);border:1px solid #26262b;border-left:3px solid ${_riskCol};border-radius:8px;padding:8px 13px;"><div style="color:#8b93a1;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;margin-bottom:3px;">Régime de risque</div><div style="color:#ffffff;font-size:15px;font-weight:800;letter-spacing:-.01em;">${_esc(risk.label)}</div></td></tr></table></td>`);
+  const ctxStrip = _chips.length ? `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0 2px;"><tr>${_chips.join('')}</tr></table>` : '';
 
   const movesHtml = moves ? `<div style="margin:18px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.02em;">CE QUI BOUGE</div><p style="margin:0 0 14px;">${_esc(moves).slice(0, 480)}</p>` : '';
 
-  // WIDGETS REELS du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises + Smart Bias.
+  // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises.
   const strengthWidget = _widgetImg('strength', 'La force des devises (24h)');
-  const biasWidget = _widgetImg('bias', 'Le biais du desk');
 
-  const watch = _watchRows(upcoming.slice(0, 3));
-  const watchHtml = watch ? `<div style="margin:16px 0 4px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">À surveiller cette semaine</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${watch}</table>` : '';
+  // « A surveiller cette semaine » = VRAI widget calendrier economique du desk (10 colonnes, previsions/HIGH/LOW
+  // remplies) au lieu d'une liste texte. Memes donnees (context.upcoming) -> coherent avec le desk.
+  const watchHtml = upcoming.length
+    ? `<div style="margin:22px 0 6px;color:#9aa3b2;font-size:12.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;">À surveiller cette semaine</div>${_widgetImg('calendar', 'À surveiller cette semaine')}<p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Chaque publication est reprise, chiffrée et remise en contexte en direct sur le Desk.</p>`
+    : '';
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
+    ${ctxStrip}
     ${movesHtml}
     ${strengthWidget}
-    ${biasWidget}
     ${watchHtml}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
@@ -1116,7 +1122,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'le point marché du desk' + (themeLabel ? ' (' + themeLabel + ')' : '');
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'bias']); }
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'calendar']); }
 
 // Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
 // aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
