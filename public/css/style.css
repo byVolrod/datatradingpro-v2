@@ -4315,9 +4315,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .br-inst-logo-card .br-dtp-logo { font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-bold); letter-spacing: 0.03em; }
 /* Nom de banque affiché À CÔTÉ du logo (toujours visible) → petit espace logo↔nom */
 .br-inst-logo-card .br-inst-name { margin-left: 6px; }
-/* Plaque claire derrière les logos SOMBRES/colorés (favicons, Goldman, Nomura, Morgan Stanley…) → lisibles sur
-   le fond sombre du desk. Exclut les logos déjà recolorés blancs (Natixis, BlackRock, Lloyds). */
-.br-bank-logo--plaque { background: #eef1f5; padding: 2px 5px; border-radius: 3px; box-sizing: content-box; }
+/* Logos banque sur fond TRANSPARENT (pas de plaque claire — demande user). */
 
 /* Reader */
 .br-rnav { display: flex; align-items: center; gap: 12px; padding: 10px 16px; border-bottom: 1px solid var(--border2); flex-shrink: 0; background: var(--bg2); }
