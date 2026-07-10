@@ -5228,10 +5228,6 @@ const _BANK_LOCAL_LOGO = {
   KBC:       '/assets/images/banks/KBC.svg',         // logo KBC (cercle bleu + KBC blanc) — SVG
   StanChart: '/assets/images/banks/StanChart.png',   // logo Standard Chartered (téléchargé en local)
 };
-// Logos DEJA recolores blancs/clairs pour le fond sombre → NE PAS leur mettre de plaque claire (ils y seraient
-// invisibles). Tous les autres (favicons Google, logos sombres/marine comme Goldman/Nomura/Morgan Stanley) reçoivent
-// une petite plaque claire pour rester lisibles sur le desk sombre.
-const _BANK_WHITE_LOGO = { 'Natixis': 1, 'BlackRock': 1, 'Lloyds Bank': 1 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
 function _instLogoHtml(label) {
   const color = _instBrandColor(label);
@@ -5243,8 +5239,7 @@ function _instLogoHtml(label) {
   const url = _BANK_LOCAL_LOGO[label] || (_BANK_DOMAIN[label] ? `https://www.google.com/s2/favicons?sz=128&domain=${_BANK_DOMAIN[label]}` : null);
   if (!url) return name;
   // Logo + NOM côte à côte : le nom reste toujours visible ; le logo se masque seulement s'il échoue.
-  const plaque = _BANK_WHITE_LOGO[label] ? '' : ' br-bank-logo--plaque';   // plaque claire sauf logos deja blancs
-  return `<span class="br-bank-logo-wrap"><img class="br-bank-logo${plaque}" src="${url}" alt="${label}" onerror="this.style.display='none'">${name}</span>`;
+  return `<span class="br-bank-logo-wrap"><img class="br-bank-logo" src="${url}" alt="${label}" onerror="this.style.display='none'">${name}</span>`;
 }
 
 // Robustesse images : masque toute image cassée / placeholder (jamais de cadre d'image vide).
