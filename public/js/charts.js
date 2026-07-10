@@ -1978,6 +1978,31 @@ function isSessionActive(block, utcH) {
   return utcH >= block.utcOpen || utcH < block.utcClose; // wraps midnight
 }
 
+// ── Filet de sécurité CARTE DES SESSIONS ──────────────────────────────────────────────────────────
+// Si l'onglet MONDE est visible mais la carte VIDE (script CDN arrivé tard/raté, init manquée, root
+// disposée), on répare tout seul : ré-injection UNIQUE des scripts amCharts map si absents après ~24 s,
+// puis reconstruction automatique dès que les libs sont là. Plus jamais de panneau vide silencieux.
+let _mapScriptsReinjected = false;
+setInterval(() => {
+  try {
+    const el = document.getElementById('am5-map');
+    if (!el || el.offsetParent === null) return;               // onglet non visible → rien à faire
+    if (el.querySelector('canvas')) return;                     // carte rendue → OK
+    if (typeof am5map === 'undefined' || typeof am5geodata_worldLow === 'undefined') {
+      if (!_mapScriptsReinjected && performance.now() > 24000) {
+        _mapScriptsReinjected = true;
+        ['https://cdn.amcharts.com/lib/5/map.js', 'https://cdn.amcharts.com/lib/5/geodata/worldLow.js'].forEach(src => {
+          if (document.querySelector('script[data-mapretry="' + src + '"]')) return;
+          const sc = document.createElement('script'); sc.src = src; sc.async = true; sc.dataset.mapretry = src;
+          document.head.appendChild(sc);
+        });
+      }
+      return;                                                   // buildSessionMap réessaiera quand les libs seront là
+    }
+    buildSessionMap();                                          // libs OK mais carte vide → reconstruction
+  } catch (e) {}
+}, 12000);
+
 function buildSessionMap() {
   if (typeof am5map === 'undefined' || typeof am5geodata_worldLow === 'undefined') {
     setTimeout(buildSessionMap, 800);

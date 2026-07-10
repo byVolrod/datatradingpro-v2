@@ -806,12 +806,14 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
   const sender = _esc(_parseFrom().email);
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 16px;">Merci de faire partie de l'aventure <strong style="color:#e3b23a;">DataTradingPro</strong>. &Agrave; partir de maintenant, je vous enverrai <strong>chaque semaine</strong> un e-mail court pour rendre le march&eacute; <strong>macro &amp; forex</strong> plus lisible, en fran&ccedil;ais. Au programme, sans jargon&nbsp;:</p>
+    <p style="margin:0 0 16px;">Merci de faire partie de l'aventure <strong style="color:#e3b23a;">DataTradingPro</strong>. Chaque semaine, le desk vous &eacute;crit pour rendre le march&eacute; <strong>macro &amp; forex</strong> lisible, en fran&ccedil;ais. Voici votre <strong style="color:#fff;">semaine type</strong>&nbsp;:</p>
     <ul style="margin:0 0 20px;padding-left:20px;color:#cbd5e1;">
-      <li style="margin:5px 0;"><strong style="color:#fff;">Le R&eacute;cap Hebdo</strong>&nbsp;: ce qui a compt&eacute; sur les march&eacute;s, prioris&eacute; par impact.</li>
-      <li style="margin:5px 0;"><strong style="color:#fff;">La Force des Devises</strong>&nbsp;: quelles monnaies dominent, lesquelles faiblissent.</li>
-      <li style="margin:5px 0;"><strong style="color:#fff;">Les &Eacute;clairages IA</strong>&nbsp;: le contexte expliqu&eacute; simplement, sans jargon.</li>
-      <li style="margin:5px 0;"><strong style="color:#fff;">Les banques centrales</strong>&nbsp;: le ton (hawkish / dovish) et ce qu'il implique.</li>
+      <li style="margin:6px 0;">🗓️ <strong style="color:#fff;">Semaine &agrave; venir</strong>&nbsp;: chaque lundi, l'agenda tri&eacute; par le desk, vous savez o&ugrave; regarder avant que la semaine ne commence.</li>
+      <li style="margin:6px 0;">🎓 <strong style="color:#fff;">Comprendre le march&eacute;</strong>&nbsp;: chaque mardi, un concept macro choisi selon l'actualit&eacute; et d&eacute;cod&eacute; simplement, comme au desk.</li>
+      <li style="margin:6px 0;">📊 <strong style="color:#fff;">Point march&eacute;</strong>&nbsp;: chaque mercredi, le brief du desk, la s&eacute;ance, les chiffres &eacute;co et la force des devises, en clair.</li>
+      <li style="margin:6px 0;">🧠 <strong style="color:#fff;">Mindset</strong>&nbsp;: chaque samedi, psychologie et discipline, de quoi garder la t&ecirc;te froide quand le march&eacute; s'agite.</li>
+      <li style="margin:6px 0;">📰 <strong style="color:#fff;">R&eacute;cap hebdo</strong>&nbsp;: chaque dimanche, la r&eacute;trospective de la semaine, devise par devise, sans le bruit.</li>
+      <li style="margin:6px 0;">🚨 <strong style="color:#fff;">Alerte macro</strong>&nbsp;: quand une banque centrale bouge, la lecture du desk et ce que les grandes banques anticipent.</li>
     </ul>
     <p style="margin:0 0 6px;">Pour explorer le terminal quand vous voulez&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
@@ -819,7 +821,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: 'DataTradingPro : votre point macro & forex de la semaine', html: _campaignLayout('Bienvenue', body, unsub) };
+  return { subject: '👋 Bienvenue au desk : voici votre semaine type', html: _campaignLayout('Bienvenue', body, unsub) };
 }
 // ENVOI : le widget Force des Devises est EMBARQUE dans le mail (piece jointe inline cid:) au lieu d'une
 // URL distante. Preuve par logs (08/07) : Outlook TELECHARGEAIT l'image (200, 46Ko) mais ne la RENDAIT pas
@@ -901,7 +903,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'votre point macro & forex de la semaine';
+  const subject = '📰 Votre semaine de marché, relue par le desk';
   return { subject, html: _campaignLayout('Point de la semaine', body, unsub) };
 }
 async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'cb-tone']); }
@@ -1039,7 +1041,7 @@ function _bankNotesBlock(notes) {
 // APERCU du RAPPORT QUOTIDIEN (Point marche) — carte facon rapport du desk : en-tete (titre reel du
 // rapport + date), sections par theme (titre or + puces / paras / mini-tableau de donnees), puis mention
 // « le rapport complet est sur le Desk ». Cape a 6 sections x 5 lignes. Zero invention.
-function _dailyBriefBlock(sections, dateLabel, reportTitle) {
+function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 6);
   if (!secs.length) return '';
   const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">Un aperçu du rapport quotidien du desk&nbsp;:</p>`;
@@ -1069,7 +1071,9 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle) {
       <tr><td>${head}</td></tr>
       <tr><td style="padding:0 16px 14px;">${blocks}</td></tr>
     </table>
-    <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend dans l'onglet <strong style="color:#9aa3b2;">Analystes</strong> du Desk.</p>`;
+    ${hasComments
+      ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#e3b23a;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier dans l'onglet <strong style="color:#9aa3b2;">Analystes</strong> du Desk.</p>`
+      : `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend dans l'onglet <strong style="color:#9aa3b2;">Analystes</strong> du Desk.</p>`}`;
 }
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
@@ -1140,7 +1144,7 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: 'Comprendre le marché : ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
+  return { subject: '🎓 ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
 }
 async function sendCampaignDecryptage(d) { d = d || {}; const m = buildCampaignDecryptage({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, recentKeys: d.recentKeys, isMember: d.isMember }); const prov = await _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
@@ -1333,7 +1337,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // remplies) au lieu d'une liste texte. Memes donnees (context.upcoming) -> coherent avec le desk.
   // « Brief de la seance » : le detail par theme tire du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst), a la place
   // du calendrier « A surveiller cette semaine » (demande user) -> on brief la journee.
-  const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title);
+  const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title, daily && daily.hasComments);
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
@@ -1346,7 +1350,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'le point marché du desk' + (themeLabel ? ' (' + themeLabel + ')' : '');
+  const subject = themeLabel ? '📊 Le brief du desk : ' + themeLabel + ' donne le ton' : '📊 Le brief du desk : la séance en clair';
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
 async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today']); }
@@ -1383,7 +1387,7 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'la semaine à venir sur les marchés' + (themeLabel ? ' (' + themeLabel + ')' : '');
+  const subject = '🗓️ Semaine à venir : les rendez-vous qui comptent';
   return { subject, html: _campaignLayout('Semaine à venir', body, unsub) };
 }
 async function sendCampaignOutlook(d) { d = d || {}; const m = buildCampaignOutlook({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['week-ahead']); }
@@ -1410,7 +1414,8 @@ function buildCampaignAlerteBC({ name, email, campaign, context, isMember } = {}
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'alerte macro : le ton des banques centrales';
+  const _evt = (ctx.featured && ctx.featured.title) ? String(ctx.featured.title).slice(0, 48) : 'Décision de banque centrale';
+  const subject = '🏦 ' + _evt + ' : ce que les grandes banques anticipent';
   return { subject, html: _campaignLayout('Alerte macro', body, unsub) };
 }
 async function sendCampaignAlerteBC(d) { d = d || {}; const m = buildCampaignAlerteBC({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['cb-tone']); }
@@ -1430,7 +1435,7 @@ function buildCampaignIntroPlain({ name, email } = {}) {
     <p style="margin:18px 0 0;font-size:12px;color:#999999;">Pour ne plus rater nos e-mails, ajoutez contact@datatradingpro.com à vos contacts.<br>
     <a href="${unsub}" style="color:#999999;">Se désabonner</a></p>
   </div>`;
-  const subject = (prenomRaw ? prenomRaw + ', bienvenue chez DataTradingPro' : 'Bienvenue chez DataTradingPro');
+  const subject = '👋 Bienvenue au desk : voici votre semaine type';
   return { subject, html };
 }
 async function sendCampaignIntroPlain(d) { d = d || {}; const m = buildCampaignIntroPlain({ name: d.name, email: d.email || d.to }); return _send(d.to, m.subject, m.html); }
