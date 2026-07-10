@@ -12752,11 +12752,11 @@ function _freshDaily() {
           if (first) pts.push(String(first).trim());
           if (pts.length >= 4) break;
         }
-        return _noDashDeep({ kind: 'dtpd', summary: it._dtpd.summary, insights: pts, sections: Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [], dateLabel: it._dtpd.dateLabel || '' });
+        return _noDashDeep({ kind: 'dtpd', title: it._dtpd.title || '', summary: it._dtpd.summary, insights: pts, sections: Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [], dateLabel: it._dtpd.dateLabel || '' });
       }
       // Recap Quotidien (FX Recap) : UNIQUEMENT la version REDIGEE (IA). Le repli mecanique (_ai:false,
       // « Moteurs cles du jour : ... ; Force des devises (intraday) : USD -0.07%... ») est illisible en mail.
-      if (it._fxr && it._fxr._ai !== false && (it._fxr.summary || (it._fxr.insights || []).length)) return _noDashDeep({ kind: 'fxr', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 4) : [], sections: [], dateLabel: it._fxr.dateLabel || '' });
+      if (it._fxr && it._fxr._ai !== false && (it._fxr.summary || (it._fxr.insights || []).length)) return _noDashDeep({ kind: 'fxr', title: it._fxr.title || '', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 4) : [], sections: [], dateLabel: it._fxr.dateLabel || '' });
     }
   } catch {}
   return null;

@@ -1036,12 +1036,17 @@ function _bankNotesBlock(notes) {
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
     <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Les notes complètes (Goldman Sachs, ING, Scotiabank&hellip;) sont dans l'onglet <strong style="color:#9aa3b2;">Institution</strong> du Desk.</p>`;
 }
-// Brief DETAILLE de la seance (Point marche) : rend les sections du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst) —
-// titre de section (or) + puces / paras / mini-tableau de donnees. Cape a 4 sections x 4-5 lignes. Zero invention.
-function _dailyBriefBlock(sections, dateLabel) {
+// APERCU du RAPPORT QUOTIDIEN (Point marche) — carte facon rapport du desk : en-tete (titre reel du
+// rapport + date), sections par theme (titre or + puces / paras / mini-tableau de donnees), puis mention
+// « le rapport complet est sur le Desk ». Cape a 6 sections x 5 lignes. Zero invention.
+function _dailyBriefBlock(sections, dateLabel, reportTitle) {
   const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 6);
   if (!secs.length) return '';
-  const intro = `<p style="margin:20px 0 2px;color:#9aa3b2;font-size:12.5px;">Le brief de la séance${dateLabel ? ' du ' + _esc(dateLabel) : ''}, par thème&nbsp;:</p>`;
+  const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">Un aperçu du rapport quotidien du desk&nbsp;:</p>`;
+  const head = `<div style="padding:13px 16px;border-bottom:1px solid #26262b;">
+      <div style="color:#e3b23a;font-weight:800;font-size:13.5px;letter-spacing:.01em;">${_esc(reportTitle || 'Point Marché : le rapport du jour')}</div>
+      ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:3px;">${_esc(dateLabel)}</div>` : ''}
+    </div>`;
   const blocks = secs.map(s => {
     const title = `<div style="margin:14px 0 4px;color:#e3b23a;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
     if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
@@ -1058,7 +1063,13 @@ function _dailyBriefBlock(sections, dateLabel) {
     const items = arr.slice(0, 5).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
     return items ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>` : '';
   }).join('');
-  return blocks ? intro + blocks : '';
+  if (!blocks) return '';
+  return `${intro}
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;">
+      <tr><td>${head}</td></tr>
+      <tr><td style="padding:0 16px 14px;">${blocks}</td></tr>
+    </table>
+    <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend dans l'onglet <strong style="color:#9aa3b2;">Analystes</strong> du Desk.</p>`;
 }
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
@@ -1322,7 +1333,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // remplies) au lieu d'une liste texte. Memes donnees (context.upcoming) -> coherent avec le desk.
   // « Brief de la seance » : le detail par theme tire du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst), a la place
   // du calendrier « A surveiller cette semaine » (demande user) -> on brief la journee.
-  const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel);
+  const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title);
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
