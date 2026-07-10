@@ -340,8 +340,8 @@ async function sendTest(to) {
     <h2 style="color:#e3b23a;margin:0 0 12px;">✅ Test d'envoi DataTradingPro</h2>
     <p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Si tu lis cet email <b>dans ta boîte de réception</b> (pas les spams),
     l'envoi fonctionne parfaitement. 🎉</p>
-    <p style="color:#64748b;font-size:13px;">Email automatique de vérification — tu peux l'ignorer.</p>`);
-  const provider = await _send(to, 'DataTradingPro — test d\'envoi ✅', html);   // string (canal) si OK, false sinon
+    <p style="color:#64748b;font-size:13px;">Email automatique de vérification, tu peux l'ignorer.</p>`);
+  const provider = await _send(to, 'DataTradingPro : test d\'envoi ✅', html);   // string (canal) si OK, false sinon
   return { ok: !!provider, provider: provider || null, lastError: _mailStats.lastError || null };
 }
 
@@ -365,7 +365,7 @@ function _layout(title, bodyHtml) {
         </td></tr>
         <!-- Footer -->
         <tr><td style="padding:18px 32px;border-top:1px solid #26262b;color:#6b7280;font-size:12px;line-height:1.6;">
-          DataTradingPro — Terminal de news & d'analyse en temps réel.<br>
+          DataTradingPro · Terminal de news & d'analyse en temps réel.<br>
           Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#e3b23a;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
@@ -406,7 +406,7 @@ function _spamNote() {
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
     style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.35);border-radius:10px;margin:20px 0;">
     <tr><td style="padding:14px 16px;color:#f3d9b0;font-size:13px;line-height:1.6;">
-      <strong style="color:#e3b23a;">📌 Note importante — pour ne plus rater nos emails</strong><br>
+      <strong style="color:#e3b23a;">📌 Note importante : pour ne plus rater nos emails</strong><br>
       Pour éviter que nos messages (accès, alertes, renouvellement) ne tombent dans vos <strong>spams</strong> :
       <ul style="margin:8px 0 0;padding-left:18px;color:#e2cba0;">
         <li>Ajoutez <strong style="color:#fff;">${sender}</strong> à vos <strong>contacts</strong>.</li>
@@ -430,7 +430,7 @@ function buildWelcome({ to, name, password, expiresAt }) {
     ? `${_credBox([['Email', to], ['Mot de passe', password], ['Abonnement', `valide jusqu'au ${end}`]])}
     <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Par sécurité, nous vous recommandons de changer votre mot de passe après votre première connexion.</p>`
     : `${_credBox([['Email', to], ['Abonnement', `valide jusqu'au ${end}`]])}
-    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Connectez-vous avec l'email ci-dessus. Si vous n'avez pas (ou plus) votre mot de passe, cliquez sur « Mot de passe oublié » sur la page de connexion — ou répondez simplement à ce message, on vous aide.</p>`;
+    <p style="margin:0 0 4px;font-size:13px;color:#94a3b8;">Connectez-vous avec l'email ci-dessus. Si vous n'avez pas (ou plus) votre mot de passe, cliquez sur « Mot de passe oublié » sur la page de connexion, ou répondez simplement à ce message, on vous aide.</p>`;
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Bienvenue, ${prenom} 👋</p>
     <p style="margin:0 0 14px;">Votre accès à <strong style="color:#fff;">DataTradingPro</strong> a été activé. Vous disposez désormais du flux de news en temps réel, du calendrier économique et des analyses institutionnelles.</p>
@@ -439,7 +439,7 @@ function buildWelcome({ to, name, password, expiresAt }) {
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Excellents trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'Bienvenue sur DataTradingPro — votre accès est activé', html: _layout('Bienvenue', body) };
+  return { subject: 'Bienvenue sur DataTradingPro : votre accès est activé', html: _layout('Bienvenue', body) };
 }
 async function sendWelcome(d) { const m = buildWelcome(d); return _send(d.to, m.subject, m.html); }
 
@@ -455,7 +455,7 @@ function buildRenewalFailed({ name }) {
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Nous restons à votre disposition,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro — échec du renouvellement de votre abonnement', html: _layout('Renouvellement', body) };
+  return { subject: 'DataTradingPro : échec du renouvellement de votre abonnement', html: _layout('Renouvellement', body) };
 }
 async function sendRenewalFailed(d) { const m = buildRenewalFailed(d); return _send(d.to, m.subject, m.html); }
 
@@ -472,7 +472,7 @@ function buildExpired({ name, expiresAt }) {
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro — votre abonnement a expiré', html: _layout('Abonnement expiré', body) };
+  return { subject: 'DataTradingPro : votre abonnement a expiré', html: _layout('Abonnement expiré', body) };
 }
 async function sendExpired(d) { const m = buildExpired(d); return _send(d.to, m.subject, m.html); }
 
@@ -490,7 +490,7 @@ function buildForgotNoSub({ name }) {
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Une question ? Écrivez-nous à <a href="mailto:${SUPPORT_EMAIL}" style="color:#ff7a1a;">${SUPPORT_EMAIL}</a>.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro — réinitialisation impossible : abonnement inactif', html: _layout('Abonnement inactif', body) };
+  return { subject: 'DataTradingPro : réinitialisation impossible : abonnement inactif', html: _layout('Abonnement inactif', body) };
 }
 async function sendForgotNoSub(d) { const m = buildForgotNoSub(d); return _send(d.to, m.subject, m.html); }
 
@@ -505,7 +505,7 @@ function buildReactivated({ name, expiresAt }) {
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bons trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro — votre accès est réactivé', html: _layout('Réactivation', body) };
+  return { subject: 'DataTradingPro : votre accès est réactivé', html: _layout('Réactivation', body) };
 }
 async function sendReactivated(d) { const m = buildReactivated(d); return _send(d.to, m.subject, m.html); }
 
@@ -520,7 +520,7 @@ function buildRenewed({ name, expiresAt }) {
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bons trades,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro — votre abonnement est renouvelé', html: _layout('Renouvellement', body) };
+  return { subject: 'DataTradingPro : votre abonnement est renouvelé', html: _layout('Renouvellement', body) };
 }
 async function sendRenewed(d) { const m = buildRenewed(d); return _send(d.to, m.subject, m.html); }
 
@@ -531,12 +531,12 @@ function buildGestureMonth({ name, expiresAt }) {
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">1 mois offert 🎁</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous vous offrons <strong style="color:#34d399;">1 mois supplémentaire</strong> sur votre abonnement DataTradingPro — c'est notre geste commercial.</p>
+    <p style="margin:0 0 14px;">Pour la récente période de <strong style="color:#fff;">maintenance</strong>, et pour vous remercier de votre patience, nous vous offrons <strong style="color:#34d399;">1 mois supplémentaire</strong> sur votre abonnement DataTradingPro, c'est notre geste commercial.</p>
     ${end ? `<p style="margin:0 0 14px;">Votre accès est désormais valable jusqu'au <strong style="color:#fff;">${end}</strong>.</p>` : ''}
     ${_button('Accéder au terminal', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Merci de votre confiance,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro — 1 mois offert pour la maintenance 🎁', html: _layout('Geste commercial', body) };
+  return { subject: 'DataTradingPro : 1 mois offert pour la maintenance 🎁', html: _layout('Geste commercial', body) };
 }
 async function sendGestureMonth(d) { const m = buildGestureMonth(d); return _send(d.to, m.subject, m.html); }
 
@@ -548,15 +548,15 @@ function buildLaunchLive({ name } = {}) {
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Bonne nouvelle : <strong style="color:#fff;">DataTradingPro est de nouveau en ligne</strong>, avec une <strong style="color:#fff;">interface entièrement repensée</strong>.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🎨 <strong style="color:#fff;">Nouvelle identité visuelle</strong> — design premium, plus lisible, pensé pour le trading.</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🇫🇷 <strong style="color:#fff;">100% en français</strong> — chaque widget, chaque libellé.</td></tr>
-      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">⚡ <strong style="color:#fff;">Terminal plus clair</strong> — Smart Bias, calendrier, news priorisée, force des devises, COT, Week Ahead, taux & Copilote Macro IA.</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🎨 <strong style="color:#fff;">Nouvelle identité visuelle</strong> : design premium, plus lisible, pensé pour le trading.</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">🇫🇷 <strong style="color:#fff;">100% en français</strong> : chaque widget, chaque libellé.</td></tr>
+      <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">⚡ <strong style="color:#fff;">Terminal plus clair</strong> : Smart Bias, calendrier, news priorisée, force des devises, COT, Week Ahead, taux & Copilote Macro IA.</td></tr>
     </table>
-    <p style="margin:0 0 14px;">Vos <strong style="color:#fff;">identifiants restent les mêmes</strong> — connectez-vous, tout se charge en temps réel.</p>
+    <p style="margin:0 0 14px;">Vos <strong style="color:#fff;">identifiants restent les mêmes</strong> : connectez-vous, tout se charge en temps réel.</p>
     ${_button('Accéder à mon terminal →', APP_URL)}
     ${_spamNote()}
     <p style="margin:14px 0 0;font-size:13px;">À très vite sur le desk,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'DataTradingPro est de nouveau en ligne — nouvelle interface 🚀', html: _layout('De nouveau en ligne', body) };
+  return { subject: 'DataTradingPro est de nouveau en ligne, nouvelle interface 🚀', html: _layout('De nouveau en ligne', body) };
 }
 async function sendLaunchLive(d) { const m = buildLaunchLive(d || {}); return _send(d.to, m.subject, m.html); }
 
@@ -572,7 +572,7 @@ function buildPasswordReset({ to, name, password }) {
     ${_button('Me connecter', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">L'équipe DataTradingPro</p>`;
-  return { subject: 'DataTradingPro — votre mot de passe a été réinitialisé', html: _layout('Réinitialisation', body) };
+  return { subject: 'DataTradingPro : votre mot de passe a été réinitialisé', html: _layout('Réinitialisation', body) };
 }
 async function sendPasswordReset(d) { const m = buildPasswordReset(d); return _send(d.to, m.subject, m.html); }
 
@@ -586,7 +586,7 @@ function buildTrialUpsell({ name, expiresAt }) {
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre essai gratuit est terminé ⏳</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro vient de prendre fin${end ? ` (elle a expiré <strong style="color:#e3b23a;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
-    <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">retrouver votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, passez dès maintenant à l'<strong style="color:#fff;">abonnement mensuel</strong> — sans engagement et résiliable à tout moment :</p>
+    <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">retrouver votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, passez dès maintenant à l'<strong style="color:#fff;">abonnement mensuel</strong>, sans engagement et résiliable à tout moment :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, sans délai</td></tr>
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ Calendrier économique et résultats live</td></tr>
@@ -594,10 +594,10 @@ function buildTrialUpsell({ name, expiresAt }) {
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ FX Weekly Recap &amp; FX Daily Recap</td></tr>
     </table>
     ${_button('Activer mon abonnement mensuel', WHOP_RENEW_URL)}
-    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Abonnement mensuel sans engagement — votre accès est réactivé immédiatement après l'inscription.</p>
+    <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Abonnement mensuel sans engagement : votre accès est réactivé immédiatement après l'inscription.</p>
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
-  return { subject: 'Votre essai DataTradingPro est terminé — réactivez votre accès', html: _layout('Fin d\'essai', body) };
+  return { subject: 'Votre essai DataTradingPro est terminé : réactivez votre accès', html: _layout('Fin d\'essai', body) };
 }
 async function sendTrialUpsell(d) { const m = buildTrialUpsell(d); return _send(d.to, m.subject, m.html); }
 
@@ -629,15 +629,15 @@ function _buildReengagement(name, days) {
     <ul style="margin:0 0 6px;padding-left:18px;color:#cbd5e1;font-size:14px;line-height:1.8;">
       <li>Tu n'as pas eu le temps d'explorer <span style="color:#94a3b8;">(le terminal est dense, c'est vrai)</span></li>
       <li>Tu ne sais pas par où commencer</li>
-      <li>Quelque chose ne t'a pas plu — dans ce cas, <strong style="color:#fff;">réponds-moi</strong>, je lis tout</li>
+      <li>Quelque chose ne t'a pas plu : dans ce cas, <strong style="color:#fff;">réponds-moi</strong>, je lis tout</li>
     </ul>
     ${startBox}
     ${_button('Revenir sur le terminal →', APP_URL)}
     <p style="margin:18px 0 10px;color:#94a3b8;font-size:13px;">Et tout le reste t'attend aussi&nbsp;:</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📊 <strong style="color:#fff;">FX List</strong> — vue d'ensemble Forex (force, biais, momentum 1M/3M/12M)</td></tr>
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🏛️ <strong style="color:#fff;">Rapports institutionnels</strong> — ING, MUFG, SEB, Scotiabank… avec AI Insights</td></tr>
-      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📝 <strong style="color:#fff;">Session Recaps &amp; Weekly</strong> — le marché résumé, à ta place</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📊 <strong style="color:#fff;">FX List</strong> : vue d'ensemble Forex (force, biais, momentum 1M/3M/12M)</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🏛️ <strong style="color:#fff;">Rapports institutionnels</strong> : ING, MUFG, SEB, Scotiabank… avec AI Insights</td></tr>
+      <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">📝 <strong style="color:#fff;">Session Recaps &amp; Weekly</strong> : le marché résumé, à ta place</td></tr>
       <tr><td style="padding:5px 0;color:#cbd5e1;font-size:13.5px;">🌡️ <strong style="color:#fff;">Sentiment de risque</strong> live + sentiment retail contrarien</td></tr>
     </table>
     ${_spamNote()}
@@ -661,20 +661,20 @@ function buildAnnouncementV2({ name } = {}) {
     ['🤖', 'Assistant IA macro', "posez votre question en français, l'IA répond avec le contexte marché du moment."],
     ['🏦', 'Rapports de banques', 'Goldman, ING, MUFG, Danske… la recherche institutionnelle réunie, lisible en PDF.'],
   ].map(([ico, t, d]) =>
-    `<tr><td style="padding:7px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">${ico} <strong style="color:#fff;">${t}</strong> — ${d}</td></tr>`
+    `<tr><td style="padding:7px 0;color:#cbd5e1;font-size:14px;line-height:1.55;">${ico} <strong style="color:#fff;">${t}</strong> : ${d}</td></tr>`
   ).join('');
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:20px;font-weight:800;">C'est officiel : la v2 est finalisée 🚀</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
     <p style="margin:0 0 14px;">Ça y est. Après des mois de développement et d'écoute, <strong style="color:#fff;">la version 2 de DataTradingPro est officiellement finalisée.</strong></p>
-    <p style="margin:0 0 14px;">Ce n'est plus une promesse — c'est le terminal le plus abouti qu'on ait livré. Tout ce qu'un trader macro attend, réuni et <strong style="color:#fff;">connecté sur un seul écran</strong> :</p>
+    <p style="margin:0 0 14px;">Ce n'est plus une promesse : c'est le terminal le plus abouti qu'on ait livré. Tout ce qu'un trader macro attend, réuni et <strong style="color:#fff;">connecté sur un seul écran</strong> :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:4px 0 12px;">${feats}</table>
     <p style="margin:0 0 14px;color:#94a3b8;font-size:13px;">+ Live Squawk, jauge Risk Sentiment, saisonnalité, taux des banques centrales, journal de trading…</p>
     <p style="margin:14px 0 4px;color:#fff;font-size:15px;font-weight:700;">Arrêtez de deviner les mouvements. Commencez à les comprendre.</p>
     ${_button('Rejoindre DataTradingPro →', WHOP_RENEW_URL)}
     <p style="margin:0 0 14px;font-size:13px;color:#94a3b8;">Accès complet immédiat · sans engagement, résiliable en un clic.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.3);border-radius:10px;margin:6px 0 4px;">
-      <tr><td style="padding:12px 15px;color:#f3d9b0;font-size:13.5px;line-height:1.6;">⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins — <strong style="color:#fff;">rejoignez le lancement maintenant.</strong></td></tr>
+      <tr><td style="padding:12px 15px;color:#f3d9b0;font-size:13.5px;line-height:1.6;">⏳ Le terminal est complet et déjà en ligne. Chaque session que vous manquez, c'est une longueur d'avance en moins : <strong style="color:#fff;">rejoignez le lancement maintenant.</strong></td></tr>
     </table>
     ${_spamNote()}
     <p style="margin:14px 0 0;font-size:13px;">À très vite sur le terminal,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>
@@ -865,7 +865,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const insightsHtml = keyPts.length
     ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
     : '';
-  const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' &mdash; <span style="color:#e3b23a;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
+  const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' : <span style="color:#e3b23a;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
   // « Ce qui s'est passe » : lecture FACTUELLE de la Force des Devises de la semaine (TW), derivee du snapshot
   // cs du Recap Hebdo (devises les plus fortes / les plus faibles). Zero donnee inventee, informatif.
   let csNote = '';
@@ -880,7 +880,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   }
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 16px;">Voici un <strong style="color:#e3b23a;">avant-goût du Récap Hebdo</strong> du desk &mdash; la rétrospective de la semaine, en clair.</p>
+    <p style="margin:0 0 16px;">Voici un <strong style="color:#e3b23a;">avant-goût du Récap Hebdo</strong> du desk : la rétrospective de la semaine, en clair.</p>
     ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 520)}</p>` : ''}
     ${insightsHtml}
     ${_widgetImg('strength', 'La force des devises')}
@@ -890,7 +890,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver en Principale, ajoutez ${_esc(_parseFrom().email)} &agrave; vos contacts. Informatif &mdash; DataTradingPro n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
+    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver en Principale, ajoutez ${_esc(_parseFrom().email)} &agrave; vos contacts. Informatif : DataTradingPro n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'votre point macro & forex de la semaine';
@@ -1038,7 +1038,7 @@ function _bankNotesBlock(notes) {
 function _dailyBriefBlock(sections, dateLabel) {
   const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 4);
   if (!secs.length) return '';
-  const intro = `<p style="margin:20px 0 2px;color:#9aa3b2;font-size:12.5px;">Le brief de la séance${dateLabel ? ' &mdash; ' + _esc(dateLabel) : ''}, par thème&nbsp;:</p>`;
+  const intro = `<p style="margin:20px 0 2px;color:#9aa3b2;font-size:12.5px;">Le brief de la séance${dateLabel ? ' du ' + _esc(dateLabel) : ''}, par thème&nbsp;:</p>`;
   const blocks = secs.map(s => {
     const title = `<div style="margin:14px 0 4px;color:#e3b23a;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
     if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
@@ -1150,7 +1150,7 @@ const MINDSET_CONCEPTS = [
   { key: 'process-vs-prediction', subject: "🎯 Deviner juste ne prouve rien", paras: [
     "Il y a une envie difficile à taire chez le trader : deviner le prochain mouvement avant tout le monde, sentir le marché mieux que les autres. 🎯",
     "Peu à peu, on confond la qualité d'une décision avec le simple fait d'avoir vu juste.",
-    "Mais le marché ne récompense pas les devins. Une prédiction juste posée sur une méthode fragile, c'est de la chance déguisée en talent — et la chance ne signe pas deux fois.",
+    "Mais le marché ne récompense pas les devins. Une prédiction juste posée sur une méthode fragile, c'est de la chance déguisée en talent, et la chance ne signe pas deux fois.",
     "Le vrai levier est ailleurs : une méthode que tu peux dérouler cent fois de la même manière, sans rien improviser. 🧭",
     "- Lire le contexte avant d'ouvrir un graphique, jamais l'inverse.",
     "- Poser tes règles à froid : conditions d'invalidation, événements à surveiller, plan de sortie.",
@@ -1195,7 +1195,7 @@ const MINDSET_CONCEPTS = [
   { key: 'regularite', subject: "🪙 Ce que les captures ne montrent pas", paras: [
     "Sur les réseaux, tu ne croises que des feux d'artifice : la capture parfaite, la position héroïque, l'exploit du jour. 🚀",
     "Ton cerveau enregistre alors une équation trompeuse : réussir, ce serait signer le coup spectaculaire.",
-    "Ces images taisent tout le reste — les séances plates, les erreurs, les comptes vidés en silence.",
+    "Ces images taisent tout le reste : les séances plates, les erreurs, les comptes vidés en silence.",
     "Ce qui construit un trader, ce n'est pas l'éclair isolé, mais la répétition propre du même geste.",
     "- Un geste que tu peux tenir cent fois vaut mieux qu'un éclair irremplaçable.",
     "- La régularité protège ton capital mental : moins d'euphorie, moins de tilt.",
@@ -1300,13 +1300,13 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     if (/on|appétit|appetit/.test(l)) return 'porté par l\'<strong style="color:#fff;">appétit pour le risque</strong>';
     return 'sans biais de risque marqué';
   })();
-  let lead = `Voici votre point marché de la semaine, en clair &mdash; droit à l'essentiel, sans le bruit.`;
+  let lead = `Voici votre point marché de la semaine, en clair, droit à l'essentiel, sans le bruit.`;
   if (themeLabel && risk && risk.label) {
-    lead = `Voici votre point marché de la semaine, en clair. Le desk garde le cap sur un thème dominant &mdash; <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong> &mdash; dans un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
+    lead = `Voici votre point marché de la semaine, en clair. Le desk garde le cap sur un thème dominant, <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>, dans un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
   } else if (themeLabel) {
     lead = `Voici votre point marché de la semaine, en clair. Le desk garde le cap sur un thème dominant : <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>. Droit à l'essentiel, sans le bruit.`;
   } else if (risk && risk.label) {
-    lead = `Voici votre point marché de la semaine, en clair &mdash; un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
+    lead = `Voici votre point marché de la semaine, en clair. Un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
   }
 
   // Resume du RECAP JOURNALIER : la SYNTHESE de seance UNIQUEMENT (daily.summary), coupee PROPREMENT en fin de
@@ -1373,9 +1373,9 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 10px;">${lead}</p>
-    <p style="margin:0 0 4px;">Pour chaque séance, le desk a isolé l'événement qui compte, expliqué son enjeu et évalué son impact attendu. <strong style="color:#fff;">L'idée&nbsp;: savoir à l'avance où regarder</strong> — pas quoi trader.</p>
+    <p style="margin:0 0 4px;">Pour chaque séance, le desk a isolé l'événement qui compte, expliqué son enjeu et évalué son impact attendu. <strong style="color:#fff;">L'idée&nbsp;: savoir à l'avance où regarder</strong>, pas quoi trader.</p>
     ${_widgetImg('week-ahead', 'La semaine à venir')}
-    <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le détail complet de chaque journée — chiffres attendus, contexte et lecture — se retrouve en direct sur le Desk.</p>
+    <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le détail complet de chaque journée (chiffres attendus, contexte et lecture) se retrouve en direct sur le Desk.</p>
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
@@ -1398,7 +1398,7 @@ function buildCampaignAlerteBC({ name, email, campaign, context, isMember } = {}
   const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
-  const lead = `Une échéance de banque centrale concentre l'attention du marché${themeLabel ? ` (thème dominant&nbsp;: <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>)` : ''}. Voici le ton lu par le desk et ce qu'en publient les grandes banques — l'essentiel, sans pousser la moindre position.`;
+  const lead = `Une échéance de banque centrale concentre l'attention du marché${themeLabel ? ` (thème dominant&nbsp;: <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>)` : ''}. Voici le ton lu par le desk et ce qu'en publient les grandes banques : l'essentiel, sans pousser la moindre position.`;
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
@@ -1410,7 +1410,7 @@ function buildCampaignAlerteBC({ name, email, campaign, context, isMember } = {}
     <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'alerte macro — le ton des banques centrales';
+  const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'alerte macro : le ton des banques centrales';
   return { subject, html: _campaignLayout('Alerte macro', body, unsub) };
 }
 async function sendCampaignAlerteBC(d) { d = d || {}; const m = buildCampaignAlerteBC({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['cb-tone']); }
@@ -1424,7 +1424,7 @@ function buildCampaignIntroPlain({ name, email } = {}) {
   const unsub = unsubUrl(email || '');
   const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.6;color:#222222;max-width:600px;">
     <p style="margin:0 0 14px;">${hello}</p>
-    <p style="margin:0 0 14px;">Merci de faire partie de DataTradingPro. Chaque semaine, je vous enverrai un court e-mail pour rendre le marché macro et forex plus lisible, en français : le récap de la semaine, la force des devises et le ton des banques centrales, expliqués simplement — sans jamais vous pousser à prendre position.</p>
+    <p style="margin:0 0 14px;">Merci de faire partie de DataTradingPro. Chaque semaine, je vous enverrai un court e-mail pour rendre le marché macro et forex plus lisible, en français : le récap de la semaine, la force des devises et le ton des banques centrales, expliqués simplement, sans jamais vous pousser à prendre position.</p>
     <p style="margin:0 0 14px;">Vous pouvez explorer le terminal quand vous voulez : <a href="https://datatradingpro.com" style="color:#1a56db;">datatradingpro.com</a></p>
     <p style="margin:0 0 14px;">À très vite,<br>L'équipe DataTradingPro</p>
     <p style="margin:18px 0 0;font-size:12px;color:#999999;">Pour ne plus rater nos e-mails, ajoutez contact@datatradingpro.com à vos contacts.<br>
@@ -1463,8 +1463,8 @@ function buildAdminExpiryReminder({ clients }) {
       ${rows}
     </table>
     ${_button('Ouvrir le panel admin', APP_URL + '/admin')}
-    <p style="margin:0;font-size:13px;">— Rappel automatique DataTradingPro</p>`;
-  return { subject: `DataTradingPro — ${(clients || []).length} abonnement(s) à renouveler`, html: _layout('Rappel abonnements', body) };
+    <p style="margin:0;font-size:13px;">Rappel automatique DataTradingPro</p>`;
+  return { subject: `DataTradingPro : ${(clients || []).length} abonnement(s) à renouveler`, html: _layout('Rappel abonnements', body) };
 }
 async function sendAdminExpiryReminder({ clients, to }) {
   if (!clients || !clients.length) return false;
@@ -1481,7 +1481,7 @@ function buildAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNew }) 
     <p style="margin:0 0 14px;">Un paiement Whop <strong style="color:#fff;">JOT DTP</strong> a été traité automatiquement :</p>
     ${_credBox([['Client', clientName || clientEmail], ['Email', clientEmail], ["Accès jusqu'au", end], ['Action', isNew ? 'Compte créé' : 'Abonnement renouvelé']])}
     <p style="margin:0;font-size:13px;color:#94a3b8;">Le compte a été ${isNew ? 'créé' : 'mis à jour'} et le client a été notifié par email. Aucune action de ta part.</p>`;
-  return { subject: `DTP — ${kind} : ${clientEmail}`, html: _layout('Notification DTP', body) };
+  return { subject: `DTP : ${kind} : ${clientEmail}`, html: _layout('Notification DTP', body) };
 }
 async function sendAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNew, to }) {
   const m = buildAdminRenewalNotice({ clientEmail, clientName, expiresAt, isNew });

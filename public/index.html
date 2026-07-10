@@ -4,11 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>DTP</title>
-  <!-- Favicon DTP — IDENTIQUE landing + desk (Concept A : carré or #e3b23a + « DTP » sombre) : SVG net + PNG iOS/fallback -->
+  <!-- Favicon DTP : IDENTIQUE landing + desk (Concept A : carré or #e3b23a + « DTP » sombre) : SVG net + PNG iOS/fallback -->
   <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=dtp12" />
   <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png?v=dtp12" />
   <link rel="apple-touch-icon" href="/favicon.png?v=dtp12" />
-  <!-- PWA : icône d'app installée (DT or) + couleur de thème — Chrome resynchronise l'icône depuis le manifest -->
+  <!-- PWA : icône d'app installée (DT or) + couleur de thème : Chrome resynchronise l'icône depuis le manifest -->
   <link rel="manifest" href="/manifest.json?v=dtp11" />
   <meta name="theme-color" content="#0c0c0e" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -33,7 +33,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script defer src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script defer src="https://unpkg.com/@joergdietrich/leaflet.terminator@1.1.0/L.Terminator.js"></script>
-  <!-- PDF.js (Mozilla) — rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
+  <!-- PDF.js (Mozilla) : rendu PDF fiable sur mobile (iOS Safari inclus) via canvas ; l'iframe PDF ne s'affiche pas inline sur mobile -->
   <script defer src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script defer src="/js/noinspect.js?v=20260621"></script>
 </head>
@@ -122,7 +122,7 @@
 <!-- ═══════════════════ MAIN LAYOUT ═══════════════════ -->
 <div class="main-layout" id="main-layout">
 
-  <!-- ══ VIEWS COLUMN — left, fills remaining space ══ -->
+  <!-- ══ VIEWS COLUMN : left, fills remaining space ══ -->
   <div class="views-col" id="views-col">
 
     <!-- VIEW: SYMBOL (recherche → onglet pair : sous-onglets Overview / Radar de Biais / COT / Seasonality / Retail / Central Bank) -->
@@ -202,7 +202,7 @@
       </div>
     </div><!-- /#view-news -->
 
-  <!-- ══ VIEW: BIAS — Biais directionnel hebdomadaire (généré chaque dimanche) ══ -->
+  <!-- ══ VIEW: BIAS : Biais directionnel hebdomadaire (généré chaque dimanche) ══ -->
   <div class="view-panel hidden" id="view-bias">
     <div class="panel panel-bias">
       <div class="panel-header">
@@ -220,7 +220,7 @@
     </div>
   </div><!-- /#view-bias -->
 
-  <!-- ══ VIEW: SEMAINE À VENIR — aperçu hebdomadaire (timeline + risk amCharts) ══ -->
+  <!-- ══ VIEW: SEMAINE À VENIR : aperçu hebdomadaire (timeline + risk amCharts) ══ -->
   <div class="view-panel hidden" id="view-weekahead">
     <div class="wa3" id="wa3">
       <div class="wa-scroll" id="wa-content">
@@ -241,7 +241,7 @@
     </div>
   </div><!-- /#view-weekahead -->
 
-  <!-- ══ VIEW: BANK — Transactions bancaires (positions des banques) ══ -->
+  <!-- ══ VIEW: BANK : Transactions bancaires (positions des banques) ══ -->
   <div class="view-panel hidden" id="view-bank">
     <div class="panel panel-bank">
       <div class="panel-header">
@@ -286,7 +286,7 @@
     </div>
   </div><!-- /#view-bank -->
 
-  <!-- ══ VIEW: TAUX — Taux directeurs (PUBLIC) — probabilités de marché live + repli maison ══ -->
+  <!-- ══ VIEW: TAUX : Taux directeurs (PUBLIC) : probabilités de marché live + repli maison ══ -->
   <div class="view-panel hidden" id="view-taux">
     <div class="panel panel-taux">
       <div class="panel-header">
@@ -303,7 +303,7 @@
     </div>
   </div><!-- /#view-taux -->
 
-  <!-- ══ VIEW: JOURNAL DE TRADING — privé, persistant PAR COMPTE (KV Supabase) ══ -->
+  <!-- ══ VIEW: JOURNAL DE TRADING : privé, persistant PAR COMPTE (KV Supabase) ══ -->
   <div class="view-panel hidden" id="view-journal">
     <div class="panel panel-journal">
       <div class="panel-header">
@@ -327,7 +327,7 @@
     </div>
   </div><!-- /#view-journal -->
 
-  <!-- ══ VIEW: CALCULATRICE DE POSITION (façon Myfxbook) — PUBLIQUE ══ -->
+  <!-- ══ VIEW: CALCULATRICE DE POSITION (façon Myfxbook) : PUBLIQUE ══ -->
   <div class="view-panel hidden" id="view-calculator">
     <div class="panel panel-calc">
       <div class="panel-header">
@@ -391,7 +391,7 @@
       </div>
     </div>
   </div>
-  <!-- ══ VIEW: FX LIST — En cours de développement ══ -->
+  <!-- ══ VIEW: FX LIST : En cours de développement ══ -->
   <div class="view-panel hidden" id="view-fxlist">
     <div class="fxl-wrap">
       <div class="fxl-toolbar">
@@ -441,7 +441,7 @@
         <div class="br-cards" id="br-list"></div>
         <div class="br-footer" id="br-footer"></div>
       </div>
-      <!-- READER VIEW — hidden par défaut, s'ouvre en pleine largeur au clic -->
+      <!-- READER VIEW : hidden par défaut, s'ouvre en pleine largeur au clic -->
       <div class="br-reader-view hidden" id="br-reader-view">
         <div class="br-rnav" id="br-rnav">
           <button class="br-back-btn" id="br-back-btn">‹ Retour à la liste</button>
@@ -500,7 +500,7 @@
         <div class="arlib-cards" id="arlib-list">
           <div class="dtp-loader"><div class="dtp-loader__spin"></div><div class="dtp-loader__label">Chargement des rapports…</div></div>
         </div>
-        <!-- Pied : compteur (français, texte blanc) — façon pro -->
+        <!-- Pied : compteur (français, texte blanc) : façon pro -->
         <div class="arlib-foot" id="arlib-foot"></div>
       </div>
 
@@ -530,7 +530,7 @@
 
   </div><!-- /.views-col -->
 
-  <!-- ══ Barre de redimensionnement (orange, draggable) — desktop seulement ══ -->
+  <!-- ══ Barre de redimensionnement (orange, draggable) : desktop seulement ══ -->
   <div class="layout-resizer" id="layout-resizer" title="Glisser pour redimensionner"></div>
 
   <!-- ══ SHARED RIGHT PANEL (always visible on all tabs) ══ -->
@@ -543,7 +543,7 @@
       <div class="clocks-bar" id="clocks-bar"></div>
     </div>
 
-    <!-- ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) — desktop seulement ══ -->
+    <!-- ══ Barre de redimensionnement HORIZONTALE (hauteur du World Clock) : desktop seulement ══ -->
     <div class="clocks-resizer" id="clocks-resizer" title="Glisser pour redimensionner"></div>
 
     <div class="right-panel-tabs" id="right-panel-tabs">
@@ -558,7 +558,7 @@
 
     <div class="right-content">
 
-      <!-- WORLD — Session Map -->
+      <!-- WORLD : Session Map -->
       <div class="right-tab-panel active" id="rtab-world">
         <div class="chart-header">
           <span class="chart-header-title">Carte des sessions</span>
@@ -568,7 +568,7 @@
         <div id="am5-map" style="flex:1;min-height:0;width:100%;"></div>
       </div>
 
-      <!-- RISK — Sentiment Widget + History -->
+      <!-- RISK : Sentiment Widget + History -->
       <div class="right-tab-panel" id="rtab-risk">
         <div class="chart-header">
           <span class="chart-header-title">Sentiment de risque</span>
@@ -580,12 +580,12 @@
         <div class="amchart-container rsh-chart" id="risk-history-chart"></div>
       </div>
 
-      <!-- STRENGTH — Real Force des Devises -->
+      <!-- STRENGTH : Real Force des Devises -->
       <div class="right-tab-panel" id="rtab-strength">
         <div id="strength-charts-row" class="strength-charts-row"></div>
       </div>
 
-      <!-- METER — Sentiment Gauge -->
+      <!-- METER : Sentiment Gauge -->
       <div class="right-tab-panel" id="rtab-meter">
         <div class="chart-header">
           <span class="chart-header-title">Baromètre des Devises</span>
@@ -595,7 +595,7 @@
         <div class="amchart-container" id="chart-meter"></div>
       </div>
 
-      <!-- COT — Commitment of Traders -->
+      <!-- COT : Commitment of Traders -->
       <div class="right-tab-panel" id="rtab-cot">
         <div class="cot-header-bar">
           <span class="cot-header-label">Positionnement COT</span>
@@ -612,7 +612,7 @@
         <div id="cot-report-info" class="cot-report-info"></div>
       </div>
 
-      <!-- DMX — Community Outlook (Myfxbook) -->
+      <!-- DMX : Community Outlook (Myfxbook) -->
       <div class="right-tab-panel" id="rtab-dmx">
         <div class="dmx-header-bar">
           <span class="dmx-header-title">Aperçu DMX</span>
@@ -637,7 +637,7 @@
         <div id="dmx-table-wrap" class="dmx-table-wrap"></div>
       </div>
 
-      <!-- SEASONALITY — table de performance mensuelle par année (façon pro) -->
+      <!-- SEASONALITY : table de performance mensuelle par année (façon pro) -->
       <div class="right-tab-panel" id="rtab-seasonality">
         <div class="dmx-header-bar">
           <span class="dmx-header-title">Saisonnalité</span>
@@ -690,7 +690,7 @@
       <span class="rp-label" id="rp-label">NEUTRE</span>
       <button class="rp-close" id="rp-close">×</button>
     </div>
-    <!-- Bande sentiment (● LABEL : phrase) — pleine largeur, colorée selon le risque -->
+    <!-- Bande sentiment (● LABEL : phrase) : pleine largeur, colorée selon le risque -->
     <div class="rp-band" id="rp-band"></div>
     <div class="risk-popup-body" id="rp-body">
       <!-- Gauge -->
@@ -739,8 +739,8 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260709bbg171"></script>
-<script defer src="/js/charts.js?v=20260709bbg169"></script>
+<script defer src="/js/app.js?v=20260710bbg172"></script>
+<script defer src="/js/charts.js?v=20260710bbg172"></script>
 <script defer src="/js/sessionmap.js?v=20260629bbg154"></script>
 <script defer src="/js/i18n-dicts.js?v=20260629bbg154"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
@@ -765,7 +765,7 @@
   <!-- Scrollable body with accordion sections -->
   <div class="pd-body">
 
-    <!-- 1 — Profil -->
+    <!-- 1 : Profil -->
     <div class="pd-section">
       <button class="pd-section-trigger" onclick="pdAccordion(this)">
         <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></span>
@@ -838,7 +838,7 @@
       </div>
     </div>
 
-    <!-- 2 — Mot de passe et sécurité -->
+    <!-- 2 : Mot de passe et sécurité -->
     <div class="pd-section">
       <button class="pd-section-trigger" onclick="pdAccordion(this)">
         <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></span>
@@ -896,7 +896,7 @@
       </div>
     </div>
 
-    <!-- 3 — Apparence -->
+    <!-- 3 : Apparence -->
     <div class="pd-section">
       <button class="pd-section-trigger" onclick="pdAccordion(this)">
         <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 3v18" stroke-width="1.5"/><path d="M12 3a9 9 0 0 1 0 18" fill="currentColor" stroke="none"/></svg></span>
@@ -958,7 +958,7 @@
       </div>
     </div>
 
-    <!-- 4 — Abonnement -->
+    <!-- 4 : Abonnement -->
     <div class="pd-section">
       <button class="pd-section-trigger" onclick="pdAccordion(this)">
         <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></span>
@@ -983,7 +983,7 @@
       </div>
     </div>
 
-    <!-- 5 — Parrainages -->
+    <!-- 5 : Parrainages -->
     <div class="pd-section">
       <button class="pd-section-trigger" onclick="pdAccordion(this)">
         <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="10" width="18" height="12" rx="1"/><path d="M3 10h18M12 10V22"/><path d="M8 6a2 2 0 0 1 4 0M16 6a2 2 0 0 0-4 0"/><path d="M3 10c0-2.8 2.2-4 4-4s3 1.5 5 4c2-2.5 3-4 5-4s4 1.2 4 4"/></svg></span>
@@ -1003,7 +1003,7 @@
             <div class="pd-ref-stat"><b id="pd-ref-count">0</b><span>Total filleuls</span></div>
             <div class="pd-ref-stat pd-ref-stat--earn"><b id="pd-ref-earn">15%</b><span>Commission à vie</span></div>
           </div>
-          <p class="pd-ref-note" style="font-size:12px;color:var(--text3);margin:8px 0 0;line-height:1.5;">Vos commissions&nbsp;<strong style="color:#22c55e">15%</strong> sont suivies et versées directement par Whop&nbsp;— retrouvez vos gains dans votre espace <a href="https://whop.com/dashboard/" target="_blank" rel="noopener" style="color:var(--gold,#e3b23a)">Whop</a>.</p>
+          <p class="pd-ref-note" style="font-size:12px;color:var(--text3);margin:8px 0 0;line-height:1.5;">Vos commissions&nbsp;<strong style="color:#22c55e">15%</strong> sont suivies et versées directement par Whop&nbsp;: retrouvez vos gains dans votre espace <a href="https://whop.com/dashboard/" target="_blank" rel="noopener" style="color:var(--gold,#e3b23a)">Whop</a>.</p>
           <label class="pd-label">Historique des récompenses</label>
           <div id="pd-ref-history" class="pd-ref-history pd-ref-history--card">
             <div class="pd-ref-empty"><svg class="pd-ref-gift" width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7M7.5 8a2.5 2.5 0 0 1 0-5C9 3 12 5 12 8c0-3 3-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg><div class="pd-ref-empty-t">Aucun filleul pour le moment</div><div class="pd-ref-empty-s">Partagez votre lien pour commencer à gagner.</div></div>
@@ -1012,7 +1012,7 @@
       </div>
     </div>
 
-    <!-- 6 — Support et Juridique -->
+    <!-- 6 : Support et Juridique -->
     <div class="pd-section">
       <button class="pd-section-trigger" onclick="pdAccordion(this)">
         <span class="pd-section-icon-wrap"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><circle cx="12" cy="17" r="0.5" fill="currentColor"/></svg></span>
@@ -1056,7 +1056,7 @@
 
   </div><!-- /.pd-body -->
 
-  <!-- Footer — logout -->
+  <!-- Footer : logout -->
   <div class="pd-footer">
     <button class="pd-logout-btn" onclick="logoutUser()">
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16,17 21,12 16,7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
@@ -1114,7 +1114,7 @@
           } else if (/^data:image\/(jpeg|png|webp)/.test(_pdAvatarDataUrl) && _pdAvatarDataUrl.length <= 300000) {
             // MIGRATION : photo présente en cache LOCAL mais jamais enregistrée sur le COMPTE
             // (upload antérieur à la synchro serveur) → on la pousse maintenant : elle apparaîtra
-            // ensuite sur TOUS les appareils. (L'ancien code la SUPPRIMAIT ici — c'était le bug.)
+            // ensuite sur TOUS les appareils. (L'ancien code la SUPPRIMAIT ici : c'était le bug.)
             fetch('/api/profile-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: _pdAvatarDataUrl }) }).catch(function () {});
           }
         }
@@ -1153,17 +1153,17 @@
         // Abonnement 1 semaine = ESSAI GRATUIT (pas de prix mensuel, pas de texte "Essai gratuit")
         if (badge)    { badge.textContent = 'Essai'; badge.style.background = 'rgba(46,204,113,0.15)'; badge.style.color = '#2ecc71'; badge.style.border = '1px solid rgba(46,204,113,0.3)'; }
         if (priceEl)  priceEl.innerHTML = '';
-        if (planText) planText.textContent = _trialUntil ? `Période d'essai gratuite — jusqu'au ${_trialUntil}` : "Période d'essai gratuite";
+        if (planText) planText.textContent = _trialUntil ? `Période d'essai gratuite : jusqu'au ${_trialUntil}` : "Période d'essai gratuite";
         if (planCard) planCard.style.borderColor = 'rgba(46,204,113,0.2)';
       } else {
         if (badge)    { badge.textContent = 'Actif'; badge.style.background = 'rgba(46,204,113,0.15)'; badge.style.color = '#2ecc71'; badge.style.border = '1px solid rgba(46,204,113,0.3)'; }
         if (priceEl)  priceEl.innerHTML = '24,99 €<span style="font-size:10px;font-weight:400;color:#888">/mois</span>';
-        if (planText) planText.textContent = 'Abonnement actif — Professionnel';
+        if (planText) planText.textContent = 'Abonnement actif : Professionnel';
         if (planCard) planCard.style.borderColor = 'rgba(46,204,113,0.2)';
       }
     } else {
       if (badge)    { badge.textContent = 'Inactif'; badge.style.background = 'rgba(231,76,60,0.1)'; badge.style.color = '#ef4444'; badge.style.border = '1px solid rgba(231,76,60,0.3)'; }
-      if (planText) planText.textContent = 'Abonnement suspendu — contactez le support';
+      if (planText) planText.textContent = 'Abonnement suspendu : contactez le support';
       if (planCard) planCard.style.borderColor = 'rgba(231,76,60,0.2)';
     }
 
@@ -1202,7 +1202,7 @@
         profAv.innerHTML = initial + '<div class="pd-avatar-large-status"></div>';
       }
     }
-    // Topbar avatar (26px) — may have img or letter span
+    // Topbar avatar (26px) : may have img or letter span
     const topbarAv = document.getElementById('topbar-avatar');
     if (topbarAv) {
       const letterEl = topbarAv.querySelector('#topbar-avatar-letter') || topbarAv.querySelector('span');
@@ -1248,7 +1248,7 @@
           if (dataUrl.length > 200000) dataUrl = encode(192, 0.6);      // puis la taille
           if (dataUrl.length > 200000) dataUrl = encode(160, 0.55);
         } catch (err) { dataUrl = null; }
-        if (!dataUrl || !/^data:image\/jpeg/.test(dataUrl)) { _avMsg('Impossible de traiter cette image — essaie une autre photo (format non supporté ?).'); return; }
+        if (!dataUrl || !/^data:image\/jpeg/.test(dataUrl)) { _avMsg('Impossible de traiter cette image : essaie une autre photo (format non supporté ?).'); return; }
         _pdAvatarDataUrl = dataUrl;
         var displayName = _pdUser ? (_pdUser.name || _pdUser.email || '?') : '?';
         pdSetAvatarDisplay(displayName.charAt(0).toUpperCase(), dataUrl);
@@ -1257,12 +1257,12 @@
         // (sinon la photo « disparaît » au reload sur les autres appareils, le serveur n'en ayant rien).
         fetch('/api/profile-avatar', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ avatar: dataUrl }) })
           .then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); })
-          .catch(function () { _avMsg('Photo affichée ici mais NON synchronisée (échec d\'enregistrement) — réessaie.'); });
+          .catch(function () { _avMsg('Photo affichée ici mais NON synchronisée (échec d\'enregistrement) : réessaie.'); });
       };
-      img.onerror = function () { _avMsg('Image illisible — essaie une autre photo (évite le format HEIC de l\'iPhone, ou refais une capture).'); };
+      img.onerror = function () { _avMsg('Image illisible : essaie une autre photo (évite le format HEIC de l\'iPhone, ou refais une capture).'); };
       img.src = ev.target.result;
     };
-    reader.onerror = function () { _avMsg('Lecture du fichier impossible — réessaie.'); };
+    reader.onerror = function () { _avMsg('Lecture du fichier impossible : réessaie.'); };
     reader.readAsDataURL(file);
     e.target.value = '';
   }
@@ -1395,7 +1395,7 @@
           body: JSON.stringify({ name }),
         });
         if (!r.ok) throw new Error('API error');
-      } catch(_) { /* endpoint may not exist yet — proceed optimistically */ }
+      } catch(_) { /* endpoint may not exist yet : proceed optimistically */ }
       if (_pdUser) _pdUser.name = name;
       const initial = name.charAt(0).toUpperCase();
       pdSetAvatarDisplay(initial, _pdAvatarDataUrl);
@@ -1468,7 +1468,7 @@
         pdMsg('pd-pw-msg', data.error || 'Erreur lors du changement.', 'err');
       }
     } catch {
-      pdMsg('pd-pw-msg', 'Erreur de connexion — réessayez.', 'err');
+      pdMsg('pd-pw-msg', 'Erreur de connexion : réessayez.', 'err');
     } finally {
       btn.disabled = false;
       btn.innerHTML = '🔒 Mettre à jour le mot de passe';
@@ -1589,7 +1589,7 @@
 
 <!-- ══ CHAT SUPPORT PANEL ══ -->
 <div class="chat-overlay" id="chat-overlay" onclick="chatClose()"></div>
-<!-- ══ VOLET: Copilote Macro (chat IA — état volatil, reset au reload) ══ -->
+<!-- ══ VOLET: Copilote Macro (chat IA : état volatil, reset au reload) ══ -->
 <div class="ai-panel" id="ai-panel" aria-hidden="true">
   <div class="ai-clear-banner" id="ai-clear-banner">
     <span class="ai-clear-txt"><span class="ai-clear-check">✓</span> Vraiment effacer cette conversation ?</span>

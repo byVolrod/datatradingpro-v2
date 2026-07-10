@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════
-   DataTradingPro — Frontend Logic
+   DataTradingPro : Frontend Logic
 ═══════════════════════════════════════════ */
 
 'use strict';
@@ -16,10 +16,10 @@ function dtpLoader(label, opts) {
 }
 window.dtpLoader = dtpLoader;
 
-// ═══ Graphes : révélation « premium » — JAMAIS de dessin progressif visible ═══
+// ═══ Graphes : révélation « premium » : JAMAIS de dessin progressif visible ═══
 // Problème : amCharts trace les courbes/barres progressivement (.appear()) → l'utilisateur voit le
 // graphe « se construire ». Solution : un overlay OPAQUE shimmer (.chart-skel) est posé EN ENFANT du
-// conteneur amCharts lui-même (qui ne contient QUE le graphe — les titres/légendes sont des frères,
+// conteneur amCharts lui-même (qui ne contient QUE le graphe : les titres/légendes sont des frères,
 // donc l'overlay couvre EXACTEMENT la zone du graphe, sans décalage à deviner). Le graphe se dessine
 // SOUS l'overlay opaque, puis après `revealMs` (≈ durée de .appear + marge) l'overlay s'efface en fondu
 // → le graphe apparaît DÉJÀ FINI. FAILSAFE 1800 ms : aucun graphe ne peut rester couvert.
@@ -68,7 +68,7 @@ function _dtpFlash(el, dir) {
 window._dtpDataIn = _dtpDataIn; window._dtpFlash = _dtpFlash;
 
 // ═══ Traduction FR des contenus SOURCE affichés en puces (.article-points) : citations speaker,
-// propos Fed/BCE agrégés, puces d'article scrapées — ce qui échappait aux résumés IA. Affichage
+// propos Fed/BCE agrégés, puces d'article scrapées : ce qui échappait aux résumés IA. Affichage
 // INSTANTANÉ en source, puis remplacement par le FR dès qu'il arrive (cache serveur par texte +
 // cache client de session → jamais 2 fois la même requête ; repli silencieux = on garde la source). ═══
 const _trClient = new Map();   // texte source → FR (cache session)
@@ -89,7 +89,7 @@ async function _dtpTranslateQuotes(container, sel) {
 }
 window._dtpTranslateQuotes = _dtpTranslateQuotes;
 
-// ═══ Cache localStorage — affichage INSTANTANÉ au revisite / cold-start ═══
+// ═══ Cache localStorage : affichage INSTANTANÉ au revisite / cold-start ═══
 // On stocke le dernier état connu (news, wraps, recherche…) côté navigateur, puis on
 // rafraîchit en fond. L'utilisateur voit immédiatement du contenu, même serveur endormi.
 function lsGet(key, maxAgeMs) {
@@ -119,10 +119,10 @@ function dtpToast(msg) {
   clearTimeout(window._dtpToastT);
   window._dtpToastT = setTimeout(() => t.classList.remove('show'), 2600);
 }
-function aiComingSoon() { dtpToast('🤖 AI — bientôt disponible'); }
+function aiComingSoon() { dtpToast('🤖 AI : bientôt disponible'); }
 window.dtpToast = dtpToast; window.aiComingSoon = aiComingSoon;
 
-// ════════════════ MACRO AI ASSISTANT — chat IA (volatil, streaming typewriter) ════════════════
+// ════════════════ MACRO AI ASSISTANT : chat IA (volatil, streaming typewriter) ════════════════
 let _aiMsgs = [];
 let _aiBusy = false;
 let _aiTyper = null;
@@ -298,7 +298,7 @@ window.aiToggleSources = aiToggleSources; window.aiClearAsk = aiClearAsk; window
 // Le bouton AI de la topbar bascule le volet Copilote Macro
 (function () { var b = document.getElementById('ai-btn'); if (b) b.addEventListener('click', aiToggle); })();
 
-// ── Sélecteur de langue (dropdown custom à vraies images de drapeaux — les emoji-drapeaux ne s'affichent pas sur Windows) ──
+// ── Sélecteur de langue (dropdown custom à vraies images de drapeaux : les emoji-drapeaux ne s'affichent pas sur Windows) ──
 function pdLangToggle(e) { if (e) e.stopPropagation(); document.getElementById('pd-lang-menu')?.classList.toggle('open'); }
 function pdLangPick(val, name, iso) {
   const inp = document.getElementById('pd-lang'); if (inp) inp.value = val;
@@ -372,7 +372,7 @@ async function fetchAllWeather() {
   }));
 }
 
-// ═══ Filter — only real category names from the server ════════════════════════
+// ═══ Filter : only real category names from the server ════════════════════════
 
 const INTERNAL_CATS = [
   'Fed', 'ECB', 'BoJ', 'BoE', 'BoC', 'RBA', 'SNB', 'RBNZ',
@@ -424,7 +424,7 @@ const SETTINGS_PANEL = {
   ],
 };
 
-// Libellés FR des catégories de news — AFFICHAGE UNIQUEMENT. La valeur brute (item.category)
+// Libellés FR des catégories de news : AFFICHAGE UNIQUEMENT. La valeur brute (item.category)
 // reste la clé logique (data-cat, comparaisons, enabledCategories, SETTINGS_PANEL.cat). On ne
 // traduit que le texte rendu via CAT_FR[cat] || cat. Sigles (Fed/ECB/BoJ…) inchangés (fallback).
 const CAT_FR = {
@@ -471,7 +471,7 @@ let _wsInitReceived   = false; // true once server sends its first 'initial' mes
 const _analysisCache  = new Map(); // item.id → bullets[]
 const _infoCache      = new Map(); // item.id → bullets[] (résumé Gemini style DTP, mémoire session)
 const _reactCache     = new Map(); // item.id → texte (explication Gemini de la réaction, mémoire session)
-let   _snapCache      = null;      // dernier Market Snapshot (prix réels) — partagé entre rapports
+let   _snapCache      = null;      // dernier Market Snapshot (prix réels) : partagé entre rapports
 // Rend des puces Info/Analyse : texte propre, SANS gras ni balises (on retire HTML <…> et markdown **…**)
 // Décode les entités HTML (&amp; → &, etc.) AVANT de ré-échapper → évite "S&amp;P" affiché tel quel.
 function _decodeEntities(s) {
@@ -512,7 +512,7 @@ function _renderInfoBullets(bullets) {
 }
 let _sessionWraps = [];
 let _brArticles  = [];
-let _fxDaily     = [];     // FX Daily (ING THINK) — rapport dédié dans l'onglet Analyst
+let _fxDaily     = [];     // FX Daily (ING THINK) : rapport dédié dans l'onglet Analyst
 let _weeklyReports = [];   // Weekly Market Recap + Global Economic Weekly (servis par /api/weekly-reports)
 let _weeklyGenerating = false;
 let _weeklyRetryCount = 0;
@@ -553,7 +553,7 @@ function init() {
   buildSettingsPanel();
   buildSectionDropdown();
   startClocks();
-  // La carte monde (amCharts, panneau droit — PAS le fil principal que l'utilisateur regarde) est
+  // La carte monde (amCharts, panneau droit : PAS le fil principal que l'utilisateur regarde) est
   // LOURDE : on la dessine en temps IDLE pour ne pas retarder le 1er paint du fil. drawWorldMap /
   // startSessionMarkers ne sont appelees QUE depuis init() -> aucun risque de double-rendu. Repli
   // setTimeout si requestIdleCallback indispo (Safari ancien).
@@ -590,7 +590,7 @@ function init() {
   // Fallback: if nothing loaded in 12 seconds, clear the spinner
   setTimeout(() => {
     if (allItems.length === 0) {
-      newsList.innerHTML = '<div class="empty-state" style="color:var(--text4);padding:40px 20px;text-align:center;font-size:11px;">En attente du flux en direct — les éléments apparaîtront automatiquement</div>';
+      newsList.innerHTML = '<div class="empty-state" style="color:var(--text4);padding:40px 20px;text-align:center;font-size:11px;">En attente du flux en direct : les éléments apparaîtront automatiquement</div>';
     }
   }, 12000);
 
@@ -781,7 +781,7 @@ function _isImportantNews(item) {
 }
 
 function _flashBreakingNews(item) {
-  // On ne fait JAMAIS flasher un rapport DTP/primer dans la bannière LIVE (plus de "PRIMER — …")
+  // On ne fait JAMAIS flasher un rapport DTP/primer dans la bannière LIVE (plus de "PRIMER : …")
   if (!item || item._briefing || item.source === 'DTP' || isPrimerItem(item)) return;
   // Bannière LIVE = UNIQUEMENT les news importantes (pas les news de routine)
   if (!_isImportantNews(item)) return;
@@ -930,12 +930,12 @@ const _NEWS_BLOCK = /bank of russia|центральн|official exchange rates o
 // pas une news → masqué du flux (les vrais rapports sont dans l'onglet Institution).
 const _BANK_TEASER_RE = /\s[–—-]\s*(?:MUFG|Nomura|TD\s*Securities|TDS|Goldman(?:\s*Sachs)?|Morgan\s*Stanley|J\.?P\.?\s*Morgan|JPMorgan|JPM|Bank\s*of\s*America|BofA(?:\s*Securities)?|Citi(?:group|bank|\s*Research)?|Barclays|UBS|Deutsche\s*Bank|HSBC|BNP\s*Paribas|BNPP|Soci[ée]t[ée]\s*G[ée]n[ée]rale|SocGen|ING|Commerzbank|Rabobank|Danske(?:\s*Bank)?|Nordea|SEB|Scotia(?:bank)?|RBC|CIBC|BMO|National\s*Bank|Westpac|ANZ|CBA|NAB|Standard\s*Chartered|StanChart|Cr[ée]dit\s*Agricole|CACIB|Wells\s*Fargo|Mizuho|Macquarie|Jefferies|Lloyds(?:\s*Bank)?|NatWest|Capital\s*Economics|Oxford\s*Economics|Pantheon|BBVA|UniCredit|Intesa|Saxo(?:\s*Bank)?|Pepperstone|Convera|Natixis|KBC|Syz|OCBC|UOB|DBS|BBH|Wells)\s*$/i;
 // Spam politique : reposts d'endorsements (style Truth Social) "… America First Patriot/Champion…",
-// "MAGA Warrior…", "Complete and Total Endorsement…" — souvent mal catégorisés "Energy" → pas une news.
+// "MAGA Warrior…", "Complete and Total Endorsement…" : souvent mal catégorisés "Energy" → pas une news.
 const _POLITICAL_SPAM_RE = /\b(?:america first\s+(?:patriot|champion|warrior|fighter|polic\w*)|maga\s+(?:warrior|champion|patriot|king|queen|fighter)|complete\s+and\s+total\s+endorsement|make\s+america\s+great\s+again|(?:great|total)\s+honou?r\s+to\s+(?:fully\s+)?endorse|tremendous\s+(?:champion|advocate))\b/i;
 // ── Levier 1 : anti-bruit renforcé (réduction du flux News) ────────────────────
-// Actions d'UNE société (dividende, rachat d'actions, split, BPA) — sans portée macro/FX.
+// Actions d'UNE société (dividende, rachat d'actions, split, BPA) : sans portée macro/FX.
 const _SINGLE_STOCK_RE = /\b(?:dividend\s+(?:increase|hike|raise|boost)|(?:increase|hike|raise|boost|declare|announce)s?\s+(?:a\s+|its\s+|quarterly\s+|semi-?annual\s+|annual\s+|special\s+)*dividend|(?:share|stock|equity)\s+(?:repurchase|buyback)|(?:repurchase|buyback)\s+program|stock\s+split|reauthoriz\w*\b[^.]{0,40}\b(?:repurchase|buyback))/i;
-// Éditorial retail / clickbait — pas d'info marché actionnable.
+// Éditorial retail / clickbait : pas d'info marché actionnable.
 const _CLICKBAIT_RE = /(?:here'?s\s+(?:why|how|what|the\s+reason)|what\s+(?:it|this|that)\s+means\s+for\s+you|why\s+you\s+(?:should|shouldn'?t|might|need)|what\s+you\s+need\s+to\s+know|retail\s+(?:investors?|traders?)\s+(?:think|are\s|keep|love|hate|can'?t)|buying\s+(?:it\s+)?anyway|the\s+truth\s+about|you\s+won'?t\s+believe)/i;
 // Suffixe horodaté/méta accolé par certaines sources (« … – UOB 20:30 Jun », « … 20:42 Jun 24 Energy US Bonds ») :
 // casse les filtres ancrés en fin de titre. On le retire AVANT les tests « se termine par … ».
@@ -1004,11 +1004,11 @@ function getFilteredItems() {
     // dédup → on la retrouve TOUJOURS dans le flux. MAIS si une RECHERCHE est active, elle doit
     // respecter le filtre comme les autres (sinon "BoJ" laisse passer la news flashée hors-sujet).
     if (!searchQuery && item.id && item.id === _flashedNewsId) { const k = _newsKey(item.headline || ''); if (k) seen.add(k); return true; }
-    // Rapports DTP (briefings, recaps) : masqués du flux — SAUF le « DTP Daily US Opening News » qui doit
+    // Rapports DTP (briefings, recaps) : masqués du flux : SAUF le « DTP Daily US Opening News » qui doit
     // apparaître dans l'onglet News (demande utilisateur), comme un point macro d'ouverture.
     if ((item._briefing || item.source === 'DTP') && item._reportType !== 'DTP Daily') return false;
     if (!isCategoryEnabled(item.category)) return false;
-    // Bruit/reposts sans valeur — checks BASÉS SUR LE TITRE (immuable) MÉMOÏSÉS (voir _hlNoisePass) :
+    // Bruit/reposts sans valeur : checks BASÉS SUR LE TITRE (immuable) MÉMOÏSÉS (voir _hlNoisePass) :
     // ~12 regex (primer, RT/@, longueur, _NEWS_NOISE/BLOCK, teasers banque, spam politique, single-stock,
     // clickbait…) ne sont plus relancées par item à CHAQUE rendu/frappe/dépêche WS.
     const _h = item.headline || '';
@@ -1016,7 +1016,7 @@ function getFilteredItems() {
     // Seul check dépendant de la DESCRIPTION (regroupable → peut changer) → gardé EN DIRECT :
     //   ex. « Thursday FX Option Expiries » : en-tête sans analyse/description.
     if (/options?\s+expir/i.test(_h) && (item.description || '').replace(/<[^>]*>/g, '').trim().length < 40) return false;
-    // ── Levier 2 : mode Essentiel (hors recherche) — ne garder que la macro/FX qui compte ──
+    // ── Levier 2 : mode Essentiel (hors recherche) : ne garder que la macro/FX qui compte ──
     if (newsEssentialMode && !searchQuery && !_isEssentialItem(item)) return false;
 
     // ── Filtre intelligent : on masque les reposts au titre quasi-identique ──
@@ -1047,7 +1047,7 @@ function _groupSpeakerQuotes(items) {
     const item = items[i];
     if (skipIds.has(item.id)) continue;
 
-    // Only process quote items (not openers — those already handle grouping via getSpeakerQuotes)
+    // Only process quote items (not openers : those already handle grouping via getSpeakerQuotes)
     const isQuote   = isSpeakerQuote(item);
     const isOpener  = isSpeakerOpener(item);
     if (!isQuote && !isOpener) continue;
@@ -1109,7 +1109,7 @@ function renderNews(hasNew = false) {
 
   if (filtered.length === 0) {
     if (!_wsInitReceived) return; // keep spinner until server acknowledges
-    newsList.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">Aucun élément — le flux est en direct, les mises à jour apparaissent automatiquement</div>';
+    newsList.innerHTML = '<div class="empty-state" style="padding:40px 20px;text-align:center;color:var(--text4);font-size:11px;">Aucun élément : le flux est en direct, les mises à jour apparaissent automatiquement</div>';
     return;
   }
 
@@ -1174,7 +1174,7 @@ async function loadMore() {
 
   const filtered = getFilteredItems();
   if (filtered.length > displayLimit) {
-    // More items already loaded in memory — just reveal them
+    // More items already loaded in memory : just reveal them
     displayLimit += 100;
     renderNews();
     return;
@@ -1218,7 +1218,7 @@ function headlineContext(headline) {
   // "Powell: inflation is..." or "Kashkari: ..."
   const m2 = headline.match(/^([A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,})?)\s*(\[[^\]]+\])?\s*:/);
   if (m2) return m2[1].trim() + (m2[2] ? ' ' + m2[2].trim() : '');
-  // First segment before " — " or " - "
+  // First segment before " : " or " - "
   const seg = headline.split(/\s[—–-]\s/)[0].trim();
   return seg.length > 5 && seg.length < 60 ? seg : headline.substring(0, 55).trim();
 }
@@ -1241,7 +1241,7 @@ function generateNote(item) {
   }
 
   if (/\bpce\b|personal consumption expenditure/.test(t)) {
-    if (pcts.length) points.push(`Core PCE: ${pcts.join(' / ')} — Fed's preferred inflation gauge`);
+    if (pcts.length) points.push(`Core PCE: ${pcts.join(' / ')} : Fed's preferred inflation gauge`);
     if (/above|beats|rises/.test(t))  points.push('Hotter than expected → reinforces higher-for-longer narrative → USD ↑');
     else if (/below|falls|cools/.test(t)) points.push('Cooler than expected → supports rate cut case → USD ↓ · Gold ↑');
   }
@@ -1274,7 +1274,7 @@ function generateNote(item) {
       points.push('Dovish pivot → cut expectations rise → USD ↓ · Gold ↑ · Equities ↑');
     else {
       const ctx = headlineContext(item.headline);
-      points.push(`${ctx || 'Fed commentary'} — parse for signals on rate path timing, inflation trajectory, and balance sheet guidance. DXY and US 2Y yields are the real-time read.`);
+      points.push(`${ctx || 'Fed commentary'} : parse for signals on rate path timing, inflation trajectory, and balance sheet guidance. DXY and US 2Y yields are the real-time read.`);
     }
   }
 
@@ -1283,7 +1283,7 @@ function generateNote(item) {
     else if (/cut|dovish|eas/.test(t))  points.push('ECB dovish → EUR ↓ · Bunds ↑');
     else if (points.length === 0) {
       const ctx = headlineContext(item.headline);
-      points.push(`${ctx || 'ECB commentary'} — watch EUR/USD and Bund 10Y yields for the market read on policy direction`);
+      points.push(`${ctx || 'ECB commentary'} : watch EUR/USD and Bund 10Y yields for the market read on policy direction`);
     }
   }
 
@@ -1292,7 +1292,7 @@ function generateNote(item) {
     else if (/cut|dovish/.test(t)) points.push('BoE dovish → GBP ↓ · Gilts ↑');
     else if (points.length === 0) {
       const ctx = headlineContext(item.headline);
-      points.push(`${ctx || 'BoE commentary'} — watch GBP/USD and Gilt yields for the policy pricing read`);
+      points.push(`${ctx || 'BoE commentary'} : watch GBP/USD and Gilt yields for the policy pricing read`);
     }
   }
 
@@ -1301,7 +1301,7 @@ function generateNote(item) {
     else if (/dovish|maintain|hold/.test(t)) points.push('BoJ stays dovish → JPY ↓ · carry trades supported');
     else if (points.length === 0) {
       const ctx = headlineContext(item.headline);
-      points.push(`${ctx || 'BoJ commentary'} — watch USD/JPY and JGB 10Y yields for the policy signal read`);
+      points.push(`${ctx || 'BoJ commentary'} : watch USD/JPY and JGB 10Y yields for the policy signal read`);
     }
   }
 
@@ -1327,17 +1327,17 @@ function generateNote(item) {
   // ── Iran / nuclear talks ──────────────────────────────────────────────────
   if (/iran/.test(t)) {
     if (/end.*war|focused.*end|ceasefire|de-escalat|peace|ending.*conflict/.test(t))
-      points.push('Iran de-escalation signal — oil geopolitical risk premium may ease');
+      points.push('Iran de-escalation signal : oil geopolitical risk premium may ease');
     if (/nuclear|uranium|enrichment|weapon/.test(t)) {
       if (/deal|agreement|suspend|commit|progress|positive|sign/.test(t))
         points.push('Nuclear deal progress → Hormuz supply risk eases → Oil ↓, Gold ↓');
       else if (/reject|fail|break|collapse|no deal/.test(t))
         points.push('Talks failure → Hormuz closure risk remains → Oil ↑, Gold ↑');
       else
-        points.push('Nuclear programme — Iran deal outcome drives oil risk premium');
+        points.push('Nuclear programme : Iran deal outcome drives oil risk premium');
     }
     if (/sanction|oil.*ban|oil.*export/.test(t))
-      points.push('Iran oil ~1.3m bbl/day at risk — sanctions add Brent supply premium');
+      points.push('Iran oil ~1.3m bbl/day at risk : sanctions add Brent supply premium');
     if (points.length > 0) points.push('Watch: Brent, WTI, Gold (safe-haven), USD/IRR');
   }
 
@@ -1349,9 +1349,9 @@ function generateNote(item) {
       else if (/cut|reduce|remov|suspend|deal|resolv|agree/.test(t))
         points.push('Trade de-escalation → risk-on: CNY ↑, equities ↑, USD ↓');
       else if (/not.*discuss|no.*tariff|deny/.test(t))
-        points.push('No tariff progress confirmed — trade uncertainty persists');
+        points.push('No tariff progress confirmed : trade uncertainty persists');
       else
-        points.push('US-China trade signal — watch DXY, CNY, Asian equity indices');
+        points.push('US-China trade signal : watch DXY, CNY, Asian equity indices');
     }
     if (/europe|eu\b|eurozone/.test(t))
       points.push('EU trade friction → EUR/USD sensitive, export-heavy DAX/CAC names at risk');
@@ -1360,7 +1360,7 @@ function generateNote(item) {
   // ── China / Asia policy ───────────────────────────────────────────────────
   if ((cat === 'Asian News' || /politburo|pboc|xi jinping|people.*bank.*china/.test(t)) && points.length === 0) {
     if (/yuan|cny|exchange rate|currency.*stable|stable.*currency/.test(t))
-      points.push('CNY stability commitment — PBOC expected to defend near 7.30 on USD/CNY');
+      points.push('CNY stability commitment : PBOC expected to defend near 7.30 on USD/CNY');
     if (/property|real estate|housing/.test(t))
       points.push('Property sector support → positive for Chinese banks & materials (CSI 300)');
     if (/fiscal|stimulus|proactive|spending|deficit/.test(t))
@@ -1375,23 +1375,23 @@ function generateNote(item) {
 
   // ── Political statements ──────────────────────────────────────────────────
   if (/trump|president.*says|white house|prime minister|heads? of state/.test(t) && points.length === 0) {
-    if (/china|beijing|xi/.test(t))   points.push('US-China diplomatic signal — watch trade flows, tech sector, Taiwan posture');
-    if (/russia|putin|ukraine/.test(t)) points.push('Russia signal — gas/energy supply risk, EUR/USD & Bunds sensitivity');
+    if (/china|beijing|xi/.test(t))   points.push('US-China diplomatic signal : watch trade flows, tech sector, Taiwan posture');
+    if (/russia|putin|ukraine/.test(t)) points.push('Russia signal : gas/energy supply risk, EUR/USD & Bunds sensitivity');
     if (/iran|nuclear|hormuz/.test(t)) points.push('Iran/nuclear stance drives oil supply risk premium');
-    if (/tariff|trade|import|export/.test(t)) points.push('Trade policy signal — watch USD, affected sector ETFs');
-    if (/rate|fed|economy|inflation/.test(t)) points.push('Political commentary on Fed/economy — watch USD reaction');
+    if (/tariff|trade|import|export/.test(t)) points.push('Trade policy signal : watch USD, affected sector ETFs');
+    if (/rate|fed|economy|inflation/.test(t)) points.push('Political commentary on Fed/economy : watch USD reaction');
   }
 
   // ── Generic "says" fallback ───────────────────────────────────────────────
   if (points.length === 0 && /says|said|announces|reports|confirms|warns|states/.test(t)) {
     const ctx = headlineContext(item.headline);
-    if (/stable|stability|maintain/.test(t))          points.push(`${ctx}: stability commitment — anchors near-term volatility expectations`);
-    if (/concern|warn|risk|threat|caution/.test(t))   points.push(`${ctx}: risk warning — watch safe-haven flows (Gold, JPY, CHF)`);
-    if (/growth|expand|recover|strong/.test(t))       points.push(`${ctx}: growth signal — risk assets may find support`);
-    if (/cut.*spend|austerity|deficit.*reduc/.test(t)) points.push(`${ctx}: fiscal tightening — growth drag, bonds ↑`);
+    if (/stable|stability|maintain/.test(t))          points.push(`${ctx}: stability commitment : anchors near-term volatility expectations`);
+    if (/concern|warn|risk|threat|caution/.test(t))   points.push(`${ctx}: risk warning : watch safe-haven flows (Gold, JPY, CHF)`);
+    if (/growth|expand|recover|strong/.test(t))       points.push(`${ctx}: growth signal : risk assets may find support`);
+    if (/cut.*spend|austerity|deficit.*reduc/.test(t)) points.push(`${ctx}: fiscal tightening : growth drag, bonds ↑`);
   }
 
-  // Only return if we have something real — fallback suppressed
+  // Only return if we have something real : fallback suppressed
   if (points.length === 0 && pcts.length) points.push(`Figure: ${pcts.join(' / ')}`);
 
   return points;
@@ -1439,11 +1439,11 @@ const REACTION_NOTES = {
   'Oil ↑':  ['Supply disruption / geopolitical risk drives crude higher',
               'Watch: Brent, WTI, CAD, NOK, energy stocks (XLE, CVX)'],
   'Oil ↓':  ['Demand concerns or supply surplus weighs on crude',
-              'Watch: Brent, WTI — energy stocks under pressure, CAD ↓'],
+              'Watch: Brent, WTI : energy stocks under pressure, CAD ↓'],
   'Gold ↑': ['Risk-off → safe-haven demand flows into gold',
-              'Watch: XAU/USD, Silver — USD/JPY likely lower, bond yields ↓'],
+              'Watch: XAU/USD, Silver : USD/JPY likely lower, bond yields ↓'],
   'Gold ↓': ['Risk appetite returns → gold loses safe-haven premium',
-              'Watch: XAU/USD — equities may be the beneficiary'],
+              'Watch: XAU/USD : equities may be the beneficiary'],
   'USD ↑':  ['Dollar bid on hawkish / strong data signal',
               'Watch: EUR/USD ↓, GBP/USD ↓, USD/JPY ↑, DXY, Gold ↓'],
   'USD ↓':  ['Dollar offered on dovish / weak data signal',
@@ -1456,9 +1456,9 @@ const REACTION_NOTES = {
               'Watch: GBP/USD ↑, EUR/GBP ↓'],
   'GBP ↓':  ['Sterling offered on BoE dovish signal',
               'Watch: GBP/USD ↓, EUR/GBP ↑'],
-  'JPY ↑':  ['Yen strengthens — BoJ hawkish or carry trade unwind',
-              'Watch: USD/JPY ↓, EUR/JPY ↓ — carry trades at risk'],
-  'JPY ↓':  ['Yen weakens — BoJ stays dovish, carry trades supported',
+  'JPY ↑':  ['Yen strengthens : BoJ hawkish or carry trade unwind',
+              'Watch: USD/JPY ↓, EUR/JPY ↓ : carry trades at risk'],
+  'JPY ↓':  ['Yen weakens : BoJ stays dovish, carry trades supported',
               'Watch: USD/JPY ↑, AUD/JPY ↑, EUR/JPY ↑'],
 };
 
@@ -1473,49 +1473,49 @@ function generateReactionNarrative(item) {
   // BoJ
   if (cat === 'BoJ' || /\bboj\b|bank of japan|ueda/.test(t)) {
     if (/hawkish|hike|raise|tighten|25bps|50bps|above neutral|upward risk/.test(all)) {
-      paras.push('BoJ hawkish signal — carry traders are unwinding long USD/JPY, AUD/JPY and EUR/JPY positions as the rate differential with Japan narrows. Watch for stop clusters below key support in USD/JPY as leveraged positions flush out.');
-      paras.push('Key pairs: USD/JPY (bearish near-term), EUR/JPY (downside risk), AUD/JPY (carry unwind). JGB 10Y yields rising — confirmation of the move. Nikkei may sell off on yen strength.');
+      paras.push('BoJ hawkish signal : carry traders are unwinding long USD/JPY, AUD/JPY and EUR/JPY positions as the rate differential with Japan narrows. Watch for stop clusters below key support in USD/JPY as leveraged positions flush out.');
+      paras.push('Key pairs: USD/JPY (bearish near-term), EUR/JPY (downside risk), AUD/JPY (carry unwind). JGB 10Y yields rising : confirmation of the move. Nikkei may sell off on yen strength.');
     } else if (/dovish|hold|maintain|no change|uncertain|cautious|monitor|gradual/.test(all)) {
-      paras.push('BoJ remains on hold — JPY weakness bias continues as the rate differential with the US stays wide. USD/JPY bulls retain the upper hand; carry trades intact and supported.');
+      paras.push('BoJ remains on hold : JPY weakness bias continues as the rate differential with the US stays wide. USD/JPY bulls retain the upper hand; carry trades intact and supported.');
       paras.push('Watch: USD/JPY (bullish bias), EUR/JPY (supported), AUD/JPY (carry supported). Nikkei likely to find support from the weaker yen. Monitor MoF intervention risk above 155–160 zone.');
     } else {
       const ctx = headlineContext(item.headline);
-      paras.push(`${ctx || 'BoJ commentary'} — market is parsing for any guidance shift on the rate path or JGB tapering schedule. USD/JPY is the primary vehicle; JGB 10Y yields are the real-time confirmation signal.`);
+      paras.push(`${ctx || 'BoJ commentary'} : market is parsing for any guidance shift on the rate path or JGB tapering schedule. USD/JPY is the primary vehicle; JGB 10Y yields are the real-time confirmation signal.`);
     }
   }
 
   // Fed
   if (cat === 'Fed' || /\bfed\b|fomc|powell|federal reserve/.test(t)) {
     if (/hawkish|higher for longer|not cut|no cut|pause|persistent|resilient|inflation concern/.test(all)) {
-      paras.push('Fed hawkish rhetoric — front-end US yields repricing higher as rate cut expectations are pushed back. DXY bid across the board; EUR/USD and GBP/USD face renewed selling pressure.');
-      paras.push('Watch: DXY (bullish), USD/JPY (upside), Gold (near-term bearish), US 2Y yields (higher). Monitor CME FedWatch for cut probability shifts — rate-sensitive sectors (tech, utilities) likely under pressure.');
+      paras.push('Fed hawkish rhetoric : front-end US yields repricing higher as rate cut expectations are pushed back. DXY bid across the board; EUR/USD and GBP/USD face renewed selling pressure.');
+      paras.push('Watch: DXY (bullish), USD/JPY (upside), Gold (near-term bearish), US 2Y yields (higher). Monitor CME FedWatch for cut probability shifts : rate-sensitive sectors (tech, utilities) likely under pressure.');
     } else if (/dovish|cut|eas|pivot|slow|cooling|below target|confident|progress/.test(all)) {
-      paras.push('Fed dovish signal — USD offered as rate cut expectations gain traction. EUR/USD and GBP/USD catching bid; Gold breaking higher as real yields compress.');
-      paras.push('Watch: DXY (bearish), EUR/USD (bullish), Gold (bullish), Nasdaq (risk-on). US 2Y yields dropping — monitor the 2Y/10Y spread. Bitcoin may also benefit from the liquidity easing signal.');
+      paras.push('Fed dovish signal : USD offered as rate cut expectations gain traction. EUR/USD and GBP/USD catching bid; Gold breaking higher as real yields compress.');
+      paras.push('Watch: DXY (bearish), EUR/USD (bullish), Gold (bullish), Nasdaq (risk-on). US 2Y yields dropping : monitor the 2Y/10Y spread. Bitcoin may also benefit from the liquidity easing signal.');
     } else {
       const ctx = headlineContext(item.headline);
-      paras.push(`${ctx || 'Fed commentary'} — no clear directional policy signal yet. Parse for language shifts on: (1) rate cut timing, (2) inflation progress assessment, (3) balance sheet trajectory. DXY and US 2Y yields are the live tells.`);
+      paras.push(`${ctx || 'Fed commentary'} : no clear directional policy signal yet. Parse for language shifts on: (1) rate cut timing, (2) inflation progress assessment, (3) balance sheet trajectory. DXY and US 2Y yields are the live tells.`);
     }
   }
 
   // ECB
   if (cat === 'ECB' || /\becb\b|lagarde|governing council/.test(t)) {
     if (/hawkish|hike|tighten|above target/.test(all)) {
-      paras.push('ECB hawkish turn — EUR bid as rate hike expectations are repriced. EUR/USD pressing higher, EUR/GBP supported. Bund yields moving up.');
+      paras.push('ECB hawkish turn : EUR bid as rate hike expectations are repriced. EUR/USD pressing higher, EUR/GBP supported. Bund yields moving up.');
       paras.push('Watch: EUR/USD (bullish), EUR/GBP (bullish), EUR/JPY (bullish). German Bund 10Y yields higher. European bank stocks may outperform on margin expansion expectations.');
     } else if (/dovish|cut|eas|slow|below|concern|weak/.test(all)) {
-      paras.push('ECB signals further easing — EUR offered as the market prices in more aggressive cuts. EUR/USD faces headwinds; Bund–Treasury spread widening.');
-      paras.push('Watch: EUR/USD (bearish), EUR/GBP (bearish). Southern European bond spreads may tighten. European equities mixed — growth positive, FX headwind for exporters.');
+      paras.push('ECB signals further easing : EUR offered as the market prices in more aggressive cuts. EUR/USD faces headwinds; Bund–Treasury spread widening.');
+      paras.push('Watch: EUR/USD (bearish), EUR/GBP (bearish). Southern European bond spreads may tighten. European equities mixed : growth positive, FX headwind for exporters.');
     }
   }
 
   // BoE
   if (cat === 'BoE' || /\bboe\b|bank of england|bailey/.test(t)) {
     if (/hawkish|hike|tighten/.test(all)) {
-      paras.push('BoE hawkish — GBP bid as rate expectations are revised higher. GBP/USD upside, EUR/GBP falling. Gilt yields higher.');
-      paras.push('Watch: GBP/USD (bullish), EUR/GBP (bearish), GBP/JPY (bullish). FTSE may underperform — higher rates weigh on rate-sensitive sectors and UK housing names.');
+      paras.push('BoE hawkish : GBP bid as rate expectations are revised higher. GBP/USD upside, EUR/GBP falling. Gilt yields higher.');
+      paras.push('Watch: GBP/USD (bullish), EUR/GBP (bearish), GBP/JPY (bullish). FTSE may underperform : higher rates weigh on rate-sensitive sectors and UK housing names.');
     } else if (/dovish|cut|eas/.test(all)) {
-      paras.push('BoE signals easing — GBP offered. GBP/USD downside, EUR/GBP higher. Gilts rallying.');
+      paras.push('BoE signals easing : GBP offered. GBP/USD downside, EUR/GBP higher. Gilts rallying.');
       paras.push('Watch: GBP/USD (bearish), EUR/GBP (bullish). FTSE 100 may find support as rate-cut expectations boost the UK domestic demand outlook.');
     }
   }
@@ -1523,21 +1523,21 @@ function generateReactionNarrative(item) {
   // NFP
   if (/\bnfp\b|nonfarm payroll|non.?farm payroll/.test(t)) {
     if (/above|beat|strong|surge|jump|better/.test(all)) {
-      paras.push('NFP beat — strong labour market reinforces the Fed\'s higher-for-longer stance. DXY surging, USD/JPY pressing higher. Gold selling off as rate cut pricing is aggressively unwound.');
-      paras.push('Watch: DXY (bullish), USD/JPY (bullish), Gold (bearish near-term), US 2Y yields (spike). CME FedWatch cut probability will drop sharply — monitor EUR/USD support levels for the next leg.');
+      paras.push('NFP beat : strong labour market reinforces the Fed\'s higher-for-longer stance. DXY surging, USD/JPY pressing higher. Gold selling off as rate cut pricing is aggressively unwound.');
+      paras.push('Watch: DXY (bullish), USD/JPY (bullish), Gold (bearish near-term), US 2Y yields (spike). CME FedWatch cut probability will drop sharply : monitor EUR/USD support levels for the next leg.');
     } else if (/below|miss|weak|drop|fall|worse/.test(all)) {
-      paras.push('NFP miss — weak jobs data revives Fed cut expectations. USD selling off; EUR/USD and GBP/USD catching a strong bid. Gold rallying as the market reprices a more aggressive easing cycle.');
-      paras.push('Watch: DXY (bearish), EUR/USD (bullish), Gold (bullish), US 10Y yields (falling). Equities may initially rally on cut optimism before underlying growth concerns take over — watch the tone.');
+      paras.push('NFP miss : weak jobs data revives Fed cut expectations. USD selling off; EUR/USD and GBP/USD catching a strong bid. Gold rallying as the market reprices a more aggressive easing cycle.');
+      paras.push('Watch: DXY (bearish), EUR/USD (bullish), Gold (bullish), US 10Y yields (falling). Equities may initially rally on cut optimism before underlying growth concerns take over : watch the tone.');
     }
   }
 
   // CPI
   if (/\bcpi\b|consumer price index|inflation rate/.test(t)) {
     if (/above|hot|beat|surge|accelerat|rise|higher/.test(all)) {
-      paras.push('Hot CPI — inflation staying elevated resets the rate cut timeline. USD front-end bid; 2Y yields spiking. EUR/USD under pressure; Gold facing near-term headwinds from higher real rates.');
+      paras.push('Hot CPI : inflation staying elevated resets the rate cut timeline. USD front-end bid; 2Y yields spiking. EUR/USD under pressure; Gold facing near-term headwinds from higher real rates.');
       paras.push('Watch: DXY (bullish), USD/JPY (upside), Gold (near-term bearish), US 2Y yields (higher). Monitor the 5Y5Y inflation breakeven and TIPs for the bigger-picture read on real rates.');
     } else if (/below|cool|miss|fall|soft|lower/.test(all)) {
-      paras.push('Soft CPI — disinflation narrative intact, opening the door to cuts. USD sold across the board as real yields compress; risk assets catching a bid.');
+      paras.push('Soft CPI : disinflation narrative intact, opening the door to cuts. USD sold across the board as real yields compress; risk assets catching a bid.');
       paras.push('Watch: DXY (bearish), EUR/USD (bullish), Gold (bullish), Nasdaq (bullish). Rate-sensitive sectors likely to outperform. AUD and NZD may also benefit from the risk-on tone.');
     }
   }
@@ -1545,9 +1545,9 @@ function generateReactionNarrative(item) {
   // GDP
   if (/\bgdp\b/.test(t)) {
     if (/above|beat|strong|exceed|grow|rise/.test(all)) {
-      paras.push('GDP beat — robust growth supports the domestic currency and reduces the urgency of rate cuts. Domestic currency bid, equities supported, bonds may face mild selling as recession risk fades.');
+      paras.push('GDP beat : robust growth supports the domestic currency and reduces the urgency of rate cuts. Domestic currency bid, equities supported, bonds may face mild selling as recession risk fades.');
     } else if (/below|miss|contraction|shrink|negative|fall/.test(all)) {
-      paras.push('GDP miss/contraction — growth fears resurface. Domestic currency under pressure; safe-haven demand increasing. Watch: Gold (bullish), JPY/CHF (safe-haven bid), equities (bearish on growth outlook).');
+      paras.push('GDP miss/contraction : growth fears resurface. Domestic currency under pressure; safe-haven demand increasing. Watch: Gold (bullish), JPY/CHF (safe-haven bid), equities (bearish on growth outlook).');
     }
   }
 
@@ -1558,8 +1558,8 @@ function generateReactionNarrative(item) {
     if (pmiVal) {
       const v = parseFloat(pmiVal);
       paras.push(v > 50
-        ? `PMI ${pmiVal} — expansion territory (above 50.0 threshold). Growth momentum positive; the domestic currency may find support. Risk-on tone if this is a major economy reading.`
-        : `PMI ${pmiVal} — contraction territory (below the critical 50.0 level). Growth concerns weigh on the domestic currency; markets may start pricing in additional central bank easing.`
+        ? `PMI ${pmiVal} : expansion territory (above 50.0 threshold). Growth momentum positive; the domestic currency may find support. Risk-on tone if this is a major economy reading.`
+        : `PMI ${pmiVal} : contraction territory (below the critical 50.0 level). Growth concerns weigh on the domestic currency; markets may start pricing in additional central bank easing.`
       );
     }
   }
@@ -1567,13 +1567,13 @@ function generateReactionNarrative(item) {
   // Geopolitical
   if (cat === 'Geopolitical' || /attack|strike|missile|escalat/.test(t)) {
     if (/iran|hormuz|middle east|gulf/.test(t)) {
-      paras.push('Middle East escalation — watch XBRUSD and XTIUSD for immediate spike (Hormuz supply risk). XAUUSD bid as geopolitical safe haven; USDJPY and USDCHF dropping on JPY/CHF flows. USDCAD may fall as CAD is oil-linked.');
+      paras.push('Middle East escalation : watch XBRUSD and XTIUSD for immediate spike (Hormuz supply risk). XAUUSD bid as geopolitical safe haven; USDJPY and USDCHF dropping on JPY/CHF flows. USDCAD may fall as CAD is oil-linked.');
       paras.push('Key pair moves: XAUUSD ↑ (spike), USDJPY ↓, USDCHF ↓, XBRUSD ↑, USDCAD ↓, AUDUSD ↓, NZDUSD ↓. VIX spike + XAUUSD velocity = scale gauge for the risk-off move.');
     } else if (/russia|ukraine/.test(t)) {
-      paras.push('Russia/Ukraine escalation — EURUSD under pressure from European energy/growth risk. XAUUSD bullish (geopolitical bid); USDJPY and USDCHF dropping as safe-haven flows accelerate. Natural Gas spiking.');
-      paras.push('Key pair moves: EURUSD ↓, XAUUSD ↑, USDJPY ↓, USDCHF ↓, NATGAS ↑. DAX and CAC selling off. Wheat futures may spike on supply disruption risk — watch agricultural commodities.');
+      paras.push('Russia/Ukraine escalation : EURUSD under pressure from European energy/growth risk. XAUUSD bullish (geopolitical bid); USDJPY and USDCHF dropping as safe-haven flows accelerate. Natural Gas spiking.');
+      paras.push('Key pair moves: EURUSD ↓, XAUUSD ↑, USDJPY ↓, USDCHF ↓, NATGAS ↑. DAX and CAC selling off. Wheat futures may spike on supply disruption risk : watch agricultural commodities.');
     } else {
-      paras.push('Geopolitical shock — immediate safe-haven rotation: XAUUSD spiking, USDJPY and USDCHF dropping as JPY/CHF attract flows. AUDUSD and NZDUSD lower on risk-off. DXY bid vs. commodity currencies.');
+      paras.push('Geopolitical shock : immediate safe-haven rotation: XAUUSD spiking, USDJPY and USDCHF dropping as JPY/CHF attract flows. AUDUSD and NZDUSD lower on risk-off. DXY bid vs. commodity currencies.');
       paras.push('Key pair moves: XAUUSD ↑, USDJPY ↓, USDCHF ↓, AUDUSD ↓, NZDUSD ↓. VIX spike + XAUUSD velocity = scale gauge. S&P 500 futures direction confirms broader market tone.');
     }
   }
@@ -1581,10 +1581,10 @@ function generateReactionNarrative(item) {
   // Trade / Tariffs
   if (cat === 'Trade' || /tariff|trade war|trade deal/.test(t)) {
     if (/escalat|increas|impose|raise|hike/.test(all)) {
-      paras.push('Trade escalation — tariff risk weighing on global growth outlook. USD may initially benefit as a safe-haven but ultimately undermines growth. CNY/EM FX under pressure, Asian equities selling off.');
+      paras.push('Trade escalation : tariff risk weighing on global growth outlook. USD may initially benefit as a safe-haven but ultimately undermines growth. CNY/EM FX under pressure, Asian equities selling off.');
       paras.push('Watch: USD/CNY (CNY weaker), AUD (commodity/China-linked bearish), emerging market FX (broadly weaker). S&P 500 and Nasdaq face headwinds from supply chain and margin concerns.');
     } else if (/deal|resolv|cut|reduce|suspend/.test(all)) {
-      paras.push('Trade de-escalation — risk-on move. CNY bid, EM FX recovering, equities rallying. The commodity-linked currencies (AUD, CAD, NZD) are likely to outperform in the risk-on regime.');
+      paras.push('Trade de-escalation : risk-on move. CNY bid, EM FX recovering, equities rallying. The commodity-linked currencies (AUD, CAD, NZD) are likely to outperform in the risk-on regime.');
     }
   }
 
@@ -1628,7 +1628,7 @@ const TAG_CLASS = {
   'EU':          'tag--neutral',
 };
 
-// Libellés FR des smart-tags news — appliqués UNIQUEMENT au point de rendu (textContent).
+// Libellés FR des smart-tags news : appliqués UNIQUEMENT au point de rendu (textContent).
 // La clé / data-cat / classe restent en anglais (valeur logique). Les sigles (Fed, ECB, BoJ,
 // BoE, BoC, RBA, SNB, RBNZ, NFP, CPI, PCE, GDP, ISM, PMI, US, UK, EU) restent tels quels → absents ici.
 const NEWS_TAG_FR = {
@@ -1654,7 +1654,7 @@ function getSmartTags(item) {
   if (/\bsanction/.test(t)) tags.push('Sanctions');
 
   // ── GEOPOLITICAL: headline is primarily about a conflict/military event ───
-  // Requires named actor + concrete military/diplomatic action — avoids false fires
+  // Requires named actor + concrete military/diplomatic action : avoids false fires
   if (cat === 'Geopolitical' ||
       (/\b(?:iran|russia|ukraine|israel|hamas|hezbollah|nato|north korea)\b/.test(t) &&
        /\b(?:war|attack|strike|invasion|troops|missile|bomb|ceasefire|deal|nuclear|military|airstrike|sanctions?)\b/.test(t)) ||
@@ -1686,7 +1686,7 @@ function getSmartTags(item) {
   const _inflationResult = /\b(?:actual|flash|prelim|final|yoy|mom|y\/y|m\/m|rose|fell|came in|above|below|meets?|surged|eased|increased|decreased|vs\.?\s*exp|vs\.?\s*forecast)\b/;
   if ((/\b(?:cpi|pce|ppi|hicp|core\s+cpi|core\s+pce|core\s+ppi)\b/.test(t) && _inflationResult.test(t)) ||
       (/\b(?:consumer prices?|consumer price index|producer prices?|producer price index|harmonized\s+index\s+of\s+consumer\s+prices?|hicp)\b/.test(t) && _inflationResult.test(t)) ||
-      // "Inflation Rate YoY Prel" / "Inflation Rate MoM" — common FJ format
+      // "Inflation Rate YoY Prel" / "Inflation Rate MoM" : common FJ format
       (/\binflation rate\b.{0,60}\b(?:yoy|mom|y\/y|m\/m|prel|prelim|final|actual|above|below|vs\.)\b/.test(t)) ||
       // "X Inflation Rate Prel" with a value (has digits like "2.6%")
       (/\binflation rate\b.{0,80}\d[\d.,]+\s*%/.test(t)))
@@ -1702,7 +1702,7 @@ function getSmartTags(item) {
       (tags.includes('Inflation') && _inflationResult.test(t)))
     tags.push('Rates');
 
-  // ── DATA: key macro statistical releases — not if Inflation/Rates already ─
+  // ── DATA: key macro statistical releases : not if Inflation/Rates already ─
   if (!tags.includes('Inflation') && !tags.includes('Rates')) {
     const dataRelease =
       // GDP with result qualifier
@@ -1715,7 +1715,7 @@ function getSmartTags(item) {
       (/\b(?:pmi|purchasing managers)\b.{0,30}(?:\d{2}\.\d|\bactual\b|flash|prelim|came in|above|below)\b/.test(t)) ||
       // Other data releases with a result marker
       (/\b(?:retail sales|industrial production|durable goods|housing starts|trade balance|current account|factory orders|payrolls?|import prices?|export prices?|gdp)\b.{0,40}\b(?:actual|yoy|mom|rose|fell|above|below|came in|vs\.?\s*(?:exp|forecast))\b/.test(t)) ||
-      // "vs. Exp." / "vs. Forecast" format — always a real data release result
+      // "vs. Exp." / "vs. Forecast" format : always a real data release result
       (/\bvs\.?\s*(?:exp(?:ected|ectations?)?|forecast)\b/i.test(t) && /\b(?:actual|\d[\d.,]+\s*%|\d[\d.,]+[kmbtn]?\b)/.test(t)) ||
       // Statistical report titles: key term + month/quarter + year
       (/\b(?:employment|unemployment|gdp|industrial production|retail (?:sales|trade)|consumer prices?|producer prices?|trade balance|current account)\b/.test(t) &&
@@ -2010,7 +2010,7 @@ function _reportLead(s) {
 // Suffixes de SOURCE à ne PAS afficher dans le flux temps réel (on coupe " - Source" en fin de titre)
 const _NEWS_SRC_RE = /\s*[-–—]\s*(?:Axios|Politico|Semafor|Punchbowl|Reuters|RTRS|Bloomberg|BBG|CNBC|CNN|BBC|NBC|ABC|CBS|MSNBC|Fox(?: News| Business)?|Newsmax|OANN|WSJ|Wall Street Journal|FT|Financial Times|NYT|New York Times|Washington Post|WaPo|Forbes|Barron'?s|MarketWatch|Dow Jones|Investing\.com|FXStreet|Forex ?Live|Zero ?Hedge|The Block|CoinDesk|AP|AFP|DPA|ANSA|EFE|PA Media|Xinhua|TASS|RIA(?: Novosti)?|Interfax|Sputnik|Mehr(?: News)?|IRNA|Fars(?: News)?|Tasnim|Press TV|Tehran Times|Al[\s-]?Jazeera|Al[\s-]?Arabiya|Sky News(?: Arabia)?|Anadolu|Trend|Nikkei|Kyodo|Jiji|Yonhap|SCMP|Global Times|Caixin|Times of Israel|Jerusalem Post|Haaretz|Ynet|The Guardian|Guardian|Telegraph|Independent|Economist|Truth Social|Twitter\/?X?|X \(Twitter\)|Telegram|Financial ?Juice|Newswires?|[a-z0-9][a-z0-9-]*\.(?:com|net|org|io))\.?\s*$/i;
 // Retire les marqueurs markdown bruts (**gras**, *ital*, `code`, __ __, ~~ ~~, # titres, [txt](url))
-// en GARDANT le texte — filet de sécurité pour les titres/textes rendus en TEXTE BRUT (textContent)
+// en GARDANT le texte : filet de sécurité pour les titres/textes rendus en TEXTE BRUT (textContent)
 // et les rapports DÉJÀ en cache avant le nettoyage côté serveur. Aucune astérisque ne doit s'afficher.
 function _mdStrip(s) {
   return String(s == null ? '' : s)
@@ -2068,7 +2068,7 @@ function _drainReactionQ() {
 }
 
 // Pertinence d'un mouvement à une news : on n'affiche dans la RÉACTION que les instruments dont la
-// devise/commodité est CITÉE dans le titre/tags (ex. USD/JPY pour une news Yen) — jamais un actif sans
+// devise/commodité est CITÉE dans le titre/tags (ex. USD/JPY pour une news Yen) : jamais un actif sans
 // rapport (ex. Brent pour une intervention JPY). Instrument hors map → conservé (pas de sur-filtrage).
 const _MOVE_KEYS = {
   'brent crude':   /\b(oil|crude|brent|wti|opec|petroleum|barrel|energy|refinery|saudi|iran|hormuz|supply|gas)\b/i,
@@ -2122,7 +2122,7 @@ function _toBullets(raw, maxItems = 4) {
     .filter(s => s.length > 6)                 // ignorer fragments vides/courts
     .filter(s => !/^[^a-z0-9]*$/i.test(s))     // ignorer ponctuation seule
     .filter(s => !/:\s*$/.test(s))             // ignorer labels "Report from X:"
-    // Bruit métadonnées (auteur/source) — pas de valeur marché (n'importe où dans la phrase)
+    // Bruit métadonnées (auteur/source) : pas de valeur marché (n'importe où dans la phrase)
     .filter(s => !/^(?:authored by|written by|by\s+[A-Z]|via\s+|source\s*:|courtesy of|published by|republished)/i.test(s))
     .filter(s => !/(?:this article was written by|\bwritten by\s+[\w.\- ]+\s+at\b|\bat\s+(?:investinglive|forexlive|think\.ing|fxstreet|actionforex)\.com|follow .* on (?:twitter|x)\b)/i.test(s))
     .filter(s => !/^[\w .'-]+\bvia\b\s+the\b/i.test(s))
@@ -2188,8 +2188,8 @@ function _dataReleaseBullets(item) {
   // 1) Actual vs Forecast
   if (forecast !== null) {
     const diff = +(actual - forecast).toFixed(2);
-    if (diff > 0)      bullets.push(`Sort à <strong>${actual}</strong> vs <strong>${forecast}</strong> attendu — <strong>au-dessus</strong> du consensus (+${diff}).`);
-    else if (diff < 0) bullets.push(`Sort à <strong>${actual}</strong> vs <strong>${forecast}</strong> attendu — <strong>sous</strong> le consensus (${diff}).`);
+    if (diff > 0)      bullets.push(`Sort à <strong>${actual}</strong> vs <strong>${forecast}</strong> attendu : <strong>au-dessus</strong> du consensus (+${diff}).`);
+    else if (diff < 0) bullets.push(`Sort à <strong>${actual}</strong> vs <strong>${forecast}</strong> attendu : <strong>sous</strong> le consensus (${diff}).`);
     else               bullets.push(`Sort à <strong>${actual}</strong>, <strong>conforme</strong> aux attentes.`);
   } else {
     bullets.push(`Donnée publiée à <strong>${actual}</strong>.`);
@@ -2293,7 +2293,7 @@ function buildNewsItem(item) {
     // Les autres primers (institution/calendrier) gardent leur badge.
     const isReport = item._briefing || item.source === 'DTP';
     const _blab = isReport ? '' : primerBadgeLabel(item);
-    if (_blab) {   // badge seulement s'il y a un label (INSTITUTION/CALENDRIER) — plus de badge « ANALYST »
+    if (_blab) {   // badge seulement s'il y a un label (INSTITUTION/CALENDRIER) : plus de badge « ANALYST »
       const badge = document.createElement('span');
       badge.className = 'primer-badge';
       badge.textContent = _blab;
@@ -2323,7 +2323,7 @@ function buildNewsItem(item) {
     content.appendChild(expandEl);
   }
 
-  // Arrow column — sits between category col and content col
+  // Arrow column : sits between category col and content col
   arrowEl = document.createElement('div');
   arrowEl.className = 'news-arrow-col';
   if (expandEl) {
@@ -2355,7 +2355,7 @@ function buildNewsItem(item) {
     if (arrowEl) arrowEl.classList.add('news-arrow-col--open');
     activeTab = tab;
     if (item && item.id != null) _openNewsPanels[item.id] = tab;       // ouvert par l'utilisateur → reste ouvert (persiste)
-    // État actif des pills (Info/Analyse/Réaction) — un seul actif à la fois
+    // État actif des pills (Info/Analyse/Réaction) : un seul actif à la fois
     [infoTagEl, analysisTagEl, reactionTagEl].forEach(t => t && t.classList.remove('tag--active'));
     const _activePill = tab === 'info' ? infoTagEl : tab === 'analysis' ? analysisTagEl : reactionTagEl;
     if (_activePill) _activePill.classList.add('tag--active');
@@ -2505,7 +2505,7 @@ function buildNewsItem(item) {
           const _hay = ((item.headline || '') + ' ' + (item.tags || []).join(' ') + ' ' + (item.category || '')).toLowerCase();
           const _rxMoves = (data.moves || []).filter(m => _moveRelevant(m.label, _hay));
           if (!_rxMoves.length) {
-            // No real moves — remove the Réaction tag entirely and fall back to Info
+            // No real moves : remove the Réaction tag entirely and fall back to Info
             if (reactionTagEl) { reactionTagEl.remove(); reactionTagEl = null; }
             activeTab = null;
             if (hasInfo) {
@@ -2535,7 +2535,7 @@ function buildNewsItem(item) {
 
             // Explication Gemini du mouvement (mise en cache → 0 requête à la réouverture)
             const movesStr = _rxMoves.map(m => `${m.label} ${m.dir === 'up' ? '+' : '-'}${m.movePct}`).join(', ');
-            // Explication = LISTE À PUCES (1 phrase courte par puce, en langue source) — façon pro.
+            // Explication = LISTE À PUCES (1 phrase courte par puce, en langue source) : façon pro.
             const _applyExplain = val => {
               const arr = Array.isArray(val) ? val : (val ? [String(val)] : []);
               if (!arr.length) return;
@@ -2584,7 +2584,7 @@ function buildNewsItem(item) {
       return;
     }
 
-    // Info tab — if no inline description but has a ForexFactory article URL, fetch real content
+    // Info tab : if no inline description but has a ForexFactory article URL, fetch real content
     if (tab === 'info' && rawDesc.length <= 30 && hasArticleUrl) {
       expandEl.innerHTML = dtpLoader('Chargement du résumé…', { small: true });
       expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
@@ -2595,7 +2595,7 @@ function buildNewsItem(item) {
         .then(data => {
           if (activeTab !== 'info') return;
           if (data.points && data.points.length > 0) {
-            // Image illustrative (si l'article en a une) — propre, arrondie ; se retire d'elle-même si cassée.
+            // Image illustrative (si l'article en a une) : propre, arrondie ; se retire d'elle-même si cassée.
             const _img = (data.image && /^https?:\/\//.test(data.image))
               ? `<div class="article-img-wrap"><img class="article-img" src="${data.image}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.closest('.article-img-wrap').remove()"></div>`
               : '';
@@ -2611,7 +2611,7 @@ function buildNewsItem(item) {
         })
         .catch(() => {
           if (activeTab !== 'info') return;
-          // Network error — close panel silently, keep the tag
+          // Network error : close panel silently, keep the tag
           activeTab = null;
           expandEl.classList.remove('visible');
           if (arrowEl) arrowEl.classList.remove('news-arrow-col--open');
@@ -2619,7 +2619,7 @@ function buildNewsItem(item) {
       return;
     }
 
-    // Affichage immédiat (description brute) — instantané
+    // Affichage immédiat (description brute) : instantané
     expandEl.innerHTML = infoBody;
     expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
     // Contenu SOURCE anglais qui échappe aux résumés IA (citations speaker, propos agrégés, puces de la
@@ -2885,7 +2885,7 @@ function getUTCOffset(tz) {
   return h >= 0 ? `+${String(h).padStart(2,'0')}:00` : `-${String(Math.abs(h)).padStart(2,'0')}:00`;
 }
 
-// ═══ World Map (SVG legacy — hidden by CSS, kept for session overlays) ════════
+// ═══ World Map (SVG legacy : hidden by CSS, kept for session overlays) ════════
 function drawWorldMap() {
   const svg = document.getElementById('world-svg');
   if (!svg) return;
@@ -3102,7 +3102,7 @@ function closeSettings(e) {
 // ═══ Status toast ═════════════════════════
 let statusTimer = null;
 function showStatus(msg, type) {
-  if (type === 'ok') return;   // plus d'indicateur "Connected" (inutile) — on ne montre que les erreurs
+  if (type === 'ok') return;   // plus d'indicateur "Connected" (inutile) : on ne montre que les erreurs
   let el = document.querySelector('.connection-status');
   if (!el) {
     el = document.createElement('div');
@@ -3167,7 +3167,7 @@ function _renderRiskGauge(data) {
 }
 
 // Dropdowns : système ceq RETIRÉ (il faisait DOUBLON avec le système global `dtpsel`). Désormais TOUS les
-// <select> — filtres Analyst/Institution compris — sont stylés par l'UNIQUE système global `dtpsel`
+// <select> : filtres Analyst/Institution compris : sont stylés par l'UNIQUE système global `dtpsel`
 // (enhanceAllSelects + MutationObserver, plus bas dans ce fichier) → un seul et même design partout.
 
 function _applyRiskTopbar(data) {
@@ -3207,7 +3207,7 @@ function _renderRiskPopup(data) {
     'RISK-OFF':        'AVERSION AU RISQUE',
     'STRONG RISK-OFF': 'FORTE AVERSION AU RISQUE',
   };
-  // En-tête type "Sentiment de marché : AVERSION AU RISQUE" — libellé TRADUIT (la carte LABEL_FR
+  // En-tête type "Sentiment de marché : AVERSION AU RISQUE" : libellé TRADUIT (la carte LABEL_FR
   // existait mais n'était pas branchée : l'en-tête affichait le label serveur anglais brut).
   const frLbl = LABEL_FR[data.label] || data.label;
   if (lbl) { lbl.textContent = `Sentiment de marché : ${frLbl}`; lbl.className = 'rp-label ' + cls; }
@@ -3215,12 +3215,12 @@ function _renderRiskPopup(data) {
   // Dropdown épuré : pas de jauge ni de bande dans ce popup (la jauge vit dans l'onglet RISK)
   const gw = el('rp-gauge-wrap'); if (gw) gw.style.display = 'none';
   const band = el('rp-band'); if (band) band.style.display = 'none';
-  // Description longue (anglais) selon le niveau de risque — exactement comme l'image
+  // Description longue (anglais) selon le niveau de risque : exactement comme l'image
   const POPUP_DESC2 = {
     'STRONG RISK-ON':  { lead: 'Fort appétit pour le risque.', detail: 'Capitaux vers les actions et les actifs à fort bêta ; refuges largement vendus.', trade: 'Vent porteur pour AUD/NZD et les indices ; prudence sur JPY, CHF et l’or.' },
     'RISK-ON':         { lead: 'L’appétit pour le risque domine.', detail: 'Actions et cycliques recherchés, le positionnement défensif se dénoue.', trade: 'Biais favorable aux paires risquées et aux indices.' },
-    'WEAK RISK-ON':    { lead: 'Léger penchant pour le risque.', detail: 'Ton constructif mais conviction limitée, positionnement prudent.', trade: 'Biais haussier modéré — réduire la taille des positions.' },
-    'NEUTRAL':         { lead: 'Marché sans direction claire.', detail: 'Signaux mitigés sur l’ensemble des classes d’actifs, aucun biais dominant.', trade: 'Privilégier les ranges et la patience — attendre un catalyseur.' },
+    'WEAK RISK-ON':    { lead: 'Léger penchant pour le risque.', detail: 'Ton constructif mais conviction limitée, positionnement prudent.', trade: 'Biais haussier modéré : réduire la taille des positions.' },
+    'NEUTRAL':         { lead: 'Marché sans direction claire.', detail: 'Signaux mitigés sur l’ensemble des classes d’actifs, aucun biais dominant.', trade: 'Privilégier les ranges et la patience : attendre un catalyseur.' },
     'WEAK RISK-OFF':   { lead: 'La prudence s’installe.', detail: 'Refuges discrètement soutenus, volatilité en hausse.', trade: 'Alléger le risque ; surveiller le JPY et l’or.' },
     'RISK-OFF':        { lead: 'Recherche de sécurité.', detail: 'Positionnement défensif net ; préservation du capital prioritaire.', trade: 'Favorable JPY, CHF, or et obligations ; éviter les actifs risqués.' },
     'STRONG RISK-OFF': { lead: 'Aversion au risque marquée.', detail: 'Fuite vers les refuges (obligations, or, JPY, CHF), volatilité qui s’envole.', trade: 'Fortement favorable aux refuges ; couper ou couvrir le risque.' },
@@ -3525,7 +3525,7 @@ function isRead(id) {
   if (id == null) return false;
   return _readIds.has(String(id));
 }
-// ── Persistance PAR COMPTE de l'état « lu » (cartes Analyst grisées) — modèle symrecent (KV durable
+// ── Persistance PAR COMPTE de l'état « lu » (cartes Analyst grisées) : modèle symrecent (KV durable
 //    Supabase, dual-write → survit au blackout egress) : suit la reconnexion / le changement d'appareil.
 //    localStorage = cache instantané ; le KV serveur fait foi (fusion à l'ouverture). [[datatradingpro-feed-visibility]]
 let _readLoaded = false, _readSyncT = null;
@@ -3698,7 +3698,7 @@ function loadAnalystView() {
   }).finally(() => renderArlibList());
 }
 
-// ═══════════════════ ONGLET BIAS — Radar de Biais (matrice) ═══════════════════
+// ═══════════════════ ONGLET BIAS : Radar de Biais (matrice) ═══════════════════
 let _biasData    = null;
 let _biasView    = null;   // snapshot actuellement AFFICHÉ (courant ou semaine archivée)
 let _biasViewTs  = null;   // generatedAt de la semaine affichée
@@ -3712,7 +3712,7 @@ const SB_CLOCKS = [
 ];
 
 let _biasRetry = 0;
-// Skeleton de la matrice Radar de Biais — epouse la grille reelle (en-tetes devises + lignes indicateurs)
+// Skeleton de la matrice Radar de Biais : epouse la grille reelle (en-tetes devises + lignes indicateurs)
 // pour zero reflow. Ecrit dans #bias-content, que renderBiasView reecrit ensuite -> auto-efface.
 function _biasSkeleton() {
   const COLS = 7, ROWS = 9;
@@ -3737,12 +3737,12 @@ function loadBiasView() {
     .then(d => { if (!d || !d.currencies) throw new Error('no data'); _biasRetry = 0; _biasData = d; _biasView = d; _biasViewTs = d.generatedAt || 0; renderBiasView(d); })
     .catch(() => {
       if (_biasRetry++ < 20) { host.innerHTML = _biasSkeleton(); setTimeout(loadBiasView, 4000); }
-      else host.innerHTML = '<div class="bias-loading">Radar de Biais momentanément indisponible — réessaie dans un instant.</div>';
+      else host.innerHTML = '<div class="bias-loading">Radar de Biais momentanément indisponible : réessaie dans un instant.</div>';
     });
 }
 window.loadBiasView = loadBiasView;
 
-// ═══════════════════ SEMAINE À VENIR — aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
+// ═══════════════════ SEMAINE À VENIR : aperçu hebdomadaire (timeline + risk amCharts) ═══════════════════
 let _waData = null, _waChartRoot = null, _waPollTimer = null, _waPollCount = 0;
 async function loadWeekAheadView() {
   const host = document.getElementById('wa-content');
@@ -3758,16 +3758,16 @@ async function loadWeekAheadView() {
     _waPollCount++;
     const visible = !document.getElementById('view-weekahead')?.classList.contains('hidden');
     if (_waPollCount <= 6 && visible) {
-      host.innerHTML = _waSkel();   // skeleton (epouse .wa-wrap : placeholder graphe + cartes jour) au lieu du loader texte — zero pop-in
+      host.innerHTML = _waSkel();   // skeleton (epouse .wa-wrap : placeholder graphe + cartes jour) au lieu du loader texte : zero pop-in
       _waPollTimer = setTimeout(loadWeekAheadView, 12000);   // re-poll dans 12s
     } else {
-      host.innerHTML = `<div class="wa-empty">L'aperçu de la semaine se génère en arrière-plan — reviens dans quelques minutes, il s'affichera automatiquement.</div>`;
+      host.innerHTML = `<div class="wa-empty">L'aperçu de la semaine se génère en arrière-plan : reviens dans quelques minutes, il s'affichera automatiquement.</div>`;
     }
   } catch { if (!_waData) host.innerHTML = '<div class="wa-empty">Semaine à Venir indisponible pour le moment.</div>'; }
 }
 window.loadWeekAheadView = loadWeekAheadView;
 
-// Skeleton Semaine a Venir — epouse .wa-wrap (placeholder graphe + N cartes jour) ; injecte dans #wa-content
+// Skeleton Semaine a Venir : epouse .wa-wrap (placeholder graphe + N cartes jour) ; injecte dans #wa-content
 // PENDANT le polling -> auto-efface par _renderWeekAhead() qui reecrit #wa-content (et cree alors #wa-risk-chart).
 function _waSkel() {
   let days = '';
@@ -3843,7 +3843,7 @@ window._waToggle = _waToggle;
 function _waSyncNews(){ const src=document.getElementById('news-list'), dst=document.getElementById('wa-news-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.indexOf('empty-state')<0) dst.innerHTML=h; }
 function _waSyncCal(scroll){ const src=document.getElementById('cal-table-wrap'), dst=document.getElementById('wa-cal-body'); if(!src||!dst) return; const h=src.innerHTML; if(h && h.trim()) dst.innerHTML=h; const dr=document.getElementById('cal-daterange'), meta=document.getElementById('wa-cal-range'); if(dr&&meta) meta.textContent=(dr.textContent||'').trim();
   // Auto-scroll sur l'événement EN COURS (.cal-row--next), repli sur le dernier passé. Uniquement à
-  // l'ouverture (scroll=true) — PAS au refresh 60s, pour ne pas ramener l'utilisateur de force.
+  // l'ouverture (scroll=true) : PAS au refresh 60s, pour ne pas ramener l'utilisateur de force.
   if(scroll){ var row=dst.querySelector('.cal-row--next'); if(!row){ var p=dst.querySelectorAll('.cal-row--past'); row=p.length?p[p.length-1]:null; } if(row){ var cr=dst.getBoundingClientRect(), rr=row.getBoundingClientRect(); dst.scrollTop += (rr.top-cr.top) - dst.clientHeight/2 + rr.height/2; } }
 }
 window._waSyncNews=_waSyncNews; window._waSyncCal=_waSyncCal;
@@ -3873,7 +3873,7 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
   setInterval(_beat, 20000);
 })();
 
-// ── Semaine à Venir : glisser pour redimensionner — splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──
+// ── Semaine à Venir : glisser pour redimensionner : splitter vertical (frise/panneaux) + horizontal (ticker/calendrier). Volatil : reset au reload. ──
 (function initWaResize(){
   const wa3 = document.getElementById('wa3');
   const vsplit = document.getElementById('wa3-vsplit');
@@ -3910,7 +3910,7 @@ setInterval(function(){ const v=document.getElementById('view-weekahead'); if(v 
   drag(vsplit, 'x', wa3, '--wa-left');                                  // gauche/droite (sur #wa3)
   drag(hsplit, 'y', hsplit && hsplit.parentNode, '--wa-top');          // ticker/calendrier (sur .wa3-right)
 })();
-// Sparkline amCharts (Weekly Risk Profile) — orange mat, dégradé vers le noir, sans grille/axe (look cockpit).
+// Sparkline amCharts (Weekly Risk Profile) : orange mat, dégradé vers le noir, sans grille/axe (look cockpit).
 function _waBuildChart(days) {
   const el = document.getElementById('wa-risk-chart');
   if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
@@ -3957,7 +3957,7 @@ function _sbFlag(c) {
   const iso = SB_FLAG_ISO[c];
   return iso ? `<img class="sbm-flag" src="https://flagcdn.com/w20/${iso}.png" srcset="https://flagcdn.com/w40/${iso}.png 2x" alt="" loading="lazy">` : '';
 }
-// Libellés FR des valeurs de biais — appliqués UNIQUEMENT à l'affichage (badges/cellules du Radar
+// Libellés FR des valeurs de biais : appliqués UNIQUEMENT à l'affichage (badges/cellules du Radar
 // de Biais & Bias Summary). La valeur d'origine (v) reste la clé logique : classe (_sbColorCls),
 // score, comparaisons. → on n'enveloppe QUE le texte final affiché avec `BIAS_FR[v] || v`.
 const BIAS_FR = {
@@ -3966,7 +3966,7 @@ const BIAS_FR = {
   'Very Bearish': 'Très Baissier', 'Uptrend': 'Haussier', 'Downtrend': 'Baissier',
   'Range': 'Range', 'N/A': 'N/D',
 };
-// Libellés FR des badges d'impact (calendrier / Key Risk Events) — affichage UNIQUEMENT.
+// Libellés FR des badges d'impact (calendrier / Key Risk Events) : affichage UNIQUEMENT.
 // La valeur d'origine (HIGH/MED/LOW) reste la clé logique : data-imp, comparaisons, dérivation de classe.
 const IMPACT_FR = { HIGH: 'ÉLEVÉ', MED: 'MOYEN', LOW: 'FAIBLE' };
 // Valeur de biais → classe couleur sémantique FIXE (5 états, hex exacts DTP : voir CSS .sbm-*).
@@ -4004,7 +4004,7 @@ function renderBiasView(d) {
     `<th class="sbm-cur" onclick="_sbOpenSummary('${c}')"><span class="sbm-cur-in">${_sbFlag(c)}<span>${esc(c)}</span></span></th>`).join('')}</tr>`;
   // Fundamental Data & Bank Overview = accordéons dans la matrice (clic → sous-indicateurs par devise).
   const _accKeys = { fundamental: 1, bankOverview: 1 };
-  // Libelles FR de la matrice — IDENTIQUES a ceux de la synthese (volet gauche) pour que radar et
+  // Libelles FR de la matrice : IDENTIQUES a ceux de la synthese (volet gauche) pour que radar et
   // synthese listent exactement les memes indicateurs (demande : coherence logique + charte FR).
   const _sbRowFr = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
   const body = rows.map(r => {
@@ -4053,7 +4053,7 @@ function _sbWeekLabel(ts) {
     : `${mon.getDate()} ${_MOIS[_m1]} – ${sun.getDate()} ${_MOIS[_m2]} ${sun.getFullYear()}`;
 }
 
-// ── Panneau inférieur Bias Summary (clic sur une devise) — volet gauche (badges) + droite (narratif + risques) ──
+// ── Panneau inférieur Bias Summary (clic sur une devise) : volet gauche (badges) + droite (narratif + risques) ──
 let _sbActiveCur = null, _sbSplitFrac = 0.30, _sbMatrixH = null;   // 30% gauche / 70% droite (façon DTP) · _sbMatrixH = hauteur matrice (null = auto)
 // Splitter orange HORIZONTAL : glisser pour redimensionner la matrice ↔ le panneau détail.
 function _sbVSplitStart(e) {
@@ -4089,7 +4089,7 @@ function _sbRenderHeadDd(active) {
   el.innerHTML = _sbCurDropdown(a, cur) + _sbDateDropdown(_biasViewTs != null ? _biasViewTs : (d.generatedAt || 0));
 }
 window._sbRenderHeadDd = _sbRenderHeadDd;
-// Dropdown HISTORIQUE de dates (versioning Radar de Biais, 5 semaines max) — format DTP "1-7/06/2026".
+// Dropdown HISTORIQUE de dates (versioning Radar de Biais, 5 semaines max) : format DTP "1-7/06/2026".
 function _sbDateDropdown(activeTs) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const hist = (_biasData && Array.isArray(_biasData.history) ? _biasData.history : []).slice(0, 5);
@@ -4171,7 +4171,7 @@ function _sbOpenSummary(curr) {
   const tval = key => { const o = d[key]; return (o && o[curr]) ? o[curr] : null; };
   const overall = (d.conclusion || {})[curr] || 'N/A';
 
-  // Lignes d'indicateurs (volet gauche) — chaque ligne = libellé + badge 64px coloré.
+  // Lignes d'indicateurs (volet gauche) : chaque ligne = libellé + badge 64px coloré.
   const line = (label, v, opts) => {
     if (v == null) return '';
     const o = opts || {};
@@ -4190,7 +4190,7 @@ function _sbOpenSummary(curr) {
     line('Politique monétaire', val('monetary')),
     line('Tendance', val('trend')),
     line('Seasonality', val('seasonality')),
-    // Ligne Overall (conclusion) — encadrée orange façon DTP, en bas de la liste.
+    // Ligne Overall (conclusion) : encadrée orange façon DTP, en bas de la liste.
     `<div class="sbs-row sbs-row--overall"><span class="sbs-row-lbl">Overall</span><span class="sbs-badge ${_sbColorCls(overall)}">${/bull|uptrend/i.test(overall) ? '↗ ' : /bear|downtrend/i.test(overall) ? '↘ ' : ''}${esc(BIAS_FR[overall] || overall)}</span></div>`,
   ].filter(Boolean).join('');
 
@@ -4208,7 +4208,7 @@ function _sbOpenSummary(curr) {
         <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${leftRows}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
         <div class="sbs-right" id="sbs-right">
-          <div class="sbs-narr-title">${esc(curr)} — Performance de la semaine dernière :</div>
+          <div class="sbs-narr-title">${esc(curr)} : Performance de la semaine dernière :</div>
           <div class="sbs-narr">${narrative}</div>
           <div class="sbs-risk" id="sbs-riskevents"></div>
         </div>
@@ -4225,7 +4225,7 @@ window._sbOpenSummary = _sbOpenSummary;
 function _sbCloseSummary() { const w = document.getElementById('sbm-summary'); if (w) w.innerHTML = ''; _sbActiveCur = null; }
 window._sbCloseSummary = _sbCloseSummary;
 
-// « Risques clés de la semaine » (façon pro) — événements calendrier HIGH/MEDIUM À VENIR pour la
+// « Risques clés de la semaine » (façon pro) : événements calendrier HIGH/MEDIUM À VENIR pour la
 // devise, groupés par jour. Source = /api/calendar-events (déjà chargé par _sbLoadCal). 0 IA, 0 invention.
 function _sbRenderRiskEvents(curr) {
   const host = document.getElementById('sbs-riskevents');
@@ -4238,7 +4238,7 @@ function _sbRenderRiskEvents(curr) {
     const evs = (_sbCalEv || [])
       .filter(e => e && e.currency === curr && (e.impact === 'High' || e.impact === 'Medium')
         && e.timestamp >= now - 12 * 3600000 && e.timestamp <= now + 8 * 86400000
-        && ![0, 6].includes(new Date(e.timestamp).getDay())   // SEMAINE uniquement — pas de samedi/dimanche (marché fermé)
+        && ![0, 6].includes(new Date(e.timestamp).getDay())   // SEMAINE uniquement : pas de samedi/dimanche (marché fermé)
         && !/holiday|bank holiday/i.test(e.title || ''))
       .sort((a, b) => a.timestamp - b.timestamp);
     if (!evs.length) { host.innerHTML = ''; return; }
@@ -4347,7 +4347,7 @@ function _sbRenderFundChildren(box, cur) {
     const ev = evs.filter(e => sub.re.test(e.title || '')).sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
     const stance = ev ? _sbFundStance(ev.actual, ev.forecast) : null;
     // Pas de publication récente → Neutral par défaut (convention du terminal : pas de donnée = Neutral, jamais de case vide)
-    if (!stance) return `<div class="sbs-row sbs-row--child" title="Pas de publication récente — Neutre par défaut"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls('Neutral')}">${BIAS_FR['Neutral']}</span></div>`;
+    if (!stance) return `<div class="sbs-row sbs-row--child" title="Pas de publication récente : Neutre par défaut"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls('Neutral')}">${BIAS_FR['Neutral']}</span></div>`;
     return `<div class="sbs-row sbs-row--child" title="${esc(ev.title)} : ${esc(ev.actual)} vs ${esc(ev.forecast)}"><span class="sbs-row-lbl">${esc(sub.label)}</span><span class="sbs-badge ${_sbColorCls(stance)}">${esc(BIAS_FR[stance] || stance)}</span></div>`;
   }).join('');
 }
@@ -4475,7 +4475,7 @@ function _sbLoadRiskEvents() {
     const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
     box.innerHTML = days.map(day => {
       const hi = /high/i.test(day.impact || ''); const imp = hi ? 'HIGH' : (/(medium|med)/i.test(day.impact || '') ? 'MED' : 'LOW');
-      return `<div class="sbs-risk-row"><span class="sbs-risk-day">${esc((day.dow || '').slice(0, 3))} — ${esc(day.title || '')}</span><span class="sbs-risk-imp sbs-imp--${imp.toLowerCase()}">${IMPACT_FR[imp] || imp}</span></div>`;
+      return `<div class="sbs-risk-row"><span class="sbs-risk-day">${esc((day.dow || '').slice(0, 3))} : ${esc(day.title || '')}</span><span class="sbs-risk-imp sbs-imp--${imp.toLowerCase()}">${IMPACT_FR[imp] || imp}</span></div>`;
     }).join('');
   };
   if (_waData) { render(_waData); return; }
@@ -4503,7 +4503,7 @@ function _sbStartClocks() {
   _sbClockTimer = setInterval(tick, 1000);
 }
 
-// ═══════════════════ ONGLET BANK — transactions bancaires ═══════════════════
+// ═══════════════════ ONGLET BANK : transactions bancaires ═══════════════════
 let _bankPositions = [];
 let _bankActiveId  = null;
 let _bankChartRoot = null;
@@ -4762,7 +4762,7 @@ function buildBankChart(p) {
       cursor.lineX.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
       cursor.lineY.setAll({ stroke: am5.color(0x52525c), strokeDasharray: [3, 3], strokeOpacity: 0.9 });
 
-      // ── Lignes Entry / Take Profit / Stop Loss + prix LIVE — clone pro : pilule de NOM collée au
+      // ── Lignes Entry / Take Profit / Stop Loss + prix LIVE : clone pro : pilule de NOM collée au
       // bord droit DU GRAPHE + pilule de VALEUR sur l'axe de prix (façon TradingView). La ligne du
       // prix live (verte, pointillée) bouge ensuite à chaque refresh sans recharger le chart. ──
       const fmtFr = v => v.toLocaleString('fr-FR', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -4951,7 +4951,7 @@ const _BR_CAP_PER_DAY = 35;
 // ── Anti-doublon de rapports (Analyst + Institution) ────────────────────────
 // Aucun rapport ne doit apparaître deux fois (seeds qui se recoupent, re-scrape, même rapport
 // servi par deux flux). Clé d'unicité : l'URL (identifiant le plus fiable) ; à défaut,
-// source/banque + JOUR + titre normalisé — un même titre un AUTRE jour n'est PAS un doublon
+// source/banque + JOUR + titre normalisé : un même titre un AUTRE jour n'est PAS un doublon
 // (ex. « Daily Coffee Break » publié chaque jour).
 function _reportDedupKey(item) {
   let u = String(item && item.url || '').trim().toLowerCase();
@@ -5008,7 +5008,7 @@ function _brBalanceByDay(arr) {
 
 let _brRows = {};   // id -> item : clic délégué sur les lignes du tableau Institution
 let _brWarmTimer = null;   // débounce du préchauffage PDF proactif (après filtre/recherche stabilisé)
-// Skeleton catalogue Institution — memes colonnes que la table Analyste (colgroup arl-col-inst-br), ~10 lignes.
+// Skeleton catalogue Institution : memes colonnes que la table Analyste (colgroup arl-col-inst-br), ~10 lignes.
 // Injecte dans #br-list tant que _brArticles est vide -> auto-efface par le renderBrList() plein.
 function _brSkel() {
   let rows = '';
@@ -5057,7 +5057,7 @@ function renderBrList() {
     return;
   }
 
-  // ── Rendu en TABLEAU institutionnel (Date | Titre | Institut) — identique à l'onglet Analyst ──
+  // ── Rendu en TABLEAU institutionnel (Date | Titre | Institut) : identique à l'onglet Analyst ──
   if (footer) footer.textContent = 'Affichage de ' + items.length + ' sur ' + all.length + ' document' + (all.length > 1 ? 's' : '') + ' de recherche';
   _brRows = {};
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -5225,7 +5225,7 @@ const _BANK_LOCAL_LOGO = {
   CIBC:      '/assets/images/banks/CIBC.png',        // losange rouge CIBC Capital Markets
   Nordea:    '/assets/images/banks/Nordea.png',      // icône bleue Nordea (fond blanc keyé)
   'Lloyds Bank': '/assets/images/banks/Lloyds.png',  // cheval blanc Lloyds Bank (recoloré)
-  KBC:       '/assets/images/banks/KBC.svg',         // logo KBC (cercle bleu + KBC blanc) — SVG
+  KBC:       '/assets/images/banks/KBC.svg',         // logo KBC (cercle bleu + KBC blanc) : SVG
   StanChart: '/assets/images/banks/StanChart.png',   // logo Standard Chartered (téléchargé en local)
 };
 // HTML du logo : <img vrai logo> avec repli automatique (onerror) sur le wordmark coloré → jamais cassé.
@@ -5336,7 +5336,7 @@ async function _brEmbedPdf(item, endpointUrl) {
   const ttl = (item.title || 'PDF').replace(/"/g, '');
   // PDF.js CANVAS partout (desktop + mobile) : rendu fiable + scrollbar CUSTOM du desk (le canvas vit dans
   // #br-rcontent, scrollbar 11px stylée), au lieu de la scrollbar NATIVE de la visionneuse iframe de Chrome
-  // (flèches, non stylable — « met le scroller comme le desk »). Repli iframe (desktop) si PDF.js indispo.
+  // (flèches, non stylable : « met le scroller comme le desk »). Repli iframe (desktop) si PDF.js indispo.
   if (window.pdfjsLib) { try { if (await _brRenderPdfCanvas(content, buf.slice(0), ttl)) return true; } catch (e) {} }
   if (window.innerWidth <= 768) return false;            // MOBILE : jamais d'iframe (cadre gris sur WebKit) → carte « ouvrir l'original »
   try { if (window._brBlobUrl) URL.revokeObjectURL(window._brBlobUrl); } catch {}   // DESKTOP sans PDF.js → iframe blob same-origin
@@ -5428,7 +5428,7 @@ function renderBrReader(item) {
   if (tagsEl)  tagsEl.innerHTML    = _brTags(item).map(t => `<span class="br-rtag">${t}</span>`).join('');
   if (content) content.classList.remove('br-rcontent--pdf');
 
-  // ── Éclairages IA (carrousel au-dessus, TOUJOURS — y compris au-dessus d'un PDF, façon pro) ──
+  // ── Éclairages IA (carrousel au-dessus, TOUJOURS : y compris au-dessus d'un PDF, façon pro) ──
   let brIns = document.getElementById('br-ai-insights');
   if (!brIns && content) {
     brIns = document.createElement('div');
@@ -5438,7 +5438,7 @@ function renderBrReader(item) {
   const brBtn = document.getElementById('br-insights-btn');
   if (brBtn) { brBtn.style.display = ''; brBtn.innerHTML = `${_EYE_OFF} Masquer Insights`; brBtn.onclick = () => aiInsToggle(brBtn, 'br-ai-insights'); }
 
-  // ── VRAI PDF de la banque, affiché BRUT (proxifié) — ZÉRO restructuration IA : rapport déjà en .pdf
+  // ── VRAI PDF de la banque, affiché BRUT (proxifié) : ZÉRO restructuration IA : rapport déjà en .pdf
   //    (BlackRock, Danske…) OU article ING Think (PDF dérivé de l'URL). Insights conservés au-dessus.
   let _realPdf = '';
   if (item && item._pdfUrl) _realPdf = item._pdfUrl;                                   // PDF natif fourni par la source (ex. SEB : attachment.fileName)
@@ -5805,7 +5805,7 @@ const REPORT_PREFIX = {
   'FX Daily Recap':             'FX Daily Recap',
   'FX Daily':                   'FX Daily',
   // 'DTP Daily' : PAS de préfixe → le headline « DTP Daily US Opening News - <date> » s'affiche tel quel
-  // Sessions — nomenclature demandée
+  // Sessions : nomenclature demandée
   'Asia Opening Preparation':   'Daily Asia-Pac Opening News',
   'London Opening Preparation': 'London Opening Preparation',
   'US Opening Preparation':     'New York Opening Preparation',
@@ -5847,7 +5847,7 @@ function _reportPrefixFor(item) {
 // le préfixe d'origine "… markets wrap :" pour ne garder que le sujet.
 // Wrapper : le titre renvoyé est TOUJOURS sans markdown brut, quel que soit le chemin de retour
 // (y compris le raccourci `aiTitle` des wraps InvestingLive qui contournait arlibCleanTitle).
-// Traduction FR — appliquée UNIQUEMENT à l'affichage final du titre (les clés/détection restent EN).
+// Traduction FR : appliquée UNIQUEMENT à l'affichage final du titre (les clés/détection restent EN).
 const REPORT_PREFIX_FR = {
   'Global Economic Weekly': 'Hebdo Économique Mondial',
   'Weekly Market Recap': 'Récap Hebdo des Marchés',
@@ -5902,7 +5902,7 @@ function getArlibItems() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
   // Session wraps InvestingLive…
   const wraps = (_sessionWraps || []).filter(i => i.timestamp > cutoff);
-  // …+ UN SEUL Weekly Market Recap (le meilleur) — anti-doublon.
+  // …+ UN SEUL Weekly Market Recap (le meilleur) : anti-doublon.
   // On rassemble tous les candidats (store /api/weekly-reports + flux temps réel), puis on n'en
   // garde QU'UN : priorité au format riche v2, puis au plus récent.
   const cand = [
@@ -5924,7 +5924,7 @@ function getArlibItems() {
     if (av !== bv) return bv - av;
     return b.timestamp - a.timestamp;
   })[0];
-  // …+ UN SEUL FX Daily Recap (le plus récent) — rapport analyste QUOTIDIEN façon pro, servi par /api/weekly-reports.
+  // …+ UN SEUL FX Daily Recap (le plus récent) : rapport analyste QUOTIDIEN façon pro, servi par /api/weekly-reports.
   const bestFxr = (_weeklyReports || [])
     .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff)
     .sort((a, b) => b.timestamp - a.timestamp)[0];
@@ -5940,9 +5940,9 @@ function getArlibItems() {
     .sort(_arlibReportSort);
 }
 
-// Tri façon pro (« comme sur l'image ») : STRICT anti-chronologique — le rapport le plus RÉCENT en
+// Tri façon pro (« comme sur l'image ») : STRICT anti-chronologique : le rapport le plus RÉCENT en
 // haut, tous types confondus. EXCEPTION : les 2 rapports hebdo (Weekly Market Recap + Global Economic
-// Weekly) restent COLLÉS — ancrés sur le même timestamp (_wkAnchorTs, le + récent des deux) → jamais
+// Weekly) restent COLLÉS : ancrés sur le même timestamp (_wkAnchorTs, le + récent des deux) → jamais
 // séparés par les recaps de session, et ordonnés Weekly Recap puis Global Economic Weekly.
 let _wkAnchorTs = 0;   // défini par getArlibItems juste avant le tri
 function _isWeeklyReport(i) { return !!(i && (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly')); }
@@ -5999,7 +5999,7 @@ const _ARLIB_TAG_CHECKS = [
   [/hawk|dovish|rate cut|rate hike|rate hold|basis point|\bbps\b/, 'Rates'],
 ];
 // Canonicalisation + déduplication des tags : empêche DÉFINITIVEMENT les quasi-doublons
-// (ex. « Geopolitics » + « Geopolitical » côte à côte) — on garde « Geopolitical ». Dédup insensible à la casse.
+// (ex. « Geopolitics » + « Geopolitical » côte à côte) : on garde « Geopolitical ». Dédup insensible à la casse.
 function _canonTag(t) {
   t = String(t || '').trim();
   if (/^geopolitic/i.test(t)) return 'Geopolitical';
@@ -6079,7 +6079,7 @@ function arlibCleanTitle(headline) {
 // ── Render card list ──────────────────────────────────────────────────────────
 
 let _arlibRows = {};   // id -> item : clic délégué sur les lignes du tableau (rendu via innerHTML)
-// Skeleton catalogue Analyste — memes colonnes (bookmark/date/titre/institut) que .arlib-table, ~10 lignes.
+// Skeleton catalogue Analyste : memes colonnes (bookmark/date/titre/institut) que .arlib-table, ~10 lignes.
 // Injecte dans #arlib-list tant qu'aucune source n'est chargee -> auto-efface par le renderArlibList() plein.
 function _arlibSkel() {
   let rows = '';
@@ -6235,7 +6235,7 @@ async function _loadAIInsights(item, el) {
       return `<div class="ai-insights-card">${head}<div class="ai-card-text">${mdb(ins.text || '')}</div></div>`;
     }).join('');
     const chip = `<img class="ai-insights-logo" src="/assets/images/macro-ai-spark.svg" alt="Copilote Macro" width="20" height="20">`;
-    // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) — défilement manuel via les flèches
+    // Cartes en ligne SCROLLABLE (comme l'onglet Analyst) : défilement manuel via les flèches
     el.innerHTML = `<div class="ai-insights-head">
         <span class="ai-insights-title">${chip} Éclairages IA</span>
         <span class="ai-insights-nav">
@@ -6252,7 +6252,7 @@ async function _loadAIInsights(item, el) {
     }
   }
 }
-// Compteur de pagination "1-3 of 10" — mis à jour selon la position de défilement du carrousel
+// Compteur de pagination "1-3 of 10" : mis à jour selon la position de défilement du carrousel
 function _aiInsCount(cardsEl) {
   if (!cardsEl) return;
   const head = cardsEl.previousElementSibling;
@@ -6291,7 +6291,7 @@ function aiInsToggle(btn, hostId) {
   btn.innerHTML = willHide ? `${_EYE} Afficher Insights` : `${_EYE_OFF} Masquer Insights`;
 }
 
-// ═══════════ WEEKLY MARKET RECAP — rendu riche (copie DataTradingPro) ═══════════
+// ═══════════ WEEKLY MARKET RECAP : rendu riche (copie DataTradingPro) ═══════════
 function _wrEsc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 // **gras** → <strong> (jamais d'astérisques brutes), PUIS on retire tout astérisque résiduel
 // (marqueur non apparié d'un ancien rapport en cache) → plus aucun ** ne peut apparaître.
@@ -6333,7 +6333,7 @@ function _renderWeeklyRecap(item) {
   // strip markdown (**gras**, *, `, _) du titre → jamais d'astérisques brutes affichées
   const _wrTitle = _mdStrip(w.gew ? _reportTitleToFR(String(w.title || 'Global Economic Weekly')) : standardizeReportTitle({ _reportType: 'Weekly Market Recap', headline: w.title }));
   // Barre de navigation : titre seul (le "Week Ending: …" reste sous le titre dans le corps,
-  // via .wr-doc-week — l'afficher aussi ici cassait la mise en page).
+  // via .wr-doc-week : l'afficher aussi ici cassait la mise en page).
   if (titleEl) titleEl.textContent = _wrTitle;
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = '';   // pas de badges : rapport lu de haut en bas
@@ -6374,7 +6374,7 @@ function _renderWeeklyRecap(item) {
   // Bloc titre RETIRÉ du corps : le titre reste dans la barre de nav (en haut) et la période dans le
   // créneau date (haut-droite) → le rapport s'ouvre directement sur son contenu, sans titre répété.
   if (isGew) {
-    // ── GLOBAL ECONOMIC WEEKLY (Bilan de la semaine écoulée) — rendu CLARIFIÉ : les temps forts d'abord,
+    // ── GLOBAL ECONOMIC WEEKLY (Bilan de la semaine écoulée) : rendu CLARIFIÉ : les temps forts d'abord,
     //    puis la synthèse, puis le calendrier complet avec résultats. Libellés + dates en français.
     const _IMP_LBL = { HIGH: 'FORT', MED: 'MOYEN', MEDIUM: 'MOYEN', LOW: 'FAIBLE' };
     const _impCls = i => { const u = String(i || '').toUpperCase(); return u === 'HIGH' ? 'high' : (u === 'MED' || u === 'MEDIUM') ? 'med' : 'low'; };
@@ -6395,12 +6395,12 @@ function _renderWeeklyRecap(item) {
       });
       body += `</div>`;
     }
-    // 1) SYNTHÈSE (narratif IA — vue d'ensemble globale/régionale)
+    // 1) SYNTHÈSE (narratif IA : vue d'ensemble globale/régionale)
     if (w.highlights) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
     }
-    // 1b) BILAN ÉTATS-UNIS (US Review façon pro — deep-dive sur les données US de la semaine écoulée)
+    // 1b) BILAN ÉTATS-UNIS (US Review façon pro : deep-dive sur les données US de la semaine écoulée)
     if (w.usPreview) {
       body += `<div class="wr-section-title">Bilan États-Unis</div>`;
       body += `<div class="wr-text">${_wrParas(w.usPreview)}</div>`;
@@ -6432,7 +6432,7 @@ function _renderWeeklyRecap(item) {
   } else {
     // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Points Macro Clés + analyse par devise (rétrospectif) ──
     if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
-    // Vue d'ensemble de la force des devises (les 8) — AVANT les Points Macro Clés (demandé).
+    // Vue d'ensemble de la force des devises (les 8) : AVANT les Points Macro Clés (demandé).
     // FIGÉE sur la semaine du rapport (badge à droite) : un recap récapitule UNE semaine, donc le chart
     // ne dérive jamais (snapshot serveur). Rouvert plus tard → toujours les données de CETTE semaine-là.
     body += `<div class="wr-cs-head"><div class="wr-section-title">Force des Devises</div>`
@@ -6460,7 +6460,7 @@ function _renderWeeklyRecap(item) {
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
         drivers.forEach(d => {
           body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
-          // v5 : drivers à BULLETS (façon pro — plusieurs puces par sous-section) ; rétro-compat ancien {detail}.
+          // v5 : drivers à BULLETS (façon pro : plusieurs puces par sous-section) ; rétro-compat ancien {detail}.
           if (Array.isArray(d.bullets) && d.bullets.length) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
           else if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
         });
@@ -6484,13 +6484,13 @@ function _renderWeeklyRecap(item) {
   } else {
     // GARDE-FOU : le repli live (?period=week = semaine COURANTE) n'est légitime QUE si le rapport
     // couvre la semaine en cours. Pour une semaine révolue sans snapshot, on n'affiche PLUS JAMAIS la
-    // mauvaise semaine : message d'attente — le backfill serveur (_maybeBackfillRecapCs) fournit w.cs
+    // mauvaise semaine : message d'attente : le backfill serveur (_maybeBackfillRecapCs) fournit w.cs
     // au prochain chargement (recalcul figé de LA semaine du rapport).
     const _covMon = (() => { try { const a = String(w.weekEnding || '').split('.').map(Number); if (a.length !== 3 || !a[0] || !a[1] || !a[2]) return 0; return Date.UTC(a[2], a[1] - 1, a[0]) - 4 * 86400000; } catch { return 0; } })();
     const _monNow = (() => { const m = new Date(); const dw = m.getUTCDay(); m.setUTCDate(m.getUTCDate() - (dw === 0 ? 6 : dw - 1)); m.setUTCHours(0, 0, 0, 0); return m.getTime(); })();
     if (_covMon && _covMon !== _monNow) {
       _wrStrengthData = null;
-      content.querySelectorAll('[data-wr-chart], #wr-cs-all').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises de la semaine du rapport en cours de reconstruction — rouvre le rapport dans quelques minutes.</div>');
+      content.querySelectorAll('[data-wr-chart], #wr-cs-all').forEach(el => el.innerHTML = '<div class="wr-chart-loading">Force des devises de la semaine du rapport en cours de reconstruction : rouvre le rapport dans quelques minutes.</div>');
     } else {
       _wrStrengthData = null;
       fetch('/api/currency-strength?period=week').then(r=>r.json()).then(d => {
@@ -6504,7 +6504,7 @@ function _renderWeeklyRecap(item) {
   }
 }
 
-// ═══════════ FX DAILY RECAP — rendu riche (structure la référence exacte) ═══════════
+// ═══════════ FX DAILY RECAP : rendu riche (structure la référence exacte) ═══════════
 // Executive Summary → Top Headlines → Regional Analysis (cartes pays + sous-sections) → Central Bank
 // Focus → Key Economic Data (table rowspan) → Analyst Comments → Corporate News → Looking Ahead (table).
 function _renderFXDailyRecap(item) {
@@ -6636,7 +6636,7 @@ function _renderFXDailyRecap(item) {
     body += '</tbody></table></div>';
   }
 
-  // ── Commentaires marquants (notable comments) — tout en bas du rapport ──
+  // ── Commentaires marquants (notable comments) : tout en bas du rapport ──
   if (w.notableCommentsHtml) body += _sec('Commentaires marquants') + `<div class="fxdr-notable">${w.notableCommentsHtml}</div>`;
 
   content.innerHTML = `<div class="fxdr">${insightsHtml}<div class="fxdr-body">${body}</div></div>`;
@@ -6669,7 +6669,7 @@ function _wrLazyCharts(content) {
   charts.forEach(el => _wrChartObserver.observe(el));
 }
 
-// ── « Point Marché · Ouverture US » (DTP Daily) — rapport quotidien de midi, rendu en SECTIONS (puces / paragraphes / tableau de données) ──
+// ── « Point Marché · Ouverture US » (DTP Daily) : rapport quotidien de midi, rendu en SECTIONS (puces / paragraphes / tableau de données) ──
 function _renderDTPDaily(item) {
   const w = item._dtpd || {};
   const titleEl    = document.getElementById('arlib-rnav-title');
@@ -6724,7 +6724,7 @@ function renderArlibReader(item) {
   insightsEl.innerHTML = '';
   // Les sources à contenu ASYNCHRONE (session wraps InvestingLive, ING Think) rechargent les
   // insights APRÈS le chargement du contenu (avec le vrai texte complet). On NE les charge PAS
-  // ici — sinon double requête + le panneau se VIDE pendant le chargement = les Éclairages IA
+  // ici : sinon double requête + le panneau se VIDE pendant le chargement = les Éclairages IA
   // "disparaissent". On laisse un placeholder « analyse… » jusqu'à ce que le contenu soit prêt.
   const _asyncSrc = item && (item._source === 'investinglive' || item._source === 'ing-think');
   if (_asyncSrc) {
@@ -6902,7 +6902,7 @@ function renderArlibReader(item) {
       });
     }
 
-    // (Section SOURCES retirée — prenait trop de place)
+    // (Section SOURCES retirée : prenait trop de place)
 
     return html;
   }
@@ -6967,7 +6967,7 @@ function renderArlibReader(item) {
         const metaBar = '<div class="arlib-rhead">'
           + '<div class="arlib-rtype">' + _esc6(_m0 ? _m0[1] : 'Bank Research') + '</div>'
           + '<div class="arlib-rtitle">' + _esc6(_m0 ? _m0[2] : _full0) + '</div>'
-          + '<div class="arlib-rsub">ING — THINK economic and financial analysis — ' + dateStr + '</div>'
+          + '<div class="arlib-rsub">ING : THINK economic and financial analysis : ' + dateStr + '</div>'
           + (item.description ? '<div class="arlib-rsub">' + _esc6(item.description) + '</div>' : '')
           + '</div>';
         if (data.html && data.html.length > 100) {
@@ -6991,7 +6991,7 @@ function renderArlibReader(item) {
   if (item._briefing || item.source === 'DTP') {
     const bullets = parsePrimerBullets(item.description);
     if (!bullets.length) {
-      html = `<div class="arlib-rno-content">Aucun contenu — régénérez le rapport.</div>`;
+      html = `<div class="arlib-rno-content">Aucun contenu : régénérez le rapport.</div>`;
     } else {
       const dateStr = new Date(item.timestamp).toLocaleDateString('fr-FR', { weekday:'long', day:'2-digit', month:'long', year:'numeric' });
       // Premier bullet = ligne méta (date/heure du rapport)
@@ -7208,7 +7208,7 @@ function _npStripSrc(s) {
     .replace(/\s{2,}/g, ' ').trim();
 }
 
-// ── DOM refs (deferred — DOM might not be ready yet) ──────────
+// ── DOM refs (deferred : DOM might not be ready yet) ──────────
 function _npEl(id) { return document.getElementById(id); }
 
 // ── Init ─────────────────────────────────────────────────────
@@ -7376,7 +7376,7 @@ function npPush(items) {
     _npPlaySound(_npVolumeLevel());
   }
 
-  // Web Push notification (only for high priority items) — JAMAIS de son OS : on force silent:true
+  // Web Push notification (only for high priority items) : JAMAIS de son OS : on force silent:true
   // (le carillon interne est la SEULE source de son), et on ne crée RIEN si le son est coupé.
   const muted = (typeof _npGlobalMute === 'function' && _npGlobalMute());
   if (_npPush && !muted && 'Notification' in window && Notification.permission === 'granted') {
@@ -7386,7 +7386,7 @@ function npPush(items) {
         body:   hi.headline,
         icon:   '/favicon.png',
         tag:    'dtp-' + hi.id,
-        silent: true,   // pas de son OS — seul le carillon interne (respectant Muet) sonne
+        silent: true,   // pas de son OS : seul le carillon interne (respectant Muet) sonne
       });
     }
   }
@@ -7444,7 +7444,7 @@ function _npRenderList() {
 
   const frag = document.createDocumentFragment();
   // Fondu léger UNIQUEMENT sur les notifications apparues depuis le dernier rendu (même esprit que le fil
-  // de news) — jamais au changement de filtre ni sur ce qui a déjà été affiché. IDs marqués sur TOUT
+  // de news) : jamais au changement de filtre ni sur ce qui a déjà été affiché. IDs marqués sur TOUT
   // _npItems (insensible aux filtres) ; dtp-fade-in se termine à opacity 1 (fill both), donc sans risque.
   const _npSeen = _npRenderList._seen || (_npRenderList._seen = new Set());
   const _npFresh = _npSeen.size ? _npItems.filter(i => i.id && !_npSeen.has(i.id)).map(i => i.id) : [];
@@ -7527,7 +7527,7 @@ function _npSyncUI() {
   }
 }
 
-// ── Sound engine (Web Audio API — no audio files needed) ──────
+// ── Sound engine (Web Audio API : no audio files needed) ──────
 function _npPlaySound(volume) {
   // Garde dure : aucun son si OFF / Muet / carillon désactivé, quel que soit l'appelant
   if (typeof _npGlobalMute === 'function' && _npGlobalMute()) return;
@@ -7561,12 +7561,12 @@ function _npPlaySound(volume) {
       osc.stop(start + 0.92);
     });
   } catch (e) {
-    // AudioContext might be blocked before user interaction — silent fail
+    // AudioContext might be blocked before user interaction : silent fail
   }
 }
 
 // ═══════════════════════════════════════════════════════════════
-// LIVE SQUAWK  (sqwk-) — flux de commentaire de marché mot-par-mot
+// LIVE SQUAWK  (sqwk-) : flux de commentaire de marché mot-par-mot
 // ═══════════════════════════════════════════════════════════════
 const _sqwkMessages = [];           // { id, ts, text }
 let   _sqwkAuto       = false;
@@ -7574,7 +7574,7 @@ let   _sqwkAutoTimer  = null;       // tick toutes les 10s
 let   _sqwkStreamTimer = null;      // sous-intervalle mot-par-mot (150ms)
 
 const _sqwkProcessed = new Set();   // IDs de news déjà diffusées (anti-doublon)
-let   _sqwkLive       = false;       // Flash Marché LIVE = audio/voix (bouton play) — indépendant du texte auto
+let   _sqwkLive       = false;       // Flash Marché LIVE = audio/voix (bouton play) : indépendant du texte auto
 let   _sqwkStarted    = false;       // flux déjà amorcé (évite de re-marquer l'existant à chaque toggle)
 
 function _sqwkTime() { return new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
@@ -7598,7 +7598,7 @@ function _sqwkRender() {
   ).join('');
 }
 
-// Voix "salle de marché" (Web Speech API, gratuite) — synchronisée avec l'écriture
+// Voix "salle de marché" (Web Speech API, gratuite) : synchronisée avec l'écriture
 function _sqwkSpeak(text) {
   if (!_sqwkLive || !('speechSynthesis' in window)) return;
   if (typeof _npGlobalMute === 'function' && _npGlobalMute()) return;   // "Muet"/OFF des notifs = silence global (pas de voix)
@@ -7708,7 +7708,7 @@ function sqwkToggle() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// CHAT SUPPORT  (chat-) — conversation persistante avec le support
+// CHAT SUPPORT  (chat-) : conversation persistante avec le support
 // ═══════════════════════════════════════════════════════════════
 let _chatPollTimer = null;
 let _chatLiveTimer = null;    // rafraîchissement live tant que le panneau est ouvert
@@ -7887,7 +7887,7 @@ function _chatInbox(){
     fetch('/api/support/users').then(r => r.ok ? r.json() : Promise.reject(r.status)).then(d => Array.isArray(d.users) ? d.users : null).catch(() => null),
   ]).then(([threads, users])=>{
     if (threads === null && users === null) {            // les DEUX ont échoué → on NE blanchit pas
-      if (!_chatInboxCache && list) list.innerHTML = `<div class="chat-empty">Chargement impossible — <button type="button" class="chat-retry-btn" onclick="_chatInbox()">réessayer</button></div>`;
+      if (!_chatInboxCache && list) list.innerHTML = `<div class="chat-empty">Chargement impossible : <button type="button" class="chat-retry-btn" onclick="_chatInbox()">réessayer</button></div>`;
       return;
     }
     _chatInboxData = {
@@ -7900,7 +7900,7 @@ function _chatInbox(){
     _chatRenderInbox();
   });
 }
-// Recherche d'un utilisateur (par nom/email) — filtre le rendu sans perdre la saisie.
+// Recherche d'un utilisateur (par nom/email) : filtre le rendu sans perdre la saisie.
 function _chatSearchUsers(q){ _chatInboxQuery = (q || '').toLowerCase().trim(); _chatRenderInbox(); }
 
 function _chatRenderInbox(){
@@ -7961,7 +7961,7 @@ function _chatRenderInbox(){
 }
 
 // Optimiste : marque un thread comme lu DANS LE CACHE LOCAL + recalcule le badge tout de suite.
-// (Le serveur est la source de vérité — via GET/POST — mais ceci évite que la pastille « traîne »
+// (Le serveur est la source de vérité : via GET/POST : mais ceci évite que la pastille « traîne »
 //  le temps d'un aller-retour ou d'un cache serveur de 5 min. Fini « j'ai répondu mais la notif reste ».)
 function _chatMarkThreadRead(uid, lastText){
   const ts = (_chatInboxData && _chatInboxData.threads) || [];
@@ -8004,7 +8004,7 @@ function _chatOpenThread(userId, name){
 function _chatRender(messages){
   const list = document.getElementById('chat-list'); if(!list) return;
   if(!messages || !messages.length){
-    list.innerHTML = '<div class="chat-empty">Vous êtes connecté au support DataTradingPro.<br>Nos spécialistes sont prêts — comment pouvons-nous vous aider ?</div>';
+    list.innerHTML = '<div class="chat-empty">Vous êtes connecté au support DataTradingPro.<br>Nos spécialistes sont prêts : comment pouvons-nous vous aider ?</div>';
     return;
   }
   const support = _chatIsSupport();
@@ -8027,7 +8027,7 @@ function _chatRender(messages){
     else                        inner = `<div class="chat-text">${_chatEsc(t)}</div>`;
     const mid = _chatEsc(String(m.id || ''));
     const isTxt = !/^data:/.test(t);
-    // Menu ⋯ (modifier / supprimer) — SÉPARÉ des réactions, côté support uniquement
+    // Menu ⋯ (modifier / supprimer) : SÉPARÉ des réactions, côté support uniquement
     const menu = support
       ? `<div class="chat-msg-menu"><button class="chat-menu-btn" type="button" title="Options" onclick="_chatToggleMenu(this)">⋯</button></div>`
       : '';
@@ -8054,7 +8054,7 @@ const _REACT_ICONS = {
 function _reactIcon(em){ return _REACT_ICONS[em] || em; }
 // Sélecteur de réaction : petite barre flottante au survol de la bulle (icônes LinkedIn).
 function _chatPickerHtml(mid){ return ''; }   // réactions retirées du chat (demande utilisateur)
-// Pastilles des réactions POSÉES (façon LinkedIn) — sous la bulle ; surlignées si J'AI réagi.
+// Pastilles des réactions POSÉES (façon LinkedIn) : sous la bulle ; surlignées si J'AI réagi.
 function _chatReactionsHtml(m, myId, mid){ return ''; }   // réactions retirées du chat (demande utilisateur)
 
 // Clé de cache des messages selon le contexte (support→thread user, client→'client')
@@ -8071,7 +8071,7 @@ function _chatUpdateReactions(id){
   if (el) el.outerHTML = _chatReactionsHtml(msg, myId, _chatEsc(String(id)));
 }
 
-// Réagir à un message (toggle) — INSTANTANÉ (optimiste, MAJ ciblée) puis persistance serveur.
+// Réagir à un message (toggle) : INSTANTANÉ (optimiste, MAJ ciblée) puis persistance serveur.
 // UNE seule réaction par personne. Ne fait JAMAIS disparaître la réaction sur une réponse vide/erreur.
 function _chatReact(id, emoji){
   if (!id) return;
@@ -8119,7 +8119,7 @@ document.addEventListener('click', e => {   // clic ailleurs → ferme les menus
     document.querySelectorAll('.chat-menu-inline').forEach(el => el.remove());
 });
 
-// Admin : supprimer un message — confirmation INLINE dans le message (plus de fenêtre native)
+// Admin : supprimer un message : confirmation INLINE dans le message (plus de fenêtre native)
 function _chatDeleteMsg(id){
   if (!id) return;
   const sel = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
@@ -8145,7 +8145,7 @@ function _chatDoDelete(id){
   if (Array.isArray(arr)) { _chatMsgCache[key] = arr.filter(m => String(m.id) !== String(id)); _chatSig = _sigMsgs(_chatMsgCache[key]); }
   fetch('/api/admin/chat/message/'+encodeURIComponent(id), { method:'DELETE' }).catch(()=>{});   // serveur en arrière-plan
 }
-// Admin : modifier le texte d'un message — édition INLINE dans la bulle (plus de fenêtre native)
+// Admin : modifier le texte d'un message : édition INLINE dans la bulle (plus de fenêtre native)
 function _chatEditMsg(id){
   if (!id) return;
   const sel = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
@@ -8172,7 +8172,7 @@ function _chatEditMsg(id){
   };
 }
 
-// Lightbox image (dans le panneau chat) — clic sur le fond pour revenir au chat
+// Lightbox image (dans le panneau chat) : clic sur le fond pour revenir au chat
 function _chatLightbox(src){
   if (!src) return;
   const host = document.getElementById('chat-panel') || document.body;
@@ -8264,7 +8264,7 @@ function _chatRenderPending(){
     `<div class="chat-pending-item"><img src="${u}" alt="aperçu">`
     + `<button type="button" class="chat-pending-x" title="Retirer" onclick="_chatRemovePending(${i})">×</button></div>`
   ).join('');
-  // Juste les vignettes (chacune avec sa croix) — envoi avec Entrée, annulation via la croix.
+  // Juste les vignettes (chacune avec sa croix) : envoi avec Entrée, annulation via la croix.
   bar.innerHTML = `<div class="chat-pending-thumbs">${thumbs}</div>`;
   bar.classList.add('visible');
 }
@@ -8358,7 +8358,7 @@ function _chatNotify(){
     if (document.visibilityState === 'visible') return;
     if (_chatTitleOrig === null) _chatTitleOrig = document.title;
     var on = false; clearInterval(_chatTitleT);
-    _chatTitleT = setInterval(function(){ document.title = on ? _chatTitleOrig : '💬 Nouveau message — DataTradingPro'; on = !on; }, 1100);
+    _chatTitleT = setInterval(function(){ document.title = on ? _chatTitleOrig : '💬 Nouveau message : DataTradingPro'; on = !on; }, 1100);
     var stop = function(){ if (document.visibilityState === 'visible'){ clearInterval(_chatTitleT); if (_chatTitleOrig !== null){ document.title = _chatTitleOrig; } document.removeEventListener('visibilitychange', stop); } };
     document.addEventListener('visibilitychange', stop);
   } catch(e){}
@@ -8532,9 +8532,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
 
 // (Bloc anti-clic-droit / anti-F12 retiré : protection cosmétique sans valeur de sécurité, qui
-//  dégradait l'UX — la vraie protection du code repose sur l'architecture serveur, cf. audit sécurité.)
+//  dégradait l'UX : la vraie protection du code repose sur l'architecture serveur, cf. audit sécurité.)
 
-// ═══════════════════ JOURNAL DE TRADING — privé, persistant PAR COMPTE (KV Supabase) ═══════════════════
+// ═══════════════════ JOURNAL DE TRADING : privé, persistant PAR COMPTE (KV Supabase) ═══════════════════
 // Bouton topbar (à gauche de la recherche, façon pro) → vue plein écran. Saisie INLINE (jamais de
 // dialog natif), suppression avec confirmation inline, stats calculées sur les données réelles.
 (function () {
@@ -8559,13 +8559,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return p == null ? null : (p > 0 ? 1 : p < 0 ? -1 : 0);
   }
   function _jrStatus(msg) { const el = document.getElementById('jr-status'); if (el) el.textContent = msg || ''; }
-  function _jrSave() {   // sauvegarde serveur (liste complète, modèle symrecent) — débouncée
+  function _jrSave() {   // sauvegarde serveur (liste complète, modèle symrecent) : débouncée
     clearTimeout(_jrSaveT);
     _jrStatus('Sauvegarde…');
     _jrSaveT = setTimeout(() => {
       fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: _jrList || [], custom: _jrCustom, cols: _jrColsToStore() }) })
         .then(r => r.json()).then(j => _jrStatus(j && j.ok ? 'Enregistré ✓' : 'Erreur de sauvegarde'))
-        .catch(() => _jrStatus('Hors-ligne — réessaiera'));
+        .catch(() => _jrStatus('Hors-ligne : réessaiera'));
     }, 600);
   }
   function _jrFmtDate(ts) { try { const d = new Date(ts); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); } catch (e) { return ''; } }
@@ -8587,7 +8587,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '<span class="jr-stat"><i>Total $</i><b class="' + cls(totD) + '">' + (totD >= 0 ? '+' : '') + Math.round(totD).toLocaleString('fr-FR') + ' $</b></span>';
   }
 
-  // ═══ TRADE LOG — GRILLE ÉDITABLE FAÇON NOTION (colonnes/propriétés de l'utilisateur) ═══
+  // ═══ TRADE LOG : GRILLE ÉDITABLE FAÇON NOTION (colonnes/propriétés de l'utilisateur) ═══
   const _JR_DIR_DISP = { BUY: 'Long', SELL: 'Short' };
   const _JR_COLDEF = [
     { k: 'pair',    label: 'Paires',         type: 'title',    w: 94 },
@@ -8633,7 +8633,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrSet(e, col, v) { if (col.builtin) e[col.k] = v; else { e.props = e.props || {}; e.props[col.k] = v; } }
   function _jrColsVisible() { return (_jrCols || _jrDefaultCols()).filter(c => !c.hidden); }
 
-  // Gabarit d'options PAR DÉFAUT du DTP — proposé tant qu'aucun import perso n'a personnalisé le journal.
+  // Gabarit d'options PAR DÉFAUT du DTP : proposé tant qu'aucun import perso n'a personnalisé le journal.
   // Dès qu'un compte importe (_jrCustom=true), on n'affiche QUE ses options (pas de mélange avec le DTP).
   const _JR_DTP_DEFAULTS = {
     result:  ['Profit', 'TP', 'BE', 'SL', 'Loss'],
@@ -8711,7 +8711,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const host = document.getElementById('jr-toolbar'); if (!host) return;
     host.innerHTML =
       '<button type="button" class="jr-tb-btn jr-tb-btn--add" id="jr-add">+ Nouveau</button>'
-      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel — tes colonnes deviennent TON journal">&#8593; Importer (Notion / CSV)</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : tes colonnes deviennent TON journal">&#8593; Importer (Notion / CSV)</button>'
       + '<input type="file" id="jr-import-file" accept=".zip,.csv,.tsv,.txt,application/zip,application/x-zip-compressed,text/csv,text/tab-separated-values" style="display:none">'
       + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">&#9881; Propriétés</button>'
       + '<span class="jr-tb-spacer"></span>'
@@ -8742,10 +8742,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<div class="jr-empty-wrap">'
         + '<div class="jr-empty-ic"><svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h5"/></svg></div>'
         + '<div class="jr-empty-title">Ton journal est prêt</div>'
-        + '<div class="jr-empty-sub">Consigne ton premier trade ou importe ton journal existant — statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
+        + '<div class="jr-empty-sub">Consigne ton premier trade ou importe ton journal existant : statistiques, courbe de performance et tableau de bord se construisent automatiquement.</div>'
         + '<div class="jr-empty-actions">'
         + '<button type="button" class="jr-tb-btn jr-tb-btn--add jr-addrow">+ Ajouter un trade</button>'
-        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel — tes colonnes deviennent ton journal">&#8593; Importer (Notion / CSV)</button>'
+        + '<button type="button" class="jr-tb-btn" id="jr-empty-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : tes colonnes deviennent ton journal">&#8593; Importer (Notion / CSV)</button>'
         + '</div></div></td></tr></tbody>';
       const ei = document.getElementById('jr-empty-import');
       if (ei) ei.onclick = () => { const f = document.getElementById('jr-import-file'); if (f) f.click(); };
@@ -9035,7 +9035,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + '<textarea class="jrd-sect-ta" data-sk="' + s.k + '" placeholder="Ajoute ton analyse…" rows="2">' + _esc(val) + '</textarea></div>';
     }
     h += '</div>';
-    // 2 blocs images (captures de graphiques) sous les sections — chargés à la demande (clé KV séparée, anti-egress).
+    // 2 blocs images (captures de graphiques) sous les sections : chargés à la demande (clé KV séparée, anti-egress).
     h += '<div class="jrd-imgs"><div class="jrd-imgs-h">Captures / images</div><div class="jrd-imgrow">'
       + '<div class="jrd-imgblock" data-slot="0"></div><div class="jrd-imgblock" data-slot="1"></div>'
       + '</div></div>';
@@ -9137,7 +9137,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
 
   // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
   document.addEventListener('click', ev => {
-    // ── Sélection multiple (cases à gauche + barre flottante) — AVANT l'ouverture/édition de ligne ──
+    // ── Sélection multiple (cases à gauche + barre flottante) : AVANT l'ouverture/édition de ligne ──
     const selall = ev.target.closest && ev.target.closest('#jr-grid .jr-selall');
     if (selall) { ev.stopPropagation(); _jrToggleSelAll(); return; }
     const rowsel = ev.target.closest && ev.target.closest('#jr-grid .jr-rowsel');
@@ -9214,7 +9214,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   document.addEventListener('dragend', () => { _jrDragEndTs = Date.now(); _jrDragClean(); });
 
-  // ── Import Excel/CSV ou export Notion (CSV) — détection auto délimiteur + colonnes ──────────
+  // ── Import Excel/CSV ou export Notion (CSV) : détection auto délimiteur + colonnes ──────────
   function _jrCsvRows(text) {
     text = String(text || '').replace(/^﻿/, '');   // retire le BOM
     const fl = (text.split(/\r?\n/)[0] || '');
@@ -9325,7 +9325,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     console.log('[Journal import]', rows.length, 'lignes · colonnes :', rows[0], '· mapping :', idx, pairNote);
     // ── JOURNAL À L'IMAGE DU FICHIER (demande user 03/07) : les colonnes NON reconnues ne sont PLUS
-    //    jetées — chacune devient une propriété personnalisée (type deviné : nombre / sélecteur /
+    //    jetées : chacune devient une propriété personnalisée (type deviné : nombre / sélecteur /
     //    multi-tags / texte) et ses valeurs sont importées. Chaque abonné retrouve SON journal,
     //    pas le gabarit DTP. Cap 16 nouvelles colonnes (le serveur borne les props à 24/entrée). ──
     const _claimed = new Set(Object.keys(idx).filter(k => idx[k] >= 0).map(k => idx[k]));
@@ -9346,7 +9346,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if (numOk / vals.length >= 0.8) type = 'num';
       else if (multiish && distinct <= 60) type = 'multi';
       else if (distinct <= 12 && vals.length >= 4 && vals.every(v => v.length <= 28)) type = 'select';
-      // Clé unique — même génération que l'ajout manuel de colonne
+      // Clé unique : même génération que l'ajout manuel de colonne
       const base = _jrNorm(label).replace(/[^a-z0-9]/g, '').slice(0, 12) || 'col';
       let k = 'c_' + base, n = 1; while (_jrCols.some(c => c.k === k)) k = 'c_' + base + (++n);
       _jrCols.push({ k, label, type, builtin: false, hidden: false, w: 130 });
@@ -9395,7 +9395,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     _jrEdit = null; _jrRender();
     const _ccNote = _customCols.length ? ' · ' + _customCols.length + ' propriété(s) créée(s) depuis tes colonnes' : '';
-    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + pairNote + _ccNote + ' — journal personnalisé'); }
+    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + pairNote + _ccNote + ' : journal personnalisé'); }
     else {
       // Import raté → on retire les colonnes personnalisées créées en anticipation (aucune valeur importée)
       _customCols.forEach(cc => { const ix = _jrCols.findIndex(c => c.k === cc.k); if (ix >= 0) _jrCols.splice(ix, 1); });
@@ -9455,10 +9455,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
     return out;
   }
   // Dézippe un export Notion (.zip), 0 dépendance, sous-zips compris. Renvoie le texte du MEILLEUR CSV (priorité
-  // au « _all.csv » de Notion qui contient TOUTES les lignes, sinon le plus gros — tous niveaux confondus).
+  // au « _all.csv » de Notion qui contient TOUTES les lignes, sinon le plus gros : tous niveaux confondus).
   async function _jrUnzipBestCsv(buf) {
     const cands = await _jrZipCollectCsvs(new Uint8Array(buf), 0, []);
-    if (!cands.length) throw new Error('aucun .csv trouvé (ni dans les sous-zips Notion) — exporte ton journal en « Markdown & CSV ».');
+    if (!cands.length) throw new Error('aucun .csv trouvé (ni dans les sous-zips Notion) : exporte ton journal en « Markdown & CSV ».');
     cands.sort((a, b) => (/_all\.csv$/i.test(b.e.name) - /_all\.csv$/i.test(a.e.name)) || (b.e.uSize - a.e.uSize));
     const best = cands[0];
     console.log('[Journal import] CSV retenu :', best.e.name, '(' + best.e.uSize + 'o, méthode ' + best.e.method + ') · ' + cands.length + ' CSV trouvé(s)');
@@ -9477,7 +9477,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         try {
           const text = await _jrUnzipBestCsv(e.target.result);
           _jrIngestCsvText(text);
-        } catch (err) { _jrStatus('Import impossible : le fichier .zip semble endommagé ou non standard — ré-exporte depuis Notion (Exporter → CSV) et réessaie.'); try { console.warn('[Journal] import zip:', err && err.message || err); } catch (_) {} }
+        } catch (err) { _jrStatus('Import impossible : le fichier .zip semble endommagé ou non standard : ré-exporte depuis Notion (Exporter → CSV) et réessaie.'); try { console.warn('[Journal] import zip:', err && err.message || err); } catch (_) {} }
       };
       reader.onerror = function () { _jrStatus('Lecture du fichier impossible'); };
       reader.readAsArrayBuffer(file);
@@ -9493,7 +9493,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     ev.target.value = '';
   }
 
-  // ═══ DASHBOARD DE STATS (Performance Dashboard 3.0, identité HUD) — CSS/SVG, 0 dépendance ═══
+  // ═══ DASHBOARD DE STATS (Performance Dashboard 3.0, identité HUD) : CSS/SVG, 0 dépendance ═══
   let _jrTab = 'log';
   function _jrSetTab(t) {
     _jrTab = (t === 'dash') ? 'dash' : 'log';
@@ -9560,7 +9560,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const xr = am5xy.AxisRendererX.new(root, { minGridDistance: 66 });
     xr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
     xr.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9.5 });
-    // extraMin/Max = 0 → la courbe va jusqu'aux DEUX bords (à droite, pile contre l'axe Y) — demandé.
+    // extraMin/Max = 0 → la courbe va jusqu'aux DEUX bords (à droite, pile contre l'axe Y) : demandé.
     const xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, { baseInterval: { timeUnit: 'day', count: 1 }, renderer: xr, extraMin: 0, extraMax: 0 }));
     xAxis.set('dateFormats', { day: 'dd MMM', week: 'dd MMM', month: 'MMM yy' });
     xAxis.set('periodChangeDateFormats', { day: 'dd MMM', month: 'MMM yy' });
@@ -9609,7 +9609,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrRenderDashboard() {
     const host = document.getElementById('jr-dashboard'); if (!host) return;
     const L = _jrList || [];
-    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment — ajoute ton premier trade ou importe ton journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
+    if (!L.length) { host.innerHTML = '<div class="jrd-empty-big">Aucune statistique pour le moment : ajoute ton premier trade ou importe ton journal (Notion .zip / CSV) depuis « Trades ».</div>'; return; }
     const sum = a => a.reduce((x, y) => x + y, 0);
     const rs = L.map(_jrRof).filter(r => r != null), wins = rs.filter(r => r > 0), losses = rs.filter(r => r < 0);
     const totR = sum(rs), totD = sum(L.map(e => _jrN(e.pl) || 0));
@@ -9779,7 +9779,7 @@ window._dtpJournalBadgeInit = function () {
     const balance = _num('calc-balance'), risk = _num('calc-risk'), sl = _num('calc-sl');
     const sym = (document.getElementById('calc-pair') || {}).value || '';
     const res = document.getElementById('calc-results'); if (!res) return;
-    if (!_rates) { res.innerHTML = '<div class="calc-empty">Cours indisponibles — réessayez.</div>'; return; }
+    if (!_rates) { res.innerHTML = '<div class="calc-empty">Cours indisponibles : réessayez.</div>'; return; }
     if (balance == null || balance <= 0 || risk == null || risk <= 0 || sl == null || sl <= 0 || !sym) { res.innerHTML = '<div class="calc-empty">Renseignez un solde, un risque et un stop-loss supérieurs à zéro, puis choisissez une paire.</div>'; return; }
     const m = sym.split('/'); if (m.length !== 2) { res.innerHTML = '<div class="calc-empty">Paire invalide.</div>'; return; }
     const base = m[0], quote = m[1];
@@ -9797,7 +9797,7 @@ window._dtpJournalBadgeInit = function () {
     const notionalBase = units;                               // unités de la devise de base
     const fmt = (v, d) => (v == null || !isFinite(v)) ? '—' : v.toLocaleString('fr-FR', { minimumFractionDigits: d, maximumFractionDigits: d });
     const cur = acct === 'JPY' ? '¥' : acct === 'EUR' ? '€' : acct === 'GBP' ? '£' : (acct === 'USD' || acct === 'CAD' || acct === 'AUD' || acct === 'NZD') ? '$' : acct + ' ';
-    try { sessionStorage.setItem('dtp_calc_setup', JSON.stringify({ acct: acct, balance: balance, risk: risk, sl: sl, sym: sym, mode: _riskMode })); } catch (_) {}   // dernier réglage — SESSION uniquement (volatil, jamais localStorage)
+    try { sessionStorage.setItem('dtp_calc_setup', JSON.stringify({ acct: acct, balance: balance, risk: risk, sl: sl, sym: sym, mode: _riskMode })); } catch (_) {}   // dernier réglage : SESSION uniquement (volatil, jamais localStorage)
     res.innerHTML =
       '<div class="calc-card calc-card--hero"><span class="calc-k">Taille de position</span><span class="calc-v">' + fmt(lots, 2) + ' <em>lots</em></span>'
       + '<span class="calc-sub">' + fmt(lots * 10, 1) + ' mini · ' + fmt(lots * 100, 0) + ' micro · ' + fmt(units, 0) + ' unités</span>'
@@ -9848,7 +9848,7 @@ window._dtpJournalBadgeInit = function () {
         const syms = Object.keys(_rates).sort();
         sel.innerHTML = (syms.length ? syms : ['EUR/USD']).map(s => '<option' + (s === 'EUR/USD' ? ' selected' : '') + '>' + s + '</option>').join('');
       }
-      // Restauration du dernier réglage de la SESSION (sessionStorage volatil — jamais localStorage) :
+      // Restauration du dernier réglage de la SESSION (sessionStorage volatil : jamais localStorage) :
       // faite ICI, une fois les cours et les options de paires chargés (jamais pendant le fetch).
       try {
         const s = JSON.parse(sessionStorage.getItem('dtp_calc_setup') || 'null');

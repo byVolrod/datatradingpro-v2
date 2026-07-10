@@ -5667,7 +5667,7 @@ function _finalizeInsights(arr) {
   for (let o of (arr || [])) {
     if (typeof o === 'string') o = { asset: null, signal: null, text: o };
     if (!o || !o.text) continue;
-    const text = _shortInsight(o.text);
+    const text = _noDash(_shortInsight(o.text));
     if (!text || text.length < 9) continue;
     const tk = text.toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 48);
     if (tk && seenText.has(tk)) continue;                      // texte (quasi) identique → doublon
@@ -6079,10 +6079,10 @@ function buildTemplateLondonPrep(sections, allRecent) {
   const now     = new Date();
   const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const dateStr = now.toLocaleDateString('en-GB',  { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' });
-  const toItems = (arr, max = 5) => arr.slice(0, max).map(i => `${i.time} — ${i.headline}`);
+  const toItems = (arr, max = 5) => arr.slice(0, max).map(i => `${i.time} : ${i.headline}`);
 
   return {
-    title: `London Open Preparation — ${dateStr}`,
+    title: `London Open Preparation : ${dateStr}`,
     generatedAt: timeStr,
     newsCount: allRecent.length,
     sections: [
@@ -6149,7 +6149,7 @@ TRADE:\n${summarise(sections.trade)}
 
 Write a structured London Open prep report. Return ONLY valid JSON:
 {
-  "title": "London Open Preparation — ${dateStr}",
+  "title": "London Open Preparation : ${dateStr}",
   "generatedAt": "${timeStr} CET",
   "headline": "One-sentence overall market bias for London open",
   "sections": [
@@ -6288,7 +6288,7 @@ Rules: start each bullet with a dash (-). Be specific (name pairs, levels, bps).
     const now  = Date.now();
     const item = {
       id:          todayPrefix + '-' + now,
-      headline:    `PRIMER - DTP Daily US Opening News — ${shortDate}`,
+      headline:    `PRIMER - DTP Daily US Opening News : ${shortDate}`,
       description,
       category:    'Market Analysis',
       source:      'DTP',
@@ -6387,7 +6387,7 @@ function generateDailyBriefing({ idPrefix, reportType, cutoffHours, force = fals
 
   const item = {
     id:          todayPrefix + '-' + now,
-    headline:    `PRIMER — ${subtitle}`,
+    headline:    `PRIMER : ${subtitle}`,
     description,
     category:    'Market Analysis',
     source:      'DTP',
@@ -6533,6 +6533,25 @@ function _stripMd(s) {
     .trim();
 }
 
+// ── Anti tiret cadratin (« — ») : tic d'écriture IA banni de tout le contenu AFFICHÉ (demande user).
+// En début de ligne (puce) → retiré ; en milieu de phrase → virgule. Ne touche PAS le tiret court «–» (dates).
+function _noDash(s) {
+  if (s == null || typeof s !== 'string' || s.indexOf('—') === -1) return s;
+  return s
+    .replace(/^[ \t]*—[ \t]*/gm, '')          // « — item » en début de ligne → puce retirée
+    .replace(/[ \t]*—+[ \t]*/g, ', ')          // « texte — texte » → « texte, texte »
+    .replace(/,[ \t]*,+/g, ', ')               // virgules doublées éventuelles
+    .replace(/[ \t]+,/g, ',');
+}
+// Version PROFONDE : nettoie toutes les chaînes d'un objet/tableau EN PLACE (payloads IA uniquement —
+// jamais appliqué aux titres de news sources). Idempotent → sûr à chaque serve.
+function _noDashDeep(o) {
+  if (typeof o === 'string') return _noDash(o);
+  if (Array.isArray(o)) { for (let i = 0; i < o.length; i++) o[i] = _noDashDeep(o[i]); return o; }
+  if (o && typeof o === 'object') { for (const k of Object.keys(o)) o[k] = _noDashDeep(o[k]); return o; }
+  return o;
+}
+
 // Nettoie EN PLACE les champs texte affichés d'un item (titre / headline / _weekly.title) de tout
 // markdown brut. Appelé AU SERVE des endpoints → la donnée envoyée au client est toujours propre,
 // quelle que soit la version du JS en cache, et corrige rétroactivement les rapports DÉJÀ stockés
@@ -6543,6 +6562,12 @@ function _cleanItemMd(it) {
   if (typeof it.headline === 'string') it.headline = _stripMd(_dedupTitle(it.headline));
   if (typeof it.aiTitle === 'string')  it.aiTitle  = _stripMd(it.aiTitle);   // titre IA des session wraps (sinon ** dans le titre de carte)
   if (it._weekly && typeof it._weekly.title === 'string') it._weekly.title = _stripMd(it._weekly.title);
+  // Anti « — » RÉTROACTIF sur le contenu REDIGÉ (IA/DTP) déjà stocké : corps des rapports + description
+  // (traduite FR par l'IA) + titre IA. Les TITRES de news sources (title/headline bruts) ne sont pas touchés.
+  if (typeof it.description === 'string') it.description = _noDash(it.description);
+  if (typeof it.aiTitle === 'string')     it.aiTitle     = _noDash(it.aiTitle);
+  for (const k of ['_weekly', '_dtpd', '_fxr', '_marketWrap']) if (it[k] && typeof it[k] === 'object') _noDashDeep(it[k]);
+  if ((it._briefing || it._dtpd || it._fxr || it._weekly || it._marketWrap) && typeof it.headline === 'string') it.headline = _noDash(it.headline);
   return it;
 }
 
@@ -6582,7 +6607,7 @@ function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }
   const { subtitle, bullets, tags } = buildFn({ dateStr, timeStr, s, reportType });
   const description = bullets.filter(Boolean).map(b => `- ${b.replace(/^[-•·]\s*/,'').trim()}`).join('\n');
   const item = {
-    id: weekPrefix + '-' + now, headline: `PRIMER — ${subtitle}`, description,
+    id: weekPrefix + '-' + now, headline: `PRIMER : ${subtitle}`, description,
     category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
     priority: 'normal', tags: tags.length ? tags : [reportType],
     _briefing: true, _reportType: reportType,
@@ -6598,7 +6623,7 @@ function generateWeeklyBriefing({ idPrefix, reportType, force = false, buildFn }
 
 function buildUSOpening({ dateStr, s, reportType }) {
   const bullets = [];
-  bullets.push(`US Opening — ${s.all.length} events tracked · ${dateStr}`);
+  bullets.push(`US Opening : ${s.all.length} events tracked · ${dateStr}`);
   _pushBullets(bullets, 'Fed & Central Banks', s.cb, 3);
   _pushBullets(bullets, 'US Data', s.hdata.length ? s.hdata : s.data, 3);
   _pushBullets(bullets, 'Geopolitical', s.geo, 2);
@@ -7466,7 +7491,7 @@ function _fxrDateLabel(dayKey) {
   const [Y, M, D] = String(dayKey).split('-').map(Number);
   return new Date(Date.UTC(Y, (M || 1) - 1, D || 1)).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
 }
-function _fxrTxt(s, n) { return _stripMd(String(s == null ? '' : s)).slice(0, n || 1200); }
+function _fxrTxt(s, n) { return _noDash(_stripMd(String(s == null ? '' : s))).slice(0, n || 1200); }
 function _fxrA(a) { return Array.isArray(a) ? a : []; }
 // econData de repli à partir des lignes réelles du calendrier (1 métrique / publication)
 function _fxrEconFromRows(rows) {
@@ -7731,13 +7756,13 @@ function _dtpdSanitize(parsed, dayKey, dateLabel) {
     }
     secs.push(out);
   }
-  return {
+  return _noDashDeep({
     v: DTPD_VER, day: dayKey, _ai: true, dateLabel,
-    title: _stripMd(String(parsed.title || 'Point Marché — Ouverture US')).slice(0, 160),
+    title: _stripMd(String(parsed.title || 'Point Marché : Ouverture US')).slice(0, 160),
     summary: _stripMd(String(parsed.summary || '')).slice(0, 700),
     tags: (Array.isArray(parsed.tags) ? parsed.tags : []).map(t => _stripMd(String(t)).slice(0, 28)).filter(Boolean).slice(0, 10),
     sections: secs.slice(0, 16),
-  };
+  });
 }
 function _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows }) {
   const txt = i => String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
@@ -8550,7 +8575,7 @@ function _sbFillNarrative(bias) {
   const src = bias.narrative || {};
   const narrative = {};
   (bias.currencies || SB_CURRENCIES).forEach(c => {
-    narrative[c] = _sbIsRealNarrative(src[c]) ? src[c] : (_sbHistNarrative(c) || _sbDataNarrative(c, bias.rows, bias.conclusion));
+    narrative[c] = _noDash(_sbIsRealNarrative(src[c]) ? src[c] : (_sbHistNarrative(c) || _sbDataNarrative(c, bias.rows, bias.conclusion)));
   });
   return Object.assign({}, bias, { narrative });   // COPIE → ne mute pas bias.narrative (qui reste IA-seul)
 }
@@ -8962,13 +8987,13 @@ app.get('/api/smart-bias', async (req, res) => {
 const WEEK_AHEAD_FILE = path.join(_CACHE_DIR, 'cache_week_ahead.json');
 const WA_VER = 'v17-fr-full';   // v17 : descriptions COMPLÈTES (trim à la dernière phrase, plus de coupe en plein mot) → force la régén
 let _weekAhead = null;
-try { _weekAhead = JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8')); } catch {}
-try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = d; }).catch(() => {}); } catch {}
+try { _weekAhead = _noDashDeep(JSON.parse(fs.readFileSync(WEEK_AHEAD_FILE, 'utf8'))); } catch {}
+try { auth.aiCacheGet('weekahead:data').then(d => { if (d && Array.isArray(d.days) && d.days.length && d.generatedAt && (!(_weekAhead && _weekAhead.generatedAt) || d.generatedAt > _weekAhead.generatedAt)) _weekAhead = _noDashDeep(d); }).catch(() => {}); } catch {}
 
 // Coupe un texte à `max` SANS jamais couper en plein mot/phrase : on remonte à la dernière ponctuation
 // de fin de phrase (. ! ? … » ”). Évite les descriptions Week Ahead tronquées (« …obligations souveraines c »).
 function _waTrim(s, max) {
-  s = String(s || '').replace(/\s+/g, ' ').trim();
+  s = _noDash(String(s || '')).replace(/\s+/g, ' ').trim();
   if (s.length <= max) return s;
   const cut = s.slice(0, max);
   const m = cut.match(/^[\s\S]*[.!?…»”"]/);
@@ -9048,7 +9073,7 @@ async function generateWeekAhead(force = false, genEditorial = false) {
     }));
     return {
       dow: dowEn, date: String(d.getUTCDate()), month: MON[d.getUTCMonth()],
-      title: title.slice(0, 170), description: _waTrim(description, 1200), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
+      title: _noDash(title).slice(0, 170), description: _waTrim(description, 1200), events, ccys, impact: hiEvs.length ? 'HIGH' : 'MEDIUM', risk,
     };
   });
   if (!days.length) return _weekAhead;

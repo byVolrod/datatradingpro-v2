@@ -9,7 +9,7 @@
   <link rel="apple-touch-icon" href="/favicon.png?v=dtp11" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <!-- amCharts 5 — mêmes graphiques que le reste du site (courbes, donut, hover) -->
+  <!-- amCharts 5 : mêmes graphiques que le reste du site (courbes, donut, hover) -->
   <script src="https://cdn.amcharts.com/lib/5/index.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/xy.js"></script>
   <script src="https://cdn.amcharts.com/lib/5/percent.js"></script>
@@ -17,7 +17,7 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      /* Palette alignee sur l'IDENTITE DU DESK (fond #0c0c0e, panneaux #111114, or #e3b23a) — texte
+      /* Palette alignee sur l'IDENTITE DU DESK (fond #0c0c0e, panneaux #111114, or #e3b23a) : texte
          legerement plus clair que le desk pour la LISIBILITE des donnees denses de l'admin. */
       --bg:     #0c0c0e; --bg2: #111114; --bg3: #17181c; --bg4: #202127;
       --border: #1f1f24; --border2: #2c2d33; --hud-line: rgba(255,255,255,0.06);
@@ -37,7 +37,7 @@
     ::-webkit-scrollbar-thumb:hover { background: #45464f; background-clip: content-box; }
     ::-webkit-scrollbar-corner { background: transparent; }
 
-    /* ── Topbar (plate, façon terminal desk — plus de dégradé) ── */
+    /* ── Topbar (plate, façon terminal desk : plus de dégradé) ── */
     .topbar {
       height: 56px; background: #0c0c0e; border-bottom: 1px solid var(--hud-line);
       display: flex; align-items: center; gap: 14px; padding: 0 28px; flex-shrink: 0;
@@ -45,7 +45,7 @@
     }
     /* Wordmark IDENTIQUE au desk (.logo-text) : degrade or clippe au texte, meme fonte/graisse/interlettre. */
     .topbar-logo { font-family: var(--font-ui); font-size: 16px; font-weight: 700; letter-spacing: -0.01em; color: #e3b23a; background: linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
-    /* Titres de panneaux : identité desk — emoji retiré, filet or à la place (le desk n'utilise pas d'emoji) */
+    /* Titres de panneaux : identité desk : emoji retiré, filet or à la place (le desk n'utilise pas d'emoji) */
     .panel-head .ph-ic { display: none; }
     .panel-head h2 { position: relative; text-transform: uppercase; letter-spacing: .06em; font-weight: 700; }
     .panel-head h2::before { content: ''; display: inline-block; width: 3px; height: 11px; border-radius: 2px; background: var(--orange); margin-right: 8px; vertical-align: -1px; opacity: .9; }
@@ -336,7 +336,7 @@
     .whop-on { background:var(--green); } .whop-off { background:#ef4444; }
 
     /* ═══════════════════════════════════════════════════════════════════════
-       HARMONISATION HUD — cohérence avec le terminal DataTradingPro
+       HARMONISATION HUD : cohérence avec le terminal DataTradingPro
        Flat (zéro gradient), anguleux (≤6px), hairlines subtiles, profondeur
        discrète (pas d'ombres flashy ni de lift au survol). Couche additive :
        ne touche pas au HTML ni au JS, surcharge seulement l'esthétique.
@@ -350,10 +350,10 @@
     }
     html, body { background: #0a0a0a; }
 
-    /* — Topbar : aplat + hairline (comme la navbar terminal) — */
+    /* : Topbar : aplat + hairline (comme la navbar terminal) : */
     .topbar { background: var(--panel); border-bottom: 1px solid var(--hud-line-strong); box-shadow: var(--panel-depth); }
 
-    /* — Cartes & panneaux : aplats anguleux, profondeur discrète, zéro lift — */
+    /* : Cartes & panneaux : aplats anguleux, profondeur discrète, zéro lift : */
     .add-form, .stat-card, .panel-card, .fin-kpi, .table-wrap {
       background: var(--panel2); border: 1px solid var(--hud-line);
       border-radius: 6px; box-shadow: var(--panel-depth);
@@ -365,24 +365,24 @@
     .stat-ic, .panel-head .ph-ic { border-radius: 6px; }
     .panel-head { border-bottom: 1px solid var(--hud-line); }
 
-    /* — Tableaux : grille hairline + en-tête collant sombre (le scroll-x d'origine est préservé) — */
+    /* : Tableaux : grille hairline + en-tête collant sombre (le scroll-x d'origine est préservé) : */
     .users-table th { background: var(--panel); border-bottom: 1px solid var(--hud-line-strong); }
     .users-table td { border-bottom: 1px solid var(--hud-line); }
     .fc-line, .whop-stat { border-bottom: 1px solid var(--hud-line); }
 
-    /* — Formulaires : champs anguleux cohérents — */
+    /* : Formulaires : champs anguleux cohérents : */
     .add-form input, .add-form select, .modal input, .modal select,
     .toolbar input, .toolbar select { border-radius: 5px; border-color: var(--border2); }
     .add-form input:focus, .add-form select:focus,
     .toolbar input:focus, .toolbar select:focus,
     .modal input:focus, .modal select:focus { border-color: var(--orange); }
 
-    /* — Modal, toasts, pagination, chips : arrondis serrés + ombres sobres — */
+    /* : Modal, toasts, pagination, chips : arrondis serrés + ombres sobres : */
     .modal { border-radius: 8px; box-shadow: 0 20px 56px rgba(0,0,0,0.62); }
     .toast { border-radius: 6px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
     .pg-btn, .pg-num, .pg-per select { border-radius: 4px; }
     .badge { border-radius: 4px; }
-    /* — Alignement final sur le terminal : panneaux PLATS (zéro dégradé), coins HUD 6px, bordures sombres, pas d'ombres lourdes — */
+    /* : Alignement final sur le terminal : panneaux PLATS (zéro dégradé), coins HUD 6px, bordures sombres, pas d'ombres lourdes : */
     .add-form, .panel-card, .fin-kpi { background: #111114; border-radius: 6px; box-shadow: none; }
     .add-form, .panel-card, .fin-kpi, .table-wrap, .stat-card { border-color: #1f1f24; }
     .table-wrap { border-radius: 6px; box-shadow: none; }
@@ -390,11 +390,11 @@
     .ph-ic { border-radius: 6px; }
     html, body { background: #0c0c0e; }
 
-    /* — Barres / jauges : aplat orange (plus de dégradé) — */
+    /* : Barres / jauges : aplat orange (plus de dégradé) : */
     .fc-bar { background: var(--orange); border-radius: 3px 3px 0 0; }
     .dist-bar-wrap, .dist-bar { border-radius: 3px; }
 
-    /* — Chat support : cohérent avec le terminal — */
+    /* : Chat support : cohérent avec le terminal : */
     .ad-chat { border-radius: 6px; border-color: var(--hud-line-strong); background: var(--panel); }
     .ad-chat-threads { border-right-color: var(--hud-line); }
     .ad-thread { border-bottom-color: var(--hud-line); }
@@ -404,10 +404,10 @@
     .ad-chat-reply input { border-radius: 5px; }
     .ad-chat-reply button { border-radius: 5px; }
 
-    /* — Onglets : soulignement orange, base hairline — */
+    /* : Onglets : soulignement orange, base hairline : */
     .adm-tabs { border-bottom: 1px solid var(--hud-line-strong); }
 
-    /* ═══ RESPONSIVE — adapté à tous les écrans (tablette → mobile) ═══ */
+    /* ═══ RESPONSIVE : adapté à tous les écrans (tablette → mobile) ═══ */
     @media (max-width: 1024px) {
       .page { padding: 22px 22px 56px; }
       .topbar { padding: 0 20px; }
@@ -456,7 +456,7 @@
 
 <div class="page">
 
-  <!-- Onglets (navigation rapide — pas de scroll interminable) -->
+  <!-- Onglets (navigation rapide : pas de scroll interminable) -->
   <div class="adm-tabs">
     <button class="adm-tab adm-tab--active" data-tab="dash" onclick="admTab('dash')">Tableau de bord</button>
     <button class="adm-tab" data-tab="users" onclick="admTab('users')">Utilisateurs</button>
@@ -470,7 +470,7 @@
     <div class="fin-kpis" id="fin-kpis"></div>
     <div class="fin-row">
       <div class="panel-card fin-panel fin-panel--wide">
-        <div class="panel-head"><span class="ph-ic">💶</span><h2>Revenu net mensuel — 12 mois</h2></div>
+        <div class="panel-head"><span class="ph-ic">💶</span><h2>Revenu net mensuel : 12 mois</h2></div>
         <div class="panel-body"><div class="am-chart" id="fin-rev-am"></div></div>
       </div>
       <div class="panel-card fin-panel">
@@ -480,7 +480,7 @@
     </div>
     <div class="fin-row">
       <div class="panel-card fin-panel fin-panel--wide">
-        <div class="panel-head"><span class="ph-ic">📈</span><h2>Inscriptions — 12 derniers mois</h2></div>
+        <div class="panel-head"><span class="ph-ic">📈</span><h2>Inscriptions : 12 derniers mois</h2></div>
         <div class="panel-body"><div class="am-chart" id="fin-chart-am"></div></div>
       </div>
       <div class="panel-card fin-panel">
@@ -492,7 +492,7 @@
 
   <!-- ═══ Onglet : IA Monitor ═══ -->
   <style>
-    /* ═══ IA MONITOR — refonte pro (design valide en maquette, 1440/860/390 sans debord) ═══ */
+    /* ═══ IA MONITOR : refonte pro (design valide en maquette, 1440/860/390 sans debord) ═══ */
     #tab-aimon { --aim-mono: ui-monospace, 'SF Mono', 'Cascadia Mono', Consolas, monospace; }
     #tab-aimon .panel-head h2 { font-size:11px; font-weight:700; color:#d5d8de; text-transform:uppercase; letter-spacing:.07em; }
     #tab-aimon .panel-head h2::before { content:''; display:inline-block; width:3px; height:10px; border-radius:2px; background:var(--orange,#e3b23a); margin-right:8px; opacity:.85; }
@@ -1020,7 +1020,7 @@
           <div style="background:#0d0e11;border:1px solid #232429;border-radius:8px;overflow:hidden;">
             <iframe id="cprev-frame" src="/api/admin/campaign-preview?type=intro" title="Aperçu du mail" style="width:100%;height:640px;border:0;display:block;background:#0d0e11;"></iframe>
           </div>
-          <p class="camp-note"><span id="cprev-ts" style="color:#00e676;font-weight:600;"></span> Rendu réel du mail tel qu'il part, <strong>construit sur les données live du desk</strong> (widgets réels inclus) — se recharge automatiquement toutes les 45 s. « Récap hebdo » s'affiche dès la prochaine génération du récap.</p>
+          <p class="camp-note"><span id="cprev-ts" style="color:#00e676;font-weight:600;"></span> Rendu réel du mail tel qu'il part, <strong>construit sur les données live du desk</strong> (widgets réels inclus) : se recharge automatiquement toutes les 45 s. « Récap hebdo » s'affiche dès la prochaine génération du récap.</p>
         </div>
       </div>
     </div>
@@ -1084,7 +1084,7 @@
         <div class="camp-modal-b">
           <div class="camp-fgroup">
             <div class="camp-fgroup-t">Informations générales</div>
-            <div class="camp-field"><label>Nom interne</label><input id="cm-name" value="Bienvenue — introduction"/></div>
+            <div class="camp-field"><label>Nom interne</label><input id="cm-name" value="Bienvenue : introduction"/></div>
             <div class="camp-field"><label>Objet</label><input id="cm-subject" value="DataTradingPro : votre point macro & forex de la semaine"/></div>
             <div class="camp-field"><label>Expéditeur</label><input value="DataTradingPro &lt;contact@datatradingpro.com&gt;" disabled/></div>
           </div>
@@ -1263,14 +1263,14 @@
         { ic:'user-check', c:'#00e676', v:k.active, l:'Actifs', t:'Abonnement en cours' },
         { ic:'crown', c:'#e3b23a', v:k.premium, l:'Clients Premium', t:'Abonnés actifs (payants)' },
         { ic:'user-plus', c:'#8b93a1', v:k.lead, l:'Leads', t:'Contacts sans abonnement' },
-        { ic:'user-minus', c:'#ffb300', v:k.churn, l:'Churn', t:'Résiliés / expirés — cibles win-back' },
+        { ic:'user-minus', c:'#ffb300', v:k.churn, l:'Churn', t:'Résiliés / expirés : cibles win-back' },
         { ic:'clock', c:'#ffb300', v:k.expired, l:'Comptes expirés', t:'Abonnement terminé' },
         { ic:'bell-off', c:'#ff3d00', v:k.unsub, l:'Désabonnés', t:'Opt-out e-mail (exclus)' },
         { ic:'ban', c:'#ff3d00', v:k.blacklist, l:'Blacklist', t:'E-mails bloqués partout' },
         { ic:'mail-open', c:'#3aa0e0', v:k.openRate + '%', l:'Taux d’ouverture', t:'Ouvertures uniques / envoyés' },
         { ic:'pointer', c:'#3aa0e0', v:k.ctr + '%', l:'CTR', t:'Clics uniques / envoyés' },
         { ic:'send', c:'#9aa3b2', v:last ? _campFmt(last.sentAt) : '—', l:'Dernière campagne', t:last ? (last.title + ' · ' + last.sent + ' envoyés') : 'Aucune campagne envoyée' },
-        { ic:'calendar', c:'#9aa3b2', v:next ? ('S' + next.week) : '—', l:'Prochaine campagne', t:next ? (next.title + ' — non programmée') : 'Séquence terminée' }
+        { ic:'calendar', c:'#9aa3b2', v:next ? ('S' + next.week) : '—', l:'Prochaine campagne', t:next ? (next.title + ' : non programmée') : 'Séquence terminée' }
       ];
       box.innerHTML = cards.map(function(c){
         return '<div class="kpi-card" style="--kc:' + c.c + '" title="' + String(c.t).replace(/"/g,'') + '"><div class="kpi-top"><div class="kpi-ic">' + _lucide(c.ic) + '</div></div><div class="kpi-val">' + c.v + '</div><div class="kpi-lbl">' + c.l + '</div></div>';
@@ -1325,7 +1325,7 @@
       var on = _campStatFilter === c[0];
       return '<button class="camp-chip" onclick="campStatFilter(\'' + c[0] + '\')" style="cursor:pointer;background:' + (on ? 'rgba(227,178,58,.14)' : 'rgba(255,255,255,.03)') + ';color:' + (on ? '#e3b23a' : '#8b93a1') + ';border-color:' + (on ? 'rgba(227,178,58,.5)' : '#33333a') + ';">' + c[1] + ' (' + c[2] + ')</button>';
     }).join('');
-    // Colonne DEDIEE « Désabonné » : badge rouge + date de desinscription, ou — s'il est toujours abonne.
+    // Colonne DEDIEE « Désabonné » : badge rouge + date de desinscription, ou : s'il est toujours abonne.
     // (Les clics restent lisibles dans la colonne « Clics » + le filtre « Ont cliqué ».)
     var _desabo = function(r){
       if (!r.unsubAt) return '<span style="color:#565660;">—</span>';
@@ -1356,7 +1356,7 @@
       _campMsg(d.ok ? ('✅ Test envoyé à ' + d.to + ' via ' + d.provider) : ('❌ ' + (d.error || 'échec de l’envoi')));
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
-  // Envoi RÉEL — confirmation INLINE en 2 clics (pas de dialog natif) : 1er clic = armement 6 s, 2e = envoi.
+  // Envoi RÉEL : confirmation INLINE en 2 clics (pas de dialog natif) : 1er clic = armement 6 s, 2e = envoi.
   function campSend(){
     const btn = document.getElementById('camp-send-btn');
     const total = (_campAud && _campAud.report) ? _campAud.report.total : '?';
@@ -1386,7 +1386,7 @@
     const tick = async function(){
       try {
         const s = await fetch('/api/admin/campaign-send?status=1').then(r => r.json());
-        el.innerHTML = 'Envoi ' + (s.running ? 'en cours' : 'terminé') + ' — envoyés <b>' + s.sent + '</b> · déjà ' + s.skipped + ' · désab ' + s.unsub + ' · échecs ' + s.failed + ' / ' + s.eligible + ' cibles';
+        el.innerHTML = 'Envoi ' + (s.running ? 'en cours' : 'terminé') + ' : envoyés <b>' + s.sent + '</b> · déjà ' + s.skipped + ' · désab ' + s.unsub + ' · échecs ' + s.failed + ' / ' + s.eligible + ' cibles';
         if (!s.running) { clearInterval(_campPoll); loadCampStats(); }
       } catch {}
     };
@@ -1397,7 +1397,7 @@
     _campMsg('Ajout…');
     try {
       const d = await fetch('/api/admin/campaign-extra?action=add&emails=' + encodeURIComponent(v)).then(r => r.json());
-      _campMsg(d.ok ? ('✅ ' + d.added + ' ajouté(s), ' + (d.dupesIgnored||0) + ' doublon(s) ignoré(s) — ' + d.total + ' au total') : '❌ échec');
+      _campMsg(d.ok ? ('✅ ' + d.added + ' ajouté(s), ' + (d.dupesIgnored||0) + ' doublon(s) ignoré(s) : ' + d.total + ' au total') : '❌ échec');
       inp.value = ''; loadCampaign();
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
@@ -1418,7 +1418,7 @@
     _campMsg('Ajout à la liste noire…');
     try {
       const d = await fetch('/api/admin/blacklist?action=add&emails=' + encodeURIComponent(v)).then(r => r.json());
-      _campMsg(d.ok ? ('✅ ' + d.added + ' blacklisté(s) — ' + d.total + ' au total') : '❌ échec');
+      _campMsg(d.ok ? ('✅ ' + d.added + ' blacklisté(s) : ' + d.total + ' au total') : '❌ échec');
       inp.value = ''; loadBlacklist(); loadCampaign();
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
@@ -1427,7 +1427,7 @@
     _campMsg('Retrait de ' + email + '…');
     try {
       const d = await fetch('/api/admin/blacklist?action=remove&email=' + encodeURIComponent(email)).then(r => r.json());
-      _campMsg(d.ok ? ('✅ retiré — ' + d.total + ' restant(s)') : '❌ échec');
+      _campMsg(d.ok ? ('✅ retiré : ' + d.total + ' restant(s)') : '❌ échec');
       loadBlacklist(); loadCampaign();
     } catch { _campMsg('❌ Erreur réseau.'); }
   }
@@ -1467,7 +1467,7 @@
       const lr = d.lastRun;
       const rows = [
         ['Prochain envoi', active ? ('<b style="color:#e3b23a;">' + (d.nextLabel || '—') + '</b>') : 'en pause'],
-        ['Dernier envoi', lr ? (lr.label + ' — <b style="color:#fff;">' + lr.sent + '</b> envoyés · ' + lr.opens + ' ouvertures · ' + _campFmt(lr.at)) : 'aucun pour l’instant'],
+        ['Dernier envoi', lr ? (lr.label + ' : <b style="color:#fff;">' + lr.sent + '</b> envoyés · ' + lr.opens + ' ouvertures · ' + _campFmt(lr.at)) : 'aucun pour l’instant'],
         ['Envoi en cours', d.running ? '<span style="color:#e3b23a;">🔄 oui, en train d’envoyer…</span>' : 'non'],
         ['État', (d.health && d.health.ok) ? '<span style="color:#00e676;">✅ tout fonctionne</span>' : ('<span style="color:#ffb300;">⚠ ' + ((d.health && d.health.issues || []).join(' · ') || 'à vérifier') + '</span>')],
         ['Cadence', 'chaque <b style="color:#cbd5e1;">' + d.weekdayLabel + '</b> à <b style="color:#cbd5e1;">' + String(d.hour).padStart(2, '0') + 'h00</b> (Paris)']
@@ -1485,7 +1485,7 @@
         flowEl.innerHTML = '<div class="cflow">'
           + step(d.active ? 'done' : 'todo', d.active ? '#00e676' : '#8b93a1', d.active ? '🟢 ACTIVE' : '⏸ EN PAUSE', 'La campagne', d.active ? 'tourne toute seule' : 'aucun envoi') + arr
           + step('done', '#00e676', '✅ ENVOYÉ', 'Bienvenue', iSent + ' envoyés · ' + iOpen + ' ouvertures') + arr
-          + step('next', '#e3b23a', '🔁 PROCHAIN — AUTO', 'Point de la semaine', 'puis chaque semaine', nextTxt) + arr
+          + step('next', '#e3b23a', '🔁 PROCHAIN : AUTO', 'Point de la semaine', 'puis chaque semaine', nextTxt) + arr
           + step('todo', '#8b93a1', '⏳ À VENIR', '5 e-mails', 'Point marché, Récap, Outlook…')
           + '</div>';
       }
@@ -1512,7 +1512,7 @@
     if (!_campSched) return;
     const action = _campSched.active ? 'pause' : 'activate';
     document.getElementById('camp-sched-msg').textContent = '…';
-    try { await fetch('/api/admin/campaign-schedule?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Campagne lancée — envoi hebdo automatique activé' : '⏸ Campagne mise en pause'); loadSchedule(); }
+    try { await fetch('/api/admin/campaign-schedule?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Campagne lancée : envoi hebdo automatique activé' : '⏸ Campagne mise en pause'); loadSchedule(); }
     catch { document.getElementById('camp-sched-msg').textContent = '❌ erreur'; }
   }
   async function campSchedTest(){
@@ -1555,7 +1555,7 @@
     const action = _campDrip.active ? 'pause' : 'activate';
     if (action === 'activate' && !confirm('Activer la séquence automatique ? Les nouveaux inscrits recevront l’intro puis avanceront seuls, et le blast hebdo actuel sera mis en pause. (Envois réels vers les clients.)')) return;
     document.getElementById('camp-drip-msg').textContent = '…';
-    try { await fetch('/api/admin/campaign-drip?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Séquence activée — auto-enrôlement en route' : '⏸ Séquence mise en pause'); loadDrip(); loadSchedule(); loadCampErrors(); }
+    try { await fetch('/api/admin/campaign-drip?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Séquence activée : auto-enrôlement en route' : '⏸ Séquence mise en pause'); loadDrip(); loadSchedule(); loadCampErrors(); }
     catch { document.getElementById('camp-drip-msg').textContent = '❌ erreur'; }
   }
   async function campDripTest(tpl){
@@ -1583,7 +1583,7 @@
           + '<div style="color:#cbd5e1;font-size:12.5px;margin-top:4px;">' + _escH(d.pausedReason.summary || '') + '</div>'
           + '<div style="color:#8b93a1;font-size:11.5px;margin-top:6px;">Corrigez la cause, puis « Activer la séquence » ci-dessus (anti-doublon garanti).</div></div>';
       }
-      if (!errs.length) { body.innerHTML = pausedBanner + '<div style="display:flex;align-items:center;gap:10px;"><span style="width:11px;height:11px;border-radius:50%;background:#00e676;box-shadow:0 0 10px #00e676;"></span><span style="font-size:15px;font-weight:700;color:#00e676;">Aucun incident — tout fonctionne</span></div>'; return; }
+      if (!errs.length) { body.innerHTML = pausedBanner + '<div style="display:flex;align-items:center;gap:10px;"><span style="width:11px;height:11px;border-radius:50%;background:#00e676;box-shadow:0 0 10px #00e676;"></span><span style="font-size:15px;font-weight:700;color:#00e676;">Aucun incident : tout fonctionne</span></div>'; return; }
       const rows = errs.slice(0, 12).map(function(e){
         var col = e.level === 'critical' ? '#ff6b57' : '#ffb300';
         return '<tr><td style="padding:8px 10px 8px 0;border-top:1px solid #1f1f24;vertical-align:top;white-space:nowrap;color:#8b93a1;font-size:11.5px;">' + _errWhen(e.at) + '</td>'
@@ -1672,7 +1672,7 @@
     setTimeout(() => { btn.textContent = old; btn.disabled = false; }, 4500);
   }
 
-  // ── IA Monitor : refonte pro (validée en maquette) — barre de commande, KPIs denses, empilé par
+  // ── IA Monitor : refonte pro (validée en maquette) : barre de commande, KPIs denses, empilé par
   //    fournisseur, prévision à micro-barres, infra en cartes, journal filtrable ──
   let _aimNextAt = 0, _aimBusy = false;   // source de vérité du compte à rebours (barre de statut)
   let _aimHours = 24, _aimJFilter = '', _aimLastData = null;
@@ -1754,7 +1754,7 @@
       const c = d.cache, pc = o => { const t = (o && ((o.hit || 0) + (o.miss || 0))) || 0; return t ? Math.round((o.hit || 0) / t * 100) + '%' : '—'; };
       return `<div class="aim-fc-row"><span>Cache à la demande (hit)</span><b>info ${pc(c.info)} · analyse ${pc(c.analyse)} · réaction ${pc(c.react)}</b></div>`
         + `<div class="aim-fc-row"><span>Requêtes économisées</span><b>${(c.coalesced || 0)} coalescées · ${(c.coolskip || 0)} évitées (panne)</b></div>`
-        + (c.usersIdle ? `<div class="aim-fc-row"><span>Activité</span><b style="color:#ffb300">personne connecté — fond au ralenti</b></div>` : '');
+        + (c.usersIdle ? `<div class="aim-fc-row"><span>Activité</span><b style="color:#ffb300">personne connecté : fond au ralenti</b></div>` : '');
     })() : '';
     document.getElementById('aim-forecast').innerHTML =
       `<div class="aim-fc-row"><span>Quota restant</span><b>${b.remaining}</b></div>`
@@ -1805,7 +1805,7 @@
     jEl.innerHTML = J.length ? J.slice(0, 40).map(e => {
       const col = e.level === 'critical' ? '#ef4444' : e.level === 'warn' ? '#ffb300' : '#60a5fa';
       return `<div class="aim-j-row"><span class="aim-j-t">${new Date(e.t).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span><span class="aim-j-lvl" style="color:${col}">${String(e.level || 'info').toUpperCase()}</span><span class="aim-j-msg">${_esc2(e.msg || '')}</span></div>`;
-    }).join('') : '<div class="aim-j-empty">Aucun événement — tout roule ✓</div>';
+    }).join('') : '<div class="aim-j-empty">Aucun événement : tout roule ✓</div>';
   }
   // Graphe EMPILÉ par fournisseur (remplace la courbe totale : on VOIT qui porte la charge)
   function _amStacked(id, trend) {
@@ -1862,7 +1862,7 @@
     _aimBusy = false; _aimNextAt = Date.now() + 30000;    // prochain refresh auto dans 30 s (affiché à la seconde)
     if (_dot) _dot.classList.remove('aim-live-dot--busy');
     if (_btn) _btn.disabled = false;
-    if (!d || !d.budget) { if (_last) _last.textContent = 'erreur de chargement — nouvel essai dans 30 s'; return; }
+    if (!d || !d.budget) { if (_last) _last.textContent = 'erreur de chargement : nouvel essai dans 30 s'; return; }
     _aimLastData = d;
     if (_last) _last.textContent = 'MAJ à ' + new Date(d.now).toLocaleTimeString('fr-FR');
     aimRenderKpis(d); aimRenderProviders(d); aimRenderLegend(d); aimRenderForecast(d); aimRenderInfra(d); aimRenderJournal(d);
@@ -1878,7 +1878,7 @@
     if (jf) jf.addEventListener('click', e => { const bt = e.target.closest('button'); if (!bt) return; _aimJFilter = bt.dataset.lvl || ''; jf.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === bt)); if (_aimLastData) aimRenderJournal(_aimLastData); });
   })();
 
-  // ── Dashboard financier (NET réel uniquement — aucune prévision) ─────────────
+  // ── Dashboard financier (NET réel uniquement : aucune prévision) ─────────────
   async function loadFinance() {
     let d; try { d = await fetch('/api/admin/finance').then(r => r.json()); } catch { return; }
     if (!d || !d.kpis) return;
@@ -1900,13 +1900,13 @@
     document.getElementById('fin-kpis').innerHTML = kpis.map(c =>
       `<div class="fin-kpi${c.accent ? ' fin-kpi--accent' : ''}"><div class="fin-kpi-label">${c.l}</div><div class="fin-kpi-val">${c.v}</div><div class="fin-kpi-sub">${c.sub || ''}</div></div>`).join('');
 
-    // Revenu net mensuel — courbe (orange)
+    // Revenu net mensuel : courbe (orange)
     const rev = d.revenueByMonth || {};
     _amArea('fin-rev-am', Object.keys(rev).map(m => ({ cat: m.slice(2), val: rev[m] })), 0xe3b23a, cur);
-    // Inscriptions 12 mois — courbe (bleu)
+    // Inscriptions 12 mois : courbe (bleu)
     const sm = d.signupsByMonth || {};
     _amArea('fin-chart-am', Object.keys(sm).map(m => ({ cat: m.slice(2), val: sm[m] })), 0x60a5fa, '');
-    // Répartition des abonnés — donut
+    // Répartition des abonnés : donut
     const dist = d.distribution || {};
     _amDonut('fin-dist-am', [
       { cat:'Mensuel',  val:dist.monthly   || 0, color:0xe3b23a },
@@ -2069,7 +2069,7 @@
     renderStats(); renderUserRows();
   }
 
-  // Avatar à initiales — couleur dérivée de l'email (stable, pas de random)
+  // Avatar à initiales : couleur dérivée de l'email (stable, pas de random)
   const _AVA_COLORS = ['#e3b23a','#60a5fa','#2ecc71','#a78bfa','#f472b6','#22d3ee','#fb923c','#34d399','#e879f9','#facc15'];
   function _avatar(u) {
     const base = (u.name || u.email || '?').trim();
@@ -2259,7 +2259,7 @@
     if (d.ok) {
       e.target.reset();
       const ms = d.mail || {};
-      const mailMsg = ms.skipped ? '' : ms.sent ? ` — email de bienvenue envoyé via ${ms.provider}.` : ' — ⚠️ compte créé mais EMAIL DE BIENVENUE NON ENVOYÉ (voir santé Mail dans l\'onglet IA & Mail).';
+      const mailMsg = ms.skipped ? '' : ms.sent ? ` : email de bienvenue envoyé via ${ms.provider}.` : ' : ⚠️ compte créé mais EMAIL DE BIENVENUE NON ENVOYÉ (voir santé Mail dans l\'onglet IA & Mail).';
       okEl.textContent = `Utilisateur ${body.email} créé avec succès.${mailMsg}`;
       okEl.classList.add('visible');
       loadUsers();
@@ -2269,7 +2269,7 @@
     }
   });
 
-  // ── Delete (confirmation INLINE dans la ligne — aucun dialog natif) ───────────
+  // ── Delete (confirmation INLINE dans la ligne : aucun dialog natif) ───────────
   function deleteUser(id) {
     const cell = document.querySelector(`tr[data-id="${id}"] td.actions`);
     if (!cell || cell.dataset.confirming) return;
@@ -2297,7 +2297,7 @@
       showToast('✓ Utilisateur supprimé');
       loadUsers();
     } catch {
-      showToast('Erreur lors de la suppression — réessayez', 'err');
+      showToast('Erreur lors de la suppression : réessayez', 'err');
       loadUsers();
     }
   }
@@ -2310,16 +2310,16 @@
         method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ active: next }),
       });
       const d = await r.json().catch(() => ({}));
-      if (r.ok && d.ok !== false) { showToast(next ? '✓ Compte réactivé' : '✓ Compte suspendu — déconnecté du desk'); loadUsers(); }
+      if (r.ok && d.ok !== false) { showToast(next ? '✓ Compte réactivé' : '✓ Compte suspendu : déconnecté du desk'); loadUsers(); }
       else showToast(d.error || 'Erreur lors de la mise à jour', 'err');
-    } catch { showToast('Erreur réseau — réessayez', 'err'); }
+    } catch { showToast('Erreur réseau : réessayez', 'err'); }
   }
   async function forceDisconnect(id) {
     try {
       const r = await fetch(`/api/admin/users/${id}/disconnect`, { method: 'POST' });
       if (r.ok) showToast('✓ Utilisateur déconnecté du desk (éjecté sous ~20 s)');
-      else showToast('Erreur — réessayez', 'err');
-    } catch { showToast('Erreur réseau — réessayez', 'err'); }
+      else showToast('Erreur : réessayez', 'err');
+    } catch { showToast('Erreur réseau : réessayez', 'err'); }
   }
 
   // ── Edit modal ──────────────────────────────────────────────────────────────
@@ -2362,7 +2362,7 @@
         showToast(d.error || 'Erreur lors de la mise à jour', 'err');
       }
     } catch {
-      showToast('Erreur de connexion — réessayez', 'err');
+      showToast('Erreur de connexion : réessayez', 'err');
     }
   }
 
@@ -2393,7 +2393,7 @@
       body: JSON.stringify({ password: pwd }),
     });
     closePwdModal();
-    showToast("✓ Mot de passe mis à jour — email envoyé (l'utilisateur doit vérifier ses indésirables/spams)");
+    showToast("✓ Mot de passe mis à jour : email envoyé (l'utilisateur doit vérifier ses indésirables/spams)");
   }
 
   // ── Logout ──────────────────────────────────────────────────────────────────
