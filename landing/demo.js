@@ -261,7 +261,7 @@
       var chg = rnd(-0.4, 0.5); var cls = chg >= 0 ? 'up' : 'down';
       return '<div class="it"><span class="sym">' + t[0] + '</span><span class="px dd-mono">' + fmt(t[1], t[3]) + '</span><span class="ch dd-mono ' + cls + '">' + (chg >= 0 ? '+' : '') + chg.toFixed(2) + '%</span></div>';
     }).join('');
-    root = el('<div id="dtp-demo" role="dialog" aria-modal="true" aria-label="Démo DataTradingPro — aperçu en simulation"></div>');
+    root = el('<div id="dtp-demo" role="dialog" aria-modal="true" aria-label="Démo DataTradingPro : aperçu en simulation"></div>');
     root.innerHTML =
       '<div class="dd-win">' +
         '<div class="dd-top">' +
@@ -277,7 +277,7 @@
           '<div class="dd-p dd-bias"><div class="dd-ph"><span class="ttl">Smart Bias</span></div><div class="dd-bmx" id="dd-bias"></div></div>' +
         '</div>' +
         '<div class="dd-foot">' +
-          '<span class="note">Démo en temps simulé — données fictives à des fins d\'illustration.</span>' +
+          '<span class="note">Démo en temps simulé : données fictives à des fins d\'illustration.</span>' +
           '<span class="grow"></span>' +
           '<span class="msg">Le <b>vrai terminal</b> est encore plus complet, en données réelles.</span>' +
           '<a class="dd-cta" href="' + WHOP + '">Commencer →</a>' +

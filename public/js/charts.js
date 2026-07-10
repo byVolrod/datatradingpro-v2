@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════
-   DataTradingPro — amCharts 5 Charts
+   DataTradingPro : amCharts 5 Charts
    Stock · Strength · Risk · Meter · COT · DMX
 ═══════════════════════════════════════════════ */
 'use strict';
@@ -129,7 +129,7 @@ function tickPrices() {
 }
 
 // (tickPrices désactivé : il alimentait l'ancien sidebar de prix simulés, qui n'est plus
-//  construit — c'était un intervalle 3 s tournant à vide. Le Radar de Biais réel le remplace.)
+//  construit : c'était un intervalle 3 s tournant à vide. Le Radar de Biais réel le remplace.)
 void tickPrices;
 
 // ═══════════════════════════════════════════════
@@ -540,7 +540,7 @@ function rebuildStockChart(symbol) {
 }
 
 // ═══════════════════════════════════════════════
-//  STRENGTH — Real Force des Devises (Single Chart + TF Selector)
+//  STRENGTH : Real Force des Devises (Single Chart + TF Selector)
 // ═══════════════════════════════════════════════
 
 // Palette SATURÉE : couleurs plus vives/denses pour RESSORTIR sur le fond noir #0d0d0d.
@@ -567,7 +567,7 @@ let _meterTimer    = null;
 function _smoothCS(pts) {
   return pts.map((d, i) => {
     if (d.v == null) return d;
-    if (i === pts.length - 1) return d; // keep last point raw — no look-behind pull
+    if (i === pts.length - 1) return d; // keep last point raw : no look-behind pull
     const p = i > 0 && pts[i - 1].v != null ? pts[i - 1].v : d.v;
     const n = pts[i + 1]?.v != null ? pts[i + 1].v : d.v;
     return { ...d, v: +((p + d.v + n) / 3).toFixed(4) };
@@ -581,7 +581,7 @@ function _lighten(hexInt, amt) {
   return '#' + ((lr << 16) | (lg << 8) | lb).toString(16).padStart(6, '0');
 }
 // Badge du bout de courbe : UNIQUEMENT le code devise sur sa couleur pleine (texte noir).
-// (La valeur chiffrée a été retirée à la demande — le badge ne porte plus que le code de la devise.)
+// (La valeur chiffrée a été retirée à la demande : le badge ne porte plus que le code de la devise.)
 function _csBadgeHtml(ccy, fullHex, lightHex, valStr) {
   return `<div class="cs-badge"><span class="cs-badge-ccy" style="background:${fullHex}">${ccy}</span></div>`;
 }
@@ -631,7 +631,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       renderer: am5xy.AxisRendererX.new(root, { minGridDistance: 60 }),
     })
   );
-  // Axe X : AUCUN tooltip de date — curseur « sans information » demandé
+  // Axe X : AUCUN tooltip de date : curseur « sans information » demandé
   // (uniquement le croisillon + le point d'ancrage coloré sur la courbe survolée).
   xAxis.get('renderer').labels.template.setAll({
     fill: am5.color(0x6b7280), fontSize: 10,            // gris discret (façon DTP)
@@ -669,7 +669,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     am5xy.ValueAxis.new(root, { renderer: yAxisRenderer, numberFormat: '#0.00', maxDeviation: 0, extraMin: 0.07, extraMax: 0.07 })
   );
 
-  // Zero reference line — gris clair UNI (distincte de la grille pointillée)
+  // Zero reference line : gris clair UNI (distincte de la grille pointillée)
   const zeroRange = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
   zeroRange.get('grid').setAll({ stroke: am5.color(0xffffff), strokeWidth: 1, strokeOpacity: 0.45 });
   zeroRange.get('label').set('visible', false);
@@ -715,7 +715,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
         }),
       })
     );
-    series.strokes.template.setAll({ strokeWidth: 1.8, strokeOpacity: dim ? 0 : 1 });   // 1.8 px : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur — corrigé.)
+    series.strokes.template.setAll({ strokeWidth: 1.8, strokeOpacity: dim ? 0 : 1 });   // 1.8 px : un poil plus large pour ressortir, tout en gardant la haute fréquence/nervosité. (Le « mou » d'avant venait du lissage _smoothCS dans update(), pas de l'épaisseur : corrigé.)
     // PAS de lissage : on trace les points BRUTS (moyenne mobile 3 pts retirée) + LineSeries amCharts = segments
     // LINÉAIRES point-à-point (aucune tension/spline) → cassures et dents de scie visibles. La densité
     // vient des bougies fines côté serveur (today=1 m, week=15 m, 1d=5 m dans CS_PERIOD_CFG / _computeStrengthFresh).
@@ -784,7 +784,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
     behavior: 'none', snapToSeries: seriesArr, snapToSeriesBy: 'y!',
   }));
   cursor.lineX.setAll({ stroke: am5.color(0x475569), strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.9 });
-  // Croisillon complet (vertical + horizontal), pointillés gris — comme l'image demandée.
+  // Croisillon complet (vertical + horizontal), pointillés gris : comme l'image demandée.
   cursor.lineY.setAll({ visible: true, stroke: am5.color(0x475569), strokeWidth: 1, strokeDasharray: [3, 3], strokeOpacity: 0.9 });
   // Point d'ancrage coloré sur la courbe survolée, MAIS bulle d'info masquée (« sans information ») :
   // on garde le tooltip ACTIF (c'est lui qui dessine le point) en rendant son fond transparent + son texte invisible.
@@ -804,7 +804,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
   chart.plotContainer.set('cursorOverStyle', 'default');
   if (seriesArr[0]) seriesArr[0].events.once('datavalidated', () => { try { xAxis.zoom(0.08, 1); } catch (e) {} });   // on montre ~92 % de la session (vs 65 %) → bien plus de points/pixel = texture dense visible d'emblée (pan toujours dispo, donnée inchangée)
 
-  // Apparition animée — SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
+  // Apparition animée : SAUF les devises masquées du mode « paire » (sinon `appear` les ré-afficherait).
   chart.series.values.forEach((s, i) => { if (_only && !_only.has(s.get('name'))) return; s.appear(500, i * 20); });
 
   // ── Anti-collision des badges : écarte verticalement ceux trop proches ───────
@@ -816,7 +816,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
       const GAP = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas.
       // ENFORCEMENT : l'inclusion se base sur la visibilité RÉELLE de la série (pas seulement _hiddenCcy,
-      // qui peut rater un événement) — et on RÉ-IMPOSE forceHidden aux badges des devises masquées à
+      // qui peut rater un événement) : et on RÉ-IMPOSE forceHidden aux badges des devises masquées à
       // chaque passe (declutter tourne au build + après chaque update → l'état ne peut plus dériver).
       const arr = Object.entries(labelMap).filter(([ccy, o]) => {
         const s = seriesMap[ccy];
@@ -885,7 +885,7 @@ function buildStrengthChart(containerId, data, opts = {}) {
 //   HAUT  → on étire (zoom in) → les courbes montent/descendent davantage,
 //   BAS   → on revient vers l'ajustement auto,  DOUBLE-CLIC → réinitialise.
 // Capture de pointeur → aucun listener résiduel (le grip meurt avec le conteneur au rebuild).
-// État volatil : remis à plat à chaque reconstruction (innerHTML vidé) — conforme DTP.
+// État volatil : remis à plat à chaque reconstruction (innerHTML vidé) : conforme DTP.
 function _attachYAxisDragZoom(container, yAxis, gutterW) {
   if (!container || !yAxis || typeof window.PointerEvent === 'undefined') return;
   if (getComputedStyle(container).position === 'static') container.style.position = 'relative';
@@ -943,7 +943,7 @@ async function buildIsolatedStrength(containerId, focusCurrency, period = 'week'
 }
 window.buildIsolatedStrength = buildIsolatedStrength;
 
-// Ranked snapshot view — horizontal bars sorted strongest → weakest
+// Ranked snapshot view : horizontal bars sorted strongest → weakest
 function buildStrengthSnapshot(containerId, data) {
   const el = document.getElementById(containerId);
   if (!el) return;
@@ -979,7 +979,7 @@ function buildStrengthSnapshot(containerId, data) {
 // Vue double "Force de la devise" : panneau gauche (TD) + panneau droit (TW), 50/50
 let _strengthTimers = [];
 
-// Fetch JSON RÉSILIENT (anticipation) : tolère les hoquets transitoires — 502/HTML pendant un redéploiement,
+// Fetch JSON RÉSILIENT (anticipation) : tolère les hoquets transitoires : 502/HTML pendant un redéploiement,
 // coupure réseau, réponse non-JSON. Réessaie sur 5xx / non-JSON / erreur réseau. Renvoie le JSON, ou lève
 // après N essais. Évite définitivement le « Unexpected token '<' » (parse d'une page d'erreur HTML).
 async function _dtpJSON(url, opts = {}) {
@@ -1070,7 +1070,7 @@ async function buildStrengthCharts() {
     });
 
     load(initialPeriod, { force: true });
-    // Rafraîchissement rapide et fluide (20s) — uniquement quand l'onglet STRENGTH est visible
+    // Rafraîchissement rapide et fluide (20s) : uniquement quand l'onglet STRENGTH est visible
     _strengthTimers.push(setInterval(() => {
       const panel = document.getElementById('rtab-strength');
       if (!panel || !panel.classList.contains('active')) { _strengthTimers.forEach(t => clearInterval(t)); _strengthTimers = []; return; }
@@ -1083,7 +1083,7 @@ async function buildStrengthCharts() {
 }
 
 // ═══════════════════════════════════════════════
-//  RISK — Real Risk Sentiment Widget
+//  RISK : Real Risk Sentiment Widget
 // ═══════════════════════════════════════════════
 
 let _riskRefreshTimer = null;
@@ -1094,17 +1094,17 @@ let _riskHand         = null;   // sprite ClockHand (pour recolorer l'aiguille s
 let _riskScoreLabel   = null;
 let _riskBadgeLabel   = null;
 
-// Bande sentiment (● LABEL: phrase EN) — partagée build + mise à jour du widget risque
+// Bande sentiment (● LABEL: phrase EN) : partagée build + mise à jour du widget risque
 const _RISK_BAND_EN = {
   'STRONG RISK-ON':  'Fort appétit pour le risque. Les capitaux affluent vers les actions et les actifs à fort bêta. Les valeurs refuges sont vendues.',
   'RISK-ON':         'L’appétit pour le risque domine. Actions et actifs risqués recherchés ; actifs défensifs en retrait.',
   'WEAK RISK-ON':    'Appétit pour le risque modéré. Ton constructif mais conviction limitée.',
   'NEUTRAL':         'Sentiment équilibré. Signaux mitigés sur les actifs risqués, pas de direction claire.',
   'WEAK RISK-OFF':   'La prudence domine. Flux mitigés. Valeurs refuges soutenues. Volatilité élevée.',
-  'RISK-OFF':        'Aversion au risque à l’œuvre. Fuite vers la sécurité — obligations, or, JPY et CHF recherchés.',
+  'RISK-OFF':        'Aversion au risque à l’œuvre. Fuite vers la sécurité : obligations, or, JPY et CHF recherchés.',
   'STRONG RISK-OFF': 'Forte aversion au risque. Fuite marquée vers les valeurs refuges. Volatilité forte.',
 };
-// Libellé FR du badge/bande de risque — affichage UNIQUEMENT (la valeur logique data.label reste EN :
+// Libellé FR du badge/bande de risque : affichage UNIQUEMENT (la valeur logique data.label reste EN :
 // dérivation de classe `cls`, comparaisons /risk-on/i, couleurs). Couvre les 7 variantes.
 const GAUGE_LABEL_FR = {
   'STRONG RISK-ON':  'FORT APPÉTIT',
@@ -1342,7 +1342,7 @@ function buildRiskGauge() {
 }
 
 // ═══════════════════════════════════════════════
-//  RISK SENTIMENT HISTORY — barres quotidiennes risk-on/off (amCharts)
+//  RISK SENTIMENT HISTORY : barres quotidiennes risk-on/off (amCharts)
 //  Source UNIQUE : /api/risk-history (échantillonné depuis fetchRiskSentiment serveur). On ne recalcule rien.
 // ═══════════════════════════════════════════════
 let _riskHistCtl = null;
@@ -1397,7 +1397,7 @@ function buildRiskHistoryChart(containerId, data) {
   // Barres : 1/jour, vert (≥0 = risk-on) / rouge (<0 = risk-off)
   const series = chart.series.push(am5xy.ColumnSeries.new(root, {
     name: 'Risk', clustered: false, xAxis, yAxis, valueXField: 'ts', valueYField: 'pct',
-    tooltip: am5.Tooltip.new(root, { labelText: '{valueY.formatNumber("#0.0")}% — {label}', pointerOrientation: 'vertical' }),
+    tooltip: am5.Tooltip.new(root, { labelText: '{valueY.formatNumber("#0.0")}% : {label}', pointerOrientation: 'vertical' }),
   }));
   series.columns.template.setAll({ width: am5.percent(72), strokeOpacity: 0, cornerRadiusTL: 1, cornerRadiusTR: 1 });
   series.columns.template.adapters.add('fill', (_f, t) => {
@@ -1418,7 +1418,7 @@ function buildRiskHistoryChart(containerId, data) {
   return { root, series, update(d) { setData((d && d.series) || d || []); } };
 }
 
-// Bandeau d'état (label FR + pastille + description) — depuis la SOURCE UNIQUE (jamais recalculé).
+// Bandeau d'état (label FR + pastille + description) : depuis la SOURCE UNIQUE (jamais recalculé).
 function _renderRiskHistStatus(cur) {
   const box = document.getElementById('risk-history-status'); if (!box || !cur) return;
   const isOn = /risk-on/i.test(cur.label || ''), isOff = /risk-off/i.test(cur.label || '');
@@ -1455,7 +1455,7 @@ window.addEventListener('dtp-risk', e => {
 });
 
 // ═══════════════════════════════════════════════
-//  METER — Sentiment Gauge
+//  METER : Sentiment Gauge
 // ═══════════════════════════════════════════════
 
 // Métadonnées devises (code pays ISO pour flagcdn + nom complet)
@@ -1469,7 +1469,7 @@ const METER_META = {
   CAD: { iso: 'ca', name: 'Dollar canadien' },
   NZD: { iso: 'nz', name: 'Dollar néo-zélandais' },
 };
-// Drapeau image (flagcdn) — fonctionne sur tous les OS (contrairement aux emojis)
+// Drapeau image (flagcdn) : fonctionne sur tous les OS (contrairement aux emojis)
 function _flagImg(iso, size = 16) {
   return `<img class="meter-flag-img" src="https://flagcdn.com/w20/${iso}.png" `
        + `srcset="https://flagcdn.com/w40/${iso}.png 2x" width="${size}" alt="" loading="lazy">`;
@@ -1599,7 +1599,7 @@ function buildMeterChart() {
 }
 
 // ═══════════════════════════════════════════════
-//  COT — Commitment of Traders
+//  COT : Commitment of Traders
 // ═══════════════════════════════════════════════
 
 function buildCOTChart() {
@@ -1692,7 +1692,7 @@ function buildCOTChart() {
 }
 
 // ═══════════════════════════════════════════════
-//  DMX — Myfxbook Community Outlook
+//  DMX : Myfxbook Community Outlook
 // ═══════════════════════════════════════════════
 
 // Forex + metals only filter for DMX
@@ -1739,7 +1739,7 @@ function buildDMXChart(forceRefresh = false) {
       if (data.error) throw new Error(data.error);
       let symbols = (data.symbols || []).filter(row => _dmxAllowed(row.symbol));
       if (!symbols.length) {
-        wrap.innerHTML = '<div class="dmx-loading">Aucune donnée — connexion Myfxbook en attente…</div>';
+        wrap.innerHTML = '<div class="dmx-loading">Aucune donnée : connexion Myfxbook en attente…</div>';
         return;
       }
 
@@ -1790,20 +1790,20 @@ function buildDMXChart(forceRefresh = false) {
     })
     .catch(() => {
       wrap.innerHTML = `<div class="dmx-loading">
-        Erreur de connexion — nouvelle tentative…<br>
+        Erreur de connexion : nouvelle tentative…<br>
         <button onclick="buildDMXChart(true)" style="margin-top:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:3px 10px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">Réessayer</button>
       </div>`;
       setTimeout(() => buildDMXChart(true), 15000);
     });
 }
 
-// ═══════════════════ SEASONALITY — table de performance mensuelle (façon pro) ═══════════════════
+// ═══════════════════ SEASONALITY : table de performance mensuelle (façon pro) ═══════════════════
 // 28 paires FX (mêmes que Force des Devises). Défaut EUR/USD, sinon la dernière paire consultée (persistée
 // PAR COMPTE via /api/season-pair). Données = /api/seasonality (Yahoo : rendement mensuel × 5 ans + moyenne).
 const _SEASON_PAIRS = ['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','NZDUSD','USDCAD','EURGBP','EURJPY','EURCHF','EURAUD','EURCAD','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPCAD','GBPNZD','AUDJPY','NZDJPY','CADJPY','CHFJPY','AUDNZD','AUDCAD','AUDCHF','NZDCAD','NZDCHF','CADCHF'];
 let _seasonPair = null;   // paire courante (chargée 1×/session depuis le compte)
 function _seasonFmtPair(c){ return (c && c.length === 6) ? c.slice(0,3) + '/' + c.slice(3) : c; }
-// Heatmap : vert (positif) / rouge (négatif), intensité ∝ |valeur| (plafonnée ~4 %) — façon pro.
+// Heatmap : vert (positif) / rouge (négatif), intensité ∝ |valeur| (plafonnée ~4 %) : façon pro.
 function _seasonCellBg(v){
   if (v == null) return 'transparent';
   const a = Math.max(0.12, Math.min(0.92, Math.abs(v) / 4));
@@ -1852,7 +1852,7 @@ function buildSeasonalityChart(){
     .catch(() => { if (want === _seasonPair) wrap.innerHTML = '<div class="dmx-loading">Erreur de chargement<br><button onclick="buildSeasonalityChart()" style="margin-top:8px;background:#1c1c1f;border:1px solid #2a2f3a;color:#e3b23a;padding:4px 12px;border-radius:6px;cursor:pointer">Réessayer</button></div>'; });
 }
 
-// ═══ Seasonality Performance Table Settings — fenêtre multi-classes (façon pro) ═══
+// ═══ Seasonality Performance Table Settings : fenêtre multi-classes (façon pro) ═══
 // Engrenage (tooltip « Settings ») → fenêtre : Asset Class (Forex/Stocks/Commodities/Indices) + grille
 // de symboles cliquable (drapeaux pour le forex). Le choix appelle _seasonPick (persiste par compte).
 let _seasonCatalog = null, _seasonLabelById = {}, _seasonCfgClass = 'forex';
@@ -1938,7 +1938,7 @@ function initDMXTabs() {
 }
 
 // ═══════════════════════════════════════════════
-//  SESSION MAP — amCharts 5 MapChart
+//  SESSION MAP : amCharts 5 MapChart
 // ═══════════════════════════════════════════════
 
 const MAP_CITIES = [
@@ -2011,7 +2011,7 @@ function buildSessionMap() {
 
   // Rendu ÉPURÉ : pas de grille (graticule) → carte propre comme la référence.
 
-  // Country polygons — vert plus clair sur océan noir (valeurs DTP)
+  // Country polygons : vert plus clair sur océan noir (valeurs DTP)
   const polygonSeries = chart.series.push(
     am5map.MapPolygonSeries.new(root, { geoJSON: am5geodata_worldLow, exclude: ['AQ'] })
   );
@@ -2021,7 +2021,7 @@ function buildSessionMap() {
   });
   polygonSeries.mapPolygons.template.states.create('hover', { fill: am5.color(0x33373f) });
 
-  // ── Terminateur JOUR/NUIT — overlay CANVAS hors-amCharts ──────────────────────────────────────
+  // ── Terminateur JOUR/NUIT : overlay CANVAS hors-amCharts ──────────────────────────────────────
   // On dessine le VRAI terminateur solaire (point subsolaire + déclinaison, calculés depuis l'UTC) sur
   // un canvas posé PAR-DESSUS la carte. Hors amCharts → ne touche JAMAIS aux bornes/au cadrage (l'ancien
   // polygone plein-globe cassait d3-geo). Aligné via la projection RÉELLE d'amCharts (chart.convert →
@@ -2124,7 +2124,7 @@ function buildSessionMap() {
       centerX: am5.percent(50), centerY: am5.percent(50),
       oversizedBehavior: 'none',
     }));
-    // Petite flèche orange sous l'étiquette, pointant vers le bas (vers le trait) — façon pro.
+    // Petite flèche orange sous l'étiquette, pointant vers le bas (vers le trait) : façon pro.
     // Caractère « ▼ » (Label) plutôt qu'am5.Triangle (qui faisait planter le rendu).
     cont.children.push(am5.Label.new(r, {
       text: '▼', fill: am5.color(0xe3b23a),
@@ -2201,7 +2201,7 @@ function buildSessionMap() {
     const ringCol  = (status === 'open') ? accent : AMBER;
     const cont     = am5.Container.new(root, {});
 
-    // Badge COMPACT sur UNE SEULE LIGNE — « 15:02:50  New York » : heure colorée + ville blanche, côte à côte,
+    // Badge COMPACT sur UNE SEULE LIGNE : « 15:02:50  New York » : heure colorée + ville blanche, côte à côte,
     // fond sombre + fine bordure de la couleur de la ville, collé à côté du point (gauche/droite selon le bord).
     const box = cont.children.push(am5.Container.new(root, {
       paddingTop: 3, paddingBottom: 3, paddingLeft: 7, paddingRight: 7,
@@ -2271,7 +2271,7 @@ function buildSessionMap() {
   }
 
   function updateHeader(now) {
-    // DTP affiche simplement "Live" (vert) à côté du point — pas la liste des sessions
+    // DTP affiche simplement "Live" (vert) à côté du point : pas la liste des sessions
     const labEl = document.getElementById('active-sessions-label');
     if (labEl) { labEl.textContent = 'Direct'; labEl.style.color = '#22c55e'; }
   }
@@ -2318,10 +2318,10 @@ function initRightTab(tab) {
   if (tab === 'meter')    { buildMeterChart();    return; }   // rebuild léger (briques HTML)
   if (tab === 'strength') { buildStrengthCharts(); return; }  // dispose + rebuild amCharts
   // RISK : jauge construite UNE fois (idempotente), mais l'HISTORIQUE se rafraîchit à chaque activation
-  // (barre du jour à jour) — uniquement quand l'onglet est visible (anti-egress).
+  // (barre du jour à jour) : uniquement quand l'onglet est visible (anti-egress).
   if (tab === 'risk') { if (!chartInited.risk) { chartInited.risk = true; buildRiskGauge(); } loadRiskHistory(); return; }
   // CARTE (Leaflet) : bâtie UNE fois, mais à CHAQUE retour sur l'onglet il faut invalidateSize()
-  // — sinon la carte construite pendant que le panneau MONDE était caché reste mal dimensionnée
+  // : sinon la carte construite pendant que le panneau MONDE était caché reste mal dimensionnée
   // (Leaflet ignore qu'on l'a ré-affichée → écran vide). Refit pour recadrer le planisphère.
   if (tab === 'world') {
     if (!chartInited.world) { chartInited.world = true; buildSessionMap(); }
@@ -2388,7 +2388,7 @@ document.addEventListener('DOMContentLoaded', () => {
       host.innerHTML = banks.map(_rtcCard).join('');
       if (window._dtpDataIn) window._dtpDataIn(host, 'taux');   // fondu d'arrivee (1re fois : skeleton -> cartes)
       const upd = document.getElementById('taux-update');
-      if (upd) {   // fraîcheur RÉELLE (heure du dernier rafraîchissement des cotations) — SANS nommer la source (demande utilisateur)
+      if (upd) {   // fraîcheur RÉELLE (heure du dernier rafraîchissement des cotations) : SANS nommer la source (demande utilisateur)
         const ts = d.rpAt || d.updatedAt || 0;
         upd.textContent = ts ? ('Cotations à jour · ' + new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
       }
@@ -2402,7 +2402,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // ── Carte « Interest Rate Probability » — clone fidèle, partagée entre l'onglet TAUX et la vue paire ──
+  // ── Carte « Interest Rate Probability » : clone fidèle, partagée entre l'onglet TAUX et la vue paire ──
   // Terminologie financière EN d'origine (Next Move/Probability/Expected Δ/Current Rate/Meeting Date,
   // Scenario Distribution, Cut/Hold/Hike, Implied Δ (BPS), Base Case). Sparklines data-driven en fond.
   const _RTC_EN = { USD: 'Réserve fédérale (OIS)', EUR: 'Banque centrale européenne', GBP: 'Banque d’Angleterre', JPY: 'Banque du Japon', CHF: 'Banque nationale suisse', CAD: 'Banque du Canada', AUD: 'Banque de réserve d’Australie', NZD: 'Banque de réserve de Nouvelle-Zélande' };
@@ -2631,11 +2631,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initCOTTabs();
   initDMXTabs();
 
-  // WORLD is the default active right tab — init immediately
+  // WORLD is the default active right tab : init immediately
   initRightTab('world');
 });
 
-// ─── FX LIST — Overview table ─────────────────────────────────────────────────
+// ─── FX LIST : Overview table ─────────────────────────────────────────────────
 const FXL_COLS = [
   { key: 'symbol',    label: 'Symbole',    sortable: true,  align: 'left',   type: 'sym'     },
   { key: 'sparkLast', label: 'Dernier prix', sortable: false, align: 'center', type: 'price'   },
@@ -2656,14 +2656,14 @@ let _fxlData = null;
 let _fxlSort = { key: 'symbol', dir: 1 };
 let _fxlLoading = false;
 
-// Points (x,y) d'une série dans une boîte w×h (marge verticale 1px) — base commune des sparklines
+// Points (x,y) d'une série dans une boîte w×h (marge verticale 1px) : base commune des sparklines
 function _fxlSparkPts(vals, w, h) {
   const min = Math.min(...vals), max = Math.max(...vals);
   const range = max - min || 1, pad = 1, ih = h - 2 * pad, stepX = w / (vals.length - 1);
   return vals.map((v, i) => [ +(i * stepX).toFixed(1), +(pad + ih - ((v - min) / range) * ih).toFixed(1) ]);
 }
 
-// LAST PRICE — ligne blanche, dernier segment coloré selon le sens du dernier tick (vert/rouge fluo)
+// LAST PRICE : ligne blanche, dernier segment coloré selon le sens du dernier tick (vert/rouge fluo)
 function _fxlPriceSpark(arr, w = 78, h = 14) {
   const vals = (arr || []).filter(v => v != null);
   if (vals.length < 2) return '';
@@ -2675,7 +2675,7 @@ function _fxlPriceSpark(arr, w = 78, h = 14) {
     + `<polyline points="${pts.slice(-2).map(p => p.join(',')).join(' ')}" fill="none" stroke="${tick}" stroke-width="1.4"/></svg>`;
 }
 
-// SEASONAL — sparkline ondulé multi-segments : chaque segment coloré selon sa pente (turquoise / rouge)
+// SEASONAL : sparkline ondulé multi-segments : chaque segment coloré selon sa pente (turquoise / rouge)
 function _fxlSeasonSpark(arr, w = 78, h = 14) {
   const vals = (arr || []).filter(v => v != null);
   if (vals.length < 2) return '';
@@ -2688,7 +2688,7 @@ function _fxlSeasonSpark(arr, w = 78, h = 14) {
   return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none">${segs}</svg>`;
 }
 
-// TREND — micro-ligne fine mono, couleur selon la direction macro
+// TREND : micro-ligne fine mono, couleur selon la direction macro
 function _fxlTrendSpark(arr, w = 78, h = 14) {
   const vals = (arr || []).filter(v => v != null);
   if (vals.length < 2) return '';
@@ -2697,7 +2697,7 @@ function _fxlTrendSpark(arr, w = 78, h = 14) {
   return `<svg class="fxl-spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"><polyline points="${pts.map(p => p.join(',')).join(' ')}" fill="none" stroke="${up ? '#00cc99' : '#ff3d00'}" stroke-width="1"/></svg>`;
 }
 
-// PATTERN — micro-matrice de 5 carrés : allumés (blanc) selon les hausses récentes, sinon éteints
+// PATTERN : micro-matrice de 5 carrés : allumés (blanc) selon les hausses récentes, sinon éteints
 function _fxlPattern(arr) {
   const vals = (arr || []).filter(v => v != null);
   if (vals.length < 2) return '<span class="fxl-pat"></span>';
@@ -2708,13 +2708,13 @@ function _fxlPattern(arr) {
   return `<span class="fxl-pat">${sq}</span>`;
 }
 
-// CHANGE % — texte simple (N/A gris foncé si absent, sinon coloré sans fond)
+// CHANGE % : texte simple (N/A gris foncé si absent, sinon coloré sans fond)
 function _fxlChangeCell(v) {
   if (v == null) return '<span class="fxl-na">N/A</span>';
   return `<span class="fxl-chg fxl-chg--${v >= 0 ? 'pos' : 'neg'}">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
 }
 
-// Heatmap Cell (1M/3M/12M) — fond plein vert/rouge à OPACITÉ ∝ |%|, texte turquoise/rouge
+// Heatmap Cell (1M/3M/12M) : fond plein vert/rouge à OPACITÉ ∝ |%|, texte turquoise/rouge
 function _fxlPctCell(v) {
   if (v == null) return '<span class="fxl-pct fxl-na">N/A</span>';
   const cls = v >= 0 ? 'pos' : 'neg';
@@ -2723,7 +2723,7 @@ function _fxlPctCell(v) {
   return `<span class="fxl-pct fxl-pct--${cls}" style="background:rgba(${rgb},${a.toFixed(3)})">${v >= 0 ? '+' : ''}${v.toFixed(2)}%</span>`;
 }
 
-// STRENGTH — vumètre horizontal ultra-fin (2px), remplissage vers la droite, turquoise/fuchsia
+// STRENGTH : vumètre horizontal ultra-fin (2px), remplissage vers la droite, turquoise/fuchsia
 function _fxlStrengthCell(v, maxAbs) {
   const mag = maxAbs > 0 ? Math.min(100, Math.abs(v) / maxAbs * 100) : 0;
   const cls = v >= 0 ? 'pos' : 'neg';
@@ -2736,7 +2736,7 @@ function _fxlFlag(ccy) {
   return `<img src="https://flagcdn.com/w40/${iso}.png" alt="${ccy}" class="fxl-flag" loading="lazy">`;
 }
 
-// DMX — donut radial bicolore segmenté : part verte = flux haussiers, reste rouge (couleurs la référence exactes)
+// DMX : donut radial bicolore segmenté : part verte = flux haussiers, reste rouge (couleurs la référence exactes)
 function _fxlDonut(pct) {
   const v = Math.max(0, Math.min(100, pct ?? 50));
   const r = 7, c = 2 * Math.PI * r, bull = (c * v / 100).toFixed(2);
@@ -2746,7 +2746,7 @@ function _fxlDonut(pct) {
     + `</svg>`;
 }
 
-// Libellés FR du badge FX (affichage UNIQUEMENT — la comparaison `=== 'Bullish'` et la classe restent EN).
+// Libellés FR du badge FX (affichage UNIQUEMENT : la comparaison `=== 'Bullish'` et la classe restent EN).
 const FXL_BADGE_FR = { Bullish: 'Haussier', Bearish: 'Baissier', Neutral: 'Neutre' };
 function _fxlBadge(label) {
   const cls = label === 'Bullish' ? 'bull' : label === 'Bearish' ? 'bear' : 'neut';
@@ -2855,7 +2855,7 @@ function initFxListTab() {
     else _fxlSort = { key, dir: key === 'symbol' ? 1 : -1 };
     renderFxList();
   });
-  // Auto-actualisation (la donnée serveur est mise en cache 10 min) — UNIQUEMENT quand l'onglet
+  // Auto-actualisation (la donnée serveur est mise en cache 10 min) : UNIQUEMENT quand l'onglet
   // FX List est visible, sans vider la table (mise à jour silencieuse, façon flux temps réel).
   if (_fxlAutoTimer) clearInterval(_fxlAutoTimer);
   _fxlAutoTimer = setInterval(() => {
@@ -2893,7 +2893,7 @@ function calImpDots(impact) {
   return '<span class="ci-low">●<span class="ci-dot-off">●●</span></span>';
 }
 
-// ─── Deviation Signaling — utilitaire SÉMANTIQUE UNIFIÉ ───────────────────────
+// ─── Deviation Signaling : utilitaire SÉMANTIQUE UNIFIÉ ───────────────────────
 // Compare une donnée chiffrée (actual) à sa référence (forecast) et renvoie la classe
 // de la charte : 'cv-pos' (supérieur/favorable → vert), 'cv-neg' (inférieur → rouge),
 // '' (égal ou non comparable → blanc). Fidèle DataTradingPro : SANS référence valable
@@ -2994,7 +2994,7 @@ function renderCalTable() {
     const prev = ev.previous && ev.previous !== ''
       ? `<span class="cv-prev">${ev.previous}</span>`
       : '<span class="cv-empty">—</span>';
-    // HIGH / LOW — not in ForexFactory XML, show dash when absent
+    // HIGH / LOW : not in ForexFactory XML, show dash when absent
     const hi  = ev.high  && ev.high  !== '' ? `<span class="cv-forecast">${ev.high}</span>`  : '<span class="cv-empty">—</span>';
     const lo  = ev.low   && ev.low   !== '' ? `<span class="cv-prev">${ev.low}</span>`        : '<span class="cv-empty">—</span>';
 
@@ -3035,7 +3035,7 @@ function renderCalTable() {
   </table>`;
   if (window._dtpDataIn) window._dtpDataIn(wrap, 'cal');   // fondu d'arrivee (1re fois : skeleton -> donnees)
 
-  // Clic sur une ligne → DÉROULÉ INLINE (Specs + History) sous la ligne — PAS de fenêtre modale
+  // Clic sur une ligne → DÉROULÉ INLINE (Specs + History) sous la ligne : PAS de fenêtre modale
   wrap.querySelectorAll('tr.cal-row--click').forEach(tr => {
     tr.addEventListener('click', () => {
       const idx = parseInt(tr.dataset.idx, 10);
@@ -3170,7 +3170,7 @@ async function _refreshCalendarData(silent = false) {
   return false;
 }
 
-// Skeleton du calendrier — epouse la structure reelle (.cal-table, 10 colonnes, separateurs de jour).
+// Skeleton du calendrier : epouse la structure reelle (.cal-table, 10 colonnes, separateurs de jour).
 // Injecte dans #cal-table-wrap PENDANT le fetch -> auto-efface par le renderCalTable() qui reecrit ce conteneur.
 function _calSkel() {
   const cols = ['cth-time','cth-flag','cth-curr','cth-imp','cth-event','cth-val','cth-val','cth-val','cth-val','cth-val'];
@@ -3214,7 +3214,7 @@ async function buildCalendar() {
           loaded = true;
           break;
         }
-        // Empty response — server may still be fetching; wait and retry
+        // Empty response : server may still be fetching; wait and retry
         if (attempt < 4) {
           wrap.innerHTML = _calSkel();   // skeleton (epouse .cal-table) au lieu du loader texte
           await new Promise(r => setTimeout(r, 3000));
@@ -3229,7 +3229,7 @@ async function buildCalendar() {
 
     if (!loaded) {
       wrap.innerHTML = `<div class="cal-empty" style="padding:40px 20px;text-align:center;">
-        <div style="color:var(--text4);font-size:11px;margin-bottom:12px;">Calendrier indisponible — le serveur démarre peut-être encore.</div>
+        <div style="color:var(--text4);font-size:11px;margin-bottom:12px;">Calendrier indisponible : le serveur démarre peut-être encore.</div>
         <button onclick="window._retryCalendar()"
           style="background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:4px 12px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">
           Retry
@@ -3348,7 +3348,7 @@ window._retryCalendar = function() {
     CAD: 'loonie|boc\\b|macklem|bank of canada|banque du canada',
     NZD: 'kiwi|rbnz\\b|reserve bank of new zealand',
   };
-  const _RECENT_KEY = 'dtp_sym_recent';   // historique PERSISTANT (léger : ~6 codes de paire) — exception localStorage validée par l'utilisateur
+  const _RECENT_KEY = 'dtp_sym_recent';   // historique PERSISTANT (léger : ~6 codes de paire) : exception localStorage validée par l'utilisateur
   let _recent = [], _active = null, _tvPending = false, _subtab = 'overview';
   try { const _r = JSON.parse(localStorage.getItem(_RECENT_KEY) || '[]'); if (Array.isArray(_r)) _recent = _r.filter(p => PAIRS.includes(p)).slice(0, 8); } catch {}
   const _saveRecent = () => {
@@ -3571,7 +3571,7 @@ window._retryCalendar = function() {
     // mais focalisé sur la paire : seules les 2 devises de la paire restent colorées (les autres masquées).
     buildSymStrengthBar();
     loadSymStrength();
-    // Calendrier filtré sur la paire — MÊME rendu que Semaine à Venir (.cal-table : drapeaux ronds, points d'impact,
+    // Calendrier filtré sur la paire : MÊME rendu que Semaine à Venir (.cal-table : drapeaux ronds, points d'impact,
     // ACTUAL/FORECAST/PREVIOUS, séparateurs de jour) via les helpers globaux du calendrier.
     fetch('/api/calendar-events').then(r => r.json()).then(d => {
       const cal = document.getElementById('sym-cal'); if (!cal) return;
@@ -3608,7 +3608,7 @@ window._retryCalendar = function() {
       });
       cal.innerHTML = '<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">PRÉVISION</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>' + tb + '</tbody></table>';
     }).catch(() => {});
-    // News filtrées sur la paire — EXACTEMENT le « Realtime Headline Ticker » de l'onglet News :
+    // News filtrées sur la paire : EXACTEMENT le « Realtime Headline Ticker » de l'onglet News :
     // on tire du tableau maître (allItems) et on rend chaque item via buildNewsItem (badges, icône
     // d'alerte, chevron, expansion). Filtre = 2 devises de la paire + leurs banques centrales.
     const parts = ccys.map(c => '\\b' + c.toLowerCase() + '\\b' + (NEWS_KW[c] ? '|' + NEWS_KW[c] : '')).join('|');
@@ -3694,7 +3694,7 @@ window._retryCalendar = function() {
         + '<div><span class="sym-cot-k">Contrats shorts</span><span class="sym-cot-v">' + _nf(row.shortPos) + '</span></div>'
         + '<div><span class="sym-cot-k">Rapport CFTC</span><span class="sym-cot-v" style="font-size:12px">' + rd + '</span></div>'
         + '</div>'
-        + '<div class="sym-src">Source : CFTC Commitments of Traders — Legacy Futures, traders non-commerciaux (spéculateurs)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
+        + '<div class="sym-src">Source : CFTC Commitments of Traders : Legacy Futures, traders non-commerciaux (spéculateurs)' + (d.updatedAt ? ' · MAJ ' + new Date(d.updatedAt).toLocaleString('fr-FR') : '') + '.</div>'
         + '</div>';
     };
     if (_cCot) { go(_cCot); return; }
@@ -3726,7 +3726,7 @@ window._retryCalendar = function() {
       }).join('');
       hostEl.innerHTML =
         '<div class="sym-seas">'
-        + '<div class="sym-seas-head"><span class="sym-seas-ttl">Saisonnalité — rendement mensuel cumulé moyen</span><span class="sym-seas-sub">[' + sym + ']</span></div>'
+        + '<div class="sym-seas-head"><span class="sym-seas-ttl">Saisonnalité : rendement mensuel cumulé moyen</span><span class="sym-seas-sub">[' + sym + ']</span></div>'
         + '<svg viewBox="0 0 ' + W + ' ' + H + '" class="sym-seas-svg" preserveAspectRatio="xMidYMid meet">'
         + '<line x1="' + P + '" y1="' + y0.toFixed(1) + '" x2="' + (W - P) + '" y2="' + y0.toFixed(1) + '" stroke="#2a2a30" stroke-width="1"/>'
         + bars + '</svg>'
