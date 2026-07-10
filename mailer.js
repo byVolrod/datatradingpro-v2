@@ -758,6 +758,16 @@ function _campaignBtn(label, url) {
 // Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
 // PAS d'intitule visible au-dessus (le contexte est deja donne par le texte du mail) ; l'`eyebrow` ne sert plus
 // que d'alt (accessibilite + repli si image bloquee). Cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook.
+// Coupe PROPRE d'un texte : fin de phrase si possible, sinon fin de mot + points de suspension.
+function _cutTxt(s, n) {
+  s = String(s || '').trim();
+  if (s.length <= n) return s;
+  const t = s.slice(0, n);
+  const d = Math.max(t.lastIndexOf('. '), t.lastIndexOf('! '), t.lastIndexOf('? '));
+  if (d > n * 0.5) return t.slice(0, d + 1);
+  const sp = t.lastIndexOf(' ');
+  return (sp > 0 ? t.slice(0, sp) : t).replace(/[\s,;:]+$/, '') + '…';
+}
 function _widgetImg(type, eyebrow, maxW, period) {
   maxW = maxW || 532;
   const lbl = _esc(eyebrow || '');
@@ -865,25 +875,25 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
     : '';
   const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' : <span style="color:#e3b23a;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
-  // « Ce qui s'est passe » : lecture FACTUELLE de la Force des Devises de la semaine (TW), derivee du snapshot
-  // cs du Recap Hebdo (devises les plus fortes / les plus faibles). Zero donnee inventee, informatif.
-  let csNote = '';
-  const _csS = w.cs;
-  if (_csS && Array.isArray(_csS.currencies) && _csS.series) {
-    const lastV = c => { const a = (_csS.series[c] || []).filter(d => d && d.v != null); return a.length ? a[a.length - 1].v : null; };
-    const ranked = _csS.currencies.map(c => [c, lastV(c)]).filter(x => x[1] != null).sort((a, b) => b[1] - a[1]);
-    if (ranked.length >= 4) {
-      const s = ranked.slice(0, 2).map(r => _esc(r[0])), f = ranked.slice(-2).map(r => _esc(r[0]));
-      csNote = `<p style="margin:12px 0 18px;">Sur la semaine, <strong style="color:#00e676;">${s[0]}</strong> et <strong style="color:#00e676;">${s[1]}</strong> mènent la cote de force ; <strong style="color:#ff3d00;">${f[0]}</strong> et <strong style="color:#ff3d00;">${f[1]}</strong> ferment la marche.</p>`;
-    }
+  // EXTRAIT du rapport, PAR DEVISE (demande user, remplace la phrase force-des-devises) : 1-2 phrases de
+  // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
+  let curHtml = '';
+  const _curSrc = (w.currencies && typeof w.currencies === 'object') ? w.currencies : {};
+  const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => _curSrc[c] && _curSrc[c].analysis && String(_curSrc[c].analysis).trim().length > 30).slice(0, 3);
+  if (_curPick.length) {
+    const rows = _curPick.map(c => `<tr><td style="padding:8px 0;border-top:1px solid #1f1f24;">
+        <span style="color:#e3b23a;font-weight:800;font-size:12.5px;">${c}</span>
+        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_md(_curSrc[c].analysis), 230))}</div>
+      </td></tr>`).join('');
+    curHtml = `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">Extrait du rapport, par devise&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${rows}</table>`;
   }
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 16px;">Voici un <strong style="color:#e3b23a;">avant-goût du Récap Hebdo</strong> du desk : la rétrospective de la semaine, en clair.</p>
     ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 520)}</p>` : ''}
     ${insightsHtml}
+    ${curHtml}
     ${_widgetImg('strength', 'La force des devises')}
-    ${csNote}
     ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
     <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par devise, banques centrales, points macro) vous attend dans l'onglet <strong style="color:#fff;">Analystes</strong> du Desk&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
@@ -1029,7 +1039,7 @@ function _bankNotesBlock(notes) {
 // Brief DETAILLE de la seance (Point marche) : rend les sections du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst) —
 // titre de section (or) + puces / paras / mini-tableau de donnees. Cape a 4 sections x 4-5 lignes. Zero invention.
 function _dailyBriefBlock(sections, dateLabel) {
-  const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 4);
+  const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 6);
   if (!secs.length) return '';
   const intro = `<p style="margin:20px 0 2px;color:#9aa3b2;font-size:12.5px;">Le brief de la séance${dateLabel ? ' du ' + _esc(dateLabel) : ''}, par thème&nbsp;:</p>`;
   const blocks = secs.map(s => {
@@ -1045,7 +1055,7 @@ function _dailyBriefBlock(sections, dateLabel) {
       return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>` : '';
     }
     const arr = (s.kind === 'paras' ? s.paras : s.items) || [];
-    const items = arr.slice(0, 4).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
+    const items = arr.slice(0, 5).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
     return items ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>` : '';
   }).join('');
   return blocks ? intro + blocks : '';
@@ -1301,17 +1311,8 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   }
 
   // Resume du RECAP JOURNALIER : la SYNTHESE de seance UNIQUEMENT (daily.summary), coupee PROPREMENT en fin de
-  // phrase. Plus de puces : elles reprenaient la synthese (repetitif) et se coupaient en plein mot. Zero invention.
-  const _cleanCut = (s, n) => {
-    s = String(s || '').trim();
-    if (s.length <= n) return s;
-    const t = s.slice(0, n);
-    const d = Math.max(t.lastIndexOf('. '), t.lastIndexOf('! '), t.lastIndexOf('? '));
-    if (d > n * 0.5) return t.slice(0, d + 1);                       // coupe a la fin d'une phrase
-    const sp = t.lastIndexOf(' ');
-    return (sp > 0 ? t.slice(0, sp) : t).replace(/[\s,;:]+$/, '') + '…';   // sinon fin de mot + points de suspension
-  };
-  const movesHtml = moves ? `<p style="margin:18px 0 14px;">${_esc(_cleanCut(moves, 680))}</p>` : '';
+  // phrase (helper module _cutTxt). Zero invention.
+  const movesHtml = moves ? `<p style="margin:18px 0 14px;">${_esc(_cutTxt(moves, 680))}</p>` : '';
 
   // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises sur LA JOURNEE (TD) —
   // coherent avec le brief de seance (le Point marche parle du jour, pas de la semaine).
