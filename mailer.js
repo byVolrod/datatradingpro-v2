@@ -1348,22 +1348,27 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
   campaign = campaign || 'outlook-hebdo';
   const ctx = context || {};
   const upcoming = Array.isArray(ctx.upcoming) ? ctx.upcoming : [];
-  if (!upcoming.length) return null;
+  const waDays = (ctx.weekAhead && Array.isArray(ctx.weekAhead.days)) ? ctx.weekAhead.days : [];
+  if (!upcoming.length && !waDays.length) return null;
   const majors = upcoming.filter(e => e.impact === 'High');
+  const hiDays = waDays.filter(d => d && String(d.impact || '').toUpperCase() === 'HIGH').length;
   const themeLabel = ctx.themeLabel || '';
-  const featured = ctx.featured || majors[0] || upcoming[0];
+  const featured = ctx.featured || majors[0] || upcoming[0] || null;
+  const weekLabel = (ctx.weekAhead && ctx.weekAhead.week) || '';
   const prenomRaw = (name || '').split(' ')[0] || '';
   const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
   const when = featured ? `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim() : '';
-  const lead = `Voici la semaine qui s'ouvre sur les marchés. Le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong>${themeLabel ? `, sur fond d'<strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>` : ''}${featured && featured.title ? `. Le rendez-vous à ne pas manquer&nbsp;: <strong style="color:#e3b23a;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}` : ''}.`;
+  // On cadre sur les JOURS a fort impact du Week Ahead (evite le « 68 temps forts » peu parlant du calendrier brut).
+  const count = hiDays || majors.length;
+  const lead = `Voici la semaine qui s'ouvre sur les marchés${weekLabel ? ` (<strong style="color:#e3b23a;">${_esc(weekLabel)}</strong>)` : ''}, <strong style="color:#fff;">jour par jour</strong>.${count ? ` ${count} séance${count > 1 ? 's' : ''} à fort impact se profile${count > 1 ? 'nt' : ''}` : ' Plusieurs temps forts se profilent'}${themeLabel ? `, sur fond d'<strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>` : ''}${featured && featured.title ? `. Le rendez-vous à ne pas manquer&nbsp;: <strong style="color:#e3b23a;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}` : ''}.`;
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 6px;">${lead}</p>
-    <p style="margin:6px 0 2px;">L'idée&nbsp;: savoir à l'avance <strong style="color:#fff;">où regarder</strong> — pas quoi trader.</p>
-    ${_widgetImg('calendar', 'La semaine à venir')}
-    <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Chaque publication est reprise, chiffrée et remise en contexte en direct sur le Desk.</p>
+    <p style="margin:0 0 10px;">${lead}</p>
+    <p style="margin:0 0 4px;">Pour chaque séance, le desk a isolé l'événement qui compte, expliqué son enjeu et évalué son impact attendu. <strong style="color:#fff;">L'idée&nbsp;: savoir à l'avance où regarder</strong> — pas quoi trader.</p>
+    ${_widgetImg('week-ahead', 'La semaine à venir')}
+    <p style="margin:2px 0 0;font-size:12.5px;color:#7b828f;">Le détail complet de chaque journée — chiffres attendus, contexte et lecture — se retrouve en direct sur le Desk.</p>
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
@@ -1373,7 +1378,7 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'la semaine à venir sur les marchés' + (themeLabel ? ' (' + themeLabel + ')' : '');
   return { subject, html: _campaignLayout('Semaine à venir', body, unsub) };
 }
-async function sendCampaignOutlook(d) { d = d || {}; const m = buildCampaignOutlook({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['calendar']); }
+async function sendCampaignOutlook(d) { d = d || {}; const m = buildCampaignOutlook({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['week-ahead']); }
 
 // ── ALERTE MACRO / BANQUE CENTRALE (evenementiel) — autour d'une decision CB : le TON du desk (widget cb-tone) +
 // ce qu'en publient les grandes banques (bloc bankNotes = feed Institution du desk). 100% informatif, ZERO position.
