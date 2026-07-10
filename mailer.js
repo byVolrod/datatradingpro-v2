@@ -758,10 +758,11 @@ function _campaignBtn(label, url) {
 // Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
 // PAS d'intitule visible au-dessus (le contexte est deja donne par le texte du mail) ; l'`eyebrow` ne sert plus
 // que d'alt (accessibilite + repli si image bloquee). Cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook.
-function _widgetImg(type, eyebrow, maxW) {
+function _widgetImg(type, eyebrow, maxW, period) {
   maxW = maxW || 532;
   const lbl = _esc(eyebrow || '');
-  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}" width="${maxW}" alt="${lbl} DataTradingPro" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
+  const per = period ? `&period=${encodeURIComponent(period)}` : '';
+  return `<img src="${APP_URL}/api/email-widget/${type}.png?t=${Date.now()}${per}" width="${maxW}" alt="${lbl} DataTradingPro" style="display:block;width:100%;max-width:${maxW}px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;">`;
 }
 // AGENDA en HTML (table facon calendrier du desk) construit a partir des MEMES evenements que le texte du mail
 // (context.upcoming) -> COHERENCE garantie : l'evenement annonce dans l'accroche figure toujours dans l'agenda.
@@ -824,11 +825,14 @@ async function _sendWithInlineWidgets(to, subject, html, types) {
     const ew = require('./emailWidget');   // meme process que server.js → cache/prewarm partages
     for (const t of (Array.isArray(types) ? types : [])) {
       try {
-        const png = await ew.renderWidgetPngSafe(t, {});
+        // Entree « type:periode » (ex. 'strength:today') → rend le widget sur CETTE periode (TD/TW...).
+        const ix = t.indexOf(':');
+        const wt = ix > 0 ? t.slice(0, ix) : t, period = ix > 0 ? t.slice(ix + 1) : undefined;
+        const png = await ew.renderWidgetPngSafe(wt, period ? { period } : {});
         if (png && png.length > 2000) {    // > placeholder 1x1 → vraie image
-          const cid = t + '@datatradingpro';
-          att.push({ filename: t + '.png', content: png, cid, contentType: 'image/png' });
-          const re = new RegExp('https?:\\/\\/[^"]*\\/api\\/email-widget\\/' + t.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\.png[^"]*', 'g');
+          const cid = wt + (period ? '-' + period : '') + '@datatradingpro';
+          att.push({ filename: wt + (period ? '-' + period : '') + '.png', content: png, cid, contentType: 'image/png' });
+          const re = new RegExp('https?:\\/\\/[^"]*\\/api\\/email-widget\\/' + wt.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\.png[^"]*', 'g');
           html = html.replace(re, 'cid:' + cid);
         }
       } catch (e) { console.warn('[Mailer] widget inline indisponible (' + t + ') → URL distante:', e.message); }
@@ -848,17 +852,19 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const w = weekly || {};
   const _md = s => String(s == null ? '' : s).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
   const insights = (Array.isArray(w.insights) ? w.insights : []).map(t => _md(typeof t === 'string' ? t : (t && t.text))).filter(Boolean);
-  const pairs = (Array.isArray(w.pairs) ? w.pairs : []).filter(p => p && p.pair && p.text).slice(0, 3);
   const cbs = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && c.bank).slice(0, 2);
   const lead = _md(w.summary) || insights[0] || '';
-  if (!lead && !pairs.length && !insights.length) return null;
+  if (!lead && !insights.length) return null;
   const prenomRaw = (name || '').split(' ')[0] || '';
   const prenom = _esc(prenomRaw);
   const hello = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
   const unsub = unsubUrl(email || '');
-  const BIAS = { BUY: ['ACHAT', '#00e676'], SELL: ['VENTE', '#ff3d00'], NEUTRAL: ['NEUTRE', '#e3b23a'] };
-  const pairsHtml = pairs.map(p => { const b = String(p.bias || 'NEUTRAL').toUpperCase(); const [lbl, col] = BIAS[b] || BIAS.NEUTRAL;
-    return `<div style="border:1px solid #26262b;border-radius:8px;padding:10px 12px;margin:0 0 8px;"><div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 4px;"><strong style="color:#fff;">${_esc(p.pair)}</strong><span style="color:${col};font-weight:700;font-size:12px;">${lbl}</span></div><div style="color:#9aa3b2;font-size:13px;line-height:1.5;">${_esc(_md(p.text)).slice(0, 240)}</div></div>`; }).join('');
+  // AVANT-GOUT du rapport Recap Hebdo (demande user : plus de cartes de paires) : les POINTS CLES de la semaine,
+  // tires des insights REELS du rapport -> puces or, memes donnees que l'onglet Analystes.
+  const keyPts = insights.slice(lead === insights[0] ? 1 : 0, (lead === insights[0] ? 1 : 0) + 4);
+  const insightsHtml = keyPts.length
+    ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
+    : '';
   const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' &mdash; <span style="color:#e3b23a;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
   // « Ce qui s'est passe » : lecture FACTUELLE de la Force des Devises de la semaine (TW), derivee du snapshot
   // cs du Recap Hebdo (devises les plus fortes / les plus faibles). Zero donnee inventee, informatif.
@@ -874,13 +880,13 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   }
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 16px;">Voici votre <strong style="color:#e3b23a;">point macro &amp; forex</strong> de la semaine, en clair.</p>
-    ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 460)}</p>` : ''}
-    ${pairsHtml}
+    <p style="margin:0 0 16px;">Voici un <strong style="color:#e3b23a;">avant-goût du Récap Hebdo</strong> du desk &mdash; la rétrospective de la semaine, en clair.</p>
+    ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 520)}</p>` : ''}
+    ${insightsHtml}
     ${_widgetImg('strength', 'La force des devises')}
     ${csNote}
     ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
-    <p style="margin:0 0 6px;">Le détail complet est sur le terminal&nbsp;:</p>
+    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par devise, banques centrales, points macro) vous attend dans l'onglet <strong style="color:#fff;">Analystes</strong> du Desk&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
@@ -1316,8 +1322,9 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   };
   const movesHtml = moves ? `<p style="margin:18px 0 14px;">${_esc(_cleanCut(moves, 680))}</p>` : '';
 
-  // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises (semaine).
-  const strengthWidget = _widgetImg('strength', 'La force des devises');
+  // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises sur LA JOURNEE (TD) —
+  // coherent avec le brief de seance (le Point marche parle du jour, pas de la semaine).
+  const strengthWidget = _widgetImg('strength', 'La force des devises', null, 'today');
 
   // « A surveiller cette semaine » = VRAI widget calendrier economique du desk (10 colonnes, previsions/HIGH/LOW
   // remplies) au lieu d'une liste texte. Memes donnees (context.upcoming) -> coherent avec le desk.
@@ -1340,7 +1347,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'le point marché du desk' + (themeLabel ? ' (' + themeLabel + ')' : '');
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength']); }
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today']); }
 
 // ── OUTLOOK (« la semaine a venir ») — agenda PUR, tourne vers l'avenir, SANS pousser de position. Reutilise le
 // VRAI widget calendrier du desk. Regle « pas de donnees -> pas de mail » (renvoie null).
