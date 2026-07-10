@@ -7640,7 +7640,7 @@ Rédige un récap COMPLET et professionnel de ce qui s'est passé sur les march�
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, aucun caractère **). Garde les CLÉS en anglais et rédige toutes les VALEURS en français. Forme EXACTE attendue :
 {
   "title": "<titre d'une ligne percutant résumant la journée, ex. 'Le dollar recule, le pétrole chute sur l'optimisme d'un accord US-Iran'>",
-  "summary": "<SYNTHÈSE : 3 à 5 phrases — la vue d'ensemble de la séance : tonalité de risque globale, le dollar US, les taux/Treasuries, les matières premières, et ce vers quoi l'attention se tourne ensuite>",
+  "summary": "<SYNTHÈSE : 4 à 6 phrases, la vue d'ensemble de la séance : tonalité de risque globale, le dollar US, les taux/Treasuries, les matières premières, ET OBLIGATOIREMENT les publications économiques CLÉS du jour avec leur chiffre (réel vs attendu, depuis le bloc DONNÉES), puis ce vers quoi l'attention se tourne ensuite>",
   "tags": ["<5 à 10 puces de thèmes courtes, ex. 'Accord US-Iran','Prix du pétrole','Réserve fédérale','Rendements obligataires','Nvidia'>"],
   "insights": ["<4 à 6 cartes AI-Insight d'une phrase, prospectives et autonomes>"],
   "pairs": [ { "pair": "EUR/USD", "bias": "BUY|SELL|NEUTRAL", "text": "<une phrase concise de justification>" } ],
@@ -7720,7 +7720,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
 // Rapport quotidien structuré (FR) couvrant la NUIT asiatique + la MATINÉE européenne jusqu'à l'ouverture US.
 // Modelé sur le FX Daily Recap mais en FORMAT SECTIONS (Aperçu, Séance européenne [Actions/FX/Obligations],
 // Matières premières, Commerce & Tarifs, Titres EU/US, Banques centrales, Géopolitique, Crypto, Asie-Pacifique, Données).
-const DTPD_VER = 3;   // v3 = raisons FONDAMENTALES obligatoires par puce (mouvement + driver, sinon « sans catalyseur clair ») + zero tiret cadratin + titres de section en « : »
+const DTPD_VER = 4;   // v4 = la SYNTHESE cite OBLIGATOIREMENT les publications eco du jour (reel vs attendu) ; v3 = raisons FONDAMENTALES obligatoires par puce (mouvement + driver, sinon « sans catalyseur clair ») + zero tiret cadratin + titres de section en « : »
 let _dtpdGenBusy = false, _dtpdGenLock = 0;
 function _dtpdTodayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
@@ -7854,7 +7854,7 @@ RÈGLE CENTRALE, NON NÉGOCIABLE : CHAQUE puce et CHAQUE paragraphe relie le mou
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucun markdown, aucun astérisque). Clés en anglais, VALEURS en français. Forme attendue :
 {
   "title": "<titre d'une ligne résumant la séance, ex. 'Le dollar grimpe, le pétrole et l'or reculent avant l'ouverture US'>",
-  "summary": "<3 à 5 phrases : tonalité de risque, dollar, taux/obligations, matières premières, et ce que les marchés guettent>",
+  "summary": "<4 à 6 phrases : tonalité de risque, dollar, taux/obligations, matières premières, ET OBLIGATOIREMENT les publications économiques marquantes DÉJÀ TOMBÉES aujourd'hui avec leur chiffre (réel vs attendu, depuis le bloc DONNÉES ÉCONOMIQUES), puis ce que les marchés guettent>",
   "tags": ["<5 à 10 thèmes courts>"],
   "sections": [
     { "title": "Aperçu", "kind": "bullets", "items": ["<puce de contexte d'ouverture>"] },
@@ -12758,7 +12758,29 @@ function _freshDaily() {
       }
       // Recap Quotidien (FX Recap) : UNIQUEMENT la version REDIGEE (IA). Le repli mecanique (_ai:false,
       // « Moteurs cles du jour : ... ; Force des devises (intraday) : USD -0.07%... ») est illisible en mail.
-      if (it._fxr && it._fxr._ai !== false && (it._fxr.summary || (it._fxr.insights || []).length)) return _noDashDeep({ kind: 'fxr', title: it._fxr.title || '', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 4) : [], sections: [], dateLabel: it._fxr.dateLabel || '' });
+      if (it._fxr && it._fxr._ai !== false && (it._fxr.summary || (it._fxr.insights || []).length)) {
+        // Recap Quotidien (FX Recap) : construit des SECTIONS pour le brief du mail a partir de ses champs
+        // reels -> les NEWS DU JOUR (titres, donnees publiees reel-vs-attendu, banques centrales, a suivre).
+        const fx = it._fxr, secs = [];
+        const _first = s => { const t = String(s || '').trim(); const i = t.indexOf('. '); return (i > 30 && i < 220) ? t.slice(0, i + 1) : t.slice(0, 220); };
+        const heads = (Array.isArray(fx.headlines) ? fx.headlines : []).map(h => h && h.title).filter(Boolean).slice(0, 5);
+        if (heads.length) secs.push({ title: 'Les titres du jour', kind: 'bullets', items: heads });
+        const dataRows = [];
+        for (const e of (Array.isArray(fx.econData) ? fx.econData : [])) {
+          if (!e || !e.release) continue;
+          for (const mtr of (Array.isArray(e.metrics) ? e.metrics : []).slice(0, 2)) {
+            dataRows.push({ release: e.release + (mtr.metric && mtr.metric !== e.release ? ' : ' + mtr.metric : ''), actual: mtr.actual || '', expected: mtr.expected || '', previous: mtr.previous || '' });
+            if (dataRows.length >= 6) break;
+          }
+          if (dataRows.length >= 6) break;
+        }
+        if (dataRows.length) secs.push({ title: 'Données économiques du jour', kind: 'data', data: dataRows });
+        const cbs = (Array.isArray(fx.centralBanks) ? fx.centralBanks : []).filter(c => c && c.name && c.text).slice(0, 3).map(c => c.name + ' : ' + _first(c.text));
+        if (cbs.length) secs.push({ title: 'Banques centrales', kind: 'bullets', items: cbs });
+        const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).map(x => x && x.event).filter(Boolean).slice(0, 4);
+        if (la.length) secs.push({ title: 'À suivre', kind: 'bullets', items: la });
+        return _noDashDeep({ kind: 'fxr', title: fx.title || '', summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '' });
+      }
     }
   } catch {}
   return null;
