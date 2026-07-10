@@ -735,7 +735,7 @@ function _campaignLayout(title, bodyHtml, unsub) {
           ${bodyHtml}
         </td></tr>
         <tr><td style="padding:18px 34px;border-top:1px solid #232429;color:#6f6f79;font-size:12px;line-height:1.6;">
-          DataTradingPro &middot; terminal de news &amp; d'analyse de march&eacute;.<br>
+          DataTradingPro &middot; terminal de news &amp; d'analyse de march&eacute;. Contenu informatif&nbsp;: n'ex&eacute;cute aucun ordre, ne donne aucun conseil personnalis&eacute;.<br>
           Une question&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#e3b23a;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
@@ -807,7 +807,6 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver dans votre bo&icirc;te <strong style="color:#cbd5e1;">Principale</strong>, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts et glissez ce message vers l'onglet «&nbsp;Principale&nbsp;». DataTradingPro est un terminal de donn&eacute;es et d'analyse&nbsp;: il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   return { subject: 'DataTradingPro : votre point macro & forex de la semaine', html: _campaignLayout('Bienvenue', body, unsub) };
@@ -890,7 +889,6 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">PS&nbsp;: pour nous retrouver en Principale, ajoutez ${_esc(_parseFrom().email)} &agrave; vos contacts. Informatif : DataTradingPro n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'votre point macro & forex de la semaine';
@@ -990,18 +988,13 @@ function pickDecryptConcept(context, recentKeys) {
   const cands = byTheme[theme] || byTheme.inflation || DECRYPT_CONCEPTS; return { concept: cands[0], theme };
 }
 
-// CTA + PS adaptes MEMBRE / NON-MEMBRE (validation user : tout le monde recoit, contenu adapte).
+// CTA adapte MEMBRE / NON-MEMBRE (validation user : tout le monde recoit, contenu adapte).
+// Le bloc PS a ete RETIRE des templates (demande user) ; la mention informative vit desormais,
+// discrete, dans le footer du layout (_campaignLayout).
 function _campaignCta(isMember, campaign, email) {
   const url = trackClickUrl(campaign, email, LANDING_URL);
-  const sender = _esc(_parseFrom().email);
-  if (isMember) return {
-    btn: _campaignBtn('Ouvrir mon Desk', url),
-    ps: `PS&nbsp;: pour nous retrouver en <strong style="color:#cbd5e1;">Principale</strong>, ajoutez <strong style="color:#cbd5e1;">${sender}</strong> &agrave; vos contacts. DataTradingPro est un terminal de donn&eacute;es et d'analyse&nbsp;: il n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.`,
-  };
-  return {
-    btn: _campaignBtn('Découvrir le Desk en direct', url),
-    ps: `PS&nbsp;: vous recevez ici un <strong style="color:#cbd5e1;">aper&ccedil;u gratuit</strong> du desk. L'analyse compl&egrave;te, les biais d&eacute;taill&eacute;s par devise et les alertes en temps r&eacute;el vivent dans le terminal. Contenu informatif&nbsp;: DataTradingPro n'ex&eacute;cute aucun ordre et ne donne aucun conseil personnalis&eacute;.`,
-  };
+  if (isMember) return { btn: _campaignBtn('Ouvrir mon Desk', url) };
+  return { btn: _campaignBtn('Découvrir le Desk en direct', url) };
 }
 // Petite liste "temps forts a surveiller" (donnees calendrier REELLES). ev = { dayLabel, time, ccy, title, forecast, previous, indicator }.
 function _watchRows(events) {
@@ -1124,7 +1117,6 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   return { subject: 'Comprendre le marché : ' + c.title, html: _campaignLayout('Comprendre le marché', body, unsub), conceptKey: c.key, conceptTitle: c.title, theme: pick.theme };
@@ -1261,7 +1253,6 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   return { subject: pick.subject, html: _campaignLayout('Mindset', body, unsub), conceptKey: pick.key, conceptTitle: pick.subject };
@@ -1341,7 +1332,6 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'le point marché du desk' + (themeLabel ? ' (' + themeLabel + ')' : '');
@@ -1379,7 +1369,6 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'la semaine à venir sur les marchés' + (themeLabel ? ' (' + themeLabel + ')' : '');
@@ -1407,7 +1396,6 @@ function buildCampaignAlerteBC({ name, email, campaign, context, isMember } = {}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
-    <p style="margin:16px 0 0;font-size:12px;color:#7b828f;line-height:1.6;">${cta.ps}</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
   const subject = (prenomRaw ? prenomRaw + ', ' : '') + 'alerte macro : le ton des banques centrales';
