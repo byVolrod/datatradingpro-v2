@@ -97,11 +97,11 @@ const REFRESH_INTERVAL = 60000;
 const _CACHE_DIR = process.env.DATA_DIR || __dirname;
 try { if (_CACHE_DIR !== __dirname) fs.mkdirSync(_CACHE_DIR, { recursive: true }); } catch {}
 const HISTORY_FILE = path.join(_CACHE_DIR, 'news_history.json');
-const HISTORY_TTL  = 10 * 24 * 60 * 60 * 1000; // 10 jours (le recap hebdo a besoin de la semaine écoulée même généré en début de semaine suivante)
+const HISTORY_TTL  = 21 * 24 * 60 * 60 * 1000; // 21 jours d'historique news (recherche 7 j + contexte recaps), borné par le cap 2000 items → taille disque maîtrisée
 const SW_CACHE_FILE = path.join(_CACHE_DIR, 'cache_session_wraps.json');
-const SW_MAX_AGE    = 30 * 24 * 60 * 60 * 1000; // 30 days
+const SW_MAX_AGE    = 90 * 24 * 60 * 60 * 1000; // 90 j d'historique Analystes (était 30) — cap intelligent : borné aussi en NOMBRE + OCTETS à la persistance (Supabase free)
 const BR_CACHE_FILE = path.join(_CACHE_DIR, 'cache_bank_research.json');
-const BR_MAX_AGE    = 45 * 24 * 60 * 60 * 1000;   // 45 j (était 30) : plus de rapports des sources fréquentes (SEB/MUFG/ING…) remontent dans Institution
+const BR_MAX_AGE    = 90 * 24 * 60 * 60 * 1000;   // 90 j d'historique Institution (était 45) — borné aussi en NOMBRE + OCTETS à la persistance (Supabase free)
 
 let allNews = [];
 let allCalendar = [];   // FF calendar events served separately
@@ -5032,16 +5032,23 @@ async function _fetchConveraUpdates() {
 // But : après un redémarrage Render (disque éphémère), RECHARGER les session wraps et
 // la recherche institution depuis la BDD au lieu de tout re-scraper / re-solliciter l'IA.
 // L'IA (segmentation, insights) reste en DERNIER RECOURS — ici on ne stocke que le scrap.
-const HISTORY_KEEP_MS = 31 * 24 * 60 * 60 * 1000;   // ~1 mois
+const HISTORY_KEEP_MS = 92 * 24 * 60 * 60 * 1000;   // ~3 mois (aligné sur SW/BR_MAX_AGE 90 j)
 function _histPrune(arr) { const min = Date.now() - HISTORY_KEEP_MS; return (arr || []).filter(i => i && (i.timestamp || 0) >= min); }
 let _histSaveTimers = {};
 function _persistHistory(key, arr) {
   // débattu (max 1 écriture / 5 s par clé) pour ne pas marteler la BDD
   clearTimeout(_histSaveTimers[key]);
   _histSaveTimers[key] = setTimeout(() => {
-    const cap = key === 'bank_research' ? 500 : 120;   // assez large pour restaurer TOUT le feed après un redémarrage (sinon affichage partiel « 100 of 100 »)
+    const cap = key === 'bank_research' ? 900 : 450;   // ~90 j d'historique (Analystes/Institution) restauré après redémarrage
     // On NE persiste PAS le lourd `fullContent`/`content` (re-scrapé au démarrage) → payload BDD léger.
-    const light = _histPrune(arr).slice(0, cap).map(({ fullContent, content, ...rest }) => rest);
+    let light = _histPrune(arr).slice(0, cap).map(({ fullContent, content, ...rest }) => rest);
+    // Garde-fou OCTETS (Supabase free) : la ligne KV reste < ~850 Ko quoi qu'il arrive — on rogne les plus anciens.
+    let bytes = 0;
+    try { bytes = JSON.stringify(light).length; } catch {}
+    while (bytes > 850000 && light.length > 50) {
+      light = light.slice(0, Math.floor(light.length * 0.85));
+      try { bytes = JSON.stringify(light).length; } catch { break; }
+    }
     auth.aiCacheSet('hist:' + key, light).catch(() => {});
   }, 5000);
   if (_histSaveTimers[key].unref) _histSaveTimers[key].unref();
@@ -12765,6 +12772,11 @@ function _freshDaily() {
         const _first = s => { const t = String(s || '').trim(); const i = t.indexOf('. '); return (i > 30 && i < 220) ? t.slice(0, i + 1) : t.slice(0, 220); };
         const heads = (Array.isArray(fx.headlines) ? fx.headlines : []).map(h => h && h.title).filter(Boolean).slice(0, 5);
         if (heads.length) secs.push({ title: 'Les titres du jour', kind: 'bullets', items: heads });
+        // Analyse régionale (US / Europe / Asie-Pacifique / Canada) : 1 phrase par région, comme le rapport.
+        const regs = (Array.isArray(fx.regions) ? fx.regions : []).filter(r => r && r.name && r.summary).slice(0, 4).map(r => r.name + ' : ' + _first(r.summary));
+        if (regs.length) secs.push({ title: 'Analyse régionale', kind: 'bullets', items: regs });
+        const cbs = (Array.isArray(fx.centralBanks) ? fx.centralBanks : []).filter(c => c && c.name && c.text).slice(0, 3).map(c => c.name + ' : ' + _first(c.text));
+        if (cbs.length) secs.push({ title: 'Focus banques centrales', kind: 'bullets', items: cbs });
         const dataRows = [];
         for (const e of (Array.isArray(fx.econData) ? fx.econData : [])) {
           if (!e || !e.release) continue;
@@ -12774,12 +12786,10 @@ function _freshDaily() {
           }
           if (dataRows.length >= 6) break;
         }
-        if (dataRows.length) secs.push({ title: 'Données économiques du jour', kind: 'data', data: dataRows });
-        const cbs = (Array.isArray(fx.centralBanks) ? fx.centralBanks : []).filter(c => c && c.name && c.text).slice(0, 3).map(c => c.name + ' : ' + _first(c.text));
-        if (cbs.length) secs.push({ title: 'Banques centrales', kind: 'bullets', items: cbs });
+        if (dataRows.length) secs.push({ title: 'Données économiques clés', kind: 'data', data: dataRows });
         const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).map(x => x && x.event).filter(Boolean).slice(0, 4);
         if (la.length) secs.push({ title: 'À suivre', kind: 'bullets', items: la });
-        return _noDashDeep({ kind: 'fxr', title: fx.title || '', summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '' });
+        return _noDashDeep({ kind: 'fxr', title: fx.title || '', summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '', hasComments: !!(Array.isArray(fx.comments) && fx.comments.length) });
       }
     }
   } catch {}
