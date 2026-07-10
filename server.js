@@ -12688,7 +12688,7 @@ const _WD_FR = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', '
 function _isoWeekKey(y, m, d) { const dt = new Date(Date.UTC(y, m - 1, d)); const dow = (dt.getUTCDay() + 6) % 7; dt.setUTCDate(dt.getUTCDate() - dow + 3); const ft = new Date(Date.UTC(dt.getUTCFullYear(), 0, 4)); const wk = 1 + Math.round(((dt - ft) / 864e5 - 3 + ((ft.getUTCDay() + 6) % 7)) / 7); return dt.getUTCFullYear() + '-W' + String(wk).padStart(2, '0'); }
 function _parisParts(d) { d = d || new Date(); const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', weekday: 'short', hour: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }); const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value; const wd = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[p.weekday]; return { weekday: wd, hour: parseInt(p.hour, 10) % 24, isoWeek: _isoWeekKey(+p.year, +p.month, +p.day) }; }
 function _nextWeeklyLabel(weekday, hour) { for (let i = 0; i < 8; i++) { const cand = new Date(Date.now() + i * 864e5); const pp = _parisParts(cand); if (pp.weekday === weekday && (i > 0 || pp.hour < hour)) return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(cand) + ' à ' + String(hour).padStart(2, '0') + 'h00'; } return '—'; }
-function _freshWeekly() { try { return ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; } catch { return null; } }
+function _freshWeekly() { try { const w = ((allNews || []).filter(i => i && i._weekly && ((Array.isArray(i._weekly.pairs) && i._weekly.pairs.length) || (Array.isArray(i._weekly.insights) && i._weekly.insights.length) || i._weekly.summary)).sort((a, b) => ((b._weekly.v || 0) - (a._weekly.v || 0)) || ((b.timestamp || 0) - (a.timestamp || 0)))[0] || {})._weekly || null; return w ? _noDashDeep(w) : null; } catch { return null; } }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 //  MOTEUR DE CONTEXTE NEWSLETTER — lit l'etat REEL du desk et le condense pour les mails intelligents.
@@ -12752,11 +12752,11 @@ function _freshDaily() {
           if (first) pts.push(String(first).trim());
           if (pts.length >= 4) break;
         }
-        return { kind: 'dtpd', summary: it._dtpd.summary, insights: pts, sections: Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [], dateLabel: it._dtpd.dateLabel || '' };
+        return _noDashDeep({ kind: 'dtpd', summary: it._dtpd.summary, insights: pts, sections: Array.isArray(it._dtpd.sections) ? it._dtpd.sections : [], dateLabel: it._dtpd.dateLabel || '' });
       }
       // Recap Quotidien (FX Recap) : UNIQUEMENT la version REDIGEE (IA). Le repli mecanique (_ai:false,
       // « Moteurs cles du jour : ... ; Force des devises (intraday) : USD -0.07%... ») est illisible en mail.
-      if (it._fxr && it._fxr._ai !== false && (it._fxr.summary || (it._fxr.insights || []).length)) return { kind: 'fxr', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 4) : [], sections: [], dateLabel: it._fxr.dateLabel || '' };
+      if (it._fxr && it._fxr._ai !== false && (it._fxr.summary || (it._fxr.insights || []).length)) return _noDashDeep({ kind: 'fxr', summary: it._fxr.summary || '', insights: Array.isArray(it._fxr.insights) ? it._fxr.insights.slice(0, 4) : [], sections: [], dateLabel: it._fxr.dateLabel || '' });
     }
   } catch {}
   return null;
