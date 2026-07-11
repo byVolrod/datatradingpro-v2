@@ -201,6 +201,11 @@ const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/fav
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
 
+// Jeton d'appel INTERNE (préchauffage → 127.0.0.1) : généré à chaque boot (surclassable via env pour
+// le diagnostic), jamais exposé hors process/serveur. Sans lui, les appels locaux du prewarm vers les
+// routes protégées prenaient un 401 silencieux.
+const _INTERNAL_TOKEN = process.env.DTP_INTERNAL_TOKEN || require('crypto').randomBytes(24).toString('hex');
+
 // Version du build = le ?v= de app.js dans index.html. Exposée à /api/version : le client compare sa
 // propre version à celle-ci et, si un nouveau déploiement est détecté, propose un rechargement en
 // 1 clic (fini le « pas à jour » quand la session reste ouverte après un déploiement).
@@ -221,6 +226,9 @@ function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
     _PUBLIC_PREFIXES.some(p => req.path.startsWith(p));
   if (isPublic) return next();
+
+  // Appel interne (prewarm) : jeton de boot + socket loopback exigés tous les deux.
+  if (req.headers['x-dtp-internal'] === _INTERNAL_TOKEN && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')) return next();
 
   if (!req.session?.userId) {
     if (req.path.startsWith('/api/')) {
@@ -3934,7 +3942,7 @@ async function _prewarmBrSegs() {
       .slice(0, 2);   // réduit à 2/cycle (polissage opportuniste, éco quota)
     for (const item of todo) {
       if (!_prewarmGate() || !aiAllowed('analyst', { priority: 'background' })) break;
-      try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 30000 }); }
+      try { await axios.get(`http://127.0.0.1:${PORT}/api/bank-research-content?url=${encodeURIComponent(item.url)}`, { timeout: 120000, headers: { 'X-DTP-Internal': _INTERNAL_TOKEN } }); }   // 120 s : un rendu PDF one-shot (Natixis) peut dépasser 30 s
       catch (e) { console.warn('[BR prewarm]', e.message); }
       await new Promise(r => setTimeout(r, 1500));
     }
@@ -5510,6 +5518,7 @@ app.get('/api/bank-research-content', async (req, res) => {
     if (_plainTxt.length < 350 || (_embeddedPdf && _plainTxt.length < 2000 && _teaserSig)) {
       const _thinRender = _embeddedPdf ? '' : _brRenderUrlFor(url, _printUrl);   // pas de PDF intégré mais host rendable (Natixis SPA) → on REND la page (capture PDF côté serveur)
       const _itxt = await _thinInsightsText(url, _embeddedPdf, _printUrl);       // texte AI Insights dès le 1er passage (sinon il fallait un « Réessayer » après chaque reboot)
+      console.log('[BR thin]', _itxt ? 'insights ' + _itxt.length + ' chars' : 'SANS insights', '·', url.slice(0, 100));
       try { _brSegCache.set(BR_SEG_VER + url, { f: Date.now(), thin: true, pdfUrl: _embeddedPdf, insightsText: _itxt }); } catch {}   // marqueur : ne pas re-générer ; précache 'cooling'
       return res.json({ html: '', insightsText: _itxt, source: 'thin', pdfUrl: _embeddedPdf, renderUrl: _thinRender, subtitle, date: dateFormatted, section, country, articleType });
     }
