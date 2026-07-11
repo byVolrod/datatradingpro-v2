@@ -9015,8 +9015,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .chat-close:hover { color:#fff; }
 .chat-back { background:none; border:none; color:#9aa4b2; font-size:24px; cursor:pointer; line-height:1; padding:0 4px 0 0; margin-right:2px; }
 .chat-back:hover { color:#fff; }
-.chat-head-sub { display:flex; align-items:center; }
+.chat-head-sub { display:flex; align-items:center; min-width:0; }
 .chat-presence { display:inline-block; width:7px; height:7px; border-radius:50%; background:#22c55e; margin-right:5px; box-shadow:0 0 0 2px rgba(34,197,94,.18); }
+/* Badge présence de l'interlocuteur (en-tête conversation support) : point vert « En ligne » / gris « Hors ligne depuis X » */
+.chat-head-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; flex-shrink:0; background:#5b6471; }
+.chat-head-dot.is-online  { background:#22c55e; box-shadow:0 0 5px rgba(34,197,94,.6); }
+.chat-head-dot.is-offline { background:#5b6471; box-shadow:none; }
+.chat-head-st { white-space:nowrap; }
+.chat-head-st.is-online  { color:#22c55e; }
+.chat-head-st.is-offline { color:var(--text2); }
+.chat-head-role { color:var(--text3); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 /* Icônes pièces jointes + rendu images/fichiers */
 .chat-attach { width:34px; height:38px; flex-shrink:0; border:none; background:none; color:var(--text2); cursor:pointer; display:flex; align-items:center; justify-content:center; border-radius:4px; }
 .chat-attach:hover { color:#e2e8f0; background:rgba(255,255,255,.05); }
