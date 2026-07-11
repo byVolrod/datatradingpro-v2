@@ -337,7 +337,7 @@ async function _send(to, subject, html, attachments) {
 // Envoi de test (bouton admin) : renvoie le canal utilisé pour preuve de bout en bout.
 async function sendTest(to) {
   const html = _layout('Test d\'envoi', `
-    <h2 style="color:#e3b23a;margin:0 0 12px;">✅ Test d'envoi DataTradingPro</h2>
+    <h2 style="color:#f3c344;margin:0 0 12px;">✅ Test d'envoi DataTradingPro</h2>
     <p style="color:#cbd5e1;font-size:15px;line-height:1.6;">Si tu lis cet email <b>dans ta boîte de réception</b> (pas les spams),
     l'envoi fonctionne parfaitement. 🎉</p>
     <p style="color:#64748b;font-size:13px;">Email automatique de vérification, tu peux l'ignorer.</p>`);
@@ -357,7 +357,7 @@ function _layout(title, bodyHtml) {
         <!-- Header -->
         <tr><td style="padding:28px 32px 18px;border-bottom:1px solid #26262b;">
           <div style="font-size:22px;font-weight:800;color:#ffffff;letter-spacing:-0.02em;">DataTradingPro</div>
-          <div style="font-size:12px;font-weight:600;color:#e3b23a;margin-top:4px;">Terminal de news &amp; d'analyse de marché en temps réel</div>
+          <div style="font-size:12px;font-weight:600;color:#f3c344;margin-top:4px;">Terminal de news &amp; d'analyse de marché en temps réel</div>
         </td></tr>
         <!-- Body -->
         <tr><td style="padding:28px 32px;color:#cbd5e1;font-size:15px;line-height:1.65;">
@@ -366,7 +366,7 @@ function _layout(title, bodyHtml) {
         <!-- Footer -->
         <tr><td style="padding:18px 32px;border-top:1px solid #26262b;color:#6b7280;font-size:12px;line-height:1.6;">
           DataTradingPro · Terminal de news & d'analyse en temps réel.<br>
-          Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#e3b23a;text-decoration:none;">${SUPPORT_EMAIL}</a>
+          Besoin d'aide ? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
       <div style="color:#4b5563;font-size:11px;margin-top:16px;">Cet email vous est envoyé automatiquement, merci de ne pas y répondre directement.</div>
@@ -377,7 +377,7 @@ function _layout(title, bodyHtml) {
 
 function _button(label, url) {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0;"><tr>
-    <td style="background:#e3b23a;border-radius:10px;">
+    <td style="background:#f3c344;border-radius:10px;">
       <a href="${url}" style="display:inline-block;padding:13px 28px;color:#0a0a0c;font-weight:700;font-size:14px;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
@@ -406,7 +406,7 @@ function _spamNote() {
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%"
     style="background:rgba(227,178,58,0.08);border:1px solid rgba(227,178,58,0.35);border-radius:10px;margin:20px 0;">
     <tr><td style="padding:14px 16px;color:#f3d9b0;font-size:13px;line-height:1.6;">
-      <strong style="color:#e3b23a;">📌 Note importante : pour ne plus rater nos emails</strong><br>
+      <strong style="color:#f3c344;">📌 Note importante : pour ne plus rater nos emails</strong><br>
       Pour éviter que nos messages (accès, alertes, renouvellement) ne tombent dans vos <strong>spams</strong> :
       <ul style="margin:8px 0 0;padding-left:18px;color:#e2cba0;">
         <li>Ajoutez <strong style="color:#fff;">${sender}</strong> à vos <strong>contacts</strong>.</li>
@@ -585,7 +585,7 @@ function buildTrialUpsell({ name, expiresAt }) {
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Votre essai gratuit est terminé ⏳</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom},</p>
-    <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro vient de prendre fin${end ? ` (elle a expiré <strong style="color:#e3b23a;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
+    <p style="margin:0 0 14px;">Votre <strong style="color:#fff;">semaine d'accès offert</strong> à DataTradingPro vient de prendre fin${end ? ` (elle a expiré <strong style="color:#f3c344;">${end}</strong>)` : ''}. Vous avez pu tester en conditions réelles le flux de news en temps réel, le calendrier économique et nos analyses institutionnelles.</p>
     <p style="margin:0 0 14px;">Pour <strong style="color:#fff;">retrouver votre accès</strong> et continuer à trader avec les données qui font bouger les marchés, passez dès maintenant à l'<strong style="color:#fff;">abonnement mensuel</strong>, sans engagement et résiliable à tout moment :</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:18px 0;">
       <tr><td style="padding:6px 0;color:#cbd5e1;font-size:14px;">✅ News &amp; squawk en temps réel, sans délai</td></tr>
@@ -610,9 +610,9 @@ function _buildReengagement(name, days) {
   // Encart "Pour démarrer en 5 minutes" (bordure orange, à notre sauce)
   const startBox = `
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%"
-      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #e3b23a;border-radius:10px;margin:20px 0;">
+      style="background:#0f0f12;border:1px solid #26262b;border-left:3px solid #f3c344;border-radius:10px;margin:20px 0;">
       <tr><td style="padding:16px 18px;">
-        <div style="color:#e3b23a;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
+        <div style="color:#f3c344;font-size:15px;font-weight:700;margin-bottom:8px;">Pour démarrer en 5 minutes</div>
         <div style="color:#cbd5e1;font-size:14px;line-height:1.6;margin-bottom:10px;">Pendant la session de Londres (9h–10h), ouvre&nbsp;:</div>
         <div style="color:#e2e8f0;font-size:14px;line-height:1.9;">
           → <strong style="color:#fff;">Live Squawk</strong> <span style="color:#94a3b8;">(les news qui bougent les marchés, en direct)</span><br>
@@ -714,9 +714,11 @@ function trackClickUrl(campaign, email, target) {
 }
 
 // Gabarit CAMPAGNE — IDENTITE FIDELE AU DESK : tokens reels du terminal (bg #0d0e11, panneau #16171b,
-// filet #232429, or signature #e3b23a, degrade or #f0d27a->#cfa233->#b8860b). Le degrade est applique en
-// TEXTE (wordmark) avec repli SOLIDE #e3b23a (Outlook ignore background-clip -> texte or plein, jamais
-// invisible) + en bandeau haut (bgcolor #e3b23a de repli). Rendu premium, hierarchie du desk.
+// filet #232429). OR DES MAILS = #f3c344 (dore du FAVICON/logo DTP, choix user 2026-07-11 pour la coherence
+// identite visuelle : le #e3b23a du desk paraissait orange). N'utiliser QUE #f3c344 dans les mails (le desk
+// garde #e3b23a). Degrade wordmark or #f0d27a->#cfa233->#b8860b. Le degrade est applique en
+// TEXTE (wordmark) avec repli SOLIDE #f3c344 (Outlook ignore background-clip -> texte or plein, jamais
+// invisible) + en bandeau haut (bgcolor #f3c344 de repli). Rendu premium, hierarchie du desk.
 function _campaignLayout(title, bodyHtml, unsub) {
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -727,9 +729,9 @@ function _campaignLayout(title, bodyHtml, unsub) {
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="dtp-wrap" style="background:#0d0e11;padding:30px 16px;">
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#16171b;border:1px solid #232429;border-radius:10px;overflow:hidden;">
-        <tr><td bgcolor="#e3b23a" height="3" style="height:3px;line-height:3px;font-size:0;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);mso-line-height-rule:exactly;">&nbsp;</td></tr>
+        <tr><td bgcolor="#f3c344" height="3" style="height:3px;line-height:3px;font-size:0;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);mso-line-height-rule:exactly;">&nbsp;</td></tr>
         <tr><td style="padding:24px 34px 16px;border-bottom:1px solid #232429;">
-          <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#e3b23a;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">DataTradingPro</div>
+          <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#f3c344;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">DataTradingPro</div>
           <div style="font-size:11px;font-weight:600;color:#9a9aa4;margin-top:6px;letter-spacing:.09em;text-transform:uppercase;">Terminal macro &amp; forex</div>
         </td></tr>
         <tr><td class="dtp-pad" style="padding:26px 34px;color:#c8ccd4;font-size:15px;line-height:1.66;">
@@ -737,7 +739,7 @@ function _campaignLayout(title, bodyHtml, unsub) {
         </td></tr>
         <tr><td style="padding:18px 34px;border-top:1px solid #232429;color:#6f6f79;font-size:12px;line-height:1.6;">
           DataTradingPro &middot; terminal de news &amp; d'analyse de march&eacute;. Contenu informatif&nbsp;: n'ex&eacute;cute aucun ordre, ne donne aucun conseil personnalis&eacute;.<br>
-          Une question&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#e3b23a;text-decoration:none;">${SUPPORT_EMAIL}</a>
+          Une question&nbsp;? <a href="mailto:${SUPPORT_EMAIL}" style="color:#f3c344;text-decoration:none;">${SUPPORT_EMAIL}</a>
         </td></tr>
       </table>
       <div style="color:#565660;font-size:11px;margin-top:14px;line-height:1.7;max-width:600px;">
@@ -749,10 +751,10 @@ function _campaignLayout(title, bodyHtml, unsub) {
 </body></html>`;
 }
 function _campaignBtn(label, url) {
-  // CTA = OR PLEIN (comme les boutons du desk : solide #e3b23a, texte quasi-noir, coins ~desk, PAS de degrade).
+  // CTA = OR PLEIN (comme les boutons du desk : solide #f3c344, texte quasi-noir, coins ~desk, PAS de degrade).
   // bgcolor (attribut) = rendu Outlook/Word garanti. Repli couleur pleine partout.
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr>
-    <td align="center" bgcolor="#e3b23a" style="background:#e3b23a;border-radius:6px;mso-padding-alt:14px 34px;">
+    <td align="center" bgcolor="#f3c344" style="background:#f3c344;border-radius:6px;mso-padding-alt:14px 34px;">
       <a href="${url}" style="display:inline-block;padding:14px 34px;color:#0d0e11;font-weight:700;font-size:15px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
@@ -763,7 +765,7 @@ function _campaignBtnGhost(label, url) {
   // collerait au texte (technique bulletproof standard ; les autres clients gardent le padding du lien).
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0;"><tr>
     <td align="center" style="border:1px solid #b8860b;border-radius:6px;mso-padding-alt:10px 22px;">
-      <a href="${url}" style="display:inline-block;padding:10px 22px;color:#e3b23a;font-weight:700;font-size:13.5px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
+      <a href="${url}" style="display:inline-block;padding:10px 22px;color:#f3c344;font-weight:700;font-size:13.5px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
 // Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
@@ -797,7 +799,7 @@ function _agendaTable(events) {
     if (e.dayLabel && e.dayLabel !== lastDay) { lastDay = e.dayLabel; out += `<tr><td colspan="4" style="padding:8px 10px 4px;background:#101012;color:#9aa3b2;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;">${_esc(e.dayLabel)}</td></tr>`; }
     const vals = []; if (e.forecast) vals.push('prév. <span style="color:#cbd5e1;">' + _esc(e.forecast) + '</span>'); if (e.previous) vals.push('préc. ' + _esc(e.previous));
     out += `<tr>
-      <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#e3b23a;font-weight:700;font-size:12px;white-space:nowrap;vertical-align:top;">${_esc(e.time || '')}<div style="color:#8b93a1;font-weight:400;font-size:11px;margin-top:1px;">${_esc(e.ccy || '')}&nbsp;${dots(e.impact)}</div></td>
+      <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#f3c344;font-weight:700;font-size:12px;white-space:nowrap;vertical-align:top;">${_esc(e.time || '')}<div style="color:#8b93a1;font-weight:400;font-size:11px;margin-top:1px;">${_esc(e.ccy || '')}&nbsp;${dots(e.impact)}</div></td>
       <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#ffffff;font-size:13px;vertical-align:top;">${_esc(e.title || '')}</td>
       <td style="padding:9px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;vertical-align:top;">${vals.join('<br>')}</td>
     </tr>`;
@@ -817,7 +819,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
   const sender = _esc(_parseFrom().email);
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 16px;">Merci de faire partie de l'aventure <strong style="color:#e3b23a;">DataTradingPro</strong>. Chaque semaine, le desk vous &eacute;crit pour rendre le march&eacute; <strong>macro &amp; forex</strong> lisible, en fran&ccedil;ais. Voici votre <strong style="color:#fff;">semaine type</strong>&nbsp;:</p>
+    <p style="margin:0 0 16px;">Merci de faire partie de l'aventure <strong style="color:#f3c344;">DataTradingPro</strong>. Chaque semaine, le desk vous &eacute;crit pour rendre le march&eacute; <strong>macro &amp; forex</strong> lisible, en fran&ccedil;ais. Voici votre <strong style="color:#fff;">semaine type</strong>&nbsp;:</p>
     <ul style="margin:0 0 20px;padding-left:20px;color:#cbd5e1;">
       <li style="margin:6px 0;">🗓️ <strong style="color:#fff;">Semaine &agrave; venir</strong>&nbsp;: chaque lundi, l'agenda tri&eacute; par le desk, vous savez o&ugrave; regarder avant que la semaine ne commence.</li>
       <li style="margin:6px 0;">🎓 <strong style="color:#fff;">Comprendre le march&eacute;</strong>&nbsp;: chaque mardi, un concept macro choisi selon l'actualit&eacute; et d&eacute;cod&eacute; simplement, comme au desk.</li>
@@ -885,9 +887,9 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // tires des insights REELS du rapport -> puces or, memes donnees que l'onglet Analystes.
   const keyPts = insights.slice(lead === insights[0] ? 1 : 0, (lead === insights[0] ? 1 : 0) + 4);
   const insightsHtml = keyPts.length
-    ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
+    ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
     : '';
-  const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' : <span style="color:#e3b23a;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
+  const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' : <span style="color:#f3c344;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
   // EXTRAIT du rapport, PAR DEVISE (demande user, remplace la phrase force-des-devises) : 1-2 phrases de
   // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
   let curHtml = '';
@@ -895,14 +897,14 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => _curSrc[c] && _curSrc[c].analysis && String(_curSrc[c].analysis).trim().length > 30).slice(0, 3);
   if (_curPick.length) {
     const rows = _curPick.map(c => `<tr><td style="padding:8px 0;border-top:1px solid #1f1f24;">
-        <span style="color:#e3b23a;font-weight:800;font-size:12.5px;">${c}</span>
+        <span style="color:#f3c344;font-weight:800;font-size:12.5px;">${c}</span>
         <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_md(_curSrc[c].analysis), 230))}</div>
       </td></tr>`).join('');
     curHtml = `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">Petit aperçu&nbsp;: ${_curPick.length === 1 ? 'une devise de la semaine, lue' : _curPick.length + ' devises de la semaine, lues'} par le desk.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${rows}</table>`;
   }
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 16px;">Voici un <strong style="color:#e3b23a;">avant-goût du Récap Hebdo</strong> du desk : la rétrospective de la semaine, en clair.</p>
+    <p style="margin:0 0 16px;">Voici un <strong style="color:#f3c344;">avant-goût du Récap Hebdo</strong> du desk : la rétrospective de la semaine, en clair.</p>
     ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 520)}</p>` : ''}
     ${insightsHtml}
     ${curHtml}
@@ -931,27 +933,27 @@ async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ 
 // regroupés par famille + « sert à anticiper ». Source : doc « Learning Economics News » fourni par l'admin.
 // 100 % INFORMATIF : explique, ne pousse aucune position. Aucune dépendance données → prêt en permanence.
 const _DECRYPT_FAMILIES = [
-  { name: 'INFLATION', accent: '#e3b23a', lead: "Le coût de la vie. C'est le carburant des décisions de la Fed.", items: [
+  { name: 'INFLATION', accent: '#f3c344', lead: "Le coût de la vie. C'est le carburant des décisions de la Fed.", items: [
     { k: 'CPI', full: 'Consumer Price Index',        d: 'Le prix du panier de la ménagère.',                          a: 'Politique de la Fed, taux, dollar' },
     { k: 'Core CPI', full: 'Core Consumer Price Index', d: 'Le même panier hors énergie et alimentation (plus stable).', a: 'Décisions de la Fed, PCE' },
     { k: 'PCE', full: 'Personal Consumption Expenditures', d: 'Le prix réellement payé par les ménages.',              a: 'Orientation de la Fed' },
     { k: 'Core PCE', full: 'Core PCE',               d: "La mesure d'inflation préférée de la Fed.",                   a: 'Orientation future des taux' },
     { k: 'PPI', full: 'Producer Price Index',        d: 'Le coût de production des usines, en amont.',                 a: 'Le CPI à venir (pression sur les prix)' },
   ] },
-  { name: 'EMPLOI', accent: '#e3b23a', lead: 'La santé du marché du travail. Un marché solide laisse la Fed rester ferme.', items: [
+  { name: 'EMPLOI', accent: '#f3c344', lead: 'La santé du marché du travail. Un marché solide laisse la Fed rester ferme.', items: [
     { k: 'NFP', full: 'Non-Farm Payrolls',           d: "Le nombre d'emplois créés hors agriculture.",                a: 'Chômage, salaires, Fed' },
     { k: 'Taux de chômage', full: 'Unemployment Rate', d: 'La part de gens sans travail.',                             a: 'Consommation, croissance' },
     { k: 'Salaire horaire', full: 'Average Hourly Earnings', d: 'La vitesse de hausse des salaires.',                  a: 'Inflation future (CPI/PCE)' },
     { k: 'ADP', full: 'ADP Employment Change',       d: "L'estimation privée, quelques jours avant le NFP.",          a: 'Le NFP (de façon imparfaite)' },
     { k: 'JOLTS', full: 'Job Openings and Labor Turnover', d: 'Le nombre de postes à pourvoir.',                       a: "Salaires, tensions sur l'emploi" },
   ] },
-  { name: 'CROISSANCE', accent: '#e3b23a', lead: "L'activité réelle de l'économie. Trop chaud ou trop froid, tout se joue là.", items: [
+  { name: 'CROISSANCE', accent: '#f3c344', lead: "L'activité réelle de l'économie. Trop chaud ou trop froid, tout se joue là.", items: [
     { k: 'PIB', full: 'Gross Domestic Product (GDP)', d: 'La richesse totale produite par le pays.',                  a: 'Politique Fed, bénéfices des entreprises' },
     { k: 'Ventes au détail', full: 'Retail Sales',   d: "L'argent dépensé par les consommateurs.",                     a: 'Salaires, inflation, croissance' },
     { k: 'ISM Manufacturier', full: 'ISM Manufacturing PMI', d: "La santé des usines (industrie).",                    a: 'Croissance à venir' },
     { k: 'ISM Services', full: 'ISM Services PMI',   d: 'La santé des entreprises de services.',                       a: 'Croissance, emploi' },
   ] },
-  { name: 'POLITIQUE MONÉTAIRE', accent: '#e3b23a', lead: "La décision qui déplace tous les marchés d'un coup.", items: [
+  { name: 'POLITIQUE MONÉTAIRE', accent: '#f3c344', lead: "La décision qui déplace tous les marchés d'un coup.", items: [
     { k: 'Décision de taux (FOMC)', full: 'Federal Open Market Committee', d: "La Fed fixe le niveau des taux d'intérêt.", a: 'Absolument tous les marchés' },
   ] },
 ];
@@ -1036,7 +1038,7 @@ function _watchRows(events) {
     const valLine = vals.length ? `<div style="color:#9aa3b2;font-size:12px;margin-top:2px;">${vals.join(' &middot; ')}</div>` : '';
     return `<tr><td style="padding:9px 0;border-top:1px solid #1f1f24;">
       <div>
-        <span style="color:#e3b23a;font-weight:700;font-size:12px;">${_esc(ev.dayLabel || '')}${ev.time ? ' ' + _esc(ev.time) : ''}</span>
+        <span style="color:#f3c344;font-weight:700;font-size:12px;">${_esc(ev.dayLabel || '')}${ev.time ? ' ' + _esc(ev.time) : ''}</span>
         <span style="color:#6b7280;font-size:12px;">&nbsp;&middot;&nbsp;${_esc(ev.ccy || '')}</span>
         <span style="color:#ffffff;font-weight:600;font-size:13.5px;">&nbsp;&nbsp;${_esc(ev.title || '')}</span>
       </div>${gloss}${valLine}
@@ -1049,7 +1051,7 @@ function _watchRows(events) {
 function _bankNotesBlock(notes) {
   if (!Array.isArray(notes) || !notes.length) return '';
   const rows = notes.slice(0, 4).map(n => `<tr><td style="padding:9px 0;border-top:1px solid #1f1f24;">
-      <span style="color:#e3b23a;font-weight:700;font-size:12.5px;">${_esc(n.institution)}</span>${n.ago ? `<span style="color:#6b7280;font-size:12px;">&nbsp;&middot;&nbsp;${_esc(n.ago)}</span>` : ''}
+      <span style="color:#f3c344;font-weight:700;font-size:12.5px;">${_esc(n.institution)}</span>${n.ago ? `<span style="color:#6b7280;font-size:12px;">&nbsp;&middot;&nbsp;${_esc(n.ago)}</span>` : ''}
       <div style="color:#e6e6ea;font-size:13.5px;line-height:1.5;margin-top:2px;">${_esc(n.title)}</div>
     </td></tr>`).join('');
   return `<p style="margin:20px 0 6px;">Ce que publient les grandes banques en ce moment&nbsp;:</p>
@@ -1064,11 +1066,11 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   if (!secs.length) return '';
   const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">Un aperçu du rapport quotidien du desk&nbsp;:</p>`;
   const head = `<div style="padding:13px 16px;border-bottom:1px solid #26262b;">
-      <div style="color:#e3b23a;font-weight:800;font-size:13.5px;letter-spacing:.01em;">${_esc(reportTitle || 'Point Marché : le rapport du jour')}</div>
+      <div style="color:#f3c344;font-weight:800;font-size:13.5px;letter-spacing:.01em;">${_esc(reportTitle || 'Point Marché : le rapport du jour')}</div>
       ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:3px;">${_esc(dateLabel)}</div>` : ''}
     </div>`;
   const blocks = secs.map(s => {
-    const title = `<div style="margin:14px 0 4px;color:#e3b23a;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
+    const title = `<div style="margin:14px 0 4px;color:#f3c344;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
     if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
       // VRAI tableau (demande user) : Publication | Réel | Att. | Préc. — le réel en blanc gras,
       // l'attendu/précédent estompés → l'écart saute aux yeux, façon calendrier du desk.
@@ -1087,7 +1089,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
         </table>` : '';
     }
     const arr = (s.kind === 'paras' ? s.paras : s.items) || [];
-    const items = arr.slice(0, 5).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
+    const items = arr.slice(0, 5).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
     return items ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${items}</table>` : '';
   }).join('');
   if (!blocks) return '';
@@ -1097,7 +1099,7 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
       <tr><td style="padding:0 16px 14px;">${blocks}</td></tr>
     </table>
     ${hasComments
-      ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#e3b23a;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`
+      ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#f3c344;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`
       : `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`}`;
 }
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
@@ -1120,14 +1122,14 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   let lead;
   if (featured) {
     const when = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
-    lead = `Cette semaine, le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier. Le rendez-vous clé&nbsp;: <strong style="color:#e3b23a;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}.`;
+    lead = `Cette semaine, le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier. Le rendez-vous clé&nbsp;: <strong style="color:#f3c344;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}.`;
   } else {
     lead = `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
   }
 
   const conceptHtml = `
     <div style="margin:20px 0 8px;">
-      <div style="display:inline-block;color:#0a0a0c;background:#e3b23a;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
+      <div style="display:inline-block;color:#0a0a0c;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${_esc(c.eyebrow)}</div>
       <div style="color:#ffffff;font-weight:800;font-size:18px;line-height:1.3;margin:10px 0 2px;letter-spacing:-.01em;">${_esc(c.title)}</div>
     </div>
     ${c.paras.map(p => `<p style="margin:0 0 12px;">${_esc(p)}</p>`).join('')}`;
@@ -1148,13 +1150,13 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     if (featured.forecast) fnums.push(`prévision <strong style="color:#cbd5e1;">${_esc(featured.forecast)}</strong>`);
     if (featured.previous) fnums.push(`précédent <strong style="color:#cbd5e1;">${_esc(featured.previous)}</strong>`);
     const fnumLine = fnums.length ? ` Le marché attend ${fnums.join(', ')}.` : '';
-    appliedHtml = `<p style="margin:18px 0 12px;"><strong style="color:#e3b23a;">Cette semaine, concrètement&nbsp;:</strong> le rendez-vous à surveiller est <strong style="color:#fff;">${_esc(featured.title)}</strong>${fwhen ? ' (' + _esc(fwhen) + ')' : ''}.${fnumLine} C'est exactement la mécanique décrite plus haut, à lire en direct&nbsp;: le marché compare le chiffre aux attentes, pas au niveau brut, et c'est l'écart qui fait bouger le dollar, l'or et les indices.</p>`;
+    appliedHtml = `<p style="margin:18px 0 12px;"><strong style="color:#f3c344;">Cette semaine, concrètement&nbsp;:</strong> le rendez-vous à surveiller est <strong style="color:#fff;">${_esc(featured.title)}</strong>${fwhen ? ' (' + _esc(fwhen) + ')' : ''}.${fnumLine} C'est exactement la mécanique décrite plus haut, à lire en direct&nbsp;: le marché compare le chiffre aux attentes, pas au niveau brut, et c'est l'écart qui fait bouger le dollar, l'or et les indices.</p>`;
   }
 
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
   const evergreen = (!upcoming.length) ? _DECRYPT_FAMILIES.map(fam => {
-    const rows = fam.items.slice(0, 3).map(it => `<tr><td style="padding:9px 0 3px;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(it.k)}</span><div style="color:#aab2c0;font-size:12.5px;line-height:1.45;margin-top:2px;">${_esc(it.d)}</div><div style="color:#e3b23a;font-size:11.5px;font-weight:600;margin-top:1px;">&rarr; ${_esc(it.a)}</div></td></tr>`).join('');
-    return `<div style="margin:18px 0 4px;"><span style="display:inline-block;color:#0a0a0c;background:#e3b23a;font-weight:800;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:6px;">${_esc(fam.name)}</span></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
+    const rows = fam.items.slice(0, 3).map(it => `<tr><td style="padding:9px 0 3px;border-top:1px solid #1f1f24;"><span style="color:#fff;font-weight:700;font-size:13.5px;">${_esc(it.k)}</span><div style="color:#aab2c0;font-size:12.5px;line-height:1.45;margin-top:2px;">${_esc(it.d)}</div><div style="color:#f3c344;font-size:11.5px;font-weight:600;margin-top:1px;">&rarr; ${_esc(it.a)}</div></td></tr>`).join('');
+    return `<div style="margin:18px 0 4px;"><span style="display:inline-block;color:#0a0a0c;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.05em;padding:3px 10px;border-radius:6px;">${_esc(fam.name)}</span></div><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
   }).join('') : '';
 
   const body = `
@@ -1270,7 +1272,7 @@ const MINDSET_CONCEPTS = [
 // Rend les paragraphes : les lignes « - … » consecutives deviennent une liste a puces or ; le reste = paragraphes.
 function _mindsetParas(paras) {
   let html = '', bullets = [];
-  const flush = () => { if (bullets.length) { html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 14px;">${bullets.map(b => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(b)}</td></tr>`).join('')}</table>`; bullets = []; } };
+  const flush = () => { if (bullets.length) { html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 14px;">${bullets.map(b => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(b)}</td></tr>`).join('')}</table>`; bullets = []; } };
   for (const p of (paras || [])) {
     const s = String(p == null ? '' : p).trim();
     if (!s) continue;
@@ -1349,9 +1351,9 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     : 'Une séance à lire entre les lignes.';
   let lead = `Voici votre point marché, en clair, droit à l'essentiel, sans le bruit.`;
   if (themeLabel && risk && risk.label) {
-    lead = `Le desk garde le cap sur un thème dominant, <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>, dans un marché ${_riskClause}. Voici ce qu'il faut en retenir.`;
+    lead = `Le desk garde le cap sur un thème dominant, <strong style="color:#f3c344;">${_esc(themeLabel)}</strong>, dans un marché ${_riskClause}. Voici ce qu'il faut en retenir.`;
   } else if (themeLabel) {
-    lead = `Le desk garde le cap sur un thème dominant : <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>. Voici ce qu'il faut en retenir.`;
+    lead = `Le desk garde le cap sur un thème dominant : <strong style="color:#f3c344;">${_esc(themeLabel)}</strong>. Voici ce qu'il faut en retenir.`;
   } else if (risk && risk.label) {
     lead = `Un marché ${_riskClause}. Voici ce que le desk en retient.`;
   }
@@ -1439,7 +1441,7 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
   const when = featured ? `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim() : '';
   // On cadre sur les JOURS a fort impact du Week Ahead (evite le « 68 temps forts » peu parlant du calendrier brut).
   const count = hiDays || majors.length;
-  const lead = `Voici la semaine qui s'ouvre sur les marchés${weekLabel ? ` (<strong style="color:#e3b23a;">${_esc(weekLabel)}</strong>)` : ''}, <strong style="color:#fff;">jour par jour</strong>.${count ? ` ${count} séance${count > 1 ? 's' : ''} à fort impact se profile${count > 1 ? 'nt' : ''}` : ' Plusieurs temps forts se profilent'}${themeLabel ? `, sur fond d'<strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>` : ''}${featured && featured.title ? `. Le rendez-vous à ne pas manquer&nbsp;: <strong style="color:#e3b23a;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}` : ''}.`;
+  const lead = `Voici la semaine qui s'ouvre sur les marchés${weekLabel ? ` (<strong style="color:#f3c344;">${_esc(weekLabel)}</strong>)` : ''}, <strong style="color:#fff;">jour par jour</strong>.${count ? ` ${count} séance${count > 1 ? 's' : ''} à fort impact se profile${count > 1 ? 'nt' : ''}` : ' Plusieurs temps forts se profilent'}${themeLabel ? `, sur fond d'<strong style="color:#f3c344;">${_esc(themeLabel)}</strong>` : ''}${featured && featured.title ? `. Le rendez-vous à ne pas manquer&nbsp;: <strong style="color:#f3c344;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}` : ''}.`;
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 10px;">${lead}</p>
@@ -1474,7 +1476,7 @@ function buildCampaignAlerteBC({ name, email, campaign, context, isMember } = {}
   const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
-  const lead = `Une échéance de banque centrale concentre l'attention du marché${themeLabel ? ` (thème dominant&nbsp;: <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>)` : ''}. Voici le ton lu par le desk et ce qu'en publient les grandes banques : l'essentiel, sans pousser la moindre position.`;
+  const lead = `Une échéance de banque centrale concentre l'attention du marché${themeLabel ? ` (thème dominant&nbsp;: <strong style="color:#f3c344;">${_esc(themeLabel)}</strong>)` : ''}. Voici le ton lu par le desk et ce qu'en publient les grandes banques : l'essentiel, sans pousser la moindre position.`;
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
@@ -1616,7 +1618,7 @@ function renderEmailGallery(catalog, status) {
     background:${on ? 'rgba(34,197,94,0.12)' : 'rgba(255,255,255,0.05)'};border:1px solid ${on ? 'rgba(34,197,94,0.4)' : 'rgba(255,255,255,0.12)'};color:${on ? '#22c55e' : '#6b7280'};">
     <span style="width:7px;height:7px;border-radius:50%;background:${on ? '#22c55e' : '#52525b'};"></span>${_esc(label)}</span>`;
   const cards = cat.map(e => {
-    const audColor = e.audience === 'Admin' ? '#e3b23a' : '#3f9280';
+    const audColor = e.audience === 'Admin' ? '#f3c344' : '#3f9280';
     return `<section style="background:#141417;border:1px solid #26262b;border-radius:12px;overflow:hidden;display:flex;flex-direction:column;">
       <div style="padding:14px 16px;border-bottom:1px solid #26262b;">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:7px;">
@@ -1636,7 +1638,7 @@ function renderEmailGallery(catalog, status) {
   body{margin:0;background:#0a0a0c;color:#e6e9ef;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,sans-serif;padding:28px;}
   .hd{max-width:1320px;margin:0 auto 22px;}
   .hd h1{margin:0 0 4px;font-size:22px;font-weight:800;letter-spacing:-.02em;}
-  .hd h1 .o{color:#e3b23a;}
+  .hd h1 .o{color:#f3c344;}
   .hd .sub{color:#8a8a90;font-size:13px;margin-bottom:14px;}
   .panel{background:#141417;border:1px solid #26262b;border-radius:12px;padding:14px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;}
   .panel .lbl{font-size:12px;color:#6b7280;font-weight:700;text-transform:uppercase;letter-spacing:.04em;}
@@ -1668,7 +1670,7 @@ function buildReferralCredited({ name, count, untilNext }) {
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">Nouveau filleul confirmé 🎉</p>
     <p style="margin:0 0 14px;">Bonjour ${prenom}, un nouvel abonné vient de rejoindre <strong style="color:#fff;">DataTradingPro</strong> grâce à votre lien de parrainage. Merci !</p>
     ${_credBox([['Filleuls confirmés', String(count)], ['Avant 1 mois offert', restant]])}
-    <p style="margin:0 0 14px;">Plus que <strong style="color:#e3b23a;">${restant}</strong> et nous créditons <strong style="color:#fff;">1 mois d'accès offert</strong> sur votre compte.</p>
+    <p style="margin:0 0 14px;">Plus que <strong style="color:#f3c344;">${restant}</strong> et nous créditons <strong style="color:#fff;">1 mois d'accès offert</strong> sur votre compte.</p>
     ${_button('Voir mes parrainages', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">À très vite,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -1682,7 +1684,7 @@ function buildReferralReward({ name, count, newExpiresAt }) {
   const end = newExpiresAt ? new Date(newExpiresAt).toLocaleDateString('fr-FR') : '—';
   const body = `
     <p style="margin:0 0 14px;color:#ffffff;font-size:18px;font-weight:700;">🎁 1 mois offert débloqué !</p>
-    <p style="margin:0 0 14px;">Bravo ${prenom} — vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#e3b23a;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
+    <p style="margin:0 0 14px;">Bravo ${prenom} — vous avez atteint <strong style="color:#fff;">${count} parrainages</strong>. Comme promis, nous ajoutons <strong style="color:#f3c344;">1 mois d'accès offert</strong> à votre abonnement DataTradingPro.</p>
     ${_credBox([['Récompense', "1 mois d'accès offert"], ['Accès prolongé jusqu\'au', end]])}
     <p style="margin:0 0 14px;font-size:13px;color:#9aa3b2;">Le mois est appliqué automatiquement à votre accès au terminal. Continuez à parrainer : chaque 3 parrainages = un mois de plus.</p>
     ${_button('Accéder au terminal', APP_URL)}
@@ -1713,11 +1715,11 @@ function buildReferredWelcome({ name, referrerName }) {
     <p style="margin:0 0 14px;">Bonjour ${prenom}, vous avez rejoint <strong style="color:#fff;">DataTradingPro</strong> grâce à ${par}. Vous pouvez maintenant en profiter à votre tour avec notre programme de parrainage.</p>
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(227,178,58,0.10);border:1px solid rgba(227,178,58,0.4);border-radius:12px;margin:18px 0;">
       <tr><td style="padding:18px 20px;text-align:center;">
-        <div style="font-size:22px;font-weight:800;color:#e3b23a;letter-spacing:-.01em;">3 inscrits&nbsp;=&nbsp;1 mois offert</div>
+        <div style="font-size:22px;font-weight:800;color:#f3c344;letter-spacing:-.01em;">3 inscrits&nbsp;=&nbsp;1 mois offert</div>
         <div style="font-size:13px;color:#f3d9b0;margin-top:6px;">Et ça se cumule : chaque palier de 3 filleuls ajoute un mois d'accès.</div>
       </td></tr>
     </table>
-    <p style="margin:0 0 14px;">Partagez votre lien personnel : à chaque <strong style="color:#fff;">3ᵉ</strong> abonné venu grâce à vous, nous créditons <strong style="color:#e3b23a;">1 mois d'accès offert</strong> sur votre compte. Votre lien se trouve dans <strong style="color:#fff;">Profil&nbsp;▸&nbsp;Parrainages</strong>.</p>
+    <p style="margin:0 0 14px;">Partagez votre lien personnel : à chaque <strong style="color:#fff;">3ᵉ</strong> abonné venu grâce à vous, nous créditons <strong style="color:#f3c344;">1 mois d'accès offert</strong> sur votre compte. Votre lien se trouve dans <strong style="color:#fff;">Profil&nbsp;▸&nbsp;Parrainages</strong>.</p>
     ${_button('Voir mon lien de parrainage', APP_URL)}
     ${_spamNote()}
     <p style="margin:0;font-size:13px;">Bon trading,<br><strong style="color:#fff;">L'équipe DataTradingPro</strong></p>`;
@@ -1729,8 +1731,8 @@ async function sendReferredWelcome(d) { const m = buildReferredWelcome(d); retur
 // est géré côté serveur ; ici on se contente d'envoyer via la chaîne habituelle (OVH→Gmail).
 async function sendAdminAlert({ subject, html, to } = {}) {
   const dest = to || process.env.ADMIN_EMAIL || SUPPORT_EMAIL;
-  const body = '<h2 style="color:#e3b23a;margin:0 0 12px;">🚨 Alerte monitoring IA</h2>' + (html || '')
-    + '<p style="color:#6b7280;font-size:12px;margin-top:16px;">Détails en direct : <a href="https://desk.datatradingpro.com/admin" style="color:#e3b23a;">dashboard IA Monitor</a>.</p>';
+  const body = '<h2 style="color:#f3c344;margin:0 0 12px;">🚨 Alerte monitoring IA</h2>' + (html || '')
+    + '<p style="color:#6b7280;font-size:12px;margin-top:16px;">Détails en direct : <a href="https://desk.datatradingpro.com/admin" style="color:#f3c344;">dashboard IA Monitor</a>.</p>';
   return _send(dest, '[DTP Alerte IA] ' + (subject || 'Alerte'), _layout('Alerte monitoring IA', body));
 }
 
