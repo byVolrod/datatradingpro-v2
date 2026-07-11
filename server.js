@@ -10708,13 +10708,18 @@ const _LOW_VALUE_ANALYSIS_RE = new RegExp([
 const HUMAN_STUNT_NOISE = /\b(?:publicity\s+stunt|prank(?:s|ed|ster)?|streaker|streaking\s+(?:naked|across|onto|at)|flash\s+mob|guinness\s+world\s+record|base[\s-]?jump\w*|daredevil|(?:unfurl\w+|hoist\w*|hung|hang(?:s|ing)?|drap\w+|dangl\w+)\s+[\w\s'’"“”-]{0,30}?\bbanner\b|banner\s+(?:on|atop|on\s+top\s+of|across|over|from)\s+(?:the\s+|a\s+)?[\w\s'’-]{0,26}?(?:building|tower|bridge|skyscraper|stadium|rooftop|monument|statue|billboard))\b/i;
 // ── Chronique CRIMINELLE locale (rafles, arrestations de masse, triades/gangs, trafics, escroqueries,
 //    braquages) : police-blotter JAMAIS market-moving (SCMP & co, parfois mal classee « Analyse de
-//    marche »). Termes SPECIFIQUES pour zero faux positif : « crackdown » seul n'est PAS capte (China
-//    crackdown on tech / SEC crackdown on crypto = vraies news marche), seulement accole a un terme de
-//    criminalite ; « triad » exige pluriel ou compose (epargne « triad of risks ») ; « smuggling » exige
-//    ring/bust ou drogue/humains (epargne « oil smuggling network » = news sanctions). Guard
-//    !isFinanciallyRelevant cote appelant. Ex. user : « 65 arrested in Hong Kong crackdown targeting
-//    illicit triad-linked income sources ».
-const CRIME_BLOTTER_NOISE = /\b(?:\d+\s+(?:arrested|detained|charged|held)\b|\btriads\b|triad[\s-]?(?:linked|boss(?:es)?|gangs?|members?|society|societies|crackdown)|crime\s+(?:ring|syndicate|gang|boss)|(?:drug|scam|smuggling|prostitution|gambling|extortion|counterfeit\w*)\s+(?:ring|bust|syndicate|den|racket|cent(?:er|re)s?)|(?:drug|human|people|wildlife)[\s-]traffick\w+|police\s+(?:raid\w*|bust\w*|sting|crackdown)|crackdown\s+(?:on|targeting)\s+(?:illicit|illegal|crime|criminal|triad|gang|drug|vice|scam|counterfeit)\w*|loan\s+shark\w*|money\s+laundering\s+(?:ring|syndicate|network|gang)|racketeering|pickpocket\w*|burglar\w*|bank\s+robbery|jewel(?:lery|ry)?\s+heist)\b/i;
+//    marche »). Termes SPECIFIQUES pour zero faux positif (revue adversariale v2) :
+//    - « N arrested/detained/charged/held » n'est capte QUE si le titre porte AUSSI un terme criminel
+//      (lookahead) → « 12 detained in Hong Kong national security crackdown » (geopolitique) = KEEP ;
+//    - « crackdown on illicit/illegal » exige un SUBSTANTIF criminel derriere l'adjectif → « crackdown on
+//      illegal mining/capital outflows/immigration/state aid » et « on drug prices » = KEEP (vraies news) ;
+//    - « gambling centre » retire (« Macau, the world's largest gambling centre » = news casinos) ; seul
+//      « scam centre » (complexes criminels d'Asie du Sud-Est) reste capte ;
+//    - « triad » exige pluriel ou compose (epargne « triad of risks ») ; « smuggling » exige ring/bust ou
+//      drogue/humains (epargne « oil smuggling network » = news sanctions).
+//    Guard !isFinanciallyRelevant cote appelant. Ex. user : « 65 arrested in Hong Kong crackdown
+//    targeting illicit triad-linked income sources ».
+const CRIME_BLOTTER_NOISE = /\b(?:\d+\s+(?:arrested|detained|charged|held)\b(?=[\s\S]*\b(?:triads?|gangs?|drugs?|scam|smuggl\w+|traffick\w+|prostitution|gambling|extortion|racket\w*|heist|robbery|burglar\w*|vice|counterfeit\w*|police|raids?|mafia|cartel)\b)|\btriads\b|triad[\s-]?(?:linked|boss(?:es)?|gangs?|members?|society|societies|crackdown)|crime\s+(?:ring|syndicate|gang|boss)|(?:drug|scam|smuggling|prostitution|gambling|extortion|counterfeit\w*)\s+(?:ring|bust|syndicate|den|racket)|scam\s+cent(?:er|re)s?|(?:drug|human|people|wildlife)[\s-]traffick\w+|police\s+(?:raid\w*|bust\w*|sting|crackdown)|crackdown\s+(?:on|targeting)\s+(?:illicit|illegal)\s+(?:triads?|gangs?|drug\s+(?:ring|trade|den)s?|vice|prostitution|gambling|betting|racket\w*)|loan\s+shark\w*|money\s+laundering\s+(?:ring|syndicate|network|gang)|racketeering|pickpocket\w*|burglar\w*|bank\s+robbery|jewel(?:lery|ry)?\s+heist)\b/i;
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
