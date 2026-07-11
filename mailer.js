@@ -908,7 +908,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${curHtml}
     ${_widgetImg('strength', 'La force des devises')}
     ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
-    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par devise, banques centrales, points macro) vous attend dans l'onglet <strong style="color:#fff;">Analystes</strong> du Desk&nbsp;:</p>
+    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par devise, banques centrales, points macro) vous attend sur le <strong style="color:#fff;">Desk</strong>&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
@@ -1054,7 +1054,7 @@ function _bankNotesBlock(notes) {
     </td></tr>`).join('');
   return `<p style="margin:20px 0 6px;">Ce que publient les grandes banques en ce moment&nbsp;:</p>
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>
-    <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Les notes complètes (Goldman Sachs, ING, Scotiabank&hellip;) sont dans l'onglet <strong style="color:#9aa3b2;">Institution</strong> du Desk.</p>`;
+    <p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Les notes complètes (Goldman Sachs, ING, Scotiabank&hellip;) se lisent en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`;
 }
 // APERCU du RAPPORT QUOTIDIEN (Point marche) — carte facon rapport du desk : en-tete (titre reel du
 // rapport + date), sections par theme (titre or + puces / paras / mini-tableau de donnees), puis mention
@@ -1097,8 +1097,8 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
       <tr><td style="padding:0 16px 14px;">${blocks}</td></tr>
     </table>
     ${hasComments
-      ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#e3b23a;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier dans l'onglet <strong style="color:#9aa3b2;">Analystes</strong> du Desk.</p>`
-      : `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend dans l'onglet <strong style="color:#9aa3b2;">Analystes</strong> du Desk.</p>`}`;
+      ? `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu. La pièce maîtresse du rapport, les <strong style="color:#e3b23a;">Commentaires marquants</strong> (ce que disent réellement les analystes des grands desks), se lit en entier sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`
+      : `<p style="margin:8px 0 0;font-size:12.5px;color:#7b828f;">Ceci n'est qu'un aperçu&nbsp;: le rapport complet (toutes les sections, les chiffres et le contexte) vous attend sur le <strong style="color:#9aa3b2;">Desk</strong>.</p>`}`;
 }
 // ── DÉCRYPTAGE CONTEXTUEL (S2) — moteur intelligent : choisit un concept selon le calendrier REEL de la semaine,
 // l'explique en clair, puis liste les vrais temps forts a surveiller (prevision/precedent live). Anti-redondance
