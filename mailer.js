@@ -898,7 +898,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
         <span style="color:#e3b23a;font-weight:800;font-size:12.5px;">${c}</span>
         <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_md(_curSrc[c].analysis), 230))}</div>
       </td></tr>`).join('');
-    curHtml = `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">Extrait du rapport, par devise&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${rows}</table>`;
+    curHtml = `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">Petit aperçu&nbsp;: ${_curPick.length === 1 ? 'une devise de la semaine, lue' : _curPick.length + ' devises de la semaine, lues'} par le desk.</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${rows}</table>`;
   }
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
