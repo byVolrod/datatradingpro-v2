@@ -7917,26 +7917,26 @@ async function _chatLiveTick(){
 // ── Présence de l'interlocuteur (support) : « En ligne » / « Hors ligne depuis X » ──
 // Durée courte relative FR (min → h → j → date). Le live tick (4s) re-rend depuis lastSeen → « depuis
 // 10 min » s'incrémente tout seul même sans nouvel event serveur.
-function _chatSince(ts){
-  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
-  const m = Math.floor(s / 60); if (m < 60) return m + ' min';
-  const h = Math.floor(m / 60); if (h < 24) return h + ' h';
-  const j = Math.floor(h / 24); if (j < 7) return j + ' j';
-  return null;   // trop ancien → on affichera une date
+// Date + HEURE absolues de la derniere deconnexion (demande user) : « aujourd'hui à 14h30 », « hier à
+// 9h05 », « le 12/07 à 14h30 », « le 12/07/25 à 14h30 » (annee si autre annee). Format FR « HHhMM ».
+function _chatAbsWhen(ts){
+  const d = new Date(ts), now = new Date();
+  const hm = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
+  if (d.toDateString() === now.toDateString()) return "aujourd'hui à " + hm;
+  const y = new Date(now); y.setDate(y.getDate() - 1);
+  if (d.toDateString() === y.toDateString()) return 'hier à ' + hm;
+  const opt = (d.getFullYear() === now.getFullYear()) ? { day: '2-digit', month: '2-digit' } : { day: '2-digit', month: '2-digit', year: '2-digit' };
+  return 'le ' + d.toLocaleDateString('fr-FR', opt) + ' à ' + hm;
 }
 function _chatSeenText(online, lastSeen){
   if (online) return { cls: 'is-online', text: 'En ligne' };
   if (!lastSeen) return { cls: 'is-offline', text: 'Hors ligne' };
-  const s = Math.floor((Date.now() - lastSeen) / 1000);
-  if (s < 60) return { cls: 'is-offline', text: 'Hors ligne' };
-  const since = _chatSince(lastSeen);
-  if (since) return { cls: 'is-offline', text: 'Hors ligne depuis ' + since };
-  let dt = ''; try { dt = new Date(lastSeen).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }); } catch {}
-  return { cls: 'is-offline', text: dt ? ('Hors ligne · vu le ' + dt) : 'Hors ligne' };
+  let dt = ''; try { dt = _chatAbsWhen(lastSeen); } catch {}
+  return { cls: 'is-offline', text: dt ? ('Hors ligne · déconnecté ' + dt) : 'Hors ligne' };
 }
 function _chatHeadPresenceHtml(pres){
   const p = _chatSeenText(!!pres.online, pres.lastSeen || null);
-  return `<span class="chat-head-st ${p.cls}">${_chatEsc(p.text)}</span><span class="chat-head-role"> · Vous répondez en tant que support</span>`;
+  return `<span class="chat-head-st ${p.cls}">${_chatEsc(p.text)}</span>`;   // « Vous répondez en tant que support » = ligne SEPAREE (_chatApplyPresence → #chat-head-role2)
 }
 // Présence connue INSTANTANÉMENT depuis l'inbox (users + threads déjà chargés) → l'en-tête s'affiche sans attendre le fetch.
 function _chatUserPresence(userId){
@@ -7959,6 +7959,8 @@ function _chatApplyPresence(pres){
   }
   const s = document.getElementById('chat-head-sub');
   if (s) s.innerHTML = _chatHeadPresenceHtml({ online, lastSeen });
+  const r = document.getElementById('chat-head-role2');   // « Vous répondez en tant que support » = ligne PROPRE, dediee, sous la presence
+  if (r) { r.textContent = 'Vous répondez en tant que support'; r.style.display = ''; }
 }
 function _chatUpdateHeadPresence(d){
   if (!_chatThreadUser || !d) return;
@@ -7967,8 +7969,9 @@ function _chatUpdateHeadPresence(d){
 function _chatHead(name, sub, showBack, showInput, presence){
   const n = document.getElementById('chat-head-name'); if (n) n.textContent = name;   // nom PUR d'abord (efface l'ancienne pastille)
   const s = document.getElementById('chat-head-sub');
-  if (presence) { _chatApplyPresence(presence); }        // pastille à côté du nom + sous-ligne « Hors ligne depuis X »
-  else if (s) s.textContent = sub;                        // inbox / autre → sous-ligne texte simple, pas de pastille
+  const r = document.getElementById('chat-head-role2');
+  if (presence) { _chatApplyPresence(presence); }        // pastille à côté du nom + présence + ligne rôle dédiée
+  else { if (s) s.textContent = sub; if (r) { r.textContent = ''; r.style.display = 'none'; } }   // inbox / autre → sous-ligne simple, pas de pastille ni ligne rôle
   const av = document.getElementById('chat-head-av');  if (av) av.textContent = (name||'?').charAt(0).toUpperCase();
   document.getElementById('chat-back')?.classList.toggle('hidden', !showBack);
   document.querySelector('.chat-input-bar')?.classList.toggle('hidden', !showInput);
