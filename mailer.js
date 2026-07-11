@@ -721,9 +721,10 @@ function _campaignLayout(title, bodyHtml, unsub) {
   return `<!DOCTYPE html>
 <html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark">
-<title>${_esc(title)}</title></head>
+<title>${_esc(title)}</title>
+<style>@media (max-width:480px){ .dtp-pad{padding:20px 16px !important;} .dtp-wrap{padding:24px 8px !important;} }</style></head>
 <body style="margin:0;padding:0;background:#0d0e11;font-family:-apple-system,BlinkMacSystemFont,'Inter','Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#0d0e11;padding:30px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" class="dtp-wrap" style="background:#0d0e11;padding:30px 16px;">
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;background:#16171b;border:1px solid #232429;border-radius:10px;overflow:hidden;">
         <tr><td bgcolor="#e3b23a" height="3" style="height:3px;line-height:3px;font-size:0;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);mso-line-height-rule:exactly;">&nbsp;</td></tr>
@@ -731,7 +732,7 @@ function _campaignLayout(title, bodyHtml, unsub) {
           <div style="font-size:22px;font-weight:700;letter-spacing:-0.01em;color:#e3b23a;background:linear-gradient(100deg,#f0d27a,#cfa233 55%,#b8860b);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;">DataTradingPro</div>
           <div style="font-size:11px;font-weight:600;color:#9a9aa4;margin-top:6px;letter-spacing:.09em;text-transform:uppercase;">Terminal macro &amp; forex</div>
         </td></tr>
-        <tr><td style="padding:26px 34px;color:#c8ccd4;font-size:15px;line-height:1.66;">
+        <tr><td class="dtp-pad" style="padding:26px 34px;color:#c8ccd4;font-size:15px;line-height:1.66;">
           ${bodyHtml}
         </td></tr>
         <tr><td style="padding:18px 34px;border-top:1px solid #232429;color:#6f6f79;font-size:12px;line-height:1.6;">
@@ -751,15 +752,17 @@ function _campaignBtn(label, url) {
   // CTA = OR PLEIN (comme les boutons du desk : solide #e3b23a, texte quasi-noir, coins ~desk, PAS de degrade).
   // bgcolor (attribut) = rendu Outlook/Word garanti. Repli couleur pleine partout.
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:20px 0;"><tr>
-    <td align="center" bgcolor="#e3b23a" style="background:#e3b23a;border-radius:6px;">
+    <td align="center" bgcolor="#e3b23a" style="background:#e3b23a;border-radius:6px;mso-padding-alt:14px 34px;">
       <a href="${url}" style="display:inline-block;padding:14px 34px;color:#0d0e11;font-weight:700;font-size:15px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
 // Bouton SECONDAIRE (bordure or, fond transparent) : pour les appels intermédiaires façon newsletter
 // (teaser « ton des banques », etc.) sans concurrencer le CTA principal or plein.
 function _campaignBtnGhost(label, url) {
+  // mso-padding-alt : le moteur Word d'Outlook ignore le padding des <a> inline -> sans lui, la bordure
+  // collerait au texte (technique bulletproof standard ; les autres clients gardent le padding du lien).
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0;"><tr>
-    <td align="center" style="border:1px solid #b8860b;border-radius:6px;">
+    <td align="center" style="border:1px solid #b8860b;border-radius:6px;mso-padding-alt:10px 22px;">
       <a href="${url}" style="display:inline-block;padding:10px 22px;color:#e3b23a;font-weight:700;font-size:13.5px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
@@ -1067,17 +1070,19 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   const blocks = secs.map(s => {
     const title = `<div style="margin:14px 0 4px;color:#e3b23a;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
     if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
-      // VRAI tableau (demande user) : Publication | Réel | Attendu | Précédent — le réel en blanc gras,
+      // VRAI tableau (demande user) : Publication | Réel | Att. | Préc. — le réel en blanc gras,
       // l'attendu/précédent estompés → l'écart saute aux yeux, façon calendrier du desk.
-      const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 8px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #26262b;">${label}</td>`;
+      // COMPACT MOBILE (revue) : en-têtes courts, padding 5px, nowrap UNIQUEMENT sur Réel → la largeur
+      // min du tableau reste sous la place disponible d'un téléphone (sinon tout le mail dézoome).
+      const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #26262b;">${label}</td>`;
       const rows = s.data.slice(0, 6).map(r => `<tr>
-          <td style="padding:7px 8px;color:#e6e6ea;font-size:12.5px;line-height:1.4;border-top:1px solid #1f1f24;">${_esc(r.release || '')}</td>
-          <td align="right" style="padding:7px 8px;color:#ffffff;font-weight:700;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.actual || '·')}</td>
-          <td align="right" style="padding:7px 8px;color:#9aa3b2;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.expected || '·')}</td>
-          <td align="right" style="padding:7px 8px;color:#7b828f;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.previous || '·')}</td>
+          <td style="padding:7px 5px;color:#e6e6ea;font-size:12.5px;line-height:1.4;border-top:1px solid #1f1f24;">${_esc(r.release || '')}</td>
+          <td align="right" style="padding:7px 5px;color:#ffffff;font-weight:700;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.actual || '·')}</td>
+          <td align="right" style="padding:7px 5px;color:#9aa3b2;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.expected || '·')}</td>
+          <td align="right" style="padding:7px 5px;color:#7b828f;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.previous || '·')}</td>
         </tr>`).join('');
       return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #26262b;border-radius:8px;border-collapse:separate;">
-          <tr>${_th('Publication')}${_th('Réel', true)}${_th('Attendu', true)}${_th('Précédent', true)}</tr>
+          <tr>${_th('Publication')}${_th('Réel', true)}${_th('Att.', true)}${_th('Préc.', true)}</tr>
           ${rows}
         </table>` : '';
     }
@@ -1355,7 +1360,9 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // phrase (helper module _cutTxt), puis DECOUPEE en paragraphes courts (2 phrases max) : une idee par
   // paragraphe, lecture mobile rapide — structure de newsletter, texte 100 % desk, zero invention.
   const _movesTxt = moves ? _cutTxt(moves, 680) : '';
-  const _sentences = _movesTxt ? (_movesTxt.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [_movesTxt]) : [];
+  // Split SANS PERTE : coupe apres .!? suivi d'espace + majuscule/guillemet (les decimales a point des
+  // cotations « 1.1750 » ne coupent pas et ne perdent JAMAIS de texte, contrairement a un match glouton).
+  const _sentences = _movesTxt ? _movesTxt.split(/(?<=[.!?])\s+(?=[A-ZÀ-ÖØ-Þ«"'(])/).filter(Boolean) : [];
   const _paras = [];
   for (let i = 0; i < _sentences.length; i += 2) _paras.push(_sentences.slice(i, i + 2).join(' ').replace(/\s+/g, ' ').trim());
   const movesHtml = _paras.filter(Boolean).map((p, i) => `<p style="margin:${i === 0 ? '18px' : '0'} 0 12px;">${_esc(p)}</p>`).join('');
@@ -1374,7 +1381,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // + bouton secondaire vers le Desk. Affiché uniquement s'il y a EU des tons lus cette semaine.
   const _cbs = (weekly && Array.isArray(weekly.centralBanks) ? weekly.centralBanks : []).filter(c => c && c.bank && c.stance);
   const tonesHtml = _cbs.length
-    ? `<p style="margin:18px 0 2px;color:#cbd5e1;">Les banques centrales ont aussi parlé cette semaine, et leur ton a bougé. Le desk l'a lu pour vous, banque par banque.</p>
+    ? `<p style="margin:18px 0 2px;color:#cbd5e1;">Les banques centrales ont aussi parlé cette semaine. Le desk a lu leur ton pour vous, banque par banque.</p>
        ${_campaignBtnGhost('Découvrir le ton des banques', trackClickUrl(campaign, email, LANDING_URL))}`
     : '';
 
