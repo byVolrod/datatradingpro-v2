@@ -10837,8 +10837,34 @@ function isGeoDeal(h) {
 // picks up / surges / slides / breaks above…) → flag IMPORTANT (pastille rouge + tri en tête). L'adjacence
 // évite le sur-flag du type "billion dollar deal … revenue rises" (verbe trop loin de l'actif).
 const _FX_MOVE_RE = /\b(eur|usd|gbp|jpy|chf|aud|nzd|cad|euro|euros|dollar|greenback|sterling|pound|yen|franc|aussie|kiwi|loonie|gold|silver|oil|crude|brent|wti|copper|dxy|bitcoin|eur\/?usd|gbp\/?usd|usd\/?jpy|usd\/?chf|aud\/?usd|nzd\/?usd|usd\/?cad)\b[^.!?]{0,34}\b(rall(?:y|ies|ied)|surge[sd]?|jump(?:s|ed)?|soar(?:s|ed)?|spike[sd]?|climb(?:s|ed)?|gain(?:s|ed)?|firm(?:s|ed)?|strengthen(?:s|ed)?|ris(?:e|es|en)|rose|rebound(?:s|ed)?|drop(?:s|ped)?|fall(?:s|en)?|fell|slid(?:e|es)?|slump(?:s|ed)?|plunge[sd]?|tumble[sd]?|sink(?:s|ing)?|sank|weaken(?:s|ed)?|soften(?:s|ed)?|dip(?:s|ped)?|eas(?:e|es|ed)|pick(?:s|ed)?\s+up|breaks?\s+(?:above|below|out)|extends?|tops?|hits?\s+\d|above|below)\b/i;
+// ── News « propos / citation » HORS MARCHÉ (2026-07-11) ───────────────────────
+// Reprise BRUTE d'un post personnel/politique (souvent réseau social), à la 1re personne, SANS donnée
+// de marché — ex. un post de figure politique repris tel quel comme titre, souvent mal catégorisé. On NE
+// TOUCHE JAMAIS au headline (veto 2026-07-03 : dedup/filtres/regroupement = regex EN dessus) : on pose un
+// flag `_infoQuote` → le client affiche un TITRE EXPLICATIF (IA `_infoTitle`, sinon repli déterministe) +
+// un tag « Contexte », la citation d'origine restant lisible dans le déplié. Détection HAUTE PRÉCISION
+// (un faux positif = un vrai titre de news masqué) : 1re personne + marqueur perso/politique + AUCUN
+// vocabulaire marché (le garde `isFinanciallyRelevant` épargne toute vraie news, même citant quelqu'un).
+// Deux voies (batterie adversariale) pour rester HAUTE PRÉCISION sans rater les rants à la 3e personne :
+const _IQ_FIRST_PERSON = /\b(I|I['’]m|I['’]ve|I['’]ll|I['’]d|my|myself|we['’]re|we['’]ve|our)\b/;
+// PATH A — vantardise / gloire perso / élection (exige la 1re personne pour ne pas capter une vraie news).
+const _IQ_BRAG = /\b(election|landslide|electoral\s+college|\bcounties\b|ballots?|greatest\b[^.!?]{0,24}\b(?:ever|history)|nobody\s+has\s+ever|believe\s+me|tremendous|biggest\b[^.!?]{0,20}\bever|my\s+fellow|thank\s+you\s+very\s+much)\b/i;
+// PATH B — formules de meeting / rant partisan qui n'apparaissent JAMAIS dans une vraie news marché neutre
+// (suffisantes seules, même à la 3e personne).
+const _IQ_RANT = /\b(witch\s?hunt|\bhoax\b|fake\s+news|radical\s+left|deep\s+state|make\s+america\s+great|god\s+bless\s+(?:you|america|our)|sleepy\s+joe|crooked\s+\w+|rigged\s+(?:election|vote|system|primary)|stolen\s+election|lamestream|\bMAGA\b)\b/i;
+function _isInfoQuoteNews(headline) {
+  const h = String(headline || '');
+  if (h.length < 40) return false;                 // un vrai titre court n'est pas une citation-fleuve
+  if (isFinanciallyRelevant(h)) return false;      // vraie news marché (même citant qqn) → intacte
+  if (_IQ_RANT.test(h)) return true;               // formule de rant = suffisant
+  return _IQ_FIRST_PERSON.test(h) && _IQ_BRAG.test(h);   // sinon : 1re personne + vantardise
+}
+
 function upgradeItemPriority(item) {
   const h = item.headline || '';
+  // Flag « propos hors marché » posé À L'INGESTION (regex, aucun coût IA) → le tag « Contexte » + le repli
+  // de titre sont instantanés ; l'IA (_enrichInfoTitles) remplit ensuite `_infoTitle` (titre explicatif).
+  if (h && !item._briefing && item.source !== 'DTP' && _isInfoQuoteNews(h)) item._infoQuote = true;
 
   // ── Flag _highImpact : donnée macro tier-1 RÉELLE (avec valeur/actual) ──────
   // Sert au rendu pour colorer en rouge les données High Impact (ex: PMI, CPI, NFP…)
@@ -11193,6 +11219,68 @@ async function _enrichAnalyses() {
     }
   } finally { _aiAnaBusy = false; }
 }
+
+// ── TITRE EXPLICATIF des news « propos/citation » hors marché (_infoQuote) ─────
+// Mirror de _enrichAnalyses : pour chaque item flaggé `_infoQuote` sans `_infoTitle`, génère UNE ligne
+// FR NEUTRE et FACTUELLE qui EXPLIQUE de quoi il s'agit (qui + sujet), en cache durable. Le headline brut
+// n'est JAMAIS muté (veto) ; `_infoTitle` est un champ d'AFFICHAGE. Cap journalier partagé, borné 1/cycle.
+let _infoTitleCache = _loadJsonMap(path.join(_CACHE_DIR, 'cache_infotitle.json'));
+let _aiInfoTitleBusy = false;
+function _infoTitlePrompt(headline) {
+  return `Tu es éditeur d'un terminal financier professionnel. Le TITRE BRUT ci-dessous reprend des propos personnels/politiques (souvent un post de réseau social), SANS donnée de marché.
+Écris UNE ligne, un titre FR NEUTRE et FACTUEL qui EXPLIQUE de quoi il s'agit : qui s'exprime (seulement si clairement identifiable) et sur quel sujet.
+RÈGLES STRICTES :
+- purement factuel et neutre : aucun jugement, ne reprends NI le ton NI les superlatifs de l'auteur ;
+- n'ajoute AUCUN fait absent du titre, n'invente rien, ne prends parti pour personne ;
+- si l'auteur n'est pas identifiable avec certitude, décris seulement le SUJET sans nommer de personne ;
+- 6 à 12 mots, sans guillemets, sans point final.
+TITRE BRUT : "${String(headline || '').slice(0, 400)}"
+Titre FR :`;
+}
+function _cleanInfoTitle(s) {
+  let t = String(s || '').split('\n').map(x => x.trim()).filter(Boolean)[0] || '';
+  t = t.replace(/^[-•*\d.)\s]+/, '').replace(/^["“”'`]+|["“”'`.]+$/g, '').replace(/\s+/g, ' ').trim();
+  if (t.length < 6 || t.length > 120) return '';
+  return t;
+}
+async function _enrichInfoTitles() {
+  if (_aiInfoTitleBusy) return;
+  const hasAI = (ai.hasAnthropic && ai.hasAnthropic()) || !!(process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY);
+  if (!hasAI) return;
+  _aiInfoTitleBusy = true;
+  try {
+    const today = _aiDay();
+    if (_aiAnaDay !== today) { _aiAnaDay = today; _aiAnaDayCount = 0; }        // partage le compteur/plafond de l'enrichissement analyse
+    let perCycle = 2;
+    try { if ((typeof ai.shouldThrottle === 'function' && ai.shouldThrottle()) || _aiUsersIdle()) perCycle = 1; } catch {}
+    for (const item of allNews) {
+      if (!item || !item._infoQuote || item._infoTitle) continue;              // pas concerné / déjà fait
+      const ck = 'infotitle:v1:' + item.id;
+      if (_infoTitleCache.has(ck)) {
+        const v = _infoTitleCache.get(ck);
+        if (v) { item._infoTitle = v; item._itV1 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      let cached = null; try { cached = await auth.aiCacheGet(ck); } catch {}
+      if (typeof cached === 'string') {
+        _infoTitleCache.set(ck, cached);
+        if (cached) { item._infoTitle = cached; item._itV1 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+        continue;
+      }
+      if (perCycle <= 0 || _aiAnaDayCount >= AI_ANALYSE_DAILY_MAX) break;
+      perCycle--; _aiAnaDayCount++;
+      try {
+        const out = await aiSmart('news', _infoTitlePrompt(item.headline), 60, { important: true });   // RÈGLE : aiSmart('news') EXIGE important:true (sinon refus budget silencieux)
+        const title = _cleanInfoTitle(out);
+        _infoTitleCache.set(ck, title);                                        // cache même vide (échec = pas de re-tentative en boucle)
+        if (_infoTitleCache.size > 1500) _infoTitleCache.delete(_infoTitleCache.keys().next().value);
+        _saveJsonMap(path.join(_CACHE_DIR, 'cache_infotitle.json'), _infoTitleCache);
+        if (title) auth.aiCacheSet(ck, title).catch(() => {});
+        if (title) { item._infoTitle = title; item._itV1 = true; try { broadcast({ type: 'news_update', items: [item], total: allNews.length }); } catch {} }
+      } catch { /* budget épuisé → le client garde le repli déterministe */ }
+    }
+  } finally { _aiInfoTitleBusy = false; }
+}
 function _mergeAiTags(item, aiTags) {
   // catégorie d'abord (souvent masquée par le front), puis tags IA nets — au plus 4
   return [...new Set([item.category, ...(aiTags || [])])].slice(0, 4);
@@ -11282,6 +11370,8 @@ async function refreshNews() {
   // Analyse IA PRE-CALCULEE = la TRADUCTION FR affichee au depliage -> lancee a CHAQUE cycle (60s) pour que le
   // francais apparaisse VITE (bornee par AI_ANALYSE_DAILY_MAX + cooldowns providers + pression sante Phase 3).
   _enrichAnalyses().catch(() => {});
+  // Titre explicatif IA des news « propos/citation » hors marché (_infoQuote) — meme cadence, cap partage.
+  _enrichInfoTitles().catch(() => {});
   // Affinage des TAGS (moins urgent) : reste throttle 1 cycle sur 3 pour lisser le RPM. Tag heuristique deja affiche.
   globalThis._newsAiTick = (globalThis._newsAiTick || 0) + 1;
   if (globalThis._newsAiTick % 3 === 0) _smartTagNews().catch(() => {});

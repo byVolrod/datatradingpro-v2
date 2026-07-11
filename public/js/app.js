@@ -2026,6 +2026,14 @@ function _mdStrip(s) {
     .trim();
 }
 function _dtpTitle(s) { return _mdStrip(String(s || '').replace(_NEWS_SRC_RE, '').replace(/[,;]?\s*\(?\bvia\s+[A-Z][\w.&'’ /-]{1,28}\)?\.?\s*$/i, '').trim()); }
+// Titre AFFICHÉ d'une news « propos/citation » hors marché (item._infoQuote, posé côté serveur) : titre
+// explicatif IA (item._infoTitle) s'il est prêt, sinon repli déterministe INSTANTANÉ. AFFICHAGE SEULEMENT —
+// item.headline n'est JAMAIS muté (veto 2026-07-03) ; la citation brute reste lisible dans le déplié.
+const _INFO_QUOTE_FALLBACK = 'Propos personnels, hors données de marché';
+function _newsDisplayTitle(item) {
+  if (item && item._infoQuote) return _dtpTitle(item._infoTitle) || _INFO_QUOTE_FALLBACK;
+  return _dtpTitle(item ? item.headline : '');
+}
 
 // Rend la table SNAPSHOT (style DTP : barres bleues, 2 colonnes, vert/rouge)
 function _renderSnapshot(data) {
@@ -2275,10 +2283,13 @@ function buildNewsItem(item) {
   const hasArticleUrl = !!(item.url && item.url.startsWith('https://'));
   // Résumé auto pour données High Impact sans corps de texte (PMI/CPI/NFP…)
   const autoSummary = isHighImpactData ? _dataReleaseBullets(item) : [];
+  // News « propos/citation » hors marché : titre reframé + tag « Contexte » + citation gardée au déplié.
+  const isInfoQuote = !!(item && item._infoQuote);
   // Info tag shown ONLY when we already have real content to display
   const hasInfo   = rawDesc.length > 30
     || hasGrouped
     || autoSummary.length > 0
+    || isInfoQuote                                    // la citation brute est toujours consultable au déplié
     || (isSpeaker && (rawDesc.length > 10 || speakerQuotesAtRender.length > 0));
 
   const headline = document.createElement('div');
@@ -2303,7 +2314,7 @@ function buildNewsItem(item) {
     titleSpan.textContent = _dtpTitle(titleText);
     headline.appendChild(titleSpan);
   } else {
-    headline.textContent = _dtpTitle(item.headline);
+    headline.textContent = _newsDisplayTitle(item);   // reframe explicatif pour les news « propos » (_infoQuote), sinon titre normal
   }
   content.appendChild(headline);
 
@@ -2363,10 +2374,20 @@ function buildNewsItem(item) {
 
     const tabsHtml = [
       hasNotes  && `<button class="expand-tab${tab === 'analysis' ? ' expand-tab--active' : ''}" data-tab="analysis"><span class="tag-icon">⊙</span> Analyse</button>`,
-      hasInfo   && `<button class="expand-tab${tab === 'info'     ? ' expand-tab--active' : ''}" data-tab="info"><span class="tag-icon">ⓘ</span> Info</button>`,
+      hasInfo   && `<button class="expand-tab${tab === 'info'     ? ' expand-tab--active' : ''}" data-tab="info"><span class="tag-icon">ⓘ</span> ${isInfoQuote ? 'Contexte' : 'Info'}</button>`,
     ].filter(Boolean).join('');
 
     const infoBody = (() => {
+      // ── PROPOS / CITATION HORS MARCHÉ (_infoQuote) : on affiche la CITATION BRUTE (le titre d'origine,
+      //    verbatim) + une note de cadrage. Le titre de la carte est le reframe explicatif ; ici on garde
+      //    la parole d'origine pour la transparence (rien n'est masqué). ──
+      if (isInfoQuote) {
+        const esc = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        const quote = _dtpTitle(item.headline);
+        const extra = rawDesc.length > 30 ? `<li>${esc(rawDesc)}</li>` : '';
+        return `<div class="iq-note">Propos personnels repris tels quels, sans portée directe sur les marchés.</div>
+          <ul class="article-points article-points--clean"><li>${esc(quote)}</li>${extra}</ul>`;
+      }
       // ── [MARKET UPDATE] (Convera) : rapport COMPLET avec images, affiché directement ──
       if (item._marketUpdate && item.fullContent) {
         return `<div class="market-update-body">${item.fullContent}</div>`;
@@ -2715,10 +2736,10 @@ function buildNewsItem(item) {
 
   if (hasInfo) {
     infoTagEl = document.createElement('span');
-    infoTagEl.className = 'tag tag--info';
+    // News « propos/citation » → tag « Contexte » (informatif, hors marché) à la place du générique « Info ».
+    infoTagEl.className = 'tag ' + (isInfoQuote ? 'tag--contexte' : 'tag--info');
     infoTagEl.style.cursor = 'pointer';
-    // Grouped speaker cards → "Infos" badge with count; openers → "Info"; others → "Info"
-    infoTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="3.5" r="0.75" fill="currentColor"/></svg> Info';
+    infoTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="3.5" r="0.75" fill="currentColor"/></svg> ' + (isInfoQuote ? 'Contexte' : 'Info');
     infoTagEl.onclick = e => { e.stopPropagation(); openPanel('info'); };
     tagsEl.appendChild(infoTagEl);
   }
