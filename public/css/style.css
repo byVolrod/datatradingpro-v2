@@ -9061,7 +9061,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 #chat-search-input:focus { border-color:rgba(227,178,58,.5); }
 #chat-search-input::placeholder { color:#5b6471; }
 
-.chat-list { flex:1; overflow-y:auto; overflow-x:hidden; padding:14px 14px 8px; display:flex; flex-direction:column; gap:10px; scrollbar-width:thin; scrollbar-color:#2a2f3a transparent; }
+.chat-list { flex:1; overflow-y:auto; overflow-x:hidden; overflow-anchor:none; padding:14px 14px 8px; display:flex; flex-direction:column; gap:10px; scrollbar-width:thin; scrollbar-color:#2a2f3a transparent; }   /* overflow-anchor:none → le navigateur ne restaure pas tout seul la position (on la gère explicitement : entrée=haut, refresh=gardée) */
 .chat-list::-webkit-scrollbar { width:7px; height:7px; }
 .chat-list::-webkit-scrollbar-track { background:transparent; }
 .chat-list::-webkit-scrollbar-thumb { background:#2a2f3a; border-radius:4px; border:2px solid transparent; background-clip:content-box; }

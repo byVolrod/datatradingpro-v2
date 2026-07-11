@@ -7967,7 +7967,7 @@ function _chatInbox(){
   _chatHead('Boîte de réception', 'Conversations clients · Support', false, false);
   const sb = document.getElementById('chat-search-bar'); if (sb) sb.style.display = 'flex';   // recherche visible
   const list = document.getElementById('chat-list');
-  if (_chatInboxCache){ _chatInboxData = _chatInboxCache; _chatRenderInbox(); }
+  if (_chatInboxCache){ _chatInboxData = _chatInboxCache; _chatRenderInbox(true); }   // entrée dans l'inbox → toujours en HAUT (dernière conversation)
   else if (list) list.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement…') : '<div class="chat-empty">Chargement…</div>');
   // Chargement TOLÉRANT aux pannes : on ne remplace JAMAIS la liste par du vide sur une erreur
   // réseau / 500 / auth (cold-start Render, latence Supabase…). On garde la dernière liste connue.
@@ -7987,15 +7987,19 @@ function _chatInbox(){
     _chatInboxCache = _chatInboxData;
     _chatLSSet('inbox', _chatInboxData);   // persiste → affichage instantané au prochain reload
     _chatSetBadge((_chatInboxData.threads || []).filter(t => (t.unread || 0) > 0).length);
-    _chatRenderInbox();
+    _chatRenderInbox(true);   // 1er chargement/entrée → en HAUT
   });
 }
 // Recherche d'un utilisateur (par nom/email) : filtre le rendu sans perdre la saisie.
-function _chatSearchUsers(q){ _chatInboxQuery = (q || '').toLowerCase().trim(); _chatRenderInbox(); }
+function _chatSearchUsers(q){ _chatInboxQuery = (q || '').toLowerCase().trim(); _chatRenderInbox(true); }   // nouveaux résultats → en haut
 
-function _chatRenderInbox(){
+// resetScroll=true → on remet la liste EN HAUT (entrée dans l'inbox : ouverture du panneau, « Retour à
+// la liste », recherche). Le refresh live (4 s) passe FALSE → on garde la position de défilement du
+// support (fini le « je reviens et je suis au milieu de la liste » ET fini le saut en haut toutes les 4 s).
+function _chatRenderInbox(resetScroll){
   const list = document.getElementById('chat-list'); if (!list) return;
   if (_chatThreadUser) return;   // on n'écrase pas une conversation ouverte
+  const _prevTop = list.scrollTop;
   const threads = (_chatInboxData && _chatInboxData.threads) || [];
   const users   = (_chatInboxData && _chatInboxData.users)   || [];
   // Compteur "en ligne" épuré à droite de la barre de recherche
@@ -8031,7 +8035,7 @@ function _chatRenderInbox(){
   });
   const q = _chatInboxQuery;
   const filtered = q ? entries.filter(e => (e.name + ' ' + e.email).toLowerCase().includes(q)) : entries;
-  if (!filtered.length){ list.innerHTML = `<div class="chat-empty">${q ? 'Aucun utilisateur trouvé.' : 'Aucun client pour le moment.'}</div>`; return; }
+  if (!filtered.length){ list.innerHTML = `<div class="chat-empty">${q ? 'Aucun utilisateur trouvé.' : 'Aucun client pour le moment.'}</div>`; list.scrollTop = 0; return; }
   let html = '';
   filtered.forEach(e => {
     let last = e.last;
@@ -8048,6 +8052,7 @@ function _chatRenderInbox(){
       + `<div class="chat-thread-when">${when}</div></div>`;
   });
   list.innerHTML = html;
+  list.scrollTop = resetScroll ? 0 : _prevTop;   // entrée/back/recherche → haut ; refresh live → position gardée
 }
 
 // Optimiste : marque un thread comme lu DANS LE CACHE LOCAL + recalcule le badge tout de suite.
