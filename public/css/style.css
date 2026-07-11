@@ -9015,6 +9015,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .chat-name-dot.is-online  { background:#22c55e; box-shadow:0 0 5px rgba(34,197,94,.6); }
 .chat-name-dot.is-offline { background:#5b6471; box-shadow:none; }
 .chat-head-sub { font-size:11px; color:#22c55e; margin-top:1px; }
+/* Ligne dediee « Vous repondez en tant que support » (sous la presence, plus discrete) */
+.chat-head-role2 { font-size:10.5px; color:var(--text3); margin-top:1px; line-height:1.2; }
 .chat-close { background:none; border:none; color:#6b7280; font-size:20px; cursor:pointer; line-height:1; padding:0 2px; }
 .chat-close:hover { color:#fff; }
 .chat-back { background:none; border:none; color:#9aa4b2; font-size:24px; cursor:pointer; line-height:1; padding:0 4px 0 0; margin-right:2px; }
