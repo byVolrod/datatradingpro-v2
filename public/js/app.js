@@ -7917,8 +7917,18 @@ async function _chatLiveTick(){
 // ── Présence de l'interlocuteur (support) : « En ligne » / « Hors ligne depuis X » ──
 // Durée courte relative FR (min → h → j → date). Le live tick (4s) re-rend depuis lastSeen → « depuis
 // 10 min » s'incrémente tout seul même sans nouvel event serveur.
-// Date + HEURE absolues de la derniere deconnexion (demande user) : « aujourd'hui à 14h30 », « hier à
-// 9h05 », « le 12/07 à 14h30 », « le 12/07/25 à 14h30 » (annee si autre annee). Format FR « HHhMM ».
+// Duree RELATIVE compacte de la derniere presence (demande user : « depuis 5 h », « depuis 2 j »).
+function _chatSince(ts){
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  const m = Math.floor(s / 60); if (m < 1) return "moins d'1 min"; if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60); if (h < 24) return h + ' h';
+  const j = Math.floor(h / 24); if (j < 7) return j + ' j';
+  const w = Math.floor(j / 7);  if (w < 5) return w + ' sem';
+  const mo = Math.floor(j / 30); if (mo < 12) return mo + ' mois';
+  const an = Math.floor(j / 365); return an + ' an' + (an > 1 ? 's' : '');
+}
+// Date + HEURE absolues de la derniere deconnexion (info-bulle au survol) : « aujourd'hui à 14h30 »,
+// « hier à 9h05 », « le 12/07 à 14h30 », « le 12/07/25 à 14h30 » (annee si autre annee).
 function _chatAbsWhen(ts){
   const d = new Date(ts), now = new Date();
   const hm = d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }).replace(':', 'h');
@@ -7929,14 +7939,14 @@ function _chatAbsWhen(ts){
   return 'le ' + d.toLocaleDateString('fr-FR', opt) + ' à ' + hm;
 }
 function _chatSeenText(online, lastSeen){
-  if (online) return { cls: 'is-online', text: 'En ligne' };
-  if (!lastSeen) return { cls: 'is-offline', text: 'Hors ligne' };
-  let dt = ''; try { dt = _chatAbsWhen(lastSeen); } catch {}
-  return { cls: 'is-offline', text: dt ? ('Hors ligne · déconnecté ' + dt) : 'Hors ligne' };
+  if (online) return { cls: 'is-online', text: 'En ligne', title: '' };
+  if (!lastSeen) return { cls: 'is-offline', text: 'Hors ligne', title: '' };
+  let abs = ''; try { abs = _chatAbsWhen(lastSeen); } catch {}
+  return { cls: 'is-offline', text: 'Hors ligne depuis ' + _chatSince(lastSeen), title: abs ? ('Déconnecté ' + abs) : '' };   // relatif visible « depuis 5 h » ; date+heure exactes au survol
 }
 function _chatHeadPresenceHtml(pres){
   const p = _chatSeenText(!!pres.online, pres.lastSeen || null);
-  return `<span class="chat-head-st ${p.cls}">${_chatEsc(p.text)}</span>`;   // « Vous répondez en tant que support » = ligne SEPAREE (_chatApplyPresence → #chat-head-role2)
+  return `<span class="chat-head-st ${p.cls}"${p.title ? ` title="${_chatEsc(p.title)}"` : ''}>${_chatEsc(p.text)}</span>`;   // « Vous répondez en tant que support » = ligne SEPAREE (_chatApplyPresence → #chat-head-role2)
 }
 // Présence connue INSTANTANÉMENT depuis l'inbox (users + threads déjà chargés) → l'en-tête s'affiche sans attendre le fetch.
 function _chatUserPresence(userId){
