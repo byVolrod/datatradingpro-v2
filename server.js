@@ -611,7 +611,7 @@ app.get('/api/journal', async (req, res) => {
     const v = await auth.aiCacheGet('journal:' + req.session.userId, _JR_KV_TTL);
     // custom = false → gabarit DTP (options par défaut) ; true → journal PERSO importé (options de l'utilisateur uniquement)
     // cols = définitions de colonnes du compte (null → le client applique le gabarit standard)
-    res.json({ entries: _jrCleanEntries(v && v.entries), custom: !!(v && v.custom), cols: (v && v.cols) || null });
+    res.json({ entries: _jrCleanEntries(v && v.entries), custom: !!(v && v.custom), cols: (v && v.cols) || null, startCap: (v && isFinite(v.startCap) && v.startCap > 0) ? v.startCap : null });
   } catch { res.json({ entries: [], custom: false, cols: null }); }
 });
 app.post('/api/journal', async (req, res) => {
@@ -622,6 +622,8 @@ app.post('/api/journal', async (req, res) => {
     const custom = !!(req.body && req.body.custom);   // mémorise si le compte a personnalisé son journal (import) → ne jamais re-proposer le gabarit DTP
     const cols = _jrCleanCols(req.body && req.body.cols);   // colonnes du compte (ordre/masquage/renommage/custom)
     const stored = { entries, custom }; if (cols) stored.cols = cols;
+    const startCap = parseFloat(req.body && req.body.startCap);   // capital de départ (courbe $ Capital auto)
+    if (isFinite(startCap) && startCap > 0 && startCap < 1e9) stored.startCap = startCap;
     await auth.aiCacheSet('journal:' + req.session.userId, stored);
     res.json({ ok: true, count: entries.length });
   } catch { res.status(500).json({ ok: false }); }
@@ -651,6 +653,16 @@ app.post('/api/journal/img', async (req, res) => {
 app.get('/api/admin/users', requireAdmin, async (_req, res) => {
   try { res.json(await auth.getAllUsers()); }
   catch (e) { res.status(500).json({ error: e.message }); }
+});
+
+// Vue d'ensemble SANTÉ (bandeau du tableau de bord + badges d'onglets) : signaux légers, zéro calcul lourd.
+app.get('/api/admin/overview', requireAdmin, (_req, res) => {
+  const out = { at: Date.now(), aiOk: true, mailOk: true, campCrit: 0, dripActive: false, blastActive: false };
+  try { out.aiOk = !(ai.backoffActive && ai.backoffActive()); } catch {}
+  try { const mh = mailer.getMailHealth && mailer.getMailHealth(); out.mailOk = !mh || mh.ok !== false; } catch {}
+  try { const cut = Date.now() - 48 * 3600e3; out.campCrit = (_campaignErrors || []).filter(e => e && e.at > cut && e.level === 'critical').length; } catch {}
+  try { out.dripActive = !!(_dripState && _dripState.active); out.blastActive = !!(_campSchedule && _campSchedule.active); } catch {}
+  res.json(out);
 });
 
 // ─── Dashboard FINANCIER admin (KPIs + revenu estimé + prévision + Whop) ──────
