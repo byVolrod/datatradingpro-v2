@@ -12317,17 +12317,29 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
   const table = rows.length
     ? `<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>${tbody}</tbody></table>`
     : '<div style="padding:26px 14px;color:#8a8f98;font-size:13px">Aucun événement majeur à venir dans les prochains jours.</div>';
+  // Bandeau FACON DESK (meme traitement que le widget Force des Devises, demande user) : titre du
+  // widget + « | [plage de dates] » — memes classes que l'onglet CALENDRIER (style.css charge) ; la
+  // plage couvre les evenements AFFICHES (format desk dd/mm/yyyy – dd/mm/yyyy, mono orange).
+  let _range = '';
+  if (rows.length) {
+    const _ts = rows.map(r => r.timestamp).filter(Boolean);
+    const _f = ts => new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris' });
+    _range = `${_f(Math.min(..._ts))} – ${_f(Math.max(..._ts))}`;
+  }
+  const header = `<div class="cal-title-row"><div class="cal-title-block"><span class="cal-title">Calendrier des événements économiques</span>${_range ? `<span class="cal-title-sep"> | </span><span class="cal-title-bracket">[</span><span class="cal-daterange">${_e(_range)}</span><span class="cal-title-bracket">]</span>` : ''}</div></div>`;
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/css/style.css">
 <style>html,body{margin:0;padding:0;background:#0c0e13}
-#cal-mail{display:inline-block;box-sizing:border-box;padding:8px 14px 8px 12px}
+#cal-mail{display:inline-block;box-sizing:border-box;padding:0}
+#cal-mail .cal-mail-body{padding:8px 14px 8px 12px}
 #cal-mail .cal-table{width:auto}
 #cal-mail .cal-table thead th{position:static}
 #cal-mail .cal-table .cth-event{padding-right:36px}
 #cal-mail .cal-row--cpi td{background:rgba(227,178,58,.07)}
 #cal-mail .cal-row--cpi .cth-time{border-left:2px solid #e3b23a}
-</style></head><body><div id="cal-mail">${table}</div>
+</style></head><body><div id="cal-mail">${header}<div class="cal-mail-body">${table}</div></div>
 <script>setTimeout(function(){window.__ready=true;},400);</script>
 </body></html>`);
 });
