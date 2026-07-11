@@ -461,12 +461,14 @@
     <button class="adm-tab adm-tab--active" data-tab="dash" onclick="admTab('dash')">Tableau de bord</button>
     <button class="adm-tab" data-tab="users" onclick="admTab('users')">Utilisateurs</button>
     <button class="adm-tab" data-tab="support" onclick="admTab('support')">Support <span class="adm-tab-badge" id="adm-tab-chat" style="display:none">0</span></button>
-    <button class="adm-tab" data-tab="aimon" onclick="admTab('aimon')">IA Monitor</button>
-    <button class="adm-tab" data-tab="campaign" onclick="admTab('campaign')">Campagne e-mail</button>
+    <button class="adm-tab" data-tab="aimon" onclick="admTab('aimon')">IA Monitor <span class="adm-tab-badge" id="adm-tab-aimon-b" style="display:none">!</span></button>
+    <button class="adm-tab" data-tab="campaign" onclick="admTab('campaign')">Campagne e-mail <span class="adm-tab-badge" id="adm-tab-camp-b" style="display:none">0</span></button>
   </div>
 
   <!-- ═══ Onglet : Tableau de bord ═══ -->
   <section class="tab-panel tab-panel--active" id="tab-dash">
+    <!-- Bandeau SANTÉ GLOBALE : IA / Mail / incidents campagne / séquence — visible en 2 s sans parcourir les onglets -->
+    <div id="adm-health" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 12px;"></div>
     <div class="fin-kpis" id="fin-kpis"></div>
     <div class="fin-row">
       <div class="panel-card fin-panel fin-panel--wide">
@@ -1064,6 +1066,7 @@
           <span class="ph-spacer"></span><span class="fin-sub" id="camp-stats-sub"></span>
         </div>
         <div class="panel-body">
+          <div id="camp-campsel" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;"></div>
           <div class="camp-kpis" id="camp-kpis"></div>
           <div class="camp-aud-seg" id="camp-stat-filters" style="margin:0 0 10px;"></div>
           <div class="camp-table-wrap">
@@ -1193,9 +1196,26 @@
     loadUsers();
     loadFinance();
     loadAdChat();
+    loadOverview();
+    // Deep-link : restaure l'onglet (et la sous-vue campagne) depuis l'URL (#users, #aimon, #campaign/stats…)
+    try {
+      const h = location.hash.replace(/^#/, '');
+      if (h) { const parts = h.split('/'); if (document.getElementById('tab-' + parts[0])) { admTab(parts[0]); if (parts[0] === 'campaign' && parts[1]) campSub(parts[1]); } }
+    } catch (e) {}
+    window.addEventListener('hashchange', () => {
+      try { const parts = location.hash.replace(/^#/, '').split('/'); if (parts[0] && document.getElementById('tab-' + parts[0])) { admTab(parts[0]); if (parts[0] === 'campaign' && parts[1]) campSub(parts[1]); } } catch (e) {}
+    });
     // Mise à jour AUTOMATIQUE en temps réel (plus de bouton Rafraîchir) :
     setInterval(loadAdChat, 10000);                          // conversations + en ligne : 10s
-    setInterval(() => { loadFinance(); loadUsers(); }, 45000); // KPIs + utilisateurs : 45s
+    setInterval(loadOverview, 60000);                        // bandeau santé + badges : 60s
+    setInterval(() => {
+      // Pas de re-render de la table pendant une confirmation inline ou une saisie (le bouton « Supprimer ? »
+      // disparaissait sous la souris au tick de 45 s). loadUsers() cascade déjà loadFinance() → plus de double appel.
+      const busy = document.querySelector('#tab-users [data-confirming]')
+        || (document.activeElement && document.activeElement.closest && document.activeElement.closest('#tab-users input, #tab-users select, .modal.open'));
+      if (busy) { loadFinance(); return; }
+      loadUsers();
+    }, 45000);
     // IA Monitor : auto-refresh 30 s si onglet ouvert + compte à rebours VISIBLE (piloté à la seconde,
     // même source de vérité _aimNextAt → l'heure affichée correspond toujours au vrai déclenchement).
     setInterval(() => {
@@ -1212,11 +1232,30 @@
   function admTab(name) {
     document.querySelectorAll('.adm-tab').forEach(b => b.classList.toggle('adm-tab--active', b.dataset.tab === name));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('tab-panel--active', p.id === 'tab-' + name));
+    try { if (location.hash.replace(/^#/, '').split('/')[0] !== name) history.replaceState(null, '', '#' + name); } catch (e) {}   // deep-link : F5 / partage d'URL conservent l'onglet
     if (name === 'dash') setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 40);
     if (name === 'aimon') { loadAIMon(); setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 60); }
     if (name === 'campaign') loadCampaign();
   }
   function refreshAll() { loadUsers(); loadFinance(); loadAdChat(); }
+  // ── Bandeau SANTÉ GLOBALE + badges d'alerte sur les onglets (poll léger 60 s) ──
+  async function loadOverview() {
+    try {
+      const o = await fetch('/api/admin/overview').then(r => r.json());
+      if (!o) return;
+      const pill = (ok, okTxt, badTxt) => '<span style="display:inline-flex;align-items:center;gap:6px;padding:4px 11px;border-radius:999px;font-size:12px;font-weight:600;border:1px solid ' + (ok ? 'rgba(0,230,118,.35)' : 'rgba(255,61,0,.5)') + ';color:' + (ok ? '#00e676' : '#ff6b57') + ';background:' + (ok ? 'rgba(0,230,118,.06)' : 'rgba(255,61,0,.08)') + ';">' + (ok ? '●' : '▲') + '&nbsp;' + (ok ? okTxt : badTxt) + '</span>';
+      const strip = document.getElementById('adm-health');
+      if (strip) strip.innerHTML =
+        pill(o.aiOk, 'IA opérationnelle', 'IA en backoff') +
+        pill(o.mailOk, 'Mail OK', 'Mail en panne') +
+        pill(!o.campCrit, 'Campagnes : aucun incident', 'Campagnes : ' + o.campCrit + ' incident(s) critiques 48 h') +
+        '<span style="color:#8b93a1;font-size:12px;">Séquence ' + (o.dripActive ? 'active' : 'en pause') + ' · Blast hebdo ' + (o.blastActive ? 'actif' : 'en pause') + '</span>';
+      const bAi = document.getElementById('adm-tab-aimon-b');
+      if (bAi) bAi.style.display = (o.aiOk && o.mailOk) ? 'none' : 'inline-flex';
+      const bC = document.getElementById('adm-tab-camp-b');
+      if (bC) { bC.style.display = o.campCrit ? 'inline-flex' : 'none'; bC.textContent = o.campCrit; }
+    } catch (e) {}
+  }
 
   // ── Campagne e-mail marketing ──────────────────────────────────────────────
   let _campAud = null, _campArmed = false, _campArmTimer = null, _campPoll = null;
@@ -1230,6 +1269,7 @@
   function campSub(name){
     document.querySelectorAll('#camp-nav .camp-nav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.sub === name); });
     document.querySelectorAll('#tab-campaign .camp-sub').forEach(function(s){ s.classList.toggle('active', s.dataset.sub === name); });
+    try { history.replaceState(null, '', '#campaign/' + name); } catch (e) {}   // deep-link sous-vue campagne
   }
   function openCampModal(){ const m = document.getElementById('camp-modal'); if (m) m.classList.add('open'); }
   function closeCampModal(){ const m = document.getElementById('camp-modal'); if (m) m.classList.remove('open'); }
@@ -1335,9 +1375,22 @@
     tb.innerHTML = rows.length ? rows.map(function(r){ return '<tr' + (r.unsubAt ? ' style="opacity:.6;"' : '') + '><td>' + r.email + '</td><td>' + (r.sentAt ? _campFmt(r.sentAt) : '—') + '</td><td>' + (r.opens||0) + '</td><td>' + (r.clicks||0) + '</td><td>' + (r.lastOpen ? _campFmt(r.lastOpen) : '—') + '</td><td>' + _desabo(r) + '</td></tr>'; }).join('')
       : '<tr><td colspan="6" class="empty-state">' + (_campStatRows.length ? 'Aucun destinataire dans ce filtre.' : 'Aucun envoi pour l’instant.') + '</td></tr>';
   }
+  // Sélecteur de campagne pour les statistiques (l'ancien code figeait intro-v1 : le drip hebdo,
+  // le digest et les nouveaux templates étaient invisibles dans la vue Statistiques).
+  let _campStatsId = 'intro-v1';
+  const _CAMP_STAT_IDS = [ ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['alerte-bc', 'Alerte macro'] ];
+  function _campStatsPick(id){ _campStatsId = id; loadCampStats(); }
+  function _renderCampSel(){
+    const host = document.getElementById('camp-campsel'); if (!host) return;
+    host.innerHTML = _CAMP_STAT_IDS.map(function(c){
+      const on = c[0] === _campStatsId;
+      return '<button class="camp-btn" style="' + (on ? 'border-color:#e3b23a;color:#e3b23a;' : '') + '" onclick="_campStatsPick(\'' + c[0] + '\')">' + c[1] + '</button>';
+    }).join('');
+  }
   async function loadCampStats(){
     try {
-      const d = await fetch('/api/admin/campaign-stats?campaign=intro-v1').then(r => r.json());
+      _renderCampSel();
+      const d = await fetch('/api/admin/campaign-stats?campaign=' + encodeURIComponent(_campStatsId)).then(r => r.json());
       if (!d || !d.summary) return;
       const s = d.summary;
       const kpis = [ ['Envoyés', s.sent], ['Ouvertures uniques', s.uniqueOpens + ' (' + s.openRate + '%)'],
@@ -1550,10 +1603,22 @@
       if (btn) { btn.textContent = d.active ? '⏸ Mettre en pause' : '🚀 Activer la séquence'; btn.classList.toggle('camp-btn--send', !d.active); }
     } catch {}
   }
+  let _dripArmUntil = 0;
   async function campDripToggle(){
     if (!_campDrip) return;
     const action = _campDrip.active ? 'pause' : 'activate';
-    if (action === 'activate' && !confirm('Activer la séquence automatique ? Les nouveaux inscrits recevront l’intro puis avanceront seuls, et le blast hebdo actuel sera mis en pause. (Envois réels vers les clients.)')) return;
+    // Activation = envois réels → armement 2 clics (6 s), conforme à la règle « pas de dialogs natifs ».
+    if (action === 'activate' && Date.now() > _dripArmUntil) {
+      _dripArmUntil = Date.now() + 6000;
+      const btn = document.getElementById('camp-drip-toggle');
+      if (btn) {
+        const old = btn.textContent;
+        btn.textContent = '⚠️ Confirmer l\'activation ? (envois réels, blast hebdo mis en pause)';
+        setTimeout(() => { if (Date.now() >= _dripArmUntil && btn.textContent.startsWith('⚠️')) { btn.textContent = old; } }, 6100);
+      }
+      return;
+    }
+    _dripArmUntil = 0;
     document.getElementById('camp-drip-msg').textContent = '…';
     try { await fetch('/api/admin/campaign-drip?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Séquence activée : auto-enrôlement en route' : '⏸ Séquence mise en pause'); loadDrip(); loadSchedule(); loadCampErrors(); }
     catch { document.getElementById('camp-drip-msg').textContent = '❌ erreur'; }
@@ -2259,7 +2324,7 @@
     if (d.ok) {
       e.target.reset();
       const ms = d.mail || {};
-      const mailMsg = ms.skipped ? '' : ms.sent ? ` : email de bienvenue envoyé via ${ms.provider}.` : ' : ⚠️ compte créé mais EMAIL DE BIENVENUE NON ENVOYÉ (voir santé Mail dans l\'onglet IA & Mail).';
+      const mailMsg = ms.skipped ? '' : ms.sent ? ` : email de bienvenue envoyé via ${ms.provider}.` : ' : ⚠️ compte créé mais EMAIL DE BIENVENUE NON ENVOYÉ (voir la carte Email dans l\'onglet IA Monitor).';
       okEl.textContent = `Utilisateur ${body.email} créé avec succès.${mailMsg}`;
       okEl.classList.add('visible');
       loadUsers();

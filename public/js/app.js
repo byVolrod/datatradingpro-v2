@@ -8544,6 +8544,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let _jrDelPending = null;  // id en attente de confirmation de suppression
   const _jrSel = new Set();  // ids des lignes cochées (sélection multiple façon Notion → suppression groupée)
   let _jrSaveT = null;       // debounce de sauvegarde serveur
+  let _jrStartCap = null;    // capital de départ du compte (pour la courbe $ Capital auto : start + cumul $PNL)
   const JR_PAIRS = ['EUR/USD', 'GBP/USD', 'USD/JPY', 'USD/CHF', 'USD/CAD', 'AUD/USD', 'NZD/USD', 'EUR/GBP', 'EUR/JPY', 'GBP/JPY', 'XAU/USD', 'BTC/USD', 'US500', 'WTI'];
   const _esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // Taille de pip : JPY = 0.01 ; métaux/indices/crypto/énergie = 1 ; FX standard = 0.0001
@@ -8558,15 +8559,47 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const p = _jrPips(e);
     return p == null ? null : (p > 0 ? 1 : p < 0 ? -1 : 0);
   }
+  // Résultat UNIFIÉ d'un trade (cascade) : colonne R → P&L/pips (_jrWin) → colonne Résultat (Profit/TP/BE/SL/Loss).
+  // → le taux de réussite n'affiche plus jamais « — » pour un journal importé qui n'a que le $PNL ou le Résultat.
+  function _jrOutcome(e) {
+    const r = parseFloat(e.r); if (isFinite(r)) return r > 0 ? 1 : r < 0 ? -1 : 0;
+    const w = _jrWin(e); if (w != null) return w;
+    const res = String(e.result || '');
+    if (/^(profit|tp|win|gagn)/i.test(res)) return 1;
+    if (/^(loss|sl|perdu|perte)/i.test(res)) return -1;
+    if (/^(be|break)/i.test(res)) return 0;
+    return null;
+  }
   function _jrStatus(msg) { const el = document.getElementById('jr-status'); if (el) el.textContent = msg || ''; }
-  function _jrSave() {   // sauvegarde serveur (liste complète, modèle symrecent) : débouncée
-    clearTimeout(_jrSaveT);
+  // Sauvegarde FIABLE : débounce 600 ms + flag dirty ; échec → retry auto (12 s) ; fermeture d'onglet /
+  // passage en arrière-plan → flush immédiat via sendBeacon (zéro perte d'édition, donnée précieuse).
+  let _jrDirty = false, _jrRetryT = null;
+  function _jrPayload() { const p = { entries: _jrList || [], custom: _jrCustom, cols: _jrColsToStore() }; if (_jrStartCap != null && isFinite(_jrStartCap)) p.startCap = _jrStartCap; return p; }
+  function _jrSave() {
+    clearTimeout(_jrSaveT); clearTimeout(_jrRetryT);
+    _jrDirty = true;
     _jrStatus('Sauvegarde…');
     _jrSaveT = setTimeout(() => {
-      fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ entries: _jrList || [], custom: _jrCustom, cols: _jrColsToStore() }) })
-        .then(r => r.json()).then(j => _jrStatus(j && j.ok ? 'Enregistré ✓' : 'Erreur de sauvegarde'))
-        .catch(() => _jrStatus('Hors-ligne : réessaiera'));
+      fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(_jrPayload()) })
+        .then(r => r.json()).then(j => {
+          if (j && j.ok) { _jrDirty = false; _jrStatus('Enregistré ✓'); }
+          else { _jrStatus('Erreur de sauvegarde : nouvel essai…'); _jrRetryT = setTimeout(_jrSave, 12000); }
+        })
+        .catch(() => { _jrStatus('Hors-ligne : nouvel essai automatique…'); _jrRetryT = setTimeout(_jrSave, 12000); });
     }, 600);
+  }
+  function _jrFlushBeacon() {
+    if (!_jrDirty || !_jrList) return;
+    try {
+      const blob = new Blob([JSON.stringify(_jrPayload())], { type: 'application/json' });
+      if (navigator.sendBeacon && navigator.sendBeacon('/api/journal', blob)) _jrDirty = false;
+    } catch (e) {}
+  }
+  window.addEventListener('pagehide', _jrFlushBeacon);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') _jrFlushBeacon(); });
+  // Purge des captures d'un trade supprimé (clé KV jrimg:<user>:<id> vidée) → zéro image orpheline en base.
+  function _jrPurgeImgs(ids) {
+    (ids || []).forEach(id => { try { fetch('/api/journal/img', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trade: id, images: [] }) }).catch(() => {}); } catch (e) {} });
   }
   function _jrFmtDate(ts) { try { const d = new Date(ts); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); } catch (e) { return ''; } }
   function _jrNum(v) { return v == null ? '—' : String(v).replace('.', ','); }
@@ -8575,10 +8608,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const host = document.getElementById('jr-stats'); if (!host) return;
     const L = _jrList || [];
     const rs = L.map(e => e.r).filter(r => r != null && r !== '' && isFinite(Number(r))).map(Number);
-    const wins = rs.filter(r => r > 0).length;
     const totR = rs.reduce((a, b) => a + b, 0);
     const totD = L.reduce((a, e) => a + (Number(e.pl) || 0), 0);
-    const wr = rs.length ? Math.round(wins / rs.length * 100) : null;
+    // Taux de réussite UNIFIÉ (R → P&L/pips → Résultat), BE exclus du dénominateur (norme trading).
+    const outs = L.map(_jrOutcome).filter(o => o != null);
+    const oW = outs.filter(o => o > 0).length, oL = outs.filter(o => o < 0).length;
+    const wr = (oW + oL) ? Math.round(oW / (oW + oL) * 100) : null;
     const cls = v => v > 0 ? 'jr-pos' : v < 0 ? 'jr-neg' : '';
     host.innerHTML =
       '<span class="jr-stat"><i>Trades</i><b>' + L.length + '</b></span>'
@@ -8714,12 +8749,37 @@ document.addEventListener('DOMContentLoaded', ()=>{
       + '<button type="button" class="jr-tb-btn" id="jr-import" title="Importer un export Notion (.zip ou CSV) ou un CSV exporté d’Excel : tes colonnes deviennent TON journal">&#8593; Importer (Notion / CSV)</button>'
       + '<input type="file" id="jr-import-file" accept=".zip,.csv,.tsv,.txt,application/zip,application/x-zip-compressed,text/csv,text/tab-separated-values" style="display:none">'
       + '<button type="button" class="jr-tb-btn" id="jr-props" title="Afficher / masquer des propriétés">&#9881; Propriétés</button>'
+      + '<button type="button" class="jr-tb-btn" id="jr-export" title="Télécharger ton journal en CSV (ré-importable ici, lisible dans Excel)">&#8595; Exporter (CSV)</button>'
       + '<span class="jr-tb-spacer"></span>'
       + '<span class="jr-tb-mode ' + (_jrCustom ? 'jr-tb-mode--perso' : '') + '">' + (_jrCustom ? '● Journal perso' : '○ Gabarit DTP') + '</span>';
     const add = document.getElementById('jr-add'); if (add) add.onclick = _jrAddRow;
     const pr = document.getElementById('jr-props'); if (pr) pr.onclick = () => _jrPropsMenu(pr);
     const imp = document.getElementById('jr-import'), f = document.getElementById('jr-import-file');
     if (imp && f) { imp.onclick = () => f.click(); f.onchange = ev => _jrImportFile(ev); }
+    const ex = document.getElementById('jr-export'); if (ex) ex.onclick = _jrExportCsv;
+  }
+  // Export CSV (round-trip avec l'import : mêmes libellés d'en-têtes → ré-importable tel quel).
+  // Anti lock-in + sauvegarde personnelle : délimiteur ';' (Excel FR), BOM UTF-8, dates lisibles.
+  function _jrExportCsv() {
+    const L = _jrList || [];
+    if (!L.length) { _jrStatus('Rien à exporter : le journal est vide.'); return; }
+    const cols = _jrColsVisible().filter(c => c.k !== 'day');   // Jour = dérivé de la date, inutile en CSV
+    const esc = v => { const s = String(v == null ? '' : v); return /[";\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const fmtVal = (e, c) => {
+      let v = _jrGet(e, c);
+      if (c.k === 'ts') { try { const d = new Date(e.ts); const p = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); } catch (er) { return ''; } }
+      if (Array.isArray(v)) return v.join(', ');
+      return v == null ? '' : v;
+    };
+    const lines = [cols.map(c => esc(c.label)).join(';')];
+    for (const e of L) lines.push(cols.map(c => esc(fmtVal(e, c))).join(';'));
+    const d = new Date(), p = n => String(n).padStart(2, '0');
+    const name = 'journal-dtp-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.csv';
+    const blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    _jrStatus(L.length + ' trade(s) exporté(s) → ' + name);
   }
   function _jrAddRow() {
     if (!_jrList) _jrList = [];
@@ -8791,8 +8851,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
   }
   function _jrDelSelected() {
     if (!_jrSel.size || !_jrList) return;
+    const _ids = Array.from(_jrSel);
     _jrList = _jrList.filter(x => !_jrSel.has(x.id));
     _jrSel.clear(); _jrRender(); _jrSave();
+    _jrPurgeImgs(_ids);
   }
 
   // ── Éditeurs de cellule (popover façon Notion) ──
@@ -9158,7 +9220,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const del = ev.target.closest && ev.target.closest('.jr-rowdel');
     if (del) {
       const tr = del.closest('tr'), id = tr && tr.dataset.id; if (!id || !_jrList) return;
-      if (_jrDelPending === id) { _jrList = _jrList.filter(x => x.id !== id); _jrDelPending = null; _jrRender(); _jrSave(); }
+      if (_jrDelPending === id) { _jrList = _jrList.filter(x => x.id !== id); _jrDelPending = null; _jrRender(); _jrSave(); _jrPurgeImgs([id]); }
       else { _jrDelPending = id; _jrRenderGrid(); setTimeout(() => { if (_jrDelPending === id) { _jrDelPending = null; _jrRenderGrid(); } }, 3500); }
       return;
     }
@@ -9352,7 +9414,11 @@ document.addEventListener('DOMContentLoaded', ()=>{
       _jrCols.push({ k, label, type, builtin: false, hidden: false, w: 130 });
       _customCols.push({ fileIdx: i, k, type });
     });
-    let added = 0;
+    // Déduplication : signature (minute + paire + direction + $PNL + R) → ré-importer le même fichier
+    // (usage naturel : Notion/Excel reste la source) n'ajoute AUCUN doublon, on compte les ignorés.
+    const _sigOf = e => [Math.round((e.ts || 0) / 60000), e.pair, e.dir, e.pl == null ? '' : e.pl, e.r == null ? '' : e.r].join('|');
+    const _have = new Set((_jrList || []).map(_sigOf));
+    let added = 0, skipped = 0;
     for (let r = 1; r < rows.length; r++) {
       const row = rows[r], get = k => idx[k] >= 0 ? String(row[idx[k]] || '').trim() : '';
       const pair = get('pair').toUpperCase().replace(/[^A-Z0-9/.\-]/g, '').slice(0, 12);
@@ -9360,7 +9426,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const dir = /sell|short|vente|sld|sale/.test(_jrNorm(get('dir'))) ? 'SELL' : 'BUY';
       let ts = _jrParseDate(get('date')); if (ts == null) ts = Date.now();   // dates FR Notion (« 6 janvier 2026 ») + ISO
       const tag = k => idx[k] >= 0 ? String(row[idx[k]] || '').split(/[,;|]+/).map(s => s.trim()).filter(Boolean).slice(0, 12) : [];
-      _jrList.unshift({
+      const _ent = ({
         id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6) + r,
         ts, pair, dir,
         lots: _jrParseNum(get('lots')), entry: _jrParseNum(get('entry')), exit: _jrParseNum(get('exit')),
@@ -9383,6 +9449,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
           return Object.keys(p).length ? p : undefined;
         })(),
       });
+      if (_have.has(_sigOf(_ent))) { skipped++; continue; }
+      _have.add(_sigOf(_ent));
+      _jrList.unshift(_ent);
       added++;
     }
     if (_jrList.length > 500) _jrList = _jrList.slice(0, 500);
@@ -9395,7 +9464,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
     }
     _jrEdit = null; _jrRender();
     const _ccNote = _customCols.length ? ' · ' + _customCols.length + ' propriété(s) créée(s) depuis tes colonnes' : '';
-    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + pairNote + _ccNote + ' : journal personnalisé'); }
+    const _dupNote = skipped ? ' · ' + skipped + ' doublon(s) ignoré(s)' : '';
+    const _capNote = (_jrList.length >= 500) ? ' · cap 500 atteint : les plus anciens au-delà sont retirés' : '';
+    if (added) { _jrSave(); _jrStatus(added + ' trade(s) importé(s) ✓' + _dupNote + _capNote + pairNote + _ccNote + ' : journal personnalisé'); }
+    else if (skipped) {
+      // Rien de neuf : tout le fichier est déjà dans le journal → on retire les colonnes créées en anticipation.
+      _customCols.forEach(cc => { const ix = _jrCols.findIndex(c => c.k === cc.k); if (ix >= 0) _jrCols.splice(ix, 1); });
+      _jrStatus('Aucun nouveau trade : les ' + skipped + ' ligne(s) du fichier sont déjà dans ton journal.');
+      return 0;
+    }
     else {
       // Import raté → on retire les colonnes personnalisées créées en anticipation (aucune valeur importée)
       _customCols.forEach(cc => { const ix = _jrCols.findIndex(c => c.k === cc.k); if (ix >= 0) _jrCols.splice(ix, 1); });
@@ -9534,6 +9611,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
   let _jrEqMode = 'pct', _jrEqSeriesRef = null;
   const _JR_EQMODE_LBL = { pct: '% cumulé', pl: '$ PNL', equity: '$ Capital' };
   function _jrEqData(L, mode) {
+    // $ Capital AUTO : si AUCUNE equity n'est saisie mais qu'un capital de départ est défini →
+    // courbe reconstituée = capital initial + cumul des $PNL (l'image la plus parlante d'un journal,
+    // sans exiger la saisie manuelle de l'equity à chaque trade).
+    if (mode === 'equity' && !L.some(e => _jrN(e.equity) != null) && _jrN(_jrStartCap) != null && Number(_jrStartCap) > 0) {
+      const arr = L.filter(e => _jrN(e.pl) != null).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+      const fmtD = n => (n > 0 ? '+' : '') + (Math.round(n * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' $';
+      let eq = Number(_jrStartCap); const out = [];
+      for (const e of arr) {
+        const prev = eq; eq += (_jrN(e.pl) || 0);
+        const dt = new Date(e.ts);
+        out.push({ t: e.ts, v: eq, dateLbl: dt.getDate() + ' ' + (_JR_MONTHS_FR[dt.getMonth()] || '') + ' ' + dt.getFullYear(), vLbl: (Math.round(eq * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + ' $', varLbl: 'Variation : ' + fmtD(eq - prev) });
+      }
+      return out;
+    }
     const ok = e => mode === 'equity' ? _jrN(e.equity) != null : mode === 'pl' ? _jrN(e.pl) != null : _jrN(e.pnlPct) != null;
     const arr = L.filter(ok).slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
     const unit = mode === 'pct' ? ' %' : ' $';
@@ -9616,7 +9707,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const avgW = wins.length ? sum(wins) / wins.length : 0, avgL = losses.length ? sum(losses) / losses.length : 0;
     const longN = L.filter(e => e.dir !== 'SELL').length, shortN = L.length - longN;
     const resMap = {}; _JR_RES.forEach(r => resMap[r] = 0); L.forEach(e => { const r = _jrResOf(e); if (r) resMap[r]++; });
-    const valR = e => { const r = _jrRof(e); return r != null ? r : 0; };
+    // Barres : R si la colonne existe ; SINON repli ±1 par résultat unifié → les cartes OPTIMISATION ne sont
+    // plus vides pour un journal importé sans colonne R (unité homogène à l'intérieur d'une même vue).
+    const hasR = rs.length > 0;
+    const valR = e => { const r = _jrRof(e); if (r != null) return r; return hasR ? 0 : (_jrOutcome(e) || 0); };
+    // ── Stats PRO (calculées en mémoire, zéro endpoint) ──
+    const outsD = L.map(_jrOutcome).filter(o => o != null);
+    const oWD = outsD.filter(o => o > 0).length, oLD = outsD.filter(o => o < 0).length;
+    const wrD = (oWD + oLD) ? Math.round(oWD / (oWD + oLD) * 100) : null;   // taux unifié, BE exclus
+    const gD = sum(L.map(e => _jrN(e.pl)).filter(v => v != null && v > 0));
+    const pD = Math.abs(sum(L.map(e => _jrN(e.pl)).filter(v => v != null && v < 0)));
+    const gRs = sum(wins), pRs = Math.abs(sum(losses));
+    const pf = pD > 0 ? gD / pD : (pRs > 0 ? gRs / pRs : null);             // profit factor ($ prioritaire, sinon R)
+    const expR = (rs.length && (oWD + oLD)) ? (oWD / (oWD + oLD)) * avgW + (oLD / (oWD + oLD)) * avgL : null;   // espérance par trade, en R
+    const chron = L.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0));
+    const ddInD = L.some(e => _jrN(e.pl) != null);
+    let _cum = 0, _peak = 0, maxDD = 0;
+    for (const e of chron) { const v = ddInD ? (_jrN(e.pl) || 0) : (_jrRof(e) || 0); _cum += v; if (_cum > _peak) _peak = _cum; const d = _peak - _cum; if (d > maxDD) maxDD = d; }
+    let _stk = 0, worstStreak = 0;
+    for (const e of chron) { const o = _jrOutcome(e); if (o == null) continue; if (o < 0) { _stk++; if (_stk > worstStreak) worstStreak = _stk; } else if (o > 0) _stk = 0; }
     const grp = keyFn => { const m = {}; for (const e of L) for (const k of _jrArr(keyFn(e))) m[k] = (m[k] || 0) + valR(e); return m; };
     const setupM = grp(e => e.setup), confM = grp(e => e.conf), gradeM = grp(e => e.grade), entryM = grp(e => e.entryT);
     const slM = grp(e => e.sl), errM = grp(e => e.err), sessM = grp(e => e.session), dayM = grp(_jrDayOf), pairM = grp(e => e.pair);
@@ -9630,19 +9739,26 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrRing(fR(totR), 'Total R', totR >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(_jrMoneyShort(totD), 'Total $', totD >= 0 ? '#00e676' : '#ff3d00')
         + _jrRing(String(L.length), 'Trades', '#e3b23a')
-        + _jrRing((rs.length ? Math.round(wins.length / rs.length * 100) : 0) + ' %', 'Taux de réussite', '#00cc99')
+        + _jrRing((wrD == null ? '—' : wrD + ' %'), 'Taux de réussite', '#00cc99', (oWD + oLD) ? (oWD + ' G / ' + oLD + ' P, BE exclus') : '')
       + '</div><div class="jrd-row jrd-row--charts">'
         + '<div class="jrd-card jrd-card--donut"><div class="jrd-card-h">Répartition des résultats</div><div id="jr-result-donut" class="jr-chart-am jr-chart-am--donut"></div>' + _jrResultLegend(resMap) + '</div>'
         + '<div class="jrd-card jrd-card--eq"><div class="jrd-card-h">Courbe de performance<span class="jrd-eqtoggle">'
           + '<button data-m="pct" class="active" onclick="_jrEqSwitch(\'pct\')">% cumulé</button>'
           + '<button data-m="pl" onclick="_jrEqSwitch(\'pl\')">$ PNL</button>'
           + '<button data-m="equity" onclick="_jrEqSwitch(\'equity\')">$ Capital</button>'
-        + '</span></div><div id="jr-eq-chart" class="jr-chart-am jr-chart-am--eq"></div></div>'
+        + '</span></div>'
+        + (L.some(e => _jrN(e.equity) != null) ? '' : '<div style="padding:2px 12px 0;font-size:11px;color:#8b93a1;">Capital de départ&nbsp;: <input id="jr-startcap" type="number" min="0" step="100" placeholder="10000" value="' + (_jrStartCap != null ? _jrStartCap : '') + '" style="width:88px;background:#0d0e11;border:1px solid #26262b;border-radius:4px;color:#e6e6ea;padding:2px 6px;font-size:11px;"> $ <span style="color:#6b7280;">→ active la courbe «&nbsp;$ Capital&nbsp;» sans saisir l\'equity par trade</span></div>')
+        + '<div id="jr-eq-chart" class="jr-chart-am jr-chart-am--eq"></div></div>'
       + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">PERFORMANCE CLÉ</div><div class="jrd-rings">'
         + _jrRing(fR(avgW), 'R moy. gagnant', '#00e676') + _jrRing(fR(avgL), 'R moy. perdant', '#ff3d00')
         + _jrRing(longN + ' / ' + shortN, 'Long / Short', '#3aa0ff')
         + _jrRing((Math.round(rrA * 100) / 100).toString().replace('.', ','), 'RR cible moyen', '#a78bfa')
+      + '</div><div class="jrd-rings" style="margin-top:10px;">'
+        + _jrRing(pf == null ? '—' : (Math.round(pf * 100) / 100).toString().replace('.', ','), 'Profit factor', pf != null && pf >= 1 ? '#00e676' : '#ff8f00', 'gains / pertes')
+        + _jrRing(expR == null ? '—' : fR(expR), 'Espérance / trade', expR != null && expR >= 0 ? '#00cc99' : '#ff3d00', 'en R')
+        + _jrRing(maxDD > 0 ? '−' + (ddInD ? _jrMoneyShort(maxDD).replace(/^\+/, '') : fR(maxDD).replace(/^\+/, '') + ' R') : '0', 'Max drawdown', '#ff8f00', 'depuis un plus haut')
+        + _jrRing(String(worstStreak), 'Série perdante max', worstStreak >= 4 ? '#ff3d00' : '#e3b23a', 'trades d\'affilée')
       + '</div></div>'
       + '<div class="jrd-sec"><div class="jrd-sec-h">OPTIMISATION</div><div class="jrd-grid">'
         + _jrBars('Setup', setupM) + _jrBars('Confluence', confM) + _jrBars('Entrée', entryM) + _jrBars('SL', slM)
@@ -9652,13 +9768,15 @@ document.addEventListener('DOMContentLoaded', ()=>{
         + _jrBars('Jour', dayM, { order: _JRD }) + _jrBars('Session', sessM) + _jrBars('Paires', pairM, { max: 14 })
       + '</div></div>';
     setTimeout(() => { try { _jrBuildResultDonut(resMap); _jrBuildEquityChart(L); } catch (e) {} }, 12);   // amCharts après insertion DOM
+    const capIn = document.getElementById('jr-startcap');
+    if (capIn) capIn.onchange = () => { const v = parseFloat(capIn.value); _jrStartCap = (isFinite(v) && v > 0) ? v : null; _jrSave(); try { _jrBuildEquityChart(L); } catch (e) {} };
   }
 
   window.loadJournalView = function () {
     if (_jrList) { _jrRender(); return; }   // déjà chargé → re-render instantané (les données vivent en mémoire + serveur)
     _jrStatus('Chargement…');
     fetch('/api/journal').then(r => r.json())
-      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrCustom = !!j.custom; _jrCols = _jrColsFromStore(j.cols); _jrStatus(''); _jrRender(); })
+      .then(j => { _jrList = Array.isArray(j.entries) ? j.entries : []; _jrCustom = !!j.custom; _jrCols = _jrColsFromStore(j.cols); _jrStartCap = (j.startCap != null && isFinite(j.startCap) && j.startCap > 0) ? Number(j.startCap) : null; _jrStatus(''); _jrRender(); })
       .catch(() => { _jrList = []; _jrStatus('Hors-ligne'); _jrRender(); });
   };
 })();
