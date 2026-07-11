@@ -194,6 +194,13 @@ const _lastSeen = _loadJsonMap(_LASTSEEN_FILE);   // userId → ts
 let _lastSeenDirty = false;
 function _stampSeen(id) { if (id) { _lastSeen.set(String(id), Date.now()); _lastSeenDirty = true; } }
 function _userPresence(id) { const k = String(id); return { online: _onlineUsers.has(k), lastSeen: _lastSeen.get(k) || null }; }
+function _msOf(v) { if (!v) return 0; const t = new Date(v).getTime(); return isNaN(t) ? 0 : t; }
+// Presence AVEC repli « derniere activite » = dernier message du client, quand aucune connexion WS n'a
+// ete enregistree (ex. apres un redemarrage serveur). Evite le « Hors ligne » nu → toujours « depuis X ».
+function _presenceWithFallback(id, lastActivity) {
+  const p = _userPresence(id);
+  return { online: p.online, lastSeen: p.lastSeen || (_msOf(lastActivity) || null) };
+}
 setInterval(() => {
   if (!_lastSeenDirty) return;
   _lastSeenDirty = false;
@@ -1655,7 +1662,7 @@ app.get('/api/admin/chat', requireSupport, async (_req, res) => {
   try {
     const [threads, users] = await Promise.all([auth.chatThreads(), auth.getAllUsers()]);   // parallèle = 1 seul aller-retour
     const byId = new Map(users.map(u => [String(u.id), u]));
-    res.json({ threads: threads.map(t => { const p = _userPresence(t.user_id); return { ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '', online: p.online, lastSeen: p.lastSeen }; }) });
+    res.json({ threads: threads.map(t => { const p = _presenceWithFallback(t.user_id, t.lastAt); return { ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '', online: p.online, lastSeen: p.lastSeen }; }) });   // repli lastSeen = dernier message
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // TOUS les utilisateurs (staff uniquement) avec statut "en ligne" → permet au support de
@@ -1676,7 +1683,8 @@ app.get('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   try {
     const messages = await auth.chatList(req.params.userId);
     await auth.chatMarkRead(req.params.userId, 'user');   // l'admin a lu les messages de l'utilisateur
-    const p = _userPresence(req.params.userId);
+    const _lm = (messages && messages.length) ? messages[messages.length - 1].created_at : null;   // repli lastSeen = dernier message client
+    const p = _presenceWithFallback(req.params.userId, _lm);
     res.json({ messages, typing: _isTyping(req.params.userId, 'user'), online: p.online, lastSeen: p.lastSeen });   // le client est-il en train d'écrire ? + presence pour l'en-tete
   } catch (e) { res.status(500).json({ error: e.message }); }
 });

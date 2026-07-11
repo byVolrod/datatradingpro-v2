@@ -7942,7 +7942,7 @@ function _chatSeenText(online, lastSeen){
   if (online) return { cls: 'is-online', text: 'En ligne', title: '' };
   if (!lastSeen) return { cls: 'is-offline', text: 'Hors ligne', title: '' };
   let abs = ''; try { abs = _chatAbsWhen(lastSeen); } catch {}
-  return { cls: 'is-offline', text: 'Hors ligne depuis ' + _chatSince(lastSeen), title: abs ? ('Déconnecté ' + abs) : '' };   // relatif visible « depuis 5 h » ; date+heure exactes au survol
+  return { cls: 'is-offline', text: 'Hors ligne depuis ' + _chatSince(lastSeen), title: abs ? ('Vu ' + abs) : '' };   // relatif visible « depuis 5 h » ; date+heure exactes au survol (repli = dernier message)
 }
 function _chatHeadPresenceHtml(pres){
   const p = _chatSeenText(!!pres.online, pres.lastSeen || null);
@@ -7951,9 +7951,10 @@ function _chatHeadPresenceHtml(pres){
 // Présence connue INSTANTANÉMENT depuis l'inbox (users + threads déjà chargés) → l'en-tête s'affiche sans attendre le fetch.
 function _chatUserPresence(userId){
   const uid = String(userId);
-  const u = ((_chatInboxData && _chatInboxData.users) || []).find(x => String(x.id) === uid)
-         || ((_chatInboxData && _chatInboxData.threads) || []).find(x => String(x.user_id) === uid);
-  return u ? { online: !!u.online, lastSeen: u.lastSeen || null } : null;
+  const t = ((_chatInboxData && _chatInboxData.threads) || []).find(x => String(x.user_id) === uid);   // le thread porte le repli lastSeen = dernier message
+  const u = ((_chatInboxData && _chatInboxData.users)   || []).find(x => String(x.id) === uid);
+  if (!t && !u) return null;
+  return { online: !!((t && t.online) || (u && u.online)), lastSeen: (t && t.lastSeen) || (u && u.lastSeen) || null };
 }
 // Applique la présence À L'EN-TÊTE : (1) pastille verte/grise À CÔTÉ DU NOM (statut d'un coup d'œil) +
 // (2) texte détaillé « En ligne / Hors ligne depuis X » dans la sous-ligne. Le nom est (re)posé en texte
