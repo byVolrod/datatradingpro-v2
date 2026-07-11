@@ -3116,7 +3116,10 @@ function showStatus(msg, type) {
 }
 
 // ═══ Notif badge clear ════════════════════
-notifBadge.parentElement.addEventListener('click', () => {
+// GARDE : en page ISOLEE (rendu widget e-mail), la topbar n'existe pas → sans elle, ce top-level
+// crashait et TUAIT toute la suite d'app.js (les `let` suivants restaient en TDZ → sparkline
+// Semaine à Venir silencieusement vide). Ne jamais laisser un top-level toucher le DOM sans garde.
+if (notifBadge && notifBadge.parentElement) notifBadge.parentElement.addEventListener('click', () => {
   newCount = 0;
   _setNotifBadge(0);
   allItems.forEach(i => delete i._new);
