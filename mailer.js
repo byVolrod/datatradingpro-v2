@@ -755,6 +755,14 @@ function _campaignBtn(label, url) {
       <a href="${url}" style="display:inline-block;padding:14px 34px;color:#0d0e11;font-weight:700;font-size:15px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
     </td></tr></table>`;
 }
+// Bouton SECONDAIRE (bordure or, fond transparent) : pour les appels intermédiaires façon newsletter
+// (teaser « ton des banques », etc.) sans concurrencer le CTA principal or plein.
+function _campaignBtnGhost(label, url) {
+  return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px 0;"><tr>
+    <td align="center" style="border:1px solid #b8860b;border-radius:6px;">
+      <a href="${url}" style="display:inline-block;padding:10px 22px;color:#e3b23a;font-weight:700;font-size:13.5px;letter-spacing:.01em;text-decoration:none;">${_esc(label)}</a>
+    </td></tr></table>`;
+}
 // Widget MAIL = VRAI widget du desk (rendu frais PNG, embarque en inline cid a l'envoi par _sendWithInlineWidgets).
 // PAS d'intitule visible au-dessus (le contexte est deja donne par le texte du mail) ; l'`eyebrow` ne sert plus
 // que d'alt (accessibilite + repli si image bloquee). Cadre aux tokens desk (#232429, coins 6px) ; responsive + Outlook.
@@ -903,7 +911,14 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = '📰 Votre semaine de marché, relue par le desk';
+  // Sujets ROTATIFS (déterministes par semaine) : accrocheurs, factuels, jamais deux fois de suite le même.
+  const _wkR = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
+  const _subsR = [
+    '📰 Votre semaine de marché, relue par le desk',
+    '🗞️ Ce que cette semaine a changé sur les marchés',
+    '📰 La semaine en clair, devise par devise',
+  ];
+  const subject = _subsR[_wkR % _subsR.length];
   return { subject, html: _campaignLayout('Point de la semaine', body, unsub) };
 }
 async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'cb-tone']); }
@@ -1052,14 +1067,19 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   const blocks = secs.map(s => {
     const title = `<div style="margin:14px 0 4px;color:#e3b23a;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
     if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
-      const rows = s.data.slice(0, 5).map(r => {
-        const vals = [];
-        if (r.actual) vals.push(`réel <strong style="color:#cbd5e1;">${_esc(r.actual)}</strong>`);
-        if (r.expected) vals.push(`att. ${_esc(r.expected)}`);
-        if (r.previous) vals.push(`préc. ${_esc(r.previous)}`);
-        return `<tr><td style="padding:5px 0;border-top:1px solid #1f1f24;"><span style="color:#e6e6ea;font-size:13px;">${_esc(r.release || '')}</span>${vals.length ? `<div style="color:#9aa3b2;font-size:12px;margin-top:1px;">${vals.join(' &middot; ')}</div>` : ''}</td></tr>`;
-      }).join('');
-      return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>` : '';
+      // VRAI tableau (demande user) : Publication | Réel | Attendu | Précédent — le réel en blanc gras,
+      // l'attendu/précédent estompés → l'écart saute aux yeux, façon calendrier du desk.
+      const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 8px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #26262b;">${label}</td>`;
+      const rows = s.data.slice(0, 6).map(r => `<tr>
+          <td style="padding:7px 8px;color:#e6e6ea;font-size:12.5px;line-height:1.4;border-top:1px solid #1f1f24;">${_esc(r.release || '')}</td>
+          <td align="right" style="padding:7px 8px;color:#ffffff;font-weight:700;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.actual || '·')}</td>
+          <td align="right" style="padding:7px 8px;color:#9aa3b2;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.expected || '·')}</td>
+          <td align="right" style="padding:7px 8px;color:#7b828f;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.previous || '·')}</td>
+        </tr>`).join('');
+      return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #26262b;border-radius:8px;border-collapse:separate;">
+          <tr>${_th('Publication')}${_th('Réel', true)}${_th('Attendu', true)}${_th('Précédent', true)}</tr>
+          ${rows}
+        </table>` : '';
     }
     const arr = (s.kind === 'paras' ? s.paras : s.items) || [];
     const items = arr.slice(0, 5).map(x => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#e3b23a;font-weight:700;">&bull;</span>&nbsp;${_esc(String(x))}</td></tr>`).join('');
@@ -1316,18 +1336,29 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     if (/on|appétit|appetit/.test(l)) return 'porté par l\'<strong style="color:#fff;">appétit pour le risque</strong>';
     return 'sans biais de risque marqué';
   })();
-  let lead = `Voici votre point marché de la semaine, en clair, droit à l'essentiel, sans le bruit.`;
+  // Accroche COURTE une-ligne (structure de newsletter : un hook, une respiration, puis le fond) —
+  // choisie selon le VRAI climat de risque du desk, jamais inventée.
+  const _rl = String((risk && risk.label) || '').toLowerCase();
+  const hook = /off|aversion/.test(_rl) ? 'Séance nerveuse sur les marchés.'
+    : /on|appétit|appetit/.test(_rl) ? "L'appétit pour le risque est de retour."
+    : 'Une séance à lire entre les lignes.';
+  let lead = `Voici votre point marché, en clair, droit à l'essentiel, sans le bruit.`;
   if (themeLabel && risk && risk.label) {
-    lead = `Voici votre point marché de la semaine, en clair. Le desk garde le cap sur un thème dominant, <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>, dans un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
+    lead = `Le desk garde le cap sur un thème dominant, <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>, dans un marché ${_riskClause}. Voici ce qu'il faut en retenir.`;
   } else if (themeLabel) {
-    lead = `Voici votre point marché de la semaine, en clair. Le desk garde le cap sur un thème dominant : <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>. Droit à l'essentiel, sans le bruit.`;
+    lead = `Le desk garde le cap sur un thème dominant : <strong style="color:#e3b23a;">${_esc(themeLabel)}</strong>. Voici ce qu'il faut en retenir.`;
   } else if (risk && risk.label) {
-    lead = `Voici votre point marché de la semaine, en clair. Un marché ${_riskClause}. Droit à l'essentiel, sans le bruit.`;
+    lead = `Un marché ${_riskClause}. Voici ce que le desk en retient.`;
   }
 
   // Resume du RECAP JOURNALIER : la SYNTHESE de seance UNIQUEMENT (daily.summary), coupee PROPREMENT en fin de
-  // phrase (helper module _cutTxt). Zero invention.
-  const movesHtml = moves ? `<p style="margin:18px 0 14px;">${_esc(_cutTxt(moves, 680))}</p>` : '';
+  // phrase (helper module _cutTxt), puis DECOUPEE en paragraphes courts (2 phrases max) : une idee par
+  // paragraphe, lecture mobile rapide — structure de newsletter, texte 100 % desk, zero invention.
+  const _movesTxt = moves ? _cutTxt(moves, 680) : '';
+  const _sentences = _movesTxt ? (_movesTxt.match(/[^.!?]+[.!?]+(?:\s+|$)|[^.!?]+$/g) || [_movesTxt]) : [];
+  const _paras = [];
+  for (let i = 0; i < _sentences.length; i += 2) _paras.push(_sentences.slice(i, i + 2).join(' ').replace(/\s+/g, ' ').trim());
+  const movesHtml = _paras.filter(Boolean).map((p, i) => `<p style="margin:${i === 0 ? '18px' : '0'} 0 12px;">${_esc(p)}</p>`).join('');
 
   // WIDGET REEL du desk (inline cid a l'envoi) : graphe multi-lignes Force des Devises sur LA JOURNEE (TD) —
   // coherent avec le brief de seance (le Point marche parle du jour, pas de la semaine).
@@ -1339,25 +1370,44 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // du calendrier « A surveiller cette semaine » (demande user) -> on brief la journee.
   const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title, daily && daily.hasComments);
 
-  // Tons des banques centrales (lecture cb-tone du desk, weekly.centralBanks) : affiche UNIQUEMENT s'il y en a eu.
-  const _cbs = (weekly && Array.isArray(weekly.centralBanks) ? weekly.centralBanks : []).filter(c => c && c.bank && c.stance).slice(0, 6);
+  // Ton des banques centrales : TEASER pur (demande user : ne RIEN dévoiler) → une phrase de curiosité
+  // + bouton secondaire vers le Desk. Affiché uniquement s'il y a EU des tons lus cette semaine.
+  const _cbs = (weekly && Array.isArray(weekly.centralBanks) ? weekly.centralBanks : []).filter(c => c && c.bank && c.stance);
   const tonesHtml = _cbs.length
-    ? `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">Le ton des banques centrales, lu par le desk&nbsp;:</p><p style="margin:0 0 6px;font-size:13.5px;color:#cbd5e1;line-height:1.8;">${_cbs.map(c => `<strong style="color:#fff;">${_esc(c.bank)}</strong>&nbsp;<span style="color:#e3b23a;font-weight:700;">${_esc(_md(String(c.stance)))}</span>`).join(' &nbsp;&middot;&nbsp; ')}</p>`
+    ? `<p style="margin:18px 0 2px;color:#cbd5e1;">Les banques centrales ont aussi parlé cette semaine, et leur ton a bougé. Le desk l'a lu pour vous, banque par banque.</p>
+       ${_campaignBtnGhost('Découvrir le ton des banques', trackClickUrl(campaign, email, LANDING_URL))}`
     : '';
+
+  // Leçon de clôture (une idée, originale DTP) : pourquoi cette lecture compte — sans pousser de position.
+  const lessonHtml = `<p style="margin:16px 0 14px;color:#cbd5e1;">🎯 Un chiffre seul ne dit rien&nbsp;: c'est l'écart avec l'attendu, et ce que les banques centrales en font, qui fait bouger les devises. Cette lecture-là, le desk vous la donne en direct.</p>`;
 
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 10px;font-size:15.5px;color:#ffffff;font-weight:700;">${hook}</p>
     <p style="margin:0 0 6px;">${lead}</p>
     ${movesHtml}
     ${strengthWidget}
     ${briefHtml}
     ${tonesHtml}
-    <div style="margin:22px 0 6px;">${cta.btn}</div>
+    ${lessonHtml}
+    <div style="margin:18px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = themeLabel ? '📊 Le brief du desk : ' + themeLabel + ' donne le ton' : '📊 Le brief du desk : la séance en clair';
+  // Sujets ROTATIFS (déterministes par semaine) : accrocheurs façon newsletter, factuels façon DTP —
+  // jamais deux mercredis de suite le même objet (délivrabilité + envie de cliquer).
+  const _wk = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
+  const _subs = themeLabel ? [
+    `📊 ${themeLabel} : ce que le desk en retient`,
+    `👀 ${themeLabel} mène la danse, voici pourquoi`,
+    `🧭 Le point du desk : ${themeLabel} donne le ton`,
+  ] : [
+    '📊 Le point du desk : la séance en clair',
+    "👀 Ce que le marché vous dit aujourd'hui",
+    "🧭 Le point du desk, droit à l'essentiel",
+  ];
+  const subject = _subs[_wk % _subs.length];
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
 async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today']); }
@@ -1394,7 +1444,14 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  const subject = '🗓️ Semaine à venir : les rendez-vous qui comptent';
+  // Sujets ROTATIFS (déterministes par semaine) : accrocheurs, factuels, jamais deux lundis de suite le même.
+  const _wkO = Math.floor(Date.now() / (7 * 24 * 3600 * 1000));
+  const _subsO = [
+    '🗓️ Semaine à venir : les rendez-vous qui comptent',
+    '👀 La semaine qui arrive mérite votre attention',
+    "🧭 L'agenda de la semaine, trié par le desk",
+  ];
+  const subject = _subsO[_wkO % _subsO.length];
   return { subject, html: _campaignLayout('Semaine à venir', body, unsub) };
 }
 async function sendCampaignOutlook(d) { d = d || {}; const m = buildCampaignOutlook({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['week-ahead']); }

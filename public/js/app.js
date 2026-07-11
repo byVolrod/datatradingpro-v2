@@ -4893,11 +4893,31 @@ function _brTags(item) {
     [/central bank|\bfed\b|\becb\b|\bboe\b|\bboj\b|\bpboc\b|\bsnb\b/i, 'Central Banks'],
     [/commodit|copper|metal|silver/i,    'Commodities'],
     [/aud|nzd|cad|kiwi|aussie|loonie/i,  'Commodity FX'],
+    [/switzerland|\bsnb\b|\bchf\b|franc suisse|swiss/i, 'CHF'],
+    [/fiscal|budget|deficit|\bdebt\b|treasury issuance/i, 'Fiscal'],
+    [/election|president|parliament|congress|senate|white house|politic/i, 'Politics'],
+    [/credit|spread|corporate bond|high yield|investment grade/i, 'Credit'],
   ];
+  // SCORING par fréquence : chaque thème est compté (occurrences dans titre + contenu) puis trié →
+  // les tags retenus sont les PLUS PRÉSENTS dans le rapport, pas les premiers de la liste. Cible
+  // 4 à 6 tags par rapport (jamais un tag isolé, jamais une rangée interminable).
+  const scored = [];
   for (const [rx, label] of checks) {
-    if (rx.test(h) && !tags.includes(label) && tags.length < 14) tags.push(label);
+    if (tags.includes(label)) continue;
+    const m = h.match(new RegExp(rx.source, 'gi'));
+    if (m && m.length) scored.push([label, m.length]);
   }
-  return _dedupeTags(tags).slice(0, 14);
+  scored.sort((a, b) => b[1] - a[1]);
+  for (const [label] of scored) {
+    if (tags.length >= 6) break;
+    if (!tags.includes(label)) tags.push(label);
+  }
+  // Plancher 4 : un rapport au texte pas (encore) extractible garde des tags génériques utiles.
+  for (const f of ['Macro', 'Markets', 'Outlook', 'Research']) {
+    if (tags.length >= 4) break;
+    if (!tags.includes(f)) tags.push(f);
+  }
+  return _dedupeTags(tags).slice(0, 6);
 }
 
 // ── Read tracking pour Bank Research (localStorage) ──────────────────────────

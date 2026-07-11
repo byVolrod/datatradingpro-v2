@@ -10706,6 +10706,15 @@ const _LOW_VALUE_ANALYSIS_RE = new RegExp([
 //    banner of") ; guard !isFinanciallyRelevant cote appelant (une vraie news marche reste KEEP).
 //    Batterie adversariale 17/17 (target DROP + "banner year"/"stocks climb"/protest-ECB KEEP).
 const HUMAN_STUNT_NOISE = /\b(?:publicity\s+stunt|prank(?:s|ed|ster)?|streaker|streaking\s+(?:naked|across|onto|at)|flash\s+mob|guinness\s+world\s+record|base[\s-]?jump\w*|daredevil|(?:unfurl\w+|hoist\w*|hung|hang(?:s|ing)?|drap\w+|dangl\w+)\s+[\w\s'’"“”-]{0,30}?\bbanner\b|banner\s+(?:on|atop|on\s+top\s+of|across|over|from)\s+(?:the\s+|a\s+)?[\w\s'’-]{0,26}?(?:building|tower|bridge|skyscraper|stadium|rooftop|monument|statue|billboard))\b/i;
+// ── Chronique CRIMINELLE locale (rafles, arrestations de masse, triades/gangs, trafics, escroqueries,
+//    braquages) : police-blotter JAMAIS market-moving (SCMP & co, parfois mal classee « Analyse de
+//    marche »). Termes SPECIFIQUES pour zero faux positif : « crackdown » seul n'est PAS capte (China
+//    crackdown on tech / SEC crackdown on crypto = vraies news marche), seulement accole a un terme de
+//    criminalite ; « triad » exige pluriel ou compose (epargne « triad of risks ») ; « smuggling » exige
+//    ring/bust ou drogue/humains (epargne « oil smuggling network » = news sanctions). Guard
+//    !isFinanciallyRelevant cote appelant. Ex. user : « 65 arrested in Hong Kong crackdown targeting
+//    illicit triad-linked income sources ».
+const CRIME_BLOTTER_NOISE = /\b(?:\d+\s+(?:arrested|detained|charged|held)\b|\btriads\b|triad[\s-]?(?:linked|boss(?:es)?|gangs?|members?|society|societies|crackdown)|crime\s+(?:ring|syndicate|gang|boss)|(?:drug|scam|smuggling|prostitution|gambling|extortion|counterfeit\w*)\s+(?:ring|bust|syndicate|den|racket|cent(?:er|re)s?)|(?:drug|human|people|wildlife)[\s-]traffick\w+|police\s+(?:raid\w*|bust\w*|sting|crackdown)|crackdown\s+(?:on|targeting)\s+(?:illicit|illegal|crime|criminal|triad|gang|drug|vice|scam|counterfeit)\w*|loan\s+shark\w*|money\s+laundering\s+(?:ring|syndicate|network|gang)|racketeering|pickpocket\w*|burglar\w*|bank\s+robbery|jewel(?:lery|ry)?\s+heist)\b/i;
 function isGlobalNewsNoise(headline) {
   const h = headline || '';
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
@@ -10724,6 +10733,7 @@ function isGlobalNewsNoise(headline) {
   if (isSoftNewsNoise(h) && !isFinanciallyRelevant(h)) return true;   // divertissement/pop-culture/science-trivia/palmares (K-pop, fossiles, classements d'universites...) -> hors-sujet desk
   if (LOCAL_INCIDENT_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // faits divers locaux (insolation/noyade/incendie domestique/accident route) -> hors-sujet desk
   if (HUMAN_STUNT_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // cascades/canulars/records/banderoles-sur-monuments -> hors-sujet desk (ex. « banner on top of Empire State Building »)
+  if (CRIME_BLOTTER_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // chronique criminelle (rafles/triades/trafics/braquages) -> hors-sujet desk (ex. « 65 arrested in Hong Kong crackdown... »)
   return false;
 }
 
@@ -12717,13 +12727,13 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // DTP Daily 12h, FX Daily Recap 22h30. Donc Recap/Outlook = week-end/debut de semaine (data prete samedi),
 // Point marche = milieu de semaine, Decryptage/Mindset = evergreen (jour libre), Alerte BC = evenementiel.
 const CAMPAIGN_SEQUENCE = [
-  { id: 'intro-v1',      week: 1,    title: 'Bienvenue — introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Presentation du terminal + ce qui sera recu chaque semaine.' },
-  { id: 'decryptage',    week: 2,    title: 'Comprendre le marche',                pillar: 'Educatif',     status: 'ready',   when: 'Mardi ~8h · concept choisi selon le calendrier de la semaine', desc: 'Concept-cle choisi selon le theme dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts a surveiller. Anti-redondance.' },
-  { id: 'point-hebdo',   week: 3,    title: 'Le point marche de la semaine',        pillar: 'Point marche', status: 'ready',   when: 'Mercredi ~8h · données marché live (DTP Daily 12h, FX 22h30)', desc: 'Genere du desk : contexte macro dominant + regime de risque + ce qui bouge + forces/faiblesses (Currency Strength) + biais + widget.' },
-  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready', when: 'Samedi ~10h · évergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
-  { id: 'recap-hebdo',   week: 5,    title: 'Recap Hebdo',                          pillar: 'Recap',        status: 'ready', when: 'Dimanche 18h · Récap généré samedi 02h — CRÉNEAU AUTO ACTUEL', desc: 'La retrospective de la semaine, facon desk.' },
-  { id: 'outlook-hebdo', week: 6,    title: 'Outlook — la semaine a venir',         pillar: 'Outlook',      status: 'ready', when: 'Lundi ~8h · semaine à venir (avant Londres)',              desc: 'Les evenements a surveiller, sans pousser de position.' },
-  { id: 'alerte-bc',     week: null, title: 'Alerte macro / banque centrale',       pillar: 'Evenementiel', status: 'ready', when: "Déclenché · le jour d'une décision (FOMC/BCE/BoE)",       desc: 'Declenche par un evenement (decision de taux, choc macro).' },
+  { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
+  { id: 'decryptage',    week: 2,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   when: 'Mardi ~8h · concept choisi selon le calendrier de la semaine', desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
+  { id: 'point-hebdo',   week: 3,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   when: 'Mercredi ~8h · données marché live (DTP Daily 12h, FX 22h30)', desc: 'Généré du desk : contexte macro dominant + régime de risque + ce qui bouge + forces/faiblesses (Force des Devises) + biais + widget.' },
+  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready', when: 'Samedi ~10h · evergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
+  { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready', when: 'Dimanche 18h · Récap généré samedi 02h (créneau auto actuel)', desc: 'La rétrospective de la semaine, façon desk.' },
+  { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready', when: 'Lundi ~8h · semaine à venir (avant Londres)',              desc: 'Les événements à surveiller, sans pousser de position.' },
+  { id: 'alerte-bc',     week: null, title: 'Alerte macro / banque centrale',       pillar: 'Événementiel', status: 'ready', when: "Déclenché · le jour d'une décision (FOMC/BCE/BoE)",       desc: 'Déclenché par un événement (décision de taux, choc macro).' },
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
   try {
@@ -12768,7 +12778,7 @@ app.get('/api/admin/campaign-dashboard', requireAdmin, async (req, res) => {
         premium, expired, unsub, blacklist: bl,
         dtp: r.dtpAccounts, whop: r.whopContacts, manual: r.manualExtra,
         openRate: pct(openN, sentN), ctr: pct(clickN, sentN), sent: sentN,
-        lastCampaign: sentN ? { title: 'Bienvenue — introduction', sentAt: lastSentAt, sent: sentN } : null,
+        lastCampaign: sentN ? { title: 'Bienvenue : introduction', sentAt: lastSentAt, sent: sentN } : null,
         nextCampaign: nextStep ? { title: nextStep.title, week: nextStep.week } : null,
       },
       deliverability: { checks, score, reputation: 'bonne' },
@@ -13055,8 +13065,8 @@ setTimeout(_schedulerTick, 45 * 1000);         // 1er check apres le boot (rattr
 //  Anti-doublon durable (email_log drip:intro:<email> / drip:loop:<isoWeek>:<email>) + skip unsub/blacklist.
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 const DRIP_INTRO   = { id: 'intro',        label: 'Bienvenue (one-time)', tpl: 'intro' };
-const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marche', tpl: 'decryptage' };
-const DRIP_POINT   = { id: 'point-marche', label: 'Point marche',          tpl: 'pointmarche' };
+const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 'decryptage' };
+const DRIP_POINT   = { id: 'point-marche', label: 'Point marché',          tpl: 'pointmarche' };
 // Contenu de LA semaine (identique pour TOUT LE MONDE) : semaine "data lourde" (banque centrale/inflation)
 // -> Decryptage (on explique l'enjeu) ; sinon -> Point marche (etat du marche). Le theme est global -> synchro.
 function _loopStepFor(context) { const t = context && context.theme; return (t === 'rates' || t === 'inflation') ? DRIP_DECRYPT : DRIP_POINT; }
@@ -13201,7 +13211,7 @@ app.get('/api/admin/campaign-schedule', requireAdmin, async (req, res) => {
       if (!lastRun || first > lastRun.at) lastRun = { campaign: cid, sent: Object.keys(s.sent).length, opens: Object.keys(s.opens || {}).length, at: first };
     }
   } catch {}
-  const _campLabel = c => c === 'intro-v1' ? 'Bienvenue — introduction' : (/^weekly-/.test(c) ? 'Point de la semaine (' + c.replace('weekly-', 'sem. ') + ')' : c);
+  const _campLabel = c => c === 'intro-v1' ? 'Bienvenue : introduction' : (/^weekly-/.test(c) ? 'Point de la semaine (' + c.replace('weekly-', 'sem. ') + ')' : c);
   if (lastRun) lastRun.label = _campLabel(lastRun.campaign);
   const hasData = !!_freshWeekly();
   const issues = [];
