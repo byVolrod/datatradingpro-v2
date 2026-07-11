@@ -5407,10 +5407,19 @@ function _brEnsureInsights(item, brIns, tagsEl, preHtml) {
     return true;
   };
   if (render(item.fullContent) || render(preHtml)) return;   // contenu déjà en main
-  // PDF natif sans contenu → on récupère le corps de l'article UNIQUEMENT pour les insights/tags.
+  // Plus JAMAIS de panneau muet (retour client Natixis) : si aucune source de texte n'aboutit,
+  // on affiche un état clair avec un bouton Réessayer au lieu de rien.
+  const fail = () => {
+    brIns.innerHTML = '<div style="display:flex;align-items:center;gap:10px;padding:12px 14px;margin:0 0 12px;background:#101014;border:1px solid #26262b;border-radius:6px;font-size:12.5px;color:#8b93a1;">'
+      + 'Éclairages IA indisponibles pour ce rapport (contenu non extractible pour le moment).'
+      + '<button type="button" id="br-ins-retry" style="margin-left:auto;background:transparent;border:1px solid #3a3f4b;border-radius:4px;color:#e3b23a;font-size:12px;padding:4px 12px;cursor:pointer;">Réessayer</button></div>';
+    const rb = document.getElementById('br-ins-retry');
+    if (rb) rb.onclick = () => { brIns.innerHTML = dtpLoader('Analyse du rapport…'); _brEnsureInsights(item, brIns, tagsEl, preHtml); };
+  };
+  // PDF natif / page SPA sans contenu → on récupère le corps (ou le texte dédié insightsText du serveur).
   fetch('/api/bank-research-content?url=' + encodeURIComponent(item.url))
-    .then(r => r.json()).then(d => { if (!render(d && d.html)) render(item.description); })
-    .catch(() => render(item.description));
+    .then(r => r.json()).then(d => { if (!(render(d && d.insightsText) || render(d && d.html) || render(item.description))) fail(); })
+    .catch(() => { if (!render(item.description)) fail(); });
 }
 
 function renderBrReader(item) {
