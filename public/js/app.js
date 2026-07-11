@@ -7936,7 +7936,7 @@ function _chatSeenText(online, lastSeen){
 }
 function _chatHeadPresenceHtml(pres){
   const p = _chatSeenText(!!pres.online, pres.lastSeen || null);
-  return `<span class="chat-head-dot ${p.cls}"></span><span class="chat-head-st ${p.cls}">${_chatEsc(p.text)}</span><span class="chat-head-role"> · Vous répondez en tant que support</span>`;
+  return `<span class="chat-head-st ${p.cls}">${_chatEsc(p.text)}</span><span class="chat-head-role"> · Vous répondez en tant que support</span>`;
 }
 // Présence connue INSTANTANÉMENT depuis l'inbox (users + threads déjà chargés) → l'en-tête s'affiche sans attendre le fetch.
 function _chatUserPresence(userId){
@@ -7945,14 +7945,30 @@ function _chatUserPresence(userId){
          || ((_chatInboxData && _chatInboxData.threads) || []).find(x => String(x.user_id) === uid);
   return u ? { online: !!u.online, lastSeen: u.lastSeen || null } : null;
 }
+// Applique la présence À L'EN-TÊTE : (1) pastille verte/grise À CÔTÉ DU NOM (statut d'un coup d'œil) +
+// (2) texte détaillé « En ligne / Hors ligne depuis X » dans la sous-ligne. Le nom est (re)posé en texte
+// pur ailleurs → on ré-ajoute la pastille ici à chaque MAJ.
+function _chatApplyPresence(pres){
+  const online = !!(pres && pres.online), lastSeen = pres ? pres.lastSeen : null;
+  const n = document.getElementById('chat-head-name');
+  if (n) {
+    let dot = n.querySelector('.chat-name-dot');
+    if (!dot) { dot = document.createElement('span'); n.appendChild(dot); }
+    dot.className = 'chat-name-dot ' + (online ? 'is-online' : 'is-offline');
+    dot.title = online ? 'En ligne' : (lastSeen ? 'Hors ligne' : 'Hors ligne');
+  }
+  const s = document.getElementById('chat-head-sub');
+  if (s) s.innerHTML = _chatHeadPresenceHtml({ online, lastSeen });
+}
 function _chatUpdateHeadPresence(d){
   if (!_chatThreadUser || !d) return;
-  const s = document.getElementById('chat-head-sub'); if (!s) return;
-  s.innerHTML = _chatHeadPresenceHtml({ online: d.online, lastSeen: d.lastSeen });
+  _chatApplyPresence({ online: d.online, lastSeen: d.lastSeen });
 }
 function _chatHead(name, sub, showBack, showInput, presence){
-  const n = document.getElementById('chat-head-name'); if (n) n.textContent = name;
-  const s = document.getElementById('chat-head-sub');  if (s) { if (presence) s.innerHTML = _chatHeadPresenceHtml(presence); else s.textContent = sub; }
+  const n = document.getElementById('chat-head-name'); if (n) n.textContent = name;   // nom PUR d'abord (efface l'ancienne pastille)
+  const s = document.getElementById('chat-head-sub');
+  if (presence) { _chatApplyPresence(presence); }        // pastille à côté du nom + sous-ligne « Hors ligne depuis X »
+  else if (s) s.textContent = sub;                        // inbox / autre → sous-ligne texte simple, pas de pastille
   const av = document.getElementById('chat-head-av');  if (av) av.textContent = (name||'?').charAt(0).toUpperCase();
   document.getElementById('chat-back')?.classList.toggle('hidden', !showBack);
   document.querySelector('.chat-input-bar')?.classList.toggle('hidden', !showInput);
