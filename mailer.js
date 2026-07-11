@@ -1339,12 +1339,19 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // du calendrier « A surveiller cette semaine » (demande user) -> on brief la journee.
   const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title, daily && daily.hasComments);
 
+  // Tons des banques centrales (lecture cb-tone du desk, weekly.centralBanks) : affiche UNIQUEMENT s'il y en a eu.
+  const _cbs = (weekly && Array.isArray(weekly.centralBanks) ? weekly.centralBanks : []).filter(c => c && c.bank && c.stance).slice(0, 6);
+  const tonesHtml = _cbs.length
+    ? `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">Le ton des banques centrales, lu par le desk&nbsp;:</p><p style="margin:0 0 6px;font-size:13.5px;color:#cbd5e1;line-height:1.8;">${_cbs.map(c => `<strong style="color:#fff;">${_esc(c.bank)}</strong>&nbsp;<span style="color:#e3b23a;font-weight:700;">${_esc(_md(String(c.stance)))}</span>`).join(' &nbsp;&middot;&nbsp; ')}</p>`
+    : '';
+
   const body = `
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 6px;">${lead}</p>
     ${movesHtml}
     ${strengthWidget}
     ${briefHtml}
+    ${tonesHtml}
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
