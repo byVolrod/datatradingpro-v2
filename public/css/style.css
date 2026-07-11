@@ -9010,6 +9010,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .chat-av.has-photo { background:#1a1c22; }
 .chat-head-text { flex:1; min-width:0; }
 .chat-head-name { font-size:13px; font-weight:var(--fw-bold); color:#fff; }
+/* Pastille de statut À CÔTÉ DU NOM (conversation support) : vert = en ligne, gris = hors ligne */
+.chat-name-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-left:7px; vertical-align:middle; background:#5b6471; }
+.chat-name-dot.is-online  { background:#22c55e; box-shadow:0 0 5px rgba(34,197,94,.6); }
+.chat-name-dot.is-offline { background:#5b6471; box-shadow:none; }
 .chat-head-sub { font-size:11px; color:#22c55e; margin-top:1px; }
 .chat-close { background:none; border:none; color:#6b7280; font-size:20px; cursor:pointer; line-height:1; padding:0 2px; }
 .chat-close:hover { color:#fff; }
