@@ -7883,6 +7883,7 @@ async function _chatLiveTick(){
         const msgs = d.messages||[]; _chatMsgCache[_chatThreadUser] = msgs;
         const sig = _sigMsgs(msgs);
         if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }
+        _chatUpdateHeadPresence(d);   // MAJ « En ligne / Hors ligne depuis X » (re-rendu depuis lastSeen → le compteur s'incrémente)
         _chatSetTyping(d.typing, _chatThreadName);   // le client tape ?
         _chatPollUnread();   // garde le badge à jour (autres conversations non lues)
       } else {
@@ -7913,9 +7914,45 @@ async function _chatLiveTick(){
 }
 
 // ── MODE SUPPORT (admin) ──────────────────────────────────────
-function _chatHead(name, sub, showBack, showInput){
+// ── Présence de l'interlocuteur (support) : « En ligne » / « Hors ligne depuis X » ──
+// Durée courte relative FR (min → h → j → date). Le live tick (4s) re-rend depuis lastSeen → « depuis
+// 10 min » s'incrémente tout seul même sans nouvel event serveur.
+function _chatSince(ts){
+  const s = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  const m = Math.floor(s / 60); if (m < 60) return m + ' min';
+  const h = Math.floor(m / 60); if (h < 24) return h + ' h';
+  const j = Math.floor(h / 24); if (j < 7) return j + ' j';
+  return null;   // trop ancien → on affichera une date
+}
+function _chatSeenText(online, lastSeen){
+  if (online) return { cls: 'is-online', text: 'En ligne' };
+  if (!lastSeen) return { cls: 'is-offline', text: 'Hors ligne' };
+  const s = Math.floor((Date.now() - lastSeen) / 1000);
+  if (s < 60) return { cls: 'is-offline', text: 'Hors ligne' };
+  const since = _chatSince(lastSeen);
+  if (since) return { cls: 'is-offline', text: 'Hors ligne depuis ' + since };
+  let dt = ''; try { dt = new Date(lastSeen).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' }); } catch {}
+  return { cls: 'is-offline', text: dt ? ('Hors ligne · vu le ' + dt) : 'Hors ligne' };
+}
+function _chatHeadPresenceHtml(pres){
+  const p = _chatSeenText(!!pres.online, pres.lastSeen || null);
+  return `<span class="chat-head-dot ${p.cls}"></span><span class="chat-head-st ${p.cls}">${_chatEsc(p.text)}</span><span class="chat-head-role"> · Vous répondez en tant que support</span>`;
+}
+// Présence connue INSTANTANÉMENT depuis l'inbox (users + threads déjà chargés) → l'en-tête s'affiche sans attendre le fetch.
+function _chatUserPresence(userId){
+  const uid = String(userId);
+  const u = ((_chatInboxData && _chatInboxData.users) || []).find(x => String(x.id) === uid)
+         || ((_chatInboxData && _chatInboxData.threads) || []).find(x => String(x.user_id) === uid);
+  return u ? { online: !!u.online, lastSeen: u.lastSeen || null } : null;
+}
+function _chatUpdateHeadPresence(d){
+  if (!_chatThreadUser || !d) return;
+  const s = document.getElementById('chat-head-sub'); if (!s) return;
+  s.innerHTML = _chatHeadPresenceHtml({ online: d.online, lastSeen: d.lastSeen });
+}
+function _chatHead(name, sub, showBack, showInput, presence){
   const n = document.getElementById('chat-head-name'); if (n) n.textContent = name;
-  const s = document.getElementById('chat-head-sub');  if (s) s.textContent = sub;
+  const s = document.getElementById('chat-head-sub');  if (s) { if (presence) s.innerHTML = _chatHeadPresenceHtml(presence); else s.textContent = sub; }
   const av = document.getElementById('chat-head-av');  if (av) av.textContent = (name||'?').charAt(0).toUpperCase();
   document.getElementById('chat-back')?.classList.toggle('hidden', !showBack);
   document.querySelector('.chat-input-bar')?.classList.toggle('hidden', !showInput);
@@ -8038,7 +8075,7 @@ function _chatMarkThreadRead(uid, lastText){
 function _chatOpenThread(userId, name){
   _chatThreadUser = userId; _chatThreadName = name;
   const sb = document.getElementById('chat-search-bar'); if (sb) sb.style.display = 'none';   // pas de recherche dans une conv
-  _chatHead(name, 'Vous répondez en tant que support', true, true);
+  _chatHead(name, 'Vous répondez en tant que support', true, true, _chatUserPresence(userId) || { online: false, lastSeen: null });
   const list = document.getElementById('chat-list');
   const cached = _chatMsgCache[userId];
   if (cached){ _chatSig = _sigMsgs(cached); _chatRender(cached); }   // instantané
@@ -8049,6 +8086,7 @@ function _chatOpenThread(userId, name){
     _chatPersistMsgs();
     const sig = _sigMsgs(msgs);
     if (sig !== _chatSig){ _chatSig = sig; _chatRender(msgs); }   // côté support : 'support'=droite, 'user'=gauche
+    _chatUpdateHeadPresence(d);    // présence FRAÎCHE (online/lastSeen) dans l'en-tête
     _chatMarkThreadRead(userId);   // lu → badge à jour TOUT DE SUITE (indépendant du cache serveur)
     _chatPollUnread();             // la conversation vient d'être lue → MAJ immédiate du badge
   }).catch(()=>{ /* échec transitoire : on garde le loader ; le live tick (4s) réessaie tout seul */ });

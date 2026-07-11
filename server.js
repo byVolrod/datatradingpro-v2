@@ -186,6 +186,20 @@ app.use(_sessionMw);
 // ─── Présence "en ligne" (suivi des connexions WebSocket par utilisateur) ─────
 const _onlineUsers = new Map();   // userId → nombre d'onglets/WS ouverts
 function _isUserOnline(id) { return _onlineUsers.has(String(id)); }
+// « Vu la dernière fois » : timestamp de la dernière présence (WS connect/disconnect). Persisté (survit
+// aux redéploiements) + flush périodique (pas à chaque event). Permet au support d'afficher « hors ligne
+// depuis 10 min » dans l'en-tête d'une conversation. _loadJsonMap est hoisté (function declaration).
+const _LASTSEEN_FILE = path.join(_CACHE_DIR, 'cache_lastseen.json');
+const _lastSeen = _loadJsonMap(_LASTSEEN_FILE);   // userId → ts
+let _lastSeenDirty = false;
+function _stampSeen(id) { if (id) { _lastSeen.set(String(id), Date.now()); _lastSeenDirty = true; } }
+function _userPresence(id) { const k = String(id); return { online: _onlineUsers.has(k), lastSeen: _lastSeen.get(k) || null }; }
+setInterval(() => {
+  if (!_lastSeenDirty) return;
+  _lastSeenDirty = false;
+  try { const cut = Date.now() - 30 * 24 * 3600 * 1000; for (const [k, v] of _lastSeen) if (!v || v < cut) _lastSeen.delete(k); } catch {}   // purge > 30 j
+  try { _saveJsonMap(_LASTSEEN_FILE, _lastSeen); } catch {}
+}, 120000).unref?.();
 function _wsUserIdFromReq(req) {
   try {
     const fakeRes = { end() {}, setHeader() {}, getHeader() {}, writeHead() {} };
@@ -1641,7 +1655,7 @@ app.get('/api/admin/chat', requireSupport, async (_req, res) => {
   try {
     const [threads, users] = await Promise.all([auth.chatThreads(), auth.getAllUsers()]);   // parallèle = 1 seul aller-retour
     const byId = new Map(users.map(u => [String(u.id), u]));
-    res.json({ threads: threads.map(t => ({ ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '' })) });
+    res.json({ threads: threads.map(t => { const p = _userPresence(t.user_id); return { ...t, name: byId.get(String(t.user_id))?.name || '', email: byId.get(String(t.user_id))?.email || '', online: p.online, lastSeen: p.lastSeen }; }) });
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // TOUS les utilisateurs (staff uniquement) avec statut "en ligne" → permet au support de
@@ -1653,7 +1667,7 @@ app.get('/api/support/users', requireSupport, async (req, res) => {
     res.json({
       users: users
         .filter(u => String(u.id) !== me)   // on ne se liste pas soi-même
-        .map(u => ({ id: u.id, name: u.name || '', email: u.email || '', role: u.role || 'user', online: _isUserOnline(u.id) }))
+        .map(u => { const p = _userPresence(u.id); return { id: u.id, name: u.name || '', email: u.email || '', role: u.role || 'user', online: p.online, lastSeen: p.lastSeen }; })
         .sort((a, b) => (b.online - a.online) || (a.name || a.email).localeCompare(b.name || b.email)),
     });
   } catch (e) { res.status(500).json({ error: e.message }); }
@@ -1662,7 +1676,8 @@ app.get('/api/admin/chat/:userId', requireSupport, async (req, res) => {
   try {
     const messages = await auth.chatList(req.params.userId);
     await auth.chatMarkRead(req.params.userId, 'user');   // l'admin a lu les messages de l'utilisateur
-    res.json({ messages, typing: _isTyping(req.params.userId, 'user') });   // le client est-il en train d'écrire ?
+    const p = _userPresence(req.params.userId);
+    res.json({ messages, typing: _isTyping(req.params.userId, 'user'), online: p.online, lastSeen: p.lastSeen });   // le client est-il en train d'écrire ? + presence pour l'en-tete
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 // Le support tape dans un thread → on le signale au client
@@ -11395,7 +11410,7 @@ wss.on('connection', (ws, req) => {
   const _uid = _wsUserIdFromReq(req);
   const _role = (req.session && req.session.user && req.session.user.role) || null;
   ws._uid = _uid; ws._role = _role;   // tag du socket → envoi CIBLE (notif chat instantanee, sans polling)
-  if (_uid) _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1);
+  if (_uid) { _onlineUsers.set(_uid, (_onlineUsers.get(_uid) || 0) + 1); _stampSeen(_uid); }   // present -> derniere presence = maintenant
 
   ws.send(JSON.stringify({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length }));
   // Envoyer aussi les session wraps et bank research au moment de la connexion
@@ -11404,7 +11419,7 @@ wss.on('connection', (ws, req) => {
 
   ws.on('error', err => console.error('[WS]', err.message));
   ws.on('close', () => {
-    if (_uid) { const n = (_onlineUsers.get(_uid) || 1) - 1; if (n <= 0) _onlineUsers.delete(_uid); else _onlineUsers.set(_uid, n); }
+    if (_uid) { const n = (_onlineUsers.get(_uid) || 1) - 1; if (n <= 0) { _onlineUsers.delete(_uid); _stampSeen(_uid); } else _onlineUsers.set(_uid, n); }   // dernier onglet fermé → « vu » = maintenant
     console.log(`[WS] Disconnected (${wss.clients.size} left)`);
   });
 });
