@@ -5239,6 +5239,25 @@ async function _pdfText(url) {
   return out;
 }
 
+// Variante depuis un Buffer déjà en mémoire (PDF RENDU côté serveur : hôtes SPA type Natixis,
+// où ni le HTML direct ni jina ne voient le corps de l'article). Mêmes bornes que _pdfText.
+async function _pdfTextFromBuffer(buf) {
+  if (!buf || !buf.length) return '';
+  let out = '', tmp = '';
+  try {
+    tmp = path.join(os.tmpdir(), 'dtp-pdfb-' + process.pid + '-' + Date.now() + '-' + (_pdfSeq++) + '.pdf');
+    fs.writeFileSync(tmp, buf);
+    out = await new Promise(resolve => {
+      execFile('pdftotext', ['-layout', '-f', '1', '-l', '3', tmp, '-'],
+        { timeout: 8000, maxBuffer: 4 * 1024 * 1024 },
+        (err, stdout) => resolve(err ? '' : (stdout || '')));
+    });
+    out = String(out).replace(/[ \t]+/g, ' ').replace(/\n{3,}/g, '\n\n').trim().slice(0, 5000);
+  } catch (e) { console.warn('[pdftext-buf]', (e && e.message) || e); out = ''; }
+  finally { if (tmp) { try { fs.unlinkSync(tmp); } catch {} } }
+  return out;
+}
+
 app.get('/api/bank-research-content', async (req, res) => {
   const { url } = req.query;
   // PDF natif (KBC/Goldman/Syz/BlackRock…) : pas de texte HTML → on extrait le TEXTE du PDF pour les AI
@@ -5268,14 +5287,38 @@ app.get('/api/bank-research-content', async (req, res) => {
     if (_hot && typeof _hot === 'object' && _hot.thin) {
       // Teaser « thin » (page SPA type Natixis) : l'AFFICHAGE reste le PDF rendu (renderUrl), mais on
       // fournit désormais du TEXTE pour les AI Insights (retour client : insights définitivement muets
-      // sur ces rapports). Cascade : texte déjà extrait (cache) → PDF natif (pdftotext) → lecteur r.jina.ai.
+      // sur ces rapports). Cascade : texte déjà extrait (cache) → PDF natif (pdftotext) → PDF RENDU
+      // (pdftotext sur le cache disque 30 j, sinon rendu one-shot qui PRÉ-CHAUFFE l'affichage) → jina.
+      // Sur Natixis, jina ne voit que la coquille du site (vérifié) : seul le PDF rendu a le corps.
       let _itxt = _hot.insightsText || '';
       if (!_itxt) {
         try {
+          const _toPara = t => { const _e = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); return t.split(/\n{2,}/).map(p => '<p>' + _e(p.trim()) + '</p>').join(''); };
+          // 1) PDF NATIF connu → pdftotext
           if (_hot.pdfUrl) {
             const _t = await _pdfText(_hot.pdfUrl);
-            if (_t && _t.length > 80) { const _e = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); _itxt = _t.split(/\n{2,}/).map(p => '<p>' + _e(p.trim()) + '</p>').join(''); }
+            if (_t && _t.length > 80) _itxt = _toPara(_t);
           }
+          // 2) PDF RENDU (SPA type Natixis : c'est LUI que l'affichage montre → il contient le VRAI corps).
+          //    Cache disque 30 j prioritaire (l'article déjà ouvert a son PDF prêt), sinon rendu one-shot.
+          if (!_itxt) {
+            const _target = _brRenderUrlFor(url, _brPrintMap.get(url));
+            if (_target) {
+              const _cf = _renderCacheFile(_target);
+              let _buf = null;
+              try { if (fs.existsSync(_cf)) _buf = fs.readFileSync(_cf); } catch {}
+              if (!_buf) {
+                try { _buf = await _renderPdf(_target); } catch {}
+                if (_buf && _buf.length >= 1200 && _buf.slice(0, 5).toString('latin1') === '%PDF-') { try { fs.writeFileSync(_cf, _buf); } catch {} }
+                else _buf = null;
+              }
+              if (_buf) {
+                const _t = await _pdfTextFromBuffer(_buf);
+                if (_t && _t.length > 80) _itxt = _toPara(_t);
+              }
+            }
+          }
+          // 3) Dernier recours : lecteur r.jina.ai (utile hors SPA ; sur Natixis il ne voit que la coquille)
           if (!_itxt) {
             const jr = await axios.get('https://r.jina.ai/' + url, { timeout: 25000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, validateStatus: s => s < 500 });
             if (jr.status === 200 && typeof jr.data === 'string') {
