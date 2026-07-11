@@ -5265,7 +5265,30 @@ app.get('/api/bank-research-content', async (req, res) => {
   // (le front retombe sur item.description / dateStr pour le sous-titre et la date).
   try {
     const _hot = _brSegCache.get(BR_SEG_VER + url);
-    if (_hot && typeof _hot === 'object' && _hot.thin) return res.json({ html: '', source: 'thin', pdfUrl: _hot.pdfUrl || '', renderUrl: (_hot.pdfUrl ? '' : _brRenderUrlFor(url, _brPrintMap.get(url))), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // teaser sans PDF intégré mais host rendable (Natixis SPA) → on REND (capture PDF serveur), sinon vrai PDF
+    if (_hot && typeof _hot === 'object' && _hot.thin) {
+      // Teaser « thin » (page SPA type Natixis) : l'AFFICHAGE reste le PDF rendu (renderUrl), mais on
+      // fournit désormais du TEXTE pour les AI Insights (retour client : insights définitivement muets
+      // sur ces rapports). Cascade : texte déjà extrait (cache) → PDF natif (pdftotext) → lecteur r.jina.ai.
+      let _itxt = _hot.insightsText || '';
+      if (!_itxt) {
+        try {
+          if (_hot.pdfUrl) {
+            const _t = await _pdfText(_hot.pdfUrl);
+            if (_t && _t.length > 80) { const _e = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); _itxt = _t.split(/\n{2,}/).map(p => '<p>' + _e(p.trim()) + '</p>').join(''); }
+          }
+          if (!_itxt) {
+            const jr = await axios.get('https://r.jina.ai/' + url, { timeout: 25000, headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' }, validateStatus: s => s < 500 });
+            if (jr.status === 200 && typeof jr.data === 'string') {
+              let md = jr.data; const mc = md.indexOf('Markdown Content:'); if (mc >= 0) md = md.slice(mc + 'Markdown Content:'.length);
+              const jhtml = _jinaMdToHtml(md.trim());
+              if (jhtml.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim().length > 300) _itxt = jhtml;
+            }
+          }
+          if (_itxt) { try { _brSegCache.set(BR_SEG_VER + url, { ..._hot, insightsText: _itxt }); } catch {} }   // upgrade du cache → prochains opens instantanés
+        } catch {}
+      }
+      return res.json({ html: '', insightsText: _itxt || '', source: 'thin', pdfUrl: _hot.pdfUrl || '', renderUrl: (_hot.pdfUrl ? '' : _brRenderUrlFor(url, _brPrintMap.get(url))), subtitle: '', date: '', section: 'Research', country: '', articleType: 'Article' });   // teaser sans PDF intégré mais host rendable (Natixis SPA) → on REND (capture PDF serveur), sinon vrai PDF
+    }
     if (typeof _hot === 'string' && _hot.length > 80) {
       // pdfUrl PRÉSERVÉ au cache chaud → réouverture = vrai PDF (backfill 1 fetch si jamais enregistré).
       const _pdf = _brPdfMap.has(url) ? (_brPdfMap.get(url) || '') : await _brBackfillPdf(url);
