@@ -8650,15 +8650,17 @@ async function _sbRetailRow() {
 
 // Fundamental Data RÉEL = 8 sous-indicateurs la référence dérivés du CALENDRIER (actual vs forecast, beat = haussier).
 // MÊME source + MÊME logique que l'accordéon client. Renvoie {parent, subs} → parent = agrégat des 8 (cohérent). 0 IA.
+// Sous-indicateurs alignés sur le PDF « Learning Economics News » (Inflation / Emploi / Croissance). Les libellés
+// DOIVENT correspondre aux CATS de scrapers/tradingeconomics.js (clé de jointure TE). NFP/PCE/PPI = US-only →
+// par devise on prend l'équivalent TE par pays. `inv:true` (chômage) : une surprise HAUSSIÈRE est BAISSIÈRE pour la devise.
 const _SB_FUND_SUBS = [
-  { label: 'Economic Growth',     re: /\bGDP\b|gross domestic|economic growth/i },
-  { label: 'Rising Prices',       re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price|pce price|core pce/i },
-  { label: 'Consumer Confidence', re: /consumer confidence|consumer sentiment|michigan|gfk|westpac consumer|anz.*confidence/i },
-  { label: 'Factory Activity',    re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur|tankan|ivey|manufacturing production/i },
-  { label: 'Service Activity',    re: /services? pmi|ism (services|non-manufactur)|tertiary industry/i },
-  { label: 'New Homes Started',   re: /housing starts|new home/i },
-  { label: 'Building Permits',    re: /building permits|building approvals|building consents/i },
-  { label: 'Retail Sales',        re: /retail sales|retail trade/i },
+  { label: 'Inflation (CPI)',    re: /\bCPI\b|inflation|consumer price|\bPPI\b|producer price|pce price|core pce/i },
+  { label: 'Emploi (chômage)',   re: /unemployment rate|jobless/i, inv: true },
+  { label: 'Salaires',           re: /average hourly earnings|wage growth|\bwages\b/i },
+  { label: 'Croissance (PIB)',   re: /\bGDP\b|gross domestic|economic growth/i },
+  { label: 'Ventes au détail',   re: /retail sales|retail trade/i },
+  { label: 'PMI Manufacturier',  re: /manufacturing pmi|\bfactory\b|industrial production|ism manufactur|tankan|ivey|manufacturing production/i },
+  { label: 'PMI Services',       re: /services? pmi|ism (services|non-manufactur)|tertiary industry/i },
 ];
 function _sbFundStanceServer(actual, forecast) {
   const num = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(x) ? null : x; };
@@ -8685,7 +8687,9 @@ async function _sbFundamentalRows() {
       const ev = (cal || [])                                                       // repli : surprise calendrier
         .filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && sub.re.test(e.title || ''))
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
-      values[c] = ev ? (_sbFundStanceServer(ev.actual, ev.forecast) || 'Neutral') : 'Neutral';
+      let st = ev ? (_sbFundStanceServer(ev.actual, ev.forecast) || 'Neutral') : 'Neutral';
+      if (sub.inv && st !== 'Neutral') st = (st === 'Bullish' ? 'Bearish' : st === 'Bearish' ? 'Bullish' : st);   // chômage : surprise haussière = baissier devise
+      values[c] = st;
     });
     return { label: sub.label, values };
   });
