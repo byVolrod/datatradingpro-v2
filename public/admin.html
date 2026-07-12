@@ -1560,7 +1560,7 @@
   function campPreview(type){
     window._cprevType = type; window._cprevVariant = null;   // reset variante quand on change de template
     _cprevLoad();
-    ['intro', 'decryptage', 'pointmarche', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
+    ['intro', 'decryptage', 'pointmarche', 'weekly', 'mindset', 'outlook'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
     // Temps reel : recharge l'apercu avec les donnees live toutes les 45 s (uniquement quand l'onglet est visible).
     if (window._cprevTimer) clearInterval(window._cprevTimer);
     window._cprevTimer = setInterval(function(){ if (document.visibilityState !== 'hidden') _cprevLoad(); }, 45000);
@@ -1569,7 +1569,7 @@
   function campPreviewInvit(v){
     window._cprevType = 'invitation'; window._cprevVariant = v;
     _cprevLoad();
-    ['intro', 'decryptage', 'pointmarche', 'weekly'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.remove('camp-btn--send'); });
+    ['intro', 'decryptage', 'pointmarche', 'weekly', 'mindset', 'outlook'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.remove('camp-btn--send'); });
     if (window._cprevTimer) clearInterval(window._cprevTimer);
     window._cprevTimer = setInterval(function(){ if (document.visibilityState !== 'hidden') _cprevLoad(); }, 45000);
   }

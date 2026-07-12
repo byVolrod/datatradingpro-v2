@@ -8897,12 +8897,16 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   SB_CURRENCIES.forEach(c => monetary[c] = monetaryAI[c] || (_prevMon && _prevMon.values && _prevMon.values[c]) || 'Neutral');
 
   // ── CONCLUSION = CONFLUENCE pondérée des lignes AFFICHÉES (façon pro) → elle DÉCOULE TOUJOURS de la
-  //    matrice (jamais de divergence opaque). Retail = CONTRARIAN (signe inversé via _SB_FLIP). Poids :
-  //    Fundamental prime (1.5), Saisonnalité secondaire (0.5), le reste (Bank, Hedge, Retail, Monetary, Trend) = 1. ──
+  //    matrice (jamais de divergence opaque). Retail = CONTRARIAN (signe inversé via _SB_FLIP).
+  //    POIDS (demande user) : la conclusion doit être basée PRINCIPALEMENT sur LES DONNÉES PUBLIÉES
+  //    RÉCEMMENT → « Données fondamentales » (agrégat des 8 sous-indicateurs macro = CPI/inflation,
+  //    croissance, activité, ventes, confiance…) porté à 3 (≈35 % de la conclusion, de loin le 1er pilier) ;
+  //    « Politique monétaire » (décisions/anticipations de taux, data-driven) renforcé à 1.5 ; Saisonnalité
+  //    secondaire (0.5) ; le reste (Bank, Hedge, Retail, Trend) = 1. Ajustable ici si l'on veut + / − de poids. ──
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
     const vals = [ fundamental[c], bankOverview[c], hedgeFund[c], (_SB_FLIP[retail[c]] || 'Neutral'), monetary[c], trend[c], seasonality[c] ];
-    const wts  = [ 1.5,            1,               1,            1,                                   1,           1,        0.5            ];
+    const wts  = [ 3,              1,               1,            1,                                   1.5,         1,        0.5            ];
     conclusion[c] = concludeBias(vals, wts);
   });
 
