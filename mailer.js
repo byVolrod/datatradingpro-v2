@@ -889,39 +889,28 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const insightsHtml = keyPts.length
     ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
     : '';
-  // Table CB d'ANTICIPATION (v18) : biais 5 niveaux + probas implicites de marché (hausse/maintien/baisse) +
-  // date de la prochaine réunion. Données déjà enrichies côté serveur (rateprobability). Teaser -> Desk pour le détail.
-  const _MOIS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
-  const _cbNextMail = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? (+m[3]) + ' ' + _MOIS_FR[(+m[2]) - 1] : ''; };
+  // Ton des banques centrales des 3 DEVISES VEDETTES (demande user) : 1 ligne = une phrase du président qui
+  // montre le ton (hawkish/dovish). On ne montre QUE ces 3 banques (pas les 8), sans décision/guidance/prochaine réunion.
   const _cbBiasCol = b => /hawk/i.test(b) ? '#e0863a' : /dov/i.test(b) ? '#3aa0e0' : '#9aa3b2';
-  const _cbCallMail = c => {
-    const sc = c.scenario;
-    if (sc) { const hi = Math.round(sc.hike || 0), ho = Math.round(sc.hold || 0), cu = Math.round(sc.cut || 0); const top = Math.max(hi, ho, cu); const w = top === hi ? 'hausse' : top === cu ? 'baisse' : 'maintien'; return `${w} attendu (${top}%)`; }
-    return c.move === 'HIKE' ? 'penche vers une hausse' : c.move === 'CUT' ? 'penche vers une baisse' : 'maintien attendu';
-  };
-  // Banques centrales EN LISTE (demande user) : par banque, du + important au meeting le + proche — décision de la
-  // semaine (+ phrase du discours), attente prochaine réunion (hausse/baisse/maintien) + guidance. Teaser -> Desk.
-  const cbListHtml = cbList.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Banques centrales, du plus important au meeting le plus proche (probabilités implicites de marché ; « est. » = estimation maison)&nbsp;:</p>
+  const _curSrc = (w.currencies && typeof w.currencies === 'object') ? w.currencies : {};
+  const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => _curSrc[c] && _curSrc[c].analysis && String(_curSrc[c].analysis).trim().length > 30).slice(0, 3);
+  const _cbTone = _curPick.map(code => cbList.find(c => c.code === code)).filter(Boolean).slice(0, 3);
+  const cbToneHtml = _cbTone.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Le ton des banques centrales des devises de la semaine&nbsp;:</p>
     <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;background:#0d0e11;">
-    ${cbList.slice(0, 8).map((c, i) => {
+    ${_cbTone.map((c, i) => {
       const bias = _md(c.bias5 || c.stance || 'Neutre');
-      const nx = c.next ? _cbNextMail(c.next) : '';
+      const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
+      const line = q ? ('« ' + _esc(_md(q.quote)) + ' »') : (c.guidance ? _esc(_cutTxt(_md(c.guidance), 170)) : (c.narrative ? _esc(_cutTxt(_md(c.narrative), 170)) : ''));
       const est = (c.source && c.source !== 'market') ? ' <span style="color:#7b828f;font-size:9px;font-weight:700;">est.</span>' : '';
-      const dec = c.decision ? `<div style="color:#cbd5e1;font-size:12px;margin-top:3px;"><strong style="color:#fff;">Cette semaine :</strong> ${_esc(_md(c.decision))}</div>` : '';
-      const guid = c.guidance ? _esc(_md(c.guidance)) : (c.narrative ? _esc(_cutTxt(_md(c.narrative), 200)) : '');
       return `<div style="padding:10px 12px;${i ? 'border-top:1px solid #1f1f24;' : ''}">
         <div><span style="color:#f3c344;font-weight:800;font-size:13px;">${_esc(_md(c.bank))}</span> <span style="color:${_cbBiasCol(bias)};font-weight:700;font-size:12px;">${_esc(bias)}</span>${est}</div>
-        ${dec}
-        <div style="color:#cbd5e1;font-size:12px;margin-top:3px;"><strong style="color:#fff;">Prochaine réunion${nx ? ` (${_esc(nx)})` : ''} :</strong> ${_esc(_cbCallMail(c))}</div>
-        ${guid ? `<div style="color:#9aa3b2;font-size:11.5px;margin-top:3px;line-height:1.5;">${guid}</div>` : ''}
+        ${line ? `<div style="color:#cbd5e1;font-size:12.5px;line-height:1.55;margin-top:3px;font-style:italic;">${line}</div>` : ''}
       </div>`;
     }).join('')}
     </div>` : '';
   // EXTRAIT du rapport, PAR DEVISE (demande user, remplace la phrase force-des-devises) : 1-2 phrases de
   // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
   let curHtml = '';
-  const _curSrc = (w.currencies && typeof w.currencies === 'object') ? w.currencies : {};
-  const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => _curSrc[c] && _curSrc[c].analysis && String(_curSrc[c].analysis).trim().length > 30).slice(0, 3);
   if (_curPick.length) {
     const rows = _curPick.map(c => `<tr><td style="padding:8px 0;border-top:1px solid #1f1f24;">
         <span style="color:#f3c344;font-weight:800;font-size:12.5px;">${c}</span>
@@ -953,8 +942,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${insightsHtml}
     ${curHtml}
     ${_widgetImg('strength', 'La force des devises')}
-    ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
-    ${cbListHtml}
+    ${cbToneHtml}
     <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par banque, guidance et propos, analyse par devise) vous attend sur le <strong style="color:#fff;">Desk</strong>&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
@@ -1430,6 +1418,41 @@ async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignI
 // ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
 // quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
 // Force des Devises. Règle « pas de données -> pas de mail » (renvoie null). 100% informatif, CTA adapté.
+// Bloc RECENTRÉ du Point Marché (demande user) : UNIQUEMENT le calendrier économique du jour (tableau Devise +
+// drapeau) et les actualités du jour (headlines consolidées des sections, hors tableau). Rien d'autre.
+function _pointMarcheDayBlock(sections, dateLabel, title) {
+  const secs = Array.isArray(sections) ? sections : [];
+  const dataSec = secs.find(s => s && s.kind === 'data' && Array.isArray(s.data) && s.data.length);
+  // NEWS DU JOUR = uniquement les HEADLINES (sections a puces). On EXCLUT les paragraphes narratifs (paras :
+  // Seance europeenne, Matieres premieres...) et le tableau data -> plus de narratif, juste les actus.
+  const seen = new Set(); const news = [];
+  for (const s of secs) {
+    if (!s || s.kind !== 'bullets' || !Array.isArray(s.items)) continue;
+    for (const it of s.items) { const t = String(it || '').replace(/\s+/g, ' ').trim(); const k = t.toLowerCase().slice(0, 60); if (t.length > 8 && !seen.has(k)) { seen.add(k); news.push(t); } }
+  }
+  if (!dataSec && !news.length) return '';
+  const _ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
+  const _flag = ccy => { const c = String(ccy || '').toUpperCase(); const iso = _ISO[c]; return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:5px;">` : '') + (c ? `<span style="color:#cbd5e1;font-weight:700;">${_esc(c)}</span>` : ''); };
+  const _th = (l, r) => `<td${r ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #26262b;">${l}</td>`;
+  const dataHtml = dataSec ? `<div style="margin:12px 0 5px;color:#f3c344;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">Calendrier économique du jour</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #26262b;border-radius:8px;border-collapse:separate;">
+    <tr>${_th('Devise')}${_th('Publication')}${_th('Réel', true)}${_th('Att.', true)}${_th('Préc.', true)}</tr>
+    ${dataSec.data.slice(0, 12).map(r => `<tr>
+      <td style="padding:7px 5px;border-top:1px solid #1f1f24;white-space:nowrap;font-size:11.5px;">${_flag(r.ccy)}</td>
+      <td style="padding:7px 5px;border-top:1px solid #1f1f24;color:#e6e6ea;font-size:12.5px;line-height:1.4;">${_esc(r.release || '')}</td>
+      <td align="right" style="padding:7px 5px;border-top:1px solid #1f1f24;color:#ffffff;font-weight:700;font-size:12.5px;white-space:nowrap;">${_esc(r.actual || '·')}</td>
+      <td align="right" style="padding:7px 5px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:12.5px;">${_esc(r.expected || '·')}</td>
+      <td align="right" style="padding:7px 5px;border-top:1px solid #1f1f24;color:#7b828f;font-size:12.5px;">${_esc(r.previous || '·')}</td>
+    </tr>`).join('')}
+    </table>` : '';
+  const newsHtml = news.length ? `<div style="margin:16px 0 5px;color:#f3c344;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">Les actualités du jour</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${news.slice(0, 10).map(t => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(t)}</td></tr>`).join('')}</table>` : '';
+  return `<div style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:14px 16px;margin:10px 0;">
+    <div style="color:#f3c344;font-weight:800;font-size:13.5px;">${_esc(title || 'Point Marché du jour')}</div>
+    ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:2px;">${_esc(dateLabel)}</div>` : ''}
+    ${dataHtml}${newsHtml}
+  </div>`;
+}
 function buildCampaignPointMarche({ name, email, campaign, context, isMember } = {}) {
   campaign = campaign || 'point-hebdo';
   const ctx = context || {};
@@ -1505,17 +1528,16 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // Leçon de clôture (une idée, originale DTP) : pourquoi cette lecture compte — sans pousser de position.
   const lessonHtml = `<p style="margin:16px 0 14px;color:#cbd5e1;">🎯 Un chiffre seul ne dit rien&nbsp;: c'est l'écart avec l'attendu, et ce que les banques centrales en font, qui fait bouger les devises. Cette lecture-là, le desk vous la donne en direct.</p>`;
 
+  // Point Marché RECENTRÉ (demande user) : UNIQUEMENT le calendrier économique du jour + les actualités du jour.
+  // Plus de sections narratives (Aperçu, Séance européenne, Matières premières...), plus de widget force.
+  const dayBlock = _pointMarcheDayBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title);
+  if (!dayBlock) return null;   // pas de calendrier ni d'actu du jour -> pas de mail
   const body = `
-    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 10px;font-size:15.5px;color:#ffffff;font-weight:700;">${hook}</p>
-    <p style="margin:0 0 6px;">${lead}</p>
-    ${movesHtml}
-    ${strengthWidget}
-    ${briefHtml}
-    ${tonesHtml}
-    ${lessonHtml}
+    <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 6px;">Voici l'essentiel du jour, droit au but&nbsp;: le calendrier économique et les actualités du marché.</p>
+    ${dayBlock}
     <div style="margin:18px 0 6px;">${cta.btn}</div>
-    <p style="margin:0 0 4px;">Bonne semaine,</p>
+    <p style="margin:0 0 4px;">Bonne journée,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
@@ -1534,7 +1556,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const subject = _subs[_wk % _subs.length];
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today']); }
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _send(d.to, m.subject, m.html); }
 
 // ── OUTLOOK (« la semaine a venir ») — agenda PUR, tourne vers l'avenir, SANS pousser de position. Reutilise le
 // VRAI widget calendrier du desk. Regle « pas de donnees -> pas de mail » (renvoie null).
