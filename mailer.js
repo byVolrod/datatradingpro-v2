@@ -1418,41 +1418,6 @@ async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignI
 // ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
 // quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
 // Force des Devises. Règle « pas de données -> pas de mail » (renvoie null). 100% informatif, CTA adapté.
-// Bloc RECENTRÉ du Point Marché (demande user) : UNIQUEMENT le calendrier économique du jour (tableau Devise +
-// drapeau) et les actualités du jour (headlines consolidées des sections, hors tableau). Rien d'autre.
-function _pointMarcheDayBlock(sections, dateLabel, title) {
-  const secs = Array.isArray(sections) ? sections : [];
-  const dataSec = secs.find(s => s && s.kind === 'data' && Array.isArray(s.data) && s.data.length);
-  // NEWS DU JOUR = uniquement les HEADLINES (sections a puces). On EXCLUT les paragraphes narratifs (paras :
-  // Seance europeenne, Matieres premieres...) et le tableau data -> plus de narratif, juste les actus.
-  const seen = new Set(); const news = [];
-  for (const s of secs) {
-    if (!s || s.kind !== 'bullets' || !Array.isArray(s.items)) continue;
-    for (const it of s.items) { const t = String(it || '').replace(/\s+/g, ' ').trim(); const k = t.toLowerCase().slice(0, 60); if (t.length > 8 && !seen.has(k)) { seen.add(k); news.push(t); } }
-  }
-  if (!dataSec && !news.length) return '';
-  const _ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
-  const _flag = ccy => { const c = String(ccy || '').toUpperCase(); const iso = _ISO[c]; return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:5px;">` : '') + (c ? `<span style="color:#cbd5e1;font-weight:700;">${_esc(c)}</span>` : ''); };
-  const _th = (l, r) => `<td${r ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #26262b;">${l}</td>`;
-  const dataHtml = dataSec ? `<div style="margin:12px 0 5px;color:#f3c344;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">Calendrier économique du jour</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #26262b;border-radius:8px;border-collapse:separate;">
-    <tr>${_th('Devise')}${_th('Publication')}${_th('Réel', true)}${_th('Att.', true)}${_th('Préc.', true)}</tr>
-    ${dataSec.data.slice(0, 12).map(r => `<tr>
-      <td style="padding:7px 5px;border-top:1px solid #1f1f24;white-space:nowrap;font-size:11.5px;">${_flag(r.ccy)}</td>
-      <td style="padding:7px 5px;border-top:1px solid #1f1f24;color:#e6e6ea;font-size:12.5px;line-height:1.4;">${_esc(r.release || '')}</td>
-      <td align="right" style="padding:7px 5px;border-top:1px solid #1f1f24;color:#ffffff;font-weight:700;font-size:12.5px;white-space:nowrap;">${_esc(r.actual || '·')}</td>
-      <td align="right" style="padding:7px 5px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:12.5px;">${_esc(r.expected || '·')}</td>
-      <td align="right" style="padding:7px 5px;border-top:1px solid #1f1f24;color:#7b828f;font-size:12.5px;">${_esc(r.previous || '·')}</td>
-    </tr>`).join('')}
-    </table>` : '';
-  const newsHtml = news.length ? `<div style="margin:16px 0 5px;color:#f3c344;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">Les actualités du jour</div>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${news.slice(0, 10).map(t => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(t)}</td></tr>`).join('')}</table>` : '';
-  return `<div style="background:#0f0f12;border:1px solid #26262b;border-radius:10px;padding:14px 16px;margin:10px 0;">
-    <div style="color:#f3c344;font-weight:800;font-size:13.5px;">${_esc(title || 'Point Marché du jour')}</div>
-    ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:2px;">${_esc(dateLabel)}</div>` : ''}
-    ${dataHtml}${newsHtml}
-  </div>`;
-}
 function buildCampaignPointMarche({ name, email, campaign, context, isMember } = {}) {
   campaign = campaign || 'point-hebdo';
   const ctx = context || {};
@@ -1528,16 +1493,17 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // Leçon de clôture (une idée, originale DTP) : pourquoi cette lecture compte — sans pousser de position.
   const lessonHtml = `<p style="margin:16px 0 14px;color:#cbd5e1;">🎯 Un chiffre seul ne dit rien&nbsp;: c'est l'écart avec l'attendu, et ce que les banques centrales en font, qui fait bouger les devises. Cette lecture-là, le desk vous la donne en direct.</p>`;
 
-  // Point Marché RECENTRÉ (demande user) : UNIQUEMENT le calendrier économique du jour + les actualités du jour.
-  // Plus de sections narratives (Aperçu, Séance européenne, Matières premières...), plus de widget force.
-  const dayBlock = _pointMarcheDayBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title);
-  if (!dayBlock) return null;   // pas de calendrier ni d'actu du jour -> pas de mail
   const body = `
-    <p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 6px;">Voici l'essentiel du jour, droit au but&nbsp;: le calendrier économique et les actualités du marché.</p>
-    ${dayBlock}
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 10px;font-size:15.5px;color:#ffffff;font-weight:700;">${hook}</p>
+    <p style="margin:0 0 6px;">${lead}</p>
+    ${movesHtml}
+    ${strengthWidget}
+    ${briefHtml}
+    ${tonesHtml}
+    ${lessonHtml}
     <div style="margin:18px 0 6px;">${cta.btn}</div>
-    <p style="margin:0 0 4px;">Bonne journée,</p>
+    <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
@@ -1556,7 +1522,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const subject = _subs[_wk % _subs.length];
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _send(d.to, m.subject, m.html); }
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today']); }
 
 // ── OUTLOOK (« la semaine a venir ») — agenda PUR, tourne vers l'avenir, SANS pousser de position. Reutilise le
 // VRAI widget calendrier du desk. Regle « pas de donnees -> pas de mail » (renvoie null).
