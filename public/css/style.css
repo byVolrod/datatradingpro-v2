@@ -5058,7 +5058,18 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-narr strong, .wr-cb-a strong { color:#fff; font-weight:var(--fw-semibold); }
 /* Weekly Recap v18 — Banques Centrales NIVEAU INSTITUTIONNEL (biais 5 niveaux + probas marché + prochaine réunion) */
 .wr-cb-card { margin-bottom:10px; }
-.wr-cb-intro { color:#8b93a1; font-size:12px; line-height:1.55; font-style:italic; margin:2px 0 12px; }
+.wr-cb-intro { color:#8b93a1; font-size:12px; line-height:1.55; margin:2px 0 12px; }
+/* v20 : Banques Centrales EN LISTE (par banque : decision + prochaine reunion + guidance + propos) */
+.wr-cb-list { display:flex; flex-direction:column; gap:8px; margin:2px 0 4px; }
+.wr-cb-li { background:#0f0f12; border:1px solid #17171c; border-left:2px solid #e3b23a; border-radius:6px; padding:10px 13px; }
+.wr-cb-li-head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:5px; }
+.wr-cb-li-name { font-family:var(--tight); font-weight:var(--fw-bold); font-size:14px; color:#e8eaed; }
+.wr-cb-li-rate { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:#9aa3b2; }
+.wr-cb-li-row { font-size:12.5px; line-height:1.55; color:#c9d1d9; margin:2px 0; }
+.wr-cb-li-row b { color:#e8eaed; }
+.wr-cb-li-k { font-family:var(--tight); font-size:9.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#e3b23a; margin-right:5px; }
+.wr-cb-li-guid { color:#aeb6c2; }
+.wr-cb-li-quote { margin:6px 0 0; padding-left:11px; border-left:2px solid rgba(227,178,58,.4); }
 .wr-cb-bias { font-family:var(--tight); font-weight:800; font-size:10px; letter-spacing:.04em; padding:2px 9px; border-radius:20px; white-space:nowrap; }
 .wr-cb-bias--vhawk { color:#0c0c0e; background:#c94f3d; }
 .wr-cb-bias--hawk  { color:#0c0c0e; background:#e0863a; }

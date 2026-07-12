@@ -6395,37 +6395,38 @@ function _wrCbProbaBar(sc) {
     </div>
     <div class="wr-cb-bar"><i class="wr-cb-bar--hike" style="width:${h}%"></i><i class="wr-cb-bar--hold" style="width:${o}%"></i><i class="wr-cb-bar--cut" style="width:${c}%"></i></div>`;
 }
+// Attente pour la PROCHAINE réunion (mot + proba dominante) depuis le scénario marché, sinon la trajectoire.
+function _wrCbCall(c) {
+  const sc = c.scenario;
+  if (sc) {
+    const hi = Math.round(sc.hike || 0), ho = Math.round(sc.hold || 0), cu = Math.round(sc.cut || 0);
+    const top = Math.max(hi, ho, cu);
+    const word = top === hi ? 'hausse' : top === cu ? 'baisse' : 'maintien';
+    return `${word} attendu (${top}%)`;
+  }
+  return c.move === 'HIKE' ? 'penche vers une hausse' : c.move === 'CUT' ? 'penche vers une baisse' : 'maintien attendu';
+}
+// Section Banques Centrales EN LISTE (demande user) : par banque, du + important au meeting le + proche —
+// décision de la semaine (+ phrase du discours), attente prochaine réunion (hausse/baisse/maintien) + guidance, propos.
 function _wrCbSection(cbs) {
   const list = (cbs || []).filter(c => c && c.bank);
   if (!list.length) return '';
-  const majors = list.filter(c => _WR_CB_MAJORS[c.code]);
-  const minors = list.filter(c => !_WR_CB_MAJORS[c.code]);
   let h = `<div class="wr-section-title">Banques Centrales</div>`
-    + `<div class="wr-cb-intro">Anticipation de la prochaine décision de politique monétaire : biais, probabilités et signaux de communication. Probabilités = <b>implicites de marché</b> (pas une prévision DTP) quand le taux est coté ; <b>estimation maison DTP</b> (marqué « est. maison ») pour les banques non cotées (ex. SNB, RBNZ).</div>`;
-  (majors.length ? majors : list).forEach(c => {
+    + `<div class="wr-cb-intro">Par banque, du plus important au meeting le plus proche : décision de la semaine, orientation pour la prochaine réunion (hausse, baisse ou maintien) et guidance. Probabilités = <b>implicites de marché</b> (pas une prévision DTP) quand le taux est coté ; <b>estimation maison</b> (« est. maison ») sinon.</div>`
+    + `<div class="wr-cb-list">`;
+  list.forEach(c => {
     const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
-    const q = (c.quotes && c.quotes.length)
-      ? `<div class="wr-cb-quotes"><div class="wr-cb-lbl">Propos & anticipation</div>${c.quotes.map(x => `<div class="wr-cb-quote"><div class="wr-cb-q">${_wrEsc(x.quote)}</div><div class="wr-cb-a">${_wrInline(x.analysis)}</div></div>`).join('')}</div>` : '';
-    h += `<div class="wr-cb-card">
-      <div class="wr-cb-head"><span class="wr-cb-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}${c.rate != null ? `<span class="wr-cb-rate">taux ${_wrEsc(String(c.rate))}%</span>` : ''}</div>
-      ${_wrCbProbaBar(c.scenario)}
-      <div class="wr-cb-next">Prochaine réunion : <b>${_wrEsc(_wrCbNextFr(c.next, c.nextDays))}</b> · ${_wrEsc(_wrCbMoveLbl(c.move))}</div>
-      ${c.narrative ? `<div class="wr-cb-block"><span class="wr-cb-lbl">Résumé</span><div class="wr-cb-txt">${_wrInline(c.narrative)}</div></div>` : ''}
-      ${c.changed ? `<div class="wr-cb-block"><span class="wr-cb-lbl">Ce qui a changé</span><div class="wr-cb-txt">${_wrInline(c.changed)}</div></div>` : ''}
-      ${c.factors ? `<div class="wr-cb-block"><span class="wr-cb-lbl">À surveiller</span><div class="wr-cb-txt">${_wrInline(c.factors)}</div></div>` : ''}
-      ${c.fxImpact ? `<div class="wr-cb-block"><span class="wr-cb-lbl">Impact devise</span><div class="wr-cb-txt">${_wrInline(c.fxImpact)}</div></div>` : ''}
-      ${q}
-    </div>`;
+    const nextFr = _wrCbNextFr(c.next, c.nextDays);
+    const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
+    h += `<div class="wr-cb-li">`
+      + `<div class="wr-cb-li-head"><span class="wr-cb-li-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}${c.rate != null ? `<span class="wr-cb-li-rate">taux ${_wrEsc(String(c.rate))}%</span>` : ''}</div>`
+      + (c.decision ? `<div class="wr-cb-li-row"><span class="wr-cb-li-k">Cette semaine</span> ${_wrInline(c.decision)}</div>` : '')
+      + `<div class="wr-cb-li-row"><span class="wr-cb-li-k">Prochaine réunion</span> <b>${_wrEsc(nextFr)}</b> : ${_wrEsc(_wrCbCall(c))}${c.move ? ` · ${_wrEsc(_wrCbMoveLbl(c.move))}` : ''}</div>`
+      + ((c.guidance || c.narrative) ? `<div class="wr-cb-li-row wr-cb-li-guid">${_wrInline(c.guidance || c.narrative)}</div>` : '')
+      + (q ? `<div class="wr-cb-li-quote"><div class="wr-cb-q">${_wrEsc(q.quote)}</div><div class="wr-cb-a">${_wrInline(q.analysis)}</div></div>` : '')
+      + `</div>`;
   });
-  if (majors.length && minors.length) {
-    h += `<div class="wr-cb-mini-head">Autres banques centrales</div><div class="wr-cb-mini-wrap">`;
-    minors.forEach(c => {
-      const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
-      const sc = c.scenario;
-      h += `<div class="wr-cb-mini"><span class="wr-cb-mini-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}${sc ? `<span class="wr-cb-mini-proba">H ${Math.round(sc.hike || 0)}% · M ${Math.round(sc.hold || 0)}% · B ${Math.round(sc.cut || 0)}%</span>` : ''}<span class="wr-cb-mini-next">${_wrEsc(_wrCbNextFr(c.next, c.nextDays))}</span></div>`;
-    });
-    h += `</div>`;
-  }
+  h += `</div>`;
   return h;
 }
 // ── Section Calendrier économique du Weekly Recap (v18) : À VENIR (majeurs, + proche d'abord) puis
@@ -6587,7 +6588,7 @@ function _renderWeeklyRecap(item) {
     // ── Banques Centrales : SECTION INSTITUTIONNELLE dédiée (v18) — 4 majeures complètes + 4 brèves,
     //    biais 5 niveaux + probas marché + prochaine réunion + ce qui a changé / à surveiller / impact devise + propos. ──
     body += _wrCbSection(w.centralBanks);
-    body += _wrCalSection(w.calendar);   // Calendrier économique : à venir (majeurs) + cette semaine
+    // Calendrier économique RETIRÉ du Weekly Market Recap (demande user) : il vit dans le Global Economic Weekly.
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
       body += `<div class="wr-section-title">Analyse par devise</div>`;
