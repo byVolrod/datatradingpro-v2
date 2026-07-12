@@ -6460,6 +6460,16 @@ function _wrCalSection(cal) {
   if ((cal.past || []).length) h += `<div class="wr-cal-sub">Cette semaine (publié)</div>` + _wrCalDays(cal.past, true);
   return h;
 }
+// Drapeau pour le calendrier du Global Economic Weekly : mappe le NOM DE PAYS (ou la devise) -> ISO2 flagcdn.
+const _GEW_CTRY_ISO = { 'united states': 'us', 'united kingdom': 'gb', 'euro area': 'eu', eurozone: 'eu', 'euro zone': 'eu', germany: 'de', france: 'fr', italy: 'it', spain: 'es', netherlands: 'nl', switzerland: 'ch', swiss: 'ch', japan: 'jp', canada: 'ca', australia: 'au', 'new zealand': 'nz', china: 'cn', britain: 'gb' };
+const _GEW_CCY_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
+function _gewFlag(country, ccy) {
+  const s = String(country || '').toLowerCase().trim();
+  let iso = ({ us: 'us', uk: 'gb', eu: 'eu' })[s] || null;                 // codes courts exacts
+  if (!iso) for (const k in _GEW_CTRY_ISO) { if (s === k || s.includes(k)) { iso = _GEW_CTRY_ISO[k]; break; } }
+  if (!iso && ccy) iso = _GEW_CCY_ISO[String(ccy).toUpperCase()] || null;   // repli devise
+  return iso ? `<img class="gew-flag" src="https://flagcdn.com/w20/${iso}.png" alt="" width="18" height="13">` : '';
+}
 function _renderWeeklyRecap(item) {
   const w = item._weekly || {};
   const titleEl    = document.getElementById('arlib-rnav-title');
@@ -6551,14 +6561,15 @@ function _renderWeeklyRecap(item) {
       w.days.forEach(d => {
         body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(_gewDayFr(d.day))}${d.date ? `<span class="gew-day-date">${_wrEsc(_gewDayFr(d.date))}</span>` : ''}</div>`;
         (d.events || []).forEach(e => {
+          const _actCls = (typeof deviationClass === 'function') ? deviationClass(e.actual, e.forecast) : '';   // surprise : vert si > consensus, rouge si <
           body += `<div class="gew-ev gew-ev--${_impCls(e.impact)}"><div class="gew-ev-top">`
             + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
-            + `<span class="gew-ev-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</span>`
+            + `<span class="gew-ev-ttl">${_gewFlag(e.country, e.ccy)}${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</span>`
             + (e.impact ? `<span class="gew-imp gew-imp--${_impCls(e.impact)}">${_wrEsc(_impLbl(e.impact))}</span>` : '')
             + `</div>`;
           if (e.actual || e.forecast || e.previous) {
             body += `<div class="gew-ev-cons">`
-              + (e.actual ? `<span class="gew-cons gew-cons--actual"><i>Réel</i><b>${_wrEsc(e.actual)}</b></span>` : '')
+              + (e.actual ? `<span class="gew-cons gew-cons--actual"><i>Réel</i><b class="${_actCls}">${_wrEsc(e.actual)}</b></span>` : '')
               + (e.forecast ? `<span class="gew-cons"><i>Consensus</i><b>${_wrEsc(e.forecast)}</b></span>` : '')
               + (e.previous ? `<span class="gew-cons"><i>Précédent</i><b>${_wrEsc(e.previous)}</b></span>` : '')
               + `</div>`;

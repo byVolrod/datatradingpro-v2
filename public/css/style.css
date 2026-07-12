@@ -5110,8 +5110,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .gew-day { margin:20px 0 6px; }
 .gew-day-h { color:#e3b23a; font-size:13px; font-weight:var(--fw-bold); letter-spacing:.04em; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; align-items:baseline; gap:10px; }
 .gew-day-date { color:#7a8493; font-size:11px; font-weight:var(--fw-semibold); }
-.gew-ev { padding:9px 0; border-bottom:1px solid #16171b; }
+.gew-ev { padding:9px 0 9px 11px; border-bottom:1px solid #16171b; border-left:2px solid #1c1d22; }
+.gew-ev--high { border-left-color:#ff3d00; background:rgba(255,61,0,.03); }
+.gew-ev--med  { border-left-color:rgba(255,179,0,.42); }
 .gew-ev:last-child { border-bottom:none; }
+.gew-flag { border-radius:2px; margin-right:6px; vertical-align:-2px; flex:0 0 auto; }
 .gew-ev-top { display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; }
 .gew-ev-time { font-family:var(--font-mono); font-size:10px; color:#7a8493; min-width:64px; }
 .gew-ev-ttl { color:#d6dde6; font-size:13px; flex:1; min-width:160px; line-height:1.4; }
