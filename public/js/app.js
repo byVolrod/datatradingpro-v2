@@ -6373,6 +6373,59 @@ let _wrChartObserver = null;
 
 // Rapport complet, lu de haut en bas (PAS de badges) : Éclairages IA → Résumé → Points Macro Clés
 // → Currency Analysis (chaque devise à la suite : analyse + courbe ISOLÉE + drivers).
+// ── Section Banques Centrales NIVEAU INSTITUTIONNEL (Weekly Recap v18) : 4 majeures en bloc complet
+//    (Fed/BCE/BoE/BoJ) + 4 breves (BoC/RBA/RBNZ/SNB). Donnees = w.centralBanks enrichi cote serveur
+//    (bias5 + scenario proba MARCHE + prochaine reunion + changed/factors/fxImpact + propos). ──
+const _WR_CB_BIAS_CLS = { 'Très hawkish': 'vhawk', 'Hawkish': 'hawk', 'Neutre': 'neu', 'Dovish': 'dov', 'Très dovish': 'vdov' };
+const _WR_CB_MAJORS = { USD: 1, EUR: 1, GBP: 1, JPY: 1 };
+function _wrCbNextFr(next, nextDays) {
+  if (!next) return 'à confirmer';
+  try { const d = new Date(next + 'T00:00:00'); const s = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); return s + (nextDays != null ? ` (dans ${nextDays} j)` : ''); } catch { return next; }
+}
+function _wrCbMoveLbl(move) { return move === 'HIKE' ? 'penche vers une hausse' : move === 'CUT' ? 'penche vers une baisse' : 'maintien attendu'; }
+function _wrCbProbaBar(sc) {
+  if (!sc) return '';
+  const h = Math.round(sc.hike || 0), o = Math.round(sc.hold || 0), c = Math.round(sc.cut || 0);
+  return `<div class="wr-cb-proba">
+      <span class="wr-cb-prob"><i class="wr-cb-dot wr-cb-dot--hike"></i>Hausse <b>${h}%</b></span>
+      <span class="wr-cb-prob"><i class="wr-cb-dot wr-cb-dot--hold"></i>Maintien <b>${o}%</b></span>
+      <span class="wr-cb-prob"><i class="wr-cb-dot wr-cb-dot--cut"></i>Baisse <b>${c}%</b></span>
+    </div>
+    <div class="wr-cb-bar"><i class="wr-cb-bar--hike" style="width:${h}%"></i><i class="wr-cb-bar--hold" style="width:${o}%"></i><i class="wr-cb-bar--cut" style="width:${c}%"></i></div>`;
+}
+function _wrCbSection(cbs) {
+  const list = (cbs || []).filter(c => c && c.bank);
+  if (!list.length) return '';
+  const majors = list.filter(c => _WR_CB_MAJORS[c.code]);
+  const minors = list.filter(c => !_WR_CB_MAJORS[c.code]);
+  let h = `<div class="wr-section-title">Banques Centrales</div>`
+    + `<div class="wr-cb-intro">Anticipation de la prochaine décision de politique monétaire : biais, probabilités implicites de marché et signaux de communication (probabilités = pricing de marché, pas une prévision DTP).</div>`;
+  (majors.length ? majors : list).forEach(c => {
+    const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
+    const q = (c.quotes && c.quotes.length)
+      ? `<div class="wr-cb-quotes"><div class="wr-cb-lbl">Propos & anticipation</div>${c.quotes.map(x => `<div class="wr-cb-quote"><div class="wr-cb-q">${_wrEsc(x.quote)}</div><div class="wr-cb-a">${_wrInline(x.analysis)}</div></div>`).join('')}</div>` : '';
+    h += `<div class="wr-cb-card">
+      <div class="wr-cb-head"><span class="wr-cb-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${c.rate != null ? `<span class="wr-cb-rate">taux ${_wrEsc(String(c.rate))}%</span>` : ''}</div>
+      ${_wrCbProbaBar(c.scenario)}
+      <div class="wr-cb-next">Prochaine réunion : <b>${_wrEsc(_wrCbNextFr(c.next, c.nextDays))}</b> · ${_wrEsc(_wrCbMoveLbl(c.move))}</div>
+      ${c.narrative ? `<div class="wr-cb-block"><span class="wr-cb-lbl">Résumé</span><div class="wr-cb-txt">${_wrInline(c.narrative)}</div></div>` : ''}
+      ${c.changed ? `<div class="wr-cb-block"><span class="wr-cb-lbl">Ce qui a changé</span><div class="wr-cb-txt">${_wrInline(c.changed)}</div></div>` : ''}
+      ${c.factors ? `<div class="wr-cb-block"><span class="wr-cb-lbl">À surveiller</span><div class="wr-cb-txt">${_wrInline(c.factors)}</div></div>` : ''}
+      ${c.fxImpact ? `<div class="wr-cb-block"><span class="wr-cb-lbl">Impact devise</span><div class="wr-cb-txt">${_wrInline(c.fxImpact)}</div></div>` : ''}
+      ${q}
+    </div>`;
+  });
+  if (majors.length && minors.length) {
+    h += `<div class="wr-cb-mini-head">Autres banques centrales</div><div class="wr-cb-mini-wrap">`;
+    minors.forEach(c => {
+      const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
+      const sc = c.scenario;
+      h += `<div class="wr-cb-mini"><span class="wr-cb-mini-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${sc ? `<span class="wr-cb-mini-proba">H ${Math.round(sc.hike || 0)}% · M ${Math.round(sc.hold || 0)}% · B ${Math.round(sc.cut || 0)}%</span>` : ''}<span class="wr-cb-mini-next">${_wrEsc(_wrCbNextFr(c.next, c.nextDays))}</span></div>`;
+    });
+    h += `</div>`;
+  }
+  return h;
+}
 function _renderWeeklyRecap(item) {
   const w = item._weekly || {};
   const titleEl    = document.getElementById('arlib-rnav-title');
@@ -6498,8 +6551,9 @@ function _renderWeeklyRecap(item) {
         (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
       });
     }
-    // ── Banques Centrales : rendues DANS les Points Macro Clés (thème « Banques Centrales », 1 puce par banque),
-    //    injecté côté serveur dans w.macro (demande user). Plus de section séparée en cartes ici. ──
+    // ── Banques Centrales : SECTION INSTITUTIONNELLE dédiée (v18) — 4 majeures complètes + 4 brèves,
+    //    biais 5 niveaux + probas marché + prochaine réunion + ce qui a changé / à surveiller / impact devise + propos. ──
+    body += _wrCbSection(w.centralBanks);
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
       body += `<div class="wr-section-title">Analyse par devise</div>`;

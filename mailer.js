@@ -876,7 +876,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const w = weekly || {};
   const _md = s => String(s == null ? '' : s).replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim();
   const insights = (Array.isArray(w.insights) ? w.insights : []).map(t => _md(typeof t === 'string' ? t : (t && t.text))).filter(Boolean);
-  const cbs = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && c.bank).slice(0, 2);
+  const cbList = (Array.isArray(w.centralBanks) ? w.centralBanks : []).filter(c => c && c.bank);
   const lead = _md(w.summary) || insights[0] || '';
   if (!lead && !insights.length) return null;
   const prenomRaw = (name || '').split(' ')[0] || '';
@@ -889,7 +889,27 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const insightsHtml = keyPts.length
     ? `<p style="margin:0 0 6px;color:#9aa3b2;font-size:12.5px;">Les points clés de la semaine&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 8px;">${keyPts.map(p => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:13.5px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(p).slice(0, 240)}</td></tr>`).join('')}</table>`
     : '';
-  const cbHtml = cbs.map(c => `<li style="margin:4px 0;"><strong style="color:#fff;">${_esc(c.bank)}</strong>${c.stance ? ' : <span style="color:#f3c344;">' + _esc(_md(c.stance)) + '</span>' : ''}</li>`).join('');
+  // Table CB d'ANTICIPATION (v18) : biais 5 niveaux + probas implicites de marché (hausse/maintien/baisse) +
+  // date de la prochaine réunion. Données déjà enrichies côté serveur (rateprobability). Teaser -> Desk pour le détail.
+  const _MOIS_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  const _cbNextMail = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? (+m[3]) + ' ' + _MOIS_FR[(+m[2]) - 1] : ''; };
+  const _cbBiasCol = b => /hawk/i.test(b) ? '#e0863a' : /dov/i.test(b) ? '#3aa0e0' : '#9aa3b2';
+  const _cbTh = t => `<td style="padding:6px 10px;color:#8b93a1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;${t === 'r' ? 'text-align:right;' : ''}">${t === 'b' ? 'Banque' : t === 'i' ? 'Biais' : t === 'p' ? 'Hausse / Maintien / Baisse' : 'Prochaine'}</td>`;
+  const cbTableHtml = cbList.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Banques centrales, anticipation de la prochaine décision (probabilités implicites de marché, pas une prévision)&nbsp;:</p>
+    <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">
+    <tr style="background:#101012;">${_cbTh('b')}${_cbTh('i')}${_cbTh('p')}${_cbTh('r')}</tr>
+    ${cbList.slice(0, 8).map(c => {
+      const sc = c.scenario; const bias = _md(c.bias5 || c.stance || 'Neutre');
+      const proba = sc ? `${Math.round(sc.hike || 0)} / ${Math.round(sc.hold || 0)} / ${Math.round(sc.cut || 0)}%` : '—';
+      const nx = c.next ? _cbNextMail(c.next) : '—';
+      return `<tr>
+        <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#fff;font-size:12.5px;font-weight:700;white-space:nowrap;">${_esc(_md(c.bank))}</td>
+        <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:${_cbBiasCol(bias)};font-size:12px;font-weight:700;white-space:nowrap;">${_esc(bias)}</td>
+        <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#cbd5e1;font-size:12px;">${_esc(proba)}</td>
+        <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;">${_esc(nx)}</td>
+      </tr>`;
+    }).join('')}
+    </table></div>` : '';
   // EXTRAIT du rapport, PAR DEVISE (demande user, remplace la phrase force-des-devises) : 1-2 phrases de
   // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
   let curHtml = '';
@@ -910,7 +930,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${curHtml}
     ${_widgetImg('strength', 'La force des devises')}
     ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
-    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par devise, banques centrales, points macro) vous attend sur le <strong style="color:#fff;">Desk</strong>&nbsp;:</p>
+    ${cbTableHtml}
+    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par banque avec probabilités, propos et impact devise, calendrier économique, analyse par devise) vous attend sur le <strong style="color:#fff;">Desk</strong>&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
