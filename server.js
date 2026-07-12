@@ -7923,10 +7923,8 @@ function _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows }) {
   if (geo.length) secs.push({ title: 'GÉOPOLITIQUE', kind: 'bullets', items: geo });
   const com = pick(/\b(oil|crude|brent|wti|gold|or\b|gas|copper|opec|commodit|metal|lng)\b/i, 6);
   if (com.length) secs.push({ title: 'MATIÈRES PREMIÈRES', kind: 'bullets', items: com });
-  if (dataRows && dataRows.length) {
-    secs.push({ title: 'DONNÉES ÉCONOMIQUES', kind: 'data', data: dataRows.slice(0, 14).map(e => ({
-      release: String(e.title || '').slice(0, 96), period: '', actual: String(e.actual || ''), expected: String(e.forecast || ''), previous: String(e.previous || '') })) });
-  }
+  const _eco = _buildEcoDataSection(dataRows);
+  if (_eco) secs.push(_eco);
   return {
     v: DTPD_VER, day: dayKey, _ai: false, dateLabel,
     title: 'Point Marché — Ouverture US — ' + dateLabel,
@@ -7962,11 +7960,11 @@ async function generateDTPDaily(force = false) {
     let calItems = [];
     try { calItems = await _buildTVCalendar(); } catch {}
     if (!Array.isArray(calItems) || !calItems.length) calItems = (_tvCalCache.items || []);
-    const dataRows = (calItems || []).filter(e => e && e.actual && e.actual !== '' && inWin(e.timestamp || 0))
+    const dataRows = (calItems || []).filter(e => e && ((e.actual && e.actual !== '') || _isMajorCal(e)) && inWin(e.timestamp || 0))   // garde les MAJEURS (FOMC/CPI/NFP...) meme sans actual publie
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     const dataLines = dataRows.slice(0, 50).map(e => {
       const c = _fxrCcyCtry[e.currency] || e.currency || '';
-      return `- [${c}] ${String(e.title || '').slice(0, 90)}: actual ${e.actual}${e.forecast ? ` (exp ${e.forecast})` : ''}${e.previous ? ` (prev ${e.previous})` : ''}`;
+      return `- [${c}] ${String(e.title || '').slice(0, 90)}: actual ${e.actual || 'n/a'}${e.forecast ? ` (exp ${e.forecast})` : ''}${e.previous ? ` (prev ${e.previous})` : ''}`;
     });
 
     let csLine = '';
@@ -8044,7 +8042,13 @@ ${biasLine || '(n/d)'}`;
         aiNote('dtpdaily');
         const m = text.match(/\{[\s\S]*\}/);
         const parsed = m ? JSON.parse(m[0]) : null;
-        if (parsed && Array.isArray(parsed.sections) && parsed.sections.length) dtpd = _dtpdSanitize(parsed, dayKey, dateLabel);
+        if (parsed && Array.isArray(parsed.sections) && parsed.sections.length) {
+          dtpd = _dtpdSanitize(parsed, dayKey, dateLabel);
+          // La section DONNÉES ÉCONOMIQUES vient TOUJOURS du vrai calendrier (devise + impact + majeurs
+          // garantis), jamais de l'IA (qui omettait le FOMC et n'avait pas la devise). On remplace.
+          const eco = _buildEcoDataSection(dataRows);
+          if (eco) { dtpd.sections = (dtpd.sections || []).filter(s => s.kind !== 'data'); dtpd.sections.push(eco); }
+        }
       } catch (e) { console.warn('[DTP Daily] IA échec → repli déterministe:', e.message); }
     }
     if (!dtpd || !dtpd.sections || !dtpd.sections.length) dtpd = _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows });
@@ -12989,6 +12993,22 @@ const _CAL_FAMILY = [
   { re: /fed interest rate decision|federal funds rate|\bfomc\s+(?:statement|economic projections|press conference|rate)\b|interest rate decision|rate decision\b/i, indicator: 'Décision de taux', family: 'Politique monetaire' },
 ];
 function _calClassify(title) { const t = String(title || ''); for (const m of _CAL_FAMILY) { if (m.re.test(t)) return { indicator: m.indicator, family: m.family }; } return null; }
+// Événement calendrier MAJEUR (tier-1) = à ne JAMAIS omettre (demande user « pourquoi pas de FOMC ? »).
+// Couvre : impact High, familles pédagogiques (_calClassify), + décisions de taux de TOUTE banque centrale
+// (pas seulement la Fed) et PMI génériques (S&P Global/Markit) que _CAL_FAMILY ne classe pas.
+const _TIER1_CAL_RX = /\bfomc\b|federal funds|interest rate decision|rate decision|monetary policy|\bcpi\b|core cpi|\bpce\b|\bppi\b|non.?farm|nonfarm|\bnfp\b|payrolls?|unemployment rate|average hourly earnings|\bgdp\b|\bpib\b|\bism\b|\bpmi\b|retail sales/i;
+function _isMajorCal(e) { if (!e) return false; if (/high/i.test(e.impact || '')) return true; if (_calClassify(e.title)) return true; return _TIER1_CAL_RX.test(String(e.title || '')); }
+// Construit la section « DONNÉES ÉCONOMIQUES » depuis le VRAI calendrier (devise + impact inclus) : les
+// événements MAJEURS (FOMC, CPI, NFP, PIB, PMI, décisions de taux) passent EN TÊTE → jamais coupés par le
+// plafond d'affichage du mail (6-8 lignes) ; le reste chronologique. Garantit l'anti-omission du FOMC.
+function _buildEcoDataSection(dataRows) {
+  const rows = (Array.isArray(dataRows) ? dataRows : []).slice();
+  if (!rows.length) return null;
+  rows.sort((a, b) => (_isMajorCal(b) ? 1 : 0) - (_isMajorCal(a) ? 1 : 0) || (a.timestamp || 0) - (b.timestamp || 0));
+  return { title: 'DONNÉES ÉCONOMIQUES', kind: 'data', data: rows.slice(0, 14).map(e => ({
+    release: String(e.title || '').slice(0, 96), ccy: String(e.currency || ''), impact: String(e.impact || ''),
+    period: '', actual: String(e.actual || ''), expected: String(e.forecast || ''), previous: String(e.previous || '') })) };
+}
 // Evenement VEDETTE = celui que le calendrier du desk (widget) affiche EN PREMIER : MEME ordre (inflation/CPI
 // d'abord, puis High, puis le plus proche) -> garantit que le texte du mail concorde avec le widget calendrier.
 function _calFeatured(upcoming) {

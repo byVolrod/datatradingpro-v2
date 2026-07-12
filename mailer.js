@@ -1093,19 +1093,21 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   const blocks = secs.map(s => {
     const title = `<div style="margin:14px 0 4px;color:#f3c344;font-weight:800;font-size:11.5px;letter-spacing:.05em;text-transform:uppercase;">${_esc(s.title)}</div>`;
     if (s.kind === 'data' && Array.isArray(s.data) && s.data.length) {
-      // VRAI tableau (demande user) : Publication | Réel | Att. | Préc. — le réel en blanc gras,
-      // l'attendu/précédent estompés → l'écart saute aux yeux, façon calendrier du desk.
-      // COMPACT MOBILE (revue) : en-têtes courts, padding 5px, nowrap UNIQUEMENT sur Réel → la largeur
-      // min du tableau reste sous la place disponible d'un téléphone (sinon tout le mail dézoome).
+      // VRAI tableau (demande user) : Devise (+ drapeau) | Publication | Réel | Att. | Préc. — façon calendrier
+      // du desk. Le réel en blanc gras, attendu/précédent estompés → l'écart saute aux yeux. Drapeau à gauche.
+      // COMPACT MOBILE : en-têtes courts, padding 5px, nowrap sur Devise et Réel.
+      const _ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
+      const _flag = ccy => { const c = String(ccy || '').toUpperCase(); const iso = _ISO[c]; return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:5px;">` : '') + (c ? `<span style="color:#cbd5e1;font-weight:700;">${_esc(c)}</span>` : ''); };
       const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #26262b;">${label}</td>`;
-      const rows = s.data.slice(0, 6).map(r => `<tr>
+      const rows = s.data.slice(0, 8).map(r => `<tr>
+          <td style="padding:7px 5px;border-top:1px solid #1f1f24;white-space:nowrap;font-size:11.5px;">${_flag(r.ccy)}</td>
           <td style="padding:7px 5px;color:#e6e6ea;font-size:12.5px;line-height:1.4;border-top:1px solid #1f1f24;">${_esc(r.release || '')}</td>
           <td align="right" style="padding:7px 5px;color:#ffffff;font-weight:700;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.actual || '·')}</td>
           <td align="right" style="padding:7px 5px;color:#9aa3b2;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.expected || '·')}</td>
           <td align="right" style="padding:7px 5px;color:#7b828f;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.previous || '·')}</td>
         </tr>`).join('');
       return rows ? title + `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#101014;border:1px solid #26262b;border-radius:8px;border-collapse:separate;">
-          <tr>${_th('Publication')}${_th('Réel', true)}${_th('Att.', true)}${_th('Préc.', true)}</tr>
+          <tr>${_th('Devise')}${_th('Publication')}${_th('Réel', true)}${_th('Att.', true)}${_th('Préc.', true)}</tr>
           ${rows}
         </table>` : '';
     }
