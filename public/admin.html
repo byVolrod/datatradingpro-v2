@@ -981,7 +981,6 @@
             <button class="camp-btn" onclick="campDripTest('pointmarche')">✉️ Test Point marché → moi</button>
             <button class="camp-btn" onclick="campDripTest('mindset')">✉️ Test Mindset → moi</button>
             <button class="camp-btn" onclick="campDripTest('outlook')">✉️ Test Semaine à venir → moi</button>
-            <button class="camp-btn" onclick="campDripTest('alerte')">✉️ Test Alerte macro → moi</button>
             <span id="camp-drip-msg" class="camp-msg"></span>
           </div>
           <p class="camp-note">Boucle <strong style="color:#e3b23a;">synchronisée</strong> : chaque semaine, un seul contenu (choisi selon le contexte du desk) part vers <strong>tout le monde en même temps</strong>. Un nouvel inscrit se branche <strong>au niveau actuel</strong> de la boucle dès qu'il rejoint (même contenu que tout le monde, jamais en retard) ; une intro de bienvenue lui est envoyée une seule fois. Contenu généré du desk, adapté membre / non-membre. Fenêtre : jours ouvrés 8h-19h (Paris). Anti-doublon durable, désinscrits + blacklist exclus. Le welcome transactionnel (accès activé) reste indépendant et automatique.</p>
@@ -1014,7 +1013,6 @@
           <button class="camp-btn" id="cprev-b-weekly" onclick="campPreview('weekly')">Récap hebdo</button>
           <button class="camp-btn" id="cprev-b-mindset" onclick="campPreview('mindset')">Mindset</button>
           <button class="camp-btn" id="cprev-b-outlook" onclick="campPreview('outlook')">Semaine à venir</button>
-          <button class="camp-btn" id="cprev-b-alerte" onclick="campPreview('alerte')">Alerte macro</button>
           <button class="camp-btn" onclick="campPreview(window._cprevType||'intro')" title="Recharger l'aperçu avec les données live du desk">↻ Actualiser</button>
           <label style="margin-left:10px;color:#9aa3b2;font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="cprev-member" onchange="campPreview(window._cprevType||'decryptage')" style="accent-color:#e3b23a;"> vue membre</label>
         </div>
@@ -1378,7 +1376,7 @@
   // Sélecteur de campagne pour les statistiques (l'ancien code figeait intro-v1 : le drip hebdo,
   // le digest et les nouveaux templates étaient invisibles dans la vue Statistiques).
   let _campStatsId = 'intro-v1';
-  const _CAMP_STAT_IDS = [ ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['alerte-bc', 'Alerte macro'] ];
+  const _CAMP_STAT_IDS = [ ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'] ];
   function _campStatsPick(id){ _campStatsId = id; loadCampStats(); }
   function _renderCampSel(){
     const host = document.getElementById('camp-campsel'); if (!host) return;
