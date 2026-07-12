@@ -30,7 +30,7 @@ const CTX_DATA = (() => {
   const up = [ev(1, '14:30', 'USD', 'Core CPI m/m', 'High', '0.3%', '0.2%', 'Inflation', 'Core CPI'), ev(2, '20:00', 'USD', 'Fed Interest Rate Decision', 'High', '5.50%', '5.50%', 'Politique monetaire', 'Décision de taux')];
   return { generatedAt: Date.now(), upcoming: up, majors: up, featured: up.find(e => e.family === 'Politique monetaire') || up[0], theme: 'rates', themeLabel: 'Banques centrales',
     bias: [{ ccy: 'USD', label: 'Haussier', signal: 'BUY' }], cs: { ranked: ['USD', 'CHF', 'JPY'], strong: [{ ccy: 'USD' }], weak: [{ ccy: 'JPY' }] },
-    risk: { pct: -20, label: 'Risk-off (aversion au risque)' }, daily: { title: 'Point Marché : Ouverture US', dateLabel: 'lundi 13 juillet', summary: 'Le dollar domine avant la Fed.', sections: [ { title: 'APERÇU', kind: 'bullets', items: ['Le dollar se maintient avant la Fed.', 'Le petrole recule.'] }, { title: 'DONNÉES ÉCONOMIQUES', kind: 'data', data: [{ release: 'Core CPI', ccy: 'USD', actual: '0.3%', expected: '0.2%', previous: '0.2%' }] } ] }, weekly: null };
+    risk: { pct: -20, label: 'Risk-off (aversion au risque)' }, daily: { summary: 'Le dollar domine avant la Fed.' }, weekly: null };
 })();
 const CTX_EMPTY = { generatedAt: Date.now(), upcoming: [], majors: [], theme: 'calm', themeLabel: '', bias: [], cs: null, risk: null, weekly: null, daily: null };
 const WEEKLY = { summary: 'Semaine dominee par la Fed.', insights: ['Le dollar se raffermit.'], pairs: [{ pair: 'EUR/USD', bias: 'SELL', text: 'Pression baissiere.' }], centralBanks: [{ bank: 'Fed', stance: 'hawkish' }] };
