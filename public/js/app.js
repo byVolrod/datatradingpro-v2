@@ -6426,6 +6426,37 @@ function _wrCbSection(cbs) {
   }
   return h;
 }
+// ── Section Calendrier économique du Weekly Recap (v18) : À VENIR (majeurs, + proche d'abord) puis
+//    CETTE SEMAINE (passés). Réutilise les styles gew-* + drapeau/devise à gauche façon calendrier. ──
+const _WR_CAL_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
+function _wrCalFlag(ccy) { const c = String(ccy || '').toUpperCase(); const iso = _WR_CAL_ISO[c]; return (iso ? `<img class="wr-cal-flag" src="https://flagcdn.com/w20/${iso}.png" alt="" width="18" height="13">` : '') + (c ? `<span class="wr-cal-ccy">${_wrEsc(c)}</span>` : ''); }
+function _wrCalImpCls(i) { const u = String(i || '').toUpperCase(); return u === 'HIGH' ? 'high' : (u === 'MED' || u === 'MEDIUM') ? 'med' : 'low'; }
+function _wrCalImpLbl(i) { const u = String(i || '').toUpperCase(); return u === 'HIGH' ? 'FORT' : (u === 'MED' || u === 'MEDIUM') ? 'MOYEN' : ''; }
+function _wrCalDays(days, showActual) {
+  return (days || []).map(d => {
+    const evs = (d.events || []).map(e => {
+      const nums = [];
+      if (showActual && e.actual) nums.push(`<span class="gew-cons gew-cons--actual"><i>Réel</i><b>${_wrEsc(e.actual)}</b></span>`);
+      if (e.forecast) nums.push(`<span class="gew-cons"><i>Consensus</i><b>${_wrEsc(e.forecast)}</b></span>`);
+      if (e.previous) nums.push(`<span class="gew-cons"><i>Précédent</i><b>${_wrEsc(e.previous)}</b></span>`);
+      return `<div class="gew-ev gew-ev--${_wrCalImpCls(e.impact)}"><div class="gew-ev-top">`
+        + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
+        + `<span class="wr-cal-flagcell">${_wrCalFlag(e.ccy)}</span>`
+        + `<span class="gew-ev-ttl">${_wrEsc(e.title)}</span>`
+        + (e.impact ? `<span class="gew-imp gew-imp--${_wrCalImpCls(e.impact)}">${_wrEsc(_wrCalImpLbl(e.impact))}</span>` : '')
+        + `</div>${nums.length ? `<div class="gew-ev-cons">${nums.join('')}</div>` : ''}</div>`;
+    }).join('');
+    return evs ? `<div class="gew-day"><div class="gew-day-h">${_wrEsc(d.dayLabel)}</div>${evs}</div>` : '';
+  }).join('');
+}
+function _wrCalSection(cal) {
+  if (!cal || (!(cal.upcoming || []).length && !(cal.past || []).length)) return '';
+  let h = `<div class="wr-section-title">Calendrier économique</div>`
+    + `<div class="wr-cb-intro">Les prochains rendez-vous majeurs (à venir, du plus proche au plus éloigné), puis les données déjà publiées de la semaine.</div>`;
+  if ((cal.upcoming || []).length) h += `<div class="wr-cal-sub">À venir</div>` + _wrCalDays(cal.upcoming, false);
+  if ((cal.past || []).length) h += `<div class="wr-cal-sub">Cette semaine (publié)</div>` + _wrCalDays(cal.past, true);
+  return h;
+}
 function _renderWeeklyRecap(item) {
   const w = item._weekly || {};
   const titleEl    = document.getElementById('arlib-rnav-title');
@@ -6554,6 +6585,7 @@ function _renderWeeklyRecap(item) {
     // ── Banques Centrales : SECTION INSTITUTIONNELLE dédiée (v18) — 4 majeures complètes + 4 brèves,
     //    biais 5 niveaux + probas marché + prochaine réunion + ce qui a changé / à surveiller / impact devise + propos. ──
     body += _wrCbSection(w.centralBanks);
+    body += _wrCalSection(w.calendar);   // Calendrier économique : à venir (majeurs) + cette semaine
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
       body += `<div class="wr-section-title">Analyse par devise</div>`;

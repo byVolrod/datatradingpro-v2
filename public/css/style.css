@@ -5088,6 +5088,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-mini-proba { font-family:var(--font-mono); font-size:11px; color:#9aa3b2; }
 .wr-cb-mini-next { margin-left:auto; font-size:11px; color:#8b93a1; }
 @media (max-width:760px){ .wr-cb-mini-next { margin-left:0; } .wr-cb-proba { gap:4px 12px; } }
+/* Weekly Recap v18 — Calendrier économique (À venir + Cette semaine), réutilise les styles gew-* */
+.wr-cal-sub { font-family:var(--tight); font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#e3b23a; margin:16px 0 4px; padding-bottom:5px; border-bottom:1px solid var(--border); }
+.wr-cal-flagcell { display:inline-flex; align-items:center; gap:5px; flex-shrink:0; }
+.wr-cal-flag { border-radius:2px; vertical-align:middle; }
+.wr-cal-ccy { font-family:var(--font-mono); font-size:10px; font-weight:700; color:#9aa3b2; }
 /* Global Economic Weekly — Consensus Forecasts JOUR PAR JOUR (façon pro) */
 .gew-day { margin:20px 0 6px; }
 .gew-day-h { color:#e3b23a; font-size:13px; font-weight:var(--fw-bold); letter-spacing:.04em; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; align-items:baseline; gap:10px; }
