@@ -12799,7 +12799,7 @@ function _recordClick(c, email) { const s = _statCampaign(c); const k = s.clicks
 function _recordUnsub(email)    { if (!_campaignStats._unsub) _campaignStats._unsub = {}; if (!_campaignStats._unsub[email]) _campaignStats._unsub[email] = Date.now(); _statsFlush(); }
 
 const _PIXEL_GIF = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');   // GIF 1x1 transparent
-const _CLICK_ALLOW = /(^|\.)(datatradingpro\.com|whop\.com)$/i;                                             // anti open-redirect
+const _CLICK_ALLOW = /(^|\.)(datatradingpro\.com|whop\.com|instagram\.com)$/i;                               // anti open-redirect (instagram = CTA campagne Invitation)
 
 // Pixel d'OUVERTURE — PUBLIC. Verifie le jeton (anti-forge), enregistre l'ouverture, renvoie un GIF 1x1.
 app.get('/api/track/open', (req, res) => {
@@ -13188,6 +13188,71 @@ async function _schedulerTick() {
 setInterval(_schedulerTick, 20 * 60 * 1000);   // verifie toutes les 20 min
 setTimeout(_schedulerTick, 45 * 1000);         // 1er check apres le boot (rattrapage si l'heure vient de passer)
 
+// ═══ CAMPAGNE INVITATION (conversion) — MENSUELLE vers les MEMBRES NON ABONNES (segment != active) ═══
+// 1 e-mail/mois, offre : 1 semaine d'accès offerte au Desk via DM Instagram. 3 variantes en rotation
+// mensuelle (cote mailer). OFF par defaut (comme tout le moteur) → rien ne part sans activation admin.
+function _parisMonthDay(d) {
+  d = d || new Date();
+  const f = new Intl.DateTimeFormat('en-GB', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hour12: false });
+  const p = {}; for (const x of f.formatToParts(d)) p[x.type] = x.value;
+  return { monthKey: p.year + '-' + p.month, day: parseInt(p.day, 10), hour: parseInt(p.hour, 10) % 24 };
+}
+let _invitSchedule = { active: false, day: 1, hour: 10, lastSentMonth: null, launchedAt: null };   // 1er du mois, 10h — OFF par defaut
+(async () => { try { const s = await auth.aiCacheGet('campaign:invitation-sched', 366 * 864e5); if (s && typeof s === 'object') _invitSchedule = Object.assign(_invitSchedule, s); } catch {} })();
+function _saveInvitSchedule() { auth.aiCacheSet('campaign:invitation-sched', _invitSchedule).catch(() => {}); }
+let _invitRunning = false;
+async function _runInvitationCampaign(monthKey) {
+  if (_invitRunning) return { started: false, reason: 'deja en cours' };
+  _invitRunning = true;
+  const CID = 'invitation-' + monthKey;
+  try {
+    let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { await _campaignError('critical', CID, 'audience indisponible : ' + e.message, { actions: 'Verifier _campaignAudience.' }); return { started: false }; }
+    const targets = audience.recipients.filter(r => r.segment !== 'active');   // NON ABONNES uniquement (churned + lead)
+    const pf = await _runCampaignPreflight({
+      recipients: targets,
+      sample: () => mailer.buildCampaignInvitation({ name: '', email: 'apercu@datatradingpro.com', campaign: CID }),
+      needsData: false, needsWidget: false, needsAI: false,
+    });
+    if (!pf.ok) { await _campaignError('critical', CID, pf.summary, { impacted: 0, logs: pf.critical.join('\n'), actions: 'Corriger puis relancer (marqueur mensuel anti-doublon).' }); return { started: false }; }
+    const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
+    let sent = 0, skipped = 0, unsub = 0, failed = 0;
+    for (const r of targets) {
+      const email = r.email, marker = 'campaign:' + CID + ':' + email;
+      try { if (await auth.emailLogHas('unsub:' + email)) { unsub++; continue; } } catch {}
+      try { if (await auth.emailLogHas(marker)) { skipped++; continue; } } catch {}
+      let prov = null; try { prov = await mailer.sendCampaignInvitation({ to: email, name: r.name || '', campaign: CID }); } catch {}
+      if (prov) { sent++; _recordSent('invitation', email); try { await auth.emailLogAdd(marker); } catch {} } else failed++;
+      if (throttle) await new Promise(x => setTimeout(x, throttle));
+    }
+    console.log(`[Campagne invitation] ${CID} : cibles=${targets.length} envoyes=${sent} deja=${skipped} desab=${unsub} echecs=${failed}`);
+    return { started: true, targets: targets.length, sent, skipped, unsub, failed };
+  } finally { _invitRunning = false; }
+}
+async function _invitationTick() {
+  try {
+    if (!_invitSchedule.active) return;
+    const md = _parisMonthDay();
+    if (md.day >= _invitSchedule.day && md.hour >= _invitSchedule.hour && _invitSchedule.lastSentMonth !== md.monthKey) {
+      _invitSchedule.lastSentMonth = md.monthKey; _saveInvitSchedule();   // marque AVANT le run (anti double-tick)
+      console.log('[Scheduler] campagne invitation declenchee — mois', md.monthKey);
+      await _runInvitationCampaign(md.monthKey);
+    }
+  } catch (e) { console.error('[Scheduler invitation]', e.message); }
+}
+setInterval(_invitationTick, 20 * 60 * 1000);
+setTimeout(_invitationTick, 60 * 1000);
+// Admin : statut / activer / pause / test-to-self / envoi manuel immediat de la campagne Invitation.
+app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
+  const action = String(req.query.action || 'status');
+  try {
+    if (action === 'activate') { _invitSchedule.active = true; _invitSchedule.launchedAt = _invitSchedule.launchedAt || Date.now(); _saveInvitSchedule(); }
+    else if (action === 'pause') { _invitSchedule.active = false; _saveInvitSchedule(); }
+    else if (action === 'send') { const md = _parisMonthDay(); _runInvitationCampaign(md.monthKey).catch(() => {}); return res.json({ ok: true, started: true, campaign: 'invitation-' + md.monthKey, note: 'Envoi lance en fond aux membres non abonnes (anti-doublon mensuel actif).' }); }
+    let targets = 0; try { const aud = await _campaignAudience({ checkUnsub: false }); targets = aud.recipients.filter(r => r.segment !== 'active').length; } catch {}
+    res.json({ ok: true, active: _invitSchedule.active, day: _invitSchedule.day, hour: _invitSchedule.hour, lastSentMonth: _invitSchedule.lastSentMonth, targetsNonAbonnes: targets });
+  } catch (e) { res.status(500).json({ error: e.message }); }
+});
+
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 //  BOUCLE NEWSLETTER SYNCHRONISEE (newsletter intelligente) — DESACTIVEE par defaut : rien ne part tant
 //  que l'admin n'active pas. MODELE : tout le monde est SYNCHRONISE sur la meme semaine. Chaque semaine
@@ -13406,6 +13471,9 @@ app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
       const context = await _deskContext();
       m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context, isMember });
       if (!m) { m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
+    } else if (type === 'invitation') {
+      const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined;   // ?variant=0|1|2 pour voir les 3, sinon rotation du mois
+      m = mailer.buildCampaignInvitation({ name: s.name, email: s.email, campaign: 'invitation-preview', variant, isMember });
     } else {
       m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
     }
@@ -13442,9 +13510,10 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
       else if (tpl === 'pointmarche') { const context = await _deskContext(); provider = await mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context, isMember }); }
       else if (tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(6); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
+      else if (tpl === 'invitation') { const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined; const r = await mailer.sendCampaignInvitation({ to, name: '', campaign: 'invitation-test', variant }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }
-    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
+    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
     return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
       note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' — AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }
