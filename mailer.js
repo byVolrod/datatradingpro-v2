@@ -1311,6 +1311,75 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
 }
 async function sendCampaignMindset(d) { d = d || {}; const m = buildCampaignMindset({ name: d.name, email: d.email || d.to, campaign: d.campaign, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey }); if (!m) return false; const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
+// ── INVITATION (CONVERSION) — campagne MENSUELLE vers les MEMBRES NON ABONNES (segment != active). Offre :
+// une SEMAINE d'accès offerte au Desk via DM Instagram. 3 variantes (pro / conviviale / performance) en
+// ROTATION MENSUELLE (mois calendaire % 3) → anti-lassitude. 100% produit, ZERO promesse de gain (conforme
+// au veto informatif : on vend l'OUTIL, jamais une position). CTA = Instagram. Or mail #f3c344.
+const IG_URL = 'https://www.instagram.com/datatradingpro';
+const _INVIT_VARIANTS = [
+  { key: 'pro', eyebrow: 'INVITATION',
+    subject: "Votre semaine d'accès au Desk DataTradingPro",
+    lead: "Vous faites partie de la communauté DataTradingPro, mais vous n'avez pas encore ouvert le Desk. C'est l'outil que nos abonnés consultent chaque matin pour lire le marché macro et forex, sans y passer des heures.",
+    benefits: [
+      ['Analyse macro structurée', " : le contexte du jour, expliqué clairement."],
+      ['Actualités de marché en temps réel', " : ce qui bouge, dès que ça bouge."],
+      ["Outils d'aide à la décision", " : calendrier économique, force des devises, biais du marché."],
+    ],
+    exclu: "Ce mois-ci, nous ouvrons un nombre limité d'accès découverte, réservés à la communauté.",
+    ctaLead: "Écrivez-nous sur Instagram et nous vous offrons une semaine complète d'accès au Desk, sans engagement.",
+    ctaLabel: "Nous écrire sur Instagram", signoff: "Bien à vous," },
+  { key: 'convivial', eyebrow: 'UNE SEMAINE OFFERTE',
+    subject: "On vous ouvre le Desk pendant une semaine 👀",
+    lead: "Petit message pour vous : vous êtes dans la communauté DataTradingPro, mais on ne vous a encore jamais montré le Desk de l'intérieur. C'est là que tout se passe, chaque matin.",
+    benefits: [
+      ['Le marché du jour, au clair', " : la macro et le forex résumés, sans jargon."],
+      ['Les news en direct', " : ce qui compte vraiment, au moment où ça arrive."],
+      ['Vos repères pour décider', " : calendrier, force des devises et biais, réunis au même endroit."],
+    ],
+    exclu: "On garde quelques accès offerts pour les membres curieux ce mois-ci.",
+    ctaLead: "Envoyez-nous un petit message sur Instagram, et on vous offre une semaine sur le Desk. Aucune carte, aucun engagement.",
+    ctaLabel: "Écrire sur Instagram", signoff: "À très vite," },
+  { key: 'performance', eyebrow: 'GAGNEZ DU TEMPS',
+    subject: "Lisez le marché en quelques minutes chaque matin",
+    lead: "Combien de temps passez-vous à rassembler l'actu macro, le calendrier et le sentiment du marché ? Sur le Desk DataTradingPro, tout est réuni au même endroit, prêt à lire en quelques minutes.",
+    benefits: [
+      ['Le contexte macro, synthétisé', " : fini les dix onglets ouverts en parallèle."],
+      ['Les news filtrées, en direct', " : le signal, pas le bruit."],
+      ['De quoi décider vite et clair', " : force des devises, biais, calendrier économique."],
+    ],
+    exclu: "Ce mois-ci, on ouvre l'accès une semaine, gratuitement, pour que vous testiez en conditions réelles.",
+    ctaLead: "Un simple message sur Instagram suffit pour activer votre semaine offerte.",
+    ctaLabel: "Activer ma semaine (Instagram)", signoff: "À bientôt sur le Desk," },
+];
+function _invitationVariantIndex() { const d = new Date(); return (d.getFullYear() * 12 + d.getMonth()) % _INVIT_VARIANTS.length; }
+function buildCampaignInvitation({ name, email, campaign, variant, isMember } = {}) {
+  campaign = campaign || 'invitation';
+  const v = _INVIT_VARIANTS[Number.isInteger(variant) ? ((variant % _INVIT_VARIANTS.length + _INVIT_VARIANTS.length) % _INVIT_VARIANTS.length) : _invitationVariantIndex()];
+  const prenom = (name || '').split(' ')[0] || '';
+  const hello = prenom ? `Bonjour ${_esc(prenom)},` : 'Bonjour,';
+  const unsub = unsubUrl(email || '');
+  const igUrl = trackClickUrl(campaign, email, IG_URL);
+  const benefitsHtml = v.benefits.map(b => `<tr>
+      <td style="padding:5px 10px 5px 0;vertical-align:top;width:12px;"><span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f3c344;"></span></td>
+      <td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><strong style="color:#fff;">${b[0]}</strong>${b[1]}</td>
+    </tr>`).join('');
+  const body = `
+    <div style="display:inline-block;color:#0a0a0c;background:#f3c344;font-weight:800;font-size:11px;letter-spacing:.06em;padding:4px 11px;border-radius:6px;">${v.eyebrow}</div>
+    <p style="margin:16px 0 6px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 14px;">${v.lead}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:2px 0 4px;">${benefitsHtml}</table>
+    <p style="margin:16px 0 8px;color:#cbd5e1;">${v.exclu}</p>
+    <p style="margin:0 0 2px;color:#e6e6ea;">${v.ctaLead}</p>
+    <div style="margin:14px 0 4px;">${_campaignBtn(v.ctaLabel, igUrl)}</div>
+    <p style="margin:6px 0 0;font-size:12px;color:#7b828f;">Ou retrouvez-nous directement sur Instagram : <a href="${igUrl}" style="color:#f3c344;text-decoration:none;font-weight:700;">@datatradingpro</a></p>
+    <p style="margin:18px 0 4px;">${v.signoff}</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  return { subject: v.subject, html: _campaignLayout('Invitation', body, unsub), variant: v.key };
+}
+async function sendCampaignInvitation(d) { d = d || {}; const m = buildCampaignInvitation({ name: d.name, email: d.email || d.to, campaign: d.campaign || 'invitation', variant: d.variant, isMember: d.isMember }); if (!m) return false; const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, variant: m.variant } : false; }
+
 // ── POINT MARCHÉ (S3) — data-driven pur : contexte macro dominant + régime de risque + ce qui bouge (rapport
 // quotidien du desk) + forces/faiblesses (Currency Strength) + biais du desk + événements à surveiller + widget
 // Force des Devises. Règle « pas de données -> pas de mail » (renvoie null). 100% informatif, CTA adapté.
@@ -1715,7 +1784,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset, sendCampaignOutlook,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset, sendCampaignOutlook, sendCampaignInvitation,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
@@ -1724,7 +1793,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
