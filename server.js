@@ -12868,7 +12868,8 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready', when: 'Samedi ~10h · evergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
   { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready', when: 'Dimanche 18h · Récap généré samedi 02h (créneau auto actuel)', desc: 'La rétrospective de la semaine, façon desk.' },
   { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready', when: 'Lundi ~8h · semaine à venir (avant Londres)',              desc: 'Les événements à surveiller, sans pousser de position.' },
-  { id: 'alerte-bc',     week: null, title: 'Alerte macro / banque centrale',       pillar: 'Événementiel', status: 'ready', when: "Déclenché · le jour d'une décision (FOMC/BCE/BoE)",       desc: 'Déclenché par un événement (décision de taux, choc macro).' },
+  // Alerte macro/BC retiree de la feuille de route (demande user) : le template alerte-bc reste
+  // fonctionnel cote serveur (evenementiel, _dripSend tpl 'alerte'), simplement plus affiche ici.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
   try {
