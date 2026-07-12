@@ -17,7 +17,7 @@
   <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/css/style.css?v=20260712bbg188" />
+  <link rel="stylesheet" href="/css/style.css?v=20260712bbg189" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -994,8 +994,8 @@
         <div class="pd-section-inner" id="pd-ref-inner">
           <h3 class="pd-ref-headline">Gagnez <span style="color:#22c55e">15% récurrent</span> sur chaque parrainage <span style="color:#e3b23a">+ 1 mois offert tous les 3 inscrits</span>.</h3>
           <p class="pd-ref-desc">Partagez votre lien&nbsp;: vous touchez <strong>15% à vie</strong> sur chaque abonné via Whop, et nous vous offrons <strong>1 mois d'accès</strong> dès 3 filleuls.</p>
-          <label class="pd-label">Votre lien de parrainage</label>
-          <div class="pd-ref-linkrow">
+          <label class="pd-label" id="pd-ref-linklabel">Votre lien de parrainage</label>
+          <div class="pd-ref-linkrow" id="pd-ref-linkrow">
             <input class="pd-input" id="pd-ref-link" readonly value="Chargement…" onclick="this.select()">
             <button class="pd-btn pd-ref-copy" id="pd-ref-copy" onclick="referralCopy()">Copier</button>
           </div>
@@ -1355,7 +1355,15 @@
     fetch('/api/referrals').then(r => r.json()).then(d => {
       if (!d || !d.ok) return;
       const $ = id => document.getElementById(id);
-      if ($('pd-ref-link'))       $('pd-ref-link').value = d.link;
+      // Sans affilie Whop : PAS de faux lien. On invite a s'inscrire sur Whop + rejoindre le Whop de JOT.
+      if (d.needsWhop) {
+        const lbl = $('pd-ref-linklabel'); if (lbl) lbl.textContent = 'Obtenir votre lien de parrainage';
+        const row = $('pd-ref-linkrow');
+        if (row) { const j = String(d.whopJoinUrl || 'https://whop.com/justonetrader/').replace(/"/g, '&quot;');
+          row.innerHTML = '<div class="pd-ref-needwhop">Pour obtenir votre lien de parrainage et toucher <strong>15% à vie</strong>, inscrivez-vous sur <strong>Whop</strong> et rejoignez le Whop de <strong>JustOneTrader</strong>. Votre lien d\'affiliation Whop apparaîtra ensuite ici automatiquement.<a class="pd-btn pd-ref-join" href="' + j + '" target="_blank" rel="noopener">Rejoindre le Whop de JOT</a></div>'; }
+      } else if ($('pd-ref-link')) {
+        $('pd-ref-link').value = d.link || '';
+      }
       if ($('pd-ref-count'))      $('pd-ref-count').textContent = d.count;
       // pd-ref-earn reste « 15% » (commission fixe) : les gains reels sont suivis/verses par Whop, non synces ici.
       const h = $('pd-ref-history');

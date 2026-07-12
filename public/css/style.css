@@ -7528,6 +7528,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .pd-ref-linkrow .pd-input{flex:1;min-width:0;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px}
 .pd-ref-linkrow .pd-ref-copy{flex:0 0 auto;width:auto;padding-left:18px;padding-right:18px;white-space:nowrap}
 .pd-ref-copy.pd-ref-copied{background:#22c55e !important;border-color:#22c55e !important;color:#06210f !important}
+/* Parrainage sans affilie Whop : invitation a rejoindre le Whop de JOT (pas de faux lien ?ref=) */
+.pd-ref-needwhop{display:flex;flex-direction:column;gap:12px;background:#121214;border:1px solid var(--border,#232429);border-radius:10px;padding:14px 16px;margin:6px 0 14px;font-size:13px;line-height:1.6;color:var(--text2,#c9d1d9)}
+.pd-ref-needwhop strong{color:#fff;font-weight:600}
+.pd-ref-join{align-self:flex-start;display:inline-block;background:var(--gold,#e3b23a);color:#0c0c0e;font-weight:700;font-size:13px;text-decoration:none;border-radius:8px;padding:9px 16px;white-space:nowrap}
+.pd-ref-join:hover{background:#f0c250}
 .pd-ref-stats{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
 .pd-ref-stat{background:#16171b;border:1px solid #1e1e1e;border-radius:4px;padding:12px;text-align:center}
 .pd-ref-stat b{display:block;font-size:22px;font-weight:var(--fw-bold);color:#fff;line-height:1}
