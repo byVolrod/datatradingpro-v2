@@ -895,7 +895,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _cbNextMail = iso => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso || '')); return m ? (+m[3]) + ' ' + _MOIS_FR[(+m[2]) - 1] : ''; };
   const _cbBiasCol = b => /hawk/i.test(b) ? '#e0863a' : /dov/i.test(b) ? '#3aa0e0' : '#9aa3b2';
   const _cbTh = t => `<td style="padding:6px 10px;color:#8b93a1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;${t === 'r' ? 'text-align:right;' : ''}">${t === 'b' ? 'Banque' : t === 'i' ? 'Biais' : t === 'p' ? 'Hausse / Maintien / Baisse' : 'Prochaine'}</td>`;
-  const cbTableHtml = cbList.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Banques centrales, anticipation de la prochaine décision (probabilités implicites de marché, pas une prévision)&nbsp;:</p>
+  const cbTableHtml = cbList.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Banques centrales, anticipation de la prochaine décision (probabilités implicites de marché ; « est. » = estimation maison pour les banques non cotées)&nbsp;:</p>
     <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">
     <tr style="background:#101012;">${_cbTh('b')}${_cbTh('i')}${_cbTh('p')}${_cbTh('r')}</tr>
     ${cbList.slice(0, 8).map(c => {
@@ -904,7 +904,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       const nx = c.next ? _cbNextMail(c.next) : '—';
       return `<tr>
         <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#fff;font-size:12.5px;font-weight:700;white-space:nowrap;">${_esc(_md(c.bank))}</td>
-        <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:${_cbBiasCol(bias)};font-size:12px;font-weight:700;white-space:nowrap;">${_esc(bias)}</td>
+        <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:${_cbBiasCol(bias)};font-size:12px;font-weight:700;white-space:nowrap;">${_esc(bias)}${c.source && c.source !== 'market' ? ' <span style="color:#7b828f;font-size:9px;font-weight:700;">est.</span>' : ''}</td>
         <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#cbd5e1;font-size:12px;">${_esc(proba)}</td>
         <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;">${_esc(nx)}</td>
       </tr>`;
