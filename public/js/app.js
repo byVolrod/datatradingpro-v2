@@ -6418,7 +6418,7 @@ function _wrCbCall(c) {
 function _wrCbSection(cbs) {
   const list = (cbs || []).filter(c => c && c.bank);
   if (!list.length) return '';
-  let h = `<div class="wr-macro-heading">Banques Centrales</div>`;
+  let h = `<div class="wr-macro-heading">Banques Centrales &amp; Politique Monétaire</div>`;
   list.forEach(c => {
     const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
     const nextFr = _wrCbNextFr(c.next, c.nextDays);
@@ -6592,16 +6592,25 @@ function _renderWeeklyRecap(item) {
     body += `<div class="wr-cs-head"><div class="wr-section-title">Force des Devises</div>`
       + (w.weekRange ? `<span class="wr-cs-week">${_wrEsc(w.weekRange)}</span>` : '') + `</div>`;
     body += `<div class="wr-chart wr-chart--all" id="wr-cs-all">${window.dtpLoader ? window.dtpLoader('Force des devises…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
-    if (w.macro && w.macro.length) {
+    // Points Macro Clés : ORDRE CANONIQUE (demande user) — Géopolitique, [Banques Centrales & Politique
+    // Monétaire = section dédiée #2], Inflation & Croissance, Performance Cross-Asset, Commerce International
+    // & Tarifs, Technologie & Innovation. La section CB (riche, par banque) est INJECTÉE juste après le thème
+    // Géopolitique (ou en tête si aucun thème Géo), jamais dupliquée (elle n'est pas un thème macro).
+    const _macro = (w.macro && w.macro.length) ? w.macro : [];
+    const _hasCb = !!(w.centralBanks && w.centralBanks.length);
+    if (_macro.length || _hasCb) {
       body += `<div class="wr-section-title">Points Macro Clés</div>`;
-      w.macro.forEach(s => {
+      let _cbDone = false;
+      const _emitCb = () => { if (!_cbDone && _hasCb) { body += _wrCbSection(w.centralBanks); _cbDone = true; } };
+      const _geoIdx = _macro.findIndex(s => /g[ée]opolit/i.test((s && s.heading) || ''));
+      if (_geoIdx < 0) _emitCb();   // aucun thème Géopolitique → Banques Centrales en tête du bloc
+      _macro.forEach((s, i) => {
         body += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
         (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+        if (i === _geoIdx) _emitCb();   // ── Banques Centrales & Politique Monétaire = section dédiée, en #2 (juste après Géopolitique) ──
       });
+      _emitCb();   // filet de sécurité (n'émet jamais deux fois : _cbDone)
     }
-    // ── Banques Centrales : SECTION INSTITUTIONNELLE dédiée (v18) — 4 majeures complètes + 4 brèves,
-    //    biais 5 niveaux + probas marché + prochaine réunion + ce qui a changé / à surveiller / impact devise + propos. ──
-    body += _wrCbSection(w.centralBanks);
     // Calendrier économique RETIRÉ du Weekly Market Recap (demande user) : il vit dans le Global Economic Weekly.
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {

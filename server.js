@@ -2829,7 +2829,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 20;   // v20 = section Banques Centrales EN LISTE (plus de cartes) : par banque decision de la semaine (+ phrase du discours), guidance prochaine reunion (hausse/baisse/maintien) + au-dela, ordonnee du + important au meeting le + proche ; le TABLEAU CALENDRIER retire du Weekly Market Recap (il reste dans le Global Economic Weekly). v19 = ajoute weekly.calendar (tableau calendrier a-venir->passe, anti-omission NFP fin de semaine) + source des probas (market/maison) etiquetee honnetement + libelle trajectoire ~6 mois explicite. v18 = Banques Centrales NIVEAU INSTITUTIONNEL : chaque banque enrichie de {bias5 (5 niveaux), scenario proba hausse/maintien/baisse, move, next (prochaine reunion) + nextDays, expBps} fusionnes depuis _buildRatesPayload (rateprobability, MARCHE) + 3 nouveaux champs IA {changed (ce qui a change depuis la derniere reunion), factors (facteurs susceptibles de faire evoluer), fxImpact (impact devise CT/MT/LT)} ; les propos (quotes) portent l'anticipation prochaine reunion ; v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 21;   // v21 = Points Macro Cles a TAXONOMIE FIXE + ORDRE (Geopolitique, [Banques Centrales & Politique Monetaire = section dediee en #2], Inflation & Croissance, Performance Cross-Asset, Commerce International & Tarifs, Technologie & Innovation) via _orderMacroCanon + prompt canonique ; section CB renommee « Banques Centrales & Politique Monetaire » et injectee juste apres Geopolitique. + Banques Centrales : Fed nommee « Fed (FOMC) » (nom d'affichage deterministe _CB_DISPLAY, comme BCE (ECB)/BNS (SNB)) + evenements CB TIER-1 (FOMC Minutes, decisions, rapports, temoignages) REMONTES en tete de cbNews (ils etaient noyes par ~20 titres « Fed report: » du rapport semestriel -> l'IA ecrivait a tort « la Fed n'a rien communique cette semaine ») + regle prompt : minutes/rapports/temoignages = evenements majeurs a refleter. bump = regen au boot. v20 = section Banques Centrales EN LISTE (plus de cartes) : par banque decision de la semaine (+ phrase du discours), guidance prochaine reunion (hausse/baisse/maintien) + au-dela, ordonnee du + important au meeting le + proche ; le TABLEAU CALENDRIER retire du Weekly Market Recap (il reste dans le Global Economic Weekly). v19 = ajoute weekly.calendar (tableau calendrier a-venir->passe, anti-omission NFP fin de semaine) + source des probas (market/maison) etiquetee honnetement + libelle trajectoire ~6 mois explicite. v18 = Banques Centrales NIVEAU INSTITUTIONNEL : chaque banque enrichie de {bias5 (5 niveaux), scenario proba hausse/maintien/baisse, move, next (prochaine reunion) + nextDays, expBps} fusionnes depuis _buildRatesPayload (rateprobability, MARCHE) + 3 nouveaux champs IA {changed (ce qui a change depuis la derniere reunion), factors (facteurs susceptibles de faire evoluer), fxImpact (impact devise CT/MT/LT)} ; les propos (quotes) portent l'anticipation prochaine reunion ; v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -7190,6 +7190,10 @@ function _cbBias5(move, expBps, stance) {
 // Rattache un libelle de banque (IA : "Fed","BCE","ECB","BoE","BNS (SNB)"...) au CODE devise de _buildRatesPayload.
 const _CB_NAME2CODE = { fomc: 'USD', fed: 'USD', bce: 'EUR', ecb: 'EUR', boe: 'GBP', boj: 'JPY', boc: 'CAD', rba: 'AUD', rbnz: 'NZD', snb: 'CHF', bns: 'CHF' };
 function _cbCodeOf(bankName) { const s = String(bankName || '').toLowerCase(); for (const k in _CB_NAME2CODE) if (s.includes(k)) return _CB_NAME2CODE[k]; return null; }
+// Nom D'AFFICHAGE déterministe par code (indépendant de ce que renvoie l'IA) : institution + organe de
+// décision entre parenthèses, comme dans le calendrier éco. Fed → « Fed (FOMC) » (demande user « pourquoi
+// pas le nom FOMC ? »), à l'image de « BCE (ECB) » / « BNS (SNB) ». Garantit un libellé cohérent et stable.
+const _CB_DISPLAY = { USD: 'Fed (FOMC)', EUR: 'BCE (ECB)', GBP: 'BoE', JPY: 'BoJ', CAD: 'BoC', AUD: 'RBA', CHF: 'BNS (SNB)', NZD: 'RBNZ' };
 // Fusionne dans chaque bloc CB les VRAIES donnees de marche (rateprobability via _buildRatesPayload) : taux
 // directeur, scenario proba {hold,hike,cut} prochaine reunion, trajectoire (move), date prochaine reunion (next)
 // + jours, bps implicites, et le biais 5 niveaux calcule. Aucune invention : si pas de donnee marche -> champs absents.
@@ -7198,9 +7202,10 @@ function _cbMergeRates(cbArr) {
   const byCode = {}; for (const b of payload) if (b && b.code) byCode[b.code] = b;
   const merged = (Array.isArray(cbArr) ? cbArr : []).map(c => {
     const code = _cbCodeOf(c.bank); const r = code ? byCode[code] : null;
-    if (!r) return Object.assign({}, c, { code, bias5: _cbBias5(null, 0, c.stance) });
+    const bank = (code && _CB_DISPLAY[code]) || c.bank;   // nom d'affichage normalisé (ex. Fed → « Fed (FOMC) »)
+    if (!r) return Object.assign({}, c, { bank, code, bias5: _cbBias5(null, 0, c.stance) });
     return Object.assign({}, c, {
-      code, rate: r.rate, scenario: r.scenario, move: r.move, next: r.next, nextDays: r.nextDays,
+      bank, code, rate: r.rate, scenario: r.scenario, move: r.move, next: r.next, nextDays: r.nextDays,
       expBps: r.expBps, source: r.source, bias5: _cbBias5(r.move, r.expBps, c.stance),   // source: 'market' (rateprobability) | 'maison' (modele DTP, ex. SNB/RBNZ non cotes) -> etiquetage honnete cote UI
     });
   });
@@ -7236,6 +7241,7 @@ Rules:
 - "quotes" : 0 à 3 propos par banque, UNIQUEMENT de vrais propos présents dans les données (citation ou paraphrase FIDÈLE de ce que le responsable a dit) — JAMAIS de citation fabriquée, jamais de mots ou chiffres non présents. Si aucun responsable ne s'est exprimé cette semaine, "quotes" DOIT valoir [] — n'écris JAMAIS un faux « propos » du type « aucun responsable ne s'est exprimé ».
 - Le "narrative" doit être SPÉCIFIQUE à cette banque (responsables, données précises, wording réel), jamais un gabarit réutilisable. Si la banque a été calme, dis-le brièvement, sans remplissage générique (« l'économie se redresse » = INTERDIT).
 - CHIFFRES DE MARCHÉ INVENTÉS = INTERDITS, NI dans "narrative" NI dans "analysis" : les données ne contiennent PAS de niveaux de marché → décris TOUTE réaction QUALITATIVEMENT (« le dollar s'est affaibli », « l'or a progressé »), JAMAIS de rendement, prix, niveau, montant chiffré ($/€) ou % non explicitement fourni (INTERDIT : « l'or a progressé de 83 $ », « le 10 ans à 4,48% »).
+- Les MINUTES d'une réunion (FOMC Minutes, ECB Accounts…), un TÉMOIGNAGE au Congrès/Parlement (Humphrey-Hawkins) ou un RAPPORT de politique monétaire (semestriel) sont des ÉVÉNEMENTS DE COMMUNICATION MAJEURS : s'ils figurent dans les données de la semaine, ils DOIVENT être reflétés dans "narrative", "guidance" et "changed" (ton révélé, higher-for-longer / assouplissement, ce qu'ils changent), MÊME sans décision de taux cette semaine. N'écris JAMAIS « la banque n'a pas communiqué / rien cette semaine » si des minutes / un rapport / un témoignage figurent dans les données — décris-les.
 - ALL text in FRENCH. Keep central-bank acronyms as-is (Fed, ECB, BoE, BoJ, BoC, RBA, RBNZ, SNB). Translate any English data (expected→attendu, forecast→prévu, prior→précédent, actual→publié). No source attributions, no URLs.
 
 === RATE PROBABILITIES (par banque, marché) ===
@@ -7246,6 +7252,36 @@ ${cbNews || '(peu de communication cette semaine)'}
 
 === LAST WEEK'S STANCE (for wording-change comparison) ===
 ${prevCtx || '(pas de rapport précédent)'}`;
+}
+
+// TAXONOMIE FIXE des Points Macro Clés (demande user 12/07) : ordre + en-têtes canoniques. « Banques
+// Centrales & Politique Monétaire » n'est PAS ici — c'est la SECTION dédiée (injectée en #2 côté rendu,
+// juste après Géopolitique). Chaque thème IA est rattaché au thème canonique le plus proche (heading +
+// bullets), relabellisé, fusionné, puis trié selon cet ordre (déterministe, même si l'IA dévie).
+const _MACRO_CANON = [
+  { key: 'Géopolitique',                   re: /g[ée]opolit|iran|isra[ëe]l|guerre|conflit|hormuz|ukraine|russie|missile|frappe|militaire|moyen-?orient|houthi|gaza|hamas|hezbollah|cessez-le-feu|tensions?/i },
+  { key: 'Inflation & Croissance',         re: /inflation|\bcpi\b|\bpce\b|\bppi\b|prix (?:à|a) la consommation|croissance|\bpib\b|\bgdp\b|emploi|ch[ôo]mage|\bnfp\b|payrolls?|salaires?|r[ée]cession|\bpmi\b|\bism\b|activit[ée]|consommation|ventes au d[ée]tail|confiance (?:des|du) consommat/i },
+  { key: 'Performance Cross-Asset',        re: /cross-?asset|actions?|bourse|indice|equit|stoxx|s&p|nasdaq|nikkei|kospi|\bdax\b|\bcac\b|obligation|rendement|\btaux\b(?! directeur)|bons du tr[ée]sor|\bor\b|p[ée]trole|brent|\bwti\b|mati[èe]res? premi|commodit|dollar|\bdxy\b|\brisk\b|app[ée]tit (?:pour le|au) risque|refuge|s[ée]curit[ée] refuge/i },
+  { key: 'Commerce International & Tarifs', re: /commerce|tarif|douan|import|export|\bomc\b|\bwto\b|accord commercial|guerre commerciale|droits? de douane|surtaxe|barri[èe]re commerc/i },
+  { key: 'Technologie & Innovation',       re: /technolog|intelligence artificielle|\bopenai\b|semi-?conduct|\bpuces?\b|nvidia|micron|\bcloud\b|innovation|logiciel|data ?center|\bchips?\b/i },
+];
+function _macroCanonKey(theme) {
+  const hay = (String((theme && theme.heading) || '') + ' ' + (((theme && theme.bullets) || []).join(' '))).toLowerCase();
+  for (const c of _MACRO_CANON) if (c.re.test(hay)) return c.key;
+  return null;
+}
+// Regroupe/relabellise/trie les thèmes macro de l'IA selon _MACRO_CANON. Les thèmes non classables sont
+// conservés à la fin (rare : l'IA reçoit déjà la consigne d'utiliser ces en-têtes). CB déjà retiré en amont.
+function _orderMacroCanon(macro) {
+  const buckets = new Map(); const extras = [];
+  for (const m of (Array.isArray(macro) ? macro : [])) {
+    if (!m || !m.heading) continue;
+    const k = _macroCanonKey(m);
+    if (k) { if (!buckets.has(k)) buckets.set(k, []); buckets.get(k).push(...(Array.isArray(m.bullets) ? m.bullets : [])); }
+    else extras.push(m);
+  }
+  const ordered = _MACRO_CANON.filter(c => buckets.has(c.key)).map(c => ({ heading: c.key, bullets: buckets.get(c.key).slice(0, 6) }));
+  return [...ordered, ...extras].slice(0, 8);
 }
 
 // ── Weekly Market Recap RICHE (Gemini → JSON structuré) ──
@@ -7378,7 +7414,7 @@ This call produces the GLOBAL part of the recap (the per-currency sections are w
   ]
 }
 Rules:
-- "macro" = Key Macro Highlights: 5 to 7 themes (géopolitique ; performance cross-asset actions/obligations/FX/matières ; données de croissance & inflation ; commerce/tarifs ; développements politiques ; technologie/corporate ; autre thème majeur de la semaine), each with 3 to 5 detailed bullets. Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant son sujet (2-4 mots, ex. **Actions US :**, **Rendements :**) suivi de 2 à 3 phrases concrètes EN FRANÇAIS. N'écris JAMAIS le mot « sous-thème » : mets le VRAI sujet. TRADUIS toute donnée anglaise (expected→attendu, etc.). NE CRÉE PAS de thème « Politique monétaire / Banques centrales » dans macro : les banques centrales ont leur PROPRE section dédiée séparée (ne les évoque dans macro que si un fait cross-asset l'exige).
+- "macro" = Points Macro Clés, catégorisés avec CES en-têtes EXACTES et dans CET ORDRE (n'inclure QUE ceux ayant un contenu réel cette semaine, sans jamais les renommer ni les réordonner) : "Géopolitique", "Inflation & Croissance", "Performance Cross-Asset", "Commerce International & Tarifs", "Technologie & Innovation". N'utilise AUCUN autre en-tête. NE CRÉE PAS de thème « Banques centrales / Politique monétaire » : elles ont leur PROPRE section dédiée (n'évoque une banque centrale dans macro que si un fait cross-asset l'exige). Range chaque fait sous le bon thème : conflits/guerres/sanctions géopolitiques→Géopolitique ; CPI/PCE/PIB/emploi/PMI/salaires/croissance/consommation→Inflation & Croissance ; actions/obligations/rendements/FX/dollar/or/pétrole/matières/appétit pour le risque→Performance Cross-Asset ; droits de douane/accords commerciaux/guerre commerciale→Commerce International & Tarifs ; IA/semi-conducteurs/logiciel/innovation technologique→Technologie & Innovation. Un fait politique ou budgétaire → range-le sous le thème le plus proche (JAMAIS un 6e en-tête). Chaque thème = 3 à 5 bullets. Chaque bullet COMMENCE par un COURT LIBELLÉ EN GRAS résumant son sujet (2-4 mots, ex. **Actions US :**, **Rendements :**) suivi de 2 à 3 phrases concrètes EN FRANÇAIS. N'écris JAMAIS le mot « sous-thème ». TRADUIS toute donnée anglaise (expected→attendu, etc.).
 - "insights": 5 to 6 thematic cards (1 phrase). "pairs": 5 to 7 KEY pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/NZD, USD/CAD, Gold…) with a directional bias for the COMING week — "bias" exactly "BUY", "SELL" or "NEUTRAL".
 - "pairs" — ZÉRO REMPLISSAGE : chaque "text" est PROPRE à sa paire, cite le DRIVER réel (donnée/banque centrale/événement de la semaine) qui explique le biais, et DIFFÈRE des autres. INTERDIT : deux paires au même texte ou une formule passe-partout (« a clôturé sur une note stable malgré les incertitudes », « note positive grâce à la demande »…). Si une paire n'a pas de catalyseur propre, dis-le précisément (ex. « EUR/USD sans catalyseur propre, dans le sillage de la faiblesse du dollar ») plutôt qu'une phrase générique. Idem pour "insights" : 1 idée FORTE et spécifique par carte, aucun doublon.
 - No source attributions, no URLs.
@@ -7517,6 +7553,9 @@ ${corpus}`;
   // DÉTERMINISTIQUEMENT du macro (fiable, contrairement à une consigne négative). La section dédiée ci-dessous
   // (par banque, avec citations + analyse) reste la SEULE section banques centrales.
   weekly.macro = (weekly.macro || []).filter(m => m && !/banque|central|mon[ée]taire|politique\s*mon/i.test(String(m.heading || '')));
+  // Taxonomie FIXE + ORDRE (demande user) : Géopolitique · Inflation & Croissance · Performance Cross-Asset ·
+  // Commerce International & Tarifs · Technologie & Innovation. (Banques Centrales = section dédiée, en #2 au rendu.)
+  weekly.macro = _orderMacroCanon(weekly.macro);
 
   // ── SECTION BANQUES CENTRALES (demande user) : 1 appel IA DÉDIÉ, ancré sur les VRAIES données (probas de
   //    taux + news CB de la semaine) + le bloc de la semaine PRÉCÉDENTE (allNews encore intact avant l'échange
@@ -7524,7 +7563,19 @@ ${corpus}`;
   weekly.centralBanks = [];
   try {
     const CB_RX = /\b(fed|fomc|powell|warsh|ecb|bce|lagarde|lane|nagel|kazaks|boe|bailey|pill|greene|mann|boj|ueda|uchida|snb|bns|schlegel|boc|macklem|rba|bullock|rbnz|orr|hawkish|dovish|colombe|faucon)\b/i;
-    const cbNews = [...wraps, ...cal, ...news].filter(l => CB_RX.test(String(l))).slice(0, 45).join('\n').slice(0, 8000);
+    // Événements CB TIER-1 (minutes, décision/statement, dot plot, projections, témoignage, rapport de
+    // politique monétaire, ton hawkish/dovish, higher-for-longer) = à REMONTER EN TÊTE de cbNews. Sinon un
+    // flot de titres génériques (ex. ~20 lignes « Fed report: … » du rapport semestriel, tous horodatés le
+    // même jour) remplit le plafond AVANT les « FOMC Minutes » de la semaine → l'IA ne les voit jamais et
+    // écrit à tort « la Fed n'a rien communiqué cette semaine » (bug remonté par l'user le 12/07).
+    const CB_KEY_RX = /\b(minutes?|rate decision|rate statement|policy decision|dot[\s-]?plot|projections?|press conference|testimony|semi[\s-]?annual|monetary policy report|hawkish|dovish|higher[\s-]for[\s-]longer|tightening|easing|décision de taux|hausse de taux|baisse de taux|resserrement|assouplissement)\b/i;
+    const _cbSeen = new Set();
+    // Source CB = TOUT le corpus de la semaine (wraps + calendrier + weekItemsRaw COMPLET, pas le news
+    // plafonné à 120) → une publication CB de milieu de semaine (ex. FOMC Minutes) ne peut pas tomber
+    // hors plafond une semaine à très fort volume. Filtre CB_RX, dédup exact, puis priorité TIER-1.
+    const _cbUniq = [...wraps, ...cal, ...weekItemsRaw.map(i => `[${i.category || ''}] ${i.headline}`)].map(String).filter(l => CB_RX.test(l))
+      .filter(l => { const k = l.toLowerCase().replace(/\s+/g, ' ').trim(); if (_cbSeen.has(k)) return false; _cbSeen.add(k); return true; });   // exact-dedup (les flux re-postent le même titre)
+    const cbNews = [..._cbUniq.filter(l => CB_KEY_RX.test(l)), ..._cbUniq.filter(l => !CB_KEY_RX.test(l))].slice(0, 55).join('\n').slice(0, 9000);
     const ratesCtx = _recapCbRatesCtx();
     const prevItem = allNews.find(i => i._reportType === 'Weekly Market Recap' && i._weekly && Array.isArray(i._weekly.centralBanks) && i._weekly.centralBanks.length);
     const prevCtx = prevItem ? prevItem._weekly.centralBanks.map(c => { const t = c.narrative || c.stanceChange || ''; return `${c.bank} : ${c.stance}${t ? ' — ' + String(t).slice(0, 170) : ''}`; }).join('\n') : '';
