@@ -1825,7 +1825,7 @@ function buildSeasonalityChart(){
   if (!wrap) return;
   _seasonLoadCatalog();   // libellés multi-classes (Forex/Stocks/Commodities/Indices) pour le badge + la fenêtre Settings
   const sel = document.getElementById('season-pair-select');
-  if (sel && !sel.options.length) sel.innerHTML = _SEASON_PAIRS.slice().sort((a, b) => _seasonFmtPair(a).localeCompare(_seasonFmtPair(b))).map(p => `<option value="${p}">${_seasonFmtPair(p)}</option>`).join('');   // tri ALPHABÉTIQUE des paires
+  if (sel && !sel.options.length) sel.innerHTML = _SEASON_PAIRS.slice().sort((a, b) => _seasonFmtPair(a).localeCompare(_seasonFmtPair(b), 'fr', { numeric: true, sensitivity: 'base' })).map(p => `<option value="${p}">${_seasonFmtPair(p)}</option>`).join('');   // tri ALPHABÉTIQUE des paires (numérique + insensible à la casse)
   // 1re activation : récupère la dernière paire du compte (défaut EUR/USD), puis rend.
   if (_seasonPair == null){
     _seasonPair = 'EURUSD';
@@ -1885,7 +1885,7 @@ async function _seasonOpenSettings(){
 function _seasonRenderCfg(ov){
   const cls = (_seasonCatalog[_seasonCfgClass] || []).length ? _seasonCfgClass : 'forex';
   // Tri ALPHABÉTIQUE (par libellé) pour retrouver un symbole facilement, en 2 colonnes.
-  const items = (_seasonCatalog[cls] || []).slice().sort((a, b) => String(a.label || a.id).localeCompare(String(b.label || b.id)));
+  const items = (_seasonCatalog[cls] || []).slice().sort((a, b) => String(a.label || a.id).localeCompare(String(b.label || b.id), 'fr', { numeric: true, sensitivity: 'base' }));
   const tabs = _SEA_CLASSES.filter(([k]) => (_seasonCatalog[k] || []).length)
     .map(([k, lbl]) => `<button class="sea-cfg-tab${k === cls ? ' sea-cfg-tab--on' : ''}" data-cls="${k}">${lbl}</button>`).join('');
   const grid = items.map(it => {
