@@ -17,16 +17,17 @@ const UA  = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML
 const TTL = 8 * 60 * 60 * 1000;   // 8 h
 
 const COUNTRY = { USD: 'united-states', EUR: 'euro-area', GBP: 'united-kingdom', CAD: 'canada', AUD: 'australia', NZD: 'new-zealand', JPY: 'japan', CHF: 'switzerland' };
-// Catégories fondamentales (mêmes libellés que SB_FUND_SUBS) → indicateur(s) TradingEconomics + mode de notation.
+// Catégories fondamentales alignées sur le PDF « Learning Economics News » (familles Inflation / Emploi /
+// Croissance). MÊMES libellés que _SB_FUND_SUBS (server.js) = clé de jointure. NFP/PCE/PPI sont US-only →
+// par devise on utilise l'équivalent TradingEconomics par pays (inflation, chômage, salaires, PIB, ventes, PMI).
 const CATS = [
-  { key: 'Economic Growth',     re: /^GDP Growth Rate$|^GDP Annual Growth Rate$/i,   mode: 'trend' },
-  { key: 'Rising Prices',       re: /^Inflation Rate$/i,                             mode: 'trend' },   // inflation en hausse → hawkish → haussier devise
-  { key: 'Consumer Confidence', re: /^Consumer Confidence$|Consumer Sentiment/i,     mode: 'trend' },
-  { key: 'Factory Activity',    re: /Manufacturing PMI/i,                            mode: 'pmi'   },
-  { key: 'Service Activity',    re: /Services PMI/i,                                 mode: 'pmi'   },
-  { key: 'New Homes Started',   re: /^Housing Starts$/i,                             mode: 'trend' },
-  { key: 'Building Permits',    re: /^Building Permits$|Building Consents/i,         mode: 'trend' },
-  { key: 'Retail Sales',        re: /^Retail Sales MoM$|^Retail Sales YoY$/i,        mode: 'trend' },
+  { key: 'Inflation (CPI)',    re: /^Inflation Rate$/i,                              mode: 'trend' },   // inflation en hausse → hawkish → haussier devise
+  { key: 'Emploi (chômage)',   re: /^Unemployment Rate$/i,                           mode: 'inv'   },   // chômage en HAUSSE → dovish → BAISSIER devise (inversé)
+  { key: 'Salaires',           re: /^Wages$|^Wage Growth$|Average Hourly Earnings/i, mode: 'trend' },   // salaires en hausse → pression inflationniste → haussier
+  { key: 'Croissance (PIB)',   re: /^GDP Growth Rate$|^GDP Annual Growth Rate$/i,    mode: 'trend' },
+  { key: 'Ventes au détail',   re: /^Retail Sales MoM$|^Retail Sales YoY$/i,         mode: 'trend' },
+  { key: 'PMI Manufacturier',  re: /Manufacturing PMI/i,                             mode: 'pmi'   },
+  { key: 'PMI Services',       re: /Services PMI/i,                                  mode: 'pmi'   },
 ];
 
 const _num = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[, ]/g, '').replace(/[^0-9.\-]/g, '')); return isNaN(x) ? null : x; };
@@ -37,7 +38,10 @@ function _rate(mode, last, prev) {
   if (P == null || Math.abs(L - P) < 1e-9) return 'Neutral';
   const rel = P !== 0 ? Math.abs((L - P) / P) : 1;
   const strong = rel >= 0.30 && Math.abs(L - P) >= 0.3;   // mouvement marqué → « Very » (plancher absolu : évite le « Very » sur un PIB quasi nul)
-  return L > P ? (strong ? 'Very Bullish' : 'Bullish') : (strong ? 'Very Bearish' : 'Bearish');
+  const up = L > P;
+  // mode 'inv' (chômage) : une HAUSSE est BAISSIERE pour la devise (marché du travail qui se degrade → dovish).
+  if (mode === 'inv') return up ? (strong ? 'Very Bearish' : 'Bearish') : (strong ? 'Very Bullish' : 'Bullish');
+  return up ? (strong ? 'Very Bullish' : 'Bullish') : (strong ? 'Very Bearish' : 'Bearish');
 }
 
 const _SC = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2 };
