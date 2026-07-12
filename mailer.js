@@ -1064,7 +1064,7 @@ function _bankNotesBlock(notes) {
 function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
   const secs = (Array.isArray(sections) ? sections : []).filter(s => s && s.title).slice(0, 6);
   if (!secs.length) return '';
-  const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">Un aperçu du rapport quotidien du desk&nbsp;:</p>`;
+  const intro = `<p style="margin:20px 0 8px;color:#9aa3b2;font-size:12.5px;">L'essentiel du rapport quotidien du desk, en bref&nbsp;:</p>`;
   const head = `<div style="padding:13px 16px;border-bottom:1px solid #26262b;">
       <div style="color:#f3c344;font-weight:800;font-size:13.5px;letter-spacing:.01em;">${_esc(reportTitle || 'Point Marché : le rapport du jour')}</div>
       ${dateLabel ? `<div style="color:#8b93a1;font-size:11.5px;margin-top:3px;">${_esc(dateLabel)}</div>` : ''}
