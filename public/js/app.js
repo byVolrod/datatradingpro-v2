@@ -6408,25 +6408,24 @@ function _wrCbCall(c) {
 }
 // Section Banques Centrales EN LISTE (demande user) : par banque, du + important au meeting le + proche —
 // décision de la semaine (+ phrase du discours), attente prochaine réunion (hausse/baisse/maintien) + guidance, propos.
+// Banques Centrales EN LISTE À PUCES (demande user : cohérence avec les autres parties) : même titre
+// (wr-macro-heading) et mêmes puces (wr-bullet) que les Points Macro. 1 puce/banque : biais + prochaine
+// réunion (hausse/baisse/maintien) + guidance + propos, en ligne. Ordre serveur (important -> meeting proche).
 function _wrCbSection(cbs) {
   const list = (cbs || []).filter(c => c && c.bank);
   if (!list.length) return '';
-  let h = `<div class="wr-section-title">Banques Centrales</div>`
-    + `<div class="wr-cb-intro">Par banque, du plus important au meeting le plus proche : décision de la semaine, orientation pour la prochaine réunion (hausse, baisse ou maintien) et guidance. Probabilités = <b>implicites de marché</b> (pas une prévision DTP) quand le taux est coté ; <b>estimation maison</b> (« est. maison ») sinon.</div>`
-    + `<div class="wr-cb-list">`;
+  let h = `<div class="wr-macro-heading">Banques Centrales</div>`;
   list.forEach(c => {
     const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
     const nextFr = _wrCbNextFr(c.next, c.nextDays);
     const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
-    h += `<div class="wr-cb-li">`
-      + `<div class="wr-cb-li-head"><span class="wr-cb-li-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}${c.rate != null ? `<span class="wr-cb-li-rate">taux ${_wrEsc(String(c.rate))}%</span>` : ''}</div>`
-      + (c.decision ? `<div class="wr-cb-li-row"><span class="wr-cb-li-k">Cette semaine</span> ${_wrInline(c.decision)}</div>` : '')
-      + `<div class="wr-cb-li-row"><span class="wr-cb-li-k">Prochaine réunion</span> <b>${_wrEsc(nextFr)}</b> : ${_wrEsc(_wrCbCall(c))}${c.move ? ` · ${_wrEsc(_wrCbMoveLbl(c.move))}` : ''}</div>`
-      + ((c.guidance || c.narrative) ? `<div class="wr-cb-li-row wr-cb-li-guid">${_wrInline(c.guidance || c.narrative)}</div>` : '')
-      + (q ? `<div class="wr-cb-li-quote"><div class="wr-cb-q">${_wrEsc(q.quote)}</div><div class="wr-cb-a">${_wrInline(q.analysis)}</div></div>` : '')
-      + `</div>`;
+    let s = `<strong>${_wrEsc(c.bank)}</strong> <span class="wr-cb-tag wr-cb-tag--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}`
+      + ` · Prochaine réunion ${_wrEsc(nextFr)} : ${_wrEsc(_wrCbCall(c))}.`;
+    if (c.decision) s += ` ${_wrInline(c.decision)}`;
+    if (c.guidance || c.narrative) s += ` ${_wrInline(c.guidance || c.narrative)}`;
+    if (q) s += ` <span class="wr-cb-qi">« ${_wrEsc(q.quote)} »</span>`;
+    h += `<div class="wr-bullet wr-cb-bullet">${s}</div>`;
   });
-  h += `</div>`;
   return h;
 }
 // ── Section Calendrier économique du Weekly Recap (v18) : À VENIR (majeurs, + proche d'abord) puis
