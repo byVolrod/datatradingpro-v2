@@ -7524,6 +7524,11 @@ ${corpus}`;
   // enrichi (bias5 + scenario proba + prochaine réunion + changed/factors/fxImpact + propos). Le filtre plus
   // haut a déjà retiré tout thème macro « Banques centrales » générique → aucune duplication.
 
+  // TABLEAU CALENDRIER ÉCONOMIQUE (demande user) : prochains événements majeurs (à venir) EN PREMIER,
+  // puis événements passés de la semaine. Rendu desk + mail. Anti-omission + dédup + regroupé par jour.
+  try { weekly.calendar = await _buildRecapCalendar(weekStart, weekEnd); }
+  catch (e) { weekly.calendar = null; console.warn('[Weekly Recap] calendrier échec:', e.message); }
+
   try {
     const _cs = (_currentMondayUtc() === weekStart)
       ? await computeCurrencyStrength('week')
@@ -13008,6 +13013,35 @@ function _buildEcoDataSection(dataRows) {
   return { title: 'DONNÉES ÉCONOMIQUES', kind: 'data', data: rows.slice(0, 14).map(e => ({
     release: String(e.title || '').slice(0, 96), ccy: String(e.currency || ''), impact: String(e.impact || ''),
     period: '', actual: String(e.actual || ''), expected: String(e.forecast || ''), previous: String(e.previous || '') })) };
+}
+// ── TABLEAU CALENDRIER ÉCONOMIQUE du Récap Hebdo (demande user) : d'abord les PROCHAINS événements majeurs
+//    (à venir, du + proche au + éloigné), puis les événements déjà PASSÉS de la semaine (chronologique). Source
+//    UNIQUE = _buildTVCalendar (High/Medium natifs). Dédup (devise|titre|jour). Regroupé par jour. Anti-omission :
+//    tout événement MAJEUR (_isMajorCal) est conservé. Retourne { upcoming:[{dayLabel,events[]}], past:[...] }. ──
+async function _buildRecapCalendar(weekStart, weekEnd) {
+  let cal = [];
+  try { cal = await _buildTVCalendar(); } catch {}
+  if (!Array.isArray(cal) || !cal.length) cal = (_tvCalCache && _tvCalCache.items) || [];
+  const _key = e => String(e.currency || '') + '|' + String(e.title || '').toLowerCase().replace(/\s+/g, ' ').trim() + '|' + new Date(e.timestamp || 0).toISOString().slice(0, 10);
+  const _dayFr = ts => { const s = new Date(ts).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'short', timeZone: 'Europe/Paris' }); return s.charAt(0).toUpperCase() + s.slice(1); };
+  const _ev = e => ({ time: e.time || '', ccy: e.currency || '', title: String(e.title || '').slice(0, 90), actual: e.actual || '', forecast: e.forecast || '', previous: e.previous || '', impact: e.impact || '', major: _isMajorCal(e) });
+  const _group = items => {
+    const byDay = new Map();
+    for (const e of items) { const k = _dayFr(e.timestamp || 0); if (!byDay.has(k)) byDay.set(k, []); byDay.get(k).push(e); }
+    return [...byDay.entries()].map(([dayLabel, evs]) => ({ dayLabel, events: evs.map(_ev) }));
+  };
+  const seen = new Set();
+  const dedup = arr => arr.filter(e => { const k = _key(e); if (seen.has(k)) return false; seen.add(k); return true; });
+  const _noise = /speaks|speech|holiday|member|birthday|auction|bond|bill\b/i;
+  // À venir : après la fin de la semaine couverte, ~12 j, High/Medium ou majeurs ; le + proche d'abord.
+  const upcoming = dedup((cal || []).filter(e => e && (e.timestamp || 0) > weekEnd && (e.timestamp || 0) <= weekEnd + 12 * 86400000
+      && (_isMajorCal(e) || /high|medium/i.test(e.impact || '')) && !_noise.test(e.title || '')))
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  // Passés : la semaine couverte, résultats publiés ou majeurs ; chronologique.
+  const past = dedup((cal || []).filter(e => e && (e.timestamp || 0) >= weekStart && (e.timestamp || 0) <= weekEnd
+      && ((e.actual && e.actual !== '') || _isMajorCal(e) || /high|medium/i.test(e.impact || '')) && !_noise.test(e.title || '')))
+    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  return { upcoming: _group(upcoming.slice(0, 45)), past: _group(past.slice(0, 45)) };
 }
 // Evenement VEDETTE = celui que le calendrier du desk (widget) affiche EN PREMIER : MEME ordre (inflation/CPI
 // d'abord, puis High, puis le plus proche) -> garantit que le texte du mail concorde avec le widget calendrier.
