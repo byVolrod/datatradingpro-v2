@@ -6382,7 +6382,9 @@ function _wrCbNextFr(next, nextDays) {
   if (!next) return 'à confirmer';
   try { const d = new Date(next + 'T00:00:00'); const s = d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); return s + (nextDays != null ? ` (dans ${nextDays} j)` : ''); } catch { return next; }
 }
-function _wrCbMoveLbl(move) { return move === 'HIKE' ? 'penche vers une hausse' : move === 'CUT' ? 'penche vers une baisse' : 'maintien attendu'; }
+function _wrCbMoveLbl(move) { return move === 'HIKE' ? 'trajectoire ~6 mois : penche vers une hausse' : move === 'CUT' ? 'trajectoire ~6 mois : penche vers une baisse' : 'trajectoire ~6 mois : stable'; }
+// Étiquette honnête de la SOURCE des probas : marché (rateprobability) vs estimation maison DTP (ex. SNB/RBNZ non cotés).
+function _wrCbSrc(source) { return (source && source !== 'market') ? '<span class="wr-cb-src" title="Estimation maison DTP : ce taux n\'est pas coté sur le marché des probabilités">est. maison</span>' : ''; }
 function _wrCbProbaBar(sc) {
   if (!sc) return '';
   const h = Math.round(sc.hike || 0), o = Math.round(sc.hold || 0), c = Math.round(sc.cut || 0);
@@ -6399,13 +6401,13 @@ function _wrCbSection(cbs) {
   const majors = list.filter(c => _WR_CB_MAJORS[c.code]);
   const minors = list.filter(c => !_WR_CB_MAJORS[c.code]);
   let h = `<div class="wr-section-title">Banques Centrales</div>`
-    + `<div class="wr-cb-intro">Anticipation de la prochaine décision de politique monétaire : biais, probabilités implicites de marché et signaux de communication (probabilités = pricing de marché, pas une prévision DTP).</div>`;
+    + `<div class="wr-cb-intro">Anticipation de la prochaine décision de politique monétaire : biais, probabilités et signaux de communication. Probabilités = <b>implicites de marché</b> (pas une prévision DTP) quand le taux est coté ; <b>estimation maison DTP</b> (marqué « est. maison ») pour les banques non cotées (ex. SNB, RBNZ).</div>`;
   (majors.length ? majors : list).forEach(c => {
     const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
     const q = (c.quotes && c.quotes.length)
       ? `<div class="wr-cb-quotes"><div class="wr-cb-lbl">Propos & anticipation</div>${c.quotes.map(x => `<div class="wr-cb-quote"><div class="wr-cb-q">${_wrEsc(x.quote)}</div><div class="wr-cb-a">${_wrInline(x.analysis)}</div></div>`).join('')}</div>` : '';
     h += `<div class="wr-cb-card">
-      <div class="wr-cb-head"><span class="wr-cb-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${c.rate != null ? `<span class="wr-cb-rate">taux ${_wrEsc(String(c.rate))}%</span>` : ''}</div>
+      <div class="wr-cb-head"><span class="wr-cb-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}${c.rate != null ? `<span class="wr-cb-rate">taux ${_wrEsc(String(c.rate))}%</span>` : ''}</div>
       ${_wrCbProbaBar(c.scenario)}
       <div class="wr-cb-next">Prochaine réunion : <b>${_wrEsc(_wrCbNextFr(c.next, c.nextDays))}</b> · ${_wrEsc(_wrCbMoveLbl(c.move))}</div>
       ${c.narrative ? `<div class="wr-cb-block"><span class="wr-cb-lbl">Résumé</span><div class="wr-cb-txt">${_wrInline(c.narrative)}</div></div>` : ''}
@@ -6420,7 +6422,7 @@ function _wrCbSection(cbs) {
     minors.forEach(c => {
       const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
       const sc = c.scenario;
-      h += `<div class="wr-cb-mini"><span class="wr-cb-mini-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${sc ? `<span class="wr-cb-mini-proba">H ${Math.round(sc.hike || 0)}% · M ${Math.round(sc.hold || 0)}% · B ${Math.round(sc.cut || 0)}%</span>` : ''}<span class="wr-cb-mini-next">${_wrEsc(_wrCbNextFr(c.next, c.nextDays))}</span></div>`;
+      h += `<div class="wr-cb-mini"><span class="wr-cb-mini-name">${_wrEsc(c.bank)}</span><span class="wr-cb-bias wr-cb-bias--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}${sc ? `<span class="wr-cb-mini-proba">H ${Math.round(sc.hike || 0)}% · M ${Math.round(sc.hold || 0)}% · B ${Math.round(sc.cut || 0)}%</span>` : ''}<span class="wr-cb-mini-next">${_wrEsc(_wrCbNextFr(c.next, c.nextDays))}</span></div>`;
     });
     h += `</div>`;
   }

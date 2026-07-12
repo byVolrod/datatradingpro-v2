@@ -5065,7 +5065,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-bias--neu   { color:#cfd2d8; background:#2a2a30; }
 .wr-cb-bias--dov   { color:#0c0c0e; background:#3aa0e0; }
 .wr-cb-bias--vdov  { color:#0c0c0e; background:#2ec4a6; }
+.wr-cb-src { font-size:9px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:#8b93a1; background:#1a1a1f; border:1px solid #2a2a30; border-radius:4px; padding:1px 5px; white-space:nowrap; cursor:help; }
 .wr-cb-rate { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:#9aa3b2; white-space:nowrap; }
+.wr-cb-head .wr-cb-src + .wr-cb-rate { margin-left:6px; }
 .wr-cb-proba { display:flex; flex-wrap:wrap; gap:6px 16px; margin:2px 0 6px; }
 .wr-cb-prob { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#aeb6c2; }
 .wr-cb-prob b { color:#e8eaed; font-family:var(--font-mono); }
