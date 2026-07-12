@@ -2821,7 +2821,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 17;   // v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 18;   // v18 = Banques Centrales NIVEAU INSTITUTIONNEL : chaque banque enrichie de {bias5 (5 niveaux), scenario proba hausse/maintien/baisse, move, next (prochaine reunion) + nextDays, expBps} fusionnes depuis _buildRatesPayload (rateprobability, MARCHE) + 3 nouveaux champs IA {changed (ce qui a change depuis la derniere reunion), factors (facteurs susceptibles de faire evoluer), fxImpact (impact devise CT/MT/LT)} ; les propos (quotes) portent l'anticipation prochaine reunion ; v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -7154,11 +7154,46 @@ function _recapSanitizeCb(arr) {
     bank: _stripMd(String(x.bank)).slice(0, 40),
     stance: OK.includes(String(x.stance || '').toLowerCase()) ? String(x.stance).toLowerCase() : 'neutral',
     narrative: _stripMd(String(x.narrative || x.stanceChange || '')).slice(0, 1300),
+    changed: _stripMd(String(x.changed || x.change || '')).slice(0, 700),         // ce qui a change depuis la derniere reunion
+    factors: _stripMd(String(x.factors || x.watch || '')).slice(0, 700),          // facteurs susceptibles de faire evoluer la trajectoire
+    fxImpact: _stripMd(String(x.fxImpact || x.currency || '')).slice(0, 700),      // impact devise CT / MT / LT
     quotes: (Array.isArray(x.quotes) ? x.quotes : []).filter(q => q && (q.quote || q.analysis)).map(q => ({
       quote: _stripMd(String(q.quote || '')).replace(/^["«»\s]+|["«»\s]+$/g, '').slice(0, 340),
       analysis: _stripMd(String(q.analysis || '')).slice(0, 640),
     })).filter(q => q.quote && q.analysis).slice(0, 3),
   })).slice(0, 8);
+}
+// Biais 5 NIVEAUX (Tres hawkish -> Tres dovish) : DIRECTION = trajectoire de taux implicite marche (move,
+// fiable sur ~6,5 mois) ; INTENSITE "Tres" = ampleur bps de la prochaine reunion ; NUANCE = ton IA (stance).
+// 100% ancre data (aucune invention). move null -> repli sur le seul stance IA.
+function _cbBias5(move, expBps, stance) {
+  const st = String(stance || '').toLowerCase();
+  const bps = Math.abs(+expBps || 0);
+  let s;
+  if (move === 'HIKE') s = bps >= 15 ? 2 : 1;
+  else if (move === 'CUT') s = bps >= 15 ? -2 : -1;
+  else if (move === 'HOLD') s = 0;
+  else s = (st === 'hawkish' ? 1 : st === 'dovish' ? -1 : 0);   // pas de donnee marche : ton IA seul
+  if (move) { if (st === 'hawkish') s = Math.min(2, s + 1); else if (st === 'dovish') s = Math.max(-2, s - 1); }
+  return ['Très dovish', 'Dovish', 'Neutre', 'Hawkish', 'Très hawkish'][Math.max(-2, Math.min(2, s)) + 2];
+}
+// Rattache un libelle de banque (IA : "Fed","BCE","ECB","BoE","BNS (SNB)"...) au CODE devise de _buildRatesPayload.
+const _CB_NAME2CODE = { fomc: 'USD', fed: 'USD', bce: 'EUR', ecb: 'EUR', boe: 'GBP', boj: 'JPY', boc: 'CAD', rba: 'AUD', rbnz: 'NZD', snb: 'CHF', bns: 'CHF' };
+function _cbCodeOf(bankName) { const s = String(bankName || '').toLowerCase(); for (const k in _CB_NAME2CODE) if (s.includes(k)) return _CB_NAME2CODE[k]; return null; }
+// Fusionne dans chaque bloc CB les VRAIES donnees de marche (rateprobability via _buildRatesPayload) : taux
+// directeur, scenario proba {hold,hike,cut} prochaine reunion, trajectoire (move), date prochaine reunion (next)
+// + jours, bps implicites, et le biais 5 niveaux calcule. Aucune invention : si pas de donnee marche -> champs absents.
+function _cbMergeRates(cbArr) {
+  let payload = []; try { const p = _buildRatesPayload(); payload = (p && Array.isArray(p.banks)) ? p.banks : []; } catch {}
+  const byCode = {}; for (const b of payload) if (b && b.code) byCode[b.code] = b;
+  return (Array.isArray(cbArr) ? cbArr : []).map(c => {
+    const code = _cbCodeOf(c.bank); const r = code ? byCode[code] : null;
+    if (!r) return Object.assign({}, c, { bias5: _cbBias5(null, 0, c.stance) });
+    return Object.assign({}, c, {
+      code, rate: r.rate, scenario: r.scenario, move: r.move, next: r.next, nextDays: r.nextDays,
+      expBps: r.expBps, bias5: _cbBias5(r.move, r.expBps, c.stance),
+    });
+  });
 }
 function _recapCbPrompt(ratesCtx, cbNews, prevCtx) {
   return `You are the chief central-bank strategist for an institutional FX & markets desk. For each of these 8 banks — Fed, BCE (ECB), BoE, BoJ, BoC, RBA, RBNZ, BNS (SNB) — write a WEEKLY per-bank block IN FRENCH (français soigné, précis, professionnel). Style = research note d'une banque d'investissement : d'abord un paragraphe de synthèse, puis les PROPOS CLÉS des banquiers centraux suivis d'une interprétation claire de leur signification.
@@ -7170,9 +7205,12 @@ Return ONLY valid JSON (no preamble, no code fences):
   "bank": "Fed",
   "stance": "hawkish|dovish|neutral",
   "narrative": "<2 à 3 phrases fluides et institutionnelles résumant les événements CLÉS de la banque cette semaine (discours de gouverneurs / membres votants, données macro, décisions, évolution des anticipations, réaction) ET le ton. Concis et SPÉCIFIQUE, aucune étiquette en gras.>",
+  "changed": "<1 à 2 phrases : CE QUI A CHANGÉ depuis la dernière réunion / semaine précédente — inflexion de wording, nouvelle donnée, vote, révision de projection, changement de ton. Si rien de notable n'a changé, dis-le brièvement (ex. « Statu quo, aucune inflexion notable »). Ancré données uniquement.>",
+  "factors": "<1 à 2 phrases : les FACTEURS/indicateurs susceptibles de faire évoluer la trajectoire de taux d'ici la prochaine réunion (ex. prochaine inflation CPI/PCE, emploi NFP, salaires, croissance, tensions géopolitiques...). Ce que CETTE banque surveille en priorité.>",
+  "fxImpact": "<impact potentiel sur la devise concernée, en 3 horizons courts et neutres — format EXACT « CT : … · MT : … · LT : … » (CT=court terme, MT=moyen, LT=long). ANALYTIQUE et conditionnel (ex. « un ton plus ferme soutiendrait la devise »), JAMAIS une recommandation d'achat/vente ni une promesse.>",
   "quotes": [ {
     "quote": "<propos CLÉ d'un responsable, FIDÈLE aux données (citation ou paraphrase fidèle ; jamais de mots ni chiffres inventés) — court>",
-    "analysis": "<interprétation : ton hawkish / dovish / attentiste ; ce qui a changé vs interventions précédentes ; ce que la banque surveille (inflation, emploi, salaires, croissance, consommation, crédit...) ; implications pour les prochaines réunions ; impact potentiel marché (devises, taux, actions, or...).>"
+    "analysis": "<interprétation : ton hawkish / dovish / attentiste ; ce qui a changé vs interventions précédentes ; ce que la banque surveille ; implications pour la prochaine réunion (penche-t-elle vers une hausse, une baisse ou un maintien) ; impact potentiel marché (devises, taux, actions, or...).>"
   } ]
 } ] }
 Rules:
@@ -7476,23 +7514,15 @@ ${corpus}`;
       const cbTxt = await ai.generateText(_recapCbPrompt(ratesCtx, cbNews, prevCtx), 4096);
       aiNote('weekly');
       const cm = String(cbTxt || '').match(/\{[\s\S]*\}/);
-      if (cm) { const cp = JSON.parse(cm[0]); if (cp && Array.isArray(cp.centralBanks)) weekly.centralBanks = _recapSanitizeCb(cp.centralBanks); }
+      if (cm) { const cp = JSON.parse(cm[0]); if (cp && Array.isArray(cp.centralBanks)) weekly.centralBanks = _cbMergeRates(_recapSanitizeCb(cp.centralBanks)); }
       console.log('[Weekly Recap] banques centrales : ' + weekly.centralBanks.length + ' banque(s)');
     }
   } catch (e) { console.warn('[Weekly Recap] IA banques centrales échec:', e.message); }
 
-  // Injecte l'analyse par banque DANS les Points Macro Clés (demande user : « mets-le dans cette structure »
-  // = 1 puce par banque « **Fed :** … », comme les autres thèmes macro), au lieu d'une section séparée en cartes.
-  // Le filtre plus haut a retiré la version générique de l'IA → la nôtre (ancrée données) est la SEULE.
-  if (Array.isArray(weekly.centralBanks) && weekly.centralBanks.length) {
-    const cbBul = weekly.centralBanks.map(c => {
-      const nm = _stripMd(String(c.bank || '')).replace(/\s*\(.*?\)\s*/, '').trim();
-      let tx = _stripMd(String(c.narrative || '')).replace(/\s+/g, ' ').trim();
-      if (tx.length > 460) { const cut = tx.slice(0, 460); const p = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? ')); tx = p > 220 ? cut.slice(0, p + 1) : cut.replace(/\s+\S*$/, '') + '…'; }   // coupe PROPRE (fin de phrase)
-      return (nm && tx) ? `**${nm} :** ${tx}` : '';
-    }).filter(Boolean);
-    if (cbBul.length) weekly.macro.unshift({ heading: 'Banques Centrales', bullets: cbBul });
-  }
+  // v18 : les Banques Centrales ne sont PLUS injectées en puces macro. Elles sont rendues dans une SECTION
+  // INSTITUTIONNELLE DÉDIÉE (desk _renderWeeklyRecap + mail buildWeeklyDigest) depuis weekly.centralBanks
+  // enrichi (bias5 + scenario proba + prochaine réunion + changed/factors/fxImpact + propos). Le filtre plus
+  // haut a déjà retiré tout thème macro « Banques centrales » générique → aucune duplication.
 
   try {
     const _cs = (_currentMondayUtc() === weekStart)

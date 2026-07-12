@@ -5056,6 +5056,38 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-a { margin:5px 0 0; font-size:12.5px; line-height:1.6; color:#c3c6cc; }
 .wr-cb-a::before { content:"→ "; color:#e3b23a; font-weight:700; }
 .wr-cb-narr strong, .wr-cb-a strong { color:#fff; font-weight:var(--fw-semibold); }
+/* Weekly Recap v18 — Banques Centrales NIVEAU INSTITUTIONNEL (biais 5 niveaux + probas marché + prochaine réunion) */
+.wr-cb-card { margin-bottom:10px; }
+.wr-cb-intro { color:#8b93a1; font-size:12px; line-height:1.55; font-style:italic; margin:2px 0 12px; }
+.wr-cb-bias { font-family:var(--tight); font-weight:800; font-size:10px; letter-spacing:.04em; padding:2px 9px; border-radius:20px; white-space:nowrap; }
+.wr-cb-bias--vhawk { color:#0c0c0e; background:#c94f3d; }
+.wr-cb-bias--hawk  { color:#0c0c0e; background:#e0863a; }
+.wr-cb-bias--neu   { color:#cfd2d8; background:#2a2a30; }
+.wr-cb-bias--dov   { color:#0c0c0e; background:#3aa0e0; }
+.wr-cb-bias--vdov  { color:#0c0c0e; background:#2ec4a6; }
+.wr-cb-rate { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:#9aa3b2; white-space:nowrap; }
+.wr-cb-proba { display:flex; flex-wrap:wrap; gap:6px 16px; margin:2px 0 6px; }
+.wr-cb-prob { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#aeb6c2; }
+.wr-cb-prob b { color:#e8eaed; font-family:var(--font-mono); }
+.wr-cb-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
+.wr-cb-dot--hike { background:#e0863a; } .wr-cb-dot--hold { background:#6b7280; } .wr-cb-dot--cut { background:#3aa0e0; }
+.wr-cb-bar { display:flex; height:5px; border-radius:3px; overflow:hidden; background:#17181d; margin:0 0 10px; }
+.wr-cb-bar i { display:block; height:100%; }
+.wr-cb-bar--hike { background:#e0863a; } .wr-cb-bar--hold { background:#4b5563; } .wr-cb-bar--cut { background:#3aa0e0; }
+.wr-cb-next { font-size:12px; color:#c9d1d9; margin:0 0 10px; padding:6px 9px; background:#0c0c0f; border:1px solid #17171c; border-radius:6px; }
+.wr-cb-next b { color:#e3b23a; }
+.wr-cb-block { margin:0 0 8px; }
+.wr-cb-lbl { display:block; font-family:var(--tight); font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:#e3b23a; margin:0 0 3px; }
+.wr-cb-txt { color:#c9d1d9; font-size:13px; line-height:1.65; }
+.wr-cb-txt strong { color:#fff; font-weight:var(--fw-semibold); }
+.wr-cb-quotes { margin:10px 0 0; }
+.wr-cb-mini-head { font-family:var(--tight); font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:#7a8493; margin:14px 0 8px; }
+.wr-cb-mini-wrap { display:flex; flex-direction:column; gap:6px; }
+.wr-cb-mini { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:#0f0f12; border:1px solid #17171c; border-radius:6px; padding:7px 11px; }
+.wr-cb-mini-name { font-family:var(--tight); font-weight:var(--fw-bold); font-size:13px; color:#e8eaed; min-width:52px; }
+.wr-cb-mini-proba { font-family:var(--font-mono); font-size:11px; color:#9aa3b2; }
+.wr-cb-mini-next { margin-left:auto; font-size:11px; color:#8b93a1; }
+@media (max-width:760px){ .wr-cb-mini-next { margin-left:0; } .wr-cb-proba { gap:4px 12px; } }
 /* Global Economic Weekly — Consensus Forecasts JOUR PAR JOUR (façon pro) */
 .gew-day { margin:20px 0 6px; }
 .gew-day-h { color:#e3b23a; font-size:13px; font-weight:var(--fw-bold); letter-spacing:.04em; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; align-items:baseline; gap:10px; }
