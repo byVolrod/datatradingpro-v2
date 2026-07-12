@@ -12865,11 +12865,10 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
   { id: 'decryptage',    week: 2,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   when: 'Mardi ~8h · concept choisi selon le calendrier de la semaine', desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
   { id: 'point-hebdo',   week: 3,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   when: 'Mercredi ~8h · données marché live (DTP Daily 12h, FX 22h30)', desc: 'Généré du desk : contexte macro dominant + régime de risque + ce qui bouge + forces/faiblesses (Force des Devises) + biais + widget.' },
-  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready', when: 'Samedi ~10h · evergreen (lecture week-end)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
-  { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready', when: 'Dimanche 18h · Récap généré samedi 02h (créneau auto actuel)', desc: 'La rétrospective de la semaine, façon desk.' },
-  { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready', when: 'Lundi ~8h · semaine à venir (avant Londres)',              desc: 'Les événements à surveiller, sans pousser de position.' },
-  // Alerte macro/BC retiree de la feuille de route (demande user) : le template alerte-bc reste
-  // fonctionnel cote serveur (evenementiel, _dripSend tpl 'alerte'), simplement plus affiche ici.
+  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready', when: 'Jeudi 10h · evergreen (posture/discipline)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
+  { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready', when: 'Samedi 18h · Récap généré samedi 02h',                     desc: 'La rétrospective de la semaine, façon desk.' },
+  { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready', when: 'Dimanche 18h · semaine à venir (avant ouverture)',         desc: 'Les événements à surveiller, sans pousser de position.' },
+  // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
   try {
@@ -13139,12 +13138,11 @@ function _dripBuildSample(stepDef, context) {
     if (stepDef.tpl === 'pointmarche') return mailer.buildCampaignPointMarche({ name: '', email, campaign: 'preflight', context, isMember: false });
     if (stepDef.tpl === 'mindset') return mailer.buildCampaignMindset({ name: '', email, campaign: 'preflight', recentKeys: [], isMember: false });
     if (stepDef.tpl === 'outlook') return mailer.buildCampaignOutlook({ name: '', email, campaign: 'preflight', context, isMember: false });
-    if (stepDef.tpl === 'alerte') return mailer.buildCampaignAlerteBC({ name: '', email, campaign: 'preflight', context, isMember: false });
   } catch (e) { throw e; }
   return null;
 }
 
-let _campSchedule = { active: false, weekday: 0, hour: 18, lastSentWeek: null, launchedAt: null };
+let _campSchedule = { active: false, weekday: 6, hour: 18, lastSentWeek: null, launchedAt: null };   // Recap Hebdo = SAMEDI 18h (weekday 6) — demande user 2026-07-12
 (async () => { try { const s = await auth.aiCacheGet('campaign:schedule', 366 * 864e5); if (s && typeof s === 'object') _campSchedule = Object.assign(_campSchedule, s); } catch {} })();
 function _saveSchedule() { auth.aiCacheSet('campaign:schedule', _campSchedule).catch(() => {}); }
 
@@ -13233,7 +13231,6 @@ async function _dripSend(stepDef, r, context, tag) {
     if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('point-marche', email); return true; } return false; }
     if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(6); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { _recordSent('mindset', email); try { await _mindsetMarkCovered(rr.conceptKey); } catch {} return true; } return false; }
     if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('outlook-hebdo', email); return true; } return false; }
-    if (stepDef.tpl === 'alerte') { const p = await mailer.sendCampaignAlerteBC({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('alerte-bc', email); return true; } return false; }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
   return false;
 }
@@ -13409,9 +13406,6 @@ app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
       const context = await _deskContext();
       m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context, isMember });
       if (!m) { m = mailer.buildCampaignOutlook({ name: s.name, email: s.email, campaign: 'outlook-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
-    } else if (type === 'alerte') {
-      const context = await _deskContext();
-      m = mailer.buildCampaignAlerteBC({ name: s.name, email: s.email, campaign: 'alerte-preview', context, isMember });
     } else {
       m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
     }
@@ -13448,10 +13442,9 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
       else if (tpl === 'pointmarche') { const context = await _deskContext(); provider = await mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context, isMember }); }
       else if (tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(6); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
-      else if (tpl === 'alerte') { const context = await _deskContext(); const r = await mailer.sendCampaignAlerteBC({ to, name: '', campaign: 'alerte-test', context, isMember }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }
-    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'alerte' ? ' (Alerte macro/BC, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
+    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
     return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
       note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' — AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }

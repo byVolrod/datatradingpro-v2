@@ -1465,33 +1465,7 @@ function buildCampaignOutlook({ name, email, campaign, context, isMember } = {})
 }
 async function sendCampaignOutlook(d) { d = d || {}; const m = buildCampaignOutlook({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['week-ahead']); }
 
-// ── ALERTE MACRO / BANQUE CENTRALE (evenementiel) — autour d'une decision CB : le TON du desk (widget cb-tone) +
-// ce qu'en publient les grandes banques (bloc bankNotes = feed Institution du desk). 100% informatif, ZERO position.
-function buildCampaignAlerteBC({ name, email, campaign, context, isMember } = {}) {
-  campaign = campaign || 'alerte-bc';
-  const ctx = context || {};
-  const bankNotes = Array.isArray(ctx.bankNotes) ? ctx.bankNotes : [];
-  const themeLabel = ctx.themeLabel || '';
-  const prenomRaw = (name || '').split(' ')[0] || '';
-  const hello = prenomRaw ? `Bonjour ${_esc(prenomRaw)},` : 'Bonjour,';
-  const unsub = unsubUrl(email || '');
-  const cta = _campaignCta(isMember, campaign, email);
-  const lead = `Une échéance de banque centrale concentre l'attention du marché${themeLabel ? ` (thème dominant&nbsp;: <strong style="color:#f3c344;">${_esc(themeLabel)}</strong>)` : ''}. Voici le ton lu par le desk et ce qu'en publient les grandes banques : l'essentiel, sans pousser la moindre position.`;
-  const body = `
-    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
-    <p style="margin:0 0 6px;">${lead}</p>
-    ${_widgetImg('cb-tone', 'Le ton des banques centrales')}
-    ${_bankNotesBlock(bankNotes)}
-    <div style="margin:22px 0 6px;">${cta.btn}</div>
-    <p style="margin:0 0 4px;">À très vite,</p>
-    <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>
-    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
-  `;
-  const _evt = (ctx.featured && ctx.featured.title) ? String(ctx.featured.title).slice(0, 48) : 'Décision de banque centrale';
-  const subject = '🏦 ' + _evt + ' : ce que les grandes banques anticipent';
-  return { subject, html: _campaignLayout('Alerte macro', body, unsub) };
-}
-async function sendCampaignAlerteBC(d) { d = d || {}; const m = buildCampaignAlerteBC({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['cb-tone']); }
+// (Template « Alerte macro / banque centrale » supprime a la demande user — 2026-07-12.)
 
 // Variante TEXTE PURE — pensée pour maximiser la boîte PRINCIPALE : aucune image, aucun pixel de suivi,
 // aucun lien tracé (lien direct visible), HTML minimal (ressemble à un e-mail perso). On perd le suivi
@@ -1741,7 +1715,7 @@ module.exports = {
   sendWelcome, sendRenewalFailed, sendExpired, sendReactivated, sendRenewed, sendPasswordReset, sendForgotNoSub,
   sendTrialUpsell, sendReengagement, _buildReengagement, sendAdminExpiryReminder, sendAdminRenewalNotice,
   sendReferralCredited, sendReferralReward, sendAdminReferralReward, sendReferredWelcome,
-  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset, sendCampaignOutlook, sendCampaignAlerteBC,
+  sendAnnouncementV2, sendGestureMonth, sendLaunchLive, sendCampaignIntro, sendCampaignIntroPlain, sendWeeklyDigest, sendCampaignDecryptage, sendCampaignPointMarche, sendCampaignMindset, sendCampaignOutlook,
   // désinscription campagne (opt-out) — server.js vérifie le même jeton
   unsubToken, unsubUrl,
   // tracking ouvertures/clics — server.js vérifie mailer.trackToken
@@ -1750,7 +1724,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignAlerteBC,
+  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
