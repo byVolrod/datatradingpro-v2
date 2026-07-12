@@ -5059,6 +5059,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Weekly Recap v18 — Banques Centrales NIVEAU INSTITUTIONNEL (biais 5 niveaux + probas marché + prochaine réunion) */
 .wr-cb-card { margin-bottom:10px; }
 .wr-cb-intro { color:#8b93a1; font-size:12px; line-height:1.55; margin:2px 0 12px; }
+/* v21 : Banques Centrales EN PUCES (coherence avec les Points Macro) — petit badge biais + citation */
+.wr-cb-bullet { line-height:1.65; }
+.wr-cb-bullet strong { color:#fff; font-weight:var(--fw-semibold); }
+.wr-cb-tag { display:inline-block; font-family:var(--tight); font-weight:800; font-size:9px; letter-spacing:.03em; padding:1px 7px; border-radius:20px; white-space:nowrap; vertical-align:1px; }
+.wr-cb-tag--vhawk{ color:#0c0c0e; background:#c94f3d; } .wr-cb-tag--hawk{ color:#0c0c0e; background:#e0863a; } .wr-cb-tag--neu{ color:#cfd2d8; background:#2a2a30; } .wr-cb-tag--dov{ color:#0c0c0e; background:#3aa0e0; } .wr-cb-tag--vdov{ color:#0c0c0e; background:#2ec4a6; }
+.wr-cb-qi { font-style:italic; color:#e6d9b8; }
 /* v20 : Banques Centrales EN LISTE (par banque : decision + prochaine reunion + guidance + propos) */
 .wr-cb-list { display:flex; flex-direction:column; gap:8px; margin:2px 0 4px; }
 .wr-cb-li { background:#0f0f12; border:1px solid #17171c; border-left:2px solid #e3b23a; border-radius:6px; padding:10px 13px; }
