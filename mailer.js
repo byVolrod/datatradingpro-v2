@@ -1110,11 +1110,14 @@ function _dailyBriefBlock(sections, dateLabel, reportTitle, hasComments) {
       // COMPACT MOBILE : en-têtes courts, padding 5px, nowrap sur Devise et Réel.
       const _ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
       const _flag = ccy => { const c = String(ccy || '').toUpperCase(); const iso = _ISO[c]; return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:5px;">` : '') + (c ? `<span style="color:#cbd5e1;font-weight:700;">${_esc(c)}</span>` : ''); };
+      // Couleur du RÉEL (demande user) : vert si valeur positive, rouge si négative (charte DTP risk-on/off),
+      // blanc si nul / non chiffré (ex. « · », « 19.1B » reste vert car >0). Signe = 1er nombre + parenthèses compta.
+      const _actColor = v => { const s = String(v == null ? '' : v).trim(); const n = parseFloat(s.replace(/[^0-9.\-]/g, '')); if (!s || s === '·' || isNaN(n) || n === 0) return '#ffffff'; return (n < 0 || /^\s*[-(]/.test(s)) ? '#ef4444' : '#22c55e'; };
       const _th = (label, right) => `<td${right ? ' align="right"' : ''} style="padding:6px 5px;color:#8b93a1;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;border-bottom:1px solid #26262b;">${label}</td>`;
       const rows = s.data.slice(0, 8).map(r => `<tr>
           <td style="padding:7px 5px;border-top:1px solid #1f1f24;white-space:nowrap;font-size:11.5px;">${_flag(r.ccy)}</td>
           <td style="padding:7px 5px;color:#e6e6ea;font-size:12.5px;line-height:1.4;border-top:1px solid #1f1f24;">${_esc(r.release || '')}</td>
-          <td align="right" style="padding:7px 5px;color:#ffffff;font-weight:700;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.actual || '·')}</td>
+          <td align="right" style="padding:7px 5px;color:${_actColor(r.actual)};font-weight:700;font-size:12.5px;border-top:1px solid #1f1f24;white-space:nowrap;">${_esc(r.actual || '·')}</td>
           <td align="right" style="padding:7px 5px;color:#9aa3b2;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.expected || '·')}</td>
           <td align="right" style="padding:7px 5px;color:#7b828f;font-size:12.5px;border-top:1px solid #1f1f24;">${_esc(r.previous || '·')}</td>
         </tr>`).join('');

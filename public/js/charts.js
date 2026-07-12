@@ -3445,12 +3445,18 @@ window._retryCalendar = function() {
     positionDd();
     dd.classList.remove('hidden');
   }
-  // Positionne le dropdown (fixed) juste sous l'input, aligné à gauche, largeur ≥ 330px.
+  // Positionne le dropdown (fixed) EXACTEMENT sous l'input, MÊME LARGEUR que la barre de recherche.
+  // Le dropdown est porté dans <body> → le CSS `min-width:100%` / `max-width:92vw` se calculait sur le
+  // viewport et le débordait vers la droite. On force donc largeur = largeur de l'input + on annule ces bornes.
   function positionDd() {
     const r = input.getBoundingClientRect();
+    dd.style.position = 'fixed';
     dd.style.left = Math.round(r.left) + 'px';
     dd.style.top = Math.round(r.bottom + 6) + 'px';
-    dd.style.width = Math.max(330, Math.round(r.width)) + 'px';
+    dd.style.width = Math.round(r.width) + 'px';
+    dd.style.minWidth = '0';
+    dd.style.maxWidth = 'none';
+    dd.style.boxSizing = 'border-box';
   }
   const hideDd = () => dd.classList.add('hidden');
 
