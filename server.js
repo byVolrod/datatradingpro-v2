@@ -7946,10 +7946,19 @@ function _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows }) {
   };
 }
 
+// Regen FORCEE du Point Marche (bypass gate jour-ouvre / heure) : INTERNE (token localhost). Utile le week-end
+// ou en preview pour rafraichir le rapport apres un changement de code (ex. colonne Devise). Sert de "refresh" manuel.
+app.get('/api/internal/dtpd-regen', async (req, res) => {
+  const ok = req.headers['x-dtp-internal'] === _INTERNAL_TOKEN && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '');
+  if (!ok) return res.status(403).json({ error: 'interdit' });
+  try { const r = await generateDTPDaily(true); res.json({ ok: true, regenerated: !!r, v: DTPD_VER }); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
 async function generateDTPDaily(force = false) {
   const dayKey = _dtpdTodayKey();
   const _nowDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay();
-  if (_nowDow === 0 || _nowDow === 6) { console.log('[DTP Daily] week-end → pas de génération'); return null; }
+  const _isWeekend = (_nowDow === 0 || _nowDow === 6);
+  if (!force && _isWeekend) { console.log('[DTP Daily] week-end → pas de génération auto'); return null; }   // AUTO : pas le week-end. FORCE (regen manuel/preview) : autorisé, avec fenêtre de données élargie ci-dessous.
   if (!force) { const _h = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getHours(); if (_h < 12) return null; }   // publié à midi (Paris) — pas avant
   const _isCur = i => i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dayKey;
   if (!force && allNews.some(_isCur)) { console.log(`[DTP Daily] déjà généré (v${DTPD_VER}) pour ${dayKey}, skip.`); return allNews.find(_isCur) || null; }
@@ -7957,7 +7966,10 @@ async function generateDTPDaily(force = false) {
   _dtpdGenBusy = true;
   try {
     const now = Date.now();
-    const winStart = now - 16 * 3600 * 1000;   // nuit Asie + matinée Europe jusqu'à l'ouverture US
+    // AUTO (jour ouvré) : 16 h = nuit Asie + matinée Europe jusqu'à l'ouverture US. FORCE (regen manuel/week-end) :
+    // fenêtre élargie à ~90 h pour capter la dernière séance de marché réelle (ex. vendredi depuis un dimanche) → le
+    // tableau Données économiques a de vraies publications (avec devise), sinon un dimanche il serait vide.
+    const winStart = now - (force ? 90 : 16) * 3600 * 1000;
     const inWin = t => t >= winStart && t <= now + 5 * 60000;
     const dateLabel = _dtpdDateLabel(dayKey);
 
