@@ -8948,7 +8948,7 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   //    matrice (jamais de divergence opaque). Retail = CONTRARIAN (signe inversé via _SB_FLIP).
   //    POIDS (demande user) : la conclusion doit être basée PRINCIPALEMENT sur LES DONNÉES PUBLIÉES
   //    RÉCEMMENT → « Données fondamentales » (agrégat des 8 sous-indicateurs macro = CPI/inflation,
-  //    croissance, activité, ventes, confiance…) porté à 3 (≈33 % de la conclusion, de loin le 1er pilier) ;
+  //    croissance, activité, ventes, confiance…) porté à 3 (≈30 % de la conclusion, de loin le 1er pilier) ;
   //    « Politique monétaire » (décisions/anticipations de taux, data-driven) renforcé à 1.5 ; Saisonnalité
   //    secondaire (0.5) ; le reste (Performance Cross-Asset, Bank, Hedge, Retail, Trend) = 1. Ajustable ici. ──
   const conclusion = {};
