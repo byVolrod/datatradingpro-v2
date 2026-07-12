@@ -1187,6 +1187,21 @@ async function emailLogAdd(key) {
   } catch {}
 }
 
+// ═══════════════════ OPT-OUT E-MAIL PERMANENTS (désinscrits durs) ═══════════════════
+// Désinscrits que l'on ne doit JAMAIS re-contacter (contrainte utilisateur absolue). Même
+// philosophie que _BLACKLIST_SEED (login) mais côté E-MAIL : on ne bannit PAS le login, on
+// pose seulement le marqueur unsub: → jamais aucune campagne (audience + boucle d'envoi filtrent
+// via emailLogHas). Seed VERSIONNÉ dans le code → s'auto-répare au boot même après perte totale
+// d'infra (volume ET Supabase). Idempotent : ne réécrit pas si le marqueur existe déjà.
+const _PERMANENT_UNSUB_SEED = ['darcos2012@gmail.com', 'robbyone31@gmail.com'];
+async function _ensurePermanentUnsub() {
+  for (const e of _PERMANENT_UNSUB_SEED) {
+    const em = String(e || '').toLowerCase().trim(); if (!em) continue;
+    try { if (!(await emailLogHas('unsub:' + em))) { await emailLogAdd('unsub:' + em); console.log('[Unsub seed] rétabli →', em); } } catch {}
+  }
+}
+setTimeout(() => { _ensurePermanentUnsub().catch(() => {}); }, 20 * 1000);   // après amorçage Supabase
+
 // ═══════════════════ CACHE IA DURABLE (anti-régénération / anti-doublon) ═══════════════════
 // But : un résultat IA déjà calculé (AI Insights d'un rapport, etc.) est conservé en BDD →
 // après un redémarrage Render (disque éphémère) on le RECHARGE au lieu de rappeler l'IA.
