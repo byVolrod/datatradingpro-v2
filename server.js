@@ -1470,6 +1470,10 @@ const REF_WHOP_BASE = process.env.REFERRAL_WHOP_BASE || 'https://whop.com/joined
 // « justonetrader »), surchargeable via WHOP_OWNER_AFFILIATE ; base courte = format des liens membres.
 const REF_OWNER_AFF     = (process.env.WHOP_OWNER_AFFILIATE || 'justonetrader').trim();
 const REF_WHOP_AFF_BASE = process.env.REFERRAL_WHOP_AFF_BASE || 'https://whop.com/jot-dtp/';
+// Lien pour REJOINDRE le Whop de JustOneTrader (JOT) : requis pour obtenir un lien d'affiliation Whop.
+// Sans compte Whop affilie resolvable, le panneau Parrainages n'affiche PLUS de faux lien ?ref= : il invite
+// a s'inscrire sur Whop + rejoindre le Whop de JOT via ce lien (surchargeable via REFERRAL_WHOP_JOIN).
+const REF_WHOP_JOIN     = (process.env.REFERRAL_WHOP_JOIN || 'https://whop.com/justonetrader/').trim();
 async function _refWhopAffiliate(uid) {
   try { const c = await auth.aiCacheGet('whopaffinfo:' + uid, KV_FOREVER); if (c && (c.pageUrl || c.username)) return c; } catch {}
   let info = null;
@@ -1534,12 +1538,16 @@ app.get('/api/referrals', async (req, res) => {
     // pageUrl = lien CANONIQUE renvoyé par Whop (affiliate_page_url) ; sinon on construit ?a=<username>.
     const aff = await _refWhopAffiliate(uid);
     const isOwner = req.session?.user?.role === 'admin';   // le propriétaire n'a pas de membership → son lien d'affilié = handle de l'espace
+    const hasWhop = !!aff || (isOwner && !!REF_OWNER_AFF);
+    // Sans affilié Whop résolvable : PAS de faux lien ?ref= (aucune commission Whop). On renvoie needsWhop
+    // → le panneau invite à s'inscrire sur Whop + rejoindre le Whop de JOT pour obtenir un vrai lien d'affiliation.
     const link = (aff && aff.pageUrl) ? aff.pageUrl
       : (aff && aff.username) ? REF_WHOP_BASE + '?a=' + encodeURIComponent(aff.username)
       : (isOwner && REF_OWNER_AFF) ? REF_WHOP_AFF_BASE + '?a=' + encodeURIComponent(REF_OWNER_AFF)
-      : REF_BASE_URL + '/?ref=' + rec.code;
+      : null;
     res.json({
-      ok: true, code: rec.code, link, whopAffiliate: !!aff || (isOwner && !!REF_OWNER_AFF),
+      ok: true, code: rec.code, link, whopAffiliate: hasWhop,
+      needsWhop: !hasWhop, whopJoinUrl: REF_WHOP_JOIN,
       count, target: REF_TARGET, progress: count % REF_TARGET,
       untilNext: (REF_TARGET - (count % REF_TARGET)) % REF_TARGET || REF_TARGET,
       rewards: rec.rewards || 0, bonusDays: rec.bonusDays || 0,
@@ -7872,7 +7880,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
 // Rapport quotidien structuré (FR) couvrant la NUIT asiatique + la MATINÉE européenne jusqu'à l'ouverture US.
 // Modelé sur le FX Daily Recap mais en FORMAT SECTIONS (Aperçu, Séance européenne [Actions/FX/Obligations],
 // Matières premières, Commerce & Tarifs, Titres EU/US, Banques centrales, Géopolitique, Crypto, Asie-Pacifique, Données).
-const DTPD_VER = 4;   // v4 = la SYNTHESE cite OBLIGATOIREMENT les publications eco du jour (reel vs attendu) ; v3 = raisons FONDAMENTALES obligatoires par puce (mouvement + driver, sinon « sans catalyseur clair ») + zero tiret cadratin + titres de section en « : »
+const DTPD_VER = 5;   // v5 = TON PLUS FONDAMENTAL/pedagogique (explique le POURQUOI economique en clair, pas en jargon de salle de marche) + interdit les phrases creuses ('evoluent de maniere moderee') + tableau Donnees eco porte la DEVISE (colonne remplie). v4 = la SYNTHESE cite OBLIGATOIREMENT les publications eco du jour (reel vs attendu) ; v3 = raisons FONDAMENTALES obligatoires par puce (mouvement + driver, sinon « sans catalyseur clair ») + zero tiret cadratin + titres de section en « : »
 let _dtpdGenBusy = false, _dtpdGenLock = 0;
 function _dtpdTodayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
@@ -8000,6 +8008,8 @@ async function generateDTPDaily(force = false) {
 Rédige un rapport COMPLET et dense (même profondeur qu'un rapport analyste de référence). Appuie-toi STRICTEMENT sur les données fournies. FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre : n'utilise que ceux présents ci-dessous. N'inclus une section QUE si tu as de la matière réelle pour elle.
 
 RÈGLE CENTRALE, NON NÉGOCIABLE : CHAQUE puce et CHAQUE paragraphe relie le mouvement à sa RAISON FONDAMENTALE, tirée des titres/données fournis. Jamais un constat seul. Format attendu : « <mouvement> , porté par / pesé par / après / alors que <driver concret : donnée chiffrée, propos de banquier central, flux, géopolitique, positionnement> ». Exemples de la forme (n'en recopie pas le fond) : « Le yen s'apprécie, le marché repricant un tour hawkish de la BoJ après les propos d'Ueda sur les salaires » ; « Le pétrole recule : la perspective d'une désescalade au Moyen-Orient retire la prime de risque géopolitique ». Si AUCUNE cause n'apparaît dans les données fournies, écris explicitement « sans catalyseur clair » plutôt que d'inventer une explication.
+
+TON : FONDAMENTAL et PÉDAGOGIQUE, pas « salle de marché ». Explique le POURQUOI économique en langage clair et accessible (comme à un investisseur particulier informé, pas à un trader pro) : ce qui bouge, de combien si le chiffre est fourni, et surtout ce que ça VEUT DIRE pour l'économie, les taux ou la devise. Quand un terme technique est nécessaire (obligations, rendements, ton hawkish/dovish...), rends-le compréhensible en une incise. INTERDIT ABSOLU : les phrases creuses sans information réelle (ex. « les taux évoluent de manière modérée », « les marchés restent prudents », « la séance a été calme ») ; chaque phrase apporte un FAIT concret et son sens, sinon elle n'existe pas.
 
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucun markdown, aucun astérisque). Clés en anglais, VALEURS en français. Forme attendue :
 {

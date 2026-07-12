@@ -1493,8 +1493,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // + bouton secondaire vers le Desk. Affiché uniquement s'il y a EU des tons lus cette semaine.
   const _cbs = (weekly && Array.isArray(weekly.centralBanks) ? weekly.centralBanks : []).filter(c => c && c.bank && c.stance);
   const tonesHtml = _cbs.length
-    ? `<p style="margin:18px 0 2px;color:#cbd5e1;">Les banques centrales ont aussi parlé cette semaine. Le desk a lu leur ton pour vous, banque par banque.</p>
-       ${_campaignBtnGhost('Découvrir le ton des banques', trackClickUrl(campaign, email, LANDING_URL))}`
+    ? `<p style="margin:18px 0 2px;color:#cbd5e1;">Les banques centrales ont aussi parlé cette semaine. Le desk a lu leur ton pour vous, banque par banque, et vous l'explique simplement.</p>`
     : '';
 
   // Leçon de clôture (une idée, originale DTP) : pourquoi cette lecture compte — sans pousser de position.
