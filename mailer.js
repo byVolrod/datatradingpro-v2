@@ -852,11 +852,15 @@ async function _sendWithInlineWidgets(to, subject, html, types) {
         // Entree « type:periode » (ex. 'strength:today') → rend le widget sur CETTE periode (TD/TW...).
         const ix = t.indexOf(':');
         const wt = ix > 0 ? t.slice(0, ix) : t, period = ix > 0 ? t.slice(ix + 1) : undefined;
+        // GARDE-FOU « 0 piece jointe orpheline » : on n'attache un widget QUE s'il est REFERENCE dans le HTML.
+        // Sinon le PNG etait attache sans cid correspondant → Gmail l'affichait comme « Une piece jointe ».
+        const re = new RegExp('https?:\\/\\/[^"]*\\/api\\/email-widget\\/' + wt.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\.png[^"]*', 'g');
+        if (!re.test(html)) continue;   // widget non reference → NE PAS l'attacher
+        re.lastIndex = 0;
         const png = await ew.renderWidgetPngSafe(wt, period ? { period } : {});
         if (png && png.length > 2000) {    // > placeholder 1x1 → vraie image
           const cid = wt + (period ? '-' + period : '') + '@datatradingpro';
           att.push({ filename: wt + (period ? '-' + period : '') + '.png', content: png, cid, contentType: 'image/png' });
-          const re = new RegExp('https?:\\/\\/[^"]*\\/api\\/email-widget\\/' + wt.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + '\\.png[^"]*', 'g');
           html = html.replace(re, 'cid:' + cid);
         }
       } catch (e) { console.warn('[Mailer] widget inline indisponible (' + t + ') → URL distante:', e.message); }
@@ -959,7 +963,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const subject = _subsR[_wkR % _subsR.length];
   return { subject, html: _campaignLayout('Point de la semaine', body, unsub) };
 }
-async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength', 'cb-tone']); }
+async function sendWeeklyDigest(d) { d = d || {}; const m = buildWeeklyDigest({ name: d.name, email: d.email || d.to, campaign: d.campaign, weekly: d.weekly }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength']); }   // cb-tone RETIRE : le widget n'est plus dans le corps du digest → l'attacher creait une piece jointe orpheline (Gmail « Une piece jointe »). 0 PJ.
 
 // ── DÉCRYPTAGE — e-mail ÉDUCATIF évergreen (S2 de la séquence). Décode les grandes annonces éco (macro US)
 // que les abonnés voient chaque semaine dans le calendrier : sigles (CPI, NFP, PCE, FOMC…) rendus lisibles,
