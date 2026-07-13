@@ -13050,12 +13050,12 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // parti la veille restait « Prêt »). `when` = cadence RÉELLE du modèle courant (rotation, jours ouvrés 8h–19h).
 const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
-  { id: 'point-hebdo',   week: 2,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Généré du desk : contexte macro dominant + régime de risque + ce qui bouge + forces/faiblesses (Force des Devises) + biais + widget.' },
-  { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'En rotation · 1 sem./4 · thème toujours différent',        desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
-  { id: 'outlook-hebdo', week: 5,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Les événements à surveiller, sans pousser de position.' },
-  // « Récap Hebdo (digest) » RETIRÉ (13/07) : le mode blast est supprimé (un seul moteur = la rotation ci-dessus).
-  // Le Récap Hebdo reste un RAPPORT du desk (onglet Analystes), il n'est plus un e-mail de campagne à part.
+  { id: 'point-hebdo',   week: 2,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'En rotation · 1 sem./5 · jours ouvrés 8h–19h',             desc: 'Généré du desk : contexte macro dominant + régime de risque + ce qui bouge + forces/faiblesses (Force des Devises) + biais + widget.' },
+  { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'En rotation · 1 sem./5 · jours ouvrés 8h–19h',             desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
+  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'En rotation · 1 sem./5 · thème toujours différent',        desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
+  { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'En rotation · 1 sem./5 · rétrospective de la semaine écoulée', desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
+  { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'En rotation · 1 sem./5 · jours ouvrés 8h–19h',             desc: 'Les événements à surveiller, sans pousser de position.' },
+  // Récap Hebdo RÉINTÉGRÉ à la rotation (demande user 13/07) : Point → Comprendre → Mindset → Récap → Outlook.
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
@@ -13063,7 +13063,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
     // Étape PROCHAINE (celle qui partira au prochain tick) — cohérent avec /api/admin/campaign-master :
     // mode digest (blast) → Récap ; sinon la rotation de la séquence (Point→Comprendre→Mindset→Outlook).
-    const _TPL2SEQ = { pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', outlook: 'outlook-hebdo' };
+    const _TPL2SEQ = { pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', recap: 'recap-hebdo', outlook: 'outlook-hebdo' };
     const _campActive = !!_dripState.active;   // UN SEUL moteur = la rotation (blast digest retiré)
     let nextId = null;
     try { const _st = _loopStepFor(); nextId = _TPL2SEQ[_st && _st.tpl] || null; } catch {}
@@ -13395,6 +13395,7 @@ function _dripBuildSample(stepDef, context) {
     if (stepDef.tpl === 'decryptage') return mailer.buildCampaignDecryptage({ name: '', email, campaign: 'preflight', context, recentKeys: [], isMember: false });
     if (stepDef.tpl === 'pointmarche') return mailer.buildCampaignPointMarche({ name: '', email, campaign: 'preflight', context, isMember: false });
     if (stepDef.tpl === 'mindset') return mailer.buildCampaignMindset({ name: '', email, campaign: 'preflight', recentKeys: [], isMember: false });
+    if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); const m = wk ? mailer.buildWeeklyDigest({ name: '', email, campaign: 'preflight', weekly: wk }) : null; return m || mailer.buildCampaignIntro({ name: '', email, campaign: 'preflight' }); }   // repli intro si le Récap n'est pas encore généré (l'envoi réel, lui, saute proprement)
     if (stepDef.tpl === 'outlook') return mailer.buildCampaignOutlook({ name: '', email, campaign: 'preflight', context, isMember: false });
   } catch (e) { throw e; }
   return null;
@@ -13529,19 +13530,25 @@ app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
 //  Anti-doublon durable (email_log drip:intro:<email> / drip:loop:<isoWeek>:<email>) + skip unsub/blacklist.
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 const DRIP_INTRO   = { id: 'intro',        label: 'Bienvenue (one-time)', tpl: 'intro' };
-const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 'decryptage' };
 const DRIP_POINT   = { id: 'point-marche', label: 'Point marché',          tpl: 'pointmarche' };
+const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 'decryptage' };
 const DRIP_MINDSET = { id: 'mindset',      label: 'Mindset',               tpl: 'mindset' };
+const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl: 'recap' };
 const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook' };
-// SÉQUENCE VARIÉE (demande user 13/07) : un template DIFFÉRENT chaque semaine, en ROTATION par n° de semaine
-// ISO — Point marché → Comprendre le marché → Mindset → Semaine à venir → (recommence). Identique pour TOUT
-// LE MONDE (boucle synchronisée) ; un nouvel inscrit se branche au niveau de la semaine en cours. Le libellé
-// affiché « prochain envoi » (panneau admin) découle de cette même rotation.
-const _DRIP_SEQ = [DRIP_POINT, DRIP_DECRYPT, DRIP_MINDSET, DRIP_OUTLOOK];
+// SÉQUENCE VARIÉE (demande user 13/07) : un template DIFFÉRENT chaque semaine, en rotation qui DÉMARRE au 1er
+// e-mail (Point marché) puis avance d'un cran par semaine ISO : Point marché → Comprendre → Mindset → Récap
+// Hebdo → Semaine à venir → (recommence). Identique pour TOUT LE MONDE (synchronisé). L'index part de 0 (Point
+// marché) à l'ACTIVATION (launchWeek), pas d'un décalage arbitraire (avant : week%len → tombait au milieu).
+const _DRIP_SEQ = [DRIP_POINT, DRIP_DECRYPT, DRIP_MINDSET, DRIP_RECAP, DRIP_OUTLOOK];
 function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
-function _loopStepFor(context) { return _DRIP_SEQ[_dripWeekNum() % _DRIP_SEQ.length]; }
-let _dripState = { active: false, launchedAt: null, contacts: {} };
-(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, contacts: {} }, s); } catch {} })();
+function _loopStepFor(context) {
+  const lw = _dripState && _dripState.launchWeek;
+  if (!_dripState || !_dripState.active || !lw) return _DRIP_SEQ[0];   // en pause / au lancement → on (re)démarre par Point marché
+  const n = _DRIP_SEQ.length;
+  return _DRIP_SEQ[((_dripWeekNum() - lw) % n + n) % n];
+}
+let _dripState = { active: false, launchedAt: null, launchWeek: null, contacts: {} };
+(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, launchWeek: null, contacts: {} }, s); } catch {} })();
 let _dripSaveT = null;
 // immediate=true : ecrit TOUT DE SUITE (pause/activate = etat critique, doit persister sans fenetre de perte).
 // Sinon debounce 3s (maj frequentes des contacts pendant un tick).
@@ -13566,6 +13573,7 @@ async function _dripSend(stepDef, r, context, tag) {
     if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { _recordSent('decryptage', email); return true; } return false; }
     if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('point-marche', email); return true; } return false; }
     if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { _recordSent('mindset', email); try { await _mindsetMarkCovered(rr.conceptKey); } catch {} return true; } return false; }
+    if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { _recordSent('recap-hebdo', email); return true; } return false; }
     if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('outlook-hebdo', email); return true; } return false; }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
   return false;
@@ -13655,7 +13663,7 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
 // le blast en pause (un seul moteur) ; pause => arrêt total. Renvoie le PROCHAIN template qui partira.
 app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
-  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
+  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.launchWeek = _dripWeekNum(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // launchWeek = semaine courante → la rotation DÉMARRE par Point marché
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
   const active = !!_dripState.active;   // UN SEUL moteur = la rotation variée (le blast digest est RETIRÉ)
   let nextTemplate = '—', nextWhen = '—';
