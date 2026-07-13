@@ -7721,11 +7721,12 @@ function _parisDayRange(dayKey) {
   const startMs = utcMid - offset;             // minuit Paris en epoch ms
   return [startMs, startMs + 24 * 3600 * 1000];
 }
-// Jour COUVERT par le recap : la journée n'est « complète » qu'après la clôture US (~22h Paris).
-// → avant 22h Paris on (re)génère la journée d'HIER (complète) ; à partir de 22h, celle d'AUJOURD'HUI.
+// Jour COUVERT par le recap. AVANCÉ à 18h (demande user : base du Point marché du mercredi) → dès 18h Paris on
+// cible AUJOURD'HUI (Asie + Europe + début US, sans la clôture US) ; avant 18h, la journée d'HIER (complète).
+// La version COMPLÈTE (clôture US) est régénérée par le planificateur de 22h30 (force) → le desk garde le récap plein.
 function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  if (p.getHours() < 22) p.setDate(p.getDate() - 1);
+  if (p.getHours() < 18) p.setDate(p.getDate() - 1);
   // Marché forex fermé le WEEK-END → on cible le dernier jour OUVRÉ (vendredi). Évite un « génération en
   // cours » perpétuel le samedi/dimanche et affiche le dernier recap pertinent (celui du vendredi).
   while (p.getDay() === 0 || p.getDay() === 6) p.setDate(p.getDate() - 1);
@@ -8390,7 +8391,8 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
-    { fn: () => generateFXDailyRecap(false),          h: 22, m: 30, name: 'FX Daily Recap'        }, // rapport analyste du jour (façon pro)
+    { fn: () => generateFXDailyRecap(false),          h: 18, m: 0,  name: 'FX Daily Recap (18h, base Point marché)' }, // avancé à 18h (demande user) : Asie+Europe+début US
+    { fn: () => generateFXDailyRecap(true),           h: 22, m: 30, name: 'FX Daily Recap (complet, clôture US)'    }, // régen FORCÉE après la clôture US → version complète pour le desk
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
   // Rapports HEBDOMADAIRES — SAMEDI 02h00 PARIS (tous les marchés mondiaux fermés pour la semaine ; même créneau que le groupe Bias/Week Ahead)
@@ -13065,7 +13067,7 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
   { id: 'outlook-hebdo', week: 2,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
   { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'Chaque mardi · dès 8h (Paris)',                            desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le récap quotidien (~midi, Paris)', desc: 'Part une fois le récap quotidien DU JOUR publié : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
+  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le FX Daily Recap (~18h, Paris)', desc: 'Part une fois le FX Daily Recap DU JOUR publié (~18h) : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
   { id: 'mindset',       week: 5,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
   { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
@@ -13079,7 +13081,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _campActive = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré)
     // JOUR d'envoi de chaque contenu (Lun=Semaine à venir … Ven=Récap). L'intro n'est pas dans le calendrier (à l'inscription).
     const _SEQ2DAY = { 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 6 };
-    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le récap quotidien (~midi)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
+    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~18h)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
     // PROCHAIN envoi = prochain contenu À PARTIR — aujourd'hui SEULEMENT s'il reste de la fenêtre ET qu'il n'est
     // PAS déjà parti aujourd'hui ; sinon le jour ouvré suivant. Corrige le bug « Envoyé + PROCHAIN sur la même carte ».
     const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
@@ -13570,7 +13572,7 @@ app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
 //  SÉQUENCE HEBDOMADAIRE SYNCHRONISÉE — DÉSACTIVÉE par défaut : rien ne part tant que l'admin n'active pas.
 //  MODÈLE (demande user 13/07) : les 5 contenus partent TOUS DANS LA MÊME SEMAINE, UN PAR JOUR OUVRÉ,
 //  identique pour TOUT LE MONDE (synchronisé), et ça recommence chaque semaine :
-//    Dimanche 10h = Semaine à venir · Mardi 8h = Comprendre · Mercredi (après le récap quotidien ~midi) = Point marché ·
+//    Dimanche 10h = Semaine à venir · Mardi 8h = Comprendre · Mercredi (après le FX Daily Recap ~18h) = Point marché ·
 //    Jeudi 8h = Mindset · Samedi 10h = Récap Hebdo. (Lundi & Vendredi = pas d'envoi.)
 //  Un NOUVEL inscrit reçoit d'abord une intro one-time (bienvenue), puis rejoint le calendrier du jour.
 //  Contenu = moteur de contexte (_deskContext), adapté membre/non-membre. NE TOUCHE PAS au welcome
@@ -13585,8 +13587,10 @@ const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl:
 const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook' };
 // weekday (Intl Europe/Paris : Dim=0 … Sam=6) → contenu du jour. Lun=1 … Ven=5 ; week-end = rien.
 const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 6: DRIP_RECAP };   // weekday→contenu : Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap. Lun & Ven = rien. _WD_FR déjà défini plus haut
-// Heure mini d'envoi par contenu (Paris) : Récap & Semaine à venir à 10h, les autres dès 8h. Point marché : en plus, gate = récap quotidien du jour PUBLIÉ (~midi).
-const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 8, mindset: 8, recap: 10 };
+// Heure d'envoi par contenu (Paris) : Récap & Semaine à venir à 10h ; Comprendre & Mindset dès 8h ; Point marché
+// FENÊTRE 18h→22h (attend le FX Daily Recap de 18h, base du mail — demande user). Max par défaut = 19h.
+const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 18, mindset: 8, recap: 10 };
+const _STEP_MAXHOUR = { pointmarche: 22 };
 function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
 // Prochain jour ouvré d'envoi (1=lun … 5=ven) : aujourd'hui s'il reste de la fenêtre (avant 19h), sinon le suivant.
 function _nextSendWeekday() { const pp = _parisParts(); if (_DAY_STEP[pp.weekday] && pp.hour < 19) return pp.weekday; let wd = pp.weekday; for (let i = 0; i < 7; i++) { wd = (wd + 1) % 7; if (_DAY_STEP[wd]) return wd; } return 0; }
@@ -13635,14 +13639,14 @@ async function _dripTick() {
     const isoWeek = pp.isoWeek, wd = pp.weekday;
     const dayStep = _DAY_STEP[wd];                       // contenu DU JOUR (Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap)
     if (!dayStep) return;                                // Lundi & Vendredi = pas d'envoi
-    if (pp.hour < (_STEP_MINHOUR[dayStep.tpl] || 8) || pp.hour >= 19) return;   // fenêtre du jour : heure mini selon le contenu (10h Récap/Semaine à venir, 8h sinon) → 19h Paris
+    if (pp.hour < (_STEP_MINHOUR[dayStep.tpl] || 8) || pp.hour >= (_STEP_MAXHOUR[dayStep.tpl] || 19)) return;   // fenêtre du jour : heure mini/maxi selon le contenu (Récap/Semaine à venir 10h, Point marché 18h→22h, sinon 8h→19h)
     // ── FRAÎCHEUR / GATES par contenu (s'applique à TEST comme OFFICIEL) ──
     if (dayStep.tpl === 'pointmarche') {
-      // Point marché (mercredi) : on ATTEND que le récap quotidien du jour soit PUBLIÉ (~midi) pour bâtir le mail dessus.
-      const dk = _dtpdTodayKey();
-      let pub = allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk);
-      if (!pub && pp.hour >= 13) { try { await generateDTPDaily(true); pub = allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk); } catch (e) { console.warn('[Drip] regen DTPD', e.message); } }   // filet : si l'auto-gen de midi a échoué, régénère après 13h
-      if (!pub) return;                                  // pas encore publié → rien ne part, on repassera au prochain tick
+      // Point marché (mercredi) : on ATTEND le FX Daily Recap DU JOUR (18h) — c'est LUI la base du mail (demande user).
+      const dk = _fxrTargetDayKey();   // dès 18h Paris = aujourd'hui
+      let pub = allNews.some(i => i && i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dk && i._fxr._ai !== false);
+      if (!pub && pp.hour >= 19) { try { await generateFXDailyRecap(true); pub = allNews.some(i => i && i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dk && i._fxr._ai !== false); } catch (e) { console.warn('[Drip] regen FXR', e.message); } }   // filet : si le 18h a échoué, régénère après 19h
+      if (!pub) return;                                  // FX Daily Recap du jour pas encore publié → rien ne part, on repassera
       try { await emailWidget.renderWidgetPngSafe('calendar', { period: 'thisweek' }); } catch {}   // chauffe le calendrier de la semaine
     }
     if (dayStep.tpl === 'outlook') { try { await generateWeekAhead(false); } catch {} try { await emailWidget.renderWidgetPngSafe('week-ahead', {}); } catch {} }   // Semaine à venir (dimanche) : calendrier de la semaine SUIVANTE + widget chauffé
@@ -13721,7 +13725,7 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
-    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim 10h=Semaine a venir, Mar 8h=Comprendre, Mer (apres le recap quotidien ~midi)=Point marche, Jeu 8h=Mindset, Sam 10h=Recap ; Lun & Ven = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
+    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim 10h=Semaine a venir, Mar 8h=Comprendre, Mer (apres le FX Daily Recap ~18h)=Point marche, Jeu 8h=Mindset, Sam 10h=Recap ; Lun & Ven = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
     today: { isoWeek: pp.isoWeek, weekday: pp.weekday, content: todayLabel },
     contactsTracked: total, introduced, gotToday, steps,
     pausedReason: (!_dripState.active && pr) ? pr : null,
