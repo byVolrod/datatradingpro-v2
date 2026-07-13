@@ -2660,7 +2660,7 @@ async function _fetchSessionWraps(full = false) {
         if (seen.has(slug)) continue;
         seen.add(slug);
         pageHad = true;
-        // Session détectée AVANT le timestamp → heure PAR SESSION (Asia ~04h < Europe ~10h < Americas ~18h UTC).
+        // Session détectée AVANT le timestamp → heure PAR SESSION (Asia ~04h < Europe ~10h < Americas ~19h UTC).
         // Sans pubDate réelle (scrape), les 3 wraps d'un même jour auraient sinon le MÊME timestamp NOON → on
         // ne distingue plus que l'Asie est sortie AVANT l'Europe. Les heures par session reflètent la vraie séquence.
         let session = 'Global', sh = 12;
@@ -2829,7 +2829,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 21;   // v21 = Points Macro Cles a TAXONOMIE FIXE + ORDRE (Geopolitique, [Banques Centrales & Politique Monetaire = section dediee en #2], Inflation & Croissance, Performance Cross-Asset, Commerce International & Tarifs, Technologie & Innovation) via _orderMacroCanon + prompt canonique ; section CB renommee « Banques Centrales & Politique Monetaire » et injectee juste apres Geopolitique. + Banques Centrales : Fed nommee « Fed (FOMC) » (nom d'affichage deterministe _CB_DISPLAY, comme BCE (ECB)/BNS (SNB)) + evenements CB TIER-1 (FOMC Minutes, decisions, rapports, temoignages) REMONTES en tete de cbNews (ils etaient noyes par ~20 titres « Fed report: » du rapport semestriel -> l'IA ecrivait a tort « la Fed n'a rien communique cette semaine ») + regle prompt : minutes/rapports/temoignages = evenements majeurs a refleter. bump = regen au boot. v20 = section Banques Centrales EN LISTE (plus de cartes) : par banque decision de la semaine (+ phrase du discours), guidance prochaine reunion (hausse/baisse/maintien) + au-dela, ordonnee du + important au meeting le + proche ; le TABLEAU CALENDRIER retire du Weekly Market Recap (il reste dans le Global Economic Weekly). v19 = ajoute weekly.calendar (tableau calendrier a-venir->passe, anti-omission NFP fin de semaine) + source des probas (market/maison) etiquetee honnetement + libelle trajectoire ~6 mois explicite. v18 = Banques Centrales NIVEAU INSTITUTIONNEL : chaque banque enrichie de {bias5 (5 niveaux), scenario proba hausse/maintien/baisse, move, next (prochaine reunion) + nextDays, expBps} fusionnes depuis _buildRatesPayload (rateprobability, MARCHE) + 3 nouveaux champs IA {changed (ce qui a change depuis la derniere reunion), factors (facteurs susceptibles de faire evoluer), fxImpact (impact devise CT/MT/LT)} ; les propos (quotes) portent l'anticipation prochaine reunion ; v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 22;   // v22 = ordre Banques Centrales : INTERVENUES cette semaine (quotes) EN TÊTE, puis meeting le plus proche (nextDays), puis poids de marche (demande user) — bump = regen au boot. v21 = Points Macro Cles a TAXONOMIE FIXE + ORDRE (Geopolitique, [Banques Centrales & Politique Monetaire = section dediee en #2], Inflation & Croissance, Performance Cross-Asset, Commerce International & Tarifs, Technologie & Innovation) via _orderMacroCanon + prompt canonique ; section CB renommee « Banques Centrales & Politique Monetaire » et injectee juste apres Geopolitique. + Banques Centrales : Fed nommee « Fed (FOMC) » (nom d'affichage deterministe _CB_DISPLAY, comme BCE (ECB)/BNS (SNB)) + evenements CB TIER-1 (FOMC Minutes, decisions, rapports, temoignages) REMONTES en tete de cbNews (ils etaient noyes par ~20 titres « Fed report: » du rapport semestriel -> l'IA ecrivait a tort « la Fed n'a rien communique cette semaine ») + regle prompt : minutes/rapports/temoignages = evenements majeurs a refleter. bump = regen au boot. v20 = section Banques Centrales EN LISTE (plus de cartes) : par banque decision de la semaine (+ phrase du discours), guidance prochaine reunion (hausse/baisse/maintien) + au-dela, ordonnee du + important au meeting le + proche ; le TABLEAU CALENDRIER retire du Weekly Market Recap (il reste dans le Global Economic Weekly). v19 = ajoute weekly.calendar (tableau calendrier a-venir->passe, anti-omission NFP fin de semaine) + source des probas (market/maison) etiquetee honnetement + libelle trajectoire ~6 mois explicite. v18 = Banques Centrales NIVEAU INSTITUTIONNEL : chaque banque enrichie de {bias5 (5 niveaux), scenario proba hausse/maintien/baisse, move, next (prochaine reunion) + nextDays, expBps} fusionnes depuis _buildRatesPayload (rateprobability, MARCHE) + 3 nouveaux champs IA {changed (ce qui a change depuis la derniere reunion), factors (facteurs susceptibles de faire evoluer), fxImpact (impact devise CT/MT/LT)} ; les propos (quotes) portent l'anticipation prochaine reunion ; v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -7242,12 +7242,15 @@ function _cbMergeRates(cbArr) {
       expBps: r.expBps, source: r.source, bias5: _cbBias5(r.move, r.expBps, c.stance),   // source: 'market' (rateprobability) | 'maison' (modele DTP, ex. SNB/RBNZ non cotes) -> etiquetage honnete cote UI
     });
   });
-  // Ordre (demande user) : du PLUS IMPORTANT (poids de marche : Fed > BCE > BoE > BoJ > BoC > RBA > SNB > RBNZ)
-  // PUIS au meeting le PLUS PROCHE (nextDays croissant). Une banque sans donnee de marche passe en fin.
+  // Ordre (demande user) : 1) banques qui sont INTERVENUES cette semaine (elles ont communiqué → `quotes`) EN TÊTE ;
+  //    2) puis par meeting le PLUS PROCHE (nextDays croissant : meeting proche avant meeting lointain) ;
+  //    3) poids de marché (Fed > BCE > …) en simple départage.
   const RANK = { USD: 0, EUR: 1, GBP: 2, JPY: 3, CAD: 4, AUD: 5, CHF: 6, NZD: 7 };
+  const _interv = c => (Array.isArray(c.quotes) && c.quotes.length > 0) ? 0 : 1;   // 0 = a communiqué cette semaine
   return merged.sort((a, b) =>
-    ((a.code in RANK ? RANK[a.code] : 9) - (b.code in RANK ? RANK[b.code] : 9))
-    || ((a.nextDays == null ? 9999 : a.nextDays) - (b.nextDays == null ? 9999 : b.nextDays)));
+    (_interv(a) - _interv(b))
+    || ((a.nextDays == null ? 9999 : a.nextDays) - (b.nextDays == null ? 9999 : b.nextDays))
+    || ((a.code in RANK ? RANK[a.code] : 9) - (b.code in RANK ? RANK[b.code] : 9)));
 }
 function _recapCbPrompt(ratesCtx, cbNews, prevCtx) {
   return `You are the chief central-bank strategist for an institutional FX & markets desk. For each of these 8 banks — Fed, BCE (ECB), BoE, BoJ, BoC, RBA, RBNZ, BNS (SNB) — write a WEEKLY per-bank block IN FRENCH (français soigné, précis, professionnel). Style = research note d'une banque d'investissement : d'abord un paragraphe de synthèse, puis les PROPOS CLÉS des banquiers centraux suivis d'une interprétation claire de leur signification.
@@ -7721,12 +7724,12 @@ function _parisDayRange(dayKey) {
   const startMs = utcMid - offset;             // minuit Paris en epoch ms
   return [startMs, startMs + 24 * 3600 * 1000];
 }
-// Jour COUVERT par le recap. AVANCÉ à 18h (demande user : base du Point marché du mercredi) → dès 18h Paris on
+// Jour COUVERT par le recap. AVANCÉ à 18h (demande user : base du Point marché du mercredi) → dès 19h Paris on
 // cible AUJOURD'HUI (Asie + Europe + début US, sans la clôture US) ; avant 18h, la journée d'HIER (complète).
 // La version COMPLÈTE (clôture US) est régénérée par le planificateur de 22h30 (force) → le desk garde le récap plein.
 function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  if (p.getHours() < 18) p.setDate(p.getDate() - 1);
+  if (p.getHours() < 19) p.setDate(p.getDate() - 1);
   // Marché forex fermé le WEEK-END → on cible le dernier jour OUVRÉ (vendredi). Évite un « génération en
   // cours » perpétuel le samedi/dimanche et affiche le dernier recap pertinent (celui du vendredi).
   while (p.getDay() === 0 || p.getDay() === 6) p.setDate(p.getDate() - 1);
@@ -8391,7 +8394,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
-    { fn: () => generateFXDailyRecap(false),          h: 18, m: 0,  name: 'FX Daily Recap (18h, base Point marché)' }, // avancé à 18h (demande user) : Asie+Europe+début US
+    { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h, base Point marché)' }, // avancé à 19h (demande user) : Asie+Europe+début US
     { fn: () => generateFXDailyRecap(true),           h: 22, m: 30, name: 'FX Daily Recap (complet, clôture US)'    }, // régen FORCÉE après la clôture US → version complète pour le desk
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
@@ -13067,7 +13070,7 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
   { id: 'outlook-hebdo', week: 2,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
   { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'Chaque mardi · dès 8h (Paris)',                            desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le FX Daily Recap (~18h, Paris)', desc: 'Part une fois le FX Daily Recap DU JOUR publié (~18h) : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
+  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le FX Daily Recap (~19h, Paris)', desc: 'Part une fois le FX Daily Recap DU JOUR publié (~19h) : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
   { id: 'mindset',       week: 5,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
   { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
@@ -13081,7 +13084,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _campActive = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré)
     // JOUR d'envoi de chaque contenu (Lun=Semaine à venir … Ven=Récap). L'intro n'est pas dans le calendrier (à l'inscription).
     const _SEQ2DAY = { 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 6 };
-    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~18h)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
+    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~19h)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
     // PROCHAIN envoi = prochain contenu À PARTIR — aujourd'hui SEULEMENT s'il reste de la fenêtre ET qu'il n'est
     // PAS déjà parti aujourd'hui ; sinon le jour ouvré suivant. Corrige le bug « Envoyé + PROCHAIN sur la même carte ».
     const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
@@ -13572,7 +13575,7 @@ app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
 //  SÉQUENCE HEBDOMADAIRE SYNCHRONISÉE — DÉSACTIVÉE par défaut : rien ne part tant que l'admin n'active pas.
 //  MODÈLE (demande user 13/07) : les 5 contenus partent TOUS DANS LA MÊME SEMAINE, UN PAR JOUR OUVRÉ,
 //  identique pour TOUT LE MONDE (synchronisé), et ça recommence chaque semaine :
-//    Dimanche 10h = Semaine à venir · Mardi 8h = Comprendre · Mercredi (après le FX Daily Recap ~18h) = Point marché ·
+//    Dimanche 10h = Semaine à venir · Mardi 8h = Comprendre · Mercredi (après le FX Daily Recap ~19h) = Point marché ·
 //    Jeudi 8h = Mindset · Samedi 10h = Récap Hebdo. (Lundi & Vendredi = pas d'envoi.)
 //  Un NOUVEL inscrit reçoit d'abord une intro one-time (bienvenue), puis rejoint le calendrier du jour.
 //  Contenu = moteur de contexte (_deskContext), adapté membre/non-membre. NE TOUCHE PAS au welcome
@@ -13588,8 +13591,8 @@ const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl:
 // weekday (Intl Europe/Paris : Dim=0 … Sam=6) → contenu du jour. Lun=1 … Ven=5 ; week-end = rien.
 const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 6: DRIP_RECAP };   // weekday→contenu : Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap. Lun & Ven = rien. _WD_FR déjà défini plus haut
 // Heure d'envoi par contenu (Paris) : Récap & Semaine à venir à 10h ; Comprendre & Mindset dès 8h ; Point marché
-// FENÊTRE 18h→22h (attend le FX Daily Recap de 18h, base du mail — demande user). Max par défaut = 19h.
-const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 18, mindset: 8, recap: 10 };
+// FENÊTRE 19h→22h (attend le FX Daily Recap de 19h, base du mail — demande user). Max par défaut = 19h.
+const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 19, mindset: 8, recap: 10 };
 const _STEP_MAXHOUR = { pointmarche: 22 };
 function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
 // Prochain jour ouvré d'envoi (1=lun … 5=ven) : aujourd'hui s'il reste de la fenêtre (avant 19h), sinon le suivant.
@@ -13639,13 +13642,13 @@ async function _dripTick() {
     const isoWeek = pp.isoWeek, wd = pp.weekday;
     const dayStep = _DAY_STEP[wd];                       // contenu DU JOUR (Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap)
     if (!dayStep) return;                                // Lundi & Vendredi = pas d'envoi
-    if (pp.hour < (_STEP_MINHOUR[dayStep.tpl] || 8) || pp.hour >= (_STEP_MAXHOUR[dayStep.tpl] || 19)) return;   // fenêtre du jour : heure mini/maxi selon le contenu (Récap/Semaine à venir 10h, Point marché 18h→22h, sinon 8h→19h)
+    if (pp.hour < (_STEP_MINHOUR[dayStep.tpl] || 8) || pp.hour >= (_STEP_MAXHOUR[dayStep.tpl] || 19)) return;   // fenêtre du jour : heure mini/maxi selon le contenu (Récap/Semaine à venir 10h, Point marché 19h→22h, sinon 8h→19h)
     // ── FRAÎCHEUR / GATES par contenu (s'applique à TEST comme OFFICIEL) ──
     if (dayStep.tpl === 'pointmarche') {
       // Point marché (mercredi) : on ATTEND le FX Daily Recap DU JOUR (18h) — c'est LUI la base du mail (demande user).
       const dk = _fxrTargetDayKey();   // dès 18h Paris = aujourd'hui
       let pub = allNews.some(i => i && i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dk && i._fxr._ai !== false);
-      if (!pub && pp.hour >= 19) { try { await generateFXDailyRecap(true); pub = allNews.some(i => i && i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dk && i._fxr._ai !== false); } catch (e) { console.warn('[Drip] regen FXR', e.message); } }   // filet : si le 18h a échoué, régénère après 19h
+      if (!pub && pp.hour >= 20) { try { await generateFXDailyRecap(true); pub = allNews.some(i => i && i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === dk && i._fxr._ai !== false); } catch (e) { console.warn('[Drip] regen FXR', e.message); } }   // filet : si le 19h a échoué, régénère après 20h
       if (!pub) return;                                  // FX Daily Recap du jour pas encore publié → rien ne part, on repassera
       try { await emailWidget.renderWidgetPngSafe('calendar', { period: 'thisweek' }); } catch {}   // chauffe le calendrier de la semaine
     }
@@ -13725,7 +13728,7 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
-    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim 10h=Semaine a venir, Mar 8h=Comprendre, Mer (apres le FX Daily Recap ~18h)=Point marche, Jeu 8h=Mindset, Sam 10h=Recap ; Lun & Ven = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
+    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim 10h=Semaine a venir, Mar 8h=Comprendre, Mer (apres le FX Daily Recap ~19h)=Point marche, Jeu 8h=Mindset, Sam 10h=Recap ; Lun & Ven = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
     today: { isoWeek: pp.isoWeek, weekday: pp.weekday, content: todayLabel },
     contactsTracked: total, introduced, gotToday, steps,
     pausedReason: (!_dripState.active && pr) ? pr : null,
