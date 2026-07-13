@@ -8485,7 +8485,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v21-crossasset';   // v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v22-monetary-cb';   // v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -8984,7 +8984,8 @@ async function generateSmartBias(force = false, weekly = false) {
     bankOverview[c] = vals.length ? _sbAvgToBias(vals) : 'Neutral';
   });
 
-  // Monetary Policy : SEUL rating IA (posture banque centrale = jugement). Repli : dernier connu, sinon Neutral.
+  // Monetary Policy : posture des banques centrales. Le rating IA ci-dessous sert de REPLI ; la SOURCE PRIMAIRE
+  // (demande user 13/07 « pas à jour ») = les vraies stances CB de la section Banques Centrales (cf. plus bas).
   let monetaryAI = {}, aiOk = false;
   try {
     aiNote('bias');
@@ -8999,8 +9000,17 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
     if (m) { const o = JSON.parse(m[0]); SB_CURRENCIES.forEach(c => { if (_SB_BIAS5.includes(o[c])) monetaryAI[c] = o[c]; }); aiOk = Object.keys(monetaryAI).length > 0; }
   } catch (e) { console.error('[SmartBias monetary]', e.message); }
   const _prevMon = _smartBias && (_smartBias.rows || []).find(r => r.key === 'monetary');
+  // SOURCE PRIMAIRE : les VRAIES postures des banques centrales de la section « Banques Centrales » (Récap Hebdo),
+  // dérivées des données de taux + ton (bias5 5 niveaux). hawkish = HAUSSIER devise, dovish = BAISSIER. → le pilier
+  // « Politique monétaire » reste COHÉRENT et À JOUR avec ce que voit l'utilisateur. Repli : rating IA, dernier connu, Neutre.
+  const _CB_TONE_TO_BIAS = { 'Très hawkish': 'Very Bullish', 'Hawkish': 'Bullish', 'Neutre': 'Neutral', 'Dovish': 'Bearish', 'Très dovish': 'Very Bearish' };
+  let cbMon = {};
+  try {
+    const wi = (allNews || []).find(i => i && i._weekly && Array.isArray(i._weekly.centralBanks) && i._weekly.centralBanks.length);
+    for (const c of ((wi && wi._weekly.centralBanks) || [])) { const code = c.code || _cbCodeOf(c.bank); if (code && _CB_TONE_TO_BIAS[c.bias5]) cbMon[code] = _CB_TONE_TO_BIAS[c.bias5]; }
+  } catch {}
   const monetary = {};
-  SB_CURRENCIES.forEach(c => monetary[c] = monetaryAI[c] || (_prevMon && _prevMon.values && _prevMon.values[c]) || 'Neutral');
+  SB_CURRENCIES.forEach(c => monetary[c] = cbMon[c] || monetaryAI[c] || (_prevMon && _prevMon.values && _prevMon.values[c]) || 'Neutral');
 
   // ── CONCLUSION = CONFLUENCE pondérée des lignes AFFICHÉES (façon pro) → elle DÉCOULE TOUJOURS de la
   //    matrice (jamais de divergence opaque). Retail = CONTRARIAN (signe inversé via _SB_FLIP).
