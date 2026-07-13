@@ -2829,7 +2829,7 @@ let _wrCsDiagDone = false;   // diagnostic CS backfill loggé une seule fois par
 // Version du Weekly Market Recap. RÈGLE : bumper À CHAQUE changement de langue/format du prompt, sinon un
 // ancien rapport (autre langue) au même numéro est servi indéfiniment. v4 = rédigé EN FRANÇAIS (v3 avait été
 // réutilisé pour une expérience ANGLAISE jour-par-jour → collision → recap reste en anglais). Const partagée.
-const RECAP_VER = 22;   // v22 = ordre Banques Centrales : INTERVENUES cette semaine (quotes) EN TÊTE, puis meeting le plus proche (nextDays), puis poids de marche (demande user) — bump = regen au boot. v21 = Points Macro Cles a TAXONOMIE FIXE + ORDRE (Geopolitique, [Banques Centrales & Politique Monetaire = section dediee en #2], Inflation & Croissance, Performance Cross-Asset, Commerce International & Tarifs, Technologie & Innovation) via _orderMacroCanon + prompt canonique ; section CB renommee « Banques Centrales & Politique Monetaire » et injectee juste apres Geopolitique. + Banques Centrales : Fed nommee « Fed (FOMC) » (nom d'affichage deterministe _CB_DISPLAY, comme BCE (ECB)/BNS (SNB)) + evenements CB TIER-1 (FOMC Minutes, decisions, rapports, temoignages) REMONTES en tete de cbNews (ils etaient noyes par ~20 titres « Fed report: » du rapport semestriel -> l'IA ecrivait a tort « la Fed n'a rien communique cette semaine ») + regle prompt : minutes/rapports/temoignages = evenements majeurs a refleter. bump = regen au boot. v20 = section Banques Centrales EN LISTE (plus de cartes) : par banque decision de la semaine (+ phrase du discours), guidance prochaine reunion (hausse/baisse/maintien) + au-dela, ordonnee du + important au meeting le + proche ; le TABLEAU CALENDRIER retire du Weekly Market Recap (il reste dans le Global Economic Weekly). v19 = ajoute weekly.calendar (tableau calendrier a-venir->passe, anti-omission NFP fin de semaine) + source des probas (market/maison) etiquetee honnetement + libelle trajectoire ~6 mois explicite. v18 = Banques Centrales NIVEAU INSTITUTIONNEL : chaque banque enrichie de {bias5 (5 niveaux), scenario proba hausse/maintien/baisse, move, next (prochaine reunion) + nextDays, expBps} fusionnes depuis _buildRatesPayload (rateprobability, MARCHE) + 3 nouveaux champs IA {changed (ce qui a change depuis la derniere reunion), factors (facteurs susceptibles de faire evoluer), fxImpact (impact devise CT/MT/LT)} ; les propos (quotes) portent l'anticipation prochaine reunion ; v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
+const RECAP_VER = 23;   // v23 = propos BC DATÉS + ATTRIBUÉS (speaker+date dans quotes, date injectée dans cbNews) + section BC SIMPLIFIÉE (contexte+propos seulement pour les banques intervenues ; les autres = biais+prochaine réunion) (demande user) — bump = regen au boot. v22 = ordre Banques Centrales : INTERVENUES cette semaine (quotes) EN TÊTE, puis meeting le plus proche (nextDays), puis poids de marche (demande user). v21 = Points Macro Cles a TAXONOMIE FIXE + ORDRE (Geopolitique, [Banques Centrales & Politique Monetaire = section dediee en #2], Inflation & Croissance, Performance Cross-Asset, Commerce International & Tarifs, Technologie & Innovation) via _orderMacroCanon + prompt canonique ; section CB renommee « Banques Centrales & Politique Monetaire » et injectee juste apres Geopolitique. + Banques Centrales : Fed nommee « Fed (FOMC) » (nom d'affichage deterministe _CB_DISPLAY, comme BCE (ECB)/BNS (SNB)) + evenements CB TIER-1 (FOMC Minutes, decisions, rapports, temoignages) REMONTES en tete de cbNews (ils etaient noyes par ~20 titres « Fed report: » du rapport semestriel -> l'IA ecrivait a tort « la Fed n'a rien communique cette semaine ») + regle prompt : minutes/rapports/temoignages = evenements majeurs a refleter. bump = regen au boot. v20 = section Banques Centrales EN LISTE (plus de cartes) : par banque decision de la semaine (+ phrase du discours), guidance prochaine reunion (hausse/baisse/maintien) + au-dela, ordonnee du + important au meeting le + proche ; le TABLEAU CALENDRIER retire du Weekly Market Recap (il reste dans le Global Economic Weekly). v19 = ajoute weekly.calendar (tableau calendrier a-venir->passe, anti-omission NFP fin de semaine) + source des probas (market/maison) etiquetee honnetement + libelle trajectoire ~6 mois explicite. v18 = Banques Centrales NIVEAU INSTITUTIONNEL : chaque banque enrichie de {bias5 (5 niveaux), scenario proba hausse/maintien/baisse, move, next (prochaine reunion) + nextDays, expBps} fusionnes depuis _buildRatesPayload (rateprobability, MARCHE) + 3 nouveaux champs IA {changed (ce qui a change depuis la derniere reunion), factors (facteurs susceptibles de faire evoluer), fxImpact (impact devise CT/MT/LT)} ; les propos (quotes) portent l'anticipation prochaine reunion ; v17 = Eclairages IA REALISTES : "pairs"/"insights" anti-remplissage (chaque paire = driver CONCRET propre, INTERDIT texte recycle/passe-partout entre paires) + repeuple centralBanks ; v16 = regeneration forcee pour REPEUPLER _weekly.centralBanks (ton + quotes[{quote,analysis}]) — le widget e-mail cb-tone affiche desormais les PROPOS/citations qui justifient le ton (preuve DTP) ; v15 = puces CB concises (2-3 phrases) + coupe PROPRE en fin de phrase (v14 coupait en plein mot) ; v14 = analyse CB INTEGREE aux Points Macro (thème « Banques Centrales », 1 puce/banque « **Fed :** … », meme structure que les autres themes) au lieu d'une section separee en cartes (demande user) ; v13 = DEDUP dur : suppression DETERMINISTIQUE (code) du theme macro « Banques centrales » que l'IA recreait malgre la consigne (doublon avec la section dediee) → une SEULE section CB ; v12 = 0 chiffre marche invente + quotes=[] si personne n'a parle ; v11 = format research note ; v10 = interdit chiffres marche ; v9 = ton evidence-based ; v8 = section Banques Centrales (synthèse par banque : ton, évolution du wording, surveillance, prochaine réunion + pricing, Market Interpretation) ; v7 = puces à VRAI libellé gras + FR STRICT ; v6 = puces à LEAD GRAS ; v5 = analyse par devise approfondie multi-appel
 // SAMEDI de publication du recap COURANT (06:00 UTC) = le samedi le plus récent ≤ maintenant.
 // DOIT être identique au `satTs` calculé dans generateWeeklyRecapAI → sert de référence pour savoir
 // si le recap affiché est bien celui de la semaine qui vient de se clore (et pas un vieux recap).
@@ -6897,7 +6897,7 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // AI Insights (cartes + paires) + « Temps forts de la semaine » (narratif IA) + résultats JOUR PAR JOUR (lundi→vendredi)
 // depuis le calendrier avec ACTUAL vs consensus par événement. Centré décisions de banques centrales + données publiées
 // (réel vs attendu) — distinct du Weekly Market Recap (centré prix/FX). 1 appel IA/semaine.
-const GEW_VER = 8;   // v8 = événements BANQUE CENTRALE (discours/minutes/décisions) annotés du contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse + trajectoire, via rateprobability) → indique le biais + la date. v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
+const GEW_VER = 9;   // v9 = les DISCOURS de membres BC reçoivent une INTERPRÉTATION dédiée (ton hawkish/dovish/hold d'après le marché + prochaine réunion probable), distincte du contexte générique des décisions/minutes (demande user) — bump = régén auto. v8 = événements BANQUE CENTRALE (discours/minutes/décisions) annotés du contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse + trajectoire, via rateprobability) → indique le biais + la date. v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
 // Heure d'un événement = HEURE DE PARIS (référence FR), HH:MM SEULEMENT. Plus de jour (déjà en en-tête de
 // journée) ni de doublon GMT (demande user 13/07 : « date/heure doublée »). Le fuseau est rappelé UNE fois
 // dans le titre de section (« Calendrier économique · heure de Paris »). 100% calculé (zéro IA).
@@ -6909,8 +6909,11 @@ function _gewTimes(ts /* , ccy (ignoré) */) {
 // (rateprobability via _buildRatesPayload) — prochaine réunion + proba hausse/maintien/baisse + trajectoire.
 // 100% probabilités de marché, ZÉRO invention. Répond à « proba de hausse/maintien/baisse + prochaine réunion ».
 const _GEW_CB_EVENT_RX = /\b(speech|speaks?|discours|minutes|meeting accounts|comptes?[\s-]rendus?|monetary policy|rate (?:decision|statement)|interest rate|testimon|t[ée]moignage|press conference|conf[ée]rence de presse|policy report|semi-?annual|governor|president|chair|hearing|remarks?)\b/i;
+// DISCOURS d'un membre (à DISTINGUER d'une décision/minutes) : reçoit une INTERPRÉTATION (ton hawkish/dovish/hold + prochaine réunion).
+const _GEW_CB_SPEECH_RX = /\b(speech|speaks?|discours|remarks?|testimon|t[ée]moignage|hearing|press conference|conf[ée]rence de presse|allocution|prend la parole|fireside|panel|interview|comments?)\b/i;
 const _GEW_CB_TRAJ = { HIKE: 'trajectoire plutôt ferme (biais hausse) sur ~6 mois', CUT: 'trajectoire plutôt accommodante (biais baisse) sur ~6 mois', HOLD: 'trajectoire stable sur ~6 mois' };
-function _gewCbEventComment(ccy) {
+const _GEW_CB_TONE = { HIKE: 'hawkish (biais resserrement)', CUT: 'dovish (biais assouplissement)', HOLD: 'hold (statu quo)' };
+function _gewCbEventComment(ccy, isSpeech) {
   try {
     const p = _buildRatesPayload();
     const b = (p && Array.isArray(p.banks) ? p.banks : []).find(x => x && x.code === ccy);
@@ -6918,8 +6921,14 @@ function _gewCbEventComment(ccy) {
     const sc = b.scenario, hi = Math.round(sc.hike || 0), ho = Math.round(sc.hold || 0), cu = Math.round(sc.cut || 0);
     const top = Math.max(hi, ho, cu), word = top === hi ? 'hausse' : top === cu ? 'baisse' : 'maintien';
     let nextFr = null; if (b.next) { try { nextFr = new Date(b.next + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch { nextFr = b.next; } }
+    const nextTxt = nextFr ? `prochaine réunion le ${nextFr}${b.nextDays != null ? ` (dans ${b.nextDays} j)` : ''}` : '';
+    if (isSpeech) {
+      // Interprétation d'un DISCOURS : ton hawkish/dovish/hold IMPLICITE d'après le marché (proba prochaine réunion) + date probable de la prochaine réunion. 100% marché, zéro invention.
+      const tone = _GEW_CB_TONE[b.move] || 'hold (statu quo)';
+      return `Interprétation — ton ${tone} d'après les probabilités de marché${nextTxt ? ` ; ${nextTxt}` : ''} : le marché anticipe un ${word} (${top}%).`;
+    }
     const traj = _GEW_CB_TRAJ[b.move] || '';
-    return `Politique monétaire — ${nextFr ? `prochaine réunion le ${nextFr}${b.nextDays != null ? ` (dans ${b.nextDays} j)` : ''} : ` : ''}le marché anticipe un ${word} (${top}%)${traj ? `, ${traj}` : ''}.`;
+    return `Politique monétaire — ${nextTxt ? nextTxt + ' : ' : ''}le marché anticipe un ${word} (${top}%)${traj ? `, ${traj}` : ''}.`;
   } catch { return ''; }
 }
 async function generateGlobalEconomicWeekly(force = false) {
@@ -7064,13 +7073,15 @@ ${list}`;
   // on attache le contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse +
   // trajectoire) → indique s'il y a un biais hausse/maintien/baisse et la date de la prochaine réunion. (Demande user.)
   try {
-    let cbAnnot = 0;
+    let cbAnnot = 0, speechAnnot = 0;
     days.forEach(d => (d.events || []).forEach(e => {
-      if (!e.comment && SB_CURRENCIES.includes(e.currency) && _GEW_CB_EVENT_RX.test(e.title || '')) {
-        const c = _gewCbEventComment(e.currency); if (c) { e.comment = c; cbAnnot++; }
-      }
+      if (e.comment || !SB_CURRENCIES.includes(e.currency)) return;
+      const t = e.title || '';
+      // Un DISCOURS reçoit une INTERPRÉTATION (ton hawkish/dovish/hold + prochaine réunion) ; une décision/minutes → contexte générique.
+      if (_GEW_CB_SPEECH_RX.test(t)) { const c = _gewCbEventComment(e.currency, true); if (c) { e.comment = c; speechAnnot++; } }
+      else if (_GEW_CB_EVENT_RX.test(t)) { const c = _gewCbEventComment(e.currency, false); if (c) { e.comment = c; cbAnnot++; } }
     }));
-    if (cbAnnot) console.log(`[GEW] contexte politique monétaire ajouté à ${cbAnnot} événement(s) banque centrale`);
+    if (cbAnnot || speechAnnot) console.log(`[GEW] annotations BC : ${cbAnnot} contexte(s) + ${speechAnnot} interprétation(s) de discours`);
   } catch {}
 
   const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, usPreview, insights, pairs, days };
@@ -7200,10 +7211,12 @@ function _recapSanitizeCb(arr) {
     fxImpact: _stripMd(String(x.fxImpact || x.currency || '')).slice(0, 700),      // impact devise CT / MT / LT
     decision: _stripMd(String(x.decision || '')).slice(0, 320),                    // decision PRISE cette semaine (hausse/baisse/maintien + phrase cle), sinon vide
     guidance: _stripMd(String(x.guidance || '')).slice(0, 500),                    // attente PROCHAINE reunion (hausse/baisse/maintien) + guidance future (d'autres mouvements ?)
-    quotes: (Array.isArray(x.quotes) ? x.quotes : []).filter(q => q && (q.quote || q.analysis)).map(q => ({
+    quotes: (Array.isArray(x.quotes) ? x.quotes : []).filter(q => q && q.quote).map(q => ({
       quote: _stripMd(String(q.quote || '')).replace(/^["«»\s]+|["«»\s]+$/g, '').slice(0, 340),
       analysis: _stripMd(String(q.analysis || '')).slice(0, 640),
-    })).filter(q => q.quote && q.analysis).slice(0, 3),
+      speaker: _stripMd(String(q.speaker || q.who || '')).slice(0, 60),   // QUI a parlé (Powell, Lagarde…) — demande user
+      date: _stripMd(String(q.date || q.when || '')).slice(0, 24),        // DATE du propos (ex. « 12 juil. ») — demande user
+    })).filter(q => q.quote).slice(0, 3),   // relâché : une quote reste même sans analysis (l'analysis n'est plus affichée)
   })).slice(0, 8);
 }
 // Biais 5 NIVEAUX (Tres hawkish -> Tres dovish) : DIRECTION = trajectoire de taux implicite marche (move,
@@ -7269,12 +7282,14 @@ Return ONLY valid JSON (no preamble, no code fences):
   "fxImpact": "<impact potentiel sur la devise concernée, en 3 horizons courts et neutres — format EXACT « CT : … · MT : … · LT : … » (CT=court terme, MT=moyen, LT=long). ANALYTIQUE et conditionnel (ex. « un ton plus ferme soutiendrait la devise »), JAMAIS une recommandation d'achat/vente ni une promesse.>",
   "quotes": [ {
     "quote": "<propos CLÉ d'un responsable, FIDÈLE aux données (citation ou paraphrase fidèle ; jamais de mots ni chiffres inventés) — court>",
+    "speaker": "<NOM du responsable qui a tenu ce propos (ex. « Powell », « Lagarde », « Bailey »), tiré des données ; chaîne vide \"\" si inconnu>",
+    "date": "<DATE du propos, format court FR (ex. « 12 juil. »), tirée de la date entre parenthèses en tête de la ligne de données ; chaîne vide \"\" si inconnue>",
     "analysis": "<interprétation : ton hawkish / dovish / attentiste ; ce qui a changé vs interventions précédentes ; ce que la banque surveille ; implications pour la prochaine réunion (penche-t-elle vers une hausse, une baisse ou un maintien) ; impact potentiel marché (devises, taux, actions, or...).>"
   } ]
 } ] }
 Rules:
 - Cover the 8 banks, in this order. "stance" strictly hawkish/dovish/neutral, EVIDENCE-BASED (not by habit). Do NOT default to hawkish : near-certain HOLD pricing + no directional communication → neutral. hawkish only with a real tightening signal ; dovish only with a real easing signal. The BoJ is structurally the most accommodative major.
-- "quotes" : 0 à 3 propos par banque, UNIQUEMENT de vrais propos présents dans les données (citation ou paraphrase FIDÈLE de ce que le responsable a dit) — JAMAIS de citation fabriquée, jamais de mots ou chiffres non présents. Si aucun responsable ne s'est exprimé cette semaine, "quotes" DOIT valoir [] — n'écris JAMAIS un faux « propos » du type « aucun responsable ne s'est exprimé ».
+- "quotes" : 0 à 3 propos par banque, UNIQUEMENT de vrais propos présents dans les données (citation ou paraphrase FIDÈLE de ce que le responsable a dit) — JAMAIS de citation fabriquée, jamais de mots ou chiffres non présents. Si aucun responsable ne s'est exprimé cette semaine, "quotes" DOIT valoir [] — n'écris JAMAIS un faux « propos » du type « aucun responsable ne s'est exprimé ». Pour CHAQUE propos, renseigne "speaker" (le nom du responsable) ET "date" (la date entre parenthèses en tête de la ligne source) — UNIQUEMENT s'ils sont présents dans les données ; sinon laisse la chaîne vide, n'invente jamais un nom ni une date.
 - Le "narrative" doit être SPÉCIFIQUE à cette banque (responsables, données précises, wording réel), jamais un gabarit réutilisable. Si la banque a été calme, dis-le brièvement, sans remplissage générique (« l'économie se redresse » = INTERDIT).
 - CHIFFRES DE MARCHÉ INVENTÉS = INTERDITS, NI dans "narrative" NI dans "analysis" : les données ne contiennent PAS de niveaux de marché → décris TOUTE réaction QUALITATIVEMENT (« le dollar s'est affaibli », « l'or a progressé »), JAMAIS de rendement, prix, niveau, montant chiffré ($/€) ou % non explicitement fourni (INTERDIT : « l'or a progressé de 83 $ », « le 10 ans à 4,48% »).
 - Les MINUTES d'une réunion (FOMC Minutes, ECB Accounts…), un TÉMOIGNAGE au Congrès/Parlement (Humphrey-Hawkins) ou un RAPPORT de politique monétaire (semestriel) sont des ÉVÉNEMENTS DE COMMUNICATION MAJEURS : s'ils figurent dans les données de la semaine, ils DOIVENT être reflétés dans "narrative", "guidance" et "changed" (ton révélé, higher-for-longer / assouplissement, ce qu'ils changent), MÊME sans décision de taux cette semaine. N'écris JAMAIS « la banque n'a pas communiqué / rien cette semaine » si des minutes / un rapport / un témoignage figurent dans les données — décris-les.
@@ -7614,7 +7629,9 @@ ${corpus}`;
     // Source CB = TOUT le corpus de la semaine (wraps + calendrier + weekItemsRaw COMPLET, pas le news
     // plafonné à 120) → une publication CB de milieu de semaine (ex. FOMC Minutes) ne peut pas tomber
     // hors plafond une semaine à très fort volume. Filtre CB_RX, dédup exact, puis priorité TIER-1.
-    const _cbUniq = [...wraps, ...cal, ...weekItemsRaw.map(i => `[${i.category || ''}] ${i.headline}`)].map(String).filter(l => CB_RX.test(l))
+    // Date en tête de chaque titre daté (weekItemsRaw porte i.timestamp) → l'IA peut DATER les propos (demande user « date du discours »).
+    const _cbDate = i => { try { return i.timestamp ? new Date(i.timestamp).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : ''; } catch { return ''; } };
+    const _cbUniq = [...wraps, ...cal, ...weekItemsRaw.map(i => `(${_cbDate(i)}) [${i.category || ''}] ${i.headline}`)].map(String).filter(l => CB_RX.test(l))
       .filter(l => { const k = l.toLowerCase().replace(/\s+/g, ' ').trim(); if (_cbSeen.has(k)) return false; _cbSeen.add(k); return true; });   // exact-dedup (les flux re-postent le même titre)
     const cbNews = [..._cbUniq.filter(l => CB_KEY_RX.test(l)), ..._cbUniq.filter(l => !CB_KEY_RX.test(l))].slice(0, 55).join('\n').slice(0, 9000);
     const ratesCtx = _recapCbRatesCtx();
@@ -10327,7 +10344,7 @@ async function _computeFedWatch() {
 }
 auth.aiCacheGet('rates:fedwatch').then(v => { if (v && v.at) _fedWatch = v; }).catch(() => {});
 setTimeout(_computeFedWatch, 9000);
-setInterval(_computeFedWatch, 45 * 60 * 1000);   // rafraîchi ~45 min (données futures = quasi temps réel)
+setInterval(_computeFedWatch, 10 * 60 * 1000);   // rafraîchi ~10 min (données futures CME = quasi temps réel ; demande user « temps réel »)
 
 // ─── SOURCE RÉELLE : rateprobability.com — probabilités implicites de MARCHÉ par banque centrale ───
 // API JSON publique par banque (taux implicites OIS/futures, par réunion). Fed/BCE/BoE/BoJ/BoC/RBA = gratuits ;
@@ -10351,7 +10368,7 @@ const RP_MAP = {
   CHF: { slug: 'snb',  rate: t => _rpRate(t, 'policy_rate', 'snb_policy_rate', 'current_target') },
   NZD: { slug: 'rbnz', rate: t => _rpRate(t, 'official_cash_rate', 'ocr', 'cash_rate_target', 'current_target') },
 };
-const RP_TTL = 15 * 60 * 1000;   // refetch rateprobability au max toutes les 15 min (leur donnée se met à jour ~horaire) — le front interroge /api/rates en continu
+const RP_TTL = 3 * 60 * 1000;   // refetch rateprobability au max toutes les 3 min (demande user « temps réel » ; leur donnée bouge ~horaire donc 3 min = frais sans matraquer l'API) — le front interroge /api/rates toutes les 30s
 let _rpCache = { at: 0, banks: {} };
 let _rpRefreshing = false;
 const RP_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36', 'Accept': 'application/json', 'Referer': 'https://rateprobability.com/' };
@@ -10406,12 +10423,12 @@ function _rpTransform(code, j, now) {
     scenario: { hold: m0.hold, hike: m0.hike, cut: m0.cut }, meetings, source: 'market' };
 }
 // TTL ADAPTATIF : si une réunion d'une banque est imminente (≤2 j = fenêtre de décision, ex. FOMC demain),
-// on rafraîchit toutes les 5 min au lieu de 15 — c'est là que les probabilités bougent le plus vite, donc
-// là qu'il faut coller au temps réel de rateprobability. Hors fenêtre : 15 min (la donnée bouge ~horaire).
+// on rafraîchit toutes les 90s au lieu de 3 min — c'est là que les probabilités bougent le plus vite, donc
+// là qu'il faut coller au temps réel de rateprobability. Hors fenêtre : 3 min (la donnée bouge ~horaire).
 function _rpEffectiveTTL() {
   for (const b of Object.values(_rpCache.banks || {})) {
     const m0 = b && b.meetings && b.meetings[0];
-    if (m0 && typeof m0.days === 'number' && m0.days <= 2) return 5 * 60 * 1000;
+    if (m0 && typeof m0.days === 'number' && m0.days <= 2) return 90 * 1000;
   }
   return RP_TTL;
 }
@@ -10432,7 +10449,7 @@ async function _refreshRateProb(force = false) {
     if (okCount) { _rpCache = { at: now, banks, bankAt }; auth.aiCacheSet('rates:rateprob', _rpCache).catch(() => {}); }
   } catch {} finally { _rpRefreshing = false; }
 }
-setInterval(() => { _refreshRateProb().catch(() => {}); }, 5 * 60 * 1000);   // tick 5 min ; le refetch RÉEL respecte le TTL adaptatif (15 min normal, 5 min si réunion ≤2 j)
+setInterval(() => { _refreshRateProb().catch(() => {}); }, 90 * 1000);   // tick 90s ; le refetch RÉEL respecte le TTL adaptatif (3 min normal, 90s si réunion ≤2 j)
 setTimeout(() => { _refreshRateProb(true).catch(() => {}); }, 9000);  // amorçage au démarrage
 
 function _buildRatesPayload() {

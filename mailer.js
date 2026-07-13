@@ -903,7 +903,8 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     ${_cbTone.map((c, i) => {
       const bias = _md(c.bias5 || c.stance || 'Neutre');
       const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
-      const line = q ? ('« ' + _esc(_md(q.quote)) + ' »') : (c.guidance ? _esc(_cutTxt(_md(c.guidance), 170)) : (c.narrative ? _esc(_cutTxt(_md(c.narrative), 170)) : ''));
+      const _attr = q ? [q.speaker, q.date].filter(Boolean).map(s => _esc(_md(String(s)))).join(', ') : '';   // « Powell, 12 juil. : … » (demande user)
+      const line = q ? ((_attr ? '<b>' + _attr + '&nbsp;:</b> ' : '') + '« ' + _esc(_md(q.quote)) + ' »') : (c.guidance ? _esc(_cutTxt(_md(c.guidance), 170)) : (c.narrative ? _esc(_cutTxt(_md(c.narrative), 170)) : ''));
       const est = (c.source && c.source !== 'market') ? ' <span style="color:#7b828f;font-size:9px;font-weight:700;">est.</span>' : '';
       return `<div style="padding:10px 12px;${i ? 'border-top:1px solid #1f1f24;' : ''}">
         <div><span style="color:#f3c344;font-weight:800;font-size:13px;">${_esc(_md(c.bank))}</span> <span style="color:${_cbBiasCol(bias)};font-weight:700;font-size:12px;">${_esc(bias)}</span>${est}</div>

@@ -6420,11 +6420,17 @@ function _wrCbSection(cbs) {
     const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
     const nextFr = _wrCbNextFr(c.next, c.nextDays);
     const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
+    // SIMPLIFICATION (demande user « trop costaud ») : biais + prochaine réunion + call TOUJOURS ; le contexte
+    // détaillé + le propos ne s'affichent QUE pour les banques INTERVENUES cette semaine (celles qui ont un propos ;
+    // l'ordre serveur les met en tête). Les autres = simple ligne biais/prochaine réunion.
     let s = `<strong>${_wrEsc(c.bank)}</strong> <span class="wr-cb-tag wr-cb-tag--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}`
       + ` · Prochaine réunion ${_wrEsc(nextFr)} : ${_wrEsc(_wrCbCall(c))}.`;
-    if (c.decision) s += ` ${_wrInline(c.decision)}`;
-    if (c.guidance || c.narrative) s += ` ${_wrInline(c.guidance || c.narrative)}`;
-    if (q) s += ` <span class="wr-cb-qi">« ${_wrEsc(q.quote)} »</span>`;
+    if (q) {
+      const ctx = c.guidance || c.decision || c.narrative;   // UNE seule ligne de contexte (fini decision + guidance/narrative empilés)
+      if (ctx) s += ` ${_wrInline(ctx)}`;
+      const attr = [q.speaker, q.date].filter(Boolean).map(_wrEsc).join(', ');   // « Powell, 12 juil. : … » (demande user)
+      s += ` <span class="wr-cb-qi">${attr ? `<b>${attr} :</b> ` : ''}« ${_wrEsc(q.quote)} »</span>`;
+    }
     h += `<div class="wr-bullet wr-cb-bullet">${s}</div>`;
   });
   return h;
