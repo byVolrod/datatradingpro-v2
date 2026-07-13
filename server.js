@@ -13548,7 +13548,11 @@ function _loopStepFor(context) {
   return _DRIP_SEQ[((_dripWeekNum() - lw) % n + n) % n];
 }
 let _dripState = { active: false, launchedAt: null, launchWeek: null, contacts: {} };
-(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, launchWeek: null, contacts: {} }, s); } catch {} })();
+(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, launchWeek: null, contacts: {} }, s);
+  // BACKFILL : campagne activée AVANT l'ajout de launchWeek → on ancre la rotation sur la semaine courante
+  // (sinon _loopStepFor resterait bloqué sur Point marché sans jamais avancer). Une seule fois.
+  if (_dripState.active && !_dripState.launchWeek) { _dripState.launchWeek = _dripWeekNum(); _saveDrip(true); console.log('[Drip] launchWeek backfill →', _dripState.launchWeek, '(rotation ancrée sur la semaine courante)'); }
+} catch {} })();
 let _dripSaveT = null;
 // immediate=true : ecrit TOUT DE SUITE (pause/activate = etat critique, doit persister sans fenetre de perte).
 // Sinon debounce 3s (maj frequentes des contacts pendant un tick).
@@ -13581,6 +13585,7 @@ async function _dripSend(stepDef, r, context, tag) {
 let _dripRunning = false;
 async function _dripTick() {
   if (!_dripState.active || _dripRunning) return;
+  if (!_dripState.launchWeek) { _dripState.launchWeek = _dripWeekNum(); _saveDrip(true); }   // filet : ancre la rotation si launchWeek manquant
   _dripRunning = true;
   try {
     const pp = _parisParts();
