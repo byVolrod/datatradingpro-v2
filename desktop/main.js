@@ -119,6 +119,29 @@ function createWindow() {
     if (isMainFrame && win && !win.isDestroyed()) win.loadFile(path.join(__dirname, 'offline.html'));
   });
 
+  // Menu CLIC-DROIT (contextuel) : Couper / Copier / Coller / Tout sélectionner. Electron n'en fournit AUCUN
+  // par défaut → sans ça, impossible de COLLER (clic-droit) un mot de passe reçu par e-mail dans le champ login.
+  win.webContents.on('context-menu', (_e, params) => {
+    const ef = params.editFlags || {};
+    const hasSel = !!(params.selectionText && params.selectionText.trim());
+    const tpl = [];
+    if (params.isEditable) tpl.push({ role: 'cut', label: 'Couper', enabled: ef.canCut && hasSel });
+    if (params.isEditable || hasSel) tpl.push({ role: 'copy', label: 'Copier', enabled: ef.canCopy && hasSel });
+    if (params.isEditable) tpl.push({ role: 'paste', label: 'Coller', enabled: ef.canPaste !== false });
+    if (tpl.length) {
+      tpl.push({ type: 'separator' }, { role: 'selectAll', label: 'Tout sélectionner' });
+      Menu.buildFromTemplate(tpl).popup({ window: win });
+    }
+  });
+
+  // Autorise le presse-papiers (app first-party de confiance) → le bouton « Coller » du login (navigator.clipboard)
+  // fonctionne aussi dans l'app, en plus du clic-droit et de Ctrl+V.
+  try {
+    win.webContents.session.setPermissionRequestHandler((_wc, permission, cb) => {
+      cb(permission === 'clipboard-read' || permission === 'clipboard-sanitized-write' || permission === 'fullscreen' || permission === 'notifications');
+    });
+  } catch (_) {}
+
   win.on('closed', () => { win = null; });
 }
 
