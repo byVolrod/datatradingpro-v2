@@ -6865,8 +6865,32 @@ function _renderDTPDaily(item) {
   content.innerHTML = body || '<div class="fxdr-exec">Rapport en cours de génération…</div>';
 }
 
+// FILET UNIVERSEL (demande user : Éclairages IA dans TOUS les rapports Analyste). Après le rendu de n'importe
+// quel rapport (DTP Daily, FX Daily, Weekly, Récap Séance, briefing…), si le panneau « Éclairages IA » est resté
+// VIDE (insights propres absents, IA en quota, description trop courte au 1er appel…), on le reconstruit à partir
+// des PUCES RÉELLEMENT RENDUES du rapport → les Éclairages IA n'y manquent JAMAIS quand il y a du contenu.
+function _ensureArlibInsights(item) {
+  if (!item) return;
+  setTimeout(() => {
+    try {
+      const el = document.getElementById('arlib-ai-insights');
+      if (!el) return;
+      if (el.querySelector('.ai-insights-card')) return;   // Éclairages IA déjà présents → rien à faire
+      const content = document.getElementById('arlib-rcontent');
+      if (!content) return;
+      let lines = [...content.querySelectorAll('.arlib-rbullet > span:not(.arlib-rbullet-dot), .arlib-rbullet-sub > span:not(.arlib-rbullet-dot)')]
+        .map(s => (s.textContent || '').replace(/\s+/g, ' ').trim()).filter(t => t.length > 8);
+      if (!lines.length) lines = [...content.querySelectorAll('li, p')]
+        .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim()).filter(t => t.length > 20);
+      lines = lines.slice(0, 40);
+      if (!lines.length) return;   // vraiment aucun contenu → on ne fabrique pas un panneau vide
+      _loadAIInsights({ ...item, id: item.id, headline: item.headline || item.title || '', lines, description: lines.join('. ') }, el);
+    } catch {}
+  }, 1200);
+}
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
+  _ensureArlibInsights(item);   // filet : garantit les Éclairages IA après le rendu, quel que soit le type de rapport
   if (item && item._dtpd)   { _renderDTPDaily(item); return; }      // ← « Point Marché · Ouverture US »
   if (item && item._fxr)    { _renderFXDailyRecap(item); return; }  // ← rendu riche FX Daily Recap (façon pro)
   if (item && item._weekly) { _renderWeeklyRecap(item); return; }   // ← rendu riche Weekly Recap
