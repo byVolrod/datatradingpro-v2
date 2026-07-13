@@ -13101,10 +13101,20 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     // DATE + HEURE prévue de chaque contenu (demande user : « l'heure des publications avec la date ») : son jour de
     // semaine fixe + la date de sa prochaine occurrence.
     function _stepPlanned(seqId) {
-      const wd = _SEQ2DAY[seqId]; if (!wd) return null;
+      const wd = _SEQ2DAY[seqId]; if (wd == null) return null;   // 0 = dimanche (valide) → PAS `!wd`
       const dName = _WD_FR[wd] || '';
       return { weekday: wd, date: _nextDateForWeekday(wd), label: 'Chaque ' + dName + ' · dès 8h (Paris) — prochain : ' + _nextDateForWeekday(wd) };
     }
+    // PLAGE de dates de la semaine ISO courante (Lun→Dim), change chaque semaine — pour l'en-tête « SÉQUENCE HEBDOMADAIRE ».
+    let weekRange = '';
+    try {
+      const _pw = _parisParts(), _dsm = (_pw.weekday + 6) % 7;   // jours depuis lundi
+      const _monTs = Date.now() - _dsm * 864e5, _sunTs = _monTs + 6 * 864e5;
+      const _num = ts => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric' }).format(new Date(ts));
+      const _dm = ts => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' }).format(new Date(ts));
+      const _mo = ts => new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', month: 'long' }).format(new Date(ts));
+      weekRange = (_mo(_monTs) === _mo(_sunTs)) ? (_num(_monTs) + ' – ' + _dm(_sunTs)) : (_dm(_monTs) + ' – ' + _dm(_sunTs));
+    } catch {}
     const steps = CAMPAIGN_SEQUENCE.map(s => {
       // Résout la/les clé(s) de stats RÉELLES : statPrefix 'weekly-' → le digest hebdo le PLUS RÉCENT ; sinon `stat`|`id`.
       let keys;
@@ -13128,7 +13138,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
         uniqueClicks: clicks, clickRate: pct(clicks, sends.length),
         next: s.id === nextId };
     });
-    res.json({ ok: true, steps, nextId, active: _campActive, progress: { doneSteps: steps.filter(s => s.done).length, totalSteps: steps.length } });
+    res.json({ ok: true, steps, nextId, active: _campActive, weekRange, testMode: !!_dripState.testMode, progress: { doneSteps: steps.filter(s => s.done).length, totalSteps: steps.length } });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
@@ -13584,8 +13594,8 @@ function _nextSendWeekday() { const pp = _parisParts(); if (_DAY_STEP[pp.weekday
 function _nextDateForWeekday(wd) { const pp = _parisParts(); let off = (wd - pp.weekday + 7) % 7; if (off === 0 && pp.hour >= 19) off = 7; try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' }).format(new Date(Date.now() + off * 864e5)); } catch { return ''; } }
 // Étape « du moment » (affichage admin « prochain envoi ») : contenu d'aujourd'hui si jour ouvré, sinon du prochain jour ouvré.
 function _loopStepFor() { const wd = _parisParts().weekday; return _DAY_STEP[wd] || _DAY_STEP[_nextSendWeekday()]; }
-let _dripState = { active: false, launchedAt: null, launchWeek: null, contacts: {} };
-(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, launchWeek: null, contacts: {} }, s); } catch {} })();
+let _dripState = { active: false, testMode: false, launchedAt: null, launchWeek: null, contacts: {} };   // testMode = le calendrier tourne mais tout part UNIQUEMENT sur la boîte de l'admin (validation)
+(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, testMode: false, launchedAt: null, launchWeek: null, contacts: {} }, s); } catch {} })();
 let _dripSaveT = null;
 // immediate=true : ecrit TOUT DE SUITE (pause/activate = etat critique, doit persister sans fenetre de perte).
 // Sinon debounce 3s (maj frequentes des contacts pendant un tick).
@@ -13602,16 +13612,17 @@ async function _dripSeed(email) {
 }
 function _dripNormalize(st) { if (st && st.introduced === undefined) return { introduced: (st.step || 0) >= 1, loopWeek: st.recurWeek || null, lastAt: st.lastAt || 0, enrolledAt: st.enrolledAt || Date.now() }; return st; }
 // Envoi d'un contenu (data-driven, adapte membre/non-membre). Renvoie true si parti.
-async function _dripSend(stepDef, r, context, tag) {
+async function _dripSend(stepDef, r, context, tag, isTest) {
   const email = r.email, isMember = r.segment === 'active';
   const campaign = (tag ? tag + '-' : '') + stepDef.id;
+  const rec = id => { if (!isTest) _recordSent(id, email); };   // en mode TEST : aucune stat officielle, aucune consommation de rotation
   try {
-    if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { _recordSent('intro-v1', email); return true; } return false; }
-    if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { _recordSent('decryptage', email); return true; } return false; }
-    if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('point-marche', email); return true; } return false; }
-    if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { _recordSent('mindset', email); try { await _mindsetMarkCovered(rr.conceptKey); } catch {} return true; } return false; }
-    if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { _recordSent('recap-hebdo', email); return true; } return false; }
-    if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('outlook-hebdo', email); return true; } return false; }
+    if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { rec('intro-v1'); return true; } return false; }
+    if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { rec('decryptage'); return true; } return false; }
+    if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('point-marche'); return true; } return false; }
+    if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { rec('mindset'); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
+    if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { rec('recap-hebdo'); return true; } return false; }
+    if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('outlook-hebdo'); return true; } return false; }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
   return false;
 }
@@ -13625,6 +13636,17 @@ async function _dripTick() {
     const isoWeek = pp.isoWeek, wd = pp.weekday;
     const dayStep = _DAY_STEP[wd];                       // contenu DU JOUR (Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Ven=Récap)
     if (!dayStep) return;                                // Lundi & Samedi = pas d'envoi
+    // ── MODE TEST : le calendrier tourne mais le contenu du jour part UNIQUEMENT sur la boîte de l'admin (validation).
+    //    Indépendant de l'audience réelle, du pré-flight et des stats officielles ; marqueur test SÉPARÉ (1× par jour).
+    if (_dripState.testMode) {
+      const _to = _CAMP_TEST_TO, _tk = 'drip:day-test:' + isoWeek + '-' + wd + ':' + _to;
+      try { if (await auth.emailLogHas(_tk)) return; } catch {}                                     // déjà testé aujourd'hui
+      if (dayStep.tpl === 'pointmarche') { try { const dk = _dtpdTodayKey(); if (!allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk)) await generateDTPDaily(true); } catch {} try { await emailWidget.renderWidgetPngSafe('calendar', { period: 'thisweek' }); } catch {} }
+      if (dayStep.tpl === 'outlook') { try { await generateWeekAhead(false); } catch {} try { await emailWidget.renderWidgetPngSafe('week-ahead', {}); } catch {} }
+      const _ctx = await _deskContext();
+      if (await _dripSend(dayStep, { email: _to, name: '', segment: 'active' }, _ctx, 'test-' + isoWeek + '-' + wd, true)) { try { await auth.emailLogAdd(_tk); } catch {} console.log('[Drip TEST] ' + (_WD_FR[wd] || ('j' + wd)) + ' (' + dayStep.id + ') → ' + _to); }
+      return;   // mode test : rien d'autre ne part
+    }
     let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { await _campaignError('critical', 'drip', 'audience indisponible/corrompue : ' + e.message, { actions: 'Verifier _campaignAudience (Whop/DTP/KV). Reactiver la sequence apres correction.' }); _dripState.active = false; _dripState.pausedReason = { at: Date.now(), summary: 'audience indisponible' }; _saveDrip(); return; }
     const now = Date.now(); let context = null, sent = 0;
     // ── DONNÉES FRAÎCHES (Point marché du mercredi) : on garantit un récap quotidien DU JOUR (regen si absent)
@@ -13712,24 +13734,50 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
     note: _dripState.active ? 'Calendrier ACTIF : 1 e-mail par jour ouvre, synchronise pour tous.' : ((pr ? 'EN PAUSE (auto, pre-flight) : ' + pr.summary + '. ' : 'EN PAUSE : ') + 'Active pour (re)lancer.') });
 });
 
-// ── PILOTAGE UNIFIÉ « La Campagne » (demande user 13/07 : UN SEUL interrupteur + le prochain e-mail) ──
-// active = la campagne tourne (drip OU ancien blast hebdo). activate => lance la SÉQUENCE VARIÉE (drip) et met
-// le blast en pause (un seul moteur) ; pause => arrêt total. Renvoie le PROCHAIN template qui partira.
+// Envoi IMMEDIAT des 5 contenus du calendrier a une boite (validation admin). Aucune stat officielle, aucun marqueur.
+async function _sendAllCampaignTests(to) {
+  to = String(to || _CAMP_TEST_TO).toLowerCase().trim();
+  let ctx = {}; try { ctx = await _deskContext(); } catch {}
+  const out = [];
+  const step = async (label, fn) => { try { const r = await fn(); out.push({ label, ok: !!r }); } catch (e) { out.push({ label, ok: false, err: e.message }); } await new Promise(x => setTimeout(x, 900)); };
+  await step('Semaine à venir', () => mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context: ctx, isMember: false }));
+  await step('Comprendre le marché', async () => { const rk = await _decryptRecentKeys(4); return mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context: ctx, recentKeys: rk, isMember: false }); });
+  await step('Point marché', () => mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context: ctx, isMember: false }));
+  await step('Mindset', async () => { const rk = await _mindsetRecentKeys(); return mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys: rk, isMember: false }); });
+  await step('Récap Hebdo', () => { const wk = _freshWeekly(); return wk ? mailer.sendWeeklyDigest({ to, name: '', email: to, campaign: 'recap-test', weekly: wk }) : false; });
+  console.log('[Campagne tests] → ' + to + ' : ' + out.map(o => o.label + '=' + (o.ok ? 'ok' : 'KO')).join(', '));
+  return out;
+}
+// INTERNE (token localhost) : declenche l'envoi des 5 tests a la boite admin (utilise au deploiement / a la bascule test).
+app.get('/api/internal/campaign-test-all', async (req, res) => {
+  const ok = req.headers['x-dtp-internal'] === _INTERNAL_TOKEN && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '');
+  if (!ok) return res.status(403).json({ error: 'interdit' });
+  try { const out = await _sendAllCampaignTests(req.query.to); res.json({ ok: true, to: (req.query.to || _CAMP_TEST_TO), results: out }); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// ── PILOTAGE UNIFIÉ « La Campagne » : DEUX modes (demande user 13/07) ──
+//   activate-test     => la campagne tourne mais tout part UNIQUEMENT sur la boîte admin (test) + envoi immédiat des 5.
+//   activate/official => envoi RÉEL à toute l'audience.   pause => arrêt total.   send-tests => renvoyer les 5 tests.
+// Un seul moteur (le calendrier hebdo) ; le blast hebdo reste retiré. Renvoie le mode courant + le prochain e-mail.
 app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
-  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
+  if (a === 'activate' || a === 'activate-official') { _dripState.active = true; _dripState.testMode = false; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
+  else if (a === 'activate-test') { _dripState.active = true; _dripState.testMode = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); _sendAllCampaignTests(_CAMP_TEST_TO).catch(() => {}); }   // + envoi immédiat des 5 tests à la boîte admin
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
-  const active = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré ; le blast digest est RETIRÉ)
+  else if (a === 'send-tests') { _sendAllCampaignTests(_CAMP_TEST_TO).catch(() => {}); }   // renvoyer les 5 tests sans changer l'état
+  const active = !!_dripState.active, testMode = !!_dripState.testMode;
   let nextTemplate = '—', nextWhen = '—';
   try {
     const _nwd = _nextSendWeekday();
     nextTemplate = (_DAY_STEP[_nwd] || _loopStepFor()).label;
-    nextWhen = active ? ('le ' + (_WD_FR[_nwd] || '') + ' ' + _nextDateForWeekday(_nwd) + ' · dès 8h (Paris)') : 'dès le lancement (prochain jour ouvré, dès 8h)';
+    nextWhen = active ? ('le ' + (_WD_FR[_nwd] || '') + ' ' + _nextDateForWeekday(_nwd) + ' · dès 8h (Paris)') : 'dès le lancement (prochain jour, dès 8h)';
   } catch {}
   const contacts = _dripState.contacts || {}; let audienceCount = 0;
   try { audienceCount = Object.keys(contacts).length; } catch {}
   const pr = (!active && _dripState.pausedReason) ? _dripState.pausedReason : null;
-  res.json({ ok: true, active, nextTemplate, nextWhen, engine: 'sequence',
+  res.json({ ok: true, active, testMode, testEmail: _CAMP_TEST_TO, mode: active ? (testMode ? 'test' : 'official') : 'paused',
+    nextTemplate, nextWhen, engine: 'sequence',
     running: !!_dripRunning, contactsTracked: audienceCount, pausedReason: pr,
     sequence: [0, 2, 3, 4, 5].map(d => _DAY_STEP[d].label) });
 });
