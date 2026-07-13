@@ -5045,9 +5045,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; }
 .wr-cb-name { font-family:var(--tight); font-weight:var(--fw-bold); font-size:14px; color:#e8eaed; letter-spacing:.01em; }
 .wr-cb-stance { font-family:var(--tight); font-weight:800; font-size:10px; letter-spacing:.05em; padding:2px 9px; border-radius:20px; text-transform:uppercase; white-space:nowrap; }
-.wr-cb-stance--hawkish { color:#0c0c0e; background:#e0863a; }
-.wr-cb-stance--dovish { color:#0c0c0e; background:#3aa0e0; }
-.wr-cb-stance--neutral { color:#cfd2d8; background:#2a2a30; }
+.wr-cb-stance--hawkish { color:#fff; background:#059669; }   /* haussier → vert */
+.wr-cb-stance--dovish { color:#fff; background:#dc2626; }    /* baissier → rouge */
+.wr-cb-stance--neutral { color:#e5e7eb; background:#4b5563; }/* maintien/attentiste → gris */
 .wr-cb-narr { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0; }
 .wr-cb-narr p { margin:0 0 8px; } .wr-cb-narr p:last-child { margin-bottom:0; }
 .wr-cb-quote { margin:11px 0 0; padding-left:13px; border-left:2px solid rgba(227,178,58,.45); }
@@ -5063,7 +5063,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-bullet { line-height:1.65; }
 .wr-cb-bullet strong { color:#fff; font-weight:var(--fw-semibold); }
 .wr-cb-tag { display:inline-block; font-family:var(--tight); font-weight:800; font-size:9px; letter-spacing:.03em; padding:1px 7px; border-radius:20px; white-space:nowrap; vertical-align:1px; }
-.wr-cb-tag--vhawk{ color:#0c0c0e; background:#c94f3d; } .wr-cb-tag--hawk{ color:#0c0c0e; background:#e0863a; } .wr-cb-tag--neu{ color:#cfd2d8; background:#2a2a30; } .wr-cb-tag--dov{ color:#0c0c0e; background:#3aa0e0; } .wr-cb-tag--vdov{ color:#0c0c0e; background:#2ec4a6; }
+/* Couleur SÉMANTIQUE (demande user) : hawkish = HAUSSIER pour la devise → vert ; dovish = BAISSIER → rouge ;
+   neutre/hold (attentiste) = gris. Même palette que la matrice Smart Bias (Very Bullish→Very Bearish). */
+.wr-cb-tag--vhawk{ color:#fff; background:#047857; } .wr-cb-tag--hawk{ color:#fff; background:#059669; } .wr-cb-tag--neu{ color:#e5e7eb; background:#4b5563; } .wr-cb-tag--dov{ color:#fff; background:#dc2626; } .wr-cb-tag--vdov{ color:#fff; background:#991b1b; }
 .wr-cb-qi { font-style:italic; color:#e6d9b8; }
 /* v20 : Banques Centrales EN LISTE (par banque : decision + prochaine reunion + guidance + propos) */
 .wr-cb-list { display:flex; flex-direction:column; gap:8px; margin:2px 0 4px; }
@@ -5077,11 +5079,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-li-guid { color:#aeb6c2; }
 .wr-cb-li-quote { margin:6px 0 0; padding-left:11px; border-left:2px solid rgba(227,178,58,.4); }
 .wr-cb-bias { font-family:var(--tight); font-weight:800; font-size:10px; letter-spacing:.04em; padding:2px 9px; border-radius:20px; white-space:nowrap; }
-.wr-cb-bias--vhawk { color:#0c0c0e; background:#c94f3d; }
-.wr-cb-bias--hawk  { color:#0c0c0e; background:#e0863a; }
-.wr-cb-bias--neu   { color:#cfd2d8; background:#2a2a30; }
-.wr-cb-bias--dov   { color:#0c0c0e; background:#3aa0e0; }
-.wr-cb-bias--vdov  { color:#0c0c0e; background:#2ec4a6; }
+.wr-cb-bias--vhawk { color:#fff; background:#047857; }   /* très haussier → vert foncé */
+.wr-cb-bias--hawk  { color:#fff; background:#059669; }   /* haussier → vert */
+.wr-cb-bias--neu   { color:#e5e7eb; background:#4b5563; }/* maintien → gris */
+.wr-cb-bias--dov   { color:#fff; background:#dc2626; }   /* baissier → rouge */
+.wr-cb-bias--vdov  { color:#fff; background:#991b1b; }   /* très baissier → rouge foncé */
 .wr-cb-src { font-size:9px; font-weight:700; letter-spacing:.03em; text-transform:uppercase; color:#8b93a1; background:#1a1a1f; border:1px solid #2a2a30; border-radius:4px; padding:1px 5px; white-space:nowrap; cursor:help; }
 .wr-cb-rate { margin-left:auto; font-family:var(--font-mono); font-size:11px; color:#9aa3b2; white-space:nowrap; }
 .wr-cb-head .wr-cb-src + .wr-cb-rate { margin-left:6px; }
@@ -5089,10 +5091,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb-prob { display:inline-flex; align-items:center; gap:5px; font-size:12px; color:#aeb6c2; }
 .wr-cb-prob b { color:#e8eaed; font-family:var(--font-mono); }
 .wr-cb-dot { width:7px; height:7px; border-radius:50%; display:inline-block; }
-.wr-cb-dot--hike { background:#e0863a; } .wr-cb-dot--hold { background:#6b7280; } .wr-cb-dot--cut { background:#3aa0e0; }
+.wr-cb-dot--hike { background:#22c55e; } .wr-cb-dot--hold { background:#6b7280; } .wr-cb-dot--cut { background:#ef4444; }   /* hausse=haussier vert · maintien gris · baisse=baissier rouge */
 .wr-cb-bar { display:flex; height:5px; border-radius:3px; overflow:hidden; background:#17181d; margin:0 0 10px; }
 .wr-cb-bar i { display:block; height:100%; }
-.wr-cb-bar--hike { background:#e0863a; } .wr-cb-bar--hold { background:#4b5563; } .wr-cb-bar--cut { background:#3aa0e0; }
+.wr-cb-bar--hike { background:#22c55e; } .wr-cb-bar--hold { background:#4b5563; } .wr-cb-bar--cut { background:#ef4444; }
 .wr-cb-next { font-size:12px; color:#c9d1d9; margin:0 0 10px; padding:6px 9px; background:#0c0c0f; border:1px solid #17171c; border-radius:6px; }
 .wr-cb-next b { color:#e3b23a; }
 .wr-cb-block { margin:0 0 8px; }
