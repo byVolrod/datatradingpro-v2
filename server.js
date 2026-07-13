@@ -13066,11 +13066,11 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // est comptabilisé (_campaignStats), parfois ≠ de `id` (Point marché sous 'point-marche', etc.). `when` = jour d'envoi.
 const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
-  { id: 'outlook-hebdo', week: 2,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · dès 8h (Paris)',                         desc: 'Les événements à surveiller pour la semaine qui commence, envoyé la veille (dimanche), sans pousser de position.' },
+  { id: 'outlook-hebdo', week: 2,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
   { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'Chaque mardi · dès 8h (Paris)',                            desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · dès 8h (Paris)',                         desc: 'Généré du récap quotidien DU JOUR : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
+  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le récap quotidien (~midi, Paris)', desc: 'Part une fois le récap quotidien DU JOUR publié : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
   { id: 'mindset',       week: 5,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
-  { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque vendredi · dès 8h (Paris)',                         desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
+  { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
@@ -13081,7 +13081,8 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _TPL2SEQ = { pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', recap: 'recap-hebdo', outlook: 'outlook-hebdo' };
     const _campActive = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré)
     // JOUR d'envoi de chaque contenu (Lun=Semaine à venir … Ven=Récap). L'intro n'est pas dans le calendrier (à l'inscription).
-    const _SEQ2DAY = { 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 5 };
+    const _SEQ2DAY = { 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 6 };
+    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le récap quotidien (~midi)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
     // PROCHAIN envoi = prochain contenu À PARTIR — aujourd'hui SEULEMENT s'il reste de la fenêtre ET qu'il n'est
     // PAS déjà parti aujourd'hui ; sinon le jour ouvré suivant. Corrige le bug « Envoyé + PROCHAIN sur la même carte ».
     const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
@@ -13102,8 +13103,8 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     // semaine fixe + la date de sa prochaine occurrence.
     function _stepPlanned(seqId) {
       const wd = _SEQ2DAY[seqId]; if (wd == null) return null;   // 0 = dimanche (valide) → PAS `!wd`
-      const dName = _WD_FR[wd] || '';
-      return { weekday: wd, date: _nextDateForWeekday(wd), label: 'Chaque ' + dName + ' · dès 8h (Paris) — prochain : ' + _nextDateForWeekday(wd) };
+      const dName = _WD_FR[wd] || '', tLabel = _SEQ2TIME[seqId] || 'dès 8h';
+      return { weekday: wd, date: _nextDateForWeekday(wd), label: 'Chaque ' + dName + ' · ' + tLabel + ' (Paris) — prochain : ' + _nextDateForWeekday(wd) };
     }
     // PLAGE de dates de la semaine ISO courante (Lun→Dim), change chaque semaine — pour l'en-tête « SÉQUENCE HEBDOMADAIRE ».
     let weekRange = '';
@@ -13572,8 +13573,8 @@ app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
 //  SÉQUENCE HEBDOMADAIRE SYNCHRONISÉE — DÉSACTIVÉE par défaut : rien ne part tant que l'admin n'active pas.
 //  MODÈLE (demande user 13/07) : les 5 contenus partent TOUS DANS LA MÊME SEMAINE, UN PAR JOUR OUVRÉ,
 //  identique pour TOUT LE MONDE (synchronisé), et ça recommence chaque semaine :
-//    Dimanche = Semaine à venir · Mardi = Comprendre le marché · Mercredi = Point marché ·
-//    Jeudi = Mindset · Vendredi = Récap Hebdo. (Lundi & Samedi = pas d'envoi.)
+//    Dimanche 10h = Semaine à venir · Mardi 8h = Comprendre · Mercredi (après le récap quotidien ~midi) = Point marché ·
+//    Jeudi 8h = Mindset · Samedi 10h = Récap Hebdo. (Lundi & Vendredi = pas d'envoi.)
 //  Un NOUVEL inscrit reçoit d'abord une intro one-time (bienvenue), puis rejoint le calendrier du jour.
 //  Contenu = moteur de contexte (_deskContext), adapté membre/non-membre. NE TOUCHE PAS au welcome
 //  transactionnel (sendWelcome). Anti-doublon durable : email_log drip:intro:<email> +
@@ -13586,7 +13587,9 @@ const DRIP_MINDSET = { id: 'mindset',      label: 'Mindset',               tpl: 
 const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl: 'recap' };
 const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook' };
 // weekday (Intl Europe/Paris : Dim=0 … Sam=6) → contenu du jour. Lun=1 … Ven=5 ; week-end = rien.
-const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 5: DRIP_RECAP };   // weekday→contenu : Dim=0=Semaine à venir … Ven=5=Récap ; Lun=1 & Sam=6 = rien. _WD_FR déjà défini plus haut
+const _DAY_STEP = { 0: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 6: DRIP_RECAP };   // weekday→contenu : Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap. Lun & Ven = rien. _WD_FR déjà défini plus haut
+// Heure mini d'envoi par contenu (Paris) : Récap & Semaine à venir à 10h, les autres dès 8h. Point marché : en plus, gate = récap quotidien du jour PUBLIÉ (~midi).
+const _STEP_MINHOUR = { outlook: 10, decryptage: 8, pointmarche: 8, mindset: 8, recap: 10 };
 function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
 // Prochain jour ouvré d'envoi (1=lun … 5=ven) : aujourd'hui s'il reste de la fenêtre (avant 19h), sinon le suivant.
 function _nextSendWeekday() { const pp = _parisParts(); if (_DAY_STEP[pp.weekday] && pp.hour < 19) return pp.weekday; let wd = pp.weekday; for (let i = 0; i < 7; i++) { wd = (wd + 1) % 7; if (_DAY_STEP[wd]) return wd; } return 0; }
@@ -13632,37 +13635,31 @@ async function _dripTick() {
   _dripRunning = true;
   try {
     const pp = _parisParts();
-    if (pp.hour < 8 || pp.hour >= 19) return;            // fenetre : 8h-19h Paris (jamais la nuit)
     const isoWeek = pp.isoWeek, wd = pp.weekday;
-    const dayStep = _DAY_STEP[wd];                       // contenu DU JOUR (Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Ven=Récap)
-    if (!dayStep) return;                                // Lundi & Samedi = pas d'envoi
+    const dayStep = _DAY_STEP[wd];                       // contenu DU JOUR (Dim=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Sam=Récap)
+    if (!dayStep) return;                                // Lundi & Vendredi = pas d'envoi
+    if (pp.hour < (_STEP_MINHOUR[dayStep.tpl] || 8) || pp.hour >= 19) return;   // fenêtre du jour : heure mini selon le contenu (10h Récap/Semaine à venir, 8h sinon) → 19h Paris
+    // ── FRAÎCHEUR / GATES par contenu (s'applique à TEST comme OFFICIEL) ──
+    if (dayStep.tpl === 'pointmarche') {
+      // Point marché (mercredi) : on ATTEND que le récap quotidien du jour soit PUBLIÉ (~midi) pour bâtir le mail dessus.
+      const dk = _dtpdTodayKey();
+      let pub = allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk);
+      if (!pub && pp.hour >= 13) { try { await generateDTPDaily(true); pub = allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk); } catch (e) { console.warn('[Drip] regen DTPD', e.message); } }   // filet : si l'auto-gen de midi a échoué, régénère après 13h
+      if (!pub) return;                                  // pas encore publié → rien ne part, on repassera au prochain tick
+      try { await emailWidget.renderWidgetPngSafe('calendar', { period: 'thisweek' }); } catch {}   // chauffe le calendrier de la semaine
+    }
+    if (dayStep.tpl === 'outlook') { try { await generateWeekAhead(false); } catch {} try { await emailWidget.renderWidgetPngSafe('week-ahead', {}); } catch {} }   // Semaine à venir (dimanche) : calendrier de la semaine SUIVANTE + widget chauffé
     // ── MODE TEST : le calendrier tourne mais le contenu du jour part UNIQUEMENT sur la boîte de l'admin (validation).
     //    Indépendant de l'audience réelle, du pré-flight et des stats officielles ; marqueur test SÉPARÉ (1× par jour).
     if (_dripState.testMode) {
       const _to = _CAMP_TEST_TO, _tk = 'drip:day-test:' + isoWeek + '-' + wd + ':' + _to;
       try { if (await auth.emailLogHas(_tk)) return; } catch {}                                     // déjà testé aujourd'hui
-      if (dayStep.tpl === 'pointmarche') { try { const dk = _dtpdTodayKey(); if (!allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk)) await generateDTPDaily(true); } catch {} try { await emailWidget.renderWidgetPngSafe('calendar', { period: 'thisweek' }); } catch {} }
-      if (dayStep.tpl === 'outlook') { try { await generateWeekAhead(false); } catch {} try { await emailWidget.renderWidgetPngSafe('week-ahead', {}); } catch {} }
       const _ctx = await _deskContext();
       if (await _dripSend(dayStep, { email: _to, name: '', segment: 'active' }, _ctx, 'test-' + isoWeek + '-' + wd, true)) { try { await auth.emailLogAdd(_tk); } catch {} console.log('[Drip TEST] ' + (_WD_FR[wd] || ('j' + wd)) + ' (' + dayStep.id + ') → ' + _to); }
       return;   // mode test : rien d'autre ne part
     }
     let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { await _campaignError('critical', 'drip', 'audience indisponible/corrompue : ' + e.message, { actions: 'Verifier _campaignAudience (Whop/DTP/KV). Reactiver la sequence apres correction.' }); _dripState.active = false; _dripState.pausedReason = { at: Date.now(), summary: 'audience indisponible' }; _saveDrip(); return; }
     const now = Date.now(); let context = null, sent = 0;
-    // ── DONNÉES FRAÎCHES (Point marché du mercredi) : on garantit un récap quotidien DU JOUR (regen si absent)
-    //    AVANT de bâtir le contexte, pour que le brief ET le calendrier partent sur la séance du jour, pas la veille.
-    if (dayStep.tpl === 'pointmarche') {
-      try {
-        const dk = _dtpdTodayKey();
-        const cur = allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk);
-        if (!cur) await generateDTPDaily(true);          // pas de récap du jour → génère (force, bypass gate midi)
-      } catch (e) { console.warn('[Drip] regen DTPD', e.message); }
-      try { await emailWidget.renderWidgetPngSafe('calendar', { period: 'thisweek' }); } catch {}   // chauffe le calendrier de la semaine avant l'envoi (jamais de rendu à froid)
-    }
-    if (dayStep.tpl === 'outlook') {
-      try { await generateWeekAhead(false); } catch {}                                              // Semaine à venir (dimanche) : rafraîchit le calendrier de la semaine PROCHAINE (_toMon pointe déjà sur le lundi suivant le week-end)
-      try { await emailWidget.renderWidgetPngSafe('week-ahead', {}); } catch {}                     // chauffe le widget Semaine à venir avant l'envoi
-    }
     // ── PRE-FLIGHT : valide fournisseur mail + audience + rendu du contenu DU JOUR AVANT tout envoi ──
     context = await _deskContext();
     const stepWeek = dayStep;
@@ -13723,11 +13720,11 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   let total = 0, introduced = 0, gotToday = 0;
   for (const email of Object.keys(contacts)) { total++; const st = _dripNormalize(contacts[email]); if (st.introduced) introduced++; if (st.wkKey === pp.isoWeek && Array.isArray(st.gotDays) && st.gotDays.includes(pp.weekday)) gotToday++; }
   let todayLabel = '—'; try { const ctx = await _deskContext(); todayLabel = _loopStepFor().label + (ctx.themeLabel ? ' (' + ctx.themeLabel + ')' : ''); } catch {}
-  const steps = [0, 2, 3, 4, 5].map(d => { const s = _DAY_STEP[d]; const cid = s.tpl === 'recap' ? 'recap-hebdo' : (s.id === 'outlook' ? 'outlook-hebdo' : s.id); const stt = _campaignStats[cid]; return { id: s.id, label: s.label, day: _WD_FR[d], sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
+  const steps = [0, 2, 3, 4, 6].map(d => { const s = _DAY_STEP[d]; const cid = s.tpl === 'recap' ? 'recap-hebdo' : (s.id === 'outlook' ? 'outlook-hebdo' : s.id); const stt = _campaignStats[cid]; return { id: s.id, label: s.label, day: _WD_FR[d], sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
-    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim=Semaine a venir, Mar=Comprendre, Mer=Point marche, Jeu=Mindset, Ven=Recap ; Lun & Sam = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
+    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim 10h=Semaine a venir, Mar 8h=Comprendre, Mer (apres le recap quotidien ~midi)=Point marche, Jeu 8h=Mindset, Sam 10h=Recap ; Lun & Ven = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
     today: { isoWeek: pp.isoWeek, weekday: pp.weekday, content: todayLabel },
     contactsTracked: total, introduced, gotToday, steps,
     pausedReason: (!_dripState.active && pr) ? pr : null,
@@ -13779,7 +13776,7 @@ app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
   res.json({ ok: true, active, testMode, testEmail: _CAMP_TEST_TO, mode: active ? (testMode ? 'test' : 'official') : 'paused',
     nextTemplate, nextWhen, engine: 'sequence',
     running: !!_dripRunning, contactsTracked: audienceCount, pausedReason: pr,
-    sequence: [0, 2, 3, 4, 5].map(d => _DAY_STEP[d].label) });
+    sequence: [0, 2, 3, 4, 6].map(d => _DAY_STEP[d].label) });
 });
 
 // Historique des erreurs/incidents campagne (admin) : ring durable KV campaign:errors.

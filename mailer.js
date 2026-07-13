@@ -825,7 +825,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
       <li style="margin:6px 0;">🎓 <strong style="color:#fff;">Comprendre le march&eacute;</strong>&nbsp;: chaque mardi, un concept macro choisi selon l'actualit&eacute; et d&eacute;cod&eacute; simplement, comme au desk.</li>
       <li style="margin:6px 0;">📊 <strong style="color:#fff;">Point march&eacute;</strong>&nbsp;: chaque mercredi, le brief du desk, la s&eacute;ance, les chiffres &eacute;co et la force des devises, en clair.</li>
       <li style="margin:6px 0;">🧠 <strong style="color:#fff;">Mindset</strong>&nbsp;: chaque jeudi, psychologie et discipline, de quoi garder la t&ecirc;te froide quand le march&eacute; s'agite.</li>
-      <li style="margin:6px 0;">📰 <strong style="color:#fff;">R&eacute;cap hebdo</strong>&nbsp;: chaque vendredi, la r&eacute;trospective de la semaine &eacute;coul&eacute;e, devise par devise, sans le bruit.</li>
+      <li style="margin:6px 0;">📰 <strong style="color:#fff;">R&eacute;cap hebdo</strong>&nbsp;: chaque samedi, la r&eacute;trospective de la semaine &eacute;coul&eacute;e, devise par devise, sans le bruit.</li>
     </ul>
     <p style="margin:0 0 6px;">Pour explorer le terminal quand vous voulez&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
