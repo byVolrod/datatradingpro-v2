@@ -6897,12 +6897,30 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // AI Insights (cartes + paires) + « Temps forts de la semaine » (narratif IA) + résultats JOUR PAR JOUR (lundi→vendredi)
 // depuis le calendrier avec ACTUAL vs consensus par événement. Centré décisions de banques centrales + données publiées
 // (réel vs attendu) — distinct du Weekly Market Recap (centré prix/FX). 1 appel IA/semaine.
-const GEW_VER = 7;   // v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
+const GEW_VER = 8;   // v8 = événements BANQUE CENTRALE (discours/minutes/décisions) annotés du contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse + trajectoire, via rateprobability) → indique le biais + la date. v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
 // Heure d'un événement = HEURE DE PARIS (référence FR), HH:MM SEULEMENT. Plus de jour (déjà en en-tête de
 // journée) ni de doublon GMT (demande user 13/07 : « date/heure doublée »). Le fuseau est rappelé UNE fois
 // dans le titre de section (« Calendrier économique · heure de Paris »). 100% calculé (zéro IA).
 function _gewTimes(ts /* , ccy (ignoré) */) {
   try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour12: false, hour: '2-digit', minute: '2-digit' }).format(new Date(ts)); } catch { return ''; }
+}
+// Événement de COMMUNICATION d'une banque centrale (discours, minutes/comptes rendus, décision, témoignage) :
+// on n'a pas le texte du discours, mais on attache le CONTEXTE de politique monétaire RÉEL du marché
+// (rateprobability via _buildRatesPayload) — prochaine réunion + proba hausse/maintien/baisse + trajectoire.
+// 100% probabilités de marché, ZÉRO invention. Répond à « proba de hausse/maintien/baisse + prochaine réunion ».
+const _GEW_CB_EVENT_RX = /\b(speech|speaks?|discours|minutes|meeting accounts|comptes?[\s-]rendus?|monetary policy|rate (?:decision|statement)|interest rate|testimon|t[ée]moignage|press conference|conf[ée]rence de presse|policy report|semi-?annual|governor|president|chair|hearing|remarks?)\b/i;
+const _GEW_CB_TRAJ = { HIKE: 'trajectoire plutôt ferme (biais hausse) sur ~6 mois', CUT: 'trajectoire plutôt accommodante (biais baisse) sur ~6 mois', HOLD: 'trajectoire stable sur ~6 mois' };
+function _gewCbEventComment(ccy) {
+  try {
+    const p = _buildRatesPayload();
+    const b = (p && Array.isArray(p.banks) ? p.banks : []).find(x => x && x.code === ccy);
+    if (!b || !b.scenario) return '';
+    const sc = b.scenario, hi = Math.round(sc.hike || 0), ho = Math.round(sc.hold || 0), cu = Math.round(sc.cut || 0);
+    const top = Math.max(hi, ho, cu), word = top === hi ? 'hausse' : top === cu ? 'baisse' : 'maintien';
+    let nextFr = null; if (b.next) { try { nextFr = new Date(b.next + 'T00:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch { nextFr = b.next; } }
+    const traj = _GEW_CB_TRAJ[b.move] || '';
+    return `Politique monétaire — ${nextFr ? `prochaine réunion le ${nextFr}${b.nextDays != null ? ` (dans ${b.nextDays} j)` : ''} : ` : ''}le marché anticipe un ${word} (${top}%)${traj ? `, ${traj}` : ''}.`;
+  } catch { return ''; }
 }
 async function generateGlobalEconomicWeekly(force = false) {
   const idPrefix = 'dtp-econ-weekly-', now = Date.now();
@@ -7041,6 +7059,19 @@ ${list}`;
       }
     } catch (e) { console.warn('[GEW] commentaires par event indispo:', e.message); }
   }
+
+  // Événements de COMMUNICATION des banques centrales SANS chiffre (discours, minutes, décision, témoignage) :
+  // on attache le contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse +
+  // trajectoire) → indique s'il y a un biais hausse/maintien/baisse et la date de la prochaine réunion. (Demande user.)
+  try {
+    let cbAnnot = 0;
+    days.forEach(d => (d.events || []).forEach(e => {
+      if (!e.comment && SB_CURRENCIES.includes(e.currency) && _GEW_CB_EVENT_RX.test(e.title || '')) {
+        const c = _gewCbEventComment(e.currency); if (c) { e.comment = c; cbAnnot++; }
+      }
+    }));
+    if (cbAnnot) console.log(`[GEW] contexte politique monétaire ajouté à ${cbAnnot} événement(s) banque centrale`);
+  } catch {}
 
   const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, usPreview, insights, pairs, days };
   // Description texte (recherche/affichage simple)
