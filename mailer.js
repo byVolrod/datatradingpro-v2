@@ -821,7 +821,7 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
     <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
     <p style="margin:0 0 16px;">Merci de faire partie de l'aventure <strong style="color:#f3c344;">DataTradingPro</strong>. Chaque semaine, le desk vous &eacute;crit pour rendre le march&eacute; <strong>macro &amp; forex</strong> lisible, en fran&ccedil;ais. Voici votre <strong style="color:#fff;">semaine type</strong>&nbsp;:</p>
     <ul style="margin:0 0 20px;padding-left:20px;color:#cbd5e1;">
-      <li style="margin:6px 0;">🗓️ <strong style="color:#fff;">Semaine &agrave; venir</strong>&nbsp;: chaque lundi, l'agenda tri&eacute; par le desk, vous savez o&ugrave; regarder avant que la semaine ne commence.</li>
+      <li style="margin:6px 0;">🗓️ <strong style="color:#fff;">Semaine &agrave; venir</strong>&nbsp;: chaque dimanche, l'agenda tri&eacute; par le desk, vous savez o&ugrave; regarder avant que la semaine ne commence.</li>
       <li style="margin:6px 0;">🎓 <strong style="color:#fff;">Comprendre le march&eacute;</strong>&nbsp;: chaque mardi, un concept macro choisi selon l'actualit&eacute; et d&eacute;cod&eacute; simplement, comme au desk.</li>
       <li style="margin:6px 0;">📊 <strong style="color:#fff;">Point march&eacute;</strong>&nbsp;: chaque mercredi, le brief du desk, la s&eacute;ance, les chiffres &eacute;co et la force des devises, en clair.</li>
       <li style="margin:6px 0;">🧠 <strong style="color:#fff;">Mindset</strong>&nbsp;: chaque jeudi, psychologie et discipline, de quoi garder la t&ecirc;te froide quand le march&eacute; s'agite.</li>
