@@ -2978,7 +2978,11 @@ app.get('/api/weekly-reports', async (_req, res) => {
   _fxrPurgeWeekend();   // retire un éventuel FX Daily daté un week-end (le verrou empêche d'en régénérer)
   const _fxrDay = _fxrTargetDayKey();
   const fxrCurrent = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr && (i._fxr.v || 0) >= FXR_VER && i._fxr.day === _fxrDay);
-  if (!fxrCurrent) {
+  // Un repli déterministe (_ai:false) recycle les news brutes ANGLAISES → il ne doit PAS bloquer la vraie
+  // génération IA en français : tant que le recap courant est un repli, on continue de tenter la régén IA
+  // (verrou 15 min) jusqu'à obtenir la version française. Dès que l'IA réussit (_ai:true), la condition s'éteint.
+  const _fxrIsFallback = fxrCurrent && fxrCurrent._fxr && fxrCurrent._fxr._ai === false;
+  if (!fxrCurrent || _fxrIsFallback) {
     generating = true;
     if (Date.now() - _fxrGenLock > 15 * 60 * 1000) {
       _fxrGenLock = Date.now();
@@ -2991,7 +2995,8 @@ app.get('/api/weekly-reports', async (_req, res) => {
   if (_dtpdDow !== 0 && _dtpdDow !== 6 && _dtpdH >= 12) {
     const _dtpdDay = _dtpdTodayKey();
     const dtpdCurrent = items.find(i => i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === _dtpdDay);
-    if (!dtpdCurrent) {
+    const _dtpdIsFallback = dtpdCurrent && dtpdCurrent._dtpd && dtpdCurrent._dtpd._ai === false;   // repli anglais → continuer à tenter l'IA française (même logique que le FX Recap)
+    if (!dtpdCurrent || _dtpdIsFallback) {
       generating = true;
       if (Date.now() - _dtpdGenLock > 15 * 60 * 1000) { _dtpdGenLock = Date.now(); generateDTPDaily(true).catch(e => console.error('[DTP Daily] auto-gen échec:', e.message)); }
     }
