@@ -2660,7 +2660,7 @@ async function _fetchSessionWraps(full = false) {
         if (seen.has(slug)) continue;
         seen.add(slug);
         pageHad = true;
-        // Session détectée AVANT le timestamp → heure PAR SESSION (Asia ~04h < Europe ~10h < Americas ~19h UTC).
+        // Session détectée AVANT le timestamp → heure PAR SESSION (Asia ~04h < Europe ~10h < Americas ~19h30 UTC).
         // Sans pubDate réelle (scrape), les 3 wraps d'un même jour auraient sinon le MÊME timestamp NOON → on
         // ne distingue plus que l'Asie est sortie AVANT l'Europe. Les heures par session reflètent la vraie séquence.
         let session = 'Global', sh = 12;
@@ -7724,8 +7724,9 @@ function _parisDayRange(dayKey) {
   const startMs = utcMid - offset;             // minuit Paris en epoch ms
   return [startMs, startMs + 24 * 3600 * 1000];
 }
-// Jour COUVERT par le recap. AVANCÉ à 19h (demande user : le rapport sort à 19h sur le desk, base du Point marché
-// du mercredi) → dès 19h Paris on cible AUJOURD'HUI (Asie + Europe + début US) ; avant 19h, la journée d'HIER.
+// Jour COUVERT par le recap. AVANCÉ à 19h30 (demande user : le rapport sort à 19h30 sur le desk, base du Point
+// marché) → dès 19h Paris on cible AUJOURD'HUI (Asie + Europe + début US) ; avant 19h, la journée d'HIER.
+// Le planificateur de 22h30 (force) le MET À JOUR avec la clôture US → le desk garde sa version complète en soirée.
 function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   if (p.getHours() < 19) p.setDate(p.getDate() - 1);
@@ -8393,7 +8394,8 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
-    { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h)' }, // avancé à 19h (demande user) : le rapport sort à 19h SUR LE DESK, le mail Point marché le récupère tel quel
+    { fn: () => generateFXDailyRecap(false),          h: 19, m: 30, name: 'FX Daily Recap (19h30)' },              // sort à 19h30 SUR LE DESK (base du mail Point marché : Asie+Europe+début US)
+    { fn: () => generateFXDailyRecap(true),           h: 22, m: 30, name: 'FX Daily Recap (MAJ complète, clôture US)' }, // se met à jour à 22h30 avec la clôture US → le desk garde la version complète en soirée
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
   // Rapports HEBDOMADAIRES — SAMEDI 02h00 PARIS (tous les marchés mondiaux fermés pour la semaine ; même créneau que le groupe Bias/Week Ahead)
@@ -13068,7 +13070,7 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
   { id: 'outlook-hebdo', week: 2,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
   { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'Chaque mardi · dès 8h (Paris)',                            desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le FX Daily Recap (~19h, Paris)', desc: 'Part une fois le FX Daily Recap DU JOUR publié (~19h) : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
+  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le FX Daily Recap (~19h30, Paris)', desc: 'Part une fois le FX Daily Recap DU JOUR publié (~19h30) : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
   { id: 'mindset',       week: 5,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
   { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
@@ -13082,7 +13084,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _campActive = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré)
     // JOUR d'envoi de chaque contenu (Lun=Semaine à venir … Ven=Récap). L'intro n'est pas dans le calendrier (à l'inscription).
     const _SEQ2DAY = { 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 6 };
-    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~19h)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
+    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~19h30)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
     // PROCHAIN envoi = prochain contenu À PARTIR — aujourd'hui SEULEMENT s'il reste de la fenêtre ET qu'il n'est
     // PAS déjà parti aujourd'hui ; sinon le jour ouvré suivant. Corrige le bug « Envoyé + PROCHAIN sur la même carte ».
     const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
@@ -13573,7 +13575,7 @@ app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
 //  SÉQUENCE HEBDOMADAIRE SYNCHRONISÉE — DÉSACTIVÉE par défaut : rien ne part tant que l'admin n'active pas.
 //  MODÈLE (demande user 13/07) : les 5 contenus partent TOUS DANS LA MÊME SEMAINE, UN PAR JOUR OUVRÉ,
 //  identique pour TOUT LE MONDE (synchronisé), et ça recommence chaque semaine :
-//    Dimanche 10h = Semaine à venir · Mardi 8h = Comprendre · Mercredi (après le FX Daily Recap ~19h) = Point marché ·
+//    Dimanche 10h = Semaine à venir · Mardi 8h = Comprendre · Mercredi (après le FX Daily Recap ~19h30) = Point marché ·
 //    Jeudi 8h = Mindset · Samedi 10h = Récap Hebdo. (Lundi & Vendredi = pas d'envoi.)
 //  Un NOUVEL inscrit reçoit d'abord une intro one-time (bienvenue), puis rejoint le calendrier du jour.
 //  Contenu = moteur de contexte (_deskContext), adapté membre/non-membre. NE TOUCHE PAS au welcome
@@ -13726,7 +13728,7 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
-    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim 10h=Semaine a venir, Mar 8h=Comprendre, Mer (apres le FX Daily Recap ~19h)=Point marche, Jeu 8h=Mindset, Sam 10h=Recap ; Lun & Ven = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
+    model: 'calendrier hebdo synchronise : 1 contenu par jour (Dim 10h=Semaine a venir, Mar 8h=Comprendre, Mer (apres le FX Daily Recap ~19h30)=Point marche, Jeu 8h=Mindset, Sam 10h=Recap ; Lun & Ven = rien), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
     today: { isoWeek: pp.isoWeek, weekday: pp.weekday, content: todayLabel },
     contactsTracked: total, introduced, gotToday, steps,
     pausedReason: (!_dripState.active && pr) ? pr : null,
