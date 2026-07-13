@@ -6645,6 +6645,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   font-family: var(--font-mono);
   font-weight: var(--fw-semibold);
 }
+/* Flèches de navigation historique du calendrier (‹ ›) — jusqu'à 3 mois en arrière */
+.cal-range-arrow {
+  background: none; border: none; margin: 0; padding: 0 5px;
+  color: var(--orange); font-family: var(--font-mono); font-size: 13px; font-weight: var(--fw-bold);
+  line-height: 1; cursor: pointer; opacity: 0.9;
+  transition: opacity .15s ease, transform .1s ease; user-select: none;
+}
+.cal-range-arrow:hover:not(:disabled)  { opacity: 1; transform: scale(1.18); }
+.cal-range-arrow:active:not(:disabled) { transform: scale(0.94); }
+.cal-range-arrow:disabled { opacity: 0.22; cursor: default; }
 
 .cal-live-badge {
   display: flex;

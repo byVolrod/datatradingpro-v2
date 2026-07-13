@@ -2912,6 +2912,8 @@ let _calCurFilter    = 'ALL';
 let _calImpFilter    = 'ALL';
 let _calSearch       = '';
 let _calNeedsScroll  = false; // true once per calendar tab open → auto-scroll to next event
+let _calBackMonths   = 0;     // 0 = live ; 1-3 = mois d'historique remontés via les flèches ‹ ›
+function _calFetchUrl() { return _calBackMonths > 0 ? ('/api/calendar-events?back=' + _calBackMonths) : '/api/calendar-events'; }
 
 function calImpDots(impact) {
   const l = (impact || '').toLowerCase();
@@ -3177,25 +3179,75 @@ async function toggleCalDetailRow(tr, ev) {
 // ── Calendar helper: refresh data from server ─────────────────────────────────
 async function _refreshCalendarData(silent = false) {
   try {
-    const res  = await fetch('/api/calendar-events');
+    const res  = await fetch(_calFetchUrl());
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const json = await res.json();
     const items = json.items || [];
     if (items.length > 0) {
       _calEvents = items.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
       if (!silent) renderCalTable();
-      // Update date range label
-      const dateRangeEl = document.getElementById('cal-daterange');
-      if (dateRangeEl && _calEvents.length) {
-        const dates = _calEvents.map(e => e.timestamp).filter(Boolean);
-        const fmt   = ts => new Date(ts).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric', timeZone: 'UTC' });
-        dateRangeEl.textContent = `${fmt(Math.min(...dates))} – ${fmt(Math.max(...dates))}`;
-      }
+      _calUpdateDateRangeLabel();
       return true;
     }
   } catch (e) { console.warn('[Cal] Refresh failed:', e.message); }
   return false;
 }
+
+// Libellé de plage « DD/MM/YYYY – DD/MM/YYYY » (min→max des events chargés). Heure LOCALE (cohérent avec les lignes de jour).
+function _calUpdateDateRangeLabel() {
+  const el = document.getElementById('cal-daterange');
+  if (!el || !_calEvents.length) return;
+  const dates = _calEvents.map(e => e.timestamp).filter(Boolean);
+  if (!dates.length) return;
+  const fmt = ts => new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  el.textContent = `${fmt(Math.min(...dates))} – ${fmt(Math.max(...dates))}`;
+}
+
+// ── Navigation historique du calendrier : flèches ‹ › (jusqu'à 3 mois en arrière ; 0 = live). ──
+let _calNavBusy = false;   // verrou anti-course : un seul aller-retour de navigation à la fois
+function _calUpdateRangeNav() {
+  const prev = document.getElementById('cal-range-prev');
+  const next = document.getElementById('cal-range-next');
+  if (prev) prev.disabled = _calNavBusy || _calBackMonths >= 3;   // bornes : occupé, ou 3 mois max
+  if (next) next.disabled = _calNavBusy || _calBackMonths <= 0;   // bornes : occupé, ou présent (live)
+}
+async function _calSetBack(months) {
+  months = Math.max(0, Math.min(3, months));
+  if (_calNavBusy || months === _calBackMonths) return;   // fetch en cours ou déjà à ce niveau → clic ignoré (anti-course)
+  _calNavBusy = true;
+  const prevMonths = _calBackMonths;
+  _calBackMonths = months;
+  _calNeedsScroll = (months === 0);                // retour live → scroll sur l'événement courant ; historique → géré ci-dessous
+  const wrap = document.getElementById('cal-table-wrap');
+  if (wrap) wrap.innerHTML = _calSkel();
+  _calUpdateRangeNav();                            // désactive les 2 flèches pendant le fetch
+  const ok = await _refreshCalendarData(false);    // fetch _calFetchUrl() → remplace _calEvents + rend, seulement en cas de succès
+  if (!ok) {                                        // échec réseau / plage indisponible → on revient à l'état précédent, sans perdre l'affichage
+    _calBackMonths = prevMonths;
+    if (_calEvents.length) renderCalTable();
+  } else if (months > 0) {
+    requestAnimationFrame(() => { const w = document.getElementById('cal-table-wrap'); if (w) w.scrollTop = 0; });   // historique → plus anciens en haut
+  }
+  _calNavBusy = false;
+  _calUpdateRangeNav();
+}
+function _calWireRangeNav() {
+  const prev = document.getElementById('cal-range-prev');
+  const next = document.getElementById('cal-range-next');
+  if (prev && !prev.dataset.wired) { prev.dataset.wired = '1'; prev.addEventListener('click', () => _calSetBack(_calBackMonths + 1)); }
+  if (next && !next.dataset.wired) { next.dataset.wired = '1'; next.addEventListener('click', () => _calSetBack(_calBackMonths - 1)); }
+  _calUpdateRangeNav();
+}
+// Réinitialise le calendrier sur le LIVE (appelé quand « Semaine à venir » s'ouvre) : le miroir « En direct »
+// clone #cal-table-wrap → il ne doit JAMAIS refléter une vue historique. Vide _calEvents → rechargement live.
+function _calResetToLive() {
+  if (_calBackMonths === 0) return;
+  _calBackMonths = 0;
+  _calEvents = [];
+  _calUpdateRangeNav();
+}
+window._calSetBack = _calSetBack;
+window._calResetToLive = _calResetToLive;
 
 // Skeleton du calendrier : epouse la structure reelle (.cal-table, 10 colonnes, separateurs de jour).
 // Injecte dans #cal-table-wrap PENDANT le fetch -> auto-efface par le renderCalTable() qui reecrit ce conteneur.
@@ -3232,7 +3284,7 @@ async function buildCalendar() {
     let loaded = false;
     for (let attempt = 1; attempt <= 4; attempt++) {
       try {
-        const res  = await fetch('/api/calendar-events');
+        const res  = await fetch(_calFetchUrl());
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const json = await res.json();
         const items = json.items || [];
@@ -3283,14 +3335,9 @@ async function buildCalendar() {
     searchEl.dataset.wired = '1';
     searchEl.addEventListener('input', e => { _calSearch = e.target.value; renderCalTable(); });
   }
+  _calWireRangeNav();   // flèches ‹ › (navigation historique jusqu'à 3 mois)
 
-  // Date range label (shown inline in title bar)
-  const dateRangeEl = document.getElementById('cal-daterange');
-  if (dateRangeEl && _calEvents.length) {
-    const dates = _calEvents.map(e => e.timestamp).filter(Boolean);
-    const fmt   = ts => new Date(ts).toLocaleDateString('en-GB', { day:'2-digit', month:'2-digit', year:'numeric' });
-    dateRangeEl.textContent = `${fmt(Math.min(...dates))} – ${fmt(Math.max(...dates))}`;
-  }
+  _calUpdateDateRangeLabel();   // libellé de plage (même helper que le refresh → format/TZ cohérents)
 
   renderCalTable();
 
