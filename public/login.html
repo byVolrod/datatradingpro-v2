@@ -87,6 +87,10 @@
     }
     .lp-input-icon--eye { pointer-events: auto; cursor: pointer; user-select: none; }
     .lp-input-icon--eye:hover { color: var(--text2); }
+    /* Bouton « Coller » (mot de passe reçu par e-mail) : à gauche de l'œil. Fonctionne au clic partout (web + app). */
+    .lp-input-icon--paste { right: 38px; pointer-events: auto; cursor: pointer; user-select: none; font-size: 13px; }
+    .lp-input-icon--paste:hover { color: var(--text2); }
+    .lp-input--pw { padding-right: 66px !important; }   /* place pour les 2 icônes (Coller + œil) */
 
     .lp-input {
       width: 100%; background: #ffffff; border: 1px solid var(--line2); border-radius: 10px;
@@ -269,8 +273,9 @@
         <div class="lp-form-group">
           <label class="lp-label" for="lp-password" data-i18n="password">Mot de passe</label>
           <div class="lp-input-wrap">
-            <input class="lp-input" type="password" id="lp-password" name="password"
+            <input class="lp-input lp-input--pw" type="password" id="lp-password" name="password"
                    placeholder="••••••••" autocomplete="current-password" required />
+            <span class="lp-input-icon lp-input-icon--paste" id="lp-paste" onclick="lpPastePw()" title="Coller le mot de passe" data-i18n-title="pastePw">📋</span>
             <span class="lp-input-icon lp-input-icon--eye" id="lp-eye" onclick="lpTogglePw()" title="Afficher/masquer" data-i18n-title="pwToggle">👁</span>
           </div>
         </div>
@@ -400,7 +405,7 @@
     fr: {
       title:'Bon retour.', subtitle:'Connectez-vous à votre terminal macro & forex.',
       email:'Adresse e-mail', emailPh:'votre@email.com', password:'Mot de passe',
-      pwToggle:'Afficher/masquer', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
+      pwToggle:'Afficher/masquer', pastePw:'Coller le mot de passe', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
       signin:'Se connecter', signingIn:'Connexion…', langLabel:'Langue :', dlFor:'Télécharger pour',
       dlIntel:'Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=103" download>Télécharger la version Intel</a>',
       tagline1:'<strong>Anticipez</strong> le marché.', tagline2:'Pas seulement le suivre.',
@@ -412,7 +417,7 @@
     en: {
       title:'Welcome back.', subtitle:'Sign in to your macro & forex terminal.',
       email:'Email address', emailPh:'you@email.com', password:'Password',
-      pwToggle:'Show / hide', remember:'Stay signed in', forgot:'Forgot password?',
+      pwToggle:'Show / hide', pastePw:'Paste password', remember:'Stay signed in', forgot:'Forgot password?',
       signin:'Sign in', signingIn:'Signing in…', langLabel:'Language:', dlFor:'Download for',
       dlIntel:'Mac Intel (before 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=103" download>Download the Intel version</a>',
       tagline1:'<strong>Anticipate</strong> the market.', tagline2:'Not just follow it.',
@@ -443,6 +448,30 @@
     const inp = document.getElementById('lp-password');
     inp.type = inp.type === 'password' ? 'text' : 'password';
   }
+
+  // Bouton « Coller » : remplit le champ mot de passe depuis le presse-papiers (mdp reçu par e-mail).
+  // Fonctionne au clic sur web ET dans l'app desktop. Si le presse-papiers est bloqué (permission refusée
+  // ou non supporté), on met le focus + une astuce Ctrl+V — jamais d'action silencieuse sans retour.
+  async function lpPastePw() {
+    const inp = document.getElementById('lp-password');
+    try {
+      const txt = await navigator.clipboard.readText();
+      if (txt && txt.trim()) {
+        inp.value = txt.trim();
+        inp.dispatchEvent(new Event('input', { bubbles: true }));
+        inp.focus();
+      } else {
+        inp.focus();   // presse-papiers vide → laisse coller manuellement
+      }
+    } catch (err) {
+      // navigator.clipboard indisponible / refusé → repli : focus + astuce Ctrl+V dans le placeholder
+      inp.focus();
+      const ph = inp.placeholder;
+      inp.placeholder = 'Collez avec Ctrl+V';
+      setTimeout(() => { inp.placeholder = ph; }, 2500);
+    }
+  }
+  window.lpPastePw = lpPastePw;
 
   form.addEventListener('submit', async e => {
     e.preventDefault();
