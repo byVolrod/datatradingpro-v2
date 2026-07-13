@@ -13067,6 +13067,23 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _campActive = !!_dripState.active;   // UN SEUL moteur = la rotation (blast digest retiré)
     let nextId = null;
     try { const _st = _loopStepFor(); nextId = _TPL2SEQ[_st && _st.tpl] || null; } catch {}
+    // DATE + HEURE PRÉVUE de chaque étape de rotation (demande user 13/07 : « l'heure des publications avec la
+    // date ») : lundi de la semaine ISO où l'étape tombe (launchWeek + sa position dans la rotation) + fenêtre.
+    const _SEQ2ROT = { 'point-hebdo': 0, 'decryptage': 1, 'mindset': 2, 'recap-hebdo': 3, 'outlook-hebdo': 4 };
+    const _rotN = _DRIP_SEQ.length;
+    const _curWk = _dripWeekNum();
+    const _lw = (_dripState.active && _dripState.launchWeek) ? _dripState.launchWeek : _curWk;
+    const _curIdx = ((_curWk - _lw) % _rotN + _rotN) % _rotN;
+    const _nowP = _parisParts();
+    const _wdMon = _nowP.weekday === 0 ? 7 : _nowP.weekday;   // 1=lun..7=dim
+    const _monThisWk = Date.now() - (_wdMon - 1) * 864e5;      // ≈ lundi de la semaine courante (Paris)
+    const _fmtJ = ts => { try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(ts)); } catch { return ''; } };
+    function _stepPlanned(seqId) {
+      const p = _SEQ2ROT[seqId]; if (p == null) return null;
+      const wfn = ((p - _curIdx) % _rotN + _rotN) % _rotN;     // nb de semaines avant cet envoi
+      const dLabel = _fmtJ(_monThisWk + wfn * 7 * 864e5);
+      return { weeksAhead: wfn, date: dLabel, label: 'Semaine du ' + dLabel + ' · jours ouvrés, dès 8h (Paris)' };
+    }
     const steps = CAMPAIGN_SEQUENCE.map(s => {
       // Résout la/les clé(s) de stats RÉELLES : statPrefix 'weekly-' → le digest hebdo le PLUS RÉCENT ; sinon `stat`|`id`.
       let keys;
@@ -13082,6 +13099,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
       const opens = Object.keys(openMap).length;
       const clicks = Object.keys(clickMap).length;
       return { id: s.id, week: s.week, title: s.title, pillar: s.pillar, status: s.status, desc: s.desc, when: s.when,
+        planned: _stepPlanned(s.id),
         sent: sends.length, done: sends.length > 0,
         firstSentAt: sends.length ? Math.min.apply(null, sends) : null,
         lastSentAt: sends.length ? Math.max.apply(null, sends) : null,
