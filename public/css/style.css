@@ -3446,9 +3446,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="FX Flows"],
 .tag[data-cat="Market Analysis"]     { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }   /* neutre blanc comme US (demande user) */
 .tag[data-cat="Economic Commentary"],
-.tag[data-cat="Fixed Income"]        { background: rgba(26,188,156,0.1);  border: 1px solid rgba(26,188,156,0.25); color: #1abc9c; }
-.tag[data-cat="Asian News"]          { background: rgba(231,76,60,0.1);   border: 1px solid rgba(231,76,60,0.2);  color: #e74c3c; }
-.tag[data-cat="Trade"]               { background: rgba(52,73,94,0.4);    border: 1px solid rgba(52,73,94,0.6);   color: #95a5a6; }
+.tag[data-cat="Fixed Income"]        { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }   /* neutre blanc comme US (demande user) */
+.tag[data-cat="Asian News"]          { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }   /* neutre blanc comme US */
+.tag[data-cat="Trade"]               { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }   /* neutre blanc comme US */
 .tag[data-cat="Global News"],
 .tag[data-cat="Info"]                { background: var(--bg5); border: 1px solid var(--border2); color: var(--text3); }
 .tag[data-cat="Rates"],
@@ -3734,11 +3734,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .tag[data-cat="Crypto"]         { background: var(--bg5); border: 1px solid var(--border2); color: #c2c6cd; }
 .tag[data-cat="FX Flows"]       { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }   /* neutre blanc comme US (demande user) */
 .tag[data-cat="Market Analysis"]{ background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }   /* idem (meme vert que FX Flows) */
-.tag[data-cat="Economic Commentary"] { background: rgba(26,188,156,0.1); border-color: rgba(26,188,156,0.25); color: #1abc9c; }
-.tag[data-cat="Fixed Income"]   { background: rgba(26,188,156,0.1); border-color: rgba(26,188,156,0.25); color: #1abc9c; }
+.tag[data-cat="Economic Commentary"] { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }   /* neutre blanc comme US (demande user) */
+.tag[data-cat="Fixed Income"]   { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }   /* neutre blanc comme US */
 .tag[data-cat="Global News"]    { background: var(--bg5); border-color: var(--border2); color: var(--text3); }
-.tag[data-cat="Asian News"]     { background: rgba(231,76,60,0.1); border-color: rgba(231,76,60,0.2); color: #e74c3c; }
-.tag[data-cat="Trade"]          { background: rgba(52,73,94,0.4); border-color: rgba(52,73,94,0.6); color: #95a5a6; }
+.tag[data-cat="Asian News"]     { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }   /* neutre blanc comme US */
+.tag[data-cat="Trade"]          { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }   /* neutre blanc comme US */
 .tag[data-cat="UK"]             { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }   /* UK = MEME style que US (neutre plein sombre) */
 .tag[data-cat="Data"]           { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
 .tag[data-cat="Inflation"]      { background: var(--bg5); border-color: var(--border2); color: #c2c6cd; }
