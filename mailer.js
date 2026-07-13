@@ -895,7 +895,7 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     : '';
   // Ton des banques centrales des 3 DEVISES VEDETTES (demande user) : 1 ligne = une phrase du président qui
   // montre le ton (hawkish/dovish). On ne montre QUE ces 3 banques (pas les 8), sans décision/guidance/prochaine réunion.
-  const _cbBiasCol = b => /hawk/i.test(b) ? '#e0863a' : /dov/i.test(b) ? '#3aa0e0' : '#9aa3b2';
+  const _cbBiasCol = b => /hawk/i.test(b) ? '#22c55e' : /dov/i.test(b) ? '#ef4444' : '#9aa3b2';   // SÉMANTIQUE : hawkish=haussier→vert · dovish=baissier→rouge · neutre=gris
   const _curSrc = (w.currencies && typeof w.currencies === 'object') ? w.currencies : {};
   const _curPick = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'NZD'].filter(c => _curSrc[c] && _curSrc[c].analysis && String(_curSrc[c].analysis).trim().length > 30).slice(0, 3);
   const _cbTone = _curPick.map(code => cbList.find(c => c.code === code)).filter(Boolean).slice(0, 3);

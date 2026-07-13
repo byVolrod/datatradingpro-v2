@@ -12394,9 +12394,9 @@ app.get('/internal/email-widget/cb-tone', async (_req, res) => {
   if (!cbs.length) { try { await _loadPersistedHistories(); } catch (e) {} try { cbs = _pick(); } catch (e) {} }
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const TONE = {
-    hawkish: ['Hawkish', 'ferme', '#e0863a', 'rgba(224,134,58,.14)'],
-    dovish:  ['Dovish', 'accommodant', '#3aa0e0', 'rgba(58,160,224,.14)'],
-    neutral: ['Neutre', 'attentiste', '#9aa0aa', 'rgba(154,160,170,.12)'],
+    hawkish: ['Hawkish', 'ferme', '#22c55e', 'rgba(34,197,94,.14)'],       // haussier → vert
+    dovish:  ['Dovish', 'accommodant', '#ef4444', 'rgba(239,68,68,.14)'],  // baissier → rouge
+    neutral: ['Neutre', 'attentiste', '#9aa0aa', 'rgba(154,160,170,.12)'], // maintien → gris
   };
   const _clip = (s, n) => { s = String(s || '').replace(/\s+/g, ' ').trim(); if (s.length <= n) return s; const cut = s.slice(0, n); const p = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? ')); return (p > n * 0.5 ? cut.slice(0, p + 1) : cut.replace(/\s+\S*$/, '') + '…'); };
   // Banques AVEC propos (preuve réelle) d'abord, puis les autres.
