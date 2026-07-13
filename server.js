@@ -13054,7 +13054,8 @@ const CAMPAIGN_SEQUENCE = [
   { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
   { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'En rotation · 1 sem./4 · thème toujours différent',        desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
   { id: 'outlook-hebdo', week: 5,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Les événements à surveiller, sans pousser de position.' },
-  { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo (digest)',                 pillar: 'Récap',        status: 'ready',   statPrefix: 'weekly-', when: 'Digest hebdomadaire (mode « blast » historique)',          desc: 'La rétrospective de la semaine, façon desk. Envoyé quand le mode digest est actif.' },
+  // « Récap Hebdo (digest) » RETIRÉ (13/07) : le mode blast est supprimé (un seul moteur = la rotation ci-dessus).
+  // Le Récap Hebdo reste un RAPPORT du desk (onglet Analystes), il n'est plus un e-mail de campagne à part.
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
@@ -13063,9 +13064,9 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     // Étape PROCHAINE (celle qui partira au prochain tick) — cohérent avec /api/admin/campaign-master :
     // mode digest (blast) → Récap ; sinon la rotation de la séquence (Point→Comprendre→Mindset→Outlook).
     const _TPL2SEQ = { pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', outlook: 'outlook-hebdo' };
-    const _campActive = !!(_dripState.active || _campSchedule.active);
+    const _campActive = !!_dripState.active;   // UN SEUL moteur = la rotation (blast digest retiré)
     let nextId = null;
-    try { if (_campSchedule.active && !_dripState.active) nextId = 'recap-hebdo'; else { const _st = _loopStepFor(); nextId = _TPL2SEQ[_st && _st.tpl] || null; } } catch {}
+    try { const _st = _loopStepFor(); nextId = _TPL2SEQ[_st && _st.tpl] || null; } catch {}
     const steps = CAMPAIGN_SEQUENCE.map(s => {
       // Résout la/les clé(s) de stats RÉELLES : statPrefix 'weekly-' → le digest hebdo le PLUS RÉCENT ; sinon `stat`|`id`.
       let keys;
@@ -13400,7 +13401,11 @@ function _dripBuildSample(stepDef, context) {
 }
 
 let _campSchedule = { active: false, weekday: 6, hour: 18, lastSentWeek: null, launchedAt: null };   // Recap Hebdo = SAMEDI 18h (weekday 6) — demande user 2026-07-12
-(async () => { try { const s = await auth.aiCacheGet('campaign:schedule', 366 * 864e5); if (s && typeof s === 'object') _campSchedule = Object.assign(_campSchedule, s); } catch {} })();
+(async () => { try { const s = await auth.aiCacheGet('campaign:schedule', 366 * 864e5); if (s && typeof s === 'object') _campSchedule = Object.assign(_campSchedule, s);
+  // MIGRATION (13/07) : le « blast digest » hebdo est RETIRÉ (un seul moteur = la rotation). S'il était resté
+  // actif d'un ancien état, on le désactive une fois → plus de Récap Hebdo fantôme comme « prochain envoi ».
+  if (_campSchedule.active) { _campSchedule.active = false; _saveSchedule(); console.log('[Campagne] blast digest RETIRÉ → désactivé (modèle unique = rotation variée)'); }
+} catch {} })();
 function _saveSchedule() { auth.aiCacheSet('campaign:schedule', _campSchedule).catch(() => {}); }
 
 let _weeklyRunning = false;
@@ -13432,6 +13437,9 @@ async function _runWeeklyCampaign(isoWeek) {
   } finally { _weeklyRunning = false; }
 }
 async function _schedulerTick() {
+  return;   // RETIRÉ (13/07, demande user « je comprends plus rien ») : le « blast digest » hebdo est SUPPRIMÉ.
+            // UN SEUL moteur désormais = la rotation variée (drip). Ce tick ne tire plus jamais (évitait le Récap
+            // Hebdo fantôme qui s'affichait comme « prochain envoi » alors que l'user avait choisi la rotation).
   try {
     if (!_campSchedule.active) return;
     const pp = _parisParts();
@@ -13649,23 +13657,14 @@ app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
   if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
-  const active = !!(_dripState.active || _campSchedule.active);
+  const active = !!_dripState.active;   // UN SEUL moteur = la rotation variée (le blast digest est RETIRÉ)
   let nextTemplate = '—', nextWhen = '—';
-  try {
-    if (_campSchedule.active && !_dripState.active) {   // ancien blast encore actif (transition) → digest hebdo
-      nextTemplate = 'Point de la semaine (Récap Hebdo)';
-      nextWhen = _nextWeeklyLabel(_campSchedule.weekday, _campSchedule.hour);
-    } else {                                            // modèle courant : rotation de la séquence
-      nextTemplate = _loopStepFor().label;
-      nextWhen = 'cette semaine — jours ouvrés, 8h–19h (Paris)';
-    }
-  } catch {}
+  try { nextTemplate = _loopStepFor().label; nextWhen = active ? 'cette semaine — jours ouvrés, 8h–19h (Paris)' : 'dès le lancement (jours ouvrés, 8h–19h)'; } catch {}
   const contacts = _dripState.contacts || {}; let audienceCount = 0;
   try { audienceCount = Object.keys(contacts).length; } catch {}
   const pr = (!active && _dripState.pausedReason) ? _dripState.pausedReason : null;
-  res.json({ ok: true, active, nextTemplate, nextWhen,
-    engine: _dripState.active ? 'sequence' : (_campSchedule.active ? 'digest' : 'sequence'),
-    running: !!(_dripRunning || _weeklyRunning), contactsTracked: audienceCount, pausedReason: pr,
+  res.json({ ok: true, active, nextTemplate, nextWhen, engine: 'sequence',
+    running: !!_dripRunning, contactsTracked: audienceCount, pausedReason: pr,
     sequence: _DRIP_SEQ.map(s => s.label) });
 });
 
