@@ -843,6 +843,10 @@
       .camp-seq-status--done{color:#00e676;}
       .camp-seq-status--ready{color:#e3b23a;}
       .camp-seq-status--planned{color:#7b828f;}
+      /* Étape « PROCHAIN ENVOI » (celle qui partira au prochain tick de la campagne) : bord + halo verts + badge */
+      .camp-seq-row--next{border-left-color:#00e676 !important;box-shadow:inset 0 0 0 1px rgba(0,230,118,.28),0 0 18px -8px rgba(0,230,118,.5);background:linear-gradient(90deg,rgba(0,230,118,.06),transparent 42%);}
+      .camp-seq-next{font-size:10px;font-weight:800;letter-spacing:.04em;color:#0c0c0e;background:#00e676;border-radius:999px;padding:2px 8px;white-space:nowrap;box-shadow:0 0 10px rgba(0,230,118,.45);}
+      .camp-seq-next--paused{color:#00e676;background:rgba(0,230,118,.12);box-shadow:none;font-weight:700;}
       /* ===== Hub premium ===== */
       .camp-hub-head{display:flex;align-items:center;gap:12px;margin:0 0 16px;flex-wrap:wrap;}
       .camp-hub-title{font-size:20px;font-weight:800;color:#fff;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;}
@@ -1708,8 +1712,9 @@
         const wk = s.week ? 'S' + s.week : 'Évt';
         const status = s.done ? '✅ Envoyé' : (s.status === 'ready' ? '▶ Prêt' : '⏳ À venir');
         const metrics = s.done ? '<div class="camp-seq-metrics">Envoyé le ' + _campFmt(s.firstSentAt) + ' · ' + s.sent + ' envoyés · ' + s.openRate + '% ouvertures · ' + s.clickRate + '% clics</div>' : '';
-        return '<div class="camp-seq-row camp-seq-row--' + cls + '"><div class="camp-seq-wk">' + wk + '</div>'
-          + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span></div>'
+        const nextBadge = s.next ? (d.active ? ' <span class="camp-seq-next">● PROCHAIN ENVOI</span>' : ' <span class="camp-seq-next camp-seq-next--paused">prochain à l\'activation</span>') : '';
+        return '<div class="camp-seq-row camp-seq-row--' + cls + (s.next ? ' camp-seq-row--next' : '') + '"><div class="camp-seq-wk">' + wk + '</div>'
+          + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span>' + nextBadge + '</div>'
           + '<div class="camp-seq-desc">' + s.desc + '</div>'
           + (s.when ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>' : '')
           + metrics + '</div>'

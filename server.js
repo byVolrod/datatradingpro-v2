@@ -13060,6 +13060,12 @@ const CAMPAIGN_SEQUENCE = [
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
   try {
     const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
+    // Étape PROCHAINE (celle qui partira au prochain tick) — cohérent avec /api/admin/campaign-master :
+    // mode digest (blast) → Récap ; sinon la rotation de la séquence (Point→Comprendre→Mindset→Outlook).
+    const _TPL2SEQ = { pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', outlook: 'outlook-hebdo' };
+    const _campActive = !!(_dripState.active || _campSchedule.active);
+    let nextId = null;
+    try { if (_campSchedule.active && !_dripState.active) nextId = 'recap-hebdo'; else { const _st = _loopStepFor(); nextId = _TPL2SEQ[_st && _st.tpl] || null; } } catch {}
     const steps = CAMPAIGN_SEQUENCE.map(s => {
       // Résout la/les clé(s) de stats RÉELLES : statPrefix 'weekly-' → le digest hebdo le PLUS RÉCENT ; sinon `stat`|`id`.
       let keys;
@@ -13079,9 +13085,10 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
         firstSentAt: sends.length ? Math.min.apply(null, sends) : null,
         lastSentAt: sends.length ? Math.max.apply(null, sends) : null,
         uniqueOpens: opens, openRate: pct(opens, sends.length),
-        uniqueClicks: clicks, clickRate: pct(clicks, sends.length) };
+        uniqueClicks: clicks, clickRate: pct(clicks, sends.length),
+        next: s.id === nextId };
     });
-    res.json({ ok: true, steps, progress: { doneSteps: steps.filter(s => s.done).length, totalSteps: steps.length } });
+    res.json({ ok: true, steps, nextId, active: _campActive, progress: { doneSteps: steps.filter(s => s.done).length, totalSteps: steps.length } });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
