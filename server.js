@@ -1809,7 +1809,7 @@ function _aiChatPrompt(q, newsCtx) {
   let biasLine = '';
   try {
     if (_smartBias && Array.isArray(_smartBias.rows) && _smartBias.rows.length) {
-      const _SB_ROW_FR = { fundamental: 'Données fondamentales', crossAsset: 'Performance Cross-Asset', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
+      const _SB_ROW_FR = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
       const _SB_VAL_FR = { 'Very Bullish': 'Très haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Légèrement haussier', 'Uptrend': 'Haussier', 'Neutral': 'Neutre', 'Range': 'Neutre', 'N/A': 'Neutre', 'Weak Bearish': 'Légèrement baissier', 'Bearish': 'Baissier', 'Downtrend': 'Baissier', 'Very Bearish': 'Très baissier' };
       const _vfr = v => _SB_VAL_FR[v] || 'Neutre';
       const conc = _smartBias.conclusion || {};
@@ -8516,7 +8516,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v22-monetary-cb';   // v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v23-no-crossasset';   // v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -8528,7 +8528,6 @@ const SMART_BIAS_SEED = {
   currencies: SB_CURRENCIES,
   rows: [
     { key: 'fundamental',  label: 'Fundamental Data',        values: _sbMk(['Bullish', 'Bullish', 'Neutral', 'Neutral', 'Bullish', 'Bullish', 'Bearish', 'Neutral']) },
-    { key: 'crossAsset',   label: 'Cross-Asset Performance', values: _sbMk(['Bearish', 'Neutral', 'Neutral', 'Bullish', 'Bullish', 'Bullish', 'Bearish', 'Bearish']) },
     { key: 'bankOverview', label: 'Bank Overview',           values: _sbMk(['Neutral', 'Neutral', 'Bearish', 'Neutral', 'Bullish', 'Bullish', 'Bearish', 'Neutral']) },
     { key: 'hedgeFund',    label: 'Hedge Fund Positioning',  values: _sbMk(['Very Bearish', 'Neutral', 'Bullish', 'Very Bearish', 'Very Bullish', 'Very Bearish', 'Very Bearish', 'Very Bearish']) },
     { key: 'retail',       label: 'Retail Positioning',      values: _sbMk(['Bullish', 'Bullish', 'Neutral', 'Bearish', 'Very Bullish', 'Bearish', 'Bearish', 'Very Bullish']) },
@@ -9052,16 +9051,14 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   //    secondaire (0.5) ; le reste (Performance Cross-Asset, Bank, Hedge, Retail, Trend) = 1. Ajustable ici. ──
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
-    // sentiment = « Performance Cross-Asset » (régime de risque mappé par devise) → pilier de confluence (poids 1).
-    const vals = [ fundamental[c], sentiment[c], bankOverview[c], hedgeFund[c], (_SB_FLIP[retail[c]] || 'Neutral'), monetary[c], trend[c], seasonality[c] ];
-    const wts  = [ 3,              1,             1,               1,            1,                                   1.5,         1,        0.5            ];
+    const vals = [ fundamental[c], bankOverview[c], hedgeFund[c], (_SB_FLIP[retail[c]] || 'Neutral'), monetary[c], trend[c], seasonality[c] ];
+    const wts  = [ 3,              1,               1,            1,                                   1.5,         1,        0.5            ];
     conclusion[c] = concludeBias(vals, wts);
   });
 
-  // Ordre : Fundamental, Performance Cross-Asset (régime de risque), Bank Overview, Hedge Fund, Retail, Monetary, Trend, Seasonality.
+  // Ordre : Fundamental, Bank Overview, Hedge Fund, Retail, Monetary, Trend, Seasonality. (« Performance Cross-Asset » RETIRÉ, demande user.)
   const rows = [
     { key: 'fundamental',  label: 'Fundamental Data',        values: fundamental, subs: fundamentalRes.subs },
-    { key: 'crossAsset',   label: 'Cross-Asset Performance', values: sentiment },
     { key: 'bankOverview', label: 'Bank Overview',          values: bankOverview },
     { key: 'hedgeFund',    label: 'Hedge Fund Positioning', values: hedgeFund },
     { key: 'retail',       label: 'Retail Positioning',     values: retail },
