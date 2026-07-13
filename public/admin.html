@@ -952,39 +952,27 @@
     <!-- CAMPAGNES -->
     <div class="camp-sub" data-sub="campagnes">
       <div class="panel-card">
-        <div class="panel-head"><span class="ph-ic">🔄</span><h2>La logique de la campagne</h2></div>
-        <div class="panel-body"><div id="camp-flow"><div class="skel" style="height:92px"></div></div></div>
-      </div>
-      <div class="panel-card">
-        <div class="panel-head"><span class="ph-ic">🚀</span><h2>Planification automatique</h2>
-          <span class="ph-spacer"></span><span class="fin-sub" id="camp-sched-badge"></span>
+        <div class="panel-head"><span class="ph-ic">🚀</span><h2>La Campagne</h2>
+          <span class="ph-spacer"></span><span class="fin-sub" id="camp-master-badge"></span>
         </div>
         <div class="panel-body">
-          <div id="camp-sched-body" class="camp-block"><div class="skel" style="height:44px"></div></div>
+          <div id="camp-master-body" class="camp-block"><div class="skel" style="height:64px"></div></div>
           <div class="camp-actions">
-            <button class="camp-btn camp-btn--send" id="camp-sched-toggle" onclick="campSchedToggle()">Activer la campagne</button>
-            <button class="camp-btn" onclick="campSchedTest()">✉️ Aperçu du digest → moi</button>
-            <span id="camp-sched-msg" class="camp-msg"></span>
+            <button class="camp-btn camp-btn--send" id="camp-master-toggle" onclick="campMasterToggle()">Lancer la campagne</button>
+            <span id="camp-master-msg" class="camp-msg"></span>
           </div>
-          <p class="camp-note">Envoi hebdomadaire AUTOMATIQUE du « Point de la semaine » (Récap Hebdo + Force des Devises, généré depuis les données live). Anti-doublon, nouveaux clients inclus automatiquement, désinscrits + blacklist exclus. Peut être mis en pause à tout moment. <strong style="color:#e3b23a;">Note :</strong> activer la « Séquence automatique » ci-dessous met ce blast hebdo en pause (le drip le remplace).</p>
-        </div>
-      </div>
-      <div class="panel-card">
-        <div class="panel-head"><span class="ph-ic">🔁</span><h2>Séquence automatique (drip)</h2>
-          <span class="ph-spacer"></span><span class="fin-sub" id="camp-drip-badge"></span>
-        </div>
-        <div class="panel-body">
-          <div id="camp-drip-body" class="camp-block"><div class="skel" style="height:44px"></div></div>
-          <div class="camp-actions">
-            <button class="camp-btn camp-btn--send" id="camp-drip-toggle" onclick="campDripToggle()">Activer la séquence</button>
-            <button class="camp-btn" onclick="campDripTest('decryptage')">✉️ Test « Comprendre le marché » → moi</button>
-            <button class="camp-btn" onclick="campDripTest('pointmarche')">✉️ Test Point marché → moi</button>
-            <button class="camp-btn" onclick="campDripTest('mindset')">✉️ Test Mindset → moi</button>
-            <button class="camp-btn" onclick="campDripTest('outlook')">✉️ Test Semaine à venir → moi</button>
-            <button class="camp-btn" onclick="campDripTest('invitation')">✉️ Test Invitation → moi</button>
-            <span id="camp-drip-msg" class="camp-msg"></span>
-          </div>
-          <p class="camp-note">Boucle <strong style="color:#e3b23a;">synchronisée</strong> : chaque semaine, un seul contenu (choisi selon le contexte du desk) part vers <strong>tout le monde en même temps</strong>. Un nouvel inscrit se branche <strong>au niveau actuel</strong> de la boucle dès qu'il rejoint (même contenu que tout le monde, jamais en retard) ; une intro de bienvenue lui est envoyée une seule fois. Contenu généré du desk, adapté membre / non-membre. Fenêtre : jours ouvrés 8h-19h (Paris). Anti-doublon durable, désinscrits + blacklist exclus. Le welcome transactionnel (accès activé) reste indépendant et automatique.</p>
+          <p class="camp-note"><strong style="color:#e3b23a;">Un seul interrupteur.</strong> Quand la campagne est lancée, un e-mail part <strong>chaque semaine</strong> vers toute l'audience, en <strong>rotation</strong> : Point marché → Comprendre le marché → Mindset → Semaine à venir. Le <strong>prochain e-mail</strong> est indiqué ci-dessus. Anti-doublon, nouveaux clients inclus automatiquement, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents » plus bas). Le welcome transactionnel (accès activé) reste indépendant.</p>
+          <details class="camp-testwrap" style="margin-top:6px;">
+            <summary style="cursor:pointer;color:#e3b23a;font-size:12.5px;list-style:none;">✉️ Tester un template → mon adresse</summary>
+            <div class="camp-actions" style="margin-top:8px;">
+              <button class="camp-btn" onclick="campDripTest('pointmarche')">Point marché</button>
+              <button class="camp-btn" onclick="campDripTest('decryptage')">Comprendre le marché</button>
+              <button class="camp-btn" onclick="campDripTest('mindset')">Mindset</button>
+              <button class="camp-btn" onclick="campDripTest('outlook')">Semaine à venir</button>
+              <button class="camp-btn" onclick="campDripTest('invitation')">Invitation</button>
+              <span id="camp-drip-msg" class="camp-msg"></span>
+            </div>
+          </details>
         </div>
       </div>
       <div class="panel-card">
@@ -1252,7 +1240,7 @@
         pill(o.aiOk, 'IA opérationnelle', 'IA en backoff') +
         pill(o.mailOk, 'Mail OK', 'Mail en panne') +
         pill(!o.campCrit, 'Campagnes : aucun incident', 'Campagnes : ' + o.campCrit + ' incident(s) critiques 48 h') +
-        '<span style="color:#8b93a1;font-size:12px;">Séquence ' + (o.dripActive ? 'active' : 'en pause') + ' · Blast hebdo ' + (o.blastActive ? 'actif' : 'en pause') + '</span>';
+        '<span style="color:#8b93a1;font-size:12px;">Campagne : ' + ((o.dripActive || o.blastActive) ? '<span style="color:#00e676;font-weight:700;">lancée</span>' : 'en pause') + '</span>';
       const bAi = document.getElementById('adm-tab-aimon-b');
       if (bAi) bAi.style.display = (o.aiOk && o.mailOk) ? 'none' : 'inline-flex';
       const bC = document.getElementById('adm-tab-camp-b');
@@ -1343,8 +1331,7 @@
       } else ael.textContent = 'Audience indisponible.';
     } catch { ael.textContent = 'Erreur de chargement de l’audience.'; }
     loadDashboard();
-    loadSchedule();
-    loadDrip();
+    loadMaster();
     loadCampErrors();
     loadCampStats();
     loadBlacklist();
@@ -1507,7 +1494,47 @@
         + '<span class="camp-recip-src">' + (r.src || '') + '</span></div>';
     }).join('');
   }
-  // ── Planification automatique ──
+  // ── LA CAMPAGNE — interrupteur UNIQUE (état + prochain e-mail + 1 bouton) ──
+  let _campMaster = null;
+  async function loadMaster(){
+    try {
+      const d = await fetch('/api/admin/campaign-master').then(r => r.json());
+      _campMaster = d;
+      const badge = document.getElementById('camp-master-badge'), body = document.getElementById('camp-master-body'), btn = document.getElementById('camp-master-toggle');
+      if (!d || !d.ok) { if (body) body.textContent = 'Indisponible.'; return; }
+      if (badge) badge.innerHTML = d.active ? '<span style="color:#00e676;font-weight:700;">● LANCÉE</span>' : '<span style="color:#8b93a1;">○ En pause</span>';
+      const statusBig = d.active
+        ? '<div style="display:flex;align-items:center;gap:10px;"><span style="width:12px;height:12px;border-radius:50%;background:#00e676;box-shadow:0 0 12px #00e676;"></span><span style="font-size:18px;font-weight:800;color:#00e676;">La campagne est lancée</span></div>'
+        : '<div style="display:flex;align-items:center;gap:10px;"><span style="width:12px;height:12px;border-radius:50%;background:#8b93a1;"></span><span style="font-size:18px;font-weight:800;color:#8b93a1;">Campagne en pause</span></div>';
+      const rows = [
+        ['Prochain e-mail', '<b style="color:#e3b23a;">' + (d.nextTemplate || '—') + '</b>'],
+        ['Quand', d.active ? (d.nextWhen || '—') : 'en pause tant que non lancée'],
+        ['Rotation', '<span style="color:#8b93a1;">' + (d.sequence || []).join(' → ') + '</span>'],
+        ['Envoi en cours', d.running ? '<span style="color:#e3b23a;">🔄 oui, en train d’envoyer…</span>' : 'non']
+      ];
+      let extra = '';
+      if (!d.active && d.pausedReason && d.pausedReason.summary) extra = '<div style="margin-top:10px;color:#ff6b57;font-size:12.5px;">⏸ Mise en pause automatique (pre-flight) : ' + _escH(d.pausedReason.summary) + '</div>';
+      body.innerHTML = statusBig + '<table style="width:100%;margin-top:12px;font-size:13px;line-height:1.5;">' + rows.map(function(r){ return '<tr><td style="color:#8b93a1;padding:5px 14px 5px 0;white-space:nowrap;vertical-align:top;">' + r[0] + '</td><td style="color:#cbd5e1;padding:5px 0;">' + r[1] + '</td></tr>'; }).join('') + '</table>' + extra;
+      if (btn) { btn.textContent = d.active ? '⏸ Mettre la campagne en pause' : '🚀 Lancer la campagne'; btn.classList.toggle('camp-btn--send', !d.active); }
+    } catch {}
+  }
+  let _masterArmUntil = 0;
+  async function campMasterToggle(){
+    if (!_campMaster) return;
+    const action = _campMaster.active ? 'pause' : 'activate';
+    // Lancement = envois réels → armement 2 clics (6 s), conforme à « pas de dialogs natifs ».
+    if (action === 'activate' && Date.now() > _masterArmUntil) {
+      _masterArmUntil = Date.now() + 6000;
+      const btn = document.getElementById('camp-master-toggle');
+      if (btn) { const old = btn.textContent; btn.textContent = '⚠️ Confirmer le lancement ? (envois réels chaque semaine)'; setTimeout(function(){ if (Date.now() >= _masterArmUntil && btn.textContent.indexOf('⚠️') === 0) btn.textContent = old; }, 6100); }
+      return;
+    }
+    _masterArmUntil = 0;
+    var msg = document.getElementById('camp-master-msg'); if (msg) msg.textContent = '…';
+    try { await fetch('/api/admin/campaign-master?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Campagne lancée : un e-mail par semaine, en rotation' : '⏸ Campagne mise en pause'); loadMaster(); loadCampErrors(); }
+    catch { if (msg) msg.textContent = '❌ erreur'; }
+  }
+  // ── Planification automatique (legacy, remplacé par « La Campagne » — conservé sans bouton) ──
   let _campSched = null;
   async function loadSchedule(){
     try {
