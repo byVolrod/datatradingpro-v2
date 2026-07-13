@@ -7724,9 +7724,8 @@ function _parisDayRange(dayKey) {
   const startMs = utcMid - offset;             // minuit Paris en epoch ms
   return [startMs, startMs + 24 * 3600 * 1000];
 }
-// Jour COUVERT par le recap. AVANCÉ à 18h (demande user : base du Point marché du mercredi) → dès 19h Paris on
-// cible AUJOURD'HUI (Asie + Europe + début US, sans la clôture US) ; avant 18h, la journée d'HIER (complète).
-// La version COMPLÈTE (clôture US) est régénérée par le planificateur de 22h30 (force) → le desk garde le récap plein.
+// Jour COUVERT par le recap. AVANCÉ à 19h (demande user : le rapport sort à 19h sur le desk, base du Point marché
+// du mercredi) → dès 19h Paris on cible AUJOURD'HUI (Asie + Europe + début US) ; avant 19h, la journée d'HIER.
 function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
   if (p.getHours() < 19) p.setDate(p.getDate() - 1);
@@ -8394,8 +8393,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
-    { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h, base Point marché)' }, // avancé à 19h (demande user) : Asie+Europe+début US
-    { fn: () => generateFXDailyRecap(true),           h: 22, m: 30, name: 'FX Daily Recap (complet, clôture US)'    }, // régen FORCÉE après la clôture US → version complète pour le desk
+    { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h)' }, // avancé à 19h (demande user) : le rapport sort à 19h SUR LE DESK, le mail Point marché le récupère tel quel
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
   // Rapports HEBDOMADAIRES — SAMEDI 02h00 PARIS (tous les marchés mondiaux fermés pour la semaine ; même créneau que le groupe Bias/Week Ahead)
