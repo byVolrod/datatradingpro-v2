@@ -961,11 +961,9 @@
         </div>
         <div class="panel-body">
           <div id="camp-master-body" class="camp-block"><div class="skel" style="height:64px"></div></div>
-          <div class="camp-actions">
-            <button class="camp-btn camp-btn--send" id="camp-master-toggle" onclick="campMasterToggle()">Lancer la campagne</button>
-            <span id="camp-master-msg" class="camp-msg"></span>
-          </div>
-          <p class="camp-note"><strong style="color:#e3b23a;">Un seul interrupteur.</strong> Quand la campagne est lancée, un e-mail part <strong>chaque semaine</strong> vers toute l'audience, en <strong>rotation</strong> : Point marché → Comprendre le marché → Mindset → Semaine à venir. Le <strong>prochain e-mail</strong> est indiqué ci-dessus. Anti-doublon, nouveaux clients inclus automatiquement, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents » plus bas). Le welcome transactionnel (accès activé) reste indépendant.</p>
+          <div class="camp-actions" id="camp-master-actions"></div>
+          <span id="camp-master-msg" class="camp-msg" style="display:block;margin-top:6px;"></span>
+          <p class="camp-note"><strong style="color:#e3b23a;">Deux boutons.</strong> <strong>🧪 Tester sur ma boîte</strong> : le calendrier tourne mais tout part <strong>uniquement sur ton adresse</strong> (tu reçois aussi les 5 e-mails tout de suite pour valider). <strong>🚀 Lancer officiellement</strong> : envoi réel à toute l'audience. Calendrier : <strong>Dim</strong> Semaine à venir · <strong>Mar</strong> Comprendre · <strong>Mer</strong> Point marché · <strong>Jeu</strong> Mindset · <strong>Ven</strong> Récap. Anti-doublon, nouveaux inclus, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents »). Le welcome transactionnel reste indépendant.</p>
           <details class="camp-testwrap" style="margin-top:6px;">
             <summary style="cursor:pointer;color:#e3b23a;font-size:12.5px;list-style:none;">✉️ Tester un template → mon adresse</summary>
             <div class="camp-actions" style="margin-top:8px;">
@@ -1504,38 +1502,45 @@
     try {
       const d = await fetch('/api/admin/campaign-master').then(r => r.json());
       _campMaster = d;
-      const badge = document.getElementById('camp-master-badge'), body = document.getElementById('camp-master-body'), btn = document.getElementById('camp-master-toggle');
+      const badge = document.getElementById('camp-master-badge'), body = document.getElementById('camp-master-body'), acts = document.getElementById('camp-master-actions');
       if (!d || !d.ok) { if (body) body.textContent = 'Indisponible.'; return; }
-      if (badge) badge.innerHTML = d.active ? '<span style="color:#00e676;font-weight:700;">● LANCÉE</span>' : '<span style="color:#8b93a1;">○ En pause</span>';
-      const statusBig = d.active
-        ? '<div style="display:flex;align-items:center;gap:10px;"><span style="width:12px;height:12px;border-radius:50%;background:#00e676;box-shadow:0 0 12px #00e676;"></span><span style="font-size:18px;font-weight:800;color:#00e676;">La campagne est lancée</span></div>'
-        : '<div style="display:flex;align-items:center;gap:10px;"><span style="width:12px;height:12px;border-radius:50%;background:#8b93a1;"></span><span style="font-size:18px;font-weight:800;color:#8b93a1;">Campagne en pause</span></div>';
+      const mode = d.mode || (d.active ? (d.testMode ? 'test' : 'official') : 'paused');
+      if (badge) badge.innerHTML = ({ test: '<span style="color:#e3b23a;font-weight:700;">🧪 MODE TEST</span>', official: '<span style="color:#00e676;font-weight:700;">● OFFICIELLE</span>', paused: '<span style="color:#8b93a1;">○ En pause</span>' })[mode];
+      const dot = mode === 'test' ? '#e3b23a' : mode === 'official' ? '#00e676' : '#8b93a1';
+      const title = mode === 'test' ? ('Mode TEST — tout part sur ' + (d.testEmail || 'ta boîte')) : mode === 'official' ? 'Campagne OFFICIELLE (audience réelle)' : 'Campagne en pause';
+      const statusBig = '<div style="display:flex;align-items:center;gap:10px;"><span style="width:12px;height:12px;border-radius:50%;background:' + dot + ';box-shadow:0 0 12px ' + dot + ';"></span><span style="font-size:18px;font-weight:800;color:' + dot + ';">' + title + '</span></div>';
       const rows = [
         ['Prochain e-mail', '<b style="color:#e3b23a;">' + (d.nextTemplate || '—') + '</b>'],
         ['Quand', d.active ? (d.nextWhen || '—') : 'en pause tant que non lancée'],
-        ['Rotation', '<span style="color:#8b93a1;">' + (d.sequence || []).join(' → ') + '</span>'],
+        ['Destinataire', mode === 'test' ? ('<span style="color:#e3b23a;">🧪 ' + _escH(d.testEmail || '') + ' (test)</span>') : mode === 'official' ? ('<b style="color:#fff;">' + (d.contactsTracked || 0) + '</b> contacts (réel)') : '—'],
+        ['Calendrier', '<span style="color:#8b93a1;">' + (d.sequence || []).join(' → ') + '</span>'],
         ['Envoi en cours', d.running ? '<span style="color:#e3b23a;">🔄 oui, en train d’envoyer…</span>' : 'non']
       ];
       let extra = '';
       if (!d.active && d.pausedReason && d.pausedReason.summary) extra = '<div style="margin-top:10px;color:#ff6b57;font-size:12.5px;">⏸ Mise en pause automatique (pre-flight) : ' + _escH(d.pausedReason.summary) + '</div>';
       body.innerHTML = statusBig + '<table style="width:100%;margin-top:12px;font-size:13px;line-height:1.5;">' + rows.map(function(r){ return '<tr><td style="color:#8b93a1;padding:5px 14px 5px 0;white-space:nowrap;vertical-align:top;">' + r[0] + '</td><td style="color:#cbd5e1;padding:5px 0;">' + r[1] + '</td></tr>'; }).join('') + '</table>' + extra;
-      if (btn) { btn.textContent = d.active ? '⏸ Mettre la campagne en pause' : '🚀 Lancer la campagne'; btn.classList.toggle('camp-btn--send', !d.active); }
+      if (acts) {
+        const B = (label, action, cls) => '<button class="camp-btn' + (cls ? ' ' + cls : '') + '" onclick="campMasterAction(\'' + action + '\')">' + label + '</button>';
+        if (mode === 'paused')      acts.innerHTML = B('🧪 Tester sur ma boîte', 'activate-test') + B('🚀 Lancer officiellement', 'activate-official', 'camp-btn--send');
+        else if (mode === 'test')   acts.innerHTML = B('🔁 Renvoyer les 5 tests', 'send-tests') + B('🚀 Passer en officiel', 'activate-official', 'camp-btn--send') + B('⏸ Arrêter', 'pause');
+        else                        acts.innerHTML = B('🧪 Basculer en test (ma boîte)', 'activate-test') + B('⏸ Mettre en pause', 'pause');
+      }
     } catch {}
   }
-  let _masterArmUntil = 0;
-  async function campMasterToggle(){
-    if (!_campMaster) return;
-    const action = _campMaster.active ? 'pause' : 'activate';
-    // Lancement = envois réels → armement 2 clics (6 s), conforme à « pas de dialogs natifs ».
-    if (action === 'activate' && Date.now() > _masterArmUntil) {
-      _masterArmUntil = Date.now() + 6000;
-      const btn = document.getElementById('camp-master-toggle');
-      if (btn) { const old = btn.textContent; btn.textContent = '⚠️ Confirmer le lancement ? (envois réels chaque semaine)'; setTimeout(function(){ if (Date.now() >= _masterArmUntil && btn.textContent.indexOf('⚠️') === 0) btn.textContent = old; }, 6100); }
+  let _masterArmUntil = 0, _masterArmAction = '';
+  async function campMasterAction(action){
+    // Passage en OFFICIEL = envois RÉELS à toute l'audience → armement 2 clics (6 s), conforme à « pas de dialogs natifs ».
+    if (action === 'activate-official' && (Date.now() > _masterArmUntil || _masterArmAction !== action)) {
+      _masterArmUntil = Date.now() + 6000; _masterArmAction = action;
+      const acts = document.getElementById('camp-master-actions');
+      const b = acts && acts.querySelector('.camp-btn--send');
+      if (b) { const old = b.textContent; b.textContent = '⚠️ Confirmer l’envoi RÉEL à toute l’audience ?'; setTimeout(function(){ if (Date.now() >= _masterArmUntil && b.textContent.indexOf('⚠️') === 0) b.textContent = old; }, 6100); }
       return;
     }
-    _masterArmUntil = 0;
+    _masterArmUntil = 0; _masterArmAction = '';
     var msg = document.getElementById('camp-master-msg'); if (msg) msg.textContent = '…';
-    try { await fetch('/api/admin/campaign-master?action=' + action).then(r => r.json()); _campMsg(action === 'activate' ? '✅ Campagne lancée : un e-mail par semaine, en rotation' : '⏸ Campagne mise en pause'); loadMaster(); loadCampErrors(); }
+    const noteMap = { 'activate-test': '🧪 Mode test activé — les 5 e-mails partent sur ta boîte pour validation', 'activate-official': '🚀 Campagne OFFICIELLE lancée (audience réelle)', 'pause': '⏸ Campagne mise en pause', 'send-tests': '✉️ Les 5 tests repartent sur ta boîte' };
+    try { await fetch('/api/admin/campaign-master?action=' + action).then(r => r.json()); _campMsg(noteMap[action] || 'ok'); loadMaster(); loadCampErrors(); if (typeof loadSequence === 'function') loadSequence(); }
     catch { if (msg) msg.textContent = '❌ erreur'; }
   }
   // ── Planification automatique (legacy, remplacé par « La Campagne » — conservé sans bouton) ──
@@ -1706,7 +1711,7 @@
     try {
       const d = await fetch('/api/admin/campaign-sequence').then(r => r.json());
       if (!d || !d.steps) return;
-      const sub = document.getElementById('camp-seq-sub'); if (sub) sub.textContent = d.progress.doneSteps + '/' + d.progress.totalSteps + ' envoyés';
+      const sub = document.getElementById('camp-seq-sub'); if (sub) sub.textContent = (d.weekRange ? 'Semaine du ' + d.weekRange + ' · ' : '') + d.progress.doneSteps + '/' + d.progress.totalSteps + ' envoyés';
       document.getElementById('camp-seq-list').innerHTML = d.steps.map(function(s){
         const cls = s.done ? 'done' : (s.status === 'ready' ? 'ready' : 'planned');
         const wk = s.week ? 'S' + s.week : 'Évt';
