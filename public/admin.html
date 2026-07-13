@@ -921,40 +921,18 @@
     <div class="camp-hub-head">
       <div class="camp-hub-title"><span class="dot"></span>Marketing e-mail</div>
       <div class="camp-hub-spacer"></div>
+      <span id="camp-msg" class="camp-msg" style="margin-right:6px;"></span>
       <button class="camp-btn" onclick="loadCampaign()">⟳ Actualiser</button>
-      <button class="camp-btn camp-btn--send" onclick="openCampModal()">＋ Nouvelle campagne</button>
     </div>
 
     <div class="camp-nav" id="camp-nav">
-      <button class="camp-nav-btn active" data-sub="dashboard" onclick="campSub('dashboard')">Tableau de bord</button>
-      <button class="camp-nav-btn" data-sub="campagnes" onclick="campSub('campagnes')">Campagnes</button>
+      <button class="camp-nav-btn active" data-sub="pilotage" onclick="campSub('pilotage')">Pilotage</button>
       <button class="camp-nav-btn" data-sub="audience" onclick="campSub('audience')">Audience</button>
       <button class="camp-nav-btn" data-sub="stats" onclick="campSub('stats')">Statistiques</button>
     </div>
 
-    <!-- TABLEAU DE BORD -->
-    <div class="camp-sub active" data-sub="dashboard">
-      <div id="camp-dash-kpis" class="kpi-grid"></div>
-      <div class="panel-card">
-        <div class="panel-head"><span class="ph-ic">🛡️</span><h2>Délivrabilité</h2></div>
-        <div class="panel-body"><div id="camp-deliv"><div class="skel" style="height:106px"></div></div></div>
-      </div>
-      <div class="panel-card">
-        <div class="panel-head"><span class="ph-ic">⚡</span><h2>Actions rapides</h2></div>
-        <div class="panel-body">
-          <div class="camp-actions">
-            <button class="camp-btn" onclick="campTest()">✉️ Test → mon adresse</button>
-            <button class="camp-btn camp-btn--send" id="camp-send-btn" onclick="campSend()">🚀 Envoyer la campagne</button>
-            <span id="camp-msg" class="camp-msg"></span>
-          </div>
-          <div id="camp-progress" class="camp-block" style="display:none"></div>
-          <p class="camp-note">L'envoi part de ton navigateur, jamais automatiquement. Anti-doublon durable, désinscrits + blacklist exclus.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- CAMPAGNES -->
-    <div class="camp-sub" data-sub="campagnes">
+    <!-- PILOTAGE : LA CAMPAGNE en tete, puis roadmap / fiabilite / vue d'ensemble / apercu -->
+    <div class="camp-sub active" data-sub="pilotage">
       <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">🚀</span><h2>La Campagne</h2>
           <span class="ph-spacer"></span><span class="fin-sub" id="camp-master-badge"></span>
@@ -963,7 +941,7 @@
           <div id="camp-master-body" class="camp-block"><div class="skel" style="height:64px"></div></div>
           <div class="camp-actions" id="camp-master-actions"></div>
           <span id="camp-master-msg" class="camp-msg" style="display:block;margin-top:6px;"></span>
-          <p class="camp-note"><strong style="color:#e3b23a;">Deux boutons.</strong> <strong>🧪 Tester sur ma boîte</strong> : la campagne tourne <strong>exactement comme en officiel</strong> (même calendrier, même rythme) mais chaque e-mail part <strong>uniquement sur ton adresse</strong>, le bon jour — pour vérifier ce que tu reçois avant de toucher un client. <strong>🚀 Lancer officiellement</strong> : envoi réel à toute l'audience. Calendrier : <strong>Dim</strong> Semaine à venir · <strong>Mar</strong> Comprendre · <strong>Mer</strong> Point marché · <strong>Jeu</strong> Mindset · <strong>Ven</strong> Récap. Anti-doublon, nouveaux inclus, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents »). Le welcome transactionnel reste indépendant.</p>
+          <p class="camp-note"><strong style="color:#e3b23a;">Deux boutons.</strong> <strong>🧪 Tester sur ma boîte</strong> : la campagne tourne <strong>exactement comme en officiel</strong> (même calendrier, même rythme) mais chaque e-mail part <strong>uniquement sur ton adresse</strong>, le bon jour — pour vérifier ce que tu reçois avant de toucher un client. <strong>🚀 Lancer officiellement</strong> : envoi réel à toute l'audience. Calendrier : <strong>Dim</strong> Semaine à venir · <strong>Mar</strong> Comprendre · <strong>Mer</strong> Point marché · <strong>Jeu</strong> Mindset · <strong>Sam</strong> Récap (Lun &amp; Ven : rien). Anti-doublon, nouveaux inclus, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents »). Le welcome transactionnel reste indépendant.</p>
           <details class="camp-testwrap" style="margin-top:6px;">
             <summary style="cursor:pointer;color:#e3b23a;font-size:12.5px;list-style:none;">✉️ Tester un template → mon adresse</summary>
             <div class="camp-actions" style="margin-top:8px;">
@@ -978,15 +956,6 @@
         </div>
       </div>
       <div class="panel-card">
-        <div class="panel-head"><span class="ph-ic">🛡️</span><h2>Fiabilité &amp; incidents</h2>
-          <span class="ph-spacer"></span><span class="fin-sub" id="camp-err-badge"></span>
-        </div>
-        <div class="panel-body">
-          <div id="camp-err-body"><div class="skel" style="height:44px"></div></div>
-          <p class="camp-note">Avant CHAQUE envoi, un <strong>pre-flight</strong> vérifie le fournisseur mail, l'audience, le rendu du template, les données du desk et le widget. Une anomalie critique = <strong>aucun envoi</strong>, séquence <strong>mise en pause</strong>, alerte e-mail admin + incident ci-dessus. Après correction, réactivez la séquence (anti-doublon garanti, zéro renvoi).</p>
-        </div>
-      </div>
-      <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">🗓️</span><h2>Séquence hebdomadaire</h2>
           <span class="ph-spacer"></span><span class="fin-sub" id="camp-seq-sub"></span>
         </div>
@@ -994,6 +963,23 @@
           <div id="camp-seq-list" class="camp-seq-list"><div class="skel" style="height:64px;margin-bottom:8px"></div><div class="skel" style="height:64px"></div></div>
           <p class="camp-note"><span class="camp-badge camp-badge--sent">Envoyé</span> date + volume + stats · <span class="camp-badge camp-badge--ready">Prêt</span> codé, envoyable · <span class="camp-badge camp-badge--planned">À venir</span> à construire.</p>
         </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🛡️</span><h2>Fiabilité &amp; incidents</h2>
+          <span class="ph-spacer"></span><span class="fin-sub" id="camp-err-badge"></span>
+        </div>
+        <div class="panel-body">
+          <div id="camp-err-body"><div class="skel" style="height:44px"></div></div>
+          <p class="camp-note">Avant CHAQUE envoi, un <strong>pre-flight</strong> vérifie le fournisseur mail, l'audience, le rendu du template, les données du desk et le widget. Une anomalie critique = <strong>aucun envoi</strong>, campagne <strong>mise en pause</strong>, alerte e-mail admin + incident ci-dessus. Après correction, relancez depuis « La Campagne » ci-dessus (anti-doublon garanti, zéro renvoi).</p>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">📈</span><h2>Vue d'ensemble</h2></div>
+        <div class="panel-body"><div id="camp-dash-kpis" class="kpi-grid"></div></div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">🛡️</span><h2>Délivrabilité</h2></div>
+        <div class="panel-body"><div id="camp-deliv"><div class="skel" style="height:106px"></div></div></div>
       </div>
       <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">👁️</span><h2>Aperçu du mail</h2>
@@ -1069,35 +1055,6 @@
             </table>
           </div>
           <p class="camp-note">Pixel d'ouverture (Apple Mail / proxy Gmail peuvent gonfler légèrement). Les clics sont fiables.</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- MODALE Nouvelle campagne -->
-    <div class="camp-modal-ov" id="camp-modal">
-      <div class="camp-modal">
-        <div class="camp-modal-h"><h3>＋ Nouvelle campagne</h3><button class="camp-modal-x" onclick="closeCampModal()">×</button></div>
-        <div class="camp-modal-b">
-          <div class="camp-fgroup">
-            <div class="camp-fgroup-t">Informations générales</div>
-            <div class="camp-field"><label>Nom interne</label><input id="cm-name" value="Bienvenue : introduction"/></div>
-            <div class="camp-field"><label>Objet</label><input id="cm-subject" value="DataTradingPro : votre point macro & forex de la semaine"/></div>
-            <div class="camp-field"><label>Expéditeur</label><input value="DataTradingPro &lt;contact@datatradingpro.com&gt;" disabled/></div>
-          </div>
-          <div class="camp-fgroup">
-            <div class="camp-fgroup-t">Audience</div>
-            <div class="camp-field"><label>Cible</label><select id="cm-aud"><option value="all">Toute la base</option><option value="active">Actifs</option><option value="churned">Churned (win-back)</option><option value="lead">Leads</option></select></div>
-            <p class="camp-note" style="margin-top:2px">Le ciblage fin par segment arrive en Phase 2. Aujourd'hui l'envoi couvre toute la base dédupliquée.</p>
-          </div>
-          <div class="camp-fgroup">
-            <div class="camp-fgroup-t">Contenu</div>
-            <div class="camp-field"><label>Template</label><select id="cm-tpl"><option>Intro hebdo (riche + suivi)</option><option>Intro texte pur (max Principale)</option></select></div>
-            <p class="camp-note" style="margin-top:2px">L'éditeur personnalisé (HTML / Markdown, aperçu desktop &amp; mobile) arrive en Phase 2.</p>
-          </div>
-        </div>
-        <div class="camp-modal-f">
-          <button class="camp-btn" onclick="campTest()">✉️ Test → moi</button>
-          <button class="camp-btn camp-btn--send" onclick="closeCampModal();campSub('dashboard');">Continuer vers l'envoi →</button>
         </div>
       </div>
     </div>
@@ -1260,6 +1217,8 @@
     box.appendChild(t); setTimeout(function(){ t.style.transition = 'opacity .3s'; t.style.opacity = '0'; setTimeout(function(){ t.remove(); }, 320); }, 3600);
   }
   function campSub(name){
+    if (name === 'dashboard' || name === 'campagnes') name = 'pilotage';   // anciens onglets fusionnés dans « Pilotage »
+    if (!document.querySelector('#tab-campaign .camp-sub[data-sub="' + name + '"]')) name = 'pilotage';   // deep-link inconnu → Pilotage
     document.querySelectorAll('#camp-nav .camp-nav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.sub === name); });
     document.querySelectorAll('#tab-campaign .camp-sub').forEach(function(s){ s.classList.toggle('active', s.dataset.sub === name); });
     try { history.replaceState(null, '', '#campaign/' + name); } catch (e) {}   // deep-link sous-vue campagne
