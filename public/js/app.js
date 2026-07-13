@@ -6257,7 +6257,7 @@ async function _loadAIInsights(item, el) {
       // On ne met en cache que les VRAIS insights IA (pas le secours extractif) → ils pourront
       // être régénérés correctement une fois le quota revenu / le contenu complet chargé.
       if (d && d.insights && d.insights.length && !d.fallback) _aiInsightsCache[ck] = d;
-    } catch { el.innerHTML = ''; return; }
+    } catch { d = null; }   // échec réseau/serveur/quota → on NE VIDE PAS : on retombe sur le SECOURS extractif ci-dessous (cartes = puces du rapport)
   }
   {
     if (!d || !d.insights || !d.insights.length) {
@@ -6882,22 +6882,32 @@ function _renderDTPDaily(item) {
 // des PUCES RÉELLEMENT RENDUES du rapport → les Éclairages IA n'y manquent JAMAIS quand il y a du contenu.
 function _ensureArlibInsights(item) {
   if (!item) return;
-  setTimeout(() => {
+  let attempts = 0;
+  const tryFill = () => {
     try {
-      const el = document.getElementById('arlib-ai-insights');
-      if (!el) return;
-      if (el.querySelector('.ai-insights-card')) return;   // Éclairages IA déjà présents → rien à faire
+      if (_currentArlibItem !== item) return;              // l'utilisateur a changé de rapport → on abandonne ce filet
+      let el = document.getElementById('arlib-ai-insights') || document.getElementById('br-ai-insights');
+      if (el && el.querySelector('.ai-insights-card')) return;   // Éclairages IA déjà présents → terminé
       const content = document.getElementById('arlib-rcontent');
-      if (!content) return;
-      let lines = [...content.querySelectorAll('.arlib-rbullet > span:not(.arlib-rbullet-dot), .arlib-rbullet-sub > span:not(.arlib-rbullet-dot)')]
-        .map(s => (s.textContent || '').replace(/\s+/g, ' ').trim()).filter(t => t.length > 8);
-      if (!lines.length) lines = [...content.querySelectorAll('li, p')]
+      let lines = content ? [...content.querySelectorAll('.arlib-rbullet > span:not(.arlib-rbullet-dot), .arlib-rbullet-sub > span:not(.arlib-rbullet-dot)')]
+        .map(s => (s.textContent || '').replace(/\s+/g, ' ').trim()).filter(t => t.length > 8) : [];
+      if (!lines.length && content) lines = [...content.querySelectorAll('li, p')]
         .map(e => (e.textContent || '').replace(/\s+/g, ' ').trim()).filter(t => t.length > 20);
       lines = lines.slice(0, 40);
-      if (!lines.length) return;   // vraiment aucun contenu → on ne fabrique pas un panneau vide
-      _loadAIInsights({ ...item, id: item.id, headline: item.headline || item.title || '', lines, description: lines.join('. ') }, el);
+      if (lines.length && content) {   // contenu prêt → on (re)fabrique les Éclairages IA à partir des puces réelles (secours garanti)
+        if (!el) {   // rapport DTP/FX/Weekly SANS insights bakés (échec IA génération) → le conteneur n'existe pas : on le CRÉE en tête du rapport
+          el = document.createElement('div'); el.id = 'arlib-ai-insights';
+          content.insertBefore(el, content.firstChild);
+        }
+        _loadAIInsights({ ...item, id: item.id, headline: item.headline || item.title || '', lines, description: lines.join('. ') }, el);
+        return;
+      }
+      // Contenu pas encore rendu (source async : Récap Séance InvestingLive, ING Think…) → on ré-essaie
+      // jusqu'à ~8 s, le temps que le contenu du rapport se charge, PUIS on remplit.
+      if (++attempts < 9) setTimeout(tryFill, 900);
     } catch {}
-  }, 1200);
+  };
+  setTimeout(tryFill, 1200);
 }
 function renderArlibReader(item) {
   _currentArlibItem = item;   // keep ref for insights button
