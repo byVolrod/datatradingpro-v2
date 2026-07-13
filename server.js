@@ -13763,9 +13763,9 @@ app.get('/api/internal/campaign-test-all', async (req, res) => {
 app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
   if (a === 'activate' || a === 'activate-official') { _dripState.active = true; _dripState.testMode = false; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
-  else if (a === 'activate-test') { _dripState.active = true; _dripState.testMode = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); _sendAllCampaignTests(_CAMP_TEST_TO).catch(() => {}); }   // + envoi immédiat des 5 tests à la boîte admin
+  else if (a === 'activate-test') { _dripState.active = true; _dripState.testMode = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // test = EXACTEMENT comme officiel (même calendrier, même rythme) mais tout part sur la boîte admin — PAS de rafale
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
-  else if (a === 'send-tests') { _sendAllCampaignTests(_CAMP_TEST_TO).catch(() => {}); }   // renvoyer les 5 tests sans changer l'état
+  else if (a === 'send-tests') { _sendAllCampaignTests(_CAMP_TEST_TO).catch(() => {}); }   // (optionnel, via curl interne) forcer un aperçu des 5 — non exposé dans l'UI
   const active = !!_dripState.active, testMode = !!_dripState.testMode;
   let nextTemplate = '—', nextWhen = '—';
   try {

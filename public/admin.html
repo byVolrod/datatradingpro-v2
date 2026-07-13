@@ -963,7 +963,7 @@
           <div id="camp-master-body" class="camp-block"><div class="skel" style="height:64px"></div></div>
           <div class="camp-actions" id="camp-master-actions"></div>
           <span id="camp-master-msg" class="camp-msg" style="display:block;margin-top:6px;"></span>
-          <p class="camp-note"><strong style="color:#e3b23a;">Deux boutons.</strong> <strong>🧪 Tester sur ma boîte</strong> : le calendrier tourne mais tout part <strong>uniquement sur ton adresse</strong> (tu reçois aussi les 5 e-mails tout de suite pour valider). <strong>🚀 Lancer officiellement</strong> : envoi réel à toute l'audience. Calendrier : <strong>Dim</strong> Semaine à venir · <strong>Mar</strong> Comprendre · <strong>Mer</strong> Point marché · <strong>Jeu</strong> Mindset · <strong>Ven</strong> Récap. Anti-doublon, nouveaux inclus, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents »). Le welcome transactionnel reste indépendant.</p>
+          <p class="camp-note"><strong style="color:#e3b23a;">Deux boutons.</strong> <strong>🧪 Tester sur ma boîte</strong> : la campagne tourne <strong>exactement comme en officiel</strong> (même calendrier, même rythme) mais chaque e-mail part <strong>uniquement sur ton adresse</strong>, le bon jour — pour vérifier ce que tu reçois avant de toucher un client. <strong>🚀 Lancer officiellement</strong> : envoi réel à toute l'audience. Calendrier : <strong>Dim</strong> Semaine à venir · <strong>Mar</strong> Comprendre · <strong>Mer</strong> Point marché · <strong>Jeu</strong> Mindset · <strong>Ven</strong> Récap. Anti-doublon, nouveaux inclus, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents »). Le welcome transactionnel reste indépendant.</p>
           <details class="camp-testwrap" style="margin-top:6px;">
             <summary style="cursor:pointer;color:#e3b23a;font-size:12.5px;list-style:none;">✉️ Tester un template → mon adresse</summary>
             <div class="camp-actions" style="margin-top:8px;">
@@ -1522,7 +1522,7 @@
       if (acts) {
         const B = (label, action, cls) => '<button class="camp-btn' + (cls ? ' ' + cls : '') + '" onclick="campMasterAction(\'' + action + '\')">' + label + '</button>';
         if (mode === 'paused')      acts.innerHTML = B('🧪 Tester sur ma boîte', 'activate-test') + B('🚀 Lancer officiellement', 'activate-official', 'camp-btn--send');
-        else if (mode === 'test')   acts.innerHTML = B('🔁 Renvoyer les 5 tests', 'send-tests') + B('🚀 Passer en officiel', 'activate-official', 'camp-btn--send') + B('⏸ Arrêter', 'pause');
+        else if (mode === 'test')   acts.innerHTML = B('🚀 Passer en officiel', 'activate-official', 'camp-btn--send') + B('⏸ Arrêter le test', 'pause');
         else                        acts.innerHTML = B('🧪 Basculer en test (ma boîte)', 'activate-test') + B('⏸ Mettre en pause', 'pause');
       }
     } catch {}
@@ -1539,7 +1539,7 @@
     }
     _masterArmUntil = 0; _masterArmAction = '';
     var msg = document.getElementById('camp-master-msg'); if (msg) msg.textContent = '…';
-    const noteMap = { 'activate-test': '🧪 Mode test activé — les 5 e-mails partent sur ta boîte pour validation', 'activate-official': '🚀 Campagne OFFICIELLE lancée (audience réelle)', 'pause': '⏸ Campagne mise en pause', 'send-tests': '✉️ Les 5 tests repartent sur ta boîte' };
+    const noteMap = { 'activate-test': '🧪 Mode test activé — chaque e-mail arrivera sur ta boîte, le bon jour', 'activate-official': '🚀 Campagne OFFICIELLE lancée (audience réelle)', 'pause': '⏸ Campagne mise en pause' };
     try { await fetch('/api/admin/campaign-master?action=' + action).then(r => r.json()); _campMsg(noteMap[action] || 'ok'); loadMaster(); loadCampErrors(); if (typeof loadSequence === 'function') loadSequence(); }
     catch { if (msg) msg.textContent = '❌ erreur'; }
   }
