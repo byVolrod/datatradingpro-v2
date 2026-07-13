@@ -12566,28 +12566,44 @@ function _calMailActual(actual, forecast, low) {
   }
   return `<span class="cv-actual ${dev(actual, forecast)}">${bolt}${esc(actual)}</span>`;
 }
-app.get('/internal/email-widget/calendar', async (_req, res) => {
+app.get('/internal/email-widget/calendar', async (req, res) => {
+  const weekMode = String((req.query && req.query.period) || '').toLowerCase() === 'thisweek';   // ?period=thisweek (Point marché) : LA SEMAINE EN COURS ; défaut/'week' : prospectif (Décryptage)
   let items = [];
   try { items = await _buildTVCalendar(); } catch (e) {}
   if (!Array.isArray(items) || !items.length) { try { items = (_tvCalCache && _tvCalCache.items) || []; } catch (e) {} }
-  const now = Date.now(), horizon = now + 12 * 86400000;
+  const now = Date.now();
   const RX_CPI = /\b(CPI|core cpi|inflation|inflation rate|PCE|PPI|HICP|consumer price|price index)\b/i;
   const seen = new Set();
-  const up = (items || [])
-    .filter(e => e && (e.timestamp || 0) >= now && (e.timestamp || 0) <= horizon && e.title)
-    .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-    .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + new Date(e.timestamp).toISOString().slice(0, 10); if (seen.has(k)) return false; seen.add(k); return true; });
-  const _withFc = e => e.forecast != null && String(e.forecast).trim() !== '';
-  // Evenement vedette = 1er CPI/inflation a venir (miroir de _calFeatured -> coherent avec l'accroche du mail).
-  // On n'en garde qu'UN SEUL : evite le paquet de 6 sous-indicateurs CPI du meme jour, tous sans prevision publiee,
-  // qui remplissait l'agenda de « — » et masquait les evenements plus proches (jobless claims, emploi...) qui, EUX,
-  // ont bien une prevision/HIGH/LOW.
-  const cpiHead = up.filter(e => RX_CPI.test(e.title || '')).slice(0, 1);
-  const rest    = up.filter(e => !RX_CPI.test(e.title || '') && ['high', 'medium'].includes(String(e.impact || '').toLowerCase()));
-  // Priorite : vedette CPI (coherence) -> evenements AVEC prevision publiee (colonnes REEL/HIGH/PREVISION/LOW
-  // remplies, comme le desk) -> le reste (discours sans chiffre, etc.).
-  const ordered = [...cpiHead, ...rest.filter(_withFc), ...rest.filter(e => !_withFc(e))];
-  const rows    = ordered.slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  let rows;
+  if (weekMode) {
+    // POINT MARCHÉ (mercredi) : fenêtre = LA SEMAINE EN COURS (Lun→Ven, Paris). Inclut les publications DÉJÀ sorties
+    // (colonne RÉEL colorée) + le reste de la semaine (prévision). C'est la vraie vue « Calendrier » du desk, datée/horodatée.
+    const pp = _parisParts();
+    const daysSinceMon = (pp.weekday + 6) % 7;   // Lun=0 … Dim=6
+    const dstr = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
+    const weekDates = new Set();
+    for (let i = 0; i < 5; i++) weekDates.add(dstr(now - daysSinceMon * 86400000 + i * 86400000));   // Lun..Ven de CETTE semaine
+    const wk = (items || [])
+      .filter(e => e && e.title && ['high', 'medium'].includes(String(e.impact || '').toLowerCase()) && weekDates.has(dstr(e.timestamp)))
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+      .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + dstr(e.timestamp); if (seen.has(k)) return false; seen.add(k); return true; });
+    const hi = wk.filter(e => String(e.impact || '').toLowerCase() === 'high');
+    const me = wk.filter(e => String(e.impact || '').toLowerCase() === 'medium');
+    rows = [...hi, ...me].slice(0, 12).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));   // priorité HIGH puis MEDIUM, re-trié chrono
+  } else {
+    const horizon = now + 12 * 86400000;
+    const up = (items || [])
+      .filter(e => e && (e.timestamp || 0) >= now && (e.timestamp || 0) <= horizon && e.title)
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+      .filter(e => { const k = (e.title || '') + '|' + (e.currency || '') + '|' + new Date(e.timestamp).toISOString().slice(0, 10); if (seen.has(k)) return false; seen.add(k); return true; });
+    const _withFc = e => e.forecast != null && String(e.forecast).trim() !== '';
+    // Evenement vedette = 1er CPI/inflation a venir (miroir de _calFeatured). On n'en garde qu'UN SEUL : evite le paquet
+    // de 6 sous-indicateurs CPI du meme jour sans prevision, qui masquait les evenements plus proches avec prevision/HIGH/LOW.
+    const cpiHead = up.filter(e => RX_CPI.test(e.title || '')).slice(0, 1);
+    const rest    = up.filter(e => !RX_CPI.test(e.title || '') && ['high', 'medium'].includes(String(e.impact || '').toLowerCase()));
+    const ordered = [...cpiHead, ...rest.filter(_withFc), ...rest.filter(e => !_withFc(e))];
+    rows    = ordered.slice(0, 8).sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  }
   try { _calApplyRanges(rows); } catch (e) {}   // remplit HIGH/LOW (fourchette de prevision) comme le desk
   const _e = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   let tbody = '', lastDay = '';
@@ -12622,7 +12638,8 @@ app.get('/internal/email-widget/calendar', async (_req, res) => {
     const _f = ts => new Date(ts).toLocaleDateString('en-GB', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'Europe/Paris' });
     _range = `${_f(Math.min(..._ts))} – ${_f(Math.max(..._ts))}`;
   }
-  const header = `<div class="cal-title-row"><div class="cal-title-block"><span class="cal-title">Calendrier des événements économiques</span>${_range ? `<span class="cal-title-sep"> | </span><span class="cal-title-bracket">[</span><span class="cal-daterange">${_e(_range)}</span><span class="cal-title-bracket">]</span>` : ''}</div></div>`;
+  const _calTitle = weekMode ? 'Calendrier économique · cette semaine' : 'Calendrier des événements économiques';
+  const header = `<div class="cal-title-row"><div class="cal-title-block"><span class="cal-title">${_calTitle}</span>${_range ? `<span class="cal-title-sep"> | </span><span class="cal-title-bracket">[</span><span class="cal-daterange">${_e(_range)}</span><span class="cal-title-bracket">]</span>` : ''}</div></div>`;
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
@@ -13043,19 +13060,17 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // (envoyes, ouvertures, clics, 1re/derniere date). Seul 'intro-v1' est code aujourd'hui — les autres = trame.
 // ORDRE + creneaux CALES SUR LES DONNEES REELLES DU DESK (cron Paris) : Weekly Recap + GEW generes SAMEDI 02h ;
 // DTP Daily 12h, FX Daily Recap 22h30. Donc Recap/Outlook = week-end/debut de semaine (data prete samedi),
-// Point marche = milieu de semaine, Decryptage/Mindset = evergreen (jour libre), Alerte BC = evenementiel.
-// `stat` / `statPrefix` = l'ID RÉEL sous lequel l'envoi est comptabilisé (_campaignStats), parfois ≠ de `id`
-// (le drip enregistre Point marché sous 'point-marche' ; le digest hebdo sous 'weekly-<semaine>'). Sans ce
-// mapping, un envoi RÉEL n'apparaissait pas « Envoyé » dans la roadmap (bug remonté par l'user 13/07 : le Récap
-// parti la veille restait « Prêt »). `when` = cadence RÉELLE du modèle courant (rotation, jours ouvrés 8h–19h).
+// CALENDRIER HEBDO (demande user 13/07) : les 5 contenus partent TOUS DANS LA MÊME SEMAINE, 1 par jour ouvré —
+// Lun=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Ven=Récap Hebdo — en boucle chaque semaine.
+// L'ordre ci-dessous SUIT les jours (S2=lundi … S6=vendredi). `stat`/`statPrefix` = l'ID RÉEL sous lequel l'envoi
+// est comptabilisé (_campaignStats), parfois ≠ de `id` (Point marché sous 'point-marche', etc.). `when` = jour d'envoi.
 const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
-  { id: 'point-hebdo',   week: 2,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'En rotation · 1 sem./5 · jours ouvrés 8h–19h',             desc: 'Généré du desk : contexte macro dominant + régime de risque + ce qui bouge + forces/faiblesses (Force des Devises) + biais + widget.' },
-  { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'En rotation · 1 sem./5 · jours ouvrés 8h–19h',             desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'En rotation · 1 sem./5 · thème toujours différent',        desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
-  { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'En rotation · 1 sem./5 · rétrospective de la semaine écoulée', desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
-  { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'En rotation · 1 sem./5 · jours ouvrés 8h–19h',             desc: 'Les événements à surveiller, sans pousser de position.' },
-  // Récap Hebdo RÉINTÉGRÉ à la rotation (demande user 13/07) : Point → Comprendre → Mindset → Récap → Outlook.
+  { id: 'outlook-hebdo', week: 2,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque lundi · dès 8h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, sans pousser de position.' },
+  { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'Chaque mardi · dès 8h (Paris)',                            desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
+  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · dès 8h (Paris)',                         desc: 'Généré du récap quotidien DU JOUR : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
+  { id: 'mindset',       week: 5,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
+  { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque vendredi · dès 8h (Paris)',                         desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
@@ -13064,25 +13079,32 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     // Étape PROCHAINE (celle qui partira au prochain tick) — cohérent avec /api/admin/campaign-master :
     // mode digest (blast) → Récap ; sinon la rotation de la séquence (Point→Comprendre→Mindset→Outlook).
     const _TPL2SEQ = { pointmarche: 'point-hebdo', decryptage: 'decryptage', mindset: 'mindset', recap: 'recap-hebdo', outlook: 'outlook-hebdo' };
-    const _campActive = !!_dripState.active;   // UN SEUL moteur = la rotation (blast digest retiré)
+    const _campActive = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré)
+    // JOUR d'envoi de chaque contenu (Lun=Semaine à venir … Ven=Récap). L'intro n'est pas dans le calendrier (à l'inscription).
+    const _SEQ2DAY = { 'outlook-hebdo': 1, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 5 };
+    // PROCHAIN envoi = prochain contenu À PARTIR — aujourd'hui SEULEMENT s'il reste de la fenêtre ET qu'il n'est
+    // PAS déjà parti aujourd'hui ; sinon le jour ouvré suivant. Corrige le bug « Envoyé + PROCHAIN sur la même carte ».
+    const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
+    const _todayKey = _pDay(Date.now());
+    const _sentTodayFor = seqId => { const sd = CAMPAIGN_SEQUENCE.find(x => x.id === seqId); const st = sd && _campaignStats[sd.stat || sd.id]; if (!st || !st.sent) return false; return Object.values(st.sent).some(ts => _pDay(ts) === _todayKey); };
     let nextId = null;
-    try { const _st = _loopStepFor(); nextId = _TPL2SEQ[_st && _st.tpl] || null; } catch {}
-    // DATE + HEURE PRÉVUE de chaque étape de rotation (demande user 13/07 : « l'heure des publications avec la
-    // date ») : lundi de la semaine ISO où l'étape tombe (launchWeek + sa position dans la rotation) + fenêtre.
-    const _SEQ2ROT = { 'point-hebdo': 0, 'decryptage': 1, 'mindset': 2, 'recap-hebdo': 3, 'outlook-hebdo': 4 };
-    const _rotN = _DRIP_SEQ.length;
-    const _curWk = _dripWeekNum();
-    const _lw = (_dripState.active && _dripState.launchWeek) ? _dripState.launchWeek : _curWk;
-    const _curIdx = ((_curWk - _lw) % _rotN + _rotN) % _rotN;
-    const _nowP = _parisParts();
-    const _wdMon = _nowP.weekday === 0 ? 7 : _nowP.weekday;   // 1=lun..7=dim
-    const _monThisWk = Date.now() - (_wdMon - 1) * 864e5;      // ≈ lundi de la semaine courante (Paris)
-    const _fmtJ = ts => { try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(ts)); } catch { return ''; } };
+    try {
+      const _pp = _parisParts();
+      for (let off = 0; off < 8; off++) {
+        const _wd = (_pp.weekday + off) % 7;
+        if (_wd < 1 || _wd > 5) continue;                              // week-end : pas d'envoi
+        const _sid = Object.keys(_SEQ2DAY).find(k => _SEQ2DAY[k] === _wd);
+        if (!_sid) continue;
+        if (off === 0 && (_pp.hour >= 19 || _sentTodayFor(_sid))) continue;   // aujourd'hui : fenêtre passée ou déjà parti → on saute
+        nextId = _sid; break;
+      }
+    } catch {}
+    // DATE + HEURE prévue de chaque contenu (demande user : « l'heure des publications avec la date ») : son jour de
+    // semaine fixe + la date de sa prochaine occurrence.
     function _stepPlanned(seqId) {
-      const p = _SEQ2ROT[seqId]; if (p == null) return null;
-      const wfn = ((p - _curIdx) % _rotN + _rotN) % _rotN;     // nb de semaines avant cet envoi
-      const dLabel = _fmtJ(_monThisWk + wfn * 7 * 864e5);
-      return { weeksAhead: wfn, date: dLabel, label: 'Semaine du ' + dLabel + ' · jours ouvrés, dès 8h (Paris)' };
+      const wd = _SEQ2DAY[seqId]; if (!wd) return null;
+      const dName = _WD_FR[wd] || '';
+      return { weekday: wd, date: _nextDateForWeekday(wd), label: 'Chaque ' + dName + ' · dès 8h (Paris) — prochain : ' + _nextDateForWeekday(wd) };
     }
     const steps = CAMPAIGN_SEQUENCE.map(s => {
       // Résout la/les clé(s) de stats RÉELLES : statPrefix 'weekly-' → le digest hebdo le PLUS RÉCENT ; sinon `stat`|`id`.
@@ -13538,14 +13560,15 @@ app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
 });
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
-//  BOUCLE NEWSLETTER SYNCHRONISEE (newsletter intelligente) — DESACTIVEE par defaut : rien ne part tant
-//  que l'admin n'active pas. MODELE : tout le monde est SYNCHRONISE sur la meme semaine. Chaque semaine
-//  ISO, UN SEUL contenu (choisi selon le theme dominant du desk) est envoye A TOUS. Un NOUVEL inscrit se
-//  branche AU NIVEAU ACTUEL de la boucle des qu'il rejoint (meme contenu que tout le monde cette semaine),
-//  jamais "en retard". Une intro one-time souhaite la bienvenue au tout 1er contact newsletter, puis il
-//  rejoint la boucle. Contenu = moteur de contexte (_deskContext), adapte membre/non-membre.
-//  NE TOUCHE PAS au welcome transactionnel (sendWelcome) qui reste 100% auto de son cote.
-//  Anti-doublon durable (email_log drip:intro:<email> / drip:loop:<isoWeek>:<email>) + skip unsub/blacklist.
+//  SÉQUENCE HEBDOMADAIRE SYNCHRONISÉE — DÉSACTIVÉE par défaut : rien ne part tant que l'admin n'active pas.
+//  MODÈLE (demande user 13/07) : les 5 contenus partent TOUS DANS LA MÊME SEMAINE, UN PAR JOUR OUVRÉ,
+//  identique pour TOUT LE MONDE (synchronisé), et ça recommence chaque semaine :
+//    Lundi = Semaine à venir · Mardi = Comprendre le marché · Mercredi = Point marché ·
+//    Jeudi = Mindset · Vendredi = Récap Hebdo.
+//  Un NOUVEL inscrit reçoit d'abord une intro one-time (bienvenue), puis rejoint le calendrier du jour.
+//  Contenu = moteur de contexte (_deskContext), adapté membre/non-membre. NE TOUCHE PAS au welcome
+//  transactionnel (sendWelcome). Anti-doublon durable : email_log drip:intro:<email> +
+//  drip:day:<isoWeek>-<weekday>:<email> (UN contenu par jour et par semaine). Skip unsub/blacklist.
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 const DRIP_INTRO   = { id: 'intro',        label: 'Bienvenue (one-time)', tpl: 'intro' };
 const DRIP_POINT   = { id: 'point-marche', label: 'Point marché',          tpl: 'pointmarche' };
@@ -13553,24 +13576,17 @@ const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 
 const DRIP_MINDSET = { id: 'mindset',      label: 'Mindset',               tpl: 'mindset' };
 const DRIP_RECAP   = { id: 'recap-hebdo',  label: 'Récap Hebdo',           tpl: 'recap' };
 const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook' };
-// SÉQUENCE VARIÉE (demande user 13/07) : un template DIFFÉRENT chaque semaine, en rotation qui DÉMARRE au 1er
-// e-mail (Point marché) puis avance d'un cran par semaine ISO : Point marché → Comprendre → Mindset → Récap
-// Hebdo → Semaine à venir → (recommence). Identique pour TOUT LE MONDE (synchronisé). L'index part de 0 (Point
-// marché) à l'ACTIVATION (launchWeek), pas d'un décalage arbitraire (avant : week%len → tombait au milieu).
-const _DRIP_SEQ = [DRIP_POINT, DRIP_DECRYPT, DRIP_MINDSET, DRIP_RECAP, DRIP_OUTLOOK];
+// weekday (Intl Europe/Paris : Dim=0 … Sam=6) → contenu du jour. Lun=1 … Ven=5 ; week-end = rien.
+const _DAY_STEP = { 1: DRIP_OUTLOOK, 2: DRIP_DECRYPT, 3: DRIP_POINT, 4: DRIP_MINDSET, 5: DRIP_RECAP };   // _WD_FR (noms de jours FR) déjà défini plus haut
 function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
-function _loopStepFor(context) {
-  const lw = _dripState && _dripState.launchWeek;
-  if (!_dripState || !_dripState.active || !lw) return _DRIP_SEQ[0];   // en pause / au lancement → on (re)démarre par Point marché
-  const n = _DRIP_SEQ.length;
-  return _DRIP_SEQ[((_dripWeekNum() - lw) % n + n) % n];
-}
+// Prochain jour ouvré d'envoi (1=lun … 5=ven) : aujourd'hui s'il reste de la fenêtre (avant 19h), sinon le suivant.
+function _nextSendWeekday() { const pp = _parisParts(); if (pp.weekday >= 1 && pp.weekday <= 5 && pp.hour < 19) return pp.weekday; let wd = pp.weekday; for (let i = 0; i < 7; i++) { wd = (wd + 1) % 7; if (wd >= 1 && wd <= 5) return wd; } return 1; }
+// Date « jj mois » de la prochaine occurrence d'un jour de semaine (wd = 1..5), Paris.
+function _nextDateForWeekday(wd) { const pp = _parisParts(); let off = (wd - pp.weekday + 7) % 7; if (off === 0 && pp.hour >= 19) off = 7; try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', day: 'numeric', month: 'long' }).format(new Date(Date.now() + off * 864e5)); } catch { return ''; } }
+// Étape « du moment » (affichage admin « prochain envoi ») : contenu d'aujourd'hui si jour ouvré, sinon du prochain jour ouvré.
+function _loopStepFor() { const wd = _parisParts().weekday; return _DAY_STEP[wd] || _DAY_STEP[_nextSendWeekday()]; }
 let _dripState = { active: false, launchedAt: null, launchWeek: null, contacts: {} };
-(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, launchWeek: null, contacts: {} }, s);
-  // BACKFILL : campagne activée AVANT l'ajout de launchWeek → on ancre la rotation sur la semaine courante
-  // (sinon _loopStepFor resterait bloqué sur Point marché sans jamais avancer). Une seule fois.
-  if (_dripState.active && !_dripState.launchWeek) { _dripState.launchWeek = _dripWeekNum(); _saveDrip(true); console.log('[Drip] launchWeek backfill →', _dripState.launchWeek, '(rotation ancrée sur la semaine courante)'); }
-} catch {} })();
+(async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, launchWeek: null, contacts: {} }, s); } catch {} })();
 let _dripSaveT = null;
 // immediate=true : ecrit TOUT DE SUITE (pause/activate = etat critique, doit persister sans fenetre de perte).
 // Sinon debounce 3s (maj frequentes des contacts pendant un tick).
@@ -13603,24 +13619,36 @@ async function _dripSend(stepDef, r, context, tag) {
 let _dripRunning = false;
 async function _dripTick() {
   if (!_dripState.active || _dripRunning) return;
-  if (!_dripState.launchWeek) { _dripState.launchWeek = _dripWeekNum(); _saveDrip(true); }   // filet : ancre la rotation si launchWeek manquant
   _dripRunning = true;
   try {
     const pp = _parisParts();
-    if (pp.weekday === 0 || pp.weekday === 6) return;   // fenetre : jours ouvres uniquement
+    if (pp.weekday < 1 || pp.weekday > 5) return;        // fenetre : jours ouvres uniquement (Lun-Ven)
     if (pp.hour < 8 || pp.hour >= 19) return;            // fenetre : 8h-19h Paris (jamais la nuit)
-    const isoWeek = pp.isoWeek;
+    const isoWeek = pp.isoWeek, wd = pp.weekday;
+    const dayStep = _DAY_STEP[wd];                       // contenu DU JOUR (Lun=Semaine à venir … Mer=Point marché … Ven=Récap)
+    if (!dayStep) return;
     let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { await _campaignError('critical', 'drip', 'audience indisponible/corrompue : ' + e.message, { actions: 'Verifier _campaignAudience (Whop/DTP/KV). Reactiver la sequence apres correction.' }); _dripState.active = false; _dripState.pausedReason = { at: Date.now(), summary: 'audience indisponible' }; _saveDrip(); return; }
     const now = Date.now(); let context = null, sent = 0;
-    // ── PRE-FLIGHT : valide fournisseur mail + audience + rendu du contenu de la semaine AVANT tout envoi ──
+    // ── DONNÉES FRAÎCHES (Point marché du mercredi) : on garantit un récap quotidien DU JOUR (regen si absent)
+    //    AVANT de bâtir le contexte, pour que le brief ET le calendrier partent sur la séance du jour, pas la veille.
+    if (dayStep.tpl === 'pointmarche') {
+      try {
+        const dk = _dtpdTodayKey();
+        const cur = allNews.some(i => i && i._reportType === 'DTP Daily' && i._dtpd && (i._dtpd.v || 0) >= DTPD_VER && i._dtpd.day === dk);
+        if (!cur) await generateDTPDaily(true);          // pas de récap du jour → génère (force, bypass gate midi)
+      } catch (e) { console.warn('[Drip] regen DTPD', e.message); }
+      try { await emailWidget.renderWidgetPngSafe('calendar', { period: 'thisweek' }); } catch {}   // chauffe le calendrier de la semaine avant l'envoi (jamais de rendu à froid)
+    }
+    // ── PRE-FLIGHT : valide fournisseur mail + audience + rendu du contenu DU JOUR AVANT tout envoi ──
     context = await _deskContext();
-    const stepWeek = _loopStepFor(context);
+    const stepWeek = dayStep;
+    const _stepWidget = { pointmarche: 'strength', outlook: 'week-ahead', decryptage: 'calendar', recap: 'strength', mindset: null };
     const pf = await _runCampaignPreflight({
       recipients: audience.recipients,
       sample: () => _dripBuildSample(stepWeek, context),
-      needsData: stepWeek.tpl === 'pointmarche',
-      hasData: !!(context && (context.daily || (Array.isArray(context.bias) && context.bias.length) || (Array.isArray(context.upcoming) && context.upcoming.length))),
-      needsWidget: stepWeek.tpl === 'pointmarche', widgetType: 'strength', needsAI: false,
+      needsData: stepWeek.tpl === 'pointmarche' || stepWeek.tpl === 'recap',
+      hasData: !!(context && (context.daily || (Array.isArray(context.bias) && context.bias.length) || (Array.isArray(context.upcoming) && context.upcoming.length) || _freshWeekly())),
+      needsWidget: !!_stepWidget[stepWeek.tpl], widgetType: _stepWidget[stepWeek.tpl] || 'strength', needsAI: false,
     });
     if (!pf.ok) {
       _dripState.active = false; _dripState.pausedReason = { at: Date.now(), summary: pf.summary, critical: pf.critical }; _saveDrip();
@@ -13644,16 +13672,17 @@ async function _dripTick() {
         if (await _dripSend(DRIP_INTRO, r, context)) { try { await auth.emailLogAdd(im); } catch {} st.introduced = true; st.lastAt = now; sent++; _saveDrip(); if (throttle) await new Promise(x => setTimeout(x, throttle)); }
         continue;   // un seul e-mail par contact et par tick
       }
-      // 2) BOUCLE SYNCHRONISEE — le meme contenu pour tout le monde, 1x / semaine ISO
-      if (st.loopWeek === isoWeek) continue;                        // deja recu cette semaine
-      const lm = 'drip:loop:' + isoWeek + ':' + email;
-      try { if (await auth.emailLogHas(lm)) { st.loopWeek = isoWeek; _saveDrip(); continue; } } catch {}
-      if (st.lastAt && (now - st.lastAt) < 20 * 3600e3) continue;   // espacement mini apres l'intro (~20h)
+      // 2) CALENDRIER DU JOUR — le contenu du jour (dayStep) part à TOUT LE MONDE, 1x par jour ouvré et par semaine ISO.
+      if (st.wkKey !== isoWeek) { st.wkKey = isoWeek; st.gotDays = []; }   // nouveau lundi → on repart à zéro pour la semaine
+      if (!Array.isArray(st.gotDays)) st.gotDays = [];
+      if (st.gotDays.includes(wd)) continue;                       // déjà reçu le contenu de CE jour cette semaine
+      const dm = 'drip:day:' + isoWeek + '-' + wd + ':' + email;
+      try { if (await auth.emailLogHas(dm)) { if (!st.gotDays.includes(wd)) st.gotDays.push(wd); _saveDrip(); continue; } } catch {}
+      if (st.lastAt && (now - st.lastAt) < 20 * 3600e3) continue;   // espacement mini (~20h) — jamais 2 mails le même jour à un contact
       if (!context) context = await _deskContext();
-      const stepDef = _loopStepFor(context);
-      if (await _dripSend(stepDef, r, context, 'loop-' + isoWeek)) { try { await auth.emailLogAdd(lm); } catch {} st.loopWeek = isoWeek; st.lastAt = now; sent++; if (throttle) await new Promise(x => setTimeout(x, throttle)); }
+      if (await _dripSend(dayStep, r, context, isoWeek + '-' + wd)) { try { await auth.emailLogAdd(dm); } catch {} st.gotDays.push(wd); st.lastAt = now; sent++; if (throttle) await new Promise(x => setTimeout(x, throttle)); }
     }
-    if (sent) { _saveDrip(); console.log('[Drip] tick semaine ' + isoWeek + ' : ' + sent + ' mail(s) envoye(s)'); }
+    if (sent) { _saveDrip(); console.log('[Drip] ' + (_WD_FR[wd] || ('j' + wd)) + ' (' + dayStep.id + ') : ' + sent + ' mail(s) envoye(s)'); }
   } catch (e) { console.error('[Drip]', e.message); }
   finally { _dripRunning = false; }
 }
@@ -13667,18 +13696,18 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // PAUSE = ARRET TOTAL (drip + blast hebdo) + persistance immediate -> reste en pause meme apres redemarrage
   const pp = _parisParts();
   const contacts = _dripState.contacts || {};
-  let total = 0, introduced = 0, gotThisWeek = 0;
-  for (const email of Object.keys(contacts)) { total++; const st = _dripNormalize(contacts[email]); if (st.introduced) introduced++; if (st.loopWeek === pp.isoWeek) gotThisWeek++; }
-  let thisWeekLabel = '—'; try { const ctx = await _deskContext(); thisWeekLabel = _loopStepFor(ctx).label + (ctx.themeLabel ? ' (' + ctx.themeLabel + ')' : ''); } catch {}
-  const steps = [DRIP_INTRO, DRIP_DECRYPT, DRIP_POINT].map(s => { const cid = s.id === 'intro' ? 'intro-v1' : s.id; const stt = _campaignStats[cid]; return { id: s.id, label: s.label, sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
+  let total = 0, introduced = 0, gotToday = 0;
+  for (const email of Object.keys(contacts)) { total++; const st = _dripNormalize(contacts[email]); if (st.introduced) introduced++; if (st.wkKey === pp.isoWeek && Array.isArray(st.gotDays) && st.gotDays.includes(pp.weekday)) gotToday++; }
+  let todayLabel = '—'; try { const ctx = await _deskContext(); todayLabel = _loopStepFor().label + (ctx.themeLabel ? ' (' + ctx.themeLabel + ')' : ''); } catch {}
+  const steps = [1, 2, 3, 4, 5].map(d => { const s = _DAY_STEP[d]; const cid = s.tpl === 'recap' ? 'recap-hebdo' : (s.id === 'outlook' ? 'outlook-hebdo' : s.id); const stt = _campaignStats[cid]; return { id: s.id, label: s.label, day: _WD_FR[d], sent: stt ? Object.keys(stt.sent || {}).length : 0 }; });
   const pr = _dripState.pausedReason || null;
   res.json({ ok: true, active: _dripState.active, launchedAt: _dripState.launchedAt, running: _dripRunning,
     window: 'jours ouvres 8h-19h (Europe/Paris)',
-    model: 'boucle synchronisee : tout le monde recoit le meme contenu chaque semaine ; un nouvel inscrit se branche au niveau actuel',
-    thisWeek: { isoWeek: pp.isoWeek, content: thisWeekLabel },
-    contactsTracked: total, introduced, gotThisWeek, steps,
+    model: 'calendrier hebdo synchronise : 1 contenu par jour ouvre (Lun=Semaine a venir, Mar=Comprendre, Mer=Point marche, Jeu=Mindset, Ven=Recap), en boucle chaque semaine ; un nouvel inscrit recoit une intro puis rejoint le calendrier du jour',
+    today: { isoWeek: pp.isoWeek, weekday: pp.weekday, content: todayLabel },
+    contactsTracked: total, introduced, gotToday, steps,
     pausedReason: (!_dripState.active && pr) ? pr : null,
-    note: _dripState.active ? 'Boucle ACTIVE : contenu synchronise chaque semaine pour tous ; les nouveaux se branchent au niveau actuel. Le blast hebdo est en pause (la boucle le remplace).' : ((pr ? 'Boucle EN PAUSE (auto, pre-flight) : ' + pr.summary + '. ' : 'Boucle EN PAUSE : ') + 'Active pour (re)lancer.') });
+    note: _dripState.active ? 'Calendrier ACTIF : 1 e-mail par jour ouvre, synchronise pour tous.' : ((pr ? 'EN PAUSE (auto, pre-flight) : ' + pr.summary + '. ' : 'EN PAUSE : ') + 'Active pour (re)lancer.') });
 });
 
 // ── PILOTAGE UNIFIÉ « La Campagne » (demande user 13/07 : UN SEUL interrupteur + le prochain e-mail) ──
@@ -13686,17 +13715,21 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
 // le blast en pause (un seul moteur) ; pause => arrêt total. Renvoie le PROCHAIN template qui partira.
 app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
   const a = String(req.query.action || 'status');
-  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.launchWeek = _dripWeekNum(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }   // launchWeek = semaine courante → la rotation DÉMARRE par Point marché
+  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
   else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
-  const active = !!_dripState.active;   // UN SEUL moteur = la rotation variée (le blast digest est RETIRÉ)
+  const active = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré ; le blast digest est RETIRÉ)
   let nextTemplate = '—', nextWhen = '—';
-  try { nextTemplate = _loopStepFor().label; nextWhen = active ? 'cette semaine — jours ouvrés, 8h–19h (Paris)' : 'dès le lancement (jours ouvrés, 8h–19h)'; } catch {}
+  try {
+    const _nwd = _nextSendWeekday();
+    nextTemplate = (_DAY_STEP[_nwd] || _loopStepFor()).label;
+    nextWhen = active ? ('le ' + (_WD_FR[_nwd] || '') + ' ' + _nextDateForWeekday(_nwd) + ' · dès 8h (Paris)') : 'dès le lancement (prochain jour ouvré, dès 8h)';
+  } catch {}
   const contacts = _dripState.contacts || {}; let audienceCount = 0;
   try { audienceCount = Object.keys(contacts).length; } catch {}
   const pr = (!active && _dripState.pausedReason) ? _dripState.pausedReason : null;
   res.json({ ok: true, active, nextTemplate, nextWhen, engine: 'sequence',
     running: !!_dripRunning, contactsTracked: audienceCount, pausedReason: pr,
-    sequence: _DRIP_SEQ.map(s => s.label) });
+    sequence: [1, 2, 3, 4, 5].map(d => _DAY_STEP[d].label) });
 });
 
 // Historique des erreurs/incidents campagne (admin) : ring durable KV campaign:errors.
