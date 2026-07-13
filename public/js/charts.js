@@ -2415,7 +2415,9 @@ document.addEventListener('DOMContentLoaded', () => {
       const upd = document.getElementById('taux-update');
       if (upd) {   // fraîcheur RÉELLE (heure du dernier rafraîchissement des cotations) : SANS nommer la source (demande utilisateur)
         const ts = d.rpAt || d.updatedAt || 0;
-        upd.textContent = ts ? ('Cotations à jour · ' + new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
+        // Pastille « en direct » (pulse vert) → l'utilisateur voit que l'onglet se rafraîchit en continu, même
+        // quand l'heure des cotations ne bouge pas (les probas de taux ne changent que ~toutes les heures).
+        upd.innerHTML = ts ? ('<span class="live-dot live-dot--small" style="vertical-align:middle;margin-right:5px;"></span>Cotations à jour · ' + new Date(ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })) : '';
       }
     } catch (e) {
       // Échec TRANSITOIRE (502 pendant un redéploiement…) : si pas encore de cartes → on GARDE le chargement
@@ -2548,7 +2550,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'weekahead' && typeof loadWeekAheadView === 'function') {
       loadWeekAheadView();
     }
-    if (view === 'taux') { loadTauxView(); _tauxPoll = setInterval(_tauxTick, 60000); }   // TAUX : rafraîchi en continu (~60 s) tant que l'onglet est ouvert
+    if (view === 'taux') { loadTauxView(); _tauxPoll = setInterval(_tauxTick, 30000); }   // TAUX : rafraîchi en TEMPS RÉEL (~30 s) tant que l'onglet est ouvert (re-render uniquement si les cotations ont changé)
     if (view === 'journal' && typeof window.loadJournalView === 'function') window.loadJournalView();
     if (view === 'calculator' && typeof window.loadCalculatorView === 'function') window.loadCalculatorView();
     if (view === 'symbol' && window.loadSymbolView) window.loadSymbolView();
@@ -3445,11 +3447,13 @@ window._retryCalendar = function() {
     positionDd();
     dd.classList.remove('hidden');
   }
-  // Positionne le dropdown (fixed) EXACTEMENT sous l'input, MÊME LARGEUR que la barre de recherche.
-  // Le dropdown est porté dans <body> → le CSS `min-width:100%` / `max-width:92vw` se calculait sur le
-  // viewport et le débordait vers la droite. On force donc largeur = largeur de l'input + on annule ces bornes.
+  // Positionne le dropdown (fixed) EXACTEMENT sous la BARRE de recherche, MÊME LARGEUR qu'elle.
+  // On cale sur le CONTENEUR .topbar-symbol-search (la barre visible), PAS sur le champ texte seul (plus
+  // étroit à cause de l'icône) → sinon le dropdown ne prenait pas toute la largeur de la barre. Le dropdown
+  // est porté dans <body> → on annule aussi le CSS min-width:100%/max-width:92vw (calculés sur le viewport).
   function positionDd() {
-    const r = input.getBoundingClientRect();
+    const box = input.closest('.topbar-symbol-search') || input;
+    const r = box.getBoundingClientRect();
     dd.style.position = 'fixed';
     dd.style.left = Math.round(r.left) + 'px';
     dd.style.top = Math.round(r.bottom + 6) + 'px';
