@@ -6897,14 +6897,12 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // AI Insights (cartes + paires) + « Temps forts de la semaine » (narratif IA) + résultats JOUR PAR JOUR (lundi→vendredi)
 // depuis le calendrier avec ACTUAL vs consensus par événement. Centré décisions de banques centrales + données publiées
 // (réel vs attendu) — distinct du Weekly Market Recap (centré prix/FX). 1 appel IA/semaine.
-const GEW_VER = 6;   // v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
-// Heure d'un événement, LISIBLE pour un utilisateur français : heure de PARIS (sa référence) + GMT.
-// 100% calculé depuis le timestamp (zéro IA). Ex. « mar. 03:00 (Paris) · 02:00 GMT ».
+const GEW_VER = 7;   // v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
+// Heure d'un événement = HEURE DE PARIS (référence FR), HH:MM SEULEMENT. Plus de jour (déjà en en-tête de
+// journée) ni de doublon GMT (demande user 13/07 : « date/heure doublée »). Le fuseau est rappelé UNE fois
+// dans le titre de section (« Calendrier économique · heure de Paris »). 100% calculé (zéro IA).
 function _gewTimes(ts /* , ccy (ignoré) */) {
-  const d = new Date(ts);
-  const f = (tz, withDay) => { try { return new Intl.DateTimeFormat('fr-FR', { timeZone: tz, hour12: false, ...(withDay ? { weekday: 'short' } : {}), hour: '2-digit', minute: '2-digit' }).format(d); } catch { return ''; } };
-  const paris = f('Europe/Paris', true), gmt = f('UTC', false);
-  return paris ? `${paris} (Paris) · ${gmt} GMT` : (gmt ? `${gmt} GMT` : '');
+  try { return new Intl.DateTimeFormat('fr-FR', { timeZone: 'Europe/Paris', hour12: false, hour: '2-digit', minute: '2-digit' }).format(new Date(ts)); } catch { return ''; }
 }
 async function generateGlobalEconomicWeekly(force = false) {
   const idPrefix = 'dtp-econ-weekly-', now = Date.now();
@@ -7024,18 +7022,22 @@ ${recentCtx.join('\n')}`;
   if (highlights) {
     try {
       const flat = []; days.forEach(d => (d.events || []).forEach(e => flat.push(e)));
-      if (flat.length) {
-        const list = flat.map((e, i) => `${i + 1}. ${e.country} ${e.title}${e.actual ? ` — actual ${e.actual} vs consensus ${e.forecast || '—'}${e.previous ? `, previous ${e.previous}` : ''}` : (e.forecast ? ` — consensus ${e.forecast}${e.previous ? `, previous ${e.previous}` : ''}` : (e.previous ? ` — previous ${e.previous}` : ''))}`).join('\n');
-        const cprompt = `You are an Econoday-style economist. For EACH event from the week that just ended below, write ONE concise, specific analyst sentence EN FRANÇAIS, PAST TENSE: how the ACTUAL came in versus consensus (surprise à la hausse / à la baisse, ou conforme) and why it mattered for markets. Keep tickers/codes/acronyms as-is. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. Return ONLY valid JSON mapping each event number to its French sentence, e.g. {"1":"Le chiffre est ressorti à ... contre ... attendu, ...","2":"..."}.
+      // Commentaire UNIQUEMENT pour les events avec un RÉSULTAT chiffré (actual). Les discours / enquêtes sans
+      // chiffre n'ont rien de commentable → PAS de commentaire (fini le remplissage « Pas de données pour l'événement N »).
+      const withData = flat.filter(e => e.actual && String(e.actual).trim());
+      if (withData.length) {
+        const list = withData.map((e, i) => `${i + 1}. ${e.country} ${e.title} — actual ${e.actual} vs consensus ${e.forecast || '—'}${e.previous ? `, previous ${e.previous}` : ''}`).join('\n');
+        const cprompt = `You are an Econoday-style economist. For EACH event below (each HAS an actual result), write ONE concise, specific analyst sentence EN FRANÇAIS, PAST TENSE: how the ACTUAL came in versus consensus (surprise à la hausse / à la baisse, ou conforme) and why it mattered for markets. Keep tickers/codes/acronyms as-is. Ground EVERYTHING in the numbers provided — invent nothing, add no ranges. If an event is not worth commenting, OMIT its number entirely. NEVER write filler such as « pas de données disponibles » or « l'événement N ». Return ONLY valid JSON mapping each event number to its French sentence, e.g. {"1":"Le chiffre est ressorti à ... contre ... attendu, ...","2":"..."}.
 
 EVENTS:
 ${list}`;
         const ct = await ai.generateText(cprompt, 4000);
         aiNote('weekly');
         const cm = ct.match(/\{[\s\S]*\}/);
-        if (cm) { const obj = JSON.parse(cm[0]); flat.forEach((e, i) => { const c = obj[String(i + 1)]; if (typeof c === 'string' && c.trim().length > 15) e.comment = _stripMd(c).slice(0, 420); }); }
-        const done = flat.filter(e => e.comment).length;
-        console.log(`[GEW] commentaires par event : ${done}/${flat.length}`);
+        const _FILLER = /pas de donn|aucune donn|non disponible|indisponible|donn[ée]es?\s+manquant|l['’]?[ée]v[ée]nement\s*\d|sans (?:commentaire|donn)/i;
+        if (cm) { const obj = JSON.parse(cm[0]); withData.forEach((e, i) => { const c = obj[String(i + 1)]; if (typeof c === 'string' && c.trim().length > 15 && !_FILLER.test(c)) e.comment = _stripMd(c).slice(0, 420); }); }
+        const done = withData.filter(e => e.comment).length;
+        console.log(`[GEW] commentaires par event : ${done}/${withData.length} (events avec résultat)`);
       }
     } catch (e) { console.warn('[GEW] commentaires par event indispo:', e.message); }
   }
