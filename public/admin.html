@@ -1713,10 +1713,14 @@
         const status = s.done ? '✅ Envoyé' : (s.status === 'ready' ? '▶ Prêt' : '⏳ À venir');
         const metrics = s.done ? '<div class="camp-seq-metrics">Envoyé le ' + _campFmt(s.firstSentAt) + ' · ' + s.sent + ' envoyés · ' + s.openRate + '% ouvertures · ' + s.clickRate + '% clics</div>' : '';
         const nextBadge = s.next ? (d.active ? ' <span class="camp-seq-next">● PROCHAIN ENVOI</span>' : ' <span class="camp-seq-next camp-seq-next--paused">prochain à l\'activation</span>') : '';
+        // Date + heure prévue de l'envoi : étape à venir → 📅 date de la semaine de rotation ; sinon → 🕐 cadence.
+        const timeLine = (!s.done && s.planned)
+          ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.95;margin-top:3px;font-weight:600;">📅 ' + s.planned.label + (s.next ? ' — prochain envoi' : '') + '</div>'
+          : (s.when ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>' : '');
         return '<div class="camp-seq-row camp-seq-row--' + cls + (s.next ? ' camp-seq-row--next' : '') + '"><div class="camp-seq-wk">' + wk + '</div>'
           + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span>' + nextBadge + '</div>'
           + '<div class="camp-seq-desc">' + s.desc + '</div>'
-          + (s.when ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>' : '')
+          + timeLine
           + metrics + '</div>'
           + '<div class="camp-seq-status camp-seq-status--' + cls + '">' + status + '</div></div>';
       }).join('');
