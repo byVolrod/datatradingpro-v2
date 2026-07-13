@@ -13001,23 +13001,36 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // ORDRE + creneaux CALES SUR LES DONNEES REELLES DU DESK (cron Paris) : Weekly Recap + GEW generes SAMEDI 02h ;
 // DTP Daily 12h, FX Daily Recap 22h30. Donc Recap/Outlook = week-end/debut de semaine (data prete samedi),
 // Point marche = milieu de semaine, Decryptage/Mindset = evergreen (jour libre), Alerte BC = evenementiel.
+// `stat` / `statPrefix` = l'ID RÉEL sous lequel l'envoi est comptabilisé (_campaignStats), parfois ≠ de `id`
+// (le drip enregistre Point marché sous 'point-marche' ; le digest hebdo sous 'weekly-<semaine>'). Sans ce
+// mapping, un envoi RÉEL n'apparaissait pas « Envoyé » dans la roadmap (bug remonté par l'user 13/07 : le Récap
+// parti la veille restait « Prêt »). `when` = cadence RÉELLE du modèle courant (rotation, jours ouvrés 8h–19h).
 const CAMPAIGN_SEQUENCE = [
-  { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
-  { id: 'decryptage',    week: 2,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   when: 'Mardi ~8h · concept choisi selon le calendrier de la semaine', desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'point-hebdo',   week: 3,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   when: 'Mercredi ~8h · données marché live (DTP Daily 12h, FX 22h30)', desc: 'Généré du desk : contexte macro dominant + régime de risque + ce qui bouge + forces/faiblesses (Force des Devises) + biais + widget.' },
-  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready', when: 'Jeudi 10h · evergreen (posture/discipline)',               desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
-  { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready', when: 'Samedi 18h · Récap généré samedi 02h',                     desc: 'La rétrospective de la semaine, façon desk.' },
-  { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready', when: 'Dimanche 18h · semaine à venir (avant ouverture)',         desc: 'Les événements à surveiller, sans pousser de position.' },
+  { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
+  { id: 'point-hebdo',   week: 2,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Généré du desk : contexte macro dominant + régime de risque + ce qui bouge + forces/faiblesses (Force des Devises) + biais + widget.' },
+  { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
+  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'En rotation · 1 sem./4 · thème toujours différent',        desc: 'Un e-mail posture/process (façon Elliot Hewitt).' },
+  { id: 'outlook-hebdo', week: 5,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'En rotation · 1 sem./4 · jours ouvrés 8h–19h',             desc: 'Les événements à surveiller, sans pousser de position.' },
+  { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo (digest)',                 pillar: 'Récap',        status: 'ready',   statPrefix: 'weekly-', when: 'Digest hebdomadaire (mode « blast » historique)',          desc: 'La rétrospective de la semaine, façon desk. Envoyé quand le mode digest est actif.' },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
   try {
     const pct = (a, b) => b ? Math.round(a / b * 1000) / 10 : 0;
     const steps = CAMPAIGN_SEQUENCE.map(s => {
-      const st = _campaignStats[s.id];
-      const sends = st ? Object.values(st.sent || {}) : [];
-      const opens = st ? Object.keys(st.opens || {}).length : 0;
-      const clicks = st ? Object.keys(st.clicks || {}).length : 0;
+      // Résout la/les clé(s) de stats RÉELLES : statPrefix 'weekly-' → le digest hebdo le PLUS RÉCENT ; sinon `stat`|`id`.
+      let keys;
+      if (s.statPrefix) {
+        const wk = Object.keys(_campaignStats).filter(k => k.indexOf(s.statPrefix) === 0 && _campaignStats[k] && Object.keys(_campaignStats[k].sent || {}).length);
+        let best = null, bestTs = 0;
+        for (const k of wk) { const ts = Math.max.apply(null, Object.values(_campaignStats[k].sent)); if (ts > bestTs) { bestTs = ts; best = k; } }
+        keys = best ? [best] : [];
+      } else keys = [s.stat || s.id];
+      const sentMap = {}, openMap = {}, clickMap = {};
+      for (const k of keys) { const st = _campaignStats[k]; if (!st) continue; for (const e in (st.sent || {})) sentMap[e] = Math.max(sentMap[e] || 0, st.sent[e]); Object.assign(openMap, st.opens || {}); Object.assign(clickMap, st.clicks || {}); }
+      const sends = Object.values(sentMap);
+      const opens = Object.keys(openMap).length;
+      const clicks = Object.keys(clickMap).length;
       return { id: s.id, week: s.week, title: s.title, pillar: s.pillar, status: s.status, desc: s.desc, when: s.when,
         sent: sends.length, done: sends.length > 0,
         firstSentAt: sends.length ? Math.min.apply(null, sends) : null,
