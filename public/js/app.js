@@ -2698,10 +2698,15 @@ function buildNewsItem(item) {
   const _hl = (item.headline || '').toLowerCase();
   const _ratesGuard = /\b(rate decision|rate hike|rate cut|interest rate|policy rate|overnight rate|benchmark rate|basis point|bps|inflation rate|cpi|pce|ppi|hicp)\b/i;
   const shownTags = new Set();
+  // Doublon catégorie↔tag : on ne montre JAMAIS un tag dont le LIBELLÉ AFFICHÉ (FR) est déjà celui de la
+  // catégorie rendue à gauche (ex. cat « Géopolitique » + tag « Géopolitique », ou « Énergie »/« Énergie »).
+  // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
+  const _catLabel = catFr(item.category || '');
+  const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
   const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport lui-même)
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
-    if (tag === 'High' || tag === 'Medium' || tag === item.category) continue;
+    if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
     if (_HIDDEN_TAGS.has(tag)) continue;
     if (tag === 'Rates' && !_ratesGuard.test(_hl)) continue;
     if (shownTags.has(tag)) continue;
@@ -2713,7 +2718,7 @@ function buildNewsItem(item) {
     tagsEl.appendChild(t);
   }
   for (const tag of (item._dtpd ? [] : smartTags)) {
-    if (shownTags.has(tag)) continue;
+    if (_isCatDup(tag) || shownTags.has(tag)) continue;
     shownTags.add(tag);
     const t = document.createElement('span');
     t.className = 'tag ' + (TAG_CLASS[tag] || (item._dtpd ? 'tag--neutral' : 'tag--default'));
