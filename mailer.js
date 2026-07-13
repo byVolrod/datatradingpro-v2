@@ -824,9 +824,8 @@ function buildCampaignIntro({ name, email, campaign } = {}) {
       <li style="margin:6px 0;">🗓️ <strong style="color:#fff;">Semaine &agrave; venir</strong>&nbsp;: chaque lundi, l'agenda tri&eacute; par le desk, vous savez o&ugrave; regarder avant que la semaine ne commence.</li>
       <li style="margin:6px 0;">🎓 <strong style="color:#fff;">Comprendre le march&eacute;</strong>&nbsp;: chaque mardi, un concept macro choisi selon l'actualit&eacute; et d&eacute;cod&eacute; simplement, comme au desk.</li>
       <li style="margin:6px 0;">📊 <strong style="color:#fff;">Point march&eacute;</strong>&nbsp;: chaque mercredi, le brief du desk, la s&eacute;ance, les chiffres &eacute;co et la force des devises, en clair.</li>
-      <li style="margin:6px 0;">🧠 <strong style="color:#fff;">Mindset</strong>&nbsp;: chaque samedi, psychologie et discipline, de quoi garder la t&ecirc;te froide quand le march&eacute; s'agite.</li>
-      <li style="margin:6px 0;">📰 <strong style="color:#fff;">R&eacute;cap hebdo</strong>&nbsp;: chaque dimanche, la r&eacute;trospective de la semaine, devise par devise, sans le bruit.</li>
-      <li style="margin:6px 0;">🚨 <strong style="color:#fff;">Alerte macro</strong>&nbsp;: quand une banque centrale bouge, la lecture du desk et ce que les grandes banques anticipent.</li>
+      <li style="margin:6px 0;">🧠 <strong style="color:#fff;">Mindset</strong>&nbsp;: chaque jeudi, psychologie et discipline, de quoi garder la t&ecirc;te froide quand le march&eacute; s'agite.</li>
+      <li style="margin:6px 0;">📰 <strong style="color:#fff;">R&eacute;cap hebdo</strong>&nbsp;: chaque vendredi, la r&eacute;trospective de la semaine &eacute;coul&eacute;e, devise par devise, sans le bruit.</li>
     </ul>
     <p style="margin:0 0 6px;">Pour explorer le terminal quand vous voulez&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
@@ -1528,11 +1527,14 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   // coherent avec le brief de seance (le Point marche parle du jour, pas de la semaine).
   const strengthWidget = _widgetImg('strength', 'La force des devises', null, 'today');
 
-  // « A surveiller cette semaine » = VRAI widget calendrier economique du desk (10 colonnes, previsions/HIGH/LOW
-  // remplies) au lieu d'une liste texte. Memes donnees (context.upcoming) -> coherent avec le desk.
-  // « Brief de la seance » : le detail par theme tire du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst), a la place
-  // du calendrier « A surveiller cette semaine » (demande user) -> on brief la journee.
-  const briefHtml = _dailyBriefBlock(daily && daily.sections, daily && daily.dateLabel, daily && daily.title, daily && daily.hasComments);
+  // « Brief de la seance » : le detail par theme tire du RAPPORT QUOTIDIEN (DTP Daily, onglet Analyst) — on brief la
+  // journee. On RETIRE la section « DONNEES ECONOMIQUES » brute (kind:'data', sans date) : elle est REMPLACEE par le
+  // VRAI widget calendrier du desk ci-dessous (demande user : « met le calendrier economique (le widget) du desk »).
+  const _briefSections = (daily && Array.isArray(daily.sections)) ? daily.sections.filter(s => s && s.kind !== 'data') : (daily && daily.sections);
+  const briefHtml = _dailyBriefBlock(_briefSections, daily && daily.dateLabel, daily && daily.title, daily && daily.hasComments);
+  // CALENDRIER ECONOMIQUE DU DESK (widget PNG, 10 colonnes AVEC Heure + date par jour + REEL colore/prevision/precedent),
+  // fenetre = LA SEMAINE EN COURS (period=thisweek) : les publications deja sorties (avec REEL) + le reste de la semaine.
+  const calWidget = _widgetImg('calendar', "Le calendrier économique de la semaine", null, 'thisweek');
 
   // Ton des banques centrales : TEASER pur (demande user : ne RIEN dévoiler) → une phrase de curiosité
   // + bouton secondaire vers le Desk. Affiché uniquement s'il y a EU des tons lus cette semaine.
@@ -1551,6 +1553,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
     ${movesHtml}
     ${strengthWidget}
     ${briefHtml}
+    ${calWidget}
     ${tonesHtml}
     ${lessonHtml}
     <div style="margin:18px 0 6px;">${cta.btn}</div>
@@ -1573,7 +1576,7 @@ function buildCampaignPointMarche({ name, email, campaign, context, isMember } =
   const subject = _subs[_wk % _subs.length];
   return { subject, html: _campaignLayout('Point marché', body, unsub) };
 }
-async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today']); }
+async function sendCampaignPointMarche(d) { d = d || {}; const m = buildCampaignPointMarche({ name: d.name, email: d.email || d.to, campaign: d.campaign, context: d.context, isMember: d.isMember }); if (!m) return false; return _sendWithInlineWidgets(d.to, m.subject, m.html, ['strength:today', 'calendar:thisweek']); }
 
 // ── OUTLOOK (« la semaine a venir ») — agenda PUR, tourne vers l'avenir, SANS pousser de position. Reutilise le
 // VRAI widget calendrier du desk. Regle « pas de donnees -> pas de mail » (renvoie null).
