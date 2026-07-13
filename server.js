@@ -18,7 +18,7 @@ const { scrapeBlackRock } = require('./scrapers/blackrock');   // BlackRock Inve
 const { scrapeResearchSpa, dateFromUrl: _dateFromUrlBr } = require('./scrapers/research-spa');   // Natixis — recherche sur sites SPA (Puppeteer best-effort) + extracteur de date d'URL
 const { fetchDanskeResearch } = require('./scrapers/danske-research');   // Danske — API publique interceptée (Puppeteer), PDF natifs (published_url)
 const { fetchTEAll } = require('./scrapers/tradingeconomics');   // TradingEconomics — fondamentaux réels par pays (Smart Bias « Fundamental Data » fiable)
-const { fetchTVCalendar, fetchTVCalendarFull } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare)
+const { fetchTVCalendar, fetchTVCalendarFull, fetchTVCalendarRange } = require('./scrapers/tvcalendar');   // calendrier + actuals (HTTP TradingView, sans Cloudflare) + plage historique navigable
 const { fetchAllRSS } = require('./scrapers/rss');   // ForexLive, FXStreet, WSJ, MarketWatch, Yahoo, Investing, Google News…
 const { fetchCOTData } = require('./scrapers/cot');
 const { fetchCommunityOutlook, refreshOutlookBg, forceFetchOutlook, clearOutlookCache, outlookTs } = require('./scrapers/myfxbook');
@@ -2308,6 +2308,43 @@ async function _buildTVCalendar() {
   _tvCalCache = { ts: Date.now(), items };
   return items;
 }
+// ── HISTORIQUE NAVIGABLE (flèches ‹ › du calendrier desk) : fenêtre = [now − N mois*31j … now + 10j].
+// N ∈ {1,2,3} (max 3 mois en arrière). Même mapping que _buildTVCalendar (High/Medium tradables). Cache 4 min par niveau.
+const _tvRangeCache = new Map();   // N → { ts, items }
+// Jours d'historique par niveau (≈ 2 / 2,5 / 3 mois). Tous > la fenêtre hist interne (60 j) → chaque flèche recule VISIBLEMENT.
+const _RANGE_DAYS = { 1: 67, 2: 80, 3: 92 };
+async function _buildTVCalendarRange(backMonths) {
+  backMonths = Math.max(1, Math.min(3, backMonths | 0));
+  const hit = _tvRangeCache.get(backMonths);
+  if (hit && Date.now() - hit.ts < 4 * 60 * 1000 && hit.items.length) return hit.items;
+  const now = Date.now();
+  const startMs = now - (_RANGE_DAYS[backMonths] || 62) * 86400000;
+  const endMs   = now + 10 * 86400000;
+  // TradingView TRONQUE une réponse trop large (~50 j observés) → on découpe en tranches ≤ 32 j (jamais tronquées),
+  // on les récupère en parallèle et on RECOLLE avec dédup (clé ts|devise|titre) → fenêtre continue, sans trou.
+  // Tranches ALIGNÉES sur une grille globale de 32 j → bornes ISO stables (indépendantes de « now ») donc clés de
+  // cache scraper réutilisables ET PARTAGÉES entre niveaux (back=2 réutilise les tranches récentes de back=1).
+  const CHUNK = 32 * 86400000;
+  const bounds = [];
+  for (let g = Math.floor(startMs / CHUNK) * CHUNK; g < endMs; g += CHUNK) bounds.push([g, g + CHUNK]);
+  let chunks = [];
+  try { chunks = await Promise.all(bounds.map(([s, e]) => fetchTVCalendarRange(new Date(s).toISOString(), new Date(e).toISOString()).catch(() => []))); } catch {}
+  const seen = new Map();
+  for (const arr of chunks) for (const ev of (arr || [])) { const k = ev.ts + '|' + ev.currency + '|' + ev.title; if (!seen.has(k)) seen.set(k, ev); }
+  // Fenêtre HONNÊTE : les tranches de grille débordent [startMs, endMs] → on reclippe exactement sur la plage demandée.
+  const raw = [...seen.values()].filter(e => e.ts >= startMs && e.ts <= endMs);
+  if (!raw.length) return (hit && hit.items) || [];
+  const items = raw.filter(e => e.impact === 'High' || e.impact === 'Medium').map(e => ({
+    id: 'tv-' + Buffer.from(e.title + '|' + e.currency + '|' + new Date(e.ts).toISOString().slice(0, 10)).toString('base64').slice(0, 18),
+    timestamp: e.ts,
+    time: new Date(e.ts).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }),
+    currency: e.currency, impact: e.impact, title: e.title,
+    actual: e.actual || '', forecast: e.forecast || '', previous: e.previous || '',
+    url: '',
+  })).sort((a, b) => a.timestamp - b.timestamp);
+  _tvRangeCache.set(backMonths, { ts: Date.now(), items });
+  return items;
+}
 // ── HISTORIQUE GLISSANT du calendrier (60 j) : chaque événement PUBLIÉ (actual présent) est
 // accumulé (mémoire + Supabase 'calhist:events') et fusionné dans /api/calendar-events.
 // Raison : la fenêtre TradingView ne couvre que la semaine courante → les sous-indicateurs du
@@ -2425,7 +2462,20 @@ setInterval(() => _calEnsureRanges().catch(() => {}), 16 * 60 * 1000);   // pré
 setInterval(() => { if (_calRangeDirty) { _calRangeDirty = false; const o = {}; for (const [k, v] of _calRangeCache) o[k] = v; auth.aiCacheSet('calrange1:all', o).catch(() => {}); } }, 5 * 60 * 1000);
 setTimeout(() => _calEnsureRanges().catch(() => {}), 25000);   // 1er passage peu après le démarrage
 
-app.get('/api/calendar-events', async (_req, res) => {
+app.get('/api/calendar-events', async (req, res) => {
+  // NAVIGATION HISTORIQUE (flèches ‹ › du desk) : ?back=1|2|3 → fenêtre étendue jusqu'à 3 mois en arrière.
+  // Fenêtre PURE à la plage demandée (pas de fusion _calHist, qui n'a que la dernière valeur par indicateur).
+  const back = Math.max(0, Math.min(3, parseInt(req.query.back, 10) || 0));
+  if (back > 0) {
+    // On NE retombe PAS sur le live ici : si la plage échoue (réseau), on renvoie une liste VIDE + back
+    // pour que le client sache que le niveau n'a pas été honoré et revienne proprement à sa vue précédente
+    // (sinon on afficherait le live sous un libellé « N mois en arrière » — trompeur).
+    let hitems = [];
+    try { hitems = await _buildTVCalendarRange(back); } catch {}
+    if (hitems && hitems.length) _calHistAbsorb(hitems);
+    return res.json({ items: hitems && hitems.length ? _calApplyRanges(hitems) : [], back });
+  }
+
   // SOURCE PRINCIPALE : TradingView (actuals natifs, aucun matching) → exact + temps réel + anciennes données.
   let items = [];
   try { items = await _buildTVCalendar(); } catch {}

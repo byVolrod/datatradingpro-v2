@@ -3773,7 +3773,7 @@ async function loadWeekAheadView() {
   if (!host) return;
   const isPoll = !!_waPollTimer;                 // continuation d'un poll ?
   if (_waPollTimer) { clearTimeout(_waPollTimer); _waPollTimer = null; }
-  if (!isPoll) { _waPollCount = 0; _waLoadPanels(true); }   // ouverture fraîche → clone News + Calendar + auto-scroll calendrier sur l'événement en cours
+  if (!isPoll) { _waPollCount = 0; if (window._calResetToLive) _calResetToLive(); _waLoadPanels(true); }   // ouverture fraîche → le miroir calendrier repart en LIVE (jamais une vue historique) puis clone News + Calendar + auto-scroll
   try {
     const d = await fetch('/api/week-ahead').then(r => r.json());
     if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waPollCount = 0; _renderWeekAhead(d); return; }
