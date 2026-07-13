@@ -13269,8 +13269,13 @@ async function _deskContext() {
 async function _decryptRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 4)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
 async function _decryptMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:decrypt-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:decrypt-history', h.slice(-12)); } catch {} }
 // Rotation anti-repetition de la track MINDSET (memes primitives que le decryptage).
-async function _mindsetRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || 6)).map(x => x && x.key).filter(Boolean); } catch {} return []; }
-async function _mindsetMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:mindset-history', h.slice(-16)); } catch {} }
+// FENÊTRE = (taille du pool − 1) : garantit qu'il reste TOUJOURS exactement 1 concept « frais » → le
+// sélecteur pickMindsetConcept le prend → rotation COMPLÈTE du catalogue avant tout répétition (demande user :
+// « toujours un thème différent »). Se met à l'échelle tout seul si le pool grandit. Ancien 6 = bug (pool 8 →
+// un thème jamais envoyé + un autre répété à chaque cycle).
+function _mindsetWindow() { try { return Math.max(1, (mailer.MINDSET_CONCEPTS || []).length - 1); } catch { return 7; } }
+async function _mindsetRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || _mindsetWindow())).map(x => x && x.key).filter(Boolean); } catch {} return []; }
+async function _mindsetMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:mindset-history', h.slice(-Math.max(24, _mindsetWindow() + 4))); } catch {} }
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 //  FIABILITE PRODUCTION — historique d'erreurs durable + pre-flight avant CHAQUE envoi + alerte admin.
@@ -13455,9 +13460,15 @@ app.get('/api/admin/campaign-invitation', requireAdmin, async (req, res) => {
 const DRIP_INTRO   = { id: 'intro',        label: 'Bienvenue (one-time)', tpl: 'intro' };
 const DRIP_DECRYPT = { id: 'decryptage',   label: 'Comprendre le marché', tpl: 'decryptage' };
 const DRIP_POINT   = { id: 'point-marche', label: 'Point marché',          tpl: 'pointmarche' };
-// Contenu de LA semaine (identique pour TOUT LE MONDE) : semaine "data lourde" (banque centrale/inflation)
-// -> Decryptage (on explique l'enjeu) ; sinon -> Point marche (etat du marche). Le theme est global -> synchro.
-function _loopStepFor(context) { const t = context && context.theme; return (t === 'rates' || t === 'inflation') ? DRIP_DECRYPT : DRIP_POINT; }
+const DRIP_MINDSET = { id: 'mindset',      label: 'Mindset',               tpl: 'mindset' };
+const DRIP_OUTLOOK = { id: 'outlook',      label: 'Semaine à venir',       tpl: 'outlook' };
+// SÉQUENCE VARIÉE (demande user 13/07) : un template DIFFÉRENT chaque semaine, en ROTATION par n° de semaine
+// ISO — Point marché → Comprendre le marché → Mindset → Semaine à venir → (recommence). Identique pour TOUT
+// LE MONDE (boucle synchronisée) ; un nouvel inscrit se branche au niveau de la semaine en cours. Le libellé
+// affiché « prochain envoi » (panneau admin) découle de cette même rotation.
+const _DRIP_SEQ = [DRIP_POINT, DRIP_DECRYPT, DRIP_MINDSET, DRIP_OUTLOOK];
+function _dripWeekNum() { try { return parseInt(String(_parisParts().isoWeek).split('-W')[1], 10) || 0; } catch { return 0; } }
+function _loopStepFor(context) { return _DRIP_SEQ[_dripWeekNum() % _DRIP_SEQ.length]; }
 let _dripState = { active: false, launchedAt: null, contacts: {} };
 (async () => { try { const s = await auth.aiCacheGet('campaign:drip', 366 * 864e5); if (s && typeof s === 'object' && s.contacts) _dripState = Object.assign({ active: false, launchedAt: null, contacts: {} }, s); } catch {} })();
 let _dripSaveT = null;
@@ -13483,7 +13494,7 @@ async function _dripSend(stepDef, r, context, tag) {
     if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { _recordSent('intro-v1', email); return true; } return false; }
     if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { _recordSent('decryptage', email); return true; } return false; }
     if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('point-marche', email); return true; } return false; }
-    if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(6); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { _recordSent('mindset', email); try { await _mindsetMarkCovered(rr.conceptKey); } catch {} return true; } return false; }
+    if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { _recordSent('mindset', email); try { await _mindsetMarkCovered(rr.conceptKey); } catch {} return true; } return false; }
     if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { _recordSent('outlook-hebdo', email); return true; } return false; }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
   return false;
@@ -13566,6 +13577,33 @@ app.get('/api/admin/campaign-drip', requireAdmin, async (req, res) => {
     contactsTracked: total, introduced, gotThisWeek, steps,
     pausedReason: (!_dripState.active && pr) ? pr : null,
     note: _dripState.active ? 'Boucle ACTIVE : contenu synchronise chaque semaine pour tous ; les nouveaux se branchent au niveau actuel. Le blast hebdo est en pause (la boucle le remplace).' : ((pr ? 'Boucle EN PAUSE (auto, pre-flight) : ' + pr.summary + '. ' : 'Boucle EN PAUSE : ') + 'Active pour (re)lancer.') });
+});
+
+// ── PILOTAGE UNIFIÉ « La Campagne » (demande user 13/07 : UN SEUL interrupteur + le prochain e-mail) ──
+// active = la campagne tourne (drip OU ancien blast hebdo). activate => lance la SÉQUENCE VARIÉE (drip) et met
+// le blast en pause (un seul moteur) ; pause => arrêt total. Renvoie le PROCHAIN template qui partira.
+app.get('/api/admin/campaign-master', requireAdmin, async (req, res) => {
+  const a = String(req.query.action || 'status');
+  if (a === 'activate') { _dripState.active = true; if (!_dripState.launchedAt) _dripState.launchedAt = Date.now(); _dripState.pausedReason = null; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
+  else if (a === 'pause') { _dripState.active = false; _saveDrip(true); _campSchedule.active = false; _saveSchedule(); }
+  const active = !!(_dripState.active || _campSchedule.active);
+  let nextTemplate = '—', nextWhen = '—';
+  try {
+    if (_campSchedule.active && !_dripState.active) {   // ancien blast encore actif (transition) → digest hebdo
+      nextTemplate = 'Point de la semaine (Récap Hebdo)';
+      nextWhen = _nextWeeklyLabel(_campSchedule.weekday, _campSchedule.hour);
+    } else {                                            // modèle courant : rotation de la séquence
+      nextTemplate = _loopStepFor().label;
+      nextWhen = 'cette semaine — jours ouvrés, 8h–19h (Paris)';
+    }
+  } catch {}
+  const contacts = _dripState.contacts || {}; let audienceCount = 0;
+  try { audienceCount = Object.keys(contacts).length; } catch {}
+  const pr = (!active && _dripState.pausedReason) ? _dripState.pausedReason : null;
+  res.json({ ok: true, active, nextTemplate, nextWhen,
+    engine: _dripState.active ? 'sequence' : (_campSchedule.active ? 'digest' : 'sequence'),
+    running: !!(_dripRunning || _weeklyRunning), contactsTracked: audienceCount, pausedReason: pr,
+    sequence: _DRIP_SEQ.map(s => s.label) });
 });
 
 // Historique des erreurs/incidents campagne (admin) : ring durable KV campaign:errors.
@@ -13654,7 +13692,7 @@ app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
       m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context, isMember });
       if (!m) { m = mailer.buildCampaignPointMarche({ name: s.name, email: s.email, campaign: 'pointmarche-preview', context: _SAMPLE_CTX, isMember }); note = "Aperçu de mise en page — les données du desk apparaîtront à l'envoi."; }
     } else if (type === 'mindset') {
-      const recentKeys = await _mindsetRecentKeys(6);
+      const recentKeys = await _mindsetRecentKeys();
       m = mailer.buildCampaignMindset({ name: s.name, email: s.email, campaign: 'mindset-preview', recentKeys, isMember });
     } else if (type === 'outlook') {
       const context = await _deskContext();
@@ -13697,7 +13735,7 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
     try {
       if (tpl === 'decryptage') { const context = await _deskContext(); const recentKeys = await _decryptRecentKeys(4); const r = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context, recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'pointmarche') { const context = await _deskContext(); provider = await mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context, isMember }); }
-      else if (tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(6); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
+      else if (tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
       else if (tpl === 'invitation') { const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined; const r = await mailer.sendCampaignInvitation({ to, name: '', campaign: 'invitation-test', variant }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
