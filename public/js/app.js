@@ -4030,7 +4030,7 @@ function renderBiasView(d) {
   const _accKeys = { fundamental: 1, bankOverview: 1 };
   // Libelles FR de la matrice : IDENTIQUES a ceux de la synthese (volet gauche) pour que radar et
   // synthese listent exactement les memes indicateurs (demande : coherence logique + charte FR).
-  const _sbRowFr = { fundamental: 'Données fondamentales', crossAsset: 'Performance Cross-Asset', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
+  const _sbRowFr = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
   const body = rows.map(r => {
     const isAcc = _accKeys[r.key];
     const rlabel = _sbRowFr[r.key] || r.label;
@@ -4172,8 +4172,6 @@ function _sbFallbackNarrative(curr, val, overall, bulls, bears, esc) {
   if (has(tr))   tech.push(`la tendance est ${qt(tr)}`);
   if (has(seas)) tech.push(`la saisonnalité est ${q(seas)}`);
   if (tech.length) P.push(`Techniquement, ${tech.join(' et ')}.`);
-  const ca = val('crossAsset');
-  if (has(ca))   P.push(`La performance cross-asset (régime de risque global) est ${q(ca)} pour ${esc(curr)}.`);
   if (bulls.length || bears.length) {
     let s = '';
     if (bulls.length) s += `Soutiens haussiers : ${esc(bulls.join(', '))}. `;
@@ -4209,7 +4207,6 @@ function _sbOpenSummary(curr) {
   const leftRows = [
     line('Données fondamentales', val('fundamental'), { acc: 'fundamental' }),
     `<div class="sbs-children" id="sbs-acc-fundamental" hidden></div>`,
-    line('Performance Cross-Asset', val('crossAsset')),
     line('Vue des banques', val('bankOverview'), { acc: 'bankOverview' }),
     `<div class="sbs-children" id="sbs-acc-bankOverview" hidden></div>`,
     line('Positionnement Hedge Funds', val('hedgeFund')),
@@ -4223,7 +4220,7 @@ function _sbOpenSummary(curr) {
 
   // Narratif data-driven (sans IA) : synthèse à partir des indicateurs de la devise.
   const score = { 'Very Bullish': 2, 'Bullish': 1, 'Weak Bullish': 1, 'Uptrend': 1, 'Neutral': 0, 'Range': 0, 'Weak Bearish': -1, 'Bearish': -1, 'Downtrend': -1, 'Very Bearish': -2 };
-  const _rowFr = { fundamental: 'Données fondamentales', crossAsset: 'Performance Cross-Asset', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Saisonnalité' };
+  const _rowFr = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Saisonnalité' };
   const bulls = rows.filter(r => (score[r.values[curr]] || 0) > 0).map(r => _rowFr[r.key] || r.label);
   const bears = rows.filter(r => (score[r.values[curr]] || 0) < 0).map(r => _rowFr[r.key] || r.label);
   // Narratif IA hebdo si dispo (généré côté serveur), sinon synthèse data-driven (0 token).
