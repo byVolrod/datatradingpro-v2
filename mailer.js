@@ -1408,15 +1408,19 @@ function _mindsetParas(paras) {
   return html;
 }
 // Choisit un concept en evitant les recentKeys (rotation). Repli : tout le catalogue.
-function pickMindsetConcept(recentKeys) {
+// extraConcepts (Mindset hybride IA, 15/07) : concepts GÉNÉRÉS PAR IA (KV campaign:mindset-ai côté server)
+// fusionnés au catalogue statique — même forme { key, subject, paras, closing }.
+function pickMindsetConcept(recentKeys, extraConcepts) {
   recentKeys = Array.isArray(recentKeys) ? recentKeys : [];
-  const fresh = MINDSET_CONCEPTS.filter(c => !recentKeys.includes(c.key));
-  const pool = fresh.length ? fresh : MINDSET_CONCEPTS;
+  const all = [...MINDSET_CONCEPTS, ...(Array.isArray(extraConcepts) ? extraConcepts : [])];
+  const fresh = all.filter(c => !recentKeys.includes(c.key));
+  const pool = fresh.length ? fresh : all;
   return pool[0] || null;
 }
-function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, conceptKey } = {}) {
+function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, conceptKey, extraConcepts } = {}) {
   campaign = campaign || 'mindset';
-  const pick = (conceptKey && MINDSET_CONCEPTS.find(c => c.key === conceptKey)) || pickMindsetConcept(recentKeys);
+  const _all = [...MINDSET_CONCEPTS, ...(Array.isArray(extraConcepts) ? extraConcepts : [])];
+  const pick = (conceptKey && _all.find(c => c.key === conceptKey)) || pickMindsetConcept(recentKeys, extraConcepts);
   if (!pick) return null;
   const prenomRaw = (name || '').split(' ')[0] || '';
   const hello = prenomRaw ? `Salut ${_esc(prenomRaw)},` : 'Salut,';
@@ -1433,7 +1437,7 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
   `;
   return { subject: pick.subject, html: _campaignLayout('Mindset', body, unsub), conceptKey: pick.key, conceptTitle: pick.subject };
 }
-async function sendCampaignMindset(d) { d = d || {}; const m = buildCampaignMindset({ name: d.name, email: d.email || d.to, campaign: d.campaign, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey }); if (!m) return false; const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
+async function sendCampaignMindset(d) { d = d || {}; const m = buildCampaignMindset({ name: d.name, email: d.email || d.to, campaign: d.campaign, recentKeys: d.recentKeys, isMember: d.isMember, conceptKey: d.conceptKey, extraConcepts: d.extraConcepts }); if (!m) return false; const prov = await _send(d.to, m.subject, m.html); return prov ? { provider: prov, conceptKey: m.conceptKey } : false; }
 
 // ── INVITATION (CONVERSION) — campagne MENSUELLE vers les MEMBRES NON ABONNES (segment != active). Offre :
 // une SEMAINE d'accès offerte au Desk via DM Instagram. 3 variantes (pro / conviviale / performance) en
