@@ -5958,7 +5958,15 @@ function _reportTitleToFR(title) {
   }
   return title;
 }
-function standardizeReportTitle(item) { return _reportTitleToFR(_mdStrip(_stdReportTitleRaw(item))); }
+// Retire un préfixe de date redondant DANS le titre (« … : La journée du mardi 14 juillet 2026 : … » ou en tête)
+// — la date est déjà affichée à part (demande user). N'agit QUE si une année (20xx) précède le « : » → 0 faux positif.
+function _stripTitleDateLead(t) {
+  return String(t == null ? '' : t)
+    .replace(/(^|:\s*)(?:la\s+)?(?:journée|séance|jour)\b[^:]{0,70}?\b20\d{2}\b[^:]{0,15}:\s*/i, '$1')
+    .replace(/(^|:\s*)(?:le\s+|ce\s+)?(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b[^:]{0,45}?\b20\d{2}\b[^:]{0,15}:\s*/i, '$1')
+    .trim();
+}
+function standardizeReportTitle(item) { return _stripTitleDateLead(_reportTitleToFR(_mdStrip(_stdReportTitleRaw(item)))); }
 function _stdReportTitleRaw(item) {
   let raw = arlibCleanTitle(item.headline || item.title || '')
     .replace(/\s*[—–-]?\s*Week Ending:\s*[\d.\/-]+\s*$/i, '')   // "Week Ending: …" → ligne dédiée uniquement
@@ -6722,7 +6730,7 @@ function _renderFXDailyRecap(item) {
   if (!content) return;
   document.getElementById('arlib-ai-insights')?.remove();
 
-  if (titleEl) titleEl.textContent = _mdStrip(w.title || 'FX Daily Recap');
+  if (titleEl) titleEl.textContent = _stripTitleDateLead(_mdStrip(w.title || 'FX Daily Recap'));
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
   if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
