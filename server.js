@@ -7883,8 +7883,18 @@ function _fxrAutoTags(items) {
   return out.slice(0, 10);
 }
 // Normalise la sortie IA → objet _fxr robuste (markdown nettoyé à la source, tailles bornées).
+// Retire un préfixe de date redondant en tête de titre FX Daily Recap (la date est déjà affichée à part) :
+// « La journée du mardi 14 juillet 2026 : … » / « La séance du … : » / « Mardi 14 juillet 2026 : … » → « … ».
+// On n'enlève QUE si le préfixe contient une année (20xx) avant le « : » → aucun faux positif sur un vrai titre.
+function _fxrStripDateLead(t) {
+  return String(t == null ? '' : t)
+    .replace(/^\s*(?:la\s+)?(?:journée|séance|jour)\b[^:]{0,70}?\b20\d{2}\b[^:]{0,15}:\s*/i, '')
+    .replace(/^\s*(?:le\s+|ce\s+)?(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b[^:]{0,45}?\b20\d{2}\b[^:]{0,15}:\s*/i, '')
+    .trim();
+}
 function _fxrSanitize(p, dayKey, dateLabel) {
   let title = _fxrTxt(p.title, 170) || 'Daily market wrap';
+  title = _fxrStripDateLead(title);   // retire un préfixe de date redondant (« La journée du mardi 14 juillet 2026 : ») — demande user
   if (!/^fx daily recap/i.test(title)) title = 'FX Daily Recap: ' + title.replace(/^fx daily recap:?\s*/i, '');
   const bias = b => { b = String(b || 'NEUTRAL').toUpperCase().replace(/[^A-Z]/g, ''); return ['BUY','SELL','NEUTRAL'].includes(b) ? b : 'NEUTRAL'; };
   const imp  = x => /high/i.test(x) ? 'High' : /med/i.test(x) ? 'Medium' : 'Low';
