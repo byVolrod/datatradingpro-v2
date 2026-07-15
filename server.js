@@ -7926,7 +7926,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 4;   // v4 : ANALYSE PAR SESSION (Asie · Londres · New York, lecture FONDAMENTALE cause→effet — demande user 15/07, remplace le découpage US/Europe/APAC/Canada aux constats vides). v3 : + section « Commentaires marquants »
+const FXR_VER = 5;   // v5 : COURT + FONDAMENTAL STRICT (cause→effet obligatoire, interdits « a été marquée par »/causalités creuses, [MAJEUR] en tête du flux + croisement OBLIGATOIRE avec Force des Devises : un gros mouvement = son driver cité dans sa session — demande user 15/07). v4 : analyse PAR SESSION (Asie·Londres·NY)
 let _fxrGenLock = 0;
 let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
@@ -8075,14 +8075,17 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
     const inWin = t => t >= winStart && t < winEnd + 2 * 3600 * 1000;   // + marge pour les wraps de clôture US
     const dateLabel = _fxrDateLabel(dayKey);
 
-    // 1) HEADLINES du jour (flux réel, hors rapports DTP / briefings / wrap)
+    // 1) HEADLINES du jour (flux réel, hors rapports DTP / briefings / wrap) — IMPORTANTS (rouges) D'ABORD,
+    //    marqués [MAJEUR] au prompt : le driver d'un gros mouvement de devise (ex. nomination aux Finances UK
+    //    → pump du GBP) ne peut plus sortir du top-70 par simple récence (demande user 15/07).
+    const _impN = i => i.priority === 'high' || i.priority === 'urgent';
     const newsItems = allNews.filter(i => i && i.timestamp && inWin(i.timestamp)
       && !i._briefing && !i._marketWrap && !i._fxr && !i._weekly && !_isPrimerNews(i))
-      .sort((a, b) => b.timestamp - a.timestamp);
+      .sort((a, b) => ((_impN(b) ? 1 : 0) - (_impN(a) ? 1 : 0)) || (b.timestamp - a.timestamp));
     const newsLines = newsItems.slice(0, 70).map(i => {
       const tag = i.country || i.currency || i.category || '';
       const h = String(i.headline || i.title || '').replace(/\s+/g, ' ').trim();
-      return h.length > 6 ? `- ${tag ? '[' + tag + '] ' : ''}${h.slice(0, 220)}` : '';
+      return h.length > 6 ? `- ${_impN(i) ? '[MAJEUR] ' : ''}${tag ? '[' + tag + '] ' : ''}${h.slice(0, 220)}` : '';
     }).filter(Boolean);
 
     // 2) DONNÉES ÉCO publiées du jour — calendrier TradingView (actuals natifs) ; repli sur le dernier snapshot
@@ -8130,20 +8133,24 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
     if (!(ai.backoffActive && ai.backoffActive())) {
       const prompt = `Tu es le stratège FX & macro senior de « DataTradingPro », tu rédiges le rapport analyste phare de fin de journée « FX Daily Recap » — même profondeur, ton et structure qu'un rapport analyste la référence. Le rapport couvre toute la journée de trading du ${dateLabel}.
 
-Rédige un récap COMPLET et professionnel de ce qui s'est passé sur les marchés mondiaux aujourd'hui, avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. RÈGLE CENTRALE, NON NÉGOCIABLE : chaque phrase décrivant un mouvement inclut sa RAISON FONDAMENTALE tirée des données fournies (publication chiffrée, signal de banque centrale, flux, géopolitique, positionnement) ; jamais un constat seul ; si aucune cause n'apparaît dans les données, écris « sans catalyseur clair » plutôt que d'inventer. Rédige dans un FRANÇAIS professionnel et fluide. N'INVENTE aucun chiffre : n'utilise que les chiffres présents dans les données ci-dessous. N'utilise jamais le tiret cadratin « — ». Si une section n'a pas de données la justifiant, renvoie un tableau vide pour elle.
+Rédige un récap COURT, DENSE et professionnel de la journée, avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. RÈGLES CENTRALES, NON NÉGOCIABLES :
+1. FONDAMENTAL D'ABORD : chaque phrase décrivant un mouvement DONNE SA CAUSE tirée des données (publication chiffrée réel vs attendu, signal de banque centrale, événement politique, géopolitique, flux). Structure type : « <cause avec son chiffre> a fait <effet sur la devise/l'actif> ». Si aucune cause n'apparaît dans les données : « sans catalyseur clair ».
+2. INTERDITS ABSOLUS (rédige autrement) : « a été marqué(e) par », « la séance/session/journée a été » ; toute causalité CIRCULAIRE ou creuse (« en raison de la stabilisation de l'économie », « grâce à l'optimisme sur l'économie ») ; toute variation citée sans cause précise ; toute formule répétée d'une section à l'autre.
+3. Les titres marqués [MAJEUR] sont les événements IMPORTANTS du jour : chaque [MAJEUR] qui explique un mouvement de devise visible dans FORCE DES DEVISES DOIT apparaître dans sa session (ex. le choix du nouveau ministre des Finances UK dans Session Londres si la livre a bougé). Croise systématiquement FORCE DES DEVISES avec le flux : un gros mouvement = son driver cité.
+4. COURT : privilégie 2 phrases denses à 4 phrases vagues. N'INVENTE aucun chiffre. Jamais le tiret cadratin « — ». Section sans données : tableau vide.
 
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, aucun caractère **). Garde les CLÉS en anglais et rédige toutes les VALEURS en français. Forme EXACTE attendue :
 {
   "title": "<titre d'une ligne percutant résumant la journée, ex. 'Le dollar recule, le pétrole chute sur l'optimisme d'un accord US-Iran'>",
-  "summary": "<SYNTHÈSE : 4 à 6 phrases, la vue d'ensemble de la séance : tonalité de risque globale, le dollar US, les taux/Treasuries, les matières premières, ET OBLIGATOIREMENT les publications économiques CLÉS du jour avec leur chiffre (réel vs attendu, depuis le bloc DONNÉES), puis ce vers quoi l'attention se tourne ensuite>",
-  "tags": ["<5 à 10 puces de thèmes courtes, ex. 'Accord US-Iran','Prix du pétrole','Réserve fédérale','Rendements obligataires','Nvidia'>"],
-  "insights": ["<4 à 6 cartes AI-Insight d'une phrase, prospectives et autonomes>"],
+  "summary": "<SYNTHÈSE : 3 à 5 phrases DENSES, chacune cause → effet : le fait dominant du jour, le dollar US et sa cause, les publications CLÉS avec leur chiffre (réel vs attendu, depuis le bloc DONNÉES) et leur effet, puis ce vers quoi l'attention se tourne>",
+  "tags": ["<5 à 8 puces de thèmes courtes, ex. 'Accord US-Iran','Prix du pétrole','Réserve fédérale'>"],
+  "insights": ["<4 cartes AI-Insight d'une phrase, prospectives et autonomes>"],
   "pairs": [ { "pair": "EUR/USD", "bias": "BUY|SELL|NEUTRAL", "text": "<une phrase concise de justification>" } ],
-  "headlines": [ { "title": "<Titre principal, percutant>", "text": "<résumé de 2 à 3 phrases de l'info et de son impact sur le marché>" } ],
+  "headlines": [ { "title": "<Titre percutant>", "text": "<2 phrases : l'info et son impact marché>" } ],
   "regions": [
-    { "name": "Session Asie", "code": "JPY · AUD · NZD · CNY", "summary": "<2 à 4 phrases : l'histoire FONDAMENTALE de la séance asiatique (Tokyo/Sydney/Shanghai) — QUOI a bougé et surtout POURQUOI : publication chiffrée, signal de banque centrale, géopolitique, flux ; chaque variation citée a sa cause>", "groups": [ { "title": "Données économiques", "items": [ { "heading": "<fait saillant>", "text": "<1 à 2 phrases : le chiffre + ce qu'il implique>" } ] } ] },
-    { "name": "Session Londres", "code": "EUR · GBP · CHF", "summary": "<idem : la séance européenne, lue par ses MOTEURS fondamentaux (BCE/BoE, données, politique, énergie)>", "groups": [ ... ] },
-    { "name": "Session New York", "code": "USD · CAD", "summary": "<idem : la séance américaine (Fed/BoC, données US-Canada, taux, actions), toujours cause → effet>", "groups": [ ... ] }
+    { "name": "Session Asie", "code": "JPY · AUD · NZD · CNY", "summary": "<2 à 3 phrases DENSES : l'histoire FONDAMENTALE de la séance asiatique — le(s) moteur(s) (publication chiffrée, banque centrale, politique, géopolitique) et leur effet devise ; chaque variation a sa cause>", "groups": [ { "title": "Données économiques", "items": [ { "heading": "<fait saillant>", "text": "<1 à 2 phrases : le chiffre + ce qu'il implique>" } ] } ] },
+    { "name": "Session Londres", "code": "EUR · GBP · CHF", "summary": "<idem : la séance européenne par ses moteurs (BCE/BoE, données, POLITIQUE — un [MAJEUR] UK/zone euro qui a fait bouger EUR/GBP/CHF se cite ICI avec son effet)>", "groups": [ ... ] },
+    { "name": "Session New York", "code": "USD · CAD", "summary": "<idem : la séance américaine (Fed/BoC, données US-Canada, taux), toujours cause → effet>", "groups": [ ... ] }
   ],
   "centralBanks": [ { "name": "Réserve fédérale", "text": "<2 à 3 phrases : posture, pricing du marché, ce qu'il faut surveiller>" } ],
   "econData": [ { "release": "US NY Fed Empire State Manufacturing Index", "period": "Juin 2026", "metrics": [ { "metric": "General Business Conditions Index", "actual": "5.7", "expected": "13.2", "previous": "19.6" } ] } ],
@@ -8153,7 +8160,7 @@ Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, au
 }
 
 Règles :
-- "regions" = EXACTEMENT les 3 SESSIONS de trading « Session Asie », « Session Londres », « Session New York », dans CET ordre (jamais de découpage par pays : le Canada vit dans Session New York, la Suisse et le Royaume-Uni dans Session Londres). Chaque "summary" raconte la séance par ses FONDAMENTAUX : le moteur (donnée réel vs attendu, banque centrale, géopolitique, flux) PUIS l'effet sur les devises/actifs de la session — INTERDIT d'ouvrir par « La journée a été marquée par » ou toute formule répétitive d'une session à l'autre, INTERDIT de citer une variation sans sa cause. Les titres de groupes doivent être choisis parmi : "Géopolitique","Marchés","Matières premières & Commerce","Données économiques","Banques centrales","Activité des entreprises","Politique & Réglementaire". N'inclus que les groupes ayant un contenu réel.
+- "regions" = EXACTEMENT les 3 SESSIONS de trading « Session Asie », « Session Londres », « Session New York », dans CET ordre (jamais de découpage par pays : le Canada vit dans Session New York, la Suisse et le Royaume-Uni dans Session Londres). MAXIMUM 3 groupes par session et 3 items par groupe : le SAILLANT, pas l'exhaustif. Les titres de groupes doivent être choisis parmi : "Géopolitique","Marchés","Matières premières & Commerce","Données économiques","Banques centrales","Activité des entreprises","Politique & Réglementaire". N'inclus que les groupes ayant un contenu réel. RAPPEL : chaque [MAJEUR] expliquant un mouvement de FORCE DES DEVISES doit apparaître dans sa session.
 - "econData" : utilise UNIQUEMENT les chiffres publiés fournis dans le bloc DONNÉES ÉCONOMIQUES (avec leurs actual / expected / previous). Garde les noms de publications/indicateurs tels quels (ne traduis pas les intitulés officiels). Ne fabrique aucune publication.
 - "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais — l'affichage est traduit).
 - "corporate" et "comments" : n'inclus que des éléments qui apparaissent réellement dans les titres.
