@@ -1198,9 +1198,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0;
-  max-height: 320px;
+  max-height: min(72vh, 460px);   /* montre bien plus de cases d'un coup (avant : 320px coupait la moitié) ; scroll pour le reste */
   overflow-y: auto;
+  overscroll-behavior: contain;   /* le scroll du dropdown ne fait pas défiler la page derrière (mobile) */
+  scrollbar-width: thin;          /* barre de défilement visible → on voit qu'il reste des cases dessous */
 }
+.dropdown-grid::-webkit-scrollbar { width: 8px; }
+.dropdown-grid::-webkit-scrollbar-thumb { background: var(--border3); border-radius: 4px; }
 
 .dropdown-item {
   display: flex;
@@ -6814,8 +6818,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    Evenement/Reel et on masque PREVISION (col 8) + PRECEDENT (col 10) -> dispos dans le detail au tap
    (comme HIGH/LOW). Colonnes + paddings compactes pour laisser de la place au nom de l'evenement. */
 @media (max-width: 480px) {
-  .cal-table th:nth-child(8), .cal-table td:nth-child(8),
-  .cal-table th:nth-child(10), .cal-table td:nth-child(10) { display: none; }
+  /* PRÉVISION (col 8) + PRÉCÉDENT (col 10) restent VISIBLES sur téléphone (demande user) : on garde des
+     colonnes lisibles et le conteneur DÉFILE horizontalement (swipe) pour les atteindre. HIGH/LOW (7/9)
+     restent masqués (fourchette d'estimation secondaire). */
+  #cal-table-wrap .cal-table { min-width: 500px; }
   .cth-time { width: 46px !important; }
   .cth-flag { width: 26px !important; }
   .cth-curr { width: 38px !important; }

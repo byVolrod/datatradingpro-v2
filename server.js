@@ -515,6 +515,28 @@ app.post('/api/read-reports', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+// ── Filtre des catégories de news (« Filtrer les sections »), PERSISTANT PAR COMPTE (KV durable, modèle
+//    symrecent → suit la reconnexion / le changement d'appareil). On stocke les catégories DÉSACTIVÉES
+//    (décochées) : une nouvelle catégorie absente de la liste reste ACTIVE par défaut. Valeur = { off: [...] }.
+//    (off === null → aucune préférence enregistrée : le client garde son localStorage / défaut.)
+app.get('/api/cat-filter', async (req, res) => {
+  if (!req.session?.userId) return res.json({ off: null });
+  try {
+    const v = await auth.aiCacheGet('catfilter:' + req.session.userId);
+    const off = (v && Array.isArray(v.off)) ? v.off.filter(x => typeof x === 'string' && x.length <= 60).slice(0, 80) : null;
+    res.json({ off });
+  } catch { res.json({ off: null }); }
+});
+app.post('/api/cat-filter', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const arr = Array.isArray(req.body?.off) ? req.body.off : [];
+    const off = [...new Set(arr.filter(x => typeof x === 'string' && x && x.length <= 60))].slice(0, 80);
+    await auth.aiCacheSet('catfilter:' + req.session.userId, { off });
+    res.json({ ok: true });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
 // ── Badge « NEW » du journal de trading — annonce vue UNE SEULE FOIS par compte (KV durable, modèle
 //    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV = survit au blackout egress).
 app.get('/api/journal-new-seen', async (req, res) => {
