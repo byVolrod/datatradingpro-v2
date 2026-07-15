@@ -2346,7 +2346,7 @@
       e.target.reset();
       const ms = d.mail || {};
       const mailMsg = ms.skipped ? '' : ms.sent ? ` : email de bienvenue envoyé via ${ms.provider}.` : ' : ⚠️ compte créé mais EMAIL DE BIENVENUE NON ENVOYÉ (voir la carte Email dans l\'onglet IA Monitor).';
-      const nlMsg = d.newsletter ? ' Inscrit à la newsletter (audience campagne, intro au prochain envoi).' : '';
+      const nlMsg = d.newsletter ? ' Inscrit à la newsletter : e-mail de bienvenue au prochain jour d\'envoi, puis il suit la séquence hebdo là où elle en est.' : '';
       okEl.textContent = `Utilisateur ${body.email} créé avec succès.${mailMsg}${nlMsg}`;
       okEl.classList.add('visible');
       loadUsers();
