@@ -10107,8 +10107,8 @@ async function _wrapLevels() {
 
 // Structure CALQUÉE sur la référence (image de référence) : LEAD + rubriques marché + EUROPEAN DATA + NOTABLE
 // HEADLINES + TRADE/TARIFFS + CENTRAL BANKS + GEOPOLITICS + bloc NORD-AMÉRICAIN (NEWS + DATA).
-const EU_WRAP_SECTIONS = ['SYNTHESE','ACTIONS','DEVISES','OBLIGATAIRE','MATIERES PREMIERES','DONNEES EUROPEENNES','TITRES MARQUANTS','COMMERCE/DOUANES','BANQUES CENTRALES','GEOPOLITIQUE','ACTUALITES NORD-AMERICAINES','DONNEES NORD-AMERICAINES'];
-const WRAP_VER = 'wrap-fr-2';   // v2 : + RÉSULTATS PUBLIÉS du calendrier (réel vs attendu) injectés au prompt + conséquences de marché dans SYNTHESE/DONNÉES (demande user). bump → régénère le wrap du jour au prochain run/boot
+const EU_WRAP_SECTIONS = ['SYNTHESE','ANNONCES ECONOMIQUES','ACTIONS','DEVISES','OBLIGATAIRE','MATIERES PREMIERES','DONNEES EUROPEENNES','TITRES MARQUANTS','COMMERCE/DOUANES','BANQUES CENTRALES','GEOPOLITIQUE','ACTUALITES NORD-AMERICAINES','DONNEES NORD-AMERICAINES'];
+const WRAP_VER = 'wrap-fr-3';   // v3 : rubrique dédiée ANNONCES ECONOMIQUES en tête (une puce PAR publication majeure : réel vs attendu + IMPACT expliqué — demande user 15/07 « parle + des sorties d'annonces éco et explique l'impact »). v2 : résultats calendrier injectés au prompt. bump → régénère le wrap du jour au prochain run/boot
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -10166,7 +10166,7 @@ function _euWrapBuild(buckets, fallbackLead) {
     const items = clean(buckets[h]);
     if (!items.length) continue;                  // rubrique vide (ou seulement « (None) ») → omise
     out.push(h);                                  // en-tête NU, MAJUSCULES → _isSectionHead → titre orange
-    items.slice(0, 8).forEach(it => out.push('- ' + it));   // jusqu'à 8 lignes/rubrique (rubriques riches façon pro)
+    items.slice(0, h === 'ANNONCES ECONOMIQUES' ? 12 : 8).forEach(it => out.push('- ' + it));   // jusqu'à 8 lignes/rubrique (12 pour les annonces éco : jours chargés type CPI+claims+PMI)
   }
   return out.join('\n');
 }
@@ -10254,7 +10254,7 @@ async function generateEuropeanMarketWrap(force = false) {
   const calRows = (_wrapCal || [])
     .filter(e => e && e.actual && e.actual !== '' && (e.timestamp || 0) > cutoff && (e.timestamp || 0) <= now && /high|medium/i.test(e.impact || ''))
     .sort((a, b) => ((b.impact === 'High') - (a.impact === 'High')) || (a.timestamp - b.timestamp))
-    .slice(0, 14)
+    .slice(0, 20)
     .map(e => `- [${e.currency}] ${e.title}: réel ${e.actual}${e.forecast ? ` vs att. ${e.forecast}` : ''}${e.previous ? ` (préc. ${e.previous})` : ''}`);
 
   const summarise = (arr, n = 6) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
@@ -10282,6 +10282,7 @@ AUTRES TITRES:\n${summarise(s.all, 14)}
 Rédige la synthèse avec EXACTEMENT ces en-têtes de rubrique, chacun SEUL sur sa ligne, en MAJUSCULES, SANS deux-points, dans CET ordre. N'omets une rubrique QUE si le flux/les niveaux ci-dessus n'ont vraiment rien pour elle.
 
 SYNTHESE
+ANNONCES ECONOMIQUES
 ACTIONS
 DEVISES
 OBLIGATAIRE
@@ -10296,6 +10297,7 @@ DONNEES NORD-AMERICAINES
 
 Chaque ligne de contenu commence par « - ». Format par rubrique :
 - SYNTHESE : 5 à 7 puces de SYNTHÈSE donnant la vue d'ensemble du jour — principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières, PUIS 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux — jamais inventée), et une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre — juste les puces.
+- ANNONCES ECONOMIQUES : LA rubrique détaillée des publications du jour — une puce PAR publication du bloc RÉSULTATS PUBLIÉS (TOUTES les High d'abord, puis les Medium marquantes). Chaque puce : « Pays/Devise Indicateur : réel X vs attendu Y (préc. Z) », PUIS 1 à 2 phrases qui EXPLIQUENT L'IMPACT : (a) la lecture macro (surprise haussière/baissière, accélération ou ralentissement, ce que ça implique pour la banque centrale concernée : pression hawkish/dovish, statu quo conforté) et (b) la réaction de marché SI elle est documentée dans le flux ou les niveaux (« → le dollar s'est renforcé, les rendements 2 ans ont grimpé »). Si aucune réaction n'est documentée, donne UNIQUEMENT la lecture macro au conditionnel (« devrait conforter la patience de la Fed ») sans inventer de mouvement. C'est la rubrique la plus pédagogique du rapport : chiffre exact + pourquoi ça compte.
 - ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 5 lignes ANALYTIQUES (phrases complètes, profondeur d'une note de desk). Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
 - DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent — chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
 - TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux.
@@ -10320,6 +10322,10 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %
   for (const h of EU_WRAP_SECTIONS) {
     if ((!buckets[h] || !buckets[h].length) && fb[h] && fb[h].length) buckets[h] = fb[h];
   }
+  // Repli ANNONCES ECONOMIQUES (IA KO) : les résultats RÉELS du calendrier (réel vs attendu vs précédent),
+  // factuels, sans impact inventé — la rubrique n'est jamais vide un jour de publications.
+  if ((!buckets['ANNONCES ECONOMIQUES'] || !buckets['ANNONCES ECONOMIQUES'].length) && calRows.length)
+    buckets['ANNONCES ECONOMIQUES'] = calRows.map(l => l.replace(/^- /, ''));
 
   const description = _euWrapBuild(buckets, _euWrapLead(levels));
   const sectionCount = EU_WRAP_SECTIONS.filter(h => (buckets[h] || []).length).length;

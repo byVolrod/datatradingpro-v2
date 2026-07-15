@@ -708,7 +708,8 @@ function handleMessage(msg) {
       // Bannière LIVE : on flashe APRÈS le rendu, et UNIQUEMENT si la news importante est
       // RÉELLEMENT AFFICHÉE dans le feed (passe les filtres ET dans les `displayLimit` premières).
       // → la notif est TOUJOURS synchro avec une news visible ; sinon pas de notif. (Anti-désync.)
-      const _renderedIds = new Set(getFilteredItems().slice(0, displayLimit).map(i => i.id));
+      const _fl = getFilteredItems();
+      const _renderedIds = new Set(_fl.slice(0, _alignLimitToDay(_fl, displayLimit)).map(i => i.id));
       _flashBreakingNews(truly_new.find(i => _renderedIds.has(i.id) && !(i._briefing || i.source === 'DTP' || isPrimerItem(i)) && _isImportantNews(i)));
     }
     // Refresh analyst library if a new briefing arrived and analyst view is active
@@ -1100,6 +1101,17 @@ function _newsCmp(a, b) {
   if (fa !== fb) return fb - fa;                       // FJ-urgent récent d'abord
   return (b.timestamp || 0) - (a.timestamp || 0);      // sinon, le plus récent d'abord
 }
+// « Charger plus » PILE à la frontière des JOURS (demande user 15/07) : le feed n'affiche que des
+// JOURNÉES COMPLÈTES — la limite est étendue jusqu'à la fin de la journée en cours d'affichage (même
+// clé formatDate que les en-têtes de date) → le bouton arrive juste avant que la journée précédente
+// commence, jamais au milieu d'une journée coupée en deux.
+function _alignLimitToDay(filtered, limit) {
+  if (filtered.length <= limit) return filtered.length;
+  const lastDay = formatDate(filtered[limit - 1].timestamp);
+  let end = limit;
+  while (end < filtered.length && formatDate(filtered[end].timestamp) === lastDay) end++;
+  return end;
+}
 function renderNews(hasNew = false) {
   const filtered = getFilteredItems();
   _syncNewsModeBtn();
@@ -1115,7 +1127,8 @@ function renderNews(hasNew = false) {
   }
 
   // Collapse same-speaker quote clusters into single grouped cards
-  const visible = _groupSpeakerQuotes(filtered.slice(0, displayLimit));
+  const effLimit = _alignLimitToDay(filtered, displayLimit);   // journées complètes uniquement
+  const visible = _groupSpeakerQuotes(filtered.slice(0, effLimit));
 
   // Group by date, sorted most-recent date first, items within each group newest first
   const groups = new Map();
@@ -1138,8 +1151,8 @@ function renderNews(hasNew = false) {
     }
   }
 
-  // "Charger plus" button
-  const hasMore = filtered.length > displayLimit || allItems.length < serverTotal;
+  // "Charger plus" button — placé à la frontière des jours (effLimit finit toujours une journée)
+  const hasMore = filtered.length > effLimit || allItems.length < serverTotal;
   if (hasMore) {
     const btn = document.createElement('button');
     btn.className = 'load-more-btn';
@@ -1174,33 +1187,35 @@ async function loadMore() {
   if (loadingMore) return;
 
   const filtered = getFilteredItems();
-  if (filtered.length > displayLimit) {
-    // More items already loaded in memory : just reveal them
-    displayLimit += 100;
+  const effLimit = _alignLimitToDay(filtered, displayLimit);
+  if (filtered.length > effLimit) {
+    // More items already loaded in memory : just reveal them. On repart de la FIN de journée affichée
+    // (effLimit, pas displayLimit) + 100 → le rendu ré-alignera sur la fin de la journée suivante.
+    displayLimit = effLimit + 100;
     renderNews();
     return;
   }
 
-  // Need to fetch older items from server
-  const oldestTs = allItems.length > 0
-    ? Math.min(...allItems.map(i => i.timestamp))
-    : Date.now();
-
+  // Need to fetch older items from server — on enchaîne les lots (max 4/clic) jusqu'à ce que la JOURNÉE
+  // à la nouvelle frontière soit COMPLÈTE côté client : le bouton retombe toujours pile avant la journée
+  // suivante, même les jours à très fort volume (>100 news, ex. FOMC/CPI).
   loadingMore = true;
   renderNews();
 
   try {
-    const r    = await fetch(`/api/news/history?before=${oldestTs}&limit=100`);
-    const data = await r.json();
-    if (data.total) serverTotal = data.total;
-    if (data.items?.length > 0) {
+    for (let hop = 0; hop < 4; hop++) {
+      const oldestTs = allItems.length > 0 ? Math.min(...allItems.map(i => i.timestamp)) : Date.now();
+      const r    = await fetch(`/api/news/history?before=${oldestTs}&limit=100`);
+      const data = await r.json();
+      if (data.total) serverTotal = data.total;
       const existingIds = new Set(allItems.map(i => i.id));
-      const fresh = data.items.filter(i => !existingIds.has(i.id));
-      if (fresh.length > 0) {
-        allItems = [...allItems, ...fresh].sort((a, b) => b.timestamp - a.timestamp);
-        displayLimit += 100;
-      }
+      const fresh = (data.items || []).filter(i => !existingIds.has(i.id));
+      if (!fresh.length) { serverTotal = allItems.length; break; }   // historique épuisé → plus de bouton
+      allItems = [...allItems, ...fresh].sort((a, b) => b.timestamp - a.timestamp);
+      const f2 = getFilteredItems();
+      if (_alignLimitToDay(f2, displayLimit + 100) < f2.length) break;   // la journée à la frontière est complète
     }
+    displayLimit += 100;
   } catch {}
 
   loadingMore = false;
