@@ -552,6 +552,7 @@ function init() {
   loadSettings();
   buildSettingsPanel();
   buildSectionDropdown();
+  loadCatFilterFromServer();   // persistance PAR COMPTE : réapplique le filtre de sections enregistré (cross-device)
   startClocks();
   // La carte monde (amCharts, panneau droit : PAS le fil principal que l'utilisateur regarde) est
   // LOURDE : on la dessine en temps IDLE pour ne pas retarder le 1er paint du fil. drawWorldMap /
@@ -3050,6 +3051,29 @@ function filterSettings(query) {
 
 function saveSettings() {
   localStorage.setItem('pt_enabled', JSON.stringify([...enabledCategories]));
+  _syncCatFilterToServer();   // + persistance PAR COMPTE (KV durable) → le choix suit mobile ↔ desktop
+}
+
+// ── Filtre de sections PERSISTANT PAR COMPTE (modèle symrecent : suit la reconnexion / le changement
+//    d'appareil). On stocke les catégories DÉSACTIVÉES (« off ») → une nouvelle catégorie reste ACTIVE
+//    par défaut. localStorage = cache instantané ; le KV serveur est la source de vérité cross-device.
+let _catFilterSyncT = null;
+function _catFilterOff() { return INTERNAL_CATS.filter(c => !enabledCategories.has(c)); }
+function _syncCatFilterToServer() {
+  clearTimeout(_catFilterSyncT);
+  _catFilterSyncT = setTimeout(() => {
+    fetch('/api/cat-filter', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ off: _catFilterOff() }) }).catch(() => {});
+  }, 800);   // débounce : un seul POST après une salve de décochages
+}
+async function loadCatFilterFromServer() {
+  try {
+    const d = await fetch('/api/cat-filter').then(r => r.json());
+    if (!d || !Array.isArray(d.off)) return;   // off === null → aucune préférence serveur : on garde localStorage/défaut
+    const off = new Set(d.off);
+    enabledCategories = new Set(INTERNAL_CATS.filter(c => !off.has(c)));
+    try { localStorage.setItem('pt_enabled', JSON.stringify([...enabledCategories])); } catch {}
+    buildSectionDropdown(); syncSettingsUI(); syncDropdownUI(); renderNews();   // ré-applique l'état enregistré
+  } catch {}
 }
 
 function loadSettings() {
