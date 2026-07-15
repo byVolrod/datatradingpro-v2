@@ -10259,7 +10259,11 @@ async function generateEuropeanMarketWrap(force = false) {
   const summarise = (arr, n = 6) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
   // AUTRES TITRES : les IMPORTANTS (rouges) d'abord, puis les plus récents — une news majeure de 17h
   // n'est plus éjectée du top-14 par le flot du soir (bug « news majeure GBP absente de la synthèse »).
-  const _allPrio = [...s.all].sort((a, b) => (((b.priority === 'high' || b.priority === 'urgent') ? 1 : 0) - ((a.priority === 'high' || a.priority === 'urgent') ? 1 : 0)) || ((b.timestamp || 0) - (a.timestamp || 0)));
+  // Les importants sont marqués [MAJEUR] dans le prompt : l'IA a l'OBLIGATION de les reprendre dans
+  // TITRES MARQUANTS (sinon elle en ignorait certains à la rédaction, vérifié : story en position 3, omise).
+  const _isImp = i => i.priority === 'high' || i.priority === 'urgent';
+  const _allPrio = [...s.all].sort((a, b) => ((_isImp(b) ? 1 : 0) - (_isImp(a) ? 1 : 0)) || ((b.timestamp || 0) - (a.timestamp || 0)));
+  const _fmtPrio = arr => arr.length ? arr.slice(0, 14).map(i => `• ${_isImp(i) ? '[MAJEUR] ' : ''}${i.headline}`).join('\n') : '(none)';
   const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
   const prompt = `Tu es reporter marchés senior dans une banque de premier plan ; tu rédiges la SYNTHÈSE DE MARCHÉ quotidienne à la clôture cash européenne (16:00 Paris), dans le style institutionnel et factuel d'une référence type Newsquawk. Date : ${dateStr}.
 
@@ -10279,7 +10283,7 @@ DONNEES NORD-AMERICAINES (réel vs att./préc.):\n${summarise(s.naData, 8)}
 GEOPOLITIQUE:\n${summarise(s.geo, 8)}
 COMMERCE / DROITS DE DOUANE:\n${summarise(s.trade, 4)}
 TITRES NORD-AMERICAINS (politique, budget, entreprises US/Canada):\n${summarise(s.naNews, 8)}
-AUTRES TITRES:\n${summarise(_allPrio, 14)}
+AUTRES TITRES:\n${_fmtPrio(_allPrio)}
 
 Rédige la synthèse avec EXACTEMENT ces en-têtes de rubrique, chacun SEUL sur sa ligne, en MAJUSCULES, SANS deux-points, dans CET ordre. N'omets une rubrique QUE si le flux/les niveaux ci-dessus n'ont vraiment rien pour elle.
 
@@ -10302,7 +10306,7 @@ Chaque ligne de contenu commence par « - ». Format par rubrique :
 - ANNONCES ECONOMIQUES : LA rubrique détaillée des publications du jour — une puce PAR publication du bloc RÉSULTATS PUBLIÉS (TOUTES les High d'abord, puis les Medium marquantes). Chaque puce : « Pays/Devise Indicateur : réel X vs attendu Y (préc. Z) », PUIS 1 à 2 phrases qui EXPLIQUENT L'IMPACT : (a) la lecture macro (surprise haussière/baissière, accélération ou ralentissement, ce que ça implique pour la banque centrale concernée : pression hawkish/dovish, statu quo conforté) et (b) la réaction de marché SI elle est documentée dans le flux ou les niveaux (« → le dollar s'est renforcé, les rendements 2 ans ont grimpé »). Si aucune réaction n'est documentée, donne UNIQUEMENT la lecture macro au conditionnel (« devrait conforter la patience de la Fed ») sans inventer de mouvement. C'est la rubrique la plus pédagogique du rapport : chiffre exact + pourquoi ça compte.
 - ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 5 lignes ANALYTIQUES (phrases complètes, profondeur d'une note de desk). Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
 - DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent — chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
-- TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux.
+- TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux. OBLIGATOIRE : reprends TOUS les titres marqués [MAJEUR] du bloc AUTRES TITRES (reformulés en français, sans le marqueur), puis complète avec les autres faits saillants.
 - COMMERCE/DOUANES : puces factuelles sur les accords commerciaux et droits de douane, issues du flux.
 - BANQUES CENTRALES : puces factuelles par banque (décision, répartition des votes, guidance), issues des données.
 - GEOPOLITIQUE : puces factuelles groupées par thème (Russie-Ukraine, puis Moyen-Orient) dans la rubrique.
