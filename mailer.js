@@ -1161,10 +1161,13 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
   // Accroche ancree sur l'evenement VEDETTE du calendrier (context.featured = ce que le widget affiche en tete)
   // -> le mail vedette le MEME evenement que le calendrier affiche -> jamais de contradiction texte/calendrier.
   const featured = (context && context.featured) || majors[0] || upcoming[0] || null;
+  // LEAD D'ENJEU (refonte 15/07, inspirée des meilleurs mails d'anticipation) : on ouvre sur CE QUI SE JOUE
+  // (le rendez-vous + pourquoi il compte), pas sur une statistique de volume. Le compte des temps forts passe
+  // en 2de phrase. 100% factuel (l'événement vedette est réellement le plus suivi du calendrier de la semaine).
   let lead;
   if (featured) {
     const when = `${featured.dayLabel || ''}${featured.time ? ' à ' + featured.time : ''}`.trim();
-    lead = `Cette semaine, le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier. Le rendez-vous clé&nbsp;: <strong style="color:#f3c344;">${_esc(featured.title)}</strong>${when ? ' (' + _esc(when) + ')' : ''}.`;
+    lead = `${when ? _esc(when.charAt(0).toUpperCase() + when.slice(1)) + ', ' : 'Cette semaine, '}l'attention du marché se portera sur <strong style="color:#f3c344;">${_esc(featured.title)}</strong> — l'un des rendez-vous les plus suivis de la semaine, car il peut peser sur les anticipations de taux et réveiller la volatilité. Le desk suit <strong style="color:#fff;">${upcoming.length} temps fort${upcoming.length > 1 ? 's' : ''}</strong> au calendrier.`;
   } else {
     lead = `Chaque semaine, le calendrier se remplit de sigles. Voici un fondamental à garder en tête pour les lire d'un coup d'œil.`;
   }
@@ -1193,6 +1196,24 @@ function buildCampaignDecryptage({ name, email, campaign, context, recentKeys, i
     if (featured.previous) fnums.push(`précédent <strong style="color:#cbd5e1;">${_esc(featured.previous)}</strong>`);
     const fnumLine = fnums.length ? ` Le marché attend ${fnums.join(', ')}.` : '';
     appliedHtml = `<p style="margin:18px 0 12px;"><strong style="color:#f3c344;">Cette semaine, concrètement&nbsp;:</strong> le rendez-vous à surveiller est <strong style="color:#fff;">${_esc(featured.title)}</strong>${fwhen ? ' (' + _esc(fwhen) + ')' : ''}.${fnumLine} C'est exactement la mécanique décrite plus haut, à lire en direct&nbsp;: le marché compare le chiffre aux attentes, pas au niveau brut, et c'est l'écart qui fait bouger le dollar, l'or et les indices.</p>`;
+    // ── LES DEUX SCÉNARIOS (refonte 15/07) : la mécanique type au-dessus/en-dessous des attentes, appliquée à
+    //    L'ÉVÉNEMENT vedette. Polarité par indicateur (chômage/inscriptions : un chiffre plus haut = économie plus
+    //    faible → lecture inversée). 100% INFORMATIF : on décrit des mécaniques de marché habituelles (« tend à »,
+    //    « généralement »), jamais une prédiction ni une incitation à prendre position (règle DTP).
+    if (featured.forecast || featured.previous) {
+      const _inv = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts/i.test(featured.title || '');
+      const hawk = `le marché tend à repousser ses attentes d'assouplissement — la devise concernée est généralement soutenue, tandis que l'obligataire et les actifs sensibles aux taux passent sous pression`;
+      const dove = `la banque centrale est perçue comme plus accommodante — la devise concernée a tendance à s'affaiblir et les actifs sensibles aux taux respirent`;
+      const above = _inv ? dove : hawk;
+      const below = _inv ? hawk : dove;
+      const _scCard = (arrow, t, txt) => `<div style="border:1px solid #232429;border-left:3px solid rgba(227,178,58,.55);border-radius:6px;padding:12px 14px;margin:0 0 10px;background:#131418;">`
+        + `<div style="color:#fff;font-weight:700;font-size:13.5px;margin-bottom:4px;">${arrow} ${t}</div>`
+        + `<div style="color:#aab2c0;font-size:13px;line-height:1.55;">${txt}.</div></div>`;
+      appliedHtml += `<div style="margin:16px 0 4px;color:#f3c344;font-weight:700;font-size:13px;letter-spacing:.04em;text-transform:uppercase;">Les deux scénarios à connaître</div>`
+        + _scCard('▲', 'Si le chiffre sort au-dessus des attentes', `Lecture « surprise haussière »&nbsp;: ${above}`)
+        + _scCard('▼', 'S’il sort en-dessous', `Lecture « surprise baissière »&nbsp;: ${below}`)
+        + `<p style="margin:6px 0 0;font-size:12.5px;color:#7b828f;">Ce ne sont pas des prédictions&nbsp;: deux mécaniques types à avoir en tête avant la publication — la réaction réelle dépend toujours du contexte, à suivre en direct sur le Desk.</p>`;
+    }
   }
 
   // Repli evergreen (decodeur 4 familles) uniquement si vraiment aucune donnee calendrier
