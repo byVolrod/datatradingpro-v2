@@ -6627,6 +6627,8 @@ function _renderWeeklyRecap(item) {
               + `</div>`;
           }
           if (e.comment) body += `<div class="gew-ev-cmt">${_wrEsc(e.comment)}</div>`;   // analyse Econoday-style
+          // PROPOS RÉELS du discours (minés dans le flux news du même jour, serveur) — traduits FR à l'affichage.
+          (e.quotes || []).forEach(q => { body += `<div class="gew-ev-quote">« <span class="gew-ev-quote-txt">${_wrEsc(q)}</span> »</div>`; });
           body += `</div>`;
         });
         body += `</div>`;
@@ -6649,12 +6651,15 @@ function _renderWeeklyRecap(item) {
     const _hasCb = !!(w.centralBanks && w.centralBanks.length);
     if (_macro.length || _hasCb) {
       body += `<div class="wr-section-title">Points Macro Clés</div>`;
-      let _cbDone = false;
-      const _emitCb = () => { if (!_cbDone && _hasCb) { body += _wrCbSection(w.centralBanks); _cbDone = true; } };
+      // Ligne séparatrice entre CHAQUE partie (Géopolitique, BC, Inflation & Croissance, Cross-Asset,
+      // Commerce & Tarifs, Techno…) → le bloc respire (demande user). Jamais avant la toute première.
+      let _cbDone = false, _firstPart = true;
+      const _partSep = () => { const s = _firstPart ? '' : '<div class="wr-sep"></div>'; _firstPart = false; return s; };
+      const _emitCb = () => { if (!_cbDone && _hasCb) { body += _partSep() + _wrCbSection(w.centralBanks); _cbDone = true; } };
       const _geoIdx = _macro.findIndex(s => /g[ée]opolit/i.test((s && s.heading) || ''));
       if (_geoIdx < 0) _emitCb();   // aucun thème Géopolitique → Banques Centrales en tête du bloc
       _macro.forEach((s, i) => {
-        body += `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
+        body += _partSep() + `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
         (s.bullets||[]).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
         if (i === _geoIdx) _emitCb();   // ── Banques Centrales & Politique Monétaire = section dédiée, en #2 (juste après Géopolitique) ──
       });
@@ -6684,6 +6689,7 @@ function _renderWeeklyRecap(item) {
   }
 
   content.innerHTML = `<div class="wr">${insightsHtml}<div class="wr-body">${body}</div></div>`;
+  if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(content, '.gew-ev-quote-txt');   // propos de discours (souvent EN) → FR (cache serveur)
   content.scrollTop = 0;
   if (isGew) return;   // GEW : pas de courbes de force par devise
 
