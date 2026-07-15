@@ -2724,22 +2724,34 @@ async function _fetchSessionWraps(full = false) {
       const r = await axios.get(url, { timeout: 12000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
       if (r.status !== 200) break;
 
-      const re = /\/news\/(investinglive-[a-z0-9-]*wrap[a-z0-9-]*-(\d{8}))\//gi;
+      // Format investingLive : ANCIEN « …-wrap-…-YYYYMMDD » OU NOUVEAU « …-fx-news-wrap-JJ-mois » (ex. « 15-jul »,
+      // date en JJ-mois, parfois au milieu du slug). On matche TOUT slug « wrap » puis on extrait la date des 2 formats.
+      const re = /\/news\/(investinglive-[a-z0-9-]*wrap[a-z0-9-]*)\//gi;
+      const _MON = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
+      const _nowP = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
       const seen = new Set();
       let pageHad = false, anyRecent = false, m;
       while ((m = re.exec(r.data)) !== null) {
-        const slug = m[1].toLowerCase(), ymd = m[2];
+        const slug = m[1].toLowerCase();
         if (seen.has(slug)) continue;
         seen.add(slug);
         pageHad = true;
-        // Session détectée AVANT le timestamp → heure PAR SESSION (Asia ~04h < Europe ~10h < Americas ~19h30 UTC).
-        // Sans pubDate réelle (scrape), les 3 wraps d'un même jour auraient sinon le MÊME timestamp NOON → on
-        // ne distingue plus que l'Asie est sortie AVANT l'Europe. Les heures par session reflètent la vraie séquence.
+        // Session détectée AVANT le timestamp → heure PAR SESSION (Asia ~04h < Europe ~10h < Americas ~18h UTC).
         let session = 'Global', sh = 12;
         if      (/americas|north.american/.test(slug)) { session = 'Americas';     sh = 18; }
         else if (/europe/.test(slug))                  { session = 'European';     sh = 10; }
         else if (/asia.pacific|asian/.test(slug))      { session = 'Asia-Pacific'; sh = 4;  }
-        const ts = Date.UTC(+ymd.slice(0,4), +ymd.slice(4,6) - 1, +ymd.slice(6,8), sh);
+        // Date : ancien YYYYMMDD, sinon nouveau « JJ-mois ».
+        let ts = 0;
+        const _m8 = slug.match(/-(\d{8})(?:-|$)/);
+        const _dm = slug.match(/-(\d{1,2})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/);
+        if (_m8) {
+          ts = Date.UTC(+_m8[1].slice(0, 4), +_m8[1].slice(4, 6) - 1, +_m8[1].slice(6, 8), sh);
+        } else if (_dm) {
+          let yr = _nowP.getFullYear();
+          if (_MON[_dm[2]] > _nowP.getMonth() + 1) yr -= 1;   // mois nettement futur → wrap de l'an dernier (bascule d'année)
+          ts = Date.UTC(yr, _MON[_dm[2]], +_dm[1], sh);
+        } else continue;   // aucune date extractible → impossible à dater/dédupliquer → on saute
         if (!ts || ts < cutoff) continue;
         anyRecent = true;
         const link = `https://investinglive.com/news/${slug}/`;
@@ -2751,7 +2763,7 @@ async function _fetchSessionWraps(full = false) {
           if (ex && session !== 'Global' && dd.getUTCHours() === 12 && dd.getUTCMinutes() === 0 && dd.getUTCSeconds() === 0) ex.timestamp = ts;
           continue;
         }
-        let title = slug.replace(/^investinglive-/,'').replace(/-\d{8}$/,'').replace(/-/g,' ').trim();
+        let title = slug.replace(/^investinglive-/, '').replace(/-(\d{8})(?:-|$)/, ' ').replace(/-(\d{1,2})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/, ' ').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
         title = title.charAt(0).toUpperCase() + title.slice(1);
         merged.set(id, { id, title, url: link, timestamp: ts, session, description: '', content: null, author: '', _source: 'investinglive' });
       }
