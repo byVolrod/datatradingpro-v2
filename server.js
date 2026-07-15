@@ -10324,7 +10324,9 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %
   // Backfill : TOUTE rubrique vide (IA partielle OU totalement KO/cooldown) est complétée depuis
   // le repli déterministe (niveaux réels marché + top headlines). Garantit un wrap riche même
   // sans IA — fini le « 4 rubriques » quand toutes les clés Claude/Gemini sont en cooldown.
-  const fb = _euWrapFallback(levels, s);
+  // Repli : TITRES MARQUANTS reçoit lui aussi la liste PRIORISÉE (importants d'abord) — sinon, sous
+  // quota IA mort, le repli par récence ré-omettait la news majeure que le tri venait de sauver.
+  const fb = _euWrapFallback(levels, { ...s, all: _allPrio });
   for (const h of EU_WRAP_SECTIONS) {
     if ((!buckets[h] || !buckets[h].length) && fb[h] && fb[h].length) buckets[h] = fb[h];
   }
