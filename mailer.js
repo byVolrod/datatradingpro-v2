@@ -922,20 +922,35 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
       </td></tr>`).join('');
     curHtml = `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">${_curPick.length === 1 ? 'Une devise de la semaine, lue' : _curPick.length + ' devises de la semaine, lues'} par le desk, sans entrer dans le détail&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${rows}</table>`;
   }
-  // Table CALENDRIER À VENIR (v18) : les prochains rendez-vous majeurs de la semaine, du + proche au + éloigné.
+  // EXTRACTIONS DE DONNÉES du rapport (demande user « légèrement + complet, valeur ajoutée ») — v19.
+  // (L'ancienne table « rendez-vous à venir » était du code mort : jamais injectée, elle doublait le mail
+  // « Semaine à venir » du dimanche. Remplacée par deux extractions RÉTROSPECTIVES, fidèles au Récap.)
+  // #1 — LE FAIT MARQUANT : le 1er thème macro RÉEL du rapport (ordre canonique du desk) + ses 2 premières puces.
+  const _mac = (Array.isArray(w.macro) ? w.macro : []).find(s => s && s.heading && Array.isArray(s.bullets) && s.bullets.length);
+  const macroFactHtml = _mac ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Le fait marquant de la semaine&nbsp;:</p>
+    <div style="border:1px solid #232429;border-left:3px solid #f3c344;border-radius:6px;background:#0d0e11;padding:10px 12px;margin:0 0 6px;">
+      <div style="color:#f3c344;font-weight:800;font-size:11px;text-transform:uppercase;letter-spacing:.05em;">${_esc(_md(_mac.heading))}</div>
+      ${_mac.bullets.slice(0, 2).map(b => `<div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:5px;">${_esc(_cutTxt(_md(b), 230))}</div>`).join('')}
+    </div>` : '';
+  // #2 — LES CHIFFRES QUI ONT MARQUÉ LA SEMAINE : résultats RÉELS publiés (calendrier passé du rapport),
+  // majeurs d'abord. RÉEL coloré selon la POLARITÉ intelligente (miroir de _calMailActual/deviationClass du
+  // desk : indicateurs INVERSÉS — chômage, inscriptions, licenciements… — plus bas que prévu = vert).
   const _WD_ISO = { USD: 'us', EUR: 'eu', GBP: 'gb', JPY: 'jp', CHF: 'ch', CAD: 'ca', AUD: 'au', NZD: 'nz', CNY: 'cn' };
   const _wdFlag = ccy => { const c = String(ccy || '').toUpperCase(); const iso = _WD_ISO[c]; return (iso ? `<img src="https://flagcdn.com/w20/${iso}.png" width="16" height="12" alt="" style="vertical-align:middle;border-radius:2px;margin-right:4px;">` : '') + (c ? `<span style="color:#cbd5e1;font-weight:700;font-size:11px;">${_esc(c)}</span>` : ''); };
-  const _wdTh = t => `<td style="padding:6px 10px;color:#8b93a1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;${t === 'r' ? 'text-align:right;' : ''}">${t === 'd' ? 'Jour' : t === 'c' ? 'Devise' : t === 'e' ? 'Événement' : 'Prév.'}</td>`;
-  const _calFlat = [];
-  for (const d of ((w.calendar && Array.isArray(w.calendar.upcoming)) ? w.calendar.upcoming : [])) for (const e of (d.events || [])) _calFlat.push({ e, day: d.dayLabel });
-  const _calRows = _calFlat.slice(0, 8);
-  const calTableHtml = _calRows.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Les prochains rendez-vous majeurs, du plus proche au plus éloigné&nbsp;:</p>
+  const _wdTh = t => `<td style="padding:6px 10px;color:#8b93a1;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;${(t === 'r' || t === 'a') ? 'text-align:right;' : ''}">${t === 'd' ? 'Jour' : t === 'c' ? 'Devise' : t === 'e' ? 'Événement' : t === 'a' ? 'Réel' : 'Prév.'}</td>`;
+  const _INV_RX = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts|foreclosure|bankruptc|delinquen/i;
+  const _actCol = (a, f, title) => { const x = parseFloat(String(a == null ? '' : a).replace(',', '.')), y = parseFloat(String(f == null ? '' : f).replace(',', '.')); if (isNaN(x) || isNaN(y) || x === y) return '#e6e6ea'; const good = _INV_RX.test(String(title || '')) ? x < y : x > y; return good ? '#22c55e' : '#ef4444'; };
+  const _pastFlat = [];
+  for (const d of ((w.calendar && Array.isArray(w.calendar.past)) ? w.calendar.past : [])) for (const e of (d.events || [])) { if (e && e.actual) _pastFlat.push({ e, day: d.dayLabel }); }
+  const _pastRows = [..._pastFlat.filter(r => r.e.major), ..._pastFlat.filter(r => !r.e.major && /high/i.test(r.e.impact || ''))].slice(0, 7);
+  const pastTableHtml = _pastRows.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Les chiffres qui ont marqué la semaine (réel vs attendu)&nbsp;:</p>
     <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">
-    <tr style="background:#101012;">${_wdTh('d')}${_wdTh('c')}${_wdTh('e')}${_wdTh('r')}</tr>
-    ${_calRows.map(({ e, day }) => `<tr>
-      <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11px;white-space:nowrap;">${_esc(day)}${e.time ? ' ' + _esc(e.time) : ''}</td>
+    <tr style="background:#101012;">${_wdTh('d')}${_wdTh('c')}${_wdTh('e')}${_wdTh('a')}${_wdTh('r')}</tr>
+    ${_pastRows.map(({ e, day }) => `<tr>
+      <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11px;white-space:nowrap;">${_esc(day)}</td>
       <td style="padding:7px 10px;border-top:1px solid #1f1f24;white-space:nowrap;">${_wdFlag(e.ccy)}</td>
       <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#e6e6ea;font-size:12.5px;">${_esc(e.title)}</td>
+      <td style="padding:7px 10px;border-top:1px solid #1f1f24;font-size:12px;font-weight:800;text-align:right;white-space:nowrap;color:${_actCol(e.actual, e.forecast, e.title)};">${_esc(e.actual)}</td>
       <td style="padding:7px 10px;border-top:1px solid #1f1f24;color:#9aa3b2;font-size:11.5px;text-align:right;white-space:nowrap;">${_esc(e.forecast || '·')}</td>
     </tr>`).join('')}
     </table></div>` : '';
@@ -944,10 +959,12 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     <p style="margin:0 0 16px;">Voici un <strong style="color:#f3c344;">avant-goût du Récap Hebdo</strong> du desk : la rétrospective de la semaine, en clair.</p>
     ${lead ? `<p style="margin:0 0 16px;">${_esc(lead).slice(0, 520)}</p>` : ''}
     ${insightsHtml}
+    ${macroFactHtml}
+    ${pastTableHtml}
     ${curHtml}
     ${_widgetImg('strength', 'La force des devises')}
     ${cbToneHtml}
-    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par banque, guidance et propos, analyse par devise) vous attend sur le <strong style="color:#fff;">Desk</strong>&nbsp;:</p>
+    <p style="margin:0 0 6px;">Ceci n'est qu'un extrait&nbsp;: le rapport complet (analyse par banque, guidance et propos, analyse par devise, calendrier complet de la semaine) vous attend sur le <strong style="color:#fff;">Desk</strong>&nbsp;:</p>
     ${_campaignBtn('Ouvrir DataTradingPro', trackClickUrl(campaign, email, LANDING_URL))}
     <p style="margin:0 0 4px;">Bonne semaine,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
