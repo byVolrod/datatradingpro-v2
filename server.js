@@ -3070,6 +3070,21 @@ app.get('/api/weekly-reports', async (_req, res) => {
       generateFXDailyRecap(true).catch(e => console.error('[FX Recap] auto-gen échec:', e.message));
     }
   }
+  // GUÉRISON DES JOURS PASSÉS (bug « pourquoi c'est en anglais », 15/07) : un repli anglais (_ai:false) d'un
+  // des ~3 derniers jours couverts (HORS jour-cible, déjà traité ci-dessus) est retenté lui aussi — sinon,
+  // passé 19h, le jour-cible bascule au lendemain et le repli d'hier restait ANGLAIS pour toujours dans
+  // l'historique. Un seul jour par tick (quota), le plus récent d'abord ; verrou 15 min dédié ; s'éteint
+  // dès que la version IA française est publiée (l'anti-rétrogradation garantit qu'elle ne re-régresse pas).
+  else {
+    const _fxrPastFb = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr && i._fxr._ai === false
+      && i._fxr.day !== _fxrDay && (Date.now() - ((_parisDayRange(i._fxr.day) || [0])[0] || 0)) < 3.5 * 86400000);
+    if (_fxrPastFb && Date.now() - _fxrPastGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
+      _fxrPastGenLock = Date.now();
+      generating = true;
+      console.log('[FX Recap] guérison jour passé : régén FR de ' + _fxrPastFb._fxr.day);
+      generateFXDailyRecap(true, _fxrPastFb._fxr.day).catch(e => console.error('[FX Recap] régén jour passé échec:', e.message));
+    }
+  }
   // DTP DAILY « Point Marché · Ouverture US » : auto-génère s'il manque pour aujourd'hui (jour ouvré, après midi Paris).
   const _dtpdDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getDay();
   const _dtpdH   = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getHours();
@@ -7910,6 +7925,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
 const FXR_VER = 3;   // v3 : + section « Commentaires marquants » (notable comments) en bas du rapport
 let _fxrGenLock = 0;
+let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
 const _fxrCcyCtry = { USD:'United States', EUR:'Eurozone', GBP:'United Kingdom', JPY:'Japan', CHF:'Switzerland', CAD:'Canada', AUD:'Australia', NZD:'New Zealand', CNY:'China' };
 
@@ -8033,8 +8049,11 @@ function _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine }
   };
 }
 
-async function generateFXDailyRecap(force = false) {
-  const dayKey   = _fxrTargetDayKey();
+async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
+  // dayKeyOverride (guérison, 15/07) : régénérer un JOUR PASSÉ précis (ex. repli anglais d'hier à réécrire
+  // en français une fois le quota IA revenu) — la fenêtre de données _parisDayRange(dayKey) est déjà
+  // paramétrée par jour, la rétention news conserve plusieurs jours. Sans override : jour cible normal.
+  const dayKey   = dayKeyOverride || _fxrTargetDayKey();
   // Pas de (RE)génération les nuits de WEEK-END : la séance forex est fermée le samedi/dimanche, le contexte
   // news est vide → on garderait le recap du VENDREDI (déjà ciblé par _fxrTargetDayKey, qui recule au dernier
   // jour ouvré). Ce verrou (basé sur le jour RÉEL, pas le jour cible) empêche le planificateur 22:30 de
@@ -8083,10 +8102,12 @@ async function generateFXDailyRecap(force = false) {
       return `- ${dl} [${e.currency || ''}] ${String(e.title || '').slice(0, 90)} (${e.impact})`;
     });
 
-    // 4) Force des devises intraday (contexte, best-effort — n'échoue jamais le rapport)
+    // 4) Force des devises intraday (contexte, best-effort — n'échoue jamais le rapport).
+    // PAS pour une régén de jour passé (dayKeyOverride) : 'today' donnerait la force d'AUJOURD'HUI
+    // dans un rapport qui couvre hier → le prompt reçoit '(n/d)' plutôt qu'une donnée trompeuse.
     let csLine = '';
     try {
-      const cs = await computeCurrencyStrength('today');
+      const cs = dayKeyOverride ? null : await computeCurrencyStrength('today');
       if (cs && cs.series) {
         const parts = [];
         for (const c of ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD']) {
@@ -8158,6 +8179,19 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
 
     // ── Repli déterministe : TOUJOURS un rapport exploitable (sans Gemini) ──
     if (!fxr) fxr = _fxrFallback({ dayKey, dateLabel, newsItems, dataRows, laRows, csLine });
+
+    // ── ANTI-RÉTROGRADATION (bug « pourquoi c'est en anglais », 15/07) : un repli déterministe (_ai:false,
+    //    titres bruts ANGLAIS) ne remplace JAMAIS une version IA française déjà publiée pour le même jour —
+    //    c'est exactement ce qui a affiché le recap du 14 en anglais (régén de 11h28 sous quota IA mort).
+    //    Le repli ne passe que s'il n'y a RIEN pour ce jour (mieux que rien) ou pour rafraîchir un repli du
+    //    jour COURANT (contenu plus frais à 22h30) ; jamais pour une régén de jour passé (aucun gain).
+    if (!fxr._ai) {
+      const _existing = allNews.find(i => i._reportType === 'FX Daily Recap' && i._fxr && i._fxr.day === dayKey);
+      if (_existing && (_existing._fxr._ai || dayKeyOverride)) {
+        console.log(`[FX Recap] repli ignoré pour ${dayKey} : ${_existing._fxr._ai ? 'version IA française déjà en place' : 'régén jour passé sans amélioration'}`);
+        return _existing;
+      }
+    }
 
     // Filets : econData / lookahead / tags TOUJOURS issus des données RÉELLES si l'IA ne les a pas remplis.
     if (!fxr.econData  || !fxr.econData.length)  fxr.econData  = _fxrEconFromRows(dataRows);
@@ -8396,18 +8430,29 @@ ${biasLine || '(n/d)'}`;
     }
     if (!dtpd || !dtpd.sections || !dtpd.sections.length) dtpd = _dtpdFallback({ dayKey, dateLabel, newsItems, dataRows });
 
-    const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    // ANTI-RÉTROGRADATION (même règle que le FX Recap, bug « pourquoi c'est en anglais » 15/07) : un repli
+    // déterministe (_ai:false, titres bruts anglais) ne remplace jamais une version IA française du même jour.
+    if (dtpd._ai === false) {
+      const _existing = allNews.find(i => i._reportType === 'DTP Daily' && i._dtpd && i._dtpd.day === dayKey && i._dtpd._ai !== false);
+      if (_existing) { console.log(`[DTP Daily] repli ignoré pour ${dayKey} : version IA française déjà en place`); return _existing; }
+    }
+
     const _frMon = ['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
     const _dp = dayKey.split('-').map(Number);
     dtpd.reportName = 'DTP Daily US Opening News - ' + _dp[2] + ' ' + _frMon[_dp[1] - 1] + ' ' + _dp[0];   // titre DTP, format FR
+    // HORODATAGE STABLE = jour couvert à 12:00 Paris (« Opening News » de midi), PAS l'instant de génération
+    // (même principe que le FX Recap 19:00 : une régén tardive ne re-date plus le rapport dans l'historique).
+    const _dtpdPubTs = _parisDayRange(dayKey)[0] + 12 * 3600e3;
     const item = {
       id: 'dtp-daily-' + dayKey + '-' + now,
       headline: dtpd.reportName, description: dtpd.title || dtpd.summary,
-      category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
+      category: 'Market Analysis', source: 'DTP', time: '12:00', timestamp: _dtpdPubTs,
       priority: 'normal', tags: (dtpd.tags || []).slice(0, 8),
       _briefing: true, _reportType: 'DTP Daily', _dtpd: dtpd,
     };
-    allNews = [item, ...allNews.filter(i => i._reportType !== 'DTP Daily')].slice(0, 2000);
+    // Remplace uniquement le rapport du MÊME JOUR couvert (avant : TOUS les DTP Daily étaient retirés
+    // d'allNews à chaque publication → l'historique des jours passés ne revenait qu'au rechargement du store).
+    allNews = [item, ...allNews.filter(i => !(i._reportType === 'DTP Daily' && i._dtpd && i._dtpd.day === dayKey))].slice(0, 2000);
     saveHistory();
     auth.weeklyReportSave('dtpd-' + dayKey, item).catch(e => console.warn('[DTP Daily] persist échec:', e.message));
     try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
