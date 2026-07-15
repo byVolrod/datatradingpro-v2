@@ -5039,6 +5039,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .ai-ins-bias--neutral { color:#eab308; background:rgba(234,179,8,.14);  border:1px solid rgba(234,179,8,.4); }
 .ai-ins-pair-text { color:#c9d1d9; font-size:12px; line-height:1.5; }
 .wr-macro-heading { color: var(--text); font-size: var(--fs-h2); font-weight: var(--fw-semibold); font-family: var(--tight); letter-spacing: 0.06em; text-transform: uppercase; margin: 16px 0 8px; }
+/* Ligne séparatrice entre les PARTIES des Points Macro Clés (Géopolitique / BC / Inflation & Croissance /
+   Cross-Asset / Commerce & Tarifs / Techno…) : le bloc respire (demande user). Fine, très sombre (--hud-line). */
+.wr-sep { border-top: 1px solid var(--hud-line, #1c1c20); margin: 24px 0 6px; }
 .wr-bullet { color:#c9d1d9; font-size:13px; line-height:1.7; margin:0 0 10px; padding-left:14px; position:relative; }
 .wr-bullet::before { content:"•"; color:#e3b23a; position:absolute; left:0; }
 .wr-bullet strong { color:#fff; font-weight:var(--fw-semibold); }
@@ -5141,7 +5144,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .gew-cons--actual i { color:#c79a4a; }
 .gew-cons--actual b { color:#e3b23a; }   /* RÉEL = le résultat publié de la semaine écoulée, mis en avant (or) */
 .gew-ev-cmt { margin:7px 0 0 74px; font-size:12px; line-height:1.55; color:#aab2bd; }   /* analyse Econoday-style sous l'événement */
-@media (max-width:760px){ .gew-ev-cons{ margin-left:0; gap:18px; } .gew-ev-cmt{ margin-left:0; } }
+/* Propos réels du discours (minés dans le flux news) : citation en italique, liseré or discret */
+.gew-ev-quote { margin:6px 0 0 74px; padding-left:10px; border-left:2px solid rgba(227,178,58,0.45); font-size:12px; line-height:1.5; color:#cbd3dd; font-style:italic; }
+@media (max-width:760px){ .gew-ev-cons{ margin-left:0; gap:18px; } .gew-ev-cmt{ margin-left:0; } .gew-ev-quote{ margin-left:0; } }
 /* GEW « Temps forts de la semaine » : cartes scannables des événements à FORT impact (en tête de rapport) */
 .gew-key-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(244px, 1fr)); gap:10px; margin:8px 0 6px; }
 .gew-key { background:#16171b; border:1px solid var(--border); border-left:3px solid #ff3d00; border-radius:4px; padding:10px 12px; }

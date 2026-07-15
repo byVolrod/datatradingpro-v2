@@ -6986,7 +6986,7 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // AI Insights (cartes + paires) + « Temps forts de la semaine » (narratif IA) + résultats JOUR PAR JOUR (lundi→vendredi)
 // depuis le calendrier avec ACTUAL vs consensus par événement. Centré décisions de banques centrales + données publiées
 // (réel vs attendu) — distinct du Weekly Market Recap (centré prix/FX). 1 appel IA/semaine.
-const GEW_VER = 9;   // v9 = les DISCOURS de membres BC reçoivent une INTERPRÉTATION dédiée (ton hawkish/dovish/hold d'après le marché + prochaine réunion probable), distincte du contexte générique des décisions/minutes (demande user) — bump = régén auto. v8 = événements BANQUE CENTRALE (discours/minutes/décisions) annotés du contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse + trajectoire, via rateprobability) → indique le biais + la date. v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
+const GEW_VER = 10;   // v10 = les DISCOURS reçoivent en plus leurs PROPOS RÉELS (jusqu'à 2 phrases minées dans le flux news du même jour, e.quotes — demande user « des phrases du discours qui donnent des indications ») — bump = régén auto. v9 = les DISCOURS de membres BC reçoivent une INTERPRÉTATION dédiée (ton hawkish/dovish/hold d'après le marché + prochaine réunion probable), distincte du contexte générique des décisions/minutes (demande user). v8 = événements BANQUE CENTRALE (discours/minutes/décisions) annotés du contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse + trajectoire, via rateprobability) → indique le biais + la date. v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
 // Heure d'un événement = HEURE DE PARIS (référence FR), HH:MM SEULEMENT. Plus de jour (déjà en en-tête de
 // journée) ni de doublon GMT (demande user 13/07 : « date/heure doublée »). Le fuseau est rappelé UNE fois
 // dans le titre de section (« Calendrier économique · heure de Paris »). 100% calculé (zéro IA).
@@ -7019,6 +7019,39 @@ function _gewCbEventComment(ccy, isSpeech) {
     const traj = _GEW_CB_TRAJ[b.move] || '';
     return `Politique monétaire — ${nextTxt ? nextTxt + ' : ' : ''}le marché anticipe un ${word} (${top}%)${traj ? `, ${traj}` : ''}.`;
   } catch { return ''; }
+}
+// ── PROPOS RÉELS d'un discours BC (demande user : « des phrases du discours qui donnent des indications ») ──
+// (1) Extrait le NOM de l'intervenant du titre calendrier (« Fed Waller Speech », « ECB President Lagarde
+// Speech »…) ; (2) mine le FLUX NEWS du même jour : titres citant l'intervenant (« Fed's Waller: … », « Lagarde
+// says … ») → jusqu'à 2 propos réels, jamais inventés. Traduits FR à l'affichage (infra _dtpTranslateQuotes).
+const _GEW_SPK_STOP = new Set(['fed', 'ecb', 'boe', 'boj', 'boc', 'rba', 'rbnz', 'snb', 'fomc', 'mpc', 'us', 'uk', 'eurozone', 'president', 'chair', 'chairman', 'chairwoman', 'gov', 'governor', 'vice', 'member', 'board', 'speech', 'speaks', 'speaking', 'testifies', 'testimony', 'remarks', 'press', 'conference', 'minutes', 'hearing', 'interview', 'panel', 'fireside', 'comments', 'bank', 'reserve', 'federal', 'monetary', 'policy', 'report', 'economic', 'annual', 'the', 'of', 'de', 'at', 'on']);
+function _gewSpeakerFromTitle(title) {
+  const toks = String(title || '').replace(/[()]/g, ' ').split(/\s+/).filter(Boolean);
+  const names = toks.filter(w => /^[A-Z][a-zA-Z'’-]{2,}$/.test(w) && !_GEW_SPK_STOP.has(w.toLowerCase()));
+  return names.length ? names[names.length - 1] : '';   // dernier token « nom propre » = nom de famille
+}
+function _gewSpeechQuotes(surname, tsFrom, tsTo) {
+  if (!surname) return [];
+  const rx = new RegExp('\\b' + surname.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i');
+  const out = [], seen = new Set();
+  const cand = allNews.filter(n => n && n.timestamp >= tsFrom && n.timestamp <= tsTo
+    && !n._briefing && !n._weekly && !n._fxr && !n._dtpd && !n._marketWrap && rx.test(String(n.headline || '')))
+    .sort((a, b) => a.timestamp - b.timestamp);
+  for (const n of cand) {
+    const h = String(n.headline || '').replace(/\s+/g, ' ').trim();
+    let q = '';
+    const m = h.match(/^[^:]{0,60}:\s*(.{15,})$/);                      // « Fed's Waller: We can afford to wait »
+    if (m) q = m[1];
+    else if (/\b(says?|said|warns?|sees?|expects?|signals?|notes?|urges?|reiterates?)\b/i.test(h)) q = h;   // « Waller says … »
+    q = q.trim().replace(/[.;,\s]+$/, '');
+    if (q.length < 15) continue;
+    const k = q.toLowerCase().slice(0, 60);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(q.slice(0, 170));
+    if (out.length >= 2) break;
+  }
+  return out;
 }
 async function generateGlobalEconomicWeekly(force = false) {
   const idPrefix = 'dtp-econ-weekly-', now = Date.now();
@@ -7067,6 +7100,7 @@ async function generateGlobalEconomicWeekly(force = false) {
       title: String(e.title).slice(0, 90), impact: e.impact === 'High' ? 'HIGH' : 'MED',
       forecast: String(e.forecast || '').slice(0, 20), previous: String(e.previous || '').slice(0, 20),
       actual: String(e.actual || '').slice(0, 20),   // RÉTRO : résultat publié (réel) — vide si pas de chiffre (discours, etc.)
+      ts: e.timestamp,   // horodatage brut → borne la recherche des PROPOS du discours au bon jour
     });
   }
   const days = ORDER.filter(dn => daysMap[dn]).map(dn => {
@@ -7167,7 +7201,11 @@ ${list}`;
       if (e.comment || !SB_CURRENCIES.includes(e.currency)) return;
       const t = e.title || '';
       // Un DISCOURS reçoit une INTERPRÉTATION (ton hawkish/dovish/hold + prochaine réunion) ; une décision/minutes → contexte générique.
-      if (_GEW_CB_SPEECH_RX.test(t)) { const c = _gewCbEventComment(e.currency, true); if (c) { e.comment = c; speechAnnot++; } }
+      if (_GEW_CB_SPEECH_RX.test(t)) {
+        const c = _gewCbEventComment(e.currency, true); if (c) { e.comment = c; speechAnnot++; }
+        // + PROPOS RÉELS du discours (jusqu'à 2 phrases minées dans le flux news du même jour, jamais inventées).
+        try { const qs = _gewSpeechQuotes(_gewSpeakerFromTitle(t), (e.ts || weekStart) - 6 * 3600e3, (e.ts || weekEnd) + 18 * 3600e3); if (qs.length) e.quotes = qs; } catch {}
+      }
       else if (_GEW_CB_EVENT_RX.test(t)) { const c = _gewCbEventComment(e.currency, false); if (c) { e.comment = c; cbAnnot++; } }
     }));
     if (cbAnnot || speechAnnot) console.log(`[GEW] annotations BC : ${cbAnnot} contexte(s) + ${speechAnnot} interprétation(s) de discours`);
