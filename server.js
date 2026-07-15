@@ -7926,7 +7926,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 3;   // v3 : + section « Commentaires marquants » (notable comments) en bas du rapport
+const FXR_VER = 4;   // v4 : ANALYSE PAR SESSION (Asie · Londres · New York, lecture FONDAMENTALE cause→effet — demande user 15/07, remplace le découpage US/Europe/APAC/Canada aux constats vides). v3 : + section « Commentaires marquants »
 let _fxrGenLock = 0;
 let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
@@ -8141,10 +8141,9 @@ Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, au
   "pairs": [ { "pair": "EUR/USD", "bias": "BUY|SELL|NEUTRAL", "text": "<une phrase concise de justification>" } ],
   "headlines": [ { "title": "<Titre principal, percutant>", "text": "<résumé de 2 à 3 phrases de l'info et de son impact sur le marché>" } ],
   "regions": [
-    { "name": "États-Unis", "code": "USD", "summary": "<un paragraphe sur la séance US : actions, taux, USD, données clés>", "groups": [ { "title": "Marchés", "items": [ { "heading": "Rebond des actions", "text": "<1 à 2 phrases>" } ] } ] },
-    { "name": "Europe", "code": "EUR", "summary": "...", "groups": [ ... ] },
-    { "name": "Asie-Pacifique", "code": "Mixte (JPY, CNY, AUD)", "summary": "...", "groups": [ ... ] },
-    { "name": "Canada", "code": "CAD", "summary": "...", "groups": [ ... ] }
+    { "name": "Session Asie", "code": "JPY · AUD · NZD · CNY", "summary": "<2 à 4 phrases : l'histoire FONDAMENTALE de la séance asiatique (Tokyo/Sydney/Shanghai) — QUOI a bougé et surtout POURQUOI : publication chiffrée, signal de banque centrale, géopolitique, flux ; chaque variation citée a sa cause>", "groups": [ { "title": "Données économiques", "items": [ { "heading": "<fait saillant>", "text": "<1 à 2 phrases : le chiffre + ce qu'il implique>" } ] } ] },
+    { "name": "Session Londres", "code": "EUR · GBP · CHF", "summary": "<idem : la séance européenne, lue par ses MOTEURS fondamentaux (BCE/BoE, données, politique, énergie)>", "groups": [ ... ] },
+    { "name": "Session New York", "code": "USD · CAD", "summary": "<idem : la séance américaine (Fed/BoC, données US-Canada, taux, actions), toujours cause → effet>", "groups": [ ... ] }
   ],
   "centralBanks": [ { "name": "Réserve fédérale", "text": "<2 à 3 phrases : posture, pricing du marché, ce qu'il faut surveiller>" } ],
   "econData": [ { "release": "US NY Fed Empire State Manufacturing Index", "period": "Juin 2026", "metrics": [ { "metric": "General Business Conditions Index", "actual": "5.7", "expected": "13.2", "previous": "19.6" } ] } ],
@@ -8154,7 +8153,7 @@ Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, au
 }
 
 Règles :
-- Les titres de groupes régionaux doivent être choisis parmi : "Géopolitique","Marchés","Matières premières & Commerce","Données économiques","Banques centrales","Activité des entreprises","Politique & Réglementaire". N'inclus que les groupes ayant un contenu réel. Couvre États-Unis, Europe, Asie-Pacifique et Canada dès qu'il y a matière.
+- "regions" = EXACTEMENT les 3 SESSIONS de trading « Session Asie », « Session Londres », « Session New York », dans CET ordre (jamais de découpage par pays : le Canada vit dans Session New York, la Suisse et le Royaume-Uni dans Session Londres). Chaque "summary" raconte la séance par ses FONDAMENTAUX : le moteur (donnée réel vs attendu, banque centrale, géopolitique, flux) PUIS l'effet sur les devises/actifs de la session — INTERDIT d'ouvrir par « La journée a été marquée par » ou toute formule répétitive d'une session à l'autre, INTERDIT de citer une variation sans sa cause. Les titres de groupes doivent être choisis parmi : "Géopolitique","Marchés","Matières premières & Commerce","Données économiques","Banques centrales","Activité des entreprises","Politique & Réglementaire". N'inclus que les groupes ayant un contenu réel.
 - "econData" : utilise UNIQUEMENT les chiffres publiés fournis dans le bloc DONNÉES ÉCONOMIQUES (avec leurs actual / expected / previous). Garde les noms de publications/indicateurs tels quels (ne traduis pas les intitulés officiels). Ne fabrique aucune publication.
 - "lookahead" : utilise UNIQUEMENT les événements du bloc ÉVÉNEMENTS À VENIR. "importance" doit rester "High", "Medium" ou "Low" (en anglais — l'affichage est traduit).
 - "corporate" et "comments" : n'inclus que des éléments qui apparaissent réellement dans les titres.
