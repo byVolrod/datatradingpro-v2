@@ -1987,7 +1987,11 @@ setInterval(() => {
   try {
     const el = document.getElementById('am5-map');
     if (!el || el.offsetParent === null) return;               // onglet non visible → rien à faire
-    if (el.querySelector('canvas')) return;                     // carte rendue → OK
+    // Santé (même critère que initRightTab) : continents SVG Leaflet (>5 <path>) OU canvas amCharts réel OU
+    // tuiles. L'ancien test « canvas présent ? » ignorait le SVG Leaflet → il RECONSTRUISAIT la carte toutes
+    // les 12 s pendant que MONDE était ouvert (saccades signalées « pas fluide »).
+    const _c = el.querySelector('canvas');
+    if ((el.querySelectorAll('path').length > 5) || (_c && _c.width > 60 && _c.height > 60) || el.querySelector('img.leaflet-tile')) return;
     if (typeof am5map === 'undefined' || typeof am5geodata_worldLow === 'undefined') {
       if (!_mapScriptsReinjected && performance.now() > 24000) {
         _mapScriptsReinjected = true;
@@ -2345,14 +2349,20 @@ function initRightTab(tab) {
   // RISK : jauge construite UNE fois (idempotente), mais l'HISTORIQUE se rafraîchit à chaque activation
   // (barre du jour à jour) : uniquement quand l'onglet est visible (anti-egress).
   if (tab === 'risk') { if (!chartInited.risk) { chartInited.risk = true; buildRiskGauge(); } loadRiskHistory(); return; }
-  // CARTE (Leaflet) : bâtie UNE fois, mais à CHAQUE retour sur l'onglet il faut invalidateSize()
-  // : sinon la carte construite pendant que le panneau MONDE était caché reste mal dimensionnée
-  // (Leaflet ignore qu'on l'a ré-affichée → écran vide). Refit pour recadrer le planisphère.
+  // CARTE DES SESSIONS : à CHAQUE activation on vérifie qu'elle est SAINE, sinon on RECONSTRUIT (visible).
+  // La carte réelle est LEAFLET (sessionmap.js redéfinit window.buildSessionMap ; continents = GeoJSON SVG).
+  // Construite CACHÉE (0×0) au chargement, son retry geodata (~6 s) peut expirer → couche continents jamais
+  // ajoutée → panneau « Monde » sombre avec juste les badges villes (bug signalé). Santé = continents SVG
+  // présents (>5 <path> : 4 halos + terminateur seuls = 5) OU canvas amCharts réel OU tuiles chargées.
   if (tab === 'world') {
-    if (!chartInited.world) { chartInited.world = true; buildSessionMap(); }
-    else if (window._dtpLfMap) {
-      try { window._dtpLfMap.invalidateSize(); window._dtpLfMap.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); } catch (e) {}
-    }
+    const _mEl = document.getElementById('am5-map');
+    const _cv  = _mEl && _mEl.querySelector('canvas');
+    const _drawn = _mEl && ((_mEl.querySelectorAll('path').length > 5)
+      || (_cv && _cv.width > 60 && _cv.height > 60)
+      || _mEl.querySelector('img.leaflet-tile'));
+    if (!chartInited.world || !_drawn) { chartInited.world = true; buildSessionMap(); }
+    else if (window._dtpLfMap) { try { window._dtpLfMap.invalidateSize(); window._dtpLfMap.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); } catch (e) {} }
+    else if (mapRoot) { try { mapRoot.resize(); } catch (e) {} }   // variante amCharts (si sessionmap.js retiré)
     return;
   }
   // Autres onglets statiques éventuels : construits une seule fois
@@ -2658,8 +2668,11 @@ document.addEventListener('DOMContentLoaded', () => {
   initCOTTabs();
   initDMXTabs();
 
-  // WORLD is the default active right tab : init immediately
-  initRightTab('world');
+  // MONDE : ne construire la carte QUE si son panneau est réellement actif au chargement. Avant, on la
+  // construisait TOUJOURS ici — donc CACHÉE (0×0) quand le sous-onglet mémorisé était un autre (Force,
+  // Risque…) → cadrage cassé → panneau « Monde » vide au clic. Désormais : init immédiate si visible,
+  // sinon LAZY (le clic sur MONDE la construit visible, via initRightTab). Bonus : chargement plus léger.
+  if (document.getElementById('rtab-world')?.classList.contains('active')) initRightTab('world');
 });
 
 // ─── FX LIST : Overview table ─────────────────────────────────────────────────
