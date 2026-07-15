@@ -6797,9 +6797,9 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
-  // ── Regional Analysis (cartes pays + sous-sections groupées) ──
+  // ── Analyse par session (Asie · Londres · New York — cartes + sous-sections groupées) ──
   if ((w.regions || []).length) {
-    body += _sec('Analyse régionale') + '<div class="fxdr-grid">';
+    body += _sec('Analyse par session') + '<div class="fxdr-grid">';
     w.regions.forEach(r => {
       body += `<div class="fxdr-card fxdr-region">`;
       body += `<div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(r.name || '')}</span>${r.code ? `<span class="fxdr-ccy">${_wrEsc(r.code)}</span>` : ''}</div>`;
