@@ -11090,7 +11090,10 @@ function formatTime(dateStr) {
 
 // ─── Financial relevance filter ──────────────────────────────────────────────
 
-const FINANCIAL_KEYWORDS = /\b(forex|fx|currency|currencies|exchange rate|central bank|monetary policy|interest rate|rate hike|rate cut|rate decision|rate hold|rate pause|inflation|deflation|stagflation|cpi|ppi|pce|core inflation|gdp|nfp|nonfarm payroll|non-farm|unemployment|jobless|employment change|retail sales|trade balance|current account|industrial production|manufacturing|consumer confidence|purchasing managers|pmi|ifo|zew|durable goods|housing starts|payrolls|fed|fomc|federal reserve|ecb|european central bank|boj|bank of japan|boe|bank of england|boc|bank of canada|rba|rbnz|snb|riksbank|pboc|jerome powell|lagarde|ueda|bailey|yield curve|bond yield|treasury yield|gilt|bund|spread|dollar index|dxy|eurusd|gbpusd|usdjpy|usdchf|audusd|nzdusd|usdcad|xauusd|gold price|silver price|crude oil|brent|wti|opec|oil supply|oil demand|risk off|risk on|safe haven|stock market|equity market|nasdaq|s&p 500|dow jones|nikkei|ftse|dax|cac 40|geopolit|sanction|tariff|trade war|trade deal|iran|russia|ukraine|israel|escalat|\bwar\b|conflict|middle east|energy crisis|gas price|natural gas|bitcoin|crypto)\b/i;
+const FINANCIAL_KEYWORDS = /\b(forex|fx|currency|currencies|exchange rate|central bank|monetary policy|interest rate|rate hike|rate cut|rate decision|rate hold|rate pause|inflation|deflation|stagflation|cpi|ppi|pce|core inflation|gdp|nfp|nonfarm payroll|non-farm|unemployment|jobless|employment change|retail sales|trade balance|current account|industrial production|manufacturing|consumer confidence|purchasing managers|pmi|ifo|zew|durable goods|housing starts|payrolls|fed|fomc|federal reserve|ecb|european central bank|boj|bank of japan|boe|bank of england|boc|bank of canada|rba|rbnz|snb|riksbank|pboc|jerome powell|lagarde|ueda|bailey|yield curve|bond yield|treasury yield|gilt|bund|spread|dollar index|dxy|eurusd|gbpusd|usdjpy|usdchf|audusd|nzdusd|usdcad|xauusd|gold price|silver price|crude oil|brent|wti|opec|oil supply|oil demand|risk off|risk on|safe haven|stock market|equity market|nasdaq|s&p 500|dow jones|nikkei|ftse|dax|cac 40|geopolit|sanction|tariff|trade war|trade deal|iran|russia|ukraine|israel|escalat|\bwar\b|conflict|middle east|energy crisis|gas price|natural gas|bitcoin|crypto|finance minister|finance ministry|chancellor|treasury secretary|fiscal policy|fiscal stimulus|budget deficit|government budget|spending bill|debt ceiling|austerity|reshuffle|prime minister|downing street|snap election|general election|coalition talks|government collapse|no.?confidence)\b/i;
+// ↑ vocabulaire BUDGÉTAIRE/POLITIQUE market-mover ajouté (15/07) : « The British finance minister choice… »
+//   (choix du nouveau chancelier UK, GBP majeur) était jeté car AUCUN mot-clé ne couvrait les finances
+//   publiques ni la politique gouvernementale — un remaniement/une nomination aux Finances bouge la devise.
 
 // Sub-national / regional statistics that are not market-moving
 // Matches both "Saxony CPI MoM" and "German Saxony CPI YoY" and "Germany Saxony CPI"
@@ -11516,8 +11519,13 @@ function mergeItems(incoming) {
     if (/- FJElite$/i.test(item.headline) && !item.description?.trim() && /^[^:]{3,40}:\s+\S/.test(item.headline)) return false;
 
     // "Global News" générique : n'est gardé QUE s'il est fondamentalement pertinent
-    // (filtre les news vagues sans impact marché, même chez FinancialJuice)
-    if (item.category === 'Global News' && !isFinanciallyRelevant(fullText)) return false;
+    // (filtre les news vagues sans impact marché, même chez FinancialJuice).
+    // LOG de visibilité (15/07) : un rejet ici est SILENCIEUX — c'est ce qui a caché la perte de la news
+    // « British finance minister choice » (GBP majeur). Une ligne par rejet → diagnostic immédiat à l'avenir.
+    if (item.category === 'Global News' && !isFinanciallyRelevant(fullText)) {
+      console.log('[Filtre] Global News jetée (non pertinente financièrement) : ' + String(item.headline || '').slice(0, 90));
+      return false;
+    }
 
     // "Commentaire économique" trop spammy (demande) : on retire les HORS-SUJET (non pertinents
     // financièrement, ex. "ambition penalty: speaking up at work") ET les STUBS sans valeur (titre de
