@@ -7884,9 +7884,9 @@ async function _loadPersistedWeekly(force = false) {
       if (r._reportType === 'FX Daily Recap' && r._fxr && _isFxWeekend(r._fxr.day)) continue;   // jamais de FX Daily week-end (même si persisté)
       if (!allNews.some(i => i.id === r.id)) { allNews.unshift(r); added++; }
     }
-    // Anti-doublon WEEK-AWARE : on garde le recap de la semaine la PLUS RÉCENTE (pas la version la plus
-    // haute) → le store peut contenir un vieux recap riche v4 ET le recap courant en fallback v1, on
-    // affiche le courant. (Le store conserve toutes les semaines pour l'historique ; seul l'affiché est dédupliqué.)
+    // Anti-doublon PAR PÉRIODE COUVERTE (573710a) : une seule version par type × période (Weekly/GEW par
+    // semaine, FX/DTP Daily par jour), la meilleure gagne (plus récente, puis _ai:true > repli) — les
+    // semaines/jours PASSÉS restent affichés (l'ancien dédup « un seul Weekly global » cachait l'historique).
     _dedupRecaps();
     _fxrPurgeWeekend();   // retire aussi l'existant (déjà en allNews via news_history) daté un week-end
     if (added) { allNews = allNews.slice(0, 2000); console.log(`[Weekly Recap] ${added} rapport(s) rechargé(s) depuis le stockage persistant (0 requête Gemini)`); }
