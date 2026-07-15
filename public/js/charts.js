@@ -2941,12 +2941,18 @@ function calImpDots(impact) {
 // '' (égal ou non comparable → blanc). Fidèle DataTradingPro : SANS référence valable
 // → neutre, on ne déduit JAMAIS un signal du previous. Réutilisable par tout composant
 // data-driven affichant un résultat chiffré (calendrier, scanner, métriques…).
-function deviationClass(actual, ref) {
+// POLARITÉ INTELLIGENTE (demande user) : pour certains indicateurs, un chiffre PLUS BAS que prévu est
+// FAVORABLE (taux de chômage, inscriptions au chômage, licenciements…) → la couleur s'INVERSE. Partout
+// ailleurs : plus haut que prévu = favorable (convention des calendriers pro, y compris l'inflation :
+// surprise haussière = banque centrale plus hawkish = devise soutenue).
+const CAL_INVERTED_RX = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts|foreclosure|bankruptc|delinquen/i;
+function deviationClass(actual, ref, title) {
   if (actual == null || actual === '' || ref == null || ref === '') return '';
   const a = parseFloat(String(actual).replace(',', '.'));
   const r = parseFloat(String(ref).replace(',', '.'));
-  if (isNaN(a) || isNaN(r)) return '';
-  return a > r ? 'cv-pos' : a < r ? 'cv-neg' : '';
+  if (isNaN(a) || isNaN(r) || a === r) return '';
+  const good = CAL_INVERTED_RX.test(String(title || '')) ? a < r : a > r;
+  return good ? 'cv-pos' : 'cv-neg';
 }
 window.deviationClass = deviationClass;
 
@@ -2954,7 +2960,7 @@ window.deviationClass = deviationClass;
 // ÉCLAIR ⚡ (demande user) : le chiffre est sorti SOUS l'estimation BASSE (colonne LOW) →
 // éclair À GAUCHE du réel, DANS le span coloré → il prend la COULEUR DU RÉSULTAT
 // (vert cv-pos / rouge cv-neg / blanc) via currentColor. Même parsing que deviationClass.
-function calActualCell(actual, forecast, low) {
+function calActualCell(actual, forecast, low, title) {
   if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
   let bolt = '';
   if (low != null && low !== '') {
@@ -2964,7 +2970,7 @@ function calActualCell(actual, forecast, low) {
       bolt = '<span class="cv-bolt" title="Sorti sous l\'estimation basse (LOW)"><svg width="9" height="13" viewBox="0 0 10 14" fill="currentColor" aria-hidden="true"><path d="M6.2 0 0 8.2h3.5L3.2 14l6.8-8.4H6.4L6.2 0z"/></svg></span>';
     }
   }
-  return `<span class="cv-actual ${deviationClass(actual, forecast)}">${bolt}${actual}</span>`;
+  return `<span class="cv-actual ${deviationClass(actual, forecast, title)}">${bolt}${actual}</span>`;
 }
 
 function calFormatTime(ts) {
@@ -3050,7 +3056,7 @@ function renderCalTable() {
       <td class="cth-curr">${ev.currency || ''}</td>
       <td class="cth-imp">${calImpDots(ev.impact)}</td>
       <td class="cth-event">${ev.title || ''}</td>
-      <td class="cth-val">${calActualCell(ev.actual, ev.forecast, ev.low)}</td>
+      <td class="cth-val">${calActualCell(ev.actual, ev.forecast, ev.low, ev.title)}</td>
       <td class="cth-val">${hi}</td>
       <td class="cth-val">${fcast}</td>
       <td class="cth-val">${lo}</td>
@@ -3697,7 +3703,7 @@ window._retryCalendar = function() {
           + '<td class="cth-curr">' + (ev.currency || '') + '</td>'
           + '<td class="cth-imp">' + calImpDots(ev.impact) + '</td>'
           + '<td class="cth-event">' + _esc(ev.title || '') + '</td>'
-          + '<td class="cth-val">' + calActualCell(ev.actual, ev.forecast) + '</td>'
+          + '<td class="cth-val">' + calActualCell(ev.actual, ev.forecast, null, ev.title) + '</td>'
           + '<td class="cth-val">' + fc + '</td>'
           + '<td class="cth-val">' + pv + '</td></tr>';
       });
