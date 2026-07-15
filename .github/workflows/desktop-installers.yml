@@ -22,9 +22,9 @@ jobs:
       - name: Installer les dependances
         working-directory: desktop
         run: npm install --no-audit --no-fund
-      - name: Generer les icones
-        working-directory: desktop
-        run: npm run icons
+      # Icones : PAS de regeneration sur le runner — desktop/build/{icon.png,ico,icns} sont COMMITEES,
+      # generees en local par `npm run icons` (rendu Chrome pixel-identique au favicon du site, DT centre).
+      # Sur le runner, puppeteer-core est absent → icons.js retomberait sur le repli sharp (moins fidele).
       - name: Builder l'installeur Windows (NSIS)
         working-directory: desktop
         run: npm run build:win
@@ -47,9 +47,9 @@ jobs:
       - name: Installer les dependances
         working-directory: desktop
         run: npm install --no-audit --no-fund
-      - name: Generer les icones
-        working-directory: desktop
-        run: npm run icons
+      # Icones : PAS de regeneration sur le runner — desktop/build/{icon.png,ico,icns} sont COMMITEES,
+      # generees en local par `npm run icons` (rendu Chrome pixel-identique au favicon du site, DT centre).
+      # Sur le runner, puppeteer-core est absent → icons.js retomberait sur le repli sharp (moins fidele).
       - name: Builder les apps macOS (zip arm64 + x64, non signees)
         working-directory: desktop
         run: npm run build:mac
