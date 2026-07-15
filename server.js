@@ -11100,6 +11100,10 @@ function isGlobalNewsNoise(headline) {
   if (SPORTS_NOISE.test(h)) return true;   // sport : hors-sujet desk, filtre INCONDITIONNEL (jamais sauve par isFinanciallyRelevant)
   if (/FJElite/i.test(h)) return true;   // teasers FinancialJuice Elite (« X on Y - FJElite ») : titre sans contenu, analyse derrière paywall → aucune valeur
   if (_LOW_VALUE_ANALYSIS_RE.test(h)) return true;   // prévisions/roundups/analyses sans news (Pairs in Focus, forecasts, « remains bullish »…)
+  // Listing « Week Ahead: … » externe (« Week Ahead: Economic Indicators 13th – 17th July (US) … ») : sommaire
+  // brut sans contenu, doublonne le Week Ahead DTP. Ancré en DÉBUT de titre → « DTP Week Ahead — … » (maison)
+  // et toute phrase contenant « week ahead » au milieu (« Fed faces crucial week ahead ») sont ÉPARGNÉES.
+  if (/^\s*(?:the\s+)?week\s+ahead\s*[:\-–—]/i.test(h)) return true;
   if (/\b(quarterly|monthly|economic|annual|weekly)\s+bulletin\b[\s\d/.\-]*$/i.test(h)) return true;   // annonce de publication brute (« SNB Quarterly Bulletin 2/2026 ») : titre sans explication → on garde celles AVEC du contenu (texte après « Bulletin »)
   // Titre de RAPPORT data brut, sans contenu (« US S&P MFG PMI June 2026 Report ») = doublon sans valeur du VRAI relevé
   // (celui-ci porte Actual/Forecast/Previous + chiffres). On GARDE ceux qui ont des chiffres/une réaction, on drop la coquille.
