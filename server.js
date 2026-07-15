@@ -1014,7 +1014,10 @@ app.post('/api/admin/users', requireAdmin, async (req, res) => {
       _sendWelcomeChat(newUser && newUser.id);
       try { await auth.emailLogAdd('welcome:' + String(body.email).toLowerCase().trim()); } catch {}   // marqueur → la régularisation de bienvenue ne renverra pas
     }
-    res.json({ ok: true, mail });
+    // Newsletter : AUCUNE action nécessaire — _campaignAudience inclut TOUS les comptes desk role client
+    // (source 'dtp'), donc un user créé ici reçoit la campagne dès le prochain envoi (intro d'abord).
+    // On le signale juste à l'admin dans le message de succès (demande user 15/07).
+    res.json({ ok: true, mail, newsletter: (body.role || 'client') === 'client' });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
@@ -13669,7 +13672,74 @@ async function _decryptMarkCovered(key) { if (!key) return; try { let h = await 
 // un thème jamais envoyé + un autre répété à chaque cycle).
 function _mindsetWindow() { try { return Math.max(1, (mailer.MINDSET_CONCEPTS || []).length - 1); } catch { return 7; } }
 async function _mindsetRecentKeys(n) { try { const h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (Array.isArray(h)) return h.slice(-(n || _mindsetWindow())).map(x => x && x.key).filter(Boolean); } catch {} return []; }
-async function _mindsetMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (!Array.isArray(h)) h = []; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:mindset-history', h.slice(-Math.max(24, _mindsetWindow() + 4))); } catch {} }
+// Dédup CONSÉCUTIF (le jeudi, chaque destinataire marque le MÊME concept du jour → 1 seule entrée) + cap 60.
+async function _mindsetMarkCovered(key) { if (!key) return; try { let h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5); if (!Array.isArray(h)) h = []; if (h.length && h[h.length - 1] && h[h.length - 1].key === key) return; h.push({ key, at: Date.now() }); await auth.aiCacheSet('campaign:mindset-history', h.slice(-60)); } catch {} }
+
+// ── MINDSET HYBRIDE IA (décision user 15/07 : envoi AUTO, sans validation admin) ──
+// Quand TOUS les concepts (catalogue statique + concepts IA déjà générés) ont déjà été envoyés au moins
+// une fois, l'IA écrit UN nouveau concept (même structure et ton que le catalogue), stocké DURABLEMENT
+// (KV campaign:mindset-ai) → il rejoint la rotation définitivement. VETO respecté : psychologie/discipline
+// UNIQUEMENT — le contrôle _mindsetAiSane rejette toute donnée de marché ou incitation à prendre position.
+async function _mindsetAiPool() { try { const a = await auth.aiCacheGet('campaign:mindset-ai', 3650 * 864e5); return Array.isArray(a) ? a : []; } catch { return []; } }
+function _mindsetAiSane(c) {
+  if (!c || typeof c.subject !== 'string' || !Array.isArray(c.paras) || typeof c.closing !== 'string') return false;
+  const subject = c.subject.trim(), closing = c.closing.trim();
+  const paras = c.paras.map(p => String(p == null ? '' : p).trim()).filter(Boolean);
+  if (subject.length < 8 || subject.length > 90 || closing.length < 15 || paras.length < 5 || paras.length > 12) return false;
+  const txt = (subject + ' ' + paras.join(' ') + ' ' + closing).toLowerCase();
+  if (/\b(ach[eè]te[rz]?|vend(s|re|ez)?|prend(s|re|ez)? (une |ta |votre )?position|entre[rz]? (long|short)|\blong\b|\bshort\b|\bbuy\b|\bsell\b|signal d'achat|signal de vente|objectif de prix|target)\b/.test(txt)) return false;   // informatif only (veto user)
+  if (/\b(eur\/usd|gbp\/usd|usd\/jpy|xau|btc|nasdaq|s&p|cac ?40|dow jones|\d+ ?pips)\b/.test(txt)) return false;   // pas de données/actifs de marché dans un mail d'état d'esprit
+  return true;
+}
+async function _mindsetEnsureFresh(recentKeys) {
+  const aiPool = await _mindsetAiPool();
+  const out = { extras: aiPool, forceKey: null };
+  try {
+    const h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5);
+    const covered = new Set((Array.isArray(h) ? h : []).map(x => x && x.key).filter(Boolean));
+    const allConcepts = [...(mailer.MINDSET_CONCEPTS || []), ...aiPool];
+    if (allConcepts.some(c => !covered.has(c.key))) return out;                     // il reste des concepts jamais envoyés
+    if (ai.backoffActive && ai.backoffActive()) return out;                        // IA indisponible → la rotation se répète (envoi garanti)
+    const dejaTraites = allConcepts.map(c => String(c.subject || '').replace(/[\p{Emoji_Presentation}️]/gu, '').trim()).filter(Boolean).join(' · ');
+    const prompt = `Tu écris le prochain e-mail « Mindset » de la newsletter DataTradingPro (traders francophones). Réponds UNIQUEMENT un JSON valide de la forme EXACTE :
+{"subject":"<un emoji sobre + titre court accrocheur, ex. '🎯 Le stop n'est pas un échec'>","paras":["<para 1 : une situation vécue par le trader, 1-2 phrases, tutoiement>","<para 2 : ce qui se joue psychologiquement>","<para 3 : le recadrage>","- <puce courte et frappante>","- <puce>","- <puce>","- <puce>","<para de clôture apaisant avec un emoji sobre>"],"closing":"<une question introspective directe au lecteur, tutoiement, finissant par ?>"}
+Règles ABSOLUES : psychologie et discipline de trading UNIQUEMENT (état d'esprit) ; AUCUNE donnée de marché, AUCUN actif, AUCUNE prédiction, AUCUNE incitation à acheter/vendre ou prendre position ; ton bienveillant, concret, jamais moralisateur ; français impeccable ; JAMAIS de tiret cadratin.
+Thèmes DÉJÀ traités, à ÉVITER absolument : ${dejaTraites}.
+Choisis UN thème NOUVEAU (ex. : gérer une série de gains, l'ennui des marchés calmes, la fatigue décisionnelle, trader après une mauvaise journée perso, le journal de trading, la sur-optimisation, savoir ne rien faire…).`;
+    const text = await ai.generateText(prompt, 2200);
+    const m = String(text || '').match(/\{[\s\S]*\}/);
+    const c = m ? JSON.parse(m[0]) : null;
+    if (_mindsetAiSane(c)) {
+      const clean = s => String(s).replace(/—/g, ':').trim();
+      const item = { key: 'ai-' + Date.now(), subject: clean(c.subject), paras: c.paras.map(p => clean(p)).filter(Boolean), closing: clean(c.closing), _ai: true, createdAt: Date.now() };
+      const next = [...aiPool, item].slice(-40);
+      await auth.aiCacheSet('campaign:mindset-ai', next);
+      console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO) : ' + item.subject);
+      return { extras: next, forceKey: item.key };
+    }
+    console.warn('[Campagne] Mindset IA : concept rejeté (forme ou veto informatif) → rotation du catalogue');
+  } catch (e) { console.warn('[Campagne] Mindset IA échec : ' + e.message + ' → rotation du catalogue'); }
+  return out;
+}
+// Concept DU JOUR : choisi UNE seule fois le jeudi et partagé par TOUS les destinataires (fix bug latent :
+// _mindsetMarkCovered après chaque envoi rendait le concept « récent » → le destinataire suivant recevait
+// un AUTRE concept, brûlant tout le catalogue en un seul jour). Épinglé en KV → survit à un redémarrage.
+let _mindsetDayCache = { day: null, key: null, extras: null };
+async function _mindsetConceptOfDay() {
+  const pp = _parisParts();
+  const day = pp.isoWeek + '-' + pp.weekday;
+  if (_mindsetDayCache.day === day && _mindsetDayCache.key) return _mindsetDayCache;
+  try {
+    const saved = await auth.aiCacheGet('campaign:mindset-day', 3 * 86400000);
+    if (saved && saved.day === day && saved.key) { _mindsetDayCache = { day, key: saved.key, extras: await _mindsetAiPool() }; return _mindsetDayCache; }
+  } catch {}
+  const recentKeys = await _mindsetRecentKeys();
+  const gen = await _mindsetEnsureFresh(recentKeys);
+  const pick = gen.forceKey || ((mailer.pickMindsetConcept(recentKeys, gen.extras) || {}).key || null);
+  _mindsetDayCache = { day, key: pick, extras: gen.extras };
+  try { await auth.aiCacheSet('campaign:mindset-day', { day, key: pick }); } catch {}
+  return _mindsetDayCache;
+}
 
 // ═══════════════════════════════════════════════════════════════════════════════════════════════════
 //  FIABILITE PRODUCTION — historique d'erreurs durable + pre-flight avant CHAQUE envoi + alerte admin.
@@ -13905,7 +13975,7 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
     if (stepDef.tpl === 'intro') { const p = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: 'intro-v1' }); if (p) { rec('intro-v1'); return true; } return false; }
     if (stepDef.tpl === 'decryptage') { const recentKeys = await _decryptRecentKeys(4); const rr = await mailer.sendCampaignDecryptage({ to: email, name: r.name || '', campaign, context, recentKeys, isMember }); if (rr) { rec('decryptage'); return true; } return false; }
     if (stepDef.tpl === 'pointmarche') { const p = await mailer.sendCampaignPointMarche({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('point-marche'); return true; } return false; }
-    if (stepDef.tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys, isMember }); if (rr) { rec('mindset'); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
+    if (stepDef.tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const rr = await mailer.sendCampaignMindset({ to: email, name: r.name || '', campaign, recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); if (rr) { rec('mindset'); if (!isTest) { try { await _mindsetMarkCovered(rr.conceptKey); } catch {} } return true; } return false; }
     if (stepDef.tpl === 'recap') { const wk = _freshWeekly(); if (!wk) return false; const p = await mailer.sendWeeklyDigest({ to: email, name: r.name || '', email, campaign, weekly: wk }); if (p) { rec('recap-hebdo'); return true; } return false; }
     if (stepDef.tpl === 'outlook') { const p = await mailer.sendCampaignOutlook({ to: email, name: r.name || '', campaign, context, isMember }); if (p) { rec('outlook-hebdo'); return true; } return false; }
   } catch (e) { console.warn('[Drip] envoi', stepDef.id, email, e.message); return false; }
@@ -14022,7 +14092,7 @@ async function _sendAllCampaignTests(to) {
   await step('Semaine à venir', () => mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context: ctx, isMember: false }));
   await step('Comprendre le marché', async () => { const rk = await _decryptRecentKeys(4); return mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context: ctx, recentKeys: rk, isMember: false }); });
   await step('Point marché', () => mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context: ctx, isMember: false }));
-  await step('Mindset', async () => { const rk = await _mindsetRecentKeys(); return mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys: rk, isMember: false }); });
+  await step('Mindset', async () => { const rk = await _mindsetRecentKeys(); return mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys: rk, extraConcepts: await _mindsetAiPool(), isMember: false }); });   // test : rotation simple (pool IA inclus), AUCUNE génération ni épinglage du jour
   await step('Récap Hebdo', () => { const wk = _freshWeekly(); return wk ? mailer.sendWeeklyDigest({ to, name: '', email: to, campaign: 'recap-test', weekly: wk }) : false; });
   console.log('[Campagne tests] → ' + to + ' : ' + out.map(o => o.label + '=' + (o.ok ? 'ok' : 'KO')).join(', '));
   return out;
