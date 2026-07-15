@@ -6825,18 +6825,28 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    Evenement/Reel et on masque PREVISION (col 8) + PRECEDENT (col 10) -> dispos dans le detail au tap
    (comme HIGH/LOW). Colonnes + paddings compactes pour laisser de la place au nom de l'evenement. */
 @media (max-width: 480px) {
-  /* PRÉVISION (col 8) + PRÉCÉDENT (col 10) restent VISIBLES sur téléphone (demande user) : on garde des
-     colonnes lisibles et le conteneur DÉFILE horizontalement (swipe) pour les atteindre. HIGH/LOW (7/9)
-     restent masqués (fourchette d'estimation secondaire). */
-  #cal-table-wrap .cal-table { min-width: 500px; }
-  .cth-time { width: 46px !important; }
-  .cth-flag { width: 26px !important; }
-  .cth-curr { width: 38px !important; }
-  .cth-imp  { width: 44px !important; }
-  .cth-val  { width: 54px !important; }
-  .cth-event { min-width: 92px !important; }
-  .cal-table thead th, .cal-row td { padding-left: 6px !important; padding-right: 6px !important; }
-  .cal-row td.cth-event { font-size: 11px; line-height: 1.32; }
+  /* CALENDRIER ENTIER À L'ÉCRAN (demande user 15/07) : plus de scroll horizontal — toutes les colonnes utiles
+     (Heure/Devise/Impact/Événement/Réel/Prévision/Précédent) tiennent dans ~375px. Pour y arriver : drapeau
+     masqué (le code devise suffit) + HIGH/LOW déjà masqués (fourchette secondaire) + colonnes/paddings compacts. */
+  #cal-table-wrap .cal-table { min-width: 0; width: 100%; table-layout: fixed; }   /* fixed = les largeurs de colonnes s'imposent au contenu → jamais plus large que l'écran */
+  #cal-table-wrap { overflow-x: hidden; }   /* pas de scroll fantôme : la table est déjà calée à 100% */
+  .cal-table thead th { overflow: hidden; text-overflow: ellipsis; }   /* « PRÉVISION »/« PRÉCÉDENT » clippés proprement dans leurs 46px */
+  /* Colonnes masquées (drapeau 2, HIGH 7, LOW 9) : en layout FIXE, display:none laisse la colonne réserver
+     sa part (quirk moteur → ÉVÉNEMENT écrasé). On les rend LARGEUR ZÉRO à la place (invisibles, 0px). */
+  .cal-table th:nth-child(2), .cal-table td:nth-child(2),
+  .cal-table th:nth-child(7), .cal-table td:nth-child(7),
+  .cal-table th:nth-child(9), .cal-table td:nth-child(9) {
+    display: table-cell !important; width: 0 !important; max-width: 0 !important;
+    padding: 0 !important; font-size: 0 !important; overflow: hidden !important; border: 0 !important;
+  }
+  #cal-table-wrap .cal-chv { display: none; }   /* chevron › : place gagnée pour l'heure */
+  .cth-time { width: 44px !important; font-size: 10px !important; }
+  .cth-curr { width: 36px !important; }
+  .cth-imp  { width: 34px !important; }
+  .cth-val  { width: 46px !important; font-size: 10px !important; }
+  .cth-event { min-width: 0 !important; width: auto !important; }
+  .cal-table thead th, .cal-row td { padding-left: 4px !important; padding-right: 4px !important; }
+  .cal-row td.cth-event { white-space: normal; font-size: 11px; line-height: 1.32; }
 }
 
 /* Day separator */

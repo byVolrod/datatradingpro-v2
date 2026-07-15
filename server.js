@@ -2716,6 +2716,7 @@ async function _fetchSessionWraps(full = false) {
   // ── Pass 2 : page archive HTML — historique complet (le RSS ne donne que les derniers) ──
   // Les articles wrap apparaissent en clair : /news/investinglive-<region>-...-wrap-...-YYYYMMDD/
   const archPages = full ? 4 : 2;
+  let _swUndated = [];   // wraps dont le slug ne porte PAS de date → résolus après la boucle (date lue sur la page)
   for (let page = 1; page <= archPages; page++) {
     try {
       const url = page === 1
@@ -2729,6 +2730,7 @@ async function _fetchSessionWraps(full = false) {
       const re = /\/news\/(investinglive-[a-z0-9-]*wrap[a-z0-9-]*)\//gi;
       const _MON = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
       const _nowP = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+      _swUndated = _swUndated || [];   // slugs de wrap SANS date dans le slug → date lue sur la page de l'article (après la boucle)
       const seen = new Set();
       let pageHad = false, anyRecent = false, m;
       while ((m = re.exec(r.data)) !== null) {
@@ -2751,7 +2753,14 @@ async function _fetchSessionWraps(full = false) {
           let yr = _nowP.getFullYear();
           if (_MON[_dm[2]] > _nowP.getMonth() + 1) yr -= 1;   // mois nettement futur → wrap de l'an dernier (bascule d'année)
           ts = Date.UTC(yr, _MON[_dm[2]], +_dm[1], sh);
-        } else continue;   // aucune date extractible → impossible à dater/dédupliquer → on saute
+        } else {
+          // Slug SANS date (« …-market-news-wrap-oil-nzd-up ») : on lira la date sur la PAGE de l'article
+          // (sinon ce wrap manquait dans la liste — ex. le Récap Asie du 14/07, bug signalé).
+          const _lk = `https://investinglive.com/news/${slug}/`;
+          const _uid = 'sw-' + Buffer.from(_lk).toString('base64').replace(/[^a-zA-Z0-9]/g, '').slice(-16);
+          if (!merged.has(_uid) && _swUndated.length < 4) _swUndated.push({ slug, session, sh, link: _lk, id: _uid });
+          continue;
+        }
         if (!ts || ts < cutoff) continue;
         anyRecent = true;
         const link = `https://investinglive.com/news/${slug}/`;
@@ -2769,6 +2778,28 @@ async function _fetchSessionWraps(full = false) {
       }
       if (!pageHad || !anyRecent) break;       // plus d'articles, ou page entièrement hors-période
     } catch { break; }
+  }
+
+  // ── Wraps au slug SANS date : la date est lue sur la PAGE de l'article (meta article:published_time /
+  //    datePublished JSON-LD / <time datetime>). Bornés (≤4/scrape, nouveaux uniquement) → coût minime.
+  for (const u of _swUndated) {
+    try {
+      const r = await axios.get(u.link, { timeout: 10000, headers: { 'User-Agent': UA }, validateStatus: s => s < 500 });
+      if (r.status !== 200) continue;
+      const body = String(r.data || '');
+      const m = body.match(/property=["']article:published_time["'][^>]*content=["']([^"']+)/i)
+        || body.match(/content=["']([^"']+)["'][^>]*property=["']article:published_time["']/i)
+        || body.match(/"datePublished"\s*:\s*"([^"]+)"/i)
+        || body.match(/<time[^>]*datetime=["']([^"']+)/i);
+      const pub = m ? Date.parse(m[1]) : NaN;
+      if (!Number.isFinite(pub) || pub < cutoff) continue;
+      const d = new Date(pub);
+      const ts = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), u.sh);   // heure par session (cohérent avec les wraps datés)
+      let title = u.slug.replace(/^investinglive-/, '').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+      title = title.charAt(0).toUpperCase() + title.slice(1);
+      merged.set(u.id, { id: u.id, title, url: u.link, timestamp: ts, session: u.session, description: '', content: null, author: '', _source: 'investinglive' });
+      console.log(`[SessionWraps] wrap sans date daté via sa page : ${u.slug} → ${d.toISOString().slice(0, 10)}`);
+    } catch {}
   }
 
   const before = _swCache.length;
@@ -2929,13 +2960,29 @@ function _expectedRecapSatTs() {
 // quand celle-ci n'avait pu sortir qu'en fallback v1 sous quota IA → date figée à la semaine d'avant.)
 // Idempotent.
 function _dedupRecaps() {
-  const recaps = allNews.filter(i => i._reportType === 'Weekly Market Recap');
-  if (recaps.length <= 1) return;
-  const best = recaps.reduce((a, b) => {
+  // Déduplication PAR PÉRIODE COUVERTE (et par type) — on garde la meilleure version de CHAQUE semaine/jour,
+  // plus jamais « une seule, la plus récente » : l'HISTORIQUE des semaines passées reste visible dans
+  // l'onglet Analystes (demande user « également pour les semaines passées »).
+  const _better = (a, b, va, vb) => {
     if ((b.timestamp || 0) !== (a.timestamp || 0)) return (b.timestamp || 0) > (a.timestamp || 0) ? b : a;
-    return ((b._weekly && b._weekly.v) || 0) > ((a._weekly && a._weekly.v) || 0) ? b : a;
-  });
-  allNews = allNews.filter(i => i._reportType !== 'Weekly Market Recap' || i === best);
+    return (vb || 0) > (va || 0) ? b : a;
+  };
+  const _dedupBy = (type, keyFn, verFn) => {
+    const byKey = new Map();
+    for (const i of allNews) {
+      if (i._reportType !== type) continue;
+      const k = keyFn(i) || (i.id || '');
+      const prev = byKey.get(k);
+      byKey.set(k, prev ? _better(prev, i, verFn(prev), verFn(i)) : i);
+    }
+    if (byKey.size === 0) return;
+    const keep = new Set(byKey.values());
+    allNews = allNews.filter(i => i._reportType !== type || keep.has(i));
+  };
+  _dedupBy('Weekly Market Recap',    i => (i._weekly && (i._weekly.weekEnding || i._weekly.weekRange)) || '', i => (i._weekly && i._weekly.v) || 0);
+  _dedupBy('Global Economic Weekly', i => (i._weekly && i._weekly.weekRange) || '',                           i => (i._weekly && i._weekly.v) || 0);
+  _dedupBy('FX Daily Recap',         i => (i._fxr && i._fxr.day) || '',                                       i => (i._fxr && i._fxr._ai ? 2 : 1));
+  _dedupBy('DTP Daily',              i => (i._dtpd && i._dtpd.day) || '',                                      i => (i._dtpd && i._dtpd._ai !== false ? 2 : 1));
 }
 // Backfill (sans Gemini) du snapshot CS sur TOUT recap qui n'en a pas — semaine COURANTE (données
 // 'week' live) OU semaine RÉVOLUE (recalcul figé _computeStrengthWeekOf, ex. recap régénéré après un
@@ -7230,9 +7277,14 @@ ${list}`;
     priority: 'normal', tags: ['Bilan Hebdo', 'Global Economy', 'Macro'],
     _briefing: true, _reportType: 'Global Economic Weekly', _weekly: weekly,
   };
-  allNews = [item, ...allNews.filter(i => i._reportType !== 'Global Economic Weekly')].slice(0, 2000);   // remplacement ATOMIQUE : l'ancien GEW ne disparaît qu'au moment où le nouveau est prêt (un seul GEW à la fois)
+  // Remplacement ATOMIQUE de la MÊME SEMAINE uniquement : les GEW des semaines PASSÉES restent visibles
+  // (historique, demande user). L'ancien de la semaine ne disparaît qu'au moment où le nouveau est prêt.
+  allNews = [item, ...allNews.filter(i => !(i._reportType === 'Global Economic Weekly' && (i.id || '').startsWith(weekPrefix)))].slice(0, 2000);
   saveHistory();
-  auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[GEW] persist échec:', e.message));
+  // Clé DISTINCTE 'gew-<semaine>' : l'ancienne clé nue (weekKey) était LA MÊME que celle du Weekly Market
+  // Recap → chaque régénération de l'un ÉCRASAIT l'autre dans le store durable (c'est pour ça que le
+  // « Hebdo Économique Mondial » disparaissait de l'historique — bug signalé).
+  auth.weeklyReportSave('gew-' + weekKey, item).catch(e => console.warn('[GEW] persist échec:', e.message));
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
   console.log(`[GEW] ${weekly.highlights ? 'IA' : 'repli'} ${weekKey} (${weekRange}) — ${days.length} jours, ${nEv} events, ${pairs.length} paires`);
   return item;
@@ -7259,7 +7311,7 @@ function _gewRedateCurrent() {
   g.timestamp = pub.getTime();
   g.time = new Date(g.timestamp).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
   const weekKey = (g.id || '').replace(/^dtp-econ-weekly-/, '').replace(/-\d+$/, '');
-  if (weekKey) auth.weeklyReportSave(weekKey, g).catch(() => {});
+  if (weekKey) auth.weeklyReportSave('gew-' + weekKey, g).catch(() => {});   // clé distincte (jamais celle du Weekly Market Recap)
   try { saveHistory(); } catch {}
   console.log('[GEW] re-daté au week-end (samedi) →', new Date(g.timestamp).toISOString().slice(0, 10));
 }
@@ -7875,7 +7927,7 @@ function _parisDayRange(dayKey) {
 // Le planificateur de 22h30 (force) le MET À JOUR avec la clôture US → le desk garde sa version complète en soirée.
 function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  if (p.getHours() < 18) p.setDate(p.getDate() - 1);   // récap du jour à partir de 18h (sortie 18h30) — demande user
+  if (p.getHours() < 19) p.setDate(p.getDate() - 1);   // récap du jour à partir de 19h (heure de sortie desk) — demande user 15/07
   // Marché forex fermé le WEEK-END → on cible le dernier jour OUVRÉ (vendredi). Évite un « génération en
   // cours » perpétuel le samedi/dimanche et affiche le dernier recap pertinent (celui du vendredi).
   while (p.getDay() === 0 || p.getDay() === 6) p.setDate(p.getDate() - 1);
@@ -8113,17 +8165,22 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     if (!fxr.tags      || !fxr.tags.length)      fxr.tags      = _fxrAutoTags(newsItems);
     try { fxr.notableCommentsHtml = await _generateNotableComments(dayKey); } catch {}   // section « Commentaires marquants »
 
-    const timeStr = new Date().toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    // HORODATAGE STABLE = le JOUR COUVERT à 19:00 Paris (heure de sortie), PAS l'instant de génération.
+    // Avant : timestamp=now → une régénération matinale (ex. upgrade d'un repli) re-datait le recap d'HIER
+    // à « aujourd'hui 11h30 » et écrasait sa place dans l'historique (bug signalé « pourquoi il sort à 11h30 »,
+    // « je ne vois pas le récap du 14 »). La MAJ 22h30 garde la même date/heure affichée (même jour couvert).
+    const pubTs = _parisDayRange(dayKey)[0] + 19 * 3600e3;
     const item = {
       id: idPrefix + '-' + now,
       headline: fxr.title,
       description: fxr.summary,
-      category: 'Market Analysis', source: 'DTP', time: timeStr, timestamp: now,
+      category: 'Market Analysis', source: 'DTP', time: '19:00', timestamp: pubTs,
       priority: 'normal', tags: (fxr.tags || []).slice(0, 8),
       _briefing: true, _reportType: 'FX Daily Recap', _fxr: fxr,
     };
-    // Un seul FX Daily Recap COURANT en mémoire (l'historique reste persisté côté store).
-    allNews = [item, ...allNews.filter(i => i._reportType !== 'FX Daily Recap')].slice(0, 2000);
+    // Remplace uniquement le recap du MÊME JOUR couvert : l'historique des jours passés reste affiché
+    // (le store le persiste, _dedupRecaps garde la meilleure version par jour).
+    allNews = [item, ...allNews.filter(i => !(i._reportType === 'FX Daily Recap' && i._fxr && i._fxr.day === dayKey))].slice(0, 2000);
     saveHistory();
     auth.weeklyReportSave('fxr-' + dayKey, item).catch(e => console.warn('[FX Recap] persist échec:', e.message));
     try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
@@ -8550,7 +8607,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
-    { fn: () => generateFXDailyRecap(false),          h: 18, m: 30, name: 'FX Daily Recap (18h30)' },              // sort à 18h30 SUR LE DESK (base du mail Point marché : Asie+Europe+début US) — demande user
+    { fn: () => generateFXDailyRecap(false),          h: 19, m: 0,  name: 'FX Daily Recap (19h00)' },              // sort à 19h SUR LE DESK (après les récaps de séance Asie/Londres ; base du mail Point marché) — demande user 15/07
     { fn: () => generateFXDailyRecap(true),           h: 22, m: 30, name: 'FX Daily Recap (MAJ complète, clôture US)' }, // se met à jour à 22h30 avec la clôture US → le desk garde la version complète en soirée
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
