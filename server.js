@@ -10001,7 +10001,7 @@ async function _wrapLevels() {
 // Structure CALQUÉE sur la référence (image de référence) : LEAD + rubriques marché + EUROPEAN DATA + NOTABLE
 // HEADLINES + TRADE/TARIFFS + CENTRAL BANKS + GEOPOLITICS + bloc NORD-AMÉRICAIN (NEWS + DATA).
 const EU_WRAP_SECTIONS = ['SYNTHESE','ACTIONS','DEVISES','OBLIGATAIRE','MATIERES PREMIERES','DONNEES EUROPEENNES','TITRES MARQUANTS','COMMERCE/DOUANES','BANQUES CENTRALES','GEOPOLITIQUE','ACTUALITES NORD-AMERICAINES','DONNEES NORD-AMERICAINES'];
-const WRAP_VER = 'wrap-fr-1';   // bump → régénère le wrap du jour (passage en FR) au prochain run/boot
+const WRAP_VER = 'wrap-fr-2';   // v2 : + RÉSULTATS PUBLIÉS du calendrier (réel vs attendu) injectés au prompt + conséquences de marché dans SYNTHESE/DONNÉES (demande user). bump → régénère le wrap du jour au prochain run/boot
 
 // Parse la sortie IA en rubriques connues. Les en-têtes (« EQUITIES », « FX », « TRADE/TARIFFS »…)
 // sont reconnus quelle que soit la ponctuation/casse ; les lignes avant la 1re rubrique (préambule)
@@ -10140,6 +10140,16 @@ async function generateEuropeanMarketWrap(force = false) {
   let levels = { eq: [], fx: [], fixed: [], cmd: [] };
   try { levels = await _wrapLevels(); } catch (e) { console.error('[EUWrap] niveaux KO:', e.message); }
 
+  // RÉSULTATS PUBLIÉS du calendrier économique (réel vs attendu vs précédent, High/Medium du jour) —
+  // demande user : la synthèse doit citer les résultats des annonces majeures ET ce qu'ils engendrent.
+  let _wrapCal = [];
+  try { _wrapCal = await _buildTVCalendar(); } catch {}
+  const calRows = (_wrapCal || [])
+    .filter(e => e && e.actual && e.actual !== '' && (e.timestamp || 0) > cutoff && (e.timestamp || 0) <= now && /high|medium/i.test(e.impact || ''))
+    .sort((a, b) => ((b.impact === 'High') - (a.impact === 'High')) || (a.timestamp - b.timestamp))
+    .slice(0, 14)
+    .map(e => `- [${e.currency}] ${e.title}: réel ${e.actual}${e.forecast ? ` vs att. ${e.forecast}` : ''}${e.previous ? ` (préc. ${e.previous})` : ''}`);
+
   const summarise = (arr, n = 6) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
   const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
   const prompt = `Tu es reporter marchés senior dans une banque de premier plan ; tu rédiges la SYNTHÈSE DE MARCHÉ quotidienne à la clôture cash européenne (16:00 Paris), dans le style institutionnel et factuel d'une référence type Newsquawk. Date : ${dateStr}.
@@ -10149,6 +10159,9 @@ ACTIONS:\n${lv(levels.eq)}
 DEVISES:\n${lv(levels.fx)}
 OBLIGATAIRE (rendements souverains, variation en pb):\n${lv(levels.fixed)}
 MATIERES PREMIERES:\n${lv(levels.cmd)}
+
+RÉSULTATS PUBLIÉS AUJOURD'HUI — CALENDRIER ÉCONOMIQUE (réel vs attendu vs précédent ; chiffres EXACTS, n'invente rien) :
+${calRows.join('\n') || '(aucun)'}
 
 FLUX DE NEWS DU JOUR — utilise UNIQUEMENT ceci ; ancre CHAQUE affirmation dedans. N'invente RIEN (aucune donnée, niveau, %, citation, nom ou événement fictif) :
 BANQUES CENTRALES:\n${summarise(s.cb, 8)}
@@ -10175,9 +10188,9 @@ ACTUALITES NORD-AMERICAINES
 DONNEES NORD-AMERICAINES
 
 Chaque ligne de contenu commence par « - ». Format par rubrique :
-- SYNTHESE : 4 à 6 puces de SYNTHÈSE donnant la vue d'ensemble du jour — principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières, et une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre — juste les puces.
+- SYNTHESE : 5 à 7 puces de SYNTHÈSE donnant la vue d'ensemble du jour — principaux mouvements d'indices, la/les décision(s) et intervenant(s) phares de banque centrale, la direction FX (DXY puis les majeures), le ton obligataire, les matières premières, PUIS 1 à 2 puces sur les RÉSULTATS ÉCONOMIQUES MAJEURS publiés aujourd'hui (bloc RÉSULTATS PUBLIÉS : cite le réel vs l'attendu) ET CE QU'ILS ONT ENGENDRÉ sur le marché (réaction taux/FX/indices documentée dans le flux ou les niveaux — jamais inventée), et une dernière puce « À suivre : … » listant les événements/intervenants à venir trouvés dans les données ci-dessus. PAS de sous-titre — juste les puces.
 - ACTIONS / DEVISES / OBLIGATAIRE / MATIERES PREMIERES : 2 à 5 lignes ANALYTIQUES (phrases complètes, profondeur d'une note de desk). Commence chaque ligne par le niveau réel (nomme l'indice/la paire/l'obligation/la matière première, son niveau et sa variation en % ou pb), puis le moteur. DEVISES : couvre le DXY puis les principales variations (EUR, JPY, GBP, AUD…). OBLIGATAIRE : couvre la courbe + tout résultat d'adjudication présent. MATIERES PREMIERES : couvre le pétrole (Brent/WTI), l'or, puis toute news métaux/énergie.
-- DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : publications écrites « Pays Indicateur réel vs Att. … (Préc. …) » exactement comme les données les fournissent.
+- DONNEES EUROPEENNES / DONNEES NORD-AMERICAINES : utilise en PRIORITÉ le bloc RÉSULTATS PUBLIÉS (réel vs attendu vs précédent — chiffres exacts), complété par le flux. Écris « Pays Indicateur réel vs Att. … (Préc. …) » ; pour les publications MAJEURES, ajoute une courte conséquence de marché SI le flux/les niveaux la documentent (ex. « → les rendements US se sont détendus »). Jamais de conséquence inventée.
 - TITRES MARQUANTS : titres factuels européens/mondiaux en une ligne, issus du flux.
 - COMMERCE/DOUANES : puces factuelles sur les accords commerciaux et droits de douane, issues du flux.
 - BANQUES CENTRALES : puces factuelles par banque (décision, répartition des votes, guidance), issues des données.
