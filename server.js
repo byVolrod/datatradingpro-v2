@@ -12145,19 +12145,22 @@ setInterval(async () => {
   } catch {}
 }, 20_000);
 
-// One-time 7-day historical backfill — runs 20 s after startup to let auth settle
-setTimeout(async () => {
+// Backfill historique 7 j au boot (+20 s, le temps de l'auth) : comble le TROU du redéploiement (le WS FJ
+// est live-only). S'il rend 0 (auth lente, FJ indisponible), on RETENTE une fois à +2 min — avant ce filet,
+// un backfill raté laissait le trou définitif (bug « news majeure GBP absente », 15/07).
+async function _runBootBackfill(tag) {
   try {
     const items = await backfillHistoricalNews(7);
-    if (items.length === 0) return;
+    if (items.length === 0) { console.log(`[Backfill ${tag}] 0 item récupéré`); return 0; }
     const count = mergeItems(items).length;
-    console.log(`[Backfill] +${count} historical items merged (total: ${allNews.length})`);
-    if (count > 0) {
-      broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
-    }
-  } catch (e) {
-    console.error('[Backfill] error:', e.message);
-  }
+    console.log(`[Backfill ${tag}] +${count} historical items merged (total: ${allNews.length})`);
+    if (count > 0) broadcast({ type: 'initial', items: allNews.slice(0, 200), total: allNews.length });
+    return items.length;
+  } catch (e) { console.error(`[Backfill ${tag}] error:`, e.message); return 0; }
+}
+setTimeout(async () => {
+  const got = await _runBootBackfill('boot');
+  if (!got) setTimeout(() => { _runBootBackfill('retry'); }, 120_000);
 }, 20_000);
 
 // ─── Yahoo Finance session (crumb + cookie) ──────────────────────────────────

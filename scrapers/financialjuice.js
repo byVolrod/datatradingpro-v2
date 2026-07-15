@@ -58,6 +58,9 @@ let _cookies      = {};
 let _ws           = null;
 let _msgId        = 0;
 let _buffer       = [];
+let _subscribedChannels = [];   // canaux RÉELS auto-souscrits (JWT) — découverts au connect, servent au backfill history
+let _connectCount = 0;          // 1 = boot ; >1 = RECONNEXION (déclenche le rattrapage léger anti-trou)
+let _lastReconnectCatchup = 0;  // throttle du rattrapage de reconnexion (10 min)
 let _timer        = null;
 let _initialized  = false;
 let _pushCallback = null;
@@ -609,6 +612,22 @@ function handleCentrifugoMsg(msg) {
     console.log(`[FinancialJuice] Connected v${msg.connect.version} — TTL ${ttl}s`);
     const autoSubs = Object.keys(msg.connect.subs || {});
     console.log('[FJ] Auto-subscribed:', autoSubs.join(', ') || '(none)');
+    if (autoSubs.length) _subscribedChannels = autoSubs;   // les VRAIS canaux (ex. feedmain:lite_rid:0) → utilisés par le backfill history
+    _connectCount++;
+    // RATTRAPAGE ANTI-TROU (bug « news majeure GBP absente », 15/07) : à chaque RECONNEXION (redéploiement,
+    // coupure réseau), le WS live-only a raté ce qui est tombé pendant le trou → on récupère les ~6 dernières
+    // heures (HTTP/flux/history) et on ré-injecte dans le buffer (dédup _seenHttp, drainé par le fast-poll 20 s
+    // → mergeItems refait passer les filtres normaux). Throttle 10 min. Le boot a déjà son backfill 7 j côté server.
+    if (_connectCount > 1 && Date.now() - _lastReconnectCatchup > 10 * 60e3) {
+      _lastReconnectCatchup = Date.now();
+      setTimeout(() => {
+        backfillHistoricalNews(0.25).then(items => {
+          let n = 0;
+          for (const it of items) { if (it && it.id && !_seenHttp.has(it.id)) { _seenHttp.add(it.id); _buffer.push(it); n++; } }
+          if (n) console.log(`[FJ Backfill reconnect] +${n} item(s) ré-injecté(s) (trou de reconnexion comblé)`);
+        }).catch(() => {});
+      }, 5000);
+    }
     // Explicit subscription belt-and-suspenders
     setTimeout(() => {
       if (_ws?.readyState === 1) {
@@ -1063,7 +1082,16 @@ function ingestToMap(rawData, map, cutoff) {
     return;
   }
   const item = normalizeItem(rawData);
-  if (item && item.timestamp > cutoff) map.set(item.id, item);
+  if (item && item.timestamp > cutoff) { map.set(item.id, item); return; }
+  // Objet enveloppe inconnu (réponse XHR {d:{items:[…]}}, etc.) → on descend dans ses valeurs objet/tableau
+  // (JSON sans cycle, normalizeItem filtre le bruit) — permet d'ingérer n'importe quelle forme de payload FJ.
+  for (const k of Object.keys(rawData)) {
+    const v = rawData[k];
+    if (v && typeof v === 'object') ingestToMap(v, map, cutoff);
+    else if (typeof v === 'string' && v.length > 40 && (v[0] === '[' || v[0] === '{')) {
+      try { ingestToMap(JSON.parse(v), map, cutoff); } catch {}
+    }
+  }
 }
 
 async function backfillViaBrowser(cutoff) {
@@ -1106,16 +1134,33 @@ async function backfillViaBrowser(cutoff) {
       window.WebSocket.prototype  = _NWS.prototype;
     });
 
+    // Interception RÉSEAU : toute réponse XHR/fetch JSON de la page est ingérée (ingestToMap descend dans
+    // les enveloppes) → capte la liste initiale d'articles ET les pages chargées au scroll, sans dépendre
+    // de sélecteurs DOM fragiles ni du seul flux live WS.
+    page.on('response', async resp => {
+      try {
+        const ct = String(resp.headers()['content-type'] || '');
+        if (!/json|javascript/i.test(ct)) return;
+        const j = await resp.json().catch(() => null);
+        if (j) ingestToMap(j, out, cutoff);
+      } catch {}
+    });
+
     await page.goto(HOME_URL, { waitUntil: 'networkidle2', timeout: 40_000 });
 
-    // Wait for WS to deliver live + recovery messages
-    for (let i = 0; i < 6; i++) {
-      await new Promise(r => setTimeout(r, 5000));
-      const prev = out.size;
-      await new Promise(r => setTimeout(r, 1000));
-      if (out.size === prev && i >= 2) break;  // stop if no new items arriving
+    // SCROLL : déclenche le chargement d'items plus anciens (pagination infinie) → profondeur de rattrapage.
+    for (let s = 0; s < 8; s++) {
+      try { await page.evaluate(() => window.scrollBy(0, 2600)); } catch {}
+      await new Promise(r => setTimeout(r, 1300));
     }
-    console.log(`[FJ Backfill Browser] ${out.size} items captured via WS`);
+
+    // Laisse le WS livrer d'éventuels messages de récupération/live restants
+    for (let i = 0; i < 4; i++) {
+      const prev = out.size;
+      await new Promise(r => setTimeout(r, 4000));
+      if (out.size === prev && i >= 1) break;  // stop if no new items arriving
+    }
+    console.log(`[FJ Backfill Browser] ${out.size} items capturés (XHR + WS + scroll)`);
   } catch (e) {
     console.log('[FJ Backfill Browser] error:', e.message);
   } finally {
@@ -1133,19 +1178,32 @@ async function backfillHistoricalNews(daysBack = 7) {
   const cutoff    = Date.now() - daysBack * 24 * 60 * 60 * 1000;
   const collected = new Map();
 
-  // 1) Centrifugo WS history (cheapest)
+  // 0) HTTP direct (flux/JSON page courante) — le plus FIABLE (même mécanique que le fast-poll qui marche) :
+  //    les derniers items publiés, exactement ce qu'il faut pour combler un trou de redéploiement/reconnexion.
+  //    (Avant ce fix, le backfill rendait 0 à CHAQUE boot : canaux WS devinés inexistants + endpoints paginés
+  //    morts + navigateur qui n'écoutait que le live → les news tombées pendant un rebuild étaient perdues.)
+  try {
+    const items = await fetchNewsViaHttp();
+    items.forEach(i => { if (i && i.timestamp > cutoff) collected.set(i.id, i); });
+    console.log(`[FJ Backfill HTTP] ${items.length} items (flux courant)`);
+  } catch (e) { console.log('[FJ Backfill HTTP] KO:', e.message); }
+
+  // 1) Centrifugo WS history — sur les canaux RÉELS auto-souscrits (ex. feedmain:lite_rid:0), découverts
+  //    au connect, PAS des noms devinés. Peut répondre « not available » si l'history est désactivée côté
+  //    serveur → simple opportunisme, jamais bloquant.
   if (_ws?.readyState === 1) {
-    for (const ch of ['feed:lite', 'feed:all', 'feed:lite_rid:16']) {
+    const chans = [...new Set([..._subscribedChannels, 'feedmain:lite_rid:0'])];
+    for (const ch of chans) {
       try {
         const items = await fetchCentrifugoHistory(ch);
         items.forEach(i => collected.set(i.id, i));
         console.log(`[FJ Backfill WS] ${items.length} items from ${ch}`);
-        if (collected.size > 200) break;
+        if (collected.size > 400) break;
       } catch {}
     }
   }
 
-  // 2) Paginated HTTP API
+  // 2) API HTTP paginée (profondeur, si un endpoint existe encore)
   if (collected.size < 100) {
     try {
       const items = await fetchPaginatedHistory(cutoff);
@@ -1153,8 +1211,9 @@ async function backfillHistoricalNews(daysBack = 7) {
     } catch {}
   }
 
-  // 3) Browser DOM scrape as last resort
-  if (collected.size < 30) {
+  // 3) Navigateur en dernier recours : interception RÉSEAU (XHR JSON + WS) + scroll pour déclencher le
+  //    chargement d'items plus anciens — vraie récupération, plus seulement l'écoute du live.
+  if (collected.size < 60) {
     try {
       const items = await backfillViaBrowser(cutoff);
       items.forEach(i => collected.set(i.id, i));
