@@ -7823,7 +7823,7 @@ function _parisDayRange(dayKey) {
 // Le planificateur de 22h30 (force) le MET À JOUR avec la clôture US → le desk garde sa version complète en soirée.
 function _fxrTargetDayKey() {
   const p = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
-  if (p.getHours() < 19) p.setDate(p.getDate() - 1);
+  if (p.getHours() < 18) p.setDate(p.getDate() - 1);   // récap du jour à partir de 18h (sortie 18h30) — demande user
   // Marché forex fermé le WEEK-END → on cible le dernier jour OUVRÉ (vendredi). Évite un « génération en
   // cours » perpétuel le samedi/dimanche et affiche le dernier recap pertinent (celui du vendredi).
   while (p.getDay() === 0 || p.getDay() === 6) p.setDate(p.getDate() - 1);
@@ -8488,7 +8488,7 @@ setTimeout(() => { _checkEventAnalyses().catch(() => {}); }, 40 * 1000);        
     { fn: () => generateLondonRecap(false),           h: 17, m: 30, name: 'London Recap'          }, // interne
     { fn: () => generateDailyMarketRecap(false),      h: 22, m: 0,  name: 'Daily Market Recap'    },
     { fn: () => generateDTPDaily(false),              h: 12, m: 0,  name: 'DTP Daily Opening'     }, // « Point Marché · Ouverture US » (jours ouvrés)
-    { fn: () => generateFXDailyRecap(false),          h: 19, m: 30, name: 'FX Daily Recap (19h30)' },              // sort à 19h30 SUR LE DESK (base du mail Point marché : Asie+Europe+début US)
+    { fn: () => generateFXDailyRecap(false),          h: 18, m: 30, name: 'FX Daily Recap (18h30)' },              // sort à 18h30 SUR LE DESK (base du mail Point marché : Asie+Europe+début US) — demande user
     { fn: () => generateFXDailyRecap(true),           h: 22, m: 30, name: 'FX Daily Recap (MAJ complète, clôture US)' }, // se met à jour à 22h30 avec la clôture US → le desk garde la version complète en soirée
     { fn: () => generateDailyEventReview(false),      h: 23, m: 0,  name: 'Daily Event Review'    },
   ];
