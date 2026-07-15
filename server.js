@@ -12673,10 +12673,13 @@ function _calMailFlag(cur) { const iso = _CAL_ISO[cur]; return iso ? `<span clas
 function _calMailDots(impact) { const l = String(impact || '').toLowerCase(); if (l === 'high') return '<span class="ci-high">●●●</span>'; if (l === 'medium') return '<span class="ci-med">●●<span class="ci-dot-off">●</span></span>'; return '<span class="ci-low">●<span class="ci-dot-off">●●</span></span>'; }
 // Cellule RÉEL du widget e-mail — miroir EXACT de calActualCell() du desk (deviation vs PREVISION,
 // eclair si sorti sous l'estimation basse LOW). Auto-echappement (hors portee du _e local de la route).
-function _calMailActual(actual, forecast, low) {
+// POLARITÉ INTELLIGENTE (miroir de deviationClass du desk) : indicateurs INVERSÉS (chômage, inscriptions,
+// licenciements…) → plus bas que prévu = vert. Sinon plus haut que prévu = vert (convention pro, inflation incluse).
+const _CAL_INVERTED_RX = /unemployment|jobless|claimant|ch[oô]mage|layoff|job cuts|foreclosure|bankruptc|delinquen/i;
+function _calMailActual(actual, forecast, low, title) {
   const esc = s => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   if (actual == null || actual === '') return '<span class="cv-empty">—</span>';
-  const dev = (a, r) => { if (a == null || a === '' || r == null || r === '') return ''; const x = parseFloat(String(a).replace(',', '.')), y = parseFloat(String(r).replace(',', '.')); if (isNaN(x) || isNaN(y)) return ''; return x > y ? 'cv-pos' : x < y ? 'cv-neg' : ''; };
+  const dev = (a, r) => { if (a == null || a === '' || r == null || r === '') return ''; const x = parseFloat(String(a).replace(',', '.')), y = parseFloat(String(r).replace(',', '.')); if (isNaN(x) || isNaN(y) || x === y) return ''; const good = _CAL_INVERTED_RX.test(String(title || '')) ? x < y : x > y; return good ? 'cv-pos' : 'cv-neg'; };
   let bolt = '';
   if (low != null && low !== '') {
     const a = parseFloat(String(actual).replace(',', '.')), l = parseFloat(String(low).replace(',', '.'));
@@ -12742,7 +12745,7 @@ app.get('/internal/email-widget/calendar', async (req, res) => {
     const pv = ev.previous && ev.previous !== '' ? `<span class="cv-prev">${_e(ev.previous)}</span>` : '<span class="cv-empty">—</span>';
     const hi = ev.high && ev.high !== '' ? `<span class="cv-forecast">${_e(ev.high)}</span>` : '<span class="cv-empty">—</span>';
     const lo = ev.low  && ev.low  !== '' ? `<span class="cv-prev">${_e(ev.low)}</span>`  : '<span class="cv-empty">—</span>';
-    tbody += `<tr class="${cls}"><td class="cth-time"><span class="cal-chv">›</span> ${_e(ev.time || '—')}</td><td class="cth-flag">${_calMailFlag(ev.currency)}</td><td class="cth-curr">${_e(ev.currency || '')}</td><td class="cth-imp">${_calMailDots(ev.impact)}</td><td class="cth-event">${_e(ev.title || '')}</td><td class="cth-val">${_calMailActual(ev.actual, ev.forecast, ev.low)}</td><td class="cth-val">${hi}</td><td class="cth-val">${fc}</td><td class="cth-val">${lo}</td><td class="cth-val">${pv}</td></tr>`;
+    tbody += `<tr class="${cls}"><td class="cth-time"><span class="cal-chv">›</span> ${_e(ev.time || '—')}</td><td class="cth-flag">${_calMailFlag(ev.currency)}</td><td class="cth-curr">${_e(ev.currency || '')}</td><td class="cth-imp">${_calMailDots(ev.impact)}</td><td class="cth-event">${_e(ev.title || '')}</td><td class="cth-val">${_calMailActual(ev.actual, ev.forecast, ev.low, ev.title)}</td><td class="cth-val">${hi}</td><td class="cth-val">${fc}</td><td class="cth-val">${lo}</td><td class="cth-val">${pv}</td></tr>`;
   }
   const table = rows.length
     ? `<table class="cal-table"><thead><tr><th class="cth-time">Heure</th><th class="cth-flag">CNTRY</th><th class="cth-curr">CURR.</th><th class="cth-imp">IMPACT</th><th class="cth-event">ÉVÉNEMENT</th><th class="cth-val">RÉEL</th><th class="cth-val">HIGH</th><th class="cth-val">PRÉVISION</th><th class="cth-val">LOW</th><th class="cth-val">PRÉCÉDENT</th></tr></thead><tbody>${tbody}</tbody></table>`
