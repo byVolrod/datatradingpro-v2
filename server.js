@@ -7111,7 +7111,9 @@ async function generateGlobalEconomicWeekly(force = false) {
   // Pas d'événements (calendrier de la semaine écoulée pas encore chargé / week-end de boot) → on NE
   // génère PAS un rapport vide et on NE touche PAS à un GEW existant (auto-réessai au prochain accès).
   if (nEv === 0) { console.warn(`[GEW] aucun événement programmé pour ${weekKey} → pas de génération (réessai ultérieur)`); return null; }
-  allNews = allNews.filter(i => i._reportType !== 'Global Economic Weekly');   // un seul GEW à la fois (remplacé seulement si on a de vrais events)
+  // NB : l'ancien GEW n'est PLUS retiré ici — il est remplacé ATOMIQUEMENT à la publication (fin de fonction).
+  // Avant, il disparaissait de l'onglet Analystes pendant toute la génération IA (minutes), et restait PERDU
+  // si elle échouait (quota) — « pourquoi je vois pas le récap macro week », bug signalé.
 
   // Événements PHARES (High) pour le titre + le narratif Highlights — avec le RÉSULTAT publié (actual)
   const marquee = evClean.filter(e => e.impact === 'High')
@@ -7228,7 +7230,7 @@ ${list}`;
     priority: 'normal', tags: ['Bilan Hebdo', 'Global Economy', 'Macro'],
     _briefing: true, _reportType: 'Global Economic Weekly', _weekly: weekly,
   };
-  allNews = [item, ...allNews].slice(0, 2000);
+  allNews = [item, ...allNews.filter(i => i._reportType !== 'Global Economic Weekly')].slice(0, 2000);   // remplacement ATOMIQUE : l'ancien GEW ne disparaît qu'au moment où le nouveau est prêt (un seul GEW à la fois)
   saveHistory();
   auth.weeklyReportSave(weekKey, item).catch(e => console.warn('[GEW] persist échec:', e.message));
   try { broadcast({ type: 'news_update', items: [{ ...item, _new: true }], total: allNews.length }); } catch {}
