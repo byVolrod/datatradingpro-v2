@@ -463,6 +463,7 @@
     <button class="adm-tab" data-tab="support" onclick="admTab('support')">Support <span class="adm-tab-badge" id="adm-tab-chat" style="display:none">0</span></button>
     <button class="adm-tab" data-tab="aimon" onclick="admTab('aimon')">IA Monitor <span class="adm-tab-badge" id="adm-tab-aimon-b" style="display:none">!</span></button>
     <button class="adm-tab" data-tab="campaign" onclick="admTab('campaign')">Campagne e-mail <span class="adm-tab-badge" id="adm-tab-camp-b" style="display:none">0</span></button>
+    <button class="adm-tab" data-tab="api" onclick="admTab('api')">Accès API</button>
   </div>
 
   <!-- ═══ Onglet : Tableau de bord ═══ -->
@@ -1062,6 +1063,62 @@
     <div class="camp-toasts" id="camp-toasts"></div>
   </section>
 
+  <!-- ═══ Onglet : Accès API ═══ -->
+  <section class="tab-panel" id="tab-api">
+
+    <!-- Clés API -->
+    <div class="panel-card">
+      <div class="panel-head"><span class="ph-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/></svg></span><h2>Clés API</h2></div>
+      <div class="panel-body">
+        <p style="margin:0 0 12px;color:#8b93a1;font-size:12.5px;line-height:1.6;">Accès programmatique en <b style="color:#cbd5e1;">lecture seule</b> aux données du desk (news, calendrier, force des devises, biais, régime de marché, taux, rapports). Chaque clé est limitée à <b style="color:#cbd5e1;">60 requêtes/minute</b>. La clé complète n'est affichée qu'<b style="color:#e3b23a;">une seule fois</b> à la création — elle est ensuite stockée hachée (irrécupérable).</p>
+        <div style="display:flex;gap:8px;margin:0 0 12px;flex-wrap:wrap;">
+          <input type="text" id="apikey-name" placeholder="Nom de la clé (ex. Script perso, n8n, TradingView…)" style="flex:1;min-width:220px;background:#101013;border:1px solid #232429;border-radius:6px;color:#e6e6ea;padding:9px 12px;font-size:13px;">
+          <button class="btn btn-primary" onclick="createApiKey()" id="apikey-create-btn">+ Générer une clé</button>
+        </div>
+        <div id="apikey-new" style="display:none;margin:0 0 14px;padding:12px 14px;background:#101013;border:1px solid #3a3320;border-left:3px solid #e3b23a;border-radius:6px;">
+          <div style="color:#e3b23a;font-weight:700;font-size:12px;margin-bottom:6px;">🔑 Clé créée — copiez-la MAINTENANT, elle ne sera plus jamais affichée :</div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <code id="apikey-new-value" style="flex:1;min-width:240px;background:#0c0c0e;border:1px solid #232429;border-radius:5px;padding:8px 10px;color:#00e676;font-size:12.5px;word-break:break-all;"></code>
+            <button class="btn" onclick="copyApiKey()" id="apikey-copy-btn">Copier</button>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table class="users-table" id="apikeys-table">
+            <thead><tr><th>Nom</th><th>Clé</th><th>Créée</th><th>Dernier appel</th><th>Appels</th><th>Limite</th><th>Statut</th><th></th></tr></thead>
+            <tbody id="apikeys-tbody"><tr><td colspan="8" style="color:#6f6f79;">Chargement…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documentation -->
+    <div class="panel-card">
+      <div class="panel-head"><span class="ph-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg></span><h2>Documentation — API v1</h2></div>
+      <div class="panel-body">
+        <p style="margin:0 0 10px;color:#8b93a1;font-size:12.5px;line-height:1.6;"><b style="color:#cbd5e1;">Base</b> : <code style="color:#e3b23a;">https://desk.datatradingpro.com</code> · <b style="color:#cbd5e1;">Authentification</b> : header <code style="color:#e3b23a;">X-API-Key: &lt;clé&gt;</code> (ou <code style="color:#e3b23a;">Authorization: Bearer &lt;clé&gt;</code>) · <b style="color:#cbd5e1;">Réponse</b> : <code style="color:#cbd5e1;">{ ok, data, meta }</code> · Lecture seule, jamais de clé dans l'URL.</p>
+        <pre style="background:#0c0c0e;border:1px solid #232429;border-radius:6px;padding:10px 12px;color:#9aa3b2;font-size:12px;overflow-x:auto;margin:0 0 14px;">curl -H "X-API-Key: dtp_votrecle" https://desk.datatradingpro.com/api/v1/news?limit=5</pre>
+        <div class="table-wrap">
+          <table class="users-table">
+            <thead><tr><th>Endpoint</th><th>Description</th><th>Paramètres</th></tr></thead>
+            <tbody>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/status</code></td><td>État de la clé (usage, quota) + liste des endpoints</td><td style="color:#8b93a1;">—</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/news</code></td><td>Fil d'actualité du desk (identique à l'onglet ACTUS)</td><td style="color:#8b93a1;">limit (≤200) · category · priority (high|normal) · q · since (ms)</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/calendar</code></td><td>Calendrier économique (réel / prévision / précédent)</td><td style="color:#8b93a1;">currency · impact (high|medium|low) · from · to (ms) · limit (≤500)</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/strength</code></td><td>Force des Devises (dernière valeur par devise)</td><td style="color:#8b93a1;">period (today|week) · series=1 (séries complètes)</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/bias</code></td><td>Radar de Biais hebdo (synthèse par devise)</td><td style="color:#8b93a1;">—</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/smart-bias</code></td><td>Smart Bias Tracker (matrice 8 devises + conclusion)</td><td style="color:#8b93a1;">—</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/risk</code></td><td>Régime de Marché (risk-on / risk-off, score)</td><td style="color:#8b93a1;">—</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/rates</code></td><td>Banques centrales &amp; taux (probabilités, trajectoire)</td><td style="color:#8b93a1;">—</td></tr>
+              <tr><td><code style="color:#e3b23a;">GET /api/v1/reports</code></td><td>Rapports Analystes (liste) — détail : <code>/api/v1/reports/{id}</code></td><td style="color:#8b93a1;">type · limit (≤50)</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin:10px 0 0;color:#6f6f79;font-size:11.5px;">Codes : <b>401</b> clé manquante/invalide · <b>429</b> limite de débit dépassée · <b>503</b> donnée momentanément indisponible. Les erreurs sont toujours en JSON <code>{ ok:false, error }</code>.</p>
+      </div>
+    </div>
+
+  </section>
+
 </div>
 
 <!-- Edit modal -->
@@ -1186,6 +1243,74 @@
     if (name === 'dash') setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 40);
     if (name === 'aimon') { loadAIMon(); setTimeout(() => { Object.values(_amRoots).forEach(r => { try { r && r.resize && r.resize(); } catch {} }); }, 60); }
     if (name === 'campaign') loadCampaign();
+    if (name === 'api') loadApiKeys();
+  }
+
+  // ── Accès API : gestion des clés (liste, création une-seule-fois, révocation inline) ──
+  async function loadApiKeys() {
+    const tb = document.getElementById('apikeys-tbody');
+    try {
+      const d = await fetch('/api/admin/api-keys').then(r => r.json());
+      const keys = d.keys || [];
+      if (!keys.length) { tb.innerHTML = '<tr><td colspan="8" style="color:#6f6f79;">Aucune clé — générez la première ci-dessus.</td></tr>'; return; }
+      const fd = ts => ts ? new Date(ts).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+      tb.innerHTML = keys.map(k => `<tr data-kid="${k.id}" style="${k.revoked ? 'opacity:.45;' : ''}">
+        <td style="color:#e6e6ea;font-weight:600;">${(k.name || '').replace(/</g, '&lt;')}</td>
+        <td><code style="color:#9aa3b2;">${k.prefix || ''}</code></td>
+        <td style="color:#8b93a1;">${fd(k.createdAt)}</td>
+        <td style="color:#8b93a1;">${fd(k.lastUsedAt)}</td>
+        <td style="color:#cbd5e1;">${k.calls || 0}</td>
+        <td style="color:#8b93a1;">${k.rateLimit}/min</td>
+        <td>${k.revoked ? '<span style="color:#ef4444;font-weight:600;">Révoquée</span>' : '<span style="color:#00e676;font-weight:600;">Active</span>'}</td>
+        <td class="apikey-actions" style="white-space:nowrap;">${k.revoked
+          ? `<button class="btn btn-sm" onclick="apiKeyAction('${k.id}','delete',this)">Supprimer</button>`
+          : `<button class="btn btn-sm" onclick="apiKeyAction('${k.id}','revoke',this)">Révoquer</button>`}</td>
+      </tr>`).join('');
+    } catch (e) { tb.innerHTML = '<tr><td colspan="8" style="color:#ef4444;">Erreur de chargement : ' + e.message + '</td></tr>'; }
+  }
+  // Confirmation INLINE (2 clics, jamais de dialog natif) : 1er clic → le bouton devient « Confirmer ? » 4 s.
+  async function apiKeyAction(id, mode, btn) {
+    if (btn.dataset.confirming !== '1') {
+      btn.dataset.confirming = '1';
+      btn.textContent = mode === 'delete' ? 'Supprimer définitivement ?' : 'Confirmer la révocation ?';
+      btn.style.color = '#ef4444';
+      setTimeout(() => { if (btn.isConnected) { btn.dataset.confirming = ''; btn.textContent = mode === 'delete' ? 'Supprimer' : 'Révoquer'; btn.style.color = ''; } }, 4000);
+      return;
+    }
+    btn.disabled = true;
+    try {
+      const r = await fetch('/api/admin/api-keys/' + encodeURIComponent(id) + '/' + mode, { method: 'POST' });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'échec');
+    } catch (e) { btn.disabled = false; btn.textContent = 'Erreur : ' + e.message; return; }
+    loadApiKeys();
+  }
+  async function createApiKey() {
+    const inp = document.getElementById('apikey-name'), btn = document.getElementById('apikey-create-btn');
+    const name = (inp.value || '').trim();
+    if (!name) { inp.focus(); inp.style.borderColor = '#ef4444'; setTimeout(() => { inp.style.borderColor = ''; }, 1500); return; }
+    btn.disabled = true; btn.textContent = 'Génération…';
+    try {
+      const r = await fetch('/api/admin/api-keys', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      const d = await r.json();
+      if (!d.ok) throw new Error(d.error || 'échec');
+      document.getElementById('apikey-new-value').textContent = d.key;
+      document.getElementById('apikey-new').style.display = 'block';
+      document.getElementById('apikey-copy-btn').textContent = 'Copier';
+      inp.value = '';
+      loadApiKeys();
+    } catch (e) {
+      const nb = document.getElementById('apikey-new');
+      nb.style.display = 'block';
+      document.getElementById('apikey-new-value').textContent = 'Erreur : ' + e.message;
+    }
+    btn.disabled = false; btn.textContent = '+ Générer une clé';
+  }
+  async function copyApiKey() {
+    const v = document.getElementById('apikey-new-value').textContent || '';
+    const b = document.getElementById('apikey-copy-btn');
+    try { await navigator.clipboard.writeText(v); b.textContent = 'Copié ✓'; }
+    catch { b.textContent = 'Sélectionnez et copiez manuellement'; }
   }
   function refreshAll() { loadUsers(); loadFinance(); loadAdChat(); }
   // ── Bandeau SANTÉ GLOBALE + badges d'alerte sur les onglets (poll léger 60 s) ──
