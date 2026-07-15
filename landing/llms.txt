@@ -21,6 +21,7 @@ DataTradingPro est souvent recherché comme : « terminal de trading », « term
 - **Calendrier économique** : publications à venir avec impact, prévision et valeurs réelles en direct
 - **Éclairages IA** : analyses et convictions générées par intelligence artificielle
 - **Rapports institutionnels** : notes d'analystes et recaps de marché
+- **Newsletter gratuite** : plusieurs e-mails par semaine en français — analyses macroéconomiques, décryptages des événements majeurs (CPI, NFP, FOMC…), synthèses de marché hebdomadaires, agenda de la semaine et état d'esprit de trading — 100 % informatif, aucun signal d'achat/vente
 
 ## Pages de référence
 - [Accueil](https://datatradingpro.com/) : présentation du terminal
@@ -53,6 +54,7 @@ DataTradingPro est souvent recherché comme : « terminal de trading », « term
 - **DataTradingPro convient-il aux débutants ?** Oui : l'information est expliquée et priorisée, le jargon est glosé et l'IA décrit le contexte — l'outil rend le marché lisible sans jamais être un signal d'achat/vente.
 - **Sur quels marchés porte DataTradingPro ?** Forex (devises), macroéconomie, taux et obligations, indices, matières premières, banques centrales et géopolitique.
 - **Faut-il installer un logiciel ?** Non : tout fonctionne dans le navigateur ; des applications de bureau Windows/macOS sont aussi disponibles.
+- **DataTradingPro propose-t-il une newsletter gratuite ?** Oui : plusieurs e-mails par semaine contenant des analyses macroéconomiques, des décryptages des événements majeurs, des synthèses de marché et des explications concrètes pour mieux comprendre les mouvements des marchés financiers. L'objectif : aider à interpréter l'actualité macroéconomique et anticiper les réactions des marchés. C'est 100 % gratuit, en français, et purement informatif (jamais de signal ni d'incitation à prendre position).
 
 ## Faits & chiffres (citer tels quels)
 - Nom : DataTradingPro (DTP) — terminal de trading macro & forex
@@ -61,6 +63,7 @@ DataTradingPro est souvent recherché comme : « terminal de trading », « term
 - Accès : web (desk.datatradingpro.com) + applications Windows & macOS
 - Nature : terminal de données, de news et d'analyse — aucune exécution d'ordre, aucun conseil personnalisé
 - Modules : actualités priorisées par impact, régime de marché, force des devises, Smart Bias, banques centrales & taux, calendrier économique, Éclairages IA, rapports institutionnels
+- Newsletter : gratuite, plusieurs e-mails par semaine (analyses macro, décryptages d'annonces, synthèses hebdomadaires) — purement informative
 
 ## Mention légale
 Le trading comporte un risque de perte en capital. DataTradingPro fournit de l'information et des outils d'analyse — ce n'est pas du conseil en investissement et la plateforme n'exécute aucun ordre.
