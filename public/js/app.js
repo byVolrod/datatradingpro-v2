@@ -2704,7 +2704,7 @@ function buildNewsItem(item) {
   // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
   const _catLabel = catFr(item.category || '');
   const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
-  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport lui-même)
+  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News = retirés à la demande)
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
@@ -6112,6 +6112,15 @@ function arlibItemTags(item) {
   }
   return _dedupeTags(tags).slice(0, 12);
 }
+// Nettoyage d'affichage des tags de rapport (demande user) : (1) MAJUSCULE initiale (« inflation » → « Inflation »,
+// « pétrole » → « Pétrole ») ; (2) on MASQUE certains tags jugés inutiles (« FX Flows », « Energy & Power »,
+// « Global News » + variantes FR). Retourne '' si le tag doit disparaître.
+const _ARLIB_TAG_HIDE = new Set(['fx flows', 'flux fx', 'energy & power', 'énergie', 'energie', 'global news', 'actualités mondiales', 'actualites mondiales']);
+function _arlibTagClean(t) {
+  const s = String(t == null ? '' : t).trim();
+  if (!s || _ARLIB_TAG_HIDE.has(s.toLowerCase())) return '';
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 // Tags du rapport OUVERT (liste complète) + rendu façon DTP : 6 pills max + "+N", puis
 // date + badge DTP à droite de la barre.
 let _arlibCurrentTags = [];
@@ -6120,7 +6129,7 @@ function _renderArlibTags() {
   const tags = _arlibCurrentTags || [];
   if (scroll) {
     // Façon DTP : TOUS les tags dans une rangée scrollable (chevrons ‹ ›), sans troncature "+N".
-    scroll.innerHTML = tags.map(t => `<span class="arlib-rtag">${t}</span>`).join('');
+    scroll.innerHTML = tags.map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${t}</span>`).join('');
     scroll.scrollLeft = 0;
   }
   // Date retirée de cette rangée (façon DTP : ‹ tags › ; le badge DTP reste dans la barre du haut).
@@ -6715,7 +6724,7 @@ function _renderFXDailyRecap(item) {
 
   if (titleEl) titleEl.textContent = _mdStrip(w.title || 'FX Daily Recap');
   if (navRight) navRight.innerHTML = `<button class="arlib-hide-insights" onclick="aiInsToggle(this)">${_EYE_OFF} Masquer Insights</button><span class="arlib-dtp-badge">DTP</span>`;
-  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
+  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
   if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
 
@@ -6877,7 +6886,7 @@ function _renderDTPDaily(item) {
   document.getElementById('arlib-ai-insights')?.remove();
   if (titleEl) titleEl.textContent = _mdStrip(w.reportName || w.title || 'DTP Daily US Opening News');
   if (navRight) navRight.innerHTML = `<span class="arlib-dtp-badge">DTP</span>`;
-  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
+  if (tagsScroll) tagsScroll.innerHTML = (w.tags || []).flatMap(t => String(t).split(/\s*[,;]\s*/)).map(s => s.trim()).map(_arlibTagClean).filter(Boolean).map(t => `<span class="arlib-rtag">${_wrEsc(t)}</span>`).join('');
   const _rdateEl = document.getElementById('arlib-rdate');
   if (_rdateEl) _rdateEl.textContent = w.dateLabel || '';
 
