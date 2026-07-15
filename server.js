@@ -10257,6 +10257,9 @@ async function generateEuropeanMarketWrap(force = false) {
     .map(e => `- [${e.currency}] ${e.title}: réel ${e.actual}${e.forecast ? ` vs att. ${e.forecast}` : ''}${e.previous ? ` (préc. ${e.previous})` : ''}`);
 
   const summarise = (arr, n = 6) => (arr && arr.length) ? arr.slice(0, n).map(i => `• ${i.headline}`).join('\n') : '(none)';
+  // AUTRES TITRES : les IMPORTANTS (rouges) d'abord, puis les plus récents — une news majeure de 17h
+  // n'est plus éjectée du top-14 par le flot du soir (bug « news majeure GBP absente de la synthèse »).
+  const _allPrio = [...s.all].sort((a, b) => (((b.priority === 'high' || b.priority === 'urgent') ? 1 : 0) - ((a.priority === 'high' || a.priority === 'urgent') ? 1 : 0)) || ((b.timestamp || 0) - (a.timestamp || 0)));
   const lv = g => (g && g.length) ? g.join('\n') : '(unavailable)';
   const prompt = `Tu es reporter marchés senior dans une banque de premier plan ; tu rédiges la SYNTHÈSE DE MARCHÉ quotidienne à la clôture cash européenne (16:00 Paris), dans le style institutionnel et factuel d'une référence type Newsquawk. Date : ${dateStr}.
 
@@ -10276,7 +10279,7 @@ DONNEES NORD-AMERICAINES (réel vs att./préc.):\n${summarise(s.naData, 8)}
 GEOPOLITIQUE:\n${summarise(s.geo, 8)}
 COMMERCE / DROITS DE DOUANE:\n${summarise(s.trade, 4)}
 TITRES NORD-AMERICAINS (politique, budget, entreprises US/Canada):\n${summarise(s.naNews, 8)}
-AUTRES TITRES:\n${summarise(s.all, 14)}
+AUTRES TITRES:\n${summarise(_allPrio, 14)}
 
 Rédige la synthèse avec EXACTEMENT ces en-têtes de rubrique, chacun SEUL sur sa ligne, en MAJUSCULES, SANS deux-points, dans CET ordre. N'omets une rubrique QUE si le flux/les niveaux ci-dessus n'ont vraiment rien pour elle.
 
@@ -11354,6 +11357,10 @@ function _isInfoQuoteNews(headline) {
   return _IQ_FIRST_PERSON.test(h) && _IQ_BRAG.test(h);   // sinon : 1re personne + vantardise
 }
 
+// Poste des finances publiques (ministre des Finances / chancelier / secrétaire au Trésor) + verbe
+// d'ÉVÉNEMENT (choix, nomination, démission, remplacement…), OU forme « new/next/incoming + poste »,
+// OU crise gouvernementale (chute, élections anticipées, motion de censure) → événement devise MAJEUR.
+const _POL_FINANCE_RX = /\b(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary|finance ministry)\b.{0,80}\b(?:choice|picks?|appoint\w*|nam(?:e|ed|es|ing)|nomin\w*|resign\w*|quit\w*|replac\w*|sack\w*|oust\w*|steps? down|candidate|succeed\w*)\b|\b(?:new|next|incoming)\s+(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary)\b|\b(?:government (?:collapse|falls)|snap elections?|no.?confidence vote|vote of no.?confidence)\b/i;
 function upgradeItemPriority(item) {
   const h = item.headline || '';
   // Flag « propos hors marché » posé À L'INGESTION (regex, aucun coût IA) → le tag « Contexte » + le repli
@@ -11383,6 +11390,14 @@ function upgradeItemPriority(item) {
 
   // ── Upgrade: donnée macro tier-1 RÉELLE, géopolitique tier-1 (militaire), OU accord diplomatique majeur ──
   if (isHighImpactData || GEO_TIER1_RE.test(h) || isGeoDeal(h)) {
+    return { ...item, priority: 'high', _highImpact: true };
+  }
+
+  // ── Nomination/départ aux FINANCES PUBLIQUES, chute de gouvernement, élections anticipées → majeur DEVISE ──
+  // (bug « news majeure GBP » 15/07 : « The British finance minister choice that's worrying big business »
+  // restait en priorité normale). Deux bras anti-faux-positifs : le POSTE + un VERBE d'ÉVÉNEMENT — une simple
+  // citation (« Treasury Secretary says… », « Chancellor Merz on next ECB president ») reste normale.
+  if (_POL_FINANCE_RX.test(h)) {
     return { ...item, priority: 'high', _highImpact: true };
   }
 
