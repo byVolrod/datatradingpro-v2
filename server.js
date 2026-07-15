@@ -13353,13 +13353,15 @@ app.get('/api/admin/campaign-stats', requireAdmin, (req, res) => {
 // Lun=Semaine à venir · Mar=Comprendre · Mer=Point marché · Jeu=Mindset · Ven=Récap Hebdo — en boucle chaque semaine.
 // L'ordre ci-dessous SUIT les jours (S2=lundi … S6=vendredi). `stat`/`statPrefix` = l'ID RÉEL sous lequel l'envoi
 // est comptabilisé (_campaignStats), parfois ≠ de `id` (Point marché sous 'point-marche', etc.). `when` = jour d'envoi.
+// ORDRE CHRONOLOGIQUE de la semaine affichée (Lun→Dim, comme l'en-tête « Semaine du X – Y ») — demande
+// user 15/07 : intro (hors calendrier) puis Mardi → Mercredi → Jeudi → Samedi → DIMANCHE (Outlook clôt la semaine).
 const CAMPAIGN_SEQUENCE = [
   { id: 'intro-v1',      week: 1,    title: 'Bienvenue : introduction',            pillar: 'Cycle de vie', status: 'ready',   stat: 'intro-v1',      when: "À l'inscription (auto, J+0)",                              desc: 'Présentation du terminal + ce qui sera reçu chaque semaine.' },
-  { id: 'outlook-hebdo', week: 2,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
-  { id: 'decryptage',    week: 3,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'Chaque mardi · dès 8h (Paris)',                            desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
-  { id: 'point-hebdo',   week: 4,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le FX Daily Recap (~19h30, Paris)', desc: 'Part une fois le FX Daily Recap DU JOUR publié (~19h30) : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
-  { id: 'mindset',       week: 5,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
-  { id: 'recap-hebdo',   week: 6,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
+  { id: 'decryptage',    week: 2,    title: 'Comprendre le marché',                pillar: 'Éducatif',     status: 'ready',   stat: 'decryptage',    when: 'Chaque mardi · dès 8h (Paris)',                            desc: 'Concept-clé choisi selon le thème dominant du desk (taux/inflation/emploi/croissance/risque) + vrais temps forts à surveiller. Anti-redondance.' },
+  { id: 'point-hebdo',   week: 3,    title: 'Le point marché de la semaine',        pillar: 'Point marché', status: 'ready',   stat: 'point-marche',  when: 'Chaque mercredi · après le FX Daily Recap (~19h, Paris)',  desc: 'Part une fois le FX Daily Recap DU JOUR publié (~19h) : brief de séance + calendrier économique du desk (dates/heures) + Force des Devises + biais.' },
+  { id: 'mindset',       week: 4,    title: 'Mindset & discipline',                 pillar: 'Mindset',      status: 'ready',   stat: 'mindset',       when: 'Chaque jeudi · dès 8h (Paris)',                            desc: 'Un e-mail posture/process (façon Elliot Hewitt), thème toujours différent.' },
+  { id: 'recap-hebdo',   week: 5,    title: 'Récap Hebdo',                          pillar: 'Récap',        status: 'ready',   stat: 'recap-hebdo',   when: 'Chaque samedi · 10h (Paris)',                             desc: 'La rétrospective de la semaine écoulée façon desk : Force des Devises + temps forts (résultats vs attentes).' },
+  { id: 'outlook-hebdo', week: 6,    title: 'Outlook : la semaine à venir',         pillar: 'Outlook',      status: 'ready',   stat: 'outlook-hebdo', when: 'Chaque dimanche · 10h (Paris)',                            desc: 'Les événements à surveiller pour la semaine qui commence, envoyé le dimanche 10h, sans pousser de position.' },
   // Alerte macro/BC SUPPRIMEE completement (demande user 2026-07-12) : template retire de mailer.js + endpoints.
 ];
 app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
@@ -13371,7 +13373,7 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _campActive = !!_dripState.active;   // UN SEUL moteur = le calendrier hebdo (1 contenu / jour ouvré)
     // JOUR d'envoi de chaque contenu (Lun=Semaine à venir … Ven=Récap). L'intro n'est pas dans le calendrier (à l'inscription).
     const _SEQ2DAY = { 'outlook-hebdo': 0, 'decryptage': 2, 'point-hebdo': 3, 'mindset': 4, 'recap-hebdo': 6 };
-    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~19h30)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
+    const _SEQ2TIME = { 'outlook-hebdo': '10h', 'decryptage': 'dès 8h', 'point-hebdo': 'après le FX Daily Recap (~19h)', 'mindset': 'dès 8h', 'recap-hebdo': '10h' };
     // PROCHAIN envoi = prochain contenu À PARTIR — aujourd'hui SEULEMENT s'il reste de la fenêtre ET qu'il n'est
     // PAS déjà parti aujourd'hui ; sinon le jour ouvré suivant. Corrige le bug « Envoyé + PROCHAIN sur la même carte ».
     const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
