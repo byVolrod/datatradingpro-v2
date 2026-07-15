@@ -220,7 +220,7 @@ function _wsUserIdFromReq(req) {
 const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
-const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/'];   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
+const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/', '/api/v1/'];   // /api/v1/ = API programmatique : le gate SESSION est bypassé mais CHAQUE route v1 exige une CLÉ API (requireApiKey)   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
 
 // Jeton d'appel INTERNE (préchauffage → 127.0.0.1) : généré à chaque boot (surclassable via env pour
 // le diagnostic), jamais exposé hors process/serveur. Sans lui, les appels locaux du prewarm vers les
@@ -10768,6 +10768,211 @@ function _buildRatesPayload() {
   return { asOf: now, model: 'rateprobability+maison', provider: 'rateprobability.com', rpAt: _rpCache.at || null, updatedAt: _ratesState.updatedAt, banks };
 }
 app.get('/api/rates', (_req, res) => { res.json(_buildRatesPayload()); });
+
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+//  ACCÈS API DTP (panel admin → onglet « Accès API ») — API programmatique LECTURE SEULE /api/v1/*
+//  Clés gérées par l'admin, stockées HACHÉES (sha256) en KV durable 'apikeys:list' : la clé complète
+//  n'est montrée qu'UNE SEULE fois à la création. Auth : header `X-API-Key: <clé>` (ou Authorization:
+//  Bearer). Rate-limit 60 req/min/clé (fenêtre glissante en mémoire). Enveloppe homogène :
+//  { ok, data, meta:{ generatedAt, … } }. Aucune écriture possible via l'API (données desk only).
+// ═══════════════════════════════════════════════════════════════════════════════════════════════════
+const _apiCrypto = require('crypto');
+let _apiKeys = [];             // [{id, name, hash, prefix, createdAt, lastUsedAt, calls, revoked, rateLimit}]
+let _apiKeysLoadedAt = 0;
+async function _apiKeysLoad(force) {
+  if (!force && Date.now() - _apiKeysLoadedAt < 60000) return;   // recharge KV ≤ 1x/min (une clé injectée/révoquée ailleurs est vue en ≤ 60 s)
+  try {
+    const l = await auth.aiCacheGet('apikeys:list', 3650 * 864e5);
+    if (Array.isArray(l)) {
+      // Fusion : on garde les compteurs LOCAUX s'ils sont plus avancés (le débounce d'écriture peut retarder le KV)
+      const mem = new Map(_apiKeys.map(k => [k.id, k]));
+      _apiKeys = l.map(k => { const m = mem.get(k.id); return (m && (m.calls || 0) > (k.calls || 0)) ? { ...k, calls: m.calls, lastUsedAt: m.lastUsedAt } : k; });
+    }
+  } catch {}
+  _apiKeysLoadedAt = Date.now();
+}
+let _apiKeysSaveT = null;
+function _apiKeysSave(now) {
+  if (now) { if (_apiKeysSaveT) { clearTimeout(_apiKeysSaveT); _apiKeysSaveT = null; } return auth.aiCacheSet('apikeys:list', _apiKeys).catch(() => {}); }
+  if (_apiKeysSaveT) return;
+  _apiKeysSaveT = setTimeout(() => { _apiKeysSaveT = null; auth.aiCacheSet('apikeys:list', _apiKeys).catch(() => {}); }, 5000);   // compteurs d'usage : écriture débouncée
+}
+setTimeout(() => { _apiKeysLoad(true); }, 5000);
+const _apiHash = k => _apiCrypto.createHash('sha256').update(String(k)).digest('hex');
+const _apiRate = new Map();   // id → { start, n } (fenêtre glissante 60 s)
+function _apiRateOk(id, limit) {
+  const now = Date.now(); let e = _apiRate.get(id);
+  if (!e || now - e.start >= 60000) { e = { start: now, n: 0 }; _apiRate.set(id, e); }
+  e.n++; return e.n <= (limit || 60);
+}
+async function requireApiKey(req, res, next) {
+  await _apiKeysLoad();
+  const raw = String(req.headers['x-api-key'] || (String(req.headers.authorization || '').match(/^Bearer\s+(.+)$/i) || [])[1] || '').trim();
+  if (!raw) return res.status(401).json({ ok: false, error: 'Clé API manquante. Passez-la dans le header X-API-Key (ou Authorization: Bearer <clé>).' });
+  const h = _apiHash(raw);
+  const k = _apiKeys.find(x => x && x.hash === h && !x.revoked);
+  if (!k) return res.status(401).json({ ok: false, error: 'Clé API invalide ou révoquée.' });
+  if (!_apiRateOk(k.id, k.rateLimit)) return res.status(429).json({ ok: false, error: 'Limite atteinte : ' + (k.rateLimit || 60) + ' requêtes/minute par clé. Réessayez dans quelques secondes.' });
+  k.lastUsedAt = Date.now(); k.calls = (k.calls || 0) + 1; _apiKeysSave();
+  req.apiKey = k;
+  next();
+}
+
+// ── CRUD admin des clés (POST pour toute mutation — pas de GET destructif) ──
+app.get('/api/admin/api-keys', requireAdmin, async (_req, res) => {
+  await _apiKeysLoad(true);
+  res.json({ keys: _apiKeys.map(k => ({ id: k.id, name: k.name, prefix: k.prefix, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt || null, calls: k.calls || 0, revoked: !!k.revoked, rateLimit: k.rateLimit || 60 })) });
+});
+app.post('/api/admin/api-keys', requireAdmin, async (req, res) => {
+  await _apiKeysLoad(true);
+  const name = String((req.body && req.body.name) || '').trim().slice(0, 60);
+  if (!name) return res.status(400).json({ error: 'Donnez un nom à la clé (ex. « Script perso », « Intégration TradingView »).' });
+  if (_apiKeys.filter(k => !k.revoked).length >= 20) return res.status(400).json({ error: 'Maximum 20 clés actives — révoquez-en une d\'abord.' });
+  const secret = 'dtp_' + _apiCrypto.randomBytes(24).toString('base64url');
+  const k = { id: _apiCrypto.randomBytes(6).toString('hex'), name, hash: _apiHash(secret), prefix: secret.slice(0, 9) + '…', createdAt: Date.now(), lastUsedAt: null, calls: 0, revoked: false, rateLimit: 60 };
+  _apiKeys.push(k);
+  await _apiKeysSave(true);
+  console.log('[API] clé créée : « ' + name + ' » (' + k.prefix + ')');
+  res.json({ ok: true, key: secret, id: k.id, name: k.name, prefix: k.prefix });   // ⚠️ la clé complète n'est renvoyée qu'ICI, une seule fois
+});
+app.post('/api/admin/api-keys/:id/revoke', requireAdmin, async (req, res) => {
+  await _apiKeysLoad(true);
+  const k = _apiKeys.find(x => x.id === req.params.id);
+  if (!k) return res.status(404).json({ error: 'Clé introuvable' });
+  k.revoked = true;
+  await _apiKeysSave(true);
+  console.log('[API] clé révoquée : « ' + k.name + ' »');
+  res.json({ ok: true });
+});
+app.post('/api/admin/api-keys/:id/delete', requireAdmin, async (req, res) => {
+  await _apiKeysLoad(true);
+  const before = _apiKeys.length;
+  _apiKeys = _apiKeys.filter(x => x.id !== req.params.id);
+  if (_apiKeys.length === before) return res.status(404).json({ error: 'Clé introuvable' });
+  await _apiKeysSave(true);
+  res.json({ ok: true });
+});
+
+// ── Endpoints /api/v1/* (lecture seule, enveloppe homogène) ──
+const _v1 = (res, data, meta) => res.json({ ok: true, data, meta: Object.assign({ generatedAt: new Date().toISOString() }, meta || {}) });
+const _V1_ENDPOINTS = [
+  { path: '/api/v1/status',     desc: 'État de la clé (nom, quota, usage) + liste des endpoints',                          params: '—' },
+  { path: '/api/v1/news',       desc: "Fil d'actualité du desk (le même que l'onglet ACTUS)",                              params: 'limit (≤200, déf. 50) · category · priority (high|normal) · q (recherche) · since (timestamp ms)' },
+  { path: '/api/v1/calendar',   desc: 'Calendrier économique (réel / prévision / précédent, impact)',                      params: 'currency (ex. USD) · impact (high|medium|low) · from · to (timestamp ms) · limit (≤500)' },
+  { path: '/api/v1/strength',   desc: 'Force des Devises (dernière valeur par devise ; séries via series=1)',              params: 'period (today|week, déf. today) · series (1 = séries complètes)' },
+  { path: '/api/v1/bias',       desc: 'Radar de Biais hebdo (vue synthétique par devise)',                                 params: '—' },
+  { path: '/api/v1/smart-bias', desc: 'Smart Bias Tracker (matrice 8 devises × indicateurs + conclusion)',                 params: '—' },
+  { path: '/api/v1/risk',       desc: 'Régime de Marché (risk-on / risk-off, score courant)',                              params: '—' },
+  { path: '/api/v1/rates',      desc: 'Banques centrales & taux (probabilités prochaine réunion, trajectoire)',            params: '—' },
+  { path: '/api/v1/reports',    desc: 'Rapports Analystes (liste : FX Daily Recap, DTP Daily, Récap Hebdo, GEW)',          params: 'type · limit (≤50, déf. 20) — détail complet via /api/v1/reports/{id}' },
+];
+app.get('/api/v1/status', requireApiKey, (req, res) => {
+  const k = req.apiKey;
+  _v1(res, {
+    key: { name: k.name, prefix: k.prefix, createdAt: k.createdAt, calls: k.calls || 0, rateLimit: (k.rateLimit || 60) + ' req/min' },
+    endpoints: _V1_ENDPOINTS.map(e => ({ method: 'GET', path: e.path, description: e.desc, params: e.params })),
+  });
+});
+app.get('/api/v1/news', requireApiKey, (req, res) => {
+  const limit = Math.max(1, Math.min(200, parseInt(req.query.limit, 10) || 50));
+  const q = String(req.query.q || '').toLowerCase();
+  const cat = String(req.query.category || '').toLowerCase();
+  const prio = String(req.query.priority || '').toLowerCase();
+  const since = parseInt(req.query.since, 10) || 0;
+  let items = allNews.filter(n => n && !isGlobalNewsNoise(n.headline) && (!_isPrimerNews(n) || n._reportType === 'DTP Daily'));
+  if (since) items = items.filter(n => (n.timestamp || 0) > since);
+  if (cat)   items = items.filter(n => String(n.category || '').toLowerCase() === cat);
+  if (prio)  items = items.filter(n => String(n.priority || 'normal').toLowerCase() === prio);
+  if (q)     items = items.filter(n => String(n.headline || '').toLowerCase().includes(q));
+  const out = items.slice(0, limit).map(n => ({
+    id: n.id, headline: n.headline, description: (n.description || '').slice(0, 1200), category: n.category || '',
+    source: n.source || '', priority: n.priority || 'normal', important: n.priority === 'high' || n.priority === 'urgent' || !!n.urgent,
+    timestamp: n.timestamp || 0, publishedAt: n.timestamp ? new Date(n.timestamp).toISOString() : null,
+    tags: Array.isArray(n.tags) ? n.tags.slice(0, 6) : [],
+  }));
+  _v1(res, out, { count: out.length, filters: { limit, category: cat || null, priority: prio || null, q: q || null, since: since || null } });
+});
+app.get('/api/v1/calendar', requireApiKey, async (req, res) => {
+  let cal = [];
+  try { cal = await _buildTVCalendar(); } catch {}
+  if (!Array.isArray(cal) || !cal.length) cal = (_tvCalCache && _tvCalCache.items) || [];
+  const ccy = String(req.query.currency || '').toUpperCase();
+  const imp = String(req.query.impact || '').toLowerCase();
+  const from = parseInt(req.query.from, 10) || 0;
+  const to = parseInt(req.query.to, 10) || 0;
+  const limit = Math.max(1, Math.min(500, parseInt(req.query.limit, 10) || 200));
+  let items = (cal || []).filter(e => e && e.title);
+  if (ccy)  items = items.filter(e => String(e.currency || '').toUpperCase() === ccy);
+  if (imp)  items = items.filter(e => String(e.impact || '').toLowerCase() === imp);
+  if (from) items = items.filter(e => (e.timestamp || 0) >= from);
+  if (to)   items = items.filter(e => (e.timestamp || 0) <= to);
+  const out = items.slice(0, limit).map(e => ({
+    timestamp: e.timestamp || 0, datetime: e.timestamp ? new Date(e.timestamp).toISOString() : null,
+    currency: e.currency || '', title: e.title, impact: e.impact || '',
+    actual: e.actual || null, forecast: e.forecast || null, previous: e.previous || null,
+  }));
+  _v1(res, out, { count: out.length });
+});
+app.get('/api/v1/strength', requireApiKey, async (req, res) => {
+  const period = ['today', 'week'].includes(String(req.query.period || '')) ? String(req.query.period) : 'today';
+  try {
+    const cs = await computeCurrencyStrength(period);
+    const latest = {};
+    for (const c of Object.keys((cs && cs.series) || {})) {
+      const s = cs.series[c];
+      if (Array.isArray(s) && s.length) { const last = s[s.length - 1]; const v = (last && typeof last === 'object') ? (last.v != null ? last.v : last.value) : last; if (typeof v === 'number' && isFinite(v)) latest[c] = Math.round(v * 100) / 100; }
+    }
+    const data = { period, latest };
+    if (req.query.series === '1') data.series = cs.series;
+    _v1(res, data);
+  } catch (e) { res.status(503).json({ ok: false, error: 'Force des devises momentanément indisponible : ' + e.message }); }
+});
+app.get('/api/v1/bias', requireApiKey, (_req, res) => {
+  _v1(res, _biasCache || { items: [], overview: '', week: '' });
+});
+app.get('/api/v1/smart-bias', requireApiKey, (_req, res) => {
+  const snap = _smartBias ? _sbFillNarrative(_smartBias) : null;
+  if (!snap) return res.status(503).json({ ok: false, error: 'Smart Bias pas encore généré (génération hebdomadaire).' });
+  _v1(res, snap);
+});
+app.get('/api/v1/risk', requireApiKey, async (_req, res) => {
+  try {
+    const data = await fetchRiskSentiment();
+    if (!data) return res.status(503).json({ ok: false, error: 'Régime de marché momentanément indisponible.' });
+    _v1(res, data);
+  } catch (e) { res.status(503).json({ ok: false, error: e.message }); }
+});
+app.get('/api/v1/rates', requireApiKey, (_req, res) => {
+  _v1(res, _buildRatesPayload());
+});
+app.get('/api/v1/reports', requireApiKey, (req, res) => {
+  const TYPES = ['FX Daily Recap', 'DTP Daily', 'Weekly Market Recap', 'Global Economic Weekly', 'European Market Wrap'];
+  const type = String(req.query.type || '');
+  const limit = Math.max(1, Math.min(50, parseInt(req.query.limit, 10) || 20));
+  let items = allNews.filter(i => i && (TYPES.includes(i._reportType) || i._marketWrap));
+  if (type) items = items.filter(i => i._reportType === type);
+  const out = items.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)).slice(0, limit).map(i => ({
+    id: i.id, type: i._reportType || 'European Market Wrap', headline: i.headline,
+    timestamp: i.timestamp || 0, publishedAt: i.timestamp ? new Date(i.timestamp).toISOString() : null,
+    coveredDay: (i._fxr && i._fxr.day) || (i._dtpd && i._dtpd.day) || null,
+    coveredWeek: (i._weekly && (i._weekly.weekRange || i._weekly.weekEnding)) || null,
+  }));
+  _v1(res, out, { count: out.length, types: TYPES, detail: 'GET /api/v1/reports/{id} → rapport complet (texte + données structurées)' });
+});
+app.get('/api/v1/reports/:id', requireApiKey, (req, res) => {
+  const i = allNews.find(x => x && x.id === req.params.id && (x._reportType || x._marketWrap));
+  if (!i) return res.status(404).json({ ok: false, error: 'Rapport introuvable (la liste : GET /api/v1/reports)' });
+  _v1(res, {
+    id: i.id, type: i._reportType || 'European Market Wrap', headline: i.headline,
+    timestamp: i.timestamp || 0, publishedAt: i.timestamp ? new Date(i.timestamp).toISOString() : null,
+    text: i.description || '',
+    structured: i._fxr || i._dtpd || i._weekly || null,
+  });
+});
+// Toute autre route /api/v1/* → 404 JSON propre avec la liste (jamais le HTML du desk)
+app.use('/api/v1', requireApiKey, (_req, res) => {
+  res.status(404).json({ ok: false, error: 'Endpoint inconnu', endpoints: _V1_ENDPOINTS.map(e => 'GET ' + e.path) });
+});
 
 // ── Actualisation IA (optionnelle) des biais TAUX : déclenchée AU CHANGEMENT RÉEL d'un taux (force=true) ou en filet hebdo. EN CACHE, jamais à l'ouverture. ──
 async function _aiRefreshRatesBias(force = false) {
