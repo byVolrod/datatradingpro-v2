@@ -3096,12 +3096,13 @@ function renderCalTable() {
   if (_calNeedsScroll) {
     _calNeedsScroll = false;
     requestAnimationFrame(() => {
-      const next = wrap.querySelector('.cal-row--next');
-      if (next) {
-        next.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        const past = wrap.querySelectorAll('.cal-row--past');
-        if (past.length > 0) past[past.length - 1].scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Défiler UNIQUEMENT le conteneur du calendrier (#cal-table-wrap) — scrollIntoView défilait AUSSI
+      // les ancêtres (body compris, malgré overflow:hidden) → sur mobile la topbar/l'app entière était
+      // poussée hors écran. Calcul manuel du scrollTop → aucun effet de bord sur la page.
+      const row = wrap.querySelector('.cal-row--next') || [...wrap.querySelectorAll('.cal-row--past')].pop();
+      if (row) {
+        const wr = wrap.getBoundingClientRect(), rr = row.getBoundingClientRect();
+        wrap.scrollTo({ top: wrap.scrollTop + (rr.top - wr.top) - wrap.clientHeight / 2 + rr.height / 2, behavior: 'smooth' });
       }
     });
   }
