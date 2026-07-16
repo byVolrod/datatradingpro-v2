@@ -14242,6 +14242,8 @@ async function _dripSend(stepDef, r, context, tag, isTest) {
   return false;
 }
 let _dripRunning = false;
+// Jour calendaire Paris d'un timestamp (YYYY-MM-DD) — sert à l'espacement « pas 2 mails le même JOUR ».
+const _pDayParis = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
 async function _dripTick() {
   if (!_dripState.active || _dripRunning) return;
   _dripRunning = true;
@@ -14311,7 +14313,11 @@ async function _dripTick() {
       if (st.gotDays.includes(wd)) continue;                       // déjà reçu le contenu de CE jour cette semaine
       const dm = 'drip:day:' + isoWeek + '-' + wd + ':' + email;
       try { if (await auth.emailLogHas(dm)) { if (!st.gotDays.includes(wd)) st.gotDays.push(wd); _saveDrip(); continue; } } catch {}
-      if (st.lastAt && (now - st.lastAt) < 20 * 3600e3) continue;   // espacement mini (~20h) — jamais 2 mails le même jour à un contact
+      // Espacement : jamais 2 mails le MÊME JOUR calendaire (Paris) à un contact + mini 6h anti-double dans un tick.
+      // AVANT : plancher fixe 20h → le Mindset du JEUDI 8h sautait pour tous ceux ayant reçu le Point marché
+      // MERCREDI ~19h (seulement ~13h d'écart) → 122/161 non servis (bug remonté user 16/07). Mercredi soir et
+      // jeudi matin sont des JOURS DIFFÉRENTS → désormais les deux passent ; on garde 6h de garde anti-double-tick.
+      if (st.lastAt && ((now - st.lastAt) < 6 * 3600e3 || _pDayParis(st.lastAt) === _pDayParis(now))) continue;
       if (!context) context = await _deskContext();
       if (await _dripSend(dayStep, r, context, isoWeek + '-' + wd)) { try { await auth.emailLogAdd(dm); } catch {} st.gotDays.push(wd); st.lastAt = now; sent++; if (throttle) await new Promise(x => setTimeout(x, throttle)); }
     }
