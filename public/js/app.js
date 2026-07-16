@@ -4,6 +4,21 @@
 
 'use strict';
 
+// ═══ App DESKTOP (Electron) : filet de sécurité pour le DÉPLACEMENT de la fenêtre ══════════════
+// Double du script inline de <head> : si celui-ci n'a pas tourné (page servie depuis un cache, ancien
+// index.html…), on RE-POSE .dtp-desktop + plateforme sur <html> ici → -webkit-app-region:drag s'applique.
+// app-region peut être posé dynamiquement : le drag s'active même après le 1er rendu. Web non affecté.
+(function () {
+  try {
+    if (/Electron/i.test(navigator.userAgent || '')) {
+      var r = document.documentElement;
+      if (!r.classList.contains('dtp-desktop')) r.classList.add('dtp-desktop');
+      var plat = /Mac OS X|Macintosh/i.test(navigator.userAgent) ? 'dtp-mac' : 'dtp-win';
+      if (!r.classList.contains(plat)) r.classList.add(plat);
+    }
+  } catch (e) {}
+})();
+
 // ═══ Loader universel ══════════════════════
 // Renvoie le HTML du loader standard (croissant orange + libellé) pour TOUTE
 // fonctionnalité qui charge. Usage : el.innerHTML = dtpLoader('Loading X data…').
