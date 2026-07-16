@@ -4631,9 +4631,11 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    date 104px + institut 150-158px + signet 42px mangeaient tout l'écran). Colonnes compactées, logo
    d'institut masqué (le NOM court reste : KBC, ING, SEB…), titre sur 2 lignes au lieu d'une ellipse vide. */
 @media (max-width: 560px) {
-  .arl-col-bm          { width: 28px; }
-  .arl-col-date        { width: 64px; }
-  .arl-col-inst, .arl-col-inst-br { width: 60px; }
+  /* Sélecteurs col.xxx (0-1-1) : les largeurs de BASE (.arl-col-inst-br 158px…) sont déclarées PLUS
+     LOIN dans le fichier → à spécificité égale elles gagneraient sur cette media query (bug vécu). */
+  col.arl-col-bm       { width: 28px; }
+  col.arl-col-date     { width: 62px; }
+  col.arl-col-inst, col.arl-col-inst-br { width: 64px; }
   .arlib-table thead th { padding: 8px 6px; font-size: 10px; }
   .arl-row > td        { padding: 6px; height: auto; min-height: 44px; }
   .arl-c-date          { font-size: 10.5px; }
@@ -4641,9 +4643,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .arl-ico             { width: 20px; height: 20px; }
   .arl-ttl             { font-size: 12px; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.3; }
   .arl-row:hover .arl-ttl { transform: none; }   /* pas de zoom au tap : le titre multi-ligne bougerait */
-  .br-inst-logo-card .br-bank-logo-wrap { display: none; }
+  /* Institut : on ne masque QUE l'IMAGE du logo — le NOM est DANS le wrap (le masquer vidait la colonne) */
+  .br-inst-logo-card img.br-bank-logo { display: none; }
   .br-inst-logo-card .br-inst-name { margin-left: 0; font-size: 10px; }
-  .arl-c-inst          { overflow: hidden; }
+  .arl-c-inst          { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; padding-left: 0 !important; }
 }
 .arl-row--read .arl-c-date { color: #696970; }
 .arl-row--read:hover .arl-ttl { color: #b6b6bc; }
