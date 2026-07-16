@@ -307,12 +307,18 @@ function createWindow() {
     if (win.isMaximized()) win.unmaximize();               // convention native : glisser une fenêtre maximisée la restaure
     const cur = screen.getCursorScreenPoint();
     const [wx, wy] = win.getPosition();
-    _drag = { dx: cur.x - wx, dy: cur.y - wy };             // offset saisie→coin fenêtre, en DIP
+    const [w0, h0] = win.getSize();
+    // TAILLE VERROUILLÉE pendant tout le glisser (1.0.12, bug user « tout bouge en même temps ») :
+    // en traversant des écrans aux zooms Windows différents, l'OS REDIMENSIONNE la fenêtre en plein
+    // déplacement → le responsive de la topbar se déclenche → les icônes se réorganisent sous le
+    // curseur. setBounds avec width/height figés à la saisie neutralise ce redimensionnement parasite ;
+    // l'adaptation au DPI du nouvel écran ne se fait qu'au relâcher (un seul reflow, hors glisser).
+    _drag = { dx: cur.x - wx, dy: cur.y - wy, w: w0, h: h0 };   // offset saisie→coin fenêtre + taille figée, en DIP
     if (_dragTimer) clearInterval(_dragTimer);
     _dragTimer = setInterval(() => {
       if (!_drag || !win || win.isDestroyed()) return _stopDrag();
       const p = screen.getCursorScreenPoint();
-      win.setPosition(Math.round(p.x - _drag.dx), Math.round(p.y - _drag.dy));   // suit le curseur, tous écrans/DPI
+      win.setBounds({ x: Math.round(p.x - _drag.dx), y: Math.round(p.y - _drag.dy), width: _drag.w, height: _drag.h });   // suit le curseur, tous écrans/DPI, taille stable
     }, 15);
   });
   ipcMain.on('dtp-win-drag-move', () => {});               // no-op : le timer gère le suivi (compat preload)
