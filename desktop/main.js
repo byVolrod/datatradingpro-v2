@@ -10,6 +10,7 @@
 
 const { app, BrowserWindow, Menu, shell, dialog, nativeTheme } = require('electron');
 const path = require('path');
+const https = require('https');
 
 // Hauteur de la barre supérieure du desk (doit rester alignée sur --topbar-h côté .dtp-desktop dans
 // style.css). Sert à positionner PARFAITEMENT les contrôles système natifs dans la topbar DTP :
@@ -21,29 +22,89 @@ const TOPBAR_H = 50;
 const TITLEBAR_BG     = '#16171b';   // = --bg2 (fond de la topbar)
 const TITLEBAR_SYMBOL = '#9a9aa4';   // glyphes min/max/close estompés (survol géré par l'OS)
 
-// ── MISE À JOUR AUTOMATIQUE (electron-updater) ────────────────────────────────────────────────
-// L'app vérifie au lancement (puis toutes les 6 h) le flux https://desk.datatradingpro.com/downloads/
-// (latest.yml). Si une version plus récente existe, elle est téléchargée EN FOND puis installée au
-// redémarrage → plus JAMAIS de réinstallation manuelle. Publier une MAJ = bumper la version dans
-// package.json, `npm run build:win`, uploader Setup.exe + Setup.exe.blockmap + latest.yml dans /downloads/.
+// ── MISE À JOUR — PROPOSÉE DÈS LE LANCEMENT ───────────────────────────────────────────────────
+// Dès l'ouverture (puis toutes les 6 h), l'app compare sa version au flux /downloads/.
+//  · Windows (electron-updater) : si une version plus récente existe → dialogue « Mettre à jour maintenant ? »
+//    IMMÉDIAT (autoDownload=false → on ne télécharge qu'après l'accord de l'utilisateur), puis redémarrage.
+//    Filet autoInstallOnAppQuit : appliquée au prochain quit même si l'user reporte.
+//  · macOS (non signé → pas d'auto-install Squirrel) : vérification manuelle de latest-mac.yml → dialogue
+//    « Télécharger la mise à jour » qui ouvre le bon .dmg (Apple Silicon vs Intel).
+// Publier une MAJ = bumper package.json, build CI, uploader Setup.exe+blockmap+latest.yml (+ .dmg/.zip+latest-mac.yml).
 // Robuste : désactivé en dev (non empaqueté) ; toute erreur est non bloquante (l'app charge le site normalement).
+const DL_BASE = 'https://desk.datatradingpro.com/downloads/';
+const _verGt = (a, b) => {   // a > b ? (versions sémantiques x.y.z)
+  const pa = String(a || '0').split('.').map(n => parseInt(n, 10) || 0);
+  const pb = String(b || '0').split('.').map(n => parseInt(n, 10) || 0);
+  for (let i = 0; i < 3; i++) { if ((pa[i] || 0) > (pb[i] || 0)) return true; if ((pa[i] || 0) < (pb[i] || 0)) return false; }
+  return false;
+};
+
+// macOS : compare la version distante (latest-mac.yml) et propose le téléchargement du bon .dmg.
+let _macPromptShown = false;
+function checkMacUpdate() {
+  if (_macPromptShown) return;
+  https.get(DL_BASE + 'latest-mac.yml', res => {
+    let d = ''; res.on('data', c => d += c);
+    res.on('end', () => {
+      const m = d.match(/version:\s*([0-9][0-9.]*)/i);
+      const remote = m && m[1];
+      if (!remote || !_verGt(remote, app.getVersion())) return;
+      if (_macPromptShown || !win || win.isDestroyed()) return;
+      _macPromptShown = true;
+      const dmg = process.arch === 'arm64' ? 'DataTradingPro-macOS.dmg' : 'DataTradingPro-macOS-Intel.dmg';
+      dialog.showMessageBox(win, {
+        type: 'info',
+        buttons: ['Télécharger la mise à jour', 'Plus tard'],
+        defaultId: 0, cancelId: 1,
+        title: 'Mise à jour disponible',
+        message: `Une nouvelle version de DataTradingPro (${remote}) est disponible.`,
+        detail: 'Téléchargez le fichier .dmg puis glissez DataTradingPro dans Applications (remplace l’ancienne version).',
+      }).then(r => { if (r.response === 0) shell.openExternal(DL_BASE + dmg).catch(() => {}); }).catch(() => {});
+    });
+  }).on('error', () => {});
+}
+
 function setupAutoUpdate() {
   if (!app.isPackaged) return;
+
+  // macOS : pas d'auto-update Squirrel sans signature Apple → vérification manuelle + proposition de download.
+  if (process.platform === 'darwin') {
+    setTimeout(checkMacUpdate, 3500);                                  // au lancement (fenêtre prête)
+    setInterval(checkMacUpdate, 6 * 60 * 60 * 1000);
+    return;
+  }
+
+  // Windows : electron-updater, mais on PROPOSE avant de télécharger (dialogue dès la détection au lancement).
   let autoUpdater;
   try { ({ autoUpdater } = require('electron-updater')); } catch { return; }
-  autoUpdater.autoDownload = true;
-  autoUpdater.autoInstallOnAppQuit = true;                 // filet : installée au prochain quit même si l'user reporte
+  autoUpdater.autoDownload = false;                        // on ne télécharge qu'APRÈS l'accord de l'utilisateur
+  autoUpdater.autoInstallOnAppQuit = true;                 // filet : appliquée au prochain quit
+  let _downloading = false;
+
+  autoUpdater.on('update-available', (info) => {
+    if (_downloading || !win || win.isDestroyed()) return;
+    dialog.showMessageBox(win, {
+      type: 'info',
+      buttons: ['Mettre à jour maintenant', 'Plus tard'],
+      defaultId: 0, cancelId: 1,
+      title: 'Mise à jour disponible',
+      message: `Une nouvelle version de DataTradingPro${info && info.version ? ' (' + info.version + ')' : ''} est disponible.`,
+      detail: 'Elle apporte les dernières améliorations de l’application. Le téléchargement se fait en arrière-plan, puis l’app redémarre.',
+    }).then(r => { if (r.response === 0) { _downloading = true; autoUpdater.downloadUpdate().catch(() => {}); } }).catch(() => {});
+  });
+
   autoUpdater.on('update-downloaded', () => {
     if (!win || win.isDestroyed()) return;
     dialog.showMessageBox(win, {
       type: 'info',
       buttons: ['Redémarrer maintenant', 'Plus tard'],
       defaultId: 0, cancelId: 1,
-      title: 'Mise à jour disponible',
-      message: 'Une nouvelle version de DataTradingPro est prête.',
-      detail: 'Elle s’installera au redémarrage de l’application (nouveautés et nouvelle icône incluses).',
+      title: 'Mise à jour prête',
+      message: 'La mise à jour de DataTradingPro est téléchargée.',
+      detail: 'Redémarrez l’application pour l’appliquer (elle s’installera aussi automatiquement à la prochaine fermeture).',
     }).then(r => { if (r.response === 0) setImmediate(() => autoUpdater.quitAndInstall()); }).catch(() => {});
   });
+
   autoUpdater.on('error', (err) => { try { console.warn('[AutoUpdate]', (err && err.message) || err); } catch (_) {} });
   autoUpdater.checkForUpdates().catch(() => {});
   setInterval(() => { autoUpdater.checkForUpdates().catch(() => {}); }, 6 * 60 * 60 * 1000);
