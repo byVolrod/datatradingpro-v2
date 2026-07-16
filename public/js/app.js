@@ -6907,15 +6907,17 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
-  // ── Looking Ahead (table + badge d'importance) ──
+  // ── Looking Ahead (table + badge d'importance) — Date + Devise en colonnes dédiées (demande user 16/07).
+  //    Anciens rapports (sans ts/ccy) : colonnes affichées « — », rien ne casse.
   if ((w.lookahead || []).length) {
     body += _sec('À surveiller') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
-      + '<th>Catégorie</th><th>Événement</th><th class="num">Importance</th></tr></thead><tbody>';
+      + '<th>Date</th><th>Devise</th><th>Catégorie</th><th>Événement</th><th class="num">Importance</th></tr></thead><tbody>';
     w.lookahead.forEach(e => {
       const imp = String(e.importance || '').toLowerCase();
       const cls = /high/.test(imp) ? 'bias-bear' : /med/.test(imp) ? 'bias-neutral' : 'bias-bull';
       const impFr = /high/.test(imp) ? 'Élevé' : /med/.test(imp) ? 'Moyen' : 'Faible';
-      body += `<tr><td class="fxdr-cat">${_wrEsc(e.category || '')}</td><td>${_wrEsc(e.event || '')}</td><td class="num"><span class="bias-badge ${cls}">${_wrEsc(impFr)}</span></td></tr>`;
+      const dt = e.ts ? new Date(e.ts).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' }) : '—';
+      body += `<tr><td class="fxdr-per" style="white-space:nowrap;">${_wrEsc(dt)}</td><td class="fxdr-ccy">${_wrEsc(e.ccy || '—')}</td><td class="fxdr-cat">${_wrEsc(e.category || '')}</td><td>${_wrEsc(e.event || '')}</td><td class="num"><span class="bias-badge ${cls}">${_wrEsc(impFr)}</span></td></tr>`;
     });
     body += '</tbody></table></div>';
   }
