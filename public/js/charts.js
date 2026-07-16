@@ -2789,8 +2789,11 @@ function _fxlDonut(pct) {
 // Libellés FR du badge FX (affichage UNIQUEMENT : la comparaison `=== 'Bullish'` et la classe restent EN).
 const FXL_BADGE_FR = { Bullish: 'Haussier', Bearish: 'Baissier', Neutral: 'Neutre' };
 function _fxlBadge(label) {
+  // Donnée MANQUANTE ≠ « Neutre » : un champ absent/null s'affiche « — » (audit 16/07 — le défaut
+  // silencieux « Neutre » rendait un payload incomplet indétectable, d'où le « tout Neutre »).
+  if (label == null || label === '') return '<span class="fxl-badge fxl-badge--na">—</span>';
   const cls = label === 'Bullish' ? 'bull' : label === 'Bearish' ? 'bear' : 'neut';
-  return `<span class="fxl-badge fxl-badge--${cls}">${FXL_BADGE_FR[label] || label || 'Neutre'}</span>`;
+  return `<span class="fxl-badge fxl-badge--${cls}">${FXL_BADGE_FR[label] || label}</span>`;
 }
 
 function _fxlCell(col, p, maxAbsStr) {
@@ -2895,13 +2898,15 @@ function initFxListTab() {
     else _fxlSort = { key, dir: key === 'symbol' ? 1 : -1 };
     renderFxList();
   });
-  // Auto-actualisation (la donnée serveur est mise en cache 10 min) : UNIQUEMENT quand l'onglet
-  // FX List est visible, sans vider la table (mise à jour silencieuse, façon flux temps réel).
+  // Auto-actualisation 90 s (le serveur rafraîchit les PRIX toutes les 150 s via son tick léger) :
+  // UNIQUEMENT quand l'onglet FX List est visible, sans vider la table (mise à jour silencieuse).
+  // Si le 1er chargement a ÉCHOUÉ (_fxlData null), on RÉESSAIE en mode normal (audit 16/07 : l'ancienne
+  // condition `&& _fxlData` figait l'onglet sur « Aucune donnée » jusqu'à un changement d'onglet).
   if (_fxlAutoTimer) clearInterval(_fxlAutoTimer);
   _fxlAutoTimer = setInterval(() => {
     const panel = document.getElementById('view-fxlist');
-    if (panel && !panel.classList.contains('hidden') && _fxlData) loadFxListView(false, true);
-  }, 3 * 60 * 1000);
+    if (panel && !panel.classList.contains('hidden')) loadFxListView(false, !!_fxlData);
+  }, 90 * 1000);
 }
 
 // ─── Economic Calendar ────────────────────────────────────────────────────────

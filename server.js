@@ -11468,7 +11468,8 @@ const _LOW_VALUE_ANALYSIS_RE = new RegExp([
   /\b(?:remains?|stays?|turns?)\s+(?:bullish|bearish)\b/,
   /\bhow\s+[\w-]+\s+(?:navigated|weathered|survived|handled|coped|is\s+navigating)\b/,
   // Analyse technique (jamais une vraie news de marché) — assure aussi « FXStreet = breaking + macro uniquement »
-  /\b(?:technical|price)\s+(?:analysis|outlook|prediction|target|view|setup|picture)\b/,
+  /\b(?:technical|price)\s+(?:analysis|outlook|prediction|target|view|setups?|picture)\b/,
+  /\bprice\s+action\s+setups?\b/,   // « British Pound Price Action Setups: GBP/USD, GBP/JPY » (demande user 16/07 : zéro valeur)
   /\belliott\s*wave\b/, /\bfibonacci\b/, /\b(?:rsi|macd)\b/, /\bcandlestick\b/, /\bchart\s+pattern\b/, /\bmoving\s+average(?:s)?\b/, /\bhead\s+(?:and|&)\s+shoulders\b/,
   // Genre commentaire / outlook (préfixe spécifique = commentaire/opinion, pas un fait de marché)
   /\b(?:weekly|daily|monthly|quarterly|market|fx|currency|gold|oil|crypto)\s+(?:outlook|preview)\b/,
@@ -15288,7 +15289,30 @@ async function _computeFxListFresh() {
     if (Array.isArray(ro)) _retail = new Map(ro.map(s => [String(s.symbol || '').toUpperCase().replace(/[^A-Z]/g, ''), s]));
   } catch (e) { console.warn('[FXL] onglet DMX/retail indispo:', e.message); }
 
-  const _BIAS_SCORE = { 'Very Bullish': 2, 'Bullish': 1, 'Neutral': 0, 'Bearish': -1, 'Very Bearish': -2 };
+  const _BIAS_SCORE = { 'Very Bullish': 2, 'Bullish': 1, 'Weak Bullish': 0.5, 'Uptrend': 1, 'Neutral': 0, 'Range': 0, 'N/A': 0, 'Weak Bearish': -0.5, 'Downtrend': -1, 'Bearish': -1, 'Very Bearish': -2 };
+
+  // FUND. ← pilier « fundamental » du Smart Bias (VRAIES données éco par devise : familles CPI/emploi/
+  // PIB/PMI, TradingEconomics) — la colonne portait un proxy force relative ±1 qui ressortait « Neutre »
+  // partout (plainte user 16/07 « les bonnes données du datas »). Repli : ancien proxy si pilier froid.
+  const _sbFundRow = (_smartBias && Array.isArray(_smartBias.rows)) ? _smartBias.rows.find(rw => rw && rw.key === 'fundamental') : null;
+  const _sbFund = (_sbFundRow && _sbFundRow.values) ? _sbFundRow.values : null;
+
+  // RECHERCHE ← positions RÉELLES des banques (source de vérité de l'onglet BANQUES, KV bank:positions) :
+  // direction = TP vs entrée (long si TP > entrée), positions < 60 j, agrégées par paire. Repli : momentum 3M.
+  let _bankPairScore = null;
+  try {
+    if (Array.isArray(_bankPositions) && _bankPositions.length) {
+      _bankPairScore = {};
+      const cutoff = Date.now() - 60 * 86400e3;
+      _bankPositions.forEach(p => {
+        if (!p || !p.pair || p.entry == null || p.tp == null) return;
+        const t = Date.parse(p.date || '');
+        if (t && t < cutoff) return;
+        const dir = p.tp > p.entry ? 1 : p.tp < p.entry ? -1 : 0;
+        _bankPairScore[String(p.pair).toUpperCase()] = (_bankPairScore[String(p.pair).toUpperCase()] || 0) + dir;
+      });
+    }
+  } catch {}
 
   valid.forEach(r => {
     // STRENGTH ← onglet Currency Strength (base − quote, force reference-based) | repli : force momentum 1M
@@ -15297,8 +15321,16 @@ async function _computeFxListFresh() {
     } else {
       r.strength = +((ccyStr[r.base] - ccyStr[r.quote])).toFixed(2);
     }
-    r.fund     = _signal(r.strength, 1, -1);
-    r.research = _signal(r.ret3M, 2, -2);
+    // FUND. ← pilier Fundamental du Smart Bias (base vs quote) | repli : force relative (ancien proxy)
+    if (_sbFund && _sbFund[r.base] != null && _sbFund[r.quote] != null) {
+      const sc = (_BIAS_SCORE[_sbFund[r.base]] || 0) - (_BIAS_SCORE[_sbFund[r.quote]] || 0);
+      r.fund = sc >= 1 ? 'Bullish' : sc <= -1 ? 'Bearish' : 'Neutral';
+      r._fundTab = 1;
+    } else r.fund = _signal(r.strength, 1, -1);
+    // RECHERCHE ← positions banques sur la paire | absent = repli momentum 3M (0 = banques en désaccord → Neutre)
+    const _rsc = _bankPairScore ? _bankPairScore[r.symbol] : undefined;
+    if (_rsc != null) { r.research = _rsc > 0 ? 'Bullish' : _rsc < 0 ? 'Bearish' : 'Neutral'; r._resTab = 1; }
+    else r.research = _signal(r.ret3M, 2, -2);
 
     // BIAS ← onglet Smart Bias (conclusion Overall base vs quote, projetée sur la paire) | repli : momentum 1M
     if (_biasConc && _biasConc[r.base] != null && _biasConc[r.quote] != null) {
@@ -15316,14 +15348,16 @@ async function _computeFxListFresh() {
   });
 
   // Observabilité : combien de colonnes lisent réellement l'onglet (vs repli Yahoo) à ce refresh.
-  const _prov = { dmx: 0, bias: 0, str: 0 };
+  const _prov = { dmx: 0, bias: 0, str: 0, fund: 0, res: 0 };
   valid.forEach(r => {
     if (r._dmxTab) _prov.dmx++;
+    if (r._fundTab) _prov.fund++;
+    if (r._resTab) _prov.res++;
     if (_biasConc && _biasConc[r.base] != null && _biasConc[r.quote] != null) _prov.bias++;
     if (_csLatest && _csLatest[r.base] != null && _csLatest[r.quote] != null) _prov.str++;
-    delete r._dmxTab;
+    delete r._dmxTab; delete r._fundTab; delete r._resTab;
   });
-  console.log(`[FXL] colonnes onglet : DMX←retail ${_prov.dmx}/${valid.length} · Bias←SmartBias ${_prov.bias}/${valid.length} · Strength←CS ${_prov.str}/${valid.length}`);
+  console.log(`[FXL] colonnes onglet : DMX←retail ${_prov.dmx}/${valid.length} · Bias←SmartBias ${_prov.bias}/${valid.length} · Fund←SmartBias ${_prov.fund}/${valid.length} · Recherche←Banques ${_prov.res}/${valid.length} · Strength←CS ${_prov.str}/${valid.length}`);
 
   return { pairs: valid, updatedAt: new Date().toISOString() };
 }
@@ -15349,6 +15383,37 @@ async function computeFxList() {
   }
   return _fxlCache;   // frais si OK, sinon dernier bon snapshot ; null seulement si on n'a JAMAIS rien eu
 }
+
+// ── Tick LÉGER des PRIX (temps quasi réel, demande user 16/07 « à jour en temps réel ») : toutes les
+//    150 s, on ne refait PAS le calcul lourd 5 ans — on rafraîchit UNIQUEMENT last/changePct de chaque
+//    paire (1 requête 5m/1d Yahoo, pool 5). Le cache lourd (seasonal/12M/sparklines/signaux) garde son
+//    TTL 4 h. Pas de tick le week-end (marché fermé). updatedAt reflète le tick → « MAJ HH:MM » vivant.
+let _fxlQuotesBusy = false;
+async function _fxlQuotesTick() {
+  if (_fxlQuotesBusy || !_fxlCache || !Array.isArray(_fxlCache.pairs) || !_fxlCache.pairs.length || _fxlWeekendNow()) return;
+  _fxlQuotesBusy = true;
+  try {
+    await getYFSession();
+    let ok = 0;
+    await _poolMap(CS_PAIRS, 5, async p => {
+      try {
+        const raw = await yfFetch(p.sym, '5m', '1d');
+        const meta = raw?.chart?.result?.[0]?.meta;
+        const price = meta?.regularMarketPrice;
+        if (price == null) return;
+        const row = _fxlCache.pairs.find(r => r.base === p.b && r.quote === p.q);
+        if (!row) return;
+        row.last = price;
+        const prevC = meta.chartPreviousClose ?? meta.previousClose;
+        if (prevC) row.changePct = _pctChange(price, prevC);
+        ok++;
+      } catch {}
+    });
+    if (ok) { _fxlCache.updatedAt = new Date().toISOString(); _fxlPersist(); }
+  } catch {} finally { _fxlQuotesBusy = false; }
+}
+const _fxlQuotesTimer = setInterval(() => { _fxlQuotesTick().catch(() => {}); }, 150 * 1000);
+if (_fxlQuotesTimer.unref) _fxlQuotesTimer.unref();
 
 app.get('/api/fxlist', async (req, res) => {
   if (req.query.force === '1') _fxlTs = 0;   // force un refresh SANS vider le cache (fallback préservé)
