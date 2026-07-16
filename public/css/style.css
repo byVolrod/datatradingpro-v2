@@ -203,6 +203,39 @@ html, body {
   transition: background-color 0.25s ease, border-color 0.25s ease;   /* switch thème en fondu (synchro body) */
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════════════
+   APP DESKTOP (Electron) — barre de titre native INTÉGRÉE à la topbar DTP.
+   Activé UNIQUEMENT dans l'application (classe .dtp-desktop posée par desktop/preload.js).
+   La version WEB n'est jamais affectée. La topbar devient la zone de déplacement de la
+   fenêtre ; les contrôles système natifs s'insèrent dans ses marges réservées :
+     · Windows → min/max/close en surimpression à DROITE (titleBarOverlay)
+     · macOS   → feux tricolores à GAUCHE (trafficLightPosition)
+   La hauteur de la topbar est réduite (50px) via le token --topbar-h → cascade partout.
+   ═══════════════════════════════════════════════════════════════════════════════════ */
+html.dtp-desktop { --topbar-h: 50px; }
+
+html.dtp-desktop .topbar {
+  -webkit-app-region: drag;            /* glisser la topbar = déplacer la fenêtre */
+  app-region: drag;
+}
+/* Tout ce qui est cliquable ou saisissable ne doit PAS déplacer la fenêtre */
+html.dtp-desktop .topbar .topbar-icon,
+html.dtp-desktop .topbar .topbar-symbol-search,
+html.dtp-desktop .topbar .topbar-sentiment,
+html.dtp-desktop .topbar #topbar-avatar,
+html.dtp-desktop .topbar .topbar-center > *,
+html.dtp-desktop .topbar .topbar-right > * {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+/* Windows : réserve la place des 3 boutons système à droite */
+html.dtp-win .topbar { padding-right: 146px; }
+/* macOS : réserve la place des feux tricolores à gauche (le wordmark se décale) */
+html.dtp-mac .logo { padding-left: 74px; }
+/* Fenêtre inactive : topbar très légèrement estompée (finition premium, non distrayante) */
+html.dtp-inactive .topbar { opacity: .9; }
+html.dtp-desktop .topbar { transition: background-color .25s ease, border-color .25s ease, opacity .18s ease; }
+
 .topbar-left {
   display: flex;
   align-items: center;

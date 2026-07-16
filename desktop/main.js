@@ -8,8 +8,18 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, nativeTheme } = require('electron');
 const path = require('path');
+
+// Hauteur de la barre supérieure du desk (doit rester alignée sur --topbar-h côté .dtp-desktop dans
+// style.css). Sert à positionner PARFAITEMENT les contrôles système natifs dans la topbar DTP :
+//  · Windows → hauteur de la surface min/max/close (titleBarOverlay)
+//  · macOS   → centrage vertical des feux tricolores (trafficLightPosition)
+const TOPBAR_H = 50;
+// Couleurs alignées sur l'identité du desk (var --bg2 / texte estompé) → les boutons système se fondent
+// dans la topbar au lieu de trancher (fin de l'aspect « barre Windows classique »).
+const TITLEBAR_BG     = '#16171b';   // = --bg2 (fond de la topbar)
+const TITLEBAR_SYMBOL = '#9a9aa4';   // glyphes min/max/close estompés (survol géré par l'OS)
 
 // ── MISE À JOUR AUTOMATIQUE (electron-updater) ────────────────────────────────────────────────
 // L'app vérifie au lancement (puis toutes les 6 h) le flux https://desk.datatradingpro.com/downloads/
@@ -84,23 +94,48 @@ function buildMenu() {
 }
 
 function createWindow() {
+  const isMac = process.platform === 'darwin';
+  const isWin = process.platform === 'win32';
+
   win = new BrowserWindow({
     width: 1480,
     height: 920,
     minWidth: 980,
     minHeight: 600,
-    backgroundColor: '#0c0c0e',          // fond HUD pendant le chargement (pas de flash blanc)
+    backgroundColor: '#0d0e11',          // fond HUD du desk pendant le chargement (zéro flash blanc)
+    show: false,                         // on n'affiche qu'au 'ready-to-show' → apparition propre, sans clignotement
     autoHideMenuBar: true,               // barre de menu masquée (Alt pour l'afficher sous Windows)
     fullscreenable: true,                // plein écran : F11 (Windows) / Ctrl+Cmd+F ou bouton vert (macOS)
     title: 'DataTradingPro',
     icon: path.join(__dirname, 'build', 'icon.png'),
+
+    // ── FENÊTRE NATIVE MODERNE — la barre de titre « Windows classique » est supprimée : le contenu du
+    //    desk s'étend jusqu'en haut et les contrôles système sont intégrés DANS la topbar DTP. On garde
+    //    le cadre natif (déplacement, redimensionnement, accroche, ombres, coins arrondis OS) — on ne
+    //    passe PAS par frame:false (comportements natifs préservés = plus propre et maintenable).
+    titleBarStyle: 'hidden',
+    ...(isWin ? {
+      // Windows 11 : boutons min/max/close en surimpression, teintés aux couleurs du desk + fond Mica natif.
+      titleBarOverlay: { color: TITLEBAR_BG, symbolColor: TITLEBAR_SYMBOL, height: TOPBAR_H },
+      backgroundMaterial: 'mica',        // matériau natif Win11 (repli automatique sur les versions plus anciennes)
+    } : {}),
+    ...(isMac ? {
+      // macOS : feux tricolores natifs, centrés verticalement dans la topbar ; vibrance sous-fenêtre.
+      trafficLightPosition: { x: 18, y: Math.round((TOPBAR_H - 16) / 2) },
+      vibrancy: 'under-window',
+      visualEffectState: 'active',       // la vibrance reste vive même fenêtre inactive (fini le gris terne)
+    } : {}),
+    roundedCorners: true,                // coins arrondis natifs (macOS toujours ; Win11 via DWM)
+
     webPreferences: {
+      preload: path.join(__dirname, 'preload.js'),   // signale « je tourne dans l'app » → style topbar intégrée
       nodeIntegration: false,            // la page web n'a AUCUN accès Node (sécurité)
       contextIsolation: true,
       spellcheck: false,
     },
   });
 
+  win.once('ready-to-show', () => { if (win && !win.isDestroyed()) win.show(); });
   win.loadURL(DESK_URL);
 
   // Liens hors-domaine → navigateur système ; le desk (et la landing) restent dans l'app
@@ -141,6 +176,12 @@ function createWindow() {
       cb(permission === 'clipboard-read' || permission === 'clipboard-sanitized-write' || permission === 'fullscreen' || permission === 'notifications');
     });
   } catch (_) {}
+
+  // État actif / inactif : on prévient la page (topbar légèrement estompée hors focus — détail premium).
+  const pushFocus = focused => { try { if (win && !win.isDestroyed()) win.webContents.send('dtp-window-focus', focused); } catch (_) {} };
+  win.on('focus', () => pushFocus(true));
+  win.on('blur',  () => pushFocus(false));
+  win.webContents.on('did-finish-load', () => pushFocus(win && win.isFocused()));
 
   win.on('closed', () => { win = null; });
 }
