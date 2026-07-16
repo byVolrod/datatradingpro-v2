@@ -10353,6 +10353,10 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %
   // pas de _briefing, pas de préfixe « PRIMER », source ≠ « DTP » exact → _isPrimerNews=false →
   // diffusé en temps réel + non purgé. Le rendu structuré (rubriques orange) passe par le flag
   // dédié _marketWrap côté client (et non par le chemin PRIMER, réservé à l'onglet Analyst).
+  // HORODATAGE STABLE = 16:00 Paris (clôture cash Europe = le créneau de publication du wrap), PAS l'instant
+  // de génération. Avant : timestamp=now → chaque régénération (ex. rattrapage d'une news, force-regen) re-datait
+  // la carte (bug « pourquoi il sort à 19h40 »). Même principe que le FX Recap (19h) et le DTP Daily (12h).
+  const _wrapPubTs = _parisDayRange(dateKey)[0] + 16 * 3600e3;
   const item = {
     id:          prefix + '-' + now,
     headline:    `DTP Synthèse des Marchés — ${dateStr}`,
@@ -10360,8 +10364,8 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %
     category:    'Global News',
     source:      'DTP Markets',
     region:      'Europe',
-    time:        timeStr,
-    timestamp:   now,
+    time:        '16:00',
+    timestamp:   _wrapPubTs,
     priority:    'normal',
     tags:        ['Europe', 'Synthèse', 'Actions', 'Devises'],
     _marketWrap: true,
@@ -10780,17 +10784,22 @@ const _apiCrypto = require('crypto');
 let _apiKeys = [];             // [{id, name, hash, prefix, createdAt, lastUsedAt, calls, revoked, rateLimit}]
 let _apiKeysLoadedAt = 0;
 async function _apiKeysLoad(force) {
-  if (!force && Date.now() - _apiKeysLoadedAt < 60000) return;   // recharge KV ≤ 1x/min (une clé injectée/révoquée ailleurs est vue en ≤ 60 s)
+  if (!force && Date.now() - _apiKeysLoadedAt < 60000) return true;   // recharge KV ≤ 1x/min (une clé injectée/révoquée ailleurs est vue en ≤ 60 s)
   try {
     const l = await auth.aiCacheGet('apikeys:list', 3650 * 864e5);
     if (Array.isArray(l)) {
       // Fusion : on garde les compteurs LOCAUX s'ils sont plus avancés (le débounce d'écriture peut retarder le KV)
       const mem = new Map(_apiKeys.map(k => [k.id, k]));
       _apiKeys = l.map(k => { const m = mem.get(k.id); return (m && (m.calls || 0) > (k.calls || 0)) ? { ...k, calls: m.calls, lastUsedAt: m.lastUsedAt } : k; });
+      _apiKeysLoadedAt = Date.now();
+      return true;
     }
-  } catch {}
-  _apiKeysLoadedAt = Date.now();
+    // null (jamais initialisé) → liste vide LÉGITIME ; on la matérialise une fois.
+    if (l == null && !_apiKeysEverLoaded) { _apiKeys = []; _apiKeysLoadedAt = Date.now(); _apiKeysEverLoaded = true; return true; }
+    return _apiKeysEverLoaded;   // lecture non concluante après init → on garde la liste en mémoire (pas de clobber)
+  } catch { return _apiKeysEverLoaded; }   // KV indisponible → NE PAS écraser la liste en mémoire
 }
+let _apiKeysEverLoaded = false;
 let _apiKeysSaveT = null;
 function _apiKeysSave(now) {
   if (now) { if (_apiKeysSaveT) { clearTimeout(_apiKeysSaveT); _apiKeysSaveT = null; } return auth.aiCacheSet('apikeys:list', _apiKeys).catch(() => {}); }
@@ -10824,7 +10833,7 @@ app.get('/api/admin/api-keys', requireAdmin, async (_req, res) => {
   res.json({ keys: _apiKeys.map(k => ({ id: k.id, name: k.name, prefix: k.prefix, createdAt: k.createdAt, lastUsedAt: k.lastUsedAt || null, calls: k.calls || 0, revoked: !!k.revoked, rateLimit: k.rateLimit || 60 })) });
 });
 app.post('/api/admin/api-keys', requireAdmin, async (req, res) => {
-  await _apiKeysLoad(true);
+  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible — réessayez dans quelques secondes (aucune clé n\'a été perdue).' });
   const name = String((req.body && req.body.name) || '').trim().slice(0, 60);
   if (!name) return res.status(400).json({ error: 'Donnez un nom à la clé (ex. « Script perso », « Intégration TradingView »).' });
   if (_apiKeys.filter(k => !k.revoked).length >= 20) return res.status(400).json({ error: 'Maximum 20 clés actives — révoquez-en une d\'abord.' });
@@ -10836,7 +10845,7 @@ app.post('/api/admin/api-keys', requireAdmin, async (req, res) => {
   res.json({ ok: true, key: secret, id: k.id, name: k.name, prefix: k.prefix });   // ⚠️ la clé complète n'est renvoyée qu'ICI, une seule fois
 });
 app.post('/api/admin/api-keys/:id/revoke', requireAdmin, async (req, res) => {
-  await _apiKeysLoad(true);
+  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible — réessayez.' });
   const k = _apiKeys.find(x => x.id === req.params.id);
   if (!k) return res.status(404).json({ error: 'Clé introuvable' });
   k.revoked = true;
@@ -10845,7 +10854,7 @@ app.post('/api/admin/api-keys/:id/revoke', requireAdmin, async (req, res) => {
   res.json({ ok: true });
 });
 app.post('/api/admin/api-keys/:id/delete', requireAdmin, async (req, res) => {
-  await _apiKeysLoad(true);
+  if (!(await _apiKeysLoad(true))) return res.status(503).json({ error: 'Stockage momentanément indisponible — réessayez.' });
   const before = _apiKeys.length;
   _apiKeys = _apiKeys.filter(x => x.id !== req.params.id);
   if (_apiKeys.length === before) return res.status(404).json({ error: 'Clé introuvable' });
