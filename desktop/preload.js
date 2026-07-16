@@ -27,3 +27,17 @@ else markDesktop();
 ipcRenderer.on('dtp-window-focus', (_e, focused) => {
   try { document.documentElement.classList.toggle('dtp-inactive', !focused); } catch (_) {}
 });
+
+// DOUBLE-CLIC sur la topbar = agrandir/restaurer la fenêtre (convention native Windows/macOS —
+// Notion, Discord, VS Code). Ignoré sur les éléments INTERACTIFS de la barre (icônes, recherche,
+// sentiment, avatar, champs) pour ne jamais interférer avec leurs clics.
+const NO_DBL = '.topbar-icon, .topbar-symbol-search, .topbar-sentiment, #topbar-avatar, input, button, a, select, textarea, [onclick]';
+window.addEventListener('dblclick', e => {
+  try {
+    const t = e.target;
+    if (!t || !t.closest) return;
+    if (!t.closest('.topbar') && !t.closest('#dtp-drag-strip')) return;   // uniquement la barre supérieure
+    if (t.closest(NO_DBL)) return;                                        // jamais sur un élément interactif
+    ipcRenderer.send('dtp-titlebar-dblclick');
+  } catch (_) {}
+}, true);

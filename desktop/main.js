@@ -270,6 +270,22 @@ function createWindow() {
   win.on('blur',  () => pushFocus(false));
   win.webContents.on('did-finish-load', () => pushFocus(win && win.isFocused()));
 
+  // Double-clic sur la topbar (relayé par le preload) = agrandir/restaurer — convention native.
+  // macOS : respecte l'action système du double-clic titre (Agrandir/Réduire dans Réglages) via getUserDefault.
+  ipcMain.removeAllListeners('dtp-titlebar-dblclick');
+  ipcMain.on('dtp-titlebar-dblclick', (e) => {
+    if (!win || win.isDestroyed() || e.sender !== win.webContents) return;
+    if (process.platform === 'darwin') {
+      try {
+        const { systemPreferences } = require('electron');
+        const action = systemPreferences.getUserDefault('AppleActionOnDoubleClick', 'string');
+        if (action === 'Minimize') return win.minimize();
+        if (action === 'None') return;
+      } catch (_) {}
+    }
+    win.isMaximized() ? win.unmaximize() : win.maximize();
+  });
+
   win.on('closed', () => { win = null; });
 }
 

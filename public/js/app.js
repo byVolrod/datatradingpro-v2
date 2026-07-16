@@ -2724,6 +2724,7 @@ function buildNewsItem(item) {
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
     if (_HIDDEN_TAGS.has(tag)) continue;
+    if (tag === 'FX' && item.category === 'FX Flows') continue;   // redondant : la catégorie « Flux FX » est déjà affichée à gauche (demande user)
     if (tag === 'Rates' && !_ratesGuard.test(_hl)) continue;
     if (shownTags.has(tag)) continue;
     shownTags.add(tag);
