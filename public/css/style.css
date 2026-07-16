@@ -214,9 +214,13 @@ html, body {
    ═══════════════════════════════════════════════════════════════════════════════════ */
 html.dtp-desktop { --topbar-h: 50px; }
 
-html.dtp-desktop .topbar {
-  -webkit-app-region: drag;            /* glisser la topbar = déplacer la fenêtre */
-  app-region: drag;
+html.dtp-desktop .topbar,
+html.dtp-desktop .topbar .logo,
+html.dtp-desktop .topbar .topbar-left,
+html.dtp-desktop .topbar .topbar-center,
+html.dtp-desktop .topbar .topbar-right {
+  -webkit-app-region: drag !important;   /* glisser toute zone VIDE du header = déplacer la fenêtre */
+  app-region: drag !important;
 }
 /* Tout ce qui est cliquable ou saisissable ne doit PAS déplacer la fenêtre */
 html.dtp-desktop .topbar .topbar-icon,
@@ -224,9 +228,13 @@ html.dtp-desktop .topbar .topbar-symbol-search,
 html.dtp-desktop .topbar .topbar-sentiment,
 html.dtp-desktop .topbar #topbar-avatar,
 html.dtp-desktop .topbar .topbar-center > *,
-html.dtp-desktop .topbar .topbar-right > * {
-  -webkit-app-region: no-drag;
-  app-region: no-drag;
+html.dtp-desktop .topbar .topbar-right > *,
+html.dtp-desktop .topbar input,
+html.dtp-desktop .topbar button,
+html.dtp-desktop .topbar a,
+html.dtp-desktop .topbar select {
+  -webkit-app-region: no-drag !important;
+  app-region: no-drag !important;
 }
 /* Windows : réserve la place des 3 boutons système à droite */
 html.dtp-win .topbar { padding-right: 146px; }
