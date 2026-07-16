@@ -202,9 +202,12 @@ function createWindow() {
     // on garde le cadre natif par défaut pour ne jamais se retrouver sans boutons de fermeture.
     ...((isWin || isMac) ? { titleBarStyle: 'hidden' } : {}),
     ...(isWin ? {
-      // Windows 11 : boutons min/max/close en surimpression, teintés aux couleurs du desk + fond Mica natif.
+      // Windows 11 : boutons min/max/close en surimpression, teintés aux couleurs du desk.
+      // ⚠️ backgroundMaterial:'mica' RETIRÉ (1.0.11) : bug Electron connu sous Windows — le matériau
+      // DWM casse le déplacement/repositionnement de la fenêtre sur certaines configs (introduit en
+      // 1.0.4 = début exact des « fenêtre fixe » du user). La page du desk étant opaque, mica était
+      // de toute façon invisible : suppression sans perte visuelle.
       titleBarOverlay: { color: TITLEBAR_BG, symbolColor: TITLEBAR_SYMBOL, height: TOPBAR_H },
-      backgroundMaterial: 'mica',        // matériau natif Win11 (repli automatique sur les versions plus anciennes)
     } : {}),
     ...(isMac ? {
       // macOS : feux tricolores natifs, centrés verticalement dans la topbar ; vibrance sous-fenêtre.
