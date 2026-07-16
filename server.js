@@ -537,6 +537,38 @@ app.post('/api/cat-filter', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+// ── Config du panneau ALERTES (notifications), PERSISTANTE PAR COMPTE (KV durable, modèle
+//    symrecent/catfilter → suit la reconnexion / le changement d'appareil ; demande user 16/07
+//    « que le système retienne le choix de config des notifs de chaque user »).
+//    Valeur = { enabled, volume, chime, push, catsOff:[...] } ; cfg:null = aucune préférence
+//    enregistrée (le client garde son localStorage / défauts). Le fil et l'onglet actif restent volatils.
+const _NP_VOLUMES = new Set(['fort', 'doux', 'mute']);
+const _NP_CHIMES  = new Set(['chime', 'ding', 'alert', 'none']);
+function _npCleanCfg(b) {
+  return {
+    enabled: b.enabled !== false,
+    volume:  _NP_VOLUMES.has(b.volume) ? b.volume : 'fort',
+    chime:   _NP_CHIMES.has(b.chime) ? b.chime : 'chime',
+    push:    b.push !== false,
+    catsOff: Array.isArray(b.catsOff) ? [...new Set(b.catsOff.filter(x => typeof x === 'string' && x && x.length <= 40))].slice(0, 30) : [],
+  };
+}
+app.get('/api/notif-config', async (req, res) => {
+  if (!req.session?.userId) return res.json({ cfg: null });
+  try {
+    const v = await auth.aiCacheGet('notifcfg:' + req.session.userId);
+    res.json({ cfg: (v && typeof v === 'object') ? _npCleanCfg(v) : null });
+  } catch { res.json({ cfg: null }); }
+});
+app.post('/api/notif-config', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const cfg = _npCleanCfg(req.body || {});
+    await auth.aiCacheSet('notifcfg:' + req.session.userId, cfg);
+    res.json({ ok: true });
+  } catch { res.status(500).json({ ok: false }); }
+});
+
 // ── Badge « NEW » du journal de trading — annonce vue UNE SEULE FOIS par compte (KV durable, modèle
 //    symrecent → suit la reconnexion / le changement d'appareil ; dual-write KV = survit au blackout egress).
 app.get('/api/journal-new-seen', async (req, res) => {
