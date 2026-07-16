@@ -2323,6 +2323,12 @@ function buildNewsItem(item) {
     || autoSummary.length > 0
     || isInfoQuote                                    // la citation brute est toujours consultable au déplié
     || (isSpeaker && (rawDesc.length > 10 || speakerQuotesAtRender.length > 0));
+  // Décryptage DTP (demande user 16/07 « ajoute de la valeur… avec un tag Info ») : news d'ÉVÉNEMENT
+  // (donnée éco CPI/NFP/PMI…, discours/minutes/conférence de banque centrale) → même bloc pédagogique
+  // que le calendrier (impact, réaction classique, anticipation, ton BC + prochaine réunion). Déterministe,
+  // zéro IA. Helpers exposés par charts.js (garde typeof : dégradation propre si absent).
+  const hasEco = !isPrimer && !item._dtpd && !item._marketWrap
+    && typeof dtpEventInsightMatch === 'function' && dtpEventInsightMatch(item.headline, item.currency);
 
   const headline = document.createElement('div');
   headline.className = 'news-headline';
@@ -2360,7 +2366,7 @@ function buildNewsItem(item) {
   let reactionTagEl = null;
   let arrowEl       = null;  // chevron ∨ / ^ indicator
 
-  if (hasNotes || hasInfo) {
+  if (hasNotes || hasInfo || hasEco) {
     expandEl = document.createElement('div');
     expandEl.className = 'news-description';
     content.appendChild(expandEl);
@@ -2373,7 +2379,7 @@ function buildNewsItem(item) {
     arrowEl.innerHTML = '<svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
     // Défaut au dépliage : on PRÉFÈRE l'analyse FR pré-calculée (instantanée, aucun fetch) au résumé « Info »
     // (souvent la description SOURCE en anglais) → la description s'affiche instantanément EN FRANÇAIS.
-    const _togglePanel = e => { e.stopPropagation(); openPanel(hasNotes ? 'analysis' : hasInfo ? 'info' : 'reaction'); };
+    const _togglePanel = e => { e.stopPropagation(); openPanel(hasNotes ? 'analysis' : hasInfo ? 'info' : hasEco ? 'eco' : 'reaction'); };
     arrowEl.onclick = _togglePanel;
     // Clic sur le TITRE de la news → déroule aussi (description / analyse / réaction)
     headline.classList.add('news-headline--clickable');
@@ -2407,6 +2413,7 @@ function buildNewsItem(item) {
     const tabsHtml = [
       hasNotes  && `<button class="expand-tab${tab === 'analysis' ? ' expand-tab--active' : ''}" data-tab="analysis"><span class="tag-icon">⊙</span> Analyse</button>`,
       hasInfo   && `<button class="expand-tab${tab === 'info'     ? ' expand-tab--active' : ''}" data-tab="info"><span class="tag-icon">ⓘ</span> ${isInfoQuote ? 'Contexte' : 'Info'}</button>`,
+      hasEco    && `<button class="expand-tab${tab === 'eco'      ? ' expand-tab--active' : ''}" data-tab="eco"><span class="tag-icon">ⓘ</span> Décryptage</button>`,
     ].filter(Boolean).join('');
 
     const infoBody = (() => {
@@ -2628,6 +2635,21 @@ function buildNewsItem(item) {
       return;
     }
 
+    if (tab === 'eco') {
+      // Décryptage DTP (pédagogie éco / banque centrale) : même bloc que le déroulé calendrier.
+      expandEl.innerHTML = dtpLoader('Chargement du décryptage…', { small: true });
+      expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+      if (analysisTagEl) analysisTagEl.classList.remove('tag--active');
+      if (reactionTagEl) reactionTagEl.classList.remove('tag--active');
+      Promise.resolve(typeof dtpEventInsightHtml === 'function' ? dtpEventInsightHtml(item) : '')
+        .then(html => {
+          if (activeTab !== 'eco' || !expandEl.isConnected) return;
+          expandEl.innerHTML = html || '<ul class="article-points article-points--clean"><li>Décryptage indisponible pour cet événement.</li></ul>';
+        })
+        .catch(() => {});
+      return;
+    }
+
     if (tab === 'analysis') {
       // Analyse PRÉ-CALCULÉE côté serveur, attachée à la news → affichage instantané, aucun fetch.
       expandEl.innerHTML = _renderInfoBullets(item.analyse || []);
@@ -2735,7 +2757,7 @@ function buildNewsItem(item) {
   // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
   const _catLabel = catFr(item.category || '');
   const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
-  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News = retirés à la demande)
+  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis = retirés à la demande)
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
@@ -2782,6 +2804,16 @@ function buildNewsItem(item) {
     tagsEl.appendChild(infoTagEl);
   }
 
+  if (hasEco) {
+    // Pill « Décryptage » visible dans le fil (différenciateur DTP : pédagogie éco / banque centrale)
+    const ecoTagEl = document.createElement('span');
+    ecoTagEl.className = 'tag tag--info';
+    ecoTagEl.style.cursor = 'pointer';
+    ecoTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="3.5" r="0.75" fill="currentColor"/></svg> Décryptage';
+    ecoTagEl.onclick = e => { e.stopPropagation(); openPanel('eco'); };
+    tagsEl.appendChild(ecoTagEl);
+  }
+
   if (hasNotes) {
     analysisTagEl = document.createElement('span');
     analysisTagEl.className = 'tag tag--analyse';
@@ -2799,7 +2831,7 @@ function buildNewsItem(item) {
   // On restaure simplement l'onglet qu'il avait ouvert (persiste entre re-renders / arrivées de news).
   if (expandEl && item && _openNewsPanels[item.id]) {
     const _t  = _openNewsPanels[item.id];
-    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'reaction' && reactionTagEl);
+    const _ok = (_t === 'info' && hasInfo) || (_t === 'analysis' && hasNotes) || (_t === 'eco' && hasEco) || (_t === 'reaction' && reactionTagEl);
     if (_ok) requestAnimationFrame(() => openPanel(_t));
     else delete _openNewsPanels[item.id];                    // l'onglet n'existe plus → on nettoie
   }
