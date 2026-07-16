@@ -279,6 +279,28 @@ html.dtp-desktop .topbar { transition: background-color .25s ease, border-color 
   margin-left: auto;
 }
 
+/* ── Topbar RESPONSIVE fenêtres ÉTROITES (769–1366px : app desktop redimensionnée, web étroit) ──
+   En desktop large, .topbar-center est centré en ABSOLU (50%/translate) → sous ~1360px il finissait
+   par CHEVAUCHER les icônes de droite (aggravé dans l'app par la réserve des boutons système +146px :
+   cloche/chat/avatar disparaissaient — bug user 16/07). Dans cette plage, le centre rejoint le FLUX
+   flex : centré quand il y a la place, la recherche se comprime sinon — zéro chevauchement possible.
+   (≤768px : le bloc mobile existant prend le relais avec sa propre version flex-start.) */
+@media (min-width: 769px) and (max-width: 1366px) {
+  .topbar-left, .topbar-right { flex: 0 0 auto; }
+  .topbar-center {
+    position: static;
+    transform: none;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-width: 0;
+    padding: 0 8px;
+  }
+  .topbar-symbol-search { flex: 1 1 120px; width: auto; min-width: 96px; max-width: 230px; }
+}
+
 .topbar-symbol-search {
   display: flex;
   align-items: center;
