@@ -52,6 +52,9 @@ up "DataTradingPro-mac-arm64.dmg" "DataTradingPro-macOS.dmg"
 up "DataTradingPro-mac-x64.dmg"   "DataTradingPro-macOS-Intel.dmg"
 up "DataTradingPro-mac-arm64.zip" "DataTradingPro-macOS.zip"
 up "DataTradingPro-mac-x64.zip"   "DataTradingPro-macOS-Intel.zip"
+# Manifeste de MAJ macOS : main.js (checkMacUpdate) lit latest-mac.yml pour détecter une nouvelle
+# version → sans cet upload, les apps mac ne voient JAMAIS les mises à jour (oubli corrigé 16/07).
+up "latest-mac.yml"
 
 echo
 if [ "$uploaded" -eq 0 ]; then
