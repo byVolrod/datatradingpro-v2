@@ -8,9 +8,39 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, shell, dialog, nativeTheme } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, nativeTheme, ipcMain } = require('electron');
 const path = require('path');
 const https = require('https');
+
+// Modal de mise à jour AUX COULEURS DTP (les dialogues natifs de l'OS ne sont pas stylables) : petite
+// fenêtre enfant sans cadre, fond sombre + accent or, cohérente avec l'app. Renvoie 'primary'|'secondary'.
+function showUpdateModal({ title, message, detail, primary, secondary } = {}) {
+  return new Promise(resolve => {
+    if (!win || win.isDestroyed()) return resolve('secondary');
+    const search = new URLSearchParams({
+      title: title || 'Mise à jour', message: message || '', detail: detail || '',
+      primary: primary || 'OK', secondary: secondary || 'Plus tard',
+    }).toString();
+    let m = new BrowserWindow({
+      width: 460, height: 240, parent: win, modal: true, show: false,
+      resizable: false, minimizable: false, maximizable: false, fullscreenable: false,
+      frame: false, transparent: true, backgroundColor: '#00000000', roundedCorners: true,
+      webPreferences: { nodeIntegration: true, contextIsolation: false },   // fichier LOCAL de confiance uniquement
+    });
+    let done = false;
+    const finish = choice => {
+      if (done) return; done = true;
+      try { ipcMain.removeListener('dtp-update-choice', onChoice); } catch (_) {}
+      if (m && !m.isDestroyed()) m.close(); m = null;
+      resolve(choice);
+    };
+    const onChoice = (e, choice) => { if (m && !m.isDestroyed() && e.sender === m.webContents) finish(choice === 'primary' ? 'primary' : 'secondary'); };
+    ipcMain.on('dtp-update-choice', onChoice);
+    m.once('ready-to-show', () => { if (m && !m.isDestroyed()) m.show(); });
+    m.on('closed', () => finish('secondary'));   // croix / fermeture = « Plus tard »
+    m.loadFile(path.join(__dirname, 'update-modal.html'), { search });
+  });
+}
 
 // Hauteur de la barre supérieure du desk (doit rester alignée sur --topbar-h côté .dtp-desktop dans
 // style.css). Sert à positionner PARFAITEMENT les contrôles système natifs dans la topbar DTP :
@@ -52,14 +82,12 @@ function checkMacUpdate() {
       if (_macPromptShown || !win || win.isDestroyed()) return;
       _macPromptShown = true;
       const dmg = process.arch === 'arm64' ? 'DataTradingPro-macOS.dmg' : 'DataTradingPro-macOS-Intel.dmg';
-      dialog.showMessageBox(win, {
-        type: 'info',
-        buttons: ['Télécharger la mise à jour', 'Plus tard'],
-        defaultId: 0, cancelId: 1,
+      showUpdateModal({
         title: 'Mise à jour disponible',
         message: `Une nouvelle version de DataTradingPro (${remote}) est disponible.`,
-        detail: 'Téléchargez le fichier .dmg puis glissez DataTradingPro dans Applications (remplace l’ancienne version).',
-      }).then(r => { if (r.response === 0) shell.openExternal(DL_BASE + dmg).catch(() => {}); }).catch(() => {});
+        detail: 'Téléchargez le fichier .dmg, puis glissez DataTradingPro dans Applications (remplace l’ancienne version).',
+        primary: 'Télécharger la mise à jour', secondary: 'Plus tard',
+      }).then(c => { if (c === 'primary') shell.openExternal(DL_BASE + dmg).catch(() => {}); });
     });
   }).on('error', () => {});
 }
@@ -83,26 +111,22 @@ function setupAutoUpdate() {
 
   autoUpdater.on('update-available', (info) => {
     if (_downloading || !win || win.isDestroyed()) return;
-    dialog.showMessageBox(win, {
-      type: 'info',
-      buttons: ['Mettre à jour maintenant', 'Plus tard'],
-      defaultId: 0, cancelId: 1,
+    showUpdateModal({
       title: 'Mise à jour disponible',
       message: `Une nouvelle version de DataTradingPro${info && info.version ? ' (' + info.version + ')' : ''} est disponible.`,
       detail: 'Elle apporte les dernières améliorations de l’application. Le téléchargement se fait en arrière-plan, puis l’app redémarre.',
-    }).then(r => { if (r.response === 0) { _downloading = true; autoUpdater.downloadUpdate().catch(() => {}); } }).catch(() => {});
+      primary: 'Mettre à jour maintenant', secondary: 'Plus tard',
+    }).then(c => { if (c === 'primary') { _downloading = true; autoUpdater.downloadUpdate().catch(() => {}); } });
   });
 
   autoUpdater.on('update-downloaded', () => {
     if (!win || win.isDestroyed()) return;
-    dialog.showMessageBox(win, {
-      type: 'info',
-      buttons: ['Redémarrer maintenant', 'Plus tard'],
-      defaultId: 0, cancelId: 1,
+    showUpdateModal({
       title: 'Mise à jour prête',
       message: 'La mise à jour de DataTradingPro est téléchargée.',
-      detail: 'Redémarrez l’application pour l’appliquer (elle s’installera aussi automatiquement à la prochaine fermeture).',
-    }).then(r => { if (r.response === 0) setImmediate(() => autoUpdater.quitAndInstall()); }).catch(() => {});
+      detail: 'Redémarrez pour l’appliquer (elle s’installera aussi automatiquement à la prochaine fermeture).',
+      primary: 'Redémarrer maintenant', secondary: 'Plus tard',
+    }).then(c => { if (c === 'primary') setImmediate(() => autoUpdater.quitAndInstall()); });
   });
 
   autoUpdater.on('error', (err) => { try { console.warn('[AutoUpdate]', (err && err.message) || err); } catch (_) {} });

@@ -1,7 +1,7 @@
 {
   "name": "datatradingpro-desktop",
   "productName": "DataTradingPro",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "DataTradingPro — terminal de trading (application bureau)",
   "main": "main.js",
   "author": "DataTradingPro",
@@ -26,7 +26,7 @@
     "appId": "com.datatradingpro.desk",
     "productName": "DataTradingPro",
     "directories": { "output": "dist" },
-    "files": ["main.js", "offline.html", "build/icon.png"],
+    "files": ["main.js", "preload.js", "update-modal.html", "offline.html", "build/icon.png"],
     "publish": [
       { "provider": "generic", "url": "https://desk.datatradingpro.com/downloads/", "channel": "latest" }
     ],
