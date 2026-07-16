@@ -11504,6 +11504,11 @@ function isGlobalNewsNoise(headline) {
   // et toute phrase contenant « week ahead » au milieu (« Fed faces crucial week ahead ») sont ÉPARGNÉES.
   if (/^\s*(?:the\s+)?week\s+ahead\s*[:\-–—]/i.test(h)) return true;
   if (/\b(quarterly|monthly|economic|annual|weekly)\s+bulletin\b[\s\d/.\-]*$/i.test(h)) return true;   // annonce de publication brute (« SNB Quarterly Bulletin 2/2026 ») : titre sans explication → on garde celles AVEC du contenu (texte après « Bulletin »)
+  // Annonce de RÉSULTATS D'ENTREPRISE brute (« Taiwan Semiconductor Q2 2026 Earnings ») : desk macro/FX,
+  // une coquille d'agenda actions sans chiffre n'apporte rien (demande user 16/07 « cette news sert à rien »).
+  // ÉTROIT (règle anti-faux-positifs) : uniquement « <société> Q1-4 YYYY Earnings(...) » SANS contenu —
+  // une vraie news de résultats (« TSMC Q2 profit beats estimates, up 60% ») a des chiffres/verbes et passe.
+  if (/\bQ[1-4]\s+20\d{2}\s+earnings(?:\s+(?:call|report|release|results?))?\s*$/i.test(h)) return true;
   // Titre de RAPPORT data brut, sans contenu (« US S&P MFG PMI June 2026 Report ») = doublon sans valeur du VRAI relevé
   // (celui-ci porte Actual/Forecast/Previous + chiffres). On GARDE ceux qui ont des chiffres/une réaction, on drop la coquille.
   if (/\b(?:pmi|cpi|ppi|gdp|ism|nfp|non-?farm|payrolls?|jobless|unemployment|retail sales|trade balance|industrial production|durable goods|factory orders|housing starts|building permits)\b.*\breport\.?\s*$/i.test(h)

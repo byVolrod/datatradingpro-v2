@@ -3146,6 +3146,132 @@ function _calDetailBodyHtml(d) {
   return (specsHtml + histHtml);
 }
 
+// ═══ DÉCRYPTAGE DTP du déroulé calendrier (demande user 16/07 — « à la place de Aucun détail ») ═══
+// Deux enrichissements, 100 % informatifs et déterministes (zéro IA, zéro quota) :
+//  1) DONNÉES ÉCO : base de connaissance pédagogique (source : fiche « Learning Economics News » du user)
+//     → catégorie, ce que ça mesure (vulgarisé), lecture factuelle du chiffre vs prévision, réaction
+//     classique EN CONDITIONNEL pédagogique (jamais un conseil), ce que ça aide à anticiper + la
+//     PROCHAINE ÉCHÉANCE LIÉE réellement présente dans le calendrier chargé.
+//  2) BANQUE CENTRALE (discours/minutes/conférences/décisions) : ton récent du discours (mots-clés
+//     hawkish/dovish/neutre sur les titres du fil), derniers propos (titres VO, jamais traduits — veto),
+//     taux actuel + prochaine réunion + probabilités (payload /api/rates du desk).
+const CAL_KB = [
+  { rx: /core\s+cpi|core\s+consumer\s+price|cpi\s+core/i, name: 'Core CPI', cat: 'Inflation', what: "Le prix des courses hors énergie et nourriture (l'inflation « de fond »).", anticipates: 'PCE, décisions de la banque centrale', nextRx: /\bpce\b|rate decision|fomc/i, hiUp: true },
+  { rx: /core\s+pce/i, name: 'Core PCE', cat: 'Inflation', what: "La mesure d'inflation préférée de la Fed.", anticipates: 'Orientation future de la Fed', nextRx: /rate decision|fomc/i, hiUp: true },
+  { rx: /\bpce\b|personal\s+consumption/i, name: 'PCE', cat: 'Inflation', what: 'Le prix réellement payé par les ménages.', anticipates: 'Futures décisions de taux', nextRx: /rate decision|fomc/i, hiUp: true },
+  { rx: /\bppi\b|producer\s+price/i, name: 'PPI', cat: 'Inflation', what: 'Le coût de production des usines — en amont des prix consommateur.', anticipates: 'CPI futur (pression sur les prix)', nextRx: /\bcpi\b|consumer price|inflation rate/i, hiUp: true },
+  { rx: /\bcpi\b|consumer\s+price|inflation\s+rate/i, name: 'CPI', cat: 'Inflation', what: 'Le prix du panier de la ménagère — LA mesure d\'inflation de référence.', anticipates: 'Politique monétaire, taux, devise', nextRx: /rate decision|fomc|\bpce\b/i, hiUp: true },
+  { rx: /non-?farm|payrolls|\bnfp\b/i, name: 'NFP', cat: 'Emploi', what: 'Le score des nouveaux emplois créés dans le mois (hors agriculture).', anticipates: 'Chômage, salaires, banque centrale', nextRx: /unemployment|rate decision|fomc/i, hiUp: true },
+  { rx: /unemployment\s+rate|jobless\s+rate/i, name: 'Taux de chômage', cat: 'Emploi', what: 'Le pourcentage de personnes sans travail.', anticipates: 'Consommation, croissance', nextRx: /retail sales|\bgdp\b/i, hiUp: false },
+  { rx: /jobless\s+claims|initial\s+claims|continuing\s+claims/i, name: 'Inscriptions au chômage', cat: 'Emploi', what: 'Le thermomètre HEBDO du marché du travail (nouvelles demandes d\'allocations).', anticipates: 'NFP, santé de l\'emploi', nextRx: /non-?farm|payrolls/i, hiUp: false },
+  { rx: /average\s+hourly\s+earnings|hourly\s+earnings|wage\s+growth|\bwages\b/i, name: 'Salaires horaires', cat: 'Emploi', what: 'La vitesse de hausse des salaires.', anticipates: 'Inflation future (CPI/PCE)', nextRx: /\bcpi\b|\bpce\b/i, hiUp: true },
+  { rx: /\badp\b/i, name: 'ADP', cat: 'Emploi', what: 'Le « test » privé avant le vrai chiffre NFP.', anticipates: 'NFP (imparfaitement)', nextRx: /non-?farm|payrolls/i, hiUp: true },
+  { rx: /jolts|job\s+openings/i, name: 'JOLTS', cat: 'Emploi', what: 'Le nombre de postes à pourvoir — la « demande » de travailleurs.', anticipates: 'NFP, salaires, inflation', nextRx: /non-?farm|payrolls/i, hiUp: true },
+  { rx: /\bgdp\b|gross\s+domestic/i, name: 'PIB', cat: 'Croissance', what: 'La richesse totale produite par le pays.', anticipates: 'Politique monétaire, bénéfices des entreprises', nextRx: /rate decision|fomc/i, hiUp: true },
+  { rx: /retail\s+sales/i, name: 'Ventes au détail', cat: 'Croissance', what: 'L\'argent réellement dépensé par les consommateurs.', anticipates: 'PIB, croissance future', nextRx: /\bgdp\b/i, hiUp: true },
+  { rx: /(?:ism\s+)?manufacturing\s+pmi|pmi\s+manufacturing|ism\s+manufacturing/i, name: 'PMI Manufacturier', cat: 'Croissance', what: 'La santé des usines (au-dessus de 50 = expansion, en dessous = contraction).', anticipates: 'PIB, emploi industriel', nextRx: /\bgdp\b/i, hiUp: true },
+  { rx: /(?:ism\s+)?services\s+pmi|pmi\s+services|ism\s+services|non-?manufacturing/i, name: 'PMI Services', cat: 'Croissance', what: 'La santé des entreprises de services (au-dessus de 50 = expansion).', anticipates: 'PIB, emploi', nextRx: /\bgdp\b/i, hiUp: true },
+  { rx: /\bpmi\b/i, name: 'PMI', cat: 'Croissance', what: 'Le moral des directeurs d\'achats (au-dessus de 50 = expansion, en dessous = contraction).', anticipates: 'PIB, tendance de l\'activité', nextRx: /\bgdp\b/i, hiUp: true },
+];
+const _CAL_REACTION = {
+  Inflation: "Un chiffre AU-DESSUS des attentes plaide classiquement pour des taux plus élevés (devise souvent soutenue) ; en dessous, l'inverse.",
+  Emploi: "Un marché du travail plus FORT qu'attendu met la pression sur la banque centrale (devise souvent soutenue) ; plus faible, l'inverse.",
+  Croissance: "Au-dessus des attentes = signal de croissance (devise et actions souvent soutenues) ; en dessous = signal de ralentissement.",
+};
+// Événements de BANQUE CENTRALE (discours, minutes, conférences, décisions)
+const _CAL_CB_RX = /speech|speaks|testif|press\s+conference|minutes|rate\s+decision|rate\s+statement|policy\s+(?:report|decision|statement)|monetary\s+policy|\bfomc\b/i;
+const _CAL_CB_BY_CCY = { USD: { bank: 'Fed (FOMC)', rx: /\b(?:fed|fomc|powell)\b/i }, EUR: { bank: 'BCE', rx: /\b(?:ecb|bce|lagarde)\b/i }, GBP: { bank: 'BoE', rx: /\b(?:boe|bank of england|bailey)\b/i }, JPY: { bank: 'BoJ', rx: /\b(?:boj|bank of japan|ueda)\b/i }, CHF: { bank: 'BNS (SNB)', rx: /\b(?:snb|bns|swiss national bank)\b/i }, CAD: { bank: 'BoC', rx: /\b(?:boc|bank of canada|macklem)\b/i }, AUD: { bank: 'RBA', rx: /\b(?:rba|reserve bank of australia)\b/i }, NZD: { bank: 'RBNZ', rx: /\b(?:rbnz|reserve bank of new zealand)\b/i } };
+const _CAL_HAWK_RX = /hik(?:e|es|ing)|rais(?:e|ing)\s+rates|tighten|restrictive|higher\s+for\s+longer|inflation\s+(?:too\s+high|persistent|sticky)|upside\s+risks?|not\s+(?:yet\s+)?done|further\s+(?:tightening|increases?)|vigilan|hawkish/i;
+const _CAL_DOVE_RX = /\bcut(?:s|ting)?\b|eas(?:e|ing)\s+(?:policy|rates)|lower(?:ing)?\s+rates|accommodat|downside\s+risks?|dovish|ready\s+to\s+(?:act|support)|slow(?:ing|down)/i;
+const _CAL_HOLD_RX = /\bhold\b|pause|patient|data[\s-]dependent|wait[\s-]and[\s-]see|steady|unchanged|maintain/i;
+function _calToneOf(texts) {
+  let hawk = 0, dove = 0, hold = 0;
+  texts.forEach(t => { if (_CAL_HAWK_RX.test(t)) hawk++; if (_CAL_DOVE_RX.test(t)) dove++; if (_CAL_HOLD_RX.test(t)) hold++; });
+  if (hawk > dove && hawk >= hold) return { key: 'hawk', label: 'Hawkish', sens: 'penche vers des taux plus hauts', color: '#e0863a' };
+  if (dove > hawk && dove >= hold) return { key: 'dove', label: 'Dovish', sens: 'penche vers des taux plus bas', color: '#3aa0e0' };
+  if (hawk || dove || hold) return { key: 'hold', label: 'Neutre', sens: 'maintien / attentisme', color: '#9a9aa4' };
+  return null;
+}
+// Payload /api/rates du desk, mis en cache 10 min (même source que l'onglet TAUX)
+let _calRatesCache = { at: 0, data: null };
+async function _calRatesGet() {
+  if (_calRatesCache.data && Date.now() - _calRatesCache.at < 10 * 60 * 1000) return _calRatesCache.data;
+  try {
+    const j = await fetch('/api/rates').then(r => r.json());
+    if (j && Array.isArray(j.banks)) { _calRatesCache = { at: Date.now(), data: j }; return j; }
+  } catch {}
+  return _calRatesCache.data;
+}
+function _calFmtDateFr(iso) {
+  try { return new Date(iso + 'T00:00:00Z').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }); } catch { return iso; }
+}
+// Valeur numérique d'une cellule calendrier (« 0.2% », « 45B », « -1.5 »)
+function _calNum(s) { const m = String(s == null ? '' : s).replace(/,/g, '.').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; }
+// ── Bloc « Décryptage DTP » d'un événement (async : peut attendre /api/rates, en cache) ──
+async function _calValueBlockHtml(ev) {
+  const title = String(ev.title || '');
+  const rows = [];
+  // 1) BANQUE CENTRALE (prioritaire : un « CPI » dans un titre de discours reste un discours)
+  const cb = _CAL_CB_RX.test(title) ? _CAL_CB_BY_CCY[ev.currency] : null;
+  if (cb) {
+    // Derniers propos : titres du fil (7 jours) qui citent le speaker (« Fed Logan Speech » → Logan), sinon la banque
+    const items = (typeof allItems !== 'undefined' && Array.isArray(allItems)) ? allItems : [];
+    const spk = title.match(/(?:fed|fomc|ecb|boe|boj|snb|boc|rba|rbnz)(?:'s)?\s+([A-Z][a-zà-ÿ'-]+)\s+(?:speech|speaks|testif)/i);
+    const nameRx = spk ? new RegExp('\\b' + spk[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : cb.rx;
+    const cutoff = Date.now() - 7 * 86400e3;
+    const quotes = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && nameRx.test(i.headline)
+      && /:/.test(i.headline)).slice(0, 3);   // « Fed's Logan: … » = un propos rapporté (les annonces sans « : » sont ignorées)
+    const tone = _calToneOf(quotes.map(q => q.headline));
+    if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
+    if (quotes.length) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Derniers propos</span><span class="cal-kb-val">${quotes.map(q => `<div class="cal-kb-quote">« ${_calEsc(q.headline)} »</div>`).join('')}</span></div>`);
+    const rates = await _calRatesGet();
+    const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);
+    if (bank) {
+      if (bank.rate != null) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Taux actuel</span><span class="cal-kb-val">${_calEsc(String(bank.rate))} %</span></div>`);
+      if (bank.next) {
+        const sc = bank.scenario || {};
+        const probs = [sc.hold != null ? `maintien ${Math.round(sc.hold)} %` : '', sc.cut != null ? `baisse ${Math.round(sc.cut)} %` : '', sc.hike != null ? `hausse ${Math.round(sc.hike)} %` : ''].filter(Boolean).join(' · ');
+        rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${probs ? `<div class="cal-kb-sub">${probs}</div>` : ''}</span></div>`);
+      }
+    }
+    if (!rows.length) return '';
+    return `<div class="cal-kb"><div class="cal-detail-section">Banque centrale · ${_calEsc(cb.bank)}</div>${rows.join('')}</div>`;
+  }
+  // 2) DONNÉE ÉCO : base de connaissance pédagogique
+  const kb = CAL_KB.find(k => k.rx.test(title));
+  if (!kb) return '';
+  rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ce que ça mesure</span><span class="cal-kb-val"><span class="cal-kb-cat">${kb.cat}</span> ${_calEsc(kb.what)}</span></div>`);
+  // Lecture factuelle du chiffre publié vs prévision
+  const a = _calNum(ev.actual), f = _calNum(ev.forecast);
+  if (a != null && f != null) {
+    const lecture = a > f ? 'AU-DESSUS de la prévision' : a < f ? 'SOUS la prévision' : 'EN LIGNE avec la prévision';
+    rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">Réel (${_calEsc(ev.actual)}) ${lecture} (${_calEsc(ev.forecast)}).</span></div>`);
+  }
+  const reaction = _CAL_REACTION[kb.cat];
+  if (reaction) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Réaction classique</span><span class="cal-kb-val">${reaction}</span></div>`);
+  rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Peut aider à anticiper</span><span class="cal-kb-val">${_calEsc(kb.anticipates)}</span></div>`);
+  // Prochaine échéance LIÉE réellement présente dans le calendrier chargé (même devise, après cet événement)
+  if (kb.nextRx && Array.isArray(_calEvents)) {
+    const nxt = _calEvents.find(e => e && e.currency === ev.currency && (e.timestamp || 0) > (ev.timestamp || 0) && kb.nextRx.test(e.title || ''));
+    if (nxt) {
+      const d = nxt.timestamp ? new Date(nxt.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }) : '';
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine échéance liée</span><span class="cal-kb-val">${_calEsc(nxt.title)}${d ? ' — ' + _calEsc(d) : ''}</span></div>`);
+    }
+  }
+  return `<div class="cal-kb"><div class="cal-detail-section">Décryptage DTP</div>${rows.join('')}</div>`;
+}
+
+// ── Exposés pour le FIL DE NEWS (app.js) : une news d'événement (donnée éco / banque centrale)
+//    porte le MÊME Décryptage DTP que le calendrier (onglet « Décryptage » au dépliage). ──
+function dtpEventInsightMatch(headline, currency) {
+  const h = String(headline || '');
+  if (_CAL_CB_RX.test(h) && _CAL_CB_BY_CCY[currency]) return true;
+  return CAL_KB.some(k => k.rx.test(h));
+}
+async function dtpEventInsightHtml(item) {
+  return _calValueBlockHtml({ title: item.headline, currency: item.currency, actual: item.actual, forecast: item.forecast, timestamp: item.timestamp });
+}
+
 // Clic sur un événement → ouvre/ferme un DÉROULÉ INLINE sous la ligne (accordéon). PAS de fenêtre modale.
 async function toggleCalDetailRow(tr, ev) {
   if (!tr || !tr.parentNode) return;
@@ -3182,7 +3308,15 @@ async function toggleCalDetailRow(tr, ev) {
   tr.after(detailRow);
   const bodyEl = detailRow.querySelector('.cal-detail-body');
 
-  if (!ev.url) { if (bodyEl) bodyEl.innerHTML = '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>'; return; }
+  // Bloc « Décryptage DTP » (pédagogie donnée éco OU banque centrale) — TOUJOURS tenté, il remplace
+  // le cul-de-sac « Aucun détail supplémentaire disponible » (demande user 16/07).
+  let kbHtml = '';
+  try { kbHtml = await _calValueBlockHtml(ev) || ''; } catch {}
+
+  if (!ev.url) {
+    if (bodyEl && bodyEl.isConnected) bodyEl.innerHTML = kbHtml || '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>';
+    return;
+  }
 
   // Cache navigateur
   let d = _calDetailCache[ev.url];
@@ -3193,7 +3327,8 @@ async function toggleCalDetailRow(tr, ev) {
     } catch { d = null; }
   }
   if (!bodyEl || !bodyEl.isConnected) return;   // déroulé fermé entre-temps
-  bodyEl.innerHTML = _calDetailBodyHtml(d) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
+  const detHtml = _calDetailBodyHtml(d);
+  bodyEl.innerHTML = (kbHtml + detHtml) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
 }
 
 // ── Calendar helper: refresh data from server ─────────────────────────────────
