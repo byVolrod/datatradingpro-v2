@@ -1,7 +1,7 @@
 {
   "name": "datatradingpro-desktop",
   "productName": "DataTradingPro",
-  "version": "1.0.12",
+  "version": "1.0.13",
   "description": "DataTradingPro — terminal de trading (application bureau)",
   "main": "main.js",
   "author": "DataTradingPro",
@@ -25,22 +25,53 @@
   "build": {
     "appId": "com.datatradingpro.desk",
     "productName": "DataTradingPro",
-    "directories": { "output": "dist" },
-    "files": ["main.js", "preload.js", "update-modal.html", "offline.html", "build/icon.png"],
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "update-modal.html",
+      "offline.html",
+      "build/icon.png"
+    ],
     "publish": [
-      { "provider": "generic", "url": "https://desk.datatradingpro.com/downloads/", "channel": "latest" }
+      {
+        "provider": "generic",
+        "url": "https://desk.datatradingpro.com/downloads/",
+        "channel": "latest"
+      }
     ],
     "win": {
       "icon": "build/icon.ico",
-      "target": [{ "target": "nsis", "arch": ["x64"] }]
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
     },
     "mac": {
       "icon": "build/icon.icns",
       "category": "public.app-category.finance",
       "identity": null,
       "target": [
-        { "target": "dmg", "arch": ["arm64", "x64"] },
-        { "target": "zip", "arch": ["arm64", "x64"] }
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "artifactName": "DataTradingPro-mac-${arch}.${ext}"
     },
@@ -53,6 +84,7 @@
       "perMachine": false,
       "artifactName": "DataTradingPro-Setup.exe",
       "deleteAppDataOnUninstall": false
-    }
+    },
+    "afterPack": "scripts/mac-adhoc-sign.js"
   }
 }
