@@ -918,6 +918,17 @@
       .cflow-big{font-size:15px;font-weight:800;color:#e3b23a;margin-top:5px;}
       .cflow-arrow{display:flex;align-items:center;justify-content:center;color:#4a4a52;font-size:18px;flex:0 0 auto;}
       @media(max-width:720px){.cflow-arrow{transform:rotate(90deg);width:100%;height:12px;}}
+      /* ===== Bibliothèque de templates ===== */
+      .tpl-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px;}
+      .tpl-card{background:linear-gradient(180deg,#141418,#0f0f12);border:1px solid #26262b;border-radius:12px;padding:13px 14px;transition:.18s;}
+      .tpl-card:hover{border-color:#3a3a42;transform:translateY(-1px);}
+      .tpl-card.active{border-color:rgba(227,178,58,.6);box-shadow:0 0 0 1px rgba(227,178,58,.2),0 0 18px -8px rgba(227,178,58,.4);}
+      .tpl-name{font-size:14px;font-weight:800;color:#fff;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+      .tpl-when{font-size:10px;font-weight:700;color:#9aa3b2;background:rgba(255,255,255,.05);border:1px solid #2b2b31;border-radius:999px;padding:2px 8px;text-transform:uppercase;letter-spacing:.03em;}
+      .tpl-when--oneshot{color:#e3b23a;border-color:rgba(227,178,58,.4);background:rgba(227,178,58,.08);}
+      .tpl-desc{font-size:11.5px;color:#8b93a1;margin:6px 0 10px;line-height:1.45;min-height:32px;}
+      .tpl-actions{display:flex;gap:6px;flex-wrap:wrap;}
+      .tpl-actions .camp-btn{padding:6px 10px;font-size:12px;}
     </style>
     <div class="camp-hub-head">
       <div class="camp-hub-title"><span class="dot"></span>Marketing e-mail</div>
@@ -928,6 +939,7 @@
 
     <div class="camp-nav" id="camp-nav">
       <button class="camp-nav-btn active" data-sub="pilotage" onclick="campSub('pilotage')">Pilotage</button>
+      <button class="camp-nav-btn" data-sub="templates" onclick="campSub('templates')">Templates</button>
       <button class="camp-nav-btn" data-sub="audience" onclick="campSub('audience')">Audience</button>
       <button class="camp-nav-btn" data-sub="stats" onclick="campSub('stats')">Statistiques</button>
     </div>
@@ -943,17 +955,7 @@
           <div class="camp-actions" id="camp-master-actions"></div>
           <span id="camp-master-msg" class="camp-msg" style="display:block;margin-top:6px;"></span>
           <p class="camp-note"><strong style="color:#e3b23a;">Deux boutons.</strong> <strong>🧪 Tester sur ma boîte</strong> : la campagne tourne <strong>exactement comme en officiel</strong> (même calendrier, même rythme) mais chaque e-mail part <strong>uniquement sur ton adresse</strong>, le bon jour — pour vérifier ce que tu reçois avant de toucher un client. <strong>🚀 Lancer officiellement</strong> : envoi réel à toute l'audience. Calendrier : <strong>Dim</strong> Semaine à venir · <strong>Mar</strong> Comprendre · <strong>Mer</strong> Point marché · <strong>Jeu</strong> Mindset · <strong>Sam</strong> Récap (Lun &amp; Ven : rien). Anti-doublon, nouveaux inclus, désinscrits + blacklist exclus. Une anomalie critique met la campagne en pause automatiquement (voir « Fiabilité &amp; incidents »). Le welcome transactionnel reste indépendant.</p>
-          <details class="camp-testwrap" style="margin-top:6px;">
-            <summary style="cursor:pointer;color:#e3b23a;font-size:12.5px;list-style:none;">✉️ Tester un template → mon adresse</summary>
-            <div class="camp-actions" style="margin-top:8px;">
-              <button class="camp-btn" onclick="campDripTest('pointmarche')">Point marché</button>
-              <button class="camp-btn" onclick="campDripTest('decryptage')">Comprendre le marché</button>
-              <button class="camp-btn" onclick="campDripTest('mindset')">Mindset</button>
-              <button class="camp-btn" onclick="campDripTest('outlook')">Semaine à venir</button>
-              <button class="camp-btn" onclick="campDripTest('invitation')">Invitation</button>
-              <span id="camp-drip-msg" class="camp-msg"></span>
-            </div>
-          </details>
+          <p class="camp-note" style="margin-top:6px;">✉️ Aperçus et tests par template : onglet <a href="#campaign/templates" onclick="campSub('templates');return false;" style="color:#e3b23a;font-weight:700;text-decoration:none;">Templates →</a><span id="camp-drip-msg" class="camp-msg" style="margin-left:8px;"></span></p>
         </div>
       </div>
       <div class="panel-card">
@@ -982,27 +984,31 @@
         <div class="panel-head"><span class="ph-ic">🛡️</span><h2>Délivrabilité</h2></div>
         <div class="panel-body"><div id="camp-deliv"><div class="skel" style="height:106px"></div></div></div>
       </div>
+    </div>
+
+    <!-- TEMPLATES : bibliothèque (aperçu + test par template) + aperçu PARESSEUX (l'iframe ne charge
+         que dans cet onglet — chaque rendu côté serveur reconstruit le mail + ses widgets) -->
+    <div class="camp-sub" data-sub="templates">
       <div class="panel-card">
-        <div class="panel-head"><span class="ph-ic">👁️</span><h2>Aperçu du mail</h2>
+        <div class="panel-head"><span class="ph-ic">🗂️</span><h2>Bibliothèque de templates</h2>
+          <span class="ph-spacer"></span><span class="camp-msg" id="camp-tpl-msg"></span>
+        </div>
+        <div class="panel-body">
+          <div class="tpl-grid" id="camp-tpl-grid"></div>
+          <p class="camp-note"><strong>👁 Aperçu</strong> : rendu réel dans le cadre ci-dessous (données live du desk, widgets inclus). <strong>🧪 Test</strong> : envoie CE template maintenant sur ta boîte admin — aucun client touché, stats séparées.</p>
+        </div>
+      </div>
+      <div class="panel-card">
+        <div class="panel-head"><span class="ph-ic">👁️</span><h2>Aperçu <span id="cprev-title" style="color:#e3b23a;"></span></h2>
           <span class="ph-spacer"></span>
-          <button class="camp-btn camp-btn--send" id="cprev-b-intro" onclick="campPreview('intro')">Bienvenue</button>
-          <button class="camp-btn" id="cprev-b-decryptage" onclick="campPreview('decryptage')">Comprendre le marché</button>
-          <button class="camp-btn" id="cprev-b-pointmarche" onclick="campPreview('pointmarche')">Point marché</button>
-          <button class="camp-btn" id="cprev-b-weekly" onclick="campPreview('weekly')">Récap hebdo</button>
-          <button class="camp-btn" id="cprev-b-mindset" onclick="campPreview('mindset')">Mindset</button>
-          <button class="camp-btn" id="cprev-b-outlook" onclick="campPreview('outlook')">Semaine à venir</button>
-          <span style="width:1px;height:20px;background:#232429;margin:0 4px;"></span>
-          <button class="camp-btn" onclick="campPreviewInvit(0)" title="Invitation — variante professionnelle">Invit. pro</button>
-          <button class="camp-btn" onclick="campPreviewInvit(1)" title="Invitation — variante conviviale">Invit. conviviale</button>
-          <button class="camp-btn" onclick="campPreviewInvit(2)" title="Invitation — variante performance">Invit. perf.</button>
-          <button class="camp-btn" onclick="campPreview(window._cprevType||'intro')" title="Recharger l'aperçu avec les données live du desk">↻ Actualiser</button>
-          <label style="margin-left:10px;color:#9aa3b2;font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="cprev-member" onchange="campPreview(window._cprevType||'decryptage')" style="accent-color:#e3b23a;"> vue membre</label>
+          <button class="camp-btn" onclick="_cprevLoad()" title="Recharger l'aperçu avec les données live du desk">↻ Actualiser</button>
+          <label style="margin-left:10px;color:#9aa3b2;font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="cprev-member" onchange="_cprevLoad()" style="accent-color:#e3b23a;"> vue membre</label>
         </div>
         <div class="panel-body">
           <div style="background:#0d0e11;border:1px solid #232429;border-radius:8px;overflow:hidden;">
-            <iframe id="cprev-frame" src="/api/admin/campaign-preview?type=intro" title="Aperçu du mail" style="width:100%;height:640px;border:0;display:block;background:#0d0e11;"></iframe>
+            <iframe id="cprev-frame" src="about:blank" title="Aperçu du mail" style="width:100%;height:640px;border:0;display:block;background:#0d0e11;"></iframe>
           </div>
-          <p class="camp-note"><span id="cprev-ts" style="color:#00e676;font-weight:600;"></span> Rendu réel du mail tel qu'il part, <strong>construit sur les données live du desk</strong> (widgets réels inclus) : se recharge automatiquement toutes les 45 s. « Récap hebdo » s'affiche dès la prochaine génération du récap.</p>
+          <p class="camp-note"><span id="cprev-ts" style="color:#00e676;font-weight:600;"></span> Rendu réel du mail tel qu'il part, <strong>construit sur les données live du desk</strong>. Se recharge toutes les 45 s <strong>uniquement quand cet onglet est ouvert</strong>. « Récap hebdo » s'affiche dès la prochaine génération du récap.</p>
         </div>
       </div>
     </div>
@@ -1043,7 +1049,9 @@
     <div class="camp-sub" data-sub="stats">
       <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">📊</span><h2>Ouvertures &amp; clics</h2>
-          <span class="ph-spacer"></span><span class="fin-sub" id="camp-stats-sub"></span>
+          <span class="ph-spacer"></span>
+          <button class="camp-btn" onclick="campStatsExport()" title="Exporter le tableau filtré en CSV">⬇ CSV</button>
+          <span class="fin-sub" id="camp-stats-sub"></span>
         </div>
         <div class="panel-body">
           <div id="camp-campsel" style="display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px;"></div>
@@ -1347,6 +1355,36 @@
     document.querySelectorAll('#camp-nav .camp-nav-btn').forEach(function(b){ b.classList.toggle('active', b.dataset.sub === name); });
     document.querySelectorAll('#tab-campaign .camp-sub').forEach(function(s){ s.classList.toggle('active', s.dataset.sub === name); });
     try { history.replaceState(null, '', '#campaign/' + name); } catch (e) {}   // deep-link sous-vue campagne
+    // Aperçu PARESSEUX : l'iframe ne vit QUE dans l'onglet Templates (chaque rendu = reconstruction
+    // serveur du mail + de ses widgets). Hors Templates → timer coupé, iframe jamais chargée d'office.
+    if (name === 'templates') { _campTplRender(); if (!window._cprevType) campPreview('intro'); else _cprevArm(); }
+    else if (window._cprevTimer) { clearInterval(window._cprevTimer); window._cprevTimer = null; }
+  }
+  // ── Bibliothèque de templates (aperçu + test par template, TOUS les templates y compris one-shot) ──
+  const _CAMP_TPLS = [
+    { prev:'intro',       test:'intro',       name:'Bienvenue',            when:'Intro',      desc:'Présentation du desk + la semaine type (1er mail de la séquence).' },
+    { prev:'decryptage',  test:'decryptage',  name:'Comprendre le marché', when:'Mardi',      desc:'Un concept macro choisi selon l\'actualité, décodé simplement.' },
+    { prev:'pointmarche', test:'pointmarche', name:'Point marché',         when:'Mercredi',   desc:'Le brief du desk : séance, chiffres éco, force des devises.' },
+    { prev:'mindset',     test:'mindset',     name:'Mindset',              when:'Jeudi',      desc:'Psychologie et discipline de trading.' },
+    { prev:'weekly',      test:null,          name:'Récap hebdo',          when:'Samedi',     desc:'Rétrospective de la semaine, devise par devise (rendu dispo après génération du récap).' },
+    { prev:'outlook',     test:'outlook',     name:'Semaine à venir',      when:'Dimanche',   desc:'L\'agenda éco trié par le desk pour la semaine qui s\'ouvre.' },
+    { prev:'invitation',  test:'invitation',  name:'Invitation',           when:'Conversion', desc:'3 variantes (pro / conviviale / performance) — aperçu par variante.', variants:true },
+    { prev:'app-desktop', test:'app-desktop', name:'Annonce app desktop',  when:'One-shot',   oneshot:true, desc:'Annonce de l\'application Windows/macOS (campagne app-desktop-v1).' },
+  ];
+  function _campTplRender(){
+    const g = document.getElementById('camp-tpl-grid'); if (!g || g.dataset.done) return;
+    g.dataset.done = '1';
+    g.innerHTML = _CAMP_TPLS.map(function(t){
+      var acts = t.variants
+        ? ['<button class="camp-btn" onclick="campPreviewInvit(0)">👁 Pro</button>',
+           '<button class="camp-btn" onclick="campPreviewInvit(1)">👁 Conviviale</button>',
+           '<button class="camp-btn" onclick="campPreviewInvit(2)">👁 Perf.</button>']
+        : ['<button class="camp-btn" onclick="campPreview(\'' + t.prev + '\')">👁 Aperçu</button>'];
+      if (t.test) acts.push('<button class="camp-btn" onclick="campDripTest(\'' + t.test + '\')">🧪 Test</button>');
+      return '<div class="tpl-card" data-tpl="' + t.prev + '"><div class="tpl-name">' + t.name
+        + ' <span class="tpl-when' + (t.oneshot ? ' tpl-when--oneshot' : '') + '">' + t.when + '</span></div>'
+        + '<div class="tpl-desc">' + t.desc + '</div><div class="tpl-actions">' + acts.join('') + '</div></div>';
+    }).join('');
   }
   function openCampModal(){ const m = document.getElementById('camp-modal'); if (m) m.classList.add('open'); }
   function closeCampModal(){ const m = document.getElementById('camp-modal'); if (m) m.classList.remove('open'); }
@@ -1454,7 +1492,25 @@
   // Sélecteur de campagne pour les statistiques (l'ancien code figeait intro-v1 : le drip hebdo,
   // le digest et les nouveaux templates étaient invisibles dans la vue Statistiques).
   let _campStatsId = 'intro-v1';
-  const _CAMP_STAT_IDS = [ ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'] ];
+  const _CAMP_STAT_IDS = [ ['intro-v1', 'Bienvenue'], ['decryptage', 'Comprendre le marché'], ['point-marche', 'Point marché'], ['mindset', 'Mindset'], ['outlook-hebdo', 'Semaine à venir'], ['app-desktop-v1', 'Annonce app desktop'] ];
+  // Export CSV du tableau AFFICHÉ (respecte le filtre actif) — réutilise les lignes déjà chargées, zéro fetch.
+  function campStatsExport(){
+    var rows = _campStatRows;
+    if (_campStatFilter === 'opened')    rows = rows.filter(function(r){ return (r.opens||0) > 0; });
+    if (_campStatFilter === 'notopened') rows = rows.filter(function(r){ return !(r.opens||0); });
+    if (_campStatFilter === 'clicked')   rows = rows.filter(function(r){ return (r.clicks||0) > 0; });
+    if (_campStatFilter === 'unsub')     rows = rows.filter(function(r){ return !!r.unsubAt; });
+    if (!rows.length) { _campMsg('❌ Rien à exporter dans ce filtre.'); return; }
+    var esc = function(v){ v = String(v == null ? '' : v); return /[";\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+    var csv = 'email;envoye;ouvertures;clics;derniere_ouverture;desabonne\n' + rows.map(function(r){
+      return [r.email, r.sentAt ? new Date(r.sentAt).toISOString() : '', r.opens||0, r.clicks||0, r.lastOpen ? new Date(r.lastOpen).toISOString() : '', r.unsubAt ? new Date(r.unsubAt).toISOString() : ''].map(esc).join(';');
+    }).join('\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));   // BOM → accents OK dans Excel
+    a.download = 'stats-' + _campStatsId + '-' + new Date().toISOString().slice(0, 10) + '.csv';
+    document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+    _campMsg('✅ CSV exporté (' + rows.length + ' lignes).');
+  }
   function _campStatsPick(id){ _campStatsId = id; loadCampStats(); }
   function _renderCampSel(){
     const host = document.getElementById('camp-campsel'); if (!host) return;
@@ -1677,21 +1733,31 @@
     var vv = (window._cprevVariant != null && window._cprevVariant !== '') ? ('&variant=' + window._cprevVariant) : '';   // Invitation : voir chaque variante
     f.src = '/api/admin/campaign-preview?type=' + type + m + vv + '&_=' + Date.now();
   }
+  // Recharge auto 45 s : UNIQUEMENT quand l'onglet Templates est ouvert ET la page visible
+  // (chaque rendu d'aperçu reconstruit le mail + ses widgets côté serveur — on ne gaspille plus).
+  function _cprevArm(){
+    if (window._cprevTimer) clearInterval(window._cprevTimer);
+    window._cprevTimer = setInterval(function(){
+      var open = document.querySelector('#tab-campaign .camp-sub[data-sub="templates"].active');
+      if (open && document.visibilityState !== 'hidden') _cprevLoad();
+    }, 45000);
+  }
+  // Marque la carte active dans la bibliothèque + le titre de l'aperçu.
+  function _cprevMark(){
+    var names = { intro:'Bienvenue', decryptage:'Comprendre le marché', pointmarche:'Point marché', weekly:'Récap hebdo', mindset:'Mindset', outlook:'Semaine à venir', invitation:'Invitation', 'app-desktop':'Annonce app desktop' };
+    var t = document.getElementById('cprev-title');
+    if (t) t.textContent = '· ' + (names[window._cprevType] || window._cprevType || '')
+      + (window._cprevVariant != null ? ' (' + (['pro', 'conviviale', 'performance'][window._cprevVariant] || window._cprevVariant) + ')' : '');
+    document.querySelectorAll('#camp-tpl-grid .tpl-card').forEach(function(c){ c.classList.toggle('active', c.dataset.tpl === window._cprevType); });
+  }
   function campPreview(type){
     window._cprevType = type; window._cprevVariant = null;   // reset variante quand on change de template
-    _cprevLoad();
-    ['intro', 'decryptage', 'pointmarche', 'weekly', 'mindset', 'outlook'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.toggle('camp-btn--send', t === type); });
-    // Temps reel : recharge l'apercu avec les donnees live toutes les 45 s (uniquement quand l'onglet est visible).
-    if (window._cprevTimer) clearInterval(window._cprevTimer);
-    window._cprevTimer = setInterval(function(){ if (document.visibilityState !== 'hidden') _cprevLoad(); }, 45000);
+    _cprevLoad(); _cprevMark(); _cprevArm();
   }
   // Invitation (conversion) : previsualise une variante precise (0 pro / 1 convivial / 2 perf).
   function campPreviewInvit(v){
     window._cprevType = 'invitation'; window._cprevVariant = v;
-    _cprevLoad();
-    ['intro', 'decryptage', 'pointmarche', 'weekly', 'mindset', 'outlook'].forEach(function(t){ var b = document.getElementById('cprev-b-' + t); if (b) b.classList.remove('camp-btn--send'); });
-    if (window._cprevTimer) clearInterval(window._cprevTimer);
-    window._cprevTimer = setInterval(function(){ if (document.visibilityState !== 'hidden') _cprevLoad(); }, 45000);
+    _cprevLoad(); _cprevMark(); _cprevArm();
   }
   async function campSchedToggle(){
     if (!_campSched) return;
@@ -1756,10 +1822,11 @@
     catch { document.getElementById('camp-drip-msg').textContent = '❌ erreur'; }
   }
   async function campDripTest(tpl){
-    document.getElementById('camp-drip-msg').textContent = 'Envoi du test…';
+    var say = function(t){ ['camp-drip-msg', 'camp-tpl-msg'].forEach(function(id){ var e = document.getElementById(id); if (e) e.textContent = t; }); };
+    say('Envoi du test ' + tpl + '…');
     try { const d = await fetch('/api/admin/campaign-send?test=1&tpl=' + tpl).then(r => r.json());
-      _campMsg(d.ok ? ('✅ Test ' + tpl + ' envoyé à ' + d.to) : ('❌ ' + (d.error || d.note || 'échec'))); }
-    catch { document.getElementById('camp-drip-msg').textContent = '❌ erreur'; }
+      say(''); _campMsg(d.ok ? ('✅ Test ' + tpl + ' envoyé à ' + d.to) : ('❌ ' + (d.error || d.note || 'échec'))); }
+    catch { say('❌ erreur réseau'); }
   }
   // ── Fiabilité & incidents (pre-flight / historique d'erreurs) ──
   function _errWhen(ts){ try { return new Date(ts).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'}); } catch { return ''; } }
