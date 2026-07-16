@@ -3,6 +3,7 @@ node_modules/
 
 # ── Build app desktop (binaires lourds — jamais dans git, produits par la CI) ────
 desktop/dist/
+desktop/dist*/
 desktop/release/
 
 # ── Secrets (NE JAMAIS committer) ───────────────────────────────────────────────

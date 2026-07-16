@@ -2462,7 +2462,7 @@ function buildNewsItem(item) {
           if (!s || !s.title) return;
           lis += `<li class="ip-head">${esc(s.title)}</li>`;
           if (s.kind === 'data' && (s.data || []).length) {
-            s.data.forEach(r => { lis += `<li><strong>${esc(r.release)}</strong>${r.actual ? ' : ' + esc(r.actual) : ''}${r.expected ? ' (att. ' + esc(r.expected) + ')' : ''}${r.previous ? ' (préc. ' + esc(r.previous) + ')' : ''}</li>`; });
+            s.data.forEach(r => { const cc = r.ccy ? `<span class="dtpd-eco-ccy">${esc(r.ccy)}</span> ` : ''; lis += `<li>${cc}<strong>${esc(r.release)}</strong>${r.actual ? ' : ' + esc(r.actual) : ''}${r.expected ? ' (att. ' + esc(r.expected) + ')' : ''}${r.previous ? ' (préc. ' + esc(r.previous) + ')' : ''}</li>`; });
           } else if (s.kind === 'paras' && (s.paras || []).length) {
             s.paras.forEach(p => { lis += `<li>${bold(p)}</li>`; });
           } else {
@@ -6942,8 +6942,8 @@ function _renderDTPDaily(item) {
   (w.sections || []).forEach(s => {
     if (!s || !s.title) return;
     if (s.kind === 'data' && (s.data || []).length) {
-      body += _sec(s.title) + `<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr><th>Publication</th><th>Période</th><th class="num">Réel</th><th class="num">Att.</th><th class="num">Préc.</th></tr></thead><tbody>`;
-      s.data.forEach(r => { body += `<tr><td>${_wrEsc(r.release)}</td><td>${_wrEsc(r.period || '')}</td><td class="num">${_wrEsc(r.actual || '')}</td><td class="num">${_wrEsc(r.expected || '')}</td><td class="num">${_wrEsc(r.previous || '')}</td></tr>`; });
+      body += _sec(s.title) + `<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr><th>Devise</th><th>Publication</th><th class="num">Réel</th><th class="num">Att.</th><th class="num">Préc.</th></tr></thead><tbody>`;
+      s.data.forEach(r => { body += `<tr><td class="fxdr-ccy">${_wrEsc(r.ccy || '—')}</td><td>${_wrEsc(r.release)}</td><td class="num">${_wrEsc(r.actual || '')}</td><td class="num">${_wrEsc(r.expected || '')}</td><td class="num">${_wrEsc(r.previous || '')}</td></tr>`; });
       body += `</tbody></table></div>`;
     } else if (s.kind === 'paras' && (s.paras || []).length) {
       body += _sec(s.title) + `<div class="dtpd-paras">${s.paras.map(p => `<p>${_wrInline(p)}</p>`).join('')}</div>`;

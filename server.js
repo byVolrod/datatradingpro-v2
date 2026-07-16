@@ -8348,7 +8348,11 @@ async function generateDTPDaily(force = false) {
     let calItems = [];
     try { calItems = await _buildTVCalendar(); } catch {}
     if (!Array.isArray(calItems) || !calItems.length) calItems = (_tvCalCache.items || []);
-    const dataRows = (calItems || []).filter(e => e && ((e.actual && e.actual !== '') || _isMajorCal(e)) && inWin(e.timestamp || 0))   // garde les MAJEURS (FOMC/CPI/NFP...) meme sans actual publie
+    // DONNÉES ÉCO du JOUR COUVERT UNIQUEMENT (Paris) — pas la fenêtre glissante 16h/90h qui traversait
+    // minuit et mélangeait les publications d'hier (demande user 16/07 « il faut que ce soit de la journée »).
+    const _ddDayStart = _parisDayRange(dayKey)[0];
+    const dataRows = (calItems || []).filter(e => e && ((e.actual && e.actual !== '') || _isMajorCal(e))
+        && (e.timestamp || 0) >= _ddDayStart && (e.timestamp || 0) <= now + 5 * 60000)   // du début du jour couvert → maintenant
       .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
     const dataLines = dataRows.slice(0, 50).map(e => {
       const c = _fxrCcyCtry[e.currency] || e.currency || '';
