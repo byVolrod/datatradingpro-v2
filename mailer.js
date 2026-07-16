@@ -873,6 +873,47 @@ async function _sendWithInlineWidgets(to, subject, html, types) {
 async function _sendWithInlineWidget(to, subject, html) { return _sendWithInlineWidgets(to, subject, html, ['meter']); }
 async function sendCampaignIntro(d) { d = d || {}; const m = buildCampaignIntro({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
 
+// ── ANNONCE « App desktop finalisée » (broadcast one-shot, 16/07/2026) ─────────────────────────
+// INFORMATIF : annonce la finalisation de l'application Windows/macOS + la feuille de route (widgets,
+// puis mobile iOS/Android + Apple Watch). Aucune incitation à une position. Image = vraie capture du
+// desk (public/assets/images/annonce-app-desktop.jpg, servie par le desk). Boutons = téléchargements
+// directs. Tracking ouverture/clic + désinscription : mêmes mécanismes que la campagne.
+function buildAnnouncementDesktop({ name, email, campaign } = {}) {
+  campaign = campaign || 'app-desktop-v1';
+  const prenom = _esc((name || '').split(' ')[0] || '');
+  const hello  = prenom ? `Bonjour ${prenom},` : 'Bonjour,';
+  const unsub  = unsubUrl(email || '');
+  const dlWin  = trackClickUrl(campaign, email, `${APP_URL}/downloads/DataTradingPro-Setup.exe?v=111`);
+  const dlMac  = trackClickUrl(campaign, email, `${APP_URL}/downloads/DataTradingPro-macOS.dmg?v=111`);
+  const dlIntel = trackClickUrl(campaign, email, `${APP_URL}/downloads/DataTradingPro-macOS-Intel.dmg?v=111`);
+  const body = `
+    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 14px;font-size:19px;font-weight:800;color:#ffffff;letter-spacing:-0.01em;">L'application DataTradingPro pour <span style="color:#f3c344;">Windows</span> et <span style="color:#f3c344;">macOS</span> est officiellement finalis&eacute;e. 🖥️</p>
+    <p style="margin:0 0 14px;">Le terminal complet, dans une <strong style="color:#fff;">v&eacute;ritable application de bureau</strong>&nbsp;: plus d'onglet perdu au milieu du navigateur, votre desk s'ouvre en un clic et reste &agrave; sa place, comme un vrai poste de trading.</p>
+    <a href="${trackClickUrl(campaign, email, LANDING_URL)}" style="text-decoration:none;"><img src="${APP_URL}/assets/images/annonce-app-desktop.jpg" width="532" alt="Le terminal DataTradingPro en application de bureau" style="display:block;width:100%;max-width:532px;height:auto;border:1px solid #232429;border-radius:6px;margin:16px 0;"></a>
+    <ul style="margin:0 0 18px;padding-left:20px;color:#cbd5e1;">
+      <li style="margin:6px 0;">🪟 <strong style="color:#fff;">Fen&ecirc;tre native &eacute;pur&eacute;e</strong>&nbsp;: la barre de titre s'int&egrave;gre au desk, rien ne d&eacute;passe.</li>
+      <li style="margin:6px 0;">🔄 <strong style="color:#fff;">Mises &agrave; jour automatiques</strong>&nbsp;: l'application se met &agrave; jour toute seule &agrave; l'ouverture, vous avez toujours la derni&egrave;re version.</li>
+      <li style="margin:6px 0;">🔐 <strong style="color:#fff;">Session persistante</strong>&nbsp;: connect&eacute; une fois, connect&eacute; pour de bon.</li>
+      <li style="margin:6px 0;">🖥️ <strong style="color:#fff;">Multi-&eacute;crans</strong>&nbsp;: placez le desk sur l'&eacute;cran de votre choix, il s'y sent chez lui.</li>
+    </ul>
+    ${_campaignBtn('Télécharger pour Windows', dlWin)}
+    ${_campaignBtnGhost('Télécharger pour macOS', dlMac)}
+    <p style="margin:0 0 16px;font-size:12.5px;color:#8b93a1;">Mac Intel (avant 2020)&nbsp;? <a href="${dlIntel}" style="color:#f3c344;text-decoration:underline;">Version Intel ici</a>. Premier lancement sur Mac&nbsp;: clic droit sur l'application &rarr; &laquo;&nbsp;Ouvrir&nbsp;&raquo;.<br>Vous avez d&eacute;j&agrave; l'application&nbsp;? Rien &agrave; faire&nbsp;: elle vous proposera la mise &agrave; jour toute seule.</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
+      <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
+        <span style="color:#f3c344;font-weight:700;letter-spacing:.05em;font-size:11px;text-transform:uppercase;">Et ce n'est que le d&eacute;but</span><br>
+        Place maintenant au <strong style="color:#fff;">syst&egrave;me de widgets</strong>, puis &agrave; <strong style="color:#fff;">l'application mobile</strong> pour iOS (App&nbsp;Store) et Android (Google&nbsp;Play)&nbsp;: les alertes du desk <strong style="color:#fff;">en temps r&eacute;el sur votre t&eacute;l&eacute;phone</strong> &mdash; et m&ecirc;me sur Apple&nbsp;Watch. ⌚
+      </td></tr>
+    </table>
+    <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite sur le desk,</p>
+    <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
+    <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
+  `;
+  return { subject: "🖥️ L'application DataTradingPro (Windows & macOS) est officiellement finalisée", html: _campaignLayout('Application desktop', body, unsub) };
+}
+async function sendAnnouncementDesktop(d) { d = d || {}; const m = buildAnnouncementDesktop({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
+
 // ── Digest HEBDO (récurrent, AUTO-GÉNÉRÉ) — construit à partir des vraies données du Récap Hebdo du desk.
 // `weekly` = objet _weekly {summary, insights, pairs:[{pair,bias,text}], centralBanks:[{bank,stance}]}.
 // Renvoie null si aucune donnée (règle « pas de données → pas de mail »). 100% informatif.
@@ -1926,7 +1967,7 @@ module.exports = {
   buildWelcome, buildRenewalFailed, buildReactivated, buildRenewed, buildPasswordReset, buildForgotNoSub,
   buildTrialUpsell, buildReengagement, buildAdminExpiryReminder, buildAdminRenewalNotice,
   buildReferralCredited, buildReferralReward, buildAdminReferralReward, buildReferredWelcome,
-  buildAnnouncementV2, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
+  buildAnnouncementV2, buildAnnouncementDesktop, sendAnnouncementDesktop, buildGestureMonth, buildLaunchLive, buildCampaignIntro, buildCampaignIntroPlain, buildWeeklyDigest, buildCampaignDecryptage, buildCampaignPointMarche, pickDecryptConcept, buildCampaignMindset, pickMindsetConcept, MINDSET_CONCEPTS, buildCampaignOutlook, buildCampaignInvitation,
   // preview / doc
   getEmailCatalog, getProviderStatus, renderEmailGallery,
   // monitoring / vérification
