@@ -14571,7 +14571,14 @@ app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
 const CAMPAIGN_ID  = 'intro-v1';
 const _CAMP_TEST_TO = (process.env.CAMPAIGN_TEST_EMAIL || 'volrod.dev@gmail.com').toLowerCase();
 let _campaignSend = { running: false, campaign: CAMPAIGN_ID, eligible: 0, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: null, finishedAt: null };
-app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
+// Admin OU appel INTERNE (localhost + jeton, modèle /api/internal/dtpd-regen) : permet de déclencher
+// un envoi validé par l'admin depuis la machine elle-même (docker exec), sans session navigateur.
+function requireAdminOrInternal(req, res, next) {
+  if (req.headers['x-dtp-internal'] === _INTERNAL_TOKEN
+    && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')) return next();
+  return requireAdmin(req, res, next);
+}
+app.get('/api/admin/campaign-send', requireAdminOrInternal, async (req, res) => {
   if (req.query.status === '1') return res.json(_campaignSend);
   const test = req.query.test === '1', send = req.query.send === '1', force = req.query.force === '1';
 
