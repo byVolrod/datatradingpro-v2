@@ -286,6 +286,25 @@ function createWindow() {
     win.isMaximized() ? win.unmaximize() : win.maximize();
   });
 
+  // DÉPLACEMENT MANUEL (relayé par le preload) : ne dépend PAS de -webkit-app-region (inopérant avec
+  // titleBarStyle:'hidden' sur certaines configs Windows). Le preload envoie les coords ÉCRAN du curseur
+  // (capture du pointeur → continue hors fenêtre) ; on repositionne la fenêtre en gardant l'offset de saisie.
+  let _drag = null;
+  ipcMain.removeAllListeners('dtp-win-drag-start');
+  ipcMain.removeAllListeners('dtp-win-drag-move');
+  ipcMain.removeAllListeners('dtp-win-drag-end');
+  ipcMain.on('dtp-win-drag-start', (e, p) => {
+    if (!win || win.isDestroyed() || e.sender !== win.webContents) return;
+    if (win.isMaximized()) win.unmaximize();               // convention native : glisser une fenêtre maximisée la restaure
+    const [wx, wy] = win.getPosition();
+    _drag = { dx: p.sx - wx, dy: p.sy - wy };
+  });
+  ipcMain.on('dtp-win-drag-move', (e, p) => {
+    if (!_drag || !win || win.isDestroyed() || e.sender !== win.webContents) return;
+    win.setPosition(Math.round(p.sx - _drag.dx), Math.round(p.sy - _drag.dy));   // multi-écrans : coords écran globales
+  });
+  ipcMain.on('dtp-win-drag-end', (e) => { if (!win || e.sender === win.webContents) _drag = null; });
+
   win.on('closed', () => { win = null; });
 }
 
