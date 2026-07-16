@@ -9463,6 +9463,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 }
 .fxl-badge--bull { color: #00e676; background: #0d2a1d; }   /* BUY sur vert foncé mat */
 .fxl-badge--neut { color: #ffb300; background: #221d12; }   /* NEUTRE (charte) sur anthracite brun */
+.fxl-badge--na   { color: #5c5c66; background: #131316; }   /* donnée MANQUANTE (« — ») ≠ Neutre : gris éteint, honnête */
 .fxl-badge--bear { color: #ff3d00; background: #2a1512; }   /* SELL sur marron brique */
 
 .fxl-msg { text-align: center; color: var(--text3); padding: 30px; }
