@@ -14517,6 +14517,8 @@ app.get('/api/admin/campaign-preview', requireAdmin, async (req, res) => {
     } else if (type === 'invitation') {
       const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined;   // ?variant=0|1|2 pour voir les 3, sinon rotation du mois
       m = mailer.buildCampaignInvitation({ name: s.name, email: s.email, campaign: 'invitation-preview', variant, isMember });
+    } else if (type === 'app-desktop') {
+      m = mailer.buildAnnouncementDesktop({ name: s.name, email: s.email, campaign: 'app-desktop-preview' });
     } else {
       m = mailer.buildCampaignIntro({ name: s.name, email: s.email, campaign: 'intro-preview' });
     }
@@ -14554,48 +14556,60 @@ app.get('/api/admin/campaign-send', requireAdmin, async (req, res) => {
       else if (tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
       else if (tpl === 'invitation') { const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined; const r = await mailer.sendCampaignInvitation({ to, name: '', campaign: 'invitation-test', variant }); provider = r ? (r.provider || r) : null; }
+      else if (tpl === 'app-desktop') { const r = await mailer.sendAnnouncementDesktop({ to, name: '', campaign: 'app-desktop-test' }); provider = r ? (r.provider || r) : null; }
       else provider = plain ? await mailer.sendCampaignIntroPlain({ to, name: '' }) : await mailer.sendCampaignIntro({ to, name: '', campaign: CAMPAIGN_ID + '-test' });
     } catch (e) { err = e.message; }
-    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
+    const tplNote = tpl === 'decryptage' ? ' (Decryptage data-driven, stats separees)' : tpl === 'pointmarche' ? ' (Point marche data-driven, stats separees)' : tpl === 'mindset' ? ' (Mindset, stats separees)' : tpl === 'outlook' ? ' (Outlook semaine a venir, stats separees)' : tpl === 'invitation' ? ' (Invitation conversion, stats separees)' : tpl === 'app-desktop' ? ' (Annonce app desktop, stats separees)' : plain ? ' (version TEXTE PURE, sans suivi)' : ' (campagne ' + CAMPAIGN_ID + '-test, stats separees)';
     return res.json({ ok: !!provider, test: true, tpl, plain, isMember, to, provider: provider || null, error: err,
       note: 'Test envoye a l\'admin uniquement' + tplNote + (provider === false ? ' — AUCUNE donnee desk disponible (pas de mail).' : '') + ' Aucun client touche.' });
   }
 
+  // ── Gabarit du broadcast : intro (defaut) OU annonce one-shot app desktop (?tpl=app-desktop).
+  //    Chaque gabarit a SON id de campagne → marqueurs anti-doublon et stats separes.
+  const bTpl = String(req.query.tpl || 'intro');
+  const bId  = bTpl === 'app-desktop' ? 'app-desktop-v1' : CAMPAIGN_ID;
+  const bBuild = () => bTpl === 'app-desktop'
+    ? mailer.buildAnnouncementDesktop({ name: '', email: 'apercu@datatradingpro.com', campaign: bId })
+    : mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: bId });
+  const bSend = (email, nm) => bTpl === 'app-desktop'
+    ? mailer.sendAnnouncementDesktop({ to: email, name: nm, campaign: bId })
+    : mailer.sendCampaignIntro({ to: email, name: nm, campaign: bId });
+
   let audience; try { audience = await _campaignAudience({ checkUnsub: false }); } catch (e) { return res.status(500).json({ error: e.message }); }
   const recipients = audience.recipients;
   if (!send) {
-    return res.json({ dryRun: true, campaign: CAMPAIGN_ID, report: audience.report,
+    return res.json({ dryRun: true, campaign: bId, report: audience.report,
       sample: recipients.slice(0, 25).map(r => ({ email: r.email, name: r.name, src: r.sources.join('+') })),
       hint: `Apercu — RIEN envoye. ?test=1 = test a l'admin. ?send=1 = ENVOI REEL aux ${audience.report.total} destinataires (anti-doublon email_log). ?status=1 = progression.` });
   }
   if (_campaignSend.running) return res.status(409).json({ error: 'Un envoi de campagne est deja en cours.', state: _campaignSend });
 
-  // ── PRE-FLIGHT avant broadcast reel : fournisseur mail + audience + rendu de l'intro. Bloque si critique. ──
+  // ── PRE-FLIGHT avant broadcast reel : fournisseur mail + audience + rendu du gabarit. Bloque si critique. ──
   const pfB = await _runCampaignPreflight({
-    recipients, sample: () => mailer.buildCampaignIntro({ name: '', email: 'apercu@datatradingpro.com', campaign: CAMPAIGN_ID }),
-    needsData: false, needsWidget: false, needsAI: false,   // le mail Bienvenue n'embarque plus de widget
+    recipients, sample: bBuild,
+    needsData: false, needsWidget: false, needsAI: false,   // gabarits sans widget embarque
   });
-  if (!pfB.ok) { await _campaignError('critical', CAMPAIGN_ID, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE — aucun envoi.', preflight: pfB }); }
+  if (!pfB.ok) { await _campaignError('critical', bId, pfB.summary, { impacted: 0, logs: pfB.critical.join('\n'), actions: 'Corriger puis relancer ?send=1 (anti-doublon email_log garanti).' }); return res.status(409).json({ error: 'Pre-flight BLOQUE — aucun envoi.', preflight: pfB }); }
 
   // ── ENVOI REEL → reponse immediate (ne peut pas attendre N×throttle), puis envoi en fond ──
-  _campaignSend = { running: true, campaign: CAMPAIGN_ID, eligible: recipients.length, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: Date.now(), finishedAt: null };
-  res.json({ started: true, campaign: CAMPAIGN_ID, eligible: recipients.length, note: 'Envoi lance en arriere-plan. Suivi : ?status=1.' });
+  _campaignSend = { running: true, campaign: bId, eligible: recipients.length, sent: 0, skipped: 0, unsub: 0, failed: 0, startedAt: Date.now(), finishedAt: null };
+  res.json({ started: true, campaign: bId, eligible: recipients.length, note: 'Envoi lance en arriere-plan. Suivi : ?status=1.' });
   const throttle = Math.max(0, parseInt(process.env.BROADCAST_THROTTLE_MS || '700', 10));
   (async () => {
     for (const r of recipients) {
       const email = r.email;
-      const marker = 'campaign:' + CAMPAIGN_ID + ':' + email;
+      const marker = 'campaign:' + bId + ':' + email;
       try { if (await auth.emailLogHas('unsub:' + email)) { _campaignSend.unsub++; continue; } } catch {}
       if (!force) { try { if (await auth.emailLogHas(marker)) { _campaignSend.skipped++; continue; } } catch {} }
       try {
-        const provider = await mailer.sendCampaignIntro({ to: email, name: r.name || '', campaign: CAMPAIGN_ID });
-        if (provider) { _campaignSend.sent++; _recordSent(CAMPAIGN_ID, email); try { await auth.emailLogAdd(marker); } catch {} }
+        const provider = await bSend(email, r.name || '');
+        if (provider) { _campaignSend.sent++; _recordSent(bId, email); try { await auth.emailLogAdd(marker); } catch {} }
         else _campaignSend.failed++;
       } catch { _campaignSend.failed++; }
       if (throttle) await new Promise(rr => setTimeout(rr, throttle));
     }
     _campaignSend.running = false; _campaignSend.finishedAt = Date.now();
-    console.log(`[Campagne ${CAMPAIGN_ID}] envoyes=${_campaignSend.sent} deja=${_campaignSend.skipped} desab=${_campaignSend.unsub} echecs=${_campaignSend.failed} / ${recipients.length} cible(s)`);
+    console.log(`[Campagne ${bId}] envoyes=${_campaignSend.sent} deja=${_campaignSend.skipped} desab=${_campaignSend.unsub} echecs=${_campaignSend.failed} / ${recipients.length} cible(s)`);
   })().catch(e => { _campaignSend.running = false; _campaignSend.finishedAt = Date.now(); console.error('[Campagne] erreur:', e.message); });
 });
 
