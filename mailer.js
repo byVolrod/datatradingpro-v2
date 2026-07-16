@@ -903,16 +903,32 @@ function buildAnnouncementDesktop({ name, email, campaign } = {}) {
     <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.28);border-radius:8px;margin:6px 0 16px;">
       <tr><td style="padding:14px 16px;color:#e6e6ea;font-size:13.5px;line-height:1.65;">
         <span style="color:#f3c344;font-weight:700;letter-spacing:.05em;font-size:11px;text-transform:uppercase;">Et ce n'est que le d&eacute;but</span><br>
-        Place maintenant au <strong style="color:#fff;">syst&egrave;me de widgets</strong>, puis &agrave; <strong style="color:#fff;">l'application mobile</strong> pour iOS (App&nbsp;Store) et Android (Google&nbsp;Play)&nbsp;: les alertes du desk <strong style="color:#fff;">en temps r&eacute;el sur votre t&eacute;l&eacute;phone</strong> &mdash; et m&ecirc;me sur Apple&nbsp;Watch. ⌚
+        Place maintenant au <strong style="color:#fff;">syst&egrave;me de widgets</strong>, puis &agrave; <strong style="color:#fff;">l'application mobile</strong> pour iOS (App&nbsp;Store) et Android (Google&nbsp;Play)&nbsp;: les alertes du desk <strong style="color:#fff;">en temps r&eacute;el sur votre t&eacute;l&eacute;phone</strong>, et m&ecirc;me sur Apple&nbsp;Watch. ⌚
       </td></tr>
     </table>
     <p style="margin:0 0 4px;">&Agrave; tr&egrave;s vite sur le desk,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'&eacute;quipe DataTradingPro</p>
     <img src="${trackOpenUrl(campaign, email)}" width="1" height="1" alt="" style="display:block;width:1px;height:1px;border:0;opacity:0;overflow:hidden;">
   `;
-  return { subject: "🖥️ L'application DataTradingPro (Windows & macOS) est officiellement finalisée", html: _campaignLayout('Application desktop', body, unsub) };
+  return { subject: '🖥️ Votre application DataTradingPro est prête', html: _campaignLayout('Application desktop', body, unsub) };
 }
-async function sendAnnouncementDesktop(d) { d = d || {}; const m = buildAnnouncementDesktop({ name: d.name, email: d.email || d.to, campaign: d.campaign }); return _send(d.to, m.subject, m.html); }
+async function sendAnnouncementDesktop(d) {
+  d = d || {};
+  const m = buildAnnouncementDesktop({ name: d.name, email: d.email || d.to, campaign: d.campaign });
+  // Image EMBARQUÉE en pièce inline (cid:) → affichage garanti dans TOUS les clients (Gmail/Outlook),
+  // même si les images distantes sont bloquées ou que le proxy échoue (bug user 16/07 « l'image ne
+  // s'affiche pas »). Repli : si le fichier manque, l'URL landing reste dans le HTML.
+  let att = null, html = m.html;
+  try {
+    const buf = require('fs').readFileSync(require('path').join(__dirname, 'public', 'assets', 'images', 'annonce-app-desktop.jpg'));
+    if (buf && buf.length > 5000) {
+      const cid = 'annonce-desktop@datatradingpro';
+      html = html.replace(/https?:\/\/[^"]*annonce-app-desktop\.jpg/g, 'cid:' + cid);
+      att = [{ filename: 'datatradingpro-desk.jpg', content: buf, cid, contentType: 'image/jpeg' }];
+    }
+  } catch (_) {}
+  return _send(d.to, m.subject, html, att);
+}
 
 // ── Digest HEBDO (récurrent, AUTO-GÉNÉRÉ) — construit à partir des vraies données du Récap Hebdo du desk.
 // `weekly` = objet _weekly {summary, insights, pairs:[{pair,bias,text}], centralBanks:[{bank,stance}]}.
