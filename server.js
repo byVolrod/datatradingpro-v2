@@ -3079,7 +3079,10 @@ app.get('/api/weekly-reports', async (_req, res) => {
   // l'historique. Un seul jour par tick (quota), le plus récent d'abord ; verrou 15 min dédié ; s'éteint
   // dès que la version IA française est publiée (l'anti-rétrogradation garantit qu'elle ne re-régresse pas).
   else {
-    const _fxrPastFb = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr && i._fxr._ai === false
+    // Cibles de guérison : replis ANGLAIS (_ai:false) OU version PÉRIMÉE (v < FXR_VER — un bump de version
+    // régénère aussi les ~3 derniers jours : les améliorations de fond profitent à l'historique récent).
+    const _fxrPastFb = items.find(i => i._reportType === 'FX Daily Recap' && i._fxr
+      && (i._fxr._ai === false || (i._fxr.v || 0) < FXR_VER)
       && i._fxr.day !== _fxrDay && (Date.now() - ((_parisDayRange(i._fxr.day) || [0])[0] || 0)) < 3.5 * 86400000);
     if (_fxrPastFb && Date.now() - _fxrPastGenLock > 15 * 60 * 1000 && !(ai.backoffActive && ai.backoffActive())) {
       _fxrPastGenLock = Date.now();
@@ -7926,7 +7929,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 5;   // v5 : COURT + FONDAMENTAL STRICT (cause→effet obligatoire, interdits « a été marquée par »/causalités creuses, [MAJEUR] en tête du flux + croisement OBLIGATOIRE avec Force des Devises : un gros mouvement = son driver cité dans sa session — demande user 15/07). v4 : analyse PAR SESSION (Asie·Londres·NY)
+const FXR_VER = 6;   // v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
 let _fxrGenLock = 0;
 let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
@@ -8136,7 +8139,7 @@ async function generateFXDailyRecap(force = false, dayKeyOverride = null) {
 Rédige un récap COURT, DENSE et professionnel de la journée, avec un FOCUS FX clair, en t'appuyant STRICTEMENT sur les données fournies ci-dessous. RÈGLES CENTRALES, NON NÉGOCIABLES :
 1. FONDAMENTAL D'ABORD : chaque phrase décrivant un mouvement DONNE SA CAUSE tirée des données (publication chiffrée réel vs attendu, signal de banque centrale, événement politique, géopolitique, flux). Structure type : « <cause avec son chiffre> a fait <effet sur la devise/l'actif> ». Si aucune cause n'apparaît dans les données : « sans catalyseur clair ».
 2. INTERDITS ABSOLUS (rédige autrement) : « a été marqué(e) par », « la séance/session/journée a été » ; toute causalité CIRCULAIRE ou creuse (« en raison de la stabilisation de l'économie », « grâce à l'optimisme sur l'économie ») ; toute variation citée sans cause précise ; toute formule répétée d'une section à l'autre.
-3. Les titres marqués [MAJEUR] sont les événements IMPORTANTS du jour : chaque [MAJEUR] qui explique un mouvement de devise visible dans FORCE DES DEVISES DOIT apparaître dans sa session (ex. le choix du nouveau ministre des Finances UK dans Session Londres si la livre a bougé). Croise systématiquement FORCE DES DEVISES avec le flux : un gros mouvement = son driver cité.
+3. Les titres marqués [MAJEUR] sont les événements IMPORTANTS du jour : chaque [MAJEUR] qui explique un mouvement de devise visible dans FORCE DES DEVISES DOIT apparaître dans sa session. Croise systématiquement FORCE DES DEVISES avec le flux : un gros mouvement = son driver cité. La POLITIQUE compte AUTANT que la politique monétaire et les données : changements de gouvernement, démissions/nominations/successions de chefs d'État ou de gouvernement (Premier ministre, Président), ministres des Finances/Chanceliers/Secrétaires au Trésor, élections, remaniements, annonces budgétaires/fiscales/commerciales/réglementaires — si un tel événement touche un pays d'une devise suivie, il DOIT figurer dans sa session avec son effet devise (ex. un changement de Premier ministre UK dans Session Londres avec la réaction de la livre). Aucune actualité de ce niveau ne doit être omise.
 4. COURT : privilégie 2 phrases denses à 4 phrases vagues. N'INVENTE aucun chiffre. Jamais le tiret cadratin « — ». Section sans données : tableau vide.
 
 Réponds UNIQUEMENT en JSON valide (aucun préambule, aucune balise markdown, aucun caractère **). Garde les CLÉS en anglais et rédige toutes les VALEURS en français. Forme EXACTE attendue :
@@ -8208,11 +8211,12 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     if (!fxr.tags      || !fxr.tags.length)      fxr.tags      = _fxrAutoTags(newsItems);
     try { fxr.notableCommentsHtml = await _generateNotableComments(dayKey); } catch {}   // section « Commentaires marquants »
 
-    // HORODATAGE STABLE = le JOUR COUVERT à 19:00 Paris (heure de sortie), PAS l'instant de génération.
-    // Avant : timestamp=now → une régénération matinale (ex. upgrade d'un repli) re-datait le recap d'HIER
-    // à « aujourd'hui 11h30 » et écrasait sa place dans l'historique (bug signalé « pourquoi il sort à 11h30 »,
-    // « je ne vois pas le récap du 14 »). La MAJ 22h30 garde la même date/heure affichée (même jour couvert).
-    const pubTs = _parisDayRange(dayKey)[0] + 19 * 3600e3;
+    // HORODATAGE STABLE = le JOUR COUVERT (jamais l'instant de génération — c'était le bug « il sort à
+    // 11h30 »). Heure du TRI = 23:45 : dans l'onglet Analystes (du plus récent au plus ancien), le Récap
+    // Quotidien — bilan de TOUTE la journée — se classe AU-DESSUS du Récap Séance New York (~22h-23h),
+    // en tête de sa journée (demande user 16/07 « classe le récap quotidien après le récap session NY »).
+    // L'heure AFFICHÉE reste 19:00 (créneau de publication, champ time) ; la MAJ 22h30 garde le même ts.
+    const pubTs = _parisDayRange(dayKey)[0] + (23 * 60 + 45) * 60e3;
     const item = {
       id: idPrefix + '-' + now,
       headline: fxr.title,
@@ -10211,6 +10215,12 @@ async function generateEuropeanMarketWrap(force = false) {
     if (allNews.length !== before) { try { saveHistory(); } catch {} try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch {} console.log('[EUWrap] week-end → wrap retiré, pas de génération'); }
     return null;
   }
+  // JAMAIS AVANT 16:00 Paris (clôture cash Europe = SON créneau de publication) : la Synthèse du jour ne
+  // doit pas apparaître dans le feed le matin datée « 16:00 » (bug user 16/07 « fais-le apparaître à l'heure
+  // de sa publication, pas maintenant »). Tout déclencheur matinal (appel interne, warm, poll) est refusé ;
+  // `force` (debug admin) reste autorisé. Le planificateur 16:00 publie à l'heure exacte.
+  const _wHour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' })).getHours();
+  if (!force && _wHour < 16) return null;
   const _cached = allNews.find(i => (i.id || '').startsWith(prefix) && i._wrapVer === WRAP_VER);
   if (!force && _cached) return _cached;
   // Version périmée (nouvelle structure de référence) OU force : on NE retire PAS l'ancien ICI — il est remplacé
@@ -10400,6 +10410,14 @@ RÈGLE ABSOLUE : n'invente ni ne modifie JAMAIS un fait — chiffres, niveaux, %
     try {
       const paris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
       if (paris.getHours() >= 16 || paris.getDay() === 0 || paris.getDay() === 6) generateEuropeanMarketWrap().catch(() => {});
+      // AVANT 16h : purge un wrap d'AUJOURD'HUI publié prématurément (généré par un déclencheur matinal
+      // d'une version antérieure au verrou <16h) — il réapparaîtra proprement à 16:00 via le planificateur.
+      else {
+        const _todayKey = paris.toISOString().slice(0, 10);
+        const before = allNews.length;
+        allNews = allNews.filter(i => !(i && i._marketWrap && (i.id || '').startsWith('dtp-eu-wrap-' + _todayKey)));
+        if (allNews.length !== before) { try { saveHistory(); } catch {} try { broadcast({ type: 'news_update', items: [], total: allNews.length }); } catch {} console.log('[EUWrap] wrap du jour prématuré (<16h) retiré → republication à 16:00'); }
+      }
     } catch {}
   }, 90 * 1000);
 })();
@@ -11319,7 +11337,7 @@ function formatTime(dateStr) {
 
 // ─── Financial relevance filter ──────────────────────────────────────────────
 
-const FINANCIAL_KEYWORDS = /\b(forex|fx|currency|currencies|exchange rate|central bank|monetary policy|interest rate|rate hike|rate cut|rate decision|rate hold|rate pause|inflation|deflation|stagflation|cpi|ppi|pce|core inflation|gdp|nfp|nonfarm payroll|non-farm|unemployment|jobless|employment change|retail sales|trade balance|current account|industrial production|manufacturing|consumer confidence|purchasing managers|pmi|ifo|zew|durable goods|housing starts|payrolls|fed|fomc|federal reserve|ecb|european central bank|boj|bank of japan|boe|bank of england|boc|bank of canada|rba|rbnz|snb|riksbank|pboc|jerome powell|lagarde|ueda|bailey|yield curve|bond yield|treasury yield|gilt|bund|spread|dollar index|dxy|eurusd|gbpusd|usdjpy|usdchf|audusd|nzdusd|usdcad|xauusd|gold price|silver price|crude oil|brent|wti|opec|oil supply|oil demand|risk off|risk on|safe haven|stock market|equity market|nasdaq|s&p 500|dow jones|nikkei|ftse|dax|cac 40|geopolit|sanction|tariff|trade war|trade deal|iran|russia|ukraine|israel|escalat|\bwar\b|conflict|middle east|energy crisis|gas price|natural gas|bitcoin|crypto|finance minister|finance ministry|chancellor|treasury secretary|fiscal policy|fiscal stimulus|budget deficit|government budget|spending bill|debt ceiling|austerity|reshuffle|prime minister|downing street|snap election|general election|coalition talks|government collapse|no.?confidence)\b/i;
+const FINANCIAL_KEYWORDS = /\b(forex|fx|currency|currencies|exchange rate|central bank|monetary policy|interest rate|rate hike|rate cut|rate decision|rate hold|rate pause|inflation|deflation|stagflation|cpi|ppi|pce|core inflation|gdp|nfp|nonfarm payroll|non-farm|unemployment|jobless|employment change|retail sales|trade balance|current account|industrial production|manufacturing|consumer confidence|purchasing managers|pmi|ifo|zew|durable goods|housing starts|payrolls|fed|fomc|federal reserve|ecb|european central bank|boj|bank of japan|boe|bank of england|boc|bank of canada|rba|rbnz|snb|riksbank|pboc|jerome powell|lagarde|ueda|bailey|yield curve|bond yield|treasury yield|gilt|bund|spread|dollar index|dxy|eurusd|gbpusd|usdjpy|usdchf|audusd|nzdusd|usdcad|xauusd|gold price|silver price|crude oil|brent|wti|opec|oil supply|oil demand|risk off|risk on|safe haven|stock market|equity market|nasdaq|s&p 500|dow jones|nikkei|ftse|dax|cac 40|geopolit|sanction|tariff|trade war|trade deal|iran|russia|ukraine|israel|escalat|\bwar\b|conflict|middle east|energy crisis|gas price|natural gas|bitcoin|crypto|finance minister|finance ministry|chancellor|treasury secretary|fiscal policy|fiscal stimulus|budget deficit|government budget|spending bill|debt ceiling|austerity|reshuffle|prime minister|downing street|snap election|general election|coalition talks|government collapse|no.?confidence|successor|succession|labour (?:party|leadership)|tory leadership|conservative party|wealth tax|tax (?:hike|cut|rise)s?|spending review|\bbudget\b)\b/i;
 // ↑ vocabulaire BUDGÉTAIRE/POLITIQUE market-mover ajouté (15/07) : « The British finance minister choice… »
 //   (choix du nouveau chancelier UK, GBP majeur) était jeté car AUCUN mot-clé ne couvrait les finances
 //   publiques ni la politique gouvernementale — un remaniement/une nomination aux Finances bouge la devise.
@@ -11455,7 +11473,10 @@ function isGlobalNewsNoise(headline) {
   if (/\b(?:pmi|cpi|ppi|gdp|ism|nfp|non-?farm|payrolls?|jobless|unemployment|retail sales|trade balance|industrial production|durable goods|factory orders|housing starts|building permits)\b.*\breport\.?\s*$/i.test(h)
       && !/\b(?:actual|forecast|previous|consensus|beats?|miss(?:es|ed)?|rose|fell|jump\w*|drop\w*|rise\w*|climb\w*|surge\w*|slump\w*)\b|\d+\.\d/i.test(h)) return true;
   if (TABLOID_SOURCES.test(h))  return true;
-  if (GLOBAL_GOSSIP.test(h))    return true;
+  // GOSSIP : désormais GARDÉ par la pertinence financière (comme OFFTOPIC/HumanInterest/SoftNews) — le
+  // filtre inconditionnel jetait les TRANSITIONS DE POUVOIR market-movers (« X wins Labour leadership
+  // race », « PM candidate ») alors qu'un changement de Premier ministre bouge la devise (bug user 16/07).
+  if (GLOBAL_GOSSIP.test(h) && !isFinanciallyRelevant(h)) return true;
   if (GLOBAL_LIFESTYLE.test(h)) return true;
   if (OFFTOPIC_NOISE.test(h) && !isFinanciallyRelevant(h)) return true;   // sport + faits divers sociaux (hors-sujet desk)
   if (isHumanInterestNoise(h) && !isFinanciallyRelevant(h)) return true;   // meteo/canicule racontee comme fait de societe (hopitaux/hotels/sommeil/corps humain/misere) -> hors-sujet desk ; sauve si vocabulaire marche present (oil/gas/power/wheat/demand...)
@@ -11587,7 +11608,7 @@ function _isInfoQuoteNews(headline) {
 // Poste des finances publiques (ministre des Finances / chancelier / secrétaire au Trésor) + verbe
 // d'ÉVÉNEMENT (choix, nomination, démission, remplacement…), OU forme « new/next/incoming + poste »,
 // OU crise gouvernementale (chute, élections anticipées, motion de censure) → événement devise MAJEUR.
-const _POL_FINANCE_RX = /\b(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary|finance ministry)\b.{0,80}\b(?:choice|picks?|appoint\w*|nam(?:e|ed|es|ing)|nomin\w*|resign\w*|quit\w*|replac\w*|sack\w*|oust\w*|steps? down|candidate|succeed\w*)\b|\b(?:new|next|incoming)\s+(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary)\b|\b(?:government (?:collapse|falls)|snap elections?|no.?confidence vote|vote of no.?confidence)\b/i;
+const _POL_FINANCE_RX = /\b(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary|finance ministry)\b.{0,80}\b(?:choice|picks?|appoint\w*|nam(?:e|ed|es|ing)|nomin\w*|resign\w*|quit\w*|replac\w*|sack\w*|oust\w*|steps? down|candidate|succeed\w*)\b|\b(?:new|next|incoming)\s+(?:finance minister|chancellor(?: of the exchequer)?|treasury secretary|prime minister|president)\b|\b(?:government (?:collapse|falls)|snap elections?|no.?confidence vote|vote of no.?confidence)\b|\b(?:prime minister|president|premier)\b.{0,80}\b(?:resign\w*|steps? down|succeed\w*|successor|sworn in|takes? o(?:ffice|ver)|wins? (?:the )?(?:leadership|election)\w*|oust\w*|replaced)\b|\b(?:backs?|endorses?)\s+\S+(?:\s+\S+)?\s+as\s+(?:successor|(?:next|new)\s+(?:prime minister|president|chancellor))\b|\bwins?\s+(?:labour|tory|conservative|party)\s+leadership\b/i;
 function upgradeItemPriority(item) {
   const h = item.headline || '';
   // Flag « propos hors marché » posé À L'INGESTION (regex, aucun coût IA) → le tag « Contexte » + le repli
