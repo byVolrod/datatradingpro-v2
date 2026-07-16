@@ -8,7 +8,7 @@
  */
 'use strict';
 
-const { app, BrowserWindow, Menu, shell, dialog, nativeTheme, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, nativeTheme, ipcMain, screen } = require('electron');
 const path = require('path');
 const https = require('https');
 
@@ -286,24 +286,35 @@ function createWindow() {
     win.isMaximized() ? win.unmaximize() : win.maximize();
   });
 
-  // DÉPLACEMENT MANUEL (relayé par le preload) : ne dépend PAS de -webkit-app-region (inopérant avec
-  // titleBarStyle:'hidden' sur certaines configs Windows). Le preload envoie les coords ÉCRAN du curseur
-  // (capture du pointeur → continue hors fenêtre) ; on repositionne la fenêtre en gardant l'offset de saisie.
-  let _drag = null;
+  // DÉPLACEMENT MANUEL robuste MULTI-ÉCRANS + MULTI-DPI : ne dépend PAS de -webkit-app-region (inopérant
+  // avec titleBarStyle:'hidden' sur certaines configs Windows). On IGNORE volontairement les coords du
+  // renderer (screenX/screenY sont en pixels CSS, mis à l'échelle par le facteur DPI de l'écran COURANT →
+  // faussées dès qu'un autre écran a un zoom Windows différent : bug user « je ne peux pas la déplacer sur
+  // l'écran où se trouve Chrome »). À la place le MAIN lit la position RÉELLE du curseur en coordonnées DIP
+  // via screen.getCursorScreenPoint() — exactement l'espace attendu par win.setPosition — dans une boucle
+  // timer indépendante des events pointermove (qui peuvent être bridés pendant que la fenêtre bouge). Le
+  // preload ne sert plus qu'à signaler le DÉBUT (bouton enfoncé sur zone vide de la topbar) et la FIN.
+  let _drag = null, _dragTimer = null;
+  const _stopDrag = () => { _drag = null; if (_dragTimer) { clearInterval(_dragTimer); _dragTimer = null; } };
   ipcMain.removeAllListeners('dtp-win-drag-start');
   ipcMain.removeAllListeners('dtp-win-drag-move');
   ipcMain.removeAllListeners('dtp-win-drag-end');
-  ipcMain.on('dtp-win-drag-start', (e, p) => {
+  ipcMain.on('dtp-win-drag-start', (e) => {
     if (!win || win.isDestroyed() || e.sender !== win.webContents) return;
     if (win.isMaximized()) win.unmaximize();               // convention native : glisser une fenêtre maximisée la restaure
+    const cur = screen.getCursorScreenPoint();
     const [wx, wy] = win.getPosition();
-    _drag = { dx: p.sx - wx, dy: p.sy - wy };
+    _drag = { dx: cur.x - wx, dy: cur.y - wy };             // offset saisie→coin fenêtre, en DIP
+    if (_dragTimer) clearInterval(_dragTimer);
+    _dragTimer = setInterval(() => {
+      if (!_drag || !win || win.isDestroyed()) return _stopDrag();
+      const p = screen.getCursorScreenPoint();
+      win.setPosition(Math.round(p.x - _drag.dx), Math.round(p.y - _drag.dy));   // suit le curseur, tous écrans/DPI
+    }, 15);
   });
-  ipcMain.on('dtp-win-drag-move', (e, p) => {
-    if (!_drag || !win || win.isDestroyed() || e.sender !== win.webContents) return;
-    win.setPosition(Math.round(p.sx - _drag.dx), Math.round(p.sy - _drag.dy));   // multi-écrans : coords écran globales
-  });
-  ipcMain.on('dtp-win-drag-end', (e) => { if (!win || e.sender === win.webContents) _drag = null; });
+  ipcMain.on('dtp-win-drag-move', () => {});               // no-op : le timer gère le suivi (compat preload)
+  ipcMain.on('dtp-win-drag-end', (e) => { if (!win || e.sender === win.webContents) _stopDrag(); });
+  win.on('blur', _stopDrag);                               // filet : alt-tab / perte de focus en plein glisser
 
   win.on('closed', () => { win = null; });
 }
