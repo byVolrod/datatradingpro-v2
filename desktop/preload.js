@@ -60,16 +60,42 @@ ipcRenderer.on('dtp-window-focus', (_e, focused) => {
   try { document.documentElement.classList.toggle('dtp-inactive', !focused); } catch (_) {}
 });
 
-// DOUBLE-CLIC sur la topbar = agrandir/restaurer la fenêtre (convention native Windows/macOS —
-// Notion, Discord, VS Code). Ignoré sur les éléments INTERACTIFS de la barre (icônes, recherche,
-// sentiment, avatar, champs) pour ne jamais interférer avec leurs clics.
-const NO_DBL = '.topbar-icon, .topbar-symbol-search, .topbar-sentiment, #topbar-avatar, input, button, a, select, textarea, [onclick]';
+// Éléments INTERACTIFS de la topbar : ni drag, ni double-clic maximise (pour ne pas gêner leurs clics).
+const NO_DRAG_SEL = '.topbar-icon, .topbar-symbol-search, .topbar-sentiment, #topbar-avatar, input, button, a, select, textarea, [onclick], [role="button"]';
+const _inTopbar = t => t && t.closest && t.closest('.topbar');
+const _interactive = t => t && t.closest && t.closest(NO_DRAG_SEL);
+
+// ── DÉPLACEMENT MANUEL de la fenêtre (ne dépend PAS de -webkit-app-region, qui s'avère inopérant avec
+//    titleBarStyle:'hidden' sur certaines configs Windows — bug user 16/07 « fenêtre fixe »). On capture le
+//    pointeur (setPointerCapture) → les événements continuent MÊME hors de la fenêtre → glisser multi-écrans
+//    fluide et natif ; le repositionnement réel est fait côté main (win.setPosition) via IPC en coords ÉCRAN. ──
+let _dragPtr = null;
+window.addEventListener('pointerdown', e => {
+  try {
+    if (e.button !== 0) return;                       // clic gauche seulement
+    if (!_inTopbar(e.target) || _interactive(e.target)) return;   // zone vide du header uniquement
+    _dragPtr = e.pointerId;
+    try { (e.currentTarget || window).setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) {}
+    ipcRenderer.send('dtp-win-drag-start', { sx: Math.round(e.screenX), sy: Math.round(e.screenY) });
+  } catch (_) {}
+}, true);
+window.addEventListener('pointermove', e => {
+  if (_dragPtr === null) return;
+  try { ipcRenderer.send('dtp-win-drag-move', { sx: Math.round(e.screenX), sy: Math.round(e.screenY) }); } catch (_) {}
+}, true);
+const _endDrag = e => {
+  if (_dragPtr === null) return;
+  try { if (e && e.target && e.target.releasePointerCapture) e.target.releasePointerCapture(_dragPtr); } catch (_) {}
+  _dragPtr = null;
+  try { ipcRenderer.send('dtp-win-drag-end'); } catch (_) {}
+};
+window.addEventListener('pointerup', _endDrag, true);
+window.addEventListener('pointercancel', _endDrag, true);
+
+// DOUBLE-CLIC sur une zone vide de la topbar = agrandir/restaurer (convention native Windows/macOS).
 window.addEventListener('dblclick', e => {
   try {
-    const t = e.target;
-    if (!t || !t.closest) return;
-    if (!t.closest('.topbar') && !t.closest('#dtp-drag-strip')) return;   // uniquement la barre supérieure
-    if (t.closest(NO_DBL)) return;                                        // jamais sur un élément interactif
+    if (!_inTopbar(e.target) || _interactive(e.target)) return;
     ipcRenderer.send('dtp-titlebar-dblclick');
   } catch (_) {}
 }, true);
