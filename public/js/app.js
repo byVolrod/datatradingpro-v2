@@ -7450,40 +7450,75 @@ let   _npFilter   = 'all';
 let   _npOpen     = false;
 let   _npAudioCtx = null;
 
-// ── Filtres par catégorie (panneau "Filtre") ─────────────────
-const NP_CATS = [
-  { key: 'bias',     label: 'Radar de Biais' },
-  { key: 'research', label: 'Fichiers de recherche' },
-  { key: 'posts',    label: 'Publications' },
-  { key: 'analyst',  label: 'Note d’Analyste' },
-  { key: 'admin',    label: 'Admin' },
-  { key: 'risk',     label: 'Risk Sentiment' },
-  { key: 'ticker',   label: 'Fil d’actualité' },
-  { key: 'calendar', label: 'Calendrier des événements' },
+// ── TAXONOMIE UNIQUE des alertes (refonte 16/07, demande user « plus clair et simple ») ─────────
+// UNE seule fonction de classement (_npKind) alimente TOUT : le badge affiché sur l'item, le toggle
+// du panneau Filtre ET les onglets — mêmes clés, mêmes mots partout. (Avant : 3 logiques divergentes
+// → l'utilisateur ne pouvait pas prédire où atterrissait une news ; + 3 catégories mortes retirées.)
+// Ordre de test : rapports d'abord, puis CONTENU (risque / données éco), puis temps réel, puis reste.
+const NP_KINDS = [
+  { key: 'flash',       label: 'Flash Marché', cls: 'squawk'  },   // news temps réel (FinancialJuice)
+  { key: 'risk',        label: 'Risque',       cls: 'risk'    },   // géopolitique / risque / énergie / sanctions
+  { key: 'eco',         label: 'Données éco',  cls: 'cal'     },   // statistiques & calendrier économique
+  { key: 'analyst',     label: 'Analystes',    cls: 'analyst' },   // rapports & notes d'analystes (desk)
+  { key: 'institution', label: 'Institution',  cls: 'analyst' },   // recherche institutionnelle (banques)
+  { key: 'news',        label: 'News',         cls: 'news'    },   // tout le reste
 ];
-let _npCatFilters = {};
-try { _npCatFilters = JSON.parse(localStorage.getItem('np_cat_filters') || '{}'); } catch {}
-function _npCatOn(key) { return _npCatFilters[key] !== false; }
-function _npItemCat(item) {
-  if (item._reportNotif === 'analyst' || item._source === 'investinglive') return 'analyst';
-  if (item._briefing || item.source === 'DTP') return 'analyst';
+const _NP_KIND_BY_KEY = Object.fromEntries(NP_KINDS.map(k => [k.key, k]));
+function _npKind(item) {
+  if (item._reportNotif === 'institution' || item._source === 'ing-think') return _NP_KIND_BY_KEY.institution;
+  if (item._reportNotif === 'analyst' || item._source === 'investinglive'
+    || item._briefing || item.source === 'DTP') return _NP_KIND_BY_KEY.analyst;
   const c = (item.category || '').toLowerCase();
-  if (item._reportNotif === 'institution' || item._source === 'ing-think' || /research|institution/.test(c)) return 'research';
-  if (/geopolit|risk|energy|sanction|war/.test(c)) return 'risk';
-  if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return 'calendar';
-  return 'ticker';
+  if (/research|institution/.test(c)) return _NP_KIND_BY_KEY.institution;
+  if (/geopolit|risk|energy|sanction|war/.test(c)) return _NP_KIND_BY_KEY.risk;
+  if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return _NP_KIND_BY_KEY.eco;
+  if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return _NP_KIND_BY_KEY.flash;
+  return _NP_KIND_BY_KEY.news;
 }
+// Filtres par catégorie (panneau « Filtre ») : mêmes clés que les badges — couper « Flash Marché »
+// coupe exactement les items badgés « Flash Marché ». Seules les clés CONNUES sont retenues
+// (migration : les anciennes clés bias/posts/admin/ticker/calendar/research sont ignorées).
+let _npCatFilters = {};
+try {
+  const raw = JSON.parse(localStorage.getItem('np_cat_filters') || '{}');
+  for (const k in raw) if (_NP_KIND_BY_KEY[k] && raw[k] === false) _npCatFilters[k] = false;
+} catch {}
+function _npCatOn(key) { return _npCatFilters[key] !== false; }
 
-// Origine d'une notif (badge) : Flash Marché / Calendrier / Analyse / News
-function _npOrigin(item) {
-  if (item._reportNotif === 'institution' || item._source === 'ing-think') return { label: 'Institution', cls: 'analyst' };
-  if (item._reportNotif === 'analyst' || item._source === 'investinglive') return { label: 'Analyst', cls: 'analyst' };
-  if (item.source === 'FinancialJuice' || (item.id || '').startsWith('fj-')) return { label: 'Flash Marché', cls: 'squawk' };
-  if (item._briefing || item.source === 'DTP') return { label: 'Analyse', cls: 'analyst' };
-  const c = (item.category || '').toLowerCase();
-  if (/data|calendar|cpi|pmi|nfp|gdp|inflation|economic/.test(c)) return { label: 'Calendrier', cls: 'cal' };
-  if (/geopolit|risk|energy|sanction|war/.test(c)) return { label: 'Risque', cls: 'risk' };
-  return { label: 'News', cls: 'news' };
+// ── Config PERSISTANTE PAR COMPTE (KV serveur notifcfg:<userId>, modèle symrecent) ──────────────
+// Source de vérité = /api/notif-config (suit la reconnexion, même sur un autre appareil) ;
+// localStorage np_* = simple cache instantané. Le fil et l'onglet actif restent volatils.
+async function _npCfgLoad() {
+  try {
+    const r = await fetch('/api/notif-config');
+    const j = await r.json();
+    if (!j || !j.cfg) return;   // aucune préférence serveur → on garde localStorage / défauts
+    _npEnabled = j.cfg.enabled !== false;
+    _npVolume  = j.cfg.volume || 'fort';
+    _npChime   = j.cfg.chime || 'chime';
+    _npPush    = j.cfg.push !== false;
+    _npCatFilters = {};
+    (j.cfg.catsOff || []).forEach(k => { if (_NP_KIND_BY_KEY[k]) _npCatFilters[k] = false; });
+    try {
+      localStorage.setItem('np_enabled', JSON.stringify(_npEnabled));
+      localStorage.setItem('np_volume', _npVolume);
+      localStorage.setItem('np_chime', _npChime);
+      localStorage.setItem('np_push', JSON.stringify(_npPush));
+      localStorage.setItem('np_cat_filters', JSON.stringify(_npCatFilters));
+    } catch {}
+    _npSyncUI();
+  } catch {}
+}
+let _npCfgSaveT = null;
+function _npCfgSave() {
+  clearTimeout(_npCfgSaveT);
+  _npCfgSaveT = setTimeout(() => {
+    const catsOff = Object.keys(_npCatFilters).filter(k => _npCatFilters[k] === false);
+    fetch('/api/notif-config', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled: _npEnabled, volume: _npVolume, chime: _npChime, push: _npPush, catsOff }),
+    }).catch(() => {});
+  }, 800);
 }
 // Retire toute attribution de source résiduelle de la description
 function _npStripSrc(s) {
@@ -7500,6 +7535,7 @@ function _npEl(id) { return document.getElementById(id); }
 // ── Init ─────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   _npSyncUI();
+  _npCfgLoad();   // config par compte (serveur) → écrase le cache localStorage puis re-synchronise l'UI
   // Tabs
   document.querySelectorAll('.np-tab').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -7517,6 +7553,7 @@ document.addEventListener('DOMContentLoaded', () => {
   _npEl('np-chime-select')?.addEventListener('change', e => {
     _npChime = e.target.value;
     localStorage.setItem('np_chime', _npChime);
+    _npCfgSave();
     if (_npChime !== 'none') _npPlaySound(0.3);   // preview
     else _npStopVoice();                           // "Aucun son" → coupe aussi la voix en cours
   });
@@ -7565,6 +7602,7 @@ function npClose() {
 function npToggleEnabled() {
   _npEnabled = !_npEnabled;
   localStorage.setItem('np_enabled', JSON.stringify(_npEnabled));
+  _npCfgSave();
   if (!_npEnabled) _npStopVoice();   // OFF = silence immédiat (coupe aussi la voix du squawk)
   _npSyncUI();
 }
@@ -7574,6 +7612,7 @@ function npCycleVolume() {
   const cycle = { fort: 'doux', doux: 'mute', mute: 'fort' };
   _npVolume = cycle[_npVolume] || 'fort';
   localStorage.setItem('np_volume', _npVolume);
+  _npCfgSave();
   _npSyncUI();
   if (_npVolume === 'mute') _npStopVoice();          // Muet = silence total immédiat (carillon + voix)
   else _npPlaySound(_npVolumeLevel());
@@ -7599,12 +7638,14 @@ function npTogglePush() {
       Notification.requestPermission().then(p => {
         _npPush = p === 'granted';
         localStorage.setItem('np_push', JSON.stringify(_npPush));
+        _npCfgSave();
         _npSyncUI();
       });
     }
   } else {
     _npPush = false;
     localStorage.setItem('np_push', JSON.stringify(_npPush));
+    _npCfgSave();
     _npSyncUI();
   }
 }
@@ -7620,9 +7661,11 @@ function npToggleFilter() {
 function _npRenderFilters() {
   const grid = _npEl('np-filter-grid');
   if (!grid) return;
-  grid.innerHTML = NP_CATS.map(c => `
+  // Une ligne par TYPE d'alerte (mêmes libellés que les badges du fil → couper « Flash Marché »
+  // coupe exactement les items badgés « Flash Marché »).
+  grid.innerHTML = NP_KINDS.map(c => `
     <div class="np-filter-row" data-cat="${c.key}">
-      <span class="np-filter-lbl">${c.label}</span>
+      <span class="np-filter-lbl"><span class="np-origin np-origin--${c.cls}">${c.label}</span></span>
       <span class="np-filter-toggle ${_npCatOn(c.key) ? 'on' : 'off'}">${_npCatOn(c.key) ? 'ON' : 'OFF'}</span>
     </div>`).join('');
   grid.querySelectorAll('.np-filter-row').forEach(row => {
@@ -7630,6 +7673,7 @@ function _npRenderFilters() {
       const k = row.dataset.cat;
       _npCatFilters[k] = !_npCatOn(k);
       try { localStorage.setItem('np_cat_filters', JSON.stringify(_npCatFilters)); } catch {}
+      _npCfgSave();
       const t = row.querySelector('.np-filter-toggle');
       t.classList.toggle('on', _npCatOn(k));
       t.classList.toggle('off', !_npCatOn(k));
@@ -7711,11 +7755,14 @@ function _npRenderList() {
   const empty = _npEl('np-empty');
   if (!list) return;
 
+  // Onglets et Filtre dérivent de la MÊME taxonomie (_npKind) que le badge de l'item : ce que
+  // l'utilisateur lit sur l'item = ce qu'il coupe dans le Filtre = ce que trie l'onglet.
   const filtered = _npItems.filter(item => {
-    if (!_npCatOn(_npItemCat(item))) return false;   // filtre par catégorie (panneau Filtre)
-    if (_npFilter === 'analyst')  return item._briefing || item.source === 'DTP' || !!item._reportNotif || item._source === 'investinglive' || item._source === 'ing-think';
-    if (_npFilter === 'risk')     return /geopolit|risk|energy|sanction/i.test(item.category || '');
-    if (_npFilter === 'breaking') return item.priority === 'high' || item.urgent;
+    const kind = _npKind(item);
+    if (!_npCatOn(kind.key)) return false;           // filtre par type (panneau Filtre)
+    if (_npFilter === 'analyst')  return kind.key === 'analyst' || kind.key === 'institution';
+    if (_npFilter === 'risk')     return kind.key === 'risk';
+    if (_npFilter === 'breaking') return item.priority === 'high' || item.urgent;   // urgence = facette transverse
     return true; // 'all'
   });
 
@@ -7744,7 +7791,7 @@ function _npRenderList() {
     const iconSymbol = item.urgent ? '!' : 'i';
     const ago = _npTimeAgo(item.timestamp);
     const desc = _npStripSrc(item.description).slice(0, 140);
-    const org = _npOrigin(item);
+    const org = _npKind(item);   // badge = même taxonomie que Filtre et onglets
 
     el.innerHTML = `
       <div class="np-icon ${iconClass}">${iconSymbol}</div>
