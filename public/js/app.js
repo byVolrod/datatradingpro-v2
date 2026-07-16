@@ -4,10 +4,11 @@
 
 'use strict';
 
-// ═══ App DESKTOP (Electron) : filet de sécurité pour le DÉPLACEMENT de la fenêtre ══════════════
+// ═══ App DESKTOP (Electron) : filet de sécurité pour la MISE EN PAGE topbar intégrée ═══════════
 // Double du script inline de <head> : si celui-ci n'a pas tourné (page servie depuis un cache, ancien
-// index.html…), on RE-POSE .dtp-desktop + plateforme sur <html> ici → -webkit-app-region:drag s'applique.
-// app-region peut être posé dynamiquement : le drag s'active même après le 1er rendu. Web non affecté.
+// index.html…), on RE-POSE .dtp-desktop + plateforme sur <html> ici → --topbar-h 50px + marges des
+// boutons système s'appliquent. (Le DÉPLACEMENT de la fenêtre, lui, est géré par l'app — preload
+// 1.0.10+ : pointer capture → IPC → win.setPosition ; plus AUCUN app-region:drag.) Web non affecté.
 (function () {
   try {
     if (/Electron/i.test(navigator.userAgent || '')) {

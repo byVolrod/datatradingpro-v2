@@ -18,11 +18,11 @@
   <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@300;400;500;600;700&family=Inter+Tight:wght@600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
   <!-- App DESKTOP (Electron) : on pose .dtp-desktop + plateforme sur <html> AVANT le CSS → la topbar
-       devient zone de déplacement de la fenêtre (-webkit-app-region:drag) dès le chargement, SANS dépendre
-       du preload du binaire → le déplacement marche même sur une app déjà installée (rechargement suffit).
-       Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
+       intégrée prend sa mise en page (hauteur 50px + marges des boutons système) dès le chargement, SANS
+       dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
+       d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260716bbg229" />
+  <link rel="stylesheet" href="/css/style.css?v=20260716bbg230" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -746,7 +746,7 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260716bbg229"></script>
+<script defer src="/js/app.js?v=20260716bbg230"></script>
 <script defer src="/js/charts.js?v=20260713bbg217"></script>
 <script defer src="/js/sessionmap.js?v=20260629bbg154"></script>
 <script defer src="/js/i18n-dicts.js?v=20260629bbg154"></script>
