@@ -113,7 +113,9 @@ function createWindow() {
     //    desk s'étend jusqu'en haut et les contrôles système sont intégrés DANS la topbar DTP. On garde
     //    le cadre natif (déplacement, redimensionnement, accroche, ombres, coins arrondis OS) — on ne
     //    passe PAS par frame:false (comportements natifs préservés = plus propre et maintenable).
-    titleBarStyle: 'hidden',
+    // titleBarStyle:'hidden' UNIQUEMENT Windows/macOS (les 2 seules cibles buildées) : sous Linux (dev),
+    // on garde le cadre natif par défaut pour ne jamais se retrouver sans boutons de fermeture.
+    ...((isWin || isMac) ? { titleBarStyle: 'hidden' } : {}),
     ...(isWin ? {
       // Windows 11 : boutons min/max/close en surimpression, teintés aux couleurs du desk + fond Mica natif.
       titleBarOverlay: { color: TITLEBAR_BG, symbolColor: TITLEBAR_SYMBOL, height: TOPBAR_H },
