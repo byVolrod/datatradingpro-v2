@@ -214,28 +214,11 @@ html, body {
    ═══════════════════════════════════════════════════════════════════════════════════ */
 html.dtp-desktop { --topbar-h: 50px; }
 
-html.dtp-desktop .topbar,
-html.dtp-desktop .topbar .logo,
-html.dtp-desktop .topbar .topbar-left,
-html.dtp-desktop .topbar .topbar-center,
-html.dtp-desktop .topbar .topbar-right {
-  -webkit-app-region: drag !important;   /* glisser toute zone VIDE du header = déplacer la fenêtre */
-  app-region: drag !important;
-}
-/* Tout ce qui est cliquable ou saisissable ne doit PAS déplacer la fenêtre */
-html.dtp-desktop .topbar .topbar-icon,
-html.dtp-desktop .topbar .topbar-symbol-search,
-html.dtp-desktop .topbar .topbar-sentiment,
-html.dtp-desktop .topbar #topbar-avatar,
-html.dtp-desktop .topbar .topbar-center > *,
-html.dtp-desktop .topbar .topbar-right > *,
-html.dtp-desktop .topbar input,
-html.dtp-desktop .topbar button,
-html.dtp-desktop .topbar a,
-html.dtp-desktop .topbar select {
-  -webkit-app-region: no-drag !important;
-  app-region: no-drag !important;
-}
+/* ⚠️ PLUS AUCUN -webkit-app-region:drag ICI (retiré 16/07) : une zone app-region:drag est gérée par
+   l'OS et N'ÉMET PLUS d'événements souris vers la page → elle avalait le pointerdown dont le
+   DÉPLACEMENT MANUEL de la fenêtre (preload 1.0.10+ : pointer capture → IPC → win.setPosition en
+   coords écran DIP) a besoin pour démarrer. Le déplacement est désormais 100 % géré par l'app
+   (multi-écrans + multi-DPI fiable) ; ce CSS ne garde que la MISE EN PAGE de la topbar intégrée. */
 /* Windows : réserve la place des 3 boutons système à droite */
 html.dtp-win .topbar { padding-right: 146px; }
 /* macOS : réserve la place des feux tricolores à gauche (le wordmark se décale) */
