@@ -12,23 +12,15 @@ const { ipcRenderer } = require('electron');
 const PLATFORM_CLASS = process.platform === 'darwin' ? 'dtp-mac'
   : process.platform === 'win32' ? 'dtp-win' : 'dtp-linux';
 
-// Zone de déplacement AUTONOME : on injecte le CSS de drag DEPUIS l'app (au lieu de dépendre du style.css
-// distant, qui peut être servi en cache dans une version antérieure aux règles .dtp-desktop). Ainsi le
-// déplacement de la fenêtre fonctionne dès que le binaire tourne, quel que soit l'état du CSS du desk.
-// (Bug user 16/07 « la fenêtre reste fixe » : le drag ne s'appliquait pas côté page.)
+// Habillage de la barre native intégrée. IMPORTANT : on N'UTILISE PLUS -webkit-app-region:drag — sur cette
+// config Windows (titleBarStyle:'hidden') il s'avérait inopérant ET, quand il est actif, l'OS intercepte le
+// pointerdown → notre déplacement MANUEL (pointer capture + main.js) ne démarre jamais. Le déplacement est
+// donc géré à 100 % côté JS (voir plus bas). Ici on ne garde QUE le décalage réservé aux boutons système
+// (droite sous Windows, feux macOS à gauche) et un curseur adapté sur la zone de saisie du header.
 const DRAG_CSS = `
-  html.dtp-desktop .topbar { -webkit-app-region: drag !important; app-region: drag !important; }
-  html.dtp-desktop .topbar .topbar-icon,
-  html.dtp-desktop .topbar .topbar-symbol-search,
-  html.dtp-desktop .topbar .topbar-sentiment,
-  html.dtp-desktop .topbar #topbar-avatar,
-  html.dtp-desktop .topbar .topbar-center > *,
-  html.dtp-desktop .topbar .topbar-right > *,
-  html.dtp-desktop .topbar input,
-  html.dtp-desktop .topbar button,
-  html.dtp-desktop .topbar a { -webkit-app-region: no-drag !important; app-region: no-drag !important; }
   html.dtp-win .topbar { padding-right: 146px; }
   html.dtp-mac .logo { padding-left: 74px; }
+  html.dtp-desktop .topbar { cursor: default; }
 `;
 
 function injectDragStyle() {
@@ -75,13 +67,11 @@ window.addEventListener('pointerdown', e => {
     if (e.button !== 0) return;                       // clic gauche seulement
     if (!_inTopbar(e.target) || _interactive(e.target)) return;   // zone vide du header uniquement
     _dragPtr = e.pointerId;
-    try { (e.currentTarget || window).setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) {}
-    ipcRenderer.send('dtp-win-drag-start', { sx: Math.round(e.screenX), sy: Math.round(e.screenY) });
+    // La capture garantit que le pointerup FINAL nous parvient même quand le curseur sort de la fenêtre
+    // (il en sort en permanence pendant un glisser multi-écrans) → arrêt propre du déplacement.
+    try { e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); } catch (_) {}
+    ipcRenderer.send('dtp-win-drag-start');           // le MAIN lit lui-même la position du curseur (coords DIP, tous écrans)
   } catch (_) {}
-}, true);
-window.addEventListener('pointermove', e => {
-  if (_dragPtr === null) return;
-  try { ipcRenderer.send('dtp-win-drag-move', { sx: Math.round(e.screenX), sy: Math.round(e.screenY) }); } catch (_) {}
 }, true);
 const _endDrag = e => {
   if (_dragPtr === null) return;
@@ -91,6 +81,7 @@ const _endDrag = e => {
 };
 window.addEventListener('pointerup', _endDrag, true);
 window.addEventListener('pointercancel', _endDrag, true);
+window.addEventListener('lostpointercapture', _endDrag, true);   // filet supplémentaire si la capture est perdue
 
 // DOUBLE-CLIC sur une zone vide de la topbar = agrandir/restaurer (convention native Windows/macOS).
 window.addEventListener('dblclick', e => {

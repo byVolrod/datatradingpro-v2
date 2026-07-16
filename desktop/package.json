@@ -1,7 +1,7 @@
 {
   "name": "datatradingpro-desktop",
   "productName": "DataTradingPro",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "DataTradingPro — terminal de trading (application bureau)",
   "main": "main.js",
   "author": "DataTradingPro",
