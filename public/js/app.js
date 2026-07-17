@@ -2387,6 +2387,22 @@ function buildNewsItem(item) {
   }
   el.insertBefore(arrowEl, content);
 
+  // ── Décryptage DTP EN BAS DU PANNEAU INFO (17/07) : le pill dédié a été retiré du fil à la demande
+  //    du user, et les onglets internes (tabsHtml) ne sont pas rendus → sans ça, le Décryptage serait
+  //    inaccessible sur toute news ayant aussi « Info ». Slot séparé, re-rempli après CHAQUE rendu du
+  //    panneau (le résumé IA remplace innerHTML de façon asynchrone et écraserait le bloc).
+  async function _ecoFill(host) {
+    if (!hasEco || !host || !host.isConnected) return;
+    try {
+      const html = (typeof dtpEventInsightHtml === 'function') ? await dtpEventInsightHtml(item) : '';
+      if (!html || !host.isConnected || !host.classList.contains('visible')) return;
+      let slot = host.querySelector('.news-eco-slot');
+      if (!slot) { slot = document.createElement('div'); slot.className = 'news-eco-slot'; host.appendChild(slot); }
+      slot.innerHTML = html;
+      if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(host, '.cal-kb-quote');   // propos BC → FR en place
+    } catch {}
+  }
+
   function openPanel(tab) {
     if (!expandEl) return;
     const isOpen    = expandEl.classList.contains('visible');
@@ -2677,6 +2693,7 @@ function buildNewsItem(item) {
               : '';
             expandEl.innerHTML = `${_img}<ul class="article-points">${data.points.map(p => `<li>${p}</li>`).join('')}</ul>`;
             if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl);   // puces d'article scrapées (souvent EN) → FR
+            _ecoFill(expandEl);   // Décryptage DTP sous les puces (plus de pill dédiée)
           } else {
             // API confirmed no content → remove Info tag entirely
             if (infoTagEl) { infoTagEl.remove(); infoTagEl = null; }
@@ -2698,6 +2715,7 @@ function buildNewsItem(item) {
     // Affichage immédiat (description brute) : instantané
     expandEl.innerHTML = infoBody;
     expandEl.classList.add('visible'); if (window.DTP_translate) window.DTP_translate(expandEl);
+    _ecoFill(expandEl);   // Décryptage DTP sous les puces (plus de pill dédiée dans le fil)
     // Contenu SOURCE anglais qui échappe aux résumés IA (citations speaker, propos agrégés, puces de la
     // description scrapée des news standard) → traduction FR en place (instantané en source puis remplacé).
     // Les contenus DÉJÀ produits en FR (rapports DTP, market wrap, analyses d'événement) ne repassent pas par l'IA.
@@ -2723,7 +2741,7 @@ function buildNewsItem(item) {
     if (_improvable) {
       if (_infoCache.has(item.id)) {
         const b = _infoCache.get(item.id);
-        if (b && b.length) expandEl.innerHTML = _renderInfoBullets(b);
+        if (b && b.length) { expandEl.innerHTML = _renderInfoBullets(b); _ecoFill(expandEl); }   // innerHTML remplacé → on re-pose le Décryptage
       } else {
         // La dépêche brute (langue source) est affichée immédiatement (infoBody) ; on la remplace par le
         // résumé FR dès qu'il arrive (le serveur répond désormais en FRANÇAIS pour toutes les news).
@@ -2738,6 +2756,7 @@ function buildNewsItem(item) {
             if (b.length) _infoCache.set(item.id, b);   // on ne mémorise QUE le succès : un échec (IA en panne) réessaie à la prochaine ouverture au lieu de figer l'anglais pour la session
             if (b.length && activeTab === 'info' && expandEl.classList.contains('visible')) {
               expandEl.innerHTML = _renderInfoBullets(b);
+              _ecoFill(expandEl);   // le résumé IA écrase innerHTML → on re-pose le Décryptage sous les puces
             }
           })
           .catch(() => {});
@@ -2758,7 +2777,7 @@ function buildNewsItem(item) {
   // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
   const _catLabel = catFr(item.category || '');
   const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
-  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Japanese Data = retirés à la demande)
+  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Japanese Data/Economic Commentary = retirés à la demande — « Economic Commentary » doublonnait la catégorie « Commentaire économique » affichée à gauche, et s'affichait en anglais faute d'entrée NEWS_TAG_FR)
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
@@ -2805,15 +2824,8 @@ function buildNewsItem(item) {
     tagsEl.appendChild(infoTagEl);
   }
 
-  if (hasEco) {
-    // Pill « Décryptage » visible dans le fil (différenciateur DTP : pédagogie éco / banque centrale)
-    const ecoTagEl = document.createElement('span');
-    ecoTagEl.className = 'tag tag--info';
-    ecoTagEl.style.cursor = 'pointer';
-    ecoTagEl.innerHTML = '<svg class="tag-svg" width="11" height="11" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5.25" stroke="currentColor" stroke-width="1.5"/><path d="M6 5.5V8.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><circle cx="6" cy="3.5" r="0.75" fill="currentColor"/></svg> Décryptage';
-    ecoTagEl.onclick = e => { e.stopPropagation(); openPanel('eco'); };
-    tagsEl.appendChild(ecoTagEl);
-  }
+  // (Pas de pill « Décryptage » dans la rangée de tags — retiré à la demande user 17/07 : le fil reste
+  //  net. Le Décryptage DTP reste accessible dans le DÉPLIÉ, via son onglet à côté d'Info/Analyse.)
 
   if (hasNotes) {
     analysisTagEl = document.createElement('span');

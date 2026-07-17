@@ -6836,6 +6836,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-hist-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: #e8eaed; font-family: var(--font-mono); }
 .cal-hist-table th:not(:first-child), .cal-hist-table td:not(:first-child) { text-align: right; }
 .cal-detail-empty { color: #8a9097; font-size: 12px; padding: 18px 0; text-align: center; }
+/* Décryptage DTP en bas du panneau Info d'une news (plus de pill dédiée dans le fil, 17/07) :
+   filet de séparation discret sous les puces, puis le bloc .cal-kb standard. */
+.news-eco-slot { margin-top: 11px; padding-top: 10px; border-top: 1px solid var(--hud-line, #16171b); }
 /* ── Décryptage DTP du déroulé calendrier (pédagogie éco + banque centrale, 16/07) ── */
 .cal-kb { margin: 2px 0 10px; }
 .cal-kb-row { display: flex; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--hud-line, #16171b); font-size: 12px; line-height: 1.55; }
