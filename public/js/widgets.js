@@ -35,6 +35,13 @@
 
   var STATE = { cfg: null, mounted: [], saveT: null, booted: false };
   var HOST_ID = 'wdg-grid';
+  var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
+  // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
+  // info = « i » cerclé ; réglages = curseurs d'ajustement.
+  var ICO = {
+    info: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.7" r="0.7" fill="currentColor" stroke="none"/></svg>',
+    gear: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.3" fill="#0d0e11"/><circle cx="15" cy="16" r="2.3" fill="#0d0e11"/></svg>',
+  };
 
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
@@ -220,15 +227,41 @@
     host.innerHTML = lay.items.map(function (it, idx) {
       var w = byId(it.w);
       if (!w) return '';                                                     // widget retiré du catalogue → ignoré
-      return '<section class="wdg-card' + (it.col === 2 ? ' wdg-card--full' : '') + '" style="--wdg-h:' + it.h + 'px;">'
+      var full = it.col === 2;
+      var chip = function (on, act, lbl) { return '<button class="wdg-chip' + (on ? ' on' : '') + '" onclick="' + act + '">' + lbl + '</button>'; };
+      return '<section class="wdg-card' + (full ? ' wdg-card--full' : '') + '" style="--wdg-h:' + it.h + 'px;">'
         + '<header class="wdg-head"><span class="wdg-title">' + esc(w.name) + '</span>'
         + '<span class="wdg-actions">'
-        + '<button class="wdg-ico" title="Demi-largeur / pleine largeur" onclick="DTPWidgets.toggleCol(' + idx + ')">⇔</button>'
-        + '<button class="wdg-ico" title="Monter" onclick="DTPWidgets.move(' + idx + ',-1)">↑</button>'
-        + '<button class="wdg-ico" title="Descendre" onclick="DTPWidgets.move(' + idx + ',1)">↓</button>'
+        + '<button class="wdg-ico" title="Informations" onclick="DTPWidgets.toggleInfo(' + idx + ')">' + ICO.info + '</button>'
+        + '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
         + '<button class="wdg-ico wdg-ico--x" title="Retirer" onclick="DTPWidgets.remove(' + idx + ')">×</button>'
-        + '</span></header><div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div></section>';
+        + '</span></header>'
+        // Panneau INFO (overlay, masqué) : que montre ce widget + d'où vient la donnée.
+        + '<div class="wdg-pop wdg-info" id="' + HOST_ID + '-i' + idx + '" hidden>'
+        +   '<div class="wdg-pop-t">' + esc(w.name) + '</div>'
+        +   '<div class="wdg-pop-d">' + esc(w.desc) + '</div>'
+        +   '<div class="wdg-pop-m">' + esc(w.cat) + ' · donnée en direct du desk</div>'
+        + '</div>'
+        // Panneau RÉGLAGES (overlay, masqué) : hauteur / largeur / position.
+        + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'
+        +   '<div class="wdg-set-row"><span class="wdg-set-lbl">Hauteur</span><span class="wdg-set-btns">'
+        +     chip(it.h <= 220, 'DTPWidgets.setHeight(' + idx + ',200)', 'Compact')
+        +     chip(it.h > 220 && it.h < 380, 'DTPWidgets.setHeight(' + idx + ',300)', 'Normal')
+        +     chip(it.h >= 380, 'DTPWidgets.setHeight(' + idx + ',460)', 'Grand')
+        +   '</span></div>'
+        +   '<div class="wdg-set-row"><span class="wdg-set-lbl">Largeur</span><span class="wdg-set-btns">'
+        +     chip(!full, 'DTPWidgets.setCol(' + idx + ',1)', 'Demi')
+        +     chip(full, 'DTPWidgets.setCol(' + idx + ',2)', 'Pleine')
+        +   '</span></div>'
+        +   '<div class="wdg-set-row"><span class="wdg-set-lbl">Position</span><span class="wdg-set-btns">'
+        +     chip(false, 'DTPWidgets.move(' + idx + ',-1)', '↑ Monter')
+        +     chip(false, 'DTPWidgets.move(' + idx + ',1)', '↓ Descendre')
+        +   '</span></div>'
+        + '</div>'
+        + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div></section>';
     }).join('');
+    // Rouvre le panneau réglages du widget qu'on vient d'ajuster (sinon il se referme à chaque clic).
+    if (_reopen != null) { var sp = document.getElementById(HOST_ID + '-s' + _reopen); if (sp) sp.hidden = false; _reopen = null; }
     // MONTAGE APRÈS insertion et affichage : amCharts mesure 0×0 dans un conteneur caché.
     requestAnimationFrame(function () {
       lay.items.forEach(function (it, idx) {
@@ -257,6 +290,15 @@
     }).join('');
   }
 
+  // Bascule un panneau overlay (info 'i' / réglages 's') d'une carte ; ferme tous les autres.
+  function _togglePop(idx, kind) {
+    var host = document.getElementById(HOST_ID); if (!host) return;
+    var target = document.getElementById(HOST_ID + '-' + kind + idx);
+    var willOpen = target && target.hidden;
+    host.querySelectorAll('.wdg-pop').forEach(function (p) { p.hidden = true; });   // un seul ouvert à la fois
+    if (target) target.hidden = !willOpen;
+  }
+
   /* ── ACTIONS (exposées : les onclick du HTML généré les appellent) ── */
   var API = {
     open: function () {                                   // appelé par activateView('widgets')
@@ -268,12 +310,19 @@
     move: function (i, d) {
       var l = activeLayout(); if (!l) return;
       var j = i + d; if (j < 0 || j >= l.items.length) return;
-      var t = l.items[i]; l.items[i] = l.items[j]; l.items[j] = t; save(); renderGrid();
+      var t = l.items[i]; l.items[i] = l.items[j]; l.items[j] = t;
+      _reopen = j; save(); renderGrid();                 // garde les réglages ouverts sur le widget déplacé
     },
-    toggleCol: function (i) {
-      var l = activeLayout(); if (!l) return;
-      l.items[i].col = l.items[i].col === 2 ? 1 : 2; save(); renderGrid();
+    setHeight: function (i, h) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      l.items[i].h = Math.min(900, Math.max(120, h | 0)); _reopen = i; save(); renderGrid();
     },
+    setCol: function (i, c) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      l.items[i].col = (c === 2 ? 2 : 1); _reopen = i; save(); renderGrid();
+    },
+    toggleInfo: function (i) { _togglePop(i, 'i'); },
+    toggleSettings: function (i) { _togglePop(i, 's'); },
     add: function (wid) {
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
       l.items.push({ w: wid, h: w.h, col: 1 }); save(); API.closeLib(); renderGrid();
