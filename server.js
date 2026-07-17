@@ -13933,13 +13933,28 @@ function _freshDaily() {
         // Recap Quotidien (FX Recap) : construit des SECTIONS pour le brief du mail a partir de ses champs
         // reels -> les NEWS DU JOUR (titres, donnees publiees reel-vs-attendu, banques centrales, a suivre).
         const fx = it._fxr, secs = [];
-        const _first = s => { const t = String(s || '').trim(); const i = t.indexOf('. '); return (i > 30 && i < 220) ? t.slice(0, i + 1) : t.slice(0, 220); };
+        // ⚠️ NE JAMAIS revenir à un « garde la 1re phrase » ici (bug user 17/07 « aucune vraie info
+        // fondamentale ») : le prompt du FX Recap impose des textes « cause → effet » où la 1re phrase
+        // n'est QUE l'accroche (« Les marchés asiatiques ont été affectés par… ») et où le CHIFFRE et
+        // sa conséquence arrivent dans les phrases SUIVANTES. Couper à la 1re phrase jetait donc
+        // exactement le fondamental. On garde le texte COMPLET (déjà borné et dense côté rapport),
+        // coupé proprement en fin de phrase seulement s'il dépasse la limite de lecture mail.
+        const _dense = (s, max) => {
+          const t = String(s || '').replace(/\s+/g, ' ').trim();
+          if (t.length <= max) return t;
+          const cut = t.slice(0, max);
+          const d = Math.max(cut.lastIndexOf('. '), cut.lastIndexOf('! '), cut.lastIndexOf('? '));
+          return (d > max * 0.5) ? cut.slice(0, d + 1).trim() : cut.replace(/\s+\S*$/, '').trim() + '…';
+        };
         const heads = (Array.isArray(fx.headlines) ? fx.headlines : []).map(h => h && h.title).filter(Boolean).slice(0, 5);
         if (heads.length) secs.push({ title: 'Les titres du jour', kind: 'bullets', items: heads });
-        // Analyse régionale (US / Europe / Asie-Pacifique / Canada) : 1 phrase par région, comme le rapport.
-        const regs = (Array.isArray(fx.regions) ? fx.regions : []).filter(r => r && r.name && r.summary).slice(0, 4).map(r => r.name + ' : ' + _first(r.summary));
+        // Analyse régionale (Asie / Londres / New York) : le récit COMPLET de la session (2-3 phrases
+        // denses avec le driver chiffré), pas seulement son accroche.
+        const regs = (Array.isArray(fx.regions) ? fx.regions : []).filter(r => r && r.name && r.summary).slice(0, 4).map(r => r.name + ' : ' + _dense(r.summary, 460));
         if (regs.length) secs.push({ title: 'Analyse régionale', kind: 'bullets', items: regs });
-        const cbs = (Array.isArray(fx.centralBanks) ? fx.centralBanks : []).filter(c => c && c.name && c.text).slice(0, 3).map(c => c.name + ' : ' + _first(c.text));
+        // Banques centrales : posture + pricing du marché + ce qu'il faut surveiller (le rapport en écrit
+        // 2-3 phrases ; la 1re seule donnait le creux « la Fed pourrait relever les taux… »).
+        const cbs = (Array.isArray(fx.centralBanks) ? fx.centralBanks : []).filter(c => c && c.name && c.text).slice(0, 3).map(c => c.name + ' : ' + _dense(c.text, 400));
         if (cbs.length) secs.push({ title: 'Focus banques centrales', kind: 'bullets', items: cbs });
         const dataRows = [];
         for (const e of (Array.isArray(fx.econData) ? fx.econData : [])) {
@@ -13951,7 +13966,15 @@ function _freshDaily() {
           if (dataRows.length >= 6) break;
         }
         if (dataRows.length) secs.push({ title: 'Données économiques clés', kind: 'data', data: dataRows });
-        const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).map(x => x && x.event).filter(Boolean).slice(0, 4);
+        // « À suivre » : l'intitulé SEUL (« FDI (YTD) YoY ») ne dit rien à un lecteur de mail. On porte les
+        // champs déjà présents dans fx.lookahead (ts/ccy/importance/forecast/previous) → date FR (Paris),
+        // devise, et le consensus attendu : le lecteur sait QUAND, sur QUELLE devise et CE QUI est attendu.
+        const _laDay = ts => { try { return new Date(ts).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' }); } catch { return ''; } };
+        const la = (Array.isArray(fx.lookahead) ? fx.lookahead : []).filter(x => x && x.event).slice(0, 5).map(x => {
+          const when = x.ts ? _laDay(x.ts) : '';
+          const vals = [x.forecast ? 'prév. ' + x.forecast : '', x.previous ? 'préc. ' + x.previous : ''].filter(Boolean).join(', ');
+          return [when, x.ccy || '', x.event].filter(Boolean).join(' · ') + (vals ? ' — ' + vals : '') + (/high/i.test(x.importance || '') ? ' (impact élevé)' : '');
+        });
         if (la.length) secs.push({ title: 'À suivre', kind: 'bullets', items: la });
         return _noDashDeep({ kind: 'fxr', title: fx.title || '', summary: fx.summary || '', insights: Array.isArray(fx.insights) ? fx.insights.slice(0, 4) : [], sections: secs, dateLabel: fx.dateLabel || '', hasComments: !!(Array.isArray(fx.comments) && fx.comments.length) });
       }
