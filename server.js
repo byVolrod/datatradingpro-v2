@@ -14162,8 +14162,10 @@ async function _mindsetEnsureFresh(recentKeys) {
     const wk = String(_parisParts().isoWeek);
     const GEN = 'campaign:mindset-gen-week';
     let last = null; try { last = await auth.aiCacheGet(GEN, 90 * 864e5); } catch {}
-    if (last && last.week === wk && last.key && aiPool.some(c => c.key === last.key)) return { extras: aiPool, forceKey: last.key };
-    if (ai.backoffActive && ai.backoffActive()) return out;                        // IA indisponible → repli catalogue (envoi garanti)
+    if (last && last.week === wk && last.key && aiPool.some(c => c.key === last.key)) { console.log('[Campagne] Mindset : concept de la semaine ' + wk + ' déjà généré (' + (last.format || '?') + ') → réutilisé pour tous'); return { extras: aiPool, forceKey: last.key }; }
+    // Observabilité (17/07) : ces deux sorties étaient SILENCIEUSES → impossible de savoir pourquoi un
+    // jeudi repartait sur l'ancien catalogue. Elles se voient désormais dans les logs.
+    if (ai.backoffActive && ai.backoffActive()) { console.warn('[Campagne] Mindset : IA en backoff → pas de génération, repli sur la rotation du catalogue (l\'envoi part quand même)'); return out; }
     const allConcepts = [...(mailer.MINDSET_CONCEPTS || []), ...aiPool];
     const dejaTraites = allConcepts.map(c => String(c.subject || '').replace(/[\p{Emoji_Presentation}️]/gu, '').trim()).filter(Boolean).join(' · ');
     // FORMAT de la semaine (rotation) : pilote le squelette de rédaction. Le format « ancré » exige des
@@ -14191,7 +14193,7 @@ ${macro}` : ''}`;
       console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO) — format « ' + fmt.label + ' » : ' + item.subject);
       return { extras: next, forceKey: item.key };
     }
-    console.warn('[Campagne] Mindset IA : concept rejeté (forme ou veto informatif) → rotation du catalogue');
+    console.warn('[Campagne] Mindset IA : concept rejeté (forme ou veto informatif) → rotation du catalogue | sujet=' + JSON.stringify((c && c.subject) || '').slice(0, 60) + ' paras=' + ((c && c.paras || []).length) + ' closing=' + (!!(c && c.closing)));
   } catch (e) { console.warn('[Campagne] Mindset IA échec : ' + e.message + ' → rotation du catalogue'); }
   return out;
 }
