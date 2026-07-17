@@ -6914,20 +6914,27 @@ function _renderFXDailyRecap(item) {
   if ((w.lookahead || []).length) {
     const _flag = c => (typeof CAL_FLAG === 'function' && c) ? CAL_FLAG(c) : '';
     const _dots = i => (typeof calImpDots === 'function') ? calImpDots(i) : _wrEsc(i || '');
+    // Cellules de VALEURS identiques au calendrier (réel coloré vs prévision via calActualCell ;
+    // high/prévision en cv-forecast, low/précédent en cv-prev ; vide = tiret cv-empty).
+    const _vf = v => v ? `<span class="cv-forecast">${_wrEsc(v)}</span>` : '<span class="cv-empty">—</span>';
+    const _vp = v => v ? `<span class="cv-prev">${_wrEsc(v)}</span>` : '<span class="cv-empty">—</span>';
+    const _va = e => (typeof calActualCell === 'function') ? calActualCell(e.actual || '', e.forecast || '', e.low || '', e.event || '') : _vf(e.actual);
     let rows = '', lastDay = null;
     w.lookahead.forEach(e => {
       const d = e.ts ? new Date(e.ts) : null;
       const dayLbl = d ? d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
       if (dayLbl && dayLbl !== lastDay) {
         lastDay = dayLbl;
-        rows += `<tr class="cal-day-sep"><td colspan="5">${_wrEsc(dayLbl.charAt(0).toUpperCase() + dayLbl.slice(1))}</td></tr>`;
+        rows += `<tr class="cal-day-sep"><td colspan="10">${_wrEsc(dayLbl.charAt(0).toUpperCase() + dayLbl.slice(1))}</td></tr>`;
       }
       const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—';
       const catBc = /banque centrale/i.test(e.category || '') ? ' <span class="fxdr-cal-cat">· Banque centrale</span>' : '';
-      rows += `<tr class="cal-row"><td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '—')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}</td></tr>`;
+      rows += `<tr class="cal-row"><td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '—')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}</td>`
+        + `<td class="cth-val">${_va(e)}</td><td class="cth-val">${_vf(e.high)}</td><td class="cth-val">${_vf(e.forecast)}</td><td class="cth-val">${_vp(e.low)}</td><td class="cth-val">${_vp(e.previous)}</td></tr>`;
     });
-    body += _sec('À surveiller') + `<div class="fxdr-callike"><table class="cal-table"><thead><tr>`
-      + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
+    body += _sec('À surveiller') + `<div class="fxdr-callike"><div class="fxdr-tablewrap"><table class="cal-table"><thead><tr>`
+      + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th>'
+      + '<th class="cth-val">Réel</th><th class="cth-val">High</th><th class="cth-val">Prévision</th><th class="cth-val">Low</th><th class="cth-val">Précédent</th></tr></thead><tbody>' + rows + '</tbody></table></div></div>';
   }
 
   // ── Commentaires marquants (notable comments) : tout en bas du rapport ──
