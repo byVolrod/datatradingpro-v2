@@ -2645,6 +2645,7 @@ function buildNewsItem(item) {
         .then(html => {
           if (activeTab !== 'eco' || !expandEl.isConnected) return;
           expandEl.innerHTML = html || '<ul class="article-points article-points--clean"><li>Décryptage indisponible pour cet événement.</li></ul>';
+          if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(expandEl, '.cal-kb-quote');   // propos BC (titres du fil, EN) → FR en place
         })
         .catch(() => {});
       return;

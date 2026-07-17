@@ -6821,10 +6821,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-detail-sub { font-size: 11px; color: #9aa0a6; font-family: var(--font-mono); margin-top: 3px; }
 .cal-detail-close { font-size: 22px; line-height: 1; color: #777; cursor: pointer; padding: 0 4px; }
 .cal-detail-close:hover { color: #fff; }
-.cal-detail-vals { display: flex; gap: 10px; padding: 14px 18px; }
-.cdv { flex: 1; background: #16171b; border: 1px solid #1f1f24; border-radius: 4px; padding: 9px 10px; text-align: center; }
-.cdv-lbl { display: block; font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a9097; margin-bottom: 5px; font-family: var(--font-mono); }
-.cdv .cv-actual, .cdv .cv-forecast, .cdv .cv-prev { font-size: 15px; font-weight: var(--fw-bold); }
+/* Compacté 17/07 (demande user « moins gros, cohérent ») : boîtes discrètes alignées sur la densité HUD */
+.cal-detail-vals { display: flex; gap: 8px; padding: 10px 18px 2px; }
+.cdv { flex: 1; background: #16171b; border: 1px solid #1f1f24; border-radius: 4px; padding: 5px 8px; text-align: center; }
+.cdv-lbl { display: block; font-size: 8.5px; letter-spacing: 0.08em; text-transform: uppercase; color: #8a9097; margin-bottom: 3px; font-family: var(--font-mono); }
+.cdv .cv-actual, .cdv .cv-forecast, .cdv .cv-prev { font-size: 12.5px; font-weight: var(--fw-bold); }
+.cdv .cv-empty { font-size: 11px; }
 .cal-detail-body { padding: 6px 18px 20px; }
 .cal-detail-section { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #e3b23a; font-weight: var(--fw-bold); margin: 16px 0 8px; font-family: var(--font-mono); }
 .cal-specs-table, .cal-hist-table { width: 100%; border-collapse: collapse; font-size: 12px; }
@@ -6843,6 +6845,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-kb-cat { display: inline-block; font-size: 10px; font-weight: 700; color: #e3b23a; background: rgba(227,178,58,.10); border: 1px solid rgba(227,178,58,.25); border-radius: 3px; padding: 0 5px; margin-right: 6px; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
 .cal-kb-tone { display: inline-block; font-size: 10.5px; font-weight: 700; border: 1px solid; border-radius: 3px; padding: 0 5px; margin-right: 6px; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
 .cal-kb-quote { color: #b8bcc4; font-style: italic; margin: 2px 0; }
+.cal-kb-quote::before { content: '« '; color: #6f6f79; }
+.cal-kb-quote::after  { content: ' »'; color: #6f6f79; }   /* guillemets hors texte → la traduction FR en place ne les mange pas */
 .cal-kb-sub { color: #8a9097; font-size: 11px; margin-top: 2px; }
 
 /* ── Déroulé INLINE d'un événement (accordéon sous la ligne — remplace la modale) ── */
