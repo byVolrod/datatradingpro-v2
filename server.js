@@ -635,6 +635,65 @@ app.post('/api/profile-avatar', async (req, res) => {
   } catch { res.status(500).json({ ok: false }); }
 });
 
+// ══ SYSTÈME DE WIDGETS « MON DESK » — layouts composés PAR COMPTE (KV Supabase wdg:<userId>) ══════
+// L'utilisateur compose son desk : il choisit ses widgets, les arrange, enregistre plusieurs layouts
+// nommés et bascule de l'un à l'autre. Modèle = journal:/avatar: (données privées, objet structuré,
+// TTL « forever »). Le préfixe 'wdg:' n'est PAS dans AICACHE_PRUNABLE → JAMAIS purgé par la
+// rétention 31 j (un layout perdu = le cockpit du client effacé).
+// EXCEPTION ASSUMÉE à la règle « volatil » de CLAUDE.md (splitter/chat = reset au reload) : un cockpit
+// se refabrique en plusieurs minutes — il DOIT suivre le compte, comme les recherches récentes et la
+// config d'alertes (exceptions déjà validées par le user).
+// Déployé DERRIÈRE UN FLAG ADMIN côté client : ces routes sont inertes pour qui n'ouvre pas l'onglet.
+const _WDG_KV_TTL = 8640000000000;      // « forever » (la BDD reste la vérité) — NE PAS omettre : le défaut 6 h re-télécharge à chaque expiration (egress)
+const _WDG_MAX_LAYOUTS = 12;            // cap anti-abus / anti-OOM
+const _WDG_MAX_ITEMS = 24;              // widgets par layout
+const _WDG_ID_RX = /^[a-z0-9-]{2,40}$/; // ids de widgets = catalogue front (kebab-case)
+// Sanitisation SERVEUR : on reconstruit l'objet champ par champ (jamais de confiance au client).
+function _wdgClean(body) {
+  const b = (body && typeof body === 'object') ? body : {};                  // null/undefined/scalaire → objet vide
+  const inLayouts = Array.isArray(b.layouts) ? b.layouts : [];
+  const seen = new Set();                                                    // ids déjà pris → unicité GARANTIE
+  const layouts = inLayouts
+    .filter(l => l && typeof l === 'object')                                 // null/42/'x' dans le tableau : écartés AVANT toute lecture de champ
+    .slice(0, _WDG_MAX_LAYOUTS)
+    .map((l, i) => {
+      const items = (Array.isArray(l.items) ? l.items : []).slice(0, _WDG_MAX_ITEMS)
+        .filter(it => it && typeof it.w === 'string' && _WDG_ID_RX.test(it.w))
+        .map(it => ({
+          w: it.w,                                                           // id du widget (catalogue front)
+          h: Math.min(900, Math.max(120, parseInt(it.h, 10) || 260)),        // hauteur px (bornée)
+          col: (it.col === 2 || it.col === '2') ? 2 : 1,                     // 1 = demi-largeur, 2 = pleine
+        }));
+      // Unicité de l'id : sans ça, deux layouts homonymes (ou un repli 'layout-2' entrant en collision
+      // avec un id explicite 'layout-2') rendraient `active` ambigu → le front rouvrirait le mauvais desk.
+      let id = (typeof l.id === 'string' && _WDG_ID_RX.test(l.id)) ? l.id : 'layout-' + (i + 1);
+      if (seen.has(id)) { let n = 2; while (seen.has(id + '-' + n)) n++; id = id + '-' + n; }
+      seen.add(id);
+      return {
+        id,
+        name: String(l.name || 'Sans nom').replace(/[<>]/g, '').trim().slice(0, 40) || 'Sans nom',
+        fav: !!l.fav,
+        items,
+      };
+    });
+  return { layouts, active: (typeof b.active === 'string' && seen.has(b.active)) ? b.active : (layouts[0] ? layouts[0].id : null) };
+}
+app.get('/api/widgets', async (req, res) => {
+  if (!req.session?.userId) return res.json({ cfg: null });
+  try {
+    const v = await auth.aiCacheGet('wdg:' + req.session.userId, _WDG_KV_TTL);
+    res.json({ cfg: (v && typeof v === 'object' && Array.isArray(v.layouts)) ? _wdgClean(v) : null });   // cfg:null = aucun layout enregistré → le front propose ses presets
+  } catch { res.json({ cfg: null }); }
+});
+app.post('/api/widgets', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const cfg = _wdgClean(req.body || {});
+    await auth.aiCacheSet('wdg:' + req.session.userId, cfg);
+    res.json({ ok: true, cfg });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
 // ── JOURNAL DE TRADING — persistant PAR COMPTE (KV Supabase journal:<userId>, même modèle que
 // symrecent : suit la reconnexion, même sur un autre appareil). Données PRIVÉES de l'utilisateur.
 // Le préfixe 'journal:' n'est PAS dans AICACHE_PRUNABLE → jamais purgé par la rétention 31 j. ──
