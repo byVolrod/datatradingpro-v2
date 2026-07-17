@@ -14055,20 +14055,67 @@ async function _mindsetAiPool() { try { const a = await auth.aiCacheGet('campaig
 //    _mindsetParas côté mailer). Deux jeudis de suite ne partagent JAMAIS le même squelette.
 //    Le VETO informatif reste entier : psychologie/discipline uniquement, jamais de position ni d'actif
 //    (le contrôle _mindsetAiSane le vérifie, quel que soit le format).
+// SORTIE EN LIGNES BALISÉES (jamais de JSON) : un mail Mindset est plein d'apostrophes, de guillemets et
+// de « … » — l'IA cassait systématiquement le JSON (vécu 17/07 : « Expected ',' or ']' ... position 924 »
+// → repli catalogue, donc l'ancien moule). Le format ligne-à-ligne n'a AUCUN échappement à respecter :
+// la génération réussit, et l'autonomie est réelle. Balises → marqueurs de rendu (_mindsetParas).
 const _MINDSET_FORMATS = [
   { key: 'ancre', label: 'Récit ancré sur la semaine',
-    shape: `{"subject":"<emoji sobre + titre court>","paras":["# <UNE phrase : un événement macro NOMMÉ de cette semaine (ex. une publication d'inflation sortie sous les attentes, une réunion de banque centrale) — SANS aucun chiffre de prix, SANS actif ni paire, SANS position>","<para : ce que ce moment a déclenché DANS LA TÊTE des traders, 2 phrases>","<para : le piège psychologique que ça révèle>","<para : le recadrage concret>","<para de clôture apaisant>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
-    extra: `FORMAT « RÉCIT ANCRÉ » : pars d'un moment RÉEL de la semaine (macro) pour parler d'ÉTAT D'ESPRIT. L'événement n'est qu'un décor : 90 % du texte parle de psychologie. Le 1er para DOIT commencer par « # ». AUCUNE puce. 5 paragraphes maximum.` },
+    shape: `SUJET: <un emoji sobre + titre court accrocheur>
+ENCART: <UNE phrase : un événement macro NOMMÉ de cette semaine, pris dans les FAITS RÉELS ci-dessous, sans aucun chiffre>
+PARA: <ce que ce moment a déclenché DANS LA TÊTE des traders, 2 phrases>
+PARA: <le piège psychologique que ça révèle, 2 phrases>
+PARA: <le recadrage concret, 2 phrases>
+PARA: <clôture apaisante, 1 à 2 phrases>
+QUESTION: <question introspective au lecteur, tutoiement, finit par ?>`,
+    extra: `FORMAT « RÉCIT ANCRÉ » : pars d'un moment RÉEL de la semaine pour parler d'ÉTAT D'ESPRIT. L'événement n'est qu'un décor : 90 % du texte parle de psychologie. EXACTEMENT une ligne ENCART, puis 4 lignes PARA. Aucune PUCE.` },
   { key: 'court', label: 'Une seule idée, très court',
-    shape: `{"subject":"<emoji sobre + titre court>","paras":["<para d'ouverture : le constat, UNE phrase percutante>","<para : le développement, 2 phrases max>","<para : le contre-exemple ou la nuance, 2 phrases>","<para de clôture, 1 phrase>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
-    extra: `FORMAT « TRÈS COURT » : UNE seule idée, 180 à 220 mots TOTAL, phrases courtes, AUCUNE puce, 4 paragraphes maximum. Chaque phrase doit mériter sa place ; supprime tout ce qui n'est pas indispensable.` },
+    shape: `SUJET: <un emoji sobre + titre court accrocheur>
+PARA: <le constat, UNE phrase percutante>
+PARA: <le développement, 2 phrases maximum>
+PARA: <le contre-exemple ou la nuance, 2 phrases>
+PARA: <clôture, 1 phrase>
+QUESTION: <question introspective au lecteur, tutoiement, finit par ?>`,
+    extra: `FORMAT « TRÈS COURT » : UNE seule idée, 180 à 220 mots AU TOTAL, phrases courtes. EXACTEMENT 4 lignes PARA, aucune PUCE, aucun ENCART. Chaque phrase doit mériter sa place.` },
   { key: 'tri', label: 'Constat, question de tri, deux branches',
-    shape: `{"subject":"<emoji sobre + titre court>","paras":["<para : le constat douloureux, sans préambule, 2 phrases>","<para : la QUESTION DE TRI posée au lecteur (ex. « est-ce que ça vient de ta méthode, ou de tes décisions ? »)>","→ Si c'est <la 1re branche> : <2 phrases de conseil concret pour ce cas>","→ Si c'est <la 2e branche> : <2 phrases de conseil concret pour ce cas>","<para de clôture : le renversement, ce que ça dit vraiment>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
-    extra: `FORMAT « TRI » : le lecteur doit se situer lui-même dans l'UNE des deux branches. Les 2 paragraphes de branche DOIVENT commencer par « → » et porter « Libellé : texte ». AUCUNE puce.` },
+    shape: `SUJET: <un emoji sobre + titre court accrocheur>
+PARA: <le constat douloureux, sans préambule, 2 phrases>
+PARA: <la question de tri posée au lecteur : ce problème vient-il de X ou de Y ?>
+BRANCHE: <libellé court de la 1re branche> : <2 phrases de conseil concret pour ce cas>
+BRANCHE: <libellé court de la 2e branche> : <2 phrases de conseil concret pour ce cas>
+PARA: <le renversement final, ce que ça dit vraiment, 2 phrases>
+QUESTION: <question introspective au lecteur, tutoiement, finit par ?>`,
+    extra: `FORMAT « TRI » : le lecteur doit se situer lui-même dans l'UNE des deux branches. EXACTEMENT 2 lignes BRANCHE, chacune au format « Libellé : texte ». Aucune PUCE.` },
   { key: 'scene', label: 'Scène intérieure',
-    shape: `{"subject":"<emoji sobre + titre court>","paras":["<para : plante la scène en 2 phrases (un moment précis devant l'écran)>","> <la pensée intérieure du trader à cet instant, telle qu'elle surgit, 1 à 2 phrases, à la 1re personne>","<para : ce que cette pensée révèle vraiment>","> <la pensée qu'aurait un trader qui a fait le travail, 1 à 2 phrases, 1re personne>","<para : ce qui sépare les deux, concrètement>","<para de clôture>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
-    extra: `FORMAT « SCÈNE » : mets en scène un instant précis. Les 2 pensées intérieures DOIVENT commencer par « > » et être à la 1re personne. AUCUNE puce.` },
+    shape: `SUJET: <un emoji sobre + titre court accrocheur>
+PARA: <plante la scène en 2 phrases : un moment précis devant l'écran>
+PENSEE: <la pensée intérieure du trader à cet instant, 1re personne, 1 à 2 phrases>
+PARA: <ce que cette pensée révèle vraiment, 2 phrases>
+PENSEE: <la pensée qu'aurait un trader qui a fait le travail, 1re personne, 1 à 2 phrases>
+PARA: <ce qui sépare les deux, concrètement, 2 phrases>
+QUESTION: <question introspective au lecteur, tutoiement, finit par ?>`,
+    extra: `FORMAT « SCÈNE » : mets en scène un instant précis. EXACTEMENT 2 lignes PENSEE, à la 1re personne. Aucune PUCE.` },
 ];
+// Parse la sortie balisée → { subject, paras, closing } avec les marqueurs de rendu attendus par mailer.
+function _mindsetParseLines(text) {
+  const out = { subject: '', paras: [], closing: '' };
+  for (const raw of String(text || '').split('\n')) {
+    const line = raw.trim();
+    if (!line) continue;
+    const m = line.match(/^(SUJET|ENCART|PARA|PUCE|PENSEE|BRANCHE|QUESTION)\s*:\s*(.+)$/i);
+    if (!m) continue;
+    const tag = m[1].toUpperCase(), val = m[2].trim();
+    if (!val || /^</.test(val)) continue;                       // gabarit non rempli (« <texte> ») → ignoré
+    if (tag === 'SUJET') { if (!out.subject) out.subject = val; continue; }
+    if (tag === 'QUESTION') { out.closing = val; continue; }
+    if (tag === 'ENCART') out.paras.push('# ' + val);
+    else if (tag === 'PENSEE') out.paras.push('> ' + val);
+    else if (tag === 'BRANCHE') out.paras.push('→ ' + val);
+    else if (tag === 'PUCE') out.paras.push('- ' + val);
+    else out.paras.push(val);
+  }
+  return out;
+}
 // Format de la semaine : rotation stricte sur la semaine ISO → jamais 2 fois de suite le même squelette.
 function _mindsetFormatOfWeek() {
   try { const w = parseInt(String(_parisParts().isoWeek).replace(/\D/g, ''), 10) || 0; return _MINDSET_FORMATS[w % _MINDSET_FORMATS.length]; }
@@ -14124,7 +14171,7 @@ async function _mindsetEnsureFresh(recentKeys) {
     let fmt = _mindsetFormatOfWeek();
     const macro = fmt.key === 'ancre' ? _mindsetMacroCtx() : null;
     if (fmt.key === 'ancre' && !macro) { fmt = _MINDSET_FORMATS[1]; console.warn('[Campagne] Mindset : aucun fait macro publié cette semaine → format « ancré » abandonné (jamais d\'invention), bascule sur « ' + fmt.label + ' »'); }
-    const prompt = `Tu écris le prochain e-mail « Mindset » de la newsletter DataTradingPro (traders francophones). Réponds UNIQUEMENT un JSON valide de la forme EXACTE :
+    const prompt = `Tu écris le prochain e-mail « Mindset » de la newsletter DataTradingPro (traders francophones). Réponds UNIQUEMENT avec les lignes ci-dessous, une par ligne, en gardant EXACTEMENT ces étiquettes en tête de ligne et en remplaçant chaque <…> par ton texte. AUCUN préambule, AUCUN JSON, AUCUNE ligne en plus :
 ${fmt.shape}
 ${fmt.extra}
 Règles ABSOLUES : psychologie et discipline de trading UNIQUEMENT (état d'esprit) ; AUCUN actif ni paire de devises, AUCUN chiffre de prix, AUCUNE prédiction, AUCUNE incitation à acheter/vendre ou prendre position ; ton bienveillant, concret, jamais moralisateur ; tutoiement ; français impeccable ; JAMAIS de tiret cadratin ; respecte EXACTEMENT le nombre de paragraphes et les marqueurs de début (« # », « > », « → ») imposés par le format.
@@ -14134,8 +14181,7 @@ Choisis UN thème NOUVEAU (ex. : gérer une série de gains, l'ennui des marché
 FAITS MACRO RÉELS de la semaine écoulée (le SEUL matériau autorisé pour l'ancrage ; n'invente RIEN d'autre, ne cite AUCUN de ces chiffres, nomme seulement l'événement) :
 ${macro}` : ''}`;
     const text = await ai.generateText(prompt, 2200);
-    const m = String(text || '').match(/\{[\s\S]*\}/);
-    const c = m ? JSON.parse(m[0]) : null;
+    const c = _mindsetParseLines(text);   // lignes balisées → aucun échappement à respecter (fini les JSON cassés)
     if (_mindsetAiSane(c)) {
       const clean = s => String(s).replace(/—/g, ':').trim();
       const item = { key: 'ai-' + Date.now(), subject: clean(c.subject), paras: c.paras.map(p => clean(p)).filter(Boolean), closing: clean(c.closing), format: fmt.key, _ai: true, createdAt: Date.now() };
