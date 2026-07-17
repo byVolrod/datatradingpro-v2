@@ -217,7 +217,7 @@ function _wsUserIdFromReq(req) {
 
 // ─── Auth middleware ──────────────────────────────────────────────────────────
 // Public = static assets (CSS/JS), login page, auth endpoints
-const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
+const _PUBLIC_PATHS    = new Set(['/login', '/login.html', '/robots.txt', '/favicon.ico', '/favicon.svg', '/favicon.png', '/manifest.json', '/icon-192.png', '/icon-512.png', '/healthz', '/api/ticker', '/api/pricing', '/api/version',
   '/week-ahead', '/week-ahead.html', '/api/week-ahead', '/api/calendar-events', '/api/week-ahead-news', '/api/mosaic-images',
   '/internal/landing-snapshot', '/api/hero-news', '/api/hero-recaps', '/api/hero-strength', '/actualites', '/sitemap-actualites.xml']);   // page Week Ahead PUBLIQUE + mosaïque login ; + endpoint cron landing (token) ; + fil hero LIVE + recaps analystes + force des devises LIVE de la landing (public + CORS) ; + pages SEO Actualités + leur sitemap dynamique (proxy nginx datatradingpro.com)
 const _PUBLIC_PREFIXES = ['/css/', '/js/', '/api/auth/', '/api/whop/', '/downloads/', '/actualites/', '/api/email-widget/', '/internal/email-widget/', '/internal/email-campaign', '/api/unsubscribe', '/api/track/', '/api/v1/'];   // /api/v1/ = API programmatique : le gate SESSION est bypassé mais CHAQUE route v1 exige une CLÉ API (requireApiKey)   // /downloads/ PUBLIC : l'installeur desktop doit etre telechargeable AVANT le login ; /actualites/ = pages SEO ; /api/email-widget/ + /internal/email-widget/ = images de widgets pour les e-mails (puppeteer + clients mail) ; /api/unsubscribe = lien de desinscription dans les mails de campagne (doit marcher sans login)
@@ -315,6 +315,15 @@ app.get('/login', (req, res) => {
   if (req.session?.userId) return res.redirect('/');
   res.set('Cache-Control', 'no-cache, must-revalidate');
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+// robots.txt du DESK (Bing WMT 16/07 « meta robots à revoir ») : la page de CONNEXION est indexable
+// (requêtes navigationnelles « datatradingpro connexion ») ; tout le reste de l'app reste fermé aux
+// crawlers. Sans cette route, /robots.txt tombait dans le gate session → 302 /login = signal sale.
+// (Allow plus long que Disallow → prioritaire chez Google ET Bing ; `/$` = la racine seule.)
+app.get('/robots.txt', (_req, res) => {
+  res.type('text/plain').set('Cache-Control', 'public, max-age=3600')
+    .send('User-agent: *\nAllow: /login\nAllow: /$\nDisallow: /\n');
 });
 
 app.get('/admin', requireAuth, requireAdmin, (_req, res) => {
