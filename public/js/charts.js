@@ -3228,7 +3228,7 @@ async function _calValueBlockHtml(ev) {
       && /:/.test(i.headline)).slice(0, 3);   // « Fed's Logan: … » = un propos rapporté (les annonces sans « : » sont ignorées)
     const tone = _calToneOf(quotes.map(q => q.headline));
     if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
-    if (quotes.length) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Derniers propos</span><span class="cal-kb-val">${quotes.map(q => `<div class="cal-kb-quote">« ${_calEsc(q.headline)} »</div>`).join('')}</span></div>`);
+    if (quotes.length) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Derniers propos</span><span class="cal-kb-val">${quotes.map(q => `<div class="cal-kb-quote">${_calEsc(q.headline)}</div>`).join('')}</span></div>`);   // guillemets via CSS ::before/::after → le texte nu part à la traduction FR
     const rates = await _calRatesGet();
     const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);
     if (bank) {
@@ -3294,8 +3294,8 @@ async function toggleCalDetailRow(tr, ev) {
   tr.classList.add('cal-row--expanded');
 
   const dateStr = ev.timestamp
-    ? new Date(ev.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' })
-    : '';
+    ? new Date(ev.timestamp).toLocaleDateString('fr-FR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric', timeZone: 'Europe/Paris' })
+    : '';   // Europe/Paris (bug 17/07 : la date UTC affichait « jeudi 16 » pour un événement du vendredi 17 à 01:00, l'heure étant déjà en Paris)
   const timeStr = calFormatTime(ev.timestamp) || ev.time || '';
   const detailRow = document.createElement('tr');
   detailRow.className = 'cal-detail-row';
@@ -3319,7 +3319,10 @@ async function toggleCalDetailRow(tr, ev) {
   try { kbHtml = await _calValueBlockHtml(ev) || ''; } catch {}
 
   if (!ev.url) {
-    if (bodyEl && bodyEl.isConnected) bodyEl.innerHTML = kbHtml || '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>';
+    if (bodyEl && bodyEl.isConnected) {
+      bodyEl.innerHTML = kbHtml || '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>';
+      if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(bodyEl, '.cal-kb-quote');   // propos BC (titres du fil, EN) → FR en place (demande user 17/07)
+    }
     return;
   }
 
@@ -3334,6 +3337,7 @@ async function toggleCalDetailRow(tr, ev) {
   if (!bodyEl || !bodyEl.isConnected) return;   // déroulé fermé entre-temps
   const detHtml = _calDetailBodyHtml(d);
   bodyEl.innerHTML = (kbHtml + detHtml) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
+  if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(bodyEl, '.cal-kb-quote');   // propos BC → FR en place
 }
 
 // ── Calendar helper: refresh data from server ─────────────────────────────────
