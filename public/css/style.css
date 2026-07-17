@@ -5725,6 +5725,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .fxdr-table tbody tr:hover { background: var(--row-hover); }
 .fxdr-table td.fxdr-rel { font-weight: var(--fw-semibold); color: #f3f3f5; }
 .fxdr-table td.fxdr-per, .fxdr-table td.dim { color: #85858c; }
+/* « À surveiller » façon CALENDRIER : réutilise cal-table, cal-day-sep, classes cth et points d'impact
+   du vrai calendrier. (Piège vécu : « cth-* / » écrit avec l'étoile-slash fermait ce commentaire.) */
+.fxdr-callike { border: 1px solid #16171b; border-radius: 6px; overflow: hidden; margin-top: 2px; }
+.fxdr-callike .cal-table { width: 100%; border-collapse: collapse; }
+.fxdr-callike .cal-row td { padding: 8px 11px; border-bottom: 1px solid #131316; font-size: 12.5px; color: #dcdce0; }
+.fxdr-callike tbody tr:last-child td { border-bottom: none; }
+.fxdr-cal-cat { color: #85858c; font-size: 11px; }
 /* Devise de chaque donnée éco (Récap Quotidien / FX) : code mono or, colonne étroite */
 .fxdr-table td.fxdr-ccy { font-family: var(--font-mono, ui-monospace, monospace); font-weight: var(--fw-semibold); color: #e3b23a; white-space: nowrap; width: 1%; letter-spacing: .02em; }
 /* Devise en tête de puce éco (déplié dans le fil news) : petit badge or */

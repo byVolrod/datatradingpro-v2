@@ -6907,19 +6907,27 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
-  // ── Looking Ahead (table + badge d'importance) — Date + Devise en colonnes dédiées (demande user 16/07).
-  //    Anciens rapports (sans ts/ccy) : colonnes affichées « — », rien ne casse.
+  // ── Looking Ahead — MÊME identité que l'onglet Calendrier (demande user 16/07 « comme le calendrier
+  //    économique ») : séparateurs de jours, heure, drapeau rond + devise, points d'impact ●●●.
+  //    Réutilise les briques RÉELLES du calendrier (CAL_FLAG / calImpDots / cal-day-sep, charts.js).
+  //    Anciens rapports (sans ts/ccy) : ligne sans heure/drapeau, rien ne casse.
   if ((w.lookahead || []).length) {
-    body += _sec('À surveiller') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
-      + '<th>Date</th><th>Devise</th><th>Catégorie</th><th>Événement</th><th class="num">Importance</th></tr></thead><tbody>';
+    const _flag = c => (typeof CAL_FLAG === 'function' && c) ? CAL_FLAG(c) : '';
+    const _dots = i => (typeof calImpDots === 'function') ? calImpDots(i) : _wrEsc(i || '');
+    let rows = '', lastDay = null;
     w.lookahead.forEach(e => {
-      const imp = String(e.importance || '').toLowerCase();
-      const cls = /high/.test(imp) ? 'bias-bear' : /med/.test(imp) ? 'bias-neutral' : 'bias-bull';
-      const impFr = /high/.test(imp) ? 'Élevé' : /med/.test(imp) ? 'Moyen' : 'Faible';
-      const dt = e.ts ? new Date(e.ts).toLocaleDateString('fr-FR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: 'Europe/Paris' }) : '—';
-      body += `<tr><td class="fxdr-per" style="white-space:nowrap;">${_wrEsc(dt)}</td><td class="fxdr-ccy">${_wrEsc(e.ccy || '—')}</td><td class="fxdr-cat">${_wrEsc(e.category || '')}</td><td>${_wrEsc(e.event || '')}</td><td class="num"><span class="bias-badge ${cls}">${_wrEsc(impFr)}</span></td></tr>`;
+      const d = e.ts ? new Date(e.ts) : null;
+      const dayLbl = d ? d.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'Europe/Paris' }) : '';
+      if (dayLbl && dayLbl !== lastDay) {
+        lastDay = dayLbl;
+        rows += `<tr class="cal-day-sep"><td colspan="5">${_wrEsc(dayLbl.charAt(0).toUpperCase() + dayLbl.slice(1))}</td></tr>`;
+      }
+      const hhmm = d ? d.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' }) : '—';
+      const catBc = /banque centrale/i.test(e.category || '') ? ' <span class="fxdr-cal-cat">· Banque centrale</span>' : '';
+      rows += `<tr class="cal-row"><td class="cth-time">${_wrEsc(hhmm)}</td><td class="cth-flag">${_flag(e.ccy)}</td><td class="cth-curr">${_wrEsc(e.ccy || '—')}</td><td class="cth-imp">${_dots(e.importance)}</td><td class="cth-event">${_wrEsc(e.event || '')}${catBc}</td></tr>`;
     });
-    body += '</tbody></table></div>';
+    body += _sec('À surveiller') + `<div class="fxdr-callike"><table class="cal-table"><thead><tr>`
+      + '<th class="cth-time">Heure</th><th class="cth-flag"></th><th class="cth-curr">Devise</th><th class="cth-imp">Imp.</th><th class="cth-event">Événement</th></tr></thead><tbody>' + rows + '</tbody></table></div>';
   }
 
   // ── Commentaires marquants (notable comments) : tout en bas du rapport ──
