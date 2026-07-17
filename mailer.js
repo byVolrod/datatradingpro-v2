@@ -1460,31 +1460,44 @@ const MINDSET_CONCEPTS = [
 //   « → texte »  → BRANCHE : bloc à liseré or (format « tri » : si c'est ceci… / si c'est cela…)
 //   « # texte »  → ENCART de contexte desk (format « ancré » : ce qui s'est passé cette semaine)
 // Tout le reste = paragraphe normal. Rétro-compatible : les 12 concepts historiques n'utilisent que « - ».
+// Gras OR DTP : « **texte** » → <strong or>. Le mail Mindset doit être LISIBLE À LA VOLÉE (demande user
+// 17/07 : « du gras, couleur orange/doré, agréable pour le trader ») — un lecteur qui ne scanne QUE les
+// passages en or doit comprendre l'essentiel. On échappe AVANT de convertir (les * ne sont pas échappés).
+function _mindsetRich(s) {
+  return _esc(String(s == null ? '' : s))
+    .replace(/\*\*([^*]+)\*\*/g, '<strong style="color:#f3c344;font-weight:700;">$1</strong>')
+    .replace(/\*+/g, '');   // astérisques ORPHELINES (gras mal fermé par l'IA) → jamais visibles chez le lecteur
+}
 function _mindsetParas(paras) {
   let html = '', bullets = [];
-  const flush = () => { if (bullets.length) { html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 14px;">${bullets.map(b => `<tr><td style="padding:4px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_esc(b)}</td></tr>`).join('')}</table>`; bullets = []; } };
+  const flush = () => { if (bullets.length) { html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:4px 0 16px;">${bullets.map(b => `<tr><td style="padding:5px 0;color:#cbd5e1;font-size:14px;line-height:1.55;"><span style="color:#f3c344;font-weight:700;">&bull;</span>&nbsp;${_mindsetRich(b)}</td></tr>`).join('')}</table>`; bullets = []; } };
+  let first = true;
   for (const p of (paras || [])) {
     const s = String(p == null ? '' : p).trim();
     if (!s) continue;
     if (s.slice(0, 2) === '- ') { bullets.push(s.slice(2).trim()); continue; }
     flush();
     if (s.slice(0, 2) === '> ') {   // pensée intérieure (format scène)
-      html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 16px;"><tr><td style="padding:12px 16px;background:#101013;border-left:2px solid #f3c344;border-radius:0 6px 6px 0;color:#cbd5e1;font-size:14.5px;font-style:italic;line-height:1.6;">${_esc(s.slice(2).trim())}</td></tr></table>`;
-      continue;
+      html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 18px;"><tr><td style="padding:14px 18px;background:#101013;border-left:3px solid #f3c344;border-radius:0 6px 6px 0;color:#e6e6ea;font-size:15px;font-style:italic;line-height:1.65;">${_mindsetRich(s.slice(2).trim())}</td></tr></table>`;
+      first = false; continue;
     }
     if (s.slice(0, 2) === '→ ' || s.slice(0, 3) === '-> ') {   // branche (format tri)
       const t = s.replace(/^(→|->)\s*/, '').trim();
       const ix = t.indexOf(' : ');
       const lead = ix > 0 && ix < 70 ? t.slice(0, ix) : '';
       const rest = lead ? t.slice(ix + 3) : t;
-      html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 12px;"><tr><td style="padding:12px 15px;background:rgba(243,195,68,0.05);border:1px solid rgba(243,195,68,0.22);border-radius:8px;color:#e6e6ea;font-size:14.5px;line-height:1.6;">${lead ? `<strong style="color:#f3c344;">${_esc(lead)}</strong><br>` : ''}${_esc(rest)}</td></tr></table>`;
-      continue;
+      html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 14px;"><tr><td style="padding:14px 16px;background:rgba(243,195,68,0.06);border:1px solid rgba(243,195,68,0.26);border-radius:8px;color:#e6e6ea;font-size:14.5px;line-height:1.65;">${lead ? `<strong style="color:#f3c344;font-weight:700;">${_esc(lead)}</strong><br>` : ''}${_mindsetRich(rest)}</td></tr></table>`;
+      first = false; continue;
     }
     if (s.slice(0, 2) === '# ') {   // encart contexte desk (format ancré)
-      html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:8px 0 16px;"><tr><td style="padding:13px 16px;background:#101013;border:1px solid #232429;border-radius:8px;color:#9aa3b2;font-size:13.5px;line-height:1.6;"><span style="color:#f3c344;font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;">Cette semaine sur le desk</span><br>${_esc(s.slice(2).trim())}</td></tr></table>`;
-      continue;
+      html += `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 18px;"><tr><td style="padding:13px 16px;background:#101013;border:1px solid #232429;border-radius:8px;color:#c8ccd4;font-size:13.5px;line-height:1.6;"><span style="color:#f3c344;font-weight:700;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;">Cette semaine sur le desk</span><br>${_mindsetRich(s.slice(2).trim())}</td></tr></table>`;
+      first = false; continue;
     }
-    html += `<p style="margin:0 0 14px;font-size:15px;color:#e6e6ea;line-height:1.6;">${_esc(s)}</p>`;
+    // 1er paragraphe = ACCROCHE : légèrement plus grand et plus clair → l'œil entre dans le mail.
+    html += first
+      ? `<p style="margin:0 0 16px;font-size:16.5px;color:#ffffff;line-height:1.55;font-weight:600;">${_mindsetRich(s)}</p>`
+      : `<p style="margin:0 0 14px;font-size:15px;color:#c8ccd4;line-height:1.65;">${_mindsetRich(s)}</p>`;
+    first = false;
   }
   flush();
   return html;
@@ -1508,10 +1521,16 @@ function buildCampaignMindset({ name, email, campaign, recentKeys, isMember, con
   const hello = prenomRaw ? `Salut ${_esc(prenomRaw)},` : 'Salut,';
   const unsub = unsubUrl(email || '');
   const cta = _campaignCta(isMember, campaign, email);
+  // Question de clôture : ENCADRÉE (liseré or + fond) au lieu d'un italique noyé dans le texte —
+  // c'est le point d'arrêt du mail, celui que le lecteur doit emporter (demande user 17/07).
   const body = `
-    <p style="margin:0 0 16px;font-size:15px;color:#e6e6ea;">${hello}</p>
+    <p style="margin:0 0 16px;font-size:15px;color:#9aa3b2;">${hello}</p>
     ${_mindsetParas(pick.paras)}
-    <p style="margin:16px 0 4px;font-size:15px;color:#ffffff;font-style:italic;">${_esc(pick.closing)}</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 6px;"><tr>
+      <td style="padding:15px 18px;background:rgba(243,195,68,0.07);border:1px solid rgba(243,195,68,0.3);border-radius:8px;">
+        <div style="color:#f3c344;font-weight:700;font-size:10px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:6px;">La question à te poser</div>
+        <div style="color:#ffffff;font-size:15.5px;font-style:italic;line-height:1.55;">${_esc(pick.closing)}</div>
+      </td></tr></table>
     <div style="margin:22px 0 6px;">${cta.btn}</div>
     <p style="margin:0 0 4px;">À très vite,</p>
     <p style="margin:0 0 16px;color:#9aa3b2;">L'équipe DataTradingPro</p>

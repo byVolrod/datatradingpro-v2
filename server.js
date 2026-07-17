@@ -14103,9 +14103,11 @@ QUESTION: <question introspective au lecteur, tutoiement, finit par ?>`,
 // n'appartient à personne). Le fond reste 100 % DTP. Règle de non-plagiat = veto user.
 const _MINDSET_STYLE = `STYLE (mécaniques d'une newsletter qui accroche, à t'approprier — n'imite AUCUNE marque, ne cite AUCUN auteur, n'invente AUCUN témoignage) :
 - Ouvre directement par le constat ou la scène. Aucune formule de politesse, aucun préambule, aucune méta-phrase du type « dans cet e-mail ».
-- Le lecteur doit se reconnaître dès la première ligne : décris ce qu'il VIT, pas ce qu'il devrait penser.
-- Une idée par phrase. Phrases courtes. Zéro jargon, zéro anglicisme inutile.
-- Nomme les choses concrètement (un moment, un geste, une heure) plutôt qu'en abstrait.
+- Le lecteur doit se reconnaître dès la première ligne : décris ce qu'il VIT, pas ce qu'il devrait penser. Adresse-toi à LUI (« tu »), jamais à « les traders » en général.
+- UNE IDÉE PAR PHRASE. Phrases COURTES (20 mots maximum). Coupe toute phrase qui contient « car », « ce qui peut », « il est important de » : reformule en deux phrases sèches.
+- INTERDIT le ton d'article de blog ou d'encyclopédie (« X est un piège courant pour les traders », « il est essentiel de », « les traders doivent apprendre à ») : tu parles à quelqu'un, tu n'expliques pas un concept.
+- Nomme les choses concrètement (un moment, un geste, une heure, un chiffre du quotidien) plutôt qu'en abstrait.
+- GRAS OBLIGATOIRE : encadre de **doubles astérisques** la formulation la PLUS forte de chaque paragraphe (une seule par paragraphe, 3 à 5 en tout). Règle de vérification : si le lecteur ne lit QUE les passages en gras, il doit comprendre l'essentiel du mail. Ne mets JAMAIS en gras une phrase entière, seulement le fragment qui frappe.
 - Termine par une question ouverte qui reformule tout le mail en une phrase, sans donner la réponse.
 - Jamais de leçon de morale, jamais de promesse de gain, jamais de culpabilisation.`;
 
