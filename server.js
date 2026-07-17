@@ -7976,7 +7976,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 7;   // v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
+const FXR_VER = 8;   // v8 : « À surveiller » porte aussi les VALEURS du calendrier (réel/high/prévision/low/précédent, demande user 17/07) — bump = régen. v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
 let _fxrGenLock = 0;
 let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
@@ -8037,7 +8037,10 @@ function _fxrLookFromRows(rows) {
   return (rows || []).slice(0, 16).map(e => {
     const cb = /\brate\b|decision|fomc|ecb|boe|boj|rba|snb|riksbank|central bank|monetary policy/i.test(e.title || '');
     return { category: cb ? 'Événement banque centrale' : 'Données économiques', event: _fxrTxt(e.title || '', 160),
-      ccy: String(e.currency || ''), ts: e.timestamp || null, importance: /high/i.test(e.impact) ? 'High' : 'Medium' };
+      ccy: String(e.currency || ''), ts: e.timestamp || null, importance: /high/i.test(e.impact) ? 'High' : 'Medium',
+      // Valeurs du calendrier (demande user 17/07 « réel, high, prévision, low, précédent ») — souvent
+      // vides pour un événement à venir, remplies quand le rapport est relu après la publication.
+      actual: e.actual || '', high: e.high || '', forecast: e.forecast || '', low: e.low || '', previous: e.previous || '' };
   }).filter(x => x.event);
 }
 function _fxrAutoTags(items) {
