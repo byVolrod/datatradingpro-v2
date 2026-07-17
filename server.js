@@ -14104,11 +14104,20 @@ async function _mindsetEnsureFresh(recentKeys) {
   const aiPool = await _mindsetAiPool();
   const out = { extras: aiPool, forceKey: null };
   try {
-    const h = await auth.aiCacheGet('campaign:mindset-history', 366 * 864e5);
-    const covered = new Set((Array.isArray(h) ? h : []).map(x => x && x.key).filter(Boolean));
+    // ══ AUTONOMIE MINDSET (demande user 17/07 « je veux que tu sois autonome pour la partie mindset ») ══
+    // POLITIQUE : un concept NEUF, rédigé au FORMAT DE LA SEMAINE, généré CHAQUE semaine, sans aucune
+    // intervention. Le catalogue statique n'est plus la source principale : il devient le FILET (si l'IA
+    // est indisponible, la rotation du catalogue prend le relais → un mail part TOUJOURS).
+    // AVANT (bug de conception) : l'IA ne générait QUE si les 12 concepts statiques avaient tous été
+    // envoyés → le lecteur recevait le même moule pendant des mois et les formats n'auraient jamais servi.
+    // VERROU par semaine ISO (KV durable) : une seule génération par semaine, même après un redémarrage
+    // ou plusieurs appels → tous les destinataires du jeudi reçoivent le MÊME concept.
+    const wk = String(_parisParts().isoWeek);
+    const GEN = 'campaign:mindset-gen-week';
+    let last = null; try { last = await auth.aiCacheGet(GEN, 90 * 864e5); } catch {}
+    if (last && last.week === wk && last.key && aiPool.some(c => c.key === last.key)) return { extras: aiPool, forceKey: last.key };
+    if (ai.backoffActive && ai.backoffActive()) return out;                        // IA indisponible → repli catalogue (envoi garanti)
     const allConcepts = [...(mailer.MINDSET_CONCEPTS || []), ...aiPool];
-    if (allConcepts.some(c => !covered.has(c.key))) return out;                     // il reste des concepts jamais envoyés
-    if (ai.backoffActive && ai.backoffActive()) return out;                        // IA indisponible → la rotation se répète (envoi garanti)
     const dejaTraites = allConcepts.map(c => String(c.subject || '').replace(/[\p{Emoji_Presentation}️]/gu, '').trim()).filter(Boolean).join(' · ');
     // FORMAT de la semaine (rotation) : pilote le squelette de rédaction. Le format « ancré » exige des
     // faits macro RÉELS — s'ils manquent, on prend le format suivant plutôt que de laisser inventer.
@@ -14132,6 +14141,7 @@ ${macro}` : ''}`;
       const item = { key: 'ai-' + Date.now(), subject: clean(c.subject), paras: c.paras.map(p => clean(p)).filter(Boolean), closing: clean(c.closing), format: fmt.key, _ai: true, createdAt: Date.now() };
       const next = [...aiPool, item].slice(-40);
       await auth.aiCacheSet('campaign:mindset-ai', next);
+      try { await auth.aiCacheSet(GEN, { week: wk, key: item.key, format: fmt.key, at: Date.now() }); } catch {}   // verrou : 1 seule génération par semaine ISO
       console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO) — format « ' + fmt.label + ' » : ' + item.subject);
       return { extras: next, forceKey: item.key };
     }
@@ -14693,7 +14703,10 @@ app.get('/api/admin/campaign-send', requireAdminOrInternal, async (req, res) => 
     try {
       if (tpl === 'decryptage') { const context = await _deskContext(); const recentKeys = await _decryptRecentKeys(4); const r = await mailer.sendCampaignDecryptage({ to, name: '', campaign: 'decryptage-test', context, recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'pointmarche') { const context = await _deskContext(); provider = await mailer.sendCampaignPointMarche({ to, name: '', campaign: 'pointmarche-test', context, isMember }); }
-      else if (tpl === 'mindset') { const recentKeys = await _mindsetRecentKeys(); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys, isMember }); provider = r ? (r.provider || r) : null; }
+      // Mindset : le test doit montrer EXACTEMENT ce qui partira aux clients → même chemin que l'envoi réel
+      // (_mindsetConceptOfDay : concept du jour + pool IA + format de la semaine). L'ancien test n'utilisait
+      // que le catalogue statique (aucun extraConcepts) : il affichait donc l'ANCIEN moule, jamais le nouveau.
+      else if (tpl === 'mindset') { const dayC = await _mindsetConceptOfDay(); const r = await mailer.sendCampaignMindset({ to, name: '', campaign: 'mindset-test', recentKeys: [], conceptKey: dayC.key || undefined, extraConcepts: dayC.extras, isMember }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'outlook') { const context = await _deskContext(); provider = await mailer.sendCampaignOutlook({ to, name: '', campaign: 'outlook-test', context, isMember }); }
       else if (tpl === 'invitation') { const variant = (req.query.variant != null && req.query.variant !== '') ? parseInt(req.query.variant, 10) : undefined; const r = await mailer.sendCampaignInvitation({ to, name: '', campaign: 'invitation-test', variant }); provider = r ? (r.provider || r) : null; }
       else if (tpl === 'app-desktop') { const r = await mailer.sendAnnouncementDesktop({ to, name: '', campaign: 'app-desktop-test' }); provider = r ? (r.provider || r) : null; }
