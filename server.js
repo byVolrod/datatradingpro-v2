@@ -2914,7 +2914,12 @@ async function _swEnsureAiTitles(internal = false) {
       if (budget <= 0) continue;
       const src = (body || w.title || '').slice(0, 600);
       if (src.length < 30) continue;   // pas assez de matière → on garde le titre nettoyé
-      if (!aiAllowed('analyst', { priority: 'background' })) { budget = 0; continue; }   // budget IA du jour épuisé → on garde le titre heuristique (gratuit)
+      // Wraps RÉCENTS (< 48 h) = texte produit VISIBLE en tête d'onglet → priorité 'user' : passe aussi
+      // pendant les heures calmes 21h→7h et la réserve de quota (bug user 16/07 : le Récap Séance NY publié
+      // le soir restait en ANGLAIS jusqu'au matin, le tiers background étant coupé après 21h — règle maison
+      // « important:true » pour tout texte produit affiché). L'archive reste en background (cède en premier).
+      const _fresh = (w.timestamp || 0) > Date.now() - 48 * 3600 * 1000;
+      if (!aiAllowed('analyst', { priority: _fresh ? 'user' : 'background' })) continue;   // cap dur → tout refuse ; heures calmes → seuls les récents passent
       budget--;
       try {
         // generateText (Gemini→Claude) MAIS désormais compté dans le budget (aiNote) → protège le quota.
