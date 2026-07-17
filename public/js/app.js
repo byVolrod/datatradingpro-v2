@@ -2758,7 +2758,7 @@ function buildNewsItem(item) {
   // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
   const _catLabel = catFr(item.category || '');
   const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
-  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis = retirés à la demande)
+  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Japanese Data = retirés à la demande)
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
