@@ -14050,11 +14050,51 @@ async function _mindsetMarkCovered(key) { if (!key) return; try { let h = await 
 // (KV campaign:mindset-ai) → il rejoint la rotation définitivement. VETO respecté : psychologie/discipline
 // UNIQUEMENT — le contrôle _mindsetAiSane rejette toute donnée de marché ou incitation à prendre position.
 async function _mindsetAiPool() { try { const a = await auth.aiCacheGet('campaign:mindset-ai', 3650 * 864e5); return Array.isArray(a) ? a : []; } catch { return []; } }
+// ── FORMATS DU MINDSET (rotation par semaine ISO, demande user 17/07 « pas les mêmes structures de
+//    rédaction ») : le format pilote la RÉDACTION (consigne IA) ET le rendu (marqueurs lus par
+//    _mindsetParas côté mailer). Deux jeudis de suite ne partagent JAMAIS le même squelette.
+//    Le VETO informatif reste entier : psychologie/discipline uniquement, jamais de position ni d'actif
+//    (le contrôle _mindsetAiSane le vérifie, quel que soit le format).
+const _MINDSET_FORMATS = [
+  { key: 'ancre', label: 'Récit ancré sur la semaine',
+    shape: `{"subject":"<emoji sobre + titre court>","paras":["# <UNE phrase : un événement macro NOMMÉ de cette semaine (ex. une publication d'inflation sortie sous les attentes, une réunion de banque centrale) — SANS aucun chiffre de prix, SANS actif ni paire, SANS position>","<para : ce que ce moment a déclenché DANS LA TÊTE des traders, 2 phrases>","<para : le piège psychologique que ça révèle>","<para : le recadrage concret>","<para de clôture apaisant>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
+    extra: `FORMAT « RÉCIT ANCRÉ » : pars d'un moment RÉEL de la semaine (macro) pour parler d'ÉTAT D'ESPRIT. L'événement n'est qu'un décor : 90 % du texte parle de psychologie. Le 1er para DOIT commencer par « # ». AUCUNE puce. 5 paragraphes maximum.` },
+  { key: 'court', label: 'Une seule idée, très court',
+    shape: `{"subject":"<emoji sobre + titre court>","paras":["<para d'ouverture : le constat, UNE phrase percutante>","<para : le développement, 2 phrases max>","<para : le contre-exemple ou la nuance, 2 phrases>","<para de clôture, 1 phrase>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
+    extra: `FORMAT « TRÈS COURT » : UNE seule idée, 180 à 220 mots TOTAL, phrases courtes, AUCUNE puce, 4 paragraphes maximum. Chaque phrase doit mériter sa place ; supprime tout ce qui n'est pas indispensable.` },
+  { key: 'tri', label: 'Constat, question de tri, deux branches',
+    shape: `{"subject":"<emoji sobre + titre court>","paras":["<para : le constat douloureux, sans préambule, 2 phrases>","<para : la QUESTION DE TRI posée au lecteur (ex. « est-ce que ça vient de ta méthode, ou de tes décisions ? »)>","→ Si c'est <la 1re branche> : <2 phrases de conseil concret pour ce cas>","→ Si c'est <la 2e branche> : <2 phrases de conseil concret pour ce cas>","<para de clôture : le renversement, ce que ça dit vraiment>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
+    extra: `FORMAT « TRI » : le lecteur doit se situer lui-même dans l'UNE des deux branches. Les 2 paragraphes de branche DOIVENT commencer par « → » et porter « Libellé : texte ». AUCUNE puce.` },
+  { key: 'scene', label: 'Scène intérieure',
+    shape: `{"subject":"<emoji sobre + titre court>","paras":["<para : plante la scène en 2 phrases (un moment précis devant l'écran)>","> <la pensée intérieure du trader à cet instant, telle qu'elle surgit, 1 à 2 phrases, à la 1re personne>","<para : ce que cette pensée révèle vraiment>","> <la pensée qu'aurait un trader qui a fait le travail, 1 à 2 phrases, 1re personne>","<para : ce qui sépare les deux, concrètement>","<para de clôture>"],"closing":"<question introspective, tutoiement, finit par ?>"}`,
+    extra: `FORMAT « SCÈNE » : mets en scène un instant précis. Les 2 pensées intérieures DOIVENT commencer par « > » et être à la 1re personne. AUCUNE puce.` },
+];
+// Format de la semaine : rotation stricte sur la semaine ISO → jamais 2 fois de suite le même squelette.
+function _mindsetFormatOfWeek() {
+  try { const w = parseInt(String(_parisParts().isoWeek).replace(/\D/g, ''), 10) || 0; return _MINDSET_FORMATS[w % _MINDSET_FORMATS.length]; }
+  catch { return _MINDSET_FORMATS[0]; }
+}
+// Faits macro RÉELS de la semaine écoulée (calendrier du desk, publications à impact élevé DÉJÀ sorties) —
+// indispensables au format « ancré » : sans eux, l'IA INVENTERAIT l'événement (interdit : le desk ne publie
+// jamais une donnée non vérifiée). Renvoie null si la semaine est vide → on bascule alors de format.
+function _mindsetMacroCtx() {
+  try {
+    const items = (_tvCalCache && Array.isArray(_tvCalCache.items)) ? _tvCalCache.items : [];
+    const now = Date.now(), from = now - 7 * 86400000;
+    const rows = items
+      .filter(e => e && e.actual && String(e.actual).trim() && (e.timestamp || 0) >= from && (e.timestamp || 0) <= now && /high/i.test(e.impact || ''))
+      .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+      .slice(0, 6)
+      .map(e => `- ${e.currency || ''} ${e.title} : publié ${e.actual}${e.forecast ? ` (attendu ${e.forecast})` : ''}`);
+    return rows.length ? rows.join('\n') : null;
+  } catch { return null; }
+}
 function _mindsetAiSane(c) {
   if (!c || typeof c.subject !== 'string' || !Array.isArray(c.paras) || typeof c.closing !== 'string') return false;
   const subject = c.subject.trim(), closing = c.closing.trim();
   const paras = c.paras.map(p => String(p == null ? '' : p).trim()).filter(Boolean);
-  if (subject.length < 8 || subject.length > 90 || closing.length < 15 || paras.length < 5 || paras.length > 12) return false;
+  // paras >= 3 (et non 5) : le format « très court » n'a que 4 paragraphes — la borne à 5 le rejetait.
+  if (subject.length < 8 || subject.length > 90 || closing.length < 15 || paras.length < 3 || paras.length > 12) return false;
   const txt = (subject + ' ' + paras.join(' ') + ' ' + closing).toLowerCase();
   if (/\b(ach[eè]te[rz]?|vend(s|re|ez)?|prend(s|re|ez)? (une |ta |votre )?position|entre[rz]? (long|short)|\blong\b|\bshort\b|\bbuy\b|\bsell\b|signal d'achat|signal de vente|objectif de prix|target)\b/.test(txt)) return false;   // informatif only (veto user)
   if (/\b(eur\/usd|gbp\/usd|usd\/jpy|xau|btc|nasdaq|s&p|cac ?40|dow jones|\d+ ?pips)\b/.test(txt)) return false;   // pas de données/actifs de marché dans un mail d'état d'esprit
@@ -14070,20 +14110,29 @@ async function _mindsetEnsureFresh(recentKeys) {
     if (allConcepts.some(c => !covered.has(c.key))) return out;                     // il reste des concepts jamais envoyés
     if (ai.backoffActive && ai.backoffActive()) return out;                        // IA indisponible → la rotation se répète (envoi garanti)
     const dejaTraites = allConcepts.map(c => String(c.subject || '').replace(/[\p{Emoji_Presentation}️]/gu, '').trim()).filter(Boolean).join(' · ');
+    // FORMAT de la semaine (rotation) : pilote le squelette de rédaction. Le format « ancré » exige des
+    // faits macro RÉELS — s'ils manquent, on prend le format suivant plutôt que de laisser inventer.
+    let fmt = _mindsetFormatOfWeek();
+    const macro = fmt.key === 'ancre' ? _mindsetMacroCtx() : null;
+    if (fmt.key === 'ancre' && !macro) { fmt = _MINDSET_FORMATS[1]; console.warn('[Campagne] Mindset : aucun fait macro publié cette semaine → format « ancré » abandonné (jamais d\'invention), bascule sur « ' + fmt.label + ' »'); }
     const prompt = `Tu écris le prochain e-mail « Mindset » de la newsletter DataTradingPro (traders francophones). Réponds UNIQUEMENT un JSON valide de la forme EXACTE :
-{"subject":"<un emoji sobre + titre court accrocheur, ex. '🎯 Le stop n'est pas un échec'>","paras":["<para 1 : une situation vécue par le trader, 1-2 phrases, tutoiement>","<para 2 : ce qui se joue psychologiquement>","<para 3 : le recadrage>","- <puce courte et frappante>","- <puce>","- <puce>","- <puce>","<para de clôture apaisant avec un emoji sobre>"],"closing":"<une question introspective directe au lecteur, tutoiement, finissant par ?>"}
-Règles ABSOLUES : psychologie et discipline de trading UNIQUEMENT (état d'esprit) ; AUCUNE donnée de marché, AUCUN actif, AUCUNE prédiction, AUCUNE incitation à acheter/vendre ou prendre position ; ton bienveillant, concret, jamais moralisateur ; français impeccable ; JAMAIS de tiret cadratin.
+${fmt.shape}
+${fmt.extra}
+Règles ABSOLUES : psychologie et discipline de trading UNIQUEMENT (état d'esprit) ; AUCUN actif ni paire de devises, AUCUN chiffre de prix, AUCUNE prédiction, AUCUNE incitation à acheter/vendre ou prendre position ; ton bienveillant, concret, jamais moralisateur ; tutoiement ; français impeccable ; JAMAIS de tiret cadratin ; respecte EXACTEMENT le nombre de paragraphes et les marqueurs de début (« # », « > », « → ») imposés par le format.
 Thèmes DÉJÀ traités, à ÉVITER absolument : ${dejaTraites}.
-Choisis UN thème NOUVEAU (ex. : gérer une série de gains, l'ennui des marchés calmes, la fatigue décisionnelle, trader après une mauvaise journée perso, le journal de trading, la sur-optimisation, savoir ne rien faire…).`;
+Choisis UN thème NOUVEAU (ex. : gérer une série de gains, l'ennui des marchés calmes, la fatigue décisionnelle, trader après une mauvaise journée perso, le journal de trading, la sur-optimisation, savoir ne rien faire…).${macro ? `
+
+FAITS MACRO RÉELS de la semaine écoulée (le SEUL matériau autorisé pour l'ancrage ; n'invente RIEN d'autre, ne cite AUCUN de ces chiffres, nomme seulement l'événement) :
+${macro}` : ''}`;
     const text = await ai.generateText(prompt, 2200);
     const m = String(text || '').match(/\{[\s\S]*\}/);
     const c = m ? JSON.parse(m[0]) : null;
     if (_mindsetAiSane(c)) {
       const clean = s => String(s).replace(/—/g, ':').trim();
-      const item = { key: 'ai-' + Date.now(), subject: clean(c.subject), paras: c.paras.map(p => clean(p)).filter(Boolean), closing: clean(c.closing), _ai: true, createdAt: Date.now() };
+      const item = { key: 'ai-' + Date.now(), subject: clean(c.subject), paras: c.paras.map(p => clean(p)).filter(Boolean), closing: clean(c.closing), format: fmt.key, _ai: true, createdAt: Date.now() };
       const next = [...aiPool, item].slice(-40);
       await auth.aiCacheSet('campaign:mindset-ai', next);
-      console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO) : ' + item.subject);
+      console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO) — format « ' + fmt.label + ' » : ' + item.subject);
       return { extras: next, forceKey: item.key };
     }
     console.warn('[Campagne] Mindset IA : concept rejeté (forme ou veto informatif) → rotation du catalogue');
