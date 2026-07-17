@@ -1002,7 +1002,7 @@
       <div class="panel-card">
         <div class="panel-head"><span class="ph-ic">👁️</span><h2>Aperçu <span id="cprev-title" style="color:#e3b23a;"></span></h2>
           <span class="ph-spacer"></span>
-          <button class="camp-btn" onclick="_cprevLoad()" title="Recharger l'aperçu avec les données live du desk">↻ Actualiser</button>
+          <button class="camp-btn" onclick="window._cprevRetryCount=0;_cprevLoad()" title="Recharger l'aperçu avec les données live du desk">↻ Actualiser</button>
           <label style="margin-left:10px;color:#9aa3b2;font-size:12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;"><input type="checkbox" id="cprev-member" onchange="_cprevLoad()" style="accent-color:#e3b23a;"> vue membre</label>
         </div>
         <div class="panel-body">
@@ -1730,7 +1730,28 @@
     var m = (mem && mem.checked) ? '&member=1' : '';
     var f = document.getElementById('cprev-frame');
     if (!f) return;
-    f.onload = function(){ var ts = document.getElementById('cprev-ts'); if (ts) ts.textContent = '● En direct · MAJ ' + new Date().toLocaleTimeString('fr-FR') + ' —'; };
+    f.onload = function(){
+      var ts = document.getElementById('cprev-ts');
+      // Page d'ERREUR nginx dans le cadre (502/504 pendant un redéploiement du conteneur — vécu 17/07) :
+      // même origine → on lit le document et on remplace la page brute par un état DTP + re-essai auto.
+      var bad = false;
+      try {
+        var doc = f.contentDocument;
+        var txt = ((doc && doc.title) || '') + ' ' + ((doc && doc.body) ? doc.body.textContent.slice(0, 300) : '');
+        bad = /bad gateway|gateway time-?out|proxy error/i.test(txt);
+        if (bad && doc && doc.body) doc.body.innerHTML = '<div style="font-family:-apple-system,Segoe UI,sans-serif;color:#8b93a1;background:#0d0e11;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;"><div style="font-size:26px;">⟳</div><div style="color:#e6e6ea;font-weight:700;">Serveur en cours de redémarrage</div><div style="font-size:13px;">L\'aperçu revient automatiquement dans quelques secondes…</div></div>';
+      } catch (e) {}
+      clearTimeout(window._cprevRetryT);
+      if (bad) {
+        window._cprevRetryCount = (window._cprevRetryCount || 0) + 1;
+        if (ts) ts.textContent = '⟳ Déploiement en cours — nouvel essai (' + window._cprevRetryCount + '/5)…';
+        if (window._cprevRetryCount <= 5) window._cprevRetryT = setTimeout(_cprevLoad, 6000);
+        else if (ts) ts.textContent = '⚠ Aperçu indisponible — cliquez « ↻ Actualiser » pour réessayer.';
+        return;
+      }
+      window._cprevRetryCount = 0;
+      if (ts) ts.textContent = '● En direct · MAJ ' + new Date().toLocaleTimeString('fr-FR') + ' —';
+    };
     var vv = (window._cprevVariant != null && window._cprevVariant !== '') ? ('&variant=' + window._cprevVariant) : '';   // Invitation : voir chaque variante
     f.src = '/api/admin/campaign-preview?type=' + type + m + vv + '&_=' + Date.now();
   }
@@ -1753,11 +1774,13 @@
   }
   function campPreview(type){
     window._cprevType = type; window._cprevVariant = null;   // reset variante quand on change de template
+    window._cprevRetryCount = 0;
     _cprevLoad(); _cprevMark(); _cprevArm();
   }
   // Invitation (conversion) : previsualise une variante precise (0 pro / 1 convivial / 2 perf).
   function campPreviewInvit(v){
     window._cprevType = 'invitation'; window._cprevVariant = v;
+    window._cprevRetryCount = 0;
     _cprevLoad(); _cprevMark(); _cprevArm();
   }
   async function campSchedToggle(){
