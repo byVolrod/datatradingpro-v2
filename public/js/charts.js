@@ -2383,7 +2383,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ── View switching (main nav) ──────────────────────────────────────────────
   // Liste des onglets valides (pour valider une valeur mémorisée)
-  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux', 'symbol', 'journal', 'calculator'];
+  // 'widgets' = MON DESK (grille composable). L'onglet n'est CRÉÉ que pour l'admin (widgets.js) ;
+  // la vue reste donc inatteignable pour un client, mais doit être valide ici sinon activateView
+  // retomberait sur 'news' à chaque ouverture (et au rechargement avec la vue mémorisée).
+  const VALID_VIEWS = ['news', 'calendar', 'bias', 'fxlist', 'institution', 'analyst', 'weekahead', 'bank', 'taux', 'symbol', 'journal', 'calculator', 'widgets'];
   // Titre d'onglet élégant : "DTP | <PAGE>" (NEWS par défaut = espace de travail "JOT")
   // Titre FIXE de l'onglet : "DataTradingPro - <nom utilisateur>" (ne dépend plus de la vue active).
   // Le nom est exposé par index.html après /api/auth/me (window._dtpUser).
@@ -2503,6 +2506,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function activateView(view, { persist = true } = {}) {
     if (_tauxPoll) { clearInterval(_tauxPoll); _tauxPoll = null; }   // stoppe le rafraîchissement TAUX dès qu'on quitte l'onglet
+    // MON DESK : démonter les widgets (roots amCharts + timers) à CHAQUE sortie, AVANT tout return
+    // anticipé — sinon la branche 'markets' (mobile) les laisserait montés et fuir (revue adversariale).
+    if (window.DTPWidgets) window.DTPWidgets.close();
     // MARCHÉS (mobile uniquement) : on bascule sur la colonne de droite (horloges, RISK, STRENGTH, COT…)
     if (view === 'markets') {
       document.querySelectorAll('[data-view]').forEach(x => x.classList.toggle('nav-item--active', x.dataset.view === 'markets'));
@@ -2518,6 +2524,11 @@ document.addEventListener('DOMContentLoaded', () => {
       return;   // on ne touche pas aux view-panel
     }
     if (!VALID_VIEWS.includes(view)) view = 'news';
+    // MON DESK est réservé à l'ADMIN. Garde de routage (pas seulement l'onglet) : bloque toute
+    // activation pour un non-admin — restauration d'un dtp_active_view='widgets' laissé par une
+    // session admin sur le même navigateur, OU appel programmatique. Sinon le client verrait le
+    // panneau bêta + perdrait sa colonne droite (revue adversariale, défaut majeur confirmé).
+    if (view === 'widgets' && !window._pdIsAdmin) view = 'news';
     // SEMAINE À VENIR : désormais PUBLIC (plus de redirection des clients vers 'news').
     _setDocTitle(view);
     document.getElementById('main-layout')?.classList.remove('show-right-mobile');   // revient au flux
@@ -2529,7 +2540,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // FX LIST : côte à côte avec le panneau droit (World Clock/Mètre) comme DataTradingPro SUR GRAND
     //   ÉCRAN ; en dessous (~1600px) le CSS `.is-fxlist` repasse la table en pleine largeur (lisible).
     const _ml = document.getElementById('main-layout');
-    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol' || view === 'journal' || view === 'calculator');   // pleine largeur
+    _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol' || view === 'journal' || view === 'calculator' || view === 'widgets');   // pleine largeur
     document.getElementById('journal-btn')?.classList.toggle('topbar-icon--active', view === 'journal');   // état actif du bouton topbar Journal
     document.getElementById('calc-btn')?.classList.toggle('topbar-icon--active', view === 'calculator');   // état actif du bouton topbar Calculatrice
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
@@ -2564,6 +2575,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (view === 'journal' && typeof window.loadJournalView === 'function') window.loadJournalView();
     if (view === 'calculator' && typeof window.loadCalculatorView === 'function') window.loadCalculatorView();
     if (view === 'symbol' && window.loadSymbolView) window.loadSymbolView();
+    // MON DESK : monter APRÈS le toggle .hidden (amCharts mesure 0×0 dans un conteneur caché).
+    // Le DÉMONTAGE est fait en TÊTE de fonction (couvre aussi le return anticipé 'markets').
+    if (view === 'widgets' && window.DTPWidgets) window.DTPWidgets.open();
 
     // Mémoriser l'onglet actif pour le rouvrir au prochain retour.
     // 'symbol' = vue paire TRANSITOIRE (la paire est volatile) → jamais persistée, sinon au reload on
@@ -2644,6 +2658,11 @@ document.addEventListener('DOMContentLoaded', () => {
   // 'markets' n'a de sens que sur mobile (sinon retour au flux)
   if (_savedView === 'markets' && window.innerWidth > 768) _savedView = 'news';
   if (_savedView === 'symbol') _savedView = 'news';   // sécurité : ancienne valeur 'symbol' en cache → pas de paire au reload
+  // MON DESK ne s'AUTO-RESTAURE JAMAIS ici : localStorage est par-navigateur (pas par-compte) et
+  // _pdIsAdmin n'est pas encore résolu à ce stade. Un dtp_active_view='widgets' laissé par une session
+  // admin exposerait sinon le panneau bêta à un client sur le même navigateur (revue adversariale).
+  // Pour un VRAI admin, c'est widgets.js boot() (qui attend _pdIsAdmin) qui rouvre Mon Desk au reload.
+  if (_savedView === 'widgets') _savedView = 'news';
   if (_savedView !== 'news') {
     activateView(_savedView, { persist: false });   // 'news' est déjà actif par défaut dans le HTML
   }
