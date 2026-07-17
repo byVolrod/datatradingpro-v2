@@ -14096,6 +14096,47 @@ PARA: <ce qui sépare les deux, concrètement, 2 phrases>
 QUESTION: <question introspective au lecteur, tutoiement, finit par ?>`,
     extra: `FORMAT « SCÈNE » : mets en scène un instant précis. EXACTEMENT 2 lignes PENSEE, à la 1re personne. Aucune PUCE.` },
 ];
+// ── STYLE (demande user 17/07 « il peut s'inspirer des mails d'Eliott etc. ») ────────────────────
+// Ce sont les MÉCANIQUES ÉDITORIALES observées sur les newsletters de trading qui fonctionnent
+// (analyse de la boîte du user, 17/07) — distillées en règles d'écriture RÉUTILISABLES. On ne copie
+// AUCUN texte, on ne cite personne, on n'imite aucune marque : seule la mécanique est reprise (elle
+// n'appartient à personne). Le fond reste 100 % DTP. Règle de non-plagiat = veto user.
+const _MINDSET_STYLE = `STYLE (mécaniques d'une newsletter qui accroche, à t'approprier — n'imite AUCUNE marque, ne cite AUCUN auteur, n'invente AUCUN témoignage) :
+- Ouvre directement par le constat ou la scène. Aucune formule de politesse, aucun préambule, aucune méta-phrase du type « dans cet e-mail ».
+- Le lecteur doit se reconnaître dès la première ligne : décris ce qu'il VIT, pas ce qu'il devrait penser.
+- Une idée par phrase. Phrases courtes. Zéro jargon, zéro anglicisme inutile.
+- Nomme les choses concrètement (un moment, un geste, une heure) plutôt qu'en abstrait.
+- Termine par une question ouverte qui reformule tout le mail en une phrase, sans donner la réponse.
+- Jamais de leçon de morale, jamais de promesse de gain, jamais de culpabilisation.`;
+
+// ── UNICITÉ STRICTE DES SUJETS (demande user 17/07 « met jamais le même sujet ») ─────────────────
+// La consigne « thèmes à éviter » dans le prompt est MOLLE : l'IA re-sort régulièrement une variante
+// du même titre (« Le stop n'est pas un échec » vs « Ton stop n'est pas un échec »). Contrôle DUR ici :
+// comparaison sur les mots SIGNIFIANTS (emojis/accents/ponctuation/mots vides retirés) → un sujet trop
+// proche d'un sujet déjà écrit est REJETÉ (une 2e tentative est demandée avant de replier).
+const _MS_STOP = new Set(['le','la','les','un','une','des','de','du','ton','ta','tes','mon','ma','mes','ce','cet','cette','qui','que','quoi','ne','pas','plus','est','sont','tu','en','au','aux','et','ou','pour','dans','sur','avec','sans','se','sa','son','ses','il','elle','on','nous','vous','ils','elles','jamais','toujours','vraiment','tout','tous','rien','fait','faire','quand','comme','mais','donc','car','par','pris','prend']);
+function _mindsetSubjNorm(s) {
+  return String(s || '')
+    .replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, ' ')      // emojis
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')                    // accents
+    .toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+}
+function _mindsetSubjWords(s) { return new Set(_mindsetSubjNorm(s).split(' ').filter(w => w.length > 2 && !_MS_STOP.has(w))); }
+// true = trop proche d'un sujet existant (identique après normalisation, ou ≥ 50 % de mots-clés communs).
+function _mindsetSubjTooClose(subject, existingSubjects) {
+  const norm = _mindsetSubjNorm(subject);
+  const a = _mindsetSubjWords(subject);
+  if (!norm || !a.size) return true;                                     // sujet vide/insignifiant → refusé
+  for (const e of (existingSubjects || [])) {
+    if (_mindsetSubjNorm(e) === norm) return true;
+    const b = _mindsetSubjWords(e);
+    if (!b.size) continue;
+    const inter = [...a].filter(w => b.has(w)).length;
+    const union = new Set([...a, ...b]).size;
+    if (union && inter / union >= 0.5) return true;
+  }
+  return false;
+}
 // Parse la sortie balisée → { subject, paras, closing } avec les marqueurs de rendu attendus par mailer.
 function _mindsetParseLines(text) {
   const out = { subject: '', paras: [], closing: '' };
@@ -14167,24 +14208,36 @@ async function _mindsetEnsureFresh(recentKeys) {
     // jeudi repartait sur l'ancien catalogue. Elles se voient désormais dans les logs.
     if (ai.backoffActive && ai.backoffActive()) { console.warn('[Campagne] Mindset : IA en backoff → pas de génération, repli sur la rotation du catalogue (l\'envoi part quand même)'); return out; }
     const allConcepts = [...(mailer.MINDSET_CONCEPTS || []), ...aiPool];
-    const dejaTraites = allConcepts.map(c => String(c.subject || '').replace(/[\p{Emoji_Presentation}️]/gu, '').trim()).filter(Boolean).join(' · ');
+    const usedSubjects = allConcepts.map(c => String(c.subject || '')).filter(Boolean);
+    const dejaTraites = usedSubjects.map(s => s.replace(/[\p{Extended_Pictographic}\u{FE0F}]/gu, '').trim()).filter(Boolean).join(' · ');
     // FORMAT de la semaine (rotation) : pilote le squelette de rédaction. Le format « ancré » exige des
     // faits macro RÉELS — s'ils manquent, on prend le format suivant plutôt que de laisser inventer.
     let fmt = _mindsetFormatOfWeek();
     const macro = fmt.key === 'ancre' ? _mindsetMacroCtx() : null;
     if (fmt.key === 'ancre' && !macro) { fmt = _MINDSET_FORMATS[1]; console.warn('[Campagne] Mindset : aucun fait macro publié cette semaine → format « ancré » abandonné (jamais d\'invention), bascule sur « ' + fmt.label + ' »'); }
-    const prompt = `Tu écris le prochain e-mail « Mindset » de la newsletter DataTradingPro (traders francophones). Réponds UNIQUEMENT avec les lignes ci-dessous, une par ligne, en gardant EXACTEMENT ces étiquettes en tête de ligne et en remplaçant chaque <…> par ton texte. AUCUN préambule, AUCUN JSON, AUCUNE ligne en plus :
+    const mkPrompt = (retry) => `Tu écris le prochain e-mail « Mindset » de la newsletter DataTradingPro (traders francophones). Réponds UNIQUEMENT avec les lignes ci-dessous, une par ligne, en gardant EXACTEMENT ces étiquettes en tête de ligne et en remplaçant chaque <…> par ton texte. AUCUN préambule, AUCUN JSON, AUCUNE ligne en plus :
 ${fmt.shape}
 ${fmt.extra}
-Règles ABSOLUES : psychologie et discipline de trading UNIQUEMENT (état d'esprit) ; AUCUN actif ni paire de devises, AUCUN chiffre de prix, AUCUNE prédiction, AUCUNE incitation à acheter/vendre ou prendre position ; ton bienveillant, concret, jamais moralisateur ; tutoiement ; français impeccable ; JAMAIS de tiret cadratin ; respecte EXACTEMENT le nombre de paragraphes et les marqueurs de début (« # », « > », « → ») imposés par le format.
-Thèmes DÉJÀ traités, à ÉVITER absolument : ${dejaTraites}.
-Choisis UN thème NOUVEAU (ex. : gérer une série de gains, l'ennui des marchés calmes, la fatigue décisionnelle, trader après une mauvaise journée perso, le journal de trading, la sur-optimisation, savoir ne rien faire…).${macro ? `
+${_MINDSET_STYLE}
+Règles ABSOLUES : psychologie et discipline de trading UNIQUEMENT (état d'esprit) ; AUCUN actif ni paire de devises, AUCUN chiffre de prix, AUCUNE prédiction, AUCUNE incitation à acheter/vendre ou prendre position ; ton bienveillant, concret, jamais moralisateur ; tutoiement ; français impeccable ; JAMAIS de tiret cadratin ; respecte EXACTEMENT le nombre de paragraphes et les marqueurs de début imposés par le format.
+SUJETS DÉJÀ ÉCRITS (INTERDITS, ainsi que toute reformulation ou variante proche) : ${dejaTraites}.
+${retry ? 'ATTENTION : ta proposition précédente reprenait un sujet déjà écrit. Change COMPLÈTEMENT d\'angle et de vocabulaire — un thème que la liste ci-dessus n\'aborde nulle part.\n' : ''}Choisis UN thème NOUVEAU, jamais traité (ex. : gérer une série de gains, l'ennui des marchés calmes, la fatigue décisionnelle, trader après une mauvaise journée perso, la sur-optimisation, savoir ne rien faire, revenir après une pause, l'illusion du « presque »…).${macro ? `
 
 FAITS MACRO RÉELS de la semaine écoulée (le SEUL matériau autorisé pour l'ancrage ; n'invente RIEN d'autre, ne cite AUCUN de ces chiffres, nomme seulement l'événement) :
 ${macro}` : ''}`;
-    const text = await ai.generateText(prompt, 2200);
-    const c = _mindsetParseLines(text);   // lignes balisées → aucun échappement à respecter (fini les JSON cassés)
-    if (_mindsetAiSane(c)) {
+    // 2 tentatives max : un sujet trop proche d'un sujet déjà écrit est REJETÉ (demande user « jamais le
+    // même sujet ») → on redemande une fois avec un rappel explicite, puis on replie sur le catalogue.
+    let c = null, tooClose = false;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      const text = await ai.generateText(mkPrompt(attempt > 0), 2200);
+      const parsed = _mindsetParseLines(text);   // lignes balisées → aucun échappement (fini les JSON cassés)
+      if (!_mindsetAiSane(parsed)) { c = parsed; tooClose = false; continue; }
+      if (_mindsetSubjTooClose(parsed.subject, usedSubjects)) {
+        tooClose = true; c = parsed;
+        console.warn('[Campagne] Mindset : sujet trop proche d\'un existant → rejeté (tentative ' + (attempt + 1) + '/2) : ' + parsed.subject);
+        continue;
+      }
+      c = parsed; tooClose = false;
       const clean = s => String(s).replace(/—/g, ':').trim();
       const item = { key: 'ai-' + Date.now(), subject: clean(c.subject), paras: c.paras.map(p => clean(p)).filter(Boolean), closing: clean(c.closing), format: fmt.key, _ai: true, createdAt: Date.now() };
       const next = [...aiPool, item].slice(-40);
@@ -14193,7 +14246,7 @@ ${macro}` : ''}`;
       console.log('[Campagne] Mindset IA : nouveau concept généré et adopté (envoi AUTO) — format « ' + fmt.label + ' » : ' + item.subject);
       return { extras: next, forceKey: item.key };
     }
-    console.warn('[Campagne] Mindset IA : concept rejeté (forme ou veto informatif) → rotation du catalogue | sujet=' + JSON.stringify((c && c.subject) || '').slice(0, 60) + ' paras=' + ((c && c.paras || []).length) + ' closing=' + (!!(c && c.closing)));
+    console.warn('[Campagne] Mindset IA : concept rejeté (' + (tooClose ? 'sujet déjà traité après 2 tentatives' : 'forme ou veto informatif') + ') → rotation du catalogue | sujet=' + JSON.stringify((c && c.subject) || '').slice(0, 60) + ' paras=' + ((c && c.paras || []).length));
   } catch (e) { console.warn('[Campagne] Mindset IA échec : ' + e.message + ' → rotation du catalogue'); }
   return out;
 }
