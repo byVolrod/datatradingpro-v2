@@ -10729,10 +10729,6 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
    Charte DTP : or #e3b23a, coins doux var(--radius), bordures fines var(--hud-line),
    hover doré sur les cartes. Densité HUD conservée.
    ═══════════════════════════════════════════════════════════════════════════════════ */
-.wdg-bar-name {
-  font-family: 'Fraunces', Georgia, serif; font-size: 13px; color: #e3b23a;
-  margin-left: 10px; letter-spacing: .2px;
-}
 .wdg-beta {
   margin-left: 8px; padding: 1px 6px; border-radius: 3px; font-size: 9px; font-weight: 700;
   letter-spacing: .7px; color: #0c0c0e; background: #e3b23a;
@@ -10869,8 +10865,59 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 .wdg-lib-desc { font-size: 10.5px; color: #6b7280; line-height: 1.45; }
 .wdg-lib-used { margin-top: 3px; font-size: 9px; color: #6b7280; font-style: italic; }
 
+/* ── Onglets de layouts (templates) dans l'en-tête ── */
+.wdg-layouts { display: flex; align-items: center; gap: 4px; margin-left: 12px; overflow-x: auto; max-width: 52vw; }
+.wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
+.wdg-lay {
+  display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; max-width: 160px;
+  padding: 4px 10px; border-radius: var(--radius); cursor: pointer; font-size: 11px; font-weight: 600;
+  background: #131316; color: #9aa0aa; border: 1px solid var(--hud-line, #232429);
+  transition: color .12s, border-color .12s, background .12s;
+}
+.wdg-lay:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); }
+.wdg-lay.on { color: #e3b23a; background: rgba(227,178,58,.13); border-color: #e3b23a; }
+.wdg-lay-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wdg-lay-star { color: #e3b23a; font-size: 10px; line-height: 1; }
+.wdg-lay-add { color: #6b7280; font-size: 14px; font-weight: 700; padding: 4px 9px; }
+.wdg-lay-add:hover { color: #e3b23a; }
+
+/* ── Gestionnaire de layouts (overlay, réutilise .wdg-lib) ── */
+.wdg-mgr-box { width: min(560px, 92%); }
+.wdg-mgr-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; }
+.wdg-mgr-row {
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  background: #101012; border: 1px solid var(--hud-line, #232429); border-radius: var(--radius);
+}
+.wdg-mgr-row.on { border-color: rgba(227,178,58,.45); }
+.wdg-mgr-star { flex: 0 0 auto; width: 22px; height: 22px; background: transparent; border: 0; cursor: pointer; color: #3a3b40; font-size: 13px; border-radius: 3px; }
+.wdg-mgr-star:hover { color: #e3b23a; }
+.wdg-mgr-star.on { color: #e3b23a; }
+.wdg-mgr-name {
+  flex: 1 1 auto; min-width: 0; padding: 5px 8px; font-size: 12px; font-family: 'Fraunces', Georgia, serif;
+  color: #e6e8ec; background: #16171b; border: 1px solid transparent; border-radius: 3px;
+}
+.wdg-mgr-name:hover { border-color: var(--hud-line, #232429); }
+.wdg-mgr-name:focus { outline: none; border-color: #e3b23a; background: #0d0e11; }
+.wdg-mgr-count { flex: 0 0 auto; font-size: 10px; color: #6b7280; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wdg-mgr-open {
+  flex: 0 0 auto; padding: 4px 10px; font-size: 10.5px; font-weight: 600; border-radius: 3px; cursor: pointer;
+  background: rgba(227,178,58,.1); color: #e3b23a; border: 1px solid rgba(227,178,58,.38);
+}
+.wdg-mgr-open:hover { background: rgba(227,178,58,.2); border-color: #e3b23a; }
+.wdg-mgr-del { flex: 0 0 auto; width: 24px; height: 24px; background: transparent; border: 0; cursor: pointer; color: #6b7280; font-size: 15px; border-radius: 3px; }
+.wdg-mgr-del:hover { color: #ff3d00; background: rgba(255,61,0,.1); }
+.wdg-mgr-del.confirm { width: auto; padding: 0 9px; font-size: 10.5px; font-weight: 700; color: #fff; background: #ff3d00; }
+.wdg-mgr-new {
+  margin-top: 2px; padding: 8px; font-size: 11.5px; font-weight: 600; border-radius: var(--radius); cursor: pointer;
+  background: rgba(227,178,58,.11); color: #e3b23a; border: 1px dashed rgba(227,178,58,.45);
+}
+.wdg-mgr-new:hover { background: rgba(227,178,58,.2); border-color: #e3b23a; }
+.wdg-mgr-full { padding: 8px; font-size: 10.5px; color: #6b7280; text-align: center; font-style: italic; }
+.wdg-mgr-foot { flex: 0 0 auto; padding: 10px 14px; border-top: 1px solid var(--hud-line, #232429); display: flex; justify-content: flex-end; }
+
 /* Mobile : une seule colonne (le demi-largeur n'a plus de sens sous 900px) */
 @media (max-width: 900px) {
   .wdg-grid { padding: 8px; gap: 8px; }
   .wdg-card, .wdg-card--full { flex-basis: 100%; }
+  .wdg-layouts { max-width: 40vw; }
 }
