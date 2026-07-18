@@ -6484,6 +6484,21 @@ function _wrParas(t){
   return String(t||'').split(/\n{2,}|\n/).map(p=>p.trim()).filter(Boolean)
     .map(p=>`<p class="wr-p">${_wrInline(p)}</p>`).join('');
 }
+// Colore le TAG D'INTERPRÉTATION en fin de puce (« → dovish », « → beat hawkish », « → inline »… façon
+// référence Eliott) : lecture instantanée. hawkish/beat = ambre · dovish/baisse = bleu · neutre = or discret.
+function _wrTagColorize(html){
+  return String(html).replace(/\s(?:→|-&gt;|-&amp;gt;)\s*([^<]{1,60})$/, function(_m, tag){
+    var low = tag.toLowerCase();
+    // PRIORITÉ : les mots explicites dovish/hawkish priment sur les mots directionnels ambigus
+    // (« dovish forte » = dove, pas hawk à cause de « fort »).
+    var cls = /dov|assoupl/.test(low) ? 'wr-tag--dove'
+            : /hawk|resserr/.test(low) ? 'wr-tag--hawk'
+            : /\bbaisse|\bmiss\b|faible|d[ée]c[ée]l|en\s+dessous|surprise\s+à\s+la\s+baisse/.test(low) ? 'wr-tag--dove'
+            : /\bhausse|beat|\bfort|solide|au-dessus|surprise\s+à\s+la\s+hausse/.test(low) ? 'wr-tag--hawk'
+            : 'wr-tag--neut';
+    return ' <span class="wr-tag ' + cls + '">→ ' + tag.trim() + '</span>';
+  });
+}
 
 const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 const _WR_COLOR = { USD:'#e3b23a', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
@@ -6746,16 +6761,18 @@ function _renderWeeklyRecap(item) {
       ccys.forEach(c => {
         const cd = w.currencies[c];
         const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
+        const thesis   = (cd && typeof cd === 'object') ? (cd.thesis || '') : '';   // v25 : accroche façon référence
         const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
         body += `<div class="wr-ccy-block">`;
-        body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}</div>`;
+        // Accroche « qui claque » à côté du code devise (façon référence Eliott).
+        body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}${thesis ? ` <span class="wr-ccy-thesis">— ${_wrEsc(thesis)}</span>` : ''}</div>`;
         body += `<div class="wr-text">${_wrParas(analysis)}</div>`;
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
         drivers.forEach(d => {
           body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
-          // v5 : drivers à BULLETS (façon pro : plusieurs puces par sous-section) ; rétro-compat ancien {detail}.
-          if (Array.isArray(d.bullets) && d.bullets.length) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
-          else if (d.detail) body += `<div class="wr-bullet">${_wrInline(d.detail)}</div>`;
+          // v5 : drivers à BULLETS ; v25 : tag d'interprétation « → … » colorisé en fin de puce. Rétro-compat {detail}.
+          if (Array.isArray(d.bullets) && d.bullets.length) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(b))}</div>`; });
+          else if (d.detail) body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(d.detail))}</div>`;
         });
         body += `</div>`;
       });
