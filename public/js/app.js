@@ -6077,21 +6077,14 @@ function getArlibItems() {
     ...(_weeklyReports || []),
     ...(typeof allItems !== 'undefined' ? allItems : []).filter(i => i._reportType === 'Weekly Market Recap'),
   ].filter(i => i && i._reportType === 'Weekly Market Recap' && i.timestamp > cutoff);
-  const best = cand.sort((a, b) => {
-    const av = (a._weekly && a._weekly.v >= 2) ? 1 : 0;
-    const bv = (b._weekly && b._weekly.v >= 2) ? 1 : 0;
-    if (av !== bv) return bv - av;             // v2 d'abord
-    return b.timestamp - a.timestamp;          // puis le plus récent
-  })[0];
-  // …+ UN SEUL Global Economic Weekly (le meilleur : format riche v2, puis le plus récent) →
-  // VISIBLE PAR TOUS les utilisateurs (l'endpoint /api/weekly-reports est ouvert à tout compte connecté).
+  // On garde la MEILLEURE version de CHAQUE semaine (plus « une seule, la plus récente ») → l'HISTORIQUE des
+  // semaines passées reste visible dans la liste (demande user « raffiche les anciens rapports »). Dédup par
+  // semaine (weekEnding, sinon jour du timestamp) : v2 riche prioritaire, puis le plus récent.
+  const recaps = _bestPerWeek(cand);
+  // …+ Global Economic Weekly, MEILLEUR PAR SEMAINE aussi → visible par tous (endpoint /api/weekly-reports ouvert).
   const gewCand = (_weeklyReports || []).filter(i => i && i._reportType === 'Global Economic Weekly' && i.timestamp > cutoff);
-  const bestGew = gewCand.sort((a, b) => {
-    const av = (a._weekly && a._weekly.v >= 2) ? 1 : 0;
-    const bv = (b._weekly && b._weekly.v >= 2) ? 1 : 0;
-    if (av !== bv) return bv - av;
-    return b.timestamp - a.timestamp;
-  })[0];
+  const gews = _bestPerWeek(gewCand);
+  const best = recaps[0], bestGew = gews[0];   // (rétro-compat : _wkAnchorTs / autres usages du « meilleur » courant)
   // …+ UN SEUL FX Daily Recap (le plus récent) : rapport analyste QUOTIDIEN façon pro, servi par /api/weekly-reports.
   const bestFxr = (_weeklyReports || [])
     .filter(i => i && i._reportType === 'FX Daily Recap' && i._fxr && i.timestamp > cutoff)
@@ -6104,8 +6097,23 @@ function getArlibItems() {
   _wkAnchorTs = Math.max((best && best.timestamp) || 0, (bestGew && bestGew.timestamp) || 0);
   // Anti-doublon par CONTENU (URL, ou source+jour+titre) et plus seulement par id → un même rapport
   // servi avec un id différent (re-fetch, deux flux distincts) n'apparaît plus deux fois.
-  return _dedupeReports([...(best ? [best] : []), ...(bestGew ? [bestGew] : []), ...(bestFxr ? [bestFxr] : []), ...wraps])
+  return _dedupeReports([...recaps, ...gews, ...(bestFxr ? [bestFxr] : []), ...wraps])
     .sort(_arlibReportSort);
+}
+// Meilleure version PAR SEMAINE d'une liste de rapports hebdo (Weekly Recap OU GEW) : dédup par weekEnding
+// (sinon jour du timestamp), format riche v2 prioritaire puis le plus récent. Renvoie 1 rapport / semaine,
+// toutes les semaines conservées (historique). (demande user : anciens rapports ré-affichés)
+function _bestPerWeek(items) {
+  const byWk = new Map();
+  (items || []).forEach(i => {
+    if (!i) return;
+    const wk = (i._weekly && (i._weekly.weekEnding || i._weekly.weekRange)) || new Date(i.timestamp || 0).toISOString().slice(0, 10);
+    const prev = byWk.get(wk);
+    if (!prev) { byWk.set(wk, i); return; }
+    const iv = (i._weekly && i._weekly.v >= 2) ? 1 : 0, pv = (prev._weekly && prev._weekly.v >= 2) ? 1 : 0;
+    if (iv !== pv ? iv > pv : (i.timestamp || 0) > (prev.timestamp || 0)) byWk.set(wk, i);
+  });
+  return [...byWk.values()];
 }
 
 // Tri façon pro (« comme sur l'image ») : STRICT anti-chronologique : le rapport le plus RÉCENT en
@@ -6114,11 +6122,15 @@ function getArlibItems() {
 // séparés par les recaps de session, et ordonnés Weekly Recap puis Global Economic Weekly.
 let _wkAnchorTs = 0;   // défini par getArlibItems juste avant le tri
 function _isWeeklyReport(i) { return !!(i && (i._reportType === 'Weekly Market Recap' || i._reportType === 'Global Economic Weekly')); }
+// Ancre PAR SEMAINE (fin de journée du samedi de publication) : le Weekly Recap ET le GEW d'une MÊME semaine
+// partagent l'ancre (donc restent collés, en tête de leur journée), tandis que CHAQUE semaine passée garde sa
+// propre place anti-chronologique. (Avant : une ancre GLOBALE unique remontait toutes les semaines ensemble.)
+function _weeklyAnchor(i) { return Math.floor((i.timestamp || 0) / 86400000) * 86400000 + 86399999; }
 function _arlibReportSort(a, b) {
   const wa = _isWeeklyReport(a), wb = _isWeeklyReport(b);
-  const ka = wa ? _wkAnchorTs : (a.timestamp || 0);
-  const kb = wb ? _wkAnchorTs : (b.timestamp || 0);
-  if (ka !== kb) return kb - ka;                              // anti-chrono (ancre commune pour les 2 hebdo)
+  const ka = wa ? _weeklyAnchor(a) : (a.timestamp || 0);
+  const kb = wb ? _weeklyAnchor(b) : (b.timestamp || 0);
+  if (ka !== kb) return kb - ka;                              // anti-chrono, ancre par semaine
   if (wa && wb) return (a._reportType === 'Weekly Market Recap' ? 0 : 1) - (b._reportType === 'Weekly Market Recap' ? 0 : 1);
   return (b.timestamp || 0) - (a.timestamp || 0);
 }
@@ -6551,15 +6563,13 @@ function _wrCbCall(c) {
 // (wr-macro-heading) et mêmes puces (wr-bullet) que les Points Macro. 1 puce/banque : biais + prochaine
 // réunion (hausse/baisse/maintien) + guidance + propos, en ligne. Ordre serveur (important -> meeting proche).
 function _wrCbSection(cbs) {
-  // Pruning (demande user « ça prend de la place pour rien ») : on retire les banques dont les probas sont des
-  // ESTIMATIONS MAISON (non cotées) et celles dont la prochaine réunion est à > 2 semaines — SAUF si la banque
-  // s'est EXPRIMÉE cette semaine (propos = vraie actu de la semaine, à garder même si le meeting est lointain).
-  const _cbSpoke = c => Array.isArray(c.quotes) && c.quotes.length > 0;
-  const list = (cbs || []).filter(c => c && c.bank).filter(c => {
-    if (c.source && c.source !== 'market') return false;                     // est. maison → retiré
-    if (!_cbSpoke(c) && c.nextDays != null && c.nextDays > 14) return false; // réunion > 2 semaines sans propos → retiré
-    return true;
-  });
+  // Section LEAN + ORDRE CHRONOLOGIQUE (demande user) : on retire les probas ESTIMATION MAISON (non cotées) ET
+  // les réunions à > 2 SEMAINES (trop loin, « ça prend de la place pour rien »), puis on ORDONNE par réunion la
+  // PLUS PROCHE d'abord. Filet anti-section-vide : si aucune banque ne réunit dans les 2 semaines, on garde tout.
+  const _CB_MAX_DAYS = 14;
+  let list = (cbs || []).filter(c => c && c.bank && !(c.source && c.source !== 'market'));
+  const near = list.filter(c => c.nextDays == null || c.nextDays <= _CB_MAX_DAYS);
+  list = (near.length ? near : list).slice().sort((a, b) => (a.nextDays == null ? 9999 : a.nextDays) - (b.nextDays == null ? 9999 : b.nextDays));
   if (!list.length) return '';
   // STRUCTURE PROPRE façon chronologie (demande user) : deux colonnes — nom + badge à GAUCHE, contenu à
   // DROITE (prochaine réunion · guidance · citation). Banques INTERVENUES (avec propos) = ligne complète ;
@@ -6570,7 +6580,7 @@ function _wrCbSection(cbs) {
     const nextFr = _wrCbNextFr(c.next, c.nextDays);
     const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
     const ctx = q ? (c.guidance || c.decision || c.narrative) : '';   // 1 ligne de contexte, uniquement si la banque s'est exprimée
-    const attr = q ? [q.speaker, q.date].filter(Boolean).map(_wrEsc).join(', ') : '';
+    const attr = q ? [q.date, q.speaker].filter(Boolean).map(_wrEsc).join(' — ') : '';   // date EN TÊTE (demande user : « lundi 05 juillet — Breeden : … »)
     h += `<div class="wr-cb-row">`
       + `<div class="wr-cb-name"><strong>${_wrEsc(c.bank)}</strong> <span class="wr-cb-tag wr-cb-tag--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}</div>`
       + `<div class="wr-cb-body">`
