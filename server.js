@@ -7160,7 +7160,7 @@ async function generateDailyMarketRecap(force = false, dateOffset = 0) {
 // AI Insights (cartes + paires) + « Temps forts de la semaine » (narratif IA) + résultats JOUR PAR JOUR (lundi→vendredi)
 // depuis le calendrier avec ACTUAL vs consensus par événement. Centré décisions de banques centrales + données publiées
 // (réel vs attendu) — distinct du Weekly Market Recap (centré prix/FX). 1 appel IA/semaine.
-const GEW_VER = 11;   // v11 = CONCISION (demande user 16/07 « simplifie, facilite la lecture ») : highlights 2-3 paragraphes courts (~150-250 mots TOTAL, phrases courtes, un fait par phrase) + US Review 1-2 paragraphes (~120 mots) — bump = régén auto. v10 = les DISCOURS reçoivent en plus leurs PROPOS RÉELS (jusqu'à 2 phrases minées dans le flux news du même jour, e.quotes — demande user « des phrases du discours qui donnent des indications ») — bump = régén auto. v9 = les DISCOURS de membres BC reçoivent une INTERPRÉTATION dédiée (ton hawkish/dovish/hold d'après le marché + prochaine réunion probable), distincte du contexte générique des décisions/minutes (demande user). v8 = événements BANQUE CENTRALE (discours/minutes/décisions) annotés du contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse + trajectoire, via rateprobability) → indique le biais + la date. v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
+const GEW_VER = 12;   // v12 = section « Bilan États-Unis » (usPreview) RETIRÉE (demande user 18/07) + SYNTHÈSE ENRICHIE : 3-4 paragraphes courts couvrant l'événement majeur, les news/données éco majeures TOUTES régions (réel vs attendu), ET les banques centrales (décisions + discours de présidents/gouverneurs avec ton + changements de cap, via bloc CB dédié dans le prompt) — bump = régén auto. v11 = CONCISION (demande user 16/07 « simplifie, facilite la lecture ») : highlights 2-3 paragraphes courts (~150-250 mots TOTAL, phrases courtes, un fait par phrase) + US Review 1-2 paragraphes (~120 mots) — bump = régén auto. v10 = les DISCOURS reçoivent en plus leurs PROPOS RÉELS (jusqu'à 2 phrases minées dans le flux news du même jour, e.quotes — demande user « des phrases du discours qui donnent des indications ») — bump = régén auto. v9 = les DISCOURS de membres BC reçoivent une INTERPRÉTATION dédiée (ton hawkish/dovish/hold d'après le marché + prochaine réunion probable), distincte du contexte générique des décisions/minutes (demande user). v8 = événements BANQUE CENTRALE (discours/minutes/décisions) annotés du contexte de politique monétaire du marché (prochaine réunion + proba hausse/maintien/baisse + trajectoire, via rateprobability) → indique le biais + la date. v7 = calendrier CLARIFIÉ : heure de Paris SEULE (plus de jour doublé ni de GMT) + commentaires par event UNIQUEMENT si résultat chiffré (fini le remplissage « Pas de données pour l'événement N »). v6 = RÉTROSPECTIF (semaine écoulée : actual vs consensus, narratif au passé) ; v5 = + « Aperçu États-Unis » prospectif — bump = régén auto
 // Heure d'un événement = HEURE DE PARIS (référence FR), HH:MM SEULEMENT. Plus de jour (déjà en en-tête de
 // journée) ni de doublon GMT (demande user 13/07 : « date/heure doublée »). Le fuseau est rappelé UNE fois
 // dans le titre de section (« Calendrier économique · heure de Paris »). 100% calculé (zéro IA).
@@ -7292,20 +7292,21 @@ async function generateGlobalEconomicWeekly(force = false) {
   // Événements PHARES (High) pour le titre + le narratif Highlights — avec le RÉSULTAT publié (actual)
   const marquee = evClean.filter(e => e.impact === 'High')
     .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || '—'}, préc. ${e.previous || '—'})` : ''}`);
-  // Données US de la semaine (High+Med) → grounding de la section « Bilan États-Unis » (réel vs consensus).
-  const usEvents = evClean.filter(e => e.currency === 'USD')
-    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || '—'}, préc. ${e.previous || '—'})` : ''}`);
+  // Communications des BANQUES CENTRALES de la semaine (décisions, discours, minutes, témoignages) →
+  // grounding de la partie « banques centrales » de la Synthèse : ton, discours de présidents/gouverneurs,
+  // changements de cap. (Demande user : compléter la synthèse par les discours/changements BC.)
+  const cbEvents = evClean.filter(e => SB_CURRENCIES.includes(e.currency) && _GEW_CB_EVENT_RX.test(e.title || ''))
+    .map(e => `${DOW[new Date(e.timestamp).getUTCDay()]}: ${CCY_CTRY[e.currency] || e.currency} ${e.title}${(e.actual || e.forecast) ? ` (${e.actual ? `réel ${e.actual} vs ` : ''}consensus ${e.forecast || '—'}, préc. ${e.previous || '—'})` : ''}`);
   const recentCtx = _recapClean(allNews.filter(i => i.timestamp > now - 7 * 86400000 && !i._briefing))
     .slice(0, 40).map(i => `[${i.category || ''}] ${i.headline}`);
 
   // ── IA : titre + Highlights (narratif) + insights + paires (RÉTROSPECTIF). Repli déterministe si IA KO. ──
-  let title = 'Global Economic Weekly', highlights = '', usPreview = '', insights = [], pairs = [];
+  let title = 'Global Economic Weekly', highlights = '', insights = [], pairs = [];
   if (nEv > 0) {
     const prompt = `You are a senior macro strategist writing the WEEK IN REVIEW ("Global Economic Weekly"), a RETROSPECTIVE macro recap of the trading week that JUST ENDED (Monday–Friday), for a professional FX & markets desk (depth comparable to a top-tier bank's week-in-review note). The week is defined by the HIGH-IMPACT events below, each shown with its ACTUAL result versus consensus. Write ALL output text IN FRENCH (français soigné), polished, specific and RETROSPECTIVE / PAST TENSE — describe what the central banks DECIDED and how the data CAME OUT versus expectations (réel vs attendu). Keep tickers/codes/central-bank acronyms as-is (USD/JPY, S&P 500, Fed, BoJ, BoE…). Return ONLY valid JSON (no preamble, no markdown fences):
 {
   "title": "Global Economic Weekly: <titre accrocheur EN FRANÇAIS, RÉTROSPECTIF, nommant 2-3 faits marquants de la semaine écoulée, ex. 'Fed prudente et inflation en repli : ce qu'il faut retenir de la semaine'>",
-  "highlights": "<a CONCISE editorial of 2 to 3 SHORT paragraphs (~150-250 words TOTAL) — l'ESSENTIEL de la semaine, pas un pavé : the GLOBAL & REGIONAL recap (Asia-Pacific, China, Europe, central banks OUTSIDE the US). Paragraph 1: the single biggest market-moving event (often a central-bank decision) — what was decided, the surprise versus consensus, the realized market impact, in 3-4 SHORT sentences. Then the 2-3 other marquee facts of the week, one short sentence each (réel vs attendu). Short sentences, one fact per sentence, zero filler. NEVER cut a sentence mid-way. Separate paragraphs with \\n\\n.>",
-  "usPreview": "<a SHORT 'US Review' of 1 to 2 paragraphs (max ~120 words), focused EXCLUSIVELY on the week's key US ECONOMIC RELEASES: the standout US report (actual vs consensus vs previous) and its realized implication for the dollar/yields/equities, plus one sentence for the other notable prints. Short and factual. If there were NO US releases this week, write a single short sentence stating the US calendar was light.>",
+  "highlights": "<un récap éditorial COMPLET mais concis de 3 à 4 COURTS paragraphes (~230-340 mots au total), phrases courtes, un fait par phrase, zéro remplissage, RÉTROSPECTIF (passé). Séparer les paragraphes par \\n\\n. NE JAMAIS couper une phrase en plein milieu.\\n\\n• Paragraphe 1 — L'ÉVÉNEMENT LE PLUS MARQUANT de la semaine (souvent une décision de banque centrale ou une donnée choc) : ce qui a été décidé/publié, la surprise versus consensus, l'impact de marché réalisé, en 3-4 phrases courtes.\\n\\n• Paragraphe 2 — LES NEWS/DONNÉES ÉCONOMIQUES MAJEURES de la semaine, TOUTES RÉGIONS confondues (Asie-Pacifique, Chine, Europe, États-Unis…) : les publications clés (croissance/PIB, inflation/CPI, emploi/NFP, PMI, ventes au détail, balance commerciale…) avec réel vs attendu et ce qu'elles ont engendré sur le marché. Une phrase par publication marquante.\\n\\n• Paragraphe 3 — LES BANQUES CENTRALES : les décisions de taux de la semaine (hausse/maintien/baisse), les DISCOURS de présidents/gouverneurs (Powell, Lagarde, Bailey, Ueda, Macklem…) avec leur TON (hawkish / dovish / neutre) et tout CHANGEMENT de cap ou de guidance ; s'appuyer STRICTEMENT sur le bloc « CENTRAL BANK COMMUNICATIONS » ci-dessous. Si aucune banque centrale n'a décidé ni communiqué cette semaine, l'écrire en une phrase.>",
   "insights": ["<retrospective takeaway from the week just ended, 1 past-tense sentence (what happened / what surprised)>", "... 5 to 6 cards"],
   "pairs": [ { "pair": "USD/JPY", "bias": "BUY", "text": "<one sentence: how the pair MOVED over the week and which event/outcome drove it (bias = net direction over the week: BUY=up/stronger, SELL=down, NEUTRAL=flat)>" } ]
 }
@@ -7314,10 +7315,10 @@ Rules: 5 to 7 key pairs/instruments (USD/JPY, EUR/USD, GBP/USD, AUD/USD, XAU/USD
 WEEK JUST ENDED — KEY EVENTS (actual vs consensus, vs previous):
 ${marquee.join('\n') || '(no high-impact events)'}
 
-WEEK JUST ENDED — US ECONOMIC RELEASES (for the "usPreview" section):
-${usEvents.join('\n') || '(no US releases)'}
+WEEK JUST ENDED — CENTRAL BANK COMMUNICATIONS (decisions, speeches, minutes, testimony — cover these EXPLICITLY in paragraph 3: which bank, what tone, any change of stance):
+${cbEvents.join('\n') || '(no central-bank communications this week)'}
 
-MARKET CONTEXT (news from the week just ended — weave the relevant bits into the recap):
+MARKET CONTEXT (news from the week just ended — includes central-bank speaker headlines; weave the relevant bits, especially governor/president remarks, into the recap):
 ${recentCtx.join('\n')}`;
     try {
       _aiReset();
@@ -7329,7 +7330,6 @@ ${recentCtx.join('\n')}`;
         title = _stripMd(String(parsed.title || title));   // jamais de markdown brut dans le titre
         if (!/global economic weekly/i.test(title)) title = 'Global Economic Weekly: ' + title.replace(/^global economic weekly:?\s*/i, '');
         highlights = _stripMd(String(parsed.highlights || ''));
-        usPreview = _stripMd(String(parsed.usPreview || ''));   // deep-dive données US (US Preview façon pro)
         insights = Array.isArray(parsed.insights) ? parsed.insights.filter(Boolean).map(s => _stripMd(String(s))).slice(0, 6) : [];
         pairs = Array.isArray(parsed.pairs) ? parsed.pairs.filter(p => p && p.pair).map(p => ({ pair: String(p.pair).trim(), bias: (['BUY', 'SELL', 'NEUTRAL'].includes(String(p.bias || '').toUpperCase()) ? String(p.bias).toUpperCase() : 'NEUTRAL'), text: _stripMd(String(p.text || '')) })).slice(0, 8) : [];
       }
@@ -7387,9 +7387,9 @@ ${list}`;
     if (cbAnnot || speechAnnot) console.log(`[GEW] annotations BC : ${cbAnnot} contexte(s) + ${speechAnnot} interprétation(s) de discours`);
   } catch {}
 
-  const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, usPreview, insights, pairs, days };
+  const weekly = { v: GEW_VER, gew: true, title, weekRange, highlights, insights, pairs, days };
   // Description texte (recherche/affichage simple)
-  const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 400) : '', usPreview ? usPreview.replace(/\n+/g, ' ').slice(0, 300) : ''];
+  const descParts = [weekRange, highlights ? highlights.replace(/\n+/g, ' ').slice(0, 500) : ''];
   days.forEach(d => { descParts.push('\n' + d.day + ' ' + d.date); d.events.forEach(e => descParts.push(`- ${e.country} ${e.title}${e.actual ? ' — réel ' + e.actual + ' vs cons. ' + (e.forecast || '—') : (e.forecast ? ' — cons. ' + e.forecast + (e.previous ? ' / préc. ' + e.previous : '') : '')}`)); });
   // PUBLICATION = le SAMEDI qui CLÔTURE la semaine couverte (lendemain du vendredi de clôture, ~16h Paris) →
   // on DATE le GEW à ce week-end, PAS à l'instant de génération (sinon il « saute » à la date du jour à chaque régén).
