@@ -5164,7 +5164,9 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cb { margin: 2px 0 8px; }
 .wr-cb-row { display: flex; gap: 14px; padding: 9px 0; border-top: 1px solid var(--hud-line, #1c1c20); }
 .wr-cb-row:first-child { border-top: 0; padding-top: 2px; }
-.wr-cb-name { flex: 0 0 148px; display: flex; align-items: baseline; flex-wrap: wrap; gap: 5px; padding-top: 1px; }
+/* Nom + badge EMPILÉS (nom au-dessus, badge en dessous) → placement UNIFORME quelle que soit la
+   longueur du nom (« Fed (FOMC) » ne fait plus déborder le badge sur une 2e ligne de façon inégale). */
+.wr-cb-name { flex: 0 0 138px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; padding-top: 1px; }
 .wr-cb-name strong { color: #fff; font-size: 13.5px; font-weight: var(--fw-semibold, 600); }
 .wr-cb-body { flex: 1 1 auto; min-width: 0; }
 .wr-cb-next { font-size: 12.5px; color: #c9d1d9; line-height: 1.5; }
