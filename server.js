@@ -8970,7 +8970,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v24-fund-3m';   // v24 : pilier « Données fondamentales » — repli calendrier désormais AGRÉGÉ SUR ~3 MOIS de publications (pondéré par récence 1,1/2,1/3…) au lieu d'une seule sortie → biais robuste que plusieurs datas confirment, aligné sur les VRAIES données publiées des devises des mois passés + familles du PDF + calendrier du DESK (demande user) — bump = régén au boot. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v25-fund-blend';   // v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -9152,6 +9152,9 @@ function _sbAvgToBias(vals) {
   const a = n ? s / n : 0;
   return a >= 1.4 ? 'Very Bullish' : a >= 0.35 ? 'Bullish' : a <= -1.4 ? 'Very Bearish' : a <= -0.35 ? 'Bearish' : 'Neutral';
 }
+// Mappe un SCORE continu (-2..+2) vers une stance 5-échelles (mêmes seuils que _sbAvgToBias) — utilisé par le
+// mélange DESK+TE du pilier fondamental pour retomber sur une valeur de cellule cohérente avec le reste de la matrice.
+const _sbScoreToBias = a => a >= 1.4 ? 'Very Bullish' : a >= 0.35 ? 'Bullish' : a <= -1.4 ? 'Very Bearish' : a <= -0.35 ? 'Bearish' : 'Neutral';
 
 // Hedge Fund Positioning RÉEL = COT CFTC non-commercial (grandes spéculatives). % long des spéculateurs → 5 niveaux. 0 IA.
 async function _sbHedgeRow() {
@@ -9226,13 +9229,13 @@ async function _sbFundamentalRows() {
   let cal = [];
   try { cal = await _buildTVCalendarRange(3); } catch { try { cal = await _buildTVCalendar(); } catch {} }   // ~3 mois de publications (repli : fenêtre courte)
   try { cal = _calHistMerge(cal && cal.length ? cal : (allCalendar || [])); } catch { if (!cal || !cal.length) cal = allCalendar || []; }
+  let usedCal = 0;
   const subs = _SB_FUND_SUBS.map(sub => {
     const values = {};
     SB_CURRENCIES.forEach(c => {
-      const teSub = te[c] && te[c].subs && te[c].subs.find(s => s.label === sub.label);
-      if (teSub && teSub.name) { values[c] = teSub.value || 'Neutral'; return; }   // TE possède l'indicateur → valeur fiable (tendance/PMI réel)
-      // Repli DESK : agrégat des ~6 dernières publications de cette famille sur 3 mois, PONDÉRÉ PAR RÉCENCE
-      // (poids 1, 1/2, 1/3…) → un biais que plusieurs sorties confirment, pas une seule donnée bruitée. (Demande user.)
+      // (1) DESK — datas RÉELLES publiées : agrégat des ~6 dernières sorties de cette famille sur 3 MOIS,
+      //     pondéré par RÉCENCE (poids 1, 1/2, 1/3…) → surprise que PLUSIEURS publications confirment, pas
+      //     une seule donnée bruitée. Source = calendrier du desk (familles du PDF). (Demande user.)
       const evs = (cal || [])
         .filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && sub.re.test(e.title || ''))
         .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
@@ -9240,22 +9243,32 @@ async function _sbFundamentalRows() {
       let score = 0, wsum = 0;
       evs.forEach((ev, i) => {
         const s0 = _sbFundStanceServer(ev.actual, ev.forecast);
-        if (!s0) return;   // actual/forecast illisible → ne dilue pas
+        if (!s0) return;                                       // actual/forecast illisible → ne dilue pas
         const w = 1 / (i + 1);
         score += (s0 === 'Bullish' ? 1 : s0 === 'Bearish' ? -1 : 0) * w;
         wsum  += w;
       });
-      const net = wsum ? score / wsum : 0;
-      let st = net > 0.15 ? 'Bullish' : net < -0.15 ? 'Bearish' : 'Neutral';
-      if (sub.inv && st !== 'Neutral') st = (st === 'Bullish' ? 'Bearish' : 'Bullish');   // chômage : surprise haussière = baissier devise
-      values[c] = st;
+      let calNet = wsum ? score / wsum : null;                 // ∈ [-1,1] ou null (aucune publication)
+      if (calNet != null && sub.inv) calNet = -calNet;         // chômage : surprise haussière = baissier devise
+      const calScore = calNet == null ? null : calNet * 1.5;   // échelle comparable à _SB_AGG_SC (-2..+2)
+      // (2) TE — tendance robuste (valeur réelle vs précédente), stance déjà orientée « impact devise »
+      const teSub = te[c] && te[c].subs && te[c].subs.find(s => s.label === sub.label);
+      const teScore = (teSub && teSub.name && _SB_AGG_SC[teSub.value] != null) ? _SB_AGG_SC[teSub.value] : null;
+      // (3) MÉLANGE : le DESK (datas publiées des mois passés) PRIME (0.6) ; TE confirme la tendance (0.4).
+      //     Quand ils divergent, les VRAIES sorties récentes du desk l'emportent. (Demande user.)
+      let s;
+      if (calScore != null && teScore != null) { s = 0.6 * calScore + 0.4 * teScore; usedCal++; }
+      else if (calScore != null) { s = calScore; usedCal++; }
+      else if (teScore != null) s = teScore;
+      else s = 0;
+      values[c] = _sbScoreToBias(s);
     });
     return { label: sub.label, values };
   });
   const parent = {};
   SB_CURRENCIES.forEach(c => { parent[c] = _sbAvgToBias(subs.map(s => s.values[c])); });   // parent = agrégat des 8 enfants affichés
   const teOk = Object.keys(te).length;
-  if (teOk) console.log(`[SmartBias] Fundamental via TradingEconomics (${teOk}/8 devises) — NZD parent=${parent.NZD}`);
+  console.log(`[SmartBias] Fundamental = mélange DESK 3 mois (${usedCal} cellules) + TE (${teOk}/8 devises) — NZD parent=${parent.NZD}`);
   return { parent, subs };
 }
 
