@@ -5227,9 +5227,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-cal-flag { border-radius:2px; vertical-align:middle; }
 .wr-cal-ccy { font-family:var(--font-mono); font-size:10px; font-weight:700; color:#9aa3b2; }
 /* Global Economic Weekly — Consensus Forecasts JOUR PAR JOUR (façon pro) */
-.gew-day { margin:20px 0 6px; }
-.gew-day-h { color:#e3b23a; font-size:13px; font-weight:var(--fw-bold); letter-spacing:.04em; padding-bottom:7px; border-bottom:1px solid var(--border); margin-bottom:10px; display:flex; align-items:baseline; gap:10px; }
-.gew-day-date { color:#7a8493; font-size:11px; font-weight:var(--fw-semibold); }
+/* Calendrier GEW : structure deux-colonnes façon chronologie (jour rail or à gauche · événements à droite),
+   séparateurs fins entre jours → cohérent avec le Récap Hebdo. */
+.gew-day { display:flex; gap:16px; padding:13px 0; border-top:1px solid var(--hud-line,#1c1c20); margin:0; }
+.gew-day:first-child { border-top:0; padding-top:4px; }
+.gew-day-h { flex:0 0 104px; display:flex; flex-direction:column; align-items:flex-start; gap:3px; padding-top:9px; color:#e3b23a; font-family:var(--tight,'Inter Tight',sans-serif); font-size:12.5px; font-weight:var(--fw-bold); letter-spacing:.05em; text-transform:uppercase; border-bottom:0; }
+.gew-day-date { color:#7a8493; font-size:10.5px; font-weight:var(--fw-semibold); letter-spacing:.02em; text-transform:none; line-height:1.35; }
+.gew-day-evs { flex:1 1 auto; min-width:0; }
 .gew-ev { padding:9px 0 9px 11px; border-bottom:1px solid #16171b; border-left:2px solid #1c1d22; }
 .gew-ev--high { border-left-color:#ff3d00; background:rgba(255,61,0,.03); }
 .gew-ev--med  { border-left-color:rgba(255,179,0,.42); }
@@ -5251,7 +5255,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .gew-ev-cmt { margin:7px 0 0 74px; font-size:12px; line-height:1.55; color:#aab2bd; }   /* analyse Econoday-style sous l'événement */
 /* Propos réels du discours (minés dans le flux news) : citation en italique, liseré or discret */
 .gew-ev-quote { margin:6px 0 0 74px; padding-left:10px; border-left:2px solid rgba(227,178,58,0.45); font-size:12px; line-height:1.5; color:#cbd3dd; font-style:italic; }
-@media (max-width:760px){ .gew-ev-cons{ margin-left:0; gap:18px; } .gew-ev-cmt{ margin-left:0; } .gew-ev-quote{ margin-left:0; } }
+@media (max-width:760px){ .gew-day{ flex-direction:column; gap:7px; } .gew-day-h{ flex-basis:auto; flex-direction:row; align-items:baseline; gap:9px; padding-top:0; } .gew-ev-cons{ margin-left:0; gap:18px; } .gew-ev-cmt{ margin-left:0; } .gew-ev-quote{ margin-left:0; } }
 /* GEW « Temps forts de la semaine » : cartes scannables des événements à FORT impact (en tête de rapport) */
 .gew-key-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(244px, 1fr)); gap:10px; margin:8px 0 6px; }
 .gew-key { background:#16171b; border:1px solid var(--border); border-left:3px solid #ff3d00; border-radius:4px; padding:10px 12px; }

@@ -6700,7 +6700,8 @@ function _renderWeeklyRecap(item) {
     if (Array.isArray(w.days) && w.days.length) {
       body += `<div class="wr-section-title">Calendrier économique <span style="color:#6b7280;font-size:11px;font-weight:400;letter-spacing:0;">· heure de Paris</span></div>`;
       w.days.forEach(d => {
-        body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(_gewDayFr(d.day))}${d.date ? `<span class="gew-day-date">${_wrEsc(_gewDayFr(d.date))}</span>` : ''}</div>`;
+        // Structure deux-colonnes façon chronologie : jour (rail or, gauche) · événements (droite). (Demande user : « pareil ».)
+        body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(_gewDayFr(d.day))}${d.date ? `<span class="gew-day-date">${_wrEsc(_gewDayFr(d.date))}</span>` : ''}</div><div class="gew-day-evs">`;
         (d.events || []).forEach(e => {
           const _actCls = (typeof deviationClass === 'function') ? deviationClass(e.actual, e.forecast) : '';   // surprise : vert si > consensus, rouge si <
           body += `<div class="gew-ev gew-ev--${_impCls(e.impact)}"><div class="gew-ev-top">`
@@ -6720,7 +6721,7 @@ function _renderWeeklyRecap(item) {
           (e.quotes || []).forEach(q => { body += `<div class="gew-ev-quote">« <span class="gew-ev-quote-txt">${_wrEsc(q)}</span> »</div>`; });
           body += `</div>`;
         });
-        body += `</div>`;
+        body += `</div></div>`;   // /gew-day-evs + /gew-day
       });
     }
   } else {
