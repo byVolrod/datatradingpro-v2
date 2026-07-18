@@ -6563,13 +6563,11 @@ function _wrCbCall(c) {
 // (wr-macro-heading) et mêmes puces (wr-bullet) que les Points Macro. 1 puce/banque : biais + prochaine
 // réunion (hausse/baisse/maintien) + guidance + propos, en ligne. Ordre serveur (important -> meeting proche).
 function _wrCbSection(cbs) {
-  // Section LEAN + ORDRE CHRONOLOGIQUE (demande user) : on retire les probas ESTIMATION MAISON (non cotées) ET
-  // les réunions à > 2 SEMAINES (trop loin, « ça prend de la place pour rien »), puis on ORDONNE par réunion la
-  // PLUS PROCHE d'abord. Filet anti-section-vide : si aucune banque ne réunit dans les 2 semaines, on garde tout.
-  const _CB_MAX_DAYS = 14;
-  let list = (cbs || []).filter(c => c && c.bank && !(c.source && c.source !== 'market'));
-  const near = list.filter(c => c.nextDays == null || c.nextDays <= _CB_MAX_DAYS);
-  list = (near.length ? near : list).slice().sort((a, b) => (a.nextDays == null ? 9999 : a.nextDays) - (b.nextDays == null ? 9999 : b.nextDays));
+  // Section BC : ORDRE CHRONOLOGIQUE (réunion la plus proche d'abord). On retire les probas ESTIMATION MAISON
+  // (non cotées). Le MASQUAGE des réunions à > 2 semaines a été ANNULÉ (demande user « finalement annule ça,
+  // remet-le ») → on garde TOUTES les banques, même celles dont le meeting est lointain.
+  const list = (cbs || []).filter(c => c && c.bank && !(c.source && c.source !== 'market'))
+    .slice().sort((a, b) => (a.nextDays == null ? 9999 : a.nextDays) - (b.nextDays == null ? 9999 : b.nextDays));
   if (!list.length) return '';
   // STRUCTURE PROPRE façon chronologie (demande user) : deux colonnes — nom + badge à GAUCHE, contenu à
   // DROITE (prochaine réunion · guidance · citation). Banques INTERVENUES (avec propos) = ligne complète ;
