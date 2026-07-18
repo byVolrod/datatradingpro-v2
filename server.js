@@ -8970,7 +8970,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v23-no-crossasset';   // v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v24-fund-3m';   // v24 : pilier « Données fondamentales » — repli calendrier désormais AGRÉGÉ SUR ~3 MOIS de publications (pondéré par récence 1,1/2,1/3…) au lieu d'une seule sortie → biais robuste que plusieurs datas confirment, aligné sur les VRAIES données publiées des devises des mois passés + familles du PDF + calendrier du DESK (demande user) — bump = régén au boot. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -9216,24 +9216,38 @@ function _sbFundStanceServer(actual, forecast) {
 }
 async function _sbFundamentalRows() {
   // SOURCE FIABLE : TradingEconomics (valeur réelle ACTUELLE + précédente de chaque indicateur → tendance,
-  // toutes catégories renseignées). Bien plus robuste que le calendrier épars (NZD était noté sur 1 seule
-  // publication). REPLI : surprise du CALENDRIER (actual vs forecast) par devise/catégorie si TE n'a pas
-  // l'indicateur. Parent = agrégat des 8 enfants AFFICHÉS (cohérent). 0 IA — TE + règles déterministes.
+  // toutes catégories renseignées). Bien plus robuste que le calendrier épars. REPLI : surprise du CALENDRIER
+  // (actual vs forecast) par devise/catégorie si TE n'a pas l'indicateur — désormais AGRÉGÉE SUR ~3 MOIS de
+  // publications (pondérée par récence) au lieu d'une seule sortie qui faisait basculer le biais sur une donnée
+  // bruitée (demande user : « mise à jour des bias selon les datas sorties des mois passés »). Fenêtre = calendrier
+  // du DESK (TradingView, 3 mois). Parent = agrégat des 8 enfants AFFICHÉS (cohérent). 0 IA — TE + règles détermin.
   let te = {};
   try { te = await fetchTEAll(SB_CURRENCIES); } catch (e) { console.warn('[SmartBias] TE indispo:', e.message); }
   let cal = [];
-  try { cal = await _buildTVCalendar(); } catch {}
+  try { cal = await _buildTVCalendarRange(3); } catch { try { cal = await _buildTVCalendar(); } catch {} }   // ~3 mois de publications (repli : fenêtre courte)
   try { cal = _calHistMerge(cal && cal.length ? cal : (allCalendar || [])); } catch { if (!cal || !cal.length) cal = allCalendar || []; }
   const subs = _SB_FUND_SUBS.map(sub => {
     const values = {};
     SB_CURRENCIES.forEach(c => {
       const teSub = te[c] && te[c].subs && te[c].subs.find(s => s.label === sub.label);
       if (teSub && teSub.name) { values[c] = teSub.value || 'Neutral'; return; }   // TE possède l'indicateur → valeur fiable (tendance/PMI réel)
-      const ev = (cal || [])                                                       // repli : surprise calendrier
+      // Repli DESK : agrégat des ~6 dernières publications de cette famille sur 3 mois, PONDÉRÉ PAR RÉCENCE
+      // (poids 1, 1/2, 1/3…) → un biais que plusieurs sorties confirment, pas une seule donnée bruitée. (Demande user.)
+      const evs = (cal || [])
         .filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && sub.re.test(e.title || ''))
-        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))[0];
-      let st = ev ? (_sbFundStanceServer(ev.actual, ev.forecast) || 'Neutral') : 'Neutral';
-      if (sub.inv && st !== 'Neutral') st = (st === 'Bullish' ? 'Bearish' : st === 'Bearish' ? 'Bullish' : st);   // chômage : surprise haussière = baissier devise
+        .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+        .slice(0, 6);
+      let score = 0, wsum = 0;
+      evs.forEach((ev, i) => {
+        const s0 = _sbFundStanceServer(ev.actual, ev.forecast);
+        if (!s0) return;   // actual/forecast illisible → ne dilue pas
+        const w = 1 / (i + 1);
+        score += (s0 === 'Bullish' ? 1 : s0 === 'Bearish' ? -1 : 0) * w;
+        wsum  += w;
+      });
+      const net = wsum ? score / wsum : 0;
+      let st = net > 0.15 ? 'Bullish' : net < -0.15 ? 'Bearish' : 'Neutral';
+      if (sub.inv && st !== 'Neutral') st = (st === 'Bullish' ? 'Bearish' : 'Bullish');   // chômage : surprise haussière = baissier devise
       values[c] = st;
     });
     return { label: sub.label, values };
