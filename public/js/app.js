@@ -6689,13 +6689,26 @@ function _renderWeeklyRecap(item) {
     const _IMP_LBL = { HIGH: 'FORT', MED: 'MOYEN', MEDIUM: 'MOYEN', LOW: 'FAIBLE' };
     const _impCls = i => { const u = String(i || '').toUpperCase(); return u === 'HIGH' ? 'high' : (u === 'MED' || u === 'MEDIUM') ? 'med' : 'low'; };
     const _impLbl = i => _IMP_LBL[String(i || '').toUpperCase()] || (i ? String(i).toUpperCase() : '');
-    // 0) TEMPS FORTS DE LA SEMAINE : uniquement les événements à FORT impact, en cartes scannables.
+    // 0) TEMPS FORTS DE LA SEMAINE : événements à FORT impact, en cartes scannables. CLASSÉS PAR IMPORTANCE
+    //    RÉELLE (décision de taux > inflation > croissance/emploi > le reste), PAS par ordre chronologique —
+    //    sinon un mardi chargé (sondages de confiance, données Chine) évince la décision BoC, le CPI ou le PPI
+    //    du mercredi (demande user « je vois pas le CAD, le CPI, le PPI »). À importance égale : chronologique.
+    const _gewKeyRank = t => {
+      const s = String(t || '').toLowerCase();
+      if (/rate decision|interest rate|rate statement|monetary policy report|\bfomc\b|cash rate|\bocr\b|bank rate|official rate|refi|deposit rate/.test(s)) return 6;   // décisions de taux
+      if (/\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/.test(s)) return 5;                                                                          // inflation
+      if (/\bgdp\b|gross domestic|growth rate/.test(s)) return 4;                                                                                                        // croissance
+      if (/payroll|non[-\s]?farm|\bnfp\b|unemployment|jobless|employment change|\bjobs\b|earnings|wage/.test(s)) return 3;                                                // emploi
+      if (/retail sales|\bpmi\b|\bism\b|industrial production|trade balance|balance of trade|durable goods|imports|exports/.test(s)) return 2;                            // activité/commerce
+      return 1;                                                                                                                                                          // confiance/sentiment/secondaire
+    };
     const _keyEvents = [];
-    (w.days || []).forEach(d => (d.events || []).forEach(e => { if (String(e.impact || '').toUpperCase() === 'HIGH') _keyEvents.push({ e, day: d.day }); }));
+    (w.days || []).forEach((d, di) => (d.events || []).forEach(e => { if (String(e.impact || '').toUpperCase() === 'HIGH') _keyEvents.push({ e, day: d.day, di }); }));
+    _keyEvents.sort((a, b) => (_gewKeyRank(b.e.title) - _gewKeyRank(a.e.title)) || (a.di - b.di));   // importance décroissante, puis chronologique
     if (_keyEvents.length) {
       body += `<div class="wr-section-title">Temps forts de la semaine écoulée</div>`;
       body += `<div class="gew-key-grid">`;
-      _keyEvents.slice(0, 6).forEach(({ e, day }) => {
+      _keyEvents.slice(0, 9).forEach(({ e, day }) => {
         body += `<div class="gew-key">`
           + `<div class="gew-key-h"><span class="gew-key-day">${_wrEsc(_gewDayFr(day))}</span><span class="gew-imp gew-imp--high">FORT</span></div>`
           + `<div class="gew-key-ttl">${e.country ? `<b>${_wrEsc(e.country)}</b> ` : ''}${_wrEsc(e.title)}</div>`
@@ -6705,8 +6718,16 @@ function _renderWeeklyRecap(item) {
       });
       body += `</div>`;
     }
-    // 1) SYNTHÈSE (narratif IA : vue d'ensemble globale/régionale, news éco majeures + banques centrales)
-    if (w.highlights) {
+    // 1) SYNTHÈSE — style « Points Macro Clés » (demande user) : puces thématiques (Banques Centrales, Inflation
+    //    & Croissance, Croissance & Emploi, Commerce, Marchés) = sous-titres blancs (wr-macro-heading) + puces à
+    //    libellé gras (wr-bullet), COMME le Récap. Repli sur le pavé texte (highlights) si la synthèse structurée manque.
+    if (Array.isArray(w.synthese) && w.synthese.length) {
+      body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
+      w.synthese.forEach((s, si) => {
+        body += (si ? `<div class="wr-sep"></div>` : '') + `<div class="wr-macro-heading">${_wrEsc(s.heading)}</div>`;
+        (s.bullets || []).forEach(b => { body += `<div class="wr-bullet">${_wrInline(b)}</div>`; });
+      });
+    } else if (w.highlights) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
     }
