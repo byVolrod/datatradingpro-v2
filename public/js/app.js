@@ -6674,16 +6674,13 @@ function _renderWeeklyRecap(item) {
       });
       body += `</div>`;
     }
-    // 1) SYNTHÈSE (narratif IA : vue d'ensemble globale/régionale)
+    // 1) SYNTHÈSE (narratif IA : vue d'ensemble globale/régionale, news éco majeures + banques centrales)
     if (w.highlights) {
       body += `<div class="wr-section-title">Synthèse de la semaine</div>`;
       body += `<div class="wr-text">${_wrParas(w.highlights)}</div>`;
     }
-    // 1b) BILAN ÉTATS-UNIS (US Review façon pro : deep-dive sur les données US de la semaine écoulée)
-    if (w.usPreview) {
-      body += `<div class="wr-section-title">Bilan États-Unis</div>`;
-      body += `<div class="wr-text">${_wrParas(w.usPreview)}</div>`;
-    }
+    // (Section « Bilan États-Unis » retirée le 18/07 — demande user ; le contenu US est désormais
+    //  fondu dans la Synthèse, parmi les données éco majeures toutes régions.)
     // 2) CALENDRIER ÉCONOMIQUE complet, jour par jour (FORT mis en avant, FAIBLE estompé)
     if (Array.isArray(w.days) && w.days.length) {
       body += `<div class="wr-section-title">Calendrier économique <span style="color:#6b7280;font-size:11px;font-weight:400;letter-spacing:0;">· heure de Paris</span></div>`;
