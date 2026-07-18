@@ -7825,7 +7825,7 @@ async function generateWeeklyRecapAI(force = false) {
     .map(e => {
       const d = new Date(e.timestamp);
       const nums = [e.actual ? `réel ${e.actual}` : '', e.forecast ? `att. ${e.forecast}` : '', e.previous ? `préc. ${e.previous}` : ''].filter(Boolean).join(', ');
-      return `${d.getUTCDate()} ${_MOIS[d.getUTCMonth()]} · ${e.currency} ${e.title}${nums ? ` (${nums})` : ''}`;
+      return `${d.getUTCDate()} ${_MOIS_FR[d.getUTCMonth()]} · ${e.currency} ${e.title}${nums ? ` (${nums})` : ''}`;
     });
   const corpus = [
     '=== CLOSING MESSAGE OF THE WEEK (latest Friday wrap — base the TITLE on this) ===', closingMsg || '(none)',
