@@ -1001,7 +1001,42 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   const _actCol = (a, f, title) => { const x = parseFloat(String(a == null ? '' : a).replace(',', '.')), y = parseFloat(String(f == null ? '' : f).replace(',', '.')); if (isNaN(x) || isNaN(y) || x === y) return '#e6e6ea'; const good = _INV_RX.test(String(title || '')) ? x < y : x > y; return good ? '#22c55e' : '#ef4444'; };
   const _pastFlat = [];
   for (const d of ((w.calendar && Array.isArray(w.calendar.past)) ? w.calendar.past : [])) for (const e of (d.events || [])) { if (e && e.actual) _pastFlat.push({ e, day: d.dayLabel }); }
-  const _pastRows = [..._pastFlat.filter(r => r.e.major), ..._pastFlat.filter(r => !r.e.major && /high/i.test(r.e.impact || ''))].slice(0, 7);
+  // Classement par IMPORTANCE réelle (décision de taux > inflation > croissance/emploi > commerce/activité >
+  // confiance) — miroir de _gewKeyRank du desk. SINON un mardi chargé (sondages de confiance, données Chine)
+  // remplit les 7 lignes et évince la décision BoC + le CPI/PPI (demande user « il manque le CAD, le PPI, le CPI »).
+  const _mailKeyRank = t => {
+    const s = String(t || '').toLowerCase();
+    if (/rate decision|interest rate|rate statement|monetary policy report|\bfomc\b|cash rate|\bocr\b|bank rate|official rate|refi|deposit rate/.test(s)) return 6;   // décisions de taux
+    if (/\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price/.test(s)) return 5;                                                                          // inflation
+    if (/\bgdp\b|gross domestic|growth rate/.test(s)) return 4;                                                                                                        // croissance
+    if (/payroll|non[-\s]?farm|\bnfp\b|unemployment|jobless|employment change|\bjobs\b|earnings|wage/.test(s)) return 3;                                                // emploi
+    if (/retail sales|\bpmi\b|\bism\b|industrial production|trade balance|balance of trade|durable goods|imports|exports/.test(s)) return 2;                            // activité/commerce
+    return 1;                                                                                                                                                          // confiance/sentiment/secondaire
+  };
+  // Dédup par FAMILLE (une SEULE ligne par CPI / PPI / emploi… — sinon 6 variantes du même CPI, index inclus,
+  // noient la BoC et les autres majeures) + préférence pour le titre PHARE (YoY/Rate/Decision) de la famille.
+  const _fam = t => { const s = String(t || '').toLowerCase();
+    if (/rate decision|interest rate|monetary policy/.test(s)) return 'taux';
+    if (/\bppi\b|producer price/.test(s)) return 'ppi';
+    if (/\bcpi\b|inflation|consumer price|\bpce\b/.test(s)) return 'cpi';
+    if (/\bgdp\b|gross domestic|growth rate/.test(s)) return 'pib';
+    if (/payroll|non[-\s]?farm|\bnfp\b|unemployment|jobless|employment|\bjobs\b|earnings|\bwage/.test(s)) return 'emploi';
+    if (/retail sales/.test(s)) return 'ventes';
+    if (/import/.test(s)) return 'imports';
+    if (/export/.test(s)) return 'exports';
+    if (/balance of trade|trade balance/.test(s)) return 'balance';
+    if (/confidence|sentiment/.test(s)) return 'confiance';
+    return s.replace(/\b(yoy|mom|qoq|s\.a|final|prelim|core|a\/a|m\/m)\b/g, '').replace(/\s+/g, ' ').trim().slice(0, 22);
+  };
+  const _headline = t => /decision|\byoy\b|\ba\/a\b|rate\b|\bmom\b|m\/m/i.test(String(t || '')) ? 0 : 1;   // titres phares d'abord
+  const _famSeen = new Set();
+  const _pastRows = _pastFlat
+    .filter(r => r.e && (r.e.major || /high/i.test(r.e.impact || '')))
+    .map((r, i) => ({ r, i, rk: _mailKeyRank(r.e.title) }))
+    .sort((a, b) => (b.rk - a.rk) || (_headline(a.r.e.title) - _headline(b.r.e.title)) || (a.i - b.i))   // importance, puis titre phare, puis chrono
+    .filter(x => { const k = String(x.r.e.ccy || '') + '|' + _fam(x.r.e.title); if (_famSeen.has(k)) return false; _famSeen.add(k); return true; })   // 1 ligne / famille / devise
+    .slice(0, 8)
+    .map(x => x.r);
   const pastTableHtml = _pastRows.length ? `<p style="margin:16px 0 6px;color:#9aa3b2;font-size:12.5px;">Les chiffres qui ont marqué la semaine (réel vs attendu)&nbsp;:</p>
     <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border-collapse:collapse;background:#0d0e11;">
     <tr style="background:#101012;">${_wdTh('d')}${_wdTh('c')}${_wdTh('e')}${_wdTh('a')}${_wdTh('r')}</tr>
