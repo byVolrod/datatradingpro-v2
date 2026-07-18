@@ -10827,6 +10827,12 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
    .cth-*) pour un rendu IDENTIQUE. On ne redéfinit donc AUCUN style de calendrier ici. */
 .wdg-cal-wrap { height: 100%; overflow: auto; }
 
+/* Widgets réutilisant des rendus du desk : on les fait remplir le corps du widget (règles additives,
+   scoping .wdg-body → aucun effet sur les onglets du desk). */
+.wdg-body .meter-grid { height: 100%; }
+.wdg-body .wdg-cs-wrap { height: 100%; overflow: auto; }
+.wdg-body .cs-rank-list { padding: 8px 12px; }
+
 /* Widget fil de news : réutilise le rendu .news-item officiel du desk */
 .wdg-news { display: flex; flex-direction: column; }
 .wdg-news-row { padding: 5px 8px; font-size: 11px; color: #c8ccd4; border-bottom: var(--row-sep, 1px solid rgba(255,255,255,.028)); }

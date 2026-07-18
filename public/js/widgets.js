@@ -63,6 +63,36 @@
       },
     },
     {
+      id: 'barometre', name: 'Baromètre des Devises', cat: 'Devises', h: 300,
+      desc: 'La force des 8 majeures en égaliseur bidirectionnel (le vrai baromètre du desk).',
+      // Réutilise buildMeterChart du desk (HTML pur, classes .meter-*). Son timer interne s'auto-termine
+      // hors de l'onglet METER (garde #rtab-meter) → snapshot rafraîchi à chaque réouverture, zéro fuite.
+      mount: function (host) {
+        var id = HOST_ID + '-mt-' + uid();
+        host.innerHTML = '<div id="' + id + '" style="height:100%;"></div>';
+        if (typeof buildMeterChart !== 'function') { fallback(host, 'Baromètre indisponible.'); return null; }
+        try { buildMeterChart(id); } catch (e) { fallback(host, 'Baromètre indisponible.'); }
+        return null;
+      },
+    },
+    {
+      id: 'classement-devises', name: 'Classement des Devises', cat: 'Devises', h: 300,
+      desc: 'Le classement de force des 8 majeures, de la plus forte à la plus faible.',
+      // Réutilise buildStrengthSnapshot(containerId, data) du desk (liste .cs-rank-*), alimenté par
+      // /api/currency-strength (même source que la Force des Devises).
+      mount: function (host) {
+        var id = HOST_ID + '-cs-' + uid();
+        host.innerHTML = '<div id="' + id + '" class="wdg-cs-wrap"></div>';
+        if (typeof buildStrengthSnapshot !== 'function') { fallback(host, 'Classement indisponible.'); return null; }
+        fetch('/api/currency-strength?period=week').then(function (r) { return r.json(); }).then(function (d) {
+          if (!document.getElementById(id)) return;                        // widget retiré pendant le fetch
+          if (!d || !d.currencies || !d.series) return fallback(host, 'Classement indisponible.');
+          try { buildStrengthSnapshot(id, d); } catch (e) { fallback(host, 'Classement indisponible.'); }
+        }).catch(function () { fallback(host, 'Classement indisponible.'); });
+        return null;
+      },
+    },
+    {
       id: 'risque-historique', name: 'Historique du Sentiment', cat: 'Risque', h: 260,
       desc: "L'appétit pour le risque des 60 derniers jours.",
       mount: function (host) {
