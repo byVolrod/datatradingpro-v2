@@ -43,6 +43,7 @@
   var ICO = {
     info: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.7" r="0.7" fill="currentColor" stroke="none"/></svg>',
     gear: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.3" fill="#0d0e11"/><circle cx="15" cy="16" r="2.3" fill="#0d0e11"/></svg>',
+    grip: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>',
   };
 
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -246,8 +247,80 @@
     STATE.mounted.forEach(function (fn) { try { if (typeof fn === 'function') fn(); } catch (e) {} });
     STATE.mounted = [];
   }
+
+  /* ── AGENCEMENT SMART : glisser-déposer (réordonner) + poignée de redimensionnement (hauteur) ──
+     Tout en DÉLÉGATION sur l'hôte #wdg-grid (qui persiste entre les renderGrid) → câblé UNE fois.
+     Le drag part de la POIGNÉE (⠿) du header pour ne jamais gêner le contenu du widget ; le resize
+     part de la poignée basse. On persiste (save) et on re-rend pour remonter proprement les charts. */
+  function _reorderBefore(from, before) {
+    var l = activeLayout(); if (!l) return;
+    from = from | 0; before = before | 0;
+    if (from < 0 || from >= l.items.length) return;
+    var it = l.items.splice(from, 1)[0];
+    if (from < before) before--;                                  // le retrait a décalé les indices suivants
+    before = Math.max(0, Math.min(l.items.length, before));
+    l.items.splice(before, 0, it);
+    save(); renderGrid();
+  }
+  function _wireGrid(host) {
+    if (!host || host._wdgWired) return; host._wdgWired = true;
+    var dragIdx = null, rz = null;
+    var clearHints = function () { host.querySelectorAll('.wdg-drop-before,.wdg-drop-after').forEach(function (c) { c.classList.remove('wdg-drop-before', 'wdg-drop-after'); }); };
+    // — Glisser-déposer (réordonner) —
+    host.addEventListener('dragstart', function (e) {
+      var grip = e.target.closest && e.target.closest('.wdg-grip');
+      var card = grip && grip.closest('.wdg-card');
+      if (!card) { if (e.preventDefault) e.preventDefault(); return; }             // drag AUTORISÉ seulement depuis la poignée
+      dragIdx = +card.getAttribute('data-idx');
+      card.classList.add('wdg-dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', String(dragIdx)); e.dataTransfer.setDragImage(card, 24, 18); } catch (_) {}
+    });
+    host.addEventListener('dragover', function (e) {
+      if (dragIdx == null) return; e.preventDefault();
+      var card = e.target.closest && e.target.closest('.wdg-card'); clearHints();
+      if (!card || +card.getAttribute('data-idx') === dragIdx) return;
+      var r = card.getBoundingClientRect();
+      card.classList.add((e.clientY - r.top) > r.height / 2 ? 'wdg-drop-after' : 'wdg-drop-before');
+    });
+    host.addEventListener('drop', function (e) {
+      if (dragIdx == null) return; e.preventDefault();
+      var card = e.target.closest && e.target.closest('.wdg-card');
+      if (card) {
+        var to = +card.getAttribute('data-idx'), r = card.getBoundingClientRect();
+        _reorderBefore(dragIdx, (e.clientY - r.top) > r.height / 2 ? to + 1 : to);
+      }
+      dragIdx = null; clearHints();
+    });
+    host.addEventListener('dragend', function () { dragIdx = null; clearHints(); host.querySelectorAll('.wdg-dragging').forEach(function (c) { c.classList.remove('wdg-dragging'); }); });
+    // — Redimensionnement (hauteur) via la poignée basse (pointer events, capture) —
+    host.addEventListener('pointerdown', function (e) {
+      var h = e.target.closest && e.target.closest('.wdg-resize'); var card = h && h.closest('.wdg-card');
+      if (!card) return; e.preventDefault();
+      rz = { idx: +card.getAttribute('data-idx'), y0: e.clientY, h0: card.offsetHeight, card: card, nh: 0 };
+      card.classList.add('wdg-resizing');
+      try { host.setPointerCapture(e.pointerId); } catch (_) {}
+    });
+    host.addEventListener('pointermove', function (e) {
+      if (!rz) return;
+      rz.nh = Math.min(900, Math.max(160, Math.round(rz.h0 + (e.clientY - rz.y0))));
+      rz.card.style.setProperty('--wdg-h', rz.nh + 'px');                          // aperçu live (amCharts se re-mesure seul)
+    });
+    var endResize = function (e) {
+      if (!rz) return;
+      var l = activeLayout();
+      if (l && l.items[rz.idx] && rz.nh) { l.items[rz.idx].h = rz.nh; save(); }
+      rz.card.classList.remove('wdg-resizing');
+      try { host.releasePointerCapture(e.pointerId); } catch (_) {}
+      var doRerender = !!rz.nh; rz = null;
+      if (doRerender) renderGrid();                                                // remonte les charts à la bonne taille
+    };
+    host.addEventListener('pointerup', endResize);
+    host.addEventListener('pointercancel', endResize);
+  }
+
   function renderGrid() {
     var host = document.getElementById(HOST_ID); if (!host) return;
+    _wireGrid(host);
     unmountAll();
     var lay = activeLayout();
     if (!lay || !lay.items.length) {
@@ -261,8 +334,8 @@
       if (!w) return '';                                                     // widget retiré du catalogue → ignoré
       var full = it.col === 2;
       var chip = function (on, act, lbl) { return '<button class="wdg-chip' + (on ? ' on' : '') + '" onclick="' + act + '">' + lbl + '</button>'; };
-      return '<section class="wdg-card' + (full ? ' wdg-card--full' : '') + '" style="--wdg-h:' + it.h + 'px;">'
-        + '<header class="wdg-head"><span class="wdg-title">' + esc(w.name) + '</span>'
+      return '<section class="wdg-card' + (full ? ' wdg-card--full' : '') + '" data-idx="' + idx + '" style="--wdg-h:' + it.h + 'px;">'
+        + '<header class="wdg-head"><button class="wdg-grip" draggable="true" title="Glisser pour déplacer" aria-label="Déplacer le widget">' + ICO.grip + '</button><span class="wdg-title">' + esc(w.name) + '</span>'
         + '<span class="wdg-actions">'
         + '<button class="wdg-ico" title="Informations" onclick="DTPWidgets.toggleInfo(' + idx + ')">' + ICO.info + '</button>'
         + '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
@@ -290,7 +363,8 @@
         +     chip(false, 'DTPWidgets.move(' + idx + ',1)', '↓ Descendre')
         +   '</span></div>'
         + '</div>'
-        + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div></section>';
+        + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
+        + '<div class="wdg-resize" title="Glisser pour redimensionner la hauteur"></div></section>';
     }).join('');
     // Rouvre le panneau réglages du widget qu'on vient d'ajuster (sinon il se referme à chaque clic).
     if (_reopen != null) { var sp = document.getElementById(HOST_ID + '-s' + _reopen); if (sp) sp.hidden = false; _reopen = null; }
@@ -372,10 +446,12 @@
   /* ── ACTIONS (exposées : les onclick du HTML généré les appellent) ── */
   var API = {
     open: function () {                                   // appelé par activateView('widgets')
+      document.body.classList.add('wdg-mode');            // masque la nav principale → la barre Mon Desk la REMPLACE (demande user)
       if (!STATE.booted) { STATE.booted = true; load().then(function () { renderBar(); renderGrid(); }); }
       else { renderBar(); renderGrid(); }
     },
-    close: function () { unmountAll(); },                 // libère roots amCharts + timers en quittant l'onglet
+    close: function () { document.body.classList.remove('wdg-mode'); unmountAll(); },   // restaure la nav + libère roots/timers
+    exit: function () { if (typeof activateView === 'function') activateView('news'); }, // « ‹ Retour au desk » (la nav est masquée en mode Mon Desk)
     remove: function (i) { var l = activeLayout(); if (!l) return; l.items.splice(i, 1); save(); renderGrid(); },
     move: function (i, d) {
       var l = activeLayout(); if (!l) return;
