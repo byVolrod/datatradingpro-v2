@@ -6551,7 +6551,15 @@ function _wrCbCall(c) {
 // (wr-macro-heading) et mêmes puces (wr-bullet) que les Points Macro. 1 puce/banque : biais + prochaine
 // réunion (hausse/baisse/maintien) + guidance + propos, en ligne. Ordre serveur (important -> meeting proche).
 function _wrCbSection(cbs) {
-  const list = (cbs || []).filter(c => c && c.bank);
+  // Pruning (demande user « ça prend de la place pour rien ») : on retire les banques dont les probas sont des
+  // ESTIMATIONS MAISON (non cotées) et celles dont la prochaine réunion est à > 2 semaines — SAUF si la banque
+  // s'est EXPRIMÉE cette semaine (propos = vraie actu de la semaine, à garder même si le meeting est lointain).
+  const _cbSpoke = c => Array.isArray(c.quotes) && c.quotes.length > 0;
+  const list = (cbs || []).filter(c => c && c.bank).filter(c => {
+    if (c.source && c.source !== 'market') return false;                     // est. maison → retiré
+    if (!_cbSpoke(c) && c.nextDays != null && c.nextDays > 14) return false; // réunion > 2 semaines sans propos → retiré
+    return true;
+  });
   if (!list.length) return '';
   // STRUCTURE PROPRE façon chronologie (demande user) : deux colonnes — nom + badge à GAUCHE, contenu à
   // DROITE (prochaine réunion · guidance · citation). Banques INTERVENUES (avec propos) = ligne complète ;
