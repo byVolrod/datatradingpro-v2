@@ -3231,34 +3231,34 @@ function _calNum(s) { const m = String(s == null ? '' : s).replace(/,/g, '.').ma
 // actions). Déterministe (kb.cat + kb.hiUp) → instantané, ancré sur le vrai chiffre, jamais inventé.
 function _calConclusion(kb, a, f, ev) {
   const A = _calEsc(ev.actual), F = _calEsc(ev.forecast);
-  // Cas 1 — RÉSULTAT PUBLIÉ : on interprète l'écart réel vs consensus.
+  // Cas 1 — RÉSULTAT PUBLIÉ : verdict SIMPLE + conséquence en langage clair (demande user : « qu'on
+  // comprenne plus simplement »). On évite le jargon (assouplissement, biais restrictif, rendements) au
+  // profit de « positif/négatif pour la devise / les obligations / les actions ».
   if (a != null && f != null) {
-    if (a === f) return `Chiffre <strong>conforme</strong> au consensus (${F}) : peu de raison de repricer la trajectoire de taux, réaction généralement <strong>limitée</strong> — le marché conserve son biais.`;
-    const strong = (a > f) === !!kb.hiUp;   // « hot » / sens haussier pour la devise (tient compte de hiUp : chômage & inscriptions inversés)
-    const lead = `Réel <strong>${A}</strong> ${a > f ? 'au-dessus' : 'en dessous'} du consensus (${F}) — `;
+    if (a === f) return `<strong>Chiffre conforme aux attentes</strong> (${F}). Rien ne change vraiment pour les taux → réaction en général <strong>faible</strong>.`;
+    const strong = (a > f) === !!kb.hiUp;   // « fort » pour la devise (tient compte de hiUp : chômage & inscriptions inversés)
     const M = {
       Inflation: {
-        s: `inflation plus <strong>chaude</strong> qu'attendu. Renforce le camp d'une politique <strong>restrictive</strong> (taux hauts plus longtemps) : <strong>soutien</strong> à la devise, <strong>pression</strong> sur les obligations (rendements en hausse), souvent un frein pour les actions.`,
-        w: `inflation plus <strong>molle</strong> qu'attendu. Nourrit les paris d'un <strong>assouplissement</strong> (biais moins restrictif) : tend à <strong>peser</strong> sur la devise, <strong>soutient</strong> les obligations (rendements en baisse) et les actions.`,
+        s: ['Inflation plus forte que prévu', "La banque centrale est plutôt poussée à garder des taux élevés. → <strong>positif pour la devise</strong>, <strong>négatif pour les obligations</strong> (et souvent pour les actions)."],
+        w: ['Inflation plus faible que prévu', "La banque centrale a moins de raisons de monter les taux. → <strong>négatif pour la devise</strong>, <strong>positif pour les obligations et les actions</strong>."],
       },
       Emploi: {
-        s: `marché du travail plus <strong>solide</strong> qu'attendu. Laisse la banque centrale <strong>restrictive</strong> plus longtemps : <strong>soutien</strong> à la devise et aux rendements ; peut peser sur les actions si les baisses de taux s'éloignent.`,
-        w: `marché du travail plus <strong>faible</strong> qu'attendu. Renforce l'argument d'un <strong>assouplissement</strong> : tend à <strong>peser</strong> sur la devise et les rendements ; souvent favorable aux actions (espoir de baisses de taux).`,
+        s: ['Emploi plus solide que prévu', "La banque centrale peut garder des taux élevés plus longtemps. → <strong>positif pour la devise</strong> ; les actions peuvent souffrir si les baisses de taux s'éloignent."],
+        w: ['Emploi plus faible que prévu', "Cela pousse plutôt la banque centrale vers des baisses de taux. → <strong>négatif pour la devise</strong>, <strong>positif pour les actions</strong>."],
       },
       Croissance: {
-        s: `activité plus <strong>forte</strong> qu'attendu. Signal de croissance robuste : <strong>soutien</strong> à la devise et aux actions ; peut relever les rendements si les espoirs de baisses de taux reculent.`,
-        w: `activité plus <strong>faible</strong> qu'attendu. Signal de <strong>ralentissement</strong> : pèse souvent sur la devise et les actions cycliques ; <strong>soutient</strong> les obligations (paris d'assouplissement).`,
+        s: ['Croissance plus forte que prévu', "Signe d'une économie solide. → <strong>positif pour la devise et les actions</strong>."],
+        w: ['Croissance plus faible que prévu', "Signe d'un ralentissement. → <strong>négatif pour la devise et les actions</strong>, <strong>positif pour les obligations</strong>."],
       },
     };
-    const m = M[kb.cat] || M.Croissance;
-    return lead + (strong ? m.s : m.w);
+    const m = (M[kb.cat] || M.Croissance)[strong ? 's' : 'w'];
+    return `<strong>${m[0]}</strong> (${A} contre ${F} attendu). ${m[1]}`;
   }
-  // Cas 2 — À VENIR (pas encore de résultat) : conclusion prospective, liée au CONSENSUS précis.
+  // Cas 2 — À VENIR (pas encore de résultat) : ce qu'il faut regarder, en clair.
   if (f != null) {
-    const H = { Inflation: 'un biais restrictif (devise soutenue, rendements en hausse)', Emploi: 'un biais restrictif (devise et rendements soutenus)', Croissance: 'un signal de croissance (devise et actions soutenues)' }[kb.cat] || 'un biais haussier pour la devise';
     return kb.hiUp
-      ? `À la publication : un chiffre au-dessus de ${F} plaiderait pour ${H} ; en dessous, l'inverse.`
-      : `À la publication : un chiffre en dessous de ${F} plaiderait pour ${H} ; au-dessus, l'inverse.`;
+      ? `Chiffre à venir. Un résultat <strong>au-dessus de ${F}</strong> serait plutôt <strong>bon pour la devise</strong> ; en dessous, l'inverse.`
+      : `Chiffre à venir. Un résultat <strong>en dessous de ${F}</strong> serait plutôt <strong>bon pour la devise</strong> ; au-dessus, l'inverse.`;
   }
   return '';
 }
