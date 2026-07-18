@@ -3197,11 +3197,6 @@ const CAL_KB = [
   { rx: /(?:ism\s+)?services\s+pmi|pmi\s+services|ism\s+services|non-?manufacturing/i, name: 'PMI Services', cat: 'Croissance', what: 'La santé des entreprises de services (au-dessus de 50 = expansion).', anticipates: 'PIB, emploi', nextRx: /\bgdp\b/i, hiUp: true },
   { rx: /\bpmi\b/i, name: 'PMI', cat: 'Croissance', what: 'Le moral des directeurs d\'achats (au-dessus de 50 = expansion, en dessous = contraction).', anticipates: 'PIB, tendance de l\'activité', nextRx: /\bgdp\b/i, hiUp: true },
 ];
-const _CAL_REACTION = {
-  Inflation: "Un chiffre AU-DESSUS des attentes plaide classiquement pour des taux plus élevés (devise souvent soutenue) ; en dessous, l'inverse.",
-  Emploi: "Un marché du travail plus FORT qu'attendu met la pression sur la banque centrale (devise souvent soutenue) ; plus faible, l'inverse.",
-  Croissance: "Au-dessus des attentes = signal de croissance (devise et actions souvent soutenues) ; en dessous = signal de ralentissement.",
-};
 // Événements de BANQUE CENTRALE (discours, minutes, conférences, décisions)
 const _CAL_CB_RX = /speech|speaks|testif|press\s+conference|minutes|rate\s+decision|rate\s+statement|policy\s+(?:report|decision|statement)|monetary\s+policy|\bfomc\b/i;
 const _CAL_CB_BY_CCY = { USD: { bank: 'Fed (FOMC)', rx: /\b(?:fed|fomc|powell)\b/i }, EUR: { bank: 'BCE', rx: /\b(?:ecb|bce|lagarde)\b/i }, GBP: { bank: 'BoE', rx: /\b(?:boe|bank of england|bailey)\b/i }, JPY: { bank: 'BoJ', rx: /\b(?:boj|bank of japan|ueda)\b/i }, CHF: { bank: 'BNS (SNB)', rx: /\b(?:snb|bns|swiss national bank)\b/i }, CAD: { bank: 'BoC', rx: /\b(?:boc|bank of canada|macklem)\b/i }, AUD: { bank: 'RBA', rx: /\b(?:rba|reserve bank of australia)\b/i }, NZD: { bank: 'RBNZ', rx: /\b(?:rbnz|reserve bank of new zealand)\b/i } };
@@ -3231,6 +3226,42 @@ function _calFmtDateFr(iso) {
 }
 // Valeur numérique d'une cellule calendrier (« 0.2% », « 45B », « -1.5 »)
 function _calNum(s) { const m = String(s == null ? '' : s).replace(/,/g, '.').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null; }
+// « CONCLUSION » (demande user) : PAS la réaction théorique générique, mais l'INTERPRÉTATION du résultat
+// publié — écart réel vs consensus + implications concrètes (politique monétaire, devise, obligations,
+// actions). Déterministe (kb.cat + kb.hiUp) → instantané, ancré sur le vrai chiffre, jamais inventé.
+function _calConclusion(kb, a, f, ev) {
+  const A = _calEsc(ev.actual), F = _calEsc(ev.forecast);
+  // Cas 1 — RÉSULTAT PUBLIÉ : on interprète l'écart réel vs consensus.
+  if (a != null && f != null) {
+    if (a === f) return `Chiffre <strong>conforme</strong> au consensus (${F}) : peu de raison de repricer la trajectoire de taux, réaction généralement <strong>limitée</strong> — le marché conserve son biais.`;
+    const strong = (a > f) === !!kb.hiUp;   // « hot » / sens haussier pour la devise (tient compte de hiUp : chômage & inscriptions inversés)
+    const lead = `Réel <strong>${A}</strong> ${a > f ? 'au-dessus' : 'en dessous'} du consensus (${F}) — `;
+    const M = {
+      Inflation: {
+        s: `inflation plus <strong>chaude</strong> qu'attendu. Renforce le camp d'une politique <strong>restrictive</strong> (taux hauts plus longtemps) : <strong>soutien</strong> à la devise, <strong>pression</strong> sur les obligations (rendements en hausse), souvent un frein pour les actions.`,
+        w: `inflation plus <strong>molle</strong> qu'attendu. Nourrit les paris d'un <strong>assouplissement</strong> (biais moins restrictif) : tend à <strong>peser</strong> sur la devise, <strong>soutient</strong> les obligations (rendements en baisse) et les actions.`,
+      },
+      Emploi: {
+        s: `marché du travail plus <strong>solide</strong> qu'attendu. Laisse la banque centrale <strong>restrictive</strong> plus longtemps : <strong>soutien</strong> à la devise et aux rendements ; peut peser sur les actions si les baisses de taux s'éloignent.`,
+        w: `marché du travail plus <strong>faible</strong> qu'attendu. Renforce l'argument d'un <strong>assouplissement</strong> : tend à <strong>peser</strong> sur la devise et les rendements ; souvent favorable aux actions (espoir de baisses de taux).`,
+      },
+      Croissance: {
+        s: `activité plus <strong>forte</strong> qu'attendu. Signal de croissance robuste : <strong>soutien</strong> à la devise et aux actions ; peut relever les rendements si les espoirs de baisses de taux reculent.`,
+        w: `activité plus <strong>faible</strong> qu'attendu. Signal de <strong>ralentissement</strong> : pèse souvent sur la devise et les actions cycliques ; <strong>soutient</strong> les obligations (paris d'assouplissement).`,
+      },
+    };
+    const m = M[kb.cat] || M.Croissance;
+    return lead + (strong ? m.s : m.w);
+  }
+  // Cas 2 — À VENIR (pas encore de résultat) : conclusion prospective, liée au CONSENSUS précis.
+  if (f != null) {
+    const H = { Inflation: 'un biais restrictif (devise soutenue, rendements en hausse)', Emploi: 'un biais restrictif (devise et rendements soutenus)', Croissance: 'un signal de croissance (devise et actions soutenues)' }[kb.cat] || 'un biais haussier pour la devise';
+    return kb.hiUp
+      ? `À la publication : un chiffre au-dessus de ${F} plaiderait pour ${H} ; en dessous, l'inverse.`
+      : `À la publication : un chiffre en dessous de ${F} plaiderait pour ${H} ; au-dessus, l'inverse.`;
+  }
+  return '';
+}
 // ── Bloc « Décryptage DTP » d'un événement (async : peut attendre /api/rates, en cache) ──
 async function _calValueBlockHtml(ev) {
   const title = String(ev.title || '');
@@ -3271,8 +3302,8 @@ async function _calValueBlockHtml(ev) {
     const lecture = a > f ? 'AU-DESSUS de la prévision' : a < f ? 'SOUS la prévision' : 'EN LIGNE avec la prévision';
     rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">Réel (${_calEsc(ev.actual)}) ${lecture} (${_calEsc(ev.forecast)}).</span></div>`);
   }
-  const reaction = _CAL_REACTION[kb.cat];
-  if (reaction) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Réaction classique</span><span class="cal-kb-val">${reaction}</span></div>`);
+  const conclusion = _calConclusion(kb, a, f, ev);
+  if (conclusion) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Conclusion</span><span class="cal-kb-val">${conclusion}</span></div>`);
   rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Peut aider à anticiper</span><span class="cal-kb-val">${_calEsc(kb.anticipates)}</span></div>`);
   // Prochaine échéance LIÉE réellement présente dans le calendrier chargé (même devise, après cet événement)
   if (kb.nextRx && Array.isArray(_calEvents)) {
