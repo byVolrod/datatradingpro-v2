@@ -1477,9 +1477,9 @@ function _flagImg(iso, size = 16) {
 const METER_ORDER  = ['USD', 'EUR', 'JPY', 'GBP', 'AUD', 'CHF', 'CAD', 'NZD'];
 const METER_BRICKS = 10;   // briques par moitié (10 haut + 10 bas)
 
-function buildMeterChart() {
+function buildMeterChart(containerId) {   // containerId optionnel (widget « Mon Desk ») ; défaut = onglet METER du desk (rétrocompatible)
   clearInterval(_meterTimer);
-  const container = document.getElementById('chart-meter');
+  const container = document.getElementById(containerId || 'chart-meter');
   if (!container) return;
 
   // Tooltip flottant unique
