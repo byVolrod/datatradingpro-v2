@@ -1070,10 +1070,25 @@ async function buildStrengthCharts() {
     });
 
     load(initialPeriod, { force: true });
+    // AUTO-RÉTABLISSEMENT (« Force des Devises ne s'affiche pas ») : si le conteneur était à 0 hauteur au montage
+    // (course de layout / restauration de l'onglet à l'ouverture de la vue Analyste), amCharts sort en 0×0 et
+    // reste BLANC même une fois la place disponible → on détecte (conteneur dimensionné mais sans canvas rendu)
+    // et on RECONSTRUIT. Retry tant que le conteneur n'a pas de taille (jusqu'à ~3 s).
+    const _selfHeal = (tries) => {
+      const panel = document.getElementById('rtab-strength');
+      const el = document.getElementById(containerId);
+      if (!el || !panel || !panel.classList.contains('active')) return;
+      const cv = el.querySelector('canvas');
+      if (el.clientHeight > 40) { if (!cv || cv.clientHeight < 40) { chartCtl = null; load(activePeriod, { force: false }); } }
+      else if (tries < 9) setTimeout(() => _selfHeal(tries + 1), 340);
+    };
+    setTimeout(() => _selfHeal(0), 340);
     // Rafraîchissement rapide et fluide (20s) : uniquement quand l'onglet STRENGTH est visible
     _strengthTimers.push(setInterval(() => {
       const panel = document.getElementById('rtab-strength');
       if (!panel || !panel.classList.contains('active')) { _strengthTimers.forEach(t => clearInterval(t)); _strengthTimers = []; return; }
+      const el = document.getElementById(containerId), cv = el && el.querySelector('canvas');
+      if (el && el.clientHeight > 40 && (!cv || cv.clientHeight < 40)) chartCtl = null;   // blanc détecté → forcer une reconstruction
       load(activePeriod, { silent: true });
     }, 20_000));
   }
