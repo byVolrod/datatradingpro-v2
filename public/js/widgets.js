@@ -37,6 +37,18 @@
   var HOST_ID = 'wdg-grid';
   var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
   var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
+  var GRID_COLS = 12, ROW_PX = 26;        // vraie grille : 12 colonnes fluides + unité de ligne 26px (snap)
+  var _fullscreenIdx = null;              // widget en plein écran (null = aucun)
+  function _clamp(v, a, b) { v = v | 0; return v < a ? a : (v > b ? b : v); }
+  // Normalise un item vers le NOUVEAU modèle { gw:1-12 colonnes, gh:lignes } et MIGRE l'ancien { h:px, col:1|2 }
+  // (col 2 = pleine largeur → gw 12 ; sinon gw 6 ; hauteur px → lignes). Idempotent.
+  function _normItem(it) {
+    if (!it) return it;
+    if (it.gw == null) it.gw = (it.col === 2 ? 12 : 6);
+    if (it.gh == null) it.gh = _clamp(Math.round((it.h || 300) / ROW_PX) + 1, 5, 40);
+    it.gw = _clamp(it.gw, 1, GRID_COLS); it.gh = _clamp(it.gh, 3, 60);
+    return it;
+  }
   var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
   // info = « i » cerclé ; réglages = curseurs d'ajustement.
@@ -44,6 +56,12 @@
     info: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 11v5"/><circle cx="12" cy="7.7" r="0.7" fill="currentColor" stroke="none"/></svg>',
     gear: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 8h16M4 16h16"/><circle cx="9" cy="8" r="2.3" fill="#0d0e11"/><circle cx="15" cy="16" r="2.3" fill="#0d0e11"/></svg>',
     grip: '<svg viewBox="0 0 24 24" width="12" height="12" fill="currentColor"><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="6" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="16" cy="12" r="1.5"/><circle cx="8" cy="18" r="1.5"/><circle cx="16" cy="18" r="1.5"/></svg>',
+    refresh: '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 11a8 8 0 1 0-.5 3"/><path d="M20 5v5h-5"/></svg>',
+    dup: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="8.5" y="8.5" width="11" height="11" rx="2"/><path d="M15.5 5.5H6.5a2 2 0 0 0-2 2v9" stroke-linecap="round"/></svg>',
+    expand: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 15v5h-5M15 4h5v5M9 20H4v-5"/></svg>',
+    lock: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>',
+    unlock: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.5-2"/></svg>',
+    close: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   };
 
   function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
@@ -214,9 +232,9 @@
       // « Mon Desk · Mon Desk · BÊTA » (constaté au banc d'essai).
       layouts: [{
         id: 'mon-desk', name: 'Vue générale', fav: true, items: [
-          { w: 'force-devises', h: 300, col: 2 },
-          { w: 'calendrier-jour', h: 280, col: 1 },
-          { w: 'fil-news', h: 280, col: 1 },
+          { w: 'force-devises', gw: 8, gh: 12 },
+          { w: 'calendrier-jour', gw: 4, gh: 12 },
+          { w: 'fil-news', gw: 12, gh: 11 },
         ],
       }],
     };
@@ -292,27 +310,33 @@
       dragIdx = null; clearHints();
     });
     host.addEventListener('dragend', function () { dragIdx = null; clearHints(); host.querySelectorAll('.wdg-dragging').forEach(function (c) { c.classList.remove('wdg-dragging'); }); });
-    // — Redimensionnement (hauteur) via la poignée basse (pointer events, capture) —
+    // — Redimensionnement LIBRE par la poignée de COIN : largeur en COLONNES (1→12, jusqu'à 100%) + hauteur en
+    //   LIGNES, avec SNAP sur la grille et aperçu live. (demande user : resize libre, largeur pleine, snap.)
+    var GAP = 10;
     host.addEventListener('pointerdown', function (e) {
       var h = e.target.closest && e.target.closest('.wdg-resize'); var card = h && h.closest('.wdg-card');
       if (!card) return; e.preventDefault();
-      rz = { idx: +card.getAttribute('data-idx'), y0: e.clientY, h0: card.offsetHeight, card: card, nh: 0 };
+      var l = activeLayout(); var idx = +card.getAttribute('data-idx'); var it = l && l.items[idx];
+      if (!it || it.locked) return; _normItem(it);
+      rz = { it: it, card: card, x0: e.clientX, y0: e.clientY, gw0: it.gw, gh0: it.gh, gw: it.gw, gh: it.gh,
+             colUnit: (card.offsetWidth + GAP) / Math.max(1, it.gw) };
       card.classList.add('wdg-resizing');
       try { host.setPointerCapture(e.pointerId); } catch (_) {}
     });
     host.addEventListener('pointermove', function (e) {
       if (!rz) return;
-      rz.nh = Math.min(900, Math.max(160, Math.round(rz.h0 + (e.clientY - rz.y0))));
-      rz.card.style.setProperty('--wdg-h', rz.nh + 'px');                          // aperçu live (amCharts se re-mesure seul)
+      rz.gw = _clamp(rz.gw0 + Math.round((e.clientX - rz.x0) / rz.colUnit), 1, GRID_COLS);
+      rz.gh = _clamp(rz.gh0 + Math.round((e.clientY - rz.y0) / (ROW_PX + GAP)), 3, 60);
+      rz.card.style.setProperty('--gw', rz.gw); rz.card.style.setProperty('--gh', rz.gh);   // aperçu live (snap)
     });
     var endResize = function (e) {
       if (!rz) return;
-      var l = activeLayout();
-      if (l && l.items[rz.idx] && rz.nh) { l.items[rz.idx].h = rz.nh; save(); }
+      var changed = (rz.gw !== rz.gw0 || rz.gh !== rz.gh0);
+      if (changed) { rz.it.gw = rz.gw; rz.it.gh = rz.gh; save(); }
       rz.card.classList.remove('wdg-resizing');
       try { host.releasePointerCapture(e.pointerId); } catch (_) {}
-      var doRerender = !!rz.nh; rz = null;
-      if (doRerender) renderGrid();                                                // remonte les charts à la bonne taille
+      rz = null;
+      if (changed) renderGrid();                                                    // remonte les charts à la bonne taille
     };
     host.addEventListener('pointerup', endResize);
     host.addEventListener('pointercancel', endResize);
@@ -332,40 +356,42 @@
     host.innerHTML = lay.items.map(function (it, idx) {
       var w = byId(it.w);
       if (!w) return '';                                                     // widget retiré du catalogue → ignoré
-      var full = it.col === 2;
-      var chip = function (on, act, lbl) { return '<button class="wdg-chip' + (on ? ' on' : '') + '" onclick="' + act + '">' + lbl + '</button>'; };
-      return '<section class="wdg-card' + (full ? ' wdg-card--full' : '') + '" data-idx="' + idx + '" style="--wdg-h:' + it.h + 'px;">'
-        + '<header class="wdg-head"><button class="wdg-grip" draggable="true" title="Glisser pour déplacer" aria-label="Déplacer le widget">' + ICO.grip + '</button><span class="wdg-title">' + esc(w.name) + '</span>'
-        + '<span class="wdg-actions">'
-        + '<button class="wdg-ico" title="Informations" onclick="DTPWidgets.toggleInfo(' + idx + ')">' + ICO.info + '</button>'
-        + '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
-        + '<button class="wdg-ico wdg-ico--x" title="Retirer" onclick="DTPWidgets.remove(' + idx + ')">×</button>'
-        + '</span></header>'
-        // Panneau INFO (overlay, masqué) : que montre ce widget + d'où vient la donnée.
-        + '<div class="wdg-pop wdg-info" id="' + HOST_ID + '-i' + idx + '" hidden>'
-        +   '<div class="wdg-pop-t">' + esc(w.name) + '</div>'
-        +   '<div class="wdg-pop-d">' + esc(w.desc) + '</div>'
-        +   '<div class="wdg-pop-m">' + esc(w.cat) + ' · donnée en direct du desk</div>'
-        + '</div>'
-        // Panneau RÉGLAGES (overlay, masqué) : hauteur / largeur / position.
+      _normItem(it);
+      var locked = !!it.locked;
+      var step = function (lbl, cur, act) {
+        return '<div class="wdg-set-row"><span class="wdg-set-lbl">' + lbl + '</span>'
+          + '<span class="wdg-stepper"><button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',-1)" aria-label="moins">−</button>'
+          + '<span class="wdg-step-val">' + cur + '</span>'
+          + '<button class="wdg-step" onclick="DTPWidgets.' + act + '(' + idx + ',1)" aria-label="plus">+</button></span></div>';
+      };
+      // Carte = cellule de grille (span colonnes/lignes via --gw/--gh). Header TERMINAL : déplacer · actualiser ·
+      // réglages · dupliquer · plein écran · verrouiller · retirer. Icônes discrètes, hover doré.
+      return '<section class="wdg-card' + (locked ? ' wdg-card--locked' : '') + '" data-idx="' + idx + '" style="--gw:' + it.gw + ';--gh:' + it.gh + ';">'
+        + '<header class="wdg-head">'
+        +   '<button class="wdg-grip" draggable="' + (locked ? 'false' : 'true') + '" title="Déplacer" aria-label="Déplacer">' + ICO.grip + '</button>'
+        +   '<span class="wdg-title" title="' + esc(w.name) + '">' + esc(w.name) + '</span>'
+        +   '<span class="wdg-actions">'
+        +     '<button class="wdg-ico" title="Actualiser" onclick="DTPWidgets.refresh(' + idx + ')">' + ICO.refresh + '</button>'
+        +     '<button class="wdg-ico" title="Réglages" onclick="DTPWidgets.toggleSettings(' + idx + ')">' + ICO.gear + '</button>'
+        +     '<button class="wdg-ico" title="Dupliquer" onclick="DTPWidgets.duplicate(' + idx + ')">' + ICO.dup + '</button>'
+        +     '<button class="wdg-ico" title="Plein écran" onclick="DTPWidgets.fullscreen(' + idx + ')">' + ICO.expand + '</button>'
+        +     '<button class="wdg-ico' + (locked ? ' on' : '') + '" title="' + (locked ? 'Déverrouiller' : 'Verrouiller') + '" onclick="DTPWidgets.toggleLock(' + idx + ')">' + (locked ? ICO.lock : ICO.unlock) + '</button>'
+        +     '<button class="wdg-ico wdg-ico--x" title="Retirer" onclick="DTPWidgets.remove(' + idx + ')">' + ICO.close + '</button>'
+        +   '</span>'
+        + '</header>'
         + '<div class="wdg-pop wdg-settings" id="' + HOST_ID + '-s' + idx + '" hidden>'
-        +   '<div class="wdg-set-row"><span class="wdg-set-lbl">Hauteur</span><span class="wdg-set-btns">'
-        +     chip(it.h <= 220, 'DTPWidgets.setHeight(' + idx + ',200)', 'Compact')
-        +     chip(it.h > 220 && it.h < 380, 'DTPWidgets.setHeight(' + idx + ',300)', 'Normal')
-        +     chip(it.h >= 380, 'DTPWidgets.setHeight(' + idx + ',460)', 'Grand')
-        +   '</span></div>'
-        +   '<div class="wdg-set-row"><span class="wdg-set-lbl">Largeur</span><span class="wdg-set-btns">'
-        +     chip(!full, 'DTPWidgets.setCol(' + idx + ',1)', 'Demi')
-        +     chip(full, 'DTPWidgets.setCol(' + idx + ',2)', 'Pleine')
-        +   '</span></div>'
-        +   '<div class="wdg-set-row"><span class="wdg-set-lbl">Position</span><span class="wdg-set-btns">'
-        +     chip(false, 'DTPWidgets.move(' + idx + ',-1)', '↑ Monter')
-        +     chip(false, 'DTPWidgets.move(' + idx + ',1)', '↓ Descendre')
-        +   '</span></div>'
+        +   '<div class="wdg-pop-t">' + esc(w.name) + '</div><div class="wdg-pop-d">' + esc(w.desc) + '</div>'
+        +   step('Largeur', it.gw + '/12', 'setGw') + step('Hauteur', it.gh, 'setGh')
         + '</div>'
         + '<div class="wdg-body" id="' + HOST_ID + '-b' + idx + '"></div>'
-        + '<div class="wdg-resize" title="Glisser pour redimensionner la hauteur"></div></section>';
+        + '<div class="wdg-resize" title="Glisser (coin) pour redimensionner"></div></section>';
     }).join('');
+    // Plein écran : la carte ciblée recouvre la zone de travail (overlay), la grille est figée derrière.
+    if (_fullscreenIdx != null) {
+      var fsCard = host.querySelector('.wdg-card[data-idx="' + _fullscreenIdx + '"]');
+      if (fsCard) { host.classList.add('wdg-fs-mode'); fsCard.classList.add('wdg-fs'); } else _fullscreenIdx = null;
+    }
+    if (_fullscreenIdx == null) host.classList.remove('wdg-fs-mode');
     // Rouvre le panneau réglages du widget qu'on vient d'ajuster (sinon il se referme à chaque clic).
     if (_reopen != null) { var sp = document.getElementById(HOST_ID + '-s' + _reopen); if (sp) sp.hidden = false; _reopen = null; }
     // MONTAGE APRÈS insertion et affichage : amCharts mesure 0×0 dans un conteneur caché.
@@ -459,19 +485,35 @@
       var t = l.items[i]; l.items[i] = l.items[j]; l.items[j] = t;
       _reopen = j; save(); renderGrid();                 // garde les réglages ouverts sur le widget déplacé
     },
-    setHeight: function (i, h) {
-      var l = activeLayout(); if (!l || !l.items[i]) return;
-      l.items[i].h = Math.min(900, Math.max(120, h | 0)); _reopen = i; save(); renderGrid();
+    setGw: function (i, d) {
+      var l = activeLayout(); if (!l || !l.items[i]) return; _normItem(l.items[i]);
+      l.items[i].gw = _clamp(l.items[i].gw + d, 1, GRID_COLS); _reopen = i; save(); renderGrid();
     },
-    setCol: function (i, c) {
-      var l = activeLayout(); if (!l || !l.items[i]) return;
-      l.items[i].col = (c === 2 ? 2 : 1); _reopen = i; save(); renderGrid();
+    setGh: function (i, d) {
+      var l = activeLayout(); if (!l || !l.items[i]) return; _normItem(l.items[i]);
+      l.items[i].gh = _clamp(l.items[i].gh + d * 2, 3, 60); _reopen = i; save(); renderGrid();
     },
+    duplicate: function (i) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var copy = JSON.parse(JSON.stringify(l.items[i])); copy.locked = false;
+      l.items.splice(i + 1, 0, copy); save(); renderGrid();
+    },
+    toggleLock: function (i) {
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      l.items[i].locked = !l.items[i].locked; save(); renderGrid();
+    },
+    refresh: function (i) {                                  // re-monte CE widget seul (rafraîchit sa donnée)
+      var l = activeLayout(); if (!l || !l.items[i]) return;
+      var w = byId(l.items[i].w), body = document.getElementById(HOST_ID + '-b' + i); if (!w || !body) return;
+      var card = body.closest('.wdg-card'); if (card) { card.classList.remove('wdg-refresh'); void card.offsetWidth; card.classList.add('wdg-refresh'); }
+      body.innerHTML = ''; try { var un = w.mount(body); if (typeof un === 'function') STATE.mounted.push(un); } catch (e) {}
+    },
+    fullscreen: function (i) { _fullscreenIdx = (_fullscreenIdx === i ? null : i); renderGrid(); },
     toggleInfo: function (i) { _togglePop(i, 'i'); },
     toggleSettings: function (i) { _togglePop(i, 's'); },
     add: function (wid) {
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
-      l.items.push({ w: wid, h: w.h, col: 1 }); save(); API.closeLib(); renderGrid();
+      l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) }); save(); API.closeLib(); renderGrid();
     },
     openLib: function () { var d = document.getElementById('wdg-lib'); if (d) { d.classList.add('open'); renderLib(); } },
     closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); },

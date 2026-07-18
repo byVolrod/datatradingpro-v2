@@ -10799,19 +10799,34 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
    `flex-wrap` + `align-content:flex-start` ne comprime jamais les lignes : la carte impose sa hauteur et
    c'est la grille qui défile. Vérifié : scrollHeight 1019 > clientHeight 802, hauteurs exactes.
    Les cartes d'une même ligne s'égalisent (align-items:stretch par défaut) → alignement propre. */
+/* ── VRAIE GRILLE 12 COLONNES (refonte) : chaque widget occupe --gw colonnes (1→12 = 100 %) × --gh lignes.
+   Densité automatique (grid-auto-flow dense) → AUCUN vide à droite, toute la largeur du Desk est utilisée.
+   Responsive : 12 → 8 → 4 → 1 colonnes ; les spans se clampent tout seuls à la largeur dispo. */
 .wdg-grid {
-  flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px;
-  display: flex; flex-wrap: wrap; align-content: flex-start; gap: 12px;
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; padding: 12px;
+  display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); grid-auto-rows: 26px;
+  grid-auto-flow: row dense; gap: 10px; align-content: start; position: relative;
 }
 .wdg-card {
-  flex: 0 0 calc(50% - 6px);                                   /* 2 par ligne (gap 12 → on retire la moitié) */
-  position: relative;                                          /* ancre les overlays info/réglages */
-  display: flex; flex-direction: column; min-width: 0; overflow: hidden;
+  grid-column: span min(var(--gw, 6), 12); grid-row: span var(--gh, 12);
+  position: relative; min-width: 0; overflow: hidden;
+  display: flex; flex-direction: column;
   background: #0d0e11; border: 1px solid var(--hud-line, #232429); border-radius: var(--radius);
-  transition: border-color .16s;
+  transition: border-color .16s, box-shadow .16s, transform .12s;
+  animation: wdgCardIn .22s var(--ease, ease) both;           /* apparition légère */
 }
-.wdg-card:hover { border-color: rgba(227,178,58,.38); }        /* hover doré (charte landing) */
-.wdg-card--full { flex-basis: 100%; }
+.wdg-card:hover { border-color: rgba(227,178,58,.38); box-shadow: 0 4px 18px rgba(0,0,0,.35); }
+.wdg-card.wdg-card--locked { border-color: rgba(227,178,58,.28); }
+@keyframes wdgCardIn { from { opacity: 0; transform: translateY(6px) scale(.995); } to { opacity: 1; transform: none; } }
+@keyframes wdgRefresh { 0% { box-shadow: 0 0 0 0 rgba(227,178,58,.5); } 100% { box-shadow: 0 0 0 3px rgba(227,178,58,0); } }
+.wdg-card.wdg-refresh { animation: wdgRefresh .5s ease; }
+@media (max-width: 1280px) { .wdg-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); } }
+@media (max-width: 900px)  { .wdg-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+@media (max-width: 560px)  { .wdg-grid { grid-template-columns: minmax(0, 1fr); } .wdg-card { grid-column: 1 / -1; } }
+/* Plein écran : la carte recouvre toute la zone de travail (overlay), les autres sont figées derrière. */
+.wdg-grid.wdg-fs-mode { overflow: hidden; }
+.wdg-grid.wdg-fs-mode .wdg-card:not(.wdg-fs) { visibility: hidden; }
+.wdg-card.wdg-fs { position: absolute; inset: 0; z-index: 40; border-radius: var(--radius); box-shadow: 0 10px 40px rgba(0,0,0,.6); }
 .wdg-head {
   flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 7px 10px; background: #101012; border-bottom: 1px solid var(--hud-line, #232429);
@@ -10854,7 +10869,7 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 .wdg-chip.on { background: rgba(227,178,58,.14); border-color: #e3b23a; color: #e3b23a; }
 /* Hauteur FIXE et base flex définie (`flex: 0 0 auto` + `height`) : le corps ne grandit ni ne
    rétrécit, il vaut exactement --wdg-h. C'est ce qui rend la hauteur de la carte prévisible. */
-.wdg-body { flex: 0 0 auto; height: var(--wdg-h, 260px); overflow: auto; position: relative; }
+.wdg-body { flex: 1 1 auto; min-height: 0; overflow: auto; position: relative; }   /* remplit la cellule de grille (hauteur = --gh lignes) */
 
 /* ── AGENCEMENT SMART (demande user : déplacer / agencer / redimensionner) ────────────────────────
    Poignée de DÉPLACEMENT (⠿) à gauche de l'en-tête → glisser-déposer pour réordonner ; indicateur de
@@ -10872,14 +10887,56 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 .wdg-card.wdg-drop-before { box-shadow: -3px 0 0 0 #e3b23a; }
 .wdg-card.wdg-drop-after  { box-shadow:  3px 0 0 0 #e3b23a; }
 .wdg-resize {
-  flex: 0 0 auto; height: 9px; cursor: ns-resize; position: relative; touch-action: none;
-  background: #101012; border-top: 1px solid var(--hud-line, #232429);
+  position: absolute; right: 0; bottom: 0; width: 18px; height: 18px; z-index: 6;
+  cursor: nwse-resize; touch-action: none;
 }
 .wdg-resize::after {
-  content: ''; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
-  width: 28px; height: 3px; border-radius: 2px; background: #33363d; transition: background .12s;
+  content: ''; position: absolute; right: 3px; bottom: 3px; width: 8px; height: 8px;
+  border-right: 2px solid #3a3d44; border-bottom: 2px solid #3a3d44; border-bottom-right-radius: 3px;
+  transition: border-color .12s;
 }
-.wdg-resize:hover::after { background: #e3b23a; }
+.wdg-card:hover .wdg-resize::after, .wdg-resize:hover::after { border-color: #e3b23a; }
+.wdg-card.wdg-card--locked .wdg-resize { display: none; }
+
+/* Réglages en STEPPERS (largeur en colonnes / hauteur en lignes) */
+.wdg-stepper { display: inline-flex; align-items: center; border: 1px solid var(--hud-line, #232429); border-radius: 5px; overflow: hidden; }
+.wdg-step { width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; background: #16171b; color: #c8ccd4; border: 0; cursor: pointer; font-size: 15px; line-height: 1; transition: background .12s, color .12s; }
+.wdg-step:hover { background: rgba(227,178,58,.16); color: #e3b23a; }
+.wdg-step-val { min-width: 46px; text-align: center; font-size: 11px; color: #e6e8ec; font-variant-numeric: tabular-nums; }
+
+/* Header TERMINAL : actions discrètes, révélées au survol de la carte (icônes toujours accessibles au tactile) */
+.wdg-actions { opacity: 0; transition: opacity .14s; }
+.wdg-card:hover .wdg-actions, .wdg-card:focus-within .wdg-actions, .wdg-card.wdg-fs .wdg-actions { opacity: 1; }
+@media (hover: none) { .wdg-actions { opacity: .75; } }
+.wdg-ico.on { color: #e3b23a; }
+
+/* CAUSE RACINE du « vide à droite » : .view-panel est un flex ROW, mais le .panel des widgets n'avait pas flex:1
+   → il se limitait à sa largeur intrinsèque (~1060px) au lieu de GROSSIR sur toute la largeur du Desk. Corrigé. */
+#view-widgets { display: flex; }
+#view-widgets > .panel { flex: 1 1 auto; min-width: 0; width: 100%; }
+
+/* ── Barre Mon Desk PREMIUM : boutons moins massifs, hover/active nets, transitions fluides, hiérarchie claire ── */
+#view-widgets .panel-header { padding: 8px 14px; gap: 10px; }
+.wdg-btn {
+  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600;
+  color: #c8ccd4; background: #16171b; border: 1px solid var(--hud-line, #232429); border-radius: 7px;
+  cursor: pointer; transition: color .14s, border-color .14s, background .14s, transform .1s;
+}
+.wdg-btn:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); background: rgba(227,178,58,.07); }
+.wdg-btn:active { transform: translateY(1px); }
+.wdg-btn--gold { color: #0c0c0e; background: linear-gradient(180deg, #f0c44e, #e3b23a); border-color: #e3b23a; }
+.wdg-btn--gold:hover { color: #0c0c0e; background: linear-gradient(180deg, #f4cd60, #e9b944); box-shadow: 0 3px 12px rgba(227,178,58,.28); }
+.wdg-lay {
+  display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; font-size: 12px; font-weight: 600;
+  color: #9aa0aa; background: transparent; border: 1px solid transparent; border-radius: 7px; cursor: pointer;
+  transition: color .14s, background .14s, border-color .14s;
+}
+.wdg-lay:hover { color: #e6e8ec; background: #16171b; }
+.wdg-lay.on { color: #e3b23a; background: rgba(227,178,58,.1); border-color: rgba(227,178,58,.35); }
+.wdg-lay-star { color: #e3b23a; }
+.wdg-lay-add { color: #6b7280; padding: 5px 9px; }
+.wdg-lay-add:hover { color: #e3b23a; }
+.wdg-beta { padding: 2px 7px; font-size: 9px; font-weight: 800; letter-spacing: .06em; color: #0c0c0e; background: #e3b23a; border-radius: 4px; }
 .wdg-card.wdg-resizing { border-color: #e3b23a; }
 .wdg-card.wdg-resizing .wdg-body { pointer-events: none; }        /* pas d'interaction chart pendant le resize */
 
