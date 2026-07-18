@@ -36,6 +36,8 @@
   var STATE = { cfg: null, mounted: [], saveT: null, booted: false };
   var HOST_ID = 'wdg-grid';
   var _reopen = null;                     // idx dont le panneau RÉGLAGES doit rester ouvert après un renderGrid
+  var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
+  var _delConfirm = null;                 // id du layout en attente de confirmation de suppression (inline, pas de dialog natif)
   // Icônes d'en-tête — dessins DTP ORIGINAUX (organisation façon desk pro : info + réglages regroupés) :
   // info = « i » cerclé ; réglages = curseurs d'ajustement.
   var ICO = {
@@ -302,9 +304,47 @@
       });
     });
   }
+  function layoutById(id) {
+    var c = STATE.cfg; if (!c) return null;
+    for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === id) return c.layouts[i];
+    return null;
+  }
+  // Onglets de layouts (templates) dans l'en-tête : clic = bascule, ＋ = créer.
   function renderBar() {
-    var el = document.getElementById('wdg-bar-name'), lay = activeLayout();
-    if (el) el.textContent = lay ? lay.name : '—';
+    var el = document.getElementById('wdg-layouts'); var c = STATE.cfg;
+    if (!el) return;
+    if (!c || !c.layouts.length) { el.innerHTML = ''; return; }
+    var tabs = c.layouts.map(function (l) {
+      return '<button class="wdg-lay' + (l.id === c.active ? ' on' : '') + '" title="' + esc(l.name) + '"'
+        + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')">'
+        + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
+        + '<span class="wdg-lay-name">' + esc(l.name) + '</span></button>';
+    }).join('');
+    el.innerHTML = tabs
+      + (c.layouts.length < _LMAX
+          ? '<button class="wdg-lay wdg-lay-add" title="Créer un layout" onclick="DTPWidgets.createLayout()">+</button>'
+          : '');
+  }
+  // Gestionnaire de layouts (overlay) : favori · renommer (inline) · ouvrir · supprimer (confirmation inline).
+  function renderManager() {
+    var box = document.getElementById('wdg-mgr-list'); var c = STATE.cfg;
+    if (!box || !c) return;
+    box.innerHTML = c.layouts.map(function (l) {
+      var active = l.id === c.active;
+      var del = (l.id === _delConfirm)
+        ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
+        : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
+      return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '">'
+        + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Favori" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
+        + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
+        +   ' onchange="DTPWidgets.renameLayout(\'' + l.id + '\', this.value)">'
+        + '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
+        + '<button class="wdg-mgr-open" onclick="DTPWidgets.switchLayout(\'' + l.id + '\')">' + (active ? 'Actif' : 'Ouvrir') + '</button>'
+        + del + '</div>';
+    }).join('')
+      + (c.layouts.length < _LMAX
+          ? '<button class="wdg-mgr-new" onclick="DTPWidgets.createLayout()">+ Créer un layout</button>'
+          : '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>');
   }
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
@@ -359,7 +399,41 @@
     },
     openLib: function () { var d = document.getElementById('wdg-lib'); if (d) { d.classList.add('open'); renderLib(); } },
     closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); },
-    reset: function () { STATE.cfg = defaultCfg(); save(); renderBar(); renderGrid(); },
+
+    // ── LAYOUTS (templates) ──
+    switchLayout: function (id) {
+      var c = STATE.cfg; if (!c || !layoutById(id)) return;
+      _delConfirm = null; c.active = id; save(); renderBar(); renderManager(); renderGrid();
+    },
+    createLayout: function () {
+      var c = STATE.cfg; if (!c || c.layouts.length >= _LMAX) return;
+      _delConfirm = null;
+      var id = 'lay-' + uid();
+      c.layouts.push({ id: id, name: 'Nouveau layout', fav: false, items: [] });
+      c.active = id; save(); renderBar(); renderManager(); renderGrid();
+    },
+    renameLayout: function (id, name) {
+      var l = layoutById(id); if (!l) return;
+      l.name = String(name || '').replace(/[<>]/g, '').trim().slice(0, 40) || 'Sans nom';   // même règle que le serveur
+      save(); renderBar(); renderManager();
+    },
+    toggleFav: function (id) {
+      var l = layoutById(id); if (!l) return;
+      _delConfirm = null; l.fav = !l.fav; save(); renderBar(); renderManager();
+    },
+    askDelete: function (id) { _delConfirm = id; renderManager(); },        // 1er clic : demande confirmation inline
+    deleteLayout: function (id) {
+      var c = STATE.cfg; if (!c) return;
+      _delConfirm = null;
+      if (c.layouts.length <= 1) { API.reset(); API.openManager(); return; } // jamais 0 layout → retour au défaut
+      c.layouts = c.layouts.filter(function (l) { return l.id !== id; });
+      if (c.active === id) c.active = c.layouts[0].id;
+      save(); renderBar(); renderManager(); renderGrid();
+    },
+    openManager: function () { var d = document.getElementById('wdg-mgr'); if (d) { _delConfirm = null; d.classList.add('open'); renderManager(); } },
+    closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); },
+
+    reset: function () { _delConfirm = null; STATE.cfg = defaultCfg(); save(); renderBar(); renderManager(); renderGrid(); },
   };
   window.DTPWidgets = API;
 
