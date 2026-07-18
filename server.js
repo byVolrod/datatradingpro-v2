@@ -7786,15 +7786,21 @@ async function generateWeeklyRecapAI(force = false) {
   // 3) Autres titres macro de la semaine en complément (nettoyés du bruit social/promo)
   const news = weekItemsRaw.slice(0, 120).map(i => `[${i.category || ''}] ${i.headline}`);
   // Contexte GÉOPOLITIQUE DATÉ (jour par jour) → alimente la chronologie "geoTimeline" façon référence
-  // Eliott (ANCRÉE sur les vraies news datées, jamais inventée). Chaque ligne = jour de l'événement + titre.
+  // Eliott (ANCRÉE sur des faits datés, jamais inventée). Sources : (a) points des WRAPS de session /
+  // récaps quotidiens (onglet Analyste — narratif riche, demande user), (b) titres du fil news. Chaque
+  // ligne = jour de l'événement + fait.
   const _RECAP_GEO_RX = /iran|isra[eë]l|gaza|hamas|hezbollah|houthi|hormuz|ukrain|russi|missile|frappe|\bstrike|ceasefire|cessez-le-feu|sanction|\bnato\b|\botan\b|centcom|irgc|conflit|conflict|\bwar\b|guerre|tariff|tarif|trade war|guerre commerciale|geopolit|moyen-orient|middle east/i;
   const _DOWFR = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
-  const geoCtx = weekItemsRaw
+  const _geoWraps = [];   // points géo des wraps/récaps de session, DATÉS par le jour du wrap
+  wrapDetailed.forEach(({ w, pts }) => {
+    const day = _DOWFR[new Date(w.timestamp).getUTCDay()];
+    (pts || []).forEach(p => { if (_RECAP_GEO_RX.test(p)) _geoWraps.push(`${day} : ${p}`); });
+  });
+  const _geoNews = weekItemsRaw
     .filter(i => i && i.headline && _RECAP_GEO_RX.test(i.headline))
     .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
-    .slice(0, 60)
-    .map(i => `${_DOWFR[new Date(i.timestamp).getUTCDay()]} : ${i.headline}`)
-    .join('\n');
+    .map(i => `${_DOWFR[new Date(i.timestamp).getUTCDay()]} : ${i.headline}`);
+  const geoCtx = [..._geoWraps, ..._geoNews].slice(0, 80).join('\n');
 
   if (!wraps.length && !cal.length && !news.length) {
     console.warn('[Weekly Recap] aucune donnée de la semaine → pas de génération'); return null;
@@ -7833,7 +7839,7 @@ Rules:
 Week's data (session wraps + economic calendar results + headlines):
 ${corpus}
 
-CONTEXTE GÉOPOLITIQUE DATÉ (pour "geoTimeline" — chaque ligne préfixée du JOUR de l'événement) :
+CONTEXTE GÉOPOLITIQUE DATÉ (pour "geoTimeline" — issu des RÉCAPS DE SESSION / rapports quotidiens ET du fil news, chaque ligne préfixée du JOUR de l'événement) :
 ${geoCtx || '(pas de fil géopolitique suivi cette semaine → geoTimeline = null)'}`;
 
   // Budget Gemini : le Weekly Recap est PRIORITAIRE (1 appel/semaine, rapport phare).
