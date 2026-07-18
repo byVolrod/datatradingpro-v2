@@ -5098,6 +5098,24 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-tag--hawk { color: #e0863a; }   /* hawkish / beat / hausse → ambre (token BC hawkish) */
 .wr-tag--dove { color: #3aa0e0; }   /* dovish / baisse / miss → bleu (token BC dovish) */
 .wr-tag--neut { color: #9aa0aa; }   /* conforme / inline / neutre → gris discret */
+
+/* Chronologie géopolitique jour par jour (v27, façon référence Eliott) */
+.wr-gt { margin: 2px 0 8px; }
+.wr-gt-day { display: flex; gap: 14px; padding: 8px 0; border-top: 1px solid var(--hud-line, #1c1c20); }
+.wr-gt-day:first-child { border-top: 0; padding-top: 2px; }
+.wr-gt-dayname { flex: 0 0 96px; font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 700; font-size: 12.5px; color: #e3b23a; text-transform: uppercase; letter-spacing: .05em; padding-top: 1px; }
+.wr-gt-points { flex: 1 1 auto; min-width: 0; }
+.wr-gt-pt { position: relative; padding-left: 16px; margin: 0 0 5px; color: #c9d1d9; font-size: 13px; line-height: 1.6; }
+.wr-gt-pt:last-child { margin-bottom: 0; }
+.wr-gt-pt::before { content: "→"; position: absolute; left: 0; color: #e3b23a; font-weight: 600; }
+.wr-gt-pt strong { color: #fff; font-weight: var(--fw-semibold, 600); }
+.wr-gt-topic { color: #9aa0aa; font-weight: 400; font-size: 14px; }
+.wr-gt-end { margin-top: 12px; padding: 10px 12px; background: rgba(227,178,58,.06); border: 1px solid rgba(227,178,58,.22); border-radius: var(--radius, 4px); }
+.wr-gt-end-h { font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #e3b23a; margin-bottom: 7px; }
+@media (max-width: 560px) {
+  .wr-gt-day { flex-direction: column; gap: 3px; }
+  .wr-gt-dayname { flex-basis: auto; }
+}
 /* Cartes AI Insights : paire + biais (SELL/BUY/NEUTRAL) */
 .ai-ins-pair-head { display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:7px; }
 .ai-ins-pair-name { font-weight:var(--fw-bold); color:#e5e9ef; font-size:13px; letter-spacing:.3px; }
