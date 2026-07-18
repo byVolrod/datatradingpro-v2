@@ -6553,25 +6553,25 @@ function _wrCbCall(c) {
 function _wrCbSection(cbs) {
   const list = (cbs || []).filter(c => c && c.bank);
   if (!list.length) return '';
-  let h = `<div class="wr-macro-heading">Banques Centrales &amp; Politique Monétaire</div>`;
+  // STRUCTURE PROPRE façon chronologie (demande user) : deux colonnes — nom + badge à GAUCHE, contenu à
+  // DROITE (prochaine réunion · guidance · citation). Banques INTERVENUES (avec propos) = ligne complète ;
+  // les autres = juste nom + prochaine réunion (l'ordre serveur met les intervenues en tête).
+  let h = `<div class="wr-macro-heading">Banques Centrales &amp; Politique Monétaire</div><div class="wr-cb">`;
   list.forEach(c => {
     const bcls = _WR_CB_BIAS_CLS[c.bias5] || 'neu';
     const nextFr = _wrCbNextFr(c.next, c.nextDays);
     const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
-    // SIMPLIFICATION (demande user « trop costaud ») : biais + prochaine réunion + call TOUJOURS ; le contexte
-    // détaillé + le propos ne s'affichent QUE pour les banques INTERVENUES cette semaine (celles qui ont un propos ;
-    // l'ordre serveur les met en tête). Les autres = simple ligne biais/prochaine réunion.
-    let s = `<strong>${_wrEsc(c.bank)}</strong> <span class="wr-cb-tag wr-cb-tag--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}`
-      + ` · Prochaine réunion ${_wrEsc(nextFr)} : ${_wrEsc(_wrCbCall(c))}.`;
-    if (q) {
-      const ctx = c.guidance || c.decision || c.narrative;   // UNE seule ligne de contexte (fini decision + guidance/narrative empilés)
-      if (ctx) s += ` ${_wrInline(ctx)}`;
-      const attr = [q.speaker, q.date].filter(Boolean).map(_wrEsc).join(', ');   // « Powell, 12 juil. : … » (demande user)
-      s += ` <span class="wr-cb-qi">${attr ? `<b>${attr} :</b> ` : ''}« ${_wrEsc(q.quote)} »</span>`;
-    }
-    h += `<div class="wr-bullet wr-cb-bullet">${s}</div>`;
+    const ctx = q ? (c.guidance || c.decision || c.narrative) : '';   // 1 ligne de contexte, uniquement si la banque s'est exprimée
+    const attr = q ? [q.speaker, q.date].filter(Boolean).map(_wrEsc).join(', ') : '';
+    h += `<div class="wr-cb-row">`
+      + `<div class="wr-cb-name"><strong>${_wrEsc(c.bank)}</strong> <span class="wr-cb-tag wr-cb-tag--${bcls}">${_wrEsc(c.bias5 || 'Neutre')}</span>${_wrCbSrc(c.source)}</div>`
+      + `<div class="wr-cb-body">`
+      +   `<div class="wr-cb-next">Prochaine réunion <b>${_wrEsc(nextFr)}</b> · ${_wrEsc(_wrCbCall(c))}</div>`
+      +   (ctx ? `<div class="wr-cb-guid">${_wrInline(ctx)}</div>` : '')
+      +   (q ? `<div class="wr-cb-quote-line">${attr ? `<b>${attr} :</b> ` : ''}« ${_wrEsc(q.quote)} »</div>` : '')
+      + `</div></div>`;
   });
-  return h;
+  return h + `</div>`;
 }
 // ── Section Calendrier économique du Weekly Recap (v18) : À VENIR (majeurs, + proche d'abord) puis
 //    CETTE SEMAINE (passés). Réutilise les styles gew-* + drapeau/devise à gauche façon calendrier. ──
