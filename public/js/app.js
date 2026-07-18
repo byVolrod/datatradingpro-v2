@@ -6726,6 +6726,24 @@ function _renderWeeklyRecap(item) {
   } else {
     // ── WEEKLY MARKET RECAP : résumé + Force des Devises + Points Macro Clés + analyse par devise (rétrospectif) ──
     if (w.summary) body += `<div class="wr-text wr-summary">${_wrParas(w.summary)}</div>`;
+    // v27 — CHRONOLOGIE GÉOPOLITIQUE (façon référence Eliott) : jour par jour + « État en fin de semaine ».
+    // Quand présente, elle REMPLACE le thème macro « Géopolitique » (dédup plus bas).
+    const _gt = (w.geoTimeline && Array.isArray(w.geoTimeline.jours) && w.geoTimeline.jours.length) ? w.geoTimeline : null;
+    if (_gt) {
+      body += `<div class="wr-section-title">Chronologie de la semaine${_gt.titre ? ` <span class="wr-gt-topic">· ${_wrEsc(_gt.titre)}</span>` : ''}</div>`;
+      body += `<div class="wr-gt">`;
+      _gt.jours.forEach(j => {
+        body += `<div class="wr-gt-day"><div class="wr-gt-dayname">${_wrEsc(j.jour)}</div><div class="wr-gt-points">`;
+        (j.points || []).forEach(p => { body += `<div class="wr-gt-pt">${_wrInline(p)}</div>`; });
+        body += `</div></div>`;
+      });
+      if (Array.isArray(_gt.etatFin) && _gt.etatFin.length) {
+        body += `<div class="wr-gt-end"><div class="wr-gt-end-h">État en fin de semaine</div>`;
+        _gt.etatFin.forEach(p => { body += `<div class="wr-gt-pt wr-gt-pt--end">${_wrInline(p)}</div>`; });
+        body += `</div>`;
+      }
+      body += `</div>`;
+    }
     // Vue d'ensemble de la force des devises (les 8) : AVANT les Points Macro Clés (demandé).
     // FIGÉE sur la semaine du rapport (badge à droite) : un recap récapitule UNE semaine, donc le chart
     // ne dérive jamais (snapshot serveur). Rouvert plus tard → toujours les données de CETTE semaine-là.
@@ -6736,7 +6754,8 @@ function _renderWeeklyRecap(item) {
     // Monétaire = section dédiée #2], Inflation & Croissance, Performance Cross-Asset, Commerce International
     // & Tarifs, Technologie & Innovation. La section CB (riche, par banque) est INJECTÉE juste après le thème
     // Géopolitique (ou en tête si aucun thème Géo), jamais dupliquée (elle n'est pas un thème macro).
-    const _macro = (w.macro && w.macro.length) ? w.macro : [];
+    let _macro = (w.macro && w.macro.length) ? w.macro : [];
+    if (_gt) _macro = _macro.filter(s => !/g[ée]opolit/i.test((s && s.heading) || ''));   // v27 : la chronologie remplace le thème « Géopolitique » (pas de doublon)
     const _hasCb = !!(w.centralBanks && w.centralBanks.length);
     if (_macro.length || _hasCb) {
       body += `<div class="wr-section-title">Points Macro Clés</div>`;
