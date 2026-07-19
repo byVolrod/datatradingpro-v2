@@ -6827,7 +6827,11 @@ function _renderWeeklyRecap(item) {
     // Calendrier économique RETIRÉ du Weekly Market Recap (demande user) : il vit dans le Global Economic Weekly.
     const ccys = _WR_ORDER.filter(c => w.currencies && w.currencies[c]);
     if (ccys.length) {
-      body += `<div class="wr-section-title">Analyse par devise</div>`;
+      // CARTES DÉPLIABLES (demande user « + simple, moins long, lisible à vue d'œil ») : chaque devise = un en-tête
+      // scannable TOUJOURS visible (code + badge biais coloré + accroche) → on lit le board FX d'un coup d'œil ;
+      // clic → déplie les 7 sections. Profondeur conservée, mais courte par défaut. État volatil (reset au reload).
+      body += `<div class="wr-section-title wr-ccy-sectitle">Analyse par devise`
+            + `<button type="button" class="wr-ccy-expandall" onclick="_wrToggleAllCcy(this)">Tout déplier</button></div>`;
       ccys.forEach(c => {
         const cd = (w.currencies[c] && typeof w.currencies[c] === 'object') ? w.currencies[c] : { analysis: w.currencies[c] || '' };
         const thesis  = cd.thesis || '';
@@ -6835,11 +6839,18 @@ function _renderWeeklyRecap(item) {
         const drivers = Array.isArray(cd.drivers) ? cd.drivers : [];              // 4) Principaux moteurs {name,why} | ancien {heading,bullets}
         const cats    = Array.isArray(cd.catalysts) ? cd.catalysts : [];          // 6) Catalyseurs
         body += `<div class="wr-ccy-block">`;
-        // Accroche « qui claque » à côté du code devise.
-        body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}${thesis ? ` <span class="wr-ccy-thesis">— ${_wrEsc(thesis)}</span>` : ''}</div>`;
+        // ── EN-TÊTE SCANNABLE (toujours visible, cliquable) : chevron + code + badge biais + accroche ──
+        body += `<div class="wr-ccy-head" role="button" tabindex="0" aria-expanded="false" onclick="_wrToggleCcy(this)" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();_wrToggleCcy(this);}">`;
+        body += `<span class="wr-ccy-chev" aria-hidden="true">▸</span>`;
+        body += `<span class="wr-ccy-code" style="color:${_WR_COLOR[c]||'#fff'}">${c}</span>`;
+        if (cd.bias) body += `<span class="wr-bias-badge wr-bias--${_wrBiasCls(cd.bias)}">${_wrEsc(cd.bias)}</span>`;
+        if (thesis) body += `<span class="wr-ccy-thesis">${_wrEsc(thesis)}</span>`;
+        body += `</div>`;
+        // ── CORPS REPLIABLE (les 7 sections) ──
+        body += `<div class="wr-ccy-body">`;
         // 1) Résumé exécutif
         if (exec) body += `<div class="wr-text">${_wrParas(exec)}</div>`;
-        // Mini-courbe de force de la devise (figée sur la semaine du rapport).
+        // Mini-courbe de force de la devise (figée sur la semaine du rapport ; rendue paresseusement à l'ouverture).
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
         // 2) Politique monétaire
         if (cd.monetaryPolicy) body += `<div class="wr-macro-heading">Politique monétaire</div><div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
@@ -6857,11 +6868,8 @@ function _renderWeeklyRecap(item) {
             }
           });
         }
-        // 5) Biais fondamental (badge sémantique DTP)
-        if (cd.bias) {
-          body += `<div class="wr-macro-heading">Biais fondamental <span class="wr-bias-badge wr-bias--${_wrBiasCls(cd.bias)}">${_wrEsc(cd.bias)}</span></div>`;
-          if (cd.biasRationale) body += `<div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
-        }
+        // 5) Justification du biais (le BADGE est déjà dans l'en-tête → ici juste le pourquoi + risques)
+        if (cd.biasRationale) body += `<div class="wr-macro-heading">Justification du biais</div><div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
         // 6) Catalyseurs de la semaine (donnée · publié vs attendu → interprétation → impact)
         if (cats.length) {
           body += `<div class="wr-macro-heading">Catalyseurs de la semaine</div>`;
@@ -6874,9 +6882,10 @@ function _renderWeeklyRecap(item) {
             body += `<div class="wr-bullet wr-cat">${line}</div>`;
           });
         }
-        // 7) Conclusion
-        if (cd.conclusion) body += `<div class="wr-macro-heading">Conclusion</div><div class="wr-text">${_wrParas(cd.conclusion)}</div>`;
-        body += `</div>`;
+        // 7) À surveiller (conclusion tournée vers l'avenir)
+        if (cd.conclusion) body += `<div class="wr-macro-heading">À surveiller</div><div class="wr-text">${_wrParas(cd.conclusion)}</div>`;
+        body += `</div>`;   // fin .wr-ccy-body
+        body += `</div>`;   // fin .wr-ccy-block
       });
     }
   }
@@ -7080,6 +7089,36 @@ function _wrBuildCsAll(data) {
   host.innerHTML = '';
   try { buildStrengthChart('wr-cs-all', data, { isolated: true }); } catch { host.innerHTML = '<div class="wr-chart-loading">Force des devises indisponible.</div>'; }
 }
+
+// ── Cartes dépliables « Analyse par devise » : toggle + build PARESSEUX de la mini-courbe à l'ouverture ──
+// (le conteneur était display:none → build à l'ouverture pour éviter la courbe à hauteur 0 ; le self-heal
+//  makePane rattrape un éventuel 0-height résiduel). État volatil : reset à chaque réouverture du rapport.
+function _wrBuildCcyChart(chartEl) {
+  if (!chartEl || chartEl.dataset.built) return;
+  if (!_wrStrengthData || typeof buildStrengthChart !== 'function') return;
+  if (!chartEl.id) chartEl.id = 'wr-chart-' + (chartEl.dataset.wrChart || 'x') + '-' + Math.random().toString(36).slice(2, 7);
+  chartEl.dataset.built = '1';
+  chartEl.innerHTML = '';
+  requestAnimationFrame(() => { try { buildStrengthChart(chartEl.id, _wrStrengthData, { focusCurrency: chartEl.dataset.wrChart, isolated: true }); } catch {} });
+}
+window._wrToggleCcy = function (headEl) {
+  const card = headEl && headEl.closest ? headEl.closest('.wr-ccy-block') : null;
+  if (!card) return;
+  const open = card.classList.toggle('wr-ccy-open');
+  headEl.setAttribute('aria-expanded', open ? 'true' : 'false');
+  if (open) _wrBuildCcyChart(card.querySelector('[data-wr-chart]'));
+};
+window._wrToggleAllCcy = function (btn) {
+  const root = (btn && btn.closest && btn.closest('.wr-body')) || document;
+  const cards = [...root.querySelectorAll('.wr-ccy-block')];
+  const anyClosed = cards.some(c => !c.classList.contains('wr-ccy-open'));
+  cards.forEach(c => {
+    c.classList.toggle('wr-ccy-open', anyClosed);
+    const h = c.querySelector('.wr-ccy-head'); if (h) h.setAttribute('aria-expanded', anyClosed ? 'true' : 'false');
+    if (anyClosed) _wrBuildCcyChart(c.querySelector('[data-wr-chart]'));
+  });
+  if (btn) btn.textContent = anyClosed ? 'Tout replier' : 'Tout déplier';
+};
 
 function _wrLazyCharts(content) {
   if (!_wrStrengthData || typeof buildStrengthChart !== 'function') return;
