@@ -5129,8 +5129,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .wr-gt-pt::before { content: "→"; position: absolute; left: 0; color: #e3b23a; font-weight: 600; }
 .wr-gt-pt strong { color: #fff; font-weight: var(--fw-semibold, 600); }
 .wr-gt-topic { color: #9aa0aa; font-weight: 400; font-size: 14px; }
-.wr-gt-end { margin-top: 12px; padding: 10px 12px; background: rgba(227,178,58,.06); border: 1px solid rgba(227,178,58,.22); border-radius: var(--radius, 4px); }
-.wr-gt-end-h { font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #e3b23a; margin-bottom: 7px; }
+/* « État en fin de semaine » : PLUS de rectangle encadré (demande user « ça casse ») → sous-section homogène =
+   simple filet fin en tête (comme le séparateur entre jours) + label calé sur le style des jours de la chronologie. */
+.wr-gt-end { margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--hud-line, #1c1c20); }
+.wr-gt-end-h { font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 700; font-size: 12.5px; text-transform: uppercase; letter-spacing: .05em; color: #e3b23a; margin-bottom: 6px; }
 @media (max-width: 560px) {
   .wr-gt-day { flex-direction: column; gap: 3px; }
   .wr-gt-dayname { flex-basis: auto; }
