@@ -4397,21 +4397,19 @@ function _sbOpenSummary(curr) {
   const aiNarr = (d.narrative && typeof d.narrative[curr] === 'string' && d.narrative[curr].trim()) ? d.narrative[curr].trim() : null;
   const narrative = aiNarr ? esc(aiNarr) : _sbFallbackNarrative(curr, val, overall, bulls, bears, esc);
 
+  // Volet « Vue macro » RETIRÉ (demande user : doublon avec le tableau MACRO DATA) → la Synthèse = le NARRATIF
+  // (performance de la semaine) + les Key Risk Events, en PLEINE LARGEUR. Plus de splitter gauche/droite.
   wrap.innerHTML = `
     <div class="sbs-panel">
       <div class="sbs-body" id="sbs-body">
-        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${_sbMacroSummaryRows(curr, esc)}</div>
-        <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
-        <div class="sbs-right" id="sbs-right">
+        <div class="sbs-right sbs-right--full" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} : Performance de la semaine dernière :</div>
           <div class="sbs-narr">${narrative}</div>
           <div class="sbs-risk" id="sbs-riskevents"></div>
         </div>
       </div>
     </div>`;
-  _sbInitSplitter();
-  _sbLoadBankPos();   // précharge les positions de banques → accordéon Bank Overview instantané
-  _sbLoadCal();       // précharge le calendrier → accordéon Fundamental instantané
+  _sbLoadCal();       // précharge le calendrier → Key Risk Events instantané
   _sbRenderRiskEvents(curr);   // « Risques clés de la semaine » (calendrier high/med à venir, façon pro)
   _sbRenderHeadDd(curr);   // synchronise le dropdown "Scanner" de l'en-tête sur la devise active
   requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
