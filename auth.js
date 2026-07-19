@@ -1115,14 +1115,19 @@ async function weeklyReportSave(weekKey, report) {
 async function weeklyReportList() {
   await _weeklyEnsureDb();
   if (_weeklyDb) {
-    // ANTI-EGRESS : ne lire QUE les 12 rapports récents + SEULEMENT les colonnes utiles (jamais select('*') :
-    // chaque ligne porte un gros JSON _weekly + snapshot Currency-Strength → 15-25 Ko/ligne). Le fenêtrage
-    // (40 j) reste géré côté serveur. Cap 12 = largement assez (1 recap + 1 GEW / semaine).
-    const { data, error } = await supabase.from(WEEKLY_TABLE).select('report,created_at').order('created_at', { ascending: false }).limit(12);
-    if (!error) return (data || []).map(r => r.report).filter(Boolean);
-    if (_weeklyTableMissing(error)) _weeklyDb = false; else throw new Error(error.message);
+    // Les rapports HEBDO (Weekly Recap + GEW, clés "YYYY-Www" / "gew-...") étaient ÉVINCÉS de la fenêtre de reload
+    // par les rapports QUOTIDIENS (fxr-/dtpd-, ~12/sem.) → « rapports du mois dernier manquants » (demande user).
+    // On les récupère SÉPARÉMENT : ~10 semaines d'hebdo + ~2 semaines de quotidiens récents. ANTI-EGRESS : uniquement
+    // la colonne `report` (jamais select('*')). ~34 lignes max, seulement au boot + reload throttlé 30 s.
+    const [wk, dy] = await Promise.all([
+      supabase.from(WEEKLY_TABLE).select('report').order('created_at', { ascending: false }).not('week_key', 'ilike', 'fxr-%').not('week_key', 'ilike', 'dtpd-%').limit(20),
+      supabase.from(WEEKLY_TABLE).select('report').order('created_at', { ascending: false }).or('week_key.ilike.fxr-%,week_key.ilike.dtpd-%').limit(14),
+    ]);
+    const err = wk.error || dy.error;
+    if (!err) return [...(wk.data || []), ...(dy.data || [])].map(r => r.report).filter(Boolean);
+    if (_weeklyTableMissing(err)) _weeklyDb = false; else throw new Error(err.message);
   }
-  return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 12).map(r => r.report).filter(Boolean);
+  return [..._weeklyFile].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, 40).map(r => r.report).filter(Boolean);
 }
 
 // ═══════════════════ JOURNAL D'EMAILS (anti-doublon durable) ═══════════════════

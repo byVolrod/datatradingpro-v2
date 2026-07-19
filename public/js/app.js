@@ -6068,6 +6068,7 @@ const ARLIB_ALLOWED_TYPES = new Set(Object.keys(ARLIB_TYPE_ORDER));
 
 function getArlibItems() {
   const cutoff = Date.now() - 30 * 24 * 60 * 60 * 1000;
+  const wkCutoff = Date.now() - 80 * 24 * 60 * 60 * 1000;   // rapports HEBDO (Recap + GEW) gardés ~11 semaines → « le mois dernier » visible (demande user)
   // Session wraps InvestingLive…
   const wraps = (_sessionWraps || []).filter(i => i.timestamp > cutoff);
   // …+ UN SEUL Weekly Market Recap (le meilleur) : anti-doublon.
@@ -6076,13 +6077,13 @@ function getArlibItems() {
   const cand = [
     ...(_weeklyReports || []),
     ...(typeof allItems !== 'undefined' ? allItems : []).filter(i => i._reportType === 'Weekly Market Recap'),
-  ].filter(i => i && i._reportType === 'Weekly Market Recap' && i.timestamp > cutoff);
+  ].filter(i => i && i._reportType === 'Weekly Market Recap' && i.timestamp > wkCutoff);
   // On garde la MEILLEURE version de CHAQUE semaine (plus « une seule, la plus récente ») → l'HISTORIQUE des
   // semaines passées reste visible dans la liste (demande user « raffiche les anciens rapports »). Dédup par
   // semaine (weekEnding, sinon jour du timestamp) : v2 riche prioritaire, puis le plus récent.
   const recaps = _bestPerWeek(cand);
   // …+ Global Economic Weekly, MEILLEUR PAR SEMAINE aussi → visible par tous (endpoint /api/weekly-reports ouvert).
-  const gewCand = (_weeklyReports || []).filter(i => i && i._reportType === 'Global Economic Weekly' && i.timestamp > cutoff);
+  const gewCand = (_weeklyReports || []).filter(i => i && i._reportType === 'Global Economic Weekly' && i.timestamp > wkCutoff);
   const gews = _bestPerWeek(gewCand);
   const best = recaps[0], bestGew = gews[0];   // (rétro-compat : _wkAnchorTs / autres usages du « meilleur » courant)
   // …+ UN SEUL FX Daily Recap (le plus récent) : rapport analyste QUOTIDIEN façon pro, servi par /api/weekly-reports.
