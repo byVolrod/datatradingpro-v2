@@ -4118,17 +4118,18 @@ function _sbColorCls(v) {
 // ── RADAR DE BIAIS = tableau MACRO DATA (demande user) : une ligne par devise, colonnes lisibles
 //    (Politique monétaire · Inflation · Croissance · Emploi · Driver · Biais), tags colorés sémantiques DTP.
 //    Source = d.macroTable (serveur v26). Le détail 7 piliers reste dans la Synthèse de Biais (clic sur une ligne).
-// Étiquettes = celles de la grille MACRO DATA de référence (tags courts, demande user « reprends la manière
-// dont ça a été fait »). Termes de trading consacrés (Hawkish/Dovish/Bullish/Bearish/Sticky…), non traduits.
+// Étiquettes du tableau MACRO DATA — VALEURS EN FRANÇAIS (demande user), tags courts & clairs. Cohérent avec
+// le Récap Hebdo (biais FR) et l'onglet TAUX (« Tendance ~6 mois : Hausse/Baisse/Maintien »). Posture BC =
+// Restrictive/Accommodante (équivalent FR de hawkish/dovish).
 const MT_LBL = {
-  stance:   { Hawkish: 'Hawkish', Dovish: 'Dovish', Neutre: 'Neutral' },
-  ratedir:  { Up: 'Up', Down: 'Down', Hold: 'Hold' },
-  level:    { High: 'High', Low: 'Low', 'Modéré': 'Moderate' },
-  inftrend: { Up: 'Up', Down: 'Down', Sticky: 'Sticky' },
-  ge:       { Strong: 'Strong', Neutral: 'Neutral', Weak: 'Weak' },
+  stance:   { Hawkish: 'Restrictive', Dovish: 'Accommodante', Neutre: 'Neutre' },
+  ratedir:  { Up: 'Hausse', Down: 'Baisse', Hold: 'Maintien' },
+  level:    { High: 'Élevée', Low: 'Basse', 'Modéré': 'Modérée' },
+  inftrend: { Up: 'En hausse', Down: 'En baisse', Sticky: 'Persistante' },
+  ge:       { Strong: 'Solide', Neutral: 'Neutre', Weak: 'Faible' },
 };
-// Colonne Biais = Bullish / Neutral / Bearish (comme la grille) — le niveau « faible » est porté par la couleur.
-const MT_BIAS_LBL = { 'Very Bullish': 'Bullish', 'Bullish': 'Bullish', 'Weak Bullish': 'Bullish', 'Neutral': 'Neutral', 'Weak Bearish': 'Bearish', 'Bearish': 'Bearish', 'Very Bearish': 'Bearish', 'Uptrend': 'Bullish', 'Downtrend': 'Bearish' };
+// Colonne Biais = Haussier / Neutre / Baissier (le niveau « faible/fort » est porté par la couleur du tag).
+const MT_BIAS_LBL = { 'Very Bullish': 'Haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Haussier', 'Neutral': 'Neutre', 'Weak Bearish': 'Baissier', 'Bearish': 'Baissier', 'Very Bearish': 'Baissier', 'Uptrend': 'Haussier', 'Downtrend': 'Baissier' };
 function _mtCls(kind, v) {
   v = String(v || '');
   if (kind === 'bias')     return _sbColorCls(v);
