@@ -4118,13 +4118,17 @@ function _sbColorCls(v) {
 // ── RADAR DE BIAIS = tableau MACRO DATA (demande user) : une ligne par devise, colonnes lisibles
 //    (Politique monétaire · Inflation · Croissance · Emploi · Driver · Biais), tags colorés sémantiques DTP.
 //    Source = d.macroTable (serveur v26). Le détail 7 piliers reste dans la Synthèse de Biais (clic sur une ligne).
+// Étiquettes = celles de la grille MACRO DATA de référence (tags courts, demande user « reprends la manière
+// dont ça a été fait »). Termes de trading consacrés (Hawkish/Dovish/Bullish/Bearish/Sticky…), non traduits.
 const MT_LBL = {
-  stance:   { Hawkish: 'Hawkish', Dovish: 'Dovish', Neutre: 'Neutre' },
-  ratedir:  { Up: 'Hausse', Down: 'Baisse', Hold: 'Maintien' },
-  level:    { High: 'Élevée', Low: 'Basse', 'Modéré': 'Modérée' },
-  inftrend: { Up: 'En hausse', Down: 'En baisse', Sticky: 'Persistante' },
-  ge:       { Strong: 'Forte', Neutral: 'Neutre', Weak: 'Faible' },
+  stance:   { Hawkish: 'Hawkish', Dovish: 'Dovish', Neutre: 'Neutral' },
+  ratedir:  { Up: 'Up', Down: 'Down', Hold: 'Hold' },
+  level:    { High: 'High', Low: 'Low', 'Modéré': 'Moderate' },
+  inftrend: { Up: 'Up', Down: 'Down', Sticky: 'Sticky' },
+  ge:       { Strong: 'Strong', Neutral: 'Neutral', Weak: 'Weak' },
 };
+// Colonne Biais = Bullish / Neutral / Bearish (comme la grille) — le niveau « faible » est porté par la couleur.
+const MT_BIAS_LBL = { 'Very Bullish': 'Bullish', 'Bullish': 'Bullish', 'Weak Bullish': 'Bullish', 'Neutral': 'Neutral', 'Weak Bearish': 'Bearish', 'Bearish': 'Bearish', 'Very Bearish': 'Bearish', 'Uptrend': 'Bullish', 'Downtrend': 'Bearish' };
 function _mtCls(kind, v) {
   v = String(v || '');
   if (kind === 'bias')     return _sbColorCls(v);
@@ -4171,7 +4175,7 @@ function _sbRenderMacroTable(cur, macro) {
     const gr = m.growth ? tag(_mtCls('ge', m.growth), MT_LBL.ge[m.growth] || m.growth) : '';
     const em = m.employment ? tag(_mtCls('ge', m.employment), MT_LBL.ge[m.employment] || m.employment) : '';
     const drv = (m.drivers || []).slice(0, 3).map(x => tag('mt-drv', x)).join('') || '<span class="mt-empty">—</span>';
-    const bi = m.bias ? tag(_mtCls('bias', m.bias), BIAS_FR[m.bias] || m.bias) : '';
+    const bi = m.bias ? tag(_mtCls('bias', m.bias), MT_BIAS_LBL[m.bias] || m.bias) : '';
     return `<tr class="mt-row" onclick="_sbOpenSummary('${c}')" title="Voir la synthèse ${esc(c)}">
       <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
       <td>${monCell}</td><td>${infCell}</td><td>${gr}</td><td>${em}</td>
@@ -4395,7 +4399,7 @@ function _sbOpenSummary(curr) {
   wrap.innerHTML = `
     <div class="sbs-panel">
       <div class="sbs-body" id="sbs-body">
-        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${_sbMacroSummaryRows(curr, esc)}<div class="sbs-left-sub">Confluence des piliers</div>${leftRows}</div>
+        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${_sbMacroSummaryRows(curr, esc)}${leftRows}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} : Performance de la semaine dernière :</div>
