@@ -9565,6 +9565,23 @@ function _sbHistNarrative(c) {
 // Résout le narratif pour l'AFFICHAGE SANS muter le cache : IA réel si présent, sinon dernier texte
 // IA de l'HISTORIQUE, sinon synthèse data-driven. Le cache interne (_smartBias.narrative) ne contient
 // JAMAIS de repli, donc le retry IA sait toujours quoi régénérer.
+// Rafraîchit la DIRECTION « Prochain mouvement » du macroTable depuis les taux LIVE (rateprobability) À LA LECTURE
+// de l'API → toujours cohérent avec l'onglet TAUX + temps réel, même si le snapshot smart-bias date (demande user
+// « réel à jour en temps réel »). Ne touche QUE monetary.dir ; le reste (stance, inflation, biais) reste le snapshot.
+function _sbFreshenMacroTable(bias) {
+  if (!bias || !bias.macroTable) return bias;
+  let rates = null; try { rates = _buildRatesPayload(); } catch {}
+  if (!rates || !Array.isArray(rates.banks)) return bias;
+  const mt = {};
+  for (const c of Object.keys(bias.macroTable)) {
+    const cur = bias.macroTable[c], b = rates.banks.find(x => x.code === c);
+    if (b && b.move && cur && cur.monetary) {
+      const dir = b.move === 'HIKE' ? 'Up' : b.move === 'CUT' ? 'Down' : 'Hold';
+      mt[c] = Object.assign({}, cur, { monetary: Object.assign({}, cur.monetary, { dir }) });
+    } else mt[c] = cur;
+  }
+  return Object.assign({}, bias, { macroTable: mt });
+}
 function _sbFillNarrative(bias) {
   if (!bias || !Array.isArray(bias.rows) || !bias.rows.length) return bias;
   const src = bias.narrative || {};
@@ -9973,7 +9990,7 @@ app.post('/api/admin/bias-override', requireAdmin, async (req, res) => {
   if (value == null || value === '') { if (_sbOverrides[ccy]) { delete _sbOverrides[ccy][row]; if (!Object.keys(_sbOverrides[ccy]).length) delete _sbOverrides[ccy]; } }
   else (_sbOverrides[ccy] = _sbOverrides[ccy] || {})[row] = value;
   auth.aiCacheSet('sb:overrides', _sbOverrides).catch(() => {});
-  try { if (_smartBias) broadcast({ type: 'smartbias_update', bias: _sbApplyOverrides(_sbFillNarrative(_smartBias)) }); } catch {}   // MAJ live des desks ouverts
+  try { if (_smartBias) broadcast({ type: 'smartbias_update', bias: _sbApplyOverrides(_sbFreshenMacroTable(_sbFillNarrative(_smartBias))) }); } catch {}   // MAJ live des desks ouverts
   res.json({ ok: true, overrides: _sbOverrides });
 });
 
@@ -9994,7 +10011,7 @@ app.get('/api/smart-bias', async (req, res) => {
     .map(s => ({ generatedAt: s.generatedAt }));
   // Narratif RÉSOLU pour l'affichage (IA réel si dispo, sinon synthèse data-driven) — SANS muter le cache interne.
   // + overrides admin appliqués à la volée (correctifs humains, auto-expirés à la prochaine régén complète).
-  const _resolved = _smartBias ? _sbApplyOverrides(_sbFillNarrative(_smartBias)) : { currencies: SB_CURRENCIES, rows: [], conclusion: {} };
+  const _resolved = _smartBias ? _sbApplyOverrides(_sbFreshenMacroTable(_sbFillNarrative(_smartBias))) : { currencies: SB_CURRENCIES, rows: [], conclusion: {} };
   res.json(Object.assign({}, _resolved, { history }));
   // AUCUN appel IA déclenché par l'arrivée d'un utilisateur : la (re)génération du bias est UNIQUEMENT planifiée (samedi) + timers de fond (démarrage / horaire). Le narratif est figé (rempli data-driven s'il manque).
 });
@@ -11399,7 +11416,7 @@ app.get('/api/v1/bias', requireApiKey, (_req, res) => {
   _v1(res, _biasCache || { items: [], overview: '', week: '' });
 });
 app.get('/api/v1/smart-bias', requireApiKey, (_req, res) => {
-  const snap = _smartBias ? _sbFillNarrative(_smartBias) : null;
+  const snap = _smartBias ? _sbFreshenMacroTable(_sbFillNarrative(_smartBias)) : null;
   if (!snap) return res.status(503).json({ ok: false, error: 'Smart Bias pas encore généré (génération hebdomadaire).' });
   _v1(res, snap);
 });
@@ -13311,7 +13328,7 @@ app.get('/internal/email-widget/risk-history', async (req, res) => {
 // Radar de Biais (renderBiasView, app.js) — TENTATIVE via app.js (fallback si l'init casse en page isolee).
 app.get('/internal/email-widget/bias', async (req, res) => {
   let data = null;
-  try { data = _smartBias ? _sbApplyOverrides(_sbFillNarrative(_smartBias)) : null; } catch (e) {}
+  try { data = _smartBias ? _sbApplyOverrides(_sbFreshenMacroTable(_sbFillNarrative(_smartBias))) : null; } catch (e) {}
   if (!data) data = { currencies: (typeof SB_CURRENCIES !== 'undefined' ? SB_CURRENCIES : []), rows: [], conclusion: {} };
   res.set('Cache-Control', 'no-store');
   res.type('html').send(`<!doctype html><html lang="fr"><head><meta charset="utf-8">
