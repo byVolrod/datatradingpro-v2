@@ -4177,7 +4177,7 @@ function _sbRenderMacroTable(cur, macro) {
     const em = m.employment ? tag(_mtCls('ge', m.employment), MT_LBL.ge[m.employment] || m.employment) : '';
     const drv = (m.drivers || []).slice(0, 3).map(x => tag('mt-drv', x)).join('') || '<span class="mt-empty">—</span>';
     const bi = m.bias ? tag(_mtCls('bias', m.bias), MT_BIAS_LBL[m.bias] || m.bias) : '';
-    return `<tr class="mt-row" onclick="_sbOpenSummary('${c}')" title="Voir la synthèse ${esc(c)}">
+    return `<tr class="mt-row">
       <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
       <td>${monCell}</td><td>${infCell}</td><td>${gr}</td><td>${em}</td>
       <td class="mt-drv-cell">${drv}</td><td>${bi}</td></tr>`;
@@ -4200,17 +4200,10 @@ function renderBiasView(d) {
 
   // Tableau MACRO DATA (source de vérité serveur macroTable ; repli dérivé des piliers si cache ancien).
   const macro = (d.macroTable && Object.keys(d.macroTable).length) ? d.macroTable : _sbMacroFromRows(d);
-  host.innerHTML = `
-    <div class="sbm-matrix-zone" id="sbm-matrix-zone"${_sbMatrixH ? ` style="height:${_sbMatrixH}px"` : ''}>
-      <div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div>
-    </div>
-    <div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>
-    <div id="sbm-summary" class="sbm-summary-host"></div>`;
+  // Panneau Synthèse (narratif + splitter) RETIRÉ (demande user) → le tableau MACRO DATA occupe TOUT l'onglet.
+  host.innerHTML = `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`;
   if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> tableau)
-  // Dropdowns "Scanner" + historique de semaines dans l'en-tête du haut.
-  _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
-  // Bias Summary affiché DIRECTEMENT (plus de clic requis) : on garde la devise active, sinon la 1ère.
-  if (cur.length) _sbOpenSummary(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
+  _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);   // historique de semaines dans l'en-tête
 }
 // Libellé de semaine façon DTP : "1-7/06/2026" (lundi→dimanche).
 function _sbWeekLabel(ts) {
