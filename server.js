@@ -9148,7 +9148,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v27-move-align';   // v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v28-hist-trend';   // v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -9455,19 +9455,41 @@ async function _sbFundamentalRows() {
 //    maintien) + Récap Hebdo (Driver). Le BIAIS de la colonne = la CONCLUSION déterministe (source de vérité
 //    unique ; le Récap Hebdo s'aligne dessus). 0 IA — 100 % dérivé des données déjà calculées.
 const _sbSense = v => /very bull|bull|uptrend|hawk/i.test(String(v)) ? 'up' : /very bear|bear|downtrend|dov/i.test(String(v)) ? 'down' : 'flat';
+const _sbNum = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(x) ? null : x; };
+// TENDANCE sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance
+// haussière/baissière/neutre ») : on ne compare PLUS 2 points (bruité) mais la MOYENNE des publications RÉCENTES
+// vs les plus ANCIENNES de la fenêtre → up / down / flat. `series` = valeurs récent→ancien.
+function _sbSeriesDir(series, thr) {
+  if (!Array.isArray(series) || series.length < 2) return 'flat';
+  const h = Math.max(1, Math.floor(series.length / 2));
+  const avg = a => a.reduce((x, y) => x + y, 0) / a.length;
+  const d = avg(series.slice(0, h)) - avg(series.slice(-h));       // >0 = valeur en hausse récemment
+  const t = thr != null ? thr : 0.2;
+  return d > t ? 'up' : d < -t ? 'down' : 'flat';
+}
+// Tendance d'un indicateur depuis le calendrier (jusqu'à 6 dernières publications de la famille). invert : pour le
+// chômage (hausse du chômage = tendance DÉFAVORABLE → 'down').
+function _sbHistTrend(cal, ccy, rx, opt) {
+  opt = opt || {};
+  const series = (cal || [])
+    .filter(e => e && e.currency === ccy && e.actual != null && e.actual !== '' && rx.test(e.title || ''))
+    .sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+    .map(e => _sbNum(e.actual)).filter(v => v != null).slice(0, 6);
+  let dir = _sbSeriesDir(series, opt.thr);
+  if (opt.invert && dir !== 'flat') dir = dir === 'up' ? 'down' : 'up';
+  return { dir, n: series.length };
+}
 function _sbInflationCell(c, cal, stance) {
-  const num = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(x) ? null : x; };
   let evs = (cal || []).filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && /inflation rate|\bcpi\b|consumer price/i.test(e.title || ''));
   const yoy = evs.filter(e => /y\/y|yoy|annual|annuel|a\/a|sur un an/i.test(e.title || ''));
   if (yoy.length) evs = yoy;                                       // privilégie l'inflation ANNUELLE (niveau lisible)
   evs.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-  const last = evs[0] ? num(evs[0].actual) : null;
-  const prev = evs[1] ? num(evs[1].actual) : (evs[0] ? num(evs[0].previous != null ? evs[0].previous : evs[0].prev) : null);
+  const series = evs.map(e => _sbNum(e.actual)).filter(v => v != null).slice(0, 6);   // ~6 dernières, récent→ancien
+  const last = series.length ? series[0] : null;
   let level = last != null ? (last >= 2.5 ? 'High' : last <= 1.5 ? 'Low' : 'Modéré') : null;
-  let trend = (last != null && prev != null) ? (last - prev > 0.15 ? 'Up' : last - prev < -0.15 ? 'Down' : 'Sticky') : null;
-  if (level == null) level = _sbSense(stance) === 'up' ? 'High' : _sbSense(stance) === 'down' ? 'Low' : 'Modéré';   // repli sur la stance
-  if (trend == null) trend = 'Sticky';
-  return { level, trend };
+  const dir = _sbSeriesDir(series, 0.2);                           // TENDANCE = historique (moyenne récente vs ancienne)
+  if (level == null) level = _sbSense(stance) === 'up' ? 'High' : _sbSense(stance) === 'down' ? 'Low' : 'Modéré';
+  return { level, trend: dir === 'up' ? 'Up' : dir === 'down' ? 'Down' : 'Sticky' };
 }
 function _sbBuildMacroTable(monetary, fundamentalRes, conclusion) {
   const subVal = (c, label) => { const s = (fundamentalRes.subs || []).find(x => x.label === label); return s ? (s.values[c] || 'Neutral') : 'Neutral'; };
@@ -9487,8 +9509,12 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion) {
     // cohérence garantie BIAIS ↔ TAUX. Repli expBps (prochaine réunion) si move absent.
     const dir = (rb && rb.move) ? (rb.move === 'HIKE' ? 'Up' : rb.move === 'CUT' ? 'Down' : 'Hold')
               : ((rb && rb.expBps != null) ? (rb.expBps > 5 ? 'Up' : rb.expBps < -5 ? 'Down' : 'Hold') : 'Hold');
-    const gS = _sbSense(subVal(c, 'Croissance (PIB)'));
-    const eS = _sbSense(subVal(c, 'Emploi (chômage)'));
+    // Croissance & Emploi = TENDANCE sur l'HISTORIQUE des vraies publications (PIB ; chômage inversé) → hausse =
+    // Solide, baisse = Faible, plat = Neutre. Repli sur la stance du sous-pilier (déjà agrégée 3 mois) si <2 publis.
+    const gH = _sbHistTrend(fundamentalRes.cal, c, /\bGDP\b|gross domestic|economic growth|\bPIB\b/i);
+    const eH = _sbHistTrend(fundamentalRes.cal, c, /unemployment rate|jobless|ch[oô]mage/i, { invert: true });
+    const gS = gH.n >= 2 ? gH.dir : _sbSense(subVal(c, 'Croissance (PIB)'));
+    const eS = eH.n >= 2 ? eH.dir : _sbSense(subVal(c, 'Emploi (chômage)'));
     out[c] = {
       monetary:   { stance: mSense === 'up' ? 'Hawkish' : mSense === 'down' ? 'Dovish' : 'Neutre', dir },
       inflation:  _sbInflationCell(c, fundamentalRes.cal, subVal(c, 'Inflation (CPI)')),
