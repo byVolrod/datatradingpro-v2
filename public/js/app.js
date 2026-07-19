@@ -6789,8 +6789,10 @@ function _renderWeeklyRecap(item) {
         body += `</div></div>`;
       });
       if (Array.isArray(_gt.etatFin) && _gt.etatFin.length) {
+        // « État en fin de semaine » : PLUS de rectangle encadré (demande user « ça casse ») → sous-section
+        // homogène = filet fin en tête + label façon jour + points fléchés, comme le reste de la chronologie.
         body += `<div class="wr-gt-end"><div class="wr-gt-end-h">État en fin de semaine</div>`;
-        _gt.etatFin.forEach(p => { body += `<div class="wr-gt-pt wr-gt-pt--end">${_wrInline(p)}</div>`; });
+        _gt.etatFin.forEach(p => { body += `<div class="wr-gt-pt">${_wrInline(p)}</div>`; });
         body += `</div>`;
       }
       body += `</div>`;
