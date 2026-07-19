@@ -4115,6 +4115,71 @@ function _sbColorCls(v) {
   }
 }
 
+// ── RADAR DE BIAIS = tableau MACRO DATA (demande user) : une ligne par devise, colonnes lisibles
+//    (Politique monétaire · Inflation · Croissance · Emploi · Driver · Biais), tags colorés sémantiques DTP.
+//    Source = d.macroTable (serveur v26). Le détail 7 piliers reste dans la Synthèse de Biais (clic sur une ligne).
+const MT_LBL = {
+  stance:   { Hawkish: 'Hawkish', Dovish: 'Dovish', Neutre: 'Neutre' },
+  ratedir:  { Up: 'Hausse', Down: 'Baisse', Hold: 'Maintien' },
+  level:    { High: 'Élevée', Low: 'Basse', 'Modéré': 'Modérée' },
+  inftrend: { Up: 'En hausse', Down: 'En baisse', Sticky: 'Persistante' },
+  ge:       { Strong: 'Forte', Neutral: 'Neutre', Weak: 'Faible' },
+};
+function _mtCls(kind, v) {
+  v = String(v || '');
+  if (kind === 'bias')     return _sbColorCls(v);
+  if (kind === 'stance')   return /hawk/i.test(v) ? 'mt-pos' : /dov/i.test(v) ? 'mt-neg' : 'mt-neu';
+  if (kind === 'ratedir')  return /up/i.test(v) ? 'mt-pos' : /down/i.test(v) ? 'mt-neg' : 'mt-neu';
+  if (kind === 'level')    return /high/i.test(v) ? 'mt-hot' : /low/i.test(v) ? 'mt-cool' : 'mt-neu';
+  if (kind === 'inftrend') return /up/i.test(v) ? 'mt-hot' : /down/i.test(v) ? 'mt-cool' : 'mt-neu';
+  if (kind === 'ge')       return /strong/i.test(v) ? 'mt-pos' : /weak/i.test(v) ? 'mt-neg' : 'mt-neu';
+  return 'mt-neu';
+}
+// Repli client : si le serveur n'a pas encore macroTable (cache < v26), on le dérive des rows (piliers) + conclusion.
+function _sbMacroFromRows(d) {
+  const out = {};
+  const rows = d.rows || [];
+  const fund = rows.find(r => r.key === 'fundamental') || {};
+  const mon = rows.find(r => r.key === 'monetary') || {};
+  const subVal = (c, lbl) => { const s = (fund.subs || []).find(x => x.label === lbl); return s ? s.values[c] : 'Neutral'; };
+  const sense = v => /bull|hawk|uptrend/i.test(String(v)) ? 'up' : /bear|dov|downtrend/i.test(String(v)) ? 'down' : 'flat';
+  (d.currencies || []).forEach(c => {
+    const mS = sense((mon.values || {})[c]);
+    const gS = sense(subVal(c, 'Croissance (PIB)'));
+    const eS = sense(subVal(c, 'Emploi (chômage)'));
+    const iS = sense(subVal(c, 'Inflation (CPI)'));
+    out[c] = {
+      monetary:   { stance: mS === 'up' ? 'Hawkish' : mS === 'down' ? 'Dovish' : 'Neutre', dir: 'Hold' },
+      inflation:  { level: iS === 'up' ? 'High' : iS === 'down' ? 'Low' : 'Modéré', trend: 'Sticky' },
+      growth:     gS === 'up' ? 'Strong' : gS === 'down' ? 'Weak' : 'Neutral',
+      employment: eS === 'up' ? 'Strong' : eS === 'down' ? 'Weak' : 'Neutral',
+      drivers:    [],
+      bias:       (d.conclusion || {})[c] || 'Neutral',
+    };
+  });
+  return out;
+}
+function _sbRenderMacroTable(cur, macro) {
+  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
+  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th></tr>`;
+  const body = cur.map(c => {
+    const m = macro[c] || {};
+    const mp = m.monetary || {}, inf = m.inflation || {};
+    const monCell = (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : '');
+    const infCell = (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : '');
+    const gr = m.growth ? tag(_mtCls('ge', m.growth), MT_LBL.ge[m.growth] || m.growth) : '';
+    const em = m.employment ? tag(_mtCls('ge', m.employment), MT_LBL.ge[m.employment] || m.employment) : '';
+    const drv = (m.drivers || []).slice(0, 3).map(x => tag('mt-drv', x)).join('') || '<span class="mt-empty">—</span>';
+    const bi = m.bias ? tag(_mtCls('bias', m.bias), BIAS_FR[m.bias] || m.bias) : '';
+    return `<tr class="mt-row" onclick="_sbOpenSummary('${c}')" title="Voir la synthèse ${esc(c)}">
+      <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
+      <td>${monCell}</td><td>${infCell}</td><td>${gr}</td><td>${em}</td>
+      <td class="mt-drv-cell">${drv}</td><td>${bi}</td></tr>`;
+  }).join('');
+  return `<table class="macro-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
 function renderBiasView(d) {
   const host = document.getElementById('bias-content');
   if (!host) return;
@@ -4123,44 +4188,20 @@ function renderBiasView(d) {
   const badge = document.getElementById('bias-update-badge');
   if (badge) badge.textContent = '';   // badge « MAJ <date> » retiré (demande utilisateur)
 
-  if (!rows.length) {
+  if (!cur.length || !rows.length) {
     host.innerHTML = '<div class="bias-loading">La matrice Radar de Biais sera générée dimanche (force : /api/smart-bias?force=1).</div>';
     return;
   }
 
-  const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  // En-têtes : micro-drapeau rond + code devise, cliquable → ouvre le Bias Summary inférieur.
-  const head = `<tr><th class="sbm-ind">Indicateurs</th>${cur.map(c =>
-    `<th class="sbm-cur" onclick="_sbOpenSummary('${c}')"><span class="sbm-cur-in">${_sbFlag(c)}<span>${esc(c)}</span></span></th>`).join('')}</tr>`;
-  // Fundamental Data & Bank Overview = accordéons dans la matrice (clic → sous-indicateurs par devise).
-  const _accKeys = { fundamental: 1, bankOverview: 1 };
-  // Libelles FR de la matrice : IDENTIQUES a ceux de la synthese (volet gauche) pour que radar et
-  // synthese listent exactement les memes indicateurs (demande : coherence logique + charte FR).
-  const _sbRowFr = { fundamental: 'Données fondamentales', bankOverview: 'Vue des banques', hedgeFund: 'Positionnement Hedge Funds', retail: 'Positionnement Particuliers', monetary: 'Politique monétaire', trend: 'Tendance', seasonality: 'Seasonality' };
-  const body = rows.map(r => {
-    const isAcc = _accKeys[r.key];
-    const rlabel = _sbRowFr[r.key] || r.label;
-    const indCell = isAcc
-      ? `<td class="sbm-ind sbm-ind-acc" onclick="_sbMatToggleAcc('${r.key}',event)" title="Déplier les sous-indicateurs"><span class="sbm-acc-arrow">›</span>${esc(rlabel)}</td>`
-      : `<td class="sbm-ind">${esc(rlabel)}</td>`;
-    return `<tr data-mrow="${esc(r.key || '')}">${indCell}${
-      cur.map(c => { const v = r.values[c] || 'N/A'; return `<td class="sbm-cell ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')" title="${esc(c)} · ${esc(rlabel)} : ${esc(BIAS_FR[v] || v)}">${esc(BIAS_FR[v] || v)}</td>`; }).join('')
-    }</tr>`;
-  }).join('');
-  const arrow = v => /bull|uptrend/i.test(v) ? '<span class="sbm-arr">↗</span>' : /bear|downtrend/i.test(v) ? '<span class="sbm-arr">↘</span>' : '';
-  const concl = `<tr class="sbm-overall"><td class="sbm-ind">Conclusion globale</td>${
-    cur.map(c => { const v = (d.conclusion || {})[c] || 'N/A'; return `<td class="sbm-cell sbm-concl ${_sbColorCls(v)}" onclick="_sbOpenSummary('${c}')">${arrow(v)}${esc(BIAS_FR[v] || v)}</td>`; }).join('')
-  }</tr>`;
-
+  // Tableau MACRO DATA (source de vérité serveur macroTable ; repli dérivé des piliers si cache ancien).
+  const macro = (d.macroTable && Object.keys(d.macroTable).length) ? d.macroTable : _sbMacroFromRows(d);
   host.innerHTML = `
     <div class="sbm-matrix-zone" id="sbm-matrix-zone"${_sbMatrixH ? ` style="height:${_sbMatrixH}px"` : ''}>
-      <div class="sbm-grid-wrap">
-        <table class="sbm-grid"><thead>${head}</thead><tbody>${body}${concl}</tbody></table>
-      </div>
+      <div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div>
     </div>
     <div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>
     <div id="sbm-summary" class="sbm-summary-host"></div>`;
-  if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> matrice)
+  if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> tableau)
   // Dropdowns "Scanner" + historique de semaines dans l'en-tête du haut.
   _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
   // Bias Summary affiché DIRECTEMENT (plus de clic requis) : on garde la devise active, sinon la 1ère.
@@ -4289,6 +4330,24 @@ function _sbFallbackNarrative(curr, val, overall, bulls, bears, esc) {
   return P.join(' ');
 }
 
+// Bloc « Vue macro » en tête de la Synthèse : reflète la LIGNE MACRO DATA de la devise (mêmes tags que le tableau)
+// → la synthèse et le radar disent EXACTEMENT la même chose (demande user « mets à jour la synthèse »).
+function _sbMacroSummaryRows(curr, esc) {
+  const d = _biasView || _biasData;
+  if (!d) return '';
+  const macro = (d.macroTable && d.macroTable[curr]) ? d.macroTable[curr] : (_sbMacroFromRows(d)[curr]);
+  if (!macro) return '';
+  const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
+  const mp = macro.monetary || {}, inf = macro.inflation || {};
+  const row = (lbl, html) => `<div class="sbs-row sbs-mrow"><span class="sbs-row-lbl">${esc(lbl)}</span><span class="sbs-mrow-tags">${html || '<span class="mt-empty">—</span>'}</span></div>`;
+  let out = `<div class="sbs-left-sub">Vue macro</div>`;
+  out += row('Politique monétaire', (mp.stance ? tag(_mtCls('stance', mp.stance), MT_LBL.stance[mp.stance] || mp.stance) : '') + (mp.dir ? tag(_mtCls('ratedir', mp.dir), MT_LBL.ratedir[mp.dir] || mp.dir) : ''));
+  out += row('Inflation', (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : ''));
+  out += row('Croissance', macro.growth ? tag(_mtCls('ge', macro.growth), MT_LBL.ge[macro.growth] || macro.growth) : '');
+  out += row('Emploi', macro.employment ? tag(_mtCls('ge', macro.employment), MT_LBL.ge[macro.employment] || macro.employment) : '');
+  if ((macro.drivers || []).length) out += row('Driver', macro.drivers.slice(0, 3).map(x => tag('mt-drv', x)).join(''));
+  return out;
+}
 function _sbOpenSummary(curr) {
   _sbActiveCur = curr;
   const wrap = document.getElementById('sbm-summary');
@@ -4336,7 +4395,7 @@ function _sbOpenSummary(curr) {
   wrap.innerHTML = `
     <div class="sbs-panel">
       <div class="sbs-body" id="sbs-body">
-        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${leftRows}</div>
+        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${_sbMacroSummaryRows(curr, esc)}<div class="sbs-left-sub">Confluence des piliers</div>${leftRows}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} : Performance de la semaine dernière :</div>
