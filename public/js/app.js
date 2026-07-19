@@ -4400,7 +4400,7 @@ function _sbOpenSummary(curr) {
   wrap.innerHTML = `
     <div class="sbs-panel">
       <div class="sbs-body" id="sbs-body">
-        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${_sbMacroSummaryRows(curr, esc)}${leftRows}</div>
+        <div class="sbs-left" id="sbs-left" style="flex-basis:${(_sbSplitFrac * 100).toFixed(1)}%"><div class="sbs-left-title">Synthèse de Biais</div>${_sbMacroSummaryRows(curr, esc)}</div>
         <div class="sbs-split" id="sbs-split" title="Glisser pour redimensionner"></div>
         <div class="sbs-right" id="sbs-right">
           <div class="sbs-narr-title">${esc(curr)} : Performance de la semaine dernière :</div>
