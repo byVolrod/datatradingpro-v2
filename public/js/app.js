@@ -6734,13 +6734,18 @@ function _renderWeeklyRecap(item) {
     // (Section « Bilan États-Unis » retirée le 18/07 — demande user ; le contenu US est désormais
     //  fondu dans la Synthèse, parmi les données éco majeures toutes régions.)
     // 2) CALENDRIER ÉCONOMIQUE complet, jour par jour (FORT mis en avant, FAIBLE estompé)
-    // CALENDRIER : UNIQUEMENT LES NEWS IMPORTANTES (FORT / High) — les MOYEN sont retirés (demande user
-    // « affiche uniquement les news importantes »). Les jours sans event important sont sautés (pas de rail vide).
+    // CALENDRIER : on garde les news IMPORTANTES = FORT (High) + les DISCOURS de banque centrale + les indicateurs
+    // du PDF « Learning Economics News » (inflation, emploi, croissance, consommation, activité, commerce, immobilier,
+    // confiance…) même en MOYEN. Le reste (holidays, adjudications, budget, obligations, enquêtes mineures) est
+    // retiré. Jours sans event gardé = sautés. (demande user : « importantes, y compris les discours et celles du pdf »)
+    const _GEW_SPEECH_RX = /\b(speech|speaks|testif|testimony|remarks|press\s+conference)\b|\bminutes\b/i;
+    const _GEW_PDF_RX = /rate decision|interest rate|monetary policy|\bfomc\b|refi|\bcpi\b|\bppi\b|\bpce\b|inflation|consumer price|producer price|\bgdp\b|\bpib\b|growth rate|non[-\s]?farm|\bnfp\b|payroll|unemployment|jobless|\bemployment\b|\bjobs\b|hourly earnings|\bwage|retail sales|\bpmi\b|\bism\b|industrial production|factory orders|durable goods|trade balance|balance of trade|\bimports\b|\bexports\b|current account|consumer confidence|consumer sentiment|business confidence|\bzew\b|\bifo\b|housing starts|building permits|home sales|new home/i;
+    const _gewKeep = e => { const t = e && e.title || ''; return String(e && e.impact || '').toUpperCase() === 'HIGH' || _GEW_SPEECH_RX.test(t) || _GEW_PDF_RX.test(t); };
     const _gewHiDays = (Array.isArray(w.days) ? w.days : [])
-      .map(d => ({ d: d, evs: (d.events || []).filter(e => String(e.impact || '').toUpperCase() === 'HIGH') }))
+      .map(d => ({ d: d, evs: (d.events || []).filter(_gewKeep) }))
       .filter(x => x.evs.length);
     if (_gewHiDays.length) {
-      body += `<div class="wr-section-title">Calendrier économique <span style="color:#6b7280;font-size:11px;font-weight:400;letter-spacing:0;">· heure de Paris · événements importants</span></div>`;
+      body += `<div class="wr-section-title">Calendrier économique <span style="color:#6b7280;font-size:11px;font-weight:400;letter-spacing:0;">· heure de Paris · importants, discours & indicateurs clés</span></div>`;
       _gewHiDays.forEach(({ d, evs }) => {
         // Structure deux-colonnes façon chronologie : jour (rail or, gauche) · événements (droite).
         body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(_gewDayFr(d.day))}${d.date ? `<span class="gew-day-date">${_wrEsc(_gewDayFr(d.date))}</span>` : ''}</div><div class="gew-day-evs">`;
