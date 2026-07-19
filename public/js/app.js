@@ -6734,12 +6734,17 @@ function _renderWeeklyRecap(item) {
     // (Section « Bilan États-Unis » retirée le 18/07 — demande user ; le contenu US est désormais
     //  fondu dans la Synthèse, parmi les données éco majeures toutes régions.)
     // 2) CALENDRIER ÉCONOMIQUE complet, jour par jour (FORT mis en avant, FAIBLE estompé)
-    if (Array.isArray(w.days) && w.days.length) {
-      body += `<div class="wr-section-title">Calendrier économique <span style="color:#6b7280;font-size:11px;font-weight:400;letter-spacing:0;">· heure de Paris</span></div>`;
-      w.days.forEach(d => {
-        // Structure deux-colonnes façon chronologie : jour (rail or, gauche) · événements (droite). (Demande user : « pareil ».)
+    // CALENDRIER : UNIQUEMENT LES NEWS IMPORTANTES (FORT / High) — les MOYEN sont retirés (demande user
+    // « affiche uniquement les news importantes »). Les jours sans event important sont sautés (pas de rail vide).
+    const _gewHiDays = (Array.isArray(w.days) ? w.days : [])
+      .map(d => ({ d: d, evs: (d.events || []).filter(e => String(e.impact || '').toUpperCase() === 'HIGH') }))
+      .filter(x => x.evs.length);
+    if (_gewHiDays.length) {
+      body += `<div class="wr-section-title">Calendrier économique <span style="color:#6b7280;font-size:11px;font-weight:400;letter-spacing:0;">· heure de Paris · événements importants</span></div>`;
+      _gewHiDays.forEach(({ d, evs }) => {
+        // Structure deux-colonnes façon chronologie : jour (rail or, gauche) · événements (droite).
         body += `<div class="gew-day"><div class="gew-day-h">${_wrEsc(_gewDayFr(d.day))}${d.date ? `<span class="gew-day-date">${_wrEsc(_gewDayFr(d.date))}</span>` : ''}</div><div class="gew-day-evs">`;
-        (d.events || []).forEach(e => {
+        evs.forEach(e => {
           const _actCls = (typeof deviationClass === 'function') ? deviationClass(e.actual, e.forecast) : '';   // surprise : vert si > consensus, rouge si <
           body += `<div class="gew-ev gew-ev--${_impCls(e.impact)}"><div class="gew-ev-top">`
             + `<span class="gew-ev-time">${_wrEsc(e.time || '')}</span>`
