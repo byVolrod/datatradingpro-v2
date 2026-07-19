@@ -6515,6 +6515,8 @@ function _wrTagColorize(html){
 
 const _WR_ORDER = ['USD','EUR','JPY','GBP','CHF','AUD','CAD','NZD'];
 const _WR_COLOR = { USD:'#e3b23a', EUR:'#dc2626', JPY:'#06b6d4', GBP:'#22c55e', AUD:'#2563eb', CHF:'#eab308', CAD:'#a855f7', NZD:'#ec4899' };
+// Biais fondamental FR (5 niveaux) → classe sémantique DTP (vert→rouge) pour le badge par devise (v34).
+function _wrBiasCls(b){ b = String(b||'').toLowerCase(); if (/tr[eè]s\s+hauss/.test(b)) return 'vbull'; if (/hauss/.test(b)) return 'bull'; if (/tr[eè]s\s+baiss/.test(b)) return 'vbear'; if (/baiss/.test(b)) return 'bear'; return 'neu'; }
 // GEW : noms de jour/mois EN→FR (le serveur date en anglais « Monday 22 June ») → plus clair pour le public FR.
 const _GEW_DOW_FR = { Monday:'Lundi', Tuesday:'Mardi', Wednesday:'Mercredi', Thursday:'Jeudi', Friday:'Vendredi', Saturday:'Samedi', Sunday:'Dimanche' };
 const _GEW_MON_FR = { January:'janvier', February:'février', March:'mars', April:'avril', May:'mai', June:'juin', July:'juillet', August:'août', September:'septembre', October:'octobre', November:'novembre', December:'décembre' };
@@ -6827,21 +6829,53 @@ function _renderWeeklyRecap(item) {
     if (ccys.length) {
       body += `<div class="wr-section-title">Analyse par devise</div>`;
       ccys.forEach(c => {
-        const cd = w.currencies[c];
-        const analysis = (cd && typeof cd === 'object') ? (cd.analysis || '') : (cd || '');
-        const thesis   = (cd && typeof cd === 'object') ? (cd.thesis || '') : '';   // v25 : accroche façon référence
-        const drivers  = (cd && typeof cd === 'object' && Array.isArray(cd.drivers)) ? cd.drivers : [];
+        const cd = (w.currencies[c] && typeof w.currencies[c] === 'object') ? w.currencies[c] : { analysis: w.currencies[c] || '' };
+        const thesis  = cd.thesis || '';
+        const exec    = cd.execSummary || cd.analysis || '';                       // 1) Résumé exécutif (rétro-compat: analysis)
+        const drivers = Array.isArray(cd.drivers) ? cd.drivers : [];              // 4) Principaux moteurs {name,why} | ancien {heading,bullets}
+        const cats    = Array.isArray(cd.catalysts) ? cd.catalysts : [];          // 6) Catalyseurs
         body += `<div class="wr-ccy-block">`;
-        // Accroche « qui claque » à côté du code devise (façon référence Eliott).
+        // Accroche « qui claque » à côté du code devise.
         body += `<div class="wr-ccy-title" style="color:${_WR_COLOR[c]||'#fff'}">${c}${thesis ? ` <span class="wr-ccy-thesis">— ${_wrEsc(thesis)}</span>` : ''}</div>`;
-        body += `<div class="wr-text">${_wrParas(analysis)}</div>`;
+        // 1) Résumé exécutif
+        if (exec) body += `<div class="wr-text">${_wrParas(exec)}</div>`;
+        // Mini-courbe de force de la devise (figée sur la semaine du rapport).
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
-        drivers.forEach(d => {
-          body += `<div class="wr-macro-heading">${_wrEsc(d.heading)}</div>`;
-          // v5 : drivers à BULLETS ; v25 : tag d'interprétation « → … » colorisé en fin de puce. Rétro-compat {detail}.
-          if (Array.isArray(d.bullets) && d.bullets.length) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(b))}</div>`; });
-          else if (d.detail) body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(d.detail))}</div>`;
-        });
+        // 2) Politique monétaire
+        if (cd.monetaryPolicy) body += `<div class="wr-macro-heading">Politique monétaire</div><div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
+        // 3) Inflation
+        if (cd.inflation) body += `<div class="wr-macro-heading">Inflation</div><div class="wr-text">${_wrParas(cd.inflation)}</div>`;
+        // 4) Principaux moteurs — nouveau format {name, why} ; rétro-compat ancien {heading, bullets/detail}.
+        if (drivers.length) {
+          body += `<div class="wr-macro-heading">Principaux moteurs</div>`;
+          drivers.forEach(d => {
+            if (d && d.name) body += `<div class="wr-bullet"><strong>${_wrEsc(d.name)} :</strong> ${_wrInline(d.why || '')}</div>`;
+            else if (d && d.heading) {   // ancien format
+              body += `<div class="wr-bullet"><strong>${_wrEsc(d.heading)}</strong></div>`;
+              if (Array.isArray(d.bullets)) d.bullets.forEach(b => { body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(b))}</div>`; });
+              else if (d.detail) body += `<div class="wr-bullet">${_wrTagColorize(_wrInline(d.detail))}</div>`;
+            }
+          });
+        }
+        // 5) Biais fondamental (badge sémantique DTP)
+        if (cd.bias) {
+          body += `<div class="wr-macro-heading">Biais fondamental <span class="wr-bias-badge wr-bias--${_wrBiasCls(cd.bias)}">${_wrEsc(cd.bias)}</span></div>`;
+          if (cd.biasRationale) body += `<div class="wr-text">${_wrParas(cd.biasRationale)}</div>`;
+        }
+        // 6) Catalyseurs de la semaine (donnée · publié vs attendu → interprétation → impact)
+        if (cats.length) {
+          body += `<div class="wr-macro-heading">Catalyseurs de la semaine</div>`;
+          cats.forEach(x => {
+            const nums = [x.actual ? `publié <b>${_wrEsc(x.actual)}</b>` : '', x.consensus ? `attendu ${_wrEsc(x.consensus)}` : ''].filter(Boolean).join(' · ');
+            let line = `<strong>${_wrEsc(x.data)}</strong>`;
+            if (nums) line += ` : ${nums}`;
+            if (x.interpretation) line += ` → ${_wrInline(x.interpretation)}`;
+            if (x.impact) line += ` <span class="wr-cat-impact">→ ${_wrInline(x.impact)}</span>`;
+            body += `<div class="wr-bullet wr-cat">${line}</div>`;
+          });
+        }
+        // 7) Conclusion
+        if (cd.conclusion) body += `<div class="wr-macro-heading">Conclusion</div><div class="wr-text">${_wrParas(cd.conclusion)}</div>`;
         body += `</div>`;
       });
     }
