@@ -2485,9 +2485,12 @@ document.addEventListener('DOMContentLoaded', () => {
         + '<path d="' + p + ' L62 28 L0 28 Z" fill="url(#' + gid + ')"/>'
         + '<path d="' + p + '" stroke="' + c + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
     };
-    const mv = MVC[b.move] || MVC.HOLD;
+    // Header directionnel = PROCHAIN MOUVEMENT (champ `stance` = FedWatch/biais maison curé) → COHÉRENT avec le
+    // « Prochain mouvement » du Radar de Biais (demande user « aligner TAUX sur la stance »). Repli sur `move` (ancien).
+    const _mvd = b.stance || b.move;
+    const mv = MVC[_mvd] || MVC.HOLD;
     const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
-    const mvSpk  = b.move === 'HIKE' ? 'up' : (b.move === 'CUT' ? 'down' : 'wavy');
+    const mvSpk  = _mvd === 'HIKE' ? 'up' : (_mvd === 'CUT' ? 'down' : 'wavy');
     const expSpk = b.expBps > 0 ? 'up' : (b.expBps < 0 ? 'down' : 'wavy');
     const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
     // Scenario Distribution : uniquement les scénarios > 0, triés décroissant (la référence n'affiche pas les lignes vides)
@@ -2506,7 +2509,7 @@ document.addEventListener('DOMContentLoaded', () => {
       + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="" loading="lazy">'
       + '<span class="rtc-bank">' + (_RTC_EN[b.code] || b.bank) + '</span></div>'
       + '<div class="rtc-metrics">'
-      + '<div class="rtc-m"><span class="rtc-k">Tendance ~6 mois</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
+      + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Probabilité</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + mspk('wavy') + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Δ attendu</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
       + '<div class="rtc-m"><span class="rtc-k">Taux actuel</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'

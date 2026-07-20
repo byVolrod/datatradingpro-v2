@@ -4119,7 +4119,7 @@ function _sbColorCls(v) {
 //    (Politique monétaire · Inflation · Croissance · Emploi · Driver · Biais), tags colorés sémantiques DTP.
 //    Source = d.macroTable (serveur v26). Le détail 7 piliers reste dans la Synthèse de Biais (clic sur une ligne).
 // Étiquettes du tableau MACRO DATA — VALEURS EN FRANÇAIS (demande user), tags courts & clairs. Cohérent avec
-// le Récap Hebdo (biais FR) et l'onglet TAUX (« Tendance ~6 mois : Hausse/Baisse/Maintien »). Posture BC =
+// le Récap Hebdo (biais FR) et l'onglet TAUX (« Prochain mouvement : Hausse/Baisse/Maintien », même stance). Posture BC =
 // Restrictive/Accommodante (équivalent FR de hawkish/dovish).
 const MT_LBL = {
   stance:   { Hawkish: 'Restrictive', Dovish: 'Accommodante', Neutre: 'Neutre' },

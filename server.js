@@ -9507,6 +9507,9 @@ function _sbPolicyStance(code) {
   const eff = _effBias(cb, st.rate);   // biais config curé + arrêt au taux terminal (déterministe, sans surcouche IA)
   return eff === 'hike' ? { dir: 'Up', s: 1 } : eff === 'cut' ? { dir: 'Down', s: -1 } : { dir: 'Hold', s: 0 };
 }
+// Même stance, mais dans le vocabulaire HIKE/CUT/HOLD de l'onglet TAUX (pour que le header « Prochain mouvement »
+// des cartes TAUX soit IDENTIQUE au « Prochain mouvement » du Radar de Biais — demande user « aligner TAUX sur la stance »).
+function _sbStanceMove(code) { const d = _sbPolicyStance(code).dir; return d === 'Up' ? 'HIKE' : d === 'Down' ? 'CUT' : 'HOLD'; }
 // Tendance du PÉTROLE (WTI) — signal AVANCÉ d'inflation (demande user : « ce qui impacte l'inflation c'est
 // l'énergie/le pétrole ; pétrole en baisse → inflation en baisse → Fed dovish »). Closes hebdo ~6 mois. Global
 // (l'énergie touche l'inflation de toutes les devises). Caché 6 h ; repli 'flat' si Yahoo indispo.
@@ -11332,8 +11335,11 @@ function _buildRatesPayload() {
   const banks = CB.map(b => {
     const rp = _rpBanks[b.code];
     const _rpAge = now - (_rpBankAt[b.code] || _rpCache.at || 0);
+    // `move` = TENDANCE cumulée ~6,5 mois (rateprobability) — conservée telle quelle (alimente GEW, bias5, chat).
+    // `stance` = PROCHAIN MOUVEMENT (FedWatch/biais maison curé) = MÊME source que le Radar de Biais → header TAUX cohérent.
+    const stance = _sbStanceMove(b.code);
     if (rp && _rpAge < 12 * 3600 * 1000) return { code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: rp.rate,
-      next: rp.next, nextDays: rp.nextDays, move: _rpDirMove(rp.meetings, rp.rate), prob: rp.prob, expBps: rp.expBps,
+      next: rp.next, nextDays: rp.nextDays, move: _rpDirMove(rp.meetings, rp.rate), stance, prob: rp.prob, expBps: rp.expBps,
       scenario: rp.scenario, meetings: rp.meetings, source: 'market',
       marketImplied: (b.code === 'USD' && _fedWatch) ? _fedWatch : null };
     const st = (_ratesState.banks && _ratesState.banks[b.code]) || { rate: b.rate };
@@ -11351,6 +11357,7 @@ function _buildRatesPayload() {
       code: b.code, cc: b.cc, bank: b.bank, full: b.full, rate: st.rate,
       next: n ? n.date : null, nextDays: n ? n.days : null,
       move: ({ hike: 'HIKE', cut: 'CUT', hold: 'HOLD' }[bb.bias] || 'HOLD'),   // en-tête DIRECTIONNEL (cohérent avec les cartes marché ; le biais maison EST déjà une direction)
+      stance,   // PROCHAIN MOUVEMENT (FedWatch/biais maison curé) = header TAUX aligné sur le Radar de Biais
       prob: Math.round(Math.max(sc0.hold, sc0.hike, sc0.cut) * 10000) / 100, expBps: +sc0.impliedBps.toFixed(1),
       scenario: { hold: Math.round(sc0.hold * 10000) / 100, hike: Math.round(sc0.hike * 10000) / 100, cut: Math.round(sc0.cut * 10000) / 100 },
       meetings, source: 'maison',
@@ -13510,9 +13517,10 @@ function _rtcCardHtml(b) {
       + '<path d="' + p + ' L62 28 L0 28 Z" fill="url(#' + gid + ')"/>'
       + '<path d="' + p + '" stroke="' + c + '" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   };
-  const mv = MVC[b.move] || MVC.HOLD;
+  const _mvd = b.stance || b.move;   // header = PROCHAIN MOUVEMENT (stance) → aligné sur le Radar de Biais
+  const mv = MVC[_mvd] || MVC.HOLD;
   const sc = b.scenario || { hold: 0, hike: 0, cut: 0 };
-  const mvSpk  = b.move === 'HIKE' ? 'up' : (b.move === 'CUT' ? 'down' : 'wavy');
+  const mvSpk  = _mvd === 'HIKE' ? 'up' : (_mvd === 'CUT' ? 'down' : 'wavy');
   const expSpk = b.expBps > 0 ? 'up' : (b.expBps < 0 ? 'down' : 'wavy');
   const expCls = b.expBps > 0 ? 'g' : (b.expBps < 0 ? 'r' : 'n');
   const scen = [['Maintien', sc.hold, 'n'], ['Hausse', sc.hike, 'g'], ['Baisse', sc.cut, 'r']].filter(s => s[1] > 0).sort((a, z) => z[1] - a[1]);
@@ -13530,7 +13538,7 @@ function _rtcCardHtml(b) {
     + '<div class="rtc-head"><img class="rtc-flag" src="https://flagcdn.com/32x24/' + b.cc + '.png" alt="">'
     + '<span class="rtc-bank">' + (_RTC_BANK_FR[b.code] || b.bank) + '</span></div>'
     + '<div class="rtc-metrics">'
-    + '<div class="rtc-m"><span class="rtc-k">Tendance ~6 mois</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
+    + '<div class="rtc-m"><span class="rtc-k">Prochain mouvement</span><span class="rtc-v ' + mv.cls + '">' + mv.txt + '</span>' + mspk(mvSpk) + '</div>'
     + '<div class="rtc-m"><span class="rtc-k">Probabilité</span><span class="rtc-v rtc-prob">' + pct(b.prob) + '</span>' + mspk('wavy') + '</div>'
     + '<div class="rtc-m"><span class="rtc-k">Δ attendu</span><span class="rtc-v ' + expCls + '">' + bps(b.expBps) + '</span>' + mspk(expSpk) + '</div>'
     + '<div class="rtc-m"><span class="rtc-k">Taux actuel</span><span class="rtc-v w">' + num(b.rate, 4) + '%</span></div>'
