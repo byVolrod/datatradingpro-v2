@@ -1886,27 +1886,40 @@
     try {
       const d = await fetch('/api/admin/campaign-sequence').then(r => r.json());
       if (!d || !d.steps) return;
-      const sub = document.getElementById('camp-seq-sub'); if (sub) sub.textContent = (d.weekRange ? 'Semaine du ' + d.weekRange + ' · ' : '') + d.progress.doneSteps + '/' + d.progress.totalSteps + ' envoyés';
+      const sub = document.getElementById('camp-seq-sub');
+      if (sub) sub.textContent = (d.weekRange ? 'Semaine du ' + d.weekRange : '')
+        + (d.rotation ? ' · Cette semaine : ' + d.rotation.title + (d.rotation.sentThisWeek ? ' · envoyé ✓' : ' · à venir') : '');
       // Bandeau d'état — reflète le bouton « La Campagne » : à l'arrêt → tout est figé ; en marche → reprend au bon jour/heure.
       const bStyle = 'display:block;padding:9px 12px;border-radius:6px;font-size:12.5px;font-weight:600;margin:0 0 10px;';
       const stateBanner = !d.active
         ? '<div style="' + bStyle + 'background:rgba(139,147,161,.12);border:1px solid #33333a;color:#c9ced8;">⏸ Campagne à l\'arrêt — aucun e-mail ne part. À la reprise, elle repart automatiquement au bon jour selon l\'heure (le prochain envoi est indiqué ci-dessous).</div>'
         : (d.testMode
           ? '<div style="' + bStyle + 'background:rgba(227,178,58,.1);border:1px solid rgba(227,178,58,.35);color:#e3b23a;">🧪 Mode TEST actif — chaque e-mail part uniquement sur ta boîte, le bon jour. Aucun client touché.</div>'
-          : '<div style="' + bStyle + 'background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:#00e676;">● Campagne active (envoi réel) — chaque e-mail part le bon jour à toute l\'audience.</div>');
+          : '<div style="' + bStyle + 'background:rgba(0,230,118,.1);border:1px solid rgba(0,230,118,.3);color:#00e676;">● Campagne active (envoi réel) — 1 e-mail par semaine (rotation) : le contenu de la semaine part à toute l\'audience, le bon jour. Ça repart automatiquement chaque semaine.</div>');
+      const _fmtMonday = ts => { try { return new Date(ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch { return ''; } };
       const rowsHtml = d.steps.map(function(s){
-        const cls = s.done ? 'done' : (d.active ? 'ready' : 'planned');
+        const isIntro = s.id === 'intro-v1';
+        // « Envoyé » = envoyé CETTE semaine (le compteur reparte chaque lundi) — sauf l'intro (one-time à l'inscription).
+        const doneWeek = isIntro ? (s.sent > 0) : !!s.doneWeek;
+        const cls = doneWeek ? 'done' : ((s.thisWeek && d.active) ? 'ready' : 'planned');
         const wk = s.week ? 'S' + s.week : 'Évt';
-        const status = s.done ? '✅ Envoyé' : (!d.active ? '⏸ En pause' : '🕓 Programmé');
-        const metrics = s.done ? '<div class="camp-seq-metrics">Envoyé le ' + _campFmt(s.firstSentAt) + ' · ' + s.sent + ' envoyés · ' + s.openRate + '% ouvertures · ' + s.clickRate + '% clics</div>' : '';
-        const nextBadge = s.next ? (d.active ? ' <span class="camp-seq-next">● PROCHAIN ENVOI</span>' : ' <span class="camp-seq-next camp-seq-next--paused">prochain à la reprise</span>') : '';
-        // Date + heure prévue de l'envoi : étape à venir → 📅 son jour + prochaine date ; sinon → 🕐 cadence.
-        const timeLine = (!s.done && s.planned)
-          ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.95;margin-top:3px;font-weight:600;">📅 ' + s.planned.label + '</div>'
-          : (s.when ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>' : '');
-        const dim = (!d.active && !s.done) ? ' style="opacity:.55;"' : '';   // à l'arrêt : étapes non parties grisées
-        return '<div class="camp-seq-row camp-seq-row--' + cls + (s.next && d.active ? ' camp-seq-row--next' : '') + '"' + dim + '><div class="camp-seq-wk">' + wk + '</div>'
-          + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span>' + nextBadge + '</div>'
+        // Statut : intro = à l'inscription ; contenu de la semaine = envoyé/à venir ; autres = en rotation.
+        let status;
+        if (isIntro) status = '📩 À l\'inscription';
+        else if (s.thisWeek) status = doneWeek ? '✅ Envoyé cette semaine' : (!d.active ? '⏸ En pause' : '🕓 À venir');
+        else status = '🔁 En rotation';
+        const weekBadge = (s.thisWeek && !isIntro) ? ' <span class="camp-seq-next">● CETTE SEMAINE</span>' : '';
+        // Ligne temps : intro = cadence ; contenu de la semaine à venir = 📅 jour+date ; hors semaine = prochaine diffusion.
+        let timeLine = '';
+        if (isIntro) timeLine = s.when ? '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>' : '';
+        else if (s.thisWeek && !doneWeek && s.planned) timeLine = '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.95;margin-top:3px;font-weight:600;">📅 ' + s.planned.label + '</div>';
+        else if (!s.thisWeek && s.nextRunMonday) timeLine = '<div class="camp-seq-desc" style="color:#8b93a1;margin-top:3px;">🔁 Prochaine diffusion : semaine du ' + _fmtMonday(s.nextRunMonday) + '</div>';
+        else if (s.when) timeLine = '<div class="camp-seq-desc" style="color:#e3b23a;opacity:.9;margin-top:3px;">🕐 ' + s.when + '</div>';
+        // Métriques = historique cumulé (dernier envoi + total + taux), pour le suivi de performance.
+        const metrics = s.lastSentAt ? '<div class="camp-seq-metrics">Dernier envoi ' + _campFmt(s.lastSentAt) + ' · ' + s.sent + ' au total · ' + s.openRate + '% ouv. · ' + s.clickRate + '% clics</div>' : '';
+        const dim = (!isIntro && !s.thisWeek) ? ' style="opacity:.62;"' : ((!d.active && !doneWeek) ? ' style="opacity:.55;"' : '');
+        return '<div class="camp-seq-row camp-seq-row--' + cls + ((s.thisWeek && d.active && !isIntro) ? ' camp-seq-row--next' : '') + '"' + dim + '><div class="camp-seq-wk">' + wk + '</div>'
+          + '<div class="camp-seq-main"><div class="camp-seq-title">' + s.title + ' <span class="camp-seq-pill">' + s.pillar + '</span>' + weekBadge + '</div>'
           + '<div class="camp-seq-desc">' + s.desc + '</div>'
           + timeLine
           + metrics + '</div>'

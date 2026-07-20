@@ -14296,17 +14296,25 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
     const _pDay = ts => { try { return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'Europe/Paris' }); } catch { return ''; } };
     const _todayKey = _pDay(Date.now());
     const _sentTodayFor = seqId => { const sd = CAMPAIGN_SEQUENCE.find(x => x.id === seqId); const st = sd && _campaignStats[sd.stat || sd.id]; if (!st || !st.sent) return false; return Object.values(st.sent).some(ts => _pDay(ts) === _todayKey); };
-    let nextId = null;
+    // ROTATION HEBDO (1 e-mail/semaine, réglage user) : le contenu de CETTE semaine ISO + le prochain à partir.
+    // Le tableau reflète la rotation (pas 6 contenus/semaine) et le compteur se remet à zéro chaque lundi.
+    const _DRIP2SEQ = { 'outlook': 'outlook-hebdo', 'decryptage': 'decryptage', 'point-marche': 'point-hebdo', 'mindset': 'mindset', 'recap-hebdo': 'recap-hebdo' };
+    let _rotationSeqId = null, nextId = null, _curWeekIdx = 0;
+    try { const _rs = _rotStepForWeek(); _rotationSeqId = _rs ? _DRIP2SEQ[_rs.id] : null; } catch {}
+    try { const _ls = _loopStepFor(); nextId = _ls ? _DRIP2SEQ[_ls.id] : null; } catch {}   // prochain contenu à partir (cette semaine si son jour n'est pas passé, sinon la semaine prochaine)
+    try { _curWeekIdx = _dripWeekNum() % _WEEK_ROTATION.length; } catch {}
+    // Lundi ~00:00 (Paris) de la semaine ISO courante → filtre « envoyé CETTE semaine » (compteur remis à zéro le lundi).
+    let _mondayTs = Date.now() - 7 * 864e5;
     try {
-      const _pp = _parisParts();
-      for (let off = 0; off < 8; off++) {
-        const _wd = (_pp.weekday + off) % 7;
-        const _sid = Object.keys(_SEQ2DAY).find(k => _SEQ2DAY[k] === _wd);
-        if (!_sid) continue;                                           // ce jour n'a pas de contenu (Lundi/Samedi)
-        if (off === 0 && (_pp.hour >= 19 || _sentTodayFor(_sid))) continue;   // aujourd'hui : fenêtre passée ou déjà parti → on saute
-        nextId = _sid; break;
-      }
+      const _WDn = { Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6, Sun: 7 };
+      const _wds = new Intl.DateTimeFormat('en-US', { timeZone: 'Europe/Paris', weekday: 'short' }).format(new Date());
+      const _dsm = (_WDn[_wds] || 1) - 1;
+      const _monDateStr = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Paris' }).format(new Date(Date.now() - _dsm * 864e5));
+      _mondayTs = Date.parse(_monDateStr + 'T00:00:00Z') - 2 * 3600e3;   // ≈ minuit Paris lundi (UTC−2h max), inclusif
     } catch {}
+    // Lundi de la semaine où un contenu sera LE PROCHAIN de la rotation (prochaine diffusion, pour les contenus « hors semaine »).
+    const _rotIdxOf = seqId => { const di = Object.keys(_DRIP2SEQ).find(k => _DRIP2SEQ[k] === seqId); return _WEEK_ROTATION.findIndex(x => x.id === di); };
+    const _nextRunMonday = seqId => { const ri = _rotIdxOf(seqId); if (ri < 0) return null; const ahead = (ri - _curWeekIdx + _WEEK_ROTATION.length) % _WEEK_ROTATION.length; return _mondayTs + ahead * 7 * 864e5; };
     // DATE + HEURE prévue de chaque contenu (demande user : « l'heure des publications avec la date ») : son jour de
     // semaine fixe + la date de sa prochaine occurrence.
     function _stepPlanned(seqId) {
@@ -14338,16 +14346,23 @@ app.get('/api/admin/campaign-sequence', requireAdmin, (req, res) => {
       const sends = Object.values(sentMap);
       const opens = Object.keys(openMap).length;
       const clicks = Object.keys(clickMap).length;
+      const sendsWeek = sends.filter(ts => ts >= _mondayTs);   // envoyés CETTE semaine ISO (compteur qui reparte chaque lundi)
       return { id: s.id, week: s.week, title: s.title, pillar: s.pillar, status: s.status, desc: s.desc, when: s.when,
         planned: _stepPlanned(s.id),
         sent: sends.length, done: sends.length > 0,
+        sentThisWeek: sendsWeek.length, doneWeek: sendsWeek.length > 0,   // ← statut « cette semaine »
+        thisWeek: s.id === _rotationSeqId,                                 // ← contenu de la rotation de CETTE semaine
+        nextRunMonday: (s.id !== 'intro-v1') ? _nextRunMonday(s.id) : null,
         firstSentAt: sends.length ? Math.min.apply(null, sends) : null,
         lastSentAt: sends.length ? Math.max.apply(null, sends) : null,
         uniqueOpens: opens, openRate: pct(opens, sends.length),
         uniqueClicks: clicks, clickRate: pct(clicks, sends.length),
         next: s.id === nextId };
     });
-    res.json({ ok: true, steps, nextId, active: _campActive, weekRange, testMode: !!_dripState.testMode, progress: { doneSteps: steps.filter(s => s.done).length, totalSteps: steps.length } });
+    const _rotStepRow = steps.find(s => s.thisWeek) || null;
+    const rotation = _rotStepRow ? { seqId: _rotStepRow.id, title: _rotStepRow.title, sentThisWeek: _rotStepRow.sentThisWeek, planned: _rotStepRow.planned } : null;
+    res.json({ ok: true, steps, nextId, rotation, active: _campActive, weekRange, testMode: !!_dripState.testMode,
+      progress: { doneSteps: steps.filter(s => s.doneWeek).length, totalSteps: steps.length, weekContentSent: rotation ? rotation.sentThisWeek > 0 : false } });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
