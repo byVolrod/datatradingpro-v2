@@ -179,7 +179,7 @@ const _sessionMw = session({
   sameSite: 'lax',
   secure:   process.env.NODE_ENV === 'production',  // HTTPS uniquement en prod
   domain:   process.env.NODE_ENV === 'production' ? '.datatradingpro.com' : undefined,  // login PARTAGÉ apex ↔ www ↔ desk
-  maxAge:   30 * 24 * 60 * 60 * 1000,   // 30 jours — l'utilisateur reste connecté
+  maxAge:   24 * 60 * 60 * 1000,   // 24 h (demande user : session-timeout desk à 24 h → reconnexion quotidienne)
 });
 app.use(_sessionMw);
 
@@ -9148,7 +9148,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v28-hist-trend';   // v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v29-4pillars';   // v29 : conclusion = 4 PILIERS seulement (demande user : Hedge Fund/COT, Retail/particuliers et Saisonnalité RETIRÉS) → Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1. + Inflation enrichie du signal AVANCÉ pétrole + PPI (leading indicators de l'IPC). bump = régén au boot. v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -9405,7 +9405,7 @@ async function _sbFundamentalRows() {
   let te = {};
   try { te = await fetchTEAll(SB_CURRENCIES); } catch (e) { console.warn('[SmartBias] TE indispo:', e.message); }
   let cal = [];
-  try { cal = await _buildTVCalendarRange(3); } catch { try { cal = await _buildTVCalendar(); } catch {} }   // ~3 mois de publications (repli : fenêtre courte)
+  try { cal = await _buildTVCalendarRange(6); } catch { try { cal = await _buildTVCalendar(); } catch {} }   // ~6 mois de publications (demande user : historique 6 mois pour des tendances fiables) ; repli : fenêtre courte
   try { cal = _calHistMerge(cal && cal.length ? cal : (allCalendar || [])); } catch { if (!cal || !cal.length) cal = allCalendar || []; }
   let usedCal = 0;
   const subs = _SB_FUND_SUBS.map(sub => {
@@ -9479,7 +9479,27 @@ function _sbHistTrend(cal, ccy, rx, opt) {
   if (opt.invert && dir !== 'flat') dir = dir === 'up' ? 'down' : 'up';
   return { dir, n: series.length };
 }
-function _sbInflationCell(c, cal, stance) {
+// Tendance du PÉTROLE (WTI) — signal AVANCÉ d'inflation (demande user : « ce qui impacte l'inflation c'est
+// l'énergie/le pétrole ; pétrole en baisse → inflation en baisse → Fed dovish »). Closes hebdo ~6 mois. Global
+// (l'énergie touche l'inflation de toutes les devises). Caché 6 h ; repli 'flat' si Yahoo indispo.
+let _sbOilTrendCache = 'flat', _sbOilTrendTs = 0;
+async function _sbOilTrend() {
+  if (Date.now() - _sbOilTrendTs < 6 * 3600 * 1000 && _sbOilTrendTs) return _sbOilTrendCache;
+  try {
+    const r = await axios.get(yfUrl('CL=F', '1wk', '6mo'), { headers: yfHeaders(), timeout: 9000, validateStatus: () => true });
+    const closes = (r.data?.chart?.result?.[0]?.indicators?.quote?.[0]?.close || []).filter(v => v != null);
+    if (closes.length >= 4) {
+      const series = closes.slice().reverse();                     // Yahoo = ancien→récent → on inverse (récent→ancien)
+      const thr = Math.max(1.5, (series[0] || 70) * 0.025);        // ~2,5 % du niveau
+      _sbOilTrendCache = _sbSeriesDir(series, thr); _sbOilTrendTs = Date.now();
+    }
+  } catch (e) { console.warn('[SmartBias] oil trend', e.message); }
+  return _sbOilTrendCache;
+}
+// Inflation d'une devise : NIVEAU (dernière IPC annuelle) + TENDANCE = confluence de signaux avec le PPI et le
+// PÉTROLE comme INDICATEURS AVANCÉS (le PPI précède l'IPC de 1-3 mois ; l'énergie précède l'inflation globale) :
+// IPC publié (confirmé, poids 1) + PPI du pays (poids 0.6) + pétrole (poids 0.4). Anticipe donc le retournement.
+function _sbInflationCell(c, cal, stance, oilDir) {
   let evs = (cal || []).filter(e => e && e.currency === c && e.actual != null && e.actual !== '' && /inflation rate|\bcpi\b|consumer price/i.test(e.title || ''));
   const yoy = evs.filter(e => /y\/y|yoy|annual|annuel|a\/a|sur un an/i.test(e.title || ''));
   if (yoy.length) evs = yoy;                                       // privilégie l'inflation ANNUELLE (niveau lisible)
@@ -9487,11 +9507,16 @@ function _sbInflationCell(c, cal, stance) {
   const series = evs.map(e => _sbNum(e.actual)).filter(v => v != null).slice(0, 6);   // ~6 dernières, récent→ancien
   const last = series.length ? series[0] : null;
   let level = last != null ? (last >= 2.5 ? 'High' : last <= 1.5 ? 'Low' : 'Modéré') : null;
-  const dir = _sbSeriesDir(series, 0.2);                           // TENDANCE = historique (moyenne récente vs ancienne)
   if (level == null) level = _sbSense(stance) === 'up' ? 'High' : _sbSense(stance) === 'down' ? 'Low' : 'Modéré';
-  return { level, trend: dir === 'up' ? 'Up' : dir === 'down' ? 'Down' : 'Sticky' };
+  // Confluence IPC (confirmé) + PPI (avancé) + pétrole (avancé global).
+  const cpiDir = _sbSeriesDir(series, 0.2);
+  const ppiDir = _sbHistTrend(cal, c, /producer price|\bppi\b/i).dir;
+  const sc = v => (v === 'up' ? 1 : v === 'down' ? -1 : 0);
+  const score = sc(cpiDir) * 1.0 + sc(ppiDir) * 0.6 + sc(oilDir) * 0.4;
+  const trend = score > 0.3 ? 'Up' : score < -0.3 ? 'Down' : 'Sticky';
+  return { level, trend };
 }
-function _sbBuildMacroTable(monetary, fundamentalRes, conclusion) {
+function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir) {
   const subVal = (c, label) => { const s = (fundamentalRes.subs || []).find(x => x.label === label); return s ? (s.values[c] || 'Neutral') : 'Neutral'; };
   let rates = null; try { rates = _buildRatesPayload(); } catch {}
   const bankOf = c => (rates && Array.isArray(rates.banks)) ? rates.banks.find(b => b.code === c) : null;
@@ -9517,7 +9542,7 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion) {
     const eS = eH.n >= 2 ? eH.dir : _sbSense(subVal(c, 'Emploi (chômage)'));
     out[c] = {
       monetary:   { stance: mSense === 'up' ? 'Hawkish' : mSense === 'down' ? 'Dovish' : 'Neutre', dir },
-      inflation:  _sbInflationCell(c, fundamentalRes.cal, subVal(c, 'Inflation (CPI)')),
+      inflation:  _sbInflationCell(c, fundamentalRes.cal, subVal(c, 'Inflation (CPI)'), oilDir),
       growth:     gS === 'up' ? 'Strong' : gS === 'down' ? 'Weak' : 'Neutral',
       employment: eS === 'up' ? 'Strong' : eS === 'down' ? 'Weak' : 'Neutral',
       drivers:    recapDrivers[c] || [],
@@ -9802,22 +9827,21 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   //    croissance, activité, ventes, confiance…) porté à 3 (≈30 % de la conclusion, de loin le 1er pilier) ;
   //    « Politique monétaire » (décisions/anticipations de taux, data-driven) renforcé à 1.5 ; Saisonnalité
   //    secondaire (0.5) ; le reste (Performance Cross-Asset, Bank, Hedge, Retail, Trend) = 1. Ajustable ici. ──
+  // Piliers RETIRÉS (demande user 19/07) : Hedge Fund (COT), Retail (particuliers) et Saisonnalité.
+  // Conclusion = confluence de 4 piliers : Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1.
   const conclusion = {};
   SB_CURRENCIES.forEach(c => {
-    const vals = [ fundamental[c], bankOverview[c], hedgeFund[c], (_SB_FLIP[retail[c]] || 'Neutral'), monetary[c], trend[c], seasonality[c] ];
-    const wts  = [ 3,              1,               1,            1,                                   1.5,         1,        0.5            ];
+    const vals = [ fundamental[c], bankOverview[c], monetary[c], trend[c] ];
+    const wts  = [ 3,              1,               1.5,         1            ];
     conclusion[c] = concludeBias(vals, wts);
   });
 
-  // Ordre : Fundamental, Bank Overview, Hedge Fund, Retail, Monetary, Trend, Seasonality. (« Performance Cross-Asset » RETIRÉ, demande user.)
+  // Ordre : Fundamental, Bank Overview, Monetary, Trend. (Hedge/Retail/Saisonnalité + Cross-Asset RETIRÉS, demande user.)
   const rows = [
-    { key: 'fundamental',  label: 'Fundamental Data',        values: fundamental, subs: fundamentalRes.subs },
-    { key: 'bankOverview', label: 'Bank Overview',          values: bankOverview },
-    { key: 'hedgeFund',    label: 'Hedge Fund Positioning', values: hedgeFund },
-    { key: 'retail',       label: 'Retail Positioning',     values: retail },
-    { key: 'monetary',     label: 'Monetary Policy',        values: monetary },
-    { key: 'trend',        label: 'Trend',                  values: trend },
-    { key: 'seasonality',  label: 'Seasonality',            values: seasonality },
+    { key: 'fundamental',  label: 'Fundamental Data', values: fundamental, subs: fundamentalRes.subs },
+    { key: 'bankOverview', label: 'Bank Overview',    values: bankOverview },
+    { key: 'monetary',     label: 'Monetary Policy',  values: monetary },
+    { key: 'trend',        label: 'Trend',            values: trend },
   ];
 
   // Narratif IA hebdo par devise — RÈGLE UTILISATEUR : le texte généré le SAMEDI reste FIXE
@@ -9856,7 +9880,9 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
     }
   } catch {}
   // MACRO TABLE (vue « MACRO DATA » du Radar de Biais) : dérivé des piliers + taux + drivers du Récap Hebdo.
-  let macroTable = {}; try { macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion); } catch (e) { console.warn('[SmartBias] macroTable', e.message); }
+  const _oilDir = await _sbOilTrend();   // signal AVANCÉ pétrole → inflation (demande user)
+  let macroTable = {}; try { macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion, _oilDir); } catch (e) { console.warn('[SmartBias] macroTable', e.message); }
+  console.log('[SmartBias] pétrole (WTI) tendance = ' + _oilDir + ' → signal avancé d\'inflation');
   _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, macroTable, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
   // Régénération complète → les overrides admin (correctifs ponctuels d'aberrations IA) expirent :
   // la nouvelle matrice repart sur les données fraîches, l'admin ne corrige que si besoin à nouveau.
