@@ -3131,8 +3131,17 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .macro-table th.mt-cur-h { width: 96px; }
 .macro-table td { padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #111113); vertical-align: middle; }
 .macro-table tr:last-child td { border-bottom: 0; }
-.mt-row { transition: background .1s; }
-.mt-row:hover { background: #101014; }   /* survol = simple aide à la lecture (ligne non cliquable) */
+.mt-row { transition: background .1s; cursor: pointer; }   /* ligne CLIQUABLE → ouvre le panneau de détail macro */
+.mt-row:hover { background: #101014; }
+.mt-row:hover .mt-chevron { color: #e3b23a; transform: translateX(2px); }
+.mt-row--active { background: #14140f; box-shadow: inset 3px 0 0 var(--orange, #e3b23a); }
+.mt-row--active .mt-chevron { color: #e3b23a; transform: rotate(90deg); }
+/* Cellules multi-tags : conteneur flex → alignement vertical régulier (1 ou 2 tags), fini le décalage (demande user) */
+.mt-cell-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.mt-cell-tags .mt-tag { margin: 0; }
+/* Colonne chevron (affordance « cliquer pour ouvrir ») */
+.macro-table th.mt-x-h, .macro-table td.mt-x { width: 22px; padding-left: 0; padding-right: 8px; text-align: right; }
+.mt-chevron { color: #4a4a52; font-size: 15px; font-weight: 700; display: inline-block; transition: color .12s, transform .12s; }
 .mt-cur { display: flex; align-items: center; gap: 8px; font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 800; font-size: 13.5px; color: #fff; white-space: nowrap; }
 .mt-cur .sbm-flag { width: 17px; height: 17px; }
 /* Tags « épurés » affinés (demande user) : texte coloré net + fond léger équilibré, SANS pastille ni bordure.
@@ -3285,6 +3294,36 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .sbs-imp--high { background: #991b1b; color: #fff; }
 .sbs-imp--med { background: #b45309; color: #fff; }
 .sbs-imp--low { background: #374151; color: #cbd5e1; }
+
+/* ── Splitter + panneau de DÉTAIL macro (Radar de Biais) : masqués tant qu'aucune devise n'est sélectionnée ── */
+.bias-content .sbm-vsplit { display: none; }
+.bias-content.has-detail .sbm-vsplit { display: block; }
+/* ── Panneau de DÉTAIL macro (clic devise) : cartes Politique monétaire / Inflation / Croissance / Emploi ── */
+.mdet-panel { display: flex; flex-direction: column; height: 100%; min-height: 0; border: 1px solid var(--hud-line, #1c1c20); border-radius: 5px; background: #0c0c0e; overflow: hidden; }
+.mdet-head { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #1c1c20); background: #0e0e11; flex: 0 0 auto; }
+.mdet-cur { display: inline-flex; align-items: center; gap: 8px; font-family: var(--tight, 'Inter Tight', sans-serif); font-weight: 800; font-size: 15px; color: #fff; flex: 0 0 auto; }
+.mdet-cur .sbm-flag { width: 18px; height: 18px; }
+.mdet-headtags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; flex: 1 1 auto; min-width: 0; }
+.mdet-close { margin-left: auto; background: none; border: none; color: #6b7280; font-size: 14px; cursor: pointer; padding: 3px 8px; border-radius: 4px; line-height: 1; flex: 0 0 auto; }
+.mdet-close:hover { color: #fff; background: #1a1a1f; }
+.mdet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 10px; padding: 12px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
+.mdet-card { border: 1px solid var(--hud-line, #1c1c20); background: #0d0e11; border-radius: 5px; padding: 11px 13px; transition: border-color .12s; }
+.mdet-card:hover { border-color: #2a2a30; }
+.mdet-card-t { margin: 0 0 8px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #e3b23a; }
+.mdet-field { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid #121215; }
+.mdet-field:first-of-type { border-top: 0; padding-top: 0; }
+.mdet-k { flex: 0 0 auto; font-size: 11.5px; color: #8a8f98; white-space: nowrap; }
+.mdet-v { flex: 1 1 auto; text-align: right; font-size: 12px; color: #e5e7eb; min-width: 0; }
+.mdet-v b { font-variant-numeric: tabular-nums; font-weight: 700; }
+.mdet-up   { color: #2ae389; }
+.mdet-down { color: #ff7259; }
+.mdet-flat { color: #e5e7eb; }
+.mdet-ref  { color: #6b7280; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.mdet-date { color: #55565e; font-size: 10px; margin-left: 2px; white-space: nowrap; }
+.mdet-na   { color: #4a4a52; }
+.mdet-txt  { color: #c9cdd4; font-size: 11px; line-height: 1.45; }
+.mdet-field .mt-tag { margin: 0; }
+@media (max-width: 720px) { .mdet-grid { grid-template-columns: 1fr; } }
 .sbs-risk-load { font-size: 11px; color: #6b7280; padding: 6px 0; }
 /* Responsive : quand le PANNEAU (pas le viewport) est trop etroit, le Bias Summary S'EMPILE
    (synthese au-dessus pleine largeur, narratif/risques dessous). Container query → s'adapte au

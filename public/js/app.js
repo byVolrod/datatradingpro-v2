@@ -4167,7 +4167,9 @@ function _sbMacroFromRows(d) {
 function _sbRenderMacroTable(cur, macro) {
   const esc = s => String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
-  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th></tr>`;
+  // Chaque cellule = conteneur flex → alignement vertical régulier même quand il y a 1 ou 2 tags (demande user « aligne bien »).
+  const cell = html => `<td><div class="mt-cell-tags">${html || '<span class="mt-empty">—</span>'}</div></td>`;
+  const head = `<tr><th class="mt-cur-h">Devise</th><th>Politique monétaire</th><th>Inflation</th><th>Croissance</th><th>Emploi</th><th>Driver</th><th>Biais</th><th class="mt-x-h" aria-hidden="true"></th></tr>`;
   const body = cur.map(c => {
     const m = macro[c] || {};
     const mp = m.monetary || {}, inf = m.inflation || {};
@@ -4175,15 +4177,123 @@ function _sbRenderMacroTable(cur, macro) {
     const infCell = (inf.level ? tag(_mtCls('level', inf.level), MT_LBL.level[inf.level] || inf.level) : '') + (inf.trend ? tag(_mtCls('inftrend', inf.trend), MT_LBL.inftrend[inf.trend] || inf.trend) : '');
     const gr = m.growth ? tag(_mtCls('ge', m.growth), MT_LBL.ge[m.growth] || m.growth) : '';
     const em = m.employment ? tag(_mtCls('ge', m.employment), MT_LBL.ge[m.employment] || m.employment) : '';
-    const drv = (m.drivers || []).slice(0, 3).map(x => tag('mt-drv', x)).join('') || '<span class="mt-empty">—</span>';
+    const drv = (m.drivers || []).slice(0, 3).map(x => tag('mt-drv', x)).join('');
     const bi = m.bias ? tag(_mtCls('bias', m.bias), MT_BIAS_LBL[m.bias] || m.bias) : '';
-    return `<tr class="mt-row">
+    const active = (c === _sbActiveCur) ? ' mt-row--active' : '';
+    // Ligne CLIQUABLE → ouvre le panneau de détail macro (demande user « j'veux un ouvrir comme ceci puis les infos s'affichent »).
+    return `<tr class="mt-row${active}" data-cur="${esc(c)}" onclick="_sbOpenDetail('${esc(c)}')" title="Voir le détail macro de ${esc(c)}">
       <td class="mt-cur">${_sbFlag(c)}<span>${esc(c)}</span></td>
-      <td>${monCell}</td><td>${infCell}</td><td>${gr}</td><td>${em}</td>
-      <td class="mt-drv-cell">${drv}</td><td>${bi}</td></tr>`;
+      ${cell(monCell)}${cell(infCell)}${cell(gr)}${cell(em)}
+      <td class="mt-drv-cell"><div class="mt-cell-tags">${drv || '<span class="mt-empty">—</span>'}</div></td>
+      ${cell(bi)}
+      <td class="mt-x"><span class="mt-chevron">›</span></td></tr>`;
   }).join('');
   return `<table class="macro-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
+
+// ── PANNEAU DE DÉTAIL MACRO (clic sur une devise) : vue façon grille macro (Politique monétaire / Inflation /
+//    Croissance / Emploi) avec les VRAIES dernières valeurs publiées (actual vs prévu vs précédent) + pricing
+//    marché. Source = macroTable[c].detail (serveur v36) ; repli sur les tags macro si cache ancien. Panneau SOUS
+//    le tableau (choix user), redimensionnable via le splitter horizontal. 0 invention.
+const _MDET_MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+function _sbOpenDetail(curr) {
+  const host = document.getElementById('bias-content');
+  const wrap = document.getElementById('sbm-summary');
+  const zone = document.getElementById('sbm-matrix-zone');
+  const d = _biasView || _biasData;
+  if (!host || !wrap || !d) return;
+  _sbActiveCur = curr;
+  document.querySelectorAll('.mt-row').forEach(r => r.classList.toggle('mt-row--active', r.getAttribute('data-cur') === curr));
+  const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
+  const macro = (d.macroTable && d.macroTable[curr]) ? d.macroTable[curr] : ((_sbMacroFromRows(d) || {})[curr] || {});
+  const det = macro.detail || null;
+  const tag = (cls, txt) => `<span class="mt-tag ${cls}">${esc(txt)}</span>`;
+  const na = '<span class="mdet-na">—</span>';
+  const relCls = s => /bull/i.test(s || '') ? 'mdet-up' : /bear/i.test(s || '') ? 'mdet-down' : 'mdet-flat';
+  const fmtDate = ts => { if (!ts) return ''; const dt = new Date(ts); return dt.getDate() + ' ' + _MDET_MOIS[dt.getMonth()]; };
+  // Rendu d'une publication réelle {actual, forecast, previous, surprise, ts}.
+  const rel = o => {
+    if (!o || o.actual == null) return na;
+    let h = `<b class="${relCls(o.surprise)}">${esc(o.actual)}</b>`;
+    const bits = [];
+    if (o.forecast != null) bits.push(`prév. ${esc(o.forecast)}`);
+    if (o.previous != null) bits.push(`préc. ${esc(o.previous)}`);
+    if (bits.length) h += ` <span class="mdet-ref">${bits.join(' · ')}</span>`;
+    if (o.ts) h += ` <span class="mdet-date">${esc(fmtDate(o.ts))}</span>`;
+    return h;
+  };
+  const field = (label, valueHtml) => `<div class="mdet-field"><span class="mdet-k">${esc(label)}</span><span class="mdet-v">${valueHtml || na}</span></div>`;
+  const stanceTag = v => v ? tag(_mtCls('stance', v), MT_LBL.stance[v] || v) : na;
+  const dirTag = v => v ? tag(_mtCls('ratedir', v), MT_LBL.ratedir[v] || v) : na;
+  const lvlTag = v => v ? tag(_mtCls('level', v), MT_LBL.level[v] || v) : na;
+  const trTag = v => v ? tag(_mtCls('inftrend', v), MT_LBL.inftrend[v] || v) : na;
+  const geTag = v => v ? tag(_mtCls('ge', v), MT_LBL.ge[v] || v) : na;
+
+  let cards = '';
+  if (det) {
+    const mo = det.monetary || {}, inf = det.inflation || {}, gr = det.growth || {}, em = det.employment || {};
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Politique monétaire</h4>`
+      + field('Stance actuelle', stanceTag(mo.stance))
+      + field('Prochain mouvement', dirTag(mo.nextMove))
+      + field('Pricing marché', mo.pricing ? `<span class="mdet-txt">${esc(mo.pricing)}</span>` : na)
+      + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Inflation</h4>`
+      + field('Niveau', lvlTag(inf.level))
+      + field('Tendance', trTag(inf.trend))
+      + field('Dernier IPC', rel(inf.cpi))
+      + field('PCE', rel(inf.pce))
+      + field('PPI', rel(inf.ppi))
+      + field('Salaires', rel(inf.wages))
+      + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>`
+      + field('Tendance', geTag(gr.trend))
+      + field('PIB', rel(gr.gdp))
+      + field('PMI / ISM', rel(gr.pmi))
+      + field('Ventes au détail', rel(gr.retail))
+      + field('Confiance conso.', rel(gr.confidence))
+      + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>`
+      + field('Tendance', geTag(em.trend))
+      + field('Taux de chômage', rel(em.unemployment))
+      + field("Créations d'emplois", rel(em.payrolls))
+      + field('Inscriptions chômage', rel(em.claims))
+      + `</section>`;
+  } else {
+    // Repli (cache < v36 sans detail) : les tags macro de base, en attendant la régén.
+    const mp = macro.monetary || {}, inff = macro.inflation || {};
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Politique monétaire</h4>` + field('Stance', stanceTag(mp.stance)) + field('Prochain mouvement', dirTag(mp.dir)) + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Inflation</h4>` + field('Niveau', lvlTag(inff.level)) + field('Tendance', trTag(inff.trend)) + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>` + field('Tendance', geTag(macro.growth)) + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>` + field('Tendance', geTag(macro.employment)) + `</section>`;
+  }
+
+  const biasTag = macro.bias ? tag(_mtCls('bias', macro.bias), MT_BIAS_LBL[macro.bias] || macro.bias) : '';
+  const drivers = (macro.drivers || []).slice(0, 4).map(x => tag('mt-drv', x)).join('');
+  wrap.innerHTML = `<div class="mdet-panel">
+      <div class="mdet-head">
+        <span class="mdet-cur">${_sbFlag(curr)}<span>${esc(curr)}</span></span>
+        <span class="mdet-headtags">${biasTag}${drivers}</span>
+        <button class="mdet-close" onclick="_sbCloseDetail()" title="Fermer le détail" aria-label="Fermer">✕</button>
+      </div>
+      <div class="mdet-grid">${cards}</div>
+    </div>`;
+  host.classList.add('has-detail');
+  if (zone) { zone.classList.remove('sbm-matrix-zone--full'); zone.style.height = (_sbMatrixH != null ? _sbMatrixH : Math.max(150, Math.round(host.clientHeight * 0.46))) + 'px'; }
+  _sbRenderHeadDd(curr);   // synchronise le dropdown « Scanner » de l'en-tête sur la devise active
+  requestAnimationFrame(() => wrap.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+}
+window._sbOpenDetail = _sbOpenDetail;
+function _sbCloseDetail() {
+  const host = document.getElementById('bias-content');
+  const wrap = document.getElementById('sbm-summary');
+  const zone = document.getElementById('sbm-matrix-zone');
+  if (wrap) wrap.innerHTML = '';
+  if (host) host.classList.remove('has-detail');
+  if (zone) { zone.classList.add('sbm-matrix-zone--full'); zone.style.height = ''; }
+  _sbActiveCur = null; _sbMatrixH = null;
+  document.querySelectorAll('.mt-row').forEach(r => r.classList.remove('mt-row--active'));
+}
+window._sbCloseDetail = _sbCloseDetail;
 
 function renderBiasView(d) {
   const host = document.getElementById('bias-content');
@@ -4200,10 +4310,16 @@ function renderBiasView(d) {
 
   // Tableau MACRO DATA (source de vérité serveur macroTable ; repli dérivé des piliers si cache ancien).
   const macro = (d.macroTable && Object.keys(d.macroTable).length) ? d.macroTable : _sbMacroFromRows(d);
-  // Panneau Synthèse (narratif + splitter) RETIRÉ (demande user) → le tableau MACRO DATA occupe TOUT l'onglet.
-  host.innerHTML = `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`;
+  // Tableau plein onglet + panneau de DÉTAIL rétractable dessous (clic sur une devise) + splitter horizontal (demande
+  // user : « j'veux un ouvrir comme ceci puis les infos s'affichent » façon grille macro Notion, panneau sous le tableau).
+  host.classList.remove('has-detail');
+  host.innerHTML = `<div class="sbm-matrix-zone sbm-matrix-zone--full" id="sbm-matrix-zone"><div class="macro-wrap">${_sbRenderMacroTable(cur, macro)}</div></div>`
+    + `<div class="sbm-vsplit" id="sbm-vsplit" onmousedown="_sbVSplitStart(event)" title="Glisser pour redimensionner"></div>`
+    + `<div class="sbm-summary-host" id="sbm-summary"></div>`;
   if (window._dtpDataIn) window._dtpDataIn(host, 'bias');   // fondu d'arrivee (1re fois : skeleton -> tableau)
   _sbRenderHeadDd(cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);   // historique de semaines dans l'en-tête
+  // Ré-ouvre le détail si une devise était sélectionnée (ex. changement de semaine) → continuité.
+  if (_sbActiveCur && cur.includes(_sbActiveCur)) _sbOpenDetail(_sbActiveCur);
 }
 // Libellé de semaine façon DTP : "1-7/06/2026" (lundi→dimanche).
 function _sbWeekLabel(ts) {
@@ -4245,7 +4361,7 @@ function _sbCurDropdown(curr, currencies) {
     <div class="sbs-cdd-menu" hidden><div class="sbs-cdd-title">Scanner</div>${items}</div></div>`;
 }
 function _sbToggleCurDd(e) { e.stopPropagation(); const m = e.currentTarget.querySelector('.sbs-cdd-menu'); if (!m) return; const wasOpen = !m.hasAttribute('hidden'); document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); if (!wasOpen) m.removeAttribute('hidden'); }
-function _sbPickCur(c) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbOpenSummary(c); }
+function _sbPickCur(c) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbOpenDetail(c); }
 window._sbToggleCurDd = _sbToggleCurDd; window._sbPickCur = _sbPickCur;
 if (!window._sbCddCloser) { window._sbCddCloser = true; document.addEventListener('click', () => document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', ''))); }
 // Remonte les 2 dropdowns (Scanner devise + historique de semaines) dans l'EN-TÊTE du haut (haut-droite, façon capture).
@@ -4258,10 +4374,11 @@ function _sbRenderHeadDd(active) {
   el.innerHTML = _sbCurDropdown(a, cur) + _sbDateDropdown(_biasViewTs != null ? _biasViewTs : (d.generatedAt || 0));
 }
 window._sbRenderHeadDd = _sbRenderHeadDd;
-// Dropdown HISTORIQUE de dates (versioning Radar de Biais, 5 semaines max) : format DTP "1-7/06/2026".
+// Dropdown HISTORIQUE de dates (versioning Radar de Biais, fenêtre glissante ~3 mois — demande user) : format DTP "1-7/06/2026".
 function _sbDateDropdown(activeTs) {
   const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const hist = (_biasData && Array.isArray(_biasData.history) ? _biasData.history : []).slice(0, 5);
+  // Le serveur ne renvoie déjà que les semaines des ~3 derniers mois ; cap client de sécurité à 14.
+  const hist = (_biasData && Array.isArray(_biasData.history) ? _biasData.history : []).slice(0, 14);
   const label = esc(_sbWeekLabel(activeTs));
   if (hist.length <= 1) {
     return `<span class="sbs-cdd sbs-cdd--date" title="Semaine couverte"><span class="sbs-cdd-cur">${label}</span></span>`;
