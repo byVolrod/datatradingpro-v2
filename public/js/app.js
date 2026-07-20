@@ -4250,7 +4250,7 @@ function _sbOpenDetail(curr) {
       + field('PIB', rel(gr.gdp))
       + field('PMI / ISM', rel(gr.pmi))
       + field('Ventes au détail', rel(gr.retail))
-      + field('Confiance conso.', rel(gr.confidence))
+      + field('Confiance / Sentiment', rel(gr.confidence))
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>`
       + field('Tendance', geTag(em.trend))
