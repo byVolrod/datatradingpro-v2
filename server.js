@@ -10003,7 +10003,13 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   const _oilDir = await _sbOilTrend();   // signal AVANCÉ pétrole → inflation (demande user)
   let macroTable = {}; try { macroTable = _sbBuildMacroTable(monetary, fundamentalRes, conclusion, _oilDir); } catch (e) { console.warn('[SmartBias] macroTable', e.message); }
   console.log('[SmartBias] pétrole (WTI) tendance = ' + _oilDir + ' → signal avancé d\'inflation');
-  _smartBias = { generatedAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, macroTable, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
+  // `generatedAt` = ANCRE HEBDO (semaine du bias) : bumpé UNIQUEMENT au run du samedi / changement de version /
+  //   1re génération ; un simple refresh de DONNÉES en semaine (weekly=false) le CONSERVE — sinon _biasMissedWeekly
+  //   masquerait un samedi manqué et le narratif ne serait jamais rattrapé. `dataAt` = dernier refresh des DONNÉES
+  //   (mis à jour à CHAQUE run) → sert à cadencer le rafraîchissement quotidien du biais (demande user).
+  const _prevGenAt = (_smartBias && _smartBias.generatedAt) || 0;
+  const _genAt = (weekly || !_prevGenAt) ? Date.now() : _prevGenAt;
+  _smartBias = { generatedAt: _genAt, dataAt: Date.now(), v: BIAS_VER, currencies: SB_CURRENCIES, rows, conclusion, technical, sentiment, narrative, narrativeBias, bankStances, macroTable, ctxLines: [cotLine, bankLine, calLine, retailLine, riskLine, recapLine].filter(Boolean) };
   // Régénération complète → les overrides admin (correctifs ponctuels d'aberrations IA) expirent :
   // la nouvelle matrice repart sur les données fraîches, l'admin ne corrige que si besoin à nouveau.
   try { if (Object.keys(_sbOverrides || {}).length) { _sbOverrides = {}; auth.aiCacheSet('sb:overrides', {}).catch(() => {}); } } catch {}
@@ -10067,6 +10073,18 @@ Renvoie UNIQUEMENT le texte du rapport ${c} — aucun préambule, aucune étique
 function _sbBiasStale() {
   return !_smartBias || _smartBias.v !== BIAS_VER || !_smartBias.generatedAt
     || (Date.now() - _smartBias.generatedAt > 7 * 24 * 60 * 60 * 1000);
+}
+// FRAÎCHEUR QUOTIDIENNE (demande user « l'onglet biais doit se mettre à jour chaque jour après qu'une news qui
+// définit le biais sort ») : une publication High/Medium (devise du bias) avec ACTUAL, sortie APRÈS le dernier
+// refresh des données (`dataAt`) ? Source = _tvCalCache (21 j passés, actuals natifs — même cache que le boot).
+function _sbHasNewActualSince(ts) {
+  if (!ts) return false;
+  const now = Date.now();
+  try {
+    return (_tvCalCache.items || []).some(e => e && (e.impact === 'High' || e.impact === 'Medium')
+      && e.actual != null && e.actual !== '' && SB_CURRENCIES.includes(e.currency)
+      && (e.timestamp || 0) <= now && (e.timestamp || 0) > ts);
+  } catch { return false; }
 }
 let _sbNarrBusy = false, _sbNarrLastTry = 0;
 async function _sbEnsureNarrative() {
@@ -10526,7 +10544,15 @@ function _biasMissedWeekly() {   // vrai si la génération hebdo planifiée n'a
     const _missed = _biasMissedWeekly();                           // samedi sauté → rattrapage horaire AVEC narratifs
     const _verChanged = !_smartBias || _smartBias.v !== BIAS_VER;   // version bumpée → régén complète (narratifs inclus)
     if (_missed || _sbBiasStale()) generateSmartBias(true, _missed || _verChanged).catch(() => {});   // récupération de fond (semaine manquée / version / âge>7j / absent) — jamais sur le chemin utilisateur
-    else _sbEnsureNarrative().catch(() => {});                     // matrice fraîche mais narratif IA manquant/repli → retry ciblé (USD & co)
+    else {
+      // FRAÎCHEUR QUOTIDIENNE des DONNÉES (demande user) : une publication qui définit le biais est sortie depuis le
+      // dernier refresh → on RÉ-AGRÈGE les données (fundamental / macroTable+detail / conclusion) SANS toucher au
+      // narratif hebdo du samedi (weekly=false). Filet anti-late-actual : refresh au moins 1×/~20 h de toute façon.
+      const _dAt = (_smartBias && (_smartBias.dataAt || _smartBias.generatedAt)) || 0;
+      const _dayStale = _dAt && (Date.now() - _dAt > 20 * 3600e3);
+      if (_sbHasNewActualSince(_dAt) || _dayStale) generateSmartBias(true, false).catch(() => {});   // biais à jour après chaque news importante
+      else _sbEnsureNarrative().catch(() => {});                   // matrice fraîche mais narratif IA manquant/repli → retry ciblé (USD & co)
+    }
     if (!_weekAhead  || _weekAhead.v  !== WA_VER   || !_weekAhead.generatedAt || (_weekAhead.editorialAI || 0) < (_weekAhead.days || []).length) setTimeout(() => generateWeekAhead(true, true).catch(() => {}), 9000);   // réessai horaire tant que TOUS les jours n'ont pas l'éditorial IA
   }, 60 * 60 * 1000);
   // Narratif Smart Bias — AUTO-RÉPARATION rapide & récurrente (correctif du bug : le repli data-driven « gelait »
