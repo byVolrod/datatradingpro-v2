@@ -9148,7 +9148,7 @@ app.get('/api/bias', async (req, res) => {
 
 // ─── Smart Bias Tracker : matrice 8 devises × indicateurs (Gemini + Trend calculé) ───
 const SMART_BIAS_FILE = path.join(_CACHE_DIR, 'cache_smart_bias.json');
-const BIAS_VER = 'v31-retail-growth';   // v31 : CROISSANCE = signal AVANCÉ Ventes au détail (insight user « les Retail Sales anticipent le PIB et SONT la croissance conso ») — tendance Croissance = PIB confirmé (×1) + Ventes au détail (×0.6, avancé). Miroir de l'inflation (pétrole/PPI). bump = régén. v30 : le calendrier des tendances passe RÉELLEMENT à 6 mois (le clamp `Math.min(3,…)` de _buildTVCalendarRange + _RANGE_DAYS plafonnaient à 3 → corrigés à 6) + historique stocké _calHist étendu 60 j → ~6 mois (demande user). bump = régén au boot avec les 6 mois. v29 : conclusion = 4 PILIERS seulement (demande user : Hedge Fund/COT, Retail/particuliers et Saisonnalité RETIRÉS) → Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1. + Inflation enrichie du signal AVANCÉ pétrole + PPI (leading indicators de l'IPC). bump = régén au boot. v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
+const BIAS_VER = 'v32-full-subs';   // v32 : colonnes ENRICHIES de tous les sous-indicateurs clés (grille méthodo user) via _sbBlend — Inflation = IPC×1 + PCE×0.7 + PPI×0.6 + salaires×0.4 + pétrole×0.4 ; Croissance = PIB×1 + Retail×0.6 + PMI/ISM×0.6 + confiance×0.4 ; Emploi = chômage(inv)×1 + NFP/ADP×0.6 + claims(inv)×0.4 + JOLTS×0.3. bump = régén. v31 : CROISSANCE = signal AVANCÉ Ventes au détail (insight user « les Retail Sales anticipent le PIB et SONT la croissance conso ») — tendance Croissance = PIB confirmé (×1) + Ventes au détail (×0.6, avancé). Miroir de l'inflation (pétrole/PPI). bump = régén. v30 : le calendrier des tendances passe RÉELLEMENT à 6 mois (le clamp `Math.min(3,…)` de _buildTVCalendarRange + _RANGE_DAYS plafonnaient à 3 → corrigés à 6) + historique stocké _calHist étendu 60 j → ~6 mois (demande user). bump = régén au boot avec les 6 mois. v29 : conclusion = 4 PILIERS seulement (demande user : Hedge Fund/COT, Retail/particuliers et Saisonnalité RETIRÉS) → Fundamental ×3, Politique monétaire ×1.5, Bank Overview ×1, Trend ×1. + Inflation enrichie du signal AVANCÉ pétrole + PPI (leading indicators de l'IPC). bump = régén au boot. v28 : TENDANCES du macroTable basées sur l'HISTORIQUE (demande user « ça se base sur l'historique pour savoir si c'est en tendance haussière/baissière/neutre ») — Inflation (tendance), Croissance et Emploi dérivent la direction de la MOYENNE des ~6 dernières publications récentes vs anciennes (_sbSeriesDir/_sbHistTrend), plus robuste que 2 points bruités ; repli sur la stance du sous-pilier si <2 publis. bump = régén au boot. v27 : la colonne « Politique monétaire » du macroTable dérive sa DIRECTION du MÊME champ que l'onglet TAUX « Prochain mouvement » (b.move, trajectoire rateprobability) au lieu de expBps (prochaine réunion) → cohérence BIAIS ↔ TAUX garantie (demande user). bump = régén au boot. v26 : NOUVEAU champ macroTable (vue « MACRO DATA » du Radar de Biais, demande user) = par devise {Politique monétaire (stance+direction taux), Inflation (niveau+tendance), Croissance, Emploi, Driver (← Récap Hebdo), Biais (= conclusion déterministe = source de vérité, le Récap Hebdo s'aligne dessus)}. Dérivé des piliers déjà calculés + _buildRatesPayload + drivers du recap. bump = régén au boot. v25 : pilier « Données fondamentales » = MÉLANGE — le DESK (datas RÉELLES publiées sur ~3 MOIS par famille du PDF, pondérées par récence 1,1/2,1/3…) PRIME (0.6), TradingEconomics confirme la tendance (0.4). Quand ils divergent, les vraies sorties récentes du desk l'emportent. Avant v25, TE (source tierce) couvrait 8/8 devises → le calendrier du desk n'était qu'un repli JAMAIS exécuté ; désormais il contribue ACTIVEMENT (demande user : « mise à jour des bias selon les datas sorties des mois passés + PDF + DESK ») — bump = régén au boot. v24 : repli calendrier agrégé 3 mois (pondéré récence) — resté inerte car TE primaire. v23 : ligne « Performance Cross-Asset » RETIRÉE de la matrice + de la conclusion (demande user) — bump = régén au boot. v22 : pilier « Politique monétaire » branché sur les VRAIES postures des banques centrales (bias5 de la section Banques Centrales : hawkish→haussier, dovish→baissier) au lieu d'un rating IA isolé qui restait « Neutre » partout — bump = régén au boot. v21 : NOUVEAU pilier « Performance Cross-Asset » (régime de risque _riskData.pct mappé par profil de devise : risk-on → AUD/NZD/CAD haussiers, USD/JPY/CHF baissiers ; inverse en risk-off) AJOUTÉ à la matrice + à la conclusion (poids 1), juste après Fundamental — bump FORCE la regen. v20 : sous-indicateurs Fundamental REMAPPES sur les familles du PDF (Inflation CPI, Emploi chomage inverse, Salaires, Croissance PIB, Ventes detail, PMI Manuf/Services). v17 : MODÈLE de référence — chaque ligne notée depuis sa SOURCE RÉELLE (Fundamental = 8 sous-indic. calendrier ; Hedge = COT ; Retail = foule myfxbook AFFICHÉE ; Bank = agrégat des banques ; Trend/Seasonality réels ; Monetary = SEUL rating IA). Conclusion = CONFLUENCE pondérée des lignes affichées (Retail contrarian) → découle TOUJOURS de la matrice. Ligne Technical RETIRÉE (absente chez la référence). Remplace v16-holistic. bump = régén au boot
 const SB_CURRENCIES = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'NZD', 'JPY', 'CHF'];
 // Matrice de départ (snapshot de la semaine de référence) → l'onglet est rempli dès le 1er affichage,
 // puis la vraie génération Gemini l'écrase (dimanche / dès que le quota revient).
@@ -9479,6 +9479,15 @@ function _sbHistTrend(cal, ccy, rx, opt) {
   if (opt.invert && dir !== 'flat') dir = dir === 'up' ? 'down' : 'up';
   return { dir, n: series.length };
 }
+// CONFLUENCE de signaux {dir,n} pondérés (demande user : chaque colonne agrège ses sous-indicateurs, confirmés +
+// avancés) → 'up' / 'down' / 'flat'. specs = [[trendResult, poids], …]. Repli sur la stance du pilier si aucune série.
+function _sbBlend(specs, stanceFallback, thr) {
+  let score = 0, has = false;
+  for (const [t, w] of (specs || [])) { if (t && t.n >= 2) { score += (t.dir === 'up' ? 1 : t.dir === 'down' ? -1 : 0) * w; has = true; } }
+  if (!has) return _sbSense(stanceFallback);
+  const T = thr != null ? thr : 0.35;
+  return score > T ? 'up' : score < -T ? 'down' : 'flat';
+}
 // Tendance du PÉTROLE (WTI) — signal AVANCÉ d'inflation (demande user : « ce qui impacte l'inflation c'est
 // l'énergie/le pétrole ; pétrole en baisse → inflation en baisse → Fed dovish »). Closes hebdo ~6 mois. Global
 // (l'énergie touche l'inflation de toutes les devises). Caché 6 h ; repli 'flat' si Yahoo indispo.
@@ -9508,13 +9517,15 @@ function _sbInflationCell(c, cal, stance, oilDir) {
   const last = series.length ? series[0] : null;
   let level = last != null ? (last >= 2.5 ? 'High' : last <= 1.5 ? 'Low' : 'Modéré') : null;
   if (level == null) level = _sbSense(stance) === 'up' ? 'High' : _sbSense(stance) === 'down' ? 'Low' : 'Modéré';
-  // Confluence IPC (confirmé) + PPI (avancé) + pétrole (avancé global).
-  const cpiDir = _sbSeriesDir(series, 0.2);
-  const ppiDir = _sbHistTrend(cal, c, /producer price|\bppi\b/i).dir;
-  const sc = v => (v === 'up' ? 1 : v === 'down' ? -1 : 0);
-  const score = sc(cpiDir) * 1.0 + sc(ppiDir) * 0.6 + sc(oilDir) * 0.4;
-  const trend = score > 0.3 ? 'Up' : score < -0.3 ? 'Down' : 'Sticky';
-  return { level, trend };
+  // Confluence : IPC (confirmé ×1) + PCE (gauge Fed ×0.7) + PPI (avancé ×0.6) + salaires/AHE (avancé ×0.4) +
+  // pétrole (avancé global ×0.4). PPI/salaires/pétrole ANTICIPENT l'IPC → tendance plus réactive (insight user).
+  const cpiT   = { dir: _sbSeriesDir(series, 0.2), n: series.length };
+  const pceT   = _sbHistTrend(cal, c, /\bpce\b|personal consumption expenditure|core pce/i);
+  const ppiT   = _sbHistTrend(cal, c, /producer price|\bppi\b/i);
+  const wageT  = _sbHistTrend(cal, c, /average hourly earnings|wage growth|\bwages?\b|labou?r cost|salaire/i);
+  const oilT   = { dir: oilDir || 'flat', n: 3 };
+  const dir = _sbBlend([[cpiT, 1.0], [pceT, 0.7], [ppiT, 0.6], [wageT, 0.4], [oilT, 0.4]], stance, 0.35);
+  return { level, trend: dir === 'up' ? 'Up' : dir === 'down' ? 'Down' : 'Sticky' };
 }
 function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir) {
   const subVal = (c, label) => { const s = (fundamentalRes.subs || []).find(x => x.label === label); return s ? (s.values[c] || 'Neutral') : 'Neutral'; };
@@ -9536,15 +9547,22 @@ function _sbBuildMacroTable(monetary, fundamentalRes, conclusion, oilDir) {
               : ((rb && rb.expBps != null) ? (rb.expBps > 5 ? 'Up' : rb.expBps < -5 ? 'Down' : 'Hold') : 'Hold');
     // Croissance & Emploi = TENDANCE sur l'HISTORIQUE des vraies publications (PIB ; chômage inversé) → hausse =
     // Solide, baisse = Faible, plat = Neutre. Repli sur la stance du sous-pilier (déjà agrégée 3 mois) si <2 publis.
-    // Croissance = PIB confirmé (×1) + VENTES AU DÉTAIL (×0.6, indicateur AVANCÉ : les retail sales anticipent le
-    // PIB et SONT la croissance tirée par la consommation — insight user). Emploi = chômage inversé (historique).
-    const gGDP    = _sbHistTrend(fundamentalRes.cal, c, /\bGDP\b|gross domestic|economic growth|\bPIB\b/i);
-    const gRetail = _sbHistTrend(fundamentalRes.cal, c, /retail sales|retail trade|ventes au d[ée]tail/i);
-    const _gsc = v => (v === 'up' ? 1 : v === 'down' ? -1 : 0);
-    const gScore = _gsc(gGDP.dir) * (gGDP.n >= 2 ? 1.0 : 0) + _gsc(gRetail.dir) * (gRetail.n >= 2 ? 0.6 : 0);
-    const gS = (gGDP.n >= 2 || gRetail.n >= 2) ? (gScore > 0.3 ? 'up' : gScore < -0.3 ? 'down' : 'flat') : _sbSense(subVal(c, 'Croissance (PIB)'));
-    const eH = _sbHistTrend(fundamentalRes.cal, c, /unemployment rate|jobless|ch[oô]mage/i, { invert: true });
-    const eS = eH.n >= 2 ? eH.dir : _sbSense(subVal(c, 'Emploi (chômage)'));
+    // CROISSANCE (demande user) = PIB confirmé (×1) + Ventes au détail (×0.6, avancé : anticipent le PIB, croissance
+    // conso) + PMI/ISM (×0.6, avancé) + Confiance conso (×0.4, avancé). EMPLOI = chômage inversé (×1) + NFP/ADP/
+    // création d'emplois (×0.6) + inscriptions au chômage inversées (×0.4) + JOLTS/postes vacants (×0.3).
+    const _cal = fundamentalRes.cal;
+    const gS = _sbBlend([
+      [_sbHistTrend(_cal, c, /\bGDP\b|gross domestic|economic growth|\bPIB\b/i), 1.0],
+      [_sbHistTrend(_cal, c, /retail sales|retail trade|ventes au d[ée]tail/i), 0.6],
+      [_sbHistTrend(_cal, c, /\bpmi\b|\bism\b|manufacturing pmi|services? pmi|composite pmi|\bfactory\b|industrial production/i), 0.6],
+      [_sbHistTrend(_cal, c, /consumer confidence|consumer sentiment|business confidence/i), 0.4],
+    ], subVal(c, 'Croissance (PIB)'), 0.35);
+    const eS = _sbBlend([
+      [_sbHistTrend(_cal, c, /unemployment rate|taux de ch[oô]mage/i, { invert: true }), 1.0],
+      [_sbHistTrend(_cal, c, /non-?farm|payrolls|employment change|\bnfp\b|\badp\b/i), 0.6],
+      [_sbHistTrend(_cal, c, /jobless claims|initial claims|continuing claims/i, { invert: true }), 0.4],
+      [_sbHistTrend(_cal, c, /jolts|job openings/i), 0.3],
+    ], subVal(c, 'Emploi (chômage)'), 0.35);
     out[c] = {
       monetary:   { stance: mSense === 'up' ? 'Hawkish' : mSense === 'down' ? 'Dovish' : 'Neutre', dir },
       inflation:  _sbInflationCell(c, fundamentalRes.cal, subVal(c, 'Inflation (CPI)'), oilDir),
