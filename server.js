@@ -9964,10 +9964,10 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
     { key: 'trend',        label: 'Trend',            values: trend },
   ];
 
-  // Narratif IA hebdo par devise — RÈGLE UTILISATEUR : le texte généré le SAMEDI reste FIXE
-  // jusqu'au samedi suivant. On GARDE donc TOUS les narratifs IA réels existants (même si le
-  // Overall recalculé a bougé en semaine — plus aucun rejet/régénération en cours de semaine).
-  // Seul le run HEBDO du samedi (weekly=true) réécrit les 8 textes.
+  // Narratif IA hebdo par devise — RÈGLE MISE À JOUR (demande user « tout doit être à jour et cohérent ») :
+  // le samedi (weekly=true) réécrit les 8 textes ; EN SEMAINE, on garde le texte du samedi TANT QUE le biais
+  // n'a pas bougé, mais dès qu'une grosse sortie fait CHANGER le biais d'une devise, SON paragraphe est réécrit
+  // pour rester cohérent avec le tag (voir _todo plus bas). Les devises stables conservent leur texte.
   let narrative = (_smartBias && _smartBias.narrative) || null;
   const _prevBias = (_smartBias && _smartBias.narrativeBias) || {};
   if (narrative) {
@@ -9980,8 +9980,13 @@ Return ONLY valid JSON: {${SB_CURRENCIES.map(c => `"${c}":"..."`).join(',')}}`;
   for (const _c of SB_CURRENCIES) if (narrative && narrative[_c]) narrativeBias[_c] = (_prevBias[_c] != null ? _prevBias[_c] : conclusion[_c]);
   if (aiOk) {
     try {
-      // weekly (samedi) → on régénère TOUT ; sinon on ne génère QUE les devises sans vrai narratif.
-      const _todo = weekly ? null : SB_CURRENCIES.filter(c => !_sbIsRealNarrative((narrative || {})[c]));
+      // weekly (samedi) → on régénère TOUT. En semaine → on régénère les devises SANS vrai narratif OU dont le
+      // BIAIS a CHANGÉ depuis le dernier texte (demande user « tout doit être à jour et cohérent » : quand une grosse
+      // sortie fait bouger le biais, le paragraphe est réécrit pour rester cohérent avec le tag ; les devises stables
+      // gardent leur texte du samedi → coût IA ciblé sur ce qui a bougé).
+      const _todo = weekly ? null : SB_CURRENCIES.filter(c =>
+        !_sbIsRealNarrative((narrative || {})[c])
+        || (_prevBias[c] != null && _prevBias[c] !== conclusion[c]));
       if (weekly || (_todo && _todo.length)) {
         const n = await _sbGenerateNarratives(rows, conclusion, [cotLine, bankLine, calLine, retailLine, riskLine, recapLine], _todo);
         if (n) { narrative = Object.assign({}, narrative || {}, n); for (const _c of Object.keys(n)) narrativeBias[_c] = conclusion[_c]; }
