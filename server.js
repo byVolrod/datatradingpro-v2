@@ -12121,7 +12121,10 @@ function detectCategory(text) {
 }
 
 function extractTags(category, text) {
-  const tags = [category];
+  // Catégories « <Pays> Data » : NE PLUS pousser le libellé brut comme tag (doublon avec « Données » + le tag
+  // pays — demande user 23/07 « enlève UK Data, on a déjà Données ») → remplacées par le tag PAYS court + Data.
+  const _DATA_CAT_TAG = { 'US Data': 'US', 'EU Data': 'EU', 'UK Data': 'UK', 'Swiss Data': 'CHF', 'Japanese Data': 'Japan', 'Canadian Data': 'CAD', 'Australian Data': 'AUD', 'Chinese Data': 'China', 'New Zealand Data': 'NZD' };
+  const tags = _DATA_CAT_TAG[category] ? [_DATA_CAT_TAG[category], 'Data'] : [category];
   const t = (text || '').toLowerCase();
   if (/(united states|\bus\b|american|trump|washington)/.test(t)) tags.push('US');
   if (/(united kingdom|\buk\b|britain|british|london)/.test(t)) tags.push('UK');

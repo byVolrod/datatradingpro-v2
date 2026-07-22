@@ -2327,8 +2327,9 @@ function buildNewsItem(item) {
   // (donnée éco CPI/NFP/PMI…, discours/minutes/conférence de banque centrale) → même bloc pédagogique
   // que le calendrier (impact, réaction classique, anticipation, ton BC + prochaine réunion). Déterministe,
   // zéro IA. Helpers exposés par charts.js (garde typeof : dégradation propre si absent).
-  const hasEco = !isPrimer && !item._dtpd && !item._marketWrap
-    && typeof dtpEventInsightMatch === 'function' && dtpEventInsightMatch(item.headline, item.currency);
+  // Décryptage DTP RETIRÉ du FIL DE NEWS (demande user 23/07 « uniquement pour le calendrier économique,
+  // pas pour les news ») : le bloc pédagogique vit dans l'onglet Calendrier + le widget calendrier.
+  const hasEco = false;
 
   const headline = document.createElement('div');
   headline.className = 'news-headline';
@@ -2777,7 +2778,8 @@ function buildNewsItem(item) {
   // Comparaison sur le label FR (pas la valeur brute) → attrape aussi Energy & Power↔Energy.
   const _catLabel = catFr(item.category || '');
   const _isCatDup = tag => (NEWS_TAG_FR[tag] || tag) === _catLabel;
-  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Japanese Data/Economic Commentary = retirés à la demande — « Economic Commentary » doublonnait la catégorie « Commentaire économique » affichée à gauche, et s'affichait en anglais faute d'entrée NEWS_TAG_FR)
+  const _HIDDEN_TAGS = new Set(['China', 'Japan', 'Trade', 'Market Wrap', 'FX Flows', 'Energy & Power', 'Global News', 'Market Analysis', 'Japanese Data', 'Economic Commentary',
+    'UK Data', 'US Data', 'EU Data', 'Swiss Data', 'Canadian Data', 'Australian Data', 'Chinese Data', 'New Zealand Data']);   // tags supprimés à l'affichage (Trade = redondant avec Tariffs ; Market Wrap = redondant avec le rapport ; FX Flows/Energy & Power/Global News/Market Analysis/Economic Commentary = retirés à la demande) + TOUTES les catégories « <Pays> Data » (demande user 23/07 : « UK Data » doublonnait « Données » + « UK » — le serveur ne les émet plus pour les nouveaux items, ceci couvre les items déjà stockés)
   // DTP Daily : on ne montre que quelques tags « de base » (pas les 8 thèmes IA) → flux net comme les autres news.
   for (const tag of (item._dtpd ? (item.tags || []).slice(0, 3) : (item.tags || []))) {
     if (tag === 'High' || tag === 'Medium' || _isCatDup(tag)) continue;
