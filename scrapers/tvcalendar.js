@@ -46,6 +46,7 @@ async function fetchTVCalendar() {
       .filter(e => e && e.title && e.actual != null)         // uniquement ceux qui ONT un actual
       .map(e => ({
         currency: CC2CCY[e.country] || e.country,
+        country:  e.country || '',   // pays d'ORIGINE conservé (DE/FR/ES… sous EUR) → étiquetage zone euro côté desk
         title:    String(e.title),
         actual:   _fmt(e.actual,   e.unit, e.scale),
         forecast: e.forecast != null ? _fmt(e.forecast, e.unit, e.scale) : '',
@@ -82,6 +83,7 @@ function _mapFull(items) {
     .filter(e => e && e.title && e.date)
     .map(e => ({
       currency: CC2CCY[e.country] || e.country,
+      country:  e.country || '',   // pays d'ORIGINE (DE/FR/ES… sous EUR) → étiquetage zone euro côté desk
       title:    String(e.title),
       impact:   _impact(e.importance),
       actual:   e.actual   != null ? _fmt(e.actual,   e.unit, e.scale) : '',
