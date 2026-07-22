@@ -4369,14 +4369,11 @@ function _sbToggleCurDd(e) { e.stopPropagation(); const m = e.currentTarget.quer
 function _sbPickCur(c) { document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', '')); _sbOpenDetail(c); }
 window._sbToggleCurDd = _sbToggleCurDd; window._sbPickCur = _sbPickCur;
 if (!window._sbCddCloser) { window._sbCddCloser = true; document.addEventListener('click', () => document.querySelectorAll('.sbs-cdd-menu').forEach(x => x.setAttribute('hidden', ''))); }
-// Remonte les 2 dropdowns (Scanner devise + historique de semaines) dans l'EN-TÊTE du haut (haut-droite, façon capture).
+// Sélecteurs d'en-tête (Scanner devise + historique de semaines) RETIRÉS (demande user 23/07 « enlève ceci ») :
+// la devise se choisit en CLIQUANT une ligne du tableau ; l'en-tête reste épuré. La fonction est conservée
+// (appelée à plusieurs endroits) mais ne rend plus rien ; l'API ?at= reste dispo si l'historique doit revenir.
 function _sbRenderHeadDd(active) {
-  const el = document.getElementById('bias-head-dd'); if (!el) return;
-  const d = _biasView || _biasData;
-  if (!d || !Array.isArray(d.currencies) || !d.currencies.length) { el.innerHTML = ''; return; }
-  const cur = d.currencies;
-  const a = (active && cur.includes(active)) ? active : (cur.includes(_sbActiveCur) ? _sbActiveCur : cur[0]);
-  el.innerHTML = _sbCurDropdown(a, cur) + _sbDateDropdown(_biasViewTs != null ? _biasViewTs : (d.generatedAt || 0));
+  const el = document.getElementById('bias-head-dd'); if (el) el.innerHTML = '';
 }
 window._sbRenderHeadDd = _sbRenderHeadDd;
 // Dropdown HISTORIQUE de dates (versioning Radar de Biais, fenêtre glissante ~3 mois — demande user) : format DTP "1-7/06/2026".
