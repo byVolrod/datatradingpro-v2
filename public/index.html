@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260723bbg291" />
+  <link rel="stylesheet" href="/css/style.css?v=20260723bbg292" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -565,6 +565,10 @@
           <span class="wdg-lib-title">Bibliothèque de widgets</span>
           <button class="wdg-lib-x" onclick="DTPWidgets.closeLib()" title="Fermer">×</button>
         </div>
+        <div class="wdg-lib-search-row">
+          <input type="text" id="wdg-lib-search" class="wdg-lib-search" placeholder="Rechercher un widget…"
+                 autocomplete="off" spellcheck="false" oninput="DTPWidgets.filterLib(this.value)">
+        </div>
         <div class="wdg-lib-grid" id="wdg-lib-grid"></div>
       </div>
     </div>
@@ -579,6 +583,9 @@
         </div>
         <div class="wdg-mgr-list" id="wdg-mgr-list"></div>
         <div class="wdg-mgr-foot">
+          <button class="wdg-btn" onclick="DTPWidgets.exportCfg()" title="Télécharger tous tes layouts en JSON (sauvegarde personnelle)">↓ Exporter</button>
+          <button class="wdg-btn" onclick="document.getElementById('wdg-import-file').click()" title="Ajouter les layouts d'un fichier exporté (rien n'est écrasé)">↑ Importer</button>
+          <input type="file" id="wdg-import-file" accept=".json,application/json" style="display:none" onchange="DTPWidgets.importCfg(this)">
           <button class="wdg-btn" onclick="DTPWidgets.reset()" title="Tout réinitialiser au layout par défaut">Réinitialiser tout</button>
         </div>
       </div>
@@ -801,7 +808,7 @@
 <script defer src="/js/sessionmap.js?v=20260629bbg154"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260723bbg287"></script>
+<script defer src="/js/widgets.js?v=20260723bbg292"></script>
 <script defer src="/js/i18n-dicts.js?v=20260629bbg154"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
 

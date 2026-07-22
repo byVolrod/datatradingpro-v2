@@ -9990,6 +9990,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .topbar-symbol-search:focus-within{border-color:rgba(227,178,58,.62);box-shadow:none}   /* focus = UNE bordure OR nette, SANS halo (le glow se faisait clipper par les toolbars -> liseré cassé sous la case, bug signalé) ; l'input interne reste nu, cf. exemptions fin de fichier */
 
 /* ═══════════ JOURNAL DE TRADING (vue plein écran + bouton topbar façon pro) ═══════════ */
+.topbar-icon--desk { margin-right: 10px; flex-shrink: 0; }   /* même marge que Journal/Calc → écart RÉEL égal entre les 3 icônes (gap 10 + margin 10 partout ; avant : desk→journal = gap seul) */
 .topbar-icon--journal { margin-right: 10px; flex-shrink: 0; }
 .topbar-icon--active, .topbar-icon--active:hover { color: var(--orange); background: rgba(227,178,58,0.10); }
 .panel-journal { display: flex; flex-direction: column; height: 100%; min-height: 0; flex: 1 1 auto; width: 100%; min-width: 0; }
@@ -10030,6 +10031,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .jr-btn { height: 32px; }
   .jr-stats { gap: 12px 16px; }
   .topbar-icon--journal { margin-right: 6px; }
+  .topbar-icon--desk { margin-right: 6px; }
 }
 
 /* Journal — bouton Importer (Excel/CSV/Notion) */
@@ -10982,9 +10984,9 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
   padding: 7px 10px; background: #101012; border-bottom: 1px solid var(--hud-line, #232429);
 }
 .wdg-title {
-  font-family: 'Fraunces', Georgia, serif; font-size: 12px; font-weight: 600; color: #e6e8ec;
-  letter-spacing: .2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+  font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 700; color: #e6e8ec;
+  text-transform: uppercase; letter-spacing: .06em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}   /* en-tête façon panneaux du desk (Inter Tight capitales) — plus de serif dans le module widgets (cohérence police desk) */
 .wdg-actions { display: flex; align-items: center; gap: 2px; flex: 0 0 auto; }
 .wdg-ico {
   width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
@@ -11173,7 +11175,7 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-blank { grid-column: 1 / -1; min-height: 58vh; }
 
 /* ── Ligne « Sauvegarde auto du … + Restaurer » (gestionnaire Mes layouts) ── */
-.wdg-mgr-bak { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 8px; padding: 8px 10px; background: #101014; border: 1px solid var(--hud-line, #232429); border-radius: 5px; }
+.wdg-mgr-bak { flex: 1 1 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0 0 2px; padding: 8px 10px; background: #101014; border: 1px solid var(--hud-line, #232429); border-radius: 5px; }
 .wdg-mgr-bak-lbl { font-size: 11.5px; color: #b6bdc9; }
 
 /* ── Widget Calculatrice de position (autonome, volatile) ── */
@@ -11195,7 +11197,8 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-calc-open:hover { text-decoration: underline; }
 
 /* ── Widget Journal de trading (lecture seule du compte) ── */
-.wdg-jr { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-jr { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow-x: auto; }   /* carte très étroite (gw 1-3) : l'ensemble en-tête+lignes scrolle horizontalement d'un bloc (5 colonnes ≈ 340px mini) */
+.wdg-jr-stats, .wdg-jr-head, .wdg-jr-list { min-width: 340px; }
 .wdg-jr-stats { display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #232429); font-size: 11.5px; color: #b6bdc9; flex: 0 0 auto; }
 .wdg-jr-stats b { color: #e6e8ec; }
 .wdg-jr-stats b.up { color: #2ae389; } .wdg-jr-stats b.down { color: #ff7259; }
@@ -11203,13 +11206,19 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-jr-openbtn:hover { text-decoration: underline; }
 .wdg-jr-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
 /* En-tête de colonnes façon TABLE DU DESK (même grammaire que .macro-table th — cohérence, demande user 23/07) */
-.wdg-jr-head { display: grid; grid-template-columns: minmax(60px, .8fr) minmax(70px, 1fr) minmax(48px, .6fr) minmax(56px, .7fr); gap: 8px; padding: 6px 12px; background: #0d0d10; border-bottom: 1px solid var(--hud-line, #1c1c20); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; flex: 0 0 auto; }
+.wdg-jr-head { display: grid; grid-template-columns: minmax(62px, .8fr) minmax(70px, 1.1fr) minmax(54px, .7fr) minmax(56px, .8fr) minmax(64px, .8fr); gap: 8px; padding: 6px 12px; background: #0d0d10; border-bottom: 1px solid var(--hud-line, #1c1c20); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; flex: 0 0 auto; }
 .wdg-jr-head .r { text-align: right; }
-.wdg-jr-row { display: grid; grid-template-columns: minmax(60px, .8fr) minmax(70px, 1fr) minmax(48px, .6fr) minmax(56px, .7fr); gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #121215; font-size: 11.5px; transition: background .1s; }
+.wdg-jr-row { display: grid; grid-template-columns: minmax(62px, .8fr) minmax(70px, 1.1fr) minmax(54px, .7fr) minmax(56px, .8fr) minmax(64px, .8fr); gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #121215; font-size: 11.5px; transition: background .1s; }
 .wdg-jr-row:hover { background: #101014; }
-.wdg-jr-date { color: #8b93a1; font-variant-numeric: tabular-nums; } .wdg-jr-pair { color: #e6e8ec; font-weight: 600; } .wdg-jr-side { color: #b6bdc9; }
-.wdg-jr-res { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #b6bdc9; }
+.wdg-jr-date { color: #8b93a1; font-variant-numeric: tabular-nums; white-space: nowrap; } .wdg-jr-pair { color: #e6e8ec; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } .wdg-jr-side, .wdg-jr-restag { min-width: 0; }
+.wdg-jr-res { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #b6bdc9; white-space: nowrap; }
 .wdg-jr-res.up { color: #2ae389; } .wdg-jr-res.down { color: #ff7259; }
+/* Badges façon vrai Journal du desk (jr-dir/jr-chip) : ACHAT vert · VENTE rouge · TP vert · BE ambre · SL rouge */
+.wdg-jr-tag { display: inline-block; font-size: 9.5px; font-weight: 700; letter-spacing: .04em; padding: 1px 7px; border-radius: 3px; border: 1px solid rgba(165,170,190,.30); color: #c2c6d6; background: rgba(165,170,190,.14); max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: middle; }
+.wdg-jr-tag.buy, .wdg-jr-tag.tp { color: #00e676; background: rgba(0,230,118,.12); border-color: rgba(0,230,118,.35); }
+.wdg-jr-tag.sell, .wdg-jr-tag.sl { color: #ff3d00; background: rgba(255,61,0,.12); border-color: rgba(255,61,0,.35); }
+.wdg-jr-tag.be { color: #ffb300; background: rgba(255,179,0,.10); border-color: rgba(255,179,0,.32); }
+.wdg-jr-ph { font-style: normal; color: #5b5d66; }
 .wdg-jr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 100%; font-size: 11.5px; color: #8b93a1; }
 
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
@@ -11260,7 +11269,25 @@ body.wdg-mode #topbar-nav { display: none; }
 }
 .wdg-mgr-new:hover { background: rgba(227,178,58,.2); border-color: #e3b23a; }
 .wdg-mgr-full { padding: 8px; font-size: 10.5px; color: #6b7280; text-align: center; font-style: italic; }
-.wdg-mgr-foot { flex: 0 0 auto; padding: 10px 14px; border-top: 1px solid var(--hud-line, #232429); display: flex; justify-content: flex-end; }
+.wdg-mgr-foot { flex: 0 0 auto; padding: 10px 14px; border-top: 1px solid var(--hud-line, #232429); display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+
+/* Recherche de la bibliothèque */
+.wdg-lib-search-row { flex: 0 0 auto; padding: 10px 14px 0; }
+.wdg-lib-search { width: 100%; height: 30px; padding: 0 11px; font-size: 12px; font-family: var(--tight, 'Inter Tight', sans-serif); color: #e6e8ec; background: #101012; border: 1px solid var(--hud-line, #232429); border-radius: var(--radius); }
+.wdg-lib-search::placeholder { color: #6b7280; }
+.wdg-lib-search:focus { outline: none; border-color: rgba(227,178,58,.55); }
+
+/* Miniature d'agencement (gestionnaire + modèles prêts) : la grille 12 colonnes en réduction */
+.wdg-thumb { flex: 0 0 auto; display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: 4px; gap: 1.5px; width: 52px; padding: 3px; background: #0c0c0e; border: 1px solid #1a1b20; border-radius: 3px; }
+.wdg-thumb i { display: block; background: rgba(227,178,58,.38); border-radius: 1px; min-height: 4px; }
+.wdg-mgr-row.on .wdg-thumb i { background: rgba(227,178,58,.6); }
+
+/* Modèles prêts */
+.wdg-mgr-row--preset { background: #0e0e11; }
+.wdg-mgr-pname { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12px; font-weight: 600; color: #e6e8ec; }
+.wdg-mgr-pname em { font-style: normal; font-size: 10px; font-weight: 400; color: #7e8590; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wdg-mgr-open:disabled { opacity: .4; cursor: not-allowed; }
+.wdg-mgr-note { padding: 6px 10px; font-size: 11px; color: #2ae389; }
 
 /* Mobile : une seule colonne (le demi-largeur n'a plus de sens sous 900px) */
 @media (max-width: 900px) {

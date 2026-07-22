@@ -64,7 +64,9 @@
     close: '<svg viewBox="0 0 24 24" width="12.5" height="12.5" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
   };
 
-  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+  // Échappe AUSSI les guillemets : le module injecte des valeurs dans des attributs double-quotés
+  // (value="…", title="…") → sans ça, un nom de layout importé piégé (`" onfocus=…`) s'exécuterait (revue 23/07).
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;'); }
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
   function fallback(host, msg) { if (host) host.innerHTML = '<div class="wdg-empty">' + esc(msg) + '</div>'; }
 
@@ -239,8 +241,10 @@
     {
       id: 'journal-mini', name: 'Journal de trading', cat: 'Outils', h: 300,
       desc: 'Tes derniers trades et ton taux de réussite, en un coup d\'œil.',
-      // Lecture seule de /api/journal (source de vérité du compte). Détection SOUPLE des colonnes (gabarit DTP
-      // OU journal importé) : paire / sens / résultat / P&L par alias — jamais de valeur inventée.
+      // MIROIR du vrai Journal du desk (refonte 23/07 « il ressemble pas au vrai widget ») : on lit le MODÈLE
+      // RÉEL de /api/journal — champs builtin ts / pair / dir / result / pl / r / pnlPct (cf. _jrAddRow app.js),
+      // avec repli sur e.props (journal PERSO importé). Rendu = mêmes codes que le desk : date FR, paire en gras,
+      // badge ACHAT/VENTE, chip résultat (TP vert · BE ambre · SL rouge), P&L signé. Jamais de valeur inventée.
       mount: function (host) {
         host.innerHTML = '<div class="wdg-load">Chargement…</div>';
         fetch('/api/journal').then(function (r) { return r.json(); }).then(function (j) {
@@ -253,41 +257,62 @@
             if (b0) b0.addEventListener('click', function () { if (typeof activateView === 'function') activateView('journal'); });
             return;
           }
-          var keys = Object.keys(entries[0] || {});
-          var find = function (rx) { for (var i = 0; i < keys.length; i++) if (rx.test(keys[i])) return keys[i]; return null; };
-          var kDate = find(/date|jour/i), kPair = find(/paire|pair|symbol|instrument|actif/i),
-              kSide = find(/sens|side|direction|\btype\b/i), kRes = find(/r[ée]sultat|result|issue|outcome/i),
-              kPnl = find(/pnl|p&l|profit|gain|\$/i);
-          var wins = 0, losses = 0;
+          var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+          var fmtD = function (ts) { try { var d = new Date(ts); if (!isFinite(d.getTime())) return ''; return d.getDate() + ' ' + MOIS[d.getMonth()] + ' ' + String(d.getFullYear()).slice(2); } catch (e) { return ''; } };
+          var num = function (v) { if (v == null || v === '') return null; var n = parseFloat(String(v).replace(',', '.').replace(/[^0-9.\-]/g, '')); return isFinite(n) ? n : null; };
+          var prop = function (e, rx) {                                    // repli journal importé : cherche dans e.props
+            var p = e && e.props; if (!p) return null;
+            for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k) && rx.test(k)) return p[k];
+            return null;
+          };
+          var fld = function (e, k, rx) { var v = e ? e[k] : null; return (v != null && v !== '') ? v : prop(e, rx); };
+          var fmtMoney = function (n) { return (n > 0 ? '+' : '') + n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $'; };
+          // P&L affiché : $ (pl) en priorité, sinon R, sinon % — même hiérarchie que les stats du desk.
+          var pnlOf = function (e) {
+            var v = num(e.pl); if (v != null) return { n: v, txt: fmtMoney(v) };
+            v = num(e.r); if (v != null) return { n: v, txt: (v > 0 ? '+' : '') + String(Math.round(v * 100) / 100).replace('.', ',') + ' R' };
+            v = num(e.pnlPct); if (v != null) return { n: v, txt: (v > 0 ? '+' : '') + String(Math.round(v * 100) / 100).replace('.', ',') + ' %' };
+            v = num(prop(e, /pnl|p&l|profit|gain|\$/i)); if (v != null) return { n: v, txt: fmtMoney(v) };
+            return null;
+          };
+          var wins = 0, losses = 0, cum = 0, cumOk = true;
           entries.forEach(function (e) {
-            var pnl = kPnl ? parseFloat(String(e[kPnl]).replace(/[^0-9.\-]/g, '')) : NaN;
-            var res = kRes ? String(e[kRes]) : '';
-            if (isFinite(pnl) && pnl !== 0) { if (pnl > 0) wins++; else losses++; }
+            var p = pnlOf(e), res = String(fld(e, 'result', /r[ée]sultat|result|issue|outcome/i) || '');
+            if (p && p.n !== 0) { if (p.n > 0) wins++; else losses++; }
             else if (/tp|profit|win|gagn/i.test(res)) wins++;
             else if (/\bsl\b|loss|perte|perd/i.test(res)) losses++;
+            var m = num(e.pl); if (m != null) cum += m; else cumOk = false;   // cumul $ seulement si TOUTES les lignes l'ont
           });
           var tot = wins + losses;
           var wr = tot ? Math.round(wins / tot * 100) : null;
-          // TOUT le journal DANS le widget (demande user 23/07 « ça doit s'ouvrir dans le widget, pas dans
-          // l'onglet du desk ») : liste complète scrollable (cap 100 anti-OOM), plus de bouton de sortie.
-          var rows = entries.slice(-100).reverse().map(function (e) {
-            var pnl = kPnl ? parseFloat(String(e[kPnl]).replace(/[^0-9.\-]/g, '')) : NaN;
-            var res = kRes ? String(e[kRes] || '') : '';
-            var good = (isFinite(pnl) && pnl > 0) || /tp|profit|win|gagn/i.test(res);
-            var bad = (isFinite(pnl) && pnl < 0) || /\bsl\b|loss|perte|perd/i.test(res);
-            var cls = good ? 'up' : bad ? 'down' : '';
-            var resTxt = isFinite(pnl) && pnl !== 0 ? ((pnl > 0 ? '+' : '') + pnl) : (res || '—');
+          // TOUT le journal DANS le widget (demande user) : liste complète scrollable (cap 100 anti-OOM),
+          // PLUS RÉCENT EN HAUT (tri par date réelle — même ordre que le vrai Journal du desk).
+          var rows = entries.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 100).map(function (e) {
+            var dts = e.ts;
+            if (!dts) { var dv = prop(e, /date|jour/i); if (dv) { var dd = new Date(dv); if (isFinite(dd.getTime())) dts = dd.getTime(); } }
+            var pair = fld(e, 'pair', /paire|pair|symbol|instrument|actif/i) || '';
+            var dir = String(fld(e, 'dir', /^(sens|dir(ection)?|side|type)$/i) || '');
+            var dirHtml = /buy|long|achat/i.test(dir) ? '<span class="wdg-jr-tag buy">ACHAT</span>'
+              : /sell|short|vente/i.test(dir) ? '<span class="wdg-jr-tag sell">VENTE</span>'
+              : (dir ? '<span class="wdg-jr-tag">' + esc(dir.toUpperCase().slice(0, 8)) + '</span>' : '<i class="wdg-jr-ph">—</i>');
+            var res = String(fld(e, 'result', /r[ée]sultat|result|issue|outcome/i) || '');
+            var resCls = /tp|profit|win|gagn/i.test(res) ? 'tp' : /\bbe\b|breakeven/i.test(res) ? 'be' : /\bsl\b|loss|perte|perd/i.test(res) ? 'sl' : '';
+            var resHtml = res ? '<span class="wdg-jr-tag ' + resCls + '">' + esc(res.toUpperCase().slice(0, 10)) + '</span>' : '<i class="wdg-jr-ph">—</i>';
+            var p = pnlOf(e);
+            var pCls = p ? (p.n > 0 ? 'up' : p.n < 0 ? 'down' : '') : '';
             return '<div class="wdg-jr-row">'
-              + '<span class="wdg-jr-date">' + esc(kDate ? e[kDate] : '') + '</span>'
-              + '<span class="wdg-jr-pair">' + esc(kPair ? e[kPair] : '') + '</span>'
-              + '<span class="wdg-jr-side">' + esc(kSide ? e[kSide] : '') + '</span>'
-              + '<span class="wdg-jr-res ' + cls + '">' + esc(resTxt) + '</span></div>';
+              + '<span class="wdg-jr-date">' + (dts ? esc(fmtD(dts)) : '—') + '</span>'
+              + '<span class="wdg-jr-pair" title="' + esc(pair) + '">' + esc(pair) + '</span>'
+              + '<span class="wdg-jr-side">' + dirHtml + '</span>'
+              + '<span class="wdg-jr-restag">' + resHtml + '</span>'
+              + '<span class="wdg-jr-res ' + pCls + '">' + (p ? esc(p.txt) : '—') + '</span></div>';
           }).join('');
           host.innerHTML = '<div class="wdg-jr">'
             + '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
             + (wr != null ? '<span>Réussite <b class="' + (wr >= 50 ? 'up' : 'down') + '">' + wr + ' %</b></span>' : '')
+            + (cumOk && entries.length ? '<span>P&amp;L <b class="' + (cum > 0 ? 'up' : cum < 0 ? 'down' : '') + '">' + esc(fmtMoney(cum)) + '</b></span>' : '')
             + '</div>'
-            + '<div class="wdg-jr-head"><span>Date</span><span>Paire</span><span>Sens</span><span class="r">Résultat</span></div>'
+            + '<div class="wdg-jr-head"><span>Date</span><span>Paire</span><span>Sens</span><span>Résultat</span><span class="r">P&amp;L</span></div>'
             + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div></div>';
         }).catch(function () { fallback(host, 'Journal indisponible.'); });
         return null;
@@ -533,6 +558,7 @@
         : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
       return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '">'
         + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
+        + _thumb(l.items)
         + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
         +   ' onchange="DTPWidgets.renameLayout(\'' + l.id + '\', this.value)">'
         + '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
@@ -541,7 +567,17 @@
     }).join('')
       + (c.layouts.length < _LMAX
           ? '<button class="wdg-mgr-new" onclick="DTPWidgets.createLayout()">+ Créer un layout</button>'
-          : '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>');
+          : '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>')
+      // MODÈLES PRÊTS : agencements pré-composés — un clic crée un NOUVEAU layout (rien d'écrasé).
+      + '<div class="wdg-lib-sec">Modèles prêts</div>'
+      + PRESETS.map(function (p, i) {
+          var names = p.items.map(function (it) { var w = byId(it.w); return w ? w.name : ''; }).filter(Boolean).join(' · ');
+          return '<div class="wdg-mgr-row wdg-mgr-row--preset">'
+            + _thumb(p.items)
+            + '<span class="wdg-mgr-pname">' + esc(p.name) + '<em>' + esc(names) + '</em></span>'
+            + '<button class="wdg-mgr-open" onclick="DTPWidgets.usePreset(' + i + ')"'
+            + (c.layouts.length >= _LMAX ? ' disabled title="Plafond de layouts atteint"' : '') + '>Utiliser</button></div>';
+        }).join('');
   }
   // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
   var WICO = {
@@ -554,15 +590,20 @@
     'calculatrice': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01"/></svg>',
     'journal-mini': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 12h5.5"/></svg>',
   };
+  var _libQ = '';                            // filtre de recherche de la bibliothèque (volatil)
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
     var lay = activeLayout(), used = {};
     (lay ? lay.items : []).forEach(function (i) { used[i.w] = (used[i.w] || 0) + 1; });
+    var q = _libQ.toLowerCase();
+    var match = function (w) { return !q || (w.name + ' ' + w.desc + ' ' + w.cat).toLowerCase().indexOf(q) !== -1; };
     // GROUPÉE PAR CATÉGORIE (ordre d'apparition du catalogue) : un intitulé de section + les cartes de la famille.
     var cats = [];
     CATALOG.forEach(function (w) { if (cats.indexOf(w.cat) === -1) cats.push(w.cat); });
-    box.innerHTML = cats.map(function (cat) {
-      var cards = CATALOG.filter(function (w) { return w.cat === cat; }).map(function (w) {
+    var html = cats.map(function (cat) {
+      var list = CATALOG.filter(function (w) { return w.cat === cat && match(w); });
+      if (!list.length) return '';
+      var cards = list.map(function (w) {
         return '<button class="wdg-lib-card" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
           + '<span class="wdg-lib-ico">' + (WICO[w.id] || '') + '</span>'
           + '<span class="wdg-lib-main"><span class="wdg-lib-name">' + esc(w.name) + '</span>'
@@ -572,6 +613,22 @@
       }).join('');
       return '<div class="wdg-lib-sec">' + esc(cat) + '</div><div class="wdg-lib-row">' + cards + '</div>';
     }).join('');
+    box.innerHTML = html || '<div class="wdg-empty">Aucun widget ne correspond à « ' + esc(_libQ) + ' ».</div>';
+  }
+
+  /* ── MODÈLES PRÊTS (presets) : un clic → un nouveau layout pré-composé (modifiable ensuite). ── */
+  var PRESETS = [
+    { name: 'Desk complet', items: [{ w: 'force-devises', gw: 8, gh: 12 }, { w: 'calendrier-jour', gw: 4, gh: 12 }, { w: 'fil-news', gw: 7, gh: 11 }, { w: 'barometre', gw: 5, gh: 11 }] },
+    { name: 'Focus macro', items: [{ w: 'calendrier-jour', gw: 7, gh: 15 }, { w: 'barometre', gw: 5, gh: 8 }, { w: 'risque-historique', gw: 5, gh: 7 }] },
+    { name: 'Trading actif', items: [{ w: 'journal-mini', gw: 7, gh: 12 }, { w: 'calculatrice', gw: 5, gh: 12 }, { w: 'force-devises', gw: 12, gh: 10 }] },
+  ];
+  // Miniature d'un agencement : la grille 12 colonnes en réduction (aperçu visuel, gestionnaire + modèles).
+  function _thumb(items) {
+    var blocks = (items || []).slice(0, 10).map(function (it) {
+      it = _normItem(JSON.parse(JSON.stringify(it)));
+      return '<i style="grid-column:span ' + it.gw + ';grid-row:span ' + Math.max(1, Math.min(4, Math.round(it.gh / 5))) + '"></i>';
+    }).join('');
+    return '<span class="wdg-thumb" aria-hidden="true">' + blocks + '</span>';
   }
 
   // Bascule un panneau overlay (info 'i' / réglages 's') d'une carte ; ferme tous les autres.
@@ -636,8 +693,59 @@
       var l = activeLayout(), w = byId(wid); if (!l || !w) return;
       l.items.push({ w: wid, gw: 6, gh: _clamp(Math.round((w.h || 300) / ROW_PX) + 1, 5, 40) }); save(); API.closeLib(); renderGrid();
     },
-    openLib: function () { var d = document.getElementById('wdg-lib'); if (d) { d.classList.add('open'); renderLib(); } },
+    openLib: function () {
+      var d = document.getElementById('wdg-lib'); if (!d) return;
+      d.classList.add('open'); _libQ = '';
+      var s = document.getElementById('wdg-lib-search'); if (s) { s.value = ''; setTimeout(function () { s.focus(); }, 60); }
+      renderLib();
+    },
     closeLib: function () { var d = document.getElementById('wdg-lib'); if (d) d.classList.remove('open'); },
+    filterLib: function (q) { _libQ = String(q || '').trim(); renderLib(); },
+
+    // ── MODÈLES PRÊTS : crée un NOUVEAU layout depuis le preset (jamais d'écrasement) et l'ouvre. ──
+    usePreset: function (i) {
+      var c = STATE.cfg, p = PRESETS[i]; if (!c || !p || c.layouts.length >= _LMAX) return;
+      var id = 'lay-' + uid();
+      c.layouts.push({ id: id, name: p.name, fav: false, items: JSON.parse(JSON.stringify(p.items)) });
+      c.active = id; save(); API.closeManager(); renderBar(); renderGrid();
+    },
+
+    // ── EXPORT / IMPORT de la configuration (fichier JSON : sauvegarde personnelle / passage de compte) ──
+    exportCfg: function () {
+      var c = STATE.cfg; if (!c) return;
+      var d = new Date(), p = function (n) { return String(n).padStart(2, '0'); };
+      var name = 'mon-desk-' + d.getFullYear() + p(d.getMonth() + 1) + p(d.getDate()) + '.json';
+      var blob = new Blob([JSON.stringify({ dtpWidgets: 1, cfg: c }, null, 2)], { type: 'application/json' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+    },
+    importCfg: function (input) {                       // AJOUTE les layouts du fichier (rien d'écrasé, plafond respecté)
+      var f = input && input.files && input.files[0]; if (!f) return;
+      var slot = document.getElementById('wdg-mgr-bak');
+      var note = function (msg) { if (slot) { var n = document.createElement('div'); n.className = 'wdg-mgr-note'; n.textContent = msg; slot.parentNode.insertBefore(n, slot); setTimeout(function () { n.remove(); }, 6000); } };
+      var rd = new FileReader();
+      rd.onload = function () {
+        try {
+          var j = JSON.parse(String(rd.result || ''));
+          var lays = (j && j.cfg && j.cfg.layouts) || (j && j.layouts) || null;
+          if (!Array.isArray(lays) || !lays.length) { note('Fichier non reconnu (export Mon Desk attendu).'); return; }
+          var c = STATE.cfg, added = 0;
+          lays.forEach(function (l) {
+            if (!l || !Array.isArray(l.items) || c.layouts.length >= _LMAX) return;
+            var items = l.items.filter(function (it) { return it && byId(it.w); }).map(function (it) {
+              return _normItem({ w: it.w, gw: it.gw, gh: it.gh, h: it.h, col: it.col, locked: !!it.locked });
+            });
+            c.layouts.push({ id: 'lay-' + uid(), name: String(l.name || '').replace(/[<>"']/g, '').trim().slice(0, 40) || 'Importé', fav: false, items: items });
+            added++;
+          });
+          if (added) { save(); renderBar(); renderManager(); note(added + ' layout' + (added > 1 ? 's' : '') + ' importé' + (added > 1 ? 's' : '') + ' ✓'); }
+          else note('Rien à importer (plafond atteint ou widgets inconnus).');
+        } catch (e) { note('Fichier illisible (JSON attendu).'); }
+        input.value = '';
+      };
+      rd.readAsText(f);
+    },
 
     // ── LAYOUTS (templates) ──
     switchLayout: function (id) {
