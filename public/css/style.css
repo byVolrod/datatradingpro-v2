@@ -7029,6 +7029,20 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-kb-quote::after  { content: ' »'; color: #6f6f79; }   /* guillemets hors texte → la traduction FR en place ne les mange pas */
 .cal-kb-sub { color: #8a9097; font-size: 11px; margin-top: 2px; }
 
+/* Fiche événement — « Historique des publications » : mini-barres réel vs prévu (~6 mois), ancien → récent */
+.cal-hist-sub { font-weight: 400; text-transform: none; letter-spacing: 0; color: #8b93a1; font-size: 10px; }
+.cal-hist-row { display: flex; align-items: flex-end; gap: 10px; padding: 6px 2px 2px; overflow-x: auto; }
+.cal-hist-col { flex: 0 0 auto; min-width: 52px; text-align: center; }
+.cal-hist-barwrap { height: 46px; display: flex; align-items: flex-end; justify-content: center; }
+.cal-hist-bar { width: 16px; border-radius: 2px 2px 0 0; background: #6b7280; min-height: 3px; }
+.cal-hist-bar.g { background: rgba(0,230,118,.75); }
+.cal-hist-bar.r { background: rgba(255,61,0,.72); }
+.cal-hist-val { margin-top: 4px; font-size: 11px; font-weight: 700; color: #e6e8ec; font-variant-numeric: tabular-nums; }
+.cal-hist-val.g { color: #2ae389; }
+.cal-hist-val.r { color: #ff7259; }
+.cal-hist-prev { font-size: 9.5px; color: #8b93a1; }
+.cal-hist-date { font-size: 9.5px; color: #7e8590; margin-top: 1px; }
+
 /* ── Déroulé INLINE d'un événement (accordéon sous la ligne — remplace la modale) ── */
 .cal-detail-row > td { padding: 0; background: #0d0e11; border-bottom: 1px solid #1d1d22; }
 .cal-detail-inline { border-left: 2px solid var(--orange); overflow-x: auto; animation: calDetailIn .16s ease-out; }
