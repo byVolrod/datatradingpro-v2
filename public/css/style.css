@@ -3306,22 +3306,26 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .mdet-headtags { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; flex: 1 1 auto; min-width: 0; }
 .mdet-close { margin-left: auto; background: none; border: none; color: #6b7280; font-size: 14px; cursor: pointer; padding: 3px 8px; border-radius: 4px; line-height: 1; flex: 0 0 auto; }
 .mdet-close:hover { color: #fff; background: #1a1a1f; }
-.mdet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 10px; padding: 12px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }
-.mdet-card { border: 1px solid var(--hud-line, #1c1c20); background: #0d0e11; border-radius: 5px; padding: 11px 13px; transition: border-color .12s; }
+.mdet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: 1fr; gap: 10px; padding: 12px; overflow-y: auto; flex: 1 1 auto; min-height: 0; }   /* rangées 1fr → les 4 cartes ALIGNÉES en hauteur/largeur (demande user) */
+.mdet-card { border: 1px solid var(--hud-line, #1c1c20); background: #0d0e11; border-radius: 5px; padding: 11px 13px; transition: border-color .12s; min-height: 100%; }
 .mdet-card:hover { border-color: #2a2a30; }
 .mdet-card-t { margin: 0 0 8px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #e3b23a; }
-.mdet-field { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid #121215; }
+.mdet-field { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid #16171b; }
 .mdet-field:first-of-type { border-top: 0; padding-top: 0; }
-.mdet-k { flex: 0 0 auto; font-size: 11.5px; color: #8a8f98; white-space: nowrap; }
+.mdet-k { flex: 0 0 auto; font-size: 12px; color: #b6bdc9; white-space: nowrap; }   /* libellés ÉCLAIRCIS (demande user « on voit pas assez bien les textes gris ») */
 .mdet-v { flex: 1 1 auto; text-align: right; font-size: 12px; color: #e5e7eb; min-width: 0; }
 .mdet-v b { font-variant-numeric: tabular-nums; font-weight: 700; }
 .mdet-up   { color: #2ae389; }
 .mdet-down { color: #ff7259; }
 .mdet-flat { color: #e5e7eb; }
-.mdet-ref  { color: #6b7280; font-size: 10.5px; font-variant-numeric: tabular-nums; }
-.mdet-date { color: #55565e; font-size: 10px; margin-left: 2px; white-space: nowrap; }
-.mdet-na   { color: #4a4a52; }
-.mdet-txt  { color: #c9cdd4; font-size: 11px; line-height: 1.45; }
+.mdet-ref  { color: #98a1ad; font-size: 10.5px; font-variant-numeric: tabular-nums; }
+.mdet-date { color: #7e8590; font-size: 10px; margin-left: 2px; white-space: nowrap; }
+.mdet-na   { color: #5b5d66; }
+.mdet-txt  { color: #cfd4dc; font-size: 11px; line-height: 1.45; }
+/* Chaîne d'HISTORIQUE (tendance visible avec les précédents, ancien → récent) — sous la valeur, alignée à droite */
+.mdet-hist { display: block; margin-top: 2px; color: #8f99a6; font-size: 10.5px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+/* Étiquette pays zone euro (All. / Fr. / Esp. / It.) devant la valeur — publication nationale sous EUR */
+.mdet-ctry { color: #9aa4b2; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .mdet-field .mt-tag { margin: 0; }
 @media (max-width: 720px) { .mdet-grid { grid-template-columns: 1fr; } }
 .sbs-risk-load { font-size: 11px; color: #6b7280; padding: 6px 0; }

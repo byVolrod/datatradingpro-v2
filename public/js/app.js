@@ -4125,7 +4125,7 @@ const MT_LBL = {
   stance:   { Hawkish: 'Restrictive', Dovish: 'Accommodante', Neutre: 'Neutre' },
   ratedir:  { Up: 'Hausse', Down: 'Baisse', Hold: 'Maintien' },
   level:    { High: 'Élevée', Low: 'Basse', 'Modéré': 'Modérée' },
-  inftrend: { Up: 'En hausse', Down: 'En baisse', Sticky: 'Persistante' },
+  inftrend: { Up: 'Hausse', Down: 'Baisse', Sticky: 'Stable' },   // raccourcis (demande user « plus court et parlant ») : En hausse→Hausse · En baisse→Baisse · Persistante→Stable
   ge:       { Strong: 'Solide', Neutral: 'Neutre', Weak: 'Faible' },
 };
 // Colonne Biais = Haussier / Neutre / Baissier (le niveau « faible/fort » est porté par la couleur du tag).
@@ -4211,15 +4211,20 @@ function _sbOpenDetail(curr) {
   const na = '<span class="mdet-na">—</span>';
   const relCls = s => /bull/i.test(s || '') ? 'mdet-up' : /bear/i.test(s || '') ? 'mdet-down' : 'mdet-flat';
   const fmtDate = ts => { if (!ts) return ''; const dt = new Date(ts); return dt.getDate() + ' ' + _MDET_MOIS[dt.getMonth()]; };
-  // Rendu d'une publication réelle {actual, forecast, previous, surprise, ts}.
+  // Rendu d'une publication réelle {actual, forecast, previous, surprise, ts, hist, ctry}.
+  // Pays d'origine zone euro (demande user « EUR = Allemagne + France ») : étiquette courte devant la valeur.
+  const CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
   const rel = o => {
     if (!o || o.actual == null) return na;
     let h = `<b class="${relCls(o.surprise)}">${esc(o.actual)}</b>`;
+    if (o.ctry && CTRY_FR[o.ctry]) h = `<span class="mdet-ctry" title="Publication ${o.ctry === 'DE' ? 'allemande' : o.ctry === 'FR' ? 'française' : o.ctry === 'ES' ? 'espagnole' : 'italienne'}">${CTRY_FR[o.ctry]}</span> ` + h;
     const bits = [];
     if (o.forecast != null) bits.push(`prév. ${esc(o.forecast)}`);
     if (o.previous != null) bits.push(`préc. ${esc(o.previous)}`);
     if (bits.length) h += ` <span class="mdet-ref">${bits.join(' · ')}</span>`;
     if (o.ts) h += ` <span class="mdet-date">${esc(fmtDate(o.ts))}</span>`;
+    // TENDANCE visible avec les précédents (demande user) : chaîne des dernières publications, ancien → récent.
+    if (Array.isArray(o.hist) && o.hist.length >= 2) h += `<span class="mdet-hist" title="Dernières publications (ancien → récent)">${o.hist.map(esc).join(' → ')}</span>`;
     return h;
   };
   const field = (label, valueHtml) => `<div class="mdet-field"><span class="mdet-k">${esc(label)}</span><span class="mdet-v">${valueHtml || na}</span></div>`;
