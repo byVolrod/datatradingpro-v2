@@ -2560,6 +2560,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const _ml = document.getElementById('main-layout');
     _ml?.classList.toggle('hide-right-panel', view === 'bank' || view === 'weekahead' || view === 'taux' || view === 'symbol' || view === 'journal' || view === 'calculator' || view === 'widgets');   // pleine largeur
     document.getElementById('journal-btn')?.classList.toggle('topbar-icon--active', view === 'journal');   // état actif du bouton topbar Journal
+    document.getElementById('widgets-btn')?.classList.toggle('topbar-icon--active', view === 'widgets');   // état actif de l'icône Mon Desk (la nav reste visible en mode widgets depuis le 23/07)
     document.getElementById('calc-btn')?.classList.toggle('topbar-icon--active', view === 'calculator');   // état actif du bouton topbar Calculatrice
     _ml?.classList.toggle('is-fxlist', view === 'fxlist');
     if (view === 'bias') {

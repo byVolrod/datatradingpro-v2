@@ -659,11 +659,20 @@ function _wdgClean(body) {
     .map((l, i) => {
       const items = (Array.isArray(l.items) ? l.items : []).slice(0, _WDG_MAX_ITEMS)
         .filter(it => it && typeof it.w === 'string' && _WDG_ID_RX.test(it.w))
-        .map(it => ({
-          w: it.w,                                                           // id du widget (catalogue front)
-          h: Math.min(900, Math.max(120, parseInt(it.h, 10) || 260)),        // hauteur px (bornée)
-          col: (it.col === 2 || it.col === '2') ? 2 : 1,                     // 1 = demi-largeur, 2 = pleine
-        }));
+        .map(it => {
+          const o = {
+            w: it.w,                                                         // id du widget (catalogue front)
+            h: Math.min(900, Math.max(120, parseInt(it.h, 10) || 260)),      // hauteur px (rétro-compat ancien modèle)
+            col: (it.col === 2 || it.col === '2') ? 2 : 1,                   // (rétro-compat)
+          };
+          // MODÈLE GRILLE v2 (bug corrigé 23/07) : le sanitizer ne gardait QUE h/col → les tailles {gw,gh}
+          // et le verrouillage étaient PERDUS à chaque save/reload (l'utilisateur re-perdait son agencement).
+          const gw = parseInt(it.gw, 10), gh = parseInt(it.gh, 10);
+          if (isFinite(gw)) o.gw = Math.min(12, Math.max(1, gw));
+          if (isFinite(gh)) o.gh = Math.min(60, Math.max(3, gh));
+          if (it.locked) o.locked = true;
+          return o;
+        });
       // Unicité de l'id : sans ça, deux layouts homonymes (ou un repli 'layout-2' entrant en collision
       // avec un id explicite 'layout-2') rendraient `active` ambigu → le front rouvrirait le mauvais desk.
       let id = (typeof l.id === 'string' && _WDG_ID_RX.test(l.id)) ? l.id : 'layout-' + (i + 1);
@@ -688,9 +697,45 @@ app.get('/api/widgets', async (req, res) => {
 app.post('/api/widgets', async (req, res) => {
   if (!req.session?.userId) return res.status(401).json({ ok: false });
   try {
+    const uid = req.session.userId;
     const cfg = _wdgClean(req.body || {});
-    await auth.aiCacheSet('wdg:' + req.session.userId, cfg);
+    // SAUVEGARDE PAR COMPTE (demande user 23/07 « récupérable si un souci s'impose ») : avant d'écraser,
+    // on snapshot la config COURANTE dans wdg:<uid>:bak — au plus 1 fois toutes les ~6 h (sinon le backup
+    // ne serait que « l'état d'il y a 700 ms », inutile pour récupérer d'une fausse manip en série).
+    try {
+      const cur = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL);
+      if (cur && Array.isArray(cur.layouts) && cur.layouts.length) {
+        const bak = await auth.aiCacheGet('wdg:' + uid + ':bak', _WDG_KV_TTL);
+        if (!bak || !bak.at || Date.now() - bak.at > 6 * 3600e3) {
+          await auth.aiCacheSet('wdg:' + uid + ':bak', { at: Date.now(), cfg: cur });
+        }
+      }
+    } catch {}
+    await auth.aiCacheSet('wdg:' + uid, cfg);
     res.json({ ok: true, cfg });
+  } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+// État de la sauvegarde (date) — pour afficher « Restaurer la sauvegarde du … » dans le gestionnaire.
+app.get('/api/widgets/backup', async (req, res) => {
+  if (!req.session?.userId) return res.json({ at: null });
+  try {
+    const bak = await auth.aiCacheGet('wdg:' + req.session.userId + ':bak', _WDG_KV_TTL);
+    res.json({ at: (bak && bak.at) || null });
+  } catch { res.json({ at: null }); }
+});
+// RESTAURATION (réversible) : la sauvegarde devient la config courante, et la config courante devient la
+// sauvegarde → un « Restaurer » malencontreux se re-restaure d'un clic.
+app.post('/api/widgets/restore', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try {
+    const uid = req.session.userId;
+    const bak = await auth.aiCacheGet('wdg:' + uid + ':bak', _WDG_KV_TTL);
+    if (!bak || !bak.cfg || !Array.isArray(bak.cfg.layouts)) return res.json({ ok: false, error: 'aucune sauvegarde' });
+    const cur = await auth.aiCacheGet('wdg:' + uid, _WDG_KV_TTL);
+    const restored = _wdgClean(bak.cfg);
+    await auth.aiCacheSet('wdg:' + uid, restored);
+    if (cur && Array.isArray(cur.layouts)) await auth.aiCacheSet('wdg:' + uid + ':bak', { at: Date.now(), cfg: cur });   // échange → réversible
+    res.json({ ok: true, cfg: restored });
   } catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 

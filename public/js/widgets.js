@@ -678,7 +678,29 @@
       if (c.active === id) c.active = c.layouts[0].id;
       save(); renderBar(); renderManager(); renderGrid();
     },
-    openManager: function () { var d = document.getElementById('wdg-mgr'); if (d) { _delConfirm = null; d.classList.add('open'); renderManager(); } },
+    openManager: function () {
+      var d = document.getElementById('wdg-mgr'); if (!d) return;
+      _delConfirm = null; d.classList.add('open'); renderManager();
+      // SAUVEGARDE PAR COMPTE (demande user « récupérable si un souci s'impose ») : affiche la date du
+      // snapshot serveur + bouton Restaurer (réversible : la config courante devient la sauvegarde).
+      var slot = document.getElementById('wdg-mgr-bak');
+      if (!slot) { slot = document.createElement('div'); slot.id = 'wdg-mgr-bak'; slot.className = 'wdg-mgr-bak'; var foot = d.querySelector('.wdg-mgr-foot'); if (foot) foot.insertBefore(slot, foot.firstChild); }
+      slot.innerHTML = '';
+      fetch('/api/widgets/backup').then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.at || !slot.isConnected) return;
+        var dt = new Date(j.at).toLocaleString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+        slot.innerHTML = '<span class="wdg-mgr-bak-lbl">Sauvegarde auto du ' + esc(dt) + '</span>'
+          + '<button class="wdg-btn" onclick="DTPWidgets.restoreBackup()" title="Revenir à cette sauvegarde (réversible : l\'état actuel devient la sauvegarde)">Restaurer</button>';
+      }).catch(function () {});
+    },
+    restoreBackup: function () {
+      fetch('/api/widgets/restore', { method: 'POST' }).then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok || !j.cfg) return;
+        STATE.cfg = j.cfg;
+        renderBar(); renderManager(); renderGrid();
+        API.openManager();   // rafraîchit la date de sauvegarde (désormais = l'ancien état courant, ré-échangeable)
+      }).catch(function () {});
+    },
     closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); },
     editTab: editTab,                                     // double-clic sur un onglet → renommage inline
 
