@@ -220,6 +220,95 @@
         return function () { clearInterval(t); };
       },
     },
+    {
+      id: 'calculatrice', name: 'Calculatrice de position', cat: 'Outils', h: 280,
+      desc: 'Taille de lot depuis capital, risque % et stop (pips).',
+      // AUTONOME (aucune dépendance au desk) et VOLATILE (charte DTP : pas de localStorage) — calcul instantané.
+      mount: function (host) {
+        var f = function (lbl, val, suf) {
+          return '<label class="wdg-calc-row"><span class="wdg-calc-lbl">' + lbl + '</span>'
+            + '<span class="wdg-calc-in"><input type="number" inputmode="decimal" value="' + val + '" step="any" min="0">'
+            + (suf ? '<em>' + suf + '</em>' : '') + '</span></label>';
+        };
+        host.innerHTML = '<div class="wdg-calc">'
+          + f('Capital', 10000, '$') + f('Risque', 1, '%') + f('Stop-loss', 20, 'pips') + f('Valeur du pip (1 lot)', 10, '$')
+          + '<div class="wdg-calc-out"><div class="wdg-calc-o"><span>Risque</span><b class="wdg-calc-risk">—</b></div>'
+          + '<div class="wdg-calc-o wdg-calc-o--main"><span>Taille de position</span><b class="wdg-calc-lots">—</b></div></div>'
+          + '<div class="wdg-calc-note">Position = (capital × risque %) ÷ (stop × valeur du pip). <button class="wdg-calc-open" type="button">Calculatrice complète ›</button></div>'
+          + '</div>';
+        var ins = host.querySelectorAll('input');
+        var compute = function () {
+          var cap = parseFloat(ins[0].value) || 0, rk = parseFloat(ins[1].value) || 0,
+              sl = parseFloat(ins[2].value) || 0, pv = parseFloat(ins[3].value) || 0;
+          var risk = cap * rk / 100;
+          var lots = (sl > 0 && pv > 0) ? risk / (sl * pv) : 0;
+          var rEl = host.querySelector('.wdg-calc-risk'), lEl = host.querySelector('.wdg-calc-lots');
+          if (rEl) rEl.textContent = risk > 0 ? risk.toFixed(2) + ' $' : '—';
+          if (lEl) lEl.textContent = lots > 0 ? lots.toFixed(2) + ' lot' + (lots >= 2 ? 's' : '') : '—';
+        };
+        ins.forEach(function (i) { i.addEventListener('input', compute); });
+        var open = host.querySelector('.wdg-calc-open');
+        if (open) open.addEventListener('click', function () { if (typeof activateView === 'function') activateView('calculator'); });
+        compute();
+        return null;
+      },
+    },
+    {
+      id: 'journal-mini', name: 'Journal de trading', cat: 'Outils', h: 300,
+      desc: 'Tes derniers trades et ton taux de réussite, en un coup d\'œil.',
+      // Lecture seule de /api/journal (source de vérité du compte). Détection SOUPLE des colonnes (gabarit DTP
+      // OU journal importé) : paire / sens / résultat / P&L par alias — jamais de valeur inventée.
+      mount: function (host) {
+        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
+        fetch('/api/journal').then(function (r) { return r.json(); }).then(function (j) {
+          if (!host.isConnected) return;
+          var entries = (j && j.entries) || [];
+          if (!entries.length) {
+            host.innerHTML = '<div class="wdg-jr-empty"><div>Aucun trade enregistré.</div>'
+              + '<button class="wdg-btn" type="button">Ouvrir le Journal ›</button></div>';
+            var b0 = host.querySelector('button');
+            if (b0) b0.addEventListener('click', function () { if (typeof activateView === 'function') activateView('journal'); });
+            return;
+          }
+          var keys = Object.keys(entries[0] || {});
+          var find = function (rx) { for (var i = 0; i < keys.length; i++) if (rx.test(keys[i])) return keys[i]; return null; };
+          var kDate = find(/date|jour/i), kPair = find(/paire|pair|symbol|instrument|actif/i),
+              kSide = find(/sens|side|direction|\btype\b/i), kRes = find(/r[ée]sultat|result|issue|outcome/i),
+              kPnl = find(/pnl|p&l|profit|gain|\$/i);
+          var wins = 0, losses = 0;
+          entries.forEach(function (e) {
+            var pnl = kPnl ? parseFloat(String(e[kPnl]).replace(/[^0-9.\-]/g, '')) : NaN;
+            var res = kRes ? String(e[kRes]) : '';
+            if (isFinite(pnl) && pnl !== 0) { if (pnl > 0) wins++; else losses++; }
+            else if (/tp|profit|win|gagn/i.test(res)) wins++;
+            else if (/\bsl\b|loss|perte|perd/i.test(res)) losses++;
+          });
+          var tot = wins + losses;
+          var wr = tot ? Math.round(wins / tot * 100) : null;
+          var rows = entries.slice(-6).reverse().map(function (e) {
+            var pnl = kPnl ? parseFloat(String(e[kPnl]).replace(/[^0-9.\-]/g, '')) : NaN;
+            var res = kRes ? String(e[kRes] || '') : '';
+            var good = (isFinite(pnl) && pnl > 0) || /tp|profit|win|gagn/i.test(res);
+            var bad = (isFinite(pnl) && pnl < 0) || /\bsl\b|loss|perte|perd/i.test(res);
+            var cls = good ? 'up' : bad ? 'down' : '';
+            var resTxt = isFinite(pnl) && pnl !== 0 ? ((pnl > 0 ? '+' : '') + pnl) : (res || '—');
+            return '<div class="wdg-jr-row">'
+              + '<span class="wdg-jr-date">' + esc(kDate ? e[kDate] : '') + '</span>'
+              + '<span class="wdg-jr-pair">' + esc(kPair ? e[kPair] : '') + '</span>'
+              + '<span class="wdg-jr-side">' + esc(kSide ? e[kSide] : '') + '</span>'
+              + '<span class="wdg-jr-res ' + cls + '">' + esc(resTxt) + '</span></div>';
+          }).join('');
+          host.innerHTML = '<div class="wdg-jr">'
+            + '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
+            + (wr != null ? '<span>Réussite <b class="' + (wr >= 50 ? 'up' : 'down') + '">' + wr + ' %</b></span>' : '')
+            + '<button class="wdg-jr-openbtn" type="button">Ouvrir ›</button></div>'
+            + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div></div>';
+          var b = host.querySelector('.wdg-jr-openbtn');
+          if (b) b.addEventListener('click', function () { if (typeof activateView === 'function') activateView('journal'); });
+        }).catch(function () { fallback(host, 'Journal indisponible.'); });
+        return null;
+      },
+    },
   ];
 
   function byId(id) { for (var i = 0; i < CATALOG.length; i++) if (CATALOG[i].id === id) return CATALOG[i]; return null; }
@@ -409,14 +498,14 @@
     for (var i = 0; i < c.layouts.length; i++) if (c.layouts[i].id === id) return c.layouts[i];
     return null;
   }
-  // Onglets de layouts (templates) dans l'en-tête : clic = bascule, ＋ = créer.
+  // Onglets de layouts (templates) dans l'en-tête : clic = bascule, DOUBLE-CLIC = renommer (inline), ＋ = créer.
   function renderBar() {
     var el = document.getElementById('wdg-layouts'); var c = STATE.cfg;
     if (!el) return;
     if (!c || !c.layouts.length) { el.innerHTML = ''; return; }
     var tabs = c.layouts.map(function (l) {
-      return '<button class="wdg-lay' + (l.id === c.active ? ' on' : '') + '" title="' + esc(l.name) + '"'
-        + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')">'
+      return '<button class="wdg-lay' + (l.id === c.active ? ' on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
+        + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
         + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
         + '<span class="wdg-lay-name">' + esc(l.name) + '</span></button>';
     }).join('');
@@ -424,6 +513,30 @@
       + (c.layouts.length < _LMAX
           ? '<button class="wdg-lay wdg-lay-add" title="Créer un layout" onclick="DTPWidgets.createLayout()">+</button>'
           : '');
+  }
+  // Renommage INLINE d'un onglet (double-clic) : le nom devient un champ, Entrée/blur valide, Échap annule.
+  function editTab(id) {
+    var l = layoutById(id); if (!l) return;
+    var btn = document.querySelector('.wdg-lay[data-lay="' + id + '"]'); if (!btn) return;
+    var span = btn.querySelector('.wdg-lay-name'); if (!span) return;
+    var input = document.createElement('input');
+    input.className = 'wdg-lay-edit';
+    input.value = l.name; input.maxLength = 40; input.spellcheck = false;
+    span.replaceWith(input);
+    input.focus(); input.select();
+    var done = false;
+    var commit = function (keep) {
+      if (done) return; done = true;
+      if (keep) API.renameLayout(id, input.value);
+      renderBar();
+    };
+    input.addEventListener('blur', function () { commit(true); });
+    input.addEventListener('keydown', function (e) {
+      e.stopPropagation();
+      if (e.key === 'Enter') commit(true);
+      else if (e.key === 'Escape') commit(false);
+    });
+    input.addEventListener('click', function (e) { e.stopPropagation(); });   // ne pas re-déclencher switchLayout
   }
   // Gestionnaire de layouts (overlay) : favori · renommer (inline) · ouvrir · supprimer (confirmation inline).
   function renderManager() {
@@ -446,17 +559,34 @@
           ? '<button class="wdg-mgr-new" onclick="DTPWidgets.createLayout()">+ Créer un layout</button>'
           : '<div class="wdg-mgr-full">Plafond de ' + _LMAX + ' layouts atteint.</div>');
   }
+  // Icônes de widget (dessins DTP originaux) — par id, repli sur l'icône de sa catégorie.
+  var WICO = {
+    'force-devises': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 6-8"/><path d="M18 6h3v3"/></svg>',
+    'barometre': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 12v-5M9 12v-8M13 12v-3M17 12v-7M5 12v4M9 12v2M13 12v6M17 12v3"/><path d="M3 12h18" opacity=".45"/></svg>',
+    'classement-devises': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h10M4 12h14M4 18h7"/><circle cx="20" cy="6" r="1.4" fill="currentColor" stroke="none"/></svg>',
+    'risque-historique': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16c2-1 3-6 5-6s3 8 5 8 3-11 5-11 2 4 3 4"/></svg>',
+    'calendrier-jour': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8 3.5v3M16 3.5v3"/></svg>',
+    'fil-news': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 6h14M5 10.5h14M5 15h9"/><circle cx="18.5" cy="17.5" r="2" /></svg>',
+    'calculatrice': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01"/></svg>',
+    'journal-mini': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 12h5.5"/></svg>',
+  };
   function renderLib() {
     var box = document.getElementById('wdg-lib-grid'); if (!box) return;
     var lay = activeLayout(), used = {};
     (lay ? lay.items : []).forEach(function (i) { used[i.w] = (used[i.w] || 0) + 1; });
-    box.innerHTML = CATALOG.map(function (w) {
-      return '<button class="wdg-lib-card" onclick="DTPWidgets.add(\'' + w.id + '\')">'
-        + '<span class="wdg-lib-cat">' + esc(w.cat) + '</span>'
-        + '<span class="wdg-lib-name">' + esc(w.name) + '</span>'
-        + '<span class="wdg-lib-desc">' + esc(w.desc) + '</span>'
-        + (used[w.id] ? '<span class="wdg-lib-used">déjà ' + used[w.id] + '×</span>' : '')
-        + '</button>';
+    // GROUPÉE PAR CATÉGORIE (ordre d'apparition du catalogue) : un intitulé de section + les cartes de la famille.
+    var cats = [];
+    CATALOG.forEach(function (w) { if (cats.indexOf(w.cat) === -1) cats.push(w.cat); });
+    box.innerHTML = cats.map(function (cat) {
+      var cards = CATALOG.filter(function (w) { return w.cat === cat; }).map(function (w) {
+        return '<button class="wdg-lib-card" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
+          + '<span class="wdg-lib-ico">' + (WICO[w.id] || '') + '</span>'
+          + '<span class="wdg-lib-main"><span class="wdg-lib-name">' + esc(w.name) + '</span>'
+          + '<span class="wdg-lib-desc">' + esc(w.desc) + '</span></span>'
+          + (used[w.id] ? '<span class="wdg-lib-used">' + used[w.id] + '×</span>' : '<span class="wdg-lib-plus">+</span>')
+          + '</button>';
+      }).join('');
+      return '<div class="wdg-lib-sec">' + esc(cat) + '</div><div class="wdg-lib-row">' + cards + '</div>';
     }).join('');
   }
 
@@ -550,6 +680,7 @@
     },
     openManager: function () { var d = document.getElementById('wdg-mgr'); if (d) { _delConfirm = null; d.classList.add('open'); renderManager(); } },
     closeManager: function () { var d = document.getElementById('wdg-mgr'); if (d) d.classList.remove('open'); },
+    editTab: editTab,                                     // double-clic sur un onglet → renommage inline
 
     reset: function () { _delConfirm = null; STATE.cfg = defaultCfg(); save(); renderBar(); renderManager(); renderGrid(); },
   };
