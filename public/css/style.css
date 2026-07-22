@@ -5235,6 +5235,10 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* v34 — Catalyseurs de la semaine : chiffre publié en gras clair, impact devise estompé en fin de ligne. */
 .wr-cat b { color:#fff; font-weight:var(--fw-semibold); }
 .wr-cat-impact { color:#9aa4b2; }
+/* Puces déterministes v39 (intervenants BC + prints réel/attendu) — façon note institutionnelle */
+.wr-print-ctry { color:#9aa4b2; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+.wr-print-date { color:#7e8590; font-size:10.5px; }
+.wr-cb-stance  { color:#e0b452; font-weight:600; text-transform:none; letter-spacing:0; font-size:11px; }
 /* Ligne séparatrice entre les PARTIES des Points Macro Clés (Géopolitique / BC / Inflation & Croissance /
    Cross-Asset / Commerce & Tarifs / Techno…) : le bloc respire (demande user). Fine, très sombre (--hud-line). */
 .wr-sep { border-top: 1px solid var(--hud-line, #1c1c20); margin: 24px 0 6px; }
