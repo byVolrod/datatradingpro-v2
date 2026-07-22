@@ -2539,6 +2539,26 @@ async function _buildTVCalendarRange(backMonths) {
   _tvRangeCache.set(backMonths, { ts: Date.now(), items });
   return items;
 }
+// ── FICHE ÉVÉNEMENT (phase 2 différée, reprise 23/07) : HISTORIQUE DES PUBLICATIONS d'un indicateur —
+//    les ~8 dernières sorties du MÊME événement (même devise + même libellé) sur ~6 mois de calendrier
+//    TradingView (cache 4 min). Alimente le bloc « Historique des publications » du déroulé calendrier.
+//    Auth-gated par défaut (desk only). 0 IA, mêmes chiffres que l'onglet Calendrier. ──
+app.get('/api/event-history', async (req, res) => {
+  try {
+    const ccy = String(req.query.ccy || '').toUpperCase().slice(0, 3);
+    const title = String(req.query.title || '').slice(0, 90);
+    if (!ccy || !title) return res.json({ items: [] });
+    let cal = [];
+    try { cal = await _buildTVCalendarRange(6); } catch {}
+    const items = (cal || [])
+      .filter(e => e && e.currency === ccy && e.title === title && e.actual && (e.timestamp || 0) <= Date.now())
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0))
+      .slice(-8)
+      .map(e => ({ ts: e.timestamp, actual: e.actual, forecast: e.forecast || '', previous: e.previous || '' }));
+    res.json({ items });
+  } catch (e) { res.json({ items: [] }); }
+});
+
 // ── HISTORIQUE GLISSANT du calendrier (60 j) : chaque événement PUBLIÉ (actual présent) est
 // accumulé (mémoire + Supabase 'calhist:events') et fusionné dans /api/calendar-events.
 // Raison : la fenêtre TradingView ne couvre que la semaine courante → les sous-indicateurs du

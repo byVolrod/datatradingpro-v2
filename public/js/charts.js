@@ -3446,6 +3446,7 @@ async function toggleCalDetailRow(tr, ev) {
     if (bodyEl && bodyEl.isConnected) {
       bodyEl.innerHTML = kbHtml || '<div class="cal-detail-empty">Aucun détail supplémentaire disponible.</div>';
       if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(bodyEl, '.cal-kb-quote');   // propos BC (titres du fil, EN) → FR en place (demande user 17/07)
+      _calAppendHistory(bodyEl, ev);   // fiche événement : historique des publications (~6 mois), async
     }
     return;
   }
@@ -3462,6 +3463,41 @@ async function toggleCalDetailRow(tr, ev) {
   const detHtml = _calDetailBodyHtml(d);
   bodyEl.innerHTML = (kbHtml + detHtml) || '<div class="cal-detail-empty">Détails indisponibles pour le moment.</div>';
   if (window._dtpTranslateQuotes) window._dtpTranslateQuotes(bodyEl, '.cal-kb-quote');   // propos BC → FR en place
+  _calAppendHistory(bodyEl, ev);   // fiche événement : historique des publications (~6 mois), async
+}
+
+// ── FICHE ÉVÉNEMENT — « Historique des publications » (phase 2 différée, livrée 23/07) : les dernières
+//    sorties du MÊME indicateur (~6 mois, /api/event-history) en MINI-BARRES + valeurs, ancien → récent.
+//    Réel coloré par la SURPRISE (vert = mieux que prévu pour la devise ; chômage/inscriptions inversés).
+//    Ajouté APRÈS le rendu du déroulé (async) ; silencieux si < 2 publications. 0 IA. ──
+async function _calAppendHistory(bodyEl, ev) {
+  if (!bodyEl || !ev || !ev.title || !ev.currency) return;
+  if (bodyEl.querySelector('.cal-hist-table')) return;   // le déroulé a déjà une table Historique (scrape détail) — pas de doublon
+  try {
+    const j = await fetch('/api/event-history?ccy=' + encodeURIComponent(ev.currency) + '&title=' + encodeURIComponent(ev.title)).then(r => r.json());
+    const rows = (j && j.items) || [];
+    if (rows.length < 2 || !bodyEl.isConnected) return;
+    const nums = rows.map(r => _calNum(r.actual)).filter(v => v != null);
+    if (nums.length < 2) return;
+    const min = Math.min.apply(null, nums), max = Math.max.apply(null, nums), span = (max - min) || 1;
+    const inv = /unemployment|jobless|claims/i.test(ev.title || '');
+    const cols = rows.map(r => {
+      const d = r.ts ? new Date(r.ts).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }) : '';
+      const a = _calNum(r.actual), f = _calNum(r.forecast);
+      let cls = '';
+      if (a != null && f != null && a !== f) cls = ((a > f) === !inv) ? 'g' : 'r';
+      const hpct = a != null ? Math.max(10, Math.round(((a - min) / span) * 100)) : 10;
+      return `<div class="cal-hist-col" title="${_calEsc(r.actual)}${r.forecast ? ' (prév. ' + _calEsc(r.forecast) + ')' : ''} — ${_calEsc(d)}">
+        <div class="cal-hist-barwrap"><div class="cal-hist-bar ${cls}" style="height:${hpct}%"></div></div>
+        <div class="cal-hist-val ${cls}">${_calEsc(r.actual)}</div>
+        <div class="cal-hist-prev">${r.forecast ? 'prév. ' + _calEsc(r.forecast) : '&nbsp;'}</div>
+        <div class="cal-hist-date">${_calEsc(d)}</div></div>`;
+    }).join('');
+    const box = document.createElement('div');
+    box.className = 'cal-kb cal-hist';
+    box.innerHTML = `<div class="cal-detail-section">Historique des publications <span class="cal-hist-sub">ancien → récent · ~6 mois</span></div><div class="cal-hist-row custom-scrollbar">${cols}</div>`;
+    bodyEl.appendChild(box);
+  } catch {}
 }
 
 // ── Calendar helper: refresh data from server ─────────────────────────────────
