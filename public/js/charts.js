@@ -3219,6 +3219,15 @@ const CAL_KB = [
   { rx: /building\s+permits|housing\s+starts|home\s+sales|new\s+home/i, name: 'Immobilier', cat: 'Croissance', what: 'La santé du secteur immobilier (permis, mises en chantier, ventes).', anticipates: 'Croissance, emploi BTP', nextRx: /\bgdp\b/i, hiUp: true },
   { rx: /industrial\s+production/i, name: 'Production industrielle', cat: 'Croissance', what: 'Ce que produisent les usines, mines et services publics.', anticipates: 'PIB, PMI manufacturier', nextRx: /\bgdp\b|pmi/i, hiUp: true },
   { rx: /durable\s+goods/i, name: 'Commandes de biens durables', cat: 'Croissance', what: 'Les commandes de biens qui durent (machines, avions, autos).', anticipates: 'Investissement des entreprises, PIB', nextRx: /\bgdp\b/i, hiUp: true },
+  // Familles COMPLÉMENTAIRES (demande user 23/07 « décryptage pour chaque événement ») — noConcl : pas de
+  // conclusion directionnelle automatique quand la polarité devise n'est pas univoque (taux crédit, stocks…).
+  { rx: /mortgage/i, name: 'Crédit immobilier', cat: 'Taux', what: 'Le taux (ou la demande) des crédits immobiliers — la santé du financement du logement.', anticipates: 'Immobilier, consommation', nextRx: /housing|home|building/i, hiUp: true, noConcl: true },
+  { rx: /crude|gasoline|distillate|natural gas storage|oil stock/i, name: "Stocks d'énergie", cat: 'Énergie', what: "Les réserves hebdo américaines (brut, essence, gaz) — l'équilibre offre/demande d'énergie.", anticipates: 'Prix du pétrole et du gaz, CAD', nextRx: /crude|oil/i, hiUp: false, noConcl: true },
+  { rx: /auction/i, name: 'Adjudication obligataire', cat: 'Taux', what: "Une vente de dette d'État : le rendement obtenu montre l'appétit des investisseurs pour ce pays.", anticipates: 'Rendements obligataires, devise', nextRx: /auction/i, hiUp: true, noConcl: true },
+  { rx: /current account/i, name: 'Balance courante', cat: 'Croissance', what: "Tous les échanges du pays avec l'étranger (biens, services, revenus).", anticipates: 'Devise, PIB', nextRx: /\bgdp\b|trade balance/i, hiUp: true },
+  { rx: /zew|\bifo\b|sentix|business climate|economic sentiment/i, name: 'Climat des affaires', cat: 'Croissance', what: "Le moral des investisseurs et des entreprises — un signal AVANCÉ de l'activité.", anticipates: 'PIB, PMI', nextRx: /\bgdp\b|pmi/i, hiUp: true },
+  { rx: /money supply|\bm2\b|\bm3\b/i, name: 'Masse monétaire', cat: 'Inflation', what: 'La quantité de monnaie en circulation dans l\'économie.', anticipates: 'Inflation à moyen terme', nextRx: /\bcpi\b|inflation/i, hiUp: true, noConcl: true },
+  { rx: /capacity utilization|factory orders/i, name: 'Activité industrielle', cat: 'Croissance', what: 'Le remplissage des usines et leurs carnets de commandes.', anticipates: 'PIB, production industrielle', nextRx: /\bgdp\b|industrial/i, hiUp: true },
   { rx: /\bpmi\b/i, name: 'PMI', cat: 'Croissance', what: 'Le moral des directeurs d\'achats (au-dessus de 50 = expansion, en dessous = contraction).', anticipates: 'PIB, tendance de l\'activité', nextRx: /\bgdp\b/i, hiUp: true },
 ];
 // Événements de BANQUE CENTRALE (discours, minutes, conférences, décisions)
@@ -3321,7 +3330,20 @@ async function _calValueBlockHtml(ev) {
   }
   // 2) DONNÉE ÉCO : base de connaissance pédagogique
   const kb = CAL_KB.find(k => k.rx.test(title));
-  if (!kb) return '';
+  if (!kb) {
+    // JAMAIS de cul-de-sac (demande user 23/07 « décryptage pour chaque événement ») : bloc GÉNÉRIQUE honnête
+    // pour un indicateur hors familles majeures — lecture par la SURPRISE, sans jugement de polarité inventé.
+    const a2 = _calNum(ev.actual), f2 = _calNum(ev.forecast);
+    const g = [];
+    g.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">À savoir</span><span class="cal-kb-val"><span class="cal-kb-cat">Indicateur</span> Indicateur secondaire (hors familles majeures suivies par le desk) : il se lit par sa SURPRISE (réel vs prévision) plus que par son niveau — réaction de marché généralement limitée.</span></div>`);
+    if (a2 != null && f2 != null) {
+      const lec = a2 > f2 ? 'AU-DESSUS de la prévision' : a2 < f2 ? 'SOUS la prévision' : 'EN LIGNE avec la prévision';
+      g.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">Réel (${_calEsc(ev.actual)}) ${lec} (${_calEsc(ev.forecast)}).</span></div>`);
+    } else if (ev.previous) {
+      g.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Repère</span><span class="cal-kb-val">Valeur précédente : ${_calEsc(ev.previous)}.</span></div>`);
+    }
+    return `<div class="cal-kb"><div class="cal-detail-section">Décryptage DTP</div>${g.join('')}</div>`;
+  }
   rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ce que ça mesure</span><span class="cal-kb-val"><span class="cal-kb-cat">${kb.cat}</span> ${_calEsc(kb.what)}</span></div>`);
   // Lecture factuelle du chiffre publié vs prévision
   const a = _calNum(ev.actual), f = _calNum(ev.forecast);
@@ -3329,7 +3351,7 @@ async function _calValueBlockHtml(ev) {
     const lecture = a > f ? 'AU-DESSUS de la prévision' : a < f ? 'SOUS la prévision' : 'EN LIGNE avec la prévision';
     rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture</span><span class="cal-kb-val">Réel (${_calEsc(ev.actual)}) ${lecture} (${_calEsc(ev.forecast)}).</span></div>`);
   }
-  const conclusion = _calConclusion(kb, a, f, ev);
+  const conclusion = kb.noConcl ? '' : _calConclusion(kb, a, f, ev);   // noConcl : polarité devise non univoque → pas de verdict automatique
   if (conclusion) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Conclusion</span><span class="cal-kb-val">${conclusion}</span></div>`);
   rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Peut aider à anticiper</span><span class="cal-kb-val">${_calEsc(kb.anticipates)}</span></div>`);
   // Prochaine échéance LIÉE réellement présente dans le calendrier chargé (même devise, après cet événement)
