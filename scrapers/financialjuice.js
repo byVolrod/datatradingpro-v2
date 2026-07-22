@@ -72,6 +72,7 @@ let _dbgRedCount  = 0;          // DEBUG temporaire : capture la donnee brute de
 let _dbgEvCount   = 0;          // DEBUG temporaire : trace le type d'evenement FJ (sendUpdates vs sendHeadlineUpdated) AVANT dedup
 let _wsRetryCount = 0;          // consecutive WS failures — drives exponential backoff
 let _pagePollingTimer = null;   // setInterval handle for in-page news polling
+let _lastActivityAt = Date.now();   // dernier SIGNE DE VIE du flux (frame WS node — pings inclus — ou ingestion relais navigateur) → watchdog anti connexion « ouverte mais morte »
 
 // ─── Minimal cookie jar ───────────────────────────────────────────────────────
 
@@ -563,6 +564,7 @@ function getTokenChannels(token) {
 
 function ingestRawData(rawData, label) {
   if (!rawData) return;
+  _lastActivityAt = Date.now();   // signe de vie (couvre le relais navigateur, où les pings ne passent pas par _ws)
   if (Array.isArray(rawData)) {
     for (const d of rawData) ingestRawData(d, label);
     return;
@@ -701,6 +703,7 @@ function connectCentrifugo(token) {
   });
 
   _ws.on('message', (rawFrame) => {
+    _lastActivityAt = Date.now();   // signe de vie (les pings Centrifugo ~25 s comptent aussi)
     const text = Buffer.isBuffer(rawFrame) ? rawFrame.toString('utf8') : rawFrame.toString();
     console.log('[FJ ws-raw]', text.substring(0, 200));
     for (const line of text.split('\n')) {
@@ -961,6 +964,21 @@ async function doReconnect() {
 async function initFinancialJuice() {
   if (_initialized) return;
   _initialized = true;
+  // WATCHDOG anti connexion « ouverte mais morte » (trou vécu 20-21/07 : ~20 h SANS news, zéro erreur —
+  // le WS restait half-open, `close` ne tirait jamais, et _wsUp=true DÉSACTIVAIT aussi le repli HTTP).
+  // Un flux sain émet des pings toutes les ~25 s (WS node) ou des items réguliers (relais navigateur) →
+  // 25 min de silence TOTAL = lien mort : on ré-arme le repli HTTP tout de suite (_wsUp=false) puis
+  // reconnexion complète (le rattrapage 6 h de reconnexion comble le mini-trou, dédup _seenHttp).
+  setInterval(() => {
+    if (!_authDone) return;
+    const quiet = Date.now() - _lastActivityAt;
+    if (quiet > 25 * 60e3) {
+      console.warn(`[FJ watchdog] aucun signe de vie depuis ${Math.round(quiet / 60e3)} min — repli HTTP ré-armé + reconnexion forcée`);
+      _lastActivityAt = Date.now();   // anti re-tir en boucle pendant que la reconnexion s'établit
+      _wsUp = false;                  // le fast-poll rebascule sur fetchNewsViaHttp dès le prochain tick
+      doReconnect().catch(() => {});
+    }
+  }, 60e3);
   try {
     await authenticate();
     const token = await getToken();
