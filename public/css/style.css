@@ -3333,10 +3333,16 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* Chaîne d'HISTORIQUE (tendance visible avec les précédents, ancien → récent) — sous la valeur, alignée à droite.
    Lisibilité (demande user 23/07 « les anciennes on n'arrive pas à bien lire ») : valeurs ÉCLAIRCIES et agrandies,
    flèches discrètes, la DERNIÈRE (= valeur publiée) en gras clair. */
-.mdet-hist { display: block; margin-top: 3px; color: #aeb8c6; font-size: 11.5px; font-variant-numeric: tabular-nums; letter-spacing: .01em; white-space: normal; overflow-wrap: anywhere; }   /* la chaîne se REPLIE au lieu de déborder */
-.mdet-hist b { color: #e5e7eb; font-weight: 700; }
-.mdet-hist i { font-style: normal; color: #6f7683; }
-.mdet-hist em { font-style: normal; color: #7e8590; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; margin-right: 2px; }   /* libellé « Ancien → récent : » (ordre explicite, demande user) */
+/* Historique daté (v40) : ligne PLEINE LARGEUR sous la valeur — libellé « Ancien → récent » ancré à GAUCHE
+   de la case (toutes les lignes s'alignent, demande user 23/07), chaîne de micro-colonnes date/valeur à droite. */
+.mdet-hist { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 3px 10px; flex-basis: 100%; min-width: 0; margin-top: 5px; }
+.mdet-hist em { flex: 0 0 auto; font-style: normal; color: #7e8590; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; padding-bottom: 1px; }
+.mdet-hchain { display: inline-flex; align-items: flex-end; flex-wrap: wrap; justify-content: flex-end; gap: 2px 7px; margin-left: auto; min-width: 0; }
+.mdet-hi { display: inline-flex; flex-direction: column; align-items: center; gap: 1px; }
+.mdet-hd { font-size: 9px; color: #727a86; letter-spacing: .02em; white-space: nowrap; line-height: 1.2; }
+.mdet-hv { font-size: 11.5px; color: #aeb8c6; font-variant-numeric: tabular-nums; line-height: 1.3; }
+.mdet-hv-last { color: #e5e7eb; font-weight: 700; }
+.mdet-ha { font-style: normal; color: #6f7683; font-size: 11px; align-self: flex-end; padding-bottom: 1px; }
 /* Étiquette pays zone euro (All. / Fr. / Esp. / It.) devant la valeur — publication nationale sous EUR */
 .mdet-ctry { color: #9aa4b2; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .mdet-field .mt-tag { margin: 0; }

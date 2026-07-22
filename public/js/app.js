@@ -4220,7 +4220,7 @@ function _sbOpenDetail(curr) {
   // Pays d'origine zone euro (demande user « EUR = Allemagne + France ») : étiquette courte devant la valeur.
   const CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
   const rel = o => {
-    if (!o || o.actual == null) return na;
+    if (!o || o.actual == null) return { main: na, hist: '' };
     const hasHist = Array.isArray(o.hist) && o.hist.length >= 2;
     let h = `<b class="${relCls(o.surprise)}">${esc(o.actual)}</b>`;
     if (o.ctry && CTRY_FR[o.ctry]) h = `<span class="mdet-ctry" title="Publication ${o.ctry === 'DE' ? 'allemande' : o.ctry === 'FR' ? 'française' : o.ctry === 'ES' ? 'espagnole' : 'italienne'}">${CTRY_FR[o.ctry]}</span> ` + h;
@@ -4232,13 +4232,24 @@ function _sbOpenDetail(curr) {
     if (o.previous != null && !hasHist) bits.push(`préc. ${esc(o.previous)}`);
     if (bits.length) h += ` <span class="mdet-ref">${bits.join(' · ')}</span>`;
     if (o.ts) h += ` <span class="mdet-date">${esc(fmtDate(o.ts))}</span>`;
-    // TENDANCE visible avec les précédents : chaîne des dernières publications avec ORDRE EXPLICITE
-    // (demande user 23/07 « précise l'ordre pour qu'on comprenne ») — libellé « Ancien → récent » affiché,
-    // la DERNIÈRE valeur (= la publiée, en gras) ferme la chaîne.
-    if (hasHist) h += `<span class="mdet-hist"><em>Ancien&nbsp;→&nbsp;récent&nbsp;:</em> ${o.hist.map((v, i) => i === o.hist.length - 1 ? '<b>' + esc(v) + '</b>' : esc(v)).join(' <i>→</i> ')}</span>`;
-    return h;
+    // TENDANCE avec les précédents, DATÉE et pleine largeur (demande user 23/07 « pas aligné dans leur case » +
+    // « met des dates d'ancien au plus récent ») : chaque publication = micro-colonne date (dessus) + valeur (dessous),
+    // libellé « Ancien → récent » ancré à GAUCHE de la case → toutes les lignes s'alignent. v40 : hist = [{v,t}] ;
+    // tolère l'ancien format string (cache < v40) → colonne sans date le temps de la régén.
+    let hist = '';
+    if (hasHist) {
+      const cols = o.hist.map((x, i) => {
+        const v = (x && typeof x === 'object') ? x.v : x;
+        const t = (x && typeof x === 'object') ? x.t : null;
+        const last = i === o.hist.length - 1;
+        return `<span class="mdet-hi"><span class="mdet-hd">${t ? esc(fmtDate(t)) : '&nbsp;'}</span><span class="mdet-hv${last ? ' mdet-hv-last' : ''}">${esc(v)}</span></span>`;
+      }).join('<i class="mdet-ha">→</i>');
+      hist = `<span class="mdet-hist"><em>Ancien&nbsp;→&nbsp;récent</em><span class="mdet-hchain">${cols}</span></span>`;
+    }
+    return { main: h, hist };
   };
-  const field = (label, valueHtml) => `<div class="mdet-field"><span class="mdet-k">${esc(label)}</span><span class="mdet-v">${valueHtml || na}</span></div>`;
+  const field = (label, valueHtml, histHtml) => `<div class="mdet-field"><span class="mdet-k">${esc(label)}</span><span class="mdet-v">${valueHtml || na}</span>${histHtml || ''}</div>`;
+  const fieldRel = (label, o) => { const p = rel(o); return field(label, p.main, p.hist); };
   const stanceTag = v => v ? tag(_mtCls('stance', v), MT_LBL.stance[v] || v) : na;
   const dirTag = v => v ? tag(_mtCls('ratedir', v), MT_LBL.ratedir[v] || v) : na;
   const lvlTag = v => v ? tag(_mtCls('level', v), MT_LBL.level[v] || v) : na;
@@ -4261,23 +4272,23 @@ function _sbOpenDetail(curr) {
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Inflation</h4>`
       + field('Niveau', lvlTag(inf.level))
       + field('Tendance', trTag(inf.trend))
-      + field('Dernier IPC', rel(inf.cpi))
-      + field('PCE', rel(inf.pce))
-      + field('PPI', rel(inf.ppi))
-      + field('Salaires', rel(inf.wages))
+      + fieldRel('Dernier IPC', inf.cpi)
+      + fieldRel('PCE', inf.pce)
+      + fieldRel('PPI', inf.ppi)
+      + fieldRel('Salaires', inf.wages)
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>`
       + field('Tendance', trendTag(gr.trend))
-      + field('PIB', rel(gr.gdp))
-      + field('PMI / ISM', rel(gr.pmi))
-      + field('Ventes au détail', rel(gr.retail))
-      + field('Confiance conso.', rel(gr.confidence))
+      + fieldRel('PIB', gr.gdp)
+      + fieldRel('PMI / ISM', gr.pmi)
+      + fieldRel('Ventes au détail', gr.retail)
+      + fieldRel('Confiance conso.', gr.confidence)
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>`
       + field('Tendance', trendTag(em.trend))
-      + field('Taux de chômage', rel(em.unemployment))
-      + field("Créations d'emplois", rel(em.payrolls))
-      + field('Inscriptions chômage', rel(em.claims))
+      + fieldRel('Taux de chômage', em.unemployment)
+      + fieldRel("Créations d'emplois", em.payrolls)
+      + fieldRel('Inscriptions chômage', em.claims)
       + `</section>`;
   } else {
     // Repli (cache < v36 sans detail) : les tags macro de base, en attendant la régén.
