@@ -3163,7 +3163,14 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .mt-tag.sbm-na    { color: #6a6a72; background: rgba(120,120,128,.07); border: 0; }
 /* Synthèse de Biais sans volet gauche (Vue macro retirée) : le narratif prend toute la largeur. */
 .sbs-right--full { flex: 1 1 100% !important; width: 100%; }
-@media (max-width: 768px) { .macro-table { min-width: 720px; } }
+/* RESPONSIVE du tableau Radar (demande user 23/07) : sous ~980px la colonne Driver (la plus large) est
+   MASQUÉE — les drivers restent visibles dans l'en-tête du panneau de détail au clic — et les cellules se
+   resserrent → le tableau tient sans scroll horizontal bien plus longtemps ; en dessous, scroll propre. */
+@media (max-width: 980px) {
+  .macro-table th:nth-child(6), .macro-table td:nth-child(6) { display: none; }
+  .macro-table th, .macro-table td { padding: 8px 8px; }
+  .macro-table { min-width: 540px; }
+}
 .sbm-grid { width: 100%; min-width: 0; border-collapse: collapse; font-size: 11px; table-layout: fixed; }
 .sbm-grid th.sbm-ind, .sbm-grid td.sbm-ind { width: 150px; }
 /* Cellules COLLÉES — séparées uniquement par une fine bordure 1px anthracite #16171b */
@@ -3310,24 +3317,27 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .mdet-card { border: 1px solid var(--hud-line, #1c1c20); background: #0d0e11; border-radius: 5px; padding: 11px 13px; transition: border-color .12s; min-height: 100%; }
 .mdet-card:hover { border-color: #2a2a30; }
 .mdet-card-t { margin: 0 0 8px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #e3b23a; }
-.mdet-field { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 5px 0; border-top: 1px solid #16171b; }
+/* LISIBILITÉ des résultats (demande user 23/07) : valeurs plus GRANDES, références plus claires, respiration. */
+.mdet-field { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid #16171b; }
 .mdet-field:first-of-type { border-top: 0; padding-top: 0; }
-.mdet-k { flex: 0 0 auto; font-size: 12px; color: #b6bdc9; white-space: nowrap; }   /* libellés ÉCLAIRCIS (demande user « on voit pas assez bien les textes gris ») */
-.mdet-v { flex: 1 1 auto; text-align: right; font-size: 12px; color: #e5e7eb; min-width: 0; }
-.mdet-v b { font-variant-numeric: tabular-nums; font-weight: 700; }
+.mdet-k { flex: 0 0 auto; font-size: 12.5px; color: #b6bdc9; white-space: nowrap; }
+.mdet-v { flex: 1 1 auto; text-align: right; font-size: 12.5px; color: #e5e7eb; min-width: 0; line-height: 1.5; }
+.mdet-v b { font-variant-numeric: tabular-nums; font-weight: 700; font-size: 13.5px; }
 .mdet-up   { color: #2ae389; }
 .mdet-down { color: #ff7259; }
 .mdet-flat { color: #e5e7eb; }
-.mdet-ref  { color: #98a1ad; font-size: 10.5px; font-variant-numeric: tabular-nums; }
-.mdet-date { color: #7e8590; font-size: 10px; margin-left: 2px; white-space: nowrap; }
+.mdet-ref  { color: #a3adba; font-size: 11px; font-variant-numeric: tabular-nums; }
+.mdet-date { color: #8a919c; font-size: 10.5px; margin-left: 2px; white-space: nowrap; }
 .mdet-na   { color: #5b5d66; }
-.mdet-txt  { color: #cfd4dc; font-size: 11px; line-height: 1.45; }
+.mdet-txt  { color: #cfd4dc; font-size: 11.5px; line-height: 1.5; }
 /* Chaîne d'HISTORIQUE (tendance visible avec les précédents, ancien → récent) — sous la valeur, alignée à droite */
-.mdet-hist { display: block; margin-top: 2px; color: #8f99a6; font-size: 10.5px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.mdet-hist { display: block; margin-top: 3px; color: #949dab; font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
 /* Étiquette pays zone euro (All. / Fr. / Esp. / It.) devant la valeur — publication nationale sous EUR */
 .mdet-ctry { color: #9aa4b2; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .mdet-field .mt-tag { margin: 0; }
-@media (max-width: 720px) { .mdet-grid { grid-template-columns: 1fr; } }
+/* RESPONSIVE (demande user 23/07) : panneau en 1 COLONNE dès que les 2 colonnes seraient à l'étroit
+   (les valeurs + prév./préc. + historique ont besoin de largeur pour rester lisibles). */
+@media (max-width: 1100px) { .mdet-grid { grid-template-columns: 1fr; } }
 .sbs-risk-load { font-size: 11px; color: #6b7280; padding: 6px 0; }
 /* Responsive : quand le PANNEAU (pas le viewport) est trop etroit, le Bias Summary S'EMPILE
    (synthese au-dessus pleine largeur, narratif/risques dessous). Container query → s'adapte au
