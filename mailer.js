@@ -961,13 +961,19 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
     <div style="border:1px solid #232429;border-radius:6px;overflow:hidden;margin:0 0 6px;background:#0d0e11;">
     ${_cbTone.map((c, i) => {
       const bias = _md(c.bias5 || c.stance || 'Neutre');
-      const q = (c.quotes && c.quotes.length) ? c.quotes[0] : null;
-      const _attr = q ? [q.speaker, q.date].filter(Boolean).map(s => _esc(_md(String(s)))).join(', ') : '';   // « Powell, 12 juil. : … » (demande user)
-      const line = q ? ((_attr ? '<b>' + _attr + '&nbsp;:</b> ' : '') + '« ' + _esc(_md(q.quote)) + ' »') : (c.guidance ? _esc(_cutTxt(_md(c.guidance), 170)) : (c.narrative ? _esc(_cutTxt(_md(c.narrative), 170)) : ''));
+      // INTERVENANT PAR INTERVENANT (v39, façon note institutionnelle) : jusqu'à 2 propos attribués par banque
+      // (« Powell, 12 juil. : “…” ») au lieu d'un seul — le lecteur voit QUI a dit QUOI cette semaine.
+      const qs = (c.quotes || []).filter(q => q && q.quote).slice(0, 2);
+      const lines = qs.length
+        ? qs.map(q => {
+            const _attr = [q.speaker, q.date].filter(Boolean).map(s => _esc(_md(String(s)))).join(', ');
+            return (_attr ? '<b>' + _attr + '&nbsp;:</b> ' : '') + '« ' + _esc(_cutTxt(_md(q.quote), 180)) + ' »';
+          })
+        : [(c.guidance ? _esc(_cutTxt(_md(c.guidance), 170)) : (c.narrative ? _esc(_cutTxt(_md(c.narrative), 170)) : ''))].filter(Boolean);
       const est = (c.source && c.source !== 'market') ? ' <span style="color:#7b828f;font-size:9px;font-weight:700;">est.</span>' : '';
       return `<div style="padding:10px 12px;${i ? 'border-top:1px solid #1f1f24;' : ''}">
         <div><span style="color:#f3c344;font-weight:800;font-size:13px;">${_esc(_md(c.bank))}</span> <span style="color:${_cbBiasCol(bias)};font-weight:700;font-size:12px;">${_esc(bias)}</span>${est}</div>
-        ${line ? `<div style="color:#cbd5e1;font-size:12.5px;line-height:1.55;margin-top:3px;font-style:italic;">${line}</div>` : ''}
+        ${lines.map(l => `<div style="color:#cbd5e1;font-size:12.5px;line-height:1.55;margin-top:3px;font-style:italic;">${l}</div>`).join('')}
       </div>`;
     }).join('')}
     </div>` : '';
@@ -975,10 +981,19 @@ function buildWeeklyDigest({ name, email, campaign, weekly } = {}) {
   // l'analyse REELLE de 3 devises du Recap Hebdo, coupees proprement -> teaser fidele, sans noyer le mail.
   let curHtml = '';
   if (_curPick.length) {
-    const rows = _curPick.map(c => `<tr><td style="padding:8px 0;border-top:1px solid #1f1f24;">
+    const rows = _curPick.map(c => {
+      const cd = _curSrc[c] || {};
+      // v39 : sous l'extrait, la ligne PRICING (probas de taux, même source que l'onglet TAUX) + le PRINT
+      // le plus parlant de la semaine (inflation d'abord, sinon croissance/emploi) — factuel, informatif only.
+      const _p = (Array.isArray(cd.inflationPrints) && cd.inflationPrints[0]) || (Array.isArray(cd.growthPrints) && cd.growthPrints[0]) || null;
+      const printLine = _p && _p.actual ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#cbd5e1;font-weight:600;">${_esc(_md(_p.label))}</span>&nbsp;: ${_esc(_p.actual)}${_p.forecast ? ' (attendu ' + _esc(_p.forecast) + ')' : ''}${_p.lean ? ' → ' + _esc(_p.lean) : ''}${_p.date ? ' <span style="color:#7b828f;">(' + _esc(_p.date) + ')</span>' : ''}</div>` : '';
+      const pricingLine = cd.pricing ? `<div style="color:#9aa3b2;font-size:12px;line-height:1.5;margin-top:3px;"><span style="color:#f3c344;font-weight:600;">Pricing&nbsp;:</span> ${_esc(_cutTxt(_md(cd.pricing), 150))}</div>` : '';
+      return `<tr><td style="padding:8px 0;border-top:1px solid #1f1f24;">
         <span style="color:#f3c344;font-weight:800;font-size:12.5px;">${c}</span>
-        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_md(_curSrc[c].analysis), 230))}</div>
-      </td></tr>`).join('');
+        <div style="color:#cbd5e1;font-size:13px;line-height:1.55;margin-top:2px;">${_esc(_cutTxt(_md(cd.analysis), 230))}</div>
+        ${printLine}${pricingLine}
+      </td></tr>`;
+    }).join('');
     curHtml = `<p style="margin:14px 0 4px;color:#9aa3b2;font-size:12.5px;">${_curPick.length === 1 ? 'Une devise de la semaine, lue' : _curPick.length + ' devises de la semaine, lues'} par le desk, sans entrer dans le détail&nbsp;:</p><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 6px;">${rows}</table>`;
   }
   // EXTRACTIONS DE DONNÉES du rapport (demande user « légèrement + complet, valeur ajoutée ») — v19.
