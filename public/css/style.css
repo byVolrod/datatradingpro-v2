@@ -9705,24 +9705,25 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .taux-bias { color: #a6a6ad; max-width: 380px; font-size: 12px; line-height: 1.45; }
 .taux-loading, .taux-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; color: var(--text3); }   /* spinner CENTRÉ dans le panneau (était collé en haut) */
 /* ── TAUX : grille 4 colonnes haute densité (cartes "Interest Rate Probability", estimation maison) ── */
-.taux-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(2, minmax(0,1fr)); gap: 8px; padding: 8px; overflow: hidden; align-content: stretch; flex: 1 1 auto; min-height: 0; }   /* MONOBLOC 4×2 : 8 banques sur un écran, sans scroll */
-@media (max-width: 1560px), (max-height: 860px) { .taux-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: none; grid-auto-rows: max-content; overflow-y: auto; align-content: start; } }   /* en dessous du monobloc OU écran peu haut (laptops 1600-1680×800-900) : cartes à hauteur réelle (sinon comprimées + tronquées) + scroll */
-@media (max-width: 1180px) { .taux-grid { grid-template-columns: repeat(2, 1fr); } }
+/* REFONTE TAUX (demande user « mieux, compréhensible, bien lisible ») : fini le monobloc 4×2 étiré qui créait
+   un GRAND VIDE dans chaque carte (cellules étirées à la hauteur de l'écran, .rtc-dist absorbait tout l'espace).
+   → cartes LARGES (≥560px, 2-3 colonnes selon l'écran) à HAUTEUR NATURELLE + scroll : tableaux lisibles, zéro vide. */
+.taux-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(560px, 100%), 1fr)); grid-auto-rows: max-content; gap: 10px; padding: 10px; overflow-y: auto; align-content: start; flex: 1 1 auto; min-height: 0; }
 @media (max-width: 720px)  { .taux-grid { grid-template-columns: 1fr; } }
 /* ── Carte « Interest Rate Probability » — clone fidèle haute densité (angles carrés, terminologie EN) ── */
 .rtc { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--panel-depth); display: flex; flex-direction: column; overflow: hidden; min-height: 0; transition: border-color var(--t-fast) ease; }
 .rtc:hover { border-color: rgba(227,178,58,0.20); }
-.rtc-head { display: flex; align-items: center; gap: 7px; min-height: 27px; padding: 0 9px; background: var(--head-bg); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
-.rtc-flag { width: 16px; height: 16px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
-.rtc-bank { font-size: 11px; font-weight: var(--fw-semibold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rtc-head { display: flex; align-items: center; gap: 8px; min-height: 31px; padding: 0 10px; background: var(--head-bg); border-bottom: 1px solid var(--border); flex: 0 0 auto; }
+.rtc-flag { width: 17px; height: 17px; object-fit: cover; border-radius: 50%; border: 1px solid var(--border); flex: 0 0 auto; }
+.rtc-bank { font-size: 12px; font-weight: var(--fw-bold); color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 /* ── Bandeau 5 métriques (Next Move · Probability · Expected Δ · Current Rate · Meeting Date)
       avec sparkline ultra-fine EN FOND bas-droite de cellule (clone pro) ── */
 /* Bandeau 5 métriques (clone pro) : chaque cellule bordée porte SA mini-courbe décorative
    calée bas-droite DERRIÈRE le texte (z-0), libellé pouvant passer sur 2 lignes. */
 .rtc-metrics { display: grid; grid-template-columns: repeat(5, 1fr); border-bottom: 1px solid var(--bg2); flex: 0 0 auto; }
-.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 2px; padding: 5px 8px 7px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 56px; justify-content: flex-start; }
+.rtc-m { position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 3px; padding: 6px 9px 8px; border-right: 1px solid var(--bg2); min-width: 0; min-height: 56px; justify-content: flex-start; }
 .rtc-m:last-child { border-right: 0; }
-.rtc-k { position: relative; z-index: 1; font-size: 9px; letter-spacing: .02em; color: var(--text2); line-height: 1.2; }
+.rtc-k { position: relative; z-index: 1; font-size: 10px; letter-spacing: .02em; color: #aab3bf; line-height: 1.25; }   /* libellés éclaircis + agrandis (lisibilité) */
 .rtc-v { position: relative; z-index: 1; font-size: var(--fs-title); font-weight: var(--fw-bold); color: var(--text); font-family: var(--mono, ui-monospace, monospace); white-space: nowrap; }
 .rtc-v.g { color: #00e676; } .rtc-v.r { color: #ff3d00; } .rtc-v.n { color: var(--text2); } .rtc-v.w { color: var(--text); }
 .rtc-prob { color: var(--orange); }   /* Probability = or (clone pro text-primary) */
@@ -9730,7 +9731,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .rtc-msp { position: absolute; left: 5px; right: 5px; bottom: 1px; width: auto; height: 45%; max-height: 24px; z-index: 0; opacity: .9; pointer-events: none; }
 /* ── Scenario Distribution : OCCUPE l'espace libre entre métriques et tableau (plus de vide noir),
       contenu centré verticalement, barres épaisses rounded-sm, % à droite de la barre ── */
-.rtc-dist { display: flex; flex-direction: column; gap: 7px; padding: 8px 9px 6px; flex: 1 1 auto; min-height: 0; justify-content: center; }
+.rtc-dist { display: flex; flex-direction: column; gap: 6px; padding: 9px 10px 8px; flex: 0 0 auto; }   /* COLLÉE sous les métriques (l'ancien flex:1 + centré créait le grand vide) */
 .rtc-dist-h { font-size: 10px; letter-spacing: var(--ls-caps); text-transform: uppercase; color: var(--text2); margin-bottom: 2px; font-weight: var(--fw-semibold); }
 .rtc-bar { display: flex; align-items: center; gap: 7px; font-size: 11px; }
 .rtc-bl { width: 32px; color: var(--text2); flex: 0 0 auto; }
@@ -9742,7 +9743,7 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .rtc-axis span { font-size: 8px; color: var(--text3); font-family: var(--mono, ui-monospace, monospace); }
 /* ── Tableau des réunions : AGRANDI + zone SCROLLABLE (~3 lignes visibles, en-tête collant 2 lignes,
       colonnes date/jours bien séparées — clone pro) ── */
-.rtc-tblwrap { margin-top: auto; flex: 1 1 auto; min-height: 0; max-height: 132px; overflow-y: auto; border-top: 1px solid var(--border); }
+.rtc-tblwrap { margin-top: 0; flex: 0 0 auto; min-height: 0; max-height: 168px; overflow-y: auto; border-top: 1px solid var(--border); }   /* ~5 réunions visibles, hauteur naturelle (plus d'étirement) */
 .rtc-tbl { width: 100%; border-collapse: collapse; font-size: 11px; font-family: var(--mono, ui-monospace, monospace); }
 .rtc-tbl th { position: sticky; top: 0; z-index: 2; background: var(--head-bg); color: var(--text2); font-weight: var(--fw-semibold); text-align: center; padding: var(--sp-1) var(--sp-15); border-bottom: 1px solid var(--border); font-size: 10px; line-height: 1.2; }
 .rtc-tbl th:first-child { text-align: left; padding-left: 9px; }
@@ -11025,21 +11026,27 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 #view-widgets { display: flex; }
 #view-widgets > .panel { flex: 1 1 auto; min-width: 0; width: 100%; }
 
-/* ── Barre Mon Desk PREMIUM : boutons moins massifs, hover/active nets, transitions fluides, hiérarchie claire ── */
-#view-widgets .panel-header { padding: 8px 14px; gap: 10px; }
+/* ── Barre Mon Desk : contrôles COMPACTS façon desk (demande user « les 2 boutons sont gros » —
+     alignés sur les contrôles du desk type .sbs-cdd : 11px, fonds feutrés, or en accent, pas de pilule massive) ── */
+#view-widgets .panel-header { padding: 7px 12px; gap: 9px; }
 .wdg-btn {
-  display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; font-size: 12px; font-weight: 600;
-  color: #c8ccd4; background: #16171b; border: 1px solid var(--hud-line, #232429); border-radius: 7px;
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+  color: #c8ccd4; background: #101014; border: 1px solid var(--hud-line, #232429); border-radius: 4px;
   cursor: pointer; transition: color .14s, border-color .14s, background .14s, transform .1s;
 }
 .wdg-btn:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); background: rgba(227,178,58,.07); }
 .wdg-btn:active { transform: translateY(1px); }
-.wdg-btn--gold { color: #0c0c0e; background: linear-gradient(180deg, #f0c44e, #e3b23a); border-color: #e3b23a; }
-.wdg-btn--gold:hover { color: #0c0c0e; background: linear-gradient(180deg, #f4cd60, #e9b944); box-shadow: 0 3px 12px rgba(227,178,58,.28); }
+.wdg-btn--gold { color: #e3b23a; background: rgba(227,178,58,.10); border-color: rgba(227,178,58,.42); }
+.wdg-btn--gold:hover { background: rgba(227,178,58,.18); border-color: #e3b23a; box-shadow: none; }
 .wdg-lay {
-  display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; font-size: 12px; font-weight: 600;
-  color: #9aa0aa; background: transparent; border: 1px solid transparent; border-radius: 7px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11.5px; font-weight: 600;
+  color: #9aa0aa; background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer;
   transition: color .14s, background .14s, border-color .14s;
+}
+/* Renommage inline d'un onglet (double-clic) */
+.wdg-lay-edit {
+  width: 118px; padding: 1px 4px; font: inherit; font-size: 11.5px; color: #e6e8ec;
+  background: #0c0c0e; border: 1px solid rgba(227,178,58,.55); border-radius: 3px; outline: none;
 }
 .wdg-lay:hover { color: #e6e8ec; background: #16171b; }
 .wdg-lay.on { color: #e3b23a; background: rgba(227,178,58,.1); border-color: rgba(227,178,58,.35); }
@@ -11114,8 +11121,53 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-lib-card:hover { border-color: rgba(227,178,58,.55); background: #131316; }
 .wdg-lib-cat { font-size: 8.5px; font-weight: 700; letter-spacing: .8px; color: #e3b23a; text-transform: uppercase; }
 .wdg-lib-name { font-family: 'Fraunces', Georgia, serif; font-size: 13px; color: #e6e8ec; }
-.wdg-lib-desc { font-size: 10.5px; color: #6b7280; line-height: 1.45; }
-.wdg-lib-used { margin-top: 3px; font-size: 9px; color: #6b7280; font-style: italic; }
+.wdg-lib-desc { font-size: 10.5px; color: #8b93a1; line-height: 1.45; }
+.wdg-lib-used { font-size: 9.5px; color: #8b93a1; font-style: italic; flex: 0 0 auto; }
+
+/* ── Bibliothèque v2 : sections par CATÉGORIE + cartes horizontales avec icône (refonte UX/UI) ── */
+.wdg-lib-sec { grid-column: 1 / -1; margin: 6px 2px 0; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #e3b23a; }
+.wdg-lib-sec:first-child { margin-top: 0; }
+.wdg-lib-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 8px; }
+.wdg-lib-row .wdg-lib-card { flex-direction: row; align-items: center; gap: 11px; text-align: left; padding: 10px 12px; }
+.wdg-lib-ico { flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 6px; color: #e3b23a; background: rgba(227,178,58,.09); border: 1px solid rgba(227,178,58,.22); }
+.wdg-lib-main { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wdg-lib-plus { flex: 0 0 auto; font-size: 15px; font-weight: 700; color: #4a4a52; transition: color .12s; }
+.wdg-lib-card:hover .wdg-lib-plus { color: #e3b23a; }
+
+/* ── Empty state : CENTRÉ dans la zone de travail (avant : coincé en haut-gauche de la grille 12 col) ── */
+.wdg-blank { grid-column: 1 / -1; min-height: 58vh; }
+
+/* ── Widget Calculatrice de position (autonome, volatile) ── */
+.wdg-calc { display: flex; flex-direction: column; gap: 6px; padding: 11px 13px; height: 100%; overflow-y: auto; }
+.wdg-calc-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.wdg-calc-lbl { font-size: 11.5px; color: #b6bdc9; }
+.wdg-calc-in { display: inline-flex; align-items: center; gap: 5px; }
+.wdg-calc-in input { width: 86px; padding: 4px 8px; font-size: 12px; color: #e6e8ec; text-align: right; background: #0c0c0e; border: 1px solid var(--hud-line, #232429); border-radius: 4px; outline: none; font-variant-numeric: tabular-nums; }
+.wdg-calc-in input:focus { border-color: rgba(227,178,58,.55); }
+.wdg-calc-in em { font-style: normal; font-size: 10.5px; color: #8b93a1; min-width: 26px; }
+.wdg-calc-out { display: flex; gap: 8px; margin-top: 4px; }
+.wdg-calc-o { flex: 1; display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; background: #101014; border: 1px solid var(--hud-line, #232429); border-radius: 5px; }
+.wdg-calc-o span { font-size: 9.5px; text-transform: uppercase; letter-spacing: .05em; color: #8b93a1; }
+.wdg-calc-o b { font-size: 15px; color: #e6e8ec; font-variant-numeric: tabular-nums; }
+.wdg-calc-o--main { border-color: rgba(227,178,58,.35); background: rgba(227,178,58,.07); }
+.wdg-calc-o--main b { color: #e3b23a; }
+.wdg-calc-note { font-size: 10px; color: #7e8590; line-height: 1.45; }
+.wdg-calc-open { background: none; border: 0; padding: 0; font-size: 10px; color: #e3b23a; cursor: pointer; }
+.wdg-calc-open:hover { text-decoration: underline; }
+
+/* ── Widget Journal de trading (lecture seule du compte) ── */
+.wdg-jr { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.wdg-jr-stats { display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #232429); font-size: 11.5px; color: #b6bdc9; flex: 0 0 auto; }
+.wdg-jr-stats b { color: #e6e8ec; }
+.wdg-jr-stats b.up { color: #2ae389; } .wdg-jr-stats b.down { color: #ff7259; }
+.wdg-jr-openbtn { margin-left: auto; background: none; border: 0; padding: 0; font-size: 10.5px; font-weight: 600; color: #e3b23a; cursor: pointer; }
+.wdg-jr-openbtn:hover { text-decoration: underline; }
+.wdg-jr-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.wdg-jr-row { display: grid; grid-template-columns: minmax(60px, .8fr) minmax(70px, 1fr) minmax(48px, .6fr) minmax(56px, .7fr); gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #121215; font-size: 11px; }
+.wdg-jr-date { color: #8b93a1; } .wdg-jr-pair { color: #e6e8ec; font-weight: 600; } .wdg-jr-side { color: #b6bdc9; }
+.wdg-jr-res { text-align: right; font-variant-numeric: tabular-nums; color: #b6bdc9; }
+.wdg-jr-res.up { color: #2ae389; } .wdg-jr-res.down { color: #ff7259; }
+.wdg-jr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 100%; font-size: 11.5px; color: #8b93a1; }
 
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
 .wdg-layouts { display: flex; align-items: center; gap: 4px; margin-left: 12px; overflow-x: auto; max-width: 52vw; }
