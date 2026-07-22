@@ -4225,8 +4225,9 @@ function _sbOpenDetail(curr) {
     if (o.previous != null) bits.push(`préc. ${esc(o.previous)}`);
     if (bits.length) h += ` <span class="mdet-ref">${bits.join(' · ')}</span>`;
     if (o.ts) h += ` <span class="mdet-date">${esc(fmtDate(o.ts))}</span>`;
-    // TENDANCE visible avec les précédents (demande user) : chaîne des dernières publications, ancien → récent.
-    if (Array.isArray(o.hist) && o.hist.length >= 2) h += `<span class="mdet-hist" title="Dernières publications (ancien → récent)">${o.hist.map(esc).join(' → ')}</span>`;
+    // TENDANCE visible avec les précédents (demande user) : chaîne des dernières publications, ancien → récent —
+    // la DERNIÈRE (= la valeur publiée) en gras clair pour guider la lecture (lisibilité, demande 23/07).
+    if (Array.isArray(o.hist) && o.hist.length >= 2) h += `<span class="mdet-hist" title="Dernières publications (ancien → récent)">${o.hist.map((v, i) => i === o.hist.length - 1 ? '<b>' + esc(v) + '</b>' : esc(v)).join(' <i>→</i> ')}</span>`;
     return h;
   };
   const field = (label, valueHtml) => `<div class="mdet-field"><span class="mdet-k">${esc(label)}</span><span class="mdet-v">${valueHtml || na}</span></div>`;
