@@ -3344,13 +3344,38 @@ async function _calValueBlockHtml(ev) {
 
 // ── Exposés pour le FIL DE NEWS (app.js) : une news d'événement (donnée éco / banque centrale)
 //    porte le MÊME Décryptage DTP que le calendrier (onglet « Décryptage » au dépliage). ──
+// INFÉRENCE DE DEVISE (demande user 22/07 « décryptage DTP pour chaque news intelligemment ») : la plupart
+// des news du fil n'ont PAS de champ currency → le bloc Banque centrale (« Powell : … ») et la « prochaine
+// échéance liée » ne sortaient jamais. On déduit la devise du TITRE (banque/pays), déterministe, 0 IA.
+function _dtpNewsCcy(headline, currency) {
+  if (currency) return currency;
+  const h = String(headline || '');
+  if (/\b(fed(?:'s)?|fomc|powell)\b/i.test(h)) return 'USD';
+  if (/\b(ecb(?:'s)?|bce|lagarde)\b/i.test(h)) return 'EUR';
+  if (/\b(boe(?:'s)?|bank of england|bailey)\b/i.test(h)) return 'GBP';
+  if (/\b(boj(?:'s)?|bank of japan|ueda)\b/i.test(h)) return 'JPY';
+  if (/\b(snb|bns|swiss national bank)\b/i.test(h)) return 'CHF';
+  if (/\b(boc(?:'s)?|bank of canada|macklem)\b/i.test(h)) return 'CAD';
+  if (/\b(rba|reserve bank of australia)\b/i.test(h)) return 'AUD';
+  if (/\b(rbnz|reserve bank of new zealand)\b/i.test(h)) return 'NZD';
+  if (/\b(us|u\.s\.|american)\b/i.test(h)) return 'USD';
+  if (/\b(german|french|euro ?zone|euro area|spanish|italian)\b/i.test(h)) return 'EUR';
+  if (/\b(uk|british|britain)\b/i.test(h)) return 'GBP';
+  if (/\b(japan(?:ese)?)\b/i.test(h)) return 'JPY';
+  if (/\b(swiss|switzerland)\b/i.test(h)) return 'CHF';
+  if (/\b(canad(?:a|ian))\b/i.test(h)) return 'CAD';
+  if (/\b(australian?)\b/i.test(h)) return 'AUD';
+  if (/\b(new zealand|kiwi)\b/i.test(h)) return 'NZD';
+  return '';
+}
 function dtpEventInsightMatch(headline, currency) {
   const h = String(headline || '');
-  if (_CAL_CB_RX.test(h) && _CAL_CB_BY_CCY[currency]) return true;
+  const ccy = _dtpNewsCcy(headline, currency);
+  if (_CAL_CB_RX.test(h) && _CAL_CB_BY_CCY[ccy]) return true;
   return CAL_KB.some(k => k.rx.test(h));
 }
 async function dtpEventInsightHtml(item) {
-  return _calValueBlockHtml({ title: item.headline, currency: item.currency, actual: item.actual, forecast: item.forecast, timestamp: item.timestamp });
+  return _calValueBlockHtml({ title: item.headline, currency: _dtpNewsCcy(item.headline, item.currency), actual: item.actual, forecast: item.forecast, timestamp: item.timestamp });
 }
 
 // Clic sur un événement → ouvre/ferme un DÉROULÉ INLINE sous la ligne (accordéon). PAS de fenêtre modale.
