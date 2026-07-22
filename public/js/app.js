@@ -4138,7 +4138,10 @@ function _mtCls(kind, v) {
   if (kind === 'stance')   return /hawk/i.test(v) ? 'mt-pos' : /dov/i.test(v) ? 'mt-neg' : 'mt-neu';
   if (kind === 'ratedir')  return /up/i.test(v) ? 'mt-pos' : /down/i.test(v) ? 'mt-neg' : 'mt-neu';
   if (kind === 'level')    return /high/i.test(v) ? 'mt-hot' : /low/i.test(v) ? 'mt-cool' : 'mt-neu';
-  if (kind === 'inftrend') return /up/i.test(v) ? 'mt-hot' : /down/i.test(v) ? 'mt-cool' : 'mt-neu';
+  // COHÉRENCE des couleurs (demande user 23/07 « plus parlant et cohérentes ») : la TENDANCE d'inflation devient
+  // DIRECTIONNELLE comme le reste — Hausse = VERT (pression hawkish → soutient la devise, cohérent avec
+  // « Restrictive » vert et « Hausse » des taux vert), Baisse = ROUGE, Stable = gris. (Avant : doré/bleu isolés.)
+  if (kind === 'inftrend') return /up/i.test(v) ? 'mt-pos' : /down/i.test(v) ? 'mt-neg' : 'mt-neu';
   if (kind === 'ge')       return /strong/i.test(v) ? 'mt-pos' : /weak/i.test(v) ? 'mt-neg' : 'mt-neu';
   return 'mt-neu';
 }
@@ -4229,9 +4232,10 @@ function _sbOpenDetail(curr) {
     if (o.previous != null && !hasHist) bits.push(`préc. ${esc(o.previous)}`);
     if (bits.length) h += ` <span class="mdet-ref">${bits.join(' · ')}</span>`;
     if (o.ts) h += ` <span class="mdet-date">${esc(fmtDate(o.ts))}</span>`;
-    // TENDANCE visible avec les précédents (demande user) : chaîne des dernières publications, ancien → récent —
-    // la DERNIÈRE (= la valeur publiée) en gras clair pour guider la lecture (lisibilité, demande 23/07).
-    if (Array.isArray(o.hist) && o.hist.length >= 2) h += `<span class="mdet-hist" title="Dernières publications (ancien → récent)">${o.hist.map((v, i) => i === o.hist.length - 1 ? '<b>' + esc(v) + '</b>' : esc(v)).join(' <i>→</i> ')}</span>`;
+    // TENDANCE visible avec les précédents : chaîne des dernières publications avec ORDRE EXPLICITE
+    // (demande user 23/07 « précise l'ordre pour qu'on comprenne ») — libellé « Ancien → récent » affiché,
+    // la DERNIÈRE valeur (= la publiée, en gras) ferme la chaîne.
+    if (hasHist) h += `<span class="mdet-hist"><em>Ancien&nbsp;→&nbsp;récent&nbsp;:</em> ${o.hist.map((v, i) => i === o.hist.length - 1 ? '<b>' + esc(v) + '</b>' : esc(v)).join(' <i>→</i> ')}</span>`;
     return h;
   };
   const field = (label, valueHtml) => `<div class="mdet-field"><span class="mdet-k">${esc(label)}</span><span class="mdet-v">${valueHtml || na}</span></div>`;
@@ -4240,6 +4244,11 @@ function _sbOpenDetail(curr) {
   const lvlTag = v => v ? tag(_mtCls('level', v), MT_LBL.level[v] || v) : na;
   const trTag = v => v ? tag(_mtCls('inftrend', v), MT_LBL.inftrend[v] || v) : na;
   const geTag = v => v ? tag(_mtCls('ge', v), MT_LBL.ge[v] || v) : na;
+  // « TENDANCE » = directionnelle (demande user 23/07 « la tendance c'est soit haussière, baissière ou neutre ») :
+  // dans les rangées « Tendance » du panneau, Strong/Weak deviennent Haussière/Baissière (le TABLEAU garde
+  // Solide/Faible pour ses colonnes-états Croissance/Emploi — là c'est un état, ici une tendance).
+  const MT_TREND_LBL = { Strong: 'Haussière', Weak: 'Baissière', Neutral: 'Neutre' };
+  const trendTag = v => v ? tag(_mtCls('ge', v), MT_TREND_LBL[v] || v) : na;
 
   let cards = '';
   if (det) {
@@ -4258,14 +4267,14 @@ function _sbOpenDetail(curr) {
       + field('Salaires', rel(inf.wages))
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>`
-      + field('Tendance', geTag(gr.trend))
+      + field('Tendance', trendTag(gr.trend))
       + field('PIB', rel(gr.gdp))
       + field('PMI / ISM', rel(gr.pmi))
       + field('Ventes au détail', rel(gr.retail))
       + field('Confiance conso.', rel(gr.confidence))
       + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>`
-      + field('Tendance', geTag(em.trend))
+      + field('Tendance', trendTag(em.trend))
       + field('Taux de chômage', rel(em.unemployment))
       + field("Créations d'emplois", rel(em.payrolls))
       + field('Inscriptions chômage', rel(em.claims))
@@ -4275,8 +4284,8 @@ function _sbOpenDetail(curr) {
     const mp = macro.monetary || {}, inff = macro.inflation || {};
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Politique monétaire</h4>` + field('Stance', stanceTag(mp.stance)) + field('Prochain mouvement', dirTag(mp.dir)) + `</section>`;
     cards += `<section class="mdet-card"><h4 class="mdet-card-t">Inflation</h4>` + field('Niveau', lvlTag(inff.level)) + field('Tendance', trTag(inff.trend)) + `</section>`;
-    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>` + field('Tendance', geTag(macro.growth)) + `</section>`;
-    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>` + field('Tendance', geTag(macro.employment)) + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Croissance économique</h4>` + field('Tendance', trendTag(macro.growth)) + `</section>`;
+    cards += `<section class="mdet-card"><h4 class="mdet-card-t">Emploi</h4>` + field('Tendance', trendTag(macro.employment)) + `</section>`;
   }
 
   const biasTag = macro.bias ? tag(_mtCls('bias', macro.bias), MT_BIAS_LBL[macro.bias] || macro.bias) : '';
