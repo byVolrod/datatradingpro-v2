@@ -7031,10 +7031,43 @@ function _renderWeeklyRecap(item) {
         if (exec) body += `<div class="wr-text">${_wrParas(exec)}</div>`;
         // Mini-courbe de force de la devise (figée sur la semaine du rapport ; rendue paresseusement à l'ouverture).
         body += `<div class="wr-chart" data-wr-chart="${c}">${window.dtpLoader ? window.dtpLoader('Force ' + c + '…', { small: true }) : '<div class="wr-chart-loading">Chargement…</div>'}</div>`;
-        // 2) Politique monétaire
-        if (cd.monetaryPolicy) body += `<div class="wr-macro-heading">Politique monétaire</div><div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
-        // 3) Inflation
-        if (cd.inflation) body += `<div class="wr-macro-heading">Inflation</div><div class="wr-text">${_wrParas(cd.inflation)}</div>`;
+        // Rendu d'un PRINT déterministe {label,date,actual,forecast,previous,lean,ctry} (RECAP_VER 39, façon
+        // référence : « CPI Y/Y : publié 3,5 % · attendu 3,8 % · préc. 3,4 % → plus faible que prévu (15 juil.) »).
+        const _CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
+        const printRow = p => {
+          if (!p || !p.label || !p.actual) return '';
+          const nums = [`publié <b>${_wrEsc(p.actual)}</b>`, p.forecast ? `attendu ${_wrEsc(p.forecast)}` : '', p.previous ? `préc. ${_wrEsc(p.previous)}` : ''].filter(Boolean).join(' · ');
+          const ctry = (p.ctry && _CTRY_FR[p.ctry]) ? `<span class="wr-print-ctry">${_CTRY_FR[p.ctry]}</span> ` : '';
+          let line = `${ctry}<strong>${_wrEsc(p.label)}</strong> : ${nums}`;
+          if (p.lean) line += ` <span class="wr-cat-impact">→ ${_wrEsc(p.lean)}</span>`;
+          if (p.date) line += ` <span class="wr-print-date">(${_wrEsc(p.date)})</span>`;
+          return `<div class="wr-bullet wr-cat">${line}</div>`;
+        };
+        // 2) Politique monétaire — prose IA + PUCES DÉTERMINISTES : 1 puce PAR INTERVENANT (façon référence
+        // « Waller → un core CPI chaud forcerait une hausse → hawk ») + ligne Pricing marché.
+        const cbBullets = Array.isArray(cd.cbBullets) ? cd.cbBullets : [];
+        if (cd.monetaryPolicy || cbBullets.length || cd.pricing) {
+          body += `<div class="wr-macro-heading">Politique monétaire${cd.cbStance ? ` <span class="wr-cb-stance">· ${_wrEsc(cd.cbStance)}</span>` : ''}</div>`;
+          if (cd.monetaryPolicy) body += `<div class="wr-text">${_wrParas(cd.monetaryPolicy)}</div>`;
+          cbBullets.forEach(q => {
+            if (!q || !q.text) return;
+            body += `<div class="wr-bullet"><strong>${_wrEsc(q.speaker || '')}</strong>${q.date ? ` <span class="wr-print-date">(${_wrEsc(q.date)})</span>` : ''} → ${_wrInline(q.text)}</div>`;
+          });
+          if (cd.pricing) body += `<div class="wr-bullet wr-cat"><strong>Pricing :</strong> ${_wrEsc(cd.pricing)}</div>`;
+        }
+        // 3) Inflation — prose IA + 1 puce PAR PRINT de la semaine (réel vs attendu vs précédent, déterministe).
+        const infPrints = Array.isArray(cd.inflationPrints) ? cd.inflationPrints : [];
+        if (cd.inflation || infPrints.length) {
+          body += `<div class="wr-macro-heading">Inflation</div>`;
+          if (cd.inflation) body += `<div class="wr-text">${_wrParas(cd.inflation)}</div>`;
+          infPrints.forEach(p => { body += printRow(p); });
+        }
+        // 3bis) Croissance & Emploi — prints de la semaine (PIB, ventes, PMI, emploi…), déterministe.
+        const groPrints = Array.isArray(cd.growthPrints) ? cd.growthPrints : [];
+        if (groPrints.length) {
+          body += `<div class="wr-macro-heading">Croissance &amp; Emploi</div>`;
+          groPrints.forEach(p => { body += printRow(p); });
+        }
         // 4) Principaux moteurs — nouveau format {name, why} ; rétro-compat ancien {heading, bullets/detail}.
         if (drivers.length) {
           body += `<div class="wr-macro-heading">Principaux moteurs</div>`;
@@ -7163,6 +7196,26 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
+  // ── DONNÉES DU JOUR par pays (v9, déterministe — façon référence : « Allemagne : Inflation » → puces
+  //    réel/attendu/précédent → lecture). MÊME grammaire de puces que le Récap Hebdo (cohérence structurelle). ──
+  const _dbc = Array.isArray(w.dataByCountry) ? w.dataByCountry.filter(g => g && g.country && (g.families || []).length) : [];
+  if (_dbc.length) {
+    body += _sec('Données du jour') + '<div class="fxdr-grid">';
+    _dbc.forEach(g => {
+      body += `<div class="fxdr-card fxdr-dbc"><div class="fxdr-region-head"><span class="fxdr-region-name">${_wrEsc(g.country)}</span>${g.ccy ? `<span class="fxdr-ccy">${_wrEsc(g.ccy)}</span>` : ''}</div>`;
+      (g.families || []).forEach(f => {
+        if (!f || !(f.items || []).length) return;
+        body += `<div class="fxdr-grp-title">${_wrEsc(f.name || '')}</div>`;
+        f.items.forEach(p => {
+          const nums = [`<b>${_wrEsc(p.actual)}</b>`, p.forecast ? `attendu ${_wrEsc(p.forecast)}` : '', p.previous ? `préc. ${_wrEsc(p.previous)}` : ''].filter(Boolean).join(' · ');
+          body += `<div class="wr-bullet wr-cat"><strong>${_wrEsc(p.label)}</strong> : ${nums}${p.lean ? ` <span class="wr-cat-impact">→ ${_wrEsc(p.lean)}</span>` : ''}</div>`;
+        });
+      });
+      body += `</div>`;
+    });
+    body += '</div>';
+  }
+
   // ── Analyse par session (Asie · Londres · New York — cartes + sous-sections groupées) ──
   if ((w.regions || []).length) {
     body += _sec('Analyse par session') + '<div class="fxdr-grid">';
@@ -7190,8 +7243,9 @@ function _renderFXDailyRecap(item) {
     body += '</div>';
   }
 
-  // ── Key Economic Data (table avec regroupement rowspan par publication) ──
-  if ((w.econData || []).length) {
+  // ── Key Economic Data (table IA, rétro-compat anciens rapports) — MASQUÉE quand « Données du jour »
+  //    déterministe (v9) est présente : mêmes chiffres, source plus fiable, pas de doublon. ──
+  if (!_dbc.length && (w.econData || []).length) {
     body += _sec('Données économiques clés') + '<div class="fxdr-tablewrap"><table class="fxdr-table"><thead><tr>'
       + '<th>Publication</th><th>Période</th><th>Indicateur</th><th class="num">Réel</th><th class="num">Attendu</th><th class="num">Précédent</th>'
       + '</tr></thead><tbody>';
