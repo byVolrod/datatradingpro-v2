@@ -11974,9 +11974,10 @@ app.get('/api/briefing/:type/generate', async (req, res) => {
     'daily-review':      () => generateDailyEventReview(force),
     'weekly-economic':   () => generateGlobalEconomicWeekly(force),
     'weekly-recap':      () => generateWeeklyMarketRecap(force),
+    'fx-recap':          () => generateFXDailyRecap(force),   // FX Daily Recap (manquait : seule voie = planif 19h/22h30 ; utile pour régénérer après un bump FXR_VER)
   };
   const fn = map[req.params.type];
-  if (!fn) return res.status(404).json({ error: 'Valid types: us-opening, asia-opening, london-opening, london-recap, us-recap, daily-recap, daily-review, weekly-economic, weekly-recap' });
+  if (!fn) return res.status(404).json({ error: 'Valid types: us-opening, asia-opening, london-opening, london-recap, us-recap, daily-recap, daily-review, weekly-economic, weekly-recap, fx-recap' });
   try {
     await fn();
     res.json({ ok: true, type: req.params.type });
