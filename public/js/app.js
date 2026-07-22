@@ -4218,11 +4218,15 @@ function _sbOpenDetail(curr) {
   const CTRY_FR = { DE: 'All.', FR: 'Fr.', ES: 'Esp.', IT: 'It.' };
   const rel = o => {
     if (!o || o.actual == null) return na;
+    const hasHist = Array.isArray(o.hist) && o.hist.length >= 2;
     let h = `<b class="${relCls(o.surprise)}">${esc(o.actual)}</b>`;
     if (o.ctry && CTRY_FR[o.ctry]) h = `<span class="mdet-ctry" title="Publication ${o.ctry === 'DE' ? 'allemande' : o.ctry === 'FR' ? 'française' : o.ctry === 'ES' ? 'espagnole' : 'italienne'}">${CTRY_FR[o.ctry]}</span> ` + h;
     const bits = [];
     if (o.forecast != null) bits.push(`prév. ${esc(o.forecast)}`);
-    if (o.previous != null) bits.push(`préc. ${esc(o.previous)}`);
+    // SIMPLIFICATION (demande user 23/07 « c'est mal foutu, je comprends pas ») : quand la chaîne d'évolution est
+    // affichée dessous, on OMET « préc. » — il doublonnait la chaîne et pouvait la CONTREDIRE (le « précédent » du
+    // calendrier est parfois une valeur RÉVISÉE, différente de la publication d'origine gardée dans l'historique).
+    if (o.previous != null && !hasHist) bits.push(`préc. ${esc(o.previous)}`);
     if (bits.length) h += ` <span class="mdet-ref">${bits.join(' · ')}</span>`;
     if (o.ts) h += ` <span class="mdet-date">${esc(fmtDate(o.ts))}</span>`;
     // TENDANCE visible avec les précédents (demande user) : chaîne des dernières publications, ancien → récent —
