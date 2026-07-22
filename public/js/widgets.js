@@ -96,23 +96,8 @@
         return null;
       },
     },
-    {
-      id: 'classement-devises', name: 'Classement des Devises', cat: 'Devises', h: 300,
-      desc: 'Le classement de force des 8 majeures, de la plus forte à la plus faible.',
-      // Réutilise buildStrengthSnapshot(containerId, data) du desk (liste .cs-rank-*), alimenté par
-      // /api/currency-strength (même source que la Force des Devises).
-      mount: function (host) {
-        var id = HOST_ID + '-cs-' + uid();
-        host.innerHTML = '<div id="' + id + '" class="wdg-cs-wrap"></div>';
-        if (typeof buildStrengthSnapshot !== 'function') { fallback(host, 'Classement indisponible.'); return null; }
-        fetch('/api/currency-strength?period=week').then(function (r) { return r.json(); }).then(function (d) {
-          if (!document.getElementById(id)) return;                        // widget retiré pendant le fetch
-          if (!d || !d.currencies || !d.series) return fallback(host, 'Classement indisponible.');
-          try { buildStrengthSnapshot(id, d); } catch (e) { fallback(host, 'Classement indisponible.'); }
-        }).catch(function () { fallback(host, 'Classement indisponible.'); });
-        return null;
-      },
-    },
+    // (« Classement des Devises » RETIRÉ du catalogue le 23/07, demande user — les configs qui le
+    //  contiennent encore sont ignorées proprement par renderGrid : byId() → null → carte sautée.)
     {
       id: 'risque-historique', name: 'Historique du Sentiment', cat: 'Risque', h: 260,
       desc: "L'appétit pour le risque des 60 derniers jours.",
@@ -302,6 +287,7 @@
             + '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
             + (wr != null ? '<span>Réussite <b class="' + (wr >= 50 ? 'up' : 'down') + '">' + wr + ' %</b></span>' : '')
             + '<button class="wdg-jr-openbtn" type="button">Ouvrir ›</button></div>'
+            + '<div class="wdg-jr-head"><span>Date</span><span>Paire</span><span>Sens</span><span class="r">Résultat</span></div>'
             + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div></div>';
           var b = host.querySelector('.wdg-jr-openbtn');
           if (b) b.addEventListener('click', function () { if (typeof activateView === 'function') activateView('journal'); });
@@ -730,7 +716,12 @@
       + '<rect x="13" y="10.5" width="8" height="10.5" rx="1.5" fill="currentColor" opacity=".2"/>'
       + '<rect x="13" y="10.5" width="8" height="10.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
       + '<rect x="3" y="13" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
-    icon.addEventListener('click', function () { if (typeof activateView === 'function') activateView('widgets'); });
+    // TOGGLE (23/07) : la nav principale est MASQUÉE en mode Mon Desk (dashboard autonome, demande user)
+    // → l'icône fait entrer ET sortir (re-clic = retour au fil d'actus).
+    icon.addEventListener('click', function () {
+      if (typeof activateView !== 'function') return;
+      activateView(document.body.classList.contains('wdg-mode') ? 'news' : 'widgets');
+    });
     center.insertBefore(icon, journal);                                      // à GAUCHE de Journal / Calculatrice
     // Rechargement ADMIN sur Mon Desk : le boot restore de charts.js l'a neutralisé par sécurité
     // (dtp_active_view='widgets' → 'news', car _pdIsAdmin n'y était pas encore résolu). ICI, boot() ne

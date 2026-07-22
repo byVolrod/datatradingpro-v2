@@ -3330,8 +3330,12 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .mdet-date { color: #8a919c; font-size: 10.5px; margin-left: 2px; white-space: nowrap; }
 .mdet-na   { color: #5b5d66; }
 .mdet-txt  { color: #cfd4dc; font-size: 11.5px; line-height: 1.5; }
-/* Chaîne d'HISTORIQUE (tendance visible avec les précédents, ancien → récent) — sous la valeur, alignée à droite */
-.mdet-hist { display: block; margin-top: 3px; color: #949dab; font-size: 11px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+/* Chaîne d'HISTORIQUE (tendance visible avec les précédents, ancien → récent) — sous la valeur, alignée à droite.
+   Lisibilité (demande user 23/07 « les anciennes on n'arrive pas à bien lire ») : valeurs ÉCLAIRCIES et agrandies,
+   flèches discrètes, la DERNIÈRE (= valeur publiée) en gras clair. */
+.mdet-hist { display: block; margin-top: 3px; color: #aeb8c6; font-size: 11.5px; font-variant-numeric: tabular-nums; letter-spacing: .01em; }
+.mdet-hist b { color: #e5e7eb; font-weight: 700; }
+.mdet-hist i { font-style: normal; color: #6f7683; }
 /* Étiquette pays zone euro (All. / Fr. / Esp. / It.) devant la valeur — publication nationale sous EUR */
 .mdet-ctry { color: #9aa4b2; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .mdet-field .mt-tag { margin: 0; }
@@ -11044,14 +11048,15 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
      alignés sur les contrôles du desk type .sbs-cdd : 11px, fonds feutrés, or en accent, pas de pilule massive) ── */
 #view-widgets .panel-header { padding: 7px 12px; gap: 9px; }
 .wdg-btn {
-  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11px; font-weight: 600;
+  display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 11px; font-size: 11px; font-weight: 600;
+  font-family: var(--tight, 'Inter Tight', sans-serif); letter-spacing: .01em;
   color: #c8ccd4; background: #101014; border: 1px solid var(--hud-line, #232429); border-radius: 4px;
   cursor: pointer; transition: color .14s, border-color .14s, background .14s, transform .1s;
 }
 .wdg-btn:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); background: rgba(227,178,58,.07); }
 .wdg-btn:active { transform: translateY(1px); }
-.wdg-btn--gold { color: #e3b23a; background: rgba(227,178,58,.10); border-color: rgba(227,178,58,.42); }
-.wdg-btn--gold:hover { background: rgba(227,178,58,.18); border-color: #e3b23a; box-shadow: none; }
+.wdg-btn--gold { color: #e3b23a; background: transparent; border-color: rgba(227,178,58,.45); }
+.wdg-btn--gold:hover { background: rgba(227,178,58,.12); border-color: #e3b23a; box-shadow: none; }
 .wdg-lay {
   display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; font-size: 11.5px; font-weight: 600;
   color: #9aa0aa; background: transparent; border: 1px solid transparent; border-radius: 4px; cursor: pointer;
@@ -11071,8 +11076,10 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 .wdg-card.wdg-resizing { border-color: #e3b23a; }
 .wdg-card.wdg-resizing .wdg-body { pointer-events: none; }        /* pas d'interaction chart pendant le resize */
 
-/* ── Mode Mon Desk (RÉVISÉ 23/07, demande user) : la NAV PRINCIPALE reste VISIBLE (plus de bouton
-   « ‹ Retour », plus de masquage #topbar-nav) → on quitte Mon Desk en cliquant un onglet du desk. ── */
+/* ── Mode Mon Desk (RE-RÉVISÉ 23/07, demande user « enlève la barre de navigation, on crée notre propre
+   dashboard personnalisable ») : la nav Actus/Calendrier… est MASQUÉE — Mon Desk est un espace autonome.
+   Sortie = re-clic sur l'icône topbar Mon Desk (toggle) ; pas de bouton « ‹ Retour » (veto user). ── */
+body.wdg-mode #topbar-nav { display: none; }
 
 .wdg-empty, .wdg-load {
   display: flex; align-items: center; justify-content: center; height: 100%;
@@ -11082,7 +11089,7 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
   flex: 1 1 100%; display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 8px; padding: 60px 20px; border: 1px dashed var(--hud-line, #232429); border-radius: var(--radius);
 }
-.wdg-blank-t { font-family: 'Fraunces', Georgia, serif; font-size: 15px; color: #e6e8ec; }
+.wdg-blank-t { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 14px; font-weight: 700; color: #e6e8ec; }   /* police du DESK (cohérence, demande user 23/07 — plus de serif) */
 .wdg-blank-s { font-size: 11px; color: #6b7280; margin-bottom: 6px; }
 
 /* Widget calendrier : conteneur scrollable ; la TABLE réutilise les classes du desk (.cal-table /
@@ -11113,7 +11120,7 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
   flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between;
   padding: 11px 14px; border-bottom: 1px solid var(--hud-line, #232429);
 }
-.wdg-lib-title { font-family: 'Fraunces', Georgia, serif; font-size: 14px; color: #e3b23a; }
+.wdg-lib-title { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #e3b23a; }   /* titre façon en-têtes de panneaux du desk */
 .wdg-lib-x { background: transparent; border: 0; color: #6b7280; font-size: 18px; cursor: pointer; line-height: 1; }
 .wdg-lib-x:hover { color: #e6e8ec; }
 .wdg-lib-grid {
@@ -11127,7 +11134,7 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 }
 .wdg-lib-card:hover { border-color: rgba(227,178,58,.55); background: #131316; }
 .wdg-lib-cat { font-size: 8.5px; font-weight: 700; letter-spacing: .8px; color: #e3b23a; text-transform: uppercase; }
-.wdg-lib-name { font-family: 'Fraunces', Georgia, serif; font-size: 13px; color: #e6e8ec; }
+.wdg-lib-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12.5px; font-weight: 700; color: #e6e8ec; }   /* police du DESK (cohérence) */
 .wdg-lib-desc { font-size: 10.5px; color: #8b93a1; line-height: 1.45; }
 .wdg-lib-used { font-size: 9.5px; color: #8b93a1; font-style: italic; flex: 0 0 auto; }
 
@@ -11174,9 +11181,13 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
 .wdg-jr-openbtn { margin-left: auto; background: none; border: 0; padding: 0; font-size: 10.5px; font-weight: 600; color: #e3b23a; cursor: pointer; }
 .wdg-jr-openbtn:hover { text-decoration: underline; }
 .wdg-jr-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-.wdg-jr-row { display: grid; grid-template-columns: minmax(60px, .8fr) minmax(70px, 1fr) minmax(48px, .6fr) minmax(56px, .7fr); gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #121215; font-size: 11px; }
-.wdg-jr-date { color: #8b93a1; } .wdg-jr-pair { color: #e6e8ec; font-weight: 600; } .wdg-jr-side { color: #b6bdc9; }
-.wdg-jr-res { text-align: right; font-variant-numeric: tabular-nums; color: #b6bdc9; }
+/* En-tête de colonnes façon TABLE DU DESK (même grammaire que .macro-table th — cohérence, demande user 23/07) */
+.wdg-jr-head { display: grid; grid-template-columns: minmax(60px, .8fr) minmax(70px, 1fr) minmax(48px, .6fr) minmax(56px, .7fr); gap: 8px; padding: 6px 12px; background: #0d0d10; border-bottom: 1px solid var(--hud-line, #1c1c20); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; flex: 0 0 auto; }
+.wdg-jr-head .r { text-align: right; }
+.wdg-jr-row { display: grid; grid-template-columns: minmax(60px, .8fr) minmax(70px, 1fr) minmax(48px, .6fr) minmax(56px, .7fr); gap: 8px; align-items: center; padding: 6px 12px; border-bottom: 1px solid #121215; font-size: 11.5px; transition: background .1s; }
+.wdg-jr-row:hover { background: #101014; }
+.wdg-jr-date { color: #8b93a1; font-variant-numeric: tabular-nums; } .wdg-jr-pair { color: #e6e8ec; font-weight: 600; } .wdg-jr-side { color: #b6bdc9; }
+.wdg-jr-res { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #b6bdc9; }
 .wdg-jr-res.up { color: #2ae389; } .wdg-jr-res.down { color: #ff7259; }
 .wdg-jr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 100%; font-size: 11.5px; color: #8b93a1; }
 
