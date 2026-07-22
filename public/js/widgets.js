@@ -219,7 +219,7 @@
           + f('Capital', 10000, '$') + f('Risque', 1, '%') + f('Stop-loss', 20, 'pips') + f('Valeur du pip (1 lot)', 10, '$')
           + '<div class="wdg-calc-out"><div class="wdg-calc-o"><span>Risque</span><b class="wdg-calc-risk">—</b></div>'
           + '<div class="wdg-calc-o wdg-calc-o--main"><span>Taille de position</span><b class="wdg-calc-lots">—</b></div></div>'
-          + '<div class="wdg-calc-note">Position = (capital × risque %) ÷ (stop × valeur du pip). <button class="wdg-calc-open" type="button">Calculatrice complète ›</button></div>'
+          + '<div class="wdg-calc-note">Position = (capital × risque %) ÷ (stop × valeur du pip).</div>'
           + '</div>';
         var ins = host.querySelectorAll('input');
         var compute = function () {
@@ -232,8 +232,6 @@
           if (lEl) lEl.textContent = lots > 0 ? lots.toFixed(2) + ' lot' + (lots >= 2 ? 's' : '') : '—';
         };
         ins.forEach(function (i) { i.addEventListener('input', compute); });
-        var open = host.querySelector('.wdg-calc-open');
-        if (open) open.addEventListener('click', function () { if (typeof activateView === 'function') activateView('calculator'); });
         compute();
         return null;
       },
@@ -270,7 +268,9 @@
           });
           var tot = wins + losses;
           var wr = tot ? Math.round(wins / tot * 100) : null;
-          var rows = entries.slice(-6).reverse().map(function (e) {
+          // TOUT le journal DANS le widget (demande user 23/07 « ça doit s'ouvrir dans le widget, pas dans
+          // l'onglet du desk ») : liste complète scrollable (cap 100 anti-OOM), plus de bouton de sortie.
+          var rows = entries.slice(-100).reverse().map(function (e) {
             var pnl = kPnl ? parseFloat(String(e[kPnl]).replace(/[^0-9.\-]/g, '')) : NaN;
             var res = kRes ? String(e[kRes] || '') : '';
             var good = (isFinite(pnl) && pnl > 0) || /tp|profit|win|gagn/i.test(res);
@@ -286,11 +286,9 @@
           host.innerHTML = '<div class="wdg-jr">'
             + '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
             + (wr != null ? '<span>Réussite <b class="' + (wr >= 50 ? 'up' : 'down') + '">' + wr + ' %</b></span>' : '')
-            + '<button class="wdg-jr-openbtn" type="button">Ouvrir ›</button></div>'
+            + '</div>'
             + '<div class="wdg-jr-head"><span>Date</span><span>Paire</span><span>Sens</span><span class="r">Résultat</span></div>'
             + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div></div>';
-          var b = host.querySelector('.wdg-jr-openbtn');
-          if (b) b.addEventListener('click', function () { if (typeof activateView === 'function') activateView('journal'); });
         }).catch(function () { fallback(host, 'Journal indisponible.'); });
         return null;
       },
@@ -534,7 +532,7 @@
         ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
         : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
       return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '">'
-        + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Favori" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
+        + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
         + '<input class="wdg-mgr-name" value="' + esc(l.name) + '" maxlength="40" spellcheck="false"'
         +   ' onchange="DTPWidgets.renameLayout(\'' + l.id + '\', this.value)">'
         + '<span class="wdg-mgr-count">' + l.items.length + ' widget' + (l.items.length > 1 ? 's' : '') + '</span>'
@@ -588,9 +586,16 @@
   /* ── ACTIONS (exposées : les onclick du HTML généré les appellent) ── */
   var API = {
     open: function () {                                   // appelé par activateView('widgets')
-      document.body.classList.add('wdg-mode');            // masque la nav principale → la barre Mon Desk la REMPLACE (demande user)
-      if (!STATE.booted) { STATE.booted = true; load().then(function () { renderBar(); renderGrid(); }); }
-      else { renderBar(); renderGrid(); }
+      document.body.classList.add('wdg-mode');            // masque la nav principale (Mon Desk = espace autonome)
+      // TEMPLATE PAR DÉFAUT (demande user 23/07) : à l'ARRIVÉE sur Mon Desk (icône/logo, chargement), on ouvre
+      // le layout marqué ★ (par défaut) — pas le dernier utilisé. Sans ★ : dernier actif (comportement d'avant).
+      var _applyDefault = function () {
+        var c = STATE.cfg; if (!c) return;
+        var fav = (c.layouts || []).find(function (l) { return l && l.fav; });
+        if (fav) c.active = fav.id;
+      };
+      if (!STATE.booted) { STATE.booted = true; load().then(function () { _applyDefault(); renderBar(); renderGrid(); }); }
+      else { _applyDefault(); renderBar(); renderGrid(); }
     },
     close: function () { document.body.classList.remove('wdg-mode'); unmountAll(); },   // restaure la nav + libère roots/timers
     exit: function () { if (typeof activateView === 'function') activateView('news'); }, // « ‹ Retour au desk » (la nav est masquée en mode Mon Desk)
@@ -652,8 +657,14 @@
       save(); renderBar(); renderManager();
     },
     toggleFav: function (id) {
+      // ★ = TEMPLATE PAR DÉFAUT (exclusif, demande user 23/07) : une seule étoile — la poser sur un layout la
+      // retire des autres ; re-cliquer la retire (→ retour au comportement « dernier utilisé »).
       var l = layoutById(id); if (!l) return;
-      _delConfirm = null; l.fav = !l.fav; save(); renderBar(); renderManager();
+      _delConfirm = null;
+      var was = !!l.fav;
+      (STATE.cfg.layouts || []).forEach(function (x) { x.fav = false; });
+      l.fav = !was;
+      save(); renderBar(); renderManager();
     },
     askDelete: function (id) { _delConfirm = id; renderManager(); },        // 1er clic : demande confirmation inline
     deleteLayout: function (id) {
