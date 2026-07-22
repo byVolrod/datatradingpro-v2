@@ -243,6 +243,18 @@ const _forceLogout = new Set();
 // déconnexion de masse au boot). Staff (admin/support) NON concerné (plusieurs sessions autorisées).
 const _sessionEpoch = new Map();
 
+// ── DÉCONNEXION ABSOLUE À 24 H (demande user 23/07, TOUTES plateformes : web, app Electron, PWA mobile —
+//    elles partagent la même session cookie donc le MÊME couperet serveur). Le cookie-session est GLISSANT
+//    (chaque visite repousse l'expiration) → sans ancre absolue, un utilisateur actif ne serait jamais
+//    déconnecté. Ancre = session.loginAt (posée au login). Session d'AVANT ce déploiement (sans loginAt) :
+//    on l'ancre à la première requête → elle expire 24 h plus tard (pas de déconnexion de masse au deploy). ──
+const _SESSION_MAX_MS = 24 * 60 * 60 * 1000;
+function _sessionExpired(req) {
+  if (!req.session?.userId) return false;
+  if (!req.session.loginAt) { req.session.loginAt = Date.now(); return false; }   // legacy → ancrée maintenant
+  return Date.now() - req.session.loginAt > _SESSION_MAX_MS;
+}
+
 function requireAuth(req, res, next) {
   const isPublic = _PUBLIC_PATHS.has(req.path) ||
     _PUBLIC_PREFIXES.some(p => req.path.startsWith(p));
@@ -250,6 +262,12 @@ function requireAuth(req, res, next) {
 
   // Appel interne (prewarm) : jeton de boot + socket loopback exigés tous les deux.
   if (req.headers['x-dtp-internal'] === _INTERNAL_TOKEN && /^(::1|127\.0\.0\.1|::ffff:127\.0\.0\.1)$/.test(req.socket.remoteAddress || '')) return next();
+
+  if (req.session?.userId && _sessionExpired(req)) {
+    req.session = null;   // couperet 24 h → reconnexion exigée (toutes plateformes)
+    if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Session expirée — veuillez vous reconnecter' });
+    return res.redirect('/login');
+  }
 
   if (!req.session?.userId) {
     if (req.path.startsWith('/api/')) {
@@ -383,6 +401,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
     req.session.userId = user.id;
     req.session.user   = user;
+    req.session.loginAt = Date.now();   // COUPERET 24 h : ancre ABSOLUE du login (le cookie-session est glissant → sans ancre, un utilisateur actif ne serait JAMAIS déconnecté)
     _forceLogout.delete(String(user.id));   // un login légitime lève un éventuel ordre de déconnexion (kick ponctuel)
     // Session UNIQUE par compte (clients) : jeton neuf → invalide les sessions précédentes (anti-partage d'identifiants).
     if (user.role !== 'admin' && user.role !== 'support') {
@@ -453,6 +472,9 @@ app.post('/api/auth/forgot-password', (req, res) => {
 
 app.get('/api/auth/me', async (req, res) => {
   if (!req.session?.userId) return res.json({ loggedIn: false });
+  // COUPERET 24 h (le heartbeat du desk ~20 s passe ICI, pas par requireAuth — /api/auth/ est public) :
+  // session plus vieille que 24 h → déconnexion immédiate sur TOUTES les plateformes (web/app/mobile).
+  if (_sessionExpired(req)) { req.session = null; return res.json({ loggedIn: false, reason: 'expired' }); }
   try {
     // Toujours relire depuis la DB → les changements admin (active, plan…) sont immédiatement reflétés
     const fresh = await auth.getUserById(req.session.userId);
