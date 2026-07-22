@@ -709,13 +709,15 @@
     icon.title = 'Mon Desk — mes widgets';
     icon.setAttribute('role', 'button');
     // Icône « tableau de bord / template » (panneaux composables) — dessin DTP original.
+    // Marges internes ALIGNÉES sur Journal/Calc (glyphe x=4→20 dans le viewBox 24, comme eux) → écart
+    // OPTIQUE égal entre les 3 icônes de la topbar (demande user 23/07 ; avant : x=3→21, glyphe plus large).
     icon.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24">'
-      + '<rect x="3" y="3" width="8" height="8" rx="1.5" fill="currentColor" opacity=".2"/>'
-      + '<rect x="3" y="3" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
-      + '<rect x="13" y="3" width="8" height="5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
-      + '<rect x="13" y="10.5" width="8" height="10.5" rx="1.5" fill="currentColor" opacity=".2"/>'
-      + '<rect x="13" y="10.5" width="8" height="10.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
-      + '<rect x="3" y="13" width="8" height="8" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+      + '<rect x="4" y="4" width="7" height="7" rx="1.5" fill="currentColor" opacity=".2"/>'
+      + '<rect x="4" y="4" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
+      + '<rect x="13" y="4" width="7" height="4.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
+      + '<rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="currentColor" opacity=".2"/>'
+      + '<rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
+      + '<rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
     // TOGGLE (23/07) : la nav principale est MASQUÉE en mode Mon Desk (dashboard autonome, demande user)
     // → l'icône fait entrer ET sortir (re-clic = retour au fil d'actus).
     icon.addEventListener('click', function () {
