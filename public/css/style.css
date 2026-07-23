@@ -11176,7 +11176,8 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-lib-used { font-size: 9.5px; color: #8b93a1; font-style: italic; flex: 0 0 auto; }
 
 /* ── Bibliothèque v2 : sections par CATÉGORIE + cartes horizontales avec icône (refonte UX/UI) ── */
-.wdg-lib-sec { grid-column: 1 / -1; margin: 6px 2px 0; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #e3b23a; }
+.wdg-lib-sec { grid-column: 1 / -1; margin: 6px 2px 0; font-size: 10px; font-weight: 700; letter-spacing: .07em; text-transform: uppercase; color: #e3b23a; display: flex; align-items: baseline; gap: 8px; }
+.wdg-lib-sub { font-weight: 500; letter-spacing: .02em; text-transform: none; color: #6b7280; font-size: 9.5px; }
 .wdg-lib-sec:first-child { margin-top: 0; }
 .wdg-lib-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(258px, 1fr)); gap: 8px; }
 .wdg-lib-row .wdg-lib-card { flex-direction: row; align-items: center; gap: 11px; text-align: left; padding: 10px 12px; }
