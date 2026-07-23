@@ -3138,12 +3138,15 @@ function renderCalTable() {
 
     // Day-separator colspan includes all 9 columns (no chv column)
     const _evUrl = ev.url ? ` data-url="${encodeURIComponent(ev.url)}"` : '';
+    // Chip « Clé » (23/07) : discours de TÊTE de banque centrale / audition / minutes / conf. de presse
+    // — les prises de parole qui bougent vraiment le marché, repérables d'un coup d'œil dans la liste.
+    const _keyChip = (_CAL_CB_RX.test(ev.title || '') && _CAL_CB_KEY_RX.test(ev.title || '')) ? ' <span class="cal-key-chip">Clé</span>' : '';
     tbody += `<tr class="${rowCls} cal-row--click" data-idx="${i}"${_evUrl}>
       ${timeCell}
       <td class="cth-flag">${CAL_FLAG(ev.currency)}</td>
       <td class="cth-curr">${ev.currency || ''}</td>
       <td class="cth-imp">${calImpDots(ev.impact)}</td>
-      <td class="cth-event">${ev.title || ''}</td>
+      <td class="cth-event">${ev.title || ''}${_keyChip}</td>
       <td class="cth-val">${calActualCell(ev.actual, ev.forecast, ev.low, ev.title)}</td>
       <td class="cth-val">${hi}</td>
       <td class="cth-val">${fcast}</td>
@@ -3281,6 +3284,10 @@ const CAL_KB = [
 // interest/cash/bank/overnight/official/policy/deposit/refi rate, OCR, rate decision/statement/announcement…
 const _CAL_CB_RX = /speech|speaks|testif|press\s+conference|minutes|(?:interest|cash|bank|overnight|official|policy|deposit|refi(?:nancing)?|lending|repo)\s+rate|\bocr\b|rate\s+(?:decision|statement|announcement|call)|policy\s+(?:report|decision|statement)|monetary\s+policy|\bfomc\b|interest\s+rate\s+decision/i;
 const _CAL_CB_BY_CCY = { USD: { bank: 'Fed (FOMC)', rx: /\b(?:fed|fomc|powell)\b/i }, EUR: { bank: 'BCE', rx: /\b(?:ecb|bce|lagarde)\b/i }, GBP: { bank: 'BoE', rx: /\b(?:boe|bank of england|bailey)\b/i }, JPY: { bank: 'BoJ', rx: /\b(?:boj|bank of japan|ueda)\b/i }, CHF: { bank: 'BNS (SNB)', rx: /\b(?:snb|bns|swiss national bank)\b/i }, CAD: { bank: 'BoC', rx: /\b(?:boc|bank of canada|macklem)\b/i }, AUD: { bank: 'RBA', rx: /\b(?:rba|reserve bank of australia)\b/i }, NZD: { bank: 'RBNZ', rx: /\b(?:rbnz|reserve bank of new zealand)\b/i } };
+// Discours « CLÉS » mis en avant dans la liste (23/07, demande user « mettre les discours importants ») :
+// têtes de banque centrale (le marché bouge surtout sur eux) + auditions parlementaires + minutes +
+// conférences de presse. Noms = gouverneurs/présidents en poste (à tenir à jour aux changements).
+const _CAL_CB_KEY_RX = /\b(?:powell|lagarde|bailey|ueda|schlegel|macklem|bullock|orr|hawkesby|gov)\b|testif|press\s+conference|minutes/i;
 const _CAL_HAWK_RX = /hik(?:e|es|ing)|rais(?:e|ing)\s+rates|tighten|restrictive|higher\s+for\s+longer|inflation\s+(?:too\s+high|persistent|sticky)|upside\s+risks?|not\s+(?:yet\s+)?done|further\s+(?:tightening|increases?)|vigilan|hawkish/i;
 const _CAL_DOVE_RX = /\bcut(?:s|ting)?\b|eas(?:e|ing)\s+(?:policy|rates)|lower(?:ing)?\s+rates|accommodat|downside\s+risks?|dovish|ready\s+to\s+(?:act|support)|slow(?:ing|down)/i;
 const _CAL_HOLD_RX = /\bhold\b|pause|patient|data[\s-]dependent|wait[\s-]and[\s-]see|steady|unchanged|maintain/i;
@@ -3291,6 +3298,50 @@ function _calToneOf(texts) {
   if (dove > hawk && dove >= hold) return { key: 'dove', label: 'Dovish', sens: 'penche vers des taux plus bas', color: '#3aa0e0' };
   if (hawk || dove || hold) return { key: 'hold', label: 'Neutre', sens: 'maintien / attentisme', color: '#9a9aa4' };
   return null;
+}
+// « La banque surveille » (23/07) : le MANDAT de chaque banque — ce qui la fait monter ou baisser ses
+// taux. C'est la grille de lecture d'un discours : l'intervenant est toujours jugé sur ces axes-là.
+const _CAL_CB_WATCH = {
+  USD: "L'inflation (PCE, cible 2 %) et le plein emploi — le double mandat. Inflation tenace → taux élevés plus longtemps ; inflation qui recolle à 2 % et emploi qui se tasse → arguments pour baisser.",
+  EUR: "L'inflation de la zone euro (cible 2 %), les salaires et la croissance. Inflation sous contrôle → porte ouverte aux baisses ; salaires/services tenaces → statu quo.",
+  GBP: "L'inflation (cible 2 %), les salaires et les prix des services — les points durs du Royaume-Uni. Tant qu'ils restent élevés, la BoE freine les baisses.",
+  JPY: "Une inflation DURABLE portée par les salaires (négociations de printemps) et le yen — la condition pour continuer à remonter les taux.",
+  CHF: "L'inflation (fourchette 0-2 %) et la force du franc (la BNS peut intervenir sur le change).",
+  CAD: "L'inflation sous-jacente (médiane/tronquée), l'emploi et l'immobilier (ménages très endettés → chaque hausse pèse vite).",
+  AUD: "L'inflation trimestrielle (cible 2-3 %), l'emploi et la consommation des ménages.",
+  NZD: "L'inflation (cible 1-3 %) et l'emploi — mandat double, politique souvent tranchée.",
+};
+// « Lecture pour la réunion » (23/07) : croise le TON du discours et le SCÉNARIO pricé par le marché
+// (probabilités /api/rates) → phrase déterministe : hausse/baisse/maintien attendu + ce que ce ton
+// confirme ou tempère. Sans ton (aucun propos récent) → mode « à écouter » (grille d'interprétation).
+function _calMeetReading(tone, sc) {
+  const opts = [['hike', 'hausse', sc.hike], ['hold', 'maintien', sc.hold], ['cut', 'baisse', sc.cut]].filter(o => o[2] != null);
+  if (!opts.length) return '';
+  opts.sort((a, b) => b[2] - a[2]);
+  const dom = opts[0];
+  const domTxt = `<strong>${dom[1]} (${Math.round(dom[2])} %)</strong>`;
+  if (!tone) {
+    return `Le marché price ${domTxt} pour cette réunion. À écouter dans ce discours : un ton ferme sur l'inflation (hawkish) renforcerait le scénario de hausse et repousserait la baisse ; un ton prudent sur l'économie (dovish) ferait l'inverse.`;
+  }
+  const M = {
+    hawk: {
+      hike: "Le ton récent (hawkish) va DANS LE SENS du marché : le scénario de hausse se renforce si ce discours confirme.",
+      hold: "Le ton récent (hawkish) suggère une banque pas pressée d'assouplir : maintien en tête, mais une hausse se rapprocherait si ce discours confirme la fermeté.",
+      cut:  "Le ton récent (hawkish) TEMPÈRE le scénario de baisse du marché : un discours ferme pourrait la repousser.",
+    },
+    dove: {
+      cut:  "Le ton récent (dovish) va DANS LE SENS du marché : le scénario de baisse se renforce si ce discours confirme.",
+      hold: "Le ton récent (dovish) ouvre la porte à un assouplissement : maintien en tête, mais une baisse se rapprocherait si ce discours confirme la prudence.",
+      hike: "Le ton récent (dovish) CONTREDIT le scénario de hausse du marché : un discours prudent ferait reculer cette probabilité.",
+    },
+    hold: {
+      hike: "Ton récent neutre/attentiste alors que le marché penche vers la hausse : ce discours peut confirmer ou tempérer.",
+      hold: "Ton récent neutre/attentiste, en ligne avec le maintien pricé par le marché.",
+      cut:  "Ton récent neutre/attentiste alors que le marché penche vers la baisse : ce discours peut confirmer ou tempérer.",
+    },
+  };
+  const read = (M[tone.key] || {})[dom[0]] || '';
+  return `Le marché price ${domTxt}. ${read}`;
 }
 // Payload /api/rates du desk, mis en cache 10 min (même source que l'onglet TAUX)
 let _calRatesCache = { at: 0, data: null };
@@ -3350,16 +3401,22 @@ async function _calValueBlockHtml(ev) {
   // 1) BANQUE CENTRALE (prioritaire : un « CPI » dans un titre de discours reste un discours)
   const cb = _CAL_CB_RX.test(title) ? _CAL_CB_BY_CCY[ev.currency] : null;
   if (cb) {
-    // Derniers propos : titres du fil (7 jours) qui citent le speaker (« Fed Logan Speech » → Logan), sinon la banque
+    // Derniers propos : titres du fil (7 jours) qui citent le SPEAKER (« Fed Logan Speech » → Logan).
+    // REPLI BANQUE (23/07, demande user « ton du discours pour interpréter la prochaine réunion ») :
+    // les intervenants secondaires (Musalem, Hunter…) n'ont souvent AUCUN titre à leur nom dans le fil
+    // → le bloc restait muet. Sans propos du speaker, on lit le ton des propos récents de la BANQUE
+    // (n'importe quel officiel Fed/RBA…) — c'est le ton de l'institution qui guide la réunion.
     const items = (typeof allItems !== 'undefined' && Array.isArray(allItems)) ? allItems : [];
     const spk = title.match(/(?:fed|fomc|ecb|boe|boj|snb|boc|rba|rbnz)(?:'s)?\s+([A-Z][a-zà-ÿ'-]+)\s+(?:speech|speaks|testif)/i);
     const nameRx = spk ? new RegExp('\\b' + spk[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : cb.rx;
     const cutoff = Date.now() - 7 * 86400e3;
-    const quotes = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && nameRx.test(i.headline)
-      && /:/.test(i.headline)).slice(0, 3);   // « Fed's Logan: … » = un propos rapporté (les annonces sans « : » sont ignorées)
+    const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline));   // « Fed's Logan: … » = un propos rapporté (les annonces sans « : » sont ignorées)
+    let quotes = pool.filter(i => nameRx.test(i.headline)).slice(0, 3);
+    let quotesLbl = 'Derniers propos';
+    if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.headline)).slice(0, 3); quotesLbl = 'Derniers propos · ' + cb.bank; }
     const tone = _calToneOf(quotes.map(q => q.headline));
     if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
-    if (quotes.length) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Derniers propos</span><span class="cal-kb-val">${quotes.map(q => `<div class="cal-kb-quote">${_calEsc(q.headline)}</div>`).join('')}</span></div>`);   // guillemets via CSS ::before/::after → le texte nu part à la traduction FR
+    if (quotes.length) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${quotes.map(q => `<div class="cal-kb-quote">${_calEsc(q.headline)}</div>`).join('')}</span></div>`);   // guillemets via CSS ::before/::after → le texte nu part à la traduction FR
     const rates = await _calRatesGet();
     const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);
     if (bank) {
@@ -3370,6 +3427,14 @@ async function _calValueBlockHtml(ev) {
         rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Prochaine réunion</span><span class="cal-kb-val">${_calEsc(_calFmtDateFr(bank.next))}${bank.nextDays != null ? ` (dans ${bank.nextDays} j)` : ''}${probs ? `<div class="cal-kb-sub">${probs}</div>` : ''}</span></div>`);
       }
     }
+    // « La banque surveille » (23/07, demande user) : ce qui la fait monter ou baisser les taux —
+    // la grille de lecture du discours (un intervenant est TOUJOURS jugé sur ces axes-là).
+    if (_CAL_CB_WATCH[ev.currency]) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">La banque surveille</span><span class="cal-kb-val">${_CAL_CB_WATCH[ev.currency]}</span></div>`);
+    // « Lecture pour la réunion » (23/07) : croise le TON récent et le SCÉNARIO pricé par le marché
+    // → hausse/baisse/maintien attendu, et ce que CE discours peut confirmer ou tempérer. Toujours
+    // présent dès qu'il y a des probabilités (même sans propos récents → mode « à écouter »).
+    const reading = _calMeetReading(tone, (bank && bank.scenario) || {});
+    if (reading) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Lecture pour la réunion</span><span class="cal-kb-val">${reading}</span></div>`);
     if (!rows.length) return '';
     return `<div class="cal-kb"><div class="cal-detail-section">Banque centrale · ${_calEsc(cb.bank)}</div>${rows.join('')}</div>`;
   }
