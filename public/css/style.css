@@ -11257,6 +11257,37 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-jrd-hole em { font-style: normal; font-size: 8.5px; text-transform: uppercase; letter-spacing: .08em; color: #8a8a92; }
 .wdg-jrd-legend { display: flex; flex-direction: column; gap: 5px; font-size: 11px; color: #cfd4dc; }
 .wdg-jrd-legend span { display: inline-flex; align-items: center; gap: 6px; } .wdg-jrd-legend i { width: 9px; height: 9px; border-radius: 2px; } .wdg-jrd-legend b { color: #fff; margin-left: 2px; }
+
+/* Barre d'actions du Journal (Nouveau trade / Ouvrir la page) + ligne cliquable */
+.wdg-jr-tools { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #1c1c20); flex: 0 0 auto; }
+.wdg-jr-tools button { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 11px; font-weight: 600; height: 26px; padding: 0 11px; border-radius: 4px; cursor: pointer; border: 1px solid; }
+.wdg-jr-add { color: #0d0e11; background: #e3b23a; border-color: #e3b23a; }
+.wdg-jr-add:hover { background: var(--orange-dim, #cfa233); }
+.wdg-jr-open { margin-left: auto; color: #cfd4dc; background: transparent; border-color: var(--hud-line, #232429); }
+.wdg-jr-open:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); }
+.wdg-jr-row { cursor: pointer; }
+.wdg-jr-list .wdg-jr-row:hover { background: #131317; }
+/* Formulaire d'ajout rapide inline */
+.wdg-jr-qa { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--hud-line, #1c1c20); background: #0e0e11; flex: 0 0 auto; }
+.wdg-jr-qa[hidden] { display: none; }
+.wdg-jr-qa input, .wdg-jr-qa select { height: 28px; font-size: 12px; font-family: var(--font-ui); color: #e6e8ec; background: #16171b; border: 1px solid var(--hud-line, #232429); border-radius: 4px; padding: 0 8px; min-width: 0; }
+.wdg-jr-qa input::placeholder { color: #6b7280; }
+.wdg-jr-qa input:focus, .wdg-jr-qa select:focus { outline: none; border-color: rgba(227,178,58,.55); }
+.wdg-jr-qa-pair { flex: 1 1 110px; } .wdg-jr-qa-pl { flex: 0 1 90px; } .wdg-jr-qa-dir, .wdg-jr-qa-res { flex: 0 1 auto; }
+.wdg-jr-qa-save { height: 28px; padding: 0 12px; font-size: 11.5px; font-weight: 700; color: #0d0e11; background: #00e676; border: none; border-radius: 4px; cursor: pointer; }
+.wdg-jr-qa-save:hover { background: #0bd06f; } .wdg-jr-qa-save:disabled { opacity: .6; cursor: default; }
+.wdg-jr-qa-cancel { height: 28px; width: 28px; color: #8b93a1; background: transparent; border: 1px solid var(--hud-line, #232429); border-radius: 4px; cursor: pointer; font-size: 13px; }
+.wdg-jr-qa-cancel:hover { color: #ff7259; border-color: rgba(255,61,0,.4); }
+
+/* Gestionnaire : cadenas du desk par défaut (non supprimable) */
+.wdg-mgr-lock { flex: 0 0 auto; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; color: #6b7280; }
+
+/* Badge NOUVEAU de l'icône Mon Desk : pastille or discrète, posée JUSTE AU-DESSUS de l'icône
+   (ne recouvre pas le glyphe — demande user « ne masque pas l'icône ») ; pulse subtil ×3 puis statique. */
+.wdg-new-badge { top: -6px; right: -6px; font-size: 6.5px; padding: 2px 4px; letter-spacing: 0.04em; }
+.wdg-new-badge.pulse { animation: wdgNewPulse 1.5s ease-out 3; }
+@keyframes wdgNewPulse { 0% { box-shadow: 0 0 0 1.5px #0d0e11, 0 0 0 0 rgba(227,178,58,.55); } 60% { box-shadow: 0 0 0 1.5px #0d0e11, 0 0 0 5px rgba(227,178,58,0); } 100% { box-shadow: 0 0 0 1.5px #0d0e11, 0 0 0 0 rgba(227,178,58,0); } }
+@media (prefers-reduced-motion: reduce) { .wdg-new-badge.pulse { animation: none; } }
 /* En-tête de colonnes façon TABLE DU DESK (même grammaire que .macro-table th — cohérence, demande user 23/07) */
 .wdg-jr-head { display: grid; grid-template-columns: minmax(62px, .8fr) minmax(70px, 1.1fr) minmax(54px, .7fr) minmax(56px, .8fr) minmax(64px, .8fr); gap: 8px; padding: 6px 12px; background: #0d0d10; border-bottom: 1px solid var(--hud-line, #1c1c20); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; flex: 0 0 auto; }
 .wdg-jr-head .r { text-align: right; }
@@ -11363,17 +11394,20 @@ body.wdg-mode #topbar-nav { display: none; }
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
 .wdg-layouts { display: flex; align-items: center; gap: 4px; margin-left: 12px; overflow-x: auto; max-width: 52vw; }
 .wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
+/* Onglets de templates = MÊME GRAMMAIRE que la nav du desk (.nav-item) : plat, mono capitales, soulignement or actif */
 .wdg-lay {
-  display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; max-width: 160px;
-  padding: 4px 10px; border-radius: var(--radius); cursor: pointer; font-size: 11px; font-weight: 600;
-  background: #131316; color: #9aa0aa; border: 1px solid var(--hud-line, #232429);
-  transition: color .12s, border-color .12s, background .12s;
+  display: inline-flex; align-items: center; gap: 5px; flex: 0 0 auto; max-width: 190px;
+  padding: 7px 11px; cursor: pointer; font-family: var(--font-mono); font-size: 11px; font-weight: var(--fw-semibold, 600);
+  letter-spacing: .06em; text-transform: uppercase; color: var(--text3, #6b7280);
+  background: transparent; border: none; border-bottom: 2px solid transparent; white-space: nowrap;
+  transition: color .15s, border-color .15s;
 }
-.wdg-lay:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); }
-.wdg-lay.on { color: #e3b23a; background: rgba(227,178,58,.13); border-color: #e3b23a; }
+.wdg-lay:hover { color: var(--text, #e6e8ec); }
+.wdg-lay.on { color: #e3b23a; border-bottom-color: #e3b23a; }
 .wdg-lay-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wdg-lay-star { color: #e3b23a; font-size: 10px; line-height: 1; }
-.wdg-lay-add { color: #6b7280; font-size: 14px; font-weight: 700; padding: 4px 9px; }
+.wdg-lay-edit { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #e6e8ec; background: #16171b; border: 1px solid #e3b23a; border-radius: 3px; padding: 2px 6px; max-width: 150px; }
+.wdg-lay-add { color: #6b7280; font-size: 15px; font-weight: 700; padding: 6px 10px; border-bottom-color: transparent !important; }
 .wdg-lay-add:hover { color: #e3b23a; }
 
 /* ── Gestionnaire de layouts (overlay, réutilise .wdg-lib) ── */
