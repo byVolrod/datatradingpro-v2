@@ -174,6 +174,87 @@
       },
     },
     {
+      id: 'radar-biais', name: 'Radar de Biais', cat: 'Macro', h: 320,
+      desc: 'Le biais net de chaque devise, du plus haussier au plus baissier.',
+      // AUTONOME : lit /api/smart-bias (auth-gaté, cookie desk) et rend une synthèse compacte HTML — biais net
+      // (conclusion, la source de vérité du desk) coloré selon la charte sémantique DTP + les 4 piliers en FR.
+      // Aucun état partagé, aucun root amCharts → cleanup null.
+      mount: function (host) {
+        host.innerHTML = '<div class="wdg-load">Chargement du biais…</div>';
+        var COL = {
+          'Very Bullish': 'vb', 'Bullish': 'b', 'Weak Bullish': 'wb', 'Neutral': 'n',
+          'Weak Bearish': 'wr', 'Bearish': 'r', 'Very Bearish': 'vr',
+        };
+        var LBL = {
+          'Very Bullish': 'Très haussier', 'Bullish': 'Haussier', 'Weak Bullish': 'Faible hausse',
+          'Neutral': 'Neutre', 'Weak Bearish': 'Faible baisse', 'Bearish': 'Baissier', 'Very Bearish': 'Très baissier',
+        };
+        var RANK = { 'Very Bullish': 3, 'Bullish': 2, 'Weak Bullish': 1, 'Neutral': 0, 'Weak Bearish': -1, 'Bearish': -2, 'Very Bearish': -3 };
+        var LVL = { High: 'Élevée', Moderate: 'Modérée', Low: 'Basse' };
+        var GE  = { Strong: 'Solide', Weak: 'Faible', Neutral: 'Neutre' };
+        var DIR = { Hike: 'Hausse', Cut: 'Baisse', Hold: 'Maintien' };
+        var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
+        fetch('/api/smart-bias').then(function (r) { return r.json(); }).then(function (d) {
+          if (!host.isConnected) return;
+          var curr = d && d.currencies, concl = (d && d.conclusion) || {}, mt = (d && d.macroTable) || {};
+          if (!curr || !curr.length) return fallback(host, 'Biais indisponible.');
+          var ordered = curr.slice().sort(function (a, b) { return (RANK[concl[b]] || 0) - (RANK[concl[a]] || 0); });
+          var rows = ordered.map(function (c) {
+            var bias = concl[c] || 'Neutral';
+            var m = mt[c] || {};
+            var sub = [];
+            if (m.monetary && m.monetary.stance) sub.push('Monét. ' + esc(m.monetary.stance));
+            if (m.inflation && m.inflation.level) sub.push('Infl. ' + (LVL[m.inflation.level] || m.inflation.level));
+            if (m.growth) sub.push('Crois. ' + (GE[m.growth] || m.growth));
+            if (m.employment) sub.push('Empl. ' + (GE[m.employment] || m.employment));
+            return '<div class="wdg-bias-row">'
+              + '<span class="wdg-bias-cur">' + flag(c) + '<b>' + esc(c) + '</b></span>'
+              + '<span class="wdg-bias-tag wdg-bias-' + (COL[bias] || 'n') + '">' + esc(LBL[bias] || bias) + '</span>'
+              + '<span class="wdg-bias-sub">' + sub.join(' · ') + '</span></div>';
+          }).join('');
+          host.innerHTML = '<div class="wdg-bias custom-scrollbar">' + rows + '</div>';
+        }).catch(function () { fallback(host, 'Biais indisponible.'); });
+        return null;
+      },
+    },
+    {
+      id: 'taux-cb', name: 'Taux directeurs', cat: 'Macro', h: 320,
+      desc: 'Où en sont les banques centrales : taux actuel + prochaine décision anticipée.',
+      // AUTONOME : lit /api/rates (probabilités marché). Rend une carte par banque : taux actuel, scénario de base
+      // (Maintien/Hausse/Baisse) de la prochaine réunion + probabilité + date. HTML pur, cleanup null.
+      mount: function (host) {
+        host.innerHTML = '<div class="wdg-load">Chargement des taux…</div>';
+        var MV = { Hike: { c: 'up', t: 'Hausse' }, Cut: { c: 'down', t: 'Baisse' }, Hold: { c: 'flat', t: 'Maintien' } };
+        var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
+        var MOIS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+        var fmtD = function (iso) { try { var p = String(iso).split('-'); return parseInt(p[2], 10) + ' ' + MOIS[parseInt(p[1], 10) - 1]; } catch (e) { return esc(iso); } };
+        fetch('/api/rates').then(function (r) { return r.json(); }).then(function (d) {
+          if (!host.isConnected) return;
+          var banks = (d && d.banks) || [];
+          if (!banks.length) return fallback(host, 'Taux indisponibles.');
+          var rows = banks.map(function (b) {
+            var sc = b.scenario || {};
+            // Scénario de base = celui de plus forte probabilité pour la PROCHAINE réunion.
+            var cands = [['Hold', sc.hold], ['Hike', sc.hike], ['Cut', sc.cut]].filter(function (x) { return x[1] != null; });
+            cands.sort(function (a, b2) { return (b2[1] || 0) - (a[1] || 0); });
+            var base = cands[0] ? cands[0][0] : (b.move || 'Hold');
+            var prob = cands[0] ? Math.round(cands[0][1]) : null;
+            var mv = MV[base] || MV.Hold;
+            var when = b.next ? fmtD(b.next) + (b.nextDays != null ? ' · ' + (b.nextDays <= 0 ? "aujourd'hui" : b.nextDays + ' j') : '') : '';
+            return '<div class="wdg-taux-row">'
+              + '<span class="wdg-taux-bank">' + flag(b.code) + '<b>' + esc(b.bank || b.code) + '</b></span>'
+              + '<span class="wdg-taux-rate">' + (b.rate != null ? esc(String(b.rate).replace('.', ',')) + ' %' : '—') + '</span>'
+              + '<span class="wdg-taux-move wdg-taux-' + mv.c + '">' + mv.t + (prob != null ? ' ' + prob + ' %' : '') + '</span>'
+              + '<span class="wdg-taux-when">' + when + '</span></div>';
+          }).join('');
+          host.innerHTML = '<div class="wdg-taux custom-scrollbar">'
+            + '<div class="wdg-taux-head"><span>Banque</span><span>Taux</span><span>Prochaine décision</span><span class="r">Réunion</span></div>'
+            + rows + '</div>';
+        }).catch(function () { fallback(host, 'Taux indisponibles.'); });
+        return null;
+      },
+    },
+    {
       id: 'fil-news', name: "Fil d'actualité", cat: 'News', h: 320,
       desc: 'Les dernières news du desk, en direct.',
       mount: function (host) {
@@ -586,6 +667,8 @@
     'classement-devises': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 6h10M4 12h14M4 18h7"/><circle cx="20" cy="6" r="1.4" fill="currentColor" stroke="none"/></svg>',
     'risque-historique': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M3 16c2-1 3-6 5-6s3 8 5 8 3-11 5-11 2 4 3 4"/></svg>',
     'calendrier-jour': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8 3.5v3M16 3.5v3"/></svg>',
+    'radar-biais': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" opacity=".4"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-4"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>',
+    'taux-cb': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9l6-4 6 4v11"/><path d="M9 20v-5h6v5"/></svg>',
     'fil-news': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 6h14M5 10.5h14M5 15h9"/><circle cx="18.5" cy="17.5" r="2" /></svg>',
     'calculatrice': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01"/></svg>',
     'journal-mini': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 12h5.5"/></svg>',
@@ -619,7 +702,7 @@
   /* ── MODÈLES PRÊTS (presets) : un clic → un nouveau layout pré-composé (modifiable ensuite). ── */
   var PRESETS = [
     { name: 'Desk complet', items: [{ w: 'force-devises', gw: 8, gh: 12 }, { w: 'calendrier-jour', gw: 4, gh: 12 }, { w: 'fil-news', gw: 7, gh: 11 }, { w: 'barometre', gw: 5, gh: 11 }] },
-    { name: 'Focus macro', items: [{ w: 'calendrier-jour', gw: 7, gh: 15 }, { w: 'barometre', gw: 5, gh: 8 }, { w: 'risque-historique', gw: 5, gh: 7 }] },
+    { name: 'Focus macro', items: [{ w: 'calendrier-jour', gw: 7, gh: 15 }, { w: 'radar-biais', gw: 5, gh: 8 }, { w: 'taux-cb', gw: 5, gh: 7 }] },
     { name: 'Trading actif', items: [{ w: 'journal-mini', gw: 7, gh: 12 }, { w: 'calculatrice', gw: 5, gh: 12 }, { w: 'force-devises', gw: 12, gh: 10 }] },
   ];
   // Miniature d'un agencement : la grille 12 colonnes en réduction (aperçu visuel, gestionnaire + modèles).
