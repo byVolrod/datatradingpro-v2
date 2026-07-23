@@ -612,16 +612,26 @@ app.post('/api/journal-new-seen', async (req, res) => {
   try { await auth.aiCacheSet('journalnewseen:' + req.session.userId, { seen: true, at: Date.now() }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
-// Badge « NOUVEAU » de l'icône MON DESK (même modèle que journalnewseen) : montré tant que le compte n'a
-// pas ouvert la fonctionnalité, puis retiré DÉFINITIVEMENT (flag KV durable par compte).
+// Badge « NOUVEAU » de l'icône MON DESK : affiché pendant les 20 PREMIÈRES CONNEXIONS au desk de chaque
+// compte (demande user 23/07 — remplace le « disparaît au 1er clic »). Chaque GET (1×/chargement du desk,
+// appelé par widgets.js boot()) incrémente le compteur KV ; au-delà de 20 → badge retiré définitivement.
+// Rétrocompat : ancien flag {seen:true} (comptes ayant déjà cliqué) converti en compteur — ils re-voient
+// le badge jusqu'à leurs 20 connexions, comme demandé (« pour chaque utilisateur »).
+const _WDG_NEW_MAX = 20;
 app.get('/api/widgets-new-seen', async (req, res) => {
   if (!req.session?.userId) return res.json({ seen: true });          // non connecté → pas de badge
-  try { const v = await auth.aiCacheGet('widgetsnewseen:' + req.session.userId, 8640000000000); res.json({ seen: !!v }); }
-  catch { res.json({ seen: false }); }
+  try {
+    const k = 'widgetsnewseen:' + req.session.userId;
+    const v = await auth.aiCacheGet(k, 8640000000000);
+    const n = (v && typeof v.n === 'number') ? v.n : 0;               // ancien {seen:true} → repart du compteur
+    await auth.aiCacheSet(k, { n: n + 1, at: Date.now() });
+    res.json({ seen: n + 1 > _WDG_NEW_MAX });
+  } catch { res.json({ seen: true }); }                               // KV indispo → pas de badge (silencieux)
 });
 app.post('/api/widgets-new-seen', async (req, res) => {
+  // Conservé pour compat (anciens clients en cache) : saute le compteur en fin de fenêtre.
   if (!req.session?.userId) return res.status(401).json({ ok: false });
-  try { await auth.aiCacheSet('widgetsnewseen:' + req.session.userId, { seen: true, at: Date.now() }); res.json({ ok: true }); }
+  try { await auth.aiCacheSet('widgetsnewseen:' + req.session.userId, { n: _WDG_NEW_MAX + 1, at: Date.now() }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
