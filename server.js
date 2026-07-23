@@ -612,6 +612,18 @@ app.post('/api/journal-new-seen', async (req, res) => {
   try { await auth.aiCacheSet('journalnewseen:' + req.session.userId, { seen: true, at: Date.now() }); res.json({ ok: true }); }
   catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
+// Badge « NOUVEAU » de l'icône MON DESK (même modèle que journalnewseen) : montré tant que le compte n'a
+// pas ouvert la fonctionnalité, puis retiré DÉFINITIVEMENT (flag KV durable par compte).
+app.get('/api/widgets-new-seen', async (req, res) => {
+  if (!req.session?.userId) return res.json({ seen: true });          // non connecté → pas de badge
+  try { const v = await auth.aiCacheGet('widgetsnewseen:' + req.session.userId, 8640000000000); res.json({ seen: !!v }); }
+  catch { res.json({ seen: false }); }
+});
+app.post('/api/widgets-new-seen', async (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ ok: false });
+  try { await auth.aiCacheSet('widgetsnewseen:' + req.session.userId, { seen: true, at: Date.now() }); res.json({ ok: true }); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
 
 // ── Badge non-lu de l'icône MESSAGE : « a déjà ouvert le chat support au moins une fois ». Sert de PLANCHER
 //    durable au badge (modèle journalnewseen) : le message de bienvenue reçu mais jamais ouvert affiche la

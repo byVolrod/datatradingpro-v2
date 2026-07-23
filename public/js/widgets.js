@@ -464,8 +464,7 @@
       // badge ACHAT/VENTE, chip résultat (TP vert · BE ambre · SL rouge), P&L signé. Jamais de valeur inventée.
       mount: function (host) {
         var chartId = HOST_ID + '-jreq-' + uid();
-        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
-        fetch('/api/journal').then(function (r) { return r.json(); }).then(function (j) {
+        function build(j) {
           if (!host.isConnected) return;
           var entries = (j && j.entries) || [];
           if (!entries.length) {
@@ -575,7 +574,7 @@
             var resHtml = res ? '<span class="wdg-jr-tag ' + resCls + '">' + esc(res.toUpperCase().slice(0, 10)) + '</span>' : '<i class="wdg-jr-ph">—</i>';
             var p = pnlOf(e);
             var pCls = p ? (p.n > 0 ? 'up' : p.n < 0 ? 'down' : '') : '';
-            return '<div class="wdg-jr-row">'
+            return '<div class="wdg-jr-row" data-id="' + esc(e.id || '') + '" title="Ouvrir dans le Journal">'
               + '<span class="wdg-jr-date">' + (dts ? esc(fmtD(dts)) : '—') + '</span>'
               + '<span class="wdg-jr-pair" title="' + esc(pair) + '">' + esc(pair) + '</span>'
               + '<span class="wdg-jr-side">' + dirHtml + '</span>'
@@ -585,7 +584,16 @@
           var modeBtns = [['pct', hasPct], ['pl', hasPl], ['r', hasRc], ['cap', hasCap]].filter(function (x) { return x[1]; })
             .map(function (x) { return '<button data-m="' + x[0] + '"' + (x[0] === eqMode ? ' class="on"' : '') + '>' + EQ_LBL[x[0]] + '</button>'; }).join('');
           var lastV = hasCurve ? eqData[eqData.length - 1] : null;
-          var tradesView = '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
+          var qaForm = '<form class="wdg-jr-qa" hidden>'
+            + '<input class="wdg-jr-qa-pair" placeholder="Paire (EUR/USD)" maxlength="16" autocomplete="off">'
+            + '<select class="wdg-jr-qa-dir"><option value="BUY">Achat</option><option value="SELL">Vente</option></select>'
+            + '<input class="wdg-jr-qa-pl" type="number" step="any" placeholder="P&L $" inputmode="decimal">'
+            + '<select class="wdg-jr-qa-res"><option value="">Résultat…</option><option>Profit</option><option>TP</option><option>BE</option><option>SL</option><option>Loss</option></select>'
+            + '<button type="submit" class="wdg-jr-qa-save">Ajouter</button>'
+            + '<button type="button" class="wdg-jr-qa-cancel" title="Annuler">✕</button></form>';
+          var tradesView = '<div class="wdg-jr-tools"><button class="wdg-jr-add" type="button">+ Nouveau trade</button>'
+            + '<button class="wdg-jr-open" type="button">Ouvrir le Journal ↗</button></div>' + qaForm
+            + '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
             + (wr != null ? '<span>Réussite <b class="' + (wr >= 50 ? 'up' : 'down') + '">' + wr + ' %</b></span>' : '')
             + (cumOk ? '<span>P&amp;L <b class="' + (cum > 0 ? 'up' : cum < 0 ? 'down' : '') + '">' + esc(fmtMoney(cum)) + '</b></span>' : '') + '</div>'
             + (hasCurve ? '<div class="wdg-jr-chartwrap"><div class="wdg-jr-chartlbl"><b class="wdg-jr-eqval">' + esc(lastV.vLbl) + '</b>'
@@ -643,7 +651,41 @@
             });
           });
           if (hasCurve) requestAnimationFrame(function () { _wdgJrEquityChart(chartId, eqData); });
-        }).catch(function () { fallback(host, 'Journal indisponible.'); });
+
+          // ── ACTIONS (demande user 23/07 : ajouter / modifier / ouvrir la page) ──
+          var openDesk = function () { if (typeof activateView === 'function') activateView('journal'); };
+          var ob = host.querySelector('.wdg-jr-open'); if (ob) ob.addEventListener('click', openDesk);
+          // Clic sur une ligne → ouvre le Journal du desk (éditeur complet) sur le compte.
+          host.querySelectorAll('.wdg-jr-row').forEach(function (row) { row.addEventListener('click', openDesk); });
+          // + Nouveau trade : formulaire d'AJOUT RAPIDE inline (paire / sens / P&L / résultat) → POST /api/journal
+          //   (préserve custom/cols/startCap du compte) → reload. Édition fine = « Ouvrir le Journal » (éditeur complet).
+          var qa = host.querySelector('.wdg-jr-qa'), addBtn = host.querySelector('.wdg-jr-add');
+          if (addBtn && qa) {
+            addBtn.addEventListener('click', function () { qa.hidden = !qa.hidden; if (!qa.hidden) { var pi = qa.querySelector('.wdg-jr-qa-pair'); if (pi) pi.focus(); } });
+            var cancel = qa.querySelector('.wdg-jr-qa-cancel'); if (cancel) cancel.addEventListener('click', function () { qa.hidden = true; });
+            qa.addEventListener('submit', function (ev) {
+              ev.preventDefault();
+              var pairV = (qa.querySelector('.wdg-jr-qa-pair').value || '').trim().toUpperCase();
+              var dirV = qa.querySelector('.wdg-jr-qa-dir').value;
+              var plV = num(qa.querySelector('.wdg-jr-qa-pl').value);
+              var resV = qa.querySelector('.wdg-jr-qa-res').value;
+              if (!pairV && plV == null && !resV) { qa.hidden = true; return; }   // rien saisi → on referme
+              var e = { id: 'w' + (typeof Date !== 'undefined' ? Date.now().toString(36) : uid()) + Math.random().toString(36).slice(2, 5),
+                ts: Date.now(), pair: pairV.slice(0, 16), dir: dirV, pl: plV, result: resV,
+                r: null, pnlPct: null, rr: null, note: '', props: {} };
+              var next = (j.entries || []).concat([e]);
+              var payload = { entries: next, custom: !!(j && j.custom) };
+              if (j && j.cols) payload.cols = j.cols;
+              var sc = num(j && j.startCap); if (sc != null && sc > 0) payload.startCap = sc;
+              var save = qa.querySelector('.wdg-jr-qa-save'); if (save) { save.disabled = true; save.textContent = '…'; }
+              fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+                .then(function (r) { return r.json(); }).then(function () { reload(); })
+                .catch(function () { if (save) { save.disabled = false; save.textContent = 'Ajouter'; } });
+            });
+          }
+        }
+        function reload() { host.innerHTML = '<div class="wdg-load">Chargement…</div>'; fetch('/api/journal').then(function (r) { return r.json(); }).then(build).catch(function () { fallback(host, 'Journal indisponible.'); }); }
+        reload();
         return function () { try { if (typeof disposeRoot === 'function') disposeRoot(chartId); } catch (e) {} };
       },
     },
@@ -705,9 +747,20 @@
   }
 
   /* ── PERSISTANCE PAR COMPTE ── */
+  // 'mon-desk' = le DESK PAR DÉFAUT, PROTÉGÉ (demande user 23/07) : toujours présent (recréé s'il a été
+  // supprimé par une ancienne version) et NON SUPPRIMABLE (garde dans deleteLayout + cadenas au gestionnaire).
+  var PROTECTED_ID = 'mon-desk';
+  function ensureDefaultLayout(c) {
+    if (!c || !Array.isArray(c.layouts)) return c;
+    if (!c.layouts.some(function (l) { return l && l.id === PROTECTED_ID; })) {
+      c.layouts.unshift(JSON.parse(JSON.stringify(defaultCfg().layouts[0])));
+      c.layouts[0].fav = false;                       // ne vole jamais l'étoile d'un template choisi par le user
+    }
+    return c;
+  }
   function load() {
     return fetch('/api/widgets').then(function (r) { return r.json(); }).then(function (j) {
-      STATE.cfg = (j && j.cfg && j.cfg.layouts && j.cfg.layouts.length) ? j.cfg : defaultCfg();
+      STATE.cfg = ensureDefaultLayout((j && j.cfg && j.cfg.layouts && j.cfg.layouts.length) ? j.cfg : defaultCfg());
     }).catch(function () { STATE.cfg = defaultCfg(); });
   }
   function save() {                        // débouncé ; le serveur re-sanitise de toute façon
@@ -919,9 +972,11 @@
     if (!box || !c) return;
     box.innerHTML = c.layouts.map(function (l) {
       var active = l.id === c.active;
-      var del = (l.id === _delConfirm)
-        ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
-        : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
+      var del = (l.id === PROTECTED_ID)
+        ? '<span class="wdg-mgr-lock" title="Desk par défaut — non supprimable">' + ICO.lock + '</span>'
+        : (l.id === _delConfirm)
+          ? '<button class="wdg-mgr-del confirm" onclick="DTPWidgets.deleteLayout(\'' + l.id + '\')">Supprimer ?</button>'
+          : '<button class="wdg-mgr-del" title="Supprimer" onclick="DTPWidgets.askDelete(\'' + l.id + '\')">×</button>';
       return '<div class="wdg-mgr-row' + (active ? ' on' : '') + '">'
         + '<button class="wdg-mgr-star' + (l.fav ? ' on' : '') + '" title="Template par défaut (s\'ouvre à l\'arrivée sur Mon Desk)" onclick="DTPWidgets.toggleFav(\'' + l.id + '\')">★</button>'
         + _thumb(l.items)
@@ -1160,6 +1215,7 @@
       var id = 'lay-' + uid();
       c.layouts.push({ id: id, name: 'Nouveau layout', fav: false, items: [] });
       c.active = id; save(); renderBar(); renderManager(); renderGrid();
+      setTimeout(function () { editTab(id); }, 60);   // le NOM passe direct en édition (demande user : renommer l'onglet à la création)
     },
     renameLayout: function (id, name) {
       var l = layoutById(id); if (!l) return;
@@ -1176,10 +1232,11 @@
       l.fav = !was;
       save(); renderBar(); renderManager();
     },
-    askDelete: function (id) { _delConfirm = id; renderManager(); },        // 1er clic : demande confirmation inline
+    askDelete: function (id) { if (id === PROTECTED_ID) return; _delConfirm = id; renderManager(); },   // 1er clic : confirmation inline (jamais pour le desk par défaut)
     deleteLayout: function (id) {
       var c = STATE.cfg; if (!c) return;
       _delConfirm = null;
+      if (id === PROTECTED_ID) return;                                       // desk par défaut = NON supprimable
       if (c.layouts.length <= 1) { API.reset(); API.openManager(); return; } // jamais 0 layout → retour au défaut
       c.layouts = c.layouts.filter(function (l) { return l.id !== id; });
       if (c.active === id) c.active = c.layouts[0].id;
@@ -1239,13 +1296,38 @@
       + '<rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="currentColor" opacity=".2"/>'
       + '<rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
       + '<rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
+    // Badge « NOUVEAU » (même modèle durable que le badge du Journal) : pastille or coin haut-droit,
+    // pulse subtil ×3 à l'apparition puis statique ; 1er clic sur l'icône → disparaît DÉFINITIVEMENT
+    // pour ce compte (flag KV /api/widgets-new-seen). N'apparaît que si le compte ne l'a jamais ouvert.
+    var badge = document.createElement('span');
+    badge.className = 'topbar-new-badge wdg-new-badge';
+    badge.textContent = 'NOUVEAU';
+    badge.style.display = 'none';
+    icon.appendChild(badge);
+    fetch('/api/widgets-new-seen').then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.seen === false) { badge.style.display = ''; badge.classList.add('pulse'); }
+    }).catch(function () {});
     // TOGGLE (23/07) : la nav principale est MASQUÉE en mode Mon Desk (dashboard autonome, demande user)
     // → l'icône fait entrer ET sortir (re-clic = retour au fil d'actus).
     icon.addEventListener('click', function () {
+      if (badge.style.display !== 'none') { badge.style.display = 'none'; try { fetch('/api/widgets-new-seen', { method: 'POST' }); } catch (e) {} }
       if (typeof activateView !== 'function') return;
       activateView(document.body.classList.contains('wdg-mode') ? 'news' : 'widgets');
     });
     center.insertBefore(icon, journal);                                      // à GAUCHE de Journal / Calculatrice
+    // PRÉCHARGE la config (léger) → hasDefault() connu sans ouvrir Mon Desk (sert au clic sur le LOGO).
+    if (!STATE.cfg) load().catch(function () {});
+    // LOGO → TEMPLATE PAR DÉFAUT (demande user 23/07) : si un layout ★ existe, cliquer le logo
+    // DataTradingPro atterrit sur Mon Desk (open() y applique le ★). Sans ★ : le logo reste inerte.
+    var logo = document.querySelector('.logo-text');
+    if (logo && !logo._wdgWired) {
+      logo._wdgWired = true;
+      logo.style.cursor = 'pointer';
+      logo.addEventListener('click', function () {
+        var hasFav = !!(STATE.cfg && (STATE.cfg.layouts || []).some(function (l) { return l && l.fav; }));
+        if (hasFav && typeof activateView === 'function') activateView('widgets');
+      });
+    }
     // Rechargement ADMIN sur Mon Desk : le boot restore de charts.js l'a neutralisé par sécurité
     // (dtp_active_view='widgets' → 'news', car _pdIsAdmin n'y était pas encore résolu). ICI, boot() ne
     // tourne QUE pour un admin (poll _pdIsAdmin) → on peut rouvrir. La garde d'activateView
