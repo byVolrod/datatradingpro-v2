@@ -9891,6 +9891,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
   .ai-legal    { padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); }
   .chat-hint   { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
   .sqwk-footer { padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+  /* ANTI-ZOOM iOS : Safari zoome au focus dès qu'un champ a une police < 16px. On force 16px sur TOUS les champs
+     de saisie tactile (chat support, IA, recherche symbole, recherche users, journal…) → plus de zoom parasite,
+     la conversation reste à l'échelle. Le rendu visuel du texte tapé est à peine plus grand, c'est voulu. */
+  .chat-input, #chat-search-input, .ai-input, #topbar-symbol-input, .wdg-lib-search,
+  input[type="text"], input[type="search"], input[type="email"], input[type="number"],
+  input[type="password"], input[type="url"], input[type="tel"], textarea, select { font-size: 16px !important; }
+  .ai-input::placeholder { font-size: 16px; }
 }
 
 /* ═══════════════ CORRECTIFS RESPONSIVE (tablette / téléphone) ═══════════════ */
@@ -9904,6 +9911,13 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
    qui mangeaient la moitié de l'écran), et les grandes tables s'assouplissent. */
 @media (max-width: 768px) {
   .chat-panel, .np-panel, .settings-panel, .ai-panel, .sqwk-panel { width: 100% !important; max-width: 100% !important; border-left: none; }
+  /* CLAVIER VIRTUEL : quand il s'ouvre, on rétrécit le volet de SA hauteur (--kb, posée en JS via visualViewport)
+     → la zone de saisie remonte JUSTE au-dessus du clavier et la CONVERSATION reste visible au-dessus (demande user).
+     Sans ça, l'input passait sous le clavier et iOS faisait défiler toute la page (en-tête + fil masqués). */
+  .chat-panel, .ai-panel, .np-panel, .settings-panel, .sqwk-panel {
+    height: calc(100dvh - var(--topbar-h) - var(--kb, 0px)) !important;
+    transition: transform .24s ease, height .18s ease;
+  }
   .fxl-table { min-width: 760px; font-size: 10px; }
   /* Inertie tactile sur tous les conteneurs de tables larges (FX LIST / CALENDAR / BANK / Week Ahead) */
   .fxl-table-scroll, .cal-table-wrap, .bank-table-wrap, #wa-cal-body { -webkit-overflow-scrolling: touch; }
