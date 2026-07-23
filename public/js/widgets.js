@@ -39,6 +39,7 @@
   var _LMAX = 12;                         // = _WDG_MAX_LAYOUTS côté serveur (plafond de templates)
   var GRID_COLS = 12, ROW_PX = 26;        // vraie grille : 12 colonnes fluides + unité de ligne 26px (snap)
   var _fullscreenIdx = null;              // widget en plein écran (null = aucun)
+  var _mountToken = 0;                    // jeton anti-course : seul le rAF du DERNIER renderGrid monte
   function _clamp(v, a, b) { v = v | 0; return v < a ? a : (v > b ? b : v); }
   // Normalise un item vers le NOUVEAU modèle { gw:1-12 colonnes, gh:lignes } et MIGRE l'ancien { h:px, col:1|2 }
   // (col 2 = pleine largeur → gw 12 ; sinon gw 6 ; hauteur px → lignes). Idempotent.
@@ -255,139 +256,307 @@
       },
     },
     {
-      id: 'risque-jauge', name: 'Sentiment de Risque', cat: 'Risque', h: 230,
+      id: 'risque-jauge', name: 'Sentiment de Risque', cat: 'Risque', h: 300,
       desc: "L'appétit / l'aversion du marché en direct (risk-on / risk-off).",
-      // AUTONOME : /api/risk-sentiment → jauge bidirectionnelle HTML (risk-off rouge ↔ risk-on vert), % + libellé
-      // FR + les actifs qui composent le signal. Aucun root amCharts (la jauge du desk est un singleton) → cleanup null.
+      // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de buildRiskGauge (charts.js) — mêmes classes
+      // (.risk-ticker / .risk-gauge-stage / .risk-readout), même arc am5radar (dégradé 7 stops), même
+      // triangle ClockHand teinté _riskArcColor, mêmes helpers globaux (_riskBandInner, GAUGE_LABEL_FR).
+      // Root amCharts PAR INSTANCE (le singleton _riskGaugeRoot reste au desk) + suit le snapshot partagé
+      // dtp-risk (source unique app.js) → toujours la même valeur que la jauge de l'onglet RISQUE.
       mount: function (host) {
-        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
-        var FR = { 'STRONG RISK-OFF': 'Forte aversion', 'RISK-OFF': 'Aversion', 'MILD RISK-OFF': 'Légère aversion', 'NEUTRAL': 'Neutre', 'MILD RISK-ON': 'Léger appétit', 'RISK-ON': 'Appétit', 'STRONG RISK-ON': 'Fort appétit' };
-        fetch('/api/risk-sentiment').then(function (r) { return r.json(); }).then(function (d) {
-          if (!host.isConnected) return;
-          var pct = (typeof d.pct === 'number') ? d.pct : 0;
-          var col = pct > 8 ? '#22c55e' : pct < -8 ? '#ef4444' : '#ffb300';
-          var lbl = FR[d.label] || d.label || 'Neutre';
-          var mk = Math.max(0, Math.min(100, (pct + 100) / 2));
-          host.innerHTML = '<div class="wdg-risk">'
-            + '<div class="wdg-risk-head"><span class="wdg-risk-lbl" style="color:' + col + '">' + esc(lbl) + '</span>'
-            + '<span class="wdg-risk-pct" style="color:' + col + '">' + (pct > 0 ? '+' : '') + pct.toFixed(1) + ' %</span></div>'
-            + '<div class="wdg-risk-track"><span class="wdg-risk-mark" style="left:' + mk + '%;background:' + col + '"></span></div>'
-            + '<div class="wdg-risk-scale"><span>Risk-off</span><span>Neutre</span><span>Risk-on</span></div>'
-            + '<div class="wdg-risk-desc">' + esc(d.description || '') + '</div>'
-            + '<div class="wdg-risk-assets">' + (d.assets || []).slice(0, 6).map(function (a) {
-                var c = a.chg > 0 ? '#2ae389' : a.chg < 0 ? '#ff7259' : '#b6bdc9';
-                return '<span class="wdg-risk-asset"><i>' + esc(a.label) + '</i><b style="color:' + c + '">' + (a.chg > 0 ? '+' : '') + a.chg + ' %</b></span>';
-              }).join('') + '</div></div>';
-        }).catch(function () { fallback(host, 'Sentiment indisponible.'); });
-        return null;
+        if (!(window.am5 && window.am5radar) || typeof _riskArcColor !== 'function' || typeof _riskBandInner !== 'function' || typeof GAUGE_LABEL_FR === 'undefined') { fallback(host, 'Jauge indisponible.'); return null; }
+        host.innerHTML = '<div class="risk-widget-container wdg-riskwrap"></div>';
+        var wrap = host.firstChild;
+        var root = null, handDI = null, hand = null, built = false;
+        function render(data) {
+          if (!host.isConnected || !data || data.error) return;
+          try {
+            var frLabel = GAUGE_LABEL_FR[data.label] || data.label;
+            var isOn = /risk-on/i.test(data.label), isOff = /risk-off/i.test(data.label);
+            var cls = isOn ? 'risk-on' : isOff ? 'risk-off' : 'neutral';
+            var gaugeVal = Math.max(-100, Math.min(100, +((typeof data.pct === 'number' ? data.pct : (data.score || 0) * 50)).toFixed(1)));
+            if (!built) {
+              built = true;
+              wrap.innerHTML = '<div class="risk-ticker ' + cls + '">' + _riskBandInner(data) + '</div>'
+                + '<div class="risk-gauge-stage"><div class="wdg-riskgauge"></div>'
+                + '<div class="risk-readout"><div class="risk-readout-badge ' + cls + '"></div></div></div>';
+              wrap.querySelector('.risk-readout-badge').textContent = frLabel;
+              root = am5.Root.new(wrap.querySelector('.wdg-riskgauge'));
+              root.setThemes(typeof applyTerminalTheme === 'function' ? [am5themes_Animated.new(root), applyTerminalTheme(root)] : [am5themes_Animated.new(root)]);
+              if (root._logo) root._logo.set('forceHidden', true);
+              var chart = root.container.children.push(am5radar.RadarChart.new(root, {
+                panX: false, panY: false, startAngle: -180, endAngle: 0,
+                radius: am5.percent(86), innerRadius: am5.percent(78),
+                paddingTop: 12, paddingBottom: 26, paddingLeft: 28, paddingRight: 28,
+              }));
+              var axisRenderer = am5radar.AxisRendererCircular.new(root, { strokeOpacity: 0 });
+              axisRenderer.labels.template.setAll({ visible: false });
+              axisRenderer.ticks.template.setAll({ visible: false });
+              axisRenderer.grid.template.setAll({ visible: false });
+              var axis = chart.xAxes.push(am5xy.ValueAxis.new(root, { min: -100, max: 100, strictMinMax: true, renderer: axisRenderer }));
+              var arc = axis.createAxisRange(axis.makeDataItem({ value: -100, endValue: 100 }));
+              arc.get('axisFill').setAll({
+                visible: true, fillOpacity: 1, strokeOpacity: 0, fill: am5.color(0xddb23a),
+                fillGradient: am5.LinearGradient.new(root, { rotation: 0, stops: [
+                  { color: am5.color(0xc63430) }, { color: am5.color(0xdb5a2c) }, { color: am5.color(0xe88a28) },
+                  { color: am5.color(0xddb23a) }, { color: am5.color(0xa9c64a) }, { color: am5.color(0x5cb060) }, { color: am5.color(0x2a9e60) },
+                ] }),
+              });
+              if (arc.get('grid')) arc.get('grid').setAll({ visible: false });
+              if (arc.get('tick')) arc.get('tick').setAll({ visible: false });
+              if (arc.get('label')) arc.get('label').setAll({ visible: false });
+              handDI = axis.makeDataItem({ value: 0 });
+              hand = am5radar.ClockHand.new(root, { pinRadius: 0, radius: am5.percent(64), innerRadius: am5.percent(43), bottomWidth: 26, topWidth: 0 });
+              hand.pin.setAll({ forceHidden: true });
+              hand.hand.setAll({ fill: am5.color(_riskArcColor(gaugeVal)), fillOpacity: 0.95, strokeOpacity: 0 });
+              handDI.set('bullet', am5xy.AxisBullet.new(root, { sprite: hand }));
+              axis.createAxisRange(handDI);
+              if (handDI.get('grid')) handDI.get('grid').setAll({ visible: false });
+              handDI.animate({ key: 'value', to: gaugeVal, duration: 1000, easing: am5.ease.out(am5.ease.cubic) });
+            } else {
+              if (handDI) handDI.animate({ key: 'value', to: gaugeVal, duration: 800, easing: am5.ease.out(am5.ease.cubic) });
+              if (hand) hand.hand.set('fill', am5.color(_riskArcColor(gaugeVal)));
+              var badgeUp = wrap.querySelector('.risk-readout-badge');
+              if (badgeUp) { badgeUp.textContent = frLabel; badgeUp.className = 'risk-readout-badge ' + cls; }
+              var tickUp = wrap.querySelector('.risk-ticker');
+              if (tickUp) { tickUp.className = 'risk-ticker ' + cls; tickUp.innerHTML = _riskBandInner(data); }
+            }
+            // Badge + bande d'état teintés par la couleur d'arc COURANTE (même logique que le desk)
+            var arcHex = '#' + _riskArcColor(gaugeVal).toString(16).padStart(6, '0');
+            var badge = wrap.querySelector('.risk-readout-badge');
+            if (badge) { badge.style.color = arcHex; badge.style.borderColor = arcHex; }
+            var ticker = wrap.querySelector('.risk-ticker');
+            if (ticker) {
+              ticker.style.color = 'color-mix(in oklab, ' + arcHex + ' 52%, #c7cacc)';
+              ticker.style.background = 'color-mix(in oklab, ' + arcHex + ' 13%, #0c0e13)';
+              ticker.style.borderColor = 'color-mix(in oklab, ' + arcHex + ' 30%, transparent)';
+              var dt = ticker.querySelector('.risk-ticker-dot'); if (dt) dt.style.background = arcHex;
+              var st = ticker.querySelector('strong'); if (st) st.style.color = arcHex;
+            }
+          } catch (e) { if (!built) fallback(host, 'Jauge indisponible.'); }
+        }
+        function onRisk(e) { render(e && e.detail); }
+        window.addEventListener('dtp-risk', onRisk);
+        if (window._dtpRisk) render(window._dtpRisk);
+        else fetch('/api/risk-sentiment').then(function (r) { return r.json(); }).then(function (d) { if (!d || d.error) return fallback(host, 'Sentiment indisponible.'); window._dtpRisk = window._dtpRisk || d; render(window._dtpRisk); }).catch(function () { fallback(host, 'Sentiment indisponible.'); });
+        return function () { window.removeEventListener('dtp-risk', onRisk); try { if (root) root.dispose(); } catch (e) {} };
       },
     },
     {
-      id: 'cot-inst', name: 'Positionnement COT', cat: 'Risque', h: 300,
+      id: 'cot-inst', name: 'Positionnement COT', cat: 'Risque', h: 340,
       desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
+      // IDENTIQUE AU DESK (23/07) : réutilise buildCOTChart(gridId, type) de charts.js (rendu rétrocompatible)
+      // → mêmes cartes donut SVG .cot-cell, mêmes 5 catégories CFTC (barre .cot-type-bar reproduite, handlers
+      // SCOPÉS au widget — ceux du desk sont scopés #rtab-cot). Zéro root amCharts → cleanup null.
       mount: function (host) {
-        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
-        var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
-        fetch('/api/cot?type=currencies').then(function (r) { return r.json(); }).then(function (d) {
-          if (!host.isConnected) return;
-          var cur = (d && d.currencies) || [];
-          if (!cur.length) return fallback(host, 'COT indisponible.');
-          var rows = cur.map(function (c) {
-            var lp = Math.max(0, Math.min(100, c.longPct || 0));
-            var stag = /bull/i.test(c.sentiment) ? 'up' : /bear/i.test(c.sentiment) ? 'down' : 'flat';
-            var net = c.net != null ? (c.net > 0 ? '+' : '') + Math.round(c.net / 1000) + 'k' : '';
-            return '<div class="wdg-cot-row"><span class="wdg-cot-cur">' + flag(c.key) + '<b>' + esc(c.key) + '</b></span>'
-              + '<span class="wdg-cot-bar"><i class="l" style="width:' + lp + '%">' + (lp >= 20 ? lp + '%' : '') + '</i><i class="s" style="width:' + (100 - lp) + '%">' + ((100 - lp) >= 20 ? (100 - lp) + '%' : '') + '</i></span>'
-              + '<span class="wdg-cot-net ' + stag + '">' + esc(net) + '</span></div>';
-          }).join('');
-          host.innerHTML = '<div class="wdg-cot"><div class="wdg-cot-head"><span>Devise</span><span class="wdg-cot-lgd"><i class="l"></i>Long <i class="s"></i>Short</span><span class="r">Net</span></div>'
-            + '<div class="wdg-cot-list custom-scrollbar">' + rows + '</div></div>';
-        }).catch(function () { fallback(host, 'COT indisponible.'); });
+        if (typeof buildCOTChart !== 'function') { fallback(host, 'COT indisponible.'); return null; }
+        var gid = HOST_ID + '-cotg-' + uid();
+        var TYPES = [['noncomm', 'Non-comm.'], ['dealer', 'Teneur'], ['asset_mgr', 'Gérant'], ['lev_money', 'Effet de levier'], ['other_rept', 'Autre']];
+        host.innerHTML = '<div class="wdg-cotwrap">'
+          + '<div class="cot-type-bar">' + TYPES.map(function (t) {
+              return '<button class="cot-type-btn' + (t[0] === 'lev_money' ? ' cot-type-btn--active' : '') + '" data-cot-type="' + t[0] + '">' + t[1] + '</button>';
+            }).join('') + '</div>'
+          + '<div id="' + gid + '" class="cot-grid custom-scrollbar"></div></div>';
+        try { buildCOTChart(gid, 'lev_money'); } catch (e) { fallback(host, 'COT indisponible.'); return null; }
+        host.querySelectorAll('.cot-type-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            host.querySelectorAll('.cot-type-btn').forEach(function (b) { b.classList.remove('cot-type-btn--active'); });
+            btn.classList.add('cot-type-btn--active');
+            try { buildCOTChart(gid, btn.dataset.cotType); } catch (e) {}
+          });
+        });
         return null;
       },
     },
     {
-      id: 'dmx-retail', name: 'Sentiment des particuliers', cat: 'Risque', h: 320,
+      id: 'dmx-retail', name: 'Aperçu DMX', cat: 'Risque', h: 340,
       desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
+      // IDENTIQUE AU DESK (23/07) : réutilise buildDMXChart(force, {wrapId, period, sort}) de charts.js
+      // → mêmes barres .dmx2-row, même en-tête (boutons TF 1D/4H/1H + tri) et même légende Long/Short.
+      // Le widget gère SON intervalle 60 s (le _dmxTimer du desk reste gaté sur #rtab-dmx) → cleanup.
       mount: function (host) {
-        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
-        fetch('/api/community-outlook?period=today').then(function (r) { return r.json(); }).then(function (d) {
-          if (!host.isConnected) return;
-          var syms = (d && d.symbols) || [];
-          if (!syms.length) return fallback(host, 'Sentiment indisponible.');
-          syms = syms.slice().sort(function (a, b) { return Math.abs((b.shortPct || 50) - 50) - Math.abs((a.shortPct || 50) - 50); }).slice(0, 40);
-          var rows = syms.map(function (s) {
-            var lp = Math.max(0, Math.min(100, s.longPct || 0));
-            return '<div class="wdg-dmx-row"><span class="wdg-dmx-sym">' + esc(s.symbol) + '</span>'
-              + '<span class="wdg-dmx-bar"><i class="l" style="width:' + lp + '%">' + (lp >= 22 ? lp + '%' : '') + '</i><i class="s" style="width:' + (100 - lp) + '%">' + ((100 - lp) >= 22 ? (100 - lp) + '%' : '') + '</i></span></div>';
-          }).join('');
-          host.innerHTML = '<div class="wdg-dmx"><div class="wdg-dmx-head"><span>Paire</span><span class="wdg-dmx-lgd"><i class="l"></i>Long <i class="s"></i>Short</span></div>'
-            + '<div class="wdg-dmx-list custom-scrollbar">' + rows + '</div></div>';
-        }).catch(function () { fallback(host, 'Sentiment indisponible.'); });
+        if (typeof buildDMXChart !== 'function') { fallback(host, 'DMX indisponible.'); return null; }
+        var wid = HOST_ID + '-dmxw-' + uid();
+        host.innerHTML = '<div class="wdg-dmxwrap">'
+          + '<div class="dmx-header-bar">'
+          + '<div class="dmx-tf-group"><button class="dmx-tf-btn" data-tf="D1">1D</button><button class="dmx-tf-btn" data-tf="H4">4H</button><button class="dmx-tf-btn dmx-tf-btn--active" data-tf="H1">1H</button></div>'
+          + '<span style="flex:1"></span>'
+          + '<select class="dmx-sort-select"><option value="az">Paire (A-Z)</option><option value="long">Long ↓</option><option value="short">Short ↓</option></select>'
+          + '</div>'
+          + '<div class="dmx-legend-bar"><span class="dmx-legend-dot dmx-legend-long-dot"></span><span class="dmx-legend-text">Long</span><span class="dmx-legend-dot dmx-legend-short-dot"></span><span class="dmx-legend-text">Short</span></div>'
+          + '<div id="' + wid + '" class="dmx-table-wrap custom-scrollbar"></div></div>';
+        function optsNow() {
+          var tf = host.querySelector('.dmx-tf-btn--active');
+          var sel = host.querySelector('.dmx-sort-select');
+          return { wrapId: wid, period: tf ? tf.dataset.tf : 'H1', sort: sel ? sel.value : 'az' };
+        }
+        function refresh(force) { try { buildDMXChart(!!force, optsNow()); } catch (e) {} }
+        refresh(false);
+        host.querySelectorAll('.dmx-tf-btn').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            host.querySelectorAll('.dmx-tf-btn').forEach(function (b) { b.classList.remove('dmx-tf-btn--active'); });
+            btn.classList.add('dmx-tf-btn--active');
+            refresh(true);
+          });
+        });
+        var sel = host.querySelector('.dmx-sort-select');
+        if (sel) sel.addEventListener('change', function () { refresh(false); });
+        var iv = setInterval(function () { if (!host.isConnected) { clearInterval(iv); return; } refresh(false); }, 60000);
+        return function () { clearInterval(iv); };
+      },
+    },
+    {
+      id: 'saison', name: 'Saisonnalité', cat: 'Macro', h: 300,
+      desc: "La table de performance mensuelle par année (rendements × 5 ans).",
+      // IDENTIQUE AU DESK (23/07) : même table heatmap .season-table (cellules rendues par le MÊME
+      // _seasonCell global de charts.js — vert/rouge ∝ |valeur|, flèches, colonne Moy.), même badge
+      // [PAIRE] ; paire du COMPTE (/api/season-pair, GET au montage + POST au changement, comme le desk).
+      mount: function (host) {
+        if (typeof _seasonCell !== 'function') { fallback(host, 'Saisonnalité indisponible.'); return null; }
+        var fmt = (typeof _seasonFmtPair === 'function') ? _seasonFmtPair : function (c) { return c; };
+        var pairs = (typeof _SEASON_PAIRS !== 'undefined') ? _SEASON_PAIRS.slice() : ['EURUSD'];
+        host.innerHTML = '<div class="wdg-seawrap">'
+          + '<div class="dmx-header-bar"><span class="season-pair-badge wdg-sea-badge">[EUR/USD]</span><span style="flex:1"></span>'
+          + '<select class="dmx-sort-select wdg-sea-sel">' + pairs.sort(function (a, b) { return fmt(a).localeCompare(fmt(b), 'fr', { numeric: true, sensitivity: 'base' }); }).map(function (p) { return '<option value="' + esc(p) + '">' + esc(fmt(p)) + '</option>'; }).join('') + '</select></div>'
+          + '<div class="season-table-wrap custom-scrollbar wdg-sea-tbl"><div class="wdg-load">Chargement…</div></div>';
+        var sel = host.querySelector('.wdg-sea-sel'), badge = host.querySelector('.wdg-sea-badge'), tblWrap = host.querySelector('.wdg-sea-tbl');
+        var cur = null;
+        function load(p) {
+          cur = p;
+          if (sel && !sel.querySelector('option[value="' + p.replace(/"/g, '') + '"]')) {   // paire du compte hors liste FX (catalogue Stocks/Indices…)
+            var op = document.createElement('option'); op.value = p; op.textContent = fmt(p); sel.insertBefore(op, sel.firstChild);
+          }
+          if (sel) sel.value = p;
+          if (badge) badge.textContent = '[' + fmt(p) + ']';
+          fetch('/api/seasonality?symbol=' + encodeURIComponent(p)).then(function (r) { return r.json(); }).then(function (data) {
+            if (!host.isConnected || p !== cur) return;                    // réponse périmée (changement de paire)
+            if (!data || !Array.isArray(data.rows) || !data.rows.length) return fallback(tblWrap, 'Aucune donnée');
+            if (badge && data.symbol) badge.textContent = '[' + data.symbol + ']';
+            var yrs = data.years || [];
+            var head = '<tr><th class="season-th season-th--m"></th>' + yrs.map(function (y) { return '<th class="season-th">\'' + String(y).slice(2) + '</th>'; }).join('') + '<th class="season-th season-th--avg">Moy.</th></tr>';
+            var body = data.rows.map(function (row) {
+              return '<tr><td class="season-month">' + esc(row.month) + '</td>' + (row.vals || []).map(function (v) { return _seasonCell(v, false); }).join('') + _seasonCell(row.avg, true) + '</tr>';
+            }).join('');
+            tblWrap.innerHTML = '<table class="season-table"><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+          }).catch(function () { if (host.isConnected && p === cur) fallback(tblWrap, 'Saisonnalité indisponible.'); });
+        }
+        fetch('/api/season-pair').then(function (r) { return r.json(); }).then(function (d) {
+          load((d && d.pair) ? d.pair : 'EURUSD');
+        }).catch(function () { load('EURUSD'); });
+        if (sel) sel.addEventListener('change', function () {
+          var p = sel.value;
+          try { fetch('/api/season-pair', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pair: p }) }); } catch (e) {}
+          load(p);
+        });
         return null;
       },
     },
     {
-      id: 'saison', name: 'Saisonnalité', cat: 'Macro', h: 250,
-      desc: "Le rendement mensuel moyen sur 5 ans (EUR/USD).",
+      id: 'sessions', name: 'Sessions de marché', cat: 'Macro', h: 340,
+      desc: 'La carte du monde des 4 grandes sessions FX, en direct.',
+      // IDENTIQUE AU DESK (23/07) : réplique instance-scopée de la VRAIE carte Leaflet de l'onglet MONDE
+      // (sessionmap.js) — continents GeoJSON on-brand (geodata amCharts partagé), terminateur jour/nuit,
+      // badges villes .lf-city (classes globales → rendu identique), halos de session, résumé d'en-tête.
+      // Instance Leaflet DÉDIÉE (window._dtpLfMap reste au desk) + timers locaux → cleanup complet.
       mount: function (host) {
-        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
-        var MFR = { Jan: 'Janv', Feb: 'Févr', Mar: 'Mars', Apr: 'Avr', May: 'Mai', Jun: 'Juin', Jul: 'Juil', Aug: 'Août', Sep: 'Sept', Oct: 'Oct', Nov: 'Nov', Dec: 'Déc' };
-        fetch('/api/seasonality?symbol=EURUSD').then(function (r) { return r.json(); }).then(function (d) {
-          if (!host.isConnected) return;
-          var rows = (d && d.rows) || [];
-          if (!rows.length) return fallback(host, 'Saisonnalité indisponible.');
-          var mx = Math.max.apply(null, rows.map(function (r) { return Math.abs(typeof r.avg === 'number' ? r.avg : 0); }).concat([0.5]));
-          var bars = rows.map(function (r) {
-            var v = (typeof r.avg === 'number') ? r.avg : 0, up = v >= 0;
-            var hh = Math.max(4, Math.round(Math.abs(v) / mx * 100));
-            var mfr = MFR[r.month] || r.month;
-            return '<span class="wdg-sai-col" title="' + esc(mfr) + ' : ' + (v > 0 ? '+' : '') + v.toFixed(2) + ' %">'
-              + '<span class="wdg-sai-up">' + (up ? '<i style="height:' + hh + '%"></i>' : '') + '</span>'
-              + '<span class="wdg-sai-dn">' + (!up ? '<i style="height:' + hh + '%"></i>' : '') + '</span>'
-              + '<span class="wdg-sai-m">' + esc(mfr.slice(0, 1)) + '</span></span>';
-          }).join('');
-          host.innerHTML = '<div class="wdg-sai"><div class="wdg-sai-t">' + esc(d.symbol || 'EUR/USD') + ' · moyenne 5 ans</div>'
-            + '<div class="wdg-sai-row">' + bars + '</div></div>';
-        }).catch(function () { fallback(host, 'Saisonnalité indisponible.'); });
-        return null;
-      },
-    },
-    {
-      id: 'sessions', name: 'Sessions de marché', cat: 'Macro', h: 230,
-      desc: 'Les 4 grandes sessions FX : ouvertes, fermées, prochaine ouverture.',
-      // AUTONOME : recalcule l'état des 4 sessions côté client (fuseaux horaires, DST via Intl) — l'ESSENTIEL de
-      // l'onglet MONDE sans la carte Leaflet (singleton `_dtpLfMap` non réutilisable). Rafraîchi chaque 30 s.
-      mount: function (host) {
+        if (typeof L === 'undefined') { fallback(host, 'Carte indisponible.'); return null; }
+        host.innerHTML = '<div class="wdg-mapwrap"><div class="chart-header-sub wdg-map-sub"></div><div class="wdg-lfmap"></div></div>';
+        var el = host.querySelector('.wdg-lfmap'), sub = host.querySelector('.wdg-map-sub');
         var CITIES = [
-          { name: 'Sydney', tz: 'Australia/Sydney', open: 9, close: 17 },
-          { name: 'Tokyo', tz: 'Asia/Tokyo', open: 9, close: 15 },
-          { name: 'Londres', tz: 'Europe/London', open: 8, close: 17 },
-          { name: 'New York', tz: 'America/New_York', open: 9, close: 17 },
+          { name: 'Sydney', tz: 'Australia/Sydney', lon: 151.2, lat: -33.9, open: 9, close: 17 },
+          { name: 'Tokyo', tz: 'Asia/Tokyo', lon: 139.7, lat: 35.7, open: 9, close: 15 },
+          { name: 'Londres', tz: 'Europe/London', lon: -0.12, lat: 51.5, open: 8, close: 17 },
+          { name: 'New York', tz: 'America/New_York', lon: -74.0, lat: 40.7, open: 9, close: 17 },
         ];
-        function state(c, now) {
+        function cityState(c, now) {
           var local = new Date(now.toLocaleString('en-US', { timeZone: c.tz }));
           var h = local.getHours() + local.getMinutes() / 60, dow = local.getDay();
-          if (dow >= 1 && dow <= 5 && h >= c.open && h < c.close) return { open: true, mins: Math.max(1, Math.round((c.close - h) * 60)) };
-          for (var dd = 0; dd < 8; dd++) { var cand = new Date(local); cand.setDate(local.getDate() + dd); cand.setHours(c.open, 0, 0, 0); if (cand > local && cand.getDay() >= 1 && cand.getDay() <= 5) return { open: false, mins: Math.max(1, Math.round((cand - local) / 60000)) }; }
-          return { open: false, mins: 0 };
+          if (dow >= 1 && dow <= 5 && h >= c.open && h < c.close) return { open: true, soon: false, mins: Math.max(1, Math.round((c.close - h) * 60)) };
+          for (var dd = 0; dd < 8; dd++) { var cand = new Date(local); cand.setDate(local.getDate() + dd); cand.setHours(c.open, 0, 0, 0); if (cand > local && cand.getDay() >= 1 && cand.getDay() <= 5) { var m = Math.max(1, Math.round((cand - local) / 60000)); return { open: false, soon: m <= 45, mins: m }; } }
+          return { open: false, soon: false, mins: 0 };
         }
         function frDur(m) { var h = Math.floor(m / 60), mm = m % 60; if (h <= 0) return mm + ' min'; if (h >= 24) return Math.floor(h / 24) + ' j ' + (h % 24) + ' h'; return h + ' h' + (mm ? ' ' + (mm < 10 ? '0' + mm : mm) : ''); }
-        function render() {
-          if (!host.isConnected) return;
-          var now = new Date(), openN = [];
-          var rows = CITIES.map(function (c) {
-            var st = state(c, now); if (st.open) openN.push(c.name);
-            var t = now.toLocaleTimeString('fr-FR', { timeZone: c.tz, hour: '2-digit', minute: '2-digit' });
-            return '<div class="wdg-ses-row ' + (st.open ? 'on' : 'off') + '"><span class="wdg-ses-dot"></span>'
-              + '<span class="wdg-ses-time">' + t + '</span><span class="wdg-ses-name">' + c.name + '</span>'
-              + '<span class="wdg-ses-sub">' + (st.open ? 'ferme dans ' + frDur(st.mins) : 'ouvre dans ' + frDur(st.mins)) + '</span></div>';
-          }).join('');
-          host.innerHTML = '<div class="wdg-ses"><div class="wdg-ses-hdr">' + (openN.length ? esc(openN.join(' · ')) + (openN.length > 1 ? ' ouvertes' : ' ouverte') : 'Marché fermé') + '</div>' + rows + '</div>';
+        function cityHtml(c, now, st) {
+          var t = now.toLocaleTimeString('fr-FR', { timeZone: c.tz, hour: '2-digit', minute: '2-digit' });
+          var cls = st.open ? 'lf-open' : (st.soon ? 'lf-closed lf-soon' : 'lf-closed');
+          return '<div class="lf-city ' + cls + '"><div class="lf-row"><span class="lf-dot"></span><b>' + t + '</b><span class="lf-name">' + c.name + '</span></div><div class="lf-sub">' + (st.open ? 'ferme dans ' + frDur(st.mins) : 'ouvre dans ' + frDur(st.mins)) + '</div></div>';
         }
-        render();
-        var iv = setInterval(render, 30000);
-        return function () { clearInterval(iv); };
+        function mkIcon(c, now, st) { return L.divIcon({ className: 'lf-city-wrap', html: cityHtml(c, now, st), iconSize: [0, 0], iconAnchor: [0, 0] }); }
+        // Même clip antiméridien que sessionmap.js (retire les anneaux qui croisent ±180° → pas de « smear »)
+        function clipDateline(geo) {
+          function crosses(ring) { var e = false, w = false; for (var i = 0; i < ring.length; i++) { if (ring[i][0] > 150) e = true; else if (ring[i][0] < -150) w = true; } return e && w; }
+          var feats = [];
+          (geo.features || []).forEach(function (f) {
+            if (!f.geometry) return;
+            var g = f.geometry, coords;
+            if (g.type === 'Polygon') coords = g.coordinates.filter(function (r) { return !crosses(r); });
+            else if (g.type === 'MultiPolygon') coords = g.coordinates.map(function (poly) { return poly.filter(function (r) { return !crosses(r); }); }).filter(function (poly) { return poly.length; });
+            else { feats.push(f); return; }
+            if (coords.length) feats.push({ type: f.type || 'Feature', properties: f.properties, geometry: { type: g.type, coordinates: coords } });
+          });
+          return { type: geo.type || 'FeatureCollection', features: feats };
+        }
+        el.style.background = 'radial-gradient(125% 105% at 55% 32%, #16181f 0%, #0b0c10 52%, #07080a 100%)';
+        var map = L.map(el, {
+          center: [18, 6], zoom: 1.4, minZoom: 1, maxZoom: 7, zoomSnap: 0,
+          zoomControl: false, attributionControl: false,
+          worldCopyJump: false, maxBounds: [[-74, -180], [84, 180]], maxBoundsViscosity: 1.0,
+          dragging: false, scrollWheelZoom: false, doubleClickZoom: false, boxZoom: false, keyboard: false,
+        });
+        var hasVector = false;
+        try {
+          if (typeof am5geodata_worldLow !== 'undefined' && am5geodata_worldLow && am5geodata_worldLow.features) {
+            var gj = L.geoJSON(clipDateline(am5geodata_worldLow), { interactive: false, style: { fillColor: '#237a42', fillOpacity: 1, color: '#164d2b', weight: 0.5, opacity: 0.7 } });
+            if (gj.getLayers().length > 5) { gj.addTo(map); hasVector = true; }
+          }
+        } catch (e) {}
+        if (!hasVector) { try { L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { subdomains: 'abcd', maxZoom: 19 }).addTo(map); } catch (e) {} }
+        var nightIv = null;
+        if (typeof L.terminator === 'function') {
+          try {
+            var term = L.terminator({ fillColor: '#070b14', fillOpacity: 0.5, color: '#070b14', weight: 0, interactive: false, className: 'lf-terminator' });
+            term.addTo(map);
+            nightIv = setInterval(function () { try { term.setTime(new Date()); } catch (e) {} }, 60000);
+          } catch (e) {}
+        }
+        CITIES.forEach(function (c) {
+          c._halo = L.circle([c.lat, c.lon], { radius: 2200000, stroke: false, fillColor: '#00e676', fillOpacity: 0, interactive: false }).addTo(map);
+          c._lfm = L.marker([c.lat, c.lon], { icon: mkIcon(c, new Date(), cityState(c, new Date())), interactive: false, keyboard: false }).addTo(map);
+        });
+        function refreshSessions(now) {
+          var openNames = [], nextUp = null;
+          CITIES.forEach(function (c) {
+            var st = cityState(c, now);
+            if (c._lfm) c._lfm.setIcon(mkIcon(c, now, st));
+            if (c._halo) { try { c._halo.setStyle({ fillOpacity: st.open ? 0.09 : 0 }); } catch (e) {} }
+            if (st.open) openNames.push(c.name);
+            else if (!nextUp || st.mins < nextUp.mins) nextUp = { name: c.name, mins: st.mins };
+          });
+          if (sub) {
+            if (openNames.length) { sub.textContent = openNames.join(' · ') + (openNames.length > 1 ? ' ouvertes' : ' ouverte'); sub.style.color = '#00e676'; }
+            else if (nextUp) { sub.textContent = 'Fermé · ' + nextUp.name + ' ouvre dans ' + frDur(nextUp.mins); sub.style.color = '#8a8f98'; }
+          }
+        }
+        refreshSessions(new Date());
+        var clockIv = setInterval(function () { refreshSessions(new Date()); }, 30000);
+        var savedView = null;
+        function fit() { try { map.invalidateSize(); map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); savedView = { center: map.getCenter(), zoom: map.getZoom() }; } catch (e) {} }
+        setTimeout(fit, 250);
+        setTimeout(fit, 900);
+        // Le widget est REDIMENSIONNABLE (coin) → recale la taille SANS refit (vue figée, comme _dtpLfRefit)
+        var ro = null;
+        try {
+          ro = new ResizeObserver(function () {
+            try { map.invalidateSize(); if (savedView) map.setView(savedView.center, savedView.zoom, { animate: false }); } catch (e) {}
+          });
+          ro.observe(el);
+        } catch (e) {}
+        return function () {
+          clearInterval(clockIv);
+          if (nightIv) clearInterval(nightIv);
+          try { if (ro) ro.disconnect(); } catch (e) {}
+          try { map.remove(); } catch (e) {}
+        };
       },
     },
     {
@@ -912,11 +1081,15 @@
     // Rouvre le panneau réglages du widget qu'on vient d'ajuster (sinon il se referme à chaque clic).
     if (_reopen != null) { var sp = document.getElementById(HOST_ID + '-s' + _reopen); if (sp) sp.hidden = false; _reopen = null; }
     // MONTAGE APRÈS insertion et affichage : amCharts mesure 0×0 dans un conteneur caché.
+    // JETON anti-course (23/07) : deux renderGrid rapprochés = deux rAF en file ; sans jeton, le rAF
+    // PÉRIMÉ montait une 2e fois dans les nouveaux conteneurs (root amCharts / carte orphelins).
+    var tok = ++_mountToken;
     requestAnimationFrame(function () {
+      if (tok !== _mountToken) return;                       // un renderGrid plus récent a repris la main
       lay.items.forEach(function (it, idx) {
         var w = byId(it.w), body = document.getElementById(HOST_ID + '-b' + idx);
-        if (!w || !body) return;
-        try { var un = w.mount(body); if (typeof un === 'function') STATE.mounted.push(un); }
+        if (!w || !body || body._wdgClean) return;            // _wdgClean : déjà monté par refresh() entre-temps
+        try { var un = w.mount(body); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } }
         catch (e) { fallback(body, 'Widget indisponible.'); }
       });
     });
@@ -1141,7 +1314,10 @@
       var l = activeLayout(); if (!l || !l.items[i]) return;
       var w = byId(l.items[i].w), body = document.getElementById(HOST_ID + '-b' + i); if (!w || !body) return;
       var card = body.closest('.wdg-card'); if (card) { card.classList.remove('wdg-refresh'); void card.offsetWidth; card.classList.add('wdg-refresh'); }
-      body.innerHTML = ''; try { var un = w.mount(body); if (typeof un === 'function') STATE.mounted.push(un); } catch (e) {}
+      // Exécute d'ABORD le cleanup de l'ancien montage (root amCharts / carte Leaflet / timers / listeners)
+      // — sans ça, chaque « Actualiser » orphelinait l'instance précédente jusqu'au prochain renderGrid.
+      if (body._wdgClean) { try { body._wdgClean(); } catch (e) {} STATE.mounted = STATE.mounted.filter(function (f) { return f !== body._wdgClean; }); body._wdgClean = null; }
+      body.innerHTML = ''; try { var un = w.mount(body); if (typeof un === 'function') { STATE.mounted.push(un); body._wdgClean = un; } } catch (e) {}
     },
     fullscreen: function (i) { _fullscreenIdx = (_fullscreenIdx === i ? null : i); renderGrid(); },
     toggleInfo: function (i) { _togglePop(i, 'i'); },

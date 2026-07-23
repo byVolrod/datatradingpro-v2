@@ -11336,60 +11336,23 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-taux-down { background: rgba(34,211,238,.16); color: #38bdf8; }      /* Baisse = assouplissement */
 .wdg-taux-when { text-align: right; font-size: 10.5px; color: #8b93a1; white-space: nowrap; }
 
-/* ── Widget Sentiment de Risque : jauge bidirectionnelle risk-off ↔ risk-on ── */
-.wdg-risk { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; height: 100%; overflow-y: auto; }
-.wdg-risk-head { display: flex; align-items: baseline; justify-content: space-between; }
-.wdg-risk-lbl { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 15px; font-weight: 800; }
-.wdg-risk-pct { font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
-.wdg-risk-track { position: relative; height: 8px; border-radius: 5px; background: linear-gradient(90deg, #ef4444 0%, #7a3a2a 30%, #6b7280 50%, #3a6a3a 70%, #22c55e 100%); }
-.wdg-risk-mark { position: absolute; top: 50%; width: 12px; height: 12px; border-radius: 50%; transform: translate(-50%, -50%); border: 2px solid #0c0c0e; box-shadow: 0 0 0 1px rgba(255,255,255,.35); }
-.wdg-risk-scale { display: flex; justify-content: space-between; font-size: 9px; color: #7e8590; text-transform: uppercase; letter-spacing: .04em; }
-.wdg-risk-desc { font-size: 11.5px; color: #b6bdc9; line-height: 1.5; }
-.wdg-risk-assets { display: grid; grid-template-columns: repeat(2, 1fr); gap: 3px 12px; margin-top: 2px; }
-.wdg-risk-asset { display: flex; justify-content: space-between; gap: 8px; font-size: 11px; border-top: 1px solid #16171b; padding: 4px 0; }
-.wdg-risk-asset i { font-style: normal; color: #9aa0aa; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.wdg-risk-asset b { font-variant-numeric: tabular-nums; }
+/* ── Widgets « identiques au desk » (23/07) : fines surcouches de LAYOUT uniquement — le RENDU vient
+   des classes desk réelles (.risk-*, .cot-*, .dmx-*, .season-*, .lf-*) réutilisées par les widgets ── */
+.wdg-riskwrap { height: 100%; }
+.wdg-riskgauge { position: absolute; inset: 0; }   /* même rôle que #risk-gauge-div (jauge du desk) */
 
-/* ── Widget COT (positionnement institutionnel) & DMX (particuliers) : barres long/short ── */
-.wdg-cot, .wdg-dmx { height: 100%; display: flex; flex-direction: column; min-height: 0; }
-.wdg-cot-head, .wdg-dmx-head { display: flex; align-items: center; gap: 10px; padding: 6px 12px; background: #0d0d10; border-bottom: 1px solid var(--hud-line, #1c1c20); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; flex: 0 0 auto; }
-.wdg-cot-head .r { margin-left: auto; }
-.wdg-cot-lgd, .wdg-dmx-lgd { display: inline-flex; align-items: center; gap: 4px; margin-left: auto; text-transform: none; letter-spacing: 0; font-weight: 500; color: #8b93a1; }
-.wdg-cot-lgd i, .wdg-dmx-lgd i { width: 9px; height: 9px; border-radius: 2px; display: inline-block; }
-.wdg-cot-lgd i.l, .wdg-dmx-lgd i.l { background: rgba(0,230,118,.75); } .wdg-cot-lgd i.s, .wdg-dmx-lgd i.s { background: rgba(255,61,0,.72); margin-left: 6px; }
-.wdg-dmx-head .wdg-dmx-lgd i.s { margin-left: 6px; }
-.wdg-cot-list, .wdg-dmx-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
-.wdg-cot-row { display: grid; grid-template-columns: 62px 1fr 46px; align-items: center; gap: 10px; padding: 6px 12px; border-bottom: 1px solid #121215; }
-.wdg-cot-cur { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #e6e8ec; } .wdg-cot-cur b { font-weight: 700; }
-.wdg-cot-cur .cal-flag-img { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; display: block; } .wdg-cot-cur .cal-flag-wrap { display: inline-flex; }
-.wdg-cot-bar, .wdg-dmx-bar { display: flex; height: 16px; border-radius: 3px; overflow: hidden; font-size: 9px; font-weight: 700; color: #0c1a10; }
-.wdg-cot-bar i.l, .wdg-dmx-bar i.l { background: rgba(0,230,118,.72); display: flex; align-items: center; justify-content: flex-start; padding-left: 5px; overflow: hidden; }
-.wdg-cot-bar i.s, .wdg-dmx-bar i.s { background: rgba(255,61,0,.68); display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; color: #1a0c0c; overflow: hidden; }
-.wdg-cot-net { text-align: right; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; color: #b6bdc9; }
-.wdg-cot-net.up { color: #2ae389; } .wdg-cot-net.down { color: #ff7259; }
-.wdg-dmx-row { display: grid; grid-template-columns: 74px 1fr; align-items: center; gap: 10px; padding: 5px 12px; border-bottom: 1px solid #121215; }
-.wdg-dmx-sym { font-size: 12px; font-weight: 600; color: #e6e8ec; font-variant-numeric: tabular-nums; }
+/* ── Widgets COT / DMX / Saisonnalité : conteneurs (le rendu = classes desk .cot-* / .dmx-* / .season-*) ── */
+.wdg-cotwrap, .wdg-dmxwrap, .wdg-seawrap { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.wdg-cotwrap .cot-type-bar { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: thin; }   /* carte étroite : la barre de catégories défile au lieu de se tronquer */
+.wdg-cotwrap .cot-grid { flex: 1 1 auto; min-height: 0; overflow-y: auto; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }   /* s'adapte à la largeur du widget (le desk garde ses 4 colonnes) */
+.wdg-dmxwrap .dmx-table-wrap { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+.wdg-seawrap .season-table-wrap { flex: 1 1 auto; min-height: 0; overflow: auto; }
 
-/* ── Widget Saisonnalité : rendement mensuel moyen (barres divergentes vert/rouge) ── */
-.wdg-sai { height: 100%; display: flex; flex-direction: column; padding: 8px 10px 4px; }
-.wdg-sai-t { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: #9aa0aa; margin-bottom: 6px; }
-.wdg-sai-row { flex: 1 1 auto; min-height: 90px; display: flex; align-items: stretch; gap: 3px; }
-.wdg-sai-col { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; min-width: 0; }
-.wdg-sai-up { flex: 1 1 0; width: 100%; display: flex; align-items: flex-end; justify-content: center; }
-.wdg-sai-dn { flex: 1 1 0; width: 100%; display: flex; align-items: flex-start; justify-content: center; border-top: 1px solid rgba(255,255,255,.12); }
-.wdg-sai-up i { width: 72%; background: rgba(0,230,118,.72); border-radius: 2px 2px 0 0; }
-.wdg-sai-dn i { width: 72%; background: rgba(255,61,0,.68); border-radius: 0 0 2px 2px; }
-.wdg-sai-m { font-size: 9px; color: #7e8590; margin-top: 3px; }
-
-/* ── Widget Sessions de marché : les 4 grandes sessions FX (ouvert/fermé + compte à rebours) ── */
-.wdg-ses { height: 100%; display: flex; flex-direction: column; padding: 4px 0; overflow-y: auto; }
-.wdg-ses-hdr { padding: 8px 14px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12px; font-weight: 700; color: #2ae389; border-bottom: 1px solid var(--hud-line, #1c1c20); }
-.wdg-ses-row { display: grid; grid-template-columns: 12px 52px 1fr auto; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px solid #121215; }
-.wdg-ses-dot { width: 8px; height: 8px; border-radius: 50%; background: #3a3b40; }
-.wdg-ses-row.on .wdg-ses-dot { background: #00e676; box-shadow: 0 0 6px rgba(0,230,118,.6); }
-.wdg-ses-time { font-variant-numeric: tabular-nums; font-weight: 700; color: #e6e8ec; font-size: 13px; }
-.wdg-ses-name { color: #cfd4dc; font-size: 12.5px; } .wdg-ses-row.on .wdg-ses-name { color: #fff; font-weight: 600; }
-.wdg-ses-sub { font-size: 10.5px; color: #8b93a1; white-space: nowrap; }
+/* ── Widget Sessions de marché : la VRAIE carte Leaflet du desk (classes .lf-* globales) ── */
+.wdg-mapwrap { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+.wdg-map-sub { padding: 6px 12px; flex: 0 0 auto; font-size: 11px; }
+.wdg-lfmap { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
+.wdg-lfmap .leaflet-container { background: #0b0c0f; font-family: var(--font-ui); outline: none; }
 
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
 .wdg-layouts { display: flex; align-items: center; gap: 4px; margin-left: 12px; overflow-x: auto; max-width: 52vw; }
