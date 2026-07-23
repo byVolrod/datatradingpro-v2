@@ -1646,13 +1646,15 @@ function buildMeterChart(containerId) {   // containerId optionnel (widget « Mo
 //  COT : Commitment of Traders
 // ═══════════════════════════════════════════════
 
-function buildCOTChart() {
-  const grid = document.getElementById('cot-grid');
+// RÉTROCOMPATIBLE (widgets Mon Desk 23/07) : gridId/typeArg optionnels — le desk appelle sans argument
+// (grille #cot-grid + bouton actif de SON onglet #rtab-cot) ; un widget passe SA grille + SON type.
+function buildCOTChart(gridId, typeArg) {
+  const grid = document.getElementById(gridId || 'cot-grid');
   if (!grid) return;
   grid.innerHTML = (window.dtpLoader ? window.dtpLoader('Chargement des données COT…') : 'Chargement des données COT…');
 
-  const activeTypeBtn = document.querySelector('.cot-type-btn--active');
-  const cotType = activeTypeBtn ? activeTypeBtn.dataset.cotType : 'lev_money';
+  const activeTypeBtn = document.querySelector('#rtab-cot .cot-type-btn--active');
+  const cotType = typeArg || (activeTypeBtn ? activeTypeBtn.dataset.cotType : 'lev_money');
 
   fetch(`/api/cot?type=${cotType}`)
     .then(r => r.json())
@@ -1759,15 +1761,18 @@ function _dmxAgo(ts) {
   return m < 1 ? 'Direct · à l\'instant' : `Direct · MAJ il y a ${m} min`;
 }
 
-function buildDMXChart(forceRefresh = false) {
-  const wrap = document.getElementById('dmx-table-wrap');
+// RÉTROCOMPATIBLE (widgets Mon Desk 23/07) : opts {wrapId, period, sort} optionnel — le desk appelle
+// sans opts (état de SON onglet #rtab-dmx : boutons TF, select tri, label période, timer partagé) ;
+// un widget passe SON conteneur + SON état, et gère lui-même son rafraîchissement (pas de _dmxTimer).
+function buildDMXChart(forceRefresh = false, opts) {
+  const wrap = document.getElementById((opts && opts.wrapId) || 'dmx-table-wrap');
   if (!wrap) return;
 
-  const activeTfBtn = document.querySelector('.dmx-tf-btn--active');
-  const period = activeTfBtn ? activeTfBtn.dataset.tf : 'H1';
+  const activeTfBtn = document.querySelector('#rtab-dmx .dmx-tf-btn--active');
+  const period = (opts && opts.period) || (activeTfBtn ? activeTfBtn.dataset.tf : 'H1');
 
   // En-tête : fraîcheur réelle du snapshot (Myfxbook = 1 jeu de données live partagé par les TF)
-  const periodLbl = document.getElementById('dmx-period-label');
+  const periodLbl = opts ? null : document.getElementById('dmx-period-label');
   if (periodLbl && !periodLbl.textContent) periodLbl.textContent = 'Direct';
 
   // On NE force PLUS automatiquement : le serveur sert son cache INSTANTANÉMENT et le tient
@@ -1790,7 +1795,7 @@ function buildDMXChart(forceRefresh = false) {
       _dmxLastUpdate = Date.now();
       if (periodLbl) periodLbl.textContent = _dmxAgo(data.updatedTs);
 
-      const sortVal = document.getElementById('dmx-sort-select')?.value || 'az';
+      const sortVal = opts ? (opts.sort || 'az') : (document.getElementById('dmx-sort-select')?.value || 'az');
       if (sortVal === 'long')       symbols.sort((a, b) => b.longPct  - a.longPct);
       else if (sortVal === 'short') symbols.sort((a, b) => b.shortPct - a.shortPct);
       else                          symbols.sort((a, b) => a.symbol.localeCompare(b.symbol));
@@ -1822,7 +1827,8 @@ function buildDMXChart(forceRefresh = false) {
       if (window._dtpDataIn) window._dtpDataIn(wrap, 'dmx');   // fondu d'arrivee (1re fois : chargement -> lignes, jamais aux refresh 60 s)
 
       // Auto-refresh tant que l'onglet DMX est visible (sert le cache serveur, MAJ 15 min)
-      if (!_dmxTimer) {
+      // — DESK uniquement : un widget Mon Desk gère son propre intervalle (cleanup au démontage).
+      if (!opts && !_dmxTimer) {
         _dmxTimer = setInterval(() => {
           const panel = document.getElementById('rtab-dmx');
           if (!panel || !panel.classList.contains('active')) { clearInterval(_dmxTimer); _dmxTimer = null; return; }
@@ -1833,11 +1839,13 @@ function buildDMXChart(forceRefresh = false) {
       _dmxServerTs = data.updatedTs || _dmxServerTs;
     })
     .catch(() => {
+      // En mode widget (opts) : pas de bouton inline (il rappellerait le DESK) — le retry auto suffit,
+      // et buildDMXChart s'arrête tout seul si le conteneur du widget a été démonté (getElementById null).
       wrap.innerHTML = `<div class="dmx-loading">
-        Erreur de connexion : nouvelle tentative…<br>
-        <button onclick="buildDMXChart(true)" style="margin-top:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:3px 10px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">Réessayer</button>
+        Erreur de connexion : nouvelle tentative…${opts ? '' : `<br>
+        <button onclick="buildDMXChart(true)" style="margin-top:10px;background:var(--bg3);border:1px solid var(--border2);color:var(--text2);padding:3px 10px;font-size:10px;cursor:pointer;border-radius:2px;font-family:var(--font-mono);">Réessayer</button>`}
       </div>`;
-      setTimeout(() => buildDMXChart(true), 15000);
+      setTimeout(() => buildDMXChart(true, opts), 15000);
     });
 }
 
@@ -1957,9 +1965,11 @@ function _seasonRenderCfg(ov){
 }
 
 function initCOTTabs() {
-  document.querySelectorAll('.cot-type-btn').forEach(btn => {
+  // Scopé à l'onglet desk #rtab-cot : les boutons COT d'un widget Mon Desk (mêmes classes) ont leurs
+  // propres handlers — sans ce scope, un clic desk éteignait le bouton actif du widget (et vice-versa).
+  document.querySelectorAll('#rtab-cot .cot-type-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.cot-type-btn').forEach(b => b.classList.remove('cot-type-btn--active'));
+      document.querySelectorAll('#rtab-cot .cot-type-btn').forEach(b => b.classList.remove('cot-type-btn--active'));
       btn.classList.add('cot-type-btn--active');
       buildCOTChart();
     });
@@ -1969,9 +1979,10 @@ function initCOTTabs() {
 const _DMX_TF_LABELS = { H1: 'Chaque heure', H4: 'Toutes les 4 heures', D1: 'Chaque jour' };
 
 function initDMXTabs() {
-  document.querySelectorAll('.dmx-tf-btn').forEach(btn => {
+  // Scopé à l'onglet desk #rtab-dmx (mêmes classes réutilisées par les widgets Mon Desk — cf. initCOTTabs).
+  document.querySelectorAll('#rtab-dmx .dmx-tf-btn').forEach(btn => {
     btn.addEventListener('click', () => {
-      document.querySelectorAll('.dmx-tf-btn').forEach(b => b.classList.remove('dmx-tf-btn--active'));
+      document.querySelectorAll('#rtab-dmx .dmx-tf-btn').forEach(b => b.classList.remove('dmx-tf-btn--active'));
       btn.classList.add('dmx-tf-btn--active');
       // Update period label in header
       const lbl = document.getElementById('dmx-period-label');
