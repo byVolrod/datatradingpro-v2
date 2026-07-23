@@ -11235,6 +11235,38 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-jr-ph { font-style: normal; color: #5b5d66; }
 .wdg-jr-empty { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; height: 100%; font-size: 11.5px; color: #8b93a1; }
 
+/* ── Widget Radar de Biais : biais net par devise (couleurs sémantiques DTP), du + haussier au + baissier ── */
+.wdg-bias { height: 100%; overflow-y: auto; padding: 2px 0; }
+.wdg-bias-row { display: grid; grid-template-columns: 62px minmax(96px, 1fr) auto; align-items: center; gap: 10px; padding: 7px 12px; border-bottom: 1px solid #121215; }
+.wdg-bias-row:last-child { border-bottom: none; }
+.wdg-bias-cur { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #e6e8ec; }
+.wdg-bias-cur b { font-weight: 700; }
+.wdg-bias-cur .cal-flag-img { width: 15px; height: 15px; border-radius: 50%; object-fit: cover; display: block; }
+.wdg-bias-cur .cal-flag-wrap { display: inline-flex; flex: 0 0 auto; }
+.wdg-bias-tag { justify-self: start; font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 2px 9px; border-radius: 3px; white-space: nowrap; }
+.wdg-bias-vb { background: #047857; color: #eafff4; } .wdg-bias-b { background: #059669; color: #eafff4; }
+.wdg-bias-wb { background: rgba(5,150,105,.20); color: #4ade80; } .wdg-bias-n { background: rgba(107,114,128,.22); color: #c2c6d6; }
+.wdg-bias-wr { background: rgba(220,38,38,.20); color: #f87171; } .wdg-bias-r { background: #dc2626; color: #fff; } .wdg-bias-vr { background: #991b1b; color: #fff; }
+.wdg-bias-sub { grid-column: 2 / -1; font-size: 10px; color: #7e8590; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── Widget Taux directeurs : taux actuel + scénario de base de la prochaine réunion, par banque centrale ── */
+.wdg-taux { height: 100%; overflow-y: auto; }
+.wdg-taux-head, .wdg-taux-row { display: grid; grid-template-columns: minmax(84px, 1.2fr) 62px minmax(96px, 1fr) minmax(78px, .9fr); gap: 8px; align-items: center; padding: 6px 12px; }
+.wdg-taux-head { position: sticky; top: 0; background: #0d0d10; border-bottom: 1px solid var(--hud-line, #1c1c20); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; z-index: 1; }
+.wdg-taux-head .r { text-align: right; }
+.wdg-taux-row { border-bottom: 1px solid #121215; font-size: 11.5px; }
+.wdg-taux-row:hover { background: #101014; }
+.wdg-taux-bank { display: inline-flex; align-items: center; gap: 6px; color: #e6e8ec; min-width: 0; }
+.wdg-taux-bank b { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wdg-taux-bank .cal-flag-img { width: 14px; height: 14px; border-radius: 50%; object-fit: cover; display: block; }
+.wdg-taux-bank .cal-flag-wrap { display: inline-flex; flex: 0 0 auto; }
+.wdg-taux-rate { font-variant-numeric: tabular-nums; color: #e6e8ec; font-weight: 600; white-space: nowrap; }
+.wdg-taux-move { font-size: 10.5px; font-weight: 700; letter-spacing: .02em; padding: 1px 7px; border-radius: 3px; justify-self: start; white-space: nowrap; }
+.wdg-taux-flat { background: rgba(107,114,128,.22); color: #c2c6d6; }
+.wdg-taux-up { background: rgba(227,178,58,.16); color: #e3b23a; }        /* Hausse = resserrement (or DTP) */
+.wdg-taux-down { background: rgba(34,211,238,.16); color: #38bdf8; }      /* Baisse = assouplissement */
+.wdg-taux-when { text-align: right; font-size: 10.5px; color: #8b93a1; white-space: nowrap; }
+
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
 .wdg-layouts { display: flex; align-items: center; gap: 4px; margin-left: 12px; overflow-x: auto; max-width: 52vw; }
 .wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
