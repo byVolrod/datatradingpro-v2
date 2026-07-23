@@ -764,7 +764,9 @@
               + '<span class="wdg-jr-pair" title="' + esc(pair) + '">' + esc(pair) + '</span>'
               + '<span class="wdg-jr-side">' + dirHtml + '</span>'
               + '<span class="wdg-jr-restag">' + resHtml + '</span>'
-              + '<span class="wdg-jr-res ' + pCls + '">' + (p ? esc(p.txt) : '—') + '</span></div>';
+              + '<span class="wdg-jr-res ' + pCls + '">' + (p ? esc(p.txt) : '—') + '</span>'
+              + '<button class="wdg-jr-edit" type="button" title="Modifier ce trade" aria-label="Modifier">'
+              + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></div>';
           }).join('');
           var modeBtns = [['pct', hasPct], ['pl', hasPl], ['r', hasRc], ['cap', hasCap]].filter(function (x) { return x[1]; })
             .map(function (x) { return '<button data-m="' + x[0] + '"' + (x[0] === eqMode ? ' class="on"' : '') + '>' + EQ_LBL[x[0]] + '</button>'; }).join('');
@@ -775,6 +777,7 @@
             + '<input class="wdg-jr-qa-pl" type="number" step="any" placeholder="P&L $" inputmode="decimal">'
             + '<select class="wdg-jr-qa-res"><option value="">Résultat…</option><option>Profit</option><option>TP</option><option>BE</option><option>SL</option><option>Loss</option></select>'
             + '<button type="submit" class="wdg-jr-qa-save">Ajouter</button>'
+            + '<button type="button" class="wdg-jr-qa-del" title="Supprimer ce trade" hidden>Suppr.</button>'
             + '<button type="button" class="wdg-jr-qa-cancel" title="Annuler">✕</button></form>';
           var tradesView = '<div class="wdg-jr-tools"><button class="wdg-jr-add" type="button">+ Nouveau trade</button>'
             + '<button class="wdg-jr-open" type="button">Ouvrir le Journal ↗</button></div>' + qaForm
@@ -837,35 +840,94 @@
           });
           if (hasCurve) requestAnimationFrame(function () { _wdgJrEquityChart(chartId, eqData); });
 
-          // ── ACTIONS (demande user 23/07 : ajouter / modifier / ouvrir la page) ──
+          // ── ACTIONS (demande user 23/07 : ajouter / MODIFIER SUR PLACE / ouvrir la page) ──
           var openDesk = function () { if (typeof activateView === 'function') activateView('journal'); };
           var ob = host.querySelector('.wdg-jr-open'); if (ob) ob.addEventListener('click', openDesk);
-          // Clic sur une ligne → ouvre le Journal du desk (éditeur complet) sur le compte.
-          host.querySelectorAll('.wdg-jr-row').forEach(function (row) { row.addEventListener('click', openDesk); });
-          // + Nouveau trade : formulaire d'AJOUT RAPIDE inline (paire / sens / P&L / résultat) → POST /api/journal
-          //   (préserve custom/cols/startCap du compte) → reload. Édition fine = « Ouvrir le Journal » (éditeur complet).
           var qa = host.querySelector('.wdg-jr-qa'), addBtn = host.querySelector('.wdg-jr-add');
+          var saveBtn = qa && qa.querySelector('.wdg-jr-qa-save');
+          var delBtn  = qa && qa.querySelector('.wdg-jr-qa-del');
+          var editId = null;   // null = mode AJOUT ; sinon id du trade en cours d'édition
+          // POST commun : préserve custom/cols/startCap du compte ; en cas d'échec, restaure le bouton.
+          function postEntries(next, busyLbl) {
+            var payload = { entries: next, custom: !!(j && j.custom) };
+            if (j && j.cols) payload.cols = j.cols;
+            var sc = num(j && j.startCap); if (sc != null && sc > 0) payload.startCap = sc;
+            if (saveBtn) { saveBtn.disabled = true; saveBtn.textContent = busyLbl || '…'; }
+            if (delBtn) delBtn.disabled = true;
+            return fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+              .then(function (r) { return r.json(); }).then(function () { reload(); })
+              .catch(function () { if (saveBtn) { saveBtn.disabled = false; saveBtn.textContent = editId ? 'Enregistrer' : 'Ajouter'; } if (delBtn) delBtn.disabled = false; });
+          }
+          function resetForm() {
+            editId = null;
+            if (!qa) return;
+            qa.hidden = true; qa.reset();
+            if (saveBtn) saveBtn.textContent = 'Ajouter';
+            if (delBtn) delBtn.hidden = true;
+          }
+          // MODIFIER : clic sur le crayon d'une ligne → le formulaire (le même que « + Nouveau trade »)
+          // s'ouvre PRÉ-REMPLI, le bouton devient « Enregistrer » et « Suppr. » apparaît. stopPropagation :
+          // le crayon ne déclenche pas l'ouverture du Journal (clic ligne = ouvrir la page, conservé).
+          host.querySelectorAll('.wdg-jr-row').forEach(function (row) {
+            row.addEventListener('click', function () { openDesk(); });
+            var pen = row.querySelector('.wdg-jr-edit');
+            if (pen && qa) pen.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              var id = row.getAttribute('data-id');
+              var e = (j.entries || []).filter(function (x) { return String(x.id || '') === id; })[0];
+              if (!e) return;
+              editId = id;
+              qa.querySelector('.wdg-jr-qa-pair').value = fld(e, 'pair', /paire|pair|symbol|instrument|actif/i) || '';
+              var dv = String(fld(e, 'dir', /^(sens|dir(ection)?|side|type)$/i) || '');
+              qa.querySelector('.wdg-jr-qa-dir').value = /sell|short|vente/i.test(dv) ? 'SELL' : 'BUY';
+              var plv = num(e.pl); qa.querySelector('.wdg-jr-qa-pl').value = plv != null ? plv : '';
+              var rv = String(fld(e, 'result', /r[ée]sultat|result|issue|outcome/i) || '');
+              var rsel = qa.querySelector('.wdg-jr-qa-res');
+              rsel.value = Array.prototype.some.call(rsel.options, function (o) { return o.value === rv; }) ? rv : '';
+              if (saveBtn) saveBtn.textContent = 'Enregistrer';
+              if (delBtn) { delBtn.hidden = false; delBtn.disabled = false; }
+              qa.hidden = false;
+              try { qa.scrollIntoView({ block: 'nearest' }); } catch (e2) {}
+              var pi = qa.querySelector('.wdg-jr-qa-pair'); if (pi) pi.focus();
+            });
+          });
           if (addBtn && qa) {
-            addBtn.addEventListener('click', function () { qa.hidden = !qa.hidden; if (!qa.hidden) { var pi = qa.querySelector('.wdg-jr-qa-pair'); if (pi) pi.focus(); } });
-            var cancel = qa.querySelector('.wdg-jr-qa-cancel'); if (cancel) cancel.addEventListener('click', function () { qa.hidden = true; });
+            // + Nouveau trade : bascule le formulaire en mode AJOUT (annule un éventuel mode édition).
+            addBtn.addEventListener('click', function () {
+              var wasEdit = !!editId; resetForm();
+              if (wasEdit || qa.hidden) { qa.hidden = false; var pi = qa.querySelector('.wdg-jr-qa-pair'); if (pi) pi.focus(); }
+              else qa.hidden = true;
+            });
+            var cancel = qa.querySelector('.wdg-jr-qa-cancel'); if (cancel) cancel.addEventListener('click', resetForm);
+            // SUPPRIMER (mode édition) : retire le trade par id → POST → reload.
+            if (delBtn) delBtn.addEventListener('click', function () {
+              if (!editId) return;
+              var next = (j.entries || []).filter(function (x) { return String(x.id || '') !== editId; });
+              postEntries(next, '…');
+            });
             qa.addEventListener('submit', function (ev) {
               ev.preventDefault();
               var pairV = (qa.querySelector('.wdg-jr-qa-pair').value || '').trim().toUpperCase();
               var dirV = qa.querySelector('.wdg-jr-qa-dir').value;
               var plV = num(qa.querySelector('.wdg-jr-qa-pl').value);
               var resV = qa.querySelector('.wdg-jr-qa-res').value;
+              if (editId) {
+                // ÉDITION SUR PLACE : met à jour les champs natifs du trade, préserve tout le reste
+                // (id, ts, r, pnlPct, rr, note, props d'un import) → le desk garde ses données fines.
+                var next = (j.entries || []).map(function (x) {
+                  if (String(x.id || '') !== editId) return x;
+                  var u = {}; for (var k in x) if (Object.prototype.hasOwnProperty.call(x, k)) u[k] = x[k];
+                  u.pair = pairV.slice(0, 16); u.dir = dirV; u.pl = plV; u.result = resV;
+                  return u;
+                });
+                postEntries(next, 'Enregistrer');
+                return;
+              }
               if (!pairV && plV == null && !resV) { qa.hidden = true; return; }   // rien saisi → on referme
               var e = { id: 'w' + (typeof Date !== 'undefined' ? Date.now().toString(36) : uid()) + Math.random().toString(36).slice(2, 5),
                 ts: Date.now(), pair: pairV.slice(0, 16), dir: dirV, pl: plV, result: resV,
                 r: null, pnlPct: null, rr: null, note: '', props: {} };
-              var next = (j.entries || []).concat([e]);
-              var payload = { entries: next, custom: !!(j && j.custom) };
-              if (j && j.cols) payload.cols = j.cols;
-              var sc = num(j && j.startCap); if (sc != null && sc > 0) payload.startCap = sc;
-              var save = qa.querySelector('.wdg-jr-qa-save'); if (save) { save.disabled = true; save.textContent = '…'; }
-              fetch('/api/journal', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                .then(function (r) { return r.json(); }).then(function () { reload(); })
-                .catch(function () { if (save) { save.disabled = false; save.textContent = 'Ajouter'; } });
+              postEntries((j.entries || []).concat([e]), 'Ajouter');
             });
           }
         }
