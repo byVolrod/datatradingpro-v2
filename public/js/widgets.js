@@ -255,6 +255,142 @@
       },
     },
     {
+      id: 'risque-jauge', name: 'Sentiment de Risque', cat: 'Risque', h: 230,
+      desc: "L'appétit / l'aversion du marché en direct (risk-on / risk-off).",
+      // AUTONOME : /api/risk-sentiment → jauge bidirectionnelle HTML (risk-off rouge ↔ risk-on vert), % + libellé
+      // FR + les actifs qui composent le signal. Aucun root amCharts (la jauge du desk est un singleton) → cleanup null.
+      mount: function (host) {
+        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
+        var FR = { 'STRONG RISK-OFF': 'Forte aversion', 'RISK-OFF': 'Aversion', 'MILD RISK-OFF': 'Légère aversion', 'NEUTRAL': 'Neutre', 'MILD RISK-ON': 'Léger appétit', 'RISK-ON': 'Appétit', 'STRONG RISK-ON': 'Fort appétit' };
+        fetch('/api/risk-sentiment').then(function (r) { return r.json(); }).then(function (d) {
+          if (!host.isConnected) return;
+          var pct = (typeof d.pct === 'number') ? d.pct : 0;
+          var col = pct > 8 ? '#22c55e' : pct < -8 ? '#ef4444' : '#ffb300';
+          var lbl = FR[d.label] || d.label || 'Neutre';
+          var mk = Math.max(0, Math.min(100, (pct + 100) / 2));
+          host.innerHTML = '<div class="wdg-risk">'
+            + '<div class="wdg-risk-head"><span class="wdg-risk-lbl" style="color:' + col + '">' + esc(lbl) + '</span>'
+            + '<span class="wdg-risk-pct" style="color:' + col + '">' + (pct > 0 ? '+' : '') + pct.toFixed(1) + ' %</span></div>'
+            + '<div class="wdg-risk-track"><span class="wdg-risk-mark" style="left:' + mk + '%;background:' + col + '"></span></div>'
+            + '<div class="wdg-risk-scale"><span>Risk-off</span><span>Neutre</span><span>Risk-on</span></div>'
+            + '<div class="wdg-risk-desc">' + esc(d.description || '') + '</div>'
+            + '<div class="wdg-risk-assets">' + (d.assets || []).slice(0, 6).map(function (a) {
+                var c = a.chg > 0 ? '#2ae389' : a.chg < 0 ? '#ff7259' : '#b6bdc9';
+                return '<span class="wdg-risk-asset"><i>' + esc(a.label) + '</i><b style="color:' + c + '">' + (a.chg > 0 ? '+' : '') + a.chg + ' %</b></span>';
+              }).join('') + '</div></div>';
+        }).catch(function () { fallback(host, 'Sentiment indisponible.'); });
+        return null;
+      },
+    },
+    {
+      id: 'cot-inst', name: 'Positionnement COT', cat: 'Risque', h: 300,
+      desc: 'Le positionnement net des institutionnels (CFTC), par devise.',
+      mount: function (host) {
+        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
+        var flag = (typeof CAL_FLAG === 'function') ? CAL_FLAG : function () { return ''; };
+        fetch('/api/cot?type=currencies').then(function (r) { return r.json(); }).then(function (d) {
+          if (!host.isConnected) return;
+          var cur = (d && d.currencies) || [];
+          if (!cur.length) return fallback(host, 'COT indisponible.');
+          var rows = cur.map(function (c) {
+            var lp = Math.max(0, Math.min(100, c.longPct || 0));
+            var stag = /bull/i.test(c.sentiment) ? 'up' : /bear/i.test(c.sentiment) ? 'down' : 'flat';
+            var net = c.net != null ? (c.net > 0 ? '+' : '') + Math.round(c.net / 1000) + 'k' : '';
+            return '<div class="wdg-cot-row"><span class="wdg-cot-cur">' + flag(c.key) + '<b>' + esc(c.key) + '</b></span>'
+              + '<span class="wdg-cot-bar"><i class="l" style="width:' + lp + '%">' + (lp >= 20 ? lp + '%' : '') + '</i><i class="s" style="width:' + (100 - lp) + '%">' + ((100 - lp) >= 20 ? (100 - lp) + '%' : '') + '</i></span>'
+              + '<span class="wdg-cot-net ' + stag + '">' + esc(net) + '</span></div>';
+          }).join('');
+          host.innerHTML = '<div class="wdg-cot"><div class="wdg-cot-head"><span>Devise</span><span class="wdg-cot-lgd"><i class="l"></i>Long <i class="s"></i>Short</span><span class="r">Net</span></div>'
+            + '<div class="wdg-cot-list custom-scrollbar">' + rows + '</div></div>';
+        }).catch(function () { fallback(host, 'COT indisponible.'); });
+        return null;
+      },
+    },
+    {
+      id: 'dmx-retail', name: 'Sentiment des particuliers', cat: 'Risque', h: 320,
+      desc: 'Le positionnement long/short de la foule (contrarian), par paire.',
+      mount: function (host) {
+        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
+        fetch('/api/community-outlook?period=today').then(function (r) { return r.json(); }).then(function (d) {
+          if (!host.isConnected) return;
+          var syms = (d && d.symbols) || [];
+          if (!syms.length) return fallback(host, 'Sentiment indisponible.');
+          syms = syms.slice().sort(function (a, b) { return Math.abs((b.shortPct || 50) - 50) - Math.abs((a.shortPct || 50) - 50); }).slice(0, 40);
+          var rows = syms.map(function (s) {
+            var lp = Math.max(0, Math.min(100, s.longPct || 0));
+            return '<div class="wdg-dmx-row"><span class="wdg-dmx-sym">' + esc(s.symbol) + '</span>'
+              + '<span class="wdg-dmx-bar"><i class="l" style="width:' + lp + '%">' + (lp >= 22 ? lp + '%' : '') + '</i><i class="s" style="width:' + (100 - lp) + '%">' + ((100 - lp) >= 22 ? (100 - lp) + '%' : '') + '</i></span></div>';
+          }).join('');
+          host.innerHTML = '<div class="wdg-dmx"><div class="wdg-dmx-head"><span>Paire</span><span class="wdg-dmx-lgd"><i class="l"></i>Long <i class="s"></i>Short</span></div>'
+            + '<div class="wdg-dmx-list custom-scrollbar">' + rows + '</div></div>';
+        }).catch(function () { fallback(host, 'Sentiment indisponible.'); });
+        return null;
+      },
+    },
+    {
+      id: 'saison', name: 'Saisonnalité', cat: 'Macro', h: 250,
+      desc: "Le rendement mensuel moyen sur 5 ans (EUR/USD).",
+      mount: function (host) {
+        host.innerHTML = '<div class="wdg-load">Chargement…</div>';
+        var MFR = { Jan: 'Janv', Feb: 'Févr', Mar: 'Mars', Apr: 'Avr', May: 'Mai', Jun: 'Juin', Jul: 'Juil', Aug: 'Août', Sep: 'Sept', Oct: 'Oct', Nov: 'Nov', Dec: 'Déc' };
+        fetch('/api/seasonality?symbol=EURUSD').then(function (r) { return r.json(); }).then(function (d) {
+          if (!host.isConnected) return;
+          var rows = (d && d.rows) || [];
+          if (!rows.length) return fallback(host, 'Saisonnalité indisponible.');
+          var mx = Math.max.apply(null, rows.map(function (r) { return Math.abs(typeof r.avg === 'number' ? r.avg : 0); }).concat([0.5]));
+          var bars = rows.map(function (r) {
+            var v = (typeof r.avg === 'number') ? r.avg : 0, up = v >= 0;
+            var hh = Math.max(4, Math.round(Math.abs(v) / mx * 100));
+            var mfr = MFR[r.month] || r.month;
+            return '<span class="wdg-sai-col" title="' + esc(mfr) + ' : ' + (v > 0 ? '+' : '') + v.toFixed(2) + ' %">'
+              + '<span class="wdg-sai-up">' + (up ? '<i style="height:' + hh + '%"></i>' : '') + '</span>'
+              + '<span class="wdg-sai-dn">' + (!up ? '<i style="height:' + hh + '%"></i>' : '') + '</span>'
+              + '<span class="wdg-sai-m">' + esc(mfr.slice(0, 1)) + '</span></span>';
+          }).join('');
+          host.innerHTML = '<div class="wdg-sai"><div class="wdg-sai-t">' + esc(d.symbol || 'EUR/USD') + ' · moyenne 5 ans</div>'
+            + '<div class="wdg-sai-row">' + bars + '</div></div>';
+        }).catch(function () { fallback(host, 'Saisonnalité indisponible.'); });
+        return null;
+      },
+    },
+    {
+      id: 'sessions', name: 'Sessions de marché', cat: 'Macro', h: 230,
+      desc: 'Les 4 grandes sessions FX : ouvertes, fermées, prochaine ouverture.',
+      // AUTONOME : recalcule l'état des 4 sessions côté client (fuseaux horaires, DST via Intl) — l'ESSENTIEL de
+      // l'onglet MONDE sans la carte Leaflet (singleton `_dtpLfMap` non réutilisable). Rafraîchi chaque 30 s.
+      mount: function (host) {
+        var CITIES = [
+          { name: 'Sydney', tz: 'Australia/Sydney', open: 9, close: 17 },
+          { name: 'Tokyo', tz: 'Asia/Tokyo', open: 9, close: 15 },
+          { name: 'Londres', tz: 'Europe/London', open: 8, close: 17 },
+          { name: 'New York', tz: 'America/New_York', open: 9, close: 17 },
+        ];
+        function state(c, now) {
+          var local = new Date(now.toLocaleString('en-US', { timeZone: c.tz }));
+          var h = local.getHours() + local.getMinutes() / 60, dow = local.getDay();
+          if (dow >= 1 && dow <= 5 && h >= c.open && h < c.close) return { open: true, mins: Math.max(1, Math.round((c.close - h) * 60)) };
+          for (var dd = 0; dd < 8; dd++) { var cand = new Date(local); cand.setDate(local.getDate() + dd); cand.setHours(c.open, 0, 0, 0); if (cand > local && cand.getDay() >= 1 && cand.getDay() <= 5) return { open: false, mins: Math.max(1, Math.round((cand - local) / 60000)) }; }
+          return { open: false, mins: 0 };
+        }
+        function frDur(m) { var h = Math.floor(m / 60), mm = m % 60; if (h <= 0) return mm + ' min'; if (h >= 24) return Math.floor(h / 24) + ' j ' + (h % 24) + ' h'; return h + ' h' + (mm ? ' ' + (mm < 10 ? '0' + mm : mm) : ''); }
+        function render() {
+          if (!host.isConnected) return;
+          var now = new Date(), openN = [];
+          var rows = CITIES.map(function (c) {
+            var st = state(c, now); if (st.open) openN.push(c.name);
+            var t = now.toLocaleTimeString('fr-FR', { timeZone: c.tz, hour: '2-digit', minute: '2-digit' });
+            return '<div class="wdg-ses-row ' + (st.open ? 'on' : 'off') + '"><span class="wdg-ses-dot"></span>'
+              + '<span class="wdg-ses-time">' + t + '</span><span class="wdg-ses-name">' + c.name + '</span>'
+              + '<span class="wdg-ses-sub">' + (st.open ? 'ferme dans ' + frDur(st.mins) : 'ouvre dans ' + frDur(st.mins)) + '</span></div>';
+          }).join('');
+          host.innerHTML = '<div class="wdg-ses"><div class="wdg-ses-hdr">' + (openN.length ? esc(openN.join(' · ')) + (openN.length > 1 ? ' ouvertes' : ' ouverte') : 'Marché fermé') + '</div>' + rows + '</div>';
+        }
+        render();
+        var iv = setInterval(render, 30000);
+        return function () { clearInterval(iv); };
+      },
+    },
+    {
       id: 'fil-news', name: "Fil d'actualité", cat: 'News', h: 320,
       desc: 'Les dernières news du desk, en direct.',
       mount: function (host) {
@@ -739,6 +875,11 @@
     'calendrier-jour': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="4" y="5.5" width="16" height="14.5" rx="2"/><path d="M4 10h16M8 3.5v3M16 3.5v3"/></svg>',
     'radar-biais': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9" opacity=".4"/><circle cx="12" cy="12" r="4.5"/><path d="M12 12l6-4"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg>',
     'taux-cb': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="M6 20V9l6-4 6 4v11"/><path d="M9 20v-5h6v5"/></svg>',
+    'risque-jauge': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M4 15a8 8 0 0 1 16 0"/><path d="M12 15l4-4"/><circle cx="12" cy="15" r="1.3" fill="currentColor" stroke="none"/></svg>',
+    'cot-inst': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12h7M13 12h7" opacity=".5"/><rect x="4" y="8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none"/><rect x="13" y="12.8" width="7" height="3.2" rx="1" fill="currentColor" stroke="none" opacity=".55"/></svg>',
+    'dmx-retail': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="3"/><circle cx="17" cy="10" r="2.4"/><path d="M3 20c0-3 2.5-5 5-5s5 2 5 5M13.5 20c.3-2.3 1.8-3.6 3.5-3.6S20 17.7 20.5 20"/></svg>',
+    'saison': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M3 12h18" opacity=".45"/><path d="M5 12V8M9 12v-4M9 12v3M13 12v-6M17 12V9M17 12v4M21 12v-2"/></svg>',
+    'sessions': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 2.5 15 0 18M12 3c-2.5 2.5-2.5 15 0 18"/></svg>',
     'fil-news': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M5 6h14M5 10.5h14M5 15h9"/><circle cx="18.5" cy="17.5" r="2" /></svg>',
     'calculatrice': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="5" y="3.5" width="14" height="17" rx="2"/><path d="M8.5 7.5h7"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01M8.5 15.5h.01M12 15.5h.01M15.5 15.5h.01"/></svg>',
     'journal-mini': '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M6 3.5h11a1.5 1.5 0 0 1 1.5 1.5v14a1.5 1.5 0 0 1-1.5 1.5H6z"/><path d="M6 3.5v17M9.5 8h5.5M9.5 12h5.5"/></svg>',
@@ -755,6 +896,7 @@
     // Identité 100% DTP, aucune reprise visuelle PMT). FAM_OF mappe chaque widget à sa famille.
     var FAM_OF = {
       'force-devises': 'Analytics', 'barometre': 'Analytics', 'risque-historique': 'Analytics', 'radar-biais': 'Analytics',
+      'risque-jauge': 'Analytics', 'cot-inst': 'Analytics', 'dmx-retail': 'Analytics', 'saison': 'Analytics', 'sessions': 'Analytics',
       'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
     };
     var FAMS = ['Analytics', 'Fonctions'];   // ordre d'affichage des 2 familles
