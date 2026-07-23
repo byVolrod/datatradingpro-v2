@@ -810,17 +810,23 @@ function buildStrengthChart(containerId, data, opts = {}) {
   // ── Anti-collision des badges : écarte verticalement ceux trop proches ───────
   function declutter() {
     try {
-      const min = yAxis.get('min'), max = yAxis.get('max');
+      // ⚠️ CAUSE RACINE du bug « on ne voit qu'une étiquette » : l'axe est en AUTO-ÉCHELLE (min/max non
+      // configurés) → yAxis.get('min')/get('max') renvoient NULL (la config, pas l'étendue calculée) et
+      // declutter bailait TOUJOURS → aucun `dy` posé → les badges de devises aux valeurs PROCHES (ex. aujourd'hui
+      // USD/GBP et NZD/CHF) se superposaient et se cachaient. L'étendue RÉELLE = getPrivate('min'/'max').
+      const min = yAxis.getPrivate('min') != null ? yAxis.getPrivate('min') : yAxis.get('min');
+      const max = yAxis.getPrivate('max') != null ? yAxis.getPrivate('max') : yAxis.get('max');
       const h = chart.plotContainer.height();
       if (min == null || max == null || !h || max === min) return;
       const GAP = 20;  // hauteur badge + marge (façon DTP) : empilement strict, aucun chevauchement
       // Position pixel réelle de fin de chaque courbe (0 = haut), triée de haut en bas.
-      // ENFORCEMENT : l'inclusion se base sur la visibilité RÉELLE de la série (pas seulement _hiddenCcy,
-      // qui peut rater un événement) : et on RÉ-IMPOSE forceHidden aux badges des devises masquées à
-      // chaque passe (declutter tourne au build + après chaque update → l'état ne peut plus dériver).
+      // Masquage = UNIQUEMENT _hiddenCcy (devises explicitement masquées via la légende, maintenu par les
+      // événements hidden/shown/visible de la série). On N'utilise PLUS s.isHidden()/get('visible') ici : ces
+      // états sont TRANSITOIRES pendant l'animation d'apparition et les courses de layout (build en conteneur
+      // 0×0) → ils force-cachaient des badges VISIBLES qui ne revenaient jamais (bug « on ne voit que USD » :
+      // 2 devises aux valeurs proches se retrouvaient force-hidden pendant le build et restaient invisibles).
       const arr = Object.entries(labelMap).filter(([ccy, o]) => {
-        const s = seriesMap[ccy];
-        const hid = _hiddenCcy.has(ccy) || (s && s.get('visible') === false) || (s && typeof s.isHidden === 'function' && s.isHidden());
+        const hid = _hiddenCcy.has(ccy);
         try { o.range.get('label')?.set('forceHidden', !!hid); o.range.get('grid')?.set('forceHidden', !!hid); } catch {}
         return !hid;
       }).map(([ccy, o]) => {
@@ -841,7 +847,30 @@ function buildStrengthChart(containerId, data, opts = {}) {
       });
     } catch {}
   }
-  setTimeout(declutter, 700);
+  // declutter RÉSILIENT (corrige « on ne voit que l'étiquette USD ») : au build, le conteneur peut être à 0
+  // hauteur (course de layout — la raison même de _selfHeal). declutter() bail alors (h=0) et n'était RELANCÉ
+  // par rien → les badges restaient EMPILÉS à leur valeur brute et se CACHAIENT l'un l'autre (les valeurs du
+  // jour sont proches → chevauchement, seule la devise isolée reste lisible). On reprogramme tant que la hauteur
+  // n'est pas réelle, puis on ré-espace à CHAQUE redimensionnement du conteneur (révélation d'onglet, drag du splitter).
+  function scheduleDeclutter(tries) {
+    tries = tries || 0;
+    let h = 0; try { h = chart.plotContainer.height(); } catch (e) {}
+    if (!h || h < 24) { if (tries < 25) setTimeout(() => scheduleDeclutter(tries + 1), 200); return; }
+    declutter();
+    setTimeout(declutter, 300);   // 2e passe une fois le layout stabilisé
+  }
+  scheduleDeclutter(0);
+  // Ré-espacement à CHAQUE recalcul des bornes du plot (révélation d'onglet, resize, drag du splitter, zoom Y) :
+  // on écoute l'événement NATIF amCharts 'boundschanged', émis APRÈS que la mise en page est recalculée → declutter
+  // lit une hauteur RÉELLE. (Un ResizeObserver DOM, lui, précède ce recalcul → declutter lisait une hauteur périmée
+  // et laissait les badges empilés.) Débounce en requestAnimationFrame (boundschanged peut se répéter en rafale).
+  try {
+    let _dcRaf = 0;
+    chart.plotContainer.events.on('boundschanged', () => {
+      if (_dcRaf) return;
+      _dcRaf = requestAnimationFrame(() => { _dcRaf = 0; declutter(); });
+    });
+  } catch (e) {}
 
   // ── Mise à jour EN PLACE (pas de reconstruction → aucun clignotement) ────────
   function update(newData) {
@@ -864,10 +893,10 @@ function buildStrengthChart(containerId, data, opts = {}) {
         try { lbl.range.set('value', lv); } catch {}
         try { lbl.range.get('label')?.set('html', _csBadgeHtml(ccy, lbl.hexStr, _lighten(lbl.hexColor, 0.6), lv.toFixed(2).replace('.', ','))); } catch {}
         // le re-set du html ré-affichait le badge même masqué → on ré-applique l'état caché à chaque update,
-        // d'après la visibilité RÉELLE de la série (couvre le cas où l'événement hidden/shown a raté :
-        // ex. update() tombé PENDANT l'animation de masquage → _hiddenCcy pas encore rempli).
-        const _sHid = _hiddenCcy.has(ccy) || (s.get('visible') === false) || (typeof s.isHidden === 'function' && s.isHidden());
-        if (_sHid) { try { lbl.range.get('label')?.setAll({ forceHidden: true, visible: false }); lbl.range.get('grid')?.set('forceHidden', true); } catch {} }
+        // d'après _hiddenCcy UNIQUEMENT (source de vérité des devises masquées via la légende). On n'utilise plus
+        // s.isHidden()/get('visible') : transitoires (animation/course de layout) → ils force-cachaient à tort.
+        if (_hiddenCcy.has(ccy)) { try { lbl.range.get('label')?.setAll({ forceHidden: true, visible: false }); lbl.range.get('grid')?.set('forceHidden', true); } catch {} }
+        else { try { lbl.range.get('label')?.setAll({ forceHidden: false, visible: true }); } catch {} }
       }
     }
     setTimeout(declutter, 60);   // recalibrer l'anti-collision après mise à jour
@@ -2006,7 +2035,9 @@ setInterval(() => {
     // tuiles. L'ancien test « canvas présent ? » ignorait le SVG Leaflet → il RECONSTRUISAIT la carte toutes
     // les 12 s pendant que MONDE était ouvert (saccades signalées « pas fluide »).
     const _c = el.querySelector('canvas');
-    if ((el.querySelectorAll('path').length > 5) || (_c && _c.width > 60 && _c.height > 60) || el.querySelector('img.leaflet-tile')) return;
+    // Une carte LEAFLET vivante (_loaded) = saine, on ne la reconstruit JAMAIS (un rebuild = re-cadrage visible =
+    // le « dézoom puis zoom » signalé). Sinon, critères SVG/canvas/tuiles comme avant.
+    if ((window._dtpLfMap && window._dtpLfMap._loaded) || (el.querySelectorAll('path').length > 5) || (_c && _c.width > 60 && _c.height > 60) || el.querySelector('img.leaflet-tile')) return;
     if (typeof am5map === 'undefined' || typeof am5geodata_worldLow === 'undefined') {
       if (!_mapScriptsReinjected && performance.now() > 24000) {
         _mapScriptsReinjected = true;
@@ -2376,7 +2407,10 @@ function initRightTab(tab) {
       || (_cv && _cv.width > 60 && _cv.height > 60)
       || _mEl.querySelector('img.leaflet-tile'));
     if (!chartInited.world || !_drawn) { chartInited.world = true; buildSessionMap(); }
-    else if (window._dtpLfMap) { try { window._dtpLfMap.invalidateSize(); window._dtpLfMap.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); } catch (e) {} }
+    // Revisite d'une carte SAINE : recadrage LÉGER qui RESTAURE la vue figée sans refit → plus de « dézoom puis
+    // zoom » (l'ancien fitBounds recalculait un zoom fractionnaire légèrement différent → flottement signalé).
+    else if (window._dtpLfRefit) { window._dtpLfRefit(); }
+    else if (window._dtpLfMap) { try { window._dtpLfMap.invalidateSize(); } catch (e) {} }
     else if (mapRoot) { try { mapRoot.resize(); } catch (e) {} }   // variante amCharts (si sessionmap.js retiré)
     return;
   }
