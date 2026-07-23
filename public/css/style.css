@@ -7034,6 +7034,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 .cal-kb-quote::before { content: '« '; color: #6f6f79; }
 .cal-kb-quote::after  { content: ' »'; color: #6f6f79; }   /* guillemets hors texte → la traduction FR en place ne les mange pas */
 .cal-kb-sub { color: #8a9097; font-size: 11px; margin-top: 2px; }
+/* Chip « Clé » (23/07) : discours de tête de BC / audition / minutes — repérable d'un coup d'œil dans la liste */
+.cal-key-chip { display: inline-block; margin-left: 6px; padding: 0 5px; font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: #e3b23a; border: 1px solid rgba(227,178,58,.38); border-radius: 3px; vertical-align: middle; line-height: 1.5; }
 
 /* Fiche événement — « Historique des publications » : mini-barres réel vs prévu (~6 mois), ancien → récent */
 .cal-hist-sub { font-weight: 400; text-transform: none; letter-spacing: 0; color: #8b93a1; font-size: 10px; }
