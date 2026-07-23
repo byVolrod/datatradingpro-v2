@@ -750,9 +750,14 @@
     (lay ? lay.items : []).forEach(function (i) { used[i.w] = (used[i.w] || 0) + 1; });
     var q = _libQ.toLowerCase();
     var match = function (w) { return !q || (w.name + ' ' + w.desc + ' ' + w.cat).toLowerCase().indexOf(q) !== -1; };
-    // GROUPÉE PAR CATÉGORIE (ordre d'apparition du catalogue) : un intitulé de section + les cartes de la famille.
-    var cats = [];
-    CATALOG.forEach(function (w) { if (cats.indexOf(w.cat) === -1) cats.push(w.cat); });
+    // BIBLIOTHÈQUE PAR FAMILLES (demande user 23/07 : reprendre l'ORGANISATION du terminal PMT — 2 rails :
+    // « Fonctions » = panneaux de données/outils qu'on consulte ; « Analytics » = panneaux d'analyse de marché.
+    // Identité 100% DTP, aucune reprise visuelle PMT). FAM_OF mappe chaque widget à sa famille.
+    var FAM_OF = {
+      'force-devises': 'Analytics', 'barometre': 'Analytics', 'risque-historique': 'Analytics', 'radar-biais': 'Analytics',
+      'calendrier-jour': 'Fonctions', 'taux-cb': 'Fonctions', 'fil-news': 'Fonctions', 'journal-mini': 'Fonctions', 'calculatrice': 'Fonctions',
+    };
+    var FAMS = ['Analytics', 'Fonctions'];   // ordre d'affichage des 2 familles
     // GALERIE DE MODÈLES en TÊTE de la bibliothèque (demande user 23/07 : « on doit pouvoir choisir le template
     // en cliquant sur l'icône bibliothèque ») : chaque modèle = VIGNETTE d'agencement + NOM CENTRÉ DESSOUS —
     // jamais de nom à droite. Un clic crée un nouveau desk pré-composé (usePreset).
@@ -768,8 +773,9 @@
     }).join('');
     var tplHtml = PRESETS.some(pmatch) ? '<div class="wdg-lib-sec">Modèles prêts</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
 
-    var html = cats.map(function (cat) {
-      var list = CATALOG.filter(function (w) { return w.cat === cat && match(w); });
+    var FAM_SUB = { Analytics: 'Analyse de marché', Fonctions: 'Données & outils' };
+    var html = FAMS.map(function (fam) {
+      var list = CATALOG.filter(function (w) { return (FAM_OF[w.id] || 'Fonctions') === fam && match(w); });
       if (!list.length) return '';
       var cards = list.map(function (w) {
         return '<button class="wdg-lib-card" onclick="DTPWidgets.add(\'' + w.id + '\')" title="Ajouter « ' + esc(w.name) + ' »">'
@@ -779,13 +785,20 @@
           + (used[w.id] ? '<span class="wdg-lib-used">' + used[w.id] + '×</span>' : '<span class="wdg-lib-plus">+</span>')
           + '</button>';
       }).join('');
-      return '<div class="wdg-lib-sec">Widgets · ' + esc(cat) + '</div><div class="wdg-lib-row">' + cards + '</div>';
+      return '<div class="wdg-lib-sec">' + esc(fam) + '<span class="wdg-lib-sub">' + esc(FAM_SUB[fam] || '') + '</span></div><div class="wdg-lib-row">' + cards + '</div>';
     }).join('');
     box.innerHTML = (tplHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
   }
 
   /* ── MODÈLES PRÊTS (presets) : un clic → un nouveau layout pré-composé (modifiable ensuite). ── */
   var PRESETS = [
+    // « Terminal » = cockpit multi-zones façon terminal pro (organisation PMT : gros panneau central + colonnes
+    //  d'analytics et de fonctions autour), rendu en identité 100% DTP. Le modèle phare de Mon Desk.
+    { name: 'Terminal', items: [
+      { w: 'force-devises', gw: 8, gh: 12 }, { w: 'radar-biais', gw: 4, gh: 12 },
+      { w: 'calendrier-jour', gw: 4, gh: 11 }, { w: 'fil-news', gw: 4, gh: 11 }, { w: 'taux-cb', gw: 4, gh: 11 },
+      { w: 'barometre', gw: 6, gh: 8 }, { w: 'journal-mini', gw: 6, gh: 8 },
+    ] },
     { name: 'Desk complet', items: [{ w: 'force-devises', gw: 8, gh: 12 }, { w: 'calendrier-jour', gw: 4, gh: 12 }, { w: 'fil-news', gw: 7, gh: 11 }, { w: 'barometre', gw: 5, gh: 11 }] },
     { name: 'Focus macro', items: [{ w: 'calendrier-jour', gw: 7, gh: 15 }, { w: 'radar-biais', gw: 5, gh: 8 }, { w: 'taux-cb', gw: 5, gh: 7 }] },
     { name: 'Trading actif', items: [{ w: 'journal-mini', gw: 7, gh: 12 }, { w: 'calculatrice', gw: 5, gh: 12 }, { w: 'force-devises', gw: 12, gh: 10 }] },
@@ -875,7 +888,7 @@
       var c = STATE.cfg, p = PRESETS[i]; if (!c || !p || c.layouts.length >= _LMAX) return;
       var id = 'lay-' + uid();
       c.layouts.push({ id: id, name: p.name, fav: false, items: JSON.parse(JSON.stringify(p.items)) });
-      c.active = id; save(); API.closeManager(); renderBar(); renderGrid();
+      c.active = id; save(); API.closeManager(); API.closeLib(); renderBar(); renderGrid();   // depuis la biblio OU le gestionnaire → fermer les deux
     },
 
     // ── EXPORT / IMPORT de la configuration (fichier JSON : sauvegarde personnelle / passage de compte) ──
