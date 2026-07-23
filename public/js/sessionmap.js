@@ -157,8 +157,26 @@
     refreshSessions(new Date());
     window._dtpLfClock = setInterval(function () { refreshSessions(new Date()); }, 30000);
 
-    function _dtpFit(){ try { map.invalidateSize(); map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); } catch (e) {} }
+    // Cadrage initial UNE fois, puis on FIGE la vue (center+zoom) → toute revisite d'onglet se contente de
+    // recalculer la taille SANS refit, ce qui supprime le « dézoom puis zoom » signalé (fitBounds recalcule un
+    // zoom fractionnaire légèrement différent à chaque appel → flottement). On mémorise la vue obtenue.
+    function _dtpFit(){
+      try {
+        map.invalidateSize();
+        map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] });
+        window._dtpLfView = { center: map.getCenter(), zoom: map.getZoom() };
+      } catch (e) {}
+    }
     setTimeout(_dtpFit, 250);
     setTimeout(_dtpFit, 900);
+    // Recadrage LÉGER sur revisite d'onglet (appelé par initRightTab) : recalcule la taille et RESTAURE la vue
+    // figée SANS refit → aucun re-zoom visible. Repli sur _dtpFit si la vue n'a pas encore été mémorisée.
+    window._dtpLfRefit = function () {
+      try {
+        map.invalidateSize();
+        if (window._dtpLfView) map.setView(window._dtpLfView.center, window._dtpLfView.zoom, { animate: false });
+        else map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] });
+      } catch (e) {}
+    };
   };
 })();
