@@ -22,7 +22,7 @@
        dépendre du preload du binaire. (Le déplacement de la fenêtre est géré par l'app 1.0.10+ — plus
        d'app-region:drag ici.) Web (hors Electron) : non affecté (l'UA ne contient pas « Electron »). -->
   <script>try{var _ua=navigator.userAgent||'';if(/Electron/i.test(_ua)){var _r=document.documentElement;_r.classList.add('dtp-desktop');_r.classList.add(/Mac OS X|Macintosh/i.test(_ua)?'dtp-mac':'dtp-win');}}catch(e){}</script>
-  <link rel="stylesheet" href="/css/style.css?v=20260723bbg304" />
+  <link rel="stylesheet" href="/css/style.css?v=20260723bbg305" />
 
   <!-- amCharts 5 CDN -->
   <script defer src="https://cdn.amcharts.com/lib/5/index.js"></script>
@@ -803,12 +803,12 @@
 </div>
 
 <script defer src="/js/jspdf.umd.min.js?v=20260609A"></script>
-<script defer src="/js/app.js?v=20260723bbg302"></script>
+<script defer src="/js/app.js?v=20260723bbg305"></script>
 <script defer src="/js/charts.js?v=20260723bbg304"></script>
 <script defer src="/js/sessionmap.js?v=20260723bbg301"></script>
 <!-- MON DESK (widgets) : APRÈS app.js/charts.js — il consomme leurs globales (getNewsMaster,
      buildIsolatedStrength, disposeRoot…). `defer` garantit l'ordre d'exécution. -->
-<script defer src="/js/widgets.js?v=20260723bbg304"></script>
+<script defer src="/js/widgets.js?v=20260723bbg305"></script>
 <script defer src="/js/i18n-dicts.js?v=20260723bbg304"></script>
 <script defer src="/js/i18n.js?v=20260629bbg154"></script>
 

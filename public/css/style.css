@@ -11106,8 +11106,8 @@ body.theme-light .news-item--breaking:hover .news-description.visible { backgrou
   width: 118px; padding: 1px 4px; font: inherit; font-size: 11.5px; color: #e6e8ec;
   background: #0c0c0e; border: 1px solid rgba(227,178,58,.55); border-radius: 3px; outline: none;
 }
-.wdg-lay:hover { color: #e6e8ec; background: #16171b; }
-.wdg-lay.on { color: #e3b23a; background: rgba(227,178,58,.1); border-color: rgba(227,178,58,.35); }
+.wdg-lay:hover { color: #e6e8ec; background: rgba(255,255,255,0.035); }
+.wdg-lay.on { color: var(--text, #e6e8ec); background: transparent; border-color: transparent; }
 .wdg-lay-star { color: #e3b23a; }
 .wdg-lay-add { color: #6b7280; padding: 5px 9px; }
 .wdg-lay-add:hover { color: #e3b23a; }
@@ -11376,8 +11376,11 @@ body.wdg-mode #topbar-nav { display: none; }
   background: transparent; border: none; border-bottom: 2px solid transparent; white-space: nowrap;
   transition: color .15s, border-color .15s;
 }
-.wdg-lay:hover { color: var(--text, #e6e8ec); }
-.wdg-lay.on { color: #e3b23a; border-bottom-color: #e3b23a; }
+.wdg-lay:hover { color: var(--text, #e6e8ec); background: rgba(255,255,255,0.035); }
+/* Onglet ACTIF = grammaire EXACTE de la nav ACTUS (.nav-item--active) : texte clair + soulignement or, aucun fond */
+.wdg-lay.on { color: var(--text, #e6e8ec); background: transparent; border-bottom-color: #e3b23a; }
+.wdg-lay-chv { color: var(--text3, #6b7280); font-weight: 400; margin-right: 1px; }   /* chevron › comme la nav */
+.wdg-lay.on .wdg-lay-chv { color: #e3b23a; }
 .wdg-lay-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wdg-lay-star { color: #e3b23a; font-size: 10px; line-height: 1; }
 .wdg-lay-edit { font-family: var(--font-mono); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: #e6e8ec; background: #16171b; border: 1px solid #e3b23a; border-radius: 3px; padding: 2px 6px; max-width: 150px; }

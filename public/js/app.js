@@ -532,6 +532,15 @@ let _fxDaily     = [];     // FX Daily (ING THINK) : rapport dédié dans l'ongl
 let _weeklyReports = [];   // Weekly Market Recap + Global Economic Weekly (servis par /api/weekly-reports)
 let _weeklyGenerating = false;
 let _weeklyRetryCount = 0;
+// Rafraîchissement DÉBOUNCÉ de la liste Analyste (23/07, demande user « j'ai vu les rapports apparaître
+// petit à petit, c'est pas bon »). Quand plusieurs recaps sont générés/poussés (WS sw_update, br_update,
+// briefings) en rafale pendant qu'on regarde la page, on ne re-rend qu'UNE fois (coalescé ~450 ms) au lieu
+// de re-rendre à chaque arrivée → fini le clignotement « un par un ». Le 1er chargement, lui, reste immédiat.
+let _arlibRenderT = null;
+function _renderArlibSoon() {
+  if (_arlibRenderT) return;
+  _arlibRenderT = setTimeout(function () { _arlibRenderT = null; try { renderArlibList(); } catch (e) {} }, 450);
+}
 function _scheduleWeeklyRetry() {
   if (_weeklyRetryCount >= 5) return;   // ~5 tentatives (génération IA peut prendre ~20-40s)
   _weeklyRetryCount++;
@@ -539,7 +548,7 @@ function _scheduleWeeklyRetry() {
     fetch('/api/weekly-reports').then(r => r.json()).then(d => {
       if (Array.isArray(d.items)) _weeklyReports = d.items;
       _weeklyGenerating = !!d.generating;
-      renderArlibList();
+      _renderArlibSoon();
       if (_weeklyGenerating) _scheduleWeeklyRetry();
     }).catch(() => {});
   }, 12000);
@@ -732,7 +741,7 @@ function handleMessage(msg) {
     if (truly_new.some(i => i._briefing || i.source === 'DTP')) {
       const analystPanel = document.getElementById('view-analyst');
       if (analystPanel && !analystPanel.classList.contains('hidden')) {
-        renderArlibList();
+        _renderArlibSoon();   // débouncé : évite le clignotement « un par un » quand plusieurs recaps arrivent
       }
     }
 
@@ -744,10 +753,10 @@ function handleMessage(msg) {
     lsSet('dtp_sw', _sessionWraps.slice(0, 80));
     console.log(`[WS] sw_update: ${_sessionWraps.length} wraps (${_sessionWraps.length - before > 0 ? '+' : ''}${_sessionWraps.length - before})`);
     _notifyNewReports(_sessionWraps, 'analyst');   // notif des NOUVEAUX rapports Analyst (nom standardisé)
-    // Rafraîchir l'onglet Analyst s'il est visible
+    // Rafraîchir l'onglet Analyst s'il est visible (débouncé → un seul rendu même si plusieurs sw_update arrivent)
     const analystPanel = document.getElementById('view-analyst');
     if (analystPanel && !analystPanel.classList.contains('hidden')) {
-      renderArlibList();
+      _renderArlibSoon();
     }
 
   } else if (msg.type === 'br_update') {
@@ -766,7 +775,7 @@ function handleMessage(msg) {
     // Aussi mettre à jour l'onglet Analyst (ING Think y apparaît aussi)
     const analystPanel = document.getElementById('view-analyst');
     if (analystPanel && !analystPanel.classList.contains('hidden')) {
-      renderArlibList();
+      _renderArlibSoon();
     }
   } else if (msg.type === 'smartbias_update' || msg.type === 'bias_update') {
     // Nouvelle matrice Radar de Biais générée → on met à jour l'onglet Bias
