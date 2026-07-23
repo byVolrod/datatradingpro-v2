@@ -493,39 +493,72 @@
             v = num(prop(e, /pnl|p&l|profit|gain|\$/i)); if (v != null) return { n: v, txt: fmtMoney(v) };
             return null;
           };
-          var wins = 0, losses = 0, cum = 0, cumOk = true;
+          var sum = function (a) { return a.reduce(function (x, y) { return x + y; }, 0); };
+          // Résultat UNIFIÉ (-1/0/1) façon desk (_jrOutcome) : R → $PNL → libellé Résultat.
+          var outcome = function (e) {
+            var r = num(e.r); if (r != null) return r > 0 ? 1 : r < 0 ? -1 : 0;
+            var pl = num(e.pl); if (pl != null) return pl > 0 ? 1 : pl < 0 ? -1 : 0;
+            var res = String(fld(e, 'result', /r[ée]sultat|result|issue|outcome/i) || '');
+            if (/tp|profit|win|gagn/i.test(res)) return 1;
+            if (/\bsl\b|loss|perte|perd/i.test(res)) return -1;
+            if (/\bbe\b|break/i.test(res)) return 0;
+            return null;
+          };
+          // ── STATISTIQUES PRO (en mémoire, miroir du Tableau de bord du desk) ──
+          var rs = entries.map(function (e) { return num(e.r); }).filter(function (v) { return v != null; });
+          var winsR = rs.filter(function (v) { return v > 0; }), lossR = rs.filter(function (v) { return v < 0; });
+          var totR = sum(rs);
+          var pls = entries.map(function (e) { return num(e.pl); }).filter(function (v) { return v != null; });
+          var totD = sum(pls), cum = totD, cumOk = pls.length === entries.length && pls.length > 0;
+          var outs = entries.map(outcome).filter(function (v) { return v != null; });
+          var oW = outs.filter(function (v) { return v > 0; }).length, oL = outs.filter(function (v) { return v < 0; }).length;
+          var wr = (oW + oL) ? Math.round(oW / (oW + oL) * 100) : null;
+          var avgW = winsR.length ? sum(winsR) / winsR.length : 0, avgL = lossR.length ? sum(lossR) / lossR.length : 0;
+          var gD = sum(pls.filter(function (v) { return v > 0; })), lD = Math.abs(sum(pls.filter(function (v) { return v < 0; })));
+          var gR = sum(winsR), lR = Math.abs(sum(lossR));
+          var pf = lD > 0 ? gD / lD : (lR > 0 ? gR / lR : null);
+          var expR = (rs.length && (oW + oL)) ? (oW / (oW + oL)) * avgW + (oL / (oW + oL)) * avgL : null;
+          var chronAll = entries.slice().sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
+          var ddInD = pls.length > 0, _cum = 0, _peak = 0, maxDD = 0;
+          chronAll.forEach(function (e) { var v = ddInD ? (num(e.pl) || 0) : (num(e.r) || 0); _cum += v; if (_cum > _peak) _peak = _cum; var dd = _peak - _cum; if (dd > maxDD) maxDD = dd; });
+          var _stk = 0, worst = 0;
+          chronAll.forEach(function (e) { var o = outcome(e); if (o == null) return; if (o < 0) { _stk++; if (_stk > worst) worst = _stk; } else if (o > 0) _stk = 0; });
+          var longN = entries.filter(function (e) { return !/sell|short|vente/i.test(String(fld(e, 'dir', /^(sens|dir(ection)?|side|type)$/i) || '')); }).length;
+          var shortN = entries.length - longN;
+          var rrs = entries.map(function (e) { return num(e.rr); }).filter(function (v) { return v != null && v > 0; });
+          var rrAvg = rrs.length ? sum(rrs) / rrs.length : null;
+          var RES = ['Profit', 'TP', 'BE', 'SL', 'Loss'], RESCOL = { Profit: '#00e676', TP: '#00cc99', BE: '#ffb300', SL: '#ff8f00', Loss: '#ff3d00' };
+          var resMap = {}; RES.forEach(function (k) { resMap[k] = 0; });
           entries.forEach(function (e) {
-            var p = pnlOf(e), res = String(fld(e, 'result', /r[ée]sultat|result|issue|outcome/i) || '');
-            if (p && p.n !== 0) { if (p.n > 0) wins++; else losses++; }
-            else if (/tp|profit|win|gagn/i.test(res)) wins++;
-            else if (/\bsl\b|loss|perte|perd/i.test(res)) losses++;
-            var m = num(e.pl); if (m != null) cum += m; else cumOk = false;   // cumul $ seulement si TOUTES les lignes l'ont
+            var res = String(fld(e, 'result', /r[ée]sultat|result|issue|outcome/i) || ''), k = null;
+            if (/^tp\b|take.?profit/i.test(res)) k = 'TP'; else if (/^be\b|break.?even/i.test(res)) k = 'BE';
+            else if (/^sl\b|stop.?loss/i.test(res)) k = 'SL'; else if (/loss|perte|perd/i.test(res)) k = 'Loss';
+            else if (/profit|win|gagn/i.test(res)) k = 'Profit';
+            if (!k) { var pp = pnlOf(e); if (pp) k = pp.n > 0 ? 'Profit' : pp.n < 0 ? 'Loss' : 'BE'; }
+            if (k) resMap[k]++;
           });
-          var tot = wins + losses;
-          var wr = tot ? Math.round(wins / tot * 100) : null;
+          var fmtR = function (v) { return (v > 0 ? '+' : '') + (Math.round(v * 100) / 100).toString().replace('.', ','); };
+          var fmtK = function (v) { var a = Math.abs(v); if (a >= 1000) return (v > 0 ? '+' : '') + (Math.round(v / 100) / 10).toString().replace('.', ',') + ' k$'; return (v > 0 ? '+' : '') + Math.round(v) + ' $'; };
 
-          // ── COURBE DE CAPITAL (comme le vrai Journal du desk _jrBuildEquityChart) : Capital = capital de
-          //    départ + cumul des $PNL si dispo, sinon cumul $PNL, sinon cumul R, sinon cumul %. Points {t,v}
-          //    triés par date. amCharts (globaux) → root disposé au démontage (cleanup renvoyé par mount).
+          // ── COURBE : bascule %/$PNL/R/$Capital (comme le desk) ──
           var startCap = num(j && j.startCap);
-          var eqLabel = 'P&L cumulé', eqUnit = ' $', eqMode = 'pl';
           var haveField = function (getter) { return entries.some(function (e) { return getter(e) != null; }); };
-          if (startCap != null && startCap > 0 && haveField(function (e) { return num(e.pl); })) { eqMode = 'cap'; eqLabel = 'Capital'; }
-          else if (haveField(function (e) { return num(e.pl); })) { eqMode = 'pl'; eqLabel = 'P&L cumulé'; eqUnit = ' $'; }
-          else if (haveField(function (e) { return num(e.r); })) { eqMode = 'r'; eqLabel = 'R cumulé'; eqUnit = ' R'; }
-          else if (haveField(function (e) { return num(e.pnlPct); })) { eqMode = 'pct'; eqLabel = '% cumulé'; eqUnit = ' %'; }
-          else { eqMode = null; }
-          var eqData = [];
-          if (eqMode) {
-            var valOf = function (e) { return eqMode === 'r' ? num(e.r) : eqMode === 'pct' ? num(e.pnlPct) : num(e.pl); };
+          var hasPl = haveField(function (e) { return num(e.pl); }), hasRc = haveField(function (e) { return num(e.r); }), hasPct = haveField(function (e) { return num(e.pnlPct); });
+          var hasCap = startCap != null && startCap > 0 && hasPl;
+          var eqMode = hasCap ? 'cap' : hasPl ? 'pl' : hasRc ? 'r' : hasPct ? 'pct' : null;
+          var EQ_LBL = { cap: '$ Capital', pl: '$ PNL', r: 'R cumulé', pct: '% cumulé' };
+          function eqDataFor(mode) {
+            var valOf = mode === 'r' ? function (e) { return num(e.r); } : mode === 'pct' ? function (e) { return num(e.pnlPct); } : function (e) { return num(e.pl); };
+            var unit = mode === 'pct' ? ' %' : mode === 'r' ? ' R' : ' $';
             var chron = entries.filter(function (e) { return valOf(e) != null && e.ts; }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
-            var run = (eqMode === 'cap') ? startCap : 0;
-            var fmtV = function (v) { return (eqMode === 'cap' ? '' : (v > 0 ? '+' : '')) + (Math.round(v * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + eqUnit; };
-            for (var ci = 0; ci < chron.length; ci++) {
-              var prevV = run; run += (valOf(chron[ci]) || 0);
-              eqData.push({ t: chron[ci].ts, v: Math.round(run * 100) / 100, vLbl: fmtV(run), dLbl: fmtD(chron[ci].ts), varLbl: 'Variation : ' + fmtV(run - prevV) });
-            }
+            var run = (mode === 'cap') ? startCap : 0;
+            var fmtV = function (v) { return (mode === 'cap' ? '' : (v > 0 ? '+' : '')) + (Math.round(v * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + unit; };
+            var out = [];
+            for (var ci = 0; ci < chron.length; ci++) { var pv = run; run += (valOf(chron[ci]) || 0); out.push({ t: chron[ci].ts, v: Math.round(run * 100) / 100, vLbl: fmtV(run), dLbl: fmtD(chron[ci].ts), varLbl: 'Variation : ' + fmtV(run - pv) }); }
+            return out;
           }
+          var eqData = eqMode ? eqDataFor(eqMode) : [];
+          var hasCurve = eqData.length >= 2;
 
           // TOUT le journal DANS le widget (demande user) : liste complète scrollable (cap 100 anti-OOM),
           // PLUS RÉCENT EN HAUT (tri par date réelle — même ordre que le vrai Journal du desk).
@@ -549,21 +582,67 @@
               + '<span class="wdg-jr-restag">' + resHtml + '</span>'
               + '<span class="wdg-jr-res ' + pCls + '">' + (p ? esc(p.txt) : '—') + '</span></div>';
           }).join('');
-          var lastEq = eqData.length ? eqData[eqData.length - 1].v : null;
-          host.innerHTML = '<div class="wdg-jr">'
-            + '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
+          var modeBtns = [['pct', hasPct], ['pl', hasPl], ['r', hasRc], ['cap', hasCap]].filter(function (x) { return x[1]; })
+            .map(function (x) { return '<button data-m="' + x[0] + '"' + (x[0] === eqMode ? ' class="on"' : '') + '>' + EQ_LBL[x[0]] + '</button>'; }).join('');
+          var lastV = hasCurve ? eqData[eqData.length - 1] : null;
+          var tradesView = '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
             + (wr != null ? '<span>Réussite <b class="' + (wr >= 50 ? 'up' : 'down') + '">' + wr + ' %</b></span>' : '')
-            + (cumOk && entries.length ? '<span>P&amp;L <b class="' + (cum > 0 ? 'up' : cum < 0 ? 'down' : '') + '">' + esc(fmtMoney(cum)) + '</b></span>' : '')
-            + '</div>'
-            + (eqData.length >= 2
-                ? '<div class="wdg-jr-chartwrap"><div class="wdg-jr-chartlbl"><span>' + eqLabel + '</span>'
-                  + (lastEq != null ? '<b class="' + (eqMode === 'cap' ? '' : (lastEq > 0 ? 'up' : lastEq < 0 ? 'down' : '')) + '">' + esc(eqData[eqData.length - 1].vLbl) + '</b>' : '')
-                  + '</div><div class="wdg-jr-chart" id="' + chartId + '"></div></div>'
-                : '')
+            + (cumOk ? '<span>P&amp;L <b class="' + (cum > 0 ? 'up' : cum < 0 ? 'down' : '') + '">' + esc(fmtMoney(cum)) + '</b></span>' : '') + '</div>'
+            + (hasCurve ? '<div class="wdg-jr-chartwrap"><div class="wdg-jr-chartlbl"><b class="wdg-jr-eqval">' + esc(lastV.vLbl) + '</b>'
+                + (modeBtns ? '<span class="wdg-jr-eqtog">' + modeBtns + '</span>' : '') + '</div><div class="wdg-jr-chart" id="' + chartId + '"></div></div>' : '')
             + '<div class="wdg-jr-head"><span>Date</span><span>Paire</span><span>Sens</span><span>Résultat</span><span class="r">P&amp;L</span></div>'
-            + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div></div>';
-          // Montage APRÈS insertion + affichage (amCharts mesure 0×0 dans un conteneur caché).
-          if (eqData.length >= 2) requestAnimationFrame(function () { _wdgJrEquityChart(chartId, eqData); });
+            + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div>';
+
+          // ── VUE TABLEAU DE BORD (anneaux KPI + donut + métriques clés, comme le desk) ──
+          function ring(txt, col, label, sub) {
+            return '<div class="wdg-jrk"><span class="wdg-jrk-circ" style="border-color:' + col + ';color:' + col + '">' + esc(txt) + '</span>'
+              + '<span class="wdg-jrk-lbl">' + esc(label) + '</span>' + (sub ? '<span class="wdg-jrk-sub">' + esc(sub) + '</span>' : '') + '</div>';
+          }
+          var totRes = RES.reduce(function (a, k) { return a + resMap[k]; }, 0), acc = 0, stops = [];
+          RES.forEach(function (k) { if (!resMap[k]) return; var f = resMap[k] / totRes; stops.push(RESCOL[k] + ' ' + (acc * 360).toFixed(1) + 'deg ' + ((acc + f) * 360).toFixed(1) + 'deg'); acc += f; });
+          var donut = totRes ? '<div class="wdg-jrd-donutwrap"><div class="wdg-jrd-donut" style="background:conic-gradient(' + stops.join(',') + ')"><span class="wdg-jrd-hole"><b>' + entries.length + '</b><em>trades</em></span></div>'
+            + '<div class="wdg-jrd-legend">' + RES.filter(function (k) { return resMap[k]; }).map(function (k) { return '<span><i style="background:' + RESCOL[k] + '"></i>' + k + ' <b>' + resMap[k] + '</b></span>'; }).join('') + '</div></div>' : '';
+          var dashView = '<div class="wdg-jrd custom-scrollbar">'
+            + '<div class="wdg-jrd-sec">Performance pilote</div>'
+            + '<div class="wdg-jrk-row">'
+              + (rs.length ? ring(fmtR(totR), totR >= 0 ? '#00e676' : '#ff3d00', 'Total R') : '')
+              + (pls.length ? ring(fmtK(totD), totD >= 0 ? '#00e676' : '#ff3d00', 'Total $') : '')
+              + ring(String(entries.length), '#e3b23a', 'Trades')
+              + (wr != null ? ring(wr + ' %', wr >= 50 ? '#00e676' : '#ff3d00', 'Taux de réussite', oW + ' G / ' + oL + ' P') : '')
+            + '</div>'
+            + (donut ? '<div class="wdg-jrd-sec">Répartition des résultats</div>' + donut : '')
+            + '<div class="wdg-jrd-sec">Performance clé</div>'
+            + '<div class="wdg-jrk-row">'
+              + (winsR.length ? ring(fmtR(avgW), '#00e676', 'R moy. gagnant') : '')
+              + (lossR.length ? ring(fmtR(avgL), '#ff3d00', 'R moy. perdant') : '')
+              + ring(longN + ' / ' + shortN, '#3b82f6', 'Long / Short')
+              + (rrAvg != null ? ring((Math.round(rrAvg * 100) / 100).toString().replace('.', ','), '#a78bfa', 'RR cible moyen') : '')
+              + (pf != null ? ring((Math.round(pf * 100) / 100).toString().replace('.', ','), '#00e676', 'Profit factor', 'gains / pertes') : '')
+              + (expR != null ? ring(fmtR(expR), '#00cc99', 'Espérance / trade', 'en R') : '')
+              + (maxDD > 0 ? ring(ddInD ? fmtK(-maxDD) : fmtR(-maxDD), '#ff8f00', 'Max drawdown') : '')
+              + (worst > 0 ? ring(String(worst), '#ff3d00', 'Série perdante max') : '')
+            + '</div></div>';
+
+          host.innerHTML = '<div class="wdg-jr">'
+            + '<div class="wdg-jrtab"><button class="on" data-v="trades">Trades</button><button data-v="dash">Tableau de bord</button></div>'
+            + '<div class="wdg-jr-view" data-view="trades">' + tradesView + '</div>'
+            + '<div class="wdg-jr-view" data-view="dash" hidden>' + dashView + '</div></div>';
+
+          host.querySelectorAll('.wdg-jrtab button').forEach(function (b) {
+            b.addEventListener('click', function () {
+              host.querySelectorAll('.wdg-jrtab button').forEach(function (x) { x.classList.toggle('on', x === b); });
+              host.querySelectorAll('.wdg-jr-view').forEach(function (v) { v.hidden = v.getAttribute('data-view') !== b.getAttribute('data-v'); });
+            });
+          });
+          host.querySelectorAll('.wdg-jr-eqtog button').forEach(function (b) {
+            b.addEventListener('click', function () {
+              var m = b.getAttribute('data-m'), data = eqDataFor(m);
+              host.querySelectorAll('.wdg-jr-eqtog button').forEach(function (x) { x.classList.toggle('on', x === b); });
+              var ve = host.querySelector('.wdg-jr-eqval'); if (ve && data.length) ve.textContent = data[data.length - 1].vLbl;
+              if (data.length >= 2) _wdgJrEquityChart(chartId, data);
+            });
+          });
+          if (hasCurve) requestAnimationFrame(function () { _wdgJrEquityChart(chartId, eqData); });
         }).catch(function () { fallback(host, 'Journal indisponible.'); });
         return function () { try { if (typeof disposeRoot === 'function') disposeRoot(chartId); } catch (e) {} };
       },
