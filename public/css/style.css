@@ -11219,6 +11219,12 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-jr-openbtn { margin-left: auto; background: none; border: 0; padding: 0; font-size: 10.5px; font-weight: 600; color: #e3b23a; cursor: pointer; }
 .wdg-jr-openbtn:hover { text-decoration: underline; }
 .wdg-jr-list { flex: 1 1 auto; min-height: 0; overflow-y: auto; }
+/* Courbe de capital (comme le vrai Journal du desk) : bloc flexible entre les stats et le tableau */
+.wdg-jr-chartwrap { flex: 0 1 auto; min-height: 118px; display: flex; flex-direction: column; padding: 6px 10px 2px; border-bottom: 1px solid var(--hud-line, #1c1c20); }
+.wdg-jr-chartlbl { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; }
+.wdg-jr-chartlbl b { font-size: 12.5px; font-variant-numeric: tabular-nums; color: #e6e8ec; letter-spacing: 0; text-transform: none; }
+.wdg-jr-chartlbl b.up { color: #2ae389; } .wdg-jr-chartlbl b.down { color: #ff7259; }
+.wdg-jr-chart { flex: 1 1 auto; min-height: 92px; width: 100%; }
 /* En-tête de colonnes façon TABLE DU DESK (même grammaire que .macro-table th — cohérence, demande user 23/07) */
 .wdg-jr-head { display: grid; grid-template-columns: minmax(62px, .8fr) minmax(70px, 1.1fr) minmax(54px, .7fr) minmax(56px, .8fr) minmax(64px, .8fr); gap: 8px; padding: 6px 12px; background: #0d0d10; border-bottom: 1px solid var(--hud-line, #1c1c20); font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .05em; color: #9aa0aa; flex: 0 0 auto; }
 .wdg-jr-head .r { text-align: right; }
@@ -11327,6 +11333,19 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-thumb { flex: 0 0 auto; display: grid; grid-template-columns: repeat(12, 1fr); grid-auto-rows: 4px; gap: 1.5px; width: 52px; padding: 3px; background: #0c0c0e; border: 1px solid #1a1b20; border-radius: 3px; }
 .wdg-thumb i { display: block; background: rgba(227,178,58,.38); border-radius: 1px; min-height: 4px; }
 .wdg-mgr-row.on .wdg-thumb i { background: rgba(227,178,58,.6); }
+
+/* Galerie de MODÈLES dans la bibliothèque : vignette EN HAUT + nom CENTRÉ dessous (jamais à droite, demande user) */
+.wdg-tpl-row { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 4px; }
+.wdg-tpl-card {
+  display: flex; flex-direction: column; align-items: center; gap: 7px; cursor: pointer; text-align: center;
+  padding: 12px 10px; background: #101012; border: 1px solid var(--hud-line, #232429); border-radius: var(--radius);
+  transition: border-color .14s, background .14s;
+}
+.wdg-tpl-card:hover:not(:disabled) { border-color: rgba(227,178,58,.55); background: #131316; }
+.wdg-tpl-card:disabled { opacity: .45; cursor: not-allowed; }
+.wdg-tpl-card .wdg-thumb { width: 100%; grid-auto-rows: 6px; padding: 5px; }
+.wdg-tpl-name { font-family: var(--tight, 'Inter Tight', sans-serif); font-size: 12px; font-weight: 700; color: #e6e8ec; }
+.wdg-tpl-n { font-size: 10px; color: #7e8590; }
 
 /* Modèles prêts */
 .wdg-mgr-row--preset { background: #0e0e11; }

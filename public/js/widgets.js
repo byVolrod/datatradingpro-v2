@@ -327,6 +327,7 @@
       // avec repli sur e.props (journal PERSO importé). Rendu = mêmes codes que le desk : date FR, paire en gras,
       // badge ACHAT/VENTE, chip résultat (TP vert · BE ambre · SL rouge), P&L signé. Jamais de valeur inventée.
       mount: function (host) {
+        var chartId = HOST_ID + '-jreq-' + uid();
         host.innerHTML = '<div class="wdg-load">Chargement…</div>';
         fetch('/api/journal').then(function (r) { return r.json(); }).then(function (j) {
           if (!host.isConnected) return;
@@ -366,6 +367,30 @@
           });
           var tot = wins + losses;
           var wr = tot ? Math.round(wins / tot * 100) : null;
+
+          // ── COURBE DE CAPITAL (comme le vrai Journal du desk _jrBuildEquityChart) : Capital = capital de
+          //    départ + cumul des $PNL si dispo, sinon cumul $PNL, sinon cumul R, sinon cumul %. Points {t,v}
+          //    triés par date. amCharts (globaux) → root disposé au démontage (cleanup renvoyé par mount).
+          var startCap = num(j && j.startCap);
+          var eqLabel = 'P&L cumulé', eqUnit = ' $', eqMode = 'pl';
+          var haveField = function (getter) { return entries.some(function (e) { return getter(e) != null; }); };
+          if (startCap != null && startCap > 0 && haveField(function (e) { return num(e.pl); })) { eqMode = 'cap'; eqLabel = 'Capital'; }
+          else if (haveField(function (e) { return num(e.pl); })) { eqMode = 'pl'; eqLabel = 'P&L cumulé'; eqUnit = ' $'; }
+          else if (haveField(function (e) { return num(e.r); })) { eqMode = 'r'; eqLabel = 'R cumulé'; eqUnit = ' R'; }
+          else if (haveField(function (e) { return num(e.pnlPct); })) { eqMode = 'pct'; eqLabel = '% cumulé'; eqUnit = ' %'; }
+          else { eqMode = null; }
+          var eqData = [];
+          if (eqMode) {
+            var valOf = function (e) { return eqMode === 'r' ? num(e.r) : eqMode === 'pct' ? num(e.pnlPct) : num(e.pl); };
+            var chron = entries.filter(function (e) { return valOf(e) != null && e.ts; }).sort(function (a, b) { return (a.ts || 0) - (b.ts || 0); });
+            var run = (eqMode === 'cap') ? startCap : 0;
+            var fmtV = function (v) { return (eqMode === 'cap' ? '' : (v > 0 ? '+' : '')) + (Math.round(v * 100) / 100).toLocaleString('fr-FR', { maximumFractionDigits: 2 }) + eqUnit; };
+            for (var ci = 0; ci < chron.length; ci++) {
+              var prevV = run; run += (valOf(chron[ci]) || 0);
+              eqData.push({ t: chron[ci].ts, v: Math.round(run * 100) / 100, vLbl: fmtV(run), dLbl: fmtD(chron[ci].ts), varLbl: 'Variation : ' + fmtV(run - prevV) });
+            }
+          }
+
           // TOUT le journal DANS le widget (demande user) : liste complète scrollable (cap 100 anti-OOM),
           // PLUS RÉCENT EN HAUT (tri par date réelle — même ordre que le vrai Journal du desk).
           var rows = entries.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 100).map(function (e) {
@@ -388,18 +413,63 @@
               + '<span class="wdg-jr-restag">' + resHtml + '</span>'
               + '<span class="wdg-jr-res ' + pCls + '">' + (p ? esc(p.txt) : '—') + '</span></div>';
           }).join('');
+          var lastEq = eqData.length ? eqData[eqData.length - 1].v : null;
           host.innerHTML = '<div class="wdg-jr">'
             + '<div class="wdg-jr-stats"><span><b>' + entries.length + '</b> trade' + (entries.length > 1 ? 's' : '') + '</span>'
             + (wr != null ? '<span>Réussite <b class="' + (wr >= 50 ? 'up' : 'down') + '">' + wr + ' %</b></span>' : '')
             + (cumOk && entries.length ? '<span>P&amp;L <b class="' + (cum > 0 ? 'up' : cum < 0 ? 'down' : '') + '">' + esc(fmtMoney(cum)) + '</b></span>' : '')
             + '</div>'
+            + (eqData.length >= 2
+                ? '<div class="wdg-jr-chartwrap"><div class="wdg-jr-chartlbl"><span>' + eqLabel + '</span>'
+                  + (lastEq != null ? '<b class="' + (eqMode === 'cap' ? '' : (lastEq > 0 ? 'up' : lastEq < 0 ? 'down' : '')) + '">' + esc(eqData[eqData.length - 1].vLbl) + '</b>' : '')
+                  + '</div><div class="wdg-jr-chart" id="' + chartId + '"></div></div>'
+                : '')
             + '<div class="wdg-jr-head"><span>Date</span><span>Paire</span><span>Sens</span><span>Résultat</span><span class="r">P&amp;L</span></div>'
             + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div></div>';
+          // Montage APRÈS insertion + affichage (amCharts mesure 0×0 dans un conteneur caché).
+          if (eqData.length >= 2) requestAnimationFrame(function () { _wdgJrEquityChart(chartId, eqData); });
         }).catch(function () { fallback(host, 'Journal indisponible.'); });
-        return null;
+        return function () { try { if (typeof disposeRoot === 'function') disposeRoot(chartId); } catch (e) {} };
       },
     },
   ];
+
+  // Courbe de capital du widget Journal (miroir de _jrBuildEquityChart du desk) : aire dégradée OR, axes discrets,
+  // tooltip riche FR (date · valeur · variation). amCharts globaux ; root disposé par le cleanup du widget.
+  function _wdgJrEquityChart(id, data) {
+    var el = document.getElementById(id);
+    if (!el || typeof am5 === 'undefined' || typeof am5xy === 'undefined') return;
+    try { if (typeof disposeRoot === 'function') disposeRoot(id); } catch (e) {}
+    var root = am5.Root.new(id);
+    try { root.setThemes([typeof am5themes_Animated !== 'undefined' ? am5themes_Animated.new(root) : null].filter(Boolean)); } catch (e) {}
+    if (root._logo) root._logo.set('forceHidden', true);
+    var chart = root.container.children.push(am5xy.XYChart.new(root, { panX: false, panY: false, wheelX: 'none', wheelY: 'none', paddingLeft: 0, paddingRight: 2, paddingTop: 6, paddingBottom: 2 }));
+    var xr = am5xy.AxisRendererX.new(root, { minGridDistance: 62 });
+    xr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
+    xr.labels.template.setAll({ fill: am5.color(0x6b7280), fontSize: 9 });
+    var xAxis = chart.xAxes.push(am5xy.DateAxis.new(root, { baseInterval: { timeUnit: 'day', count: 1 }, renderer: xr, extraMin: 0, extraMax: 0 }));
+    xAxis.set('dateFormats', { day: 'dd MMM', week: 'dd MMM', month: 'MMM yy' });
+    xAxis.set('periodChangeDateFormats', { day: 'dd MMM', month: 'MMM yy' });
+    var yr = am5xy.AxisRendererY.new(root, { opposite: true, minWidth: 44 });
+    yr.grid.template.setAll({ stroke: am5.color(0x2b2b31), strokeOpacity: 0.16, strokeDasharray: [2, 4] });
+    yr.labels.template.setAll({ fill: am5.color(0x94a3b8), fontSize: 8.5 });
+    yr.labels.template.adapters.add('text', function (t) { return t == null ? t : String(t).replace('.', ','); });
+    var yAxis = chart.yAxes.push(am5xy.ValueAxis.new(root, { renderer: yr, maxDeviation: 0.12 }));
+    var z = yAxis.createAxisRange(yAxis.makeDataItem({ value: 0 }));
+    z.get('grid').setAll({ stroke: am5.color(0xffffff), strokeOpacity: 0.28, strokeWidth: 1 });
+    if (z.get('label')) z.get('label').set('visible', false);
+    var tip = am5.Tooltip.new(root, { getFillFromSprite: false, autoTextColor: false, labelText: '[#8a8a92 fontSize:9.5px]{dLbl}[/]\n[bold #e3b23a fontSize:13px]{vLbl}[/]\n[#9aa0aa fontSize:9.5px]{varLbl}[/]' });
+    tip.get('background').setAll({ fill: am5.color(0x141417), stroke: am5.color(0x33333a), strokeWidth: 1, fillOpacity: 0.98, cornerRadius: 6 });
+    if (tip.label) tip.label.setAll({ fill: am5.color(0xe6e6ea), paddingTop: 4, paddingBottom: 4, paddingLeft: 8, paddingRight: 8 });
+    var series = chart.series.push(am5xy.LineSeries.new(root, { xAxis: xAxis, yAxis: yAxis, valueXField: 't', valueYField: 'v', stroke: am5.color(0xe3b23a), fill: am5.color(0xe3b23a), tooltip: tip }));
+    series.strokes.template.setAll({ strokeWidth: 2.2, strokeLinecap: 'round', strokeLinejoin: 'round' });
+    series.fills.template.setAll({ visible: true, fillGradient: am5.LinearGradient.new(root, { rotation: 90, stops: [{ color: am5.color(0xe3b23a), opacity: 0.40 }, { color: am5.color(0xcfa233), opacity: 0.10 }, { color: am5.color(0xe3b23a), opacity: 0 }] }) });
+    series.data.setAll(data);
+    var cursor = chart.set('cursor', am5xy.XYCursor.new(root, { behavior: 'none', xAxis: xAxis, yAxis: yAxis, snapToSeries: [series] }));
+    cursor.lineX.setAll({ stroke: am5.color(0xe3b23a), strokeOpacity: 0.5, strokeWidth: 1, strokeDasharray: [2, 3] });
+    cursor.lineY.set('visible', false);
+    series.appear(600); chart.appear(600, 60);
+  }
 
   function byId(id) { for (var i = 0; i < CATALOG.length; i++) if (CATALOG[i].id === id) return CATALOG[i]; return null; }
 
@@ -683,6 +753,21 @@
     // GROUPÉE PAR CATÉGORIE (ordre d'apparition du catalogue) : un intitulé de section + les cartes de la famille.
     var cats = [];
     CATALOG.forEach(function (w) { if (cats.indexOf(w.cat) === -1) cats.push(w.cat); });
+    // GALERIE DE MODÈLES en TÊTE de la bibliothèque (demande user 23/07 : « on doit pouvoir choisir le template
+    // en cliquant sur l'icône bibliothèque ») : chaque modèle = VIGNETTE d'agencement + NOM CENTRÉ DESSOUS —
+    // jamais de nom à droite. Un clic crée un nouveau desk pré-composé (usePreset).
+    var atMax = STATE.cfg && STATE.cfg.layouts.length >= _LMAX;
+    var pmatch = function (p) { return !q || p.name.toLowerCase().indexOf(q) !== -1; };
+    var tplCards = PRESETS.map(function (p, i) {
+      if (!pmatch(p)) return '';
+      return '<button class="wdg-tpl-card" onclick="DTPWidgets.usePreset(' + i + ')"'
+        + (atMax ? ' disabled title="Plafond de layouts atteint"' : ' title="Créer un desk « ' + esc(p.name) + ' »"') + '>'
+        + _thumb(p.items)
+        + '<span class="wdg-tpl-name">' + esc(p.name) + '</span>'
+        + '<span class="wdg-tpl-n">' + p.items.length + ' widgets</span></button>';
+    }).join('');
+    var tplHtml = PRESETS.some(pmatch) ? '<div class="wdg-lib-sec">Modèles prêts</div><div class="wdg-tpl-row">' + tplCards + '</div>' : '';
+
     var html = cats.map(function (cat) {
       var list = CATALOG.filter(function (w) { return w.cat === cat && match(w); });
       if (!list.length) return '';
@@ -694,9 +779,9 @@
           + (used[w.id] ? '<span class="wdg-lib-used">' + used[w.id] + '×</span>' : '<span class="wdg-lib-plus">+</span>')
           + '</button>';
       }).join('');
-      return '<div class="wdg-lib-sec">' + esc(cat) + '</div><div class="wdg-lib-row">' + cards + '</div>';
+      return '<div class="wdg-lib-sec">Widgets · ' + esc(cat) + '</div><div class="wdg-lib-row">' + cards + '</div>';
     }).join('');
-    box.innerHTML = html || '<div class="wdg-empty">Aucun widget ne correspond à « ' + esc(_libQ) + ' ».</div>';
+    box.innerHTML = (tplHtml + html) || '<div class="wdg-empty">Rien ne correspond à « ' + esc(_libQ) + ' ».</div>';
   }
 
   /* ── MODÈLES PRÊTS (presets) : un clic → un nouveau layout pré-composé (modifiable ensuite). ── */
