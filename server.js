@@ -649,7 +649,13 @@ app.get('/api/cb-quotes', (req, res) => {
   const spk = String(req.query.speaker || '').trim().slice(0, 40);
   const spkRx = spk ? new RegExp('\\b' + spk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : null;
   const cutoff = Date.now() - 14 * 86400e3;
-  const pool = allNews.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline) && rx.test(i.headline));
+  // Vrai PROPOS RAPPORTÉ = « <banque/speaker>: … » → la banque doit apparaître AVANT le premier « : »
+  // (« Fed's Waller: … » ✓ ; « PRIMER : Daily Recap: Fed hikes… » ✗ = briefing DTP, pas un discours).
+  // On exclut aussi explicitement les items internes (PRIMER/briefing/recaps DTP) par sécurité.
+  const isQuote = (h) => { const c = h.indexOf(':'); return c > 0 && c <= 48 && rx.test(h.slice(0, c)); };
+  const pool = allNews.filter(i => i && i.headline && (i.timestamp || 0) > cutoff
+    && !i._briefing && !/^\s*(?:PRIMER|DTP)\b/i.test(i.headline) && i.source !== 'DTP'
+    && isQuote(i.headline));
   pool.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
   const bySpk = spkRx ? pool.filter(i => spkRx.test(i.headline)) : [];
   const src = bySpk.length ? bySpk : pool;
