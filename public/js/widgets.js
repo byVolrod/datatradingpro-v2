@@ -539,15 +539,31 @@
         }
         refreshSessions(new Date());
         var clockIv = setInterval(function () { refreshSessions(new Date()); }, 30000);
-        var savedView = null;
-        function fit() { try { map.invalidateSize(); map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] }); savedView = { center: map.getCenter(), zoom: map.getZoom() }; } catch (e) {} }
+        // Gardes anti-vue-aberrante (mêmes que sessionmap.js, bug app desktop 23/07) : jamais de fit ni de
+        // mémorisation sur un conteneur pas encore posé (0×0 → zoom clampé « tout vert »), et une vue
+        // au-delà de zoom ~3.5 est invalide (le monde entier tient toujours en dessous) → re-fit.
+        var savedView = null, ZMAX = 3.5;
+        function fit() {
+          try {
+            if (!el.isConnected) return;
+            if (el.offsetWidth < 80 || el.offsetHeight < 80) { setTimeout(fit, 700); return; }
+            map.invalidateSize();
+            map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] });
+            var z = map.getZoom();
+            if (z <= ZMAX) savedView = { center: map.getCenter(), zoom: z };
+          } catch (e) {}
+        }
         setTimeout(fit, 250);
         setTimeout(fit, 900);
         // Le widget est REDIMENSIONNABLE (coin) → recale la taille SANS refit (vue figée, comme _dtpLfRefit)
         var ro = null;
         try {
           ro = new ResizeObserver(function () {
-            try { map.invalidateSize(); if (savedView) map.setView(savedView.center, savedView.zoom, { animate: false }); } catch (e) {}
+            try {
+              map.invalidateSize();
+              if (savedView && savedView.zoom <= ZMAX) map.setView(savedView.center, savedView.zoom, { animate: false });
+              else fit();
+            } catch (e) {}
           });
           ro.observe(el);
         } catch (e) {}
@@ -1472,9 +1488,10 @@
       + '<rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="currentColor" opacity=".2"/>'
       + '<rect x="13" y="10.5" width="7" height="9.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/>'
       + '<rect x="4" y="13" width="7" height="7" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>';
-    // Badge « NOUVEAU » (même modèle durable que le badge du Journal) : pastille or coin haut-droit,
-    // pulse subtil ×3 à l'apparition puis statique ; 1er clic sur l'icône → disparaît DÉFINITIVEMENT
-    // pour ce compte (flag KV /api/widgets-new-seen). N'apparaît que si le compte ne l'a jamais ouvert.
+    // Badge « NOUVEAU » : pastille or coin haut-droit, pulse subtil ×3 puis statique. Affiché pendant les
+    // 20 PREMIÈRES CONNEXIONS au desk de chaque compte (demande user 23/07) : le GET /api/widgets-new-seen
+    // incrémente le compteur serveur à chaque chargement et répond seen=true au-delà de 20. Le clic ne
+    // masque le badge que pour la SESSION en cours (aucun POST) — il revient tant que la fenêtre court.
     var badge = document.createElement('span');
     badge.className = 'topbar-new-badge wdg-new-badge';
     badge.textContent = 'NOUVEAU';
@@ -1486,7 +1503,7 @@
     // TOGGLE (23/07) : la nav principale est MASQUÉE en mode Mon Desk (dashboard autonome, demande user)
     // → l'icône fait entrer ET sortir (re-clic = retour au fil d'actus).
     icon.addEventListener('click', function () {
-      if (badge.style.display !== 'none') { badge.style.display = 'none'; try { fetch('/api/widgets-new-seen', { method: 'POST' }); } catch (e) {} }
+      badge.style.display = 'none';                           // confort visuel : masqué pour cette session
       if (typeof activateView !== 'function') return;
       activateView(document.body.classList.contains('wdg-mode') ? 'news' : 'widgets');
     });

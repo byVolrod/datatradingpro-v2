@@ -160,22 +160,31 @@
     // Cadrage initial UNE fois, puis on FIGE la vue (center+zoom) → toute revisite d'onglet se contente de
     // recalculer la taille SANS refit, ce qui supprime le « dézoom puis zoom » signalé (fitBounds recalcule un
     // zoom fractionnaire légèrement différent à chaque appel → flottement). On mémorise la vue obtenue.
+    // ⚠️ BUG APP DESKTOP (23/07) : au démarrage Electron, le conteneur peut être encore 0×0 → fitBounds
+    // calcule un zoom ABERRANT (clampé maxZoom = continent plein écran « tout vert ») qui était MÉMORISÉ
+    // puis fidèlement restauré à chaque visite. Gardes : (a) jamais de fit/mémorisation tant que le
+    // conteneur n'est pas réellement posé (≥80px) — on ré-essaie ; (b) le monde entier tient toujours
+    // sous zoom ~3.5 → une vue mémorisée au-delà est invalide, on re-fitte au lieu de la restaurer.
+    var _LF_ZMAX = 3.5;
     function _dtpFit(){
       try {
+        if (el.offsetWidth < 80 || el.offsetHeight < 80) { setTimeout(_dtpFit, 700); return; }
         map.invalidateSize();
         map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] });
-        window._dtpLfView = { center: map.getCenter(), zoom: map.getZoom() };
+        var z = map.getZoom();
+        if (z <= _LF_ZMAX) window._dtpLfView = { center: map.getCenter(), zoom: z };
       } catch (e) {}
     }
     setTimeout(_dtpFit, 250);
     setTimeout(_dtpFit, 900);
     // Recadrage LÉGER sur revisite d'onglet (appelé par initRightTab) : recalcule la taille et RESTAURE la vue
-    // figée SANS refit → aucun re-zoom visible. Repli sur _dtpFit si la vue n'a pas encore été mémorisée.
+    // figée SANS refit → aucun re-zoom visible. Repli sur _dtpFit si la vue mémorisée est absente OU invalide.
     window._dtpLfRefit = function () {
       try {
         map.invalidateSize();
-        if (window._dtpLfView) map.setView(window._dtpLfView.center, window._dtpLfView.zoom, { animate: false });
-        else map.fitBounds([[-56, -168], [74, 178]], { animate: false, padding: [3, 3] });
+        var v = window._dtpLfView;
+        if (v && v.zoom <= _LF_ZMAX && el.offsetWidth >= 80) map.setView(v.center, v.zoom, { animate: false });
+        else { window._dtpLfView = null; _dtpFit(); }
       } catch (e) {}
     };
   };

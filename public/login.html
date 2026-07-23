@@ -184,6 +184,16 @@
     .lp-dl-intel a { color: var(--gold); text-decoration: none; font-weight: 600; }
     .lp-dl-intel a:hover { text-decoration: underline; }
 
+    /* Note « premier lancement macOS » : carte discrète à étapes numérotées (remplace le paragraphe brut) */
+    .lp-machint { margin-top: 12px; padding: 10px 13px 11px; background: var(--bg2); border: 1px solid var(--line); border-radius: 10px; text-align: left; }
+    .lp-machint-head { display: flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600; color: var(--text2); margin-bottom: 8px; }
+    .lp-machint-head svg { width: 13px; height: 13px; color: var(--gold); flex: 0 0 auto; }
+    .lp-machint-steps { margin: 0; padding: 0; list-style: none; counter-reset: lpm; }
+    .lp-machint-steps li { counter-increment: lpm; position: relative; padding-left: 23px; font-size: 11px; line-height: 1.5; color: var(--text3); margin-bottom: 5px; }
+    .lp-machint-steps li:last-child { margin-bottom: 0; }
+    .lp-machint-steps li::before { content: counter(lpm); position: absolute; left: 0; top: 1px; width: 15px; height: 15px; border-radius: 50%; background: rgba(184,134,11,0.12); color: var(--gold); font-size: 9.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+    .lp-machint-steps b { color: var(--text2); font-weight: 600; }
+
     /* Spinner */
     .lp-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(28,18,5,0.35); border-top-color: #1c1205; border-radius: 50%; animation: lp-spin 0.6s linear infinite; vertical-align: middle; margin-right: 7px; }
     @keyframes lp-spin { to { transform: rotate(360deg); } }
@@ -315,7 +325,18 @@
         </a>
       </div>
       <div class="lp-dl-intel" data-i18n-html="dlIntel">Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a></div>
-      <div class="lp-dl-intel" data-i18n-html="dlMacHint">macOS : au premier lancement, si « Apple n'a pas pu confirmer… » s'affiche, cliquez <b>« Terminé »</b> (pas « Corbeille »), puis Réglages Système → Confidentialité et sécurité → <b>« Ouvrir quand même »</b> — une seule fois (app hors App Store).</div>
+      <!-- Note « premier lancement macOS » : carte structurée à étapes (remplace le paragraphe brut) -->
+      <div class="lp-machint">
+        <div class="lp-machint-head">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M12 16v-4"></path><path d="M12 8h.01"></path></svg>
+          <span data-i18n="dlMacTitle">Premier lancement sur macOS</span>
+        </div>
+        <ol class="lp-machint-steps">
+          <li data-i18n-html="dlMac1">Si «&nbsp;Apple n'a pas pu confirmer…&nbsp;» s'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).</li>
+          <li data-i18n-html="dlMac2">Ouvrez <b>Réglages Système → Confidentialité et sécurité</b>.</li>
+          <li data-i18n-html="dlMac3">Cliquez <b>«&nbsp;Ouvrir quand même&nbsp;»</b> — nécessaire une seule fois (app distribuée hors App Store).</li>
+        </ol>
+      </div>
 
     </div><!-- /.lp-card -->
   </div><!-- /.lp-right -->
@@ -410,7 +431,10 @@
       pwToggle:'Afficher/masquer', pastePw:'Coller le mot de passe', remember:'Rester connecté', forgot:'Mot de passe oublié ?',
       signin:'Se connecter', signingIn:'Connexion…', langLabel:'Langue :', dlFor:'Télécharger pour',
       dlIntel:'Mac Intel (avant 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Télécharger la version Intel</a>',
-      dlMacHint:'macOS : au premier lancement, si « Apple n\'a pas pu confirmer… » s\'affiche, cliquez <b>« Terminé »</b> (pas « Corbeille »), puis Réglages Système → Confidentialité et sécurité → <b>« Ouvrir quand même »</b> — une seule fois (app hors App Store).',
+      dlMacTitle:'Premier lancement sur macOS',
+      dlMac1:'Si «&nbsp;Apple n\'a pas pu confirmer…&nbsp;» s\'affiche, cliquez <b>Terminé</b> (pas «&nbsp;Placer dans la corbeille&nbsp;»).',
+      dlMac2:'Ouvrez <b>Réglages Système → Confidentialité et sécurité</b>.',
+      dlMac3:'Cliquez <b>«&nbsp;Ouvrir quand même&nbsp;»</b> — nécessaire une seule fois (app distribuée hors App Store).',
       tagline1:'<strong>Anticipez</strong> le marché.', tagline2:'Pas seulement le suivre.',
       errCreds:'Email ou mot de passe incorrect', errConn:'Erreur de connexion — réessayez',
       subExpired:'Abonnement expiré', renew:'Renouveler mon abonnement',
@@ -423,7 +447,10 @@
       pwToggle:'Show / hide', pastePw:'Paste password', remember:'Stay signed in', forgot:'Forgot password?',
       signin:'Sign in', signingIn:'Signing in…', langLabel:'Language:', dlFor:'Download for',
       dlIntel:'Mac Intel (before 2020)&nbsp;? <a href="/downloads/DataTradingPro-macOS-Intel.dmg?v=113" download>Download the Intel version</a>',
-      dlMacHint:'macOS: on first launch, if “Apple could not verify…” appears, click <b>“Done”</b> (not “Move to Trash”), then System Settings → Privacy &amp; Security → <b>“Open Anyway”</b> — one time only (non-App-Store app).',
+      dlMacTitle:'First launch on macOS',
+      dlMac1:'If “Apple could not verify…” appears, click <b>Done</b> (not “Move to Trash”).',
+      dlMac2:'Open <b>System Settings → Privacy &amp; Security</b>.',
+      dlMac3:'Click <b>“Open Anyway”</b> — needed once only (non-App-Store app).',
       tagline1:'<strong>Anticipate</strong> the market.', tagline2:'Not just follow it.',
       errCreds:'Incorrect email or password', errConn:'Connection error — please try again',
       subExpired:'Subscription expired', renew:'Renew my subscription',
