@@ -1185,6 +1185,7 @@
     var tabs = c.layouts.map(function (l) {
       return '<button class="wdg-lay' + (l.id === c.active ? ' on' : '') + '" data-lay="' + l.id + '" title="' + esc(l.name) + ' — double-clic pour renommer"'
         + ' onclick="DTPWidgets.switchLayout(\'' + l.id + '\')" ondblclick="DTPWidgets.editTab(\'' + l.id + '\')">'
+        + '<span class="wdg-lay-chv">›</span>'                                    // chevron › = grammaire nav ACTUS
         + (l.fav ? '<span class="wdg-lay-star">★</span>' : '')
         + '<span class="wdg-lay-name">' + esc(l.name) + '</span></button>';
     }).join('');
