@@ -3343,6 +3343,21 @@ function _calMeetReading(tone, sc) {
   const read = (M[tone.key] || {})[dom[0]] || '';
   return `Le marché price ${domTxt}. ${read}`;
 }
+// Extraits de discours BC (23/07) : le SERVEUR balaie 14 j d'historique news (le client n'en garde
+// qu'~1-2 j en mémoire → souvent aucun propos, cas « Fed Jefferson Speech » sans ton). Cache client
+// 10 min par (devise, speaker). Renvoie { speaker, quotes:[{h,ts}] } ; [] si rien/erreur.
+const _calCbQuotesCache = {};
+async function _calCbQuotesGet(ccy, speaker) {
+  const key = ccy + '|' + (speaker || '');
+  const c = _calCbQuotesCache[key];
+  if (c && Date.now() - c.at < 10 * 60 * 1000) return c.data;
+  try {
+    const url = '/api/cb-quotes?ccy=' + encodeURIComponent(ccy) + (speaker ? '&speaker=' + encodeURIComponent(speaker) : '');
+    const j = await (window._dtpJSON ? window._dtpJSON(url) : fetch(url).then(r => r.json()));
+    if (j && Array.isArray(j.quotes)) { _calCbQuotesCache[key] = { at: Date.now(), data: j }; return j; }
+  } catch {}
+  return { speaker: null, quotes: [] };
+}
 // Payload /api/rates du desk, mis en cache 10 min (même source que l'onglet TAUX)
 let _calRatesCache = { at: 0, data: null };
 async function _calRatesGet() {
@@ -3406,16 +3421,29 @@ async function _calValueBlockHtml(ev) {
     // les intervenants secondaires (Musalem, Hunter…) n'ont souvent AUCUN titre à leur nom dans le fil
     // → le bloc restait muet. Sans propos du speaker, on lit le ton des propos récents de la BANQUE
     // (n'importe quel officiel Fed/RBA…) — c'est le ton de l'institution qui guide la réunion.
-    const items = (typeof allItems !== 'undefined' && Array.isArray(allItems)) ? allItems : [];
     const spk = title.match(/(?:fed|fomc|ecb|boe|boj|snb|boc|rba|rbnz)(?:'s)?\s+([A-Z][a-zà-ÿ'-]+)\s+(?:speech|speaks|testif)/i);
-    const nameRx = spk ? new RegExp('\\b' + spk[1].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : cb.rx;
-    const cutoff = Date.now() - 7 * 86400e3;
-    const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline));   // « Fed's Logan: … » = un propos rapporté (les annonces sans « : » sont ignorées)
-    let quotes = pool.filter(i => nameRx.test(i.headline)).slice(0, 3);
-    let quotesLbl = 'Derniers propos';
-    if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.headline)).slice(0, 3); quotesLbl = 'Derniers propos · ' + cb.bank; }
+    const speaker = spk ? spk[1] : '';
+    // SOURCE PRIMAIRE = serveur (14 j d'historique, cf. /api/cb-quotes) : extraits du discours du speaker,
+    // sinon des propos récents de la banque. REPLI instantané = fil en mémoire (au cas où le serveur cale).
+    let quotes = [], quotesLbl = 'Derniers propos';
+    try {
+      const srv = await _calCbQuotesGet(ev.currency, speaker);
+      if (srv && srv.quotes && srv.quotes.length) {
+        quotes = srv.quotes.map(q => ({ headline: q.h }));
+        if (spk && !srv.speaker) quotesLbl = 'Derniers propos · ' + cb.bank;   // repli banque (speaker sans propos propres)
+      }
+    } catch {}
+    if (!quotes.length) {   // repli fil en mémoire (client court)
+      const items = (typeof allItems !== 'undefined' && Array.isArray(allItems)) ? allItems : [];
+      const nameRx = spk ? new RegExp('\\b' + speaker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : cb.rx;
+      const cutoff = Date.now() - 14 * 86400e3;
+      const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline));   // « Fed's Logan: … » = un propos rapporté (les annonces sans « : » sont ignorées)
+      quotes = pool.filter(i => nameRx.test(i.headline)).slice(0, 3);
+      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.headline)).slice(0, 3); quotesLbl = 'Derniers propos · ' + cb.bank; }
+    }
+    quotes = quotes.slice(0, 3);
     const tone = _calToneOf(quotes.map(q => q.headline));
-    if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton récent</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
+    if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton du discours</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
     if (quotes.length) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${quotes.map(q => `<div class="cal-kb-quote">${_calEsc(q.headline)}</div>`).join('')}</span></div>`);   // guillemets via CSS ::before/::after → le texte nu part à la traduction FR
     const rates = await _calRatesGet();
     const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);

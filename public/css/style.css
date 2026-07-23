@@ -11280,6 +11280,15 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-jr-qa-save:hover { background: #0bd06f; } .wdg-jr-qa-save:disabled { opacity: .6; cursor: default; }
 .wdg-jr-qa-cancel { height: 28px; width: 28px; color: #8b93a1; background: transparent; border: 1px solid var(--hud-line, #232429); border-radius: 4px; cursor: pointer; font-size: 13px; }
 .wdg-jr-qa-cancel:hover { color: #ff7259; border-color: rgba(255,61,0,.4); }
+/* Bouton « Suppr. » (mode édition d'un trade) */
+.wdg-jr-qa-del { height: 28px; padding: 0 10px; font-size: 11px; font-weight: 600; color: #ff7259; background: transparent; border: 1px solid rgba(255,61,0,.4); border-radius: 4px; cursor: pointer; }
+.wdg-jr-qa-del:hover { background: rgba(255,61,0,.12); } .wdg-jr-qa-del[hidden] { display: none; } .wdg-jr-qa-del:disabled { opacity: .6; cursor: default; }
+/* Crayon « modifier ce trade » : révélé au survol de la ligne, posé au bord droit (hors flux grille) */
+.wdg-jr-row { position: relative; }
+.wdg-jr-edit { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); width: 24px; height: 22px; display: inline-flex; align-items: center; justify-content: center; color: #8b93a1; background: #14141a; border: 1px solid var(--hud-line, #232429); border-radius: 4px; cursor: pointer; opacity: 0; transition: opacity .1s, color .1s, border-color .1s; box-shadow: -10px 0 8px -4px #101014; }
+.wdg-jr-row:hover .wdg-jr-edit { opacity: 1; }
+.wdg-jr-edit:hover { color: #e3b23a; border-color: rgba(227,178,58,.5); }
+@media (hover: none) { .wdg-jr-edit { opacity: 1; box-shadow: none; background: transparent; border-color: transparent; } }   /* tactile : toujours visible (pas de survol) */
 
 /* Gestionnaire : cadenas du desk par défaut (non supprimable) */
 .wdg-mgr-lock { flex: 0 0 auto; width: 24px; height: 24px; display: inline-flex; align-items: center; justify-content: center; color: #6b7280; }

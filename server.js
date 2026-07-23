@@ -635,6 +635,27 @@ app.post('/api/widgets-new-seen', async (req, res) => {
   catch (e) { res.status(500).json({ ok: false, error: e.message }); }
 });
 
+// ── Extraits de discours BC (23/07, demande user « récolte le speech qui annonce le ton ») ─────────
+// Sert le bloc « Banque centrale » du calendrier/fil : le CLIENT ne garde que ~1-2 jours de fil en
+// mémoire → souvent aucun propos. Le SERVEUR balaie 14 j d'allNews (cap 2000) : extraits du SPEAKER
+// si possible, sinon de la banque. Quotes = titres « Fed's X: … » (le « : » = propos rapporté).
+// Déterministe, zéro IA — un scan de tableau, négligeable.
+const _CBQ_RX = { USD: /\b(?:fed|fomc|powell)\b/i, EUR: /\b(?:ecb|bce|lagarde)\b/i, GBP: /\b(?:boe|bank of england|bailey)\b/i, JPY: /\b(?:boj|bank of japan|ueda)\b/i, CHF: /\b(?:snb|swiss national bank)\b/i, CAD: /\b(?:boc|bank of canada|macklem)\b/i, AUD: /\b(?:rba|reserve bank of australia)\b/i, NZD: /\b(?:rbnz|reserve bank of new zealand)\b/i };
+app.get('/api/cb-quotes', (req, res) => {
+  if (!req.session?.userId) return res.status(401).json({ error: 'Non autorisé' });
+  const ccy = String(req.query.ccy || '').toUpperCase();
+  const rx = _CBQ_RX[ccy];
+  if (!rx) return res.json({ quotes: [] });
+  const spk = String(req.query.speaker || '').trim().slice(0, 40);
+  const spkRx = spk ? new RegExp('\\b' + spk.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : null;
+  const cutoff = Date.now() - 14 * 86400e3;
+  const pool = allNews.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline) && rx.test(i.headline));
+  pool.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
+  const bySpk = spkRx ? pool.filter(i => spkRx.test(i.headline)) : [];
+  const src = bySpk.length ? bySpk : pool;
+  res.json({ speaker: bySpk.length ? spk : null, quotes: src.slice(0, 5).map(i => ({ h: i.headline, ts: i.timestamp || 0 })) });
+});
+
 // ── Badge non-lu de l'icône MESSAGE : « a déjà ouvert le chat support au moins une fois ». Sert de PLANCHER
 //    durable au badge (modèle journalnewseen) : le message de bienvenue reçu mais jamais ouvert affiche la
 //    notif MÊME pendant le blackout egress, où le compteur DB chatUnread peut être indisponible. KV dual-write
