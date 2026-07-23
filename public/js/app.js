@@ -3883,7 +3883,9 @@ async function loadWeekAheadView() {
   if (_waPollTimer) { clearTimeout(_waPollTimer); _waPollTimer = null; }
   if (!isPoll) { _waPollCount = 0; if (window._calResetToLive) _calResetToLive(); _waLoadPanels(true); }   // ouverture fraîche → le miroir calendrier repart en LIVE (jamais une vue historique) puis clone News + Calendar + auto-scroll
   try {
-    const d = await fetch('/api/week-ahead').then(r => r.json());
+    // Fetch RÉSILIENT (même pattern que le Radar de Biais) : _dtpJSON tolère un 502/HTML pendant un
+    // redéploiement au lieu de jeter sur le JSON.parse — cause du « indisponible » figé sur l'app desktop.
+    const d = await (window._dtpJSON ? window._dtpJSON('/api/week-ahead') : fetch('/api/week-ahead').then(r => r.json()));
     if (d && Array.isArray(d.days) && d.days.length) { _waData = d; _waPollCount = 0; _renderWeekAhead(d); return; }
     if (_waData) return;                          // on a déjà des données affichées → on n'écrase pas
     // Pas encore de données → la génération tourne en arrière-plan côté serveur.
@@ -3895,7 +3897,19 @@ async function loadWeekAheadView() {
     } else {
       host.innerHTML = `<div class="wa-empty">L'aperçu de la semaine se génère en arrière-plan : reviens dans quelques minutes, il s'affichera automatiquement.</div>`;
     }
-  } catch { if (!_waData) host.innerHTML = '<div class="wa-empty">Semaine à Venir indisponible pour le moment.</div>'; }
+  } catch {
+    if (_waData) return;                          // données déjà affichées → on ne casse rien
+    // Échec réseau/serveur (502 de redéploiement, app desktop lancée avant le réseau…) → on RÉESSAIE
+    // comme le chemin « génération en cours » au lieu de rester figé sur « indisponible » (bug app desktop 23/07).
+    _waPollCount++;
+    const visible = !document.getElementById('view-weekahead')?.classList.contains('hidden');
+    if (_waPollCount <= 6 && visible) {
+      host.innerHTML = _waSkel();
+      _waPollTimer = setTimeout(loadWeekAheadView, 12000);
+    } else {
+      host.innerHTML = '<div class="wa-empty">Semaine à Venir indisponible pour le moment — nouvel essai automatique à la prochaine ouverture de l\'onglet.</div>';
+    }
+  }
 }
 window.loadWeekAheadView = loadWeekAheadView;
 
