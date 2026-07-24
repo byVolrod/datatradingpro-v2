@@ -9507,9 +9507,68 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrFmtDate(ts) { try { const d = new Date(ts); const p = n => String(n).padStart(2, '0'); return p(d.getDate()) + '/' + p(d.getMonth() + 1) + ' ' + p(d.getHours()) + ':' + p(d.getMinutes()); } catch (e) { return ''; } }
   function _jrNum(v) { return v == null ? '—' : String(v).replace('.', ','); }
 
+  // ── FILTRES / RECHERCHE / TRI de la grille Trades (24/07, demande user) ────────────────────────────
+  // État volatil (reset au reload — charte). La vue filtrée+triée alimente la grille ET les stats
+  // (« stats sur le sous-ensemble filtré » : ex. taux de réussite sur les seuls trades London/Profit).
+  let _jrFilter = { q: '', result: '', dir: '', session: '' };
+  let _jrSort = 'ts:desc';
+  function _jrRowText(e) {   // texte cherchable d'une ligne = ses cellules visibles
+    return _jrColsVisible().map(c => { const v = _jrGet(e, c); return Array.isArray(v) ? v.join(' ') : (v == null ? '' : v); }).join(' ').toLowerCase();
+  }
+  function _jrSortVal(e, k) { const raw = k === 'ts' ? e.ts : _jrGet(e, { k, builtin: true }); if (raw == null || raw === '') return null; const n = Number(raw); return isFinite(n) ? n : null; }   // null/vide → non triable (toujours en bas), pas 0 (Number(null)===0)
+  function _jrView() {   // _jrList filtré + trié selon _jrFilter / _jrSort
+    let L = _jrList || [];
+    const f = _jrFilter;
+    if (f.q) { const q = f.q.toLowerCase(); L = L.filter(e => _jrRowText(e).includes(q)); }
+    if (f.result)  L = L.filter(e => String(e.result || '').toLowerCase() === f.result.toLowerCase());
+    if (f.dir)     L = L.filter(e => String(e.dir || '').toUpperCase() === f.dir);
+    if (f.session) L = L.filter(e => String(e.session || '').toLowerCase() === f.session.toLowerCase());
+    const [sk, sd] = _jrSort.split(':');
+    L = L.slice().sort((a, b) => {
+      const va = _jrSortVal(a, sk), vb = _jrSortVal(b, sk);
+      if (va == null && vb == null) return 0;
+      if (va == null) return 1;                 // valeurs vides toujours en bas
+      if (vb == null) return -1;
+      return sd === 'asc' ? va - vb : vb - va;
+    });
+    return L;
+  }
+  function _jrFilterActive() { const f = _jrFilter; return !!(f.q || f.result || f.dir || f.session) || _jrSort !== 'ts:desc'; }
+  function _jrUpdateFilterCount() {
+    const el = document.getElementById('jr-flt-count'); if (!el) return;
+    const n = _jrView().length, tot = (_jrList || []).length;
+    el.textContent = _jrFilterActive() && n !== tot ? (n + ' / ' + tot) : (tot + (tot > 1 ? ' trades' : ' trade'));
+    el.classList.toggle('jr-flt-count--on', _jrFilterActive() && n !== tot);
+  }
+  function _jrApplyFilter() { _jrRenderStats(); _jrRenderGrid(); _jrUpdateFilterCount(); }   // NE re-rend PAS la barre de filtres (focus recherche préservé)
+  const _JR_SORTS = [['ts:desc', 'Date ▼'], ['ts:asc', 'Date ▲'], ['pl:desc', '$PNL ▼'], ['pl:asc', '$PNL ▲'], ['r:desc', 'R ▼'], ['grade:desc', 'Note ▼']];
+  function _jrRenderFilters() {
+    const host = document.getElementById('jr-filters'); if (!host) return;
+    if (!(_jrList || []).length) { host.innerHTML = ''; return; }   // pas de barre sur un journal vide
+    const opt = (k, lbl) => {
+      const vals = _jrOptions({ ...(_JR_BUILTIN[k] || {}), k, builtin: true });   // builtin:true → _jrOptions lit le champ natif + gabarit DTP (sinon lit props, vide)
+      const cur = _jrFilter[k];
+      return '<select class="jr-flt-sel" data-f="' + k + '"><option value="">' + lbl + '</option>'
+        + vals.map(v => '<option value="' + _esc(v) + '"' + (String(cur).toLowerCase() === String(v).toLowerCase() ? ' selected' : '') + '>' + _esc((k === 'dir' && _JR_DIR_DISP[v]) || v) + '</option>').join('') + '</select>';
+    };
+    host.innerHTML =
+      '<span class="jr-flt-ic"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>'
+      + '<input class="jr-flt-search" id="jr-flt-q" placeholder="Rechercher (paire, note, setup…)" value="' + _esc(_jrFilter.q) + '" autocomplete="off">'
+      + opt('result', 'Résultat : tous') + opt('dir', 'Direction : toutes') + opt('session', 'Session : toutes')
+      + '<select class="jr-flt-sel jr-flt-sort" data-sort="1">' + _JR_SORTS.map(s => '<option value="' + s[0] + '"' + (_jrSort === s[0] ? ' selected' : '') + '>Trier : ' + s[1] + '</option>').join('') + '</select>'
+      + '<button type="button" class="jr-flt-clear" id="jr-flt-clear"' + (_jrFilterActive() ? '' : ' hidden') + '>Réinitialiser</button>'
+      + '<span class="jr-flt-count" id="jr-flt-count"></span>';
+    const q = document.getElementById('jr-flt-q');
+    if (q) q.oninput = () => { _jrFilter.q = q.value; const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); };
+    host.querySelectorAll('.jr-flt-sel[data-f]').forEach(s => s.onchange = () => { _jrFilter[s.dataset.f] = s.value; const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); });
+    const so = host.querySelector('.jr-flt-sort'); if (so) so.onchange = () => { _jrSort = so.value; const c = document.getElementById('jr-flt-clear'); if (c) c.hidden = !_jrFilterActive(); _jrApplyFilter(); };
+    const cl = document.getElementById('jr-flt-clear'); if (cl) cl.onclick = () => { _jrFilter = { q: '', result: '', dir: '', session: '' }; _jrSort = 'ts:desc'; _jrRenderFilters(); _jrApplyFilter(); };
+    _jrUpdateFilterCount();
+  }
+
   function _jrRenderStats() {
     const host = document.getElementById('jr-stats'); if (!host) return;
-    const L = _jrList || [];
+    const L = _jrView();
     const rs = L.map(e => e.r).filter(r => r != null && r !== '' && isFinite(Number(r))).map(Number);
     const totR = rs.reduce((a, b) => a + b, 0);
     const totD = L.reduce((a, e) => a + (Number(e.pl) || 0), 0);
@@ -9694,12 +9753,21 @@ document.addEventListener('DOMContentLoaded', ()=>{
   function _jrRenderGrid() {
     const tbl = document.getElementById('jr-grid'); if (!tbl) return;
     const cols = _jrColsVisible();
-    const L = (_jrList || []).slice().sort((a, b) => (b.ts || 0) - (a.ts || 0));
+    const L = _jrView();                                   // liste filtrée + triée (24/07)
+    const _hasAny = (_jrList || []).length;                // au moins un trade (≠ « filtre sans résultat »)
     const allOn = L.length && L.every(e => _jrSel.has(e.id));
     const span = cols.length + 2;   // colonne de sélection (gauche) + colonnes + colonne actions (droite)
     const head = '<thead><tr>'
       + '<th class="jr-th-sel"><span class="jr-selall' + (allOn ? ' jr-rowsel--on' : '') + '" title="Tout sélectionner"></span></th>'
       + cols.map(c => '<th class="jr-th" draggable="true" data-k="' + _esc(c.k) + '" style="min-width:' + (c.w || 110) + 'px"><span class="jr-th-lbl">' + _esc(c.label) + '</span><b class="jr-th-caret">▾</b></th>').join('') + '<th class="jr-th-addcol" id="jr-addcol" title="Ajouter une propriété">+</th></tr></thead>';
+    if (!L.length && _hasAny) {   // FILTRE sans résultat (des trades existent) → message dédié, PAS le prompt d'import
+      tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + span + '">'
+        + '<div class="jr-empty-wrap"><div class="jr-empty-title">Aucun trade ne correspond au filtre</div>'
+        + '<div class="jr-empty-actions"><button type="button" class="jr-tb-btn" id="jr-flt-reset2">Réinitialiser le filtre</button></div></div></td></tr></tbody>';
+      const rb = document.getElementById('jr-flt-reset2');
+      if (rb) rb.onclick = () => { _jrFilter = { q: '', result: '', dir: '', session: '' }; _jrSort = 'ts:desc'; _jrRenderFilters(); _jrApplyFilter(); };
+      _jrUpdateSelBar(); return;
+    }
     if (!L.length) {
       tbl.innerHTML = head + '<tbody><tr><td class="jr-empty" colspan="' + span + '">'
         + '<div class="jr-empty-wrap">'
@@ -10098,7 +10166,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     rd.onerror = () => cb(null); rd.readAsDataURL(file);
   }
 
-  function _jrRender() { _jrRenderStats(); _jrRenderToolbar(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
+  function _jrRender() { _jrRenderStats(); _jrRenderToolbar(); _jrRenderFilters(); _jrRenderGrid(); if (_jrTab === 'dash') _jrRenderDashboard(); }
 
   // Délégation grille : clic cellule → édition inline ; bouton suppression de ligne (confirm INLINE).
   document.addEventListener('click', ev => {
