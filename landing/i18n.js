@@ -163,16 +163,14 @@
   // ── Régions maquette (aperçus desk pilotés par demo.js) : JAMAIS traduites ──
   var SKIP_SEL = '.ticker, .term, [class*="hfm"], [class*="dk-"], [class*="tk-"], #feed, #gLbl, #tkTrack, script, style, svg, noscript';
 
-  function getLang() {
-    try { var q = new URLSearchParams(location.search).get('lang'); if (q === 'fr' || q === 'en') { try { localStorage.setItem('dtp_lang', q); } catch (e) {} return q; } } catch (e) {}
-    try { var s = localStorage.getItem('dtp_lang'); if (s === 'fr' || s === 'en') return s; } catch (e) {}
-    var l = (((navigator.languages && navigator.languages[0]) || navigator.language || 'fr') + '').toLowerCase();
-    return l.indexOf('fr') === 0 ? 'fr' : 'en';
-  }
+  // ── choix de langue : ?lang > choix mémorisé (bascule) > cache géo > [géo IP par CONTINENT → repli langue navigateur] ──
+  function urlLang() { try { var q = new URLSearchParams(location.search).get('lang'); if (q === 'fr' || q === 'en') { try { localStorage.setItem('dtp_lang', q); } catch (e) {} return q; } } catch (e) {} return null; }
+  function storedManual() { try { var s = localStorage.getItem('dtp_lang'); if (s === 'fr' || s === 'en') return s; } catch (e) {} return null; }
+  function cachedGeo() { try { var s = localStorage.getItem('dtp_geo_lang'); if (s === 'fr' || s === 'en') return s; } catch (e) {} return null; }
+  function browserLang() { var l = (((navigator.languages && navigator.languages[0]) || navigator.language || 'fr') + '').toLowerCase(); return l.indexOf('fr') === 0 ? 'fr' : 'en'; }
   function setLang(l) { try { localStorage.setItem('dtp_lang', l); } catch (e) {} location.reload(); }
 
-  var lang = getLang();
-  try { document.documentElement.lang = lang; } catch (e) {}
+  var lang = 'fr';                                            // le HTML est en français par défaut (aucune traduction appliquée = FR)
 
   function setMetaC(sel, val) { if (!val) return; var m = document.querySelector(sel); if (m) m.setAttribute('content', val); }
 
@@ -201,18 +199,47 @@
     });
   }
 
+  function setToggleActive() {
+    var tog = document.getElementById('langTog'); if (!tog) return;
+    var b = tog.querySelectorAll('[data-lang]');
+    for (var i = 0; i < b.length; i++) { if (b[i].getAttribute('data-lang') === lang) b[i].classList.add('on'); else b[i].classList.remove('on'); }
+  }
   function mountToggle() {
-    var tog = document.getElementById('langTog');
-    if (!tog) return;
-    var btns = tog.querySelectorAll('[data-lang]');
-    for (var i = 0; i < btns.length; i++) {
-      (function (b) {
-        if (b.getAttribute('data-lang') === lang) b.classList.add('on');
-        b.addEventListener('click', function () { var l = b.getAttribute('data-lang'); if (l !== lang) setLang(l); });
-      })(btns[i]);
+    var tog = document.getElementById('langTog'); if (!tog || tog._wired) return; tog._wired = 1;
+    var b = tog.querySelectorAll('[data-lang]');
+    for (var i = 0; i < b.length; i++) {
+      (function (x) { x.addEventListener('click', function () { var l = x.getAttribute('data-lang'); if (l !== lang) setLang(l); }); })(b[i]);
     }
+    setToggleActive();
+  }
+  // Applique la langue décidée. Le HTML étant en FR, on ne traduit QUE vers l'EN (sens unique → aucun reload).
+  function apply(l) { lang = l; try { document.documentElement.lang = l; } catch (e) {} if (l === 'en') { try { translate(); } catch (e) {} } setToggleActive(); }
+
+  function fetchGeo(cb) {
+    var done = false; function fin(v) { if (done) return; done = true; cb(v); }
+    try {
+      var x = new XMLHttpRequest();
+      x.open('GET', 'https://desk.datatradingpro.com/api/geo', true);
+      x.timeout = 1400;
+      x.onload = function () { var d = null; try { d = JSON.parse(x.responseText); } catch (e) {} fin(d); };
+      x.onerror = function () { fin(null); }; x.ontimeout = function () { fin(null); };
+      x.send();
+    } catch (e) { fin(null); }
+    setTimeout(function () { fin(null); }, 1600);              // filet ultime si la requête n'aboutit jamais
+  }
+  function decide() {
+    var ex = urlLang() || storedManual();
+    if (ex) { apply(ex); return; }                            // ?lang= ou choix mémorisé (bascule) → prioritaire, instantané
+    var cg = cachedGeo();
+    if (cg) { apply(cg); return; }                            // continent déjà résolu une fois → instantané, aucune requête
+    fetchGeo(function (geo) {                                  // 1re visite : détection du continent par IP
+      // hors Europe → EN ; en Europe OU IP inconnue → langue du navigateur (fr → FR, sinon EN)
+      var chosen = (geo && geo.country) ? (geo.europe ? browserLang() : 'en') : browserLang();
+      try { localStorage.setItem('dtp_geo_lang', chosen); } catch (e) {}
+      apply(chosen);
+    });
   }
 
-  function run() { try { translate(); } catch (e) {} try { mountToggle(); } catch (e) {} }
+  function run() { mountToggle(); decide(); }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
 })();

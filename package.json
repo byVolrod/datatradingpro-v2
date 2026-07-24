@@ -23,6 +23,7 @@
     "dotenv": "^17.4.2",
     "express": "^4.18.2",
     "express-session": "^1.19.0",
+    "geoip-lite": "^2.0.3",
     "helmet": "^8.2.0",
     "imapflow": "^1.4.2",
     "mailparser": "^3.9.11",
