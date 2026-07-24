@@ -4564,7 +4564,7 @@ const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXE
 // ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
 // (Supabase). Renvoie le HTML des items (.nc-item). Repli (IA indispo) = titres bruts → la section ne
 // disparaît jamais s'il y a des news. ZÉRO invention (prompt + dépêches réelles du jour seulement).
-const NC_VER = 5;   // v5 : flèche « → » BLINDÉE — les deux côtés obligatoires (fait chiffré → impact marché) + exemple + garde-fou serveur qui retire toute flèche pendouillante (cause de « c'est vide » : v4 laissait le modèle terminer par « → » sans impact). v4 : PRÉCIS — titre ≤12 mots + phrase ≤25 mots donnant le CHIFFRE/FAIT EXACT. v3 trop générique ; v2 : 1 phrase ≤30 mots ; v1 : paragraphes verbeux
+const NC_VER = 6;   // v6 : chaque côté de « → » SUBSTANTIEL — <fait> nomme le sujet + son chiffre (pas « 89,31$ » nu), <impact> = conséquence marché DIRECTIONNELLE sur un actif (pas un label « cours du pétrole »). v5 blindait la flèche mais le free-tier restait trop laconique. v5 : flèche « → » BLINDÉE (deux côtés obligatoires + garde-fou anti-pendouillant, cause de « c'est vide »). v4 : titre ≤12 mots + phrase ≤25 mots. v3 trop générique ; v2/v1 verbeux
 const _NC_RX = /\b(hormu?z|oil|crude|brent|wti|opep|opec|gold|s&p|nasdaq|dow|nikkei|stoxx|dax|\bcac\b|earnings?|micron|nvidia|fed|fomc|powell|ecb|bce|lagarde|boe|boj|snb|boc|rba|tariff|tarif|sanction|\bwar\b|guerre|missile|ceasefire|iran|israel|china|chine|russia|russie|treasur|yield|rendement|inflation|\bcpi\b|\bnfp\b|\bgdp\b|\bpib\b|recession|récession)\b/i;
 function _ncEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 async function _generateNotableComments(dayKey) {
@@ -4582,8 +4582,12 @@ async function _generateNotableComments(dayKey) {
     if (aiAllowed('analyst', { priority: 'user' })) {
       _aiReset();
       const ctx = uniq.map(n => '- ' + _stripMd(n.headline || '') + (n.description ? ' — ' + _stripMd(String(n.description)).replace(/\s+/g, ' ').slice(0, 340) : '')).join('\n');
-      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 12 mots) reprenant l'info clé, ET une ligne « point » au FORMAT OBLIGATOIRE « <fait chiffré exact> → <impact marché concret> » (≤ 25 mots au total). Le FAIT = le %, le niveau, le montant, la date, le pays ou le nom RÉEL de la dépêche. L'IMPACT = la conséquence marché directe (devise, taux, actions, or, pétrole…). Les DEUX côtés de la flèche « → » sont OBLIGATOIRES et NON VIDES. INTERDIT ABSOLU : terminer la ligne par « → » sans rien derrière ; paraphrase vague (« l'escalade des tensions », « impact potentiel » seuls). Exemple attendu : «GBP/USD +0,20% vendredi → la livre efface ses pertes hebdomadaires sur des ventes au détail solides». Reprends les chiffres RÉELS des dépêches, n'en invente AUCUN.
-Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","point":"<fait chiffré> → <impact marché>"}]}
+      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 12 mots), ET une ligne « point » au FORMAT « <fait> → <impact> » (≤ 28 mots au total, les DEUX côtés OBLIGATOIRES et non vides).
+- <fait> = une proposition CLAIRE qui NOMME le sujet ET donne son chiffre/niveau exact (ex. « Le brut WTI recule à 89,31 $ », PAS « 89,31 $ » seul ; « L'inflation japonaise accélère à 3,1 % », PAS « inflation japonaise » seul).
+- <impact> = la conséquence marché DIRECTIONNELLE et concrète sur un actif précis (devise, taux, indice, or, pétrole), ex. « soutient le CAD, pèse sur les compagnies aériennes » ou « renforce les paris de hausse BoJ, yen en hausse ». JAMAIS un simple label (« cours du pétrole », « tensions ») ni une paraphrase vague.
+INTERDIT ABSOLU : terminer par « → » sans impact ; un côté réduit à un seul mot creux. Reprends les chiffres RÉELS des dépêches, n'en invente AUCUN.
+Exemples : «GBP/USD +0,20 % vendredi → la livre efface ses pertes hebdomadaires sur des ventes au détail solides» ; «Le Brent tient au-dessus de 100 $ → soutient les pétrolières européennes, pression sur les transporteurs».
+Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","point":"<fait nommé + chiffre> → <conséquence marché directionnelle>"}]}
 
 ACTUALITÉS DU JOUR :
 ${ctx}`;
