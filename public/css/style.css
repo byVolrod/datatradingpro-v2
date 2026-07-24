@@ -11524,3 +11524,82 @@ body.wdg-mode #topbar-nav { display: none; }
   .wdg-card, .wdg-card--full { flex-basis: 100%; }
   .wdg-layouts { max-width: 40vw; }
 }
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE — passe téléphone (≤560px) : 6 correctifs (captures user 24/07)
+   1) badge NOUVEAU qui déborde du topbar   2) bouton « + Ajouter un widget » sur 2 lignes
+   3) modale MES LAYOUTS trop grosse        4) barre de recherche BIBLIOTHÈQUE trop grosse
+   5) tableau BIAIS coupé (tout voir)       6) cartes TAUX qui débordent horizontalement
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Règles GLOBALES (pas seulement mobile) — sûres partout */
+.wdg-btn { white-space: nowrap; }              /* (2) le libellé du bouton ne se casse JAMAIS en 2 lignes */
+.rtc-tblwrap { overflow-x: auto; }             /* (6) le tableau des réunions défile au lieu d'être rogné */
+
+@media (max-width: 560px) {
+
+  /* (1) Badge « NOUVEAU » de l'icône Mon Desk : replié DANS le topbar (le topbar-center
+         a overflow:hidden en mobile → un top trop négatif le rognait par le haut). */
+  .wdg-new-badge { top: -3px; right: -3px; font-size: 6px; padding: 1.5px 3px; letter-spacing: .02em; }
+
+  /* (2) Barre Mon Desk : les onglets sur leur ligne (défilable), les 2 boutons sur la ligne
+         suivante — chacun tenant sur UNE ligne (nowrap ci-dessus). Fini « + Ajouter un\nwidget ». */
+  #view-widgets .panel-header { flex-wrap: wrap; height: auto; min-height: 32px; row-gap: 7px; padding-bottom: 8px; }
+  #view-widgets .panel-header-left { flex: 1 1 100%; min-width: 0; }
+  #view-widgets .wdg-layouts { max-width: 100%; }
+  #view-widgets .panel-header-controls { flex: 1 1 100%; justify-content: flex-start; }
+
+  /* (3)+(4) Modales BIBLIOTHÈQUE / MES LAYOUTS : plus compactes (police, marges, cartes réduites). */
+  .wdg-lib-box { width: 94%; max-height: 84%; }
+  .wdg-lib-head { padding: 9px 12px; }
+  .wdg-lib-title { font-size: 11.5px; }
+  /* (4) barre de recherche : plus fine (mais reste confortable au doigt) + marges resserrées */
+  .wdg-lib-search-row { padding: 9px 11px 0; }
+  .wdg-lib-search { height: 34px; font-size: 12px; }
+  .wdg-lib-grid { padding: 11px; gap: 8px; }
+  .wdg-lib-row { grid-template-columns: 1fr; }                 /* cartes fonctions : 1 par ligne, pleine largeur */
+  .wdg-lib-row .wdg-lib-card { padding: 9px 11px; gap: 9px; }
+  .wdg-lib-ico { width: 28px; height: 28px; }
+  .wdg-lib-name { font-size: 12px; }
+  .wdg-lib-desc { font-size: 10px; }
+  .wdg-lib-sec { font-size: 9.5px; margin-top: 4px; }
+  /* (3) gestionnaire de layouts : lignes + vignettes + modèles resserrés */
+  .wdg-mgr-list { padding: 10px 11px; gap: 5px; }
+  .wdg-mgr-row { padding: 5px 7px; gap: 6px; }
+  .wdg-thumb { width: 44px; }
+  .wdg-mgr-name, .wdg-mgr-pname { font-size: 11px; }
+  .wdg-mgr-pname em { font-size: 9.5px; }
+  .wdg-mgr-open { padding: 4px 8px; font-size: 10px; }
+  .wdg-mgr-count { font-size: 9px; }
+  .wdg-tpl-row { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+  .wdg-mgr-foot { padding: 9px 11px; gap: 6px; }
+  .wdg-mgr-foot .wdg-btn { font-size: 10px; padding: 0 8px; height: 24px; }
+
+  /* (5) Onglet BIAIS — tableau RADAR : compacté pour TOUT voir sur téléphone.
+         Driver (6e col) déjà masqué ≤980px ; on masque en plus le chevron, on rétrécit police/tags,
+         et le Biais peut passer sur 2 lignes → 6 colonnes tiennent sans coupe. */
+  .macro-table { font-size: 11px; min-width: 0; }
+  .macro-table th, .macro-table td { padding: 6px 5px; }
+  .macro-table th { font-size: 9px; letter-spacing: .02em; white-space: normal; line-height: 1.2; }   /* en-têtes sur 2 lignes → « Politique monétaire » ne force plus une colonne à 110px */
+  .macro-table th.mt-cur-h { width: auto; }
+  .macro-table th.mt-x-h, .macro-table td.mt-x { display: none; }   /* chevron masqué (lignes toujours cliquables) */
+  .mt-cur { font-size: 12px; gap: 5px; }
+  .mt-cur .sbm-flag { width: 15px; height: 15px; }
+  .mt-cell-tags { gap: 3px 4px; }
+  .mt-tag { font-size: 9px; padding: 2px 6px; margin: 1px 3px 1px 0; letter-spacing: 0; }
+  .macro-table td:nth-child(7) .mt-tag { white-space: normal; }     /* Biais : autorise le retour à la ligne */
+
+  /* (6) Onglet TAUX — cartes « Interest Rate Probability » : bandeau 5 métriques replié en 3+2
+         (fini « +12,00 bp » et « 29/07/202 » rognés), tableau des réunions allégé (Scénario central masqué). */
+  .rtc-metrics { display: flex; flex-wrap: wrap; }
+  .rtc-m { flex: 1 1 30%; min-width: 30%; min-height: 46px; padding: 5px 7px 6px; border-bottom: 1px solid var(--bg2); }
+  .rtc-m:nth-child(3), .rtc-m:last-child { border-right: 0; }
+  .rtc-m:nth-child(n+4) { border-bottom: 0; }
+  .rtc-k { font-size: 9px; }
+  .rtc-v { font-size: 12px; }
+  .rtc-tbl { font-size: 10px; }
+  .rtc-tbl th:nth-child(7), .rtc-tbl td:nth-child(7) { display: none; }   /* « Scénario central » masqué */
+  .rtc-pill { min-width: 54px; padding: 2px 5px; }
+  .rtc-bp { width: 46px; }
+  .rtc-axis { padding: 2px 40px 0 30px; }
+}
