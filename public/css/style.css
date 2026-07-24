@@ -11587,7 +11587,15 @@ body.wdg-mode #topbar-nav { display: none; }
   .mt-cur .sbm-flag { width: 15px; height: 15px; }
   .mt-cell-tags { gap: 3px 4px; }
   .mt-tag { font-size: 9px; padding: 2px 6px; margin: 1px 3px 1px 0; letter-spacing: 0; }
-  .macro-table td:nth-child(7) .mt-tag { white-space: normal; }     /* Biais : autorise le retour à la ligne */
+  .macro-table td:nth-child(7) .mt-tag { white-space: normal; }
+  /* Colonne « Devise » FIGÉE à gauche : à 375px la table tient sans scroll, mais sous ~360px
+     un léger défilement horizontal peut subsister → la devise reste toujours visible (UX pro,
+     jamais de contexte perdu). Fonds opaques pour couvrir le contenu qui défile dessous. */
+  .macro-table th.mt-cur-h, .macro-table td.mt-cur { position: sticky; left: 0; z-index: 2; }
+  .macro-table th.mt-cur-h { z-index: 3; }                        /* reste dans le coin haut-gauche (déjà sticky top) */
+  .macro-table td.mt-cur { background: #0c0c0e; }
+  .mt-row:hover td.mt-cur { background: #101014; }
+  .mt-row--active td.mt-cur { background: #14140f; box-shadow: inset 3px 0 0 var(--orange, #e3b23a); }     /* Biais : autorise le retour à la ligne */
 
   /* (6) Onglet TAUX — cartes « Interest Rate Probability » : bandeau 5 métriques replié en 3+2
          (fini « +12,00 bp » et « 29/07/202 » rognés), tableau des réunions allégé (Scénario central masqué). */
@@ -11601,5 +11609,38 @@ body.wdg-mode #topbar-nav { display: none; }
   .rtc-tbl th:nth-child(7), .rtc-tbl td:nth-child(7) { display: none; }   /* « Scénario central » masqué */
   .rtc-pill { min-width: 54px; padding: 2px 5px; }
   .rtc-bp { width: 46px; }
-  .rtc-axis { padding: 2px 40px 0 30px; }
+  .rtc-axis { padding: 2px 53px 0 39px; }   /* aligné sur la géométrie réelle de la piste : gauche rtc-bl(32)+gap(7)=39, droite rtc-bp(46)+gap(7)=53 */
+}
+
+/* ════════════════════════════════════════════════════════════════════════════
+   RESPONSIVE MOBILE — passe 2 (≤560px) : correctifs issus de l'audit multi-surfaces
+   (en-têtes de panneaux, onglet BANQUES, lecteur INSTITUTIONS). Vérifiés au bench.
+   ════════════════════════════════════════════════════════════════════════════ */
+@media (max-width: 560px) {
+
+  /* ── En-têtes de panneaux (TAUX, Banques, Marchés…) : titre long + contrôle de fraîcheur
+        se chevauchaient dans la barre 32px fixe (ex. « Taux directeurs des banques centrales »
+        + « Cotations à jour · HH:MM » ≈ 435px pour ~355px dispo). flex-wrap est AUTO-LIMITANT :
+        seuls les en-têtes qui débordent passent sur 2 lignes ; les autres restent à 32px. ── */
+  .panel-header { flex-wrap: wrap; height: auto; min-height: 32px; align-content: center; row-gap: 2px; }
+  .panel-header-left { min-width: 0; }
+
+  /* ── Onglet BANQUES : la colonne « Afficher le graphique » (en-tête nowrap ~150px pour une
+        icône 16px) est la plus large et rallonge le scroll pour RIEN — sur mobile le graphe
+        s'affiche déjà en permanence sous la table et un tap sur la ligne le sélectionne. On la masque. ── */
+  .bank-table th.bank-chart-col-h,
+  .bank-table td.bank-chart-cell { display: none; }
+  /* Ligne détail dépliée (thèse) : épinglée à gauche + bornée à l'écran → le texte revient à la ligne
+     dans la zone visible au lieu de s'étaler sur la largeur intrinsèque (~750px) de la table. */
+  .bank-detail { position: sticky; left: 0; width: calc(100vw - 24px); max-width: calc(100vw - 24px); box-sizing: border-box; }
+
+  /* ── INSTITUTIONS — lecteur : bandeau nav. Le titre du rapport (seul identifiant) était rogné à néant
+        et « ‹ Retour à la liste » se cassait sur 2-3 lignes. On fait retomber le titre sur sa propre
+        ligne pleine largeur et on empêche le Retour de se casser. ── */
+  .br-rnav { flex-wrap: wrap; }
+  .br-back-btn { flex-shrink: 0; white-space: nowrap; }
+  .br-rnav-title { flex: 1 1 100%; order: 3; text-align: left; }
+  /* Barre PDF (rendu canvas) : titre long tronqué proprement au lieu de wrapper et pousser le compteur */
+  .br-pdf-bar-lbl:first-child { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .br-pdf-bar .br-pdf-bar-lbl + .br-pdf-bar-lbl { flex: 0 0 auto; }
 }
