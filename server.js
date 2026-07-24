@@ -4564,7 +4564,7 @@ const _CAT_ORDER = ['GEOPOLITICS', 'CENTRAL BANKS', 'ECONOMIC DATA', 'FX', 'FIXE
 // ~5 actualités marquantes du jour, chacune : titre + 2-3 paragraphes d'analyse FR. Générée 1×/JOUR, cachée
 // (Supabase). Renvoie le HTML des items (.nc-item). Repli (IA indispo) = titres bruts → la section ne
 // disparaît jamais s'il y a des news. ZÉRO invention (prompt + dépêches réelles du jour seulement).
-const NC_VER = 4;   // v4 : PRÉCIS — titre ≤12 mots + phrase ≤25 mots donnant le CHIFFRE/FAIT EXACT de la dépêche → impact (v3 était trop générique « l'escalade des tensions »). v2 : 1 phrase ≤30 mots ; v1 : paragraphes verbeux
+const NC_VER = 5;   // v5 : flèche « → » BLINDÉE — les deux côtés obligatoires (fait chiffré → impact marché) + exemple + garde-fou serveur qui retire toute flèche pendouillante (cause de « c'est vide » : v4 laissait le modèle terminer par « → » sans impact). v4 : PRÉCIS — titre ≤12 mots + phrase ≤25 mots donnant le CHIFFRE/FAIT EXACT. v3 trop générique ; v2 : 1 phrase ≤30 mots ; v1 : paragraphes verbeux
 const _NC_RX = /\b(hormu?z|oil|crude|brent|wti|opep|opec|gold|s&p|nasdaq|dow|nikkei|stoxx|dax|\bcac\b|earnings?|micron|nvidia|fed|fomc|powell|ecb|bce|lagarde|boe|boj|snb|boc|rba|tariff|tarif|sanction|\bwar\b|guerre|missile|ceasefire|iran|israel|china|chine|russia|russie|treasur|yield|rendement|inflation|\bcpi\b|\bnfp\b|\bgdp\b|\bpib\b|recession|récession)\b/i;
 function _ncEsc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 async function _generateNotableComments(dayKey) {
@@ -4582,8 +4582,8 @@ async function _generateNotableComments(dayKey) {
     if (aiAllowed('analyst', { priority: 'user' })) {
       _aiReset();
       const ctx = uniq.map(n => '- ' + _stripMd(n.headline || '') + (n.description ? ' — ' + _stripMd(String(n.description)).replace(/\s+/g, ' ').slice(0, 340) : '')).join('\n');
-      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 12 mots) reprenant l'info clé, ET UNE phrase PRÉCISE (≤ 25 mots) qui donne le CHIFFRE ou le FAIT EXACT de la dépêche (le %, le niveau, le montant, la date, le pays, le nom) PUIS son impact marché direct via la flèche « → ». Sois SPÉCIFIQUE : PROSCRIS la paraphrase vague (« l'escalade des tensions », « la réduction des tarifs », « impact potentiel » seuls = INTERDIT) — donne le détail CONCRET. Reprends les chiffres RÉELS des dépêches, n'en invente AUCUN.
-Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","point":"..."}]}
+      const prompt = `Tu es analyste de desk FX & macro. Voici les actualités les plus marquantes du jour. Garde-en 4 à 6 (les plus importantes pour les marchés) et, pour CHACUNE, rédige EN FRANÇAIS : un TITRE court et factuel (≤ 12 mots) reprenant l'info clé, ET une ligne « point » au FORMAT OBLIGATOIRE « <fait chiffré exact> → <impact marché concret> » (≤ 25 mots au total). Le FAIT = le %, le niveau, le montant, la date, le pays ou le nom RÉEL de la dépêche. L'IMPACT = la conséquence marché directe (devise, taux, actions, or, pétrole…). Les DEUX côtés de la flèche « → » sont OBLIGATOIRES et NON VIDES. INTERDIT ABSOLU : terminer la ligne par « → » sans rien derrière ; paraphrase vague (« l'escalade des tensions », « impact potentiel » seuls). Exemple attendu : «GBP/USD +0,20% vendredi → la livre efface ses pertes hebdomadaires sur des ventes au détail solides». Reprends les chiffres RÉELS des dépêches, n'en invente AUCUN.
+Réponds UNIQUEMENT en JSON : {"items":[{"headline":"...","point":"<fait chiffré> → <impact marché>"}]}
 
 ACTUALITÉS DU JOUR :
 ${ctx}`;
@@ -4599,7 +4599,10 @@ ${ctx}`;
       const h = _ncEsc(_stripMd(String(it.headline)).slice(0, 150));
       // UNE seule phrase de synthèse, droit à l'essentiel (repli : 1er paragraphe des anciennes générations « paragraphs »)
       const raw = it.point != null ? it.point : (Array.isArray(it.paragraphs) ? (it.paragraphs[0] || '') : (it.paragraphs || ''));
-      const point = _stripMd(String(raw)).replace(/\s+/g, ' ').trim();
+      let point = _stripMd(String(raw)).replace(/\s+/g, ' ').trim();
+      // GARDE-FOU « c'est vide » : si le modèle termine par une flèche sans impact derrière, on la retire
+      // (jamais de « → » pendouillant à l'écran). Une flèche AVEC impact des deux côtés est conservée telle quelle.
+      point = point.replace(/\s*[→➔➜⟶]+[\s.…·:;,\-]*$/u, '').trim();
       const p = point ? '<p>' + _ncEsc(point.slice(0, 230)) + '</p>' : '';
       return '<div class="nc-item"><div class="nc-h">' + h + '</div>' + p + '</div>';
     }).join('');
