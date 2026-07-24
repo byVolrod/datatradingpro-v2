@@ -71,6 +71,77 @@
   function uid() { return 'w' + Math.random().toString(36).slice(2, 9); }
   function fallback(host, msg) { if (host) host.innerHTML = '<div class="wdg-empty">' + esc(msg) + '</div>'; }
 
+  /* ── COLONNES DU JOURNAL = MIROIR EXACT DU DESK (24/07, demande user « toutes tes colonnes perso »).
+     Réplique fidèle de _jrColsFromStore/_jrCell/_jrChip d'app.js (closure inaccessible) → le widget rend
+     les MÊMES colonnes que le vrai journal (perso importées ou 21 par défaut), avec les MÊMES cellules
+     (chips/rings/progress/badges via les classes GLOBALES jr-chip, jr-cv, jr-ring, jr-prog, jr-pos). */
+  var _WJR_DIR_DISP = { BUY: 'Long', SELL: 'Short' };
+  var _WJR_COLDEF = [
+    { k: 'pair', label: 'Paires', type: 'title', w: 94 }, { k: 'ts', label: 'Date', type: 'date', w: 120 },
+    { k: 'result', label: 'Résultat', type: 'select', w: 86 }, { k: 'day', label: 'Jour', type: 'day', w: 100 },
+    { k: 'session', label: 'Session', type: 'select', w: 92 }, { k: 'dir', label: 'Direction', type: 'select', w: 92, disp: _WJR_DIR_DISP },
+    { k: 'fonda', label: 'Force Fonda', type: 'progress', w: 128, max: 100 }, { k: 'conf', label: 'Confluence', type: 'multi', w: 172 },
+    { k: 'tf', label: 'Unité de Temps', type: 'multi', w: 128 }, { k: 'setup', label: 'Setup', type: 'multi', w: 172 },
+    { k: 'entryT', label: 'Entrée', type: 'multi', w: 144 }, { k: 'sl', label: 'SL', type: 'multi', w: 124 },
+    { k: 'grade', label: 'Note', type: 'ring', w: 74, max: 5 }, { k: 'rr', label: 'Objectif RR', type: 'num', w: 88 },
+    { k: 'risk', label: 'Risque %', type: 'num', w: 80, suffix: ' %' }, { k: 'r', label: 'R PNL', type: 'num', w: 80, signed: true },
+    { k: 'pnlPct', label: '% PNL', type: 'num', w: 82, suffix: ' %', signed: true }, { k: 'pl', label: '$PNL', type: 'money', w: 106, signed: true },
+    { k: 'equity', label: '$ Capital', type: 'money', w: 124 }, { k: 'err', label: 'ERREUR', type: 'multi', w: 132 },
+    { k: 'account', label: 'Compte', type: 'select', w: 124 },
+  ];
+  var _WJR_BUILTIN = {}; _WJR_COLDEF.forEach(function (c) { _WJR_BUILTIN[c.k] = c; });
+  var _WJR_CELLTYPES = ['title', 'date', 'day', 'select', 'multi', 'num', 'money', 'progress', 'ring', 'text'];
+  var _WJR_CHIPS = [
+    { bg: 'rgba(127,179,255,.15)', fg: '#a8ccff', bd: 'rgba(127,179,255,.32)' }, { bg: 'rgba(255,196,120,.15)', fg: '#ffd093', bd: 'rgba(255,196,120,.32)' },
+    { bg: 'rgba(120,230,170,.14)', fg: '#8ef0bd', bd: 'rgba(120,230,170,.30)' }, { bg: 'rgba(255,140,180,.15)', fg: '#ffa6c6', bd: 'rgba(255,140,180,.32)' },
+    { bg: 'rgba(186,140,255,.15)', fg: '#ccaaff', bd: 'rgba(186,140,255,.32)' }, { bg: 'rgba(255,168,120,.15)', fg: '#ffba93', bd: 'rgba(255,168,120,.32)' },
+    { bg: 'rgba(120,224,224,.14)', fg: '#8fe6e6', bd: 'rgba(120,224,224,.30)' }, { bg: 'rgba(206,220,130,.14)', fg: '#dde88f', bd: 'rgba(206,220,130,.30)' },
+    { bg: 'rgba(165,170,190,.14)', fg: '#c2c6d6', bd: 'rgba(165,170,190,.30)' },
+  ];
+  var _WJR_SEMCOL = {
+    result: { profit: '#00e676', tp: '#00cc99', be: '#ffb300', sl: '#ff8f00', loss: '#ff3d00' },
+    dir: { buy: '#00e676', long: '#00e676', sell: '#ff3d00', short: '#ff3d00' },
+    session: { london: '#7fb3ff', 'new york': '#ffb27f', us: '#ffb27f', asia: '#c5a3ff', sydney: '#8fe6e6' },
+  };
+  var _WJR_MONTHS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  var _WJR_DAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  function _wjrHash(s) { var h = 0; s = String(s || ''); for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return h; }
+  function _wjrHexChip(hex) { var n = hex.replace('#', ''), r = parseInt(n.slice(0, 2), 16), g = parseInt(n.slice(2, 4), 16), b = parseInt(n.slice(4, 6), 16), lt = function (c) { return Math.round(c + (255 - c) * 0.58); }; return { bg: 'rgba(' + r + ',' + g + ',' + b + ',.19)', fg: 'rgb(' + lt(r) + ',' + lt(g) + ',' + lt(b) + ')', bd: 'rgba(' + r + ',' + g + ',' + b + ',.42)' }; }
+  function _wjrChip(colKey, value) { var sem = _WJR_SEMCOL[colKey] && _WJR_SEMCOL[colKey][String(value).toLowerCase()]; return sem ? _wjrHexChip(sem) : _WJR_CHIPS[_wjrHash(colKey + '|' + value) % _WJR_CHIPS.length]; }
+  function _wjrChipHtml(text, c) { return '<span class="jr-chip" style="background:' + c.bg + ';color:' + c.fg + ';border-color:' + c.bd + '">' + esc(text) + '</span>'; }
+  function _wjrFmtDateFr(ts) { try { var d = new Date(ts); return d.getDate() + ' ' + _WJR_MONTHS[d.getMonth()] + ' ' + d.getFullYear(); } catch (e) { return '—'; } }
+  function _wjrDayEn(ts) { try { return _WJR_DAYS[new Date(ts).getDay()]; } catch (e) { return ''; } }
+  function _wjrFmtNum(v, signed) { if (v == null || v === '') return ''; var n = Number(v); if (!isFinite(n)) return esc(String(v)); var s = (Math.round(n * 100) / 100).toString().replace('.', ','); return (signed && n > 0 ? '+' : '') + s; }
+  function _wjrRingHtml(val, max) { var f = Math.max(0, Math.min(1, val / (max || 5))), R = 8.5, C = 2 * Math.PI * R, c = f >= 0.8 ? '#00e676' : f >= 0.5 ? '#ffb300' : '#e3b23a'; return '<span class="jr-ring"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="#26262c" stroke-width="2.6"/><circle cx="12" cy="12" r="' + R + '" fill="none" stroke="' + c + '" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="' + (f * C).toFixed(2) + ' ' + C.toFixed(2) + '" transform="rotate(-90 12 12)"/></svg><b>' + _wjrFmtNum(val) + '</b></span>'; }
+  function _wjrGet(e, col) { return col.builtin ? e[col.k] : (e.props && e.props[col.k]); }
+  function _wjrColsFromStore(stored) {
+    if (!Array.isArray(stored) || !stored.length) return _WJR_COLDEF.map(function (c) { return Object.assign({}, c, { builtin: true, hidden: false }); });
+    var seen = {}, cols = [];
+    stored.forEach(function (s) {
+      var k = String((s && s.k) || '').slice(0, 32); if (!k || seen[k]) return; seen[k] = 1;
+      if (s.builtin !== false && _WJR_BUILTIN[k]) cols.push(Object.assign({}, _WJR_BUILTIN[k], { builtin: true, label: String(s.label || _WJR_BUILTIN[k].label).slice(0, 40), hidden: !!s.hidden }));
+      else { var type = _WJR_CELLTYPES.indexOf(s.type) >= 0 ? s.type : 'text'; cols.push({ k: k, label: String(s.label || k).slice(0, 40), type: type, builtin: false, hidden: !!s.hidden, w: Math.max(70, Math.min(280, (+s.w) || 130)) }); }
+    });
+    if (!cols.some(function (c) { return c.k === 'pair'; })) cols.unshift(Object.assign({}, _WJR_BUILTIN.pair, { builtin: true, hidden: false }));
+    return cols;
+  }
+  function _wjrCell(e, col) {
+    var v = _wjrGet(e, col);
+    switch (col.type) {
+      case 'title': return '<span class="jr-cv-title">' + (e.pair ? esc(e.pair) : '<i class="jr-ph">—</i>') + '</span>';
+      case 'text': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : '<span class="jr-cv-text">' + esc(v) + '</span>';
+      case 'date': { var ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _wjrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">—</i>'; }
+      case 'day': { var d = e.ts ? _wjrDayEn(e.ts) : ''; return d ? _wjrChipHtml(d, _WJR_CHIPS[8]) : '<i class="jr-ph">—</i>'; }
+      case 'select': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; return _wjrChipHtml((col.disp && col.disp[v]) || v, _wjrChip(col.k, v)); }
+      case 'multi': { var arr = Array.isArray(v) ? v : (v ? [v] : []); return arr.length ? arr.map(function (x) { return _wjrChipHtml(x, _wjrChip(col.k, x)); }).join('') : '<i class="jr-ph">—</i>'; }
+      case 'num': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; var n = Number(v), cls = col.signed ? (n > 0 ? 'jr-pos' : n < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls + '">' + _wjrFmtNum(v, col.signed) + (col.suffix || '') + '</span>'; }
+      case 'money': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; var n2 = Number(v), cls2 = col.signed ? (n2 > 0 ? 'jr-pos' : n2 < 0 ? 'jr-neg' : '') : ''; return '<span class="jr-cv-num ' + cls2 + '">' + (col.signed && n2 > 0 ? '+' : '') + n2.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 }) + ' $</span>'; }
+      case 'progress': { if (v == null || v === '') return '<i class="jr-ph">—</i>'; var pct = Math.max(0, Math.min(100, Number(v) / (col.max || 100) * 100)), bc = pct >= 87.5 ? '#00e676' : pct >= 62.5 ? '#ffb300' : '#e3b23a'; return '<div class="jr-prog"><div class="jr-prog-t"><i style="width:' + pct + '%;background:' + bc + '"></i></div><span class="jr-prog-l">' + _wjrFmtNum(v) + ' %</span></div>'; }
+      case 'ring': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : _wjrRingHtml(Number(v), col.max || 5);
+    }
+    return '';
+  }
+
   /* ── CATALOGUE ─────────────────────────────────────────────────────────────────────────────────
      mount(host) reçoit un conteneur VIDE et VISIBLE ; il renvoie sa fonction de nettoyage.
      RÈGLE : un widget ne doit JAMAIS écrire un id DOM en dur — il peut vivre en 2 exemplaires. */
@@ -744,30 +815,21 @@
           var eqData = eqMode ? eqDataFor(eqMode) : [];
           var hasCurve = eqData.length >= 2;
 
-          // TOUT le journal DANS le widget (demande user) : liste complète scrollable (cap 100 anti-OOM),
-          // PLUS RÉCENT EN HAUT (tri par date réelle — même ordre que le vrai Journal du desk).
-          var rows = entries.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 100).map(function (e) {
-            var dts = e.ts;
-            if (!dts) { var dv = prop(e, /date|jour/i); if (dv) { var dd = new Date(dv); if (isFinite(dd.getTime())) dts = dd.getTime(); } }
-            var pair = fld(e, 'pair', /paire|pair|symbol|instrument|actif/i) || '';
-            var dir = String(fld(e, 'dir', /^(sens|dir(ection)?|side|type)$/i) || '');
-            var dirHtml = /buy|long|achat/i.test(dir) ? '<span class="wdg-jr-tag buy">ACHAT</span>'
-              : /sell|short|vente/i.test(dir) ? '<span class="wdg-jr-tag sell">VENTE</span>'
-              : (dir ? '<span class="wdg-jr-tag">' + esc(dir.toUpperCase().slice(0, 8)) + '</span>' : '<i class="wdg-jr-ph">—</i>');
-            var res = String(fld(e, 'result', /r[ée]sultat|result|issue|outcome/i) || '');
-            var resCls = /tp|profit|win|gagn/i.test(res) ? 'tp' : /\bbe\b|breakeven/i.test(res) ? 'be' : /\bsl\b|loss|perte|perd/i.test(res) ? 'sl' : '';
-            var resHtml = res ? '<span class="wdg-jr-tag ' + resCls + '">' + esc(res.toUpperCase().slice(0, 10)) + '</span>' : '<i class="wdg-jr-ph">—</i>';
-            var p = pnlOf(e);
-            var pCls = p ? (p.n > 0 ? 'up' : p.n < 0 ? 'down' : '') : '';
-            return '<div class="wdg-jr-row" data-id="' + esc(e.id || '') + '" title="Ouvrir dans le Journal">'
-              + '<span class="wdg-jr-date">' + (dts ? esc(fmtD(dts)) : '—') + '</span>'
-              + '<span class="wdg-jr-pair" title="' + esc(pair) + '">' + esc(pair) + '</span>'
-              + '<span class="wdg-jr-side">' + dirHtml + '</span>'
-              + '<span class="wdg-jr-restag">' + resHtml + '</span>'
-              + '<span class="wdg-jr-res ' + pCls + '">' + (p ? esc(p.txt) : '—') + '</span>'
-              + '<button class="wdg-jr-edit" type="button" title="Modifier ce trade" aria-label="Modifier">'
-              + '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button></div>';
+          // TABLEAU IDENTIQUE AU VRAI JOURNAL (24/07, demande user « toutes tes colonnes perso ») : mêmes
+          // colonnes que le desk (perso du compte via j.cols, sinon les 21 par défaut), mêmes cellules
+          // (chips/rings/progress/badges réutilisant les classes globales .jr-*). Scroll horizontal comme le
+          // desk. Cap 100 (anti-OOM), plus récent en haut. Édition rapide = crayon (champs cœur) ; édition
+          // fine d'une colonne = « Ouvrir le Journal ».
+          var _pen = '<button class="wdg-jrt-edit" type="button" title="Modifier ce trade" aria-label="Modifier"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>';
+          var visCols = _wjrColsFromStore(j && j.cols).filter(function (c) { return !c.hidden; });
+          var sortedE = entries.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 100);
+          var jrThead = '<tr>' + visCols.map(function (c) { return '<th class="wdg-jrt-th" style="min-width:' + (c.w || 110) + 'px">' + esc(c.label) + '</th>'; }).join('') + '<th class="wdg-jrt-th wdg-jrt-th--act"></th></tr>';
+          var jrTbody = sortedE.map(function (e) {
+            return '<tr class="wdg-jrt-row" data-id="' + esc(e.id || '') + '" title="Ouvrir dans le Journal">'
+              + visCols.map(function (c) { return '<td class="wdg-jrt-c jr-c--' + c.type + '">' + _wjrCell(e, c) + '</td>'; }).join('')
+              + '<td class="wdg-jrt-c wdg-jrt-c--act">' + _pen + '</td></tr>';
           }).join('');
+          var jrTable = '<div class="wdg-jrt-scroll custom-scrollbar"><table class="wdg-jrt"><thead>' + jrThead + '</thead><tbody>' + jrTbody + '</tbody></table></div>';
           var modeBtns = [['pct', hasPct], ['pl', hasPl], ['r', hasRc], ['cap', hasCap]].filter(function (x) { return x[1]; })
             .map(function (x) { return '<button data-m="' + x[0] + '"' + (x[0] === eqMode ? ' class="on"' : '') + '>' + EQ_LBL[x[0]] + '</button>'; }).join('');
           var lastV = hasCurve ? eqData[eqData.length - 1] : null;
@@ -786,8 +848,7 @@
             + (cumOk ? '<span>P&amp;L <b class="' + (cum > 0 ? 'up' : cum < 0 ? 'down' : '') + '">' + esc(fmtMoney(cum)) + '</b></span>' : '') + '</div>'
             + (hasCurve ? '<div class="wdg-jr-chartwrap"><div class="wdg-jr-chartlbl"><b class="wdg-jr-eqval">' + esc(lastV.vLbl) + '</b>'
                 + (modeBtns ? '<span class="wdg-jr-eqtog">' + modeBtns + '</span>' : '') + '</div><div class="wdg-jr-chart" id="' + chartId + '"></div></div>' : '')
-            + '<div class="wdg-jr-head"><span>Date</span><span>Paire</span><span>Sens</span><span>Résultat</span><span class="r">P&amp;L</span></div>'
-            + '<div class="wdg-jr-list custom-scrollbar">' + rows + '</div>';
+            + jrTable;
 
           // ── VUE TABLEAU DE BORD (anneaux KPI + donut + métriques clés, comme le desk) ──
           function ring(txt, col, label, sub) {
@@ -868,9 +929,9 @@
           // MODIFIER : clic sur le crayon d'une ligne → le formulaire (le même que « + Nouveau trade »)
           // s'ouvre PRÉ-REMPLI, le bouton devient « Enregistrer » et « Suppr. » apparaît. stopPropagation :
           // le crayon ne déclenche pas l'ouverture du Journal (clic ligne = ouvrir la page, conservé).
-          host.querySelectorAll('.wdg-jr-row').forEach(function (row) {
+          host.querySelectorAll('.wdg-jrt-row').forEach(function (row) {
             row.addEventListener('click', function () { openDesk(); });
-            var pen = row.querySelector('.wdg-jr-edit');
+            var pen = row.querySelector('.wdg-jrt-edit');
             if (pen && qa) pen.addEventListener('click', function (ev) {
               ev.stopPropagation();
               var id = row.getAttribute('data-id');
