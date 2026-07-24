@@ -8492,7 +8492,7 @@ async function generateWeeklyMarketRecap(force = false) {
 // Contenu rédigé EN ANGLAIS : réplique d'un rapport analyste la référence (les images de référence
 // sont en anglais ; libellés produit anglais par convention). Bumper FXR_VER à CHAQUE changement de
 // format/langue du prompt (sinon un ancien rapport au même numéro est servi indéfiniment). [[markdown-strip-rule]]
-const FXR_VER = 10;   // v10 : NOTE DE DESK ULTRA-CONDENSÉE façon prompt user (flèches d'impact →, fait chiffré → effet, chaque section raccourcie : synthèse 2-3 phrases, sessions 1-2 phrases, BC 1-2 phrases, headlines 1 phrase) — demande user 24/07 « uniquement l'essentiel, comme mon prompt ». v9 : « + court + simple + à l'essentiel » (demande user 22/07, cohérence avec la vision hebdo) — NOUVELLE section DÉTERMINISTE fxr.dataByCountry (« Données du jour » PAR PAYS façon référence : Allemagne : Inflation → PPI M/M -0.3 % (attendu -0.2 %, préc. 0.3 %) → surprise baissière ; groupée pays→famille, nationales zone euro via ctry, chiffres du calendrier = jamais l'IA) + prompt resserré (synthèse 3-4 phrases, 3 headlines max, sessions 2 phrases + 2 groupes max, econData IA RETIRÉE au profit du bloc déterministe). bump = régen. v8 : « À surveiller » porte aussi les VALEURS du calendrier (réel/high/prévision/low/précédent, demande user 17/07) — bump = régen. v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
+const FXR_VER = 11;   // v11 : « Données du jour » RATTACHÉE À CHAQUE SESSION (fxr.dataBySession, avec HEURE de sortie) → l'Analyse par session liste ses données + à quel moment (demande user 24/07). v10 : NOTE DE DESK ULTRA-CONDENSÉE façon prompt user (flèches d'impact →, fait chiffré → effet, chaque section raccourcie : synthèse 2-3 phrases, sessions 1-2 phrases, BC 1-2 phrases, headlines 1 phrase) — demande user 24/07 « uniquement l'essentiel, comme mon prompt ». v9 : « + court + simple + à l'essentiel » (demande user 22/07, cohérence avec la vision hebdo) — NOUVELLE section DÉTERMINISTE fxr.dataByCountry (« Données du jour » PAR PAYS façon référence : Allemagne : Inflation → PPI M/M -0.3 % (attendu -0.2 %, préc. 0.3 %) → surprise baissière ; groupée pays→famille, nationales zone euro via ctry, chiffres du calendrier = jamais l'IA) + prompt resserré (synthèse 3-4 phrases, 3 headlines max, sessions 2 phrases + 2 groupes max, econData IA RETIRÉE au profit du bloc déterministe). bump = régen. v8 : « À surveiller » porte aussi les VALEURS du calendrier (réel/high/prévision/low/précédent, demande user 17/07) — bump = régen. v7 : « À surveiller » déterministe depuis le calendrier réel avec DATE (ts) + DEVISE (ccy) en champs dédiés (demande user 16/07 « ajoute date + devise ») — bump = régen. v6 : POLITIQUE DE PREMIER PLAN obligatoire (changements de gouvernement, PM/présidents, ministres des finances, élections, budgets — au même rang que BC et données ; demande user 16/07 « aucune actualité de ce niveau ne doit être omise ») + ts 23:45 (tri en tête de journée dans Analystes). v5 : court + fondamental strict + [MAJEUR]. v4 : analyse PAR SESSION
 let _fxrGenLock = 0;
 let _fxrPastGenLock = 0;   // verrou dédié à la guérison des JOURS PASSÉS restés en repli anglais
 let _fxrGenBusy = false;
@@ -8532,6 +8532,32 @@ function _fxrDataByCountry(rows) {
   }
   return [...byCtry.values()].map(g => ({ country: g.country, ccy: g.ccy,
     families: [...g.families.entries()].map(([name, items]) => ({ name, items })) })).slice(0, 12);
+}
+
+// « DONNÉES DU JOUR » RATTACHÉES À LEUR SESSION (demande user 24/07 : « savoir à quel moment la donnée est
+// apparue ») — DÉTERMINISTE : chaque publication du jour est rangée dans sa SESSION de trading (Asie/Londres/
+// New York, MÊME découpage devise que les regions) et CONSERVE SON HEURE (Paris), triée par ordre chronologique
+// → dans « Analyse par session », chaque session liste ses données avec l'heure de sortie + réel/attendu/préc.
+const _FXR_SESSION_OF = { JPY:'asia', AUD:'asia', NZD:'asia', CNY:'asia', EUR:'london', GBP:'london', CHF:'london', USD:'ny', CAD:'ny' };
+function _fxrLean(e) {
+  const a = parseFloat(String(e.actual).replace(/[^0-9.\-]/g, '')), f = parseFloat(String(e.forecast || '').replace(/[^0-9.\-]/g, ''));
+  if (!isFinite(a) || !isFinite(f)) return '';
+  if (a === f) return 'conforme aux attentes';
+  const inv = /unemployment|jobless|claims/i.test(e.title || '');
+  return ((a > f) === !inv) ? 'surprise haussière' : 'surprise baissière';
+}
+function _fxrDataBySession(rows) {
+  const out = { asia: [], london: [], ny: [] };
+  for (const e of rows || []) {
+    if (!e || !e.actual || !e.title) continue;
+    const sess = _FXR_SESSION_OF[e.currency];
+    if (!sess) continue;                                        // hors 9 majeures → ignoré (comme dataByCountry)
+    const ctry = (e.currency === 'EUR' && _FXR_EUR_FR[e.ctry]) ? _FXR_EUR_FR[e.ctry] : (_FXR_CTRY_FR[e.currency] || e.currency || '');
+    const t = e.timestamp ? new Date(e.timestamp).toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris', hour: '2-digit', minute: '2-digit' }) : '';
+    out[sess].push({ ts: e.timestamp || 0, t, ccy: e.currency || '', country: ctry, label: String(e.title).slice(0, 72), actual: e.actual || '', forecast: e.forecast || '', previous: e.previous || '', lean: _fxrLean(e) });
+  }
+  for (const k of ['asia', 'london', 'ny']) out[k] = out[k].sort((a, b) => (a.ts || 0) - (b.ts || 0)).slice(0, 10);
+  return out;
 }
 
 // Bornes (epoch ms) d'un jour CALENDAIRE Paris "YYYY-MM-DD" (cohérent avec le reste du code Paris du serveur).
@@ -8801,6 +8827,7 @@ ${laLines.join('\n').slice(0, 3000) || '(aucun capturé)'}`;
     //    (attendu -0.2 %, précédent 0.3 %) → surprise baissière ») — 100 % DÉTERMINISTE depuis le calendrier
     //    (mêmes chiffres que l'onglet Calendrier, jamais l'IA), attaché aux DEUX chemins (IA + repli). ──
     try { fxr.dataByCountry = _fxrDataByCountry(dataRows); } catch (e) { console.warn('[FX Recap] dataByCountry:', e.message); }
+    try { fxr.dataBySession = _fxrDataBySession(dataRows); } catch (e) { console.warn('[FX Recap] dataBySession:', e.message); }   // données rattachées à leur session (heure + réel/attendu/préc.)
 
     // ── ANTI-RÉTROGRADATION (bug « pourquoi c'est en anglais », 15/07) : un repli déterministe (_ai:false,
     //    titres bruts ANGLAIS) ne remplace JAMAIS une version IA française déjà publiée pour le même jour —

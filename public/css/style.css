@@ -5256,6 +5256,8 @@ body.is-resizing-v #clocks-panel { outline: 1px solid rgba(227,178,58,0.8); outl
 /* v34 — Catalyseurs de la semaine : chiffre publié en gras clair, impact devise estompé en fin de ligne. */
 .wr-cat b { color:#fff; font-weight:var(--fw-semibold); }
 .wr-cat-impact { color:#9aa4b2; }
+/* Heure de sortie d'une donnée rattachée à sa session (FX Daily Recap → « à quel moment ») */
+.fxdr-dtime { display:inline-block; min-width:38px; font-family:var(--font-mono); font-size:10.5px; font-weight:700; color:#e3b23a; background:rgba(227,178,58,.12); border:1px solid rgba(227,178,58,.28); border-radius:3px; padding:0 4px; margin-right:4px; letter-spacing:.02em; }
 /* Puces déterministes v39 (intervenants BC + prints réel/attendu) — façon note institutionnelle */
 .wr-print-ctry { color:#9aa4b2; font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
 .wr-print-date { color:#7e8590; font-size:10.5px; }

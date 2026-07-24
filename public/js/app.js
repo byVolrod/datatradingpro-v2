@@ -7247,7 +7247,10 @@ function _renderFXDailyRecap(item) {
 
   // ── DONNÉES DU JOUR par pays (v9, déterministe — façon référence : « Allemagne : Inflation » → puces
   //    réel/attendu/précédent → lecture). MÊME grammaire de puces que le Récap Hebdo (cohérence structurelle). ──
-  const _dbc = Array.isArray(w.dataByCountry) ? w.dataByCountry.filter(g => g && g.country && (g.families || []).length) : [];
+  // « Données du jour » est désormais RATTACHÉE À CHAQUE SESSION (voir Analyse par session, avec l'heure de
+  // sortie). On ne garde ce bloc autonome par pays QUE pour les anciens rapports SANS dataBySession (rétro-compat).
+  const _hasSess = w.dataBySession && ['asia', 'london', 'ny'].some(k => Array.isArray(w.dataBySession[k]) && w.dataBySession[k].length);
+  const _dbc = (!_hasSess && Array.isArray(w.dataByCountry)) ? w.dataByCountry.filter(g => g && g.country && (g.families || []).length) : [];
   if (_dbc.length) {
     body += _sec('Données du jour') + '<div class="fxdr-grid">';
     _dbc.forEach(g => {
@@ -7278,6 +7281,17 @@ function _renderFXDailyRecap(item) {
           body += `<div class="fxdr-sub"><div class="fxdr-sub-h">${_wrInline(it.heading || '')}</div>${it.text ? `<div class="fxdr-sub-t">${_wrInline(it.text)}</div>` : ''}</div>`;
         });
       });
+      // Données publiées PENDANT cette session (déterministe, HEURE de sortie + réel/attendu/préc.) — demande user « à quel moment »
+      const _sk = /asie|asia/i.test(r.name || '') ? 'asia' : /londres|london/i.test(r.name || '') ? 'london' : /new.?york/i.test(r.name || '') ? 'ny' : '';
+      const _sd = (_hasSess && _sk && Array.isArray(w.dataBySession[_sk])) ? w.dataBySession[_sk] : [];
+      if (_sd.length) {
+        body += `<div class="fxdr-grp-title">Données publiées</div>`;
+        _sd.forEach(d => {
+          const nums = [`<b>${_wrEsc(d.actual)}</b>`, d.forecast ? `attendu ${_wrEsc(d.forecast)}` : '', d.previous ? `préc. ${_wrEsc(d.previous)}` : ''].filter(Boolean).join(' · ');
+          const who = d.country ? `${_wrEsc(d.country)} · ` : '';
+          body += `<div class="wr-bullet wr-cat">${d.t ? `<span class="fxdr-dtime">${_wrEsc(d.t)}</span> ` : ''}<strong>${who}${_wrEsc(d.label)}</strong> : ${nums}${d.lean ? ` <span class="wr-cat-impact">→ ${_wrEsc(d.lean)}</span>` : ''}</div>`;
+        });
+      }
       body += `</div>`;
     });
     body += '</div>';
