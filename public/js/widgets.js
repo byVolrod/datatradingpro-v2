@@ -648,6 +648,28 @@
       },
     },
     {
+      id: 'horloge', name: 'Horloge mondiale', cat: 'Macro', h: 210,
+      desc: 'Les 5 grandes places (Londres, New York, Tokyo, Dubaï, Paris) à l’heure, statut d’ouverture + météo.',
+      // IDENTIQUE AU DESK : réutilise le VRAI renderClocks() (app.js) — mêmes .clock-item (heure live, GMT,
+      // ouvert/fermé, icône jour/nuit, météo temps réel du _weatherCache alimenté par le loop global
+      // startClocks()). renderClocks(barEl) accepte désormais une cible optionnelle → on lui passe la barre
+      // du widget + un tick 1 s local ; le desk garde son propre #clocks-bar intact. Layout flex-wrap
+      // (.wdg-clocks-bar) → remplit n'importe quelle largeur de carte, cellules identiques. Cleanup = clear tick.
+      mount: function (host) {
+        if (typeof renderClocks !== 'function') { fallback(host, 'Horloge indisponible.'); return null; }
+        host.innerHTML = '<div class="wdg-clockwrap custom-scrollbar"><div class="clocks-bar wdg-clocks-bar"></div></div>';
+        var bar = host.querySelector('.wdg-clocks-bar');
+        function tick() { if (!host.isConnected) return; try { renderClocks(bar); } catch (e) {} }
+        tick();
+        // Météo : le loop global (startClocks) alimente _weatherCache en continu ; on la (re)demande si vide/périmée.
+        try {
+          if (typeof refreshWeather === 'function' && (typeof _weatherLastFetch === 'undefined' || Date.now() - _weatherLastFetch > 5 * 60 * 1000)) refreshWeather();
+        } catch (e) {}
+        var iv = setInterval(tick, 1000);
+        return function () { clearInterval(iv); };
+      },
+    },
+    {
       id: 'fil-news', name: "Fil d'actualité", cat: 'News', h: 320,
       desc: 'Les dernières news du desk, en direct.',
       mount: function (host) {
