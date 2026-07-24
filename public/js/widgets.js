@@ -714,12 +714,38 @@
     },
     {
       id: 'journal-mini', name: 'Journal de trading', cat: 'Outils', h: 300,
-      desc: 'Tes derniers trades et ton taux de réussite, en un coup d\'œil.',
-      // MIROIR du vrai Journal du desk (refonte 23/07 « il ressemble pas au vrai widget ») : on lit le MODÈLE
-      // RÉEL de /api/journal — champs builtin ts / pair / dir / result / pl / r / pnlPct (cf. _jrAddRow app.js),
-      // avec repli sur e.props (journal PERSO importé). Rendu = mêmes codes que le desk : date FR, paire en gras,
-      // badge ACHAT/VENTE, chip résultat (TP vert · BE ambre · SL rouge), P&L signé. Jamais de valeur inventée.
+      desc: 'Ton journal de trading complet, dans Mon Desk.',
+      // LE WIDGET = LE VRAI JOURNAL, À L'IDENTIQUE (24/07, demande user « tout pareil au moindre détail ») :
+      // au lieu de RÉIMPLÉMENTER le journal (toujours un détail qui diverge), on RELOCALISE le VRAI panneau
+      // #view-journal .panel-journal DANS le host du widget et on appelle window.loadJournalView(). C'est
+      // DONC le journal réel — barre d'outils (Nouveau/Importer/Propriétés/Exporter), filtres, éditeur de
+      // cellules, courbe dans le Tableau de bord, tout marche. Au démontage : on le REMET à sa place dans
+      // #view-journal (marqueur de position) → la page Journal complète refonctionne. 1 seule instance à la
+      // fois (2e widget Journal → message). Repli = ancienne implémentation autonome ci-dessous.
       mount: function (host) {
+        if (typeof window.loadJournalView === 'function') {
+          var vj = document.getElementById('view-journal');
+          var jp = vj && vj.querySelector('.panel-journal');
+          if (jp && jp.__wdgHosted) { fallback(host, 'Le Journal est déjà affiché dans un autre widget de ce desk.'); return null; }
+          if (jp) {
+            jp.__wdgHosted = true;
+            var ph = document.createComment('wdg-jr-slot');
+            jp.parentNode.insertBefore(ph, jp);              // mémorise la position d'origine dans #view-journal
+            host.classList.add('wdg-jr-host');
+            host.innerHTML = '';
+            host.appendChild(jp);
+            try { window.loadJournalView(); } catch (e) {}
+            return function () {                              // RESTORE : le panneau retourne dans #view-journal
+              try {
+                jp.__wdgHosted = false;
+                host.classList.remove('wdg-jr-host');
+                if (ph.parentNode) ph.parentNode.replaceChild(jp, ph);
+                else if (vj) vj.appendChild(jp);
+              } catch (e) {}
+            };
+          }
+        }
+        // ── REPLI (loadJournalView / #view-journal indisponible) : ancienne implémentation autonome ──
         var chartId = HOST_ID + '-jreq-' + uid();
         function build(j) {
           if (!host.isConnected) return;

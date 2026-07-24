@@ -11227,7 +11227,14 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-calc-open { background: none; border: 0; padding: 0; font-size: 10px; color: #e3b23a; cursor: pointer; }
 .wdg-calc-open:hover { text-decoration: underline; }
 
-/* ── Widget Journal de trading (MIROIR du vrai : mêmes colonnes perso, mêmes cellules) ── */
+/* ── Widget Journal = le VRAI journal relocalisé dans le host (24/07) : remplit la carte, en-tête compacté
+   (le titre est déjà dans l'en-tête du widget → on masque celui du panneau, on garde les onglets). ── */
+.wdg-jr-host { padding: 0 !important; overflow: hidden; display: flex; }
+.wdg-jr-host .panel-journal { height: 100%; min-height: 0; width: 100%; border: 0; background: transparent; }
+.wdg-jr-host .panel-journal > .panel-header { padding-top: 4px; padding-bottom: 4px; }
+.wdg-jr-host .panel-journal > .panel-header .panel-title { display: none; }   /* pas de doublon avec le titre du widget */
+
+/* ── (Repli) Widget Journal réimplémenté — mêmes colonnes perso, mêmes cellules ── */
 .wdg-jr { display: flex; flex-direction: column; height: 100%; min-height: 0; overflow: hidden; }
 /* Tableau IDENTIQUE au desk (24/07) : toutes les colonnes perso du compte, scroll horizontal DANS le tableau
    (stats + courbe + onglets restent fixes) ; cellules = classes globales .jr-chip/.jr-cv-*/.jr-ring/.jr-prog. */
