@@ -128,7 +128,8 @@
   function _wjrCell(e, col) {
     var v = _wjrGet(e, col);
     switch (col.type) {
-      case 'title': return '<span class="jr-cv-title">' + (e.pair ? esc(e.pair) : '<i class="jr-ph">—</i>') + '</span>';
+      case 'title': return '<span class="jr-cv-title">' + (e.pair ? esc(e.pair) : '<i class="jr-ph">—</i>') + '</span>'
+        + '<button class="jrd-open" data-open="' + esc(e.id || '') + '" title="Ouvrir / modifier ce trade"><svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9.5 2.5h4v4M13.5 2.5l-5.5 5.5M6.5 13.5h-4v-4M2.5 13.5l5.5-5.5"/></svg><span>OUVRIR</span></button>';
       case 'text': return (v == null || v === '') ? '<i class="jr-ph">—</i>' : '<span class="jr-cv-text">' + esc(v) + '</span>';
       case 'date': { var ts = col.builtin ? e.ts : v; return ts ? '<span class="jr-cv-date">' + _wjrFmtDateFr(ts) + '</span>' : '<i class="jr-ph">—</i>'; }
       case 'day': { var d = e.ts ? _wjrDayEn(e.ts) : ''; return d ? _wjrChipHtml(d, _WJR_CHIPS[8]) : '<i class="jr-ph">—</i>'; }
@@ -818,16 +819,16 @@
           // TABLEAU IDENTIQUE AU VRAI JOURNAL (24/07, demande user « toutes tes colonnes perso ») : mêmes
           // colonnes que le desk (perso du compte via j.cols, sinon les 21 par défaut), mêmes cellules
           // (chips/rings/progress/badges réutilisant les classes globales .jr-*). Scroll horizontal comme le
-          // desk. Cap 100 (anti-OOM), plus récent en haut. Édition rapide = crayon (champs cœur) ; édition
-          // fine d'une colonne = « Ouvrir le Journal ».
-          var _pen = '<button class="wdg-jrt-edit" type="button" title="Modifier ce trade" aria-label="Modifier"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></button>';
+          // desk. Cap 100 (anti-OOM), plus récent en haut. MODIFIER = bouton « OUVRIR » IDENTIQUE au vrai
+          // journal (`.jrd-open` dans la cellule Paire, révélé au survol — demande user) ; « Ouvrir le Journal »
+          // ouvre la page complète pour l'édition fine par colonne.
           var visCols = _wjrColsFromStore(j && j.cols).filter(function (c) { return !c.hidden; });
           var sortedE = entries.slice().sort(function (a, b) { return (b.ts || 0) - (a.ts || 0); }).slice(0, 100);
-          var jrThead = '<tr>' + visCols.map(function (c) { return '<th class="wdg-jrt-th" style="min-width:' + (c.w || 110) + 'px">' + esc(c.label) + '</th>'; }).join('') + '<th class="wdg-jrt-th wdg-jrt-th--act"></th></tr>';
+          var jrThead = '<tr>' + visCols.map(function (c) { return '<th class="wdg-jrt-th" style="min-width:' + (c.w || 110) + 'px">' + esc(c.label) + '</th>'; }).join('') + '</tr>';
           var jrTbody = sortedE.map(function (e) {
             return '<tr class="wdg-jrt-row" data-id="' + esc(e.id || '') + '" title="Ouvrir dans le Journal">'
               + visCols.map(function (c) { return '<td class="wdg-jrt-c jr-c--' + c.type + '">' + _wjrCell(e, c) + '</td>'; }).join('')
-              + '<td class="wdg-jrt-c wdg-jrt-c--act">' + _pen + '</td></tr>';
+              + '</tr>';
           }).join('');
           var jrTable = '<div class="wdg-jrt-scroll custom-scrollbar"><table class="wdg-jrt"><thead>' + jrThead + '</thead><tbody>' + jrTbody + '</tbody></table></div>';
           var modeBtns = [['pct', hasPct], ['pl', hasPl], ['r', hasRc], ['cap', hasCap]].filter(function (x) { return x[1]; })
@@ -926,12 +927,13 @@
             if (saveBtn) saveBtn.textContent = 'Ajouter';
             if (delBtn) delBtn.hidden = true;
           }
-          // MODIFIER : clic sur le crayon d'une ligne → le formulaire (le même que « + Nouveau trade »)
-          // s'ouvre PRÉ-REMPLI, le bouton devient « Enregistrer » et « Suppr. » apparaît. stopPropagation :
-          // le crayon ne déclenche pas l'ouverture du Journal (clic ligne = ouvrir la page, conservé).
+          // MODIFIER : clic sur le bouton « OUVRIR » d'une ligne (identique au vrai journal) → le formulaire
+          // (le même que « + Nouveau trade ») s'ouvre PRÉ-REMPLI, le bouton devient « Enregistrer » et
+          // « Suppr. » apparaît. stopPropagation : OUVRIR ne déclenche pas l'ouverture de la page (clic
+          // ailleurs sur la ligne = ouvrir la page complète, conservé).
           host.querySelectorAll('.wdg-jrt-row').forEach(function (row) {
             row.addEventListener('click', function () { openDesk(); });
-            var pen = row.querySelector('.wdg-jrt-edit');
+            var pen = row.querySelector('.jrd-open');
             if (pen && qa) pen.addEventListener('click', function (ev) {
               ev.stopPropagation();
               var id = row.getAttribute('data-id');
