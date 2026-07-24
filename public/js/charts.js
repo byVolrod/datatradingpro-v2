@@ -3288,8 +3288,8 @@ const _CAL_CB_BY_CCY = { USD: { bank: 'Fed (FOMC)', rx: /\b(?:fed|fomc|powell)\b
 // têtes de banque centrale (le marché bouge surtout sur eux) + auditions parlementaires + minutes +
 // conférences de presse. Noms = gouverneurs/présidents en poste (à tenir à jour aux changements).
 const _CAL_CB_KEY_RX = /\b(?:powell|lagarde|bailey|ueda|schlegel|macklem|bullock|orr|hawkesby|gov)\b|testif|press\s+conference|minutes/i;
-const _CAL_HAWK_RX = /hik(?:e|es|ing)|rais(?:e|ing)\s+rates|tighten|restrictive|higher\s+for\s+longer|inflation\s+(?:too\s+high|persistent|sticky)|upside\s+risks?|not\s+(?:yet\s+)?done|further\s+(?:tightening|increases?)|vigilan|hawkish/i;
-const _CAL_DOVE_RX = /\bcut(?:s|ting)?\b|eas(?:e|ing)\s+(?:policy|rates)|lower(?:ing)?\s+rates|accommodat|downside\s+risks?|dovish|ready\s+to\s+(?:act|support)|slow(?:ing|down)/i;
+const _CAL_HAWK_RX = /hik(?:e|es|ing)|rais(?:e|ing)\s+rates|tighten|restrictive|higher\s+for\s+longer|inflation(?:ary)?\s+(?:too\s+high|persistent|sticky|elevated|pressures?)|price\s+pressures?|upside\s+risks?|not\s+(?:yet\s+)?done|not\s+gone\s+away|further\s+(?:tightening|increases?)|premature\s+to\s+(?:cut|eas)|vigilan|hawkish/i;
+const _CAL_DOVE_RX = /\bcut(?:s|ting)?\b|eas(?:e|ing)|lower(?:ing)?\s+rates?|accommodat|downside\s+risks?|dovish|ready\s+to\s+(?:act|support)|slow(?:ing|down|er)|cool(?:ing|ed)?|disinflation|moderat(?:e|ing|ion)|weaker\s+(?:growth|labou?r|demand)/i;
 const _CAL_HOLD_RX = /\bhold\b|pause|patient|data[\s-]dependent|wait[\s-]and[\s-]see|steady|unchanged|maintain/i;
 function _calToneOf(texts) {
   let hawk = 0, dove = 0, hold = 0;
@@ -3299,6 +3299,15 @@ function _calToneOf(texts) {
   if (hawk || dove || hold) return { key: 'hold', label: 'Neutre', sens: 'maintien / attentisme', color: '#9a9aa4' };
   return null;
 }
+// Découpe un propos rapporté « <Banque/Speaker>: <déclaration> » → attribution (VO) + déclaration (VO, jamais traduite).
+function _calQuoteParts(h) {
+  h = String(h || '').trim();
+  const c = h.indexOf(':');
+  if (c <= 0 || c > 48) return { who: '', statement: h };
+  return { who: h.slice(0, c).trim(), statement: h.slice(c + 1).trim() };
+}
+const _CAL_MON_FR = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+function _calShortDateFr(ts) { try { const d = new Date(ts); return d.getDate() + ' ' + _CAL_MON_FR[d.getMonth()]; } catch (e) { return ''; } }
 // « La banque surveille » (23/07) : le MANDAT de chaque banque — ce qui la fait monter ou baisser ses
 // taux. C'est la grille de lecture d'un discours : l'intervenant est toujours jugé sur ces axes-là.
 const _CAL_CB_WATCH = {
@@ -3425,26 +3434,39 @@ async function _calValueBlockHtml(ev) {
     const speaker = spk ? spk[1] : '';
     // SOURCE PRIMAIRE = serveur (14 j d'historique, cf. /api/cb-quotes) : extraits du discours du speaker,
     // sinon des propos récents de la banque. REPLI instantané = fil en mémoire (au cas où le serveur cale).
-    let quotes = [], quotesLbl = 'Derniers propos';
+    let quotes = [], quotesLbl = 'Extrait du discours';
     try {
       const srv = await _calCbQuotesGet(ev.currency, speaker);
       if (srv && srv.quotes && srv.quotes.length) {
-        quotes = srv.quotes.map(q => ({ headline: q.h }));
-        if (spk && !srv.speaker) quotesLbl = 'Derniers propos · ' + cb.bank;   // repli banque (speaker sans propos propres)
+        quotes = srv.quotes.map(q => ({ h: q.h, ts: q.ts || 0 }));
+        if (spk && !srv.speaker) quotesLbl = 'Extrait du discours · ' + cb.bank;   // repli banque (speaker sans propos propres)
       }
     } catch {}
     if (!quotes.length) {   // repli fil en mémoire (client court)
       const items = (typeof allItems !== 'undefined' && Array.isArray(allItems)) ? allItems : [];
       const nameRx = spk ? new RegExp('\\b' + speaker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b', 'i') : cb.rx;
-      const cutoff = Date.now() - 14 * 86400e3;
-      const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline));   // « Fed's Logan: … » = un propos rapporté (les annonces sans « : » sont ignorées)
-      quotes = pool.filter(i => nameRx.test(i.headline)).slice(0, 3);
-      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.headline)).slice(0, 3); quotesLbl = 'Derniers propos · ' + cb.bank; }
+      const cutoff = Date.now() - 30 * 86400e3;
+      const pool = items.filter(i => i && i.headline && (i.timestamp || 0) > cutoff && /:/.test(i.headline)).map(i => ({ h: i.headline, ts: i.timestamp || 0 }));   // « Fed's Logan: … » = propos rapporté
+      quotes = pool.filter(i => nameRx.test(i.h));
+      if (!quotes.length && spk) { quotes = pool.filter(i => cb.rx.test(i.h)); quotesLbl = 'Extrait du discours · ' + cb.bank; }
     }
+    // Découpe (attribution + déclaration VO) + classe chaque propos ; PRIORITÉ à ceux qui portent un SIGNAL
+    // (hawkish/dovish/hold) — ce sont eux qui aident à interpréter la prochaine réunion — puis les plus récents.
+    quotes = quotes.map(q => { const p = _calQuoteParts(q.h); return { h: q.h, ts: q.ts, who: p.who, statement: p.statement, t: _calToneOf([p.statement]) }; });
+    quotes.sort((a, b) => (b.t ? 1 : 0) - (a.t ? 1 : 0) || (b.ts || 0) - (a.ts || 0));
     quotes = quotes.slice(0, 3);
-    const tone = _calToneOf(quotes.map(q => q.headline));
+    const tone = _calToneOf(quotes.map(q => q.statement || q.h));
     if (tone) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Ton du discours</span><span class="cal-kb-val"><span class="cal-kb-tone" style="color:${tone.color};border-color:${tone.color}44;">${tone.label}</span> ${tone.sens}</span></div>`);
-    if (quotes.length) rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${quotes.map(q => `<div class="cal-kb-quote">${_calEsc(q.headline)}</div>`).join('')}</span></div>`);   // guillemets via CSS ::before/::after → le texte nu part à la traduction FR
+    if (quotes.length) {
+      const qhtml = quotes.map(q => {
+        const chip = q.t ? `<span class="cal-kb-qtone" style="color:${q.t.color};border-color:${q.t.color}55;">${q.t.label}</span>` : '';   // signal du propos : hausse/baisse/maintien
+        const dt = q.ts ? ' · ' + _calShortDateFr(q.ts) : '';
+        return `<div class="cal-kb-qline">${chip}<span class="cal-kb-quote">${_calEsc(q.statement || q.h)}</span><span class="cal-kb-qwho"> — ${_calEsc(q.who || cb.bank)}${dt}</span></div>`;   // déclaration en VO (jamais traduite), attribution + date
+      }).join('');
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">${_calEsc(quotesLbl)}</span><span class="cal-kb-val">${qhtml}</span></div>`);
+    } else {
+      rows.push(`<div class="cal-kb-row"><span class="cal-kb-lbl">Extrait du discours</span><span class="cal-kb-val cal-kb-muted">Aucune intervention récente à citer (période de réserve avant réunion possible) — voir la lecture ci-dessous.</span></div>`);
+    }
     const rates = await _calRatesGet();
     const bank = rates && rates.banks && rates.banks.find(b => b.code === ev.currency);
     if (bank) {
