@@ -2881,8 +2881,12 @@ function _swLoadFile() {
 
 function _swParseRssItem($, el, filterByTitle) {
   const title   = $('title', el).first().text().trim();
-  // Wraps InvestingLive : "European markets wrap: …", "North American markets wrap", "… session wrap"
-  if (filterByTitle && !/(markets?|session)\s+wrap|wrap\s*:/i.test(title)) return null;
+  // Wraps InvestingLive : "European markets wrap: …", "North American markets wrap", "… session wrap",
+  // et le NOUVEAU nommage Asie "Asia-Pacific market moving news: …" (SANS « wrap » → l'ancien filtre le ratait).
+  // Règle : (région + « wrap »/« market news »/« moving news ») OU l'ancien « market/session wrap ».
+  const _swHasRegion = /(asia[\s-]?pacific|asian|americas|north\s+american|europe(?:an)?)\b/i.test(title);
+  const _swHasRecap  = /\bwrap\b/i.test(title) || /\bmarket(?:[\s-]moving)?\s+news\b/i.test(title) || /\bmoving\s+news\b/i.test(title);
+  if (filterByTitle && !((_swHasRegion && _swHasRecap) || /(markets?|session)\s+wrap|wrap\s*:/i.test(title))) return null;
   const link    = $('link', el).contents().filter((_, n) => n.type === 'text').text().trim()
                || $('guid', el).text().trim();
   if (!link) return null;
@@ -2984,7 +2988,10 @@ async function _fetchSessionWraps(full = false) {
 
       // Format investingLive : ANCIEN « …-wrap-…-YYYYMMDD » OU NOUVEAU « …-fx-news-wrap-JJ-mois » (ex. « 15-jul »,
       // date en JJ-mois, parfois au milieu du slug). On matche TOUT slug « wrap » puis on extrait la date des 2 formats.
-      const re = /\/news\/(investinglive-[a-z0-9-]*wrap[a-z0-9-]*)\//gi;
+      // Ancré sur la RÉGION (asia/americas/europe) + « wrap » OU « …news » : couvre l'ANCIEN « …-markets-wrap »
+      // ET le NOUVEAU nommage Asie « asia-pacific-market-moving-news-… » (sans « wrap » → l'ancien regex ratait
+      // le Récap Asie depuis le 18/07). L'ancre région écarte le bruit (crypto/analyses) sans exiger « wrap ».
+      const re = /\/news\/(investinglive-(?:asia-pacific|asian|americas|north-american|europe(?:an)?)-[a-z0-9-]*(?:wrap|news)[a-z0-9-]*)\//gi;
       const _MON = { jan:0, feb:1, mar:2, apr:3, may:4, jun:5, jul:6, aug:7, sep:8, oct:9, nov:10, dec:11 };
       const _nowP = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
       _swUndated = _swUndated || [];   // slugs de wrap SANS date dans le slug → date lue sur la page de l'article (après la boucle)
@@ -3003,12 +3010,14 @@ async function _fetchSessionWraps(full = false) {
         // Date : ancien YYYYMMDD, sinon nouveau « JJ-mois ».
         let ts = 0;
         const _m8 = slug.match(/-(\d{8})(?:-|$)/);
-        const _dm = slug.match(/-(\d{1,2})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/);
+        // « -17-jul » (mois abrégé, sans année) OU « -24-july-2026 » (mois COMPLET + année) : [a-z]* absorbe le
+        // reste du mois (« y » de july), année capturée en groupe 3 si présente (nouveau format InvestingLive).
+        const _dm = slug.match(/-(\d{1,2})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:-(\d{4}))?\b/);
         if (_m8) {
           ts = Date.UTC(+_m8[1].slice(0, 4), +_m8[1].slice(4, 6) - 1, +_m8[1].slice(6, 8), sh);
         } else if (_dm) {
-          let yr = _nowP.getFullYear();
-          if (_MON[_dm[2]] > _nowP.getMonth() + 1) yr -= 1;   // mois nettement futur → wrap de l'an dernier (bascule d'année)
+          let yr = _dm[3] ? +_dm[3] : _nowP.getFullYear();
+          if (!_dm[3] && _MON[_dm[2]] > _nowP.getMonth() + 1) yr -= 1;   // mois nettement futur SANS année → wrap de l'an dernier
           ts = Date.UTC(yr, _MON[_dm[2]], +_dm[1], sh);
         } else {
           // Slug SANS date (« …-market-news-wrap-oil-nzd-up ») : on lira la date sur la PAGE de l'article
@@ -3029,7 +3038,7 @@ async function _fetchSessionWraps(full = false) {
           if (ex && session !== 'Global' && dd.getUTCHours() === 12 && dd.getUTCMinutes() === 0 && dd.getUTCSeconds() === 0) ex.timestamp = ts;
           continue;
         }
-        let title = slug.replace(/^investinglive-/, '').replace(/-(\d{8})(?:-|$)/, ' ').replace(/-(\d{1,2})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\b/, ' ').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
+        let title = slug.replace(/^investinglive-/, '').replace(/-(\d{8})(?:-|$)/, ' ').replace(/-(\d{1,2})-(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*(?:-\d{4})?\b/, ' ').replace(/-/g, ' ').replace(/\s+/g, ' ').trim();
         title = title.charAt(0).toUpperCase() + title.slice(1);
         merged.set(id, { id, title, url: link, timestamp: ts, session, description: '', content: null, author: '', _source: 'investinglive' });
       }
