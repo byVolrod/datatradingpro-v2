@@ -2935,8 +2935,8 @@ function startClocks() {
   });
 }
 
-function renderClocks() {
-  const bar = document.getElementById('clocks-bar');
+function renderClocks(barEl) {
+  const bar = barEl || document.getElementById('clocks-bar');   // barEl optionnel → widget Horloge (Mon Desk) rend dans sa propre barre
   if (!bar) return;
   const now = new Date();
 

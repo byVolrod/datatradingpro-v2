@@ -11398,6 +11398,18 @@ body.wdg-mode #topbar-nav { display: none; }
 .wdg-lfmap { position: relative; flex: 1 1 auto; min-height: 0; overflow: hidden; }
 .wdg-lfmap .leaflet-container { background: #0b0c0f; font-family: var(--font-ui); outline: none; }
 
+/* Widget Horloge mondiale : réutilise les .clock-item du desk (rendus par le VRAI renderClocks) ; on passe
+   la barre en flex-wrap pour qu'elle remplisse n'importe quelle largeur de carte (5 sur une ligne en large,
+   repli 2-3/ligne en étroit) — cellules internes strictement identiques au desk. */
+.wdg-clockwrap { height: 100%; overflow-y: auto; min-height: 0; }
+.wdg-clocks-bar { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px; background: transparent; }
+.wdg-clocks-bar .clock-item {
+  flex: 1 1 150px; min-width: 138px;
+  border: 1px solid var(--border); border-radius: var(--radius, 6px); background: var(--bg1);
+}
+.wdg-clocks-bar .clock-item:last-child { border-right: 1px solid var(--border); }
+.wdg-clocks-bar .clock-item--local { border: 1px solid var(--border2); }
+
 /* ── Onglets de layouts (templates) dans l'en-tête ── */
 .wdg-layouts { display: flex; align-items: center; gap: 4px; margin-left: 12px; overflow-x: auto; max-width: 52vw; }
 .wdg-layouts::-webkit-scrollbar { height: 0; }                 /* pas de scrollbar visible sur la barre d'onglets */
